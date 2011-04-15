@@ -1,0 +1,71 @@
+#datastore_search {
+  margin-bottom: 1em;
+}
+
+#hint {
+  background-color: #F6F9FF;
+  border: 1px solid #E5ECF9;
+  margin-bottom: 1em;
+  padding: 0.5em 1em;
+}
+
+#message {
+  color: red;
+  position: relative;
+  bottom: 6px;
+}
+
+#pagetotal {
+  float: right;
+}
+
+#pagetotal .count {
+  font-weight: bold;
+}
+
+table.entities {
+  border: 1px solid #c5d7ef;
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 0;
+}
+
+table.entities th, table.entities td {
+  padding: .25em 1.5em .5em .5em;
+}
+
+table.entities th {
+  font-weight: bold;
+  text-align: left;
+  background: #e5ecf9;
+  white-space: nowrap;
+}
+
+table.entities th a, table.entities th a:visited {
+  color: black;
+  text-decoration: none;
+}
+
+table.entities td {
+  background-color: #fff;
+  text-align: left;
+  vertical-align: top;
+  cursor: pointer;
+}
+
+table.entities tr.even td {
+  background-color: #f9f9f9;
+}
+
+div.entities {
+  background-color: #c5d7ef;
+  margin-top: 0;
+}
+
+#entities-pager, #entities-control {
+  padding: .3em 1em .4em 1em;
+}
+
+#entities-pager {
+  text-align: right;
+}

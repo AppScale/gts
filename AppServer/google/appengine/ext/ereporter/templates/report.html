@@ -1,0 +1,15 @@
+<!-- Unusual layout is to ensure template is useful with tags stripped, too -->
+<html><head><title>Daily exception report for app "{{app_id}}", major version "{{major_version}}".</title></head>
+<body><p>At least {{occurrence_count}} occurrences of {{exception_count}} exceptions across {{version_count}} versions.</p>
+{% for version in versions %}
+<h1>Minor version {{version.0}}</h1>
+{% for exception in version.1 %}
+<h2>{{exception.signature}} (at least {{exception.count}} occurrences)</h2>
+  <table><tr><th>Handler:</th> <td>{{exception.handler}}</td></tr>
+  <tr><th>URL:</th> <td>{{exception.method|escape}} {{exception.url|escape}}</td></tr>
+  <tr><th>Stacktrace:</th>
+
+<td><pre>{{exception.stacktrace|escape}}</pre></td></tr></table>
+
+
+{% endfor %}{% endfor %}</body>

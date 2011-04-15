@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+  <style>
+    @import "static/appstats_css.css";
+  </style>
+  <title>Appstats - {{env.APPLICATION_ID}}</title>
+  {% block headstuff %}{% endblock %}
+</head>
+<body>
+  <div class="g-doc">
+    {# Header begin #}
+    <div id="hd" class="g-section">
+      <div class="g-section">
+        <a href="."><img id="ae-logo" src="static/app_engine_logo_sm.gif"
+          width="176" height="30" alt="Google App Engine" border="0"></a>
+      </div>
+      <div id="ae-appbar-lrg" class="g-section">
+        <h1>Application Stats for {{env.APPLICATION_ID}}</h1>
+      </div>
+    </div>
+    {# Header end #}
+    {# Body begin #}
+    <div id="bd" class="g-section">
+      {# Content begin #}
+      <div>
+        {% block content %}
+          {# REAL BODY GOES HERE #}
+        {% endblock %}
+      </div>
+      {# Content end #}
+    </div>
+    {# Body end #}
+  </div>
+<script src="static/appstats_js.js"></script>
+{% block tailstuff %}{% endblock %}
+</body>
+</html>

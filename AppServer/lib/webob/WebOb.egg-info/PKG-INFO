@@ -1,0 +1,23 @@
+Metadata-Version: 1.0
+Name: WebOb
+Version: 0.9
+Summary: WSGI request and response object
+Home-page: http://pythonpaste.org/webob/
+Author: Ian Bicking
+Author-email: ianb@colorstudy.com
+License: MIT
+Description: WebOb provides wrappers around the WSGI request environment, and an
+        object to help create WSGI responses.
+        
+        The objects map much of the specified behavior of HTTP, including
+        header parsing and accessors for other standard parts of the
+        environment.
+        
+Keywords: wsgi request web http
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Framework :: Paste
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Topic :: Internet :: WWW/HTTP :: WSGI
+Classifier: Topic :: Internet :: WWW/HTTP :: WSGI :: Application

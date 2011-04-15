@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}{{ application_name }} Development Console - Memcache Viewer{% endblock %}
+
+{% block head %}
+  <style type="text/css">{% include "css/memcache.css" %}</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+  <span class="item"><a href="">Memcache Viewer</a></span>
+{% endblock %}
+
+{% block body %}
+<h3>Memcache Viewer</h3>
+
+{% if message %}
+<div class="message">
+{{ message|escape }}
+</div>
+{% endif %}
+
+{% if show_stats %}
+<div id="stats">
+  <ul>
+    <li>Hit ratio: {{ hitratio }}% ({{ stats.hits }} hit{{ stats.hits|pluralize }} and {{ stats.misses }} miss{{ stats.misses|pluralize:"es" }})</li>
+    <li>Size of cache: {{ stats.items }} item{{ stats.items|pluralize }}, {{ stats.bytes|filesizeformat }}
+          <form id="flush_form" action="{{ request.path }}" method="post">
+            <input type="submit" name="action:flush" value="Flush Cache" onclick="return confirm('Are you sure you want to flush all keys from the cache?');"/>
+          </form>
+    </li>
+    <li>Cache contains items up to {{ oldest_item_age|timesince }} old.</li>
+  </ul>
+</div>
+
+<div id="memcache_search">
+  <form action="{{ request.path }}" method="post">
+    <span class="field">
+      <span class="name">Key:</span>
+      <span class="value"><input id="key_input" name="key" type="text" size="40" value="{{ key|escape }}"/></span>
+    </span>
+    <span class="buttons">
+      <input type="submit" name="action:display" value="Display"/>
+      <input type="submit" name="action:edit" value="Edit/Create"/>
+      <input type="submit" name="action:delete" value="Delete" onclick="return confirm('Are you sure you want to permanently delete this key?');"/>
+    </span>
+  </form>
+</div>
+{% endif %}
+
+{% if show_value %}
+{% if key_exists %}
+{% ifequal type "error" %}
+<div class="message">Error fetching {{ key|escape }}: {{ value|escape }}</div>
+{% else %}
+<div id="value_display">
+  <div id="value_display_key">"<b>{{ key|escape }}</b>" is a <b>{{ type|escape }}</b>:</div>
+  <pre id="value_display_value">{{ value|escape }}</pre>
+</div>
+{% endifequal %}
+{% else %}
+<div class="message">No such key: {{ key|escape }}</div>
+{% endif %}
+{% endif %}
+
+{% if show_valueform %}
+<div id="memcache_edit">
+  <form action="{{ request.path }}" method="post">
+    <table>
+      <tr>
+        <th>Key</th>
+        <td>
+          <input name="key" type="hidden" value="{{ key|escape }}"/>
+          {{ key|escape }}
+        </td>
+      </tr>
+      <tr>
+        <th>Type</th>
+        <td>
+          {% if key_exists %}
+          <input name="type" type="hidden" value="{{ type|escape }}"/>
+          {{ type|escape }}
+          {% else %}
+          <select name="type" size="1">
+            {% for typeopt in types %}
+            <option>{{ typeopt }}</option>
+            {% endfor %}
+          </select>
+          {% endif %}
+        </td>
+      </tr>
+      <tr>
+        <th id="value_key"><div id="value_key_text">Value</div></th>
+        <td>
+          <textarea id="value_input" name="value" cols="80" rows="20"{% if not writable %} readonly{% endif %}>{{ value|default_if_none:""|escape }}</textarea>
+        </td>
+      </tr>
+      <tr>
+        <th>&nbsp;</th>
+        <td>
+          {% if writable %}
+          <input type="submit" name="action:save" value="Save"/>
+          {% endif %}
+          <input type="submit" name="action:cancel" value="Cancel"/>
+        </td>
+      </tr>
+    </table>
+  </form>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block final %}
+<script type="text/javascript">
+//<![CDATA[
+document.getElementById('key_input').focus();
+//]]>
+</script>
+{% endblock %}

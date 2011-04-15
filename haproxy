@@ -1,0 +1,111 @@
+#!/bin/sh
+#
+# /etc/rc.d/init.d/haproxy
+# haproxy:This script starts and stops HAProxy 
+#
+# Author: Robert Simmons robert@me.com
+#
+# processname: haproxy
+# chkconfig: 235 88 11
+# description: HAProxy Load Balances network traffic according to its \
+#       configuration
+# config: /etc/haproxy/haproxy.cfg
+# pidfile: /var/run/haproxy.pid 
+#
+### BEGIN INIT INFO
+# Provides: haproxy
+# Required-Start: $local_fs $remote_fs $network
+# Required-Stop: $local_fs $remote_fs $network
+# Should-Start: haproxy
+# Default-Start: 3 4 5
+# Default-Stop: 0 1 2 6
+# Short-Description: Starts and Stops the HAProxy Load Balancer Process
+# Description: Load Balances network traffic according to its configuration
+### END INIT INFO
+
+# Source function library.
+#. /etc/init.d/functions
+. /lib/lsb/init-functions
+
+# BEGIN USER CONFIGURATION #
+PROG="haproxy"
+DIR=/usr/sbin
+LBPATH=$DIR/haproxy
+PIDFILE=/var/run/haproxy.pid
+CONF=/etc/haproxy/haproxy.cfg
+LOCKFILE=/var/lock/haproxy
+OPTIONS="-D -f $CONF -p $PIDFILE"
+# END USER CONFIGURATION #
+
+RETVAL=0
+
+start() {
+    $LBPATH -c -q -f $CONF
+    if [ $? -ne 0 ]; then
+        echo "Errors in configuration, unable to start."
+        exit 1
+    fi
+
+    echo -n "Starting $PROG: "
+    if [ -f $PIDFILE ]; then
+	PID=`cat $PIDFILE`
+	echo -e "\nERROR - $PROG is already running: $PID"
+	exit 1
+    else
+	$LBPATH $OPTIONS
+	RETVAL=$?
+	echo
+	[ $RETVAL -eq 0 ] && touch ${LOCKFILE}
+	return $RETVAL
+    fi
+}
+
+stop() {
+    echo -n "Stopping $PROG: "
+    killproc $LBPATH -USR1
+    RETVAL=$?
+    echo
+    [ $RETVAL -eq 0 ] && rm -f ${LOCKFILE} ${PIDFILE}
+}
+reload() {
+    $LBPATH -c -q -f $CONF
+    if [ $? -ne 0 ]; then
+	echo "Errors in Configuration, unable to start."
+	return 1
+    fi
+    echo -n $"Reloading $PROG...."
+    $LBPATH $OPTIONS  -sf $(<${PIDFILE})
+    RETVAL=$?
+    echo " Finished."
+}
+
+check() {
+    $LBPATH -c -q -f $CONF
+}
+
+case "$1" in
+    start)
+	start
+	;;
+    stop)
+	stop
+	;;
+    status)
+	status haproxy
+	;;
+    reload)
+	reload
+	;;
+    force-reload)
+	restart
+	;;
+    restart)
+	stop
+	start
+	;;
+    *)
+	echo "Usage: {start|stop|restart|reload|force-reload|status}"
+	exit 1
+	;;
+esac
+exit $?

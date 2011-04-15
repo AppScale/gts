@@ -1,0 +1,317 @@
+This demonstrates how the Request object works, and tests it.
+
+You can instantiate a request using ``Request.blank()``, to create a
+fresh environment dictionary with all the basic keys such a dictionary
+should have.
+
+    >>> from dtopt import ELLIPSIS
+    >>> from webob import Request, UTC
+    >>> req = Request.blank('/')
+    >>> req # doctest: +ELLIPSIS
+    <Request at ... GET http://localhost/>
+    >>> print repr(str(req))
+    'GET /\r\nHost: localhost:80\r\n\r\n'
+    >>> req.environ # doctest: +ELLIPSIS
+    {...}
+    >>> req.body_file # doctest: +ELLIPSIS
+    <cStringIO.StringI object at ...>
+    >>> req.scheme
+    'http'
+    >>> req.method
+    'GET'
+    >>> req.script_name
+    ''
+    >>> req.path_info
+    '/'
+    >>> req.content_type
+    ''
+    >>> print req.remote_user
+    None
+    >>> req.host_url
+    'http://localhost'
+    >>> req.script_name = '/foo'
+    >>> req.path_info = '/bar/'
+    >>> req.environ['QUERY_STRING'] = 'a=b'
+    >>> req.application_url
+    'http://localhost/foo'
+    >>> req.path_url
+    'http://localhost/foo/bar/'
+    >>> req.url
+    'http://localhost/foo/bar/?a=b'
+    >>> req.relative_url('baz')
+    'http://localhost/foo/bar/baz'
+    >>> req.relative_url('baz', to_application=True)
+    'http://localhost/foo/baz'
+    >>> req.relative_url('http://example.org')
+    'http://example.org'
+    >>> req.path_info_peek()
+    'bar'
+    >>> req.path_info_pop()
+    'bar'
+    >>> req.script_name, req.path_info
+    ('/foo/bar', '/')
+    >>> print req.environ.get('wsgiorg.routing_args')
+    None
+    >>> req.urlvars
+    {}
+    >>> req.environ['wsgiorg.routing_args']
+    ((), {})
+    >>> req.urlvars = dict(x='y')
+    >>> req.environ['wsgiorg.routing_args']
+    ((), {'x': 'y'})
+    >>> req.urlargs
+    ()
+    >>> req.urlargs = (1, 2, 3)
+    >>> req.environ['wsgiorg.routing_args']
+    ((1, 2, 3), {'x': 'y'})
+    >>> del req.urlvars
+    >>> req.environ['wsgiorg.routing_args']
+    ((1, 2, 3), {})
+    >>> req.urlvars = {'test': 'value'}
+    >>> del req.urlargs
+    >>> req.environ['wsgiorg.routing_args']
+    ((), {'test': 'value'})
+    >>> req.is_xhr
+    False
+    >>> req.environ['HTTP_X_REQUESTED_WITH'] = 'XMLHttpRequest'
+    >>> req.is_xhr
+    True
+    >>> req.host
+    'localhost:80'
+
+There are also variables to access the variables and body:
+
+    >>> from cStringIO import StringIO
+    >>> body = 'var1=value1&var2=value2&rep=1&rep=2'
+    >>> req = Request.blank('/')
+    >>> req.method = 'POST'
+    >>> req.body_file = StringIO(body)
+    >>> req.environ['CONTENT_LENGTH'] = str(len(body))
+    >>> vars = req.str_POST
+    >>> vars
+    MultiDict([('var1', 'value1'), ('var2', 'value2'), ('rep', '1'), ('rep', '2')])
+    >>> vars is req.str_POST
+    True
+    >>> req.POST
+    MultiDict([('var1', 'value1'), ('var2', 'value2'), ('rep', '1'), ('rep', '2')])
+    >>> req.charset = 'utf8'
+    >>> req.POST
+    UnicodeMultiDict([(u'var1', u'value1'), (u'var2', u'value2'), (u'rep', u'1'), (u'rep', u'2')])
+
+Note that the variables are there for GET requests and non-form POST
+requests, but they are empty and read-only:
+
+    >>> req = Request.blank('/')
+    >>> req.str_POST
+    <NoVars: Not a POST request>
+    >>> req.str_POST.items()
+    []
+    >>> req.str_POST['x'] = 'y'
+    Traceback (most recent call last):
+        ...
+    KeyError: 'Cannot add variables: Not a POST request'
+    >>> req.method = 'POST'
+    >>> req.str_POST
+    MultiDict([])
+    >>> req.content_type = 'text/xml'
+    >>> req.body_file = StringIO('<xml></xml>')
+    >>> req.str_POST
+    <NoVars: Not an HTML form submission (Content-Type: text/xml)>
+    >>> req.body
+    '<xml></xml>'
+
+You can also get access to the query string variables, of course:
+
+    >>> req = Request.blank('/?a=b&d=e&d=f')
+    >>> req.GET
+    MultiDict([('a', 'b'), ('d', 'e'), ('d', 'f')])
+    >>> req.GET['d']
+    'f'
+    >>> req.GET.getall('d')
+    ['e', 'f']
+    >>> req.method = 'POST'
+    >>> req.body = 'x=y&d=g'
+    >>> req.body_file # doctest: +ELLIPSIS
+    <cStringIO.StringI object at ...>
+    >>> req.environ['CONTENT_LENGTH']
+    '7'
+    >>> req.params
+    NestedMultiDict([('a', 'b'), ('d', 'e'), ('d', 'f'), ('x', 'y'), ('d', 'g')])
+    >>> req.params['d']
+    'f'
+    >>> req.params.getall('d')
+    ['e', 'f', 'g']
+
+Cookie are viewed as a dictionary (*view only*):
+
+    >>> req = Request.blank('/')
+    >>> req.environ['HTTP_COOKIE'] = 'var1=value1; var2=value2'
+    >>> req.str_cookies
+    {'var1': 'value1', 'var2': 'value2'}
+    >>> req.cookies
+    {'var1': 'value1', 'var2': 'value2'}
+    >>> req.charset = 'utf8'
+    >>> req.cookies
+    UnicodeMultiDict([(u'var1', u'value1'), (u'var2', u'value2')])
+
+Sometimes conditional headers are problematic.  You can remove them:
+
+    >>> from datetime import datetime
+    >>> req = Request.blank('/')
+    >>> req.if_match = 'some-etag'
+    >>> req.if_modified_since = datetime(2005, 1, 1, 12, 0)
+    >>> req.environ['HTTP_ACCEPT_ENCODING'] = 'gzip'
+    >>> print req.headers
+    {'Host': 'localhost:80', 'If-Match': 'some-etag', 'Accept-Encoding': 'gzip', 'If-Modified-Since': 'Sat, 01 Jan 2005 12:00:00 GMT'}
+    >>> req.remove_conditional_headers()
+    >>> print req.headers
+    {'Host': 'localhost:80'}
+
+Some headers are handled specifically (more should be added):
+
+    >>> req = Request.blank('/')
+    >>> req.if_none_match = 'xxx'
+    >>> 'xxx' in req.if_none_match
+    True
+    >>> 'yyy' in req.if_none_match
+    False
+    >>> req.if_modified_since = datetime(2005, 1, 1, 12, 0)
+    >>> req.if_modified_since < datetime(2006, 1, 1, 12, 0, tzinfo=UTC)
+    True
+    >>> req.user_agent
+    ''
+    >>> req.user_agent = 'MSIE-Win'
+    >>> req.user_agent
+    'MSIE-Win'
+
+Accept-* headers are parsed into read-only objects that support
+containment tests, and some useful methods.  Note that parameters on
+mime types are not supported.
+
+    >>> req = Request.blank('/')
+    >>> req.environ['HTTP_ACCEPT'] = "text/*;q=0.3, text/html;q=0.7, text/html;level=1, text/html;level=2;q=0.4, */*;q=0.5"
+    >>> req.accept # doctest: +ELLIPSIS
+    <MIMEAccept at ... Accept: text/*;q=0.3, text/html;q=0.7, text/html, text/html;q=0.4, */*;q=0.5>
+    >>> for item, quality in req.accept._parsed:
+    ...     print '%s: %0.1f' % (item, quality)
+    text/*: 0.3
+    text/html: 0.7
+    text/html: 1.0
+    text/html: 0.4
+    */*: 0.5
+    >>> '%0.1f' % req.accept.quality('text/html')
+    '0.3'
+    >>> req.accept.first_match(['text/plain', 'text/html', 'image/png'])
+    'text/plain'
+    >>> 'image/png' in req.accept
+    True
+    >>> req.environ['HTTP_ACCEPT'] = "text/html, application/xml; q=0.7, text/*; q=0.5, */*; q=0.1"
+    >>> req.accept # doctest: +ELLIPSIS
+    <MIMEAccept at ... Accept: text/html, application/xml;q=0.7, text/*;q=0.5, */*;q=0.1>
+    >>> req.accept.best_match(['text/plain', 'application/xml'])
+    'application/xml'
+    >>> req.accept.first_match(['application/xml', 'text/html'])
+    'application/xml'
+    >>> req.accept = "text/html, application/xml, text/*; q=0.5"
+    >>> 'image/png' in req.accept
+    False
+    >>> 'text/plain' in req.accept
+    True
+    >>> req.accept_charset = 'utf8'
+    >>> 'UTF8' in req.accept_charset
+    True
+    >>> 'gzip' in req.accept_encoding
+    False
+    >>> req.accept_encoding = 'gzip'
+    >>> 'GZIP' in req.accept_encoding
+    True
+    >>> req.accept_language = {'en-US': 0.5, 'es': 0.7}
+    >>> str(req.accept_language)
+    'es;q=0.7, en-US;q=0.5'
+    >>> req.headers['Accept-Language']
+    'es;q=0.7, en-US;q=0.5'
+    >>> req.accept_language.best_matches('en-GB')
+    ['es', 'en-US', 'en-GB']
+    >>> req.accept_language.best_matches('es')
+    ['es']
+    >>> req.accept_language.best_matches('ES')
+    ['es']
+
+The If-Range header is a combination of a possible conditional date or
+etag match::
+
+    >>> req = Request.blank('/')
+    >>> req.if_range = 'asdf'
+    >>> req.if_range
+    <IfRange etag=asdf, date=*>
+    >>> from webob import Response
+    >>> res = Response()
+    >>> res.etag = 'asdf'
+    >>> req.if_range.match_response(res)
+    True
+    >>> res.etag = None
+    >>> req.if_range.match_response(res)
+    False
+    >>> res.last_modified = datetime(2005, 1, 1, 12, 0, tzinfo=UTC)
+    >>> req.if_range = datetime(2006, 1, 1, 12, 0, tzinfo=UTC)
+    >>> req.if_range
+    <IfRange etag=*, date=Sun, 01 Jan 2006 12:00:00 GMT>
+    >>> req.if_range.match_response(res)
+    True
+    >>> res.last_modified = datetime(2007, 1, 1, 12, 0, tzinfo=UTC)
+    >>> req.if_range.match_response(res)
+    False
+    >>> req = Request.blank('/')
+    >>> req.if_range
+    <Empty If-Range>
+    >>> req.if_range.match_response(res)
+    True
+
+Ranges work like so::
+
+    >>> req = Request.blank('/')
+    >>> req.range = (0, 100)
+    >>> req.range
+    <Range ranges=(0, 100)>
+    >>> str(req.range)
+    'bytes=0-101'
+
+You can use them with responses::
+
+    >>> res = Response()
+    >>> res.content_range = req.range.content_range(1000)
+    >>> res.content_range
+    <ContentRange bytes 0-101/1000>
+    >>> str(res.content_range)
+    'bytes 0-101/1000'
+    >>> start, end, length = res.content_range
+    >>> start, end, length
+    (0, 100, 1000)
+
+A quick test of caching the request body:
+
+    >>> from cStringIO import StringIO
+    >>> length = Request.request_body_tempfile_limit+10
+    >>> data = StringIO('x'*length)
+    >>> req = Request.blank('/')
+    >>> req.content_length = length
+    >>> req.body_file = data
+    >>> req.body_file
+    <cStringIO.StringI object at ...>
+    >>> len(req.body)
+    10250
+    >>> req.body_file
+    <open file '<fdopen>', mode 'w+b' at ...>
+
+Some query tests:
+
+    >>> req = Request.blank('/')
+    >>> req.GET.get('unknown')
+    >>> req.GET.get('unknown', '?')
+    '?'
+    >>> req.POST.get('unknown')
+    >>> req.POST.get('unknown', '?')
+    '?'
+    >>> req.params.get('unknown')
+    >>> req.params.get('unknown', '?')
+    '?'

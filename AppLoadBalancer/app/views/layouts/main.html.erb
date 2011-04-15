@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+  <head>
+    <meta http-equiv="content-type" content="application/xhtml+xml; charset=UTF-8" />
+    <title>AppScale</title> 
+    <%= stylesheet_link_tag 'main', 'scaffold', :cache => "all" %>
+    <%= javascript_include_tag 'upload' if controller_name == 'apps' %>
+    <%= javascript_include_tag 'form' if controller_name == 'users' %>
+    <link rel="shortcut icon" href="/favicon.ico" />
+  </head> 
+  <body <%= set_onload %>>
+    <div id="page">
+      <div id="content">
+	  <div id="login-status">
+	    <% if logged_in? %>
+	      <%=h user_email %> |
+	      <%= link_to "Logout", :controller => :users, :action => :logout %>
+	    <% else %>
+	      <%= link_to "Login", :controller => :users, :action => :login %> |     
+	      <%= link_to "Create Account", :controller => :users, :action => :new %>
+	    <% end %>
+	  </div>
+	<div id="header">
+	    <h1><a href="/" title="AppScale">AppScale</a></h1>
+	    <h2><a href="/" title="AppScale">The open source framework for running Google App Engine applications.</a></h2>
+	</div>
+	<%= render :partial => "shared/navigation" %>
+	<%= yield -%>
+      </div>    
+      <div id="footer">&nbsp;</div>
+    </div>
+  </body>
+</html> 

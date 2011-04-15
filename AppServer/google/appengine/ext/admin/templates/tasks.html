@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ application_name }} Development Console - Tasks Viewer{% endblock %}
+
+{% block head %}
+  <style type="text/css">{% include "css/pager.css" %}</style>
+  <style type="text/css">{% include "css/tasks.css" %}</style>
+  <script type="text/javascript">
+    {% include "js/webhook.js" %}
+
+    var handleTaskResult = function(hook, req, error) {
+      if (error != null) {
+        return;
+      };
+      if (req == null) {
+        return;
+      };
+      if (req.status != 200) {
+        return;
+      };
+      var parts = hook.formId.split('.');// + [''];
+      var deleteForm = document.getElementById('deleteform.' + parts[1]);
+      if (deleteForm != null) {
+        deleteForm.submit();
+      };
+    };
+  </script>
+{% endblock %}
+
+{% block breadcrumbs %}
+  <span class="item"><a href="">Tasks Viewer</a></span>
+{% endblock %}
+
+{% block body %}
+<h3>Tasks for Queue: {{ queue_name|escape }}</h3>
+
+{% if tasks %}
+  <p>
+  Push the 'Run' button to execute a task manually.
+  </p>
+
+  <table id="ah-tasks" class="ae-table ae-table-striped">
+    <thead>
+      <tr>
+        <th>Task Name</th>
+        <th>ETA (UTC)</th>
+        <th>Method</th>
+        <th>URL</th>
+        <th></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for task in tasks %}
+        <tr class="{% cycle ae-odd,ae-even %}">
+          <td valign="top">
+            {{ task.name|escape }}
+          </td>
+          <td valign="top">
+            {{ task.eta|escape }} ({{ task.eta_delta|escape }})
+          </td>
+          <td valign="top">
+            {{ task.method|escape }}
+          </td>
+          <td valign="top">
+            {{ task.url|escape }}
+          </td>
+          <td valign="top">
+            <form id="runform.{{ task.name|escape }}" action="{{ task.url|escape }}" method="{{ task.method|escape }}" onsubmit="(new Webhook('runform.{{ task.name|escape }}')).run(handleTaskResult); return false">
+            <input type="hidden" name="payload" value="{{ task.body|escape }}">
+            {% for header in task.headers %}
+              <input type="hidden" name="header:{{ header.0|escape }}"
+               value="{{ header.1|escape }}"/>
+            {% endfor %}
+            <input type="submit" value="Run"/>
+            </form>
+          </td>
+          <td valign="top">
+            <form id="deleteform.{{ task.name|escape }}" action="/_ah/admin/tasks" method="post">
+            <input type="hidden" name="queue" value="{{ queue_name|escape }}"/>
+            <input type="hidden" name="task" value="{{ task.name|escape }}"/>
+            <input type="hidden" name="action:deletetask" value="true"/>
+            <input type="submit" value="Delete"/>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      <tr>
+        <td colspan="6" class="ae-pager" align="right">
+          {% include "pager.html" %}
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+{% else %}
+  This queue doesn't contain any tasks.
+{% endif %}
+
+
+{% endblock %}
+

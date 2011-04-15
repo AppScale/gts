@@ -1,0 +1,88 @@
+#ae-nav ul {
+  list-style-type: none;
+  margin: 0;
+  padding: 1em 0;
+}
+#ae-nav ul li {
+  padding-left: .5em;
+}
+
+#ae-nav .ae-nav-selected {
+  color: #000;
+  display: block;
+  font-weight: bold;
+  background-color: #e5ecf9;
+  border-top-left-radius: 4px;
+  -moz-border-radius-topleft: 4px;
+  -webkit-border-top-left-radius: 4px;
+  border-bottom-left-radius: 4px;
+  -moz-border-radius-bottomleft: 4px;
+  -webkit-border-bottom-left-radius: 4px;
+}
+
+a.ae-nav-selected {
+  color: #000; 
+  text-decoration:none;
+}
+
+/* aka disabled items */
+#ae-nav ul li span.ae-nav-disabled {
+  color: #666;
+}
+
+/* Sub-navigation rules */
+#ae-nav ul ul {
+  margin: 0;
+  padding: 0 0 0 .5em;
+}
+#ae-nav ul ul li {
+  padding-left: .5em;
+}
+#ae-nav ul li a,
+#ae-nav ul li span,
+#ae-nav ul ul li a {
+  padding-left: .5em;
+}
+
+/* ae-nav Link Selectors */
+#ae-nav li a:link,
+#ae-nav li a:visited {
+  color: #00c;
+}
+#ae-nav li a:link.ae-nav-selected,
+#ae-nav li a:visited.ae-nav-selected {
+  color: #000;
+  text-decoration: none;
+}
+
+/* Group of boxed help links */
+.ae-nav-group {
+  padding: .5em;
+  margin: 0 .75em 0 0;
+  background-color: #fffbe8;
+  border: 1px solid #fff1a9;
+}
+.ae-nav-group h4 {
+  font-weight: bold;
+  padding: auto auto .5em .5em;
+  padding-left: .4em;
+  margin-bottom: .5em;
+  padding-bottom: 0;
+}
+.ae-nav-group ul {
+  margin: 0 0 .5em 0;
+  padding: 0 0 0 1.3em;
+  list-style-type: none;
+}
+.ae-nav-group ul li {
+  padding-bottom: .5em;
+}
+
+/* ae-nav-group link Selectors */
+.ae-nav-group li a:link,
+.ae-nav-group li a:visited {
+  color: #00c;
+}
+.ae-nav-group li a:hover {
+  color: #00c;
+}

@@ -1,0 +1,177 @@
+html, body, div, h1, h2, h3, h4, h5, h6, p, a, img, fieldset, form, label {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 100%;
+  vertical-align: baseline;
+  background: transparent;
+}
+
+ol, ul {
+  list-style: none;
+  padding: 0 0 0 10px;
+  margin: 0;
+}
+
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+html {
+  background: #040F1F url("/images/vertical_slice.png") repeat-x;
+  height: 100%;
+  font-family: "Lucida Sans", "Lucida Grande", "Lucida Sans Unicode", "Bitstream Vera Sans", Verdana, sans-serif;
+  color: #fff;
+}
+
+body {
+  min-height: 100%;
+  line-height: 1.2;
+}
+
+#wrapper { 
+  padding: 30px 40px;
+}
+
+#header { 
+  width: 100%;
+}
+
+#signin { 
+  text-align: right;
+  float: right;
+}
+
+#signin a {
+    color: #FFFFFF;
+}
+
+#content { 
+  padding-top: 40px;
+  margin: 0 auto;
+  width: 1000px;
+  min-height: 600px;
+  height: 100%;
+}
+
+#panel-wrapper { 
+  float: left;
+  min-height: 500px;
+}
+
+#main h1 { 
+  display: inline-block;
+  font-size: 28px;
+  padding: 0 0 20px;
+}
+
+#main p {
+    padding: 5px 0;
+}
+
+#panel-header img { 
+  float: right;
+}
+
+#panel-top {
+  background: transparent url("/images/canvas_top.png") no-repeat;
+  width: 900px;
+  height: 30px;
+}
+
+#panel { 
+  width: 850px;
+  background: transparent url("/images/main_canvas.png") repeat-y;
+  padding: 10px 20px;
+  color: #000;
+}
+
+#sidebar { 
+  float: left;
+  padding: 0 5px 20px 0; 
+  width: 210px;
+  min-height: 600px;
+  border-right: 1px solid #efefef;
+}
+
+#sidebar span.header {
+    padding: 5px 0 10px;
+    border-top: 1px solid #bfbfbf;
+    font-weight: bold;
+    display: block;
+}
+
+#sidebar ul.service {
+    padding: 0 0 5px 5px;
+}
+
+#sidebar ul.rrds {
+    padding: 0 0 5px 5px;
+}
+
+#sidebar li { width: 100%; }
+#sidebar a { color: #000; }
+
+.pagename h4 { 
+  padding: 15px 0;
+  text-align: center;
+}
+
+#content {
+    padding-left: 10px;
+
+}
+
+#footer { 
+  padding-top: 40px;
+  text-align: center;
+  font-size: 12px;
+  color: #afafaf;
+}
+
+#main {
+    float: left;
+    padding-left: 20px;
+    width: 600px;
+}
+
+ul.rrds {
+    font-size: 12px;
+}
+
+li.group {
+    font-size: 14px;
+    font-style: italic;
+}
+
+ul.subgraph li {
+    float: left;
+    padding-left: 10px;
+}
+
+ul.subgraph {
+    max-width: 600px;
+}
+
+#footer a.refresh {
+    color: #f1f1f1;
+}
+
+#faq {
+    padding: 10px 0;
+}
+
+#faq li.question {
+    font-weight: bold;
+    padding: 20px 0 5px 0;
+}
+
+#errorExplanation, #noticeExplanation {
+    border: 2px solid #ff0000;
+    margin: 10px 0 20px 0;
+    padding: 10px;
+    background-color: #efefef;
+}
+
+.clear { clear: both }

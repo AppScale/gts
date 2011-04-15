@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Confirm deletion of {{kind_str}}{% endblock %}
+{% block body %}
+  <h2>Datastore Admin: Delete Entities</h2>
+  {% if kind_list %}
+    {% comment %}
+    size_total represents the total size of the figures for which we have
+    datastore statistics available.
+    sizes_known indicates whether or not we have datastore statistics for all
+    kinds.
+    These two variables are used to render different messages for the three
+    possible scenarios: all sizes known, some sizes known, no sizes known.
+    {% endcomment %}
+    <div>
+      <strong>
+        {% if size_total %}
+          {% if sizes_known %}Approximately
+          {% else %}More than
+          {% endif %}{{ size_total }}
+        {% else %}
+          An unknown quantity
+        {% endif %}
+        of data will be deleted permanently.
+      </strong><br/>
+      <div style="color: #666667; margin-bottom: 1em">
+      Are you sure you want to delete all
+      {# No elseif in Django 0.96; this was cleaner to read than a for loop. #}
+      {% if kind_list|length_is:"1" %}
+        "{{ kind_list.0 }}"
+      {% else %}{% if kind_list|length_is:"2" %}
+        "{{ kind_list.0 }}" and "{{ kind_list.1 }}"
+      {% else %}{% if kind_list|length_is:"3" %}
+        "{{ kind_list.0 }}", "{{ kind_list.1 }}", and "{{ kind_list.2 }}"
+      {% else %}
+        "{{ kind_list.0 }}", "{{ kind_list.1 }}",
+        and {{ remainder }} other kinds of
+      {% endif %}{% endif %}{% endif %}
+      entities?
+      </div>
+    </div>
+
+    <form action="{{base_path}}/{{form_target}}" method="post">
+      {% for kind in kind_list %}
+      <input type="hidden" name="kind" value="{{kind}}">
+      {% endfor %}
+      <input type="hidden" name="namespace" value="{{namespace}}">
+      <input type="hidden" name="app_id" value="{{app_id}}">
+      <input type="hidden" name="xsrf_token" value="{{xsrf_token}}">
+      <table style="padding-top: 1em;"><tr>
+        <td style="padding-right: 0.5em;">
+          <input class="goog-button" type="submit" name="delete"
+              value="Delete Entities"></td>
+        <td style="color: #666667;">
+          or <a href="{{ cancel_url }}/">Cancel</a></td>
+      </tr></table>
+    </form>
+  {% else %}
+    <div class="ae-errorbox">No entity kinds provided.</div>
+  {% endif %}
+{% endblock %}

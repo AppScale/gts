@@ -1,0 +1,77 @@
+Index: src/c++/pipes/impl/HadoopPipes.cc
+===================================================================
+--- src/c++/pipes/impl/HadoopPipes.cc	(revision 765057)
++++ src/c++/pipes/impl/HadoopPipes.cc	(working copy)
+@@ -26,9 +26,9 @@
+ #include <errno.h>
+ #include <netinet/in.h>
+ #include <stdint.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <strings.h>
++#include <cstdio>
++#include <cstdlib>
++#include <cstring>
+ #include <sys/socket.h>
+ #include <pthread.h>
+ 
+Index: src/c++/utils/impl/SerialUtils.cc
+===================================================================
+--- src/c++/utils/impl/SerialUtils.cc	(revision 765057)
++++ src/c++/utils/impl/SerialUtils.cc	(working copy)
+@@ -18,7 +18,8 @@
+ #include "hadoop/SerialUtils.hh"
+ #include "hadoop/StringUtils.hh"
+ 
+-#include <errno.h>
++#include <cerrno>
++#include <cstring>
+ #include <rpc/types.h>
+ #include <rpc/xdr.h>
+ #include <string>
+Index: src/c++/utils/impl/StringUtils.cc
+===================================================================
+--- src/c++/utils/impl/StringUtils.cc	(revision 765057)
++++ src/c++/utils/impl/StringUtils.cc	(working copy)
+@@ -18,10 +18,11 @@
+ #include "hadoop/StringUtils.hh"
+ #include "hadoop/SerialUtils.hh"
+ 
+-#include <errno.h>
++#include <cerrno>
+ #include <stdint.h>
+-#include <stdio.h>
+-#include <strings.h>
++#include <cstdio>
++#include <cstdlib>
++#include <cstring>
+ #include <sys/time.h>
+ 
+ using std::string;
+@@ -31,7 +32,7 @@
+ 
+   string toString(int32_t x) {
+     char str[100];
+-    sprintf(str, "%d", x);
++    snprintf(str, 100, "%d", x);
+     return str;
+   }
+ 
+@@ -96,7 +97,7 @@
+                      const char* deliminators) {
+     
+     string result(str);
+-    for(int i=result.length() -1; i >= 0; --i) {
++    for(int i = result.length() - 1; i >= 0; --i) {
+       char ch = result[i];
+       if (!isprint(ch) ||
+           ch == '\\' || 
+@@ -116,7 +117,7 @@
+           break;
+         default:
+           char buff[4];
+-          sprintf(buff, "\\%02x", static_cast<unsigned char>(result[i]));
++          snprintf(buff, 4, "\\%02x", static_cast<unsigned char>(result[i]));
+           result.replace(i, 1, buff);
+         }
+       }

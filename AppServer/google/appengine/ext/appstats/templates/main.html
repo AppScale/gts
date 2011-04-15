@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<form id="ae-stats-refresh" action=".">
+  {% comment %}
+  <input type="checkbox" name="refresh" value="refresh" id="ae-stats-refresh"><label for="ae-stats-refresh">Automatically update every 30 seconds</label><br>
+  {% endcomment %}
+  <button id="ae-refresh">Refresh Now</button>
+</form>
+
+{% if requests %}
+<div class="g-section g-tpl-33-67">
+  <div class="g-unit g-first">
+    {# RPC stats table begin #}
+    <div class="ae-table-wrapper-left">
+      <div class="ae-table-title">
+        <div class="g-section g-tpl-50-50 g-split">
+          <div class="g-unit g-first"><h2>RPC Stats</h2></div>
+          <div id="ae-rpc-expand-all" class="g-unit"></div>
+        </div>
+      </div>
+      <table cellspacing="0" cellpadding="0" class="ae-table ae-stripe" id="ae-table-rpc">
+        <colgroup>
+          <col id="ae-rpc-label-col">
+          <col id="ae-rpc-stats-col">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>RPC</th>
+            <th>Count</th>
+          </tr>
+        </thead>
+        {% for item in allstats_by_count %}
+        <tbody>
+          <tr>
+            <td>
+              <span class="goog-inline-block ae-zippy ae-zippy-expand" id="ae-rpc-expand-{{forloop.counter}}"></span>
+              {{item.0|escape}}
+            </td>
+            <td>{{item.1}}</td>
+          </tr>
+        </tbody>
+        <tbody class="ae-rpc-detail" id="ae-rpc-expand-{{forloop.counter}}-detail">
+          {% for subitem in item.2 %}
+          <tr>
+            <td class="rpc-req">{{subitem.0|escape}}</td>
+            <td>{{subitem.1}}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        {% endfor %}
+      </table>
+    </div>
+    {# RPC stats table end #}
+  </div>
+  <div class="g-unit">
+    {# Path stats table begin #}
+    <div class="ae-table-wrapper-right">
+      <div class="ae-table-title">
+        <div class="g-section g-tpl-50-50 g-split">
+          <div class="g-unit g-first"><h2>Path Stats</h2></div>
+          <div class="g-unit" id="ae-path-expand-all"></div>
+        </div>
+      </div>
+      <table cellspacing="0" cellpadding="0" class="ae-table" id="ae-table-path">
+        <colgroup>
+          <col id="ae-path-label-col">
+          <col id="ae-path-rpcs-col">
+          <col id="ae-path-reqs-col">
+          <col id="ae-path-stats-col">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Path</th>
+            <th>#RPCs</th>
+            <th>#Requests</th>
+            <th>Most Recent requests</th>
+          </tr>
+        </thead>
+        {% for item in pathstats_by_count %}
+        <tr>
+          <td>
+            <span class="goog-inline-block ae-zippy ae-zippy-expand" id="ae-path-expand-{{forloop.counter}}"></span>
+            {{item.0|escape}}
+          </td>
+          <td>
+            {{item.1}}
+          </td>
+          <td>{{item.2}}</td>
+          <td>
+            {% for index in item.3 %}
+              {% if index %} <a href="#req-{{index}}">({{index}})</a> {% else %} ... {% endif %}
+            {% endfor %}
+          </td>
+        <tbody class="path path-{{forloop.counter}}">
+          {% for subitem in item.4 %}
+          <tr>
+            <td class="rpc-req">{{subitem.0|escape}}</td>
+            <td>{{subitem.1|escape}}</td>
+            <td></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        {% endfor %}
+      </table>
+    </div>
+    {# Path stats table end #}
+  </div>
+</div>
+<div id="ae-req-history">
+  <div class="ae-table-title">
+    <div class="g-section g-tpl-50-50 g-split">
+      <div class="g-unit g-first"><h2>Requests History</h2></div>
+      <div class="g-unit" id="ae-request-expand-all"></div>
+    </div>
+  </div>
+
+  <table cellspacing="0" cellpadding="0" class="ae-table" id='ae-table-request'>
+    <colgroup>
+      <col id="ae-reqs-label-col">
+    </colgroup>
+    <thead>
+      <tr>
+        <th colspan="2">Request</th>
+      </tr>
+    </thead>
+    {% for r in requests %}
+    <tbody>
+      <tr>
+        <td colspan="2" class="ae-hanging-indent">
+          <span class="goog-inline-block ae-zippy ae-zippy-expand" id="ae-path-requests-{{forloop.counter}}"></span>
+          ({{forloop.counter}})
+          <a name="req-{{forloop.counter}}" href="details?time={{r.start_timestamp_milliseconds}}" class="ae-stats-request-link">
+            {{r.start_time_formatted}}
+            "{{r.http_method|escape}}
+            {{r.http_path|escape}}{{r.http_query|escape}}"
+            {{r.http_status}}
+          </a>
+          real={{r.duration_milliseconds}}ms
+          cpu={{r.processor_milliseconds}}ms
+          api={{r.api_milliseconds}}ms
+          overhead={{r.overhead_walltime_milliseconds}}ms
+          ({{r.combined_rpc_count}} RPC{{r.combined_rpc_count|pluralize}})
+        </td>
+      </tr>
+    </tbody>
+    <tbody class="reqon" id="ae-path-requests-{{forloop.counter}}-tbody">
+      {% for item in r.rpc_stats_list %}
+      <tr>
+        <td class="rpc-req">{{item.service_call_name}}</td>
+        <td>{{item.total_amount_of_calls}}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    {% endfor %}
+  </table>
+</div>
+{% else %}
+<div>
+  No requests have been recorded yet.  While it is possible that you
+  simply need to wait until your server receives some requests, this
+  is often caused by a configuration problem.
+  <a href="http://code.google.com/appengine/docs/python/tools/appstats.html#Installing_the_Event_Recorder"
+  >Learn more</a>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block tailstuff %}
+<script>
+  var z1 = new ae.Stats.MakeZippys('ae-table-rpc', 'ae-rpc-expand-all');
+  var z2 = new ae.Stats.MakeZippys('ae-table-path', 'ae-path-expand-all');
+  var z3 = new ae.Stats.MakeZippys('ae-table-request', 'ae-request-expand-all');
+</script>
+{% endblock %}

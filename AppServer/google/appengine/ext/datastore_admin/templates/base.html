@@ -1,0 +1,39 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>{% block title %}Datastore Admin{% endblock %}</title>
+  <style type="text/css">
+    @import "{{base_path}}/static/css/compiled.css";
+  </style>
+  {% block head %}{% endblock %}
+  <script src="{{base_path}}/static/js/compiled.js"></script>
+</head>
+<body>
+<script type="text/javascript">
+  {% comment %}
+    The below section is used to detect whether or not we're inside of an
+    IFrame.  If we are not in an IFrame, then top.location will be equal to
+    self.location and we want to use our CSS styles as normal.  When we're
+    in an IFrame we want to modify the styles to remove the left margins and
+    padding so that the document is flush with the left side of the IFrame.
+  {% endcomment %}
+  if (top.location == self.location) {
+    document.write('<div id="ae-content" class="g-unit" style="padding-top: 1em;">')
+    document.write('<div id="ae-datastore-admin-body" class="g-doc-1024" style="min-width: 700px; width: 775px;">')
+  }
+  else {
+    document.write('<div id="ae-content" class="g-unit" style="padding-left: 0em;">')
+    document.write('<div id="ae-datastore-admin-body" class="g-doc-1024" style="margin-left: 0px; min-width: 700px; width: 775px;">')
+  }
+</script>
+<div id="bd">
+{% block body %}
+{% endblock %}
+</div>
+</div>
+<script>
+ae.Datastore.Admin.init();
+</script>
+</div>
+</body>
+</html>

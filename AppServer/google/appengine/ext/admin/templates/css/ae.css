@@ -1,0 +1,170 @@
+/* Goog.css Overrides */
+h1 {
+  font-size: 1.5em;
+}
+
+.g-doc {
+  width: auto;
+  margin: 0 10px;
+}
+
+/* Header Selectors */
+#ae-logo {
+  margin-bottom: 0;
+}
+#ae-appbar-lrg {
+  margin: 0 0 1.25em 0;
+  padding:  .2em .6em;
+  background-color: #e5ecf9;
+  border-top: 1px solid #36c;
+}
+#ae-appbar-lrg h1 {
+  margin: 0;
+  padding: 0;
+}
+
+/* Footer Selectors */
+#ft p {
+  text-align: center;
+  margin-top: 2.5em;
+  padding-top: .5em;
+  border-top: 2px solid #c3d9ff;
+}
+
+/* bd selectors */
+#bd h3 {
+  font-weight: bold;
+  font-size: 1.4em;
+}
+#bd p {
+  padding: 0 0 1em 0;
+}
+#ae-content {
+  padding-left: 1em;
+  border-left: 3px solid #e5ecf9;
+  min-height: 200px;
+}
+
+/* Tables */
+.ae-table-plain {
+  border-collapse: collapse;
+  width: 100%;
+}
+.ae-table {
+  border: 1px solid #c5d7ef;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+#bd h2.ae-table-title {
+  background: #e5ecf9;
+  margin: 0;
+  color: #000;
+  font-size: 1em;
+  padding: 3px 0 3px 5px;
+  border-left: 1px solid #c5d7ef;
+  border-right: 1px solid #c5d7ef;
+  border-top: 1px solid #c5d7ef;
+}
+.ae-table-caption,
+.ae-table caption {
+  border: 1px solid #c5d7ef;
+  background: #e5ecf9;
+  /**
+   * Fixes the caption margin ff display bug.
+   * see www.aurora-il.org/table_test.htm
+   * this is a slight variation to specifically target FF since Safari
+   * was shifting the caption over in an ugly fashion with margin-left: -1px
+   */
+  -moz-margin-start: -1px;
+}
+.ae-table caption {
+  padding: 3px 5px;
+  text-align: left;
+}
+.ae-table th,
+.ae-table td {
+  background-color: #fff;
+  padding: .35em 1em .25em .35em;
+  margin: 0;
+}
+.ae-table thead th {
+  font-weight: bold;
+  text-align: left;
+  background: #c5d7ef;
+  vertical-align: bottom;
+}
+.ae-table tfoot tr td {
+  border-top: 1px solid #c5d7ef;
+  background-color: #e5ecf9;
+}
+.ae-table td {
+  border-top: 1px solid #c5d7ef;
+  border-bottom: 1px solid #c5d7ef;
+}
+.ae-even td,
+.ae-even th,
+.ae-even-top td,
+.ae-even-tween td,
+.ae-even-bottom td,
+ol.ae-even {
+  background-color: #e9e9e9;
+  border-top: 1px solid #c5d7ef;
+  border-bottom: 1px solid #c5d7ef;
+}
+.ae-even-top td {
+  border-bottom: 0;
+}
+.ae-even-bottom td {
+  border-top: 0;
+}
+.ae-even-tween td {
+  border: 0;
+}
+.ae-table .ae-tween td {
+  border: 0;
+}
+.ae-table .ae-tween-top td {
+  border-bottom: 0;
+}
+.ae-table .ae-tween-bottom td {
+  border-top: 0;
+}
+.ae-table #ae-live td {
+  background-color: #ffeac0;
+}
+.ae-table-fixed {
+  table-layout: fixed;
+}
+.ae-table-fixed td,
+.ae-table-nowrap {
+  overflow: hidden;
+  white-space: nowrap;
+}
+.ae-new-usr td {
+  border-top: 1px solid #ccccce;
+  background-color: #ffe;
+}
+.ae-error-td td {
+  border: 2px solid #f00;
+  background-color: #fee;
+}
+.ae-table .ae-pager {
+  background-color: #c5d7ef;
+}
+
+.ae-errorbox {
+  border: 1px solid #f00;
+  background-color: #fee;
+  margin-bottom: 1em;
+  padding: 1em;
+  display: inline-block;
+}
+
+.ae-message {
+  border: 1px solid #e5ecf9;
+  background-color: #f6f9ff;
+  margin-bottom: 1em;
+  padding: 1em;
+  display: inline-block;
+}

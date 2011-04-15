@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Confirm copying of {{kind_str|escape}}{% endblock %}
+{% block body %}
+  <h2>Datastore Admin: Copy to Another App</h2>
+  {% if kind_list %}
+    {% comment %}
+    size_total represents the total size of the figures for which we have
+    datastore statistics available.
+    sizes_known indicates whether or not we have datastore statistics for all
+    kinds.
+    These two variables are used to render different messages for the three
+    possible scenarios: all sizes known, some sizes known, no sizes known.
+    {% endcomment %}
+
+    <form class="ae-form" action="{{base_path}}/{{form_target}}" method="post"
+        style="width:39.39em;">
+      {% for kind in kind_list %}
+      <input type="hidden" name="kind" value="{{kind|escape}}">
+      {% endfor %}
+
+      <div class="ae-input-row">
+        <div class="ae-label-row">
+          <label for="remote_url">Target Application&rsquo;s
+              Remote API URL:</label>
+        </div>
+        <div class="ae-input-row">
+          <input type="text" id="remote_url" name="remote_url"
+              style="width:100%"
+              value="https://{TARGET_APPID}.appspot.com/_ah/remote_api">
+          <div class="ae-field-hint">Note: The target application must enable
+              <code style="font-size:1.09em;">remote_api</code> and must include
+              this application&rsquo;s ID in its
+              <code style="font-size:1.09em;">HTTP_X_APPENGINE_INBOUND_APPID</code>
+              list.</div>
+        </div>
+      </div>
+
+      <div class="ae-input-row">
+        <div class="ae-label-row">
+          <label for="extra_header">Extra Header:</label>
+        </div>
+        <div class="ae-input-row">
+          <input type="text" id="extra_header" name="extra_header"
+              style="width:100%" autocomplete="off"
+              value="X-URLFetch-Service-Id:APPSPOT">
+        </div>
+      </div>
+
+      <input type="hidden" name="namespace" value="{{namespace|escape}}">
+      <input type="hidden" name="app_id" value="{{app_id|escape}}">
+      <input type="hidden" name="xsrf_token" value="{{xsrf_token|escape}}">
+
+      {% if notreadonly_warning or high_replication_warning %}
+      <div>
+        <h4 style="padding:0;margin-top:1em;margin-bottom:0.46em;">WARNING</h4>
+        {% if notreadonly_warning %}
+        <p>The source application is not in read-only mode.  The
+        destination application is only guaranteed to receive a complete copy of
+        the data if the source application is not writing any data while the
+        copy takes place.  To place the source application in read-only mode,
+        please follow the instructions at
+        http://code.google.com/appengine/docs/adminconsole/datastoreadmin.html#Set_the_Source_Application_to_Read-only_Mode .
+        </p>
+        {% endif %}
+
+        {% if high_replication_warning %}
+        <p>The source application is configured to use a High Replication
+        datastore.  Copying data from a High Replication datastore may miss
+        recently written entities and is not officially supported.</p>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      {% if blob_warning %}
+      <p>The source application has blob data.  BlobInfo records and
+      data will NOT be copied.  It is your responsibility to continue
+      serving blobs from the source application or manually copy blob
+      data.</p>
+      {% endif %}
+
+      <div><strong>Data from this application will overwrite data in the target
+          application.</strong></div>
+      <div style="color: #666667; margin-bottom: 1em">
+      Are you sure you want to overwrite all
+      {# No elseif in Django 0.96; this was cleaner to read than a for loop. #}
+      {% if kind_list|length_is:"1" %}
+        "{{ kind_list.0|escape }}"
+      {% else %}{% if kind_list|length_is:"2" %}
+        "{{ kind_list.0|escape }}" and "{{ kind_list.1|escape }}"
+      {% else %}{% if kind_list|length_is:"3" %}
+        "{{ kind_list.0|escape }}", "{{ kind_list.1|escape }}", and "{{
+        kind_list.2|escape }}"
+      {% else %}
+        "{{ kind_list.0|escape }}", "{{ kind_list.1|escape }}",
+        and {{ remainder|escape }} other kinds of
+      {% endif %}{% endif %}{% endif %}
+      entities in the target application?
+      </div>
+
+      <table style="margin-top: 1em;"><tr>
+        <td style="padding-right: 0.5em;">
+          <input class="goog-button" type="submit" name="copy"
+              value="Copy Entities"></td>
+        <td style="color: #666667;">
+          or <a href="{{ cancel_url|escape }}/">Cancel</a></td>
+      </tr></table>
+    </form>
+  {% else %}
+    <div class="ae-errorbox">No entity kinds provided.</div>
+  {% endif %}
+{% endblock %}
+

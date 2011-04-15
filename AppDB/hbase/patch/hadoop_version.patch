@@ -1,0 +1,19 @@
+*** pom.xml.org	2010-11-18 05:36:15.000000000 +0000
+--- pom.xml	2010-11-18 05:36:56.000000000 +0000
+***************
+*** 464,470 ****
+      at revision 1034499 with this hdfs-895 patch:
+      https://issues.apache.org/jira/secure/attachment/12459473/hdfs-895-branch-20-append.txt
+      -->
+!     <hadoop.version>0.20.3-append-r1034938-plusHDFS895-minusHDFS724</hadoop.version>
+      <jasper.version>5.5.23</jasper.version>
+      <jaxb-api.version>2.1</jaxb-api.version>
+      <jetty.version>6.1.25</jetty.version>
+--- 464,470 ----
+      at revision 1034499 with this hdfs-895 patch:
+      https://issues.apache.org/jira/secure/attachment/12459473/hdfs-895-branch-20-append.txt
+      -->
+!     <hadoop.version>0.20.2</hadoop.version>
+      <jasper.version>5.5.23</jasper.version>
+      <jaxb-api.version>2.1</jaxb-api.version>
+      <jetty.version>6.1.25</jetty.version>

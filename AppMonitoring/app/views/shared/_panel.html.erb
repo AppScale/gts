@@ -1,0 +1,14 @@
+<div id="panel-wrapper">
+  <div id="panel-top">&nbsp;</div>
+  <div id="panel">
+    <%= render :partial => "shared/sidebar" %>
+
+    <div id="main">
+      <h1><%= yield :page_title %></h1>
+      <%= display_flash_messages %>
+      <%= yield -%>
+    </div>
+
+    <div class="clear"></div>
+  </div>
+</div>

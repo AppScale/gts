@@ -1,0 +1,35 @@
+<div id="getting-started">
+  <%= display_flash_messages %>
+  <h1>Useful Links:</h1>          
+  <ol>
+   <% if !logged_in? %>
+     <li>
+       <h2><%= link_to "Login", :controller => :users, :action => :login %> to the apps on this cloud.</h2>
+     </li>
+   <% end %>
+
+   <li>
+     <h2><%= link_to "Create", :controller => :users, :action => :new %> an account on this cloud.</h2>
+   </li>            
+
+   <% if logged_in? %>
+     <li>
+       <h2><%= link_to "Logout", :controller => :users, :action => :logout %> from your current account if you want to switch users.</h2>
+     </li>
+   <% end %>
+
+   <li>
+     <h2>See the <%= link_to "status", :controller => :status, :action => :cloud %> of this AppScale instance.</h2>
+   </li>
+
+   <% if is_user_cloud_admin %>
+     <li>
+       <h2>View <%= link_to "monitoring data", monitoring_url %> for this AppScale instance.</h2>
+     </li>
+     <li>
+       <h2><%= link_to "Manage", :controller => :authorize, :action => :cloud %> user permissions for this AppScale instance.</h2>
+     </li>
+   <% end %>
+
+  </ol>
+</div>

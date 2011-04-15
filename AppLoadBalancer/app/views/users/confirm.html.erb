@@ -1,0 +1,12 @@
+<div id="getting-started">
+  <h1>Confirmation</h1>
+  <div id="confirm">
+    <% form_for :user, :url => { :action => :verify } do |form| %> 
+      <p>Everything looks good. Continue?</p>
+      <%= submit_tag "Yes", :class => "submit" %>  
+      <%= submit_tag "No", :class => "submit" %>  
+    <% end %>
+  </div>
+</div>
+
+

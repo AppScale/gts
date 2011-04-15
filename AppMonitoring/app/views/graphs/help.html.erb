@@ -1,0 +1,41 @@
+<% page_title("Help") %>
+
+
+<p>Below are some frequently asked questions about monitr:</p>
+
+<ul id="faq">
+  <li class="question">
+    There are no machines being displayed in the left column, whats wrong?
+  </li>
+  <li class="answer">
+    The most liklely explanation is that the RRD_DATA_PATH variable is not set correctly. It should be configured to the base directory where collectd places rrd databases (e.g. the datadir specified in /etc/collectd/collection.conf). This path can be modified in config/environment.rb. Once it has been changed, restart the application and it should find all of the new data.
+  </li>
+  <li class="question">
+    How does monitr determine what machines are available?
+  </li>
+  <li class="answer">
+    Monitr looks for data in the directory pointed to by the RRD_DATA_PATH. This variable is set in config/environment.rb and can be changed if RRD data is being stored elsewhere.
+  </li>
+  <li class="question">
+    I deleted some RRD databases and now when I try to generate graphs it says an error occurred, what do I do?
+  </li>
+  <li class="answer">
+    monitr automatically finds new data sources when it starts, however it does not detect when data sources have been deleted. As a result, in order to remove the old data sources you need to click on the "hard refresh graphs" link at the bottom of the page.
+  </li>
+  <li class="question">
+    What is the difference between refresh graphs and hard refresh graphs?
+  </li>
+  <li class="answer">
+    Refresh graphs simply checks the provided rrd directory for any new machines or metrics being collected. If there are new items available, they will be discovered by monitr and automatically displayed. Hard refresh graphs clears out all meta data regarding which machines and metrics are available and rebuilds that information from scratch.
+  </li>
+  <li class="question">
+    Can I change the intervals for which graphs can be viewed (e.g. 5 minutes, 1 day)?
+  </li>
+  <li class="answer">
+    Absolutely. The simplest way to do this is to change the "duration_hash" in app/helpers/application_helper.rb. Simply add the display name you would like to use along with the duration to that hash. Then restart the application and the additional options should be displayed.
+  </li>
+
+</ul>
+
+    
+    

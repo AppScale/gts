@@ -1,0 +1,134 @@
+Copyright 2008 Google Inc.
+All rights reserved.
+
+App Engine SDK - Development tools for Google App Engine
+
+CONTENTS
+========
+
+   * Installing on Mac OSX
+   * Installing on Windows
+   * Installing on Linux and other platforms
+   * Running the SDK
+   * Using the SDK
+   * Using the App Engine Launcher
+
+
+INSTALLING ON Mac OSX
+=====================
+1) Download and install Python 2.5 from http://www.python.org/download/
+2) Download the SDK installer from http://code.google.com/appengine/downloads
+3) Install the SDK by double-clicking on the GoogleAppEngine.dmg file and
+running the installer.
+
+
+INSTALLING ON WINDOWS
+=====================
+1) Download and install Python 2.5 from http://www.python.org/download/
+2) Download the SDK installer from http://code.google.com/appengine/downloads
+3) Install the SDK by double-clicking on the GoogleAppEngine.msi file and
+running the installer.
+
+
+INSTALLING ON LINUX AND OTHER PLATFORMS
+===============================
+1) Download and install Python 2.5 from http://www.python.org/download/
+2) Download the SDK zip file from http://code.google.com/appengine/downloads
+3) Unpack the zip file.
+
+
+RUNNING THE SDK
+=========================
+You can run the SDK with the following command:
+
+dev_appserver.py [options] <application root>
+
+Application root must be the path to the application to run in this server.
+Must contain a valid app.yaml or app.yml file.
+
+Options:
+  --help, -h                 View this helpful message.
+  --debug, -d                Use debug logging. (Default false)
+  --clear_datastore, -c      Clear the Datastore on startup. (Default false)
+  --address=ADDRESS, -a ADDRESS
+                             Address to which this server should bind. (Default
+                             localhost).
+  --port=PORT, -p PORT       Port for the server to run on. (Default 8080)
+  --blobstore_path=PATH      Path to use for storing Blobstore file stub data.
+  --datastore_path=PATH      Path to use for storing Datastore file stub data.
+                             (Default /tmp/dev_appserver.datastore)
+  --use_sqlite               Use the new, SQLite based datastore stub.
+                             (Default false)
+  --history_path=PATH        Path to use for storing Datastore history.
+                             (Default /tmp/dev_appserver.datastore.history)
+  --require_indexes          Disallows queries that require composite indexes
+                             not defined in index.yaml.
+  --smtp_host=HOSTNAME       SMTP host to send test mail to.  Leaving this
+                             unset will disable SMTP mail sending.
+                             (Default '')
+  --smtp_port=PORT           SMTP port to send test mail to.
+                             (Default 25)
+  --smtp_user=USER           SMTP user to connect as.  Stub will only attempt
+                             to login if this field is non-empty.
+                             (Default '').
+  --smtp_password=PASSWORD   Password for SMTP server.
+                             (Default '')
+  --rdbms_sqlite_path=PATH   Path to the sqlite3 file for the RDBMS API.
+  --mysql_host=HOSTNAME      MySQL database host that the rdbms API will use.
+                             (Default '%(mysql_host)s')
+  --mysql_port=PORT          MySQL port to connect to.
+                             (Default %(mysql_port)s)
+  --mysql_user=USER          MySQL user to connect as.
+                             (Default %(mysql_user)s)
+  --mysql_password=PASSWORD  MySQL password to use.
+                             (Default '%(mysql_password)s')
+  --mysql_socket=PATH        MySQL Unix socket file path.
+                             (Default '%(mysql_socket)s')
+  --enable_sendmail          Enable sendmail when SMTP not configured.
+                             (Default false)
+  --show_mail_body           Log the body of emails in mail stub.
+                             (Default false)
+  --auth_domain              Authorization domain that this app runs in.
+                             (Default gmail.com)
+  --debug_imports            Enables debug logging for module imports, showing
+                             search paths used for finding modules and any
+                             errors encountered during the import process.
+  --allow_skipped_files      Allow access to files matched by app.yaml's
+                             skipped_files (default False)
+  --disable_static_caching   Never allow the browser to cache static files.
+                             (Default enable if expiration set in app.yaml)
+  --disable_task_running     When supplied, tasks will not be automatically
+                             run after submission and must be run manually
+                             in the local admin console.
+  --task_retry_seconds       How long to wait in seconds before retrying a
+                             task after it fails during execution.
+                             (Default '30')
+
+
+
+USING THE SDK
+=======================
+For instructions on getting started with Google App Engine, please see the
+Google App Engine Getting Started Guide
+
+http://code.google.com/appengine/docs/gettingstarted
+
+
+USING THE APP ENGINE LAUNCHER
+=============================
+The Windows and Mac OSX Python SDKs include an additional development tool
+called the App Engine Launcher.  This tool provides a simple graphical
+interface to create projects, run them locally, and deploy them to Google's App
+Engine servers. It can be used in place of the dev_appserver and appcfg
+command-line tools.
+
+The Windows SDK can optionally install a desktop short-cut during
+installation. If you are missing the short-cut, you can find the launcher in
+the launcher subdirectory of your App Engine installation. The default
+location is
+C:\Program Files\Google\google_appengine\launcher\GoogleAppEngineLauncher.exe
+
+In Mac OSX, the Launcher is installed by dragging it out of the .dmg to a
+location specified by the user. The Launcher contains the SDK inside of it.
+A typical drag-install destination for the Launcher and SDK is
+/Applications/GoogleAppEngineLauncher.app

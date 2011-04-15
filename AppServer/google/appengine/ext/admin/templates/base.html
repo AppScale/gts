@@ -1,0 +1,99 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
+    <title>{% block title %}{% endblock %}</title>
+    <style type="text/css">{% include "css/base.css" %}</style>
+    <style type="text/css">{% include "css/ae.css" %}</style>
+    <style type="text/css">{% include "css/nav.css" %}</style>
+    {% block head %}{% endblock %}
+  </head>
+  <body {% block bodyattributes %}{% endblock %}>
+    <div class="g-doc">
+
+    <div id="hd" class="g-section">
+
+      <div class="g-section g-tpl-50-50 g-split">
+        <div class="g-unit g-first">
+          <img id="ae-logo" src="./images/google.gif" width="153" height="47"
+            alt="Google App Engine"/>
+        </div>
+        <div class="g-unit">
+          SDK v{{ sdk_version }}
+        </div>
+      </div>
+
+      <div id="ae-appbar-lrg" class="g-section">
+        <h1>{{ application_name }} Development Console</h1>
+      </div>
+
+    </div>
+
+
+    <div id="bd" class="g-section">
+
+      <div class="g-section g-tpl-160">
+
+        <div id="ae-lhs-nav" class="g-unit g-first">
+
+          <div id="ae-nav" class="g-c">
+
+            <ul id="menu">
+              <li><a href="{{ datastore_path }}">Datastore Viewer</a></li>
+              <li><a href="{{ interactive_path }}">Interactive Console</a></li>
+              <li><a href="{{ memcache_path }}">Memcache Viewer</a></li>
+              <li><a href="{{ queues_path }}">Task Queues</a></li>
+              {% if cron_path %}
+              <li><a href="{{ cron_path }}">Cron Jobs</a></li>
+              {% endif %}
+              <li><a href="{{ xmpp_path }}">XMPP</a></li>
+              <li><a href="{{ inboundmail_path }}">Inbound Mail</a></li>
+            </ul>
+
+          </div>
+
+        </div>
+
+        <div id="ae-content" class="g-unit">
+          {% block body %}{% endblock %}
+        </div>
+
+    </div>
+
+        <div id="ft">
+          <p>
+            &copy;2009 Google
+          </p>
+        </div>
+    {% block final %}{% endblock %}
+    </div>
+    <script type="text/javascript">
+    //<![CDATA[
+
+    function walk(element, condition, operation) {
+      if (!element) return;
+      if (condition(element)) {
+        operation(element);
+        return;
+      }
+      for (var e = element.firstChild; e != null; e = e.nextSibling) {
+        walk(e, condition, operation);
+      }
+    }
+
+    function isCurrentLink(e) {
+      if (e.tagName != "A") return false;
+      re = new RegExp("^" + e.href + ".*(\\?.*)?$");
+      return re.test(window.location.href);
+    }
+
+    function makeSelected(e) {
+      e.className = "ae-nav-selected";
+    }
+
+    walk(document.getElementById("menu"), isCurrentLink, makeSelected);
+
+    //]]>
+    </script>
+  </body>
+</html>

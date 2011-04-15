@@ -1,0 +1,19 @@
+#inboundmail label {
+  display: block;
+  font-weight: bold;
+}
+#inboundmail legend {
+  font-weight: bold;
+}
+#inboundmail .radio label {
+  display: inline;
+  font-weight: normal;
+}
+
+#inboundmail fieldset,
+#inboundmail .fieldset {
+  margin-bottom: 8px;
+}
+#inboundmail-submit {
+  margin-top: 2em;
+}

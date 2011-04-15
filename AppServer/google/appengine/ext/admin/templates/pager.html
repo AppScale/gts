@@ -1,0 +1,9 @@
+{% ifnotequal prev_start -1 %}<a href="{{ start_base_url }}&amp;start={{ prev_start }}">&lsaquo; Previous</a>{% endifnotequal %}
+&nbsp;
+{% for page in pages %}
+  <a {% ifequal page.number current_page %} class="ae-page-selected ae-page-number" {% endifequal %}
+    href="{{ start_base_url }}&amp;start={{ page.start }}">{{ page.number }}</a> 
+{% endfor %}
+&nbsp; 
+{% ifnotequal next_start -1 %}<a href="{{ start_base_url }}&amp;start={{ next_start }}">Next &rsaquo;</a>{% endifnotequal %}
+

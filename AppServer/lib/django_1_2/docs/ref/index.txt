@@ -1,0 +1,24 @@
+=============
+API Reference
+=============
+
+.. toctree::
+   :maxdepth: 1
+
+   authbackends
+   contrib/index
+   databases
+   django-admin
+   exceptions
+   files/index
+   forms/index
+   generic-views
+   middleware
+   models/index
+   request-response
+   settings
+   signals
+   templates/index
+   unicode
+   utils
+   validators

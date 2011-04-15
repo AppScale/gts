@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}{{ application_name }} Development Console - Interactive Console{% endblock %}
+
+{% block breadcrumbs %}
+  <span class="item"><a href="">Interactive Console</a></span>
+{% endblock %}
+
+{% block head %}
+  <style type="text/css">
+
+  #console {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  #console td {
+    width: 50%;
+    padding: 0;
+    border: 0;
+    vertical-align: top;
+    padding-right: 25px;
+  }
+
+  #code {
+    overflow: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+
+  #output {
+    border: 1px solid silver;
+    background-color: #f5f5f5;
+    overflow: auto;
+  }
+
+  #code, #output {
+    font-family: monospace;
+    font-size: 10pt;
+    height: 25em;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+  }
+
+  #submitbutton {
+    text-align: center;
+    margin-top: 1em;
+  }
+  </style>
+{% endblock %}
+
+{% block body %}
+<h3>Interactive Console</h3>
+<form action="{{ interactive_execute_path }}" target="output" method="post">
+  <table id="console">
+    <tr>
+      <td>
+        <textarea id="code" name="code" wrap="off" rows="20" cols="80">from google.appengine.api import users
+
+# Say hello to the current user
+user = users.get_current_user()
+if user:
+  nickname = user.nickname()
+else:
+  nickname = "guest"
+print "Hello, " + nickname
+
+</textarea>
+      </td>
+      <td>
+	<iframe name="output" id="output"></iframe>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <div id="submitbutton"><input type="submit" value="Run Program"/></div>
+      </td>
+    </tr>
+  </table>
+</form>
+{% endblock %}
+
+{% block final %}
+<script type="text/javascript">
+//<![CDATA[
+var iframe = document.getElementById('output');
+var idoc = null;
+if (iframe.contentDocument) {
+  // DOM
+  idoc = iframe.contentDocument;
+} else if (iframe.contentWindow) {
+  // IE
+  idoc = iframe.contentWindow.document;
+}
+if (idoc) {
+  idoc.open();
+  idoc.write('<html><body style="background-color:#f5f5f5;margin:0;padding:0"><pre style="margin:0;padding:0;color:#888">Press "Run Program" to see the<br/>output of your code in this frame!</pre></body></html>');
+  idoc.close();
+}
+document.getElementById('code').focus();
+//]]>
+</script>
+{% endblock %}

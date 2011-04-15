@@ -1,0 +1,20 @@
+table.form {
+  border-collapse: collapse;
+}
+
+table.form td.name, table.form td.value, table.form td.buttons {
+  border: 0;
+  padding: 7px;
+  padding-left: 0;
+  vertical-align: top;
+}
+
+table.form td.name {
+  font-weight: bold;
+  padding-top: 9px;
+  padding-right: 14px;
+}
+
+table.form td.buttons {
+  padding-top: 12px;
+}

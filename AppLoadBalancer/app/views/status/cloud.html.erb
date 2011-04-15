@@ -1,0 +1,47 @@
+<div id="getting-started">
+  <%= display_flash_messages %>
+  <% if is_user_cloud_admin %>
+    <h3>CPU / Memory Usage:</h3>
+    <table border="1">
+      <tr>
+        <td align="center">IP Address</td>
+        <td align="center">CPU Usage</td>
+        <td align="center">Mem Usage</td>
+        <td align="center">Hard Disk Usage</td>
+        <td align="center">Cloud</td>
+        <td align="center">Role(s)</td>
+      </tr>
+      <% servers = get_status_information %>
+      <% servers.each do |server| %>
+        <tr>
+          <td align="center"><%= h(server[:ip]) %></td>
+          <td align="center"><%= h(server[:cpu]) %>%</td>
+          <td align="center"><%= h(server[:memory]) %>%</td>
+          <td align="center"><%= h(server[:disk]) %>%</td>
+        <td align="center"><%= h(server[:cloud]) %></td>
+         <td align="center"><%= h(server[:roles]) %></td>
+        </tr>
+      <% end %>
+    </table>
+  <br/><%= link_to "View More Monitoring Data", monitoring_url %>
+  <% end %>
+  <h3>Database Information:</h3>
+  <ul>
+    <% db = get_database_information %>
+    <li>Powered by <%= db[:database] %></li>
+    <li>Data is replicated <%= db[:replication] %> times</li>
+  </ul>
+  <h3>Applications Hosted in This Cloud:</h3>
+  <ul>
+    <% apps = get_application_information %>
+    <% if apps.empty? %>
+      <li>none</li>
+    <% else %>
+      <% apps.each do |app| %>
+        <li>
+          <a href="/apps/<%= h(app) %>" target="_blank"><%= h(app) %></a>
+        </li>
+      <% end %>
+    <% end %>
+  </ul>
+</div>

@@ -1,0 +1,117 @@
+<!-- create repacked package from source -->
+<project name="AppServer_Java" default="install">
+  <property name="src" location="src" />
+  <property name="build" location="build" />
+  <property name="gae_version" value="1.3.5" />
+  <property name="gae_url" value="http://appscale.cs.ucsb.edu/appscale_packages/pool/appengine-java-sdk-${gae_version}.zip" />
+  <property name="gae_org" location="appengine-java-sdk-${gae_version}" />
+  <property name="gae_dist" location="appengine-java-sdk-repacked" />
+  <available property="sdk.exists" file="appengine-java-sdk-${gae_version}/README" />
+
+  <path id="gae.classpath">
+    <fileset dir="${gae_dist}/lib">
+      <include name="**/*.jar" />
+      <exclude name="user/**/*.jar" />
+      <exclude name="tools/orm/*.jar" />
+    </fileset>
+  </path>
+
+  <target name="clean-all">
+    <delete dir="${build}" />
+    <delete dir="${gae_org}" />
+    <delete dir="${gae_dist}" />
+    <delete file="*.zip" />
+  </target>
+
+  <target name="clean-build">
+    <delete dir="${build}" />
+    <delete dir="${gae_org}" />
+  </target>
+
+  <target name="extract-sdk" unless="sdk.exists">
+    <get src="${gae_url}" dest="appengine-java-sdk.zip" verbose="true" />
+    <unzip src="appengine-java-sdk.zip" dest="." />
+    <delete file="appengine-java-sdk.zip" />
+  </target>
+
+  <target name="repack-sdk" depends="extract-sdk">
+    <mkdir dir="${gae_dist}" />
+    <copy todir="${gae_dist}" overwrite="true">
+      <fileset dir="${gae_org}">
+	<include name="**/*" />
+	<exclude name="demos/**" />
+	<exclude name="docs/**" />
+	<exclude name="src/**" />
+      </fileset>
+    </copy>
+    <copy todir="${gae_dist}/lib/impl">
+      <fileset dir="lib">
+	<include name="*.jar" />
+      </fileset>
+    </copy>
+    <chmod perm="a+x" verbose="true">
+      <fileset dir="${gae_dist}/bin">
+	<include name="*.sh" />
+      </fileset>
+    </chmod>
+  </target>
+
+  <target name="compile" depends="repack-sdk">
+    <mkdir dir="${build}" />
+    <javac srcdir="${src}" destdir="${build}">
+      <classpath refid="gae.classpath" />
+      <include name="com/google/appengine/api/**" />
+      <include name="com/google/appengine/tools/**" />
+    </javac>
+  </target>
+
+  <target name="update-api-jar" depends="compile, repack-sdk">
+    <jar destfile="${gae_dist}/lib/impl/appengine-api.jar" basedir="${build}" update="true">
+      <include name="com/google/appengine/api/labs/mapreduce/MapReduceApiHelper*" />
+    </jar>
+  </target>
+
+  <target name="update-api-labs-jar" depends="compile, repack-sdk">
+    <jar destfile="${gae_dist}/lib/impl/appengine-api-labs.jar" basedir="${build}" update="true">
+      <include name="com/google/appengine/api/labs/mapreduce/*" />
+      <exclude name="com/google/appengine/api/labs/mapreduce/MapReduceApiHelper*" />
+    </jar>
+    <copy file="${gae_dist}/lib/impl/appengine-api-labs.jar" tofile="${gae_dist}/lib/user/appengine-api-labs-${gae_version}.jar" />
+  </target>
+
+  <target name="update-api-stubs-jar" depends="compile, repack-sdk">
+    <unjar src="${gae_dist}/lib/impl/appengine-api-stubs.jar" dest="${build}" overwrite="true">
+      <patternset>
+	<include name="META-INF/services/*" />
+      </patternset>
+    </unjar>
+    <patch patchfile="src/mapreduce-service.patch" dir="${build}" strip="0" />
+    <jar destfile="${gae_dist}/lib/impl/appengine-api-stubs.jar" basedir="${build}" update="true">
+      <include name="com/google/appengine/api/users/dev/*" />
+      <include name="com/google/appengine/api/datastore/dev/*" />
+      <include name="com/google/appengine/api/memcache/dev/*" />
+      <include name="com/google/appengine/api/labs/taskqueue/dev/*" />
+      <include name="com/google/appengine/api/labs/mapreduce/dev/*" />
+      <include name="META-INF/services/*" />
+    </jar>
+  </target>
+
+  <target name="update-local-runtime-jar" depends="compile, repack-sdk">
+    <jar destfile="${gae_dist}/lib/impl/appengine-local-runtime.jar" basedir="${build}" update="true">
+      <include name="com/google/appengine/tools/development/*" />
+      <include name="com/google/appengine/tools/resources/*" />
+<!--      <exclude name="com/google/appengine/tools/development/DevAppServerMain*" /> -->
+    </jar>
+  </target>
+
+  <target name="update-tools-api-jar" depends="compile, repack-sdk">
+    <jar destfile="${gae_dist}/lib/appengine-tools-api.jar" basedir="${build}" update="true">
+      <include name="com/google/appengine/tools/development/DevAppServerMain*" />
+    </jar>
+  </target>
+
+  <target name="update-jars" depends="update-api-jar, update-api-labs-jar, update-api-stubs-jar, update-local-runtime-jar, update-tools-api-jar" />
+
+  <target name="install" depends="update-jars" />
+
+</project>

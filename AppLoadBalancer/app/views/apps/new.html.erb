@@ -1,0 +1,20 @@
+<div id="getting-started">
+  <h1>Upload an application</h1>
+  <%= content_tag :h3, display_flash_messages %>
+  <% form_for @app, :url => { :controller => :apps, :action => :upload }, :html => { :multipart => true } do |f| %>
+    <p>
+      <%= f.label :file_data, "Application" %>&nbsp;-&nbsp;
+      <span class="note">Must be a .tar.gz file.</span>&nbsp;<%= link_to "Help","#", :onclick => "showHelp();" %><br />
+      <%= f.file_field :file_data, :accept => GZIP_MIME_TYPES.join(", ") %>
+      <%= image_tag "spinner.gif", { :id => "spinner", :style => "display:none;" } %>
+      <%= display_error_messages(@app, :file_data) %>
+    </p>
+    <p>
+      <%= submit_tag "Upload", { :id => "upload-button", :onclick => "uploading();"} %>
+    </p>
+  <% end %>
+<div id="help-text" style="display: none;"><h3>Help</h3>This form allows you to upload applications into AppScale. Valid applications must be tarred and gzipped and have a ".tar.gz" extension. To create this file run <em>"tar -czf app.tar.gz ."</em> in the directory containing the application's app.yaml file.
+</div>
+</div>
+
+

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>{{orig_filename|escape}}</h1>
+<a href="#n{{lineno|add:"-10"}}">Go to line {{lineno}}</a> |
+<a href="#bottom">Go to bottom</a>
+
+<pre>
+{% for line in fp %}<span id="n{{forloop.counter}}"{% ifequal forloop.counter lineno %} style="background-color: yellow;"{% endifequal %}>{{forloop.counter|rjust:"4"}}: {{line|escape}}</span>{% endfor %}
+</pre>
+<a name="bottom" href="#">Back to top</a>
+</div>
+
+{% endblock %}

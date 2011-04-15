@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}{{ application_name }} Development Console - Datastore Viewer{% endblock %}
+
+{% block head %}
+  <style type="text/css">{% include "css/datastore.css" %}</style>
+  <style type="text/css">{% include "css/pager.css" %}</style>
+  <script type="text/javascript">
+  //<![CDATA[
+
+  {% if in_production %}
+  function manageCreateButton() {
+    var input = document.getElementById("kind_input");
+    var button = document.getElementById("create_button");
+    if (input && button) {
+      if (input.value.length == 0) {
+        button.disabled = true;
+      } else {
+        button.disabled = false;
+      }
+    }
+  }
+  {% endif %}
+
+  {% if entities %}
+  function checkAllEntities() {
+    var allCheckBox = document.getElementById("allkeys");
+    var check = allCheckBox.checked;
+    for (var i = 1; i <= {{ entities|length }}; i++) {
+      var box = document.getElementById("key" + i);
+      if (box)
+        box.checked = check;
+    }
+    updateDeleteButtonAndCheckbox();
+  }
+
+  function updateDeleteButtonAndCheckbox() {
+    var button = document.getElementById("delete_button");
+    var uncheck = false;
+    var disable = true;
+    for (var i = 1; i <= {{ entities|length }}; i++) {
+      var box = document.getElementById("key" + i);
+      if (box) {
+        if (box.checked) {
+          disable = false;
+        } else {
+          uncheck = true;
+        }
+      }
+    }
+    button.disabled = disable;
+    if (uncheck)
+      document.getElementById("allkeys").checked = false;
+  }
+  {% endif %}
+
+  //]]>
+  </script>
+{% endblock %}
+
+{% block body %}
+  <h3>Datastore Viewer</h3>
+
+  {% if in_production %}
+  <div id="hint">
+    The <a href="http://appengine.google.com/datastore/explorer?&app_id={{ application_name }}">Admin Console Data Viewer</a>
+    allows you to run GQL queries and much more!
+  </div>
+  {% endif %}
+
+  {% if message %}
+  <div id="message">
+    {{ message|escape }}
+  </div>
+  {% endif %}
+
+  {% if entities %}
+  <div id="pagetotal">
+    Results <span class="count">{{ start|add:1 }}</span> - <span class="count">{{ entities|length|add:start }}</span> of <span class="count">{{ total }}</span>
+  </div>
+  {% endif %}
+
+  <form action="{{ request.path }}" method="get">
+  {% if kinds or in_production %}
+    <div id="datastore_search">
+      <table>
+        <tr>
+          {% if show_namespace %}
+          <td>
+            <span class="name">Namespace</span>
+          </td>
+          {% endif %}
+          <td>
+            <span class="name">Entity Kind:</span>
+          </td>
+        </tr>
+        <tr>
+          {% if show_namespace %}
+          <td>
+            <span class="value">
+              <input id="namespace_input" name="namespace" type="text" size="20" value="{{ namespace|escape }}"/>
+            </span>
+          </td>
+          {% endif %}
+          <td align="right">
+            <span class="value">
+              {% if in_production %}
+              <input id="kind_input" name="kind" type="text" size="8" value="{{ kind|escape }}" onkeyup="manageCreateButton()" onkeydown="manageCreateButton()"/>
+              {% else %}
+              <select name="kind" id="kind_input">
+                {% for a_kind in kinds %}
+                <option value="{{ a_kind|escape }}"{% ifequal a_kind kind %} selected="selected"{% endifequal %}>{{ a_kind|escape }}</option>
+                {% endfor %}
+              </select>
+              {% endif %}
+            </span>
+          </td>
+          <td>
+            <span class="buttons">
+              <input type="submit" value="List Entities"/>
+              <input type="button" id="create_button" onclick="location.href='{{ datastore_edit_path }}?' + (document.getElementById('namespace_input') ? 'namespace=' + encodeURIComponent(document.getElementById('namespace_input').value) + '&amp;' : '') + 'kind=' + encodeURIComponent(document.getElementById('kind_input').value) + '&amp;next={{ request.uri|urlencode }}'" value="Create New Entity"/>
+            </span>
+          </td>
+        </tr>
+        {% if not show_namespace %}
+        <tr>
+          <td colspan="3">
+            <a id="select_namespace"
+              href="/_ah/admin/datastore?namespace=&kind={{ kind|escape }}">Select different namespace</a>
+          </td>
+        </tr>
+        {% endif %}
+      </table>
+    </div>
+    {% else %}
+    <div id="datastore_empty">
+      {% if namespace %}
+        Datastore has no entities in namespace
+        &quot;{{ namespace|escape }}&quot;.
+      {% else %}
+        Datastore has no entities in the Empty namespace. You need to
+        add data programatically before you can use this tool to view
+        and edit it.
+      {% endif %}
+      <br>
+      {% if show_namespace %}
+      <span class="value">
+        <input id="namespace_input" name="namespace" type="text" size="20" value="{{ namespace|escape }}"/>
+        <input type="submit" value="Change Namespace"/>
+      </span>
+      {% else %}
+      <a id="select_namespace"
+        href="/_ah/admin/datastore?namespace=">Select different namespace</a>
+      {% endif %}
+    </div>
+  {% endif %}
+  </form>
+
+  {% if entities %}
+    <form action="{{ datastore_batch_edit_path }}" method="post">
+      <input type="hidden" name="kind" value="{{ kind|escape }}"/>
+      <input type="hidden" name="numkeys" value="{{ entities|length }}"/>
+      <input type="hidden" name="next" value="{{ start_base_url }}"/>
+      <input type="hidden" name="action" value="Delete"/>
+      <table class="entities">
+        <thead>
+        <tr>
+          <th><input id="allkeys" type="checkbox" onclick="checkAllEntities();"/></th>
+          <th>Key</th>
+          <th>ID</th>
+          <th>Key Name</th>
+          {% for header in headers %}
+            <th style="cursor: pointer" onclick="document.location.href='{{ order_base_url }}&amp;order={% ifequal order header.name %}-{% endifequal %}{{ header.name|urlencode }}&amp;order_type={{ header.type|urlencode }}'"><a href="{{ order_base_url }}&amp;order={% ifequal order header.name %}-{% endifequal %}{{ header.name|urlencode }}&amp;order_type={{ header.type|urlencode }}" onclick="return false">{{ header.name }}</a></th>
+          {% endfor %}
+        </tr>
+        {% for entity in entities %}
+          <tr class="{% if forloop.counter|divisibleby:2 %}even{% else %}odd{% endif %}">
+            <td><input id="key{{ forloop.counter }}" type="checkbox" name="key{{ forloop.counter }}" value="{{ entity.key|escape }}" onclick="updateDeleteButtonAndCheckbox();"/></td>
+            <td onclick="location.href='{{ entity.edit_uri|escape }}'"><a href="{{ entity.edit_uri|escape }}" title="Edit entity #{{ entity.key|escape }}" onclick="return false">{{ entity.shortened_key|escape }}</a></td>
+            <td>
+              {% if entity.key_id %}
+                {{entity.key_id}}
+              {% endif %}
+            </td>
+            <td>
+              {% if entity.key_name %}
+                {{entity.key_name}}
+              {% endif %}
+            </td>
+            {% for attribute in entity.attributes %}
+              <td onclick="location.href='{{ entity.edit_uri|escape }}&amp;focus={{ attribute.name|urlencode }}'">{{ attribute.short_value|truncatewords:20|escape }}{{ attribute.additional_html|safe }}</td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </table>
+       <div class="entities g-section g-tpl-50-50">
+          <div class="g-unit g-first">
+            <div id="entities-control"><input id="delete_button" type="submit" value="Delete" onclick="return confirm('Are you sure you wish to delete these entities?')" /></div>
+          </div>
+          <div class="g-unit">
+            <div id="entities-pager">
+            {% if pages %}
+              {% include "pager.html" %}
+            {% endif %}
+            </div>
+          </div>
+        </div>
+    </form>
+  {% else %}
+    {% if kind and kinds %}
+    <p id="no_kind" style="font-size: medium">
+      Datastore contains no entities of kind &quot;{{ kind|escape }}&quot; in the
+      {% if namespace %}
+        namespace &quot;{{ namespace|escape }}&quot;.
+      {% else %}
+        Empty namespace.
+      {% endif %}
+    </p>
+    {% endif %}
+  {% endif %}
+{% endblock %}
+
+{% block final %}
+  <script type="text/javascript">
+  //<![CDATA[
+
+  {% if in_production %}
+  manageCreateButton();
+  {% endif %}
+
+  {% if entities %}
+  updateDeleteButtonAndCheckbox();
+  {% endif %}
+
+  {% if kinds or in_production %}
+  document.getElementById("kind_input").focus();
+  {% endif %}
+
+  //]]>
+  </script>
+{% endblock %}
+
+

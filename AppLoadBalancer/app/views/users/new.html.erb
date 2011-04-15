@@ -1,0 +1,27 @@
+<div id="getting-started">
+  <h1>Create Account</h1>
+  <%= display_flash_messages %>
+  <% form_for :user, @user, :url => { :action => :create }  do |f| %>
+    <p>
+      <%= f.label :email, "Email:" %><br />
+      <%= f.text_field :email, :size => 40 %>
+      <%= display_error_messages(@user, :email) %>
+    </p>
+    <p>
+      <%= f.label :password, "Password:" %><br />
+      <%= f.password_field :password, :size => 40 %>
+      <%= display_error_messages(@user, :password) %>
+    </p>
+    <p>
+      <%= f.label :password_confirmation, "Password Confirmation:" %><br />
+      <%= f.password_field :password_confirmation, :size => 40 %>
+      <%= display_error_messages(@user, :password_confirmation) %>
+    </p>
+    <p>
+      <%= submit_tag "Create" %>
+    </p>
+  <% end %>
+
+  <br />Already have an account? <%= link_to "Login.", :action => :login %>
+</div>
+

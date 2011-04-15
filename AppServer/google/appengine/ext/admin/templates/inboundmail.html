@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}{{ application_name }} Development Console - Inbound Mail{% endblock %}
+
+{% block breadcrumbs %}
+  <span class="item"><a href="">Email</a></span>
+{% endblock %}
+
+{% block head %}
+
+  <style type="text/css">{% include "css/inboundmail.css" %}</style>
+  <script type="text/javascript">
+    {% include "js/webhook.js" %}
+    {% include "js/multipart_form_data.js" %}
+    {% include "js/rfc822_date.js" %}
+
+    var feedbackEl;
+    var formEl;
+    var payloadEl;
+    var fromEl;
+    var toEl;
+    var ccEl;
+    var subjectEl;
+    var bodyEl;
+    var contentLengthEl;
+    //var contentTypeEl;
+
+    var sendInboundMailWebhook = function() {
+
+      if (!feedbackEl) {
+        feedbackEl = document.getElementById('feedback');
+        formEl = document.getElementById('inboundmail-form');
+        fromEl = document.getElementById('from');
+        toEl = document.getElementById('to');
+        ccEl = document.getElementById('cc');
+        subjectEl = document.getElementById('subject');
+        bodyEl = document.getElementById('body');
+        payloadEl = document.getElementById('payload');
+        contentLengthEl = document.getElementById('content-length');
+      }
+
+      var from = fromEl.value;
+      var to = toEl.value;
+      var cc = ccEl.value;
+      var subject = subjectEl.value;
+      var body = bodyEl.value;
+
+      if (!to || !from || !body) {
+        feedbackEl.className = 'ae-errorbox';
+        feedbackEl.innerHTML = 'From, To and Message body are required.';
+        return;
+      }
+
+      feedbackEl.className = 'ae-message';
+      feedbackEl.innerHTML = 'Sending mail message...';
+
+      var mpfd = new MultipartFormData();
+      mpfd.addHeader('MIME-Version', '1.0');
+      mpfd.addHeader('Date', RFC822Date.format(new Date()));
+      mpfd.addHeader('From', from);
+      mpfd.addHeader('To', to);
+      if (cc) {
+        mpfd.addHeader('Cc', cc);
+      }
+      mpfd.addHeader('Subject', subject);
+      mpfd.addHeader('Content-Type', 'multipart/alternative; ' +
+          'boundary=' + mpfd.boundary);
+      mpfd.addPart(null, body, 'text/plain; charset=UTF-8');
+      mpfd.addPart(null, body, 'text/html; charset=UTF-8');
+
+      payloadEl.value = mpfd.toString();
+
+      contentLengthEl = payloadEl.value.length;
+
+      formEl.action = '/_ah/mail/' + escape(to);
+
+      (new Webhook('inboundmail-form')).run(handleInboundMailResult);
+
+      // Prevents actual form posts.
+      return false;
+    };
+
+    var handleInboundMailResult = function(hook, req, error) {
+      if (error != null || req == null || req.status != 200) {
+        feedbackEl.className = 'ae-errorbox';
+        feedbackEl.innerHTML = 'Message send failure<br>' +
+            req.responseText;
+      } else {
+        var timestamp;
+        var dateString = new Date().toString();
+        var match = dateString.match(/(\d\d:\d\d:\d\d).+\((.+)\)/);
+        if (!match || !match[0] || !match[2]) {
+          timestamp = dateString;
+        } else {
+          timestamp = match[1] + ' ' + match[2];
+        }
+
+        feedbackEl.className = 'ae-message';
+        feedbackEl.innerHTML = 'Message has been sent at ' + timestamp;
+      }
+    };
+
+  </script>
+{% endblock %}
+
+{% block body %}
+<div id="inboundmail">
+  <h3>Email</h3>
+  {% if inboundmail_configured %}{% else %}
+    <div class="ae-errorbox">
+      Inbound mail is not yet configured properly in your app.yaml in the services section.
+    </div>
+  {% endif %}
+  <div id="feedback"></div>
+  <form id="inboundmail-form"
+    action="/_ah/mail/" method="post"
+    onsubmit="sendInboundMailWebhook(); return false">
+
+    <input type="hidden" name="payload" id="payload">
+    <input type="hidden" id="content-type" name="header:Content-Type" value="message/rfc822">
+    <input type="hidden" id="content-length" name="header:Content-Length">
+
+    <div class="fieldset">
+      <label for="from">From:</label>
+      <input type="text" id="from" name="from" size="40">
+    </div>
+
+    <div class="fieldset">
+      <label for="to">To:</label>
+      <input type="text" id="to" name="to" size="40">
+    </div>
+
+    <div class="fieldset">
+      <label for="cc">Cc:</label>
+      <input type="text" id="cc" name="cc" size="40">
+    </div>
+
+    <div class="fieldset">
+      <label for="subject">Subject:</label>
+      <input type="text" id="subject" name="subject" size="40">
+    </div>
+
+    <div id="body-c" class="fieldset">
+      <label for="body">Message body (plain text):</label>
+      <textarea id="body" name="body" rows="10" cols="50"></textarea>
+    </div>
+
+    <div id="inboundmail-submit">
+      <input type="submit" value="Send Email">
+    </div>
+
+  </form>
+</div>
+
+{% endblock %}
+
+{% block final %}
+{% endblock %}

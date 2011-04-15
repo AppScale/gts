@@ -1,0 +1,19 @@
+*** Makefile.in.org	2010-04-09 14:17:23.000000000 -0700
+--- Makefile.in	2010-04-09 14:17:48.000000000 -0700
+***************
+*** 134,140 ****
+  	install -m 644 docroot/images/default/tree/*.gif $(DOCROOTDIR)/images/default/tree
+  	install -m 644 docroot/images/default/grid/*.gif $(DOCROOTDIR)/images/default/grid
+  	install -m 644 docroot/images/default/grid/*.png $(DOCROOTDIR)/images/default/grid
+! 	mkdir $(NODEDOCROOTDIR)
+  	install docroot_node/*.yaws $(NODEDOCROOTDIR)
+  	mkdir -p $(SCALARISDIR)/contrib/yaws/ebin
+  	install contrib/yaws/ebin/*.beam $(SCALARISDIR)/contrib/yaws/ebin
+--- 134,140 ----
+  	install -m 644 docroot/images/default/tree/*.gif $(DOCROOTDIR)/images/default/tree
+  	install -m 644 docroot/images/default/grid/*.gif $(DOCROOTDIR)/images/default/grid
+  	install -m 644 docroot/images/default/grid/*.png $(DOCROOTDIR)/images/default/grid
+! 	mkdir -p $(NODEDOCROOTDIR)
+  	install docroot_node/*.yaws $(NODEDOCROOTDIR)
+  	mkdir -p $(SCALARISDIR)/contrib/yaws/ebin
+  	install contrib/yaws/ebin/*.beam $(SCALARISDIR)/contrib/yaws/ebin

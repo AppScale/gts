@@ -1,0 +1,26 @@
+.ah-cron-message {
+  color: red;
+  margin-bottom: 1em;
+}
+
+#ah-cron-jobs .ah-cron-message {
+  margin: 1em;
+}
+
+.ah-cron-times {
+  margin-top: 1em;
+}
+#ah-cron-jobs .ae-table,
+#ah-cron-jobs .ae-table td {
+  border: 0;
+  padding: 0;
+}
+#ah-cron-jobs ol {
+  list-style: none;
+}
+#ah-cron-jobs li {
+  padding: .2em 0;
+}
+.ah-cron-test {
+  text-align: right;
+}

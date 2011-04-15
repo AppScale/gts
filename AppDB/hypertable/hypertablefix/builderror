@@ -1,0 +1,2 @@
+vi hypertable/src/hypertable-0.9.2.5-alpha/contrib/cc/MapReduce/TableReader.cc
+vi hypertable/src/hypertable-0.9.2.5-alpha/contrib/cc/MapReduce/TableRangeMap.cc

@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block body %}
+  <h2>Datastore Admin</h2>
+  {% if error %}
+  <div class="ae-errorbox">
+    {{ error }}
+  </div>
+  {% endif %}
+  <div class="ae-table-caption">
+    <div class="ae-paginate">
+      <div class="g-section g-tpl-50-50 g-split">
+        <div class="g-unit g-first">
+          <strong>Entities</strong>
+        </div>
+        <div class="g-unit">
+          <span id="ae-dash-quota-refresh-info">
+          {% if last_stats_update %}
+            Entity statistics last updated
+            {{ last_stats_update|date:"M j, Y g:i a T" }}
+          {% else %}
+            Entity statistics unavailable.
+          {% endif %}
+          <a target="_top"
+             href="http://code.google.com/appengine/kb/adminconsole.html#datastore_stats">
+            <img class="ae-help-icon" src="{{ base_path }}/static/img/help.gif"
+              height="14" width="14" alt="help">
+          </a>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% if kind_stats %}
+  <form action="{{ base_path }}/" method="post">
+    <input type="hidden" name="app_id" value="{{ app_id }}">
+    <input type="hidden" name="cancel_url" value="{{ cancel_url }}">
+    <table id="kinds" class="ae-table ae-table-striped">
+      <thead>
+        <tr>
+          <th scope="col" class="cbc tct-selectall"></th>
+          <th scope="col" class="id">Entity Kind</th>
+          <th scope="col" class="id"># Entities</th>
+          <th scope="col" class="id">Avg. Size/Entity</th>
+          <th scope="col" class="id">Total Size</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for kind in kind_stats %}
+          <tr>
+            <td class="cbc">
+              <input type="checkbox" name="kind" value="{{ kind.kind_name }}"
+                     id="{{ kind.kind_name }}">
+            </td>
+            <td class="id">
+              <label for="{{ kind.kind_name }}">{{ kind.kind_name }}</label>
+            </td>
+            {% if kind.count %}
+              <td class="id">{{ kind.count }}</td>
+              <td class="id">{{ kind.average_bytes_str }}</td>
+              <td class="id">{{ kind.total_bytes_str }}</td>
+            {% else %}
+              <td class="id" style="color: #666667;">Stats not available</td>
+              <td class="id" style="color: #666667;">Stats not available</td>
+              <td class="id" style="color: #666667;">Stats not available</td>
+            {% endif %}
+          </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="5">
+            {% for action in action_list %}
+              <input type="submit" name="action"
+                class="goog-button" value="{{ action }}">
+            {% endfor %}
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </form>
+  {% else %}
+    <table class="ae-table">
+      <tbody>
+        <tr>
+          <td>
+            <div class="ae-disabled"
+                style="padding-top: 0.75em; padding-bottom: 0.75em;
+                       text-align: center;">
+              Datastore is empty.
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  {% endif %}
+  {% if operations %}
+    <p>
+    <h2>Operations' Status</h2>
+    <table id="operations" class="ae-table ae-table-striped">
+      <thead>
+        <tr>
+          <th scope="col" class="id">Description</th>
+          <th scope="col" class="id">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for operation in operations %}
+          <tr>
+            <td class="id">
+              {{ operation.description }}
+            </td>
+            <td class="id">
+              {{ operation.status }}
+              ({{operation.completed_jobs}} steps completed,
+              {{operation.active_jobs}} active)
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+{% endblock %}

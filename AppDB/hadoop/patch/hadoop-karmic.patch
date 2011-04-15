@@ -1,0 +1,24 @@
+*** src/c++/utils/api/hadoop/SerialUtils.hh.org	2009-12-16 15:51:46.247522946 -0800
+--- src/c++/utils/api/hadoop/SerialUtils.hh	2009-12-16 15:50:23.033805376 -0800
+***************
+*** 19,24 ****
+--- 19,25 ----
+  #define HADOOP_SERIAL_UTILS_HH
+  
+  #include <string>
++ #include <stdint.h>
+  
+  namespace HadoopUtils {
+  
+*** src/c++/pipes/api/hadoop/Pipes.hh.org	2009-12-16 16:15:20.935680978 -0800
+--- src/c++/pipes/api/hadoop/Pipes.hh	2009-12-16 16:14:44.635686340 -0800
+***************
+*** 30,35 ****
+--- 30,36 ----
+  #else
+  #include <string>
+  #endif
++ #include <stdint.h>
+  
+  namespace HadoopPipes {
+  

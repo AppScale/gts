@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+
+{% block title %}{{ application_name }} Development Console - XMPP{% endblock %}
+
+{% block breadcrumbs %}
+  <span class="item"><a href="">XMPP</a></span>
+{% endblock %}
+
+{% block head %}
+  <style type="text/css">{% include "css/xmpp.css" %}</style>
+  <script type="text/javascript">
+    {% include "js/webhook.js" %}
+    {% include "js/multipart_form_data.js" %}
+
+    var xmppFeedbackEl;
+    var xmppForm;
+    var payloadEl;
+    var fromEl;
+    var toEl;
+    var contentLengthEl;
+    var contentTypeEl;
+
+    var sendXmppWebhook = function() {
+
+      if (!xmppFeedbackEl) {
+        xmppFeedbackEl = document.getElementById('xmpp-feedback');
+        xmppForm = document.getElementById('xmpp-form');
+        fromEl = document.getElementById('from');
+        toEl = document.getElementById('to');
+        payloadEl = document.getElementById('payload');
+        contentTypeEl = document.getElementById('content-type');
+      }
+
+      var to = toEl.value;
+      var from = fromEl.value;
+
+      if (!to || !from) {
+        xmppFeedbackEl.className = 'ae-errorbox';
+        xmppFeedbackEl.innerHTML = 'From and To are required.';
+        return;
+      }
+
+      xmppFeedbackEl.className = 'ae-message';
+
+      var formData = new MultipartFormData();
+      formData.addPart('to', to, null, 'form-data');
+      formData.addPart('from', from, null, 'form-data');
+
+      var type = chosenMessageTypeId.replace('message-type-', '');
+      if (type == 'chat') {
+        xmppFeedbackEl.innerHTML = 'Sending XMPP message...';
+        addMessageData(from, to, xmppForm, formData);
+      } else if (type == 'presence') {
+        xmppFeedbackEl.innerHTML = 'Sending XMPP presence...';
+        addPresenceData(from, to, xmppForm, formData);
+      } else if (type == 'subscribe') {
+        xmppFeedbackEl.innerHTML = 'Sending XMPP subscription...';
+        addSubscribeData(from, to, xmppForm, formData);
+      }
+
+
+      payloadEl.value = formData.toString();
+      contentTypeEl.value = 'multipart/form-data; boundary=' +
+          formData.boundary;
+
+      (new Webhook('xmpp-form')).run(handleXmppResult);
+
+      // Prevents actual form posts.
+      return false;
+    };
+
+    var handleXmppResult = function(hook, req, error) {
+      if (error != null || req == null || req.status != 200) {
+        xmppFeedbackEl.className = 'ae-errorbox';
+        xmppFeedbackEl.innerHTML = 'Message send failure<br>' +
+            req.responseText;
+      } else {
+        var timestamp;
+        var dateString = new Date().toString();
+        var match = dateString.match(/(\d\d:\d\d:\d\d).+\((.+)\)/);
+        if (!match || !match[0] || !match[2]) {
+          timestamp = dateString;
+        } else {
+          timestamp = match[1] + ' ' + match[2];
+        }
+
+        xmppFeedbackEl.className = 'ae-message';
+        xmppFeedbackEl.innerHTML = 'Message has been sent at ' + timestamp;
+      }
+    };
+
+    var addMessageData = function(from, to, formElement, formData) {
+      var body = document.getElementById('chat').value;
+      var xml = '<message from="' + from + '" '+
+          'to="' + to + '">' +
+          '<body>' + body + '</body>' +
+          '</message>';
+
+      formElement.action = '/_ah/xmpp/message/chat/';
+      formData.addPart('body', body, null, 'form-data');
+      formData.addPart('stanza', xml, 'text/xml', 'form-data');
+    };
+
+    var addPresenceData = function(from, to, formElement, formData) {
+      var available = document.getElementById('presence-online').checked;
+      var xml = '<presence from="' + from + '" '+
+          'to="' + to + '"';
+      if (available) {
+        xml = xml + '>' +
+          '<show/><status/></presence>';
+      } else {
+        xml = xml + ' type="unavailable"/>';
+      }
+      formElement.action = '/_ah/xmpp/presence/' +
+          (available ? 'available/' : 'unavailable/');
+
+      formData.addPart('available', available, null, 'form-data');
+      formData.addPart('stanza', xml, 'text/xml', 'form-data');
+    };
+
+    var addSubscribeData = function(from, to, formElement, formData) {
+      var type;
+      if (document.getElementById('subscribe-subscribe').checked) {
+        type = 'subscribe';
+      } else if (document.getElementById('subscribe-subscribed').checked) {
+        type = 'subscribed';
+      } else if (document.getElementById('subscribe-unsubscribe').checked) {
+        type = 'unsubscribe';
+      } else if (document.getElementById('subscribe-unsubscribed').checked) {
+        type = 'unsubscribed';
+      }
+
+      var xml = '<presence from="' + from + '" '+
+          'to="' + to + '" type="' + type + '"/>';
+      formElement.action = '/_ah/xmpp/subscription/' + type + '/';
+      formData.addPart('stanza', xml, 'text/xml', 'form-data');
+    };
+  </script>
+{% endblock %}
+
+{% block body %}
+<div id="xmpp">
+  <h3>XMPP</h3>
+  {% if xmpp_configured %}{% else %}
+    <div class="ae-errorbox">
+      XMPP is not yet configured properly in your app.yaml, in the services section.
+    </div>
+  {% endif %}
+  <div id="xmpp-feedback"></div>
+  <form id="xmpp-form"
+    action="/_ah/xmpp/message/chat/" method="post"
+    onsubmit="sendXmppWebhook(); return false">
+
+    <input type="hidden" name="payload" id="payload">
+    <input type="hidden" id="content-type" name="header:Content-Type">
+
+    <fieldset>
+      <legend>Message Type:</legend>
+      <div class="radio">
+        <input type="radio" name="message_type" id="message-type-chat" value="chat">
+        <label for="message-type-chat">Chat message</label>
+      </div>
+
+      <div class="radio">
+        <input type="radio" name="message_type" id="message-type-presence" value="presence">
+        <label for="message-type-presence">Presence</label>
+      </div>
+
+      <div class="radio">
+        <input type="radio" name="message_type" id="message-type-subscribe" value="subscribe">
+        <label for="message-type-subscribe">Subscription</label>
+      </div>
+    </fieldset>
+
+    <div class="fieldset">
+      <label for="from">From:</label>
+      <input type="text" id="from" name="from" size="40">
+    </div>
+
+
+    <div class="fieldset">
+      <label for="to">To:</label>
+      <input type="text" id="to" name="to" size="40">
+    </div>
+
+
+    <div id="chat-c" class="fieldset">
+      <label for="chat">Chat (plain text):</label>
+      <textarea id="chat" name="chat" rows="10" cols="50"></textarea>
+    </div>
+
+    <fieldset id="presence-c">
+      <legend>Status:</legend>
+
+      <div class="radio">
+        <input type="radio" id="presence-online" name="presence" value="online" checked>
+        <label for="presence-online">Available</label>
+      </div>
+
+      <div class="radio">
+        <input type="radio" id="presence-offline" name="presence" value="offline">
+        <label for="presence-offline">Unavailable</label>
+      </div>
+    </fieldset>
+
+    <fieldset id="subscribe-c">
+      <legend>Notification Type:</legend>
+
+      <div class="radio">
+        <input type="radio" id="subscribe-subscribe" name="subscribe" value="subscribe" checked>
+        <label for="subscribe-subscribe">Subscribe initiated (subscribe)</label>
+      </div>
+
+      <div class="radio">
+        <input type="radio" id="subscribe-subscribed" name="subscribe" value="subscribed">
+        <label for="subscribe-subscribed">Subscribe confirmed (subscribed)</label>
+      </div>
+
+      <div class="radio">
+        <input type="radio" id="subscribe-unsubscribe" name="subscribe" value="unsubscribe">
+        <label for="subscribe-unsubscribe">Unsubscribe initiated (unsubscribe)</label>
+      </div>
+
+      <div class="radio">
+        <input type="radio" id="subscribe-unsubscribed" name="subscribe" value="unsubscribed">
+        <label for="subscribe-unsubscribed">Unsibscribe confirmed (unubscribed)</label>
+      </div>
+
+    </fieldset>
+
+    <div id="xmpp-submit">
+      <input type="submit" value="Make Request">
+    </div>
+
+  </form>
+</div>
+<script type="text/javascript">
+  var messageTypes = ['chat', 'presence', 'subscribe'];
+
+  var messageTypeEls = [];
+  for (var i = 0, messageType; messageType = messageTypes[i]; i++) {
+    var messageTypeEl = document.getElementById('message-type-' +
+        messageType);
+    messageTypeEls.push(messageTypeEl);
+  }
+
+  // Initializes the chosen type to be the first radio.
+  var chosenMessageTypeId = messageTypeEls[0].id;
+
+  var messageTypeDict = {};
+  for (var i = 0, messageTypeEl; messageTypeEl = messageTypeEls[i]; i++) {
+    var type = messageTypeEl.id.replace('message-type-', '');
+    var formEl = document.getElementById(type + '-c');
+    messageTypeDict[messageTypeEl.id] = formEl;
+    // Initially hides all of the conditional form elements.
+    formEl.style.display = 'none';
+  }
+
+  var setChosenMessageType = function(messageTypeId) {
+    document.getElementById(messageTypeId).checked = true;
+
+    // Hides previously chosen message type
+    messageTypeDict[chosenMessageTypeId].style.display = 'none';
+
+    // Sets the new chosen type and shows its field.
+    chosenMessageTypeId = messageTypeId;
+    messageTypeDict[chosenMessageTypeId].style.display = '';
+  }
+
+  var messageTypeClickHandler = function(e) {
+    for (var i = 0, messageTypeEl; messageTypeEl = messageTypeEls[i]; i++) {
+      if (messageTypeEl.checked) {
+        setChosenMessageType(messageTypeEl.id);
+        break;
+      }
+    }
+  };
+
+  // set up event listeners
+  for (var i = 0, messageTypeEl; messageTypeEl = messageTypeEls[i]; i++) {
+    messageTypeEl.onclick = messageTypeClickHandler;
+  }
+
+  // Init
+  setChosenMessageType(chosenMessageTypeId);
+
+</script>
+
+{% endblock %}
+
+{% block final %}
+{% endblock %}

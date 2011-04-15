@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}{{ application_name }} Development Console - Datastore Viewer - {% if key %}Edit Entity{% else %}New Entity{% endif %}{% endblock %}
+
+{% block head %}
+  <style type="text/css">{% include "css/form.css" %}</style>
+  <style type="text/css">
+
+  .field_type {
+    color: gray;
+    font-weight: normal;
+  }
+
+  </style>
+  <script type="text/javascript">
+
+  function load() {
+    var elements = document.getElementsByTagName("input");
+    for (var i = 0; i < elements.length; i++) {
+      var element = elements[i];
+      var hint = null;
+      if (element.className == "time") {
+        hint = "e.g., 2006-30-05 23:56:04";
+      }
+      if (hint) registerHint(element, hint);
+    }
+  }
+
+  function registerHint(element, hint) {
+    function showDefault() {
+      if (element.value.length == 0 || element.value == hint) {
+        element.style.color = "gray";
+        element.value = hint;
+      }
+    }
+    function clearDefault() {
+      if (element.style.color == "gray" || element.value == hint) {
+        element.value = "";
+        element.style.color = "black";
+      }
+    }
+    element.onblur = showDefault;
+    element.onfocus = clearDefault;
+    showDefault();
+  }
+
+  function clearHints(form) {
+    var elements = form.getElementsByTagName("input");
+    for (var i = 0; i < elements.length; i++) {
+      var element = elements[i];
+      if (element.type == "text" && element.style.color == "gray") {
+        element.onblur = null;
+        element.onfocus = null;
+        element.value = "";
+      }
+    }
+    return true;
+  }
+
+  </script>
+{% endblock %}
+
+{% block bodyattributes %}onload="load()"{% endblock %}
+
+{% block body %}
+  <h3>{% if key %}Edit Entity{% else %}New Entity{% endif %}</h3>
+
+  <form action="{{ request.path }}" method="post" onsubmit="return clearHints(this)">
+    <div><input type="hidden" name="next" value="{{ next }}"/></div>
+    <table class="form">
+      {% if key %}
+        {% if namespace %}
+          <tr>
+            <td class="name">
+              <span class="field_name">Namespace</span>
+            </td>
+            <td class="value">{{ namespace|escape }}</td>
+          </tr>
+        {% endif %}
+      {% endif %}
+      <tr>
+        <td class="name">Entity Kind</td>
+        <td class="value text">
+          {{ kind }}
+          <input type="hidden" name="kind" value="{{ kind }}"/>
+        </td>
+      </tr>
+      {% if key %}
+        <tr>
+          <td class="name">Entity Key</td>
+          <td class="value text">
+            {{ key }}
+            <input type="hidden" name="key" value="{{ key }}"/>
+          </td>
+        </tr>
+      {% endif %}
+      {% if key_name %}
+        <tr>
+          <td class="name">Key Name</td>
+          <td class="value text">
+            {{ key_name }}
+          </td>
+        </tr>
+      {% endif %}
+      {% if key_id %}
+        <tr>
+          <td class="name">ID</td>
+          <td class="value text">
+            {{ key_id }}
+          </td>
+        </tr>
+      {% endif %}
+      {% if parent_key %}
+        <tr>
+          <td class="name">Parent</td>
+          <td class="value text">
+            {{ parent_key|escape }}<br />
+            <a href="?key={{parent_key}}&kind={{parent_kind}}">{{ parent_key_string }}</a>
+          </td>
+        </tr>
+      {% endif %}
+      {% if not key %}
+        {% if namespace %}
+          <tr>
+            <td class="name">
+              <span class="field_name">Namespace</span>
+              <span class="field_type">({{ namespace|escape }})</span>
+            </td>
+            <td class="value"><input type="text" name="namespace" value="{{ namespace|escape }}"/></td>
+          </tr>
+        {% endif %}
+      {% endif %}
+      {% for field in fields %}
+        <tr>
+          <td class="name">
+            <span class="field_name">{{ field.0|escape }}</span>
+            <span class="field_type">({{ field.1|escape }})</span>
+          </td>
+          <td class="value"><div style="position: relative">{{ field.2|safe }}</div></td>
+        </tr>
+      {% endfor %}
+      <tr>
+        <td></td>
+        <td class="buttons">
+          <input type="submit" value="Save Changes"/>
+          {% if key %}
+            <input type="submit" name="action" value="Delete" onclick="return confirm('Are you sure you want to permanently delete this entity?');"/>
+          {% endif %}
+        </td>
+      </tr>
+    </table>
+  </form>
+
+  <div id="datepicker"></div>
+{% endblock %}
+
+{% block final %}
+<script type="text/javascript">
+//<![CDATA[
+
+// Sets the focus on the field with the given name in the given array (if any)
+function setFocus(fields, fieldName) {
+  for (var i = 0; i < fields.length; i++) {
+    var field = fields[i];
+    var name = field.name;
+    if (field.focus && name.length > focus.length &&
+        name.substring(name.length - focus.length - 1) == '|' + focus) {
+      field.focus();
+      break;
+    }
+  }
+}
+
+// Focus on the appropriate field in the form based on the "focus" argument
+// in the URL
+var focus = "{{ focus|addslashes }}";
+if (focus) {
+  setFocus(document.getElementsByTagName("input"), focus);
+  setFocus(document.getElementsByTagName("textarea"), focus);
+}
+
+//]]>
+</script>
+{% endblock %}

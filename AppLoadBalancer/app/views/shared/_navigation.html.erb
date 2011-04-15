@@ -1,0 +1,17 @@
+<div id="nav">
+  <ul>
+    <li class="tab <%= highlight_active 'home' %>"><%= link_to "Home", :controller => :landing, :action => :index %></li>
+
+    <% if i_can_has_upload? %>
+      <li class="tab <%= highlight_active 'upload' %>"><%= link_to "Upload App", :controller => :apps, :action => :new %></li>
+      <li class="tab <%= highlight_active 'delete' %>"><%= link_to "Delete App", :controller => :apps, :action => :delete %></li>
+    <% end %>
+
+    <li class="tab <%= highlight_active 'status' %>"><%= link_to "Status", :controller => :status, :action => :cloud %></li>
+
+    <% if is_user_cloud_admin %>
+      <li class="tab <%= highlight_active 'authorize' %>"><%= link_to "Authorize", :controller => :authorize, :action => :cloud %></li>
+    <% end %>
+
+  </ul>
+</div>

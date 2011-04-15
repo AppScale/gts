@@ -1,0 +1,23 @@
+<div id="getting-started">
+  <h1>Login</h1>
+  <%= content_tag :h3, display_flash_messages %>
+  <% form_for :user, @user, :url => { :action => :authenticate } do |f| %>
+    <p>
+      <%= f.label :email, "Email:" %><br />
+      <%= f.text_field :email, :size => 40 %>
+      <%= display_error_messages(@user, :email) %>
+    </p>
+    <p>
+      <%= f.label :password, "Password:" %><br />
+      <%= f.password_field :password, :size => 40 %>
+      <%= display_error_messages(@user, :password) %>
+    </p>
+    <p>
+      <%= submit_tag "Login" %>
+    </p>
+  <% end %>
+
+  <br />Don't have an account? <%= link_to "Create one.", :controller => :users, :action => :new %>
+</div>
+
+

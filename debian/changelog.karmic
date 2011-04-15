@@ -1,0 +1,17 @@
+appscale (1.4-0.REVNOkarmic) karmic; urgency=low
+
+  * change deb package version to 1.4
+
+ -- Yoshi <nomura@pobox.com>  Fri, 23 Jul 2010 10:37:05 -0700
+
+appscale (1.3-4.REVNOkarmic) karmic; urgency=low
+
+  * Change base branch to main branch. 
+
+ -- Yoshi <nomura@pobox.com>  Thu, 06 May 2010 11:20:10 -0700
+
+appscale (1.3-3.REVNOkarmic) unstable; urgency=low
+
+  * Initial release based on unstable branch.
+
+ -- Yoshi <nomura@pobox.com>  Thu, 10 Dec 2009 15:16:20 -0800

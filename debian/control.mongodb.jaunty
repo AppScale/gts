@@ -1,0 +1,20 @@
+Source: appscale
+Section: unknown
+Priority: optional
+Maintainer: AppScale Developer <appscale_developer@googlegroups.com>
+Build-Depends: debhelper (>= 7)
+Standards-Version: 3.8.0
+Homepage: http://appscale.cs.ucsb.edu/
+
+Package: appscale-mongodb
+Architecture: any
+Depends: appscale-core,
+ python-sqlalchemy,
+# from mongodb-stable
+ libc6 (>= 2.4), libgcc1 (>= 1:4.1.1),
+ libstdc++6 (>= 4.2.1), xulrunner-dev
+Conflicts: mongodb, mongodb-snapshot, mongodb-unstable, mongodb-stable
+Description: An open-source framework for execution of GAE applications
+ An open-source research framework for execution of
+ Google AppEngine applications and investigation of
+ scalable cloud computing fabrics.

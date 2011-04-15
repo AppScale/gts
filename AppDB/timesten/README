@@ -1,0 +1,73 @@
+Steps should be done in a serial order. There are dependencies
+
+1. Install TimesTen
+
+  (a) Download TimesTen 7.0.5.0.0 from www.oracle.com/timesten
+
+  (b) Install as root (or user). For non-interactive installation, please use
+
+       (b.1) create directory /etc/TimesTen
+
+       (b.2) 
+	    bash$ ./setup.sh -batch	   
+            This should create a TimesTen installation with name tt70
+       (b.3)
+	    Setup the kernel.shmmax to whatever is the maximum database size
+	    Following example sets it to nearly 1GB
+
+	    bash$ /sbin/sysctl -w kernel.shmmax = 1000000000
+	    
+  (c) Add the following entry to the file ~/.odbc.ini
+
+	[TT_tt70]
+	Driver=/opt/TimesTen/tt70/lib/libtten.so
+	DataStore=/var/TimesTen/tt70/TT_tt70
+	DatabaseCharacterSet=US7ASCII
+	PermSize=256
+	TempSize=32
+	Authenticate=0
+
+  (d)  Run the following script. This adds relevant PATH, LD_LIBRARY_PATH
+       and CLASSPATH from TimesTen installation
+
+       (d.1) If TT is installed as root
+	      bash$ . /opt/TimesTen/tt70/bin/ttenv.sh
+       (d.2) If TT is installed as user
+     	      bash$ . /home/username/TimesTen/tt70/bin/ttenv.sh
+
+  (e)  Test if the installation is working right by running
+       the following command
+
+	      bash$ ttIsql TT_tt70
+
+	This command should succeed and open a console connected
+	to TT_tt70. You are now set to do DDL, DML on TimesTen
+
+  (f)  Set the -ramPolicy of TT_tt70 to always (DO NOT forget)
+
+	     bash$ ttAdmin -ramPolicy always "dsn=TT_tt70"
+	     	 	
+
+2. Install unixODBC, unixODBC-devel (needed by pyodbc)
+      sudo apt-get install unixODBC-devel
+
+3. Install pyodbc (install above software first)
+      (1) download from http://pyodbc.googlecode.com/files/pyodbc-2.1.6.zip
+      (2) cd pyodbc-2.1.6 
+      (3) python setup.py install
+
+4. Go to $APPSCALE_HOME/AppDB/timesten
+
+5. Run the test files
+	1_test_sequence_of_ops.py
+	2_test_mix_work_load.py
+	3_test_workload.py
+
+6. If the tests give out the following warning
+
+   "/var/lib/python-support/python2.6/MySQLdb/__init__.py:34: DeprecationWarning: the sets module is deprecated"
+
+    This is because of python-2.6 and pyodbc problems. It is harmless. This problem can be corrected as per the instructions given at 
+	http://flo.nigsch.com/?p=62
+
+    A fixed version of this file can be seen in the timesten

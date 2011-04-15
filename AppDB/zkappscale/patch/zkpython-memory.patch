@@ -1,0 +1,350 @@
+*** src/contrib/zkpython/src/c/zookeeper.c.org	2010-06-24 12:34:42.000000000 -0700
+--- src/contrib/zkpython/src/c/zookeeper.c	2010-06-24 12:40:10.000000000 -0700
+***************
+*** 135,142 ****
+  
+  /* Allocates an initial zhandle and watcher array */
+  int init_zhandles(int num) {
+!   zhandles = malloc(sizeof(zhandle_t*)*num);
+!   watchers = malloc(sizeof(pywatcher_t*)*num);
+    if (zhandles == NULL || watchers == NULL) {
+      return 0;
+    }
+--- 135,142 ----
+  
+  /* Allocates an initial zhandle and watcher array */
+  int init_zhandles(int num) {
+!   zhandles = PyMem_New(zhandle_t*, num);
+!   watchers = PyMem_New(pywatcher_t*, num);
+    if (zhandles == NULL || watchers == NULL) {
+      return 0;
+    }
+***************
+*** 161,167 ****
+      return 0;
+    }
+    max_zhandles *= 2;
+!   zhandles = malloc(sizeof(zhandle_t*)*max_zhandles);
+    if (zhandles == NULL) {
+      PyErr_SetString(PyExc_MemoryError, "malloc for new zhandles failed");
+      return 0;
+--- 161,167 ----
+      return 0;
+    }
+    max_zhandles *= 2;
+!   zhandles = PyMem_New(zhandle_t *, max_zhandles);
+    if (zhandles == NULL) {
+      PyErr_SetString(PyExc_MemoryError, "malloc for new zhandles failed");
+      return 0;
+***************
+*** 169,175 ****
+    memset(zhandles, 0, sizeof(zhandle_t*)*max_zhandles);
+    memcpy(zhandles, tmp, sizeof(zhandle_t*)*max_zhandles/2);
+  
+!   watchers = malloc(sizeof(pywatcher_t*)*max_zhandles);
+    if (watchers == NULL) {
+      PyErr_SetString(PyExc_MemoryError, "malloc for new watchers failed");
+      return 0;
+--- 169,175 ----
+    memset(zhandles, 0, sizeof(zhandle_t*)*max_zhandles);
+    memcpy(zhandles, tmp, sizeof(zhandle_t*)*max_zhandles/2);
+  
+!   watchers = PyMem_New(pywatcher_t *, max_zhandles);
+    if (watchers == NULL) {
+      PyErr_SetString(PyExc_MemoryError, "malloc for new watchers failed");
+      return 0;
+***************
+*** 177,184 ****
+    memset(watchers, 0, sizeof(pywatcher_t*)*max_zhandles);
+    memcpy(watchers, wtmp, sizeof(pywatcher_t*)*max_zhandles/2);
+  
+!   free(wtmp);
+!   free(tmp);
+    return 1;
+  }
+  
+--- 177,184 ----
+    memset(watchers, 0, sizeof(pywatcher_t*)*max_zhandles);
+    memcpy(watchers, wtmp, sizeof(pywatcher_t*)*max_zhandles/2);
+  
+!   PyMem_Free(wtmp);
+!   PyMem_Free(tmp);
+    return 1;
+  }
+  
+***************
+*** 209,215 ****
+     reference to the callback object. */
+  pywatcher_t *create_pywatcher(int zh, PyObject* cb, int permanent)
+  {
+!   pywatcher_t *ret = (pywatcher_t*)calloc(sizeof(pywatcher_t),1);
+    if (ret == NULL) {
+      PyErr_SetString(PyExc_MemoryError, "calloc failed in create_pywatcher");
+      return NULL;
+--- 209,215 ----
+     reference to the callback object. */
+  pywatcher_t *create_pywatcher(int zh, PyObject* cb, int permanent)
+  {
+!   pywatcher_t *ret = PyMem_New(pywatcher_t, 1);
+    if (ret == NULL) {
+      PyErr_SetString(PyExc_MemoryError, "calloc failed in create_pywatcher");
+      return NULL;
+***************
+*** 228,234 ****
+    }
+    Py_DECREF(pw->callback);
+  
+!   free(pw);
+  }
+  
+  /* Constructs a new stat object. Returns Py_None if stat == NULL or a
+--- 228,234 ----
+    }
+    Py_DECREF(pw->callback);
+  
+!   PyMem_Free(pw);
+  }
+  
+  /* Constructs a new stat object. Returns Py_None if stat == NULL or a
+***************
+*** 366,372 ****
+      return 0;
+    }
+  
+!   acls->data = (struct ACL *)calloc(acls->count, sizeof(struct ACL));
+    if (acls->data == NULL) {
+      PyErr_SetString(PyExc_MemoryError, "calloc failed in parse_acls");
+      return 0;
+--- 366,372 ----
+      return 0;
+    }
+  
+!   acls->data = PyMem_New(struct ACL, acls->count);
+    if (acls->data == NULL) {
+      PyErr_SetString(PyExc_MemoryError, "calloc failed in parse_acls");
+      return 0;
+***************
+*** 395,401 ****
+      free(acls->data[i].id.id);
+      free(acls->data[i].id.scheme);
+    }
+!   free(acls->data);
+  }
+  
+  /* -------------------------------------------------------------------------- */
+--- 395,401 ----
+      free(acls->data[i].id.id);
+      free(acls->data[i].id.scheme);
+    }
+!   PyMem_Free(acls->data);
+  }
+  
+  /* -------------------------------------------------------------------------- */
+***************
+*** 650,655 ****
+--- 650,656 ----
+    if (completion_callback != Py_None) {
+      pyw = create_pywatcher(zkhid, completion_callback, 0);
+      if (pyw == NULL) {
++       free_acls(&acl);
+        return NULL;
+      }
+    }
+***************
+*** 692,698 ****
+                           version,
+                           void_completion_dispatch,
+                           pyw);
+!     
+    if (err != ZOK) {
+        PyErr_SetString(err_to_exception(err), zerror(err));
+        return NULL;
+--- 693,699 ----
+                           version,
+                           void_completion_dispatch,
+                           pyw);
+! 
+    if (err != ZOK) {
+        PyErr_SetString(err_to_exception(err), zerror(err));
+        return NULL;
+***************
+*** 731,737 ****
+                            exist_pyw,
+                            stat_completion_dispatch,
+                            comp_pyw);
+!     
+    if (err != ZOK)
+      {
+        PyErr_SetString(err_to_exception(err), zerror(err));
+--- 732,738 ----
+                            exist_pyw,
+                            stat_completion_dispatch,
+                            comp_pyw);
+! 
+    if (err != ZOK)
+      {
+        PyErr_SetString(err_to_exception(err), zerror(err));
+***************
+*** 774,780 ****
+                         watch_pw,
+                         data_completion_dispatch,
+                         comp_pw);
+!     
+    if (err != ZOK) {
+      PyErr_SetString(err_to_exception(err), zerror(err));
+      return NULL;
+--- 775,781 ----
+                         watch_pw,
+                         data_completion_dispatch,
+                         comp_pw);
+! 
+    if (err != ZOK) {
+      PyErr_SetString(err_to_exception(err), zerror(err));
+      return NULL;
+***************
+*** 804,810 ****
+                        version,
+                        stat_completion_dispatch,
+                        pyw);
+!     
+    if (err != ZOK) {
+      PyErr_SetString(err_to_exception(err), zerror(err));
+      return NULL;
+--- 805,811 ----
+                        version,
+                        stat_completion_dispatch,
+                        pyw);
+! 
+    if (err != ZOK) {
+      PyErr_SetString(err_to_exception(err), zerror(err));
+      return NULL;
+***************
+*** 933,938 ****
+--- 934,940 ----
+    if (completion_callback != Py_None) {
+      pyw = create_pywatcher(zkhid, completion_callback, 0);
+      if (pyw == NULL) {
++       free_acls(&aclv);
+        return NULL;
+      }
+    }
+***************
+*** 995,1003 ****
+  {
+    char *path;
+    int zkhid;
+!   char* values;
+    int valuelen;
+!   PyObject *acl = NULL;  
+    int flags = 0;
+    char realbuf[256];
+    const int maxbuf_len = 256;
+--- 997,1005 ----
+  {
+    char *path;
+    int zkhid;
+!   char *values;
+    int valuelen;
+!   PyObject *acl = NULL;
+    int flags = 0;
+    char realbuf[256];
+    const int maxbuf_len = 256;
+***************
+*** 1011,1016 ****
+--- 1013,1019 ----
+    }
+    zhandle_t *zh = zhandles[zkhid];
+    int err = zoo_create(zh, path, values, valuelen, &aclv, flags, realbuf, maxbuf_len);
++   free_acls(&aclv);
+    if (err != ZOK) {
+      PyErr_SetString(err_to_exception(err), zerror(err));
+      return NULL;
+***************
+*** 1041,1047 ****
+     absent */
+  static PyObject *pyzoo_exists(PyObject *self, PyObject *args)
+  {
+!   int zkhid; char *path; PyObject *watcherfn = Py_None;
+    struct Stat stat;
+    if (!PyArg_ParseTuple(args, "is|O", &zkhid, &path, &watcherfn)) {
+      return NULL;
+--- 1044,1052 ----
+     absent */
+  static PyObject *pyzoo_exists(PyObject *self, PyObject *args)
+  {
+!   int zkhid;
+!   char *path;
+!   PyObject *watcherfn = Py_None;
+    struct Stat stat;
+    if (!PyArg_ParseTuple(args, "is|O", &zkhid, &path, &watcherfn)) {
+      return NULL;
+***************
+*** 1166,1172 ****
+  {
+    int zkhid;
+    char *path;
+!   char *buffer; 
+    int buffer_len=GET_BUFFER_SIZE;
+    struct Stat stat;
+    PyObject *watcherfn = Py_None;
+--- 1171,1177 ----
+  {
+    int zkhid;
+    char *path;
+!   char *buffer;
+    int buffer_len=GET_BUFFER_SIZE;
+    struct Stat stat;
+    PyObject *watcherfn = Py_None;
+***************
+*** 1181,1193 ****
+        return NULL;
+      }
+    }
+!   buffer = malloc(sizeof(char)*buffer_len);
+    if (buffer == NULL) {
+!     free(pw);
+      PyErr_SetString(PyExc_MemoryError, "buffer could not be allocated in pyzoo_get");
+      return NULL;
+    }
+!       
+    int err = zoo_wget(zhandles[zkhid], path, 
+                       watcherfn != Py_None ? watcher_dispatch : NULL, 
+                       pw, buffer, 
+--- 1186,1198 ----
+        return NULL;
+      }
+    }
+!   buffer = (char *)PyMem_New(char, buffer_len);
+    if (buffer == NULL) {
+!     free_pywatcher(pw);
+      PyErr_SetString(PyExc_MemoryError, "buffer could not be allocated in pyzoo_get");
+      return NULL;
+    }
+! 
+    int err = zoo_wget(zhandles[zkhid], path, 
+                       watcherfn != Py_None ? watcher_dispatch : NULL, 
+                       pw, buffer, 
+***************
+*** 1197,1206 ****
+  
+    if (err != ZOK) {
+      PyErr_SetString(err_to_exception(err), zerror(err));
+      return NULL;
+    }
+    PyObject *ret = Py_BuildValue( "(s#,N)", buffer,buffer_len, stat_dict );
+!   free(buffer);
+    return ret;
+  }
+  
+--- 1202,1212 ----
+  
+    if (err != ZOK) {
+      PyErr_SetString(err_to_exception(err), zerror(err));
++     PyMem_Free(buffer);
+      return NULL;
+    }
+    PyObject *ret = Py_BuildValue( "(s#,N)", buffer,buffer_len, stat_dict );
+!   PyMem_Free(buffer);
+    return ret;
+  }
+  

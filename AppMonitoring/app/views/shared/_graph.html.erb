@@ -1,0 +1,28 @@
+<div id="graph-<%= graph.object_id %>" class="graph">
+  <%= graph_tag(graph) %>
+
+  <ul id="times" class="subgraph">
+    <li>Graph duration:</li>
+    <% duration_hash.each do |name, duration| %>
+    <li><%= link_to name, { :machine => graph.machine, :service => graph.service, :rrd_database => graph.rrd_database, :group => graph.group, :time => duration.ago.to_i } %></li>
+    <% end %>
+  </ul>
+
+  <br /><br/>
+
+  <% if graph.group.nil? %>
+  <ul id="grouped" class="subgraph">
+    <li>View grouped metrics:</li>
+    <% g = graph.rrd_database.nil? ? nil : graph.rrd_database.group %>
+    <li><%= link_to g, { :machine => graph.machine, :service => graph.service, :rrd_database => graph.rrd_database, :group => g, :time => params[:time] } %></li>
+  </ul>
+  <% elsif graph.in_group.length > 1 %>
+  <ul id="individual" class="subgraph">
+    <li>View individual metric:</li>
+    <% graph.in_group.each do |rrd_database| %>
+    <li><%= link_to rrd_database.metric_name, { :machine => graph.machine, :service => graph.service, :rrd_database => rrd_database, :group => nil, :time => params[:time] } %></li>
+    <% end %>
+  </ul>
+  <% end %>
+</div>
+

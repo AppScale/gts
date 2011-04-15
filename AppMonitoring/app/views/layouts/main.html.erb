@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+  <head>
+    <meta http-equiv="content-type" content="application/xhtml+xml; charset=UTF-8" />
+    <title>monitr: <%= yield :page_title %></title>
+    <%= stylesheet_link_tag "styles", :cache => "all" -%>
+    <%= javascript_include_tag "jquery-1.4.2.min", "auroramenu", "jquery-cookie", :cache => "all" -%>
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <!--   Designed by: Jonathan Kupferman 2009 -->
+  </head>
+  <body>
+    <div id="wrapper">
+      <div id="header">
+	<%= link_to image_tag("logo.png", :alt => "monitr"), root_url %>
+	<%= render "shared/signin" %>
+      </div>
+      <div id="content">
+	<%= render "shared/panel" %>
+	<div class="clear"></div>
+	<%= render "shared/footer" %>
+      </div>
+    </div>
+  </body>
+</html>

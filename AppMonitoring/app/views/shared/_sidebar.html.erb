@@ -1,0 +1,22 @@
+<div id="sidebar">
+  <ul class="auroramenu">
+    <% @machines.each do |machine| %>
+    <li>
+      <%= sidebar_header(machine.display_name) %>
+      <ul class="service">
+	<% machine.services.sort_by {|a| a.display_name }.each do |service| %>
+	<li>
+	  <h3><%= service.display_name %></h3>
+	  <ul class="rrds">
+	    <% groups = service.rrd_databases.index_by {|db| db.group } %>
+	    <% groups.each do |group, db| %>
+	    <li class="group">-<%= link_to group.to_s, { :controller => :graphs, :action => :view,  :machine => machine, :service => service, :rrd_database => db, :group => db.group } %></li>
+	    <% end %>
+	  </ul>
+	</li>
+	<% end %>
+      </ul>
+    </li>
+    <% end %>
+  </ul>
+</div>

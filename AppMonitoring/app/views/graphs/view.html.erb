@@ -1,0 +1,8 @@
+<% title = @graph.nil? ? "" : @graph.display_name %>
+<% page_title(title) %>
+
+<% if @graph.nil? %>
+uh oh, an error happened when generating this graph
+<% else %>
+<%= render :partial => "shared/graph", :locals => { :graph => @graph } %>
+<% end %>

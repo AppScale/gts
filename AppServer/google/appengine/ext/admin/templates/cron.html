@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ application_name }} Development Console - Cron Viewer{% endblock %}
+
+{% block head %}
+  <style type="text/css">{% include "css/cron.css" %}</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+  <span class="item"><a href="">Cron Viewer</a></span>
+{% endblock %}
+
+{% block body %}
+<h3>Cron Jobs</h3>
+
+{% if message %}
+<div class="ah-cron-message">
+{{ message|escape }}
+</div>
+{% endif %}
+
+{% if cronjobs %}
+  <table id="ah-cron-jobs" class="ae-table ae-table-striped">
+    <colgroup>
+      <col style="width:60%">
+      <col>
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Cron Job</th>
+        <th>Schedule</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for job in cronjobs %}
+        <tr class="{% cycle ae-odd,ae-even %}">
+          <td valign="top">
+            <h3>{{ job.url|escape }}</h3>
+            <p>
+              {{ job.description|escape }}
+            </p>
+          </td>
+          <td valign="top">
+            <table class="ae-table">
+              <tr>
+                <td>
+                  <strong>{{ job.schedule|escape }}</strong>
+                </td>
+                <td class="ah-cron-test">
+                  <a href="{{ job.url }}">Test this job</a>
+                </td>
+              </tr>
+            </table>
+
+            {% if job.timezone %}
+              <strong>Timezone: {{ job.timezone }}</strong>
+              <div class="ah-cron-message">
+                Schedules with timezones won't be calculated correctly here. Use the
+                appcfg.py cron_info command to view the next run times for this schedule,
+                after installing the pytz package.
+              </div>
+            {% endif %}
+            <div class="ah-cron-times">
+              In production, this would run at these times:
+              <ol>
+                {% for run in job.times %}
+                  <li>
+                    {{ run.runtime }} <span class="ae-unimportant">{{ run.difference }} from now</span>
+                  </li>
+                {% endfor %}
+              </ol>
+            </div>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  This application doesn't define any cron jobs. See the documentation for more.
+{% endif %}
+
+
+{% endblock %}
+

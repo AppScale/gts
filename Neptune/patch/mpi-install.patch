@@ -1,0 +1,33 @@
+*** ./src/pm/Makefile.in.org	2010-06-25 14:37:03.000000000 -0700
+--- ./src/pm/Makefile.in	2010-06-25 14:37:44.000000000 -0700
+***************
+*** 127,140 ****
+  all-postamble:
+  	if [ -n "@pm_name@" -a -d "@pm_name@" ] ; then \
+  	build_prefix=`cd ../.. && pwd` && cd @pm_name@ && \
+! 	${MAKE} prefix=$$build_prefix exec_prefix=$$build_prefix bindir=$$build_prefix/bin mpich2-build-install ; \
+  	fi
+  
+  # Add util to distclean if possible
+  distclean-local:
+  	if [ -n "@pm_name@" -a -d "@pm_name@" ] ; then \
+  	build_prefix=`cd ../.. && pwd` && cd @pm_name@ && \
+! 	${MAKE} prefix=$$build_prefix exec_prefix=$$build_prefix bindir=$$build_prefix/bin mpich2-build-uninstall ; \
+  	fi
+  	if [ -s util/Makefile ] ; then 	(cd util && ${MAKE} distclean) ; fi
+  
+--- 127,140 ----
+  all-postamble:
+  	if [ -n "@pm_name@" -a -d "@pm_name@" ] ; then \
+  	build_prefix=`cd ../.. && pwd` && cd @pm_name@ && \
+! 	${MAKE} mpich2-build-install ; \
+  	fi
+  
+  # Add util to distclean if possible
+  distclean-local:
+  	if [ -n "@pm_name@" -a -d "@pm_name@" ] ; then \
+  	build_prefix=`cd ../.. && pwd` && cd @pm_name@ && \
+! 	${MAKE} mpich2-build-uninstall ; \
+  	fi
+  	if [ -s util/Makefile ] ; then 	(cd util && ${MAKE} distclean) ; fi
+  

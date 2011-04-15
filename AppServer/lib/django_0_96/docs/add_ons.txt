@@ -1,0 +1,206 @@
+============================
+The "django.contrib" add-ons
+============================
+
+Django aims to follow Python's `"batteries included" philosophy`_. It ships
+with a variety of extra, optional tools that solve common Web-development
+problems.
+
+This code lives in ``django/contrib`` in the Django distribution. Here's a
+rundown of the packages in ``contrib``:
+
+.. _"batteries included" philosophy: http://docs.python.org/tut/node12.html#batteries-included
+
+admin
+=====
+
+The automatic Django administrative interface. For more information, see
+`Tutorial 2`_.
+
+.. _Tutorial 2: ../tutorial2/
+
+auth
+====
+
+Django's authentication framework.
+
+See the `authentication documentation`_.
+
+.. _authentication documentation: ../authentication/
+
+comments
+========
+
+A simple yet flexible comments system. This is not yet documented.
+
+contenttypes
+============
+
+A light framework for hooking into "types" of content, where each installed
+Django model is a separate content type. This is not yet documented.
+
+csrf
+====
+
+A middleware for preventing Cross Site Request Forgeries
+
+See the `csrf documentation`_.
+
+.. _csrf documentation: ../csrf/
+
+formtools
+=========
+
+A set of high-level abstractions for Django forms (django.newforms).
+
+django.contrib.formtools.preview
+--------------------------------
+
+An abstraction of the following workflow:
+
+"Display an HTML form, force a preview, then do something with the submission."
+
+Full documentation for this feature does not yet exist, but you can read the
+code and docstrings in ``django/contrib/formtools/preview.py`` for a start.
+
+humanize
+========
+
+A set of Django template filters useful for adding a "human touch" to data.
+To activate these filters, add ``'django.contrib.humanize'`` to your
+``INSTALLED_APPS`` setting. Once you've done that, use ``{% load humanize %}``
+in a template, and you'll have access to these filters:
+
+apnumber
+--------
+
+For numbers 1-9, returns the number spelled out. Otherwise, returns the
+number. This follows Associated Press style.
+
+Examples:
+
+    * ``1`` becomes ``'one'``.
+    * ``2`` becomes ``'two'``.
+    * ``10`` becomes ``10``.
+
+You can pass in either an integer or a string representation of an integer.
+
+intcomma
+--------
+
+Converts an integer to a string containing commas every three digits.
+
+Examples:
+
+    * ``4500`` becomes ``'4,500'``.
+    * ``45000`` becomes ``'45,000'``.
+    * ``450000`` becomes ``'450,000'``.
+    * ``4500000`` becomes ``'4,500,000'``.
+
+You can pass in either an integer or a string representation of an integer.
+
+intword
+-------
+
+Converts a large integer to a friendly text representation. Works best for
+numbers over 1 million.
+
+Examples:
+
+    * ``1000000`` becomes ``'1.0 million'``.
+    * ``1200000`` becomes ``'1.2 million'``.
+    * ``1200000000`` becomes ``'1.2 billion'``.
+
+Values up to 1000000000000000 (one quadrillion) are supported.
+
+You can pass in either an integer or a string representation of an integer.
+
+ordinal
+-------
+
+Converts an integer to its ordinal as a string.
+
+Examples:
+
+    * ``1`` becomes ``'1st'``.
+    * ``2`` becomes ``'2nd'``.
+    * ``3`` becomes ``'3rd'``.
+
+You can pass in either an integer or a string representation of an integer.
+
+flatpages
+=========
+
+A framework for managing simple "flat" HTML content in a database.
+
+See the `flatpages documentation`_.
+
+.. _flatpages documentation: ../flatpages/
+
+localflavor
+===========
+
+A collection of various Django snippets that are useful only for a particular
+country or culture. For example, ``django.contrib.localflavor.usa.forms``
+contains a ``USZipCodeField`` that you can use to validate U.S. zip codes.
+
+markup
+======
+
+A collection of template filters that implement these common markup languages:
+
+    * `Textile`_
+    * `Markdown`_
+    * `ReST (ReStructured Text)`_
+
+For documentation, read the source code in django/contrib/markup/templatetags/markup.py.
+
+.. _Textile: http://en.wikipedia.org/wiki/Textile_%28markup_language%29
+.. _Markdown: http://en.wikipedia.org/wiki/Markdown
+.. _ReST (ReStructured Text): http://en.wikipedia.org/wiki/ReStructuredText
+
+redirects
+=========
+
+A framework for managing redirects.
+
+See the `redirects documentation`_.
+
+.. _redirects documentation: ../redirects/
+
+sites
+=====
+
+A light framework that lets you operate multiple Web sites off of the same
+database and Django installation. It gives you hooks for associating objects to
+one or more sites.
+
+See the `sites documentation`_.
+
+.. _sites documentation: ../sites/
+
+sitemaps
+========
+
+A framework for generating Google sitemap XML files.
+
+See the `sitemaps documentation`_.
+
+.. _sitemaps documentation: ../sitemaps/
+
+syndication
+===========
+
+A framework for generating syndication feeds, in RSS and Atom, quite easily.
+
+See the `syndication documentation`_.
+
+.. _syndication documentation: ../syndication/
+
+Other add-ons
+=============
+
+If you have an idea for functionality to include in ``contrib``, let us know!
+Code it up, and post it to the `django-users mailing list`_.
+
+.. _django-users mailing list: http://groups.google.com/group/django-users

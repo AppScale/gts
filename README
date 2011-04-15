@@ -1,0 +1,76 @@
+AppScale is a platform that allows users to deploy and host their own Google 
+App Engine applications. It executes automatically over Amazon EC2 and 
+Eucalyptus as well as Xen and KVM. It has been developed and is maintained 
+by the RACELab at UC Santa Barbara. It supports both the Python and Java 
+Google App Engine platforms.
+
+The latest stable release is AppScale 1.4, released September 7, 2010. The
+code maintained here is definitely not the stable release and should not
+be considered stable in any reading of the word, but is likely to be
+bleeding edge in comparison.
+
+Join the mailing list for announcements, help, and to discuss 
+cloud research: http://groups.google.com/group/appscale_community
+
+If you're looking for some sample applications to deploy, we include a number 
+of them in the sample_apps directory in the AppScale Tools. Two more 
+particularly interesting applications that work seamlessly with AppScale are:
+
+KOALA - A web interface to Amazon EC2 and Eucalyptus
+Bloog - A RESTful blog that uses the Python webapp framework. As the official 
+code is a bit out of date, we recommend using Mike Dragon's patched version.
+
+Please note: The current version of AppScale does not provide data persistence. 
+If you terminate your AppScale deployment, it destroys all data accumulated 
+during its execution. Persistence support is on our roadmap for release in 
+the near future.
+
+Why Develop AppScale?
+Our goal with AppScale is to provide a open-source cloud platform that anyone 
+can use to deploy your Google App Engines to and to perform research on cloud 
+platforms. To support research in this area, AppScale provides the following 
+capabilities:
+
+Support for a number of very different databases unified under the Google 
+Datastore API, allowing users to appropriately compare these new datastores.
+Completely automated deployment over any number of machines - AppScale 
+writes all the configuration files and starts up whatever needs to be started 
+in the right order.
+
+Placement support - if you don't like where AppScale puts web servers and 
+databases, you can tell AppScale where to put them. Like before, AppScale 
+still automates the configuration and deployment of all the components in the 
+system.
+
+New APIs - since AppScale is open-source, you can add your own APIs for your 
+developers to use in their applications. We've already added MapReduce and 
+EC2/Eucalyptus APIs, so now Google App Engine developers can spawn virtual 
+machines and run distributed computation from within their applications.
+
+Cloud deployment - want to run AppScale over a dozen machines in Amazon EC2 
+or Eucalyptus? Want to run AppScale on your desktop in a virtual machine? 
+The included tools support all of these options out of the box - so get 
+started and see what's new in AppScale!
+
+Speaking of using AppScale for research, here's a list of publications that 
+use AppScale. If you're using AppScale in your research, drop us a line on 
+the AppScale Community page and we'll include you in the list!
+
+AppScale runs seamlessly over the following datastores:
+
+HBase - Version 0.20.3
+Hypertable - Version 0.9.2.7
+MySQL Cluster - Version 5.1.30
+Cassandra - Version 0.6.1
+Voldemort - Version 0.80
+MongoDB - Version 1.2.2-1ubuntu1
+MemcacheDB - Version 1.2.0-6
+Scalaris - Version 0.2.3-1
+Amazon SimpleDB
+
+Brought to you by...
+AppScale is supported by:
+
+Google
+IBM Research (via OCR and X10 Innovation Awards)
+The National Science Foundation

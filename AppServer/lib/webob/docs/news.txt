@@ -1,0 +1,123 @@
+News
+====
+
+.. contents::
+
+0.9
+---
+
+* Added ``req.urlarg``, which represents positional arguments in
+  ``environ['wsgiorg.routing_args']``.
+
+* For Python 2.4, added attribute get/set proxies on exception objects
+  from, for example, ``webob.exc.HTTPNotFound().exception``, so that
+  they act more like normal response objects (despite not being
+  new-style classes or ``webob.Response`` objects).  In Python 2.5 the
+  exceptions are ``webob.Response`` objects.
+
+Backward Incompatible Changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* The ``Response`` constructor has changed: it is now ``Response([body],
+  [status], ...)`` (before it was ``Response([status], [body], ...)``).
+  Body may be str or unicode.
+
+* The ``Response`` class defaults to ``text/html`` for the
+  Content-Type, and ``utf8`` for the charset (charset is only set on
+  ``text/*`` and ``application/*+xml`` responses).
+
+Bugfixes and Small Changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* Use ``BaseCookie`` instead of ``SimpleCookie`` for parsing cookies.
+
+* Added ``resp.write(text)`` method, which is equivalent to
+  ``resp.body += text`` or ``resp.unicode_body += text``, depending on
+  the type of ``text``.
+
+* The ``decode_param_names`` argument (used like
+  ``Request(decode_param_names=True)``) was being ignored.
+
+* Unicode decoding of file uploads and file upload filenames were
+  causing errors when decoding non-file-upload fields (both fixes from
+  Ryan Barrett).
+
+0.8.5
+-----
+
+* Added response methods ``resp.encode_content()`` and
+  ``resp.decode_content()`` to gzip or ungzip content.
+
+* ``Response(status=404)`` now works (before you would have to use
+  ``status="404 Not Found"``).
+
+* Bugfix (typo) with reusing POST body.
+
+* Added ``226 IM Used`` response status.
+
+* Backport of ``string.Template`` included for Python 2.3
+  compatibility.
+
+0.8.4
+-----
+
+* ``__setattr__`` would keep ``Request`` subclasses from having
+  properly settable environ proxies (like ``req.path_info``).
+
+0.8.3
+-----
+
+* ``request.POST`` was giving FieldStorage objects for *every*
+  attribute, not just file uploads.  This is fixed now.
+
+
+* Added request attributes ``req.server_name`` and ``req.server_port``
+  for the environ keys ``SERVER_NAME`` and ``SERVER_PORT``.
+
+* Avoid exceptions in ``req.content_length``, even if
+  ``environ['CONTENT_LENGTH']`` is somehow invalid.
+
+0.8.2
+-----
+
+* Python 2.3 compatibility: backport of ``reversed(seq)``
+
+* Made separate ``.exception`` attribute on ``webob.exc`` objects,
+  since new-style classes can't be raised as exceptions.
+
+* Deprecate ``req.postvars`` and ``req.queryvars``, instead using the
+  sole names ``req.GET`` and ``req.POST`` (also ``req.str_GET`` and
+  ``req.str_POST``).  The old names give a warning; will give an error
+  in next release, and be completely gone in the following release.
+
+* ``req.user_agent`` is now just a simple string (parsing the
+  User-Agent header was just too volatile, and required too much
+  knowledge about current browsers).  Similarly,
+  ``req.referer_search_query()`` is gone.
+
+* Added parameters ``version`` and ``comment`` to
+  ``Response.set_cookie()``, per William Dode's suggestion.
+
+* Was accidentally consuming file uploads, instead of putting the
+  ``FieldStorage`` object directly in the parameters.
+
+0.8.1
+-----
+
+* Added ``res.set_cookie(..., httponly=True)`` to set the ``HttpOnly``
+  attribute on the cookie, which keeps Javascript from reading the
+  cookie.
+
+* Added some WebDAV-related responses to ``webob.exc``
+
+* Set default ``Last-Modified`` when using ``response.cache_expire()``
+  (fixes issue with Opera)
+
+* Generally fix ``.cache_control``
+
+0.8
+---
+
+First release.  Nothing is new, or everything is new, depending on how
+you think about it.
+

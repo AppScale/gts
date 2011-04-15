@@ -1,0 +1,90 @@
+*** src/hdfs/org/apache/hadoop/hdfs/DistributedFileSystem.java.org	2009-04-08 22:15:30.000000000 -0700
+--- src/hdfs/org/apache/hadoop/hdfs/DistributedFileSystem.java	2010-04-07 17:12:19.000000000 -0700
+***************
+*** 20,26 ****
+  
+  import java.io.*;
+  import java.net.*;
+! 
+  import org.apache.hadoop.fs.permission.FsPermission;
+  import org.apache.hadoop.fs.*;
+  import org.apache.hadoop.conf.Configuration;
+--- 20,26 ----
+  
+  import java.io.*;
+  import java.net.*;
+! import org.apache.hadoop.util.*;
+  import org.apache.hadoop.fs.permission.FsPermission;
+  import org.apache.hadoop.fs.*;
+  import org.apache.hadoop.conf.Configuration;
+***************
+*** 49,55 ****
+  
+    DFSClient dfs;
+    private boolean verifyChecksum = true;
+!   
+    static{
+      Configuration.addDefaultResource("hdfs-default.xml");
+      Configuration.addDefaultResource("hdfs-site.xml");
+--- 49,56 ----
+  
+    DFSClient dfs;
+    private boolean verifyChecksum = true;
+!   //HADOOP-5191
+!   InetAddress netAddress; 
+    static{
+      Configuration.addDefaultResource("hdfs-default.xml");
+      Configuration.addDefaultResource("hdfs-site.xml");
+***************
+*** 79,86 ****
+      }
+  
+      InetSocketAddress namenode = NameNode.getAddress(uri.getAuthority());
+      this.dfs = new DFSClient(namenode, conf, statistics);
+!     this.uri = NameNode.getUri(namenode);
+      this.workingDir = getHomeDirectory();
+    }
+  
+--- 80,89 ----
+      }
+  
+      InetSocketAddress namenode = NameNode.getAddress(uri.getAuthority());
++     netAddress = namenode.getAddress();
+      this.dfs = new DFSClient(namenode, conf, statistics);
+!     this.uri = URI.create("hdfs://" + uri.getAuthority()); 
+!     //NameNode.getUri(namenode);
+      this.workingDir = getHomeDirectory();
+    }
+  
+***************
+*** 89,100 ****
+      URI thisUri = this.getUri();
+      URI thatUri = path.toUri();
+      String thatAuthority = thatUri.getAuthority();
+!     if (thatUri.getScheme() != null
+          && thatUri.getScheme().equalsIgnoreCase(thisUri.getScheme())
+          && thatUri.getPort() == NameNode.DEFAULT_PORT
+          && thisUri.getPort() == -1
+          && thatAuthority.substring(0,thatAuthority.indexOf(":"))
+!         .equalsIgnoreCase(thisUri.getAuthority()))
+        return;
+      super.checkPath(path);
+    }
+--- 92,108 ----
+      URI thisUri = this.getUri();
+      URI thatUri = path.toUri();
+      String thatAuthority = thatUri.getAuthority();
+!     if (thatUri.getScheme() != null &&
+!         thatAuthority.substring(0,thatAuthority.indexOf(":")).equalsIgnoreCase(netAddress.getHostAddress()) ) {
+!         path = new Path(thatUri.getScheme(), thisUri.getAuthority(), thatUri.getPath());
+!         thatUri = path.toUri();
+!     }
+!     if(thatUri.getScheme() != null
+          && thatUri.getScheme().equalsIgnoreCase(thisUri.getScheme())
+          && thatUri.getPort() == NameNode.DEFAULT_PORT
+          && thisUri.getPort() == -1
+          && thatAuthority.substring(0,thatAuthority.indexOf(":"))
+!             .equalsIgnoreCase(thisUri.getAuthority()) )
+        return;
+      super.checkPath(path);
+    }

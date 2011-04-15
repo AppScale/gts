@@ -1,0 +1,26 @@
+.ah-queues-message {
+  color: red;
+  margin-bottom: 1em;
+}
+
+#ah-queues .ah-queues-message {
+  margin: 1em;
+}
+
+.ah-queues-times {
+  margin-top: 1em;
+}
+#ah-queues .ae-table,
+#ah-queues .ae-table td {
+  border: 0;
+  padding: 0;
+}
+#ah-queues ol {
+  list-style: none;
+}
+#ah-queues li {
+  padding: .2em 0;
+}
+.ah-queues-test {
+  text-align: right;
+}

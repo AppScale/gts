@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% block headstuff %}{% endblock %}
+{% block content %}
+  {% if not record %}
+    <p>Invalid or stale record key!</p>
+  {% else %}
+    <div class="g-section" id="ae-stats-summary">
+      <dl>
+        <dt>
+          <span class="ae-stats-date">{{record.start_time_formatted}}</span><br>
+          <span class="ae-stats-response ae-stats-response-{{record.http_status}}">
+            {{record.http_status}}
+          </span>
+        </dt>
+        <dd>
+          <a {% ifequal record.http_method 'GET' %}target="_new" title="Resubmit the original request to the server" href="{{record.http_path|escape}}{{record.http_query|escape}}" {% endifequal %}>
+            {{record.http_method|escape}}  {{record.http_path|escape}}{{record.http_query|escape}}
+          </a>
+          <br>
+          {{record.user_email|escape}}{% if record.is_admin %}*{% endif %}
+          real={{record.duration_milliseconds}}ms
+          cpu={{record.processor_milliseconds}}ms
+          api={{record.api_milliseconds}}ms
+          overhead={{record.overhead_walltime_milliseconds}}ms
+        </dd>
+      </dl>
+    </div>
+
+
+    <div id="ae-stats-details-timeline">
+      <h2>Timeline</h2>
+      <div id="ae-body-timeline">
+        <div id="ae-rpc-chart">[Chart goes here]</div>
+      </div>
+      {% if record.individual_stats_size %}
+        <div id="ae-rpc-traces">
+          <div class="ae-table-title">
+            <div class="g-section g-tpl-50-50 g-split">
+              <div class="g-unit g-first"><h2>RPC Call Traces</h2></div>
+              <div class="g-unit" id="ae-rpc-expand-all"></div>
+            </div>
+          </div>
+          <table cellspacing="0" cellpadding="0" class="ae-table" id="ae-table-rpc">
+            <thead>
+              <tr>
+                <th>RPC</th>
+              </tr>
+            </thead>
+            {% for t in record.individual_stats_list %}
+            <tbody id="rpc{{forloop.counter}}">
+              <tr>
+                <td>
+                  <span class="goog-inline-block ae-zippy ae-zippy-expand" id="ae-path-requests-{{forloop.counter}}"></span>
+                  @{{t.start_offset_milliseconds}}ms
+                  <b>{{t.service_call_name|escape}}</b>
+                  real={{t.duration_milliseconds}}ms
+                  api={{t.api_milliseconds}}ms
+                </td>
+              </tr>
+            </tbody>
+            <tbody>
+              {% if t.request_data_summary %}
+              <tr>
+                <td style="padding-left: 20px"><b>Request:</b> {{t.request_data_summary|escape}}</td>
+              </tr>
+              {% endif %}
+              {% if t.response_data_summary %}
+              <tr>
+                <td style="padding-left: 20px"><b>Response:</b> {{t.response_data_summary|escape}}</td>
+              </tr>
+              {% endif %}
+              {% if t.call_stack_size %}
+              <tr>
+                <td style="padding-left: 20px"><b>Stack:</b></td>
+              </tr>
+              {% for f in t.call_stack_list %}
+                <tr>
+                  <td style="padding-left: 40px">
+              <span  style="padding-left: 12px; text-indent: -12px" class="goog-inline-block ae-zippy-expand" id="ae-head-stack-{{forloop.parentloop.counter}}-{{forloop.counter}}">&nbsp;</span>
+                    {% if file_url %}<a href="{{file_url}}?f={{f.class_or_file_name|escape}}&n={{f.line_number}}#n{{f.line_number|add:"-10"}}">{% endif %} {{f.class_or_file_name|escape}}:{{f.line_number}}{% if file_url %}</a>{% endif %} {{f.function_name|escape}}()
+                  </td>
+                </tr>
+                {% if f.variables_size %}
+                  <tr id="ae-body-stack-{{forloop.parentloop.counter}}-{{forloop.counter}}">
+                    <td style="padding-left: 60px">{% for item in f.variables_list %}{{item.key|escape}} = {{item.value|escape}}<br>{% endfor %}
+                    </td>
+                  </tr>
+                {% endif %}{# f.variables_size #}
+              {% endfor %}{# t.call_stack_list #}
+              {% endif %}{# t.call_stack_size #}
+            </tbody>
+            {% endfor %}{# record.individual_stats_list #}
+          </table>
+        </div>
+      {% endif %}{# traces #}
+    {% endif %}
+  </div>
+
+  {% if rpcstats_by_count %}
+    <div id="ae-stats-details-rpcstats">
+      <h2>RPC Stats</h2>
+      <table cellspacing="0" cellpadding="0" class="ae-table" id="ae-table-rpcstats">
+        <tbody>
+          <tr>
+            <td>service.call</td>
+            <td align="right">#RPCs</td>
+            <td align="right">real time</td>
+            <td align="right">api time</td>
+          </tr>
+          {% for item in rpcstats_by_count %}
+          <tr>
+            <td>{{item.0|escape}}</td>
+            <td align="right">{{item.1|escape}}</td>
+            <td align="right">{{item.2}}ms</td>
+            <td align="right">{{item.3}}ms</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}{# rpcstats_by_count #}
+
+  {% if record.cgi_env_size %}
+    <div id="ae-stats-details-cgienv">
+      <h2>CGI Environment</h2>
+      <table cellspacing="0" cellpadding="0" class="ae-table" id="ae-table-cgienv">
+        <tbody>
+          {% for item in record.cgi_env_list %}
+          <tr>
+            <td align="right" valign="top">{{item.key|escape}}=</td>
+            <td valign="top">{{item.value|escape}}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}{# record.cgi_env_size #}
+
+  {% if sys.path %}
+    <div id="ae-stats-details-syspath">
+      <h2>sys.path</h2>
+      <table cellspacing="0" cellpadding="0" class="ae-table" id="ae-table-syspath">
+        <tbody>
+          <tr>
+            <td colspan="2">
+              <i>Note:</i> sys.path is not saved with the request;
+              this is the <i>current</i> sys.path.
+            </td>
+          </tr>
+          <tr>
+          </tr>
+          {% for item in sys.path %}
+          <tr>
+            <td align="right" valign="top">{{forloop.counter0}}:</td>
+            <td valign="top">{{item|escape}}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}{# sys.path #}
+
+{% endblock %}
+
+{% block tailstuff %}
+<script>
+var rpcZippyMaker = new ae.Stats.MakeZippys('ae-table-rpc',
+    'ae-rpc-expand-all');
+var rpcZippys = rpcZippyMaker.getZippys();
+{% for t in record.individual_stats_list %}
+  {% for f in t.call_stack_list %}
+    {% if f.variables_size %}
+      new goog.ui.Zippy(
+          'ae-head-stack-{{forloop.parentloop.counter}}-{{forloop.counter}}',
+          'ae-body-stack-{{forloop.parentloop.counter}}-{{forloop.counter}}',
+          false);
+    {% endif %}
+  {% endfor %}
+{% endfor %}
+</script>
+<script>
+var detailsTabs_ = new ae.Stats.Details.Tabs(['timeline', 'rpcstats',
+    'cgienv', 'syspath']);
+</script>
+<script>
+function timelineClickHandler(zippyIndex, hash) {
+  rpcZippyMaker.getExpandCollapse().setExpanded(false);
+  rpcZippys[zippyIndex].setExpanded(true);
+
+  var headlineIndex = parseInt(zippyIndex, 10) + 1;
+  var zippyLine = document.getElementById('ae-path-requests-' + headlineIndex);
+  zippyLine.scrollIntoView(true);
+}
+function renderChart() {
+  var chart = new Gantt();
+  {% for t in record.individual_stats_list %}
+    chart.add_bar('{{t.service_call_name|escape}}',
+        {{t.start_offset_milliseconds}}, {{t.duration_milliseconds}},
+        {{t.api_milliseconds}},
+        '{{t.duration_milliseconds}}ms{% if t.api_milliseconds %} ({{t.api_milliseconds}}ms api){% endif %}',
+        'javascript:timelineClickHandler(\'{{forloop.counter0}}\');');
+  {% endfor %}
+
+  chart.add_bar('<b>RPC Total</b>', 0, {{real_total}}, {{api_total}},
+      '{{real_total}}ms{% if api_total %} ({{api_total}}ms api){% endif %}',
+      '');
+  chart.add_bar('<b>Grand Total</b>', 0, {{record.duration_milliseconds}},
+      {{charged_total}},
+      '{{record.duration_milliseconds}}ms{% if charged_total %} ({{charged_total}}ms cpu+api){% endif %}', '');
+  document.getElementById('ae-rpc-chart').innerHTML = chart.draw();
+}
+renderChart();
+</script>
+{% endblock %}
