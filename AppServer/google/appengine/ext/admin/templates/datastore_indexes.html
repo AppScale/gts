@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}{{ application_name }} Development Console - Datastore Indexes{% endblock %}
+
+{% block head %}
+  <style type="text/css">{% include "css/ae.css" %}</style>
+  <style type="text/css">{% include "css/datastore.css" %}</style>
+  <style type="text/css">{% include "css/datastore_indexes.css" %}</style>
+  <script type="text/javascript">
+  //<![CDATA[
+
+  //]]>
+  </script>
+{% endblock %}
+{% block body %}
+  {% if indexes %}
+    <p>
+    Below are indexes for the application.
+    Indexes are managed in an index.yaml file<br/>
+    Learn more about
+    <a href="http://code.google.com/appengine/kb/general.html#indexes" target="_blank">indexes</a>
+    </p>
+    <table id="ah-indexes" class="ae-table">
+      <colgroup>
+      <col>
+        <col id="ae-datastore-index-status-col">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Entity and Indexes</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for kind_indexes in indexes %}
+        <tr class="{% if forloop.counter|divisibleby:2 %}ae-even{% else %}ae-odd{% endif %}">
+          <td colspan="2" class="ae-datastore-index-name">{{ kind_indexes.0 }}</td>
+        </tr>
+        {% for kind_index in kind_indexes.1 %}
+          <tr class="ae-datastore-index-defs-row {% if forloop.parentloop.counter|divisibleby:2 %}ae-even{% else %}ae-odd{% endif %}"/>
+            <td class="ae-datastore-index-defs" valign="top">
+              &nbsp;&nbsp;&nbsp;
+              {% for property in kind_index.properties %}
+                {{ property.name }}
+                <span class="ae-unimportant" title="{{ property.sort_direction }}">{{ property.sort_symbol|safe }}</span>
+              {% endfor %}&nbsp;
+              {% if kind_index.has_ancestor %}
+                <div class="ae-unimportant">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Includes ancestors</div>
+              {% endif %}
+            </td>
+            <td>
+              <div class="ae-datastore-index-status">
+                <strong>{{ kind_index.status }}</strong>
+                <div class="ae-nowrap ae-field-hint"></div>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p id="no_kind" style="font-size: medium">
+      Datastore contains no indexes.
+    </p>
+  {% endif %}
+{% endblock %}

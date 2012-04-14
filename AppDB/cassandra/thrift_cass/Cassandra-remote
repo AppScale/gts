@@ -21,26 +21,34 @@ if len(sys.argv) <= 1 or sys.argv[1] == '--help':
   print 'Usage: ' + sys.argv[0] + ' [-h host:port] [-u url] [-f[ramed]] function [arg1 [arg2...]]'
   print ''
   print 'Functions:'
-  print '  void login(string keyspace, AuthenticationRequest auth_request)'
-  print '  ColumnOrSuperColumn get(string keyspace, string key, ColumnPath column_path, ConsistencyLevel consistency_level)'
-  print '   get_slice(string keyspace, string key, ColumnParent column_parent, SlicePredicate predicate, ConsistencyLevel consistency_level)'
-  print '   multiget(string keyspace,  keys, ColumnPath column_path, ConsistencyLevel consistency_level)'
-  print '   multiget_slice(string keyspace,  keys, ColumnParent column_parent, SlicePredicate predicate, ConsistencyLevel consistency_level)'
-  print '  i32 get_count(string keyspace, string key, ColumnParent column_parent, ConsistencyLevel consistency_level)'
-  print '   get_range_slice(string keyspace, ColumnParent column_parent, SlicePredicate predicate, string start_key, string finish_key, i32 row_count, ConsistencyLevel consistency_level)'
-  print '   get_range_slices(string keyspace, ColumnParent column_parent, SlicePredicate predicate, KeyRange range, ConsistencyLevel consistency_level)'
-  print '  void insert(string keyspace, string key, ColumnPath column_path, string value, i64 timestamp, ConsistencyLevel consistency_level)'
-  print '  void batch_insert(string keyspace, string key,  cfmap, ConsistencyLevel consistency_level)'
-  print '  void remove(string keyspace, string key, ColumnPath column_path, i64 timestamp, ConsistencyLevel consistency_level)'
-  print '  void batch_mutate(string keyspace,  mutation_map, ConsistencyLevel consistency_level)'
-  print '  string get_string_property(string property)'
-  print '   get_string_list_property(string property)'
+  print '  void login(AuthenticationRequest auth_request)'
+  print '  void set_keyspace(string keyspace)'
+  print '  ColumnOrSuperColumn get(string key, ColumnPath column_path, ConsistencyLevel consistency_level)'
+  print '   get_slice(string key, ColumnParent column_parent, SlicePredicate predicate, ConsistencyLevel consistency_level)'
+  print '  i32 get_count(string key, ColumnParent column_parent, SlicePredicate predicate, ConsistencyLevel consistency_level)'
+  print '   multiget_slice( keys, ColumnParent column_parent, SlicePredicate predicate, ConsistencyLevel consistency_level)'
+  print '   multiget_count( keys, ColumnParent column_parent, SlicePredicate predicate, ConsistencyLevel consistency_level)'
+  print '   get_range_slices(ColumnParent column_parent, SlicePredicate predicate, KeyRange range, ConsistencyLevel consistency_level)'
+  print '   get_indexed_slices(ColumnParent column_parent, IndexClause index_clause, SlicePredicate column_predicate, ConsistencyLevel consistency_level)'
+  print '  void insert(string key, ColumnParent column_parent, Column column, ConsistencyLevel consistency_level)'
+  print '  void remove(string key, ColumnPath column_path, i64 timestamp, ConsistencyLevel consistency_level)'
+  print '  void batch_mutate( mutation_map, ConsistencyLevel consistency_level)'
+  print '  void truncate(string cfname)'
+  print '   describe_schema_versions()'
   print '   describe_keyspaces()'
   print '  string describe_cluster_name()'
   print '  string describe_version()'
   print '   describe_ring(string keyspace)'
-  print '   describe_keyspace(string keyspace)'
-  print '   describe_splits(string start_token, string end_token, i32 keys_per_split)'
+  print '  string describe_partitioner()'
+  print '  string describe_snitch()'
+  print '  KsDef describe_keyspace(string keyspace)'
+  print '   describe_splits(string cfName, string start_token, string end_token, i32 keys_per_split)'
+  print '  string system_add_column_family(CfDef cf_def)'
+  print '  string system_drop_column_family(string column_family)'
+  print '  string system_add_keyspace(KsDef ks_def)'
+  print '  string system_drop_keyspace(string keyspace)'
+  print '  string system_update_keyspace(KsDef ks_def)'
+  print '  string system_update_column_family(CfDef cf_def)'
   print ''
   sys.exit(0)
 
@@ -53,20 +61,22 @@ http = False
 argi = 1
 
 if sys.argv[argi] == '-h':
-  parts = sys.argv[argi+1].split(':') 
+  parts = sys.argv[argi+1].split(':')
   host = parts[0]
   port = int(parts[1])
   argi += 2
 
 if sys.argv[argi] == '-u':
   url = urlparse(sys.argv[argi+1])
-  parts = url[1].split(':') 
+  parts = url[1].split(':')
   host = parts[0]
   if len(parts) > 1:
     port = int(parts[1])
   else:
     port = 80
   uri = url[2]
+  if url[4]:
+    uri += '?%s' % url[4]
   http = True
   argi += 2
 
@@ -90,88 +100,88 @@ client = Cassandra.Client(protocol)
 transport.open()
 
 if cmd == 'login':
-  if len(args) != 2:
-    print 'login requires 2 args'
+  if len(args) != 1:
+    print 'login requires 1 args'
     sys.exit(1)
-  pp.pprint(client.login(args[0],eval(args[1]),))
+  pp.pprint(client.login(eval(args[0]),))
+
+elif cmd == 'set_keyspace':
+  if len(args) != 1:
+    print 'set_keyspace requires 1 args'
+    sys.exit(1)
+  pp.pprint(client.set_keyspace(args[0],))
 
 elif cmd == 'get':
-  if len(args) != 4:
-    print 'get requires 4 args'
+  if len(args) != 3:
+    print 'get requires 3 args'
     sys.exit(1)
-  pp.pprint(client.get(args[0],args[1],eval(args[2]),eval(args[3]),))
+  pp.pprint(client.get(args[0],eval(args[1]),eval(args[2]),))
 
 elif cmd == 'get_slice':
-  if len(args) != 5:
-    print 'get_slice requires 5 args'
-    sys.exit(1)
-  pp.pprint(client.get_slice(args[0],args[1],eval(args[2]),eval(args[3]),eval(args[4]),))
-
-elif cmd == 'multiget':
   if len(args) != 4:
-    print 'multiget requires 4 args'
+    print 'get_slice requires 4 args'
     sys.exit(1)
-  pp.pprint(client.multiget(args[0],eval(args[1]),eval(args[2]),eval(args[3]),))
-
-elif cmd == 'multiget_slice':
-  if len(args) != 5:
-    print 'multiget_slice requires 5 args'
-    sys.exit(1)
-  pp.pprint(client.multiget_slice(args[0],eval(args[1]),eval(args[2]),eval(args[3]),eval(args[4]),))
+  pp.pprint(client.get_slice(args[0],eval(args[1]),eval(args[2]),eval(args[3]),))
 
 elif cmd == 'get_count':
   if len(args) != 4:
     print 'get_count requires 4 args'
     sys.exit(1)
-  pp.pprint(client.get_count(args[0],args[1],eval(args[2]),eval(args[3]),))
+  pp.pprint(client.get_count(args[0],eval(args[1]),eval(args[2]),eval(args[3]),))
 
-elif cmd == 'get_range_slice':
-  if len(args) != 7:
-    print 'get_range_slice requires 7 args'
+elif cmd == 'multiget_slice':
+  if len(args) != 4:
+    print 'multiget_slice requires 4 args'
     sys.exit(1)
-  pp.pprint(client.get_range_slice(args[0],eval(args[1]),eval(args[2]),args[3],args[4],eval(args[5]),eval(args[6]),))
+  pp.pprint(client.multiget_slice(eval(args[0]),eval(args[1]),eval(args[2]),eval(args[3]),))
+
+elif cmd == 'multiget_count':
+  if len(args) != 4:
+    print 'multiget_count requires 4 args'
+    sys.exit(1)
+  pp.pprint(client.multiget_count(eval(args[0]),eval(args[1]),eval(args[2]),eval(args[3]),))
 
 elif cmd == 'get_range_slices':
-  if len(args) != 5:
-    print 'get_range_slices requires 5 args'
+  if len(args) != 4:
+    print 'get_range_slices requires 4 args'
     sys.exit(1)
-  pp.pprint(client.get_range_slices(args[0],eval(args[1]),eval(args[2]),eval(args[3]),eval(args[4]),))
+  pp.pprint(client.get_range_slices(eval(args[0]),eval(args[1]),eval(args[2]),eval(args[3]),))
+
+elif cmd == 'get_indexed_slices':
+  if len(args) != 4:
+    print 'get_indexed_slices requires 4 args'
+    sys.exit(1)
+  pp.pprint(client.get_indexed_slices(eval(args[0]),eval(args[1]),eval(args[2]),eval(args[3]),))
 
 elif cmd == 'insert':
-  if len(args) != 6:
-    print 'insert requires 6 args'
-    sys.exit(1)
-  pp.pprint(client.insert(args[0],args[1],eval(args[2]),args[3],eval(args[4]),eval(args[5]),))
-
-elif cmd == 'batch_insert':
   if len(args) != 4:
-    print 'batch_insert requires 4 args'
+    print 'insert requires 4 args'
     sys.exit(1)
-  pp.pprint(client.batch_insert(args[0],args[1],eval(args[2]),eval(args[3]),))
+  pp.pprint(client.insert(args[0],eval(args[1]),eval(args[2]),eval(args[3]),))
 
 elif cmd == 'remove':
-  if len(args) != 5:
-    print 'remove requires 5 args'
+  if len(args) != 4:
+    print 'remove requires 4 args'
     sys.exit(1)
-  pp.pprint(client.remove(args[0],args[1],eval(args[2]),eval(args[3]),eval(args[4]),))
+  pp.pprint(client.remove(args[0],eval(args[1]),eval(args[2]),eval(args[3]),))
 
 elif cmd == 'batch_mutate':
-  if len(args) != 3:
-    print 'batch_mutate requires 3 args'
+  if len(args) != 2:
+    print 'batch_mutate requires 2 args'
     sys.exit(1)
-  pp.pprint(client.batch_mutate(args[0],eval(args[1]),eval(args[2]),))
+  pp.pprint(client.batch_mutate(eval(args[0]),eval(args[1]),))
 
-elif cmd == 'get_string_property':
+elif cmd == 'truncate':
   if len(args) != 1:
-    print 'get_string_property requires 1 args'
+    print 'truncate requires 1 args'
     sys.exit(1)
-  pp.pprint(client.get_string_property(args[0],))
+  pp.pprint(client.truncate(args[0],))
 
-elif cmd == 'get_string_list_property':
-  if len(args) != 1:
-    print 'get_string_list_property requires 1 args'
+elif cmd == 'describe_schema_versions':
+  if len(args) != 0:
+    print 'describe_schema_versions requires 0 args'
     sys.exit(1)
-  pp.pprint(client.get_string_list_property(args[0],))
+  pp.pprint(client.describe_schema_versions())
 
 elif cmd == 'describe_keyspaces':
   if len(args) != 0:
@@ -197,6 +207,18 @@ elif cmd == 'describe_ring':
     sys.exit(1)
   pp.pprint(client.describe_ring(args[0],))
 
+elif cmd == 'describe_partitioner':
+  if len(args) != 0:
+    print 'describe_partitioner requires 0 args'
+    sys.exit(1)
+  pp.pprint(client.describe_partitioner())
+
+elif cmd == 'describe_snitch':
+  if len(args) != 0:
+    print 'describe_snitch requires 0 args'
+    sys.exit(1)
+  pp.pprint(client.describe_snitch())
+
 elif cmd == 'describe_keyspace':
   if len(args) != 1:
     print 'describe_keyspace requires 1 args'
@@ -204,9 +226,49 @@ elif cmd == 'describe_keyspace':
   pp.pprint(client.describe_keyspace(args[0],))
 
 elif cmd == 'describe_splits':
-  if len(args) != 3:
-    print 'describe_splits requires 3 args'
+  if len(args) != 4:
+    print 'describe_splits requires 4 args'
     sys.exit(1)
-  pp.pprint(client.describe_splits(args[0],args[1],eval(args[2]),))
+  pp.pprint(client.describe_splits(args[0],args[1],args[2],eval(args[3]),))
+
+elif cmd == 'system_add_column_family':
+  if len(args) != 1:
+    print 'system_add_column_family requires 1 args'
+    sys.exit(1)
+  pp.pprint(client.system_add_column_family(eval(args[0]),))
+
+elif cmd == 'system_drop_column_family':
+  if len(args) != 1:
+    print 'system_drop_column_family requires 1 args'
+    sys.exit(1)
+  pp.pprint(client.system_drop_column_family(args[0],))
+
+elif cmd == 'system_add_keyspace':
+  if len(args) != 1:
+    print 'system_add_keyspace requires 1 args'
+    sys.exit(1)
+  pp.pprint(client.system_add_keyspace(eval(args[0]),))
+
+elif cmd == 'system_drop_keyspace':
+  if len(args) != 1:
+    print 'system_drop_keyspace requires 1 args'
+    sys.exit(1)
+  pp.pprint(client.system_drop_keyspace(args[0],))
+
+elif cmd == 'system_update_keyspace':
+  if len(args) != 1:
+    print 'system_update_keyspace requires 1 args'
+    sys.exit(1)
+  pp.pprint(client.system_update_keyspace(eval(args[0]),))
+
+elif cmd == 'system_update_column_family':
+  if len(args) != 1:
+    print 'system_update_column_family requires 1 args'
+    sys.exit(1)
+  pp.pprint(client.system_update_column_family(eval(args[0]),))
+
+else:
+  print 'Unrecognized method %s' % cmd
+  sys.exit(1)
 
 transport.close()

@@ -13,11 +13,17 @@ module ApplicationHelper
   end
 
   def user_email
-    return nil if cookies[:dev_appserver_login].nil
+    return nil if cookies[:dev_appserver_login].nil?
 
     cookie_val = cookies[:dev_appserver_login]
     tokens = cookie_val.split(":")
-    return nil if tokens.length != 4 # guard against user-crafted cookies
+    if tokens.length != 4
+      # guard against user-crafted cookies
+      Rails.logger.info "saw a malformed cookie: [#{cookie_val}] - clearing it out"
+      cookies[:dev_appserver_login] = { :value => nil, :domain => UserTools.local_ip, :expires => Time.at(0) }
+      return nil
+    end
+
     email, nick, admin, hash = tokens
 
     return email

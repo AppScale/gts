@@ -251,7 +251,7 @@ class APIProxyStubMap(object):
       service: string
       stub: stub
     """
-    assert not self.__stub_map.has_key(service), repr(service)
+    #assert not self.__stub_map.has_key(service), repr(service)
     self.__stub_map[service] = stub
 
 

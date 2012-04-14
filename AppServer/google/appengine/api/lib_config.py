@@ -84,9 +84,13 @@ __all__ = ['DEFAULT_MODNAME',
 import logging
 import os
 import sys
+import threading
 
 
 DEFAULT_MODNAME = 'appengine_config'
+
+
+
 
 
 class LibConfigRegistry(object):
@@ -105,6 +109,7 @@ class LibConfigRegistry(object):
     self._modname = modname
     self._registrations = {}
     self._module = None
+    self._lock = threading.RLock()
 
   def register(self, prefix, mapping):
     """Register a set of configuration names.
@@ -122,10 +127,14 @@ class LibConfigRegistry(object):
     """
     if not prefix.endswith('_'):
       prefix += '_'
-    handle = self._registrations.get(prefix)
-    if handle is None:
-      handle = ConfigHandle(prefix, self)
-      self._registrations[prefix] = handle
+    self._lock.acquire()
+    try:
+      handle = self._registrations.get(prefix)
+      if handle is None:
+        handle = ConfigHandle(prefix, self)
+        self._registrations[prefix] = handle
+    finally:
+      self._lock.release()
     handle._update_defaults(mapping)
     return handle
 
@@ -146,19 +155,41 @@ class LibConfigRegistry(object):
     Args:
       import_func: Used for dependency injection.
     """
-    if (self._module is not None and
-        self._module is sys.modules.get(self._modname)):
-      return
+    self._lock.acquire()
     try:
-      import_func(self._modname)
-    except ImportError, err:
-      if str(err) != 'No module named %s' % self._modname:
+      if (self._module is not None and
+          self._module is sys.modules.get(self._modname)):
+        return
+      try:
+        import_func(self._modname)
+      except ImportError, err:
+        if str(err) != 'No module named %s' % self._modname:
 
-        raise
-      self._module = object()
-      sys.modules[self._modname] = self._module
-    else:
-      self._module = sys.modules[self._modname]
+          raise
+        self._module = object()
+        sys.modules[self._modname] = self._module
+      else:
+        self._module = sys.modules[self._modname]
+    finally:
+      self._lock.release()
+
+  def reset(self):
+    """Drops the imported config module.
+
+    If the config module has not been imported then this is a no-op.
+    """
+    self._lock.acquire()
+    try:
+      if self._module is None:
+
+        return
+
+      self._module = None
+      handles = self._registrations.values()
+    finally:
+      self._lock.release()
+    for handle in handles:
+      handle._clear_cache()
 
   def _pairs(self, prefix):
     """Generate (key, value) pairs from the config module matching prefix.
@@ -170,26 +201,37 @@ class LibConfigRegistry(object):
       (key, value) pairs where key is the configuration name with
       prefix removed, and value is the corresponding value.
     """
-    mapping = getattr(self._module, '__dict__', None)
-    if not mapping:
-      return
+    self._lock.acquire()
+    try:
+      mapping = getattr(self._module, '__dict__', None)
+      if not mapping:
+        return
+      items = mapping.items()
+    finally:
+      self._lock.release()
     nskip = len(prefix)
-    for key, value in mapping.iteritems():
+    for key, value in items:
       if key.startswith(prefix):
         yield key[nskip:], value
 
   def _dump(self):
     """Print info about all registrations to stdout."""
     self.initialize()
-    if not hasattr(self._module, '__dict__'):
-      print 'Module %s.py does not exist.' % self._modname
-    elif not self._registrations:
-      print 'No registrations for %s.py.' % self._modname
-    else:
-      print 'Registrations in %s.py:' % self._modname
-      print '-'*40
-      for prefix in sorted(self._registrations):
-        self._registrations[prefix]._dump()
+    handles = []
+    self._lock.acquire()
+    try:
+      if not hasattr(self._module, '__dict__'):
+        print 'Module %s.py does not exist.' % self._modname
+      elif not self._registrations:
+        print 'No registrations for %s.py.' % self._modname
+      else:
+        print 'Registrations in %s.py:' % self._modname
+        print '-'*40
+        handles = self._registrations.items()
+    finally:
+      self._lock.release()
+    for _, handle in sorted(handles):
+      handle._dump()
 
 
 class ConfigHandle(object):
@@ -215,6 +257,7 @@ class ConfigHandle(object):
     self._defaults = {}
     self._overrides = {}
     self._registry = registry
+    self._lock = threading.RLock()
 
   def _update_defaults(self, mapping):
     """Update the default mappings.
@@ -222,12 +265,16 @@ class ConfigHandle(object):
     Args:
       mapping: A dict mapping suffix strings to default values.
     """
-    for key, value in mapping.iteritems():
-      if key.startswith('__') and key.endswith('__'):
-        continue
-      self._defaults[key] = value
-    if self._initialized:
-      self._update_configs()
+    self._lock.acquire()
+    try:
+      for key, value in mapping.iteritems():
+        if key.startswith('__') and key.endswith('__'):
+          continue
+        self._defaults[key] = value
+      if self._initialized:
+        self._update_configs()
+    finally:
+      self._lock.release()
 
   def _update_configs(self):
     """Update the configuration values.
@@ -235,40 +282,53 @@ class ConfigHandle(object):
     This clears the cached values, initializes the registry, and loads
     the configuration values from the config module.
     """
-    if self._initialized:
-      self._clear_cache()
-    self._registry.initialize()
-    for key, value in self._registry._pairs(self._prefix):
-      if key not in self._defaults:
-        logging.warn('Configuration "%s" not recognized', self._prefix + key)
-      else:
-        self._overrides[key] = value
-    self._initialized = True
+    self._lock.acquire()
+    try:
+      if self._initialized:
+        self._clear_cache()
+      self._registry.initialize()
+      for key, value in self._registry._pairs(self._prefix):
+        if key not in self._defaults:
+          logging.warn('Configuration "%s" not recognized', self._prefix + key)
+        else:
+          self._overrides[key] = value
+      self._initialized = True
+    finally:
+      self._lock.release()
 
   def _clear_cache(self):
     """Clear the cached values."""
-    for key in self._defaults:
-      try:
-        delattr(self, key)
-      except AttributeError:
-        pass
+    self._lock.acquire()
+    try:
+      self._initialized = False
+      for key in self._defaults:
+        try:
+          delattr(self, key)
+        except AttributeError:
+          pass
+    finally:
+      self._lock.release()
 
   def _dump(self):
     """Print info about this set of registrations to stdout."""
-    print 'Prefix %s:' % self._prefix
-    if self._overrides:
-      print '  Overrides:'
-      for key in sorted(self._overrides):
-        print '    %s = %r' % (key, self._overrides[key])
-    else:
-      print '  No overrides'
-    if self._defaults:
-      print '  Defaults:'
-      for key in sorted(self._defaults):
-        print '    %s = %r' % (key, self._defaults[key])
-    else:
-      print '  No defaults'
-    print '-'*40
+    self._lock.acquire()
+    try:
+      print 'Prefix %s:' % self._prefix
+      if self._overrides:
+        print '  Overrides:'
+        for key in sorted(self._overrides):
+          print '    %s = %r' % (key, self._overrides[key])
+      else:
+        print '  No overrides'
+      if self._defaults:
+        print '  Defaults:'
+        for key in sorted(self._defaults):
+          print '    %s = %r' % (key, self._defaults[key])
+      else:
+        print '  No defaults'
+      print '-'*40
+    finally:
+      self._lock.release()
 
   def __getattr__(self, suffix):
     """Dynamic attribute access.
@@ -286,17 +346,21 @@ class ConfigHandle(object):
     The value returned taken either from the config module or from the
     registered default.
     """
-    if not self._initialized:
-      self._update_configs()
-    if suffix in self._overrides:
-      value = self._overrides[suffix]
-    elif suffix in self._defaults:
-      value = self._defaults[suffix]
-    else:
-      raise AttributeError(suffix)
+    self._lock.acquire()
+    try:
+      if not self._initialized:
+        self._update_configs()
+      if suffix in self._overrides:
+        value = self._overrides[suffix]
+      elif suffix in self._defaults:
+        value = self._defaults[suffix]
+      else:
+        raise AttributeError(suffix)
 
-    setattr(self, suffix, value)
-    return value
+      setattr(self, suffix, value)
+      return value
+    finally:
+      self._lock.release()
 
 
 

@@ -41,7 +41,6 @@ from google.appengine.api import datastore_errors
 from google.appengine.api import datastore_types
 from google.appengine.runtime import apiproxy_errors
 from google.appengine.api.blobstore import blobstore_service_pb
-import logging
 __all__ = ['DatastoreBlobStorage']
 
 _BLOB_CHUNK_KIND_ = "__BlobChunk__"
@@ -58,7 +57,6 @@ class DatastoreBlobStorage(blobstore_stub.BlobStorage):
     """
     self._storage_path = blobstore_path
     self._app_id = app_id
-    logging.info("App id:%s"%(app_id))
   @classmethod
   def _BlobKey(cls, blob_key):
     """Normalize to instance of BlobKey."""

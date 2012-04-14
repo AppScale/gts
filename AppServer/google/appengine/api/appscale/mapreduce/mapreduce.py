@@ -2,10 +2,10 @@
 
 import os
 import re
-from google.appengine.api import SOAPpy
 import sys
 import time
 import urllib
+import yaml
 from google.appengine.api import users
 
 APPSCALE_HOME = os.environ.get("APPSCALE_HOME")
@@ -13,6 +13,7 @@ HADOOP_VER = "0.20.2"
 HADOOP_HOME = APPSCALE_HOME + "/AppDB/hadoop-"+HADOOP_VER + "/"
 HADOOP_BIN = APPSCALE_HOME + "/AppDB/hadoop-"+HADOOP_VER + "/bin/hadoop"
 HADOOP_STREAMING = HADOOP_HOME + "/contrib/streaming/hadoop-"+HADOOP_VER+"-streaming.jar"
+DBS_W_HADOOP = ["hbase", "hypertable"]
 
 """
   AppScale MapReduce API: Offers App Engine users the ability to call
@@ -20,7 +21,26 @@ HADOOP_STREAMING = HADOOP_HOME + "/contrib/streaming/hadoop-"+HADOOP_VER+"-strea
   We should expand the supported languages at some point - right now the list
   is short but many languages should be able to run with minimal effort.
 """
-#TODO make this into a class like the other APIs
+
+# right now we only start hadoop automatically for hbase and hypertable, so
+# users can only run mr jobs if those DBs are running.
+# TODO: it could be the case that the jobtracker or hdfs has failed
+# and we will erroneously say mr is available
+# so in the future, change this to something more sophisticated
+# e.g., poll hdfs and jobtracker, or parse the internal web pages they put up
+
+def can_run_jobs():
+  stream = file("/etc/appscale/database_info.yaml", 'r')
+  contents = yaml.load(stream)
+  try:
+    database = contents[':table']
+    if database in DBS_W_HADOOP:
+      return True
+    else:
+      return False
+  except KeyError:
+    return False
+
 def getLang(file):
   supportedExtensions = {
     "rb" : "ruby",

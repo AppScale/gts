@@ -24,6 +24,13 @@ import dummy_thread as thread
 __pychecker__ = """maxreturns=0 maxbranches=0 no-callinit
                    unusednames=printElemNumber,debug_strs no-special"""
 
+if hasattr(ProtocolBuffer, 'ExtendableProtocolMessage'):
+  _extension_runtime = True
+  _ExtendableProtocolMessage = ProtocolBuffer.ExtendableProtocolMessage
+else:
+  _extension_runtime = False
+  _ExtendableProtocolMessage = ProtocolBuffer.ProtocolMessage
+
 class MemcacheServiceError(ProtocolBuffer.ProtocolMessage):
 
 
@@ -107,6 +114,7 @@ class MemcacheServiceError(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.MemcacheServiceError'
 class AppOverride(ProtocolBuffer.ProtocolMessage):
   has_app_id_ = 0
   app_id_ = ""
@@ -245,6 +253,7 @@ class AppOverride(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.AppOverride'
 class MemcacheGetRequest(ProtocolBuffer.ProtocolMessage):
   has_name_space_ = 0
   name_space_ = ""
@@ -466,6 +475,7 @@ class MemcacheGetRequest(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.MemcacheGetRequest'
 class MemcacheGetResponse_Item(ProtocolBuffer.ProtocolMessage):
   has_key_ = 0
   key_ = ""
@@ -801,6 +811,7 @@ class MemcacheGetResponse(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.MemcacheGetResponse'
 class MemcacheSetRequest_Item(ProtocolBuffer.ProtocolMessage):
   has_key_ = 0
   key_ = ""
@@ -1305,6 +1316,7 @@ class MemcacheSetRequest(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.MemcacheSetRequest'
 class MemcacheSetResponse(ProtocolBuffer.ProtocolMessage):
 
 
@@ -1425,6 +1437,7 @@ class MemcacheSetResponse(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.MemcacheSetResponse'
 class MemcacheDeleteRequest_Item(ProtocolBuffer.ProtocolMessage):
   has_key_ = 0
   key_ = ""
@@ -1737,6 +1750,7 @@ class MemcacheDeleteRequest(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.MemcacheDeleteRequest'
 class MemcacheDeleteResponse(ProtocolBuffer.ProtocolMessage):
 
 
@@ -1853,6 +1867,7 @@ class MemcacheDeleteResponse(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.MemcacheDeleteResponse'
 class MemcacheIncrementRequest(ProtocolBuffer.ProtocolMessage):
 
 
@@ -2185,6 +2200,7 @@ class MemcacheIncrementRequest(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.MemcacheIncrementRequest'
 class MemcacheIncrementResponse(ProtocolBuffer.ProtocolMessage):
 
 
@@ -2328,6 +2344,7 @@ class MemcacheIncrementResponse(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.MemcacheIncrementResponse'
 class MemcacheBatchIncrementRequest(ProtocolBuffer.ProtocolMessage):
   has_name_space_ = 0
   name_space_ = ""
@@ -2525,6 +2542,7 @@ class MemcacheBatchIncrementRequest(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.MemcacheBatchIncrementRequest'
 class MemcacheBatchIncrementResponse(ProtocolBuffer.ProtocolMessage):
 
   def __init__(self, contents=None):
@@ -2638,6 +2656,7 @@ class MemcacheBatchIncrementResponse(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.MemcacheBatchIncrementResponse'
 class MemcacheFlushRequest(ProtocolBuffer.ProtocolMessage):
   has_override_ = 0
   override_ = None
@@ -2748,6 +2767,7 @@ class MemcacheFlushRequest(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.MemcacheFlushRequest'
 class MemcacheFlushResponse(ProtocolBuffer.ProtocolMessage):
 
   def __init__(self, contents=None):
@@ -2812,6 +2832,7 @@ class MemcacheFlushResponse(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.MemcacheFlushResponse'
 class MemcacheStatsRequest(ProtocolBuffer.ProtocolMessage):
   has_override_ = 0
   override_ = None
@@ -2922,6 +2943,7 @@ class MemcacheStatsRequest(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.MemcacheStatsRequest'
 class MergedNamespaceStats(ProtocolBuffer.ProtocolMessage):
   has_hits_ = 0
   hits_ = 0
@@ -3214,6 +3236,7 @@ class MergedNamespaceStats(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.MergedNamespaceStats'
 class MemcacheStatsResponse(ProtocolBuffer.ProtocolMessage):
   has_stats_ = 0
   stats_ = None
@@ -3324,6 +3347,7 @@ class MemcacheStatsResponse(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.MemcacheStatsResponse'
 class MemcacheGrabTailRequest(ProtocolBuffer.ProtocolMessage):
   has_item_count_ = 0
   item_count_ = 0
@@ -3507,6 +3531,7 @@ class MemcacheGrabTailRequest(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.MemcacheGrabTailRequest'
 class MemcacheGrabTailResponse_Item(ProtocolBuffer.ProtocolMessage):
   has_value_ = 0
   value_ = ""
@@ -3735,5 +3760,8 @@ class MemcacheGrabTailResponse(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.MemcacheGrabTailResponse'
+if _extension_runtime:
+  pass
 
 __all__ = ['MemcacheServiceError','AppOverride','MemcacheGetRequest','MemcacheGetResponse','MemcacheGetResponse_Item','MemcacheSetRequest','MemcacheSetRequest_Item','MemcacheSetResponse','MemcacheDeleteRequest','MemcacheDeleteRequest_Item','MemcacheDeleteResponse','MemcacheIncrementRequest','MemcacheIncrementResponse','MemcacheBatchIncrementRequest','MemcacheBatchIncrementResponse','MemcacheFlushRequest','MemcacheFlushResponse','MemcacheStatsRequest','MergedNamespaceStats','MemcacheStatsResponse','MemcacheGrabTailRequest','MemcacheGrabTailResponse','MemcacheGrabTailResponse_Item']

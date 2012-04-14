@@ -67,11 +67,11 @@
     <name>hbase.regionserver.handler.count</name>
     <value>100</value>
   </property>
-  <property>
+<!--  <property>
     <name>hfile.block.cache.size</name>
     <value>0.5</value>
   </property>
-
+-->
 
 
 </configuration>

@@ -1,7 +1,4 @@
+file:../OWNERS.apphosting
+
 # Primary owners
 arb
-bslatkin
-guido
-
-# Backup
-kgibbs

@@ -36,27 +36,33 @@ import logging
 import re
 
 from google.appengine.api import appinfo_errors
+from google.appengine.api import backendinfo
 from google.appengine.api import validation
 from google.appengine.api import yaml_builder
 from google.appengine.api import yaml_listener
 from google.appengine.api import yaml_object
 
 
+
+
 _URL_REGEX = r'(?!\^)/|\.|(\(.).*(?!\$).'
 _FILES_REGEX = r'(?!\^).*(?!\$).'
+_URL_ROOT_REGEX = r'/.*'
 
 
 _DELTA_REGEX = r'([0-9]+)([DdHhMm]|[sS]?)'
 _EXPIRATION_REGEX = r'\s*(%s)(\s+%s)*\s*' % (_DELTA_REGEX, _DELTA_REGEX)
+_START_PATH = '/_ah/start'
 
 
 
 
-_SERVICE_RE_STRING = r'(mail|xmpp_message|xmpp_subscribe|xmpp_presence|rest|warmup)'
+_ALLOWED_SERVICES = ['mail', 'xmpp_message', 'xmpp_subscribe', 'xmpp_presence',
+                     'xmpp_error', 'channel_presence', 'rest', 'warmup']
+_SERVICE_RE_STRING = '(' + '|'.join(_ALLOWED_SERVICES) + ')'
 
 
 _PAGE_NAME_REGEX = r'^.+$'
-
 
 
 _EXPIRATION_CONVERSIONS = {
@@ -89,16 +95,24 @@ APPLICATION_RE_STRING = (r'(?:%s)?(?:%s)?%s' %
                          (PARTITION_RE_STRING,
                           DOMAIN_RE_STRING,
                           DISPLAY_APP_ID_RE_STRING))
+
+
+
+
 VERSION_RE_STRING = r'(?!-)[a-z\d\-]{1,%d}' % MAJOR_VERSION_ID_MAX_LEN
 ALTERNATE_HOSTNAME_SEPARATOR = '-dot-'
 
-RUNTIME_RE_STRING = r'[a-z]{1,30}'
+
+BUILTIN_NAME_PREFIX = 'ah-builtin'
+
+RUNTIME_RE_STRING = r'[a-z][a-z0-9]{0,29}'
 
 API_VERSION_RE_STRING = r'[\w.]{1,32}'
 
 HANDLER_STATIC_FILES = 'static_files'
 HANDLER_STATIC_DIR = 'static_dir'
 HANDLER_SCRIPT = 'script'
+HANDLER_API_ENDPOINT = 'api_endpoint'
 
 LOGIN_OPTIONAL = 'optional'
 LOGIN_REQUIRED = 'required'
@@ -123,6 +137,8 @@ DEFAULT_SKIP_FILES = (r'^(.*/)?('
                       r'(\..*)|'
                       r')$')
 
+DEFAULT_NOBUILD_FILES = (r'^$')
+
 
 LOGIN = 'login'
 AUTH_FAIL_ACTION = 'auth_fail_action'
@@ -137,25 +153,32 @@ STATIC_DIR = 'static_dir'
 MIME_TYPE = 'mime_type'
 SCRIPT = 'script'
 EXPIRATION = 'expiration'
+API_ENDPOINT = 'api_endpoint'
 
 
 APPLICATION = 'application'
 VERSION = 'version'
+MAJOR_VERSION = 'major_version'
+MINOR_VERSION = 'minor_version'
 RUNTIME = 'runtime'
 API_VERSION = 'api_version'
 BUILTINS = 'builtins'
 INCLUDES = 'includes'
 HANDLERS = 'handlers'
+LIBRARIES = 'libraries'
 DEFAULT_EXPIRATION = 'default_expiration'
 SKIP_FILES = 'skip_files'
+NOBUILD_FILES = 'nobuild_files'
 SERVICES = 'inbound_services'
 DERIVED_FILE_TYPE = 'derived_file_type'
 JAVA_PRECOMPILED = 'java_precompiled'
 PYTHON_PRECOMPILED = 'python_precompiled'
 ADMIN_CONSOLE = 'admin_console'
 ERROR_HANDLERS = 'error_handlers'
-SERVERS = 'servers'
+BACKENDS = 'backends'
 THREADSAFE = 'threadsafe'
+API_CONFIG = 'api_config'
+CODE_LOCK = 'code_lock'
 
 
 PAGES = 'pages'
@@ -173,7 +196,55 @@ OFF = 'off'
 OFF_ALIASES = ['no', 'n', 'False', 'f', '0', 'false']
 
 
-class URLMap(validation.Validated):
+
+SUPPORTED_LIBRARIES = {
+    'django': ['1.2'],
+    'jinja2': ['2.6'],
+    'lxml': ['2.3'],
+    'markupsafe': ['0.15'],
+    'numpy': ['1.6.1'],
+    'PIL': ['1.1.7'],
+    'pycrypto': ['2.3'],
+    'setuptools': ['0.6c11'],
+    'webapp2': ['2.3'],
+    'webob': ['1.1.1'],
+    'yaml': ['3.10'],
+}
+
+
+
+REQUIRED_LIBRARIES = {
+    ('jinja2', '2.6'): [('markupsafe', '0.15'), ('setuptools', '0.6c11')],
+    ('jinja2', 'latest'): [('markupsafe', 'latest'), ('setuptools', 'latest')],
+}
+
+
+class HandlerBase(validation.Validated):
+  """Base class for URLMap and ApiConfigHandler."""
+  ATTRIBUTES = {
+
+      URL: validation.Optional(_URL_REGEX),
+      LOGIN: validation.Options(LOGIN_OPTIONAL,
+                                LOGIN_REQUIRED,
+                                LOGIN_ADMIN,
+                                default=LOGIN_OPTIONAL),
+
+      AUTH_FAIL_ACTION: validation.Options(AUTH_FAIL_ACTION_REDIRECT,
+                                           AUTH_FAIL_ACTION_UNAUTHORIZED,
+                                           default=AUTH_FAIL_ACTION_REDIRECT),
+
+      SECURE: validation.Options(SECURE_HTTP,
+                                 SECURE_HTTPS,
+                                 SECURE_HTTP_OR_HTTPS,
+                                 SECURE_DEFAULT,
+                                 default=SECURE_DEFAULT),
+
+
+      HANDLER_SCRIPT: validation.Optional(_FILES_REGEX)
+  }
+
+
+class URLMap(HandlerBase):
   """Mapping from URLs to handlers.
 
   This class acts like something of a union type.  Its purpose is to
@@ -228,6 +299,8 @@ class URLMap(validation.Validated):
       seconds may be omitted. Only one amount must be specified, combining
       multiple amounts is optional. Example good values: '10', '1d 6h',
       '1h 30m', '7d 7d 7d', '5m 30'.
+    api_endpoint: Handler id that identifies endpoint as an API endpoint,
+      calls that terminate here will be handled by the api serving framework.
 
   Special cases:
     When defining a static_dir handler, do not use a regular expression
@@ -245,28 +318,10 @@ class URLMap(validation.Validated):
     Is the same as this static_files declaration:
 
       url: /images/(.*)
-      static_files: images/\1
-      upload: images/(.*)
+      static_files: images_folder/\1
+      upload: images_folder/(.*)
   """
-
   ATTRIBUTES = {
-
-      URL: validation.Optional(_URL_REGEX),
-      LOGIN: validation.Options(LOGIN_OPTIONAL,
-                                LOGIN_REQUIRED,
-                                LOGIN_ADMIN,
-                                default=LOGIN_OPTIONAL),
-
-      AUTH_FAIL_ACTION: validation.Options(AUTH_FAIL_ACTION_REDIRECT,
-                                           AUTH_FAIL_ACTION_UNAUTHORIZED,
-                                           default=AUTH_FAIL_ACTION_REDIRECT),
-
-      SECURE: validation.Options(SECURE_HTTP,
-                                 SECURE_HTTPS,
-                                 SECURE_HTTP_OR_HTTPS,
-                                 SECURE_DEFAULT,
-                                 default=SECURE_DEFAULT),
-
 
 
       HANDLER_STATIC_FILES: validation.Optional(_FILES_REGEX),
@@ -281,10 +336,15 @@ class URLMap(validation.Validated):
       REQUIRE_MATCHING_FILE: validation.Optional(bool),
 
 
-      HANDLER_SCRIPT: validation.Optional(_FILES_REGEX),
       POSITION: validation.Optional(validation.Options(POSITION_HEAD,
                                                        POSITION_TAIL)),
+
+
+      HANDLER_API_ENDPOINT: validation.Optional(validation.Options(
+          (ON, ON_ALIASES),
+          (OFF, OFF_ALIASES))),
   }
+  ATTRIBUTES.update(HandlerBase.ATTRIBUTES)
 
   COMMON_FIELDS = set([URL, LOGIN, AUTH_FAIL_ACTION, SECURE])
 
@@ -295,6 +355,7 @@ class URLMap(validation.Validated):
                              REQUIRE_MATCHING_FILE),
       HANDLER_STATIC_DIR: (MIME_TYPE, EXPIRATION, REQUIRE_MATCHING_FILE),
       HANDLER_SCRIPT: (POSITION),
+      HANDLER_API_ENDPOINT: (POSITION, SCRIPT),
   }
 
   def GetHandler(self):
@@ -312,14 +373,13 @@ class URLMap(validation.Validated):
       Handler type determined by which handler id attribute is set.
 
     Raises:
-      UnknownHandlerType when none of the no handler id attributes
-      are set.
+      UnknownHandlerType: when none of the no handler id attributes are set.
 
-      UnexpectedHandlerAttribute when an unexpected attribute
-      is set for the discovered handler type.
+      UnexpectedHandlerAttribute: when an unexpected attribute is set for the
+        discovered handler type.
 
-      HandlerTypeMissingAttribute when the handler is missing a
-      required attribute for its handler type.
+      HandlerTypeMissingAttribute: when the handler is missing a required
+        attribute for its handler type.
     """
     for id_field in URLMap.ALLOWED_FIELDS.iterkeys():
 
@@ -411,7 +471,7 @@ class AdminConsolePage(validation.Validated):
   ATTRIBUTES = {
       URL: _URL_REGEX,
       NAME: _PAGE_NAME_REGEX,
-      }
+  }
 
 
 class AdminConsole(validation.Validated):
@@ -605,6 +665,38 @@ class BuiltinHandler(validation.Validated):
       seen.add(b.builtin_name)
 
 
+class ApiConfigHandler(HandlerBase):
+  """Class representing api_config handler directives in application info."""
+  ATTRIBUTES = HandlerBase.ATTRIBUTES
+  ATTRIBUTES.update({
+
+      URL: validation.Regex(_URL_REGEX),
+      HANDLER_SCRIPT: validation.Regex(_FILES_REGEX)
+  })
+
+
+class Library(validation.Validated):
+  """Class representing the configuration of a single library."""
+
+  ATTRIBUTES = {'name': validation.Type(str),
+                'version': validation.Type(str)}
+
+  def CheckInitialized(self):
+    """Raises if the library configuration is not valid."""
+    super(Library, self).CheckInitialized()
+    if self.name not in SUPPORTED_LIBRARIES:
+      raise appinfo_errors.InvalidLibraryName(
+          'the library "%s" is not supported' % self.name)
+    if self.version != 'latest':
+      if self.version not in SUPPORTED_LIBRARIES[self.name]:
+        raise appinfo_errors.InvalidLibraryVersion(
+            '%s version "%s" is not supported, '
+            'use one of: "%s" or "latest"' % (
+                self.name,
+                self.version,
+                '", "'.join(SUPPORTED_LIBRARIES[self.name])))
+
+
 class AppInclude(validation.Validated):
   """Class representing the contents of an included app.yaml file.
 
@@ -616,6 +708,8 @@ class AppInclude(validation.Validated):
       INCLUDES: validation.Optional(validation.Type(list)),
       HANDLERS: validation.Optional(validation.Repeated(URLMap)),
       ADMIN_CONSOLE: validation.Optional(AdminConsole),
+
+
   }
 
   @classmethod
@@ -692,7 +786,7 @@ class AppInfoExternal(validation.Validated):
 
   Attributes:
     application: Unique identifier for application.
-    version: Application's major version number.
+    version: Application's major version.
     runtime: Runtime used by application.
     api_version: Which version of APIs to use.
     handlers: List of URL handlers.
@@ -704,13 +798,16 @@ class AppInfoExternal(validation.Validated):
         skip_files: |
           .svn.*|
           #.*#
+    nobuild_files: An re object.  Files that match this regular expression will
+      not be built into the app.  Go only.
+    api_config: URL root and script/servlet path for enhanced api serving
   """
 
   ATTRIBUTES = {
 
 
       APPLICATION: APPLICATION_RE_STRING,
-      VERSION: VERSION_RE_STRING,
+      VERSION: validation.Optional(VERSION_RE_STRING),
       RUNTIME: RUNTIME_RE_STRING,
 
 
@@ -718,28 +815,44 @@ class AppInfoExternal(validation.Validated):
       BUILTINS: validation.Optional(validation.Repeated(BuiltinHandler)),
       INCLUDES: validation.Optional(validation.Type(list)),
       HANDLERS: validation.Optional(validation.Repeated(URLMap)),
+      LIBRARIES: validation.Optional(validation.Repeated(Library)),
 
       SERVICES: validation.Optional(validation.Repeated(
           validation.Regex(_SERVICE_RE_STRING))),
       DEFAULT_EXPIRATION: validation.Optional(_EXPIRATION_REGEX),
       SKIP_FILES: validation.RegexStr(default=DEFAULT_SKIP_FILES),
+      NOBUILD_FILES: validation.RegexStr(default=DEFAULT_NOBUILD_FILES),
       DERIVED_FILE_TYPE: validation.Optional(validation.Repeated(
           validation.Options(JAVA_PRECOMPILED, PYTHON_PRECOMPILED))),
       ADMIN_CONSOLE: validation.Optional(AdminConsole),
       ERROR_HANDLERS: validation.Optional(validation.Repeated(ErrorHandlers)),
+      BACKENDS: validation.Optional(validation.Repeated(
+          backendinfo.BackendEntry)),
       THREADSAFE: validation.Optional(bool),
+      API_CONFIG: validation.Optional(ApiConfigHandler),
+      CODE_LOCK: validation.Optional(bool),
   }
 
   def CheckInitialized(self):
     """Performs non-regex-based validation.
 
-    Ensures that at least one url mapping is provided in the URL mappers
-    Also ensures that the major version doesn't contain the string
-    -dot-.
+    The following are verified:
+      - At least one url mapping is provided in the URL mappers.
+      - Number of url mappers doesn't exceed MAX_URL_MAPS.
+      - Major version does not contain the string -dot-.
+      - If api_endpoints are defined, an api_config stanza must be defined.
+      - If the runtime is python27 and threadsafe is set, then no CGI handlers
+        can be used.
+      - That the version name doesn't start with BUILTIN_NAME_PREFIX
 
     Raises:
-      MissingURLMapping when no URLMap objects are present in object.
-      TooManyURLMappings when there are too many URLMap entries.
+      DuplicateLibrary: if the name library name is specified more than once.
+      MissingURLMapping: if no URLMap object is present in the object.
+      TooManyURLMappings: if there are too many URLMap entries.
+      MissingApiConfig: if api_endpoints exist without an api_config.
+      MissingThreadsafe: if threadsafe is not set but the runtime requires it.
+      ThreadsafeWithCgiHandler: if the runtime is python27, threadsafe is set
+          and CGI handlers are specified.
     """
     super(AppInfoExternal, self).CheckInitialized()
     if not self.handlers and not self.builtins and not self.includes:
@@ -749,10 +862,124 @@ class AppInfoExternal(validation.Validated):
       raise appinfo_errors.TooManyURLMappings(
           'Found more than %d URLMap entries in application configuration' %
           MAX_URL_MAPS)
-    if self.version.find(ALTERNATE_HOSTNAME_SEPARATOR) != -1:
+
+    if self.threadsafe is None and self.runtime == 'python27':
+      raise appinfo_errors.MissingThreadsafe(
+          'threadsafe must be present and set to either "yes" or "no"')
+
+    if self.libraries:
+      if self.runtime != 'python27':
+        raise appinfo_errors.RuntimeDoesNotSupportLibraries(
+            'libraries entries are only supported by the "python27" runtime')
+
+      library_names = [library.name for library in self.libraries]
+      for library_name in library_names:
+        if library_names.count(library_name) > 1:
+          raise appinfo_errors.DuplicateLibrary(
+              'Duplicate library entry for %s' % library_name)
+
+    if self.version and self.version.find(ALTERNATE_HOSTNAME_SEPARATOR) != -1:
       raise validation.ValidationError(
-          'App version "%s" cannot contain the string "%s"' % (
+          'Version "%s" cannot contain the string "%s"' % (
               self.version, ALTERNATE_HOSTNAME_SEPARATOR))
+    if self.version and self.version.startswith(BUILTIN_NAME_PREFIX):
+      raise validation.ValidationError(
+          ('Version "%s" cannot start with "%s" because it is a '
+           'reserved version name prefix.') % (self.version,
+                                               BUILTIN_NAME_PREFIX))
+    if self.handlers:
+      api_endpoints = [handler.url for handler in self.handlers
+                       if handler.GetHandlerType() == HANDLER_API_ENDPOINT]
+      if api_endpoints and not self.api_config:
+        raise appinfo_errors.MissingApiConfig(
+            'An api_endpoint handler was specified, but the required '
+            'api_config stanza was not configured.')
+      if self.threadsafe and self.runtime == 'python27':
+        for handler in self.handlers:
+          if (handler.script and (handler.script.endswith('.py') or
+                                  '/' in handler.script)):
+            raise appinfo_errors.ThreadsafeWithCgiHandler(
+                'threadsafe cannot be enabled with CGI handler: %s' %
+                handler.script)
+
+  def GetAllLibraries(self):
+    """Returns a list of all Library instances active for this configuration.
+
+    Returns:
+      The list of active Library instances for this configuration. This includes
+      directly-specified libraries as well as any required dependencies.
+    """
+    if not self.libraries:
+      return []
+
+    library_names = set(library.name for library in self.libraries)
+    required_libraries = []
+
+    for library in self.libraries:
+      for required_name, required_version in REQUIRED_LIBRARIES.get(
+          (library.name, library.version), []):
+        if required_name not in library_names:
+          required_libraries.append(Library(name=required_name,
+                                            version=required_version))
+
+    return self.libraries + required_libraries
+
+  def ApplyBackendSettings(self, backend_name):
+    """Applies settings from the indicated backend to the AppInfoExternal.
+
+    Backend entries may contain directives that modify other parts of the
+    app.yaml, such as the 'start' directive, which adds a handler for the start
+    request.  This method performs those modifications.
+
+    Args:
+      backend_name: The name of a backend defined in 'backends'.
+
+    Raises:
+      BackendNotFound: If the indicated backend was not listed in 'backends'.
+    """
+    if backend_name is None:
+      return
+
+    if self.backends is None:
+      raise appinfo_errors.BackendNotFound
+
+    self.version = backend_name
+
+    match = None
+    for backend in self.backends:
+      if backend.name != backend_name:
+        continue
+      if match:
+        raise appinfo_errors.DuplicateBackend
+      else:
+        match = backend
+
+    if match is None:
+      raise appinfo_errors.BackendNotFound
+
+    if match.start is None:
+      return
+
+    start_handler = URLMap(url=_START_PATH, script=match.start)
+    self.handlers.insert(0, start_handler)
+
+
+def ValidateHandlers(handlers, is_include_file=False):
+  """Validates a list of handler (URLMap) objects.
+
+  Args:
+    handlers: A list of a handler (URLMap) objects.
+    is_include_file: If true, indicates the we are performing validation
+      for handlers in an AppInclude file, which may contain special directives.
+  """
+  if not handlers:
+    return
+
+  for handler in handlers:
+    handler.FixSecureDefaults()
+    handler.WarnReservedURLs()
+    if not is_include_file:
+      handler.ErrorOnPositionForAppInfo()
 
 
 def LoadSingleAppInfo(app_info):
@@ -784,15 +1011,24 @@ def LoadSingleAppInfo(app_info):
     raise appinfo_errors.MultipleConfigurationFile()
 
   appyaml = app_infos[0]
-  if appyaml.handlers:
-    for handler in appyaml.handlers:
-      handler.FixSecureDefaults()
-      handler.WarnReservedURLs()
-      handler.ErrorOnPositionForAppInfo()
+  ValidateHandlers(appyaml.handlers)
   if appyaml.builtins:
     BuiltinHandler.Validate(appyaml.builtins)
 
   return appyaml
+
+
+class AppInfoSummary(validation.Validated):
+  """This class contains only basic summary information about an app.
+
+  It is used to pass back information about the newly created app to users
+  after a new version has been created.
+  """
+  ATTRIBUTES = {
+      APPLICATION: APPLICATION_RE_STRING,
+      MAJOR_VERSION: VERSION_RE_STRING,
+      MINOR_VERSION: validation.TYPE_LONG
+  }
 
 
 def LoadAppInclude(app_include):

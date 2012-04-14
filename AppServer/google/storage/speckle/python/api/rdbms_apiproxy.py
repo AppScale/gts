@@ -18,43 +18,20 @@
 
 
 
-"""Speckle connection module for ApiProxy."""
+"""SQL Service connection module for ApiProxy."""
 
 
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.runtime import apiproxy_errors
-from google.storage.speckle.proto import client_pb2
 from google.storage.speckle.proto import sql_pb2
 from google.storage.speckle.python.api import rdbms
 
+__path__ = rdbms.__path__
+
+
 
 class ApiProxyConnection(rdbms.Connection):
-  """ApiProxy specific Speckle connection."""
-
-  def OpenConnection(self):
-    """Opens an ApiProxy connection to speckle."""
-    request = sql_pb2.OpenConnectionRequest()
-    prop = request.property.add()
-    prop.key = 'autoCommit'
-    prop.value = 'false'
-    if self._user:
-      prop = request.property.add()
-      prop.key = 'user'
-      prop.value = self._user
-    if self._password:
-      prop = request.property.add()
-      prop.key = 'password'
-      prop.value = self._password
-
-    response = self.MakeRequest('OpenConnection', request)
-
-    self._connection_id = response.connection_id
-
-    if self._database:
-      request = sql_pb2.ExecOpRequest()
-      request.op.type = client_pb2.OpProto.SET_CATALOG
-      request.op.catalog = self._database
-      self.MakeRequest('ExecOp', request)
+  """ApiProxy specific SQL Service connection."""
 
   def _CreateResponse(self, stub_method):
     """Creates the protocol buffer response object for stub_method."""
@@ -67,10 +44,10 @@ class ApiProxyConnection(rdbms.Connection):
       return sql_pb2.ExecResponse()
     elif stub_method == 'ExecOp':
       return sql_pb2.ExecOpResponse()
-    elif stub_method == 'Metadata':
+    elif stub_method == 'GetMetadata':
       return sql_pb2.MetadataResponse()
 
-  def MakeRequest(self, stub_method, request):
+  def MakeRequestImpl(self, stub_method, request):
     """Makes an ApiProxy request, and possibly raises an appropriate exception.
 
     Args:
@@ -83,23 +60,12 @@ class ApiProxyConnection(rdbms.Connection):
 
     Raises:
       OperationalError: ApiProxy failure.
-      DatabaseError: Error from Speckle server.
     """
-    if self._instance:
-      request.instance = self._instance
-    if self._connection_id is not None:
-      request.connection_id = self._connection_id
-
     response = self._CreateResponse(stub_method)
-
     try:
       apiproxy_stub_map.MakeSyncCall('rdbms', stub_method, request, response)
     except apiproxy_errors.ApplicationError, e:
       raise OperationalError('could not connect: ' + str(e))
-    if (hasattr(response, 'sql_exception') and
-        response.HasField('sql_exception')):
-      raise DatabaseError('%d: %s' % (response.sql_exception.code,
-                                      response.sql_exception.message))
     return response
 
 
@@ -111,6 +77,8 @@ apilevel = rdbms.apilevel
 threadsafety = rdbms.threadsafety
 paramstyle = rdbms.paramstyle
 
+
+version_info = rdbms.version_info
 
 
 

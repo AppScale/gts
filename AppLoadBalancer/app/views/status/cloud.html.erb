@@ -1,8 +1,28 @@
 <div id="getting-started">
   <%= display_flash_messages %>
+  <h3>API Status:</h3>
+  <table class="zebra-striped" border="1">
+    <tr>
+      <td align="center">Service Name</td>
+      <td align="center">Health</td>
+    </tr>
+    <% service_info = get_service_info %>
+    <% SERVICE_NAMES.each do |service| %>
+      <tr>
+        <td align="center"><%= h(service) %></td>
+        <% if service_info[service] == 'running' %> 
+          <td align="center"><img src="images/status_running.png"></td>
+        <% elsif service_info[service] == 'failed' %>
+          <td align="center"><img src="images/status_failed.gif"></td>
+        <% else %>
+          <td align="center"><img src="images/status_unknown.gif"></td>
+        <% end %>
+      </tr>
+    <% end %>
+  </table>
   <% if is_user_cloud_admin %>
     <h3>CPU / Memory Usage:</h3>
-    <table border="1">
+    <table class="zebra-striped" border="1">
       <tr>
         <td align="center">IP Address</td>
         <td align="center">CPU Usage</td>
@@ -37,9 +57,13 @@
     <% if apps.empty? %>
       <li>none</li>
     <% else %>
-      <% apps.each do |app| %>
+      <% apps.each do |app, is_running| %>
         <li>
-          <a href="/apps/<%= h(app) %>" target="_blank"><%= h(app) %></a>
+          <% if is_running %>
+            <a href="/apps/<%= h(app) %>" target="_blank"><%= h(app) %></a>
+          <% else %>
+            <%= h(app) %> (loading)
+          <% end %>
         </li>
       <% end %>
     <% end %>

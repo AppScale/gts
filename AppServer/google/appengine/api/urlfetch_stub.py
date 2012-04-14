@@ -61,7 +61,7 @@ _UNTRUSTED_REQUEST_HEADERS = frozenset([
 # http://www.cloudera.com/blog/2009/08/hadoop-default-ports-quick-reference/
 #http://wiki.apache.org/hadoop/Hbase/FAQ
 #http://hypertable.org/doxygen/_common_2_config_8cc_source.html
-APPSCALE_DISABLED = [17443, 4343, 8443, 9090, 8020, 50010, 50020, 50100, 8021, 9001, 8012, 8888, 7000, 9160, 60000, 60020, 3306, 38030, 38040, 38050, 38060]
+APPSCALE_DISABLED = [8443, 9090, 8020, 50010, 50020, 50100, 8021, 9001, 8012, 8888, 7000, 9160, 60000, 60020, 3306, 38030, 38040, 38050, 38060]
 
 def _IsAllowedPort(port):
   if port is None:

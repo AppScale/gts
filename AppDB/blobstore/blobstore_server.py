@@ -49,13 +49,15 @@ UPLOAD_URL_PATTERN = '/%s(.*)' % UPLOAD_URL_PATH
 
 port = "6106"
 datastore_path = "http://127.0.0.1:8888"
-
+private = "127.0.0.1"
+public = "127.0.0.1"
 _BLOB_CHUNK_KIND_ = "__BlobChunk__"
 STRIPPED_HEADERS = frozenset(('content-length',
                               'content-md5',
                               'content-type',
                              ))
 
+UPLOAD_ERROR = """There was an error with your upload. Redirect path not found. The path given must be a redirect code in the 300's. Please contact the app owner if this persist."""
 
 """
 Code from http://blog.doughellmann.com/2009/07/pymotw-urllib2-library-for-opening-urls.html
@@ -209,7 +211,7 @@ class UploadHandler(tornado.web.RequestHandler):
     # Get session info and upload success path
     blob_session = get_session(session_id)
     if not blob_session:
-      self.finish('Status: 404\n\n')
+      self.finish('Session has expired. Contact the owner of the app for support.\n\n')
       return
     success_path = blob_session["success_path"]
 
@@ -217,13 +219,14 @@ class UploadHandler(tornado.web.RequestHandler):
     if server_host.startswith("http://"):
       # strip off the beginging
       server_host = server_host[len("http://"):]
+    server_host = server_host.split('/')[0]
 
     blob_storage = datastore_blob_storage.DatastoreBlobStorage("", app_id)
     uploadhandler = dev_appserver_upload.UploadCGIHandler(blob_storage)
 
     datastore.Delete(blob_session)
-
     # This request is sent to the upload handler of the app
+    # in the hope it returns a redirect to be forwarded to the user
     urlrequest = urllib2.Request(success_path)
 
     # Forward all relevant headers
@@ -249,7 +252,6 @@ class UploadHandler(tornado.web.RequestHandler):
     form = MultiPartForm(boundary)
     creation = datetime.datetime.now()
     # Loop on all files in the form
-    help(self.request)
     for filekey in self.request.files.keys():
       file = self.request.files[filekey][0] 
       body = file["body"]
@@ -277,22 +279,32 @@ class UploadHandler(tornado.web.RequestHandler):
     opener = urllib2.build_opener(SmartRedirectHandler())
     f = None
     redirect_path = None
+    # We are catching the redirect error here
+    # and extracting the Location to post the redirect
     try:
       f = opener.open(urlrequest)
-    except urllib2.HTTPError, e: 
-      redirect_path = e.hdrs["Location"] 
-    if redirect_path:
-      self.redirect(redirect_path)
-      return
-    output = f.read()
-    if output:
+      output = f.read()
       self.finish(output)
-    else:
-      self.finish("Your file(s) has been uploaded")
+    except urllib2.HTTPError, e: 
+      if "Location" in e.hdrs:  
+        redirect_path = e.hdrs["Location"] 
+        toks = redirect_path.split(':')
+        # The java app server redirects to the private IP if the POST to 
+        # the successful path was from the private IP
+        if toks[1] == "//"+private:
+          redirect_path = toks[0] + "://" + public + ":" + ':'.join(toks[2:])
+        self.redirect(redirect_path)
+        return
+      else:
+        self.finish(UPLOAD_ERROR + "</br>" + str(e.hdrs) + "</br>" + str(e))
+        return         
+    self.finish("There was an error with your upload")
 
 def usage():
   print "-p or --port for binding port"
   print "-d or --datastore_path for location of the pbserver"
+  print "-u --public for public IP"
+  print "-r --private for private IP"
 
 def main():
   global port
@@ -304,8 +316,8 @@ def main():
   
 if __name__ == "__main__":
   try:
-    opts, args = getopt.getopt(sys.argv[1:], "p:d:",
-                               ["port", "database_path"] )
+    opts, args = getopt.getopt(sys.argv[1:], "p:d:u:r:",
+                               ["port", "database_path", "public", "private"] )
   except getopt.GetoptError:
     usage()
     sys.exit(1)
@@ -314,5 +326,12 @@ if __name__ == "__main__":
       port = arg
     elif opt  in ("-d", "--datastore_path"):
       datastore_path = arg
+    elif opt  in ("-d", "--datastore_path"):
+      datastore_path = arg
+    elif opt  in ("-u", "--public"):
+      public = arg
+    elif opt  in ("-r", "--private"):
+      private = arg
+    
   main()
 

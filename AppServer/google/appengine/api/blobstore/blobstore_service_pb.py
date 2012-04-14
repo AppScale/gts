@@ -24,6 +24,13 @@ import dummy_thread as thread
 __pychecker__ = """maxreturns=0 maxbranches=0 no-callinit
                    unusednames=printElemNumber,debug_strs no-special"""
 
+if hasattr(ProtocolBuffer, 'ExtendableProtocolMessage'):
+  _extension_runtime = True
+  _ExtendableProtocolMessage = ProtocolBuffer.ExtendableProtocolMessage
+else:
+  _extension_runtime = False
+  _ExtendableProtocolMessage = ProtocolBuffer.ProtocolMessage
+
 from google.appengine.api.api_base_pb import *
 import google.appengine.api.api_base_pb
 class BlobstoreServiceError(ProtocolBuffer.ProtocolMessage):
@@ -36,6 +43,7 @@ class BlobstoreServiceError(ProtocolBuffer.ProtocolMessage):
   BLOB_NOT_FOUND =    4
   DATA_INDEX_OUT_OF_RANGE =    5
   BLOB_FETCH_SIZE_TOO_LARGE =    6
+  ARGUMENT_OUT_OF_RANGE =    8
 
   _ErrorCode_NAMES = {
     0: "OK",
@@ -45,6 +53,7 @@ class BlobstoreServiceError(ProtocolBuffer.ProtocolMessage):
     4: "BLOB_NOT_FOUND",
     5: "DATA_INDEX_OUT_OF_RANGE",
     6: "BLOB_FETCH_SIZE_TOO_LARGE",
+    8: "ARGUMENT_OUT_OF_RANGE",
   }
 
   def ErrorCode_Name(cls, x): return cls._ErrorCode_NAMES.get(x, "")
@@ -113,9 +122,14 @@ class BlobstoreServiceError(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.BlobstoreServiceError'
 class CreateUploadURLRequest(ProtocolBuffer.ProtocolMessage):
   has_success_path_ = 0
   success_path_ = ""
+  has_max_upload_size_bytes_ = 0
+  max_upload_size_bytes_ = 0
+  has_max_upload_size_per_blob_bytes_ = 0
+  max_upload_size_per_blob_bytes_ = 0
 
   def __init__(self, contents=None):
     if contents is not None: self.MergeFromString(contents)
@@ -133,15 +147,47 @@ class CreateUploadURLRequest(ProtocolBuffer.ProtocolMessage):
 
   def has_success_path(self): return self.has_success_path_
 
+  def max_upload_size_bytes(self): return self.max_upload_size_bytes_
+
+  def set_max_upload_size_bytes(self, x):
+    self.has_max_upload_size_bytes_ = 1
+    self.max_upload_size_bytes_ = x
+
+  def clear_max_upload_size_bytes(self):
+    if self.has_max_upload_size_bytes_:
+      self.has_max_upload_size_bytes_ = 0
+      self.max_upload_size_bytes_ = 0
+
+  def has_max_upload_size_bytes(self): return self.has_max_upload_size_bytes_
+
+  def max_upload_size_per_blob_bytes(self): return self.max_upload_size_per_blob_bytes_
+
+  def set_max_upload_size_per_blob_bytes(self, x):
+    self.has_max_upload_size_per_blob_bytes_ = 1
+    self.max_upload_size_per_blob_bytes_ = x
+
+  def clear_max_upload_size_per_blob_bytes(self):
+    if self.has_max_upload_size_per_blob_bytes_:
+      self.has_max_upload_size_per_blob_bytes_ = 0
+      self.max_upload_size_per_blob_bytes_ = 0
+
+  def has_max_upload_size_per_blob_bytes(self): return self.has_max_upload_size_per_blob_bytes_
+
 
   def MergeFrom(self, x):
     assert x is not self
     if (x.has_success_path()): self.set_success_path(x.success_path())
+    if (x.has_max_upload_size_bytes()): self.set_max_upload_size_bytes(x.max_upload_size_bytes())
+    if (x.has_max_upload_size_per_blob_bytes()): self.set_max_upload_size_per_blob_bytes(x.max_upload_size_per_blob_bytes())
 
   def Equals(self, x):
     if x is self: return 1
     if self.has_success_path_ != x.has_success_path_: return 0
     if self.has_success_path_ and self.success_path_ != x.success_path_: return 0
+    if self.has_max_upload_size_bytes_ != x.has_max_upload_size_bytes_: return 0
+    if self.has_max_upload_size_bytes_ and self.max_upload_size_bytes_ != x.max_upload_size_bytes_: return 0
+    if self.has_max_upload_size_per_blob_bytes_ != x.has_max_upload_size_per_blob_bytes_: return 0
+    if self.has_max_upload_size_per_blob_bytes_ and self.max_upload_size_per_blob_bytes_ != x.max_upload_size_per_blob_bytes_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -155,6 +201,8 @@ class CreateUploadURLRequest(ProtocolBuffer.ProtocolMessage):
   def ByteSize(self):
     n = 0
     n += self.lengthString(len(self.success_path_))
+    if (self.has_max_upload_size_bytes_): n += 1 + self.lengthVarInt64(self.max_upload_size_bytes_)
+    if (self.has_max_upload_size_per_blob_bytes_): n += 1 + self.lengthVarInt64(self.max_upload_size_per_blob_bytes_)
     return n + 1
 
   def ByteSizePartial(self):
@@ -162,25 +210,47 @@ class CreateUploadURLRequest(ProtocolBuffer.ProtocolMessage):
     if (self.has_success_path_):
       n += 1
       n += self.lengthString(len(self.success_path_))
+    if (self.has_max_upload_size_bytes_): n += 1 + self.lengthVarInt64(self.max_upload_size_bytes_)
+    if (self.has_max_upload_size_per_blob_bytes_): n += 1 + self.lengthVarInt64(self.max_upload_size_per_blob_bytes_)
     return n
 
   def Clear(self):
     self.clear_success_path()
+    self.clear_max_upload_size_bytes()
+    self.clear_max_upload_size_per_blob_bytes()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(10)
     out.putPrefixedString(self.success_path_)
+    if (self.has_max_upload_size_bytes_):
+      out.putVarInt32(16)
+      out.putVarInt64(self.max_upload_size_bytes_)
+    if (self.has_max_upload_size_per_blob_bytes_):
+      out.putVarInt32(24)
+      out.putVarInt64(self.max_upload_size_per_blob_bytes_)
 
   def OutputPartial(self, out):
     if (self.has_success_path_):
       out.putVarInt32(10)
       out.putPrefixedString(self.success_path_)
+    if (self.has_max_upload_size_bytes_):
+      out.putVarInt32(16)
+      out.putVarInt64(self.max_upload_size_bytes_)
+    if (self.has_max_upload_size_per_blob_bytes_):
+      out.putVarInt32(24)
+      out.putVarInt64(self.max_upload_size_per_blob_bytes_)
 
   def TryMerge(self, d):
     while d.avail() > 0:
       tt = d.getVarInt32()
       if tt == 10:
         self.set_success_path(d.getPrefixedString())
+        continue
+      if tt == 16:
+        self.set_max_upload_size_bytes(d.getVarInt64())
+        continue
+      if tt == 24:
+        self.set_max_upload_size_per_blob_bytes(d.getVarInt64())
         continue
 
 
@@ -191,6 +261,8 @@ class CreateUploadURLRequest(ProtocolBuffer.ProtocolMessage):
   def __str__(self, prefix="", printElemNumber=0):
     res=""
     if self.has_success_path_: res+=prefix+("success_path: %s\n" % self.DebugFormatString(self.success_path_))
+    if self.has_max_upload_size_bytes_: res+=prefix+("max_upload_size_bytes: %s\n" % self.DebugFormatInt64(self.max_upload_size_bytes_))
+    if self.has_max_upload_size_per_blob_bytes_: res+=prefix+("max_upload_size_per_blob_bytes: %s\n" % self.DebugFormatInt64(self.max_upload_size_per_blob_bytes_))
     return res
 
 
@@ -198,20 +270,27 @@ class CreateUploadURLRequest(ProtocolBuffer.ProtocolMessage):
     return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
 
   ksuccess_path = 1
+  kmax_upload_size_bytes = 2
+  kmax_upload_size_per_blob_bytes = 3
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
     1: "success_path",
-  }, 1)
+    2: "max_upload_size_bytes",
+    3: "max_upload_size_per_blob_bytes",
+  }, 3)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
     1: ProtocolBuffer.Encoder.STRING,
-  }, 1, ProtocolBuffer.Encoder.MAX_TYPE)
+    2: ProtocolBuffer.Encoder.NUMERIC,
+    3: ProtocolBuffer.Encoder.NUMERIC,
+  }, 3, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.CreateUploadURLRequest'
 class CreateUploadURLResponse(ProtocolBuffer.ProtocolMessage):
   has_url_ = 0
   url_ = ""
@@ -311,6 +390,7 @@ class CreateUploadURLResponse(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.CreateUploadURLResponse'
 class DeleteBlobRequest(ProtocolBuffer.ProtocolMessage):
 
   def __init__(self, contents=None):
@@ -414,6 +494,7 @@ class DeleteBlobRequest(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.DeleteBlobRequest'
 class FetchDataRequest(ProtocolBuffer.ProtocolMessage):
   has_blob_key_ = 0
   blob_key_ = ""
@@ -591,6 +672,7 @@ class FetchDataRequest(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.FetchDataRequest'
 class FetchDataResponse(ProtocolBuffer.ProtocolMessage):
   has_data_ = 0
   data_ = ""
@@ -690,6 +772,285 @@ class FetchDataResponse(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.FetchDataResponse'
+class CloneBlobRequest(ProtocolBuffer.ProtocolMessage):
+  has_blob_key_ = 0
+  blob_key_ = ""
+  has_mime_type_ = 0
+  mime_type_ = ""
+  has_target_app_id_ = 0
+  target_app_id_ = ""
+
+  def __init__(self, contents=None):
+    if contents is not None: self.MergeFromString(contents)
+
+  def blob_key(self): return self.blob_key_
+
+  def set_blob_key(self, x):
+    self.has_blob_key_ = 1
+    self.blob_key_ = x
+
+  def clear_blob_key(self):
+    if self.has_blob_key_:
+      self.has_blob_key_ = 0
+      self.blob_key_ = ""
+
+  def has_blob_key(self): return self.has_blob_key_
+
+  def mime_type(self): return self.mime_type_
+
+  def set_mime_type(self, x):
+    self.has_mime_type_ = 1
+    self.mime_type_ = x
+
+  def clear_mime_type(self):
+    if self.has_mime_type_:
+      self.has_mime_type_ = 0
+      self.mime_type_ = ""
+
+  def has_mime_type(self): return self.has_mime_type_
+
+  def target_app_id(self): return self.target_app_id_
+
+  def set_target_app_id(self, x):
+    self.has_target_app_id_ = 1
+    self.target_app_id_ = x
+
+  def clear_target_app_id(self):
+    if self.has_target_app_id_:
+      self.has_target_app_id_ = 0
+      self.target_app_id_ = ""
+
+  def has_target_app_id(self): return self.has_target_app_id_
+
+
+  def MergeFrom(self, x):
+    assert x is not self
+    if (x.has_blob_key()): self.set_blob_key(x.blob_key())
+    if (x.has_mime_type()): self.set_mime_type(x.mime_type())
+    if (x.has_target_app_id()): self.set_target_app_id(x.target_app_id())
+
+  def Equals(self, x):
+    if x is self: return 1
+    if self.has_blob_key_ != x.has_blob_key_: return 0
+    if self.has_blob_key_ and self.blob_key_ != x.blob_key_: return 0
+    if self.has_mime_type_ != x.has_mime_type_: return 0
+    if self.has_mime_type_ and self.mime_type_ != x.mime_type_: return 0
+    if self.has_target_app_id_ != x.has_target_app_id_: return 0
+    if self.has_target_app_id_ and self.target_app_id_ != x.target_app_id_: return 0
+    return 1
+
+  def IsInitialized(self, debug_strs=None):
+    initialized = 1
+    if (not self.has_blob_key_):
+      initialized = 0
+      if debug_strs is not None:
+        debug_strs.append('Required field: blob_key not set.')
+    if (not self.has_mime_type_):
+      initialized = 0
+      if debug_strs is not None:
+        debug_strs.append('Required field: mime_type not set.')
+    if (not self.has_target_app_id_):
+      initialized = 0
+      if debug_strs is not None:
+        debug_strs.append('Required field: target_app_id not set.')
+    return initialized
+
+  def ByteSize(self):
+    n = 0
+    n += self.lengthString(len(self.blob_key_))
+    n += self.lengthString(len(self.mime_type_))
+    n += self.lengthString(len(self.target_app_id_))
+    return n + 3
+
+  def ByteSizePartial(self):
+    n = 0
+    if (self.has_blob_key_):
+      n += 1
+      n += self.lengthString(len(self.blob_key_))
+    if (self.has_mime_type_):
+      n += 1
+      n += self.lengthString(len(self.mime_type_))
+    if (self.has_target_app_id_):
+      n += 1
+      n += self.lengthString(len(self.target_app_id_))
+    return n
+
+  def Clear(self):
+    self.clear_blob_key()
+    self.clear_mime_type()
+    self.clear_target_app_id()
+
+  def OutputUnchecked(self, out):
+    out.putVarInt32(10)
+    out.putPrefixedString(self.blob_key_)
+    out.putVarInt32(18)
+    out.putPrefixedString(self.mime_type_)
+    out.putVarInt32(26)
+    out.putPrefixedString(self.target_app_id_)
+
+  def OutputPartial(self, out):
+    if (self.has_blob_key_):
+      out.putVarInt32(10)
+      out.putPrefixedString(self.blob_key_)
+    if (self.has_mime_type_):
+      out.putVarInt32(18)
+      out.putPrefixedString(self.mime_type_)
+    if (self.has_target_app_id_):
+      out.putVarInt32(26)
+      out.putPrefixedString(self.target_app_id_)
+
+  def TryMerge(self, d):
+    while d.avail() > 0:
+      tt = d.getVarInt32()
+      if tt == 10:
+        self.set_blob_key(d.getPrefixedString())
+        continue
+      if tt == 18:
+        self.set_mime_type(d.getPrefixedString())
+        continue
+      if tt == 26:
+        self.set_target_app_id(d.getPrefixedString())
+        continue
+
+
+      if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
+      d.skipData(tt)
+
+
+  def __str__(self, prefix="", printElemNumber=0):
+    res=""
+    if self.has_blob_key_: res+=prefix+("blob_key: %s\n" % self.DebugFormatString(self.blob_key_))
+    if self.has_mime_type_: res+=prefix+("mime_type: %s\n" % self.DebugFormatString(self.mime_type_))
+    if self.has_target_app_id_: res+=prefix+("target_app_id: %s\n" % self.DebugFormatString(self.target_app_id_))
+    return res
+
+
+  def _BuildTagLookupTable(sparse, maxtag, default=None):
+    return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
+
+  kblob_key = 1
+  kmime_type = 2
+  ktarget_app_id = 3
+
+  _TEXT = _BuildTagLookupTable({
+    0: "ErrorCode",
+    1: "blob_key",
+    2: "mime_type",
+    3: "target_app_id",
+  }, 3)
+
+  _TYPES = _BuildTagLookupTable({
+    0: ProtocolBuffer.Encoder.NUMERIC,
+    1: ProtocolBuffer.Encoder.STRING,
+    2: ProtocolBuffer.Encoder.STRING,
+    3: ProtocolBuffer.Encoder.STRING,
+  }, 3, ProtocolBuffer.Encoder.MAX_TYPE)
+
+
+  _STYLE = """"""
+  _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.CloneBlobRequest'
+class CloneBlobResponse(ProtocolBuffer.ProtocolMessage):
+  has_blob_key_ = 0
+  blob_key_ = ""
+
+  def __init__(self, contents=None):
+    if contents is not None: self.MergeFromString(contents)
+
+  def blob_key(self): return self.blob_key_
+
+  def set_blob_key(self, x):
+    self.has_blob_key_ = 1
+    self.blob_key_ = x
+
+  def clear_blob_key(self):
+    if self.has_blob_key_:
+      self.has_blob_key_ = 0
+      self.blob_key_ = ""
+
+  def has_blob_key(self): return self.has_blob_key_
+
+
+  def MergeFrom(self, x):
+    assert x is not self
+    if (x.has_blob_key()): self.set_blob_key(x.blob_key())
+
+  def Equals(self, x):
+    if x is self: return 1
+    if self.has_blob_key_ != x.has_blob_key_: return 0
+    if self.has_blob_key_ and self.blob_key_ != x.blob_key_: return 0
+    return 1
+
+  def IsInitialized(self, debug_strs=None):
+    initialized = 1
+    if (not self.has_blob_key_):
+      initialized = 0
+      if debug_strs is not None:
+        debug_strs.append('Required field: blob_key not set.')
+    return initialized
+
+  def ByteSize(self):
+    n = 0
+    n += self.lengthString(len(self.blob_key_))
+    return n + 1
+
+  def ByteSizePartial(self):
+    n = 0
+    if (self.has_blob_key_):
+      n += 1
+      n += self.lengthString(len(self.blob_key_))
+    return n
+
+  def Clear(self):
+    self.clear_blob_key()
+
+  def OutputUnchecked(self, out):
+    out.putVarInt32(10)
+    out.putPrefixedString(self.blob_key_)
+
+  def OutputPartial(self, out):
+    if (self.has_blob_key_):
+      out.putVarInt32(10)
+      out.putPrefixedString(self.blob_key_)
+
+  def TryMerge(self, d):
+    while d.avail() > 0:
+      tt = d.getVarInt32()
+      if tt == 10:
+        self.set_blob_key(d.getPrefixedString())
+        continue
+
+
+      if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
+      d.skipData(tt)
+
+
+  def __str__(self, prefix="", printElemNumber=0):
+    res=""
+    if self.has_blob_key_: res+=prefix+("blob_key: %s\n" % self.DebugFormatString(self.blob_key_))
+    return res
+
+
+  def _BuildTagLookupTable(sparse, maxtag, default=None):
+    return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
+
+  kblob_key = 1
+
+  _TEXT = _BuildTagLookupTable({
+    0: "ErrorCode",
+    1: "blob_key",
+  }, 1)
+
+  _TYPES = _BuildTagLookupTable({
+    0: ProtocolBuffer.Encoder.NUMERIC,
+    1: ProtocolBuffer.Encoder.STRING,
+  }, 1, ProtocolBuffer.Encoder.MAX_TYPE)
+
+
+  _STYLE = """"""
+  _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.CloneBlobResponse'
 class DecodeBlobKeyRequest(ProtocolBuffer.ProtocolMessage):
 
   def __init__(self, contents=None):
@@ -793,6 +1154,7 @@ class DecodeBlobKeyRequest(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.DecodeBlobKeyRequest'
 class DecodeBlobKeyResponse(ProtocolBuffer.ProtocolMessage):
 
   def __init__(self, contents=None):
@@ -896,5 +1258,8 @@ class DecodeBlobKeyResponse(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.DecodeBlobKeyResponse'
+if _extension_runtime:
+  pass
 
-__all__ = ['BlobstoreServiceError','CreateUploadURLRequest','CreateUploadURLResponse','DeleteBlobRequest','FetchDataRequest','FetchDataResponse','DecodeBlobKeyRequest','DecodeBlobKeyResponse']
+__all__ = ['BlobstoreServiceError','CreateUploadURLRequest','CreateUploadURLResponse','DeleteBlobRequest','FetchDataRequest','FetchDataResponse','CloneBlobRequest','CloneBlobResponse','DecodeBlobKeyRequest','DecodeBlobKeyResponse']

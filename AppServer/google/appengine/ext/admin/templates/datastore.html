@@ -158,6 +158,7 @@
 
   {% if entities %}
     <form action="{{ datastore_batch_edit_path }}" method="post">
+      <input type="hidden" name="xsrf_token" value="{{ xsrf_token }}"/>
       <input type="hidden" name="kind" value="{{ kind|escape }}"/>
       <input type="hidden" name="numkeys" value="{{ entities|length }}"/>
       <input type="hidden" name="next" value="{{ start_base_url }}"/>
@@ -167,6 +168,7 @@
         <tr>
           <th><input id="allkeys" type="checkbox" onclick="checkAllEntities();"/></th>
           <th>Key</th>
+          <th>Write Ops</th>
           <th>ID</th>
           <th>Key Name</th>
           {% for header in headers %}
@@ -177,6 +179,9 @@
           <tr class="{% if forloop.counter|divisibleby:2 %}even{% else %}odd{% endif %}">
             <td><input id="key{{ forloop.counter }}" type="checkbox" name="key{{ forloop.counter }}" value="{{ entity.key|escape }}" onclick="updateDeleteButtonAndCheckbox();"/></td>
             <td onclick="location.href='{{ entity.edit_uri|escape }}'"><a href="{{ entity.edit_uri|escape }}" title="Edit entity #{{ entity.key|escape }}" onclick="return false">{{ entity.shortened_key|escape }}</a></td>
+            <td>
+              {{entity.write_ops}}
+            </td>
             <td>
               {% if entity.key_id %}
                 {{entity.key_id}}
@@ -239,5 +244,3 @@
   //]]>
   </script>
 {% endblock %}
-
-

@@ -380,15 +380,19 @@ class ProspectiveSearchStub(apiproxy_stub.APIProxyStub):
     self.topics_parsed = {}
     self.topics_schema = {}
     if os.path.isfile(self.prospective_search_path):
-      (self.topics, self.topics_schema) = pickle.load(
-          openfile(self.prospective_search_path, 'rb'))
-      for topic, topic_subs in self.topics.iteritems():
-        for sub_id, entry in topic_subs.items():
-          vanilla_query, _ = entry
-          schema = self.topics_schema.setdefault(topic, {})
-          parsed = _Parser(vanilla_query, schema).ParseQuery()
-          topic_parsed_subs = self.topics_parsed.setdefault(topic, {})
-          topic_parsed_subs[sub_id] = parsed
+      stream = openfile(self.prospective_search_path, 'rb')
+
+      stream.seek(0, os.SEEK_END)
+      if stream.tell() != 0:
+        stream.seek(0)
+        self.topics, self.topics_schema = pickle.load(stream)
+        for topic, topic_subs in self.topics.iteritems():
+          for sub_id, entry in topic_subs.items():
+            vanilla_query, _ = entry
+            schema = self.topics_schema.setdefault(topic, {})
+            parsed = _Parser(vanilla_query, schema).ParseQuery()
+            topic_parsed_subs = self.topics_parsed.setdefault(topic, {})
+            topic_parsed_subs[sub_id] = parsed
 
   def _Write(self, openfile=open):
     """Persist subscriptions."""

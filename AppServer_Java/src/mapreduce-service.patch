@@ -1,9 +1,9 @@
 *** META-INF/services/com.google.appengine.tools.development.LocalRpcService.org	2010-07-23 13:11:49.000000000 -0700
 --- META-INF/services/com.google.appengine.tools.development.LocalRpcService	2010-07-23 13:12:33.000000000 -0700
-***************
-*** 8,10 ****
---- 8,11 ----
-  com.google.appengine.api.blobstore.dev.LocalBlobstoreService
+**************
+*** 11,13 ****
+--- 11,14 ----
   com.google.appengine.api.channel.dev.LocalChannelService
-  com.google.appengine.api.labs.taskqueue.dev.LocalTaskQueue
+  com.google.appengine.api.taskqueue.dev.LocalTaskQueue
+  com.google.appengine.api.rdbms.dev.LocalRdbmsService
 + com.google.appengine.api.labs.mapreduce.dev.LocalMapReduceService

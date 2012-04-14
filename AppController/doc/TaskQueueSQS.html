@@ -1,0 +1,555 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+
+  <title>Class: TaskQueueSQS</title>
+
+  <link rel="stylesheet" href="./rdoc.css" type="text/css" media="screen" />
+
+  <script src="./js/jquery.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/thickbox-compressed.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/quicksearch.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/darkfish.js" type="text/javascript"
+    charset="utf-8"></script>
+
+</head>
+<body class="class">
+
+  <div id="metadata">
+    <div id="home-metadata">
+      <div id="home-section" class="section">
+        <h3 class="section-header">
+          <a href="./index.html">Home</a>
+          <a href="./index.html#classes">Classes</a>
+          <a href="./index.html#methods">Methods</a>
+        </h3>
+      </div>
+    </div>
+
+    <div id="file-metadata">
+      <div id="file-list-section" class="section">
+        <h3 class="section-header">In Files</h3>
+        <div class="section-body">
+          <ul>
+          
+            <li><a href="./__/Neptune/task_queue_sqs_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
+              class="thickbox" title="../Neptune/task_queue_sqs.rb">../Neptune/task_queue_sqs.rb</a></li>
+          
+          </ul>
+        </div>
+      </div>
+
+      
+    </div>
+
+    <div id="class-metadata">
+
+      <!-- Parent Class -->
+      
+      <div id="parent-class-section" class="section">
+        <h3 class="section-header">Parent</h3>
+        
+        <p class="link"><a href="TaskQueue.html">TaskQueue</a></p>
+        
+      </div>
+      
+
+      <!-- Namespace Contents -->
+      
+
+      <!-- Method Quickref -->
+      
+      <div id="method-list-section" class="section">
+        <h3 class="section-header">Methods</h3>
+        <ul class="link-list">
+          
+          <li><a href="#method-c-new">::new</a></li>
+          
+          <li><a href="#method-i-get_creds">#get_creds</a></li>
+          
+          <li><a href="#method-i-pop">#pop</a></li>
+          
+          <li><a href="#method-i-push">#push</a></li>
+          
+          <li><a href="#method-i-size">#size</a></li>
+          
+          <li><a href="#method-i-to_s">#to_s</a></li>
+          
+        </ul>
+      </div>
+      
+
+      <!-- Included Modules -->
+      
+    </div>
+
+    <div id="project-metadata">
+      
+      
+
+      <div id="classindex-section" class="section project-section">
+        <h3 class="section-header">Class/Module Index
+          <span class="search-toggle"><img src="./images/find.png"
+            height="16" width="16" alt="[+]"
+            title="show/hide quicksearch" /></span></h3>
+        <form action="#" method="get" accept-charset="utf-8" class="initially-hidden">
+        <fieldset>
+          <legend>Quicksearch</legend>
+          <input type="text" name="quicksearch" value=""
+            class="quicksearch-field" />
+        </fieldset>
+        </form>
+
+        <ul class="link-list">
+        
+          <li><a href="./AppControllerClient.html">AppControllerClient</a></li>
+        
+          <li><a href="./BadConfigurationException.html">BadConfigurationException</a></li>
+        
+          <li><a href="./BlobServer.html">BlobServer</a></li>
+        
+          <li><a href="./Collectd.html">Collectd</a></li>
+        
+          <li><a href="./CronHelper.html">CronHelper</a></li>
+        
+          <li><a href="./Datastore.html">Datastore</a></li>
+        
+          <li><a href="./DatastoreFactory.html">DatastoreFactory</a></li>
+        
+          <li><a href="./DatastoreRepo.html">DatastoreRepo</a></li>
+        
+          <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a></li>
+        
+          <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a></li>
+        
+          <li><a href="./DatastoreS3.html">DatastoreS3</a></li>
+        
+          <li><a href="./Djinn.html">Djinn</a></li>
+        
+          <li><a href="./DjinnJobData.html">DjinnJobData</a></li>
+        
+          <li><a href="./DjinnServer.html">DjinnServer</a></li>
+        
+          <li><a href="./Ejabberd.html">Ejabberd</a></li>
+        
+          <li><a href="./EngineFactory.html">EngineFactory</a></li>
+        
+          <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a></li>
+        
+          <li><a href="./GodInterface.html">GodInterface</a></li>
+        
+          <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a></li>
+        
+          <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a></li>
+        
+          <li><a href="./HAProxy.html">HAProxy</a></li>
+        
+          <li><a href="./HelperFunctions.html">HelperFunctions</a></li>
+        
+          <li><a href="./JSONClient.html">JSONClient</a></li>
+        
+          <li><a href="./LoadBalancer.html">LoadBalancer</a></li>
+        
+          <li><a href="./Monitoring.html">Monitoring</a></li>
+        
+          <li><a href="./NeptuneJobData.html">NeptuneJobData</a></li>
+        
+          <li><a href="./Nginx.html">Nginx</a></li>
+        
+          <li><a href="./Object.html">Object</a></li>
+        
+          <li><a href="./PbServer.html">PbServer</a></li>
+        
+          <li><a href="./QueueFactory.html">QueueFactory</a></li>
+        
+          <li><a href="./RabbitMQ.html">RabbitMQ</a></li>
+        
+          <li><a href="./Repo.html">Repo</a></li>
+        
+          <li><a href="./TaskEngine.html">TaskEngine</a></li>
+        
+          <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a></li>
+        
+          <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a></li>
+        
+          <li><a href="./TaskQueue.html">TaskQueue</a></li>
+        
+          <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a></li>
+        
+          <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a></li>
+        
+          <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a></li>
+        
+          <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a></li>
+        
+          <li><a href="./UserAppClient.html">UserAppClient</a></li>
+        
+          <li><a href="./ZKInterface.html">ZKInterface</a></li>
+        
+        </ul>
+        <div id="no-class-search-results" style="display: none;">No matching classes.</div>
+      </div>
+
+      
+    </div>
+  </div>
+
+  <div id="documentation">
+    <h1 class="class">TaskQueueSQS</h1>
+
+    <div id="description">
+      
+<p><a href="TaskQueueSQS.html">TaskQueueSQS</a> provides a simple interface
+(implementing <a href="TaskQueue.html">TaskQueue</a>) to Amazon’s Simple
+Queue Service (SQS). SQS is externally managed and hosted by Amazon, so we
+don’t have to worry about deploying it. TODO(cgb): SQS is eventually
+consistent, so it is possible that we could receive the same message twice,
+and thus execute the same task twice.</p>
+
+    </div>
+
+    <!-- Constants -->
+    
+    <div id="constants-list" class="section">
+      <h3 class="section-header">Constants</h3>
+      <dl>
+      
+        <dt><a name="NAME">NAME</a></dt>
+        
+        <dd class="description"><p>The name of this queue. Since we always use our Executor to run tasks, and
+store task info in SQS, we call it ‘executor-sqs’.</p></dd>
+        
+      
+      </dl>
+    </div>
+    
+
+    <!-- Attributes -->
+    
+    <div id="attribute-method-details" class="method-section section">
+      <h3 class="section-header">Attributes</h3>
+
+      
+      <div id="EC2_ACCESS_KEY-attribute-method" class="method-detail">
+        <a name="EC2_ACCESS_KEY"></a>
+        
+        <a name="EC2_ACCESS_KEY="></a>
+        
+        <div class="method-heading attribute-method-heading">
+          <span class="method-name">EC2_ACCESS_KEY</span><span
+            class="attribute-access-type">[RW]</span>
+        </div>
+
+        <div class="method-description">
+        
+        <p>The access key, provided by AWS, that is required to access SQS.</p>
+        
+        </div>
+      </div>
+      
+      <div id="EC2_SECRET_KEY-attribute-method" class="method-detail">
+        <a name="EC2_SECRET_KEY"></a>
+        
+        <a name="EC2_SECRET_KEY="></a>
+        
+        <div class="method-heading attribute-method-heading">
+          <span class="method-name">EC2_SECRET_KEY</span><span
+            class="attribute-access-type">[RW]</span>
+        </div>
+
+        <div class="method-description">
+        
+        <p>The secret key, provided by AWS, that is required to access SQS.</p>
+        
+        </div>
+      </div>
+      
+    </div>
+    
+
+    <!-- Methods -->
+    
+    <div id="public-instance-method-details" class="method-section section">
+      <h3 class="section-header">Public Instance Methods</h3>
+
+    
+      <div id="get_creds-method" class="method-detail ">
+        <a name="method-i-get_creds"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_creds</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Returns all the credentials needed to access this queue. For SQS, it’s 
+just the access key and secret key</p>
+          
+
+          
+          <div class="method-source-code"
+            id="get_creds-source">
+<pre>
+<span class="ruby-comment"># File ../Neptune/task_queue_sqs.rb, line 93</span>
+def get_creds()
+  return {<span class="ruby-string">'@EC2_ACCESS_KEY'</span> =&gt; <span class="ruby-ivar">@EC2_ACCESS_KEY</span>,
+    <span class="ruby-string">'@EC2_SECRET_KEY'</span> =&gt; <span class="ruby-ivar">@EC2_SECRET_KEY</span>}
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="pop-method" class="method-detail ">
+        <a name="method-i-pop"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">pop</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Retrieves an item from the queue, returning the Hash version of the
+JSON-dumped data. We should be the only ones writing to the queue, but just
+in case we aren’t, we need to validate that the data we’re receiving
+from the queue is data that we can load via JSON. TODO(cgb): Receiving and
+deleting the message isn’t an atomic operation, and since SQS is
+eventually consistent, could this result in two readers getting the same
+item? If so, would using a lock on the queue (making the operation atomic)
+solve the problem?</p>
+          
+
+          
+          <div class="method-source-code"
+            id="pop-source">
+<pre>
+<span class="ruby-comment"># File ../Neptune/task_queue_sqs.rb, line 78</span>
+def pop()
+  json_item = <span class="ruby-ivar">@queue</span>.receive_message()
+  return nil if json_item.nil?  <span class="ruby-comment"># occurs when the queue is empty</span>
+  json_item.delete()
+
+  begin
+    return <span class="ruby-constant">JSON</span>.load(json_item.body())
+  rescue <span class="ruby-constant">JSON</span>::<span class="ruby-constant">ParserError</span>  <span class="ruby-comment"># if somebody else wrote a non-JSON item</span>
+    return pop()
+  end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="push-method" class="method-detail ">
+        <a name="method-i-push"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">push</span><span
+            class="method-args">(item)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Stores a Hash in the queue for later processing. Since SQS can’t store
+items in Hash format, we use the JSON library to dump it to a string, which
+SQS can store.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="push-source">
+<pre>
+<span class="ruby-comment"># File ../Neptune/task_queue_sqs.rb, line 60</span>
+def push(item)
+  if item.class != <span class="ruby-constant">Hash</span>
+    raise <span class="ruby-constant">BadConfigurationException</span>.new
+  end
+
+  json_item = <span class="ruby-constant">JSON</span>.dump(item)
+  <span class="ruby-ivar">@queue</span>.send_message(json_item)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="size-method" class="method-detail ">
+        <a name="method-i-size"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">size</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Returns the number of messages in the queue, which in SQS is the number of
+visible messages (there should be no invisible messages since we always
+immediately delete messages upon receiving them).</p>
+          
+
+          
+          <div class="method-source-code"
+            id="size-source">
+<pre>
+<span class="ruby-comment"># File ../Neptune/task_queue_sqs.rb, line 102</span>
+def size()
+  return <span class="ruby-ivar">@queue</span>.visible_messages
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="to_s-method" class="method-detail ">
+        <a name="method-i-to_s"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">to_s</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>returns a string representation of this queue, which is just the queue name
+and the credentials TODO(cgb): this seems generic enough to move into <a
+href="TaskQueue.html">TaskQueue</a>, so do so</p>
+          
+
+          
+          <div class="method-source-code"
+            id="to_s-source">
+<pre>
+<span class="ruby-comment"># File ../Neptune/task_queue_sqs.rb, line 111</span>
+def to_s()
+  access_key = <span class="ruby-constant">HelperFunctions</span>.obscure_string(<span class="ruby-ivar">@EC2_ACCESS_KEY</span>)
+  secret_key = <span class="ruby-constant">HelperFunctions</span>.obscure_string(<span class="ruby-ivar">@EC2_SECRET_KEY</span>)
+  return &quot;Queue type: SQS, EC2_ACCESS_KEY: #{access_key}, &quot; +
+    &quot;EC2_SECRET_KEY: #{secret_key}&quot;
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+    </div>
+  
+    <div id="public-class-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="new-method" class="method-detail ">
+        <a name="method-c-new"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">new</span><span
+            class="method-args">(credentials)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Creates a new SQS queue connection and queue to store / retrieve tasks
+with, via the AWS RubyGem. We pull in the AWS RubyGem instead of the
+RightScale AWS RubyGem since the RightScale gem doesn’t work with the
+current version of SQS.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="new-source">
+<pre>
+<span class="ruby-comment"># File ../Neptune/task_queue_sqs.rb, line 36</span>
+def initialize(credentials)
+  if credentials.class != <span class="ruby-constant">Hash</span>
+    raise <span class="ruby-constant">BadConfigurationException</span>.new
+  end
+
+  if credentials[<span class="ruby-string">'EC2_ACCESS_KEY'</span>].nil?
+    raise <span class="ruby-constant">BadConfigurationException</span>.new
+  end
+  <span class="ruby-ivar">@EC2_ACCESS_KEY</span> = credentials[<span class="ruby-string">'EC2_ACCESS_KEY'</span>]
+
+  if credentials[<span class="ruby-string">'EC2_SECRET_KEY'</span>].nil?
+    raise <span class="ruby-constant">BadConfigurationException</span>.new
+  end
+  <span class="ruby-ivar">@EC2_SECRET_KEY</span> = credentials[<span class="ruby-string">'EC2_SECRET_KEY'</span>]
+
+  <span class="ruby-ivar">@sqs</span> = <span class="ruby-constant">AWS</span>::<span class="ruby-constant">SQS</span>.new(:access_key_id =&gt; <span class="ruby-ivar">@EC2_ACCESS_KEY</span>,
+    :secret_access_key =&gt; <span class="ruby-ivar">@EC2_SECRET_KEY</span>)
+  <span class="ruby-ivar">@queue</span> = <span class="ruby-ivar">@sqs</span>.queues.create(<span class="ruby-constant">TASK_QUEUE_NAME</span>)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+    </div>
+  
+
+  </div>
+
+  <div id="validator-badges">
+    <p><small><a href="http://validator.w3.org/check/referer">[Validate]</a></small></p>
+    <p><small>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish
+      Rdoc Generator</a> 2</small>.</p>
+  </div>
+
+</body>
+</html>
+

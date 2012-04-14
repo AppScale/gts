@@ -108,14 +108,11 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     super(MemcacheService, self).__init__(service_name)
     self._gettime = gettime
 
-    APPSCALE_HOME = os.environ.get("APPSCALE_HOME")
-    f = open(APPSCALE_HOME + "/.appscale/all_ips")
+    f = open("/etc/appscale/memcache_ips")
     all_ips = f.read().split("\n")
     f.close()
 
     memcaches = [ip + ":11211" for ip in all_ips if ip != '']
-    #for ip in all_ips:
-    #  memcaches.append(ip + ":11211")
 
     self._memcache = memcache.Client(memcaches, debug=0)
     self._ResetStats()
@@ -191,8 +188,9 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
             or not old_entry.CheckLocked()):
           appname = os.environ['APPNAME']
           internal_key = "__" + appname + "__" + namespace + "__" + key
-          self._memcache.set(internal_key, item.value(), item.expiration_time())
-          set_status = MemcacheSetResponse.STORED
+
+          if self._memcache.set(internal_key, item.value(), item.expiration_time()):
+            set_status = MemcacheSetResponse.STORED
 
       response.add_set_status(set_status)
 

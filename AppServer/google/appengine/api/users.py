@@ -81,7 +81,8 @@ class User(object):
   __federated_provider = None
 
   def __init__(self, email=None, _auth_domain=None,
-               _user_id=None, federated_identity=None, federated_provider=None):
+               _user_id=None, federated_identity=None, federated_provider=None,
+               _strict_mode=True):
     """Constructor.
 
     Args:
@@ -107,7 +108,7 @@ class User(object):
       federated_provider = os.environ.get('FEDERATED_PROVIDER',
                                           federated_provider)
 
-    if not email and not federated_identity:
+    if not email and not federated_identity and _strict_mode:
       raise UserNotFoundError
 
     self.__email = email
@@ -292,8 +293,11 @@ def is_current_user_capable(api_name):
     return False
 
   email = user.email()
+  return is_user_capable(email, api_name)
 
-  #sys.stderr.write("checking permissions for user " + email + " on api " + api_name + "\n")
+def is_user_capable(user, api_name):
+  user = urllib.unquote(user)
+  sys.stderr.write("checking permissions for user " + user + " on api " + api_name + "\n")
 
   secret_file = open('/etc/appscale/secret.key', 'r')
   secret = secret_file.read()
@@ -307,11 +311,22 @@ def is_current_user_capable(api_name):
 
   #sys.stderr.write("will create a connection to https://" + uaserver + ":4343\n")
   server = SOAPpy.SOAPProxy("https://" + uaserver + ":4343")
-  capabilities = server.get_capabilities(email, secret).split(":")
+  capabilities = server.get_capabilities(user, secret)
 
-  #sys.stderr.write("user " + email + " has the following capabilities: " + str(capabilities) + "\n")
+  # if a non-existant user was specified this will be ['DB_ERROR', 'no user']
+  # instead of a string with their capabilities
+  if not isinstance(capabilities, str):
+    return False
+
+  capabilities = capabilities.split(":")
+
+  sys.stderr.write("user " + user + " has the following capabilities: " + str(capabilities) + "\n")
 
   if api_name in capabilities:
     return True
   else:
     return False
+
+
+
+

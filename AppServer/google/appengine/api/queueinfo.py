@@ -134,7 +134,6 @@ available to an app, it is clamped.
 
 
 
-from google.appengine.api import appinfo
 from google.appengine.api import validation
 from google.appengine.api import yaml_builder
 from google.appengine.api import yaml_listener
@@ -146,7 +145,12 @@ _RATE_REGEX = r'^(0|[0-9]+(\.[0-9]*)?/[smhd])'
 _TOTAL_STORAGE_LIMIT_REGEX = r'^([0-9]+(\.[0-9]*)?[BKMGT]?)'
 _TASK_AGE_LIMIT_REGEX = r'^([0-9]+(\.[0-9]*(e-?[0-9]+))?[smhd])'
 _MODE_REGEX = r'(pull)|(push)'
-_VERSION_REGEX = appinfo.VERSION_RE_STRING
+
+
+
+
+_MAJOR_VERSION_ID_MAX_LEN = 100
+_VERSION_REGEX = r'(?!-)[a-z\d\-]{1,%d}' % _MAJOR_VERSION_ID_MAX_LEN
 
 QUEUE = 'queue'
 

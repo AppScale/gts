@@ -45,7 +45,6 @@ from google.appengine.ext import db
 from google.appengine.ext.mapreduce import base_handler
 from google.appengine.ext.mapreduce import errors
 from google.appengine.ext.mapreduce import model
-from google.appengine.ext.webapp import template
 
 
 
@@ -372,7 +371,7 @@ class GetJobDetailHandler(base_handler.GetJsonHandler):
     })
     self.json_response["result_status"] = job.result_status
 
-    shards_list = model.ShardState.find_by_mapreduce_id(mapreduce_id)
+    shards_list = model.ShardState.find_by_mapreduce_state(job)
     all_shards = []
     shards_list.sort(key=lambda x: x.shard_number)
     for shard in shards_list:

@@ -11,21 +11,20 @@ Architecture: any
 Depends: appscale-tools,
 # App Server/AppScale Server/SOAP Server
  openssl,
- sun-java6-jdk,
+ openjdk-6-jdk,
  python2.6, python-yaml,
 # python2.5 is not provided from lucid
  python2.5,
- python-m2crypto, python-soappy, python-setuptools,
+ python-m2crypto, python-soappy, 
  python-imaging,
  python,
  python-django, 
  sendmail,
  ejabberd, python-xmpp,
-# App Controller
+# AppController
  ssh,
- ruby1.8, ruby, libzlib-ruby, libzip-ruby1.8,
+ ruby1.8, ruby, rdoc1.8, libzlib-ruby, libzip-ruby1.8,
  libopenssl-ruby, libopenssl-ruby1.8, libruby1.8,
- rubygems1.8, rubygems,
  iptables, cron,
  curl, lsof, tcpdump,
  memcached, python-memcache,
@@ -51,8 +50,19 @@ Depends: appscale-tools,
  r-base, r-base-dev,
 # Neptune(dfsp)
  gsl-bin, libgsl0-dev,
+# kdt dependencies
+ python-numpy, python-scipy,
+ libatlas-base-dev, libatlas-headers, liblapack-pic,
+# Neptune(medea)
+ gnat-4.4, mono-complete, ghc6, scala, ocaml-nox, 
+# aws-sdk
+ ruby1.8-dev, ri1.8, irb1.8, libreadline-ruby1.8,
+ libxslt-dev, libxml2-dev,
 # unknown
  make
+# TaskQueue
+ rabbitmq-server
+ python-pip
 Conflicts: haproxy, zookeeper, zookeeper-bin, zookeeperd, libzookeeper-java, python-zookeeper
 Description: An open-source framework for execution of GAE applications
  An open-source research framework for execution of

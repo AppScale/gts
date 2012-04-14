@@ -138,7 +138,6 @@
             {{r.http_status}}
           </a>
           real={{r.duration_milliseconds}}ms
-          cpu={{r.processor_milliseconds}}ms
           api={{r.api_milliseconds}}ms
           overhead={{r.overhead_walltime_milliseconds}}ms
           ({{r.combined_rpc_count}} RPC{{r.combined_rpc_count|pluralize}})

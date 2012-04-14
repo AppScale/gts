@@ -30,9 +30,6 @@ class DBFrontend
   end
   
   def self.get_app_data(app_name)
-    #cached_app_data = CACHE.get("app_data-#{app_name}")
-    #return cached_app_data unless cached_app_data.nil?
-
     conn = self.get_instance
 
     begin
@@ -41,15 +38,11 @@ class DBFrontend
       return nil
     end
 
-    #CACHE.delete("parsed_app_data-#{app_name}")
-    #CACHE.set("app_data-#{app_name}", app_data, 30)
     return app_data
   end
 
   def self.get_token(ip)
     return nil if ip.nil?
-    #cached_token = CACHE.get("token-#{ip}")
-    #return cached_token unless cached_token.nil?
 
     conn = self.get_instance
 
@@ -58,10 +51,6 @@ class DBFrontend
     rescue Errno::ECONNREFUSED
       return nil
     end
-
-    #CACHE.delete("parsed_token_exp-#{ip}")
-    #CACHE.delete("parsed_server_token-#{ip}")
-    #CACHE.set("token-#{ip}", token_data, 30)
 
     return token_data
   end
@@ -103,13 +92,9 @@ class DBFrontend
   end
 
   def self.get_secret(secret_location="#{APPSCALE_HOME}/.appscale/secret.key")
-    cached_secret = CACHE.get('secret')
-    return cached_secret unless cached_secret.nil?
-
     return nil unless File.exists?(secret_location)
 
     secret = (File.open(secret_location) { |f| f.read }).chomp
-    CACHE.set('secret', secret)
     return secret
   end
   
@@ -122,7 +107,7 @@ class DBFrontend
   end
   
   def self.get_instance
-    foo = DBFrontend.new #if !@@instance_created
+    foo = DBFrontend.new
     @@db_connection
   end
 end

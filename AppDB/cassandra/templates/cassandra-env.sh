@@ -1,0 +1,162 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+calculate_heap_sizes()
+{
+    case "`uname`" in
+        Linux)
+            system_memory_in_mb=`free -m | awk '/Mem:/ {print $2}'`
+            system_cpu_cores=`egrep -c 'processor([[:space:]]+):.*' /proc/cpuinfo`
+            break
+        ;;
+        FreeBSD)
+            system_memory_in_bytes=`sysctl hw.physmem | awk '{print $2}'`
+            system_memory_in_mb=$((system_memory_in_bytes / 1024 / 1024))
+            system_cpu_cores=`sysctl hw.ncpu | awk '{print $2}'`
+            break
+        ;;
+        *)
+            # assume reasonable defaults for e.g. a modern desktop or
+            # cheap server
+            system_memory_in_mb="2048"
+            system_cpu_cores="2"
+        ;;
+    esac
+    max_heap_size_in_mb=$((system_memory_in_mb / 2))
+    MAX_HEAP_SIZE="${max_heap_size_in_mb}M"
+
+    # Young gen: min(max_sensible_per_modern_cpu_core * num_cores, 1/4 * heap size)
+    max_sensible_yg_per_core_in_mb="100"
+    max_sensible_yg_in_mb=$((max_sensible_yg_per_core_in_mb * system_cpu_cores))
+
+    desired_yg_in_mb=$((max_heap_size_in_mb / 4))
+
+    if [ "$desired_yg_in_mb" -gt "$max_sensible_yg_in_mb" ]
+    then
+        HEAP_NEWSIZE="${max_sensible_yg_in_mb}M"
+    else
+        HEAP_NEWSIZE="${desired_yg_in_mb}M"
+    fi
+}
+
+# Override these to set the amount of memory to allocate to the JVM at
+# start-up. For production use you almost certainly want to adjust
+# this for your environment. MAX_HEAP_SIZE is the total amount of
+# memory dedicated to the Java heap; HEAP_NEWSIZE refers to the size
+# of the young generation. Both MAX_HEAP_SIZE and HEAP_NEWSIZE should
+# be either set or not (if you set one, set the other).
+#
+# The main trade-off for the young generation is that the larger it
+# is, the longer GC pause times will be. The shorter it is, the more
+# expensive GC will be (usually).
+#
+# The example HEAP_NEWSIZE assumes a modern 8-core+ machine for decent pause
+# times. If in doubt, and if you do not particularly want to tweak, go with
+# 100 MB per physical CPU core.
+
+#MAX_HEAP_SIZE="4G"
+#HEAP_NEWSIZE="800M"
+
+if [ "x$MAX_HEAP_SIZE" = "x" ] && [ "x$HEAP_NEWSIZE" = "x" ]; then
+    calculate_heap_sizes
+else
+    if [ "x$MAX_HEAP_SIZE" = "x" ] ||  [ "x$HEAP_NEWSIZE" = "x" ]; then
+        echo "please set or unset MAX_HEAP_SIZE and HEAP_NEWSIZE in pairs (see cassandra-env.sh)"
+        exit 1
+    fi
+fi
+
+# Specifies the default port over which Cassandra will be available for
+# JMX connections.
+JMX_PORT="APPSCALE-JMX-PORT"
+
+# To use mx4j, an HTML interface for JMX, add mx4j-tools.jar to the lib/ directory.
+# By default mx4j listens on 0.0.0.0:8081. Uncomment the following lines to control
+# its listen address and port.
+#MX4J_ADDRESS="-Dmx4jaddress=0.0.0.0"
+#MX4J_PORT="-Dmx4jport=8081"
+
+
+# Here we create the arguments that will get passed to the jvm when
+# starting cassandra.
+
+# enable assertions.  disabling this in production will give a modest
+# performance benefit (around 5%).
+JVM_OPTS="$JVM_OPTS -ea"
+
+# enable thread priorities, primarily so we can give periodic tasks
+# a lower priority to avoid interfering with client workload
+JVM_OPTS="$JVM_OPTS -XX:+UseThreadPriorities"
+# allows lowering thread priority without being root.  see
+# http://tech.stolsvik.com/2010/01/linux-java-thread-priorities-workaround.html
+JVM_OPTS="$JVM_OPTS -XX:ThreadPriorityPolicy=42"
+
+# min and max heap sizes should be set to the same value to avoid
+# stop-the-world GC pauses during resize, and so that we can lock the
+# heap in memory on startup to prevent any of it from being swapped
+# out.
+JVM_OPTS="$JVM_OPTS -Xms${MAX_HEAP_SIZE}"
+JVM_OPTS="$JVM_OPTS -Xmx${MAX_HEAP_SIZE}"
+JVM_OPTS="$JVM_OPTS -Xmn${HEAP_NEWSIZE}"
+JVM_OPTS="$JVM_OPTS -XX:+HeapDumpOnOutOfMemoryError" 
+
+if [ "`uname`" = "Linux" ] ; then
+    # reduce the per-thread stack size to minimize the impact of Thrift
+    # thread-per-client.  (Best practice is for client connections to
+    # be pooled anyway.) Only do so on Linux where it is known to be
+    # supported.
+    JVM_OPTS="$JVM_OPTS -Xss128k"
+fi
+
+# GC tuning options
+JVM_OPTS="$JVM_OPTS -XX:+UseParNewGC" 
+JVM_OPTS="$JVM_OPTS -XX:+UseConcMarkSweepGC" 
+JVM_OPTS="$JVM_OPTS -XX:+CMSParallelRemarkEnabled" 
+JVM_OPTS="$JVM_OPTS -XX:SurvivorRatio=8" 
+JVM_OPTS="$JVM_OPTS -XX:MaxTenuringThreshold=1"
+JVM_OPTS="$JVM_OPTS -XX:CMSInitiatingOccupancyFraction=75"
+JVM_OPTS="$JVM_OPTS -XX:+UseCMSInitiatingOccupancyOnly"
+
+# GC logging options -- uncomment to enable
+# JVM_OPTS="$JVM_OPTS -XX:+PrintGCDetails"
+# JVM_OPTS="$JVM_OPTS -XX:+PrintGCTimeStamps"
+# JVM_OPTS="$JVM_OPTS -XX:+PrintClassHistogram"
+# JVM_OPTS="$JVM_OPTS -XX:+PrintTenuringDistribution"
+# JVM_OPTS="$JVM_OPTS -XX:+PrintGCApplicationStoppedTime"
+# JVM_OPTS="$JVM_OPTS -Xloggc:/var/log/cassandra/gc-`date +%s`.log"
+
+# uncomment to have Cassandra JVM listen for remote debuggers/profilers on port 1414
+# JVM_OPTS="$JVM_OPTS -Xdebug -Xnoagent -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=1414"
+
+# Prefer binding to IPv4 network intefaces (when net.ipv6.bindv6only=1). See 
+# http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6342561 (short version:
+# comment out this entry to enable IPv6 support).
+JVM_OPTS="$JVM_OPTS -Djava.net.preferIPv4Stack=true"
+
+# jmx: metrics and administration interface
+# 
+# add this if you're having trouble connecting:
+# JVM_OPTS="$JVM_OPTS -Djava.rmi.server.hostname=<public name>"
+# 
+# see 
+# http://blogs.sun.com/jmxetc/entry/troubleshooting_connection_problems_in_jconsole
+# for more on configuring JMX through firewalls, etc. (Short version:
+# get it working with no firewall first.)
+JVM_OPTS="$JVM_OPTS -Dcom.sun.management.jmxremote.port=$JMX_PORT" 
+JVM_OPTS="$JVM_OPTS -Dcom.sun.management.jmxremote.ssl=false" 
+JVM_OPTS="$JVM_OPTS -Dcom.sun.management.jmxremote.authenticate=false" 
+JVM_OPTS="$JVM_OPTS $MX4J_ADDRESS" 
+JVM_OPTS="$JVM_OPTS $MX4J_PORT" 

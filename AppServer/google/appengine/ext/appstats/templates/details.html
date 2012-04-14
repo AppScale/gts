@@ -19,7 +19,6 @@
           <br>
           {{record.user_email|escape}}{% if record.is_admin %}*{% endif %}
           real={{record.duration_milliseconds}}ms
-          cpu={{record.processor_milliseconds}}ms
           api={{record.api_milliseconds}}ms
           overhead={{record.overhead_walltime_milliseconds}}ms
         </dd>
@@ -204,9 +203,8 @@ function renderChart() {
   chart.add_bar('<b>RPC Total</b>', 0, {{real_total}}, {{api_total}},
       '{{real_total}}ms{% if api_total %} ({{api_total}}ms api){% endif %}',
       '');
-  chart.add_bar('<b>Grand Total</b>', 0, {{record.duration_milliseconds}},
-      {{charged_total}},
-      '{{record.duration_milliseconds}}ms{% if charged_total %} ({{charged_total}}ms cpu+api){% endif %}', '');
+  chart.add_bar('<b>Grand Total</b>', 0, {{record.duration_milliseconds}}, 0,
+      '{{record.duration_milliseconds}}ms', '');
   document.getElementById('ae-rpc-chart').innerHTML = chart.draw();
 }
 renderChart();

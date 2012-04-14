@@ -24,6 +24,13 @@ import dummy_thread as thread
 __pychecker__ = """maxreturns=0 maxbranches=0 no-callinit
                    unusednames=printElemNumber,debug_strs no-special"""
 
+if hasattr(ProtocolBuffer, 'ExtendableProtocolMessage'):
+  _extension_runtime = True
+  _ExtendableProtocolMessage = ProtocolBuffer.ExtendableProtocolMessage
+else:
+  _extension_runtime = False
+  _ExtendableProtocolMessage = ProtocolBuffer.ProtocolMessage
+
 class StringProto(ProtocolBuffer.ProtocolMessage):
   has_value_ = 0
   value_ = ""
@@ -123,6 +130,7 @@ class StringProto(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.base.StringProto'
 class Integer32Proto(ProtocolBuffer.ProtocolMessage):
   has_value_ = 0
   value_ = 0
@@ -222,6 +230,7 @@ class Integer32Proto(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.base.Integer32Proto'
 class Integer64Proto(ProtocolBuffer.ProtocolMessage):
   has_value_ = 0
   value_ = 0
@@ -321,6 +330,7 @@ class Integer64Proto(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.base.Integer64Proto'
 class BoolProto(ProtocolBuffer.ProtocolMessage):
   has_value_ = 0
   value_ = 0
@@ -418,6 +428,7 @@ class BoolProto(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.base.BoolProto'
 class DoubleProto(ProtocolBuffer.ProtocolMessage):
   has_value_ = 0
   value_ = 0.0
@@ -515,6 +526,7 @@ class DoubleProto(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.base.DoubleProto'
 class BytesProto(ProtocolBuffer.ProtocolMessage):
   has_value_ = 0
   value_ = ""
@@ -614,6 +626,7 @@ class BytesProto(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.base.BytesProto'
 class VoidProto(ProtocolBuffer.ProtocolMessage):
 
   def __init__(self, contents=None):
@@ -678,5 +691,8 @@ class VoidProto(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.base.VoidProto'
+if _extension_runtime:
+  pass
 
 __all__ = ['StringProto','Integer32Proto','Integer64Proto','BoolProto','DoubleProto','BytesProto','VoidProto']

@@ -298,8 +298,8 @@ def subscribe(document_class,
   person['height'] = 150
 
   person_schema = {
-    'str' : ['first_name', 'surname'],
-    'int' : ['height'],
+    str : ['first_name', 'surname'],
+    int : ['height'],
   }
 
   Args:

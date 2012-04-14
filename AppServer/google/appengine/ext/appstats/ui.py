@@ -43,15 +43,12 @@ import time
 
 from google.appengine.api import users
 from google.appengine.ext import webapp
+from google.appengine.ext.webapp import _template
 from google.appengine.ext.webapp import util
 
 from google.appengine.ext.appstats import recording
 
-
-
 DEBUG = recording.config.DEBUG
-from google.appengine.ext.webapp import template
-import django
 
 
 def render(tmplname, data):
@@ -60,7 +57,7 @@ def render(tmplname, data):
   tmpl = os.path.join(here, 'templates', tmplname)
   data['env'] = os.environ
   try:
-    return template.render(tmpl, data)
+    return _template.render(tmpl, data)
   except Exception, err:
     logging.exception('Failed to render %s', tmpl)
     return 'Problematic template %s: %s' % (tmplname, err)
@@ -197,15 +194,12 @@ class DetailsHandler(webapp.RequestHandler):
       api_total_mcycles += rpc_stat.api_mcycles()
 
     api_total = recording.mcycles_to_msecs(api_total_mcycles)
-    charged_total = recording.mcycles_to_msecs(record.processor_mcycles() +
-                                               api_total_mcycles)
 
     data = {'sys': sys,
             'record': record,
             'rpcstats_by_count': rpcstats_by_count,
             'real_total': real_total,
             'api_total': api_total,
-            'charged_total': charged_total,
             'file_url': './file',
             }
     self.response.out.write(render('details.html', data))
@@ -291,15 +285,6 @@ class StaticHandler(webapp.RequestHandler):
 
 
 
-if django.VERSION[:2] < (0, 97):
-  from django.template import defaultfilters
-  def safe(text, dummy=None):
-    return text
-  defaultfilters.register.filter("safe", safe)
-
-
-
-
 URLMAP = [
   ('.*/details', DetailsHandler),
   ('.*/file', FileHandler),
@@ -308,19 +293,30 @@ URLMAP = [
   ]
 
 
+class AuthCheckMiddleware(object):
+  """Middleware which conducts an auth check."""
+
+  def __init__(self, application):
+    self._application = application
+
+  def __call__(self, environ, start_response):
+    if not environ.get('SERVER_SOFTWARE', '').startswith('Dev'):
+      if not users.is_current_user_admin():
+        if users.get_current_user() is None:
+          start_response('302 Found',
+                         [('Location',
+                           users.create_login_url(os.getenv('PATH_INFO', '')))])
+          return []
+        else:
+          start_response('403 Forbidden', [])
+          return ['Forbidden\n']
+    return self._application(environ, start_response)
+
+app = AuthCheckMiddleware(webapp.WSGIApplication(URLMAP, debug=DEBUG))
+
+
 def main():
-  """Main program.  Auth check, then create and run the WSGIApplication."""
-  if not os.getenv('SERVER_SOFTWARE', '').startswith('Dev'):
-    if not users.is_current_user_admin():
-      if users.get_current_user() is None:
-        print 'Status: 302'
-        print 'Location:', users.create_login_url(os.getenv('PATH_INFO', ''))
-      else:
-        print 'Status: 403'
-        print
-        print 'Forbidden'
-      return
-  app = webapp.WSGIApplication(URLMAP, debug=DEBUG)
+  """Main program. Run the auth checking middleware wrapped WSGIApplication."""
   util.run_bare_wsgi_app(app)
 
 

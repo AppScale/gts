@@ -58,7 +58,8 @@
             {{ task.name|escape }}
           </td>
           <td valign="top">
-            {{ task.eta|escape }} ({{ task.eta_delta|escape }})
+            <div>{{ task.eta|escape }}</div>
+            <div>({{ task.eta_delta|escape }})</div>
           </td>
           <td valign="top">
             {{ task.method|escape }}
@@ -68,6 +69,7 @@
           </td>
           <td valign="top">
             <form id="runform.{{ task.name|escape }}" action="{{ task.url|escape }}" method="{{ task.method|escape }}" onsubmit="(new Webhook('runform.{{ task.name|escape }}')).run(handleTaskResult); return false">
+            <input type="hidden" name="xsrf_token" value="{{ xsrf_token }}"/>
             <input type="hidden" name="payload" value="{{ task.body|escape }}">
             {% for header in task.headers %}
               <input type="hidden" name="header:{{ header.0|escape }}"
@@ -77,9 +79,13 @@
             </form>
           </td>
           <td valign="top">
-            <form id="deleteform.{{ task.name|escape }}" action="/_ah/admin/tasks" method="post">
-            <input type="hidden" name="queue" value="{{ queue_name|escape }}"/>
+            <form id="deleteform.{{ task.name|escape }}" action="{{ tasks_path }}" method="post">
+            <input type="hidden" name="xsrf_token" value="{{ xsrf_token }}"/>
+            <input type="hidden" name="queue" value="{{ queue|escape }}"/>
             <input type="hidden" name="task" value="{{ task.name|escape }}"/>
+            <input type="hidden" name="start_name" value="{{ this_page.start_name|escape }}"/>
+            <input type="hidden" name="start_eta" value="{{ this_page.start_eta|escape }}"/>
+            <input type="hidden" name="page_no" value="{{ this_page.number|escape }}"/>
             <input type="hidden" name="action:deletetask" value="true"/>
             <input type="submit" value="Delete"/>
             </form>
@@ -88,7 +94,19 @@
       {% endfor %}
       <tr>
         <td colspan="6" class="ae-pager" align="right">
-          {% include "pager.html" %}
+          {% if prev_page %}
+            <a href="{{ tasks_path }}?{{ prev_page.url }}">&lsaquo; Previous</a>
+          {% endif %}
+          &nbsp;
+          {% for page in pages %}
+            <a {% ifequal page this_page %} class="ae-page-selected ae-page-number" {% endifequal %}
+              href="{{ tasks_path }}?{{ page.url }}">{{ page.number }}</a>
+            {% if page.has_gap %}...{% endif %}
+          {% endfor %}
+          &nbsp;
+          {% if next_page %}
+            <a href="{{ tasks_path }}?{{ next_page.url }}">Next &rsaquo;</a>
+          {% endif %}
         </td>
       </tr>
     </tbody>
@@ -100,4 +118,3 @@
 
 
 {% endblock %}
-

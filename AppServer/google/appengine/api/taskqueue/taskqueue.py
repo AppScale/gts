@@ -40,6 +40,9 @@ base path. A default queue is also provided for simple usage.
 
 
 
+
+
+
 __all__ = [
 
     'BadTaskStateError', 'BadTransactionState', 'BadTransactionStateError',
@@ -50,16 +53,21 @@ __all__ = [
     'TooManyTasksError', 'TransientError', 'UnknownQueueError',
     'InvalidLeaseTimeError', 'InvalidMaxTasksError',
     'InvalidQueueModeError', 'TransactionalRequestTooLargeError',
+    'TaskLeaseExpiredError', 'QueuePausedError',
 
     'MAX_QUEUE_NAME_LENGTH', 'MAX_TASK_NAME_LENGTH', 'MAX_TASK_SIZE_BYTES',
     'MAX_PULL_TASK_SIZE_BYTES', 'MAX_PUSH_TASK_SIZE_BYTES',
     'MAX_URL_LENGTH',
 
-    'Queue', 'Task', 'TaskRetryOptions', 'add']
+    'DEFAULT_APP_VERSION',
+
+    'Queue', 'QueueStatistics', 'Task', 'TaskRetryOptions', 'add']
 
 
 import calendar
+import cgi
 import datetime
+import logging
 import math
 import os
 import re
@@ -68,6 +76,7 @@ import urllib
 import urlparse
 
 from google.appengine.api import apiproxy_stub_map
+from google.appengine.api import app_identity
 from google.appengine.api import namespace_manager
 from google.appengine.api import urlfetch
 from google.appengine.api.taskqueue import taskqueue_service_pb
@@ -177,6 +186,24 @@ class TransactionalRequestTooLargeError(TaskTooLargeError):
   """The total size of this transaction (including tasks) was too large."""
 
 
+class TaskLeaseExpiredError(Error):
+  """The task lease could not be renewed because it had already expired."""
+
+
+class QueuePausedError(Error):
+  """The queue is paused and cannot process modify task lease requests."""
+
+
+class _DefaultAppVersionSingleton(object):
+  def __repr__(self):
+    return '<DefaultApplicationVersion>'
+
+
+class _UnknownAppVersionSingleton(object):
+  def __repr__(self):
+    return '<UnknownApplicationVersion>'
+
+
 
 
 BadTransactionState = BadTransactionStateError
@@ -185,7 +212,7 @@ MAX_QUEUE_NAME_LENGTH = 100
 
 MAX_PULL_TASK_SIZE_BYTES = 2 ** 20
 
-MAX_PUSH_TASK_SIZE_BYTES = 10 * (2 ** 10)
+MAX_PUSH_TASK_SIZE_BYTES = 100 * (2 ** 10)
 
 MAX_TASK_NAME_LENGTH = 500
 
@@ -201,6 +228,10 @@ MAX_URL_LENGTH = 2083
 MAX_TASKS_PER_LEASE = 1000
 
 MAX_LEASE_SECONDS = 3600 * 24 * 7
+
+
+DEFAULT_APP_VERSION = _DefaultAppVersionSingleton()
+_UNKNOWN_APP_VERSION = _UnknownAppVersionSingleton()
 
 _DEFAULT_QUEUE = 'default'
 
@@ -218,7 +249,7 @@ _NON_POST_HTTP_METHODS = frozenset(['GET', 'HEAD', 'PUT', 'DELETE'])
 
 _BODY_METHODS = frozenset(['POST', 'PUT', 'PULL'])
 
-_TASK_NAME_PATTERN = r'^[a-zA-Z0-9-]{1,%s}$' % MAX_TASK_NAME_LENGTH
+_TASK_NAME_PATTERN = r'^[a-zA-Z0-9_-]{1,%s}$' % MAX_TASK_NAME_LENGTH
 
 _TASK_NAME_RE = re.compile(_TASK_NAME_PATTERN)
 
@@ -259,6 +290,10 @@ _ERROR_MAPPING = {
         TooManyTasksError,
     taskqueue_service_pb.TaskQueueServiceError.TRANSACTIONAL_REQUEST_TOO_LARGE:
         TransactionalRequestTooLargeError,
+    taskqueue_service_pb.TaskQueueServiceError.TASK_LEASE_EXPIRED:
+        TaskLeaseExpiredError,
+    taskqueue_service_pb.TaskQueueServiceError.QUEUE_PAUSED:
+        QueuePausedError
 
 }
 
@@ -286,6 +321,9 @@ class _UTCTimeZone(datetime.tzinfo):
 
   def tzname(self, dt):
     return 'UTC'
+
+  def __repr__(self):
+    return '_UTCTimeZone()'
 
 
 _UTC = _UTCTimeZone()
@@ -452,6 +490,11 @@ class TaskRetryOptions(object):
     """The number of times that a failed task will be retried."""
     return self.__task_retry_limit
 
+  def __repr__(self):
+    properties = ['%s=%r' % (attr, getattr(self, attr)) for attr in
+                  self.__CONSTRUCTOR_KWARGS]
+    return 'TaskRetryOptions(%s)' % ', '.join(properties)
+
 
 class Task(object):
   """Represents a single Task on a queue."""
@@ -459,10 +502,11 @@ class Task(object):
 
   __CONSTRUCTOR_KWARGS = frozenset([
       'countdown', 'eta', 'headers', 'method', 'name', 'params',
-      'retry_options', 'url'])
+      'retry_options', 'tag', 'target', 'url', '_size_check'])
 
 
   __eta_posix = None
+  __target = None
 
 
   def __init__(self, payload=None, **kwargs):
@@ -478,7 +522,7 @@ class Task(object):
         auto-generated when added to a queue and assigned to this object. Must
         match the _TASK_NAME_PATTERN regular expression.
       method: Method to use when accessing the webhook. Defaults to 'POST'. If
-        set to 'PULL', task will not be automatiacally delivered to the webhook,
+        set to 'PULL', task will not be automatically delivered to the webhook,
         instead it stays in the queue until leased.
       url: Relative URL where the webhook that should handle this task is
         located for this application. May have a query string unless this is
@@ -501,12 +545,15 @@ class Task(object):
         time indicated by eta.
       retry_options: TaskRetryOptions used to control when the task will be
         retried if it fails.
+      target: The alternate version/backend on which to execute this task, or
+        DEFAULT_APP_VERSION to execute on the application's default version.
+      tag: The tag to be used when grouping by tag (PULL tasks only).
 
     Raises:
-      InvalidTaskError if any of the parameters are invalid;
-      InvalidTaskNameError if the task name is invalid;
-      InvalidUrlError if the task URL is invalid or too long;
-      TaskTooLargeError if the task with its payload is too large.
+      InvalidTaskError: if any of the parameters are invalid;
+      InvalidTaskNameError: if the task name is invalid;
+      InvalidUrlError: if the task URL is invalid or too long;
+      TaskTooLargeError: if the task with its payload is too large.
     """
     args_diff = set(kwargs.iterkeys()) - self.__CONSTRUCTOR_KWARGS
     if args_diff:
@@ -523,8 +570,13 @@ class Task(object):
     self.__headers = urlfetch._CaselessDict()
     self.__headers.update(kwargs.get('headers', {}))
     self.__method = kwargs.get('method', 'POST').upper()
+    self.__tag = kwargs.get('tag')
     self.__payload = None
     self.__retry_count = 0
+    self.__queue_name = None
+
+
+    size_check = kwargs.get('_size_check', True)
     params = kwargs.get('params', {})
 
 
@@ -539,16 +591,21 @@ class Task(object):
       raise InvalidTaskError('Query string and parameters both present; '
                              'only one of these may be supplied')
 
+    if self.__method != 'PULL' and self.__tag is not None:
+      raise InvalidTaskError('tag may only be specified for PULL tasks')
+
     if self.__method == 'PULL':
       if not self.__default_url:
-        raise InvalidTaskError('url must not be specified for PULL task')
+        raise InvalidTaskError('url must not be specified for PULL tasks')
       if kwargs.get('headers'):
-        raise InvalidTaskError('headers must not be specified for PULL task')
+        raise InvalidTaskError('headers must not be specified for PULL tasks')
+      if kwargs.get('target'):
+        raise InvalidTaskError('target must not be specified for PULL tasks')
       if params:
         if payload:
           raise InvalidTaskError(
               'Message body and parameters both present for '
-              'POST method; only one of these may be supplied')
+              'PULL method; only one of these may be supplied')
         payload = Task.__encode_params(params)
       if payload is None:
         raise InvalidTaskError('payload must be specified for PULL task')
@@ -556,7 +613,8 @@ class Task(object):
     elif self.__method == 'POST':
       if payload and params:
         raise InvalidTaskError('Message body and parameters both present for '
-                               'POST method; only one of these may be supplied')
+                               'POST method; only one of these may be '
+                               'supplied')
       elif query:
         raise InvalidTaskError('POST method may not have a query string; '
                                'use the "params" keyword argument instead')
@@ -568,8 +626,9 @@ class Task(object):
         self.__payload = Task.__convert_payload(payload, self.__headers)
     elif self.__method in _NON_POST_HTTP_METHODS:
       if payload and self.__method not in _BODY_METHODS:
-        raise InvalidTaskError('Payload may only be specified for methods %s' %
-                               ', '.join(_BODY_METHODS))
+        raise InvalidTaskError(
+            'Payload may only be specified for methods %s' %
+            ', '.join(_BODY_METHODS))
       if payload:
         self.__payload = Task.__convert_payload(payload, self.__headers)
       if params:
@@ -579,6 +638,9 @@ class Task(object):
     else:
       raise InvalidTaskError('Invalid method: %s' % self.__method)
 
+    self.__target = kwargs.get('target')
+    self.__resolve_hostname_and_target()
+
     self.__headers_list = _flatten_params(self.__headers)
     self.__eta_posix = Task.__determine_eta_posix(
         kwargs.get('eta'), kwargs.get('countdown'))
@@ -587,13 +649,118 @@ class Task(object):
     self.__enqueued = False
     self.__deleted = False
 
-    if self.__method == 'PULL':
-      max_task_size_bytes = MAX_PULL_TASK_SIZE_BYTES
+    if size_check:
+      if self.__method == 'PULL':
+        max_task_size_bytes = MAX_PULL_TASK_SIZE_BYTES
+      else:
+        max_task_size_bytes = MAX_PUSH_TASK_SIZE_BYTES
+      if self.size > max_task_size_bytes:
+        raise TaskTooLargeError('Task size must be less than %d; found %d' %
+                                (max_task_size_bytes, self.size))
+
+  def __resolve_hostname_and_target(self):
+    """Resolve the values of the target parameter and the `Host' header.
+
+    Requires that the attributes __target and __headers exist before this method
+    is called.
+
+    This function should only be called once from the __init__ function of the
+    Task class.
+
+    Raises:
+      InvalidTaskError: If the task is invalid.
+    """
+
+
+
+
+
+    if 'HTTP_HOST' not in os.environ:
+      logging.warning(
+          'The HTTP_HOST environment variable was not set, but is required '
+          'to determine the correct value for the `Task.target\' property. '
+          'Please update your unit tests to specify a correct value for this '
+          'environment variable.')
+
+    if self.__target is not None and 'Host' in self.__headers:
+      raise InvalidTaskError(
+          'A host header may not be set when a target is specified.')
+    elif self.__target is not None:
+      host = self.__host_from_target(self.__target)
+      if host:
+
+
+        self.__headers['Host'] = host
+    elif 'Host' in self.__headers:
+      self.__target = self.__target_from_host(self.__headers['Host'])
     else:
-      max_task_size_bytes = MAX_PUSH_TASK_SIZE_BYTES
-    if self.size > max_task_size_bytes:
-      raise TaskTooLargeError('Task size must be less than %d; found %d' %
-                              (max_task_size_bytes, self.size))
+      if 'HTTP_HOST' in os.environ:
+        self.__headers['Host'] = os.environ['HTTP_HOST']
+        self.__target = self.__target_from_host(self.__headers['Host'])
+      else:
+
+
+        self.__target = _UNKNOWN_APP_VERSION
+
+  @staticmethod
+  def __target_from_host(host):
+    """Calculate the value of the target parameter from a host header.
+
+    Args:
+      host: A string representing the hostname for this task.
+
+    Returns:
+      A string containing the target of this task, or the constant
+      DEFAULT_APP_VERSION if it is the default version.
+
+      If this code is running in a unit-test where the environment variable
+      `DEFAULT_VERSION_HOSTNAME' is not set then the constant
+      _UNKNOWN_APP_VERSION is returned.
+    """
+    default_hostname = app_identity.get_default_version_hostname()
+    if default_hostname is None:
+
+
+
+      return _UNKNOWN_APP_VERSION
+
+    if host.endswith(default_hostname):
+
+      version_name = host[:-(len(default_hostname) + 1)]
+      if version_name:
+        return version_name
+
+
+
+
+
+    return DEFAULT_APP_VERSION
+
+  @staticmethod
+  def __host_from_target(target):
+    """Calculate the value of the host header from a target.
+
+    Args:
+      target: A string representing the target hostname or the constant
+          DEFAULT_APP_VERSION.
+
+    Returns:
+      The string to be used as the host header, or None if it can not be
+      determined.
+    """
+    default_hostname = app_identity.get_default_version_hostname()
+    if default_hostname is None:
+
+
+
+      return None
+
+    if target is DEFAULT_APP_VERSION:
+      return default_hostname
+    else:
+
+
+      return '%s.%s' % (target, default_hostname)
 
   @staticmethod
   def __determine_url(relative_url):
@@ -705,10 +872,25 @@ class Task(object):
           'Task payloads must be strings; invalid payload: %r' % payload)
     return payload
 
-  @property
-  def on_queue_url(self):
-    """Returns True if this Task will run on the queue's URL."""
-    return self.__default_url
+  @classmethod
+  def _FromQueryAndOwnResponseTask(cls, queue_name, response_task):
+    kwargs = {
+        '_size_check': False,
+        'payload': response_task.body(),
+        'name': response_task.task_name(),
+        'method': 'PULL'}
+    if response_task.has_tag():
+      kwargs['tag'] = response_task.tag()
+    self = cls(**kwargs)
+
+
+
+
+    self.__eta_posix = response_task.eta_usec() * 1e-6
+    self.__retry_count = response_task.retry_count()
+    self.__queue_name = queue_name
+    self.__enqueued = True
+    return self
 
   @property
   def eta_posix(self):
@@ -745,9 +927,32 @@ class Task(object):
     return self.__name
 
   @property
+  def on_queue_url(self):
+    """Returns True if this Task will run on the queue's URL."""
+    return self.__default_url
+
+  @property
   def payload(self):
     """Returns the payload for this task, which may be None."""
     return self.__payload
+
+  @property
+  def queue_name(self):
+    """Returns the name of the queue this Task is associated with.
+
+    Will be None if this Task has not yet been added to a queue.
+    """
+    return self.__queue_name
+
+  @property
+  def retry_count(self):
+    """Returns the number of retries have been done on the task."""
+    return self.__retry_count
+
+  @property
+  def retry_options(self):
+    """Returns the TaskRetryOptions for this task, which may be None."""
+    return self.__retry_options
 
   @property
   def size(self):
@@ -759,19 +964,19 @@ class Task(object):
             len(self.__relative_url) + header_size)
 
   @property
+  def tag(self):
+    """Returns the tag for this Task."""
+    return self.__tag
+
+  @property
+  def target(self):
+    """Returns the target for this Task."""
+    return self.__target
+
+  @property
   def url(self):
     """Returns the relative URL for this Task."""
     return self.__relative_url
-
-  @property
-  def retry_options(self):
-    """Returns the TaskRetryOptions for this task, which may be None."""
-    return self.__retry_options
-
-  @property
-  def retry_count(self):
-    """Returns the number of retries have been done on the task."""
-    return self.__retry_count
 
   @property
   def was_enqueued(self):
@@ -790,6 +995,213 @@ class Task(object):
     """Adds this Task to a queue. See Queue.add."""
     return Queue(queue_name).add(self, transactional=transactional)
 
+  def extract_params(self):
+    """Returns the parameters for this task.
+
+    Returns:
+      A dictionary of strings mapping parameter names to their values as
+      strings. If the same name parameter has several values then the value will
+      be a list of strings. For POST and PULL requests then the parameters are
+      extracted from the task payload. For all other methods, the parameters are
+      extracted from the url query string. An empty dictionary is returned if
+      the task contains an empty payload or query string.
+
+    Raises:
+      ValueError: if the payload does not contain valid
+        'application/x-www-form-urlencoded' data (for POST and PULL) or the url
+        does not contain a valid query (all other methods).
+    """
+    if self.__method in ('PULL', 'POST'):
+
+      query = self.__payload
+    else:
+      query = urlparse.urlparse(self.__relative_url).query
+
+    p = {}
+    if not query:
+      return p
+
+    for key, value in cgi.parse_qsl(
+        query, keep_blank_values=True, strict_parsing=True):
+      p.setdefault(key, []).append(value)
+
+    for key, value in p.items():
+      if len(value) == 1:
+        p[key] = value[0]
+
+    return p
+
+  def __repr__(self):
+    COMMON_ATTRS = ['eta', 'method', 'name', 'queue_name', 'payload', 'size',
+                    'retry_options', 'was_enqueued', 'was_deleted']
+    PULL_QUEUE_ATTRS = ['tag']
+    PUSH_QUEUE_ATTRS = ['headers', 'url', 'target']
+
+    if self.method == 'PULL':
+      attrs = COMMON_ATTRS + PULL_QUEUE_ATTRS
+    else:
+      attrs = COMMON_ATTRS + PUSH_QUEUE_ATTRS
+
+    properties = ['%s=%r' % (attr, getattr(self, attr))
+                  for attr in sorted(attrs)]
+    return 'Task<%s>' % ', '.join(properties)
+
+
+class QueueStatistics(object):
+  """Represents the current state of a Queue."""
+
+  _ATTRS = ['queue', 'tasks', 'executed_last_minute', 'executed_last_hour',
+            'in_flight', 'enforced_rate']
+
+  def __init__(self,
+               queue,
+               tasks,
+               executed_last_minute=None,
+               executed_last_hour=None,
+               in_flight=None,
+               enforced_rate=None):
+    """Constructor.
+
+    Args:
+      queue: The Queue instance this QueueStatistics is for.
+      tasks: The number of tasks left.
+      executed_last_minute: The number of tasks executed in the last minute.
+      executed_last_hour: The number of tasks executed in the last hour.
+      in_flight: The number of tasks that are currently executing.
+      enforced_rate: The current enforced rate. In tasks/second.
+    """
+    self.queue = queue
+    self.tasks = tasks
+    self.executed_last_minute = executed_last_minute
+    self.executed_last_hour = executed_last_hour
+    self.in_flight = in_flight
+    self.enforced_rate = enforced_rate
+
+  def __eq__(self, o):
+    if not isinstance(o, QueueStatistics):
+      return NotImplemented
+
+    result = True
+    for attr in self._ATTRS:
+      result = result and (getattr(self, attr) == getattr(o, attr))
+    return result
+
+  def __ne__(self, o):
+    if not isinstance(o, QueueStatistics):
+      return NotImplemented
+
+    result = False
+    for attr in self._ATTRS:
+      result = result or (getattr(self, attr) != getattr(o, attr))
+    return result
+
+  def __repr__(self):
+    properties = ['%s=%r' % (attr, getattr(self, attr)) for attr in self._ATTRS]
+    return 'QueueStatistics(%s)' % ', '.join(properties)
+
+  @classmethod
+  def _ConstructFromFetchQueueStatsResponse(cls, queue, response):
+    """Helper for converting from a FetchQeueueStatsResponse_QueueStats proto.
+
+    Args:
+      queue: A Queue instance.
+      response: a FetchQeueueStatsResponse_QueueStats instance.
+
+    Returns:
+      A new QueueStatistics instance.
+    """
+    args = {'queue': queue, 'tasks': response.num_tasks()}
+    if response.has_scanner_info():
+      scanner_info = response.scanner_info()
+      args['executed_last_minute'] = scanner_info.executed_last_minute()
+      args['executed_last_hour'] = scanner_info.executed_last_hour()
+      if scanner_info.has_requests_in_flight():
+        args['in_flight'] = scanner_info.requests_in_flight()
+      if scanner_info.has_enforced_rate():
+        args['enforced_rate'] = scanner_info.enforced_rate()
+    return cls(**args)
+
+  @classmethod
+  def fetch(cls, queue_or_queues):
+    """Get the queue details for multiple queues.
+
+    Args:
+      queue_or_queues: An iterable of either Queue instances, or an iterator of
+          strings corrosponding to queue names, or a Queue instance or a string
+          corrosponding to a queue name.
+
+    Returns:
+      If an iterable (other than string) is provided as input, a list of of
+      QueueStatistics objects will be returned, one for each queue in the order
+      requested.
+
+      Otherwise, if a single item was provided as input, then a single
+      QueueStatistics object will be returned.
+
+    Raises:
+      TypeError: If queue_or_queues is not one of: Queue instance, string, an
+          iterable containing only Queue instances or an iterable containing
+          only strings.
+    """
+    wants_list = True
+
+
+    if isinstance(queue_or_queues, basestring):
+      queue_or_queues = [queue_or_queues]
+      wants_list = False
+
+    try:
+      queues_list = [queue for queue in queue_or_queues]
+    except TypeError:
+      queues_list = [queue_or_queues]
+      wants_list = False
+
+    contains_strs = any(isinstance(queue, basestring) for queue in queues_list)
+    contains_queues = any(isinstance(queue, Queue) for queue in queues_list)
+
+    if contains_strs and contains_queues:
+      raise TypeError('queue_or_queues must contain either strings or Queue '
+                      'instances, not both.')
+
+    if contains_strs:
+      queues_list = [Queue(queue_name) for queue_name in queues_list]
+
+    queue_stats = cls._FetchMultipleQueues(queues_list)
+    if wants_list:
+      return queue_stats
+    else:
+      return queue_stats[0]
+
+  @classmethod
+  def _FetchMultipleQueues(cls, queues):
+    request = taskqueue_service_pb.TaskQueueFetchQueueStatsRequest()
+    response = taskqueue_service_pb.TaskQueueFetchQueueStatsResponse()
+
+    if not queues:
+
+      return []
+
+    requested_app_id = queues[0]._app
+
+    for queue in queues:
+      request.add_queue_name(queue.name)
+      if queue._app != requested_app_id:
+        raise InvalidQueueError('Inconsistent app ids requested.')
+    if requested_app_id:
+      request.set_app_id(requested_app_id)
+
+    try:
+      apiproxy_stub_map.MakeSyncCall(
+          'taskqueue', 'FetchQueueStats', request, response)
+    except apiproxy_errors.ApplicationError, e:
+      raise cls.__TranslateError(e.application_error, e.error_detail)
+
+    assert len(queues) == response.queuestats_size(), (
+        'Expected %d results, got %d' % (
+            len(queues), response.queuestats_size()))
+    return [cls._ConstructFromFetchQueueStatsResponse(queue, response)
+            for queue, response in zip(queues, response.queuestats_list())]
+
 
 class Queue(object):
   """Represents a Queue."""
@@ -805,10 +1217,10 @@ class Queue(object):
     """
 
 
-    if not _QUEUE_NAME_RE.match(name):
-      raise InvalidQueueNameError(
-          'Queue name does not match pattern "%s"; found %s' %
-          (_QUEUE_NAME_PATTERN, name))
+    #if not _QUEUE_NAME_RE.match(name):
+    #  raise InvalidQueueNameError(
+    #      'Queue name does not match pattern "%s"; found %s' %
+    #      (_QUEUE_NAME_PATTERN, name))
     self.__name = name
     self.__url = '%s/%s' % (_DEFAULT_QUEUE_PATH, self.__name)
 
@@ -913,6 +1325,10 @@ class Queue(object):
     for task, result in zip(tasks, response.result_list()):
       if result == taskqueue_service_pb.TaskQueueServiceError.OK:
         task._Task__deleted = True
+      elif (
+          result == taskqueue_service_pb.TaskQueueServiceError.UNKNOWN_TASK or
+          result == taskqueue_service_pb.TaskQueueServiceError.TOMBSTONED_TASK):
+        task._Task__deleted = False
       elif exception is None:
         exception = self.__TranslateError(result)
 
@@ -920,6 +1336,37 @@ class Queue(object):
       raise exception
 
     return tasks
+
+  @staticmethod
+  def _ValidateLeaseSeconds(lease_seconds):
+
+    if not isinstance(lease_seconds, (float, int, long)):
+      raise TypeError(
+          'lease_seconds must be a float or an integer')
+    lease_seconds = float(lease_seconds)
+
+    if lease_seconds < 0.0:
+      raise InvalidLeaseTimeError(
+          'lease_seconds must not be negative')
+    if lease_seconds > MAX_LEASE_SECONDS:
+      raise InvalidLeaseTimeError(
+          'Lease time must not be greater than %d seconds' %
+          MAX_LEASE_SECONDS)
+    return lease_seconds
+
+  @staticmethod
+  def _ValidateMaxTasks(max_tasks):
+    if not isinstance(max_tasks, (int, long)):
+      raise TypeError(
+          'max_tasks must be an integer')
+
+    if max_tasks <= 0:
+      raise InvalidMaxTasksError(
+          'Negative or zero tasks requested')
+    if max_tasks > MAX_TASKS_PER_LEASE:
+      raise InvalidMaxTasksError(
+          'Only %d tasks can be leased at once' %
+          MAX_TASKS_PER_LEASE)
 
   def lease_tasks(self, lease_seconds, max_tasks):
     """Leases a number of tasks from the Queue for a period of time.
@@ -945,30 +1392,8 @@ class Queue(object):
       InvalidQueueModeError: if invoked on a queue that is not in pull mode.
       Error-subclass on application errors.
     """
-
-    if not isinstance(lease_seconds, (float, int, long)):
-      raise TypeError(
-          'lease_seconds must be a float or an integer')
-    lease_seconds = float(lease_seconds)
-
-    if not isinstance(max_tasks, (int, long)):
-      raise TypeError(
-          'max_tasks must be an integer')
-
-    if lease_seconds < 0.0:
-      raise InvalidLeaseTimeError(
-          'lease_seconds must not be negative')
-    if lease_seconds > MAX_LEASE_SECONDS:
-      raise InvalidLeaseTimeError(
-          'Lease time must not be greater than %d seconds' %
-          MAX_LEASE_SECONDS)
-    if max_tasks <= 0:
-      raise InvalidMaxTasksError(
-          'Negative or zero tasks requested')
-    if max_tasks > MAX_TASKS_PER_LEASE:
-      raise InvalidMaxTasksError(
-          'Only %d tasks can be leased at once' %
-          MAX_TASKS_PER_LEASE)
+    lease_seconds = self._ValidateLeaseSeconds(lease_seconds)
+    self._ValidateMaxTasks(max_tasks)
 
     request = taskqueue_service_pb.TaskQueueQueryAndOwnTasksRequest()
     response = taskqueue_service_pb.TaskQueueQueryAndOwnTasksResponse()
@@ -987,15 +1412,61 @@ class Queue(object):
 
     tasks = []
     for response_task in response.task_list():
-      name = response_task.task_name()
-      payload = response_task.body()
-      task = Task(payload=payload, name=name)
+      tasks.append(
+          Task._FromQueryAndOwnResponseTask(self.__name, response_task))
 
+    return tasks
 
+  def lease_tasks_by_tag(self, lease_seconds, max_tasks, tag=None):
+    """Leases a number of tasks from the Queue for a period of time.
 
-      task._Task__eta_posix = response_task.eta_usec() * 1e-6
-      task._Task__retry_count = response_task.retry_count()
-      tasks.append(task)
+    This method can only be performed on a pull Queue. Any non-pull tasks in
+    the pull Queue will be converted into pull tasks when being leased. If
+    fewer than max_tasks are available, all available tasks will be returned.
+    The lease_tasks method supports leasing at most 1000 tasks for no longer
+    than a week in a single call.
+
+    Args:
+      lease_seconds: Number of seconds to lease the tasks.
+      max_tasks: Max number of tasks to lease from the pull Queue.
+      tag: The to query for, or None to group by the first available tag.
+
+    Returns:
+      A list of tasks leased from the Queue.
+
+    Raises:
+      InvalidLeaseTimeError: if lease_seconds is not a valid float or integer
+        number or is outside the valid range.
+      InvalidMaxTasksError: if max_tasks is not a valid integer or is outside
+        the valid range.
+      InvalidQueueModeError: if invoked on a queue that is not in pull mode.
+      Error-subclass on application errors.
+    """
+    lease_seconds = self._ValidateLeaseSeconds(lease_seconds)
+    self._ValidateMaxTasks(max_tasks)
+
+    request = taskqueue_service_pb.TaskQueueQueryAndOwnTasksRequest()
+    response = taskqueue_service_pb.TaskQueueQueryAndOwnTasksResponse()
+
+    request.set_queue_name(self.__name)
+    request.set_lease_seconds(lease_seconds)
+    request.set_max_tasks(max_tasks)
+    request.set_group_by_tag(True)
+    if tag is not None:
+      request.set_tag(tag)
+
+    try:
+      apiproxy_stub_map.MakeSyncCall('taskqueue',
+                                     'QueryAndOwnTasks',
+                                     request,
+                                     response)
+    except apiproxy_errors.ApplicationError, e:
+      raise self.__TranslateError(e.application_error, e.error_detail)
+
+    tasks = []
+    for response_task in response.task_list():
+      tasks.append(
+          Task._FromQueryAndOwnResponseTask(self.__name, response_task))
 
     return tasks
 
@@ -1036,6 +1507,7 @@ class Queue(object):
         MAX_TRANSACTIONAL_REQUEST_SIZE_BYTES.
       Error-subclass on application errors.
     """
+    logging.info(str(task))
     try:
       tasks = list(iter(task))
     except TypeError:
@@ -1058,7 +1530,7 @@ class Queue(object):
     if has_push_task and has_pull_task:
       raise InvalidTaskError(
           'Can not add both push and pull tasks in a single call.')
-
+    
     if has_push_task:
       self.__AddTasks(tasks, transactional, self.__FillAddPushTasksRequest)
     else:
@@ -1114,6 +1586,7 @@ class Queue(object):
       if task_result.result() == taskqueue_service_pb.TaskQueueServiceError.OK:
         if task_result.has_chosen_task_name():
           task._Task__name = task_result.chosen_task_name()
+        task._Task__queue_name = self.__name
         task._Task__enqueued = True
       elif (task_result.result() ==
             taskqueue_service_pb.TaskQueueServiceError.SKIPPED):
@@ -1234,6 +1707,8 @@ class Queue(object):
       task_request.set_task_name(task.name)
     else:
       task_request.set_task_name('')
+    if task.tag:
+      task_request.set_tag(task.tag)
 
 
 
@@ -1285,6 +1760,69 @@ class Queue(object):
       else:
         return Error('Application error %s: %s' % (error, detail))
 
+  def modify_task_lease(self, task, lease_seconds):
+    """Modifies the lease of a task in this queue.
+
+    Args:
+      task: A task instance that will have its lease modified.
+      lease_seconds: Number of seconds, from the current time, that the task
+        lease will be modified to. If lease_seconds is 0, then the task lease
+        is removed and the task will be available for leasing again using
+        the lease_tasks method.
+
+    Raises:
+      TypeError: if lease_seconds is not a valid float or integer.
+      InvalidLeaseTimeError: if lease_seconds is outside the valid range.
+      Error-subclass on application errors.
+    """
+    lease_seconds = self._ValidateLeaseSeconds(lease_seconds)
+
+    request = taskqueue_service_pb.TaskQueueModifyTaskLeaseRequest()
+    response = taskqueue_service_pb.TaskQueueModifyTaskLeaseResponse()
+
+    request.set_queue_name(self.__name)
+    request.set_task_name(task.name)
+    request.set_eta_usec(int(task.eta_posix * 1e6))
+    request.set_lease_seconds(lease_seconds)
+
+    try:
+      apiproxy_stub_map.MakeSyncCall('taskqueue',
+                                     'ModifyTaskLease',
+                                     request,
+                                     response)
+    except apiproxy_errors.ApplicationError, e:
+      raise self.__TranslateError(e.application_error, e.error_detail)
+
+    task._Task__eta_posix = response.updated_eta_usec() * 1e-6
+    task._Task__eta = None
+
+  def fetch_statistics(self):
+    """Get the current details about this queue.
+
+    Returns:
+      A QueueStatistics instance containing information about this queue.
+    """
+    return QueueStatistics.fetch(self)
+
+  def __repr__(self):
+    ATTRS = ['name']
+    if self._app:
+
+      ATTRS.append('_app')
+    properties = ['%s=%r' % (attr, getattr(self, attr)) for attr in ATTRS]
+    return 'Queue<%s>' % ', '.join(properties)
+
+  def __eq__(self, o):
+    if not isinstance(o, Queue):
+      return NotImplemented
+    return self.name == o.name and self._app == o._app
+
+  def __ne__(self, o):
+    if not isinstance(o, Queue):
+      return NotImplemented
+    return self.name != o.name or self._app != o._app
+
+
 
 
 def add(*args, **kwargs):
@@ -1297,6 +1835,9 @@ def add(*args, **kwargs):
   mode.
 
   Args:
+    payload: The payload data for this Task that will be delivered to the
+      webhook as the HTTP request body or fetched by workers for pull queues.
+      This is only allowed for POST, PUT, and PULL methods.
     queue_name: Name of queue to insert task into. If not supplied, defaults to
       the default queue.
     name: Name to give the Task; if not specified, a name will be
@@ -1311,9 +1852,6 @@ def add(*args, **kwargs):
     headers: Dictionary of headers to pass to the webhook. Values in the
       dictionary may be iterable to indicate repeated header fields. Must not be
       specified if method is PULL.
-    payload: The payload data for this Task that will be delivered to the
-      webhook as the HTTP request body or fetched by workers for pull queues.
-      This is only allowed for POST, PUT, and PULL methods.
     params: Dictionary of parameters to use for this Task. For POST and PULL
       requests these params will be encoded as
       'application/x-www-form-urlencoded' and set to the payload. For all other
@@ -1334,6 +1872,8 @@ def add(*args, **kwargs):
       indicated by eta.
     retry_options: TaskRetryOptions used to control when the task will be
       retried if it fails.
+    target: The alternate version/backend on which to execute this task, or
+      DEFAULT_APP_VERSION to execute on the application's default version.
 
   Returns:
     The Task that was added to the queue.

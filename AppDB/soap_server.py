@@ -281,7 +281,8 @@ def get_user_data(username, secret):
   #print result
   if len(user_schema) != len(result):
     #logger.error("Bad length of user schema vs user result")
-    return "Error: Bad length of user schema vs user result"
+    return "Error: Bad length of user schema vs user result user schem:" + str(user_schema) + " result: " + str(result)
+
   user = Users("a","b", "c")
   user.unpackit(result)
   return user.stringit()

@@ -1,75 +1,89 @@
-#!/usr/bin/env python
-#
-# Soo Hwan Park (suwanny@gmail.com)
-#
-
 import py_cassandra
-import sys
 
-KEY_REPOSITORY="__keys_" # special key for storing keys information.
-TABLE_PREFIX="__table_" # special keys for storing a table information.
+py_cassandra = py_cassandra.DatastoreProxy()
 
-USER_TABLE = "USERS__"
-APPS_TABLE = "APPS__"
+columns = ["a","b","c"]
+data = ["1","2","3"]
+table_name = "hello"
+key = "1"
+print "key= " + key
+print "columns= " + str(columns)
+print "data= " + str(data)
+print "table= " + table_name
+#print py_cassandra.put_entity("__hi__", key, columns, data)
+#print py_cassandra.put_entity("__hah__", key, columns, data)
+#exit(0)
+print py_cassandra.put_entity(table_name, key, columns, data)
+ret = py_cassandra.get_entity(table_name, key, columns)
+print "doing a put then get"
+print ret
+if ret[1:] != data:
+  print "ERROR doing a put then get. Data does not match"
+  print "returned: " + str(ret)
+  print "expected: " + str(data)
+  exit(1)
+else: 
+  print "Success"
 
-USERS = ["email",
-         "pw",
-         "date_creation",
-         "date_change",
-         "date_last_login",
-         "applications",
-         "appdrop_rem_token",
-         "appdrop_rem_token_exp",
-         "visit_cnt",
-         "cookie",
-         "cookie_ip",
-         "cookie_exp",
-         "cksum",
-         "enabled"
-        ]
+ret = py_cassandra.get_schema("hello")
+print ret
+print "checking schema:"
+print ret
+if ret[1:] != columns:
+  print "ERROR in recieved schema"
+  print "returned: " + str(ret)
+  print "expected: " + str(columns)
 
-APPS = ["name",
-        "version",
-        "owner",
-        "admins_list",
-        "host",
-        "port",
-        "creation_date",
-        "last_time_updated_date",
-        "yaml_file",
-        "cksum",
-        "num_entries",
-        "tar_ball",
-        "enabled"
-       ]
+ret = py_cassandra.delete_row(table_name, key)
+print "Deleting the key %s"%key
+print ret
 
-USER_VALUES = ["suwanny@gmail.com", "11", "2009", "2009", "2009", 
-    "bbs", "xxx", "xxx", "1", "yyy", 
-    "0.0.0.0", "2009", "zzz", "yes"]
+ret = py_cassandra.get_entity(table_name, key, columns)
+print "Trying to get deleted key:"
+print ret
+print "doing a put with key %s"%key
+print py_cassandra.put_entity("hello", "1", ["a","b","c"], ["1","2","3"])
+print "doing a get table" 
+print py_cassandra.get_table("hello", ["a","b","c"])
+py_cassandra.put_entity("hello", "2", ["a","b","c"], ["4","5","6"])
+print "doing get table:"
+print py_cassandra.get_table("hello", ["a","b","c"])
+py_cassandra.put_entity("hello", "3", ["a","b","c"], ["1","2","3"])
+py_cassandra.get_table("hello", ["a","b","c"])
 
-APPS_VALUES = ["name",  "version","owner","admins_list","host",
-    "port","creation_date", "last_time_updated_date", "yaml_file", "cksum", 
-    "num_entries", "xxxx", "yes"]
+print "TRYING TO REPLACE KEY 3"
+py_cassandra.put_entity("hello", "3", ["a","b","c"], ["1","2","3"])
+print "TRYING TO REPLACE KEY 3"
+py_cassandra.get_table("hello", ["a","b","c"])
+print "TRYING TO REPLACE KEY 3"
+ret = py_cassandra.delete_row("hello", "1")
+print "TRYING TO REPLACE KEY 3"
+ret = py_cassandra.delete_row("hello", "2")
+print "TRYING TO REPLACE KEY 3"
+ret = py_cassandra.delete_row("hello", "3")
+print "TRYING TO REPLACE KEY 3"
+py_cassandra.get_table("hello", ["a","b","c"])
+print "Deleting table:"
+print py_cassandra.delete_table("hello")
+print "deleting twice:"
+print py_cassandra.delete_table("hello")
 
-def printCurrentDB(status, debug = False):
-  tables = eval(db.get(KEY_REPOSITORY))
-  print status
-  print "print current records"
-  for table in tables:
-    print "  -", table
-    keys = eval(db.get(KEY_REPOSITORY + table))
-    for key in keys:
-      if debug:
-        print "    #", key, db.get(TABLE_PREFIX + table + "_" + key)
-      else:
-        print "    #", key
-    print "    "
+table_name = u"testing_query"
+print py_cassandra.delete_table(table_name)
+column_names = [u"c1"]
+limit = 1000
+offset = 0
+key = 0
+startrow = u"000"
+endrow = u"100"
+data = u"xxx"
+for ii in range(0, 101):
+  key = str(ii)
+  key = ("0" * (3 - len(key))) + key
+  key = unicode(key)
+  print "Adding key " + key
+  print py_cassandra.put_entity(table_name, key, column_names, [data + key])
+inclusive = 1
+notJustKeys = 0
+print "SUCCESS"
 
-if __name__ == "__main__":
-  print "test cassandra interface"
-
-  db = py_cassandra.DatastoreProxy()
-  
-  debug = True
-
-  printCurrentDB("after making tables", debug)

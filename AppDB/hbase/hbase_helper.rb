@@ -3,7 +3,7 @@ require 'djinn_job_data'
 require 'helperfunctions'
 require "#{APPSCALE_HOME}/AppDB/hadoop/hadoop_helper"
 
-HBASE_LOC = "#{APPSCALE_HOME}/AppDB/hbase/hbase-0.89.20100924"
+HBASE_LOC = "#{APPSCALE_HOME}/AppDB/hbase/hbase-0.90.4-cdh3u3"
 THRIFT_PORT = 9090
 MASTER_SERVER_PORT = 60000
 ENABLE_SINGLE_NODE = true

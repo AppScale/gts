@@ -1,11 +1,11 @@
 package com.google.appengine.api.memcache.dev;
 
 public interface Chainable<E> {
-	public abstract Chainable<E> getNewer();
+    public E getNewer();
 
-	public abstract Chainable<E> getOlder();
+    public E getOlder();
 
-	public abstract void setNewer(Chainable<E> paramE);
+    public void setNewer(E paramE);
 
-	public abstract void setOlder(Chainable<E> paramE);
+    public void setOlder(E paramE);
 }

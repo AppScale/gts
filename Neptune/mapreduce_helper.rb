@@ -1,16 +1,29 @@
 #!/usr/bin/ruby
 # Programmer: Chris Bunch
-# baz
 
+
+$:.unshift File.join(File.dirname(__FILE__), "..", "AppController")
 require 'djinn'
 
+
+$:.unshift File.join(File.dirname(__FILE__), "..", "AppController", "lib")
+require 'datastore_factory'
+
+
 BAD_TABLE_MSG = "The currently running database isn't running Hadoop, so MapReduce jobs cannot be run."
+
+
 DBS_W_HADOOP = ["hbase", "hypertable"]
 
+
 HADOOP = "#{APPSCALE_HOME}/AppDB/hadoop-0.20.2/bin/hadoop"
+
+
 STREAMING = "#{APPSCALE_HOME}/AppDB/hadoop-0.20.2/contrib/streaming/hadoop-0.20.2-streaming.jar"
 
+
 public 
+
 
 def neptune_mapreduce_run_job(nodes, job_data, secret)
   return BAD_SECRET_MSG unless valid_secret?(secret)
@@ -21,7 +34,7 @@ def neptune_mapreduce_run_job(nodes, job_data, secret)
     nodes = Djinn.convert_location_array_to_class(nodes, keyname)
 
     storage = job_data["@storage"]
-    creds = neptune_parse_creds(storage, job_data)
+    datastore = DatastoreFactory.get_datastore(storage, job_data)
 
     mapreducejar = job_data["@mapreducejar"]
     main = job_data["@main"]
@@ -37,10 +50,9 @@ def neptune_mapreduce_run_job(nodes, job_data, secret)
 
     if mapreducejar
       Djinn.log_debug("need to get mr jar located at #{mapreducejar}")
-      mr_jar = Repo.get_output(mapreducejar, storage, creds)
       mr_file = mapreducejar.split('/')[-1]
       my_mrjar = "/tmp/#{mr_file}"
-      HelperFunctions.write_file(my_mrjar, mr_jar)
+      datastore.get_output_and_save_to_fs(mapreducejar, my_mrjar)
 
       nodes.each { |node|
         HelperFunctions.scp_file(my_mrjar, my_mrjar, node.private_ip, node.ssh_key)
@@ -53,11 +65,8 @@ def neptune_mapreduce_run_job(nodes, job_data, secret)
 
       run_mr_command = "#{HADOOP} jar #{my_mrjar} #{main} #{input} #{output}"
     else
-      Djinn.log_debug("need to get map code located at #{map}") 
-      map_code = Repo.get_output(map, storage, creds)
-
-      Djinn.log_debug("need to get reduce code located at #{reduce}")
-      red_code = Repo.get_output(reduce, storage, creds)
+      Djinn.log_debug("need to get map code located at #{map}, and reduce " +
+        "code located at #{reduce}")
 
       map_file = map.split('/')[-1]
       red_file = reduce.split('/')[-1]
@@ -65,8 +74,8 @@ def neptune_mapreduce_run_job(nodes, job_data, secret)
       my_map = "/tmp/#{map_file}"
       my_red = "/tmp/#{red_file}"
 
-      HelperFunctions.write_file(my_map, map_code)
-      HelperFunctions.write_file(my_red, red_code)
+      datastore.get_output_and_save_to_fs(map, my_map)
+      datastore.get_output_and_save_to_fs(reduce, my_red)
 
       # since the db master is the initiator of the mapreduce job, it needs
       # to have both the mapper and reducer files handy

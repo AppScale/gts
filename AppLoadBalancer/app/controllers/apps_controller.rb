@@ -40,7 +40,8 @@ class AppsController < ApplicationController
         flash[:notice] = "Your app has been successfully uploaded. Please wait a moment for it to start running."
         redirect_to :controller => :status, :action => :cloud
       else
-        flash.now[:error] = "There was an error with your submission:" << "<br/>" << result[:message]
+        # TODO This needs to be :error, but right now non-errors show up here
+        flash.now[:notice] = "Message about your submission:" << "<br/>" << result[:message]
         render :action => :new
       end
     else
@@ -50,7 +51,7 @@ class AppsController < ApplicationController
   end
 
   def delete
-    @apps = get_application_information
+    @apps = get_application_information.keys
     return if is_user_cloud_admin
     db_location = UserTools.get_database_location
     @apps.delete_if {|a| a == "none" || !UserTools.is_user_admin?(user_email, a, db_location) }

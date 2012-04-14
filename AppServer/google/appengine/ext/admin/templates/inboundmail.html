@@ -116,6 +116,7 @@
     action="/_ah/mail/" method="post"
     onsubmit="sendInboundMailWebhook(); return false">
 
+    <input type="hidden" name="xsrf_token" value="{{ xsrf_token }}"/>
     <input type="hidden" name="payload" id="payload">
     <input type="hidden" id="content-type" name="header:Content-Type" value="message/rfc822">
     <input type="hidden" id="content-length" name="header:Content-Length">

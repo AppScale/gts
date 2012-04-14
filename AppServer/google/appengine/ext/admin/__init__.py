@@ -29,9 +29,11 @@
 
 
 import cgi
+import collections
 import csv
 import cStringIO
 import datetime
+import decimal
 import logging
 import math
 import mimetypes
@@ -46,7 +48,7 @@ import traceback
 import types
 import urllib
 import urlparse
-import wsgiref.handlers
+
 
 
 
@@ -59,19 +61,74 @@ else:
   HAVE_CRON = True
 
 from google.appengine.api import apiproxy_stub_map
+from google.appengine.api import backends
 from google.appengine.api import datastore
 from google.appengine.api import datastore_admin
-from google.appengine.api import datastore_types
 from google.appengine.api import datastore_errors
+from google.appengine.api import datastore_types
 from google.appengine.api import memcache
+from google.appengine.api import search
 from google.appengine.api import taskqueue
 from google.appengine.api import users
+from google.appengine.api.taskqueue import taskqueue_service_pb
+from google.appengine.api.taskqueue import taskqueue_stub
 from google.appengine.ext import db
 from google.appengine.ext import webapp
-from google.appengine.ext.webapp import template
+from google.appengine.ext.admin import datastore_stats_generator
+from google.appengine.ext.db import metadata
+from google.appengine.ext.webapp import _template
+from google.appengine.ext.webapp import util
+from google.appengine.runtime import apiproxy_errors
 
 
 _DEBUG = True
+
+
+_UsecToSec = taskqueue_stub._UsecToSec
+_FormatEta = taskqueue_stub._FormatEta
+_EtaDelta = taskqueue_stub._EtaDelta
+
+
+
+
+class _AhAdminXsrfToken_(db.Model):
+  """Model class used to persist the XSRF token."""
+
+  XSRF_KEY_NAME = '_XSRF_'
+
+  xsrf_token = db.StringProperty()
+
+
+def get_xsrf_token():
+  """Return the XSRF token.
+
+  This is read from the datastore.  If no token is present in the
+  datastore, we create a random token and insert it.
+  """
+  entity = _AhAdminXsrfToken_.get_by_key_name(_AhAdminXsrfToken_.XSRF_KEY_NAME)
+  if not entity:
+    randints = ['%08x' % (random.randrange(-2**31, 2**31-1) & (2**32-1))
+                for i in range(6)]
+    xsrf_token = '_'.join(randints)
+    entity = _AhAdminXsrfToken_(key_name=_AhAdminXsrfToken_.XSRF_KEY_NAME,
+                                xsrf_token=xsrf_token)
+    entity.put()
+  return entity.xsrf_token
+
+
+def xsrf_required(method):
+  """Decorator to protect post() handlers against XSRF attacks."""
+  def xsrf_required_decorator(self):
+    expected_token = get_xsrf_token()
+    actual_token = self.request.get('xsrf_token')
+    if actual_token != expected_token:
+      self.response.set_status(403, 'Invalid XSRF token')
+      self.response.out.write('<h1>Invalid XSRF token</h1>\n' +
+                              '<p>Please reload the form page</n>\n' +
+                              ' '*512)
+    else:
+      method(self)
+  return xsrf_required_decorator
 
 
 def ustr(value):
@@ -80,6 +137,22 @@ def ustr(value):
     return str(value)
   except UnicodeError:
     return unicode(value).encode('UTF-8')
+
+
+def TruncateValue(value):
+  """Truncates potentially very long string to a fixed maximum length."""
+  value = str(value)
+  if len(value) > 32:
+    return value[:32] + '...'
+  return value
+
+
+class Document(object):
+  """Simple representation of document."""
+
+  def __init__(self, doc_id):
+    self.doc_id = doc_id
+    self.fields = {}
 
 
 class ImageHandler(webapp.RequestHandler):
@@ -126,28 +199,37 @@ class BaseRequestHandler(webapp.RequestHandler):
   def generate(self, template_name, template_values={}):
     base_path = self.base_path()
     values = {
-      'application_name': self.request.environ['APPLICATION_ID'],
-      'sdk_version': self.request.environ.get('SDK_VERSION', 'Unknown'),
-      'user': users.get_current_user(),
-      'request': self.request,
-      'home_path': base_path + DefaultPageHandler.PATH,
-      'datastore_path': base_path + DatastoreQueryHandler.PATH,
-      'datastore_edit_path': base_path + DatastoreEditHandler.PATH,
-      'datastore_batch_edit_path': base_path + DatastoreBatchEditHandler.PATH,
-      'interactive_path': base_path + InteractivePageHandler.PATH,
-      'interactive_execute_path': base_path + InteractiveExecuteHandler.PATH,
-      'memcache_path': base_path + MemcachePageHandler.PATH,
-      'queues_path': base_path + QueuesPageHandler.PATH,
-      'xmpp_path': base_path + XMPPPageHandler.PATH,
-      'inboundmail_path': base_path + InboundMailPageHandler.PATH,
-    }
+        'application_name': self.request.environ['APPLICATION_ID'],
+        'sdk_version': self.request.environ.get('SDK_VERSION', 'Unknown'),
+        'user': users.get_current_user(),
+        'request': self.request,
+        'home_path': base_path + DefaultPageHandler.PATH,
+        'datastore_path': base_path + DatastoreQueryHandler.PATH,
+        'datastore_indexes': base_path + DatastoreGetIndexesHandler.PATH,
+        'datastore_edit_path': base_path + DatastoreEditHandler.PATH,
+        'datastore_batch_edit_path': base_path + DatastoreBatchEditHandler.PATH,
+        'datastore_stats_path': base_path + DatastoreStatsHandler.PATH,
+        'interactive_path': base_path + InteractivePageHandler.PATH,
+        'interactive_execute_path': base_path + InteractiveExecuteHandler.PATH,
+        'memcache_path': base_path + MemcachePageHandler.PATH,
+        'queues_path': base_path + QueuesPageHandler.PATH,
+        'search_path': base_path + SearchIndexesListHandler.PATH,
+        'search_index_path': base_path + SearchIndexHandler.PATH,
+        'search_document_path': base_path + SearchDocumentHandler.PATH,
+        'search_batch_delete_path': base_path + SearchBatchDeleteHandler.PATH,
+        'tasks_path': base_path + TasksPageHandler.PATH,
+        'xmpp_path': base_path + XMPPPageHandler.PATH,
+        'inboundmail_path': base_path + InboundMailPageHandler.PATH,
+        'backends_path': base_path + BackendsPageHandler.PATH,
+        'xsrf_token': get_xsrf_token(),
+      }
     if HAVE_CRON:
       values['cron_path'] = base_path + CronPageHandler.PATH
 
     values.update(template_values)
     directory = os.path.dirname(__file__)
     path = os.path.join(directory, os.path.join('templates', template_name))
-    self.response.out.write(template.render(path, values, debug=_DEBUG))
+    self.response.out.write(_template.render(path, values, debug=_DEBUG))
 
   def base_path(self):
     """Returns the base path of this admin app, which is chosen by the user.
@@ -173,7 +255,8 @@ class BaseRequestHandler(webapp.RequestHandler):
     for arg in args:
       value = self.request.get(arg)
       if value:
-        queries.append(arg + '=' + urllib.quote_plus(self.request.get(arg)))
+        queries.append(arg + '=' + urllib.quote_plus(
+            ustr(self.request.get(arg))))
     return self.request.path + '?' + '&'.join(queries)
 
   def in_production(self):
@@ -181,7 +264,9 @@ class BaseRequestHandler(webapp.RequestHandler):
 
     Returns a boolean.
     """
-    server_software = os.environ['SERVER_SOFTWARE']
+    server_software = os.getenv('SERVER_SOFTWARE')
+    if server_software is None:
+      return False
     return not server_software.startswith('Development')
 
 
@@ -215,6 +300,7 @@ class InteractiveExecuteHandler(BaseRequestHandler):
 
   PATH = InteractivePageHandler.PATH + '/execute'
 
+  @xsrf_required
   def post(self):
 
     save_stdout = sys.stdout
@@ -304,28 +390,163 @@ class InboundMailPageHandler(BaseRequestHandler):
     self.generate('inboundmail.html', values)
 
 
+class TaskQueueHelper(object):
+  """Taskqueue rpc wrapper."""
+
+  def _make_sync_call(self, rpc_name, request):
+    """Make a synchronous taskqueue api call.
+
+    Args:
+      rpc_name: The name of the rpc to call.
+      request: The protocol buffer to be used as the request.
+
+    Returns:
+      The rpc response. This is an instance of the correct response protocol
+      buffer for the request 'rpc_name'.
+    """
+    response = getattr(taskqueue_service_pb, 'TaskQueue%sResponse' % rpc_name)()
+    apiproxy_stub_map.MakeSyncCall('taskqueue', rpc_name, request, response)
+    return response
+
+  def get_queues(self, now):
+    """Get a list of queue in the application.
+
+    Args:
+      now: The current time. A datetime.datetime object with a utc timezone.
+
+    Returns:
+      A list of queue dicts corrosponding to the tasks for this application.
+    """
+    request = taskqueue_service_pb.TaskQueueFetchQueuesRequest()
+    request.set_max_rows(1000)
+    response = self._make_sync_call('FetchQueues', request)
+
+    queue_stats_request = taskqueue_service_pb.TaskQueueFetchQueueStatsRequest()
+    queue_stats_request.set_max_num_tasks(0)
+
+    queues = []
+    for queue_proto in response.queue_list():
+      queue = {'name': queue_proto.queue_name(),
+               'rate': queue_proto.user_specified_rate(),
+               'bucket_size': queue_proto.bucket_capacity()}
+      queues.append(queue)
+      queue_stats_request.queue_name_list().append(queue_proto.queue_name())
+
+    queue_stats_response = self._make_sync_call(
+        'FetchQueueStats', queue_stats_request)
+    for queue, queue_stats in zip(queues,
+                                  queue_stats_response.queuestats_list()):
+      queue['tasks_in_queue'] = queue_stats.num_tasks()
+      if queue_stats.oldest_eta_usec() != -1:
+        queue['oldest_task'] = _FormatEta(queue_stats.oldest_eta_usec())
+        queue['eta_delta'] = _EtaDelta(queue_stats.oldest_eta_usec(), now)
+    return queues
+
+  def get_number_tasks_in_queue(self, queue_name):
+    """Returns the number of tasks in the named queue.
+
+    Args:
+      queue_name: The name of the queue.
+
+    Returns:
+      The number of tasks in the queue.
+    """
+    queue_stats_request = taskqueue_service_pb.TaskQueueFetchQueueStatsRequest()
+    queue_stats_request.set_max_num_tasks(0)
+    queue_stats_request.add_queue_name(queue_name)
+    queue_stats_response = self._make_sync_call(
+        'FetchQueueStats', queue_stats_request)
+
+    assert queue_stats_response.queuestats_size() == 1
+    return queue_stats_response.queuestats(0).num_tasks()
+
+  def get_tasks(self,
+                now,
+                queue_name,
+                start_eta_usec,
+                start_task_name,
+                num_tasks):
+    """Fetch the specified tasks from taskqueue.
+
+    Note: This only searchs by eta.
+
+    Args:
+      now: The current time. This is used to calculate the EtaFromNow. Must be a
+          datetime.datetime in the utc timezone.
+      queue_name: The queue to search for tasks.
+      start_eta_usec: The earliest eta to return.
+      start_task_name: For tasks with the same eta_usec, this is used as a tie
+          breaker.
+      num_tasks: The maximum number of tasks to return.
+
+    Returns:
+      A list of task dicts (as returned by
+          taskqueue_stub.QueryTasksResponseToDict).
+    """
+    request = taskqueue_service_pb.TaskQueueQueryTasksRequest()
+    request.set_queue_name(queue_name)
+    request.set_start_task_name(start_task_name)
+    request.set_start_eta_usec(start_eta_usec)
+    request.set_max_rows(num_tasks)
+
+    response = self._make_sync_call('QueryTasks', request)
+    tasks = []
+    for task in response.task_list():
+      tasks.append(taskqueue_stub.QueryTasksResponseToDict(
+          queue_name, task, now))
+    return tasks
+
+  def delete_task(self, queue_name, task_name):
+    """Delete the named task.
+
+    Args:
+      queue_name: The name of the queue.
+      task_name: The name of the task.
+    """
+    request = taskqueue_service_pb.TaskQueueDeleteRequest()
+    request.set_queue_name(queue_name)
+    request.task_name_list().append(task_name)
+
+    self._make_sync_call('Delete', request)
+
+  def purge_queue(self, queue_name):
+    """Purge the named queue.
+
+    Args:
+      queue_name: the name of the queue.
+    """
+    request = taskqueue_service_pb.TaskQueuePurgeQueueRequest()
+    request.set_queue_name(queue_name)
+    self._make_sync_call('PurgeQueue', request)
+
+
 class QueuesPageHandler(BaseRequestHandler):
   """Shows information about configured (and default) task queues."""
   PATH = '/queues'
 
-  def __init__(self):
-    self.stub = apiproxy_stub_map.apiproxy.GetStub('taskqueue')
+  def __init__(self, *args, **kwargs):
+    super(QueuesPageHandler, self).__init__(*args, **kwargs)
+    self.helper = TaskQueueHelper()
 
   def get(self):
     """Shows template displaying the configured task queues."""
-    values = {
-      'request': self.request,
-      'queues': self.stub.GetQueues(),
-    }
+    now = datetime.datetime.utcnow()
+    values = {}
+    try:
+      values['queues'] = self.helper.get_queues(now)
+    except apiproxy_errors.ApplicationError:
+
+
+      logging.exception('Could not fetch list of queues.')
     self.generate('queues.html', values)
 
+  @xsrf_required
   def post(self):
     """Handle modifying actions and/or redirect to GET page."""
+    queue_name = self.request.get('queue')
 
     if self.request.get('action:purgequeue'):
-
-
-      self.stub.FlushQueue(self.request.get('queue'))
+      self.helper.purge_queue(queue_name)
     self.redirect(self.request.path_url)
 
 
@@ -336,47 +557,238 @@ class TasksPageHandler(BaseRequestHandler):
 
   PAGE_SIZE = 20
 
-  def __init__(self):
-    self.stub = apiproxy_stub_map.apiproxy.GetStub('taskqueue')
+  MAX_TASKS_TO_FETCH = 1000
+  MIN_TASKS_TO_FETCH = 200
+
+  def __init__(self, *args, **kwargs):
+    super(TasksPageHandler, self).__init__(*args, **kwargs)
+    self.helper = TaskQueueHelper()
+    self.prev_page = None
+    self.next_page = None
+    self.this_page = None
+
+  def parse_arguments(self):
+    """Parse the arguments passed into the request and store them on self."""
+    self.queue_name = self.request.get('queue')
+    self.start_name = self.request.get('start_name', '')
+    self.start_eta = int(self.request.get('start_eta', '0'))
+    self.per_page = int(self.request.get('per_page', self.PAGE_SIZE))
+    self.page_no = int(self.request.get('page_no', '1'))
+    assert self.per_page > 0
+
+  def redirect_to_tasks(self, keep_offset=True):
+    """Perform a redirect to the tasks page.
+
+    Args:
+      keep_offset: If true, will keep the 'start_eta',
+        'start_name' and 'page_no' fields.
+    """
+    params = {'queue': self.queue_name, 'per_page': self.per_page}
+    if keep_offset:
+      params['start_name'] = self.start_name
+      params['start_eta'] = self.start_eta
+      params['page_no'] = self.page_no
+    self.redirect('%s?%s' % (self.request.path, urllib.urlencode(params)))
+
+  def _generate_page_params(self, page_dict):
+    """Generate the params for a page link."""
+    params = {
+        'queue': self.queue_name,
+        'start_eta': page_dict['start_eta'],
+        'start_name': page_dict['start_name'],
+        'per_page': self.per_page,
+        'page_no': page_dict['number']}
+    return urllib.urlencode(params)
+
+  def generate_page_dicts(self, start_tasks, end_tasks):
+    """Generate the page dicts from a list of tasks.
+
+    Args:
+      tasks: A list of task dicts, sorted by eta.
+
+    Returns:
+      A list of page dicts containing the following keys: 'start_name',
+      'start_eta', 'number', 'has_gap'.
+    """
+    page_map = {}
+
+    for i, task in enumerate(start_tasks[::self.per_page]):
+      page_no = i + 1
+      page_map[page_no] = {
+          'start_name': task['name'],
+          'start_eta': task['eta_usec'],
+          'number': page_no}
+
+    if page_map and (page_no < self.page_no - 1):
+      page_map[page_no]['has_gap'] = True
+
+
+    for i, task in enumerate(end_tasks[::self.per_page]):
+      page_no = self.page_no + i
+      page_map[page_no] = {
+          'start_name': task['name'],
+          'start_eta': task['eta_usec'],
+          'number': self.page_no + i}
+
+
+    page_map[1] = {'start_name': '', 'start_eta': 0, 'number': 1}
+
+    pages = sorted(page_map.values(), key=lambda page: page['number'])
+
+    for page in pages:
+      page['url'] = self._generate_page_params(page)
+
+
+    self.this_page = page_map[self.page_no]
+    if self.page_no - 1 in page_map:
+      self.prev_page = page_map[self.page_no - 1]
+    if self.page_no + 1 in page_map:
+      self.next_page = page_map[self.page_no + 1]
+
+    return pages
 
   def get(self):
     """Shows template displaying the queue's tasks."""
-    queue = self.request.get('queue')
-    start = int(self.request.get('start', 0))
-    all_tasks = self.stub.GetTasks(queue)
+    self.parse_arguments()
+    now = datetime.datetime.utcnow()
 
-    next_start = start + self.PAGE_SIZE
-    tasks = all_tasks[start:next_start]
-    current_page = int(start / self.PAGE_SIZE) + 1
-    pages = []
-    for number in xrange(int(math.ceil(len(all_tasks) /
-                                       float(self.PAGE_SIZE)))):
-      pages.append({
-        'number': number + 1,
-        'start': number * self.PAGE_SIZE
-      })
-    if not all_tasks[next_start:]:
-      next_start = -1
-    prev_start = start - self.PAGE_SIZE
-    if prev_start < 0:
-      prev_start = -1
+
+    tasks_to_fetch = min(self.MAX_TASKS_TO_FETCH,
+                         max(self.MIN_TASKS_TO_FETCH, self.per_page * 10))
+
+    try:
+      tasks = self.helper.get_tasks(now, self.queue_name, self.start_eta,
+                                    self.start_name, tasks_to_fetch)
+    except apiproxy_errors.ApplicationError:
+
+
+      logging.exception('Could not fetch list of tasks.')
+      tasks = []
+
+    if self.start_eta or self.start_name:
+      if not tasks:
+
+
+        self.redirect_to_tasks(keep_offset=False)
+        return
+
+
+      first_tasks = self.helper.get_tasks(now, self.queue_name, 0, '',
+                                          tasks_to_fetch)
+    else:
+      first_tasks = []
+
+    pages = self.generate_page_dicts(first_tasks, tasks)
+    if len(tasks) == tasks_to_fetch:
+
+      pages[-1]['has_gap'] = True
+    tasks = tasks[:self.per_page]
 
     values = {
-      'request': self.request,
-      'queue_name': queue,
+      'queue': self.queue_name,
+      'per_page': self.per_page,
       'tasks': tasks,
-      'start_base_url': self.filter_url(['queue']),
-      'prev_start': prev_start,
-      'next_start': next_start,
+      'prev_page': self.prev_page,
+      'next_page': self.next_page,
+      'this_page': self.this_page,
       'pages': pages,
-      'current_page': current_page,
+      'page_no': self.page_no,
     }
     self.generate('tasks.html', values)
 
+  @xsrf_required
   def post(self):
+    self.parse_arguments()
+    self.task_name = self.request.get('task')
+
     if self.request.get('action:deletetask'):
-      self.stub.DeleteTask(self.request.get('queue'), self.request.get('task'))
-    self.redirect(self.request.path_url + '?queue=' + self.request.get('queue'))
+      self.helper.delete_task(self.queue_name, self.task_name)
+
+    self.redirect_to_tasks(keep_offset=True)
+
+
+class BackendsPageHandler(BaseRequestHandler):
+  """Shows information about an app's backends."""
+
+  PATH = '/backends'
+
+  def __init__(self, *args, **kwargs):
+    super(BackendsPageHandler, self).__init__(*args, **kwargs)
+    self.stub = apiproxy_stub_map.apiproxy.GetStub('system')
+
+  def get(self):
+    """Shows template displaying the app's backends or a single backend."""
+    backend_name = self.request.get('backendName')
+    if backend_name:
+      return self.render_backend_page(backend_name)
+    else:
+      return self.render_backends_page()
+
+  def render_backends_page(self):
+    """Shows template displaying all the app's backends."""
+    if hasattr(self.stub, 'get_backend_info'):
+      backend_info = self.stub.get_backend_info() or []
+    else:
+
+      backend_info = []
+
+    backend_list = []
+    for backend in backend_info:
+      backend_list.append({
+          'name': backend.name,
+          'instances': backend.instances,
+          'instanceclass': backend.get_class() or 'B2',
+          'address': backends.get_hostname(backend.name),
+          'state': 'running',
+          'options': backend.options,
+      })
+
+    values = {
+      'request': self.request,
+      'backends': backend_list,
+      'backend_path': self.base_path() + self.PATH,
+    }
+    self.generate('backends.html', values)
+
+  def get_backend_entry(self, backend_name):
+    """Get the BackendEntry for a single backend."""
+    if not hasattr(self.stub, 'get_backend_info'):
+      return None
+
+    backend_entries = self.stub.get_backend_info() or []
+    for backend in backend_entries:
+      if backend.name == backend_name:
+        return backend
+    return None
+
+  def render_backend_page(self, backend_name):
+    """Shows template displaying a single backend."""
+    backend = self.get_backend_entry(backend_name)
+
+    instances = []
+    if backend:
+      for i in range(backend.instances):
+        instances.append({
+            'id': i,
+            'address': backends.get_hostname(backend_name, i),
+            'state': 'running',
+        })
+
+    values = {
+      'request': self.request,
+      'backend_name': backend_name,
+      'backend_path': self.base_path() + self.PATH,
+      'instances': instances,
+    }
+    self.generate('backend.html', values)
+
+  @xsrf_required
+  def post(self):
+    if self.request.get('action:startbackend'):
+      self.stub.start_backend(self.request.get('backend'))
+    if self.request.get('action:stopbackend'):
+      self.stub.stop_backend(self.request.get('backend'))
+    self.redirect(self.request.path_url)
     return
 
 
@@ -456,7 +868,7 @@ class MemcachePageHandler(BaseRequestHandler):
       value: String, will be converted according to type_.
 
     Returns:
-      Result of memcache.set(ket, converted_value).  True if value was set.
+      Result of memcache.set(key, converted_value).  True if value was set.
 
     Raises:
       ValueError: Value can't be converted according to type_.
@@ -537,6 +949,7 @@ class MemcachePageHandler(BaseRequestHandler):
                                urllib.quote_plus(v.encode('utf8')))
                     for k, v in query.iteritems())
 
+  @xsrf_required
   def post(self):
     """Handle modifying actions and/or redirect to GET page."""
     next_param = {}
@@ -592,10 +1005,37 @@ class MemcachePageHandler(BaseRequestHandler):
     self.redirect(next)
 
 
+class DatastoreGetIndexesHandler(BaseRequestHandler):
+  """Our main request handler that displays indexes"""
+
+  PATH = '/datastore_indexes'
+
+  def get(self):
+    indexes = collections.defaultdict(list)
+    for index, state in datastore.GetIndexes():
+      properties = []
+      for property_name, sort_direction in index.Properties():
+        properties.append({
+          'name': property_name,
+          'sort_symbol': ('&#x25b2;', '&#x25bc;')[sort_direction - 1],
+          'sort_direction': ('ASCENDING', 'DESCENDING')[sort_direction - 1]
+        })
+      kind = str(index.Kind())
+      kind_indexes = indexes[kind]
+      kind_indexes.append({
+        'id': str(index.Id()),
+        'status': ('BUILDING', 'SERVING', 'DELETING', 'ERROR')[state],
+        'has_ancestor': bool(index.HasAncestor()),
+        'properties': properties
+      })
+    self.generate('datastore_indexes.html',
+                  {'request': self.request, 'indexes': sorted(indexes.items())})
+
+
 class DatastoreRequestHandler(BaseRequestHandler):
   """The base request handler for our datastore admin pages.
 
-  We provide utility functions for quering the datastore and infering the
+  We provide utility functions for querying the datastore and inferring the
   types of entity properties.
   """
 
@@ -608,13 +1048,21 @@ class DatastoreRequestHandler(BaseRequestHandler):
     return self.request.get_range('num', min_value=1, max_value=100,
                                   default=10)
 
+
+
   def execute_query(self, start=0, num=0, no_order=False):
     """Parses the URL arguments and executes the query.
 
-    We return a tuple (list of entities, total entity count).
+    Args:
+      start: How many entities from the beginning of the result list should be
+        skipped from the query.
+      num: How many entities should be returned, if 0 (default) then a
+        reasonable default will be chosen.
 
-    If the appropriate URL arguments are not given, we return an empty
-    set of results and 0 for the entity count.
+    Returns:
+      A tuple (list of entities, total entity count).  If inappropriate URL
+      arguments are given, we return an empty set of results and 0 for the
+      entity count.
     """
     kind = self.request.get('kind')
     namespace = self.request.get('namespace')
@@ -673,26 +1121,84 @@ class DatastoreQueryHandler(DatastoreRequestHandler):
 
   PATH = '/datastore'
 
+  _ONE_MILLION = decimal.Decimal(1000000)
+
+  _DOLLARS_PER_WRITE = 1/_ONE_MILLION
+
+  _PENNIES_PER_WRITE = _DOLLARS_PER_WRITE/100
+
+  def _writes_to_pennies(self, writes):
+    return self._PENNIES_PER_WRITE * writes
+
+  def _calculate_writes_for_built_in_indices(self, entity):
+    writes = 0
+    for prop_name in entity.keys():
+      if not prop_name in entity.unindexed_properties():
+
+
+        prop_vals = entity[prop_name]
+        if isinstance(prop_vals, (list)):
+          num_prop_vals = len(prop_vals)
+        else:
+          num_prop_vals = 1
+        writes += 2 * num_prop_vals
+    return writes
+
+  def _calculate_writes_for_composite_index(self, entity, index):
+    composite_index_value_count = 1
+    for prop_name, _ in index.Properties():
+      if not prop_name in entity.keys() or (
+          prop_name in entity.unindexed_properties()):
+        return 0
+      prop_vals = entity[prop_name]
+      if isinstance(prop_vals, (list)):
+        composite_index_value_count = (
+            composite_index_value_count * len(prop_vals))
+
+
+
+
+
+      ancestor_count = 1
+      if index.HasAncestor():
+        key = entity.key().parent()
+        while key != None:
+          ancestor_count = ancestor_count + 1
+          key = key.parent()
+    return composite_index_value_count * ancestor_count
+
+  def _get_write_ops(self, entity):
+
+    writes = 2 + self._calculate_writes_for_built_in_indices(entity)
+
+
+    for index, _ in datastore.GetIndexes():
+      if index.Kind() != entity.kind():
+        continue
+      writes = writes + self._calculate_writes_for_composite_index(
+          entity, index)
+    return writes
+
+  def _get_creation_cost_analysis(self, entity):
+    write_ops = self._get_write_ops(entity)
+    return (write_ops, self._writes_to_pennies(write_ops))
+
   def get_kinds(self, namespace):
     """Get sorted list of kind names the datastore knows about.
 
-    This should only be called in the development environment as GetSchema is
-    expensive and no caching is done.
+    This should only be called in the development environment as metadata
+    queries are expensive and no caching is done.
 
     Args:
       namespace: The namespace to fetch the schema for e.g. 'google.com'. It
           is an error to pass in None.
 
     Returns:
-      A sorted list of kinds e.g. ['Book', 'Guest', Post'].
+      A sorted list of kinds e.g. ['Book', 'Guest', Post'] (encoded in utf-8).
     """
     assert namespace is not None
-    schema = datastore_admin.GetSchema(namespace=namespace)
-    kinds = []
-    for entity_proto in schema:
-      kinds.append(entity_proto.key().path().element_list()[-1].type())
-    kinds.sort()
-    return kinds
+    q = metadata.Kind.all(namespace=namespace)
+    return [x.kind_name.encode('utf-8') for x in q.run()]
 
   def get(self):
     """Formats the results from execute_query() for datastore.html.
@@ -714,7 +1220,7 @@ class DatastoreQueryHandler(DatastoreRequestHandler):
     for key in keys:
       sample_value = key_values[key][0]
       headers.append({
-        'name': key,
+        'name': ustr(key),
         'type': DataType.get(sample_value).name(),
       })
 
@@ -723,6 +1229,7 @@ class DatastoreQueryHandler(DatastoreRequestHandler):
     entities = []
     edit_path = self.base_path() + DatastoreEditHandler.PATH
     for entity in result_set:
+      write_ops = self._get_write_ops(entity)
       attributes = []
       for key in keys:
         if entity.has_key(key):
@@ -736,18 +1243,19 @@ class DatastoreQueryHandler(DatastoreRequestHandler):
           short_value = ''
           additional_html = ''
         attributes.append({
-          'name': key,
-          'value': value,
+          'name': ustr(key),
+          'value': ustr(value),
           'short_value': short_value,
-          'additional_html': additional_html,
+          'additional_html': ustr(additional_html),
         })
       entities.append({
-        'key': str(entity.key()),
-        'key_name': entity.key().name(),
+        'key': ustr(entity.key()),
+        'key_name': ustr(entity.key().name()),
         'key_id': entity.key().id(),
+        'write_ops' : write_ops,
         'shortened_key': str(entity.key())[:8] + '...',
         'attributes': attributes,
-        'edit_uri': edit_path + '?key=' + str(entity.key()) + '&kind=' + urllib.quote(self.request.get('kind')) + '&next=' + urllib.quote(self.request.uri),
+        'edit_uri': edit_path + '?key=' + str(entity.key()) + '&kind=' + urllib.quote(ustr(self.request.get('kind'))) + '&next=' + urllib.quote(ustr(self.request.uri)),
       })
 
 
@@ -756,7 +1264,7 @@ class DatastoreQueryHandler(DatastoreRequestHandler):
     max_pager_links = 8
     current_page = start / num
     num_pages = int(math.ceil(total * 1.0 / num))
-    page_start = max(math.floor(current_page - max_pager_links / 2), 0)
+    page_start = max(int(math.floor(current_page - max_pager_links / 2)), 0)
     page_end = min(page_start + max_pager_links, num_pages)
 
     pages = []
@@ -778,7 +1286,7 @@ class DatastoreQueryHandler(DatastoreRequestHandler):
         'request': self.request,
         'in_production': in_production,
         'kinds': kinds,
-        'kind': self.request.get('kind'),
+        'kind': ustr(self.request.get('kind')),
         'order': self.request.get('order'),
         'headers': headers,
         'entities': entities,
@@ -812,7 +1320,9 @@ class DatastoreBatchEditHandler(DatastoreRequestHandler):
 
   PATH = DatastoreQueryHandler.PATH + '/batchedit'
 
+  @xsrf_required
   def post(self):
+    """Handle POST."""
     kind = self.request.get('kind')
 
 
@@ -833,8 +1343,9 @@ class DatastoreBatchEditHandler(DatastoreRequestHandler):
         num_deleted = num_deleted + 1
       message = '%d entit%s deleted.' % (
         num_deleted, ('ies', 'y')[num_deleted == 1])
-      self.redirect(
-        '%s&msg=%s' % (self.request.get('next'), urllib.quote_plus(message)))
+      uri = self.request.get('next')
+      msg = urllib.quote_plus(message)
+      self.redirect('%s&msg=%s' % (uri, msg))
       return
 
 
@@ -858,6 +1369,8 @@ class DatastoreEditHandler(DatastoreRequestHandler):
     if entity_key:
       key_instance = datastore.Key(entity_key)
       entity_key_name = key_instance.name()
+      if entity_key_name:
+        entity_key_name = ustr(entity_key_name)
       entity_key_id = key_instance.id()
       namespace = key_instance.namespace()
       parent_key = key_instance.parent()
@@ -870,6 +1383,7 @@ class DatastoreEditHandler(DatastoreRequestHandler):
       sample_entities = self.execute_query()[0]
 
     if len(sample_entities) < 1:
+
 
 
 
@@ -920,14 +1434,14 @@ class DatastoreEditHandler(DatastoreRequestHandler):
       else:
         value = None
       field = data_type.input_field(name, value, sample_values)
-      fields.append((key, data_type.name(), field))
+      fields.append((ustr(key), data_type.name(), field))
 
 
 
 
 
     self.generate('datastore_edit.html', {
-      'kind': kind,
+      'kind': ustr(kind),
       'key': entity_key,
       'key_name': entity_key_name,
       'key_id': entity_key_id,
@@ -940,6 +1454,7 @@ class DatastoreEditHandler(DatastoreRequestHandler):
       'parent_key_string': parent_key_string,
     })
 
+  @xsrf_required
   def post(self):
 
     kind = self.request.get('kind')
@@ -983,6 +1498,210 @@ class DatastoreEditHandler(DatastoreRequestHandler):
 
     datastore.Put(entity)
 
+    self.redirect(self.request.get('next'))
+
+
+class DatastoreStatsHandler(BaseRequestHandler):
+  """Allows computation of datastore stats."""
+
+  PATH = '/datastore_stats'
+
+  def get(self):
+    """Shows Datastore Stats generator button."""
+    values = {
+        'request': self.request,
+        'app_id': self.request.get('app_id', None),
+        'status': self.request.get('status', None),
+        'msg': self.request.get('msg', None)}
+    self.generate('datastore_stats.html', values)
+
+  @xsrf_required
+  def post(self):
+    """Handle actions and redirect to GET page."""
+    app_id = self.request.get('app_id', None)
+    if self.request.get('action:compute_stats'):
+      status = 'OK'
+      msg = self.generate_stats(_app=app_id)
+    else:
+      status = 'FAIL'
+      msg = 'No processing requested'
+
+    uri = self.request.path_url
+    self.redirect('%s?%s' % (uri, urllib.urlencode(dict(msg=msg, status=status))))
+
+  def generate_stats(self, _app=None):
+    """Generate datastore stats."""
+    processor = datastore_stats_generator.DatastoreStatsProcessor(_app)
+    return processor.Run().Report()
+
+
+class SearchIndexesListHandler(BaseRequestHandler):
+  """FTS main page with list on indexes."""
+
+  PATH = '/search'
+
+  def get(self):
+    """Displays list of FTS indexes."""
+    start = self.request.get_range('start', min_value=0, default=0)
+    limit = self.request.get_range('num', min_value=1, max_value=100,
+                                   default=10)
+    namespace = self.request.get('namespace', default_value=None)
+    resp = search.list_indexes(offset=start, limit=limit+1,
+                               namespace=namespace or '')
+    has_more = len(resp.indexes) > limit
+    indexes = resp.indexes[:limit]
+
+    current_page = start / limit + 1
+    values = {
+        'request': self.request,
+        'namespace': namespace,
+        'has_namespace': namespace is not None,
+        'current_page': current_page,
+        'next_start': -1,
+        'prev_start': -1,
+        'num': limit,
+        'start': start,
+        'start_base_url': self.filter_url(['num', 'namespace']),
+        'next': urllib.quote(ustr(self.request.uri)),
+        'indexes': indexes}
+    if current_page > 1:
+      values['prev_start'] = int((current_page - 2) * limit)
+      values['paging'] = True
+    if has_more:
+      values['next_start'] = int(current_page * limit)
+      values['paging'] = True
+
+    self.generate('search.html', values)
+
+
+class SearchIndexHandler(BaseRequestHandler):
+  """FTS index information."""
+
+  PATH = '/search_index'
+
+  def _ProcessSearchResponse(self, response):
+    """Format document list and produce corresponding hdf representation."""
+
+    documents = []
+    field_names = set()
+
+
+
+    for result in response.results:
+      doc = Document(result.document.doc_id)
+      for field in result.document.fields:
+        field_names.add(field.name)
+        doc.fields[field.name] = field
+      documents.append(doc)
+
+    field_names = sorted(field_names)
+    docs = []
+
+    for doc in documents:
+      doc_fields = []
+      for field_name in field_names:
+        if field_name in doc.fields:
+          value = TruncateValue(doc.fields[field_name].value)
+        else:
+          value = ''
+        doc_fields.append(value)
+      docs.append({
+          'doc_id': doc.doc_id,
+          'fields': doc_fields
+          })
+
+    return {
+        'documents': docs,
+        'field_names': field_names,
+        }
+
+  def get(self):
+    """Displays documents in a FTS index."""
+    start = self.request.get_range('start', min_value=0, default=0)
+    query = self.request.get('query')
+    namespace = self.request.get('namespace')
+    limit = self.request.get_range('num', min_value=1, max_value=100,
+                                   default=10)
+    index_name = self.request.get('index') or 'index'
+    index = search.Index(name=index_name, namespace=namespace)
+    resp = index.search(query=query, offset=start, limit=limit)
+    has_more = resp.matched_count > start + limit
+
+    current_page = start / limit + 1
+    values = {
+        'request': self.request,
+        'namespace': namespace,
+        'index': index_name,
+        'query': query,
+        'current_page': current_page,
+        'next_start': -1,
+        'prev_start': -1,
+        'start_base_url': self.filter_url([
+            'query', 'index', 'num', 'namespace']),
+        'next': urllib.quote(ustr(self.request.uri)),
+        'values': self._ProcessSearchResponse(resp),
+        'prev': self.request.get(
+            'next',
+            default_value=self.base_path() + SearchIndexesListHandler.PATH)}
+    if current_page > 1:
+      values['prev_start'] = int((current_page - 2) * limit)
+      values['paging'] = True
+    if has_more:
+      values['next_start'] = int(current_page * limit)
+      values['paging'] = True
+
+    self.generate('search_index.html', values)
+
+
+class SearchDocumentHandler(BaseRequestHandler):
+  """FTS document information."""
+
+  PATH = '/search_document'
+
+  def get(self):
+    """Displays FTS document."""
+    index_name = self.request.get('index')
+    doc_id = self.request.get('id')
+    namespace = self.request.get('namespace')
+    doc = None
+    index = search.Index(name=index_name, namespace=namespace)
+    resp = index.list_documents(start_doc_id=doc_id, limit=1)
+    if resp.documents and resp.documents[0].doc_id == doc_id:
+      doc = resp.documents[0]
+
+    values = {
+        'request': self.request,
+        'namespace': namespace,
+        'index': index_name,
+        'doc_id': doc_id,
+        'doc': doc,
+        'prev': self.request.get(
+            'next', default_value=self.base_path() + SearchIndexHandler.PATH +
+            '?index=' + index_name)}
+    self.generate('search_document.html', values)
+
+
+class SearchBatchDeleteHandler(BaseRequestHandler):
+  """FTS batch delete handler."""
+
+  PATH = '/search_batch_delete'
+
+  @xsrf_required
+  def post(self):
+    """Handle POST."""
+    index_name = self.request.get('index')
+    namespace = self.request.get('namespace')
+
+    docs = []
+    index = 0
+    num_docs = int(self.request.get('numdocs'))
+    for i in xrange(1, num_docs+1):
+      key = self.request.get('doc%d' % i)
+      if key:
+        docs.append(key)
+
+    index = search.Index(name=index_name, namespace=namespace)
+    index.delete_documents(docs)
     self.redirect(self.request.get('next'))
 
 
@@ -1117,29 +1836,20 @@ class TimeType(DataType):
 
 class ListType(DataType):
   def format(self, value):
-    value_file = cStringIO.StringIO()
-    try:
-      writer = csv.writer(value_file)
-      writer.writerow(map(ustr, value))
-      return ustr(value_file.getvalue())
-    finally:
-      value_file.close()
+    return repr(value)
+
+  def short_format(self, value):
+    format = self.format(value)
+    if len(format) > 20:
+      return format[:20] + '...'
+    else:
+      return format
 
   def name(self):
     return 'list'
 
-  def parse(self, value):
-    value_file = cStringIO.StringIO(ustr(value))
-    try:
-      reader = csv.reader(value_file)
-      fields = []
-      for field in reader.next():
-        if isinstance(field, str):
-          field = field.decode('utf-8')
-        fields.append(field)
-      return fields
-    finally:
-      value_file.close()
+  def input_field(self, name, value, sample_values):
+    return cgi.escape(self.format(value))
 
   def python_type(self):
     return list
@@ -1451,35 +2161,34 @@ def PseudoBreadcrumbs(key):
   return ' > '.join(parts)
 
 
-def main():
-  handlers = [
+handlers = [
+    ('.*' + DatastoreGetIndexesHandler.PATH, DatastoreGetIndexesHandler),
     ('.*' + DatastoreQueryHandler.PATH, DatastoreQueryHandler),
     ('.*' + DatastoreEditHandler.PATH, DatastoreEditHandler),
     ('.*' + DatastoreBatchEditHandler.PATH, DatastoreBatchEditHandler),
+    ('.*' + DatastoreStatsHandler.PATH, DatastoreStatsHandler),
     ('.*' + InteractivePageHandler.PATH, InteractivePageHandler),
     ('.*' + InteractiveExecuteHandler.PATH, InteractiveExecuteHandler),
     ('.*' + MemcachePageHandler.PATH, MemcachePageHandler),
     ('.*' + ImageHandler.PATH, ImageHandler),
     ('.*' + QueuesPageHandler.PATH, QueuesPageHandler),
+    ('.*' + SearchIndexesListHandler.PATH, SearchIndexesListHandler),
+    ('.*' + SearchIndexHandler.PATH, SearchIndexHandler),
+    ('.*' + SearchDocumentHandler.PATH, SearchDocumentHandler),
+    ('.*' + SearchBatchDeleteHandler.PATH, SearchBatchDeleteHandler),
     ('.*' + TasksPageHandler.PATH, TasksPageHandler),
     ('.*' + XMPPPageHandler.PATH, XMPPPageHandler),
     ('.*' + InboundMailPageHandler.PATH, InboundMailPageHandler),
+    ('.*' + BackendsPageHandler.PATH, BackendsPageHandler),
     ('.*', DefaultPageHandler),
   ]
-  if HAVE_CRON:
-    handlers.insert(0, ('.*' + CronPageHandler.PATH, CronPageHandler))
-  application = webapp.WSGIApplication(handlers, debug=_DEBUG)
-  wsgiref.handlers.CGIHandler().run(application)
+if HAVE_CRON:
+  handlers.insert(0, ('.*' + CronPageHandler.PATH, CronPageHandler))
+application = webapp.WSGIApplication(handlers, debug=_DEBUG)
 
 
-
-
-import django
-if django.VERSION[:2] < (0, 97):
-  from django.template import defaultfilters
-  def safe(text, dummy=None):
-    return text
-  defaultfilters.register.filter("safe", safe)
+def main():
+  util.run_wsgi_app(application)
 
 
 if __name__ == '__main__':

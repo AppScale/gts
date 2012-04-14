@@ -41,6 +41,7 @@ from google.appengine.ext.mapreduce import context
 from google.appengine.ext.mapreduce import control
 from google.appengine.ext.mapreduce import input_readers
 from google.appengine.ext.mapreduce import model
+from google.appengine.ext.webapp import _template
 
 MEMCACHE_NAMESPACE = '_ah-datastore_admin'
 XSRF_VALIDITY_TIME = 600
@@ -70,7 +71,6 @@ config = lib_config.register('datastore_admin', ConfigDefaults.__dict__)
 config.BASE_PATH
 
 
-from google.appengine.ext.webapp import template
 
 
 def RenderToResponse(handler, template_file, template_params):
@@ -82,7 +82,7 @@ def RenderToResponse(handler, template_file, template_params):
     template_params: the parameters used to render the given template
   """
   template_params = _GetDefaultParams(template_params)
-  rendered = template.render(_GetTemplatePath(template_file), template_params)
+  rendered = _template.render(_GetTemplatePath(template_file), template_params)
   handler.response.out.write(rendered)
 
 
@@ -340,7 +340,8 @@ class MapreduceDoneHandler(webapp.RequestHandler):
 
       keys = []
       job_success = True
-      for shard_state in model.ShardState.find_by_mapreduce_id(mapreduce_id):
+      shard_states = model.ShardState.find_by_mapreduce_state(mapreduce_state)
+      for shard_state in shard_states:
         keys.append(shard_state.key())
         if not shard_state.result_status == 'success':
           job_success = False

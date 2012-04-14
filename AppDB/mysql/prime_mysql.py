@@ -42,7 +42,7 @@ def create_table(tablename, columns):
     columnscopy = []
     for ii in range(0, len(columns)):
       columnscopy += ["x" + columns[ii]]
-    command = "CREATE TABLE IF NOT EXISTS " + tablename + "( " + ROW_KEY + " CHAR(80) primary key, " + ' MEDIUMBLOB, '.join(columnscopy) + " MEDIUMBLOB) ENGINE=NDBCLUSTER"
+    command = "CREATE TABLE IF NOT EXISTS " + tablename + "( " + ROW_KEY + " CHAR(255) primary key, " + ' MEDIUMBLOB, '.join(columnscopy) + " MEDIUMBLOB) ENGINE=NDBCLUSTER"
     print command
     cursor.execute(command)
   except MySQLdb.Error, e:
@@ -51,6 +51,14 @@ def create_table(tablename, columns):
   client.close()
   return 1
 
+def create_appengine_tables():
+  connection = MySQLdb.connect(host='127.0.0.1', db='appscale', user="root")
+  cursor = connection.cursor()
+  for sql_command in APPENGINE_SCHEMA:
+    cursor.execute(sql_command)
+  connection.commit()
+  connection.close()
+ 
 if create_table("x"+USERS_TABLE, USERS_SCHEMA) == 0:
   print "Unable to create USER table, exiting..."
   exit(1)
@@ -59,3 +67,4 @@ if create_table("x"+APPS_TABLE, APPS_SCHEMA) == 0:
   print "Unable to create APPS table, but USERS table was created, exiting..."
   exit(1) 
 
+create_appengine_tables()

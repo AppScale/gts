@@ -592,14 +592,15 @@ class AbstractRpcServer(object):
       True if the current AppServer is new.
       False otherwise.
     """
-    if self.appserver_url is not None:      
-      appserverIp=self._GetAppServerIp()
 
     if self.last_appserver_ip == None:
       return True
 
-    appServerIp=self._GetAppServerIp()
-    return not self.last_appserver_ip == appServerIp
+    if self.appserver_url is not None:      
+      appServerIp=self._GetAppServerIp()
+      return not self.last_appserver_ip == appServerIp
+    else:
+      return False
 
 
   def _GetAppServerUrl(self):
@@ -654,7 +655,7 @@ class AbstractRpcServer(object):
     try:
       tries = 0      
       self._ResetAppServerInfo()
-      while True:
+      while True:        
         tries += 1
         #AppScale authentication hook
         if auth_domain == 'appscale':
@@ -680,25 +681,27 @@ class AbstractRpcServer(object):
           return response
         except urllib2.HTTPError, e:
           logger.debug("Got http error, this is try #%s", tries)
-          if auth_domain == 'appscale':
-             if not self._IsNewAppServer() and tries == 1:
-               raise
-          elif tries > self.rpc_tries:
-            raise
 
-          if e.code == 401:
-            if auth_domain == 'appscale':
-              if not self._IsNewAppServer() and tries == 1:
-                raise          
-            elif tries >= 2:
-              raise
+          #Skipping rpc_tries check for AppScale, because every time 
+          #we could hit a new App Server
+          if auth_domain != 'appscale' and tries > self.rpc_tries:
+            raise
+          
+          #App Load Balancer returns HTTP 502 if invalid cookie 
+          #is used for authentication, though ideally it should throw HTTP 401 only.
+          #But handling HTTP 502 here until the App Load Balancer code is fixed.
+          if e.code == 401 or e.code == 502:
             #AppScale authentication hook
             if auth_domain == 'appscale':
               self._AppScaleAuthenticate()
+            elif tries >= 2:
+              raise
             else:
               self._Authenticate()
+          
           elif e.code >= 500 and e.code < 600:
             continue
+
           elif e.code == 302:
             if tries >= 2:
               #AppScale authentication hook

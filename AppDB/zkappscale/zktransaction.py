@@ -44,6 +44,7 @@ class ZKTransactionException(Exception):
   TYPE_INVALID = 2
   TYPE_EXPIRED = 3
   TYPE_DIFFERENT_ROOTKEY = 4
+  TYPE_CONCURRENT = 5
 
   def __init__(self, type, message):
     Exception.__init__(self, message)
@@ -284,7 +285,7 @@ class ZKTransaction:
       prelockpath = zookeeper.get(self.handle, PATH_SEPARATOR.join([txpath, TX_LOCK_PATH]), None)[0]
       if not lockrootpath == prelockpath:
         raise ZKTransactionException(ZKTransactionException.TYPE_DIFFERENT_ROOTKEY, "You can not lock different root entity in same transaction.")
-      print "already has lock: %s" % lockpath
+      print "already has lock: %s" % lockrootpath
       return True
 
     self.checkTransaction(app_id, txid)
@@ -300,7 +301,7 @@ class ZKTransaction:
         retry = True
       except zookeeper.NodeExistsException:
         # fail to get lock
-        return False
+        raise ZKTransactionException(ZKTransactionException.TYPE_CONCURRENT, "There is already another transaction using this lock")
 
     # set lockpath for transaction node
     # TODO: we should think about atomic operation or recovery of

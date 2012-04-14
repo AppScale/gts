@@ -24,6 +24,13 @@ import dummy_thread as thread
 __pychecker__ = """maxreturns=0 maxbranches=0 no-callinit
                    unusednames=printElemNumber,debug_strs no-special"""
 
+if hasattr(ProtocolBuffer, 'ExtendableProtocolMessage'):
+  _extension_runtime = True
+  _ExtendableProtocolMessage = ProtocolBuffer.ExtendableProtocolMessage
+else:
+  _extension_runtime = False
+  _ExtendableProtocolMessage = ProtocolBuffer.ProtocolMessage
+
 from google.appengine.datastore.datastore_v3_pb import *
 import google.appengine.datastore.datastore_v3_pb
 from google.net.proto.message_set import MessageSet
@@ -54,6 +61,10 @@ class TaskQueueServiceError(ProtocolBuffer.ProtocolMessage):
   INVALID_QUEUE_MODE =   21
   ACL_LOOKUP_ERROR =   22
   TRANSACTIONAL_REQUEST_TOO_LARGE =   23
+  INCORRECT_CREATOR_NAME =   24
+  TASK_LEASE_EXPIRED =   25
+  QUEUE_PAUSED =   26
+  INVALID_TAG  =   27
   DATASTORE_ERROR = 10000
 
   _ErrorCode_NAMES = {
@@ -81,6 +92,10 @@ class TaskQueueServiceError(ProtocolBuffer.ProtocolMessage):
     21: "INVALID_QUEUE_MODE",
     22: "ACL_LOOKUP_ERROR",
     23: "TRANSACTIONAL_REQUEST_TOO_LARGE",
+    24: "INCORRECT_CREATOR_NAME",
+    25: "TASK_LEASE_EXPIRED",
+    26: "QUEUE_PAUSED",
+    27: "INVALID_TAG",
     10000: "DATASTORE_ERROR",
   }
 
@@ -150,6 +165,7 @@ class TaskQueueServiceError(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueServiceError'
 class TaskQueueRetryParameters(ProtocolBuffer.ProtocolMessage):
   has_retry_limit_ = 0
   retry_limit_ = 0
@@ -380,6 +396,7 @@ class TaskQueueRetryParameters(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueRetryParameters'
 class TaskQueueAcl(ProtocolBuffer.ProtocolMessage):
 
   def __init__(self, contents=None):
@@ -483,6 +500,7 @@ class TaskQueueAcl(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueAcl'
 class TaskQueueHttpHeader(ProtocolBuffer.ProtocolMessage):
   has_key_ = 0
   key_ = ""
@@ -621,6 +639,7 @@ class TaskQueueHttpHeader(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueHttpHeader'
 class TaskQueueMode(ProtocolBuffer.ProtocolMessage):
 
 
@@ -698,6 +717,7 @@ class TaskQueueMode(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueMode'
 class TaskQueueAddRequest_Header(ProtocolBuffer.ProtocolMessage):
   has_key_ = 0
   key_ = ""
@@ -978,6 +998,8 @@ class TaskQueueAddRequest(ProtocolBuffer.ProtocolMessage):
   retry_parameters_ = None
   has_mode_ = 0
   mode_ = 0
+  has_tag_ = 0
+  tag_ = ""
 
   def __init__(self, contents=None):
     self.header_ = []
@@ -1193,6 +1215,19 @@ class TaskQueueAddRequest(ProtocolBuffer.ProtocolMessage):
 
   def has_mode(self): return self.has_mode_
 
+  def tag(self): return self.tag_
+
+  def set_tag(self, x):
+    self.has_tag_ = 1
+    self.tag_ = x
+
+  def clear_tag(self):
+    if self.has_tag_:
+      self.has_tag_ = 0
+      self.tag_ = ""
+
+  def has_tag(self): return self.has_tag_
+
 
   def MergeFrom(self, x):
     assert x is not self
@@ -1210,6 +1245,7 @@ class TaskQueueAddRequest(ProtocolBuffer.ProtocolMessage):
     if (x.has_payload()): self.mutable_payload().MergeFrom(x.payload())
     if (x.has_retry_parameters()): self.mutable_retry_parameters().MergeFrom(x.retry_parameters())
     if (x.has_mode()): self.set_mode(x.mode())
+    if (x.has_tag()): self.set_tag(x.tag())
 
   def Equals(self, x):
     if x is self: return 1
@@ -1242,6 +1278,8 @@ class TaskQueueAddRequest(ProtocolBuffer.ProtocolMessage):
     if self.has_retry_parameters_ and self.retry_parameters_ != x.retry_parameters_: return 0
     if self.has_mode_ != x.has_mode_: return 0
     if self.has_mode_ and self.mode_ != x.mode_: return 0
+    if self.has_tag_ != x.has_tag_: return 0
+    if self.has_tag_ and self.tag_ != x.tag_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -1283,6 +1321,7 @@ class TaskQueueAddRequest(ProtocolBuffer.ProtocolMessage):
     if (self.has_payload_): n += 2 + self.lengthString(self.payload_.ByteSize())
     if (self.has_retry_parameters_): n += 2 + self.lengthString(self.retry_parameters_.ByteSize())
     if (self.has_mode_): n += 2 + self.lengthVarInt64(self.mode_)
+    if (self.has_tag_): n += 2 + self.lengthString(len(self.tag_))
     return n + 3
 
   def ByteSizePartial(self):
@@ -1308,6 +1347,7 @@ class TaskQueueAddRequest(ProtocolBuffer.ProtocolMessage):
     if (self.has_payload_): n += 2 + self.lengthString(self.payload_.ByteSizePartial())
     if (self.has_retry_parameters_): n += 2 + self.lengthString(self.retry_parameters_.ByteSizePartial())
     if (self.has_mode_): n += 2 + self.lengthVarInt64(self.mode_)
+    if (self.has_tag_): n += 2 + self.lengthString(len(self.tag_))
     return n
 
   def Clear(self):
@@ -1325,6 +1365,7 @@ class TaskQueueAddRequest(ProtocolBuffer.ProtocolMessage):
     self.clear_payload()
     self.clear_retry_parameters()
     self.clear_mode()
+    self.clear_tag()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(10)
@@ -1371,6 +1412,9 @@ class TaskQueueAddRequest(ProtocolBuffer.ProtocolMessage):
     if (self.has_mode_):
       out.putVarInt32(144)
       out.putVarInt32(self.mode_)
+    if (self.has_tag_):
+      out.putVarInt32(154)
+      out.putPrefixedString(self.tag_)
 
   def OutputPartial(self, out):
     if (self.has_queue_name_):
@@ -1420,6 +1464,9 @@ class TaskQueueAddRequest(ProtocolBuffer.ProtocolMessage):
     if (self.has_mode_):
       out.putVarInt32(144)
       out.putVarInt32(self.mode_)
+    if (self.has_tag_):
+      out.putVarInt32(154)
+      out.putPrefixedString(self.tag_)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -1475,6 +1522,9 @@ class TaskQueueAddRequest(ProtocolBuffer.ProtocolMessage):
       if tt == 144:
         self.set_mode(d.getVarInt32())
         continue
+      if tt == 154:
+        self.set_tag(d.getPrefixedString())
+        continue
 
 
       if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
@@ -1516,6 +1566,7 @@ class TaskQueueAddRequest(ProtocolBuffer.ProtocolMessage):
       res+=self.retry_parameters_.__str__(prefix + "  ", printElemNumber)
       res+=prefix+">\n"
     if self.has_mode_: res+=prefix+("mode: %s\n" % self.DebugFormatInt32(self.mode_))
+    if self.has_tag_: res+=prefix+("tag: %s\n" % self.DebugFormatString(self.tag_))
     return res
 
 
@@ -1540,6 +1591,7 @@ class TaskQueueAddRequest(ProtocolBuffer.ProtocolMessage):
   kpayload = 16
   kretry_parameters = 17
   kmode = 18
+  ktag = 19
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
@@ -1561,7 +1613,8 @@ class TaskQueueAddRequest(ProtocolBuffer.ProtocolMessage):
     16: "payload",
     17: "retry_parameters",
     18: "mode",
-  }, 18)
+    19: "tag",
+  }, 19)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
@@ -1583,11 +1636,13 @@ class TaskQueueAddRequest(ProtocolBuffer.ProtocolMessage):
     16: ProtocolBuffer.Encoder.STRING,
     17: ProtocolBuffer.Encoder.STRING,
     18: ProtocolBuffer.Encoder.NUMERIC,
-  }, 18, ProtocolBuffer.Encoder.MAX_TYPE)
+    19: ProtocolBuffer.Encoder.STRING,
+  }, 19, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueAddRequest'
 class TaskQueueAddResponse(ProtocolBuffer.ProtocolMessage):
   has_chosen_task_name_ = 0
   chosen_task_name_ = ""
@@ -1682,6 +1737,7 @@ class TaskQueueAddResponse(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueAddResponse'
 class TaskQueueBulkAddRequest(ProtocolBuffer.ProtocolMessage):
 
   def __init__(self, contents=None):
@@ -1795,6 +1851,7 @@ class TaskQueueBulkAddRequest(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueBulkAddRequest'
 class TaskQueueBulkAddResponse_TaskResult(ProtocolBuffer.ProtocolMessage):
   has_result_ = 0
   result_ = 0
@@ -2023,6 +2080,7 @@ class TaskQueueBulkAddResponse(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueBulkAddResponse'
 class TaskQueueDeleteRequest(ProtocolBuffer.ProtocolMessage):
   has_queue_name_ = 0
   queue_name_ = ""
@@ -2199,6 +2257,7 @@ class TaskQueueDeleteRequest(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueDeleteRequest'
 class TaskQueueDeleteResponse(ProtocolBuffer.ProtocolMessage):
 
   def __init__(self, contents=None):
@@ -2302,6 +2361,7 @@ class TaskQueueDeleteResponse(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueDeleteResponse'
 class TaskQueueForceRunRequest(ProtocolBuffer.ProtocolMessage):
   has_app_id_ = 0
   app_id_ = ""
@@ -2479,6 +2539,7 @@ class TaskQueueForceRunRequest(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueForceRunRequest'
 class TaskQueueForceRunResponse(ProtocolBuffer.ProtocolMessage):
   has_result_ = 0
   result_ = 0
@@ -2578,6 +2639,7 @@ class TaskQueueForceRunResponse(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueForceRunResponse'
 class TaskQueueUpdateQueueRequest(ProtocolBuffer.ProtocolMessage):
   has_app_id_ = 0
   app_id_ = ""
@@ -3046,6 +3108,7 @@ class TaskQueueUpdateQueueRequest(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueUpdateQueueRequest'
 class TaskQueueUpdateQueueResponse(ProtocolBuffer.ProtocolMessage):
 
   def __init__(self, contents=None):
@@ -3110,6 +3173,7 @@ class TaskQueueUpdateQueueResponse(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueUpdateQueueResponse'
 class TaskQueueFetchQueuesRequest(ProtocolBuffer.ProtocolMessage):
   has_app_id_ = 0
   app_id_ = ""
@@ -3161,10 +3225,6 @@ class TaskQueueFetchQueuesRequest(ProtocolBuffer.ProtocolMessage):
 
   def IsInitialized(self, debug_strs=None):
     initialized = 1
-    if (not self.has_app_id_):
-      initialized = 0
-      if debug_strs is not None:
-        debug_strs.append('Required field: app_id not set.')
     if (not self.has_max_rows_):
       initialized = 0
       if debug_strs is not None:
@@ -3173,15 +3233,13 @@ class TaskQueueFetchQueuesRequest(ProtocolBuffer.ProtocolMessage):
 
   def ByteSize(self):
     n = 0
-    n += self.lengthString(len(self.app_id_))
+    if (self.has_app_id_): n += 1 + self.lengthString(len(self.app_id_))
     n += self.lengthVarInt64(self.max_rows_)
-    return n + 2
+    return n + 1
 
   def ByteSizePartial(self):
     n = 0
-    if (self.has_app_id_):
-      n += 1
-      n += self.lengthString(len(self.app_id_))
+    if (self.has_app_id_): n += 1 + self.lengthString(len(self.app_id_))
     if (self.has_max_rows_):
       n += 1
       n += self.lengthVarInt64(self.max_rows_)
@@ -3192,8 +3250,9 @@ class TaskQueueFetchQueuesRequest(ProtocolBuffer.ProtocolMessage):
     self.clear_max_rows()
 
   def OutputUnchecked(self, out):
-    out.putVarInt32(10)
-    out.putPrefixedString(self.app_id_)
+    if (self.has_app_id_):
+      out.putVarInt32(10)
+      out.putPrefixedString(self.app_id_)
     out.putVarInt32(16)
     out.putVarInt32(self.max_rows_)
 
@@ -3248,6 +3307,7 @@ class TaskQueueFetchQueuesRequest(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueFetchQueuesRequest'
 class TaskQueueFetchQueuesResponse_Queue(ProtocolBuffer.ProtocolMessage):
   has_queue_name_ = 0
   queue_name_ = ""
@@ -3267,6 +3327,8 @@ class TaskQueueFetchQueuesResponse_Queue(ProtocolBuffer.ProtocolMessage):
   mode_ = 0
   has_acl_ = 0
   acl_ = None
+  has_creator_name_ = 0
+  creator_name_ = "apphosting"
 
   def __init__(self, contents=None):
     self.header_override_ = []
@@ -3418,6 +3480,19 @@ class TaskQueueFetchQueuesResponse_Queue(ProtocolBuffer.ProtocolMessage):
 
   def clear_header_override(self):
     self.header_override_ = []
+  def creator_name(self): return self.creator_name_
+
+  def set_creator_name(self, x):
+    self.has_creator_name_ = 1
+    self.creator_name_ = x
+
+  def clear_creator_name(self):
+    if self.has_creator_name_:
+      self.has_creator_name_ = 0
+      self.creator_name_ = "apphosting"
+
+  def has_creator_name(self): return self.has_creator_name_
+
 
   def MergeFrom(self, x):
     assert x is not self
@@ -3431,6 +3506,7 @@ class TaskQueueFetchQueuesResponse_Queue(ProtocolBuffer.ProtocolMessage):
     if (x.has_mode()): self.set_mode(x.mode())
     if (x.has_acl()): self.mutable_acl().MergeFrom(x.acl())
     for i in xrange(x.header_override_size()): self.add_header_override().CopyFrom(x.header_override(i))
+    if (x.has_creator_name()): self.set_creator_name(x.creator_name())
 
   def Equals(self, x):
     if x is self: return 1
@@ -3455,6 +3531,8 @@ class TaskQueueFetchQueuesResponse_Queue(ProtocolBuffer.ProtocolMessage):
     if len(self.header_override_) != len(x.header_override_): return 0
     for e1, e2 in zip(self.header_override_, x.header_override_):
       if e1 != e2: return 0
+    if self.has_creator_name_ != x.has_creator_name_: return 0
+    if self.has_creator_name_ and self.creator_name_ != x.creator_name_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -3491,6 +3569,7 @@ class TaskQueueFetchQueuesResponse_Queue(ProtocolBuffer.ProtocolMessage):
     if (self.has_acl_): n += 1 + self.lengthString(self.acl_.ByteSize())
     n += 1 * len(self.header_override_)
     for i in xrange(len(self.header_override_)): n += self.lengthString(self.header_override_[i].ByteSize())
+    if (self.has_creator_name_): n += 1 + self.lengthString(len(self.creator_name_))
     return n + 21
 
   def ByteSizePartial(self):
@@ -3511,6 +3590,7 @@ class TaskQueueFetchQueuesResponse_Queue(ProtocolBuffer.ProtocolMessage):
     if (self.has_acl_): n += 1 + self.lengthString(self.acl_.ByteSizePartial())
     n += 1 * len(self.header_override_)
     for i in xrange(len(self.header_override_)): n += self.lengthString(self.header_override_[i].ByteSizePartial())
+    if (self.has_creator_name_): n += 1 + self.lengthString(len(self.creator_name_))
     return n
 
   def Clear(self):
@@ -3524,6 +3604,7 @@ class TaskQueueFetchQueuesResponse_Queue(ProtocolBuffer.ProtocolMessage):
     self.clear_mode()
     self.clear_acl()
     self.clear_header_override()
+    self.clear_creator_name()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(18)
@@ -3555,6 +3636,9 @@ class TaskQueueFetchQueuesResponse_Queue(ProtocolBuffer.ProtocolMessage):
       out.putVarInt32(90)
       out.putVarInt32(self.header_override_[i].ByteSize())
       self.header_override_[i].OutputUnchecked(out)
+    if (self.has_creator_name_):
+      out.putVarInt32(98)
+      out.putPrefixedString(self.creator_name_)
 
   def OutputPartial(self, out):
     if (self.has_queue_name_):
@@ -3590,6 +3674,9 @@ class TaskQueueFetchQueuesResponse_Queue(ProtocolBuffer.ProtocolMessage):
       out.putVarInt32(90)
       out.putVarInt32(self.header_override_[i].ByteSizePartial())
       self.header_override_[i].OutputPartial(out)
+    if (self.has_creator_name_):
+      out.putVarInt32(98)
+      out.putPrefixedString(self.creator_name_)
 
   def TryMerge(self, d):
     while 1:
@@ -3634,6 +3721,9 @@ class TaskQueueFetchQueuesResponse_Queue(ProtocolBuffer.ProtocolMessage):
         d.skip(length)
         self.add_header_override().TryMerge(tmp)
         continue
+      if tt == 98:
+        self.set_creator_name(d.getPrefixedString())
+        continue
 
 
       if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
@@ -3665,6 +3755,7 @@ class TaskQueueFetchQueuesResponse_Queue(ProtocolBuffer.ProtocolMessage):
       res+=e.__str__(prefix + "  ", printElemNumber)
       res+=prefix+">\n"
       cnt+=1
+    if self.has_creator_name_: res+=prefix+("creator_name: %s\n" % self.DebugFormatString(self.creator_name_))
     return res
 
 class TaskQueueFetchQueuesResponse(ProtocolBuffer.ProtocolMessage):
@@ -3773,6 +3864,7 @@ class TaskQueueFetchQueuesResponse(ProtocolBuffer.ProtocolMessage):
   kQueuemode = 9
   kQueueacl = 10
   kQueueheader_override = 11
+  kQueuecreator_name = 12
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
@@ -3787,7 +3879,8 @@ class TaskQueueFetchQueuesResponse(ProtocolBuffer.ProtocolMessage):
     9: "mode",
     10: "acl",
     11: "header_override",
-  }, 11)
+    12: "creator_name",
+  }, 12)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
@@ -3802,11 +3895,13 @@ class TaskQueueFetchQueuesResponse(ProtocolBuffer.ProtocolMessage):
     9: ProtocolBuffer.Encoder.NUMERIC,
     10: ProtocolBuffer.Encoder.STRING,
     11: ProtocolBuffer.Encoder.STRING,
-  }, 11, ProtocolBuffer.Encoder.MAX_TYPE)
+    12: ProtocolBuffer.Encoder.STRING,
+  }, 12, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueFetchQueuesResponse'
 class TaskQueueFetchQueueStatsRequest(ProtocolBuffer.ProtocolMessage):
   has_app_id_ = 0
   app_id_ = ""
@@ -3878,34 +3973,22 @@ class TaskQueueFetchQueueStatsRequest(ProtocolBuffer.ProtocolMessage):
 
   def IsInitialized(self, debug_strs=None):
     initialized = 1
-    if (not self.has_app_id_):
-      initialized = 0
-      if debug_strs is not None:
-        debug_strs.append('Required field: app_id not set.')
-    if (not self.has_max_num_tasks_):
-      initialized = 0
-      if debug_strs is not None:
-        debug_strs.append('Required field: max_num_tasks not set.')
     return initialized
 
   def ByteSize(self):
     n = 0
-    n += self.lengthString(len(self.app_id_))
+    if (self.has_app_id_): n += 1 + self.lengthString(len(self.app_id_))
     n += 1 * len(self.queue_name_)
     for i in xrange(len(self.queue_name_)): n += self.lengthString(len(self.queue_name_[i]))
-    n += self.lengthVarInt64(self.max_num_tasks_)
-    return n + 2
+    if (self.has_max_num_tasks_): n += 1 + self.lengthVarInt64(self.max_num_tasks_)
+    return n
 
   def ByteSizePartial(self):
     n = 0
-    if (self.has_app_id_):
-      n += 1
-      n += self.lengthString(len(self.app_id_))
+    if (self.has_app_id_): n += 1 + self.lengthString(len(self.app_id_))
     n += 1 * len(self.queue_name_)
     for i in xrange(len(self.queue_name_)): n += self.lengthString(len(self.queue_name_[i]))
-    if (self.has_max_num_tasks_):
-      n += 1
-      n += self.lengthVarInt64(self.max_num_tasks_)
+    if (self.has_max_num_tasks_): n += 1 + self.lengthVarInt64(self.max_num_tasks_)
     return n
 
   def Clear(self):
@@ -3914,13 +3997,15 @@ class TaskQueueFetchQueueStatsRequest(ProtocolBuffer.ProtocolMessage):
     self.clear_max_num_tasks()
 
   def OutputUnchecked(self, out):
-    out.putVarInt32(10)
-    out.putPrefixedString(self.app_id_)
+    if (self.has_app_id_):
+      out.putVarInt32(10)
+      out.putPrefixedString(self.app_id_)
     for i in xrange(len(self.queue_name_)):
       out.putVarInt32(18)
       out.putPrefixedString(self.queue_name_[i])
-    out.putVarInt32(24)
-    out.putVarInt32(self.max_num_tasks_)
+    if (self.has_max_num_tasks_):
+      out.putVarInt32(24)
+      out.putVarInt32(self.max_num_tasks_)
 
   def OutputPartial(self, out):
     if (self.has_app_id_):
@@ -3988,6 +4073,7 @@ class TaskQueueFetchQueueStatsRequest(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueFetchQueueStatsRequest'
 class TaskQueueScannerQueueInfo(ProtocolBuffer.ProtocolMessage):
   has_executed_last_minute_ = 0
   executed_last_minute_ = 0
@@ -3997,6 +4083,8 @@ class TaskQueueScannerQueueInfo(ProtocolBuffer.ProtocolMessage):
   sampling_duration_seconds_ = 0.0
   has_requests_in_flight_ = 0
   requests_in_flight_ = 0
+  has_enforced_rate_ = 0
+  enforced_rate_ = 0.0
 
   def __init__(self, contents=None):
     if contents is not None: self.MergeFromString(contents)
@@ -4053,6 +4141,19 @@ class TaskQueueScannerQueueInfo(ProtocolBuffer.ProtocolMessage):
 
   def has_requests_in_flight(self): return self.has_requests_in_flight_
 
+  def enforced_rate(self): return self.enforced_rate_
+
+  def set_enforced_rate(self, x):
+    self.has_enforced_rate_ = 1
+    self.enforced_rate_ = x
+
+  def clear_enforced_rate(self):
+    if self.has_enforced_rate_:
+      self.has_enforced_rate_ = 0
+      self.enforced_rate_ = 0.0
+
+  def has_enforced_rate(self): return self.has_enforced_rate_
+
 
   def MergeFrom(self, x):
     assert x is not self
@@ -4060,6 +4161,7 @@ class TaskQueueScannerQueueInfo(ProtocolBuffer.ProtocolMessage):
     if (x.has_executed_last_hour()): self.set_executed_last_hour(x.executed_last_hour())
     if (x.has_sampling_duration_seconds()): self.set_sampling_duration_seconds(x.sampling_duration_seconds())
     if (x.has_requests_in_flight()): self.set_requests_in_flight(x.requests_in_flight())
+    if (x.has_enforced_rate()): self.set_enforced_rate(x.enforced_rate())
 
   def Equals(self, x):
     if x is self: return 1
@@ -4071,6 +4173,8 @@ class TaskQueueScannerQueueInfo(ProtocolBuffer.ProtocolMessage):
     if self.has_sampling_duration_seconds_ and self.sampling_duration_seconds_ != x.sampling_duration_seconds_: return 0
     if self.has_requests_in_flight_ != x.has_requests_in_flight_: return 0
     if self.has_requests_in_flight_ and self.requests_in_flight_ != x.requests_in_flight_: return 0
+    if self.has_enforced_rate_ != x.has_enforced_rate_: return 0
+    if self.has_enforced_rate_ and self.enforced_rate_ != x.enforced_rate_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -4094,6 +4198,7 @@ class TaskQueueScannerQueueInfo(ProtocolBuffer.ProtocolMessage):
     n += self.lengthVarInt64(self.executed_last_minute_)
     n += self.lengthVarInt64(self.executed_last_hour_)
     if (self.has_requests_in_flight_): n += 1 + self.lengthVarInt64(self.requests_in_flight_)
+    if (self.has_enforced_rate_): n += 9
     return n + 11
 
   def ByteSizePartial(self):
@@ -4107,6 +4212,7 @@ class TaskQueueScannerQueueInfo(ProtocolBuffer.ProtocolMessage):
     if (self.has_sampling_duration_seconds_):
       n += 9
     if (self.has_requests_in_flight_): n += 1 + self.lengthVarInt64(self.requests_in_flight_)
+    if (self.has_enforced_rate_): n += 9
     return n
 
   def Clear(self):
@@ -4114,6 +4220,7 @@ class TaskQueueScannerQueueInfo(ProtocolBuffer.ProtocolMessage):
     self.clear_executed_last_hour()
     self.clear_sampling_duration_seconds()
     self.clear_requests_in_flight()
+    self.clear_enforced_rate()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(8)
@@ -4125,6 +4232,9 @@ class TaskQueueScannerQueueInfo(ProtocolBuffer.ProtocolMessage):
     if (self.has_requests_in_flight_):
       out.putVarInt32(32)
       out.putVarInt32(self.requests_in_flight_)
+    if (self.has_enforced_rate_):
+      out.putVarInt32(41)
+      out.putDouble(self.enforced_rate_)
 
   def OutputPartial(self, out):
     if (self.has_executed_last_minute_):
@@ -4139,6 +4249,9 @@ class TaskQueueScannerQueueInfo(ProtocolBuffer.ProtocolMessage):
     if (self.has_requests_in_flight_):
       out.putVarInt32(32)
       out.putVarInt32(self.requests_in_flight_)
+    if (self.has_enforced_rate_):
+      out.putVarInt32(41)
+      out.putDouble(self.enforced_rate_)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -4155,6 +4268,9 @@ class TaskQueueScannerQueueInfo(ProtocolBuffer.ProtocolMessage):
       if tt == 32:
         self.set_requests_in_flight(d.getVarInt32())
         continue
+      if tt == 41:
+        self.set_enforced_rate(d.getDouble())
+        continue
 
 
       if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
@@ -4167,6 +4283,7 @@ class TaskQueueScannerQueueInfo(ProtocolBuffer.ProtocolMessage):
     if self.has_executed_last_hour_: res+=prefix+("executed_last_hour: %s\n" % self.DebugFormatInt64(self.executed_last_hour_))
     if self.has_sampling_duration_seconds_: res+=prefix+("sampling_duration_seconds: %s\n" % self.DebugFormat(self.sampling_duration_seconds_))
     if self.has_requests_in_flight_: res+=prefix+("requests_in_flight: %s\n" % self.DebugFormatInt32(self.requests_in_flight_))
+    if self.has_enforced_rate_: res+=prefix+("enforced_rate: %s\n" % self.DebugFormat(self.enforced_rate_))
     return res
 
 
@@ -4177,6 +4294,7 @@ class TaskQueueScannerQueueInfo(ProtocolBuffer.ProtocolMessage):
   kexecuted_last_hour = 2
   ksampling_duration_seconds = 3
   krequests_in_flight = 4
+  kenforced_rate = 5
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
@@ -4184,7 +4302,8 @@ class TaskQueueScannerQueueInfo(ProtocolBuffer.ProtocolMessage):
     2: "executed_last_hour",
     3: "sampling_duration_seconds",
     4: "requests_in_flight",
-  }, 4)
+    5: "enforced_rate",
+  }, 5)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
@@ -4192,11 +4311,13 @@ class TaskQueueScannerQueueInfo(ProtocolBuffer.ProtocolMessage):
     2: ProtocolBuffer.Encoder.NUMERIC,
     3: ProtocolBuffer.Encoder.DOUBLE,
     4: ProtocolBuffer.Encoder.NUMERIC,
-  }, 4, ProtocolBuffer.Encoder.MAX_TYPE)
+    5: ProtocolBuffer.Encoder.DOUBLE,
+  }, 5, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueScannerQueueInfo'
 class TaskQueueFetchQueueStatsResponse_QueueStats(ProtocolBuffer.ProtocolMessage):
   has_num_tasks_ = 0
   num_tasks_ = 0
@@ -4480,6 +4601,7 @@ class TaskQueueFetchQueueStatsResponse(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueFetchQueueStatsResponse'
 class TaskQueuePauseQueueRequest(ProtocolBuffer.ProtocolMessage):
   has_app_id_ = 0
   app_id_ = ""
@@ -4655,6 +4777,7 @@ class TaskQueuePauseQueueRequest(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueuePauseQueueRequest'
 class TaskQueuePauseQueueResponse(ProtocolBuffer.ProtocolMessage):
 
   def __init__(self, contents=None):
@@ -4719,6 +4842,7 @@ class TaskQueuePauseQueueResponse(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueuePauseQueueResponse'
 class TaskQueuePurgeQueueRequest(ProtocolBuffer.ProtocolMessage):
   has_app_id_ = 0
   app_id_ = ""
@@ -4852,6 +4976,7 @@ class TaskQueuePurgeQueueRequest(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueuePurgeQueueRequest'
 class TaskQueuePurgeQueueResponse(ProtocolBuffer.ProtocolMessage):
 
   def __init__(self, contents=None):
@@ -4916,6 +5041,7 @@ class TaskQueuePurgeQueueResponse(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueuePurgeQueueResponse'
 class TaskQueueDeleteQueueRequest(ProtocolBuffer.ProtocolMessage):
   has_app_id_ = 0
   app_id_ = ""
@@ -5054,6 +5180,7 @@ class TaskQueueDeleteQueueRequest(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueDeleteQueueRequest'
 class TaskQueueDeleteQueueResponse(ProtocolBuffer.ProtocolMessage):
 
   def __init__(self, contents=None):
@@ -5118,6 +5245,7 @@ class TaskQueueDeleteQueueResponse(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueDeleteQueueResponse'
 class TaskQueueDeleteGroupRequest(ProtocolBuffer.ProtocolMessage):
   has_app_id_ = 0
   app_id_ = ""
@@ -5217,6 +5345,7 @@ class TaskQueueDeleteGroupRequest(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueDeleteGroupRequest'
 class TaskQueueDeleteGroupResponse(ProtocolBuffer.ProtocolMessage):
 
   def __init__(self, contents=None):
@@ -5281,6 +5410,7 @@ class TaskQueueDeleteGroupResponse(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueDeleteGroupResponse'
 class TaskQueueQueryTasksRequest(ProtocolBuffer.ProtocolMessage):
   has_app_id_ = 0
   app_id_ = ""
@@ -5290,6 +5420,8 @@ class TaskQueueQueryTasksRequest(ProtocolBuffer.ProtocolMessage):
   start_task_name_ = ""
   has_start_eta_usec_ = 0
   start_eta_usec_ = 0
+  has_start_tag_ = 0
+  start_tag_ = ""
   has_max_rows_ = 0
   max_rows_ = 1
 
@@ -5348,6 +5480,19 @@ class TaskQueueQueryTasksRequest(ProtocolBuffer.ProtocolMessage):
 
   def has_start_eta_usec(self): return self.has_start_eta_usec_
 
+  def start_tag(self): return self.start_tag_
+
+  def set_start_tag(self, x):
+    self.has_start_tag_ = 1
+    self.start_tag_ = x
+
+  def clear_start_tag(self):
+    if self.has_start_tag_:
+      self.has_start_tag_ = 0
+      self.start_tag_ = ""
+
+  def has_start_tag(self): return self.has_start_tag_
+
   def max_rows(self): return self.max_rows_
 
   def set_max_rows(self, x):
@@ -5368,6 +5513,7 @@ class TaskQueueQueryTasksRequest(ProtocolBuffer.ProtocolMessage):
     if (x.has_queue_name()): self.set_queue_name(x.queue_name())
     if (x.has_start_task_name()): self.set_start_task_name(x.start_task_name())
     if (x.has_start_eta_usec()): self.set_start_eta_usec(x.start_eta_usec())
+    if (x.has_start_tag()): self.set_start_tag(x.start_tag())
     if (x.has_max_rows()): self.set_max_rows(x.max_rows())
 
   def Equals(self, x):
@@ -5380,16 +5526,14 @@ class TaskQueueQueryTasksRequest(ProtocolBuffer.ProtocolMessage):
     if self.has_start_task_name_ and self.start_task_name_ != x.start_task_name_: return 0
     if self.has_start_eta_usec_ != x.has_start_eta_usec_: return 0
     if self.has_start_eta_usec_ and self.start_eta_usec_ != x.start_eta_usec_: return 0
+    if self.has_start_tag_ != x.has_start_tag_: return 0
+    if self.has_start_tag_ and self.start_tag_ != x.start_tag_: return 0
     if self.has_max_rows_ != x.has_max_rows_: return 0
     if self.has_max_rows_ and self.max_rows_ != x.max_rows_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
     initialized = 1
-    if (not self.has_app_id_):
-      initialized = 0
-      if debug_strs is not None:
-        debug_strs.append('Required field: app_id not set.')
     if (not self.has_queue_name_):
       initialized = 0
       if debug_strs is not None:
@@ -5398,23 +5542,23 @@ class TaskQueueQueryTasksRequest(ProtocolBuffer.ProtocolMessage):
 
   def ByteSize(self):
     n = 0
-    n += self.lengthString(len(self.app_id_))
+    if (self.has_app_id_): n += 1 + self.lengthString(len(self.app_id_))
     n += self.lengthString(len(self.queue_name_))
     if (self.has_start_task_name_): n += 1 + self.lengthString(len(self.start_task_name_))
     if (self.has_start_eta_usec_): n += 1 + self.lengthVarInt64(self.start_eta_usec_)
+    if (self.has_start_tag_): n += 1 + self.lengthString(len(self.start_tag_))
     if (self.has_max_rows_): n += 1 + self.lengthVarInt64(self.max_rows_)
-    return n + 2
+    return n + 1
 
   def ByteSizePartial(self):
     n = 0
-    if (self.has_app_id_):
-      n += 1
-      n += self.lengthString(len(self.app_id_))
+    if (self.has_app_id_): n += 1 + self.lengthString(len(self.app_id_))
     if (self.has_queue_name_):
       n += 1
       n += self.lengthString(len(self.queue_name_))
     if (self.has_start_task_name_): n += 1 + self.lengthString(len(self.start_task_name_))
     if (self.has_start_eta_usec_): n += 1 + self.lengthVarInt64(self.start_eta_usec_)
+    if (self.has_start_tag_): n += 1 + self.lengthString(len(self.start_tag_))
     if (self.has_max_rows_): n += 1 + self.lengthVarInt64(self.max_rows_)
     return n
 
@@ -5423,11 +5567,13 @@ class TaskQueueQueryTasksRequest(ProtocolBuffer.ProtocolMessage):
     self.clear_queue_name()
     self.clear_start_task_name()
     self.clear_start_eta_usec()
+    self.clear_start_tag()
     self.clear_max_rows()
 
   def OutputUnchecked(self, out):
-    out.putVarInt32(10)
-    out.putPrefixedString(self.app_id_)
+    if (self.has_app_id_):
+      out.putVarInt32(10)
+      out.putPrefixedString(self.app_id_)
     out.putVarInt32(18)
     out.putPrefixedString(self.queue_name_)
     if (self.has_start_task_name_):
@@ -5439,6 +5585,9 @@ class TaskQueueQueryTasksRequest(ProtocolBuffer.ProtocolMessage):
     if (self.has_max_rows_):
       out.putVarInt32(40)
       out.putVarInt32(self.max_rows_)
+    if (self.has_start_tag_):
+      out.putVarInt32(50)
+      out.putPrefixedString(self.start_tag_)
 
   def OutputPartial(self, out):
     if (self.has_app_id_):
@@ -5456,6 +5605,9 @@ class TaskQueueQueryTasksRequest(ProtocolBuffer.ProtocolMessage):
     if (self.has_max_rows_):
       out.putVarInt32(40)
       out.putVarInt32(self.max_rows_)
+    if (self.has_start_tag_):
+      out.putVarInt32(50)
+      out.putPrefixedString(self.start_tag_)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -5475,6 +5627,9 @@ class TaskQueueQueryTasksRequest(ProtocolBuffer.ProtocolMessage):
       if tt == 40:
         self.set_max_rows(d.getVarInt32())
         continue
+      if tt == 50:
+        self.set_start_tag(d.getPrefixedString())
+        continue
 
 
       if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
@@ -5487,6 +5642,7 @@ class TaskQueueQueryTasksRequest(ProtocolBuffer.ProtocolMessage):
     if self.has_queue_name_: res+=prefix+("queue_name: %s\n" % self.DebugFormatString(self.queue_name_))
     if self.has_start_task_name_: res+=prefix+("start_task_name: %s\n" % self.DebugFormatString(self.start_task_name_))
     if self.has_start_eta_usec_: res+=prefix+("start_eta_usec: %s\n" % self.DebugFormatInt64(self.start_eta_usec_))
+    if self.has_start_tag_: res+=prefix+("start_tag: %s\n" % self.DebugFormatString(self.start_tag_))
     if self.has_max_rows_: res+=prefix+("max_rows: %s\n" % self.DebugFormatInt32(self.max_rows_))
     return res
 
@@ -5498,6 +5654,7 @@ class TaskQueueQueryTasksRequest(ProtocolBuffer.ProtocolMessage):
   kqueue_name = 2
   kstart_task_name = 3
   kstart_eta_usec = 4
+  kstart_tag = 6
   kmax_rows = 5
 
   _TEXT = _BuildTagLookupTable({
@@ -5507,7 +5664,8 @@ class TaskQueueQueryTasksRequest(ProtocolBuffer.ProtocolMessage):
     3: "start_task_name",
     4: "start_eta_usec",
     5: "max_rows",
-  }, 5)
+    6: "start_tag",
+  }, 6)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
@@ -5516,11 +5674,13 @@ class TaskQueueQueryTasksRequest(ProtocolBuffer.ProtocolMessage):
     3: ProtocolBuffer.Encoder.STRING,
     4: ProtocolBuffer.Encoder.NUMERIC,
     5: ProtocolBuffer.Encoder.NUMERIC,
-  }, 5, ProtocolBuffer.Encoder.MAX_TYPE)
+    6: ProtocolBuffer.Encoder.STRING,
+  }, 6, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueQueryTasksRequest'
 class TaskQueueQueryTasksResponse_TaskHeader(ProtocolBuffer.ProtocolMessage):
   has_key_ = 0
   key_ = ""
@@ -5985,6 +6145,10 @@ class TaskQueueQueryTasksResponse_Task(ProtocolBuffer.ProtocolMessage):
   payload_ = None
   has_retry_parameters_ = 0
   retry_parameters_ = None
+  has_first_try_usec_ = 0
+  first_try_usec_ = 0
+  has_tag_ = 0
+  tag_ = ""
 
   def __init__(self, contents=None):
     self.header_ = []
@@ -6200,6 +6364,32 @@ class TaskQueueQueryTasksResponse_Task(ProtocolBuffer.ProtocolMessage):
 
   def has_retry_parameters(self): return self.has_retry_parameters_
 
+  def first_try_usec(self): return self.first_try_usec_
+
+  def set_first_try_usec(self, x):
+    self.has_first_try_usec_ = 1
+    self.first_try_usec_ = x
+
+  def clear_first_try_usec(self):
+    if self.has_first_try_usec_:
+      self.has_first_try_usec_ = 0
+      self.first_try_usec_ = 0
+
+  def has_first_try_usec(self): return self.has_first_try_usec_
+
+  def tag(self): return self.tag_
+
+  def set_tag(self, x):
+    self.has_tag_ = 1
+    self.tag_ = x
+
+  def clear_tag(self):
+    if self.has_tag_:
+      self.has_tag_ = 0
+      self.tag_ = ""
+
+  def has_tag(self): return self.has_tag_
+
 
   def MergeFrom(self, x):
     assert x is not self
@@ -6217,6 +6407,8 @@ class TaskQueueQueryTasksResponse_Task(ProtocolBuffer.ProtocolMessage):
     if (x.has_description()): self.set_description(x.description())
     if (x.has_payload()): self.mutable_payload().MergeFrom(x.payload())
     if (x.has_retry_parameters()): self.mutable_retry_parameters().MergeFrom(x.retry_parameters())
+    if (x.has_first_try_usec()): self.set_first_try_usec(x.first_try_usec())
+    if (x.has_tag()): self.set_tag(x.tag())
 
   def Equals(self, x):
     if x is self: return 1
@@ -6249,6 +6441,10 @@ class TaskQueueQueryTasksResponse_Task(ProtocolBuffer.ProtocolMessage):
     if self.has_payload_ and self.payload_ != x.payload_: return 0
     if self.has_retry_parameters_ != x.has_retry_parameters_: return 0
     if self.has_retry_parameters_ and self.retry_parameters_ != x.retry_parameters_: return 0
+    if self.has_first_try_usec_ != x.has_first_try_usec_: return 0
+    if self.has_first_try_usec_ and self.first_try_usec_ != x.first_try_usec_: return 0
+    if self.has_tag_ != x.has_tag_: return 0
+    if self.has_tag_ and self.tag_ != x.tag_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -6290,6 +6486,8 @@ class TaskQueueQueryTasksResponse_Task(ProtocolBuffer.ProtocolMessage):
     if (self.has_description_): n += 2 + self.lengthString(len(self.description_))
     if (self.has_payload_): n += 2 + self.lengthString(self.payload_.ByteSize())
     if (self.has_retry_parameters_): n += 2 + self.lengthString(self.retry_parameters_.ByteSize())
+    if (self.has_first_try_usec_): n += 2 + self.lengthVarInt64(self.first_try_usec_)
+    if (self.has_tag_): n += 2 + self.lengthString(len(self.tag_))
     return n + 3
 
   def ByteSizePartial(self):
@@ -6315,6 +6513,8 @@ class TaskQueueQueryTasksResponse_Task(ProtocolBuffer.ProtocolMessage):
     if (self.has_description_): n += 2 + self.lengthString(len(self.description_))
     if (self.has_payload_): n += 2 + self.lengthString(self.payload_.ByteSizePartial())
     if (self.has_retry_parameters_): n += 2 + self.lengthString(self.retry_parameters_.ByteSizePartial())
+    if (self.has_first_try_usec_): n += 2 + self.lengthVarInt64(self.first_try_usec_)
+    if (self.has_tag_): n += 2 + self.lengthString(len(self.tag_))
     return n
 
   def Clear(self):
@@ -6332,6 +6532,8 @@ class TaskQueueQueryTasksResponse_Task(ProtocolBuffer.ProtocolMessage):
     self.clear_description()
     self.clear_payload()
     self.clear_retry_parameters()
+    self.clear_first_try_usec()
+    self.clear_tag()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(18)
@@ -6378,6 +6580,12 @@ class TaskQueueQueryTasksResponse_Task(ProtocolBuffer.ProtocolMessage):
       out.putVarInt32(186)
       out.putVarInt32(self.retry_parameters_.ByteSize())
       self.retry_parameters_.OutputUnchecked(out)
+    if (self.has_first_try_usec_):
+      out.putVarInt32(192)
+      out.putVarInt64(self.first_try_usec_)
+    if (self.has_tag_):
+      out.putVarInt32(202)
+      out.putPrefixedString(self.tag_)
 
   def OutputPartial(self, out):
     if (self.has_task_name_):
@@ -6427,6 +6635,12 @@ class TaskQueueQueryTasksResponse_Task(ProtocolBuffer.ProtocolMessage):
       out.putVarInt32(186)
       out.putVarInt32(self.retry_parameters_.ByteSizePartial())
       self.retry_parameters_.OutputPartial(out)
+    if (self.has_first_try_usec_):
+      out.putVarInt32(192)
+      out.putVarInt64(self.first_try_usec_)
+    if (self.has_tag_):
+      out.putVarInt32(202)
+      out.putPrefixedString(self.tag_)
 
   def TryMerge(self, d):
     while 1:
@@ -6480,6 +6694,12 @@ class TaskQueueQueryTasksResponse_Task(ProtocolBuffer.ProtocolMessage):
         d.skip(length)
         self.mutable_retry_parameters().TryMerge(tmp)
         continue
+      if tt == 192:
+        self.set_first_try_usec(d.getVarInt64())
+        continue
+      if tt == 202:
+        self.set_tag(d.getPrefixedString())
+        continue
 
 
       if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
@@ -6521,6 +6741,8 @@ class TaskQueueQueryTasksResponse_Task(ProtocolBuffer.ProtocolMessage):
       res+=prefix+"retry_parameters <\n"
       res+=self.retry_parameters_.__str__(prefix + "  ", printElemNumber)
       res+=prefix+">\n"
+    if self.has_first_try_usec_: res+=prefix+("first_try_usec: %s\n" % self.DebugFormatInt64(self.first_try_usec_))
+    if self.has_tag_: res+=prefix+("tag: %s\n" % self.DebugFormatString(self.tag_))
     return res
 
 class TaskQueueQueryTasksResponse(ProtocolBuffer.ProtocolMessage):
@@ -6641,6 +6863,8 @@ class TaskQueueQueryTasksResponse(ProtocolBuffer.ProtocolMessage):
   kTaskdescription = 21
   kTaskpayload = 22
   kTaskretry_parameters = 23
+  kTaskfirst_try_usec = 24
+  kTasktag = 25
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
@@ -6667,7 +6891,9 @@ class TaskQueueQueryTasksResponse(ProtocolBuffer.ProtocolMessage):
     21: "description",
     22: "payload",
     23: "retry_parameters",
-  }, 23)
+    24: "first_try_usec",
+    25: "tag",
+  }, 25)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
@@ -6694,11 +6920,291 @@ class TaskQueueQueryTasksResponse(ProtocolBuffer.ProtocolMessage):
     21: ProtocolBuffer.Encoder.STRING,
     22: ProtocolBuffer.Encoder.STRING,
     23: ProtocolBuffer.Encoder.STRING,
-  }, 23, ProtocolBuffer.Encoder.MAX_TYPE)
+    24: ProtocolBuffer.Encoder.NUMERIC,
+    25: ProtocolBuffer.Encoder.STRING,
+  }, 25, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueQueryTasksResponse'
+class TaskQueueFetchTaskRequest(ProtocolBuffer.ProtocolMessage):
+  has_app_id_ = 0
+  app_id_ = ""
+  has_queue_name_ = 0
+  queue_name_ = ""
+  has_task_name_ = 0
+  task_name_ = ""
+
+  def __init__(self, contents=None):
+    if contents is not None: self.MergeFromString(contents)
+
+  def app_id(self): return self.app_id_
+
+  def set_app_id(self, x):
+    self.has_app_id_ = 1
+    self.app_id_ = x
+
+  def clear_app_id(self):
+    if self.has_app_id_:
+      self.has_app_id_ = 0
+      self.app_id_ = ""
+
+  def has_app_id(self): return self.has_app_id_
+
+  def queue_name(self): return self.queue_name_
+
+  def set_queue_name(self, x):
+    self.has_queue_name_ = 1
+    self.queue_name_ = x
+
+  def clear_queue_name(self):
+    if self.has_queue_name_:
+      self.has_queue_name_ = 0
+      self.queue_name_ = ""
+
+  def has_queue_name(self): return self.has_queue_name_
+
+  def task_name(self): return self.task_name_
+
+  def set_task_name(self, x):
+    self.has_task_name_ = 1
+    self.task_name_ = x
+
+  def clear_task_name(self):
+    if self.has_task_name_:
+      self.has_task_name_ = 0
+      self.task_name_ = ""
+
+  def has_task_name(self): return self.has_task_name_
+
+
+  def MergeFrom(self, x):
+    assert x is not self
+    if (x.has_app_id()): self.set_app_id(x.app_id())
+    if (x.has_queue_name()): self.set_queue_name(x.queue_name())
+    if (x.has_task_name()): self.set_task_name(x.task_name())
+
+  def Equals(self, x):
+    if x is self: return 1
+    if self.has_app_id_ != x.has_app_id_: return 0
+    if self.has_app_id_ and self.app_id_ != x.app_id_: return 0
+    if self.has_queue_name_ != x.has_queue_name_: return 0
+    if self.has_queue_name_ and self.queue_name_ != x.queue_name_: return 0
+    if self.has_task_name_ != x.has_task_name_: return 0
+    if self.has_task_name_ and self.task_name_ != x.task_name_: return 0
+    return 1
+
+  def IsInitialized(self, debug_strs=None):
+    initialized = 1
+    if (not self.has_queue_name_):
+      initialized = 0
+      if debug_strs is not None:
+        debug_strs.append('Required field: queue_name not set.')
+    if (not self.has_task_name_):
+      initialized = 0
+      if debug_strs is not None:
+        debug_strs.append('Required field: task_name not set.')
+    return initialized
+
+  def ByteSize(self):
+    n = 0
+    if (self.has_app_id_): n += 1 + self.lengthString(len(self.app_id_))
+    n += self.lengthString(len(self.queue_name_))
+    n += self.lengthString(len(self.task_name_))
+    return n + 2
+
+  def ByteSizePartial(self):
+    n = 0
+    if (self.has_app_id_): n += 1 + self.lengthString(len(self.app_id_))
+    if (self.has_queue_name_):
+      n += 1
+      n += self.lengthString(len(self.queue_name_))
+    if (self.has_task_name_):
+      n += 1
+      n += self.lengthString(len(self.task_name_))
+    return n
+
+  def Clear(self):
+    self.clear_app_id()
+    self.clear_queue_name()
+    self.clear_task_name()
+
+  def OutputUnchecked(self, out):
+    if (self.has_app_id_):
+      out.putVarInt32(10)
+      out.putPrefixedString(self.app_id_)
+    out.putVarInt32(18)
+    out.putPrefixedString(self.queue_name_)
+    out.putVarInt32(26)
+    out.putPrefixedString(self.task_name_)
+
+  def OutputPartial(self, out):
+    if (self.has_app_id_):
+      out.putVarInt32(10)
+      out.putPrefixedString(self.app_id_)
+    if (self.has_queue_name_):
+      out.putVarInt32(18)
+      out.putPrefixedString(self.queue_name_)
+    if (self.has_task_name_):
+      out.putVarInt32(26)
+      out.putPrefixedString(self.task_name_)
+
+  def TryMerge(self, d):
+    while d.avail() > 0:
+      tt = d.getVarInt32()
+      if tt == 10:
+        self.set_app_id(d.getPrefixedString())
+        continue
+      if tt == 18:
+        self.set_queue_name(d.getPrefixedString())
+        continue
+      if tt == 26:
+        self.set_task_name(d.getPrefixedString())
+        continue
+
+
+      if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
+      d.skipData(tt)
+
+
+  def __str__(self, prefix="", printElemNumber=0):
+    res=""
+    if self.has_app_id_: res+=prefix+("app_id: %s\n" % self.DebugFormatString(self.app_id_))
+    if self.has_queue_name_: res+=prefix+("queue_name: %s\n" % self.DebugFormatString(self.queue_name_))
+    if self.has_task_name_: res+=prefix+("task_name: %s\n" % self.DebugFormatString(self.task_name_))
+    return res
+
+
+  def _BuildTagLookupTable(sparse, maxtag, default=None):
+    return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
+
+  kapp_id = 1
+  kqueue_name = 2
+  ktask_name = 3
+
+  _TEXT = _BuildTagLookupTable({
+    0: "ErrorCode",
+    1: "app_id",
+    2: "queue_name",
+    3: "task_name",
+  }, 3)
+
+  _TYPES = _BuildTagLookupTable({
+    0: ProtocolBuffer.Encoder.NUMERIC,
+    1: ProtocolBuffer.Encoder.STRING,
+    2: ProtocolBuffer.Encoder.STRING,
+    3: ProtocolBuffer.Encoder.STRING,
+  }, 3, ProtocolBuffer.Encoder.MAX_TYPE)
+
+
+  _STYLE = """"""
+  _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueFetchTaskRequest'
+class TaskQueueFetchTaskResponse(ProtocolBuffer.ProtocolMessage):
+  has_task_ = 0
+
+  def __init__(self, contents=None):
+    self.task_ = TaskQueueQueryTasksResponse()
+    if contents is not None: self.MergeFromString(contents)
+
+  def task(self): return self.task_
+
+  def mutable_task(self): self.has_task_ = 1; return self.task_
+
+  def clear_task(self):self.has_task_ = 0; self.task_.Clear()
+
+  def has_task(self): return self.has_task_
+
+
+  def MergeFrom(self, x):
+    assert x is not self
+    if (x.has_task()): self.mutable_task().MergeFrom(x.task())
+
+  def Equals(self, x):
+    if x is self: return 1
+    if self.has_task_ != x.has_task_: return 0
+    if self.has_task_ and self.task_ != x.task_: return 0
+    return 1
+
+  def IsInitialized(self, debug_strs=None):
+    initialized = 1
+    if (not self.has_task_):
+      initialized = 0
+      if debug_strs is not None:
+        debug_strs.append('Required field: task not set.')
+    elif not self.task_.IsInitialized(debug_strs): initialized = 0
+    return initialized
+
+  def ByteSize(self):
+    n = 0
+    n += self.lengthString(self.task_.ByteSize())
+    return n + 1
+
+  def ByteSizePartial(self):
+    n = 0
+    if (self.has_task_):
+      n += 1
+      n += self.lengthString(self.task_.ByteSizePartial())
+    return n
+
+  def Clear(self):
+    self.clear_task()
+
+  def OutputUnchecked(self, out):
+    out.putVarInt32(10)
+    out.putVarInt32(self.task_.ByteSize())
+    self.task_.OutputUnchecked(out)
+
+  def OutputPartial(self, out):
+    if (self.has_task_):
+      out.putVarInt32(10)
+      out.putVarInt32(self.task_.ByteSizePartial())
+      self.task_.OutputPartial(out)
+
+  def TryMerge(self, d):
+    while d.avail() > 0:
+      tt = d.getVarInt32()
+      if tt == 10:
+        length = d.getVarInt32()
+        tmp = ProtocolBuffer.Decoder(d.buffer(), d.pos(), d.pos() + length)
+        d.skip(length)
+        self.mutable_task().TryMerge(tmp)
+        continue
+
+
+      if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
+      d.skipData(tt)
+
+
+  def __str__(self, prefix="", printElemNumber=0):
+    res=""
+    if self.has_task_:
+      res+=prefix+"task <\n"
+      res+=self.task_.__str__(prefix + "  ", printElemNumber)
+      res+=prefix+">\n"
+    return res
+
+
+  def _BuildTagLookupTable(sparse, maxtag, default=None):
+    return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
+
+  ktask = 1
+
+  _TEXT = _BuildTagLookupTable({
+    0: "ErrorCode",
+    1: "task",
+  }, 1)
+
+  _TYPES = _BuildTagLookupTable({
+    0: ProtocolBuffer.Encoder.NUMERIC,
+    1: ProtocolBuffer.Encoder.STRING,
+  }, 1, ProtocolBuffer.Encoder.MAX_TYPE)
+
+
+  _STYLE = """"""
+  _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueFetchTaskResponse'
 class TaskQueueUpdateStorageLimitRequest(ProtocolBuffer.ProtocolMessage):
   has_app_id_ = 0
   app_id_ = ""
@@ -6837,6 +7343,7 @@ class TaskQueueUpdateStorageLimitRequest(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueUpdateStorageLimitRequest'
 class TaskQueueUpdateStorageLimitResponse(ProtocolBuffer.ProtocolMessage):
   has_new_limit_ = 0
   new_limit_ = 0
@@ -6936,6 +7443,7 @@ class TaskQueueUpdateStorageLimitResponse(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueUpdateStorageLimitResponse'
 class TaskQueueQueryAndOwnTasksRequest(ProtocolBuffer.ProtocolMessage):
   has_queue_name_ = 0
   queue_name_ = ""
@@ -6943,6 +7451,10 @@ class TaskQueueQueryAndOwnTasksRequest(ProtocolBuffer.ProtocolMessage):
   lease_seconds_ = 0.0
   has_max_tasks_ = 0
   max_tasks_ = 0
+  has_group_by_tag_ = 0
+  group_by_tag_ = 0
+  has_tag_ = 0
+  tag_ = ""
 
   def __init__(self, contents=None):
     if contents is not None: self.MergeFromString(contents)
@@ -6986,12 +7498,40 @@ class TaskQueueQueryAndOwnTasksRequest(ProtocolBuffer.ProtocolMessage):
 
   def has_max_tasks(self): return self.has_max_tasks_
 
+  def group_by_tag(self): return self.group_by_tag_
+
+  def set_group_by_tag(self, x):
+    self.has_group_by_tag_ = 1
+    self.group_by_tag_ = x
+
+  def clear_group_by_tag(self):
+    if self.has_group_by_tag_:
+      self.has_group_by_tag_ = 0
+      self.group_by_tag_ = 0
+
+  def has_group_by_tag(self): return self.has_group_by_tag_
+
+  def tag(self): return self.tag_
+
+  def set_tag(self, x):
+    self.has_tag_ = 1
+    self.tag_ = x
+
+  def clear_tag(self):
+    if self.has_tag_:
+      self.has_tag_ = 0
+      self.tag_ = ""
+
+  def has_tag(self): return self.has_tag_
+
 
   def MergeFrom(self, x):
     assert x is not self
     if (x.has_queue_name()): self.set_queue_name(x.queue_name())
     if (x.has_lease_seconds()): self.set_lease_seconds(x.lease_seconds())
     if (x.has_max_tasks()): self.set_max_tasks(x.max_tasks())
+    if (x.has_group_by_tag()): self.set_group_by_tag(x.group_by_tag())
+    if (x.has_tag()): self.set_tag(x.tag())
 
   def Equals(self, x):
     if x is self: return 1
@@ -7001,6 +7541,10 @@ class TaskQueueQueryAndOwnTasksRequest(ProtocolBuffer.ProtocolMessage):
     if self.has_lease_seconds_ and self.lease_seconds_ != x.lease_seconds_: return 0
     if self.has_max_tasks_ != x.has_max_tasks_: return 0
     if self.has_max_tasks_ and self.max_tasks_ != x.max_tasks_: return 0
+    if self.has_group_by_tag_ != x.has_group_by_tag_: return 0
+    if self.has_group_by_tag_ and self.group_by_tag_ != x.group_by_tag_: return 0
+    if self.has_tag_ != x.has_tag_: return 0
+    if self.has_tag_ and self.tag_ != x.tag_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -7023,6 +7567,8 @@ class TaskQueueQueryAndOwnTasksRequest(ProtocolBuffer.ProtocolMessage):
     n = 0
     n += self.lengthString(len(self.queue_name_))
     n += self.lengthVarInt64(self.max_tasks_)
+    if (self.has_group_by_tag_): n += 2
+    if (self.has_tag_): n += 1 + self.lengthString(len(self.tag_))
     return n + 11
 
   def ByteSizePartial(self):
@@ -7035,12 +7581,16 @@ class TaskQueueQueryAndOwnTasksRequest(ProtocolBuffer.ProtocolMessage):
     if (self.has_max_tasks_):
       n += 1
       n += self.lengthVarInt64(self.max_tasks_)
+    if (self.has_group_by_tag_): n += 2
+    if (self.has_tag_): n += 1 + self.lengthString(len(self.tag_))
     return n
 
   def Clear(self):
     self.clear_queue_name()
     self.clear_lease_seconds()
     self.clear_max_tasks()
+    self.clear_group_by_tag()
+    self.clear_tag()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(10)
@@ -7049,6 +7599,12 @@ class TaskQueueQueryAndOwnTasksRequest(ProtocolBuffer.ProtocolMessage):
     out.putDouble(self.lease_seconds_)
     out.putVarInt32(24)
     out.putVarInt64(self.max_tasks_)
+    if (self.has_group_by_tag_):
+      out.putVarInt32(32)
+      out.putBoolean(self.group_by_tag_)
+    if (self.has_tag_):
+      out.putVarInt32(42)
+      out.putPrefixedString(self.tag_)
 
   def OutputPartial(self, out):
     if (self.has_queue_name_):
@@ -7060,6 +7616,12 @@ class TaskQueueQueryAndOwnTasksRequest(ProtocolBuffer.ProtocolMessage):
     if (self.has_max_tasks_):
       out.putVarInt32(24)
       out.putVarInt64(self.max_tasks_)
+    if (self.has_group_by_tag_):
+      out.putVarInt32(32)
+      out.putBoolean(self.group_by_tag_)
+    if (self.has_tag_):
+      out.putVarInt32(42)
+      out.putPrefixedString(self.tag_)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -7073,6 +7635,12 @@ class TaskQueueQueryAndOwnTasksRequest(ProtocolBuffer.ProtocolMessage):
       if tt == 24:
         self.set_max_tasks(d.getVarInt64())
         continue
+      if tt == 32:
+        self.set_group_by_tag(d.getBoolean())
+        continue
+      if tt == 42:
+        self.set_tag(d.getPrefixedString())
+        continue
 
 
       if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
@@ -7084,6 +7652,8 @@ class TaskQueueQueryAndOwnTasksRequest(ProtocolBuffer.ProtocolMessage):
     if self.has_queue_name_: res+=prefix+("queue_name: %s\n" % self.DebugFormatString(self.queue_name_))
     if self.has_lease_seconds_: res+=prefix+("lease_seconds: %s\n" % self.DebugFormat(self.lease_seconds_))
     if self.has_max_tasks_: res+=prefix+("max_tasks: %s\n" % self.DebugFormatInt64(self.max_tasks_))
+    if self.has_group_by_tag_: res+=prefix+("group_by_tag: %s\n" % self.DebugFormatBool(self.group_by_tag_))
+    if self.has_tag_: res+=prefix+("tag: %s\n" % self.DebugFormatString(self.tag_))
     return res
 
 
@@ -7093,24 +7663,31 @@ class TaskQueueQueryAndOwnTasksRequest(ProtocolBuffer.ProtocolMessage):
   kqueue_name = 1
   klease_seconds = 2
   kmax_tasks = 3
+  kgroup_by_tag = 4
+  ktag = 5
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
     1: "queue_name",
     2: "lease_seconds",
     3: "max_tasks",
-  }, 3)
+    4: "group_by_tag",
+    5: "tag",
+  }, 5)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
     1: ProtocolBuffer.Encoder.STRING,
     2: ProtocolBuffer.Encoder.DOUBLE,
     3: ProtocolBuffer.Encoder.NUMERIC,
-  }, 3, ProtocolBuffer.Encoder.MAX_TYPE)
+    4: ProtocolBuffer.Encoder.NUMERIC,
+    5: ProtocolBuffer.Encoder.STRING,
+  }, 5, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueQueryAndOwnTasksRequest'
 class TaskQueueQueryAndOwnTasksResponse_Task(ProtocolBuffer.ProtocolMessage):
   has_task_name_ = 0
   task_name_ = ""
@@ -7120,6 +7697,8 @@ class TaskQueueQueryAndOwnTasksResponse_Task(ProtocolBuffer.ProtocolMessage):
   retry_count_ = 0
   has_body_ = 0
   body_ = ""
+  has_tag_ = 0
+  tag_ = ""
 
   def __init__(self, contents=None):
     if contents is not None: self.MergeFromString(contents)
@@ -7176,6 +7755,19 @@ class TaskQueueQueryAndOwnTasksResponse_Task(ProtocolBuffer.ProtocolMessage):
 
   def has_body(self): return self.has_body_
 
+  def tag(self): return self.tag_
+
+  def set_tag(self, x):
+    self.has_tag_ = 1
+    self.tag_ = x
+
+  def clear_tag(self):
+    if self.has_tag_:
+      self.has_tag_ = 0
+      self.tag_ = ""
+
+  def has_tag(self): return self.has_tag_
+
 
   def MergeFrom(self, x):
     assert x is not self
@@ -7183,6 +7775,7 @@ class TaskQueueQueryAndOwnTasksResponse_Task(ProtocolBuffer.ProtocolMessage):
     if (x.has_eta_usec()): self.set_eta_usec(x.eta_usec())
     if (x.has_retry_count()): self.set_retry_count(x.retry_count())
     if (x.has_body()): self.set_body(x.body())
+    if (x.has_tag()): self.set_tag(x.tag())
 
   def Equals(self, x):
     if x is self: return 1
@@ -7194,6 +7787,8 @@ class TaskQueueQueryAndOwnTasksResponse_Task(ProtocolBuffer.ProtocolMessage):
     if self.has_retry_count_ and self.retry_count_ != x.retry_count_: return 0
     if self.has_body_ != x.has_body_: return 0
     if self.has_body_ and self.body_ != x.body_: return 0
+    if self.has_tag_ != x.has_tag_: return 0
+    if self.has_tag_ and self.tag_ != x.tag_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -7214,6 +7809,7 @@ class TaskQueueQueryAndOwnTasksResponse_Task(ProtocolBuffer.ProtocolMessage):
     n += self.lengthVarInt64(self.eta_usec_)
     if (self.has_retry_count_): n += 1 + self.lengthVarInt64(self.retry_count_)
     if (self.has_body_): n += 1 + self.lengthString(len(self.body_))
+    if (self.has_tag_): n += 1 + self.lengthString(len(self.tag_))
     return n + 2
 
   def ByteSizePartial(self):
@@ -7226,6 +7822,7 @@ class TaskQueueQueryAndOwnTasksResponse_Task(ProtocolBuffer.ProtocolMessage):
       n += self.lengthVarInt64(self.eta_usec_)
     if (self.has_retry_count_): n += 1 + self.lengthVarInt64(self.retry_count_)
     if (self.has_body_): n += 1 + self.lengthString(len(self.body_))
+    if (self.has_tag_): n += 1 + self.lengthString(len(self.tag_))
     return n
 
   def Clear(self):
@@ -7233,6 +7830,7 @@ class TaskQueueQueryAndOwnTasksResponse_Task(ProtocolBuffer.ProtocolMessage):
     self.clear_eta_usec()
     self.clear_retry_count()
     self.clear_body()
+    self.clear_tag()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(18)
@@ -7245,6 +7843,9 @@ class TaskQueueQueryAndOwnTasksResponse_Task(ProtocolBuffer.ProtocolMessage):
     if (self.has_body_):
       out.putVarInt32(42)
       out.putPrefixedString(self.body_)
+    if (self.has_tag_):
+      out.putVarInt32(50)
+      out.putPrefixedString(self.tag_)
 
   def OutputPartial(self, out):
     if (self.has_task_name_):
@@ -7259,6 +7860,9 @@ class TaskQueueQueryAndOwnTasksResponse_Task(ProtocolBuffer.ProtocolMessage):
     if (self.has_body_):
       out.putVarInt32(42)
       out.putPrefixedString(self.body_)
+    if (self.has_tag_):
+      out.putVarInt32(50)
+      out.putPrefixedString(self.tag_)
 
   def TryMerge(self, d):
     while 1:
@@ -7276,6 +7880,9 @@ class TaskQueueQueryAndOwnTasksResponse_Task(ProtocolBuffer.ProtocolMessage):
       if tt == 42:
         self.set_body(d.getPrefixedString())
         continue
+      if tt == 50:
+        self.set_tag(d.getPrefixedString())
+        continue
 
 
       if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
@@ -7288,6 +7895,7 @@ class TaskQueueQueryAndOwnTasksResponse_Task(ProtocolBuffer.ProtocolMessage):
     if self.has_eta_usec_: res+=prefix+("eta_usec: %s\n" % self.DebugFormatInt64(self.eta_usec_))
     if self.has_retry_count_: res+=prefix+("retry_count: %s\n" % self.DebugFormatInt32(self.retry_count_))
     if self.has_body_: res+=prefix+("body: %s\n" % self.DebugFormatString(self.body_))
+    if self.has_tag_: res+=prefix+("tag: %s\n" % self.DebugFormatString(self.tag_))
     return res
 
 class TaskQueueQueryAndOwnTasksResponse(ProtocolBuffer.ProtocolMessage):
@@ -7390,6 +7998,7 @@ class TaskQueueQueryAndOwnTasksResponse(ProtocolBuffer.ProtocolMessage):
   kTasketa_usec = 3
   kTaskretry_count = 4
   kTaskbody = 5
+  kTasktag = 6
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
@@ -7398,7 +8007,8 @@ class TaskQueueQueryAndOwnTasksResponse(ProtocolBuffer.ProtocolMessage):
     3: "eta_usec",
     4: "retry_count",
     5: "body",
-  }, 5)
+    6: "tag",
+  }, 6)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
@@ -7407,10 +8017,329 @@ class TaskQueueQueryAndOwnTasksResponse(ProtocolBuffer.ProtocolMessage):
     3: ProtocolBuffer.Encoder.NUMERIC,
     4: ProtocolBuffer.Encoder.NUMERIC,
     5: ProtocolBuffer.Encoder.STRING,
-  }, 5, ProtocolBuffer.Encoder.MAX_TYPE)
+    6: ProtocolBuffer.Encoder.STRING,
+  }, 6, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueQueryAndOwnTasksResponse'
+class TaskQueueModifyTaskLeaseRequest(ProtocolBuffer.ProtocolMessage):
+  has_queue_name_ = 0
+  queue_name_ = ""
+  has_task_name_ = 0
+  task_name_ = ""
+  has_eta_usec_ = 0
+  eta_usec_ = 0
+  has_lease_seconds_ = 0
+  lease_seconds_ = 0.0
 
-__all__ = ['TaskQueueServiceError','TaskQueueRetryParameters','TaskQueueAcl','TaskQueueHttpHeader','TaskQueueMode','TaskQueueAddRequest','TaskQueueAddRequest_Header','TaskQueueAddRequest_CronTimetable','TaskQueueAddResponse','TaskQueueBulkAddRequest','TaskQueueBulkAddResponse','TaskQueueBulkAddResponse_TaskResult','TaskQueueDeleteRequest','TaskQueueDeleteResponse','TaskQueueForceRunRequest','TaskQueueForceRunResponse','TaskQueueUpdateQueueRequest','TaskQueueUpdateQueueResponse','TaskQueueFetchQueuesRequest','TaskQueueFetchQueuesResponse','TaskQueueFetchQueuesResponse_Queue','TaskQueueFetchQueueStatsRequest','TaskQueueScannerQueueInfo','TaskQueueFetchQueueStatsResponse','TaskQueueFetchQueueStatsResponse_QueueStats','TaskQueuePauseQueueRequest','TaskQueuePauseQueueResponse','TaskQueuePurgeQueueRequest','TaskQueuePurgeQueueResponse','TaskQueueDeleteQueueRequest','TaskQueueDeleteQueueResponse','TaskQueueDeleteGroupRequest','TaskQueueDeleteGroupResponse','TaskQueueQueryTasksRequest','TaskQueueQueryTasksResponse','TaskQueueQueryTasksResponse_TaskHeader','TaskQueueQueryTasksResponse_TaskCronTimetable','TaskQueueQueryTasksResponse_TaskRunLog','TaskQueueQueryTasksResponse_Task','TaskQueueUpdateStorageLimitRequest','TaskQueueUpdateStorageLimitResponse','TaskQueueQueryAndOwnTasksRequest','TaskQueueQueryAndOwnTasksResponse','TaskQueueQueryAndOwnTasksResponse_Task']
+  def __init__(self, contents=None):
+    if contents is not None: self.MergeFromString(contents)
+
+  def queue_name(self): return self.queue_name_
+
+  def set_queue_name(self, x):
+    self.has_queue_name_ = 1
+    self.queue_name_ = x
+
+  def clear_queue_name(self):
+    if self.has_queue_name_:
+      self.has_queue_name_ = 0
+      self.queue_name_ = ""
+
+  def has_queue_name(self): return self.has_queue_name_
+
+  def task_name(self): return self.task_name_
+
+  def set_task_name(self, x):
+    self.has_task_name_ = 1
+    self.task_name_ = x
+
+  def clear_task_name(self):
+    if self.has_task_name_:
+      self.has_task_name_ = 0
+      self.task_name_ = ""
+
+  def has_task_name(self): return self.has_task_name_
+
+  def eta_usec(self): return self.eta_usec_
+
+  def set_eta_usec(self, x):
+    self.has_eta_usec_ = 1
+    self.eta_usec_ = x
+
+  def clear_eta_usec(self):
+    if self.has_eta_usec_:
+      self.has_eta_usec_ = 0
+      self.eta_usec_ = 0
+
+  def has_eta_usec(self): return self.has_eta_usec_
+
+  def lease_seconds(self): return self.lease_seconds_
+
+  def set_lease_seconds(self, x):
+    self.has_lease_seconds_ = 1
+    self.lease_seconds_ = x
+
+  def clear_lease_seconds(self):
+    if self.has_lease_seconds_:
+      self.has_lease_seconds_ = 0
+      self.lease_seconds_ = 0.0
+
+  def has_lease_seconds(self): return self.has_lease_seconds_
+
+
+  def MergeFrom(self, x):
+    assert x is not self
+    if (x.has_queue_name()): self.set_queue_name(x.queue_name())
+    if (x.has_task_name()): self.set_task_name(x.task_name())
+    if (x.has_eta_usec()): self.set_eta_usec(x.eta_usec())
+    if (x.has_lease_seconds()): self.set_lease_seconds(x.lease_seconds())
+
+  def Equals(self, x):
+    if x is self: return 1
+    if self.has_queue_name_ != x.has_queue_name_: return 0
+    if self.has_queue_name_ and self.queue_name_ != x.queue_name_: return 0
+    if self.has_task_name_ != x.has_task_name_: return 0
+    if self.has_task_name_ and self.task_name_ != x.task_name_: return 0
+    if self.has_eta_usec_ != x.has_eta_usec_: return 0
+    if self.has_eta_usec_ and self.eta_usec_ != x.eta_usec_: return 0
+    if self.has_lease_seconds_ != x.has_lease_seconds_: return 0
+    if self.has_lease_seconds_ and self.lease_seconds_ != x.lease_seconds_: return 0
+    return 1
+
+  def IsInitialized(self, debug_strs=None):
+    initialized = 1
+    if (not self.has_queue_name_):
+      initialized = 0
+      if debug_strs is not None:
+        debug_strs.append('Required field: queue_name not set.')
+    if (not self.has_task_name_):
+      initialized = 0
+      if debug_strs is not None:
+        debug_strs.append('Required field: task_name not set.')
+    if (not self.has_eta_usec_):
+      initialized = 0
+      if debug_strs is not None:
+        debug_strs.append('Required field: eta_usec not set.')
+    if (not self.has_lease_seconds_):
+      initialized = 0
+      if debug_strs is not None:
+        debug_strs.append('Required field: lease_seconds not set.')
+    return initialized
+
+  def ByteSize(self):
+    n = 0
+    n += self.lengthString(len(self.queue_name_))
+    n += self.lengthString(len(self.task_name_))
+    n += self.lengthVarInt64(self.eta_usec_)
+    return n + 12
+
+  def ByteSizePartial(self):
+    n = 0
+    if (self.has_queue_name_):
+      n += 1
+      n += self.lengthString(len(self.queue_name_))
+    if (self.has_task_name_):
+      n += 1
+      n += self.lengthString(len(self.task_name_))
+    if (self.has_eta_usec_):
+      n += 1
+      n += self.lengthVarInt64(self.eta_usec_)
+    if (self.has_lease_seconds_):
+      n += 9
+    return n
+
+  def Clear(self):
+    self.clear_queue_name()
+    self.clear_task_name()
+    self.clear_eta_usec()
+    self.clear_lease_seconds()
+
+  def OutputUnchecked(self, out):
+    out.putVarInt32(10)
+    out.putPrefixedString(self.queue_name_)
+    out.putVarInt32(18)
+    out.putPrefixedString(self.task_name_)
+    out.putVarInt32(24)
+    out.putVarInt64(self.eta_usec_)
+    out.putVarInt32(33)
+    out.putDouble(self.lease_seconds_)
+
+  def OutputPartial(self, out):
+    if (self.has_queue_name_):
+      out.putVarInt32(10)
+      out.putPrefixedString(self.queue_name_)
+    if (self.has_task_name_):
+      out.putVarInt32(18)
+      out.putPrefixedString(self.task_name_)
+    if (self.has_eta_usec_):
+      out.putVarInt32(24)
+      out.putVarInt64(self.eta_usec_)
+    if (self.has_lease_seconds_):
+      out.putVarInt32(33)
+      out.putDouble(self.lease_seconds_)
+
+  def TryMerge(self, d):
+    while d.avail() > 0:
+      tt = d.getVarInt32()
+      if tt == 10:
+        self.set_queue_name(d.getPrefixedString())
+        continue
+      if tt == 18:
+        self.set_task_name(d.getPrefixedString())
+        continue
+      if tt == 24:
+        self.set_eta_usec(d.getVarInt64())
+        continue
+      if tt == 33:
+        self.set_lease_seconds(d.getDouble())
+        continue
+
+
+      if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
+      d.skipData(tt)
+
+
+  def __str__(self, prefix="", printElemNumber=0):
+    res=""
+    if self.has_queue_name_: res+=prefix+("queue_name: %s\n" % self.DebugFormatString(self.queue_name_))
+    if self.has_task_name_: res+=prefix+("task_name: %s\n" % self.DebugFormatString(self.task_name_))
+    if self.has_eta_usec_: res+=prefix+("eta_usec: %s\n" % self.DebugFormatInt64(self.eta_usec_))
+    if self.has_lease_seconds_: res+=prefix+("lease_seconds: %s\n" % self.DebugFormat(self.lease_seconds_))
+    return res
+
+
+  def _BuildTagLookupTable(sparse, maxtag, default=None):
+    return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
+
+  kqueue_name = 1
+  ktask_name = 2
+  keta_usec = 3
+  klease_seconds = 4
+
+  _TEXT = _BuildTagLookupTable({
+    0: "ErrorCode",
+    1: "queue_name",
+    2: "task_name",
+    3: "eta_usec",
+    4: "lease_seconds",
+  }, 4)
+
+  _TYPES = _BuildTagLookupTable({
+    0: ProtocolBuffer.Encoder.NUMERIC,
+    1: ProtocolBuffer.Encoder.STRING,
+    2: ProtocolBuffer.Encoder.STRING,
+    3: ProtocolBuffer.Encoder.NUMERIC,
+    4: ProtocolBuffer.Encoder.DOUBLE,
+  }, 4, ProtocolBuffer.Encoder.MAX_TYPE)
+
+
+  _STYLE = """"""
+  _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueModifyTaskLeaseRequest'
+class TaskQueueModifyTaskLeaseResponse(ProtocolBuffer.ProtocolMessage):
+  has_updated_eta_usec_ = 0
+  updated_eta_usec_ = 0
+
+  def __init__(self, contents=None):
+    if contents is not None: self.MergeFromString(contents)
+
+  def updated_eta_usec(self): return self.updated_eta_usec_
+
+  def set_updated_eta_usec(self, x):
+    self.has_updated_eta_usec_ = 1
+    self.updated_eta_usec_ = x
+
+  def clear_updated_eta_usec(self):
+    if self.has_updated_eta_usec_:
+      self.has_updated_eta_usec_ = 0
+      self.updated_eta_usec_ = 0
+
+  def has_updated_eta_usec(self): return self.has_updated_eta_usec_
+
+
+  def MergeFrom(self, x):
+    assert x is not self
+    if (x.has_updated_eta_usec()): self.set_updated_eta_usec(x.updated_eta_usec())
+
+  def Equals(self, x):
+    if x is self: return 1
+    if self.has_updated_eta_usec_ != x.has_updated_eta_usec_: return 0
+    if self.has_updated_eta_usec_ and self.updated_eta_usec_ != x.updated_eta_usec_: return 0
+    return 1
+
+  def IsInitialized(self, debug_strs=None):
+    initialized = 1
+    if (not self.has_updated_eta_usec_):
+      initialized = 0
+      if debug_strs is not None:
+        debug_strs.append('Required field: updated_eta_usec not set.')
+    return initialized
+
+  def ByteSize(self):
+    n = 0
+    n += self.lengthVarInt64(self.updated_eta_usec_)
+    return n + 1
+
+  def ByteSizePartial(self):
+    n = 0
+    if (self.has_updated_eta_usec_):
+      n += 1
+      n += self.lengthVarInt64(self.updated_eta_usec_)
+    return n
+
+  def Clear(self):
+    self.clear_updated_eta_usec()
+
+  def OutputUnchecked(self, out):
+    out.putVarInt32(8)
+    out.putVarInt64(self.updated_eta_usec_)
+
+  def OutputPartial(self, out):
+    if (self.has_updated_eta_usec_):
+      out.putVarInt32(8)
+      out.putVarInt64(self.updated_eta_usec_)
+
+  def TryMerge(self, d):
+    while d.avail() > 0:
+      tt = d.getVarInt32()
+      if tt == 8:
+        self.set_updated_eta_usec(d.getVarInt64())
+        continue
+
+
+      if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
+      d.skipData(tt)
+
+
+  def __str__(self, prefix="", printElemNumber=0):
+    res=""
+    if self.has_updated_eta_usec_: res+=prefix+("updated_eta_usec: %s\n" % self.DebugFormatInt64(self.updated_eta_usec_))
+    return res
+
+
+  def _BuildTagLookupTable(sparse, maxtag, default=None):
+    return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
+
+  kupdated_eta_usec = 1
+
+  _TEXT = _BuildTagLookupTable({
+    0: "ErrorCode",
+    1: "updated_eta_usec",
+  }, 1)
+
+  _TYPES = _BuildTagLookupTable({
+    0: ProtocolBuffer.Encoder.NUMERIC,
+    1: ProtocolBuffer.Encoder.NUMERIC,
+  }, 1, ProtocolBuffer.Encoder.MAX_TYPE)
+
+
+  _STYLE = """"""
+  _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.TaskQueueModifyTaskLeaseResponse'
+if _extension_runtime:
+  pass
+
+__all__ = ['TaskQueueServiceError','TaskQueueRetryParameters','TaskQueueAcl','TaskQueueHttpHeader','TaskQueueMode','TaskQueueAddRequest','TaskQueueAddRequest_Header','TaskQueueAddRequest_CronTimetable','TaskQueueAddResponse','TaskQueueBulkAddRequest','TaskQueueBulkAddResponse','TaskQueueBulkAddResponse_TaskResult','TaskQueueDeleteRequest','TaskQueueDeleteResponse','TaskQueueForceRunRequest','TaskQueueForceRunResponse','TaskQueueUpdateQueueRequest','TaskQueueUpdateQueueResponse','TaskQueueFetchQueuesRequest','TaskQueueFetchQueuesResponse','TaskQueueFetchQueuesResponse_Queue','TaskQueueFetchQueueStatsRequest','TaskQueueScannerQueueInfo','TaskQueueFetchQueueStatsResponse','TaskQueueFetchQueueStatsResponse_QueueStats','TaskQueuePauseQueueRequest','TaskQueuePauseQueueResponse','TaskQueuePurgeQueueRequest','TaskQueuePurgeQueueResponse','TaskQueueDeleteQueueRequest','TaskQueueDeleteQueueResponse','TaskQueueDeleteGroupRequest','TaskQueueDeleteGroupResponse','TaskQueueQueryTasksRequest','TaskQueueQueryTasksResponse','TaskQueueQueryTasksResponse_TaskHeader','TaskQueueQueryTasksResponse_TaskCronTimetable','TaskQueueQueryTasksResponse_TaskRunLog','TaskQueueQueryTasksResponse_Task','TaskQueueFetchTaskRequest','TaskQueueFetchTaskResponse','TaskQueueUpdateStorageLimitRequest','TaskQueueUpdateStorageLimitResponse','TaskQueueQueryAndOwnTasksRequest','TaskQueueQueryAndOwnTasksResponse','TaskQueueQueryAndOwnTasksResponse_Task','TaskQueueModifyTaskLeaseRequest','TaskQueueModifyTaskLeaseResponse']

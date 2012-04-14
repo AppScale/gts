@@ -34,11 +34,11 @@
       {% for queue in queues %}
         <tr class="{% cycle ae-odd,ae-even %}">
           <td valign="top">
-            <a href="/_ah/admin/tasks?queue={{ queue.name|escape }}">
+            <a href="{{ tasks_path }}?queue={{ queue.name|escape }}">
             {{ queue.name|escape }}</a>
           </td>
           <td valign="top">
-            {{ queue.max_rate|escape }}
+            {{ queue.rate|escape }}
           </td>
           <td valign="top">
             {{ queue.bucket_size|escape }}
@@ -55,7 +55,8 @@
             {{ queue.tasks_in_queue|escape }}
           </td>
           <td valign="top">
-            <form id="purgeform" action="/_ah/admin/queues" method="post">
+            <form action="{{ queues_path }}" method="post">
+            <input type="hidden" name="xsrf_token" value="{{ xsrf_token }}"/>
             <input type="hidden" name="queue" value="{{ queue.name|escape }}"/>
             <input type="submit" name="action:purgequeue" value="Purge Queue"
              onclick="return confirm('Are you sure you want to purge all ' +
@@ -72,4 +73,3 @@
 
 
 {% endblock %}
-

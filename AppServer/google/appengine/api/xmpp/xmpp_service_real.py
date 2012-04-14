@@ -80,8 +80,8 @@ class XmppService(apiproxy_stub.APIProxyStub):
     xmpp_username = appname + "@" + self.xmpp_domain
 
     jid = request.jid()
-    server = SOAPpy.SOAPProxy("https://" + self.login)
-    online_users = server.get_online_users_list(secret)
+    server = SOAPpy.SOAPProxy(self.login)
+    online_users = server.get_online_users_list(self.uasecret)
     user_is_online = False
     try:
       online_users.index(jid)
@@ -189,7 +189,7 @@ class XmppService(apiproxy_stub.APIProxyStub):
   
     appname = os.environ['APPNAME']
     unique_app_id = hashlib.sha1(appname + application_key).hexdigest()
-    client_id = 'channel-%s-%s@%s' % (unique_app_id,
+    client_id = 'channel~%s~%s@%s' % (unique_app_id,
                                       application_key,
                                       self.xmpp_domain)
     # Create an xmpp user
@@ -229,7 +229,7 @@ class XmppService(apiproxy_stub.APIProxyStub):
     
     appname = os.environ['APPNAME']
     unique_app_id = hashlib.sha1(appname + application_key).hexdigest()
-    jid = 'channel-%s-%s@%s' % (unique_app_id, 
+    jid = 'channel~%s~%s@%s' % (unique_app_id, 
                                application_key,
                                self.xmpp_domain)
  

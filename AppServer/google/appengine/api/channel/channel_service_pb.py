@@ -24,8 +24,13 @@ import dummy_thread as thread
 __pychecker__ = """maxreturns=0 maxbranches=0 no-callinit
                    unusednames=printElemNumber,debug_strs no-special"""
 
-from google.appengine.api.api_base_pb import *
-import google.appengine.api.api_base_pb
+if hasattr(ProtocolBuffer, 'ExtendableProtocolMessage'):
+  _extension_runtime = True
+  _ExtendableProtocolMessage = ProtocolBuffer.ExtendableProtocolMessage
+else:
+  _extension_runtime = False
+  _ExtendableProtocolMessage = ProtocolBuffer.ProtocolMessage
+
 class ChannelServiceError(ProtocolBuffer.ProtocolMessage):
 
 
@@ -107,6 +112,7 @@ class ChannelServiceError(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.ChannelServiceError'
 class CreateChannelRequest(ProtocolBuffer.ProtocolMessage):
   has_application_key_ = 0
   application_key_ = ""
@@ -206,6 +212,7 @@ class CreateChannelRequest(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.CreateChannelRequest'
 class CreateChannelResponse(ProtocolBuffer.ProtocolMessage):
   has_client_id_ = 0
   client_id_ = ""
@@ -300,6 +307,7 @@ class CreateChannelResponse(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.CreateChannelResponse'
 class SendMessageRequest(ProtocolBuffer.ProtocolMessage):
   has_application_key_ = 0
   application_key_ = ""
@@ -438,5 +446,8 @@ class SendMessageRequest(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.SendMessageRequest'
+if _extension_runtime:
+  pass
 
 __all__ = ['ChannelServiceError','CreateChannelRequest','CreateChannelResponse','SendMessageRequest']

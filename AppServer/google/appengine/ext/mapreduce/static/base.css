@@ -48,10 +48,6 @@ h3 {
   margin: 0.3em;
 }
 
-.editable-input > label:after {
-  content: ': ';
-}
-
 #launch-control {
   margin-bottom: 0.5em;
 }
@@ -72,16 +68,6 @@ h3 {
 }
 
 /* Shared */
-.param-key:after {
-  content: ': ';
-}
-.user-param-key:after {
-  content: ': ';
-}
-.param-aux:before {
-  content: ' ';
-}
-
 .status-table {
   margin: 5px;
   border-collapse: collapse;

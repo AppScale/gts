@@ -36,9 +36,11 @@ __all__ = [
     'subprocess',
     'tempfile',
 
+    'fix_paths',
     'use_library',
     ]
 
 from google.appengine.dist import _library
 
+fix_paths = _library.fix_paths
 use_library = _library.use_library

@@ -1,0 +1,57 @@
+.ae-datastore-index-name {
+  font-size: 1.2em;
+  font-weight:bold;
+}
+
+.ae-datastore-index-status {
+  border:1px solid #c0dfbf;
+  background:#f3f7f3;
+  margin:0 25px 0 0;
+  padding:3px
+}
+
+#ae-datastore-index-status-col {
+  width:15%
+}
+
+.ae-datastore-index-status-Building {
+  border-color:#edebcd;
+  background:#fefdec
+}
+
+.ae-datastore-index-status-Deleting {
+  border-color:#ccc;
+  background:#eee
+}
+
+.ae-datastore-index-status-Error {
+  border-color:#ffd3b4;
+  background:#ffeae0
+}
+
+.ae-datastore-index-defs {
+  padding-left:20px
+}
+
+.ae-datastore-index-defs-row {
+  border-top:1px solid #ddd
+}
+
+.ae-datastore-index-defs .ae-unimportant {
+  font-size:.8em
+}
+
+.ae-unimportant {
+  color: #666;
+  font-size: 80%;
+}
+
+.ae-nowrap {
+  white-space: nowrap;
+}
+
+.ae-field-hint {
+  margin-top:.2em;
+  color:#666667;
+  font-size:.85em;
+}

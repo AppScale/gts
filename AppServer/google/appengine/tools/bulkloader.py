@@ -4036,7 +4036,17 @@ def Run(arg_dict):
 
   SetupLogging(arg_dict)
 
-  return _PerformBulkload(arg_dict)
+  val = _PerformBulkload(arg_dict)
+
+  tempFiles = (arg_dict['log_file'], 
+               arg_dict['db_filename'],
+               arg_dict['result_db_filename']
+              )
+  for fileName in tempFiles:
+    if os.path.exists(fileName):
+      os.remove(fileName)
+
+  return val
 
 
 def main(argv):
@@ -4052,7 +4062,19 @@ def main(argv):
     PrintUsageExit(1)
 
   SetupLogging(arg_dict)
-  return _PerformBulkload(arg_dict)
+
+  val = _PerformBulkload(arg_dict)
+
+  tempFiles = (arg_dict['log_file'], 
+               arg_dict['db_filename'],
+               arg_dict['result_db_filename']
+              )
+  for fileName in tempFiles:
+    if os.path.exists(fileName):
+      os.remove(fileName)
+
+  return val
+
 
 
 if __name__ == '__main__':

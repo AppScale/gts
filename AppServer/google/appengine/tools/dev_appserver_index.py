@@ -33,6 +33,7 @@ from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore_admin
 from google.appengine.api import yaml_errors
 from google.appengine.datastore import datastore_index
+from google.appengine.datastore import entity_pb
 
 import yaml
 
@@ -182,7 +183,10 @@ class IndexYamlUpdater(object):
       index_yaml_data = None
     else:
       try:
-        fh = open(index_yaml_file, 'r')
+
+
+
+        fh = open(index_yaml_file, 'rU')
       except IOError:
         index_yaml_data = None
       else:
@@ -264,6 +268,8 @@ class IndexYamlUpdater(object):
       self.index_yaml_mtime = None
 
 
+_cached_yaml = (None, None, None)
+
 def SetupIndexes(app_id, root_path):
   """Ensure that the set of existing composite indexes matches index.yaml.
 
@@ -275,27 +281,30 @@ def SetupIndexes(app_id, root_path):
     root_path: Path to the root of the application.
   """
   index_yaml_file = os.path.join(root_path, 'index.yaml')
-  try:
-    fh = open(index_yaml_file, 'r')
-  except IOError:
-    index_yaml_data = None
+  global _cached_yaml
+  if _cached_yaml[0] == index_yaml_file and os.path.exists(index_yaml_file) and os.path.getmtime(index_yaml_file) == _cached_yaml[1]:
+    requested_indexes = _cached_yaml[2]
   else:
     try:
-      index_yaml_data = fh.read()
-    finally:
-      fh.close()
+      index_yaml_mtime = os.path.getmtime(index_yaml_file)
+      fh = open(index_yaml_file, 'r')
+    except (OSError, IOError):
+      index_yaml_data = None
+    else:
+      try:
+        index_yaml_data = fh.read()
+      finally:
+        fh.close()
 
-  indexes = []
-  if index_yaml_data is not None:
+    requested_indexes = []
+    if index_yaml_data is not None:
 
-    index_defs = datastore_index.ParseIndexDefinitions(index_yaml_data)
-    if index_defs is not None:
-      indexes = index_defs.indexes
-      if indexes is None:
-        indexes = []
+      index_defs = datastore_index.ParseIndexDefinitions(index_yaml_data)
+      if index_defs is not None and index_defs.indexes is not None:
 
-
-  requested_indexes = datastore_index.IndexDefinitionsToProtos(app_id, indexes)
+        requested_indexes = datastore_index.IndexDefinitionsToProtos(app_id,
+            index_defs.indexes)
+        _cached_yaml = (index_yaml_file, index_yaml_mtime, requested_indexes)
 
 
   existing_indexes = datastore_admin.GetIndices(app_id)
@@ -308,7 +317,12 @@ def SetupIndexes(app_id, root_path):
   created = 0
   for key, index in requested.iteritems():
     if key not in existing:
-      datastore_admin.CreateIndex(index)
+      new_index = entity_pb.CompositeIndex()
+      new_index.CopyFrom(index)
+      id = datastore_admin.CreateIndex(new_index)
+      new_index.set_id(id)
+      new_index.set_state(entity_pb.CompositeIndex.READ_WRITE)
+      datastore_admin.UpdateIndex(new_index)
       created += 1
 
 

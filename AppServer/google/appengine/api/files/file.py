@@ -29,6 +29,7 @@ __all__ = [
            'ExclusiveLockFailedError',
            'ExistenceError',
            'FileNotOpenedError',
+           'FileTemporaryUnavailableError',
            'FinalizationError',
            'InvalidArgumentError',
            'InvalidFileNameError',
@@ -41,16 +42,19 @@ __all__ = [
            'UnsupportedContentTypeError',
            'UnsupportedOpenModeError',
            'WrongContentTypeError' ,
-           'WrongKeyOrderError',
            'WrongOpenModeError',
 
-           'ORDERED_KEY_VALUE',
            'RAW',
 
+           'delete',
            'finalize',
            'open',
+
+           'BufferedFile',
            ]
 
+import logging
+import gc
 import os
 
 from google.appengine.api import apiproxy_stub_map
@@ -72,10 +76,6 @@ class UnsupportedContentTypeError(Error):
 
 class InvalidArgumentError(Error):
   """Function argument has invalid value."""
-
-
-class WrongKeyOrderError(Error):
-  """Key order is not ascending."""
 
 
 class FinalizationError(Error):
@@ -134,6 +134,10 @@ class ApiTemporaryUnavailableError(Error):
   """Files API is temporary unavailable. Request should be retried soon."""
 
 
+class FileTemporaryUnavailableError(Error):
+  """File is temporary unavailable. Request should be retried soon."""
+
+
 class InvalidParameterError(Error):
   """Parameter specified in Create() call is invalid."""
 
@@ -146,20 +150,18 @@ class ExclusiveLockFailedError(Error):
 RAW = file_service_pb.FileContentType.RAW
 
 
-ORDERED_KEY_VALUE = file_service_pb.FileContentType.ORDERED_KEY_VALUE
-
-
 def _raise_app_error(e):
   """Convert RPC error into api-specific exception."""
-  if (e.application_error ==
-      file_service_pb.FileServiceErrors.EXISTENCE_ERROR):
+  if (e.application_error in
+      [file_service_pb.FileServiceErrors.EXISTENCE_ERROR,
+       file_service_pb.FileServiceErrors.EXISTENCE_ERROR_METADATA_NOT_FOUND,
+       file_service_pb.FileServiceErrors.EXISTENCE_ERROR_METADATA_FOUND,
+       file_service_pb.FileServiceErrors.EXISTENCE_ERROR_SHARDING_MISMATCH,
+       ]):
     raise ExistenceError()
   elif (e.application_error ==
         file_service_pb.FileServiceErrors.API_TEMPORARILY_UNAVAILABLE):
     raise ApiTemporaryUnavailableError()
-  elif (e.application_error ==
-        file_service_pb.FileServiceErrors.WRONG_KEY_ORDER):
-    raise WrongKeyOrderError()
   elif (e.application_error ==
         file_service_pb.FileServiceErrors.FINALIZATION_ERROR):
     raise FinalizationError()
@@ -190,6 +192,9 @@ def _raise_app_error(e):
   elif (e.application_error ==
         file_service_pb.FileServiceErrors.PERMISSION_DENIED):
     raise PermissionDeniedError()
+  elif (e.application_error ==
+        file_service_pb.FileServiceErrors.FILE_TEMPORARILY_UNAVAILABLE):
+    raise FileTemporaryUnavailableError()
   elif (e.application_error ==
         file_service_pb.FileServiceErrors.INVALID_PARAMETER):
     raise InvalidParameterError()
@@ -231,65 +236,6 @@ def _make_call(method, request, response,
     _raise_app_error(e)
 
 
-
-
-class _ItemsIterator(object):
-  """Iterator over key/value pairs in key/value file."""
-
-  def __init__(self, filename, max_bytes, start_key):
-    """Constructor.
-
-    Args:
-      filename: File name as string.
-      max_bytes: Maximum number of bytes to read, in one batch as integer.
-      start_key: Start key as string.
-    """
-    self._filename = filename
-    self._max_bytes = max_bytes
-    self._start_key = start_key
-
-  def __iter__(self):
-    key = self._start_key
-    while True:
-      request = file_service_pb.ReadKeyValueRequest()
-      response = file_service_pb.ReadKeyValueResponse()
-      request.set_filename(self._filename)
-      request.set_start_key(key)
-      request.set_max_bytes(self._max_bytes)
-      _make_call('ReadKeyValue', request, response)
-
-      if response.truncated_value():
-
-        key = response.data(0).key()
-        value = response.data(0).value()
-        while True:
-          request = file_service_pb.ReadKeyValueRequest()
-          response = file_service_pb.ReadKeyValueResponse()
-          request.set_filename(self._filename)
-          request.set_start_key(key)
-          request.set_max_bytes(self._max_bytes)
-          request.set_value_pos(len(value))
-          _make_call('ReadKeyValue', request, response)
-          value += response.data(0).value()
-          if response.data_size() > 1:
-            for kv in response.data_list():
-              yield (kv.key(), kv.value())
-            break
-          if not response.truncated_value():
-            break
-        yield (key, value)
-      else:
-        if not response.data_size():
-          return
-
-        for kv in response.data_list():
-          yield (kv.key(), kv.value())
-
-      if not response.has_next_key():
-        return
-      key = response.next_key()
-
-
 class _File(object):
   """File object.
 
@@ -302,7 +248,8 @@ class _File(object):
 
     Args:
       filename: File's name as string.
-      content_type: File's content type. Either RAW or ORDERED_KEY_VALUE.
+      content_type: File's content type. Value from FileContentType.ContentType
+        enum.
     """
     self._filename = filename
     self._closed = False
@@ -338,8 +285,7 @@ class _File(object):
 
     Args:
       data: Data to be written to the file. For RAW files it should be a string
-        or byte sequence. For ORDERED_KEY_VALUE should be a tuple of strings
-        or byte sequences.
+        or byte sequence.
       sequence_key: Sequence key to use for write. Is used for RAW files only.
         File API infrastructure ensures that sequence_key are monotonically
         increasing. If sequence key less than previous one is used, a
@@ -362,18 +308,6 @@ class _File(object):
       if sequence_key:
         request.set_sequence_key(sequence_key)
       self._make_rpc_call_with_retry('Append', request, response)
-    elif self._content_type == ORDERED_KEY_VALUE:
-      if not isinstance(data, tuple):
-        raise InvalidArgumentError('Tuple expected. Got: %s' % type(data))
-      if len(data) != 2:
-        raise InvalidArgumentError(
-            'Tuple of length 2 expected. Got: %s' % len(data))
-      request = file_service_pb.AppendKeyValueRequest()
-      response = file_service_pb.AppendKeyValueResponse()
-      request.set_filename(self._filename)
-      request.set_key(data[0])
-      request.set_value(data[1])
-      self._make_rpc_call_with_retry('AppendKeyValue', request, response)
     else:
       raise UnsupportedContentTypeError(
           'Unsupported content type: %s' % self._content_type)
@@ -432,24 +366,6 @@ class _File(object):
     if self._mode != 'r':
       raise WrongOpenModeError('File is opened for write.')
 
-
-
-  def _items(self, max_bytes=900000, start_key=''):
-    """Returns iterator over key values in the file.
-
-    Args:
-      max_bytes: Maximum number of bytes to read in single batch as integer.
-      start_key: Starting key to start reading from.
-
-    Returns:
-      Iterator which yields (key, value) pair, where key and value are strings.
-    """
-    if self._content_type != ORDERED_KEY_VALUE:
-      raise UnsupportedContentTypeError(
-          'Unsupported content type: %s' % self._content_type)
-
-    return _ItemsIterator(self._filename, max_bytes, start_key)
-
   def _open(self):
     request = file_service_pb.OpenRequest()
     response = file_service_pb.OpenResponse()
@@ -470,7 +386,7 @@ class _File(object):
   def _make_rpc_call_with_retry(self, method, request, response):
     try:
       _make_call(method, request, response)
-    except ApiTemporaryUnavailableError:
+    except (ApiTemporaryUnavailableError, FileTemporaryUnavailableError):
 
       if method == 'Open':
         _make_call(method, request, response)
@@ -489,13 +405,22 @@ def open(filename, mode='r', content_type=RAW, exclusive_lock=False):
   Args:
     filename: A name of the file as string.
     mode: File open mode. Either 'a' or 'r'.
-    content_type: File content type. Either RAW or ORDERED_KEY_VALUE.
+    content_type: File's content type. Value from FileContentType.ContentType
+      enum.
     exclusive_lock: If file should be exclusively locked. All other exclusive
       lock attempts will file untile file is correctly closed.
 
   Returns:
     File object.
   """
+  if not filename:
+    raise InvalidArgumentError('Filename is empty')
+  if not isinstance(filename, basestring):
+    raise InvalidArgumentError('Filename should be a string but is %s (%s)' %
+                               (filename.__class__, filename))
+  if content_type != RAW:
+    raise InvalidArgumentError('Invalid content type')
+
   f = _File(filename,
             mode=mode,
             content_type=content_type,
@@ -508,10 +433,22 @@ def finalize(filename, content_type=RAW):
 
   Args:
     filename: File name as string.
-    content_type: File content type. Either RAW or ORDERED_KEY_VALUE.
+    content_type: File's content type. Value from FileContentType.ContentType
+      enum.
   """
-  f = open(filename, 'a', exclusive_lock=True, content_type=content_type)
-  f.close(finalize=True)
+  if not filename:
+    raise InvalidArgumentError('Filename is empty')
+  if not isinstance(filename, basestring):
+    raise InvalidArgumentError('Filename should be a string')
+  if content_type != RAW:
+    raise InvalidArgumentError('Invalid content type')
+
+  try:
+    f = open(filename, 'a', exclusive_lock=True, content_type=content_type)
+    f.close(finalize=True)
+  except FinalizationError:
+
+    pass
 
 
 def _create(filesystem, content_type=RAW, filename=None, params=None):
@@ -525,6 +462,13 @@ def _create(filesystem, content_type=RAW, filename=None, params=None):
     params: {string: string} dict of file parameters. Each filesystem
       interprets them differently.
   """
+  if not filesystem:
+    raise InvalidArgumentError('Filesystem is empty')
+  if not isinstance(filesystem, basestring):
+    raise InvalidArgumentError('Filesystem should be a string')
+  if content_type != RAW:
+    raise InvalidArgumentError('Invalid content type')
+
   request = file_service_pb.CreateRequest()
   response = file_service_pb.CreateResponse()
 
@@ -532,9 +476,13 @@ def _create(filesystem, content_type=RAW, filename=None, params=None):
   request.set_content_type(content_type)
 
   if filename:
+    if not isinstance(filename, basestring):
+      raise InvalidArgumentError('Filename should be a string')
     request.set_filename(filename)
 
   if params:
+    if not isinstance(params, dict):
+      raise InvalidArgumentError('Parameters should be a dictionary')
     for k,v in params.items():
       param = request.add_parameters()
       param.set_name(k)
@@ -542,3 +490,108 @@ def _create(filesystem, content_type=RAW, filename=None, params=None):
 
   _make_call('Create', request, response)
   return response.filename()
+
+
+def delete(filename):
+  """Permanently delete a file.
+
+  Args:
+    filename: finalized file name as string.
+  """
+  from google.appengine.api.files import blobstore as files_blobstore
+
+  if not isinstance(filename, basestring):
+    raise InvalidArgumentError('Filename should be a string, but is %s(%r)' %
+                               (filename.__class__.__name__, filename))
+  if filename.startswith(files_blobstore._BLOBSTORE_DIRECTORY):
+    files_blobstore._delete(filename)
+  else:
+    raise InvalidFileNameError( 'Unsupported file name: %s' % filename)
+
+
+def _get_capabilities():
+  """Get files API capabilities.
+
+  Returns:
+    An instance of file_service_pb.GetCapabilitiesResponse.
+  """
+  request = file_service_pb.GetCapabilitiesRequest()
+  response = file_service_pb.GetCapabilitiesResponse()
+
+  _make_call('GetCapabilities', request, response)
+  return response
+
+
+class BufferedFile(object):
+  """BufferedFile is a file-like object reading underlying file in chunks."""
+
+  _BUFFER_SIZE = 512 * 1024
+
+  def __init__(self, filename, buffer_size=_BUFFER_SIZE):
+    """Constructor.
+
+    Args:
+      filename: the name of the file to read as string.
+      buffer_size: buffer read size to use as int.
+    """
+    self._filename = filename
+    self._position = 0
+    self._buffer = ''
+    self._buffer_pos = 0
+    self._buffer_size = buffer_size
+
+  def tell(self):
+    """Return file's current position."""
+    return self._position
+
+  def read(self, size):
+    """Read data from RAW file.
+
+    Args:
+      size: Number of bytes to read as integer. Actual number of bytes
+        read is always equal to size unless end if file was reached.
+
+    Returns:
+      A string with data read.
+    """
+    while len(self._buffer) - self._buffer_pos < size:
+      self._buffer = self._buffer[self._buffer_pos:]
+      self._buffer_pos = 0
+      with open(self._filename, 'r') as f:
+        f.seek(self._position + len(self._buffer))
+        data = f.read(self._buffer_size)
+        if not data:
+          break
+        self._buffer += data
+      gc.collect()
+
+    if len(self._buffer) - self._buffer_pos < size:
+      result = self._buffer[self._buffer_pos:]
+      self._buffer = ''
+      self._buffer_pos = 0
+      self._position += len(result)
+      return result
+    else:
+      result = self._buffer[self._buffer_pos:self._buffer_pos + size]
+      self._buffer_pos += size
+      self._position += size
+      return result
+
+  def seek(self, offset, whence=os.SEEK_SET):
+    """Set the file's current position.
+
+    Args:
+      offset: seek offset as number.
+      whence: seek mode. Supported modes are os.SEEK_SET (absolute seek),
+        and os.SEEK_CUR (seek relative to the current position).
+    """
+    if whence == os.SEEK_SET:
+      self._position = offset
+      self._buffer = ''
+      self._buffer_pos = 0
+    elif whence == os.SEEK_CUR:
+      self._position += offset
+      self._buffer = ''
+      self._buffer_pos = 0
+    else:
+      raise InvalidArgumentError('Whence mode %d is not supported', whence)

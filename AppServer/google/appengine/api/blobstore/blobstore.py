@@ -45,6 +45,7 @@ from google.appengine.runtime import apiproxy_errors
 
 __all__ = ['BLOB_INFO_KIND',
            'BLOB_KEY_HEADER',
+           'BLOB_MIGRATION_KIND',
            'BLOB_RANGE_HEADER',
            'MAX_BLOB_FETCH_SIZE',
            'UPLOAD_INFO_CREATION_HEADER',
@@ -52,11 +53,16 @@ __all__ = ['BLOB_INFO_KIND',
            'BlobKey',
            'BlobNotFoundError',
            'DataIndexOutOfRangeError',
+           'PermissionDeniedError',
            'Error',
            'InternalError',
+           'create_rpc',
            'create_upload_url',
+           'create_upload_url_async',
            'delete',
+           'delete_async',
            'fetch_data',
+           'fetch_data_async',
           ]
 
 
@@ -67,6 +73,8 @@ BlobKey = datastore_types.BlobKey
 BLOB_INFO_KIND = '__BlobInfo__'
 
 BLOB_KEY_HEADER = 'X-AppEngine-BlobKey'
+
+BLOB_MIGRATION_KIND = '__BlobMigration__'
 
 BLOB_RANGE_HEADER = 'X-AppEngine-BlobRange'
 
@@ -101,6 +109,11 @@ class _CreationFormatError(Error):
   """Raised when attempting to parse bad creation date format."""
 
 
+class PermissionDeniedError(Error):
+  """Raised when permissions are lacking for a requested operation."""
+
+
+
 def _ToBlobstoreError(error):
   """Translate an application error to a datastore Error, if possible.
 
@@ -116,12 +129,11 @@ def _ToBlobstoreError(error):
       DataIndexOutOfRangeError,
       blobstore_service_pb.BlobstoreServiceError.BLOB_FETCH_SIZE_TOO_LARGE:
       BlobFetchSizeTooLargeError,
+      blobstore_service_pb.BlobstoreServiceError.PERMISSION_DENIED:
+      PermissionDeniedError,
       }
-
-  if error.application_error in error_map:
-    return error_map[error.application_error](error.error_detail)
-  else:
-    return error
+  desired_exc = error_map.get(error.application_error)
+  return desired_exc(error.error_detail) if desired_exc else error
 
 
 def _format_creation(stamp):
@@ -188,33 +200,142 @@ def _parse_creation(creation_string, field_name):
   return datetime.datetime(*timestamp[:6] + tuple([microsecond]))
 
 
+def create_rpc(deadline=None, callback=None):
+  """Creates an RPC object for use with the blobstore API.
+
+  Args:
+    deadline: Optional deadline in seconds for the operation; the default
+      is a system-specific deadline (typically 5 seconds).
+    callback: Optional callable to invoke on completion.
+
+  Returns:
+    An apiproxy_stub_map.UserRPC object specialized for this service.
+  """
+  return apiproxy_stub_map.UserRPC('blobstore', deadline, callback)
+
+
+def _make_async_call(rpc, method, request, response,
+                     get_result_hook, user_data):
+  if rpc is None:
+    rpc = create_rpc()
+  rpc.make_call(method, request, response, get_result_hook, user_data)
+  return rpc
+
+
+def _get_result_hook(rpc):
+  try:
+    rpc.check_success()
+  except apiproxy_errors.ApplicationError, err:
+    raise _ToBlobstoreError(err)
+  hook = rpc.user_data
+  return hook(rpc)
+
+
 def create_upload_url(success_path,
-                      _make_sync_call=apiproxy_stub_map.MakeSyncCall):
+                      max_bytes_per_blob=None,
+                      max_bytes_total=None,
+                      rpc=None):
   """Create upload URL for POST form.
 
   Args:
     success_path: Path within application to call when POST is successful
       and upload is complete.
-    _make_sync_call: Used for dependency injection in tests.
+    max_bytes_per_blob: The maximum size in bytes that any one blob in the
+      upload can be or None for no maximum size.
+    max_bytes_total: The maximum size in bytes that the aggregate sizes of all
+      of the blobs in the upload can be or None for no maximum size.
+    rpc: Optional UserRPC object.
+
+  Returns:
+    The upload URL.
+
+  Raises:
+    TypeError: If max_bytes_per_blob or max_bytes_total are not integral types.
+    ValueError: If max_bytes_per_blob or max_bytes_total are not
+      positive values.
+  """
+  rpc = create_upload_url_async(success_path,
+                                max_bytes_per_blob, max_bytes_total, rpc)
+  return rpc.get_result()
+
+
+def create_upload_url_async(success_path,
+                            max_bytes_per_blob=None,
+                            max_bytes_total=None,
+                            rpc=None):
+  """Create upload URL for POST form -- async version.
+
+  Args:
+    success_path: Path within application to call when POST is successful
+      and upload is complete.
+    max_bytes_per_blob: The maximum size in bytes that any one blob in the
+      upload can be or None for no maximum size.
+    max_bytes_total: The maximum size in bytes that the aggregate sizes of all
+      of the blobs in the upload can be or None for no maximum size.
+    rpc: Optional UserRPC object.
+
+  Returns:
+    A UserRPC whose result will be the upload URL.
+
+  Raises:
+    TypeError: If max_bytes_per_blob or max_bytes_total are not integral types.
+    ValueError: If max_bytes_per_blob or max_bytes_total are not
+      positive values.
   """
   request = blobstore_service_pb.CreateUploadURLRequest()
   response = blobstore_service_pb.CreateUploadURLResponse()
   request.set_success_path(success_path)
-  try:
-    _make_sync_call('blobstore', 'CreateUploadURL', request, response)
-  except apiproxy_errors.ApplicationError, e:
-    raise _ToBlobstoreError(e)
 
-  return response.url()
+  if max_bytes_per_blob is not None:
+    if not isinstance(max_bytes_per_blob, (int, long)):
+      raise TypeError('max_bytes_per_blob must be integer.')
+    if max_bytes_per_blob < 1:
+      raise ValueError('max_bytes_per_blob must be positive.')
+    request.set_max_upload_size_per_blob_bytes(max_bytes_per_blob)
+
+  if max_bytes_total is not None:
+    if not isinstance(max_bytes_total, (int, long)):
+      raise TypeError('max_bytes_total must be integer.')
+    if max_bytes_total < 1:
+      raise ValueError('max_bytes_total must be positive.')
+    request.set_max_upload_size_bytes(max_bytes_total)
+
+  if (request.has_max_upload_size_bytes() and
+      request.has_max_upload_size_per_blob_bytes()):
+    if (request.max_upload_size_bytes() <
+        request.max_upload_size_per_blob_bytes()):
+      raise ValueError('max_bytes_total can not be less'
+                       ' than max_upload_size_per_blob_bytes')
+
+  return _make_async_call(rpc, 'CreateUploadURL', request, response,
+                          _get_result_hook, lambda rpc: rpc.response.url())
 
 
-def delete(blob_keys, _make_sync_call=apiproxy_stub_map.MakeSyncCall):
+def delete(blob_keys, rpc=None):
   """Delete a blob from Blobstore.
 
   Args:
     blob_keys: Single instance or list of blob keys.  A blob-key can be either
       a string or an instance of BlobKey.
-    _make_sync_call: Used for dependency injection in tests.
+    rpc: Optional UserRPC object.
+
+  Returns:
+    None.
+  """
+  rpc = delete_async(blob_keys, rpc)
+  return rpc.get_result()
+
+
+def delete_async(blob_keys, rpc=None):
+  """Delete a blob from Blobstore -- async version.
+
+  Args:
+    blob_keys: Single instance or list of blob keys.  A blob-key can be either
+      a string or an instance of BlobKey.
+    rpc: Optional UserRPC object.
+
+  Returns:
+    A UserRPC whose result will be None.
   """
   if isinstance(blob_keys, (basestring, BlobKey)):
     blob_keys = [blob_keys]
@@ -222,14 +343,12 @@ def delete(blob_keys, _make_sync_call=apiproxy_stub_map.MakeSyncCall):
   for blob_key in blob_keys:
     request.add_blob_key(str(blob_key))
   response = api_base_pb.VoidProto()
-  try:
-    _make_sync_call('blobstore', 'DeleteBlob', request, response)
-  except apiproxy_errors.ApplicationError, e:
-    raise _ToBlobstoreError(e)
+
+  return _make_async_call(rpc, 'DeleteBlob', request, response,
+                          _get_result_hook, lambda rpc: None)
 
 
-def fetch_data(blob_key, start_index, end_index,
-               _make_sync_call=apiproxy_stub_map.MakeSyncCall):
+def fetch_data(blob_key, start_index, end_index, rpc=None):
   """Fetch data for blob.
 
   See docstring for ext.blobstore.fetch_data for more details.
@@ -240,10 +359,34 @@ def fetch_data(blob_key, start_index, end_index,
     start_index: Start index of blob data to fetch.  May not be negative.
     end_index: End index (exclusive) of blob data to fetch.  Must be
       >= start_index.
+    rpc: Optional UserRPC object.
 
   Returns:
-    str containing partial data of blob.  See docstring for
+    A str containing partial data of blob.  See docstring for
     ext.blobstore.fetch_data for more details.
+
+  Raises:
+    See docstring for ext.blobstore.fetch_data for more details.
+  """
+  rpc = fetch_data_async(blob_key, start_index, end_index, rpc)
+  return rpc.get_result()
+
+
+def fetch_data_async(blob_key, start_index, end_index, rpc=None):
+  """Fetch data for blob -- async version.
+
+  See docstring for ext.blobstore.fetch_data for more details.
+
+  Args:
+    blob: BlobKey, str or unicode representation of BlobKey of
+      blob to fetch data from.
+    start_index: Start index of blob data to fetch.  May not be negative.
+    end_index: End index (exclusive) of blob data to fetch.  Must be
+      >= start_index.
+    rpc: Optional UserRPC object.
+
+  Returns:
+    A UserRPC whose result will be a str as returned by fetch_data().
 
   Raises:
     See docstring for ext.blobstore.fetch_data for more details.
@@ -285,9 +428,5 @@ def fetch_data(blob_key, start_index, end_index,
   request.set_start_index(start_index)
   request.set_end_index(end_index)
 
-  try:
-    _make_sync_call('blobstore', 'FetchData', request, response)
-  except apiproxy_errors.ApplicationError, e:
-    raise _ToBlobstoreError(e)
-
-  return response.data()
+  return _make_async_call(rpc, 'FetchData', request, response,
+                          _get_result_hook, lambda rpc: rpc.response.data())

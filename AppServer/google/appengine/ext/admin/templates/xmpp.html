@@ -151,6 +151,7 @@
     action="/_ah/xmpp/message/chat/" method="post"
     onsubmit="sendXmppWebhook(); return false">
 
+    <input type="hidden" name="xsrf_token" value="{{ xsrf_token }}"/>
     <input type="hidden" name="payload" id="payload">
     <input type="hidden" id="content-type" name="header:Content-Type">
 

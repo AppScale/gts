@@ -1,0 +1,168 @@
+    ___                _____            __    
+   /   |  ____  ____  / ___/_________ _/ /___ 
+  / /| | / __ \/ __ \ \__ \/ ___/ __ `/ // _ \
+ / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
+/_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
+      /_/   /_/                               
+The current release is 1.6, relased XXX, 2012.
+Included in this release (over 1.5) is:
+....
+XXXXXXXXXXXXXXXXXXXXXXXXX
+
+Included in this release (over 1.4) is:
+....
+
+The AppScale version 1.4, released September 7, 2010.
+
+Included in this release (over version 1.3) is:
+
+    Transaction support for all databases
+    Placement support - administrators can now specify which components should go where
+    Package installation via apt-get for Ubuntu Jaunty, Karmic, and Lucid
+    Addition of support for Scalaris
+    Upgrade to Python App Engine 1.3.2 compatibility
+    Introduction of Java App Engine 1.3.5 compatibility
+    Added support for Images API and Cron API for Python Google App Engine
+    Added support for Memcache API, Images API, Task Queue API, and Cron API for Java Google App Engine
+    Single node deployments for all databases (previously only Cassandra, Voldemort, MongoDB, and MemcacheDB were supported)
+    PBServer is now multi-process and load balanced to improve throughput
+    Secure login page for authentication via https
+    Amazon AWS EC2 public image available (ami-044fa56d) 
+
+Supported Databases:
+
+    HBase - Version 0.20.3
+    Hypertable - Version 0.9.2.7
+    MySQL Cluster - Version 5.1.30
+    Cassandra - Version 0.6.1
+    Voldemort - Version 0.80
+    MongoDB - Version 1.2.2-1ubuntu1
+    MemcacheDB - Version 1.2.0-6
+    Scalaris - Version 0.2.3-1 
+
+Restrictions:
+
+    64 bit systems only (host and virtual machines)
+    Specific versions supported (we support only these versions)
+        Ubuntu Jaunty, Karmic, and Lucid only
+            x86_64 image kernel/modules/ramdisk 
+        Xen v3.3.3
+        Eucalyptus v1.6 (KVM and Xen virtualization supported)
+        Python App Engine 1.3.2 and Java App Engine 1.3.5
+        HBase, Hypertable, MySQL, Cassandra, Voldemort, MongoDB, MemcacheDB, Scalaris 
+
+Roadmap
+
+    Persistence of instance data via EBS in Eucalyptus and EC2
+    Automatic scaling of AppScale deployment in Eucalyptus/EC2
+    Additional robustness and bug fixes 
+
+Prior Releases
+
+Release 1.3, released December 13, 2009.
+
+Included in this release (over version 1.3 Beta) is:
+
+    Critical bug fixes for Cassandra, MongoDB, and MySQL
+    Amazon AWS EC2 public image available (ami-14799b7d) 
+
+Restrictions:
+
+    64 bit systems only (host and virtual machines)
+    Specific versions supported (we support only these versions)
+        Ubuntu Jaunty 9.04 distribution supported only
+            x86_64 image kernel/modules/ramdisk
+            for virtualized instances:
+                linux-ubuntu-modules-2.6.24-23-xen
+                linux-restricted-modules-2.6.24-23-xen
+                linux-image-2.6.24-23-xen 
+        Xen v3.3.3
+        Eucalyptus v1.5.2 (KVM and Xen virtualization supported)
+        Python App Engine 1.2.7
+        HBase, Hypertable, MySQL, Cassandra, Voldemort, MongoDB, MemcacheDB (versions specified in the scratch install instructions) 
+
+Release 1.3, Beta, released December 7, 2009:
+
+    Upgrade to Python App Engine 1.2.7 compatibility
+    Introduction of Java App Engine 1.2.5 compatibility
+    Addition of support for MongoDB and MemcacheDB
+    AppServers are now multi-process and PBServer is now multi-threaded, greatly improving performance
+    True memcache(d) support for Python App Engine apps
+    MySQL bug fix allowing runs over any number of nodes greater than one
+    Amazon AWS EC2 public image available (ami-5e05e737)
+    New single node deployments for MongoDB and MemcacheDB
+    Ability to delete applications from a running deployment
+    Python2.6 for everything except Google App Engine (Python2.5)
+    Complete rewrite of AppLoadBalancer
+    True support for static files via nginx (Python App Engine apps only)
+    Numerous security fixes relating to cookies and administrator status on apps
+    Additional robustness and bug fixes 
+
+Restrictions:
+
+    64 bit systems only (host and virtual machines)
+    Specific versions supported (we support only these versions)
+        Ubuntu Jaunty 9.04 distribution supported only
+            x86_64 image kernel/modules/ramdisk
+            for virtualized instances:
+                linux-ubuntu-modules-2.6.24-23-xen
+                linux-restricted-modules-2.6.24-23-xen
+                linux-image-2.6.24-23-xen 
+        Xen v3.3.3
+        Eucalyptus v1.5.2 (KVM and Xen virtualization supported)
+        Python App Engine 1.2.7
+        HBase, Hypertable, MySQL, Cassandra, Voldemort, MongoDB, MemcacheDB (versions specified in the scratch install instructions) 
+
+Release 1.2, released September 7, 2009:
+
+    Upgrade to Python App Engine 1.2.3 compatibility
+    Addition of support for Voldemort and Cassandra
+    MySQL bug fix allowing for parallel API nodes
+    Eucalyptus 1.5.2 support (no previous versions of Eucalyptus are supported)
+    Amazon AWS EC2 public image available (ami-7136d618)
+    Support for running Ubuntu Jaunty systems
+    Single node deployments (Cassandra or Voldemort only)
+    Ability to delete applications from a running deployment
+    Python2.6 for everything except GAE (Python2.5)
+    Replication is configurable
+    Ubuntu 9.04 support and wiki directions
+    Wiki directions of sole-KVM use
+    Additional robustness and bug fixes 
+
+Release 1.1, released June 17, 2009:
+
+    Upgrade to Python App Engine 1.2.2 compatibility
+    Addition of support for MySQL
+    Eucalyptus 1.5 support (no previous versions of Eucalyptus are supported)
+    Amazon AWS EC2 support and instructions
+    Instructions for building an AppScale image from scratch
+    Support for running on non-virtualized Ubuntu Hardy (8.04) systems
+    iptables-based firewall for improved security
+    Additional robustness and bug fixes 
+
+    Restrictions:
+
+        64 bit systems only (host and virtual machines)
+            32 bit systems for non-virtualized installation 
+        Specific versions supported (we support only these versions)
+            Ubuntu Hardy Heron 8.04 distribution supported only
+                x86_64 image kernel/modules/ramdisk
+                for virtualized instances:
+                    linux-ubuntu-modules-2.6.24-23-xen
+                    linux-restricted-modules-2.6.24-23-xen
+                    linux-image-2.6.24-23-xen 
+            Xen v3.3.1
+            Eucalyptus v1.5 (KVM and Xen virtualization supported)
+            Python App Engine 1.2.2
+            HBase, Hypertable, MySQL (versions specified in the scratch install instructions) 
+
+Release 1.0.2:
+
+    Supported Databases: HBase, Hypertable
+    Cluster types supported: Xen, Eucalyptus
+    Bug fixes (1.0, 1.0.1) 
+
+Release 1.0:
+
+    Xen-only, image-based AppScale deployment released
+    Supported Database: HBase 

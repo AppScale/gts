@@ -12,4 +12,10 @@
     <name>slave.host.name</name>
     <value>APPSCALE-LOCAL</value>
   </property>
+  
+<property> 
+    <name>dfs.datanode.max.xcievers</name> 
+    <value>4096</value> 
+</property> 
+
 </configuration>

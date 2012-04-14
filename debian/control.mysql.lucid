@@ -10,6 +10,7 @@ Package: appscale-mysql
 Architecture: any
 Depends: appscale-core,
  mysql-cluster-server-5.1 (>=7.0.9),
+ mysql-cluster-client-5.1,
  python-sqlalchemy,
  python-mysqldb
 Description: An open-source framework for execution of GAE applications

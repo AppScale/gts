@@ -232,8 +232,23 @@ class PolyModel(db.Model):
 
   _class = _ClassKeyProperty(name=_CLASS_KEY_PROPERTY)
 
-  def __new__(cls, *args, **kwds):
-    """Prevents direct instantiation of PolyModel."""
+  def __new__(*args, **kwds):
+    """Prevents direct instantiation of PolyModel.
+
+    Allow subclasses to call __new__() with arguments.
+
+    Do NOT list 'cls' as the first argument, or in the case when
+    the 'kwds' dictionary contains the key 'cls', the function
+    will complain about multiple argument values for 'cls'.
+
+    Raises:
+      TypeError if there are no positional arguments.
+    """
+    if args:
+      cls = args[0]
+    else:
+      raise TypeError('object.__new__(): not enough arguments')
+
     if cls is PolyModel:
       raise NotImplementedError()
     return super(PolyModel, cls).__new__(cls, *args, **kwds)

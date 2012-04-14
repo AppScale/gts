@@ -228,7 +228,7 @@ class SearchableEntity(datastore.Entity):
     else:
       super(SearchableEntity, self).__init__(kind_or_entity, *args, **kwargs)
 
-  def _ToPb(self):
+  def _ToPb(self, *args, **kwargs):
     """Rebuilds the full text index, then delegates to the superclass.
 
     Returns:
@@ -267,7 +267,7 @@ class SearchableEntity(datastore.Entity):
       if index_list:
         self[index_property_name] = index_list
 
-    return super(SearchableEntity, self)._ToPb()
+    return super(SearchableEntity, self)._ToPb(*args, **kwargs)
 
   @classmethod
   def _FullTextIndex(cls, text, word_delimiter_regex=None):

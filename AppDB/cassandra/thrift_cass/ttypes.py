@@ -7,7 +7,7 @@
 from thrift.Thrift import *
 
 from thrift.transport import TTransport
-from thrift.protocol import TBinaryProtocol
+from thrift.protocol import TBinaryProtocol, TProtocol
 try:
   from thrift.protocol import fastbinary
 except:
@@ -16,71 +16,126 @@ except:
 
 class ConsistencyLevel:
   """
-  The ConsistencyLevel is an enum that controls both read and write behavior based on <ReplicationFactor> in your
-  storage-conf.xml. The different consistency levels have different meanings, depending on if you're doing a write or read
-  operation. Note that if W + R > ReplicationFactor, where W is the number of nodes to block for on write, and R
-  the number to block for on reads, you will have strongly consistent behavior; that is, readers will always see the most
-  recent write. Of these, the most interesting is to do QUORUM reads and writes, which gives you consistency while still
-  allowing availability in the face of node failures up to half of <ReplicationFactor>. Of course if latency is more
-  important than consistency then you can use lower values for either or both.
-  
-  Write:
-       ZERO    Ensure nothing. A write happens asynchronously in background
-       ANY     Ensure that the write has been written once somewhere, including possibly being hinted in a non-target node.
-       ONE     Ensure that the write has been written to at least 1 node's commit log and memory table before responding to the client.
-       QUORUM  Ensure that the write has been written to <ReplicationFactor> / 2 + 1 nodes before responding to the client.
-       ALL     Ensure that the write is written to <code>&lt;ReplicationFactor&gt;</code> nodes before responding to the client.
-  
-  Read:
-       ZERO    Not supported, because it doesn't make sense.
-       ANY     Not supported. You probably want ONE instead.
-       ONE     Will return the record returned by the first node to respond. A consistency check is always done in a
-               background thread to fix any consistency issues when ConsistencyLevel.ONE is used. This means subsequent
-               calls will have correct data even if the initial read gets an older value. (This is called 'read repair'.)
-       QUORUM  Will query all storage nodes and return the record with the most recent timestamp once it has at least a
-               majority of replicas reported. Again, the remaining replicas will be checked in the background.
-       ALL     Not yet supported, but we plan to eventually.
+  The ConsistencyLevel is an enum that controls both read and write
+  behavior based on the ReplicationFactor of the keyspace.  The
+  different consistency levels have different meanings, depending on
+  if you're doing a write or read operation.
+
+  If W + R > ReplicationFactor, where W is the number of nodes to
+  block for on write, and R the number to block for on reads, you
+  will have strongly consistent behavior; that is, readers will
+  always see the most recent write. Of these, the most interesting is
+  to do QUORUM reads and writes, which gives you consistency while
+  still allowing availability in the face of node failures up to half
+  of <ReplicationFactor>. Of course if latency is more important than
+  consistency then you can use lower values for either or both.
+
+  Some ConsistencyLevels (ONE, TWO, THREE) refer to a specific number
+  of replicas rather than a logical concept that adjusts
+  automatically with the replication factor.  Of these, only ONE is
+  commonly used; TWO and (even more rarely) THREE are only useful
+  when you care more about guaranteeing a certain level of
+  durability, than consistency.
+
+  Write consistency levels make the following guarantees before reporting success to the client:
+    ANY          Ensure that the write has been written once somewhere, including possibly being hinted in a non-target node.
+    ONE          Ensure that the write has been written to at least 1 node's commit log and memory table
+    TWO          Ensure that the write has been written to at least 2 node's commit log and memory table
+    THREE        Ensure that the write has been written to at least 3 node's commit log and memory table
+    QUORUM       Ensure that the write has been written to <ReplicationFactor> / 2 + 1 nodes
+    LOCAL_QUORUM Ensure that the write has been written to <ReplicationFactor> / 2 + 1 nodes, within the local datacenter (requires NetworkTopologyStrategy)
+    EACH_QUORUM  Ensure that the write has been written to <ReplicationFactor> / 2 + 1 nodes in each datacenter (requires NetworkTopologyStrategy)
+    ALL          Ensure that the write is written to <code>&lt;ReplicationFactor&gt;</code> nodes before responding to the client.
+
+  Read consistency levels make the following guarantees before returning successful results to the client:
+    ANY          Not supported. You probably want ONE instead.
+    ONE          Returns the record obtained from a single replica.
+    TWO          Returns the record with the most recent timestamp once two replicas have replied.
+    THREE        Returns the record with the most recent timestamp once three replicas have replied.
+    QUORUM       Returns the record with the most recent timestamp once a majority of replicas have replied.
+    LOCAL_QUORUM Returns the record with the most recent timestamp once a majority of replicas within the local datacenter have replied.
+    EACH_QUORUM  Returns the record with the most recent timestamp once a majority of replicas within each datacenter have replied.
+    ALL          Returns the record with the most recent timestamp once all replicas have replied (implies no replica may be down)..
   """
-  ZERO = 0
   ONE = 1
   QUORUM = 2
-  DCQUORUM = 3
-  DCQUORUMSYNC = 4
+  LOCAL_QUORUM = 3
+  EACH_QUORUM = 4
   ALL = 5
   ANY = 6
+  TWO = 7
+  THREE = 8
 
   _VALUES_TO_NAMES = {
-    0: "ZERO",
     1: "ONE",
     2: "QUORUM",
-    3: "DCQUORUM",
-    4: "DCQUORUMSYNC",
+    3: "LOCAL_QUORUM",
+    4: "EACH_QUORUM",
     5: "ALL",
     6: "ANY",
+    7: "TWO",
+    8: "THREE",
   }
 
   _NAMES_TO_VALUES = {
-    "ZERO": 0,
     "ONE": 1,
     "QUORUM": 2,
-    "DCQUORUM": 3,
-    "DCQUORUMSYNC": 4,
+    "LOCAL_QUORUM": 3,
+    "EACH_QUORUM": 4,
     "ALL": 5,
     "ANY": 6,
+    "TWO": 7,
+    "THREE": 8,
   }
+
+class IndexOperator:
+  EQ = 0
+  GTE = 1
+  GT = 2
+  LTE = 3
+  LT = 4
+
+  _VALUES_TO_NAMES = {
+    0: "EQ",
+    1: "GTE",
+    2: "GT",
+    3: "LTE",
+    4: "LT",
+  }
+
+  _NAMES_TO_VALUES = {
+    "EQ": 0,
+    "GTE": 1,
+    "GT": 2,
+    "LTE": 3,
+    "LT": 4,
+  }
+
+class IndexType:
+  KEYS = 0
+
+  _VALUES_TO_NAMES = {
+    0: "KEYS",
+  }
+
+  _NAMES_TO_VALUES = {
+    "KEYS": 0,
+  }
+
 
 class Column:
   """
   Basic unit of data within a ColumnFamily.
-  @param name. A column name can act both as structure (a label) or as data (like value). Regardless, the name of the column
-         is used as a key to its value.
-  @param value. Some data
-  @param timestamp. Used to record when data was sent to be written.
-  
+  @param name, the name by which this column is set and retrieved.  Maximum 64KB long.
+  @param value. The data associated with the name.  Maximum 2GB long, but in practice you should limit it to small numbers of MB (since Thrift must read the full value into memory to operate on it).
+  @param timestamp. The timestamp is used for conflict detection/resolution when two columns with same name need to be compared.
+  @param ttl. An optional, positive delay (in seconds) after which the column will be automatically deleted.
+
   Attributes:
    - name
    - value
    - timestamp
+   - ttl
   """
 
   thrift_spec = (
@@ -88,12 +143,14 @@ class Column:
     (1, TType.STRING, 'name', None, None, ), # 1
     (2, TType.STRING, 'value', None, None, ), # 2
     (3, TType.I64, 'timestamp', None, None, ), # 3
+    (4, TType.I32, 'ttl', None, None, ), # 4
   )
 
-  def __init__(self, name=None, value=None, timestamp=None,):
+  def __init__(self, name=None, value=None, timestamp=None, ttl=None,):
     self.name = name
     self.value = value
     self.timestamp = timestamp
+    self.ttl = ttl
 
   def read(self, iprot):
     if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
@@ -119,6 +176,11 @@ class Column:
           self.timestamp = iprot.readI64();
         else:
           iprot.skip(ftype)
+      elif fid == 4:
+        if ftype == TType.I32:
+          self.ttl = iprot.readI32();
+        else:
+          iprot.skip(ftype)
       else:
         iprot.skip(ftype)
       iprot.readFieldEnd()
@@ -141,8 +203,21 @@ class Column:
       oprot.writeFieldBegin('timestamp', TType.I64, 3)
       oprot.writeI64(self.timestamp)
       oprot.writeFieldEnd()
+    if self.ttl != None:
+      oprot.writeFieldBegin('ttl', TType.I32, 4)
+      oprot.writeI32(self.ttl)
+      oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      if self.name is None:
+        raise TProtocol.TProtocolException(message='Required field name is unset!')
+      if self.value is None:
+        raise TProtocol.TProtocolException(message='Required field value is unset!')
+      if self.timestamp is None:
+        raise TProtocol.TProtocolException(message='Required field timestamp is unset!')
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -161,7 +236,7 @@ class SuperColumn:
   @param name. see Column.name.
   @param columns. A collection of standard Columns.  The columns within a super column are defined in an adhoc manner.
                   Columns within a super column do not have to have matching structures (similarly named child columns).
-  
+
   Attributes:
    - name
    - columns
@@ -225,6 +300,13 @@ class SuperColumn:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      if self.name is None:
+        raise TProtocol.TProtocolException(message='Required field name is unset!')
+      if self.columns is None:
+        raise TProtocol.TProtocolException(message='Required field columns is unset!')
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -244,10 +326,10 @@ class ColumnOrSuperColumn:
   instances of ColumnOrSuperColumn will have the requested SuperColumn in the attribute super_column. For queries resulting
   in Columns, those values will be in the attribute column. This change was made between 0.3 and 0.4 to standardize on
   single query methods that may return either a SuperColumn or Column.
-  
+
   @param column. The Column returned by get() or get_slice().
   @param super_column. The SuperColumn returned by get() or get_slice().
-  
+
   Attributes:
    - column
    - super_column
@@ -304,6 +386,9 @@ class ColumnOrSuperColumn:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -345,6 +430,9 @@ class NotFoundException(Exception):
     oprot.writeStructBegin('NotFoundException')
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __str__(self):
     return repr(self)
@@ -364,7 +452,7 @@ class InvalidRequestException(Exception):
   """
   Invalid request could mean keyspace or column family does not exist, required parameters are missing, or a parameter is malformed.
   why contains an associated error message.
-  
+
   Attributes:
    - why
   """
@@ -407,6 +495,11 @@ class InvalidRequestException(Exception):
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      if self.why is None:
+        raise TProtocol.TProtocolException(message='Required field why is unset!')
+      return
+
 
   def __str__(self):
     return repr(self)
@@ -451,6 +544,9 @@ class UnavailableException(Exception):
     oprot.writeStructBegin('UnavailableException')
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __str__(self):
     return repr(self)
@@ -495,6 +591,9 @@ class TimedOutException(Exception):
     oprot.writeStructBegin('TimedOutException')
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __str__(self):
     return repr(self)
@@ -512,8 +611,8 @@ class TimedOutException(Exception):
 
 class AuthenticationException(Exception):
   """
-  invalid authentication request (user does not exist or credentials invalid)
-  
+  invalid authentication request (invalid keyspace, user does not exist, or credentials invalid)
+
   Attributes:
    - why
   """
@@ -556,6 +655,11 @@ class AuthenticationException(Exception):
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      if self.why is None:
+        raise TProtocol.TProtocolException(message='Required field why is unset!')
+      return
+
 
   def __str__(self):
     return repr(self)
@@ -574,7 +678,7 @@ class AuthenticationException(Exception):
 class AuthorizationException(Exception):
   """
   invalid authorization request (user does not have access to keyspace)
-  
+
   Attributes:
    - why
   """
@@ -617,6 +721,11 @@ class AuthorizationException(Exception):
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      if self.why is None:
+        raise TProtocol.TProtocolException(message='Required field why is unset!')
+      return
+
 
   def __str__(self):
     return repr(self)
@@ -636,9 +745,9 @@ class ColumnParent:
   """
   ColumnParent is used when selecting groups of columns from the same ColumnFamily. In directory structure terms, imagine
   ColumnParent as ColumnPath + '/../'.
-  
+
   See also <a href="cassandra.html#Struct_ColumnPath">ColumnPath</a>
-  
+
   Attributes:
    - column_family
    - super_column
@@ -695,6 +804,11 @@ class ColumnParent:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      if self.column_family is None:
+        raise TProtocol.TProtocolException(message='Required field column_family is unset!')
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -711,13 +825,13 @@ class ColumnPath:
   """
   The ColumnPath is the path to a single column in Cassandra. It might make sense to think of ColumnPath and
   ColumnParent in terms of a directory structure.
-  
+
   ColumnPath is used to looking up a single column.
-  
+
   @param column_family. The name of the CF of the column being looked up.
   @param super_column. The super column name.
   @param column. The column name.
-  
+
   Attributes:
    - column_family
    - super_column
@@ -786,6 +900,11 @@ class ColumnPath:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      if self.column_family is None:
+        raise TProtocol.TProtocolException(message='Required field column_family is unset!')
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -802,19 +921,19 @@ class SliceRange:
   """
   A slice range is a structure that stores basic range, ordering and limit information for a query that will return
   multiple columns. It could be thought of as Cassandra's version of LIMIT and ORDER BY
-  
+
   @param start. The column name to start the slice with. This attribute is not required, though there is no default value,
                 and can be safely set to '', i.e., an empty byte array, to start with the first column name. Otherwise, it
                 must a valid value under the rules of the Comparator defined for the given ColumnFamily.
   @param finish. The column name to stop the slice at. This attribute is not required, though there is no default value,
                  and can be safely set to an empty byte array to not stop until 'count' results are seen. Otherwise, it
-                 must also be a value value to the ColumnFamily Comparator.
+                 must also be a valid value to the ColumnFamily Comparator.
   @param reversed. Whether the results should be ordered in reversed order. Similar to ORDER BY blah DESC in SQL.
-  @param count. How many keys to return. Similar to LIMIT 100 in SQL. May be arbitrarily large, but Thrift will
+  @param count. How many columns to return. Similar to LIMIT in SQL. May be arbitrarily large, but Thrift will
                 materialize the whole result into memory before returning it to the client, so be aware that you may
                 be better served by iterating through slices by passing the last value of one call in as the 'start'
                 of the next instead of increasing 'count' arbitrarily large.
-  
+
   Attributes:
    - start
    - finish
@@ -893,6 +1012,17 @@ class SliceRange:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      if self.start is None:
+        raise TProtocol.TProtocolException(message='Required field start is unset!')
+      if self.finish is None:
+        raise TProtocol.TProtocolException(message='Required field finish is unset!')
+      if self.reversed is None:
+        raise TProtocol.TProtocolException(message='Required field reversed is unset!')
+      if self.count is None:
+        raise TProtocol.TProtocolException(message='Required field count is unset!')
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -909,15 +1039,15 @@ class SlicePredicate:
   """
   A SlicePredicate is similar to a mathematic predicate (see http://en.wikipedia.org/wiki/Predicate_(mathematical_logic)),
   which is described as "a property that the elements of a set have in common."
-  
+
   SlicePredicate's in Cassandra are described with either a list of column_names or a SliceRange.  If column_names is
   specified, slice_range is ignored.
-  
+
   @param column_name. A list of column names to retrieve. This can be used similar to Memcached's "multi-get" feature
                       to fetch N known column names. For instance, if you know you wish to fetch columns 'Joe', 'Jack',
                       and 'Jim' you can pass those column names as a list to fetch all three at once.
   @param slice_range. A SliceRange describing how to range, order, and/or limit the slice.
-  
+
   Attributes:
    - column_names
    - slice_range
@@ -981,6 +1111,196 @@ class SlicePredicate:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
+
+class IndexExpression:
+  """
+  Attributes:
+   - column_name
+   - op
+   - value
+  """
+
+  thrift_spec = (
+    None, # 0
+    (1, TType.STRING, 'column_name', None, None, ), # 1
+    (2, TType.I32, 'op', None, None, ), # 2
+    (3, TType.STRING, 'value', None, None, ), # 3
+  )
+
+  def __init__(self, column_name=None, op=None, value=None,):
+    self.column_name = column_name
+    self.op = op
+    self.value = value
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      if fid == 1:
+        if ftype == TType.STRING:
+          self.column_name = iprot.readString();
+        else:
+          iprot.skip(ftype)
+      elif fid == 2:
+        if ftype == TType.I32:
+          self.op = iprot.readI32();
+        else:
+          iprot.skip(ftype)
+      elif fid == 3:
+        if ftype == TType.STRING:
+          self.value = iprot.readString();
+        else:
+          iprot.skip(ftype)
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('IndexExpression')
+    if self.column_name != None:
+      oprot.writeFieldBegin('column_name', TType.STRING, 1)
+      oprot.writeString(self.column_name)
+      oprot.writeFieldEnd()
+    if self.op != None:
+      oprot.writeFieldBegin('op', TType.I32, 2)
+      oprot.writeI32(self.op)
+      oprot.writeFieldEnd()
+    if self.value != None:
+      oprot.writeFieldBegin('value', TType.STRING, 3)
+      oprot.writeString(self.value)
+      oprot.writeFieldEnd()
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+    def validate(self):
+      if self.column_name is None:
+        raise TProtocol.TProtocolException(message='Required field column_name is unset!')
+      if self.op is None:
+        raise TProtocol.TProtocolException(message='Required field op is unset!')
+      if self.value is None:
+        raise TProtocol.TProtocolException(message='Required field value is unset!')
+      return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
+
+class IndexClause:
+  """
+  Attributes:
+   - expressions
+   - start_key
+   - count
+  """
+
+  thrift_spec = (
+    None, # 0
+    (1, TType.LIST, 'expressions', (TType.STRUCT,(IndexExpression, IndexExpression.thrift_spec)), None, ), # 1
+    (2, TType.STRING, 'start_key', None, None, ), # 2
+    (3, TType.I32, 'count', None, 100, ), # 3
+  )
+
+  def __init__(self, expressions=None, start_key=None, count=thrift_spec[3][4],):
+    self.expressions = expressions
+    self.start_key = start_key
+    self.count = count
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      if fid == 1:
+        if ftype == TType.LIST:
+          self.expressions = []
+          (_etype17, _size14) = iprot.readListBegin()
+          for _i18 in xrange(_size14):
+            _elem19 = IndexExpression()
+            _elem19.read(iprot)
+            self.expressions.append(_elem19)
+          iprot.readListEnd()
+        else:
+          iprot.skip(ftype)
+      elif fid == 2:
+        if ftype == TType.STRING:
+          self.start_key = iprot.readString();
+        else:
+          iprot.skip(ftype)
+      elif fid == 3:
+        if ftype == TType.I32:
+          self.count = iprot.readI32();
+        else:
+          iprot.skip(ftype)
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('IndexClause')
+    if self.expressions != None:
+      oprot.writeFieldBegin('expressions', TType.LIST, 1)
+      oprot.writeListBegin(TType.STRUCT, len(self.expressions))
+      for iter20 in self.expressions:
+        iter20.write(oprot)
+      oprot.writeListEnd()
+      oprot.writeFieldEnd()
+    if self.start_key != None:
+      oprot.writeFieldBegin('start_key', TType.STRING, 2)
+      oprot.writeString(self.start_key)
+      oprot.writeFieldEnd()
+    if self.count != None:
+      oprot.writeFieldBegin('count', TType.I32, 3)
+      oprot.writeI32(self.count)
+      oprot.writeFieldEnd()
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+    def validate(self):
+      if self.expressions is None:
+        raise TProtocol.TProtocolException(message='Required field expressions is unset!')
+      if self.start_key is None:
+        raise TProtocol.TProtocolException(message='Required field start_key is unset!')
+      if self.count is None:
+        raise TProtocol.TProtocolException(message='Required field count is unset!')
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -1001,7 +1321,7 @@ class KeyRange:
   than the start one.  Thus, a range from keyX to keyX is a
   one-element range, but a range from tokenY to tokenY is the
   full ring.
-  
+
   Attributes:
    - start_key
    - end_key
@@ -1092,6 +1412,11 @@ class KeyRange:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      if self.count is None:
+        raise TProtocol.TProtocolException(message='Required field count is unset!')
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -1107,11 +1432,11 @@ class KeyRange:
 class KeySlice:
   """
   A KeySlice is key followed by the data it maps to. A collection of KeySlice is returned by the get_range_slice operation.
-  
+
   @param key. a row key
   @param columns. List of data represented by the key. Typically, the list is pared down to only the columns specified by
                   a SlicePredicate.
-  
+
   Attributes:
    - key
    - columns
@@ -1144,11 +1469,11 @@ class KeySlice:
       elif fid == 2:
         if ftype == TType.LIST:
           self.columns = []
-          (_etype17, _size14) = iprot.readListBegin()
-          for _i18 in xrange(_size14):
-            _elem19 = ColumnOrSuperColumn()
-            _elem19.read(iprot)
-            self.columns.append(_elem19)
+          (_etype24, _size21) = iprot.readListBegin()
+          for _i25 in xrange(_size21):
+            _elem26 = ColumnOrSuperColumn()
+            _elem26.read(iprot)
+            self.columns.append(_elem26)
           iprot.readListEnd()
         else:
           iprot.skip(ftype)
@@ -1169,12 +1494,94 @@ class KeySlice:
     if self.columns != None:
       oprot.writeFieldBegin('columns', TType.LIST, 2)
       oprot.writeListBegin(TType.STRUCT, len(self.columns))
-      for iter20 in self.columns:
-        iter20.write(oprot)
+      for iter27 in self.columns:
+        iter27.write(oprot)
       oprot.writeListEnd()
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      if self.key is None:
+        raise TProtocol.TProtocolException(message='Required field key is unset!')
+      if self.columns is None:
+        raise TProtocol.TProtocolException(message='Required field columns is unset!')
+      return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
+
+class KeyCount:
+  """
+  Attributes:
+   - key
+   - count
+  """
+
+  thrift_spec = (
+    None, # 0
+    (1, TType.STRING, 'key', None, None, ), # 1
+    (2, TType.I32, 'count', None, None, ), # 2
+  )
+
+  def __init__(self, key=None, count=None,):
+    self.key = key
+    self.count = count
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      if fid == 1:
+        if ftype == TType.STRING:
+          self.key = iprot.readString();
+        else:
+          iprot.skip(ftype)
+      elif fid == 2:
+        if ftype == TType.I32:
+          self.count = iprot.readI32();
+        else:
+          iprot.skip(ftype)
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('KeyCount')
+    if self.key != None:
+      oprot.writeFieldBegin('key', TType.STRING, 1)
+      oprot.writeString(self.key)
+      oprot.writeFieldEnd()
+    if self.count != None:
+      oprot.writeFieldBegin('count', TType.I32, 2)
+      oprot.writeI32(self.count)
+      oprot.writeFieldEnd()
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+    def validate(self):
+      if self.key is None:
+        raise TProtocol.TProtocolException(message='Required field key is unset!')
+      if self.count is None:
+        raise TProtocol.TProtocolException(message='Required field count is unset!')
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -1256,6 +1663,11 @@ class Deletion:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      if self.timestamp is None:
+        raise TProtocol.TProtocolException(message='Required field timestamp is unset!')
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -1273,7 +1685,7 @@ class Mutation:
   A Mutation is either an insert, represented by filling column_or_supercolumn, or a deletion, represented by filling the deletion attribute.
   @param column_or_supercolumn. An insert to a column or supercolumn
   @param deletion. A deletion of a column or supercolumn
-  
+
   Attributes:
    - column_or_supercolumn
    - deletion
@@ -1330,6 +1742,9 @@ class Mutation:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -1384,10 +1799,10 @@ class TokenRange:
       elif fid == 3:
         if ftype == TType.LIST:
           self.endpoints = []
-          (_etype24, _size21) = iprot.readListBegin()
-          for _i25 in xrange(_size21):
-            _elem26 = iprot.readString();
-            self.endpoints.append(_elem26)
+          (_etype31, _size28) = iprot.readListBegin()
+          for _i32 in xrange(_size28):
+            _elem33 = iprot.readString();
+            self.endpoints.append(_elem33)
           iprot.readListEnd()
         else:
           iprot.skip(ftype)
@@ -1412,12 +1827,21 @@ class TokenRange:
     if self.endpoints != None:
       oprot.writeFieldBegin('endpoints', TType.LIST, 3)
       oprot.writeListBegin(TType.STRING, len(self.endpoints))
-      for iter27 in self.endpoints:
-        oprot.writeString(iter27)
+      for iter34 in self.endpoints:
+        oprot.writeString(iter34)
       oprot.writeListEnd()
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      if self.start_token is None:
+        raise TProtocol.TProtocolException(message='Required field start_token is unset!')
+      if self.end_token is None:
+        raise TProtocol.TProtocolException(message='Required field end_token is unset!')
+      if self.endpoints is None:
+        raise TProtocol.TProtocolException(message='Required field endpoints is unset!')
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -1432,8 +1856,8 @@ class TokenRange:
 
 class AuthenticationRequest:
   """
-  Authentication requests can contain any data, dependent on the AuthenticationBackend used
-  
+  Authentication requests can contain any data, dependent on the IAuthenticator used
+
   Attributes:
    - credentials
   """
@@ -1458,11 +1882,11 @@ class AuthenticationRequest:
       if fid == 1:
         if ftype == TType.MAP:
           self.credentials = {}
-          (_ktype29, _vtype30, _size28 ) = iprot.readMapBegin() 
-          for _i32 in xrange(_size28):
-            _key33 = iprot.readString();
-            _val34 = iprot.readString();
-            self.credentials[_key33] = _val34
+          (_ktype36, _vtype37, _size35 ) = iprot.readMapBegin() 
+          for _i39 in xrange(_size35):
+            _key40 = iprot.readString();
+            _val41 = iprot.readString();
+            self.credentials[_key40] = _val41
           iprot.readMapEnd()
         else:
           iprot.skip(ftype)
@@ -1479,13 +1903,18 @@ class AuthenticationRequest:
     if self.credentials != None:
       oprot.writeFieldBegin('credentials', TType.MAP, 1)
       oprot.writeMapBegin(TType.STRING, TType.STRING, len(self.credentials))
-      for kiter35,viter36 in self.credentials.items():
-        oprot.writeString(kiter35)
-        oprot.writeString(viter36)
+      for kiter42,viter43 in self.credentials.items():
+        oprot.writeString(kiter42)
+        oprot.writeString(viter43)
       oprot.writeMapEnd()
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      if self.credentials is None:
+        raise TProtocol.TProtocolException(message='Required field credentials is unset!')
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -1498,3 +1927,538 @@ class AuthenticationRequest:
   def __ne__(self, other):
     return not (self == other)
 
+class ColumnDef:
+  """
+  Attributes:
+   - name
+   - validation_class
+   - index_type
+   - index_name
+  """
+
+  thrift_spec = (
+    None, # 0
+    (1, TType.STRING, 'name', None, None, ), # 1
+    (2, TType.STRING, 'validation_class', None, None, ), # 2
+    (3, TType.I32, 'index_type', None, None, ), # 3
+    (4, TType.STRING, 'index_name', None, None, ), # 4
+  )
+
+  def __init__(self, name=None, validation_class=None, index_type=None, index_name=None,):
+    self.name = name
+    self.validation_class = validation_class
+    self.index_type = index_type
+    self.index_name = index_name
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      if fid == 1:
+        if ftype == TType.STRING:
+          self.name = iprot.readString();
+        else:
+          iprot.skip(ftype)
+      elif fid == 2:
+        if ftype == TType.STRING:
+          self.validation_class = iprot.readString();
+        else:
+          iprot.skip(ftype)
+      elif fid == 3:
+        if ftype == TType.I32:
+          self.index_type = iprot.readI32();
+        else:
+          iprot.skip(ftype)
+      elif fid == 4:
+        if ftype == TType.STRING:
+          self.index_name = iprot.readString();
+        else:
+          iprot.skip(ftype)
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('ColumnDef')
+    if self.name != None:
+      oprot.writeFieldBegin('name', TType.STRING, 1)
+      oprot.writeString(self.name)
+      oprot.writeFieldEnd()
+    if self.validation_class != None:
+      oprot.writeFieldBegin('validation_class', TType.STRING, 2)
+      oprot.writeString(self.validation_class)
+      oprot.writeFieldEnd()
+    if self.index_type != None:
+      oprot.writeFieldBegin('index_type', TType.I32, 3)
+      oprot.writeI32(self.index_type)
+      oprot.writeFieldEnd()
+    if self.index_name != None:
+      oprot.writeFieldBegin('index_name', TType.STRING, 4)
+      oprot.writeString(self.index_name)
+      oprot.writeFieldEnd()
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+    def validate(self):
+      if self.name is None:
+        raise TProtocol.TProtocolException(message='Required field name is unset!')
+      if self.validation_class is None:
+        raise TProtocol.TProtocolException(message='Required field validation_class is unset!')
+      return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
+
+class CfDef:
+  """
+  Attributes:
+   - keyspace
+   - name
+   - column_type
+   - comparator_type
+   - subcomparator_type
+   - comment
+   - row_cache_size
+   - key_cache_size
+   - read_repair_chance
+   - column_metadata
+   - gc_grace_seconds
+   - default_validation_class
+   - id
+   - min_compaction_threshold
+   - max_compaction_threshold
+   - row_cache_save_period_in_seconds
+   - key_cache_save_period_in_seconds
+   - memtable_flush_after_mins
+   - memtable_throughput_in_mb
+   - memtable_operations_in_millions
+  """
+
+  thrift_spec = (
+    None, # 0
+    (1, TType.STRING, 'keyspace', None, None, ), # 1
+    (2, TType.STRING, 'name', None, None, ), # 2
+    (3, TType.STRING, 'column_type', None, "Standard", ), # 3
+    None, # 4
+    (5, TType.STRING, 'comparator_type', None, "BytesType", ), # 5
+    (6, TType.STRING, 'subcomparator_type', None, None, ), # 6
+    None, # 7
+    (8, TType.STRING, 'comment', None, None, ), # 8
+    (9, TType.DOUBLE, 'row_cache_size', None, 0, ), # 9
+    None, # 10
+    (11, TType.DOUBLE, 'key_cache_size', None, 200000, ), # 11
+    (12, TType.DOUBLE, 'read_repair_chance', None, 1, ), # 12
+    (13, TType.LIST, 'column_metadata', (TType.STRUCT,(ColumnDef, ColumnDef.thrift_spec)), None, ), # 13
+    (14, TType.I32, 'gc_grace_seconds', None, None, ), # 14
+    (15, TType.STRING, 'default_validation_class', None, None, ), # 15
+    (16, TType.I32, 'id', None, None, ), # 16
+    (17, TType.I32, 'min_compaction_threshold', None, None, ), # 17
+    (18, TType.I32, 'max_compaction_threshold', None, None, ), # 18
+    (19, TType.I32, 'row_cache_save_period_in_seconds', None, None, ), # 19
+    (20, TType.I32, 'key_cache_save_period_in_seconds', None, None, ), # 20
+    (21, TType.I32, 'memtable_flush_after_mins', None, None, ), # 21
+    (22, TType.I32, 'memtable_throughput_in_mb', None, None, ), # 22
+    (23, TType.DOUBLE, 'memtable_operations_in_millions', None, None, ), # 23
+  )
+
+  def __init__(self, keyspace=None, name=None, column_type=thrift_spec[3][4], comparator_type=thrift_spec[5][4], subcomparator_type=None, comment=None, row_cache_size=thrift_spec[9][4], key_cache_size=thrift_spec[11][4], read_repair_chance=thrift_spec[12][4], column_metadata=None, gc_grace_seconds=None, default_validation_class=None, id=None, min_compaction_threshold=None, max_compaction_threshold=None, row_cache_save_period_in_seconds=None, key_cache_save_period_in_seconds=None, memtable_flush_after_mins=None, memtable_throughput_in_mb=None, memtable_operations_in_millions=None,):
+    self.keyspace = keyspace
+    self.name = name
+    self.column_type = column_type
+    self.comparator_type = comparator_type
+    self.subcomparator_type = subcomparator_type
+    self.comment = comment
+    self.row_cache_size = row_cache_size
+    self.key_cache_size = key_cache_size
+    self.read_repair_chance = read_repair_chance
+    self.column_metadata = column_metadata
+    self.gc_grace_seconds = gc_grace_seconds
+    self.default_validation_class = default_validation_class
+    self.id = id
+    self.min_compaction_threshold = min_compaction_threshold
+    self.max_compaction_threshold = max_compaction_threshold
+    self.row_cache_save_period_in_seconds = row_cache_save_period_in_seconds
+    self.key_cache_save_period_in_seconds = key_cache_save_period_in_seconds
+    self.memtable_flush_after_mins = memtable_flush_after_mins
+    self.memtable_throughput_in_mb = memtable_throughput_in_mb
+    self.memtable_operations_in_millions = memtable_operations_in_millions
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      if fid == 1:
+        if ftype == TType.STRING:
+          self.keyspace = iprot.readString();
+        else:
+          iprot.skip(ftype)
+      elif fid == 2:
+        if ftype == TType.STRING:
+          self.name = iprot.readString();
+        else:
+          iprot.skip(ftype)
+      elif fid == 3:
+        if ftype == TType.STRING:
+          self.column_type = iprot.readString();
+        else:
+          iprot.skip(ftype)
+      elif fid == 5:
+        if ftype == TType.STRING:
+          self.comparator_type = iprot.readString();
+        else:
+          iprot.skip(ftype)
+      elif fid == 6:
+        if ftype == TType.STRING:
+          self.subcomparator_type = iprot.readString();
+        else:
+          iprot.skip(ftype)
+      elif fid == 8:
+        if ftype == TType.STRING:
+          self.comment = iprot.readString();
+        else:
+          iprot.skip(ftype)
+      elif fid == 9:
+        if ftype == TType.DOUBLE:
+          self.row_cache_size = iprot.readDouble();
+        else:
+          iprot.skip(ftype)
+      elif fid == 11:
+        if ftype == TType.DOUBLE:
+          self.key_cache_size = iprot.readDouble();
+        else:
+          iprot.skip(ftype)
+      elif fid == 12:
+        if ftype == TType.DOUBLE:
+          self.read_repair_chance = iprot.readDouble();
+        else:
+          iprot.skip(ftype)
+      elif fid == 13:
+        if ftype == TType.LIST:
+          self.column_metadata = []
+          (_etype47, _size44) = iprot.readListBegin()
+          for _i48 in xrange(_size44):
+            _elem49 = ColumnDef()
+            _elem49.read(iprot)
+            self.column_metadata.append(_elem49)
+          iprot.readListEnd()
+        else:
+          iprot.skip(ftype)
+      elif fid == 14:
+        if ftype == TType.I32:
+          self.gc_grace_seconds = iprot.readI32();
+        else:
+          iprot.skip(ftype)
+      elif fid == 15:
+        if ftype == TType.STRING:
+          self.default_validation_class = iprot.readString();
+        else:
+          iprot.skip(ftype)
+      elif fid == 16:
+        if ftype == TType.I32:
+          self.id = iprot.readI32();
+        else:
+          iprot.skip(ftype)
+      elif fid == 17:
+        if ftype == TType.I32:
+          self.min_compaction_threshold = iprot.readI32();
+        else:
+          iprot.skip(ftype)
+      elif fid == 18:
+        if ftype == TType.I32:
+          self.max_compaction_threshold = iprot.readI32();
+        else:
+          iprot.skip(ftype)
+      elif fid == 19:
+        if ftype == TType.I32:
+          self.row_cache_save_period_in_seconds = iprot.readI32();
+        else:
+          iprot.skip(ftype)
+      elif fid == 20:
+        if ftype == TType.I32:
+          self.key_cache_save_period_in_seconds = iprot.readI32();
+        else:
+          iprot.skip(ftype)
+      elif fid == 21:
+        if ftype == TType.I32:
+          self.memtable_flush_after_mins = iprot.readI32();
+        else:
+          iprot.skip(ftype)
+      elif fid == 22:
+        if ftype == TType.I32:
+          self.memtable_throughput_in_mb = iprot.readI32();
+        else:
+          iprot.skip(ftype)
+      elif fid == 23:
+        if ftype == TType.DOUBLE:
+          self.memtable_operations_in_millions = iprot.readDouble();
+        else:
+          iprot.skip(ftype)
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('CfDef')
+    if self.keyspace != None:
+      oprot.writeFieldBegin('keyspace', TType.STRING, 1)
+      oprot.writeString(self.keyspace)
+      oprot.writeFieldEnd()
+    if self.name != None:
+      oprot.writeFieldBegin('name', TType.STRING, 2)
+      oprot.writeString(self.name)
+      oprot.writeFieldEnd()
+    if self.column_type != None:
+      oprot.writeFieldBegin('column_type', TType.STRING, 3)
+      oprot.writeString(self.column_type)
+      oprot.writeFieldEnd()
+    if self.comparator_type != None:
+      oprot.writeFieldBegin('comparator_type', TType.STRING, 5)
+      oprot.writeString(self.comparator_type)
+      oprot.writeFieldEnd()
+    if self.subcomparator_type != None:
+      oprot.writeFieldBegin('subcomparator_type', TType.STRING, 6)
+      oprot.writeString(self.subcomparator_type)
+      oprot.writeFieldEnd()
+    if self.comment != None:
+      oprot.writeFieldBegin('comment', TType.STRING, 8)
+      oprot.writeString(self.comment)
+      oprot.writeFieldEnd()
+    if self.row_cache_size != None:
+      oprot.writeFieldBegin('row_cache_size', TType.DOUBLE, 9)
+      oprot.writeDouble(self.row_cache_size)
+      oprot.writeFieldEnd()
+    if self.key_cache_size != None:
+      oprot.writeFieldBegin('key_cache_size', TType.DOUBLE, 11)
+      oprot.writeDouble(self.key_cache_size)
+      oprot.writeFieldEnd()
+    if self.read_repair_chance != None:
+      oprot.writeFieldBegin('read_repair_chance', TType.DOUBLE, 12)
+      oprot.writeDouble(self.read_repair_chance)
+      oprot.writeFieldEnd()
+    if self.column_metadata != None:
+      oprot.writeFieldBegin('column_metadata', TType.LIST, 13)
+      oprot.writeListBegin(TType.STRUCT, len(self.column_metadata))
+      for iter50 in self.column_metadata:
+        iter50.write(oprot)
+      oprot.writeListEnd()
+      oprot.writeFieldEnd()
+    if self.gc_grace_seconds != None:
+      oprot.writeFieldBegin('gc_grace_seconds', TType.I32, 14)
+      oprot.writeI32(self.gc_grace_seconds)
+      oprot.writeFieldEnd()
+    if self.default_validation_class != None:
+      oprot.writeFieldBegin('default_validation_class', TType.STRING, 15)
+      oprot.writeString(self.default_validation_class)
+      oprot.writeFieldEnd()
+    if self.id != None:
+      oprot.writeFieldBegin('id', TType.I32, 16)
+      oprot.writeI32(self.id)
+      oprot.writeFieldEnd()
+    if self.min_compaction_threshold != None:
+      oprot.writeFieldBegin('min_compaction_threshold', TType.I32, 17)
+      oprot.writeI32(self.min_compaction_threshold)
+      oprot.writeFieldEnd()
+    if self.max_compaction_threshold != None:
+      oprot.writeFieldBegin('max_compaction_threshold', TType.I32, 18)
+      oprot.writeI32(self.max_compaction_threshold)
+      oprot.writeFieldEnd()
+    if self.row_cache_save_period_in_seconds != None:
+      oprot.writeFieldBegin('row_cache_save_period_in_seconds', TType.I32, 19)
+      oprot.writeI32(self.row_cache_save_period_in_seconds)
+      oprot.writeFieldEnd()
+    if self.key_cache_save_period_in_seconds != None:
+      oprot.writeFieldBegin('key_cache_save_period_in_seconds', TType.I32, 20)
+      oprot.writeI32(self.key_cache_save_period_in_seconds)
+      oprot.writeFieldEnd()
+    if self.memtable_flush_after_mins != None:
+      oprot.writeFieldBegin('memtable_flush_after_mins', TType.I32, 21)
+      oprot.writeI32(self.memtable_flush_after_mins)
+      oprot.writeFieldEnd()
+    if self.memtable_throughput_in_mb != None:
+      oprot.writeFieldBegin('memtable_throughput_in_mb', TType.I32, 22)
+      oprot.writeI32(self.memtable_throughput_in_mb)
+      oprot.writeFieldEnd()
+    if self.memtable_operations_in_millions != None:
+      oprot.writeFieldBegin('memtable_operations_in_millions', TType.DOUBLE, 23)
+      oprot.writeDouble(self.memtable_operations_in_millions)
+      oprot.writeFieldEnd()
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+    def validate(self):
+      if self.keyspace is None:
+        raise TProtocol.TProtocolException(message='Required field keyspace is unset!')
+      if self.name is None:
+        raise TProtocol.TProtocolException(message='Required field name is unset!')
+      return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
+
+class KsDef:
+  """
+  Attributes:
+   - name
+   - strategy_class
+   - strategy_options
+   - replication_factor
+   - cf_defs
+  """
+
+  thrift_spec = (
+    None, # 0
+    (1, TType.STRING, 'name', None, None, ), # 1
+    (2, TType.STRING, 'strategy_class', None, None, ), # 2
+    (3, TType.MAP, 'strategy_options', (TType.STRING,None,TType.STRING,None), None, ), # 3
+    (4, TType.I32, 'replication_factor', None, None, ), # 4
+    (5, TType.LIST, 'cf_defs', (TType.STRUCT,(CfDef, CfDef.thrift_spec)), None, ), # 5
+  )
+
+  def __init__(self, name=None, strategy_class=None, strategy_options=None, replication_factor=None, cf_defs=None,):
+    self.name = name
+    self.strategy_class = strategy_class
+    self.strategy_options = strategy_options
+    self.replication_factor = replication_factor
+    self.cf_defs = cf_defs
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      if fid == 1:
+        if ftype == TType.STRING:
+          self.name = iprot.readString();
+        else:
+          iprot.skip(ftype)
+      elif fid == 2:
+        if ftype == TType.STRING:
+          self.strategy_class = iprot.readString();
+        else:
+          iprot.skip(ftype)
+      elif fid == 3:
+        if ftype == TType.MAP:
+          self.strategy_options = {}
+          (_ktype52, _vtype53, _size51 ) = iprot.readMapBegin() 
+          for _i55 in xrange(_size51):
+            _key56 = iprot.readString();
+            _val57 = iprot.readString();
+            self.strategy_options[_key56] = _val57
+          iprot.readMapEnd()
+        else:
+          iprot.skip(ftype)
+      elif fid == 4:
+        if ftype == TType.I32:
+          self.replication_factor = iprot.readI32();
+        else:
+          iprot.skip(ftype)
+      elif fid == 5:
+        if ftype == TType.LIST:
+          self.cf_defs = []
+          (_etype61, _size58) = iprot.readListBegin()
+          for _i62 in xrange(_size58):
+            _elem63 = CfDef()
+            _elem63.read(iprot)
+            self.cf_defs.append(_elem63)
+          iprot.readListEnd()
+        else:
+          iprot.skip(ftype)
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('KsDef')
+    if self.name != None:
+      oprot.writeFieldBegin('name', TType.STRING, 1)
+      oprot.writeString(self.name)
+      oprot.writeFieldEnd()
+    if self.strategy_class != None:
+      oprot.writeFieldBegin('strategy_class', TType.STRING, 2)
+      oprot.writeString(self.strategy_class)
+      oprot.writeFieldEnd()
+    if self.strategy_options != None:
+      oprot.writeFieldBegin('strategy_options', TType.MAP, 3)
+      oprot.writeMapBegin(TType.STRING, TType.STRING, len(self.strategy_options))
+      for kiter64,viter65 in self.strategy_options.items():
+        oprot.writeString(kiter64)
+        oprot.writeString(viter65)
+      oprot.writeMapEnd()
+      oprot.writeFieldEnd()
+    if self.replication_factor != None:
+      oprot.writeFieldBegin('replication_factor', TType.I32, 4)
+      oprot.writeI32(self.replication_factor)
+      oprot.writeFieldEnd()
+    if self.cf_defs != None:
+      oprot.writeFieldBegin('cf_defs', TType.LIST, 5)
+      oprot.writeListBegin(TType.STRUCT, len(self.cf_defs))
+      for iter66 in self.cf_defs:
+        iter66.write(oprot)
+      oprot.writeListEnd()
+      oprot.writeFieldEnd()
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+    def validate(self):
+      if self.name is None:
+        raise TProtocol.TProtocolException(message='Required field name is unset!')
+      if self.strategy_class is None:
+        raise TProtocol.TProtocolException(message='Required field strategy_class is unset!')
+      if self.replication_factor is None:
+        raise TProtocol.TProtocolException(message='Required field replication_factor is unset!')
+      if self.cf_defs is None:
+        raise TProtocol.TProtocolException(message='Required field cf_defs is unset!')
+      return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)

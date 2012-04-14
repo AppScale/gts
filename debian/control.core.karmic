@@ -1,4 +1,4 @@
-Source: appscale
+uource: appscale
 Section: unknown
 Priority: optional
 Maintainer: AppScale Developer <appscale_developer@googlegroups.com>
@@ -11,9 +11,9 @@ Architecture: any
 Depends: appscale-tools,
 # App Server/AppScale Server/SOAP Server
  openssl,
- sun-java6-jdk,
+ openjdk-6-jdk,
  python2.6, python2.5, python-yaml,
- python-m2crypto, python-soappy, python-setuptools,
+ python-m2crypto, python-soappy,
  python-imaging,
  python,
  python-django,
@@ -21,9 +21,8 @@ Depends: appscale-tools,
  ejabberd, python-xmpp,
 # App Controller
  ssh,
- ruby1.8, ruby, libzlib-ruby, libzip-ruby1.8,
+ ruby1.8, ruby, rdoc1.8, libzlib-ruby, libzip-ruby1.8,
  libopenssl-ruby, libopenssl-ruby1.8, libruby1.8,
- rubygems1.8, rubygems,
  iptables, cron,
  curl, lsof, tcpdump,
  memcached, python-memcache,

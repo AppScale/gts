@@ -1,4 +1,3 @@
-#!/bin/bash
 
 cd `dirname $0`/..
 if [ -z "$APPSCALE_HOME_RUNTIME" ]; then
@@ -18,47 +17,58 @@ case "$1" in
     core)
 	installappscaleprofile
 	installgems
+        installsetuptools
 	installhaproxy
 	installnginx
 	installappserverjava
 	installmonitoring
 	installthrift_fromsource
-        installtornado
+        installtornado_fromsource
 	installhadoop
 #	if [ "$DIST" = "jaunty" -o "$DIST" = "karmic" ]; then
 	installzookeeper
 #	fi
 	installneptune
 	installservice
+        patchxmpp
 	;;
     cassandra)
 	installcassandra
+	postinstallcassandra
 	;;
     voldemort)
 	installprotobuf
 	installvoldemort
+        postinstallvoldemort
 	;;
     hbase)
 	installhbase
+	postinstallhbase
 	;;
     hypertable)
 	installhypertable
-	installhypertablemonitoring
+	postinstallhypertable
+	#installhypertablemonitoring
 	;;
     mysql)
 	installmysql
+	postinstallmysql
 	;;
     mongodb)
 	installmongodb
+	postinstallmongodb
 	;;
     memcachedb)
 	installmemcachedb
+	postinstallmemcachedb
+	;;
+    redisdb)
+	installredisdb
+        postinstallredisdb
 	;;
     timesten)
 	installtimesten
-	;;
-    scalaris)
-	installscalaris
+	postinstalltimesten
 	;;
     simpledb)
 	;;
@@ -79,12 +89,17 @@ case "$1" in
 	installprotobuf_fromsource
 	postinstallprotobuf
 	;;
+    rabbit-mq)
+        installrabbitmq
+        postinstallrabbitmq
+        ;; 
     all)
 	# scratch install of appscale including post script.
 	installappscaleprofile
 	. /etc/profile.d/appscale.sh
 	installgems
 	postinstallgems
+        installsetuptools
 	installhaproxy
 	postinstallhaproxy
 	installnginx
@@ -95,7 +110,7 @@ case "$1" in
 	postinstallmonitoring
 	installthrift_fromsource
 	postinstallthrift_fromsource
-        installtornado
+        installtornado_fromsource
         postinstalltornado
 	installprotobuf
 	postinstallprotobuf
@@ -105,7 +120,8 @@ case "$1" in
 	    installzookeeper
 #	fi
 	postinstallzookeeper
-	installcassandra
+
+        installcassandra
 	postinstallcassandra
 	installvoldemort
 	postinstallvoldemort
@@ -113,24 +129,28 @@ case "$1" in
 	postinstallhbase
 	installhypertable
 	postinstallhypertable
-	installhypertablemonitoring
-	postinstallhypertablemonitoring
+	#installhypertablemonitoring
+	#postinstallhypertablemonitoring
 	installmysql
 	postinstallmysql
 	installmongodb
 	postinstallmongodb
+        installredisdb
+        postinstallredisdb
 	installmemcachedb
 	postinstallmemcachedb
 	installtimesten
 	postinstalltimesten
-	installscalaris
-	postinstallscalaris
 	installneptune
 	postinstallneptune
+        installrabbitmq
+        postinstallrabbitmq
 	installservice
 	postinstallservice
 	updatealternatives
+        patchxmpp
 	sethosts
-	keygen
+        setulimits
+#	keygen
 	;;
 esac

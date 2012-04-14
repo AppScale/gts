@@ -3,7 +3,7 @@ require 'djinn_job_data'
 require 'helperfunctions'
 require "#{APPSCALE_HOME}/AppDB/hadoop/hadoop_helper"
 
-HT_VERSION="0.9.4.3"
+HT_VERSION="0.9.5.5"
 
 def get_uaserver_ip()
   Djinn.get_nearest_db_ip
@@ -66,7 +66,7 @@ def start_db_master()
   # Wait for HDFS
 #  wait_on_hadoop
 
-  hadoop_loc = "#{APPSCALE_HOME}/AppDB/hadoop-0.20.2"
+  hadoop_loc = "#{APPSCALE_HOME}/AppDB/hadoop-0.20.2-cdh3u3"
 
   Djinn.log_debug(`#{hadoop_loc}/bin/hadoop dfs -mkdir /hypertable`)
   Djinn.log_debug(`#{hadoop_loc}/bin/hadoop dfs -chmod 777 /hypertable`)
@@ -81,14 +81,14 @@ def start_db_master()
   #Djinn.log_debug(`#{hypertable_loc}/bin/start-thriftbroker.sh --config=#{config_file}`)
 
   HelperFunctions.sleep_until_port_is_open(Djinn.get_db_master_ip, 38080)
-  Djinn.log_debug(`cd #{hypertable_loc}/bin; sh start-monitoring.sh`)
+  #Djinn.log_debug(`cd #{hypertable_loc}/bin; sh start-monitoring.sh`)
 end
 
 def stop_db_master()
   Djinn.log_debug("Removing temp files for Hypertable on master box, no formal shutdown process yet")
   # need commands to stop hypertable
   hypertable_loc = "/opt/hypertable/#{HT_VERSION}"
-  Djinn.log_debug(`cd #{hypertable_loc}/bin; sh stop-monitoring.sh`)
+  #Djinn.log_debug(`cd #{hypertable_loc}/bin; sh stop-monitoring.sh`)
   Djinn.log_debug(`#{hypertable_loc}/bin/stop-servers.sh`)
   stop_hadoop_master
 #  Djinn.log_debug(`rm -rf /tmp/h*`)

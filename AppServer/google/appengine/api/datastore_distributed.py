@@ -345,7 +345,6 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     return delete_response
 
   def _Dynamic_RunQuery(self, query, query_result):
-    logging.info("RUN QUERY")
     if query.has_transaction():
       if not query.has_ancestor():
         raise apiproxy_errors.ApplicationError(
@@ -354,13 +353,11 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     (filters, orders) = datastore_index.Normalize(query.filter_list(),
                                                   query.order_list())
     
-    datastore_stub_util.ValidateQuery(query, filters, orders,
-        _MAX_QUERY_COMPONENTS)
     datastore_stub_util.FillUsersInQuery(filters)
 
 
     query_response = datastore_pb.QueryResult()
-    #query.set_app(app_id)
+    query.set_app(self.__app_id)
     self._RemoteSend(query, query_response, "RunQuery")
     results = query_response.result_list()
     results = [datastore.Entity._FromPb(r) for r in results]
@@ -486,6 +483,8 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     for result in results:
       datastore_stub_util.PrepareSpecialPropertiesForLoad(result)
 
+    datastore_stub_util.ValidateQuery(query, filters, orders,
+          _MAX_QUERY_COMPONENTS)
 
     cursor = datastore_stub_util.ListCursor(query, results,
                                             order_compare_entities_pb)
@@ -523,7 +522,9 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     count = _BATCH_SIZE
     if next_request.has_count():
       count = next_request.count()
-    cursor.PopulateQueryResult(query_result, count)
+    cursor.PopulateQueryResult(query_result, count,
+                               next_request.offset(),
+                               next_request.compile())
 
   def _Dynamic_Count(self, query, integer64proto):
     query_result = datastore_pb.QueryResult()
@@ -532,7 +533,9 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     integer64proto.set_value(count)
 
   def _Dynamic_BeginTransaction(self, request, transaction):
+    request.set_app(self.__app_id)
     self._RemoteSend(request, transaction, "BeginTransaction")
+    self.__tx_actions = []
     return transaction
 
   def _Dynamic_AddActions(self, request, _):
@@ -542,28 +545,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       request: A taskqueue_service_pb.TaskQueueBulkAddRequest containing the
           tasks that should be created when the transaction is comitted.
     """
-    if request.add_request_size() < 1:
-      raise apiproxy_errors.ApplicationError(
-          datastore_pb.Error.BAD_REQUEST,
-          'Bad transactional task request')
-
-    task = request.add_request_list()[0]
-    if not task.has_transaction() or not task.transaction().has_handle():
-      raise apiproxy_errors.ApplicationError(
-          datastore_pb.Error.BAD_REQUEST,
-          'Transactional task does not have a transaction handler')
-
-    handle = task.transaction().handle()
-
-    self.__tx_lock.acquire()
-    action_set = set()
-    try:
-      action_set = self.__tx_actions_dict[handle]
-    except KeyError, e:
-      self.__tx_actions_dict[handle] = set()
-    self.__tx_lock.release()
-
-    if ((len(action_set) + request.add_request_size()) >
+    if ((len(self.__tx_actions) + request.add_request_size()) >
         _MAX_ACTIONS_PER_TXN):
       raise apiproxy_errors.ApplicationError(
           datastore_pb.Error.BAD_REQUEST,
@@ -575,11 +557,9 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       clone.CopyFrom(add_request)
       clone.clear_transaction()
       new_actions.append(clone)
-    
-    self.__tx_lock.acquire()
-    action_set.extend(new_actions)
-    self.__tx_actions_dict[handle] = action_set
-    self.__tx_lock.release()
+
+    self.__tx_actions.extend(new_actions)
+
 
   def _Dynamic_Commit(self, transaction, transaction_response):
     transaction.set_app(self.__app_id)
@@ -587,36 +567,26 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     self._RemoteSend(transaction, transaction_response, "Commit")
 
     handle = transaction.handle()
-    self.__tx_lock.acquire()
+    
     try:
-      action_set = self.__tx_actions_dict[handle].copy()
-    except:
-      action_set = set()
+      for action in self.__tx_actions:
+        try:
+          apiproxy_stub_map.MakeSyncCall(
+              'taskqueue', 'Add', action, api_base_pb.VoidProto())
+        except apiproxy_errors.ApplicationError, e:
+          logging.warning('Transactional task %s has been dropped, %s',
+                          action, e)
+          pass
 
-    self.__tx_lock.release()
-    for action in action_set:
-      #enqueue it
-      try:
-        apiproxy_stub_map.MakeSyncCall(
-           'taskqueue', 'Add', action, api_base_pb.VoidProto())
-      except apiproxy_errors.ApplicationError, e:
-        logging.warning('Transactional task %s has been dropped, %s',
-                       action, e)
-        pass
-    self.__tx_lock.acquire()
-    try:
-      del self.__tx_actions_dict[handle]
-    except:
-      pass
-    self.__tx_lock.release()
-
-    return transaction_response
+    finally:
+      self.__tx_actions = []
    
   def _Dynamic_Rollback(self, transaction, transaction_response):
     transaction.set_app(self.__app_id)
  
+    self.__tx_actions = []
     self._RemoteSend(transaction, transaction_response, "Rollback")
-    
+ 
     return transaction_response
 
   def _Dynamic_GetSchema(self, req, schema):
@@ -715,12 +685,12 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     #string_pb = api_base_pb.StringProto()
     #string_pb.set_value(app_str)
     self._RemoteSend(app_str, composite_indices, "GetIndices")
-    return id_response
+    return 
 
   def _Dynamic_UpdateIndex(self, index, void):
     self.__ValidateAppId(index.app_id())
     self._RemoteSend(index, void, "UpdateIndex")
-    return id_response
+    return 
     
   def _Dynamic_DeleteIndex(self, index, void):
     self.__ValidateAppId(index.app_id())

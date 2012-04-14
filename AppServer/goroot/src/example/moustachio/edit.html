@@ -1,0 +1,45 @@
+<html>
+<head>
+	<title>Moustachio</title>
+	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.5/jquery.min.js"></script>
+	<style>
+	#size, #droop {
+		width: 300px;
+		margin: 10px 10px;
+	}
+	</style>
+	<script>
+	$(document).ready(function() {
+		var id = "{{{@}}}";
+		var $pic = $("#pic");
+		var $url = $("#url");
+		var $share = $("#share");
+		var x = 0;
+		var y = 0;
+		function update() {
+			var query = "id="+id+"&x="+x+"&y="+y+
+				"&s="+$("#size").val()+
+				"&d="+$("#droop").val();
+			$pic.attr("src", "/img?"+query);
+			$url.text("/img?"+query);
+			$share.attr("href", "/share?"+query);
+		}
+		$pic.click(function(e) {
+			x = e.pageX - this.offsetLeft;
+			y = e.pageY - this.offsetTop;
+			update();
+		});
+		$("#size, #droop").bind("mouseup", update);
+		update();
+	})
+	</script>
+</head>
+<body>
+	<input id="size" type="range" min="-9" max="10" step="1" value="0">
+	<input id="droop" type="range" min="-100" max="100" step="1" value="0">
+	<p>Click the image to place the moustache.</p>
+	<p>Image: <code id="url"></code></p>
+	<p><a id="share">Share this image</a></p>
+	<img id="pic">
+</body>
+</html>

@@ -31,7 +31,6 @@ Class:
 
 import os
 import time
-
 from google.appengine.api import apiproxy_stub
 from google.appengine.api import datastore
 from google.appengine.api import datastore_errors
@@ -224,7 +223,7 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
     """
     session = self._CreateSession(request.success_path(),
                                   users.get_current_user())
-    response.set_url('http://%s:%s/%s%s/%s' % (self._GetEnviron('SERVER_NAME'),
+    response.set_url('http://%s:%s/%s%s/%s' % (self._GetEnviron('NGINX_HOST'),
                                             BLOB_PORT,
                                             self.__uploader_path,
                                             self.__storage._app_id,
@@ -245,7 +244,7 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
                                           str(blob_key),
                                           namespace='')
 
-      datastore.Delete(key)
+      #datastore.Delete(key)
       self.__storage.DeleteBlob(blob_key)
 
   def _Dynamic_FetchData(self, request, response):
@@ -281,22 +280,21 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
     if fetch_size > blobstore.MAX_BLOB_FETCH_SIZE:
       raise apiproxy_errors.ApplicationError(
           blobstore_service_pb.BlobstoreServiceError.BLOB_FETCH_SIZE_TOO_LARGE)
-
     blob_key = request.blob_key()
     #blob_info_key = datastore.Key.from_path(blobstore.BLOB_INFO_KIND,
     #                                        blob_key,
     #                                        namespace='')
+    # Get the block we will start from
     block_count = int(start_index/blobstore.MAX_BLOB_FETCH_SIZE)
+    # Get the block's bytes we'll copy
     block_modulo = int(start_index%blobstore.MAX_BLOB_FETCH_SIZE)
-
+    # This is the last block we'll look at for this request
     block_count_end = int(end_index/blobstore.MAX_BLOB_FETCH_SIZE)
-    #block_modulo_end = int(end_index%blobstore.MAX_BLOB_FETCH_SIZE)
 
     block_key = str(blob_key) + "__" + str(block_count)
     block_key = datastore.Key.from_path("__BlobChunk__",
                                         block_key,
                                         namespace='')
-
     if self.__block_key_cache != str(block_key):
       try:
         block = datastore.Get(block_key)
@@ -319,7 +317,7 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
         data = self.__block_cache[block_modulo:]
         response.set_data(data)
         return
-
+    
     data = self.__block_cache[block_modulo:]
     data_size = len(data)
 
@@ -331,8 +329,9 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
     try:
       block = datastore.Get(block_key)
     except datastore_errors.EntityNotFoundError:
-      raise apiproxy_errors.ApplicationError(
-         blobstore_service_pb.BlobstoreServiceError.BLOB_NOT_FOUND)
+      data = self.__block_cache[block_modulo:]
+      response.set_data(data)
+      return
 
     self.__block_cache = block["block"]
     self.__block_key_cache = str(block_key)

@@ -16,8 +16,6 @@
 #
 
 
-
-
 """Contains routines for printing protocol messages in text format."""
 
 
@@ -32,10 +30,12 @@ __all__ = [ 'MessageToString', 'PrintMessage', 'PrintField',
             'PrintFieldValue', 'Merge' ]
 
 
-
-
-_INFINITY = 1e10000
-_NAN = _INFINITY * 0
+_INTEGER_CHECKERS = (type_checkers.Uint32ValueChecker(),
+                     type_checkers.Int32ValueChecker(),
+                     type_checkers.Uint64ValueChecker(),
+                     type_checkers.Int64ValueChecker())
+_FLOAT_INFINITY = re.compile('-?inf(?:inity)?f?', re.IGNORECASE)
+_FLOAT_NAN = re.compile('nanf?', re.IGNORECASE)
 
 
 class ParseError(Exception):
@@ -211,7 +211,7 @@ def _MergeField(tokenizer, message):
         sub_message = message.Extensions[field]
       else:
         sub_message = getattr(message, field.name)
-        sub_message.SetInParent()
+      sub_message.SetInParent()
 
     while not tokenizer.TryConsume(end_token):
       if tokenizer.AtEnd():
@@ -260,24 +260,7 @@ def _MergeScalarField(tokenizer, message, field):
   elif field.type == descriptor.FieldDescriptor.TYPE_BYTES:
     value = tokenizer.ConsumeByteString()
   elif field.type == descriptor.FieldDescriptor.TYPE_ENUM:
-
-
-    enum_descriptor = field.enum_type
-    if tokenizer.LookingAtInteger():
-      number = tokenizer.ConsumeInt32()
-      enum_value = enum_descriptor.values_by_number.get(number, None)
-      if enum_value is None:
-        raise tokenizer.ParseErrorPreviousToken(
-            'Enum type "%s" has no value with number %d.' % (
-                enum_descriptor.full_name, number))
-    else:
-      identifier = tokenizer.ConsumeIdentifier()
-      enum_value = enum_descriptor.values_by_name.get(identifier, None)
-      if enum_value is None:
-        raise tokenizer.ParseErrorPreviousToken(
-            'Enum type "%s" has no value named %s.' % (
-                enum_descriptor.full_name, identifier))
-    value = enum_value.number
+    value = tokenizer.ConsumeEnum(field)
   else:
     raise RuntimeError('Unknown field type %d' % field.type)
 
@@ -309,12 +292,6 @@ class _Tokenizer(object):
       '\"([^\"\n\\\\]|\\\\.)*(\"|\\\\?$)|'
       '\'([^\'\n\\\\]|\\\\.)*(\'|\\\\?$)')
   _IDENTIFIER = re.compile('\w+')
-  _INTEGER_CHECKERS = [type_checkers.Uint32ValueChecker(),
-                       type_checkers.Int32ValueChecker(),
-                       type_checkers.Uint64ValueChecker(),
-                       type_checkers.Int64ValueChecker()]
-  _FLOAT_INFINITY = re.compile('-?inf(inity)?f?', re.IGNORECASE)
-  _FLOAT_NAN = re.compile("nanf?", re.IGNORECASE)
 
   def __init__(self, text_message):
     self._text_message = text_message
@@ -383,17 +360,6 @@ class _Tokenizer(object):
     if not self.TryConsume(token):
       raise self._ParseError('Expected "%s".' % token)
 
-  def LookingAtInteger(self):
-    """Checks if the current token is an integer.
-
-    Returns:
-      True iff the current token is an integer.
-    """
-    if not self.token:
-      return False
-    c = self.token[0]
-    return (c >= '0' and c <= '9') or c == '-' or c == '+'
-
   def ConsumeIdentifier(self):
     """Consumes protocol message field identifier.
 
@@ -419,9 +385,9 @@ class _Tokenizer(object):
       ParseError: If a signed 32bit integer couldn't be consumed.
     """
     try:
-      result = self._ParseInteger(self.token, is_signed=True, is_long=False)
+      result = ParseInteger(self.token, is_signed=True, is_long=False)
     except ValueError, e:
-      raise self._IntegerParseError(e)
+      raise self._ParseError(str(e))
     self.NextToken()
     return result
 
@@ -435,9 +401,9 @@ class _Tokenizer(object):
       ParseError: If an unsigned 32bit integer couldn't be consumed.
     """
     try:
-      result = self._ParseInteger(self.token, is_signed=False, is_long=False)
+      result = ParseInteger(self.token, is_signed=False, is_long=False)
     except ValueError, e:
-      raise self._IntegerParseError(e)
+      raise self._ParseError(str(e))
     self.NextToken()
     return result
 
@@ -451,9 +417,9 @@ class _Tokenizer(object):
       ParseError: If a signed 64bit integer couldn't be consumed.
     """
     try:
-      result = self._ParseInteger(self.token, is_signed=True, is_long=True)
+      result = ParseInteger(self.token, is_signed=True, is_long=True)
     except ValueError, e:
-      raise self._IntegerParseError(e)
+      raise self._ParseError(str(e))
     self.NextToken()
     return result
 
@@ -467,9 +433,9 @@ class _Tokenizer(object):
       ParseError: If an unsigned 64bit integer couldn't be consumed.
     """
     try:
-      result = self._ParseInteger(self.token, is_signed=False, is_long=True)
+      result = ParseInteger(self.token, is_signed=False, is_long=True)
     except ValueError, e:
-      raise self._IntegerParseError(e)
+      raise self._ParseError(str(e))
     self.NextToken()
     return result
 
@@ -482,24 +448,10 @@ class _Tokenizer(object):
     Raises:
       ParseError: If a floating point number couldn't be consumed.
     """
-    text = self.token
-    if self._FLOAT_INFINITY.match(text):
-      self.NextToken()
-      if text.startswith('-'):
-        return -_INFINITY
-      return _INFINITY
-
-    if self._FLOAT_NAN.match(text):
-      self.NextToken()
-      return _NAN
-
-
-    text = text.rstrip('f')
-
     try:
-      result = float(text)
+      result = ParseFloat(self.token)
     except ValueError, e:
-      raise self._FloatParseError(e)
+      raise self._ParseError(str(e))
     self.NextToken()
     return result
 
@@ -512,14 +464,12 @@ class _Tokenizer(object):
     Raises:
       ParseError: If a boolean value couldn't be consumed.
     """
-    if self.token in ('true', 't', '1'):
-      self.NextToken()
-      return True
-    elif self.token in ('false', 'f', '0'):
-      self.NextToken()
-      return False
-    else:
-      raise self._ParseError('Expected "true" or "false".')
+    try:
+      result = ParseBool(self.token)
+    except ValueError, e:
+      raise self._ParseError(str(e))
+    self.NextToken()
+    return result
 
   def ConsumeString(self):
     """Consumes a string value.
@@ -571,36 +521,12 @@ class _Tokenizer(object):
     self.NextToken()
     return result
 
-  def _ParseInteger(self, text, is_signed=False, is_long=False):
-    """Parses an integer.
-
-    Args:
-      text: The text to parse.
-      is_signed: True if a signed integer must be parsed.
-      is_long: True if a long integer must be parsed.
-
-    Returns:
-      The integer value.
-
-    Raises:
-      ValueError: Thrown Iff the text is not a valid integer.
-    """
-    pos = 0
-    if text.startswith('-'):
-      pos += 1
-
-    base = 10
-    if text.startswith('0x', pos) or text.startswith('0X', pos):
-      base = 16
-    elif text.startswith('0', pos):
-      base = 8
-
-
-    result = int(text, base)
-
-
-    checker = self._INTEGER_CHECKERS[2 * int(is_long) + int(is_signed)]
-    checker.CheckValue(result)
+  def ConsumeEnum(self, field):
+    try:
+      result = ParseEnum(field, self.token)
+    except ValueError, e:
+      raise self._ParseError(str(e))
+    self.NextToken()
     return result
 
   def ParseErrorPreviousToken(self, message):
@@ -618,13 +544,7 @@ class _Tokenizer(object):
   def _ParseError(self, message):
     """Creates and *returns* a ParseError for the current token."""
     return ParseError('%d:%d : %s' % (
-        self._line + 1, self._column - len(self.token) + 1, message))
-
-  def _IntegerParseError(self, e):
-    return self._ParseError('Couldn\'t parse integer: ' + str(e))
-
-  def _FloatParseError(self, e):
-    return self._ParseError('Couldn\'t parse number: ' + str(e))
+        self._line + 1, self._column + 1, message))
 
   def _StringParseError(self, e):
     return self._ParseError('Couldn\'t parse string: ' + str(e))
@@ -681,3 +601,117 @@ def _CUnescape(text):
 
   result = _CUNESCAPE_HEX.sub(ReplaceHex, text)
   return result.decode('string_escape')
+
+
+def ParseInteger(text, is_signed=False, is_long=False):
+  """Parses an integer.
+
+  Args:
+    text: The text to parse.
+    is_signed: True if a signed integer must be parsed.
+    is_long: True if a long integer must be parsed.
+
+  Returns:
+    The integer value.
+
+  Raises:
+    ValueError: Thrown Iff the text is not a valid integer.
+  """
+
+  try:
+    result = int(text, 0)
+  except ValueError:
+    raise ValueError('Couldn\'t parse integer: %s' % text)
+
+
+  checker = _INTEGER_CHECKERS[2 * int(is_long) + int(is_signed)]
+  checker.CheckValue(result)
+  return result
+
+
+def ParseFloat(text):
+  """Parse a floating point number.
+
+  Args:
+    text: Text to parse.
+
+  Returns:
+    The number parsed.
+
+  Raises:
+    ValueError: If a floating point number couldn't be parsed.
+  """
+  try:
+
+    return float(text)
+  except ValueError:
+
+    if _FLOAT_INFINITY.match(text):
+      if text[0] == '-':
+        return float('-inf')
+      else:
+        return float('inf')
+    elif _FLOAT_NAN.match(text):
+      return float('nan')
+    else:
+
+      try:
+        return float(text.rstrip('f'))
+      except ValueError:
+        raise ValueError('Couldn\'t parse float: %s' % text)
+
+
+def ParseBool(text):
+  """Parse a boolean value.
+
+  Args:
+    text: Text to parse.
+
+  Returns:
+    Boolean values parsed
+
+  Raises:
+    ValueError: If text is not a valid boolean.
+  """
+  if text in ('true', 't', '1'):
+    return True
+  elif text in ('false', 'f', '0'):
+    return False
+  else:
+    raise ValueError('Expected "true" or "false".')
+
+
+def ParseEnum(field, value):
+  """Parse an enum value.
+
+  The value can be specified by a number (the enum value), or by
+  a string literal (the enum name).
+
+  Args:
+    field: Enum field descriptor.
+    value: String value.
+
+  Returns:
+    Enum value number.
+
+  Raises:
+    ValueError: If the enum value could not be parsed.
+  """
+  enum_descriptor = field.enum_type
+  try:
+    number = int(value, 0)
+  except ValueError:
+
+    enum_value = enum_descriptor.values_by_name.get(value, None)
+    if enum_value is None:
+      raise ValueError(
+          'Enum type "%s" has no value named %s.' % (
+              enum_descriptor.full_name, value))
+  else:
+
+    enum_value = enum_descriptor.values_by_number.get(number, None)
+    if enum_value is None:
+      raise ValueError(
+          'Enum type "%s" has no value with number %d.' % (
+              enum_descriptor.full_name, number))
+  return enum_value.number

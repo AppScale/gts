@@ -1,3 +1,9 @@
+appscale (1.5-0.REVNOkarmic) karmic; urgency=low
+
+  * Neptune support, Go support, various new API implementations
+
+ -- Chris Bunch <cgb@cs.ucsb.edu>  Wed, 15 Jun 2011 10:46:00 -0700
+
 appscale (1.4-0.REVNOkarmic) karmic; urgency=low
 
   * change deb package version to 1.4

@@ -1,0 +1,16 @@
+# NOTICE: See also /etc/brisk/cassandra/cassandra-env.sh
+
+# EXTRA_CLASSPATH provides the means to extend Cassandra's classpath with
+# additional libraries.  It is formatted as a colon-delimited list of
+# class directories and/or jar files.  For example, to enable the
+# JMX-to-web bridge install libmx4j-java and uncomment the following.
+#EXTRA_CLASSPATH="/usr/share/java/mx4j-tools.jar"
+
+# enable this start also start Hadoop's JobTracker and/or TaskTrackers on this
+# machine.  If left disabled, this will act as a regular Cassandra node.
+HADOOP_ENABLED=1
+
+# enable this to set the replication factor for CFS.  Note that this will only
+# have an effect the first time a cluster is started with HADOOP_ENABLED=1 and
+# after that will be a no-op. Defaults to 1.
+#CFS_REPLICATION_FACTOR=1

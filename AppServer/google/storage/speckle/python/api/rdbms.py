@@ -18,7 +18,7 @@
 
 
 
-"""Python DB-API (PEP 249) interface to Speckle.
+"""Python DB-API (PEP 249) interface to SQL Service.
 
 http://www.python.org/dev/peps/pep-0249/
 """
@@ -27,13 +27,27 @@ http://www.python.org/dev/peps/pep-0249/
 import collections
 import datetime
 import exceptions
+import os
 import time
 import types
 
+from google.storage.speckle.proto import client_error_code_pb2
 from google.storage.speckle.proto import client_pb2
 from google.storage.speckle.proto import jdbc_type
 from google.storage.speckle.proto import sql_pb2
+from google.storage.speckle.python import api
+from google.storage.speckle.python.api import converters
 
+
+
+
+__path__ = api.__path__
+
+
+
+
+
+OAUTH_CREDENTIALS_PATH = os.path.expanduser('~/.googlesql_oauth2.dat')
 
 
 
@@ -45,7 +59,12 @@ apilevel = '2.0'
 threadsafety = 1
 
 
-paramstyle = 'qmark'
+
+paramstyle = 'format'
+
+
+
+version_info = (1, 2, 2, 'final', 0)
 
 
 
@@ -83,11 +102,7 @@ class ProgrammingError(DatabaseError):
 class NotSupportedError(DatabaseError):
   pass
 
-
-class Blob(str):
-  """A blob type, appropriate for storing binary data of any length."""
-  pass
-
+Blob = converters.Blob
 
 
 
@@ -119,19 +134,61 @@ NUMBER = float
 DATETIME = datetime.datetime
 ROWID = int
 
+
+_PYTHON_TYPE_TO_JDBC_TYPE = {
+    types.IntType: jdbc_type.INTEGER,
+    types.LongType: jdbc_type.INTEGER,
+    types.FloatType: jdbc_type.DOUBLE,
+    types.BooleanType: jdbc_type.BOOLEAN,
+    types.StringType: jdbc_type.VARCHAR,
+    types.UnicodeType: jdbc_type.VARCHAR,
+    datetime.date: jdbc_type.DATE,
+    datetime.datetime: jdbc_type.TIMESTAMP,
+    datetime.time: jdbc_type.TIME,
+    converters.Blob: jdbc_type.BLOB,
+    }
+
+
+def _ConvertFormatToQmark(statement, args):
+  """Replaces '%s' with '?'.
+
+  The server actually supports '?' for bind parameters, but the
+  MySQLdb implementation of PEP 249 uses '%s'.  Most clients don't
+  bother checking the paramstyle member and just hardcode '%s' in
+  their statements.  This function converts a format-style statement
+  into a qmark-style statement.
+
+  Args:
+    statement: A string, a SQL statement.
+    args: A sequence of arguments matching the statement's bind variables,
+        if any.
+
+  Returns:
+    The converted string.
+  """
+  if args:
+    qmarks = tuple('?' * len(args))
+    return statement % qmarks
+  return statement
+
+
 class Cursor(object):
 
-  def __init__(self, conn):
+  def __init__(self, conn, use_dict_cursor=False):
     """Initializer.
 
     Args:
       conn: A Connection object.
+      use_dict_cursor: Optional boolean to convert each row of results into a
+          dictionary. Defaults to False.
     """
     self._conn = conn
     self._description = None
     self._rowcount = -1
     self.arraysize = 1
     self._open = True
+    self.lastrowid = None
+    self._use_dict_cursor = use_dict_cursor
 
   @property
   def description(self):
@@ -146,6 +203,27 @@ class Cursor(object):
     self._CheckOpen()
     self._open = False
 
+  def _GetJdbcTypeForArg(self, arg):
+    """Get the JDBC type which corresponds to the given Python object type."""
+    arg_jdbc_type = _PYTHON_TYPE_TO_JDBC_TYPE.get(type(arg))
+    if arg_jdbc_type:
+      return arg_jdbc_type
+
+
+    for python_t, jdbc_t in _PYTHON_TYPE_TO_JDBC_TYPE.items():
+      if isinstance(arg, python_t):
+        return jdbc_t
+
+
+
+    try:
+      return self._GetJdbcTypeForArg(arg[0])
+    except TypeError:
+
+
+      raise TypeError('unknown type')
+
+
   def _EncodeVariable(self, arg):
     """Converts a variable to a type and value.
 
@@ -158,36 +236,9 @@ class Cursor(object):
     Raises:
       TypeError: The argument is not a recognized type.
     """
-
-
-    if isinstance(arg, str):
-      return jdbc_type.VARCHAR, arg
-    elif isinstance(arg, unicode):
-      return jdbc_type.VARCHAR, arg.encode('utf-8')
-    elif isinstance(arg, datetime.datetime):
-      return jdbc_type.TIMESTAMP, ('%d-%02d-%02d %02d:%02d:%02d.%06d' %
-                                   (arg.year, arg.month, arg.day, arg.hour,
-                                    arg.minute, arg.second, arg.microsecond))
-    elif isinstance(arg, datetime.date):
-      return jdbc_type.DATE, arg.strftime('%Y-%m-%d')
-    elif isinstance(arg, bool):
-      return jdbc_type.BOOLEAN, arg and 'true' or 'false'
-    elif isinstance(arg, float):
-      return jdbc_type.DOUBLE, str(arg)
-    elif isinstance(arg, (int, long)):
-      return jdbc_type.INTEGER, str(arg)
-    elif isinstance(arg, datetime.time):
-      return jdbc_type.TIME, ('%02d:%02d:%02d.%06d' %
-                              (arg.hour, arg.minute, arg.second,
-                               arg.microsecond))
-    elif isinstance(arg, Blob):
-      return jdbc_type.BLOB, str(arg)
-    elif isinstance(arg, types.TupleType):
-      if len(arg) > 1:
-        raise TypeError('tuples of more than 1 element are not supported.')
-      return self._EncodeVariable(arg[0])
-    else:
-      raise TypeError('unknown type')
+    arg_jdbc_type = self._GetJdbcTypeForArg(arg)
+    value = self._conn.encoders[type(arg)](arg, self._conn.encoders)
+    return arg_jdbc_type, value
 
   def _DecodeVariable(self, datatype, value):
     """Converts a type and value to a variable.
@@ -204,28 +255,12 @@ class Cursor(object):
       ValueError: The value could not be parsed.
     """
 
-
-    if datatype in (jdbc_type.BIT, jdbc_type.SMALLINT, jdbc_type.INTEGER,
-                    jdbc_type.BIGINT, jdbc_type.TINYINT):
-      return int(value)
-    elif datatype in (jdbc_type.REAL, jdbc_type.DOUBLE, jdbc_type.NUMERIC,
-                      jdbc_type.DECIMAL, jdbc_type.FLOAT):
-      return float(value)
-    elif datatype in (jdbc_type.CHAR, jdbc_type.VARCHAR, jdbc_type.LONGVARCHAR):
-      return unicode(value, 'utf-8')
-    elif datatype == jdbc_type.DATE:
-      return datetime.date(*(time.strptime(value, '%Y-%m-%d')[:3]))
-    elif datatype == jdbc_type.TIME:
-      return datetime.time(*(time.strptime(value, '%H:%M:%S')[3:6]))
-    elif datatype == jdbc_type.TIMESTAMP:
-      return datetime.datetime(*(time.strptime(value, '%Y-%m-%d %H:%M:%S')[:6]))
-    elif datatype in (jdbc_type.BINARY, jdbc_type.VARBINARY,
-                      jdbc_type.LONGVARBINARY, jdbc_type.BLOB):
-      return Blob(value)
-    else:
+    converter = self._conn.converter.get(datatype)
+    if converter is None:
       raise InterfaceError('unknown JDBC type %d' % datatype)
+    return converter(value)
 
-  def execute(self, statement, args=()):
+  def execute(self, statement, args=None):
     """Prepares and executes a database operation (query or command).
 
     Args:
@@ -241,31 +276,43 @@ class Cursor(object):
     self._CheckOpen()
 
     request = sql_pb2.ExecRequest()
-    request.statement = statement
-    for i, arg in enumerate(args):
-      bv = request.bind_variable.add()
-      bv.position = i + 1
-      if arg is None:
-        bv.type = jdbc_type.NULL
-      else:
-        try:
-          bv.type, bv.value = self._EncodeVariable(arg)
-        except TypeError:
-          raise InterfaceError('unknown type %s for arg %d' % (type(arg), i))
+    request.options.include_generated_keys = True
+    if args is not None:
+
+      if not hasattr(args, '__iter__'):
+        args = [args]
+      for i, arg in enumerate(args):
+        bv = request.bind_variable.add()
+        bv.position = i + 1
+        if arg is None:
+          bv.type = jdbc_type.NULL
+        else:
+          try:
+            bv.type, bv.value = self._EncodeVariable(arg)
+          except TypeError:
+            raise InterfaceError('unknown type %s for arg %d' % (type(arg), i))
+    request.statement = _ConvertFormatToQmark(statement, args)
 
     response = self._conn.MakeRequest('Exec', request)
     result = response.result
     if result.HasField('sql_exception'):
-      raise DatabaseError(result.sql_exception.message)
+      raise DatabaseError('%d: %s' % (result.sql_exception.code,
+                                      result.sql_exception.message))
 
     self._rows = collections.deque()
-    if result.rows.tuples:
-      self._rowcount = len(result.rows.tuples)
+    if result.rows.columns:
       self._description = []
       for column in result.rows.columns:
         self._description.append(
-            (column.name, column.type, column.display_size, None,
+            (column.label, column.type, column.display_size, None,
              column.precision, column.scale, column.nullable))
+    else:
+      self._description = None
+
+    if result.rows.tuples:
+      assert self._description, 'Column descriptions do not exist.'
+      column_names = [col[0] for col in self._description]
+      self._rowcount = len(result.rows.tuples)
       for tuple_proto in result.rows.tuples:
         row = []
         nulls = set(tuple_proto.nulls)
@@ -277,10 +324,17 @@ class Cursor(object):
             row.append(self._DecodeVariable(column_descr[1],
                                             tuple_proto.values[value_index]))
             value_index += 1
+        if self._use_dict_cursor:
+          assert len(column_names) == len(row)
+          row = dict(zip(column_names, row))
+        else:
+          row = tuple(row)
         self._rows.append(row)
     else:
       self._rowcount = result.rows_updated
-      self._description = None
+
+    if result.generated_keys:
+      self.lastrowid = long(result.generated_keys[-1])
 
   def executemany(self, statement, seq_of_args):
     """Calls execute() for each value of seq_of_args.
@@ -340,7 +394,7 @@ class Cursor(object):
       result = []
       for _ in xrange(size):
         result.append(self._rows.popleft())
-      return result
+      return tuple(result)
 
   def fetchall(self):
     """Fetches all remaining rows of a query result.
@@ -358,7 +412,7 @@ class Cursor(object):
       raise InternalError('fetchall() called before execute')
     rows = self._rows
     self._rows = collections.deque()
-    return rows
+    return tuple(rows)
 
   def setinputsizes(self, unused_sizes):
     self._CheckOpen()
@@ -373,34 +427,87 @@ class Cursor(object):
     if not self._open:
       raise InternalError('cursor has been closed')
 
+  def __iter__(self):
+    return iter(self.fetchone, None)
+
 
 class Connection(object):
 
-  def __init__(self, dsn, instance, database=None, user='root', password=None):
-    """Creates a new Speckle connection.
+  def __init__(self, dsn, instance, database=None, user='root', password=None,
+               deadline_seconds=30.0, conv=None,
+               query_deadline_seconds=86400.0, retry_interval_seconds=30.0):
+    """Creates a new SQL Service connection.
 
     Args:
-      dsn: A string, the Speckle BNS path or host:port.
-        TODO(mshields): Support something else for App Engine.
-      instance: A string, the Speckle instance name, often a username.
+      dsn: A string, the SQL Service job path or host:port.
+      instance: A string, the SQL Service instance name, often a username.
       database: A string, semantics defined by the backend.
       user: A string, database user name.
       password: A string, database password.
-
+      deadline_seconds: A float, request deadline in seconds.
+      conv: A dict, maps types to a conversion function. See converters.py.
+      query_deadline_seconds: A float, query deadline in seconds.
+      retry_interval_seconds: A float, seconds to wait between each retry.
     Raises:
       OperationalError: Transport failure.
-      DatabaseError: Error from Speckle server.
+      DatabaseError: Error from SQL Service server.
     """
+
+
+
     self._dsn = dsn
     self._instance = instance
     self._database = database
     self._user = user
     self._password = password
+    self._deadline_seconds = deadline_seconds
     self._connection_id = None
+    self._idempotent_request_id = 0
+    if not conv:
+      conv = converters.conversions
+    self._query_deadline_seconds = query_deadline_seconds
+    self._retry_interval_seconds = retry_interval_seconds
+    self.converter = {}
+    self.encoders = {}
+    for key, value in conv.items():
+      if isinstance(key, int):
+        self.converter[key] = value
+      else:
+        self.encoders[key] = value
+
     self.OpenConnection()
 
   def OpenConnection(self):
-    raise InternalError('No transport defined. Try using rdbms_[transport]')
+    """Opens a connection to SQL Service."""
+    request = sql_pb2.OpenConnectionRequest()
+    request.client_type = client_pb2.CLIENT_TYPE_PYTHON_DBAPI
+    prop = request.property.add()
+    prop.key = 'autoCommit'
+    prop.value = 'false'
+    if self._user:
+      prop = request.property.add()
+      prop.key = 'user'
+      prop.value = self._user
+    if self._password:
+      prop = request.property.add()
+      prop.key = 'password'
+      prop.value = self._password
+    if self._database:
+      prop = request.property.add()
+      prop.key = 'database'
+      prop.value = self._database
+
+    self.SetupClient()
+    response = self.MakeRequest('OpenConnection', request)
+    self._connection_id = response.connection_id
+
+  def SetupClient(self):
+    """Setup a transport client to communicate with rdbms.
+
+    This is a template method to provide subclasses with a hook to perform any
+    necessary client initialization while opening a connection to rdbms.
+    """
+    pass
 
   def close(self):
     """Makes the connection and all its cursors unusable.
@@ -460,12 +567,200 @@ class Connection(object):
     request.op.auto_commit = value
     self.MakeRequest('ExecOp', request)
 
-  def cursor(self):
-    """Returns a cursor for the current connection."""
-    return Cursor(self)
+  def cursor(self, **kwargs):
+    """Returns a cursor for the current connection.
+
+    Args:
+      **kwargs: Optional keyword args to pass into cursor.
+
+    Returns:
+      A Cursor object.
+    """
+    return Cursor(self, **kwargs)
 
   def MakeRequest(self, stub_method, request):
+    """Makes an ApiProxy request, and possibly raises an appropriate exception.
+
+    Args:
+      stub_method: A string, the name of the method to call.
+      request: A protobuf; 'instance' and 'connection_id' will be set
+        when available.
+
+    Returns:
+      A protobuf.
+
+    Raises:
+      DatabaseError: Error from SQL Service server.
+    """
+    if self._instance:
+      request.instance = self._instance
+    if self._connection_id is not None:
+      request.connection_id = self._connection_id
+    if stub_method in ('Exec', 'ExecOp', 'GetMetadata'):
+      self._idempotent_request_id += 1
+      request.request_id = self._idempotent_request_id
+      response = self._MakeRetriableRequest(stub_method, request)
+    else:
+      response = self.MakeRequestImpl(stub_method, request)
+
+    if (hasattr(response, 'sql_exception') and
+        response.HasField('sql_exception')):
+      raise DatabaseError('%d: %s' % (response.sql_exception.code,
+                                      response.sql_exception.message))
+    return response
+
+  def _MakeRetriableRequest(self, stub_method, request):
+    """Makes a retriable request.
+
+    Args:
+      stub_method: A string, the name of the method to call.
+      request: A protobuf.
+
+    Returns:
+      A protobuf.
+
+    Raises:
+      DatabaseError: Error from SQL Service server.
+    """
+    absolute_deadline_seconds = time.clock() + self._query_deadline_seconds
+    response = self.MakeRequestImpl(stub_method, request)
+    if not response.HasField('sql_exception'):
+      return response
+    sql_exception = response.sql_exception
+    if (sql_exception.application_error_code !=
+        client_error_code_pb2.SqlServiceClientError.ERROR_TIMEOUT):
+      raise DatabaseError('%d: %s' % (sql_exception.code,
+                                      sql_exception.message))
+    if time.clock() >= absolute_deadline_seconds:
+      raise DatabaseError('%d: %s' % (sql_exception.code,
+                                      sql_exception.message))
+    return self._Retry(stub_method, request.request_id,
+                       absolute_deadline_seconds)
+
+  def _Retry(self, stub_method, request_id, absolute_deadline_seconds):
+    """Retries request with the given request id.
+
+    Continues to retry until either the deadline has expired or the response
+    has been received.
+
+    Args:
+      stub_method: A string, the name of the original method that triggered the
+                   retry.
+      request_id: An integer, the request id used in the original request
+      absolute_deadline_seconds: An integer, absolute deadline in seconds.
+
+    Returns:
+      A protobuf.
+
+    Raises:
+      DatabaseError: If the ExecOpResponse contains a SqlException that it not
+                     related to retry.
+      InternalError: If the ExceOpResponse is not valid.
+    """
+    request = sql_pb2.ExecOpRequest()
+    request.op.type = client_pb2.OpProto.RETRY
+    request.op.request_id = request_id
+    request.connection_id = self._connection_id
+    request.instance = self._instance
+    while True:
+      seconds_remaining = absolute_deadline_seconds - time.clock()
+      if seconds_remaining <= 0:
+        raise InternalError('Request [%d] timed out' % (request_id))
+      time.sleep(min(self._retry_interval_seconds, seconds_remaining))
+      self._idempotent_request_id += 1
+      request.request_id = self._idempotent_request_id
+      response = self.MakeRequestImpl('ExecOp', request)
+      if not response.HasField('sql_exception'):
+        return self._ConvertCachedResponse(stub_method, response)
+      sql_exception = response.sql_exception
+      if (sql_exception.application_error_code !=
+          client_error_code_pb2.SqlServiceClientError.ERROR_RESPONSE_PENDING):
+        raise DatabaseError('%d: %s' % (response.sql_exception.code,
+                                        response.sql_exception.message))
+
+  def _ConvertCachedResponse(self, stub_method, exec_op_response):
+    """Converts the cached response or RPC error.
+
+    Args:
+      stub_method: A string, the name of the original method that triggered the
+                   retry.
+      exec_op_response: A protobuf, the retry response that contains either the
+                        RPC error or the cached response.
+
+    Returns:
+      A protobuf, the cached response.
+
+    Raises:
+      DatabaseError: If the cached response contains SqlException.
+      InternalError: If a cached RpcErrorProto exists.
+    """
+    if exec_op_response.HasField('cached_rpc_error'):
+      raise InternalError('%d: %s' % (
+          exec_op_response.cached_rpc_error.error_code,
+          exec_op_response.cached_rpc_error.error_message))
+    if not exec_op_response.HasField('cached_payload'):
+      raise InternalError('Invalid exec op response for retry request')
+    if stub_method == 'Exec':
+      response = sql_pb2.ExecResponse()
+    elif stub_method == 'ExecOp':
+      response = sql_pb2.ExecOpResponse()
+    elif stub_method == 'GetMetadata':
+      response = sql_pb2.MetadataResponse()
+    else:
+      raise InternalError('Found unexpected stub_method: %s' % (stub_method))
+    response.ParseFromString(exec_op_response.cached_payload)
+    if response.HasField('sql_exception'):
+      raise DatabaseError('%d: %s' % (response.sql_exception.code,
+                                      response.sql_exception.message))
+    return response
+
+  def MakeRequestImpl(self, stub_method, request):
     raise InternalError('No transport defined. Try using rdbms_[transport]')
+
+  def get_server_info(self):
+    """Returns a string that represents the server version number.
+
+    Non-standard; Provided for API compatibility with MySQLdb.
+
+    Returns:
+      The server version number string.
+    """
+    self.CheckOpen()
+    request = sql_pb2.MetadataRequest()
+    request.metadata = client_pb2.METADATATYPE_DATABASE_METADATA_BASIC
+    response = self.MakeRequest('GetMetadata', request)
+    return response.jdbc_database_metadata.database_product_version
+
+  def ping(self, reconnect=False):
+    """Checks whether or not the connection to the server is working.
+
+    If it has gone down, an automatic reconnection is attempted.
+
+    This function can be used by clients that remain idle for a long while, to
+    check whether or not the server has closed the connection and reconnect if
+    necessary.
+
+    Non-standard. You should assume that ping() performs an implicit rollback;
+    use only when starting a new transaction.  You have been warned.
+
+    Args:
+      reconnect: Whether to perform an automatic reconnection.
+
+    Raises:
+      DatabaseError: The connection to the server is not working.
+    """
+    self.CheckOpen()
+    request = sql_pb2.ExecOpRequest()
+    request.op.type = client_pb2.OpProto.PING
+    try:
+      self.MakeRequest('ExecOp', request)
+    except DatabaseError:
+      if not reconnect:
+        raise
+
+
+      self._connection_id = None
+      self.OpenConnection()
 
 
 

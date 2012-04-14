@@ -3,12 +3,12 @@
   <%= content_tag :h3, display_flash_messages %>
   <% form_for :user, @user, :url => { :action => :authenticate } do |f| %>
     <p>
-      <%= f.label :email, "Email:" %><br />
+      <%= f.label :email, "Email:" %>
       <%= f.text_field :email, :size => 40 %>
       <%= display_error_messages(@user, :email) %>
     </p>
     <p>
-      <%= f.label :password, "Password:" %><br />
+      <%= f.label :password, "Password:" %>
       <%= f.password_field :password, :size => 40 %>
       <%= display_error_messages(@user, :password) %>
     </p>

@@ -56,17 +56,72 @@ del server_software
 _DESIRED_DJANGO_VERSION = 'v0_96'
 
 
+
+AUTO_IMPORT_FIXER_FILE = 'auto_import_fixer.py'
+
+
+def fix_paths(app_path, python_lib_path):
+  """Fix the __path__ attr of sys.modules entries.
+
+  Specifically this fixes the path of those sys.modules package entries that
+  have __path__ attributes that point to the python library, but where there
+  is a similar package in the application's code.
+
+  Args:
+    app_path: The root path of the application code.
+    python_lib_path: The root path of the python library.
+  """
+
+
+
+
+  if os.path.isfile(os.path.join(app_path, AUTO_IMPORT_FIXER_FILE)):
+    return
+
+  for module_name, module in sys.modules.items():
+    if getattr(module, '__path__', None) is None:
+      continue
+
+
+
+
+
+
+    module_app_path = os.path.join(app_path, *module_name.split('.'))
+    module_init_file = os.path.join(module_app_path, '__init__.py')
+    if not os.path.isfile(module_init_file):
+
+      continue
+
+    found_python_lib_path = False
+    found_app_path = False
+    for path in module.__path__:
+      if path.startswith(python_lib_path):
+        found_python_lib_path = True
+
+      if path.startswith(app_path):
+        found_app_path = True
+
+    if found_python_lib_path and not found_app_path:
+
+
+
+      module.__path__.append(module_app_path)
+
+
 try:
   import google
 except ImportError:
   import google as google
-
 
 if not USING_SDK:
 
   this_version = os.path.dirname(os.path.dirname(google.__file__))
   versions = os.path.dirname(this_version)
   PYTHON_LIB = os.path.dirname(versions)
+
+  fix_paths(sys.path[-1], PYTHON_LIB)
+
   del this_version, versions
 else:
 
@@ -253,8 +308,8 @@ def CallSetAllowedModule(name, desired):
 
     sys.path[:] = [dirname
                    for dirname in sys.path
-                   if not (dirname.startswith(PYTHON_LIB) and
-                           'django' in dirname)]
+                   if not dirname.startswith(os.path.join(
+                       PYTHON_LIB, 'lib', 'django'))]
 
 
 

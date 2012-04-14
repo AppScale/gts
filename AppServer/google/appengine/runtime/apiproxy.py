@@ -230,3 +230,23 @@ def MakeSyncCall(package, call, request, response):
 def CancelApiCalls():
   """Cancels all outstanding API calls."""
   _apphosting_runtime___python__apiproxy.CancelApiCalls()
+
+
+def GetRequestCpuUsage():
+  """Returns the number of megacycles used so far by this request.
+
+  Returns:
+    The number of megacycles used so far by this request. Does not include CPU
+    used by API calls.
+  """
+  return _apphosting_runtime___python__apiproxy.get_request_cpu_usage()
+
+
+def GetRequestApiCpuUsage():
+  """Returns the number of megacycles used by API calls.
+
+  Returns:
+    The number of megacycles used by API calls so far during this request. Does
+    not include CPU used by the request code itself.
+  """
+  return _apphosting_runtime___python__apiproxy.get_request_api_cpu_usage()

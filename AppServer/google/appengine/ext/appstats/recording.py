@@ -20,6 +20,8 @@
 
 """Userland RPC instrumentation for App Engine."""
 
+from __future__ import with_statement
+
 
 import datetime
 import logging
@@ -27,7 +29,9 @@ import os
 import random
 import re
 import sys
+import threading
 import time
+import warnings
 
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import lib_config
@@ -181,10 +185,12 @@ class Recorder(object):
   """In-memory state for the current request.
 
   An instance is created soon after the request is received, and
-  stored in the global variable 'recorder'.  It collects information
-  about the request and about individual RPCs made during the request,
-  until just before the response is sent out, when the recorded
-  information is saved to memcache by calling the save() method.
+  set as the Recorder for the current request in the
+  RequestLocalRecorderProxy in the global variable 'recorder_proxy'.  It
+  collects information about the request and about individual RPCs
+  made during the request, until just before the response is sent out,
+  when the recorded information is saved to memcache by calling the
+  save() method.
   """
 
   def __init__(self, env):
@@ -200,6 +206,7 @@ class Recorder(object):
     self.traces = []
     self.pending = {}
     self.overhead = (time.time() - self.start_timestamp)
+    self._lock = threading.Lock()
 
 
 
@@ -239,8 +246,9 @@ class Recorder(object):
     trace.set_service_call_name('custom.' + label)
     trace.set_request_data_summary(sreq)
     trace.set_start_offset_milliseconds(delta)
-    self.traces.append(trace)
-    self.overhead += (now - pre_now)
+    with self._lock:
+      self.traces.append(trace)
+      self.overhead += (now - pre_now)
 
   def record_rpc_request(self, service, call, request, response, rpc):
     """Record the request of an RPC call.
@@ -254,9 +262,6 @@ class Recorder(object):
     """
     pre_now = time.time()
     sreq = format_value(request)
-    if rpc is not None:
-
-      self.pending[rpc] = len(self.traces)
     now = time.time()
     delta = int(1000 * (now - self.start_timestamp))
     trace = datamodel_pb.IndividualRpcStatsProto()
@@ -264,8 +269,12 @@ class Recorder(object):
     trace.set_service_call_name('%s.%s' % (service, call))
     trace.set_request_data_summary(sreq)
     trace.set_start_offset_milliseconds(delta)
-    self.traces.append(trace)
-    self.overhead += (now - pre_now)
+    with self._lock:
+      if rpc is not None:
+
+        self.pending[rpc] = len(self.traces)
+      self.traces.append(trace)
+      self.overhead += (now - pre_now)
 
   def record_rpc_response(self, service, call, request, response, rpc):
     """Record the response of an RPC call.
@@ -289,29 +298,31 @@ class Recorder(object):
       api_mcycles = rpc.cpu_usage_mcycles
 
 
-      index = self.pending.get(rpc)
-      if index is not None:
-        del self.pending[rpc]
-        if 0 <= index < len(self.traces):
-          trace = self.traces[index]
-          trace.set_response_data_summary(sresp)
-          trace.set_api_mcycles(api_mcycles)
-          duration = delta - trace.start_offset_milliseconds()
-          trace.set_duration_milliseconds(duration)
-          self.overhead += (time.time() - now)
-          return
+      with self._lock:
+        index = self.pending.get(rpc)
+        if index is not None:
+          del self.pending[rpc]
+          if 0 <= index < len(self.traces):
+            trace = self.traces[index]
+            trace.set_response_data_summary(sresp)
+            trace.set_api_mcycles(api_mcycles)
+            duration = delta - trace.start_offset_milliseconds()
+            trace.set_duration_milliseconds(duration)
+            self.overhead += (time.time() - now)
+            return
     else:
 
-      for trace in reversed(self.traces):
-        if (trace.service_call_name() == key and
-            not trace.response_data_summary()):
-          if config.DEBUG:
-            logging.debug('Matched RPC response without rpc object')
-          trace.set_response_data_summary(sresp)
-          duration = delta - trace.start_offset_milliseconds()
-          trace.set_duration_milliseconds(duration)
-          self.overhead += (time.time() - now)
-          return
+      with self._lock:
+        for trace in reversed(self.traces):
+          if (trace.service_call_name() == key and
+              not trace.response_data_summary()):
+            if config.DEBUG:
+              logging.debug('Matched RPC response without rpc object')
+            trace.set_response_data_summary(sresp)
+            duration = delta - trace.start_offset_milliseconds()
+            trace.set_duration_milliseconds(duration)
+            self.overhead += (time.time() - now)
+            return
 
 
     logging.warn('RPC response without matching request')
@@ -320,8 +331,9 @@ class Recorder(object):
     trace.set_service_call_name(key)
     trace.set_request_data_summary(sresp)
     trace.set_start_offset_milliseconds(delta)
-    self.traces.append(trace)
-    self.overhead += (time.time() - now)
+    with self._lock:
+      self.traces.append(trace)
+      self.overhead += (time.time() - now)
 
   def record_http_status(self, status):
     """Record the HTTP status code and the end time of the HTTP request."""
@@ -338,10 +350,12 @@ class Recorder(object):
     function just logs the total time it took and some other statistics.
     """
     t0 = time.time()
-    if self.pending:
+    with self._lock:
+      num_pending = len(self.pending)
+    if num_pending:
       logging.warn('Found %d RPC request(s) without matching response '
                    '(presumably due to timeouts or other errors)',
-                   len(self.pending))
+                   num_pending)
     self.dump()
     try:
       key, len_part, len_full = self._save()
@@ -421,7 +435,8 @@ class Recorder(object):
       x = proto.add_cgi_env()
       x.set_key(key)
       x.set_value(value)
-    proto.individual_stats_list()[:] = self.traces
+    with self._lock:
+      proto.individual_stats_list()[:] = self.traces
 
   def json(self):
     """Return a JSON-ifyable representation of the pertinent data.
@@ -431,22 +446,23 @@ class Recorder(object):
     are converted to integers representing milliseconds.
     """
     traces = []
-    for t in self.traces:
-      d = {'start': t.start_offset_milliseconds(),
-           'call': t.service_call_name(),
-           'request': t.request_data_summary(),
-           'response': t.response_data_summary(),
-           'duration': t.duration_milliseconds(),
-           'api': mcycles_to_msecs(t.api_mcycles()),
-           }
-      traces.append(d)
-    return {
+    with self._lock:
+      for t in self.traces:
+        d = {'start': t.start_offset_milliseconds(),
+             'call': t.service_call_name(),
+             'request': t.request_data_summary(),
+             'response': t.response_data_summary(),
+             'duration': t.duration_milliseconds(),
+             'api': mcycles_to_msecs(t.api_mcycles()),
+             }
+        traces.append(d)
+    data = {
       'start': int(self.start_timestamp * 1000),
       'duration': int((self.end_timestamp - self.start_timestamp) * 1000),
-      'cpu': mcycles_to_msecs(quota.get_request_cpu_usage()),
       'overhead': int(self.overhead * 1000),
       'traces': traces,
       }
+    return data
 
   def get_summary_proto_encoded(self):
     """Return a string representing a summary an encoded protobuf.
@@ -477,7 +493,6 @@ class Recorder(object):
     api_mcycles = self.get_total_api_mcycles()
     if api_mcycles:
       summary.set_api_mcycles(api_mcycles)
-    summary.set_processor_mcycles(quota.get_request_cpu_usage())
     summary.set_overhead_walltime_milliseconds(int(self.overhead * 1000))
     rpc_stats = self.get_rpcstats().items()
     rpc_stats.sort(key=lambda x: (-x[1], x[0]))
@@ -494,8 +509,9 @@ class Recorder(object):
       A dict mapping 'service.call' keys to integers giving call counts.
     """
     rpcstats = {}
-    for trace in self.traces:
-      key = trace.service_call_name()
+    with self._lock:
+      keys = [trace.service_call_name() for trace in self.traces]
+    for key in keys:
       if key in rpcstats:
         rpcstats[key] += 1
       else:
@@ -508,9 +524,10 @@ class Recorder(object):
     Returns:
       An integer expressing megacycles.
     """
+    with self._lock:
+      traces_mc = [trace.api_mcycles() for trace in self.traces]
     mcycles = 0
-    for trace in self.traces:
-      trace_mc = trace.api_mcycles()
+    for trace_mc in traces_mc:
       if isinstance(trace_mc, int):
         mcycles += trace_mc
     return mcycles
@@ -538,24 +555,25 @@ class Recorder(object):
       logging.info('  %s : %s', key, value)
     if level <= 0:
       return
-    for trace in self.traces:
-      start = trace.start_offset_milliseconds()
-      logging.info('  TRACE  : [%s, %s, %s, %s]',
-                   trace.start_offset_milliseconds(),
-                   trace.service_call_name(),
-                   trace.duration_milliseconds(),
-                   trace.api_mcycles())
-      logging.info('    REQ  : %s', trace.request_data_summary())
-      logging.info('    RESP : %s', trace.response_data_summary())
-      if level <= 1:
-        continue
-      for entry in trace.call_stack_list():
-        logging.info('    FRAME: %s:%s %s()',
-                     entry.class_or_file_name(),
-                     entry.line_number(),
-                     entry.function_name())
-        for variable in entry.variables_list():
-          logging.info('      VAR: %s = %s', variable.key(), variable.value())
+    with self._lock:
+      for trace in self.traces:
+        start = trace.start_offset_milliseconds()
+        logging.info('  TRACE  : [%s, %s, %s, %s]',
+                     trace.start_offset_milliseconds(),
+                     trace.service_call_name(),
+                     trace.duration_milliseconds(),
+                     trace.api_mcycles())
+        logging.info('    REQ  : %s', trace.request_data_summary())
+        logging.info('    RESP : %s', trace.response_data_summary())
+        if level <= 1:
+          continue
+        for entry in trace.call_stack_list():
+          logging.info('    FRAME: %s:%s %s()',
+                       entry.class_or_file_name(),
+                       entry.line_number(),
+                       entry.function_name())
+          for variable in entry.variables_list():
+            logging.info('      VAR: %s = %s', variable.key(), variable.value())
 
   def get_call_stack(self, trace):
     """Extract the current call stack.
@@ -736,9 +754,20 @@ class StatsProto(datamodel_pb.RequestStatProto):
     """Return an int giving .api_mcycles() converted to milliseconds."""
     return mcycles_to_msecs(self.api_mcycles())
 
+  def processor_mcycles(self):
+    warnings.warn('processor_mcycles does not return correct values',
+                  DeprecationWarning,
+                  stacklevel=2)
+    return datamodel_pb.RequestStatProto.processor_mcycles(self)
+
   def processor_milliseconds(self):
     """Return an int giving .processor_mcycles() converted to milliseconds."""
-    return mcycles_to_msecs(self.processor_mcycles())
+    warnings.warn('processor_milliseconds does not return correct values',
+                  DeprecationWarning,
+                  stacklevel=2)
+
+    return mcycles_to_msecs(
+        datamodel_pb.RequestStatProto.processor_mcycles(self))
 
   __combined_rpc_count = None
 
@@ -909,17 +938,79 @@ def appstats_wsgi_middleware(app):
   return appstats_wsgi_wrapper
 
 
+def _synchronized(method):
+  """A decorator that synchronizes the method call with self._lock."""
+
+  def synchronized_wrapper(self, *args):
+    with self._lock:
+      return method(self, *args)
+  return synchronized_wrapper
+
+
+class RequestLocalRecorderProxy(object):
+  """A Recorder proxy that dispatches to a Recorder for the current request."""
+
+  def __init__(self):
+    self._recorders = {}
+    self._lock = threading.RLock()
+
+  @_synchronized
+  def __getattr__(self, key):
+    if not self.has_recorder_for_current_request():
+      raise AttributeError('No Recorder is set for this request.')
+    return getattr(self.get_for_current_request(), key)
+
+  @_synchronized
+  def has_recorder_for_current_request(self):
+    """Returns whether the current request has a recorder set."""
+    return os.environ.get('REQUEST_ID_HASH') in self._recorders
+
+  @_synchronized
+  def set_for_current_request(self, new_recorder):
+    """Sets the recorder for the current request."""
+    self._recorders[os.environ.get('REQUEST_ID_HASH')] = new_recorder
+    _set_global_recorder(new_recorder)
+
+  @_synchronized
+  def get_for_current_request(self):
+    """Returns the recorder for the current request or None."""
+    return self._recorders.get(os.environ.get('REQUEST_ID_HASH'))
+
+  @_synchronized
+  def clear_for_current_request(self):
+    """Clears the recorder for the current request."""
+    if os.environ.get('REQUEST_ID_HASH') in self._recorders:
+      del self._recorders[os.environ.get('REQUEST_ID_HASH')]
+    _clear_global_recorder()
+
+  @_synchronized
+  def _clear_all(self):
+    """Clears the recorders for all requests."""
+    self._recorders.clear()
+    _clear_global_recorder()
+
+
+def _set_global_recorder(new_recorder):
+  if os.environ.get('APPENGINE_RUNTIME') != 'python27':
+    global recorder
+    recorder = new_recorder
+
+
+def _clear_global_recorder():
+  _set_global_recorder(None)
 
 
 
+recorder_proxy = RequestLocalRecorderProxy()
 
-recorder = None
+
+if os.environ.get('APPENGINE_RUNTIME') != 'python27':
+  recorder = None
 
 
 def dont_record():
   """API to prevent recording of the current request.  Used by ui.py."""
-  global recorder
-  recorder = None
+  recorder_proxy.clear_for_current_request()
 
 
 def lock_key():
@@ -930,14 +1021,13 @@ def lock_key():
 def start_recording(env=None):
   """Start recording RPC traces.
 
-  This creates a Recorder instance and stores it in the global
-  variable 'recorder'.
+  This creates a Recorder instance and sets it for the current request
+  in the global RequestLocalRecorderProxy 'recorder_proxy'.
 
   Args:
     env: Optional WSGI environment; defaults to os.environ.
   """
-  global recorder
-  recorder = None
+  recorder_proxy.clear_for_current_request()
   if env is None:
     env = os.environ
   if not config.should_record(env):
@@ -945,7 +1035,7 @@ def start_recording(env=None):
 
   if memcache.add(lock_key(), 0,
                   time=config.LOCK_TIMEOUT, namespace=config.KEY_NAMESPACE):
-    recorder = Recorder(env)
+    recorder_proxy.set_for_current_request(Recorder(env))
     if config.DEBUG:
       logging.debug('Set recorder')
 
@@ -953,16 +1043,15 @@ def start_recording(env=None):
 def end_recording(status, firepython_set_extension_data=None):
   """Stop recording RPC traces and save all traces to memcache.
 
-  This resets the global 'recorder' variable to None.
+  This clears the recorder set for this request in 'recorder_proxy'.
 
   Args:
     status: HTTP Status, a 3-digit integer.
     firepython_set_extension_data: Optional function to be called
       to pass the recorded data to FirePython.
   """
-  global recorder
-  rec = recorder
-  recorder = None
+  rec = recorder_proxy.get_for_current_request()
+  recorder_proxy.clear_for_current_request()
   if config.DEBUG:
     logging.debug('Cleared recorder')
   if rec is not None:
@@ -992,12 +1081,13 @@ def pre_call_hook(service, call, request, response, rpc=None):
   Once registered, this fuction will be called right before any kind
   of RPC call is made through apiproxy_stub_map.  The arguments are
   passed on to the record_rpc_request() method of the global
-  'recorder' variable, unless the latter is None.
+  'recorder_proxy' variable, unless the latter does not have a Recorder set
+  for this request.
   """
-  if recorder is not None:
+  if recorder_proxy.has_recorder_for_current_request():
     if config.DEBUG:
       logging.debug('pre_call_hook: recording %s.%s', service, call)
-    recorder.record_rpc_request(service, call, request, response, rpc)
+    recorder_proxy.record_rpc_request(service, call, request, response, rpc)
 
 
 def post_call_hook(service, call, request, response, rpc=None, error=None):
@@ -1008,14 +1098,15 @@ def post_call_hook(service, call, request, response, rpc=None, error=None):
 
   Once registered, this fuction will be called right after any kind of
   RPC call made through apiproxy_stub_map returns.  The call is passed
-  on to the record_rpc_request() method of the global 'recorder'
-  variable, unless the latter is None.
+  on to the record_rpc_request() method of the global 'recorder_proxy'
+  variable, unless the latter does not have a Recorder set for this
+  request.
   """
 
-  if recorder is not None:
+  if recorder_proxy.has_recorder_for_current_request():
     if config.DEBUG:
       logging.debug('post_call_hook: recording %s.%s', service, call)
-    recorder.record_rpc_response(service, call, request, response, rpc)
+    recorder_proxy.record_rpc_response(service, call, request, response, rpc)
 
 
 

@@ -1,0 +1,1424 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+
+  <title>Class: ZKInterface</title>
+
+  <link rel="stylesheet" href="./rdoc.css" type="text/css" media="screen" />
+
+  <script src="./js/jquery.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/thickbox-compressed.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/quicksearch.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/darkfish.js" type="text/javascript"
+    charset="utf-8"></script>
+
+</head>
+<body class="class">
+
+  <div id="metadata">
+    <div id="home-metadata">
+      <div id="home-section" class="section">
+        <h3 class="section-header">
+          <a href="./index.html">Home</a>
+          <a href="./index.html#classes">Classes</a>
+          <a href="./index.html#methods">Methods</a>
+        </h3>
+      </div>
+    </div>
+
+    <div id="file-metadata">
+      <div id="file-list-section" class="section">
+        <h3 class="section-header">In Files</h3>
+        <div class="section-body">
+          <ul>
+          
+            <li><a href="./lib/zkinterface_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
+              class="thickbox" title="lib/zkinterface.rb">lib/zkinterface.rb</a></li>
+          
+          </ul>
+        </div>
+      </div>
+
+      
+    </div>
+
+    <div id="class-metadata">
+
+      <!-- Parent Class -->
+      
+      <div id="parent-class-section" class="section">
+        <h3 class="section-header">Parent</h3>
+        
+        <p class="link"><a href="Object.html">Object</a></p>
+        
+      </div>
+      
+
+      <!-- Namespace Contents -->
+      
+
+      <!-- Method Quickref -->
+      
+      <div id="method-list-section" class="section">
+        <h3 class="section-header">Methods</h3>
+        <ul class="link-list">
+          
+          <li><a href="#method-c-add_app_entry">::add_app_entry</a></li>
+          
+          <li><a href="#method-c-add_app_instance">::add_app_instance</a></li>
+          
+          <li><a href="#method-c-add_ip_to_ip_list">::add_ip_to_ip_list</a></li>
+          
+          <li><a href="#method-c-add_roles_to_node">::add_roles_to_node</a></li>
+          
+          <li><a href="#method-c-get_app_hosters">::get_app_hosters</a></li>
+          
+          <li><a href="#method-c-get_app_instances_for_ip">::get_app_instances_for_ip</a></li>
+          
+          <li><a href="#method-c-get_appcontroller_lock">::get_appcontroller_lock</a></li>
+          
+          <li><a href="#method-c-get_appcontroller_state">::get_appcontroller_state</a></li>
+          
+          <li><a href="#method-c-get_ip_info">::get_ip_info</a></li>
+          
+          <li><a href="#method-c-get_job_data_for_ip">::get_job_data_for_ip</a></li>
+          
+          <li><a href="#method-c-init">::init</a></li>
+          
+          <li><a href="#method-c-init_to_ip">::init_to_ip</a></li>
+          
+          <li><a href="#method-c-is_node_done_loading-3F">::is_node_done_loading?</a></li>
+          
+          <li><a href="#method-c-is_node_live-3F">::is_node_live?</a></li>
+          
+          <li><a href="#method-c-lock_and_run">::lock_and_run</a></li>
+          
+          <li><a href="#method-c-release_appcontroller_lock">::release_appcontroller_lock</a></li>
+          
+          <li><a href="#method-c-remove_app_entry">::remove_app_entry</a></li>
+          
+          <li><a href="#method-c-remove_ip_from_ip_list">::remove_ip_from_ip_list</a></li>
+          
+          <li><a href="#method-c-remove_node_information">::remove_node_information</a></li>
+          
+          <li><a href="#method-c-remove_roles_from_node">::remove_roles_from_node</a></li>
+          
+          <li><a href="#method-c-set_done_loading">::set_done_loading</a></li>
+          
+          <li><a href="#method-c-set_job_data_for_ip">::set_job_data_for_ip</a></li>
+          
+          <li><a href="#method-c-update_ips_timestamp">::update_ips_timestamp</a></li>
+          
+          <li><a href="#method-c-write_appcontroller_state">::write_appcontroller_state</a></li>
+          
+          <li><a href="#method-c-write_node_information">::write_node_information</a></li>
+          
+        </ul>
+      </div>
+      
+
+      <!-- Included Modules -->
+      
+    </div>
+
+    <div id="project-metadata">
+      
+      
+
+      <div id="classindex-section" class="section project-section">
+        <h3 class="section-header">Class/Module Index
+          <span class="search-toggle"><img src="./images/find.png"
+            height="16" width="16" alt="[+]"
+            title="show/hide quicksearch" /></span></h3>
+        <form action="#" method="get" accept-charset="utf-8" class="initially-hidden">
+        <fieldset>
+          <legend>Quicksearch</legend>
+          <input type="text" name="quicksearch" value=""
+            class="quicksearch-field" />
+        </fieldset>
+        </form>
+
+        <ul class="link-list">
+        
+          <li><a href="./AppControllerClient.html">AppControllerClient</a></li>
+        
+          <li><a href="./BadConfigurationException.html">BadConfigurationException</a></li>
+        
+          <li><a href="./BlobServer.html">BlobServer</a></li>
+        
+          <li><a href="./Collectd.html">Collectd</a></li>
+        
+          <li><a href="./CronHelper.html">CronHelper</a></li>
+        
+          <li><a href="./Datastore.html">Datastore</a></li>
+        
+          <li><a href="./DatastoreFactory.html">DatastoreFactory</a></li>
+        
+          <li><a href="./DatastoreRepo.html">DatastoreRepo</a></li>
+        
+          <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a></li>
+        
+          <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a></li>
+        
+          <li><a href="./DatastoreS3.html">DatastoreS3</a></li>
+        
+          <li><a href="./Djinn.html">Djinn</a></li>
+        
+          <li><a href="./DjinnJobData.html">DjinnJobData</a></li>
+        
+          <li><a href="./DjinnServer.html">DjinnServer</a></li>
+        
+          <li><a href="./Ejabberd.html">Ejabberd</a></li>
+        
+          <li><a href="./EngineFactory.html">EngineFactory</a></li>
+        
+          <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a></li>
+        
+          <li><a href="./GodInterface.html">GodInterface</a></li>
+        
+          <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a></li>
+        
+          <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a></li>
+        
+          <li><a href="./HAProxy.html">HAProxy</a></li>
+        
+          <li><a href="./HelperFunctions.html">HelperFunctions</a></li>
+        
+          <li><a href="./JSONClient.html">JSONClient</a></li>
+        
+          <li><a href="./LoadBalancer.html">LoadBalancer</a></li>
+        
+          <li><a href="./Monitoring.html">Monitoring</a></li>
+        
+          <li><a href="./NeptuneJobData.html">NeptuneJobData</a></li>
+        
+          <li><a href="./Nginx.html">Nginx</a></li>
+        
+          <li><a href="./Object.html">Object</a></li>
+        
+          <li><a href="./PbServer.html">PbServer</a></li>
+        
+          <li><a href="./QueueFactory.html">QueueFactory</a></li>
+        
+          <li><a href="./RabbitMQ.html">RabbitMQ</a></li>
+        
+          <li><a href="./Repo.html">Repo</a></li>
+        
+          <li><a href="./TaskEngine.html">TaskEngine</a></li>
+        
+          <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a></li>
+        
+          <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a></li>
+        
+          <li><a href="./TaskQueue.html">TaskQueue</a></li>
+        
+          <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a></li>
+        
+          <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a></li>
+        
+          <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a></li>
+        
+          <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a></li>
+        
+          <li><a href="./UserAppClient.html">UserAppClient</a></li>
+        
+          <li><a href="./ZKInterface.html">ZKInterface</a></li>
+        
+        </ul>
+        <div id="no-class-search-results" style="display: none;">No matching classes.</div>
+      </div>
+
+      
+    </div>
+  </div>
+
+  <div id="documentation">
+    <h1 class="class">ZKInterface</h1>
+
+    <div id="description">
+      
+<p>The AppController employs the open source software ZooKeeper as a highly
+available naming service, to store and retrieve information about the
+status of applications hosted within AppScale. This class provides methods
+to communicate with ZooKeeper, and automates commonly performed functions
+by the AppController.</p>
+
+    </div>
+
+    <!-- Constants -->
+    
+    <div id="constants-list" class="section">
+      <h3 class="section-header">Constants</h3>
+      <dl>
+      
+        <dt><a name="SERVER_PORT">SERVER_PORT</a></dt>
+        
+        <dd class="description"><p>The port that ZooKeeper runs on in AppScale deployments.</p></dd>
+        
+      
+        <dt><a name="EPHEMERAL">EPHEMERAL</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="NOT_EPHEMERAL">NOT_EPHEMERAL</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="APPCONTROLLER_PATH">APPCONTROLLER_PATH</a></dt>
+        
+        <dd class="description"><p>The location in ZooKeeper where AppControllers can read and write data to.</p></dd>
+        
+      
+        <dt><a name="APPCONTROLLER_STATE_PATH">APPCONTROLLER_STATE_PATH</a></dt>
+        
+        <dd class="description"><p>The location in ZooKeeper where the Shadow node will back up its state to,
+and where other nodes will recover that state from.</p></dd>
+        
+      
+        <dt><a name="IP_LIST">IP_LIST</a></dt>
+        
+        <dd class="description"><p>The location in ZooKeeper that contains a list of the IP addresses that are
+currently running within AppScale.</p></dd>
+        
+      
+        <dt><a name="APPCONTROLLER_NODE_PATH">APPCONTROLLER_NODE_PATH</a></dt>
+        
+        <dd class="description"><p>The location in ZooKeeper that AppControllers write information about their
+node to, so that others can poll to see if they are alive and what roles
+they’ve taken on.</p></dd>
+        
+      
+        <dt><a name="APPCONTROLLER_LOCK_PATH">APPCONTROLLER_LOCK_PATH</a></dt>
+        
+        <dd class="description"><p>The location in ZooKeeper that nodes will try to acquire an ephemeral node
+for, to use as a lock.</p></dd>
+        
+      
+        <dt><a name="APP_INSTANCE">APP_INSTANCE</a></dt>
+        
+        <dd class="description"><p>The name of the file that nodes use to store the list of Google App Engine
+instances that the given node runs.</p></dd>
+        
+      
+        <dt><a name="ROOT_APP_PATH">ROOT_APP_PATH</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="DUMMY_DATA">DUMMY_DATA</a></dt>
+        
+        <dd class="description"><p>The contents of files in ZooKeeper whose contents we don’t care about
+(e.g., where we care that’s an ephemeral file or needed just to provide a
+hierarchical filesystem-like interface).</p></dd>
+        
+      
+      </dl>
+    </div>
+    
+
+    <!-- Attributes -->
+    
+
+    <!-- Methods -->
+    
+    <div id="public-class-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="add_app_entry-method" class="method-detail ">
+        <a name="method-c-add_app_entry"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">add_app_entry</span><span
+            class="method-args">(appname, ip, location)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="add_app_entry-source">
+<pre>
+<span class="ruby-comment"># File lib/zkinterface.rb, line 112</span>
+def self.add_app_entry(appname, ip, location)
+  appname_path = <span class="ruby-constant">ROOT_APP_PATH</span> + &quot;/#{appname}&quot;
+  full_path = appname_path + &quot;/#{ip}&quot;
+
+  <span class="ruby-comment"># can't just create path in ZK</span>
+  <span class="ruby-comment"># need to do create the nodes at each level</span>
+
+  self.set(<span class="ruby-constant">ROOT_APP_PATH</span>, <span class="ruby-constant">DUMMY_DATA</span>, <span class="ruby-constant">NOT_EPHEMERAL</span>)
+  self.set(appname_path, <span class="ruby-constant">DUMMY_DATA</span>, <span class="ruby-constant">NOT_EPHEMERAL</span>)
+  self.set(full_path, location, <span class="ruby-constant">EPHEMERAL</span>)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="add_app_instance-method" class="method-detail ">
+        <a name="method-c-add_app_instance"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">add_app_instance</span><span
+            class="method-args">(app_name, ip, port)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Adds an entry to ZooKeeper for the given IP, storing information about the
+Google App engine application it is hosting that can be used to update the
+AppLoadBalancer should that node fail.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="add_app_instance-source">
+<pre>
+<span class="ruby-comment"># File lib/zkinterface.rb, line 387</span>
+def self.add_app_instance(app_name, ip, port)
+  app_instance_file = &quot;#{APPCONTROLLER_NODE_PATH}/#{ip}/#{APP_INSTANCE}&quot;
+  if self.exists?(app_instance_file)
+    json_instances = self.get(app_instance_file)
+    instances = <span class="ruby-constant">JSON</span>.load(json_instances)
+  else
+    instances = []
+  end
+
+  instances &lt;&lt; {<span class="ruby-string">'app_name'</span> =&gt; app_name, <span class="ruby-string">'ip'</span> =&gt; ip, <span class="ruby-string">'port'</span> =&gt; port}
+  self.set(app_instance_file, <span class="ruby-constant">JSON</span>.dump(instances), <span class="ruby-constant">NOT_EPHEMERAL</span>)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="add_ip_to_ip_list-method" class="method-detail ">
+        <a name="method-c-add_ip_to_ip_list"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">add_ip_to_ip_list</span><span
+            class="method-args">(ip)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Add the given IP to the list of IPs that we store in ZooKeeper. If the IPs
+file doesn’t exist in ZooKeeper, create it and add in the given IP
+address. We also update the timestamp associated with this list so that
+others know to update it as needed.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="add_ip_to_ip_list-source">
+<pre>
+<span class="ruby-comment"># File lib/zkinterface.rb, line 253</span>
+def self.add_ip_to_ip_list(ip)
+  if self.exists?(<span class="ruby-constant">IP_LIST</span>)
+    <span class="ruby-comment"># See if our IP is in the list of IPs that are up, and if not,</span>
+    <span class="ruby-comment"># append it to the list and update the timestamp so that everyone</span>
+    <span class="ruby-comment"># else will update their local copies.</span>
+    data = <span class="ruby-constant">JSON</span>.load(self.get(<span class="ruby-constant">IP_LIST</span>))
+    if !data[<span class="ruby-string">'ips'</span>].include?(ip)
+      <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;IPs file does not include our IP - adding it in&quot;</span>)
+      data[<span class="ruby-string">'ips'</span>] &lt;&lt; ip
+      data[<span class="ruby-string">'last_updated'</span>] = <span class="ruby-constant">Time</span>.now.to_i
+      self.set(<span class="ruby-constant">IP_LIST</span>, <span class="ruby-constant">JSON</span>.dump(data), <span class="ruby-constant">NOT_EPHEMERAL</span>)
+    else
+      <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;IPs file already includes our IP - skipping&quot;</span>)
+    end
+  else
+    <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;IPs file does not exist - creating it&quot;</span>)
+    data = {<span class="ruby-string">'ips'</span> =&gt; [ip], <span class="ruby-string">'last_updated'</span> =&gt; <span class="ruby-constant">Time</span>.now.to_i}
+    self.set(<span class="ruby-constant">IP_LIST</span>, <span class="ruby-constant">JSON</span>.dump(data), <span class="ruby-constant">NOT_EPHEMERAL</span>)
+  end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="add_roles_to_node-method" class="method-detail ">
+        <a name="method-c-add_roles_to_node"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">add_roles_to_node</span><span
+            class="method-args">(roles, node)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Adds the specified role to the given node in ZooKeeper. A node can call
+this function to add a role to another node, and the other node should take
+on this role, or a node can call this function to let others know that it
+is taking on a new role. Callers should acquire the ZK Lock before calling
+this function. roles should be an Array of Strings, where each String is a
+role to add node should be a <a href="DjinnJobData.html">DjinnJobData</a>
+representing the node that we want to add the roles to</p>
+          
+
+          
+          <div class="method-source-code"
+            id="add_roles_to_node-source">
+<pre>
+<span class="ruby-comment"># File lib/zkinterface.rb, line 423</span>
+def self.add_roles_to_node(roles, node)
+  old_job_data = self.get_job_data_for_ip(node.public_ip)
+  new_node = <span class="ruby-constant">DjinnJobData</span>.deserialize(old_job_data)
+  new_node.add_roles(roles.join(<span class="ruby-string">&quot;:&quot;</span>))
+  new_job_data = new_node.serialize()
+  self.set_job_data_for_ip(node.public_ip, new_job_data)
+  self.update_ips_timestamp()
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_app_hosters-method" class="method-detail ">
+        <a name="method-c-get_app_hosters"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_app_hosters</span><span
+            class="method-args">(appname)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="get_app_hosters-source">
+<pre>
+<span class="ruby-comment"># File lib/zkinterface.rb, line 131</span>
+def self.get_app_hosters(appname)
+  if !defined?(@@zk)
+    return []
+  end
+
+  appname_path = <span class="ruby-constant">ROOT_APP_PATH</span> + &quot;/#{appname}&quot;
+  app_hosters = self.get_children(appname_path)
+  converted = []
+  app_hosters.each { |serialized|
+    converted &lt;&lt; <span class="ruby-constant">DjinnJobData</span>.deserialize(serialized)
+  }
+  return converted
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_app_instances_for_ip-method" class="method-detail ">
+        <a name="method-c-get_app_instances_for_ip"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_app_instances_for_ip</span><span
+            class="method-args">(ip)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Returns an Array of Hashes that correspond to the App Engine applications
+hosted on the given ip address. Each hash contains the application’s
+name, the IP address (which should be the same as the given IP), and the
+nginx port that the app is hosted on.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="get_app_instances_for_ip-source">
+<pre>
+<span class="ruby-comment"># File lib/zkinterface.rb, line 373</span>
+def self.get_app_instances_for_ip(ip)
+  app_instance_file = &quot;#{APPCONTROLLER_NODE_PATH}/#{ip}/#{APP_INSTANCE}&quot;
+  if !self.exists?(app_instance_file)
+    return []
+  end
+
+  json_instances = self.get(app_instance_file)
+  return <span class="ruby-constant">JSON</span>.load(json_instances)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_appcontroller_lock-method" class="method-detail ">
+        <a name="method-c-get_appcontroller_lock"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_appcontroller_lock</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Gets a lock that AppControllers can use to have exclusive write access
+(between other AppControllers) to the ZooKeeper hierarchy located at <a
+href="ZKInterface.html#APPCONTROLLER_PATH">APPCONTROLLER_PATH</a>. It
+returns a boolean that indicates whether or not it was able to acquire the
+lock or not.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="get_appcontroller_lock-source">
+<pre>
+<span class="ruby-comment"># File lib/zkinterface.rb, line 163</span>
+def self.get_appcontroller_lock()
+  if !self.exists?(<span class="ruby-constant">APPCONTROLLER_PATH</span>)
+    self.set(<span class="ruby-constant">APPCONTROLLER_PATH</span>, <span class="ruby-constant">DUMMY_DATA</span>, <span class="ruby-constant">NOT_EPHEMERAL</span>)
+  end
+
+  info = @@zk.create(:path =&gt; <span class="ruby-constant">APPCONTROLLER_LOCK_PATH</span>, 
+    :ephemeral =&gt; <span class="ruby-constant">EPHEMERAL</span>, :data =&gt; <span class="ruby-constant">JSON</span>.dump(@@client_ip))
+  if info[:rc].zero? 
+    <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;Got the AppController lock&quot;</span>)
+    return true
+  else <span class="ruby-comment"># we couldn't get the lock for some reason</span>
+    <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;Couldn't get the AppController lock, saw info &quot;</span> +
+      &quot;#{info.inspect}&quot;)
+    return false
+  end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_appcontroller_state-method" class="method-detail ">
+        <a name="method-c-get_appcontroller_state"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_appcontroller_state</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="get_appcontroller_state-source">
+<pre>
+<span class="ruby-comment"># File lib/zkinterface.rb, line 146</span>
+def self.get_appcontroller_state()
+  return <span class="ruby-constant">JSON</span>.load(self.get(<span class="ruby-constant">APPCONTROLLER_STATE_PATH</span>))
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_ip_info-method" class="method-detail ">
+        <a name="method-c-get_ip_info"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_ip_info</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Returns a Hash containing the list of the IPs that are currently running
+within AppScale as well as a timestamp corresponding to the time when the
+latest node updated this information.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="get_ip_info-source">
+<pre>
+<span class="ruby-comment"># File lib/zkinterface.rb, line 244</span>
+def self.get_ip_info()
+  return <span class="ruby-constant">JSON</span>.load(self.get(<span class="ruby-constant">IP_LIST</span>))
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_job_data_for_ip-method" class="method-detail ">
+        <a name="method-c-get_job_data_for_ip"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_job_data_for_ip</span><span
+            class="method-args">(ip)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Returns a serialized <a href="DjinnJobData.html">DjinnJobData</a> string
+that we store in ZooKeeper for the given IP address, which callers can
+deserialize to get a <a href="DjinnJobData.html">DjinnJobData</a> object.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="get_job_data_for_ip-source">
+<pre>
+<span class="ruby-comment"># File lib/zkinterface.rb, line 404</span>
+def self.get_job_data_for_ip(ip)
+  return self.get(&quot;#{APPCONTROLLER_NODE_PATH}/#{ip}/job_data&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="init-method" class="method-detail ">
+        <a name="method-c-init"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">init</span><span
+            class="method-args">(my_node, all_nodes)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Initializes a new ZooKeeper connection to the “closest” node in the
+system. “Closeness” is defined as either “this node” (if it runs
+ZooKeeper), or an arbitrary node that runs ZooKeeper. Callers should use
+this method when they don’t want to determine on their own which
+ZooKeeper box to connect to.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="init-source">
+<pre>
+<span class="ruby-comment"># File lib/zkinterface.rb, line 107</span>
+def self.init(my_node, all_nodes)
+  self.init_to_ip(my_node.public_ip, self.get_zk_location(my_node, all_nodes))
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="init_to_ip-method" class="method-detail ">
+        <a name="method-c-init_to_ip"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">init_to_ip</span><span
+            class="method-args">(client_ip, ip)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Initializes a new ZooKeeper connection to the IP address specified. Callers
+should use this when they know exactly which node hosts ZooKeeper.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="init_to_ip-source">
+<pre>
+<span class="ruby-comment"># File lib/zkinterface.rb, line 86</span>
+def self.init_to_ip(client_ip, ip)
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;Waiting for #{ip}:#{SERVER_PORT} to open&quot;)
+  <span class="ruby-constant">HelperFunctions</span>.sleep_until_port_is_open(ip, <span class="ruby-constant">SERVER_PORT</span>)
+
+  @@client_ip = client_ip
+
+  if !defined?(@@lock)
+    @@lock = <span class="ruby-constant">Monitor</span>.new
+  end
+
+  @@lock.synchronize {
+    @@zk = <span class="ruby-constant">Zookeeper</span>.new(&quot;#{ip}:#{SERVER_PORT}&quot;)
+  }
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="is_node_done_loading-3F-method" class="method-detail ">
+        <a name="method-c-is_node_done_loading-3F"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">is_node_done_loading?</span><span
+            class="method-args">(ip)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Checks ZooKeeper to see if the given node has finished loading its roles,
+which it indicates via a file in a particular path.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="is_node_done_loading-3F-source">
+<pre>
+<span class="ruby-comment"># File lib/zkinterface.rb, line 338</span>
+def self.is_node_done_loading?(ip)
+  if !self.exists?(<span class="ruby-constant">APPCONTROLLER_NODE_PATH</span>)
+    return false
+  end
+
+  loading_file = &quot;#{APPCONTROLLER_NODE_PATH}/#{ip}/done_loading&quot;
+  if !self.exists?(loading_file)
+    return false
+  end
+
+  json_contents = self.get(loading_file)
+  return <span class="ruby-constant">JSON</span>.load(json_contents)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="is_node_live-3F-method" class="method-detail ">
+        <a name="method-c-is_node_live-3F"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">is_node_live?</span><span
+            class="method-args">(ip)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Checks ZooKeeper to see if the given node is alive, by checking if the
+ephemeral file it has created is still present.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="is_node_live-3F-source">
+<pre>
+<span class="ruby-comment"># File lib/zkinterface.rb, line 364</span>
+def self.is_node_live?(ip)
+  return self.exists?(&quot;#{APPCONTROLLER_NODE_PATH}/#{ip}/live&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="lock_and_run-method" class="method-detail ">
+        <a name="method-c-lock_and_run"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">lock_and_run</span><span
+            class="method-args">(&block)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>This method provides callers with an easier way to read and write to
+AppController data in ZooKeeper. This is useful for methods that aren’t
+sure if they already have the ZooKeeper lock or not, but definitely need it
+and don’t want to accidentally cause a deadlock (grabbing the lock when
+they already have it).</p>
+          
+
+          
+          <div class="method-source-code"
+            id="lock_and_run-source">
+<pre>
+<span class="ruby-comment"># File lib/zkinterface.rb, line 193</span>
+def self.lock_and_run(&amp;block)
+  <span class="ruby-comment"># Create the ZK lock path if it doesn't exist.</span>
+  if !self.exists?(<span class="ruby-constant">APPCONTROLLER_PATH</span>)
+    self.set(<span class="ruby-constant">APPCONTROLLER_PATH</span>, <span class="ruby-constant">DUMMY_DATA</span>, <span class="ruby-constant">NOT_EPHEMERAL</span>)
+  end
+
+  <span class="ruby-comment"># Try to get the lock, and if we can't get it, see if we already have</span>
+  <span class="ruby-comment"># it. If we do, move on (but don't release it later since this block</span>
+  <span class="ruby-comment"># didn't grab it), and if we don't have it, try again.</span>
+  got_lock = false
+  begin
+    if self.get_appcontroller_lock()
+      got_lock = true
+    else  <span class="ruby-comment"># it may be that we already have the lock</span>
+      info = @@zk.get(:path =&gt; <span class="ruby-constant">APPCONTROLLER_LOCK_PATH</span>)
+      owner = <span class="ruby-constant">JSON</span>.load(info[:data])
+      if @@client_ip == owner
+        <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;Tried to get the lock, but we already have it. &quot;</span> +
+          <span class="ruby-string">&quot;Not grabbing/releasing lock again.&quot;</span>)
+        got_lock = false
+      else 
+        <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;Tried to get the lock, but it's currently owned &quot;</span> +
+          &quot;by #{owner}. Will try again later.&quot;)
+        raise <span class="ruby-constant">Exception</span>
+      end
+    end
+  rescue <span class="ruby-constant">Exception</span> =&gt; e
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;Saw an exception of class #{e.class}&quot;)
+    <span class="ruby-constant">Kernel</span>.sleep(5)
+    retry
+  end
+
+  begin
+    yield  <span class="ruby-comment"># invoke the user's block, and catch any uncaught exceptions</span>
+  rescue <span class="ruby-constant">Exception</span> =&gt; except
+    <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;Ran caller's block but saw an Exception of class &quot;</span> +
+      &quot;#{except.class}&quot;)
+  ensure
+    if got_lock
+      <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;Grabbed lock, so now releasing it.&quot;</span>)
+      self.release_appcontroller_lock()
+    else
+      <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;Didn't grab lock, so not releasing it.&quot;</span>)
+    end
+  end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="release_appcontroller_lock-method" class="method-detail ">
+        <a name="method-c-release_appcontroller_lock"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">release_appcontroller_lock</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Releases the lock that AppControllers use to have exclusive write access,
+which was acquired via self.get_appcontroller_lock().</p>
+          
+
+          
+          <div class="method-source-code"
+            id="release_appcontroller_lock-source">
+<pre>
+<span class="ruby-comment"># File lib/zkinterface.rb, line 183</span>
+def self.release_appcontroller_lock()
+  self.delete(<span class="ruby-constant">APPCONTROLLER_LOCK_PATH</span>)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="remove_app_entry-method" class="method-detail ">
+        <a name="method-c-remove_app_entry"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">remove_app_entry</span><span
+            class="method-args">(appname)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="remove_app_entry-source">
+<pre>
+<span class="ruby-comment"># File lib/zkinterface.rb, line 125</span>
+def self.remove_app_entry(appname)
+  appname_path = <span class="ruby-constant">ROOT_APP_PATH</span> + &quot;/#{appname}&quot;
+  self.delete(appname_path)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="remove_ip_from_ip_list-method" class="method-detail ">
+        <a name="method-c-remove_ip_from_ip_list"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">remove_ip_from_ip_list</span><span
+            class="method-args">(ip)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Accesses the list of IP addresses stored in ZooKeeper and removes the given
+IP address from that list.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="remove_ip_from_ip_list-source">
+<pre>
+<span class="ruby-comment"># File lib/zkinterface.rb, line 277</span>
+def self.remove_ip_from_ip_list(ip)
+  if !self.exists?(<span class="ruby-constant">IP_LIST</span>)
+    return
+  end
+
+  data = <span class="ruby-constant">JSON</span>.load(self.get(<span class="ruby-constant">IP_LIST</span>))
+  data[<span class="ruby-string">'ips'</span>].delete(ip)
+  data[<span class="ruby-string">'last_updated'</span>] = <span class="ruby-constant">Time</span>.now.to_i
+  self.set(<span class="ruby-constant">IP_LIST</span>, <span class="ruby-constant">JSON</span>.dump(data), <span class="ruby-constant">NOT_EPHEMERAL</span>)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="remove_node_information-method" class="method-detail ">
+        <a name="method-c-remove_node_information"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">remove_node_information</span><span
+            class="method-args">(ip)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Deletes all information for a given node, whose data is stored in
+ZooKeeper.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="remove_node_information-source">
+<pre>
+<span class="ruby-comment"># File lib/zkinterface.rb, line 331</span>
+def self.remove_node_information(ip)
+  return self.recursive_delete(&quot;#{APPCONTROLLER_NODE_PATH}/#{ip}&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="remove_roles_from_node-method" class="method-detail ">
+        <a name="method-c-remove_roles_from_node"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">remove_roles_from_node</span><span
+            class="method-args">(roles, node)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Removes the specified roles from the given node in ZooKeeper. A node can 
+call this function to remove roles from another node, and the other node 
+should take on this role, or a node can call this function to let others 
+know that it is stopping existing roles. Callers should acquire the ZK Lock
+before calling this function. roles should be an Array of Strings, where
+each String is a role to remove node should be a <a
+href="DjinnJobData.html">DjinnJobData</a> representing the node that we
+want to remove the roles from</p>
+          
+
+          
+          <div class="method-source-code"
+            id="remove_roles_from_node-source">
+<pre>
+<span class="ruby-comment"># File lib/zkinterface.rb, line 441</span>
+def self.remove_roles_from_node(roles, node)
+  old_job_data = self.get_job_data_for_ip(node.public_ip)
+  new_node = <span class="ruby-constant">DjinnJobData</span>.deserialize(old_job_data)
+  new_node.remove_roles(roles.join(<span class="ruby-string">&quot;:&quot;</span>))
+  new_job_data = new_node.serialize()
+  self.set_job_data_for_ip(node.public_ip, new_job_data)
+  self.update_ips_timestamp()
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="set_done_loading-method" class="method-detail ">
+        <a name="method-c-set_done_loading"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">set_done_loading</span><span
+            class="method-args">(ip, val)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Provides a convenience function that callers can use to indicate that their
+node is done loading (if they have finished starting/stopping roles), or is
+not done loading (if they have roles they need to start or stop).</p>
+          
+
+          
+          <div class="method-source-code"
+            id="set_done_loading-source">
+<pre>
+<span class="ruby-comment"># File lib/zkinterface.rb, line 356</span>
+def self.set_done_loading(ip, val)
+  return self.set(&quot;#{APPCONTROLLER_NODE_PATH}/#{ip}/done_loading&quot;, 
+    <span class="ruby-constant">JSON</span>.dump(val), <span class="ruby-constant">NOT_EPHEMERAL</span>)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="set_job_data_for_ip-method" class="method-detail ">
+        <a name="method-c-set_job_data_for_ip"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">set_job_data_for_ip</span><span
+            class="method-args">(ip, job_data)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="set_job_data_for_ip-source">
+<pre>
+<span class="ruby-comment"># File lib/zkinterface.rb, line 409</span>
+def self.set_job_data_for_ip(ip, job_data)
+  return self.set(&quot;#{APPCONTROLLER_NODE_PATH}/#{ip}/job_data&quot;, 
+    job_data, <span class="ruby-constant">NOT_EPHEMERAL</span>)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="update_ips_timestamp-method" class="method-detail ">
+        <a name="method-c-update_ips_timestamp"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">update_ips_timestamp</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Updates the timestamp in the <a href="ZKInterface.html#IP_LIST">IP_LIST</a>
+file, to let other nodes know that an update has been made and that they
+should update their local @nodes</p>
+          
+
+          
+          <div class="method-source-code"
+            id="update_ips_timestamp-source">
+<pre>
+<span class="ruby-comment"># File lib/zkinterface.rb, line 291</span>
+def self.update_ips_timestamp()
+  data = <span class="ruby-constant">JSON</span>.load(self.get(<span class="ruby-constant">IP_LIST</span>))
+  data[<span class="ruby-string">'last_updated'</span>] = <span class="ruby-constant">Time</span>.now.to_i
+  self.set(<span class="ruby-constant">IP_LIST</span>, <span class="ruby-constant">JSON</span>.dump(data), <span class="ruby-constant">NOT_EPHEMERAL</span>)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="write_appcontroller_state-method" class="method-detail ">
+        <a name="method-c-write_appcontroller_state"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">write_appcontroller_state</span><span
+            class="method-args">(state)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="write_appcontroller_state-source">
+<pre>
+<span class="ruby-comment"># File lib/zkinterface.rb, line 151</span>
+def self.write_appcontroller_state(state)
+  <span class="ruby-comment"># Create the top-level AC dir, then the actual node that stores</span>
+  <span class="ruby-comment"># our data</span>
+  self.set(<span class="ruby-constant">APPCONTROLLER_PATH</span>, <span class="ruby-constant">DUMMY_DATA</span>, <span class="ruby-constant">NOT_EPHEMERAL</span>)
+  self.set(<span class="ruby-constant">APPCONTROLLER_STATE_PATH</span>, <span class="ruby-constant">JSON</span>.dump(state), <span class="ruby-constant">NOT_EPHEMERAL</span>)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="write_node_information-method" class="method-detail ">
+        <a name="method-c-write_node_information"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">write_node_information</span><span
+            class="method-args">(node, done_loading)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Creates files in ZooKeeper that relate to a given AppController’s role
+information, so that other AppControllers can detect if it has failed, and
+if so, what functionality it was providing at the time.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="write_node_information-source">
+<pre>
+<span class="ruby-comment"># File lib/zkinterface.rb, line 301</span>
+def self.write_node_information(node, done_loading)
+  <span class="ruby-comment"># Create the folder for all nodes if it doesn't exist.</span>
+  if !self.exists?(<span class="ruby-constant">APPCONTROLLER_NODE_PATH</span>)
+    @@zk.create(:path =&gt; <span class="ruby-constant">APPCONTROLLER_NODE_PATH</span>, 
+      :ephemeral =&gt; <span class="ruby-constant">NOT_EPHEMERAL</span>, :data =&gt; <span class="ruby-constant">DUMMY_DATA</span>)
+  end
+
+  <span class="ruby-comment"># Create the folder for this node.</span>
+  my_ip_path = &quot;#{APPCONTROLLER_NODE_PATH}/#{node.public_ip}&quot;
+  @@zk.create(:path =&gt; my_ip_path, :ephemeral =&gt; <span class="ruby-constant">NOT_EPHEMERAL</span>, 
+    :data =&gt; <span class="ruby-constant">DUMMY_DATA</span>)
+
+  <span class="ruby-comment"># Create an ephemeral link associated with this node, which other</span>
+  <span class="ruby-comment"># AppControllers can use to quickly detect dead nodes.</span>
+  @@zk.create(:path =&gt; &quot;#{my_ip_path}/live&quot;, :ephemeral =&gt; <span class="ruby-constant">EPHEMERAL</span>,
+    :data =&gt; <span class="ruby-constant">DUMMY_DATA</span>)
+
+  <span class="ruby-comment"># Since we're reporting on the roles we've started, we are done loading</span>
+  <span class="ruby-comment"># roles right now, so write that information for others to read and act on.</span>
+  self.set_done_loading(node.public_ip, done_loading)
+
+  <span class="ruby-comment"># Finally, dump the data from this node to ZK, so that other nodes can</span>
+  <span class="ruby-comment"># reconstruct it as needed.</span>
+  self.set_job_data_for_ip(node.public_ip, node.serialize())
+
+  return
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+    </div>
+  
+
+  </div>
+
+  <div id="validator-badges">
+    <p><small><a href="http://validator.w3.org/check/referer">[Validate]</a></small></p>
+    <p><small>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish
+      Rdoc Generator</a> 2</small>.</p>
+  </div>
+
+</body>
+</html>
+

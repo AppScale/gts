@@ -21,7 +21,7 @@ class UsersController < ApplicationController
 
     if result[:success]
       flash[:notice] = "Your account has been successfully created"
-      token = create_token(session[:session_id], @user.email)
+      token = create_token(get_remote_ip, @user.email)
 
       if token.nil?
         flash[:error] = "The database appears to be down right now. Please contact your cloud administrator."
@@ -56,7 +56,7 @@ class UsersController < ApplicationController
       redirect_to get_redirect_url
     end
 
-    if has_valid_token?(session[:session_id])
+    if has_valid_token?(get_remote_ip)
       render :action => :confirm
     end
   end
@@ -76,7 +76,7 @@ class UsersController < ApplicationController
     result = @user.authenticate!
 
     if result[:success]
-      token = create_token(session[:session_id], @user.email)
+      token = create_token(get_remote_ip, @user.email)
 
       if token.nil?
         flash.now[:error] = "The database appears to be down right now. Please contact your cloud administrator."
@@ -103,7 +103,7 @@ class UsersController < ApplicationController
   end
 
   def logout
-    create_token(session[:session_id], "invalid") # clear the token out
+    create_token(get_remote_ip, "invalid") # clear the token out
     reset_session
     cookies[:dev_appserver_login] = { :value => nil, :domain => UserTools.local_ip, :expires => Time.at(0) }
     flash[:notice] = "You have been logged out."

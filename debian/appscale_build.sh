@@ -20,20 +20,28 @@ curl -d "key=appscale" http://heart-beat.appspot.com/sign
 
 export APPSCALE_HOME_RUNTIME=`pwd`
 
+apt-get update
+
 if [ "$DIST" = "lucid" ]; then
+    echo "Running lucid specific commands"
     # install add-apt-repository command
     apt-get -y install python-software-properties
     # add repository
-    add-apt-repository ppa:fkrull/deadsnakes
+    #add-apt-repository ppa:fkrull/deadsnakes
+    add-apt-repository "deb http://ppa.launchpad.net/fkrull/deadsnakes/ubuntu lucid main"
+    add-apt-repository "deb-src http://ppa.launchpad.net/fkrull/deadsnakes/ubuntu lucid main" 
+    add-apt-repository "deb http://archive.canonical.com/ lucid partner"
+
+    # For cassandra
+    add-apt-repository "deb http://debian.datastax.com/lucid lucid main"
+    wget -O - http://debian.datastax.com/debian/repo_key | sudo apt-key add -
+    # For rabbitmq
+    add-apt-repository "deb http://www.rabbitmq.com/debian/ testing main"
+    wget -O - http://www.rabbitmq.com/rabbitmq-signing-key-public.asc | sudo apt-key add -
+
 fi
 
 apt-get update
-
-# Accept the sun licencing agreement 
-echo sun-java5-jdk shared/accepted-sun-dlj-v1-1 select true | /usr/bin/debconf-set-selections
-echo sun-java5-jre shared/accepted-sun-dlj-v1-1 select true | /usr/bin/debconf-set-selections
-echo sun-java6-jdk shared/accepted-sun-dlj-v1-1 select true | /usr/bin/debconf-set-selections
-echo sun-java6-jre shared/accepted-sun-dlj-v1-1 select true | /usr/bin/debconf-set-selections
 
 # Solves the localization error messages 
 export LANGUAGE=en_US.UTF-8
@@ -45,31 +53,9 @@ dpkg-reconfigure locales
 # fix /etc/hosts file for collectd installation
 HOSTNAME=`hostname`
 if [ `grep "$HOSTNAME" /etc/hosts | wc -l` -eq 0 ]; then
-    echo "127.0.1.1 $HOSTNAME" >> /etc/hosts
+    echo "127.0.1.1 ${HOSTNAME} ${HOSTNAME}.localdomain" >> /etc/hosts
 fi
 
-# By default MySQL prompts the user for a password when installing
-# We temporarily set the frontend to noninteractive so it doesn't prompt us
-export DEBIAN_FRONTEND=noninteractive
-apt-get install -y mysql-server-5.0
-# Change it back since this can affect the installation of other packages (e.g. java)
-export DEBIAN_FRONTEND=''
-
-# install runtime dependency
-# for distro
-PACKAGES=`find debian -regex ".*\/control\.[a-z]+\.${DIST}\$" -exec mawk -f debian/package-list.awk {} +`
-apt-get install -y ${PACKAGES}
-if [ $? -ne 0 ]; then
-    echo "Fail to install depending packages for runtime."
-    exit 1
-fi
-# for general
-PACKAGES=`find debian -regex ".*\/control\.[a-z]+\$" -exec mawk -f debian/package-list.awk {} +`
-apt-get install -y ${PACKAGES}
-if [ $? -ne 0 ]; then
-    echo "Fail to install depending packages for runtime."
-    exit 1
-fi
 
 # Install cmake prior to the other packages since seems to fail if installed with the other packages
 apt-get install -y cmake
@@ -102,21 +88,58 @@ fi
 
 # distro specific build environment
 if [ "${DIST}" = "jaunty" ]; then
-    apt-get install -y libboost1.37-dev
-elif [ "${DIST}" = "karmic" -o "${DIST}" = "lucid" ]; then
-    apt-get install -y libboost1.40-dev
+    	apt-get install -y libboost1.37-dev
+elif [ "${DIST}" = "lucid" ]; then
+    	apt-get install -y libboost1.40-dev
+	mkdir -p /var/run/mysqld /etc/mysql /usr/share/mysql
+	cp debian/debian-start /etc/mysql/
+	chmod 755 /etc/mysql/debian-start
+	cp debian/debian-start.inc.sh /usr/share/mysql/
+	apt-get -y install libmysqlclient16
+elif [ "${DIST}" = "karmic" ]; then
+    	apt-get install -y libboost1.40-dev
 fi
 if [ $? -ne 0 ]; then
     echo "Fail to install depending packages for building."
     exit 1
 fi
 
+# install runtime dependency
+# for mysql
+PACKAGES=`find debian -regex ".*\/control\.mysql+\.${DIST}\$" -exec mawk -f debian/package-list.awk {} +`
+export DEBIAN_FRONTEND=noninteractive
+apt-get -o Dpkg::Options::="--force-overwrite" -y install ${PACKAGES}
+export DEBIAN_FRONTEND=''
+if [ $? -ne 0 ]; then
+    echo "Fail to install depending packages for runtime."
+    exit 1
+fi
+
+# for distro
+PACKAGES=`find debian -regex ".*\/control\.[a-z]+\.${DIST}\$" -exec mawk -f debian/package-list.awk {} +`
+apt-get install -y --force-yes ${PACKAGES}
+if [ $? -ne 0 ]; then
+    echo "Fail to install depending packages for runtime."
+    exit 1
+fi
+# for general
+PACKAGES=`find debian -regex ".*\/control\.[a-z]+\$" -exec mawk -f debian/package-list.awk {} +`
+apt-get install -y --force-yes ${PACKAGES}
+if [ $? -ne 0 ]; then
+    echo "Fail to install depending packages for runtime."
+    exit 1
+fi
+
+
 # remove conflict package
 apt-get -y purge haproxy
-
-# install scripts
-
+#apt-get -y remove consolekit
 bash debian/appscale_install.sh all
+
+# The Go programming language we use is part of the App Engine runtime, so
+# add it to our PATH for Medea jobs.
+echo "export PATH=\$PATH:$APPSCALE_HOME_RUNTIME/AppServer/goroot/bin" >> ~/.bashrc
+
 if [ $? -ne 0 ]; then
     echo "Unable to complete AppScale installation."
     exit 1

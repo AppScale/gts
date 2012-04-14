@@ -32,6 +32,7 @@ import logging
 import os
 
 from google.appengine.api import apiproxy_stub
+from google.appengine.api import app_identity
 from google.appengine.api import xmpp
 from google.appengine.api.xmpp import xmpp_service_pb
 
@@ -139,7 +140,7 @@ class XmppServiceStub(apiproxy_stub.APIProxyStub):
       xmpp.InvalidJidError if the requested JID is invalid.
     """
 
-    appid = os.environ.get('APPLICATION_ID', '')
+    appid = app_identity.get_application_id()
     if requested == None or requested == '':
       return appid + '@appspot.com/bot'
 

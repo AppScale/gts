@@ -1,4 +1,7 @@
 # Methods added to this helper will be available to all templates in the application.
+require 'rubygems'
+require 'json'
+
 require 'usertools'
 require 'dbfrontend'
 
@@ -78,41 +81,46 @@ module ApplicationHelper
   end
 
   def get_application_information
-    cached_apps = CACHE.get('apps')
-    unless cached_apps.nil?
-      return cached_apps.split(',')
-    end
-
     status_files = get_status_files
 
-    apps = []
+    apps = {}
 
     status_files.each { |filename|
-      contents = (File.open(filename) { |f| f.read }).chomp
-      apps << contents.scan(/Hosting the following apps: ([\w\d\.\-@, ]+)/).flatten.to_s.split(", ")
+      raw_contents = (File.open(filename) { |f| f.read })
+
+      begin
+        # see which apps are registered in the system
+        # apps have a name (k) and a state (v), which
+        # is either true if is is running and false if
+        # it is not (e.g., still starting up or shutting down)
+
+        # we're polling multiple appservers, who may each
+        # be reporting true or false - if any of them report
+        # true we want to report true
+
+        stats = JSON.load(raw_contents)
+        stats['apps'].each { |k, v|
+          next if k == "none"
+          if apps[k].nil?
+            apps[k] = v
+          else
+            apps[k] = v if v
+          end
+        }
+      rescue Exception => e
+      end
     }
-
-    apps.flatten!.uniq! if apps.any?
-
-    apps.delete("none") if apps.include?("none")
-    
-    CACHE.set('apps', apps.join(','), 30)
 
     apps
   end
 
   def get_head_node_ip
-    cached_head_node = CACHE.get('head_node_ip')
-    return cached_head_node unless cached_head_node.nil?
-
     filename = "#{APPSCALE_HOME}/.appscale/login_ip"
     unless File.exists?(filename)
       abort("The file #{filename} did not exist, could not get login IP.")
     end
 
     head_node_ip = File.open(filename) { |f| f.read }.chomp
-    CACHE.set('head_node_ip', head_node_ip)
-
     return head_node_ip
   end
 
@@ -124,5 +132,11 @@ module ApplicationHelper
     head_node_ip = get_head_node_ip
 
     "http://#{head_node_ip}:8050"
+  end
+
+  def sisyphus_url
+    head_node_ip = get_head_node_ip
+
+    "http://#{head_node_ip}/apps/sisyphus"
   end
 end

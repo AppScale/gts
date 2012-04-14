@@ -93,12 +93,12 @@ class DatastoreProxy(AppDBInterface):
     if not self.conn:
       self.conn = ThriftClient(self.get_local_ip(), THRIFT_PORT)
       try:
-        if create_ns and not self.conn.exists_namespace(NS):
-          self.conn.create_namespace(NS)
+        if create_ns and not self.conn.namespace_exists(NS):
+          self.conn.namespace_create(NS)
       except Exception, e:
         print "Unable to create namepsace"
         print e
-      self.ns = self.conn.open_namespace(NS)
+      self.ns = self.conn.namespace_open(NS)
     # self.ns = self.conn.open_namespace(NS)
     #if PROFILING:
     #  self.logger.debug("HT InitConnection: %s"%str(endtime - starttime))
@@ -165,6 +165,7 @@ class DatastoreProxy(AppDBInterface):
       if not client:
         client = self.__initConnection(create_ns=True)
     except Exception, e:
+      print str(e)
       if client:
         self.__closeConnection(client)
       return str(e)
@@ -175,10 +176,10 @@ class DatastoreProxy(AppDBInterface):
       table_names = client.get_tables(self.ns)
       self.__closeConnection(client)
     except Exception, e:
+      print str(e)
       if client:
         self.__closeConnection(client)
       return str(e)
-    
     
     return table_names
     
@@ -247,7 +248,7 @@ class DatastoreProxy(AppDBInterface):
         file.close()
    
     try: 
-      mutator = client.open_mutator(self.ns, table_name, 0, 0) 
+      mutator = client.mutator_open(self.ns, table_name, 0, 0)
       cell_list = []
       for ii in range(0, len(column_names)):
         cell = ttypes.Cell() 
@@ -258,8 +259,8 @@ class DatastoreProxy(AppDBInterface):
         cell.key = key 
         cell.value =  cell_values[ii]
         cell_list.append(cell)
-      client.set_cells(mutator, cell_list)
-      client.close_mutator(mutator, 1) 
+      client.mutator_set_cells(mutator, cell_list)
+      client.mutator_close(mutator)
       
     except Exception, e:
       file = open("/tmp/hyper_exception_log","a")
@@ -267,6 +268,7 @@ class DatastoreProxy(AppDBInterface):
       file.write("at trying to put the object\n")
       file.close()
       elist[0] += "Error in put call"  
+      print e
     elist.append("0")
     endtime = time.time()
     if PROFILING:

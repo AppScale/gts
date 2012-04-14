@@ -66,7 +66,8 @@
   <h3>{% if key %}Edit Entity{% else %}New Entity{% endif %}</h3>
 
   <form action="{{ request.path }}" method="post" onsubmit="return clearHints(this)">
-    <div><input type="hidden" name="next" value="{{ next }}"/></div>
+    <input type="hidden" name="xsrf_token" value="{{ xsrf_token }}"/>
+    <input type="hidden" name="next" value="{{ next }}"/>
     <table class="form">
       {% if key %}
         {% if namespace %}

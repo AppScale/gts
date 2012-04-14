@@ -1,0 +1,501 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html lang='en' xml:lang='en' xmlns='http://www.w3.org/1999/xhtml'>
+  <head>
+    <title>lib/monitoring.rb</title>
+    <link href="screen.css" media="all" rel="stylesheet" type="text/css" />
+    <link href="print.css" media="print" rel="stylesheet" type="text/css" />
+    
+    <meta http-equiv="Content-type" content="text/html;charset=UTF-8" />
+    <script type="text/javascript" src="rcov.js"></script>
+  </head>
+  <body>
+    <h1>Appcontroller C0 Coverage Information - RCov</h1>
+    <h2>lib/monitoring.rb</h2>
+
+    
+
+    <div class="report_table_wrapper">
+      <table class='report' id='report_table'>
+        <thead>
+          <tr>
+            <th class="left_align">Name</th>
+            <th class="right_align">Total Lines</th>
+            <th class="right_align">Lines of Code</th>
+            <th class="left_align">Total Coverage</th>
+            <th class="left_align">Code Coverage</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="left_align"><a href="lib-monitoring_rb.html">lib/monitoring.rb</a></td>
+            <td class='right_align'><tt>73</tt></td>
+            <td class='right_align'><tt>42</tt></td>
+            <td class="left_align"><div class="percent_graph_legend"><tt class=''>58.90%</tt></div>
+          <div class="percent_graph">
+            <div class="covered" style="width:59px"></div>
+            <div class="uncovered" style="width:41px"></div>
+          </div></td>
+            <td class="left_align"><div class="percent_graph_legend"><tt class=''>35.71%</tt></div>
+          <div class="percent_graph">
+            <div class="covered" style="width:36px"></div>
+            <div class="uncovered" style="width:64px"></div>
+          </div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <h3>Key</h3>
+    
+    <div class="key"><pre><span class='marked'>Code reported as executed by Ruby looks like this...</span><span class='marked1'>and this: this line is also marked as covered.</span><span class='inferred'>Lines considered as run by rcov, but not reported by Ruby, look like this,</span><span class='inferred1'>and this: these lines were inferred by rcov (using simple heuristics).</span><span class='uncovered'>Finally, here's a line marked as not executed.</span></pre></div>
+
+    <h3>Coverage Details</h3>
+
+    <table class="details">
+      <tbody>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line1">1</a> #!/usr/bin/ruby -w</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line2">2</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line3">3</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line4">4</a> # Monitr is a Ruby on Rails application that displays system information</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line5">5</a> # written by collectd. This module configures and deploys that service.</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line6">6</a> module Monitoring</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line7">7</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line8">8</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line9">9</a>   SERVER_PORTS = [8003]</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line10">10</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line11">11</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line12">12</a>   # The port which nginx will use to send requests to haproxy</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line13">13</a>   PROXY_PORT = 8061</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line14">14</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line15">15</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line16">16</a>   # The port which requests to this app will be served from</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line17">17</a>   LISTEN_PORT = 8050</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line18">18</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line19">19</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line20">20</a>   ENVIRONMENT = &quot;RAILS_ENV=production &quot;</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line21">21</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line22">22</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line23">23</a>   RAILS_ROOT = File.expand_path(&quot;#{APPSCALE_HOME}/AppMonitoring&quot;)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line24">24</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line25">25</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line26">26</a>   def self.start</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line27">27</a>     env_vars = { &quot;RAILS_ENV&quot; =&gt; &quot;production&quot;, &quot;APPSCALE_HOME&quot; =&gt; APPSCALE_HOME }</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line28">28</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line29">29</a>     SERVER_PORTS.each { |port|</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line30">30</a>       start_cmd = &quot;/usr/bin/mongrel_rails start -c #{RAILS_ROOT} -e production -p #{port} &quot; +</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line31">31</a>         &quot;-P #{RAILS_ROOT}/log/mongrel.#{port}.pid&quot;</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line32">32</a>       stop_cmd = &quot;/usr/bin/mongrel_rails stop -P #{RAILS_ROOT}/log/mongrel.#{port}.pid&quot;</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line33">33</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line34">34</a>       GodInterface.start(:monitr, start_cmd, stop_cmd, port, env_vars)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line35">35</a>     }</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line36">36</a>   end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line37">37</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line38">38</a>   def self.stop</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line39">39</a>     GodInterface.stop(:monitr)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line40">40</a>     #`service appscale-monitoring stop`</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line41">41</a>   end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line42">42</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line43">43</a>   def self.restart</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line44">44</a>     self.stop</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line45">45</a>     self.start</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line46">46</a>   end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line47">47</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line48">48</a>   # Clear out the entire database so no old meta-data is left over</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line49">49</a>   def self.reset</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line50">50</a>     `cd #{APPSCALE_HOME}/AppMonitoring; #{ENVIRONMENT} rake db:drop;`</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line51">51</a>     `cd #{APPSCALE_HOME}/AppMonitoring; #{ENVIRONMENT} rake db:migrate;`</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line52">52</a>   end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line53">53</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line54">54</a>   def self.name</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line55">55</a>     &quot;as_mon&quot;</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line56">56</a>   end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line57">57</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line58">58</a>   def self.public_directory</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line59">59</a>     &quot;#{APPSCALE_HOME}/AppMonitoring/public&quot;</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line60">60</a>   end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line61">61</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line62">62</a>   def self.listen_port</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line63">63</a>     LISTEN_PORT</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line64">64</a>   end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line65">65</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line66">66</a>   def self.server_ports</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line67">67</a>     SERVER_PORTS</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line68">68</a>   end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line69">69</a>   </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line70">70</a>   def self.proxy_port</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line71">71</a>     PROXY_PORT</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line72">72</a>   end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line73">73</a> end</pre></td>
+          </tr>
+        
+      </tbody>
+    </table>
+
+    <p>Generated on Sun Apr 08 23:41:04 -0700 2012 with <a href="http://github.com/relevance/rcov">rcov 0.9.8</a></p>
+
+  </body>
+</html>

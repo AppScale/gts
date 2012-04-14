@@ -32,6 +32,7 @@ import cgi
 import Cookie
 import md5
 import os
+import re
 import sys
 import urllib
 import sha
@@ -82,14 +83,21 @@ def GetUserInfo(http_cookie, cookie_name=COOKIE_NAME):
   cookie_value = cookie_value.replace("%40",'@')
   cookie_value = cookie_value.replace("%2C",",")
   email, nickname, admin, hsh = (cookie_value.split(':') + ['', '', '', ''])[:4]
+
   if email == '':
     nickname = ''
     admin = ''
+    return '', '', False, False
   else:
     vhsh = sha.new(email+nickname+admin+COOKIE_SECRET).hexdigest()
     if hsh != vhsh:
-      logging.info(email+" had invalid cookie")
+      logging.info(email+" had invalid cookie, clearing it")
       valid_cookie = False
+      email = ''
+      admin = ''
+      nickname = ''
+      return '', '', False, False
+
   isAdmin = False
   admin_apps = admin.split(',')
   current_app = os.environ['APPLICATION_ID']
@@ -145,11 +153,10 @@ def LoginRedirect(login_url,
   outfile.write('Location: %s\r\n\r\n' % redirect_url)
 
 def LoginServiceRedirect(dest_url, endpoint, ah_url, outfile):
-  dest_url = "foo" # cgb fix for grinder testing
+  #dest_url = "foo" # cgb fix for grinder testing
   redirect_url = '%s?%s=%s' % (endpoint,
                         CONTINUE_PARAM,
                         urllib.quote('%s?%s=%s' %(ah_url,CONTINUE_PARAM,dest_url)))
-  #logging.info("redirect url: " + redirect_url)             
   outfile.write('Status: 302 Redirecting to login service URL\r\n')
   outfile.write('Location: %s\r\n' % redirect_url)
   outfile.write('\r\n')
@@ -161,7 +168,6 @@ def Logout(continue_url, outfile):
   outfile.write('Status: 302 Redirecting to continue URL\r\n')
   for header in output_headers:
     outfile.write(header)
-  #logging.info("logout redirect url: " + continue_url)             
   outfile.write('Location: %s\r\n' % continue_url)
   outfile.write('\r\n')
 
@@ -184,7 +190,19 @@ def main():
 
   if action == None:
     action = 'Login'
+
   continue_url = form.getfirst(CONTINUE_PARAM, '')
+
+  # sometimes the continue url doesn't have the port number on it
+  # so rip off the suffix and add it on
+  host_w_port = nginx_url + ":" + nginx_port
+  if host_w_port not in continue_url:
+    regex = nginx_url + "(.*)\Z"
+    pattern = re.compile(regex)
+    suffix = re.search(pattern, continue_url)
+    if suffix:
+      continue_url = "http://" + nginx_url + ":" + nginx_port + suffix.group(1)
+
   login_service_endpoint = "https://"+LOGIN_SERVER+"/login"
   if action.lower() == LOGOUT_ACTION.lower():
     Logout(continue_url, sys.stdout)

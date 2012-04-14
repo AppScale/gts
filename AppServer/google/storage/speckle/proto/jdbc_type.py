@@ -24,9 +24,9 @@ Python definition of the JDBC type constant values defined in Java class
 java.sql.Types.  Since the values don't fall into the range allowed by
 a protocol buffer enum, we use Python constants instead.
 
-If you update this, update jdbc_type.py also.  TODO(mshields): Generate
-one file from the other, or both from the Java class.
+If you update this, update jdbc_type.py also.
 """
+
 
 
 BIT = -7

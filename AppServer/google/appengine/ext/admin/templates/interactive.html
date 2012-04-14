@@ -53,6 +53,7 @@
 {% block body %}
 <h3>Interactive Console</h3>
 <form action="{{ interactive_execute_path }}" target="output" method="post">
+  <input type="hidden" name="xsrf_token" value="{{ xsrf_token }}"/>
   <table id="console">
     <tr>
       <td>

@@ -2,7 +2,7 @@
 
 import os
 APPSCALE_HOME=os.environ.get("APPSCALE_HOME")
-
+SECRET_LOCATION = "/etc/appscale/secret.key"
 LOG_DIR = "%s/AppDB/logs" % APPSCALE_HOME
 
 ERROR_DEFAULT = "DB_ERROR:"
@@ -55,3 +55,22 @@ APPS_SCHEMA = [
   "enabled",
   "classes",
   "indexes" ]
+
+APPENGINE_SCHEMA= ["""
+CREATE TABLE IF NOT EXISTS Apps (
+  app_id VARCHAR(255) NOT NULL PRIMARY KEY,
+  indexes VARCHAR(255)
+) ENGINE=ndbcluster;
+""","""
+CREATE TABLE IF NOT EXISTS Namespaces (
+  app_id VARCHAR(255) NOT NULL,
+  name_space VARCHAR(255) NOT NULL,
+  PRIMARY KEY (app_id, name_space)
+) ENGINE=ndbcluster;
+""","""
+CREATE TABLE IF NOT EXISTS IdSeq (
+  prefix VARCHAR(255) NOT NULL PRIMARY KEY,
+  next_id INT(100) NOT NULL
+) ENGINE=ndbcluster;
+"""]
+

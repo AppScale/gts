@@ -1,7 +1,6 @@
 # See AppScale License
 import os
 import re
-from google.appengine.api import SOAPpy
 import sys
 import time
 import urllib
@@ -14,6 +13,11 @@ from google.appengine.api import users
   this likely should be refactored to use boto at a later time, which offers
   a much cleaner interface than what we use now.
 """
+
+# since we just shell out right now, the ec2 api is available everywhere
+# so always return true 
+def can_run_jobs():
+  return True
 
 def sanitize(options):
   regex = r"[^\w\d/\.-]"

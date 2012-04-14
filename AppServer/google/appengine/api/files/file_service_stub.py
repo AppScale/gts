@@ -24,10 +24,10 @@
 import base64
 import cgi
 import datetime
-import md5
 import os
 import random
 import string
+import StringIO
 import tempfile
 import time
 import urllib
@@ -38,9 +38,13 @@ from google.appengine.api import datastore
 from google.appengine.api import datastore_errors
 from google.appengine.api.files import blobstore as files_blobstore
 from google.appengine.api.files import file_service_pb
+from google.appengine.api.files import gs
 from google.appengine.ext import blobstore
 from google.appengine.runtime import apiproxy_errors
 from google.appengine.tools import dev_appserver_upload
+
+
+MAX_REQUEST_SIZE = 32 << 20
 
 
 
@@ -52,7 +56,178 @@ def raise_error(error_code, error_detail=''):
   raise apiproxy_errors.ApplicationError(error_code, error_detail=error_detail)
 
 
-class FileStorage:
+_BLOBSTORE_DIRECTORY = files_blobstore._BLOBSTORE_DIRECTORY
+_GS_PREFIX = gs._GS_PREFIX
+_GS_UPLOAD_PREFIX = _GS_PREFIX + 'writable:'
+
+
+
+class _GoogleStorageUpload(tuple):
+  """Stores information about a writable Google Storage file."""
+  buf = property(lambda self: self[0])
+  content_type = property(lambda self: self[1])
+  key = property(lambda self: self[2])
+
+
+class GoogleStorage(object):
+  """Virtual google storage to be used by file api."""
+
+
+
+  def _Upload(self, buf, content_type, key):
+    return _GoogleStorageUpload([buf, content_type, key])
+
+  def __init__(self):
+    self.index = 0
+    self.keys = {}
+    self.uploads = {}
+    self.finalized = set()
+
+  def ParseIndex(self, filename):
+    """Returns 123 from /gs/writable:123."""
+    assert filename
+    assert filename.startswith(_GS_UPLOAD_PREFIX)
+    return filename[len(_GS_UPLOAD_PREFIX):]
+
+  def has_upload(self, filename):
+    """Checks if there is an upload at this filename."""
+    return self.ParseIndex(filename) in self.uploads
+
+  def has_key(self, filename):
+    """Checks if there is a key at this filename."""
+    return filename in self.keys
+
+  def finalize(self, filename):
+    """Marks file as finalized."""
+    index = self.ParseIndex(filename)
+    upload = self.uploads[index]
+    self.keys[upload.key] = upload.buf
+    self.finalized.add(index)
+    self.uploads[index] = self._Upload(
+        None, upload.content_type, upload.key)
+
+  def is_finalized(self, filename):
+    """Checks if file is already finalized."""
+    index = self.ParseIndex(filename)
+    assert index in self.uploads
+    return index in self.finalized
+
+  def start_upload(self, request):
+    """Starts a new upload based on the specified CreateRequest."""
+
+    mime_type = None
+    gs_filename = request.filename()
+    ignored_parameters = [
+        gs._CACHE_CONTROL_PARAMETER,
+        gs._CANNED_ACL_PARAMETER,
+        gs._CONTENT_DISPOSITION_PARAMETER,
+        gs._CONTENT_ENCODING_PARAMETER,
+        ]
+
+    for param in request.parameters_list():
+      name = param.name()
+      if name == gs._MIME_TYPE_PARAMETER:
+        mime_type = param.value()
+      elif (name in ignored_parameters or
+            name.startswith(gs._USER_METADATA_PREFIX)):
+        pass
+      else:
+        raise_error(file_service_pb.FileServiceErrors.INVALID_PARAMETER)
+
+    if not mime_type:
+      raise_error(file_service_pb.FileServiceErrors.INVALID_PARAMETER)
+    elif not gs_filename:
+      raise_error(file_service_pb.FileServiceErrors.INVALID_PARAMETER)
+
+    self.index += 1
+    self.uploads[str(self.index)] = self._Upload(
+        StringIO.StringIO(), mime_type, gs_filename)
+    return '%s%d' % (_GS_UPLOAD_PREFIX, self.index)
+
+  def append(self, filename, data):
+    """Appends data to the upload filename."""
+    index = self.ParseIndex(filename)
+    assert not self.is_finalized(filename)
+    self.uploads[index].buf.write(data)
+
+  def read(self, key, pos, max_data):
+    """Reads max_data bytes from key starting at pos."""
+    assert key in self.keys
+    buf = self.keys[key]
+    buf.seek(pos)
+    return buf.read(max_data)
+
+
+class GoogleStorageFile(object):
+  """File object for '/gs/' files."""
+
+
+
+
+
+  def __init__(self, open_request, file_storage):
+    self.filename = open_request.filename()
+    self.file_storage = file_storage
+    self.open_mode = open_request.open_mode()
+
+    content_type = open_request.content_type()
+
+    if self.is_appending:
+
+      if not self.filename.startswith(_GS_UPLOAD_PREFIX):
+        raise_error(file_service_pb.FileServiceErrors.INVALID_FILE_NAME)
+      elif not self.file_storage.has_upload(self.filename):
+        raise_error(file_service_pb.FileServiceErrors.EXISTENCE_ERROR)
+      elif self.file_storage.is_finalized(self.filename):
+        raise_error(file_service_pb.FileServiceErrors.FINALIZATION_ERROR,
+                    'File is already finalized')
+    else:
+
+      if not self.filename.startswith(_GS_PREFIX):
+        raise_error(file_service_pb.FileServiceErrors.INVALID_FILE_NAME)
+      elif self.filename.startswith(_GS_UPLOAD_PREFIX):
+
+        raise_error(file_service_pb.FileServiceErrors.INVALID_FILE_NAME)
+      elif not self.file_storage.has_key(self.filename):
+        raise_error(file_service_pb.FileServiceErrors.EXISTENCE_ERROR)
+
+    if content_type != file_service_pb.FileContentType.RAW:
+      raise_error(file_service_pb.FileServiceErrors.WRONG_CONTENT_TYPE)
+
+  @property
+  def is_appending(self):
+    """Checks if the file is opened for appending or reading."""
+    return self.open_mode == file_service_pb.OpenRequest.APPEND
+
+  def read(self, request, response):
+    """Copies up to max_bytes starting at pos into response from filename."""
+    if self.is_appending:
+      raise_error(file_service_pb.FileServiceErrors.WRONG_OPEN_MODE)
+    data = self.file_storage.read(
+        self.filename, request.pos(), request.max_bytes())
+    response.set_data(data)
+
+  def append(self, request, response):
+    """Appends data to filename."""
+    if not self.is_appending:
+      raise_error(file_service_pb.FileServiceErrors.WRONG_OPEN_MODE)
+    self.file_storage.append(self.filename, request.data())
+
+  def finalize(self):
+    """Finalize a file.
+
+    Copies temp file data to permanent location for reading.
+    """
+    if not self.is_appending:
+      raise_error(file_service_pb.FileServiceErrors.WRONG_OPEN_MODE)
+    elif self.file_storage.is_finalized(self.filename):
+      raise_error(
+          file_service_pb.FileServiceErrors.FINALIZATION_ERROR,
+          'File is already finalized')
+    self.file_storage.finalize(self.filename)
+
+
+class BlobstoreStorage(object):
   """Virtual file storage to be used by file api.
 
   Abstracts away all aspects of logical and physical file organization of the
@@ -104,11 +279,32 @@ class FileStorage:
     """Checks if blobstore file was already created."""
     return filename in self.blobstore_files
 
-  def add_blobstore_file(self, filename, content_type, blob_file_name):
+  def add_blobstore_file(self, request):
     """Registers a created blob store file."""
+
+    mime_type = None
+    blob_filename = ''
+    for param in request.parameters_list():
+      name = param.name()
+      if name == files_blobstore._MIME_TYPE_PARAMETER:
+        mime_type = param.value()
+      elif name == files_blobstore._BLOBINFO_UPLOADED_FILENAME_PARAMETER:
+        blob_filename = param.value()
+      else:
+        raise_error(file_service_pb.FileServiceErrors.INVALID_PARAMETER)
+    if mime_type is None:
+      raise_error(file_service_pb.FileServiceErrors.INVALID_PARAMETER)
+
+    random_str = ''.join(
+        random.choice(string.ascii_uppercase + string.digits)
+        for _ in range(64))
+    filename = (_BLOBSTORE_DIRECTORY +
+                files_blobstore._CREATION_HANDLE_PREFIX +
+                base64.urlsafe_b64encode(random_str))
     self.blobstore_files.add(filename)
-    self.blob_content_types[filename] = content_type
-    self.blob_file_names[filename] = blob_file_name
+    self.blob_content_types[filename] = mime_type
+    self.blob_file_names[filename] = blob_filename
+    return filename
 
   def get_sequence_key(self, filename):
     """Get sequence key for a file."""
@@ -149,14 +345,14 @@ class FileStorage:
 
 
 class BlobstoreFile(object):
-  """File object for generic '/blobstore/' file."""
+  """File object for generic /blobstore/ file."""
 
   def __init__(self, open_request, file_storage):
     """Constructor.
 
     Args:
       open_request: An instance of open file request.
-      file_storage: An instance of FileStorage.
+      file_storage: An instance of BlobstoreStorage.
     """
     self.filename = open_request.filename()
     self.file_storage = file_storage
@@ -167,11 +363,11 @@ class BlobstoreFile(object):
     open_mode = open_request.open_mode()
     content_type = open_request.content_type()
 
-    if not self.filename.startswith('/blobstore/'):
+    if not self.filename.startswith(_BLOBSTORE_DIRECTORY):
       if not self.file_storage.has_blobstore_file(self.filename):
         raise_error(file_service_pb.FileServiceErrors.INVALID_FILE_NAME)
 
-    self.ticket = self.filename[len('/blobstore/'):]
+    self.ticket = self.filename[len(_BLOBSTORE_DIRECTORY):]
 
     if open_mode == file_service_pb.OpenRequest.APPEND:
       if not self.file_storage.has_blobstore_file(self.filename):
@@ -231,15 +427,21 @@ class BlobstoreFile(object):
     self.file_storage.register_blob_key(self.ticket, blob_key)
 
     size = self.file_storage.save_blob(self.filename, blob_key)
-    blob_entity = datastore.Entity('__BlobInfo__',
+    blob_info = datastore.Entity('__BlobInfo__',
                                    name=str(blob_key),
                                    namespace='')
-    blob_entity['content_type'] = self.mime_content_type
-    blob_entity['creation'] = _now_function()
-    blob_entity['filename'] = self.blob_file_name
-    blob_entity['size'] = size
-    blob_entity['creation_handle'] = self.ticket
-    datastore.Put(blob_entity)
+    blob_info['content_type'] = self.mime_content_type
+    blob_info['creation'] = _now_function()
+    blob_info['filename'] = self.blob_file_name
+    blob_info['size'] = size
+    blob_info['creation_handle'] = self.ticket
+    datastore.Put(blob_info)
+
+    blob_file = datastore.Entity('__BlobFileIndex__',
+                                 name=self.ticket,
+                                 namespace='')
+    blob_file['blob_key'] = str(blob_key)
+    datastore.Put(blob_file)
 
 
 class FileServiceStub(apiproxy_stub.APIProxyStub):
@@ -247,40 +449,24 @@ class FileServiceStub(apiproxy_stub.APIProxyStub):
 
   def __init__(self, blob_storage):
     """Constructor."""
-    super(FileServiceStub, self).__init__('file')
+    super(FileServiceStub, self).__init__('file',
+                                          max_request_size=MAX_REQUEST_SIZE)
     self.open_files = {}
-    self.file_storage = FileStorage(blob_storage)
+    self.file_storage = BlobstoreStorage(blob_storage)
+    self.gs_storage = GoogleStorage()
 
   def _Dynamic_Create(self, request, response):
     filesystem = request.filesystem()
 
-    if filesystem != files_blobstore._BLOBSTORE_FILESYSTEM:
-      raise_error(file_service_pb.FileServiceErrors.UNSUPPORTED_FILE_SYSTEM)
-
-    if request.has_filename():
+    if request.has_filename() and filesystem != gs._GS_FILESYSTEM:
       raise_error(file_service_pb.FileServiceErrors.FILE_NAME_SPECIFIED)
 
-    mime_type = None
-    blob_filename = ""
-    for param in request.parameters_list():
-      name = param.name()
-      if name == files_blobstore._MIME_TYPE_PARAMETER:
-        mime_type = param.value()
-      elif name == files_blobstore._BLOBINFO_UPLOADED_FILENAME_PARAMETER:
-        blob_filename = param.value()
-      else:
-        raise_error(file_service_pb.FileServiceErrors.INVALID_PARAMETER)
-    if mime_type is None:
-        raise_error(file_service_pb.FileServiceErrors.INVALID_PARAMETER)
-
-    random_str = ''.join(
-        random.choice(string.ascii_uppercase + string.digits)
-        for _ in range(64))
-    filename = (files_blobstore._BLOBSTORE_DIRECTORY +
-                files_blobstore._CREATION_HANDLE_PREFIX +
-                base64.urlsafe_b64encode(random_str))
-    self.file_storage.add_blobstore_file(filename, mime_type, blob_filename)
-    response.set_filename(filename)
+    if filesystem == files_blobstore._BLOBSTORE_FILESYSTEM:
+      response.set_filename(self.file_storage.add_blobstore_file(request))
+    elif filesystem == gs._GS_FILESYSTEM:
+      response.set_filename(self.gs_storage.start_upload(request))
+    else:
+      raise_error(file_service_pb.FileServiceErrors.UNSUPPORTED_FILE_SYSTEM)
 
   def _Dynamic_Open(self, request, response):
     """Handler for Open RPC call."""
@@ -288,10 +474,13 @@ class FileServiceStub(apiproxy_stub.APIProxyStub):
     content_type = request.content_type()
     open_mode = request.open_mode()
 
-    if filename.startswith('/blobstore/'):
-      if request.exclusive_lock() and filename in self.open_files:
-        raise_error(file_service_pb.FileServiceErrors.EXCLUSIVE_LOCK_FAILED)
+    if request.exclusive_lock() and filename in self.open_files:
+      raise_error(file_service_pb.FileServiceErrors.EXCLUSIVE_LOCK_FAILED)
+
+    if filename.startswith(_BLOBSTORE_DIRECTORY):
       self.open_files[filename] = BlobstoreFile(request, self.file_storage)
+    elif filename.startswith(_GS_PREFIX):
+      self.open_files[filename] = GoogleStorageFile(request, self.gs_storage)
     else:
       raise_error(file_service_pb.FileServiceErrors.INVALID_FILE_NAME)
 
@@ -325,3 +514,9 @@ class FileServiceStub(apiproxy_stub.APIProxyStub):
       raise_error(file_service_pb.FileServiceErrors.FILE_NOT_OPENED)
 
     self.open_files[filename].append(request, response)
+
+  def _Dynamic_GetCapabilities(self, request, response):
+    """Handler for GetCapabilities RPC call."""
+    response.add_filesystem('blobstore')
+    response.add_filesystem('gs')
+    response.set_shuffle_available(False)

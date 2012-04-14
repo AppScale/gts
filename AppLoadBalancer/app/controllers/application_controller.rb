@@ -17,7 +17,9 @@ class ApplicationController < ActionController::Base
                       "Request Paramaters: #{request.parameters.inspect.to_s}",
                       "Error Backtrace: ", exception.clean_backtrace.join("\n") ].join("\n")
     logger.error error_message
-    flash[:error] = "Uh oh. An error has occured and your request was unable to be completed."
+    flash[:error] = "An error has occured and your request was unable to be completed." +
+      " This was most likely because a previous instance of AppScale was running. If this " +
+      "error continues contact your cloud adminstrator." 
     redirect_to :controller => :landing, :action => :index
   end
 
@@ -25,11 +27,24 @@ class ApplicationController < ActionController::Base
     @@valid_tools ||= check_tools
   end
 
+  def get_remote_ip
+    # request.env['HTTP_REMOTE_ADDR'] will return the user's IP address
+    # but since NAT'ed users have the same IP, returning it would let
+    # one user log in as another, so for now just use the session id,
+    # which is unique
+    return session[:session_id]
+    # request.env['HTTP_REMOTE_ADDR']
+  end
+
   def check_for_valid_session
     cookie_val = cookies[:dev_appserver_login]
     return if cookie_val.nil?
     tokens = cookie_val.split(":")
-    return if tokens.length != 4 # guard against user-crafted cookies
+    if tokens.length != 4
+      # guard against user-crafted cookies
+      Rails.logger.info "saw a malformed cookie: [#{cookie_val}] - clearing it out"
+      cookies[:dev_appserver_login] = { :value => nil, :domain => UserTools.local_ip, :expires => Time.at(0) }
+    end
     email, nick, admin, hash = tokens
 
     my_hash = UserTools.get_appengine_hash(email, nick, admin)
@@ -87,7 +102,7 @@ class ApplicationController < ActionController::Base
 
   # TODO: There is a similar method in UserTools, should probably merge the two
   def get_token(ip)
-    logger.info "ip is a [#{ip.class}]"
+    logger.info "ip is [#{ip}], which is of class [#{ip.class}]"
     conn = DBFrontend.get_instance
     secret = UserTools.get_secret_key
 
@@ -96,7 +111,7 @@ class ApplicationController < ActionController::Base
         logger.info "not trying to get token, ip is nil"
       else
         token_data = conn.get_ip(ip, secret)
-        logger.info "get token for ip [#{ ip}] returned [#{token_data}]"
+        logger.info "get token for ip [#{ip}] returned [#{token_data}]"
       end
     rescue Errno::ECONNREFUSED
       return nil
@@ -113,7 +128,7 @@ class ApplicationController < ActionController::Base
   end
 
   def check_for_remote_session
-    ip = session[:session_id]
+    ip = get_remote_ip
     token = get_token(ip)
     logger.info "token for ip [#{ip}] is [#{token}]"
     if token.nil? || token.empty?

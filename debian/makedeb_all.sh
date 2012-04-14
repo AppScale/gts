@@ -11,7 +11,8 @@ for comp in\
  core all\
  cassandra hbase hypertable\
  memcachedb mongodb mysql\
- scalaris timesten voldemort simpledb
+ timesten voldemort simpledb\
+ redisdb
 do
     ./debian/makedeb.sh $comp $RELEASE
     if [ $? -ne 0 ]; then

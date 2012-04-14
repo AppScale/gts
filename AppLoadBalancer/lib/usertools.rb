@@ -77,60 +77,35 @@ class UserTools
   end
 
   def self.get_secret_key(path="#{APPSCALE_HOME}/.appscale/secret.key")
-    cached_secret = CACHE.get('secret')
-    return cached_secret unless cached_secret.nil?
-
     secret_key_path = File.expand_path(path)
     secret_key = (File.open(secret_key_path) { |file| file.read }).chomp
-    CACHE.set('secret', secret_key, 30)
-
     return secret_key
   end
 
   def self.get_database_location(path="#{APPSCALE_HOME}/.appscale/masters")
-    cached_master = CACHE.get('master_ip')
-    return cached_master unless cached_master.nil?
-
     database_path = File.expand_path(path)
     database_location = (File.open(database_path) { |file| file.read }).chomp
-    CACHE.set('master_ip', database_location, 30)
-
     return database_location
   end
 
   def self.public_ip
-    cached_ip = CACHE.get('my_public_ip')
-    return cached_ip unless cached_ip.nil?
-
     my_pub_ip_file = "#{APPSCALE_HOME}/.appscale/my_public_ip"
     my_pub_ip = (File.open(File.expand_path(my_pub_ip_file)) { |file| file.read }).chomp
-    CACHE.set('my_public_ip', my_pub_ip, 30)
-
     return my_pub_ip
   end
 
   def self.login_ip
-    cached_ip = CACHE.get('login_ip')
-    return cached_ip unless cached_ip.nil?
-
     login_file = "#{APPSCALE_HOME}/.appscale/login_ip"
     login_ip = (File.open(File.expand_path(login_file)) { |file| file.read }).chomp
-    CACHE.set('login_ip', login_ip, 30)
-
     return login_ip
   end
   
   def self.local_ip
-    cached_ip = CACHE.get('my_local_ip')
-    return cached_ip unless cached_ip.nil?
-
     # turn off reverse DNS resolution temporarily
     orig, Socket.do_not_reverse_lookup = Socket.do_not_reverse_lookup, true
     
     UDPSocket.open do |s|
       s.connect '64.233.187.99', 1 # google
-
-      CACHE.set('my_local_ip', s.addr.last, 30)
       s.addr.last
     end
   ensure

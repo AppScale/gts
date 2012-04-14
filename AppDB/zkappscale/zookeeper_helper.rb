@@ -11,6 +11,7 @@ syncLimit=5
 dataDir=/var/appscale/zookeeper
 clientPort=2181
 leaderServes=yes
+maxClientsCnxns=0
 EOF
   myid = ""
 

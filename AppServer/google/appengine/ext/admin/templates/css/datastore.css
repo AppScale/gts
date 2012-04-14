@@ -23,6 +23,12 @@
   font-weight: bold;
 }
 
+.field-hint {
+  margin-top: .2em;
+  color:  #666667;
+  font-size: .85em;
+}
+
 table.entities {
   border: 1px solid #c5d7ef;
   border-collapse: collapse;

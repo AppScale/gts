@@ -6,6 +6,7 @@
 # exposed at /_ah/xmpp/message/chat/ to receive them
 
 # usage is ./xmpp_receiver.py appname login_ip app-password
+# TODO: refactor this to not leave the password in the clear 
 
 import sys, os, xmpp, time, re, select, urllib
 import logging

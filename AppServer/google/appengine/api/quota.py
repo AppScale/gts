@@ -28,12 +28,16 @@
 
 
 
-try:
-  from google3.apphosting.runtime import _apphosting_runtime___python__apiproxy
-except ImportError:
-  _apphosting_runtime___python__apiproxy = None
+import os
+import warnings
 
-def get_request_cpu_usage():
+try:
+  from google.appengine.runtime import apiproxy
+except ImportError:
+  apiproxy = None
+
+
+def __get_request_cpu_usage():
   """Get the amount of CPU used so far for the current request.
 
   Returns the number of megacycles used so far for the current
@@ -41,11 +45,19 @@ def get_request_cpu_usage():
 
   Does nothing when used in the dev_appserver.
   """
+  warnings.warn('get_request_cpu_usage may not always return correct values',
+                DeprecationWarning,
+                stacklevel=2)
 
-  if _apphosting_runtime___python__apiproxy:
-    return _apphosting_runtime___python__apiproxy.get_request_cpu_usage()
+  if apiproxy:
+    return apiproxy.GetRequestCpuUsage()
 
   return 0
+
+
+if os.environ.get('APPENGINE_RUNTIME') != 'python27':
+  get_request_cpu_usage = __get_request_cpu_usage
+
 
 def get_request_api_cpu_usage():
   """Get the amount of CPU used so far by API calls during the current request.
@@ -56,8 +68,8 @@ def get_request_api_cpu_usage():
   Does nothing when used in the dev_appserver.
   """
 
-  if _apphosting_runtime___python__apiproxy:
-    return _apphosting_runtime___python__apiproxy.get_request_api_cpu_usage()
+  if apiproxy:
+    return apiproxy.GetRequestApiCpuUsage()
 
   return 0
 

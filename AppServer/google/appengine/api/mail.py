@@ -64,6 +64,9 @@ ERROR_MAP = {
 
     mail_service_pb.MailServiceError.INVALID_ATTACHMENT_TYPE:
       InvalidAttachmentTypeError,
+
+    mail_service_pb.MailServiceError.INVALID_HEADER_NAME:
+      InvalidHeaderNameError,
 }
 
 
@@ -83,9 +86,11 @@ EXTENSION_MIME_MAP = {
     'css': 'text/css',
     'csv': 'text/csv',
     'doc': 'application/msword',
+    'docx': 'application/msword',
     'diff': 'text/plain',
     'flac': 'audio/flac',
     'gif': 'image/gif',
+    'gzip': 'application/x-gzip',
     'htm': 'text/html',
     'html': 'text/html',
     'ics': 'text/calendar',
@@ -113,6 +118,7 @@ EXTENSION_MIME_MAP = {
     'pot': 'text/plain',
     'pps': 'application/vnd.ms-powerpoint',
     'ppt': 'application/vnd.ms-powerpoint',
+    'pptx': 'application/vnd.ms-powerpoint',
     'qt': 'video/quicktime',
     'rmi': 'audio/mid',
     'rss': 'text/rss+xml',
@@ -129,9 +135,51 @@ EXTENSION_MIME_MAP = {
     'webm': 'video/webm',
     'webp': 'image/webp',
     'xls': 'application/vnd.ms-excel',
+    'xlsx': 'application/vnd.ms-excel',
+    'zip': 'application/zip'
     }
 
-EXTENSION_WHITELIST = frozenset(EXTENSION_MIME_MAP.iterkeys())
+
+
+
+
+EXTENSION_BLACKLIST = [
+    'ade',
+    'adp',
+    'bat',
+    'chm',
+    'cmd',
+    'com',
+    'cpl',
+    'exe',
+    'hta',
+    'ins',
+    'isp',
+    'jse',
+    'lib',
+    'mde',
+    'msc',
+    'msp',
+    'mst',
+    'pif',
+    'scr',
+    'sct',
+    'shb',
+    'sys',
+    'vb',
+    'vbe',
+    'vbs',
+    'vxd',
+    'wsc',
+    'wsf',
+    'wsh',
+    ]
+
+
+HEADER_WHITELIST = frozenset([
+    'In-Reply-To',
+    'References',
+    ])
 
 
 def invalid_email_reason(email_address, field):
@@ -192,6 +240,51 @@ def check_email_valid(email_address, field):
 
 
 CheckEmailValid = check_email_valid
+
+
+def is_ascii(string):
+  """Return whether a string is in ascii."""
+  return all(ord(c) < 128 for c in string)
+
+
+def invalid_headers_reason(headers):
+  """Determine reason why headers is invalid.
+
+  Args:
+    headers: headers value to check.
+
+  Returns:
+    String indicating invalid headers reason if there is one,
+    else None.
+  """
+  if headers is None:
+    return 'Headers dictionary was None.'
+  if not isinstance(headers, dict):
+    return 'Invalid type for headers. Should be a dictionary.'
+  for k, v in headers.iteritems():
+    if not isinstance(k, basestring):
+      return 'Header names should be strings.'
+    if not isinstance(v, basestring):
+      return 'Header values should be strings.'
+    if not is_ascii(k):
+      return 'Header name should be an ASCII string.'
+
+    if k.strip() not in HEADER_WHITELIST:
+      return 'Header "%s" is not allowed.' % k.strip()
+
+
+def check_headers_valid(headers):
+  """Check that headers is a valid dictionary for headers.
+
+  Args:
+    headers: the value to check for the headers.
+
+  Raises:
+    InvalidEmailError if headers is invalid.
+  """
+  reason = invalid_headers_reason(headers)
+  if reason is not None:
+    raise InvalidEmailError(reason)
 
 
 
@@ -347,13 +440,15 @@ def _GetMimeType(file_name):
   """
   extension_index = file_name.rfind('.')
   if extension_index == -1:
+    extension = ''
+  else:
+    extension = file_name[extension_index + 1:].lower()
+  if extension in EXTENSION_BLACKLIST:
     raise InvalidAttachmentTypeError(
-        "File '%s' does not have an extension" % file_name)
-  extension = file_name[extension_index + 1:].lower()
+        'Extension %s is not supported.' % extension)
   mime_type = EXTENSION_MIME_MAP.get(extension, None)
   if mime_type is None:
-    raise InvalidAttachmentTypeError(
-        "Extension '%s' is not supported." % extension)
+    mime_type = 'application/octet-stream'
   return mime_type
 
 
@@ -1000,7 +1095,7 @@ class EmailMessage(_EmailMessageBase):
   """
 
   _API_CALL = 'Send'
-  PROPERTIES = set(_EmailMessageBase.PROPERTIES)
+  PROPERTIES = set(_EmailMessageBase.PROPERTIES | set(('headers',)))
 
   def check_initialized(self):
     """Provide additional checks to ensure recipients have been specified.
@@ -1032,6 +1127,10 @@ class EmailMessage(_EmailMessageBase):
       if hasattr(self, attribute):
         for address in _email_sequence(getattr(self, attribute)):
           adder(_to_str(address))
+    for name, value in getattr(self, 'headers', {}).iteritems():
+      header = message.add_header()
+      header.set_name(name)
+      header.set_value(_to_str(value))
     return message
 
   def __setattr__(self, attr, value):
@@ -1039,10 +1138,14 @@ class EmailMessage(_EmailMessageBase):
 
     if attr in ['to', 'cc', 'bcc']:
       if isinstance(value, basestring):
+        if value == '' and getattr(self, 'ALLOW_BLANK_EMAIL', False):
+          return
         check_email_valid(value, attr)
       else:
         for address in value:
           check_email_valid(address, attr)
+    elif attr == 'headers':
+      check_headers_valid(value)
 
     super(EmailMessage, self).__setattr__(attr, value)
 
@@ -1143,6 +1246,8 @@ class InboundEmailMessage(EmailMessage):
   PROPERTIES = frozenset(_EmailMessageBase.PROPERTIES |
                          set(('alternate_bodies',)) |
                          set(__HEADER_PROPERTIES.iterkeys()))
+
+  ALLOW_BLANK_EMAIL = True
 
   def update_from_mime_message(self, mime_message):
     """Update values from MIME message.

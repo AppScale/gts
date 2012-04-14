@@ -44,7 +44,7 @@ __all__ = ["MAX_ENTITY_COUNT", "MAX_POOL_SIZE", "Context", "MutationPool",
 
 from google.appengine.api import datastore
 from google.appengine.ext import db
-from google.appengine.ext.mapreduce import util
+
 
 
 
@@ -273,9 +273,6 @@ class Context(object):
     """Flush all information recorded in context."""
     for pool in self._pools.values():
       pool.flush()
-    if self.shard_state:
-      self.shard_state.put(
-          config=util.create_datastore_write_config(self.mapreduce_spec))
 
 
 

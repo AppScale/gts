@@ -303,6 +303,20 @@ class Validated(ValidatedBase):
     """
     setattr(self, key, value)
 
+  def Get(self, key):
+    """Get a single value on Validated instance.
+
+    This method can only be used to retrieve validated attributes.
+
+    Args:
+      key: The name of the attributes
+
+    Raises:
+      ValidationError when no validated attribute exists on class.
+    """
+    self.GetValidator(key)
+    return getattr(self, key)
+
   def CheckInitialized(self):
     """Checks that all required fields are initialized.
 
@@ -642,40 +656,48 @@ class Type(Validator):
       convert: Cause conversion if value is not the right type.
         Conversion is done by calling the constructor of the type
         with the value as its first parameter.
+      default: Default assignment is made during initialization and will
+        not pass through validation.
     """
     super(Type, self).__init__(default)
     self.expected_type = expected_type
     self.convert = convert
 
   def Validate(self, value, key):
-    """Validate that value is correct type.
+    """Validate that value has the correct type.
 
     Args:
       value: Value to validate.
       key: Name of the field being validated.
 
     Returns:
-      None if value is None, value if value is of correct type, converted
-      value if the validator is configured to convert.
+      value if value is of the correct type. value is coverted to the correct
+      type if the Validator is configured to do so.
 
     Raises:
-      ValidationError if value is not of the right type and validator
-      is not configured to convert.
+      MissingAttribute: if value is None and the expected type is not NoneType.
+      ValidationError: if value is not of the right type and the validator
+        is either configured not to convert or cannot convert.
     """
     if not isinstance(value, self.expected_type):
-      if value is not None and self.convert:
+      if value is None:
+        raise MissingAttribute('Missing value is required.')
+
+      if self.convert:
         try:
           return self.expected_type(value)
         except ValueError, e:
           raise ValidationError(
-              'Value \'%s\' for %s could not be converted to type %s.' % (
+              'Value %r for %s could not be converted to type %s.' % (
                   value, key, self.expected_type.__name__), e)
         except TypeError, e:
           raise ValidationError(
-              'Value \'%s\' for %s is not of the expected type %s' % (
+              'Value %r for %s is not of the expected type %s' % (
                   value, key, self.expected_type.__name__), e)
       else:
-        raise MissingAttribute('Missing value is required.')
+        raise ValidationError(
+              'Value %r for %s is not of the expected type %s' % (
+                  value, key, self.expected_type.__name__))
     else:
       return value
 

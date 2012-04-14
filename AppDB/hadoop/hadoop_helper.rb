@@ -1,9 +1,27 @@
 require 'djinn'
-HADOOP_VER = "0.20.2"
+
+
+# The version of Hadoop we are currently running (here, it's the Cloudera
+# Hadoop distribution).
+HADOOP_VER = "0.20.2-cdh3u3"
+
+
+# The location on the local file system where we've installed Hadoop to.
 HADOOP_LOC = "#{APPSCALE_HOME}/AppDB/hadoop-" + HADOOP_VER 
+
+
+# The port that the Hadoop Distributed File System runs on, by default.
 HDFS_PORT = 9000
+
+
+# TODO(cgb): Find out from Raj what this is and why it's needed.
 ENABLE_HADOOP_SINGLE_NODE = true
 
+
+# Writes the configuration files needed to start the Hadoop Distributed File
+# System and Hadoop MapReduce, which for us just involves grabbing a number of
+# Hadoop template config files, replacing constant strings with the IPs of the
+# machines to contact, and writing the new files.
 def setup_hadoop_config(master_ip, replication)
   source_dir = "#{APPSCALE_HOME}/AppDB/hadoop/templates"
   dest_dir = File.join(HADOOP_LOC, "conf")
@@ -24,6 +42,11 @@ def setup_hadoop_config(master_ip, replication)
       end
     end
   end
+
+  # By default, the Cloudera Hadoop distribution disallows running Hadoop as
+  # root. We hack it to re-enable running Hadoop as root.
+  # TODO(cgb): Investigate what it would take to not run Hadoop as root.
+  Djinn.log_run("mv #{source_dir}/hadoop #{HADOOP_LOC}/bin")
 end
 
 def start_hadoop_master

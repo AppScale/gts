@@ -80,15 +80,15 @@ class GrocLexer(Lexer):
             state = RecognizerSharedState()
         Lexer.__init__(self, input, state)
 
-        self.dfa25 = self.DFA25(
-            self, 25,
-            eot = self.DFA25_eot,
-            eof = self.DFA25_eof,
-            min = self.DFA25_min,
-            max = self.DFA25_max,
-            accept = self.DFA25_accept,
-            special = self.DFA25_special,
-            transition = self.DFA25_transition
+        self.dfa26 = self.DFA26(
+            self, 26,
+            eot = self.DFA26_eot,
+            eof = self.DFA26_eof,
+            min = self.DFA26_min,
+            max = self.DFA26_max,
+            accept = self.DFA26_accept,
+            special = self.DFA26_special,
+            transition = self.DFA26_transition
             )
 
 
@@ -1663,14 +1663,51 @@ class GrocLexer(Lexer):
             _channel = DEFAULT_CHANNEL
 
 
+            alt25 = 2
+            LA25_0 = self.input.LA(1)
 
-            pass
+            if ((48 <= LA25_0 <= 57)) :
+                LA25_1 = self.input.LA(2)
+
+                if ((48 <= LA25_1 <= 57)) :
+                    LA25_2 = self.input.LA(3)
+
+                    if ((48 <= LA25_2 <= 57)) :
+                        alt25 = 2
+                    else:
+                        alt25 = 1
+                else:
+                    nvae = NoViableAltException("", 25, 1, self.input)
+
+                    raise nvae
+
+            else:
+                nvae = NoViableAltException("", 25, 0, self.input)
+
+                raise nvae
+
+            if alt25 == 1:
+
+                pass
 
 
-            pass
-            self.mDIGIT()
-            self.mDIGIT()
+                pass
+                self.mDIGIT()
+                self.mDIGIT()
 
+
+
+
+
+            elif alt25 == 2:
+
+                pass
+
+
+                pass
+                self.mDIGIT()
+                self.mDIGIT()
+                self.mDIGIT()
 
 
 
@@ -1720,249 +1757,249 @@ class GrocLexer(Lexer):
 
     def mTokens(self):
 
-        alt25 = 41
-        alt25 = self.dfa25.predict(self.input)
-        if alt25 == 1:
+        alt26 = 41
+        alt26 = self.dfa26.predict(self.input)
+        if alt26 == 1:
 
             pass
             self.mTIME()
 
 
-        elif alt25 == 2:
+        elif alt26 == 2:
 
             pass
             self.mSYNCHRONIZED()
 
 
-        elif alt25 == 3:
+        elif alt26 == 3:
 
             pass
             self.mFIRST()
 
 
-        elif alt25 == 4:
+        elif alt26 == 4:
 
             pass
             self.mSECOND()
 
 
-        elif alt25 == 5:
+        elif alt26 == 5:
 
             pass
             self.mTHIRD()
 
 
-        elif alt25 == 6:
+        elif alt26 == 6:
 
             pass
             self.mFOURTH()
 
 
-        elif alt25 == 7:
+        elif alt26 == 7:
 
             pass
             self.mFIFTH()
 
 
-        elif alt25 == 8:
+        elif alt26 == 8:
 
             pass
             self.mFOURTH_OR_FIFTH()
 
 
-        elif alt25 == 9:
+        elif alt26 == 9:
 
             pass
             self.mDAY()
 
 
-        elif alt25 == 10:
+        elif alt26 == 10:
 
             pass
             self.mMONDAY()
 
 
-        elif alt25 == 11:
+        elif alt26 == 11:
 
             pass
             self.mTUESDAY()
 
 
-        elif alt25 == 12:
+        elif alt26 == 12:
 
             pass
             self.mWEDNESDAY()
 
 
-        elif alt25 == 13:
+        elif alt26 == 13:
 
             pass
             self.mTHURSDAY()
 
 
-        elif alt25 == 14:
+        elif alt26 == 14:
 
             pass
             self.mFRIDAY()
 
 
-        elif alt25 == 15:
+        elif alt26 == 15:
 
             pass
             self.mSATURDAY()
 
 
-        elif alt25 == 16:
+        elif alt26 == 16:
 
             pass
             self.mSUNDAY()
 
 
-        elif alt25 == 17:
+        elif alt26 == 17:
 
             pass
             self.mJANUARY()
 
 
-        elif alt25 == 18:
+        elif alt26 == 18:
 
             pass
             self.mFEBRUARY()
 
 
-        elif alt25 == 19:
+        elif alt26 == 19:
 
             pass
             self.mMARCH()
 
 
-        elif alt25 == 20:
+        elif alt26 == 20:
 
             pass
             self.mAPRIL()
 
 
-        elif alt25 == 21:
+        elif alt26 == 21:
 
             pass
             self.mMAY()
 
 
-        elif alt25 == 22:
+        elif alt26 == 22:
 
             pass
             self.mJUNE()
 
 
-        elif alt25 == 23:
+        elif alt26 == 23:
 
             pass
             self.mJULY()
 
 
-        elif alt25 == 24:
+        elif alt26 == 24:
 
             pass
             self.mAUGUST()
 
 
-        elif alt25 == 25:
+        elif alt26 == 25:
 
             pass
             self.mSEPTEMBER()
 
 
-        elif alt25 == 26:
+        elif alt26 == 26:
 
             pass
             self.mOCTOBER()
 
 
-        elif alt25 == 27:
+        elif alt26 == 27:
 
             pass
             self.mNOVEMBER()
 
 
-        elif alt25 == 28:
+        elif alt26 == 28:
 
             pass
             self.mDECEMBER()
 
 
-        elif alt25 == 29:
+        elif alt26 == 29:
 
             pass
             self.mMONTH()
 
 
-        elif alt25 == 30:
+        elif alt26 == 30:
 
             pass
             self.mQUARTER()
 
 
-        elif alt25 == 31:
+        elif alt26 == 31:
 
             pass
             self.mEVERY()
 
 
-        elif alt25 == 32:
+        elif alt26 == 32:
 
             pass
             self.mHOURS()
 
 
-        elif alt25 == 33:
+        elif alt26 == 33:
 
             pass
             self.mMINUTES()
 
 
-        elif alt25 == 34:
+        elif alt26 == 34:
 
             pass
             self.mCOMMA()
 
 
-        elif alt25 == 35:
+        elif alt26 == 35:
 
             pass
             self.mOF()
 
 
-        elif alt25 == 36:
+        elif alt26 == 36:
 
             pass
             self.mFROM()
 
 
-        elif alt25 == 37:
+        elif alt26 == 37:
 
             pass
             self.mTO()
 
 
-        elif alt25 == 38:
+        elif alt26 == 38:
 
             pass
             self.mWS()
 
 
-        elif alt25 == 39:
+        elif alt26 == 39:
 
             pass
             self.mDIGIT()
 
 
-        elif alt25 == 40:
+        elif alt26 == 40:
 
             pass
             self.mDIGITS()
 
 
-        elif alt25 == 41:
+        elif alt26 == 41:
 
             pass
             self.mUNKNOWN_TOKEN()
@@ -1975,58 +2012,58 @@ class GrocLexer(Lexer):
 
 
 
-    DFA25_eot = DFA.unpack(
-        u"\1\uffff\4\31\2\27\1\31\1\27\2\31\12\27\3\uffff\1\37\3\uffff\2"
+    DFA26_eot = DFA.unpack(
+        u"\1\uffff\4\30\2\27\1\30\1\27\2\30\12\27\5\uffff\1\37\1\uffff\2"
         u"\37\46\uffff\1\112\6\uffff"
         )
 
-    DFA25_eof = DFA.unpack(
+    DFA26_eof = DFA.unpack(
         u"\113\uffff"
         )
 
-    DFA25_min = DFA.unpack(
+    DFA26_min = DFA.unpack(
         u"\1\0\4\60\1\141\1\145\1\60\1\150\2\60\2\141\1\145\1\141\1\160\1"
-        u"\143\1\157\1\165\1\166\1\157\3\uffff\1\72\3\uffff\2\72\4\uffff"
+        u"\143\1\157\1\165\1\166\1\157\5\uffff\1\72\1\uffff\2\72\4\uffff"
         u"\1\143\2\uffff\1\146\1\uffff\1\151\2\uffff\1\151\5\uffff\1\156"
         u"\1\162\3\uffff\1\154\16\uffff\1\164\6\uffff"
         )
 
-    DFA25_max = DFA.unpack(
+    DFA26_max = DFA.unpack(
         u"\1\uffff\1\72\1\163\1\156\1\162\1\171\1\162\1\164\1\165\1\164\1"
-        u"\72\1\145\1\157\1\145\2\165\1\146\1\157\1\165\1\166\1\157\3\uffff"
-        u"\1\72\3\uffff\2\72\4\uffff\1\160\2\uffff\1\162\1\uffff\1\157\2"
+        u"\72\1\145\1\157\1\145\2\165\1\146\1\157\1\165\1\166\1\157\5\uffff"
+        u"\1\72\1\uffff\2\72\4\uffff\1\160\2\uffff\1\162\1\uffff\1\157\2"
         u"\uffff\1\165\5\uffff\1\156\1\171\3\uffff\1\156\16\uffff\1\164\6"
         u"\uffff"
         )
 
-    DFA25_accept = DFA.unpack(
-        u"\25\uffff\1\42\1\46\1\51\1\uffff\1\47\1\1\1\3\2\uffff\1\4\1\50"
+    DFA26_accept = DFA.unpack(
+        u"\25\uffff\1\42\1\46\1\51\1\47\1\1\1\uffff\1\3\2\uffff\1\4\1\50"
         u"\1\5\1\2\1\uffff\1\17\1\20\1\uffff\1\10\1\uffff\1\22\1\6\1\uffff"
         u"\1\13\1\45\1\7\1\11\1\34\2\uffff\1\41\1\14\1\21\1\uffff\1\24\1"
         u"\30\1\32\1\43\1\33\1\36\1\37\1\40\1\42\1\46\1\31\1\16\1\44\1\15"
         u"\1\uffff\1\23\1\25\1\26\1\27\1\35\1\12"
         )
 
-    DFA25_special = DFA.unpack(
+    DFA26_special = DFA.unpack(
         u"\1\0\112\uffff"
         )
 
 
-    DFA25_transition = [
+    DFA26_transition = [
         DFA.unpack(u"\11\27\2\26\2\27\1\26\22\27\1\26\13\27\1\25\3\27\1\1"
         u"\1\2\1\3\1\4\1\7\1\11\4\12\47\27\1\17\2\27\1\13\1\23\1\6\1\27\1"
         u"\24\1\27\1\16\2\27\1\14\1\21\1\20\1\27\1\22\1\27\1\5\1\10\2\27"
         u"\1\15\uff88\27"),
-        DFA.unpack(u"\12\30\1\32"),
-        DFA.unpack(u"\12\34\1\32\70\uffff\1\33"),
-        DFA.unpack(u"\4\35\6\37\1\32\63\uffff\1\36"),
-        DFA.unpack(u"\12\37\1\32\67\uffff\1\40"),
+        DFA.unpack(u"\12\32\1\31"),
+        DFA.unpack(u"\12\34\1\31\70\uffff\1\33"),
+        DFA.unpack(u"\4\35\6\37\1\31\63\uffff\1\36"),
+        DFA.unpack(u"\12\37\1\31\67\uffff\1\40"),
         DFA.unpack(u"\1\43\3\uffff\1\42\17\uffff\1\44\3\uffff\1\41"),
         DFA.unpack(u"\1\50\3\uffff\1\45\5\uffff\1\46\2\uffff\1\47"),
-        DFA.unpack(u"\12\37\1\32\71\uffff\1\51"),
+        DFA.unpack(u"\12\37\1\31\71\uffff\1\51"),
         DFA.unpack(u"\1\52\6\uffff\1\54\5\uffff\1\53"),
-        DFA.unpack(u"\12\37\1\32\71\uffff\1\55"),
-        DFA.unpack(u"\12\37\1\32"),
+        DFA.unpack(u"\12\37\1\31\71\uffff\1\55"),
+        DFA.unpack(u"\12\37\1\31"),
         DFA.unpack(u"\1\56\3\uffff\1\57"),
         DFA.unpack(u"\1\61\7\uffff\1\62\5\uffff\1\60"),
         DFA.unpack(u"\1\63"),
@@ -2040,12 +2077,12 @@ class GrocLexer(Lexer):
         DFA.unpack(u""),
         DFA.unpack(u""),
         DFA.unpack(u""),
-        DFA.unpack(u"\1\32"),
         DFA.unpack(u""),
         DFA.unpack(u""),
+        DFA.unpack(u"\1\31"),
         DFA.unpack(u""),
-        DFA.unpack(u"\1\32"),
-        DFA.unpack(u"\1\32"),
+        DFA.unpack(u"\1\31"),
+        DFA.unpack(u"\1\31"),
         DFA.unpack(u""),
         DFA.unpack(u""),
         DFA.unpack(u""),
@@ -2095,7 +2132,7 @@ class GrocLexer(Lexer):
 
 
 
-    class DFA25(DFA):
+    class DFA26(DFA):
         def specialStateTransition(self_, s, input):
 
 
@@ -2107,82 +2144,82 @@ class GrocLexer(Lexer):
             _s = s
 
             if s == 0:
-                LA25_0 = input.LA(1)
+                LA26_0 = input.LA(1)
 
                 s = -1
-                if (LA25_0 == 48):
+                if (LA26_0 == 48):
                     s = 1
 
-                elif (LA25_0 == 49):
+                elif (LA26_0 == 49):
                     s = 2
 
-                elif (LA25_0 == 50):
+                elif (LA26_0 == 50):
                     s = 3
 
-                elif (LA25_0 == 51):
+                elif (LA26_0 == 51):
                     s = 4
 
-                elif (LA25_0 == 115):
+                elif (LA26_0 == 115):
                     s = 5
 
-                elif (LA25_0 == 102):
+                elif (LA26_0 == 102):
                     s = 6
 
-                elif (LA25_0 == 52):
+                elif (LA26_0 == 52):
                     s = 7
 
-                elif (LA25_0 == 116):
+                elif (LA26_0 == 116):
                     s = 8
 
-                elif (LA25_0 == 53):
+                elif (LA26_0 == 53):
                     s = 9
 
-                elif ((54 <= LA25_0 <= 57)):
+                elif ((54 <= LA26_0 <= 57)):
                     s = 10
 
-                elif (LA25_0 == 100):
+                elif (LA26_0 == 100):
                     s = 11
 
-                elif (LA25_0 == 109):
+                elif (LA26_0 == 109):
                     s = 12
 
-                elif (LA25_0 == 119):
+                elif (LA26_0 == 119):
                     s = 13
 
-                elif (LA25_0 == 106):
+                elif (LA26_0 == 106):
                     s = 14
 
-                elif (LA25_0 == 97):
+                elif (LA26_0 == 97):
                     s = 15
 
-                elif (LA25_0 == 111):
+                elif (LA26_0 == 111):
                     s = 16
 
-                elif (LA25_0 == 110):
+                elif (LA26_0 == 110):
                     s = 17
 
-                elif (LA25_0 == 113):
+                elif (LA26_0 == 113):
                     s = 18
 
-                elif (LA25_0 == 101):
+                elif (LA26_0 == 101):
                     s = 19
 
-                elif (LA25_0 == 104):
+                elif (LA26_0 == 104):
                     s = 20
 
-                elif (LA25_0 == 44):
+                elif (LA26_0 == 44):
                     s = 21
 
-                elif ((9 <= LA25_0 <= 10) or LA25_0 == 13 or LA25_0 == 32):
+                elif ((9 <= LA26_0 <= 10) or LA26_0 == 13 or LA26_0 == 32):
                     s = 22
 
-                elif ((0 <= LA25_0 <= 8) or (11 <= LA25_0 <= 12) or (14 <= LA25_0 <= 31) or (33 <= LA25_0 <= 43) or (45 <= LA25_0 <= 47) or (58 <= LA25_0 <= 96) or (98 <= LA25_0 <= 99) or LA25_0 == 103 or LA25_0 == 105 or (107 <= LA25_0 <= 108) or LA25_0 == 112 or LA25_0 == 114 or (117 <= LA25_0 <= 118) or (120 <= LA25_0 <= 65535)):
+                elif ((0 <= LA26_0 <= 8) or (11 <= LA26_0 <= 12) or (14 <= LA26_0 <= 31) or (33 <= LA26_0 <= 43) or (45 <= LA26_0 <= 47) or (58 <= LA26_0 <= 96) or (98 <= LA26_0 <= 99) or LA26_0 == 103 or LA26_0 == 105 or (107 <= LA26_0 <= 108) or LA26_0 == 112 or LA26_0 == 114 or (117 <= LA26_0 <= 118) or (120 <= LA26_0 <= 65535)):
                     s = 23
 
                 if s >= 0:
                     return s
 
-            nvae = NoViableAltException(self_.getDescription(), 25, _s, input)
+            nvae = NoViableAltException(self_.getDescription(), 26, _s, input)
             self_.error(nvae)
             raise nvae
 

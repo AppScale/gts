@@ -33,12 +33,24 @@
 """Defines input readers for MapReduce."""
 
 
-__all__ = ["Error", "BadReaderParamsError", "InputReader",
-           "AbstractDatastoreInputReader", "BlobstoreLineInputReader",
-           "BlobstoreZipInputReader", "BlobstoreZipLineInputReader",
-           "ConsistentKeyReader", "DatastoreEntityInputReader",
-           "DatastoreInputReader", "DatastoreKeyInputReader",
-           "NamespaceInputReader" ]
+__all__ = [
+    "AbstractDatastoreInputReader",
+    "ALLOW_CHECKPOINT",
+    "BadReaderParamsError",
+    "BlobstoreLineInputReader",
+    "BlobstoreZipInputReader",
+    "BlobstoreZipLineInputReader",
+    "COUNTER_IO_READ_BYTES",
+    "COUNTER_IO_READ_MSEC",
+    "ConsistentKeyReader",
+    "DatastoreEntityInputReader",
+    "DatastoreInputReader",
+    "DatastoreKeyInputReader",
+    "Error",
+    "InputReader",
+    "NamespaceInputReader",
+    "RecordsReader",
+    ]
 
 
 
@@ -48,27 +60,37 @@ import time
 import zipfile
 
 from google.appengine.api import datastore
+from google.appengine.api import files
+from google.appengine.api.files import records
 from google.appengine.datastore import datastore_query
-
-try:
-  from google.appengine.datastore import datastore_rpc
-except ImportError:
-  datastore_rpc = None
+from google.appengine.datastore import datastore_rpc
 from google.appengine.ext import blobstore
 from google.appengine.ext import db
 from google.appengine.ext import key_range
 from google.appengine.ext.db import metadata
+from google.appengine.ext.mapreduce import context
+from google.appengine.ext.mapreduce import errors
 from google.appengine.ext.mapreduce import model
 from google.appengine.ext.mapreduce import namespace_range
+from google.appengine.ext.mapreduce import operation
 from google.appengine.ext.mapreduce import util
 
 
-class Error(Exception):
-  """Base-class for exceptions in this module."""
+
+Error = errors.Error
+BadReaderParamsError = errors.BadReaderParamsError
 
 
-class BadReaderParamsError(Error):
-  """The input parameters to a reader were invalid."""
+
+COUNTER_IO_READ_BYTES = "io-read-bytes"
+
+
+COUNTER_IO_READ_MSEC = "io-read-msec"
+
+
+
+
+ALLOW_CHECKPOINT = object()
 
 
 class InputReader(model.JsonMixin):
@@ -83,6 +105,11 @@ class InputReader(model.JsonMixin):
    * They are cast to string for a user-readable description; it may be
      valuable to implement __str__.
   """
+
+
+
+
+  expand_parameters = False
 
 
   _APP_PARAM = "_app"
@@ -242,6 +269,9 @@ class AbstractDatastoreInputReader(InputReader):
       if self._current_key_range is None:
         if self._key_ranges:
           self._current_key_range = self._key_ranges.pop()
+
+
+          continue
         else:
           break
 
@@ -265,6 +295,7 @@ class AbstractDatastoreInputReader(InputReader):
         namespace = namespace_result[0].name() or ""
         self._current_key_range = key_range.KeyRange(
             namespace=namespace, _app=self._ns_range.app)
+        yield ALLOW_CHECKPOINT
 
       for key, o in self._iter_key_range(
           copy.deepcopy(self._current_key_range)):
@@ -302,13 +333,11 @@ class AbstractDatastoreInputReader(InputReader):
       return repr(self._ns_range)
 
   @classmethod
-  def _choose_split_points(cls, random_keys, shard_count):
+  def _choose_split_points(cls, sorted_keys, shard_count):
     """Returns the best split points given a random set of db.Keys."""
-    if len(random_keys) < shard_count:
-      return sorted(random_keys)
-
-    index_stride = len(random_keys) / float(shard_count)
-    return [sorted(random_keys)[int(round(index_stride * i))]
+    assert len(sorted_keys) >= shard_count
+    index_stride = len(sorted_keys) / float(shard_count)
+    return [sorted_keys[int(round(index_stride * i))]
             for i in range(1, shard_count)]
 
 
@@ -316,7 +345,13 @@ class AbstractDatastoreInputReader(InputReader):
   @classmethod
   def _split_input_from_namespace(cls, app, namespace, entity_kind_name,
                                   shard_count):
-    """Return KeyRange objects. Helper for _split_input_from_params."""
+    """Return KeyRange objects. Helper for _split_input_from_params.
+
+    If there are not enough Entities to make all of the given shards, the
+    returned list of KeyRanges will include Nones. The returned list will
+    contain KeyRanges ordered lexographically with any Nones appearing at the
+    end.
+    """
 
     raw_entity_kind = util.get_short_name(entity_kind_name)
 
@@ -332,11 +367,17 @@ class AbstractDatastoreInputReader(InputReader):
                                keys_only=True)
     ds_query.Order("__scatter__")
     random_keys = ds_query.Get(shard_count * cls._OVERSAMPLING_FACTOR)
+
     if not random_keys:
 
 
-      return [key_range.KeyRange(namespace=namespace, _app=app)]
-    else:
+      return ([key_range.KeyRange(namespace=namespace, _app=app)] +
+              [None] * (shard_count - 1))
+
+    random_keys.sort()
+
+    if len(random_keys) >= shard_count:
+
       random_keys = cls._choose_split_points(random_keys, shard_count)
 
     key_ranges = []
@@ -369,6 +410,10 @@ class AbstractDatastoreInputReader(InputReader):
         namespace=namespace,
         _app=app))
 
+    if len(key_ranges) < shard_count:
+
+      key_ranges = key_ranges + [None] * (shard_count - len(key_ranges))
+
     return key_ranges
 
   @classmethod
@@ -390,6 +435,7 @@ class AbstractDatastoreInputReader(InputReader):
     for i, k_range in enumerate(key_ranges):
       shared_ranges[i % shard_count].append(k_range)
     batch_size = int(params.get(cls.BATCH_SIZE_PARAM, cls._BATCH_SIZE))
+
     return [cls(entity_kind_name,
                 key_ranges=key_ranges,
                 ns_range=None,
@@ -432,9 +478,7 @@ class AbstractDatastoreInputReader(InputReader):
 
     Tries as best as it can to split the whole query result set into equal
     shards. Due to difficulty of making the perfect split, resulting shards'
-    sizes might differ significantly from each other. The actual number of
-    shards might also be less then requested (even 1), though it is never
-    greater.
+    sizes might differ significantly from each other.
 
     Args:
       mapper_spec: MapperSpec with params containing 'entity_kind'.
@@ -445,7 +489,10 @@ class AbstractDatastoreInputReader(InputReader):
         to specify the number of entities to process in each batch.
 
     Returns:
-      A list of InputReader objects of length <= number_of_shards.
+      A list of InputReader objects. If the query results are empty then the
+      empty list will be returned. Otherwise, the list will always have a length
+      equal to number_of_shards but may be padded with Nones if there are too
+      few results for effective sharding.
     """
     params = mapper_spec.params
     entity_kind_name = params[cls.ENTITY_KIND_PARAM]
@@ -499,7 +546,12 @@ class AbstractDatastoreInputReader(InputReader):
     if self._key_ranges is None:
       key_ranges_json = None
     else:
-      key_ranges_json = [k.to_json() for k in self._key_ranges]
+      key_ranges_json = []
+      for k in self._key_ranges:
+        if k:
+          key_ranges_json.append(k.to_json())
+        else:
+          key_ranges_json.append(None)
 
     if self._ns_range is None:
       namespace_range_json = None
@@ -531,8 +583,12 @@ class AbstractDatastoreInputReader(InputReader):
     if json[cls.KEY_RANGE_PARAM] is None:
       key_ranges = None
     else:
-      key_ranges = [key_range.KeyRange.from_json(k)
-                    for k in json[cls.KEY_RANGE_PARAM]]
+      key_ranges = []
+      for k in json[cls.KEY_RANGE_PARAM]:
+        if k:
+          key_ranges.append(key_range.KeyRange.from_json(k))
+        else:
+          key_ranges.append(None)
 
     if json[cls.NAMESPACE_RANGE_PARAM] is None:
       ns_range = None
@@ -681,7 +737,7 @@ class BlobstoreLineInputReader(InputReader):
       self._read_before_start = False
     start_position = self._blob_reader.tell()
 
-    if start_position >= self._end_position:
+    if start_position > self._end_position:
       raise StopIteration()
 
     line = self._blob_reader.readline()
@@ -839,7 +895,26 @@ class BlobstoreZipInputReader(InputReader):
       raise StopIteration()
     entry = self._entries.pop()
     self._start_index += 1
-    return (entry, lambda: self._zip.read(entry.filename))
+    return (entry, lambda: self._read(entry))
+
+  def _read(self, entry):
+    """Read entry content.
+
+    Args:
+      entry: zip file entry as zipfile.ZipInfo.
+    Returns:
+      Entry content as string.
+    """
+    start_time = time.time()
+    content = self._zip.read(entry.filename)
+
+    ctx = context.get()
+    if ctx:
+      operation.counters.Increment(COUNTER_IO_READ_BYTES, len(content))(ctx)
+      operation.counters.Increment(
+          COUNTER_IO_READ_MSEC, int((time.time() - start_time) * 1000))(ctx)
+
+    return content
 
   @classmethod
   def from_json(cls, json):
@@ -1176,6 +1251,7 @@ class ConsistentKeyReader(DatastoreKeyInputReader):
   UNAPPLIED_LOG_FILTER = "__unapplied_log_timestamp_us__ <"
   DUMMY_KIND = "DUMMY_KIND"
   DUMMY_ID = 106275677020293L
+  UNAPPLIED_QUERY_DEADLINE = 270
 
   def _get_unapplied_jobs_accross_namespaces(self,
                                              namespace_start,
@@ -1189,7 +1265,10 @@ class ConsistentKeyReader(DatastoreKeyInputReader):
                                               _app=app),
                self.UNAPPLIED_LOG_FILTER: self.start_time_us}
     unapplied_query = datastore.Query(filters=filters, keys_only=True, _app=app)
-    return unapplied_query.Get(limit=self._batch_size)
+    return unapplied_query.Get(
+        limit=self._batch_size,
+        config=datastore_rpc.Configuration(
+            deadline=self.UNAPPLIED_QUERY_DEADLINE))
 
   def _iter_ns_range(self):
     while True:
@@ -1211,21 +1290,42 @@ class ConsistentKeyReader(DatastoreKeyInputReader):
     if self._ns_range is None:
 
 
-      while True:
-
-
-
-        unapplied_query = k_range.make_ascending_datastore_query(
-            kind=None, keys_only=True)
-        unapplied_query[
-            ConsistentKeyReader.UNAPPLIED_LOG_FILTER] = self.start_time_us
-        unapplied_jobs = unapplied_query.Get(limit=self._batch_size)
-        if not unapplied_jobs:
-          break
-        self._apply_jobs(unapplied_jobs)
+      self._apply_key_range(k_range)
 
     for o in super(ConsistentKeyReader, self)._iter_key_range(k_range):
       yield o
+
+  def _apply_key_range(self, k_range):
+    """Apply all jobs in the given KeyRange."""
+
+
+
+
+
+    apply_range = copy.deepcopy(k_range)
+    while True:
+
+
+
+      unapplied_query = self._make_unapplied_query(apply_range)
+      unapplied_jobs = unapplied_query.Get(
+          limit=self._batch_size,
+          config=datastore_rpc.Configuration(
+              deadline=self.UNAPPLIED_QUERY_DEADLINE))
+      if not unapplied_jobs:
+        break
+      self._apply_jobs(unapplied_jobs)
+
+
+      apply_range.advance(unapplied_jobs[-1])
+
+  def _make_unapplied_query(self, k_range):
+    """Returns a datastore.Query that finds the unapplied keys in k_range."""
+    unapplied_query = k_range.make_ascending_datastore_query(
+        kind=None, keys_only=True)
+    unapplied_query[
+        ConsistentKeyReader.UNAPPLIED_LOG_FILTER] = self.start_time_us
+    return unapplied_query
 
   def _apply_jobs(self, unapplied_jobs):
     """Apply all jobs implied by the given keys."""
@@ -1239,7 +1339,7 @@ class ConsistentKeyReader(DatastoreKeyInputReader):
       keys_to_apply.append(
           db.Key.from_path(_app=key.app(), namespace=key.namespace(), *path))
     db.get(keys_to_apply, config=datastore_rpc.Configuration(
-        deadline=10,
+        deadline=self.UNAPPLIED_QUERY_DEADLINE,
         read_policy=datastore_rpc.Configuration.APPLY_ALL_JOBS_CONSISTENCY))
 
   @classmethod
@@ -1250,15 +1350,21 @@ class ConsistentKeyReader(DatastoreKeyInputReader):
                                   shard_count):
     key_ranges = super(ConsistentKeyReader, cls)._split_input_from_namespace(
         app, namespace, entity_kind_name, shard_count)
+    assert len(key_ranges) == shard_count
 
 
 
 
-    if key_ranges:
+    try:
+      last_key_range_index = key_ranges.index(None) - 1
+    except ValueError:
+      last_key_range_index = shard_count - 1
+
+    if last_key_range_index != -1:
       key_ranges[0].key_start = None
       key_ranges[0].include_start = False
-      key_ranges[-1].key_end = None
-      key_ranges[-1].include_end = False
+      key_ranges[last_key_range_index].key_end = None
+      key_ranges[last_key_range_index].include_end = False
     return key_ranges
 
   @classmethod
@@ -1415,3 +1521,135 @@ class NamespaceInputReader(InputReader):
 
   def __str__(self):
     return repr(self.ns_range)
+
+
+class RecordsReader(InputReader):
+  """Reader to read a list of Files API file in records format.
+
+  The number of input shards can be specified by the SHARDS_PARAM
+  mapper parameter. Input files cannot be split, so there will be at most
+  one shard per file. Also the number of shards will not be reduced based on
+  the number of input files, so shards in always equals shards out.
+  """
+
+  FILE_PARAM = "file"
+  FILES_PARAM = "files"
+
+  def __init__(self, filenames, position):
+    """Constructor.
+
+    Args:
+      filenames: list of filenames.
+      position: file position to start reading from as int.
+    """
+    self._filenames = filenames
+    if self._filenames:
+      self._reader = records.RecordsReader(
+          files.BufferedFile(self._filenames[0]))
+      self._reader.seek(position)
+    else:
+      self._reader = None
+
+  def __iter__(self):
+    """Iterate over records in file.
+
+    Yields records as strings.
+    """
+    ctx = context.get()
+
+    while self._reader:
+      try:
+        start_time = time.time()
+        record = self._reader.read()
+        if ctx:
+          operation.counters.Increment(
+              COUNTER_IO_READ_MSEC, int((time.time() - start_time) * 1000))(ctx)
+          operation.counters.Increment(COUNTER_IO_READ_BYTES, len(record))(ctx)
+        yield record
+      except EOFError:
+        self._filenames.pop(0)
+        if not self._filenames:
+          self._reader = None
+        else:
+          self._reader = records.RecordsReader(
+              files.BufferedFile(self._filenames[0]))
+
+  @classmethod
+  def from_json(cls, json):
+    """Creates an instance of the InputReader for the given input shard state.
+
+    Args:
+      json: The InputReader state as a dict-like object.
+
+    Returns:
+      An instance of the InputReader configured using the values of json.
+    """
+    return cls(json["filenames"], json["position"])
+
+  def to_json(self):
+    """Returns an input shard state for the remaining inputs.
+
+    Returns:
+      A json-izable version of the remaining InputReader.
+    """
+    result = {
+        "filenames": self._filenames,
+        "position": 0,
+        }
+    if self._reader:
+      result["position"] = self._reader.tell()
+    return result
+
+  @classmethod
+  def split_input(cls, mapper_spec):
+    """Returns a list of input readers for the input spec.
+
+    Args:
+      mapper_spec: The MapperSpec for this InputReader.
+
+    Returns:
+      A list of InputReaders.
+    """
+    params = mapper_spec.params
+    shard_count = mapper_spec.shard_count
+
+    if cls.FILES_PARAM in params:
+      filenames = params[cls.FILES_PARAM]
+      if isinstance(filenames, basestring):
+        filenames = filenames.split(",")
+    else:
+      filenames = [params[cls.FILE_PARAM]]
+
+    batch_list = [[] for _ in xrange(shard_count)]
+    for index, filename in enumerate(filenames):
+
+      batch_list[index % shard_count].append(filenames[index])
+
+
+    batch_list.sort(reverse=True, key=lambda x: len(x))
+    return [RecordsReader(batch, 0) for batch in batch_list]
+
+  @classmethod
+  def validate(cls, mapper_spec):
+    """Validates mapper spec and all mapper parameters.
+
+    Args:
+      mapper_spec: The MapperSpec for this InputReader.
+
+    Raises:
+      BadReaderParamsError: required parameters are missing or invalid.
+    """
+    if mapper_spec.input_reader_class() != cls:
+      raise errors.BadReaderParamsError("Input reader class mismatch")
+    params = mapper_spec.params
+    if (cls.FILES_PARAM not in params and
+        cls.FILE_PARAM not in params):
+      raise BadReaderParamsError(
+          "Must specify '%s' or '%s' parameter for mapper input" %
+          (cls.FILES_PARAM, cls.FILE_PARAM))
+
+  def __str__(self):
+    position = 0
+    if self._reader:
+      position = self._reader.tell()
+    return "%s:%s" % (self._filenames, position)

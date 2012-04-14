@@ -24,6 +24,13 @@ import dummy_thread as thread
 __pychecker__ = """maxreturns=0 maxbranches=0 no-callinit
                    unusednames=printElemNumber,debug_strs no-special"""
 
+if hasattr(ProtocolBuffer, 'ExtendableProtocolMessage'):
+  _extension_runtime = True
+  _ExtendableProtocolMessage = ProtocolBuffer.ExtendableProtocolMessage
+else:
+  _extension_runtime = False
+  _ExtendableProtocolMessage = ProtocolBuffer.ProtocolMessage
+
 class AggregateRpcStatsProto(ProtocolBuffer.ProtocolMessage):
   has_service_call_name_ = 0
   service_call_name_ = ""
@@ -162,6 +169,7 @@ class AggregateRpcStatsProto(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.AggregateRpcStatsProto'
 class KeyValProto(ProtocolBuffer.ProtocolMessage):
   has_key_ = 0
   key_ = ""
@@ -300,6 +308,7 @@ class KeyValProto(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.KeyValProto'
 class StackFrameProto(ProtocolBuffer.ProtocolMessage):
   has_class_or_file_name_ = 0
   class_or_file_name_ = ""
@@ -525,6 +534,7 @@ class StackFrameProto(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.StackFrameProto'
 class IndividualRpcStatsProto(ProtocolBuffer.ProtocolMessage):
   has_service_call_name_ = 0
   service_call_name_ = ""
@@ -920,6 +930,7 @@ class IndividualRpcStatsProto(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.IndividualRpcStatsProto'
 class RequestStatProto(ProtocolBuffer.ProtocolMessage):
   has_start_timestamp_milliseconds_ = 0
   start_timestamp_milliseconds_ = 0
@@ -1523,5 +1534,8 @@ class RequestStatProto(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.RequestStatProto'
+if _extension_runtime:
+  pass
 
 __all__ = ['AggregateRpcStatsProto','KeyValProto','StackFrameProto','IndividualRpcStatsProto','RequestStatProto']

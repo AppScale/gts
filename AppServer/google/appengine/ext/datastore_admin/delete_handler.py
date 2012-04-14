@@ -46,11 +46,16 @@ def DeleteEntity(key):
     key: key of the entity to delete.
 
   Yields:
-    a delete operation if the entity is not an active mapreduce object.
+    a delete operation if the entity is not an active mapreduce or
+    DatastoreAdminOperation object.
   """
   if key.kind() in MAPREDUCE_OBJECTS:
     entity = datastore.Get(key)
     if entity and not entity["active"]:
+      yield operation.db.Delete(key)
+  elif key.kind() == utils.DatastoreAdminOperation.kind():
+    entity = datastore.Get(key)
+    if entity and not entity["active_jobs"]:
       yield operation.db.Delete(key)
   else:
     yield operation.db.Delete(key)

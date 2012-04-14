@@ -1,0 +1,1068 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+
+  <title>Class: AppControllerClient</title>
+
+  <link rel="stylesheet" href="./rdoc.css" type="text/css" media="screen" />
+
+  <script src="./js/jquery.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/thickbox-compressed.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/quicksearch.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/darkfish.js" type="text/javascript"
+    charset="utf-8"></script>
+
+</head>
+<body class="class">
+
+  <div id="metadata">
+    <div id="home-metadata">
+      <div id="home-section" class="section">
+        <h3 class="section-header">
+          <a href="./index.html">Home</a>
+          <a href="./index.html#classes">Classes</a>
+          <a href="./index.html#methods">Methods</a>
+        </h3>
+      </div>
+    </div>
+
+    <div id="file-metadata">
+      <div id="file-list-section" class="section">
+        <h3 class="section-header">In Files</h3>
+        <div class="section-body">
+          <ul>
+          
+            <li><a href="./lib/app_controller_client_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
+              class="thickbox" title="lib/app_controller_client.rb">lib/app_controller_client.rb</a></li>
+          
+          </ul>
+        </div>
+      </div>
+
+      
+    </div>
+
+    <div id="class-metadata">
+
+      <!-- Parent Class -->
+      
+      <div id="parent-class-section" class="section">
+        <h3 class="section-header">Parent</h3>
+        
+        <p class="link"><a href="Object.html">Object</a></p>
+        
+      </div>
+      
+
+      <!-- Namespace Contents -->
+      
+
+      <!-- Method Quickref -->
+      
+      <div id="method-list-section" class="section">
+        <h3 class="section-header">Methods</h3>
+        <ul class="link-list">
+          
+          <li><a href="#method-c-new">::new</a></li>
+          
+          <li><a href="#method-i-add_role">#add_role</a></li>
+          
+          <li><a href="#method-i-get_all_public_ips">#get_all_public_ips</a></li>
+          
+          <li><a href="#method-i-get_queues_in_use">#get_queues_in_use</a></li>
+          
+          <li><a href="#method-i-get_stats">#get_stats</a></li>
+          
+          <li><a href="#method-i-get_status">#get_status</a></li>
+          
+          <li><a href="#method-i-get_userappserver_ip">#get_userappserver_ip</a></li>
+          
+          <li><a href="#method-i-is_done_initializing-3F">#is_done_initializing?</a></li>
+          
+          <li><a href="#method-i-is_done_loading-3F">#is_done_loading?</a></li>
+          
+          <li><a href="#method-i-make_call">#make_call</a></li>
+          
+          <li><a href="#method-i-remove_role">#remove_role</a></li>
+          
+          <li><a href="#method-i-run_neptune_job">#run_neptune_job</a></li>
+          
+          <li><a href="#method-i-set_apps">#set_apps</a></li>
+          
+          <li><a href="#method-i-set_parameters">#set_parameters</a></li>
+          
+          <li><a href="#method-i-status">#status</a></li>
+          
+          <li><a href="#method-i-stop_app">#stop_app</a></li>
+          
+          <li><a href="#method-i-update">#update</a></li>
+          
+          <li><a href="#method-i-wait_for_node_to_be">#wait_for_node_to_be</a></li>
+          
+        </ul>
+      </div>
+      
+
+      <!-- Included Modules -->
+      
+    </div>
+
+    <div id="project-metadata">
+      
+      
+
+      <div id="classindex-section" class="section project-section">
+        <h3 class="section-header">Class/Module Index
+          <span class="search-toggle"><img src="./images/find.png"
+            height="16" width="16" alt="[+]"
+            title="show/hide quicksearch" /></span></h3>
+        <form action="#" method="get" accept-charset="utf-8" class="initially-hidden">
+        <fieldset>
+          <legend>Quicksearch</legend>
+          <input type="text" name="quicksearch" value=""
+            class="quicksearch-field" />
+        </fieldset>
+        </form>
+
+        <ul class="link-list">
+        
+          <li><a href="./AppControllerClient.html">AppControllerClient</a></li>
+        
+          <li><a href="./BadConfigurationException.html">BadConfigurationException</a></li>
+        
+          <li><a href="./BlobServer.html">BlobServer</a></li>
+        
+          <li><a href="./Collectd.html">Collectd</a></li>
+        
+          <li><a href="./CronHelper.html">CronHelper</a></li>
+        
+          <li><a href="./Datastore.html">Datastore</a></li>
+        
+          <li><a href="./DatastoreFactory.html">DatastoreFactory</a></li>
+        
+          <li><a href="./DatastoreRepo.html">DatastoreRepo</a></li>
+        
+          <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a></li>
+        
+          <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a></li>
+        
+          <li><a href="./DatastoreS3.html">DatastoreS3</a></li>
+        
+          <li><a href="./Djinn.html">Djinn</a></li>
+        
+          <li><a href="./DjinnJobData.html">DjinnJobData</a></li>
+        
+          <li><a href="./DjinnServer.html">DjinnServer</a></li>
+        
+          <li><a href="./Ejabberd.html">Ejabberd</a></li>
+        
+          <li><a href="./EngineFactory.html">EngineFactory</a></li>
+        
+          <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a></li>
+        
+          <li><a href="./GodInterface.html">GodInterface</a></li>
+        
+          <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a></li>
+        
+          <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a></li>
+        
+          <li><a href="./HAProxy.html">HAProxy</a></li>
+        
+          <li><a href="./HelperFunctions.html">HelperFunctions</a></li>
+        
+          <li><a href="./JSONClient.html">JSONClient</a></li>
+        
+          <li><a href="./LoadBalancer.html">LoadBalancer</a></li>
+        
+          <li><a href="./Monitoring.html">Monitoring</a></li>
+        
+          <li><a href="./NeptuneJobData.html">NeptuneJobData</a></li>
+        
+          <li><a href="./Nginx.html">Nginx</a></li>
+        
+          <li><a href="./Object.html">Object</a></li>
+        
+          <li><a href="./PbServer.html">PbServer</a></li>
+        
+          <li><a href="./QueueFactory.html">QueueFactory</a></li>
+        
+          <li><a href="./RabbitMQ.html">RabbitMQ</a></li>
+        
+          <li><a href="./Repo.html">Repo</a></li>
+        
+          <li><a href="./TaskEngine.html">TaskEngine</a></li>
+        
+          <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a></li>
+        
+          <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a></li>
+        
+          <li><a href="./TaskQueue.html">TaskQueue</a></li>
+        
+          <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a></li>
+        
+          <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a></li>
+        
+          <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a></li>
+        
+          <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a></li>
+        
+          <li><a href="./UserAppClient.html">UserAppClient</a></li>
+        
+          <li><a href="./ZKInterface.html">ZKInterface</a></li>
+        
+        </ul>
+        <div id="no-class-search-results" style="display: none;">No matching classes.</div>
+      </div>
+
+      
+    </div>
+  </div>
+
+  <div id="documentation">
+    <h1 class="class">AppControllerClient</h1>
+
+    <div id="description">
+      
+<p>A client that uses SOAP messages to communicate with the underlying cloud
+platform (here, AppScale). This client is similar to that used in the
+AppScale Tools, but with non-Neptune SOAP calls removed.</p>
+
+    </div>
+
+    <!-- Constants -->
+    
+
+    <!-- Attributes -->
+    
+    <div id="attribute-method-details" class="method-section section">
+      <h3 class="section-header">Attributes</h3>
+
+      
+      <div id="conn-attribute-method" class="method-detail">
+        <a name="conn"></a>
+        
+        <a name="conn="></a>
+        
+        <div class="method-heading attribute-method-heading">
+          <span class="method-name">conn</span><span
+            class="attribute-access-type">[RW]</span>
+        </div>
+
+        <div class="method-description">
+        
+        <p>The SOAP client that we use to communicate with the AppController.</p>
+        
+        </div>
+      </div>
+      
+      <div id="ip-attribute-method" class="method-detail">
+        <a name="ip"></a>
+        
+        <a name="ip="></a>
+        
+        <div class="method-heading attribute-method-heading">
+          <span class="method-name">ip</span><span
+            class="attribute-access-type">[RW]</span>
+        </div>
+
+        <div class="method-description">
+        
+        <p>The IP address of the AppController that we will be connecting to.</p>
+        
+        </div>
+      </div>
+      
+      <div id="secret-attribute-method" class="method-detail">
+        <a name="secret"></a>
+        
+        <a name="secret="></a>
+        
+        <div class="method-heading attribute-method-heading">
+          <span class="method-name">secret</span><span
+            class="attribute-access-type">[RW]</span>
+        </div>
+
+        <div class="method-description">
+        
+        <p>The secret string that is used to authenticate this client with
+AppControllers. It is initially generated by appscale-run-instances and can
+be found on the machine that ran that tool, or on any AppScale machine.</p>
+        
+        </div>
+      </div>
+      
+    </div>
+    
+
+    <!-- Methods -->
+    
+    <div id="public-instance-method-details" class="method-section section">
+      <h3 class="section-header">Public Instance Methods</h3>
+
+    
+      <div id="add_role-method" class="method-detail ">
+        <a name="method-i-add_role"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">add_role</span><span
+            class="method-args">(role)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="add_role-source">
+<pre>
+<span class="ruby-comment"># File lib/app_controller_client.rb, line 204</span>
+def add_role(role)
+  make_call(<span class="ruby-constant">NO_TIMEOUT</span>, <span class="ruby-constant">RETRY_ON_FAIL</span>, <span class="ruby-string">&quot;add_role&quot;</span>) { <span class="ruby-ivar">@conn</span>.add_role(role, <span class="ruby-ivar">@secret</span>) }
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_all_public_ips-method" class="method-detail ">
+        <a name="method-i-get_all_public_ips"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_all_public_ips</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="get_all_public_ips-source">
+<pre>
+<span class="ruby-comment"># File lib/app_controller_client.rb, line 200</span>
+def get_all_public_ips()
+  make_call(30, <span class="ruby-constant">RETRY_ON_FAIL</span>, <span class="ruby-string">&quot;get_all_public_ips&quot;</span>) { <span class="ruby-ivar">@conn</span>.get_all_public_ips(<span class="ruby-ivar">@secret</span>) }
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_queues_in_use-method" class="method-detail ">
+        <a name="method-i-get_queues_in_use"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_queues_in_use</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="get_queues_in_use-source">
+<pre>
+<span class="ruby-comment"># File lib/app_controller_client.rb, line 252</span>
+def get_queues_in_use()
+  make_call(<span class="ruby-constant">NO_TIMEOUT</span>, <span class="ruby-constant">RETRY_ON_FAIL</span>, <span class="ruby-string">&quot;get_queues_in_use&quot;</span>) { 
+    <span class="ruby-ivar">@conn</span>.get_queues_in_use(<span class="ruby-ivar">@secret</span>)
+  }
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_stats-method" class="method-detail ">
+        <a name="method-i-get_stats"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_stats</span><span
+            class="method-args">(ok_to_fail=false)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="get_stats-source">
+<pre>
+<span class="ruby-comment"># File lib/app_controller_client.rb, line 180</span>
+def get_stats(ok_to_fail=false)
+  make_call(10, !ok_to_fail, <span class="ruby-string">&quot;get_stats&quot;</span>, ok_to_fail) { <span class="ruby-ivar">@conn</span>.get_stats(<span class="ruby-ivar">@secret</span>) }
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_status-method" class="method-detail ">
+        <a name="method-i-get_status"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_status</span><span
+            class="method-args">(ok_to_fail=false)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="get_status-source">
+<pre>
+<span class="ruby-comment"># File lib/app_controller_client.rb, line 176</span>
+def get_status(ok_to_fail=false)
+  make_call(10, !ok_to_fail, <span class="ruby-string">&quot;get_status&quot;</span>, ok_to_fail) { <span class="ruby-ivar">@conn</span>.status(<span class="ruby-ivar">@secret</span>) }
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_userappserver_ip-method" class="method-detail ">
+        <a name="method-i-get_userappserver_ip"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_userappserver_ip</span><span
+            class="method-args">(verbose_level="low")</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="get_userappserver_ip-source">
+<pre>
+<span class="ruby-comment"># File lib/app_controller_client.rb, line 123</span>
+def get_userappserver_ip(verbose_level=<span class="ruby-string">&quot;low&quot;</span>) 
+  userappserver_ip, status, state, new_state = <span class="ruby-string">&quot;&quot;</span>, <span class="ruby-string">&quot;&quot;</span>, <span class="ruby-string">&quot;&quot;</span>, <span class="ruby-string">&quot;&quot;</span>
+  loop {
+    status = get_status()
+
+    new_state = status.scan(<span class="ruby-regexp">/Current State: ([\w\s\d\.,]+)\n/</span>).flatten.to_s.chomp
+    if verbose_level == <span class="ruby-string">&quot;high&quot;</span> and new_state != state
+      puts new_state
+      state = new_state
+    end
+  
+    if status == <span class="ruby-string">&quot;false: bad secret&quot;</span>
+      abort(&quot;\nWe were unable to verify your secret key with the head node specified in your locations file. Are you sure you have the correct secret key and locations file?\n\nSecret provided: [#{@secret}]\nHead node IP address: [#{@ip}]\n&quot;)
+    end
+      
+    if status =~ /Database is at (#{IP_OR_FQDN})/ and $1 != <span class="ruby-string">&quot;not-up-yet&quot;</span>
+      userappserver_ip = $1
+      break
+    end
+    
+    sleep(10)
+  }
+  
+  return userappserver_ip
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="is_done_initializing-3F-method" class="method-detail ">
+        <a name="method-i-is_done_initializing-3F"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">is_done_initializing?</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="is_done_initializing-3F-source">
+<pre>
+<span class="ruby-comment"># File lib/app_controller_client.rb, line 192</span>
+def is_done_initializing?()
+  make_call(30, <span class="ruby-constant">RETRY_ON_FAIL</span>, <span class="ruby-string">&quot;is_done_initializing&quot;</span>, ok_to_fail=true) { <span class="ruby-ivar">@conn</span>.is_done_initializing(<span class="ruby-ivar">@secret</span>) }
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="is_done_loading-3F-method" class="method-detail ">
+        <a name="method-i-is_done_loading-3F"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">is_done_loading?</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="is_done_loading-3F-source">
+<pre>
+<span class="ruby-comment"># File lib/app_controller_client.rb, line 196</span>
+def is_done_loading?()
+  make_call(30, <span class="ruby-constant">RETRY_ON_FAIL</span>, <span class="ruby-string">&quot;is_done_loading&quot;</span>, ok_to_fail=true) { <span class="ruby-ivar">@conn</span>.is_done_loading(<span class="ruby-ivar">@secret</span>) }
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="make_call-method" class="method-detail ">
+        <a name="method-i-make_call"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">make_call</span><span
+            class="method-args">(time, retry_on_except, callr, ok_to_fail=false)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>A helper method that makes SOAP calls for us. This method is mainly here to
+reduce code duplication: all SOAP calls expect a certain timeout and can
+tolerate certain exceptions, so we consolidate this code into this method.
+Here, the caller specifies the timeout for the SOAP call (or NO_TIMEOUT if
+an infinite timeout is required) as well as whether the call should be
+retried in the face of exceptions. Exceptions can occur if the machine is
+not yet running or is too busy to handle the request, so these exceptions
+are automatically retried regardless of the retry value. Typically callers
+set this to false to catch ‘Connection Refused’ exceptions or the like.
+Finally, the caller must provide a block of code that indicates the SOAP
+call to make: this is really all that differs between the calling methods.
+The result of the block is returned to the caller.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="make_call-source">
+<pre>
+<span class="ruby-comment"># File lib/app_controller_client.rb, line 91</span>
+def make_call(time, retry_on_except, callr, ok_to_fail=false)
+  refused_count = 0
+  max = 10
+
+  begin
+    <span class="ruby-constant">Timeout</span>::timeout(time) {
+      yield if block_given?
+    }
+  rescue <span class="ruby-constant">Errno</span>::<span class="ruby-constant">ECONNREFUSED</span>, <span class="ruby-constant">Errno</span>::<span class="ruby-constant">EHOSTUNREACH</span>
+    if refused_count &gt; max
+      return false if ok_to_fail
+      abort(<span class="ruby-string">&quot;Connection was refused. Is the AppController running?&quot;</span>)
+    else
+      refused_count += 1
+      sleep(1)
+      retry
+    end
+  rescue <span class="ruby-constant">Timeout</span>::<span class="ruby-constant">Error</span>
+    return false if ok_to_fail
+    retry
+  rescue <span class="ruby-constant">OpenSSL</span>::<span class="ruby-constant">SSL</span>::<span class="ruby-constant">SSLError</span>, <span class="ruby-constant">NotImplementedError</span>, <span class="ruby-constant">Errno</span>::<span class="ruby-constant">EPIPE</span>, <span class="ruby-constant">Errno</span>::<span class="ruby-constant">ECONNRESET</span>
+    retry
+  rescue <span class="ruby-constant">Exception</span> =&gt; except
+    if retry_on_except
+      retry
+    else
+      abort(&quot;[#{callr}] We saw an unexpected error of the type #{except.class} with the following message:\n#{except}.&quot;)
+    end
+  end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="remove_role-method" class="method-detail ">
+        <a name="method-i-remove_role"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">remove_role</span><span
+            class="method-args">(role)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>CGB - removed timeout here - removing cassandra slave requires it to port
+the data it owns to somebody else, which takes ~30 seconds in the trivial
+case</p>
+          
+
+          
+          <div class="method-source-code"
+            id="remove_role-source">
+<pre>
+<span class="ruby-comment"># File lib/app_controller_client.rb, line 211</span>
+def remove_role(role)
+  make_call(<span class="ruby-constant">NO_TIMEOUT</span>, <span class="ruby-constant">RETRY_ON_FAIL</span>, <span class="ruby-string">&quot;remove_role&quot;</span>) { <span class="ruby-ivar">@conn</span>.remove_role(role, <span class="ruby-ivar">@secret</span>) }
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="run_neptune_job-method" class="method-detail ">
+        <a name="method-i-run_neptune_job"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">run_neptune_job</span><span
+            class="method-args">(nodes, job_data)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="run_neptune_job-source">
+<pre>
+<span class="ruby-comment"># File lib/app_controller_client.rb, line 215</span>
+def run_neptune_job(nodes, job_data)
+  type = job_data[<span class="ruby-string">&quot;@type&quot;</span>]
+
+  if <span class="ruby-constant">NEPTUNE_JOBS</span>.include?(type)
+    method_to_call = &quot;neptune_#{type}_run_job&quot;
+    <span class="ruby-ivar">@conn</span>.add_method(method_to_call, <span class="ruby-string">&quot;nodes&quot;</span>, <span class="ruby-string">&quot;job_data&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+    make_call(30, <span class="ruby-constant">RETRY_ON_FAIL</span>, <span class="ruby-string">&quot;run_neptune_job&quot;</span>) { <span class="ruby-ivar">@conn</span>.send(method_to_call.to_sym, nodes, job_data, <span class="ruby-ivar">@secret</span>) }
+  else
+    not_supported_message = &quot;The job type you specified, '#{type}', is &quot; +
+     &quot;not supported. Supported jobs are #{NEPTUNE_JOBS.join(', ')}.&quot;
+    abort(not_supported_message)
+  end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="set_apps-method" class="method-detail ">
+        <a name="method-i-set_apps"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">set_apps</span><span
+            class="method-args">(app_names)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="set_apps-source">
+<pre>
+<span class="ruby-comment"># File lib/app_controller_client.rb, line 157</span>
+def set_apps(app_names)
+  result = <span class="ruby-string">&quot;&quot;</span>
+  make_call(10, <span class="ruby-constant">ABORT_ON_FAIL</span>, <span class="ruby-string">&quot;set_apps&quot;</span>) { 
+    result = conn.set_apps(app_names, <span class="ruby-ivar">@secret</span>)
+  }  
+  abort(result) if result =~ <span class="ruby-regexp">/Error:/</span>
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="set_parameters-method" class="method-detail ">
+        <a name="method-i-set_parameters"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">set_parameters</span><span
+            class="method-args">(locations, creds, apps_to_start)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="set_parameters-source">
+<pre>
+<span class="ruby-comment"># File lib/app_controller_client.rb, line 149</span>
+def set_parameters(locations, creds, apps_to_start)
+  result = <span class="ruby-string">&quot;&quot;</span>
+  make_call(10, <span class="ruby-constant">ABORT_ON_FAIL</span>, <span class="ruby-string">&quot;set_parameters&quot;</span>) { 
+    result = conn.set_parameters(locations, creds, apps_to_start, <span class="ruby-ivar">@secret</span>)
+  }  
+  abort(result) if result =~ <span class="ruby-regexp">/Error:/</span>
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="status-method" class="method-detail ">
+        <a name="method-i-status"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">status</span><span
+            class="method-args">(print_output=true)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="status-source">
+<pre>
+<span class="ruby-comment"># File lib/app_controller_client.rb, line 165</span>
+def status(print_output=true)
+  status = get_status()
+       
+  if print_output
+    puts &quot;Status of node at #{ip}:&quot;
+    puts &quot;#{status}&quot;
+  end
+
+  return status
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="stop_app-method" class="method-detail ">
+        <a name="method-i-stop_app"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">stop_app</span><span
+            class="method-args">(app_name)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="stop_app-source">
+<pre>
+<span class="ruby-comment"># File lib/app_controller_client.rb, line 184</span>
+def stop_app(app_name)
+  make_call(30, <span class="ruby-constant">RETRY_ON_FAIL</span>, <span class="ruby-string">&quot;stop_app&quot;</span>) { <span class="ruby-ivar">@conn</span>.stop_app(app_name, <span class="ruby-ivar">@secret</span>) }
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="update-method" class="method-detail ">
+        <a name="method-i-update"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">update</span><span
+            class="method-args">(app_names)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="update-source">
+<pre>
+<span class="ruby-comment"># File lib/app_controller_client.rb, line 188</span>
+def update(app_names)
+  make_call(30, <span class="ruby-constant">RETRY_ON_FAIL</span>, <span class="ruby-string">&quot;update&quot;</span>) { <span class="ruby-ivar">@conn</span>.update(app_names, <span class="ruby-ivar">@secret</span>) }
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="wait_for_node_to_be-method" class="method-detail ">
+        <a name="method-i-wait_for_node_to_be"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">wait_for_node_to_be</span><span
+            class="method-args">(new_roles)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="wait_for_node_to_be-source">
+<pre>
+<span class="ruby-comment"># File lib/app_controller_client.rb, line 229</span>
+def wait_for_node_to_be(new_roles)
+  roles = new_roles.split(<span class="ruby-string">&quot;:&quot;</span>)
+
+  loop {
+    ready = true
+    status = get_status
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;ACC: Node at #{@ip} said [#{status}]&quot;)
+    roles.each { |role|
+      if status =~ /#{role}/
+        <span class="ruby-constant">Djinn</span>.log_debug(&quot;ACC: Node is #{role}&quot;)
+      else
+        ready = false
+        <span class="ruby-constant">Djinn</span>.log_debug(&quot;ACC: Node is not yet #{role}&quot;)
+      end
+    }
+
+    break if ready      
+  }
+
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;ACC: Node at #{@ip} is now #{new_roles}&quot;)
+  return
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+    </div>
+  
+    <div id="public-class-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="new-method" class="method-detail ">
+        <a name="method-c-new"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">new</span><span
+            class="method-args">(ip, secret)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>A constructor that requires both the IP address of the machine to
+communicate with as well as the secret (string) needed to perform
+communication. AppControllers will reject SOAP calls if this secret
+(basically a password) is not present - it can be found in the user’s
+.appscale directory, and a helper method is usually present to fetch this
+for us.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="new-source">
+<pre>
+<span class="ruby-comment"># File lib/app_controller_client.rb, line 58</span>
+def initialize(ip, secret)
+  <span class="ruby-ivar">@ip</span> = ip
+  <span class="ruby-ivar">@secret</span> = secret
+  
+  <span class="ruby-ivar">@conn</span> = <span class="ruby-constant">SOAP</span>::<span class="ruby-constant">RPC</span>::<span class="ruby-constant">Driver</span>.new(&quot;https://#{@ip}:17443&quot;)
+  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;set_parameters&quot;</span>, <span class="ruby-string">&quot;djinn_locations&quot;</span>, <span class="ruby-string">&quot;database_credentials&quot;</span>, <span class="ruby-string">&quot;app_names&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;set_apps&quot;</span>, <span class="ruby-string">&quot;app_names&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;status&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;get_stats&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;update&quot;</span>, <span class="ruby-string">&quot;app_names&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;stop_app&quot;</span>, <span class="ruby-string">&quot;app_name&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)    
+  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;get_all_public_ips&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;is_done_loading&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;is_done_initializing&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;add_role&quot;</span>, <span class="ruby-string">&quot;new_role&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;remove_role&quot;</span>, <span class="ruby-string">&quot;old_role&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;get_queues_in_use&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+    </div>
+  
+
+  </div>
+
+  <div id="validator-badges">
+    <p><small><a href="http://validator.w3.org/check/referer">[Validate]</a></small></p>
+    <p><small>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish
+      Rdoc Generator</a> 2</small>.</p>
+  </div>
+
+</body>
+</html>
+

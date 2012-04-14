@@ -63,10 +63,10 @@ import google
 import logging
 import os
 import pickle
-import sha
 import sys
 import wsgiref.handlers
 import yaml
+import hashlib
 
 from google.appengine.api import api_base_pb
 from google.appengine.api import apiproxy_stub
@@ -193,7 +193,7 @@ class RemoteDatastoreStub(apiproxy_stub.APIProxyStub):
               datastore_pb.Error.CONCURRENT_TRANSACTION,
               "Transaction precondition failed.")
         elif entity.has_entity():
-          entity_hash = sha.new(entity.entity().Encode()).digest()
+          entity_hash = hashlib.sha1(entity.entity().Encode()).digest()
           if precondition.hash() != entity_hash:
             raise apiproxy_errors.ApplicationError(
                 datastore_pb.Error.CONCURRENT_TRANSACTION,
@@ -350,9 +350,10 @@ Point your stubs (google.appengine.ext.remote_api.remote_api_stub) here.</p>
 </body>
 </html>"""
 
+application = webapp.WSGIApplication([('.*', ApiCallHandler)])
+
 
 def main():
-  application = webapp.WSGIApplication([('.*', ApiCallHandler)])
   wsgiref.handlers.CGIHandler().run(application)
 
 

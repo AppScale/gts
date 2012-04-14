@@ -1,0 +1,888 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+
+  <title>Module: HAProxy</title>
+
+  <link rel="stylesheet" href="./rdoc.css" type="text/css" media="screen" />
+
+  <script src="./js/jquery.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/thickbox-compressed.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/quicksearch.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/darkfish.js" type="text/javascript"
+    charset="utf-8"></script>
+
+</head>
+<body class="module">
+
+  <div id="metadata">
+    <div id="home-metadata">
+      <div id="home-section" class="section">
+        <h3 class="section-header">
+          <a href="./index.html">Home</a>
+          <a href="./index.html#classes">Classes</a>
+          <a href="./index.html#methods">Methods</a>
+        </h3>
+      </div>
+    </div>
+
+    <div id="file-metadata">
+      <div id="file-list-section" class="section">
+        <h3 class="section-header">In Files</h3>
+        <div class="section-body">
+          <ul>
+          
+            <li><a href="./lib/haproxy_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
+              class="thickbox" title="lib/haproxy.rb">lib/haproxy.rb</a></li>
+          
+          </ul>
+        </div>
+      </div>
+
+      
+    </div>
+
+    <div id="class-metadata">
+
+      <!-- Parent Class -->
+      
+
+      <!-- Namespace Contents -->
+      
+
+      <!-- Method Quickref -->
+      
+      <div id="method-list-section" class="section">
+        <h3 class="section-header">Methods</h3>
+        <ul class="link-list">
+          
+          <li><a href="#method-c-app_listen_port">::app_listen_port</a></li>
+          
+          <li><a href="#method-c-clear_sites_enabled">::clear_sites_enabled</a></li>
+          
+          <li><a href="#method-c-create_app_config">::create_app_config</a></li>
+          
+          <li><a href="#method-c-create_app_load_balancer_config">::create_app_load_balancer_config</a></li>
+          
+          <li><a href="#method-c-create_app_monitoring_config">::create_app_monitoring_config</a></li>
+          
+          <li><a href="#method-c-create_pbserver_config">::create_pbserver_config</a></li>
+          
+          <li><a href="#method-c-initialize_config">::initialize_config</a></li>
+          
+          <li><a href="#method-c-is_running-3F">::is_running?</a></li>
+          
+          <li><a href="#method-c-regenerate_config">::regenerate_config</a></li>
+          
+          <li><a href="#method-c-reload">::reload</a></li>
+          
+          <li><a href="#method-c-remove_app">::remove_app</a></li>
+          
+          <li><a href="#method-c-restart">::restart</a></li>
+          
+          <li><a href="#method-c-server_config">::server_config</a></li>
+          
+          <li><a href="#method-c-stop">::stop</a></li>
+          
+          <li><a href="#method-c-write_app_config">::write_app_config</a></li>
+          
+        </ul>
+      </div>
+      
+
+      <!-- Included Modules -->
+      
+    </div>
+
+    <div id="project-metadata">
+      
+      
+
+      <div id="classindex-section" class="section project-section">
+        <h3 class="section-header">Class/Module Index
+          <span class="search-toggle"><img src="./images/find.png"
+            height="16" width="16" alt="[+]"
+            title="show/hide quicksearch" /></span></h3>
+        <form action="#" method="get" accept-charset="utf-8" class="initially-hidden">
+        <fieldset>
+          <legend>Quicksearch</legend>
+          <input type="text" name="quicksearch" value=""
+            class="quicksearch-field" />
+        </fieldset>
+        </form>
+
+        <ul class="link-list">
+        
+          <li><a href="./AppControllerClient.html">AppControllerClient</a></li>
+        
+          <li><a href="./BadConfigurationException.html">BadConfigurationException</a></li>
+        
+          <li><a href="./BlobServer.html">BlobServer</a></li>
+        
+          <li><a href="./Collectd.html">Collectd</a></li>
+        
+          <li><a href="./CronHelper.html">CronHelper</a></li>
+        
+          <li><a href="./Datastore.html">Datastore</a></li>
+        
+          <li><a href="./DatastoreFactory.html">DatastoreFactory</a></li>
+        
+          <li><a href="./DatastoreRepo.html">DatastoreRepo</a></li>
+        
+          <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a></li>
+        
+          <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a></li>
+        
+          <li><a href="./DatastoreS3.html">DatastoreS3</a></li>
+        
+          <li><a href="./Djinn.html">Djinn</a></li>
+        
+          <li><a href="./DjinnJobData.html">DjinnJobData</a></li>
+        
+          <li><a href="./DjinnServer.html">DjinnServer</a></li>
+        
+          <li><a href="./Ejabberd.html">Ejabberd</a></li>
+        
+          <li><a href="./EngineFactory.html">EngineFactory</a></li>
+        
+          <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a></li>
+        
+          <li><a href="./GodInterface.html">GodInterface</a></li>
+        
+          <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a></li>
+        
+          <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a></li>
+        
+          <li><a href="./HAProxy.html">HAProxy</a></li>
+        
+          <li><a href="./HelperFunctions.html">HelperFunctions</a></li>
+        
+          <li><a href="./JSONClient.html">JSONClient</a></li>
+        
+          <li><a href="./LoadBalancer.html">LoadBalancer</a></li>
+        
+          <li><a href="./Monitoring.html">Monitoring</a></li>
+        
+          <li><a href="./NeptuneJobData.html">NeptuneJobData</a></li>
+        
+          <li><a href="./Nginx.html">Nginx</a></li>
+        
+          <li><a href="./Object.html">Object</a></li>
+        
+          <li><a href="./PbServer.html">PbServer</a></li>
+        
+          <li><a href="./QueueFactory.html">QueueFactory</a></li>
+        
+          <li><a href="./RabbitMQ.html">RabbitMQ</a></li>
+        
+          <li><a href="./Repo.html">Repo</a></li>
+        
+          <li><a href="./TaskEngine.html">TaskEngine</a></li>
+        
+          <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a></li>
+        
+          <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a></li>
+        
+          <li><a href="./TaskQueue.html">TaskQueue</a></li>
+        
+          <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a></li>
+        
+          <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a></li>
+        
+          <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a></li>
+        
+          <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a></li>
+        
+          <li><a href="./UserAppClient.html">UserAppClient</a></li>
+        
+          <li><a href="./ZKInterface.html">ZKInterface</a></li>
+        
+        </ul>
+        <div id="no-class-search-results" style="display: none;">No matching classes.</div>
+      </div>
+
+      
+    </div>
+  </div>
+
+  <div id="documentation">
+    <h1 class="module">HAProxy</h1>
+
+    <div id="description">
+      
+<p>As AppServers within AppScale are usually single-threaded, we run multiple
+copies of them and load balance traffic to them. Since nginx (our first
+load balancer) doesn’t do health checks on the AppServer before it
+dispatches traffic to it, we employ haproxy, an open source load balancer
+that does provide this capability. This module abstracts away configuration
+and deployment for haproxy.</p>
+
+    </div>
+
+    <!-- Constants -->
+    
+    <div id="constants-list" class="section">
+      <h3 class="section-header">Constants</h3>
+      <dl>
+      
+        <dt><a name="HAPROXY_PATH">HAPROXY_PATH</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="SITES_ENABLED_PATH">SITES_ENABLED_PATH</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="CONFIG_EXTENSION">CONFIG_EXTENSION</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="MAIN_CONFIG_FILE">MAIN_CONFIG_FILE</a></dt>
+        
+        <dd class="description"><p>The configuration file that haproxy reads from.</p></dd>
+        
+      
+        <dt><a name="BASE_CONFIG_FILE">BASE_CONFIG_FILE</a></dt>
+        
+        <dd class="description"><p>Provides a set of default configurations.</p></dd>
+        
+      
+        <dt><a name="SERVER_OPTIONS">SERVER_OPTIONS</a></dt>
+        
+        <dd class="description"><p>Options to used to configure servers. For more information see <a
+href="http://haproxy.1wt.eu/download/1.3/doc/configuration.txt">haproxy.1wt.eu/download/1.3/doc/configuration.txt</a></p></dd>
+        
+      
+        <dt><a name="START_PORT">START_PORT</a></dt>
+        
+        <dd class="description"><p>The first port that haproxy will bind to for App Engine apps.</p></dd>
+        
+      
+      </dl>
+    </div>
+    
+
+    <!-- Attributes -->
+    
+
+    <!-- Methods -->
+    
+    <div id="public-class-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="app_listen_port-method" class="method-detail ">
+        <a name="method-c-app_listen_port"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">app_listen_port</span><span
+            class="method-args">(app_number)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>The port that the load balancer will be listening on for the given app
+number</p>
+          
+
+          
+          <div class="method-source-code"
+            id="app_listen_port-source">
+<pre>
+<span class="ruby-comment"># File lib/haproxy.rb, line 70</span>
+def self.app_listen_port(app_number)
+  <span class="ruby-constant">START_PORT</span> + app_number
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="clear_sites_enabled-method" class="method-detail ">
+        <a name="method-c-clear_sites_enabled"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">clear_sites_enabled</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Removes all the enabled sites</p>
+          
+
+          
+          <div class="method-source-code"
+            id="clear_sites_enabled-source">
+<pre>
+<span class="ruby-comment"># File lib/haproxy.rb, line 171</span>
+def self.clear_sites_enabled
+  if <span class="ruby-constant">File</span>.exists?(<span class="ruby-constant">SITES_ENABLED_PATH</span>)
+    sites = <span class="ruby-constant">Dir</span>.entries(<span class="ruby-constant">SITES_ENABLED_PATH</span>)
+    <span class="ruby-comment"># Remove any files that are not configs</span>
+    sites.delete_if { |site| !site.end_with?(<span class="ruby-constant">CONFIG_EXTENSION</span>) }
+    full_path_sites = sites.map { |site| <span class="ruby-constant">File</span>.join(<span class="ruby-constant">SITES_ENABLED_PATH</span>, site) }
+    <span class="ruby-constant">FileUtils</span>.rm_f full_path_sites
+
+    <span class="ruby-constant">HAProxy</span>.regenerate_config
+  end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="create_app_config-method" class="method-detail ">
+        <a name="method-c-create_app_config"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">create_app_config</span><span
+            class="method-args">(my_ip, listen_port, server_ports, name)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>A generic function for creating haproxy config files used by appscale
+services</p>
+          
+
+          
+          <div class="method-source-code"
+            id="create_app_config-source">
+<pre>
+<span class="ruby-comment"># File lib/haproxy.rb, line 90</span>
+def self.create_app_config(my_ip, listen_port, server_ports, name)
+  servers = []
+  server_ports.each_with_index do |port, index|
+    servers &lt;&lt; <span class="ruby-constant">HAProxy</span>.server_config(name, index, my_ip, port)
+  end
+
+  config = &quot;# Create a load balancer for the #{name} application \n&quot;
+  config &lt;&lt; &quot;listen #{name} #{my_ip}:#{listen_port} \n&quot;
+  config &lt;&lt; servers.join(<span class="ruby-string">&quot;\n&quot;</span>)
+
+  config_path = <span class="ruby-constant">File</span>.join(<span class="ruby-constant">SITES_ENABLED_PATH</span>, &quot;#{name}.#{CONFIG_EXTENSION}&quot;)
+  <span class="ruby-constant">File</span>.open(config_path, <span class="ruby-string">&quot;w+&quot;</span>) { |dest_file| dest_file.write(config) }
+
+  <span class="ruby-constant">HAProxy</span>.regenerate_config
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="create_app_load_balancer_config-method" class="method-detail ">
+        <a name="method-c-create_app_load_balancer_config"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">create_app_load_balancer_config</span><span
+            class="method-args">(my_ip, listen_port)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Create the configuration file for the AppLoadBalancer Rails application</p>
+          
+
+          
+          <div class="method-source-code"
+            id="create_app_load_balancer_config-source">
+<pre>
+<span class="ruby-comment"># File lib/haproxy.rb, line 75</span>
+def self.create_app_load_balancer_config(my_ip, listen_port)
+  self.create_app_config(my_ip, listen_port, <span class="ruby-constant">LoadBalancer</span>.server_ports, <span class="ruby-constant">LoadBalancer</span>.name)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="create_app_monitoring_config-method" class="method-detail ">
+        <a name="method-c-create_app_monitoring_config"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">create_app_monitoring_config</span><span
+            class="method-args">(my_ip, listen_port)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Create the configuration file for the AppMonitoring Rails application</p>
+          
+
+          
+          <div class="method-source-code"
+            id="create_app_monitoring_config-source">
+<pre>
+<span class="ruby-comment"># File lib/haproxy.rb, line 80</span>
+def self.create_app_monitoring_config(my_ip, listen_port)
+  self.create_app_config(my_ip, listen_port, <span class="ruby-constant">Monitoring</span>.server_ports, <span class="ruby-constant">Monitoring</span>.name)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="create_pbserver_config-method" class="method-detail ">
+        <a name="method-c-create_pbserver_config"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">create_pbserver_config</span><span
+            class="method-args">(my_ip, listen_port, table)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Create the config file for PBServer applications</p>
+          
+
+          
+          <div class="method-source-code"
+            id="create_pbserver_config-source">
+<pre>
+<span class="ruby-comment"># File lib/haproxy.rb, line 85</span>
+def self.create_pbserver_config(my_ip, listen_port, table)
+  self.create_app_config(my_ip, listen_port, <span class="ruby-constant">PbServer</span>.get_server_ports(table), <span class="ruby-constant">PbServer</span>::<span class="ruby-constant">NAME</span>)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="initialize_config-method" class="method-detail ">
+        <a name="method-c-initialize_config"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">initialize_config</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Set up the folder structure and creates the configuration files necessary
+for haproxy</p>
+          
+
+          
+          <div class="method-source-code"
+            id="initialize_config-source">
+<pre>
+<span class="ruby-comment"># File lib/haproxy.rb, line 184</span>
+def self.initialize_config
+  base_config = <span class="ruby-string">global  maxconn 64000  ulimit-n 200000  # log incoming requests - may need to tell syslog to accept these requests  # http://kevin.vanzonneveld.net/techblog/article/haproxy_logging/  log             127.0.0.1       local0  log             127.0.0.1       local1 notice  # Distribute the health checks with a bit of randomness  spread-checks 5# Settings in the defaults section apply to all services (unless overridden in a specific config)defaults  # apply log settings from the global section above to services  log global  # Proxy incoming traffic as HTTP requests  mode http  # Use round robin load balancing, however since we will use maxconn that will take precedence  balance roundrobin  maxconn 64000  # Log details about HTTP requests  #option httplog  # Abort request if client closes its output channel while waiting for the   # request. HAProxy documentation has a long explanation for this option.  option abortonclose  # Check if a &quot;Connection: close&quot; header is already set in each direction,  # and will add one if missing.  option httpclose  # If sending a request fails, try to send it to another, 3 times  # before aborting the request  retries 3  # Do not enforce session affinity (i.e., an HTTP session can be served by   # any Mongrel, not just the one that started the session  option redispatch  # Timeout a request if the client did not read any data for 60 seconds  timeout client 60000  # Timeout a request if Mongrel does not accept a connection for 60 seconds  timeout connect 60000  # Timeout a request if Mongrel does not accept the data on the connection,  # or does not send a response back in 60 seconds  timeout server 60000    # Enable the statistics page   stats enable  stats uri     /haproxy?stats  stats realm   Haproxy\ Statistics  stats auth    haproxy:stats  # Create a monitorable URI which returns a 200 if haproxy is up  # monitor-uri /haproxy?monitor  # Amount of time after which a health check is considered to have timed out  timeout check 5000</span>
+
+  <span class="ruby-comment"># Create the sites enabled folder</span>
+  unless <span class="ruby-constant">File</span>.exists? <span class="ruby-constant">SITES_ENABLED_PATH</span>
+    <span class="ruby-constant">FileUtils</span>.mkdir_p <span class="ruby-constant">SITES_ENABLED_PATH</span>
+  end
+  
+  <span class="ruby-comment"># Write the base configuration file which sets default configuration parameters</span>
+  <span class="ruby-constant">File</span>.open(<span class="ruby-constant">BASE_CONFIG_FILE</span>, <span class="ruby-string">&quot;w+&quot;</span>) { |dest_file| dest_file.write(base_config) }
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="is_running-3F-method" class="method-detail ">
+        <a name="method-c-is_running-3F"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">is_running?</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="is_running-3F-source">
+<pre>
+<span class="ruby-comment"># File lib/haproxy.rb, line 60</span>
+def self.is_running?
+  processes = `ps ax | grep haproxy | grep -v grep | wc -l`.chomp
+  if processes == <span class="ruby-string">&quot;0&quot;</span>
+    return false
+  else
+    return true
+  end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="regenerate_config-method" class="method-detail ">
+        <a name="method-c-regenerate_config"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">regenerate_config</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Generates a load balancer configuration file. Since haproxy doesn’t
+provide an file include option we emulate that functionality here.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="regenerate_config-source">
+<pre>
+<span class="ruby-comment"># File lib/haproxy.rb, line 108</span>
+def self.regenerate_config
+  conf = <span class="ruby-constant">File</span>.open(<span class="ruby-constant">MAIN_CONFIG_FILE</span>,<span class="ruby-string">&quot;w+&quot;</span>)
+  
+  <span class="ruby-comment"># Start by writing in the base file</span>
+  <span class="ruby-constant">File</span>.open(<span class="ruby-constant">BASE_CONFIG_FILE</span>, <span class="ruby-string">&quot;r&quot;</span>) do |base|
+    conf.write(base.read())
+  end
+
+  sites = <span class="ruby-constant">Dir</span>.entries(<span class="ruby-constant">SITES_ENABLED_PATH</span>)
+  <span class="ruby-comment"># Remove any files that are not configs</span>
+  sites.delete_if { |site| !site.end_with?(<span class="ruby-constant">CONFIG_EXTENSION</span>) }
+
+  sites.sort!
+
+  <span class="ruby-comment"># Append each one of the configs into the main one</span>
+  sites.each do |site|
+    conf.write(<span class="ruby-string">&quot;\n&quot;</span>)
+    <span class="ruby-constant">File</span>.open(<span class="ruby-constant">File</span>.join(<span class="ruby-constant">SITES_ENABLED_PATH</span>, site), <span class="ruby-string">&quot;r&quot;</span>) do |site_config|
+      conf.write(site_config.read())
+    end
+    conf.write(<span class="ruby-string">&quot;\n&quot;</span>)
+  end
+
+  conf.close()
+  
+  <span class="ruby-comment"># Restart haproxy since we have changed the config</span>
+  <span class="ruby-constant">HAProxy</span>.restart
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="reload-method" class="method-detail ">
+        <a name="method-c-reload"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">reload</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="reload-source">
+<pre>
+<span class="ruby-comment"># File lib/haproxy.rb, line 56</span>
+def self.reload
+  `service haproxy reload`
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="remove_app-method" class="method-detail ">
+        <a name="method-c-remove_app"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">remove_app</span><span
+            class="method-args">(app_name)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="remove_app-source">
+<pre>
+<span class="ruby-comment"># File lib/haproxy.rb, line 164</span>
+def self.remove_app(app_name)
+  config_name = &quot;gae_#{app_name}.#{CONFIG_EXTENSION}&quot;
+  <span class="ruby-constant">FileUtils</span>.rm(<span class="ruby-constant">File</span>.join(<span class="ruby-constant">SITES_ENABLED_PATH</span>, config_name))
+  <span class="ruby-constant">HAProxy</span>.regenerate_config
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="restart-method" class="method-detail ">
+        <a name="method-c-restart"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">restart</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="restart-source">
+<pre>
+<span class="ruby-comment"># File lib/haproxy.rb, line 52</span>
+def self.restart
+  `service haproxy restart`
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="server_config-method" class="method-detail ">
+        <a name="method-c-server_config"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">server_config</span><span
+            class="method-args">(app_name, index, ip, port)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Generate the server configuration line for the provided inputs</p>
+          
+
+          
+          <div class="method-source-code"
+            id="server_config-source">
+<pre>
+<span class="ruby-comment"># File lib/haproxy.rb, line 138</span>
+def self.server_config app_name, index, ip, port
+  &quot;  server #{app_name}-#{index} #{ip}:#{port} #{SERVER_OPTIONS}&quot;
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="stop-method" class="method-detail ">
+        <a name="method-c-stop"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">stop</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="stop-source">
+<pre>
+<span class="ruby-comment"># File lib/haproxy.rb, line 48</span>
+def self.stop
+  `service haproxy stop`
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="write_app_config-method" class="method-detail ">
+        <a name="method-c-write_app_config"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">write_app_config</span><span
+            class="method-args">(app_name, app_number, num_of_servers, ip)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="write_app_config-source">
+<pre>
+<span class="ruby-comment"># File lib/haproxy.rb, line 142</span>
+def self.write_app_config(app_name, app_number, num_of_servers, ip)
+  <span class="ruby-comment"># Add a prefix to the app name to avoid possible conflicts</span>
+  full_app_name = &quot;gae_#{app_name}&quot;
+
+  servers = []
+  num_of_servers.times do |index|
+    port = <span class="ruby-constant">HelperFunctions</span>.application_port(app_number, index, num_of_servers)
+    server = <span class="ruby-constant">HAProxy</span>.server_config(full_app_name, index, ip, port)
+    servers &lt;&lt; server
+  end
+
+  listen_port = <span class="ruby-constant">HAProxy</span>.app_listen_port(app_number)
+  config = &quot;# Create a load balancer for the app #{app_name} \n&quot;
+  config &lt;&lt; &quot;listen #{full_app_name} #{ip}:#{listen_port} \n&quot;
+  config &lt;&lt; servers.join(<span class="ruby-string">&quot;\n&quot;</span>)
+
+  config_path = <span class="ruby-constant">File</span>.join(<span class="ruby-constant">SITES_ENABLED_PATH</span>, &quot;#{full_app_name}.#{CONFIG_EXTENSION}&quot;)
+  <span class="ruby-constant">File</span>.open(config_path, <span class="ruby-string">&quot;w+&quot;</span>) { |dest_file| dest_file.write(config) }
+
+  <span class="ruby-constant">HAProxy</span>.regenerate_config
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+    </div>
+  
+
+  </div>
+
+  <div id="validator-badges">
+    <p><small><a href="http://validator.w3.org/check/referer">[Validate]</a></small></p>
+    <p><small>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish
+      Rdoc Generator</a> 2</small>.</p>
+  </div>
+
+</body>
+</html>
+

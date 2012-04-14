@@ -28,9 +28,9 @@ Classes:
 """
 
 
+import logging
 import re
 import urlparse
-import logging
 
 from google.appengine.api.images import images_service_pb
 
@@ -59,7 +59,8 @@ def CreateBlobImageDispatcher(images_stub):
 
     _size_limit = 1600
     _mime_type_map = {images_service_pb.OutputSettings.JPEG: 'image/jpeg',
-                      images_service_pb.OutputSettings.PNG: 'image/png'}
+                      images_service_pb.OutputSettings.PNG: 'image/png',
+                      images_service_pb.OutputSettings.WEBP: 'image/webp'}
 
     def __init__(self, images_stub):
       """Constructor.
@@ -198,12 +199,15 @@ def CreateBlobImageDispatcher(images_stub):
                         'data': image }
         outfile.write(BLOBIMAGE_RESPONSE_TEMPLATE % output_dict)
       except ValueError:
+        logging.exception('ValueError while serving image.')
         outfile.write('Status: 404\r\n')
       except RuntimeError:
+        logging.exception('RuntimeError while serving image.')
         outfile.write('Status: 400\r\n')
       except:
 
 
+        logging.exception('Exception while serving image.')
         outfile.write('Status: 500\r\n')
 
   return BlobImageDispatcher(images_stub)

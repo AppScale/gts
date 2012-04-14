@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ application_name }} Development Console - Full Text Search{% endblock %}
+
+{% block head %}
+{% endblock %}
+
+{% block breadcrumbs %}
+  <span class="item"><a href="">Full Text Search</a></span>
+{% endblock %}
+
+{% block body %}
+<h3>Text Search</h3>
+
+{% if has_namespace %}
+<form method="get" action="{{ search_path }}">
+  Namespace: <input type="text" name="namespace" value="{{ namespace }}"/>
+  <input type="submit" value="View"/>
+</form>
+{% else %}
+Indexes in default namespace. <a id="select_namespace" href="{{ search_path }}?namespace=">Select different namespace</a>
+{% endif %}
+<br/><br/>
+{% if indexes %}
+  <table id="ah-tasks" class="ae-table ae-table-striped">
+    <thead>
+      <tr>
+        <th>Search Indexes:</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for index in indexes %}
+        <tr class="{% cycle ae-odd,ae-even %}">
+          <td valign="top">
+            <a href="{{ search_index_path }}?namespace={{ index.namespace|urlencode }}&index={{ index.name|urlencode }}&next={{ next }}">{{ index.name }}</a>
+          </td>
+        </tr>
+      {% endfor %}
+      {% if paging %}
+        <tr>
+          <td colspan="6" class="ae-pager" align="right">
+            {% include "pager.html" %}
+          </td>
+        </tr>
+      {% endif %}
+    </tbody>
+  </table>
+{% else %}
+  No full text search indexes found in the application.
+{% endif %}
+
+{% endblock %}

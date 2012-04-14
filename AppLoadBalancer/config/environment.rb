@@ -12,6 +12,9 @@ ENV['RAILS_ENV'] ||= 'production'
 APPSCALE_HOME=ENV['APPSCALE_HOME']
 RAILS_ROOT  = File.expand_path(File.join(APPSCALE_HOME,"AppLoadBalancer"))
 
+require 'net/http'
+require 'open-uri'
+
 # Bootstrap the Rails environment, frameworks, and default configuration
 require File.join(File.dirname(__FILE__), 'boot')
 require 'dbfrontend'
@@ -20,19 +23,7 @@ require 'usertools'
 # oddly enough gem.memcache and gem.Ruby-Memcache below dont work
 # TODO: fix that
 require 'rubygems'
-require 'memcache' 
-
-memcache_options = {
-  :c_threshold => 10_000,
-  :compression => true,
-  :debug => false,
-  :namespace => 'apploadbalancer_',
-  :readonly => false,
-  :urlencode => false
-}
-
-CACHE = MemCache.new memcache_options
-CACHE.servers = 'localhost:11211'
+require 'json'
 
 # The directory where uploaded apps will be stored
 FILE_UPLOAD_PATH = File.join("/","tmp","uploaded-apps")

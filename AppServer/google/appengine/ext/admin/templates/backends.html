@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ application_name }} Development Console - Backend Control{% endblock %}
+
+{% block head %}
+  <style type="text/css">{% include "css/queues.css" %}</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+  <span class="item"><a href="">Backends</a></span>
+{% endblock %}
+
+{% block body %}
+<h3>Backends</h3>
+
+{% if backends %}
+  <table id="ah-backends" class="ae-table ae-table-striped">
+    <thead>
+      <tr>
+        <th>Server Name</th>
+        <th>Instances</th>
+        <th>Instance Class</th>
+        <th>Local Address</th>
+        <th>Options</th>
+        <th>State</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for backend in backends %}
+        <tr class="{% cycle ae-odd,ae-even %}">
+          <td valign="top">
+            <a href="?backendName={{ backend.name|escape }}"
+               >{{ backend.name|escape }}</a>
+          </td>
+          <td valign="top">
+            {{ backend.instances|escape }}
+          </td>
+          <td valign="top">
+            {{ backend.instanceclass|escape }}
+          </td>
+          <td valign="top">
+            <a href="http://{{ backend.address|escape }}/"
+               >{{ backend.address|escape }}</a>
+          </td>
+          <td valign="top">
+            {{ backend.options|escape }}
+          </td>
+          <td valign="top">
+            {{ backend.state|escape }}
+          </td>
+          <td valign="top">
+            <!--
+            <form method="post">
+            <input type="hidden" name="backend"
+                   value="{{ backend.name|escape }}"/>
+            {% ifequal backend.state "stopped" %}
+              <input type="submit" name="action:startbackend"
+                     value="Start Backend"/>
+            {% else %}
+              <input type="submit" name="action:stopbackend"
+                     value="Stop Backend"/>
+            {% endifequal %}
+            </form>
+            -->
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  This application doesn't define any backends. See the documentation for more.
+{% endif %}
+
+
+{% endblock %}
+

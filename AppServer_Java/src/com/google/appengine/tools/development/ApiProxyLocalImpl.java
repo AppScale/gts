@@ -1,17 +1,13 @@
 package com.google.appengine.tools.development;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutput;
-import java.io.ObjectOutputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
@@ -22,359 +18,416 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import sun.misc.Service;
 
 import com.google.appengine.repackaged.com.google.io.protocol.ProtocolMessage;
 import com.google.appengine.repackaged.com.google.protobuf.Message;
-import com.google.appengine.tools.development.ApiProxyLocal;
-import com.google.appengine.tools.development.Clock;
-import com.google.appengine.tools.development.LocalRpcService;
-import com.google.appengine.tools.development.LocalServerEnvironment;
-import com.google.appengine.tools.development.LocalServiceContext;
 import com.google.apphosting.api.ApiProxy;
+import com.google.apphosting.api.ApiProxy.ApiConfig;
+import com.google.apphosting.api.ApiProxy.CallNotFoundException;
+import com.google.apphosting.api.ApiProxy.Environment;
+import com.google.apphosting.api.ApiProxy.LogRecord;
+import com.google.apphosting.api.ApiProxy.UnknownException;
 
+/**
+ * Implements ApiProxy.Delegate such that the requests are dispatched to local
+ * service implementations. Used for both the
+ * {@link com.google.appengine.tools.development.DevAppServer} and for unit
+ * testing services.
+ * 
+ */
 class ApiProxyLocalImpl implements ApiProxyLocal {
-	private static final Class BYTE_ARRAY_CLASS = byte[].class;
-	private static final int MAX_API_REQUEST_SIZE = 1048576*60;
-	private static final Logger logger = Logger
-			.getLogger(ApiProxyLocalImpl.class.getName());
+    private static final Class<?> BYTE_ARRAY_CLASS = byte[].class;
+    /**
+     * The maximum size of any given API request.
+     */
+    private static final int MAX_API_REQUEST_SIZE = 1048576;
 
-	private final Map<String, LocalRpcService> serviceCache = new ConcurrentHashMap<String, LocalRpcService>();
+    private static final Logger logger = Logger.getLogger(ApiProxyLocalImpl.class.getName());
 
-	private final Map<String, String> properties = new HashMap<String, String>();
+    private final Map<String, LocalRpcService> serviceCache = new ConcurrentHashMap<String, LocalRpcService>();
 
-	private final ExecutorService apiExecutor = Executors
-			.newCachedThreadPool(new DaemonThreadFactory(Executors
-					.defaultThreadFactory()));
-	private final LocalServiceContext context;
-	private Clock clock = Clock.DEFAULT;
+    private final Map<String, String> properties = new HashMap<String, String>();
 
-	protected ApiProxyLocalImpl(LocalServerEnvironment environment) {
-		this.context = new LocalServiceContextImpl(environment);
-	}
+    private final ExecutorService apiExecutor = Executors.newCachedThreadPool(new DaemonThreadFactory(Executors
+            .defaultThreadFactory()));
+    private final LocalServiceContext context;
+    private Clock clock = Clock.DEFAULT;
 
-	public void log(ApiProxy.Environment environment, ApiProxy.LogRecord record) {
-		logger.log(toJavaLevel(record.getLevel()), "[" + record.getTimestamp()
-				+ "] " + record.getMessage());
-	}
+    /**
+     * Creates the local proxy in a given context
+     * 
+     * @param environment
+     *            the local server environment.
+     */
+    protected ApiProxyLocalImpl(LocalServerEnvironment environment) {
+        this.context = new LocalServiceContextImpl(environment);
+    }
 
-	public byte[] makeSyncCall(ApiProxy.Environment environment,
-			String packageName, String methodName, byte[] requestBytes) {
-		Future<byte[]> future = doAsyncCall(environment, packageName,
-				methodName, requestBytes, null);
-		try {
-			return ((byte[]) future.get());
-		} catch (InterruptedException ex) {
-			throw new ApiProxy.CancelledException(packageName, methodName);
-		} catch (CancellationException ex) {
-			throw new ApiProxy.CancelledException(packageName, methodName);
-		} catch (ExecutionException ex) {
-			if (ex.getCause() instanceof RuntimeException)
-				throw ((RuntimeException) ex.getCause());
-			if (ex.getCause() instanceof Error) {
-				throw ((Error) ex.getCause());
-			}
-			throw new ApiProxy.UnknownException(packageName, methodName, ex
-					.getCause());
-		}
-	}
+    public void log(Environment environment, LogRecord record) {
+        logger.log(toJavaLevel(record.getLevel()), record.getMessage());
+    }
 
-	public Future<byte[]> makeAsyncCall(ApiProxy.Environment environment,
-			String packageName, String methodName, byte[] requestBytes,
-			ApiProxy.ApiConfig apiConfig) {
-		return doAsyncCall(environment, packageName, methodName, requestBytes,
-				apiConfig);
-	}
+    public void flushLogs(Environment environment) {
+        System.err.flush();
+    }
 
-	private Future<byte[]> doAsyncCall(ApiProxy.Environment environment,
-			String packageName, String methodName, byte[] requestBytes,
-			ApiProxy.ApiConfig apiConfig) {
-		Semaphore semaphore = (Semaphore) environment.getAttributes().get(
-				"com.google.appengine.tools.development.api_call_semaphore");
+    public byte[] makeSyncCall(Environment environment, String packageName, String methodName, byte[] requestBytes) {
+        Future<byte[]> future = doAsyncCall(environment, packageName, methodName, requestBytes);
+        try {
+            return future.get();
+        } catch (InterruptedException ex) {
+            throw new ApiProxy.CancelledException(packageName, methodName);
+        } catch (CancellationException ex) {
+            throw new ApiProxy.CancelledException(packageName, methodName);
+        } catch (ExecutionException ex) {
+            if ((ex.getCause() instanceof RuntimeException)) {
+                throw ((RuntimeException) ex.getCause());
+            } else if ((ex.getCause() instanceof Error)) {
+                throw ((Error) ex.getCause());
+            } else
+                throw new UnknownException(packageName, methodName, ex.getCause());
+        }
+    }
 
-		final Callable<byte[]> callable = Executors
-				.privilegedCallable(new AsyncApiCall(environment, packageName,
-						methodName, requestBytes, semaphore));
+    public Future<byte[]> makeAsyncCall(Environment environment, String packageName, String methodName,
+            byte[] requestBytes, ApiConfig apiConfig) {
+        return doAsyncCall(environment, packageName, methodName, requestBytes);
+    }
 
-		if (semaphore != null) {
-			try {
-				semaphore.acquire();
-			} catch (InterruptedException ex) {
-				throw new RuntimeException(
-						"Interrupted while waiting on semaphore:", ex);
-			}
+    public List<Thread> getRequestThreads(Environment environment) {
+        return Arrays.asList(new Thread[] { Thread.currentThread() });
+    }
 
-		}
+    private Future<byte[]> doAsyncCall(ApiProxy.Environment environment, String packageName, String methodName,
+            byte[] requestBytes) {
+        Semaphore semaphore = (Semaphore) environment.getAttributes().get(LocalEnvironment.API_CALL_SEMAPHORE);
 
-		return ((Future<byte[]>) AccessController
-				.doPrivileged(new PrivilegedAction<Future<byte[]>>() {
-					public Future<byte[]> run() {
-						return (Future<byte[]>) ApiProxyLocalImpl.this.apiExecutor
-								.submit(callable);
-					}
-				}));
-	}
+        if (semaphore != null) {
+            try {
+                semaphore.acquire();
+            } catch (InterruptedException ex) {
+                throw new RuntimeException("Interrupted while waiting on semaphore:", ex);
+            }
+        }
+        AsyncApiCall asyncApiCall = new AsyncApiCall(environment, packageName, methodName, requestBytes, semaphore);
 
-	private <T> T convertBytesToPb(byte[] bytes, Class<T> requestClass)
-			throws IllegalAccessException, InstantiationException,
-			InvocationTargetException, NoSuchMethodException {
-		if (ProtocolMessage.class.isAssignableFrom(requestClass)) {
-			ProtocolMessage proto = (ProtocolMessage) requestClass
-					.newInstance();
-			proto.mergeFrom(bytes);
-			return (T)proto;
-		}
-		if (Message.class.isAssignableFrom(requestClass)) {
-			Method method = requestClass.getMethod("parseFrom",
-					new Class[] { BYTE_ARRAY_CLASS });
-			return (T)method.invoke(null, new Object[] { bytes });
-		}
-		throw new UnsupportedOperationException("Cannot convert byte[] to "
-				+ requestClass);
-	}
+        boolean success = false;
+        try {
+            Callable<byte[]> callable = Executors.privilegedCallable(asyncApiCall);
 
-	private byte[] convertPbToBytes(Object object) {
-		if (object instanceof ProtocolMessage) {
-			return ((ProtocolMessage) object).toByteArray();
-		}
-		if (object instanceof Message) {
-			return ((Message) object).toByteArray();
-		}
-		throw new UnsupportedOperationException("Cannot convert " + object
-				+ " to byte[].");
-	}
+            Future<byte[]> result = AccessController.doPrivileged(new PrivilegedApiAction(callable, asyncApiCall));
 
-	public void setProperty(String property, String value) {
-		this.properties.put(property, value);
-	}
+            success = true;
+            return result;
+        } finally {
+            if (!success) {
+                asyncApiCall.tryReleaseSemaphore();
+            }
+        }
+    }
 
-	public void setProperties(Map<String, String> properties) {
-		this.properties.clear();
-		if (properties != null)
-			this.properties.putAll(properties);
-	}
+    /**
+     * Convert the specified byte array to a protocol buffer representation of
+     * the specified type. This type can either be a subclass of
+     * {@link ProtocolMessage} (a legacy protocol buffer implementation), or
+     * {@link Message} (the open-sourced protocol buffer implementation).
+     */
+    private <T> T convertBytesToPb(byte[] bytes, Class<T> requestClass) throws IllegalAccessException,
+            InstantiationException, InvocationTargetException, NoSuchMethodException {
+        if (ProtocolMessage.class.isAssignableFrom(requestClass)) {
+            ProtocolMessage<?> proto = (ProtocolMessage<?>) requestClass.newInstance();
+            proto.mergeFrom(bytes);
+            return requestClass.cast(proto);
+        }
+        if (Message.class.isAssignableFrom(requestClass)) {
+            Method method = requestClass.getMethod("parseFrom", BYTE_ARRAY_CLASS);
+            return requestClass.cast(method.invoke(null, bytes));
+        }
+        throw new UnsupportedOperationException("Cannot convert byte[] to " + requestClass);
+    }
 
-	public void stop() {
-		for (LocalRpcService service : this.serviceCache.values()) {
-			service.stop();
-		}
+    /**
+     * Convert the protocol buffer representation to a byte array. The object
+     * can either be an instance of {@link ProtocolMessage} (a legacy protocol
+     * buffer implementation), or {@link Message} (the open-sourced protocol
+     * buffer implementation).
+     */
+    private byte[] convertPbToBytes(Object object) {
+        if ((object instanceof ProtocolMessage<?>)) {
+            return ((ProtocolMessage<?>) object).toByteArray();
+        }
+        if ((object instanceof Message)) {
+            return ((Message) object).toByteArray();
+        }
+        throw new UnsupportedOperationException("Cannot convert " + object + " to byte[].");
+    }
 
-		this.serviceCache.clear();
-	}
+    public void setProperty(String property, String value) {
+        this.properties.put(property, value);
+    }
 
-	private int getMaxApiRequestSize(String packageName) {
-		return MAX_API_REQUEST_SIZE;
-	}
+    public void setProperties(Map<String, String> properties) {
+        this.properties.clear();
+        if (properties != null)
+            this.properties.putAll(properties);
+    }
 
-	private Method getDispatchMethod(LocalRpcService service,
-			String packageName, String methodName) {
-		String dispatchName = Character.toLowerCase(methodName.charAt(0))
-				+ methodName.substring(1);
+    public void stop() {
+        for (LocalRpcService service : this.serviceCache.values()) {
+            service.stop();
+        }
 
-		for (Method method : service.getClass().getMethods()) {
-			if (dispatchName.equals(method.getName())) {
-				return method;
-			}
-		}
-		throw new ApiProxy.CallNotFoundException(packageName, methodName);
-	}
+        this.serviceCache.clear();
+    }
 
-	public final synchronized LocalRpcService getService(final String pkg) {
-		LocalRpcService cachedService = (LocalRpcService) this.serviceCache
-				.get(pkg);
-		if (cachedService != null) {
-			return cachedService;
-		}
+    int getMaxApiRequestSize(String packageName) {
+        if ("images".equals(packageName)) {
+            return 33554432;
+        }
+        if ("memcache".equals(packageName)) {
+            return 33554432;
+        }
+        if ("mail".equals(packageName)) {
+            return 33554432;
+        }
+        return MAX_API_REQUEST_SIZE;
+    }
 
-		return ((LocalRpcService) AccessController
-				.doPrivileged(new PrivilegedAction<LocalRpcService>() {
-					public LocalRpcService run() {
-						return ApiProxyLocalImpl.this.startServices(pkg);
-					}
-				}));
-	}
+    private Method getDispatchMethod(LocalRpcService service, String packageName, String methodName) {
+        String dispatchName = Character.toLowerCase(methodName.charAt(0)) + methodName.substring(1);
 
-	private LocalRpcService startServices(String pkg) {
-		Iterator services = Service.providers(LocalRpcService.class,
-				ApiProxyLocalImpl.class.getClassLoader());
+        for (Method method : service.getClass().getMethods()) {
+            if (dispatchName.equals(method.getName())) {
+                return method;
+            }
+        }
+        throw new CallNotFoundException(packageName, methodName);
+    }
 
-		while (services.hasNext()) {
-			LocalRpcService service = (LocalRpcService) services.next();
-			if (service.getPackage().equals(pkg)) {
-				service.init(this.context, this.properties);
-				service.start();
-				this.serviceCache.put(pkg, service);
-				return service;
-			}
-		}
-		return null;
-	}
+    /**
+     * Method needs to be synchronized to ensure that we don't end up starting
+     * multiple instances of the same service. As an example, we've seen a race
+     * condition where the local datastore service has not yet been initialized
+     * and two datastore requests come in at the exact same time. The first
+     * request looks in the service cache, doesn't find it, starts a new local
+     * datastore service, registers it in the service cache, and uses that local
+     * datastore service to handle the first request. Meanwhile the second
+     * request looks in the service cache, doesn't find it, starts a new local
+     * datastore service, registers it in the service cache (stomping on the
+     * original one), and uses that local datastore service to handle the second
+     * request. If both of these requests start txns we can end up with 2
+     * requests receiving the same txn id, and that yields all sorts of exciting
+     * behavior. So, we synchronize this method to ensure that we only register
+     * a single instance of each service type.
+     */
+    public final synchronized LocalRpcService getService(final String pkg) {
+        LocalRpcService cachedService = serviceCache.get(pkg);
+        if (cachedService != null) {
+            return cachedService;
+        }
 
-	private static java.util.logging.Level toJavaLevel(
-			ApiProxy.LogRecord.Level apiProxyLevel) {
-		switch (apiProxyLevel.ordinal() + 1) {
-		case 1:
-			return java.util.logging.Level.FINE;
-		case 2:
-			return java.util.logging.Level.INFO;
-		case 3:
-			return java.util.logging.Level.WARNING;
-		case 4:
-			return java.util.logging.Level.SEVERE;
-		case 5:
-			return java.util.logging.Level.SEVERE;
-		}
-		return java.util.logging.Level.WARNING;
-	}
+        return (LocalRpcService) AccessController.doPrivileged(new PrivilegedAction<LocalRpcService>() {
+            public LocalRpcService run() {
+                return startServices(pkg);
+            }
+        });
+    }
 
-	public Clock getClock() {
-		return this.clock;
-	}
+    @SuppressWarnings( { "restriction", "unchecked" })
+    private LocalRpcService startServices(String pkg) {
+        // @SuppressWarnings( { "unchecked", "sunapi" })
+        Iterator<LocalRpcService> services = sun.misc.Service.providers(LocalRpcService.class, ApiProxyLocalImpl.class
+                .getClassLoader());
 
-	public void setClock(Clock clock) {
-		this.clock = clock;
-	}
+        while (services.hasNext()) {
+            LocalRpcService service = services.next();
+            if (service.getPackage().equals(pkg)) {
+                service.init(context, properties);
+                service.start();
+                serviceCache.put(pkg, service);
+                return service;
+            }
+        }
+        return null;
+    }
 
-	private static class DaemonThreadFactory implements ThreadFactory {
-		private final ThreadFactory parent;
+    private static Level toJavaLevel(LogRecord.Level apiProxyLevel) {
+        switch (apiProxyLevel) {
+        case debug:
+            return Level.FINE;
+        case info:
+            return Level.INFO;
+        case warn:
+            return Level.WARNING;
+        case error:
+            return Level.SEVERE;
+        case fatal:
+            return Level.SEVERE;
+        }
+        return Level.WARNING;
+    }
 
-		public DaemonThreadFactory(ThreadFactory parent) {
-			this.parent = parent;
-		}
+    public Clock getClock() {
+        return this.clock;
+    }
 
-		public Thread newThread(Runnable r) {
-			Thread thread = this.parent.newThread(r);
-			thread.setDaemon(true);
-			return thread;
-		}
-	}
+    public void setClock(Clock clock) {
+        this.clock = clock;
+    }
 
-	private class AsyncApiCall implements Callable<byte[]> {
-		private final ApiProxy.Environment environment;
-		private final String packageName;
-		private final String methodName;
-		private final byte[] requestBytes;
-		private final Semaphore semaphore;
+    private static class DaemonThreadFactory implements ThreadFactory {
+        private final ThreadFactory parent;
 
-		public AsyncApiCall(ApiProxy.Environment paramEnvironment,
-				String paramString1, String paramString2,
-				byte[] paramArrayOfByte, Semaphore paramSemaphore) {
-			this.environment = paramEnvironment;
-			this.packageName = paramString1;
-			this.methodName = paramString2;
-			this.requestBytes = paramArrayOfByte;
-			this.semaphore = paramSemaphore;
-		}
+        public DaemonThreadFactory(ThreadFactory parent) {
+            this.parent = parent;
+        }
 
-		public byte[] call() {
-			LocalRpcService service = ApiProxyLocalImpl.this
-					.getService(this.packageName);
+        public Thread newThread(Runnable r) {
+            Thread thread = parent.newThread(r);
+            thread.setDaemon(true);
+            return thread;
+        }
+    }
 
-			if (service == null) {
-				throw new ApiProxy.CallNotFoundException(this.packageName,
-						this.methodName);
-			}
+    private class AsyncApiCall implements Callable<byte[]> {
+        private final Environment environment;
+        private final String packageName;
+        private final String methodName;
+        private final byte[] requestBytes;
+        private final Semaphore semaphore;
+        private boolean released;
 
-			if (this.requestBytes.length > ApiProxyLocalImpl.this
-					.getMaxApiRequestSize(this.packageName)) {
-				throw new ApiProxy.RequestTooLargeException(this.packageName,
-						this.methodName);
-			}
+        public AsyncApiCall(Environment environment, String packageName, String methodName, byte[] requestBytes,
+                Semaphore semaphore) {
+            this.environment = environment;
+            this.packageName = packageName;
+            this.methodName = methodName;
+            this.requestBytes = requestBytes;
+            this.semaphore = semaphore;
+        }
 
-			Method method = ApiProxyLocalImpl.this.getDispatchMethod(service,
-					this.packageName, this.methodName);
-			LocalRpcService.Status status = new LocalRpcService.Status();
+        public byte[] call() {
+            try {
+                return callInternal();
+            } finally {
+                tryReleaseSemaphore();
+            }
+        }
 
-			ApiProxy.setEnvironmentForCurrentThread(this.environment);
-			try {
-				Class requestClass = method.getParameterTypes()[1];
-				// Object request = ApiProxyLocalImpl.this.convertBytesToPb(
-				// this.requestBytes, requestClass);
-				Object request = null;
-				if (!packageName.equals("mapreduce")
-						&& !packageName.equals("localTesting")) {
-					request = convertBytesToPb(requestBytes, requestClass);
-				} else {
-					// System.out.println("size of array: "+
-					// requestBytes.length);
-					// De-serialize from a byte array
-					ObjectInputStream in;
-					try {
-						in = new ObjectInputStream(new ByteArrayInputStream(
-								requestBytes));
-						request = in.readObject();
-						in.close();
-					} catch (IOException e) {
-						e.printStackTrace();
-					} catch (ClassNotFoundException e) {
-						e.printStackTrace();
-					}
-					// System.out.println("deserialization ok!");
-				}
+        private byte[] callInternal() {
+            LocalRpcService service = getService(this.packageName);
 
-				// byte[] arrayOfByte = ApiProxyLocalImpl.this
-				// .convertPbToBytes(method.invoke(service, new Object[] {
-				// status, request }));
-				//
-				// return arrayOfByte;
-				if (!packageName.equals("mapreduce")
-						&& !packageName.equals("localTesting")) {
-					System.out.println("method: " + method.getName()
-							+ "service: " + service.getPackage());
+            if (service == null) {
+                throw new ApiProxy.CallNotFoundException(this.packageName, this.methodName);
+            }
 
-					return convertPbToBytes(method.invoke(service,
-							new Object[] { status, request }));
-				} else {
-					System.out.println("method: " + method.getName()
-							+ "service: " + service.getPackage());
-					Object obj = method.invoke(service, new Object[] { status,
-							request });
-					// serialize the object
-					ByteArrayOutputStream bos = new ByteArrayOutputStream();
-					ObjectOutput out;
-					try {
-						out = new ObjectOutputStream(bos);
-						out.writeObject(obj);
-						out.close();
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
-					// Get the bytes of the serialized object
-					return bos.toByteArray();
-				}
-			} catch (IllegalAccessException e) {
-				return null;
-			} catch (InstantiationException e) {
-				return null;
-			} catch (NoSuchMethodException e) {
-				return null;
-			} catch (InvocationTargetException e) {
-				return null;
-			} finally {
-				ApiProxy.clearEnvironmentForCurrentThread();
+            if (requestBytes.length > getMaxApiRequestSize(this.packageName)) {
+                throw new ApiProxy.RequestTooLargeException(this.packageName, this.methodName);
+            }
 
-				if (this.semaphore != null)
-					this.semaphore.release();
-			}
-		}
-	}
+            Method method = getDispatchMethod(service, this.packageName, this.methodName);
+            LocalRpcService.Status status = new LocalRpcService.Status();
 
-	private class LocalServiceContextImpl implements LocalServiceContext {
-		private final LocalServerEnvironment localServerEnvironment;
+            ApiProxy.setEnvironmentForCurrentThread(this.environment);
+            try {
+                Class<?> requestClass = method.getParameterTypes()[1];
+                Object request = convertBytesToPb(this.requestBytes, requestClass);
 
-		public LocalServiceContextImpl(
-				LocalServerEnvironment paramLocalServerEnvironment) {
-			this.localServerEnvironment = paramLocalServerEnvironment;
-		}
+                return convertPbToBytes(method.invoke(service, new Object[] { status, request }));
+            } catch (IllegalAccessException e) {
+                throw new UnknownException(this.packageName, this.methodName, e);
+            } catch (InstantiationException e) {
+                throw new UnknownException(this.packageName, this.methodName, e);
+            } catch (NoSuchMethodException e) {
+                throw new UnknownException(this.packageName, this.methodName, e);
+            } catch (InvocationTargetException e) {
+                if ((e.getCause() instanceof RuntimeException)) {
+                    throw ((RuntimeException) e.getCause());
+                }
+                throw new ApiProxy.UnknownException(this.packageName, this.methodName, e.getCause());
+            } finally {
+                ApiProxy.clearEnvironmentForCurrentThread();
+            }
+        }
 
-		public LocalServerEnvironment getLocalServerEnvironment() {
-			return this.localServerEnvironment;
-		}
+        /**
+         * Synchronized method that ensures the semaphore that was claimed for
+         * this API call only gets released once.
+         */
+        synchronized void tryReleaseSemaphore() {
+            if (!released && semaphore != null) {
+                this.semaphore.release();
+                this.released = true;
+            }
+        }
+    }
 
-		public Clock getClock() {
-			return ApiProxyLocalImpl.this.clock;
-		}
-	}
+    private class PrivilegedApiAction implements PrivilegedAction<Future<byte[]>> {
+        private final Callable<byte[]> callable;
+        private final AsyncApiCall asyncApiCall;
+
+        PrivilegedApiAction(Callable<byte[]> callable, AsyncApiCall asyncApiCall) {
+            this.callable = callable;
+            this.asyncApiCall = asyncApiCall;
+        }
+
+        public Future<byte[]> run() {
+            final Future<byte[]> result = apiExecutor.submit(callable);
+            return new Future<byte[]>() {
+                public boolean cancel(final boolean mayInterruptIfRunning) {
+                    return (AccessController.doPrivileged(new PrivilegedAction<Boolean>() {
+                        public Boolean run() {
+                            asyncApiCall.tryReleaseSemaphore();
+                            return (result.cancel(mayInterruptIfRunning));
+                        }
+                    }));
+                }
+
+                public boolean isCancelled() {
+                    return result.isCancelled();
+                }
+
+                public boolean isDone() {
+                    return result.isDone();
+                }
+
+                public byte[] get() throws InterruptedException, ExecutionException {
+                    return result.get();
+                }
+
+                public byte[] get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException,
+                        TimeoutException {
+                    return result.get(timeout, unit);
+                }
+            };
+        }
+    }
+
+    /** Implementation of the {@link LocalServiceContext} interface */
+    private class LocalServiceContextImpl implements LocalServiceContext {
+        /** The local server environment */
+        private final LocalServerEnvironment localServerEnvironment;
+
+        /**
+         * Creates a new context, for the given application.
+         * 
+         * @param localServerEnvironment
+         *            The environment for the local server.
+         */
+        public LocalServiceContextImpl(LocalServerEnvironment localServerEnvironment) {
+            this.localServerEnvironment = localServerEnvironment;
+        }
+
+        public LocalServerEnvironment getLocalServerEnvironment() {
+            return this.localServerEnvironment;
+        }
+
+        public Clock getClock() {
+            return clock;
+        }
+    }
 }

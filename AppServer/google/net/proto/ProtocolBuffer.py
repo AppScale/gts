@@ -16,6 +16,8 @@
 #
 
 
+
+
 import struct
 import array
 import string
@@ -23,7 +25,9 @@ import re
 from google.pyglib.gexcept import AbstractMethod
 import httplib
 from string import strip, split
+
 __all__ = ['ProtocolMessage', 'Encoder', 'Decoder',
+           'ExtendableProtocolMessage',
            'ProtocolBufferDecodeError',
            'ProtocolBufferEncodeError',
            'ProtocolBufferReturnError']
@@ -31,6 +35,9 @@ __all__ = ['ProtocolMessage', 'Encoder', 'Decoder',
 URL_RE = re.compile('^(https?)://([^/]+)(/.*)$')
 
 class ProtocolMessage:
+
+
+
 
 
   def __init__(self, contents=None):
@@ -50,26 +57,47 @@ class ProtocolMessage:
       self.Output(e)
       return e.buffer().tostring()
 
+  def SerializeToString(self):
+    return self.Encode()
+
+  def SerializePartialToString(self):
+    try:
+      return self._CEncodePartial()
+    except (AbstractMethod, AttributeError):
+      e = Encoder()
+      self.OutputPartial(e)
+      return e.buffer().tostring()
+
   def _CEncode(self):
+    raise AbstractMethod
+
+  def _CEncodePartial(self):
     raise AbstractMethod
 
   def ParseFromString(self, s):
     self.Clear()
     self.MergeFromString(s)
-    return
+
+  def ParsePartialFromString(self, s):
+    self.Clear()
+    self.MergePartialFromString(s)
 
   def MergeFromString(self, s):
+    self.MergePartialFromString(s)
+    dbg = []
+    if not self.IsInitialized(dbg):
+      raise ProtocolBufferDecodeError, '\n\t'.join(dbg)
+
+  def MergePartialFromString(self, s):
     try:
       self._CMergeFromString(s)
-      dbg = []
-      if not self.IsInitialized(dbg):
-        raise ProtocolBufferDecodeError, '\n\t'.join(dbg)
     except AbstractMethod:
+
+
       a = array.array('B')
       a.fromstring(s)
       d = Decoder(a, 0, len(a))
-      self.Merge(d)
-      return
+      self.TryMerge(d)
 
   def _CMergeFromString(self, s):
     raise AbstractMethod
@@ -134,6 +162,8 @@ class ProtocolMessage:
   def ToShortASCII(self):
     return self._CToASCII(ProtocolMessage._SYMBOLIC_SHORT_ASCII)
 
+
+
   _NUMERIC_ASCII = 0
   _SYMBOLIC_SHORT_ASCII = 1
   _SYMBOLIC_FULL_ASCII = 2
@@ -151,14 +181,27 @@ class ProtocolMessage:
     raise AbstractMethod
 
   def __eq__(self, other):
+
+
+
+
+
     if other.__class__ is self.__class__:
       return self.Equals(other)
     return NotImplemented
 
   def __ne__(self, other):
+
+
+
+
+
     if other.__class__ is self.__class__:
       return not self.Equals(other)
     return NotImplemented
+
+
+
 
 
   def Output(self, e):
@@ -169,6 +212,9 @@ class ProtocolMessage:
     return
 
   def OutputUnchecked(self, e):
+    raise AbstractMethod
+
+  def OutputPartial(self, e):
     raise AbstractMethod
 
   def Parse(self, d):
@@ -193,6 +239,9 @@ class ProtocolMessage:
 
   def MergeFrom(self, pb):
     raise AbstractMethod
+
+
+
 
 
   def lengthVarInt32(self, n):
@@ -223,6 +272,9 @@ class ProtocolMessage:
       return self.DebugFormatFixed64(value)
     return "%d" % value
   def DebugFormatString(self, value):
+
+
+
     def escape(c):
       o = ord(c)
       if o == 10: return r"\n"
@@ -248,7 +300,34 @@ class ProtocolMessage:
     else:
       return "false"
 
+
+TYPE_DOUBLE  = 1
+TYPE_FLOAT   = 2
+TYPE_INT64   = 3
+TYPE_UINT64  = 4
+TYPE_INT32   = 5
+TYPE_FIXED64 = 6
+TYPE_FIXED32 = 7
+TYPE_BOOL    = 8
+TYPE_STRING  = 9
+TYPE_GROUP   = 10
+TYPE_FOREIGN = 11
+
+
+_TYPE_TO_DEBUG_STRING = {
+    TYPE_INT32:   ProtocolMessage.DebugFormatInt32,
+    TYPE_INT64:   ProtocolMessage.DebugFormatInt64,
+    TYPE_UINT64:  ProtocolMessage.DebugFormatInt64,
+    TYPE_FLOAT:   ProtocolMessage.DebugFormatFloat,
+    TYPE_STRING:  ProtocolMessage.DebugFormatString,
+    TYPE_FIXED32: ProtocolMessage.DebugFormatFixed32,
+    TYPE_FIXED64: ProtocolMessage.DebugFormatFixed64,
+    TYPE_BOOL:    ProtocolMessage.DebugFormatBool }
+
+
+
 class Encoder:
+
 
   NUMERIC     = 0
   DOUBLE      = 1
@@ -297,6 +376,13 @@ class Encoder:
     return
 
   def putVarInt32(self, v):
+
+
+
+
+
+
+
 
     buf_append = self.buf.append
     if v & 127 == v:
@@ -347,6 +433,10 @@ class Encoder:
     return
 
 
+
+
+
+
   def putFloat(self, v):
     a = array.array('B')
     a.fromstring(struct.pack("<f", v))
@@ -367,6 +457,9 @@ class Encoder:
     return
 
   def putPrefixedString(self, v):
+
+
+
     v = str(v)
     self.putVarInt32(len(v))
     self.buf.fromstring(v)
@@ -375,6 +468,23 @@ class Encoder:
   def putRawString(self, v):
     self.buf.fromstring(v)
 
+  _TYPE_TO_METHOD = {
+      TYPE_DOUBLE:   putDouble,
+      TYPE_FLOAT:    putFloat,
+      TYPE_FIXED64:  put64,
+      TYPE_FIXED32:  put32,
+      TYPE_INT32:    putVarInt32,
+      TYPE_INT64:    putVarInt64,
+      TYPE_UINT64:   putVarUint64,
+      TYPE_BOOL:     putBoolean,
+      TYPE_STRING:   putPrefixedString }
+
+  _TYPE_TO_BYTE_SIZE = {
+      TYPE_DOUBLE:  8,
+      TYPE_FLOAT:   4,
+      TYPE_FIXED64: 8,
+      TYPE_FIXED32: 4,
+      TYPE_BOOL:    1 }
 
 class Decoder:
   def __init__(self, buf, idx, limit):
@@ -422,6 +532,7 @@ class Decoder:
     else:
       raise ProtocolBufferDecodeError, "corrupted"
 
+
   def get8(self):
     if self.idx >= self.limit: raise ProtocolBufferDecodeError, "truncated"
     c = self.buf[self.idx]
@@ -459,6 +570,9 @@ class Decoder:
             | (e << 16) | (d << 8) | c)
 
   def getVarInt32(self):
+
+
+
     b = self.get8()
     if not (b & 128):
       return b
@@ -531,6 +645,326 @@ class Decoder:
     self.idx = self.limit
     return r.tostring()
 
+  _TYPE_TO_METHOD = {
+      TYPE_DOUBLE:   getDouble,
+      TYPE_FLOAT:    getFloat,
+      TYPE_FIXED64:  get64,
+      TYPE_FIXED32:  get32,
+      TYPE_INT32:    getVarInt32,
+      TYPE_INT64:    getVarInt64,
+      TYPE_UINT64:   getVarUint64,
+      TYPE_BOOL:     getBoolean,
+      TYPE_STRING:   getPrefixedString }
+
+
+
+
+
+class ExtensionIdentifier(object):
+  __slots__ = ('full_name', 'number', 'field_type', 'wire_tag', 'is_repeated',
+               'default', 'containing_cls', 'composite_cls', 'message_name')
+  def __init__(self, full_name, number, field_type, wire_tag, is_repeated,
+               default):
+    self.full_name = full_name
+    self.number = number
+    self.field_type = field_type
+    self.wire_tag = wire_tag
+    self.is_repeated = is_repeated
+    self.default = default
+
+class ExtendableProtocolMessage(ProtocolMessage):
+  def HasExtension(self, extension):
+    self._VerifyExtensionIdentifier(extension)
+    return extension in self._extension_fields
+
+  def ClearExtension(self, extension):
+    self._VerifyExtensionIdentifier(extension)
+    if extension in self._extension_fields:
+      del self._extension_fields[extension]
+
+  def GetExtension(self, extension, index=None):
+    self._VerifyExtensionIdentifier(extension)
+    if extension in self._extension_fields:
+      result = self._extension_fields[extension]
+    else:
+      if extension.is_repeated:
+        result = []
+      elif extension.composite_cls:
+        result = extension.composite_cls()
+      else:
+        result = extension.default
+    if extension.is_repeated:
+      result = result[index]
+    return result
+
+  def SetExtension(self, extension, *args):
+    self._VerifyExtensionIdentifier(extension)
+    if extension.composite_cls:
+      raise TypeError(
+          'Cannot assign to extension "%s" because it is a composite type.' %
+          extension.full_name)
+    if extension.is_repeated:
+      if (len(args) != 2):
+        raise TypeError(
+            'SetExtension(extension, index, value) for repeated extension '
+            'takes exactly 3 arguments: (%d given)' % len(args))
+      index = args[0]
+      value = args[1]
+      self._extension_fields[extension][index] = value
+    else:
+      if (len(args) != 1):
+        raise TypeError(
+            'SetExtension(extension, value) for singular extension '
+            'takes exactly 3 arguments: (%d given)' % len(args))
+      value = args[0]
+      self._extension_fields[extension] = value
+
+  def MutableExtension(self, extension, index=None):
+    self._VerifyExtensionIdentifier(extension)
+    if extension.composite_cls is None:
+      raise TypeError(
+          'MutableExtension() cannot be applied to "%s", because it is not a '
+          'composite type.' % extension.full_name)
+    if extension.is_repeated:
+      if index is None:
+        raise TypeError(
+            'MutableExtension(extension, index) for repeated extension '
+            'takes exactly 2 arguments: (1 given)')
+      return self.GetExtension(extension, index)
+    if extension in self._extension_fields:
+      return self._extension_fields[extension]
+    else:
+      result = extension.composite_cls()
+      self._extension_fields[extension] = result
+      return result
+
+  def ExtensionList(self, extension):
+    self._VerifyExtensionIdentifier(extension)
+    if not extension.is_repeated:
+      raise TypeError(
+          'ExtensionList() cannot be applied to "%s", because it is not a '
+          'repeated extension.' % extension.full_name)
+    if extension in self._extension_fields:
+      return self._extension_fields[extension]
+    result = []
+    self._extension_fields[extension] = result
+    return result
+
+  def ExtensionSize(self, extension):
+    self._VerifyExtensionIdentifier(extension)
+    if not extension.is_repeated:
+      raise TypeError(
+          'ExtensionSize() cannot be applied to "%s", because it is not a '
+          'repeated extension.' % extension.full_name)
+    if extension in self._extension_fields:
+      return len(self._extension_fields[extension])
+    return 0
+
+  def AddExtension(self, extension, value=None):
+    self._VerifyExtensionIdentifier(extension)
+    if not extension.is_repeated:
+      raise TypeError(
+          'AddExtension() cannot be applied to "%s", because it is not a '
+          'repeated extension.' % extension.full_name)
+    if extension in self._extension_fields:
+      field = self._extension_fields[extension]
+    else:
+      field = []
+      self._extension_fields[extension] = field
+
+    if extension.composite_cls:
+      if value is not None:
+        raise TypeError(
+            'value must not be set in AddExtension() for "%s", because it is '
+            'a message type extension. Set values on the returned message '
+            'instead.' % extension.full_name)
+      msg = extension.composite_cls()
+      field.append(msg)
+      return msg
+
+    field.append(value)
+
+  def _VerifyExtensionIdentifier(self, extension):
+    if extension.containing_cls != self.__class__:
+      raise TypeError("Containing type of %s is %s, but not %s."
+                      % (extension.full_name,
+                         extension.containing_cls.__name__,
+                         self.__class__.__name__))
+
+  def _MergeExtensionFields(self, x):
+    for ext, val in x._extension_fields.items():
+      if ext.is_repeated:
+        for i in xrange(len(val)):
+          if ext.composite_cls is None:
+            self.AddExtension(ext, val[i])
+          else:
+            self.AddExtension(ext).MergeFrom(val[i])
+      else:
+        if ext.composite_cls is None:
+          self.SetExtension(ext, val)
+        else:
+          self.MutableExtension(ext).MergeFrom(val)
+
+  def _ListExtensions(self):
+    result = [ext for ext in self._extension_fields.keys()
+              if (not ext.is_repeated) or self.ExtensionSize(ext) > 0]
+    result.sort(key = lambda item: item.number)
+    return result
+
+  def _ExtensionEquals(self, x):
+    extensions = self._ListExtensions()
+    if extensions != x._ListExtensions():
+      return False
+    for ext in extensions:
+      if ext.is_repeated:
+        if self.ExtensionSize(ext) != x.ExtensionSize(ext): return False
+        for e1, e2 in zip(self.ExtensionList(ext),
+                          x.ExtensionList(ext)):
+          if e1 != e2: return False
+      else:
+        if self.GetExtension(ext) != x.GetExtension(ext): return False
+    return True
+
+  def _OutputExtensionFields(self, out, partial, extensions, start_index,
+                             end_field_number):
+    def OutputSingleField(ext, value):
+      out.putVarInt32(ext.wire_tag)
+      if ext.field_type == TYPE_GROUP:
+        if partial:
+          value.OutputPartial(out)
+        else:
+          value.OutputUnchecked(out)
+        out.putVarInt32(wire_tag + 1)
+      elif ext.field_type == TYPE_FOREIGN:
+        if partial:
+          out.putVarInt32(value.ByteSizePartial())
+          value.OutputPartial(out)
+        else:
+          out.putVarInt32(value.ByteSize())
+          value.OutputUnchecked(out)
+      else:
+        Encoder._TYPE_TO_METHOD[ext.field_type](out, value)
+
+    size = len(extensions)
+    for ext_index in xrange(start_index, size):
+      ext = extensions[ext_index]
+      if ext.number >= end_field_number:
+
+        return ext_index
+      if ext.is_repeated:
+        for i in xrange(len(self._extension_fields[ext])):
+          OutputSingleField(ext, self._extension_fields[ext][i])
+      else:
+        OutputSingleField(ext, self._extension_fields[ext])
+    return size
+
+  def _ParseOneExtensionField(self, wire_tag, d):
+    number = wire_tag >> 3
+    if number in self._extensions_by_field_number:
+      ext = self._extensions_by_field_number[number]
+      if wire_tag != ext.wire_tag:
+
+        return
+      if ext.field_type == TYPE_FOREIGN:
+        length = d.getVarInt32()
+        tmp = Decoder(d.buffer(), d.pos(), d.pos() + length)
+        if ext.is_repeated:
+          self.AddExtension(ext).TryMerge(tmp)
+        else:
+          self.MutableExtension(ext).TryMerge(tmp)
+        d.skip(length)
+      elif ext.field_type == TYPE_GROUP:
+        if ext.is_repeated:
+          self.AddExtension(ext).TryMerge(d)
+        else:
+          self.MutableExtension(ext).TryMerge(d)
+      else:
+        value = Decoder._TYPE_TO_METHOD[ext.field_type](d)
+        if ext.is_repeated:
+          self.AddExtension(ext, value)
+        else:
+          self.SetExtension(ext, value)
+    else:
+
+      d.skipData(wire_tag)
+
+  def _ExtensionByteSize(self, partial):
+    size = 0
+    for extension, value in self._extension_fields.items():
+      ftype = extension.field_type
+      tag_size = self.lengthVarInt64(extension.wire_tag)
+      if ftype == TYPE_GROUP:
+        tag_size *= 2
+      if extension.is_repeated:
+        size += tag_size * len(value)
+        for single_value in value:
+          size += self._FieldByteSize(ftype, single_value, partial)
+      else:
+        size += tag_size + self._FieldByteSize(ftype, value, partial)
+    return size
+
+  def _FieldByteSize(self, ftype, value, partial):
+    size = 0
+    if ftype == TYPE_STRING:
+      size = self.lengthString(len(value))
+    elif ftype == TYPE_FOREIGN or ftype == TYPE_GROUP:
+      if partial:
+        size = self.lengthString(value.ByteSizePartial())
+      else:
+        size = self.lengthString(value.ByteSize())
+    elif ftype == TYPE_INT64 or ftype == TYPE_UINT64 or ftype == TYPE_INT32:
+      size = self.lengthVarInt64(value)
+    else:
+      if ftype in Encoder._TYPE_TO_BYTE_SIZE:
+        size = Encoder._TYPE_TO_BYTE_SIZE[ftype]
+      else:
+        raise AssertionError(
+            'Extension type %d is not recognized.' % ftype)
+    return size
+
+  def _ExtensionDebugString(self, prefix, printElemNumber):
+    res = ''
+    extensions = self._ListExtensions()
+    for extension in extensions:
+      value = self._extension_fields[extension]
+      if extension.is_repeated:
+        cnt = 0
+        for e in value:
+          elm=""
+          if printElemNumber: elm = "(%d)" % cnt
+          if extension.composite_cls is not None:
+            res += prefix + "[%s%s] {\n" % (extension.full_name, elm)
+            res += e.__str__(prefix + "  ", printElemNumber)
+            res += prefix + "}\n"
+      else:
+        if extension.composite_cls is not None:
+          res += prefix + "[%s] {\n" % extension.full_name
+          res += value.__str__(
+              prefix + "  ", printElemNumber)
+          res += prefix + "}\n"
+        else:
+          if extension.field_type in _TYPE_TO_DEBUG_STRING:
+            text_value = _TYPE_TO_DEBUG_STRING[
+                extension.field_type](self, value)
+          else:
+            text_value = self.DebugFormat(value)
+          res += prefix + "[%s]: %s\n" % (extension.full_name, text_value)
+    return res
+
+  @staticmethod
+  def _RegisterExtension(cls, extension, composite_cls=None):
+    extension.containing_cls = cls
+    extension.composite_cls = composite_cls
+    if composite_cls is not None:
+      extension.message_name = composite_cls._PROTO_DESCRIPTOR_NAME
+    actual_handle = cls._extensions_by_field_number.setdefault(
+        extension.number, extension)
+    if actual_handle is not extension:
+      raise AssertionError(
+          'Extensions "%s" and "%s" both try to extend message type "%s" with'
+          'field number %d.' %
+          (extension.full_name, actual_handle.full_name,
+           cls.__name__, extension.number))
 
 class ProtocolBufferDecodeError(Exception): pass
 class ProtocolBufferEncodeError(Exception): pass

@@ -1,25 +1,59 @@
 #!/usr/bin/ruby -w
 
+
+# Imports within Ruby's standard libraries
 require 'soap/rpc/httpserver'
 require 'webrick/https'
 require 'logger'
 require 'soap/rpc/driver'
 
-$:.unshift File.join(File.dirname(__FILE__))
+
+# Imports for AppController libraries
+$:.unshift File.join(File.dirname(__FILE__), "lib")
 require 'helperfunctions'
 require 'cron_helper'
-require 'djinn'
 require 'haproxy'
 require 'collectd'
 require 'nginx'
 
+
+# Import for AppController
+$:.unshift File.join(File.dirname(__FILE__))
+require 'djinn'
+
+
 $VERBOSE = nil # to supress excessive SSL cert warnings
 
-NEPTUNE_JOBS = ["appscale", "compile", "erlang", "mpi", "mapreduce", "dfsp", "cewssa", "output", "acl", "input"]
 
+# A list of the Neptune jobs that AppScale will not automatically spawn up
+# nodes for. Babel (our distributed task execution system) is in this list
+# because it does not use the standard AppScale mechanism to acquire nodes,
+# and acquires nodes via specialized scaling techniques.
+SINGLE_NODE_COMPUTE_JOBS = %w{babel compile erlang go r}
+
+
+# A list of the Neptune jobs that AppScale will automatically spawn up more
+# nodes for.
+MULTI_NODE_COMPUTE_JOBS = %w{cicero mpi mapreduce ssa}
+
+
+# A list of Neptune jobs that are not considered to be computation jobs, and
+# relate to storage or pre-computation in some way.
+NONCOMPUTE_JOBS = %w{acl appscale compile input output}
+
+
+# A list of all the Neptune jobs that we support in AppScale.
+NEPTUNE_JOBS = SINGLE_NODE_COMPUTE_JOBS + MULTI_NODE_COMPUTE_JOBS + NONCOMPUTE_JOBS
+
+
+# DjinnServer is a wrapper around Djinn that adds SOAP capabilities to it.
 class DjinnServer < SOAP::RPC::HTTPServer
+
+
+  # The Djinn that this SOAP server wraps around.
   attr_reader :djinn
-  
+
+
   def job
     @djinn.job
   end
@@ -30,11 +64,16 @@ class DjinnServer < SOAP::RPC::HTTPServer
 
   def on_init
     @djinn = Djinn.new
-    add_method(@djinn, "done", "secret")
+
+    # Expose AppController methods to the outside world
+    add_method(@djinn, "is_done_initializing", "secret")
+    add_method(@djinn, "is_done_loading", "secret")
+    add_method(@djinn, "get_role_info", "secret")
     add_method(@djinn, "kill", "secret")    
     add_method(@djinn, "set_parameters", "djinn_locations", "database_credentials", "app_names", "secret")
     add_method(@djinn, "set_apps", "app_names", "secret")
     add_method(@djinn, "status", "secret")
+    add_method(@djinn, "get_stats", "secret")
     add_method(@djinn, "stop_app", "app_name", "secret")
     add_method(@djinn, "update", "app_names", "secret")
     add_method(@djinn, "get_all_public_ips", "secret")
@@ -42,28 +81,29 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "done_uploading", "appname", "location", "secret")
     add_method(@djinn, "is_app_running", "appname", "secret")
     add_method(@djinn, "backup_appscale", "backup_in_info", "secret")
-    add_method(@djinn, "backup_database_state", "backup_info", "secret")
     add_method(@djinn, "add_role", "new_role", "secret")
     add_method(@djinn, "remove_role", "old_role", "secret")
 
-    add_method(@djinn, "neptune_start_job", 'job_data', 'secret')
+    # Expose Neptune-specific methods to the outside world
+    add_method(@djinn, "neptune_start_job", 'jobs', 'secret')
     add_method(@djinn, "neptune_is_job_running", "job_data", "secret")
     add_method(@djinn, "neptune_put_input", "job_data", "secret")
     add_method(@djinn, "neptune_get_output", "job_data", "secret")
     add_method(@djinn, "neptune_get_acl", "job_data", "secret")
     add_method(@djinn, "neptune_set_acl", "job_data", "secret")
     add_method(@djinn, "neptune_compile_code", "job_data", "secret")
+    add_method(@djinn, "neptune_does_file_exist", "file", "job_data", "secret")
+    add_method(@djinn, "neptune_get_supported_babel_engines", "job_data", "secret")
+    add_method(@djinn, "get_queues_in_use", "secret")
 
+    # Finally, since all Neptune jobs define 
     NEPTUNE_JOBS.each { |name|
-      add_method(@djinn, "neptune_#{name}_run_job", "nodes", "job_data", "secret")
+      add_method(@djinn, "neptune_#{name}_run_job", "nodes", "jobs", "secret")
     }
   end
 end
 
-`cp #{APPSCALE_HOME}/AppDB/logs/pb_server.log /tmp/pb_backup.log`
-`service appscale-loadbalancer stop`
-`pkill -9 java; pkill -9 python; rm -rf /tmp/h*`
-`pkill -9 python2.6; pkill -9 python2.5; pkill -9 memcached`
+`rm -rf /tmp/h*`
 `rm -f ~/.appscale_cookies`
 `rm -f #{APPSCALE_HOME}/.appscale/status-*`
 `rm -f #{APPSCALE_HOME}/.appscale/database_info`
@@ -71,11 +111,10 @@ end
 Nginx.clear_sites_enabled
 Collectd.clear_sites_enabled
 HAProxy.clear_sites_enabled
-`pkill -9 mongod; pkill -9 mongo`
 `echo '' > /root/.ssh/known_hosts` # empty it out but leave the file there
 CronHelper.clear_crontab
 
-appscale_dir = File.expand_path("#{APPSCALE_HOME}/.appscale") + File::Separator
+appscale_dir = "/etc/appscale/"
 
 secret = nil
 loop {
@@ -95,23 +134,9 @@ loop {
   sleep(5)
 }
 
-# can't have the djinn pid file end in .pid since a user could upload an
-# app called djinn, whose pid would then be stored in djinn.pid by 
-# helperfunctions and mess things up
-
-pid_file = appscale_dir + "djinn.id"
-if File.exists?(pid_file)
-  pid = (File.open(pid_file) { |f| f.read }).chomp
-  `kill -9 #{pid}`
-end
-sleep(2)
-
-new_pid = `ps ax | grep [d]jinnServer | mawk '{ print $1 } '`
-File.open(pid_file, "w+") { |file| file.write(new_pid) }
-
 server = DjinnServer.new(
   :BindAddress => "0.0.0.0",
-  :Port => 17443,
+  :Port => Djinn::SERVER_PORT,
   :AccessLog => [],
   :SSLEnable => true,
   :SSLCertificate => server_cert,

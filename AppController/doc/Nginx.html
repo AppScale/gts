@@ -1,0 +1,862 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+
+  <title>Module: Nginx</title>
+
+  <link rel="stylesheet" href="./rdoc.css" type="text/css" media="screen" />
+
+  <script src="./js/jquery.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/thickbox-compressed.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/quicksearch.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/darkfish.js" type="text/javascript"
+    charset="utf-8"></script>
+
+</head>
+<body class="module">
+
+  <div id="metadata">
+    <div id="home-metadata">
+      <div id="home-section" class="section">
+        <h3 class="section-header">
+          <a href="./index.html">Home</a>
+          <a href="./index.html#classes">Classes</a>
+          <a href="./index.html#methods">Methods</a>
+        </h3>
+      </div>
+    </div>
+
+    <div id="file-metadata">
+      <div id="file-list-section" class="section">
+        <h3 class="section-header">In Files</h3>
+        <div class="section-body">
+          <ul>
+          
+            <li><a href="./lib/nginx_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
+              class="thickbox" title="lib/nginx.rb">lib/nginx.rb</a></li>
+          
+          </ul>
+        </div>
+      </div>
+
+      
+    </div>
+
+    <div id="class-metadata">
+
+      <!-- Parent Class -->
+      
+
+      <!-- Namespace Contents -->
+      
+
+      <!-- Method Quickref -->
+      
+      <div id="method-list-section" class="section">
+        <h3 class="section-header">Methods</h3>
+        <ul class="link-list">
+          
+          <li><a href="#method-c-app_listen_port">::app_listen_port</a></li>
+          
+          <li><a href="#method-c-check_config">::check_config</a></li>
+          
+          <li><a href="#method-c-clear_sites_enabled">::clear_sites_enabled</a></li>
+          
+          <li><a href="#method-c-create_app_config">::create_app_config</a></li>
+          
+          <li><a href="#method-c-create_app_load_balancer_config">::create_app_load_balancer_config</a></li>
+          
+          <li><a href="#method-c-create_app_monitoring_config">::create_app_monitoring_config</a></li>
+          
+          <li><a href="#method-c-create_pbserver_config">::create_pbserver_config</a></li>
+          
+          <li><a href="#method-c-initialize_config">::initialize_config</a></li>
+          
+          <li><a href="#method-c-is_running-3F">::is_running?</a></li>
+          
+          <li><a href="#method-c-reload">::reload</a></li>
+          
+          <li><a href="#method-c-remove_app">::remove_app</a></li>
+          
+          <li><a href="#method-c-restart">::restart</a></li>
+          
+          <li><a href="#method-c-start">::start</a></li>
+          
+          <li><a href="#method-c-stop">::stop</a></li>
+          
+          <li><a href="#method-c-write_app_config">::write_app_config</a></li>
+          
+        </ul>
+      </div>
+      
+
+      <!-- Included Modules -->
+      
+    </div>
+
+    <div id="project-metadata">
+      
+      
+
+      <div id="classindex-section" class="section project-section">
+        <h3 class="section-header">Class/Module Index
+          <span class="search-toggle"><img src="./images/find.png"
+            height="16" width="16" alt="[+]"
+            title="show/hide quicksearch" /></span></h3>
+        <form action="#" method="get" accept-charset="utf-8" class="initially-hidden">
+        <fieldset>
+          <legend>Quicksearch</legend>
+          <input type="text" name="quicksearch" value=""
+            class="quicksearch-field" />
+        </fieldset>
+        </form>
+
+        <ul class="link-list">
+        
+          <li><a href="./AppControllerClient.html">AppControllerClient</a></li>
+        
+          <li><a href="./BadConfigurationException.html">BadConfigurationException</a></li>
+        
+          <li><a href="./BlobServer.html">BlobServer</a></li>
+        
+          <li><a href="./Collectd.html">Collectd</a></li>
+        
+          <li><a href="./CronHelper.html">CronHelper</a></li>
+        
+          <li><a href="./Datastore.html">Datastore</a></li>
+        
+          <li><a href="./DatastoreFactory.html">DatastoreFactory</a></li>
+        
+          <li><a href="./DatastoreRepo.html">DatastoreRepo</a></li>
+        
+          <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a></li>
+        
+          <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a></li>
+        
+          <li><a href="./DatastoreS3.html">DatastoreS3</a></li>
+        
+          <li><a href="./Djinn.html">Djinn</a></li>
+        
+          <li><a href="./DjinnJobData.html">DjinnJobData</a></li>
+        
+          <li><a href="./DjinnServer.html">DjinnServer</a></li>
+        
+          <li><a href="./Ejabberd.html">Ejabberd</a></li>
+        
+          <li><a href="./EngineFactory.html">EngineFactory</a></li>
+        
+          <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a></li>
+        
+          <li><a href="./GodInterface.html">GodInterface</a></li>
+        
+          <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a></li>
+        
+          <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a></li>
+        
+          <li><a href="./HAProxy.html">HAProxy</a></li>
+        
+          <li><a href="./HelperFunctions.html">HelperFunctions</a></li>
+        
+          <li><a href="./JSONClient.html">JSONClient</a></li>
+        
+          <li><a href="./LoadBalancer.html">LoadBalancer</a></li>
+        
+          <li><a href="./Monitoring.html">Monitoring</a></li>
+        
+          <li><a href="./NeptuneJobData.html">NeptuneJobData</a></li>
+        
+          <li><a href="./Nginx.html">Nginx</a></li>
+        
+          <li><a href="./Object.html">Object</a></li>
+        
+          <li><a href="./PbServer.html">PbServer</a></li>
+        
+          <li><a href="./QueueFactory.html">QueueFactory</a></li>
+        
+          <li><a href="./RabbitMQ.html">RabbitMQ</a></li>
+        
+          <li><a href="./Repo.html">Repo</a></li>
+        
+          <li><a href="./TaskEngine.html">TaskEngine</a></li>
+        
+          <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a></li>
+        
+          <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a></li>
+        
+          <li><a href="./TaskQueue.html">TaskQueue</a></li>
+        
+          <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a></li>
+        
+          <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a></li>
+        
+          <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a></li>
+        
+          <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a></li>
+        
+          <li><a href="./UserAppClient.html">UserAppClient</a></li>
+        
+          <li><a href="./ZKInterface.html">ZKInterface</a></li>
+        
+        </ul>
+        <div id="no-class-search-results" style="display: none;">No matching classes.</div>
+      </div>
+
+      
+    </div>
+  </div>
+
+  <div id="documentation">
+    <h1 class="module">Nginx</h1>
+
+    <div id="description">
+      
+<p>A module to wrap all the interactions with the nginx web server Google App
+Engine applications can request that certain files should be hosted
+statically, so we use the nginx web server for this. It is the first server
+that a user hits, and forwards non-static file requests to haproxy, which
+then load balances requests to AppServers. This module configures and
+deploys nginx within AppScale.</p>
+
+    </div>
+
+    <!-- Constants -->
+    
+    <div id="constants-list" class="section">
+      <h3 class="section-header">Constants</h3>
+      <dl>
+      
+        <dt><a name="NGINX_PATH">NGINX_PATH</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="SITES_ENABLED_PATH">SITES_ENABLED_PATH</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="CONFIG_EXTENSION">CONFIG_EXTENSION</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="MAIN_CONFIG_FILE">MAIN_CONFIG_FILE</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="START_PORT">START_PORT</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+      </dl>
+    </div>
+    
+
+    <!-- Attributes -->
+    
+
+    <!-- Methods -->
+    
+    <div id="public-class-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="app_listen_port-method" class="method-detail ">
+        <a name="method-c-app_listen_port"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">app_listen_port</span><span
+            class="method-args">(app_number)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>The port that nginx will be listen on for the given app number</p>
+          
+
+          
+          <div class="method-source-code"
+            id="app_listen_port-source">
+<pre>
+<span class="ruby-comment"># File lib/nginx.rb, line 69</span>
+def self.app_listen_port(app_number)
+  <span class="ruby-constant">START_PORT</span> + app_number
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="check_config-method" class="method-detail ">
+        <a name="method-c-check_config"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">check_config</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Return true if the configuration is good, false o.w.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="check_config-source">
+<pre>
+<span class="ruby-comment"># File lib/nginx.rb, line 74</span>
+def self.check_config
+  <span class="ruby-constant">Djinn</span>.log_run(&quot;nginx -t -c #{MAIN_CONFIG_FILE}&quot;)
+  return ($?.to_i == 0)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="clear_sites_enabled-method" class="method-detail ">
+        <a name="method-c-clear_sites_enabled"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">clear_sites_enabled</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Removes all the enabled sites</p>
+          
+
+          
+          <div class="method-source-code"
+            id="clear_sites_enabled-source">
+<pre>
+<span class="ruby-comment"># File lib/nginx.rb, line 150</span>
+def self.clear_sites_enabled
+  if <span class="ruby-constant">File</span>.exists?(<span class="ruby-constant">SITES_ENABLED_PATH</span>)
+    sites = <span class="ruby-constant">Dir</span>.entries(<span class="ruby-constant">SITES_ENABLED_PATH</span>)
+    <span class="ruby-comment"># Remove any files that are not configs</span>
+    sites.delete_if { |site| !site.end_with?(<span class="ruby-constant">CONFIG_EXTENSION</span>) }
+    full_path_sites = sites.map { |site| <span class="ruby-constant">File</span>.join(<span class="ruby-constant">SITES_ENABLED_PATH</span>, site) }
+    <span class="ruby-constant">FileUtils</span>.rm_f full_path_sites
+
+    <span class="ruby-constant">Nginx</span>.reload
+  end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="create_app_config-method" class="method-detail ">
+        <a name="method-c-create_app_config"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">create_app_config</span><span
+            class="method-args">(my_ip, proxy_port, listen_port, name, public_dir, ssl_port=nil)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>A generic function for creating nginx config files used by appscale
+services</p>
+          
+
+          
+          <div class="method-source-code"
+            id="create_app_config-source">
+<pre>
+<span class="ruby-comment"># File lib/nginx.rb, line 246</span>
+def self.create_app_config(my_ip, proxy_port, listen_port, name, public_dir, ssl_port=nil)
+
+  config = <span class="ruby-string">upstream #{name} {   server #{my_ip}:#{proxy_port};}</span>
+
+  if ssl_port
+    <span class="ruby-comment"># redirect all request to ssl port.</span>
+    config += <span class="ruby-string">server {    listen #{listen_port};    rewrite ^(.*) https://#{my_ip}:#{ssl_port}$1 permanent;}server {    listen #{ssl_port};    ssl on;    ssl_certificate #{NGINX_PATH}/mycert.pem;    ssl_certificate_key #{NGINX_PATH}/mykey.pem;</span>
+  else
+    config += <span class="ruby-string">server {    listen #{listen_port};</span>
+  end
+
+  config += <span class="ruby-string">    root #{public_dir};    access_log  /var/log/nginx/load-balancer.access.log upstream;    error_log  /var/log/nginx/load-balancer.error.log;    rewrite_log off;    error_page 502 /502.html;    location / {      proxy_set_header  X-Real-IP  $remote_addr;      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;      proxy_set_header  REMOTE_ADDR  $remote_addr;      proxy_set_header  HTTP_X_FORWARDED_FOR $proxy_add_x_forwarded_for;      proxy_set_header Host $http_host;      proxy_redirect off;      client_body_timeout 360;      proxy_read_timeout 360;      #Increase file size so larger applications can be uploaded      client_max_body_size 30M;      # go to proxy      if (!-f $request_filename) {        proxy_pass http://#{name};        break;      }    }    location /502.html {      root #{APPSCALE_HOME}/AppLoadBalancer/public;    }}</span>
+
+  config_path = <span class="ruby-constant">File</span>.join(<span class="ruby-constant">SITES_ENABLED_PATH</span>, &quot;#{name}.#{CONFIG_EXTENSION}&quot;)
+  <span class="ruby-constant">File</span>.open(config_path, <span class="ruby-string">&quot;w+&quot;</span>) { |dest_file| dest_file.write(config) }
+
+  <span class="ruby-constant">HAProxy</span>.regenerate_config
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="create_app_load_balancer_config-method" class="method-detail ">
+        <a name="method-c-create_app_load_balancer_config"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">create_app_load_balancer_config</span><span
+            class="method-args">(my_ip, proxy_port)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Create the configuration file for the AppLoadBalancer Rails application</p>
+          
+
+          
+          <div class="method-source-code"
+            id="create_app_load_balancer_config-source">
+<pre>
+<span class="ruby-comment"># File lib/nginx.rb, line 163</span>
+def self.create_app_load_balancer_config(my_ip, proxy_port)
+  self.create_app_config(my_ip, proxy_port, <span class="ruby-constant">LoadBalancer</span>.listen_port, <span class="ruby-constant">LoadBalancer</span>.name, <span class="ruby-constant">LoadBalancer</span>.public_directory, <span class="ruby-constant">LoadBalancer</span>.listen_ssl_port)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="create_app_monitoring_config-method" class="method-detail ">
+        <a name="method-c-create_app_monitoring_config"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">create_app_monitoring_config</span><span
+            class="method-args">(my_ip, proxy_port)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Create the configuration file for the AppMonitoring Rails application</p>
+          
+
+          
+          <div class="method-source-code"
+            id="create_app_monitoring_config-source">
+<pre>
+<span class="ruby-comment"># File lib/nginx.rb, line 168</span>
+def self.create_app_monitoring_config(my_ip, proxy_port)
+  self.create_app_config(my_ip, proxy_port, <span class="ruby-constant">Monitoring</span>.listen_port, <span class="ruby-constant">Monitoring</span>.name, <span class="ruby-constant">Monitoring</span>.public_directory)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="create_pbserver_config-method" class="method-detail ">
+        <a name="method-c-create_pbserver_config"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">create_pbserver_config</span><span
+            class="method-args">(my_ip, proxy_port)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Create the configuration file for the pbserver</p>
+          
+
+          
+          <div class="method-source-code"
+            id="create_pbserver_config-source">
+<pre>
+<span class="ruby-comment"># File lib/nginx.rb, line 173</span>
+def self.create_pbserver_config(my_ip, proxy_port)
+  config = <span class="ruby-string">upstream #{PbServer::NAME} {    server #{my_ip}:#{proxy_port};}    server {    listen #{PbServer::LISTEN_PORT_NO_SSL};    server_name #{my_ip};    root /root/appscale/AppDB/;    # Uncomment these lines to enable logging, and comment out the following two    #access_log  /var/log/nginx/pbserver.access.log upstream;    #error_log  /var/log/nginx/pbserver.error.log;    access_log off;    error_log /dev/null crit;    rewrite_log off;    error_page 404 = /404.html;    location / {      proxy_set_header  X-Real-IP  $remote_addr;      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;      proxy_set_header Host $http_host;      proxy_redirect off;      proxy_pass http://#{PbServer::NAME};      client_max_body_size 30M;      proxy_connect_timeout 60;      client_body_timeout 60;      proxy_read_timeout 60;    }}server {    listen #{PbServer::LISTEN_PORT_WITH_SSL};    ssl on;    ssl_certificate /etc/nginx/mycert.pem;    ssl_certificate_key /etc/nginx/mykey.pem;    root /root/appscale/AppDB/public;    #access_log  /var/log/nginx/pbencrypt.access.log upstream;    #error_log  /var/log/nginx/pbencrypt.error.log;    access_log off;    error_log  /dev/null crit;    rewrite_log off;    error_page 502 /502.html;    location / {      proxy_set_header  X-Real-IP  $remote_addr;      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;      proxy_set_header Host $http_host;      proxy_redirect off;      client_body_timeout 60;      proxy_read_timeout 60;      #Increase file size so larger applications can be uploaded      client_max_body_size 30M;      # go to proxy      proxy_pass http://#{PbServer::NAME};    }}</span>
+  config_path = <span class="ruby-constant">File</span>.join(<span class="ruby-constant">SITES_ENABLED_PATH</span>, &quot;#{PbServer::NAME}.#{CONFIG_EXTENSION}&quot;)
+  <span class="ruby-constant">File</span>.open(config_path, <span class="ruby-string">&quot;w+&quot;</span>) { |dest_file| dest_file.write(config) }
+
+  <span class="ruby-constant">HAProxy</span>.regenerate_config
+
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="initialize_config-method" class="method-detail ">
+        <a name="method-c-initialize_config"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">initialize_config</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Set up the folder structure and creates the configuration files necessary
+for nginx</p>
+          
+
+          
+          <div class="method-source-code"
+            id="initialize_config-source">
+<pre>
+<span class="ruby-comment"># File lib/nginx.rb, line 319</span>
+def self.initialize_config
+  config = <span class="ruby-string">user www-data;worker_processes  1;error_log  /var/log/nginx/error.log;pid        /var/run/nginx.pid;events {    worker_connections  30000;}http {    include       /etc/nginx/mime.types;    default_type  application/octet-stream;    access_log  /var/log/nginx/access.log;    log_format upstream '$remote_addr - - [$time_local] &quot;$request&quot; status $status '                        'upstream $upstream_response_time request $request_time '                        '[for $host via $upstream_addr]';    sendfile        on;    #tcp_nopush     on;    #keepalive_timeout  0;    keepalive_timeout  60;    tcp_nodelay        on;    server_names_hash_bucket_size 128;    gzip  on;    include #{NGINX_PATH}/sites-enabled/*;}</span>
+
+  `mkdir -p /var/log/nginx/`
+  <span class="ruby-comment"># Create the sites enabled folder</span>
+  unless <span class="ruby-constant">File</span>.exists? <span class="ruby-constant">SITES_ENABLED_PATH</span>
+    <span class="ruby-constant">FileUtils</span>.mkdir_p <span class="ruby-constant">SITES_ENABLED_PATH</span>
+  end
+
+  <span class="ruby-comment"># copy over certs for ssl</span>
+  <span class="ruby-comment"># just copy files once to keep certificate as static.</span>
+  <span class="ruby-comment">#`test ! -e #{NGINX_PATH}/mycert.pem &amp;&amp; cp /etc/appscale/certs/mycert.pem #{NGINX_PATH}`</span>
+  <span class="ruby-comment">#`test ! -e #{NGINX_PATH}/mykey.pem &amp;&amp; cp /etc/appscale/certs/mykey.pem #{NGINX_PATH}`</span>
+  `cp /etc/appscale/certs/mykey.pem #{NGINX_PATH}`
+  `cp /etc/appscale/certs/mycert.pem #{NGINX_PATH}`
+  <span class="ruby-comment"># Write the main configuration file which sets default configuration parameters</span>
+  <span class="ruby-constant">File</span>.open(<span class="ruby-constant">MAIN_CONFIG_FILE</span>, <span class="ruby-string">&quot;w+&quot;</span>) { |dest_file| dest_file.write(config) }
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="is_running-3F-method" class="method-detail ">
+        <a name="method-c-is_running-3F"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">is_running?</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="is_running-3F-source">
+<pre>
+<span class="ruby-comment"># File lib/nginx.rb, line 59</span>
+def self.is_running?
+  processes = `ps ax | grep nginx | grep -v grep | wc -l`.chomp
+  if processes == <span class="ruby-string">&quot;0&quot;</span>
+    return false
+  else
+    return true
+  end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="reload-method" class="method-detail ">
+        <a name="method-c-reload"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">reload</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="reload-source">
+<pre>
+<span class="ruby-comment"># File lib/nginx.rb, line 55</span>
+def self.reload
+  self.restart
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="remove_app-method" class="method-detail ">
+        <a name="method-c-remove_app"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">remove_app</span><span
+            class="method-args">(app_name)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="remove_app-source">
+<pre>
+<span class="ruby-comment"># File lib/nginx.rb, line 143</span>
+def self.remove_app(app_name)
+  config_name = &quot;#{app_name}.#{CONFIG_EXTENSION}&quot;
+  <span class="ruby-constant">FileUtils</span>.rm(<span class="ruby-constant">File</span>.join(<span class="ruby-constant">SITES_ENABLED_PATH</span>, config_name))
+  <span class="ruby-constant">Nginx</span>.reload
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="restart-method" class="method-detail ">
+        <a name="method-c-restart"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">restart</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="restart-source">
+<pre>
+<span class="ruby-comment"># File lib/nginx.rb, line 50</span>
+def self.restart
+  self.stop
+  self.start
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="start-method" class="method-detail ">
+        <a name="method-c-start"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">start</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="start-source">
+<pre>
+<span class="ruby-comment"># File lib/nginx.rb, line 42</span>
+def self.start
+  `/etc/init.d/nginx start`
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="stop-method" class="method-detail ">
+        <a name="method-c-stop"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">stop</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="stop-source">
+<pre>
+<span class="ruby-comment"># File lib/nginx.rb, line 46</span>
+def self.stop
+  `/etc/init.d/nginx stop`
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="write_app_config-method" class="method-detail ">
+        <a name="method-c-write_app_config"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">write_app_config</span><span
+            class="method-args">(app_name, app_number, my_public_ip, proxy_port, static_handlers, login_ip)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Creates a config file for the provided app name</p>
+          
+
+          
+          <div class="method-source-code"
+            id="write_app_config-source">
+<pre>
+<span class="ruby-comment"># File lib/nginx.rb, line 80</span>
+def self.write_app_config(app_name, app_number, my_public_ip, proxy_port, static_handlers, login_ip)
+  static_locations = static_handlers.map { |handler| <span class="ruby-constant">HelperFunctions</span>.generate_location_config(handler) }.join
+  listen_port = <span class="ruby-constant">Nginx</span>.app_listen_port(app_number)
+  config = <span class="ruby-string"># Any requests that arent static files get sent to haproxyupstream gae_#{app_name} {    server #{my_public_ip}:#{proxy_port};}server {    listen #{listen_port};    server_name #{my_public_ip};    root /var/apps/#{app_name}/app;    # Uncomment these lines to enable logging, and comment out the following two    #access_log  /var/log/nginx/#{app_name}.access.log upstream;    error_log  /var/log/nginx/#{app_name}.error.log;    access_log off;    #error_log /dev/null crit;    rewrite_log off;    error_page 404 = /404.html;    set $cache_dir /var/apps/#{app_name}/cache;    #{static_locations}    location / {      proxy_set_header  X-Real-IP  $remote_addr;      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;      proxy_set_header Host $http_host;      proxy_redirect off;      proxy_pass http://gae_#{app_name};      client_max_body_size 2G;      proxy_connect_timeout 60;      client_body_timeout 60;      proxy_read_timeout 60;    }    location /404.html {      root /var/apps/#{app_name};    }    location /reserved-channel-appscale-path {      proxy_buffering off;      tcp_nodelay on;      keepalive_timeout 55;      proxy_pass http://#{login_ip}:5280/http-bind;    }}</span>
+
+  config_path = <span class="ruby-constant">File</span>.join(<span class="ruby-constant">SITES_ENABLED_PATH</span>, &quot;#{app_name}.#{CONFIG_EXTENSION}&quot;)
+  <span class="ruby-constant">File</span>.open(config_path, <span class="ruby-string">&quot;w+&quot;</span>) { |dest_file| dest_file.write(config) }
+
+  if <span class="ruby-constant">Nginx</span>.check_config
+    <span class="ruby-constant">Nginx</span>.reload
+    return true
+  else
+    <span class="ruby-constant">FileUtils</span>.rm(config_path)
+    return false
+  end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+    </div>
+  
+
+  </div>
+
+  <div id="validator-badges">
+    <p><small><a href="http://validator.w3.org/check/referer">[Validate]</a></small></p>
+    <p><small>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish
+      Rdoc Generator</a> 2</small>.</p>
+  </div>
+
+</body>
+</html>
+

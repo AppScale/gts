@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ application_name }} Development Console - Datastore Stats Control{% endblock %}
+
+{% block head %}
+  <style type="text/css">{% include "css/datastore.css" %}</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+  <span class="item"><a href="">Datastore Stats</a></span>
+{% endblock %}
+
+{% block body %}
+<h3>Datastore Stats Generator</h3>
+
+{% if msg %}
+<div class=message><p>{{ msg }}</p></div>
+{% endif %}
+
+<table width="500">
+<tr><td>
+<a href="http://code.google.com/appengine/docs/python/datastore/stats.html">
+Datastore Stats</a> are generated periodically on deployed datastore instances
+for each application. In the development server however datastore stats are
+generated only upon request. The following button will populate
+datastore stats for the current contents of the datastore. The generated
+byte sizes may vary slightly from a deployed application.
+<p>The process of generating datastore stats locally may take a while so please
+be patient.</p>
+</td></tr>
+</table>
+<p>
+<form action="{{ datastore_stats_path }}" method="post">
+  <div id="entities-control">
+    <input type="hidden" name="xsrf_token" value="{{ xsrf_token }}"/>
+    {% if app_id %}
+    <input type="hidden" name="app_id" value="{{ app_id }}"/>
+    {% endif %}
+    <input type="hidden" name="action:compute_stats" value="1"/>
+    <input id="action:compute_stats" type="submit"
+      value="Generate Datastore Stats{% if app_id %} for {{ app_id }}{% endif %}"
+      onclick="return confirm('This may take a while depending on the size of your datastore. Continue?')" />
+  </div>
+</form>
+
+{% endblock %}

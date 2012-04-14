@@ -56,6 +56,22 @@ UPLOAD_URL_PATH = '_ah/upload/'
 UPLOAD_URL_PATTERN = '/%s(.*)' % UPLOAD_URL_PATH
 
 
+AUTO_MIME_TYPE = 'application/vnd.google.appengine.auto'
+
+
+ERROR_RESPONSE_TEMPLATE = """
+<html>
+  <head>
+    <title>%(response_code)d %(response_string)s</title>
+  </head>
+  <body text=#000000 bgcolor=#ffffff>
+    <h1>Error: %(response_string)s</h1>
+    <h2>%(response_text)s</h2>
+  </body>
+</html>
+"""
+
+
 def GetBlobStorage():
   """Get blob-storage from api-proxy stub map.
 
@@ -63,6 +79,114 @@ def GetBlobStorage():
     BlobStorage instance as registered with blobstore API in stub map.
   """
   return apiproxy_stub_map.apiproxy.GetStub('blobstore').storage
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+_BYTESRANGE_IS_EXCLUSIVE = not hasattr(byterange.Range, 'serialize_bytes')
+
+if _BYTESRANGE_IS_EXCLUSIVE:
+
+  ParseRange = byterange.Range.parse_bytes
+
+  MakeContentRange = byterange.ContentRange
+
+  def GetContentRangeStop(content_range):
+    return content_range.stop
+
+
+
+
+
+
+
+  _orig_is_content_range_valid = byterange._is_content_range_valid
+
+  def _new_is_content_range_valid(start, stop, length, response=False):
+    return _orig_is_content_range_valid(start, stop, length, False)
+
+  def ParseContentRange(content_range_header):
+
+
+
+    try:
+      byterange._is_content_range_valid = _new_is_content_range_valid
+      return byterange.ContentRange.parse(content_range_header)
+    finally:
+      byterange._is_content_range_valid = _orig_is_content_range_valid
+
+else:
+
+  def ParseRange(range_header):
+
+
+    original_stdout = sys.stdout
+    sys.stdout = cStringIO.StringIO()
+    try:
+      parse_result = byterange.Range.parse_bytes(range_header)
+    finally:
+      sys.stdout = original_stdout
+    if parse_result is None:
+      return None
+    else:
+      ranges = []
+      for start, end in parse_result[1]:
+        if end is not None:
+          end += 1
+        ranges.append((start, end))
+      return parse_result[0], ranges
+
+  class _FixedContentRange(byterange.ContentRange):
+
+
+
+
+
+
+
+    def __init__(self, start, stop, length):
+
+      self.start = start
+      self.stop = stop
+      self.length = length
+
+
+
+
+
+
+
+
+
+  def MakeContentRange(start, stop, length):
+    if stop is not None:
+      stop -= 2
+    content_range = _FixedContentRange(start, stop, length)
+    return content_range
+
+  def GetContentRangeStop(content_range):
+    stop = content_range.stop
+    if stop is not None:
+      stop += 2
+    return stop
+
+  def ParseContentRange(content_range_header):
+    return _FixedContentRange.parse(content_range_header)
 
 
 def ParseRangeHeader(range_header):
@@ -74,63 +198,16 @@ def ParseRangeHeader(range_header):
   Returns:
     Tuple (start, end):
       start: Start index of blob to retrieve.  May be negative index.
-      end: None or end index.  End index is inclusive.
+      end: None or end index.  End index is exclusive.
     (None, None) if there is a parse error.
   """
   if not range_header:
     return None, None
-
-
-  original_stdout = sys.stdout
-  sys.stdout = cStringIO.StringIO()
-  try:
-    parsed_range = byterange.Range.parse_bytes(range_header)
-  finally:
-    sys.stdout = original_stdout
+  parsed_range = ParseRange(range_header)
   if parsed_range:
     range_tuple = parsed_range[1]
     if len(range_tuple) == 1:
       return range_tuple[0]
-  return None, None
-
-
-class _FixedContentRange(byterange.ContentRange):
-  """Corrected version of byterange.ContentRange class.
-
-  The version of byterange.ContentRange that comes with the SDK has
-  a bug that has since been corrected in newer versions.  It treats
-  content ranges as if they are specified as end-index exclusive.
-  Content ranges are meant to be inclusive.  This sub-class partially
-  fixes the bug in order to allow content-range header parsing.
-
-  The fix works by adding 1 to the stop parameter in the constructor.
-  This is necessary to handle content-ranges where the start index
-  is equal to the end index.
-  """
-
-  def __init__(self, start, stop, length):
-    stop = stop + 1
-    super(_FixedContentRange, self).__init__(start, stop, length)
-
-
-def ParseContentRangeHeader(content_range_header):
-  """Parse HTTP Content-Range header.
-
-  Args:
-    content_range_header: Content-Range header.
-
-  Returns:
-    Tuple (start, end):
-      start: Start index of blob to retrieve.  May be negative index.
-      end: None or end index.  End index is inclusive.
-    (None, None) if there is a parse error.
-  """
-  if not content_range_header:
-    return None
-  parsed_content_range = _FixedContentRange.parse(content_range_header)
-  if parsed_content_range:
-
-    return parsed_content_range.start, parsed_content_range.stop
   return None, None
 
 
@@ -192,39 +269,30 @@ def DownloadRewriter(response, request_headers):
               content_range_start = start
             else:
               content_range_start = blob_size + start
-            content_range = byterange.ContentRange(
-                content_range_start, blob_size - 1, blob_size)
-
-
-            content_range.stop -= 1
+            content_range = MakeContentRange(
+                content_range_start, blob_size, blob_size)
             content_range_header = str(content_range)
           else:
-            range = byterange.ContentRange(start, end, blob_size)
-
-
-            range.stop -= 1
-            content_range_header = str(range)
+            content_range = MakeContentRange(start, min(end, blob_size),
+                                             blob_size)
+            content_range_header = str(content_range)
           response.headers['Content-Range'] = content_range_header
         else:
           not_satisfiable()
           return
 
-      content_range = response.headers.getheader('Content-Range')
+      content_range_header = response.headers.getheader('Content-Range')
       content_length = blob_size
       start = 0
       end = content_length
-      if content_range is not None:
-        parsed_start, parsed_end = ParseContentRangeHeader(content_range)
-        if parsed_start is not None:
-          start = parsed_start
-          content_range = byterange.ContentRange(start,
-                                                 parsed_end,
-                                                 blob_size)
-
-
-          content_range.stop -= 1
-          content_range.stop = min(content_range.stop, blob_size - 2)
-          content_length = min(parsed_end, blob_size - 1) - start + 1
+      if content_range_header is not None:
+        content_range = ParseContentRange(content_range_header)
+        if content_range:
+          start = content_range.start
+          stop = GetContentRangeStop(content_range)
+          content_length = min(stop, blob_size) - start
+          stop = start + content_length
+          content_range = MakeContentRange(start, stop, blob_size)
           response.headers['Content-Range'] = str(content_range)
         else:
           not_satisfiable()
@@ -235,7 +303,8 @@ def DownloadRewriter(response, request_headers):
       response.body = cStringIO.StringIO(blob_stream.read(content_length))
       response.headers['Content-Length'] = str(content_length)
 
-      if not response.headers.getheader('Content-Type'):
+      content_type = response.headers.getheader('Content-Type')
+      if not content_type or content_type == AUTO_MIME_TYPE:
         response.headers['Content-Type'] = blob_info['content_type']
       response.large_response = True
 
@@ -310,6 +379,8 @@ def CreateUploadDispatcher(get_blob_storage=GetBlobStorage):
 
       if upload_session:
         success_path = upload_session['success_path']
+        max_bytes_per_blob = upload_session['max_bytes_per_blob']
+        max_bytes_total = upload_session['max_bytes_total']
 
         upload_form = cgi.FieldStorage(fp=request.infile,
                                        headers=request.headers,
@@ -319,7 +390,10 @@ def CreateUploadDispatcher(get_blob_storage=GetBlobStorage):
 
 
           mime_message_string = self.__cgi_handler.GenerateMIMEMessageString(
-              upload_form)
+              upload_form,
+              max_bytes_per_blob=max_bytes_per_blob,
+              max_bytes_total=max_bytes_total)
+
           datastore.Delete(upload_session)
           self.current_session = upload_session
 
@@ -343,35 +417,46 @@ def CreateUploadDispatcher(get_blob_storage=GetBlobStorage):
               force_admin=True)
         except dev_appserver_upload.InvalidMIMETypeFormatError:
           outfile.write('Status: 400\n\n')
+        except dev_appserver_upload.UploadEntityTooLargeError:
+          outfile.write('Status: 413\n\n')
+          response = ERROR_RESPONSE_TEMPLATE % {
+              'response_code': 413,
+              'response_string': 'Request Entity Too Large',
+              'response_text': 'Your client issued a request that was too '
+              'large.'}
+          outfile.write(response)
+        except dev_appserver_upload.FilenameOrContentTypeTooLargeError, ex:
+          outfile.write('Status: 400\n\n')
+          response = ERROR_RESPONSE_TEMPLATE % {
+              'response_code': 400,
+              'response_string': 'Bad Request',
+              'response_text': str(ex)}
+          outfile.write(response)
       else:
         logging.error('Could not find session for %s', upload_key)
         outfile.write('Status: 404\n\n')
 
 
-    def EndRedirect(self, redirected_outfile, original_outfile):
+    def EndRedirect(self, dispatched_output, original_output):
       """Handle the end of upload complete notification.
 
       Makes sure the application upload handler returned an appropriate status
       code.
       """
-      response = dev_appserver.RewriteResponse(redirected_outfile)
+      response = dev_appserver.RewriteResponse(dispatched_output)
       logging.info('Upload handler returned %d', response.status_code)
+      outfile = cStringIO.StringIO()
+      outfile.write('Status: %s\n' % response.status_code)
 
-      if (response.status_code in (301, 302, 303) and
-          (not response.body or len(response.body.read()) == 0)):
-        contentless_outfile = cStringIO.StringIO()
-
-
-        contentless_outfile.write('Status: %s\n' % response.status_code)
-        contentless_outfile.write(''.join(response.headers.headers))
-        contentless_outfile.seek(0)
-        dev_appserver.URLDispatcher.EndRedirect(self,
-                                                contentless_outfile,
-                                                original_outfile)
+      if response.body and len(response.body.read()) > 0:
+        response.body.seek(0)
+        outfile.write(response.body.read())
       else:
-        logging.error(
-            'Invalid upload handler response. Only 301, 302 and 303 '
-            'statuses are permitted and it may not have a content body.')
-        original_outfile.write('Status: 500\n\n')
+        outfile.write(''.join(response.headers.headers))
+
+      outfile.seek(0)
+      dev_appserver.URLDispatcher.EndRedirect(self,
+                                              outfile,
+                                              original_output)
 
   return UploadDispatcher()

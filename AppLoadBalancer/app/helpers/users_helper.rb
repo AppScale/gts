@@ -26,10 +26,11 @@ module UsersHelper
 
   def check_for_continue
     if params[:continue]
-      destination_url = params[:continue].scan(/http:\/\/#{IP_OR_FQDN}:\d+/).flatten.to_s
+      destination_url = params[:continue].scan(/continue=(http?.*)/).flatten.to_s
     end
 
     session[:dest_url] = destination_url if destination_url && destination_url.any?
+    Rails.logger.info "oi! dest url is #{session[:dest_url]}"
   end
 
 
@@ -58,19 +59,8 @@ module UsersHelper
   end
 
   def parse_token_data(ip, token_data)
-    exp_date = CACHE.get("parsed_token_exp-#{ip}")
-    server = CACHE.get("parsed_server_token-#{ip}")
-
-    if exp_date.nil?
-      exp_date = token_data.scan(/token_exp:([0-9]+)/).to_s
-      CACHE.set("parsed_token_exp-#{ip}", exp_date)
-    end
-
-    if server.nil?
-      server = token_data.scan(/token:([0-9A-Z]+)/).to_s
-      CACHE.set("parsed_server_token-#{ip}", server)
-    end
-
+    exp_date = token_data.scan(/token_exp:([0-9]+)/).to_s
+    server = token_data.scan(/token:([0-9A-Z]+)/).to_s
     return [exp_date, server]
   end
 end

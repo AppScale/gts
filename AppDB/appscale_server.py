@@ -37,14 +37,14 @@ from google.appengine.ext.remote_api import remote_api_pb
 from SocketServer import BaseServer
 from M2Crypto import SSL
 from drop_privileges import *
-#from zkappscale import zktransaction_stub
+from zkappscale import zktransaction_stub
 from zkappscale import zktransaction
 zk = zktransaction
+zk_stub = zktransaction_stub
 
-#zk = zktransaction_stub
 import time
 
-DEBUG = False 
+DEBUG = False
 PROFILE = False
 APP_TABLE = APPS_TABLE
 USER_TABLE = USERS_TABLE
@@ -84,7 +84,8 @@ HandlerClass = ""
 ssl_cert_file = ""
 ssl_key_file  = ""
 
-zoo_keeper = ""
+zoo_keeper_real = ""
+zoo_keeper_stub = ""
 zoo_keeper_locations = "localhost:2181"
 
 DELETED = "DELETED___"
@@ -149,8 +150,13 @@ class putThread(threading.Thread):
     self.timeTaken = 0
   def run(self):
     s = time.time()
-    self.err, self.ret = self.db.put_entity(self.table, self.key,
+    ret = self.db.put_entity(self.table, self.key,
                                        self.fields, self.values)
+    if len(ret) > 1:
+      self.err, self.ret = ret
+    else:
+      self.err = ret[0]
+
     self.timeTaken = time.time() - s
 
 
@@ -253,7 +259,8 @@ def getJournalTable(app_id, namespace):
 def generate_unique_id(app_id, root, isChild):
   global keyDictionary
   global keyDictionaryLock
-
+  global zoo_keeper_real
+  zoo_keeper = zoo_keeper_real
   if isChild: 
     if not root:
       return -1
@@ -370,8 +377,11 @@ class MainHandler(tornado.web.RequestHandler):
       response, errcode, errdetail = self.allocate_ids_request(app_id, 
                                                 http_request_data)
     elif method == "CreateIndex":
-      errcode = datastore_pb.Error.PERMISSION_DENIED
-      errdetail = "Create Index is not implemented" 
+      errcode = 0
+      errdetail = ""
+      response = api_base_pb.Integer64Proto()
+      response.set_value(0)
+      response = response.Encode()
       #logger.debug(errdetail)
       """
       response, errcode, errdetail = self.create_index_request(app_id, 
@@ -379,8 +389,9 @@ class MainHandler(tornado.web.RequestHandler):
                                                 http_request_data)
       """
     elif method == "GetIndices":
-      errcode = datastore_pb.Error.PERMISSION_DENIED 
-      errdetail = "GetIndices is not implemented" 
+      response = datastore_pb.CompositeIndices().Encode()
+      errcode = 0
+      errdetail = ""
       #logger.debug(errdetail)
       """
       response, errcode, errdetail = self.get_indices_request(app_id, 
@@ -388,8 +399,9 @@ class MainHandler(tornado.web.RequestHandler):
                                                http_request_data)
       """
     elif method == "UpdateIndex":
-      errcode = datastore_pb.Error.PERMISSION_DENIED 
-      errdetail = "UpdateIndex is not implemented" 
+      response = api_base_pb.VoidProto().Encode()
+      errcode = 0
+      errdetail = ""
       #logger.debug(errdetail)
       """
       response, errcode, errdetail = self.update_index_request(app_id, 
@@ -397,8 +409,9 @@ class MainHandler(tornado.web.RequestHandler):
                                                 http_request_data)
       """
     elif method == "DeleteIndex":
-      errcode = datastore_pb.Error.PERMISSION_DENIED 
-      errdetail = "DeleteIndex is not implemented" 
+      response = api_base_pb.VoidProto().Encode()
+      errcode = 0
+      errdetail = ""
       #logger.debug(errdetail)
 
       """
@@ -423,7 +436,7 @@ class MainHandler(tornado.web.RequestHandler):
       print "errcode:",errcode
       print "errdetail:",errdetail
     self.write( apiresponse.Encode() )
-
+    del apiresponse
 
   def _getGlobalStat(self):
     global_stat_entity=datastore.Entity("__Stat_Total__", id=1)
@@ -482,6 +495,11 @@ class MainHandler(tornado.web.RequestHandler):
     logger.debug("QUERY:%s" % query)
     results = []
     kinds = []
+    is_trans_on = True
+    zoo_keeper = zoo_keeper_real
+    if namespace.startswith("notrans_"):
+      zoo_keeper = zoo_keeper_stub
+      is_trans_on = False
 
     if not query.has_kind():
       kinds = self._getKindless(app_id)
@@ -572,17 +590,19 @@ class MainHandler(tornado.web.RequestHandler):
           root_key = self.getRootKeyFromEntity(app_id, encoded_ent)
 
         #TODO  make sure all deleted keys use the same encoding
+        # If this is the stub, it will always return the same version
         prev_version = zoo_keeper.getValidTransactionID(app_id, 
                                                         long(ii),  
                                                         row_key) 
-        if prev_version == long(NONEXISTANT_TRANSACTION):
-          journal_result = ["DB_ERROR:",DELETED]
+        # it will always be 0 if its not transactional so dont delete
+        if is_trans_on and prev_version == long(NONEXISTANT_TRANSACTION):
+          results[index] = DELETED
         elif prev_version != long(ii):
           # if the versions don't match, a valid version must be fetched
           journal_key = getJournalKey(row_key, prev_version)
           journal_table = getJournalTable(app_id, namespace)
           journal_result = app_datastore.get_entity( journal_table, 
-                       journal_key, 
+                                                     journal_key, 
                                                      JOURNAL_SCHEMA )
           if len(journal_result) != 2:
             return(api_base_pb.VoidProto().Encode(),
@@ -749,10 +769,13 @@ class MainHandler(tornado.web.RequestHandler):
     clone_qr_pb.clear_cursor()
     clone_qr_pb.set_more_results( len(results)>0 )
     #logger.debug("QUERY_RESULT: %s" % clone_qr_pb)
+    del results
     return (clone_qr_pb.Encode(), 0, "")
 
 
   def begin_transaction_request(self, app_id, http_request_data):
+    zoo_keeper = zoo_keeper_real
+
     transaction_pb = datastore_pb.Transaction()
     # handle = zk.getTransactionID(app_id)
     handle = zoo_keeper.getTransactionID(app_id)
@@ -761,6 +784,7 @@ class MainHandler(tornado.web.RequestHandler):
     return (transaction_pb.Encode(), 0, "")
 
   def commit_transaction_request(self, app_id, http_request_data):
+    zoo_keeper = zoo_keeper_real
     txn =  datastore_pb.Transaction(http_request_data)
     commitres_pb = datastore_pb.CommitResponse()
 
@@ -773,11 +797,14 @@ class MainHandler(tornado.web.RequestHandler):
              "Unable to release lock")
 
   def rollback_transaction_request(self, app_id, http_request_data):
+    print "ROLLBACK"
+    zoo_keeper = zoo_keeper_real
     txn =  datastore_pb.Transaction(http_request_data)
     zoo_keeper.notifyFailedTransaction(app_id, txn.handle())
     return (api_base_pb.VoidProto().Encode(), 0, "")
 
   def allocate_ids_request(self, app_id, http_request_data): # kowshik
+    zoo_keeper = zoo_keeper_real
     #logger.info("inside allocate_ids_request handler")
     request = datastore_pb.AllocateIdsRequest(http_request_data)
     response = datastore_pb.AllocateIdsResponse()
@@ -897,6 +924,7 @@ class MainHandler(tornado.web.RequestHandler):
     if not request.has_transaction():
       rollback_req = datastore_pb.Transaction()
       rollback_req.set_handle(internal_txn)
+      rollback_req.set_app(app_id)
       self.rollback_transaction_request(app_id, 
                                         rollback_req.Encode())
 
@@ -932,6 +960,9 @@ class MainHandler(tornado.web.RequestHandler):
     putresp_pb = datastore_pb.PutResponse( )
     txn = None
     root_key = None
+
+    is_trans_on = True
+    zoo_keeper = zoo_keeper_real
     # Must assign an id if a put is being done in a transaction
     # and it does not have an id and it is a root
     for e in putreq_pb.entity_list():
@@ -966,6 +997,12 @@ class MainHandler(tornado.web.RequestHandler):
 
     # Gather data from Put Request #
     for e in putreq_pb.entity_list():
+      namespace = e.key().name_space()
+      is_trans_on = True
+      if namespace.startswith("notrans_"):
+        is_trans_on = False
+        zoo_keeper = zoo_keeper_stub
+
 
       for prop in e.property_list() + e.raw_property_list():
         if prop.value().has_uservalue():
@@ -1021,7 +1058,7 @@ class MainHandler(tornado.web.RequestHandler):
      
       # All writes are transactional and per entity if 
       # not already wrapped in a transaction
-      if not putreq_pb.has_transaction():
+      if is_trans_on and not putreq_pb.has_transaction():
         begintime = time.time()
         txn, err, errcode = self.begin_transaction_request(app_id,
                                                  http_request_data)
@@ -1040,6 +1077,7 @@ class MainHandler(tornado.web.RequestHandler):
                   'No group entity or root key.')
         try:          
           locktime = time.time()
+          print root_key
           gotLock = zoo_keeper.acquireLock( app_id, txn.handle(), root_key)
           if PROFILE: appscale_log.write("ACQUIRELOCK %d %f\n"%(txn.handle(), time.time() - locktime))
         except zk.ZKTransactionException, zkex:
@@ -1052,7 +1090,6 @@ class MainHandler(tornado.web.RequestHandler):
       # Notify Soap Server of any new tables
       #######################################
       # insert key 
-      namespace = e.key().name_space()
       table_name = getTableName(app_id, kind, namespace)
       #print "Put Using table name:",table_name
       # Notify Users/Apps table if a new class is being added 
@@ -1080,84 +1117,90 @@ class MainHandler(tornado.web.RequestHandler):
       # Do a read before a write to get the old values
       # Get the previous version
       ########################## 
-      field_name_list = ENTITY_TABLE_SCHEMA[1:]
-      r = app_datastore.get_entity( table_name, row_key, field_name_list )
-      err = r[0]
-      get_was_printed = False
-      if err not in ERROR_CODES: 
-        get_was_printed = True
-        if PROFILE: appscale_log.write("GETENT_NOTTHERE %d %f\n"%(txn.handle(), time.time() - locktime))
-        # the table does not exist, hence, the previous value was null
-        r = ["DB_ERROR:", NONEXISTANT_TRANSACTION] #
-        # TODO, verify this is the case
-      if len(r) == 1:
-        get_was_printed = True
-        if PROFILE: appscale_log.write("GETENT_NOTTHERE %d %f\n"%(txn.handle(), time.time() - locktime))
-        r.append(NONEXISTANT_TRANSACTION)
-      if len(r) != 2:
-        get_was_printed = True
-        if PROFILE: appscale_log.write("GETENT_ERROR %d %f\n"%(txn.handle(), time.time() - locktime))
-        self.maybe_rollback_transaction(app_id, putreq_pb, txn.handle())
-        return (putresp_pb.Encode(),
-                datastore_pb.Error.INTERNAL_ERROR,
-                err + " Could not retrive previous transaction version")
-      if not get_was_printed:
-        if PROFILE: appscale_log.write("GETENT %d %f\n"%(txn.handle(), time.time() - locktime))
+      if is_trans_on:
+        field_name_list = ENTITY_TABLE_SCHEMA[1:]
+        r = app_datastore.get_entity( table_name, row_key, field_name_list )
+        err = r[0]
+        get_was_printed = False
+        if err not in ERROR_CODES: 
+          get_was_printed = True
+          if PROFILE: appscale_log.write("GETENT_NOTTHERE %d %f\n"%(txn.handle(), time.time() - locktime))
+          # the table does not exist, hence, the previous value was null
+          r = ["DB_ERROR:", NONEXISTANT_TRANSACTION] #
+          # TODO, verify this is the case
+        if len(r) == 1:
+          get_was_printed = True
+          if PROFILE: appscale_log.write("GETENT_NOTTHERE %d %f\n"%(txn.handle(), time.time() - locktime))
+          r.append(NONEXISTANT_TRANSACTION)
+        if len(r) != 2:
+          get_was_printed = True
+          if PROFILE: appscale_log.write("GETENT_ERROR %d %f\n"%(txn.handle(), time.time() - locktime))
+          self.maybe_rollback_transaction(app_id, putreq_pb, txn.handle())
+          return (putresp_pb.Encode(),
+                  datastore_pb.Error.INTERNAL_ERROR,
+                  err + " Could not retrive previous transaction version")
+        if not get_was_printed:
+          if PROFILE: appscale_log.write("GETENT %d %f\n"%(txn.handle(), time.time() - locktime))
         
-      #########################################################
-      # verify that this transaction number is not black listed 
-      # if it is, locate the correct version from the journal
-      #########################################################
-      prev_version = long(r[1])
-      # This may return 0 if this never existed
-      prev_version = zoo_keeper.getValidTransactionID(app_id, 
-                                                      prev_version, 
-                                                      row_key)
- 
-      try:
-        regtime = time.time()
-        zoo_keeper.registUpdatedKey(app_id, txn.handle(), prev_version, row_key)
-        if PROFILE: appscale_log.write("REGKEY %d %f\n"%(txn.handle(), time.time() - regtime))
-      except e:
-        self.maybe_rollback_transaction(app_id, putreq_pb, txn.handle())
-        return (putresp_pb.Encode(),
-                datastore_pb.Error.INTERNAL_ERROR,
-                "Timeout: Unable to update ZooKeeper on change set for transaction")
-      journalPut = putThread()
-      journal_key = getJournalKey(row_key, txn.handle())
-      journal_table = getJournalTable(app_id, namespace)
-      journalPut.setup(app_datastore,
-                       journal_table,
-                       journal_key,
-                       JOURNAL_SCHEMA,
-                       [e.Encode()])
+        #########################################################
+        # verify that this transaction number is not black listed 
+        # if it is, locate the correct version from the journal
+        #########################################################
+        prev_version = long(r[1])
+        # This may return 0 if this never existed
+        prev_version = zoo_keeper.getValidTransactionID(app_id, 
+                                                        prev_version, 
+                                                        row_key)
+   
+        try:
+          regtime = time.time()
+          zoo_keeper.registUpdatedKey(app_id, txn.handle(), prev_version, row_key)
+          if PROFILE: appscale_log.write("REGKEY %d %f\n"%(txn.handle(), time.time() - regtime))
+        except e:
+          self.maybe_rollback_transaction(app_id, putreq_pb, txn.handle())
+          return (putresp_pb.Encode(),
+                  datastore_pb.Error.INTERNAL_ERROR,
+                  "Timeout: Unable to update ZooKeeper on change set for transaction")
+        journalPut = putThread()
+        journal_key = getJournalKey(row_key, txn.handle())
+        journal_table = getJournalTable(app_id, namespace)
+        journalPut.setup(app_datastore,
+                         journal_table,
+                         journal_key,
+                         JOURNAL_SCHEMA,
+                         [e.Encode()])
       entPut = putThread()
       #print "Row key:" + str(row_key)
-      
+      handle = 0
+      if is_trans_on: 
+        handle = txn.handle() 
       entPut.setup(app_datastore,
                        table_name,
                        row_key,
                        ENTITY_TABLE_SCHEMA,
-                       [e.Encode(), str(txn.handle())])
-      journalPut.start()
+                       [e.Encode(), str(handle)])
       entPut.start()
-      journalPut.join()
+
+      if is_trans_on:
+        journalPut.start()
+        journalPut.join()
+        if PROFILE: appscale_log.write("JOURNALPUT %d %f\n"%(txn.handle(), journalPut.timeTaken))
+        if journalPut.err not in ERROR_CODES:
+          self.maybe_rollback_transaction(app_id, putreq_pb, txn.handle())
+          return (putresp_pb.Encode(),
+                  datastore_pb.Error.INTERNAL_ERROR,
+                  journalPut.err + ", Unable to write to journal")
       entPut.join()
-      if PROFILE: appscale_log.write("JOURNALPUT %d %f\n"%(txn.handle(), journalPut.timeTaken))
       if PROFILE: appscale_log.write("ENTPUT %d %f\n"%(txn.handle(), entPut.timeTaken))
-      if journalPut.err not in ERROR_CODES:
-        self.maybe_rollback_transaction(app_id, putreq_pb, txn.handle())
-        return (putresp_pb.Encode(),
-                datastore_pb.Error.INTERNAL_ERROR,
-                journalPut.err + ", Unable to write to journal")
       if entPut.err not in ERROR_CODES:
-        self.maybe_rollback_transaction(app_id, putreq_pb, txn.handle())
+        if is_trans_on:
+          self.maybe_rollback_transaction(app_id, putreq_pb, txn.handle())
         return (putresp_pb.Encode(),
                 datastore_pb.Error.INTERNAL_ERROR,
-                entPut.err + ", Unable to write to journal")
+                entPut.err + ", Unable to write to entity table")
       
 
-      if not putreq_pb.has_transaction():
+      if not putreq_pb.has_transaction() and is_trans_on:
         committime = time.time()
         com_res, errcode, errdetail = self.commit_transaction_request(app_id, 
                                                                       txn.Encode())
@@ -1169,7 +1212,6 @@ class MainHandler(tornado.web.RequestHandler):
       putresp_pb.key_list().append(e.key())
 
     if PROFILE: appscale_log.write("TOTAL %d %f\n"%(txn.handle(), time.time() - start))
-    
     return (putresp_pb.Encode(), 0, "")
 
 
@@ -1179,6 +1221,10 @@ class MainHandler(tornado.web.RequestHandler):
     #logger.debug("GET_REQUEST: %s" % getreq_pb)
     #print "GET_REQUEST: %s" % getreq_pb
     getresp_pb = datastore_pb.GetResponse()
+
+    is_trans_on = True
+    zoo_keeper = zoo_keeper_real
+
 
     if getreq_pb.has_transaction():
       txn = getreq_pb.transaction()
@@ -1210,6 +1256,9 @@ class MainHandler(tornado.web.RequestHandler):
         kind = last_path.type()
       #logger.debug("get: %s___%s___%s %s" % (app_id, kind, appscale_version, str(entity_id)))
       namespace = key.name_space()
+      if namespace.startswith("notrans_"):
+        is_trans_on = False
+        zoo_keeper = zoo_keeper_stub
       table_name = getTableName(app_id, kind, namespace)
       row_key = getRowKey(app_id,key.path().element_list())
       #print "get row key:" + str(row_key)
@@ -1232,6 +1281,7 @@ class MainHandler(tornado.web.RequestHandler):
                 'Unable to get Root Entity for Get.')
 
       # If the key is invalid, get the correct version from the journal 
+      # If zk is stubbed then it will return prev_version
       valid_txn = zoo_keeper.getValidTransactionID(app_id, 
                                                    prev_version, 
                                                    row_key)
@@ -1269,6 +1319,10 @@ class MainHandler(tornado.web.RequestHandler):
   """ 
   def delete_request(self, app_id, http_request_data):
     global app_datastore
+
+    is_trans_on = True
+    zoo_keeper = zoo_keeper_real
+
     root_key = None
     txn = None
     #logger.debug("DeleteRequest Received...")
@@ -1292,16 +1346,20 @@ class MainHandler(tornado.web.RequestHandler):
 
 
     for key in delreq_pb.key_list():
+      r = None
       key.set_app(app_id)
       last_path = key.path().element_list()[-1]
       if last_path.has_type():
         kind = last_path.type()
       namespace = key.name_space()
+      if namespace.startswith("notrans_"):
+        is_trans_on = False
+        zoo_keeper = zoo_keeper_stub
       row_key = getRowKey(app_id, key.path().element_list())
 
       # All deletes are transactional and per entity if 
       # not already wrapped in a transaction
-      if not delreq_pb.has_transaction():
+      if is_trans_on and not delreq_pb.has_transaction():
         txn, err, errcode = self.begin_transaction_request(app_id,
                                                  http_request_data)
         # parse from contents
@@ -1328,78 +1386,84 @@ class MainHandler(tornado.web.RequestHandler):
                   datastore_pb.Error.CONCURRENT_TRANSACTION,
                   'Another transaction is running. %s'%zkex.message)
 
-      ##########################
-      # Get the previous version
-      ########################## 
-      table_name = getTableName(app_id, kind, namespace)
-      field_name_list = ENTITY_TABLE_SCHEMA[1:]
-      r = app_datastore.get_entity( table_name, row_key, field_name_list )
-      err = r[0]
-      if err not in ERROR_CODES: 
-        # the table does not exist, hence, the previous value was null
-        # TODO, make sure its not because the database is down
-        r = ["DB_ERROR:", NONEXISTANT_TRANSACTION] #
-      if len(r) == 1:
-        r.append(NONEXISTANT_TRANSACTION)
-      if len(r) != 2:
-        self.maybe_rollback_transaction(app_id, delreq_pb, txn.handle())
-        return (delresp_pb.Encode(),
-                datastore_pb.Error.INTERNAL_ERROR,
-                err + " Could not retrive previous transaction version")
-      #########################################################
-      # verify that this transaction number is not black listed 
-      # if it is, locate the correct version journal version from ZK
-      #########################################################
-      prev_version = long(r[1])
-      # if it is blacklisted, the previous version will change, o.w. the same
-      prev_version = zoo_keeper.getValidTransactionID(app_id, 
-                                                      prev_version,  
-                                                      row_key)
+      if is_trans_on:
+        ##########################
+        # Get the previous version
+        ########################## 
+        table_name = getTableName(app_id, kind, namespace)
+        field_name_list = ENTITY_TABLE_SCHEMA[1:]
+        r = app_datastore.get_entity( table_name, row_key, field_name_list )
+        err = r[0]
+        if err not in ERROR_CODES: 
+          # the table does not exist, hence, the previous value was null
+          # TODO, make sure its not because the database is down
+          r = ["DB_ERROR:", NONEXISTANT_TRANSACTION] #
+        if len(r) == 1:
+          r.append(NONEXISTANT_TRANSACTION)
+        if len(r) != 2:
+          self.maybe_rollback_transaction(app_id, delreq_pb, txn.handle())
+          return (delresp_pb.Encode(),
+                  datastore_pb.Error.INTERNAL_ERROR,
+                  err + " Could not retrive previous transaction version")
+        #########################################################
+        # verify that this transaction number is not black listed 
+        # if it is, locate the correct version journal version from ZK
+        #########################################################
+        prev_version = long(r[1])
+        # if it is blacklisted, the previous version will change, o.w. the same
+        prev_version = zoo_keeper.getValidTransactionID(app_id, 
+                                                        prev_version,  
+                                                        row_key)
 
-      try:
-        zoo_keeper.registUpdatedKey(app_id, txn.handle(), prev_version, row_key)
-      except:
-        self.maybe_rollback_transaction(app_id, delreq_pb, txn.handle())
-        return (delresp_pb.Encode(),
-                datastore_pb.Error.INTERNAL_ERROR,
-                "Timeout: Unable to update ZooKeeper on change set for transaction")
+        try:
+          zoo_keeper.registUpdatedKey(app_id, txn.handle(), prev_version, row_key)
+        except:
+          self.maybe_rollback_transaction(app_id, delreq_pb, txn.handle())
+          return (delresp_pb.Encode(),
+                  datastore_pb.Error.INTERNAL_ERROR,
+                  "Timeout: Unable to update ZooKeeper on change set for transaction")
 
-      encoded_delete = DELETED + "/" + row_key 
-      journal_table = getJournalTable(app_id, namespace)
-      journal_key = getJournalKey(row_key, txn.handle())
+        encoded_delete = DELETED + "/" + row_key 
+        journal_table = getJournalTable(app_id, namespace)
+        journal_key = getJournalKey(row_key, txn.handle())
       
-      field_name_list = JOURNAL_SCHEMA
-      field_value_list = [encoded_delete]
+        field_name_list = JOURNAL_SCHEMA
+        field_value_list = [encoded_delete]
  
-      err, res = app_datastore.put_entity( journal_table,
-                                           journal_key,
-                                           field_name_list,
-                                           field_value_list )
+        err, res = app_datastore.put_entity( journal_table,
+                                             journal_key,
+                                             field_name_list,
+                                             field_value_list )
 
-      if err not in ERROR_CODES:
-        self.maybe_rollback_transaction(app_id, delreq_pb, txn.handle())
-        return (delresp_pb.Encode(),
-                datastore_pb.Error.INTERNAL_ERROR,
-                err + ", Unable to write to journal")
+        if err not in ERROR_CODES:
+          self.maybe_rollback_transaction(app_id, delreq_pb, txn.handle())
+          return (delresp_pb.Encode(),
+                  datastore_pb.Error.INTERNAL_ERROR,
+                  err + ", Unable to write to journal for delete")
  
       table_name = getTableName(app_id, kind, namespace)
       field_name_list = ENTITY_TABLE_SCHEMA
-      field_value_list =  [encoded_delete, str(txn.handle())]
+      handle = 0
+      if is_trans_on:
+        handle = txn.handle()
+      else:
+        encoded_delete = DELETED + "/" + row_key 
+      field_value_list =  [encoded_delete, str(handle)]
       err, res = app_datastore.put_entity( table_name, 
                                            row_key, 
                                            field_name_list, 
                                            field_value_list)
-
-      err = r[0]
-      #logger.debug("Response from DB for delete request %s" % err)
-      if err not in ERROR_CODES: 
-        if DEBUG: print err
-        self.maybe_rollback_transaction(app_id, delreq_pb, txn.handle())
-        return (delresp_pb.Encode(),
-                datastore_pb.Error.INTERNAL_ERROR,
-                err + ", Unable to write to journal")
+      if is_trans_on:
+        err = r[0]
+        #logger.debug("Response from DB for delete request %s" % err)
+        if err not in ERROR_CODES: 
+          if DEBUG: print err
+          self.maybe_rollback_transaction(app_id, delreq_pb, txn.handle())
+          return (delresp_pb.Encode(),
+                  datastore_pb.Error.INTERNAL_ERROR,
+                  err + ", Unable to write to entity table for delete")
  
-      if not delreq_pb.has_transaction():
+      if is_trans_on and not delreq_pb.has_transaction():
         com_res, errcode, errdetail = self.commit_transaction_request(app_id, 
                                                                       txn.Encode())
         if errcode != 0:
@@ -1443,7 +1507,7 @@ class MainHandler(tornado.web.RequestHandler):
     compindex_pb = entity_pb.CompositeIndex( http_request_data)
     resp_pb = api_base_pb.VoidProto()
     print "Got Composite Index"
-    print compindex_pb
+    #print compindex_pb
     #logger.debug("CompositeIndex proto recieved: %s"%str(compindex_pb))
     #logger.debug("VOID_RESPONSE to composite index: %s" % resp_pb)
     return (resp_pb.Encode(), 0, "")
@@ -1564,7 +1628,8 @@ def main(argv):
   global VALID_DATASTORES
   global KEYBLOCKSIZE
   global zoo_keeper_locations
-  global zoo_keeper
+  global zoo_keeper_real
+  global zoo_keeper_stub
   global appscale_log
   cert_file = CERT_LOCATION
   key_file = KEY_LOCATION
@@ -1603,7 +1668,7 @@ def main(argv):
     elif opt in ("-l", "--log"):
       logOn = True
       logFile = arg
-      logFilePtr = open(logFile, "w")
+      logFilePtr = open(logFile, "w", 0)
       logFilePtr.write("# type, app, start, end\n")
     elif opt in ("-b", "--blocksize"):
       KEYBLOCKSIZE = arg
@@ -1637,7 +1702,8 @@ def main(argv):
   tableServer = SOAPpy.SOAPProxy("https://" + soapServer + ":" + str(keyPort))
   global keyDictionaryLock 
 
-  zoo_keeper = zk.ZKTransaction(zoo_keeper_locations)
+  zoo_keeper_real = zk.ZKTransaction(zoo_keeper_locations)
+  zoo_keeper_stub = zk_stub.ZKTransaction(zoo_keeper_locations)
   keyDictionaryLock = threading.Lock()
   if port == DEFAULT_SSL_PORT and not isEncrypted:
     port = DEFAULT_PORT

@@ -39,6 +39,8 @@ this file*.
 
 from google.net.proto2.python.internal import api_implementation
 from google.net.proto2.python.public import descriptor as descriptor_mod
+from google.net.proto2.python.public import message
+
 _FieldDescriptor = descriptor_mod.FieldDescriptor
 
 
@@ -129,3 +131,23 @@ class GeneratedProtocolMessageType(type):
     _InitMessage(descriptor, cls)
     superclass = super(GeneratedProtocolMessageType, cls)
     superclass.__init__(name, bases, dictionary)
+
+
+def ParseMessage(descriptor, byte_str):
+  """Generate a new Message instance from this Descriptor and a byte string.
+
+  Args:
+    descriptor: Protobuf Descriptor object
+    byte_str: Serialized protocol buffer byte string
+
+  Returns:
+    Newly created protobuf Message object.
+  """
+
+  class _ResultClass(message.Message):
+    __metaclass__ = GeneratedProtocolMessageType
+    DESCRIPTOR = descriptor
+
+  new_msg = _ResultClass()
+  new_msg.ParseFromString(byte_str)
+  return new_msg

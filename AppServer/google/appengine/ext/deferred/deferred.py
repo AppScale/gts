@@ -231,18 +231,20 @@ def defer(obj, *args, **kwargs):
 
   Args:
     obj: The callable to execute. See module docstring for restrictions.
-    _countdown, _eta, _name, _transactional, _url, _queue: Passed through to
-    the task queue - see the task queue documentation for details.
+        _countdown, _eta, _headers, _name, _target, _transactional, _url,
+        _queue: Passed through to the task queue - see the task queue
+        documentation for details.
     args: Positional arguments to call the callable with.
     kwargs: Any other keyword arguments are passed through to the callable.
   Returns:
     A taskqueue.Task object which represents an enqueued callable.
   """
   taskargs = dict((x, kwargs.pop(("_%s" % x), None))
-                  for x in ("countdown", "eta", "name"))
+                  for x in ("countdown", "eta", "name", "target"))
   taskargs["url"] = kwargs.pop("_url", _DEFAULT_URL)
   transactional = kwargs.pop("_transactional", False)
-  taskargs["headers"] = _TASKQUEUE_HEADERS
+  taskargs["headers"] = dict(_TASKQUEUE_HEADERS)
+  taskargs["headers"].update(kwargs.pop("_headers", {}))
   queue = kwargs.pop("_queue", _DEFAULT_QUEUE)
   pickled = serialize(obj, *args, **kwargs)
   try:
@@ -261,6 +263,24 @@ class TaskHandler(webapp.RequestHandler):
 
   def post(self):
 
+
+    if 'X-AppEngine-TaskName' not in self.request.headers:
+      logging.critical('Detected an attempted XSRF attack. The header '
+                       '"X-AppEngine-Taskname" was not set.')
+      self.response.set_status(403)
+      return
+
+
+
+    #in_prod = (
+    #    not self.request.environ.get("SERVER_SOFTWARE").startswith("Devel"))
+    #if in_prod and self.request.environ.get("REMOTE_ADDR") != "0.1.0.2":
+    #  logging.critical('Detected an attempted XSRF attack. This request did '
+    #                   'not originate from Task Queue.')
+    #  self.response.set_status(403)
+    #  return
+
+
     headers = ["%s:%s" % (k, v) for k, v in self.request.headers.items()
                if k.lower().startswith("x-appengine-")]
     logging.info(", ".join(headers))
@@ -276,8 +296,8 @@ application = webapp.WSGIApplication([(".*", TaskHandler)])
 
 
 def main():
-  if os.environ["SERVER_SOFTWARE"].startswith("Devel"):
-    logging.warn("You are using deferred in a deprecated fashion. Please change"
+  #if os.environ["SERVER_SOFTWARE"].startswith("Devel"):
+  logging.warn("You are using deferred in a deprecated fashion. Please change"
                  " the request handler path for /_ah/queue/deferred in app.yaml"
                  " to $PYTHON_LIB/google/appengine/ext/deferred/handler.py to"
                  " avoid encountering import errors.")

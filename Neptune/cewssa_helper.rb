@@ -26,41 +26,13 @@ def neptune_cewssa_run_job(nodes, job_data, secret)
 
     keyname = @creds['keyname']
     nodes = Djinn.convert_location_array_to_class(nodes, keyname)
-
-    num_nodes = nodes.length
-    num_sims = job_data["@simulations"]
-    sims_per_node = num_sims / num_nodes
-
-    Djinn.log_debug("num nodes = #{num_nodes}")
-    Djinn.log_debug("num_sims = #{num_sims}")
-    Djinn.log_debug("sims_per_node = #{sims_per_node}")
-
-    # set up how many simulations each node
-    # should run by divying it up equally
-    # any remainder can be assigned to an
-    # arbitrary node
-
-    sims = [sims_per_node] * num_nodes
-    remainder = num_sims % num_nodes
-    sims[-1] += remainder
-
-    Djinn.log_debug("sims = #{sims.join(', ')}")
-    Djinn.log_debug("remainder = #{remainder}")
+    sims = neptune_get_ssa_num_simulations(nodes, job_data)
 
     threads = []
     at = 0
 
-    random_numbers = []
-    nodes.length.times {
-      loop {
-        possible_rand = rand(1000)
-        unless random_numbers.include?(possible_rand)
-          random_numbers << possible_rand
-          break
-        end
-      }
-    }
- 
+    random_numbers = neptune_get_ssa_seed_vals(nodes.length)
+
     nodes.each_with_index { |node, i|
       threads << Thread.new {
         ip = node.private_ip

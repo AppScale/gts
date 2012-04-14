@@ -35,6 +35,10 @@ class Error(Exception):
   """Base error for this module."""
 
 
+class TypeTransformationError(Error):
+  """Error transforming between python proto type and corresponding C++ type."""
+
+
 class DescriptorBase(object):
 
   """Descriptors base class.
@@ -239,6 +243,24 @@ class Descriptor(_NestedDescriptorBase):
     self._serialized_start = serialized_start
     self._serialized_end = serialized_end
 
+  def EnumValueName(self, enum, value):
+    """Returns the string name of an enum value.
+
+    This is just a small helper method to simplify a common operation.
+
+    Args:
+      enum: string name of the Enum.
+      value: int, value of the enum.
+
+    Returns:
+      string name of the enum value.
+
+    Raises:
+      KeyError if either the Enum doesn't exist or the value is not a valid
+        value for the enum.
+    """
+    return self.enum_types_by_name[enum].values_by_number[value].name
+
   def CopyToProto(self, proto):
     """Copies this to a descriptor_pb2.DescriptorProto.
 
@@ -347,6 +369,17 @@ class FieldDescriptor(DescriptorBase):
   CPPTYPE_MESSAGE     = 10
   MAX_CPPTYPE         = 10
 
+  _PYTHON_TO_CPP_PROTO_TYPE_MAP = {
+      TYPE_DOUBLE: CPPTYPE_DOUBLE,
+      TYPE_FLOAT: CPPTYPE_FLOAT,
+      TYPE_ENUM: CPPTYPE_ENUM,
+      TYPE_INT64: CPPTYPE_INT64,
+      TYPE_INT32: CPPTYPE_INT32,
+      TYPE_STRING: CPPTYPE_STRING,
+      TYPE_BOOL: CPPTYPE_BOOL,
+      TYPE_MESSAGE: CPPTYPE_MESSAGE
+      }
+
 
 
 
@@ -389,6 +422,26 @@ class FieldDescriptor(DescriptorBase):
         self._cdescriptor = cpp_message.GetFieldDescriptor(full_name)
     else:
       self._cdescriptor = None
+
+  @staticmethod
+  def ProtoTypeToCppProtoType(proto_type):
+    """Converts from a Python proto type to a C++ Proto Type.
+
+    The Python ProtocolBuffer classes specify both the 'Python' datatype and the
+    'C++' datatype - and they're not the same. This helper method should
+    translate from one to another.
+
+    Args:
+      proto_type: the Python proto type (descriptor.FieldDescriptor.TYPE_*)
+    Returns:
+      descriptor.FieldDescriptor.CPPTYPE_*, the C++ type.
+    Raises:
+      TypeTransformationError: when the Python proto type isn't known.
+    """
+    try:
+      return FieldDescriptor._PYTHON_TO_CPP_PROTO_TYPE_MAP[proto_type]
+    except KeyError:
+      raise TypeTransformationError('Unknown proto_type: %s' % proto_type)
 
 
 class EnumDescriptor(_NestedDescriptorBase):
@@ -585,3 +638,31 @@ def _ParseOptions(message, string):
   """
   message.ParseFromString(string)
   return message
+
+
+def MakeDescriptor(desc_proto, package=''):
+  """Make a protobuf Descriptor given a DescriptorProto protobuf.
+
+  Args:
+    desc_proto: The descriptor_pb2.DescriptorProto protobuf message.
+    package: Optional package name for the new message Descriptor (string).
+
+  Returns:
+    A Descriptor for protobuf messages.
+  """
+  full_message_name = [desc_proto.name]
+  if package: full_message_name.insert(0, package)
+  fields = []
+  for field_proto in desc_proto.field:
+    full_name = '.'.join(full_message_name + [field_proto.name])
+    field = FieldDescriptor(
+        field_proto.name, full_name, field_proto.number - 1,
+        field_proto.number, field_proto.type,
+        FieldDescriptor.ProtoTypeToCppProtoType(field_proto.type),
+        field_proto.label, None, None, None, None, False, None,
+        has_default_value=False)
+    fields.append(field)
+
+  desc_name = '.'.join(full_message_name)
+  return Descriptor(desc_proto.name, desc_name, None, None, fields,
+                    [], [], [])

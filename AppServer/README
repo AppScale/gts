@@ -47,22 +47,64 @@ Application root must be the path to the application to run in this server.
 Must contain a valid app.yaml or app.yml file.
 
 Options:
-  --help, -h                 View this helpful message.
-  --debug, -d                Use debug logging. (Default false)
-  --clear_datastore, -c      Clear the Datastore on startup. (Default false)
   --address=ADDRESS, -a ADDRESS
                              Address to which this server should bind. (Default
                              localhost).
+  --clear_datastore, -c      Clear the Datastore on startup. (Default false)
+  --debug, -d                Use debug logging. (Default false)
+  --help, -h                 View this helpful message.
   --port=PORT, -p PORT       Port for the server to run on. (Default 8080)
-  --blobstore_path=PATH      Path to use for storing Blobstore file stub data.
-  --datastore_path=PATH      Path to use for storing Datastore file stub data.
+
+  --allow_skipped_files      Allow access to files matched by app.yaml's
+                             skipped_files (default False)
+  --auth_domain              Authorization domain that this app runs in.
+                             (Default gmail.com)
+  --backends                 Run the dev_appserver with backends support
+                             (multiprocess mode).
+  --blobstore_path=DIR       Path to directory to use for storing Blobstore
+                             file stub data.
+  --clear_prospective_search Clear the Prospective Search subscription index
+                             (Default false).
+  --datastore_path=DS_FILE   Path to file to use for storing Datastore file
+                             stub data.
                              (Default /tmp/dev_appserver.datastore)
-  --use_sqlite               Use the new, SQLite based datastore stub.
+  --debug_imports            Enables debug logging for module imports, showing
+                             search paths used for finding modules and any
+                             errors encountered during the import process.
+  --default_partition        Default partition to use in the APPLICATION_ID.
+                             (Default dev)
+  --disable_static_caching   Never allow the browser to cache static files.
+                             (Default enable if expiration set in app.yaml)
+  --disable_task_running     When supplied, tasks will not be automatically
+                             run after submission and must be run manually
+                             in the local admin console.
+  --enable_sendmail          Enable sendmail when SMTP not configured.
                              (Default false)
+  --high_replication         Use the high replication datastore consistency
+                             model. (Default false).
   --history_path=PATH        Path to use for storing Datastore history.
                              (Default /tmp/dev_appserver.datastore.history)
+  --multiprocess_min_port    When running in multiprocess mode, specifies the
+                             lowest port value to use when choosing ports. If
+                             set to 0, select random ports.
+                             (Default 9000)
+  --mysql_host=HOSTNAME      MySQL database host that the rdbms API will use.
+                             (Default localhost)
+  --mysql_port=PORT          MySQL port to connect to.
+                             (Default 3306)
+  --mysql_user=USER          MySQL user to connect as.
+                             (Default '')
+  --mysql_password=PASSWORD  MySQL password to use.
+                             (Default '')
+  --mysql_socket=PATH        MySQL Unix socket file path.
+                             (Default '%(mysql_socket)s')
   --require_indexes          Disallows queries that require composite indexes
                              not defined in index.yaml.
+  --show_mail_body           Log the body of emails in mail stub.
+                             (Default false)
+  --skip_sdk_update_check    Skip checking for SDK updates. If false, fall back
+                             to opt_in setting specified in .appcfg_nag
+                             (Default false)
   --smtp_host=HOSTNAME       SMTP host to send test mail to.  Leaving this
                              unset will disable SMTP mail sending.
                              (Default '')
@@ -73,36 +115,11 @@ Options:
                              (Default '').
   --smtp_password=PASSWORD   Password for SMTP server.
                              (Default '')
-  --rdbms_sqlite_path=PATH   Path to the sqlite3 file for the RDBMS API.
-  --mysql_host=HOSTNAME      MySQL database host that the rdbms API will use.
-                             (Default '%(mysql_host)s')
-  --mysql_port=PORT          MySQL port to connect to.
-                             (Default %(mysql_port)s)
-  --mysql_user=USER          MySQL user to connect as.
-                             (Default %(mysql_user)s)
-  --mysql_password=PASSWORD  MySQL password to use.
-                             (Default '%(mysql_password)s')
-  --mysql_socket=PATH        MySQL Unix socket file path.
-                             (Default '%(mysql_socket)s')
-  --enable_sendmail          Enable sendmail when SMTP not configured.
-                             (Default false)
-  --show_mail_body           Log the body of emails in mail stub.
-                             (Default false)
-  --auth_domain              Authorization domain that this app runs in.
-                             (Default gmail.com)
-  --debug_imports            Enables debug logging for module imports, showing
-                             search paths used for finding modules and any
-                             errors encountered during the import process.
-  --allow_skipped_files      Allow access to files matched by app.yaml's
-                             skipped_files (default False)
-  --disable_static_caching   Never allow the browser to cache static files.
-                             (Default enable if expiration set in app.yaml)
-  --disable_task_running     When supplied, tasks will not be automatically
-                             run after submission and must be run manually
-                             in the local admin console.
   --task_retry_seconds       How long to wait in seconds before retrying a
                              task after it fails during execution.
                              (Default '30')
+  --use_sqlite               Use the new, SQLite based datastore stub.
+                             (Default false)
 
 
 

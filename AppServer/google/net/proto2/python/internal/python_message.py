@@ -50,6 +50,7 @@ import weakref
 from google.net.proto2.python.internal import containers
 from google.net.proto2.python.internal import decoder
 from google.net.proto2.python.internal import encoder
+from google.net.proto2.python.internal import enum_type_wrapper
 from google.net.proto2.python.internal import message_listener as message_listener_mod
 from google.net.proto2.python.internal import type_checkers
 from google.net.proto2.python.internal import wire_format
@@ -213,11 +214,14 @@ def _AddClassAttributesForNestedExtensions(descriptor, dictionary):
 def _AddEnumValues(descriptor, cls):
   """Sets class-level attributes for all enum fields defined in this message.
 
+  Also exporting a class-level object that can name enum values.
+
   Args:
     descriptor: Descriptor object for this message type.
     cls: Class we're constructing for this message type.
   """
   for enum_type in descriptor.enum_types:
+    setattr(cls, enum_type.name, enum_type_wrapper.EnumTypeWrapper(enum_type))
     for enum_value in enum_type.values:
       setattr(cls, enum_value.name, enum_value.number)
 
@@ -451,6 +455,11 @@ def _AddPropertiesForNonRepeatedCompositeField(field, cls):
 
   proto_field_name = field.name
   property_name = _PropertyName(proto_field_name)
+
+
+
+
+
   message_type = field.message_type
 
   def getter(self):

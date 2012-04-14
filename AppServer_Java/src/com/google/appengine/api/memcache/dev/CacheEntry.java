@@ -2,30 +2,62 @@ package com.google.appengine.api.memcache.dev;
 
 import java.io.Serializable;
 
-import com.google.appengine.api.memcache.dev.LRU.AbstractChainable;
+public class CacheEntry implements Serializable {
+    /**
+         * 
+         */
+    private static final long serialVersionUID = -1644795290406463950L;
+    private byte[] value;
+    private int flags;
 
-public class CacheEntry extends AbstractChainable<CacheEntry> implements
-Serializable
+    public byte[] getValue() {
+        return value;
+    }
 
-{
-	private static final long serialVersionUID = 333762892964231596L;
-	public String namespace;
-	public MyKey key;
-	public byte[] value;
-	int flags;
-	public long expires;
-	public long access;
-	public long bytes;
+    public void setValue(byte[] value) {
+        this.value = value;
+    }
 
-	public CacheEntry(String paramString, MyKey paramKey2,
-			byte[] paramArrayOfByte, int paramInt, long paramLong)
-			throws IllegalArgumentException {
-		this.namespace = paramString;
-		this.key = paramKey2;
-		this.value = paramArrayOfByte;
-		this.flags = paramInt;
-		this.expires = paramLong;
-		this.access = System.currentTimeMillis();
-		this.bytes = (paramKey2.getBytes().length + paramArrayOfByte.length);
-	}
+    public int getFlags() {
+        return flags;
+    }
+
+    public void setFlags(int flags) {
+        this.flags = flags;
+    }
+
+    public long getExpires() {
+        return expires;
+    }
+
+    public void setExpires(long expires) {
+        this.expires = expires;
+    }
+
+    public long getAccess() {
+        return access;
+    }
+
+    public void setAccess(long access) {
+        this.access = access;
+    }
+
+    private long expires;
+    private long access;
+
+    // cas id is not need since it is managed in memcached server
+    // public Long casId;
+
+    public CacheEntry(String namespace, byte[] value, int flags, long expiration, long accessTime)
+            throws IllegalArgumentException {
+        this.value = value;
+        this.flags = flags;
+        this.expires = expiration;
+        this.access = accessTime;
+    }
+
+    // public int compareTo(CacheEntry entry) {
+    // return this.access == entry.access ? 0 : this.access < entry.access ?
+    // -1 : 1;
+    // }
 }

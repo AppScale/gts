@@ -1,0 +1,17 @@
+This is a modified version of the Google App Engine Go SDK that is used
+within the AppScale project, which provides an open-source implementation
+of the Google App Engine APIs. More info on AppScale can be found at:
+
+http://appscale.cs.ucsb.edu
+http://code.google.com/p/appscale
+
+The source is all here to compile the Go SDK, but some prerequesite
+programs must be installed first. Information on how to install that
+software can be found here:
+
+http://www.byzantinereality.com/2011/5/Go-AppScale
+
+And as always, thanks for checking us out!
+
+- Chris Bunch, Lead Developer on the AppScale project
+

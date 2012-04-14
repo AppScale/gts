@@ -91,10 +91,14 @@ RESERVED_PROPERTY_NAME = re.compile('^__.*__$')
 
 
 
-_KEY_SPECIAL_PROPERTY = '__key__'
+KEY_SPECIAL_PROPERTY = '__key__'
+_KEY_SPECIAL_PROPERTY = KEY_SPECIAL_PROPERTY
 _UNAPPLIED_LOG_TIMESTAMP_SPECIAL_PROPERTY = '__unapplied_log_timestamp_us__'
+SCATTER_SPECIAL_PROPERTY = '__scatter__'
 _SPECIAL_PROPERTIES = frozenset(
-    [_KEY_SPECIAL_PROPERTY, _UNAPPLIED_LOG_TIMESTAMP_SPECIAL_PROPERTY])
+    [KEY_SPECIAL_PROPERTY,
+     _UNAPPLIED_LOG_TIMESTAMP_SPECIAL_PROPERTY,
+     SCATTER_SPECIAL_PROPERTY])
 
 
 
@@ -109,6 +113,10 @@ _NAMESPACE_SEPARATOR = '!'
 
 
 _EMPTY_NAMESPACE_ID = 1
+
+
+_EPOCH = datetime.datetime.utcfromtimestamp(0)
+
 
 
 
@@ -220,8 +228,8 @@ def ResolveNamespace(namespace):
     namespace: The namespace argument value to be validated.
 
   Returns:
-    The value of namespace, or the substituted default.
-    Always a non-empty string or None.
+    The value of namespace, or the substituted default. The empty string is used
+    to denote the empty namespace.
 
   Raises:
     BadArgumentError if the value is not a string.
@@ -556,7 +564,7 @@ class Key(object):
     if self.__reference.path().element_size() > 1:
       parent = Key()
       parent.__reference.CopyFrom(self.__reference)
-      parent.__reference.path().element_list().pop()
+      del parent.__reference.path().element_list()[-1]
       return parent
     else:
       return None
@@ -735,7 +743,7 @@ class Key(object):
     return cmp(len(self_args), len(other_args))
 
   def __hash__(self):
-    """Returns a 32-bit integer hash of this key.
+    """Returns an integer hash of this key.
 
     Implements Python's hash protocol so that Keys may be used in sets and as
     dictionary keys.
@@ -746,6 +754,24 @@ class Key(object):
     args = self.to_path(_default_id=0)
     args.append(self.__reference.app())
     return hash(type(args)) ^ hash(tuple(args))
+
+
+class _OverflowDateTime(long):
+  """Container for GD_WHEN values that don't fit into a datetime.datetime.
+
+  This class only exists to safely round-trip GD_WHEN values that are too large
+  to fit in a datetime.datetime instance e.g. that were created by Java
+  applications. It should not be created directly.
+  """
+  pass
+
+
+def _When(val):
+  """Coverts a GD_WHEN value to the appropriate type."""
+  try:
+    return _EPOCH + datetime.timedelta(microseconds=val)
+  except OverflowError:
+    return _OverflowDateTime(val)
 
 
 
@@ -883,7 +909,7 @@ class GeoPt(object):
       return cmp(self.lon, other.lon)
 
   def __hash__(self):
-    """Returns a 32-bit integer hash of this point.
+    """Returns an integer hash of this point.
 
     Implements Python's hash protocol so that GeoPts may be used in sets and
     as dictionary keys.
@@ -1246,6 +1272,7 @@ _PROPERTY_MEANINGS = {
   ByteString:        entity_pb.Property.BYTESTRING,
   Text:              entity_pb.Property.TEXT,
   datetime.datetime: entity_pb.Property.GD_WHEN,
+  _OverflowDateTime: entity_pb.Property.GD_WHEN,
   Category:          entity_pb.Property.ATOM_CATEGORY,
   Link:              entity_pb.Property.ATOM_LINK,
   Email:             entity_pb.Property.GD_EMAIL,
@@ -1264,6 +1291,7 @@ _PROPERTY_TYPES = frozenset([
   bool,
   Category,
   datetime.datetime,
+  _OverflowDateTime,
   Email,
   float,
   GeoPt,
@@ -1378,6 +1406,7 @@ _VALIDATE_PROPERTY_VALUES = {
   bool: ValidatePropertyNothing,
   Category: ValidatePropertyString,
   datetime.datetime: ValidatePropertyNothing,
+  _OverflowDateTime: ValidatePropertyInteger,
   Email: ValidatePropertyString,
   float: ValidatePropertyNothing,
   GeoPt: ValidatePropertyNothing,
@@ -1609,6 +1638,7 @@ _PACK_PROPERTY_VALUES = {
   bool: PackBool,
   Category: PackString,
   datetime.datetime: PackDatetime,
+  _OverflowDateTime: PackInteger,
   Email: PackString,
   float: PackFloat,
   GeoPt: PackGeoPt,
@@ -1706,9 +1736,6 @@ def FromReferenceProperty(value):
 
 
 
-_EPOCH = datetime.datetime.utcfromtimestamp(0)
-
-
 
 
 
@@ -1716,10 +1743,7 @@ _EPOCH = datetime.datetime.utcfromtimestamp(0)
 
 
 _PROPERTY_CONVERSIONS = {
-  entity_pb.Property.GD_WHEN:
-
-
-    lambda val: _EPOCH + datetime.timedelta(microseconds=val),
+  entity_pb.Property.GD_WHEN:           _When,
   entity_pb.Property.ATOM_CATEGORY:     Category,
   entity_pb.Property.ATOM_LINK:         Link,
   entity_pb.Property.GD_EMAIL:          Email,
@@ -1749,7 +1773,8 @@ def FromPropertyPb(pb):
 
   if pbval.has_stringvalue():
     value = pbval.stringvalue()
-    if meaning not in (entity_pb.Property.BLOB, entity_pb.Property.BYTESTRING):
+    if not pb.has_meaning() or meaning not in (entity_pb.Property.BLOB,
+                                               entity_pb.Property.BYTESTRING):
       value = unicode(value.decode('utf-8'))
   elif pbval.has_int64value():
 
@@ -1776,15 +1801,18 @@ def FromPropertyPb(pb):
       federated_identity = unicode(
           pbval.uservalue().federated_identity().decode('utf-8'))
 
+
+
     value = users.User(email=email,
                        _auth_domain=auth_domain,
                        _user_id=obfuscated_gaiaid,
-                       federated_identity=federated_identity)
+                       federated_identity=federated_identity,
+                       _strict_mode=False)
   else:
     value = None
 
   try:
-    if pb.has_meaning() and pb.meaning() in _PROPERTY_CONVERSIONS:
+    if pb.has_meaning() and meaning in _PROPERTY_CONVERSIONS:
       conversion = _PROPERTY_CONVERSIONS[meaning]
       value = conversion(value)
   except (KeyError, ValueError, IndexError, TypeError, AttributeError), msg:
@@ -1910,3 +1938,115 @@ def PropertyValueFromString(type_,
   elif type_ == type(None):
     return None
   return type_(value_string)
+
+
+def ReferenceToKeyValue(reference):
+  """Converts a entity_pb.Reference into a comparable hashable "key" value.
+
+  Args:
+    reference: The entity_pb.Reference from which to construct the key value.
+
+  Returns:
+    A comparable and hashable representation of the given reference that is
+    compatible with one derived from a reference property value.
+  """
+  if isinstance(reference, entity_pb.Reference):
+    element_list = reference.path().element_list()
+  elif isinstance(reference, entity_pb.PropertyValue_ReferenceValue):
+    element_list = reference.pathelement_list()
+  else:
+    raise datastore_errors.BadArgumentError(
+        "reference arg expected to be entity_pb.Reference (%r)" % (reference,))
+
+  result = [entity_pb.PropertyValue.kReferenceValueGroup,
+            reference.app(), reference.name_space()]
+  for element in element_list:
+    result.append(element.type())
+    if element.has_name():
+      result.append(element.name())
+    else:
+      result.append(element.id())
+  return tuple(result)
+
+
+def PropertyValueToKeyValue(prop_value):
+  """Converts a entity_pb.PropertyValue into a comparable hashable "key" value.
+
+  The values produces by this function mimic the native ording of the datastore
+  and uniquely identify the given PropertyValue.
+
+  Args:
+    prop_value: The entity_pb.PropertyValue from which to construct the
+      key value.
+
+  Returns:
+    A comparable and hashable representation of the given property value.
+  """
+  if not isinstance(prop_value, entity_pb.PropertyValue):
+    raise datastore_errors.BadArgumentError(
+        'prop_value arg expected to be entity_pb.PropertyValue (%r)' %
+        (prop_value,))
+
+
+
+  if prop_value.has_stringvalue():
+    return (entity_pb.PropertyValue.kstringValue, prop_value.stringvalue())
+  if prop_value.has_int64value():
+    return (entity_pb.PropertyValue.kint64Value, prop_value.int64value())
+  if prop_value.has_booleanvalue():
+    return (entity_pb.PropertyValue.kbooleanValue, prop_value.booleanvalue())
+  if prop_value.has_doublevalue():
+    return (entity_pb.PropertyValue.kdoubleValue, prop_value.doublevalue())
+  if prop_value.has_pointvalue():
+    return (entity_pb.PropertyValue.kPointValueGroup,
+            prop_value.pointvalue().x(), prop_value.pointvalue().y())
+  if prop_value.has_referencevalue():
+    return ReferenceToKeyValue(prop_value.referencevalue())
+  if prop_value.has_uservalue():
+    result = []
+    uservalue = prop_value.uservalue()
+    if uservalue.has_email():
+      result.append((entity_pb.PropertyValue.kUserValueemail,
+                     uservalue.email()))
+    if uservalue.has_auth_domain():
+      result.append((entity_pb.PropertyValue.kUserValueauth_domain,
+                     uservalue.auth_domain()))
+    if uservalue.has_nickname():
+      result.append((entity_pb.PropertyValue.kUserValuenickname,
+                     uservalue.nickname()))
+    if uservalue.has_gaiaid():
+      result.append((entity_pb.PropertyValue.kUserValuegaiaid,
+                     uservalue.gaiaid()))
+    if uservalue.has_obfuscated_gaiaid():
+      result.append((entity_pb.PropertyValue.kUserValueobfuscated_gaiaid,
+                     uservalue.obfuscated_gaiaid()))
+    if uservalue.has_federated_identity():
+      result.append((entity_pb.PropertyValue.kUserValuefederated_identity,
+                     uservalue.federated_identity()))
+    if uservalue.has_federated_provider():
+      result.append((entity_pb.PropertyValue.kUserValuefederated_provider,
+                     uservalue.federated_provider()))
+    result.sort()
+    return (entity_pb.PropertyValue.kUserValueGroup, tuple(result))
+  return ()
+
+
+def GetPropertyValueTag(value_pb):
+  """Returns the tag constant associated with the given entity_pb.PropertyValue.
+  """
+  if value_pb.has_booleanvalue():
+    return entity_pb.PropertyValue.kbooleanValue
+  elif value_pb.has_doublevalue():
+    return entity_pb.PropertyValue.kdoubleValue
+  elif value_pb.has_int64value():
+    return entity_pb.PropertyValue.kint64Value
+  elif value_pb.has_pointvalue():
+    return entity_pb.PropertyValue.kPointValueGroup
+  elif value_pb.has_referencevalue():
+    return entity_pb.PropertyValue.kReferenceValueGroup
+  elif value_pb.has_stringvalue():
+    return entity_pb.PropertyValue.kstringValue
+  elif value_pb.has_uservalue():
+    return entity_pb.PropertyValue.kUserValueGroup
+  else:
+    return 0

@@ -18,23 +18,33 @@
 
 
 
-"""Models to be used to access an app's datastore metadata.
+"""Models and helper functions for access to app's datastore metadata.
 
 These entities cannot be created by users, but are created as results of
 __namespace__, __kind__ and __property__ metadata queries such as
 
+  # Find all namespaces
   q = db.GqlQuery("SELECT * FROM __namespace__")
-  for p in q.fetch(100):
-    print "namespace: '%s'" % p.namespace_name
+  for p in q.run():
+    print "namespace:", repr(p.namespace_name)
 
-and
+or
 
+  # Find all properties of A whose name starts with a lower-case letter
   q = db.GqlQuery("SELECT __key__ from __property__ " +
-                  "WHERE __key__ >= :1 AND __key__ <= :2",
-                  Property.key_for_property("A", "t"),
-                  Property.key_for_property("C", "a"))
-  for p in q.fetch(100):
+                  "WHERE __key__ >= :1 AND __key__ < :2",
+                  Property.key_for_property("A", "a"),
+                  Property.key_for_property("A", chr(ord("z") + 1)))
+  for p in q.run():
     print "%s: %s" % (Property.key_to_kind(p), Property.key_to_property(p))
+
+or, using Query objects
+
+  # Find all kinds >= "a"
+  q = metadata.Kind().all()
+  q.filter("__key__ >=", metadata.Kind.key_for_kind("a"))
+  for p in q.run():
+    print "kind:", repr(p.kind_name)
 """
 
 
@@ -76,6 +86,7 @@ class Namespace(BaseMetadata):
 
     Args:
       namespace: namespace whose key is requested.
+
     Returns:
       The key for namespace.
     """
@@ -90,6 +101,7 @@ class Namespace(BaseMetadata):
 
     Args:
       key: key whose name is requested.
+
     Returns:
       The namespace specified by key.
     """
@@ -112,6 +124,7 @@ class Kind(BaseMetadata):
 
     Args:
       kind: kind whose key is requested.
+
     Returns:
       The key for kind.
     """
@@ -123,6 +136,7 @@ class Kind(BaseMetadata):
 
     Args:
       key: key whose name is requested.
+
     Returns:
       The kind specified by key.
     """
@@ -152,6 +166,7 @@ class Property(BaseMetadata):
 
     Args:
       kind: kind whose key is requested.
+
     Returns:
       The parent key for __property__ keys of kind.
     """
@@ -164,6 +179,7 @@ class Property(BaseMetadata):
     Args:
       kind: kind whose key is requested.
       property: property whose key is requested.
+
     Returns:
       The key for property of kind.
     """
@@ -175,6 +191,7 @@ class Property(BaseMetadata):
 
     Args:
       key: key whose kind name is requested.
+
     Returns:
       The kind specified by key.
     """
@@ -189,6 +206,7 @@ class Property(BaseMetadata):
 
     Args:
       key: key whose property name is requested.
+
     Returns:
       property specified by key, or None if the key specified only a kind.
     """
@@ -196,3 +214,98 @@ class Property(BaseMetadata):
       return None
     else:
       return key.name()
+
+
+def get_namespaces(start=None, end=None):
+  """Return all namespaces in the specified range.
+
+  Args:
+    start: only return namespaces >= start if start is not None.
+    end: only return namespaces < end if end is not None.
+
+  Returns:
+    A list of namespace names between the (optional) start and end values.
+  """
+  q = Namespace.all()
+  if start is not None:
+    q.filter('__key__ >=', Namespace.key_for_namespace(start))
+  if end is not None:
+    q.filter('__key__ <', Namespace.key_for_namespace(end))
+
+  return [x.namespace_name for x in q.run()]
+
+
+def get_kinds(start=None, end=None):
+  """Return all kinds in the specified range.
+
+  Args:
+    start: only return kinds >= start if start is not None.
+    end: only return kinds < end if end is not None.
+
+  Returns:
+    A list of kind names between the (optional) start and end values.
+  """
+  q = Kind.all()
+  if start is not None and start != '':
+    q.filter('__key__ >=', Kind.key_for_kind(start))
+  if end is not None:
+    if end == '':
+      return []
+    q.filter('__key__ <', Kind.key_for_kind(end))
+
+  return [x.kind_name for x in q.run()]
+
+
+def get_properties_of_kind(kind, start=None, end=None):
+  """Return all properties of kind in the specified range.
+
+  NOTE: This function does not return unindexed properties.
+
+  Args:
+    kind: name of kind whose properties you want.
+    start: only return properties >= start if start is not None.
+    end: only return properties < end if end is not None.
+
+  Returns:
+    A list of property names of kind between the (optional) start and end
+    values.
+  """
+  q = Property.all(keys_only=True)
+  q.ancestor(Property.key_for_kind(kind))
+  if start is not None and start != '':
+    q.filter('__key__ >=', Property.key_for_property(kind, start))
+  if end is not None:
+    if end == '':
+      return []
+    q.filter('__key__ <', Property.key_for_property(kind, end))
+
+  return [Property.key_to_property(x) for x in q.run()]
+
+
+def get_representations_of_kind(kind, start=None, end=None):
+  """Return all representations of properties of kind in the specified range.
+
+  NOTE: This function does not return unindexed properties.
+
+  Args:
+    kind: name of kind whose properties you want.
+    start: only return properties >= start if start is not None.
+    end: only return properties < end if end is not None.
+
+  Returns:
+    A dictionary mapping property names to its list of representations.
+  """
+  q = Property.all()
+  q.ancestor(Property.key_for_kind(kind))
+  if start is not None and start != '':
+    q.filter('__key__ >=', Property.key_for_property(kind, start))
+  if end is not None:
+    if end == '':
+      return {}
+    q.filter('__key__ <', Property.key_for_property(kind, end))
+
+  result = {}
+  for property in q.run():
+    result[property.property_name] = property.property_representation
+
+  return result

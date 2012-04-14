@@ -9058,7 +9058,7 @@ goog.appengine.ASSocket = function(channelId, handler) {
 
   this.readyState = goog.appengine.ASSocket.ReadyState.CONNECTING;
   this.channelId_ = channelId;
-  var tempStr = channelId.substring(channelId.lastIndexOf("-") + 1);
+  var tempStr = channelId.substring(channelId.lastIndexOf("~") + 1);
   this.applicationKey_ = tempStr.substring(0,tempStr.lastIndexOf("@"));
   this.onopen = handler.onopen;
   this.onmessage = handler.onmessage;

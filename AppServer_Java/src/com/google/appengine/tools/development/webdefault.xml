@@ -1,0 +1,570 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<!--
+  This file was copied from
+    trunk/modules/jetty/src/main/resources/org/mortbay/jetty/webapp/webdefault.xml
+  in the Jetty SVN repository as of r2324.  It was then modified slightly.
+  
+  Also added a filter for trasnlating Multipart form request coming from Blobstore Service 
+  
+-->
+
+<!-- ===================================================================== -->
+<!-- This file contains the default descriptor for web applications.       -->
+<!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
+<!-- The intent of this descriptor is to include jetty specific or common  -->
+<!-- configuration for all webapps.   If a context has a webdefault.xml    -->
+<!-- descriptor, it is applied before the contexts own web.xml file        -->
+<!--                                                                       -->
+<!-- A context may be assigned a default descriptor by:                    -->
+<!--  + Calling WebApplicationContext.setDefaultsDescriptor                -->
+<!--  + Passed an arg to addWebApplications                                -->
+<!--                                                                       -->
+<!-- This file is used both as the resource within the jetty.jar (which is -->
+<!-- used as the default if no explicit defaults descriptor is set) and it -->
+<!-- is copied to the etc directory of the Jetty distro and explicitly     -->
+<!-- by the jetty.xml file.                                                -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+<web-app
+   xmlns="http://java.sun.com/xml/ns/javaee"
+   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+   xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"
+   metadata-complete="true"
+   version="2.5">
+
+  <description>
+    Default web.xml file.
+    This file is applied to a Web application before its own WEB_INF/web.xml file
+  </description>
+
+
+  <!-- TODO(schwardo): I don't really know what this is.  Sounds hacky. -->
+  <context-param>
+    <param-name>org.mortbay.jetty.webapp.NoTLDJarPattern</param-name>
+    <param-value>start.jar|ant-.*\.jar|dojo-.*\.jar|jetty-.*\.jar|jsp-api-.*\.jar|junit-.*\.jar|servlet-api-.*\.jar|dnsns\.jar|rt\.jar|jsse\.jar|tools\.jar|sunpkcs11\.jar|sunjce_provider\.jar|xerces.*\.jar</param-value>
+  </context-param>
+
+  <filter>
+    <filter-name>_ah_StaticFileFilter</filter-name>
+    <filter-class>
+      com.google.appengine.tools.development.StaticFileFilter
+    </filter-class>
+  </filter>
+
+  <!-- ==================================================================== -->
+  <!-- By default, the AbandonedTransactionDetector filter is mapped to all -->
+  <!-- servlets.  This filter rolls back any transactions that are still    -->
+  <!-- active when the request completes.                                   -->
+  <!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  -->
+  <filter>
+    <filter-name>_ah_AbandonedTransactionDetector</filter-name>
+    <filter-class>
+      com.google.apphosting.utils.servlet.TransactionCleanupFilter
+    </filter-class>
+  </filter>
+
+  <filter>
+    <filter-name>_ah_ServeBlobFilter</filter-name>
+    <filter-class>
+      com.google.appengine.api.blobstore.dev.ServeBlobFilter
+    </filter-class>
+  </filter>
+  
+  <filter>
+    <filter-name>appscale-java-blobRedirect</filter-name>
+    <filter-class>com.google.appengine.api.blobstore.dev.BlobServiceRedirectFilter</filter-class>
+  </filter>
+
+  <filter-mapping>
+    <filter-name>_ah_StaticFileFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+  </filter-mapping>
+
+  <filter-mapping>
+    <filter-name>_ah_AbandonedTransactionDetector</filter-name>
+    <url-pattern>/*</url-pattern>
+  </filter-mapping>
+
+  <filter-mapping>
+    <filter-name>_ah_ServeBlobFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+  </filter-mapping>
+  
+  <filter-mapping>
+    <filter-name>appscale-java-blobRedirect</filter-name>
+    <url-pattern>/*</url-pattern>
+  </filter-mapping>
+
+  <servlet>
+    <servlet-name>_ah_default</servlet-name>
+    <servlet-class>com.google.appengine.tools.development.LocalResourceFileServlet</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_blobUpload</servlet-name>
+    <servlet-class>com.google.appengine.api.blobstore.dev.UploadBlobServlet</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_blobImage</servlet-name>
+    <servlet-class>com.google.appengine.api.images.dev.LocalBlobImageServlet</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_channelServeScript</servlet-name>
+    <servlet-class>com.google.appengine.api.channel.dev.ServeScriptServlet</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_channelLocalChannel</servlet-name>
+    <servlet-class>com.google.appengine.api.channel.dev.LocalChannelServlet</servlet-class>
+  </servlet>
+
+  <!-- ==================================================================== -->
+  <!-- JSP Servlet                                                          -->
+  <!-- This is the jasper JSP servlet from the jakarta project              -->
+  <!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  -->
+  <!-- The JSP page compiler and execution servlet, which is the mechanism  -->
+  <!-- used by Glassfish to support JSP pages.  Traditionally, this servlet -->
+  <!-- is mapped to URL patterh "*.jsp".  This servlet supports the         -->
+  <!-- following initialization parameters (default values are in square    -->
+  <!-- brackets):                                                           -->
+  <!--                                                                      -->
+  <!--   checkInterval       If development is false and reloading is true, -->
+  <!--                       background compiles are enabled. checkInterval -->
+  <!--                       is the time in seconds between checks to see   -->
+  <!--                       if a JSP page needs to be recompiled. [300]    -->
+  <!--                                                                      -->
+  <!--   compiler            Which compiler Ant should use to compile JSP   -->
+  <!--                       pages.  See the Ant documenation for more      -->
+  <!--                       information. [javac]                           -->
+  <!--                                                                      -->
+  <!--   classdebuginfo      Should the class file be compiled with         -->
+  <!--                       debugging information?  [true]                 -->
+  <!--                                                                      -->
+  <!--   classpath           What class path should I use while compiling   -->
+  <!--                       generated servlets?  [Created dynamically      -->
+  <!--                       based on the current web application]          -->
+  <!--                       Set to ? to make the container explicitly set  -->
+  <!--                       this parameter.                                -->
+  <!--                                                                      -->
+  <!--   development         Is Jasper used in development mode (will check -->
+  <!--                       for JSP modification on every access)?  [true] -->
+  <!--                                                                      -->
+  <!--   enablePooling       Determines whether tag handler pooling is      -->
+  <!--                       enabled  [true]                                -->
+  <!--                                                                      -->
+  <!--   fork                Tell Ant to fork compiles of JSP pages so that -->
+  <!--                       a separate JVM is used for JSP page compiles   -->
+  <!--                       from the one Tomcat is running in. [true]      -->
+  <!--                                                                      -->
+  <!--   ieClassId           The class-id value to be sent to Internet      -->
+  <!--                       Explorer when using <jsp:plugin> tags.         -->
+  <!--                       [clsid:8AD9C840-044E-11D1-B3E9-00805F499D93]   -->
+  <!--                                                                      -->
+  <!--   javaEncoding        Java file encoding to use for generating java  -->
+  <!--                       source files. [UTF-8]                          -->
+  <!--                                                                      -->
+  <!--   keepgenerated       Should we keep the generated Java source code  -->
+  <!--                       for each page instead of deleting it? [true]   -->
+  <!--                                                                      -->
+  <!--   logVerbosityLevel   The level of detailed messages to be produced  -->
+  <!--                       by this servlet.  Increasing levels cause the  -->
+  <!--                       generation of more messages.  Valid values are -->
+  <!--                       FATAL, ERROR, WARNING, INFORMATION, and DEBUG. -->
+  <!--                       [WARNING]                                      -->
+  <!--                                                                      -->
+  <!--   mappedfile          Should we generate static content with one     -->
+  <!--                       print statement per input line, to ease        -->
+  <!--                       debugging?  [false]                            -->
+  <!--                                                                      -->
+  <!--                                                                      -->
+  <!--   reloading           Should Jasper check for modified JSPs?  [true] -->
+  <!--                                                                      -->
+  <!--   suppressSmap        Should the generation of SMAP info for JSR45   -->
+  <!--                       debugging be suppressed?  [false]              -->
+  <!--                                                                      -->
+  <!--   dumpSmap            Should the SMAP info for JSR45 debugging be    -->
+  <!--                       dumped to a file? [false]                      -->
+  <!--                       False if suppressSmap is true                  -->
+  <!--                                                                      -->
+  <!--   scratchdir          What scratch directory should we use when      -->
+  <!--                       compiling JSP pages?  [default work directory  -->
+  <!--                       for the current web application]               -->
+  <!--                                                                      -->
+  <!--   tagpoolMaxSize      The maximum tag handler pool size  [5]         -->
+  <!--                                                                      -->
+  <!--   xpoweredBy          Determines whether X-Powered-By response       -->
+  <!--                       header is added by generated servlet  [false]  -->
+  <!--                                                                      -->
+  <!-- If you wish to use Jikes to compile JSP pages:                       -->
+  <!--   Set the init parameter "compiler" to "jikes".  Define              -->
+  <!--   the property "-Dbuild.compiler.emacs=true" when starting Jetty     -->
+  <!--   to cause Jikes to emit error messages in a format compatible with  -->
+  <!--   Jasper.                                                            -->
+  <!--   If you get an error reporting that jikes can't use UTF-8 encoding, -->
+  <!--   try setting the init parameter "javaEncoding" to "ISO-8859-1".     -->
+  <!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  -->
+  <servlet id="jsp">
+    <servlet-name>_ah_jsp</servlet-name>
+    <servlet-class>com.google.appengine.tools.development.PrivilegedJspServlet</servlet-class>
+    <init-param>
+        <param-name>logVerbosityLevel</param-name>
+        <param-value>DEBUG</param-value>
+    </init-param>
+    <init-param>
+        <param-name>xpoweredBy</param-name>
+        <param-value>false</param-value>
+    </init-param>
+    <load-on-startup>0</load-on-startup>
+  </servlet>
+
+  <servlet-mapping>
+    <servlet-name>_ah_jsp</servlet-name>
+    <url-pattern>*.jsp</url-pattern>
+    <url-pattern>*.jspf</url-pattern>
+    <url-pattern>*.jspx</url-pattern>
+    <url-pattern>*.xsp</url-pattern>
+    <url-pattern>*.JSP</url-pattern>
+    <url-pattern>*.JSPF</url-pattern>
+    <url-pattern>*.JSPX</url-pattern>
+    <url-pattern>*.XSP</url-pattern>
+  </servlet-mapping>
+
+  <!-- Register the helper servlets for our stub authentication support. -->
+  <servlet>
+    <servlet-name>_ah_login</servlet-name>
+    <servlet-class>com.google.appengine.api.users.dev.LocalLoginServlet</servlet-class>
+  </servlet>
+  <servlet>
+    <servlet-name>_ah_logout</servlet-name>
+    <servlet-class>com.google.appengine.api.users.dev.LocalLogoutServlet</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_oauthGetRequestToken</servlet-name>
+    <servlet-class>com.google.appengine.api.users.dev.LocalOAuthRequestTokenServlet</servlet-class>
+  </servlet>
+  <servlet>
+    <servlet-name>_ah_oauthAuthorizeToken</servlet-name>
+    <servlet-class>com.google.appengine.api.users.dev.LocalOAuthAuthorizeTokenServlet</servlet-class>
+  </servlet>
+  <servlet>
+    <servlet-name>_ah_oauthGetAccessToken</servlet-name>
+    <servlet-class>com.google.appengine.api.users.dev.LocalOAuthAccessTokenServlet</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_queue_deferred</servlet-name>
+    <servlet-class>com.google.apphosting.utils.servlet.DeferredTaskServlet</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_sessioncleanup</servlet-name>
+    <servlet-class>com.google.apphosting.utils.servlet.SessionCleanupServlet</servlet-class>
+  </servlet>
+
+  <!-- Admin console servlets -->
+  <servlet>
+    <servlet-name>_ah_datastoreViewer</servlet-name>
+    <servlet-class>com.google.apphosting.utils.servlet.DatastoreViewerServlet</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_taskqueueViewer</servlet-name>
+    <servlet-class>com.google.apphosting.utils.servlet.TaskQueueViewerServlet</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_xmpp</servlet-name>
+    <servlet-class>com.google.apphosting.utils.servlet.XmppServlet</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_inboundMail</servlet-name>
+    <servlet-class>com.google.apphosting.utils.servlet.InboundMailServlet</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_resources</servlet-name>
+    <servlet-class>com.google.apphosting.utils.servlet.AdminConsoleResourceServlet</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_adminConsole</servlet-name>
+    <servlet-class>org.apache.jsp.ah.adminConsole_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_datastoreViewerHead</servlet-name>
+    <servlet-class>org.apache.jsp.ah.datastoreViewerHead_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_datastoreViewerBody</servlet-name>
+    <servlet-class>org.apache.jsp.ah.datastoreViewerBody_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_datastoreViewerFinal</servlet-name>
+    <servlet-class>org.apache.jsp.ah.datastoreViewerFinal_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_entityDetailsHead</servlet-name>
+    <servlet-class>org.apache.jsp.ah.entityDetailsHead_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_entityDetailsBody</servlet-name>
+    <servlet-class>org.apache.jsp.ah.entityDetailsBody_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_entityDetailsFinal</servlet-name>
+    <servlet-class>org.apache.jsp.ah.entityDetailsFinal_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_taskqueueViewerHead</servlet-name>
+    <servlet-class>org.apache.jsp.ah.taskqueueViewerHead_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_taskqueueViewerBody</servlet-name>
+    <servlet-class>org.apache.jsp.ah.taskqueueViewerBody_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_taskqueueViewerFinal</servlet-name>
+    <servlet-class>org.apache.jsp.ah.taskqueueViewerFinal_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_xmppHead</servlet-name>
+    <servlet-class>org.apache.jsp.ah.xmppHead_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_xmppBody</servlet-name>
+    <servlet-class>org.apache.jsp.ah.xmppBody_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_xmppFinal</servlet-name>
+    <servlet-class>org.apache.jsp.ah.xmppFinal_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_inboundMailHead</servlet-name>
+    <servlet-class>org.apache.jsp.ah.inboundMailHead_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_inboundMailBody</servlet-name>
+    <servlet-class>org.apache.jsp.ah.inboundMailBody_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_inboundMailFinal</servlet-name>
+    <servlet-class>org.apache.jsp.ah.inboundMailFinal_jsp</servlet-class>
+  </servlet>
+
+  <servlet-mapping>
+    <servlet-name>_ah_sessioncleanup</servlet-name>
+    <url-pattern>/_ah/sessioncleanup</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_default</servlet-name>
+    <url-pattern>/</url-pattern>
+  </servlet-mapping>
+
+  <!-- The /_ah/ URL pattern is reserved for internal servlets. -->
+  <servlet-mapping>
+    <servlet-name>_ah_login</servlet-name>
+    <url-pattern>/_ah/login</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>_ah_logout</servlet-name>
+    <url-pattern>/_ah/logout</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_oauthGetRequestToken</servlet-name>
+    <url-pattern>/_ah/OAuthGetRequestToken</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>_ah_oauthAuthorizeToken</servlet-name>
+    <url-pattern>/_ah/OAuthAuthorizeToken</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>_ah_oauthGetAccessToken</servlet-name>
+    <url-pattern>/_ah/OAuthGetAccessToken</url-pattern>
+  </servlet-mapping>
+
+  <!-- Admin console servlet mappings -->
+
+  <!-- "External" mappings.  These need to remain stable. -->
+  <servlet-mapping>
+    <!-- Datastore viewer is the default admin console ui.-->
+    <servlet-name>_ah_datastoreViewer</servlet-name>
+    <url-pattern>/_ah/admin</url-pattern>
+  </servlet-mapping>
+
+  <!-- Second mapping with trailing slash since users may type URL manually -->
+  <servlet-mapping>
+    <servlet-name>_ah_datastoreViewer</servlet-name>
+    <url-pattern>/_ah/admin/</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_datastoreViewer</servlet-name>
+    <url-pattern>/_ah/admin/datastore</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_taskqueueViewer</servlet-name>
+    <url-pattern>/_ah/admin/taskqueue</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_xmpp</servlet-name>
+    <url-pattern>/_ah/admin/xmpp</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_inboundMail</servlet-name>
+    <url-pattern>/_ah/admin/inboundmail</url-pattern>
+  </servlet-mapping>
+
+  <!-- "Internal" mappings - should only be invoked from within other pages.
+       These can change. -->
+
+  <!-- Prepares all admin console pages for rendering. All servlets should
+       forward to this url. -->
+  <servlet-mapping>
+    <servlet-name>_ah_adminConsole</servlet-name>
+    <url-pattern>/_ah/adminConsole</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_resources</servlet-name>
+    <url-pattern>/_ah/resources</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_datastoreViewerHead</servlet-name>
+    <url-pattern>/_ah/datastoreViewerHead</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_datastoreViewerBody</servlet-name>
+    <url-pattern>/_ah/datastoreViewerBody</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_datastoreViewerFinal</servlet-name>
+    <url-pattern>/_ah/datastoreViewerFinal</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_entityDetailsHead</servlet-name>
+    <url-pattern>/_ah/entityDetailsHead</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_entityDetailsBody</servlet-name>
+    <url-pattern>/_ah/entityDetailsBody</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_entityDetailsFinal</servlet-name>
+    <url-pattern>/_ah/entityDetailsFinal</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_taskqueueViewerHead</servlet-name>
+    <url-pattern>/_ah/taskqueueViewerHead</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_taskqueueViewerBody</servlet-name>
+    <url-pattern>/_ah/taskqueueViewerBody</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_taskqueueViewerFinal</servlet-name>
+    <url-pattern>/_ah/taskqueueViewerFinal</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_xmppHead</servlet-name>
+    <url-pattern>/_ah/xmppHead</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_xmppBody</servlet-name>
+    <url-pattern>/_ah/xmppBody</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_xmppFinal</servlet-name>
+    <url-pattern>/_ah/xmppFinal</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_inboundMailHead</servlet-name>
+    <url-pattern>/_ah/inboundmailHead</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_inboundMailBody</servlet-name>
+    <url-pattern>/_ah/inboundmailBody</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_inboundMailFinal</servlet-name>
+    <url-pattern>/_ah/inboundmailFinal</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_blobUpload</servlet-name>
+    <url-pattern>/_ah/upload/*</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_blobImage</servlet-name>
+    <url-pattern>/_ah/img/*</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_channelServeScript</servlet-name>
+    <url-pattern>/_ah/channel/jsapi</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_channelLocalChannel</servlet-name>
+    <url-pattern>/_ah/channel/dev</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_queue_deferred</servlet-name>
+    <url-pattern>/_ah/queue/__deferred__</url-pattern>
+  </servlet-mapping>
+
+  <security-constraint>
+    <web-resource-collection>
+      <web-resource-name>Disable TRACE</web-resource-name>
+      <url-pattern>/</url-pattern>
+      <http-method>TRACE</http-method>
+    </web-resource-collection>
+    <auth-constraint/>
+  </security-constraint>
+
+  <welcome-file-list>
+    <welcome-file>index.html</welcome-file>
+    <welcome-file>index.jsp</welcome-file>
+  </welcome-file-list>
+</web-app>

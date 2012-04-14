@@ -9,7 +9,9 @@
 if [ -z "$APPSCALE_HOME_RUNTIME" ]; then
     export APPSCALE_HOME_RUNTIME=/opt/appscale
 fi
-
+#if [ -z "$APPSCALE_HOME" ]; then
+ #  export APPSCALE_HOME= /root/appscale/
+#fi 
 export APPSCALE_VERSION=1.5
 
 sethosts()
@@ -28,6 +30,25 @@ ff02::2 ip6-allrouters
 ff02::3 ip6-allhosts
 EOF
 }
+patchxmpp()
+{
+    PYTHON26_XMPP=/usr/lib/python2.6/dist-packages/xmpp/
+    PYTHON25_XMPP=/usr/lib/python2.5/site-packages/xmpp/
+    mkdir -pv ${APPSCALE_HOME}/downloads
+    cd ${APPSCALE_HOME}/downloads
+    wget http://appscale.cs.ucsb.edu/appscale_files/xmpp/transports.py || exit 1
+    cp transports.py ${PYTHON25_XMPP}/
+    mv transports.py ${PYTHON26_XMPP}/
+}
+setulimits()
+{
+    cat <<EOF | tee /etc/security/limits.conf || exit 1
+root            hard    nofile           200000
+root            soft    nofile           200000
+*               hard    nofile           200000
+*               soft    nofile           200000
+EOF
+}
 
 updatealternatives()
 {
@@ -35,9 +56,7 @@ updatealternatives()
 #update-alternatives --install /bin/sh sh /bin/dash 1
 #update-alternatives --install /bin/sh sh /bin/bash 1
 #update-alternatives --set sh /bin/bash
-    if [ -e /usr/lib/jvm/java-6-sun ]; then
-	update-java-alternatives --set java-6-sun || true
-    fi
+	:;
 }
 
 installappscaleprofile()
@@ -46,7 +65,6 @@ installappscaleprofile()
 #    cat > ${APPSCALE_HOME}/appscale.env <<EOF
 #export APPSCALE_HOME=${APPSCALE_HOME_RUNTIME}
 #export HOME=\$APPSCALE_HOME
-#export JAVA_HOME=/usr/lib/jvm/java-6-sun
 #EOF
     DESTFILE=${DESTDIR}/etc/profile.d/appscale.sh
     mkdir -pv $(dirname $DESTFILE)
@@ -54,7 +72,6 @@ installappscaleprofile()
     cat <<EOF | tee $DESTFILE || exit 1
 export APPSCALE_HOME=${APPSCALE_HOME_RUNTIME}
 for jpath in\
- /usr/lib/jvm/java-6-sun\
  /usr/lib/jvm/java-6-openjdk\
  /usr/lib/jvm/default-java
 do
@@ -99,11 +116,21 @@ EOF
 	cat <<EOF | tee $DESTFILE || exit 1
 /usr/lib/python2.6/dist-packages/PIL
 EOF
+       # Add fpconst into python2.5
+       cp /usr/lib/pymodules/python2.6/fpconst.py /usr/lib/python2.5/ || exit 1
     fi
 
     # create link to appscale settings
     rm -rfv ${DESTDIR}/etc/appscale
+    mkdir -pv ~/.appscale
+    mkdir -pv ${APPSCALE_HOME_RUNTIME}/.appscale
     ln -sfv ${APPSCALE_HOME_RUNTIME}/.appscale ${DESTDIR}/etc/appscale
+
+    cat <<EOF | tee /etc/appscale/home || exit
+${APPSCALE_HOME_RUNTIME}
+EOF
+    mkdir -pv /var/log/appscale
+    mkdir -pv /var/appscale/
 }
 
 installthrift_fromsource()
@@ -117,11 +144,12 @@ installthrift_fromsource()
     # apache 0.1.0
 #    wget http://appscale.cs.ucsb.edu/appscale_files/thrift-hypertable.tar.gz -O ${APPSCALE_HOME}/downloads/thrift-hypertable.tar.gz
     # apache 0.2.0
-    wget http://www.apache.org/dist/incubator/thrift/${THRIFT_VER}-incubating/thrift-${THRIFT_VER}.tar.gz || exit 1
+    wget http://appscale.cs.ucsb.edu/appscale_files/thrift-${THRIFT_VER}.tar.gz || exit 1
+    #wget http://www.apache.org/dist/incubator/thrift/${THRIFT_VER}-incubating/thrift-${THRIFT_VER}.tar.gz || exit 1
     tar zxfv thrift-${THRIFT_VER}.tar.gz || exit 1
     rm -v thrift-${THRIFT_VER}.tar.gz
     pushd thrift-${THRIFT_VER}
-    CONFIG_SHELL=/bin/bash /bin/bash ./configure --without-csharp --without-php --prefix=/usr/local 
+    CONFIG_SHELL=/bin/bash /bin/bash ./configure --without-csharp --without-haskell --without-ocaml --without-php --prefix=/usr/local 
     make || exit 1
 # install native library and include files to DESTDIR.
     make install || exit 1
@@ -194,6 +222,7 @@ installtornado_fromsource()
     python setup.py install --prefix=${DESTDIR}/usr || exit 1
     popd
     rm -rfv tornado-0.2
+    rm -rfv tornado-0.2.tar.gz
 }
 
 # using egg
@@ -261,109 +290,48 @@ postinstallhaproxy()
     update-rc.d -f haproxy remove || true
 }
 
-# scratch install version
-
-installhypertable_old()
+installtmux()
 {
-# 1.6.0 for hypertable 0.9.2.5, 1.6.3 for 0.9.2.7
-    export SIGAR_VER=1.6.3
-# 0.9.2.5, 0.9.2.7 requires *apache* thrift >=0.1
-    export HT_VER=0.9.2.7
+    # First, install tmux (do it from source to get the newest features)
+    cd ${APPSCALE_HOME}
+    wget http://appscale.cs.ucsb.edu/appscale_files/tmux-1.6.tar.gz
+    tar zxvf tmux-1.6.tar.gz
+    cd tmux-1.6
+    ./configure
+    make
+    make install
+    cd ${APPSCALE_HOME}
+    rm -rf tmux-1.6 tmux-1.6.tar.gz
+    
+    # Finally, grab our tmux config file and put it in the right place
+    cd
+    wget http://appscale.cs.ucsb.edu/appscale_files/tmux.conf -O .tmux.conf
+}
 
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    rm -v hyperic-sigar-${SIGAR_VER}*
-#    wget http://appscale.cs.ucsb.edu/appscale_files/hyperic-sigar-1.6.0.tar.gz
-    wget http://internap.dl.sourceforge.net/sourceforge/sigar/hyperic-sigar-${SIGAR_VER}.tar.gz || exit 1
-
-    tar -xzvf hyperic-sigar-${SIGAR_VER}.tar.gz || exit 1
-    rm -v hyperic-sigar-${SIGAR_VER}.tar.gz
-    cd hyperic-sigar-${SIGAR_VER}
-    mkdir -pv ${DESTDIR}/usr/local/include
-    cp -v sigar-bin/include/*.h ${DESTDIR}/usr/local/include
-# 64 BIT
-    mkdir -pv ${DESTDIR}/usr/local/lib
-    cp -v sigar-bin/lib/libsigar-amd64-linux.so sigar-bin/lib/libsigar-ia64-linux.so ${DESTDIR}/usr/local/lib/
-# 32 BIT (use the above line)
-#    cp sigar-bin/lib/libsigar-x86-linux.so ${DESTDIR}/usr/local/lib/
-#ldconfig
-
-    cd ${APPSCALE_HOME}/AppDB/hypertable
-    rm -rfv src build ${HT_VER} hypertable-${HT_VER}*
-    mkdir -pv src
-    cd ${APPSCALE_HOME}/AppDB/hypertable/src
-    wget http://hypertable.org/download.php?v=${HT_VER}-alpha || exit 1
-#wget http://appscale.cs.ucsb.edu/appscale_files/hypertable-${HT_VERSION}-alpha-src.tar.gz -O ${APPSCALE_HOME}/AppDB/hypertable/src/hypertable-0.9.2.5-alpha-src.tar.gz
-    tar xvzf hypertable-${HT_VER}-alpha-src.tar.gz || exit 1
-    rm -v hypertable-${HT_VER}-alpha-src.tar.gz
-
-# replace lib path for debian
-    sed -i -e "s/\/usr\/local\/lib/\/usr\/lib/g" hypertable-${HT_VER}-alpha/cmake/FindLibEvent.cmake
-    sed -i -e "s/\/usr\/local\/include/\/usr\/include/g" hypertable-${HT_VER}-alpha/cmake/FindLibEvent.cmake
-
-    export HYPERTABLE=${APPSCALE_HOME}/AppDB/hypertable
-    export HADOOP=${APPSCALE_HOME}/AppDB/hadoop-0.20.0
-    mkdir -pv ${APPSCALE_HOME}/AppDB/hypertable/src/build
-    cd ${APPSCALE_HOME}/AppDB/hypertable/src/build
-    cmake -DHADOOP_INCLUDE_PATH=${HADOOP}/src/c++/install/include/\
-      -DHADOOP_LIB_PATH=${HADOOP}/src/c++/install/lib/\
-      -DBUILD_SHARED_LIBS=ON\
-      -DCMAKE_INSTALL_PREFIX=${HYPERTABLE}\
-      -DJAVA_INCLUDE_PATH=/usr/lib/jvm/java-6-sun/include/\
-      -DJAVA_INCLUDE_PATH2=/usr/lib/jvm/java-6-sun/include/linux/\
-      ../hypertable-${HT_VER}-alpha
-
-# this works for 0.9.2.5 and 0.9.2.7
-    cp ../../hypertablefix/TableRangeMap.cc\
-    ../hypertable-${HT_VER}-alpha/contrib/cc/MapReduce/
-    cp ../../hypertablefix/TableReader.cc\
-    ../hypertable-${HT_VER}-alpha/contrib/cc/MapReduce/
-
-    make || exit 1
-    make install || exit 1
-
-# we must copy the python library in 0.9.2.5 alpha
-#    mkdir -p ${HYPERTABLE}/${HT_VER}/lib/py
-#    cp ../hypertable-${HT_VER}-alpha/src/py/ThriftClient/*.py\
-#      ${HYPERTABLE}/${HT_VER}/lib/py/
-#    cp ../hypertable-${HT_VER}-alpha/src/py/ThriftClient/gen-py\
-#      ${HYPERTABLE}/${HT_VER}/lib/py/
-
-    rm -rv ${APPSCALE_HOME}/AppDB/hypertable/src
-
-    DESTFILE=${DESTDIR}/etc/ld.so.conf.d/hypertable.conf
-    mkdir -pv $(dirname $DESTFILE)
-    echo "Generating $DESTFILE"
-    echo "${APPSCALE_HOME_RUNTIME}/AppDB/hypertable/${HT_VER}/lib" | tee $DESTFILE || exit 1
-#ldconfig
-
-# enable to load hypertable client of python
-    DESTFILE=${DESTDIR}/usr/local/lib/python2.6/dist-packages/hypertable_client.pth
-    mkdir -pv $(dirname $DESTFILE)
-    echo "Generating $DESTFILE"
-    cat <<EOF | tee $DESTFILE || exit 1
-${APPSCALE_HOME_RUNTIME}/AppDB/hypertable/${HT_VER}/lib/py
-${APPSCALE_HOME_RUNTIME}/AppDB/hypertable/${HT_VER}/lib/py/gen-py
-EOF
+postinstalltmux()
+{
+    :;
 }
 
 # deb package version
-
 installhypertable()
 {
-    HT_VER=0.9.4.3
+    HT_VER=0.9.5.5
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
     ARCH=`uname -m`
     if [ "$ARCH" = "i686" ]; then
 	ARCH="i386"
     fi
+    gem install titleize
     # extract binary files and repackage it when making deb
-    wget http://www.hypertable.com/download/packages/${HT_VER}/hypertable-${HT_VER}-linux-${ARCH}.deb -O hypertable-${HT_VER}.deb || exit 1
+    #wget http://www.hypertable.com/download/packages/${HT_VER}/hypertable-${HT_VER}-linux-${ARCH}.deb -O hypertable-${HT_VER}.deb || exit 1
+    #wget http://cdn.hypertable.com/packages/${HT_VER}/hypertable-${HT_VER}-linux-${ARCH}.deb -O hypertable-${HT_VER}.deb || exit 1
+    wget http://appscale.cs.ucsb.edu/appscale_files/hypertable-${HT_VER}-linux-${ARCH}.deb -O hypertable-${HT_VER}.deb || exit 1
     dpkg-deb --vextract hypertable-${HT_VER}.deb ${DESTDIR}/ || exit 1
     rm hypertable-${HT_VER}.deb
 
-# enable to load hypertable client of python
+    # enable to load hypertable client of python
     DESTFILE=${DESTDIR}/usr/local/lib/python2.6/dist-packages/hypertable_client.pth
     mkdir -pv $(dirname $DESTFILE)
     echo "Generating $DESTFILE"
@@ -371,12 +339,12 @@ installhypertable()
 /opt/hypertable/${HT_VER}/lib/py
 /opt/hypertable/${HT_VER}/lib/py/gen-py
 EOF
-# hypertable package conflicts appscale/AppDB/hypertable,
-# so we must place it in appscale.
-# this must be absolute path of runtime.
+   # hypertable package conflicts appscale/AppDB/hypertable,
+   # so we must place it in appscale.
+   # this must be absolute path of runtime.
     ln -sfv /opt/hypertable/${HT_VER}/lib/py/hypertable/thriftclient.py ${APPSCALE_HOME}/AppDB/hypertable/
-    ln -s /usr/bin/thin1.8 /usr/bin/thin
-    ln -s /opt/hypertable/${HT_VER}  /opt/hypertable/current
+    ln -fsv /usr/bin/thin1.8 /usr/bin/thin
+    ln -fsv /opt/hypertable/${HT_VER}  /opt/hypertable/current
 }
 
 postinstallhypertable()
@@ -394,9 +362,9 @@ installhypertablemonitoring()
     GEMDEST=${DESTDIR}/var/lib/gems/1.8
     GEMOPT="--no-rdoc --no-ri --bindir ${DESTDIR}/usr/bin --install-dir ${GEMDEST}"
     # For hypertable monitoring
-    gem install sinatra rack thin json titleize ${GEMOPT} || exit 1
+    gem install sinatra rack thin json ${GEMOPT} || exit 1
     cd ${APPSCALE_HOME}/downloads
-    wget http://kings.cs.ucsb.edu/appscale_files/rrdtool-1.4.4.tar.gz || exit 1
+    wget http://appscale.cs.ucsb.edu/appscale_files/rrdtool-1.4.4.tar.gz || exit 1
     tar zxvf rrdtool-1.4.4.tar.gz
     cd rrdtool-1.4.4/
     ./configure 
@@ -416,44 +384,66 @@ posthypertablemonitoring()
 
 installgems()
 {
-#    gem update
-    GEMDEST=${DESTDIR}/var/lib/gems/1.8
-    GEMOPT="--no-rdoc --no-ri --bindir ${DESTDIR}/usr/bin --install-dir ${GEMDEST}"
-    gem install rake zookeeper neptune right_aws ${GEMOPT} || exit 1
-    if [ ! -e ${DESTDIR}/usr/bin/rake ]; then
-	echo "Fail to install rake. Please Retry."
-	exit 1
-    fi
+    # install gem here
+    cd
+    wget http://appscale.cs.ucsb.edu/appscale_files/rubygems-1.3.7.tgz || exit 1
+    tar zxvf rubygems-1.3.7.tgz
+    cd rubygems-1.3.7
+    ruby setup.rb
+    cd
+    ln -sf /usr/bin/gem1.8 /usr/bin/gem
+    rm -rf rubygems-1.3.7.tgz
+    rm -rf rubygems-1.3.7
+
+    # gem update
+    GEMOPT="--no-rdoc --no-ri"
+    gem install rake ${GEMOPT} 
+    sleep 1
+    gem install zookeeper neptune right_aws ${GEMOPT} || exit 1
+    sleep 1
     gem install god redgreen Ruby-MemCache ${GEMOPT} || exit 1
-    if [ ! -e ${DESTDIR}/usr/bin/god ]; then
-	echo "Fail to install god. Please Retry."
-	exit 1
-    fi
-    if [ -z "${DESTDIR}" ]; then
-	# avoid gems reinstall problem
-	RAILS_EXISTS=`gem list -l | grep rails | wc -l`
-	if [ $RAILS_EXISTS -eq 0 ]; then
-	    gem install -v=2.3.4 rails ${GEMOPT} || exit 1
-	fi
-    else
-	gem install -v=2.3.4 rails ${GEMOPT} || exit 1
-    fi
-    gem install mongrel mongrel_cluster ${GEMOPT} || exit 1
-    if [ ! -e ${DESTDIR}/usr/bin/mongrel_rails ]; then
-	echo "Fail to install mongrel rails. Please Retry."
-	exit 1
-    fi
+    sleep 1
+    #if [ ! -e ${DESTDIR}/usr/bin/god ]; then
+    #	echo "Fail to install god. Please Retry."
+    #	exit 1
+    #fi
+    gem install -v=2.3.4 rails ${GEMOPT} || exit 1
+    sleep 1
+    gem install gem_plugin mongrel ${GEMOPT} || exit 1
+    sleep 1
+    gem install mongrel_cluster ${GEMOPT} || exit 1
+    #sleep 1
+    #if [ ! -e ${DESTDIR}/usr/bin/mongrel_rails ]; then
+    #	echo "Fail to install mongrel rails. Please Retry."
+    #	exit 1
+    #fi
     # This is for the Hypertable.
     gem install capistrano ${GEMOPT} || exit 1
-    if [ ! -e ${DESTDIR}/usr/bin/cap ]; then
-	echo "Fail to install capistrano. Please Retry."
-	exit 1
-    fi
+    sleep 1
+    gem install json ${GEMOPT} || exit 1
+    sleep 1
+    #if [ ! -e ${DESTDIR}/usr/bin/cap ]; then
+    #	echo "Fail to install capistrano. Please Retry."
+    #	exit 1
+    #fi
+    # This is for Neptune's Babel RabbitMQ interface
+    gem install bunny
+    # This is for Neptune's Babel SQS interface
+    gem install -v=1.4.4 nokogiri 
+    gem install aws-sdk
+    # This is for Neptune's Babel Azure Task Queue interface
+    gem install waz-storage waz-queues
+    # This is for Neptune's Babel App Engine push queue interface
+    gem install oration
+    # This is for Neptune's Babel App Engine pull queue interface
+    # which is just REST, but httparty does such a nice job compared
+    # to previously used things
+    gem install httparty
 }
 
 postinstallgems()
 {
-    ln -s /var/lib/gems/1.8/bin/neptune /usr/bin/neptune
+    ln -sf /var/lib/gems/1.8/bin/neptune /usr/bin/neptune
 #gem update
 #gem install god redgreen
 #gem install -v=2.3.4 rails
@@ -480,7 +470,7 @@ installnginx_fromsource()
 #    apt-get install -y libpcre3 libpcre3-dev
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://kings.cs.ucsb.edu/appscale_files/nginx-0.6.39.tar.gz || exit 1
+    wget http://appscale.cs.ucsb.edu/appscale_files/nginx-0.6.39.tar.gz || exit 1
     tar zxvf nginx-0.6.39.tar.gz || exit 1
     rm -v nginx-0.6.39.tar.gz
     pushd nginx-0.6.39
@@ -511,8 +501,8 @@ postinstallnginx()
 
 installhadoop()
 {
-    HADOOP_VER=0.20.2
-
+    HADOOP_VER=0.20.2-cdh3u3
+  
     mkdir -pv ${APPSCALE_HOME}/AppDB
     cd ${APPSCALE_HOME}/AppDB
     rm -rfv hadoop-${HADOOP_VER}
@@ -526,78 +516,31 @@ installhadoop()
 . /etc/profile.d/appscale.sh
 export HADOOP_HOME=\${APPSCALE_HOME}/AppDB/hadoop-${HADOOP_VER}
 export HADOOP_HEAPSIZE=2000
+export HADOOP_NAMENODE_USER=root
 EOF
-    # This patch fails for 0.20.2
-    #patch -p0 -i ../hadoop/patch/hadoop-includes-2.patch || exit 1
-    # patch for karmic compiler
-    #patch -p0 -i ../hadoop/patch/hadoop-karmic.patch || exit 1
-    # patch for hbase
+
+    # This patch fixes WrongFS issue
     patch -p0 -i ../hadoop/patch/hadoop-hbase.patch || exit 1
 
     # build new jar
     ant clean || exit 1
     ant jar || exit 1
-    cp -v build/hadoop-0.20.3-dev-core.jar ./hadoop-${HADOOP_VER}-core.jar || exit 1
+    # Use the new jar 
+    cp -v build/hadoop-core-${HADOOP_VER}.jar ./hadoop-core-${HADOOP_VER}.jar || exit 1
     rm -rfv build
 
-    BUILD_CLIB=0
-    if [ $BUILD_CLIB -ne 0 ]; then
-        # build c++ library
-	pushd src/c++/utils
-	sh configure --prefix=${APPSCALE_HOME_RUNTIME}/AppDB/hadoop-${HADOOP_VER}/c++/install || exit 1
+    # Replace the main script with one that allows hadoop to be run as root
+    cp ../hadoop/templates/hadoop ./bin/ || exit 1
 
-	make
-	sed -i "s/CXXFLAGS = -g/CXXFLAGS = -fPIC -g/g" ./Makefile
-	make clean
-	make || exit 1
-	make install || exit 1
-	if [ ! -e ${APPSCALE_HOME}/AppDB/hadoop-${HADOOP_VER}/c++/install/lib/libhadooputils.a ]; then
-	    echo "Fail to install Hadoop Util. Please retry."
-	    exit 1
-	fi
-	popd
-
-	pushd src/c++/pipes
-	sh configure --prefix=${APPSCALE_HOME_RUNTIME}/AppDB/hadoop-${HADOOP_VER}/c++/install || exit 1
-	make || exit 1
-	make install || exit 1
-	if [ ! -e ${APPSCALE_HOME}/AppDB/hadoop-${HADOOP_VER}/c++/install/lib/libhadooppipes.a ]; then
-	    echo "Fail to install Hadoop Pipes. Please retry."
-	    exit 1
-	fi
-	popd
-
-	DESTFILE=${DESTDIR}/etc/ld.so.conf.d/hadoop.conf
-	mkdir -pv $(dirname $DESTFILE)
-	echo "Generating $DESTFILE"
-	cat <<EOF | tee $DESTFILE || exit 1
-${APPSCALE_HOME_RUNTIME}/AppDB/hadoop-${HADOOP_VER}/c++/install/lib
-EOF
+    # use precompiled binary
+    ARCH=`uname -m`
+    if [ "$ARCH" = "x86_64" ]; then
+      HADOOP_CLIB="Linux-amd64-64"
+    elif [ "$ARCH" = "i686" -o "$ARCH" = "i386" ]; then
+      HADOOP_CLIB="Linux-i386-32"
     else
-	# just use precompiled binary
-	ARCH=`uname -m`
-	if [ "$ARCH" = "x86_64" ]; then
-	    HADOOP_CLIB="Linux-amd64-64"
-	elif [ "$ARCH" = "i686" -o "$ARCH" = "i386" ]; then
-	    HADOOP_CLIB="Linux-i386-32"
-	else
-	    echo "$ARCH is not supported by Hadoop."
-	    exit 1
-	fi
-
-	# to avoid ldconfig warnings
-	pushd lib/native/${HADOOP_CLIB}
-	ln -sfv libhadoop.so.1.0.0 libhadoop.so
-	ln -sfv libhadoop.so.1.0.0 libhadoop.so.1
-	popd
-
-	DESTFILE=${DESTDIR}/etc/ld.so.conf.d/hadoop.conf
-	mkdir -pv $(dirname $DESTFILE)
-	echo "Generating $DESTFILE"
-	cat <<EOF | tee $DESTFILE || exit 1
-${APPSCALE_HOME_RUNTIME}/AppDB/hadoop-${HADOOP_VER}/c++/${HADOOP_CLIB}/lib
-${APPSCALE_HOME_RUNTIME}/AppDB/hadoop-${HADOOP_VER}/lib/native/${HADOOP_CLIB}
-EOF
+        echo "$ARCH is not supported by Hadoop."
+        exit 1
     fi
 
     if [ -n "${DESTDIR}" ]; then
@@ -614,8 +557,8 @@ postinstallhadoop()
 
 installhbase()
 {
-    HBASE_VER=0.89.20100924
-    HADOOP_VER=0.20.2
+    HBASE_VER=0.90.4-cdh3u3
+    HADOOP_VER=0.20.2-cdh3u3
 
     mkdir -pv ${APPSCALE_HOME}/AppDB/hbase
     cd ${APPSCALE_HOME}/AppDB/hbase
@@ -628,11 +571,13 @@ installhbase()
     rm -rfd ~/.m2/
     # create link to hadoop core
     rm -rv ${APPSCALE_HOME}/AppDB/hbase/hbase-${HBASE_VER}/lib/hadoop-*.jar || true
-    pushd hbase-${HBASE_VER}
-    # using ip address instead of host name.
-    patch -p0 -i ../patch/hbase-defaultip.patch || exit 1
-    # Skipping this patch, and using the above applied hack
-    # patch -p0 -i ../patch/hadoop_version.patch || exit 1 
+    cd hbase-${HBASE_VER}
+ 
+    # Patch for allowing IPs rather than DNS 
+    pwd
+    cp ../patch/HMaster.java ./src/main/java/org/apache/hadoop/hbase/master/ || exit 1
+    cp ../patch/HRegionServer.java ./src/main/java/org/apache/hadoop/hbase/regionserver/ || exit 1
+
     export MAVEN_OPTS=-Xmx1024m
     mvn -DskipTests install || exit 1
     if [ ! -e target/hbase-${HBASE_VER}.jar ]; then
@@ -645,14 +590,11 @@ installhbase()
 	rm -rv build docs src
     fi
 
-    # This is a hack, we overwrite the hadoop core jar 
-    # Unable to get it done the right way with the hadoop_version.patch
-    # We must overwrite it in the maven repository 
-    # Very version sensitive and very much a hack
-    #ln -sfv ${APPSCALE_HOME_RUNTIME}/AppDB/hadoop-${HADOOP_VER}/hadoop-${HADOOP_VER}-core.jar ${APPSCALE_HOME}/AppDB/hbase/hbase-${HBASE_VER}/lib/hadoop-0.20.3-append-r964955-1240-core.jar
-    cp ${APPSCALE_HOME}/AppDB/hadoop-${HADOOP_VER}/hadoop-${HADOOP_VER}-core.jar  ~/.m2/repository/org/apache/hadoop/hadoop-core/0.20.3-append-r964955-1240/hadoop-core-0.20.3-append-r964955-1240.jar || exit 1
-    # Need to update the zookeeper jar which was patched
-    #cp zookeeper-${ZK_VER}.jar ~/.m2/repository/org/apache/hadoop/zookeeper/3.3.1/zookeeper-3.3.1.jar || exit 1
+    # We must copy the patched hadoop into the maven repository 
+    # Failure to do so results in a "WrongFS" error
+cp ${APPSCALE_HOME}/AppDB/hadoop-${HADOOP_VER}/hadoop-core-${HADOOP_VER}.jar ~/.m2/repository/org/apache/hadoop/hadoop-core/${HADOOP_VER}/hadoop-core-${HADOOP_VER}.jar || exit 1
+
+
     DESTFILE=./conf/hbase-env.sh
     echo "Appending $DESTFILE"
     cat <<EOF | tee -a $DESTFILE || exit 1
@@ -661,7 +603,7 @@ export HBASE_HEAPSIZE=2000
 export HBASE_MANAGES_ZK=FALSE
 export HBASE_OPTS="-Djava.net.preferIPv4Stack=true"
 EOF
-    popd
+    cd ..
 
 }
 
@@ -673,8 +615,11 @@ postinstallhbase()
 
 installcassandra()
 {
-    CASSANDRA_VER=0.6.8
-
+    CASSANDRA_VER=1.0.7
+    PYCASSA_VER=1.3.0
+    cd /lib 
+    wget http://appscale.cs.ucsb.edu/appscale_files/jamm-0.2.2.jar || exit 1
+    
     mkdir -p ${APPSCALE_HOME}/AppDB/cassandra
     cd ${APPSCALE_HOME}/AppDB/cassandra
     rm -rfv cassandra
@@ -685,7 +630,33 @@ installcassandra()
     cd cassandra
     chmod -v +x bin/cassandra
     cp -v ${APPSCALE_HOME}/AppDB/cassandra/templates/cassandra.in.sh ${APPSCALE_HOME}/AppDB/cassandra/cassandra/bin || exit 1
-    mkdir -p ${DESTDIR}/var/lib/cassandra
+    mkdir -p /var/lib/cassandra
+    # TODO only grant the cassandra user access
+    chmod 777 /var/lib/cassandra
+   # directories where Cassandra should libstore data on disk.
+    #data_file_directories:
+    mkdir -p /var/appscale/cassandra/data
+    chmod 777 /var/appscale/cassandra/data
+
+    # commit log
+    #commitlog_directory: 
+    mkdir -p /var/appscale/cassandra/commitlog
+    chmod 777 /var/appscale/cassandra/commitlog
+
+    # saved caches
+    #saved_caches_directory: 
+    mkdir -p /var/appscale/cassandra/saved_caches
+    chmod 777 /var/appscale/cassandra/saved_caches
+
+    mkdir -pv ${APPSCALE_HOME}/downloads
+    cd ${APPSCALE_HOME}/downloads
+    wget http://appscale.cs.ucsb.edu/appscale_files/pycassa-${PYCASSA_VER}.tar.gz || exit 1
+    tar zxvf pycassa-${PYCASSA_VER}.tar.gz  
+    cd pycassa-${PYCASSA_VER}
+    python setup.py install || exit 1
+    cd ..
+    rm -fdr pycassa-${PYCASSA_VER}
+    rm -fdr pycassa-${PYCASSA_VER}.tar.gz 
 }
 
 postinstallcassandra()
@@ -699,6 +670,7 @@ installvoldemort()
     VOLDEMORT_VER=0.80
 
     mkdir -p ${APPSCALE_HOME}/AppDB/voldemort
+
     cd ${APPSCALE_HOME}/AppDB/voldemort
     rm -rfv voldemort
     wget http://appscale.cs.ucsb.edu/appscale_files/voldemort-${VOLDEMORT_VER}.tar.gz || exit 1
@@ -724,6 +696,29 @@ postinstallvoldemort()
     touch ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}/voldemort
 }
 
+installredisdb()
+{
+   REDIS_VER=2.2.11
+   mkdir -p /var/appscale/
+   cd /var/appscale/
+   rm -rfv redisdb
+   wget http://appscale.cs.ucsb.edu/appscale_files/redis-${REDIS_VER}.tar.gz || exit 1
+   tar xzvf redis-${REDIS_VER}.tar.gz || exit 1
+   mv -v redis-${REDIS_VER} redisdb
+   rm -v redis-${REDIS_VER}.tar.gz
+   
+   cd redisdb
+   make || exit 1 
+   easy_install redis || exit 1
+}
+
+postinstallredisdb()
+{
+   mkdir -p ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}
+   touch ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}/redisdb
+} 
+
+  
 installprotobuf_fromsource()
 {
     PROTOBUF_VER=2.3.0
@@ -757,7 +752,7 @@ installprotobuf()
 # this is not needed when we use egg to install protobuf.
     mkdir -pv ${APPSCALE_HOME}/AppServer/google
     # this should be absolute path of runtime.
-    ln -sv /var/lib/python-support/python2.6/google/protobuf ${APPSCALE_HOME}/AppServer/google/
+    ln -sfv /var/lib/python-support/python2.6/google/protobuf ${APPSCALE_HOME}/AppServer/google/
 }
 
 postinstallprotobuf()
@@ -782,6 +777,7 @@ postinstallmysql()
     update-rc.d -f mysql-ndb remove || true
     update-rc.d -f mysql-ndb-mgm remove || true
 #    mkdir -p /var/lib/mysql-cluster/backup
+    mysqladmin shutdown
 
     mkdir -p ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}
     touch ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}/mysql
@@ -834,6 +830,7 @@ installmongodb()
 # easy_install could not specify prefix, so we must install it in postinst
     # pymongo
 #    mkdir -p ${DESTDIR}/usr/lib/python2.6/site-packages
+
     easy_install -U pymongo || exit 1
     if [ -n "$DESTDIR" ]; then
 	DISTP=/usr/local/lib/python2.6/dist-packages
@@ -845,7 +842,8 @@ installmongodb()
 postinstallmongodb()
 {
     # just enable pymongo egg
-    easy_install pymongo
+    #easy_install pymongo
+
 
     # from mongodb deb package
     # create a mongodb group and user
@@ -865,7 +863,7 @@ postinstallmongodb()
 
     # we need remove from lucid
     update-rc.d -f mongodb remove || true
-
+    killall mongod
     mkdir -p ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}
     touch ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}/mongodb
 }
@@ -882,7 +880,7 @@ postinstallmemcachedb()
     service memcachedb stop || true
     # remove service
     update-rc.d -f memcachedb remove || true
-
+    killall memcachedb
     mkdir -p ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}
     touch ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}/memcachedb
 }
@@ -952,105 +950,6 @@ postinstallpig()
     :;
 }
 
-# install from source
-
-installscalaris_fromsource()
-{
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    wget http://scalaris.googlecode.com/files/scalaris-0.2.2.tar.bz2 || exit 1
-    bzip2 -c -d scalaris-0.2.2.tar.bz2 | tar xv || exit 1
-    if [ ! -e scalaris-0.2.2 ]; then
-	echo "Fail to extract scalaris."
-	exit 1
-    fi
-
-    rm -v scalaris-0.2.2.tar.bz2
-    pushd scalaris-0.2.2
-    # disable fqdn check
-    patch -p0 -i ../../AppDB/scalaris/patch/scalarisctl.patch || exit 1
-    patch -p0 -i ../../AppDB/scalaris/patch/scalaris-make.patch || exit 1
-    ./configure --prefix=/usr || exit 1
-    make || exit 1
-    make docs
-    make install || exit 1
-    popd
-
-    rm -rfv scalaris-0.2.2
-    installpythonjsonrpc
-}
-
-# install using deb files
-
-installscalaris()
-{
-    SCALARIS_VER=0.2.3-1
-
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-
-    ARCH=$(uname -m)
-    if [ "$ARCH" = "x86_64" ]; then
-	ARCH="amd64"
-    fi
-    if [ "$ARCH" = "i686" ]; then
-	ARCH="i386"
-    fi
-
-    case "$DIST" in
-	jaunty)
-	    BASEURL=http://widehat.opensuse.org/repositories/home:/tschuett/xUbuntu_9.04/
-	    ;;
-	karmic)
-	    BASEURL=http://widehat.opensuse.org/repositories/home:/tschuett/xUbuntu_9.10/
-	    ;;
-	lucid)
-	    BASEURL=http://widehat.opensuse.org/repositories/home:/tschuett/xUbuntu_10.04/
-	    ;;
-	*)
-	    echo "$DIST is not supported by scalaris."
-	    exit 1
-    esac
-
-    # repackage deb files
-    wget ${BASEURL}/${ARCH}/scalaris_${SCALARIS_VER}_${ARCH}.deb -O scalaris.deb || exit 1
-    dpkg-deb --vextract scalaris.deb ${DESTDIR}/ || exit 1
-    rm -v scalaris.deb
-    wget ${BASEURL}/${ARCH}/scalaris-java_${SCALARIS_VER}_${ARCH}.deb -O scalaris-java.deb || exit 1
-    # we don't need java and native client?
-    dpkg-deb --vextract scalaris-java.deb ${DESTDIR}/ || exit 1
-    rm -v scalaris-java.deb
-    wget ${BASEURL}/${ARCH}/scalaris-client_${SCALARIS_VER}_${ARCH}.deb -O scalaris-client.deb || exit 1
-    dpkg-deb --vextract scalaris-client.deb ${DESTDIR}/ || exit 1
-    rm -v scalaris-client.deb
-
-    # patch script
-    sed 's/exit -1/#exit -1/' -i.org ${DESTDIR}/usr/bin/scalarisctl || exit 1
-
-    installpythonjsonrpc
-}
-
-# install python-jsonrpc for scalaris
-
-installpythonjsonrpc()
-{
-    cd ${APPSCALE_HOME}/downloads
-    SVN_VER=19
-    svn checkout -r ${SVN_VER} http://svn.json-rpc.org/trunk/python-jsonrpc || exit 1
-
-    pushd python-jsonrpc
-    patch -p0 -i ../../AppDB/scalaris/patch/python-jsonrpc.patch || exit 1
-    python setup.py install --prefix=${DESTDIR}/usr || exit 1
-    popd
-
-    rm -rfv python-jsonrpc
-}
-
-postinstallscalaris()
-{
-    :;
-}
-
 installservice()
 {
     # this must be absolete path of runtime
@@ -1094,8 +993,8 @@ installzookeeper()
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
 
-    wget http://kings.cs.ucsb.edu/appscale_files/zookeeper-3.4.0.tar.gz || exit 1
-    tar zxvf zookeeper-3.4.0.tar.gz
+    wget http://appscale.cs.ucsb.edu/appscale_files/zookeeper-${ZK_VER}.tar.gz || exit 1
+    tar zxvf zookeeper-${ZK_VER}.tar.gz
 
     pushd zookeeper-src
     # build java library
@@ -1150,19 +1049,10 @@ installzookeeper()
     dpkg-deb --vextract zookeeperd.deb ${DESTDIR}/ || exit 1
     rm -v zookeeperd.deb
 
-    if [ "${DIST}" = "jaunty" -o "${DIST}" = "karmic" ]; then
-        # we must use own log4j in jaunty and karmic,
-	# because the package jar does not include jmx classes.
-	LOG4J_VER=1.2.15
-	mkdir -pv ${DESTDIR}/usr/share/zookeeper/lib
-	cp -v build/lib/log4j-${LOG4J_VER}.jar ${DESTDIR}/usr/share/zookeeper/lib/log4j-1.2.jar || exit 1
-#	ln -sfv log4j-${LOG4J_VER}.jar ${DESTDIR}/usr/share/zookeeper/lib/log4j-1.2.jar || exit 1
-	# modify class path.
-	sed -i 's/java\/log4j/zookeeper\/lib\/log4j/' ${DESTDIR}/etc/zookeeper/conf_example/environment || exit 1
-    fi
-
     popd
     rm -rv zookeeper-src || exit 1
+    cd ${APPSCALE_HOME}/downloads
+    rm -fdr zookeeper-3.4.0.tar.gz || exit 1
 
     mkdir -pv ${DESTDIR}/var/run/zookeeper
     mkdir -pv ${DESTDIR}/var/lib/zookeeper
@@ -1238,17 +1128,15 @@ postinstallzookeeper()
     update-rc.d -f zookeeper remove || true
 }
 
-# cgb: extremely experimental
 installneptune()
 {
     #installmpi
     installx10
     installupc
     installnfs
-    installactivecloud
-    # remember to comment these out when releasing
-    #installdfsp
-    installcewssa
+    installdwssa
+    installstochkit
+    installkdt
 }
 
 postinstallneptune()
@@ -1257,9 +1145,9 @@ postinstallneptune()
     postinstallx10
     postinstallupc
     postinstallnfs
-    postinstallactivecloud
-    #postinstalldfsp
-    postinstallcewssa
+    postinstalldwssa
+    postinstallstochkit
+    postinstallkdt
 }
 
 installmpi()
@@ -1301,14 +1189,14 @@ postinstallmpi()
 installx10()
 {
     cd ${DESTDIR}/usr/local/
-    wget http://appscale.cs.ucsb.edu/appscale_files/x10-2.1.0-prebuilt.tar.gz || exit 1
-    tar zxvf x10-2.1.0-prebuilt.tar.gz || exit 1
-    cd x10/x10.dist
+    wget http://appscale.cs.ucsb.edu/appscale_files/x10-2.2.2.1-prebuilt.tar.gz || exit 1
+    tar zxvf x10-2.2.2.1-prebuilt.tar.gz || exit 1
+    #cd x10/x10.dist
     #ant dist -DX10RT_MPI=true # this will fail with a cvs message, but it actually gets
     # far enough to succeed
-    chmod +x bin/x10c++ bin/x10c
+    chmod +x x10/x10.dist/bin/x10c++ x10/x10.dist/bin/x10c
     cd ${DESTDIR}/usr/local/
-    rm -v x10-2.1.0-prebuilt.tar.gz
+    rm -v x10-2.2.2.1-prebuilt.tar.gz
 }
 
 postinstallx10()
@@ -1318,14 +1206,11 @@ postinstallx10()
 
 installupc()
 {
+    # Fetch pre-built UPC and untar it - saves a lot of time
     cd ${DESTDIR}/usr/local/
-    wget http://kings.cs.ucsb.edu/appscale_files/berkeley_upc-2.12.1.tar.gz || exit 1
-    tar zxvf berkeley_upc-2.12.1.tar.gz
-    cd berkeley_upc-2.12.1
-    ./configure MPI_CC='/usr/bin/mpicc  -O0 -UNDEBUG'
-    make
-    cd ${DESTDIR}/usr/local/
-    rm -v berkeley_upc-2.12.1.tar.gz
+    wget http://appscale.cs.ucsb.edu/appscale_files/berkeley_upc-2.12.1-prebuilt.tar.gz || exit 1
+    tar zxvf berkeley_upc-2.12.1-prebuilt.tar.gz
+    rm -v berkeley_upc-2.12.1-prebuilt.tar.gz
 }
 
 postinstallupc()
@@ -1350,30 +1235,68 @@ postinstallnfs()
     fi
 }
 
-installdfsp()
+installstochkit()
 {
-# this should be in control.core
-#    apt-get install -y gsl-bin libgsl0-dev libgsl0ldbl
-    mkdir -pv ${DESTDIR}/usr/local
-    cd ${DESTDIR}/usr/local
-    rm -v dfsp-0.1-tar.gz
+    cd ${DESTDIR}/usr/local/
+    wget http://appscale.cs.ucsb.edu/appscale_files/StochKit2.0.tgz -O StochKit2.0.tgz || exit 1
+    tar zxvf StochKit2.0.tgz
+    cd StochKit2.0
+    ./install.sh
+    cd ${DESTDIR}/usr/local/
+    rm -fv StochKit2.0.tgz
 }
 
-postinstalldfsp()
+postinstallstochkit()
 {
-    mkdir -pv /usr/local/dfsp/output
+    :;
 }
 
-installcewssa()
+installkdt()
 {
-    wget http://kings.cs.ucsb.edu/appscale_files/cewSSA_0.5-1.tar.gz
+    cd ${DESTDIR}/usr/local/
+    wget http://appscale.cs.ucsb.edu/appscale_files/kdt-0.2-beta2.tar.gz || exit 1	
+    tar zxvf kdt-0.2-beta2.tar.gz
+    cd kdt-0.2
+    export CC=mpicxx
+    export CXX=mpicxx
+    python setup.py build || exit 1
+    python setup.py install || exit 1
+    cd ${DESTDIR}/usr/local/
+    rm -fv kdt-0.2-beta2.tar.gz
+}
+
+postinstallkdt()
+{
+    :;
+}
+
+installsetuptools()
+{
+    mkdir -pv ${APPSCALE_HOME}/downloads
+    cd ${APPSCALE_HOME}/downloads
+    wget http://appscale.cs.ucsb.edu/appscale_files/setuptools-0.6c11.tar.gz || exit 1
+    tar zxvf setuptools-0.6c11.tar.gz
+    pushd setuptools-0.6c11
+    python setup.py install  || exit 1
+    popd
+    rm -fdr  setuptools-0.6c11*
+}
+
+postinstallsetuptools()
+{
+    :;
+}
+
+installdwssa()
+{
+    wget http://appscale.cs.ucsb.edu/appscale_files/cewSSA_0.5-1.tar.gz || exit 1
     R CMD INSTALL cewSSA_0.5-1.tar.gz
     rm cewSSA_0.5-1.tar.gz
 }
 
-postinstallcewssa()
+postinstalldwssa()
 {
-    mkdir -p /usr/local/cewssa/data
+    :;
 }
 
 installactivecloud()
@@ -1403,4 +1326,25 @@ postinstallsimpledb()
 {
     mkdir -p ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}
     touch ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}/simpledb
+}
+
+installrabbitmq()
+{
+   # RabbitMQ is installed via apt-get
+   # Install the python client for rabbitmq
+   mkdir -pv ${APPSCALE_HOME}/downloads
+   cd ${APPSCALE_HOME}/downloads
+   wget http://appscale.cs.ucsb.edu/appscale_files/pika-0.9.5.tar.gz || exit 1
+   tar zxvf pika-0.9.5.tar.gz
+   cd pika-0.9.5
+   python2.5 setup.py install
+   cd ..
+   rm -fr pika-0.9.5*
+}
+postinstallrabbitmq()
+{
+    # After install it starts up, shut it down
+    rabbitmqctl stop
+    update-rc.d -f rabbitmq remove || true
+    update-rc.d -f rabbitmq-server remove || true
 }

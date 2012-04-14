@@ -1,37 +1,37 @@
 set :source_machine, "APPSCALE-MASTER"
 set :install_dir,  "/opt/hypertable"
-set :hypertable_version, "0.9.4.3"
+set :hypertable_version, "0.9.5.5"
+set :default_pkg, "/tmp/hypertable-0.9.5.5-linux-x86_64.deb"
 set :default_dfs, "hadoop"
 set :default_config, "#{install_dir}/#{hypertable_version}/conf/hypertable.cfg"
-set :default_additional_args, ""
-set :default_client_multiplier, 1
-set :default_test_driver, "hypertable"
-set :default_test_args, ""
 
 role :source, "APPSCALE-MASTER" 
 role :master, "APPSCALE-MASTER" 
 role :hyperspace, "APPSCALE-MASTER"
 role :slave, "APPSCALE-SLAVES"
-            
 role :localhost, "APPSCALE-MASTER"
-role :thriftbroker, "APPSCALE-SLAVES" 
+role :thriftbroker
 role :spare
-#role :test_client, "test001", "test002", "test003", "test004"
-#role :test_dispatcher, "test000"
+role :test_client
+role :test_dispatcher
 
 ######################### END OF USER CONFIGURATION ############################
+set :prompt_stop, 0
+set :prompt_clean, 0
 
-def install_machines
-  (roles[:master].servers | \
-   roles[:hyperspace].servers | \
-   roles[:slave].servers | \
-   roles[:thriftbroker].servers | \
-   roles[:spare].servers | \
-   roles[:test_client].servers | \
-   roles[:test_dispatcher].servers) - roles[:source].servers
+#ssh_options[:forward_agent] = true
+
+def supported_pkgs
+  {"bz2"=>1, "deb"=>1, "rpm"=>1}
 end
 
-role(:install) { install_machines }
+def pkg_regex
+  '.*\.(bz2|deb|rpm)$'
+end
+
+set(:pkg) do
+  "#{default_pkg}"
+end unless exists?(:pkg)
 
 set(:dfs) do
   "#{default_dfs}"
@@ -41,35 +41,44 @@ set(:config) do
   "#{default_config}"
 end unless exists?(:config)
 
-set(:additional_args) do
-  "#{default_additional_args}"
-end unless exists?(:additional_args)
-
-set(:test_driver) do
-  "#{default_test_driver}"
-end unless exists?(:test_driver)
-
-set(:test_args) do
-  "#{default_test_args}"
-end unless exists?(:test_args)
-
-set(:client_multiplier) do
-  "#{default_client_multiplier}".to_i
-end unless exists?(:client_multiplier)
-
 set :config_file, "#{config}".split('/')[-1]
 set :config_option, \
     "--config=#{install_dir}/#{hypertable_version}/conf/#{config_file}"
+
+set(:thriftbroker_args) do
+  ""
+end unless exists?(:thriftbroker_args)
 
  desc <<-DESC
     Copies config file to installation on localhost.
     This task runs on localhost and copies the config file specified \
     by the variable 'config' (default=#{config}) \
     to the installation directory specified by the variable 'install_dir' \
-    (default=#{install_dir})
+    (default-#{install_dir})
  DESC
-task :copy_config, :roles => :localhost do
-  run("rsync #{config} #{install_dir}/#{hypertable_version}/conf/")
+task :copy_config_local, :roles => :localhost do
+  run("rsync -e \"ssh -o StrictHostKeyChecking=no\" #{config} #{install_dir}/#{hypertable_version}/conf")
+end
+ 
+ desc <<-DESC
+    Copies config file to installation on all servers in cluster.
+    This task copies the dir\
+    #{source_machine}:#{install_dir}/{#hypertable_version}/conf
+    to all machines in the cluster    
+ DESC
+task :push_config_all do
+   run <<-CMD
+     rsync -av -e "ssh -o StrictHostKeyChecking=no" --exclude=log --exclude=run --exclude=demo --exclude=fs --exclude=hyperspace #{source_machine}:#{install_dir}/#{hypertable_version}/conf/ #{install_dir}/#{hypertable_version}/conf 
+  CMD
+end
+
+ desc <<-DESC
+    Copies config file to installation dir on localhost.\ 
+    Then copies entire conf fir to all servers in cluster.
+ DESC
+task :push_config do
+  copy_config_local
+  push_config_all 
 end
 
  desc <<-DESC
@@ -78,10 +87,10 @@ end
     installation machine specified by the variable 'source_machine' \
     (default=#{source_machine})
  DESC
-task :rsync, :roles => :install do
+task :rsync do
   run <<-CMD
-     rsync -av --exclude=log --exclude=run --exclude=demo --exclude=fs --exclude=hyperspace/ #{source_machine}:#{install_dir}/#{hypertable_version} #{install_dir} &&
-     rsync -av --exclude=log --exclude=run --exclude=demo --exclude=fs --exclude=hyperspace/ #{source_machine}:#{install_dir}/#{hypertable_version}/conf/ #{install_dir}/#{hypertable_version}/conf
+     rsync -av -e "ssh -o StrictHostKeyChecking=no" --exclude=log --exclude=run --exclude=demo --exclude=fs --exclude=conf --exclude=hyperspace #{source_machine}:#{install_dir}/#{hypertable_version} #{install_dir} &&
+     rsync -av -e "ssh -o StrictHostKeyChecking=no" --exclude=log --exclude=run --exclude=demo --exclude=fs --exclude=hyperspace #{source_machine}:#{install_dir}/#{hypertable_version}/conf/ #{install_dir}/#{hypertable_version}/conf 
   CMD
 end
 
@@ -90,7 +99,7 @@ end
     to point to the directory of the current version
     (default=#{hypertable_version})
  DESC
-task :set_current, :roles => [:install, :source] do
+task :set_current, :roles => [:master, :hyperspace, :slave, :thriftbroker, :spare] do
   run <<-CMD
    cd #{install_dir} &&
    rm -f current &&
@@ -99,85 +108,100 @@ task :set_current, :roles => [:install, :source] do
 end
 
  desc <<-DESC
-    Distributes installation.  This task copiles the config file and \
-    then rsyncs the installation to each machine in the cluster
+   Distributes installation.  This task rsyncs everything under\
+   #{source_machine}:#{install_dir}/#{hypertable_version} to #{install_dir}\
+   on all machines in the cluster
  DESC
 task :dist do
   transaction do
-    copy_config
     rsync
   end
 end
 
  desc <<-DESC
-    Distributes and fhsizes the installation, then copies
-    config and rsyncs
+   Alias for install_package command 
  DESC
-task :fhsize do
-  transaction do
-    rsync
-    fhsize_install
-    copy_config
-    rsync
-  end
+task :install_pkg do
+  install_package
 end
 
+ desc <<-DESC
+    rsyncs binary packages and installs on each machine in the cluster
+ DESC
+task :install_package, :roles => [:master, :hyperspace, :slave, :thriftbroker, :spare] do
+  pkg_basename = File.basename(pkg)
+  pkg_basename =~ /#{pkg_regex}/
+  pkg_type = $1
+  
+  if (!supported_pkgs.has_key?(pkg_type))
+    raise "Package file #{pkg} is of unsupported type. Expected one of #{supported_pkgs.keys.inspect}"
+  end
+  if (/-#{hypertable_version}-/ =~ pkg_basename).nil?
+    raise "Package #{pkg} doesn't match version #{hypertable_version}"
+  end
+
+  run("rsync -e \"ssh -o StrictHostKeyChecking=no\" #{source_machine}:#{pkg} #{install_dir}/")
+   
+  if (pkg_type == "deb")
+    run("dpkg -i #{install_dir}/#{pkg_basename} && rm #{install_dir}/#{pkg_basename}") 
+  elsif (pkg_type == "rpm")
+    run("rpm -ivh --replacepkgs --nomd5 #{install_dir}/#{pkg_basename} && rm #{install_dir}/#{pkg_basename}")
+  else
+    ext_index = pkg_basename.index(".tar.bz2")
+    if ext_index.nil?
+      raise "Package #{pkg} is not a .tar.bz2 archive"
+    end
+    dir_basename = pkg_basename[0..ext_index-1]
+    run("tar -xjv -f #{install_dir}/#{pkg_basename} -C #{install_dir}")
+    run("mv #{install_dir}/#{dir_basename}/opt/hypertable/#{hypertable_version} #{install_dir}");
+    run("/bin/rm -rf #{install_dir}/#{dir_basename}");
+  end
+end
 
  desc <<-DESC
     fhsize's the installations
  DESC
-task :fhsize_install, :roles => [:install, :source] do
-  run <<-CMD
-     #{install_dir}/#{hypertable_version}/bin/fhsize.sh
-  CMD
-end
-
-desc "Verify that upgrade is OK."
-task :qualify_upgrade, :roles => :source do
-  run <<-CMD
-     #{install_dir}/#{hypertable_version}/bin/upgrade-ok.sh #{install_dir}/current #{hypertable_version}
-  CMD
+task :fhsize do
+  transaction do 
+    run <<-CMD
+      #{install_dir}/#{hypertable_version}/bin/fhsize.sh
+    CMD
+  end
 end
 
  desc <<-DESC
-    Upgrades installation.  Stops servers, copies config, rsyncs
-    the installation, then copies hyperspace and the rangeserver
+    Upgrades installation.  Checks upgrade, fhsizes if needed 
+    then copies hyperspace and the rangeserver
     state in the run/ directory to new installation
  DESC
-task :upgrade do
+task :upgrade do 
   transaction do
     qualify_upgrade
-    stop
-    copy_config
-    rsync
-    upgrade_hyperspace
-    upgrade_rangeservers
+    upgrade_all
     set_current
   end
 end
 
  desc <<-DESC
-    Upgrades (copies) the Hyperspace database from the current
-    installation to the new installation specified by the
-    hypertable_version (#{hypertable_version})
+   Verify that upgrade is OK.
  DESC
-task :upgrade_hyperspace, :roles => :hyperspace do
+task :qualify_upgrade, :roles => :source do
   run <<-CMD
-    cp -dpR #{install_dir}/current/hyperspace \
-       #{install_dir}/#{hypertable_version}
+    #{install_dir}/#{hypertable_version}/bin/upgrade-ok.sh \
+        #{install_dir}/current #{hypertable_version}
   CMD
 end
 
  desc <<-DESC
-    Upgrades (copies) the RangeServers by copying the contents
-    of the run directory from the current installation to
+    Upgrades (copies or uses previous symlink) for "hyperspace", "conf", "run", "log" 
+    and "fs" dirs from the current installation to
     installation specified by the hypertable_version
     (#{hypertable_version})
- DESC
-task :upgrade_rangeservers, :roles => :slave do
+DESC
+task :upgrade_all, :roles => [:master, :hyperspace, :slave, :thriftbroker, :spare] do
   run <<-CMD
-    cp -dpR #{install_dir}/current/run \
-       #{install_dir}/#{hypertable_version}
+    #{install_dir}/#{hypertable_version}/bin/upgrade.sh \
+        #{install_dir}/current #{hypertable_version}
   CMD
 end
 
@@ -187,6 +211,7 @@ task :start do
     start_hyperspace
     start_master
     start_slaves
+    start_master_thriftbroker
   end
 end
 
@@ -208,6 +233,19 @@ task :start_master, :roles => :master do
   CMD
 end
 
+desc "Starts monitoring server."
+task :start_monitoring, :roles => :master do
+  #{install_dir}/current/bin/start-monitoring.sh
+end
+
+desc "Starts ThriftBroker on master."
+task :start_master_thriftbroker, :roles => :master do
+  run <<-CMD
+   #{install_dir}/current/bin/start-thriftbroker.sh \
+      #{config_option} #{thriftbroker_args}
+  CMD
+end
+
 desc "Starts slave processes."
 task :start_slaves, :roles => :slave do
   run <<-CMD
@@ -217,7 +255,7 @@ task :start_slaves, :roles => :slave do
    #{install_dir}/current/bin/start-rangeserver.sh \
       #{config_option} &&
    #{install_dir}/current/bin/start-thriftbroker.sh \
-      #{config_option}
+      #{config_option} #{thriftbroker_args}
   CMD
 end
 
@@ -228,7 +266,7 @@ task :start_thriftbrokers, :roles => :thriftbroker do
    #{install_dir}/current/bin/start-dfsbroker.sh #{dfs} \
       #{config_option} &&
    #{install_dir}/current/bin/start-thriftbroker.sh \
-      #{config_option}
+      #{config_option} #{thriftbroker_args}
   CMD
 end
 
@@ -241,26 +279,46 @@ end
 
 desc "Stops all servers."
 task :stop do
-  transaction do
-    stop_slaves
-    stop_master
-    stop_hyperspace
+   
+  if (prompt_stop == 1)
+    puts "This will STOP ALL SERVERS in the Hypertable instance with MASTER='#{roles[:master].first}'. Proceed? ('yes' to proceed)"
+    value = STDIN.gets.chomp rescue nil
+    exit unless value == "yes"
   end
+ 
+  transaction do
+    stop_master
+    stop_slaves
+    stop_hyperspace
+    stop_dfsbrokers
+  end
+end
+
+desc "Stops DFS brokers."
+task :stop_dfsbrokers, :roles => [:master, :slave] do
+  run <<-CMD
+  #{install_dir}/current/bin/stop-servers.sh
+  CMD
 end
 
 desc "Stops slave processes."
 task :stop_slaves, :roles => :slave do
   run <<-CMD
-  #{install_dir}/current/bin/stop-servers.sh --no-hyperspace --no-master #{additional_args}
+  #{install_dir}/current/bin/stop-servers.sh --no-hyperspace --no-master --no-dfsbroker
   CMD
 end
 
 desc "Stops master processes."
 task :stop_master, :roles => :master do
   run <<-CMD
-  #{install_dir}/current/bin/stop-servers.sh --no-hyperspace --no-rangeserver #{additional_args} &&
+  #{install_dir}/current/bin/stop-servers.sh --no-hyperspace --no-rangeserver --no-dfsbroker &&
   #{install_dir}/current/bin/stop-monitoring.sh
   CMD
+end
+
+desc "Stops monitoring server."
+task :stop_monitoring, :roles => :master do
+  #{install_dir}/current/bin/stop-monitoring.sh
 end
 
 desc "Stops hyperspace processes."
@@ -277,8 +335,15 @@ task :stop_thriftbrokers, :roles => :thriftbroker do
   CMD
 end
 
-desc "Cleans hyperspace & rangeservers, removing all tables."
+desc "Destroys the database, removing all tables."
 task :cleandb do
+  
+  if prompt_clean == 1
+    puts "This will DELETE ALL DATA stored in the Hypertable instance with MASTER='#{roles[:master].first}'. ARE YOU SURE you want to proceed? ('Yes' to proceed)"
+    value = STDIN.gets.chomp rescue nil
+    exit unless value == "Yes"
+  end
+
   transaction do
     clean_master
     clean_hyperspace
@@ -291,7 +356,8 @@ task :clean_master, :roles => :master do
   run <<-CMD
    #{install_dir}/current/bin/start-dfsbroker.sh #{dfs} \
       #{config_option} && \
-   #{install_dir}/current/bin/clean-database.sh #{config_option} ;
+   #{install_dir}/current/bin/clean-database.sh #{config_option} && \ 
+   #{install_dir}/current/bin/stop-monitoring.sh ;
   CMD
 end
 
@@ -360,56 +426,3 @@ task :rangeserver_dump, :roles => [:slave] do
    echo "dump NOKEYS '#{dumpfile}';" | #{install_dir}/current/bin/ht ht_rsclient --batch #{config_option}
   CMD
 end
-
-
-if "#{test_driver}" == "hypertable"
-  set :thrift_broker_command, "#{install_dir}/current/bin/start-thriftbroker.sh #{config_option}"
-  set :start_test_client_command, "#{install_dir}/current/bin/start-test-client.sh --count #{client_multiplier} #{roles[:test_dispatcher].servers[0]}"
-  set :run_test_dispatcher_command, "#{install_dir}/current/bin/jrun --pidfile #{install_dir}/#{hypertable_version}/run/Hypertable.TestDispatcher.pid org.hypertable.examples.PerformanceTest.Dispatcher --driver=#{test_driver} --clients=#{roles[:test_client].servers.length*client_multiplier} #{test_args}"
-  set :stop_test_args, ""
-elsif "#{test_driver}" == "hbase"
-  set :thrift_broker_command, "echo -n"
-  set :start_test_client_command, "#{install_dir}/current/bin/start-test-client.sh --jrun-opts \"--add-to-classpath #{hbase_home}/conf\" --count #{client_multiplier} #{roles[:test_dispatcher].servers[0]}"
-  set :run_test_dispatcher_command, "#{install_dir}/current/bin/jrun --pidfile #{install_dir}/#{hypertable_version}/run/Hypertable.TestDispatcher.pid --add-to-classpath #{hbase_home}/conf org.hypertable.examples.PerformanceTest.Dispatcher --driver=#{test_driver} --clients=#{roles[:test_client].servers.length*client_multiplier} #{test_args}"
-  set :stop_test_args, "--no-thriftbroker --no-dfsbroker"
-else
-  set :thrift_broker_command, "echo Invalid test driver - #{test_driver}"
-  set :start_test_client_command, "echo Invalid test driver - #{test_driver}"
-  set :run_test_dispatcher_command, "echo Invalid test driver - #{test_driver}"
-  set :stop_test_args, "--no-thriftbroker --no-dfsbroker"
-end
-
-desc "Starts test clients."
-task :start_test_clients, :roles => :test_client do
-  run <<-CMD
-   #{install_dir}/current/bin/random-wait.sh 5 &&
-   #{thrift_broker_command} &&
-   #{start_test_client_command}
-  CMD
-end
-
-desc "Run test dispatcher."
-task :run_test_dispatcher, :roles => :test_dispatcher do
-  run <<-CMD
-   #{thrift_broker_command} &&
-   #{run_test_dispatcher_command}
-  CMD
-end
-
-desc "Stops test."
-task :stop_test, :roles => [:test_client, :test_dispatcher] do
-  run <<-CMD
-  #{install_dir}/current/bin/stop-servers.sh --no-hyperspace --no-master --no-rangeserver #{stop_test_args}
-  CMD
-end
-
-desc "Run test"
-task :run_test do
-  transaction do
-    stop_test
-    start_test_clients
-    run_test_dispatcher
-  end
-end
-
-

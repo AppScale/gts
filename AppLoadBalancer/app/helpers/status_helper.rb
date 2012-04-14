@@ -1,4 +1,7 @@
+require 'json'
 require 'usertools'
+
+SERVICE_NAMES = %w{ blobstore datastore datastore_write images memcache taskqueue urlfetch users xmpp mapreduce ec2 neptune}
 
 module StatusHelper
   include ApplicationHelper
@@ -26,27 +29,21 @@ module StatusHelper
     
     servers = []
     status_files.each { |filename|
-      #cached_server = CACHE.get("status-#{filename}")
-      cached_server = nil
-      if cached_server.nil?
-        contents = (File.open(filename) { |f| f.read }).chomp
-        server = {}
-        server[:ip] = filename.scan(/status-(.*)\.log/).flatten.to_s
-        server[:cpu] = contents.scan(/(\d+\.\d+) Percent CPU/).flatten.to_s
-        server[:memory] = contents.scan(/(\d+\.\d+) Percent Memory/).flatten.to_s
-        server[:disk] = contents.scan(/Hard disk is (\d+) Percent full/).flatten.to_s
-        server[:vms_up] = contents.scan(/\d+\.\d+\.\d+\.\d+/).uniq.join(",")
-        server[:cloud] = contents.scan(/Is in cloud:(.*)/).flatten.to_s
-        server[:roles] = contents.scan(/Is currently: (.*)/).flatten.to_s
+      raw_contents = (File.open(filename) { |f| f.read })
+      server = {}
 
-        #CACHE.set("status-#{filename}", server.to_a.join("|||"), 10)
-      else
-        server = Hash[*cached_server.split("|||")]
-        # TODO: find a better way to do this - converting hash -> array -> string
-        # and back causes us to lose the symbols
-        server.each_pair { |k, v|
-          server[k.to_sym] = v
+      begin
+        JSON.load(raw_contents).each { |k, v|
+          key = k.to_sym
+          if v.class == String
+            server[key] = v
+          elsif v.class == Array
+            server[key] = v.join(', ')
+          else
+            server[key] = "#{v}"
+          end
         }
+      rescue Exception => e
       end
 
       servers << server
@@ -56,20 +53,18 @@ module StatusHelper
   end
 
   def get_database_information
-    table = CACHE.get("database")
-    replication = CACHE.get("replication")
-
-    if table.nil? or replication.nil?    
-      db_info_path = "#{APPSCALE_HOME}/.appscale/database_info.yaml"    
-      tree = YAML.load_file(db_info_path)
-      table = tree[:table]
-      replication = tree[:replication]
-
-      CACHE.set("database", table, 60)
-      CACHE.set("replication", replication, 60)
-    end
-
+    db_info_path = "/etc/appscale/database_info.yaml"    
+    tree = YAML.load_file(db_info_path)
+    table = tree[:table]
+    replication = tree[:replication]
     { :database => table, :replication => replication }
   end
 
+  def get_service_info
+    health_info = "/etc/appscale/health.json"
+    return {} unless File.exists?(health_info)
+
+    contents = (File.open(health_info) { |f| f.read }).chomp
+    return JSON.load(contents)
+  end
 end

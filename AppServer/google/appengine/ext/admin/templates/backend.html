@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ application_name }} Development Console - Backend Control{% endblock %}
+
+{% block head %}
+  <style type="text/css">{% include "css/queues.css" %}</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+  <span class="item"><a href="">Backends</a></span>
+{% endblock %}
+
+{% block body %}
+<h3>Instances of backend {{ backend_name|escape }}</h3>
+
+<table id="ah-backend-instances" class="ae-table ae-table-striped">
+  <thead>
+    <tr>
+      <th>Instance ID</th>
+      <th>Local Address</th>
+      <th>State</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for instance in instances %}
+      <tr class="{% cycle ae-odd,ae-even %}">
+        <td valign="top">
+          {{ instance.id|escape }}</a>
+        </td>
+        <td valign="top">
+          <a href="http://{{ instance.address|escape }}/"
+             >{{ instance.address|escape }}</a>
+        </td>
+        <td valign="top">
+          {{ instance.state|escape }}
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+
+{% endblock %}
+

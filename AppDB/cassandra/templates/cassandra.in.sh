@@ -49,6 +49,7 @@ JVM_OPTS=" \
         -XX:+HeapDumpOnOutOfMemoryError \
         -XX:SurvivorRatio=128 \
         -XX:MaxTenuringThreshold=0 \
+        -Dcom.sun.management.jmxremote.port=APPSCALE-JMX-PORT \
         -Dcom.sun.management.jmxremote.port=6666 \
         -Dcom.sun.management.jmxremote.ssl=false \
         -Dcom.sun.management.jmxremote.authenticate=false"

@@ -48,7 +48,7 @@ MAX_REQUEST_SIZE = 32 << 20
 class CacheEntry(object):
   """An entry in the cache."""
 
-  def __init__(self, value, expiration, flags, gettime):
+  def __init__(self, value, expiration, flags, cas_id, gettime):
     """Initializer.
 
     Args:
@@ -56,6 +56,7 @@ class CacheEntry(object):
       expiration: Number containing the expiration time or offset in seconds
         for this entry.
       flags: Opaque flags used by the memcache implementation.
+      cas_id: Unique Compare-And-Swap ID.
       gettime: Used for testing. Function that works like time.time().
     """
     assert isinstance(value, basestring)
@@ -65,6 +66,7 @@ class CacheEntry(object):
     self._gettime = gettime
     self.value = value
     self.flags = flags
+    self.cas_id = cas_id
     self.created_time = self._gettime()
     self.will_expire = expiration != 0
     self.locked = False
@@ -121,6 +123,7 @@ class MemcacheServiceStub(apiproxy_stub.APIProxyStub):
     """
     super(MemcacheServiceStub, self).__init__(service_name,
                                               max_request_size=MAX_REQUEST_SIZE)
+    self._next_cas_id = 1
     self._gettime = lambda: int(gettime())
     self._ResetStats()
 
@@ -181,6 +184,8 @@ class MemcacheServiceStub(apiproxy_stub.APIProxyStub):
       item.set_key(key)
       item.set_value(entry.value)
       item.set_flags(entry.flags)
+      if request.for_cas():
+        item.set_cas_id(entry.cas_id)
 
   def _Dynamic_Set(self, request, response):
     """Implementation of MemcacheService::Set().
@@ -204,13 +209,26 @@ class MemcacheServiceStub(apiproxy_stub.APIProxyStub):
         if (old_entry is None or
             set_policy == MemcacheSetRequest.SET
             or not old_entry.CheckLocked()):
-          if namespace not in self._the_cache:
-            self._the_cache[namespace] = {}
-          self._the_cache[namespace][key] = CacheEntry(item.value(),
-                                                       item.expiration_time(),
-                                                       item.flags(),
-                                                       gettime=self._gettime)
           set_status = MemcacheSetResponse.STORED
+
+      elif (set_policy == MemcacheSetRequest.CAS and item.for_cas() and
+            item.has_cas_id()):
+        if old_entry is None or old_entry.CheckLocked():
+          set_status = MemcacheSetResponse.NOT_STORED
+        elif old_entry.cas_id != item.cas_id():
+          set_status = MemcacheSetResponse.EXISTS
+        else:
+          set_status = MemcacheSetResponse.STORED
+
+      if set_status == MemcacheSetResponse.STORED:
+        if namespace not in self._the_cache:
+          self._the_cache[namespace] = {}
+        self._the_cache[namespace][key] = CacheEntry(item.value(),
+                                                     item.expiration_time(),
+                                                     item.flags(),
+                                                     self._next_cas_id,
+                                                     gettime=self._gettime)
+        self._next_cas_id += 1
 
       response.add_set_status(set_status)
 
@@ -255,10 +273,15 @@ class MemcacheServiceStub(apiproxy_stub.APIProxyStub):
         return None
       if namespace not in self._the_cache:
         self._the_cache[namespace] = {}
+      flags = 0
+      if request.has_initial_flags():
+        flags = request.initial_flags()
       self._the_cache[namespace][key] = CacheEntry(str(request.initial_value()),
                                                    expiration=0,
-                                                   flags=0,
+                                                   flags=flags,
+                                                   cas_id=self._next_cas_id,
                                                    gettime=self._gettime)
+      self._next_cas_id += 1
       entry = self._GetKey(namespace, key)
       assert entry is not None
 

@@ -40,6 +40,8 @@
 
             <ul id="menu">
               <li><a href="{{ datastore_path }}">Datastore Viewer</a></li>
+              <li><a href="{{ datastore_indexes }}">Datastore Indexes</a></li>
+              <li><a href="{{ datastore_stats_path }}">Datastore Stats</a></li>
               <li><a href="{{ interactive_path }}">Interactive Console</a></li>
               <li><a href="{{ memcache_path }}">Memcache Viewer</a></li>
               <li><a href="{{ queues_path }}">Task Queues</a></li>
@@ -48,6 +50,8 @@
               {% endif %}
               <li><a href="{{ xmpp_path }}">XMPP</a></li>
               <li><a href="{{ inboundmail_path }}">Inbound Mail</a></li>
+              <li><a href="{{ backends_path }}">Backends</a></li>
+              <li><a href="{{ search_path }}">Text Search</a></li>
             </ul>
 
           </div>
@@ -83,7 +87,7 @@
 
     function isCurrentLink(e) {
       if (e.tagName != "A") return false;
-      re = new RegExp("^" + e.href + ".*(\\?.*)?$");
+      re = new RegExp("^" + e.href + "(/.*)?(\\?.*)?$");
       return re.test(window.location.href);
     }
 

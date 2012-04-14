@@ -84,6 +84,20 @@ class GlobalStat(BaseStatistic):
   STORED_KIND_NAME = '__Stat_Total__'
 
 
+class NamespaceStat(BaseStatistic):
+  """An aggregate of all entities across an entire namespace.
+
+  This statistic has one instance per namespace.  The key_name is the
+  represented namespace. NamespaceStat entities will only be found
+  in the namespace "" (empty string). It contains the total
+  number of entities stored and the total number of bytes they take up.
+  """
+  STORED_KIND_NAME = '__Stat_Namespace__'
+
+
+  subject_namespace = db.StringProperty()
+
+
 class KindStat(BaseKindStatistic):
   """An aggregate of all entities at the granularity of their Kind.
 
@@ -163,3 +177,110 @@ class KindPropertyNamePropertyTypeStat(BaseKindStatistic):
 
 
   property_name = db.StringProperty()
+
+
+
+
+
+
+
+
+class NamespaceGlobalStat(GlobalStat):
+  """GlobalStat equivalent for a specific namespace.
+
+  These may be found in each specific namespace and represent stats for
+  that particular namespace.
+  """
+  STORED_KIND_NAME = '__Stat_Ns_Total__'
+
+
+class NamespaceKindStat(KindStat):
+  """KindStat equivalent for a specific namespace.
+
+  These may be found in each specific namespace and represent stats for
+  that particular namespace.
+  """
+  STORED_KIND_NAME = '__Stat_Ns_Kind__'
+
+
+class NamespaceKindRootEntityStat(KindRootEntityStat):
+  """KindRootEntityStat equivalent for a specific namespace.
+
+  These may be found in each specific namespace and represent stats for
+  that particular namespace.
+  """
+  STORED_KIND_NAME = '__Stat_Ns_Kind_IsRootEntity__'
+
+
+class NamespaceKindNonRootEntityStat(KindNonRootEntityStat):
+  """KindNonRootEntityStat equivalent for a specific namespace.
+
+  These may be found in each specific namespace and represent stats for
+  that particular namespace.
+  """
+  STORED_KIND_NAME = '__Stat_Ns_Kind_NotRootEntity__'
+
+
+class NamespacePropertyTypeStat(PropertyTypeStat):
+  """PropertyTypeStat equivalent for a specific namespace.
+
+  These may be found in each specific namespace and represent stats for
+  that particular namespace.
+  """
+  STORED_KIND_NAME = '__Stat_Ns_PropertyType__'
+
+
+class NamespaceKindPropertyTypeStat(KindPropertyTypeStat):
+  """KindPropertyTypeStat equivalent for a specific namespace.
+
+  These may be found in each specific namespace and represent stats for
+  that particular namespace.
+  """
+  STORED_KIND_NAME = '__Stat_Ns_PropertyType_Kind__'
+
+
+class NamespaceKindPropertyNameStat(KindPropertyNameStat):
+  """KindPropertyNameStat equivalent for a specific namespace.
+
+  These may be found in each specific namespace and represent stats for
+  that particular namespace.
+  """
+  STORED_KIND_NAME = '__Stat_Ns_PropertyName_Kind__'
+
+
+class NamespaceKindPropertyNamePropertyTypeStat(
+    KindPropertyNamePropertyTypeStat):
+  """KindPropertyNamePropertyTypeStat equivalent for a specific namespace.
+
+  These may be found in each specific namespace and represent stats for
+  that particular namespace.
+  """
+  STORED_KIND_NAME = '__Stat_Ns_PropertyType_PropertyName_Kind__'
+
+
+
+
+_DATASTORE_STATS_CLASSES_BY_KIND = {
+    GlobalStat.STORED_KIND_NAME: GlobalStat,
+    NamespaceStat.STORED_KIND_NAME: NamespaceStat,
+    KindStat.STORED_KIND_NAME: KindStat,
+    KindRootEntityStat.STORED_KIND_NAME: KindRootEntityStat,
+    KindNonRootEntityStat.STORED_KIND_NAME: KindNonRootEntityStat,
+    PropertyTypeStat.STORED_KIND_NAME: PropertyTypeStat,
+    KindPropertyTypeStat.STORED_KIND_NAME: KindPropertyTypeStat,
+    KindPropertyNameStat.STORED_KIND_NAME: KindPropertyNameStat,
+    KindPropertyNamePropertyTypeStat.STORED_KIND_NAME:
+        KindPropertyNamePropertyTypeStat,
+    NamespaceGlobalStat.STORED_KIND_NAME: NamespaceGlobalStat,
+    NamespaceKindStat.STORED_KIND_NAME: NamespaceKindStat,
+    NamespaceKindRootEntityStat.STORED_KIND_NAME: NamespaceKindRootEntityStat,
+    NamespaceKindNonRootEntityStat.STORED_KIND_NAME:
+        NamespaceKindNonRootEntityStat,
+    NamespacePropertyTypeStat.STORED_KIND_NAME: NamespacePropertyTypeStat,
+    NamespaceKindPropertyTypeStat.STORED_KIND_NAME:
+        NamespaceKindPropertyTypeStat,
+    NamespaceKindPropertyNameStat.STORED_KIND_NAME:
+        NamespaceKindPropertyNameStat,
+    NamespaceKindPropertyNamePropertyTypeStat.STORED_KIND_NAME:
+        NamespaceKindPropertyNamePropertyTypeStat}
+

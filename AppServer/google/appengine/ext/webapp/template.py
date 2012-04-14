@@ -51,12 +51,25 @@ http://www.djangoproject.com/documentation/templates/
 
 import logging
 import os
+import warnings
 
-from google.appengine.ext import webapp
-webapp._config_handle.django_setup()
+if os.environ.get('APPENGINE_RUNTIME') == 'python27':
+  import google.appengine._internal.django.template.loader
+  from google.appengine._internal import django
+  warnings.warn(
+      'google.appengine.ext.webapp.template is deprecated. Please use another '
+      'templating system such as django.template or jinja2.',
+      DeprecationWarning,
+      stacklevel=2)
+else:
+  from google.appengine.ext import webapp
+  webapp._config_handle.django_setup()
 
-import django.template
-import django.template.loader
+  import django.template
+  import django.template.loader
+
+
+template_cache = {}
 
 
 def render(template_path, template_dict, debug=False):
@@ -68,19 +81,16 @@ def render(template_path, template_dict, debug=False):
   Args:
     template_path: path to a Django template
     template_dict: dictionary of values to apply to the template
+
+  Returns:
+    The rendered template as a string.
   """
   t = load(template_path, debug)
   return t.render(Context(template_dict))
 
 
-template_cache = {}
-def load(path, debug=False):
-  """Loads the Django template from the given path.
-
-  It is better to use this function than to construct a Template using the
-  class below because Django requires you to load the template with a method
-  if you want imports and extends to work in the template.
-  """
+def _load_user_django(path, debug):
+  """Load the given template using the django found in third_party."""
   abspath = os.path.abspath(path)
 
   if not debug:
@@ -120,6 +130,59 @@ def load(path, debug=False):
     template.render = wrap_render
 
   return template
+
+
+def _load_internal_django(path, debug):
+  """Load the given template using the django found in apphosting._internal."""
+  import google.appengine._internal.django.conf
+  import google.appengine._internal.django.template.loader
+  from google.appengine._internal import django
+
+  abspath = os.path.abspath(path)
+
+  if not debug:
+    template = template_cache.get(abspath, None)
+  else:
+    template = None
+
+  if not template:
+    directory, file_name = os.path.split(abspath)
+    settings = dict(
+        TEMPLATE_LOADERS=(
+            'google.appengine._internal.'
+            'django.template.loaders.filesystem.load_template_source',
+        ),
+        TEMPLATE_DIRS=(directory,),
+        TEMPLATE_DEBUG=debug,
+        DEBUG=debug)
+
+    django.conf.settings.configure(**settings)
+    template = django.template.loader.get_template(file_name)
+
+    if not debug:
+      template_cache[abspath] = template
+
+    def wrap_render(context, orig_render=template.render):
+
+
+      django.conf.settings.configure(**settings)
+      return orig_render(context)
+    template.render = wrap_render
+
+  return template
+
+
+def load(path, debug=False):
+  """Loads the Django template from the given path.
+
+  It is better to use this function than to construct a Template using the
+  class below because Django requires you to load the template with a method
+  if you want imports and extends to work in the template.
+  """
+  if os.environ.get('APPENGINE_RUNTIME') == 'python27':
+    return _load_internal_django(path, debug)
+  else:
+    return _load_user_django(path, debug)
 
 
 def _swap_settings(new):

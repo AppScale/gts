@@ -38,7 +38,7 @@ class TestFileServiceStub(apiproxy_stub.APIProxyStub):
 
   def __init__(self):
     super(TestFileServiceStub, self).__init__('file')
-    self.file_content = {}
+    self._file_content = {}
 
   def _Dynamic_Open(self, request, response):
     pass
@@ -47,12 +47,18 @@ class TestFileServiceStub(apiproxy_stub.APIProxyStub):
     pass
 
   def _Dynamic_Append(self, request, response):
-    self.file_content[request.filename()] = (
+    self._file_content[request.filename()] = (
         self.get_content(request.filename()) + request.data())
 
   def _Dynamic_Read(self, request, response):
-    raise Exception()
+    content = self._file_content[request.filename()]
+    pos = request.pos()
+    response.set_data(content[pos:pos + request.max_bytes()])
 
   def get_content(self, filename):
     """Get current in-memory file content."""
-    return self.file_content.get(filename, '')
+    return self._file_content.get(filename, '')
+
+  def set_content(self, filename, content):
+    """Set current in-memory file content."""
+    self._file_content[filename] = content

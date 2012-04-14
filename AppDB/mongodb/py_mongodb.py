@@ -9,7 +9,7 @@ import pymongo
 from dbinterface import *
 import sqlalchemy.pool as pool
 import appscale_logger
-
+import time
 #Define some variables here
 ERROR_MONGO = "DB_ERROR:"
 DEBUG = False
@@ -18,7 +18,8 @@ class DatastoreProxy(AppDBInterface):
   def __init__(self, logger = appscale_logger.getLogger("datastore-mongodb")):
     self.logger = logger
     self.pool = pool.QueuePool(self.__create_connection)
-
+    self.table_cache = []
+    self.schema_cache = {}
   # "localhost", 27017
   def __create_connection(self):
     conn = pymongo.Connection()
@@ -33,6 +34,7 @@ class DatastoreProxy(AppDBInterface):
       conn.close()
 
   def put_entity(self, table_name, row_key, column_names, cell_values):
+    st = time.time()
     elist = [ERROR_MONGO]
     if (not row_key) or (not table_name):
       elist[0] += "Null row_key or table_name"
@@ -47,17 +49,17 @@ class DatastoreProxy(AppDBInterface):
     columns = self.get_schema(table_name)
       #print "from get schema:"
       #print columns
+    #print "Get schema",str(time.time() - st)
     if columns == [] or len(columns) == 1:
       self.create_table(table_name, column_names)
       columns = column_names
     else:
       columns = columns[1:]
+    #print "Get schema",str(time.time() - st)
 
     db = self.__init_connection()
     collection = db.appscale[table_name]
 
-    old_data = self.get_entity(table_name, row_key, columns)
-    old_data = old_data[1:]
     for ii in range(0, len(columns)):
       found = 0
       for pp in range (0,len(column_names)):
@@ -67,7 +69,11 @@ class DatastoreProxy(AppDBInterface):
           found = 1
           break
       if found == 0:
-          # add a new column
+        # if just updating a few columns, this gets called over and 
+        # over again, but in appscale this is uncommon if done through
+        # an application server
+        old_data = self.get_entity(table_name, row_key, columns)
+        old_data = old_data[1:]
         if not old_data: value = ""
         else: value = old_data[ii]
         collection.update({"column":columns[ii],"row":row_key},{"row":row_key, "column":columns[ii],"data":base64.b64encode(value),"__schema_info__":"0"},True,True)
@@ -96,6 +102,7 @@ class DatastoreProxy(AppDBInterface):
       collection.insert(myObject)
 
       self.__close_connection(db)
+      self.table_cache.append(table_name)
       return 1
 
   def delete_table(self, table_name):
@@ -115,6 +122,7 @@ class DatastoreProxy(AppDBInterface):
       collection = db.appscale[table_name]
       collection.remove({})
       db.appscale.drop_collection(table_name)
+      self.table_cache.delete(table_name)
       elist.append("0")
       self.__close_connection(db)
       return elist
@@ -178,6 +186,8 @@ class DatastoreProxy(AppDBInterface):
       if (not table_name):
           elist[0] += "Null table_name"
           return elist
+      if table_name in self.schema_cache:
+        return self.schema_cache[table_name]
 
       db = self.__init_connection()
       duplicate = 0
@@ -192,7 +202,9 @@ class DatastoreProxy(AppDBInterface):
           elist.append(str(ii))
 
       if(len(elist) == 1):
-          elist[0] += "table not found"
+        elist[0] += "table not found"
+      else:
+        self.schema_cache[table_name] = elist
 
       self.__close_connection(db)
       return elist
@@ -233,6 +245,8 @@ class DatastoreProxy(AppDBInterface):
       return elist
 
   def __table_exists(self, table):
+    if table in self.table_cache:
+      return True
     db = self.__init_connection()
     if table in db.appscale.collection_names():
       ret = True

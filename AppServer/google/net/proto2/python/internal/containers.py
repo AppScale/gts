@@ -224,6 +224,11 @@ class RepeatedCompositeFieldContainer(BaseContainer):
     """
     self.extend(other._values)
 
+  def remove(self, elem):
+    """Removes an item from the list. Similar to list.remove()."""
+    self._values.remove(elem)
+    self._message_listener.Modified()
+
   def __getslice__(self, start, stop):
     """Retrieves the subset of items from between the specified indices."""
     return self._values[start:stop]

@@ -581,11 +581,13 @@ class ThrottledHttpRpcServer(appengine_rpc.HttpRpcServer):
     return opener
 
 
-def ThrottledHttpRpcServerFactory(throttle):
+def ThrottledHttpRpcServerFactory(throttle, throttle_class=None):
   """Create a factory to produce ThrottledHttpRpcServer for a given throttle.
 
   Args:
     throttle: A Throttle instance to use for the ThrottledHttpRpcServer.
+    throttle_class: A class to use instead of the default
+      ThrottledHttpRpcServer.
 
   Returns:
     A factory to produce a ThrottledHttpRpcServer.
@@ -605,7 +607,10 @@ def ThrottledHttpRpcServerFactory(throttle):
     kwargs['account_type'] = 'HOSTED_OR_GOOGLE'
 
     kwargs['save_cookies'] = True
-    rpc_server = ThrottledHttpRpcServer(throttle, *args, **kwargs)
+    if throttle_class:
+      rpc_server = throttle_class(throttle, *args, **kwargs)
+    else:
+      rpc_server = ThrottledHttpRpcServer(throttle, *args, **kwargs)
     return rpc_server
   return MakeRpcServer
 

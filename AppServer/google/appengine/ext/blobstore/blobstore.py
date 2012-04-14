@@ -31,6 +31,7 @@ class representing a blob-key.
 
 
 
+import base64
 import cgi
 import email
 import os
@@ -43,6 +44,7 @@ from google.appengine.ext import db
 
 __all__ = ['BLOB_INFO_KIND',
            'BLOB_KEY_HEADER',
+           'BLOB_MIGRATION_KIND',
            'BLOB_RANGE_HEADER',
            'BlobFetchSizeTooLargeError',
            'BlobInfo',
@@ -52,13 +54,18 @@ __all__ = ['BLOB_INFO_KIND',
            'BlobReferenceProperty',
            'BlobReader',
            'DataIndexOutOfRangeError',
+           'PermissionDeniedError',
            'Error',
            'InternalError',
            'MAX_BLOB_FETCH_SIZE',
            'UPLOAD_INFO_CREATION_HEADER',
+           'create_rpc',
            'create_upload_url',
+           'create_upload_url_async',
            'delete',
+           'delete_async',
            'fetch_data',
+           'fetch_data_async',
            'get',
            'parse_blob_info']
 
@@ -68,10 +75,14 @@ BlobFetchSizeTooLargeError = blobstore.BlobFetchSizeTooLargeError
 BlobNotFoundError = blobstore.BlobNotFoundError
 _CreationFormatError = blobstore._CreationFormatError
 DataIndexOutOfRangeError = blobstore.DataIndexOutOfRangeError
+PermissionDeniedError = blobstore.PermissionDeniedError
 
 BlobKey = blobstore.BlobKey
+create_rpc = blobstore.create_rpc
 create_upload_url = blobstore.create_upload_url
+create_upload_url_async = blobstore.create_upload_url_async
 delete = blobstore.delete
+delete_async = blobstore.delete_async
 
 
 class BlobInfoParseError(Error):
@@ -79,6 +90,7 @@ class BlobInfoParseError(Error):
 
 
 BLOB_INFO_KIND = blobstore.BLOB_INFO_KIND
+BLOB_MIGRATION_KIND = blobstore.BLOB_MIGRATION_KIND
 BLOB_KEY_HEADER = blobstore.BLOB_KEY_HEADER
 BLOB_RANGE_HEADER = blobstore.BLOB_RANGE_HEADER
 MAX_BLOB_FETCH_SIZE = blobstore.MAX_BLOB_FETCH_SIZE
@@ -138,6 +150,7 @@ class BlobInfo(object):
     creation: Creation date of blob, when it was uploaded.
     filename: Filename user selected from their machine.
     size: Size of uncompressed blob.
+    md5_hash: The md5 hash value of the uploaded blob.
 
   All properties are read-only.  Attempting to assign a value to a property
   will raise NotImplementedError.
@@ -146,7 +159,8 @@ class BlobInfo(object):
   _unindexed_properties = frozenset()
 
 
-  _all_properties = frozenset(['content_type', 'creation', 'filename', 'size'])
+  _all_properties = frozenset(['content_type', 'creation', 'filename',
+                               'size', 'md5_hash'])
 
   @property
   def content_type(self):
@@ -183,7 +197,7 @@ class BlobInfo(object):
       self.__entity = _values
       self.__key = entity_or_blob_key
     else:
-      TypeError('Must provide Entity or BlobKey')
+      raise TypeError('Must provide Entity or BlobKey')
 
 
 
@@ -403,6 +417,8 @@ def parse_blob_info(field_storage):
   content_type = get_value(upload_content, 'content-type')
   size = get_value(upload_content, 'content-length')
   creation_string = get_value(upload_content, UPLOAD_INFO_CREATION_HEADER)
+  #md5_hash_encoded = get_value(upload_content, 'content-md5')
+  #md5_hash = base64.urlsafe_b64decode(md5_hash_encoded)
 
   try:
     size = int(size)
@@ -420,6 +436,7 @@ def parse_blob_info(field_storage):
                    'creation': creation,
                    'filename': filename,
                    'size': size,
+                   #'md5_hash': md5_hash,
                    })
 
 
@@ -474,7 +491,7 @@ class BlobReferenceProperty(db.Property):
     return super(BlobReferenceProperty, self).validate(value)
 
 
-def fetch_data(blob, start_index, end_index):
+def fetch_data(blob, start_index, end_index, rpc=None):
   """Fetch data for blob.
 
   Fetches a fragment of a blob up to MAX_BLOB_FETCH_SIZE in length.  Attempting
@@ -490,6 +507,7 @@ def fetch_data(blob, start_index, end_index):
     start_index: Start index of blob data to fetch.  May not be negative.
     end_index: End index (inclusive) of blob data to fetch.  Must be
       >= start_index.
+    rpc: Optional UserRPC object.
 
   Returns:
     str containing partial data of blob.  If the indexes are legal but outside
@@ -503,9 +521,44 @@ def fetch_data(blob, start_index, end_index):
       MAX_BLOB_FETCH_SIZE.
     BlobNotFoundError when blob does not exist.
   """
+  rpc = fetch_data_async(blob, start_index, end_index, rpc=rpc)
+  return rpc.get_result()
+
+
+def fetch_data_async(blob, start_index, end_index, rpc=None):
+  """Fetch data for blob -- async version.
+
+  Fetches a fragment of a blob up to MAX_BLOB_FETCH_SIZE in length.  Attempting
+  to fetch a fragment that extends beyond the boundaries of the blob will return
+  the amount of data from start_index until the end of the blob, which will be
+  a smaller size than requested.  Requesting a fragment which is entirely
+  outside the boundaries of the blob will return empty string.  Attempting
+  to fetch a negative index will raise an exception.
+
+  Args:
+    blob: BlobInfo, BlobKey, str or unicode representation of BlobKey of
+      blob to fetch data from.
+    start_index: Start index of blob data to fetch.  May not be negative.
+    end_index: End index (inclusive) of blob data to fetch.  Must be
+      >= start_index.
+    rpc: Optional UserRPC object.
+
+  Returns:
+    A UserRPC whose result will be a str as returned by fetch_data().
+
+  Raises:
+    TypeError if start_index or end_index are not indexes.  Also when blob
+      is not a string, BlobKey or BlobInfo.
+    The following exceptions may be raised when rpc.get_result() is
+    called:
+    DataIndexOutOfRangeError when start_index < 0 or end_index < start_index.
+    BlobFetchSizeTooLargeError when request blob fragment is larger than
+      MAX_BLOB_FETCH_SIZE.
+    BlobNotFoundError when blob does not exist.
+  """
   if isinstance(blob, BlobInfo):
     blob = blob.key()
-  return blobstore.fetch_data(blob, start_index, end_index)
+  return blobstore.fetch_data_async(blob, start_index, end_index, rpc=rpc)
 
 
 class BlobReader(object):

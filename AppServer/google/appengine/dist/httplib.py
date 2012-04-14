@@ -159,6 +159,12 @@ class HTTPConnection:
     self._body = ''
     self.headers = []
 
+
+
+    if not isinstance(timeout, (float, int, long)):
+      timeout = None
+    self.timeout = timeout
+
   def connect(self):
     pass
 
@@ -184,8 +190,10 @@ class HTTPConnection:
     line = '\r\n\t'.join([str(line) for line in lines])
     self.headers.append((header, line))
 
-  def endheaders(self):
-    pass
+  def endheaders(self, message_body=None):
+
+    if message_body is not None:
+      self.send(message_body)
 
   def set_debuglevel(self, level=None):
     pass
@@ -210,7 +218,8 @@ class HTTPConnection:
       raise ValueError("%r is an unrecognized HTTP method" % self._method)
 
     response = self._fetch(url, self._body, method, headers,
-                           self._allow_truncated, self._follow_redirects)
+                           self._allow_truncated, self._follow_redirects,
+                           deadline=self.timeout)
     return HTTPResponse(response)
 
   def close(self):

@@ -101,8 +101,11 @@ import django.utils.datastructures
 
 try:
   from django import newforms as forms
+  have_uploadedfile = False
 except ImportError:
   from django import forms
+  from django.core.files import uploadedfile
+  have_uploadedfile = True
 
 
 
@@ -294,6 +297,10 @@ class TextProperty(db.TextProperty):
 class BlobProperty(db.BlobProperty):
   __metaclass__ = monkey_patch
 
+  def __init__(self, *args, **kwargs):
+    super(BlobProperty, self).__init__(*args, **kwargs)
+    self.form_value = None
+
   def get_form_field(self, **kwargs):
     """Return a Django form field appropriate for a blob property.
 
@@ -321,10 +328,11 @@ class BlobProperty(db.BlobProperty):
     This extracts the content from the UploadedFile instance returned
     by the FileField instance.
     """
-
-
-    if value.__class__.__name__ == 'UploadedFile':
-      return db.Blob(value.content)
+    if have_uploadedfile and isinstance(value, uploadedfile.UploadedFile):
+      if not self.form_value:
+        self.form_value = value.read()
+      b = db.Blob(self.form_value)
+      return b
     return super(BlobProperty, self).make_value_from_form(value)
 
 
@@ -775,10 +783,21 @@ class ModelFormMetaclass(type):
       for name, field in model_fields.iteritems():
         prop = props.get(name)
         if prop:
-          def clean_for_property_field(value, prop=prop, old_clean=field.clean):
-            value = old_clean(value)
-            property_clean(prop, value)
-            return value
+
+
+
+          if hasattr(forms, 'FileField') and isinstance(field, forms.FileField):
+            def clean_for_property_field(value, initial, prop=prop,
+                                         old_clean=field.clean):
+              value = old_clean(value, initial)
+              property_clean(prop, value)
+              return value
+          else:
+            def clean_for_property_field(value, prop=prop,
+                                         old_clean=field.clean):
+              value = old_clean(value)
+              property_clean(prop, value)
+              return value
           field.clean = clean_for_property_field
     else:
       attrs['base_fields'] = declared_fields

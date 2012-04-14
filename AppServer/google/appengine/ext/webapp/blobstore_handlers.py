@@ -43,6 +43,7 @@ Public Exceptions (indentation indications class hierarchy):
 
 import cgi
 import cStringIO
+import os
 import re
 import sys
 
@@ -77,13 +78,67 @@ _BYTES_UNIT = 'bytes'
 class Error(Exception):
   """Base class for all errors in blobstore handlers module."""
 
-
-class RangeFormatError(webapp.Error):
-  """Raised when Range header incorrectly formatted."""
+if not hasattr(webapp, 'Error'):
+  class RangeFormatError(Error):
+    """Raised when Range header incorrectly formatted."""
+else:
+  class RangeFormatError(webapp.Error):
+    """Raised when Range header incorrectly formatted."""
 
 
 class UnsupportedRangeFormatError(RangeFormatError):
   """Raised when Range format is correct, but not supported."""
+
+
+def _serialize_range(start, end):
+  """Return a string suitable for use as a value in a RANGE header.
+
+  Args:
+    start: The start of the bytes range e.g. 50.
+    end: The end of the bytes range e.g. 100. This value is inclusive and may
+      be None if the end of the range is not specified.
+
+  Returns:
+    Returns a string (e.g. "bytes=50-100") that represents a serialized RANGE
+    header value.
+  """
+  if hasattr(byterange.Range, 'serialize_bytes'):
+    return byterange.Range.serialize_bytes(_BYTES_UNIT, [(start, end)])
+  else:
+    if end is not None:
+      end += 1
+    return str(byterange.Range([(start, end)]))
+
+
+def _parse_bytes(range_header):
+  """Returns a list of byte ranges given the value of a RANGE header."""
+
+
+
+
+
+
+  if not hasattr(byterange.Range, 'serialize_bytes'):
+    parse_result = byterange.Range.parse_bytes(range_header)
+    if parse_result is None:
+      return None
+
+    ranges = []
+    for start, end in parse_result[1]:
+      if end is not None:
+        end -= 1
+      ranges.append((start, end))
+    return parse_result[0], ranges
+  else:
+
+
+
+    original_stdout = sys.stdout
+    sys.stdout = cStringIO.StringIO()
+    try:
+      return byterange.Range.parse_bytes(range_header)
+    finally:
+      sys.stdout = original_stdout
 
 
 def _check_ranges(start, end, use_range_set, use_range, range_header):
@@ -119,7 +174,7 @@ def _check_ranges(start, end, use_range_set, use_range, range_header):
       if start > end:
         raise ValueError('start must be < end.')
 
-    range_indexes = byterange.Range.serialize_bytes(_BYTES_UNIT, [(start, end)])
+    range_indexes = _serialize_range(start, end)
 
 
   if use_range_set and use_range and use_indexes:
@@ -235,10 +290,12 @@ class BlobstoreDownloadHandler(webapp.RequestHandler):
   def get_range(self):
     """Get range from header if it exists.
 
+    A range header of "bytes: 0-100" would return (0, 100).
+
     Returns:
       Tuple (start, end):
         start: Start index.  None if there is None.
-        end: End index.  None if there is None.
+        end: End index (inclusive).  None if there is None.
       None if there is no request header.
 
     Raises:
@@ -251,15 +308,7 @@ class BlobstoreDownloadHandler(webapp.RequestHandler):
       return None
 
     try:
-
-
-
-      original_stdout = sys.stdout
-      sys.stdout = cStringIO.StringIO()
-      try:
-        parsed_range = byterange.Range.parse_bytes(range_header)
-      finally:
-        sys.stdout = original_stdout
+      parsed_range = _parse_bytes(range_header)
     except TypeError, err:
       raise RangeFormatError('Invalid range header: %s' % err)
     if parsed_range is None:
@@ -280,8 +329,8 @@ class BlobstoreDownloadHandler(webapp.RequestHandler):
 class BlobstoreUploadHandler(webapp.RequestHandler):
   """Base class for creation blob upload handlers."""
 
-  def __init__(self):
-    super(BlobstoreUploadHandler, self).__init__()
+  def __init__(self, *args, **kwargs):
+    super(BlobstoreUploadHandler, self).__init__(*args, **kwargs)
     self.__uploads = None
 
   def get_uploads(self, field_name=None):

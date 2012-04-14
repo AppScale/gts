@@ -1,8 +1,14 @@
 #!/usr/bin/ruby
 # Programmer: Chris Bunch
-# baz
 
+
+$:.unshift File.join(File.dirname(__FILE__), "..", "AppController")
 require 'djinn'
+
+
+$:.unshift File.join(File.dirname(__FILE__), "..", "AppController", "lib")
+require 'datastore_factory'
+
 
 MPD_HOSTS = "/tmp/mpd.hosts"
 MPI_OUTPUT = "/tmp/thempioutput"
@@ -14,6 +20,8 @@ def neptune_mpi_run_job(nodes, job_data, secret)
   Djinn.log_debug("mpi - run")
 
   Thread.new {
+    job_data['@metadata_info'] = {'received_job_at' => Time.now.to_i}
+
     keyname = @creds['keyname']
     nodes = Djinn.convert_location_array_to_class(nodes, keyname)
 
@@ -28,19 +36,24 @@ def neptune_mpi_run_job(nodes, job_data, secret)
     shadow_ip = shadow.private_ip
     shadow_key = shadow.ssh_key
 
-    Djinn.log_run("rm -fv /mirrornfs/thempicode #{MPI_OUTPUT}")
+    remote = job_data['@code']
+    splitted_code = remote.split('/')
+    remote_dir = splitted_code[0..splitted_code.length-2].join('/')
+    filename_to_exec = splitted_code[2..splitted_code.length-1].join('/')
+    Djinn.log_debug("remote dir is [#{remote_dir}], filename_to_exec is #{filename_to_exec}")
+
+    storage = job_data['@storage']
 
     unless my_node.is_shadow?
-      Djinn.log_run("rm -fv /tmp/thempicode")
-      copyFromShadow("/tmp/thempicode")
+      Djinn.log_run("rm -fv /tmp/#{filename_to_exec}")
     end
 
-    sleep(5)
-    Djinn.log_run("cp /tmp/thempicode /mirrornfs/")
-    sleep(5) # CGB
+    working_dir = "/mirrornfs/#{HelperFunctions.get_random_alphanumeric()}"
+    FileUtils.mkdir_p(working_dir)
+    Djinn.copy_code_and_inputs_to_dir(job_data, working_dir)
 
     start_mpd(nodes)
-    sleep(5) # CGB
+    sleep(5)
 
     if job_data["@procs_to_use"]
       num_of_procs = job_data["@procs_to_use"]
@@ -48,25 +61,55 @@ def neptune_mpi_run_job(nodes, job_data, secret)
       num_of_procs = nodes.length
     end
 
+    # Some job types (e.g., kdt) need to specify something a program to use
+    # to run the user's code (e.g., Python), so let them do so via the
+    # executable parameter.
+    if job_data["@executable"]
+      executable = job_data["@executable"]
+    else
+      executable = ""
+    end
+
+    # If the user specifies an argv to pass to the code to exec, be sure to
+    # capture it and pass it along
+    if job_data["@argv"]
+      argv = job_data["@argv"]
+      # TODO(cgb): filter out colons and other things that malicious users could
+      # use to hijack the system
+    else
+      argv = ""
+    end
+
+    output_file = "/tmp/mpi-output-#{rand()}"
+    error_file = "/tmp/mpi-error-#{rand()}"
+
+    full_path_to_file = "#{working_dir}/#{filename_to_exec}"
+
     start_time = Time.now
-    Djinn.log_run("mpiexec -env X10_NTHREADS 1 -n #{num_of_procs} /mirrornfs/thempicode > #{MPI_OUTPUT}")
+    Djinn.log_run("mpiexec -env X10_NTHREADS 1 -n #{num_of_procs} " +
+      "#{executable} #{full_path_to_file} #{argv} 1>#{output_file} 2>#{error_file}")
     end_time = Time.now
  
     total = end_time - start_time
     Djinn.log_debug("MPI: Done running job!")
     Djinn.log_debug("TIMING: Took #{total} seconds")
 
+    job_data['@metadata_info']['start_time'] = start_time.to_i
+    job_data['@metadata_info']['end_time'] = end_time.to_i
+    job_data['@metadata_info']['total_execution_time'] = total
+
     stop_mpd()
 
     stop_nfs(nodes)
 
-    shadow = get_shadow
-    shadow_ip = shadow.private_ip
-    shadow_key = shadow.ssh_key
+    Djinn.write_babel_outputs(output_file, error_file, job_data)
 
-    HelperFunctions.scp_file(MPI_OUTPUT, MPI_OUTPUT, shadow_ip, shadow_key)
-
-    neptune_write_job_output(job_data, MPI_OUTPUT)
+    # clean up after ourselves - remove the user's code and any outputs
+    # it may have produced
+    Djinn.log_debug("Removing working dir #{working_dir}")
+    FileUtils.rm_rf(working_dir)
+    FileUtils.rm_rf(output_file)
+    FileUtils.rm_rf(error_file)
 
     remove_lock_file(job_data)
   }
@@ -91,6 +134,7 @@ def start_nfs(nodes)
   slave_nodes.each { |node|
     Djinn.log_debug("[nfs master] node at #{node.private_ip} is currently doing #{node.jobs.join(', ')}")
     next if node.private_ip == my_node.private_ip
+    Djinn.log_debug("mounting /mirrornfs on machine located at [#{node.private_ip}]")
     HelperFunctions.run_remote_command(node.private_ip, slave_mount, node.ssh_key, NO_OUTPUT)
   }
 
@@ -119,6 +163,7 @@ def unmount_nfs_store(ip, ssh_key)
   slave_umount = "umount /mirrornfs"
 
   loop {
+    Djinn.log_debug("unmounting mirrornfs at #{ip} with ssh key #{ssh_key}")
     HelperFunctions.run_remote_command(ip, slave_umount, ssh_key, NO_OUTPUT)
     sleep(5)
     mount_status = `ssh root@#{ip} 'mount'`

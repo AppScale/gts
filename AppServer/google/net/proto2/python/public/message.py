@@ -215,6 +215,9 @@ class Message(object):
     raise NotImplementedError
 
   def HasField(self, field_name):
+    """Checks if a certain field is set for the message. Note if the
+    field_name is not defined in the message descriptor, ValueError will be
+    raised."""
     raise NotImplementedError
 
   def ClearField(self, field_name):
@@ -252,3 +255,12 @@ class Message(object):
     via a previous _SetListener() call.
     """
     raise NotImplementedError
+
+  def __getstate__(self):
+    """Support the pickle protocol."""
+    return dict(serialized=self.SerializePartialToString())
+
+  def __setstate__(self, state):
+    """Support the pickle protocol."""
+    self.__init__()
+    self.ParseFromString(state['serialized'])

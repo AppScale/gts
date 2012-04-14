@@ -29,7 +29,7 @@ import time
 
 MAX_REQUEST_SIZE = 1 << 20
 DS_STAT_LEVEL = 31
-logging.addLevelName(DS_STAT_LEVEL, "DS_STAT")
+#logging.addLevelName(DS_STAT_LEVEL, "DS_STAT")
 
 
 class APIProxyStub(object):
@@ -79,12 +79,12 @@ class APIProxyStub(object):
           'The request to API call %s.%s() was too large.' % (service, call))
     messages = []
     assert request.IsInitialized(messages), messages
-    start = time.time()
+    #start = time.time()
 
     method = getattr(self, '_Dynamic_' + call)
     method(request, response)
-    end = time.time()
+    #end = time.time()
     # Only log datastore calls, dont worry about memcache for now
-    if service == "datastore_v3":
-      logging.log(DS_STAT_LEVEL,"qtype %s time %s" % (call, (end-start)))
+    #if service == "datastore_v3":
+    #  logging.log(DS_STAT_LEVEL,"qtype %s time %s" % (call, (end-start)))
 

@@ -24,6 +24,13 @@ import dummy_thread as thread
 __pychecker__ = """maxreturns=0 maxbranches=0 no-callinit
                    unusednames=printElemNumber,debug_strs no-special"""
 
+if hasattr(ProtocolBuffer, 'ExtendableProtocolMessage'):
+  _extension_runtime = True
+  _ExtendableProtocolMessage = ProtocolBuffer.ExtendableProtocolMessage
+else:
+  _extension_runtime = False
+  _ExtendableProtocolMessage = ProtocolBuffer.ProtocolMessage
+
 from google.appengine.datastore.datastore_v3_pb import *
 import google.appengine.datastore.datastore_v3_pb
 from google.appengine.datastore.entity_pb import *
@@ -205,6 +212,7 @@ class Request(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.ext.remote_api.Request'
 class ApplicationError(ProtocolBuffer.ProtocolMessage):
   has_code_ = 0
   code_ = 0
@@ -343,6 +351,7 @@ class ApplicationError(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.ext.remote_api.ApplicationError'
 class Response(ProtocolBuffer.ProtocolMessage):
   has_response_ = 0
   response_ = ""
@@ -555,6 +564,7 @@ class Response(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.ext.remote_api.Response'
 class TransactionRequest_Precondition(ProtocolBuffer.ProtocolMessage):
   has_key_ = 0
   has_hash_ = 0
@@ -886,5 +896,8 @@ class TransactionRequest(ProtocolBuffer.ProtocolMessage):
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.ext.remote_api.TransactionRequest'
+if _extension_runtime:
+  pass
 
 __all__ = ['Request','ApplicationError','Response','TransactionRequest','TransactionRequest_Precondition']

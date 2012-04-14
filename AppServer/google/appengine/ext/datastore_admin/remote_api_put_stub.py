@@ -240,7 +240,7 @@ def get_remote_appid(remote_url, extra_headers=None):
   if not app_info or 'rtok' not in app_info or 'app_id' not in app_info:
     logging.info('Response unparsable: %s', response)
     raise ConfigurationError('Error parsing app_id lookup response')
-  if app_info['rtok'] != rtok:
+  if str(app_info['rtok']) != rtok:
     logging.info('Response invalid token (expected %s): %s', rtok, response)
     raise ConfigurationError('Token validation failed during app_id lookup. '
                              '(sent %s, got %s)' % (repr(rtok),
