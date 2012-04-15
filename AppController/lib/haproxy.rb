@@ -5,7 +5,6 @@ require 'fileutils'
 
 
 $:.unshift File.join(File.dirname(__FILE__))
-require 'djinn'
 require 'helperfunctions'
 require 'load_balancer'
 require 'monitoring'
@@ -45,12 +44,9 @@ module HAProxy
   # The first port that haproxy will bind to for App Engine apps.
   START_PORT = 10000
 
-
-  # TODO(cgb): make sense of this
+  
+  # FIXME(cgb): make sense of this
   TIME_PERIOD = 10
-  SCALE_UP = 1
-  SCALE_DOWN = 2
-  NO_CHANGE = 0
   SRV_NAME = 1
   QUEUE_CURR = 2
   REQ_RATE = 46
@@ -64,7 +60,7 @@ module HAProxy
   # END
 
 
-  # TODO(cgb): make sense of this method
+  # FIXME(cgb): make sense of this method
   def self.initialize(app_name)
     if @@initialized[app_name].nil?
       index = 0
@@ -209,7 +205,7 @@ module HAProxy
   end
 
 
-  # TODO(cgb): make sense of this method
+  # FIXME(cgb): make sense of this method
   def self.add_app_config(app_name, app_number, port_apps,ip)
     # Add a prefix to the app name to avoid possible conflicts
     full_app_name = "gae_#{app_name}"
@@ -241,7 +237,7 @@ module HAProxy
   end
 
 
-  # TODO(cgb): make sense of this method
+  # FIXME(cgb): make sense of this method
   # Based on the queued requests and request rate statistics from haproxy , the function decides whether to scale up or down or 
   # whether to not have any change in number of appservers . 
   def self.auto_scale(app_name, autoscale_log)
@@ -278,7 +274,6 @@ module HAProxy
 
       if service_name == "FRONTEND"
         autoscale_log.puts("#{service_name} - Request Rate #{req_rate_present}")
-        #Djinn.log_debug("#{service_name} - Request Rate #{req_rate_present}")
         req_rate_present = array[REQ_RATE]
         avg_req_rate += req_rate_present.to_i
         @@req_rate[app_name][index] = req_rate_present
@@ -304,17 +299,17 @@ module HAProxy
     # Testing the condition to check whether we should scale down number of Appservers 
     # by Checking the  queued requests at HaProxy and incoming request rate
     if avg_req_rate <= @@scale_down_req_rate[app_name] && total_queue_curr == 0 
-      return SCALE_DOWN
+      return :scale_down
     end
 
     # Condition to check whether we should scale up number of Appservers by checking the queued requests at HaProxy
     # and incoming request rate and comparing it to the threshold values of request rate and queue rate for each app
     if avg_req_rate > @@threshold_req_rate[app_name] && avg_queue_curr > @@threshold_queue_curr[app_name] 
-      return SCALE_UP
+      return :scale_up
     end
    
-    # Returns NO_CHANGE as both the conditions for scaling up or scaling down number of appservers hasn't been meet
-    return NO_CHANGE   
+    # Returns :no_change as both the conditions for scaling up or scaling down number of appservers hasn't been meet
+    return :no_change   
   end
 
 
