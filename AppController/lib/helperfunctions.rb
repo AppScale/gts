@@ -396,6 +396,18 @@ module HelperFunctions
     return pid
   end
 
+
+  # Instructs god to terminate and stop watching an App Engine application, 
+  # identified by its name and the port that it runs on.
+  def self.stop_app(app_name, port)
+    watch = "appscale-" + app_name + "-" + port.to_s
+    GodInterface.stop(watch)
+    Djinn.log_debug("Stopped #{watch} process via god.")
+    GodInterface.remove(watch)
+    Djinn.log_debug("Stopped watching #{watch} via god.")
+  end
+
+
   # Code for local_ip taken from 
   # http://coderrr.wordpress.com/2008/05/28/get-your-local-ip-address/
   def self.local_ip

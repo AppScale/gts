@@ -261,6 +261,15 @@ class Djinn
     'message' => 'not enough open nodes'})
 
 
+  # FIXME(cgb): make sense of this
+  # can probably remove SCALE_UP/DOWN/NO_CHANGE/AUTOSCALE
+  MINUTE = 60
+  SCALE_UP = 1
+  SCALE_DOWN = 2
+  NO_CHANGE = 0
+  AUTOSCALE = 1
+
+
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
   def initialize()
@@ -287,7 +296,7 @@ class Djinn
     @userappserver_private_ip = "not-up-yet"
     @state = "AppController just started"
     @total_boxes = 0
-    @num_appengines = 3
+    @num_appengines = 1
     @restored = false
     @neptune_jobs = {}
     @neptune_nodes = []
@@ -295,6 +304,32 @@ class Djinn
     @queues_to_read = []
     @registered_with_sisyphus = false
     @last_updated = 0
+
+    # FIXME(cgb): make sense of this - it looks like many of these
+    # are constants or could be removed
+    # A port number that will be assigned to the next app server we spawn  
+    @app_global_port_no = 20000
+    @nginx_port_app = {}
+    @haproxy_port_app = {}
+    @port_apps = {}
+    # Boolean to ensure that the autoscalng function -  "scale_decision" is invoked only once for Appcontroller instance 
+    @scaling_running = false
+    @last_decision = {}
+    # Currently setting the scaling up time interval to 1 minute 
+    @time_threshold_scaleup = 1*MINUTE
+    # Currently setting the scaling down time interval to 5 minutes 
+    @time_threshold_scaledown = 5*MINUTE
+    # @upper_threshold defines the maximum number of appservers possible to be initiated
+    @upper_threshold = 10
+    @app_languages = {}
+    # Whether to autoscale or not 
+    @autoscale = 1
+    # The Cpu limits and memeory limits were set according to the cpu and memory that the Apps consumed during the experiments
+    @cpu_limit = {'python' => 80.00, 'java' => 75.00, 'go' => 70.00}
+    # Java is generally found to consume more memory than go and python , hence the memory limit of java is kept a bit higher than python and go
+    # If memory consumed is greater than the limits specified then no scaling takes place
+    @mem_limit = {'python' => 90.00, 'java' => 95.00, 'go' => 90.00}
+    @autoscale_log_file = "/var/log/appscale/autoscale.log"
   end
 
 
@@ -491,7 +526,7 @@ class Djinn
     stats = get_stats(secret)
 
     stats_str = <<-STATUS
-    Currently using #{stats['cpu']} Percent CPU and #{stats['mem']} Percent Memory
+    Currently using #{stats['cpu']} Percent CPU and #{stats['memory']} Percent Memory
     Hard disk is #{stats['disk']} Percent full
     Is currently: #{stats['roles'].join(', ')}
     Database is at #{stats['db_location']}
@@ -505,7 +540,14 @@ class Djinn
         app_names << k
       }
 
-      stats_str << "    Hosting the following apps: #{app_names.join(', ')}"
+      # FIXME(cgb): make sense of this
+      stats_str << "    Hosting the following apps: #{app_names.join(', ')}\n"
+      stats['apps'].each{ |name, v|
+        if !@port_apps[name].nil?
+          stats_str << "The number of AppServers for app #{name} is: " +
+            "#{@port_apps[name].length}\n"
+        end
+      }
     end
  
     return stats_str
@@ -597,6 +639,12 @@ class Djinn
         Nginx.reload
         Collectd.restart
         ZKInterface.remove_app_entry(app_name)
+
+        # FIXME(cgb): make sense of this
+        if !@port_apps[app_name].nil?
+          @port_apps.delete(app_name)
+        end
+
         # TODO God does not shut down the application, so do it here for 
         # A temp fix.
         Djinn.log_run("ps -ef | grep dev_appserver | grep #{app_name} | grep -v grep | grep cookie_secret | awk '{print $2}' | xargs kill -9")
@@ -709,6 +757,7 @@ class Djinn
 
       # TODO: consider only calling this if new apps are found
       start_appengine
+      scale_appservers
       Kernel.sleep(20)
     end
   end
@@ -1722,6 +1771,11 @@ class Djinn
       @num_appengines = Integer(@creds["appengine"])
     end
 
+    # FIXME(cgb): i think we can remove this
+    if @creds["autoscale"]
+      @autoscale = Integer(@creds["autoscale"])
+    end
+
     Djinn.log_debug("Keypath is #{@creds['keypath']}, keyname is #{@creds['keyname']}")
 
     if !@creds["keypath"].empty?
@@ -2600,7 +2654,11 @@ HOSTS
       my_private = my_node.private_ip
       app_version = app_data.scan(/version:(\d+)/).flatten.to_s
       app_language = app_data.scan(/language:(\w+)/).flatten.to_s
-            
+      
+      # FIXME(cgb): make sense of this
+      # Populate the app languages dict
+      @app_languages[app] = app_language
+
       # TODO: merge these 
       shadow = get_shadow
       shadow_ip = shadow.private_ip
@@ -2629,7 +2687,6 @@ HOSTS
           Djinn.log_debug("ERROR: Failure to create valid nginx config file for application #{app}.")
           next
         end
-        HAProxy.write_app_config(app, app_number, @num_appengines, my_private)
         Collectd.write_app_config(app)
 
         # send a warmup request to the app to get it loaded - can shave a
@@ -2638,23 +2695,36 @@ HOSTS
         # TODO: if the user specifies a warmup route, call it instead of /
         warmup_url = "/"
 
+        # FIXME(cgb) - just the next line
+        @port_apps[app] = []
         @num_appengines.times { |index|
-          app_true_port = start_port + app_number * @num_appengines + index
-          Djinn.log_debug("Starting #{app_language} app #{app} on #{HelperFunctions.local_ip}:#{app_true_port}")
+          # FIXME(cgb) - the next three lines
+          # Storing App Global port to start app servers on that corresponding ports
+          @port_apps[app] << @app_global_port_no
+          Djinn.log_debug("Starting #{app_language} app #{app} on #{HelperFunctions.local_ip}:#{@app_global_port_no}")
           xmpp_ip = get_login.public_ip
-          pid = HelperFunctions.run_app(app, app_true_port, @userappserver_private_ip, my_public, my_private, app_version, app_language, @nginx_port, xmpp_ip)
+          # FIXME - next line
+          pid = HelperFunctions.run_app(app, @app_global_port_no, @userappserver_private_ip, my_public, my_private, app_version, app_language, @port, xmpp_ip)
           if pid == -1
             Djinn.log_debug("ERROR: Unable to start application #{app}.") 
             next
           end
-          pid_file_name = "#{APPSCALE_HOME}/.appscale/#{app}-#{app_true_port}.pid"
+          # FIXME - next line
+          pid_file_name = "#{APPSCALE_HOME}/.appscale/#{app}-#{@app_global_port_no}.pid"
           HelperFunctions.write_file(pid_file_name, pid)
 
-          location = "http://#{my_public}:#{app_true_port}#{warmup_url}"
+          # FIXME - next line
+          location = "http://#{my_public}:#{@app_global_port_no}#{warmup_url}"
           wget_cmd = "wget --tries=1000 --no-check-certificate #{location} -q -O /dev/null"
           Djinn.log_run(wget_cmd)
+
+          # FIXME - next two lines
+          #Add the global port by 1. 
+          @app_global_port_no += 1
         }
 
+        # FIXME - next two lines
+        HAProxy.add_app_config(app, app_number, @port_apps, my_public)
         Nginx.reload
         HAProxy.reload
         Collectd.restart
@@ -2673,6 +2743,11 @@ HOSTS
 
         nginx = @nginx_port
         haproxy = @haproxy_port
+        # FIXME - next three lines
+        # To maintain nginx and haproxy information of the app
+        @nginx_port_app[app] = @port
+        @haproxy_port_app[app] = @haproxy
+
         login_ip = get_login.public_ip
 
         Thread.new {
@@ -2706,6 +2781,278 @@ HOSTS
 
     Djinn.log_debug("#{apps_to_load.size} apps loaded")  
   end
+
+  # FIXME(cgb): make sense of this
+  def scale_appservers
+    if !@scaling_running and @autoscale == AUTOSCALE
+      Thread.new {
+        Djinn.log_debug("Calling the function for taking Scaling decisions "+
+          + "only once for an appcontroller instance")
+        @scaling_running = true 
+        scale_decision()
+      }
+    elsif !@scaling_running
+      Djinn.log_debug("Number of Appservers constant and no autoscaling feature as appengine flag was specified ")
+    end
+  end
+
+  # Function that takes the decision whether to scale or not for each app for each appserver
+  def scale_decision()
+    log = File.open(@autoscale_log_file, 'a+')
+    log.puts("Scaling decision Function")
+    # time and @last_decision[] are used to check that interval between 2 scaling decisions is within a specified threshold
+    time = 0 
+    @scaling_running = true  
+    # Stats maintain the latest cpu amd memory stats
+    stats = {}
+    stats['cpu'] = 0
+    stats['memory'] = 0
+    while
+      @apps_loaded.each{|app_name|
+        log.puts("Scaling decision for #{app_name} - Apps loaded - #{@apps_loaded}")
+        
+        HAProxy.initialize(app_name)
+
+        begin
+          stats = get_stats(@@secret)
+          #Call to auto_scale function which looks at haproxy stats and conveys whether to scale or not
+          # decision - 1 : Scale Up - 2 - Scale Down 0- No Change
+          decision = HAProxy.auto_scale(app_name,log)
+        rescue Exception => except
+          decision = NO_CHANGE
+          log.puts("Exception in Scaling decision making - keep it to no change")
+        end
+
+        if !@last_decision.has_key?(app_name)
+          @last_decision[app_name] = time
+        end
+
+        # Take the Cpu and Memory stats into account
+        log.puts("CPU used : #{stats['cpu']} Memory used #{stats['memory']}")
+
+        begin
+          if stats['cpu'] > @cpu_limit[@app_languages[app_name]]
+            log.puts("CPU limits exceeded for app #{app_name} language-#{@app_languages[app_name]} "+
+              "using #{stats['cpu']} Percent cpu")
+            decision = NO_CHANGE     
+          end
+        rescue
+          log.puts("Exception in CPU check - no scaling decisions taken")
+          decision = NO_CHANGE
+        end
+
+        begin
+          if Float(stats['memory']) > @mem_limit[@app_languages[app_name]]
+            log.puts("Memory limits exceeded for app #{app_name} language-#{@app_languages[app_name]} "+
+              "using #{stats['memory']} Percent Memory")
+            decision = NO_CHANGE                    
+          end
+        rescue 
+          log.puts("Exception in Memory check - no scaling decisions taken")
+          decision = NO_CHANGE
+        end
+
+        # Decision based on auto_scale function values( which gets haproxy stats ) and time intervals of scale ups and down and threshold for number of appservers 
+        if decision == SCALE_UP
+          # Here we are Scaling Up
+          log.puts("Scaling Up")
+          # Last scaling decision should have been before a specified time interval. 
+          # And there shouldn't be more devappservers running than the upper threshold 
+          if ((time - @last_decision[app_name]) > @time_threshold_scaleup ) and !@port_apps[app_name].nil? and @port_apps[app_name].length <= @upper_threshold 
+            log.puts("Sending command to add a new app server")
+            begin
+              add_dev_appserver(app_name)
+            rescue Exception => except
+              log.puts("Exception occurred in adding app server")
+            end
+            @last_decision[app_name] = time
+          elsif (time - @last_decision[app_name]) <= @time_threshold_scaleup
+            log.puts("Last decision was taken within the time threshold")
+          elsif !@port_apps[app_name].nil? and @port_apps[app_name].length > @upper_threshold 
+             log.puts("Number of app servers has gone above the threshold hence not adding app server")
+          end
+        elsif decision == SCALE_DOWN
+          # Kill a appserver here
+          log.puts("Scaling down")
+          # Kill only if there is more than 1 appserver running
+          # There should be more than 1 app server running and last scaling decsion should have been before a specified time interval
+          if !@port_apps[app_name].nil? and @port_apps[app_name].length > 1 and ((time - @last_decision[app_name]) > @time_threshold_scaledown) 
+            log.puts("Sending command to kill app server")
+            begin
+              stop_dev_appserver(app_name)
+            rescue Exception => except
+              log.puts("Exception occurred in stopping app server")
+            end
+            @last_decision[app_name] = time
+          elsif !@port_apps[app_name].nil? and @port_apps[app_name].length <= 1
+            log.puts("Only 1 app server is running hence not killing")
+          elsif (time - @last_decision[app_name]) <= @time_threshold_scaledown 
+            log.puts("Last decision was taken within the time threshold")
+          end
+        else
+          log.puts("No change. Keeping the Number of app servers same")
+        end
+      }
+      # Sleep for 1 sec and increase the Time
+      Kernel.sleep(1)
+      time += 1
+    end
+  end
+
+  def stop_dev_appserver(app)
+    # Stopping a appserver instance since the minimum number of requests being handled by the appservers 
+    # have fallen below the minimum threshold specified
+    @state = "Stopping an appserver to free unused resources"
+
+    Djinn.log_debug("Deleting appserver instance to free up unused resources")
+
+    uac = UserAppClient.new(@userappserver_private_ip, @@secret)
+    warmup_url = "/"
+
+    my_public = my_node.public_ip
+    my_private = my_node.private_ip
+    app_number = @nginx_port_app[app] - 8080
+
+    app_data = uac.get_app_data(app)
+
+    Djinn.log_debug("Get app data for #{app} said [#{app_data}]")
+
+    app_is_enabled = uac.does_app_exist?(app)
+    Djinn.log_debug("is app #{app} enabled? #{app_is_enabled}")
+    if app_is_enabled == "false"
+     return
+    end
+
+    # Get Port numbers for the App.
+    ports = @port_apps[app]
+
+    # Select a port at random to kill. 
+    port = ports[rand(ports.length)]
+
+    #Stop app monitoring from GOD
+    HelperFunctions.stop_app(app, port)
+
+    begin
+      # Get PID for appserver running on that port.
+      pid_file = "#{APPSCALE_HOME}/.appscale/#{app}-#{port}.pid"
+      pid = HelperFunctions.read_file(pid_file)
+
+      # Kill PID and remove PID FILE
+      cmd = "kill -9 #{pid}"
+      Djinn.log_run(cmd)
+      Djinn.log_debug("Explicitly killed #{pid} for #{app} on port #{port}")
+
+    rescue
+      Djinn.log_debug("Could not kill #{app} on #{port} with PID #{pid}."+
+      "Either it has already been killed or the pid is wrong")
+    end
+
+    Djinn.log_debug("Removed appserver instance running #{port} for #{app} with pid #{pid}")
+
+    # Removing PID file for the app.
+    cmd = "rm #{pid_file}"
+    Djinn.log_run(cmd)
+    Djinn.log_debug("Deleted pid file #{pid_file}")
+
+    # Delte the port number from the port_app dictionary
+    @port_apps[app].delete(port)
+    Djinn.log_debug("Deleted port from @port_apps. The new array is #{@port_apps[app]}")
+
+    # Regenerate HAPROXY config for the app.
+    HAProxy.add_app_config(app, app_number, @port_apps, my_public)
+
+    # Reload HaProxy
+    HAProxy.reload
+
+  end 
+ 
+  def add_dev_appserver(app)
+    # Starting a appserver instance on request to scale the application 
+    @state = "Adding a new appserver to meet the high traffic requirements"
+
+    uac = UserAppClient.new(@userappserver_private_ip, @@secret)
+    warmup_url = "/"
+
+    app_data = uac.get_app_data(app)
+    
+    Djinn.log_debug("Get app data for #{app} said [#{app_data}]")
+
+    # Check if another element ( like a counter ) to move out of the loop should be added  - Currently it's the same as in start_appengine() function
+    loop {
+        app_version = app_data.scan(/version:(\d+)/).flatten.to_s
+        Djinn.log_debug("Waiting for app data to have instance info for app named #{app}: #{app_data} "+
+        "The app's version is #{app_version}, and its class is #{app_version.class}")
+
+        if app_data[0..4] != "Error"
+          app_version = "0" if app_version == ""
+          app_version = Integer(app_version)
+          break if app_version >= 0
+        end
+
+        app_data = uac.get_app_data(app)
+        sleep(5)
+     }
+    
+    app_version = app_data.scan(/version:(\d+)/).flatten.to_s
+    app_language = app_data.scan(/language:(\w+)/).flatten.to_s
+    my_public = my_node.public_ip
+    my_private = my_node.private_ip
+
+    app_is_enabled = uac.does_app_exist?(app)
+    Djinn.log_debug("is app #{app} enabled? #{app_is_enabled}")
+    if app_is_enabled == "false"
+      return  
+    end
+
+    # Getting nginx and haproxy port info from global state maintianed in start_appengine 
+    nginx_port = @nginx_port_app[app]
+    haproxy_port = @haproxy_port_app[app]
+
+    @port_apps[app] << @app_global_port_no
+    app_number = nginx_port - 8080
+
+    my_private = my_node.private_ip
+    Djinn.log_debug("port apps error contains - #{@port_apps}")
+    HAProxy.add_app_config(app, app_number, @port_apps, my_public)     
+
+    Djinn.log_debug("Adding #{app_language} app #{app} on #{HelperFunctions.local_ip}:#{@app_global_port_no} ")
+    xmpp_ip = get_login.public_ip
+    pid = HelperFunctions.run_app(app, @app_global_port_no, @userappserver_private_ip, my_public, my_private, app_version, app_language, nginx_port, xmpp_ip)
+    if pid == -1
+      Djinn.log_debug("ERROR: Unable to start application #{app} on port #{@app_global_port_no}.") 
+      next
+    end
+    pid_file_name = "#{APPSCALE_HOME}/.appscale/#{app}-#{@app_global_port_no}.pid"
+    HelperFunctions.write_file(pid_file_name, pid)
+
+    location = "http://#{my_public}:#{@app_global_port_no}#{warmup_url}"
+    wget_cmd = "wget --tries=1000 --no-check-certificate #{location} -q -O /dev/null"
+        
+    Djinn.log_run(wget_cmd)
+
+    @app_global_port_no += 1
+
+    # Nginx.reload 
+    HAProxy.reload
+    Collectd.restart
+
+    # add_instance_info = uac.add_instance(app, my_public, @port)
+   
+    login_ip = get_login.public_ip
+
+    Thread.new {
+      haproxy_location = "http://#{my_public}:#{haproxy_port}#{warmup_url}"
+      nginx_location = "http://#{my_public}:#{nginx_port}#{warmup_url}"
+
+      wget_haproxy = "wget --tries=1000 --no-check-certificate #{haproxy_location} -q -O /dev/null"
+      wget_nginx = "wget --tries=1000 --no-check-certificate #{nginx_location} -q -O /dev/null"
+ 
+      Djinn.log_run(wget_haproxy)
+      Djinn.log_run(wget_nginx)
+    }
+
+  end
+
 
   def stop_appengine()
     Djinn.log_debug("Shutting down AppEngine")

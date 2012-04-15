@@ -151,6 +151,7 @@ case "$1" in
         patchxmpp
 	sethosts
         setulimits
+	installsocat
 #	keygen
 	;;
 esac

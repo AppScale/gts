@@ -1328,6 +1328,11 @@ postinstallsimpledb()
     touch ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}/simpledb
 }
 
+installsocat()
+{
+    apt-get install socat
+}
+
 installrabbitmq()
 {
    # RabbitMQ is installed via apt-get
