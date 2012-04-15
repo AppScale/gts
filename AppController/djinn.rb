@@ -261,6 +261,10 @@ class Djinn
     'message' => 'not enough open nodes'})
 
 
+  # The options that should be used when invoking wget, so that the
+  # AppController can automatically probe a site to see if it's up.
+  WGET_OPTIONS = "--tries=1000 --no-check-certificate -q -O /dev/null"
+
   # FIXME - find out what this means
   SCALEUP_THRESHOLD = 60  # seconds
   
@@ -2654,6 +2658,7 @@ HOSTS
       app_version = app_data.scan(/version:(\d+)/).flatten.to_s
       app_language = app_data.scan(/language:(\w+)/).flatten.to_s
       
+      @app_info_map[app] = {}
       @app_info_map[app][:language] = app_language
 
       # TODO: merge these 
@@ -2692,36 +2697,34 @@ HOSTS
         # TODO: if the user specifies a warmup route, call it instead of /
         warmup_url = "/"
 
-        # FIXME(cgb) - just the next line
         @app_info_map[app][:appengine] = []
         @num_appengines.times { |index|
-          # FIXME(cgb) - the next three lines
-          # Storing App Global port to start app servers on that corresponding ports
+          Djinn.log_debug("Starting #{app_language} app #{app} on " +
+            "#{HelperFunctions.local_ip}:#{@appengine_port}")
           @app_info_map[app][:appengine] << @appengine_port
-          Djinn.log_debug("Starting #{app_language} app #{app} on #{HelperFunctions.local_ip}:#{@appengine_port}")
+
           xmpp_ip = get_login.public_ip
-          # FIXME - next line
-          pid = HelperFunctions.run_app(app, @appengine_port, @userappserver_private_ip, my_public, my_private, app_version, app_language, @port, xmpp_ip)
+          pid = HelperFunctions.run_app(app, @appengine_port, 
+            @userappserver_private_ip, my_public, my_private, app_version, 
+            app_language, @port, xmpp_ip)
           if pid == -1
             Djinn.log_debug("ERROR: Unable to start application #{app}.") 
             next
           end
-          # FIXME - next line
-          pid_file_name = "#{APPSCALE_HOME}/.appscale/#{app}-#{@appengine_port}.pid"
+
+          pid_file_name = "/etc/appscale/#{app}-#{@appengine_port}.pid"
           HelperFunctions.write_file(pid_file_name, pid)
 
-          # FIXME - next line
           location = "http://#{my_public}:#{@appengine_port}#{warmup_url}"
-          wget_cmd = "wget --tries=1000 --no-check-certificate #{location} -q -O /dev/null"
+          wget_cmd = "wget #{WGET_OPTIONS} #{location}"
+ 
           Djinn.log_run(wget_cmd)
 
-          # FIXME - next two lines
-          #Add the global port by 1. 
           @appengine_port += 1
         }
 
-        # FIXME - next two lines
-        HAProxy.add_app_config(app, app_number, @app_info_map[app][:appengine], my_public)
+        HAProxy.add_app_config(app, app_number, @app_info_map[app][:appengine],
+          my_public)
         Nginx.reload
         HAProxy.reload
         Collectd.restart
@@ -2740,8 +2743,9 @@ HOSTS
 
         nginx = @nginx_port
         haproxy = @haproxy_port
-        # FIXME - next three lines
-        # To maintain nginx and haproxy information of the app
+
+        # Update our local information so that we know later what ports
+        # we're using to host this app on for nginx and haproxy
         @app_info_map[app][:nginx] = @port
         @app_info_map[app][:haproxy] = @haproxy
 
@@ -2751,8 +2755,8 @@ HOSTS
           haproxy_location = "http://#{my_public}:#{haproxy}#{warmup_url}"
           nginx_location = "http://#{my_public}:#{nginx}#{warmup_url}"
 
-          wget_haproxy = "wget --tries=1000 --no-check-certificate #{haproxy_location} -q -O /dev/null"
-          wget_nginx = "wget --tries=1000 --no-check-certificate #{nginx_location} -q -O /dev/null"
+          wget_haproxy = "wget #{WGET_OPTIONS} #{haproxy_location}"
+          wget_nginx = "wget #{WGET_OPTIONS} #{nginx_location}"
 
           Djinn.log_run(wget_haproxy)
           Djinn.log_run(wget_nginx)
@@ -2779,17 +2783,24 @@ HOSTS
     Djinn.log_debug("#{apps_to_load.size} apps loaded")  
   end
 
+
   # FIXME(cgb): make sense of this
   def scale_appservers
-    if !@scaling_running and @creds["autoscale"]
-      Thread.new {
-        Djinn.log_debug("Calling the function for taking Scaling decisions "+
-          + "only once for an appcontroller instance")
-        @scaling_running = true 
-        scale_decision()
-      }
-    elsif !@scaling_running
-      Djinn.log_debug("Number of Appservers constant and no autoscaling feature as appengine flag was specified ")
+    if @scaling_running
+      Djinn.log_debug("A different thread is making AppServer scaling " +
+        "decisions, so we won't try to right now.")
+    else
+      if @creds["autoscale"]
+        Djinn.log_debug("Examining AppServers to autoscale them")
+
+        Thread.new { 
+          @scaling_running = true
+          scale_decision()
+          @scaling_running = false
+        }
+      else
+        Djinn.log_debug("Not autoscaling AppServers - disallowed by the user")
+      end
     end
   end
 
