@@ -291,11 +291,6 @@ class Djinn
   MAX_MEM_FOR_APPSERVERS = {'python' => 90.00, 'java' => 95.00, 'go' => 90.00}
 
 
-  # The path to the file where we will store information about AppServer
-  # scaling decisions.
-  AUTOSCALE_LOG_FILE = "/var/log/appscale/autoscale.log"
-
-
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
   def initialize()
@@ -335,8 +330,7 @@ class Djinn
 
     # FIXME(cgb): make sense of this - it looks like many of these
     # are constants or could be removed
-    # Boolean to ensure that the autoscalng function -  "scale_decision" is invoked only once for Appcontroller instance 
-    @scaling_running = false
+    @scaling_in_progress = false
     @last_decision = {}
   end
 
@@ -2784,9 +2778,11 @@ HOSTS
   end
 
 
-  # FIXME(cgb): make sense of this
+  # This method guards access to perform_scaling_for_appservers so that only 
+  # one thread call it at a time. We also only perform scaling if the user 
+  # wants us to, and simply return otherwise.
   def scale_appservers
-    if @scaling_running
+    if @scaling_in_progress
       Djinn.log_debug("A different thread is making AppServer scaling " +
         "decisions, so we won't try to right now.")
     else
@@ -2794,9 +2790,9 @@ HOSTS
         Djinn.log_debug("Examining AppServers to autoscale them")
 
         Thread.new { 
-          @scaling_running = true
-          scale_decision()
-          @scaling_running = false
+          @scaling_in_progress = true
+          perform_scaling_for_appservers()
+          @scaling_in_progress = false
         }
       else
         Djinn.log_debug("Not autoscaling AppServers - disallowed by the user")
@@ -2804,13 +2800,11 @@ HOSTS
     end
   end
 
+  # FIXME(cgb): make sense of this
   # Function that takes the decision whether to scale or not for each app for each appserver
-  def scale_decision()
-    log = File.open(AUTOSCALE_LOG_FILE, 'a+')
-    log.puts("Scaling decision Function")
+  def perform_scaling_for_appservers()
     # time and @last_decision[] are used to check that interval between 2 scaling decisions is within a specified threshold
     time = 0 
-    @scaling_running = true  
     # Stats maintain the latest cpu amd memory stats
     stats = {}
     stats['cpu'] = 0
@@ -2824,7 +2818,6 @@ HOSTS
         begin
           stats = get_stats(@@secret)
           #Call to auto_scale function which looks at haproxy stats and conveys whether to scale or not
-          # decision - 1 : Scale Up - 2 - Scale Down 0- No Change
           decision = HAProxy.auto_scale(app_name,log)
         rescue Exception => except
           decision = :no_change

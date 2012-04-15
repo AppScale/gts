@@ -44,6 +44,11 @@ module HAProxy
   # The first port that haproxy will bind to for App Engine apps.
   START_PORT = 10000
 
+
+  # The path to the file where we will store information about AppServer
+  # scaling decisions.
+  AUTOSCALE_LOG_FILE = "/var/log/appscale/autoscale.log"
+
   
   # FIXME(cgb): make sense of this
   TIME_PERIOD = 10
@@ -240,7 +245,10 @@ module HAProxy
   # FIXME(cgb): make sense of this method
   # Based on the queued requests and request rate statistics from haproxy , the function decides whether to scale up or down or 
   # whether to not have any change in number of appservers . 
-  def self.auto_scale(app_name, autoscale_log)
+  def self.auto_scale(app_name)
+    autoscale_log = File.open(AUTOSCALE_LOG_FILE, "a+")
+    autoscale_log.puts("Scaling decision Function")
+
     # Average Request rates and queued requests set to 0
     avg_req_rate = 0
     avg_queue_curr = 0
