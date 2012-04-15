@@ -1,9 +1,0 @@
-# awesomepull, by Chris Bunch
-# pulls from bazaar on all boxes
-# since we are tired of manually doing it all the time
-
-cd /root/appscale
-bzr pull
-ssh appscale-image1 -o StrictHostkeyChecking=no 'cd appscale; bzr pull'
-ssh appscale-image2 -o StrictHostkeyChecking=no 'cd appscale; bzr pull'
-ssh appscale-image3 -o StrictHostkeyChecking=no 'cd appscale; bzr pull'
