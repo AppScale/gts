@@ -2827,21 +2827,11 @@ HOSTS
   # one thread call it at a time. We also only perform scaling if the user 
   # wants us to, and simply return otherwise.
   def scale_appservers
-    if @scaling_in_progress
-      Djinn.log_debug("A different thread is making AppServer scaling " +
-        "decisions, so we won't try to right now.")
+    if @creds["autoscale"]
+      Djinn.log_debug("Examining AppServers to autoscale them")
+      perform_scaling_for_appservers()
     else
-      if @creds["autoscale"]
-        Djinn.log_debug("Examining AppServers to autoscale them")
-
-        Thread.new { 
-          @scaling_in_progress = true
-          perform_scaling_for_appservers()
-          @scaling_in_progress = false
-        }
-      else
-        Djinn.log_debug("Not autoscaling AppServers - disallowed by the user")
-      end
+      Djinn.log_debug("Not autoscaling AppServers - disallowed by the user")
     end
   end
 
@@ -2849,74 +2839,26 @@ HOSTS
   # Adds or removes AppServers within a node based on the number of requests
   # that each application has received as well as the number of requests that
   # are sitting in haproxy's queue, waiting to be served.
-  # TODO(cgb): this shouldn't be an infinite loop - fix accordingly
   def perform_scaling_for_appservers()
-    time = 0 
-
-    loop {
-      @apps_loaded.each { |app_name|
-        Djinn.log_debug("Deciding whether to scale AppServers for #{app_name}")
+    @apps_loaded.each { |app_name|
+      Djinn.log_debug("Deciding whether to scale AppServers for #{app_name}")
         
-        initialize_scaling_info_for_app(app_name)
+      initialize_scaling_info_for_app(app_name)
 
-        if !@last_decision.has_key?(app_name)
-          @last_decision[app_name] = time
-        end
+      if is_cpu_or_mem_maxed_out?(@app_info_map[app_name][:language])
+        # TODO(cgb): This seems like a good condition to scale down
+        Djinn.log_debug("Too much CPU or memory is being used - don't scale")
+        return
+      end
 
-        if is_cpu_or_mem_maxed_out?(@app_info_map[app_name][:language])
-          Djinn.log_debug("Too much CPU or memory is being used - not " +
-            "scaling up.")
-          decision = :no_change
-        end
-
-        decision = get_scaling_info_for_app(app_name)
-        time_since_last_decision = time - @last_decision[app_name]
-        appservers_running = @app_info_map[app_name][:appengine].length
-
-        if decision == :scale_up
-          Djinn.log_debug("Considering whether we should scale up")
-          
-          if time_since_last_decision > SCALEUP_TIME_THRESHOLD and 
-            !@app_info_map[app_name][:appengine].nil? and 
-            appservers_running < MAX_APPSERVERS_ON_THIS_NODE
-
-            Djinn.log_debug("Adding a new AppServer on this node for " +
-              "#{app_name}")
-            add_appserver_process(app_name)
-            @last_decision[app_name] = time
-          elsif time_since_last_decision <= SCALEUP_TIME_THRESHOLD
-            Djinn.log_debug("Not enough time has passed since when the last " +
-              "scaling decision was made for #{app_name}")
-          elsif !@app_info_map[app_name][:appengine].nil? and 
-            appservers_running > MAX_APPSERVERS_ON_THIS_NODE 
-             Djinn.log_debug("The maximum number of AppServers for this app " +
-              "are already running, so don't add any more")
-          end
-        elsif decision == :scale_down
-          Djinn.log_debug("Considering whether we should scale down")
-
-          if time_since_last_decision > SCALEDOWN_TIME_THRESHOLD and
-            !@app_info_map[app_name][:appengine].nil? and 
-            appservers_running > 1
-
-            Djinn.log_debug("Removing an AppServer on this node for " +
-              "#{app_name}")
-            remove_appserver_process(app_name)
-            @last_decision[app_name] = time
-          elsif !@app_info_map[app_name][:appengine].nil? and 
-            appservers_running <= 1
-
-            Djinn.log_debug("Only 1 app server is running hence not killing")
-          elsif (time - @last_decision[app_name]) <= SCALEDOWN_TIME_THRESHOLD 
-            Djinn.log_debug("Last decision was taken within the time threshold")
-          end
-        else
-          Djinn.log_debug("No change. Keeping the same number of AppServers")
-        end
-      }
-
-      Kernel.sleep(1)
-      time += 1
+      case get_scaling_info_for_app(app_name)
+      when :scale_up
+        try_to_scale_up
+      when :scale_down
+        try_to_scale_down
+      else
+        Djinn.log_debug("No change. Keeping the same number of AppServers")
+      end
     }
   end
 
@@ -2934,6 +2876,10 @@ HOSTS
       @req_rate[app_name][i] = 0
       @req_in_queue[app_name][i] = 0
     }
+
+    if !@last_decision.has_key?(app_name)
+      @last_decision[app_name] = 0
+    end
 
     @initialized_apps[app_name] = true
   end
@@ -3045,6 +2991,52 @@ HOSTS
     end
 
     return :no_change
+  end
+
+
+  def try_to_scale_up
+    Djinn.log_debug("Considering whether we should scale up")
+    time_since_last_decision = Time.now - @last_decision[app_name]
+    appservers_running = @app_info_map[app_name][:appengine].length
+          
+    if time_since_last_decision > SCALEUP_TIME_THRESHOLD and 
+      !@app_info_map[app_name][:appengine].nil? and 
+      appservers_running < MAX_APPSERVERS_ON_THIS_NODE
+
+      Djinn.log_debug("Adding a new AppServer on this node for #{app_name}")
+      add_appserver_process(app_name)
+      @last_decision[app_name] = Time.now
+    elsif time_since_last_decision <= SCALEUP_TIME_THRESHOLD
+      Djinn.log_debug("Not enough time has passed since when the last " +
+        "scaling decision was made for #{app_name}")
+    elsif !@app_info_map[app_name][:appengine].nil? and 
+      appservers_running > MAX_APPSERVERS_ON_THIS_NODE 
+
+      Djinn.log_debug("The maximum number of AppServers for this app " +
+        "are already running, so don't add any more")
+    end
+  end
+
+
+  def try_to_scale_down
+    Djinn.log_debug("Considering whether we should scale down")
+    time_since_last_decision = Time.now - @last_decision[app_name]
+    appservers_running = @app_info_map[app_name][:appengine].length
+
+    if time_since_last_decision > SCALEDOWN_TIME_THRESHOLD and
+      !@app_info_map[app_name][:appengine].nil? and 
+      appservers_running > 1
+
+      Djinn.log_debug("Removing an AppServer on this node for #{app_name}")
+      remove_appserver_process(app_name)
+      @last_decision[app_name] = Time.now
+    elsif !@app_info_map[app_name][:appengine].nil? and 
+      appservers_running <= 1
+
+      Djinn.log_debug("Only 1 AppServer is running - don't kill it")
+    elsif time_since_last_decision <= SCALEDOWN_TIME_THRESHOLD 
+      Djinn.log_debug("Last decision was taken within the time threshold")
+    end
   end
 
 
