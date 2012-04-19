@@ -279,6 +279,19 @@ class Djinn
   MAX_APPSERVERS_ON_THIS_NODE = HelperFunctions.get_num_cpus()
 
 
+  # FIXME(cgb): make sense of this
+  TIME_PERIOD = 10
+  SRV_NAME = 1
+  QUEUE_CURR = 2
+  REQ_RATE = 46
+  CURR_RATE = 33
+ 
+
+  # The path to the file where we will store information about AppServer
+  # scaling decisions.
+  AUTOSCALE_LOG_FILE = "/var/log/appscale/autoscale.log"
+  
+
   # CPU limits that determine when to stop adding AppServers on a node. Because
   # AppServers in different languages consume different amounts of CPU, set
   # different limits per language.
@@ -332,6 +345,12 @@ class Djinn
     # are constants or could be removed
     @scaling_in_progress = false
     @last_decision = {}
+    @initialized = {}
+    @req_rate = {}   # Request rate coming in over last 20 seconds
+    @queue_curr = {} # currently Queued requests
+    @threshold_req_rate = {}
+    @threshold_queue_curr = {}
+    @scale_down_req_rate = {}
   end
 
 
@@ -905,7 +924,7 @@ class Djinn
         HelperFunctions.set_creds_in_env(@creds, "1")
         new_nodes_info = HelperFunctions.spawn_vms(vms_to_spawn, "open",
           @creds['machine'], instance_type, @creds['keyname'], 
-          @creds['infrastructure'], "cloud1", @creds['group'], spot=true)
+          @creds['infrastructure'], "cloud1", @creds['group'], spot=false)
 
         # initialize them and wait for them to start up
         Djinn.log_debug("info about new nodes is " +
@@ -2717,8 +2736,8 @@ HOSTS
           @appengine_port += 1
         }
 
-        HAProxy.add_app_config(app, app_number, @app_info_map[app][:appengine],
-          my_public)
+        HAProxy.update_app_config(app, app_number, 
+          @app_info_map[app][:appengine], my_public)
         Nginx.reload
         HAProxy.reload
         Collectd.restart
@@ -2805,100 +2824,208 @@ HOSTS
   def perform_scaling_for_appservers()
     # time and @last_decision[] are used to check that interval between 2 scaling decisions is within a specified threshold
     time = 0 
-    # Stats maintain the latest cpu amd memory stats
-    stats = {}
-    stats['cpu'] = 0
-    stats['memory'] = 0
-    while
-      @apps_loaded.each{|app_name|
-        log.puts("Scaling decision for #{app_name} - Apps loaded - #{@apps_loaded}")
-        
-        HAProxy.initialize(app_name)
 
-        begin
-          stats = get_stats(@@secret)
-          #Call to auto_scale function which looks at haproxy stats and conveys whether to scale or not
-          decision = HAProxy.auto_scale(app_name,log)
-        rescue Exception => except
-          decision = :no_change
-          log.puts("Exception in Scaling decision making - keep it to no change")
-        end
+    loop {
+      @apps_loaded.each { |app_name|
+        Djinn.log_debug("Deciding whether to scale AppServers for #{app_name}")
+        
+        initialize_scaling_info_for_app(app_name)
 
         if !@last_decision.has_key?(app_name)
           @last_decision[app_name] = time
         end
 
-        # Take the Cpu and Memory stats into account
-        log.puts("CPU used : #{stats['cpu']} Memory used #{stats['memory']}")
-
-        begin
-          if stats['cpu'] > MAX_CPU_FOR_APPSERVERS[@app_info_map[app_name][:language]]
-            log.puts("CPU limits exceeded for app #{app_name} language-#{@app_info_map[app_name][:language]} "+
-              "using #{stats['cpu']} Percent cpu")
-            decision = :no_change     
-          end
-        rescue
-          log.puts("Exception in CPU check - no scaling decisions taken")
+        if is_cpu_or_mem_maxed_out?(@app_info_map[app_name][:language])
+          Djinn.log_debug("Too much CPU or memory is being used - not " +
+            "scaling up.")
           decision = :no_change
         end
 
-        begin
-          if Float(stats['memory']) > MAX_MEM_FOR_APPSERVERS[@app_info_map[app_name][:language]]
-            log.puts("Memory limits exceeded for app #{app_name} language-#{@app_info_map[app_name][:language]} "+
-              "using #{stats['memory']} Percent Memory")
-            decision = :no_change                    
-          end
-        rescue 
-          log.puts("Exception in Memory check - no scaling decisions taken")
-          decision = :no_change
-        end
-
-        # Decision based on auto_scale function values( which gets haproxy stats ) and time intervals of scale ups and down and threshold for number of appservers 
+        decision = get_scaling_info_for_app(app_name)
         if decision == :scale_up
-          # Here we are Scaling Up
-          log.puts("Scaling Up")
+          Djinn.log_debug("Scaling Up")
           # Last scaling decision should have been before a specified time interval. 
           # And there shouldn't be more devappservers running than the upper threshold 
-          if ((time - @last_decision[app_name]) > SCALEUP_THRESHOLD ) and !@app_info_map[app_name][:appengine].nil? and @app_info_map[app_name][:appengine].length <= MAX_APPSERVERS_ON_THIS_NODE 
-            log.puts("Sending command to add a new app server")
+          if ((time - @last_decision[app_name]) > SCALEUP_THRESHOLD ) and !@app_info_map[app_name][:appengine].nil? and @app_info_map[app_name][:appengine].length < MAX_APPSERVERS_ON_THIS_NODE 
+            Djinn.log_debug("Sending command to add a new app server")
             begin
               add_dev_appserver(app_name)
             rescue Exception => except
-              log.puts("Exception occurred in adding app server")
+              Djinn.log_debug("Exception occurred in adding app server")
             end
             @last_decision[app_name] = time
           elsif (time - @last_decision[app_name]) <= SCALEUP_THRESHOLD
-            log.puts("Last decision was taken within the time threshold")
+            Djinn.log_debug("Last decision was taken within the time threshold")
           elsif !@app_info_map[app_name][:appengine].nil? and @app_info_map[app_name][:appengine].length > MAX_APPSERVERS_ON_THIS_NODE 
-             log.puts("Number of app servers has gone above the threshold hence not adding app server")
+             Djinn.log_debug("Number of app servers has gone above the threshold hence not adding app server")
           end
         elsif decision == :scale_down
-          # Kill a appserver here
-          log.puts("Scaling down")
+          Djinn.log_debug("Scaling down")
           # Kill only if there is more than 1 appserver running
           # There should be more than 1 app server running and last scaling decsion should have been before a specified time interval
           if !@app_info_map[app_name][:appengine].nil? and @app_info_map[app_name][:appengine].length > 1 and ((time - @last_decision[app_name]) > SCALEDOWN_THRESHOLD) 
-            log.puts("Sending command to kill app server")
+            Djinn.log_debug("Sending command to kill app server")
             begin
               stop_dev_appserver(app_name)
             rescue Exception => except
-              log.puts("Exception occurred in stopping app server")
+              Djinn.log_debug("Exception occurred in stopping app server")
             end
             @last_decision[app_name] = time
           elsif !@app_info_map[app_name][:appengine].nil? and @app_info_map[app_name][:appengine].length <= 1
-            log.puts("Only 1 app server is running hence not killing")
+            Djinn.log_debug("Only 1 app server is running hence not killing")
           elsif (time - @last_decision[app_name]) <= SCALEDOWN_THRESHOLD 
-            log.puts("Last decision was taken within the time threshold")
+            Djinn.log_debug("Last decision was taken within the time threshold")
           end
         else
-          log.puts("No change. Keeping the Number of app servers same")
+          Djinn.log_debug("No change. Keeping the Number of app servers same")
         end
       }
-      # Sleep for 1 sec and increase the Time
+
       Kernel.sleep(1)
       time += 1
+    }
+  end
+
+  # FIXME(cgb): make sense of this method
+  def initialize_scaling_info_for_app(app_name)
+    if @initialized[app_name].nil?
+      index = 0
+      # To maintain req rate for last TIME_PERIOD seconds for each app in the s    ystem
+      @req_rate[app_name] = []
+      # To maintain queued requests number for last TIME_PERIOD seconds for eac    h app in the system
+      @queue_curr[app_name] = []
+      # Assigning values of thresholds such as use of resources is maximized
+      # Thresholds are same for each app as assigned . but these can be changed     to match with App's chracterstics
+      # Threshold for incoming request rate . Condition for scaling up will tes    t will see if request rate is more than this threshold
+      @threshold_req_rate[app_name] = 5
+      # Condition for scaling down will test will see if request rate is less t    han or equal to this threshold
+      @scale_down_req_rate[app_name] = 2
+      # Threshold for currently queued requests number . Condition for scaling     up will test will see if queued requests at haproxy are  more than this thresho    ld
+      @threshold_queue_curr[app_name] = 5
+      # Initializing the request rates and number of queued requests to 0 for t    he whole TIME_PERIOD seconds
+      while index < TIME_PERIOD
+        @req_rate[app_name][index] = 0
+        @queue_curr[app_name][index] = 0
+        index += 1
+      end
+      # To make sure the variables are intialized only once for an app
+        @initialized[app_name] = 1
     end
   end
+  
+
+  # Looks at how much CPU and memory is being used system-wide, to determine
+  # if a new AppServer should be added. As AppServers in different languages
+  # consume different amounts of CPU and memory, we consult the global
+  # variables that indicate what the maximum CPU and memory limits are for
+  # a new AppServer in the given language.
+  def is_cpu_or_mem_maxed_out?(language)
+    stats = get_stats(@@secret)
+    Djinn.log_debug("CPU used: #{stats['cpu']}, mem used: #{stats['memory']}")
+
+    current_cpu = stats['cpu']
+    max_cpu = MAX_CPU_FOR_APPSERVERS[language]
+
+    if current_cpu > max_cpu
+      Djinn.log_debug("Not enough CPU is free to spawn up a new #{language} " +
+        "AppServer (#{current_cpu} CPU used > #{max_cpu} maximum)")
+      return true
+    end
+
+    current_mem = Float(stats['memory'])
+    max_mem = MAX_MEM_FOR_APPSERVERS[language]
+
+    if current_mem > max_mem
+      Djinn.log_debug("Not enough memory is free to spawn up a new " +
+        "#{language} AppServer (#{current_mem} memory used > #{max_mem} " +
+        "maximum)")
+      return true
+    end
+
+    Djinn.log_debug("Enough CPU and memory are free on this machine to " +
+      "support a new #{language} AppServer")
+    return false
+  end
+
+  # FIXME(cgb): make sense of this method
+  # Based on the queued requests and request rate statistics from haproxy , the     function decides whether to scale up or down or
+  # whether to not have any change in number of appservers .
+  def get_scaling_info_for_app(app_name)
+    autoscale_log = File.open(AUTOSCALE_LOG_FILE, "a+")
+    autoscale_log.puts("Scaling decision Function")
+  
+    # Average Request rates and queued requests set to 0
+    avg_req_rate = 0
+    avg_queue_curr = 0
+  
+    # Get the current request rate and the currently queued requests
+    # And store the req rate for last TIME_PERIOD seconds
+    # Now calculate the average and maintain the request rate and queued reques    ts over those last TIME_PERIOD seconds
+  
+    index = 0
+    while index < ( TIME_PERIOD - 1 )
+      @req_rate[app_name][index] = @req_rate[app_name][index+1]
+      @queue_curr[app_name][index] = @queue_curr[app_name][index+1]
+      avg_req_rate += @req_rate[app_name][index+1].to_i
+      avg_queue_curr += @queue_curr[app_name][index+1].to_i
+      index += 1
+    end
+
+    # Run this command for each app and get the queued request and request rate     of requests coming in
+    monitor_cmd = `echo \"show info;show stat\" | socat stdio unix-connect:/etc    /haproxy/stats | grep #{app_name} `
+
+    monitor_cmd.each { |line_output|
+      array = line_output.split(',')
+      if array.length < REQ_RATE
+        next
+      end
+
+      service_name = array[SRV_NAME]
+      queue_curr_present = array[QUEUE_CURR]
+      req_rate_present = array[REQ_RATE]
+      # Not using curr rate  as of now
+      rate_last_sec = array[CURR_RATE]
+      
+      if service_name == "FRONTEND"
+        autoscale_log.puts("#{service_name} - Request Rate #{req_rate_present}"    )
+        req_rate_present = array[REQ_RATE]
+        avg_req_rate += req_rate_present.to_i
+        @req_rate[app_name][index] = req_rate_present
+      end
+      
+      if service_name == "BACKEND"
+        autoscale_log.puts("#{service_name} - Queued Currently #{queue_curr_present}")
+        queue_curr_present = array[QUEUE_CURR]
+        avg_queue_curr += queue_curr_present.to_i
+        @queue_curr[app_name][index] = queue_curr_present
+      end
+    }
+      
+     # Average Request rates and queued requests currently contain the aggregated sum over last TIME_PERIOD till this time
+    # So we will make a decsion here based on their values , whether to scale or not
+    total_queue_curr = avg_queue_curr
+
+    avg_req_rate /= TIME_PERIOD
+    avg_queue_curr /= TIME_PERIOD
+
+    autoscale_log.puts("Average Request rate & Avg Queued requests:#{avg_req_rate} #{avg_queue_curr}")
+
+    # Testing the condition to check whether we should scale down number of Appservers
+    # by Checking the  queued requests at HaProxy and incoming request rate
+    if avg_req_rate <= @scale_down_req_rate[app_name] && total_queue_curr == 0
+      return :scale_down
+    end
+
+    # Condition to check whether we should scale up number of Appservers by checking the queued requests at HaProxy
+    # and incoming request rate and comparing it to the threshold values of request rate and queue rate for each app
+    if avg_req_rate > @threshold_req_rate[app_name] && avg_queue_curr > @threshold_queue_curr[app_name]
+      return :scale_up
+    end
+
+    # Returns :no_change as both the conditions for scaling up or scaling down number of appservers hasn't been meet
+    return :no_change
+  end
+
 
   def stop_dev_appserver(app)
     # Stopping a appserver instance since the minimum number of requests being handled by the appservers 
@@ -2959,12 +3086,9 @@ HOSTS
     @app_info_map[app][:appengine].delete(port)
     Djinn.log_debug("Deleted port info. The new array is #{@app_info_map[app][:appengine]}")
 
-    # Regenerate HAPROXY config for the app.
-    HAProxy.add_app_config(app, app_number, @app_info_map[app][:appengine], my_public)
-
-    # Reload HaProxy
+    HAProxy.update_app_config(app, app_number, @app_info_map[app][:appengine],
+      my_public)
     HAProxy.reload
-
   end 
  
   def add_dev_appserver(app)
@@ -3014,7 +3138,8 @@ HOSTS
 
     my_private = my_node.private_ip
     Djinn.log_debug("port apps error contains - #{@app_info_map[app][:appengine]}")
-    HAProxy.add_app_config(app, app_number, @app_info_map[app][:appengine], my_public)     
+    HAProxy.update_app_config(app, app_number, @app_info_map[app][:appengine],
+      my_public)     
 
     Djinn.log_debug("Adding #{app_language} app #{app} on #{HelperFunctions.local_ip}:#{@appengine_port} ")
     xmpp_ip = get_login.public_ip

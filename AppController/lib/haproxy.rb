@@ -45,54 +45,6 @@ module HAProxy
   START_PORT = 10000
 
 
-  # The path to the file where we will store information about AppServer
-  # scaling decisions.
-  AUTOSCALE_LOG_FILE = "/var/log/appscale/autoscale.log"
-
-  
-  # FIXME(cgb): make sense of this
-  TIME_PERIOD = 10
-  SRV_NAME = 1
-  QUEUE_CURR = 2
-  REQ_RATE = 46
-  CURR_RATE = 33
-  @@initialized = {}
-  @@req_rate = {}   # Request rate coming in over last 20 seconds
-  @@queue_curr = {} # currently Queued requests      
-  @@threshold_req_rate = {}
-  @@threshold_queue_curr = {}
-  @@scale_down_req_rate = {}
-  # END
-
-
-  # FIXME(cgb): make sense of this method
-  def self.initialize(app_name)
-    if @@initialized[app_name].nil?
-      index = 0
-      # To maintain req rate for last TIME_PERIOD seconds for each app in the system
-      @@req_rate[app_name] = []
-      # To maintain queued requests number for last TIME_PERIOD seconds for each app in the system
-      @@queue_curr[app_name] = []
-      # Assigning values of thresholds such as use of resources is maximized
-      # Thresholds are same for each app as assigned . but these can be changed to match with App's chracterstics
-      # Threshold for incoming request rate . Condition for scaling up will test will see if request rate is more than this threshold
-      @@threshold_req_rate[app_name] = 5
-      # Condition for scaling down will test will see if request rate is less than or equal to this threshold
-      @@scale_down_req_rate[app_name] = 2
-      # Threshold for currently queued requests number . Condition for scaling up will test will see if queued requests at haproxy are  more than this threshold
-      @@threshold_queue_curr[app_name] = 5 
-      # Initializing the request rates and number of queued requests to 0 for the whole TIME_PERIOD seconds
-      while index < TIME_PERIOD
-        @@req_rate[app_name][index] = 0
-        @@queue_curr[app_name][index] = 0
-        index += 1
-      end
-      # To make sure the variables are intialized only once for an app
-      @@initialized[app_name] = 1 
-    end
-  end
-
-
   def self.stop
     `service haproxy stop`
   end
@@ -203,35 +155,40 @@ module HAProxy
     config << "listen #{full_app_name} #{ip}:#{listen_port} \n"
     config << servers.join("\n")
 
-    config_path = File.join(SITES_ENABLED_PATH, "#{full_app_name}.#{CONFIG_EXTENSION}")
+    config_path = File.join(SITES_ENABLED_PATH, 
+      "#{full_app_name}.#{CONFIG_EXTENSION}")
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
 
     HAProxy.regenerate_config
   end
 
 
-  # FIXME(cgb): make sense of this method
-  def self.add_app_config(app_name, app_number, port_apps,ip)
-    # Add a prefix to the app name to avoid possible conflicts
+  # Updates the HAProxy config file for this App Engine application to
+  # point to all the ports currently the application. In contrast with
+  # write_app_config, these ports can be non-contiguous.
+  # TODO(cgb): Lots of copypasta here with write_app_config - eliminate it.
+  def self.update_app_config(app_name, app_number, port_apps, public_ip)
+    # Add a prefix to the app name to avoid collisions with non-GAE apps
     full_app_name = "gae_#{app_name}"
     index = 0
     servers = []
 
     port_apps[app_name].each { |port|
-      server = HAProxy.server_config(full_app_name, index, ip, port)
-      index+=1
+      server = HAProxy.server_config(full_app_name, index, public_ip, port)
+      index += 1
       servers << server
     }
 
     listen_port = HAProxy.app_listen_port(app_number)
     config = "# Create a load balancer for the app #{app_name} \n"
-    config << "listen #{full_app_name} #{ip}:#{listen_port} \n"
+    config << "listen #{full_app_name} #{public_ip}:#{listen_port} \n"
     config << servers.join("\n")
 
-    config_path = File.join(SITES_ENABLED_PATH, "#{full_app_name}.#{CONFIG_EXTENSION}")
+    config_path = File.join(SITES_ENABLED_PATH, 
+      "#{full_app_name}.#{CONFIG_EXTENSION}")
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
  
-    HAProxy.regenerate_config
+    HAProxy.regenerate_config()
   end
 
 
@@ -239,85 +196,6 @@ module HAProxy
     config_name = "gae_#{app_name}.#{CONFIG_EXTENSION}"
     FileUtils.rm(File.join(SITES_ENABLED_PATH, config_name))
     HAProxy.regenerate_config
-  end
-
-
-  # FIXME(cgb): make sense of this method
-  # Based on the queued requests and request rate statistics from haproxy , the function decides whether to scale up or down or 
-  # whether to not have any change in number of appservers . 
-  def self.auto_scale(app_name)
-    autoscale_log = File.open(AUTOSCALE_LOG_FILE, "a+")
-    autoscale_log.puts("Scaling decision Function")
-
-    # Average Request rates and queued requests set to 0
-    avg_req_rate = 0
-    avg_queue_curr = 0
-
-    # Get the current request rate and the currently queued requests  
-    # And store the req rate for last TIME_PERIOD seconds 
-    # Now calculate the average and maintain the request rate and queued requests over those last TIME_PERIOD seconds
-
-    index = 0
-    while index < ( TIME_PERIOD - 1 )
-      @@req_rate[app_name][index] = @@req_rate[app_name][index+1]
-      @@queue_curr[app_name][index] = @@queue_curr[app_name][index+1]
-      avg_req_rate += @@req_rate[app_name][index+1].to_i
-      avg_queue_curr += @@queue_curr[app_name][index+1].to_i
-      index += 1
-    end
-
-    # Run this command for each app and get the queued request and request rate of requests coming in 
-    monitor_cmd = `echo \"show info;show stat\" | socat stdio unix-connect:/etc/haproxy/stats | grep #{app_name} `
-
-    monitor_cmd.each{ |line_output|
-      array = line_output.split(',')
-      if array.length < REQ_RATE
-        next
-      end
-      service_name = array[SRV_NAME]
-      queue_curr_present = array[QUEUE_CURR]
-      req_rate_present = array[REQ_RATE]
-      # Not using curr rate  as of now 
-      rate_last_sec = array[CURR_RATE]
-
-      if service_name == "FRONTEND"
-        autoscale_log.puts("#{service_name} - Request Rate #{req_rate_present}")
-        req_rate_present = array[REQ_RATE]
-        avg_req_rate += req_rate_present.to_i
-        @@req_rate[app_name][index] = req_rate_present
-      end
-
-      if service_name == "BACKEND"
-        autoscale_log.puts("#{service_name} - Queued Currently #{queue_curr_present}")
-        queue_curr_present = array[QUEUE_CURR]
-        avg_queue_curr += queue_curr_present.to_i
-        @@queue_curr[app_name][index] = queue_curr_present
-      end
-    }
-
-    # Average Request rates and queued requests currently contain the aggregated sum over last TIME_PERIOD till this time
-    # So we will make a decsion here based on their values , whether to scale or not
-    total_queue_curr = avg_queue_curr 
-
-    avg_req_rate /= TIME_PERIOD
-    avg_queue_curr /= TIME_PERIOD
-
-    autoscale_log.puts("Average Request rate & Avg Queued requests:#{avg_req_rate} #{avg_queue_curr}")
-
-    # Testing the condition to check whether we should scale down number of Appservers 
-    # by Checking the  queued requests at HaProxy and incoming request rate
-    if avg_req_rate <= @@scale_down_req_rate[app_name] && total_queue_curr == 0 
-      return :scale_down
-    end
-
-    # Condition to check whether we should scale up number of Appservers by checking the queued requests at HaProxy
-    # and incoming request rate and comparing it to the threshold values of request rate and queue rate for each app
-    if avg_req_rate > @@threshold_req_rate[app_name] && avg_queue_curr > @@threshold_queue_curr[app_name] 
-      return :scale_up
-    end
-   
-    # Returns :no_change as both the conditions for scaling up or scaling down number of appservers hasn't been meet
-    return :no_change   
   end
 
 
