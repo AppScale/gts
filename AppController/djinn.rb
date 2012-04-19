@@ -265,24 +265,40 @@ class Djinn
   # AppController can automatically probe a site to see if it's up.
   WGET_OPTIONS = "--tries=1000 --no-check-certificate -q -O /dev/null"
 
-  # FIXME - find out what this means
+
+  # How often we should attempt to increase the number of AppServers on a
+  # given node.
   SCALEUP_TIME_THRESHOLD = 60  # seconds
   
   
-  # FIXME - find out what this means
+  # How often we should attempt to decrease the number of AppServers on a
+  # given node.
   SCALEDOWN_TIME_THRESHOLD = 300  # seconds
 
 
-  # The maximum number of AppServers that should be run on this node.
-  # FIXME - is this the max per app per node or the max per node?
-  # FIXME - if it's per node, what happens if a new app needs to be run?
-  MAX_APPSERVERS_ON_THIS_NODE = HelperFunctions.get_num_cpus()
+  # The size of the rotating buffers that we use to keep information on
+  # the request rate and number of enqueued requests.
+  NUM_OF_DATA_POINTS_TO_KEEP = 10
 
 
-  # FIXME(cgb): make sense of this
-  TIME_PERIOD = 10
+  # The maximum number of AppServers (for all applications) that should be run
+  # on this node.
+  # TODO(cgb) - What happens if a new app needs to be run?
+  MAX_APPSERVERS_ON_THIS_NODE = HelperFunctions.get_num_cpus() * 2
+
+
+  # The position in the haproxy profiling information where the name of
+  # the service (e.g., the frontend or backend) is specified.
   SERVICE_NAME_INDEX = 1
+
+
+  # The position in the haproxy profiling information where the number of
+  # enqueued requests is specified.
   REQ_IN_QUEUE_INDEX = 2
+
+
+  # The position in the haproxy profiling information where the request rate
+  # is specified.
   REQ_RATE_INDEX = 46
 
   
@@ -356,13 +372,11 @@ class Djinn
     @last_updated = 0
     @app_info_map = {}
 
-    # FIXME(cgb): make sense of this - it looks like many of these
-    # are constants or could be removed
     @scaling_in_progress = false
     @last_decision = {}
-    @initialized = {}
-    @req_rate = {}   # Request rate coming in over last 20 seconds
-    @req_in_queue = {} # currently Queued requests
+    @initialized_apps = {}
+    @req_rate = {}
+    @req_in_queue = {}
   end
 
 
@@ -2835,7 +2849,7 @@ HOSTS
   # Adds or removes AppServers within a node based on the number of requests
   # that each application has received as well as the number of requests that
   # are sitting in haproxy's queue, waiting to be served.
-  # FIXME(cgb): this shouldn't be an infinite loop - fix accordingly
+  # TODO(cgb): this shouldn't be an infinite loop - fix accordingly
   def perform_scaling_for_appservers()
     time = 0 
 
@@ -2910,18 +2924,18 @@ HOSTS
   # Sets up information about the request rate and number of requests in
   # haproxy's queue for the given application.
   def initialize_scaling_info_for_app(app_name)
-    return if @initialized[app_name]
+    return if @initialized_apps[app_name]
 
     @req_rate[app_name] = []
     @req_in_queue[app_name] = []
 
     # Fill in req_rate and req_in_queue with dummy info for now
-    TIME_PERIOD.times { |i|
+    NUM_OF_DATA_POINTS_TO_KEEP.times { |i|
       @req_rate[app_name][i] = 0
       @req_in_queue[app_name][i] = 0
     }
 
-    @initialized[app_name] = true
+    @initialized_apps[app_name] = true
   end
   
 
@@ -2974,7 +2988,7 @@ HOSTS
     # Move all the old data over one spot in our arrays (basically making
     # these rotating buffers) and see the average number of requests received
     # and enqueued from the old data
-    (TIME_PERIOD-1).times { |i|
+    (NUM_OF_DATA_POINTS_TO_KEEP-1).times { |i|
       @req_rate[app_name][i] = @req_rate[app_name][i+1]
       @req_in_queue[app_name][i] = @req_in_queue[app_name][i+1]
       avg_req_rate += @req_rate[app_name][i+1].to_i
@@ -3013,8 +3027,8 @@ HOSTS
       
     total_req_in_queue = avg_req_in_queue
 
-    avg_req_rate /= TIME_PERIOD
-    avg_req_in_queue /= TIME_PERIOD
+    avg_req_rate /= NUM_OF_DATA_POINTS_TO_KEEP
+    avg_req_in_queue /= NUM_OF_DATA_POINTS_TO_KEEP
 
     autoscale_log.puts("[#{app_name}] Average Request rate: #{avg_req_rate}")
     autoscale_log.puts("[#{app_name}] Average Queued requests: " +
@@ -3034,10 +3048,12 @@ HOSTS
   end
 
 
-  # FIXME(cgb): make sense of this method
+  # Starts a new AppServer for the given application.
+  # TODO(cgb): This is mostly copy-pasta'd from start_appengine - consolidate
+  # this somehow
   def add_appserver_process(app)
     # Starting a appserver instance on request to scale the application 
-    @state = "Adding a new appserver to meet the high traffic requirements"
+    @state = "Adding an AppServer for #{app}"
 
     uac = UserAppClient.new(@userappserver_private_ip, @@secret)
     warmup_url = "/"
@@ -3046,14 +3062,13 @@ HOSTS
     
     Djinn.log_debug("Get app data for #{app} said [#{app_data}]")
 
-    # Check if another element ( like a counter ) to move out of the loop should be added  - Currently it's the same as in start_appengine() function
     loop {
         app_version = app_data.scan(/version:(\d+)/).flatten.to_s
         Djinn.log_debug("Waiting for app data to have instance info for app named #{app}: #{app_data} "+
         "The app's version is #{app_version}, and its class is #{app_version.class}")
 
         if app_data[0..4] != "Error"
-          app_version = "0" if app_version == ""
+          app_version = "0" if app_version.empty?
           app_version = Integer(app_version)
           break if app_version >= 0
         end
@@ -3073,11 +3088,10 @@ HOSTS
       return  
     end
 
-    # Getting nginx and haproxy port info from global state maintianed in start_appengine 
     nginx_port = @app_info_map[app][:nginx]
     haproxy_port = @app_info_map[app][:haproxy]
-
     @app_info_map[app][:appengine] << @appengine_port
+
     app_number = nginx_port - Nginx::START_PORT
 
     my_private = my_node.private_ip
@@ -3096,7 +3110,7 @@ HOSTS
     HelperFunctions.write_file(pid_file_name, pid)
 
     location = "http://#{my_public}:#{@appengine_port}#{warmup_url}"
-    wget_cmd = "wget --tries=1000 --no-check-certificate #{location} -q -O /dev/null"
+    wget_cmd = "wget #{WGET_OPTIONS} #{location}"
         
     Djinn.log_run(wget_cmd)
 
@@ -3114,8 +3128,8 @@ HOSTS
       haproxy_location = "http://#{my_public}:#{haproxy_port}#{warmup_url}"
       nginx_location = "http://#{my_public}:#{nginx_port}#{warmup_url}"
 
-      wget_haproxy = "wget --tries=1000 --no-check-certificate #{haproxy_location} -q -O /dev/null"
-      wget_nginx = "wget --tries=1000 --no-check-certificate #{nginx_location} -q -O /dev/null"
+      wget_haproxy = "wget #{WGET_OPTIONS} #{haproxy_location}"
+      wget_nginx = "wget #{WGET_OPTIONS} #{nginx_location}"
  
       Djinn.log_run(wget_haproxy)
       Djinn.log_run(wget_nginx)
@@ -3123,6 +3137,7 @@ HOSTS
   end
 
 
+  # Terminates a random AppServer that hosts the specified App Engine app.
   def remove_appserver_process(app)
     @state = "Stopping an AppServer to free unused resources"
     Djinn.log_debug("Deleting appserver instance to free up unused resources")
@@ -3141,43 +3156,30 @@ HOSTS
     app_is_enabled = uac.does_app_exist?(app)
     Djinn.log_debug("is app #{app} enabled? #{app_is_enabled}")
     if app_is_enabled == "false"
-     return
+      return
     end
 
-    # Get Port numbers for the App.
+    # Select a random AppServer to kill.
     ports = @app_info_map[app][:appengine]
-
-    # Select a port at random to kill. 
     port = ports[rand(ports.length)]
-
-    #Stop app monitoring from GOD
     HelperFunctions.stop_app(app, port)
 
-    begin
-      # Get PID for appserver running on that port.
-      pid_file = "#{APPSCALE_HOME}/.appscale/#{app}-#{port}.pid"
-      pid = HelperFunctions.read_file(pid_file)
+    # Get PID for the AppServer to kill.
+    pid_file = "#{APPSCALE_HOME}/.appscale/#{app}-#{port}.pid"
+    pid = HelperFunctions.read_file(pid_file)
 
-      # Kill PID and remove PID FILE
-      cmd = "kill -9 #{pid}"
-      Djinn.log_run(cmd)
-      Djinn.log_debug("Explicitly killed #{pid} for #{app} on port #{port}")
+    # Kill the AppServer in case god wasn't able to.
+    cmd = "kill -9 #{pid}"
+    Djinn.log_run(cmd)
+    Djinn.log_debug("Explicitly killed #{pid} for #{app} on port #{port}")
 
-    rescue
-      Djinn.log_debug("Could not kill #{app} on #{port} with PID #{pid}."+
-      "Either it has already been killed or the pid is wrong")
-    end
-
-    Djinn.log_debug("Removed appserver instance running #{port} for #{app} with pid #{pid}")
-
-    # Removing PID file for the app.
+    # Finally, remove the PID file corresponding to that AppServer.
     cmd = "rm #{pid_file}"
     Djinn.log_run(cmd)
     Djinn.log_debug("Deleted pid file #{pid_file}")
 
-    # Delete the port number from the port_app dictionary
+    # Delete the port number from the app_info_map
     @app_info_map[app][:appengine].delete(port)
-    Djinn.log_debug("Deleted port info. The new array is #{@app_info_map[app][:appengine]}")
 
     HAProxy.update_app_config(app, app_number, @app_info_map[app][:appengine],
       my_public)
