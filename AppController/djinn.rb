@@ -281,10 +281,9 @@ class Djinn
 
   # FIXME(cgb): make sense of this
   TIME_PERIOD = 10
-  SRV_NAME = 1
-  QUEUE_CURR = 2
-  REQ_RATE = 46
-  CURR_RATE = 33
+  SERVICE_NAME_INDEX = 1
+  REQ_IN_QUEUE_INDEX = 2
+  REQ_RATE_INDEX = 46
 
   
   # Scales up the number of AppServers used to host an application if the
@@ -2959,21 +2958,22 @@ HOSTS
     return false
   end
 
-  # FIXME(cgb): make sense of this method
-  # Based on the queued requests and request rate statistics from haproxy , the     function decides whether to scale up or down or
-  # whether to not have any change in number of appservers .
+
+  # Queries haproxy to see how many requests are queued for a given application
+  # and how many requests are served at a given time. Based on this information,
+  # this method reports whether or not AppServers should be added, removed, or
+  # if no changes are needed.
   def get_scaling_info_for_app(app_name)
     autoscale_log = File.open(AUTOSCALE_LOG_FILE, "a+")
-    autoscale_log.puts("Scaling decision Function")
+    autoscale_log.puts("Getting scaling info for application #{app_name}")
   
     # Average Request rates and queued requests set to 0
     avg_req_rate = 0
     avg_req_in_queue = 0
   
-    # Get the current request rate and the currently queued requests
-    # And store the req rate for last TIME_PERIOD seconds
-    # Now calculate the average and maintain the request rate and queued reques    ts over those last TIME_PERIOD seconds
-  
+    # Move all the old data over one spot in our arrays (basically making
+    # these rotating buffers) and see the average number of requests received
+    # and enqueued from the old data
     (TIME_PERIOD-1).times { |i|
       @req_rate[app_name][i] = @req_rate[app_name][i+1]
       @req_in_queue[app_name][i] = @req_in_queue[app_name][i+1]
@@ -2981,64 +2981,60 @@ HOSTS
       avg_req_in_queue += @req_in_queue[app_name][i+1].to_i
     }
 
-    # Run this command for each app and get the queued request and request rate     of requests coming in
-    monitor_cmd = `echo \"show info;show stat\" | socat stdio unix-connect:/etc    /haproxy/stats | grep #{app_name} `
+    # Now see how many requests came in for our app and how many are enqueued
+    monitor_cmd = "echo \"show info;show stat\" | " +
+      "socat stdio unix-connect:/etc/haproxy/stats | grep #{app_name}"
 
-    monitor_cmd.each { |line_output|
-      array = line_output.split(',')
-      if array.length < REQ_RATE
+    `#{monitor_cmd}`.each { |line|
+      parsed_info = line.split(',')
+      if parsed_info.length < REQ_RATE_INDEX  # not a line with request info
         next
       end
 
-      service_name = array[SRV_NAME]
-      req_in_queue_present = array[QUEUE_CURR]
-      req_rate_present = array[REQ_RATE]
-      # Not using curr rate  as of now
-      rate_last_sec = array[CURR_RATE]
+      service_name = parsed_info[SERVICE_NAME_INDEX]
+      req_in_queue_present = parsed_info[REQ_IN_QUEUE_INDEX]
+      req_rate_present = parsed_info[REQ_RATE_INDEX]
       
       if service_name == "FRONTEND"
-        autoscale_log.puts("#{service_name} - Request Rate #{req_rate_present}"    )
-        req_rate_present = array[REQ_RATE]
+        autoscale_log.puts("#{service_name} Request Rate #{req_rate_present}")
+        req_rate_present = parsed_info[REQ_RATE_INDEX]
         avg_req_rate += req_rate_present.to_i
         @req_rate[app_name][index] = req_rate_present
       end
       
       if service_name == "BACKEND"
-        autoscale_log.puts("#{service_name} - Queued Currently #{req_in_queue_present}")
-        req_in_queue_present = array[QUEUE_CURR]
+        autoscale_log.puts("#{service_name} Queued Currently " +
+          "#{req_in_queue_present}")
+        req_in_queue_present = parsed_info[REQ_IN_QUEUE_INDEX]
         avg_req_in_queue += req_in_queue_present.to_i
         @req_in_queue[app_name][index] = req_in_queue_present
       end
     }
       
-     # Average Request rates and queued requests currently contain the aggregated sum over last TIME_PERIOD till this time
-    # So we will make a decsion here based on their values , whether to scale or not
     total_req_in_queue = avg_req_in_queue
 
     avg_req_rate /= TIME_PERIOD
     avg_req_in_queue /= TIME_PERIOD
 
-    autoscale_log.puts("Average Request rate & Avg Queued requests:#{avg_req_rate} #{avg_req_in_queue}")
+    autoscale_log.puts("[#{app_name}] Average Request rate: #{avg_req_rate}")
+    autoscale_log.puts("[#{app_name}] Average Queued requests: " +
+      "#{avg_req_in_queue}")
 
-    # Testing the condition to check whether we should scale down number of Appservers
-    # by Checking the  queued requests at HaProxy and incoming request rate
     if avg_req_rate <= SCALEDOWN_REQUEST_RATE_THRESHOLD and 
       total_req_in_queue == 0
       return :scale_down
     end
 
-    # Condition to check whether we should scale up number of Appservers by checking the queued requests at HaProxy
-    # and incoming request rate and comparing it to the threshold values of request rate and queue rate for each app
     if avg_req_rate > SCALEUP_REQUEST_RATE_THRESHOLD and 
       avg_req_in_queue > SCALEUP_QUEUE_SIZE_THRESHOLD
       return :scale_up
     end
 
-    # Returns :no_change as both the conditions for scaling up or scaling down number of appservers hasn't been meet
     return :no_change
   end
 
 
+  # FIXME(cgb): make sense of this method
   def add_appserver_process(app)
     # Starting a appserver instance on request to scale the application 
     @state = "Adding a new appserver to meet the high traffic requirements"
