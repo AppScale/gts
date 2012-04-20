@@ -1160,8 +1160,10 @@ class Djinn
       Djinn.log_debug("Getting hybrid ips with creds #{@creds.inspect}")
       public_ips, private_ips = HelperFunctions.get_hybrid_ips(@creds)
     else
-      Djinn.log_debug("Getting cloud ips for #{infrastructure} with keyname #{keyname}")
-      public_ips, private_ips = HelperFunctions.get_cloud_ips(infrastructure, keyname)
+      Djinn.log_debug("Getting cloud ips for #{infrastructure} with keyname " +
+        "#{keyname}")
+      public_ips, private_ips = HelperFunctions.get_cloud_ips(infrastructure, 
+        keyname)
     end
  
     Djinn.log_debug("Public ips are #{public_ips.join(', ')}")
@@ -1184,10 +1186,11 @@ class Djinn
       end
     }
 
-    unable_to_convert_msg = "[get uaserver ip] Couldn't find out whether #{ip_addr} was " + 
-      "a public or private IP address. Public IPs are " +
+    unable_to_convert_msg = "[get uaserver ip] Couldn't find out whether " +
+      "#{ip_addr} was a public or private IP address. Public IPs are " +
       "[#{public_ips.join(', ')}], private IPs are [#{private_ips.join(', ')}]"
 
+    Djinn.log_debug(unable_to_convert_msg)
     abort(unable_to_convert_msg)
   end
   
@@ -1201,8 +1204,10 @@ class Djinn
       Djinn.log_debug("Getting hybrid ips with creds #{@creds.inspect}")
       public_ips, private_ips = HelperFunctions.get_hybrid_ips(@creds)
     else
-      Djinn.log_debug("Getting cloud ips for #{infrastructure} with keyname #{keyname}")
-      public_ips, private_ips = HelperFunctions.get_cloud_ips(infrastructure, keyname)
+      Djinn.log_debug("Getting cloud ips for #{infrastructure} with keyname " +
+        "#{keyname}")
+      public_ips, private_ips = HelperFunctions.get_cloud_ips(infrastructure, 
+        keyname)
     end
 
     Djinn.log_debug("Public ips are #{public_ips.join(', ')}")
@@ -1214,15 +1219,17 @@ class Djinn
       node_public_ip = HelperFunctions.convert_fqdn_to_ip(public_ips[index])
 
       if node_private_ip == private_ip or node_public_ip == private_ip
-        Djinn.log_debug("Mapped private ip #{private_ip} to public ip #{public_ips[index]}")
+        Djinn.log_debug("Mapped private ip #{private_ip} to public ip " +
+          "#{public_ips[index]}")
         return public_ips[index]
       end
     }
 
-    unable_to_convert_msg = "[get public ip] Couldn't convert private IP #{private_ip}" + 
-      " to a public address. Public IPs are [#{public_ips.join(', ')}]," + 
-      " private IPs are [#{private_ips.join(', ')}]"
+    unable_to_convert_msg = "[get public ip] Couldn't convert private IP " +
+      "#{private_ip} to a public address. Public IPs are " +
+      "[#{public_ips.join(', ')}], private IPs are [#{private_ips.join(', ')}]"
 
+    Djinn.log_debug(unable_to_convert_msg)
     abort(unable_to_convert_msg)  
   end
 
@@ -2981,7 +2988,7 @@ HOSTS
       "#{avg_req_in_queue}")
 
     if avg_req_rate <= SCALEDOWN_REQUEST_RATE_THRESHOLD and 
-      total_req_in_queue == 0
+      total_req_in_queue.zero?
       return :scale_down
     end
 
