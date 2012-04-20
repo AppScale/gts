@@ -14,6 +14,23 @@ fi
 #fi 
 export APPSCALE_VERSION=1.5
 
+increaseconnections()
+{
+    echo "net.core.somaxconn = 20240" >> /etc/sysctl.conf
+    echo "net.ipv4.netfilter.ip_conntrack_max = 196608" >> /etc/sysctl.conf
+    echo "net.core.somaxconn = 20240" >> /etc/sysctl.conf
+    echo "net.ipv4.netfilter.ip_conntrack_max = 196608" >> /etc/sysctl.conf
+    echo "net.ipv4.tcp_tw_recycle = 0" >> /etc/sysctl.conf
+    echo "net.ipv4.tcp_tw_reuse = 0" >> /etc/sysctl.conf
+    echo "net.ipv4.tcp_orphan_retries = 1" >> /etc/sysctl.conf
+    echo "net.ipv4.tcp_fin_timeout = 25" >> /etc/sysctl.conf
+    echo "net.ipv4.tcp_max_orphans = 8192" >> /etc/sysctl.conf
+    echo "net.ipv4.ip_local_port_range = 32768    61000" >> /etc/sysctl.conf
+    echo "net.netfilter.nf_conntrack_max = 262144" >> /etc/sysctl.conf
+
+    /sbin/sysctl -p /etc/sysctl.conf 
+}
+
 sethosts()
 {
     cp -v /etc/hosts /etc/hosts.orig
@@ -66,6 +83,7 @@ installappscaleprofile()
 #export APPSCALE_HOME=${APPSCALE_HOME_RUNTIME}
 #export HOME=\$APPSCALE_HOME
 #EOF
+    mkdir -p /etc/appscale/certs
     DESTFILE=${DESTDIR}/etc/profile.d/appscale.sh
     mkdir -pv $(dirname $DESTFILE)
     echo "Generating $DESTFILE"
@@ -563,48 +581,20 @@ installhbase()
     mkdir -pv ${APPSCALE_HOME}/AppDB/hbase
     cd ${APPSCALE_HOME}/AppDB/hbase
     rm -rfv hbase-${HBASE_VER}
-    wget http://appscale.cs.ucsb.edu/appscale_files/hbase-${HBASE_VER}.tar.gz -O hbase-${HBASE_VER}.tar.gz || exit 1
+    wget http://appscale.cs.ucsb.edu/appscale_files/hbase-${HBASE_VER}-rebuilt.tar.gz -O hbase-${HBASE_VER}.tar.gz || exit 1
 
     tar zxvf hbase-${HBASE_VER}.tar.gz || exit 1
     rm -v hbase-${HBASE_VER}.tar.gz
     # Clean out the maven repository
     rm -rfd ~/.m2/
-    # create link to hadoop core
-    rm -rv ${APPSCALE_HOME}/AppDB/hbase/hbase-${HBASE_VER}/lib/hadoop-*.jar || true
-    cd hbase-${HBASE_VER}
- 
-    # Patch for allowing IPs rather than DNS 
-    pwd
-    cp ../patch/HMaster.java ./src/main/java/org/apache/hadoop/hbase/master/ || exit 1
-    cp ../patch/HRegionServer.java ./src/main/java/org/apache/hadoop/hbase/regionserver/ || exit 1
-
-    export MAVEN_OPTS=-Xmx1024m
-    mvn -DskipTests install || exit 1
-    if [ ! -e target/hbase-${HBASE_VER}.jar ]; then
-	echo "Fail to compile HBase. Please try again."
-	exit 1
-    fi
-    cp -vf target/hbase-${HBASE_VER}.jar . || exit 1
-    if [ -n "${DESTDIR}" ]; then
-	# remove unnecessary files.
-	rm -rv build docs src
-    fi
-
-    # We must copy the patched hadoop into the maven repository 
-    # Failure to do so results in a "WrongFS" error
-cp ${APPSCALE_HOME}/AppDB/hadoop-${HADOOP_VER}/hadoop-core-${HADOOP_VER}.jar ~/.m2/repository/org/apache/hadoop/hadoop-core/${HADOOP_VER}/hadoop-core-${HADOOP_VER}.jar || exit 1
-
-
-    DESTFILE=./conf/hbase-env.sh
-    echo "Appending $DESTFILE"
-    cat <<EOF | tee -a $DESTFILE || exit 1
-. /etc/profile.d/appscale.sh
-export HBASE_HEAPSIZE=2000
-export HBASE_MANAGES_ZK=FALSE
-export HBASE_OPTS="-Djava.net.preferIPv4Stack=true"
-EOF
-    cd ..
-
+    cd
+    wget http://appscale.cs.ucsb.edu/appscale_files/maven_repos.tar.gz || exit 1
+    tar zxvf maven_repos.tar.gz  || exit 1
+    rm -rv maven_repos.tar.gz 
+    ######
+    # What we did to create the tar'ed version of HBase: See AppScale 1.5 
+    ####
+    cd ~
 }
 
 postinstallhbase()
@@ -866,6 +856,8 @@ postinstallmongodb()
     killall mongod
     mkdir -p ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}
     touch ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}/mongodb
+
+    update-rc.d -f mongodb remove
 }
 
 installmemcachedb()
@@ -988,7 +980,8 @@ installzookeeper()
     # 3.3.0 or less has known problem, so we must use 3.3.1 or more.
     # https://issues.apache.org/jira/browse/ZOOKEEPER-742
 
-    ZK_VER=3.4.0
+    ZK_VER=3.3.4-cdh3u3
+    ZK_VER2=3.3.4
 
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
@@ -996,49 +989,50 @@ installzookeeper()
     wget http://appscale.cs.ucsb.edu/appscale_files/zookeeper-${ZK_VER}.tar.gz || exit 1
     tar zxvf zookeeper-${ZK_VER}.tar.gz
 
-    pushd zookeeper-src
+    cd zookeeper-${ZK_VER}
     # build java library
     ant || exit 1
     ant compile_jute || exit 1
-    if [ ! -e build/zookeeper-${ZK_VER}.jar ]; then
-	echo "Fail to make zookeeper java jar. Please retry."
-	exit 1
-    fi
+    #if [ ! -e build/zookeeper-${ZK_VER}.jar ]; then
+    #   echo "Fail to make zookeeper java jar. Please retry."
+    #   exit 1
+    #fi
 
     # build c library
-    pushd src/c
+    #pushd src/c
+    cd src/c
 #    sed -i 's/AM_PATH_CPPUNIT/:;#AM_PATH_CPPUNIT/g' configure.ac || exit 1
     autoreconf -if || exit 1
     ./configure --prefix=/usr || exit 1
     make || exit 1
     make install || exit 1
     if [ ! -e ${DESTDIR}/usr/lib/libzookeeper_mt.a ]; then
-	echo "Fail to install libzookeeper. Please retry."
-	exit 1
+        echo "Fail to install libzookeeper. Please retry."
+        exit 1
     fi
-    popd
+    cd ../..
 
-    # apply memory leak patch of zkpython
-    patch -p0 -i ${APPSCALE_HOME}/AppDB/zkappscale/patch/zkpython-memory.patch || exit 1
+    # apply memory leak patch of zkpython TODO check if 3.3.4-cdh3u3 needs it
+    #patch -p0 -i ${APPSCALE_HOME}/AppDB/zkappscale/patch/zkpython-memory.patch || exit 1
 
     # python library
-    pushd src/contrib/zkpython
+    cd src/contrib/zkpython
     ant install || exit 1
     if [ ! -e /usr/local/lib/python2.6/dist-packages/zookeeper.so ]; then
-	echo "Fail to install libzookeeper. Please retry."
-	exit 1
+        echo "Fail to install libzookeeper. Please retry."
+        exit 1
     fi
     if [ -n "${DESTDIR}" ]; then
-	mkdir -pv ${DESTDIR}/usr/local/lib/python2.6/dist-packages
-	cp -v /usr/local/lib/python2.6/dist-packages/zookeeper.so ${DESTDIR}/usr/local/lib/python2.6/dist-packages/ || exit 1
-	cp -v /usr/local/lib/python2.6/dist-packages/ZooKeeper-* ${DESTDIR}/usr/local/lib/python2.6/dist-packages/ || exit 1
+        mkdir -pv ${DESTDIR}/usr/local/lib/python2.6/dist-packages
+        cp -v /usr/local/lib/python2.6/dist-packages/zookeeper.so ${DESTDIR}/usr/local/lib/python2.6/dist-packages/ || exit 1
+        cp -v /usr/local/lib/python2.6/dist-packages/ZooKeeper-* ${DESTDIR}/usr/local/lib/python2.6/dist-packages/ || exit 1
     fi
-    popd
+    cd ../../..
 
     # install java library
     mkdir -pv ${DESTDIR}/usr/share/java
-    cp -v build/zookeeper-${ZK_VER}.jar ${DESTDIR}/usr/share/java || exit 1
-    ln -sfv zookeeper-${ZK_VER}.jar ${DESTDIR}/usr/share/java/zookeeper.jar || exit 1
+    cp -v build/zookeeper-${ZK_VER2}.jar ${DESTDIR}/usr/share/java || exit 1
+    ln -sfv zookeeper-${ZK_VER2}.jar ${DESTDIR}/usr/share/java/zookeeper.jar || exit 1
 
     # install config files and service.
     BASEURL=http://appscale.cs.ucsb.edu/appscale_packages/pool/zookeeper
@@ -1049,10 +1043,9 @@ installzookeeper()
     dpkg-deb --vextract zookeeperd.deb ${DESTDIR}/ || exit 1
     rm -v zookeeperd.deb
 
-    popd
-    rm -rv zookeeper-src || exit 1
     cd ${APPSCALE_HOME}/downloads
-    rm -fdr zookeeper-3.4.0.tar.gz || exit 1
+    rm -rv zookeeper-${ZK_VER} || exit 1
+    rm -fdr zookeeper-${ZK_VER}.tar.gz || exit 1
 
     mkdir -pv ${DESTDIR}/var/run/zookeeper
     mkdir -pv ${DESTDIR}/var/lib/zookeeper

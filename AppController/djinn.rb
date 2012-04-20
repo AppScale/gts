@@ -2411,7 +2411,7 @@ class Djinn
     HelperFunctions.write_file(masters_file, "#{master_ip}\n")
 
     if @total_boxes == 1
-      slave_ips = [ @creds['hostname'] ]
+      slave_ips = [ my_private ]
     end
     
     slave_ips_newlined = slave_ips.join("\n")
