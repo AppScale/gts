@@ -278,13 +278,12 @@ class Djinn
 
   # The size of the rotating buffers that we use to keep information on
   # the request rate and number of enqueued requests.
-  NUM_OF_DATA_POINTS_TO_KEEP = 10
+  NUM_DATA_POINTS = 10
 
 
   # The maximum number of AppServers (for all applications) that should be run
   # on this node.
-  # TODO(cgb) - What happens if a new app needs to be run?
-  MAX_APPSERVERS_ON_THIS_NODE = HelperFunctions.get_num_cpus() * 2
+  MAX_APPSERVERS_ON_THIS_NODE = 10
 
 
   # The position in the haproxy profiling information where the name of
@@ -588,9 +587,12 @@ class Djinn
       }
 
       stats_str << "    Hosting the following apps: #{app_names.join(', ')}\n"
-      stats['apps'].each{ |app_name, v|
+
+      stats['apps'].each { |app_name, is_loaded|
+        next if !is_loaded
+
         if !@app_info_map[app_name][:appengine].nil?
-          stats_str << "The number of AppServers for app #{app_name} is: " +
+          stats_str << "    The number of AppServers for app #{app_name} is: " +
             "#{@app_info_map[app_name][:appengine].length}\n"
         end
       }
@@ -2752,7 +2754,7 @@ HOSTS
           xmpp_ip = get_login.public_ip
           pid = HelperFunctions.run_app(app, @appengine_port, 
             @userappserver_private_ip, my_public, my_private, app_version, 
-            app_language, @port, xmpp_ip)
+            app_language, @nginx_port, xmpp_ip)
           if pid == -1
             Djinn.log_debug("ERROR: Unable to start application #{app}.") 
             next
@@ -2792,8 +2794,8 @@ HOSTS
 
         # Update our local information so that we know later what ports
         # we're using to host this app on for nginx and haproxy
-        @app_info_map[app][:nginx] = @port
-        @app_info_map[app][:haproxy] = @haproxy
+        @app_info_map[app][:nginx] = @nginx_port
+        @app_info_map[app][:haproxy] = @haproxy_port
 
         login_ip = get_login.public_ip
 
@@ -2848,6 +2850,8 @@ HOSTS
   # are sitting in haproxy's queue, waiting to be served.
   def perform_scaling_for_appservers()
     @apps_loaded.each { |app_name|
+      next if RESTRICTED_APPS.include?(app_name)
+
       Djinn.log_debug("Deciding whether to scale AppServers for #{app_name}")
         
       initialize_scaling_info_for_app(app_name)
@@ -2860,9 +2864,9 @@ HOSTS
 
       case get_scaling_info_for_app(app_name)
       when :scale_up
-        try_to_scale_up
+        try_to_scale_up(app_name)
       when :scale_down
-        try_to_scale_down
+        try_to_scale_down(app_name)
       else
         Djinn.log_debug("No change. Keeping the same number of AppServers")
       end
@@ -2879,7 +2883,7 @@ HOSTS
     @req_in_queue[app_name] = []
 
     # Fill in req_rate and req_in_queue with dummy info for now
-    NUM_OF_DATA_POINTS_TO_KEEP.times { |i|
+    NUM_DATA_POINTS.times { |i|
       @req_rate[app_name][i] = 0
       @req_in_queue[app_name][i] = 0
     }
@@ -2941,7 +2945,7 @@ HOSTS
     # Move all the old data over one spot in our arrays (basically making
     # these rotating buffers) and see the average number of requests received
     # and enqueued from the old data
-    (NUM_OF_DATA_POINTS_TO_KEEP-1).times { |i|
+    (NUM_DATA_POINTS-1).times { |i|
       @req_rate[app_name][i] = @req_rate[app_name][i+1]
       @req_in_queue[app_name][i] = @req_in_queue[app_name][i+1]
       avg_req_rate += @req_rate[app_name][i+1].to_i
@@ -2966,7 +2970,7 @@ HOSTS
         autoscale_log.puts("#{service_name} Request Rate #{req_rate_present}")
         req_rate_present = parsed_info[REQ_RATE_INDEX]
         avg_req_rate += req_rate_present.to_i
-        @req_rate[app_name][index] = req_rate_present
+        @req_rate[app_name][NUM_DATA_POINTS-1] = req_rate_present
       end
       
       if service_name == "BACKEND"
@@ -2974,14 +2978,14 @@ HOSTS
           "#{req_in_queue_present}")
         req_in_queue_present = parsed_info[REQ_IN_QUEUE_INDEX]
         avg_req_in_queue += req_in_queue_present.to_i
-        @req_in_queue[app_name][index] = req_in_queue_present
+        @req_in_queue[app_name][NUM_DATA_POINTS-1] = req_in_queue_present
       end
     }
       
     total_req_in_queue = avg_req_in_queue
 
-    avg_req_rate /= NUM_OF_DATA_POINTS_TO_KEEP
-    avg_req_in_queue /= NUM_OF_DATA_POINTS_TO_KEEP
+    avg_req_rate /= NUM_DATA_POINTS
+    avg_req_in_queue /= NUM_DATA_POINTS
 
     autoscale_log.puts("[#{app_name}] Average Request rate: #{avg_req_rate}")
     autoscale_log.puts("[#{app_name}] Average Queued requests: " +
@@ -3001,9 +3005,9 @@ HOSTS
   end
 
 
-  def try_to_scale_up
+  def try_to_scale_up(app_name)
     Djinn.log_debug("Considering whether we should scale up")
-    time_since_last_decision = Time.now - @last_decision[app_name]
+    time_since_last_decision = Time.now.to_i - @last_decision[app_name]
     appservers_running = @app_info_map[app_name][:appengine].length
           
     if time_since_last_decision > SCALEUP_TIME_THRESHOLD and 
@@ -3012,7 +3016,7 @@ HOSTS
 
       Djinn.log_debug("Adding a new AppServer on this node for #{app_name}")
       add_appserver_process(app_name)
-      @last_decision[app_name] = Time.now
+      @last_decision[app_name] = Time.now.to_i
     elsif time_since_last_decision <= SCALEUP_TIME_THRESHOLD
       Djinn.log_debug("Not enough time has passed since when the last " +
         "scaling decision was made for #{app_name}")
@@ -3025,9 +3029,9 @@ HOSTS
   end
 
 
-  def try_to_scale_down
+  def try_to_scale_down(app_name)
     Djinn.log_debug("Considering whether we should scale down")
-    time_since_last_decision = Time.now - @last_decision[app_name]
+    time_since_last_decision = Time.now.to_i - @last_decision[app_name]
     appservers_running = @app_info_map[app_name][:appengine].length
 
     if time_since_last_decision > SCALEDOWN_TIME_THRESHOLD and
@@ -3036,7 +3040,7 @@ HOSTS
 
       Djinn.log_debug("Removing an AppServer on this node for #{app_name}")
       remove_appserver_process(app_name)
-      @last_decision[app_name] = Time.now
+      @last_decision[app_name] = Time.now.to_i
     elsif !@app_info_map[app_name][:appengine].nil? and 
       appservers_running <= 1
 
@@ -3119,7 +3123,7 @@ HOSTS
     HAProxy.reload
     Collectd.restart
 
-    # add_instance_info = uac.add_instance(app, my_public, @port)
+    # add_instance_info = uac.add_instance(app, my_public, @nginx_port)
    
     login_ip = get_login.public_ip
 
