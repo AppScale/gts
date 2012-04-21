@@ -1453,7 +1453,6 @@ class Djinn
 
  
   def update_api_status()
-    return
     if my_node.is_appengine?
       repo_host = my_node.private_ip
     else
