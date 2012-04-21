@@ -111,7 +111,7 @@ end
 # force kill processes
 
 ["memcached",
- "nginx", "haproxy", "collectd", "collectdmon", "tcpdump",
+ "nginx", "haproxy", "collectd", "collectdmon",
  "soap_server", "appscale_server",
  "AppLoadBalancer", "AppMonitoring",
  # AppServer
