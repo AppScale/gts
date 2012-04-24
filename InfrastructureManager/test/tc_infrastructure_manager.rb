@@ -65,6 +65,23 @@ class TestInfrastructureManager < Test::Unit::TestCase
     params1 = {}
     result1 = InfrastructureManager::BAD_SECRET_RESPONSE
     assert_equal(result1, i.describe_instances(params1, "secret1"))
+
+    # test the scenario where we fail to give describe_instances a
+    # reservation id
+    params2 = {}
+    result2 = {"success" => false, "reason" => "no reservation_id"}
+    assert_equal(result2, i.describe_instances(params2, "secret"))
+
+    # test what happens when a caller fails to give describe instances
+    # a reservation id that's in the system
+    params3 = {"reservation_id" => "boo"}
+    result3 = InfrastructureManager::RESERVATION_NOT_FOUND_RESPONSE
+    assert_equal(result3, i.describe_instances(params3, "secret"))
+
+    # test what happens when a caller gives describe_instances a reservation
+    # id that is in the system
+
+
   end
 
 
