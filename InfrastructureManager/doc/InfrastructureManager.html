@@ -1,0 +1,429 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+
+  <title>Class: InfrastructureManager</title>
+
+  <link rel="stylesheet" href="./rdoc.css" type="text/css" media="screen" />
+
+  <script src="./js/jquery.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/thickbox-compressed.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/quicksearch.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/darkfish.js" type="text/javascript"
+    charset="utf-8"></script>
+
+</head>
+<body class="class">
+
+  <div id="metadata">
+    <div id="home-metadata">
+      <div id="home-section" class="section">
+        <h3 class="section-header">
+          <a href="./index.html">Home</a>
+          <a href="./index.html#classes">Classes</a>
+          <a href="./index.html#methods">Methods</a>
+        </h3>
+      </div>
+    </div>
+
+    <div id="file-metadata">
+      <div id="file-list-section" class="section">
+        <h3 class="section-header">In Files</h3>
+        <div class="section-body">
+          <ul>
+          
+            <li><a href="./infrastructure_manager_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
+              class="thickbox" title="infrastructure_manager.rb">infrastructure_manager.rb</a></li>
+          
+          </ul>
+        </div>
+      </div>
+
+      
+    </div>
+
+    <div id="class-metadata">
+
+      <!-- Parent Class -->
+      
+      <div id="parent-class-section" class="section">
+        <h3 class="section-header">Parent</h3>
+        
+        <p class="link">Object</p>
+        
+      </div>
+      
+
+      <!-- Namespace Contents -->
+      
+
+      <!-- Method Quickref -->
+      
+      <div id="method-list-section" class="section">
+        <h3 class="section-header">Methods</h3>
+        <ul class="link-list">
+          
+          <li><a href="#method-c-new">::new</a></li>
+          
+          <li><a href="#method-i-describe_instances">#describe_instances</a></li>
+          
+          <li><a href="#method-i-run_instances">#run_instances</a></li>
+          
+          <li><a href="#method-i-terminate_instances">#terminate_instances</a></li>
+          
+        </ul>
+      </div>
+      
+
+      <!-- Included Modules -->
+      
+    </div>
+
+    <div id="project-metadata">
+      
+      
+
+      <div id="classindex-section" class="section project-section">
+        <h3 class="section-header">Class/Module Index
+          <span class="search-toggle"><img src="./images/find.png"
+            height="16" width="16" alt="[+]"
+            title="show/hide quicksearch" /></span></h3>
+        <form action="#" method="get" accept-charset="utf-8" class="initially-hidden">
+        <fieldset>
+          <legend>Quicksearch</legend>
+          <input type="text" name="quicksearch" value=""
+            class="quicksearch-field" />
+        </fieldset>
+        </form>
+
+        <ul class="link-list">
+        
+          <li><a href="./HelperFunctions.html">HelperFunctions</a></li>
+        
+          <li><a href="./InfrastructureManager.html">InfrastructureManager</a></li>
+        
+          <li><a href="./InfrastructureManagerServer.html">InfrastructureManagerServer</a></li>
+        
+          <li><a href="./TestInfrastructureManager.html">TestInfrastructureManager</a></li>
+        
+        </ul>
+        <div id="no-class-search-results" style="display: none;">No matching classes.</div>
+      </div>
+
+      
+    </div>
+  </div>
+
+  <div id="documentation">
+    <h1 class="class">InfrastructureManager</h1>
+
+    <div id="description">
+      
+<p><a href="InfrastructureManager.html">InfrastructureManager</a> provides
+callers with the ability to acquire and release virtual machines from cloud
+infrastructures without needing to know how to interact with them.</p>
+
+    </div>
+
+    <!-- Constants -->
+    
+    <div id="constants-list" class="section">
+      <h3 class="section-header">Constants</h3>
+      <dl>
+      
+        <dt><a name="SERVER_PORT">SERVER_PORT</a></dt>
+        
+        <dd class="description"><p>The port that the <a
+href="InfrastructureManager.html">InfrastructureManager</a> runs on, by
+default.</p></dd>
+        
+      
+        <dt><a name="BAD_SECRET_RESPONSE">BAD_SECRET_RESPONSE</a></dt>
+        
+        <dd class="description"><p>The response that callers receive if they call any SOAP-exposed method with
+an invalid secret.</p></dd>
+        
+      
+        <dt><a name="RESERVATION_NOT_FOUND_RESPONSE">RESERVATION_NOT_FOUND_RESPONSE</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="RUN_INSTANCES_REQUIRED_PARAMS">RUN_INSTANCES_REQUIRED_PARAMS</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="DESCRIBE_INSTANCES_REQUIRED_PARAMS">DESCRIBE_INSTANCES_REQUIRED_PARAMS</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="TERMINATE_INSTANCES_REQUIRED_PARAMS">TERMINATE_INSTANCES_REQUIRED_PARAMS</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+      </dl>
+    </div>
+    
+
+    <!-- Attributes -->
+    
+    <div id="attribute-method-details" class="method-section section">
+      <h3 class="section-header">Attributes</h3>
+
+      
+      <div id="reservations-attribute-method" class="method-detail">
+        <a name="reservations"></a>
+        
+        <a name="reservations="></a>
+        
+        <div class="method-heading attribute-method-heading">
+          <span class="method-name">reservations</span><span
+            class="attribute-access-type">[RW]</span>
+        </div>
+
+        <div class="method-description">
+        
+        <p>A Hash of reservations (keyed by reservation ID) that correspond to
+requests for virtual machines from cloud infrastructures. TODO(cgb): We
+should probably garbage collect old reservations</p>
+        
+        </div>
+      </div>
+      
+      <div id="secret-attribute-method" class="method-detail">
+        <a name="secret"></a>
+        
+        <a name="secret="></a>
+        
+        <div class="method-heading attribute-method-heading">
+          <span class="method-name">secret</span><span
+            class="attribute-access-type">[RW]</span>
+        </div>
+
+        <div class="method-description">
+        
+        <p>The shared secret that is used to authenticate remote callers.</p>
+        
+        </div>
+      </div>
+      
+    </div>
+    
+
+    <!-- Methods -->
+    
+    <div id="public-class-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="new-method" class="method-detail ">
+        <a name="method-c-new"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">new</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="new-source">
+<pre>
+<span class="ruby-comment"># File infrastructure_manager.rb, line 49</span>
+def initialize
+  <span class="ruby-ivar">@reservations</span> = {}
+  <span class="ruby-ivar">@secret</span> = <span class="ruby-constant">HelperFunctions</span>.get_secret()
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+    </div>
+  
+    <div id="public-instance-method-details" class="method-section section">
+      <h3 class="section-header">Public Instance Methods</h3>
+
+    
+      <div id="describe_instances-method" class="method-detail ">
+        <a name="method-i-describe_instances"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">describe_instances</span><span
+            class="method-args">(parameters, secret)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="describe_instances-source">
+<pre>
+<span class="ruby-comment"># File infrastructure_manager.rb, line 84</span>
+def describe_instances(parameters, secret)
+  if <span class="ruby-ivar">@secret</span> != secret
+    return <span class="ruby-constant">BAD_SECRET_RESPONSE</span>
+  end
+
+  <span class="ruby-constant">DESCRIBE_INSTANCES_REQUIRED_PARAMS</span>.each { |required_param|
+    if parameters[required_param].nil? or parameters[required_param].empty?
+      return {<span class="ruby-string">&quot;success&quot;</span> =&gt; false, <span class="ruby-string">&quot;reason&quot;</span> =&gt; &quot;no #{required_param}&quot;}
+    end
+  }
+
+  reservation_id = parameters[<span class="ruby-string">&quot;reservation_id&quot;</span>]
+  if <span class="ruby-ivar">@reservations</span>[reservation_id].nil?
+    return <span class="ruby-constant">RESERVATION_NOT_FOUND_RESPONSE</span>
+  end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="run_instances-method" class="method-detail ">
+        <a name="method-i-run_instances"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">run_instances</span><span
+            class="method-args">(parameters, secret)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="run_instances-source">
+<pre>
+<span class="ruby-comment"># File infrastructure_manager.rb, line 55</span>
+def run_instances(parameters, secret)
+  if <span class="ruby-ivar">@secret</span> != secret
+    return <span class="ruby-constant">BAD_SECRET_RESPONSE</span>
+  end
+
+  <span class="ruby-constant">RUN_INSTANCES_REQUIRED_PARAMS</span>.each { |required_param|
+    if parameters[required_param].nil? or parameters[required_param].empty?
+      return {<span class="ruby-string">&quot;success&quot;</span> =&gt; false, <span class="ruby-string">&quot;reason&quot;</span> =&gt; &quot;no #{required_param}&quot;}
+    end
+  }
+
+  reservation_id = <span class="ruby-constant">HelperFunctions</span>.get_random_alphanumeric()
+
+  <span class="ruby-ivar">@reservations</span>[reservation_id] = {
+    <span class="ruby-string">&quot;success&quot;</span> =&gt; true,
+    <span class="ruby-string">&quot;reason&quot;</span> =&gt; <span class="ruby-string">&quot;received run request&quot;</span>,
+    <span class="ruby-string">&quot;state&quot;</span> =&gt; <span class="ruby-string">&quot;scheduling&quot;</span>,
+    <span class="ruby-string">&quot;vm_info&quot;</span> =&gt; nil
+  }
+
+  <span class="ruby-constant">Thread</span>.new {
+    <span class="ruby-comment"># TODO(cgb): start the VMs</span>
+  }
+
+  return {<span class="ruby-string">&quot;success&quot;</span> =&gt; true, <span class="ruby-string">&quot;reservation_id&quot;</span> =&gt; reservation_id, 
+    <span class="ruby-string">&quot;reason&quot;</span> =&gt; <span class="ruby-string">&quot;none&quot;</span>}
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="terminate_instances-method" class="method-detail ">
+        <a name="method-i-terminate_instances"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">terminate_instances</span><span
+            class="method-args">(parameters, secret)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="terminate_instances-source">
+<pre>
+<span class="ruby-comment"># File infrastructure_manager.rb, line 102</span>
+def terminate_instances(parameters, secret)
+  if <span class="ruby-ivar">@secret</span> != secret
+    return <span class="ruby-constant">BAD_SECRET_RESPONSE</span>
+  end
+
+  <span class="ruby-constant">TERMINATE_INSTANCES_REQUIRED_PARAMS</span>.each { |required_param|
+    if parameters[required_param].nil? or parameters[required_param].empty?
+      return {<span class="ruby-string">&quot;success&quot;</span> =&gt; false, <span class="ruby-string">&quot;reason&quot;</span> =&gt; &quot;no #{required_param}&quot;}
+    end
+  }
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+    </div>
+  
+
+  </div>
+
+  <div id="validator-badges">
+    <p><small><a href="http://validator.w3.org/check/referer">[Validate]</a></small></p>
+    <p><small>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish
+      Rdoc Generator</a> 2</small>.</p>
+  </div>
+
+</body>
+</html>
+
