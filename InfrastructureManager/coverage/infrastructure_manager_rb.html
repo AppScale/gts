@@ -28,7 +28,7 @@
         <tbody>
           <tr>
             <td class="left_align"><a href="infrastructure_manager_rb.html">infrastructure_manager.rb</a></td>
-            <td class='right_align'><tt>115</tt></td>
+            <td class='right_align'><tt>133</tt></td>
             <td class='right_align'><tt>64</tt></td>
             <td class="left_align"><div class="percent_graph_legend"><tt class=''>100.00%</tt></div>
           <div class="percent_graph">
@@ -194,386 +194,386 @@
         
           
           
-          <tr class="marked">
-            <td><pre><a name="line24">24</a>   RESERVATION_NOT_FOUND_RESPONSE = {&quot;success&quot; =&gt; false, &quot;reason&quot; =&gt; </pre></td>
+          <tr class="inferred">
+            <td><pre><a name="line24">24</a>   # The standard response that will be returned to users calling</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line25">25</a>     &quot;reservation_id not found&quot;}</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line26">26</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line27">27</a> </pre></td>
+            <td><pre><a name="line25">25</a>   # describe_instances without passing in the reservation ID to inquire about.</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line28">28</a>   RUN_INSTANCES_REQUIRED_PARAMS = %w{credentials group image_id infrastructure </pre></td>
+            <td><pre><a name="line26">26</a>   RESERVATION_NOT_FOUND_RESPONSE = {&quot;success&quot; =&gt; false, &quot;reason&quot; =&gt; </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line29">29</a>     instance_type keyname num_vms}</pre></td>
+            <td><pre><a name="line27">27</a>     &quot;reservation_id not found&quot;}</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line30">30</a>   </pre></td>
+            <td><pre><a name="line28">28</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line31">31</a> </pre></td>
+            <td><pre><a name="line29">29</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line30">30</a>   # A list of the parameters required to start virtual machines via a cloud</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line31">31</a>   # infrastructure.</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line32">32</a>   DESCRIBE_INSTANCES_REQUIRED_PARAMS = %w{reservation_id}</pre></td>
+            <td><pre><a name="line32">32</a>   RUN_INSTANCES_REQUIRED_PARAMS = %w{credentials group image_id infrastructure </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line33">33</a> </pre></td>
+            <td><pre><a name="line33">33</a>     instance_type keyname num_vms}</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line34">34</a> </pre></td>
+            <td><pre><a name="line34">34</a>   </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line35">35</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line36">36</a>   # A list of the parameters required to query the InfrastructureManager about</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line37">37</a>   # the state of a run_instances request.</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line35">35</a>   TERMINATE_INSTANCES_REQUIRED_PARAMS = %w{credentials infrastructure </pre></td>
+            <td><pre><a name="line38">38</a>   DESCRIBE_INSTANCES_REQUIRED_PARAMS = %w{reservation_id}</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line36">36</a>     instance_ids}</pre></td>
+            <td><pre><a name="line39">39</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line37">37</a> </pre></td>
+            <td><pre><a name="line40">40</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line38">38</a> </pre></td>
+            <td><pre><a name="line41">41</a>   # A list of the parameters required to terminate machines previously started</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line39">39</a>   # A Hash of reservations (keyed by reservation ID) that correspond to</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line40">40</a>   # requests for virtual machines from cloud infrastructures.</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line41">41</a>   # TODO(cgb): We should probably garbage collect old reservations</pre></td>
+            <td><pre><a name="line42">42</a>   # via run_instances.</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line42">42</a>   attr_accessor :reservations</pre></td>
+            <td><pre><a name="line43">43</a>   TERMINATE_INSTANCES_REQUIRED_PARAMS = %w{credentials infrastructure </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line43">43</a> </pre></td>
+            <td><pre><a name="line44">44</a>     instance_ids}</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line44">44</a> </pre></td>
+            <td><pre><a name="line45">45</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line45">45</a>   # The shared secret that is used to authenticate remote callers.</pre></td>
+            <td><pre><a name="line46">46</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line47">47</a>   # A Hash of reservations (keyed by reservation ID) that correspond to</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line48">48</a>   # requests for virtual machines from cloud infrastructures.</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line49">49</a>   # TODO(cgb): We should probably garbage collect old reservations.</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line46">46</a>   attr_accessor :secret</pre></td>
+            <td><pre><a name="line50">50</a>   attr_accessor :reservations</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line47">47</a> </pre></td>
+            <td><pre><a name="line51">51</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line48">48</a> </pre></td>
+            <td><pre><a name="line52">52</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line53">53</a>   # The shared secret that is used to authenticate remote callers.</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line49">49</a>   def initialize</pre></td>
+            <td><pre><a name="line54">54</a>   attr_accessor :secret</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line55">55</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line56">56</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line57">57</a>   # Creates a new InfrastructureManager, which keeps track of the reservations</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line58">58</a>   # made thus far, and reads a shared secret to authenticate callers.</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line50">50</a>     @reservations = {}</pre></td>
+            <td><pre><a name="line59">59</a>   def initialize</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line51">51</a>     @secret = HelperFunctions.get_secret()</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line52">52</a>   end</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line53">53</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line54">54</a> </pre></td>
+            <td><pre><a name="line60">60</a>     @reservations = {}</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line55">55</a>   def run_instances(parameters, secret)</pre></td>
+            <td><pre><a name="line61">61</a>     @secret = HelperFunctions.get_secret()</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line62">62</a>   end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line63">63</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line64">64</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line65">65</a>   # Acquires machines via a cloud infrastructure. As this process could take</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line66">66</a>   # longer than the timeout for SOAP calls, we return to the user a reservation</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line67">67</a>   # ID that can be passed to describe_instances to poll for the state of the</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line68">68</a>   # new machines.</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line56">56</a>     if @secret != secret</pre></td>
+            <td><pre><a name="line69">69</a>   def run_instances(parameters, secret)</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line57">57</a>       return BAD_SECRET_RESPONSE</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line58">58</a>     end</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line59">59</a> </pre></td>
+            <td><pre><a name="line70">70</a>     if @secret != secret</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line60">60</a>     RUN_INSTANCES_REQUIRED_PARAMS.each { |required_param|</pre></td>
+            <td><pre><a name="line71">71</a>       return BAD_SECRET_RESPONSE</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line72">72</a>     end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line73">73</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line61">61</a>       if parameters[required_param].nil? or parameters[required_param].empty?</pre></td>
+            <td><pre><a name="line74">74</a>     RUN_INSTANCES_REQUIRED_PARAMS.each { |required_param|</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line62">62</a>         return {&quot;success&quot; =&gt; false, &quot;reason&quot; =&gt; &quot;no #{required_param}&quot;}</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line63">63</a>       end</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line64">64</a>     }</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line65">65</a> </pre></td>
+            <td><pre><a name="line75">75</a>       if parameters[required_param].nil? or parameters[required_param].empty?</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line66">66</a>     reservation_id = HelperFunctions.get_random_alphanumeric()</pre></td>
+            <td><pre><a name="line76">76</a>         return {&quot;success&quot; =&gt; false, &quot;reason&quot; =&gt; &quot;no #{required_param}&quot;}</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line67">67</a> </pre></td>
+            <td><pre><a name="line77">77</a>       end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line78">78</a>     }</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line79">79</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line68">68</a>     @reservations[reservation_id] = {</pre></td>
+            <td><pre><a name="line80">80</a>     reservation_id = HelperFunctions.get_random_alphanumeric()</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line69">69</a>       &quot;success&quot; =&gt; true,</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line70">70</a>       &quot;reason&quot; =&gt; &quot;received run request&quot;,</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line71">71</a>       &quot;state&quot; =&gt; &quot;scheduling&quot;,</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line72">72</a>       &quot;vm_info&quot; =&gt; nil</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line73">73</a>     }</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line74">74</a> </pre></td>
+            <td><pre><a name="line81">81</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line75">75</a>     Thread.new {</pre></td>
+            <td><pre><a name="line82">82</a>     @reservations[reservation_id] = {</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line76">76</a>       # TODO(cgb): start the VMs</pre></td>
+            <td><pre><a name="line83">83</a>       &quot;success&quot; =&gt; true,</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line77">77</a>     }</pre></td>
+            <td><pre><a name="line84">84</a>       &quot;reason&quot; =&gt; &quot;received run request&quot;,</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line78">78</a> </pre></td>
+            <td><pre><a name="line85">85</a>       &quot;state&quot; =&gt; &quot;scheduling&quot;,</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line79">79</a>     return {&quot;success&quot; =&gt; true, &quot;reservation_id&quot; =&gt; reservation_id, </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="marked">
-            <td><pre><a name="line80">80</a>       &quot;reason&quot; =&gt; &quot;none&quot;}</pre></td>
+            <td><pre><a name="line86">86</a>       &quot;vm_info&quot; =&gt; nil</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line81">81</a>   end</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line82">82</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line83">83</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="marked">
-            <td><pre><a name="line84">84</a>   def describe_instances(parameters, secret)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="marked">
-            <td><pre><a name="line85">85</a>     if @secret != secret</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="marked">
-            <td><pre><a name="line86">86</a>       return BAD_SECRET_RESPONSE</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line87">87</a>     end</pre></td>
+            <td><pre><a name="line87">87</a>     }</pre></td>
           </tr>
         
           
@@ -585,169 +585,277 @@
           
           
           <tr class="marked">
-            <td><pre><a name="line89">89</a>     DESCRIBE_INSTANCES_REQUIRED_PARAMS.each { |required_param|</pre></td>
+            <td><pre><a name="line89">89</a>     Thread.new {</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line90">90</a>       # TODO(cgb): start the VMs</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line91">91</a>     }</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line92">92</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line93">93</a>     return {&quot;success&quot; =&gt; true, &quot;reservation_id&quot; =&gt; reservation_id, </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line90">90</a>       if parameters[required_param].nil? or parameters[required_param].empty?</pre></td>
+            <td><pre><a name="line94">94</a>       &quot;reason&quot; =&gt; &quot;none&quot;}</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line95">95</a>   end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line96">96</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line97">97</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line98">98</a>   # Queries our internal list of reservations to see if the virtual machines</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line99">99</a>   # corresponding to the given reservation ID have been started up.</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line91">91</a>         return {&quot;success&quot; =&gt; false, &quot;reason&quot; =&gt; &quot;no #{required_param}&quot;}</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line92">92</a>       end</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line93">93</a>     }</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line94">94</a> </pre></td>
+            <td><pre><a name="line100">100</a>   def describe_instances(parameters, secret)</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line95">95</a>     reservation_id = parameters[&quot;reservation_id&quot;]</pre></td>
+            <td><pre><a name="line101">101</a>     if @secret != secret</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line96">96</a>     if @reservations[reservation_id].nil?</pre></td>
+            <td><pre><a name="line102">102</a>       return BAD_SECRET_RESPONSE</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line103">103</a>     end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line104">104</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line97">97</a>       return RESERVATION_NOT_FOUND_RESPONSE</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line98">98</a>     end</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line99">99</a>   end</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line100">100</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line101">101</a> </pre></td>
+            <td><pre><a name="line105">105</a>     DESCRIBE_INSTANCES_REQUIRED_PARAMS.each { |required_param|</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line102">102</a>   def terminate_instances(parameters, secret)</pre></td>
+            <td><pre><a name="line106">106</a>       if parameters[required_param].nil? or parameters[required_param].empty?</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line103">103</a>     if @secret != secret</pre></td>
+            <td><pre><a name="line107">107</a>         return {&quot;success&quot; =&gt; false, &quot;reason&quot; =&gt; &quot;no #{required_param}&quot;}</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line108">108</a>       end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line109">109</a>     }</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line110">110</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line104">104</a>       return BAD_SECRET_RESPONSE</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line105">105</a>     end</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line106">106</a> </pre></td>
+            <td><pre><a name="line111">111</a>     reservation_id = parameters[&quot;reservation_id&quot;]</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line107">107</a>     TERMINATE_INSTANCES_REQUIRED_PARAMS.each { |required_param|</pre></td>
+            <td><pre><a name="line112">112</a>     if @reservations[reservation_id].nil?</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line108">108</a>       if parameters[required_param].nil? or parameters[required_param].empty?</pre></td>
+            <td><pre><a name="line113">113</a>       return RESERVATION_NOT_FOUND_RESPONSE</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line114">114</a>     end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line115">115</a>   end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line116">116</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line117">117</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line118">118</a>   # Uses the credentials given to terminate machines spawned via a cloud</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line119">119</a>   # infrastructure.</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line109">109</a>         return {&quot;success&quot; =&gt; false, &quot;reason&quot; =&gt; &quot;no #{required_param}&quot;}</pre></td>
+            <td><pre><a name="line120">120</a>   def terminate_instances(parameters, secret)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line121">121</a>     if @secret != secret</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line122">122</a>       return BAD_SECRET_RESPONSE</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line110">110</a>       end</pre></td>
+            <td><pre><a name="line123">123</a>     end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line111">111</a>     }</pre></td>
+            <td><pre><a name="line124">124</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line125">125</a>     TERMINATE_INSTANCES_REQUIRED_PARAMS.each { |required_param|</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line126">126</a>       if parameters[required_param].nil? or parameters[required_param].empty?</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line127">127</a>         return {&quot;success&quot; =&gt; false, &quot;reason&quot; =&gt; &quot;no #{required_param}&quot;}</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line112">112</a>   end</pre></td>
+            <td><pre><a name="line128">128</a>       end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line113">113</a> </pre></td>
+            <td><pre><a name="line129">129</a>     }</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line114">114</a> </pre></td>
+            <td><pre><a name="line130">130</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line115">115</a> end</pre></td>
+            <td><pre><a name="line131">131</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line132">132</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line133">133</a> end</pre></td>
           </tr>
         
       </tbody>
     </table>
 
-    <p>Generated on Tue Apr 24 16:10:43 -0700 2012 with <a href="http://github.com/relevance/rcov">rcov 0.9.8</a></p>
+    <p>Generated on Tue Apr 24 16:24:25 -0700 2012 with <a href="http://github.com/relevance/rcov">rcov 0.9.8</a></p>
 
   </body>
 </html>

@@ -21,24 +21,32 @@ class InfrastructureManager
   BAD_SECRET_RESPONSE = {"success" => false, "reason" => "bad secret"}
 
 
+  # The standard response that will be returned to users calling
+  # describe_instances without passing in the reservation ID to inquire about.
   RESERVATION_NOT_FOUND_RESPONSE = {"success" => false, "reason" => 
     "reservation_id not found"}
 
 
+  # A list of the parameters required to start virtual machines via a cloud
+  # infrastructure.
   RUN_INSTANCES_REQUIRED_PARAMS = %w{credentials group image_id infrastructure 
     instance_type keyname num_vms}
   
 
+  # A list of the parameters required to query the InfrastructureManager about
+  # the state of a run_instances request.
   DESCRIBE_INSTANCES_REQUIRED_PARAMS = %w{reservation_id}
 
 
+  # A list of the parameters required to terminate machines previously started
+  # via run_instances.
   TERMINATE_INSTANCES_REQUIRED_PARAMS = %w{credentials infrastructure 
     instance_ids}
 
 
   # A Hash of reservations (keyed by reservation ID) that correspond to
   # requests for virtual machines from cloud infrastructures.
-  # TODO(cgb): We should probably garbage collect old reservations
+  # TODO(cgb): We should probably garbage collect old reservations.
   attr_accessor :reservations
 
 
@@ -46,12 +54,18 @@ class InfrastructureManager
   attr_accessor :secret
 
 
+  # Creates a new InfrastructureManager, which keeps track of the reservations
+  # made thus far, and reads a shared secret to authenticate callers.
   def initialize
     @reservations = {}
     @secret = HelperFunctions.get_secret()
   end
 
 
+  # Acquires machines via a cloud infrastructure. As this process could take
+  # longer than the timeout for SOAP calls, we return to the user a reservation
+  # ID that can be passed to describe_instances to poll for the state of the
+  # new machines.
   def run_instances(parameters, secret)
     if @secret != secret
       return BAD_SECRET_RESPONSE
@@ -81,6 +95,8 @@ class InfrastructureManager
   end
 
 
+  # Queries our internal list of reservations to see if the virtual machines
+  # corresponding to the given reservation ID have been started up.
   def describe_instances(parameters, secret)
     if @secret != secret
       return BAD_SECRET_RESPONSE
@@ -99,6 +115,8 @@ class InfrastructureManager
   end
 
 
+  # Uses the credentials given to terminate machines spawned via a cloud
+  # infrastructure.
   def terminate_instances(parameters, secret)
     if @secret != secret
       return BAD_SECRET_RESPONSE

@@ -152,22 +152,30 @@ an invalid secret.</p></dd>
       
         <dt><a name="RESERVATION_NOT_FOUND_RESPONSE">RESERVATION_NOT_FOUND_RESPONSE</a></dt>
         
-        <dd class="description"></dd>
+        <dd class="description"><p>The standard response that will be returned to users calling <a
+href="InfrastructureManager.html#method-i-describe_instances">describe_instances</a>
+without passing in the reservation ID to inquire about.</p></dd>
         
       
         <dt><a name="RUN_INSTANCES_REQUIRED_PARAMS">RUN_INSTANCES_REQUIRED_PARAMS</a></dt>
         
-        <dd class="description"></dd>
+        <dd class="description"><p>A list of the parameters required to start virtual machines via a cloud
+infrastructure.</p></dd>
         
       
         <dt><a name="DESCRIBE_INSTANCES_REQUIRED_PARAMS">DESCRIBE_INSTANCES_REQUIRED_PARAMS</a></dt>
         
-        <dd class="description"></dd>
+        <dd class="description"><p>A list of the parameters required to query the <a
+href="InfrastructureManager.html">InfrastructureManager</a> about the state
+of a <a
+href="InfrastructureManager.html#method-i-run_instances">run_instances</a>
+request.</p></dd>
         
       
         <dt><a name="TERMINATE_INSTANCES_REQUIRED_PARAMS">TERMINATE_INSTANCES_REQUIRED_PARAMS</a></dt>
         
-        <dd class="description"></dd>
+        <dd class="description"><p>A list of the parameters required to terminate machines previously started
+via run_instances.</p></dd>
         
       
       </dl>
@@ -194,7 +202,7 @@ an invalid secret.</p></dd>
         
         <p>A Hash of reservations (keyed by reservation ID) that correspond to
 requests for virtual machines from cloud infrastructures. TODO(cgb): We
-should probably garbage collect old reservations</p>
+should probably garbage collect old reservations.</p>
         
         </div>
       </div>
@@ -221,47 +229,6 @@ should probably garbage collect old reservations</p>
 
     <!-- Methods -->
     
-    <div id="public-class-method-details" class="method-section section">
-      <h3 class="section-header">Public Class Methods</h3>
-
-    
-      <div id="new-method" class="method-detail ">
-        <a name="method-c-new"></a>
-
-        
-        <div class="method-heading">
-          <span class="method-name">new</span><span
-            class="method-args">()</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code"
-            id="new-source">
-<pre>
-<span class="ruby-comment"># File infrastructure_manager.rb, line 49</span>
-def initialize
-  <span class="ruby-ivar">@reservations</span> = {}
-  <span class="ruby-ivar">@secret</span> = <span class="ruby-constant">HelperFunctions</span>.get_secret()
-end</pre>
-          </div>
-          
-        </div>
-
-        
-
-        
-      </div>
-
-    
-    </div>
-  
     <div id="public-instance-method-details" class="method-section section">
       <h3 class="section-header">Public Instance Methods</h3>
 
@@ -279,14 +246,15 @@ end</pre>
 
         <div class="method-description">
           
-          
+          <p>Queries our internal list of reservations to see if the virtual machines
+corresponding to the given reservation ID have been started up.</p>
           
 
           
           <div class="method-source-code"
             id="describe_instances-source">
 <pre>
-<span class="ruby-comment"># File infrastructure_manager.rb, line 84</span>
+<span class="ruby-comment"># File infrastructure_manager.rb, line 100</span>
 def describe_instances(parameters, secret)
   if <span class="ruby-ivar">@secret</span> != secret
     return <span class="ruby-constant">BAD_SECRET_RESPONSE</span>
@@ -326,14 +294,18 @@ end</pre>
 
         <div class="method-description">
           
-          
+          <p>Acquires machines via a cloud infrastructure. As this process could take
+longer than the timeout for SOAP calls, we return to the user a reservation
+ID that can be passed to <a
+href="InfrastructureManager.html#method-i-describe_instances">describe_instances</a>
+to poll for the state of the new machines.</p>
           
 
           
           <div class="method-source-code"
             id="run_instances-source">
 <pre>
-<span class="ruby-comment"># File infrastructure_manager.rb, line 55</span>
+<span class="ruby-comment"># File infrastructure_manager.rb, line 69</span>
 def run_instances(parameters, secret)
   if <span class="ruby-ivar">@secret</span> != secret
     return <span class="ruby-constant">BAD_SECRET_RESPONSE</span>
@@ -384,14 +356,15 @@ end</pre>
 
         <div class="method-description">
           
-          
+          <p>Uses the credentials given to terminate machines spawned via a cloud
+infrastructure.</p>
           
 
           
           <div class="method-source-code"
             id="terminate_instances-source">
 <pre>
-<span class="ruby-comment"># File infrastructure_manager.rb, line 102</span>
+<span class="ruby-comment"># File infrastructure_manager.rb, line 120</span>
 def terminate_instances(parameters, secret)
   if <span class="ruby-ivar">@secret</span> != secret
     return <span class="ruby-constant">BAD_SECRET_RESPONSE</span>
@@ -402,6 +375,50 @@ def terminate_instances(parameters, secret)
       return {<span class="ruby-string">&quot;success&quot;</span> =&gt; false, <span class="ruby-string">&quot;reason&quot;</span> =&gt; &quot;no #{required_param}&quot;}
     end
   }
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+    </div>
+  
+    <div id="public-class-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="new-method" class="method-detail ">
+        <a name="method-c-new"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">new</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Creates a new <a
+href="InfrastructureManager.html">InfrastructureManager</a>, which keeps
+track of the reservations made thus far, and reads a shared secret to
+authenticate callers.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="new-source">
+<pre>
+<span class="ruby-comment"># File infrastructure_manager.rb, line 59</span>
+def initialize
+  <span class="ruby-ivar">@reservations</span> = {}
+  <span class="ruby-ivar">@secret</span> = <span class="ruby-constant">HelperFunctions</span>.get_secret()
 end</pre>
           </div>
           
