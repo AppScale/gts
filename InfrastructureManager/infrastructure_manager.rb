@@ -32,6 +32,10 @@ class InfrastructureManager
   DESCRIBE_INSTANCES_REQUIRED_PARAMS = %w{reservation_id}
 
 
+  TERMINATE_INSTANCES_REQUIRED_PARAMS = %w{credentials infrastructure 
+    instance_ids}
+
+
   # A Hash of reservations (keyed by reservation ID) that correspond to
   # requests for virtual machines from cloud infrastructures.
   # TODO(cgb): We should probably garbage collect old reservations
@@ -100,6 +104,11 @@ class InfrastructureManager
       return BAD_SECRET_RESPONSE
     end
 
+    TERMINATE_INSTANCES_REQUIRED_PARAMS.each { |required_param|
+      if parameters[required_param].nil? or parameters[required_param].empty?
+        return {"success" => false, "reason" => "no #{required_param}"}
+      end
+    }
   end
 
 

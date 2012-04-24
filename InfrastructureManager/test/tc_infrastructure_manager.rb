@@ -92,6 +92,11 @@ class TestInfrastructureManager < Test::Unit::TestCase
     params1 = {}
     result1 = InfrastructureManager::BAD_SECRET_RESPONSE
     assert_equal(result1, i.terminate_instances(params1, "secret1"))
+
+    # next, test out terminate_instances without any credentials
+    params2 = {}
+    result2 = {"success" => false, "reason" => "no credentials"}
+    assert_equal(result2, i.terminate_instances(params2, "secret"))
   end
 
 
