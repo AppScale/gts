@@ -17,7 +17,22 @@ module HelperFunctions
     end
   end
 
-  
+
+  # Returns a random string composed of alphanumeric characters, as long
+  # as the user requests.
+  def self.get_random_alphanumeric(length=10)
+    random = ""
+    possible = "0123456789abcdefghijklmnopqrstuvxwyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    possibleLength = possible.length
+    
+    length.times { |index|
+      random << possible[Kernel.rand(possibleLength)]
+    }
+    
+    return random
+  end
+
+
   def self.get_cert(filename)
     return nil unless File.exists?(filename)
     OpenSSL::X509::Certificate.new(File.open(filename) { |f|
