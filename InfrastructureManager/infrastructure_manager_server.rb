@@ -29,7 +29,7 @@ class InfrastructureManagerServer < SOAP::RPC::HTTPServer
   # the necessary methods via SOAP to the AppController (and eventually the
   # NeptuneManager).
   def on_init
-    @infrastructure_manager = InfrastructureManager.new
+    @infrastructure_manager = InfrastructureManager.new()
 
     # Expose InfrastructureManager methods to the outside world
     add_method(@djinn, "run_instances", "parameters", "secret")
