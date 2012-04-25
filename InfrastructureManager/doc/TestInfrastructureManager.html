@@ -169,7 +169,7 @@ def setup
   flexmock(<span class="ruby-constant">HelperFunctions</span>).should_receive(:get_secret).and_return(<span class="ruby-string">&quot;secret&quot;</span>)
 
   <span class="ruby-comment"># make all puts to stdout not do anything, to not clutter up the terminal</span>
-  <span class="ruby-comment"># flexmock(Kernel).should_receive(:puts).and_return()</span>
+  flexmock(<span class="ruby-constant">Kernel</span>).should_receive(:puts).and_return()
 
   <span class="ruby-comment"># make all sleep statements return automatically</span>
   flexmock(<span class="ruby-constant">Kernel</span>).should_receive(:sleep).and_return()
@@ -227,8 +227,18 @@ def test_describe_instances
 
   <span class="ruby-comment"># test what happens when a caller gives describe_instances a reservation</span>
   <span class="ruby-comment"># id that is in the system</span>
-
-
+  id = <span class="ruby-string">&quot;0000000000&quot;</span>
+  params4 = {<span class="ruby-string">&quot;reservation_id&quot;</span> =&gt; id}
+  vm_info = {
+    <span class="ruby-string">&quot;public_ips&quot;</span> =&gt; [<span class="ruby-string">&quot;public-ip&quot;</span>],
+    <span class="ruby-string">&quot;private_ips&quot;</span> =&gt; [<span class="ruby-string">&quot;private-ip&quot;</span>],
+    <span class="ruby-string">&quot;instance_ids&quot;</span> =&gt; [<span class="ruby-string">&quot;i-id&quot;</span>]
+  }
+  i.reservations[id] = {<span class="ruby-string">&quot;success&quot;</span> =&gt; true, 
+    <span class="ruby-string">&quot;reason&quot;</span> =&gt; <span class="ruby-string">&quot;received run request&quot;</span>,
+    <span class="ruby-string">&quot;state&quot;</span> =&gt; <span class="ruby-string">&quot;running&quot;</span>, <span class="ruby-string">&quot;vm_info&quot;</span> =&gt; vm_info}
+  result4 = i.reservations[id]
+  assert_equal(result4, i.describe_instances(params4, <span class="ruby-string">&quot;secret&quot;</span>))
 end</pre>
           </div>
           
@@ -431,7 +441,7 @@ end</pre>
           <div class="method-source-code"
             id="test_terminate_instances-source">
 <pre>
-<span class="ruby-comment"># File test/tc_infrastructure_manager.rb, line 167</span>
+<span class="ruby-comment"># File test/tc_infrastructure_manager.rb, line 177</span>
 def test_terminate_instances
   i = <span class="ruby-constant">InfrastructureManager</span>.new()
 

@@ -272,6 +272,8 @@ def describe_instances(parameters, secret)
   if <span class="ruby-ivar">@reservations</span>[reservation_id].nil?
     return <span class="ruby-constant">RESERVATION_NOT_FOUND_RESPONSE</span>
   end
+
+  return <span class="ruby-ivar">@reservations</span>[reservation_id]
 end</pre>
           </div>
           
@@ -328,7 +330,7 @@ def run_instances(parameters, secret)
     <span class="ruby-string">&quot;vm_info&quot;</span> =&gt; nil
   }
 
-  <span class="ruby-comment">#Thread.new {</span>
+  <span class="ruby-constant">Thread</span>.new {
     <span class="ruby-constant">HelperFunctions</span>.set_creds_in_env(parameters[<span class="ruby-string">'credentials'</span>], <span class="ruby-string">&quot;1&quot;</span>)
     public_ips, private_ips, ids = <span class="ruby-constant">HelperFunctions</span>.spawn_vms(parameters)
     <span class="ruby-ivar">@reservations</span>[reservation_id][<span class="ruby-string">&quot;state&quot;</span>] = <span class="ruby-string">&quot;running&quot;</span>
@@ -337,7 +339,7 @@ def run_instances(parameters, secret)
       <span class="ruby-string">&quot;private_ips&quot;</span> =&gt; private_ips,
       <span class="ruby-string">&quot;instance_ids&quot;</span> =&gt; ids
     }
-  <span class="ruby-comment">#}</span>
+  }
 
   return {<span class="ruby-string">&quot;success&quot;</span> =&gt; true, <span class="ruby-string">&quot;reservation_id&quot;</span> =&gt; reservation_id, 
     <span class="ruby-string">&quot;reason&quot;</span> =&gt; <span class="ruby-string">&quot;none&quot;</span>}
@@ -373,7 +375,7 @@ infrastructure.</p>
           <div class="method-source-code"
             id="terminate_instances-source">
 <pre>
-<span class="ruby-comment"># File infrastructure_manager.rb, line 127</span>
+<span class="ruby-comment"># File infrastructure_manager.rb, line 129</span>
 def terminate_instances(parameters, secret)
   if <span class="ruby-ivar">@secret</span> != secret
     return <span class="ruby-constant">BAD_SECRET_RESPONSE</span>

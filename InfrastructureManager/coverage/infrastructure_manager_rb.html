@@ -28,8 +28,8 @@
         <tbody>
           <tr>
             <td class="left_align"><a href="infrastructure_manager_rb.html">infrastructure_manager.rb</a></td>
-            <td class='right_align'><tt>140</tt></td>
-            <td class='right_align'><tt>72</tt></td>
+            <td class='right_align'><tt>142</tt></td>
+            <td class='right_align'><tt>73</tt></td>
             <td class="left_align"><div class="percent_graph_legend"><tt class=''>100.00%</tt></div>
           <div class="percent_graph">
             <div class="covered" style="width:100px"></div>
@@ -783,121 +783,133 @@
           
           
           <tr class="inferred">
-            <td><pre><a name="line122">122</a>   end</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line123">123</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line124">124</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line125">125</a>   # Uses the credentials given to terminate machines spawned via a cloud</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line126">126</a>   # infrastructure.</pre></td>
+            <td><pre><a name="line122">122</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line127">127</a>   def terminate_instances(parameters, secret)</pre></td>
+            <td><pre><a name="line123">123</a>     return @reservations[reservation_id]</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line124">124</a>   end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line125">125</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line126">126</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line127">127</a>   # Uses the credentials given to terminate machines spawned via a cloud</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line128">128</a>   # infrastructure.</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line128">128</a>     if @secret != secret</pre></td>
+            <td><pre><a name="line129">129</a>   def terminate_instances(parameters, secret)</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line129">129</a>       return BAD_SECRET_RESPONSE</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line130">130</a>     end</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line131">131</a> </pre></td>
+            <td><pre><a name="line130">130</a>     if @secret != secret</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line132">132</a>     TERMINATE_INSTANCES_REQUIRED_PARAMS.each { |required_param|</pre></td>
+            <td><pre><a name="line131">131</a>       return BAD_SECRET_RESPONSE</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line132">132</a>     end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line133">133</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line133">133</a>       if parameters[required_param].nil? or parameters[required_param].empty?</pre></td>
+            <td><pre><a name="line134">134</a>     TERMINATE_INSTANCES_REQUIRED_PARAMS.each { |required_param|</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line134">134</a>         return {&quot;success&quot; =&gt; false, &quot;reason&quot; =&gt; &quot;no #{required_param}&quot;}</pre></td>
+            <td><pre><a name="line135">135</a>       if parameters[required_param].nil? or parameters[required_param].empty?</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line136">136</a>         return {&quot;success&quot; =&gt; false, &quot;reason&quot; =&gt; &quot;no #{required_param}&quot;}</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line135">135</a>       end</pre></td>
+            <td><pre><a name="line137">137</a>       end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line136">136</a>     }</pre></td>
+            <td><pre><a name="line138">138</a>     }</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line137">137</a>   end</pre></td>
+            <td><pre><a name="line139">139</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line138">138</a> </pre></td>
+            <td><pre><a name="line140">140</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line139">139</a> </pre></td>
+            <td><pre><a name="line141">141</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line140">140</a> end</pre></td>
+            <td><pre><a name="line142">142</a> end</pre></td>
           </tr>
         
       </tbody>
     </table>
 
-    <p>Generated on Tue Apr 24 22:17:09 -0700 2012 with <a href="http://github.com/relevance/rcov">rcov 0.9.8</a></p>
+    <p>Generated on Tue Apr 24 22:36:41 -0700 2012 with <a href="http://github.com/relevance/rcov">rcov 0.9.8</a></p>
 
   </body>
 </html>
