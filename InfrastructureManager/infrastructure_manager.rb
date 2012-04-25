@@ -30,7 +30,7 @@ class InfrastructureManager
   # A list of the parameters required to start virtual machines via a cloud
   # infrastructure.
   RUN_INSTANCES_REQUIRED_PARAMS = %w{credentials group image_id infrastructure 
-    instance_type keyname num_vms}
+    instance_type keyname num_vms spot}
   
 
   # A list of the parameters required to query the InfrastructureManager about
@@ -82,13 +82,20 @@ class InfrastructureManager
     @reservations[reservation_id] = {
       "success" => true,
       "reason" => "received run request",
-      "state" => "scheduling",
+      "state" => "pending",
       "vm_info" => nil
     }
 
-    Thread.new {
-      # TODO(cgb): start the VMs
-    }
+    #Thread.new {
+      HelperFunctions.set_creds_in_env(parameters['credentials'], "1")
+      public_ips, private_ips, ids = HelperFunctions.spawn_vms(parameters)
+      @reservations[reservation_id]["state"] = "running"
+      @reservations[reservation_id]["vm_info"] = {
+        "public_ips" => public_ips,
+        "private_ips" => private_ips,
+        "instance_ids" => ids
+      }
+    #}
 
     return {"success" => true, "reservation_id" => reservation_id, 
       "reason" => "none"}
