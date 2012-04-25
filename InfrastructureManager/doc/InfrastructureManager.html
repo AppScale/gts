@@ -159,6 +159,13 @@ href="InfrastructureManager.html#method-i-describe_instances">describe_instances
 without passing in the reservation ID to inquire about.</p></dd>
         
       
+        <dt><a name="SUCCESSFUL_TERMINATE_RESPONSE">SUCCESSFUL_TERMINATE_RESPONSE</a></dt>
+        
+        <dd class="description"><p>The standard response to return to callers of <a
+href="InfrastructureManager.html#method-i-terminate_instances">terminate_instances</a>
+who provide all the necessary parameters.</p></dd>
+        
+      
         <dt><a name="RUN_INSTANCES_REQUIRED_PARAMS">RUN_INSTANCES_REQUIRED_PARAMS</a></dt>
         
         <dd class="description"><p>A list of the parameters required to start virtual machines via a cloud
@@ -256,7 +263,7 @@ corresponding to the given reservation ID have been started up.</p>
           <div class="method-source-code"
             id="describe_instances-source">
 <pre>
-<span class="ruby-comment"># File infrastructure_manager.rb, line 107</span>
+<span class="ruby-comment"># File infrastructure_manager.rb, line 112</span>
 def describe_instances(parameters, secret)
   if <span class="ruby-ivar">@secret</span> != secret
     return <span class="ruby-constant">BAD_SECRET_RESPONSE</span>
@@ -309,7 +316,7 @@ to poll for the state of the new machines.</p>
           <div class="method-source-code"
             id="run_instances-source">
 <pre>
-<span class="ruby-comment"># File infrastructure_manager.rb, line 69</span>
+<span class="ruby-comment"># File infrastructure_manager.rb, line 74</span>
 def run_instances(parameters, secret)
   if <span class="ruby-ivar">@secret</span> != secret
     return <span class="ruby-constant">BAD_SECRET_RESPONSE</span>
@@ -375,7 +382,7 @@ infrastructure.</p>
           <div class="method-source-code"
             id="terminate_instances-source">
 <pre>
-<span class="ruby-comment"># File infrastructure_manager.rb, line 129</span>
+<span class="ruby-comment"># File infrastructure_manager.rb, line 134</span>
 def terminate_instances(parameters, secret)
   if <span class="ruby-ivar">@secret</span> != secret
     return <span class="ruby-constant">BAD_SECRET_RESPONSE</span>
@@ -386,6 +393,14 @@ def terminate_instances(parameters, secret)
       return {<span class="ruby-string">&quot;success&quot;</span> =&gt; false, <span class="ruby-string">&quot;reason&quot;</span> =&gt; &quot;no #{required_param}&quot;}
     end
   }
+
+  <span class="ruby-constant">Thread</span>.new {
+    <span class="ruby-constant">HelperFunctions</span>.set_creds_in_env(parameters[<span class="ruby-string">'credentials'</span>], <span class="ruby-string">&quot;1&quot;</span>)
+    <span class="ruby-constant">HelperFunctions</span>.terminate_vms(parameters[<span class="ruby-string">'instance_ids'</span>], 
+      parameters[<span class="ruby-string">'infrastructure'</span>])
+  }
+
+  return <span class="ruby-constant">SUCCESSFUL_TERMINATE_RESPONSE</span>
 end</pre>
           </div>
           
@@ -426,7 +441,7 @@ authenticate callers.</p>
           <div class="method-source-code"
             id="new-source">
 <pre>
-<span class="ruby-comment"># File infrastructure_manager.rb, line 59</span>
+<span class="ruby-comment"># File infrastructure_manager.rb, line 64</span>
 def initialize
   <span class="ruby-ivar">@reservations</span> = {}
   <span class="ruby-ivar">@secret</span> = <span class="ruby-constant">HelperFunctions</span>.get_secret()

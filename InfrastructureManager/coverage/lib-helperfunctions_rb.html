@@ -28,17 +28,17 @@
         <tbody>
           <tr>
             <td class="left_align"><a href="lib-helperfunctions_rb.html">lib/helperfunctions.rb</a></td>
-            <td class='right_align'><tt>560</tt></td>
-            <td class='right_align'><tt>381</tt></td>
-            <td class="left_align"><div class="percent_graph_legend"><tt class=''>62.68%</tt></div>
+            <td class='right_align'><tt>554</tt></td>
+            <td class='right_align'><tt>376</tt></td>
+            <td class="left_align"><div class="percent_graph_legend"><tt class=''>63.72%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:63px"></div>
-            <div class="uncovered" style="width:37px"></div>
+            <div class="covered" style="width:64px"></div>
+            <div class="uncovered" style="width:36px"></div>
           </div></td>
-            <td class="left_align"><div class="percent_graph_legend"><tt class=''>52.76%</tt></div>
+            <td class="left_align"><div class="percent_graph_legend"><tt class=''>53.99%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:53px"></div>
-            <div class="uncovered" style="width:47px"></div>
+            <div class="covered" style="width:54px"></div>
+            <div class="uncovered" style="width:46px"></div>
           </div></td>
           </tr>
         </tbody>
@@ -2619,79 +2619,79 @@
           
           
           <tr class="marked">
-            <td><pre><a name="line428">428</a>   def self.terminate_vms(nodes, infrastructure)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line429">429</a>     instances = []</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line430">430</a>     nodes.each { |node|</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line431">431</a>       instance_id = node.instance_id</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line432">432</a>       instances &lt;&lt; instance_id</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line433">433</a>     }</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line434">434</a>     </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line435">435</a>     self.shell(&quot;#{infrastructure}-terminate-instances #{instances.join(' ')}&quot;)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line436">436</a>   end</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line437">437</a> </pre></td>
+            <td><pre><a name="line428">428</a>   def self.terminate_vms(ids, infrastructure)</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line438">438</a>   def self.terminate_hybrid_vms(creds)</pre></td>
+            <td><pre><a name="line429">429</a>     self.shell(&quot;#{infrastructure}-terminate-instances #{ids.join(' ')} 2&gt;&amp;1&quot;)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line430">430</a>   end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line431">431</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line432">432</a>   def self.terminate_hybrid_vms(creds)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line439">439</a>     # TODO: kill my own cloud last</pre></td>
+            <td><pre><a name="line433">433</a>     # TODO: kill my own cloud last</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line440">440</a>     # otherwise could orphan other clouds</pre></td>
+            <td><pre><a name="line434">434</a>     # otherwise could orphan other clouds</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line435">435</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line436">436</a>     cloud_num = 1</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line437">437</a>     loop {</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line438">438</a>       key = &quot;CLOUD#{cloud_num}_TYPE&quot;</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line439">439</a>       cloud_type = creds[key]</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line440">440</a>       break if cloud_type.nil?</pre></td>
           </tr>
         
           
@@ -2703,31 +2703,31 @@
           
           
           <tr class="uncovered">
-            <td><pre><a name="line442">442</a>     cloud_num = 1</pre></td>
+            <td><pre><a name="line442">442</a>       self.set_creds_in_env(creds, cloud_num)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line443">443</a>     loop {</pre></td>
+            <td><pre><a name="line443">443</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line444">444</a>       key = &quot;CLOUD#{cloud_num}_TYPE&quot;</pre></td>
+            <td><pre><a name="line444">444</a>       keyname = creds[&quot;keyname&quot;]</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line445">445</a>       cloud_type = creds[key]</pre></td>
+            <td><pre><a name="line445">445</a>       Kernel.puts(&quot;Killing Cloud#{cloud_num}'s machines, of type #{cloud_type} and with keyname #{keyname}&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line446">446</a>       break if cloud_type.nil?</pre></td>
+            <td><pre><a name="line446">446</a>       self.terminate_all_vms(cloud_type, keyname)</pre></td>
           </tr>
         
           
@@ -2739,151 +2739,151 @@
           
           
           <tr class="uncovered">
-            <td><pre><a name="line448">448</a>       self.set_creds_in_env(creds, cloud_num)</pre></td>
+            <td><pre><a name="line448">448</a>       cloud_num += 1</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line449">449</a> </pre></td>
+            <td><pre><a name="line449">449</a>     }</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line450">450</a>       keyname = creds[&quot;keyname&quot;]</pre></td>
+            <td><pre><a name="line450">450</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line451">451</a>       Kernel.puts(&quot;Killing Cloud#{cloud_num}'s machines, of type #{cloud_type} and with keyname #{keyname}&quot;)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line452">452</a>       self.terminate_all_vms(cloud_type, keyname)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line453">453</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line454">454</a>       cloud_num += 1</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line455">455</a>     }</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line456">456</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line457">457</a>   end</pre></td>
+            <td><pre><a name="line451">451</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line458">458</a>   </pre></td>
+            <td><pre><a name="line452">452</a>   </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line459">459</a>   def self.terminate_all_vms(infrastructure, keyname)</pre></td>
+            <td><pre><a name="line453">453</a>   def self.terminate_all_vms(infrastructure, keyname)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line460">460</a>     self.log_obscured_env</pre></td>
+            <td><pre><a name="line454">454</a>     self.log_obscured_env</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line461">461</a>     desc_instances = self.shell(&quot;#{infrastructure}-describe-instances&quot;)</pre></td>
+            <td><pre><a name="line455">455</a>     desc_instances = self.shell(&quot;#{infrastructure}-describe-instances&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line462">462</a>     instances = desc_instances.scan(/INSTANCE\s+(i-\w+)\s+[\w\-\s\.]+#{keyname}/).flatten</pre></td>
+            <td><pre><a name="line456">456</a>     instances = desc_instances.scan(/INSTANCE\s+(i-\w+)\s+[\w\-\s\.]+#{keyname}/).flatten</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line463">463</a>     self.shell(&quot;#{infrastructure}-terminate-instances #{instances.join(' ')}&quot;)</pre></td>
+            <td><pre><a name="line457">457</a>     self.shell(&quot;#{infrastructure}-terminate-instances #{instances.join(' ')}&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line464">464</a>   end</pre></td>
+            <td><pre><a name="line458">458</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
+            <td><pre><a name="line459">459</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line460">460</a>   def self.get_hybrid_ips(creds)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line461">461</a>     Kernel.puts(&quot;creds are #{self.obscure_creds(creds).inspect}&quot;)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line462">462</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line463">463</a>     public_ips = []</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line464">464</a>     private_ips = []</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
             <td><pre><a name="line465">465</a> </pre></td>
           </tr>
         
           
           
-          <tr class="marked">
-            <td><pre><a name="line466">466</a>   def self.get_hybrid_ips(creds)</pre></td>
+          <tr class="uncovered">
+            <td><pre><a name="line466">466</a>     keyname = creds[&quot;keyname&quot;]</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line467">467</a>     Kernel.puts(&quot;creds are #{self.obscure_creds(creds).inspect}&quot;)</pre></td>
+            <td><pre><a name="line467">467</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line468">468</a> </pre></td>
+            <td><pre><a name="line468">468</a>     cloud_num = 1</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line469">469</a>     public_ips = []</pre></td>
+            <td><pre><a name="line469">469</a>     loop {</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line470">470</a>     private_ips = []</pre></td>
+            <td><pre><a name="line470">470</a>       key = &quot;CLOUD#{cloud_num}_TYPE&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line471">471</a> </pre></td>
+            <td><pre><a name="line471">471</a>       cloud_type = creds[key]</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line472">472</a>     keyname = creds[&quot;keyname&quot;]</pre></td>
+            <td><pre><a name="line472">472</a>       break if cloud_type.nil?</pre></td>
           </tr>
         
           
@@ -2895,529 +2895,493 @@
           
           
           <tr class="uncovered">
-            <td><pre><a name="line474">474</a>     cloud_num = 1</pre></td>
+            <td><pre><a name="line474">474</a>       self.set_creds_in_env(creds, cloud_num)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line475">475</a>     loop {</pre></td>
+            <td><pre><a name="line475">475</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line476">476</a>       key = &quot;CLOUD#{cloud_num}_TYPE&quot;</pre></td>
+            <td><pre><a name="line476">476</a>       this_pub, this_priv = self.get_cloud_ips(cloud_type, keyname)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line477">477</a>       cloud_type = creds[key]</pre></td>
+            <td><pre><a name="line477">477</a>       Kernel.puts(&quot;CLOUD#{cloud_num} reports public ips [#{this_pub.join(', ')}] and private ips [#{this_priv.join(', ')}]&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line478">478</a>       break if cloud_type.nil?</pre></td>
+            <td><pre><a name="line478">478</a>       public_ips = public_ips + this_pub</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line479">479</a> </pre></td>
+            <td><pre><a name="line479">479</a>       private_ips = private_ips + this_priv</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line480">480</a>       self.set_creds_in_env(creds, cloud_num)</pre></td>
+            <td><pre><a name="line480">480</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line481">481</a> </pre></td>
+            <td><pre><a name="line481">481</a>       cloud_num += 1</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line482">482</a>       this_pub, this_priv = self.get_cloud_ips(cloud_type, keyname)</pre></td>
+            <td><pre><a name="line482">482</a>     }</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line483">483</a>       Kernel.puts(&quot;CLOUD#{cloud_num} reports public ips [#{this_pub.join(', ')}] and private ips [#{this_priv.join(', ')}]&quot;)</pre></td>
+            <td><pre><a name="line483">483</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line484">484</a>       public_ips = public_ips + this_pub</pre></td>
+            <td><pre><a name="line484">484</a>     Kernel.puts(&quot;all public ips are [#{public_ips.join(', ')}] and private ips [#{private_ips.join(', ')}]&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line485">485</a>       private_ips = private_ips + this_priv</pre></td>
+            <td><pre><a name="line485">485</a>     return public_ips, private_ips</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line486">486</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line487">487</a>       cloud_num += 1</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line488">488</a>     }</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line489">489</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line490">490</a>     Kernel.puts(&quot;all public ips are [#{public_ips.join(', ')}] and private ips [#{private_ips.join(', ')}]&quot;)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line491">491</a>     return public_ips, private_ips</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line492">492</a>   end</pre></td>
+            <td><pre><a name="line486">486</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line493">493</a> </pre></td>
+            <td><pre><a name="line487">487</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line494">494</a>   def self.get_cloud_ips(infrastructure, keyname)</pre></td>
+            <td><pre><a name="line488">488</a>   def self.get_cloud_ips(infrastructure, keyname)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line495">495</a>     self.log_obscured_env</pre></td>
+            <td><pre><a name="line489">489</a>     self.log_obscured_env</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line496">496</a> </pre></td>
+            <td><pre><a name="line490">490</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line497">497</a>     describe_instances = &quot;&quot;</pre></td>
+            <td><pre><a name="line491">491</a>     describe_instances = &quot;&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line498">498</a>     loop {</pre></td>
+            <td><pre><a name="line492">492</a>     loop {</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line499">499</a>       describe_instances = self.shell(&quot;#{infrastructure}-describe-instances 2&gt;&amp;1&quot;)</pre></td>
+            <td><pre><a name="line493">493</a>       describe_instances = self.shell(&quot;#{infrastructure}-describe-instances 2&gt;&amp;1&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line500">500</a>       Kernel.puts(&quot;[oi!] #{describe_instances}&quot;)</pre></td>
+            <td><pre><a name="line494">494</a>       Kernel.puts(&quot;[oi!] #{describe_instances}&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line501">501</a>       break unless describe_instances =~ /Message replay detected./</pre></td>
+            <td><pre><a name="line495">495</a>       break unless describe_instances =~ /Message replay detected./</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line502">502</a>       Kernel.sleep(10)</pre></td>
+            <td><pre><a name="line496">496</a>       Kernel.sleep(10)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line503">503</a>     }</pre></td>
+            <td><pre><a name="line497">497</a>     }</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line504">504</a> </pre></td>
+            <td><pre><a name="line498">498</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line505">505</a>     running_machine_regex = /\s+(#{IP_OR_FQDN})\s+(#{IP_OR_FQDN})\s+running\s+#{keyname}\s/</pre></td>
+            <td><pre><a name="line499">499</a>     running_machine_regex = /\s+(#{IP_OR_FQDN})\s+(#{IP_OR_FQDN})\s+running\s+#{keyname}\s/</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line506">506</a>     all_ip_addrs = describe_instances.scan(running_machine_regex).flatten</pre></td>
+            <td><pre><a name="line500">500</a>     all_ip_addrs = describe_instances.scan(running_machine_regex).flatten</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line507">507</a>     Kernel.puts(&quot;[oi!] all ips are [#{all_ip_addrs.join(', ')}]&quot;)</pre></td>
+            <td><pre><a name="line501">501</a>     Kernel.puts(&quot;[oi!] all ips are [#{all_ip_addrs.join(', ')}]&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line508">508</a>     public_ips, private_ips = HelperFunctions.get_ips(all_ip_addrs)</pre></td>
+            <td><pre><a name="line502">502</a>     public_ips, private_ips = HelperFunctions.get_ips(all_ip_addrs)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line509">509</a>     return public_ips, private_ips</pre></td>
+            <td><pre><a name="line503">503</a>     return public_ips, private_ips</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line510">510</a>   end</pre></td>
+            <td><pre><a name="line504">504</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line511">511</a>     </pre></td>
+            <td><pre><a name="line505">505</a>     </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line512">512</a> </pre></td>
+            <td><pre><a name="line506">506</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line513">513</a>   def self.get_random_alphanumeric(length=10)</pre></td>
+            <td><pre><a name="line507">507</a>   def self.get_random_alphanumeric(length=10)</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line514">514</a>     random = &quot;&quot;</pre></td>
+            <td><pre><a name="line508">508</a>     random = &quot;&quot;</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line515">515</a>     possible = &quot;0123456789abcdefghijklmnopqrstuvxwyzABCDEFGHIJKLMNOPQRSTUVWXYZ&quot;</pre></td>
+            <td><pre><a name="line509">509</a>     possible = &quot;0123456789abcdefghijklmnopqrstuvxwyzABCDEFGHIJKLMNOPQRSTUVWXYZ&quot;</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line516">516</a>     possibleLength = possible.length</pre></td>
+            <td><pre><a name="line510">510</a>     possibleLength = possible.length</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line517">517</a> </pre></td>
+            <td><pre><a name="line511">511</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line518">518</a>     length.times { |index|</pre></td>
+            <td><pre><a name="line512">512</a>     length.times { |index|</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line519">519</a>       random &lt;&lt; possible[Kernel.rand(possibleLength)]</pre></td>
+            <td><pre><a name="line513">513</a>       random &lt;&lt; possible[Kernel.rand(possibleLength)]</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line520">520</a>     }</pre></td>
+            <td><pre><a name="line514">514</a>     }</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line521">521</a> </pre></td>
+            <td><pre><a name="line515">515</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line522">522</a>     random</pre></td>
+            <td><pre><a name="line516">516</a>     random</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line523">523</a>   end</pre></td>
+            <td><pre><a name="line517">517</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line524">524</a> </pre></td>
+            <td><pre><a name="line518">518</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line525">525</a> </pre></td>
+            <td><pre><a name="line519">519</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line526">526</a>   def self.obscure_string(string)</pre></td>
+            <td><pre><a name="line520">520</a>   def self.obscure_string(string)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line527">527</a>     return string if string.nil? or string.length &lt; 4</pre></td>
+            <td><pre><a name="line521">521</a>     return string if string.nil? or string.length &lt; 4</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line528">528</a>     last_four = string[string.length-4, string.length]</pre></td>
+            <td><pre><a name="line522">522</a>     last_four = string[string.length-4, string.length]</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line529">529</a>     obscured = &quot;*&quot; * (string.length-4)</pre></td>
+            <td><pre><a name="line523">523</a>     obscured = &quot;*&quot; * (string.length-4)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line530">530</a>     return obscured + last_four</pre></td>
+            <td><pre><a name="line524">524</a>     return obscured + last_four</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line531">531</a>   end</pre></td>
+            <td><pre><a name="line525">525</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line532">532</a> </pre></td>
+            <td><pre><a name="line526">526</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line533">533</a>   def self.obscure_creds(creds)</pre></td>
+            <td><pre><a name="line527">527</a>   def self.obscure_creds(creds)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line534">534</a>     obscured = {}</pre></td>
+            <td><pre><a name="line528">528</a>     obscured = {}</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line535">535</a>     creds.each { |k, v|</pre></td>
+            <td><pre><a name="line529">529</a>     creds.each { |k, v|</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line536">536</a>       if CLOUDY_CREDS.include?(k)</pre></td>
+            <td><pre><a name="line530">530</a>       if CLOUDY_CREDS.include?(k)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line537">537</a>         obscured[k] = self.obscure_string(v)</pre></td>
+            <td><pre><a name="line531">531</a>         obscured[k] = self.obscure_string(v)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line538">538</a>       else</pre></td>
+            <td><pre><a name="line532">532</a>       else</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line539">539</a>         obscured[k] = v</pre></td>
+            <td><pre><a name="line533">533</a>         obscured[k] = v</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line540">540</a>       end</pre></td>
+            <td><pre><a name="line534">534</a>       end</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line541">541</a>     }</pre></td>
+            <td><pre><a name="line535">535</a>     }</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line542">542</a> </pre></td>
+            <td><pre><a name="line536">536</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line543">543</a>     return obscured</pre></td>
+            <td><pre><a name="line537">537</a>     return obscured</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line544">544</a>   end</pre></td>
+            <td><pre><a name="line538">538</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line545">545</a> </pre></td>
+            <td><pre><a name="line539">539</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line546">546</a> </pre></td>
+            <td><pre><a name="line540">540</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line547">547</a>   def self.log_obscured_env()</pre></td>
+            <td><pre><a name="line541">541</a>   def self.log_obscured_env()</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line548">548</a>     env = self.shell(&quot;env&quot;)</pre></td>
+            <td><pre><a name="line542">542</a>     env = self.shell(&quot;env&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line549">549</a>   </pre></td>
+            <td><pre><a name="line543">543</a>   </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line550">550</a>     [&quot;EC2_ACCESS_KEY&quot;, &quot;EC2_SECRET_KEY&quot;].each { |cred|</pre></td>
+            <td><pre><a name="line544">544</a>     [&quot;EC2_ACCESS_KEY&quot;, &quot;EC2_SECRET_KEY&quot;].each { |cred|</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line551">551</a>       if env =~ /#{cred}=(.*)/</pre></td>
+            <td><pre><a name="line545">545</a>       if env =~ /#{cred}=(.*)/</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line552">552</a>         env.gsub!(/#{cred}=(.*)/, &quot;#{cred}=#{self.obscure_string($1)}&quot;)</pre></td>
+            <td><pre><a name="line546">546</a>         env.gsub!(/#{cred}=(.*)/, &quot;#{cred}=#{self.obscure_string($1)}&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line553">553</a>       end</pre></td>
+            <td><pre><a name="line547">547</a>       end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line554">554</a>     }</pre></td>
+            <td><pre><a name="line548">548</a>     }</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line555">555</a>  </pre></td>
+            <td><pre><a name="line549">549</a>  </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line556">556</a>     Kernel.puts(env)</pre></td>
+            <td><pre><a name="line550">550</a>     Kernel.puts(env)</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line557">557</a>   end</pre></td>
+            <td><pre><a name="line551">551</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line558">558</a> </pre></td>
+            <td><pre><a name="line552">552</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line559">559</a> </pre></td>
+            <td><pre><a name="line553">553</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line560">560</a> end</pre></td>
+            <td><pre><a name="line554">554</a> end</pre></td>
           </tr>
         
       </tbody>
     </table>
 
-    <p>Generated on Tue Apr 24 22:36:41 -0700 2012 with <a href="http://github.com/relevance/rcov">rcov 0.9.8</a></p>
+    <p>Generated on Tue Apr 24 22:57:37 -0700 2012 with <a href="http://github.com/relevance/rcov">rcov 0.9.8</a></p>
 
   </body>
 </html>

@@ -435,7 +435,7 @@ end</pre>
           <div class="method-source-code"
             id="get_cloud_ips-source">
 <pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 494</span>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 488</span>
 def self.get_cloud_ips(infrastructure, keyname)
   self.log_obscured_env
 
@@ -483,7 +483,7 @@ end</pre>
           <div class="method-source-code"
             id="get_hybrid_ips-source">
 <pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 466</span>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 460</span>
 def self.get_hybrid_ips(creds)
   <span class="ruby-constant">Kernel</span>.puts(&quot;creds are #{self.obscure_creds(creds).inspect}&quot;)
 
@@ -840,7 +840,7 @@ end</pre>
           <div class="method-source-code"
             id="log_obscured_env-source">
 <pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 547</span>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 541</span>
 def self.log_obscured_env()
   env = self.shell(<span class="ruby-string">&quot;env&quot;</span>)
 
@@ -882,7 +882,7 @@ end</pre>
           <div class="method-source-code"
             id="obscure_creds-source">
 <pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 533</span>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 527</span>
 def self.obscure_creds(creds)
   obscured = {}
   creds.each { |k, v|
@@ -925,7 +925,7 @@ end</pre>
           <div class="method-source-code"
             id="obscure_string-source">
 <pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 526</span>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 520</span>
 def self.obscure_string(string)
   return string if string.nil? or string.length &lt; 4
   last_four = string[string.length-4, string.length]
@@ -1256,7 +1256,7 @@ end</pre>
           <div class="method-source-code"
             id="terminate_all_vms-source">
 <pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 459</span>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 453</span>
 def self.terminate_all_vms(infrastructure, keyname)
   self.log_obscured_env
   desc_instances = self.shell(&quot;#{infrastructure}-describe-instances&quot;)
@@ -1293,7 +1293,7 @@ end</pre>
           <div class="method-source-code"
             id="terminate_hybrid_vms-source">
 <pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 438</span>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 432</span>
 def self.terminate_hybrid_vms(creds)
   <span class="ruby-comment"># TODO: kill my own cloud last</span>
   <span class="ruby-comment"># otherwise could orphan other clouds</span>
@@ -1330,7 +1330,7 @@ end</pre>
         
         <div class="method-heading">
           <span class="method-name">terminate_vms</span><span
-            class="method-args">(nodes, infrastructure)</span>
+            class="method-args">(ids, infrastructure)</span>
           <span class="method-click-advice">click to toggle source</span>
         </div>
         
@@ -1345,14 +1345,8 @@ end</pre>
             id="terminate_vms-source">
 <pre>
 <span class="ruby-comment"># File lib/helperfunctions.rb, line 428</span>
-def self.terminate_vms(nodes, infrastructure)
-  instances = []
-  nodes.each { |node|
-    instance_id = node.instance_id
-    instances &lt;&lt; instance_id
-  }
-  
-  self.shell(&quot;#{infrastructure}-terminate-instances #{instances.join(' ')}&quot;)
+def self.terminate_vms(ids, infrastructure)
+  self.shell(&quot;#{infrastructure}-terminate-instances #{ids.join(' ')} 2&gt;&amp;1&quot;)
 end</pre>
           </div>
           

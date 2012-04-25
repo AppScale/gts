@@ -454,6 +454,18 @@ def test_terminate_instances
   params2 = {}
   result2 = {<span class="ruby-string">&quot;success&quot;</span> =&gt; false, <span class="ruby-string">&quot;reason&quot;</span> =&gt; <span class="ruby-string">&quot;no credentials&quot;</span>}
   assert_equal(result2, i.terminate_instances(params2, <span class="ruby-string">&quot;secret&quot;</span>))
+
+  <span class="ruby-comment"># finally, validate terminate_instances when it's called correctly</span>
+  flexmock(<span class="ruby-constant">HelperFunctions</span>).should_receive(:shell).
+    with(<span class="ruby-string">&quot;booinfrastructure-terminate-instances i-id 2&gt;&amp;1&quot;</span>).
+    and_return(<span class="ruby-string">&quot;INSTANCE i-id&quot;</span>)
+
+  <span class="ruby-comment"># make sure that the SOAP call returns the right response</span>
+  params3 = {<span class="ruby-string">&quot;credentials&quot;</span> =&gt; {<span class="ruby-string">&quot;a&quot;</span> =&gt; <span class="ruby-string">&quot;b&quot;</span>},
+    <span class="ruby-string">&quot;infrastructure&quot;</span> =&gt; <span class="ruby-string">&quot;booinfrastructure&quot;</span>,
+    <span class="ruby-string">&quot;instance_ids&quot;</span> =&gt; [<span class="ruby-string">&quot;i-id&quot;</span>]}
+  result3 = <span class="ruby-constant">InfrastructureManager</span>::<span class="ruby-constant">SUCCESSFUL_TERMINATE_RESPONSE</span>
+  assert_equal(result3, i.terminate_instances(params3, <span class="ruby-string">&quot;secret&quot;</span>))
 end</pre>
           </div>
           
