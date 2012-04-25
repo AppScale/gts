@@ -250,54 +250,6 @@ module HelperFunctions
     Kernel.puts("Setting private key to #{cloud_keys_dir}/mykey.pem, cert to #{cloud_keys_dir}/mycert.pem")
   end
 
-  def self.spawn_hybrid_vms(creds, nodes)
-    info = "Spawning hybrid vms with creds #{self.obscure_creds(creds).inspect} and nodes #{nodes.inspect}"
-    Kernel.puts(info)
-
-    cloud_info = []
-
-    cloud_num = 1
-    loop {
-      cloud_type = creds["CLOUD#{cloud_num}_TYPE"]
-      break if cloud_type.nil?
-
-      self.set_creds_in_env(creds, cloud_num)
-
-      if cloud_type == "euca"
-        machine = creds["CLOUD#{cloud_num}_EMI"]
-      elsif cloud_type == "ec2"
-        machine = creds["CLOUD#{cloud_num}_AMI"]
-      else
-        abort("cloud type was #{cloud_type}, which is not a supported value.")
-      end
-
-      num_of_vms = 0
-      jobs_needed = []
-      nodes.each_pair { |k, v|
-        if k =~ /\Acloud#{cloud_num}-\d+\Z/
-          num_of_vms += 1
-          jobs_needed << v
-        end
-      }
-
-      instance_type = "m1.large"
-      keyname = creds["keyname"]
-      cloud = "cloud#{cloud_num}"
-      group = creds["group"]
-
-      this_cloud_info = self.spawn_vms(num_of_vms, jobs_needed, machine, 
-        instance_type, keyname, cloud_type, cloud, group)
-
-      Kernel.puts("Cloud#{cloud_num} reports the following info: #{this_cloud_info.join(', ')}")
-
-      cloud_info += this_cloud_info
-      cloud_num += 1
-    }
-
-    Kernel.puts("Hybrid cloud spawning reports the following info: #{cloud_info.join(', ')}")
-
-    return cloud_info
-  end
 
   def self.spawn_vms(parameters)
     num_of_vms_to_spawn = Integer(parameters['num_vms'])

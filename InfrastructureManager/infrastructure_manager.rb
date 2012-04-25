@@ -86,7 +86,7 @@ class InfrastructureManager
       "vm_info" => nil
     }
 
-    #Thread.new {
+    Thread.new {
       HelperFunctions.set_creds_in_env(parameters['credentials'], "1")
       public_ips, private_ips, ids = HelperFunctions.spawn_vms(parameters)
       @reservations[reservation_id]["state"] = "running"
@@ -95,7 +95,7 @@ class InfrastructureManager
         "private_ips" => private_ips,
         "instance_ids" => ids
       }
-    #}
+    }
 
     return {"success" => true, "reservation_id" => reservation_id, 
       "reason" => "none"}
@@ -119,6 +119,8 @@ class InfrastructureManager
     if @reservations[reservation_id].nil?
       return RESERVATION_NOT_FOUND_RESPONSE
     end
+
+    return @reservations[reservation_id]
   end
 
 

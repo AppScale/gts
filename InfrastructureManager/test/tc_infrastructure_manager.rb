@@ -17,7 +17,7 @@ class TestInfrastructureManager < Test::Unit::TestCase
     flexmock(HelperFunctions).should_receive(:get_secret).and_return("secret")
 
     # make all puts to stdout not do anything, to not clutter up the terminal
-    # flexmock(Kernel).should_receive(:puts).and_return()
+    flexmock(Kernel).should_receive(:puts).and_return()
 
     # make all sleep statements return automatically
     flexmock(Kernel).should_receive(:sleep).and_return()
@@ -159,8 +159,18 @@ class TestInfrastructureManager < Test::Unit::TestCase
 
     # test what happens when a caller gives describe_instances a reservation
     # id that is in the system
-
-
+    id = "0000000000"
+    params4 = {"reservation_id" => id}
+    vm_info = {
+      "public_ips" => ["public-ip"],
+      "private_ips" => ["private-ip"],
+      "instance_ids" => ["i-id"]
+    }
+    i.reservations[id] = {"success" => true, 
+      "reason" => "received run request",
+      "state" => "running", "vm_info" => vm_info}
+    result4 = i.reservations[id]
+    assert_equal(result4, i.describe_instances(params4, "secret"))
   end
 
 
