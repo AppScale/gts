@@ -186,6 +186,18 @@ class TestInfrastructureManager < Test::Unit::TestCase
     params2 = {}
     result2 = {"success" => false, "reason" => "no credentials"}
     assert_equal(result2, i.terminate_instances(params2, "secret"))
+
+    # finally, validate terminate_instances when it's called correctly
+    flexmock(HelperFunctions).should_receive(:shell).
+      with("booinfrastructure-terminate-instances i-id 2>&1").
+      and_return("INSTANCE i-id")
+
+    # make sure that the SOAP call returns the right response
+    params3 = {"credentials" => {"a" => "b"},
+      "infrastructure" => "booinfrastructure",
+      "instance_ids" => ["i-id"]}
+    result3 = InfrastructureManager::SUCCESSFUL_TERMINATE_RESPONSE
+    assert_equal(result3, i.terminate_instances(params3, "secret"))
   end
 
 

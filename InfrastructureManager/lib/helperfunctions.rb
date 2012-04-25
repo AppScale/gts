@@ -425,14 +425,8 @@ module HelperFunctions
     self.shell("#{infrastructure}-authorize #{group} -s 0.0.0.0/0 -P icmp -t -1:-1 2>&1")
   end
 
-  def self.terminate_vms(nodes, infrastructure)
-    instances = []
-    nodes.each { |node|
-      instance_id = node.instance_id
-      instances << instance_id
-    }
-    
-    self.shell("#{infrastructure}-terminate-instances #{instances.join(' ')}")
+  def self.terminate_vms(ids, infrastructure)
+    self.shell("#{infrastructure}-terminate-instances #{ids.join(' ')} 2>&1")
   end
 
   def self.terminate_hybrid_vms(creds)

@@ -27,6 +27,11 @@ class InfrastructureManager
     "reservation_id not found"}
 
 
+  # The standard response to return to callers of terminate_instances who
+  # provide all the necessary parameters.
+  SUCCESSFUL_TERMINATE_RESPONSE = {"success" => true}
+
+
   # A list of the parameters required to start virtual machines via a cloud
   # infrastructure.
   RUN_INSTANCES_REQUIRED_PARAMS = %w{credentials group image_id infrastructure 
@@ -136,6 +141,14 @@ class InfrastructureManager
         return {"success" => false, "reason" => "no #{required_param}"}
       end
     }
+
+    Thread.new {
+      HelperFunctions.set_creds_in_env(parameters['credentials'], "1")
+      HelperFunctions.terminate_vms(parameters['instance_ids'], 
+        parameters['infrastructure'])
+    }
+
+    return SUCCESSFUL_TERMINATE_RESPONSE
   end
 
 
