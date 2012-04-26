@@ -504,19 +504,6 @@ module HelperFunctions
   end
     
 
-  def self.get_random_alphanumeric(length=10)
-    random = ""
-    possible = "0123456789abcdefghijklmnopqrstuvxwyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    possibleLength = possible.length
-
-    length.times { |index|
-      random << possible[Kernel.rand(possibleLength)]
-    }
-
-    random
-  end
-
-
   def self.obscure_string(string)
     return string if string.nil? or string.length < 4
     last_four = string[string.length-4, string.length]

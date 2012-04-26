@@ -37,6 +37,7 @@ require 'ejabberd'
 require 'repo'
 require 'zkinterface'
 require 'godinterface'
+require 'infrastructure_manager_client'
 
 
 $VERBOSE = nil # to supress excessive SSL cert warnings

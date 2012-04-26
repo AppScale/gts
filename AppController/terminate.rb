@@ -138,8 +138,7 @@ end
  # Voldemort
  "VoldemortServer",
  "rabbitmq",
-# these are too general to kill
- "thin", "god", "djinn", "xmpp_receiver"
+ "thin", "god", "djinn", "xmpp_receiver", "InfrastructureManager"
 ].each do |program|
   `ps ax | grep #{program} | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9`
 end
