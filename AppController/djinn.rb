@@ -42,6 +42,10 @@ require 'godinterface'
 $VERBOSE = nil # to supress excessive SSL cert warnings
 
 
+class AppScaleException < Exception
+end
+
+
 WANT_OUTPUT = true
 
 
@@ -452,19 +456,21 @@ class Djinn
         "zookeeper" => "stop_zookeeper"
       }
 
-      my_node.jobs.each do |job|
+      my_node.jobs.each { |job|
         if commands.include?(job)
           Djinn.log_debug("About to run [#{commands[job]}]")
           send(commands[job].to_sym)
         else
           Djinn.log_debug("Unable to find command for job #{job}. Skipping it.")
         end
-      end
+      }
 
       if has_soap_server?(my_node)
         stop_soap_server
         stop_pbserver
       end
+
+      stop_infrastructure_manager
     end
 
     GodInterface.shutdown
@@ -755,6 +761,8 @@ class Djinn
       return BAD_SECRET_MSG
     end
 
+    start_infrastructure_manager
+
     if restore_appcontroller_state 
       parse_creds
     else
@@ -810,6 +818,33 @@ class Djinn
       Kernel.sleep(20)
     end
   end
+
+  # Starts the InfrastructureManager service on this machine, which exposes
+  # a SOAP interface by which we can dynamically add and remove nodes in this
+  # AppScale deployment.
+  def start_infrastructure_manager
+    if HelperFunctions.is_port_open?("localhost", 
+      InfrastructureManagerClient::SERVER_PORT, HelperFunctions::USE_SSL)
+
+      Djinn.log_debug("InfrastructureManager is already running locally - " +
+        "don't start it again.")
+      return
+    end
+
+    start_cmd = "ruby #{APPSCALE_HOME}/InfrastructureManager/infrastructure_manager_server.rb"
+    stop_cmd = "pkill -9 infrastructure_manager_server"
+    port = [InfrastructureManagerClient::SERVER_PORT]
+
+    GodInterface.start(:iaas_manager, start_cmd, stop_cmd, port)
+    Djinn.log_debug("Started InfrastructureManager successfully!")
+  end
+
+
+  def stop_infrastructure_manager
+    Djinn.log_debug("Stopping InfrastructureManager")
+    GodInterface.stop(:iaas_manager)
+  end
+
 
   def get_online_users_list(secret)
     if !valid_secret?(secret)
@@ -951,7 +986,7 @@ class Djinn
         # start up vms_to_spawn vms as open
         imc = InfrastructureManagerClient.new(@@secret)
         new_nodes_info = imc.spawn_vms(vms_to_spawn, @creds, "open", 
-          instance_type)
+          instance_type, "cloud1")
 
         # initialize them and wait for them to start up
         Djinn.log_debug("info about new nodes is " +
@@ -2229,10 +2264,9 @@ class Djinn
 
         # since there's only one cloud, call it cloud1 to tell us
         # to use the first ssh key (the only key)
-        # TODO(cgb): does this pass in cloud1?
         imc = InfrastructureManagerClient.new(@@secret)
         appengine_info = imc.spawn_vms(nodes.length, @creds, roles, 
-          instance_type)
+          instance_type, "cloud1")
       else
         nodes.each_pair do |ip,roles|
           # for xen the public and private ips are the same

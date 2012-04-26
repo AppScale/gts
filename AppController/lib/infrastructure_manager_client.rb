@@ -81,7 +81,8 @@ class InfrastructureManagerClient
     rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH
       if refused_count > max
         return false if ok_to_fail
-        abort("Connection was refused. Is the AppController running?")
+        raise AppScaleException.new("Connection was refused. Is the " +
+          "AppController running?")
       else
         refused_count += 1
         sleep(1)
@@ -96,7 +97,8 @@ class InfrastructureManagerClient
       if retry_on_except
         retry
       else
-        abort("[#{callr}] We saw an unexpected error of the type #{except.class} with the following message:\n#{except}.")
+        raise AppScaleException.new("[#{callr}] We saw an unexpected error of" +
+          " the type #{except.class} with the following message:\n#{except}.")
       end
     end
   end
@@ -132,8 +134,12 @@ class InfrastructureManagerClient
   end
  
   
-  def spawn_vms(num_vms, creds, jobs, instance_type)
-    credentials = {}
+  def spawn_vms(num_vms, creds, job, instance_type, cloud)
+    credentials = {
+      'EC2_ACCESS_KEY' => creds['ec2_access_key'],
+      'EC2_SECRET_KEY' => creds['ec2_secret_key'],
+      'EC2_URL' => creds['ec2_url']
+    }
 
     run_result = run_instances("credentials" => credentials,
       "group" => creds['group'], 
@@ -151,8 +157,8 @@ class InfrastructureManagerClient
       describe_result = describe_instances("reservation_id" => reservation_id)
       Djinn.log_debug("[IM] Describe instances info says [#{describe_result}]")
 
-      if describe_instances["state"] == "running"
-        vm_info = describe_instances["vm_info"]
+      if describe_result["state"] == "running"
+        vm_info = describe_result["vm_info"]
         break
       end
 
