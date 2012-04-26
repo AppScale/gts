@@ -949,10 +949,9 @@ class Djinn
       if vms_to_spawn > 0
         Djinn.log_debug("Need to spawn up #{vms_to_spawn} VMs")
         # start up vms_to_spawn vms as open
-        HelperFunctions.set_creds_in_env(@creds, "1")
-        new_nodes_info = HelperFunctions.spawn_vms(vms_to_spawn, "open",
-          @creds['machine'], instance_type, @creds['keyname'], 
-          @creds['infrastructure'], "cloud1", @creds['group'], spot=false)
+        imc = InfrastructureManagerClient.new(@@secret)
+        new_nodes_info = imc.spawn_vms(vms_to_spawn, @creds, "open", 
+          instance_type)
 
         # initialize them and wait for them to start up
         Djinn.log_debug("info about new nodes is " +
@@ -2225,22 +2224,15 @@ class Djinn
         @state = "Spawning up hybrid virtual machines"
         appengine_info = HelperFunctions.spawn_hybrid_vms(@creds, nodes)
       elsif is_cloud?
-        num_of_vms_needed = nodes.length
-        machine = @creds["machine"]
-        ENV['EC2_URL'] = @creds["ec2_url"]
-        instance_type = @creds["instance_type"]
-        keyname = @creds["keyname"]
-        infrastructure = @creds["infrastructure"]
-        group = @creds["group"]
-
         @state = "Spawning up #{num_of_vms_needed} virtual machines"
         roles = nodes.values
 
         # since there's only one cloud, call it cloud1 to tell us
         # to use the first ssh key (the only key)
-        HelperFunctions.set_creds_in_env(@creds, "1")
-        appengine_info = HelperFunctions.spawn_vms(num_of_vms_needed, roles, 
-          machine, instance_type, keyname, infrastructure, "cloud1", group)
+        # TODO(cgb): does this pass in cloud1?
+        imc = InfrastructureManagerClient.new(@@secret)
+        appengine_info = imc.spawn_vms(nodes.length, @creds, roles, 
+          instance_type)
       else
         nodes.each_pair do |ip,roles|
           # for xen the public and private ips are the same

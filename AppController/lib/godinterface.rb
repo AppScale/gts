@@ -132,7 +132,10 @@ BAZ
   end
 
   def self.shutdown(remote_ip=nil, remote_key=nil)
-    %w{ uaserver pbserver memcached blobstore monitr loadbalancer }.each { |service|
+    god_status = `god status`
+    services = god_status.scan(/^([\w\d]+)/).flatten
+
+    services.each { |service|
       self.run_god_command("god stop #{service}", remote_ip, remote_key)
     }
 

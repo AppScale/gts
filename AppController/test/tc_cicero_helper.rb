@@ -40,12 +40,12 @@ class TestCiceroHelper < Test::Unit::TestCase
     assert_equal("nodes must be an Array", result)
 
     nodes = []
-    job_data = nil
+    job_data = []
     result = djinn.neptune_cicero_run_job(nodes, job_data, secret)
     assert_equal("job_data must be a Hash", result)
 
     nodes = []
-    job_data = {}
+    job_data = [{}]
     result = djinn.neptune_cicero_run_job(nodes, job_data, secret)
     assert_equal("OK", result)
   end

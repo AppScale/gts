@@ -3,12 +3,15 @@
 
 $:.unshift File.join(File.dirname(__FILE__))
 # AppController library tests
+require 'tc_infrastructure_manager_client'
 require 'tc_datastore_factory'
 require 'tc_repo'
 require 'tc_zkinterface'
 
+
 # AppController tests
 require 'tc_djinn'
+
 
 # Neptune tests
 require 'tc_appscale_helper'

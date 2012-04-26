@@ -48,7 +48,7 @@ end
 
 begin
   require 'godinterface'
-  GodInterface.shutdown
+  GodInterface.shutdown()
 rescue Exception
   puts "Problem with god, moving on"
 end
@@ -106,8 +106,6 @@ end
 
 `echo "" > /root/.ssh/known_hosts` # empty it out but leave the file there
 
-`god terminate`
-
 # force kill processes
 
 ["memcached",
@@ -141,7 +139,6 @@ end
  "VoldemortServer",
  "rabbitmq",
 # these are too general to kill
-# "java", "python", "python2.6", "python2.5",
  "thin", "god", "djinn", "xmpp_receiver"
 ].each do |program|
   `ps ax | grep #{program} | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9`
