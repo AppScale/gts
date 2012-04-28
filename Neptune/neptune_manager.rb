@@ -1,21 +1,56 @@
 #!/usr/bin/ruby -w
 
 
+# Imports for general Neptune stuff
 $:.unshift File.join(File.dirname(__FILE__), "lib")
-require 'datastore_factory'
-require 'helperfunctions'
 require "neptune_job_data"
+require 'helperfunctions'
 
-require "appscale_helper"
-require "babel_helper"
-require "cicero_helper"
-require "erlang_helper"
-require "mpi_helper"
-require "mapreduce_helper"
-require "ssa_helper"
+
+# Imports for each of the supported Neptune job types
+$:.unshift File.join(File.dirname(__FILE__), "lib", "job_types")
+require 'all_job_types'
+
+
+# Imports for pluggable datastore support
+$:.unshift File.join(File.dirname(__FILE__), "lib", "datastores")
+require 'datastore_factory'
+
+
+# Imports for pluggable task queue support
+$:.unshift File.join(File.dirname(__FILE__), "lib", "task_queues")
+require 'queue_factory'
+
+
+# Imports for pluggable task engine support
+$:.unshift File.join(File.dirname(__FILE__), "lib", "task_engines")
+require 'engine_factory'
+
+
+=begin
+things to fix
+
+imports
+
+move all _helper imports into NeptuneManager class
+
+move @neptune_jobs and @neptune_nodes into this file
+
+move VM reuse (and per-hour killing of VMs) into this file
+
+periodically dump and revive info to-from ZK
+
+remove all dead code from AppController/helperfunctions
+
+remove all dead code from Neptune/helperfunctions
+=end
 
 
 class NeptuneManager
+
+  
+  # The port that the NeptuneManager runs on, by default.
+  SERVER_PORT = 17445
 
 
   ALLOWED_STORAGE_TYPES = ["appdb", "s3"]
@@ -47,6 +82,15 @@ class NeptuneManager
 
   URL_REGEX = /http:\/\/.*/
 
+  
+  # The shared secret that is used to authenticate remote callers.
+  attr_accessor :secret
+
+  
+  def initialize(secret)
+    @secret = secret
+  end
+
 
   def self.log(msg)
     Kernel.puts(msg)
@@ -76,13 +120,6 @@ class NeptuneManager
           # e.g., it's global_nodes should be the max of all in jobs
           batch_info = jobs[0]
           touch_lock_file(batch_info)
-
-          #prejob_status = can_run_job(job_data)
-          #self.log("Pre-job status for job_data [#{job_data}] is " +
-          #  "[#{prejob_status}]")
-          #if prejob_status != :ok
-          #  return prejob_status
-          #end
 
           nodes_to_use = acquire_nodes(batch_info)
 
