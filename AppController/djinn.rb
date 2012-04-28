@@ -60,8 +60,6 @@ RESTRICTED_APPS = ["sisyphus"]
 
 $:.unshift File.join(File.dirname(__FILE__), "..", "AppDB", "zkappscale")
 require "zookeeper_helper"
-$:.unshift File.join(File.dirname(__FILE__), "..", "Neptune")
-require "neptune"
 
 
 # A HTTP client that assumes that responses returned are JSON, and automatically

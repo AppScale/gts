@@ -83,23 +83,6 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "backup_appscale", "backup_in_info", "secret")
     add_method(@djinn, "add_role", "new_role", "secret")
     add_method(@djinn, "remove_role", "old_role", "secret")
-
-    # Expose Neptune-specific methods to the outside world
-    add_method(@djinn, "neptune_start_job", 'jobs', 'secret')
-    add_method(@djinn, "neptune_is_job_running", "job_data", "secret")
-    add_method(@djinn, "neptune_put_input", "job_data", "secret")
-    add_method(@djinn, "neptune_get_output", "job_data", "secret")
-    add_method(@djinn, "neptune_get_acl", "job_data", "secret")
-    add_method(@djinn, "neptune_set_acl", "job_data", "secret")
-    add_method(@djinn, "neptune_compile_code", "job_data", "secret")
-    add_method(@djinn, "neptune_does_file_exist", "file", "job_data", "secret")
-    add_method(@djinn, "neptune_get_supported_babel_engines", "job_data", "secret")
-    add_method(@djinn, "get_queues_in_use", "secret")
-
-    # Finally, since all Neptune jobs define 
-    NEPTUNE_JOBS.each { |name|
-      add_method(@djinn, "neptune_#{name}_run_job", "nodes", "jobs", "secret")
-    }
   end
 end
 
