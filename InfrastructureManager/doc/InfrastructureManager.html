@@ -69,6 +69,8 @@
         <h3 class="section-header">Methods</h3>
         <ul class="link-list">
           
+          <li><a href="#method-c-log">::log</a></li>
+          
           <li><a href="#method-c-new">::new</a></li>
           
           <li><a href="#method-i-describe_instances">#describe_instances</a></li>
@@ -111,8 +113,6 @@
           <li><a href="./InfrastructureManager.html">InfrastructureManager</a></li>
         
           <li><a href="./InfrastructureManagerServer.html">InfrastructureManagerServer</a></li>
-        
-          <li><a href="./TestInfrastructureManager.html">TestInfrastructureManager</a></li>
         
         </ul>
         <div id="no-class-search-results" style="display: none;">No matching classes.</div>
@@ -263,7 +263,7 @@ corresponding to the given reservation ID have been started up.</p>
           <div class="method-source-code"
             id="describe_instances-source">
 <pre>
-<span class="ruby-comment"># File infrastructure_manager.rb, line 112</span>
+<span class="ruby-comment"># File infrastructure_manager.rb, line 129</span>
 def describe_instances(parameters, secret)
   if <span class="ruby-ivar">@secret</span> != secret
     return <span class="ruby-constant">BAD_SECRET_RESPONSE</span>
@@ -316,26 +316,33 @@ to poll for the state of the new machines.</p>
           <div class="method-source-code"
             id="run_instances-source">
 <pre>
-<span class="ruby-comment"># File infrastructure_manager.rb, line 74</span>
+<span class="ruby-comment"># File infrastructure_manager.rb, line 82</span>
 def run_instances(parameters, secret)
+  <span class="ruby-constant">Kernel</span>.puts(<span class="ruby-string">&quot;Received a request to run instances&quot;</span>)
+
   if <span class="ruby-ivar">@secret</span> != secret
+    <span class="ruby-constant">Kernel</span>.puts(&quot;Incoming secret #{secret} does not match current secret &quot; +
+      &quot;#{@secret}, rejecting request.&quot;)
     return <span class="ruby-constant">BAD_SECRET_RESPONSE</span>
   end
 
+  <span class="ruby-constant">Kernel</span>.puts(&quot;Request parameters are #{parameters.inspect}&quot;)
   <span class="ruby-constant">RUN_INSTANCES_REQUIRED_PARAMS</span>.each { |required_param|
     if parameters[required_param].nil? or parameters[required_param].empty?
+      <span class="ruby-constant">Kernel</span>.puts(<span class="ruby-string">&quot;Incoming parameters was missing required parameter &quot;</span> +
+        &quot;#{required_param}, rejecting request.&quot;)
       return {<span class="ruby-string">&quot;success&quot;</span> =&gt; false, <span class="ruby-string">&quot;reason&quot;</span> =&gt; &quot;no #{required_param}&quot;}
     end
   }
 
   reservation_id = <span class="ruby-constant">HelperFunctions</span>.get_random_alphanumeric()
-
   <span class="ruby-ivar">@reservations</span>[reservation_id] = {
     <span class="ruby-string">&quot;success&quot;</span> =&gt; true,
     <span class="ruby-string">&quot;reason&quot;</span> =&gt; <span class="ruby-string">&quot;received run request&quot;</span>,
     <span class="ruby-string">&quot;state&quot;</span> =&gt; <span class="ruby-string">&quot;pending&quot;</span>,
     <span class="ruby-string">&quot;vm_info&quot;</span> =&gt; nil
   }
+  <span class="ruby-constant">Kernel</span>.puts(&quot;Generated reservation id #{reservation_id} for this request.&quot;)
 
   <span class="ruby-constant">Thread</span>.new {
     <span class="ruby-constant">HelperFunctions</span>.set_creds_in_env(parameters[<span class="ruby-string">'credentials'</span>], <span class="ruby-string">&quot;1&quot;</span>)
@@ -346,8 +353,10 @@ def run_instances(parameters, secret)
       <span class="ruby-string">&quot;private_ips&quot;</span> =&gt; private_ips,
       <span class="ruby-string">&quot;instance_ids&quot;</span> =&gt; ids
     }
+    <span class="ruby-constant">Kernel</span>.puts(&quot;Successfully finished request #{reservation_id}.&quot;)
   }
 
+  <span class="ruby-constant">Kernel</span>.puts(&quot;Successfully started request #{reservation_id}.&quot;)
   return {<span class="ruby-string">&quot;success&quot;</span> =&gt; true, <span class="ruby-string">&quot;reservation_id&quot;</span> =&gt; reservation_id, 
     <span class="ruby-string">&quot;reason&quot;</span> =&gt; <span class="ruby-string">&quot;none&quot;</span>}
 end</pre>
@@ -382,7 +391,7 @@ infrastructure.</p>
           <div class="method-source-code"
             id="terminate_instances-source">
 <pre>
-<span class="ruby-comment"># File infrastructure_manager.rb, line 134</span>
+<span class="ruby-comment"># File infrastructure_manager.rb, line 151</span>
 def terminate_instances(parameters, secret)
   if <span class="ruby-ivar">@secret</span> != secret
     return <span class="ruby-constant">BAD_SECRET_RESPONSE</span>
@@ -416,6 +425,42 @@ end</pre>
   
     <div id="public-class-method-details" class="method-section section">
       <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="log-method" class="method-detail ">
+        <a name="method-c-log"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">log</span><span
+            class="method-args">(msg)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Logs a message to STDOUT and flushes it immediately, so that it doesn’t
+get buffered before arriving in god’s log file.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="log-source">
+<pre>
+<span class="ruby-comment"># File infrastructure_manager.rb, line 72</span>
+def self.log(msg)
+  <span class="ruby-constant">Kernel</span>.puts(msg)
+  <span class="ruby-constant">STDOUT</span>.flush()
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
 
     
       <div id="new-method" class="method-detail ">

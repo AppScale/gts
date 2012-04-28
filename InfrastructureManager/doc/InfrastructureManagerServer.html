@@ -106,8 +106,6 @@
         
           <li><a href="./InfrastructureManagerServer.html">InfrastructureManagerServer</a></li>
         
-          <li><a href="./TestInfrastructureManager.html">TestInfrastructureManager</a></li>
-        
         </ul>
         <div id="no-class-search-results" style="display: none;">No matching classes.</div>
       </div>
@@ -185,14 +183,14 @@ AppController (and eventually the NeptuneManager).</p>
           <div class="method-source-code"
             id="on_init-source">
 <pre>
-<span class="ruby-comment"># File infrastructure_manager_server.rb, line 31</span>
+<span class="ruby-comment"># File infrastructure_manager_server.rb, line 28</span>
 def on_init
-  <span class="ruby-ivar">@infrastructure_manager</span> = <span class="ruby-constant">InfrastructureManager</span>.new()
+  <span class="ruby-ivar">@manager</span> = <span class="ruby-constant">InfrastructureManager</span>.new()
 
   <span class="ruby-comment"># Expose InfrastructureManager methods to the outside world</span>
-  add_method(<span class="ruby-ivar">@djinn</span>, <span class="ruby-string">&quot;run_instances&quot;</span>, <span class="ruby-string">&quot;parameters&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  add_method(<span class="ruby-ivar">@djinn</span>, <span class="ruby-string">&quot;describe_instances&quot;</span>, <span class="ruby-string">&quot;parameters&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  add_method(<span class="ruby-ivar">@djinn</span>, <span class="ruby-string">&quot;terminate_instances&quot;</span>, <span class="ruby-string">&quot;parameters&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  add_method(<span class="ruby-ivar">@manager</span>, <span class="ruby-string">&quot;run_instances&quot;</span>, <span class="ruby-string">&quot;parameters&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  add_method(<span class="ruby-ivar">@manager</span>, <span class="ruby-string">&quot;describe_instances&quot;</span>, <span class="ruby-string">&quot;parameters&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  add_method(<span class="ruby-ivar">@manager</span>, <span class="ruby-string">&quot;terminate_instances&quot;</span>, <span class="ruby-string">&quot;parameters&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
 end</pre>
           </div>
           

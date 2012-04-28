@@ -13,9 +13,6 @@ $:.unshift File.join(File.dirname(__FILE__))
 require 'infrastructure_manager'
 
 
-#$VERBOSE = nil # to supress excessive SSL cert warnings
-
-
 # InfrastructureManagerServer is a wrapper around InfrastructureManager that 
 # gives it the ability to respond to SOAP requests.
 class InfrastructureManagerServer < SOAP::RPC::HTTPServer

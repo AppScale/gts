@@ -70,10 +70,6 @@
           
           <li><a href="#method-c-get_cert">::get_cert</a></li>
           
-          <li><a href="#method-c-get_cloud_ips">::get_cloud_ips</a></li>
-          
-          <li><a href="#method-c-get_hybrid_ips">::get_hybrid_ips</a></li>
-          
           <li><a href="#method-c-get_ips">::get_ips</a></li>
           
           <li><a href="#method-c-get_key">::get_key</a></li>
@@ -88,8 +84,6 @@
           
           <li><a href="#method-c-log_obscured_env">::log_obscured_env</a></li>
           
-          <li><a href="#method-c-obscure_creds">::obscure_creds</a></li>
-          
           <li><a href="#method-c-obscure_string">::obscure_string</a></li>
           
           <li><a href="#method-c-read_file">::read_file</a></li>
@@ -99,10 +93,6 @@
           <li><a href="#method-c-shell">::shell</a></li>
           
           <li><a href="#method-c-spawn_vms">::spawn_vms</a></li>
-          
-          <li><a href="#method-c-terminate_all_vms">::terminate_all_vms</a></li>
-          
-          <li><a href="#method-c-terminate_hybrid_vms">::terminate_hybrid_vms</a></li>
           
           <li><a href="#method-c-terminate_vms">::terminate_vms</a></li>
           
@@ -143,8 +133,6 @@
         
           <li><a href="./InfrastructureManagerServer.html">InfrastructureManagerServer</a></li>
         
-          <li><a href="./TestInfrastructureManager.html">TestInfrastructureManager</a></li>
-        
         </ul>
         <div id="no-class-search-results" style="display: none;">No matching classes.</div>
       </div>
@@ -181,37 +169,32 @@ the image cached, it could take half an hour to get our image started.</p></dd>
       
         <dt><a name="SLEEP_TIME">SLEEP_TIME</a></dt>
         
-        <dd class="description"></dd>
+        <dd class="description"><p>The amount of time that <a
+href="HelperFunctions.html#method-c-spawn_vms">spawn_vms</a> waits between
+each describe-instances request. Setting this value too low can cause
+Eucalyptus to interpret requests as replay attacks.</p></dd>
         
       
         <dt><a name="IP_REGEX">IP_REGEX</a></dt>
         
-        <dd class="description"></dd>
+        <dd class="description"><p>A regular expression that matches IP addresses, used to parse output from
+describe-instances to see the IPs for machines currently running.</p></dd>
         
       
         <dt><a name="FQDN_REGEX">FQDN_REGEX</a></dt>
         
-        <dd class="description"></dd>
+        <dd class="description"><p>A regular expression that matches fully qualified domain names, used to 
+parse output from describe-instances to see the FQDNs for machines 
+currently running.</p></dd>
         
       
         <dt><a name="IP_OR_FQDN">IP_OR_FQDN</a></dt>
         
-        <dd class="description"></dd>
-        
-      
-        <dt><a name="DELTA_REGEX">DELTA_REGEX</a></dt>
-        
-        <dd class="description"></dd>
-        
-      
-        <dt><a name="TIME_IN_SECONDS">TIME_IN_SECONDS</a></dt>
-        
-        <dd class="description"></dd>
-        
-      
-        <dt><a name="CLOUDY_CREDS">CLOUDY_CREDS</a></dt>
-        
-        <dd class="description"></dd>
+        <dd class="description"><p>A regular expression that matches IPs or FQDNs. TODO(cgb): The <a
+href="HelperFunctions.html#FQDN_REGEX">FQDN_REGEX</a> seems general enough
+to match all of these - replace this and <a
+href="HelperFunctions.html#IP_REGEX">IP_REGEX</a> with <a
+href="HelperFunctions.html#FQDN_REGEX">FQDN_REGEX</a>?</p></dd>
         
       
         <dt><a name="USE_SSL">USE_SSL</a></dt>
@@ -262,7 +245,7 @@ fails.</p>
           <div class="method-source-code"
             id="convert_fqdn_to_ip-source">
 <pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 123</span>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 138</span>
 def self.convert_fqdn_to_ip(host)
   return host if host =~ /#{IP_REGEX}/
 
@@ -297,14 +280,17 @@ end</pre>
 
         <div class="method-description">
           
-          
+          <p>Creates a new security group in the given cloud infrastructure and opens
+all the TCP, UDP, and ICMP ports within it. We open the ports under the
+presumption that the AppScale firewall rules will be applied to iptables to
+lock back down any ports that need not be open to the world.</p>
           
 
           
           <div class="method-source-code"
             id="create_appscale_security_group-source">
 <pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 421</span>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 458</span>
 def self.create_appscale_security_group(infrastructure, group)
   self.shell(&quot;#{infrastructure}-add-group #{group} -d appscale 2&gt;&amp;1&quot;)
   self.shell(&quot;#{infrastructure}-authorize #{group} -p 1-65535 -P udp 2&gt;&amp;1&quot;)
@@ -334,14 +320,16 @@ end</pre>
 
         <div class="method-description">
           
-          
+          <p>Generates a new SSH key for use with the given cloud infrastructure. If the
+keyname was already in the system, this method removes it and adds a new
+one.</p>
           
 
           
           <div class="method-source-code"
             id="generate_ssh_key-source">
 <pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 394</span>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 426</span>
 def self.generate_ssh_key(outputLocation, name, infrastructure)
   ec2_output = <span class="ruby-string">&quot;&quot;</span>
   loop {
@@ -391,125 +379,19 @@ end</pre>
 
         <div class="method-description">
           
-          
+          <p>Reads the given file and parses the X509 certificate data it contains.</p>
           
 
           
           <div class="method-source-code"
             id="get_cert-source">
 <pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 101</span>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 109</span>
 def self.get_cert(filename)
   return nil unless <span class="ruby-constant">File</span>.exists?(filename)
   <span class="ruby-constant">OpenSSL</span>::<span class="ruby-constant">X509</span>::<span class="ruby-constant">Certificate</span>.new(<span class="ruby-constant">File</span>.open(filename) { |f|
     f.read
   })
-end</pre>
-          </div>
-          
-        </div>
-
-        
-
-        
-      </div>
-
-    
-      <div id="get_cloud_ips-method" class="method-detail ">
-        <a name="method-c-get_cloud_ips"></a>
-
-        
-        <div class="method-heading">
-          <span class="method-name">get_cloud_ips</span><span
-            class="method-args">(infrastructure, keyname)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code"
-            id="get_cloud_ips-source">
-<pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 488</span>
-def self.get_cloud_ips(infrastructure, keyname)
-  self.log_obscured_env
-
-  describe_instances = <span class="ruby-string">&quot;&quot;</span>
-  loop {
-    describe_instances = self.shell(&quot;#{infrastructure}-describe-instances 2&gt;&amp;1&quot;)
-    <span class="ruby-constant">Kernel</span>.puts(&quot;[oi!] #{describe_instances}&quot;)
-    break unless describe_instances =~ <span class="ruby-regexp">/Message replay detected./</span>
-    <span class="ruby-constant">Kernel</span>.sleep(10)
-  }
-
-  running_machine_regex = /\s+(#{IP_OR_FQDN})\s+(#{IP_OR_FQDN})\s+running\s+#{keyname}\s/
-  all_ip_addrs = describe_instances.scan(running_machine_regex).flatten
-  <span class="ruby-constant">Kernel</span>.puts(&quot;[oi!] all ips are [#{all_ip_addrs.join(', ')}]&quot;)
-  public_ips, private_ips = <span class="ruby-constant">HelperFunctions</span>.get_ips(all_ip_addrs)
-  return public_ips, private_ips
-end</pre>
-          </div>
-          
-        </div>
-
-        
-
-        
-      </div>
-
-    
-      <div id="get_hybrid_ips-method" class="method-detail ">
-        <a name="method-c-get_hybrid_ips"></a>
-
-        
-        <div class="method-heading">
-          <span class="method-name">get_hybrid_ips</span><span
-            class="method-args">(creds)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code"
-            id="get_hybrid_ips-source">
-<pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 460</span>
-def self.get_hybrid_ips(creds)
-  <span class="ruby-constant">Kernel</span>.puts(&quot;creds are #{self.obscure_creds(creds).inspect}&quot;)
-
-  public_ips = []
-  private_ips = []
-
-  keyname = creds[<span class="ruby-string">&quot;keyname&quot;</span>]
-
-  cloud_num = 1
-  loop {
-    key = &quot;CLOUD#{cloud_num}_TYPE&quot;
-    cloud_type = creds[key]
-    break if cloud_type.nil?
-
-    self.set_creds_in_env(creds, cloud_num)
-
-    this_pub, this_priv = self.get_cloud_ips(cloud_type, keyname)
-    <span class="ruby-constant">Kernel</span>.puts(&quot;CLOUD#{cloud_num} reports public ips [#{this_pub.join(', ')}] and private ips [#{this_priv.join(', ')}]&quot;)
-    public_ips = public_ips + this_pub
-    private_ips = private_ips + this_priv
-
-    cloud_num += 1
-  }
-
-  <span class="ruby-constant">Kernel</span>.puts(&quot;all public ips are [#{public_ips.join(', ')}] and private ips [#{private_ips.join(', ')}]&quot;)
-  return public_ips, private_ips
 end</pre>
           </div>
           
@@ -534,14 +416,18 @@ end</pre>
 
         <div class="method-description">
           
-          
+          <p>Given an array containing public and private IPs, separates them into one
+public IP array and a private IP array. Any private IPs are then checked to
+see if they resolve properly (which may fail in hybrid cloud deployments),
+and any private IPs that do not resolve are replaced with their public IP
+equivalents.</p>
           
 
           
           <div class="method-source-code"
             id="get_ips-source">
 <pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 135</span>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 156</span>
 def self.get_ips(ips)
   abort(<span class="ruby-string">&quot;ips not even length array&quot;</span>) if ips.length % 2 != 0
   reported_public = []
@@ -569,10 +455,6 @@ def self.get_ips(ips)
     end
   }
       
-  <span class="ruby-comment">#actual_public.each_index { |index|</span>
-  <span class="ruby-comment">#  actual_public[index] = HelperFunctions.convert_fqdn_to_ip(actual_public[index])</span>
-  <span class="ruby-comment">#}</span>
-
   actual_private.each_index { |index|
     begin
       actual_private[index] = <span class="ruby-constant">HelperFunctions</span>.convert_fqdn_to_ip(actual_private[index])
@@ -610,14 +492,14 @@ end</pre>
 
         <div class="method-description">
           
-          
+          <p>Reads the given file and parses the SSL private key data that it contains.</p>
           
 
           
           <div class="method-source-code"
             id="get_key-source">
 <pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 108</span>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 118</span>
 def self.get_key(filename)
   return nil unless <span class="ruby-constant">File</span>.exists?(filename)
   <span class="ruby-constant">OpenSSL</span>::<span class="ruby-constant">PKey</span>::<span class="ruby-constant">RSA</span>.new(<span class="ruby-constant">File</span>.open(filename) { |f|
@@ -659,7 +541,7 @@ get to keep our instances.</p>
           <div class="method-source-code"
             id="get_optimal_spot_price-source">
 <pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 215</span>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 236</span>
 def self.get_optimal_spot_price(instance_type)
   command = &quot;ec2-describe-spot-price-history -t #{instance_type} | &quot; +
     <span class="ruby-string">&quot;grep 'Linux/UNIX' | awk '{print $2}'&quot;</span>.split(<span class="ruby-string">&quot;\n&quot;</span>)
@@ -699,14 +581,17 @@ end</pre>
 
         <div class="method-description">
           
-          
+          <p>Similar to <a href="HelperFunctions.html#method-c-get_ips">get_ips</a>, but
+does not attempt to resolve the private IPs seen. Returns a single array
+with the public IPs from the original array (which contains both public and
+private IPs).</p>
           
 
           
           <div class="method-source-code"
             id="get_public_ips-source">
 <pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 181</span>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 202</span>
 def self.get_public_ips(ips)
   abort(<span class="ruby-string">&quot;ips not even length array&quot;</span>) if ips.length % 2 != 0
   reported_public = []
@@ -764,14 +649,14 @@ user requests.</p>
           <div class="method-source-code"
             id="get_random_alphanumeric-source">
 <pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 89</span>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 95</span>
 def self.get_random_alphanumeric(length=10)
   random = <span class="ruby-string">&quot;&quot;</span>
   possible = <span class="ruby-string">&quot;0123456789abcdefghijklmnopqrstuvxwyzABCDEFGHIJKLMNOPQRSTUVWXYZ&quot;</span>
-  possibleLength = possible.length
+  possible_length = possible.length
    
   length.times { |index|
-    random &lt;&lt; possible[<span class="ruby-constant">Kernel</span>.rand(possibleLength)]
+    random &lt;&lt; possible[<span class="ruby-constant">Kernel</span>.rand(possible_length)]
   }
    
   return random
@@ -799,14 +684,16 @@ end</pre>
 
         <div class="method-description">
           
-          
+          <p>Reads a file that contains the AppScale shared secret (a password that is
+used to authenticate remote calls/callers), returning the secret that file
+contains.</p>
           
 
           
           <div class="method-source-code"
             id="get_secret-source">
 <pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 115</span>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 129</span>
 def self.get_secret(filename=<span class="ruby-string">&quot;/etc/appscale/secret.key&quot;</span>)
   return self.read_file(<span class="ruby-constant">File</span>.expand_path(filename), chomp=true)
 end</pre>
@@ -833,14 +720,16 @@ end</pre>
 
         <div class="method-description">
           
-          
+          <p>Prints out a list of environment variables currently set in this process’
+runtime and their values. For any EC2 user credentials, we obscure out any
+sensitive information.</p>
           
 
           
           <div class="method-source-code"
             id="log_obscured_env-source">
 <pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 541</span>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 488</span>
 def self.log_obscured_env()
   env = self.shell(<span class="ruby-string">&quot;env&quot;</span>)
 
@@ -851,49 +740,6 @@ def self.log_obscured_env()
   }
  
   <span class="ruby-constant">Kernel</span>.puts(env)
-end</pre>
-          </div>
-          
-        </div>
-
-        
-
-        
-      </div>
-
-    
-      <div id="obscure_creds-method" class="method-detail ">
-        <a name="method-c-obscure_creds"></a>
-
-        
-        <div class="method-heading">
-          <span class="method-name">obscure_creds</span><span
-            class="method-args">(creds)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code"
-            id="obscure_creds-source">
-<pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 527</span>
-def self.obscure_creds(creds)
-  obscured = {}
-  creds.each { |k, v|
-    if <span class="ruby-constant">CLOUDY_CREDS</span>.include?(k)
-      obscured[k] = self.obscure_string(v)
-    else
-      obscured[k] = v
-    end
-  }
-
-  return obscured
 end</pre>
           </div>
           
@@ -918,14 +764,17 @@ end</pre>
 
         <div class="method-description">
           
-          
+          <p>Obscures out sensitive strings by replacing most of the characters with a
+dummy character. Callers can use this method to print out credentials that
+may be logged and thus sent over e-mail (and thus should not be completely
+exposed in cleartext).</p>
           
 
           
           <div class="method-source-code"
             id="obscure_string-source">
 <pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 520</span>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 477</span>
 def self.obscure_string(string)
   return string if string.nil? or string.length &lt; 4
   last_four = string[string.length-4, string.length]
@@ -955,14 +804,15 @@ end</pre>
 
         <div class="method-description">
           
-          
+          <p>A convenience method that can be used to read a file and return its
+contents as a String.</p>
           
 
           
           <div class="method-source-code"
             id="read_file-source">
 <pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 76</span>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 83</span>
 def self.read_file(location, chomp=true)
   file = <span class="ruby-constant">File</span>.open(location) { |f| f.read }
   if chomp
@@ -994,14 +844,16 @@ end</pre>
 
         <div class="method-description">
           
-          
+          <p>Given a Hash of EC2 credentials, sets them as environment variables in the
+current environment. This avoids having to specify them as command-line
+arguments once we attempt to run any EC2 command-line tools.</p>
           
 
           
           <div class="method-source-code"
             id="set_creds_in_env-source">
 <pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 233</span>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 257</span>
 def self.set_creds_in_env(creds, cloud_num)
   <span class="ruby-constant">ENV</span>[<span class="ruby-string">'EC2_JVM_ARGS'</span>] = nil
 
@@ -1044,14 +896,16 @@ end</pre>
 
         <div class="method-description">
           
-          
+          <p>Logs and executes a shell command - useful for mocking since flexmock
+can’t mock out the backticks method (Kernel:`), but it can mock out this
+method.</p>
           
 
           
           <div class="method-source-code"
             id="shell-source">
 <pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 66</span>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 69</span>
 def self.shell(cmd)
   <span class="ruby-constant">Kernel</span>.puts(cmd)
   return `#{cmd}`
@@ -1079,14 +933,17 @@ end</pre>
 
         <div class="method-description">
           
-          
+          <p>This method spawns virtual machines in a supported cloud infrastructure. It
+dispatches the initial request for machines, waits for them to start, and
+returns the public IPs, private IPs, and instance IDs of the machines that
+were started.</p>
           
 
           
           <div class="method-source-code"
             id="spawn_vms-source">
 <pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 254</span>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 282</span>
 def self.spawn_vms(parameters)
   num_of_vms_to_spawn = <span class="ruby-constant">Integer</span>(parameters[<span class="ruby-string">'num_vms'</span>])
   image_id = parameters[<span class="ruby-string">'image_id'</span>]
@@ -1236,94 +1093,6 @@ end</pre>
       </div>
 
     
-      <div id="terminate_all_vms-method" class="method-detail ">
-        <a name="method-c-terminate_all_vms"></a>
-
-        
-        <div class="method-heading">
-          <span class="method-name">terminate_all_vms</span><span
-            class="method-args">(infrastructure, keyname)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code"
-            id="terminate_all_vms-source">
-<pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 453</span>
-def self.terminate_all_vms(infrastructure, keyname)
-  self.log_obscured_env
-  desc_instances = self.shell(&quot;#{infrastructure}-describe-instances&quot;)
-  instances = desc_instances.scan(/INSTANCE\s+(i-\w+)\s+[\w\-\s\.]+#{keyname}/).flatten
-  self.shell(&quot;#{infrastructure}-terminate-instances #{instances.join(' ')}&quot;)
-end</pre>
-          </div>
-          
-        </div>
-
-        
-
-        
-      </div>
-
-    
-      <div id="terminate_hybrid_vms-method" class="method-detail ">
-        <a name="method-c-terminate_hybrid_vms"></a>
-
-        
-        <div class="method-heading">
-          <span class="method-name">terminate_hybrid_vms</span><span
-            class="method-args">(creds)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code"
-            id="terminate_hybrid_vms-source">
-<pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 432</span>
-def self.terminate_hybrid_vms(creds)
-  <span class="ruby-comment"># TODO: kill my own cloud last</span>
-  <span class="ruby-comment"># otherwise could orphan other clouds</span>
-
-  cloud_num = 1
-  loop {
-    key = &quot;CLOUD#{cloud_num}_TYPE&quot;
-    cloud_type = creds[key]
-    break if cloud_type.nil?
-
-    self.set_creds_in_env(creds, cloud_num)
-
-    keyname = creds[<span class="ruby-string">&quot;keyname&quot;</span>]
-    <span class="ruby-constant">Kernel</span>.puts(&quot;Killing Cloud#{cloud_num}'s machines, of type #{cloud_type} and with keyname #{keyname}&quot;)
-    self.terminate_all_vms(cloud_type, keyname)
-
-    cloud_num += 1
-  }
-
-end</pre>
-          </div>
-          
-        </div>
-
-        
-
-        
-      </div>
-
-    
       <div id="terminate_vms-method" class="method-detail ">
         <a name="method-c-terminate_vms"></a>
 
@@ -1337,14 +1106,15 @@ end</pre>
 
         <div class="method-description">
           
-          
+          <p>Given a list of instance ids, terminates them in the given cloud
+infrastructure.</p>
           
 
           
           <div class="method-source-code"
             id="terminate_vms-source">
 <pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 428</span>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 468</span>
 def self.terminate_vms(ids, infrastructure)
   self.shell(&quot;#{infrastructure}-terminate-instances #{ids.join(' ')} 2&gt;&amp;1&quot;)
 end</pre>
@@ -1371,14 +1141,15 @@ end</pre>
 
         <div class="method-description">
           
-          
+          <p>A convenience method that can be used to write a String to a file, creating
+that file if it does not exist.</p>
           
 
           
           <div class="method-source-code"
             id="write_file-source">
 <pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 71</span>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 76</span>
 def self.write_file(location, contents)
   <span class="ruby-constant">File</span>.open(location, <span class="ruby-string">&quot;w+&quot;</span>) { |file| file.write(contents) }
 end</pre>

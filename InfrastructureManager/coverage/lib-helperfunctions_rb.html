@@ -28,17 +28,17 @@
         <tbody>
           <tr>
             <td class="left_align"><a href="lib-helperfunctions_rb.html">lib/helperfunctions.rb</a></td>
-            <td class='right_align'><tt>554</tt></td>
-            <td class='right_align'><tt>376</tt></td>
-            <td class="left_align"><div class="percent_graph_legend"><tt class=''>63.72%</tt></div>
+            <td class='right_align'><tt>541</tt></td>
+            <td class='right_align'><tt>367</tt></td>
+            <td class="left_align"><div class="percent_graph_legend"><tt class=''>64.70%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:64px"></div>
-            <div class="uncovered" style="width:36px"></div>
+            <div class="covered" style="width:65px"></div>
+            <div class="uncovered" style="width:35px"></div>
           </div></td>
-            <td class="left_align"><div class="percent_graph_legend"><tt class=''>53.99%</tt></div>
+            <td class="left_align"><div class="percent_graph_legend"><tt class=''>55.04%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:54px"></div>
-            <div class="uncovered" style="width:46px"></div>
+            <div class="covered" style="width:55px"></div>
+            <div class="uncovered" style="width:45px"></div>
           </div></td>
           </tr>
         </tbody>
@@ -590,61 +590,61 @@
         
           
           
-          <tr class="uncovered">
+          <tr class="marked">
             <td><pre><a name="line90">90</a>     random = &quot;&quot;</pre></td>
           </tr>
         
           
           
-          <tr class="uncovered">
+          <tr class="marked">
             <td><pre><a name="line91">91</a>     possible = &quot;0123456789abcdefghijklmnopqrstuvxwyzABCDEFGHIJKLMNOPQRSTUVWXYZ&quot;</pre></td>
           </tr>
         
           
           
-          <tr class="uncovered">
+          <tr class="marked">
             <td><pre><a name="line92">92</a>     possibleLength = possible.length</pre></td>
           </tr>
         
           
           
-          <tr class="uncovered">
+          <tr class="inferred">
             <td><pre><a name="line93">93</a>      </pre></td>
           </tr>
         
           
           
-          <tr class="uncovered">
+          <tr class="marked">
             <td><pre><a name="line94">94</a>     length.times { |index|</pre></td>
           </tr>
         
           
           
-          <tr class="uncovered">
+          <tr class="marked">
             <td><pre><a name="line95">95</a>       random &lt;&lt; possible[Kernel.rand(possibleLength)]</pre></td>
           </tr>
         
           
           
-          <tr class="uncovered">
+          <tr class="inferred">
             <td><pre><a name="line96">96</a>     }</pre></td>
           </tr>
         
           
           
-          <tr class="uncovered">
+          <tr class="inferred">
             <td><pre><a name="line97">97</a>      </pre></td>
           </tr>
         
           
           
-          <tr class="uncovered">
+          <tr class="marked">
             <td><pre><a name="line98">98</a>     return random</pre></td>
           </tr>
         
           
           
-          <tr class="uncovered">
+          <tr class="inferred">
             <td><pre><a name="line99">99</a>   end</pre></td>
           </tr>
         
@@ -3093,109 +3093,109 @@
           
           
           <tr class="marked">
-            <td><pre><a name="line507">507</a>   def self.get_random_alphanumeric(length=10)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="marked">
-            <td><pre><a name="line508">508</a>     random = &quot;&quot;</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="marked">
-            <td><pre><a name="line509">509</a>     possible = &quot;0123456789abcdefghijklmnopqrstuvxwyzABCDEFGHIJKLMNOPQRSTUVWXYZ&quot;</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="marked">
-            <td><pre><a name="line510">510</a>     possibleLength = possible.length</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line511">511</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="marked">
-            <td><pre><a name="line512">512</a>     length.times { |index|</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="marked">
-            <td><pre><a name="line513">513</a>       random &lt;&lt; possible[Kernel.rand(possibleLength)]</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line514">514</a>     }</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line515">515</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="marked">
-            <td><pre><a name="line516">516</a>     random</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line517">517</a>   end</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line518">518</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line519">519</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="marked">
-            <td><pre><a name="line520">520</a>   def self.obscure_string(string)</pre></td>
+            <td><pre><a name="line507">507</a>   def self.obscure_string(string)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line521">521</a>     return string if string.nil? or string.length &lt; 4</pre></td>
+            <td><pre><a name="line508">508</a>     return string if string.nil? or string.length &lt; 4</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line522">522</a>     last_four = string[string.length-4, string.length]</pre></td>
+            <td><pre><a name="line509">509</a>     last_four = string[string.length-4, string.length]</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line523">523</a>     obscured = &quot;*&quot; * (string.length-4)</pre></td>
+            <td><pre><a name="line510">510</a>     obscured = &quot;*&quot; * (string.length-4)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line524">524</a>     return obscured + last_four</pre></td>
+            <td><pre><a name="line511">511</a>     return obscured + last_four</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line512">512</a>   end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line513">513</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line514">514</a>   def self.obscure_creds(creds)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line515">515</a>     obscured = {}</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line516">516</a>     creds.each { |k, v|</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line517">517</a>       if CLOUDY_CREDS.include?(k)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line518">518</a>         obscured[k] = self.obscure_string(v)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line519">519</a>       else</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line520">520</a>         obscured[k] = v</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line521">521</a>       end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line522">522</a>     }</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line523">523</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line524">524</a>     return obscured</pre></td>
           </tr>
         
           
@@ -3212,73 +3212,73 @@
         
           
           
+          <tr class="inferred">
+            <td><pre><a name="line527">527</a> </pre></td>
+          </tr>
+        
+          
+          
           <tr class="marked">
-            <td><pre><a name="line527">527</a>   def self.obscure_creds(creds)</pre></td>
+            <td><pre><a name="line528">528</a>   def self.log_obscured_env()</pre></td>
           </tr>
         
           
           
-          <tr class="uncovered">
-            <td><pre><a name="line528">528</a>     obscured = {}</pre></td>
+          <tr class="marked">
+            <td><pre><a name="line529">529</a>     env = self.shell(&quot;env&quot;)</pre></td>
           </tr>
         
           
           
-          <tr class="uncovered">
-            <td><pre><a name="line529">529</a>     creds.each { |k, v|</pre></td>
+          <tr class="inferred">
+            <td><pre><a name="line530">530</a>   </pre></td>
           </tr>
         
           
           
-          <tr class="uncovered">
-            <td><pre><a name="line530">530</a>       if CLOUDY_CREDS.include?(k)</pre></td>
+          <tr class="marked">
+            <td><pre><a name="line531">531</a>     [&quot;EC2_ACCESS_KEY&quot;, &quot;EC2_SECRET_KEY&quot;].each { |cred|</pre></td>
           </tr>
         
           
           
-          <tr class="uncovered">
-            <td><pre><a name="line531">531</a>         obscured[k] = self.obscure_string(v)</pre></td>
+          <tr class="marked">
+            <td><pre><a name="line532">532</a>       if env =~ /#{cred}=(.*)/</pre></td>
           </tr>
         
           
           
-          <tr class="uncovered">
-            <td><pre><a name="line532">532</a>       else</pre></td>
+          <tr class="inferred">
+            <td><pre><a name="line533">533</a>         env.gsub!(/#{cred}=(.*)/, &quot;#{cred}=#{self.obscure_string($1)}&quot;)</pre></td>
           </tr>
         
           
           
-          <tr class="uncovered">
-            <td><pre><a name="line533">533</a>         obscured[k] = v</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
+          <tr class="inferred">
             <td><pre><a name="line534">534</a>       end</pre></td>
           </tr>
         
           
           
-          <tr class="uncovered">
+          <tr class="inferred">
             <td><pre><a name="line535">535</a>     }</pre></td>
           </tr>
         
           
           
-          <tr class="uncovered">
-            <td><pre><a name="line536">536</a> </pre></td>
+          <tr class="inferred">
+            <td><pre><a name="line536">536</a>  </pre></td>
           </tr>
         
           
           
-          <tr class="uncovered">
-            <td><pre><a name="line537">537</a>     return obscured</pre></td>
+          <tr class="marked">
+            <td><pre><a name="line537">537</a>     Kernel.puts(env)</pre></td>
           </tr>
         
           
           
-          <tr class="uncovered">
+          <tr class="inferred">
             <td><pre><a name="line538">538</a>   end</pre></td>
           </tr>
         
@@ -3296,92 +3296,14 @@
         
           
           
-          <tr class="marked">
-            <td><pre><a name="line541">541</a>   def self.log_obscured_env()</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="marked">
-            <td><pre><a name="line542">542</a>     env = self.shell(&quot;env&quot;)</pre></td>
-          </tr>
-        
-          
-          
           <tr class="inferred">
-            <td><pre><a name="line543">543</a>   </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="marked">
-            <td><pre><a name="line544">544</a>     [&quot;EC2_ACCESS_KEY&quot;, &quot;EC2_SECRET_KEY&quot;].each { |cred|</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="marked">
-            <td><pre><a name="line545">545</a>       if env =~ /#{cred}=(.*)/</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line546">546</a>         env.gsub!(/#{cred}=(.*)/, &quot;#{cred}=#{self.obscure_string($1)}&quot;)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line547">547</a>       end</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line548">548</a>     }</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line549">549</a>  </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="marked">
-            <td><pre><a name="line550">550</a>     Kernel.puts(env)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line551">551</a>   end</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line552">552</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line553">553</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line554">554</a> end</pre></td>
+            <td><pre><a name="line541">541</a> end</pre></td>
           </tr>
         
       </tbody>
     </table>
 
-    <p>Generated on Tue Apr 24 22:57:37 -0700 2012 with <a href="http://github.com/relevance/rcov">rcov 0.9.8</a></p>
+    <p>Generated on Fri Apr 27 22:34:56 -0700 2012 with <a href="http://github.com/relevance/rcov">rcov 0.9.8</a></p>
 
   </body>
 </html>

@@ -1,2 +1,2 @@
 rm -rf doc
-rdoc . lib
+rdoc infrastructure_manager.rb infrastructure_manager_server.rb lib
