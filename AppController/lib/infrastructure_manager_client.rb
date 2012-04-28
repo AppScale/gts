@@ -13,6 +13,10 @@ $:.unshift File.join(File.dirname(__FILE__), "..")
 require 'djinn'
 
 
+# Imports for AppController libraries
+$:.unshift File.join(File.dirname(__FILE__))
+require 'helperfunctions'
+
 
 class InfrastructureManagerClient
 
@@ -47,9 +51,10 @@ class InfrastructureManagerClient
 
 
   def initialize(secret)
+    ip = HelperFunctions.local_ip()
     @secret = secret
     
-    @conn = SOAP::RPC::Driver.new("https://localhost:#{SERVER_PORT}")
+    @conn = SOAP::RPC::Driver.new("https://#{ip}:#{SERVER_PORT}")
     @conn.add_method("get_queues_in_use", "secret")
     @conn.add_method("run_instances", "parameters", "secret")
     @conn.add_method("describe_instances", "parameters", "secret")
@@ -78,23 +83,32 @@ class InfrastructureManagerClient
       Timeout::timeout(time) {
         yield if block_given?
       }
-    rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH
+    rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH => except
+      Djinn.log_debug("Saw an Exception of class #{except.class}")
       if refused_count > max
         return false if ok_to_fail
         raise AppScaleException.new("Connection was refused. Is the " +
           "AppController running?")
       else
         refused_count += 1
-        sleep(1)
+        Kernel.sleep(1)
         retry
       end
     rescue Timeout::Error
+      Djinn.log_debug("Saw a Timeout Error")
       return false if ok_to_fail
       retry
-    rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE, Errno::ECONNRESET
+    rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE, Errno::ECONNRESET => except
+      Djinn.log_debug("Saw an Exception of class #{except.class}")
+      Kernel.sleep(1)
       retry
     rescue Exception => except
+      newline = "\n"
+      Djinn.log_debug("Saw an Exception of class #{except.class}")
+      Djinn.log_debug("#{except.backtrace.join(newline)}")
+
       if retry_on_except
+        Kernel.sleep(1)
         retry
       else
         raise AppScaleException.new("[#{callr}] We saw an unexpected error of" +
@@ -134,7 +148,7 @@ class InfrastructureManagerClient
   end
  
   
-  def spawn_vms(num_vms, creds, job, instance_type, cloud)
+  def spawn_vms(num_vms, creds, job, cloud)
     credentials = {
       'EC2_ACCESS_KEY' => creds['ec2_access_key'],
       'EC2_SECRET_KEY' => creds['ec2_secret_key'],
@@ -145,9 +159,10 @@ class InfrastructureManagerClient
       "group" => creds['group'], 
       "image_id" => creds['machine'],
       "infrastructure" => creds['infrastructure'],
-      "instance_type" => instance_type,
+      "instance_type" => creds['instance_type'],
       "keyname" => creds['keyname'],
-      "num_vms" => "#{num_vms}", 
+      "num_vms" => "#{num_vms}",
+      "cloud" => cloud,
       "spot" => "false")
     Djinn.log_debug("[IM] Run instances info says [#{run_result}]")
     reservation_id = run_result['reservation_id']

@@ -986,8 +986,7 @@ class Djinn
         Djinn.log_debug("Need to spawn up #{vms_to_spawn} VMs")
         # start up vms_to_spawn vms as open
         imc = InfrastructureManagerClient.new(@@secret)
-        new_nodes_info = imc.spawn_vms(vms_to_spawn, @creds, "open", 
-          instance_type, "cloud1")
+        new_nodes_info = imc.spawn_vms(vms_to_spawn, @creds, "open", "cloud1")
 
         # initialize them and wait for them to start up
         Djinn.log_debug("info about new nodes is " +
@@ -2260,14 +2259,13 @@ class Djinn
         @state = "Spawning up hybrid virtual machines"
         appengine_info = HelperFunctions.spawn_hybrid_vms(@creds, nodes)
       elsif is_cloud?
-        @state = "Spawning up #{num_of_vms_needed} virtual machines"
+        @state = "Spawning up #{nodes.length} virtual machines"
         roles = nodes.values
 
         # since there's only one cloud, call it cloud1 to tell us
         # to use the first ssh key (the only key)
         imc = InfrastructureManagerClient.new(@@secret)
-        appengine_info = imc.spawn_vms(nodes.length, @creds, roles, 
-          instance_type, "cloud1")
+        appengine_info = imc.spawn_vms(nodes.length, @creds, roles, "cloud1")
       else
         nodes.each_pair do |ip,roles|
           # for xen the public and private ips are the same
@@ -2383,6 +2381,7 @@ class Djinn
     appdb = "#{APPSCALE_HOME}/AppDB"
     neptune = "#{APPSCALE_HOME}/Neptune"
     loki = "#{APPSCALE_HOME}/Loki"
+    iaas_manager = "#{APPSCALE_HOME}/InfrastructureManager"
 
     ssh_key = dest_node.ssh_key
     ip = dest_node.private_ip
@@ -2393,6 +2392,7 @@ class Djinn
     Djinn.log_run("rsync -e 'ssh -i #{ssh_key}' -arv --exclude='logs/*' --exclude='hadoop-*' --exclude='hbase/hbase-*' --exclude='voldemort/voldemort/*' --exclude='cassandra/cassandra/*' #{appdb}/* root@#{ip}:#{appdb}")
     Djinn.log_run("rsync -e 'ssh -i #{ssh_key}' -arv #{neptune}/* root@#{ip}:#{neptune}")
     Djinn.log_run("rsync -e 'ssh -i #{ssh_key}' -arv #{loki}/* root@#{ip}:#{loki}")
+    Djinn.log_run("rsync -e 'ssh -i #{ssh_key}' -arv #{iaas_manager}/* root@#{ip}:#{iaas_manager}")
   end
 
   def setup_config_files()

@@ -144,15 +144,6 @@ server = DjinnServer.new(
   :SSLVerifyClient => nil,
   :SSLCertName => nil
 )
-#rescue Errno::EADDRINUSE
-#  pid = `ps ax | grep djinnServer | grep -v grep | awk '{ print $1 } '`
-#  Djinn.log_debug("Killing process with pid [#{pid}]")
-#  `kill -9 #{pid}`
-#  sleep(5)
-#  retry
-#end
-
-shutdown_yet = false
 
 trap('INT') {
   Djinn.log_debug("Received INT signal, shutting down server")
@@ -164,4 +155,3 @@ trap('INT') {
 new_thread = Thread.new { server.start }
 server.djinn.job_start(secret)
 new_thread.join
-

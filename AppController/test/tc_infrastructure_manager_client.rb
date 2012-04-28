@@ -75,6 +75,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'group' => 'boogroup',
       'machine' => 'booid',
       'infrastructure' => 'booinfrastructure',
+      'instance_type' => 'booinstancetype',
       'keyname' => 'bookeyname',
       'ec2_access_key' => 'booaccess',
       'ec2_secret_key' => 'boosecret',
@@ -82,7 +83,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
     }
   
     expected = ["public-ip:private-ip:open:i-id:cloud1"]
-    actual = imc.spawn_vms(1, creds, "open", "booinstancetype", "cloud1")
+    actual = imc.spawn_vms(1, creds, "open", "cloud1")
     assert_equal(expected, actual)
   end
 
@@ -141,6 +142,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'group' => 'boogroup',
       'machine' => 'booid',
       'infrastructure' => 'booinfrastructure',
+      'instance_type' => 'booinstancetype',
       'keyname' => 'bookeyname',
       'ec2_access_key' => 'booaccess',
       'ec2_secret_key' => 'boosecret',
@@ -152,8 +154,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       "public-ip2:private-ip2:b:i-id2:cloud1",
       "public-ip3:private-ip3:c:i-id3:cloud1",
     ]
-    actual = imc.spawn_vms(3, creds, ["a", "b", "c"], "booinstancetype", 
-      "cloud1")
+    actual = imc.spawn_vms(3, creds, ["a", "b", "c"], "cloud1")
     assert_equal(expected, actual)
   end
 

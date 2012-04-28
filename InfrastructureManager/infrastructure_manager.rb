@@ -66,30 +66,45 @@ class InfrastructureManager
     @secret = HelperFunctions.get_secret()
   end
 
+  
+  # Logs a message to STDOUT and flushes it immediately, so that it doesn't
+  # get buffered before arriving in god's log file.
+  def self.log(msg)
+    Kernel.puts(msg)
+    STDOUT.flush()
+  end
+
 
   # Acquires machines via a cloud infrastructure. As this process could take
   # longer than the timeout for SOAP calls, we return to the user a reservation
   # ID that can be passed to describe_instances to poll for the state of the
   # new machines.
   def run_instances(parameters, secret)
+    Kernel.puts("Received a request to run instances")
+
     if @secret != secret
+      Kernel.puts("Incoming secret #{secret} does not match current secret " +
+        "#{@secret}, rejecting request.")
       return BAD_SECRET_RESPONSE
     end
 
+    Kernel.puts("Request parameters are #{parameters.inspect}")
     RUN_INSTANCES_REQUIRED_PARAMS.each { |required_param|
       if parameters[required_param].nil? or parameters[required_param].empty?
+        Kernel.puts("Incoming parameters was missing required parameter " +
+          "#{required_param}, rejecting request.")
         return {"success" => false, "reason" => "no #{required_param}"}
       end
     }
 
     reservation_id = HelperFunctions.get_random_alphanumeric()
-
     @reservations[reservation_id] = {
       "success" => true,
       "reason" => "received run request",
       "state" => "pending",
       "vm_info" => nil
     }
+    Kernel.puts("Generated reservation id #{reservation_id} for this request.")
 
     Thread.new {
       HelperFunctions.set_creds_in_env(parameters['credentials'], "1")
@@ -100,8 +115,10 @@ class InfrastructureManager
         "private_ips" => private_ips,
         "instance_ids" => ids
       }
+      Kernel.puts("Successfully finished request #{reservation_id}.")
     }
 
+    Kernel.puts("Successfully started request #{reservation_id}.")
     return {"success" => true, "reservation_id" => reservation_id, 
       "reason" => "none"}
   end
