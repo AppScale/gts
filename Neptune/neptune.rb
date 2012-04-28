@@ -8,6 +8,7 @@ require 'djinn'
 $:.unshift File.join(File.dirname(__FILE__), "..", "AppController", "lib")
 require 'datastore_factory'
 require 'helperfunctions'
+require 'infrastructure_manager_client'
 
 
 $:.unshift File.join(File.dirname(__FILE__), "..", "Neptune")
@@ -651,10 +652,10 @@ def neptune_acquire_nodes_for_cloud(cloud_num, new_vms_needed, job_data)
   keyname = @creds["keyname"]
   infrastructure = @creds["infrastructure"]
   group = @creds["group"]
+  cloud = "cloud#{cloud_num}"
 
-  HelperFunctions.set_creds_in_env(@creds, cloud_num)
-  new_node_info = HelperFunctions.spawn_vms(new_vms_needed, job, machine,
-    instance_type, keyname, infrastructure, "cloud#{cloud_num}", group)
+  imc = InfrastructureManagerClient.new(@@secret)
+  new_nodes_info = imc.spawn_vms(new_vms_needed, @creds, job, cloud)
   add_nodes(new_node_info)
  
   Djinn.log_debug("got all the vms i needed!")
