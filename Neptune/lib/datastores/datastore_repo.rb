@@ -39,7 +39,7 @@ class DatastoreRepo
 
   # Returns the output of the given file as a string.
   def get_output_and_return_contents(repo_path)
-    Djinn.log_debug("Attempting to get output for file [#{repo_path}]")
+    NeptuneManager.log("Attempting to get output for file [#{repo_path}]")
     return do_http_get_for_get(repo_path, :output)
   end
 
@@ -53,18 +53,18 @@ class DatastoreRepo
       files_to_upload.split.each { |file|
         full_repo_path = repo_path + "/" + file
         full_local_path = local_path + "/" + file
-        Djinn.log_debug("Recursive dive - now saving remote " +
+        NeptuneManager.log("Recursive dive - now saving remote " +
           "[#{full_repo_path}], local [#{full_local_path}]")
         temp = write_remote_file_from_local_file(full_repo_path, full_local_path)
         if !temp
-          Djinn.log_debug("Setting remote [#{full_repo_path}] failed - reported [#{temp}]")
+          NeptuneManager.log("Setting remote [#{full_repo_path}] failed - reported [#{temp}]")
           return false
         end
       }
 
       return true
     else
-      Djinn.log_debug("Attempting to put local file #{local_path} into file #{repo_path}")
+      NeptuneManager.log("Attempting to put local file #{local_path} into file #{repo_path}")
       val = HelperFunctions.read_file(local_path, chomp=false)
       return do_http_post_for_set(repo_path, :output, val)
     end
@@ -73,28 +73,28 @@ class DatastoreRepo
 
   # Writes the contents of the given string to a file hosted in the Repo.
   def write_remote_file_from_string(repo_path, string)
-    Djinn.log_debug("Attempting to put local file into location #{repo_path}")
+    NeptuneManager.log("Attempting to put local file into location #{repo_path}")
     return do_http_post_for_set(repo_path, :output, string)
   end
 
 
   # Retrieves the access policy for the given file.
   def get_acl(repo_path)
-    Djinn.log_debug("Attempting to get acl for file [#{repo_path}]")
+    NeptuneManager.log("Attempting to get acl for file [#{repo_path}]")
     return do_http_get_for_get(repo_path, :acl)
   end
 
 
   # Sets the access policy for the given file hosted in the Repo.
   def set_acl(repo_path, acl)
-    Djinn.log_debug("Attempting to set acl to [#{acl}] for file #{repo_path}")
+    NeptuneManager.log("Attempting to set acl to [#{acl}] for file #{repo_path}")
     return do_http_post_for_set(repo_path, :acl, acl)
   end
 
 
   # Queries the Repo app to see if the given file exists.
   def does_file_exist?(repo_path)
-    Djinn.log_debug("Performing a does_file_exist? on file [#{repo_path}]")
+    NeptuneManager.log("Performing a does_file_exist? on file [#{repo_path}]")
     exists_url = "http://#{@host}/doesexist"
     params = {'SECRET' => HelperFunctions.get_secret(), 'KEY' => repo_path}
     result = Net::HTTP.post_form(URI.parse(exists_url), params).body
@@ -109,7 +109,7 @@ class DatastoreRepo
   # A convenience method that can be used to perform GET requests on the
   # Repo app, returning whatever it returns.
   def do_http_get_for_get(repo_path, type)
-    Djinn.log_debug("Performing a get on key [#{repo_path}], type [#{type}]")
+    NeptuneManager.log("Performing a get on key [#{repo_path}], type [#{type}]")
     get_url = "http://#{@host}/get"
     params = {'SECRET' => HelperFunctions.get_secret(), 'KEY' => repo_path, 
       'TYPE' => type}
@@ -126,7 +126,7 @@ class DatastoreRepo
     params = {'SECRET' => HelperFunctions.get_secret(), 'KEY' => repo_path,
       'VALUE' => encoded_val, 'TYPE' => type}
     result = Net::HTTP.post_form(URI.parse(set_url), params).body
-    Djinn.log_debug("set key=#{repo_path} type=#{type} returned #{result}")
+    NeptuneManager.log("set key=#{repo_path} type=#{type} returned #{result}")
     if result == "success"
       return true
     else

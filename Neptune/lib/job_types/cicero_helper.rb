@@ -17,7 +17,7 @@ RETRY_TIME = 5  # seconds
 
 public 
 
-def neptune_cicero_run_job(nodes, jobs, secret)
+def cicero_run_job(nodes, jobs, secret)
   if !valid_secret?(secret)
     return BAD_SECRET_MSG
   end
@@ -28,10 +28,10 @@ def neptune_cicero_run_job(nodes, jobs, secret)
 
   job_data = jobs[0]
   if job_data.class != Hash
-    return "job_data must be a Hash"
+    return "job data must be a Hash"
   end
 
-  Djinn.log_debug("cicero - run")
+  NeptuneManager.log("cicero - run")
 
   Thread.new {
     run_via_cicero(nodes, job_data, secret)
@@ -45,7 +45,7 @@ private
 # Runs a Cicero job on the given nodes or via a remote cloud, indicated within
 # job_data.
 def run_via_cicero(nodes, job_data, secret)
-  Djinn.log_debug("job data is #{job_data.inspect}")
+  NeptuneManager.log("job data is #{job_data.inspect}")
 
   resource_info = parse_resource_info(job_data)
 
@@ -80,7 +80,7 @@ def run_via_cicero(nodes, job_data, secret)
             task_ids << self.execute_task(host, function_name, inputs, output) #Java
             task_number = j + 1
             percent_done = task_number / Float(num_tasks_for_this_url) * 100
-            Djinn.log_debug("done putting #{task_number}/" +
+            NeptuneManager.log("done putting #{task_number}/" +
               "#{num_tasks_for_this_url} tasks (#{percent_done} percent)")
           }
 
@@ -91,7 +91,7 @@ def run_via_cicero(nodes, job_data, secret)
             self.wait_for_task_to_complete(host, task_id)
             task_number = j + 1
             percent_done = task_number / Float(num_tasks_for_this_url) * 100
-            Djinn.log_debug("done with #{task_number}" +
+            NeptuneManager.log("done with #{task_number}" +
               "/#{num_tasks_for_this_url} tasks (#{percent_done} percent)")
           }
         }
@@ -102,7 +102,7 @@ def run_via_cicero(nodes, job_data, secret)
   threads_per_cloud.each { |t| t.join }
   end_time = Time.now
   total_time = end_time - start_time
-  Djinn.log_debug("TIMING: total execution time is #{total_time} seconds")
+  NeptuneManager.log("TIMING: total execution time is #{total_time} seconds")
 
   stop_appengine_on_all_nodes(resource_info, nodes, app_name)
   remove_lock_file(job_data)
@@ -132,7 +132,7 @@ def start_appengine_on_all_nodes(resource_info, nodes, app_name)
   }
 
   if nodes.empty?
-    Djinn.log_debug("All resources used are remote resource - no need to" +
+    NeptuneManager.log("All resources used are remote resource - no need to" +
       " start App Engine instances")
     return resource_info
   end
@@ -151,24 +151,24 @@ def start_appengine_on_all_nodes(resource_info, nodes, app_name)
     uac = UserAppClient.new(@userappserver_private_ip, HelperFunctions.get_secret)
     loop {
       app_data = uac.get_app_data(app_name)
-      Djinn.log_debug("app data for app [#{app_name}] is [#{app_data}]")
+      NeptuneManager.log("app data for app [#{app_name}] is [#{app_data}]")
       all_hosts = app_data.scan(/^hosts:(.*)/).flatten.to_s.split(":")
       all_ports = app_data.scan(/^ports:(.*)/).flatten.to_s.split(":")
 
       all_hosts.each_with_index { |this_host, index|
         if this_host == host
           port = all_ports[index].strip
-          Djinn.log_debug("found a match: #{host}:#{port}")
+          NeptuneManager.log("found a match: #{host}:#{port}")
           break
         end
       }
       break if !port.empty?
 
-      Djinn.log_debug("still waiting for app to come online...")
+      NeptuneManager.log("still waiting for app to come online...")
       sleep(5)
     }
     uri = "http://#{host}:#{port}"
-    Djinn.log_debug("adding uri [#{uri}] to cloud [#{node.cloud}]")
+    NeptuneManager.log("adding uri [#{uri}] to cloud [#{node.cloud}]")
     resource_info[node.cloud] << uri
   }
 
@@ -177,7 +177,7 @@ end
 
 def stop_appengine_on_all_nodes(resource_info, nodes, app_name)
   if nodes.empty?
-    Djinn.log_debug("All resources used are remote resource - no need to" +
+    NeptuneManager.log("All resources used are remote resource - no need to" +
       " stop App Engine instances")
     return
   end
@@ -206,17 +206,17 @@ def get_inputs_from_job_data(job_data)
     current_input = "@input#{input_number}"
     current_val = job_data[current_input]
     if current_val.nil?
-      Djinn.log_debug("Didn't see [#{current_input}] - no more inputs")
+      NeptuneManager.log("Didn't see [#{current_input}] - no more inputs")
       break
     end
 
-    Djinn.log_debug("Saw [#{current_input}] -> [#{current_val}], adding" +
+    NeptuneManager.log("Saw [#{current_input}] -> [#{current_val}], adding" +
       " to the input list")
     inputs << current_val
     input_number += 1
   }
 
-  Djinn.log_debug("all inputs for this job are [#{inputs.join(', ')}]")
+  NeptuneManager.log("all inputs for this job are [#{inputs.join(', ')}]")
   return inputs
 end
 
@@ -242,31 +242,31 @@ def get_execution_plan(nodes, resource_info, num_tasks)
     execution_plan["cloud1"] += num_tasks_left
   end
 
-  Djinn.log_debug("num_tasks_per_cloud = #{execution_plan.inspect}")
+  NeptuneManager.log("num_tasks_per_cloud = #{execution_plan.inspect}")
   return execution_plan
 end
 
 def start_cicero_master(my_node)
-  Djinn.log_debug("#{my_node.private_ip} is starting cicero master")
+  NeptuneManager.log("#{my_node.private_ip} is starting cicero master")
 end
 
 def start_cicero_slave(my_node)
-  Djinn.log_debug("#{my_node.private_ip} is starting cicero slave")
+  NeptuneManager.log("#{my_node.private_ip} is starting cicero slave")
 end
 
 def stop_cicero_master(my_node)
-  Djinn.log_debug("#{my_node.private_ip} is stopping cicero master")
+  NeptuneManager.log("#{my_node.private_ip} is stopping cicero master")
 end
 
 def stop_cicero_slave(my_node)
-  Djinn.log_debug("#{my_node.private_ip} is stopping cicero slave")
+  NeptuneManager.log("#{my_node.private_ip} is stopping cicero slave")
 end
 
 
 class Djinn
   def self.execute_task(host, function_name, inputs, output)
     # do a put request on the url in question - don't forget the params!
-    Djinn.log_debug("executing a task at [#{host}] with function name " +
+    NeptuneManager.log("executing a task at [#{host}] with function name " +
       "#{function_name}, inputs [#{inputs.join(', ')}], and output [#{output}]")
 
     query_params = {:f => function_name, :num_inputs => inputs.length,
@@ -277,24 +277,24 @@ class Djinn
       # of zero, as required for App Engine
       response = JSONClient.put("#{host}/task", :body => '', 
         :query => query_params)
-      Djinn.log_debug("PUT /task returned #{response.inspect}")
+      NeptuneManager.log("PUT /task returned #{response.inspect}")
       if response["result"] == "failure"
-        Djinn.log_debug("Could not enqueue task: [#{response.inspect}]" +
+        NeptuneManager.log("Could not enqueue task: [#{response.inspect}]" +
           ", retrying in #{RETRY_TIME} sec")
         sleep(RETRY_TIME)
         raise NoMethodError  # so that the put is retried
       end
     rescue NoMethodError  # if the host is down
-      Djinn.log_debug("PUT task failed on #{host}, retrying")
+      NeptuneManager.log("PUT task failed on #{host}, retrying")
       sleep(RETRY_TIME)
       retry
     end
 
     # right now, we have tasks store data with the output as the
     # key name, so return that so that others can read the task's info
-    Djinn.log_debug("done enqueuing task for output #{output}")
+    NeptuneManager.log("done enqueuing task for output #{output}")
     return output
-    #Djinn.log_debug("done enqueuing task, got id #{response['id']}")
+    #NeptuneManager.log("done enqueuing task, got id #{response['id']}")
     #return response["id"] #response
   end
 
@@ -307,7 +307,7 @@ class Djinn
         response = JSONClient.get("#{host}/task", :body => '', 
           :query => query_params)
       rescue NoMethodError  # if the host is down
-        Djinn.log_debug("Host [#{host}] is down, retrying in #{RETRY_TIME} sec")
+        NeptuneManager.log("Host [#{host}] is down, retrying in #{RETRY_TIME} sec")
         sleep(RETRY_TIME)
         retry
       end
@@ -315,18 +315,18 @@ class Djinn
       state = response['state']
       #start_time = response['start_time']
       if state == "finished"
-        Djinn.log_debug("Task with id [#{task_id}] has finished")
+        NeptuneManager.log("Task with id [#{task_id}] has finished")
         break
       end
 
       #if Time.now - start_time > 60
-      #  Djinn.log_debug("Task with id [#{task_id}] took too long to run - skipping it.")
+      #  NeptuneManager.log("Task with id [#{task_id}] took too long to run - skipping it.")
       #  break
       #end
 
-      Djinn.log_debug("Current state of job with task id [#{task_id}], " +
+      NeptuneManager.log("Current state of job with task id [#{task_id}], " +
         "is #{state}, waiting for it to become 'finished'")
-      #Djinn.log_debug("Current state of job with task id [#{task_id}], started" +
+      #NeptuneManager.log("Current state of job with task id [#{task_id}], started" +
       #  " at #{start_time}, is '#{state}', waiting for it to become 'finished'")
       sleep(RETRY_TIME)
     }
@@ -340,7 +340,7 @@ class Djinn
       response = JSONClient.get("#{host}/data", :body => '', 
         :query => query_params)
     rescue NoMethodError  # the host is down
-      Djinn.log_debug("Failed to retrieve output from #{host}, retrying")
+      NeptuneManager.log("Failed to retrieve output from #{host}, retrying")
       sleep(RETRY_TIME)
       retry
     end

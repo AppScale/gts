@@ -3,6 +3,7 @@
 
 require 'datastore_repo'
 
+
 $:.unshift File.join(File.dirname(__FILE__), "..", "..", "Neptune")
 require 'task_engine_google_app_engine'
 
@@ -53,10 +54,10 @@ class DatastoreRepoOnAppEngine < DatastoreRepo
   def is_app_running?()
     result = do_http_get_for_get("/any-path", "any-type")
     if result
-      Djinn.log_debug("App appears to be running")
+      NeptuneManager.log("App appears to be running")
       return true
     else
-      Djinn.log_debug("App isn't running")
+      NeptuneManager.log("App isn't running")
       return false
     end
   end

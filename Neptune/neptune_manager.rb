@@ -91,9 +91,15 @@ class NeptuneManager
   # The shared secret that is used to authenticate remote callers.
   attr_accessor :secret
 
+
+  # An Array that contains the credentials for each pull queue that
+  # Babel tasks can be stored in.
+  attr_accessor :queues_to_read
+
   
   def initialize(secret)
     @secret = secret
+    @queues_to_read = []
   end
 
 

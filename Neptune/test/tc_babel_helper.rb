@@ -112,11 +112,11 @@ class TestBabelHelper < Test::Unit::TestCase
         'time_to_store_inputs' => 0}}
     job_list = [job_data]
     result = neptune.run_or_delegate_tasks(job_list)
-    assert_equal([RUN_LOCALLY], result)
+    assert_equal([NeptuneManager::RUN_LOCALLY], result)
 
     job_list2 = [job_data, job_data]
     result2 = neptune.run_or_delegate_tasks(job_list2)
-    assert_equal([RUN_LOCALLY, RUN_LOCALLY], result2)
+    assert_equal([NeptuneManager::RUN_LOCALLY, NeptuneManager::RUN_LOCALLY], result2)
   end
 
   def test_convert_remote_file_location_to_local_file
@@ -202,6 +202,6 @@ class TestBabelHelper < Test::Unit::TestCase
 
     neptune = NeptuneManager.new("secret")
     result = neptune.run_or_delegate_tasks(job_list)
-    assert_equal([RUN_VIA_EXECUTOR], result)
+    assert_equal([NeptuneManager::RUN_VIA_EXECUTOR], result)
   end
 end

@@ -4,6 +4,10 @@
 require 'datastore'
 
 
+require 'rubygems'
+require 'right_aws'
+
+
 # A class that abstracts away access to Amazon S3, and services that are
 # API-compatible with S3. Services store and retrieve files in the usual
 class DatastoreS3 < Datastore
@@ -63,15 +67,15 @@ class DatastoreS3 < Datastore
     # TODO(cgb): presumably list_bucket only lists the first 1000 and
     # returns a cursor for more, so change this accordingly
     bucket, file = DatastoreS3.parse_s3_key(s3_path)
-    Djinn.log_debug("Doing a list bucket on #{bucket}, with prefix #{file}")
+    NeptuneManager.log("Doing a list bucket on #{bucket}, with prefix #{file}")
     files_to_write = @conn.list_bucket(bucket, {'prefix'=> file})
-    Djinn.log_debug("List bucket returned [#{files_to_write.join(', ')}]")
+    NeptuneManager.log("List bucket returned [#{files_to_write.join(', ')}]")
 
     result = ""
     files_to_write.each { |s3_file_data|
       s3_filename = s3_file_data[:key]
       full_local_path = local_path + File::Separator + s3_filename
-      Djinn.log_debug("Writing local file #{full_local_path} from " +
+      NeptuneManager.log("Writing local file #{full_local_path} from " +
         "path #{local_path} and S3 key name #{s3_filename}")
 
       # if the user gives us a file to fetch that's several directories
@@ -85,7 +89,7 @@ class DatastoreS3 < Datastore
         }
         f.close
       rescue Errno::ECONNRESET
-        Djinn.log_debug("Saw a connection reset when trying to write " +
+        NeptuneManager.log("Saw a connection reset when trying to write " +
           "local file from S3, retrying in a moment.")
         Kernel.sleep(5)
         retry
@@ -116,7 +120,7 @@ class DatastoreS3 < Datastore
       files_to_upload.split.each { |file|
         full_s3_path = s3_path + "/" + file
         full_local_path = local_path + "/" + file
-        Djinn.log_debug("recursive dive - now saving remote [#{full_s3_path}], local [#{full_local_path}]")
+        NeptuneManager.log("recursive dive - now saving remote [#{full_s3_path}], local [#{full_local_path}]")
         success = write_remote_file_from_local_file(full_s3_path, full_local_path)
 
         if !success
@@ -124,7 +128,7 @@ class DatastoreS3 < Datastore
         end
       }
     else
-      Djinn.log_debug("attempting to put local file #{local_path} into " +
+      NeptuneManager.log("attempting to put local file #{local_path} into " +
         "bucket #{bucket}, location #{file}")
       return @conn.put(bucket, file, File.open(local_path))
     end
@@ -163,11 +167,11 @@ class DatastoreS3 < Datastore
     end
 
     begin
-      Djinn.log_debug("[does file exist] getting acl for bucket [#{bucket}] and file [#{file}] ")
+      NeptuneManager.log("[does file exist] getting acl for bucket [#{bucket}] and file [#{file}] ")
       @conn.get_acl(bucket, file)
       return true
     rescue RightAws::AwsError
-      Djinn.log_debug("[does file exist] saw a RightAws::AwsError on path [#{path}]")
+      NeptuneManager.log("[does file exist] saw a RightAws::AwsError on path [#{path}]")
       return false
     end
   end
@@ -179,7 +183,7 @@ class DatastoreS3 < Datastore
     all_buckets = @conn.list_all_my_buckets()
     bucket_names = all_buckets.map { |b| b[:name] }
     bucket_exists = bucket_names.include?(bucket)
-    Djinn.log_debug("the user owns buckets [#{bucket_names.join(', ')}] - do they own [#{bucket}]? #{bucket_exists}")
+    NeptuneManager.log("the user owns buckets [#{bucket_names.join(', ')}] - do they own [#{bucket}]? #{bucket_exists}")
     return bucket_exists
   end
 

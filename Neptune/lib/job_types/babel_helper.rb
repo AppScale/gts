@@ -11,6 +11,10 @@ $:.unshift File.join(File.dirname(__FILE__), "..", "..")
 require 'neptune_manager'
 
 
+$:.unshift File.join(File.dirname(__FILE__), "..")
+require 'zkinterface'
+
+
 $:.unshift File.join(File.dirname(__FILE__), "..", "task_queues")
 require 'queue_factory'
 
@@ -371,206 +375,204 @@ class NeptuneManager
 
 
   def run_task(job_data)
-    dir = Djinn.create_temp_dir()
-    Djinn.copy_code_and_inputs_to_dir(job_data, dir)
-    output, error = Djinn.run_code(job_data, dir)
-    Djinn.write_babel_outputs(output, error, job_data)
-    Djinn.cleanup(dir)
+    dir = NeptuneManager.create_temp_dir()
+    NeptuneManager.copy_code_and_inputs_to_dir(job_data, dir)
+    output, error = NeptuneManager.run_code(job_data, dir)
+    NeptuneManager.write_babel_outputs(output, error, job_data)
+    NeptuneManager.cleanup(dir)
   end
 
 
-  class Djinn
-    def self.create_temp_dir()
-      dir = "/tmp/babel-#{rand(10000)}/"
-      FileUtils.mkdir_p(dir)
-      return dir
-    end
-
-
-    def self.copy_code_and_inputs_to_dir(job_data, dir)
-      input_storage_start_time = Time.now
-      Djinn.copy_code_to_dir(job_data, dir)
-      Djinn.copy_inputs_to_dir(job_data, dir)
-      input_storage_end_time = Time.now
-      job_data['@metadata_info']['input_storage_time'] = input_storage_end_time - input_storage_start_time
-    end
-
-    def self.copy_code_to_dir(job_data, dir)
-      if !is_storage_location?(job_data['@code'])
-        abort("The given code, #{job_data['@code']}, is not something we can fetch")
-      end
-
-      NeptuneManager.log("old code is #{job_data['@code']}")
-      local_folder = self.copy_file_to_dir(File.dirname(job_data['@code']), dir, job_data)
-      job_data['@code'] = local_folder + '/' + File.basename(job_data['@code'])
-
-      # If the code isn't going to be executed by a different program (e.g., python)
-      # then we need to make it executable
-      if job_data["@executable"].nil? or job_data["@executable"].empty?
-        NeptuneManager.log("making code executable")
-        Djinn.log_run("chmod +x #{job_data['@code']}")
-      end
-
-      NeptuneManager.log("new code is #{job_data['@code']}")
-      return job_data['@code']
-    end
-
-
-    def self.copy_inputs_to_dir(job_data, dir)
-      return if job_data['@argv'].class != Array
-
-      new_argv = []
-
-      NeptuneManager.log("old argv is #{job_data['@argv'].join(' ')}")
-      job_data['@argv'].each { |arg|
-        if is_storage_location?(arg)
-          new_argv << self.copy_file_to_dir(arg, dir, job_data)
-        else
-          new_argv << arg
-        end
-      }
-
-      job_data['@argv'] = new_argv
-      NeptuneManager.log("new argv is #{job_data['@argv'].join(' ')}")
-      return
-    end
-
-
-    def self.copy_file_to_dir(remote, local, job_data)
-      bucket, file = DatastoreS3.parse_s3_key(remote)
-      remote_dir = file
-      local_file = File.expand_path(local + "/" + remote_dir)
-      NeptuneManager.log("downloading remote file #{remote} to local location #{local_file}")
-      NeptuneManager.log("bucket is #{bucket}, file is #{file}")
-
-      datastore = DatastoreFactory.get_datastore(job_data['@storage'], job_data)
-      datastore.get_output_and_save_to_fs(remote, local)
-      return local_file
-    end
-
-
-    def self.run_code(job_data, dir)
-      filename_to_exec = job_data['@code']
-
-      executable = job_data['@executable'] || ""
-    
-      # If the user specifies an argv to pass to the code to exec, be sure to
-      # capture it and pass it along
-      if job_data["@argv"]
-        argv = job_data["@argv"].join(' ')
-        # TODO(cgb): filter out colons and other things that malicious users could
-        # use to hijack the system
-      else
-        argv = ""
-      end
-    
-      output_file = "#{dir}/stdout-#{HelperFunctions.get_random_alphanumeric()}"
-      error_file = "#{dir}/stderr-#{HelperFunctions.get_random_alphanumeric()}"
-    
-      # For most file types, we can use the full path when executing them. For
-      # programs that run over the JVM (e.g., Java, Scala), we can't - we need 
-      # to change into the directory where the file is located and exec the file 
-      # from there.
-      # TODO(cgb): Consider a job_data['@jvm_args'] option (with an array val)
-      # that users can set to pass in arguments that we should pass to the JVM
-      # we are about to run.
-      if executable == "java" or executable == "scala"
-        dir = File.dirname(filename_to_exec)
-        file = File.basename(filename_to_exec)
-        exec_command = "cd #{dir}; #{executable} #{file} #{argv} 1>#{output_file} 2>#{error_file}"
-      else
-        exec_command = "#{executable} #{filename_to_exec} #{argv} 1>#{output_file} 2>#{error_file}"
-      end
-
-      start_time = Time.now
-      ret_val = Djinn.log_run(exec_command)
-      end_time = Time.now
-    
-      total = end_time - start_time
-      NeptuneManager.log("Babel: Done running job!")
-      NeptuneManager.log("TIMING: Took #{total} seconds")
-
-      # Save some data about the task we just ran. At a high level, there are two
-      # types of information we want to save: debugging information (in case the
-      # task failed and the user needs to deduce why), and profiling information
-      # (so the user can see how long their code took to run).
-
-      # Add in debugging information.
-      job_data['@metadata_info']['command'] = exec_command
-      job_data['@metadata_info']['return_value'] = ret_val
-      job_data['@metadata_info']['cpu_info'] = HelperFunctions.shell("cat /proc/cpuinfo")
-      job_data['@metadata_info']['mem_info'] = HelperFunctions.shell("cat /proc/meminfo")
-      job_data['@metadata_info']['df_h'] = HelperFunctions.shell("df -h")
-
-      # Add in profiling information, with all times converted to seconds since epoch.
-      job_data['@metadata_info']['start_time'] = start_time.to_i
-      job_data['@metadata_info']['end_time'] = end_time.to_i
-      job_data['@metadata_info']['total_execution_time'] = total
-
-      return output_file, error_file
-    end
-
-
-    # Writes the stdout and stderr that a Babel task produces to the remote
-    # datastore that the user has specified to use. We also automatically collect
-    # some metadata about the task, so we write that to the datastore as well.
-    def self.write_babel_outputs(output, error, job_data)
-      datastore = DatastoreFactory.get_datastore(job_data['@storage'], job_data)
-
-      # Write our stdout file
-      NeptuneManager.log("Saving stdout at #{output} to remote location" + 
-        " #{job_data['@output']}")
-      output_storage_start_time = Time.now
-      datastore.write_remote_file_from_local_file(job_data['@output'], output)
-
-      # Write our stderr file
-      NeptuneManager.log("Saving stderr #{error} to remote location" +
-        " #{job_data['@error']}")
-      datastore.write_remote_file_from_local_file(job_data['@error'], error)
-      output_storage_end_time = Time.now
-      total_output_time = output_storage_end_time - output_storage_start_time
-      job_data['@metadata_info']['output_storage_time'] = total_output_time
-
-      local_input_storage_time = job_data['@metadata_info']['time_to_store_inputs']
-      total_input_time = job_data['@metadata_info']['input_storage_time']
-      job_data['@metadata_info']['total_storage_time'] = local_input_storage_time + 
-        total_input_time + total_output_time
-
-      end_of_task_time = Time.now.to_f
-      start_of_task_time = job_data['@metadata_info']['received_task_at']
-      total_task_time = end_of_task_time - start_of_task_time
-      job_data['@metadata_info']['total_task_time'] = total_task_time
-
-      # Write our metadata info, which is not a file, but a hash we will turn to
-      # a string via JSON
-      NeptuneManager.log("Saving metadata #{job_data['@metadata_info'].inspect} " +
-        "to remote location #{job_data['@metadata']}")
-      metadata_file = "/tmp/metadata-#{HelperFunctions.get_random_alphanumeric()}"
-      HelperFunctions.write_file(metadata_file, 
-        JSON.dump(job_data['@metadata_info']))
-      datastore.write_remote_file_from_local_file(job_data['@metadata'], 
-        metadata_file)
-      FileUtils.rm_f(metadata_file)
-    end
-
-
-    def self.save_output(remote_output, local_output, job_data)
-      NeptuneManager.log("Saving local output #{local_output} to remote location #{remote_output}")
-      datastore = DatastoreFactory.get_datastore(job_data['@storage'], job_data)
-      datastore.write_remote_file_from_local_file(remote_output, local_output)
-    end
-
-
-    def self.cleanup(dir)
-      NeptuneManager.log("Cleaning up directory #{dir}")
-      # don't clean up if we want to debug the system
-      return if DEBUG
-      FileUtils.rm_rf(dir)
-    end
+  def self.create_temp_dir()
+    dir = "/tmp/babel-#{rand(10000)}/"
+    FileUtils.mkdir_p(dir)
+    return dir
   end
 
 
-  def is_storage_location?(file)
+  def self.copy_code_and_inputs_to_dir(job_data, dir)
+    input_storage_start_time = Time.now
+    NeptuneManager.copy_code_to_dir(job_data, dir)
+    NeptuneManager.copy_inputs_to_dir(job_data, dir)
+    input_storage_end_time = Time.now
+    job_data['@metadata_info']['input_storage_time'] = input_storage_end_time - input_storage_start_time
+  end
+
+  def self.copy_code_to_dir(job_data, dir)
+    if !self.is_storage_location?(job_data['@code'])
+      abort("The given code, #{job_data['@code']}, is not something we can fetch")
+    end
+
+    NeptuneManager.log("old code is #{job_data['@code']}")
+    local_folder = self.copy_file_to_dir(File.dirname(job_data['@code']), dir, job_data)
+    job_data['@code'] = local_folder + '/' + File.basename(job_data['@code'])
+
+    # If the code isn't going to be executed by a different program (e.g., python)
+    # then we need to make it executable
+    if job_data["@executable"].nil? or job_data["@executable"].empty?
+      NeptuneManager.log("making code executable")
+      NeptuneManager.log_run("chmod +x #{job_data['@code']}")
+    end
+
+    NeptuneManager.log("new code is #{job_data['@code']}")
+    return job_data['@code']
+  end
+
+
+  def self.copy_inputs_to_dir(job_data, dir)
+    return if job_data['@argv'].class != Array
+
+    new_argv = []
+
+    NeptuneManager.log("old argv is #{job_data['@argv'].join(' ')}")
+    job_data['@argv'].each { |arg|
+      if self.is_storage_location?(arg)
+        new_argv << self.copy_file_to_dir(arg, dir, job_data)
+      else
+        new_argv << arg
+      end
+    }
+
+    job_data['@argv'] = new_argv
+    NeptuneManager.log("new argv is #{job_data['@argv'].join(' ')}")
+    return
+  end
+
+
+  def self.copy_file_to_dir(remote, local, job_data)
+    bucket, file = DatastoreS3.parse_s3_key(remote)
+    remote_dir = file
+    local_file = File.expand_path(local + "/" + remote_dir)
+    NeptuneManager.log("downloading remote file #{remote} to local location #{local_file}")
+    NeptuneManager.log("bucket is #{bucket}, file is #{file}")
+
+    datastore = DatastoreFactory.get_datastore(job_data['@storage'], job_data)
+    datastore.get_output_and_save_to_fs(remote, local)
+    return local_file
+  end
+
+
+  def self.run_code(job_data, dir)
+    filename_to_exec = job_data['@code']
+
+    executable = job_data['@executable'] || ""
+  
+    # If the user specifies an argv to pass to the code to exec, be sure to
+    # capture it and pass it along
+    if job_data["@argv"]
+      argv = job_data["@argv"].join(' ')
+      # TODO(cgb): filter out colons and other things that malicious users could
+      # use to hijack the system
+    else
+      argv = ""
+    end
+  
+    output_file = "#{dir}/stdout-#{HelperFunctions.get_random_alphanumeric()}"
+    error_file = "#{dir}/stderr-#{HelperFunctions.get_random_alphanumeric()}"
+  
+    # For most file types, we can use the full path when executing them. For
+    # programs that run over the JVM (e.g., Java, Scala), we can't - we need 
+    # to change into the directory where the file is located and exec the file 
+    # from there.
+    # TODO(cgb): Consider a job_data['@jvm_args'] option (with an array val)
+    # that users can set to pass in arguments that we should pass to the JVM
+    # we are about to run.
+    if executable == "java" or executable == "scala"
+      dir = File.dirname(filename_to_exec)
+      file = File.basename(filename_to_exec)
+      exec_command = "cd #{dir}; #{executable} #{file} #{argv} 1>#{output_file} 2>#{error_file}"
+    else
+      exec_command = "#{executable} #{filename_to_exec} #{argv} 1>#{output_file} 2>#{error_file}"
+    end
+
+    start_time = Time.now
+    ret_val = NeptuneManager.log_run(exec_command)
+    end_time = Time.now
+  
+    total = end_time - start_time
+    NeptuneManager.log("Babel: Done running job!")
+    NeptuneManager.log("TIMING: Took #{total} seconds")
+
+    # Save some data about the task we just ran. At a high level, there are two
+    # types of information we want to save: debugging information (in case the
+    # task failed and the user needs to deduce why), and profiling information
+    # (so the user can see how long their code took to run).
+
+    # Add in debugging information.
+    job_data['@metadata_info']['command'] = exec_command
+    job_data['@metadata_info']['return_value'] = ret_val
+    job_data['@metadata_info']['cpu_info'] = HelperFunctions.shell("cat /proc/cpuinfo")
+    job_data['@metadata_info']['mem_info'] = HelperFunctions.shell("cat /proc/meminfo")
+    job_data['@metadata_info']['df_h'] = HelperFunctions.shell("df -h")
+
+    # Add in profiling information, with all times converted to seconds since epoch.
+    job_data['@metadata_info']['start_time'] = start_time.to_i
+    job_data['@metadata_info']['end_time'] = end_time.to_i
+    job_data['@metadata_info']['total_execution_time'] = total
+
+    return output_file, error_file
+  end
+
+
+  # Writes the stdout and stderr that a Babel task produces to the remote
+  # datastore that the user has specified to use. We also automatically collect
+  # some metadata about the task, so we write that to the datastore as well.
+  def self.write_babel_outputs(output, error, job_data)
+    datastore = DatastoreFactory.get_datastore(job_data['@storage'], job_data)
+
+    # Write our stdout file
+    NeptuneManager.log("Saving stdout at #{output} to remote location" + 
+      " #{job_data['@output']}")
+    output_storage_start_time = Time.now
+    datastore.write_remote_file_from_local_file(job_data['@output'], output)
+
+    # Write our stderr file
+    NeptuneManager.log("Saving stderr #{error} to remote location" +
+      " #{job_data['@error']}")
+    datastore.write_remote_file_from_local_file(job_data['@error'], error)
+    output_storage_end_time = Time.now
+    total_output_time = output_storage_end_time - output_storage_start_time
+    job_data['@metadata_info']['output_storage_time'] = total_output_time
+
+    local_input_storage_time = job_data['@metadata_info']['time_to_store_inputs']
+    total_input_time = job_data['@metadata_info']['input_storage_time']
+    job_data['@metadata_info']['total_storage_time'] = local_input_storage_time + 
+      total_input_time + total_output_time
+
+    end_of_task_time = Time.now.to_f
+    start_of_task_time = job_data['@metadata_info']['received_task_at']
+    total_task_time = end_of_task_time - start_of_task_time
+    job_data['@metadata_info']['total_task_time'] = total_task_time
+
+    # Write our metadata info, which is not a file, but a hash we will turn to
+    # a string via JSON
+    NeptuneManager.log("Saving metadata #{job_data['@metadata_info'].inspect} " +
+      "to remote location #{job_data['@metadata']}")
+    metadata_file = "/tmp/metadata-#{HelperFunctions.get_random_alphanumeric()}"
+    HelperFunctions.write_file(metadata_file, 
+      JSON.dump(job_data['@metadata_info']))
+    datastore.write_remote_file_from_local_file(job_data['@metadata'], 
+      metadata_file)
+    FileUtils.rm_f(metadata_file)
+  end
+
+
+  def self.save_output(remote_output, local_output, job_data)
+    NeptuneManager.log("Saving local output #{local_output} to remote location #{remote_output}")
+    datastore = DatastoreFactory.get_datastore(job_data['@storage'], job_data)
+    datastore.write_remote_file_from_local_file(remote_output, local_output)
+  end
+
+
+  def self.cleanup(dir)
+    NeptuneManager.log("Cleaning up directory #{dir}")
+    # don't clean up if we want to debug the system
+    return if DEBUG
+    FileUtils.rm_rf(dir)
+  end
+
+
+  def self.is_storage_location?(file)
     return STORAGE_PARAM_REGEX.match(file)
   end
 
