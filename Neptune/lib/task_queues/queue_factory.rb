@@ -1,5 +1,6 @@
 # Programmer: Chris Bunch
 
+$:.unshift File.join(File.dirname(__FILE__))
 require 'task_queue_azure_queue'
 require 'task_queue_google_app_engine'
 require 'task_queue_rabbitmq'

@@ -1,14 +1,19 @@
 # Programmer: Chris Bunch
 
+
 require 'helperfunctions'
 require 'task_queue'
+
 
 # The App Engine task engine has a function that uploads an app to Google
 # App Engine, and since we need this to upload our pull queue frontend,
 # we pull in support for it here.
+$:.unshift File.join(File.dirname(__FILE__), "..", "task_engines")
 require 'task_engine_google_app_engine'
 
+
 require 'json'
+
 
 require 'rubygems'
 require 'httparty'

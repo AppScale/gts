@@ -2,8 +2,8 @@
 # Programmer: Chris Bunch
 
 
-$:.unshift File.join(File.dirname(__FILE__), "..", "AppController")
-require 'djinn'
+$:.unshift File.join(File.dirname(__FILE__), "..", "..")
+require 'neptune_manager'
 
 
 $:.unshift File.join(File.dirname(__FILE__), "..", "AppController", "lib")
@@ -16,6 +16,7 @@ BAD_TABLE_MSG = "The currently running database isn't running Hadoop, so MapRedu
 DBS_W_HADOOP = ["hbase", "hypertable"]
 
 
+APPSCALE_HOME = ENV['APPSCALE_HOME']
 HADOOP = "#{APPSCALE_HOME}/AppDB/hadoop-0.20.2/bin/hadoop"
 
 

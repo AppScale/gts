@@ -2,7 +2,6 @@
 
 
 require 'datastore'
-require 'repo'
 
 
 # A class that abstracts away access to our Repository application (also known

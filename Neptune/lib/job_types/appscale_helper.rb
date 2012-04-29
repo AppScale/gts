@@ -1,13 +1,12 @@
 #!/usr/bin/ruby
 # Programmer: Chris Bunch
-# baz
-
-require 'djinn'
-
-public 
 
 
-def neptune_appscale_run_job(nodes, job_data, secret)
+$:.unshift File.join(File.dirname(__FILE__), "..", "..")
+require 'neptune_manager'
+
+
+def appscale_run_job(nodes, job_data, secret)
   if !valid_secret?(secret)
     return BAD_SECRET_MSG
   end

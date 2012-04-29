@@ -1,5 +1,6 @@
 # Programmer: Chris Bunch
 
+$:.unshift File.join(File.dirname(__FILE__))
 require 'task_engine_google_app_engine'
 require 'task_engine_appscale'
 

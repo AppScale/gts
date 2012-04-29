@@ -1,14 +1,16 @@
 #!/usr/bin/ruby
 # Programmer: Chris Bunch
-# baz
+
 
 require 'net/http'
 
-require 'djinn'
 
 require 'rubygems'
 require 'httparty'
 
+
+$:.unshift File.join(File.dirname(__FILE__), "..", "..")
+require 'neptune_manager'
 
 RETRY_TIME = 5  # seconds
 

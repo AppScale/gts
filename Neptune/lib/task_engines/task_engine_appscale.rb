@@ -1,6 +1,5 @@
 # Programmer: Chris Bunch
 
-require 'djinn'
 require 'task_engine'
 
 require 'rubygems'

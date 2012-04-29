@@ -3,7 +3,6 @@
 
 require 'datastore_repo'
 require 'helperfunctions'
-require 'repo'
 
 
 # An implementation of the Repository app that assumes it is running

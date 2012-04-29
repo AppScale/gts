@@ -815,7 +815,7 @@ class NeptuneManager
   end
 
 
-  =begin
+=begin
   Hill Climbing Algorithm
     # find minimum execution time t1
     # find neighbors t0 and t2
@@ -826,7 +826,7 @@ class NeptuneManager
     # if no data for either, choose t2
     # if no data for t0, choose t0
     # if data for both, choose t1
-  =end
+=end
   def optimal_nodes_hill_climbing(job_data, thing_to_optimize)
     job_name = get_job_name(job_data)
 

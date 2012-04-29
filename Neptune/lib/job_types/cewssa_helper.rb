@@ -2,7 +2,9 @@
 # Programmer: Chris Bunch
 # baz
 
-require 'djinn'
+$:.unshift File.join(File.dirname(__FILE__), "..", "..")
+require 'neptune_manager'
+
 
 BIRTH_DEATH = "/usr/local/lib/R/site-library/cewSSA/data/birth_death.r"
 OUTPUT_HOME = "/usr/local/cewssa/data"

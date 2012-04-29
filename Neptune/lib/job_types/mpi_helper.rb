@@ -2,8 +2,8 @@
 # Programmer: Chris Bunch
 
 
-$:.unshift File.join(File.dirname(__FILE__), "..", "AppController")
-require 'djinn'
+$:.unshift File.join(File.dirname(__FILE__), "..", "..")
+require 'neptune_manager'
 
 
 $:.unshift File.join(File.dirname(__FILE__), "..", "AppController", "lib")

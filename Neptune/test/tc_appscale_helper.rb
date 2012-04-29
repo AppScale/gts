@@ -1,9 +1,11 @@
 # Programmer: Chris Bunch
 
-$:.unshift File.join(File.dirname(__FILE__), "..")
-require 'djinn'
 
-$:.unshift File.join(File.dirname(__FILE__), "..", "..", "Neptune")
+$:.unshift File.join(File.dirname(__FILE__), "..")
+require 'neptune_manager'
+
+
+$:.unshift File.join(File.dirname(__FILE__), "..", "lib", "job_types")
 require 'appscale_helper'
 
 
@@ -19,9 +21,6 @@ class TestAppScaleHelper < Test::Unit::TestCase
     thread = flexmock(Thread)
     thread.should_receive(:initialize).and_return()
 
-    djinn = flexmock(Djinn)
-    djinn.should_receive(:log_debug).and_return()
-
     flexmock(HelperFunctions).should_receive(:read_file).
       with("/etc/appscale/secret.key", true).and_return(@secret)
   end
@@ -31,12 +30,12 @@ class TestAppScaleHelper < Test::Unit::TestCase
     job_data_1 = {}
     secret = "anything"
 
-    flexmock(Djinn).new_instances { |instance|
+    flexmock(NeptuneManager).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(false)
     }
-    djinn = Djinn.new
+    neptune = NeptuneManager.new
     
-    result_1 = djinn.neptune_appscale_run_job(nodes, job_data_1, secret)
+    result_1 = neptune.neptune_appscale_run_job(nodes, job_data_1, secret)
     assert_equal(BAD_SECRET_MSG, result_1)
   end
 
@@ -45,21 +44,21 @@ class TestAppScaleHelper < Test::Unit::TestCase
     job_data_1 = {}
     secret = "anything"
 
-    flexmock(Djinn).new_instances { |instance|
+    flexmock(NeptuneManager).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
     }
-    djinn = Djinn.new
+    neptune = NeptuneManager.new
 
     job_data_2 = {"@time_needed_for" => 120}
-    result_2 = djinn.neptune_appscale_run_job(nodes, job_data_2, secret)
+    result_2 = neptune.neptune_appscale_run_job(nodes, job_data_2, secret)
     assert_equal(MISSING_PARAM, result_2)
 
     job_data_3 = {"@add_component" => "db_slave"}
-    result_3 = djinn.neptune_appscale_run_job(nodes, job_data_3, secret)
+    result_3 = neptune.neptune_appscale_run_job(nodes, job_data_3, secret)
     assert_equal(MISSING_PARAM, result_3)
 
     job_data_4 = {"@time_needed_for" => 120, "@add_component" => "db_slave"}
-    result_4 = djinn.neptune_appscale_run_job(nodes, job_data_4, secret)
+    result_4 = neptune.neptune_appscale_run_job(nodes, job_data_4, secret)
     assert_equal(STARTED_SUCCESSFULLY, result_4)
   end
 end

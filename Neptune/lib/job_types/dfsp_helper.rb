@@ -1,8 +1,10 @@
 #!/usr/bin/ruby
 # Programmer: Chris Bunch
-# baz
 
-require 'djinn'
+
+$:.unshift File.join(File.dirname(__FILE__), "..", "..")
+require 'neptune_manager'
+
 
 DFSP_HOME = "/usr/local/dfsp"
 

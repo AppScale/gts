@@ -7,12 +7,19 @@ require 'json'
 
 
 # Imports for other AppController libraries
-$:.unshift File.join(File.dirname(__FILE__))
+$:.unshift File.join(File.dirname(__FILE__), "..", "..")
+require 'neptune_manager'
+
+
+$:.unshift File.join(File.dirname(__FILE__), "..", "task_queues")
 require 'queue_factory'
+
+
+$:.unshift File.join(File.dirname(__FILE__), "..", "task_engines")
 require 'engine_factory'
 
 
-$:.unshift File.join(File.dirname(__FILE__), "..", "AppController", "lib")
+$:.unshift File.join(File.dirname(__FILE__), "..", "datastores")
 require 'datastore_factory'
 require 'datastore_s3'
 
