@@ -1,0 +1,559 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+
+  <title>Class: TaskEngineGoogleAppEngine</title>
+
+  <link rel="stylesheet" href="./rdoc.css" type="text/css" media="screen" />
+
+  <script src="./js/jquery.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/thickbox-compressed.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/quicksearch.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/darkfish.js" type="text/javascript"
+    charset="utf-8"></script>
+
+</head>
+<body class="class">
+
+  <div id="metadata">
+    <div id="home-metadata">
+      <div id="home-section" class="section">
+        <h3 class="section-header">
+          <a href="./index.html">Home</a>
+          <a href="./index.html#classes">Classes</a>
+          <a href="./index.html#methods">Methods</a>
+        </h3>
+      </div>
+    </div>
+
+    <div id="file-metadata">
+      <div id="file-list-section" class="section">
+        <h3 class="section-header">In Files</h3>
+        <div class="section-body">
+          <ul>
+          
+            <li><a href="./lib/task_engines/task_engine_google_app_engine_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
+              class="thickbox" title="lib/task_engines/task_engine_google_app_engine.rb">lib/task_engines/task_engine_google_app_engine.rb</a></li>
+          
+          </ul>
+        </div>
+      </div>
+
+      
+    </div>
+
+    <div id="class-metadata">
+
+      <!-- Parent Class -->
+      
+      <div id="parent-class-section" class="section">
+        <h3 class="section-header">Parent</h3>
+        
+        <p class="link"><a href="TaskEngine.html">TaskEngine</a></p>
+        
+      </div>
+      
+
+      <!-- Namespace Contents -->
+      
+
+      <!-- Method Quickref -->
+      
+      <div id="method-list-section" class="section">
+        <h3 class="section-header">Methods</h3>
+        <ul class="link-list">
+          
+          <li><a href="#method-c-new">::new</a></li>
+          
+          <li><a href="#method-c-upload_app">::upload_app</a></li>
+          
+          <li><a href="#method-i-app_needs_uploading-3F">#app_needs_uploading?</a></li>
+          
+          <li><a href="#method-i-engine_name">#engine_name</a></li>
+          
+          <li><a href="#method-i-get_app_url">#get_app_url</a></li>
+          
+          <li><a href="#method-i-upload_app">#upload_app</a></li>
+          
+        </ul>
+      </div>
+      
+
+      <!-- Included Modules -->
+      
+    </div>
+
+    <div id="project-metadata">
+      
+      
+
+      <div id="classindex-section" class="section project-section">
+        <h3 class="section-header">Class/Module Index
+          <span class="search-toggle"><img src="./images/find.png"
+            height="16" width="16" alt="[+]"
+            title="show/hide quicksearch" /></span></h3>
+        <form action="#" method="get" accept-charset="utf-8" class="initially-hidden">
+        <fieldset>
+          <legend>Quicksearch</legend>
+          <input type="text" name="quicksearch" value=""
+            class="quicksearch-field" />
+        </fieldset>
+        </form>
+
+        <ul class="link-list">
+        
+          <li><a href="./NeptuneManager.html">NeptuneManager</a></li>
+        
+          <li><a href="./NeptuneManager/Djinn.html">NeptuneManager::Djinn</a></li>
+        
+          <li><a href="./BadConfigurationException.html">BadConfigurationException</a></li>
+        
+          <li><a href="./Datastore.html">Datastore</a></li>
+        
+          <li><a href="./DatastoreFactory.html">DatastoreFactory</a></li>
+        
+          <li><a href="./DatastoreRepo.html">DatastoreRepo</a></li>
+        
+          <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a></li>
+        
+          <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a></li>
+        
+          <li><a href="./DatastoreS3.html">DatastoreS3</a></li>
+        
+          <li><a href="./Djinn.html">Djinn</a></li>
+        
+          <li><a href="./EngineFactory.html">EngineFactory</a></li>
+        
+          <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a></li>
+        
+          <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a></li>
+        
+          <li><a href="./HelperFunctions.html">HelperFunctions</a></li>
+        
+          <li><a href="./NeptuneJobData.html">NeptuneJobData</a></li>
+        
+          <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a></li>
+        
+          <li><a href="./Object.html">Object</a></li>
+        
+          <li><a href="./QueueFactory.html">QueueFactory</a></li>
+        
+          <li><a href="./TaskEngine.html">TaskEngine</a></li>
+        
+          <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a></li>
+        
+          <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a></li>
+        
+          <li><a href="./TaskQueue.html">TaskQueue</a></li>
+        
+          <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a></li>
+        
+          <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a></li>
+        
+          <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a></li>
+        
+          <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a></li>
+        
+          <li><a href="./UserAppClient.html">UserAppClient</a></li>
+        
+        </ul>
+        <div id="no-class-search-results" style="display: none;">No matching classes.</div>
+      </div>
+
+      
+    </div>
+  </div>
+
+  <div id="documentation">
+    <h1 class="class">TaskEngineGoogleAppEngine</h1>
+
+    <div id="description">
+      
+    </div>
+
+    <!-- Constants -->
+    
+    <div id="constants-list" class="section">
+      <h3 class="section-header">Constants</h3>
+      <dl>
+      
+        <dt><a name="NAME">NAME</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+      </dl>
+    </div>
+    
+
+    <!-- Attributes -->
+    
+    <div id="attribute-method-details" class="method-section section">
+      <h3 class="section-header">Attributes</h3>
+
+      
+      <div id="appid-attribute-method" class="method-detail">
+        <a name="appid"></a>
+        
+        <a name="appid="></a>
+        
+        <div class="method-heading attribute-method-heading">
+          <span class="method-name">appid</span><span
+            class="attribute-access-type">[RW]</span>
+        </div>
+
+        <div class="method-description">
+        
+        
+        
+        </div>
+      </div>
+      
+      <div id="appcfg_cookies-attribute-method" class="method-detail">
+        <a name="appcfg_cookies"></a>
+        
+        <a name="appcfg_cookies="></a>
+        
+        <div class="method-heading attribute-method-heading">
+          <span class="method-name">appcfg_cookies</span><span
+            class="attribute-access-type">[RW]</span>
+        </div>
+
+        <div class="method-description">
+        
+        
+        
+        </div>
+      </div>
+      
+      <div id="function-attribute-method" class="method-detail">
+        <a name="function"></a>
+        
+        <a name="function="></a>
+        
+        <div class="method-heading attribute-method-heading">
+          <span class="method-name">function</span><span
+            class="attribute-access-type">[RW]</span>
+        </div>
+
+        <div class="method-description">
+        
+        
+        
+        </div>
+      </div>
+      
+    </div>
+    
+
+    <!-- Methods -->
+    
+    <div id="public-instance-method-details" class="method-section section">
+      <h3 class="section-header">Public Instance Methods</h3>
+
+    
+      <div id="app_needs_uploading-3F-method" class="method-detail ">
+        <a name="method-i-app_needs_uploading-3F"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">app_needs_uploading?</span><span
+            class="method-args">(job_data)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Uploading the application to Google App Engine takes a non-trivially long
+amount of time, and since the application can be invoked multiple times in
+a row, it’s unnecessary to keep re-uploading the app. Thus, we skip
+avoiding the app if we detect that it is the same app as our app -
+identified by its file name and function.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="app_needs_uploading-3F-source">
+<pre>
+<span class="ruby-comment"># File lib/task_engines/task_engine_google_app_engine.rb, line 56</span>
+def app_needs_uploading?(job_data)
+  <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;seeing if app needs to be uploaded to App Engine&quot;</span>)
+
+  <span class="ruby-comment"># We're expecting to see the filename (minus the extension), a dot, and</span>
+  <span class="ruby-comment"># the function name (no parens).</span>
+  extension = <span class="ruby-constant">File</span>.extname(job_data[<span class="ruby-string">'@code'</span>])
+  file = <span class="ruby-constant">File</span>.basename(job_data[<span class="ruby-string">'@code'</span>], extension)
+  expected = file + <span class="ruby-string">&quot;.&quot;</span> + <span class="ruby-ivar">@function</span>
+
+  <span class="ruby-comment"># Oration builds apps with an /id route, that returns the file and</span>
+  <span class="ruby-comment"># function that will be executed. We can compare that against our</span>
+  <span class="ruby-comment"># file and function to see if they are the same (and thus if the app</span>
+  <span class="ruby-comment"># needs to be uploaded).</span>
+  host = get_app_url(job_data)
+  begin
+    actual = <span class="ruby-constant">GoogleAppEnginePushQueue</span>.get(&quot;#{host}/id&quot;)
+  rescue <span class="ruby-constant">NoMethodError</span>  <span class="ruby-comment"># if the host is down</span>
+    actual = <span class="ruby-string">&quot;&quot;</span>
+  end
+
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;expected is [#{expected}], actual is [#{actual}]&quot;)
+  if expected == actual
+    <span class="ruby-comment"># then the app in App Engine is up to date, so don't upload a new</span>
+    <span class="ruby-comment"># version of the app</span>
+    <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;App is already in App Engine - don't upload it again&quot;</span>)
+    return false
+  else
+    <span class="ruby-comment"># then the app in App Engine isn't the same as this app, so</span>
+    <span class="ruby-comment"># do upload a new version of the app</span>
+    <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;App does not match App Engine version - upload it&quot;</span>)
+    return true
+  end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="engine_name-method" class="method-detail ">
+        <a name="method-i-engine_name"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">engine_name</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="engine_name-source">
+<pre>
+<span class="ruby-comment"># File lib/task_engines/task_engine_google_app_engine.rb, line 130</span>
+def engine_name()
+  return <span class="ruby-string">&quot;Google App Engine&quot;</span>
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_app_url-method" class="method-detail ">
+        <a name="method-i-get_app_url"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_app_url</span><span
+            class="method-args">(job_data)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="get_app_url-source">
+<pre>
+<span class="ruby-comment"># File lib/task_engines/task_engine_google_app_engine.rb, line 123</span>
+def get_app_url(job_data)
+  host = &quot;http://#{job_data['@appid']}.appspot.com&quot;
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;Google App Engine app is hosted at #{host}&quot;)
+  return host
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="upload_app-method" class="method-detail ">
+        <a name="method-i-upload_app"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">upload_app</span><span
+            class="method-args">(job_data, app_location)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="upload_app-source">
+<pre>
+<span class="ruby-comment"># File lib/task_engines/task_engine_google_app_engine.rb, line 107</span>
+def upload_app(job_data, app_location)
+  <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;uploading app to app engine&quot;</span>)
+
+  <span class="ruby-comment"># to avoid having to get the user's email / password, we can get</span>
+  <span class="ruby-comment"># their appcfg_cookies file and put it in ~</span>
+  remote = job_data[<span class="ruby-string">&quot;@appcfg_cookies&quot;</span>]
+  local = <span class="ruby-constant">File</span>.expand_path(<span class="ruby-string">&quot;~&quot;</span>)
+  <span class="ruby-constant">Djinn</span>.copy_file_to_dir(remote, local, job_data)
+
+  <span class="ruby-comment"># TODO(cgb) - check for return val here</span>
+  appcfg = <span class="ruby-string">&quot;/root/appscale/AppServer/appcfg.py&quot;</span>
+  appid = job_data[<span class="ruby-string">&quot;@appid&quot;</span>]
+  <span class="ruby-constant">Djinn</span>.log_run(&quot;#{appcfg} update #{app_location} -A #{appid}&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+    </div>
+  
+    <div id="public-class-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="new-method" class="method-detail ">
+        <a name="method-c-new"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">new</span><span
+            class="method-args">(credentials)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="new-source">
+<pre>
+<span class="ruby-comment"># File lib/task_engines/task_engine_google_app_engine.rb, line 29</span>
+def initialize(credentials)
+  if credentials.class != <span class="ruby-constant">Hash</span>
+    raise <span class="ruby-constant">BadConfigurationException</span>.new
+  end
+
+  if credentials[<span class="ruby-string">'appid'</span>].nil?
+    raise <span class="ruby-constant">BadConfigurationException</span>.new
+  end
+  <span class="ruby-ivar">@appid</span> = credentials[<span class="ruby-string">'appid'</span>]
+
+  if credentials[<span class="ruby-string">'appcfg_cookies'</span>].nil?
+    raise <span class="ruby-constant">BadConfigurationException</span>.new
+  end
+  <span class="ruby-ivar">@appcfg_cookies</span> = credentials[<span class="ruby-string">'appcfg_cookies'</span>]
+
+  if credentials[<span class="ruby-string">'function'</span>].nil?
+    raise <span class="ruby-constant">BadConfigurationException</span>.new
+  end
+  <span class="ruby-ivar">@function</span> = credentials[<span class="ruby-string">'function'</span>]
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="upload_app-method" class="method-detail ">
+        <a name="method-c-upload_app"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">upload_app</span><span
+            class="method-args">(job_data, app_location)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="upload_app-source">
+<pre>
+<span class="ruby-comment"># File lib/task_engines/task_engine_google_app_engine.rb, line 91</span>
+def self.upload_app(job_data, app_location)
+  <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;uploading app to app engine&quot;</span>)
+
+  <span class="ruby-comment"># to avoid having to get the user's email / password, we can get</span>
+  <span class="ruby-comment"># their appcfg_cookies file and put it in ~</span>
+  remote = job_data[<span class="ruby-string">&quot;@appcfg_cookies&quot;</span>]
+  local = <span class="ruby-constant">File</span>.expand_path(<span class="ruby-string">&quot;~&quot;</span>)
+  <span class="ruby-constant">Djinn</span>.copy_file_to_dir(remote, local, job_data)
+
+  <span class="ruby-comment"># TODO(cgb) - check for return val here</span>
+  appcfg = <span class="ruby-string">&quot;/root/appscale/AppServer/appcfg.py&quot;</span>
+  appid = job_data[<span class="ruby-string">&quot;@appid&quot;</span>]
+  <span class="ruby-constant">Djinn</span>.log_run(&quot;#{appcfg} update #{app_location} -A #{appid}&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+    </div>
+  
+
+  </div>
+
+  <div id="validator-badges">
+    <p><small><a href="http://validator.w3.org/check/referer">[Validate]</a></small></p>
+    <p><small>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish
+      Rdoc Generator</a> 2</small>.</p>
+  </div>
+
+</body>
+</html>
+

@@ -1,0 +1,739 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+
+  <title>Class: DatastoreS3</title>
+
+  <link rel="stylesheet" href="./rdoc.css" type="text/css" media="screen" />
+
+  <script src="./js/jquery.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/thickbox-compressed.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/quicksearch.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/darkfish.js" type="text/javascript"
+    charset="utf-8"></script>
+
+</head>
+<body class="class">
+
+  <div id="metadata">
+    <div id="home-metadata">
+      <div id="home-section" class="section">
+        <h3 class="section-header">
+          <a href="./index.html">Home</a>
+          <a href="./index.html#classes">Classes</a>
+          <a href="./index.html#methods">Methods</a>
+        </h3>
+      </div>
+    </div>
+
+    <div id="file-metadata">
+      <div id="file-list-section" class="section">
+        <h3 class="section-header">In Files</h3>
+        <div class="section-body">
+          <ul>
+          
+            <li><a href="./lib/datastores/datastore_s3_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
+              class="thickbox" title="lib/datastores/datastore_s3.rb">lib/datastores/datastore_s3.rb</a></li>
+          
+          </ul>
+        </div>
+      </div>
+
+      
+    </div>
+
+    <div id="class-metadata">
+
+      <!-- Parent Class -->
+      
+      <div id="parent-class-section" class="section">
+        <h3 class="section-header">Parent</h3>
+        
+        <p class="link"><a href="Datastore.html">Datastore</a></p>
+        
+      </div>
+      
+
+      <!-- Namespace Contents -->
+      
+
+      <!-- Method Quickref -->
+      
+      <div id="method-list-section" class="section">
+        <h3 class="section-header">Methods</h3>
+        <ul class="link-list">
+          
+          <li><a href="#method-c-new">::new</a></li>
+          
+          <li><a href="#method-c-parse_s3_key">::parse_s3_key</a></li>
+          
+          <li><a href="#method-i-does_file_exist-3F">#does_file_exist?</a></li>
+          
+          <li><a href="#method-i-get_acl">#get_acl</a></li>
+          
+          <li><a href="#method-i-get_output_and_return_contents">#get_output_and_return_contents</a></li>
+          
+          <li><a href="#method-i-get_output_and_save_to_fs">#get_output_and_save_to_fs</a></li>
+          
+          <li><a href="#method-i-s3_bucket_exists-3F">#s3_bucket_exists?</a></li>
+          
+          <li><a href="#method-i-set_acl">#set_acl</a></li>
+          
+          <li><a href="#method-i-write_remote_file_from_local_file">#write_remote_file_from_local_file</a></li>
+          
+          <li><a href="#method-i-write_remote_file_from_string">#write_remote_file_from_string</a></li>
+          
+        </ul>
+      </div>
+      
+
+      <!-- Included Modules -->
+      
+    </div>
+
+    <div id="project-metadata">
+      
+      
+
+      <div id="classindex-section" class="section project-section">
+        <h3 class="section-header">Class/Module Index
+          <span class="search-toggle"><img src="./images/find.png"
+            height="16" width="16" alt="[+]"
+            title="show/hide quicksearch" /></span></h3>
+        <form action="#" method="get" accept-charset="utf-8" class="initially-hidden">
+        <fieldset>
+          <legend>Quicksearch</legend>
+          <input type="text" name="quicksearch" value=""
+            class="quicksearch-field" />
+        </fieldset>
+        </form>
+
+        <ul class="link-list">
+        
+          <li><a href="./NeptuneManager.html">NeptuneManager</a></li>
+        
+          <li><a href="./NeptuneManager/Djinn.html">NeptuneManager::Djinn</a></li>
+        
+          <li><a href="./BadConfigurationException.html">BadConfigurationException</a></li>
+        
+          <li><a href="./Datastore.html">Datastore</a></li>
+        
+          <li><a href="./DatastoreFactory.html">DatastoreFactory</a></li>
+        
+          <li><a href="./DatastoreRepo.html">DatastoreRepo</a></li>
+        
+          <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a></li>
+        
+          <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a></li>
+        
+          <li><a href="./DatastoreS3.html">DatastoreS3</a></li>
+        
+          <li><a href="./Djinn.html">Djinn</a></li>
+        
+          <li><a href="./EngineFactory.html">EngineFactory</a></li>
+        
+          <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a></li>
+        
+          <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a></li>
+        
+          <li><a href="./HelperFunctions.html">HelperFunctions</a></li>
+        
+          <li><a href="./NeptuneJobData.html">NeptuneJobData</a></li>
+        
+          <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a></li>
+        
+          <li><a href="./Object.html">Object</a></li>
+        
+          <li><a href="./QueueFactory.html">QueueFactory</a></li>
+        
+          <li><a href="./TaskEngine.html">TaskEngine</a></li>
+        
+          <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a></li>
+        
+          <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a></li>
+        
+          <li><a href="./TaskQueue.html">TaskQueue</a></li>
+        
+          <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a></li>
+        
+          <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a></li>
+        
+          <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a></li>
+        
+          <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a></li>
+        
+          <li><a href="./UserAppClient.html">UserAppClient</a></li>
+        
+        </ul>
+        <div id="no-class-search-results" style="display: none;">No matching classes.</div>
+      </div>
+
+      
+    </div>
+  </div>
+
+  <div id="documentation">
+    <h1 class="class">DatastoreS3</h1>
+
+    <div id="description">
+      
+<p>A class that abstracts away access to Amazon S3, and services that are
+API-compatible with S3. Services store and retrieve files in the usual</p>
+
+    </div>
+
+    <!-- Constants -->
+    
+    <div id="constants-list" class="section">
+      <h3 class="section-header">Constants</h3>
+      <dl>
+      
+        <dt><a name="NAME">NAME</a></dt>
+        
+        <dd class="description"><p>The name of this datastore, exposed so that tests and <a
+href="DatastoreFactory.html">DatastoreFactory</a> can refer to it without
+worrying about mispelling it.</p></dd>
+        
+      
+      </dl>
+    </div>
+    
+
+    <!-- Attributes -->
+    
+    <div id="attribute-method-details" class="method-section section">
+      <h3 class="section-header">Attributes</h3>
+
+      
+      <div id="EC2_ACCESS_KEY-attribute-method" class="method-detail">
+        <a name="EC2_ACCESS_KEY"></a>
+        
+        <a name="EC2_ACCESS_KEY="></a>
+        
+        <div class="method-heading attribute-method-heading">
+          <span class="method-name">EC2_ACCESS_KEY</span><span
+            class="attribute-access-type">[RW]</span>
+        </div>
+
+        <div class="method-description">
+        
+        <p>The EC2 access key that should be used to access S3.</p>
+        
+        </div>
+      </div>
+      
+      <div id="EC2_SECRET_KEY-attribute-method" class="method-detail">
+        <a name="EC2_SECRET_KEY"></a>
+        
+        <a name="EC2_SECRET_KEY="></a>
+        
+        <div class="method-heading attribute-method-heading">
+          <span class="method-name">EC2_SECRET_KEY</span><span
+            class="attribute-access-type">[RW]</span>
+        </div>
+
+        <div class="method-description">
+        
+        <p>The EC2 secret key that should be used to access S3.</p>
+        
+        </div>
+      </div>
+      
+      <div id="S3_URL-attribute-method" class="method-detail">
+        <a name="S3_URL"></a>
+        
+        <a name="S3_URL="></a>
+        
+        <div class="method-heading attribute-method-heading">
+          <span class="method-name">S3_URL</span><span
+            class="attribute-access-type">[RW]</span>
+        </div>
+
+        <div class="method-description">
+        
+        <p>S3’s location (changable to support services that are S3-compatible, like
+Google Storage and Eucalyptus Walrus).</p>
+        
+        </div>
+      </div>
+      
+    </div>
+    
+
+    <!-- Methods -->
+    
+    <div id="public-instance-method-details" class="method-section section">
+      <h3 class="section-header">Public Instance Methods</h3>
+
+    
+      <div id="does_file_exist-3F-method" class="method-detail ">
+        <a name="method-i-does_file_exist-3F"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">does_file_exist?</span><span
+            class="method-args">(path)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Checks whether the given file exists in S3.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="does_file_exist-3F-source">
+<pre>
+<span class="ruby-comment"># File lib/datastores/datastore_s3.rb, line 158</span>
+def does_file_exist?(path)
+  bucket, file = <span class="ruby-constant">DatastoreS3</span>.parse_s3_key(path)
+
+  if !s3_bucket_exists?(bucket)
+    return false
+  end
+
+  begin
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;[does file exist] getting acl for bucket [#{bucket}] and file [#{file}] &quot;)
+    <span class="ruby-ivar">@conn</span>.get_acl(bucket, file)
+    return true
+  rescue <span class="ruby-constant">RightAws</span>::<span class="ruby-constant">AwsError</span>
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;[does file exist] saw a RightAws::AwsError on path [#{path}]&quot;)
+    return false
+  end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_acl-method" class="method-detail ">
+        <a name="method-i-get_acl"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_acl</span><span
+            class="method-args">(path)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Returns the access policy for the specified file. TODO(cgb): Need to
+implement this and start using it.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="get_acl-source">
+<pre>
+<span class="ruby-comment"># File lib/datastores/datastore_s3.rb, line 145</span>
+def get_acl(path)
+  raise <span class="ruby-constant">NotImplementedError</span>.new(<span class="ruby-string">&quot;Need to implement S3 get_acl&quot;</span>)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_output_and_return_contents-method" class="method-detail ">
+        <a name="method-i-get_output_and_return_contents"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_output_and_return_contents</span><span
+            class="method-args">(path)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Contacts S3 to retrieve a file, returning the contents of the file as a
+string.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="get_output_and_return_contents-source">
+<pre>
+<span class="ruby-comment"># File lib/datastores/datastore_s3.rb, line 101</span>
+def get_output_and_return_contents(path)
+  bucket, file = <span class="ruby-constant">DatastoreS3</span>.parse_s3_key(path)
+  return <span class="ruby-ivar">@conn</span>.get(bucket, file)[:object]
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_output_and_save_to_fs-method" class="method-detail ">
+        <a name="method-i-get_output_and_save_to_fs"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_output_and_save_to_fs</span><span
+            class="method-args">(s3_path, local_path)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Contacts S3 to retrieve a file, and returns the location on the local
+filesystem that we wrote it to. If the file is a directory, we recursively
+save all files contained in that directory.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="get_output_and_save_to_fs-source">
+<pre>
+<span class="ruby-comment"># File lib/datastores/datastore_s3.rb, line 61</span>
+def get_output_and_save_to_fs(s3_path, local_path)
+  <span class="ruby-comment"># If fetching a directory, fetch all files via the prefix parameter</span>
+  <span class="ruby-comment"># TODO(cgb): presumably list_bucket only lists the first 1000 and</span>
+  <span class="ruby-comment"># returns a cursor for more, so change this accordingly</span>
+  bucket, file = <span class="ruby-constant">DatastoreS3</span>.parse_s3_key(s3_path)
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;Doing a list bucket on #{bucket}, with prefix #{file}&quot;)
+  files_to_write = <span class="ruby-ivar">@conn</span>.list_bucket(bucket, {<span class="ruby-string">'prefix'</span>=&gt; file})
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;List bucket returned [#{files_to_write.join(', ')}]&quot;)
+
+  result = <span class="ruby-string">&quot;&quot;</span>
+  files_to_write.each { |s3_file_data|
+    s3_filename = s3_file_data[:key]
+    full_local_path = local_path + <span class="ruby-constant">File</span>::<span class="ruby-constant">Separator</span> + s3_filename
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;Writing local file #{full_local_path} from &quot; +
+      &quot;path #{local_path} and S3 key name #{s3_filename}&quot;)
+
+    <span class="ruby-comment"># if the user gives us a file to fetch that's several directories</span>
+    <span class="ruby-comment"># deep, we need to make all the directories first</span>
+    <span class="ruby-constant">FileUtils</span>.mkdir_p(<span class="ruby-constant">File</span>.dirname(full_local_path))
+
+    begin
+      f = <span class="ruby-constant">File</span>.new(full_local_path, <span class="ruby-constant">File</span>::<span class="ruby-constant">CREAT</span>|<span class="ruby-constant">File</span>::<span class="ruby-constant">RDWR</span>)
+      result = <span class="ruby-ivar">@conn</span>.get(bucket, s3_filename) { |chunk|
+        f.write(chunk)
+      }
+      f.close
+    rescue <span class="ruby-constant">Errno</span>::<span class="ruby-constant">ECONNRESET</span>
+      <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;Saw a connection reset when trying to write &quot;</span> +
+        <span class="ruby-string">&quot;local file from S3, retrying in a moment.&quot;</span>)
+      <span class="ruby-constant">Kernel</span>.sleep(5)
+      retry
+    end
+  }
+
+  return result
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="s3_bucket_exists-3F-method" class="method-detail ">
+        <a name="method-i-s3_bucket_exists-3F"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">s3_bucket_exists?</span><span
+            class="method-args">(bucket)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Queries Amazon S3 with the given connection to see if the user owns the
+named bucket.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="s3_bucket_exists-3F-source">
+<pre>
+<span class="ruby-comment"># File lib/datastores/datastore_s3.rb, line 178</span>
+def s3_bucket_exists?(bucket)
+  all_buckets = <span class="ruby-ivar">@conn</span>.list_all_my_buckets()
+  bucket_names = all_buckets.map { |b| b[:name] }
+  bucket_exists = bucket_names.include?(bucket)
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;the user owns buckets [#{bucket_names.join(', ')}] - do they own [#{bucket}]? #{bucket_exists}&quot;)
+  return bucket_exists
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="set_acl-method" class="method-detail ">
+        <a name="method-i-set_acl"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">set_acl</span><span
+            class="method-args">(path, acl)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Sets the access policy for the specified file. TODO(cgb): Need to implement
+this and start using it.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="set_acl-source">
+<pre>
+<span class="ruby-comment"># File lib/datastores/datastore_s3.rb, line 152</span>
+def set_acl(path, acl)
+  raise <span class="ruby-constant">NotImplementedError</span>.new(<span class="ruby-string">&quot;Need to implement S3 set_acl&quot;</span>)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="write_remote_file_from_local_file-method" class="method-detail ">
+        <a name="method-i-write_remote_file_from_local_file"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">write_remote_file_from_local_file</span><span
+            class="method-args">(s3_path, local_path)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Writes a file in S3 from either a locally-specified file or from a string
+given to us. If the file is a directory, this function also recursively
+dives into that directory to write all files and directories contained.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="write_remote_file_from_local_file-source">
+<pre>
+<span class="ruby-comment"># File lib/datastores/datastore_s3.rb, line 111</span>
+def write_remote_file_from_local_file(s3_path, local_path)
+  bucket, file = <span class="ruby-constant">DatastoreS3</span>.parse_s3_key(s3_path)
+
+  if <span class="ruby-constant">File</span>.directory?(local_path)
+    files_to_upload = <span class="ruby-constant">HelperFunctions</span>.shell(&quot;ls #{local_path}&quot;)
+    files_to_upload.split.each { |file|
+      full_s3_path = s3_path + <span class="ruby-string">&quot;/&quot;</span> + file
+      full_local_path = local_path + <span class="ruby-string">&quot;/&quot;</span> + file
+      <span class="ruby-constant">Djinn</span>.log_debug(&quot;recursive dive - now saving remote [#{full_s3_path}], local [#{full_local_path}]&quot;)
+      success = write_remote_file_from_local_file(full_s3_path, full_local_path)
+
+      if !success
+        return false
+      end
+    }
+  else
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;attempting to put local file #{local_path} into &quot; +
+      &quot;bucket #{bucket}, location #{file}&quot;)
+    return <span class="ruby-ivar">@conn</span>.put(bucket, file, <span class="ruby-constant">File</span>.open(local_path))
+  end
+
+  return true
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="write_remote_file_from_string-method" class="method-detail ">
+        <a name="method-i-write_remote_file_from_string"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">write_remote_file_from_string</span><span
+            class="method-args">(s3_path, string)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Writes a string to a file in S3.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="write_remote_file_from_string-source">
+<pre>
+<span class="ruby-comment"># File lib/datastores/datastore_s3.rb, line 137</span>
+def write_remote_file_from_string(s3_path, string)
+  bucket, file = <span class="ruby-constant">DatastoreS3</span>.parse_s3_key(s3_path)
+  return <span class="ruby-ivar">@conn</span>.put(bucket, file, string, headers={<span class="ruby-string">&quot;Content-Length&quot;</span> =&gt; val.length})
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+    </div>
+  
+    <div id="public-class-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="new-method" class="method-detail ">
+        <a name="method-c-new"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">new</span><span
+            class="method-args">(credentials)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Validates the S3 credentials that we’ve been given and returns a new S3
+interface accordingly.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="new-source">
+<pre>
+<span class="ruby-comment"># File lib/datastores/datastore_s3.rb, line 32</span>
+def initialize(credentials)
+  if credentials.class != <span class="ruby-constant">Hash</span>
+    raise <span class="ruby-constant">BadConfigurationException</span>.new(<span class="ruby-string">&quot;Credentials was not a Hash&quot;</span>)
+  end
+
+  if credentials[:EC2_ACCESS_KEY].nil?
+    raise <span class="ruby-constant">BadConfigurationException</span>.new(<span class="ruby-string">&quot;No EC2 access key specified&quot;</span>)
+  end
+  <span class="ruby-ivar">@EC2_ACCESS_KEY</span> = credentials[:EC2_ACCESS_KEY]
+
+  if credentials[:EC2_SECRET_KEY].nil?
+    raise <span class="ruby-constant">BadConfigurationException</span>.new(<span class="ruby-string">&quot;No EC2 secret key specified&quot;</span>)
+  end
+  <span class="ruby-ivar">@EC2_SECRET_KEY</span> = credentials[:EC2_SECRET_KEY]
+
+  if credentials[:S3_URL].nil?
+    raise <span class="ruby-constant">BadConfigurationException</span>.new(<span class="ruby-string">&quot;No S3 URL specified&quot;</span>)
+  end
+  <span class="ruby-ivar">@S3_URL</span> = credentials[:S3_URL]
+  old_s3_url = <span class="ruby-constant">ENV</span>[<span class="ruby-string">'S3_URL'</span>]
+  <span class="ruby-constant">ENV</span>[<span class="ruby-string">'S3_URL'</span>] = <span class="ruby-ivar">@S3_URL</span>
+  <span class="ruby-ivar">@conn</span> = <span class="ruby-constant">RightAws</span>::<span class="ruby-constant">S3Interface</span>.new(<span class="ruby-ivar">@EC2_ACCESS_KEY</span>, <span class="ruby-ivar">@EC2_SECRET_KEY</span>)
+  <span class="ruby-constant">ENV</span>[<span class="ruby-string">'S3_URL'</span>] = old_s3_url
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="parse_s3_key-method" class="method-detail ">
+        <a name="method-c-parse_s3_key"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">parse_s3_key</span><span
+            class="method-args">(key)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Given a full S3 path, returns the bucket and filename.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="parse_s3_key-source">
+<pre>
+<span class="ruby-comment"># File lib/datastores/datastore_s3.rb, line 188</span>
+def self.parse_s3_key(key)
+  paths = key.split(<span class="ruby-string">&quot;/&quot;</span>)
+  bucket = paths[1]
+  file = paths[2, paths.length - 1].join(<span class="ruby-string">&quot;/&quot;</span>)
+  return bucket, file
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+    </div>
+  
+
+  </div>
+
+  <div id="validator-badges">
+    <p><small><a href="http://validator.w3.org/check/referer">[Validate]</a></small></p>
+    <p><small>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish
+      Rdoc Generator</a> 2</small>.</p>
+  </div>
+
+</body>
+</html>
+

@@ -1,0 +1,3161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+
+  <title>Module: HelperFunctions</title>
+
+  <link rel="stylesheet" href="./rdoc.css" type="text/css" media="screen" />
+
+  <script src="./js/jquery.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/thickbox-compressed.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/quicksearch.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/darkfish.js" type="text/javascript"
+    charset="utf-8"></script>
+
+</head>
+<body class="module">
+
+  <div id="metadata">
+    <div id="home-metadata">
+      <div id="home-section" class="section">
+        <h3 class="section-header">
+          <a href="./index.html">Home</a>
+          <a href="./index.html#classes">Classes</a>
+          <a href="./index.html#methods">Methods</a>
+        </h3>
+      </div>
+    </div>
+
+    <div id="file-metadata">
+      <div id="file-list-section" class="section">
+        <h3 class="section-header">In Files</h3>
+        <div class="section-body">
+          <ul>
+          
+            <li><a href="./lib/helperfunctions_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
+              class="thickbox" title="lib/helperfunctions.rb">lib/helperfunctions.rb</a></li>
+          
+          </ul>
+        </div>
+      </div>
+
+      
+    </div>
+
+    <div id="class-metadata">
+
+      <!-- Parent Class -->
+      
+
+      <!-- Namespace Contents -->
+      
+
+      <!-- Method Quickref -->
+      
+      <div id="method-list-section" class="section">
+        <h3 class="section-header">Methods</h3>
+        <ul class="link-list">
+          
+          <li><a href="#method-c-application_port">::application_port</a></li>
+          
+          <li><a href="#method-c-convert_fqdn_to_ip">::convert_fqdn_to_ip</a></li>
+          
+          <li><a href="#method-c-create_appscale_security_group">::create_appscale_security_group</a></li>
+          
+          <li><a href="#method-c-deserialize_info_from_tools">::deserialize_info_from_tools</a></li>
+          
+          <li><a href="#method-c-does_image_have_location-3F">::does_image_have_location?</a></li>
+          
+          <li><a href="#method-c-encrypt_password">::encrypt_password</a></li>
+          
+          <li><a href="#method-c-ensure_db_is_supported">::ensure_db_is_supported</a></li>
+          
+          <li><a href="#method-c-ensure_image_is_appscale">::ensure_image_is_appscale</a></li>
+          
+          <li><a href="#method-c-expires_duration">::expires_duration</a></li>
+          
+          <li><a href="#method-c-find_majority_item">::find_majority_item</a></li>
+          
+          <li><a href="#method-c-generate_location_config">::generate_location_config</a></li>
+          
+          <li><a href="#method-c-generate_makefile">::generate_makefile</a></li>
+          
+          <li><a href="#method-c-generate_ssh_key">::generate_ssh_key</a></li>
+          
+          <li><a href="#method-c-get_app_path">::get_app_path</a></li>
+          
+          <li><a href="#method-c-get_appscale_id">::get_appscale_id</a></li>
+          
+          <li><a href="#method-c-get_cache_path">::get_cache_path</a></li>
+          
+          <li><a href="#method-c-get_cert">::get_cert</a></li>
+          
+          <li><a href="#method-c-get_cloud_ips">::get_cloud_ips</a></li>
+          
+          <li><a href="#method-c-get_hybrid_ips">::get_hybrid_ips</a></li>
+          
+          <li><a href="#method-c-get_ips">::get_ips</a></li>
+          
+          <li><a href="#method-c-get_key">::get_key</a></li>
+          
+          <li><a href="#method-c-get_num_cpus">::get_num_cpus</a></li>
+          
+          <li><a href="#method-c-get_optimal_spot_price">::get_optimal_spot_price</a></li>
+          
+          <li><a href="#method-c-get_public_ips">::get_public_ips</a></li>
+          
+          <li><a href="#method-c-get_random_alphanumeric">::get_random_alphanumeric</a></li>
+          
+          <li><a href="#method-c-get_relative_filename">::get_relative_filename</a></li>
+          
+          <li><a href="#method-c-get_remote_appscale_home">::get_remote_appscale_home</a></li>
+          
+          <li><a href="#method-c-get_secret">::get_secret</a></li>
+          
+          <li><a href="#method-c-get_untar_dir">::get_untar_dir</a></li>
+          
+          <li><a href="#method-c-get_usage">::get_usage</a></li>
+          
+          <li><a href="#method-c-is_port_open-3F">::is_port_open?</a></li>
+          
+          <li><a href="#method-c-kill_process">::kill_process</a></li>
+          
+          <li><a href="#method-c-local_ip">::local_ip</a></li>
+          
+          <li><a href="#method-c-log_obscured_env">::log_obscured_env</a></li>
+          
+          <li><a href="#method-c-obscure_array">::obscure_array</a></li>
+          
+          <li><a href="#method-c-obscure_creds">::obscure_creds</a></li>
+          
+          <li><a href="#method-c-obscure_string">::obscure_string</a></li>
+          
+          <li><a href="#method-c-parse_static_data">::parse_static_data</a></li>
+          
+          <li><a href="#method-c-read_file">::read_file</a></li>
+          
+          <li><a href="#method-c-read_json_file">::read_json_file</a></li>
+          
+          <li><a href="#method-c-run_app">::run_app</a></li>
+          
+          <li><a href="#method-c-run_remote_command">::run_remote_command</a></li>
+          
+          <li><a href="#method-c-scp_file">::scp_file</a></li>
+          
+          <li><a href="#method-c-set_creds_in_env">::set_creds_in_env</a></li>
+          
+          <li><a href="#method-c-setup_app">::setup_app</a></li>
+          
+          <li><a href="#method-c-shell">::shell</a></li>
+          
+          <li><a href="#method-c-shorten_to_n_items">::shorten_to_n_items</a></li>
+          
+          <li><a href="#method-c-sleep_until_port_is_closed">::sleep_until_port_is_closed</a></li>
+          
+          <li><a href="#method-c-sleep_until_port_is_open">::sleep_until_port_is_open</a></li>
+          
+          <li><a href="#method-c-spawn_hybrid_vms">::spawn_hybrid_vms</a></li>
+          
+          <li><a href="#method-c-spawn_vms">::spawn_vms</a></li>
+          
+          <li><a href="#method-c-stop_app">::stop_app</a></li>
+          
+          <li><a href="#method-c-terminate_all_vms">::terminate_all_vms</a></li>
+          
+          <li><a href="#method-c-terminate_hybrid_vms">::terminate_hybrid_vms</a></li>
+          
+          <li><a href="#method-c-terminate_vms">::terminate_vms</a></li>
+          
+          <li><a href="#method-c-write_file">::write_file</a></li>
+          
+          <li><a href="#method-c-write_json_file">::write_json_file</a></li>
+          
+        </ul>
+      </div>
+      
+
+      <!-- Included Modules -->
+      
+    </div>
+
+    <div id="project-metadata">
+      
+      
+
+      <div id="classindex-section" class="section project-section">
+        <h3 class="section-header">Class/Module Index
+          <span class="search-toggle"><img src="./images/find.png"
+            height="16" width="16" alt="[+]"
+            title="show/hide quicksearch" /></span></h3>
+        <form action="#" method="get" accept-charset="utf-8" class="initially-hidden">
+        <fieldset>
+          <legend>Quicksearch</legend>
+          <input type="text" name="quicksearch" value=""
+            class="quicksearch-field" />
+        </fieldset>
+        </form>
+
+        <ul class="link-list">
+        
+          <li><a href="./NeptuneManager.html">NeptuneManager</a></li>
+        
+          <li><a href="./NeptuneManager/Djinn.html">NeptuneManager::Djinn</a></li>
+        
+          <li><a href="./BadConfigurationException.html">BadConfigurationException</a></li>
+        
+          <li><a href="./Datastore.html">Datastore</a></li>
+        
+          <li><a href="./DatastoreFactory.html">DatastoreFactory</a></li>
+        
+          <li><a href="./DatastoreRepo.html">DatastoreRepo</a></li>
+        
+          <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a></li>
+        
+          <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a></li>
+        
+          <li><a href="./DatastoreS3.html">DatastoreS3</a></li>
+        
+          <li><a href="./Djinn.html">Djinn</a></li>
+        
+          <li><a href="./EngineFactory.html">EngineFactory</a></li>
+        
+          <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a></li>
+        
+          <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a></li>
+        
+          <li><a href="./HelperFunctions.html">HelperFunctions</a></li>
+        
+          <li><a href="./NeptuneJobData.html">NeptuneJobData</a></li>
+        
+          <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a></li>
+        
+          <li><a href="./Object.html">Object</a></li>
+        
+          <li><a href="./QueueFactory.html">QueueFactory</a></li>
+        
+          <li><a href="./TaskEngine.html">TaskEngine</a></li>
+        
+          <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a></li>
+        
+          <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a></li>
+        
+          <li><a href="./TaskQueue.html">TaskQueue</a></li>
+        
+          <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a></li>
+        
+          <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a></li>
+        
+          <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a></li>
+        
+          <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a></li>
+        
+          <li><a href="./UserAppClient.html">UserAppClient</a></li>
+        
+        </ul>
+        <div id="no-class-search-results" style="display: none;">No matching classes.</div>
+      </div>
+
+      
+    </div>
+  </div>
+
+  <div id="documentation">
+    <h1 class="module">HelperFunctions</h1>
+
+    <div id="description">
+      
+<p><a href="HelperFunctions.html">HelperFunctions</a> holds miscellaneous
+functions - functions that really aren’t bound to a particular service,
+but are reused across multiple functions. TODO(cgb): Consider removing App
+Engine-related functions below into its own helper class</p>
+
+    </div>
+
+    <!-- Constants -->
+    
+    <div id="constants-list" class="section">
+      <h3 class="section-header">Constants</h3>
+      <dl>
+      
+        <dt><a name="VER_NUM">VER_NUM</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="APPSCALE_HOME">APPSCALE_HOME</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="MAX_VM_CREATION_TIME">MAX_VM_CREATION_TIME</a></dt>
+        
+        <dd class="description"><p>The maximum amount of time, in seconds, that we are willing to wait for a
+virtual machine to start up, from the initial run-instances request.
+Setting this value is a bit of an art, but we choose the value below
+because our image is roughly 10GB in size, and if Eucalyptus doesn’t have
+the image cached, it could take half an hour to get our image started.</p></dd>
+        
+      
+        <dt><a name="SLEEP_TIME">SLEEP_TIME</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="IP_REGEX">IP_REGEX</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="FQDN_REGEX">FQDN_REGEX</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="IP_OR_FQDN">IP_OR_FQDN</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="DELTA_REGEX">DELTA_REGEX</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="DEFAULT_SKIP_FILES_REGEX">DEFAULT_SKIP_FILES_REGEX</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="TIME_IN_SECONDS">TIME_IN_SECONDS</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="CLOUDY_CREDS">CLOUDY_CREDS</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="APP_START_PORT">APP_START_PORT</a></dt>
+        
+        <dd class="description"><p>The first port that should be used to host Google App Engine applications
+that users have uploaded.</p></dd>
+        
+      
+        <dt><a name="USE_SSL">USE_SSL</a></dt>
+        
+        <dd class="description"><p>A constant that indicates that SSL should be used when checking if a given
+port is open.</p></dd>
+        
+      
+        <dt><a name="DONT_USE_SSL">DONT_USE_SSL</a></dt>
+        
+        <dd class="description"><p>A constant that indicates that SSL should not be used when checking if a
+given port is open.</p></dd>
+        
+      
+      </dl>
+    </div>
+    
+
+    <!-- Attributes -->
+    
+
+    <!-- Methods -->
+    
+    <div id="public-class-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="application_port-method" class="method-detail ">
+        <a name="method-c-application_port"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">application_port</span><span
+            class="method-args">(app_number, index, num_of_servers)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Determine the port that the given app should use</p>
+          
+
+          
+          <div class="method-source-code"
+            id="application_port-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 877</span>
+def self.application_port(app_number, index, num_of_servers)
+  <span class="ruby-constant">APP_START_PORT</span> + (app_number * num_of_servers) + index
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="convert_fqdn_to_ip-method" class="method-detail ">
+        <a name="method-c-convert_fqdn_to_ip"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">convert_fqdn_to_ip</span><span
+            class="method-args">(host)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>In cloudy deployments, the recommended way to determine a machine’s true
+private IP address from its private FQDN is to use dig. This method
+attempts to resolve IPs in that method, deferring to other methods if that
+fails.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="convert_fqdn_to_ip-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 414</span>
+def self.convert_fqdn_to_ip(host)
+  return host if host =~ /#{IP_REGEX}/
+
+  ip = `dig #{host} +short`.chomp
+  if ip.empty?
+    <span class="ruby-constant">Kernel</span>.puts(&quot;couldn't use dig to resolve [#{host}]&quot;)
+    abort(&quot;Couldn't convert #{host} to an IP address. Result of dig was \n#{ip}&quot;)
+  end
+
+  return ip
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="create_appscale_security_group-method" class="method-detail ">
+        <a name="method-c-create_appscale_security_group"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">create_appscale_security_group</span><span
+            class="method-args">(infrastructure, group)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="create_appscale_security_group-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 762</span>
+def self.create_appscale_security_group(infrastructure, group)
+  self.shell(&quot;#{infrastructure}-add-group #{group} -d appscale 2&gt;&amp;1&quot;)
+  self.shell(&quot;#{infrastructure}-authorize #{group} -p 1-65535 -P udp 2&gt;&amp;1&quot;)
+  self.shell(&quot;#{infrastructure}-authorize #{group} -p 1-65535 -P tcp 2&gt;&amp;1&quot;)
+  self.shell(&quot;#{infrastructure}-authorize #{group} -s 0.0.0.0/0 -P icmp -t -1:-1 2&gt;&amp;1&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="deserialize_info_from_tools-method" class="method-detail ">
+        <a name="method-c-deserialize_info_from_tools"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">deserialize_info_from_tools</span><span
+            class="method-args">(ips)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="deserialize_info_from_tools-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 131</span>
+def self.deserialize_info_from_tools(ips) 
+  nodes = {}
+  <span class="ruby-comment"># FIXME: Here we make the string back into a hash using the crappy deserialization</span>
+  <span class="ruby-comment"># Definitely change this to JSON at some point</span>
+  ips.split(<span class="ruby-string">&quot;..&quot;</span>).each do |node|
+    tokens = node.split(<span class="ruby-string">&quot;--&quot;</span>)
+    next if tokens.length != 2
+    id,roles = tokens
+    nodes[id] = roles
+  end
+  return nodes
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="does_image_have_location-3F-method" class="method-detail ">
+        <a name="method-c-does_image_have_location-3F"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">does_image_have_location?</span><span
+            class="method-args">(ip, location, key)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="does_image_have_location-3F-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 1069</span>
+def self.does_image_have_location?(ip, location, key)
+  ret_val = `ssh -i #{key} -o NumberOfPasswordPrompts=0 -o StrictHostkeyChecking=no 2&gt;&amp;1 root@#{ip} 'ls #{location}'; echo $?`.chomp[-1]
+  return ret_val.chr == <span class="ruby-string">&quot;0&quot;</span>
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="encrypt_password-method" class="method-detail ">
+        <a name="method-c-encrypt_password"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">encrypt_password</span><span
+            class="method-args">(user, pass)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="encrypt_password-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 1035</span>
+def self.encrypt_password(user, pass)
+  <span class="ruby-constant">Digest</span>::<span class="ruby-constant">SHA1</span>.hexdigest(user + pass)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="ensure_db_is_supported-method" class="method-detail ">
+        <a name="method-c-ensure_db_is_supported"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">ensure_db_is_supported</span><span
+            class="method-args">(ip, db, key)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="ensure_db_is_supported-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 1085</span>
+def self.ensure_db_is_supported(ip, db, key)
+  if self.does_image_have_location?(ip, &quot;/etc/appscale/#{VER_NUM}/#{db}&quot;, key)
+    <span class="ruby-constant">Kernel</span>.puts(&quot;Image at #{ip} supports #{db}.&quot;)
+  else 
+    fail_msg = &quot;The image at #{ip} does not have support for #{db}.&quot; +
+      <span class="ruby-string">&quot; Please install support for this database and try again.&quot;</span>
+    <span class="ruby-constant">Kernel</span>.puts(fail_msg)
+    abort(fail_msg)
+  end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="ensure_image_is_appscale-method" class="method-detail ">
+        <a name="method-c-ensure_image_is_appscale"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">ensure_image_is_appscale</span><span
+            class="method-args">(ip, key)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="ensure_image_is_appscale-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 1074</span>
+def self.ensure_image_is_appscale(ip, key)
+  if self.does_image_have_location?(ip, <span class="ruby-string">&quot;/etc/appscale&quot;</span>, key)
+    <span class="ruby-constant">Kernel</span>.puts(&quot;Image at #{ip} is an AppScale image.&quot;)
+  else
+    fail_msg = &quot;The image at #{ip} is not an AppScale image.&quot; +
+    <span class="ruby-string">&quot; Please install AppScale on it and try again.&quot;</span>
+    <span class="ruby-constant">Kernel</span>.puts(fail_msg)
+    abort(fail_msg)
+  end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="expires_duration-method" class="method-detail ">
+        <a name="method-c-expires_duration"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">expires_duration</span><span
+            class="method-args">(input_string)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Parses the expiration string provided in the app.yaml and returns its
+duration in seconds</p>
+          
+
+          
+          <div class="method-source-code"
+            id="expires_duration-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 1009</span>
+def self.expires_duration input_string
+  return nil if input_string.nil? || input_string.empty?
+  <span class="ruby-comment"># Start with nil so we can distinguish between it not being set and 0</span>
+  duration = nil
+  input_string.split.each do |token|
+    match = token.match(<span class="ruby-constant">DELTA_REGEX</span>)
+    next if not match
+    amount, units = match.captures
+    next if amount.empty? || units.empty?
+    duration = (duration || 0) + <span class="ruby-constant">TIME_IN_SECONDS</span>[units.downcase]*amount.to_i
+  end
+  duration
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="find_majority_item-method" class="method-detail ">
+        <a name="method-c-find_majority_item"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">find_majority_item</span><span
+            class="method-args">(array)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="find_majority_item-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 1157</span>
+def self.find_majority_item(array)
+  count = {}
+  array.each { |item|
+    count[item] = 0 if count[item].nil?
+    count[item] += 1
+  }
+
+  max_k = nil
+  max_v = 0
+  count.each { |k, v|
+    if v &gt; max_v
+      max_k = k
+      max_v = v
+    end
+  }
+
+  return max_k
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="generate_location_config-method" class="method-detail ">
+        <a name="method-c-generate_location_config"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">generate_location_config</span><span
+            class="method-args">(handler)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="generate_location_config-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 881</span>
+def self.generate_location_config handler
+  return <span class="ruby-string">&quot;&quot;</span> if !handler.key?(<span class="ruby-string">&quot;static_dir&quot;</span>) &amp;&amp; !handler.key?(<span class="ruby-string">&quot;static_files&quot;</span>)
+
+  result = &quot;\n    location #{handler['url']} {&quot;
+  result &lt;&lt; <span class="ruby-string">&quot;\n\t&quot;</span> &lt;&lt; <span class="ruby-string">&quot;root $cache_dir;&quot;</span>
+  result &lt;&lt; <span class="ruby-string">&quot;\n\t&quot;</span> &lt;&lt; &quot;expires #{handler['expiration']};&quot; if handler[<span class="ruby-string">'expiration'</span>]
+
+  <span class="ruby-comment"># TODO: return a 404 page if rewritten path doesn not exist</span>
+  if handler.key?(<span class="ruby-string">&quot;static_dir&quot;</span>)
+    result &lt;&lt; <span class="ruby-string">&quot;\n\t&quot;</span> &lt;&lt; &quot;rewrite #{handler['url']}(.*) /#{handler['static_dir']}/$1 break;&quot;
+  elsif handler.key?(<span class="ruby-string">&quot;static_files&quot;</span>)
+    result &lt;&lt; <span class="ruby-string">&quot;\n\t&quot;</span> &lt;&lt; &quot;rewrite #{handler['url']} /#{handler['static_files']} break;&quot;
+  end
+  
+  result &lt;&lt; <span class="ruby-string">&quot;\n&quot;</span> &lt;&lt; <span class="ruby-string">&quot;    }&quot;</span> &lt;&lt; <span class="ruby-string">&quot;\n&quot;</span>
+
+  result
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="generate_makefile-method" class="method-detail ">
+        <a name="method-c-generate_makefile"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">generate_makefile</span><span
+            class="method-args">(code, input_loc)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="generate_makefile-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 1096</span>
+def self.generate_makefile(code, input_loc)
+  abort(<span class="ruby-string">&quot;code is nil&quot;</span>) if code.nil?
+
+  makefile = <span class="ruby-string">&quot;all:\n\t&quot;</span>
+  if code =~ <span class="ruby-regexp">/\.x10\Z/</span>
+    out = code.scan(<span class="ruby-regexp">/\A(.*)\.x10\Z/</span>).flatten.to_s
+    makefile &lt;&lt; &quot;/usr/local/x10/x10.dist/bin/x10c++ -x10rt mpi -o #{out} #{code}\n\n&quot;
+  elsif code =~ <span class="ruby-regexp">/\.erl\Z/</span>
+    makefile &lt;&lt; &quot;HOME=/root erlc #{code}&quot;
+  elsif code =~ <span class="ruby-regexp">/\.c\Z/</span>
+    out = code.scan(<span class="ruby-regexp">/\A(.*)\.c\Z/</span>).flatten.to_s
+
+    code_path = <span class="ruby-constant">File</span>.expand_path(input_loc + <span class="ruby-string">&quot;/&quot;</span> + code)
+    contents = self.read_file(code_path)
+    if contents =~ /#include .mpi\.h./
+      makefile &lt;&lt; &quot;mpicc #{code} -o #{out} -Wall&quot;
+
+    <span class="ruby-comment"># for upc, there's upc_relaxed, upc_strict, and upc</span>
+    <span class="ruby-comment"># this should catch them all - just like pokemon</span>
+    elsif contents.include?(&quot;#include &lt;upc&quot;)
+      makefile &lt;&lt; &quot;/usr/local/berkeley_upc-2.12.1/upcc --network=mpi -o #{out} #{code}&quot;
+    else <span class="ruby-comment"># its plain old c</span>
+      makefile &lt;&lt; &quot;gcc -o #{out} #{code} -Wall&quot;
+    end
+  elsif code =~ <span class="ruby-regexp">/\.go\Z/</span>
+      prefix = code.scan(<span class="ruby-regexp">/\A(.*)\.go\Z/</span>).flatten.to_s
+      link = &quot;#{prefix}.6&quot;
+      makefile &lt;&lt; &quot;GOROOT=#{GOROOT} #{GOBIN}/6g #{code} &amp;&amp; GOROOT=#{GOROOT} #{GOBIN}/6l -o #{prefix} #{link}&quot;
+  else
+    abort(<span class="ruby-string">&quot;code type not supported for auto-gen makefile&quot;</span>)
+  end
+
+  makefile_location = <span class="ruby-constant">File</span>.expand_path(input_loc + <span class="ruby-string">&quot;/Makefile&quot;</span>)
+  self.write_file(makefile_location, makefile)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="generate_ssh_key-method" class="method-detail ">
+        <a name="method-c-generate_ssh_key"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">generate_ssh_key</span><span
+            class="method-args">(outputLocation, name, infrastructure)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="generate_ssh_key-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 732</span>
+def self.generate_ssh_key(outputLocation, name, infrastructure)
+  ec2_output = <span class="ruby-string">&quot;&quot;</span>
+  loop {
+    ec2_output = `#{infrastructure}-add-keypair #{name} 2&gt;&amp;1`
+    break if ec2_output.include?(<span class="ruby-string">&quot;BEGIN RSA PRIVATE KEY&quot;</span>)
+    <span class="ruby-constant">Kernel</span>.puts(&quot;Trying again. Saw this from #{infrastructure}-add-keypair: #{ec2_output}&quot;)
+    self.shell(&quot;#{infrastructure}-delete-keypair #{name} 2&gt;&amp;1&quot;)
+  }
+
+  <span class="ruby-comment"># output is the ssh private key prepended with info we don't need</span>
+  <span class="ruby-comment"># delimited by the first \n, so rip it off first to get just the key</span>
+
+  <span class="ruby-comment">#first_newline = ec2_output.index(&quot;\n&quot;)</span>
+  <span class="ruby-comment">#ssh_private_key = ec2_output[first_newline+1, ec2_output.length-1]</span>
+
+  if outputLocation.class == <span class="ruby-constant">String</span>
+    outputLocation = [outputLocation]
+  end
+
+  outputLocation.each { |path|
+    fullPath = <span class="ruby-constant">File</span>.expand_path(path)
+    <span class="ruby-constant">File</span>.open(fullPath, <span class="ruby-string">&quot;w&quot;</span>) { |file|
+      file.puts(ec2_output)
+    }
+    <span class="ruby-constant">FileUtils</span>.chmod(0600, fullPath) <span class="ruby-comment"># else ssh won't use the key</span>
+  }
+
+  return
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_app_path-method" class="method-detail ">
+        <a name="method-c-get_app_path"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_app_path</span><span
+            class="method-args">(app_name)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="get_app_path-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 900</span>
+def self.get_app_path app_name
+  &quot;/var/apps/#{app_name}/&quot;
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_appscale_id-method" class="method-detail ">
+        <a name="method-c-get_appscale_id"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_appscale_id</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="get_appscale_id-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 269</span>
+def self.get_appscale_id
+  <span class="ruby-comment"># This needs to be ec2 or euca 2ools.</span>
+  image_info = `ec2-describe-images`
+  
+  abort(<span class="ruby-string">&quot;ec2 tools can't find appscale image&quot;</span>) unless image_info.include?(<span class="ruby-string">&quot;appscale&quot;</span>)
+  image_id = image_info.scan(<span class="ruby-regexp">/([a|e]mi-[0-9a-zA-Z]+)\sappscale/</span>).flatten.to_s
+  
+  return image_id
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_cache_path-method" class="method-detail ">
+        <a name="method-c-get_cache_path"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_cache_path</span><span
+            class="method-args">(app_name)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="get_cache_path-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 904</span>
+def self.get_cache_path app_name
+  <span class="ruby-constant">File</span>.join(get_app_path(app_name),<span class="ruby-string">&quot;cache&quot;</span>)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_cert-method" class="method-detail ">
+        <a name="method-c-get_cert"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_cert</span><span
+            class="method-args">(filename)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="get_cert-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 279</span>
+def self.get_cert(filename)
+  return nil unless <span class="ruby-constant">File</span>.exists?(filename)
+  <span class="ruby-constant">OpenSSL</span>::<span class="ruby-constant">X509</span>::<span class="ruby-constant">Certificate</span>.new(<span class="ruby-constant">File</span>.open(filename) { |f|
+    f.read
+  })
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_cloud_ips-method" class="method-detail ">
+        <a name="method-c-get_cloud_ips"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_cloud_ips</span><span
+            class="method-args">(infrastructure, keyname)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="get_cloud_ips-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 835</span>
+def self.get_cloud_ips(infrastructure, keyname)
+  self.log_obscured_env
+
+  describe_instances = <span class="ruby-string">&quot;&quot;</span>
+  loop {
+    describe_instances = `#{infrastructure}-describe-instances 2&gt;&amp;1`
+    <span class="ruby-constant">Kernel</span>.puts(&quot;[oi!] #{describe_instances}&quot;)
+    break unless describe_instances =~ <span class="ruby-regexp">/Message replay detected./</span>
+    sleep(10)
+  }
+
+  running_machine_regex = /\s+(#{IP_OR_FQDN})\s+(#{IP_OR_FQDN})\s+running\s+#{keyname}\s/
+  all_ip_addrs = describe_instances.scan(running_machine_regex).flatten
+  <span class="ruby-constant">Kernel</span>.puts(&quot;[oi!] all ips are [#{all_ip_addrs.join(', ')}]&quot;)
+  public_ips, private_ips = <span class="ruby-constant">HelperFunctions</span>.get_ips(all_ip_addrs)
+  return public_ips, private_ips
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_hybrid_ips-method" class="method-detail ">
+        <a name="method-c-get_hybrid_ips"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_hybrid_ips</span><span
+            class="method-args">(creds)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="get_hybrid_ips-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 807</span>
+def self.get_hybrid_ips(creds)
+  <span class="ruby-constant">Kernel</span>.puts(&quot;creds are #{self.obscure_creds(creds).inspect}&quot;)
+
+  public_ips = []
+  private_ips = []
+
+  keyname = creds[<span class="ruby-string">&quot;keyname&quot;</span>]
+
+  cloud_num = 1
+  loop {
+    key = &quot;CLOUD#{cloud_num}_TYPE&quot;
+    cloud_type = creds[key]
+    break if cloud_type.nil?
+
+    self.set_creds_in_env(creds, cloud_num)
+
+    this_pub, this_priv = self.get_cloud_ips(cloud_type, keyname)
+    <span class="ruby-constant">Kernel</span>.puts(&quot;CLOUD#{cloud_num} reports public ips [#{this_pub.join(', ')}] and private ips [#{this_priv.join(', ')}]&quot;)
+    public_ips = public_ips + this_pub
+    private_ips = private_ips + this_priv
+
+    cloud_num += 1
+  }
+
+  <span class="ruby-constant">Kernel</span>.puts(&quot;all public ips are [#{public_ips.join(', ')}] and private ips [#{private_ips.join(', ')}]&quot;)
+  return public_ips, private_ips
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_ips-method" class="method-detail ">
+        <a name="method-c-get_ips"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_ips</span><span
+            class="method-args">(ips)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="get_ips-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 426</span>
+def self.get_ips(ips)
+  abort(<span class="ruby-string">&quot;ips not even length array&quot;</span>) if ips.length % 2 != 0
+  reported_public = []
+  reported_private = []
+  ips.each_index { |index|
+    if index % 2 == 0
+      reported_public &lt;&lt; ips[index]
+    else
+      reported_private &lt;&lt; ips[index]
+    end
+  }
+  
+  <span class="ruby-constant">Kernel</span>.puts(&quot;Reported Public IPs: [#{reported_public.join(', ')}]&quot;)
+  <span class="ruby-constant">Kernel</span>.puts(&quot;Reported Private IPs: [#{reported_private.join(', ')}]&quot;)
+
+  actual_public = []
+  actual_private = []
+  
+  reported_public.each_index { |index|
+    pub = reported_public[index]
+    pri = reported_private[index]
+    if pub != <span class="ruby-string">&quot;0.0.0.0&quot;</span> and pri != <span class="ruby-string">&quot;0.0.0.0&quot;</span>
+      actual_public &lt;&lt; pub
+      actual_private &lt;&lt; pri
+    end
+  }
+      
+  <span class="ruby-comment">#actual_public.each_index { |index|</span>
+  <span class="ruby-comment">#  actual_public[index] = HelperFunctions.convert_fqdn_to_ip(actual_public[index])</span>
+  <span class="ruby-comment">#}</span>
+
+  actual_private.each_index { |index|
+    begin
+      actual_private[index] = <span class="ruby-constant">HelperFunctions</span>.convert_fqdn_to_ip(actual_private[index])
+    rescue <span class="ruby-constant">Exception</span>
+      <span class="ruby-comment"># this can happen if the private ip doesn't resolve</span>
+      <span class="ruby-comment"># which can happen in hybrid environments: euca boxes wont be </span>
+      <span class="ruby-comment"># able to resolve ec2 private ips, and vice-versa in euca-managed-mode</span>
+      <span class="ruby-constant">Kernel</span>.puts(&quot;rescued! failed to convert #{actual_private[index]} to public&quot;)
+      actual_private[index] = actual_public[index]
+    end
+  }
+  
+  return actual_public, actual_private
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_key-method" class="method-detail ">
+        <a name="method-c-get_key"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_key</span><span
+            class="method-args">(filename)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="get_key-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 286</span>
+def self.get_key(filename)
+  return nil unless <span class="ruby-constant">File</span>.exists?(filename)
+  <span class="ruby-constant">OpenSSL</span>::<span class="ruby-constant">PKey</span>::<span class="ruby-constant">RSA</span>.new(<span class="ruby-constant">File</span>.open(filename) { |f|
+    f.read
+  })
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_num_cpus-method" class="method-detail ">
+        <a name="method-c-get_num_cpus"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_num_cpus</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="get_num_cpus-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 1144</span>
+def self.get_num_cpus()
+  return <span class="ruby-constant">Integer</span>(`cat /proc/cpuinfo | grep 'processor' | wc -l`.chomp)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_optimal_spot_price-method" class="method-detail ">
+        <a name="method-c-get_optimal_spot_price"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_optimal_spot_price</span><span
+            class="method-args">(instance_type)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Queries Amazon EC2’s Spot Instance pricing history to see how much other
+users have paid for the given instance type (assumed to be a Linux box), so
+that we can place a bid that is similar to the average price. How similar
+to the average price to pay is a bit of an open problem - for now, we pay
+20% more so that in case the market price goes up a little bit, we still
+get to keep our instances.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="get_optimal_spot_price-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 506</span>
+def self.get_optimal_spot_price(instance_type)
+  command = &quot;ec2-describe-spot-price-history -t #{instance_type} | &quot; +
+    <span class="ruby-string">&quot;grep 'Linux/UNIX' | awk '{print $2}'&quot;</span>.split(<span class="ruby-string">&quot;\n&quot;</span>)
+  prices = `#{command}`
+
+  average = prices.reduce(0.0) { |sum, price|
+    sum += <span class="ruby-constant">Float</span>(price)
+  }
+  
+  average /= prices.length
+  plus_twenty = average * 1.20
+  
+  <span class="ruby-constant">Kernel</span>.puts(&quot;The average spot instance price for a #{instance_type} &quot; +
+    &quot;machine is $#{average}, and 20% more is $#{plus_twenty}&quot;)
+  return plus_twenty
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_public_ips-method" class="method-detail ">
+        <a name="method-c-get_public_ips"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_public_ips</span><span
+            class="method-args">(ips)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="get_public_ips-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 472</span>
+def self.get_public_ips(ips)
+  abort(<span class="ruby-string">&quot;ips not even length array&quot;</span>) if ips.length % 2 != 0
+  reported_public = []
+  reported_private = []
+  ips.each_index { |index|
+    if index % 2 == 0
+      reported_public &lt;&lt; ips[index]
+    else
+      reported_private &lt;&lt; ips[index]
+    end
+  }
+  
+  <span class="ruby-constant">Kernel</span>.puts(&quot;Reported Public IPs: [#{reported_public.join(', ')}]&quot;)
+  <span class="ruby-constant">Kernel</span>.puts(&quot;Reported Private IPs: [#{reported_private.join(', ')}]&quot;)
+  
+  public_ips = []
+  reported_public.each_index { |index|
+    if reported_public[index] != <span class="ruby-string">&quot;0.0.0.0&quot;</span>
+      public_ips &lt;&lt; reported_public[index]
+    elsif reported_private[index] != <span class="ruby-string">&quot;0.0.0.0&quot;</span>
+      public_ips &lt;&lt; reported_private[index]
+    end
+  }
+  
+  return public_ips.flatten
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_random_alphanumeric-method" class="method-detail ">
+        <a name="method-c-get_random_alphanumeric"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_random_alphanumeric</span><span
+            class="method-args">(length=10)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Returns a random string composed of alphanumeric characters, as long as the
+user requests.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="get_random_alphanumeric-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 119</span>
+def self.get_random_alphanumeric(length=10)
+  random = <span class="ruby-string">&quot;&quot;</span>
+  possible = <span class="ruby-string">&quot;0123456789abcdefghijklmnopqrstuvxwyzABCDEFGHIJKLMNOPQRSTUVWXYZ&quot;</span>
+  possibleLength = possible.length
+   
+  length.times { |index|
+    random &lt;&lt; possible[<span class="ruby-constant">Kernel</span>.rand(possibleLength)]
+  }
+   
+  return random
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_relative_filename-method" class="method-detail ">
+        <a name="method-c-get_relative_filename"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_relative_filename</span><span
+            class="method-args">(filename, app_name)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>We have the files full path (e.g. ./data/myappname/static/file.txt) but we
+want is the files path relative to the apps directory (e.g.
+/static/file.txt). This is the hacky way of getting that.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="get_relative_filename-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 916</span>
+def self.get_relative_filename filename, app_name
+  filename[get_untar_dir(app_name).length..filename.length]
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_remote_appscale_home-method" class="method-detail ">
+        <a name="method-c-get_remote_appscale_home"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_remote_appscale_home</span><span
+            class="method-args">(ip, key)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="get_remote_appscale_home-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 258</span>
+def self.get_remote_appscale_home(ip, key)
+  cat = <span class="ruby-string">&quot;cat /etc/appscale/home&quot;</span>
+  remote_cmd = &quot;ssh -i #{key} -o NumberOfPasswordPrompts=0 -o StrictHostkeyChecking=no 2&gt;&amp;1 root@#{ip} '#{cat}'&quot;
+  possible_home = `#{remote_cmd}`.chomp
+  if possible_home.nil? or possible_home.empty?
+    return <span class="ruby-string">&quot;/root/appscale/&quot;</span>
+  else
+    return possible_home
+  end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_secret-method" class="method-detail ">
+        <a name="method-c-get_secret"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_secret</span><span
+            class="method-args">(filename="/etc/appscale/secret.key")</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="get_secret-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 293</span>
+def self.get_secret(filename=<span class="ruby-string">&quot;/etc/appscale/secret.key&quot;</span>)
+  return self.read_file(<span class="ruby-constant">File</span>.expand_path(filename), chomp=true)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_untar_dir-method" class="method-detail ">
+        <a name="method-c-get_untar_dir"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_untar_dir</span><span
+            class="method-args">(app_name)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>The directory where the applications tarball will be extracted to</p>
+          
+
+          
+          <div class="method-source-code"
+            id="get_untar_dir-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 909</span>
+def self.get_untar_dir app_name
+  <span class="ruby-constant">File</span>.join(get_app_path(app_name),<span class="ruby-string">&quot;app&quot;</span>)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_usage-method" class="method-detail ">
+        <a name="method-c-get_usage"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_usage</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="get_usage-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 853</span>
+def self.get_usage
+  top_results = `top -n1 -d0 -b`
+  usage = {}
+  usage[<span class="ruby-string">'cpu'</span>] = nil
+  usage[<span class="ruby-string">'mem'</span>] = nil
+  
+  if top_results =~ <span class="ruby-regexp">/Cpu\(s\):\s+([\d|\.]+)%us,\s+([\d|\.]+)%sy/</span>
+    user_cpu = <span class="ruby-constant">Float</span>($1)
+    sys_cpu = <span class="ruby-constant">Float</span>($2)
+    usage[<span class="ruby-string">'cpu'</span>] = user_cpu + sys_cpu
+  end
+
+  if top_results =~ <span class="ruby-regexp">/Mem:\s+(\d+)k total,\s+(\d+)k used/</span>
+    total_memory = <span class="ruby-constant">Float</span>($1)
+    used_memory = <span class="ruby-constant">Float</span>($2)
+    usage[<span class="ruby-string">'mem'</span>] = used_memory / total_memory * 100
+  end
+
+  usage[<span class="ruby-string">'disk'</span>] = <span class="ruby-constant">Integer</span>(`df /`.scan(<span class="ruby-regexp">/(\d+)%/</span>).flatten.to_s)
+  
+  usage    
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="is_port_open-3F-method" class="method-detail ">
+        <a name="method-c-is_port_open-3F"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">is_port_open?</span><span
+            class="method-args">(ip, port, use_ssl=DONT_USE_SSL)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="is_port_open-3F-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 178</span>
+def self.is_port_open?(ip, port, use_ssl=<span class="ruby-constant">DONT_USE_SSL</span>)
+  begin
+    <span class="ruby-constant">Timeout</span>::timeout(1) do
+      begin
+        sock = <span class="ruby-constant">TCPSocket</span>.new(ip, port)
+        if use_ssl
+          ssl_context = <span class="ruby-constant">OpenSSL</span>::<span class="ruby-constant">SSL</span>::<span class="ruby-constant">SSLContext</span>.new() 
+          unless ssl_context.verify_mode 
+            ssl_context.verify_mode = <span class="ruby-constant">OpenSSL</span>::<span class="ruby-constant">SSL</span>::<span class="ruby-constant">VERIFY_NONE</span> 
+          end 
+          sslsocket = <span class="ruby-constant">OpenSSL</span>::<span class="ruby-constant">SSL</span>::<span class="ruby-constant">SSLSocket</span>.new(sock, ssl_context) 
+          sslsocket.sync_close = true 
+          sslsocket.connect          
+        end
+        sock.close
+        return true
+      rescue <span class="ruby-constant">Errno</span>::<span class="ruby-constant">ECONNREFUSED</span>, <span class="ruby-constant">Errno</span>::<span class="ruby-constant">EHOSTUNREACH</span>, <span class="ruby-constant">Errno</span>::<span class="ruby-constant">ECONNRESET</span>
+        return false
+      end
+    end
+  rescue <span class="ruby-constant">Timeout</span>::<span class="ruby-constant">Error</span>
+  end
+
+  return false
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="kill_process-method" class="method-detail ">
+        <a name="method-c-kill_process"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">kill_process</span><span
+            class="method-args">(name)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="kill_process-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 144</span>
+def self.kill_process(name)
+  `ps ax | grep #{name} | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9`
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="local_ip-method" class="method-detail ">
+        <a name="method-c-local_ip"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">local_ip</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Code for <a href="HelperFunctions.html#method-c-local_ip">local_ip</a>
+taken from  <a
+href="http://coderrr.wordpress.com/2008/05/28/get-your-local-ip-address/">coderrr.wordpress.com/2008/05/28/get-your-local-ip-address/</a></p>
+          
+
+          
+          <div class="method-source-code"
+            id="local_ip-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 406</span>
+def self.local_ip
+  <span class="ruby-constant">UDPSocket</span>.open {|s| s.connect(<span class="ruby-string">&quot;64.233.187.99&quot;</span>, 1); s.addr.last }
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="log_obscured_env-method" class="method-detail ">
+        <a name="method-c-log_obscured_env"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">log_obscured_env</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="log_obscured_env-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 1132</span>
+def self.log_obscured_env()
+  env = `env`
+
+  [<span class="ruby-string">&quot;EC2_ACCESS_KEY&quot;</span>, <span class="ruby-string">&quot;EC2_SECRET_KEY&quot;</span>].each { |cred|
+    if env =~ /#{cred}=(.*)/
+      env.gsub!(/#{cred}=(.*)/, &quot;#{cred}=#{self.obscure_string($1)}&quot;)
+    end
+  }
+
+  <span class="ruby-constant">Kernel</span>.puts(env)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="obscure_array-method" class="method-detail ">
+        <a name="method-c-obscure_array"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">obscure_array</span><span
+            class="method-args">(array)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="obscure_array-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 1046</span>
+def self.obscure_array(array)
+  return array.map {|s| 
+    if <span class="ruby-constant">CLOUDY_CREDS</span>.include?(s)
+      obscure_string(string)
+    else
+      string
+    end
+  }
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="obscure_creds-method" class="method-detail ">
+        <a name="method-c-obscure_creds"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">obscure_creds</span><span
+            class="method-args">(creds)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="obscure_creds-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 1056</span>
+def self.obscure_creds(creds)
+  obscured = {}
+  creds.each { |k, v|
+    if <span class="ruby-constant">CLOUDY_CREDS</span>.include?(k)
+      obscured[k] = self.obscure_string(v)
+    else
+      obscured[k] = v
+    end
+  }
+
+  return obscured
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="obscure_string-method" class="method-detail ">
+        <a name="method-c-obscure_string"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">obscure_string</span><span
+            class="method-args">(string)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="obscure_string-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 1039</span>
+def self.obscure_string(string)
+  return string if string.nil? or string.length &lt; 4
+  last_four = string[string.length-4, string.length]
+  obscured = <span class="ruby-string">&quot;*&quot;</span> * (string.length-4)
+  return obscured + last_four
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="parse_static_data-method" class="method-detail ">
+        <a name="method-c-parse_static_data"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">parse_static_data</span><span
+            class="method-args">(app_name)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="parse_static_data-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 920</span>
+def self.parse_static_data app_name
+  untar_dir = get_untar_dir(app_name)
+
+  begin
+    tree = <span class="ruby-constant">YAML</span>.load_file(<span class="ruby-constant">File</span>.join(untar_dir,<span class="ruby-string">&quot;app.yaml&quot;</span>))
+  rescue <span class="ruby-constant">Errno</span>::<span class="ruby-constant">ENOENT</span> =&gt; e
+    <span class="ruby-constant">Kernel</span>.puts(<span class="ruby-string">&quot;Failed to load YAML file to parse static data&quot;</span>)
+    return []
+  end
+
+  handlers = tree[<span class="ruby-string">&quot;handlers&quot;</span>]
+  default_expiration = expires_duration(tree[<span class="ruby-string">&quot;default_expiration&quot;</span>])
+  
+  <span class="ruby-comment"># Create the destination cache directory</span>
+  cache_path = get_cache_path(app_name)
+  <span class="ruby-constant">FileUtils</span>.mkdir_p cache_path
+
+  skip_files_regex = <span class="ruby-constant">DEFAULT_SKIP_FILES_REGEX</span>
+  if tree[<span class="ruby-string">&quot;skip_files&quot;</span>]
+    <span class="ruby-comment"># An alternate regex has been provided for the files which should be skipped</span>
+    input_regex = tree[<span class="ruby-string">&quot;skip_files&quot;</span>]
+    input_regex = input_regex.join(<span class="ruby-string">&quot;|&quot;</span>) if input_regex.kind_of?(<span class="ruby-constant">Array</span>)
+
+    <span class="ruby-comment"># Remove any superfluous spaces since they will break the regex</span>
+    input_regex.gsub!(<span class="ruby-regexp">/ /</span>,<span class="ruby-string">&quot;&quot;</span>)
+    skip_files_regex = <span class="ruby-constant">Regexp</span>.new(input_regex)
+  end
+
+  handlers.map! do |handler|
+    next if !handler.key?(<span class="ruby-string">&quot;static_dir&quot;</span>) &amp;&amp; !handler.key?(<span class="ruby-string">&quot;static_files&quot;</span>)
+    
+    <span class="ruby-comment"># TODO: Get the mime-type setting from app.yaml and add it to the nginx config</span>
+
+    if handler[<span class="ruby-string">&quot;static_dir&quot;</span>]
+      <span class="ruby-comment"># This is for bug https://bugs.launchpad.net/appscale/+bug/800539</span>
+      <span class="ruby-comment"># this is a temp fix</span>
+      if handler[<span class="ruby-string">&quot;url&quot;</span>] == <span class="ruby-string">&quot;/&quot;</span>
+        <span class="ruby-constant">Kernel</span>.puts(&quot;Remapped path from / to temp_fix for application #{app_name}&quot;)
+        handler[<span class="ruby-string">&quot;url&quot;</span>] = <span class="ruby-string">&quot;/temp_fix&quot;</span>
+      end
+      cache_static_dir_path = <span class="ruby-constant">File</span>.join(cache_path,handler[<span class="ruby-string">&quot;static_dir&quot;</span>])
+      <span class="ruby-constant">FileUtils</span>.mkdir_p cache_static_dir_path
+
+      filenames = <span class="ruby-constant">Dir</span>.glob(<span class="ruby-constant">File</span>.join(untar_dir, handler[<span class="ruby-string">&quot;static_dir&quot;</span>],<span class="ruby-string">&quot;*&quot;</span>))
+
+      <span class="ruby-comment"># Remove all files which match the skip file regex so they do not get copied</span>
+      filenames.delete_if { |f| <span class="ruby-constant">File</span>.expand_path(f).match(skip_files_regex) }
+
+      <span class="ruby-constant">FileUtils</span>.cp_r filenames, cache_static_dir_path
+
+      handler[<span class="ruby-string">&quot;expiration&quot;</span>] = expires_duration(handler[<span class="ruby-string">&quot;expiration&quot;</span>]) || default_expiration
+    elsif handler[<span class="ruby-string">&quot;static_files&quot;</span>]
+      <span class="ruby-comment"># This is for bug https://bugs.launchpad.net/appscale/+bug/800539</span>
+      <span class="ruby-comment"># this is a temp fix</span>
+      if handler[<span class="ruby-string">&quot;url&quot;</span>] == <span class="ruby-string">&quot;/&quot;</span>
+        <span class="ruby-constant">Kernel</span>.puts(&quot;Remapped path from / to temp_fix for application #{app_name}&quot;)
+        handler[<span class="ruby-string">&quot;url&quot;</span>] = <span class="ruby-string">&quot;/temp_fix&quot;</span>
+      end
+      <span class="ruby-comment"># Need to convert all \1 into $1 so that nginx understands it</span>
+      handler[<span class="ruby-string">&quot;static_files&quot;</span>] = handler[<span class="ruby-string">&quot;static_files&quot;</span>].gsub(<span class="ruby-regexp">/\\/</span>,<span class="ruby-string">&quot;$&quot;</span>)
+
+      upload_regex = <span class="ruby-constant">Regexp</span>.new(handler[<span class="ruby-string">&quot;upload&quot;</span>])
+
+      filenames = <span class="ruby-constant">Dir</span>.glob(<span class="ruby-constant">File</span>.join(untar_dir,<span class="ruby-string">&quot;**&quot;</span>,<span class="ruby-string">&quot;*&quot;</span>))
+
+      filenames.each do |filename|
+        relative_filename = get_relative_filename(filename,app_name)
+
+        <span class="ruby-comment"># Only include files that match the provided upload regular expression</span>
+        next if !relative_filename.match(upload_regex)
+
+        <span class="ruby-comment"># Skip all files which match the skip file regex so they do not get copied</span>
+        next if relative_filename.match(skip_files_regex)
+
+        file_cache_path = <span class="ruby-constant">File</span>.join(cache_path, <span class="ruby-constant">File</span>.dirname(relative_filename))
+        <span class="ruby-constant">FileUtils</span>.mkdir_p file_cache_path if !<span class="ruby-constant">File</span>.exists?(file_cache_path)
+        
+        <span class="ruby-constant">FileUtils</span>.cp_r filename, <span class="ruby-constant">File</span>.join(file_cache_path,<span class="ruby-constant">File</span>.basename(filename))
+      end
+
+      handler[<span class="ruby-string">&quot;expiration&quot;</span>] = expires_duration(handler[<span class="ruby-string">&quot;expiration&quot;</span>]) || default_expiration
+    end
+    handler
+  end
+
+  handlers.compact
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="read_file-method" class="method-detail ">
+        <a name="method-c-read_file"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">read_file</span><span
+            class="method-args">(location, chomp=true)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="read_file-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 99</span>
+def self.read_file(location, chomp=true)
+  file = <span class="ruby-constant">File</span>.open(location) { |f| f.read }
+  if chomp
+    return file.chomp
+  else
+    return file
+  end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="read_json_file-method" class="method-detail ">
+        <a name="method-c-read_json_file"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">read_json_file</span><span
+            class="method-args">(location)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Reads the given file, which is assumed to be a JSON-loadable object, and
+returns that JSON back to the caller.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="read_json_file-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 111</span>
+def self.read_json_file(location)
+  data = self.read_file(location)
+  return <span class="ruby-constant">JSON</span>.load(data)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="run_app-method" class="method-detail ">
+        <a name="method-c-run_app"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">run_app</span><span
+            class="method-args">(app_name, port, db_location, public_ip, private_ip, app_version, app_language, nginx_port, xmpp_ip)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Returns pid if successful, -1 if not</p>
+          
+
+          
+          <div class="method-source-code"
+            id="run_app-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 315</span>
+def self.run_app(app_name, port, db_location, public_ip, private_ip, app_version, app_language, nginx_port, xmpp_ip)
+  secret = <span class="ruby-constant">HelperFunctions</span>.get_secret    
+
+  start_cmd = <span class="ruby-string">&quot;&quot;</span>
+  stop_cmd = <span class="ruby-string">&quot;&quot;</span>
+  env_vars = {}
+  
+  if app_language == <span class="ruby-string">&quot;python&quot;</span>
+    if <span class="ruby-constant">File</span>.exist?(&quot;/var/apps/#{app_name}/app/app.yaml&quot;) == false
+      <span class="ruby-constant">Kernel</span>.puts(&quot;The #{app_name} application was missing a app.yaml&quot;)
+      return -1 
+    end
+    
+    <span class="ruby-constant">Kernel</span>.puts(<span class="ruby-string">&quot;saw a python app coming through&quot;</span>)
+    env_vars[<span class="ruby-string">'MY_IP_ADDRESS'</span>] = public_ip
+    env_vars[<span class="ruby-string">'MY_PORT'</span>] = port
+    env_vars[<span class="ruby-string">'APPNAME'</span>] = app_name
+    env_vars[<span class="ruby-string">'GOMAXPROCS'</span>] = self.get_num_cpus()
+
+    start_cmd = [ <span class="ruby-string">&quot;python2.5 &quot;</span>,
+           &quot;#{APPSCALE_HOME}/AppServer/dev_appserver.py&quot;,
+           &quot;-p #{port}&quot;,
+           &quot;--cookie_secret #{secret}&quot;,
+           &quot;--login_server #{public_ip}&quot;,
+           <span class="ruby-string">&quot;--admin_console_server ''&quot;</span>,
+           &quot;--nginx_port #{nginx_port}&quot;,
+           &quot;--nginx_host #{public_ip}&quot;,
+           <span class="ruby-string">&quot;--require_indexes&quot;</span>,
+           <span class="ruby-string">&quot;--enable_sendmail&quot;</span>,
+           &quot;--xmpp_path #{xmpp_ip}&quot;,
+           &quot;--uaserver_path #{db_location}:#{UserAppClient::SERVER_PORT}&quot;,
+           &quot;--datastore_path #{db_location}:#{PbServer::LISTEN_PORT_NO_SSL}&quot;,
+           &quot;--history_path /var/apps/#{app_name}/data/app.datastore.history&quot;,
+           &quot;/var/apps/#{app_name}/app&quot;,
+           &quot;-a #{private_ip}&quot;,
+           <span class="ruby-comment">#&quot;&gt;&gt; /var/apps/#{app_name}/log/server.log 2&gt;&amp;1 &amp;&quot;</span>
+           ].join(<span class="ruby-string">' '</span>)
+    stop_cmd = &quot;ps ax | grep #{start_cmd} | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9&quot;
+  elsif app_language == <span class="ruby-string">&quot;java&quot;</span>
+    if <span class="ruby-constant">File</span>.exist?(&quot;/var/apps/#{app_name}/app/war/WEB-INF/web.xml&quot;) == false and <span class="ruby-constant">File</span>.exist?(&quot;/var/apps/#{app_name}/app/app.yaml&quot;) == false
+      <span class="ruby-constant">Kernel</span>.puts(&quot;The #{app_name} application was missing a web.xml or app.yaml file&quot;)
+      return -1
+    end
+
+    <span class="ruby-constant">Kernel</span>.puts(<span class="ruby-string">&quot;saw a java app coming through&quot;</span>)
+    `cp #{APPSCALE_HOME}/AppServer_Java/appengine-java-sdk-repacked/lib/user/*.jar /var/apps/#{app_name}/app/war/WEB-INF/lib/`
+    `cp #{APPSCALE_HOME}/AppServer_Java/appengine-java-sdk-repacked/lib/user/orm/*.jar /var/apps/#{app_name}/app/war/WEB-INF/lib/`
+    start_cmd = [&quot;cd #{APPSCALE_HOME}/AppServer_Java &amp;&amp;&quot;,
+           <span class="ruby-string">&quot;./genKeystore.sh &amp;&amp;&quot;</span>,
+           <span class="ruby-string">&quot;./appengine-java-sdk-repacked/bin/dev_appserver.sh&quot;</span>,
+           &quot;--port=#{port}&quot;,
+           &quot;--address=#{private_ip}&quot;,
+           &quot;--datastore_path=#{db_location}&quot;,
+           &quot;--cookie_secret=#{secret}&quot;,
+           &quot;--login_server=#{public_ip}&quot;,
+           &quot;--appscale_version=#{app_version}&quot;,
+           &quot;--NGINX_ADDRESS=#{public_ip}&quot;,
+           &quot;--NGINX_PORT=#{nginx_port}&quot;,
+           &quot;/var/apps/#{app_name}/app/war/&quot;,
+           <span class="ruby-comment">#&quot;&gt;&gt; /var/apps/#{app_name}/log/server.log 2&gt;&amp;1 &amp;&quot;</span>
+           ].join(<span class="ruby-string">' '</span>)
+    stop_cmd = &quot;ps ax | grep #{start_cmd} | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9&quot;
+  else
+    <span class="ruby-constant">Kernel</span>.puts(&quot;Currently we only support python, go, and java applications, not #{app_language}.&quot;)
+  end
+
+  env_vars[<span class="ruby-string">'APPSCALE_HOME'</span>] = <span class="ruby-constant">APPSCALE_HOME</span>
+
+  <span class="ruby-constant">GodInterface</span>.start(app_name, start_cmd, stop_cmd, port, env_vars)
+  <span class="ruby-constant">HelperFunctions</span>.sleep_until_port_is_open(<span class="ruby-constant">HelperFunctions</span>.local_ip, port)
+
+  pid = `lsof -t -i :#{port}`
+  <span class="ruby-constant">Kernel</span>.puts(&quot;Started app #{app_name} with pid #{pid}&quot;)
+  
+  return pid
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="run_remote_command-method" class="method-detail ">
+        <a name="method-c-run_remote_command"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">run_remote_command</span><span
+            class="method-args">(ip, command, public_key_loc, want_output)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="run_remote_command-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 204</span>
+def self.run_remote_command(ip, command, public_key_loc, want_output)
+  <span class="ruby-constant">Kernel</span>.puts(&quot;ip is [#{ip}], command is [#{command}], public key is [#{public_key_loc}], want output? [#{want_output}]&quot;)
+  public_key_loc = <span class="ruby-constant">File</span>.expand_path(public_key_loc)
+  
+  remote_cmd = &quot;ssh -i #{public_key_loc} -o StrictHostkeyChecking=no root@#{ip} '#{command} &quot;
+  
+  output_file = &quot;/tmp/#{ip}.log&quot;
+  if want_output
+    remote_cmd &lt;&lt; &quot;2&gt;&amp;1 &gt; #{output_file} &amp;' &amp;&quot;
+  else
+    remote_cmd &lt;&lt; <span class="ruby-string">&quot;&gt; /dev/null &amp;' &amp;&quot;</span>
+  end
+
+  <span class="ruby-constant">Kernel</span>.puts(&quot;Running [#{remote_cmd}]&quot;)
+
+  if want_output
+    return `#{remote_cmd}`
+  else
+    <span class="ruby-constant">Kernel</span>.system remote_cmd
+    return remote_cmd
+  end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="scp_file-method" class="method-detail ">
+        <a name="method-c-scp_file"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">scp_file</span><span
+            class="method-args">(local_file_loc, remote_file_loc, target_ip, private_key_loc)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="scp_file-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 227</span>
+def self.scp_file(local_file_loc, remote_file_loc, target_ip, private_key_loc)
+  private_key_loc = <span class="ruby-constant">File</span>.expand_path(private_key_loc)
+  `chmod 0600 #{private_key_loc}`
+  local_file_loc = <span class="ruby-constant">File</span>.expand_path(local_file_loc)
+  retval_file = &quot;/etc/appscale/retval-#{Kernel.rand()}&quot;
+  cmd = &quot;scp -i #{private_key_loc} -o StrictHostkeyChecking=no 2&gt;&amp;1 #{local_file_loc} root@#{target_ip}:#{remote_file_loc}; echo $? &gt; #{retval_file}&quot;
+  <span class="ruby-comment">#Kernel.puts(cmd)</span>
+  scp_result = `#{cmd}`
+
+  loop {
+    break if <span class="ruby-constant">File</span>.exists?(retval_file)
+    sleep(5)
+  }
+
+  retval = (<span class="ruby-constant">File</span>.open(retval_file) { |f| f.read }).chomp
+
+  fails = 0
+  loop {
+    break if retval == <span class="ruby-string">&quot;0&quot;</span>
+    <span class="ruby-constant">Kernel</span>.puts(&quot;\n\n[#{cmd}] returned #{retval} instead of 0 as expected. Will try to copy again momentarily...&quot;)
+    fails += 1
+    abort(<span class="ruby-string">&quot;SCP failed&quot;</span>) if fails &gt;= 5
+    sleep(2)
+    `#{cmd}`
+    retval = (<span class="ruby-constant">File</span>.open(retval_file) { |f| f.read }).chomp
+  }
+
+  <span class="ruby-comment">#Kernel.puts(scp_result)</span>
+  `rm -fv #{retval_file}`
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="set_creds_in_env-method" class="method-detail ">
+        <a name="method-c-set_creds_in_env"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">set_creds_in_env</span><span
+            class="method-args">(creds, cloud_num)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="set_creds_in_env-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 524</span>
+def self.set_creds_in_env(creds, cloud_num)
+  <span class="ruby-constant">ENV</span>[<span class="ruby-string">'EC2_JVM_ARGS'</span>] = nil
+
+  creds.each_pair { |k, v|
+    next unless k =~ /\ACLOUD#{cloud_num}/
+    env_key = k.scan(/\ACLOUD#{cloud_num}_(.*)\Z/).flatten.to_s
+    <span class="ruby-constant">ENV</span>[env_key] = v
+  }
+
+  <span class="ruby-comment"># note that key and cert vars are set wrong - they refer to</span>
+  <span class="ruby-comment"># the location on the user's machine where the key is</span>
+  <span class="ruby-comment"># thus, let's fix that</span>
+
+  cloud_keys_dir = <span class="ruby-constant">File</span>.expand_path(&quot;#{APPSCALE_HOME}/.appscale/keys/cloud#{cloud_num}&quot;)
+  <span class="ruby-constant">ENV</span>[<span class="ruby-string">'EC2_PRIVATE_KEY'</span>] = &quot;#{cloud_keys_dir}/mykey.pem&quot;
+  <span class="ruby-constant">ENV</span>[<span class="ruby-string">'EC2_CERT'</span>] = &quot;#{cloud_keys_dir}/mycert.pem&quot;
+
+  <span class="ruby-constant">Kernel</span>.puts(&quot;Setting private key to #{cloud_keys_dir}/mykey.pem, cert to #{cloud_keys_dir}/mycert.pem&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="setup_app-method" class="method-detail ">
+        <a name="method-c-setup_app"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">setup_app</span><span
+            class="method-args">(app_name, untar=true)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="setup_app-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 297</span>
+def self.setup_app(app_name, untar=true)
+  meta_dir = &quot;/var/apps/#{app_name}&quot;
+  tar_dir = &quot;#{meta_dir}/app/&quot;
+  tar_path = &quot;#{tar_dir}#{app_name}.tar.gz&quot;
+  <span class="ruby-comment">#Kernel.system &quot;rm -rf #{tar_dir}&quot;</span>
+
+  self.shell(&quot;mkdir -p #{tar_dir}&quot;)
+  self.shell(&quot;mkdir -p #{meta_dir}/log&quot;)
+  self.shell(&quot;cp #{APPSCALE_HOME}/AppLoadBalancer/public/404.html #{meta_dir}&quot;)
+  self.shell(&quot;touch #{meta_dir}/log/server.log&quot;)
+  <span class="ruby-comment">#tar_file = File.open(tar_path, &quot;w&quot;)</span>
+  <span class="ruby-comment">#decoded_tar = Base64.decode64(encoded_app_tar)</span>
+  <span class="ruby-comment">#tar_file.write(decoded_tar)</span>
+  <span class="ruby-comment">#tar_file.close</span>
+  self.shell(&quot;tar --file #{tar_path} --force-local -C #{tar_dir} -zx&quot;) if untar
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="shell-method" class="method-detail ">
+        <a name="method-c-shell"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">shell</span><span
+            class="method-args">(cmd)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="shell-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 87</span>
+def self.shell(cmd)
+  return `#{cmd}`
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="shorten_to_n_items-method" class="method-detail ">
+        <a name="method-c-shorten_to_n_items"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">shorten_to_n_items</span><span
+            class="method-args">(n, array)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="shorten_to_n_items-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 1148</span>
+def self.shorten_to_n_items(n, array)
+  len = array.length
+  if len &lt; n
+    array
+  else
+    array[len-n..len-1]
+  end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="sleep_until_port_is_closed-method" class="method-detail ">
+        <a name="method-c-sleep_until_port_is_closed"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">sleep_until_port_is_closed</span><span
+            class="method-args">(ip, port, use_ssl=DONT_USE_SSL)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="sleep_until_port_is_closed-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 163</span>
+def self.sleep_until_port_is_closed(ip, port, use_ssl=<span class="ruby-constant">DONT_USE_SSL</span>)
+  sleep_time = 1
+
+  loop {
+    return unless <span class="ruby-constant">HelperFunctions</span>.is_port_open?(ip, port, use_ssl)
+
+    <span class="ruby-constant">Kernel</span>.sleep(sleep_time)
+    if sleep_time &lt; 30
+      sleep_time *= 2
+    end
+
+    <span class="ruby-constant">Kernel</span>.puts(&quot;Waiting on #{ip}:#{port} to be closed (currently open).&quot;)
+  }
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="sleep_until_port_is_open-method" class="method-detail ">
+        <a name="method-c-sleep_until_port_is_open"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">sleep_until_port_is_open</span><span
+            class="method-args">(ip, port, use_ssl=DONT_USE_SSL)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="sleep_until_port_is_open-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 148</span>
+def self.sleep_until_port_is_open(ip, port, use_ssl=<span class="ruby-constant">DONT_USE_SSL</span>)
+  sleep_time = 1
+
+  loop {
+    return if <span class="ruby-constant">HelperFunctions</span>.is_port_open?(ip, port, use_ssl)
+
+    <span class="ruby-constant">Kernel</span>.sleep(sleep_time)
+    if sleep_time &lt; 30
+      sleep_time *= 2
+    end
+
+    <span class="ruby-constant">Kernel</span>.puts(&quot;Waiting on #{ip}:#{port} to be open (currently closed).&quot;)
+  }
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="spawn_hybrid_vms-method" class="method-detail ">
+        <a name="method-c-spawn_hybrid_vms"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">spawn_hybrid_vms</span><span
+            class="method-args">(creds, nodes)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="spawn_hybrid_vms-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 544</span>
+def self.spawn_hybrid_vms(creds, nodes)
+  info = &quot;Spawning hybrid vms with creds #{self.obscure_creds(creds).inspect} and nodes #{nodes.inspect}&quot;
+  <span class="ruby-constant">Kernel</span>.puts(info)
+
+  cloud_info = []
+
+  cloud_num = 1
+  loop {
+    cloud_type = creds[&quot;CLOUD#{cloud_num}_TYPE&quot;]
+    break if cloud_type.nil?
+
+    self.set_creds_in_env(creds, cloud_num)
+
+    if cloud_type == <span class="ruby-string">&quot;euca&quot;</span>
+      machine = creds[&quot;CLOUD#{cloud_num}_EMI&quot;]
+    elsif cloud_type == <span class="ruby-string">&quot;ec2&quot;</span>
+      machine = creds[&quot;CLOUD#{cloud_num}_AMI&quot;]
+    else
+      abort(&quot;cloud type was #{cloud_type}, which is not a supported value.&quot;)
+    end
+
+    num_of_vms = 0
+    jobs_needed = []
+    nodes.each_pair { |k, v|
+      if k =~ /\Acloud#{cloud_num}-\d+\Z/
+        num_of_vms += 1
+        jobs_needed &lt;&lt; v
+      end
+    }
+
+    instance_type = <span class="ruby-string">&quot;m1.large&quot;</span>
+    keyname = creds[<span class="ruby-string">&quot;keyname&quot;</span>]
+    cloud = &quot;cloud#{cloud_num}&quot;
+    group = creds[<span class="ruby-string">&quot;group&quot;</span>]
+
+    this_cloud_info = self.spawn_vms(num_of_vms, jobs_needed, machine, 
+      instance_type, keyname, cloud_type, cloud, group)
+
+    <span class="ruby-constant">Kernel</span>.puts(&quot;Cloud#{cloud_num} reports the following info: #{this_cloud_info.join(', ')}&quot;)
+
+    cloud_info += this_cloud_info
+    cloud_num += 1
+  }
+
+  <span class="ruby-constant">Kernel</span>.puts(&quot;Hybrid cloud spawning reports the following info: #{cloud_info.join(', ')}&quot;)
+
+  return cloud_info
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="spawn_vms-method" class="method-detail ">
+        <a name="method-c-spawn_vms"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">spawn_vms</span><span
+            class="method-args">(num_of_vms_to_spawn, job, image_id, instance_type, keyname, infrastructure, cloud, group, spot=false)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="spawn_vms-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 593</span>
+def self.spawn_vms(num_of_vms_to_spawn, job, image_id, instance_type, keyname,
+  infrastructure, cloud, group, spot=false)
+
+  start_time = <span class="ruby-constant">Time</span>.now
+
+  return [] if num_of_vms_to_spawn &lt; 1
+
+  ssh_key = <span class="ruby-constant">File</span>.expand_path(&quot;#{APPSCALE_HOME}/.appscale/keys/#{cloud}/#{keyname}.key&quot;)
+  <span class="ruby-constant">Kernel</span>.puts(&quot;About to spawn VMs, expecting to find a key at #{ssh_key}&quot;)
+
+  self.log_obscured_env
+
+  new_cloud = !<span class="ruby-constant">File</span>.exists?(ssh_key)
+  if new_cloud <span class="ruby-comment"># need to create security group and key</span>
+    <span class="ruby-constant">Kernel</span>.puts(&quot;Creating keys/security group for #{cloud}&quot;)
+    self.generate_ssh_key(ssh_key, keyname, infrastructure)
+    self.create_appscale_security_group(infrastructure, group)
+  else
+    <span class="ruby-constant">Kernel</span>.puts(&quot;Not creating keys/security group for #{cloud}&quot;)
+  end
+
+  instance_ids_up = []
+  public_up_already = []
+  private_up_already = []
+  <span class="ruby-constant">Kernel</span>.puts(&quot;[#{num_of_vms_to_spawn}] [#{job}] [#{image_id}]  [#{instance_type}] [#{keyname}] [#{infrastructure}] [#{cloud}] [#{group}] [#{spot}]&quot;)
+  <span class="ruby-constant">Kernel</span>.puts(&quot;EC2_URL = [#{ENV['EC2_URL']}]&quot;)
+  loop { <span class="ruby-comment"># need to make sure ec2 doesn't return an error message here</span>
+    describe_instances = `#{infrastructure}-describe-instances 2&gt;&amp;1`
+    <span class="ruby-constant">Kernel</span>.puts(&quot;describe-instances says [#{describe_instances}]&quot;)
+    all_ip_addrs = describe_instances.scan(/\s+(#{IP_OR_FQDN})\s+(#{IP_OR_FQDN})\s+running\s+#{keyname}\s/).flatten
+    instance_ids_up = describe_instances.scan(<span class="ruby-regexp">/INSTANCE\s+(i-\w+)/</span>).flatten
+    public_up_already, private_up_already = <span class="ruby-constant">HelperFunctions</span>.get_ips(all_ip_addrs)
+    vms_up_already = describe_instances.scan(/(#{IP_OR_FQDN})\s+running\s+#{keyname}\s+/).length
+    break if vms_up_already &gt; 0 or new_cloud <span class="ruby-comment"># crucial for hybrid cloud, where one box may not be running yet</span>
+  }
+ 
+  args = &quot;-k #{keyname} -n #{num_of_vms_to_spawn} --instance-type #{instance_type} --group #{group} #{image_id}&quot;
+  if spot
+    price = <span class="ruby-constant">HelperFunctions</span>.get_optimal_spot_price(instance_type)
+    command_to_run = &quot;ec2-request-spot-instances -p #{price} #{args}&quot;
+  else
+    command_to_run = &quot;#{infrastructure}-run-instances #{args}&quot;
+  end
+
+  loop {
+    <span class="ruby-constant">Kernel</span>.puts(command_to_run)
+    run_instances = `#{command_to_run} 2&gt;&amp;1`
+    <span class="ruby-constant">Kernel</span>.puts(&quot;run_instances says [#{run_instances}]&quot;)
+    if run_instances =~ <span class="ruby-regexp">/Please try again later./</span>
+      <span class="ruby-constant">Kernel</span>.puts(&quot;Error with run_instances: #{run_instances}. Will try again in a moment.&quot;)
+    elsif run_instances =~ <span class="ruby-regexp">/try --addressing private/</span>
+      <span class="ruby-constant">Kernel</span>.puts(<span class="ruby-string">&quot;Need to retry with addressing private. Will try again in a moment.&quot;</span>)
+      command_to_run &lt;&lt; <span class="ruby-string">&quot; --addressing private&quot;</span>
+    elsif run_instances =~ <span class="ruby-regexp">/PROBLEM/</span>
+      <span class="ruby-constant">Kernel</span>.puts(&quot;Error: #{run_instances}&quot;)
+      abort(&quot;Saw the following error message from EC2 tools. Please resolve the issue and try again:\n#{run_instances}&quot;)
+    else
+      <span class="ruby-constant">Kernel</span>.puts(<span class="ruby-string">&quot;Run instances message sent successfully. Waiting for the image to start up.&quot;</span>)
+      break
+    end
+    <span class="ruby-constant">Kernel</span>.puts(<span class="ruby-string">&quot;sleepy time&quot;</span>)
+    sleep(5)
+  }
+  
+  instance_ids = []
+  public_ips = []
+  private_ips = []
+
+  sleep(10) <span class="ruby-comment"># euca 2.0.3 can throw forbidden errors if we hit it too fast</span>
+  <span class="ruby-comment"># TODO: refactor me to use rightaws gem, check for forbidden, and retry accordingly</span>
+
+  end_time = <span class="ruby-constant">Time</span>.now + <span class="ruby-constant">MAX_VM_CREATION_TIME</span>
+  while (now = <span class="ruby-constant">Time</span>.now) &lt; end_time
+    describe_instances = `#{infrastructure}-describe-instances`
+    <span class="ruby-constant">Kernel</span>.puts(&quot;[#{Time.now}] #{end_time - now} seconds left...&quot;)
+    <span class="ruby-constant">Kernel</span>.puts(describe_instances)
+ 
+    <span class="ruby-comment"># TODO: match on instance id</span>
+    <span class="ruby-comment">#if describe_instances =~ /terminated\s+#{keyname}\s+/</span>
+    <span class="ruby-comment">#  terminated_message = &quot;An instance was unexpectedly terminated. &quot; +</span>
+    <span class="ruby-comment">#    &quot;Please contact your cloud administrator to determine why &quot; +</span>
+    <span class="ruby-comment">#    &quot;and try again. \n#{describe_instances}&quot;</span>
+    <span class="ruby-comment">#  Kernel.puts(terminated_message)</span>
+    <span class="ruby-comment">#  abort(terminated_message)</span>
+    <span class="ruby-comment">#end</span>
+    
+    <span class="ruby-comment"># changed regexes so ensure we are only checking for instances created</span>
+    <span class="ruby-comment"># for appscale only (don't worry about other instances created)</span>
+    
+    all_ip_addrs = describe_instances.scan(/\s+(#{IP_OR_FQDN})\s+(#{IP_OR_FQDN})\s+running\s+#{keyname}\s+/).flatten
+    public_ips, private_ips = <span class="ruby-constant">HelperFunctions</span>.get_ips(all_ip_addrs)
+    public_ips = public_ips - public_up_already
+    private_ips = private_ips - private_up_already
+    instance_ids = describe_instances.scan(/INSTANCE\s+(i-\w+)\s+[\w\-\s\.]+#{keyname}/).flatten - instance_ids_up
+    break if public_ips.length == num_of_vms_to_spawn
+    sleep(<span class="ruby-constant">SLEEP_TIME</span>)
+  end
+  
+  abort(<span class="ruby-string">&quot;No public IPs were able to be procured within the time limit.&quot;</span>) if public_ips.length == 0
+  
+  if public_ips.length != num_of_vms_to_spawn
+    potential_dead_ips = <span class="ruby-constant">HelperFunctions</span>.get_ips(all_ip_addrs) - public_up_already
+    potential_dead_ips.each_index { |index|
+      if potential_dead_ips[index] == <span class="ruby-string">&quot;0.0.0.0&quot;</span>
+        instance_to_term = instance_ids[index]
+        <span class="ruby-constant">Kernel</span>.puts(&quot;Instance #{instance_to_term} failed to get a public IP address and is being terminated.&quot;)
+        self.shell(&quot;#{infrastructure}-terminate-instances #{instance_to_term}&quot;)
+      end
+    }
+  end         
+  
+  jobs = []
+  if job.is_a?(<span class="ruby-constant">String</span>)
+    <span class="ruby-comment"># We only got one job, so just repeat it for each one of the nodes</span>
+    public_ips.length.times { |i| jobs &lt;&lt; job }
+  else
+    jobs = job
+  end
+
+  <span class="ruby-comment"># ip:job:instance-id</span>
+  instances_created = []
+  public_ips.each_index { |index|
+    instances_created &lt;&lt; &quot;#{public_ips[index]}:#{private_ips[index]}:#{jobs[index]}:#{instance_ids[index]}:#{cloud}&quot;
+  }
+  
+  end_time = <span class="ruby-constant">Time</span>.now
+  total_time = end_time - start_time
+
+  if spot
+    <span class="ruby-constant">Kernel</span>.puts(&quot;TIMING: It took #{total_time} seconds to spawn &quot; +
+      &quot;#{num_of_vms_to_spawn} spot instances&quot;)
+  else
+    <span class="ruby-constant">Kernel</span>.puts(&quot;TIMING: It took #{total_time} seconds to spawn &quot; +
+      &quot;#{num_of_vms_to_spawn} regular instances&quot;)
+  end
+
+  return instances_created    
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="stop_app-method" class="method-detail ">
+        <a name="method-c-stop_app"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">stop_app</span><span
+            class="method-args">(app_name, port)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Instructs god to terminate and stop watching an App Engine application, 
+identified by its name and the port that it runs on.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="stop_app-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 395</span>
+def self.stop_app(app_name, port)
+  watch = <span class="ruby-string">&quot;appscale-&quot;</span> + app_name + <span class="ruby-string">&quot;-&quot;</span> + port.to_s
+  <span class="ruby-constant">GodInterface</span>.stop(watch)
+  <span class="ruby-constant">Kernel</span>.puts(&quot;Stopped #{watch} process via god.&quot;)
+  <span class="ruby-constant">GodInterface</span>.remove(watch)
+  <span class="ruby-constant">Kernel</span>.puts(&quot;Stopped watching #{watch} via god.&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="terminate_all_vms-method" class="method-detail ">
+        <a name="method-c-terminate_all_vms"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">terminate_all_vms</span><span
+            class="method-args">(infrastructure, keyname)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="terminate_all_vms-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 800</span>
+def self.terminate_all_vms(infrastructure, keyname)
+  self.log_obscured_env
+  desc_instances = `#{infrastructure}-describe-instances`
+  instances = desc_instances.scan(/INSTANCE\s+(i-\w+)\s+[\w\-\s\.]+#{keyname}/).flatten
+  self.shell(`#{infrastructure}-terminate-instances #{instances.join(' ')}`)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="terminate_hybrid_vms-method" class="method-detail ">
+        <a name="method-c-terminate_hybrid_vms"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">terminate_hybrid_vms</span><span
+            class="method-args">(creds)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="terminate_hybrid_vms-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 779</span>
+def self.terminate_hybrid_vms(creds)
+  <span class="ruby-comment"># TODO: kill my own cloud last</span>
+  <span class="ruby-comment"># otherwise could orphan other clouds</span>
+
+  cloud_num = 1
+  loop {
+    key = &quot;CLOUD#{cloud_num}_TYPE&quot;
+    cloud_type = creds[key]
+    break if cloud_type.nil?
+
+    self.set_creds_in_env(creds, cloud_num)
+
+    keyname = creds[<span class="ruby-string">&quot;keyname&quot;</span>]
+    <span class="ruby-constant">Kernel</span>.puts(&quot;Killing Cloud#{cloud_num}'s machines, of type #{cloud_type} and with keyname #{keyname}&quot;)
+    self.terminate_all_vms(cloud_type, keyname)
+
+    cloud_num += 1
+  }
+
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="terminate_vms-method" class="method-detail ">
+        <a name="method-c-terminate_vms"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">terminate_vms</span><span
+            class="method-args">(nodes, infrastructure)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="terminate_vms-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 769</span>
+def self.terminate_vms(nodes, infrastructure)
+  instances = []
+  nodes.each { |node|
+    instance_id = node.instance_id
+    instances &lt;&lt; instance_id
+  }
+  
+  self.shell(&quot;#{infrastructure}-terminate-instances #{instances.join(' ')}&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="write_file-method" class="method-detail ">
+        <a name="method-c-write_file"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">write_file</span><span
+            class="method-args">(location, contents)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="write_file-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 91</span>
+def self.write_file(location, contents)
+  <span class="ruby-constant">File</span>.open(location, <span class="ruby-string">&quot;w+&quot;</span>) { |file| file.write(contents) }
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="write_json_file-method" class="method-detail ">
+        <a name="method-c-write_json_file"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">write_json_file</span><span
+            class="method-args">(location, contents)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="write_json_file-source">
+<pre>
+<span class="ruby-comment"># File lib/helperfunctions.rb, line 95</span>
+def self.write_json_file(location, contents)
+  self.write_file(location, <span class="ruby-constant">JSON</span>.dump(contents))
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+    </div>
+  
+
+  </div>
+
+  <div id="validator-badges">
+    <p><small><a href="http://validator.w3.org/check/referer">[Validate]</a></small></p>
+    <p><small>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish
+      Rdoc Generator</a> 2</small>.</p>
+  </div>
+
+</body>
+</html>
+

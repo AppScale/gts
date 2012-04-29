@@ -1,0 +1,593 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+
+  <title>Class: TaskQueueGoogleAppEngine</title>
+
+  <link rel="stylesheet" href="./rdoc.css" type="text/css" media="screen" />
+
+  <script src="./js/jquery.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/thickbox-compressed.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/quicksearch.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/darkfish.js" type="text/javascript"
+    charset="utf-8"></script>
+
+</head>
+<body class="class">
+
+  <div id="metadata">
+    <div id="home-metadata">
+      <div id="home-section" class="section">
+        <h3 class="section-header">
+          <a href="./index.html">Home</a>
+          <a href="./index.html#classes">Classes</a>
+          <a href="./index.html#methods">Methods</a>
+        </h3>
+      </div>
+    </div>
+
+    <div id="file-metadata">
+      <div id="file-list-section" class="section">
+        <h3 class="section-header">In Files</h3>
+        <div class="section-body">
+          <ul>
+          
+            <li><a href="./lib/task_queues/task_queue_google_app_engine_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
+              class="thickbox" title="lib/task_queues/task_queue_google_app_engine.rb">lib/task_queues/task_queue_google_app_engine.rb</a></li>
+          
+          </ul>
+        </div>
+      </div>
+
+      
+    </div>
+
+    <div id="class-metadata">
+
+      <!-- Parent Class -->
+      
+      <div id="parent-class-section" class="section">
+        <h3 class="section-header">Parent</h3>
+        
+        <p class="link"><a href="TaskQueue.html">TaskQueue</a></p>
+        
+      </div>
+      
+
+      <!-- Namespace Contents -->
+      
+
+      <!-- Method Quickref -->
+      
+      <div id="method-list-section" class="section">
+        <h3 class="section-header">Methods</h3>
+        <ul class="link-list">
+          
+          <li><a href="#method-c-new">::new</a></li>
+          
+          <li><a href="#method-i-get_creds">#get_creds</a></li>
+          
+          <li><a href="#method-i-is_pull_queue_app_running-3F">#is_pull_queue_app_running?</a></li>
+          
+          <li><a href="#method-i-pop">#pop</a></li>
+          
+          <li><a href="#method-i-push">#push</a></li>
+          
+          <li><a href="#method-i-size">#size</a></li>
+          
+          <li><a href="#method-i-to_s">#to_s</a></li>
+          
+          <li><a href="#method-i-wait_for_app_to_start_serving">#wait_for_app_to_start_serving</a></li>
+          
+        </ul>
+      </div>
+      
+
+      <!-- Included Modules -->
+      
+    </div>
+
+    <div id="project-metadata">
+      
+      
+
+      <div id="classindex-section" class="section project-section">
+        <h3 class="section-header">Class/Module Index
+          <span class="search-toggle"><img src="./images/find.png"
+            height="16" width="16" alt="[+]"
+            title="show/hide quicksearch" /></span></h3>
+        <form action="#" method="get" accept-charset="utf-8" class="initially-hidden">
+        <fieldset>
+          <legend>Quicksearch</legend>
+          <input type="text" name="quicksearch" value=""
+            class="quicksearch-field" />
+        </fieldset>
+        </form>
+
+        <ul class="link-list">
+        
+          <li><a href="./NeptuneManager.html">NeptuneManager</a></li>
+        
+          <li><a href="./NeptuneManager/Djinn.html">NeptuneManager::Djinn</a></li>
+        
+          <li><a href="./BadConfigurationException.html">BadConfigurationException</a></li>
+        
+          <li><a href="./Datastore.html">Datastore</a></li>
+        
+          <li><a href="./DatastoreFactory.html">DatastoreFactory</a></li>
+        
+          <li><a href="./DatastoreRepo.html">DatastoreRepo</a></li>
+        
+          <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a></li>
+        
+          <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a></li>
+        
+          <li><a href="./DatastoreS3.html">DatastoreS3</a></li>
+        
+          <li><a href="./Djinn.html">Djinn</a></li>
+        
+          <li><a href="./EngineFactory.html">EngineFactory</a></li>
+        
+          <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a></li>
+        
+          <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a></li>
+        
+          <li><a href="./HelperFunctions.html">HelperFunctions</a></li>
+        
+          <li><a href="./NeptuneJobData.html">NeptuneJobData</a></li>
+        
+          <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a></li>
+        
+          <li><a href="./Object.html">Object</a></li>
+        
+          <li><a href="./QueueFactory.html">QueueFactory</a></li>
+        
+          <li><a href="./TaskEngine.html">TaskEngine</a></li>
+        
+          <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a></li>
+        
+          <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a></li>
+        
+          <li><a href="./TaskQueue.html">TaskQueue</a></li>
+        
+          <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a></li>
+        
+          <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a></li>
+        
+          <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a></li>
+        
+          <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a></li>
+        
+          <li><a href="./UserAppClient.html">UserAppClient</a></li>
+        
+        </ul>
+        <div id="no-class-search-results" style="display: none;">No matching classes.</div>
+      </div>
+
+      
+    </div>
+  </div>
+
+  <div id="documentation">
+    <h1 class="class">TaskQueueGoogleAppEngine</h1>
+
+    <div id="description">
+      
+    </div>
+
+    <!-- Constants -->
+    
+    <div id="constants-list" class="section">
+      <h3 class="section-header">Constants</h3>
+      <dl>
+      
+        <dt><a name="NAME">NAME</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+      </dl>
+    </div>
+    
+
+    <!-- Attributes -->
+    
+
+    <!-- Methods -->
+    
+    <div id="public-instance-method-details" class="method-section section">
+      <h3 class="section-header">Public Instance Methods</h3>
+
+    
+      <div id="get_creds-method" class="method-detail ">
+        <a name="method-i-get_creds"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_creds</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>returns all the credentials needed to access this queue for App Engine,
+it’s all the job data, since we may have to upload the app</p>
+          
+
+          
+          <div class="method-source-code"
+            id="get_creds-source">
+<pre>
+<span class="ruby-comment"># File lib/task_queues/task_queue_google_app_engine.rb, line 113</span>
+def get_creds()
+  return <span class="ruby-ivar">@credentials</span>
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="is_pull_queue_app_running-3F-method" class="method-detail ">
+        <a name="method-i-is_pull_queue_app_running-3F"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">is_pull_queue_app_running?</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="is_pull_queue_app_running-3F-source">
+<pre>
+<span class="ruby-comment"># File lib/task_queues/task_queue_google_app_engine.rb, line 146</span>
+def is_pull_queue_app_running?()
+  host = &quot;http://#{@appid}.appspot.com&quot;
+
+  begin
+    <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;trying a GET on /supportspullqueue&quot;</span>)
+    result = <span class="ruby-constant">GoogleAppEnginePullQueue</span>.get(&quot;#{host}/supportspullqueue&quot;)
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{host} returned [#{result}]&quot;)
+    if result == true
+      <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;the currently running app supports pull queues&quot;</span>)
+      return true
+    else
+      <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;the currently running app does not support pull queues&quot;</span>)
+      return false
+    end
+  rescue <span class="ruby-constant">NoMethodError</span>  <span class="ruby-comment"># if the host is down or doesn't have the right route</span>
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{host} did not return a 200, so returning false&quot;)
+    return false
+  end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="pop-method" class="method-detail ">
+        <a name="method-i-pop"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">pop</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="pop-source">
+<pre>
+<span class="ruby-comment"># File lib/task_queues/task_queue_google_app_engine.rb, line 95</span>
+def pop()
+  host = &quot;http://#{@appid}.appspot.com&quot;
+
+  begin
+    <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;trying a GET on /task&quot;</span>)
+    task = <span class="ruby-constant">GoogleAppEnginePullQueue</span>.get(&quot;#{host}/task&quot;)
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{host} is up and returned a task with payload: #{task}&quot;)
+    return task
+  rescue <span class="ruby-constant">NoMethodError</span>  <span class="ruby-comment"># if the host is down</span>
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{host} is down, returning nil&quot;)
+    return nil
+  end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="push-method" class="method-detail ">
+        <a name="method-i-push"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">push</span><span
+            class="method-args">(item)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>stores a hash in the queue for later processing, by converting it to JSON
+and pushing it to our app engine app</p>
+          
+
+          
+          <div class="method-source-code"
+            id="push-source">
+<pre>
+<span class="ruby-comment"># File lib/task_queues/task_queue_google_app_engine.rb, line 71</span>
+def push(item)
+  if item.class != <span class="ruby-constant">Hash</span>
+    raise <span class="ruby-constant">BadConfigurationException</span>.new
+  end
+  payload = <span class="ruby-constant">JSON</span>.dump(item)
+
+  host = &quot;http://#{@appid}.appspot.com&quot;
+  begin
+    <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;trying a PUT on /task&quot;</span>)
+    <span class="ruby-comment"># PUT requests require a Content-Length header in App Engine, so</span>
+    <span class="ruby-comment"># set an empty body and httparty will add that header in</span>
+    result = <span class="ruby-constant">GoogleAppEnginePullQueue</span>.put(&quot;#{host}/task&quot;, :body =&gt; <span class="ruby-string">''</span>, :query =&gt; {:payload =&gt; payload})
+    if result[<span class="ruby-string">'ok'</span>]
+      <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{host} is up - push succeeded&quot;)
+    else
+      <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{host} is up but push did not succeed, &quot; +
+        &quot;returning #{result.inspect}&quot;)
+    end
+  rescue <span class="ruby-constant">NoMethodError</span>  <span class="ruby-comment"># if the host is down</span>
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{host} is down, returning on push&quot;)
+  end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="size-method" class="method-detail ">
+        <a name="method-i-size"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">size</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>returns the number of messages in the queue Our App Engine app has a
+special route just for this, with a counter that is associated with the
+size of the queue</p>
+          
+
+          
+          <div class="method-source-code"
+            id="size-source">
+<pre>
+<span class="ruby-comment"># File lib/task_queues/task_queue_google_app_engine.rb, line 121</span>
+def size()
+  host = &quot;http://#{@appid}.appspot.com&quot;
+
+  begin
+    <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;trying a GET on /size&quot;</span>)
+    result = <span class="ruby-constant">GoogleAppEnginePullQueue</span>.get(&quot;#{host}/size&quot;)
+    size = result[<span class="ruby-string">'size'</span>]
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{host} is up and returned a size of #{size}&quot;)
+    return size
+  rescue <span class="ruby-constant">NoMethodError</span>  <span class="ruby-comment"># if the host is down</span>
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{host} is down, returning 0&quot;)
+    return 0
+  end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="to_s-method" class="method-detail ">
+        <a name="method-i-to_s"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">to_s</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>returns a string representation of this queue, which is just the queue name
+and the credentials TODO(cgb): this seems generic enough to move into <a
+href="TaskQueue.html">TaskQueue</a>, so do so</p>
+          
+
+          
+          <div class="method-source-code"
+            id="to_s-source">
+<pre>
+<span class="ruby-comment"># File lib/task_queues/task_queue_google_app_engine.rb, line 141</span>
+def to_s()
+  return &quot;Queue type: Google App Engine, app id: #{@appid}, &quot; +
+    &quot;appcfg_cookies: #{@appcfg_cookies}&quot;
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="wait_for_app_to_start_serving-method" class="method-detail ">
+        <a name="method-i-wait_for_app_to_start_serving"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">wait_for_app_to_start_serving</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="wait_for_app_to_start_serving-source">
+<pre>
+<span class="ruby-comment"># File lib/task_queues/task_queue_google_app_engine.rb, line 166</span>
+def wait_for_app_to_start_serving()
+  host = &quot;http://#{@appid}.appspot.com&quot;
+  <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;waiting for app to start serving&quot;</span>)
+  loop {
+    if is_pull_queue_app_running?
+      <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;app is now serving!&quot;</span>)
+      break
+    else
+      <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;app is not yet serving&quot;</span>)
+      sleep(10)
+    end
+  }
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+    </div>
+  
+    <div id="public-class-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="new-method" class="method-detail ">
+        <a name="method-c-new"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">new</span><span
+            class="method-args">(credentials)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>creates a new App Engine queue via the gtaskqueue executable</p>
+          
+
+          
+          <div class="method-source-code"
+            id="new-source">
+<pre>
+<span class="ruby-comment"># File lib/task_queues/task_queue_google_app_engine.rb, line 43</span>
+def initialize(credentials)
+  if credentials.class != <span class="ruby-constant">Hash</span>
+    raise <span class="ruby-constant">BadConfigurationException</span>.new
+  end
+  <span class="ruby-ivar">@credentials</span> = credentials
+
+  if credentials[<span class="ruby-string">'@appid'</span>].nil?
+    raise <span class="ruby-constant">BadConfigurationException</span>.new
+  end
+  <span class="ruby-ivar">@appid</span> = credentials[<span class="ruby-string">'@appid'</span>]
+  
+  if credentials[<span class="ruby-string">'@appcfg_cookies'</span>].nil?
+    raise <span class="ruby-constant">BadConfigurationException</span>.new
+  end
+  <span class="ruby-ivar">@appcfg_cookies</span> = credentials[<span class="ruby-string">'@appcfg_cookies'</span>]
+
+  <span class="ruby-comment"># The App Engine pull queue interface we use is an App Engine app, so make</span>
+  <span class="ruby-comment"># sure that the app is already in App Engine, and if not, upload it.</span>
+  if !is_pull_queue_app_running?
+    app_location = <span class="ruby-string">'/root/appscale/AppServer/demos/pullqueueapp'</span>
+    <span class="ruby-constant">TaskEngineGoogleAppEngine</span>.upload_app(credentials, app_location)
+    wait_for_app_to_start_serving
+  end
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+    </div>
+  
+
+  </div>
+
+  <div id="validator-badges">
+    <p><small><a href="http://validator.w3.org/check/referer">[Validate]</a></small></p>
+    <p><small>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish
+      Rdoc Generator</a> 2</small>.</p>
+  </div>
+
+</body>
+</html>
+

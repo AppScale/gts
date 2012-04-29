@@ -1,0 +1,3133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+
+  <title>Class: Object</title>
+
+  <link rel="stylesheet" href="./rdoc.css" type="text/css" media="screen" />
+
+  <script src="./js/jquery.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/thickbox-compressed.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/quicksearch.js" type="text/javascript"
+    charset="utf-8"></script>
+  <script src="./js/darkfish.js" type="text/javascript"
+    charset="utf-8"></script>
+
+</head>
+<body class="class">
+
+  <div id="metadata">
+    <div id="home-metadata">
+      <div id="home-section" class="section">
+        <h3 class="section-header">
+          <a href="./index.html">Home</a>
+          <a href="./index.html#classes">Classes</a>
+          <a href="./index.html#methods">Methods</a>
+        </h3>
+      </div>
+    </div>
+
+    <div id="file-metadata">
+      <div id="file-list-section" class="section">
+        <h3 class="section-header">In Files</h3>
+        <div class="section-body">
+          <ul>
+          
+            <li><a href="./neptune_manager_server_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
+              class="thickbox" title="neptune_manager_server.rb">neptune_manager_server.rb</a></li>
+          
+            <li><a href="./lib/job_types/ssa_helper_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
+              class="thickbox" title="lib/job_types/ssa_helper.rb">lib/job_types/ssa_helper.rb</a></li>
+          
+            <li><a href="./lib/job_types/mpi_helper_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
+              class="thickbox" title="lib/job_types/mpi_helper.rb">lib/job_types/mpi_helper.rb</a></li>
+          
+            <li><a href="./lib/job_types/babel_helper_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
+              class="thickbox" title="lib/job_types/babel_helper.rb">lib/job_types/babel_helper.rb</a></li>
+          
+            <li><a href="./lib/job_types/cewssa_helper_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
+              class="thickbox" title="lib/job_types/cewssa_helper.rb">lib/job_types/cewssa_helper.rb</a></li>
+          
+            <li><a href="./lib/job_types/dfsp_helper_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
+              class="thickbox" title="lib/job_types/dfsp_helper.rb">lib/job_types/dfsp_helper.rb</a></li>
+          
+            <li><a href="./lib/job_types/mapreduce_helper_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
+              class="thickbox" title="lib/job_types/mapreduce_helper.rb">lib/job_types/mapreduce_helper.rb</a></li>
+          
+            <li><a href="./lib/job_types/cicero_helper_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
+              class="thickbox" title="lib/job_types/cicero_helper.rb">lib/job_types/cicero_helper.rb</a></li>
+          
+            <li><a href="./lib/neptune_job_data_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
+              class="thickbox" title="lib/neptune_job_data.rb">lib/neptune_job_data.rb</a></li>
+          
+          </ul>
+        </div>
+      </div>
+
+      
+    </div>
+
+    <div id="class-metadata">
+
+      <!-- Parent Class -->
+      
+      <div id="parent-class-section" class="section">
+        <h3 class="section-header">Parent</h3>
+        
+        <p class="link"></p>
+        
+      </div>
+      
+
+      <!-- Namespace Contents -->
+      
+
+      <!-- Method Quickref -->
+      
+      <div id="method-list-section" class="section">
+        <h3 class="section-header">Methods</h3>
+        <ul class="link-list">
+          
+          <li><a href="#method-i-average">#average</a></li>
+          
+          <li><a href="#method-i-get_execution_plan">#get_execution_plan</a></li>
+          
+          <li><a href="#method-i-get_inputs_from_job_data">#get_inputs_from_job_data</a></li>
+          
+          <li><a href="#method-i-get_language">#get_language</a></li>
+          
+          <li><a href="#method-i-neptune_cewssa_get_output">#neptune_cewssa_get_output</a></li>
+          
+          <li><a href="#method-i-neptune_cewssa_run_job">#neptune_cewssa_run_job</a></li>
+          
+          <li><a href="#method-i-neptune_cicero_run_job">#neptune_cicero_run_job</a></li>
+          
+          <li><a href="#method-i-neptune_dfsp_get_output">#neptune_dfsp_get_output</a></li>
+          
+          <li><a href="#method-i-neptune_dfsp_run_job">#neptune_dfsp_run_job</a></li>
+          
+          <li><a href="#method-i-neptune_get_ssa_num_simulations">#neptune_get_ssa_num_simulations</a></li>
+          
+          <li><a href="#method-i-neptune_get_ssa_seed_vals">#neptune_get_ssa_seed_vals</a></li>
+          
+          <li><a href="#method-i-neptune_mapreduce_get_output">#neptune_mapreduce_get_output</a></li>
+          
+          <li><a href="#method-i-neptune_mapreduce_run_job">#neptune_mapreduce_run_job</a></li>
+          
+          <li><a href="#method-i-neptune_mpi_get_output">#neptune_mpi_get_output</a></li>
+          
+          <li><a href="#method-i-neptune_mpi_run_job">#neptune_mpi_run_job</a></li>
+          
+          <li><a href="#method-i-neptune_ssa_get_output">#neptune_ssa_get_output</a></li>
+          
+          <li><a href="#method-i-neptune_ssa_run_job">#neptune_ssa_run_job</a></li>
+          
+          <li><a href="#method-i-parse_resource_info">#parse_resource_info</a></li>
+          
+          <li><a href="#method-i-run_on_db_master">#run_on_db_master</a></li>
+          
+          <li><a href="#method-i-run_via_cicero">#run_via_cicero</a></li>
+          
+          <li><a href="#method-i-standard_deviation">#standard_deviation</a></li>
+          
+          <li><a href="#method-i-start_appengine_on_all_nodes">#start_appengine_on_all_nodes</a></li>
+          
+          <li><a href="#method-i-start_cewssa_master">#start_cewssa_master</a></li>
+          
+          <li><a href="#method-i-start_cewssa_slave">#start_cewssa_slave</a></li>
+          
+          <li><a href="#method-i-start_cicero_master">#start_cicero_master</a></li>
+          
+          <li><a href="#method-i-start_cicero_slave">#start_cicero_slave</a></li>
+          
+          <li><a href="#method-i-start_dfsp_master">#start_dfsp_master</a></li>
+          
+          <li><a href="#method-i-start_dfsp_slave">#start_dfsp_slave</a></li>
+          
+          <li><a href="#method-i-start_mapreduce_master">#start_mapreduce_master</a></li>
+          
+          <li><a href="#method-i-start_mapreduce_slave">#start_mapreduce_slave</a></li>
+          
+          <li><a href="#method-i-start_mpd">#start_mpd</a></li>
+          
+          <li><a href="#method-i-start_mpi_master">#start_mpi_master</a></li>
+          
+          <li><a href="#method-i-start_mpi_slave">#start_mpi_slave</a></li>
+          
+          <li><a href="#method-i-start_nfs">#start_nfs</a></li>
+          
+          <li><a href="#method-i-start_ssa_master">#start_ssa_master</a></li>
+          
+          <li><a href="#method-i-start_ssa_slave">#start_ssa_slave</a></li>
+          
+          <li><a href="#method-i-stop_appengine_on_all_nodes">#stop_appengine_on_all_nodes</a></li>
+          
+          <li><a href="#method-i-stop_cewssa_master">#stop_cewssa_master</a></li>
+          
+          <li><a href="#method-i-stop_cewssa_slave">#stop_cewssa_slave</a></li>
+          
+          <li><a href="#method-i-stop_cicero_master">#stop_cicero_master</a></li>
+          
+          <li><a href="#method-i-stop_cicero_slave">#stop_cicero_slave</a></li>
+          
+          <li><a href="#method-i-stop_dfsp_master">#stop_dfsp_master</a></li>
+          
+          <li><a href="#method-i-stop_dfsp_slave">#stop_dfsp_slave</a></li>
+          
+          <li><a href="#method-i-stop_mapreduce_master">#stop_mapreduce_master</a></li>
+          
+          <li><a href="#method-i-stop_mapreduce_slave">#stop_mapreduce_slave</a></li>
+          
+          <li><a href="#method-i-stop_mpd">#stop_mpd</a></li>
+          
+          <li><a href="#method-i-stop_mpi_master">#stop_mpi_master</a></li>
+          
+          <li><a href="#method-i-stop_mpi_slave">#stop_mpi_slave</a></li>
+          
+          <li><a href="#method-i-stop_nfs">#stop_nfs</a></li>
+          
+          <li><a href="#method-i-stop_ssa_master">#stop_ssa_master</a></li>
+          
+          <li><a href="#method-i-stop_ssa_slave">#stop_ssa_slave</a></li>
+          
+          <li><a href="#method-i-unmount_nfs_store">#unmount_nfs_store</a></li>
+          
+          <li><a href="#method-i-variance">#variance</a></li>
+          
+          <li><a href="#method-i-wait_for_hdfs_file">#wait_for_hdfs_file</a></li>
+          
+        </ul>
+      </div>
+      
+
+      <!-- Included Modules -->
+      
+    </div>
+
+    <div id="project-metadata">
+      
+      
+
+      <div id="classindex-section" class="section project-section">
+        <h3 class="section-header">Class/Module Index
+          <span class="search-toggle"><img src="./images/find.png"
+            height="16" width="16" alt="[+]"
+            title="show/hide quicksearch" /></span></h3>
+        <form action="#" method="get" accept-charset="utf-8" class="initially-hidden">
+        <fieldset>
+          <legend>Quicksearch</legend>
+          <input type="text" name="quicksearch" value=""
+            class="quicksearch-field" />
+        </fieldset>
+        </form>
+
+        <ul class="link-list">
+        
+          <li><a href="./NeptuneManager.html">NeptuneManager</a></li>
+        
+          <li><a href="./NeptuneManager/Djinn.html">NeptuneManager::Djinn</a></li>
+        
+          <li><a href="./BadConfigurationException.html">BadConfigurationException</a></li>
+        
+          <li><a href="./Datastore.html">Datastore</a></li>
+        
+          <li><a href="./DatastoreFactory.html">DatastoreFactory</a></li>
+        
+          <li><a href="./DatastoreRepo.html">DatastoreRepo</a></li>
+        
+          <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a></li>
+        
+          <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a></li>
+        
+          <li><a href="./DatastoreS3.html">DatastoreS3</a></li>
+        
+          <li><a href="./Djinn.html">Djinn</a></li>
+        
+          <li><a href="./EngineFactory.html">EngineFactory</a></li>
+        
+          <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a></li>
+        
+          <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a></li>
+        
+          <li><a href="./HelperFunctions.html">HelperFunctions</a></li>
+        
+          <li><a href="./NeptuneJobData.html">NeptuneJobData</a></li>
+        
+          <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a></li>
+        
+          <li><a href="./Object.html">Object</a></li>
+        
+          <li><a href="./QueueFactory.html">QueueFactory</a></li>
+        
+          <li><a href="./TaskEngine.html">TaskEngine</a></li>
+        
+          <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a></li>
+        
+          <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a></li>
+        
+          <li><a href="./TaskQueue.html">TaskQueue</a></li>
+        
+          <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a></li>
+        
+          <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a></li>
+        
+          <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a></li>
+        
+          <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a></li>
+        
+          <li><a href="./UserAppClient.html">UserAppClient</a></li>
+        
+        </ul>
+        <div id="no-class-search-results" style="display: none;">No matching classes.</div>
+      </div>
+
+      
+    </div>
+  </div>
+
+  <div id="documentation">
+    <h1 class="class">Object</h1>
+
+    <div id="description">
+      
+    </div>
+
+    <!-- Constants -->
+    
+    <div id="constants-list" class="section">
+      <h3 class="section-header">Constants</h3>
+      <dl>
+      
+        <dt><a name="SINGLE_NODE_COMPUTE_JOBS">SINGLE_NODE_COMPUTE_JOBS</a></dt>
+        
+        <dd class="description"><p>A list of the Neptune jobs that AppScale will not automatically spawn up
+nodes for. Babel (our distributed task execution system) is in this list
+because it does not use the standard AppScale mechanism to acquire nodes,
+and acquires nodes via specialized scaling techniques.</p></dd>
+        
+      
+        <dt><a name="MULTI_NODE_COMPUTE_JOBS">MULTI_NODE_COMPUTE_JOBS</a></dt>
+        
+        <dd class="description"><p>A list of the Neptune jobs that AppScale will automatically spawn up more
+nodes for.</p></dd>
+        
+      
+        <dt><a name="NONCOMPUTE_JOBS">NONCOMPUTE_JOBS</a></dt>
+        
+        <dd class="description"><p>A list of Neptune jobs that are not considered to be computation jobs, and
+relate to storage or pre-computation in some way.</p></dd>
+        
+      
+        <dt><a name="NEPTUNE_JOBS">NEPTUNE_JOBS</a></dt>
+        
+        <dd class="description"><p>A list of all the Neptune jobs that we support in AppScale.</p></dd>
+        
+      
+        <dt><a name="MULTICORE">MULTICORE</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="SSA_HOME">SSA_HOME</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="IS_FILE">IS_FILE</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="NOT_A_FILE">NOT_A_FILE</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="MPD_HOSTS">MPD_HOSTS</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="MPI_OUTPUT">MPI_OUTPUT</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="TASK_QUEUE_NAME">TASK_QUEUE_NAME</a></dt>
+        
+        <dd class="description"><p>The name of the queue to use when storing or receiving tasks. Since some
+providers use it as part of a FQDN, don’t put underscores or other
+non-FQDN characters in it.</p></dd>
+        
+      
+        <dt><a name="BIRTH_DEATH">BIRTH_DEATH</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="OUTPUT_HOME">OUTPUT_HOME</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="OUR_CEWSSA_CODE">OUR_CEWSSA_CODE</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="MERGE_SCRIPT">MERGE_SCRIPT</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="DFSP_HOME">DFSP_HOME</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="BAD_TABLE_MSG">BAD_TABLE_MSG</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="DBS_W_HADOOP">DBS_W_HADOOP</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="APPSCALE_HOME">APPSCALE_HOME</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="HADOOP">HADOOP</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="STREAMING">STREAMING</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="RETRY_TIME">RETRY_TIME</a></dt>
+        
+        <dd class="description"></dd>
+        
+      
+        <dt><a name="COST">COST</a></dt>
+        
+        <dd class="description"><p>The current costs for EC2 instances in the East Coast region. TODO(cgb):
+Find out some way to get this dynamically so we can record costs in more
+than one region, or utilize clouds with a different cloud model (e.g.,
+community or private clouds).</p></dd>
+        
+      
+        <dt><a name="ONE_HOUR">ONE_HOUR</a></dt>
+        
+        <dd class="description"><p>EC2 meters on a per-hour basis, so keep a constant for later use that
+corresponds to a single hour.</p></dd>
+        
+      
+      </dl>
+    </div>
+    
+
+    <!-- Attributes -->
+    
+
+    <!-- Methods -->
+    
+    <div id="public-instance-method-details" class="method-section section">
+      <h3 class="section-header">Public Instance Methods</h3>
+
+    
+      <div id="average-method" class="method-detail ">
+        <a name="method-i-average"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">average</span><span
+            class="method-args">(population)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="average-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/ssa_helper.rb, line 252</span>
+def average(population)
+  total = 0.0
+  n = 0
+
+  population.each { |val|
+    total += val
+    n += 1
+  }
+
+  return total / n
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_execution_plan-method" class="method-detail ">
+        <a name="method-i-get_execution_plan"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_execution_plan</span><span
+            class="method-args">(nodes, resource_info, num_tasks)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="get_execution_plan-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/cicero_helper.rb, line 223</span>
+def get_execution_plan(nodes, resource_info, num_tasks)
+  <span class="ruby-comment"># based on the resource info given, deduce where to run tasks</span>
+  <span class="ruby-comment"># and how many should be run in each cloud</span>
+
+  <span class="ruby-comment"># for now, just divide the work evenly on all the clouds the user has given us</span>
+
+  execution_plan = {}
+  num_clouds = resource_info.length
+  num_tasks_left = num_tasks
+
+  num_tasks_per_cloud = num_tasks / num_clouds
+  resource_info.each { |k, v|
+    execution_plan[k] = num_tasks_per_cloud
+    num_tasks_left -= num_tasks_per_cloud
+  }
+
+  if !num_tasks_left.zero?
+    <span class="ruby-comment"># TODO - the user may not have specified cloud1, so refactor later to use</span>
+    <span class="ruby-comment"># whatever the first cloud specified was</span>
+    execution_plan[<span class="ruby-string">&quot;cloud1&quot;</span>] += num_tasks_left
+  end
+
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;num_tasks_per_cloud = #{execution_plan.inspect}&quot;)
+  return execution_plan
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_inputs_from_job_data-method" class="method-detail ">
+        <a name="method-i-get_inputs_from_job_data"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_inputs_from_job_data</span><span
+            class="method-args">(job_data)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>The user can specify an arbitrary number of inputs to be used for a TaskQ
+job. The inputs must be sequentially numbered, so search through all the
+job data starting at input1 until we fail to find a match, and return all
+inputs found.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="get_inputs_from_job_data-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/cicero_helper.rb, line 202</span>
+def get_inputs_from_job_data(job_data)
+  inputs = []
+  input_number = 1
+  loop {
+    current_input = &quot;@input#{input_number}&quot;
+    current_val = job_data[current_input]
+    if current_val.nil?
+      <span class="ruby-constant">Djinn</span>.log_debug(&quot;Didn't see [#{current_input}] - no more inputs&quot;)
+      break
+    end
+
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;Saw [#{current_input}] -&gt; [#{current_val}], adding&quot; +
+      <span class="ruby-string">&quot; to the input list&quot;</span>)
+    inputs &lt;&lt; current_val
+    input_number += 1
+  }
+
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;all inputs for this job are [#{inputs.join(', ')}]&quot;)
+  return inputs
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="get_language-method" class="method-detail ">
+        <a name="method-i-get_language"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">get_language</span><span
+            class="method-args">(filename)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="get_language-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/mapreduce_helper.rb, line 194</span>
+def get_language(filename)
+  return <span class="ruby-string">&quot;ruby&quot;</span>
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="neptune_cewssa_get_output-method" class="method-detail ">
+        <a name="method-i-neptune_cewssa_get_output"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">neptune_cewssa_get_output</span><span
+            class="method-args">(job_data)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="neptune_cewssa_get_output-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/cewssa_helper.rb, line 97</span>
+def neptune_cewssa_get_output(job_data)
+  return <span class="ruby-constant">OUTPUT_HOME</span>
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="neptune_cewssa_run_job-method" class="method-detail ">
+        <a name="method-i-neptune_cewssa_run_job"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">neptune_cewssa_run_job</span><span
+            class="method-args">(nodes, job_data, secret)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="neptune_cewssa_run_job-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/cewssa_helper.rb, line 16</span>
+def neptune_cewssa_run_job(nodes, job_data, secret)
+  <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;cewssa - pre-run&quot;</span>)
+  return <span class="ruby-constant">BAD_SECRET_MSG</span> unless valid_secret?(secret)
+
+  <span class="ruby-comment">#message = validate_environment(job_data, secret)</span>
+  <span class="ruby-comment">#return message unless message == &quot;no error&quot;</span>
+
+  <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;cewssa - run&quot;</span>)
+
+  <span class="ruby-constant">Thread</span>.new {
+
+    start_time = <span class="ruby-constant">Time</span>.now
+
+    keyname = <span class="ruby-ivar">@creds</span>[<span class="ruby-string">'keyname'</span>]
+    nodes = <span class="ruby-constant">Djinn</span>.convert_location_array_to_class(nodes, keyname)
+    sims = neptune_get_ssa_num_simulations(nodes, job_data)
+
+    threads = []
+    at = 0
+
+    random_numbers = neptune_get_ssa_seed_vals(nodes.length)
+
+    nodes.each_with_index { |node, i|
+      threads &lt;&lt; <span class="ruby-constant">Thread</span>.new {
+        ip = node.private_ip
+        ssh_key = node.ssh_key
+        start = at
+        fin = at + sims[i]
+        at = fin
+        remote_del_command = &quot;rm -rf #{OUTPUT_HOME}/*&quot;
+        <span class="ruby-constant">Djinn</span>.log_run(&quot;ssh -i #{ssh_key} -o StrictHostkeyChecking=no root@#{ip} '#{remote_del_command}'&quot;)
+
+        iterations = fin - start <span class="ruby-comment"># don't need to add one here</span>
+        seed = random_numbers[i]
+
+        output_file = &quot;#{OUTPUT_HOME}/data#{i}.txt&quot;
+        remote_run_command = &quot;#{OUR_CEWSSA_CODE} #{BIRTH_DEATH} #{iterations} #{seed} 1.454 0.686 &gt; #{output_file}&quot; 
+        <span class="ruby-constant">Djinn</span>.log_run(&quot;ssh -i #{ssh_key} -o StrictHostkeyChecking=no root@#{ip} '#{remote_run_command}'&quot;)
+      }
+    }
+
+    <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;cewssa - joining threads&quot;</span>)
+
+    threads.each { |t| t.join }
+
+    <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;cewssa - retrieving run data&quot;</span>)
+
+    nodes.each { |node|
+      ip = node.private_ip
+      ssh_key = node.ssh_key
+      remote_cp_command = &quot;scp -i #{ssh_key} -o StrictHostkeyChecking=no root@#{ip}:#{OUTPUT_HOME}/data* #{OUTPUT_HOME}/&quot;
+      <span class="ruby-constant">Djinn</span>.log_run(remote_cp_command)
+    }
+
+    <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;cewssa - collecting stats&quot;</span>)
+
+    collect_stats = &quot;#{MERGE_SCRIPT} #{OUTPUT_HOME}/data* &gt; #{OUTPUT_HOME}/finalresult.txt&quot;
+    <span class="ruby-constant">Djinn</span>.log_run(collect_stats)
+
+    fin_time = <span class="ruby-constant">Time</span>.now
+    total = fin_time - start_time
+    <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;cewssa - done!&quot;</span>)
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;TIMING: Took #{total} seconds.&quot;)
+
+    shadow = get_shadow
+    shadow_ip = shadow.private_ip
+    shadow_key = shadow.ssh_key
+
+    final_result = &quot;#{OUTPUT_HOME}/finalresult.txt&quot;
+    <span class="ruby-constant">HelperFunctions</span>.scp_file(final_result, final_result, shadow_ip, shadow_key)
+
+    neptune_write_job_output(job_data, final_result)
+
+    remove_lock_file(job_data)
+  }
+
+  return <span class="ruby-string">&quot;OK&quot;</span>
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="neptune_cicero_run_job-method" class="method-detail ">
+        <a name="method-i-neptune_cicero_run_job"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">neptune_cicero_run_job</span><span
+            class="method-args">(nodes, jobs, secret)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="neptune_cicero_run_job-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/cicero_helper.rb, line 20</span>
+def neptune_cicero_run_job(nodes, jobs, secret)
+  if !valid_secret?(secret)
+    return <span class="ruby-constant">BAD_SECRET_MSG</span>
+  end
+
+  if nodes.class != <span class="ruby-constant">Array</span>
+    return <span class="ruby-string">&quot;nodes must be an Array&quot;</span>
+  end
+
+  job_data = jobs[0]
+  if job_data.class != <span class="ruby-constant">Hash</span>
+    return <span class="ruby-string">&quot;job_data must be a Hash&quot;</span>
+  end
+
+  <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;cicero - run&quot;</span>)
+
+  <span class="ruby-constant">Thread</span>.new {
+    run_via_cicero(nodes, job_data, secret)
+  }
+
+  return <span class="ruby-string">&quot;OK&quot;</span>
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="neptune_dfsp_get_output-method" class="method-detail ">
+        <a name="method-i-neptune_dfsp_get_output"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">neptune_dfsp_get_output</span><span
+            class="method-args">(job_data)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="neptune_dfsp_get_output-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/dfsp_helper.rb, line 86</span>
+def neptune_dfsp_get_output(job_data)
+  return <span class="ruby-constant">DFSP_HOME</span>
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="neptune_dfsp_run_job-method" class="method-detail ">
+        <a name="method-i-neptune_dfsp_run_job"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">neptune_dfsp_run_job</span><span
+            class="method-args">(nodes, job_data, secret)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="neptune_dfsp_run_job-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/dfsp_helper.rb, line 13</span>
+def neptune_dfsp_run_job(nodes, job_data, secret)
+  return <span class="ruby-constant">BAD_SECRET_MSG</span> unless valid_secret?(secret)
+  <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;dfsp - run&quot;</span>)
+
+  <span class="ruby-constant">Thread</span>.new {
+    start_time = <span class="ruby-constant">Time</span>.now
+
+    keyname = <span class="ruby-ivar">@creds</span>[<span class="ruby-string">'keyname'</span>]
+    nodes = <span class="ruby-constant">Djinn</span>.convert_location_array_to_class(nodes, keyname)
+    sims = neptune_get_ssa_num_simulations(nodes, job_data)
+
+    threads = []
+    at = 0 
+    nodes.each_with_index { |node, i|
+      threads &lt;&lt; <span class="ruby-constant">Thread</span>.new {
+        ip = node.private_ip
+        ssh_key = node.ssh_key
+        start = at
+        fin = at + sims[i]
+        at = fin
+        remote_del_command = &quot;rm -rf #{DFSP_HOME}/data*&quot;
+        remote_run_command = &quot;cd #{DFSP_HOME}; ./multi_run.pl #{start} #{fin}&quot;
+        <span class="ruby-constant">Djinn</span>.log_run(&quot;ssh -i #{ssh_key} -o StrictHostkeyChecking=no root@#{ip} '#{remote_del_command}'&quot;)
+        <span class="ruby-constant">Djinn</span>.log_run(&quot;ssh -i #{ssh_key} -o StrictHostkeyChecking=no root@#{ip} '#{remote_run_command}'&quot;)
+      }
+    }
+
+    <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;dfsp - joining threads&quot;</span>)
+
+    threads.each { |t| t.join }
+
+    <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;dfsp - retrieving run data&quot;</span>)
+
+    nodes.each { |node|
+      ip = node.private_ip
+      ssh_key = node.ssh_key
+      remote_cp_command = &quot;scp -i #{ssh_key} -o StrictHostkeyChecking=no root@#{ip}:#{DFSP_HOME}/data* #{DFSP_HOME}/&quot;
+      <span class="ruby-constant">Djinn</span>.log_run(remote_cp_command)
+    }  
+
+    <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;dfsp - collecting stats&quot;</span>)
+
+    collect_stats = &quot;cd #{DFSP_HOME}/; ./collect_stats.pl #{at} &gt;out 2&gt;err&quot;
+    <span class="ruby-constant">Djinn</span>.log_run(collect_stats)
+
+    fin_time = <span class="ruby-constant">Time</span>.now
+    total = fin_time - start_time
+    <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;dfsp - done!&quot;</span>)
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;TIMING: Took #{total} seconds.&quot;)
+
+    shadow = get_shadow
+    shadow_ip = shadow.private_ip
+    shadow_key = shadow.ssh_key
+
+    out = &quot;#{DFSP_HOME}/out&quot;
+    <span class="ruby-constant">HelperFunctions</span>.scp_file(out, out, shadow_ip, shadow_key)
+
+    err = &quot;#{DFSP_HOME}/err&quot;
+    <span class="ruby-constant">HelperFunctions</span>.scp_file(err, err, shadow_ip, shadow_key)
+
+    data = &quot;#{DFSP_HOME}/data*&quot;
+    <span class="ruby-constant">HelperFunctions</span>.scp_file(data, <span class="ruby-constant">DFSP_HOME</span>, shadow_ip, shadow_key)
+
+    neptune_write_job_output(job_data, out)
+
+    remove_lock_file(job_data)
+  }
+
+  return <span class="ruby-string">&quot;OK&quot;</span>
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="neptune_get_ssa_num_simulations-method" class="method-detail ">
+        <a name="method-i-neptune_get_ssa_num_simulations"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">neptune_get_ssa_num_simulations</span><span
+            class="method-args">(nodes, job_data)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="neptune_get_ssa_num_simulations-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/ssa_helper.rb, line 228</span>
+def neptune_get_ssa_num_simulations(nodes, job_data)
+  num_nodes = nodes.length
+  num_sims = job_data[<span class="ruby-string">&quot;@trajectories&quot;</span>] || job_data[<span class="ruby-string">&quot;@simulations&quot;</span>]
+  sims_per_node = num_sims / num_nodes
+
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;num nodes = #{num_nodes}&quot;)
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;num_sims = #{num_sims}&quot;)
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;sims_per_node = #{sims_per_node}&quot;)
+
+  <span class="ruby-comment"># set up how many simulations each node</span>
+  <span class="ruby-comment"># should run by divying it up equally</span>
+  <span class="ruby-comment"># any remainder can be assigned to an</span>
+  <span class="ruby-comment"># arbitrary node</span>
+
+  sims = [sims_per_node] * num_nodes
+  remainder = num_sims % num_nodes
+  sims[-1] += remainder
+
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;sims = #{sims.join(', ')}&quot;)
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;remainder = #{remainder}&quot;)
+
+  return sims
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="neptune_get_ssa_seed_vals-method" class="method-detail ">
+        <a name="method-i-neptune_get_ssa_seed_vals"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">neptune_get_ssa_seed_vals</span><span
+            class="method-args">(num_vals)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="neptune_get_ssa_seed_vals-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/ssa_helper.rb, line 215</span>
+def neptune_get_ssa_seed_vals(num_vals)
+  random_numbers = []
+  loop {
+    possible_rand = rand(32000)
+    unless random_numbers.include?(possible_rand)
+      random_numbers &lt;&lt; possible_rand
+    end
+    break if num_vals == random_numbers.length
+  }
+
+  return random_numbers
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="neptune_mapreduce_get_output-method" class="method-detail ">
+        <a name="method-i-neptune_mapreduce_get_output"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">neptune_mapreduce_get_output</span><span
+            class="method-args">(job_data)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="neptune_mapreduce_get_output-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/mapreduce_helper.rb, line 135</span>
+def neptune_mapreduce_get_output(job_data)
+  output = job_data[<span class="ruby-string">&quot;@output&quot;</span>]
+  output_location = &quot;/tmp/#{output}&quot;
+
+  `rm -rf #{output_location}`
+  run_on_db_master(&quot;rm -rf #{output_location}&quot;, <span class="ruby-constant">NO_OUTPUT</span>) 
+  run_on_db_master(&quot;#{HADOOP} fs -get #{output} #{output_location}&quot;, <span class="ruby-constant">NO_OUTPUT</span>)
+  unless my_node.is_db_master?
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;hey by the way output is [#{output}]&quot;)
+
+    db_master = get_db_master
+    ip = db_master.public_ip
+    ssh_key = db_master.ssh_key
+
+    <span class="ruby-constant">Djinn</span>.log_run(&quot;scp -i #{ssh_key} -o StrictHostkeyChecking=no -r #{ip}:#{output_location} #{output_location}&quot;)
+  end
+
+  return output_location
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="neptune_mapreduce_run_job-method" class="method-detail ">
+        <a name="method-i-neptune_mapreduce_run_job"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">neptune_mapreduce_run_job</span><span
+            class="method-args">(nodes, job_data, secret)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="neptune_mapreduce_run_job-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/mapreduce_helper.rb, line 29</span>
+def neptune_mapreduce_run_job(nodes, job_data, secret)
+  return <span class="ruby-constant">BAD_SECRET_MSG</span> unless valid_secret?(secret)
+  <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;mapreduce - run&quot;</span>)
+
+  <span class="ruby-constant">Thread</span>.new {
+    keyname = <span class="ruby-ivar">@creds</span>[<span class="ruby-string">'keyname'</span>]
+    nodes = <span class="ruby-constant">Djinn</span>.convert_location_array_to_class(nodes, keyname)
+
+    storage = job_data[<span class="ruby-string">&quot;@storage&quot;</span>]
+    datastore = <span class="ruby-constant">DatastoreFactory</span>.get_datastore(storage, job_data)
+
+    mapreducejar = job_data[<span class="ruby-string">&quot;@mapreducejar&quot;</span>]
+    main = job_data[<span class="ruby-string">&quot;@main&quot;</span>]
+
+    map = job_data[<span class="ruby-string">&quot;@map&quot;</span>]
+    reduce = job_data[<span class="ruby-string">&quot;@reduce&quot;</span>]
+
+    input = job_data[<span class="ruby-string">&quot;@input&quot;</span>]
+    output = job_data[<span class="ruby-string">&quot;@output&quot;</span>]
+
+    <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;MR: Copying mapper and reducer to all boxes&quot;</span>)
+    <span class="ruby-comment"># TODO: get files from shadow first if in cloud</span>
+
+    if mapreducejar
+      <span class="ruby-constant">Djinn</span>.log_debug(&quot;need to get mr jar located at #{mapreducejar}&quot;)
+      mr_file = mapreducejar.split(<span class="ruby-string">'/'</span>)[-1]
+      my_mrjar = &quot;/tmp/#{mr_file}&quot;
+      datastore.get_output_and_save_to_fs(mapreducejar, my_mrjar)
+
+      nodes.each { |node|
+        <span class="ruby-constant">HelperFunctions</span>.scp_file(my_mrjar, my_mrjar, node.private_ip, node.ssh_key)
+      }
+
+      db_master = get_db_master
+      ip = db_master.private_ip
+      ssh_key = db_master.ssh_key
+      <span class="ruby-constant">HelperFunctions</span>.scp_file(my_mrjar, my_mrjar, ip, ssh_key)
+
+      run_mr_command = &quot;#{HADOOP} jar #{my_mrjar} #{main} #{input} #{output}&quot;
+    else
+      <span class="ruby-constant">Djinn</span>.log_debug(&quot;need to get map code located at #{map}, and reduce &quot; +
+        &quot;code located at #{reduce}&quot;)
+
+      map_file = map.split(<span class="ruby-string">'/'</span>)[-1]
+      red_file = reduce.split(<span class="ruby-string">'/'</span>)[-1]
+
+      my_map = &quot;/tmp/#{map_file}&quot;
+      my_red = &quot;/tmp/#{red_file}&quot;
+
+      datastore.get_output_and_save_to_fs(map, my_map)
+      datastore.get_output_and_save_to_fs(reduce, my_red)
+
+      <span class="ruby-comment"># since the db master is the initiator of the mapreduce job, it needs</span>
+      <span class="ruby-comment"># to have both the mapper and reducer files handy</span>
+
+      db_master = get_db_master
+      ip = db_master.private_ip
+      ssh_key = db_master.ssh_key
+      <span class="ruby-constant">HelperFunctions</span>.scp_file(my_map, my_map, ip, ssh_key)
+      <span class="ruby-constant">HelperFunctions</span>.scp_file(my_red, my_red, ip, ssh_key)
+
+      nodes.each { |node|
+        <span class="ruby-constant">HelperFunctions</span>.scp_file(my_map, my_map, node.private_ip, node.ssh_key)
+        <span class="ruby-constant">HelperFunctions</span>.scp_file(my_red, my_red, node.private_ip, node.ssh_key)
+      }
+
+      map_cmd = <span class="ruby-string">&quot;\&quot;&quot;</span> + get_language(my_map) + <span class="ruby-string">&quot; &quot;</span> + my_map + <span class="ruby-string">&quot;\&quot;&quot;</span>
+      reduce_cmd = <span class="ruby-string">&quot;\&quot;&quot;</span> + get_language(my_red) + <span class="ruby-string">&quot; &quot;</span> + my_red + <span class="ruby-string">&quot;\&quot;&quot;</span>
+
+      run_mr_command = &quot;#{HADOOP} jar #{STREAMING} -input #{input} &quot; +
+        &quot;-output #{output} -mapper #{map_cmd} -reducer #{reduce_cmd}&quot;
+    end
+
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;waiting for input file #{input} to exist in HDFS&quot;)
+    wait_for_hdfs_file(input)
+
+    <span class="ruby-comment"># run mr job</span>
+    start = <span class="ruby-constant">Time</span>.now
+
+    <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;MR: Running job&quot;</span>)
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;MR: Command is #{run_mr_command}&quot;)
+    <span class="ruby-constant">Djinn</span>.log_run(run_mr_command)
+
+    wait_for_hdfs_file(output)
+    <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;MR: Done running job!&quot;</span>)
+
+    fin = <span class="ruby-constant">Time</span>.now
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;TIMING: Total time is #{fin - start} seconds&quot;)
+
+    <span class="ruby-comment"># TODO: check if no part-* files exist - if so, there's an error</span>
+    <span class="ruby-comment"># that we should funnel to the user somehow</span>
+
+    output_cmd = &quot;#{HADOOP} fs -cat #{output}/part-*&quot;
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;MR: Retrieving job output with command #{output_cmd}&quot;)
+    output_str = `#{output_cmd}`
+
+    neptune_write_job_output_str(job_data, output_str)
+
+    remove_lock_file(job_data)
+  }
+
+  return <span class="ruby-string">&quot;OK&quot;</span>
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="neptune_mpi_get_output-method" class="method-detail ">
+        <a name="method-i-neptune_mpi_get_output"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">neptune_mpi_get_output</span><span
+            class="method-args">(job_data)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="neptune_mpi_get_output-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/mpi_helper.rb, line 122</span>
+def neptune_mpi_get_output(job_data)
+  return <span class="ruby-constant">MPI_OUTPUT</span>
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="neptune_mpi_run_job-method" class="method-detail ">
+        <a name="method-i-neptune_mpi_run_job"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">neptune_mpi_run_job</span><span
+            class="method-args">(nodes, job_data, secret)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="neptune_mpi_run_job-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/mpi_helper.rb, line 18</span>
+def neptune_mpi_run_job(nodes, job_data, secret)
+  return <span class="ruby-constant">BAD_SECRET_MSG</span> unless valid_secret?(secret)
+  <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;mpi - run&quot;</span>)
+
+  <span class="ruby-constant">Thread</span>.new {
+    job_data[<span class="ruby-string">'@metadata_info'</span>] = {<span class="ruby-string">'received_job_at'</span> =&gt; <span class="ruby-constant">Time</span>.now.to_i}
+
+    keyname = <span class="ruby-ivar">@creds</span>[<span class="ruby-string">'keyname'</span>]
+    nodes = <span class="ruby-constant">Djinn</span>.convert_location_array_to_class(nodes, keyname)
+
+    <span class="ruby-constant">ENV</span>[<span class="ruby-string">'LD_LIBRARY_PATH'</span>] = <span class="ruby-string">&quot;/usr/lib&quot;</span>
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;library path = #{ENV['LD_LIBRARY_PATH']}&quot;)
+
+    start_nfs(nodes)
+
+    sleep(5) <span class="ruby-comment"># CGB</span>
+
+    shadow = get_shadow
+    shadow_ip = shadow.private_ip
+    shadow_key = shadow.ssh_key
+
+    remote = job_data[<span class="ruby-string">'@code'</span>]
+    splitted_code = remote.split(<span class="ruby-string">'/'</span>)
+    remote_dir = splitted_code[0..splitted_code.length-2].join(<span class="ruby-string">'/'</span>)
+    filename_to_exec = splitted_code[2..splitted_code.length-1].join(<span class="ruby-string">'/'</span>)
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;remote dir is [#{remote_dir}], filename_to_exec is #{filename_to_exec}&quot;)
+
+    storage = job_data[<span class="ruby-string">'@storage'</span>]
+
+    unless my_node.is_shadow?
+      <span class="ruby-constant">Djinn</span>.log_run(&quot;rm -fv /tmp/#{filename_to_exec}&quot;)
+    end
+
+    working_dir = &quot;/mirrornfs/#{HelperFunctions.get_random_alphanumeric()}&quot;
+    <span class="ruby-constant">FileUtils</span>.mkdir_p(working_dir)
+    <span class="ruby-constant">Djinn</span>.copy_code_and_inputs_to_dir(job_data, working_dir)
+
+    start_mpd(nodes)
+    sleep(5)
+
+    if job_data[<span class="ruby-string">&quot;@procs_to_use&quot;</span>]
+      num_of_procs = job_data[<span class="ruby-string">&quot;@procs_to_use&quot;</span>]
+    else
+      num_of_procs = nodes.length
+    end
+
+    <span class="ruby-comment"># Some job types (e.g., kdt) need to specify something a program to use</span>
+    <span class="ruby-comment"># to run the user's code (e.g., Python), so let them do so via the</span>
+    <span class="ruby-comment"># executable parameter.</span>
+    if job_data[<span class="ruby-string">&quot;@executable&quot;</span>]
+      executable = job_data[<span class="ruby-string">&quot;@executable&quot;</span>]
+    else
+      executable = <span class="ruby-string">&quot;&quot;</span>
+    end
+
+    <span class="ruby-comment"># If the user specifies an argv to pass to the code to exec, be sure to</span>
+    <span class="ruby-comment"># capture it and pass it along</span>
+    if job_data[<span class="ruby-string">&quot;@argv&quot;</span>]
+      argv = job_data[<span class="ruby-string">&quot;@argv&quot;</span>]
+      <span class="ruby-comment"># TODO(cgb): filter out colons and other things that malicious users could</span>
+      <span class="ruby-comment"># use to hijack the system</span>
+    else
+      argv = <span class="ruby-string">&quot;&quot;</span>
+    end
+
+    output_file = &quot;/tmp/mpi-output-#{rand()}&quot;
+    error_file = &quot;/tmp/mpi-error-#{rand()}&quot;
+
+    full_path_to_file = &quot;#{working_dir}/#{filename_to_exec}&quot;
+
+    start_time = <span class="ruby-constant">Time</span>.now
+    <span class="ruby-constant">Djinn</span>.log_run(&quot;mpiexec -env X10_NTHREADS 1 -n #{num_of_procs} &quot; +
+      &quot;#{executable} #{full_path_to_file} #{argv} 1&gt;#{output_file} 2&gt;#{error_file}&quot;)
+    end_time = <span class="ruby-constant">Time</span>.now
+ 
+    total = end_time - start_time
+    <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;MPI: Done running job!&quot;</span>)
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;TIMING: Took #{total} seconds&quot;)
+
+    job_data[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'start_time'</span>] = start_time.to_i
+    job_data[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'end_time'</span>] = end_time.to_i
+    job_data[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'total_execution_time'</span>] = total
+
+    stop_mpd()
+
+    stop_nfs(nodes)
+
+    <span class="ruby-constant">Djinn</span>.write_babel_outputs(output_file, error_file, job_data)
+
+    <span class="ruby-comment"># clean up after ourselves - remove the user's code and any outputs</span>
+    <span class="ruby-comment"># it may have produced</span>
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;Removing working dir #{working_dir}&quot;)
+    <span class="ruby-constant">FileUtils</span>.rm_rf(working_dir)
+    <span class="ruby-constant">FileUtils</span>.rm_rf(output_file)
+    <span class="ruby-constant">FileUtils</span>.rm_rf(error_file)
+
+    remove_lock_file(job_data)
+  }
+
+  return <span class="ruby-string">&quot;OK&quot;</span>
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="neptune_ssa_get_output-method" class="method-detail ">
+        <a name="method-i-neptune_ssa_get_output"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">neptune_ssa_get_output</span><span
+            class="method-args">(job_data)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="neptune_ssa_get_output-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/ssa_helper.rb, line 195</span>
+def neptune_ssa_get_output(job_data)
+  return <span class="ruby-constant">SSA_HOME</span>
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="neptune_ssa_run_job-method" class="method-detail ">
+        <a name="method-i-neptune_ssa_run_job"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">neptune_ssa_run_job</span><span
+            class="method-args">(nodes, job_data, secret)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="neptune_ssa_run_job-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/ssa_helper.rb, line 24</span>
+def neptune_ssa_run_job(nodes, job_data, secret)
+  return <span class="ruby-constant">BAD_SECRET_MSG</span> unless valid_secret?(secret)
+  <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;ssa - run&quot;</span>)
+
+  <span class="ruby-constant">Thread</span>.new {
+    start_time = <span class="ruby-constant">Time</span>.now
+    total_compute_time = 0
+    total_storage_time = 0
+    total_slowest_path = 0
+    c_times = []
+    s_times = []
+
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;job data is #{job_data.inspect}&quot;)
+    keyname = <span class="ruby-ivar">@creds</span>[<span class="ruby-string">'keyname'</span>]
+
+    nodes = <span class="ruby-constant">Djinn</span>.convert_location_array_to_class(nodes, keyname)
+
+    sims = neptune_get_ssa_num_simulations(nodes, job_data)
+
+    working_dir = &quot;/tmp/ssa-#{rand(10000)}&quot;
+    <span class="ruby-constant">FileUtils</span>.mkdir_p(working_dir)
+
+    tar = working_dir + <span class="ruby-string">&quot;/&quot;</span> + <span class="ruby-constant">File</span>.basename(job_data[<span class="ruby-string">'@tar'</span>])
+
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;tar is #{job_data['@tar']}&quot;)
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;working dir is #{working_dir}&quot;)
+
+    remote = job_data[<span class="ruby-string">'@tar'</span>]
+
+    datastore = <span class="ruby-constant">DatastoreFactory</span>.get_datastore(job_data[<span class="ruby-string">'@storage'</span>], job_data)
+    datastore.get_output_and_save_to_fs(remote, tar)
+
+    neptune_uncompress_file(tar)
+
+    num_sims = job_data[<span class="ruby-string">&quot;@trajectories&quot;</span>] || job_data[<span class="ruby-string">&quot;@simulations&quot;</span>]
+
+    param_num = job_data[<span class="ruby-string">'@param_num'</span>]
+
+    threads = []
+    node_times = []
+    at = 0 
+    nodes.each_with_index { |node, i|
+      threads &lt;&lt; <span class="ruby-constant">Thread</span>.new {
+        node_times[i] = 0
+
+        ip = node.private_ip
+        ssh_key = node.ssh_key
+        start = at
+        fin = at + sims[i]
+        at = fin
+        fin -= 1 
+        <span class="ruby-constant">Djinn</span>.log_debug(&quot;This node will run trajectories #{start} to #{fin}&quot;)
+
+        code_path = &quot;#{working_dir}/code/run.sh&quot;
+        <span class="ruby-constant">Djinn</span>.log_run(&quot;chmod +x #{code_path}&quot;)
+        exec = &quot;bash #{code_path}&quot;
+
+        input = &quot;#{working_dir}/code/#{job_data['@input']}&quot;
+
+        unless ip == <span class="ruby-constant">HelperFunctions</span>.local_ip
+          <span class="ruby-constant">Djinn</span>.log_run(&quot;scp -r -i #{ssh_key} -o StrictHostkeyChecking=no #{working_dir} root@#{ip}:#{working_dir}&quot;)
+        end
+
+        trajectories = fin - start + 1 
+
+        if <span class="ruby-constant">MULTICORE</span>
+          cores = <span class="ruby-constant">HelperFunctions</span>.get_num_cpus()
+        else
+          cores = 1
+        end
+
+        done = 0
+        loop {
+          trajectories_left = trajectories - done
+          <span class="ruby-constant">Djinn</span>.log_debug(&quot;Need to run #{trajectories_left} more trajectories on #{cores} cores&quot;)
+          break if trajectories_left.zero?
+          need_to_run = [trajectories_left, cores].min
+
+          <span class="ruby-constant">Djinn</span>.log_debug(&quot;Running #{need_to_run} trajectories&quot;)
+          core_threads = []
+          current_times = []
+          need_to_run.times { |j|
+            core_threads &lt;&lt; <span class="ruby-constant">Thread</span>.new {
+              my_trajectory = start+done+j
+              <span class="ruby-constant">Djinn</span>.log_debug(&quot;Thread #{j} is running trajectory #{my_trajectory}&quot;)
+              output = <span class="ruby-constant">File</span>.expand_path(&quot;#{working_dir}/output-#{my_trajectory}&quot;)
+
+              <span class="ruby-comment"># run the computation, remembering to place StochKit in the user's PATH</span>
+              path = &quot;PATH=$PATH:#{SSA_HOME}&quot;
+              run_command = &quot;#{path} #{exec} #{input} #{output} #{my_trajectory} #{param_num}&quot;
+
+              start_compute = <span class="ruby-constant">Time</span>.now
+              <span class="ruby-constant">Djinn</span>.log_run(&quot;ssh -i #{ssh_key} -o StrictHostkeyChecking=no root@#{ip} '#{run_command}'&quot;)
+              end_compute = <span class="ruby-constant">Time</span>.now
+              c_time = end_compute - start_compute
+              total_compute_time += c_time
+              c_times &lt;&lt; c_time
+
+              <span class="ruby-comment"># copy the output back to this box - in the future we can do merges here</span>
+              <span class="ruby-comment"># or in the future we can just have the node upload to s3</span>
+              start_storage = <span class="ruby-constant">Time</span>.now
+              unless <span class="ruby-constant">HelperFunctions</span>.local_ip == ip
+                remote_cp_command = &quot;scp -r -i #{ssh_key} -o StrictHostkeyChecking=no root@#{ip}:#{output} #{output}&quot;
+                <span class="ruby-constant">Djinn</span>.log_run(remote_cp_command)
+
+              end
+
+              remote_location = &quot;#{job_data['@output']}/output-#{my_trajectory}&quot;
+              datastore.write_remote_file_from_local_file(remote_location, output)
+              end_storage = <span class="ruby-constant">Time</span>.now
+              s_time = end_storage - start_storage
+              total_storage_time += s_time
+              s_times &lt;&lt; s_time
+
+              node_times[i] += (c_time + s_time)
+
+              <span class="ruby-comment"># remove our output - we can't want the disk to fill up</span>
+              remove_cmd = &quot;rm -rf #{output}&quot;
+              <span class="ruby-constant">Djinn</span>.log_run(&quot;ssh -i #{ssh_key} -o StrictHostkeyChecking=no root@#{ip} '#{remove_cmd}'&quot;)
+              <span class="ruby-constant">Djinn</span>.log_run(remove_cmd)
+            }
+          }
+
+          core_threads.each { |c| c.join }
+
+          done += need_to_run
+          <span class="ruby-constant">Djinn</span>.log_debug(&quot;Done running #{need_to_run} trajectories, #{trajectories - done} to go&quot;)
+        }
+      }
+    }
+
+    <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;ssa - joining threads&quot;</span>)
+
+    threads.each { |t| t.join }
+
+    <span class="ruby-comment"># clean up after ourselves</span>
+    <span class="ruby-constant">Djinn</span>.log_run(&quot;rm -rf #{working_dir}&quot;)
+
+    fin_time = <span class="ruby-constant">Time</span>.now
+    total = fin_time - start_time
+    total_slowest_path = node_times.max
+    total_overhead_time = total - total_slowest_path
+
+    timing_info = <span class="ruby-string">    TIMING: total execution time is #{total} seconds.    TIMING: total compute time is #{total_compute_time} seconds.    TIMING: total storage time is #{total_storage_time} seconds.    TIMING: slowest path time is #{total_slowest_path} seconds.    TIMING: overhead time is #{total_overhead_time} seconds.    TIMING: average compute time is #{average(c_times)} seconds.    TIMING: stddev compute time is #{standard_deviation(c_times)} seconds.    TIMING: average storage time is #{average(s_times)} seconds.    TIMING: stddev storage time is #{standard_deviation(s_times)} seconds.    RAW_DATA: node times are: [#{node_times.join(', ')}]    RAW_DATA: compute times are: [#{c_times.join(', ')}]    RAW_DATA: storage times are: [#{s_times.join(', ')}]</span>
+
+    <span class="ruby-constant">Djinn</span>.log_debug(timing_info)
+
+    remote_location = &quot;#{job_data['@output']}/timing_info.txt&quot;
+    datastore.write_remote_file_from_string(remote_location, timing_info)
+
+    remove_lock_file(job_data)
+  }
+
+  return <span class="ruby-string">&quot;OK&quot;</span>
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="parse_resource_info-method" class="method-detail ">
+        <a name="method-i-parse_resource_info"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">parse_resource_info</span><span
+            class="method-args">(job_data)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Grabs the @nodes_to_use parameter from the given job data and returns a
+hash only containing info about the resources found in each cloud. These
+resources are either an integer (describing the number of virtual machines
+to use) or a URL (describing an opaque resource that conforms to the TaskQ
+API).</p>
+          
+
+          
+          <div class="method-source-code"
+            id="parse_resource_info-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/cicero_helper.rb, line 116</span>
+def parse_resource_info(job_data)
+  nodes_to_use = job_data[<span class="ruby-string">&quot;@nodes_to_use&quot;</span>]
+  if nodes_to_use.class == <span class="ruby-constant">Integer</span>  <span class="ruby-comment"># only use nodes in the current cloud</span>
+    return {<span class="ruby-string">&quot;cloud1&quot;</span> =&gt; nodes_to_use}
+  end
+
+  return <span class="ruby-constant">Hash</span>[*nodes_to_use]
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="run_on_db_master-method" class="method-detail ">
+        <a name="method-i-run_on_db_master"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">run_on_db_master</span><span
+            class="method-args">(command, output=WANT_OUTPUT)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="run_on_db_master-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/mapreduce_helper.rb, line 198</span>
+def run_on_db_master(command, output=<span class="ruby-constant">WANT_OUTPUT</span>)
+  db_master = get_db_master
+  ip = db_master.public_ip
+  ssh_key = db_master.ssh_key  
+  <span class="ruby-constant">HelperFunctions</span>.run_remote_command(ip, command, ssh_key, <span class="ruby-constant">NO_OUTPUT</span>) 
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="run_via_cicero-method" class="method-detail ">
+        <a name="method-i-run_via_cicero"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">run_via_cicero</span><span
+            class="method-args">(nodes, job_data, secret)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Runs a Cicero job on the given nodes or via a remote cloud, indicated
+within job_data.</p>
+          
+
+          
+          <div class="method-source-code"
+            id="run_via_cicero-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/cicero_helper.rb, line 47</span>
+def run_via_cicero(nodes, job_data, secret)
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;job data is #{job_data.inspect}&quot;)
+
+  resource_info = parse_resource_info(job_data)
+
+  keyname = <span class="ruby-ivar">@creds</span>[<span class="ruby-string">'keyname'</span>]
+  nodes = <span class="ruby-constant">Djinn</span>.convert_location_array_to_class(nodes, keyname)
+
+  app_name = job_data[<span class="ruby-string">&quot;@app_name&quot;</span>]
+  urls = start_appengine_on_all_nodes(resource_info, nodes, app_name)
+
+  num_tasks_total = job_data[<span class="ruby-string">&quot;@tasks&quot;</span>]
+  tasks_for_each_cloud = get_execution_plan(nodes, resource_info, num_tasks_total)
+
+  function_name = job_data[<span class="ruby-string">&quot;@function&quot;</span>]
+  inputs = get_inputs_from_job_data(job_data)
+
+  start_time = <span class="ruby-constant">Time</span>.now
+  threads_per_cloud = []
+  urls.each { |cloud, urls|
+    threads_per_cloud &lt;&lt; <span class="ruby-constant">Thread</span>.new {
+      num_tasks = tasks_for_each_cloud[cloud]
+      num_urls = urls.length
+      threads_per_url = []
+      num_urls.times { |i|
+        threads_per_url &lt;&lt; <span class="ruby-constant">Thread</span>.new {
+          <span class="ruby-comment"># TODO - consider cases where this doesn't divide evenly</span>
+          host = urls[i]
+          num_tasks_for_this_url = num_tasks / num_urls
+          task_ids = []
+          num_tasks_for_this_url.times { |j|
+            output = job_data[<span class="ruby-string">&quot;@output&quot;</span>] + <span class="ruby-constant">String</span>(j)
+            <span class="ruby-comment">#self.execute_task(host, function_name, inputs, output) #Python</span>
+            task_ids &lt;&lt; self.execute_task(host, function_name, inputs, output) <span class="ruby-comment">#Java</span>
+            task_number = j + 1
+            percent_done = task_number / <span class="ruby-constant">Float</span>(num_tasks_for_this_url) * 100
+            <span class="ruby-constant">Djinn</span>.log_debug(&quot;done putting #{task_number}/&quot; +
+              &quot;#{num_tasks_for_this_url} tasks (#{percent_done} percent)&quot;)
+          }
+
+          num_tasks_for_this_url.times { |j|
+            <span class="ruby-comment"># TODO - the task id shouldn't be the output - refactor later</span>
+            <span class="ruby-comment">#task_id = job_data[&quot;@output&quot;] + String(j) #Python</span>
+            task_id = task_ids[j] <span class="ruby-comment">#Java</span>
+            self.wait_for_task_to_complete(host, task_id)
+            task_number = j + 1
+            percent_done = task_number / <span class="ruby-constant">Float</span>(num_tasks_for_this_url) * 100
+            <span class="ruby-constant">Djinn</span>.log_debug(&quot;done with #{task_number}&quot; +
+              &quot;/#{num_tasks_for_this_url} tasks (#{percent_done} percent)&quot;)
+          }
+        }
+      }
+      threads_per_url.each { |t| t.join }
+    }
+  }
+  threads_per_cloud.each { |t| t.join }
+  end_time = <span class="ruby-constant">Time</span>.now
+  total_time = end_time - start_time
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;TIMING: total execution time is #{total_time} seconds&quot;)
+
+  stop_appengine_on_all_nodes(resource_info, nodes, app_name)
+  remove_lock_file(job_data)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="standard_deviation-method" class="method-detail ">
+        <a name="method-i-standard_deviation"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">standard_deviation</span><span
+            class="method-args">(population)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="standard_deviation-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/ssa_helper.rb, line 279</span>
+def standard_deviation(population)
+  <span class="ruby-constant">Math</span>.sqrt(variance(population))
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="start_appengine_on_all_nodes-method" class="method-detail ">
+        <a name="method-i-start_appengine_on_all_nodes"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">start_appengine_on_all_nodes</span><span
+            class="method-args">(resource_info, nodes, app_name)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="start_appengine_on_all_nodes-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/cicero_helper.rb, line 125</span>
+def start_appengine_on_all_nodes(resource_info, nodes, app_name)
+  resource_info.each { |cloud, nodes_or_url|
+    if nodes_or_url =~ <span class="ruby-constant">URL_REGEX</span>
+      resource_info[cloud] = [nodes_or_url]
+    else
+      resource_info[cloud] = []
+    end
+  }
+
+  if nodes.empty?
+    <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;All resources used are remote resource - no need to&quot;</span> +
+      <span class="ruby-string">&quot; start App Engine instances&quot;</span>)
+    return resource_info
+  end
+
+  nodes.each { |node|
+    <span class="ruby-comment"># update our local copy of what we think the nodes are doing</span>
+    appengine_role = <span class="ruby-string">&quot;appengine&quot;</span>
+    node.add_roles(appengine_role)
+
+    <span class="ruby-comment"># tell the node that it should be running appengine apps</span>
+    acc = <span class="ruby-constant">AppControllerClient</span>.new(node.public_ip, <span class="ruby-constant">HelperFunctions</span>.get_secret)
+    acc.add_role(appengine_role)
+
+    host = node.public_ip
+    port = <span class="ruby-string">&quot;&quot;</span>
+    uac = <span class="ruby-constant">UserAppClient</span>.new(<span class="ruby-ivar">@userappserver_private_ip</span>, <span class="ruby-constant">HelperFunctions</span>.get_secret)
+    loop {
+      app_data = uac.get_app_data(app_name)
+      <span class="ruby-constant">Djinn</span>.log_debug(&quot;app data for app [#{app_name}] is [#{app_data}]&quot;)
+      all_hosts = app_data.scan(<span class="ruby-regexp">/^hosts:(.*)/</span>).flatten.to_s.split(<span class="ruby-string">&quot;:&quot;</span>)
+      all_ports = app_data.scan(<span class="ruby-regexp">/^ports:(.*)/</span>).flatten.to_s.split(<span class="ruby-string">&quot;:&quot;</span>)
+
+      all_hosts.each_with_index { |this_host, index|
+        if this_host == host
+          port = all_ports[index].strip
+          <span class="ruby-constant">Djinn</span>.log_debug(&quot;found a match: #{host}:#{port}&quot;)
+          break
+        end
+      }
+      break if !port.empty?
+
+      <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;still waiting for app to come online...&quot;</span>)
+      sleep(5)
+    }
+    uri = &quot;http://#{host}:#{port}&quot;
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;adding uri [#{uri}] to cloud [#{node.cloud}]&quot;)
+    resource_info[node.cloud] &lt;&lt; uri
+  }
+
+  return resource_info
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="start_cewssa_master-method" class="method-detail ">
+        <a name="method-i-start_cewssa_master"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">start_cewssa_master</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="start_cewssa_master-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/cewssa_helper.rb, line 101</span>
+def start_cewssa_master()
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{my_node.private_ip} is starting cewssa master&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="start_cewssa_slave-method" class="method-detail ">
+        <a name="method-i-start_cewssa_slave"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">start_cewssa_slave</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="start_cewssa_slave-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/cewssa_helper.rb, line 105</span>
+def start_cewssa_slave()
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{my_node.private_ip} is starting cewssa slave&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="start_cicero_master-method" class="method-detail ">
+        <a name="method-i-start_cicero_master"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">start_cicero_master</span><span
+            class="method-args">(my_node)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="start_cicero_master-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/cicero_helper.rb, line 249</span>
+def start_cicero_master(my_node)
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{my_node.private_ip} is starting cicero master&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="start_cicero_slave-method" class="method-detail ">
+        <a name="method-i-start_cicero_slave"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">start_cicero_slave</span><span
+            class="method-args">(my_node)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="start_cicero_slave-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/cicero_helper.rb, line 253</span>
+def start_cicero_slave(my_node)
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{my_node.private_ip} is starting cicero slave&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="start_dfsp_master-method" class="method-detail ">
+        <a name="method-i-start_dfsp_master"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">start_dfsp_master</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="start_dfsp_master-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/dfsp_helper.rb, line 90</span>
+def start_dfsp_master()
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{my_node.private_ip} is starting dfsp master&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="start_dfsp_slave-method" class="method-detail ">
+        <a name="method-i-start_dfsp_slave"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">start_dfsp_slave</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="start_dfsp_slave-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/dfsp_helper.rb, line 94</span>
+def start_dfsp_slave()
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{my_node.private_ip} is starting dfsp slave&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="start_mapreduce_master-method" class="method-detail ">
+        <a name="method-i-start_mapreduce_master"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">start_mapreduce_master</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="start_mapreduce_master-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/mapreduce_helper.rb, line 155</span>
+def start_mapreduce_master()
+  <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;start mapreduce master - starting up hadoop first&quot;</span>)
+  <span class="ruby-comment">#start_db_master</span>
+  <span class="ruby-comment">#start_hadoop_slave</span>
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="start_mapreduce_slave-method" class="method-detail ">
+        <a name="method-i-start_mapreduce_slave"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">start_mapreduce_slave</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="start_mapreduce_slave-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/mapreduce_helper.rb, line 161</span>
+def start_mapreduce_slave()
+  <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;start mapreduce slave - starting up hadoop first&quot;</span>)
+  <span class="ruby-comment">#start_db_slave</span>
+  <span class="ruby-comment">#start_hadoop_slave</span>
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="start_mpd-method" class="method-detail ">
+        <a name="method-i-start_mpd"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">start_mpd</span><span
+            class="method-args">(nodes)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="start_mpd-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/mpi_helper.rb, line 182</span>
+def start_mpd(nodes)
+  mpd_hosts_contents = <span class="ruby-string">&quot;&quot;</span>
+  nodes.each { |node|
+    mpd_hosts_contents &lt;&lt; &quot;#{node.private_ip}\n&quot;
+  }
+  mpd_hosts_contents.chomp!
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;MPD Hosts are: #{mpd_hosts_contents}&quot;)
+  <span class="ruby-constant">HelperFunctions</span>.write_file(<span class="ruby-constant">MPD_HOSTS</span>, mpd_hosts_contents) 
+
+  ssh_keys = []
+  nodes.each { |node|
+     ssh_keys &lt;&lt; node.ssh_key
+  }
+  ssh_keys.uniq!
+
+  <span class="ruby-constant">Djinn</span>.log_run(&quot;mpdboot -r 'ssh -o StrictHostkeyChecking=no -i #{ssh_keys.join(' -i ')}' -f #{MPD_HOSTS} -n #{nodes.length}&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="start_mpi_master-method" class="method-detail ">
+        <a name="method-i-start_mpi_master"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">start_mpi_master</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="start_mpi_master-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/mpi_helper.rb, line 205</span>
+def start_mpi_master()
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{my_node.private_ip} is starting mpi master&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="start_mpi_slave-method" class="method-detail ">
+        <a name="method-i-start_mpi_slave"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">start_mpi_slave</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="start_mpi_slave-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/mpi_helper.rb, line 209</span>
+def start_mpi_slave()
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{my_node.private_ip} is starting mpi slave&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="start_nfs-method" class="method-detail ">
+        <a name="method-i-start_nfs"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">start_nfs</span><span
+            class="method-args">(nodes)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="start_nfs-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/mpi_helper.rb, line 126</span>
+def start_nfs(nodes)
+  <span class="ruby-constant">Djinn</span>.log_run(<span class="ruby-string">&quot;/etc/init.d/nfs-kernel-server start&quot;</span>)
+  sleep(10)
+
+  slave_nodes = nodes - [my_node]
+  return if slave_nodes.empty?
+
+  slave_mount = &quot;mount #{my_node.private_ip}:/mirrornfs /mirrornfs&quot;
+  slave_nodes.each { |node|
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;[nfs master] node at #{node.private_ip} is currently doing #{node.jobs.join(', ')}&quot;)
+    next if node.private_ip == my_node.private_ip
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;mounting /mirrornfs on machine located at [#{node.private_ip}]&quot;)
+    <span class="ruby-constant">HelperFunctions</span>.run_remote_command(node.private_ip, slave_mount, node.ssh_key, <span class="ruby-constant">NO_OUTPUT</span>)
+  }
+
+  sleep(10)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="start_ssa_master-method" class="method-detail ">
+        <a name="method-i-start_ssa_master"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">start_ssa_master</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="start_ssa_master-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/ssa_helper.rb, line 199</span>
+def start_ssa_master()
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{my_node.private_ip} is starting ssa master&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="start_ssa_slave-method" class="method-detail ">
+        <a name="method-i-start_ssa_slave"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">start_ssa_slave</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="start_ssa_slave-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/ssa_helper.rb, line 203</span>
+def start_ssa_slave()
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{my_node.private_ip} is starting ssa slave&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="stop_appengine_on_all_nodes-method" class="method-detail ">
+        <a name="method-i-stop_appengine_on_all_nodes"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">stop_appengine_on_all_nodes</span><span
+            class="method-args">(resource_info, nodes, app_name)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="stop_appengine_on_all_nodes-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/cicero_helper.rb, line 178</span>
+def stop_appengine_on_all_nodes(resource_info, nodes, app_name)
+  if nodes.empty?
+    <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;All resources used are remote resource - no need to&quot;</span> +
+      <span class="ruby-string">&quot; stop App Engine instances&quot;</span>)
+    return
+  end
+
+  nodes.each { |node|
+    <span class="ruby-comment"># update our local copy of what we think the nodes are doing</span>
+    appengine_role = <span class="ruby-string">&quot;appengine&quot;</span>
+    node.remove_roles(appengine_role)
+
+    <span class="ruby-comment"># tell the node that it should no longer be running appengine apps</span>
+    acc = <span class="ruby-constant">AppControllerClient</span>.new(node.public_ip, <span class="ruby-constant">HelperFunctions</span>.get_secret)
+    acc.remove_role(appengine_role)
+  }
+
+  return
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="stop_cewssa_master-method" class="method-detail ">
+        <a name="method-i-stop_cewssa_master"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">stop_cewssa_master</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="stop_cewssa_master-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/cewssa_helper.rb, line 109</span>
+def stop_cewssa_master()
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{my_node.private_ip} is stopping cewssa master&quot;)
+  <span class="ruby-comment"># tell the shadow we're done running cewssa jobs</span>
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="stop_cewssa_slave-method" class="method-detail ">
+        <a name="method-i-stop_cewssa_slave"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">stop_cewssa_slave</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="stop_cewssa_slave-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/cewssa_helper.rb, line 114</span>
+def stop_cewssa_slave()
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{my_node.private_ip} is stopping cewssa slave&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="stop_cicero_master-method" class="method-detail ">
+        <a name="method-i-stop_cicero_master"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">stop_cicero_master</span><span
+            class="method-args">(my_node)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="stop_cicero_master-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/cicero_helper.rb, line 257</span>
+def stop_cicero_master(my_node)
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{my_node.private_ip} is stopping cicero master&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="stop_cicero_slave-method" class="method-detail ">
+        <a name="method-i-stop_cicero_slave"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">stop_cicero_slave</span><span
+            class="method-args">(my_node)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="stop_cicero_slave-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/cicero_helper.rb, line 261</span>
+def stop_cicero_slave(my_node)
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{my_node.private_ip} is stopping cicero slave&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="stop_dfsp_master-method" class="method-detail ">
+        <a name="method-i-stop_dfsp_master"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">stop_dfsp_master</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="stop_dfsp_master-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/dfsp_helper.rb, line 98</span>
+def stop_dfsp_master()
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{my_node.private_ip} is stopping dfsp master&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="stop_dfsp_slave-method" class="method-detail ">
+        <a name="method-i-stop_dfsp_slave"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">stop_dfsp_slave</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="stop_dfsp_slave-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/dfsp_helper.rb, line 102</span>
+def stop_dfsp_slave()
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{my_node.private_ip} is stopping dfsp slave&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="stop_mapreduce_master-method" class="method-detail ">
+        <a name="method-i-stop_mapreduce_master"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">stop_mapreduce_master</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="stop_mapreduce_master-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/mapreduce_helper.rb, line 167</span>
+def stop_mapreduce_master()
+  <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;stop mapreduce master - stopping hadoop&quot;</span>)
+  <span class="ruby-comment">#stop_db_master</span>
+  <span class="ruby-comment">#stop_hadoop_slave</span>
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="stop_mapreduce_slave-method" class="method-detail ">
+        <a name="method-i-stop_mapreduce_slave"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">stop_mapreduce_slave</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="stop_mapreduce_slave-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/mapreduce_helper.rb, line 173</span>
+def stop_mapreduce_slave()
+  <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;stop mapreduce slave - stopping hadoop&quot;</span>)
+  <span class="ruby-comment">#stop_db_slave</span>
+  <span class="ruby-comment">#stop_hadoop_slave</span>
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="stop_mpd-method" class="method-detail ">
+        <a name="method-i-stop_mpd"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">stop_mpd</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="stop_mpd-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/mpi_helper.rb, line 200</span>
+def stop_mpd()
+  <span class="ruby-constant">Djinn</span>.log_run(<span class="ruby-string">&quot;mpdallexit&quot;</span>)
+  `rm -fv #{MPD_HOSTS}`
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="stop_mpi_master-method" class="method-detail ">
+        <a name="method-i-stop_mpi_master"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">stop_mpi_master</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="stop_mpi_master-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/mpi_helper.rb, line 213</span>
+def stop_mpi_master()
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{my_node.private_ip} is stopping mpi master&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="stop_mpi_slave-method" class="method-detail ">
+        <a name="method-i-stop_mpi_slave"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">stop_mpi_slave</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="stop_mpi_slave-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/mpi_helper.rb, line 217</span>
+def stop_mpi_slave()
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{my_node.private_ip} is stopping mpi slave&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="stop_nfs-method" class="method-detail ">
+        <a name="method-i-stop_nfs"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">stop_nfs</span><span
+            class="method-args">(nodes)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="stop_nfs-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/mpi_helper.rb, line 144</span>
+def stop_nfs(nodes)
+  slave_nodes = nodes - [my_node]
+
+  unless slave_nodes.empty?
+    slave_nodes.each { |node|
+      next if node.private_ip == my_node.private_ip
+      unmount_nfs_store(node.private_ip, node.ssh_key)
+    }
+  end
+
+  <span class="ruby-constant">Djinn</span>.log_run(<span class="ruby-string">&quot;/etc/init.d/nfs-kernel-server stop&quot;</span>)
+
+  nodes.each { |node|
+    <span class="ruby-constant">Djinn</span>.log_run(&quot;ssh #{node.private_ip} 'ps ax | grep nfs'&quot;)
+    sleep(1)
+  }
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="stop_ssa_master-method" class="method-detail ">
+        <a name="method-i-stop_ssa_master"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">stop_ssa_master</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="stop_ssa_master-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/ssa_helper.rb, line 207</span>
+def stop_ssa_master()
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{my_node.private_ip} is stopping ssa master&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="stop_ssa_slave-method" class="method-detail ">
+        <a name="method-i-stop_ssa_slave"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">stop_ssa_slave</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="stop_ssa_slave-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/ssa_helper.rb, line 211</span>
+def stop_ssa_slave()
+  <span class="ruby-constant">Djinn</span>.log_debug(&quot;#{my_node.private_ip} is stopping ssa slave&quot;)
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="unmount_nfs_store-method" class="method-detail ">
+        <a name="method-i-unmount_nfs_store"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">unmount_nfs_store</span><span
+            class="method-args">(ip, ssh_key)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="unmount_nfs_store-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/mpi_helper.rb, line 162</span>
+def unmount_nfs_store(ip, ssh_key)
+  slave_umount = <span class="ruby-string">&quot;umount /mirrornfs&quot;</span>
+
+  loop {
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;unmounting mirrornfs at #{ip} with ssh key #{ssh_key}&quot;)
+    <span class="ruby-constant">HelperFunctions</span>.run_remote_command(ip, slave_umount, ssh_key, <span class="ruby-constant">NO_OUTPUT</span>)
+    sleep(5)
+    mount_status = `ssh root@#{ip} 'mount'`
+    nfs_mounted = mount_status.scan(<span class="ruby-regexp">/mirrornfs/</span>)
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;NFS mount status at #{ip} is [#{nfs_mounted}]&quot;)
+
+    if nfs_mounted == []
+      <span class="ruby-constant">Djinn</span>.log_debug(&quot;NFS is stopped at #{ip}&quot;)
+      break
+    else
+      <span class="ruby-constant">Djinn</span>.log_debug(&quot;NFS still not stopped at #{ip}&quot;)
+    end
+  }
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="variance-method" class="method-detail ">
+        <a name="method-i-variance"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">variance</span><span
+            class="method-args">(population)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="variance-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/ssa_helper.rb, line 264</span>
+def variance(population)
+  n    = 0
+  mean = 0.0
+
+  sum = population.reduce(0.0) do |sum, x|
+    n     += 1
+    delta  = x - mean
+    mean  += delta / n
+
+    sum + delta * (x - mean)
+  end
+
+  sum / n
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="wait_for_hdfs_file-method" class="method-detail ">
+        <a name="method-i-wait_for_hdfs_file"></a>
+
+        
+        <div class="method-heading">
+          <span class="method-name">wait_for_hdfs_file</span><span
+            class="method-args">(location)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code"
+            id="wait_for_hdfs_file-source">
+<pre>
+<span class="ruby-comment"># File lib/job_types/mapreduce_helper.rb, line 179</span>
+def wait_for_hdfs_file(location)
+  command = &quot;#{HADOOP} fs -ls #{location}&quot;
+  db_master = get_db_master
+  ip = db_master.public_ip
+  ssh_key = db_master.ssh_key
+  loop {
+    cmd = &quot;ssh -o StrictHostkeyChecking=no -i #{ssh_key} #{ip} '#{command}'&quot;
+    <span class="ruby-constant">Djinn</span>.log_debug(cmd)
+    result = `#{cmd}`
+    <span class="ruby-constant">Djinn</span>.log_debug(&quot;oi: result was [#{result}]&quot;)
+    break if result.match(<span class="ruby-regexp">/Found/</span>) <span class="ruby-comment"># this shows up when ls returns files</span>
+    sleep(5)
+  }
+end</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+    </div>
+  
+
+  </div>
+
+  <div id="validator-badges">
+    <p><small><a href="http://validator.w3.org/check/referer">[Validate]</a></small></p>
+    <p><small>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish
+      Rdoc Generator</a> 2</small>.</p>
+  </div>
+
+</body>
+</html>
+
