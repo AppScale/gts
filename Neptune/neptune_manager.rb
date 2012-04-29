@@ -53,6 +53,11 @@ class NeptuneManager
   SERVER_PORT = 17445
 
 
+  # The string that should be returned to the caller if they call a publicly
+  # exposed SOAP method but provide an incorrect secret.
+  BAD_SECRET_MSG = "false: bad secret"
+
+
   ALLOWED_STORAGE_TYPES = ["appdb", "s3"]
 
 

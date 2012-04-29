@@ -33,10 +33,10 @@ class TestAppScaleHelper < Test::Unit::TestCase
     flexmock(NeptuneManager).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(false)
     }
-    neptune = NeptuneManager.new
+    neptune = NeptuneManager.new("secret")
     
-    result_1 = neptune.neptune_appscale_run_job(nodes, job_data_1, secret)
-    assert_equal(BAD_SECRET_MSG, result_1)
+    result_1 = neptune.appscale_run_job(nodes, job_data_1, secret)
+    assert_equal(NeptuneManager::BAD_SECRET_MSG, result_1)
   end
 
   def test_entry_point_good_secret
@@ -47,18 +47,18 @@ class TestAppScaleHelper < Test::Unit::TestCase
     flexmock(NeptuneManager).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
     }
-    neptune = NeptuneManager.new
+    neptune = NeptuneManager.new("secret")
 
     job_data_2 = {"@time_needed_for" => 120}
-    result_2 = neptune.neptune_appscale_run_job(nodes, job_data_2, secret)
-    assert_equal(MISSING_PARAM, result_2)
+    result_2 = neptune.appscale_run_job(nodes, job_data_2, secret)
+    assert_equal(NeptuneManager::MISSING_PARAM, result_2)
 
     job_data_3 = {"@add_component" => "db_slave"}
-    result_3 = neptune.neptune_appscale_run_job(nodes, job_data_3, secret)
-    assert_equal(MISSING_PARAM, result_3)
+    result_3 = neptune.appscale_run_job(nodes, job_data_3, secret)
+    assert_equal(NeptuneManager::MISSING_PARAM, result_3)
 
     job_data_4 = {"@time_needed_for" => 120, "@add_component" => "db_slave"}
-    result_4 = neptune.neptune_appscale_run_job(nodes, job_data_4, secret)
-    assert_equal(STARTED_SUCCESSFULLY, result_4)
+    result_4 = neptune.appscale_run_job(nodes, job_data_4, secret)
+    assert_equal(NeptuneManager::STARTED_SUCCESSFULLY, result_4)
   end
 end

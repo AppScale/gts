@@ -18,9 +18,9 @@ class TestBabelHelper < Test::Unit::TestCase
     kernel = flexmock(Kernel)
     kernel.should_receive(:puts).and_return()
     
-    djinn_class = flexmock(Djinn)
-    djinn_class.should_receive(:log_debug).and_return()
-    djinn_class.should_receive(:log_run).and_return()
+    neptune_class = flexmock(NeptuneManager)
+    neptune_class.should_receive(:log_debug).and_return()
+    neptune_class.should_receive(:log_run).and_return()
 
     @secret = "baz"
     flexmock(HelperFunctions).should_receive(:read_file).
@@ -31,67 +31,67 @@ class TestBabelHelper < Test::Unit::TestCase
   end
 
   def test_neptune_babel_soap_exposed_methods_bad_secret
-    flexmock(Djinn).new_instances { |instance|
+    flexmock(NeptuneManager).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(false)
     }
-    djinn = Djinn.new
+    neptune = NeptuneManager.new("secret")
 
-    result1 = djinn.neptune_get_supported_babel_engines({}, "bad secret")
-    assert_equal(BAD_SECRET_MSG, result1)
+    result1 = neptune.get_supported_babel_engines({}, "bad secret")
+    assert_equal(NeptuneManager::BAD_SECRET_MSG, result1)
 
-    result2 = djinn.neptune_babel_run_job(nil, {}, "bad secret")
-    assert_equal(BAD_SECRET_MSG, result2)
+    result2 = neptune.babel_run_job(nil, {}, "bad secret")
+    assert_equal(NeptuneManager::BAD_SECRET_MSG, result2)
 
-    result3 = djinn.get_queues_in_use("bad secret")
-    assert_equal(BAD_SECRET_MSG, result3)
+    result3 = neptune.get_queues_in_use("bad secret")
+    assert_equal(NeptuneManager::BAD_SECRET_MSG, result3)
   end
 
   def test_neptune_babel_engines_good_secret
-    flexmock(Djinn).new_instances { |instance|
+    flexmock(NeptuneManager).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
     }
 
     # with no credentials, we can use any internal queues
-    djinn = Djinn.new
+    neptune = NeptuneManager.new("secret")
     no_credentials = {}
-    result = djinn.neptune_get_supported_babel_engines(no_credentials,
+    result = neptune.get_supported_babel_engines(no_credentials,
       "good secret")
-    assert_equal(INTERNAL_ENGINES, result)
+    assert_equal(NeptuneManager::INTERNAL_ENGINES, result)
 
     # with aws credentials, we can use internal queues or sqs
-    djinn = Djinn.new
+    neptune = NeptuneManager.new("secret")
     amazon_credentials = {}
-    AMAZON_CREDENTIALS.each { |cred|
+    NeptuneManager::AMAZON_CREDENTIALS.each { |cred|
       amazon_credentials[cred] = "boo"
     }
-    result = djinn.neptune_get_supported_babel_engines(amazon_credentials,
+    result = neptune.get_supported_babel_engines(amazon_credentials,
       "good secret")
-    assert_equal((INTERNAL_ENGINES + AMAZON_ENGINES).uniq, result)
+    assert_equal((NeptuneManager::INTERNAL_ENGINES + NeptuneManager::AMAZON_ENGINES).uniq, result)
 
     # with app engine credentials, we can use internal queues or gae push queues
     google_credentials = {}
-    GOOGLE_CREDENTIALS.each { |cred|
+    NeptuneManager::GOOGLE_CREDENTIALS.each { |cred|
       google_credentials[cred] = "bar"
     }
-    result = djinn.neptune_get_supported_babel_engines(google_credentials,
+    result = neptune.get_supported_babel_engines(google_credentials,
       "good secret")
-    assert_equal((INTERNAL_ENGINES + GOOGLE_ENGINES).uniq, result)
+    assert_equal((NeptuneManager::INTERNAL_ENGINES + NeptuneManager::GOOGLE_ENGINES).uniq, result)
 
     # with azure credentials, we can use internal queues or the azure queue
     microsoft_credentials = {}
-    AZURE_CREDENTIALS.each { |cred|
+    NeptuneManager::AZURE_CREDENTIALS.each { |cred|
       microsoft_credentials[cred] = "baz"
     }
-    result = djinn.neptune_get_supported_babel_engines(microsoft_credentials,
+    result = neptune.get_supported_babel_engines(microsoft_credentials,
       "good secret")
-    assert_equal((INTERNAL_ENGINES + AZURE_ENGINES).uniq, result)
+    assert_equal((NeptuneManager::INTERNAL_ENGINES + NeptuneManager::AZURE_ENGINES).uniq, result)
   end
 
   def test_local_run_task
-    flexmock(Djinn).new_instances { |instance|
+    flexmock(NeptuneManager).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
     }
-    djinn = Djinn.new
+    neptune = NeptuneManager.new("secret")
 
     fileutils = flexmock(FileUtils)
     fileutils.should_receive(:mkdir_p).and_return()
@@ -111,11 +111,11 @@ class TestBabelHelper < Test::Unit::TestCase
       '@metadata_info' => {'input_storage_time' => 0,
         'time_to_store_inputs' => 0}}
     job_list = [job_data]
-    result = djinn.run_or_delegate_tasks(job_list)
+    result = neptune.run_or_delegate_tasks(job_list)
     assert_equal([RUN_LOCALLY], result)
 
     job_list2 = [job_data, job_data]
-    result2 = djinn.run_or_delegate_tasks(job_list2)
+    result2 = neptune.run_or_delegate_tasks(job_list2)
     assert_equal([RUN_LOCALLY, RUN_LOCALLY], result2)
   end
 
@@ -136,7 +136,7 @@ class TestBabelHelper < Test::Unit::TestCase
       '@EC2_SECRET_KEY' => 'bar', '@S3_URL' => 'baz'}
     dir = "/tmp/test2"
     expected = "#{dir}/baz"
-    actual = Djinn.copy_code_to_dir(job_data, dir)
+    actual = NeptuneManager.copy_code_to_dir(job_data, dir)
 
     assert_equal(expected, actual)
   end
@@ -145,7 +145,7 @@ class TestBabelHelper < Test::Unit::TestCase
     now = Time.now
     flexmock(Time).should_receive(:now).and_return(now)
 
-    flexmock(Djinn).new_instances { |instance|
+    flexmock(NeptuneManager).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
     }
 
@@ -200,8 +200,8 @@ class TestBabelHelper < Test::Unit::TestCase
 
     flexmock(AWS::SQS).should_receive(:new).and_return(sqs)
 
-    djinn = Djinn.new
-    result = djinn.run_or_delegate_tasks(job_list)
+    neptune = NeptuneManager.new("secret")
+    result = neptune.run_or_delegate_tasks(job_list)
     assert_equal([RUN_VIA_EXECUTOR], result)
   end
 end
