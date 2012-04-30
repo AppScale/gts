@@ -26,6 +26,8 @@ class DatastoreRepoOnAppScale < DatastoreRepo
   
   # Creates a new connection to the Repo running on AppScale. Since AppScale
   # starts the Repo automatically, this initialization does not start it.
+  # TODO(cgb): The Repo isn't guaranteed to be running locally - either
+  # ask the AppController or read it from a file.
   def initialize(credentials)
     repo_ip = "127.0.0.1"
 

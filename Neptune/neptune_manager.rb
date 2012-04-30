@@ -30,8 +30,6 @@ require 'engine_factory'
 =begin
 things to fix
 
-imports
-
 move all _helper imports into NeptuneManager class
 
 move @neptune_jobs and @neptune_nodes into this file
@@ -43,6 +41,10 @@ periodically dump and revive info to-from ZK
 remove all dead code from AppController/helperfunctions
 
 remove all dead code from Neptune/helperfunctions
+
+make the AppController start this daemon via god
+
+make terminate.rb kill this daemon
 =end
 
 
