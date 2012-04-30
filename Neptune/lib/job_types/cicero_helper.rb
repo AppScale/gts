@@ -15,255 +15,255 @@ require 'neptune_manager'
 RETRY_TIME = 5  # seconds
 
 
-public 
+class NeptuneManager
 
-def cicero_run_job(nodes, jobs, secret)
-  if !valid_secret?(secret)
-    return BAD_SECRET_MSG
+
+  def cicero_run_job(nodes, jobs, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    if nodes.class != Array
+      return "nodes must be an Array"
+    end
+
+    job_data = jobs[0]
+    if job_data.class != Hash
+      return "job data must be a Hash"
+    end
+
+    NeptuneManager.log("cicero - run")
+
+    Thread.new {
+      run_via_cicero(nodes, job_data, secret)
+    }
+
+    return "OK"
   end
 
-  if nodes.class != Array
-    return "nodes must be an Array"
-  end
+  private
 
-  job_data = jobs[0]
-  if job_data.class != Hash
-    return "job data must be a Hash"
-  end
+  # Runs a Cicero job on the given nodes or via a remote cloud, indicated within
+  # job_data.
+  def run_via_cicero(nodes, job_data, secret)
+    NeptuneManager.log("job data is #{job_data.inspect}")
 
-  NeptuneManager.log("cicero - run")
+    resource_info = parse_resource_info(job_data)
 
-  Thread.new {
-    run_via_cicero(nodes, job_data, secret)
-  }
+    keyname = @creds['keyname']
+    nodes = Djinn.convert_location_array_to_class(nodes, keyname)
 
-  return "OK"
-end
+    app_name = job_data["@app_name"]
+    urls = start_appengine_on_all_nodes(resource_info, nodes, app_name)
 
-private
+    num_tasks_total = job_data["@tasks"]
+    tasks_for_each_cloud = get_execution_plan(nodes, resource_info, num_tasks_total)
 
-# Runs a Cicero job on the given nodes or via a remote cloud, indicated within
-# job_data.
-def run_via_cicero(nodes, job_data, secret)
-  NeptuneManager.log("job data is #{job_data.inspect}")
+    function_name = job_data["@function"]
+    inputs = get_inputs_from_job_data(job_data)
 
-  resource_info = parse_resource_info(job_data)
+    start_time = Time.now
+    threads_per_cloud = []
+    urls.each { |cloud, urls|
+      threads_per_cloud << Thread.new {
+        num_tasks = tasks_for_each_cloud[cloud]
+        num_urls = urls.length
+        threads_per_url = []
+        num_urls.times { |i|
+          threads_per_url << Thread.new {
+            # TODO - consider cases where this doesn't divide evenly
+            host = urls[i]
+            num_tasks_for_this_url = num_tasks / num_urls
+            task_ids = []
+            num_tasks_for_this_url.times { |j|
+              output = job_data["@output"] + String(j)
+              #self.execute_task(host, function_name, inputs, output) #Python
+              task_ids << self.execute_task(host, function_name, inputs, output) #Java
+              task_number = j + 1
+              percent_done = task_number / Float(num_tasks_for_this_url) * 100
+              NeptuneManager.log("done putting #{task_number}/" +
+                "#{num_tasks_for_this_url} tasks (#{percent_done} percent)")
+            }
 
-  keyname = @creds['keyname']
-  nodes = Djinn.convert_location_array_to_class(nodes, keyname)
-
-  app_name = job_data["@app_name"]
-  urls = start_appengine_on_all_nodes(resource_info, nodes, app_name)
-
-  num_tasks_total = job_data["@tasks"]
-  tasks_for_each_cloud = get_execution_plan(nodes, resource_info, num_tasks_total)
-
-  function_name = job_data["@function"]
-  inputs = get_inputs_from_job_data(job_data)
-
-  start_time = Time.now
-  threads_per_cloud = []
-  urls.each { |cloud, urls|
-    threads_per_cloud << Thread.new {
-      num_tasks = tasks_for_each_cloud[cloud]
-      num_urls = urls.length
-      threads_per_url = []
-      num_urls.times { |i|
-        threads_per_url << Thread.new {
-          # TODO - consider cases where this doesn't divide evenly
-          host = urls[i]
-          num_tasks_for_this_url = num_tasks / num_urls
-          task_ids = []
-          num_tasks_for_this_url.times { |j|
-            output = job_data["@output"] + String(j)
-            #self.execute_task(host, function_name, inputs, output) #Python
-            task_ids << self.execute_task(host, function_name, inputs, output) #Java
-            task_number = j + 1
-            percent_done = task_number / Float(num_tasks_for_this_url) * 100
-            NeptuneManager.log("done putting #{task_number}/" +
-              "#{num_tasks_for_this_url} tasks (#{percent_done} percent)")
-          }
-
-          num_tasks_for_this_url.times { |j|
-            # TODO - the task id shouldn't be the output - refactor later
-            #task_id = job_data["@output"] + String(j) #Python
-            task_id = task_ids[j] #Java
-            self.wait_for_task_to_complete(host, task_id)
-            task_number = j + 1
-            percent_done = task_number / Float(num_tasks_for_this_url) * 100
-            NeptuneManager.log("done with #{task_number}" +
-              "/#{num_tasks_for_this_url} tasks (#{percent_done} percent)")
+            num_tasks_for_this_url.times { |j|
+              # TODO - the task id shouldn't be the output - refactor later
+              #task_id = job_data["@output"] + String(j) #Python
+              task_id = task_ids[j] #Java
+              self.wait_for_task_to_complete(host, task_id)
+              task_number = j + 1
+              percent_done = task_number / Float(num_tasks_for_this_url) * 100
+              NeptuneManager.log("done with #{task_number}" +
+                "/#{num_tasks_for_this_url} tasks (#{percent_done} percent)")
+            }
           }
         }
+        threads_per_url.each { |t| t.join }
       }
-      threads_per_url.each { |t| t.join }
     }
-  }
-  threads_per_cloud.each { |t| t.join }
-  end_time = Time.now
-  total_time = end_time - start_time
-  NeptuneManager.log("TIMING: total execution time is #{total_time} seconds")
+    threads_per_cloud.each { |t| t.join }
+    end_time = Time.now
+    total_time = end_time - start_time
+    NeptuneManager.log("TIMING: total execution time is #{total_time} seconds")
 
-  stop_appengine_on_all_nodes(resource_info, nodes, app_name)
-  remove_lock_file(job_data)
-end
-
-# Grabs the @nodes_to_use parameter from the given job data and returns a
-# hash only containing info about the resources found in each cloud. These
-# resources are either an integer (describing the number of virtual machines
-# to use) or a URL (describing an opaque resource that conforms to the
-# TaskQ API).
-def parse_resource_info(job_data)
-  nodes_to_use = job_data["@nodes_to_use"]
-  if nodes_to_use.class == Integer  # only use nodes in the current cloud
-    return {"cloud1" => nodes_to_use}
+    stop_appengine_on_all_nodes(resource_info, nodes, app_name)
+    remove_lock_file(job_data)
   end
 
-  return Hash[*nodes_to_use]
-end
-
-def start_appengine_on_all_nodes(resource_info, nodes, app_name)
-  resource_info.each { |cloud, nodes_or_url|
-    if nodes_or_url =~ URL_REGEX
-      resource_info[cloud] = [nodes_or_url]
-    else
-      resource_info[cloud] = []
+  # Grabs the @nodes_to_use parameter from the given job data and returns a
+  # hash only containing info about the resources found in each cloud. These
+  # resources are either an integer (describing the number of virtual machines
+  # to use) or a URL (describing an opaque resource that conforms to the
+  # TaskQ API).
+  def parse_resource_info(job_data)
+    nodes_to_use = job_data["@nodes_to_use"]
+    if nodes_to_use.class == Integer  # only use nodes in the current cloud
+      return {"cloud1" => nodes_to_use}
     end
-  }
 
-  if nodes.empty?
-    NeptuneManager.log("All resources used are remote resource - no need to" +
-      " start App Engine instances")
+    return Hash[*nodes_to_use]
+  end
+
+  def start_appengine_on_all_nodes(resource_info, nodes, app_name)
+    resource_info.each { |cloud, nodes_or_url|
+      if nodes_or_url =~ URL_REGEX
+        resource_info[cloud] = [nodes_or_url]
+      else
+        resource_info[cloud] = []
+      end
+    }
+
+    if nodes.empty?
+      NeptuneManager.log("All resources used are remote resource - no need to" +
+        " start App Engine instances")
+      return resource_info
+    end
+
+    nodes.each { |node|
+      # update our local copy of what we think the nodes are doing
+      appengine_role = "appengine"
+      node.add_roles(appengine_role)
+
+      # tell the node that it should be running appengine apps
+      acc = AppControllerClient.new(node.public_ip, HelperFunctions.get_secret)
+      acc.add_role(appengine_role)
+
+      host = node.public_ip
+      port = ""
+      uac = UserAppClient.new(@userappserver_private_ip, HelperFunctions.get_secret)
+      loop {
+        app_data = uac.get_app_data(app_name)
+        NeptuneManager.log("app data for app [#{app_name}] is [#{app_data}]")
+        all_hosts = app_data.scan(/^hosts:(.*)/).flatten.to_s.split(":")
+        all_ports = app_data.scan(/^ports:(.*)/).flatten.to_s.split(":")
+
+        all_hosts.each_with_index { |this_host, index|
+          if this_host == host
+            port = all_ports[index].strip
+            NeptuneManager.log("found a match: #{host}:#{port}")
+            break
+          end
+        }
+        break if !port.empty?
+
+        NeptuneManager.log("still waiting for app to come online...")
+        sleep(5)
+      }
+      uri = "http://#{host}:#{port}"
+      NeptuneManager.log("adding uri [#{uri}] to cloud [#{node.cloud}]")
+      resource_info[node.cloud] << uri
+    }
+
     return resource_info
   end
 
-  nodes.each { |node|
-    # update our local copy of what we think the nodes are doing
-    appengine_role = "appengine"
-    node.add_roles(appengine_role)
+  def stop_appengine_on_all_nodes(resource_info, nodes, app_name)
+    if nodes.empty?
+      NeptuneManager.log("All resources used are remote resource - no need to" +
+        " stop App Engine instances")
+      return
+    end
 
-    # tell the node that it should be running appengine apps
-    acc = AppControllerClient.new(node.public_ip, HelperFunctions.get_secret)
-    acc.add_role(appengine_role)
+    nodes.each { |node|
+      # update our local copy of what we think the nodes are doing
+      appengine_role = "appengine"
+      node.remove_roles(appengine_role)
 
-    host = node.public_ip
-    port = ""
-    uac = UserAppClient.new(@userappserver_private_ip, HelperFunctions.get_secret)
-    loop {
-      app_data = uac.get_app_data(app_name)
-      NeptuneManager.log("app data for app [#{app_name}] is [#{app_data}]")
-      all_hosts = app_data.scan(/^hosts:(.*)/).flatten.to_s.split(":")
-      all_ports = app_data.scan(/^ports:(.*)/).flatten.to_s.split(":")
-
-      all_hosts.each_with_index { |this_host, index|
-        if this_host == host
-          port = all_ports[index].strip
-          NeptuneManager.log("found a match: #{host}:#{port}")
-          break
-        end
-      }
-      break if !port.empty?
-
-      NeptuneManager.log("still waiting for app to come online...")
-      sleep(5)
+      # tell the node that it should no longer be running appengine apps
+      acc = AppControllerClient.new(node.public_ip, HelperFunctions.get_secret)
+      acc.remove_role(appengine_role)
     }
-    uri = "http://#{host}:#{port}"
-    NeptuneManager.log("adding uri [#{uri}] to cloud [#{node.cloud}]")
-    resource_info[node.cloud] << uri
-  }
 
-  return resource_info
-end
-
-def stop_appengine_on_all_nodes(resource_info, nodes, app_name)
-  if nodes.empty?
-    NeptuneManager.log("All resources used are remote resource - no need to" +
-      " stop App Engine instances")
     return
   end
 
-  nodes.each { |node|
-    # update our local copy of what we think the nodes are doing
-    appengine_role = "appengine"
-    node.remove_roles(appengine_role)
+  # The user can specify an arbitrary number of inputs to be used for a
+  # TaskQ job. The inputs must be sequentially numbered, so search through
+  # all the job data starting at input1 until we fail to find a match,
+  # and return all inputs found.
+  def get_inputs_from_job_data(job_data)
+    inputs = []
+    input_number = 1
+    loop {
+      current_input = "@input#{input_number}"
+      current_val = job_data[current_input]
+      if current_val.nil?
+        NeptuneManager.log("Didn't see [#{current_input}] - no more inputs")
+        break
+      end
 
-    # tell the node that it should no longer be running appengine apps
-    acc = AppControllerClient.new(node.public_ip, HelperFunctions.get_secret)
-    acc.remove_role(appengine_role)
-  }
+      NeptuneManager.log("Saw [#{current_input}] -> [#{current_val}], adding" +
+        " to the input list")
+      inputs << current_val
+      input_number += 1
+    }
 
-  return
-end
-
-# The user can specify an arbitrary number of inputs to be used for a
-# TaskQ job. The inputs must be sequentially numbered, so search through
-# all the job data starting at input1 until we fail to find a match,
-# and return all inputs found.
-def get_inputs_from_job_data(job_data)
-  inputs = []
-  input_number = 1
-  loop {
-    current_input = "@input#{input_number}"
-    current_val = job_data[current_input]
-    if current_val.nil?
-      NeptuneManager.log("Didn't see [#{current_input}] - no more inputs")
-      break
-    end
-
-    NeptuneManager.log("Saw [#{current_input}] -> [#{current_val}], adding" +
-      " to the input list")
-    inputs << current_val
-    input_number += 1
-  }
-
-  NeptuneManager.log("all inputs for this job are [#{inputs.join(', ')}]")
-  return inputs
-end
-
-def get_execution_plan(nodes, resource_info, num_tasks)
-  # based on the resource info given, deduce where to run tasks
-  # and how many should be run in each cloud
-
-  # for now, just divide the work evenly on all the clouds the user has given us
-
-  execution_plan = {}
-  num_clouds = resource_info.length
-  num_tasks_left = num_tasks
-
-  num_tasks_per_cloud = num_tasks / num_clouds
-  resource_info.each { |k, v|
-    execution_plan[k] = num_tasks_per_cloud
-    num_tasks_left -= num_tasks_per_cloud
-  }
-
-  if !num_tasks_left.zero?
-    # TODO - the user may not have specified cloud1, so refactor later to use
-    # whatever the first cloud specified was
-    execution_plan["cloud1"] += num_tasks_left
+    NeptuneManager.log("all inputs for this job are [#{inputs.join(', ')}]")
+    return inputs
   end
 
-  NeptuneManager.log("num_tasks_per_cloud = #{execution_plan.inspect}")
-  return execution_plan
-end
+  def get_execution_plan(nodes, resource_info, num_tasks)
+    # based on the resource info given, deduce where to run tasks
+    # and how many should be run in each cloud
 
-def start_cicero_master(my_node)
-  NeptuneManager.log("#{my_node.private_ip} is starting cicero master")
-end
+    # for now, just divide the work evenly on all the clouds the user has given us
 
-def start_cicero_slave(my_node)
-  NeptuneManager.log("#{my_node.private_ip} is starting cicero slave")
-end
+    execution_plan = {}
+    num_clouds = resource_info.length
+    num_tasks_left = num_tasks
 
-def stop_cicero_master(my_node)
-  NeptuneManager.log("#{my_node.private_ip} is stopping cicero master")
-end
+    num_tasks_per_cloud = num_tasks / num_clouds
+    resource_info.each { |k, v|
+      execution_plan[k] = num_tasks_per_cloud
+      num_tasks_left -= num_tasks_per_cloud
+    }
 
-def stop_cicero_slave(my_node)
-  NeptuneManager.log("#{my_node.private_ip} is stopping cicero slave")
-end
+    if !num_tasks_left.zero?
+      # TODO - the user may not have specified cloud1, so refactor later to use
+      # whatever the first cloud specified was
+      execution_plan["cloud1"] += num_tasks_left
+    end
+
+    NeptuneManager.log("num_tasks_per_cloud = #{execution_plan.inspect}")
+    return execution_plan
+  end
+
+  def start_cicero_master(my_node)
+    NeptuneManager.log("#{my_node.private_ip} is starting cicero master")
+  end
+
+  def start_cicero_slave(my_node)
+    NeptuneManager.log("#{my_node.private_ip} is starting cicero slave")
+  end
+
+  def stop_cicero_master(my_node)
+    NeptuneManager.log("#{my_node.private_ip} is stopping cicero master")
+  end
+
+  def stop_cicero_slave(my_node)
+    NeptuneManager.log("#{my_node.private_ip} is stopping cicero slave")
+  end
 
 
-class Djinn
   def self.execute_task(host, function_name, inputs, output)
     # do a put request on the url in question - don't forget the params!
     NeptuneManager.log("executing a task at [#{host}] with function name " +

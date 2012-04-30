@@ -1020,18 +1020,6 @@ module HelperFunctions
     duration
   end
 
-  def self.get_random_alphanumeric(length=10)
-    random = ""
-    possible = "0123456789abcdefghijklmnopqrstuvxwyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    possibleLength = possible.length
-
-    length.times { |index|
-      random << possible[rand(possibleLength)]
-    }
-
-    random
-  end
-
   def self.encrypt_password(user, pass)
     Digest::SHA1.hexdigest(user + pass)
   end

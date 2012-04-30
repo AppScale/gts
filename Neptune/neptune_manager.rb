@@ -30,9 +30,7 @@ require 'engine_factory'
 =begin
 things to fix
 
-move all _helper imports into NeptuneManager class
-
-move @neptune_jobs and @neptune_nodes into this file
+fix @nodes from AC
 
 move VM reuse (and per-hour killing of VMs) into this file
 
@@ -94,13 +92,27 @@ class NeptuneManager
   attr_accessor :secret
 
 
+  # An Array of Hashes, where each Hash contains information about a 
+  # virtual machine that the NeptuneManager has launched to run Neptune
+  # jobs.
+  attr_accessor :nodes
+
+
+  # A Hash that contains profiling information about each job run via
+  # Neptune, which will hopefully be used one day to optimize where we
+  # place jobs.
+  attr_accessor :jobs
+
+
   # An Array that contains the credentials for each pull queue that
   # Babel tasks can be stored in.
   attr_accessor :queues_to_read
 
   
-  def initialize(secret)
-    @secret = secret
+  def initialize()
+    @secret = HelperFunctions.get_secret()
+    @nodes = []
+    @jobs = {}
     @queues_to_read = []
   end
 
@@ -847,7 +859,7 @@ class NeptuneManager
       abort("bad thing to optimize - can be cost or performance but was #{thing_to_optimize}")
     end
 
-    current_data = @neptune_jobs[job_name]
+    current_data = @jobs[job_name]
     if current_data.nil? or current_data.empty?
       self.log("neptune - no job data yet for [#{job_name}]")
       return job_data["@nodes_to_use"]
@@ -920,7 +932,7 @@ class NeptuneManager
 
 
   def get_job_data(job_name, time)
-    relevant_jobs = @neptune_jobs[job_name]
+    relevant_jobs = @jobs[job_name]
     relevant_jobs.each { |job|
       return job if job.total_time == time
     }
@@ -1006,10 +1018,10 @@ class NeptuneManager
     name = get_job_name(job_data)
     num_nodes = nodes_to_use.length
     this_job = NeptuneJobData.new(name, num_nodes, start_time, end_time)
-    if @neptune_jobs[name].nil?
-      @neptune_jobs[name] = [this_job]
+    if @jobs[name].nil?
+      @jobs[name] = [this_job]
     else
-      @neptune_jobs[name] << this_job
+      @jobs[name] << this_job
     end
   end
 

@@ -28,7 +28,7 @@ class TestCiceroHelper < Test::Unit::TestCase
       instance.should_receive(:valid_secret?).and_return(true)
     }
 
-    neptune = NeptuneManager.new("secret")
+    neptune = NeptuneManager.new
     secret = "anything"
 
     nodes = nil

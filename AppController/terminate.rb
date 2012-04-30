@@ -138,7 +138,8 @@ end
  # Voldemort
  "VoldemortServer",
  "rabbitmq",
- "thin", "god", "djinn", "xmpp_receiver", "InfrastructureManager"
+ "thin", "god", "djinn", "xmpp_receiver", 
+ "InfrastructureManager", "NeptuneManager"
 ].each do |program|
   `ps ax | grep #{program} | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9`
 end

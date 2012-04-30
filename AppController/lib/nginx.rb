@@ -11,10 +11,6 @@ require 'monitoring'
 require 'pbserver'
 
 
-$:.unshift File.join(File.dirname(__FILE__), "..")
-require 'djinn'
-
-
 # A module to wrap all the interactions with the nginx web server
 # Google App Engine applications can request that certain files should be
 # hosted statically, so we use the nginx web server for this. It is the
@@ -72,7 +68,7 @@ module Nginx
 
   # Return true if the configuration is good, false o.w.
   def self.check_config
-    Djinn.log_run("nginx -t -c #{MAIN_CONFIG_FILE}")
+    HelperFunctions.shell("nginx -t -c #{MAIN_CONFIG_FILE}")
     return ($?.to_i == 0)
   end
 

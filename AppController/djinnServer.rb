@@ -8,6 +8,9 @@ require 'logger'
 require 'soap/rpc/driver'
 
 
+APPSCALE_HOME = ENV['APPSCALE_HOME']
+
+
 # Imports for AppController libraries
 $:.unshift File.join(File.dirname(__FILE__), "lib")
 require 'helperfunctions'

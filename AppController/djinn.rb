@@ -38,6 +38,7 @@ require 'repo'
 require 'zkinterface'
 require 'godinterface'
 require 'infrastructure_manager_client'
+require 'neptune_manager_client'
 
 
 $VERBOSE = nil # to supress excessive SSL cert warnings
@@ -469,6 +470,7 @@ class Djinn
         stop_pbserver
       end
 
+      stop_neptune_manager
       stop_infrastructure_manager
     end
 
@@ -769,6 +771,8 @@ class Djinn
       parse_creds
       change_job
     end
+
+    start_neptune_manager
     
     @done_loading = true
     write_our_node_info
@@ -818,6 +822,7 @@ class Djinn
     end
   end
 
+
   # Starts the InfrastructureManager service on this machine, which exposes
   # a SOAP interface by which we can dynamically add and remove nodes in this
   # AppScale deployment.
@@ -842,6 +847,33 @@ class Djinn
   def stop_infrastructure_manager
     Djinn.log_debug("Stopping InfrastructureManager")
     GodInterface.stop(:iaas_manager)
+  end
+
+
+  # Starts the NeptuneManager service on this machine, which exposes
+  # a SOAP interface by which we can run programs in arbitrary languages 
+  # in this AppScale deployment.
+  def start_neptune_manager
+    if HelperFunctions.is_port_open?("localhost", 
+      NeptuneManagerClient::SERVER_PORT, HelperFunctions::USE_SSL)
+
+      Djinn.log_debug("NeptuneManager is already running locally - " +
+        "don't start it again.")
+      return
+    end
+
+    start_cmd = "ruby #{APPSCALE_HOME}/NeptuneManager/neptune_manager_server.rb"
+    stop_cmd = "pkill -9 neptune_manager_server"
+    port = [NeptuneManagerClient::SERVER_PORT]
+
+    GodInterface.start(:neptune_manager, start_cmd, stop_cmd, port)
+    Djinn.log_debug("Started NeptuneManager successfully!")
+  end
+
+
+  def stop_neptune_manager
+    Djinn.log_debug("Stopping NeptuneManager")
+    GodInterface.stop(:neptune_manager)
   end
 
 
