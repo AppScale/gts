@@ -457,6 +457,8 @@ installgems()
     # which is just REST, but httparty does such a nice job compared
     # to previously used things
     gem install httparty
+    # This is for the LogManager, which will rotate logs on a daily basis.
+    gem install logrotate
 }
 
 postinstallgems()
