@@ -2,7 +2,7 @@
 # Common functions for build and installer
 #
 # This should work in bourne shell (/bin/sh)
-# The function name should not include non alphabet charactor.
+# The function name should not include non alphabet character.
 #
 # Written by Yoshi <nomura@pobox.com>
 
@@ -83,7 +83,6 @@ installappscaleprofile()
 #export APPSCALE_HOME=${APPSCALE_HOME_RUNTIME}
 #export HOME=\$APPSCALE_HOME
 #EOF
-    mkdir -p /etc/appscale/certs
     DESTFILE=${DESTDIR}/etc/profile.d/appscale.sh
     mkdir -pv $(dirname $DESTFILE)
     echo "Generating $DESTFILE"
