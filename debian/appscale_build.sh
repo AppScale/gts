@@ -17,7 +17,6 @@ echo "Installing Ubuntu ${DIST} building environment."
 
 apt-get -y install curl
 curl -d "key=appscale" http://heart-beat.appspot.com/sign
-mkdir -p /etc/appscale/certs
 
 export APPSCALE_HOME_RUNTIME=`pwd`
 
@@ -136,6 +135,8 @@ fi
 apt-get -y purge haproxy
 #apt-get -y remove consolekit
 bash debian/appscale_install.sh all
+
+mkdir -p $APPSCALE_HOME_RUNTIME/.appscale/certs
 
 # The Go programming language we use is part of the App Engine runtime, so
 # add it to our PATH for Medea jobs.
