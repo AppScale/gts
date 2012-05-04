@@ -2862,6 +2862,11 @@ HOSTS
   # one thread call it at a time. We also only perform scaling if the user 
   # wants us to, and simply return otherwise.
   def scale_appservers
+    if !my_node.is_appengine?
+      Djinn.log_debug("Not autoscaling, because we aren't an AppServer")
+      return
+    end
+
     if @creds["autoscale"]
       Djinn.log_debug("Examining AppServers to autoscale them")
       perform_scaling_for_appservers()
@@ -3382,8 +3387,18 @@ HOSTS
     # AppLoadBalancer to route traffic to it, or let clients query the UAServer
     # to see where it's hosted.
     uac = UserAppClient.new(@userappserver_private_ip, @@secret)
-    cloud_admin = uac.get_cloud_admin()
-    Djinn.log_debug("Registering Sisyphus with cloud admin #{cloud_admin}")
+
+    cloud_admin = ""
+    begin
+      cloud_admin = uac.get_cloud_admin()
+      Djinn.log_debug("Registering Sisyphus with cloud admin #{cloud_admin}")
+    rescue Exception
+      Djinn.log_debug("No cloud admin found - waiting for the tools to " +
+        "register one.") 
+      Kernel.sleep(5)
+      retry
+    end
+
     uac.commit_new_app_name(cloud_admin, app, app_language)
 
     loop {
