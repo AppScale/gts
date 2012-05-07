@@ -856,7 +856,7 @@ class Djinn
       return
     end
 
-    start_cmd = "ruby #{APPSCALE_HOME}/NeptuneManager/neptune_manager_server.rb"
+    start_cmd = "ruby #{APPSCALE_HOME}/Neptune/neptune_manager_server.rb"
     stop_cmd = "pkill -9 neptune_manager_server"
     port = [NeptuneManagerClient::SERVER_PORT]
 

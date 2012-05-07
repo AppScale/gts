@@ -3,6 +3,7 @@
 
 # Imports for general Neptune stuff
 $:.unshift File.join(File.dirname(__FILE__), "lib")
+require 'infrastructure_manager_client'
 require "neptune_job_data"
 require 'helperfunctions'
 
@@ -738,17 +739,10 @@ class NeptuneManager
     return if new_vms_needed < 1
     self.log("spawning up #{new_vms_needed} vms")
 
-    job = "open" # *_helper will add the right role later
-    machine = @creds["machine"]
-    ENV['EC2_URL'] = @creds["ec2_url"]
-    instance_type = job_data['@instance_type'] or @creds["instance_type"]
-    keyname = @creds["keyname"]
-    infrastructure = @creds["infrastructure"]
-    group = @creds["group"]
-
-    HelperFunctions.set_creds_in_env(@creds, cloud_num)
-    new_node_info = HelperFunctions.spawn_vms(new_vms_needed, job, machine,
-      instance_type, keyname, infrastructure, "cloud#{cloud_num}", group)
+    # TODO(cgb): get creds
+    cloud = "cloud#{cloud_num}"
+    imc = InfrastructureManagerClient.new(@secret)
+    new_node_info = imc.spawn_vms(new_vms_needed, @creds, "open", cloud)
     add_nodes(new_node_info)
    
     self.log("got all the vms i needed!")
