@@ -1343,9 +1343,7 @@ class Djinn
     replication = @creds["replication"]
     keyname = @creds["keyname"]
     
-    tree = { :table => table, :replication => replication,
-      :local_accesses => @global_local, :remote_accesses => @global_remote ,
-      :keyname => keyname }
+    tree = { :table => table, :replication => replication, :keyname => keyname }
     db_info_path = "#{APPSCALE_HOME}/.appscale/database_info.yaml"
     File.open(db_info_path, "w") { |file| YAML.dump(tree, file) }
     

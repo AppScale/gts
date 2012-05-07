@@ -139,7 +139,7 @@ end
  "VoldemortServer",
  "rabbitmq",
  "thin", "god", "djinn", "xmpp_receiver", 
- "InfrastructureManager", "NeptuneManager"
+ "InfrastructureManager", "Neptune"
 ].each do |program|
   `ps ax | grep #{program} | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9`
 end
