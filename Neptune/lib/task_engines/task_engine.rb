@@ -1,3 +1,9 @@
+# Programmer: Chris Bunch
+
+
+$:.unshift File.join(File.dirname(__FILE__), "..", "..")
+require 'neptune_manager'
+
 
 class TaskEngine
   def initialize(credentials)
@@ -6,8 +12,8 @@ class TaskEngine
 
 
   def push(job_data)
-    dir = Djinn.create_temp_dir()
-    Djinn.copy_code_to_dir(job_data, dir)
+    dir = NeptuneManager.create_temp_dir()
+    NeptuneManager.copy_code_to_dir(job_data, dir)
 
     if app_needs_uploading?(job_data)
       app_location = build_app_via_oration(job_data, dir)
@@ -18,7 +24,7 @@ class TaskEngine
     task_id = run_task(job_data)
     wait_for_task_to_finish(job_data, task_id)
     save_output_to_datastore(job_data)
-    Djinn.cleanup(dir)
+    NeptuneManager.cleanup(dir)
   end
 
 
@@ -28,13 +34,13 @@ class TaskEngine
 
 
   def build_app_via_oration(job_data, dir)
-    Djinn.log_debug("building app via oration")
-    Djinn.log_debug("job data is #{job_data.inspect}")
+    NeptuneManager.log("building app via oration")
+    NeptuneManager.log("job data is #{job_data.inspect}")
     file = job_data['@code']
     output = dir + "/appengine-app"
 
     # TODO(cgb) - definitely check the return val here
-    Djinn.log_run("oration --file #{file} --function #{@function} " +
+    NeptuneManager.log_run("oration --file #{file} --function #{@function} " +
       "--appid #{@appid} --output #{output}")
     return output
   end
@@ -51,7 +57,7 @@ class TaskEngine
 
 
   def run_task(job_data)
-    Djinn.log_debug("running a task in #{engine_name()}")
+    NeptuneManager.log("running a task in #{engine_name()}")
     host = job_data['@host']
 
     if job_data['@argv'].nil? or job_data['@argv'].empty?
@@ -60,34 +66,34 @@ class TaskEngine
       inputs = job_data['@argv']
     end
 
-    return Djinn.execute_task(host, job_data['@function'], inputs, 
+    return NeptuneManager.execute_task(host, job_data['@function'], inputs, 
       job_data['@output'])
   end
 
 
   def wait_for_task_to_finish(job_data, task_id)
-    Djinn.log_debug("waiting for #{engine_name()} task to finish")
+    NeptuneManager.log("waiting for #{engine_name()} task to finish")
     host = job_data['@host']
-    Djinn.wait_for_task_to_complete(host, task_id)
+    NeptuneManager.wait_for_task_to_complete(host, task_id)
   end
 
 
   def save_output_to_datastore(job_data)
-    Djinn.log_debug("copying output from #{engine_name()} to remote datastore")
+    NeptuneManager.log("copying output from #{engine_name()} to remote datastore")
    
     host = job_data['@host']
     output_location = job_data['@output']
-    output = Djinn.get_output(host, output_location)
+    output = NeptuneManager.get_output(host, output_location)
 
-    Djinn.log_debug("got output from #{engine_name()} app at [#{host}], " +
+    NeptuneManager.log("got output from #{engine_name()} app at [#{host}], " +
       "stored at [#{output_location}], storing to remote datastore")
     
     local_output = "/tmp/babel-#{rand()}.txt"
     HelperFunctions.write_file(local_output, output)
-    Djinn.save_output(output_location, local_output, job_data)
+    NeptuneManager.save_output(output_location, local_output, job_data)
 
     return if DEBUG
-    Djinn.log_debug("cleaning up local output at #{local_output}")
+    NeptuneManager.log("cleaning up local output at #{local_output}")
     FileUtils.rm_f(local_output)
   end
 

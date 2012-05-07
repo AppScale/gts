@@ -76,18 +76,18 @@ class TaskQueueGoogleAppEngine < TaskQueue
 
     host = "http://#{@appid}.appspot.com"
     begin
-      Djinn.log_debug("trying a PUT on /task")
+      NeptuneManager.log("trying a PUT on /task")
       # PUT requests require a Content-Length header in App Engine, so
       # set an empty body and httparty will add that header in
       result = GoogleAppEnginePullQueue.put("#{host}/task", :body => '', :query => {:payload => payload})
       if result['ok']
-        Djinn.log_debug("#{host} is up - push succeeded")
+        NeptuneManager.log("#{host} is up - push succeeded")
       else
-        Djinn.log_debug("#{host} is up but push did not succeed, " +
+        NeptuneManager.log("#{host} is up but push did not succeed, " +
           "returning #{result.inspect}")
       end
     rescue NoMethodError  # if the host is down
-      Djinn.log_debug("#{host} is down, returning on push")
+      NeptuneManager.log("#{host} is down, returning on push")
     end
   end
 
@@ -96,12 +96,12 @@ class TaskQueueGoogleAppEngine < TaskQueue
     host = "http://#{@appid}.appspot.com"
 
     begin
-      Djinn.log_debug("trying a GET on /task")
+      NeptuneManager.log("trying a GET on /task")
       task = GoogleAppEnginePullQueue.get("#{host}/task")
-      Djinn.log_debug("#{host} is up and returned a task with payload: #{task}")
+      NeptuneManager.log("#{host} is up and returned a task with payload: #{task}")
       return task
     rescue NoMethodError  # if the host is down
-      Djinn.log_debug("#{host} is down, returning nil")
+      NeptuneManager.log("#{host} is down, returning nil")
       return nil
     end
   end
@@ -122,13 +122,13 @@ class TaskQueueGoogleAppEngine < TaskQueue
     host = "http://#{@appid}.appspot.com"
 
     begin
-      Djinn.log_debug("trying a GET on /size")
+      NeptuneManager.log("trying a GET on /size")
       result = GoogleAppEnginePullQueue.get("#{host}/size")
       size = result['size']
-      Djinn.log_debug("#{host} is up and returned a size of #{size}")
+      NeptuneManager.log("#{host} is up and returned a size of #{size}")
       return size
     rescue NoMethodError  # if the host is down
-      Djinn.log_debug("#{host} is down, returning 0")
+      NeptuneManager.log("#{host} is down, returning 0")
       return 0
     end
   end
@@ -147,31 +147,31 @@ class TaskQueueGoogleAppEngine < TaskQueue
     host = "http://#{@appid}.appspot.com"
 
     begin
-      Djinn.log_debug("trying a GET on /supportspullqueue")
+      NeptuneManager.log("trying a GET on /supportspullqueue")
       result = GoogleAppEnginePullQueue.get("#{host}/supportspullqueue")
-      Djinn.log_debug("#{host} returned [#{result}]")
+      NeptuneManager.log("#{host} returned [#{result}]")
       if result == true
-        Djinn.log_debug("the currently running app supports pull queues")
+        NeptuneManager.log("the currently running app supports pull queues")
         return true
       else
-        Djinn.log_debug("the currently running app does not support pull queues")
+        NeptuneManager.log("the currently running app does not support pull queues")
         return false
       end
     rescue NoMethodError  # if the host is down or doesn't have the right route
-      Djinn.log_debug("#{host} did not return a 200, so returning false")
+      NeptuneManager.log("#{host} did not return a 200, so returning false")
       return false
     end
   end
 
   def wait_for_app_to_start_serving()
     host = "http://#{@appid}.appspot.com"
-    Djinn.log_debug("waiting for app to start serving")
+    NeptuneManager.log("waiting for app to start serving")
     loop {
       if is_pull_queue_app_running?
-        Djinn.log_debug("app is now serving!")
+        NeptuneManager.log("app is now serving!")
         break
       else
-        Djinn.log_debug("app is not yet serving")
+        NeptuneManager.log("app is not yet serving")
         sleep(10)
       end
     }

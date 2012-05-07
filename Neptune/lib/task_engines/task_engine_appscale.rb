@@ -1,6 +1,12 @@
 # Programmer: Chris Bunch
 
+$:.unshift File.join(File.dirname(__FILE__), "..", "..")
+require 'neptune_manager'
+
+
+$:.unshift File.join(File.dirname(__FILE__))
 require 'task_engine'
+
 
 require 'rubygems'
 require 'httparty'
@@ -34,11 +40,11 @@ class TaskEngineAppScale < TaskEngine
   # already uploaded, returning the opposite of that to indicate if it
   # needs to be uploaded.
   def app_needs_uploading?(job_data)
-    Djinn.log_debug("Seeing if app needs to be uploaded, with " +
+    NeptuneManager.log("Seeing if app needs to be uploaded, with " +
       "job data #{job_data.inspect}")
     uac = UserAppClient.new(job_data['@uaserver_ip'], job_data['@secret'])
     needs_uploading = !uac.is_app_uploaded?(job_data['@appid'])
-    Djinn.log_debug("Does app #{job_data['@appid']} need uploading? " +
+    NeptuneManager.log("Does app #{job_data['@appid']} need uploading? " +
       "#{needs_uploading}")
     return needs_uploading
   end
@@ -54,18 +60,18 @@ class TaskEngineAppScale < TaskEngine
     Djinn.log_run("#{upload_app_cmd} --file #{app_location} " +
       "--keyname #{job_data['@keyname']} --test")
 
-    Djinn.log_debug("Waiting for the app to start serving")
+    NeptuneManager.log("Waiting for the app to start serving")
     uac = UserAppClient.new(job_data['@uaserver_ip'], job_data['@secret'])
     loop {
       hosts = uac.get_hosts_for_app(job_data['@appid'])
       if hosts.length.zero?
-        Djinn.log_debug("App is not yet serving")
+        NeptuneManager.log("App is not yet serving")
         sleep(10)
       else
         break
       end
     }
-    Djinn.log_debug("app is now serving!")
+    NeptuneManager.log("app is now serving!")
   end
 
 
@@ -75,11 +81,11 @@ class TaskEngineAppScale < TaskEngine
   def get_app_url(job_data)
     uac = UserAppClient.new(job_data['@uaserver_ip'], job_data['@secret'])
     hosts = uac.get_hosts_for_app(job_data['@appid'])
-    Djinn.log_debug("hosts are [#{hosts.join(', ')}]")
+    NeptuneManager.log("hosts are [#{hosts.join(', ')}]")
 
     index = rand(hosts.length)
     host = "http://#{hosts[index]}"
-    Djinn.log_debug("AppScale app is hosted at #{host}")
+    NeptuneManager.log("AppScale app is hosted at #{host}")
     return host
   end
 

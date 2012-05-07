@@ -1,5 +1,10 @@
 # Programmer: Chris Bunch
 
+
+$:.unshift File.join(File.dirname(__FILE__), "..", "..")
+require 'neptune_manager'
+
+
 $:.unshift File.join(File.dirname(__FILE__))
 require 'task_engine_google_app_engine'
 require 'task_engine_appscale'
@@ -23,7 +28,7 @@ module EngineFactory
       # we have
       return TaskEngineAppScale.new(job_data)
     else
-      Djinn.log_debug("#{engine} is not a supported engine")
+      NeptuneManager.log("#{engine} is not a supported engine")
       raise NotImplementedError
     end
   end
