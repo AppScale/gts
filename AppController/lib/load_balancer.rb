@@ -23,6 +23,9 @@ module LoadBalancer
   LISTEN_SSL_PORT = 443
 
 
+  APPSCALE_HOME = ENV['APPSCALE_HOME']
+
+  
   RAILS_ROOT = File.expand_path("#{APPSCALE_HOME}/AppLoadBalancer")
 
 

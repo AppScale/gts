@@ -20,6 +20,9 @@ module Monitoring
   ENVIRONMENT = "RAILS_ENV=production "
 
 
+  APPSCALE_HOME = ENV['APPSCALE_HOME']
+
+
   RAILS_ROOT = File.expand_path("#{APPSCALE_HOME}/AppMonitoring")
 
 

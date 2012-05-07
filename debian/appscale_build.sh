@@ -136,6 +136,8 @@ apt-get -y purge haproxy
 #apt-get -y remove consolekit
 bash debian/appscale_install.sh all
 
+mkdir -p $APPSCALE_HOME_RUNTIME/.appscale/certs
+
 # The Go programming language we use is part of the App Engine runtime, so
 # add it to our PATH for Medea jobs.
 echo "export PATH=\$PATH:$APPSCALE_HOME_RUNTIME/AppServer/goroot/bin" >> ~/.bashrc

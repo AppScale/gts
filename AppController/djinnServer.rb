@@ -7,8 +7,11 @@ require 'webrick/https'
 require 'logger'
 require 'soap/rpc/driver'
 
-
 APPSCALE_HOME = ENV['APPSCALE_HOME']
+
+# Import for AppController
+$:.unshift File.join(File.dirname(__FILE__))
+require 'djinn'
 
 
 # Imports for AppController libraries
@@ -19,13 +22,6 @@ require 'haproxy'
 require 'collectd'
 require 'nginx'
 
-
-# Import for AppController
-$:.unshift File.join(File.dirname(__FILE__))
-require 'djinn'
-
-
-$VERBOSE = nil # to supress excessive SSL cert warnings
 
 
 # A list of the Neptune jobs that AppScale will not automatically spawn up
