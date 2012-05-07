@@ -227,9 +227,12 @@ class TestDatastore < Test::Unit::TestCase
     @helperfunctions.should_receive(:shell).with("ls /baz").and_return("boo.txt\n")
     @helperfunctions.should_receive(:read_file).with("/baz/boo.txt", false).and_return("")
 
-    flexmock(RightAws::S3Interface).new_instances { |instance|
-      instance.should_receive(:put).with("bucket", "baz/boo.txt", "OPEN FILE 1").and_return(true)
-    }
+    s3_instance = flexmock("s3_interface")
+    s3_instance.should_receive(:put).
+      with("bucket", "baz/boo.txt", "OPEN FILE 1").and_return(true)
+
+    flexmock(RightAws::S3Interface).should_receive(:new).
+      and_return(s3_instance)
 
     d = DatastoreFactory.get_datastore(DatastoreS3::NAME, @s3_creds)
 
@@ -254,10 +257,14 @@ class TestDatastore < Test::Unit::TestCase
     @helperfunctions.should_receive(:read_file).with("/baz/boo.txt", false).and_return("")
     @helperfunctions.should_receive(:read_file).with("/baz/boo2.txt", false).and_return("")
 
-    flexmock(RightAws::S3Interface).new_instances { |instance|
-      instance.should_receive(:put).with("bucket", "baz/boo.txt", "OPEN FILE 1").and_return(true)
-      instance.should_receive(:put).with("bucket", "baz/boo2.txt", "OPEN FILE 2").and_return(false)
-    }
+    s3_instance = flexmock("s3instance")
+    s3_instance.should_receive(:put).
+      with("bucket", "baz/boo.txt", "OPEN FILE 1").and_return(true)
+    s3_instance.should_receive(:put).
+      with("bucket", "baz/boo2.txt", "OPEN FILE 2").and_return(false)
+
+    flexmock(RightAws::S3Interface).should_receive(:new).
+      and_return(s3_instance)
 
     d = DatastoreFactory.get_datastore(DatastoreS3::NAME, @s3_creds)
 
@@ -268,9 +275,11 @@ class TestDatastore < Test::Unit::TestCase
 
 
   def test_s3_file_exists_bucket_not_found
-    flexmock(RightAws::S3Interface).new_instances { |instance|
-      instance.should_receive(:list_all_my_buckets).and_return([])
-    }
+    s3_instance = flexmock("s3_instance")
+    s3_instance.should_receive(:list_all_my_buckets).and_return([])
+
+    flexmock(RightAws::S3Interface).should_receive(:new).
+      and_return(s3_instance)
 
     d = DatastoreFactory.get_datastore(DatastoreS3::NAME, @s3_creds)
 
@@ -281,10 +290,13 @@ class TestDatastore < Test::Unit::TestCase
 
 
   def test_s3_file_exists_bucket_found_but_not_file
-    flexmock(RightAws::S3Interface).new_instances { |instance|
-      instance.should_receive(:list_all_my_buckets).and_return([{:name => "baz"}])
-      instance.should_receive(:get_acl).with("baz", "boo.txt").and_raise(RightAws::AwsError)
-    }
+    s3_instance = flexmock("s3_instance")
+    s3_instance.should_receive(:list_all_my_buckets).
+      and_return([{:name => "baz"}])
+    s3_instance.should_receive(:get_acl).with("baz", "boo.txt").
+      and_raise(RightAws::AwsError)
+    flexmock(RightAws::S3Interface).should_receive(:new).
+      and_return(s3_instance)
 
     d = DatastoreFactory.get_datastore(DatastoreS3::NAME, @s3_creds)
 
@@ -295,10 +307,12 @@ class TestDatastore < Test::Unit::TestCase
 
 
   def test_s3_file_exists_bucket_and_file_found
-    flexmock(RightAws::S3Interface).new_instances { |instance|
-      instance.should_receive(:list_all_my_buckets).and_return([{:name => "baz"}])
-      instance.should_receive(:get_acl).with("baz", "boo.txt").and_return()
-    }
+    s3_instance = flexmock("s3_instance")
+    s3_instance.should_receive(:list_all_my_buckets).
+      and_return([{:name => "baz"}])
+    s3_instance.should_receive(:get_acl).with("baz", "boo.txt").and_return()
+    flexmock(RightAws::S3Interface).should_receive(:new).
+      and_return(s3_instance)
 
     d = DatastoreFactory.get_datastore(DatastoreS3::NAME, @s3_creds)
 

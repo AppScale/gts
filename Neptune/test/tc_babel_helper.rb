@@ -123,10 +123,11 @@ class TestBabelHelper < Test::Unit::TestCase
     fileutils = flexmock(FileUtils)
     fileutils.should_receive(:mkdir_p).and_return()
 
-    flexmock(RightAws::S3Interface).new_instances { |instance|
-      instance.should_receive(:list_bucket).and_return([{:key => 'boo'}])
-      instance.should_receive(:get).and_return("boo")
-    }
+    s3_instance = flexmock("s3_instance")
+    s3_instance.should_receive(:list_bucket).and_return([{:key => 'boo'}])
+    s3_instance.should_receive(:get).and_return("boo")
+    flexmock(RightAws::S3Interface).should_receive(:new).
+      and_return(s3_instance)
 
     flexmock(File).should_receive(:new).and_return(flexmock(:close => nil))
 
