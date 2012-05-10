@@ -1,223 +1,196 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<!DOCTYPE html>
+
+<html>
 <head>
-  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+<meta content="text/html; charset=UTF-8" http-equiv="Content-Type">
 
-  <title>Class: TaskEngineAppScale</title>
+<title>class TaskEngineAppScale - RDoc Documentation</title>
 
-  <link rel="stylesheet" href="./rdoc.css" type="text/css" media="screen" />
+<link type="text/css" media="screen" href="./rdoc.css" rel="stylesheet">
 
-  <script src="./js/jquery.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/thickbox-compressed.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/quicksearch.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/darkfish.js" type="text/javascript"
-    charset="utf-8"></script>
+<script type="text/javascript">
+  var rdoc_rel_prefix = "./";
+</script>
 
-</head>
-<body class="class">
+<script type="text/javascript" charset="utf-8" src="./js/jquery.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/navigation.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/search_index.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/search.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/searcher.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/darkfish.js"></script>
 
-  <div id="metadata">
-    <div id="home-metadata">
-      <div id="home-section" class="section">
-        <h3 class="section-header">
-          <a href="./index.html">Home</a>
-          <a href="./index.html#classes">Classes</a>
-          <a href="./index.html#methods">Methods</a>
-        </h3>
-      </div>
-    </div>
 
-    <div id="file-metadata">
-      <div id="file-list-section" class="section">
-        <h3 class="section-header">In Files</h3>
-        <div class="section-body">
-          <ul>
-          
-            <li><a href="./lib/task_engines/task_engine_appscale_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
-              class="thickbox" title="lib/task_engines/task_engine_appscale.rb">lib/task_engines/task_engine_appscale.rb</a></li>
-          
-          </ul>
-        </div>
-      </div>
+<body id="top" class="class">
+<nav id="metadata">
+  <nav id="home-section" class="section">
+  <h3 class="section-header">
+    <a href="./index.html">Home</a>
+    <a href="./table_of_contents.html#classes">Classes</a>
+    <a href="./table_of_contents.html#methods">Methods</a>
+  </h3>
+</nav>
 
-      
-    </div>
 
-    <div id="class-metadata">
+  <nav id="search-section" class="section project-section" class="initially-hidden">
+  <form action="#" method="get" accept-charset="utf-8">
+    <h3 class="section-header">
+      <input type="text" name="search" placeholder="Search" id="search-field"
+             title="Type to search, Up and Down to navigate, Enter to load">
+    </h3>
+  </form>
 
-      <!-- Parent Class -->
-      
-      <div id="parent-class-section" class="section">
-        <h3 class="section-header">Parent</h3>
-        
-        <p class="link"><a href="TaskEngine.html">TaskEngine</a></p>
-        
-      </div>
-      
+  <ul id="search-results" class="initially-hidden"></ul>
+</nav>
 
-      <!-- Namespace Contents -->
-      
 
-      <!-- Method Quickref -->
-      
-      <div id="method-list-section" class="section">
-        <h3 class="section-header">Methods</h3>
-        <ul class="link-list">
-          
-          <li><a href="#method-c-new">::new</a></li>
-          
-          <li><a href="#method-i-app_needs_uploading-3F">#app_needs_uploading?</a></li>
-          
-          <li><a href="#method-i-engine_name">#engine_name</a></li>
-          
-          <li><a href="#method-i-get_app_url">#get_app_url</a></li>
-          
-          <li><a href="#method-i-upload_app">#upload_app</a></li>
-          
-        </ul>
-      </div>
-      
+  <div id="file-metadata">
+    <nav id="file-list-section" class="section">
+  <h3 class="section-header">Defined In</h3>
+  <ul>
+    <li>lib/task_engines/task_engine_appscale.rb
+  </ul>
+</nav>
 
-      <!-- Included Modules -->
-      
-    </div>
-
-    <div id="project-metadata">
-      
-      
-
-      <div id="classindex-section" class="section project-section">
-        <h3 class="section-header">Class/Module Index
-          <span class="search-toggle"><img src="./images/find.png"
-            height="16" width="16" alt="[+]"
-            title="show/hide quicksearch" /></span></h3>
-        <form action="#" method="get" accept-charset="utf-8" class="initially-hidden">
-        <fieldset>
-          <legend>Quicksearch</legend>
-          <input type="text" name="quicksearch" value=""
-            class="quicksearch-field" />
-        </fieldset>
-        </form>
-
-        <ul class="link-list">
-        
-          <li><a href="./NeptuneManager.html">NeptuneManager</a></li>
-        
-          <li><a href="./NeptuneManager/Djinn.html">NeptuneManager::Djinn</a></li>
-        
-          <li><a href="./BadConfigurationException.html">BadConfigurationException</a></li>
-        
-          <li><a href="./Datastore.html">Datastore</a></li>
-        
-          <li><a href="./DatastoreFactory.html">DatastoreFactory</a></li>
-        
-          <li><a href="./DatastoreRepo.html">DatastoreRepo</a></li>
-        
-          <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a></li>
-        
-          <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a></li>
-        
-          <li><a href="./DatastoreS3.html">DatastoreS3</a></li>
-        
-          <li><a href="./Djinn.html">Djinn</a></li>
-        
-          <li><a href="./EngineFactory.html">EngineFactory</a></li>
-        
-          <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a></li>
-        
-          <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a></li>
-        
-          <li><a href="./HelperFunctions.html">HelperFunctions</a></li>
-        
-          <li><a href="./NeptuneJobData.html">NeptuneJobData</a></li>
-        
-          <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a></li>
-        
-          <li><a href="./Object.html">Object</a></li>
-        
-          <li><a href="./QueueFactory.html">QueueFactory</a></li>
-        
-          <li><a href="./TaskEngine.html">TaskEngine</a></li>
-        
-          <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a></li>
-        
-          <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a></li>
-        
-          <li><a href="./TaskQueue.html">TaskQueue</a></li>
-        
-          <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a></li>
-        
-          <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a></li>
-        
-          <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a></li>
-        
-          <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a></li>
-        
-          <li><a href="./UserAppClient.html">UserAppClient</a></li>
-        
-        </ul>
-        <div id="no-class-search-results" style="display: none;">No matching classes.</div>
-      </div>
-
-      
-    </div>
+    
   </div>
 
-  <div id="documentation">
-    <h1 class="class">TaskEngineAppScale</h1>
-
-    <div id="description">
-      
-    </div>
-
-    <!-- Constants -->
+  <div id="class-metadata">
     
-    <div id="constants-list" class="section">
+    <nav id="parent-class-section" class="section">
+  <h3 class="section-header">Parent</h3>
+  
+  <p class="link"><a href="TaskEngine.html">TaskEngine</a>
+  
+</nav>
+
+    
+    <!-- Method Quickref -->
+<nav id="method-list-section" class="section">
+  <h3 class="section-header">Methods</h3>
+
+  <ul class="link-list">
+    
+    <li><a href="#method-c-new">::new</a>
+    
+    <li><a href="#method-i-app_needs_uploading-3F">#app_needs_uploading?</a>
+    
+    <li><a href="#method-i-engine_name">#engine_name</a>
+    
+    <li><a href="#method-i-get_app_url">#get_app_url</a>
+    
+    <li><a href="#method-i-upload_app">#upload_app</a>
+    
+  </ul>
+</nav>
+
+  </div>
+
+  <div id="project-metadata">
+    
+    <nav id="classindex-section" class="section project-section">
+  <h3 class="section-header">Class and Module Index</h3>
+
+  <ul class="link-list">
+  
+    <li><a href="./BadConfigurationException.html">BadConfigurationException</a>
+  
+    <li><a href="./Datastore.html">Datastore</a>
+  
+    <li><a href="./DatastoreFactory.html">DatastoreFactory</a>
+  
+    <li><a href="./DatastoreRepo.html">DatastoreRepo</a>
+  
+    <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a>
+  
+    <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a>
+  
+    <li><a href="./DatastoreS3.html">DatastoreS3</a>
+  
+    <li><a href="./EngineFactory.html">EngineFactory</a>
+  
+    <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a>
+  
+    <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a>
+  
+    <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a>
+  
+    <li><a href="./HelperFunctions.html">HelperFunctions</a>
+  
+    <li><a href="./InfrastructureManagerClient.html">InfrastructureManagerClient</a>
+  
+    <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
+  
+    <li><a href="./NeptuneManager.html">NeptuneManager</a>
+  
+    <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
+  
+    <li><a href="./Object.html">Object</a>
+  
+    <li><a href="./QueueFactory.html">QueueFactory</a>
+  
+    <li><a href="./TaskEngine.html">TaskEngine</a>
+  
+    <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a>
+  
+    <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a>
+  
+    <li><a href="./TaskQueue.html">TaskQueue</a>
+  
+    <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a>
+  
+    <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a>
+  
+    <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a>
+  
+    <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a>
+  
+    <li><a href="./UserAppClient.html">UserAppClient</a>
+  
+    <li><a href="./ZKInterface.html">ZKInterface</a>
+  
+  </ul>
+</nav>
+
+  </div>
+</nav>
+
+<div id="documentation">
+  <h1 class="class">class TaskEngineAppScale</h1>
+
+  <div id="description" class="description">
+    
+  </div><!-- description -->
+
+  
+  
+  
+  <section id="5Buntitled-5D" class="documentation-section">
+    
+
+    
+
+    
+    <!-- Constants -->
+    <section id="constants-list" class="section">
       <h3 class="section-header">Constants</h3>
       <dl>
       
-        <dt><a name="NAME">NAME</a></dt>
+        <dt id="NAME">NAME
         
-        <dd class="description"></dd>
+        <dd class="description">
         
       
       </dl>
-    </div>
+    </section>
     
 
-    <!-- Attributes -->
     
-    <div id="attribute-method-details" class="method-section section">
+    <!-- Attributes -->
+    <section id="attribute-method-details" class="method-section section">
       <h3 class="section-header">Attributes</h3>
 
       
-      <div id="appid-attribute-method" class="method-detail">
-        <a name="appid"></a>
-        
-        <a name="appid="></a>
-        
-        <div class="method-heading attribute-method-heading">
-          <span class="method-name">appid</span><span
-            class="attribute-access-type">[RW]</span>
-        </div>
-
-        <div class="method-description">
-        
-        
-        
-        </div>
-      </div>
-      
-      <div id="appcfg_cookies-attribute-method" class="method-detail">
-        <a name="appcfg_cookies"></a>
-        
-        <a name="appcfg_cookies="></a>
-        
+      <div id="attribute-i-appcfg_cookies" class="method-detail">
         <div class="method-heading attribute-method-heading">
           <span class="method-name">appcfg_cookies</span><span
             class="attribute-access-type">[RW]</span>
@@ -230,11 +203,20 @@
         </div>
       </div>
       
-      <div id="function-attribute-method" class="method-detail">
-        <a name="function"></a>
+      <div id="attribute-i-appid" class="method-detail">
+        <div class="method-heading attribute-method-heading">
+          <span class="method-name">appid</span><span
+            class="attribute-access-type">[RW]</span>
+        </div>
+
+        <div class="method-description">
         
-        <a name="function="></a>
         
+        
+        </div>
+      </div>
+      
+      <div id="attribute-i-function" class="method-detail">
         <div class="method-heading attribute-method-heading">
           <span class="method-name">function</span><span
             class="attribute-access-type">[RW]</span>
@@ -247,18 +229,64 @@
         </div>
       </div>
       
-    </div>
+    </section><!-- attribute-method-details -->
     
 
     <!-- Methods -->
     
-    <div id="public-instance-method-details" class="method-section section">
+     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="method-c-new" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">new</span><span
+            class="method-args">(credentials)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="new-source">
+            <pre><span class="ruby-comment"># File lib/task_engines/task_engine_appscale.rb, line 22</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">credentials</span>)
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>.<span class="ruby-identifier">class</span> <span class="ruby-operator">!=</span> <span class="ruby-constant">Hash</span>
+    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;Credentials not a hash.&quot;</span>)
+  <span class="ruby-keyword">end</span>
+  
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'@appid'</span>].<span class="ruby-identifier">nil?</span>
+    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;No appid provided.&quot;</span>)
+  <span class="ruby-keyword">end</span>
+  <span class="ruby-ivar">@appid</span> = <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'@appid'</span>]
+  
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'@function'</span>].<span class="ruby-identifier">nil?</span>
+    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;No function provided.&quot;</span>)
+  <span class="ruby-keyword">end</span>
+  <span class="ruby-ivar">@function</span> = <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'@function'</span>]
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- new-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- new-method -->
+
+    
+    </section><!-- public-class-method-details -->
+  
+     <section id="public-instance-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Instance Methods</h3>
 
     
-      <div id="app_needs_uploading-3F-method" class="method-detail ">
-        <a name="method-i-app_needs_uploading-3F"></a>
-
+      <div id="method-i-app_needs_uploading-3F" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">app_needs_uploading?</span><span
@@ -275,32 +303,28 @@ uploaded.</p>
           
 
           
-          <div class="method-source-code"
-            id="app_needs_uploading-3F-source">
-<pre>
-<span class="ruby-comment"># File lib/task_engines/task_engine_appscale.rb, line 36</span>
-def app_needs_uploading?(job_data)
-  <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;Seeing if app needs to be uploaded, with &quot;</span> +
-    &quot;job data #{job_data.inspect}&quot;)
-  uac = <span class="ruby-constant">UserAppClient</span>.new(job_data[<span class="ruby-string">'@uaserver_ip'</span>], job_data[<span class="ruby-string">'@secret'</span>])
-  needs_uploading = !uac.is_app_uploaded?(job_data[<span class="ruby-string">'@appid'</span>])
-  <span class="ruby-constant">Djinn</span>.log_debug(&quot;Does app #{job_data['@appid']} need uploading? &quot; +
-    &quot;#{needs_uploading}&quot;)
-  return needs_uploading
-end</pre>
-          </div>
+          <div class="method-source-code" id="app_needs_uploading-3F-source">
+            <pre><span class="ruby-comment"># File lib/task_engines/task_engine_appscale.rb, line 42</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">app_needs_uploading?</span>(<span class="ruby-identifier">job_data</span>)
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;Seeing if app needs to be uploaded, with &quot;</span> <span class="ruby-operator">+</span>
+    <span class="ruby-node">&quot;job data #{job_data.inspect}&quot;</span>)
+  <span class="ruby-identifier">uac</span> = <span class="ruby-constant">UserAppClient</span>.<span class="ruby-identifier">new</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@uaserver_ip'</span>], <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@secret'</span>])
+  <span class="ruby-identifier">needs_uploading</span> = <span class="ruby-operator">!</span><span class="ruby-identifier">uac</span>.<span class="ruby-identifier">is_app_uploaded?</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@appid'</span>])
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Does app #{job_data['@appid']} need uploading? &quot;</span> <span class="ruby-operator">+</span>
+    <span class="ruby-node">&quot;#{needs_uploading}&quot;</span>)
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">needs_uploading</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- app_needs_uploading-3F-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- app_needs_uploading-3F-method -->
 
     
-      <div id="engine_name-method" class="method-detail ">
-        <a name="method-i-engine_name"></a>
-
+      <div id="method-i-engine_name" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">engine_name</span><span
@@ -315,26 +339,22 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="engine_name-source">
-<pre>
-<span class="ruby-comment"># File lib/task_engines/task_engine_appscale.rb, line 87</span>
-def engine_name()
-  return <span class="ruby-string">&quot;AppScale&quot;</span>
-end</pre>
-          </div>
+          <div class="method-source-code" id="engine_name-source">
+            <pre><span class="ruby-comment"># File lib/task_engines/task_engine_appscale.rb, line 93</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">engine_name</span>()
+  <span class="ruby-keyword">return</span> <span class="ruby-string">&quot;AppScale&quot;</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- engine_name-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- engine_name-method -->
 
     
-      <div id="get_app_url-method" class="method-detail ">
-        <a name="method-i-get_app_url"></a>
-
+      <div id="method-i-get_app_url" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">get_app_url</span><span
@@ -351,33 +371,29 @@ automatically route users to the app.</p>
           
 
           
-          <div class="method-source-code"
-            id="get_app_url-source">
-<pre>
-<span class="ruby-comment"># File lib/task_engines/task_engine_appscale.rb, line 75</span>
-def get_app_url(job_data)
-  uac = <span class="ruby-constant">UserAppClient</span>.new(job_data[<span class="ruby-string">'@uaserver_ip'</span>], job_data[<span class="ruby-string">'@secret'</span>])
-  hosts = uac.get_hosts_for_app(job_data[<span class="ruby-string">'@appid'</span>])
-  <span class="ruby-constant">Djinn</span>.log_debug(&quot;hosts are [#{hosts.join(', ')}]&quot;)
+          <div class="method-source-code" id="get_app_url-source">
+            <pre><span class="ruby-comment"># File lib/task_engines/task_engine_appscale.rb, line 81</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">get_app_url</span>(<span class="ruby-identifier">job_data</span>)
+  <span class="ruby-identifier">uac</span> = <span class="ruby-constant">UserAppClient</span>.<span class="ruby-identifier">new</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@uaserver_ip'</span>], <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@secret'</span>])
+  <span class="ruby-identifier">hosts</span> = <span class="ruby-identifier">uac</span>.<span class="ruby-identifier">get_hosts_for_app</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@appid'</span>])
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;hosts are [#{hosts.join(', ')}]&quot;</span>)
 
-  index = rand(hosts.length)
-  host = &quot;http://#{hosts[index]}&quot;
-  <span class="ruby-constant">Djinn</span>.log_debug(&quot;AppScale app is hosted at #{host}&quot;)
-  return host
-end</pre>
-          </div>
+  <span class="ruby-identifier">index</span> = <span class="ruby-identifier">rand</span>(<span class="ruby-identifier">hosts</span>.<span class="ruby-identifier">length</span>)
+  <span class="ruby-identifier">host</span> = <span class="ruby-node">&quot;http://#{hosts[index]}&quot;</span>
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;AppScale app is hosted at #{host}&quot;</span>)
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">host</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- get_app_url-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- get_app_url-method -->
 
     
-      <div id="upload_app-method" class="method-detail ">
-        <a name="method-i-upload_app"></a>
-
+      <div id="method-i-upload_app" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">upload_app</span><span
@@ -394,103 +410,48 @@ info on failure conditions</p>
           
 
           
-          <div class="method-source-code"
-            id="upload_app-source">
-<pre>
-<span class="ruby-comment"># File lib/task_engines/task_engine_appscale.rb, line 50</span>
-def upload_app(job_data, app_location)
+          <div class="method-source-code" id="upload_app-source">
+            <pre><span class="ruby-comment"># File lib/task_engines/task_engine_appscale.rb, line 56</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">upload_app</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">app_location</span>)
   <span class="ruby-comment"># TODO(cgb): definitely check the return value of this</span>
   <span class="ruby-comment"># instead of assuming success</span>
-  upload_app_cmd = <span class="ruby-string">&quot;/usr/local/appscale-tools/bin/appscale-upload-app&quot;</span>
-  <span class="ruby-constant">Djinn</span>.log_run(&quot;#{upload_app_cmd} --file #{app_location} &quot; +
-    &quot;--keyname #{job_data['@keyname']} --test&quot;)
+  <span class="ruby-identifier">upload_app_cmd</span> = <span class="ruby-string">&quot;/usr/local/appscale-tools/bin/appscale-upload-app&quot;</span>
+  <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_run</span>(<span class="ruby-node">&quot;#{upload_app_cmd} --file #{app_location} &quot;</span> <span class="ruby-operator">+</span>
+    <span class="ruby-node">&quot;--keyname #{job_data['@keyname']} --test&quot;</span>)
 
-  <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;Waiting for the app to start serving&quot;</span>)
-  uac = <span class="ruby-constant">UserAppClient</span>.new(job_data[<span class="ruby-string">'@uaserver_ip'</span>], job_data[<span class="ruby-string">'@secret'</span>])
-  loop {
-    hosts = uac.get_hosts_for_app(job_data[<span class="ruby-string">'@appid'</span>])
-    if hosts.length.zero?
-      <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;App is not yet serving&quot;</span>)
-      sleep(10)
-    else
-      break
-    end
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;Waiting for the app to start serving&quot;</span>)
+  <span class="ruby-identifier">uac</span> = <span class="ruby-constant">UserAppClient</span>.<span class="ruby-identifier">new</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@uaserver_ip'</span>], <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@secret'</span>])
+  <span class="ruby-identifier">loop</span> {
+    <span class="ruby-identifier">hosts</span> = <span class="ruby-identifier">uac</span>.<span class="ruby-identifier">get_hosts_for_app</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@appid'</span>])
+    <span class="ruby-keyword">if</span> <span class="ruby-identifier">hosts</span>.<span class="ruby-identifier">length</span>.<span class="ruby-identifier">zero?</span>
+      <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;App is not yet serving&quot;</span>)
+      <span class="ruby-identifier">sleep</span>(<span class="ruby-value">10</span>)
+    <span class="ruby-keyword">else</span>
+      <span class="ruby-keyword">break</span>
+    <span class="ruby-keyword">end</span>
   }
-  <span class="ruby-constant">Djinn</span>.log_debug(<span class="ruby-string">&quot;app is now serving!&quot;</span>)
-end</pre>
-          </div>
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;app is now serving!&quot;</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- upload_app-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- upload_app-method -->
 
     
-    </div>
+    </section><!-- public-instance-method-details -->
   
-    <div id="public-class-method-details" class="method-section section">
-      <h3 class="section-header">Public Class Methods</h3>
+  </section><!-- 5Buntitled-5D -->
 
-    
-      <div id="new-method" class="method-detail ">
-        <a name="method-c-new"></a>
+</div><!-- documentation -->
 
-        
-        <div class="method-heading">
-          <span class="method-name">new</span><span
-            class="method-args">(credentials)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
 
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code"
-            id="new-source">
-<pre>
-<span class="ruby-comment"># File lib/task_engines/task_engine_appscale.rb, line 16</span>
-def initialize(credentials)
-  if credentials.class != <span class="ruby-constant">Hash</span>
-    raise <span class="ruby-constant">BadConfigurationException</span>.new(<span class="ruby-string">&quot;Credentials not a hash.&quot;</span>)
-  end
-  
-  if credentials[<span class="ruby-string">'@appid'</span>].nil?
-    raise <span class="ruby-constant">BadConfigurationException</span>.new(<span class="ruby-string">&quot;No appid provided.&quot;</span>)
-  end
-  <span class="ruby-ivar">@appid</span> = credentials[<span class="ruby-string">'@appid'</span>]
-  
-  if credentials[<span class="ruby-string">'@function'</span>].nil?
-    raise <span class="ruby-constant">BadConfigurationException</span>.new(<span class="ruby-string">&quot;No function provided.&quot;</span>)
-  end
-  <span class="ruby-ivar">@function</span> = credentials[<span class="ruby-string">'@function'</span>]
-end</pre>
-          </div>
-          
-        </div>
-
-        
-
-        
-      </div>
-
-    
-    </div>
-  
-
-  </div>
-
-  <div id="validator-badges">
-    <p><small><a href="http://validator.w3.org/check/referer">[Validate]</a></small></p>
-    <p><small>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish
-      Rdoc Generator</a> 2</small>.</p>
-  </div>
-
-</body>
-</html>
+<footer id="validator-badges">
+  <p><a href="http://validator.w3.org/check/referer">[Validate]</a>
+  <p>Generated by <a href="https://github.com/rdoc/rdoc">RDoc</a> 3.12.
+  <p>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish Rdoc Generator</a> 3.
+</footer>
 

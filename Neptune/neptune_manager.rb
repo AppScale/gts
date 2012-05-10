@@ -3,6 +3,7 @@
 
 # Imports for general Neptune stuff
 $:.unshift File.join(File.dirname(__FILE__), "lib")
+require 'djinn_job_data'
 require 'infrastructure_manager_client'
 require "neptune_job_data"
 require 'helperfunctions'
@@ -40,10 +41,6 @@ periodically dump and revive info to-from ZK
 remove all dead code from AppController/helperfunctions
 
 remove all dead code from Neptune/helperfunctions
-
-make the AppController start this daemon via god
-
-make terminate.rb kill this daemon
 =end
 
 
@@ -68,6 +65,9 @@ class NeptuneManager
   NO_NODES_NEEDED = ["acl", "babel", "compile", "input", "output"]
 
 
+  JOB_IS_RUNNING = "job is now running"
+
+
   JOB_IN_PROGRESS = "job is in progress"
 
 
@@ -75,6 +75,12 @@ class NeptuneManager
 
 
   MISSING_PARAM = "Error: a required parameter was missing"
+
+
+  RUN_JOBS_IN_PARALLEL = "running jobs in parallel"
+
+
+  RUN_JOBS_IN_SERIAL = "running jobs in serial"
 
 
   STARTED_SUCCESSFULLY = "OK"
@@ -110,15 +116,19 @@ class NeptuneManager
   attr_accessor :queues_to_read
 
   
+  attr_accessor :my_node_info
+
+
   def initialize()
     @secret = HelperFunctions.get_secret()
     @nodes = []
     @jobs = {}
     @queues_to_read = []
+    @my_node_info = nil
   end
 
 
-  def self.log(msg)
+  def NeptuneManager.log(msg)
     Kernel.puts(msg)
     STDOUT.flush()
   end
@@ -130,77 +140,86 @@ class NeptuneManager
     end
 
     Thread.new {
-      can_run_at_once = true
-      jobs.each { |job_data|
-        if !job_data['@type'] == "babel"
-          self.log("job data #{job_data.inspect} is not a babel job - " +
-            " not running in parallel")
-          can_run_at_once = false
-          break
-        end
-      }
-
-      if can_run_at_once
-          self.log("running jobs with optimized path")
-          # TODO(cgb): be a bit more intelligent about batch_info
-          # e.g., it's global_nodes should be the max of all in jobs
-          batch_info = jobs[0]
-          touch_lock_file(batch_info)
-
-          nodes_to_use = acquire_nodes(batch_info)
-
-          self.log("nodes to use are [#{nodes_to_use.join(', ')}]")
-          start_job(nodes_to_use, batch_info)
-
-          start_time = Time.now()
-          master_node = nodes_to_use.first 
-          run_job_on_master(master_node, nodes_to_use, jobs)
-          end_time = Time.now()
-
-          stop_job(nodes_to_use, job_data)
-
-          release_nodes(nodes_to_use, batch_info)
-          add_timing_info(batch_info, nodes_to_use, start_time, end_time)
-
-          cleanup_code(batch_info['@code'])
-      else
-        self.log("running jobs with non-optimized path")
-        jobs.each_with_index { |job_data, i|
-            self.log("on job data number #{i}")
-            #message = validate_environment(job_data, secret)
-            #return message if message != "no error"
-
-            touch_lock_file(job_data)
-            self.log("got run request - #{job_data.inspect}")
-
-            #prejob_status = can_run_job(job_data)
-            #self.log("Pre-job status for job_data [#{job_data}] is " +
-            #  "[#{prejob_status}]")
-            #if prejob_status != :ok
-            #  return prejob_status
-            #end
-
-            nodes_to_use = acquire_nodes(job_data)
-
-            self.log("nodes to use are [#{nodes_to_use.join(', ')}]")
-            start_job(nodes_to_use, job_data)
-
-            start_time = Time.now()
-            master_node = nodes_to_use.first 
-            run_job_on_master(master_node, nodes_to_use, job_data)
-            end_time = Time.now()
-
-            stop_job(nodes_to_use, job_data)
-
-            release_nodes(nodes_to_use, job_data)
-            add_timing_info(job_data, nodes_to_use, start_time, end_time)
-
-            cleanup_code(job_data['@code'])
-        }
-      end
+      dispatch_jobs(jobs)
     }
 
-    return "job is now running"
+    return JOB_IS_RUNNING
+  end
+
+
+  def can_run_jobs_in_parallel?(jobs)
+    jobs.each { |job_data|
+      if !job_data['@type'] == "babel"
+        NeptuneManager.log("job data #{job_data.inspect} is not a babel " +
+          "job - not running in parallel")
+        return false
+      end
+    }
+    return true
+  end
+
+  
+  def dispatch_jobs(jobs)
+    if can_run_jobs_in_parallel?(jobs)
+      run_jobs_in_parallel(jobs)
+      return RUN_JOBS_IN_PARALLEL
+    else
+      run_jobs_in_serial(jobs)
+      return RUN_JOBS_IN_SERIAL
+    end
+  end
+
+
+  def run_jobs_in_parallel(jobs)
+    NeptuneManager.log("running jobs with optimized path")
+    # TODO(cgb): be a bit more intelligent about batch_info
+    # e.g., it's global_nodes should be the max of all in jobs
+    batch_info = jobs[0]
+    touch_lock_file(batch_info)
+
+    nodes_to_use = acquire_nodes(batch_info)
+
+    NeptuneManager.log("nodes to use are [#{nodes_to_use.join(', ')}]")
+    start_job_roles(nodes_to_use, batch_info)
+
+    start_time = Time.now()
+    master_node = nodes_to_use.first 
+    run_job_on_master(master_node, nodes_to_use, jobs)
+    end_time = Time.now()
+
+    stop_job_roles(nodes_to_use, job_data)
+
+    release_nodes(nodes_to_use, batch_info)
+    add_timing_info(batch_info, nodes_to_use, start_time, end_time)
+
+    cleanup_code(batch_info['@code'])
+  end
+
+  
+  def run_jobs_in_serial(jobs)
+    NeptuneManager.log("running jobs with non-optimized path")
+    jobs.each_with_index { |job_data, i|
+      NeptuneManager.log("Running job number #{i}")
+      touch_lock_file(job_data)
+      NeptuneManager.log("got run request - #{job_data.inspect}")
+
+      nodes_to_use = acquire_nodes(job_data)
+
+      NeptuneManager.log("nodes to use are [#{nodes_to_use.join(', ')}]")
+      start_job_roles(nodes_to_use, job_data)
+
+      start_time = Time.now()
+      master_node = nodes_to_use.first 
+      run_job_on_master(master_node, nodes_to_use, job_data)
+      end_time = Time.now()
+
+      stop_job_roles(nodes_to_use, job_data)
+
+      release_nodes(nodes_to_use, job_data)
+      add_timing_info(job_data, nodes_to_use, start_time, end_time)
+
+      cleanup_code(job_data['@code'])
+    }
   end
 
 
@@ -214,7 +233,7 @@ class NeptuneManager
     message = validate_environment(job_data, secret)
     return message unless message == "no error"
 
-    self.log("requesting input")
+    NeptuneManager.log("requesting input")
 
     type = job_data["@type"]
 
@@ -229,7 +248,7 @@ class NeptuneManager
     local_fs_location = File.expand_path(job_data["@local"])
 
     loop {
-      self.log("waiting for file #{local_fs_location} to exist")
+      NeptuneManager.log("waiting for file #{local_fs_location} to exist")
       break if File.exists?(local_fs_location)
       sleep(1)
     }
@@ -237,7 +256,7 @@ class NeptuneManager
     msg = "storing local file #{local_fs_location} with size " + 
       "#{File.size(local_fs_location)}, storing to #{input_location}"
 
-    self.log(msg)
+    NeptuneManager.log(msg)
 
     datastore = DatastoreFactory.get_datastore(job_data['@storage'], job_data)
     ret_val = datastore.write_remote_file_from_local_file(input_location, local_fs_location)
@@ -256,7 +275,7 @@ class NeptuneManager
       end
 
       cmd = "#{HADOOP} fs -put #{local_fs_location} #{input_location}"
-      self.log("putting input in hadoop with command [#{cmd}]")
+      NeptuneManager.log("putting input in hadoop with command [#{cmd}]")
       run_on_db_master(cmd)
     end
 
@@ -274,7 +293,7 @@ class NeptuneManager
     message = validate_environment(job_data, secret)
     return message unless message == "no error"
 
-    self.log("requesting output")
+    NeptuneManager.log("requesting output")
 
     type = job_data["@type"]
 
@@ -298,7 +317,7 @@ class NeptuneManager
     message = validate_environment(job_data, secret)
     return message unless message == "no error"
 
-    self.log("requesting acl")
+    NeptuneManager.log("requesting acl")
 
     type = job_data["@type"]
 
@@ -320,7 +339,7 @@ class NeptuneManager
     message = validate_environment(job_data, secret)
     return message unless message == "no error"
 
-    self.log("setting acl")
+    NeptuneManager.log("setting acl")
 
     type = job_data["@type"]
 
@@ -348,7 +367,7 @@ class NeptuneManager
     message = validate_environment(job_data, secret)
     return message unless message == "no error"
 
-    self.log("compiling code")
+    NeptuneManager.log("compiling code")
 
     main_file = job_data["@main"]
     input_loc = job_data["@code"]
@@ -365,7 +384,7 @@ class NeptuneManager
 
       compile_cmd = "cd #{input_loc}; make #{target} 2>compile_err 1>compile_out"
 
-      self.log("compiling code by running [#{compile_cmd}]")
+      NeptuneManager.log("compiling code by running [#{compile_cmd}]")
 
       result = `#{compile_cmd}`
       HelperFunctions.shell("cp -r #{input_loc} #{compiled_dir}")
@@ -391,22 +410,22 @@ class NeptuneManager
     input_location = job_data["@input"]
     if input_location and !NO_INPUT_NEEDED.include?(job_data['@type'])
       input_exists = datastore.does_file_exist?(input_location)
-      self.log("input specified - did #{input_location} exist? #{input_exists}")
+      NeptuneManager.log("input specified - did #{input_location} exist? #{input_exists}")
       unless input_exists
         return "error: input specified but did not exist"
       end
     else
-      self.log("input not specified - moving on")
+      NeptuneManager.log("input not specified - moving on")
     end
 
     output_location = job_data["@output"]
     output_exists = datastore.does_file_exist?(output_location)
-    self.log("output specified - did #{output_location} exist? #{output_exists}")
+    NeptuneManager.log("output specified - did #{output_location} exist? #{output_exists}")
     if output_exists
       return "error: output already exists"
     end
 
-    self.log("job type is [#{job_data["@type"]}]")
+    NeptuneManager.log("job type is [#{job_data["@type"]}]")
 
     if NO_NODES_NEEDED.include?(job_data["@type"])
       return :ok
@@ -417,7 +436,7 @@ class NeptuneManager
     end
 
     if !(is_cloud? or is_hybrid_cloud?)
-      self.log("not in cloud")
+      NeptuneManager.log("not in cloud")
       # make sure we have enough open nodes
       # a bit race-y, see the TODO on set for more info
 
@@ -429,18 +448,18 @@ class NeptuneManager
         hash_job_data = Hash[*job_data["@nodes_to_use"]]
         hash_job_data.each { |cloud, nodes_needed|
           if nodes_needed =~ URL_REGEX
-            self.log("Saw URL [#{nodes_needed}] for cloud [#{cloud}] - " +
+            NeptuneManager.log("Saw URL [#{nodes_needed}] for cloud [#{cloud}] - " +
               "moving on to next cloud")
             next
           end
 
           if cloud == "cloud1" and nodes_needed.class == Fixnum
-            self.log("Saw [#{nodes_needed}] nodes needed for cloud " +
+            NeptuneManager.log("Saw [#{nodes_needed}] nodes needed for cloud " +
               "[#{cloud}] - moving on to next cloud")
             next
           end
 
-          self.log("Saw cloud [#{cloud}] and nodes needed " + 
+          NeptuneManager.log("Saw cloud [#{cloud}] and nodes needed " + 
             "[#{nodes_needed}], which was not acceptable in non-hybrid " + 
             "cloud deployments")
 
@@ -460,12 +479,12 @@ class NeptuneManager
       end
 
       nodes_to_use = []
-        @nodes.each { |node|
-          if node.is_open?
-            nodes_to_use << node
-            break if nodes_to_use.length == num_of_vms_needed
-          end
-        } 
+      @nodes.each { |node|
+        if node.is_open?
+          nodes_to_use << node
+          break if nodes_to_use.length == num_of_vms_needed
+        end
+      } 
 
       if nodes_to_use.length < num_of_vms_needed   
         return "error: not enough free nodes (requested = #{num_of_vms_needed}, available = #{nodes_to_use.length})"
@@ -476,13 +495,13 @@ class NeptuneManager
   end
 
 
-  def start_job(nodes, job_data)
-    self.log("job - start")
+  def start_job_roles(nodes, job_data)
+    NeptuneManager.log("job - start")
 
     # if all the resources are remotely owned, we can't add roles to
     # them, so don't
     if nodes.empty?
-      self.log("no nodes to add roles to, returning...")
+      NeptuneManager.log("no nodes to add roles to, returning...")
       return
     end
 
@@ -508,7 +527,7 @@ class NeptuneManager
 
 
   def get_node_roles(job_data)
-    self.log("getting node roles")
+    NeptuneManager.log("getting node roles")
     job_type = job_data["@type"]
 
     if job_type == "appscale"
@@ -523,20 +542,20 @@ class NeptuneManager
       slave_roles = "#{job_type}_slave"
     end
 
-    self.log("master role is [#{master_role}], slave roles are " +
+    NeptuneManager.log("master role is [#{master_role}], slave roles are " +
       "[#{slave_roles}]")
     return master_role, slave_roles
   end
 
 
   def run_job_on_master(master_node, nodes_to_use, job_data)
-    self.log("run job on master")
+    NeptuneManager.log("run job on master")
     converted_nodes = Djinn.convert_location_class_to_array(nodes_to_use)
 
     # in cases where only remote resources are used, we don't acquire a master
     # node. therefore, let this node be the master node for this job
     if master_node.nil?
-      self.log("No master node found - using my node as the master node")
+      NeptuneManager.log("No master node found - using my node as the master node")
       master_node = my_node
     end
 
@@ -544,18 +563,18 @@ class NeptuneManager
     master_acc = AppControllerClient.new(master_node_ip, HelperFunctions.get_secret)
 
     result = master_acc.run_neptune_job(converted_nodes, job_data)
-    self.log("run job result was #{result}")
+    NeptuneManager.log("run job result was #{result}")
 
     loop {
       shadow = get_shadow
       lock_file = get_lock_file_path(job_data)
       command = "ls #{lock_file}; echo $?"
-      self.log("shadow's ssh key is #{shadow.ssh_key}")
+      NeptuneManager.log("shadow's ssh key is #{shadow.ssh_key}")
       job_is_running = `ssh -i #{shadow.ssh_key} -o StrictHostkeyChecking=no root@#{shadow.private_ip} '#{command}'`
-      self.log("is job running? [#{job_is_running}]")
+      NeptuneManager.log("is job running? [#{job_is_running}]")
       if job_is_running.length > 1
         return_val = job_is_running[-2].chr
-        self.log("return val for file #{lock_file} is #{return_val}")
+        NeptuneManager.log("return val for file #{lock_file} is #{return_val}")
         break if return_val != "0"
       end
       sleep(30)
@@ -563,13 +582,13 @@ class NeptuneManager
   end
 
 
-  def stop_job(nodes, job_data)
-    self.log("job - stop")
+  def stop_job_roles(nodes, job_data)
+    NeptuneManager.log("job - stop")
 
     # if all the resources are remotely owned, we can't add roles to
     # them, so don't
     if nodes.empty?
-      self.log("no nodes to add roles to, returning...")
+      NeptuneManager.log("no nodes to add roles to, returning...")
       return
     end
 
@@ -633,7 +652,7 @@ class NeptuneManager
 
 
   def spawn_nodes_for_neptune?(job_data)
-    self.log("neptune_info = #{job_data}")
+    NeptuneManager.log("neptune_info = #{job_data}")
     return !job_data["@nodes_to_use"].nil?
   end
 
@@ -642,25 +661,25 @@ class NeptuneManager
     # for jobs where no nodes need to be acquired (e.g., concurrent but not
     # distributed programs), run them on the shadow node
     if NO_NODES_NEEDED.include?(job_data["@type"])
-      self.log("No nodes needed for job type [#{job_data['@type']}]," +
+      NeptuneManager.log("No nodes needed for job type [#{job_data['@type']}]," +
         " not acquiring nodes")
-      return [my_node]
+      return [my_node()]
     end
 
-    self.log("acquiring nodes")
+    NeptuneManager.log("acquiring nodes")
 
     #num_of_vms_needed = optimal_nodes_hill_climbing(job_data, "performance")
     nodes_needed = optimal_nodes(job_data)
 
-    self.log("acquiring nodes for hybrid cloud neptune job")
+    NeptuneManager.log("acquiring nodes for hybrid cloud neptune job")
 
     if nodes_needed.class == Array
       nodes_needed = Hash[*nodes_needed]
-      self.log("request received to spawn hybrid nodes: #{nodes_needed.inspect}")
+      NeptuneManager.log("request received to spawn hybrid nodes: #{nodes_needed.inspect}")
     elsif nodes_needed.class == Fixnum
       nodes_needed = {"cloud1" => nodes_needed}
     else
-      self.log("nodes_needed was not the right class - should have been Array or Fixnum but was #{nodes_needed.class}")
+      NeptuneManager.log("nodes_needed was not the right class - should have been Array or Fixnum but was #{nodes_needed.class}")
       # TODO: find a way to reject the job here
     end
 
@@ -675,12 +694,12 @@ class NeptuneManager
       # in non-hybrid cloud runs, cloud1 will be the only cloud that specifies
       # an integer value
       if nodes_to_acquire =~ URL_REGEX
-        self.log("nodes to acquire for #{cloud} was a URL " + 
+        NeptuneManager.log("nodes to acquire for #{cloud} was a URL " + 
           "[#{nodes_to_acquire}], so not spawning nodes")
         next
       end
 
-      self.log("acquiring #{nodes_to_acquire} nodes for #{cloud}")
+      NeptuneManager.log("acquiring #{nodes_to_acquire} nodes for #{cloud}")
       nodes_for_cloud = find_open_nodes(cloud, nodes_to_acquire, job_data)
       nodes_to_use = [nodes_to_use + nodes_for_cloud].flatten
       # TODO: should check for failures acquiring nodes
@@ -708,16 +727,16 @@ class NeptuneManager
 
     nodes_available = nodes_to_use.length
     new_nodes_needed = nodes_needed - nodes_available
-    self.log("need #{nodes_needed} total, currently have #{nodes_available} to spare")
+    NeptuneManager.log("need #{nodes_needed} total, currently have #{nodes_available} to spare")
 
     if is_cloud?
       if new_nodes_needed > 0
-        self.log("spawning up #{new_nodes_needed} for neptune job in cloud 1")
+        NeptuneManager.log("spawning up #{new_nodes_needed} for neptune job in cloud 1")
         acquire_nodes_for_cloud(cloud_num, new_nodes_needed, job_data)
       end
     else
       if new_nodes_needed > 0
-        self.log("non-cloud deployment and the neptune user has asked for too many nodes")
+        NeptuneManager.log("non-cloud deployment and the neptune user has asked for too many nodes")
         # TODO: find a way to reject the job here
       end
     end
@@ -726,7 +745,7 @@ class NeptuneManager
     @neptune_nodes.each { |node|
       break if nodes_to_use.length == nodes_needed
       if node.is_open? and node.cloud == cloud
-        self.log("will use node [#{node}] for computation")
+        NeptuneManager.log("will use node [#{node}] for computation")
         nodes_to_use << node
       end
     }
@@ -737,7 +756,7 @@ class NeptuneManager
 
   def acquire_nodes_for_cloud(cloud_num, new_vms_needed, job_data)
     return if new_vms_needed < 1
-    self.log("spawning up #{new_vms_needed} vms")
+    NeptuneManager.log("spawning up #{new_vms_needed} vms")
 
     # TODO(cgb): get creds
     cloud = "cloud#{cloud_num}"
@@ -745,7 +764,7 @@ class NeptuneManager
     new_node_info = imc.spawn_vms(new_vms_needed, @creds, "open", cloud)
     add_nodes(new_node_info)
    
-    self.log("got all the vms i needed!")
+    NeptuneManager.log("got all the vms i needed!")
   end
 
   def add_nodes(node_info)
@@ -802,7 +821,7 @@ class NeptuneManager
       acc = AppControllerClient.new(node.private_ip, HelperFunctions.get_secret)
       acc.add_role(roles)
       acc.wait_for_node_to_be(roles)
-      self.log("[just added] node at #{node.private_ip} is now #{node.jobs.join(', ')}")
+      NeptuneManager.log("[just added] node at #{node.private_ip} is now #{node.jobs.join(', ')}")
     }
   end
 
@@ -814,7 +833,7 @@ class NeptuneManager
       node.remove_roles(roles)
       acc = AppControllerClient.new(node.private_ip, HelperFunctions.get_secret)
       acc.remove_role(roles)
-      self.log("[just removed] node at #{node.private_ip} is now #{node.jobs.join(', ')}")
+      NeptuneManager.log("[just removed] node at #{node.private_ip} is now #{node.jobs.join(', ')}")
     }
   end
 
@@ -855,16 +874,16 @@ class NeptuneManager
 
     current_data = @jobs[job_name]
     if current_data.nil? or current_data.empty?
-      self.log("neptune - no job data yet for [#{job_name}]")
+      NeptuneManager.log("neptune - no job data yet for [#{job_name}]")
       return job_data["@nodes_to_use"]
     end
 
-    self.log("found job data for [#{job_name}]")
+    NeptuneManager.log("found job data for [#{job_name}]")
 
     min_val = INFINITY
     optimal_job = nil
     current_data.each { |job|
-      self.log("current job data is [#{job}]")
+      NeptuneManager.log("current job data is [#{job}]")
 
       if thing_to_optimize == "performance"
         my_val = job.total_time
@@ -875,19 +894,19 @@ class NeptuneManager
       end
 
       if my_val < min_val
-        self.log("found a new minimum - [#{job}]")
+        NeptuneManager.log("found a new minimum - [#{job}]")
         optimal_job = job
       end
     }
 
-    self.log("minimum is - [#{optimal_job}]")
+    NeptuneManager.log("minimum is - [#{optimal_job}]")
 
     search_space = job_data["@can_run_on"]
     t1 = optimal_job.num_nodes
 
-    self.log("optimal right now is t1 = #{t1}")
+    NeptuneManager.log("optimal right now is t1 = #{t1}")
     t0, t2 = find_neighbors(t1, search_space)
-    self.log("t1's neighbors are #{t0} and t2 = #{t2}")
+    NeptuneManager.log("t1's neighbors are #{t0} and t2 = #{t2}")
 
     d0 = get_job_data(job_name, t0)
     d2 = get_job_data(job_name, t2)
@@ -948,7 +967,7 @@ class NeptuneManager
   def write_job_output_handler(job_data, output, is_file)
     db_location = job_data["@output"]
     job_type = job_data["@type"]
-    self.log("[#{job_type}] job done - writing output to #{db_location}")
+    NeptuneManager.log("[#{job_type}] job done - writing output to #{db_location}")
 
     datastore = DatastoreFactory.get_datastore(job_data['@storage'], job_data)
     if is_file
@@ -1022,15 +1041,15 @@ class NeptuneManager
 
   def cleanup_code(code)
     if code.nil?
-      self.log("no code to remove")
+      NeptuneManager.log("no code to remove")
     else
       dirs = code.split(/\//)
       code_dir = dirs[0, dirs.length-1].join("/")
 
       if code_dir == "/tmp"
-        self.log("can't remove code located at #{code_dir}")
+        NeptuneManager.log("can't remove code located at #{code_dir}")
       else
-        self.log("code is located at #{code_dir}")
+        NeptuneManager.log("code is located at #{code_dir}")
         HelperFunctions.shell("rm -rf #{code_dir}")
       end
     end
