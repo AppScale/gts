@@ -16,10 +16,13 @@ BAD_TABLE_MSG = "The currently running database isn't running Hadoop, so MapRedu
 DBS_W_HADOOP = ["hbase", "hypertable"]
 
 
-HADOOP = "#{APPSCALE_HOME}/AppDB/hadoop-0.20.2/bin/hadoop"
+VERSION = "0.20.2-cdh3u3"
 
 
-STREAMING = "#{APPSCALE_HOME}/AppDB/hadoop-0.20.2/contrib/streaming/hadoop-0.20.2-streaming.jar"
+HADOOP = "#{APPSCALE_HOME}/AppDB/hadoop-#{VERSION}/bin/hadoop"
+
+
+STREAMING = "#{APPSCALE_HOME}/AppDB/hadoop-#{VERSION}/contrib/streaming/hadoop-streaming-#{VERSION}.jar"
 
 
 public 
@@ -28,6 +31,10 @@ public
 def neptune_mapreduce_run_job(nodes, job_data, secret)
   return BAD_SECRET_MSG unless valid_secret?(secret)
   Djinn.log_debug("mapreduce - run")
+
+  if job_data.class == Array
+    job_data = job_data[0]
+  end
 
   Thread.new {
     keyname = @creds['keyname']

@@ -9,7 +9,7 @@ import yaml
 from google.appengine.api import users
 
 APPSCALE_HOME = os.environ.get("APPSCALE_HOME")
-HADOOP_VER = "0.20.2"
+HADOOP_VER = "0.20.2-cdh3u3"
 HADOOP_HOME = APPSCALE_HOME + "/AppDB/hadoop-"+HADOOP_VER + "/"
 HADOOP_BIN = APPSCALE_HOME + "/AppDB/hadoop-"+HADOOP_VER + "/bin/hadoop"
 HADOOP_STREAMING = HADOOP_HOME + "/contrib/streaming/hadoop-"+HADOOP_VER+"-streaming.jar"
