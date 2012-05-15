@@ -23,18 +23,17 @@ class TestBabelHelper < Test::Unit::TestCase
     neptune_class.should_receive(:log_run).and_return()
 
     @secret = "baz"
-    flexmock(HelperFunctions).should_receive(:read_file).
-      with("/etc/appscale/secret.key", true).and_return(@secret)
+    flexmock(File).should_receive(:open).
+      with("/etc/appscale/secret.key", Proc).and_return(@secret)
 
-    thread = flexmock(Thread)
-    thread.should_receive(:initialize).and_return()
+    flexmock(Thread).should_receive(:new).and_return()
   end
 
   def test_neptune_babel_soap_exposed_methods_bad_secret
     flexmock(NeptuneManager).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(false)
     }
-    neptune = NeptuneManager.new
+    neptune = NeptuneManager.new()
 
     result1 = neptune.get_supported_babel_engines({}, "bad secret")
     assert_equal(NeptuneManager::BAD_SECRET_MSG, result1)
@@ -52,14 +51,14 @@ class TestBabelHelper < Test::Unit::TestCase
     }
 
     # with no credentials, we can use any internal queues
-    neptune = NeptuneManager.new
+    neptune = NeptuneManager.new()
     no_credentials = {}
     result = neptune.get_supported_babel_engines(no_credentials,
       "good secret")
     assert_equal(NeptuneManager::INTERNAL_ENGINES, result)
 
     # with aws credentials, we can use internal queues or sqs
-    neptune = NeptuneManager.new
+    neptune = NeptuneManager.new()
     amazon_credentials = {}
     NeptuneManager::AMAZON_CREDENTIALS.each { |cred|
       amazon_credentials[cred] = "boo"
@@ -88,10 +87,13 @@ class TestBabelHelper < Test::Unit::TestCase
   end
 
   def test_local_run_task
+    flexmock(File).should_receive(:open).
+      with(String, "w+", Proc).and_return(@secret)
+
     flexmock(NeptuneManager).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
     }
-    neptune = NeptuneManager.new
+    neptune = NeptuneManager.new()
 
     fileutils = flexmock(FileUtils)
     fileutils.should_receive(:mkdir_p).and_return()
@@ -201,7 +203,7 @@ class TestBabelHelper < Test::Unit::TestCase
 
     flexmock(AWS::SQS).should_receive(:new).and_return(sqs)
 
-    neptune = NeptuneManager.new
+    neptune = NeptuneManager.new()
     result = neptune.run_or_delegate_tasks(job_list)
     assert_equal([NeptuneManager::RUN_VIA_EXECUTOR], result)
   end

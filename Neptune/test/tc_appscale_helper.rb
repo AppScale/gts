@@ -19,7 +19,7 @@ class TestAppScaleHelper < Test::Unit::TestCase
     kernel.should_receive(:puts).and_return()
 
     thread = flexmock(Thread)
-    thread.should_receive(:initialize).and_return()
+    thread.should_receive(:new).and_return()
 
     flexmock(HelperFunctions).should_receive(:read_file).
       with("/etc/appscale/secret.key", true).and_return(@secret)
@@ -33,7 +33,7 @@ class TestAppScaleHelper < Test::Unit::TestCase
     flexmock(NeptuneManager).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(false)
     }
-    neptune = NeptuneManager.new
+    neptune = NeptuneManager.new()
     
     result_1 = neptune.appscale_run_job(nodes, job_data_1, secret)
     assert_equal(NeptuneManager::BAD_SECRET_MSG, result_1)
@@ -47,7 +47,7 @@ class TestAppScaleHelper < Test::Unit::TestCase
     flexmock(NeptuneManager).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
     }
-    neptune = NeptuneManager.new
+    neptune = NeptuneManager.new()
 
     job_data_2 = {"@time_needed_for" => 120}
     result_2 = neptune.appscale_run_job(nodes, job_data_2, secret)

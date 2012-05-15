@@ -23,28 +23,6 @@ require 'collectd'
 require 'nginx'
 
 
-
-# A list of the Neptune jobs that AppScale will not automatically spawn up
-# nodes for. Babel (our distributed task execution system) is in this list
-# because it does not use the standard AppScale mechanism to acquire nodes,
-# and acquires nodes via specialized scaling techniques.
-SINGLE_NODE_COMPUTE_JOBS = %w{babel compile erlang go r}
-
-
-# A list of the Neptune jobs that AppScale will automatically spawn up more
-# nodes for.
-MULTI_NODE_COMPUTE_JOBS = %w{cicero mpi mapreduce ssa}
-
-
-# A list of Neptune jobs that are not considered to be computation jobs, and
-# relate to storage or pre-computation in some way.
-NONCOMPUTE_JOBS = %w{acl appscale compile input output}
-
-
-# A list of all the Neptune jobs that we support in AppScale.
-NEPTUNE_JOBS = SINGLE_NODE_COMPUTE_JOBS + MULTI_NODE_COMPUTE_JOBS + NONCOMPUTE_JOBS
-
-
 # DjinnServer is a wrapper around Djinn that adds SOAP capabilities to it.
 class DjinnServer < SOAP::RPC::HTTPServer
 

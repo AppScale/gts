@@ -3,10 +3,12 @@
 
 # Imports for general Neptune stuff
 $:.unshift File.join(File.dirname(__FILE__), "lib")
+require 'app_controller_client'
 require 'djinn_job_data'
 require 'infrastructure_manager_client'
 require "neptune_job_data"
 require 'helperfunctions'
+require 'zkinterface'
 
 
 # Imports for each of the supported Neptune job types
@@ -31,12 +33,6 @@ require 'engine_factory'
 
 =begin
 things to fix
-
-fix @nodes from AC
-
-move VM reuse (and per-hour killing of VMs) into this file
-
-periodically dump and revive info to-from ZK
 
 remove all dead code from AppController/helperfunctions
 
@@ -94,43 +90,97 @@ class NeptuneManager
 
   URL_REGEX = /http:\/\/.*/
 
+
+  ZK_LOCATIONS_FILE = "/etc/appscale/zookeeper_locations.json"
+
+
+  SINGLE_NODE_COMPUTE_JOBS = %w{babel compile erlang go r}
+
+
+  MULTI_NODE_COMPUTE_JOBS = %w{cicero mpi mapreduce ssa}
+
+
+  NONCOMPUTE_JOBS = %w{acl appscale compile input output}
+
+
+  JOB_LIST = SINGLE_NODE_COMPUTE_JOBS + MULTI_NODE_COMPUTE_JOBS +
+    NONCOMPUTE_JOBS
+
   
   # The shared secret that is used to authenticate remote callers.
   attr_accessor :secret
-
-
-  # An Array of Hashes, where each Hash contains information about a 
-  # virtual machine that the NeptuneManager has launched to run Neptune
-  # jobs.
-  attr_accessor :nodes
-
-
-  # A Hash that contains profiling information about each job run via
-  # Neptune, which will hopefully be used one day to optimize where we
-  # place jobs.
-  attr_accessor :jobs
 
 
   # An Array that contains the credentials for each pull queue that
   # Babel tasks can be stored in.
   attr_accessor :queues_to_read
 
-  
-  attr_accessor :my_node_info
+
+  attr_accessor :jobs
 
 
+  # TODO(cgb): back these up to zookeeper and restore from there as needed
   def initialize()
     @secret = HelperFunctions.get_secret()
-    @nodes = []
-    @jobs = {}
     @queues_to_read = []
-    @my_node_info = nil
+    @jobs = {}
+
+    Thread.new {
+      initialize_zookeeper_connection()
+      manage_virtual_machines()
+    }
   end
 
 
   def NeptuneManager.log(msg)
     Kernel.puts(msg)
     STDOUT.flush()
+  end
+
+
+  def initialize_zookeeper_connection()
+    if !File.exists?(ZK_LOCATIONS_FILE)
+      raise Exception.new("Couldn't find the ZooKeeper locations file")
+    end
+
+    my_public_ip = HelperFunctions.get_my_public_ip()
+    zookeeper_data = HelperFunctions.read_json_file(ZK_LOCATIONS_FILE)
+    zk_ips = zookeeper_data['locations']
+    zk_ips.each { |ip|
+      begin
+        NeptuneManager.log("Initializing ZooKeeper client to ZK at #{ip}")
+        ZKInterface.init_to_ip(my_public_ip, ip)
+      rescue Exception => e
+        NeptuneManager.log("Saw exception of class #{e.class} from #{ip}, " +
+          "trying next ZooKeeper node")
+        next
+      end
+
+      NeptuneManager.log("Initialized ZooKeeper successfully from #{ip}")
+      return
+    }
+
+    raise Exception.new("Couldn't initialize a ZooKeeper connnection to " +
+      "any of these IPs: #{zk_ips}")
+  end
+
+
+  # TODO(cgb): fix this broken code, moved from the AppController
+  def manage_virtual_machines()
+    @nodes_in_use.each { |node|
+      Djinn.log_debug("Currently examining node [#{node}]")
+      if node.should_extend?
+        Djinn.log_debug("Extending time for node [#{node}]")
+        node.extend_time
+      elsif node.should_destroy?
+        Djinn.log_debug("Time is up for node [#{node}] - destroying it")
+        @nodes.delete(node)
+        @nodes_in_use.delete(node)
+        infrastructure = @creds["infrastructure"]
+        HelperFunctions.terminate_vms([node], infrastructure)
+        FileUtils.rm_f("/etc/appscale/status-#{node.private_ip}.json")
+      end
+    }
   end
 
 
@@ -171,7 +221,7 @@ class NeptuneManager
 
 
   def run_jobs_in_parallel(jobs)
-    NeptuneManager.log("running jobs with optimized path")
+    NeptuneManager.log("Running jobs with optimized path")
     # TODO(cgb): be a bit more intelligent about batch_info
     # e.g., it's global_nodes should be the max of all in jobs
     batch_info = jobs[0]
@@ -179,7 +229,7 @@ class NeptuneManager
 
     nodes_to_use = acquire_nodes(batch_info)
 
-    NeptuneManager.log("nodes to use are [#{nodes_to_use.join(', ')}]")
+    NeptuneManager.log("Nodes to use are [#{nodes_to_use.join(', ')}]")
     start_job_roles(nodes_to_use, batch_info)
 
     start_time = Time.now()
@@ -187,17 +237,15 @@ class NeptuneManager
     run_job_on_master(master_node, nodes_to_use, jobs)
     end_time = Time.now()
 
-    stop_job_roles(nodes_to_use, job_data)
+    stop_job_roles(nodes_to_use, batch_info)
 
-    release_nodes(nodes_to_use, batch_info)
     add_timing_info(batch_info, nodes_to_use, start_time, end_time)
-
     cleanup_code(batch_info['@code'])
   end
 
   
   def run_jobs_in_serial(jobs)
-    NeptuneManager.log("running jobs with non-optimized path")
+    NeptuneManager.log("Running jobs with non-optimized path")
     jobs.each_with_index { |job_data, i|
       NeptuneManager.log("Running job number #{i}")
       touch_lock_file(job_data)
@@ -215,9 +263,7 @@ class NeptuneManager
 
       stop_job_roles(nodes_to_use, job_data)
 
-      release_nodes(nodes_to_use, job_data)
       add_timing_info(job_data, nodes_to_use, start_time, end_time)
-
       cleanup_code(job_data['@code'])
     }
   end
@@ -550,7 +596,7 @@ class NeptuneManager
 
   def run_job_on_master(master_node, nodes_to_use, job_data)
     NeptuneManager.log("run job on master")
-    converted_nodes = Djinn.convert_location_class_to_array(nodes_to_use)
+    converted_nodes = NeptuneManager.convert_location_class_to_array(nodes_to_use)
 
     # in cases where only remote resources are used, we don't acquire a master
     # node. therefore, let this node be the master node for this job
@@ -566,18 +612,20 @@ class NeptuneManager
     NeptuneManager.log("run job result was #{result}")
 
     loop {
-      shadow = get_shadow
+      shadow = get_node_with_role("shadow")
       lock_file = get_lock_file_path(job_data)
       command = "ls #{lock_file}; echo $?"
-      NeptuneManager.log("shadow's ssh key is #{shadow.ssh_key}")
-      job_is_running = `ssh -i #{shadow.ssh_key} -o StrictHostkeyChecking=no root@#{shadow.private_ip} '#{command}'`
-      NeptuneManager.log("is job running? [#{job_is_running}]")
+      NeptuneManager.log("Shadow's ssh key is #{shadow.ssh_key}")
+      job_is_running = HelperFunctions.shell("ssh -i #{shadow.ssh_key} -o StrictHostkeyChecking=no root@#{shadow.private_ip} '#{command}'")
+      NeptuneManager.log("Is job running? [#{job_is_running}]")
       if job_is_running.length > 1
         return_val = job_is_running[-2].chr
-        NeptuneManager.log("return val for file #{lock_file} is #{return_val}")
-        break if return_val != "0"
+        NeptuneManager.log("Return value for file #{lock_file} is #{return_val}")
+        if return_val != "0"
+          break
+        end
       end
-      sleep(30)
+      Kernel.sleep(30)
     }
   end
 
@@ -630,14 +678,14 @@ class NeptuneManager
 
 
   def touch_lock_file(job_data)
-    job_data["@job_id"] = rand(1000000)
+    job_data["@job_id"] = Kernel.rand(1000000)
     touch_lock_file = "touch #{get_lock_file_path(job_data)}"
     HelperFunctions.shell(touch_lock_file)
   end
 
 
   def remove_lock_file(job_data)
-    shadow = get_shadow
+    shadow = get_node_with_role("shadow")
     shadow_ip = shadow.private_ip
     shadow_key = shadow.ssh_key
     done_running = "rm #{get_lock_file_path(job_data)}"
@@ -647,7 +695,13 @@ class NeptuneManager
 
 
   def get_lock_file_path(job_data)
-    "/tmp/#{job_data['@type']}-#{job_data['@job_id']}-started"
+    if job_data.class == Hash
+      job = job_data
+    elsif job_data.class == Array
+      job = job_data[0]
+    end
+      
+    return "/tmp/#{job['@type']}-#{job['@job_id']}-started"
   end
 
 
@@ -715,15 +769,9 @@ class NeptuneManager
 
     cloud_num = cloud.scan(/cloud(.*)/).flatten.to_s
 
-    nodes_to_use = []
-    @nodes.each { |node|
-      break if nodes_to_use.length == nodes_needed
-      if node.is_open? and node.cloud == cloud
-        nodes_to_use << node
-      end
-    }
+    nodes_to_use = ZKInterface.find_open_nodes_in_cloud(nodes_needed, cloud_num)
 
-    @neptune_nodes = nodes_to_use
+    @nodes_in_use = nodes_to_use
 
     nodes_available = nodes_to_use.length
     new_nodes_needed = nodes_needed - nodes_available
@@ -742,7 +790,7 @@ class NeptuneManager
     end
 
     nodes_to_use = []
-    @neptune_nodes.each { |node|
+    @nodes_in_use.each { |node|
       break if nodes_to_use.length == nodes_needed
       if node.is_open? and node.cloud == cloud
         NeptuneManager.log("will use node [#{node}] for computation")
@@ -769,7 +817,7 @@ class NeptuneManager
 
   def add_nodes(node_info)
     keyname = @creds['keyname']
-    new_nodes = Djinn.convert_location_array_to_class(node_info, keyname)
+    new_nodes = NeptuneManager.convert_location_array_to_class(node_info, keyname)
 
     node_start_time = Time.now
     node_end_time = Time.now + NOT_QUITE_AN_HOUR
@@ -779,24 +827,8 @@ class NeptuneManager
     }
 
     @nodes.concat(new_nodes)
-    @neptune_nodes.concat(new_nodes)
+    @nodes_in_use.concat(new_nodes)
     initialize_nodes_in_parallel(new_nodes)
-  end
-
-
-  def release_nodes(nodes_to_use, job_data)
-    if is_hybrid_cloud?
-      abort("hybrid cloud mode is definitely not supported")
-    elsif is_cloud?
-      nodes_to_use.each { |node|
-        node.set_roles("open")
-      }
-
-      # don't worry about terminating the vms - the appcontroller
-      # will take care of this in its heartbeat loop
-    else
-      return
-    end
   end
 
 
@@ -838,8 +870,8 @@ class NeptuneManager
   end
 
 
-  def copyFromShadow(location_on_shadow)
-    shadow = get_shadow
+  def copy_from_shadow(location_on_shadow)
+    shadow = get_node_with_role("shadow")
     shadow_ip = shadow.private_ip
     shadow_key = shadow.ssh_key
 
@@ -1030,7 +1062,8 @@ class NeptuneManager
   def add_timing_info(job_data, nodes_to_use, start_time, end_time)
     name = get_job_name(job_data)
     num_nodes = nodes_to_use.length
-    this_job = NeptuneJobData.new(name, num_nodes, start_time, end_time)
+    this_job = NeptuneJobData.new(name, num_nodes, start_time, end_time,
+      "m1.large")  # TODO(cgb): get the real instance type
     if @jobs[name].nil?
       @jobs[name] = [this_job]
     else
@@ -1066,6 +1099,78 @@ class NeptuneManager
     end
 
     return creds
+  end
+
+
+  def my_node
+    my_ip = HelperFunctions.get_my_public_ip()
+    zk_job_data = ZKInterface.get_job_data_for_ip(my_ip)
+    NeptuneManager.log("My node's job data is #{zk_job_data}")
+    return DjinnJobData.deserialize(zk_job_data)
+  end
+
+
+  def self.convert_location_array_to_class(nodes, keyname)
+    NeptuneManager.log("Keyname is of class #{keyname.class}")
+    NeptuneManager.log("Keyname is #{keyname}")
+
+    array_of_nodes = []
+    nodes.each { |node|
+      converted = DjinnJobData.new(node, keyname)
+      array_of_nodes << converted
+      NeptuneManager.log("Adding data " + converted.to_s)
+    }
+
+    return array_of_nodes
+  end
+
+
+  def self.convert_location_class_to_array(djinn_locations)
+    if djinn_locations.class != Array
+      raise Exception, "Locations should be an array"
+    end
+
+    djinn_loc_array = []
+    djinn_locations.each { |location|
+      djinn_loc_array << location.serialize
+      NeptuneManager.log("Serializing data " + location.serialize)
+    }
+
+    return djinn_loc_array
+  end
+
+
+  def get_node_with_role(role)
+    ip_info = ZKInterface.get_ip_info()
+    all_ips = ip_info['ips']
+    NeptuneManager.log("All IPs are #{all_ips}")
+
+    all_ips.each { |ip|
+      job_data = ZKInterface.get_job_data_for_ip(ip)
+      NeptuneManager.log("Job data for #{ip} is #{job_data}")
+      node = DjinnJobData.deserialize(job_data)
+      if node.jobs.include?(role)
+        NeptuneManager.log("#{ip} does have role #{role}, returning it")
+        return node
+      else
+        NeptuneManager.log("#{ip} does not have role #{role}, moving on")
+        next
+      end
+    }
+
+    raise Exception.new("No nodes have role #{role}")
+  end
+
+
+  def is_cloud?()
+    cloud_info = HelperFunctions.get_cloud_info()
+    return cloud_info['is_cloud?']
+  end
+
+
+  def is_hybrid_cloud?()
+    cloud_info = HelperFunctions.get_cloud_info()
+    return cloud_info['is_hybrid_cloud?']
   end
 
 

@@ -30,15 +30,15 @@
             <td class="left_align"><a href="lib-job_types-appscale_helper_rb.html">lib/job_types/appscale_helper.rb</a></td>
             <td class='right_align'><tt>52</tt></td>
             <td class='right_align'><tt>32</tt></td>
-            <td class="left_align"><div class="percent_graph_legend"><tt class=''>90.38%</tt></div>
+            <td class="left_align"><div class="percent_graph_legend"><tt class=''>67.31%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:90px"></div>
-            <div class="uncovered" style="width:10px"></div>
+            <div class="covered" style="width:67px"></div>
+            <div class="uncovered" style="width:33px"></div>
           </div></td>
-            <td class="left_align"><div class="percent_graph_legend"><tt class=''>90.62%</tt></div>
+            <td class="left_align"><div class="percent_graph_legend"><tt class=''>56.25%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:91px"></div>
-            <div class="uncovered" style="width:9px"></div>
+            <div class="covered" style="width:56px"></div>
+            <div class="uncovered" style="width:44px"></div>
           </div></td>
           </tr>
         </tbody>
@@ -200,7 +200,7 @@
         
           
           
-          <tr class="marked">
+          <tr class="inferred">
             <td><pre><a name="line25">25</a>       wait_for_allotted_time(job_data)</pre></td>
           </tr>
         
@@ -266,73 +266,73 @@
         
           
           
-          <tr class="marked">
+          <tr class="uncovered">
             <td><pre><a name="line36">36</a>     start_time = Time.now</pre></td>
           </tr>
         
           
           
-          <tr class="marked">
+          <tr class="uncovered">
             <td><pre><a name="line37">37</a>     time_allotted = Integer(job_data[&quot;@time_needed_for&quot;])</pre></td>
           </tr>
         
           
           
-          <tr class="marked">
+          <tr class="uncovered">
             <td><pre><a name="line38">38</a>     item_spawned = job_data[&quot;@add_component&quot;]</pre></td>
           </tr>
         
           
           
-          <tr class="inferred">
+          <tr class="uncovered">
             <td><pre><a name="line39">39</a> </pre></td>
           </tr>
         
           
           
-          <tr class="marked">
+          <tr class="uncovered">
             <td><pre><a name="line40">40</a>     loop {</pre></td>
           </tr>
         
           
           
-          <tr class="marked">
+          <tr class="uncovered">
             <td><pre><a name="line41">41</a>       now = Time.now</pre></td>
           </tr>
         
           
           
-          <tr class="marked">
+          <tr class="uncovered">
             <td><pre><a name="line42">42</a>       time_elapsed = now - start_time</pre></td>
           </tr>
         
           
           
-          <tr class="marked">
+          <tr class="uncovered">
             <td><pre><a name="line43">43</a>       NeptuneManager.log(&quot;time elapsed for #{item_spawned} so far is&quot; +</pre></td>
           </tr>
         
           
           
-          <tr class="inferred">
+          <tr class="uncovered">
             <td><pre><a name="line44">44</a>         &quot; #{time_elapsed}, time allotted is #{time_allotted}&quot;)</pre></td>
           </tr>
         
           
           
-          <tr class="marked">
+          <tr class="uncovered">
             <td><pre><a name="line45">45</a>       break if time_elapsed &gt; time_allotted</pre></td>
           </tr>
         
           
           
-          <tr class="marked">
+          <tr class="uncovered">
             <td><pre><a name="line46">46</a>       Kernel.sleep(60)</pre></td>
           </tr>
         
           
           
-          <tr class="inferred">
+          <tr class="uncovered">
             <td><pre><a name="line47">47</a>     }</pre></td>
           </tr>
         
@@ -369,7 +369,7 @@
       </tbody>
     </table>
 
-    <p>Generated on Mon May 07 11:37:17 -0700 2012 with <a href="http://github.com/relevance/rcov">rcov 1.0.0</a></p>
+    <p>Generated on Mon May 14 19:39:08 -0700 2012 with <a href="http://github.com/relevance/rcov">rcov 1.0.0</a></p>
 
   </body>
 </html>

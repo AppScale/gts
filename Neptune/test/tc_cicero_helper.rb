@@ -21,6 +21,8 @@ class TestCiceroHelper < Test::Unit::TestCase
     @secret = "baz"
     flexmock(HelperFunctions).should_receive(:read_file).
       with("/etc/appscale/secret.key", true).and_return(@secret)
+
+    flexmock(Thread).should_receive(:new).and_return()
   end
 
   def test_cicero_run_job_param_validation
@@ -28,7 +30,7 @@ class TestCiceroHelper < Test::Unit::TestCase
       instance.should_receive(:valid_secret?).and_return(true)
     }
 
-    neptune = NeptuneManager.new
+    neptune = NeptuneManager.new()
     secret = "anything"
 
     nodes = nil

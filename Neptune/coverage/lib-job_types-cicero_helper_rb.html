@@ -30,15 +30,15 @@
             <td class="left_align"><a href="lib-job_types-cicero_helper_rb.html">lib/job_types/cicero_helper.rb</a></td>
             <td class='right_align'><tt>350</tt></td>
             <td class='right_align'><tt>245</tt></td>
-            <td class="left_align"><div class="percent_graph_legend"><tt class=''>25.14%</tt></div>
+            <td class="left_align"><div class="percent_graph_legend"><tt class=''>22.86%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:25px"></div>
-            <div class="uncovered" style="width:75px"></div>
+            <div class="covered" style="width:23px"></div>
+            <div class="uncovered" style="width:77px"></div>
           </div></td>
-            <td class="left_align"><div class="percent_graph_legend"><tt class=''>17.14%</tt></div>
+            <td class="left_align"><div class="percent_graph_legend"><tt class=''>14.69%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:17px"></div>
-            <div class="uncovered" style="width:83px"></div>
+            <div class="covered" style="width:15px"></div>
+            <div class="uncovered" style="width:85px"></div>
           </div></td>
           </tr>
         </tbody>
@@ -278,7 +278,7 @@
         
           
           
-          <tr class="marked">
+          <tr class="inferred">
             <td><pre><a name="line38">38</a>       run_via_cicero(nodes, job_data, secret)</pre></td>
           </tr>
         
@@ -344,19 +344,19 @@
         
           
           
-          <tr class="marked">
+          <tr class="uncovered">
             <td><pre><a name="line49">49</a>     NeptuneManager.log(&quot;job data is #{job_data.inspect}&quot;)</pre></td>
           </tr>
         
           
           
-          <tr class="inferred">
+          <tr class="uncovered">
             <td><pre><a name="line50">50</a> </pre></td>
           </tr>
         
           
           
-          <tr class="marked">
+          <tr class="uncovered">
             <td><pre><a name="line51">51</a>     resource_info = parse_resource_info(job_data)</pre></td>
           </tr>
         
@@ -758,13 +758,13 @@
         
           
           
-          <tr class="marked">
+          <tr class="uncovered">
             <td><pre><a name="line118">118</a>     nodes_to_use = job_data[&quot;@nodes_to_use&quot;]</pre></td>
           </tr>
         
           
           
-          <tr class="marked">
+          <tr class="uncovered">
             <td><pre><a name="line119">119</a>     if nodes_to_use.class == Integer  # only use nodes in the current cloud</pre></td>
           </tr>
         
@@ -782,19 +782,19 @@
         
           
           
-          <tr class="inferred">
+          <tr class="uncovered">
             <td><pre><a name="line122">122</a> </pre></td>
           </tr>
         
           
           
-          <tr class="marked">
+          <tr class="uncovered">
             <td><pre><a name="line123">123</a>     return Hash[*nodes_to_use]</pre></td>
           </tr>
         
           
           
-          <tr class="inferred">
+          <tr class="uncovered">
             <td><pre><a name="line124">124</a>   end</pre></td>
           </tr>
         
@@ -2157,7 +2157,7 @@
       </tbody>
     </table>
 
-    <p>Generated on Mon May 07 11:37:18 -0700 2012 with <a href="http://github.com/relevance/rcov">rcov 1.0.0</a></p>
+    <p>Generated on Mon May 14 19:39:08 -0700 2012 with <a href="http://github.com/relevance/rcov">rcov 1.0.0</a></p>
 
   </body>
 </html>

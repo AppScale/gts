@@ -20,6 +20,10 @@ class FailedZooKeeperOperationException < Exception
 end
 
 
+class ZooKeeperLockException < Exception
+end
+
+
 # The AppController employs the open source software ZooKeeper as a highly
 # available naming service, to store and retrieve information about the status
 # of applications hosted within AppScale. This class provides methods to
@@ -240,21 +244,23 @@ class ZKInterface
         else 
           NeptuneManager.log("Tried to get the lock, but it's currently owned " +
             "by #{owner}. Will try again later.")
-          raise Exception
+          raise ZooKeeperLockException
         end
       end
-    rescue Exception => e
-      NeptuneManager.log("Saw an exception of class #{e.class}")
+    rescue ZooKeeperLockException => e
+      trace = e.backtrace.join("\n")
+      NeptuneManager.log("Saw an exception of class #{e.class}, with " +
+        "trace info: #{trace}")
       Kernel.sleep(5)
       retry
     end
 
     begin
       yield  # invoke the user's block, and catch any uncaught exceptions
-    rescue Exception => except
-      NeptuneManager.log("Ran caller's block but saw an Exception of class " +
-        "#{except.class}")
-      raise except
+    #rescue Exception => except
+    #  NeptuneManager.log("Ran caller's block but saw an Exception of class " +
+    #    "#{except.class}")
+    #  raise except
     ensure
       if got_lock
         NeptuneManager.log("Grabbed lock, so now releasing it.")
@@ -559,6 +565,38 @@ class ZKInterface
   end
 
 
+  def self.find_open_nodes_in_cloud(number_of_nodes_needed, cloud_num)
+    NeptuneManager.log("Trying to find #{number_of_nodes_needed} nodes in" +
+      " cloud #{cloud_num}")
+
+    nodes_to_use = []
+    ZKInterface.lock_and_run {
+      ip_info = self.get_ip_info()
+      all_ips = ip_info['ips']
+      NeptuneManager.log("All IPs currently in use are #{all_ips.join(', ')}")
+
+      all_ips.each { |ip|
+        job_data = ZKInterface.get_job_data_for_ip(ip)
+        NeptuneManager.log("Job data for IP #{ip} is #{job_data}")
+        node = DjinnJobData.deserialize(job_data)
+
+        if node.is_open? and node.cloud == cloud_num
+          nodes_to_use << node
+        end
+
+        if nodes_to_use.length == number_of_nodes_needed
+          return nodes_to_use
+        end
+      }
+    }
+
+    NeptuneManager.log("#{number_of_nodes_needed} open nodes were " + 
+      "requested, but we were only able to procure #{nodes_to_use.length} " +
+      "nodes")
+    return nodes_to_use
+  end
+
+
   private
 
 
@@ -571,11 +609,6 @@ class ZKInterface
       NeptuneManager.log("Lost our ZooKeeper connection - making a new " +
         "connection and trying again.")
       self.reinitialize()
-      Kernel.sleep(1)
-      retry
-    rescue Exception => e
-      NeptuneManager.log("Saw a transient ZooKeeper error of class #{e.class}" +
-        " - trying again.")
       Kernel.sleep(1)
       retry
     end

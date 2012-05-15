@@ -788,21 +788,6 @@ class Djinn
         # Since we now backup state to ZK, don't make everyone do it.
         # The Shadow has the most up-to-date info, so let it handle this
         backup_appcontroller_state
-
-        @neptune_nodes.each { |node|
-          Djinn.log_debug("Currently examining node [#{node}]")
-          if node.should_extend?
-            Djinn.log_debug("Extending time for node [#{node}]")
-            node.extend_time
-          elsif node.should_destroy?
-            Djinn.log_debug("Time is up for node [#{node}] - destroying it")
-            #@nodes.delete(node)
-            #@neptune_nodes.delete(node)
-            ##infrastructure = @creds["infrastructure"]
-            #HelperFunctions.terminate_vms([node], infrastructure)
-            #FileUtils.rm_f("/etc/appscale/status-#{node.private_ip}.json")
-          end
-        }
       else
         Djinn.log_debug("No need to heartbeat, we aren't the shadow")
       end
@@ -848,6 +833,8 @@ class Djinn
   # a SOAP interface by which we can run programs in arbitrary languages 
   # in this AppScale deployment.
   def start_neptune_manager
+    write_cloud_info()
+
     if HelperFunctions.is_port_open?("localhost", 
       NeptuneManagerClient::SERVER_PORT, HelperFunctions::USE_SSL)
 
@@ -862,6 +849,16 @@ class Djinn
 
     GodInterface.start(:neptune_manager, start_cmd, stop_cmd, port)
     Djinn.log_debug("Started NeptuneManager successfully!")
+  end
+
+
+  def write_cloud_info()
+    cloud_info = {
+      'is_cloud?' => is_cloud?(), 
+      'is_hybrid_cloud?' => is_hybrid_cloud?()
+    }
+
+    HelperFunctions.write_json_file("/etc/appscale/cloud_info.json", cloud_info)
   end
 
 

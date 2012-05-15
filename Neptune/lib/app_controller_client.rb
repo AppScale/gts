@@ -21,7 +21,7 @@ IP_OR_FQDN = /#{IP_REGEX}|#{FQDN_REGEX}/
 # endlessly timeout and retry, so as a hack, just don't let them timeout.
 # The next version should replace this and properly timeout and not use
 # long calls unless necessary.
-NO_TIMEOUT = 100000
+NO_TIMEOUT = -1
 
 
 RETRY_ON_FAIL = true
@@ -229,15 +229,15 @@ class AppControllerClient
     else
       type = job_data["@type"]
     end
-    Djinn.log_debug("neptune job type is #{type}")
+    NeptuneManager.log("neptune job type is #{type}")
 
-    if NEPTUNE_JOBS.include?(type)
+    if NeptuneManager::JOB_LIST.include?(type)
       method_to_call = "neptune_#{type}_run_job"
       @conn.add_method(method_to_call, "nodes", "jobs", "secret")
       make_call(30, RETRY_ON_FAIL, "run_neptune_job") { @conn.send(method_to_call.to_sym, nodes, job_data, @secret) }
     else
       not_supported_message = "The job type you specified, '#{type}', is " +
-       "not supported. Supported jobs are #{NEPTUNE_JOBS.join(', ')}."
+       "not supported. Supported jobs are #{NeptuneManager::JOB_LIST.join(', ')}."
       abort(not_supported_message)
     end
   end
@@ -248,20 +248,20 @@ class AppControllerClient
     loop {
       ready = true
       status = get_status
-      Djinn.log_debug("ACC: Node at #{@ip} said [#{status}]")
+      NeptuneManager.log("ACC: Node at #{@ip} said [#{status}]")
       roles.each { |role|
         if status =~ /#{role}/
-          Djinn.log_debug("ACC: Node is #{role}")
+          NeptuneManager.log("ACC: Node is #{role}")
         else
           ready = false
-          Djinn.log_debug("ACC: Node is not yet #{role}")
+          NeptuneManager.log("ACC: Node is not yet #{role}")
         end
       }
 
       break if ready      
     }
 
-    Djinn.log_debug("ACC: Node at #{@ip} is now #{new_roles}")
+    NeptuneManager.log("ACC: Node at #{@ip} is now #{new_roles}")
     return
   end
 

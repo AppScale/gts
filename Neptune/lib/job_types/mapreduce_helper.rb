@@ -17,13 +17,23 @@ DBS_W_HADOOP = ["hbase", "hypertable"]
 
 
 APPSCALE_HOME = ENV['APPSCALE_HOME']
-HADOOP = "#{APPSCALE_HOME}/AppDB/hadoop-0.20.2/bin/hadoop"
 
-
-STREAMING = "#{APPSCALE_HOME}/AppDB/hadoop-0.20.2/contrib/streaming/hadoop-0.20.2-streaming.jar"
 
 
 class NeptuneManager
+
+
+  HADOOP_VERSION = "0.20.2-cdh3u3"
+
+
+  HADOOP_DIR = "#{APPSCALE_HOME}/AppDB/hadoop-#{HADOOP_VERSION}"
+
+
+  HADOOP_EXECUTABLE = "#{HADOOP_DIR}/bin/hadoop"
+
+
+  HADOOP_STREAMING_JAR = "#{HADOOP_DIR}/contrib/streaming/" +
+    "hadoop-streaming-#{HADOOP_VERSION}.jar"
 
 
   def mapreduce_run_job(nodes, job_data, secret)
@@ -64,7 +74,8 @@ class NeptuneManager
         ssh_key = db_master.ssh_key
         HelperFunctions.scp_file(my_mrjar, my_mrjar, ip, ssh_key)
 
-        run_mr_command = "#{HADOOP} jar #{my_mrjar} #{main} #{input} #{output}"
+        run_mr_command = "#{HADOOP_EXECUTABLE} jar #{my_mrjar} #{main} " +
+          "#{input} #{output}"
       else
         Djinn.log_debug("need to get map code located at #{map}, and reduce " +
           "code located at #{reduce}")
@@ -95,8 +106,9 @@ class NeptuneManager
         map_cmd = "\"" + get_language(my_map) + " " + my_map + "\""
         reduce_cmd = "\"" + get_language(my_red) + " " + my_red + "\""
 
-        run_mr_command = "#{HADOOP} jar #{STREAMING} -input #{input} " +
-          "-output #{output} -mapper #{map_cmd} -reducer #{reduce_cmd}"
+        run_mr_command = "#{HADOOP_EXECUTABLE} jar #{HADOOP_STREAMING_JAR} " +
+          "-input #{input} -output #{output} -mapper #{map_cmd} " +
+          "-reducer #{reduce_cmd}"
       end
 
       Djinn.log_debug("waiting for input file #{input} to exist in HDFS")
@@ -118,7 +130,7 @@ class NeptuneManager
       # TODO: check if no part-* files exist - if so, there's an error
       # that we should funnel to the user somehow
 
-      output_cmd = "#{HADOOP} fs -cat #{output}/part-*"
+      output_cmd = "#{HADOOP_EXECUTABLE} fs -cat #{output}/part-*"
       Djinn.log_debug("MR: Retrieving job output with command #{output_cmd}")
       output_str = `#{output_cmd}`
 
@@ -140,7 +152,7 @@ class NeptuneManager
 
     `rm -rf #{output_location}`
     run_on_db_master("rm -rf #{output_location}", NO_OUTPUT) 
-    run_on_db_master("#{HADOOP} fs -get #{output} #{output_location}", NO_OUTPUT)
+    run_on_db_master("#{HADOOP_EXECUTABLE} fs -get #{output} #{output_location}", NO_OUTPUT)
     unless my_node.is_db_master?
       Djinn.log_debug("hey by the way output is [#{output}]")
 
@@ -179,7 +191,7 @@ class NeptuneManager
   end
 
   def wait_for_hdfs_file(location)
-    command = "#{HADOOP} fs -ls #{location}"
+    command = "#{HADOOP_EXECUTABLE} fs -ls #{location}"
     db_master = get_db_master
     ip = db_master.public_ip
     ssh_key = db_master.ssh_key
