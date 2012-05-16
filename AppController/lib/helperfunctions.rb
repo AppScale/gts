@@ -88,13 +88,16 @@ module HelperFunctions
     return `#{cmd}`
   end
 
+
   def self.write_file(location, contents)
     File.open(location, "w+") { |file| file.write(contents) }
   end
 
+
   def self.write_json_file(location, contents)
     self.write_file(location, JSON.dump(contents))
   end
+
 
   def self.read_file(location, chomp=true)
     file = File.open(location) { |f| f.read }
@@ -128,6 +131,7 @@ module HelperFunctions
     return random
   end
 
+
   def self.deserialize_info_from_tools(ips) 
     nodes = {}
     # FIXME: Here we make the string back into a hash using the crappy deserialization
@@ -141,9 +145,11 @@ module HelperFunctions
     return nodes
   end
 
+
   def self.kill_process(name)
     `ps ax | grep #{name} | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9`
   end
+
 
   def self.sleep_until_port_is_open(ip, port, use_ssl=DONT_USE_SSL)
     sleep_time = 1
@@ -160,6 +166,7 @@ module HelperFunctions
     }
   end
 
+
   def self.sleep_until_port_is_closed(ip, port, use_ssl=DONT_USE_SSL)
     sleep_time = 1
 
@@ -174,7 +181,8 @@ module HelperFunctions
       Kernel.puts("Waiting on #{ip}:#{port} to be closed (currently open).")
     }
   end
-    
+
+
   def self.is_port_open?(ip, port, use_ssl=DONT_USE_SSL)
     begin
       Timeout::timeout(1) do
@@ -200,6 +208,7 @@ module HelperFunctions
   
     return false
   end
+
 
   def self.run_remote_command(ip, command, public_key_loc, want_output)
     Kernel.puts("ip is [#{ip}], command is [#{command}], public key is [#{public_key_loc}], want output? [#{want_output}]")
@@ -401,10 +410,21 @@ module HelperFunctions
   end
 
 
-  # Code for local_ip taken from 
-  # http://coderrr.wordpress.com/2008/05/28/get-your-local-ip-address/
-  def self.local_ip
-    UDPSocket.open {|s| s.connect("64.233.187.99", 1); s.addr.last }
+  def self.local_ip()
+    bound_addrs = `ifconfig`.scan(/inet addr:(\d+.\d+.\d+.\d+)/).flatten
+
+    Kernel.puts("ifconfig reports bound IP addresses as " +
+      "[#{bound_addrs.join(', ')}]")
+    bound_addrs.each { |addr|
+      if addr == "127.0.0.1"
+        next
+      end
+
+      Kernel.puts("Returning #{addr} as our local IP address")
+      return addr
+    }
+
+    raise Exception.new("Couldn't get our local IP address")
   end
 
   # In cloudy deployments, the recommended way to determine a machine's true
@@ -1160,4 +1180,6 @@ module HelperFunctions
 
     return max_k
   end
+
+
 end

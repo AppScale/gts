@@ -100,17 +100,11 @@ BAZ
       HelperFunctions.scp_file(tempfile, tempfile, remote_ip, remote_key)
     end
 
-    if remote_ip
-      ip = remote_ip
-    else
-      ip = HelperFunctions.local_ip
-    end
-
     self.run_god_command("god load #{tempfile}", remote_ip, remote_key)
-
-    sleep(5)
-
+    Kernel.sleep(5)
     FileUtils.rm_f(tempfile)
+
+    ip = remote_ip || HelperFunctions.local_ip
     if remote_ip
       remove = "rm -rf #{tempfile}"
       HelperFunctions.run_remote_command(ip, remove, remote_key, NO_OUTPUT)
