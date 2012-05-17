@@ -1,248 +1,264 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<!DOCTYPE html>
+
+<html>
 <head>
-  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+<meta content="text/html; charset=UTF-8" http-equiv="Content-Type">
 
-  <title>Module: Ejabberd</title>
+<title>module Ejabberd - RDoc Documentation</title>
 
-  <link rel="stylesheet" href="./rdoc.css" type="text/css" media="screen" />
+<link type="text/css" media="screen" href="./rdoc.css" rel="stylesheet">
 
-  <script src="./js/jquery.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/thickbox-compressed.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/quicksearch.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/darkfish.js" type="text/javascript"
-    charset="utf-8"></script>
+<script type="text/javascript">
+  var rdoc_rel_prefix = "./";
+</script>
 
-</head>
-<body class="module">
+<script type="text/javascript" charset="utf-8" src="./js/jquery.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/navigation.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/search_index.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/search.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/searcher.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/darkfish.js"></script>
 
-  <div id="metadata">
-    <div id="home-metadata">
-      <div id="home-section" class="section">
-        <h3 class="section-header">
-          <a href="./index.html">Home</a>
-          <a href="./index.html#classes">Classes</a>
-          <a href="./index.html#methods">Methods</a>
-        </h3>
-      </div>
-    </div>
 
-    <div id="file-metadata">
-      <div id="file-list-section" class="section">
-        <h3 class="section-header">In Files</h3>
-        <div class="section-body">
-          <ul>
-          
-            <li><a href="./lib/ejabberd_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
-              class="thickbox" title="lib/ejabberd.rb">lib/ejabberd.rb</a></li>
-          
-          </ul>
-        </div>
-      </div>
+<body id="top" class="module">
+<nav id="metadata">
+  <nav id="home-section" class="section">
+  <h3 class="section-header">
+    <a href="./index.html">Home</a>
+    <a href="./table_of_contents.html#classes">Classes</a>
+    <a href="./table_of_contents.html#methods">Methods</a>
+  </h3>
+</nav>
 
-      
-    </div>
 
-    <div id="class-metadata">
+  <nav id="search-section" class="section project-section" class="initially-hidden">
+  <form action="#" method="get" accept-charset="utf-8">
+    <h3 class="section-header">
+      <input type="text" name="search" placeholder="Search" id="search-field"
+             title="Type to search, Up and Down to navigate, Enter to load">
+    </h3>
+  </form>
 
-      <!-- Parent Class -->
-      
+  <ul id="search-results" class="initially-hidden"></ul>
+</nav>
 
-      <!-- Namespace Contents -->
-      
 
-      <!-- Method Quickref -->
-      
-      <div id="method-list-section" class="section">
-        <h3 class="section-header">Methods</h3>
-        <ul class="link-list">
-          
-          <li><a href="#method-c-clear_online_users">::clear_online_users</a></li>
-          
-          <li><a href="#method-c-does_app_need_receive-3F">::does_app_need_receive?</a></li>
-          
-          <li><a href="#method-c-start">::start</a></li>
-          
-          <li><a href="#method-c-stop">::stop</a></li>
-          
-          <li><a href="#method-c-write_auth_script">::write_auth_script</a></li>
-          
-          <li><a href="#method-c-write_config_file">::write_config_file</a></li>
-          
-          <li><a href="#method-c-write_online_users_list">::write_online_users_list</a></li>
-          
-        </ul>
-      </div>
-      
+  <div id="file-metadata">
+    <nav id="file-list-section" class="section">
+  <h3 class="section-header">Defined In</h3>
+  <ul>
+    <li>lib/ejabberd.rb
+  </ul>
+</nav>
 
-      <!-- Included Modules -->
-      
-    </div>
-
-    <div id="project-metadata">
-      
-      
-
-      <div id="classindex-section" class="section project-section">
-        <h3 class="section-header">Class/Module Index
-          <span class="search-toggle"><img src="./images/find.png"
-            height="16" width="16" alt="[+]"
-            title="show/hide quicksearch" /></span></h3>
-        <form action="#" method="get" accept-charset="utf-8" class="initially-hidden">
-        <fieldset>
-          <legend>Quicksearch</legend>
-          <input type="text" name="quicksearch" value=""
-            class="quicksearch-field" />
-        </fieldset>
-        </form>
-
-        <ul class="link-list">
-        
-          <li><a href="./AppControllerClient.html">AppControllerClient</a></li>
-        
-          <li><a href="./BadConfigurationException.html">BadConfigurationException</a></li>
-        
-          <li><a href="./BlobServer.html">BlobServer</a></li>
-        
-          <li><a href="./Collectd.html">Collectd</a></li>
-        
-          <li><a href="./CronHelper.html">CronHelper</a></li>
-        
-          <li><a href="./Datastore.html">Datastore</a></li>
-        
-          <li><a href="./DatastoreFactory.html">DatastoreFactory</a></li>
-        
-          <li><a href="./DatastoreRepo.html">DatastoreRepo</a></li>
-        
-          <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a></li>
-        
-          <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a></li>
-        
-          <li><a href="./DatastoreS3.html">DatastoreS3</a></li>
-        
-          <li><a href="./Djinn.html">Djinn</a></li>
-        
-          <li><a href="./DjinnJobData.html">DjinnJobData</a></li>
-        
-          <li><a href="./DjinnServer.html">DjinnServer</a></li>
-        
-          <li><a href="./Ejabberd.html">Ejabberd</a></li>
-        
-          <li><a href="./EngineFactory.html">EngineFactory</a></li>
-        
-          <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a></li>
-        
-          <li><a href="./GodInterface.html">GodInterface</a></li>
-        
-          <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a></li>
-        
-          <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a></li>
-        
-          <li><a href="./HAProxy.html">HAProxy</a></li>
-        
-          <li><a href="./HelperFunctions.html">HelperFunctions</a></li>
-        
-          <li><a href="./JSONClient.html">JSONClient</a></li>
-        
-          <li><a href="./LoadBalancer.html">LoadBalancer</a></li>
-        
-          <li><a href="./Monitoring.html">Monitoring</a></li>
-        
-          <li><a href="./NeptuneJobData.html">NeptuneJobData</a></li>
-        
-          <li><a href="./Nginx.html">Nginx</a></li>
-        
-          <li><a href="./Object.html">Object</a></li>
-        
-          <li><a href="./PbServer.html">PbServer</a></li>
-        
-          <li><a href="./QueueFactory.html">QueueFactory</a></li>
-        
-          <li><a href="./RabbitMQ.html">RabbitMQ</a></li>
-        
-          <li><a href="./Repo.html">Repo</a></li>
-        
-          <li><a href="./TaskEngine.html">TaskEngine</a></li>
-        
-          <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a></li>
-        
-          <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a></li>
-        
-          <li><a href="./TaskQueue.html">TaskQueue</a></li>
-        
-          <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a></li>
-        
-          <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a></li>
-        
-          <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a></li>
-        
-          <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a></li>
-        
-          <li><a href="./UserAppClient.html">UserAppClient</a></li>
-        
-          <li><a href="./ZKInterface.html">ZKInterface</a></li>
-        
-        </ul>
-        <div id="no-class-search-results" style="display: none;">No matching classes.</div>
-      </div>
-
-      
-    </div>
+    
   </div>
 
-  <div id="documentation">
-    <h1 class="module">Ejabberd</h1>
+  <div id="class-metadata">
+    
+    
+    
+    <!-- Method Quickref -->
+<nav id="method-list-section" class="section">
+  <h3 class="section-header">Methods</h3>
 
-    <div id="description">
-      
+  <ul class="link-list">
+    
+    <li><a href="#method-c-clear_online_users">::clear_online_users</a>
+    
+    <li><a href="#method-c-does_app_need_receive-3F">::does_app_need_receive?</a>
+    
+    <li><a href="#method-c-start">::start</a>
+    
+    <li><a href="#method-c-stop">::stop</a>
+    
+    <li><a href="#method-c-write_auth_script">::write_auth_script</a>
+    
+    <li><a href="#method-c-write_config_file">::write_config_file</a>
+    
+    <li><a href="#method-c-write_online_users_list">::write_online_users_list</a>
+    
+  </ul>
+</nav>
+
+  </div>
+
+  <div id="project-metadata">
+    
+    <nav id="classindex-section" class="section project-section">
+  <h3 class="section-header">Class and Module Index</h3>
+
+  <ul class="link-list">
+  
+    <li><a href="./AppControllerClient.html">AppControllerClient</a>
+  
+    <li><a href="./AppScaleException.html">AppScaleException</a>
+  
+    <li><a href="./BadConfigurationException.html">BadConfigurationException</a>
+  
+    <li><a href="./BlobServer.html">BlobServer</a>
+  
+    <li><a href="./Collectd.html">Collectd</a>
+  
+    <li><a href="./CronHelper.html">CronHelper</a>
+  
+    <li><a href="./Datastore.html">Datastore</a>
+  
+    <li><a href="./DatastoreFactory.html">DatastoreFactory</a>
+  
+    <li><a href="./DatastoreRepo.html">DatastoreRepo</a>
+  
+    <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a>
+  
+    <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a>
+  
+    <li><a href="./DatastoreS3.html">DatastoreS3</a>
+  
+    <li><a href="./Djinn.html">Djinn</a>
+  
+    <li><a href="./DjinnJobData.html">DjinnJobData</a>
+  
+    <li><a href="./DjinnServer.html">DjinnServer</a>
+  
+    <li><a href="./Ejabberd.html">Ejabberd</a>
+  
+    <li><a href="./EngineFactory.html">EngineFactory</a>
+  
+    <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a>
+  
+    <li><a href="./GodInterface.html">GodInterface</a>
+  
+    <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a>
+  
+    <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a>
+  
+    <li><a href="./HAProxy.html">HAProxy</a>
+  
+    <li><a href="./HelperFunctions.html">HelperFunctions</a>
+  
+    <li><a href="./InfrastructureManagerClient.html">InfrastructureManagerClient</a>
+  
+    <li><a href="./JSONClient.html">JSONClient</a>
+  
+    <li><a href="./LoadBalancer.html">LoadBalancer</a>
+  
+    <li><a href="./Monitoring.html">Monitoring</a>
+  
+    <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
+  
+    <li><a href="./NeptuneManager.html">NeptuneManager</a>
+  
+    <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
+  
+    <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
+  
+    <li><a href="./Nginx.html">Nginx</a>
+  
+    <li><a href="./Object.html">Object</a>
+  
+    <li><a href="./PbServer.html">PbServer</a>
+  
+    <li><a href="./QueueFactory.html">QueueFactory</a>
+  
+    <li><a href="./RabbitMQ.html">RabbitMQ</a>
+  
+    <li><a href="./Repo.html">Repo</a>
+  
+    <li><a href="./TaskEngine.html">TaskEngine</a>
+  
+    <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a>
+  
+    <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a>
+  
+    <li><a href="./TaskQueue.html">TaskQueue</a>
+  
+    <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a>
+  
+    <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a>
+  
+    <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a>
+  
+    <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a>
+  
+    <li><a href="./TestAppScaleHelper.html">TestAppScaleHelper</a>
+  
+    <li><a href="./TestBabelHelper.html">TestBabelHelper</a>
+  
+    <li><a href="./TestCiceroHelper.html">TestCiceroHelper</a>
+  
+    <li><a href="./TestDatastore.html">TestDatastore</a>
+  
+    <li><a href="./TestNeptuneJobData.html">TestNeptuneJobData</a>
+  
+    <li><a href="./TestNeptuneManager.html">TestNeptuneManager</a>
+  
+    <li><a href="./TestTaskQueue.html">TestTaskQueue</a>
+  
+    <li><a href="./UserAppClient.html">UserAppClient</a>
+  
+    <li><a href="./ZKInterface.html">ZKInterface</a>
+  
+    <li><a href="./ZooKeeperLockException.html">ZooKeeperLockException</a>
+  
+  </ul>
+</nav>
+
+  </div>
+</nav>
+
+<div id="documentation">
+  <h1 class="module">module Ejabberd</h1>
+
+  <div id="description" class="description">
+    
 <p>Our implementation of the Google App Engine XMPP and Channel APIs uses the
 open source ejabberd server. This module provides convenience methods to
 start and stop ejabberd, and write its configuration files.</p>
 
-    </div>
+  </div><!-- description -->
 
-    <!-- Constants -->
+  
+  
+  
+  <section id="5Buntitled-5D" class="documentation-section">
     
-    <div id="constants-list" class="section">
+
+    
+
+    
+    <!-- Constants -->
+    <section id="constants-list" class="section">
       <h3 class="section-header">Constants</h3>
       <dl>
       
-        <dt><a name="EJABBERD_PATH">EJABBERD_PATH</a></dt>
+        <dt id="AUTH_SCRIPT_LOCATION">AUTH_SCRIPT_LOCATION
         
-        <dd class="description"></dd>
-        
-      
-        <dt><a name="AUTH_SCRIPT_LOCATION">AUTH_SCRIPT_LOCATION</a></dt>
-        
-        <dd class="description"></dd>
+        <dd class="description">
         
       
-        <dt><a name="ONLINE_USERS_FILE">ONLINE_USERS_FILE</a></dt>
+        <dt id="EJABBERD_PATH">EJABBERD_PATH
         
-        <dd class="description"></dd>
+        <dd class="description">
+        
+      
+        <dt id="ONLINE_USERS_FILE">ONLINE_USERS_FILE
+        
+        <dd class="description">
         
       
       </dl>
-    </div>
+    </section>
     
 
-    <!-- Attributes -->
     
 
     <!-- Methods -->
     
-    <div id="public-class-method-details" class="method-section section">
+     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Class Methods</h3>
 
     
-      <div id="clear_online_users-method" class="method-detail ">
-        <a name="method-c-clear_online_users"></a>
-
+      <div id="method-c-clear_online_users" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">clear_online_users</span><span
@@ -257,26 +273,22 @@ start and stop ejabberd, and write its configuration files.</p>
           
 
           
-          <div class="method-source-code"
-            id="clear_online_users-source">
-<pre>
-<span class="ruby-comment"># File lib/ejabberd.rb, line 38</span>
-def self.clear_online_users
-  <span class="ruby-constant">Djinn</span>.log_run(&quot;rm #{ONLINE_USERS_FILE}&quot;)
-end</pre>
-          </div>
+          <div class="method-source-code" id="clear_online_users-source">
+            <pre><span class="ruby-comment"># File lib/ejabberd.rb, line 38</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">clear_online_users</span>
+  <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_run</span>(<span class="ruby-node">&quot;rm #{ONLINE_USERS_FILE}&quot;</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- clear_online_users-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- clear_online_users-method -->
 
     
-      <div id="does_app_need_receive-3F-method" class="method-detail ">
-        <a name="method-c-does_app_need_receive-3F"></a>
-
+      <div id="method-c-does_app_need_receive-3F" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">does_app_need_receive?</span><span
@@ -291,40 +303,36 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="does_app_need_receive-3F-source">
-<pre>
-<span class="ruby-comment"># File lib/ejabberd.rb, line 42</span>
-def self.does_app_need_receive?(app, lang)
-  if [<span class="ruby-string">&quot;python&quot;</span>, <span class="ruby-string">&quot;go&quot;</span>].include?(lang)
-    app_yaml_file = &quot;/var/apps/#{app}/app/app.yaml&quot;
-    app_yaml = <span class="ruby-constant">YAML</span>.load_file(app_yaml_file)[<span class="ruby-string">&quot;inbound_services&quot;</span>]
-    if !app_yaml.nil? and app_yaml.include?(<span class="ruby-string">&quot;xmpp_message&quot;</span>)
-      return true
-    else
-      return false
-    end
-  elsif lang == <span class="ruby-string">&quot;java&quot;</span>
+          <div class="method-source-code" id="does_app_need_receive-3F-source">
+            <pre><span class="ruby-comment"># File lib/ejabberd.rb, line 42</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">does_app_need_receive?</span>(<span class="ruby-identifier">app</span>, <span class="ruby-identifier">lang</span>)
+  <span class="ruby-keyword">if</span> [<span class="ruby-string">&quot;python&quot;</span>, <span class="ruby-string">&quot;go&quot;</span>].<span class="ruby-identifier">include?</span>(<span class="ruby-identifier">lang</span>)
+    <span class="ruby-identifier">app_yaml_file</span> = <span class="ruby-node">&quot;/var/apps/#{app}/app/app.yaml&quot;</span>
+    <span class="ruby-identifier">app_yaml</span> = <span class="ruby-constant">YAML</span>.<span class="ruby-identifier">load_file</span>(<span class="ruby-identifier">app_yaml_file</span>)[<span class="ruby-string">&quot;inbound_services&quot;</span>]
+    <span class="ruby-keyword">if</span> <span class="ruby-operator">!</span><span class="ruby-identifier">app_yaml</span>.<span class="ruby-identifier">nil?</span> <span class="ruby-keyword">and</span> <span class="ruby-identifier">app_yaml</span>.<span class="ruby-identifier">include?</span>(<span class="ruby-string">&quot;xmpp_message&quot;</span>)
+      <span class="ruby-keyword">return</span> <span class="ruby-keyword">true</span>
+    <span class="ruby-keyword">else</span>
+      <span class="ruby-keyword">return</span> <span class="ruby-keyword">false</span>
+    <span class="ruby-keyword">end</span>
+  <span class="ruby-keyword">elsif</span> <span class="ruby-identifier">lang</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;java&quot;</span>
     <span class="ruby-comment"># always assume they need receive for now</span>
     <span class="ruby-comment"># TODO: write this the right way later</span>
-    return true
-  else
-    abort(&quot;xmpp: lang was neither python, go, java but was [#{lang}]&quot;)
-  end
-end</pre>
-          </div>
+    <span class="ruby-keyword">return</span> <span class="ruby-keyword">true</span>
+  <span class="ruby-keyword">else</span>
+    <span class="ruby-identifier">abort</span>(<span class="ruby-node">&quot;xmpp: lang was neither python, go, java but was [#{lang}]&quot;</span>)
+  <span class="ruby-keyword">end</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- does_app_need_receive-3F-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- does_app_need_receive-3F-method -->
 
     
-      <div id="start-method" class="method-detail ">
-        <a name="method-c-start"></a>
-
+      <div id="method-c-start" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">start</span><span
@@ -339,29 +347,25 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="start-source">
-<pre>
-<span class="ruby-comment"># File lib/ejabberd.rb, line 27</span>
-def self.start
-  start_cmd = <span class="ruby-string">&quot;/etc/init.d/ejabberd start&quot;</span>
-  stop_cmd = <span class="ruby-string">&quot;/etc/init.d/ejabberd stop&quot;</span>
-  port = 4369
-  <span class="ruby-constant">GodInterface</span>.start(:ejabberd, start_cmd, stop_cmd, port)
-end</pre>
-          </div>
+          <div class="method-source-code" id="start-source">
+            <pre><span class="ruby-comment"># File lib/ejabberd.rb, line 27</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">start</span>
+  <span class="ruby-identifier">start_cmd</span> = <span class="ruby-string">&quot;/etc/init.d/ejabberd start&quot;</span>
+  <span class="ruby-identifier">stop_cmd</span> = <span class="ruby-string">&quot;/etc/init.d/ejabberd stop&quot;</span>
+  <span class="ruby-identifier">port</span> = <span class="ruby-value">4369</span>
+  <span class="ruby-constant">GodInterface</span>.<span class="ruby-identifier">start</span>(<span class="ruby-value">:ejabberd</span>, <span class="ruby-identifier">start_cmd</span>, <span class="ruby-identifier">stop_cmd</span>, <span class="ruby-identifier">port</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- start-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- start-method -->
 
     
-      <div id="stop-method" class="method-detail ">
-        <a name="method-c-stop"></a>
-
+      <div id="method-c-stop" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">stop</span><span
@@ -376,26 +380,22 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="stop-source">
-<pre>
-<span class="ruby-comment"># File lib/ejabberd.rb, line 34</span>
-def self.stop
-  <span class="ruby-constant">GodInterface</span>.stop(:ejabberd)
-end</pre>
-          </div>
+          <div class="method-source-code" id="stop-source">
+            <pre><span class="ruby-comment"># File lib/ejabberd.rb, line 34</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">stop</span>
+  <span class="ruby-constant">GodInterface</span>.<span class="ruby-identifier">stop</span>(<span class="ruby-value">:ejabberd</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- stop-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- stop-method -->
 
     
-      <div id="write_auth_script-method" class="method-detail ">
-        <a name="method-c-write_auth_script"></a>
-
+      <div id="method-c-write_auth_script" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">write_auth_script</span><span
@@ -410,30 +410,173 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="write_auth_script-source">
-<pre>
-<span class="ruby-comment"># File lib/ejabberd.rb, line 73</span>
-def self.write_auth_script(login_ip, secret)
-  auth_script = <span class="ruby-string">#!/usr/bin/pythonimport sys, logging, struct, hashlib, re, SOAPpy, socket, timefrom struct import *# logging initializationsys.stderr = open(&quot;/var/log/ejabberd/extauth_err.log&quot;, 'a')logging.basicConfig(level=logging.INFO,  format='%(asctime)s %(levelname)s %(message)s',  filename='/var/log/ejabberd/extauth.log',  filemode='a')logging.info(&quot;extauth script started, waiting for ejabberd requests&quot;)# db initializationlogin_ip = &quot;#{login_ip}&quot;secret = &quot;#{secret}&quot;login_address = &quot;https://&quot; + login_ip + &quot;:4343&quot;server = SOAPpy.SOAPProxy(login_address)# helper functionsclass EjabberdInputError(Exception):  def __init__(self, value):    self.value = value  def __str__(self):    return repr(self.value)def ejabberd_in():  logging.debug(&quot;trying to read 2 bytes from ejabberd:&quot;)  try:    input_length = sys.stdin.read(2)  except IOError:    logging.debug(&quot;ioerror&quot;)  if len(input_length) is not 2:    logging.debug(&quot;ejabberd sent us wrong things!&quot;)    raise EjabberdInputError('Wrong input from ejabberd!')  logging.debug('got 2 bytes via stdin: %s'%input_length)  (size,) = unpack('&gt;h', input_length)  logging.debug('size of data: %i'%size)  income = sys.stdin.read(size).split(':')  logging.debug(&quot;incoming data: %s&quot;%income)  return incomedef ejabberd_out(bool):  logging.debug(&quot;Ejabberd gets: %s&quot; % bool)  token = genanswer(bool)  logging.debug(&quot;sent bytes: %#x %#x %#x %#x&quot; % (ord(token[0]), ord(token[1]), ord(token[2]), ord(token[3])))  sys.stdout.write(token)  sys.stdout.flush()def genanswer(bool):  answer = 0  if bool:    answer = 1  token = pack('&gt;hh', 2, answer)  return tokendef isuser(in_user, in_host):  return True  #username = in_user + &quot;@&quot; + in_host  #userdata = server.get_user_data(username, secret)  #if userdata == 'Error: Bad length of user schema vs user result'  #  return True  #else:  #  return Falsedef auth(in_user, in_host, password):  #return True  username = in_user + &quot;@&quot; + in_host  logging.info(&quot;trying to authenticate user [%s]&quot; % (username))  if not isuser(in_user, in_host):    return False  userdata = &quot;&quot;  while True:    try:      userdata = server.get_user_data(username, secret)      break    except socket.error:      time.sleep(1)  logging.info(&quot;userdata for [%s] is [%s]&quot; % (username, str(userdata)))  matchdata = re.search('password:(.*)', userdata)  if matchdata is None:    logging.info(&quot;matchdata for [%s] was none&quot; % (username))    return False  remote_password = matchdata.group(1)  salted = username + password  local_password = hashlib.sha1(salted).hexdigest()  logging.info(&quot;local  password: [%s]&quot; % (local_password))  logging.info(&quot;remote password: [%s]&quot; % (remote_password))  if local_password == remote_password:    return True  else:    return Falsedef log_result(op, in_user, bool):  if bool:    logging.info(&quot;%s successful for %s&quot;%(op, in_user))  else:    logging.info(&quot;%s unsuccessful for %s&quot;%(op, in_user))# main loopwhile True:  logging.info(&quot;start of infinite loop&quot;)  try:     ejab_request = ejabberd_in()  except EjabberdInputError, inst:    logging.info(&quot;Exception occurred: %s&quot;, inst)    break  logging.debug('operation: %s'%(ejab_request[0]))  op_result = False  if ejab_request[0] == &quot;auth&quot;:    op_result = auth(ejab_request[1], ejab_request[2], ejab_request[3])    ejabberd_out(op_result)    log_result(ejab_request[0], ejab_request[1], op_result)  elif ejab_request[0] == &quot;isuser&quot;:    op_result = isuser(ejab_request[1], ejab_request[2])    ejabberd_out(op_result)    log_result(ejab_request[0], ejab_request[1], op_result)  elif ejab_request[0] == &quot;setpass&quot;:    op_result=False    ejabberd_out(op_result)    log_result(ejab_request[0], ejab_request[1], op_result)logging.info(&quot;extauth script terminating&quot;)</span>
+          <div class="method-source-code" id="write_auth_script-source">
+            <pre><span class="ruby-comment"># File lib/ejabberd.rb, line 73</span>
+  <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">write_auth_script</span>(<span class="ruby-identifier">login_ip</span>, <span class="ruby-identifier">secret</span>)
+    <span class="ruby-identifier">auth_script</span> = <span class="ruby-string">&quot;#!/usr/bin/python
 
-  <span class="ruby-constant">HelperFunctions</span>.write_file(<span class="ruby-constant">AUTH_SCRIPT_LOCATION</span>, auth_script)
-  <span class="ruby-constant">Djinn</span>.log_run(&quot;chown ejabberd #{AUTH_SCRIPT_LOCATION}&quot;)
-  <span class="ruby-constant">Djinn</span>.log_run(&quot;chmod +x #{AUTH_SCRIPT_LOCATION}&quot;)
-end</pre>
-          </div>
+import sys, logging, struct, hashlib, re, SOAPpy, socket, time
+from struct import *
+
+# logging initialization
+
+sys.stderr = open(&quot;/var/log/ejabberd/extauth_err.log&quot;, 'a')
+logging.basicConfig(level=logging.INFO,
+  format='%(asctime)s %(levelname)s %(message)s',
+  filename='/var/log/ejabberd/extauth.log',
+  filemode='a')
+
+logging.info(&quot;extauth script started, waiting for ejabberd requests&quot;)
+
+# db initialization
+
+login_ip = &quot;#{login_ip}&quot;
+secret = &quot;#{secret}&quot;
+
+login_address = &quot;https://&quot; + login_ip + &quot;:4343&quot;
+server = SOAPpy.SOAPProxy(login_address)
+
+# helper functions
+
+class EjabberdInputError(Exception):
+  def __init__(self, value):
+    self.value = value
+  def __str__(self):
+    return repr(self.value)
+
+def ejabberd_in():
+  logging.debug(&quot;trying to read 2 bytes from ejabberd:&quot;)
+  try:
+    input_length = sys.stdin.read(2)
+  except IOError:
+    logging.debug(&quot;ioerror&quot;)
+
+  if len(input_length) is not 2:
+    logging.debug(&quot;ejabberd sent us wrong things!&quot;)
+    raise EjabberdInputError('Wrong input from ejabberd!')
+
+  logging.debug('got 2 bytes via stdin: %s'%input_length)
+  (size,) = unpack('&gt;h', input_length)
+
+  logging.debug('size of data: %i'%size)
+  income = sys.stdin.read(size).split(':')
+
+  logging.debug(&quot;incoming data: %s&quot;%income)
+  return income
+
+def ejabberd_out(bool):
+  logging.debug(&quot;Ejabberd gets: %s&quot; % bool)
+  token = genanswer(bool)
+  logging.debug(&quot;sent bytes: %#x %#x %#x %#x&quot; % (ord(token[0]), ord(token[1]), ord(token[2]), ord(token[3])))
+  sys.stdout.write(token)
+  sys.stdout.flush()
+
+def genanswer(bool):
+  answer = 0
+  if bool:
+    answer = 1
+
+  token = pack('&gt;hh', 2, answer)
+  return token
+
+def isuser(in_user, in_host):
+  return True
+  #username = in_user + &quot;@&quot; + in_host
+  #userdata = server.get_user_data(username, secret)
+
+  #if userdata == 'Error: Bad length of user schema vs user result'
+  #  return True
+  #else:
+  #  return False
+
+def auth(in_user, in_host, password):
+  #return True
+  username = in_user + &quot;@&quot; + in_host
+
+  logging.info(&quot;trying to authenticate user [%s]&quot; % (username))
+
+  if not isuser(in_user, in_host):
+    return False
+
+  userdata = &quot;&quot;
+  while True:
+    try:
+      userdata = server.get_user_data(username, secret)
+      break
+    except socket.error:
+      time.sleep(1)
+
+  logging.info(&quot;userdata for [%s] is [%s]&quot; % (username, str(userdata)))
+  matchdata = re.search('password:(.*)', userdata)
+
+  if matchdata is None:
+    logging.info(&quot;matchdata for [%s] was none&quot; % (username))
+    return False
+
+  remote_password = matchdata.group(1)
+
+  salted = username + password
+  local_password = hashlib.sha1(salted).hexdigest()
+
+  logging.info(&quot;local  password: [%s]&quot; % (local_password))
+  logging.info(&quot;remote password: [%s]&quot; % (remote_password))
+
+  if local_password == remote_password:
+    return True
+  else:
+    return False
+
+def log_result(op, in_user, bool):
+  if bool:
+    logging.info(&quot;%s successful for %s&quot;%(op, in_user))
+  else:
+    logging.info(&quot;%s unsuccessful for %s&quot;%(op, in_user))
+
+# main loop
+
+while True:
+  logging.info(&quot;start of infinite loop&quot;)
+  try: 
+    ejab_request = ejabberd_in()
+  except EjabberdInputError, inst:
+    logging.info(&quot;Exception occurred: %s&quot;, inst)
+    break
+
+  logging.debug('operation: %s'%(ejab_request[0]))
+  op_result = False
+
+  if ejab_request[0] == &quot;auth&quot;:
+    op_result = auth(ejab_request[1], ejab_request[2], ejab_request[3])
+    ejabberd_out(op_result)
+    log_result(ejab_request[0], ejab_request[1], op_result)
+  elif ejab_request[0] == &quot;isuser&quot;:
+    op_result = isuser(ejab_request[1], ejab_request[2])
+    ejabberd_out(op_result)
+    log_result(ejab_request[0], ejab_request[1], op_result)
+  elif ejab_request[0] == &quot;setpass&quot;:
+    op_result=False
+    ejabberd_out(op_result)
+    log_result(ejab_request[0], ejab_request[1], op_result)
+
+logging.info(&quot;extauth script terminating&quot;)
+
+&quot;</span>
+
+    <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">write_file</span>(<span class="ruby-constant">AUTH_SCRIPT_LOCATION</span>, <span class="ruby-identifier">auth_script</span>)
+    <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_run</span>(<span class="ruby-node">&quot;chown ejabberd #{AUTH_SCRIPT_LOCATION}&quot;</span>)
+    <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_run</span>(<span class="ruby-node">&quot;chmod +x #{AUTH_SCRIPT_LOCATION}&quot;</span>)
+  <span class="ruby-keyword">end</span></pre>
+          </div><!-- write_auth_script-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- write_auth_script-method -->
 
     
-      <div id="write_config_file-method" class="method-detail ">
-        <a name="method-c-write_config_file"></a>
-
+      <div id="method-c-write_config_file" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">write_config_file</span><span
@@ -448,30 +591,225 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="write_config_file-source">
-<pre>
-<span class="ruby-comment"># File lib/ejabberd.rb, line 229</span>
-def self.write_config_file(my_public_ip)
-  config = <span class="ruby-string">%%%%%%     Debian ejabberd configuration file%%%     This config must be in UTF-8 encoding%%%%%% The parameters used in this configuration file are explained in more detail%%% in the ejabberd Installation and Operation Guide.%%% Please consult the Guide in case of doubts, it is available at%%% /usr/share/doc/ejabberd/guide.html%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Options which are set by Debconf and managed by ucf%% Admin user{acl, admin, {user, &quot;admin&quot;, &quot;#{my_public_ip}&quot;}}.%% Hostname{hosts, [&quot;#{my_public_ip}&quot;]}.{loglevel, 4}.%%%   ===============%%%   LISTENING PORTS%%%% listen: Which ports will ejabberd listen, which service handles it%% and what options to start it with.%%{listen, [  {5222, ejabberd_c2s, [                        {access, c2s},                        {shaper, c2s_shaper},                        {max_stanza_size, 65536},                        starttls, {certfile, &quot;/etc/ejabberd/ejabberd.pem&quot;}                       ]},  {5269, ejabberd_s2s_in, [                           {shaper, s2s_shaper},                           {max_stanza_size, 131072}                          ]},  {5280, ejabberd_http, [                         http_bind,                         http_poll,                         web_admin                        ]} ]}.{s2s_use_starttls, true}.{s2s_certfile, &quot;/etc/ejabberd/ejabberd.pem&quot;}.%%%   ==============%%%   AUTHENTICATION%% Authentication using external script%% Make sure the script is executable by ejabberd.%%{auth_method, external}.{extauth_program, &quot;#{AUTH_SCRIPT_LOCATION}&quot;}.%%%   ===============%%%   TRAFFIC SHAPERS%%%% The &quot;normal&quot; shaper limits traffic speed to 1.000 B/s%%{shaper, normal, {maxrate, 1000}}.%%%% The &quot;fast&quot; shaper limits traffic speed to 50.000 B/s%%{shaper, fast, {maxrate, 50000}}.%%%% Local users: don't modify this line.%%{acl, local, {user_regexp, &quot;&quot;}}.%%%   ============%%%   ACCESS RULES%% Define the maximum number of time a single user is allowed to connect:{access, max_user_sessions, [{10, all}]}.%% This rule allows access only for local users:{access, local, [{allow, local}]}.%% Only non-blocked users can use c2s connections:{access, c2s, [{deny, blocked},               {allow, all}]}.%% For all users except admins used &quot;normal&quot; shaper{access, c2s_shaper, [{none, admin},                      {normal, all}]}.%% For all S2S connections used &quot;fast&quot; shaper{access, s2s_shaper, [{fast, all}]}.%% Only admins can send announcement messages:{access, announce, [{allow, admin}]}.%% Only admins can use configuration interface:{access, configure, [{allow, admin}]}.%% Admins of this server are also admins of MUC service:{access, muc_admin, [{allow, admin}]}.%% All users are allowed to use MUC service:{access, muc, [{allow, all}]}.%% No username can be registered via in-band registration:%% To enable in-band registration, replace 'deny' with 'allow'% (note that if you remove mod_register from modules list then users will not% be able to change their password as well as register).% This setting is default because it's more safe.{access, register, [{deny, all}]}.%% Everybody can create pubsub nodes{access, pubsub_createnode, [{allow, all}]}.%%%   ================%%%   DEFAULT LANGUAGE%%%% language: Default language used for server messages.%%{language, &quot;en&quot;}.%%%   =======%%%   MODULES%%%% Modules enabled in all ejabberd virtual hosts.%%{modules, [  {mod_adhoc,    []},  {mod_announce, [{access, announce}]}, % requires mod_adhoc  {mod_caps,     []},  {mod_configure,[]}, % requires mod_adhoc  {mod_ctlextra, []},  {mod_disco,    []},  %%{mod_echo,   [{host, &quot;echo.localhost&quot;}]},  {mod_irc,      []},  {mod_last,     []},  {mod_muc,      [                  %%{host, &quot;conference.@HOST@&quot;},                  {access, muc},                  {access_create, muc},                  {access_persistent, muc},                  {access_admin, muc_admin},                  {max_users, 500}                 ]},  %%{mod_muc_log,[]},  {mod_offline,  []},  {mod_privacy,  []},  {mod_private,  []},  {mod_proxy65,  [                  {access, local},                  {shaper, c2s_shaper}                 ]},  {mod_pubsub,   [ % requires mod_caps                  {access_createnode, pubsub_createnode},                  {plugins, [&quot;default&quot;, &quot;pep&quot;]}                 ]},  {mod_register, [                  %%                  %% After successful registration, the user receives                  %% a message with this subject and body.                  %%                  %%{welcome_message, {&quot;Welcome!&quot;,                  %%               &quot;Welcome to a Jabber service powered by Debian. &quot;                  %%               &quot;For information about Jabber visit &quot;                  %%               &quot;http://www.jabber.org&quot;}},                  %% Replace it with 'none' if you don't want to send such message:                  {welcome_message, none},                  %%                  %% When a user registers, send a notification to                  %% these Jabber accounts.                  %%                  %%{registration_watchers, [&quot;admin1@example.org&quot;]},                  {access, register}                 ]},  {mod_roster,   []},  %%{mod_service_log,[]},  %%{mod_shared_roster,[]},  {mod_stats,    []},  {mod_time,     []},  {mod_vcard,    []},  {mod_version,  []},  {mod_http_bind,  []} ]}.</span>
+          <div class="method-source-code" id="write_config_file-source">
+            <pre><span class="ruby-comment"># File lib/ejabberd.rb, line 229</span>
+  <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">write_config_file</span>(<span class="ruby-identifier">my_public_ip</span>)
+    <span class="ruby-identifier">config</span> = <span class="ruby-string">&quot;%%%
+%%%     Debian ejabberd configuration file
+%%%     This config must be in UTF-8 encoding
+%%%
+%%% The parameters used in this configuration file are explained in more detail
+%%% in the ejabberd Installation and Operation Guide.
+%%% Please consult the Guide in case of doubts, it is available at
+%%% /usr/share/doc/ejabberd/guide.html
 
-  config_path = <span class="ruby-string">&quot;/etc/ejabberd/ejabberd.cfg&quot;</span>
-  <span class="ruby-constant">HelperFunctions</span>.write_file(config_path, config)
-  <span class="ruby-constant">Djinn</span>.log_run(&quot;chown ejabberd #{config_path}&quot;)
-end</pre>
-          </div>
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Options which are set by Debconf and managed by ucf
+
+%% Admin user
+{acl, admin, {user, &quot;admin&quot;, &quot;#{my_public_ip}&quot;}}.
+
+%% Hostname
+{hosts, [&quot;#{my_public_ip}&quot;]}.
+
+{loglevel, 4}.
+
+%%%   ===============
+%%%   LISTENING PORTS
+
+%%
+%% listen: Which ports will ejabberd listen, which service handles it
+%% and what options to start it with.
+%%
+{listen,
+ [
+  {5222, ejabberd_c2s, [
+                        {access, c2s},
+                        {shaper, c2s_shaper},
+                        {max_stanza_size, 65536},
+                        starttls, {certfile, &quot;/etc/ejabberd/ejabberd.pem&quot;}
+                       ]},
+
+  {5269, ejabberd_s2s_in, [
+                           {shaper, s2s_shaper},
+                           {max_stanza_size, 131072}
+                          ]},
+
+  {5280, ejabberd_http, [
+                         http_bind,
+                         http_poll,
+                         web_admin
+                        ]}
+
+ ]}.
+
+{s2s_use_starttls, true}.
+{s2s_certfile, &quot;/etc/ejabberd/ejabberd.pem&quot;}.
+
+%%%   ==============
+%%%   AUTHENTICATION
+
+%% Authentication using external script
+%% Make sure the script is executable by ejabberd.
+%%
+{auth_method, external}.
+{extauth_program, &quot;#{AUTH_SCRIPT_LOCATION}&quot;}.
+
+%%%   ===============
+%%%   TRAFFIC SHAPERS
+
+%%
+%% The &quot;normal&quot; shaper limits traffic speed to 1.000 B/s
+%%
+{shaper, normal, {maxrate, 1000}}.
+
+%%
+%% The &quot;fast&quot; shaper limits traffic speed to 50.000 B/s
+%%
+{shaper, fast, {maxrate, 50000}}.
+
+
+%%
+%% Local users: don't modify this line.
+%%
+{acl, local, {user_regexp, &quot;&quot;}}.
+
+%%%   ============
+%%%   ACCESS RULES
+
+%% Define the maximum number of time a single user is allowed to connect:
+{access, max_user_sessions, [{10, all}]}.
+
+%% This rule allows access only for local users:
+{access, local, [{allow, local}]}.
+
+%% Only non-blocked users can use c2s connections:
+{access, c2s, [{deny, blocked},
+               {allow, all}]}.
+
+%% For all users except admins used &quot;normal&quot; shaper
+{access, c2s_shaper, [{none, admin},
+                      {normal, all}]}.
+
+%% For all S2S connections used &quot;fast&quot; shaper
+{access, s2s_shaper, [{fast, all}]}.
+
+%% Only admins can send announcement messages:
+{access, announce, [{allow, admin}]}.
+
+%% Only admins can use configuration interface:
+{access, configure, [{allow, admin}]}.
+
+%% Admins of this server are also admins of MUC service:
+{access, muc_admin, [{allow, admin}]}.
+
+%% All users are allowed to use MUC service:
+{access, muc, [{allow, all}]}.
+
+%% No username can be registered via in-band registration:
+%% To enable in-band registration, replace 'deny' with 'allow'
+% (note that if you remove mod_register from modules list then users will not
+% be able to change their password as well as register).
+% This setting is default because it's more safe.
+{access, register, [{deny, all}]}.
+
+%% Everybody can create pubsub nodes
+{access, pubsub_createnode, [{allow, all}]}.
+
+
+%%%   ================
+%%%   DEFAULT LANGUAGE
+
+%%
+%% language: Default language used for server messages.
+%%
+{language, &quot;en&quot;}.
+
+
+%%%   =======
+%%%   MODULES
+
+%%
+%% Modules enabled in all ejabberd virtual hosts.
+%%
+{modules,
+ [
+  {mod_adhoc,    []},
+  {mod_announce, [{access, announce}]}, % requires mod_adhoc
+  {mod_caps,     []},
+  {mod_configure,[]}, % requires mod_adhoc
+  {mod_ctlextra, []},
+  {mod_disco,    []},
+  %%{mod_echo,   [{host, &quot;echo.localhost&quot;}]},
+  {mod_irc,      []},
+  {mod_last,     []},
+  {mod_muc,      [
+                  %%{host, &quot;conference.@HOST@&quot;},
+                  {access, muc},
+                  {access_create, muc},
+                  {access_persistent, muc},
+                  {access_admin, muc_admin},
+                  {max_users, 500}
+                 ]},
+  %%{mod_muc_log,[]},
+  {mod_offline,  []},
+  {mod_privacy,  []},
+  {mod_private,  []},
+  {mod_proxy65,  [
+                  {access, local},
+                  {shaper, c2s_shaper}
+                 ]},
+  {mod_pubsub,   [ % requires mod_caps
+                  {access_createnode, pubsub_createnode},
+                  {plugins, [&quot;default&quot;, &quot;pep&quot;]}
+                 ]},
+  {mod_register, [
+                  %%
+                  %% After successful registration, the user receives
+                  %% a message with this subject and body.
+                  %%
+                  %%{welcome_message, {&quot;Welcome!&quot;,
+                  %%               &quot;Welcome to a Jabber service powered by Debian. &quot;
+                  %%               &quot;For information about Jabber visit &quot;
+                  %%               &quot;http://www.jabber.org&quot;}},
+                  %% Replace it with 'none' if you don't want to send such message:
+                  {welcome_message, none},
+
+                  %%
+                  %% When a user registers, send a notification to
+                  %% these Jabber accounts.
+                  %%
+                  %%{registration_watchers, [&quot;admin1@example.org&quot;]},
+
+                  {access, register}
+                 ]},
+  {mod_roster,   []},
+  %%{mod_service_log,[]},
+  %%{mod_shared_roster,[]},
+  {mod_stats,    []},
+  {mod_time,     []},
+  {mod_vcard,    []},
+  {mod_version,  []},
+  {mod_http_bind,  []}
+ ]}.
+
+&quot;</span>
+
+    <span class="ruby-identifier">config_path</span> = <span class="ruby-string">&quot;/etc/ejabberd/ejabberd.cfg&quot;</span>
+    <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">write_file</span>(<span class="ruby-identifier">config_path</span>, <span class="ruby-identifier">config</span>)
+    <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_run</span>(<span class="ruby-node">&quot;chown ejabberd #{config_path}&quot;</span>)
+  <span class="ruby-keyword">end</span></pre>
+          </div><!-- write_config_file-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- write_config_file-method -->
 
     
-      <div id="write_online_users_list-method" class="method-detail ">
-        <a name="method-c-write_online_users_list"></a>
-
+      <div id="method-c-write_online_users_list" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">write_online_users_list</span><span
@@ -486,43 +824,40 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="write_online_users_list-source">
-<pre>
-<span class="ruby-comment"># File lib/ejabberd.rb, line 60</span>
-def self.write_online_users_list(nodes)
-  online_users = `ejabberdctl connected-users`
-  <span class="ruby-constant">HelperFunctions</span>.write_file(<span class="ruby-constant">ONLINE_USERS_FILE</span>, online_users)
+          <div class="method-source-code" id="write_online_users_list-source">
+            <pre><span class="ruby-comment"># File lib/ejabberd.rb, line 60</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">write_online_users_list</span>(<span class="ruby-identifier">nodes</span>)
+  <span class="ruby-identifier">online_users</span> = <span class="ruby-value">%xejabberdctl connected-users`</span>
+  <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">write_file</span>(<span class="ruby-constant">ONLINE_USERS_FILE</span>, <span class="ruby-identifier">online_users</span>)
 
-  return if nodes.nil?
-  nodes.each { |node|
-    next if node.is_login? <span class="ruby-comment"># don't copy the file to itself</span>
-    ip = node.public_ip
-    ssh_key = node.ssh_key
-    <span class="ruby-constant">HelperFunctions</span>.scp_file(<span class="ruby-constant">ONLINE_USERS_FILE</span>, <span class="ruby-constant">ONLINE_USERS_FILE</span>, ip, ssh_key)
+  <span class="ruby-keyword">return</span> <span class="ruby-keyword">if</span> <span class="ruby-identifier">nodes</span>.<span class="ruby-identifier">nil?</span>
+  <span class="ruby-identifier">nodes</span>.<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">node</span><span class="ruby-operator">|</span>
+    <span class="ruby-keyword">next</span> <span class="ruby-keyword">if</span> <span class="ruby-identifier">node</span>.<span class="ruby-identifier">is_login?</span> <span class="ruby-comment"># don't copy the file to itself</span>
+    <span class="ruby-identifier">ip</span> = <span class="ruby-identifier">node</span>.<span class="ruby-identifier">public_ip</span>
+    <span class="ruby-identifier">ssh_key</span> = <span class="ruby-identifier">node</span>.<span class="ruby-identifier">ssh_key</span>
+    <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">scp_file</span>(<span class="ruby-constant">ONLINE_USERS_FILE</span>, <span class="ruby-constant">ONLINE_USERS_FILE</span>, <span class="ruby-identifier">ip</span>, <span class="ruby-identifier">ssh_key</span>)
   }
-end</pre>
-          </div>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- write_online_users_list-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- write_online_users_list-method -->
 
     
-    </div>
+    </section><!-- public-class-method-details -->
   
+  </section><!-- 5Buntitled-5D -->
 
-  </div>
+</div><!-- documentation -->
 
-  <div id="validator-badges">
-    <p><small><a href="http://validator.w3.org/check/referer">[Validate]</a></small></p>
-    <p><small>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish
-      Rdoc Generator</a> 2</small>.</p>
-  </div>
 
-</body>
-</html>
+<footer id="validator-badges">
+  <p><a href="http://validator.w3.org/check/referer">[Validate]</a>
+  <p>Generated by <a href="https://github.com/rdoc/rdoc">RDoc</a> 3.12.
+  <p>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish Rdoc Generator</a> 3.
+</footer>
 

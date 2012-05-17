@@ -1,221 +1,232 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<!DOCTYPE html>
+
+<html>
 <head>
-  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+<meta content="text/html; charset=UTF-8" http-equiv="Content-Type">
 
-  <title>Module: Nginx</title>
+<title>module Nginx - RDoc Documentation</title>
 
-  <link rel="stylesheet" href="./rdoc.css" type="text/css" media="screen" />
+<link type="text/css" media="screen" href="./rdoc.css" rel="stylesheet">
 
-  <script src="./js/jquery.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/thickbox-compressed.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/quicksearch.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/darkfish.js" type="text/javascript"
-    charset="utf-8"></script>
+<script type="text/javascript">
+  var rdoc_rel_prefix = "./";
+</script>
 
-</head>
-<body class="module">
+<script type="text/javascript" charset="utf-8" src="./js/jquery.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/navigation.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/search_index.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/search.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/searcher.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/darkfish.js"></script>
 
-  <div id="metadata">
-    <div id="home-metadata">
-      <div id="home-section" class="section">
-        <h3 class="section-header">
-          <a href="./index.html">Home</a>
-          <a href="./index.html#classes">Classes</a>
-          <a href="./index.html#methods">Methods</a>
-        </h3>
-      </div>
-    </div>
 
-    <div id="file-metadata">
-      <div id="file-list-section" class="section">
-        <h3 class="section-header">In Files</h3>
-        <div class="section-body">
-          <ul>
-          
-            <li><a href="./lib/nginx_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
-              class="thickbox" title="lib/nginx.rb">lib/nginx.rb</a></li>
-          
-          </ul>
-        </div>
-      </div>
+<body id="top" class="module">
+<nav id="metadata">
+  <nav id="home-section" class="section">
+  <h3 class="section-header">
+    <a href="./index.html">Home</a>
+    <a href="./table_of_contents.html#classes">Classes</a>
+    <a href="./table_of_contents.html#methods">Methods</a>
+  </h3>
+</nav>
 
-      
-    </div>
 
-    <div id="class-metadata">
+  <nav id="search-section" class="section project-section" class="initially-hidden">
+  <form action="#" method="get" accept-charset="utf-8">
+    <h3 class="section-header">
+      <input type="text" name="search" placeholder="Search" id="search-field"
+             title="Type to search, Up and Down to navigate, Enter to load">
+    </h3>
+  </form>
 
-      <!-- Parent Class -->
-      
+  <ul id="search-results" class="initially-hidden"></ul>
+</nav>
 
-      <!-- Namespace Contents -->
-      
 
-      <!-- Method Quickref -->
-      
-      <div id="method-list-section" class="section">
-        <h3 class="section-header">Methods</h3>
-        <ul class="link-list">
-          
-          <li><a href="#method-c-app_listen_port">::app_listen_port</a></li>
-          
-          <li><a href="#method-c-check_config">::check_config</a></li>
-          
-          <li><a href="#method-c-clear_sites_enabled">::clear_sites_enabled</a></li>
-          
-          <li><a href="#method-c-create_app_config">::create_app_config</a></li>
-          
-          <li><a href="#method-c-create_app_load_balancer_config">::create_app_load_balancer_config</a></li>
-          
-          <li><a href="#method-c-create_app_monitoring_config">::create_app_monitoring_config</a></li>
-          
-          <li><a href="#method-c-create_pbserver_config">::create_pbserver_config</a></li>
-          
-          <li><a href="#method-c-initialize_config">::initialize_config</a></li>
-          
-          <li><a href="#method-c-is_running-3F">::is_running?</a></li>
-          
-          <li><a href="#method-c-reload">::reload</a></li>
-          
-          <li><a href="#method-c-remove_app">::remove_app</a></li>
-          
-          <li><a href="#method-c-restart">::restart</a></li>
-          
-          <li><a href="#method-c-start">::start</a></li>
-          
-          <li><a href="#method-c-stop">::stop</a></li>
-          
-          <li><a href="#method-c-write_app_config">::write_app_config</a></li>
-          
-        </ul>
-      </div>
-      
+  <div id="file-metadata">
+    <nav id="file-list-section" class="section">
+  <h3 class="section-header">Defined In</h3>
+  <ul>
+    <li>lib/nginx.rb
+  </ul>
+</nav>
 
-      <!-- Included Modules -->
-      
-    </div>
-
-    <div id="project-metadata">
-      
-      
-
-      <div id="classindex-section" class="section project-section">
-        <h3 class="section-header">Class/Module Index
-          <span class="search-toggle"><img src="./images/find.png"
-            height="16" width="16" alt="[+]"
-            title="show/hide quicksearch" /></span></h3>
-        <form action="#" method="get" accept-charset="utf-8" class="initially-hidden">
-        <fieldset>
-          <legend>Quicksearch</legend>
-          <input type="text" name="quicksearch" value=""
-            class="quicksearch-field" />
-        </fieldset>
-        </form>
-
-        <ul class="link-list">
-        
-          <li><a href="./AppControllerClient.html">AppControllerClient</a></li>
-        
-          <li><a href="./BadConfigurationException.html">BadConfigurationException</a></li>
-        
-          <li><a href="./BlobServer.html">BlobServer</a></li>
-        
-          <li><a href="./Collectd.html">Collectd</a></li>
-        
-          <li><a href="./CronHelper.html">CronHelper</a></li>
-        
-          <li><a href="./Datastore.html">Datastore</a></li>
-        
-          <li><a href="./DatastoreFactory.html">DatastoreFactory</a></li>
-        
-          <li><a href="./DatastoreRepo.html">DatastoreRepo</a></li>
-        
-          <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a></li>
-        
-          <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a></li>
-        
-          <li><a href="./DatastoreS3.html">DatastoreS3</a></li>
-        
-          <li><a href="./Djinn.html">Djinn</a></li>
-        
-          <li><a href="./DjinnJobData.html">DjinnJobData</a></li>
-        
-          <li><a href="./DjinnServer.html">DjinnServer</a></li>
-        
-          <li><a href="./Ejabberd.html">Ejabberd</a></li>
-        
-          <li><a href="./EngineFactory.html">EngineFactory</a></li>
-        
-          <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a></li>
-        
-          <li><a href="./GodInterface.html">GodInterface</a></li>
-        
-          <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a></li>
-        
-          <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a></li>
-        
-          <li><a href="./HAProxy.html">HAProxy</a></li>
-        
-          <li><a href="./HelperFunctions.html">HelperFunctions</a></li>
-        
-          <li><a href="./JSONClient.html">JSONClient</a></li>
-        
-          <li><a href="./LoadBalancer.html">LoadBalancer</a></li>
-        
-          <li><a href="./Monitoring.html">Monitoring</a></li>
-        
-          <li><a href="./NeptuneJobData.html">NeptuneJobData</a></li>
-        
-          <li><a href="./Nginx.html">Nginx</a></li>
-        
-          <li><a href="./Object.html">Object</a></li>
-        
-          <li><a href="./PbServer.html">PbServer</a></li>
-        
-          <li><a href="./QueueFactory.html">QueueFactory</a></li>
-        
-          <li><a href="./RabbitMQ.html">RabbitMQ</a></li>
-        
-          <li><a href="./Repo.html">Repo</a></li>
-        
-          <li><a href="./TaskEngine.html">TaskEngine</a></li>
-        
-          <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a></li>
-        
-          <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a></li>
-        
-          <li><a href="./TaskQueue.html">TaskQueue</a></li>
-        
-          <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a></li>
-        
-          <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a></li>
-        
-          <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a></li>
-        
-          <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a></li>
-        
-          <li><a href="./UserAppClient.html">UserAppClient</a></li>
-        
-          <li><a href="./ZKInterface.html">ZKInterface</a></li>
-        
-        </ul>
-        <div id="no-class-search-results" style="display: none;">No matching classes.</div>
-      </div>
-
-      
-    </div>
+    
   </div>
 
-  <div id="documentation">
-    <h1 class="module">Nginx</h1>
+  <div id="class-metadata">
+    
+    
+    
+    <!-- Method Quickref -->
+<nav id="method-list-section" class="section">
+  <h3 class="section-header">Methods</h3>
 
-    <div id="description">
-      
+  <ul class="link-list">
+    
+    <li><a href="#method-c-app_listen_port">::app_listen_port</a>
+    
+    <li><a href="#method-c-check_config">::check_config</a>
+    
+    <li><a href="#method-c-clear_sites_enabled">::clear_sites_enabled</a>
+    
+    <li><a href="#method-c-create_app_config">::create_app_config</a>
+    
+    <li><a href="#method-c-create_app_load_balancer_config">::create_app_load_balancer_config</a>
+    
+    <li><a href="#method-c-create_app_monitoring_config">::create_app_monitoring_config</a>
+    
+    <li><a href="#method-c-create_pbserver_config">::create_pbserver_config</a>
+    
+    <li><a href="#method-c-initialize_config">::initialize_config</a>
+    
+    <li><a href="#method-c-is_running-3F">::is_running?</a>
+    
+    <li><a href="#method-c-reload">::reload</a>
+    
+    <li><a href="#method-c-remove_app">::remove_app</a>
+    
+    <li><a href="#method-c-restart">::restart</a>
+    
+    <li><a href="#method-c-start">::start</a>
+    
+    <li><a href="#method-c-stop">::stop</a>
+    
+    <li><a href="#method-c-write_app_config">::write_app_config</a>
+    
+  </ul>
+</nav>
+
+  </div>
+
+  <div id="project-metadata">
+    
+    <nav id="classindex-section" class="section project-section">
+  <h3 class="section-header">Class and Module Index</h3>
+
+  <ul class="link-list">
+  
+    <li><a href="./AppControllerClient.html">AppControllerClient</a>
+  
+    <li><a href="./AppScaleException.html">AppScaleException</a>
+  
+    <li><a href="./BadConfigurationException.html">BadConfigurationException</a>
+  
+    <li><a href="./BlobServer.html">BlobServer</a>
+  
+    <li><a href="./Collectd.html">Collectd</a>
+  
+    <li><a href="./CronHelper.html">CronHelper</a>
+  
+    <li><a href="./Datastore.html">Datastore</a>
+  
+    <li><a href="./DatastoreFactory.html">DatastoreFactory</a>
+  
+    <li><a href="./DatastoreRepo.html">DatastoreRepo</a>
+  
+    <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a>
+  
+    <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a>
+  
+    <li><a href="./DatastoreS3.html">DatastoreS3</a>
+  
+    <li><a href="./Djinn.html">Djinn</a>
+  
+    <li><a href="./DjinnJobData.html">DjinnJobData</a>
+  
+    <li><a href="./DjinnServer.html">DjinnServer</a>
+  
+    <li><a href="./Ejabberd.html">Ejabberd</a>
+  
+    <li><a href="./EngineFactory.html">EngineFactory</a>
+  
+    <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a>
+  
+    <li><a href="./GodInterface.html">GodInterface</a>
+  
+    <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a>
+  
+    <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a>
+  
+    <li><a href="./HAProxy.html">HAProxy</a>
+  
+    <li><a href="./HelperFunctions.html">HelperFunctions</a>
+  
+    <li><a href="./InfrastructureManagerClient.html">InfrastructureManagerClient</a>
+  
+    <li><a href="./JSONClient.html">JSONClient</a>
+  
+    <li><a href="./LoadBalancer.html">LoadBalancer</a>
+  
+    <li><a href="./Monitoring.html">Monitoring</a>
+  
+    <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
+  
+    <li><a href="./NeptuneManager.html">NeptuneManager</a>
+  
+    <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
+  
+    <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
+  
+    <li><a href="./Nginx.html">Nginx</a>
+  
+    <li><a href="./Object.html">Object</a>
+  
+    <li><a href="./PbServer.html">PbServer</a>
+  
+    <li><a href="./QueueFactory.html">QueueFactory</a>
+  
+    <li><a href="./RabbitMQ.html">RabbitMQ</a>
+  
+    <li><a href="./Repo.html">Repo</a>
+  
+    <li><a href="./TaskEngine.html">TaskEngine</a>
+  
+    <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a>
+  
+    <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a>
+  
+    <li><a href="./TaskQueue.html">TaskQueue</a>
+  
+    <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a>
+  
+    <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a>
+  
+    <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a>
+  
+    <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a>
+  
+    <li><a href="./TestAppScaleHelper.html">TestAppScaleHelper</a>
+  
+    <li><a href="./TestBabelHelper.html">TestBabelHelper</a>
+  
+    <li><a href="./TestCiceroHelper.html">TestCiceroHelper</a>
+  
+    <li><a href="./TestDatastore.html">TestDatastore</a>
+  
+    <li><a href="./TestNeptuneJobData.html">TestNeptuneJobData</a>
+  
+    <li><a href="./TestNeptuneManager.html">TestNeptuneManager</a>
+  
+    <li><a href="./TestTaskQueue.html">TestTaskQueue</a>
+  
+    <li><a href="./UserAppClient.html">UserAppClient</a>
+  
+    <li><a href="./ZKInterface.html">ZKInterface</a>
+  
+    <li><a href="./ZooKeeperLockException.html">ZooKeeperLockException</a>
+  
+  </ul>
+</nav>
+
+  </div>
+</nav>
+
+<div id="documentation">
+  <h1 class="module">module Nginx</h1>
+
+  <div id="description" class="description">
+    
 <p>A module to wrap all the interactions with the nginx web server Google App
 Engine applications can request that certain files should be hosted
 statically, so we use the nginx web server for this. It is the first server
@@ -223,55 +234,60 @@ that a user hits, and forwards non-static file requests to haproxy, which
 then load balances requests to AppServers. This module configures and
 deploys nginx within AppScale.</p>
 
-    </div>
+  </div><!-- description -->
 
-    <!-- Constants -->
+  
+  
+  
+  <section id="5Buntitled-5D" class="documentation-section">
     
-    <div id="constants-list" class="section">
+
+    
+
+    
+    <!-- Constants -->
+    <section id="constants-list" class="section">
       <h3 class="section-header">Constants</h3>
       <dl>
       
-        <dt><a name="NGINX_PATH">NGINX_PATH</a></dt>
+        <dt id="CONFIG_EXTENSION">CONFIG_EXTENSION
         
-        <dd class="description"></dd>
-        
-      
-        <dt><a name="SITES_ENABLED_PATH">SITES_ENABLED_PATH</a></dt>
-        
-        <dd class="description"></dd>
+        <dd class="description">
         
       
-        <dt><a name="CONFIG_EXTENSION">CONFIG_EXTENSION</a></dt>
+        <dt id="MAIN_CONFIG_FILE">MAIN_CONFIG_FILE
         
-        <dd class="description"></dd>
-        
-      
-        <dt><a name="MAIN_CONFIG_FILE">MAIN_CONFIG_FILE</a></dt>
-        
-        <dd class="description"></dd>
+        <dd class="description">
         
       
-        <dt><a name="START_PORT">START_PORT</a></dt>
+        <dt id="NGINX_PATH">NGINX_PATH
         
-        <dd class="description"></dd>
+        <dd class="description">
+        
+      
+        <dt id="SITES_ENABLED_PATH">SITES_ENABLED_PATH
+        
+        <dd class="description">
+        
+      
+        <dt id="START_PORT">START_PORT
+        
+        <dd class="description">
         
       
       </dl>
-    </div>
+    </section>
     
 
-    <!-- Attributes -->
     
 
     <!-- Methods -->
     
-    <div id="public-class-method-details" class="method-section section">
+     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Class Methods</h3>
 
     
-      <div id="app_listen_port-method" class="method-detail ">
-        <a name="method-c-app_listen_port"></a>
-
+      <div id="method-c-app_listen_port" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">app_listen_port</span><span
@@ -286,26 +302,22 @@ deploys nginx within AppScale.</p>
           
 
           
-          <div class="method-source-code"
-            id="app_listen_port-source">
-<pre>
-<span class="ruby-comment"># File lib/nginx.rb, line 69</span>
-def self.app_listen_port(app_number)
-  <span class="ruby-constant">START_PORT</span> + app_number
-end</pre>
-          </div>
+          <div class="method-source-code" id="app_listen_port-source">
+            <pre><span class="ruby-comment"># File lib/nginx.rb, line 65</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">app_listen_port</span>(<span class="ruby-identifier">app_number</span>)
+  <span class="ruby-constant">START_PORT</span> <span class="ruby-operator">+</span> <span class="ruby-identifier">app_number</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- app_listen_port-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- app_listen_port-method -->
 
     
-      <div id="check_config-method" class="method-detail ">
-        <a name="method-c-check_config"></a>
-
+      <div id="method-c-check_config" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">check_config</span><span
@@ -320,27 +332,23 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="check_config-source">
-<pre>
-<span class="ruby-comment"># File lib/nginx.rb, line 74</span>
-def self.check_config
-  <span class="ruby-constant">Djinn</span>.log_run(&quot;nginx -t -c #{MAIN_CONFIG_FILE}&quot;)
-  return ($?.to_i == 0)
-end</pre>
-          </div>
+          <div class="method-source-code" id="check_config-source">
+            <pre><span class="ruby-comment"># File lib/nginx.rb, line 70</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">check_config</span>
+  <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-node">&quot;nginx -t -c #{MAIN_CONFIG_FILE}&quot;</span>)
+  <span class="ruby-keyword">return</span> (<span class="ruby-identifier">$?</span>.<span class="ruby-identifier">to_i</span> <span class="ruby-operator">==</span> <span class="ruby-value">0</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- check_config-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- check_config-method -->
 
     
-      <div id="clear_sites_enabled-method" class="method-detail ">
-        <a name="method-c-clear_sites_enabled"></a>
-
+      <div id="method-c-clear_sites_enabled" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">clear_sites_enabled</span><span
@@ -355,34 +363,30 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="clear_sites_enabled-source">
-<pre>
-<span class="ruby-comment"># File lib/nginx.rb, line 150</span>
-def self.clear_sites_enabled
-  if <span class="ruby-constant">File</span>.exists?(<span class="ruby-constant">SITES_ENABLED_PATH</span>)
-    sites = <span class="ruby-constant">Dir</span>.entries(<span class="ruby-constant">SITES_ENABLED_PATH</span>)
+          <div class="method-source-code" id="clear_sites_enabled-source">
+            <pre><span class="ruby-comment"># File lib/nginx.rb, line 146</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">clear_sites_enabled</span>
+  <span class="ruby-keyword">if</span> <span class="ruby-constant">File</span>.<span class="ruby-identifier">exists?</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>)
+    <span class="ruby-identifier">sites</span> = <span class="ruby-constant">Dir</span>.<span class="ruby-identifier">entries</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>)
     <span class="ruby-comment"># Remove any files that are not configs</span>
-    sites.delete_if { |site| !site.end_with?(<span class="ruby-constant">CONFIG_EXTENSION</span>) }
-    full_path_sites = sites.map { |site| <span class="ruby-constant">File</span>.join(<span class="ruby-constant">SITES_ENABLED_PATH</span>, site) }
-    <span class="ruby-constant">FileUtils</span>.rm_f full_path_sites
+    <span class="ruby-identifier">sites</span>.<span class="ruby-identifier">delete_if</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">site</span><span class="ruby-operator">|</span> <span class="ruby-operator">!</span><span class="ruby-identifier">site</span>.<span class="ruby-identifier">end_with?</span>(<span class="ruby-constant">CONFIG_EXTENSION</span>) }
+    <span class="ruby-identifier">full_path_sites</span> = <span class="ruby-identifier">sites</span>.<span class="ruby-identifier">map</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">site</span><span class="ruby-operator">|</span> <span class="ruby-constant">File</span>.<span class="ruby-identifier">join</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>, <span class="ruby-identifier">site</span>) }
+    <span class="ruby-constant">FileUtils</span>.<span class="ruby-identifier">rm_f</span> <span class="ruby-identifier">full_path_sites</span>
 
-    <span class="ruby-constant">Nginx</span>.reload
-  end
-end</pre>
-          </div>
+    <span class="ruby-constant">Nginx</span>.<span class="ruby-identifier">reload</span>
+  <span class="ruby-keyword">end</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- clear_sites_enabled-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- clear_sites_enabled-method -->
 
     
-      <div id="create_app_config-method" class="method-detail ">
-        <a name="method-c-create_app_config"></a>
-
+      <div id="method-c-create_app_config" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">create_app_config</span><span
@@ -398,41 +402,84 @@ services</p>
           
 
           
-          <div class="method-source-code"
-            id="create_app_config-source">
-<pre>
-<span class="ruby-comment"># File lib/nginx.rb, line 246</span>
-def self.create_app_config(my_ip, proxy_port, listen_port, name, public_dir, ssl_port=nil)
+          <div class="method-source-code" id="create_app_config-source">
+            <pre><span class="ruby-comment"># File lib/nginx.rb, line 242</span>
+  <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">proxy_port</span>, <span class="ruby-identifier">listen_port</span>, <span class="ruby-identifier">name</span>, <span class="ruby-identifier">public_dir</span>, <span class="ruby-identifier">ssl_port</span>=<span class="ruby-keyword">nil</span>)
 
-  config = <span class="ruby-string">upstream #{name} {   server #{my_ip}:#{proxy_port};}</span>
+    <span class="ruby-identifier">config</span> = <span class="ruby-string">&quot;upstream #{name} {
+   server #{my_ip}:#{proxy_port};
+}
+&quot;</span>
 
-  if ssl_port
-    <span class="ruby-comment"># redirect all request to ssl port.</span>
-    config += <span class="ruby-string">server {    listen #{listen_port};    rewrite ^(.*) https://#{my_ip}:#{ssl_port}$1 permanent;}server {    listen #{ssl_port};    ssl on;    ssl_certificate #{NGINX_PATH}/mycert.pem;    ssl_certificate_key #{NGINX_PATH}/mykey.pem;</span>
-  else
-    config += <span class="ruby-string">server {    listen #{listen_port};</span>
-  end
+    <span class="ruby-keyword">if</span> <span class="ruby-identifier">ssl_port</span>
+      <span class="ruby-comment"># redirect all request to ssl port.</span>
+      <span class="ruby-identifier">config</span> <span class="ruby-operator">+=</span> <span class="ruby-string">&quot;server {
+    listen #{listen_port};
+    rewrite ^(.*) https://#{my_ip}:#{ssl_port}$1 permanent;
+}
 
-  config += <span class="ruby-string">    root #{public_dir};    access_log  /var/log/nginx/load-balancer.access.log upstream;    error_log  /var/log/nginx/load-balancer.error.log;    rewrite_log off;    error_page 502 /502.html;    location / {      proxy_set_header  X-Real-IP  $remote_addr;      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;      proxy_set_header  REMOTE_ADDR  $remote_addr;      proxy_set_header  HTTP_X_FORWARDED_FOR $proxy_add_x_forwarded_for;      proxy_set_header Host $http_host;      proxy_redirect off;      client_body_timeout 360;      proxy_read_timeout 360;      #Increase file size so larger applications can be uploaded      client_max_body_size 30M;      # go to proxy      if (!-f $request_filename) {        proxy_pass http://#{name};        break;      }    }    location /502.html {      root #{APPSCALE_HOME}/AppLoadBalancer/public;    }}</span>
+server {
+    listen #{ssl_port};
+    ssl on;
+    ssl_certificate #{NGINX_PATH}/mycert.pem;
+    ssl_certificate_key #{NGINX_PATH}/mykey.pem;
+&quot;</span>
+    <span class="ruby-keyword">else</span>
+      <span class="ruby-identifier">config</span> <span class="ruby-operator">+=</span> <span class="ruby-string">&quot;server {
+    listen #{listen_port};
+&quot;</span>
+    <span class="ruby-keyword">end</span>
 
-  config_path = <span class="ruby-constant">File</span>.join(<span class="ruby-constant">SITES_ENABLED_PATH</span>, &quot;#{name}.#{CONFIG_EXTENSION}&quot;)
-  <span class="ruby-constant">File</span>.open(config_path, <span class="ruby-string">&quot;w+&quot;</span>) { |dest_file| dest_file.write(config) }
+    <span class="ruby-identifier">config</span> <span class="ruby-operator">+=</span> <span class="ruby-string">&quot;    root #{public_dir};
+    access_log  /var/log/nginx/load-balancer.access.log upstream;
+    error_log  /var/log/nginx/load-balancer.error.log;
+    rewrite_log off;
+    error_page 502 /502.html;
 
-  <span class="ruby-constant">HAProxy</span>.regenerate_config
-end</pre>
-          </div>
+    location / {
+      proxy_set_header  X-Real-IP  $remote_addr;
+      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header  REMOTE_ADDR  $remote_addr;
+      proxy_set_header  HTTP_X_FORWARDED_FOR $proxy_add_x_forwarded_for;
+      proxy_set_header Host $http_host;
+      proxy_redirect off;
+
+      client_body_timeout 360;
+      proxy_read_timeout 360;
+
+      #Increase file size so larger applications can be uploaded
+      client_max_body_size 30M;
+
+
+      # go to proxy
+      if (!-f $request_filename) {
+        proxy_pass http://#{name};
+        break;
+      }
+    }
+
+    location /502.html {
+      root #{APPSCALE_HOME}/AppLoadBalancer/public;
+    }
+}
+&quot;</span>
+
+    <span class="ruby-identifier">config_path</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">join</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>, <span class="ruby-node">&quot;#{name}.#{CONFIG_EXTENSION}&quot;</span>)
+    <span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-identifier">config_path</span>, <span class="ruby-string">&quot;w+&quot;</span>) { <span class="ruby-operator">|</span><span class="ruby-identifier">dest_file</span><span class="ruby-operator">|</span> <span class="ruby-identifier">dest_file</span>.<span class="ruby-identifier">write</span>(<span class="ruby-identifier">config</span>) }
+
+    <span class="ruby-constant">HAProxy</span>.<span class="ruby-identifier">regenerate_config</span>
+  <span class="ruby-keyword">end</span></pre>
+          </div><!-- create_app_config-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- create_app_config-method -->
 
     
-      <div id="create_app_load_balancer_config-method" class="method-detail ">
-        <a name="method-c-create_app_load_balancer_config"></a>
-
+      <div id="method-c-create_app_load_balancer_config" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">create_app_load_balancer_config</span><span
@@ -447,26 +494,22 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="create_app_load_balancer_config-source">
-<pre>
-<span class="ruby-comment"># File lib/nginx.rb, line 163</span>
-def self.create_app_load_balancer_config(my_ip, proxy_port)
-  self.create_app_config(my_ip, proxy_port, <span class="ruby-constant">LoadBalancer</span>.listen_port, <span class="ruby-constant">LoadBalancer</span>.name, <span class="ruby-constant">LoadBalancer</span>.public_directory, <span class="ruby-constant">LoadBalancer</span>.listen_ssl_port)
-end</pre>
-          </div>
+          <div class="method-source-code" id="create_app_load_balancer_config-source">
+            <pre><span class="ruby-comment"># File lib/nginx.rb, line 159</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_load_balancer_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">proxy_port</span>)
+  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">proxy_port</span>, <span class="ruby-constant">LoadBalancer</span>.<span class="ruby-identifier">listen_port</span>, <span class="ruby-constant">LoadBalancer</span>.<span class="ruby-identifier">name</span>, <span class="ruby-constant">LoadBalancer</span>.<span class="ruby-identifier">public_directory</span>, <span class="ruby-constant">LoadBalancer</span>.<span class="ruby-identifier">listen_ssl_port</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- create_app_load_balancer_config-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- create_app_load_balancer_config-method -->
 
     
-      <div id="create_app_monitoring_config-method" class="method-detail ">
-        <a name="method-c-create_app_monitoring_config"></a>
-
+      <div id="method-c-create_app_monitoring_config" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">create_app_monitoring_config</span><span
@@ -481,26 +524,22 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="create_app_monitoring_config-source">
-<pre>
-<span class="ruby-comment"># File lib/nginx.rb, line 168</span>
-def self.create_app_monitoring_config(my_ip, proxy_port)
-  self.create_app_config(my_ip, proxy_port, <span class="ruby-constant">Monitoring</span>.listen_port, <span class="ruby-constant">Monitoring</span>.name, <span class="ruby-constant">Monitoring</span>.public_directory)
-end</pre>
-          </div>
+          <div class="method-source-code" id="create_app_monitoring_config-source">
+            <pre><span class="ruby-comment"># File lib/nginx.rb, line 164</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_monitoring_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">proxy_port</span>)
+  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">proxy_port</span>, <span class="ruby-constant">Monitoring</span>.<span class="ruby-identifier">listen_port</span>, <span class="ruby-constant">Monitoring</span>.<span class="ruby-identifier">name</span>, <span class="ruby-constant">Monitoring</span>.<span class="ruby-identifier">public_directory</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- create_app_monitoring_config-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- create_app_monitoring_config-method -->
 
     
-      <div id="create_pbserver_config-method" class="method-detail ">
-        <a name="method-c-create_pbserver_config"></a>
-
+      <div id="method-c-create_pbserver_config" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">create_pbserver_config</span><span
@@ -515,31 +554,88 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="create_pbserver_config-source">
-<pre>
-<span class="ruby-comment"># File lib/nginx.rb, line 173</span>
-def self.create_pbserver_config(my_ip, proxy_port)
-  config = <span class="ruby-string">upstream #{PbServer::NAME} {    server #{my_ip}:#{proxy_port};}    server {    listen #{PbServer::LISTEN_PORT_NO_SSL};    server_name #{my_ip};    root /root/appscale/AppDB/;    # Uncomment these lines to enable logging, and comment out the following two    #access_log  /var/log/nginx/pbserver.access.log upstream;    #error_log  /var/log/nginx/pbserver.error.log;    access_log off;    error_log /dev/null crit;    rewrite_log off;    error_page 404 = /404.html;    location / {      proxy_set_header  X-Real-IP  $remote_addr;      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;      proxy_set_header Host $http_host;      proxy_redirect off;      proxy_pass http://#{PbServer::NAME};      client_max_body_size 30M;      proxy_connect_timeout 60;      client_body_timeout 60;      proxy_read_timeout 60;    }}server {    listen #{PbServer::LISTEN_PORT_WITH_SSL};    ssl on;    ssl_certificate /etc/nginx/mycert.pem;    ssl_certificate_key /etc/nginx/mykey.pem;    root /root/appscale/AppDB/public;    #access_log  /var/log/nginx/pbencrypt.access.log upstream;    #error_log  /var/log/nginx/pbencrypt.error.log;    access_log off;    error_log  /dev/null crit;    rewrite_log off;    error_page 502 /502.html;    location / {      proxy_set_header  X-Real-IP  $remote_addr;      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;      proxy_set_header Host $http_host;      proxy_redirect off;      client_body_timeout 60;      proxy_read_timeout 60;      #Increase file size so larger applications can be uploaded      client_max_body_size 30M;      # go to proxy      proxy_pass http://#{PbServer::NAME};    }}</span>
-  config_path = <span class="ruby-constant">File</span>.join(<span class="ruby-constant">SITES_ENABLED_PATH</span>, &quot;#{PbServer::NAME}.#{CONFIG_EXTENSION}&quot;)
-  <span class="ruby-constant">File</span>.open(config_path, <span class="ruby-string">&quot;w+&quot;</span>) { |dest_file| dest_file.write(config) }
+          <div class="method-source-code" id="create_pbserver_config-source">
+            <pre><span class="ruby-comment"># File lib/nginx.rb, line 169</span>
+  <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_pbserver_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">proxy_port</span>)
+    <span class="ruby-identifier">config</span> = <span class="ruby-string">&quot;upstream #{PbServer::NAME} {
+    server #{my_ip}:#{proxy_port};
+}
+    
+server {
+    listen #{PbServer::LISTEN_PORT_NO_SSL};
+    server_name #{my_ip};
+    root /root/appscale/AppDB/;
+    # Uncomment these lines to enable logging, and comment out the following two
+    #access_log  /var/log/nginx/pbserver.access.log upstream;
+    #error_log  /var/log/nginx/pbserver.error.log;
+    access_log off;
+    error_log /dev/null crit;
 
-  <span class="ruby-constant">HAProxy</span>.regenerate_config
+    rewrite_log off;
+    error_page 404 = /404.html;
 
-end</pre>
-          </div>
+
+
+    location / {
+      proxy_set_header  X-Real-IP  $remote_addr;
+      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header Host $http_host;
+      proxy_redirect off;
+      proxy_pass http://#{PbServer::NAME};
+      client_max_body_size 30M;
+      proxy_connect_timeout 60;
+      client_body_timeout 60;
+      proxy_read_timeout 60;
+    }
+
+}
+
+server {
+    listen #{PbServer::LISTEN_PORT_WITH_SSL};
+    ssl on;
+    ssl_certificate /etc/nginx/mycert.pem;
+    ssl_certificate_key /etc/nginx/mykey.pem;
+    root /root/appscale/AppDB/public;
+    #access_log  /var/log/nginx/pbencrypt.access.log upstream;
+    #error_log  /var/log/nginx/pbencrypt.error.log;
+    access_log off;
+    error_log  /dev/null crit;
+
+    rewrite_log off;
+    error_page 502 /502.html;
+
+    location / {
+      proxy_set_header  X-Real-IP  $remote_addr;
+      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header Host $http_host;
+      proxy_redirect off;
+
+      client_body_timeout 60;
+      proxy_read_timeout 60;
+      #Increase file size so larger applications can be uploaded
+      client_max_body_size 30M;
+      # go to proxy
+      proxy_pass http://#{PbServer::NAME};
+    }
+}
+&quot;</span>
+    <span class="ruby-identifier">config_path</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">join</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>, <span class="ruby-node">&quot;#{PbServer::NAME}.#{CONFIG_EXTENSION}&quot;</span>)
+    <span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-identifier">config_path</span>, <span class="ruby-string">&quot;w+&quot;</span>) { <span class="ruby-operator">|</span><span class="ruby-identifier">dest_file</span><span class="ruby-operator">|</span> <span class="ruby-identifier">dest_file</span>.<span class="ruby-identifier">write</span>(<span class="ruby-identifier">config</span>) }
+
+    <span class="ruby-constant">HAProxy</span>.<span class="ruby-identifier">regenerate_config</span>
+
+  <span class="ruby-keyword">end</span></pre>
+          </div><!-- create_pbserver_config-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- create_pbserver_config-method -->
 
     
-      <div id="initialize_config-method" class="method-detail ">
-        <a name="method-c-initialize_config"></a>
-
+      <div id="method-c-initialize_config" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">initialize_config</span><span
@@ -555,41 +651,69 @@ for nginx</p>
           
 
           
-          <div class="method-source-code"
-            id="initialize_config-source">
-<pre>
-<span class="ruby-comment"># File lib/nginx.rb, line 319</span>
-def self.initialize_config
-  config = <span class="ruby-string">user www-data;worker_processes  1;error_log  /var/log/nginx/error.log;pid        /var/run/nginx.pid;events {    worker_connections  30000;}http {    include       /etc/nginx/mime.types;    default_type  application/octet-stream;    access_log  /var/log/nginx/access.log;    log_format upstream '$remote_addr - - [$time_local] &quot;$request&quot; status $status '                        'upstream $upstream_response_time request $request_time '                        '[for $host via $upstream_addr]';    sendfile        on;    #tcp_nopush     on;    #keepalive_timeout  0;    keepalive_timeout  60;    tcp_nodelay        on;    server_names_hash_bucket_size 128;    gzip  on;    include #{NGINX_PATH}/sites-enabled/*;}</span>
+          <div class="method-source-code" id="initialize_config-source">
+            <pre><span class="ruby-comment"># File lib/nginx.rb, line 315</span>
+  <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">initialize_config</span>
+    <span class="ruby-identifier">config</span> = <span class="ruby-string">&quot;user www-data;
+worker_processes  1;
 
-  `mkdir -p /var/log/nginx/`
-  <span class="ruby-comment"># Create the sites enabled folder</span>
-  unless <span class="ruby-constant">File</span>.exists? <span class="ruby-constant">SITES_ENABLED_PATH</span>
-    <span class="ruby-constant">FileUtils</span>.mkdir_p <span class="ruby-constant">SITES_ENABLED_PATH</span>
-  end
+error_log  /var/log/nginx/error.log;
+pid        /var/run/nginx.pid;
 
-  <span class="ruby-comment"># copy over certs for ssl</span>
-  <span class="ruby-comment"># just copy files once to keep certificate as static.</span>
-  <span class="ruby-comment">#`test ! -e #{NGINX_PATH}/mycert.pem &amp;&amp; cp /etc/appscale/certs/mycert.pem #{NGINX_PATH}`</span>
-  <span class="ruby-comment">#`test ! -e #{NGINX_PATH}/mykey.pem &amp;&amp; cp /etc/appscale/certs/mykey.pem #{NGINX_PATH}`</span>
-  `cp /etc/appscale/certs/mykey.pem #{NGINX_PATH}`
-  `cp /etc/appscale/certs/mycert.pem #{NGINX_PATH}`
-  <span class="ruby-comment"># Write the main configuration file which sets default configuration parameters</span>
-  <span class="ruby-constant">File</span>.open(<span class="ruby-constant">MAIN_CONFIG_FILE</span>, <span class="ruby-string">&quot;w+&quot;</span>) { |dest_file| dest_file.write(config) }
-end</pre>
-          </div>
+events {
+    worker_connections  30000;
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    access_log  /var/log/nginx/access.log;
+
+    log_format upstream '$remote_addr - - [$time_local] &quot;$request&quot; status $status '
+                        'upstream $upstream_response_time request $request_time '
+                        '[for $host via $upstream_addr]';
+
+    sendfile        on;
+    #tcp_nopush     on;
+
+    #keepalive_timeout  0;
+    keepalive_timeout  60;
+    tcp_nodelay        on;
+    server_names_hash_bucket_size 128;
+
+    gzip  on;
+
+    include #{NGINX_PATH}/sites-enabled/*;
+}
+&quot;</span>
+
+    <span class="ruby-value">%xmkdir -p /var/log/nginx/`</span>
+    <span class="ruby-comment"># Create the sites enabled folder</span>
+    <span class="ruby-keyword">unless</span> <span class="ruby-constant">File</span>.<span class="ruby-identifier">exists?</span> <span class="ruby-constant">SITES_ENABLED_PATH</span>
+      <span class="ruby-constant">FileUtils</span>.<span class="ruby-identifier">mkdir_p</span> <span class="ruby-constant">SITES_ENABLED_PATH</span>
+    <span class="ruby-keyword">end</span>
+
+    <span class="ruby-comment"># copy over certs for ssl</span>
+    <span class="ruby-comment"># just copy files once to keep certificate as static.</span>
+    <span class="ruby-comment">#`test ! -e #{NGINX_PATH}/mycert.pem &amp;&amp; cp /etc/appscale/certs/mycert.pem #{NGINX_PATH}`</span>
+    <span class="ruby-comment">#`test ! -e #{NGINX_PATH}/mykey.pem &amp;&amp; cp /etc/appscale/certs/mykey.pem #{NGINX_PATH}`</span>
+    <span class="ruby-node">%xcp /etc/appscale/certs/mykey.pem #{NGINX_PATH}`</span>
+    <span class="ruby-node">%xcp /etc/appscale/certs/mycert.pem #{NGINX_PATH}`</span>
+    <span class="ruby-comment"># Write the main configuration file which sets default configuration parameters</span>
+    <span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-constant">MAIN_CONFIG_FILE</span>, <span class="ruby-string">&quot;w+&quot;</span>) { <span class="ruby-operator">|</span><span class="ruby-identifier">dest_file</span><span class="ruby-operator">|</span> <span class="ruby-identifier">dest_file</span>.<span class="ruby-identifier">write</span>(<span class="ruby-identifier">config</span>) }
+  <span class="ruby-keyword">end</span></pre>
+          </div><!-- initialize_config-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- initialize_config-method -->
 
     
-      <div id="is_running-3F-method" class="method-detail ">
-        <a name="method-c-is_running-3F"></a>
-
+      <div id="method-c-is_running-3F" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">is_running?</span><span
@@ -604,31 +728,27 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="is_running-3F-source">
-<pre>
-<span class="ruby-comment"># File lib/nginx.rb, line 59</span>
-def self.is_running?
-  processes = `ps ax | grep nginx | grep -v grep | wc -l`.chomp
-  if processes == <span class="ruby-string">&quot;0&quot;</span>
-    return false
-  else
-    return true
-  end
-end</pre>
-          </div>
+          <div class="method-source-code" id="is_running-3F-source">
+            <pre><span class="ruby-comment"># File lib/nginx.rb, line 55</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">is_running?</span>
+  <span class="ruby-identifier">processes</span> = <span class="ruby-value">%xps ax | grep nginx | grep -v grep | wc -l`</span>.<span class="ruby-identifier">chomp</span>
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">processes</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;0&quot;</span>
+    <span class="ruby-keyword">return</span> <span class="ruby-keyword">false</span>
+  <span class="ruby-keyword">else</span>
+    <span class="ruby-keyword">return</span> <span class="ruby-keyword">true</span>
+  <span class="ruby-keyword">end</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- is_running-3F-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- is_running-3F-method -->
 
     
-      <div id="reload-method" class="method-detail ">
-        <a name="method-c-reload"></a>
-
+      <div id="method-c-reload" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">reload</span><span
@@ -643,26 +763,22 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="reload-source">
-<pre>
-<span class="ruby-comment"># File lib/nginx.rb, line 55</span>
-def self.reload
-  self.restart
-end</pre>
-          </div>
+          <div class="method-source-code" id="reload-source">
+            <pre><span class="ruby-comment"># File lib/nginx.rb, line 51</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">reload</span>
+  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">restart</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- reload-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- reload-method -->
 
     
-      <div id="remove_app-method" class="method-detail ">
-        <a name="method-c-remove_app"></a>
-
+      <div id="method-c-remove_app" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">remove_app</span><span
@@ -677,28 +793,24 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="remove_app-source">
-<pre>
-<span class="ruby-comment"># File lib/nginx.rb, line 143</span>
-def self.remove_app(app_name)
-  config_name = &quot;#{app_name}.#{CONFIG_EXTENSION}&quot;
-  <span class="ruby-constant">FileUtils</span>.rm(<span class="ruby-constant">File</span>.join(<span class="ruby-constant">SITES_ENABLED_PATH</span>, config_name))
-  <span class="ruby-constant">Nginx</span>.reload
-end</pre>
-          </div>
+          <div class="method-source-code" id="remove_app-source">
+            <pre><span class="ruby-comment"># File lib/nginx.rb, line 139</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">remove_app</span>(<span class="ruby-identifier">app_name</span>)
+  <span class="ruby-identifier">config_name</span> = <span class="ruby-node">&quot;#{app_name}.#{CONFIG_EXTENSION}&quot;</span>
+  <span class="ruby-constant">FileUtils</span>.<span class="ruby-identifier">rm</span>(<span class="ruby-constant">File</span>.<span class="ruby-identifier">join</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>, <span class="ruby-identifier">config_name</span>))
+  <span class="ruby-constant">Nginx</span>.<span class="ruby-identifier">reload</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- remove_app-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- remove_app-method -->
 
     
-      <div id="restart-method" class="method-detail ">
-        <a name="method-c-restart"></a>
-
+      <div id="method-c-restart" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">restart</span><span
@@ -713,27 +825,23 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="restart-source">
-<pre>
-<span class="ruby-comment"># File lib/nginx.rb, line 50</span>
-def self.restart
-  self.stop
-  self.start
-end</pre>
-          </div>
+          <div class="method-source-code" id="restart-source">
+            <pre><span class="ruby-comment"># File lib/nginx.rb, line 46</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">restart</span>
+  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">stop</span>
+  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">start</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- restart-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- restart-method -->
 
     
-      <div id="start-method" class="method-detail ">
-        <a name="method-c-start"></a>
-
+      <div id="method-c-start" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">start</span><span
@@ -748,26 +856,22 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="start-source">
-<pre>
-<span class="ruby-comment"># File lib/nginx.rb, line 42</span>
-def self.start
-  `/etc/init.d/nginx start`
-end</pre>
-          </div>
+          <div class="method-source-code" id="start-source">
+            <pre><span class="ruby-comment"># File lib/nginx.rb, line 38</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">start</span>
+  <span class="ruby-value">%x/etc/init.d/nginx start`</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- start-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- start-method -->
 
     
-      <div id="stop-method" class="method-detail ">
-        <a name="method-c-stop"></a>
-
+      <div id="method-c-stop" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">stop</span><span
@@ -782,26 +886,22 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="stop-source">
-<pre>
-<span class="ruby-comment"># File lib/nginx.rb, line 46</span>
-def self.stop
-  `/etc/init.d/nginx stop`
-end</pre>
-          </div>
+          <div class="method-source-code" id="stop-source">
+            <pre><span class="ruby-comment"># File lib/nginx.rb, line 42</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">stop</span>
+  <span class="ruby-value">%x/etc/init.d/nginx stop`</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- stop-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- stop-method -->
 
     
-      <div id="write_app_config-method" class="method-detail ">
-        <a name="method-c-write_app_config"></a>
-
+      <div id="method-c-write_app_config" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">write_app_config</span><span
@@ -816,47 +916,89 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="write_app_config-source">
-<pre>
-<span class="ruby-comment"># File lib/nginx.rb, line 80</span>
-def self.write_app_config(app_name, app_number, my_public_ip, proxy_port, static_handlers, login_ip)
-  static_locations = static_handlers.map { |handler| <span class="ruby-constant">HelperFunctions</span>.generate_location_config(handler) }.join
-  listen_port = <span class="ruby-constant">Nginx</span>.app_listen_port(app_number)
-  config = <span class="ruby-string"># Any requests that arent static files get sent to haproxyupstream gae_#{app_name} {    server #{my_public_ip}:#{proxy_port};}server {    listen #{listen_port};    server_name #{my_public_ip};    root /var/apps/#{app_name}/app;    # Uncomment these lines to enable logging, and comment out the following two    #access_log  /var/log/nginx/#{app_name}.access.log upstream;    error_log  /var/log/nginx/#{app_name}.error.log;    access_log off;    #error_log /dev/null crit;    rewrite_log off;    error_page 404 = /404.html;    set $cache_dir /var/apps/#{app_name}/cache;    #{static_locations}    location / {      proxy_set_header  X-Real-IP  $remote_addr;      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;      proxy_set_header Host $http_host;      proxy_redirect off;      proxy_pass http://gae_#{app_name};      client_max_body_size 2G;      proxy_connect_timeout 60;      client_body_timeout 60;      proxy_read_timeout 60;    }    location /404.html {      root /var/apps/#{app_name};    }    location /reserved-channel-appscale-path {      proxy_buffering off;      tcp_nodelay on;      keepalive_timeout 55;      proxy_pass http://#{login_ip}:5280/http-bind;    }}</span>
+          <div class="method-source-code" id="write_app_config-source">
+            <pre><span class="ruby-comment"># File lib/nginx.rb, line 76</span>
+  <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">write_app_config</span>(<span class="ruby-identifier">app_name</span>, <span class="ruby-identifier">app_number</span>, <span class="ruby-identifier">my_public_ip</span>, <span class="ruby-identifier">proxy_port</span>, <span class="ruby-identifier">static_handlers</span>, <span class="ruby-identifier">login_ip</span>)
+    <span class="ruby-identifier">static_locations</span> = <span class="ruby-identifier">static_handlers</span>.<span class="ruby-identifier">map</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">handler</span><span class="ruby-operator">|</span> <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">generate_location_config</span>(<span class="ruby-identifier">handler</span>) }.<span class="ruby-identifier">join</span>
+    <span class="ruby-identifier">listen_port</span> = <span class="ruby-constant">Nginx</span>.<span class="ruby-identifier">app_listen_port</span>(<span class="ruby-identifier">app_number</span>)
+    <span class="ruby-identifier">config</span> = <span class="ruby-string">&quot;# Any requests that arent static files get sent to haproxy
+upstream gae_#{app_name} {
+    server #{my_public_ip}:#{proxy_port};
+}
 
-  config_path = <span class="ruby-constant">File</span>.join(<span class="ruby-constant">SITES_ENABLED_PATH</span>, &quot;#{app_name}.#{CONFIG_EXTENSION}&quot;)
-  <span class="ruby-constant">File</span>.open(config_path, <span class="ruby-string">&quot;w+&quot;</span>) { |dest_file| dest_file.write(config) }
+server {
+    listen #{listen_port};
+    server_name #{my_public_ip};
+    root /var/apps/#{app_name}/app;
+    # Uncomment these lines to enable logging, and comment out the following two
+    #access_log  /var/log/nginx/#{app_name}.access.log upstream;
+    error_log  /var/log/nginx/#{app_name}.error.log;
+    access_log off;
+    #error_log /dev/null crit;
 
-  if <span class="ruby-constant">Nginx</span>.check_config
-    <span class="ruby-constant">Nginx</span>.reload
-    return true
-  else
-    <span class="ruby-constant">FileUtils</span>.rm(config_path)
-    return false
-  end
-end</pre>
-          </div>
+    rewrite_log off;
+    error_page 404 = /404.html;
+    set $cache_dir /var/apps/#{app_name}/cache;
+
+    #{static_locations}
+
+    location / {
+      proxy_set_header  X-Real-IP  $remote_addr;
+      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header Host $http_host;
+      proxy_redirect off;
+      proxy_pass http://gae_#{app_name};
+      client_max_body_size 2G;
+      proxy_connect_timeout 60;
+      client_body_timeout 60;
+      proxy_read_timeout 60;
+    }
+
+    location /404.html {
+      root /var/apps/#{app_name};
+    }
+
+    location /reserved-channel-appscale-path {
+      proxy_buffering off;
+      tcp_nodelay on;
+      keepalive_timeout 55;
+      proxy_pass http://#{login_ip}:5280/http-bind;
+    }
+
+}
+&quot;</span>
+
+    <span class="ruby-identifier">config_path</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">join</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>, <span class="ruby-node">&quot;#{app_name}.#{CONFIG_EXTENSION}&quot;</span>)
+    <span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-identifier">config_path</span>, <span class="ruby-string">&quot;w+&quot;</span>) { <span class="ruby-operator">|</span><span class="ruby-identifier">dest_file</span><span class="ruby-operator">|</span> <span class="ruby-identifier">dest_file</span>.<span class="ruby-identifier">write</span>(<span class="ruby-identifier">config</span>) }
+
+    <span class="ruby-keyword">if</span> <span class="ruby-constant">Nginx</span>.<span class="ruby-identifier">check_config</span>
+      <span class="ruby-constant">Nginx</span>.<span class="ruby-identifier">reload</span>
+      <span class="ruby-keyword">return</span> <span class="ruby-keyword">true</span>
+    <span class="ruby-keyword">else</span>
+      <span class="ruby-constant">FileUtils</span>.<span class="ruby-identifier">rm</span>(<span class="ruby-identifier">config_path</span>)
+      <span class="ruby-keyword">return</span> <span class="ruby-keyword">false</span>
+    <span class="ruby-keyword">end</span>
+  <span class="ruby-keyword">end</span></pre>
+          </div><!-- write_app_config-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- write_app_config-method -->
 
     
-    </div>
+    </section><!-- public-class-method-details -->
   
+  </section><!-- 5Buntitled-5D -->
 
-  </div>
+</div><!-- documentation -->
 
-  <div id="validator-badges">
-    <p><small><a href="http://validator.w3.org/check/referer">[Validate]</a></small></p>
-    <p><small>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish
-      Rdoc Generator</a> 2</small>.</p>
-  </div>
 
-</body>
-</html>
+<footer id="validator-badges">
+  <p><a href="http://validator.w3.org/check/referer">[Validate]</a>
+  <p>Generated by <a href="https://github.com/rdoc/rdoc">RDoc</a> 3.12.
+  <p>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish Rdoc Generator</a> 3.
+</footer>
 

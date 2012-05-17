@@ -1,221 +1,234 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<!DOCTYPE html>
+
+<html>
 <head>
-  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+<meta content="text/html; charset=UTF-8" http-equiv="Content-Type">
 
-  <title>Module: HAProxy</title>
+<title>module HAProxy - RDoc Documentation</title>
 
-  <link rel="stylesheet" href="./rdoc.css" type="text/css" media="screen" />
+<link type="text/css" media="screen" href="./rdoc.css" rel="stylesheet">
 
-  <script src="./js/jquery.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/thickbox-compressed.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/quicksearch.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/darkfish.js" type="text/javascript"
-    charset="utf-8"></script>
+<script type="text/javascript">
+  var rdoc_rel_prefix = "./";
+</script>
 
-</head>
-<body class="module">
+<script type="text/javascript" charset="utf-8" src="./js/jquery.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/navigation.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/search_index.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/search.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/searcher.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/darkfish.js"></script>
 
-  <div id="metadata">
-    <div id="home-metadata">
-      <div id="home-section" class="section">
-        <h3 class="section-header">
-          <a href="./index.html">Home</a>
-          <a href="./index.html#classes">Classes</a>
-          <a href="./index.html#methods">Methods</a>
-        </h3>
-      </div>
-    </div>
 
-    <div id="file-metadata">
-      <div id="file-list-section" class="section">
-        <h3 class="section-header">In Files</h3>
-        <div class="section-body">
-          <ul>
-          
-            <li><a href="./lib/haproxy_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
-              class="thickbox" title="lib/haproxy.rb">lib/haproxy.rb</a></li>
-          
-          </ul>
-        </div>
-      </div>
+<body id="top" class="module">
+<nav id="metadata">
+  <nav id="home-section" class="section">
+  <h3 class="section-header">
+    <a href="./index.html">Home</a>
+    <a href="./table_of_contents.html#classes">Classes</a>
+    <a href="./table_of_contents.html#methods">Methods</a>
+  </h3>
+</nav>
 
-      
-    </div>
 
-    <div id="class-metadata">
+  <nav id="search-section" class="section project-section" class="initially-hidden">
+  <form action="#" method="get" accept-charset="utf-8">
+    <h3 class="section-header">
+      <input type="text" name="search" placeholder="Search" id="search-field"
+             title="Type to search, Up and Down to navigate, Enter to load">
+    </h3>
+  </form>
 
-      <!-- Parent Class -->
-      
+  <ul id="search-results" class="initially-hidden"></ul>
+</nav>
 
-      <!-- Namespace Contents -->
-      
 
-      <!-- Method Quickref -->
-      
-      <div id="method-list-section" class="section">
-        <h3 class="section-header">Methods</h3>
-        <ul class="link-list">
-          
-          <li><a href="#method-c-app_listen_port">::app_listen_port</a></li>
-          
-          <li><a href="#method-c-clear_sites_enabled">::clear_sites_enabled</a></li>
-          
-          <li><a href="#method-c-create_app_config">::create_app_config</a></li>
-          
-          <li><a href="#method-c-create_app_load_balancer_config">::create_app_load_balancer_config</a></li>
-          
-          <li><a href="#method-c-create_app_monitoring_config">::create_app_monitoring_config</a></li>
-          
-          <li><a href="#method-c-create_pbserver_config">::create_pbserver_config</a></li>
-          
-          <li><a href="#method-c-initialize_config">::initialize_config</a></li>
-          
-          <li><a href="#method-c-is_running-3F">::is_running?</a></li>
-          
-          <li><a href="#method-c-regenerate_config">::regenerate_config</a></li>
-          
-          <li><a href="#method-c-reload">::reload</a></li>
-          
-          <li><a href="#method-c-remove_app">::remove_app</a></li>
-          
-          <li><a href="#method-c-restart">::restart</a></li>
-          
-          <li><a href="#method-c-server_config">::server_config</a></li>
-          
-          <li><a href="#method-c-stop">::stop</a></li>
-          
-          <li><a href="#method-c-write_app_config">::write_app_config</a></li>
-          
-        </ul>
-      </div>
-      
+  <div id="file-metadata">
+    <nav id="file-list-section" class="section">
+  <h3 class="section-header">Defined In</h3>
+  <ul>
+    <li>lib/haproxy.rb
+  </ul>
+</nav>
 
-      <!-- Included Modules -->
-      
-    </div>
-
-    <div id="project-metadata">
-      
-      
-
-      <div id="classindex-section" class="section project-section">
-        <h3 class="section-header">Class/Module Index
-          <span class="search-toggle"><img src="./images/find.png"
-            height="16" width="16" alt="[+]"
-            title="show/hide quicksearch" /></span></h3>
-        <form action="#" method="get" accept-charset="utf-8" class="initially-hidden">
-        <fieldset>
-          <legend>Quicksearch</legend>
-          <input type="text" name="quicksearch" value=""
-            class="quicksearch-field" />
-        </fieldset>
-        </form>
-
-        <ul class="link-list">
-        
-          <li><a href="./AppControllerClient.html">AppControllerClient</a></li>
-        
-          <li><a href="./BadConfigurationException.html">BadConfigurationException</a></li>
-        
-          <li><a href="./BlobServer.html">BlobServer</a></li>
-        
-          <li><a href="./Collectd.html">Collectd</a></li>
-        
-          <li><a href="./CronHelper.html">CronHelper</a></li>
-        
-          <li><a href="./Datastore.html">Datastore</a></li>
-        
-          <li><a href="./DatastoreFactory.html">DatastoreFactory</a></li>
-        
-          <li><a href="./DatastoreRepo.html">DatastoreRepo</a></li>
-        
-          <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a></li>
-        
-          <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a></li>
-        
-          <li><a href="./DatastoreS3.html">DatastoreS3</a></li>
-        
-          <li><a href="./Djinn.html">Djinn</a></li>
-        
-          <li><a href="./DjinnJobData.html">DjinnJobData</a></li>
-        
-          <li><a href="./DjinnServer.html">DjinnServer</a></li>
-        
-          <li><a href="./Ejabberd.html">Ejabberd</a></li>
-        
-          <li><a href="./EngineFactory.html">EngineFactory</a></li>
-        
-          <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a></li>
-        
-          <li><a href="./GodInterface.html">GodInterface</a></li>
-        
-          <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a></li>
-        
-          <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a></li>
-        
-          <li><a href="./HAProxy.html">HAProxy</a></li>
-        
-          <li><a href="./HelperFunctions.html">HelperFunctions</a></li>
-        
-          <li><a href="./JSONClient.html">JSONClient</a></li>
-        
-          <li><a href="./LoadBalancer.html">LoadBalancer</a></li>
-        
-          <li><a href="./Monitoring.html">Monitoring</a></li>
-        
-          <li><a href="./NeptuneJobData.html">NeptuneJobData</a></li>
-        
-          <li><a href="./Nginx.html">Nginx</a></li>
-        
-          <li><a href="./Object.html">Object</a></li>
-        
-          <li><a href="./PbServer.html">PbServer</a></li>
-        
-          <li><a href="./QueueFactory.html">QueueFactory</a></li>
-        
-          <li><a href="./RabbitMQ.html">RabbitMQ</a></li>
-        
-          <li><a href="./Repo.html">Repo</a></li>
-        
-          <li><a href="./TaskEngine.html">TaskEngine</a></li>
-        
-          <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a></li>
-        
-          <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a></li>
-        
-          <li><a href="./TaskQueue.html">TaskQueue</a></li>
-        
-          <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a></li>
-        
-          <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a></li>
-        
-          <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a></li>
-        
-          <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a></li>
-        
-          <li><a href="./UserAppClient.html">UserAppClient</a></li>
-        
-          <li><a href="./ZKInterface.html">ZKInterface</a></li>
-        
-        </ul>
-        <div id="no-class-search-results" style="display: none;">No matching classes.</div>
-      </div>
-
-      
-    </div>
+    
   </div>
 
-  <div id="documentation">
-    <h1 class="module">HAProxy</h1>
+  <div id="class-metadata">
+    
+    
+    
+    <!-- Method Quickref -->
+<nav id="method-list-section" class="section">
+  <h3 class="section-header">Methods</h3>
 
-    <div id="description">
-      
+  <ul class="link-list">
+    
+    <li><a href="#method-c-app_listen_port">::app_listen_port</a>
+    
+    <li><a href="#method-c-clear_sites_enabled">::clear_sites_enabled</a>
+    
+    <li><a href="#method-c-create_app_config">::create_app_config</a>
+    
+    <li><a href="#method-c-create_app_load_balancer_config">::create_app_load_balancer_config</a>
+    
+    <li><a href="#method-c-create_app_monitoring_config">::create_app_monitoring_config</a>
+    
+    <li><a href="#method-c-create_pbserver_config">::create_pbserver_config</a>
+    
+    <li><a href="#method-c-initialize_config">::initialize_config</a>
+    
+    <li><a href="#method-c-is_running-3F">::is_running?</a>
+    
+    <li><a href="#method-c-regenerate_config">::regenerate_config</a>
+    
+    <li><a href="#method-c-reload">::reload</a>
+    
+    <li><a href="#method-c-remove_app">::remove_app</a>
+    
+    <li><a href="#method-c-restart">::restart</a>
+    
+    <li><a href="#method-c-server_config">::server_config</a>
+    
+    <li><a href="#method-c-stop">::stop</a>
+    
+    <li><a href="#method-c-update_app_config">::update_app_config</a>
+    
+    <li><a href="#method-c-write_app_config">::write_app_config</a>
+    
+  </ul>
+</nav>
+
+  </div>
+
+  <div id="project-metadata">
+    
+    <nav id="classindex-section" class="section project-section">
+  <h3 class="section-header">Class and Module Index</h3>
+
+  <ul class="link-list">
+  
+    <li><a href="./AppControllerClient.html">AppControllerClient</a>
+  
+    <li><a href="./AppScaleException.html">AppScaleException</a>
+  
+    <li><a href="./BadConfigurationException.html">BadConfigurationException</a>
+  
+    <li><a href="./BlobServer.html">BlobServer</a>
+  
+    <li><a href="./Collectd.html">Collectd</a>
+  
+    <li><a href="./CronHelper.html">CronHelper</a>
+  
+    <li><a href="./Datastore.html">Datastore</a>
+  
+    <li><a href="./DatastoreFactory.html">DatastoreFactory</a>
+  
+    <li><a href="./DatastoreRepo.html">DatastoreRepo</a>
+  
+    <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a>
+  
+    <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a>
+  
+    <li><a href="./DatastoreS3.html">DatastoreS3</a>
+  
+    <li><a href="./Djinn.html">Djinn</a>
+  
+    <li><a href="./DjinnJobData.html">DjinnJobData</a>
+  
+    <li><a href="./DjinnServer.html">DjinnServer</a>
+  
+    <li><a href="./Ejabberd.html">Ejabberd</a>
+  
+    <li><a href="./EngineFactory.html">EngineFactory</a>
+  
+    <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a>
+  
+    <li><a href="./GodInterface.html">GodInterface</a>
+  
+    <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a>
+  
+    <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a>
+  
+    <li><a href="./HAProxy.html">HAProxy</a>
+  
+    <li><a href="./HelperFunctions.html">HelperFunctions</a>
+  
+    <li><a href="./InfrastructureManagerClient.html">InfrastructureManagerClient</a>
+  
+    <li><a href="./JSONClient.html">JSONClient</a>
+  
+    <li><a href="./LoadBalancer.html">LoadBalancer</a>
+  
+    <li><a href="./Monitoring.html">Monitoring</a>
+  
+    <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
+  
+    <li><a href="./NeptuneManager.html">NeptuneManager</a>
+  
+    <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
+  
+    <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
+  
+    <li><a href="./Nginx.html">Nginx</a>
+  
+    <li><a href="./Object.html">Object</a>
+  
+    <li><a href="./PbServer.html">PbServer</a>
+  
+    <li><a href="./QueueFactory.html">QueueFactory</a>
+  
+    <li><a href="./RabbitMQ.html">RabbitMQ</a>
+  
+    <li><a href="./Repo.html">Repo</a>
+  
+    <li><a href="./TaskEngine.html">TaskEngine</a>
+  
+    <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a>
+  
+    <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a>
+  
+    <li><a href="./TaskQueue.html">TaskQueue</a>
+  
+    <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a>
+  
+    <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a>
+  
+    <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a>
+  
+    <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a>
+  
+    <li><a href="./TestAppScaleHelper.html">TestAppScaleHelper</a>
+  
+    <li><a href="./TestBabelHelper.html">TestBabelHelper</a>
+  
+    <li><a href="./TestCiceroHelper.html">TestCiceroHelper</a>
+  
+    <li><a href="./TestDatastore.html">TestDatastore</a>
+  
+    <li><a href="./TestNeptuneJobData.html">TestNeptuneJobData</a>
+  
+    <li><a href="./TestNeptuneManager.html">TestNeptuneManager</a>
+  
+    <li><a href="./TestTaskQueue.html">TestTaskQueue</a>
+  
+    <li><a href="./UserAppClient.html">UserAppClient</a>
+  
+    <li><a href="./ZKInterface.html">ZKInterface</a>
+  
+    <li><a href="./ZooKeeperLockException.html">ZooKeeperLockException</a>
+  
+  </ul>
+</nav>
+
+  </div>
+</nav>
+
+<div id="documentation">
+  <h1 class="module">module HAProxy</h1>
+
+  <div id="description" class="description">
+    
 <p>As AppServers within AppScale are usually single-threaded, we run multiple
 copies of them and load balance traffic to them. Since nginx (our first
 load balancer) doesn’t do health checks on the AppServer before it
@@ -223,66 +236,71 @@ dispatches traffic to it, we employ haproxy, an open source load balancer
 that does provide this capability. This module abstracts away configuration
 and deployment for haproxy.</p>
 
-    </div>
+  </div><!-- description -->
 
-    <!-- Constants -->
+  
+  
+  
+  <section id="5Buntitled-5D" class="documentation-section">
     
-    <div id="constants-list" class="section">
+
+    
+
+    
+    <!-- Constants -->
+    <section id="constants-list" class="section">
       <h3 class="section-header">Constants</h3>
       <dl>
       
-        <dt><a name="HAPROXY_PATH">HAPROXY_PATH</a></dt>
+        <dt id="BASE_CONFIG_FILE">BASE_CONFIG_FILE
         
-        <dd class="description"></dd>
-        
-      
-        <dt><a name="SITES_ENABLED_PATH">SITES_ENABLED_PATH</a></dt>
-        
-        <dd class="description"></dd>
+        <dd class="description"><p>Provides a set of default configurations.</p>
         
       
-        <dt><a name="CONFIG_EXTENSION">CONFIG_EXTENSION</a></dt>
+        <dt id="CONFIG_EXTENSION">CONFIG_EXTENSION
         
-        <dd class="description"></dd>
-        
-      
-        <dt><a name="MAIN_CONFIG_FILE">MAIN_CONFIG_FILE</a></dt>
-        
-        <dd class="description"><p>The configuration file that haproxy reads from.</p></dd>
+        <dd class="description">
         
       
-        <dt><a name="BASE_CONFIG_FILE">BASE_CONFIG_FILE</a></dt>
+        <dt id="HAPROXY_PATH">HAPROXY_PATH
         
-        <dd class="description"><p>Provides a set of default configurations.</p></dd>
+        <dd class="description">
         
       
-        <dt><a name="SERVER_OPTIONS">SERVER_OPTIONS</a></dt>
+        <dt id="MAIN_CONFIG_FILE">MAIN_CONFIG_FILE
+        
+        <dd class="description"><p>The configuration file that haproxy reads from.</p>
+        
+      
+        <dt id="SERVER_OPTIONS">SERVER_OPTIONS
         
         <dd class="description"><p>Options to used to configure servers. For more information see <a
-href="http://haproxy.1wt.eu/download/1.3/doc/configuration.txt">haproxy.1wt.eu/download/1.3/doc/configuration.txt</a></p></dd>
+href="http://haproxy.1wt.eu/download/1.3/doc/configuration.txt">haproxy.1wt.eu/download/1.3/doc/configuration.txt</a></p>
         
       
-        <dt><a name="START_PORT">START_PORT</a></dt>
+        <dt id="SITES_ENABLED_PATH">SITES_ENABLED_PATH
         
-        <dd class="description"><p>The first port that haproxy will bind to for App Engine apps.</p></dd>
+        <dd class="description">
+        
+      
+        <dt id="START_PORT">START_PORT
+        
+        <dd class="description"><p>The first port that haproxy will bind to for App Engine apps.</p>
         
       
       </dl>
-    </div>
+    </section>
     
 
-    <!-- Attributes -->
     
 
     <!-- Methods -->
     
-    <div id="public-class-method-details" class="method-section section">
+     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Class Methods</h3>
 
     
-      <div id="app_listen_port-method" class="method-detail ">
-        <a name="method-c-app_listen_port"></a>
-
+      <div id="method-c-app_listen_port" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">app_listen_port</span><span
@@ -298,26 +316,22 @@ number</p>
           
 
           
-          <div class="method-source-code"
-            id="app_listen_port-source">
-<pre>
-<span class="ruby-comment"># File lib/haproxy.rb, line 70</span>
-def self.app_listen_port(app_number)
-  <span class="ruby-constant">START_PORT</span> + app_number
-end</pre>
-          </div>
+          <div class="method-source-code" id="app_listen_port-source">
+            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 70</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">app_listen_port</span>(<span class="ruby-identifier">app_number</span>)
+  <span class="ruby-constant">START_PORT</span> <span class="ruby-operator">+</span> <span class="ruby-identifier">app_number</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- app_listen_port-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- app_listen_port-method -->
 
     
-      <div id="clear_sites_enabled-method" class="method-detail ">
-        <a name="method-c-clear_sites_enabled"></a>
-
+      <div id="method-c-clear_sites_enabled" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">clear_sites_enabled</span><span
@@ -332,34 +346,30 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="clear_sites_enabled-source">
-<pre>
-<span class="ruby-comment"># File lib/haproxy.rb, line 171</span>
-def self.clear_sites_enabled
-  if <span class="ruby-constant">File</span>.exists?(<span class="ruby-constant">SITES_ENABLED_PATH</span>)
-    sites = <span class="ruby-constant">Dir</span>.entries(<span class="ruby-constant">SITES_ENABLED_PATH</span>)
+          <div class="method-source-code" id="clear_sites_enabled-source">
+            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 203</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">clear_sites_enabled</span>
+  <span class="ruby-keyword">if</span> <span class="ruby-constant">File</span>.<span class="ruby-identifier">exists?</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>)
+    <span class="ruby-identifier">sites</span> = <span class="ruby-constant">Dir</span>.<span class="ruby-identifier">entries</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>)
     <span class="ruby-comment"># Remove any files that are not configs</span>
-    sites.delete_if { |site| !site.end_with?(<span class="ruby-constant">CONFIG_EXTENSION</span>) }
-    full_path_sites = sites.map { |site| <span class="ruby-constant">File</span>.join(<span class="ruby-constant">SITES_ENABLED_PATH</span>, site) }
-    <span class="ruby-constant">FileUtils</span>.rm_f full_path_sites
+    <span class="ruby-identifier">sites</span>.<span class="ruby-identifier">delete_if</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">site</span><span class="ruby-operator">|</span> <span class="ruby-operator">!</span><span class="ruby-identifier">site</span>.<span class="ruby-identifier">end_with?</span>(<span class="ruby-constant">CONFIG_EXTENSION</span>) }
+    <span class="ruby-identifier">full_path_sites</span> = <span class="ruby-identifier">sites</span>.<span class="ruby-identifier">map</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">site</span><span class="ruby-operator">|</span> <span class="ruby-constant">File</span>.<span class="ruby-identifier">join</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>, <span class="ruby-identifier">site</span>) }
+    <span class="ruby-constant">FileUtils</span>.<span class="ruby-identifier">rm_f</span> <span class="ruby-identifier">full_path_sites</span>
 
-    <span class="ruby-constant">HAProxy</span>.regenerate_config
-  end
-end</pre>
-          </div>
+    <span class="ruby-constant">HAProxy</span>.<span class="ruby-identifier">regenerate_config</span>
+  <span class="ruby-keyword">end</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- clear_sites_enabled-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- clear_sites_enabled-method -->
 
     
-      <div id="create_app_config-method" class="method-detail ">
-        <a name="method-c-create_app_config"></a>
-
+      <div id="method-c-create_app_config" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">create_app_config</span><span
@@ -375,38 +385,34 @@ services</p>
           
 
           
-          <div class="method-source-code"
-            id="create_app_config-source">
-<pre>
-<span class="ruby-comment"># File lib/haproxy.rb, line 90</span>
-def self.create_app_config(my_ip, listen_port, server_ports, name)
-  servers = []
-  server_ports.each_with_index do |port, index|
-    servers &lt;&lt; <span class="ruby-constant">HAProxy</span>.server_config(name, index, my_ip, port)
-  end
+          <div class="method-source-code" id="create_app_config-source">
+            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 90</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">listen_port</span>, <span class="ruby-identifier">server_ports</span>, <span class="ruby-identifier">name</span>)
+  <span class="ruby-identifier">servers</span> = []
+  <span class="ruby-identifier">server_ports</span>.<span class="ruby-identifier">each_with_index</span> <span class="ruby-keyword">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">port</span>, <span class="ruby-identifier">index</span><span class="ruby-operator">|</span>
+    <span class="ruby-identifier">servers</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-constant">HAProxy</span>.<span class="ruby-identifier">server_config</span>(<span class="ruby-identifier">name</span>, <span class="ruby-identifier">index</span>, <span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">port</span>)
+  <span class="ruby-keyword">end</span>
 
-  config = &quot;# Create a load balancer for the #{name} application \n&quot;
-  config &lt;&lt; &quot;listen #{name} #{my_ip}:#{listen_port} \n&quot;
-  config &lt;&lt; servers.join(<span class="ruby-string">&quot;\n&quot;</span>)
+  <span class="ruby-identifier">config</span> = <span class="ruby-node">&quot;# Create a load balancer for the #{name} application \n&quot;</span>
+  <span class="ruby-identifier">config</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-node">&quot;listen #{name} #{my_ip}:#{listen_port} \n&quot;</span>
+  <span class="ruby-identifier">config</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">servers</span>.<span class="ruby-identifier">join</span>(<span class="ruby-string">&quot;\n&quot;</span>)
 
-  config_path = <span class="ruby-constant">File</span>.join(<span class="ruby-constant">SITES_ENABLED_PATH</span>, &quot;#{name}.#{CONFIG_EXTENSION}&quot;)
-  <span class="ruby-constant">File</span>.open(config_path, <span class="ruby-string">&quot;w+&quot;</span>) { |dest_file| dest_file.write(config) }
+  <span class="ruby-identifier">config_path</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">join</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>, <span class="ruby-node">&quot;#{name}.#{CONFIG_EXTENSION}&quot;</span>)
+  <span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-identifier">config_path</span>, <span class="ruby-string">&quot;w+&quot;</span>) { <span class="ruby-operator">|</span><span class="ruby-identifier">dest_file</span><span class="ruby-operator">|</span> <span class="ruby-identifier">dest_file</span>.<span class="ruby-identifier">write</span>(<span class="ruby-identifier">config</span>) }
 
-  <span class="ruby-constant">HAProxy</span>.regenerate_config
-end</pre>
-          </div>
+  <span class="ruby-constant">HAProxy</span>.<span class="ruby-identifier">regenerate_config</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- create_app_config-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- create_app_config-method -->
 
     
-      <div id="create_app_load_balancer_config-method" class="method-detail ">
-        <a name="method-c-create_app_load_balancer_config"></a>
-
+      <div id="method-c-create_app_load_balancer_config" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">create_app_load_balancer_config</span><span
@@ -421,26 +427,22 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="create_app_load_balancer_config-source">
-<pre>
-<span class="ruby-comment"># File lib/haproxy.rb, line 75</span>
-def self.create_app_load_balancer_config(my_ip, listen_port)
-  self.create_app_config(my_ip, listen_port, <span class="ruby-constant">LoadBalancer</span>.server_ports, <span class="ruby-constant">LoadBalancer</span>.name)
-end</pre>
-          </div>
+          <div class="method-source-code" id="create_app_load_balancer_config-source">
+            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 75</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_load_balancer_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">listen_port</span>)
+  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">listen_port</span>, <span class="ruby-constant">LoadBalancer</span>.<span class="ruby-identifier">server_ports</span>, <span class="ruby-constant">LoadBalancer</span>.<span class="ruby-identifier">name</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- create_app_load_balancer_config-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- create_app_load_balancer_config-method -->
 
     
-      <div id="create_app_monitoring_config-method" class="method-detail ">
-        <a name="method-c-create_app_monitoring_config"></a>
-
+      <div id="method-c-create_app_monitoring_config" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">create_app_monitoring_config</span><span
@@ -455,26 +457,22 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="create_app_monitoring_config-source">
-<pre>
-<span class="ruby-comment"># File lib/haproxy.rb, line 80</span>
-def self.create_app_monitoring_config(my_ip, listen_port)
-  self.create_app_config(my_ip, listen_port, <span class="ruby-constant">Monitoring</span>.server_ports, <span class="ruby-constant">Monitoring</span>.name)
-end</pre>
-          </div>
+          <div class="method-source-code" id="create_app_monitoring_config-source">
+            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 80</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_monitoring_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">listen_port</span>)
+  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">listen_port</span>, <span class="ruby-constant">Monitoring</span>.<span class="ruby-identifier">server_ports</span>, <span class="ruby-constant">Monitoring</span>.<span class="ruby-identifier">name</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- create_app_monitoring_config-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- create_app_monitoring_config-method -->
 
     
-      <div id="create_pbserver_config-method" class="method-detail ">
-        <a name="method-c-create_pbserver_config"></a>
-
+      <div id="method-c-create_pbserver_config" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">create_pbserver_config</span><span
@@ -489,26 +487,22 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="create_pbserver_config-source">
-<pre>
-<span class="ruby-comment"># File lib/haproxy.rb, line 85</span>
-def self.create_pbserver_config(my_ip, listen_port, table)
-  self.create_app_config(my_ip, listen_port, <span class="ruby-constant">PbServer</span>.get_server_ports(table), <span class="ruby-constant">PbServer</span>::<span class="ruby-constant">NAME</span>)
-end</pre>
-          </div>
+          <div class="method-source-code" id="create_pbserver_config-source">
+            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 85</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_pbserver_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">listen_port</span>, <span class="ruby-identifier">table</span>)
+  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">listen_port</span>, <span class="ruby-constant">PbServer</span>.<span class="ruby-identifier">get_server_ports</span>(<span class="ruby-identifier">table</span>), <span class="ruby-constant">PbServer</span><span class="ruby-operator">::</span><span class="ruby-constant">NAME</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- create_pbserver_config-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- create_pbserver_config-method -->
 
     
-      <div id="initialize_config-method" class="method-detail ">
-        <a name="method-c-initialize_config"></a>
-
+      <div id="method-c-initialize_config" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">initialize_config</span><span
@@ -524,34 +518,99 @@ for haproxy</p>
           
 
           
-          <div class="method-source-code"
-            id="initialize_config-source">
-<pre>
-<span class="ruby-comment"># File lib/haproxy.rb, line 184</span>
-def self.initialize_config
-  base_config = <span class="ruby-string">global  maxconn 64000  ulimit-n 200000  # log incoming requests - may need to tell syslog to accept these requests  # http://kevin.vanzonneveld.net/techblog/article/haproxy_logging/  log             127.0.0.1       local0  log             127.0.0.1       local1 notice  # Distribute the health checks with a bit of randomness  spread-checks 5# Settings in the defaults section apply to all services (unless overridden in a specific config)defaults  # apply log settings from the global section above to services  log global  # Proxy incoming traffic as HTTP requests  mode http  # Use round robin load balancing, however since we will use maxconn that will take precedence  balance roundrobin  maxconn 64000  # Log details about HTTP requests  #option httplog  # Abort request if client closes its output channel while waiting for the   # request. HAProxy documentation has a long explanation for this option.  option abortonclose  # Check if a &quot;Connection: close&quot; header is already set in each direction,  # and will add one if missing.  option httpclose  # If sending a request fails, try to send it to another, 3 times  # before aborting the request  retries 3  # Do not enforce session affinity (i.e., an HTTP session can be served by   # any Mongrel, not just the one that started the session  option redispatch  # Timeout a request if the client did not read any data for 60 seconds  timeout client 60000  # Timeout a request if Mongrel does not accept a connection for 60 seconds  timeout connect 60000  # Timeout a request if Mongrel does not accept the data on the connection,  # or does not send a response back in 60 seconds  timeout server 60000    # Enable the statistics page   stats enable  stats uri     /haproxy?stats  stats realm   Haproxy\ Statistics  stats auth    haproxy:stats  # Create a monitorable URI which returns a 200 if haproxy is up  # monitor-uri /haproxy?monitor  # Amount of time after which a health check is considered to have timed out  timeout check 5000</span>
+          <div class="method-source-code" id="initialize_config-source">
+            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 216</span>
+  <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">initialize_config</span>
+    <span class="ruby-identifier">base_config</span> = <span class="ruby-string">&quot;global
+  maxconn 64000
+  ulimit-n 200000
 
-  <span class="ruby-comment"># Create the sites enabled folder</span>
-  unless <span class="ruby-constant">File</span>.exists? <span class="ruby-constant">SITES_ENABLED_PATH</span>
-    <span class="ruby-constant">FileUtils</span>.mkdir_p <span class="ruby-constant">SITES_ENABLED_PATH</span>
-  end
+  # log incoming requests - may need to tell syslog to accept these requests
+  # http://kevin.vanzonneveld.net/techblog/article/haproxy_logging/
+  log             127.0.0.1       local0
+  log             127.0.0.1       local1 notice
+
+  # Distribute the health checks with a bit of randomness
+  spread-checks 5
+
+  # Bind socket for haproxy stats
+  stats socket /etc/haproxy/stats
+
+# Settings in the defaults section apply to all services (unless overridden in a specific config)
+defaults
+
+  # apply log settings from the global section above to services
+  log global
+
+  # Proxy incoming traffic as HTTP requests
+  mode http
+
+  # Use round robin load balancing, however since we will use maxconn that will take precedence
+  balance roundrobin
+
+  maxconn 64000
+
+  # Log details about HTTP requests
+  #option httplog
+
+  # Abort request if client closes its output channel while waiting for the 
+  # request. HAProxy documentation has a long explanation for this option.
+  option abortonclose
+
+  # Check if a &quot;Connection: close&quot; header is already set in each direction,
+  # and will add one if missing.
+  option httpclose
+
+  # If sending a request fails, try to send it to another, 3 times
+  # before aborting the request
+  retries 3
+
+  # Do not enforce session affinity (i.e., an HTTP session can be served by 
+  # any Mongrel, not just the one that started the session
+  option redispatch
+
+  # Timeout a request if the client did not read any data for 60 seconds
+  timeout client 60000
+
+  # Timeout a request if Mongrel does not accept a connection for 60 seconds
+  timeout connect 60000
+
+  # Timeout a request if Mongrel does not accept the data on the connection,
+  # or does not send a response back in 60 seconds
+  timeout server 60000
   
-  <span class="ruby-comment"># Write the base configuration file which sets default configuration parameters</span>
-  <span class="ruby-constant">File</span>.open(<span class="ruby-constant">BASE_CONFIG_FILE</span>, <span class="ruby-string">&quot;w+&quot;</span>) { |dest_file| dest_file.write(base_config) }
-end</pre>
-          </div>
+  # Enable the statistics page 
+  stats enable
+  stats uri     /haproxy?stats
+  stats realm   Haproxy\ Statistics
+  stats auth    haproxy:stats
+
+  # Create a monitorable URI which returns a 200 if haproxy is up
+  # monitor-uri /haproxy?monitor
+
+  # Amount of time after which a health check is considered to have timed out
+  timeout check 5000
+&quot;</span>
+
+    <span class="ruby-comment"># Create the sites enabled folder</span>
+    <span class="ruby-keyword">unless</span> <span class="ruby-constant">File</span>.<span class="ruby-identifier">exists?</span> <span class="ruby-constant">SITES_ENABLED_PATH</span>
+      <span class="ruby-constant">FileUtils</span>.<span class="ruby-identifier">mkdir_p</span> <span class="ruby-constant">SITES_ENABLED_PATH</span>
+    <span class="ruby-keyword">end</span>
+    
+    <span class="ruby-comment"># Write the base configuration file which sets default configuration parameters</span>
+    <span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-constant">BASE_CONFIG_FILE</span>, <span class="ruby-string">&quot;w+&quot;</span>) { <span class="ruby-operator">|</span><span class="ruby-identifier">dest_file</span><span class="ruby-operator">|</span> <span class="ruby-identifier">dest_file</span>.<span class="ruby-identifier">write</span>(<span class="ruby-identifier">base_config</span>) }
+  <span class="ruby-keyword">end</span></pre>
+          </div><!-- initialize_config-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- initialize_config-method -->
 
     
-      <div id="is_running-3F-method" class="method-detail ">
-        <a name="method-c-is_running-3F"></a>
-
+      <div id="method-c-is_running-3F" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">is_running?</span><span
@@ -566,31 +625,27 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="is_running-3F-source">
-<pre>
-<span class="ruby-comment"># File lib/haproxy.rb, line 60</span>
-def self.is_running?
-  processes = `ps ax | grep haproxy | grep -v grep | wc -l`.chomp
-  if processes == <span class="ruby-string">&quot;0&quot;</span>
-    return false
-  else
-    return true
-  end
-end</pre>
-          </div>
+          <div class="method-source-code" id="is_running-3F-source">
+            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 60</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">is_running?</span>
+  <span class="ruby-identifier">processes</span> = <span class="ruby-value">%xps ax | grep haproxy | grep -v grep | wc -l`</span>.<span class="ruby-identifier">chomp</span>
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">processes</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;0&quot;</span>
+    <span class="ruby-keyword">return</span> <span class="ruby-keyword">false</span>
+  <span class="ruby-keyword">else</span>
+    <span class="ruby-keyword">return</span> <span class="ruby-keyword">true</span>
+  <span class="ruby-keyword">end</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- is_running-3F-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- is_running-3F-method -->
 
     
-      <div id="regenerate_config-method" class="method-detail ">
-        <a name="method-c-regenerate_config"></a>
-
+      <div id="method-c-regenerate_config" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">regenerate_config</span><span
@@ -606,51 +661,47 @@ provide an file include option we emulate that functionality here.</p>
           
 
           
-          <div class="method-source-code"
-            id="regenerate_config-source">
-<pre>
-<span class="ruby-comment"># File lib/haproxy.rb, line 108</span>
-def self.regenerate_config
-  conf = <span class="ruby-constant">File</span>.open(<span class="ruby-constant">MAIN_CONFIG_FILE</span>,<span class="ruby-string">&quot;w+&quot;</span>)
+          <div class="method-source-code" id="regenerate_config-source">
+            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 108</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">regenerate_config</span>
+  <span class="ruby-identifier">conf</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-constant">MAIN_CONFIG_FILE</span>,<span class="ruby-string">&quot;w+&quot;</span>)
   
   <span class="ruby-comment"># Start by writing in the base file</span>
-  <span class="ruby-constant">File</span>.open(<span class="ruby-constant">BASE_CONFIG_FILE</span>, <span class="ruby-string">&quot;r&quot;</span>) do |base|
-    conf.write(base.read())
-  end
+  <span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-constant">BASE_CONFIG_FILE</span>, <span class="ruby-string">&quot;r&quot;</span>) <span class="ruby-keyword">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">base</span><span class="ruby-operator">|</span>
+    <span class="ruby-identifier">conf</span>.<span class="ruby-identifier">write</span>(<span class="ruby-identifier">base</span>.<span class="ruby-identifier">read</span>())
+  <span class="ruby-keyword">end</span>
 
-  sites = <span class="ruby-constant">Dir</span>.entries(<span class="ruby-constant">SITES_ENABLED_PATH</span>)
+  <span class="ruby-identifier">sites</span> = <span class="ruby-constant">Dir</span>.<span class="ruby-identifier">entries</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>)
   <span class="ruby-comment"># Remove any files that are not configs</span>
-  sites.delete_if { |site| !site.end_with?(<span class="ruby-constant">CONFIG_EXTENSION</span>) }
+  <span class="ruby-identifier">sites</span>.<span class="ruby-identifier">delete_if</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">site</span><span class="ruby-operator">|</span> <span class="ruby-operator">!</span><span class="ruby-identifier">site</span>.<span class="ruby-identifier">end_with?</span>(<span class="ruby-constant">CONFIG_EXTENSION</span>) }
 
-  sites.sort!
+  <span class="ruby-identifier">sites</span>.<span class="ruby-identifier">sort!</span>
 
   <span class="ruby-comment"># Append each one of the configs into the main one</span>
-  sites.each do |site|
-    conf.write(<span class="ruby-string">&quot;\n&quot;</span>)
-    <span class="ruby-constant">File</span>.open(<span class="ruby-constant">File</span>.join(<span class="ruby-constant">SITES_ENABLED_PATH</span>, site), <span class="ruby-string">&quot;r&quot;</span>) do |site_config|
-      conf.write(site_config.read())
-    end
-    conf.write(<span class="ruby-string">&quot;\n&quot;</span>)
-  end
+  <span class="ruby-identifier">sites</span>.<span class="ruby-identifier">each</span> <span class="ruby-keyword">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">site</span><span class="ruby-operator">|</span>
+    <span class="ruby-identifier">conf</span>.<span class="ruby-identifier">write</span>(<span class="ruby-string">&quot;\n&quot;</span>)
+    <span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-constant">File</span>.<span class="ruby-identifier">join</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>, <span class="ruby-identifier">site</span>), <span class="ruby-string">&quot;r&quot;</span>) <span class="ruby-keyword">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">site_config</span><span class="ruby-operator">|</span>
+      <span class="ruby-identifier">conf</span>.<span class="ruby-identifier">write</span>(<span class="ruby-identifier">site_config</span>.<span class="ruby-identifier">read</span>())
+    <span class="ruby-keyword">end</span>
+    <span class="ruby-identifier">conf</span>.<span class="ruby-identifier">write</span>(<span class="ruby-string">&quot;\n&quot;</span>)
+  <span class="ruby-keyword">end</span>
 
-  conf.close()
+  <span class="ruby-identifier">conf</span>.<span class="ruby-identifier">close</span>()
   
   <span class="ruby-comment"># Restart haproxy since we have changed the config</span>
-  <span class="ruby-constant">HAProxy</span>.restart
-end</pre>
-          </div>
+  <span class="ruby-constant">HAProxy</span>.<span class="ruby-identifier">restart</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- regenerate_config-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- regenerate_config-method -->
 
     
-      <div id="reload-method" class="method-detail ">
-        <a name="method-c-reload"></a>
-
+      <div id="method-c-reload" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">reload</span><span
@@ -665,26 +716,22 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="reload-source">
-<pre>
-<span class="ruby-comment"># File lib/haproxy.rb, line 56</span>
-def self.reload
-  `service haproxy reload`
-end</pre>
-          </div>
+          <div class="method-source-code" id="reload-source">
+            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 56</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">reload</span>
+  <span class="ruby-value">%xservice haproxy reload`</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- reload-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- reload-method -->
 
     
-      <div id="remove_app-method" class="method-detail ">
-        <a name="method-c-remove_app"></a>
-
+      <div id="method-c-remove_app" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">remove_app</span><span
@@ -699,28 +746,24 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="remove_app-source">
-<pre>
-<span class="ruby-comment"># File lib/haproxy.rb, line 164</span>
-def self.remove_app(app_name)
-  config_name = &quot;gae_#{app_name}.#{CONFIG_EXTENSION}&quot;
-  <span class="ruby-constant">FileUtils</span>.rm(<span class="ruby-constant">File</span>.join(<span class="ruby-constant">SITES_ENABLED_PATH</span>, config_name))
-  <span class="ruby-constant">HAProxy</span>.regenerate_config
-end</pre>
-          </div>
+          <div class="method-source-code" id="remove_app-source">
+            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 195</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">remove_app</span>(<span class="ruby-identifier">app_name</span>)
+  <span class="ruby-identifier">config_name</span> = <span class="ruby-node">&quot;gae_#{app_name}.#{CONFIG_EXTENSION}&quot;</span>
+  <span class="ruby-constant">FileUtils</span>.<span class="ruby-identifier">rm</span>(<span class="ruby-constant">File</span>.<span class="ruby-identifier">join</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>, <span class="ruby-identifier">config_name</span>))
+  <span class="ruby-constant">HAProxy</span>.<span class="ruby-identifier">regenerate_config</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- remove_app-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- remove_app-method -->
 
     
-      <div id="restart-method" class="method-detail ">
-        <a name="method-c-restart"></a>
-
+      <div id="method-c-restart" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">restart</span><span
@@ -735,26 +778,22 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="restart-source">
-<pre>
-<span class="ruby-comment"># File lib/haproxy.rb, line 52</span>
-def self.restart
-  `service haproxy restart`
-end</pre>
-          </div>
+          <div class="method-source-code" id="restart-source">
+            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 52</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">restart</span>
+  <span class="ruby-value">%xservice haproxy restart`</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- restart-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- restart-method -->
 
     
-      <div id="server_config-method" class="method-detail ">
-        <a name="method-c-server_config"></a>
-
+      <div id="method-c-server_config" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">server_config</span><span
@@ -769,26 +808,22 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="server_config-source">
-<pre>
-<span class="ruby-comment"># File lib/haproxy.rb, line 138</span>
-def self.server_config app_name, index, ip, port
-  &quot;  server #{app_name}-#{index} #{ip}:#{port} #{SERVER_OPTIONS}&quot;
-end</pre>
-          </div>
+          <div class="method-source-code" id="server_config-source">
+            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 138</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">server_config</span> <span class="ruby-identifier">app_name</span>, <span class="ruby-identifier">index</span>, <span class="ruby-identifier">ip</span>, <span class="ruby-identifier">port</span>
+  <span class="ruby-node">&quot;  server #{app_name}-#{index} #{ip}:#{port} #{SERVER_OPTIONS}&quot;</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- server_config-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- server_config-method -->
 
     
-      <div id="stop-method" class="method-detail ">
-        <a name="method-c-stop"></a>
-
+      <div id="method-c-stop" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">stop</span><span
@@ -803,26 +838,78 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="stop-source">
-<pre>
-<span class="ruby-comment"># File lib/haproxy.rb, line 48</span>
-def self.stop
-  `service haproxy stop`
-end</pre>
-          </div>
+          <div class="method-source-code" id="stop-source">
+            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 48</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">stop</span>
+  <span class="ruby-value">%xservice haproxy stop`</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- stop-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- stop-method -->
 
     
-      <div id="write_app_config-method" class="method-detail ">
-        <a name="method-c-write_app_config"></a>
+      <div id="method-c-update_app_config" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">update_app_config</span><span
+            class="method-args">(app_name, app_number, ports, public_ip)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
 
+        <div class="method-description">
+          
+          <p>Updates the <a href="HAProxy.html">HAProxy</a> config file for this App
+Engine application to point to all the ports currently the application. In
+contrast with <a
+href="HAProxy.html#method-c-write_app_config">::write_app_config</a>, these
+ports can be non-contiguous. TODO(cgb): Lots of copypasta here with <a
+href="HAProxy.html#method-c-write_app_config">::write_app_config</a> -
+eliminate it.</p>
+          
+
+          
+          <div class="method-source-code" id="update_app_config-source">
+            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 170</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">update_app_config</span>(<span class="ruby-identifier">app_name</span>, <span class="ruby-identifier">app_number</span>, <span class="ruby-identifier">ports</span>, <span class="ruby-identifier">public_ip</span>)
+  <span class="ruby-comment"># Add a prefix to the app name to avoid collisions with non-GAE apps</span>
+  <span class="ruby-identifier">full_app_name</span> = <span class="ruby-node">&quot;gae_#{app_name}&quot;</span>
+  <span class="ruby-identifier">index</span> = <span class="ruby-value">0</span>
+  <span class="ruby-identifier">servers</span> = []
+
+  <span class="ruby-identifier">ports</span>.<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">port</span><span class="ruby-operator">|</span>
+    <span class="ruby-identifier">server</span> = <span class="ruby-constant">HAProxy</span>.<span class="ruby-identifier">server_config</span>(<span class="ruby-identifier">full_app_name</span>, <span class="ruby-identifier">index</span>, <span class="ruby-identifier">public_ip</span>, <span class="ruby-identifier">port</span>)
+    <span class="ruby-identifier">index</span> <span class="ruby-operator">+=</span> <span class="ruby-value">1</span>
+    <span class="ruby-identifier">servers</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">server</span>
+  }
+
+  <span class="ruby-identifier">listen_port</span> = <span class="ruby-constant">HAProxy</span>.<span class="ruby-identifier">app_listen_port</span>(<span class="ruby-identifier">app_number</span>)
+  <span class="ruby-identifier">config</span> = <span class="ruby-node">&quot;# Create a load balancer for the app #{app_name} \n&quot;</span>
+  <span class="ruby-identifier">config</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-node">&quot;listen #{full_app_name} #{public_ip}:#{listen_port} \n&quot;</span>
+  <span class="ruby-identifier">config</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">servers</span>.<span class="ruby-identifier">join</span>(<span class="ruby-string">&quot;\n&quot;</span>)
+
+  <span class="ruby-identifier">config_path</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">join</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>, 
+    <span class="ruby-node">&quot;#{full_app_name}.#{CONFIG_EXTENSION}&quot;</span>)
+  <span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-identifier">config_path</span>, <span class="ruby-string">&quot;w+&quot;</span>) { <span class="ruby-operator">|</span><span class="ruby-identifier">dest_file</span><span class="ruby-operator">|</span> <span class="ruby-identifier">dest_file</span>.<span class="ruby-identifier">write</span>(<span class="ruby-identifier">config</span>) }
+ 
+  <span class="ruby-constant">HAProxy</span>.<span class="ruby-identifier">regenerate_config</span>()
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- update_app_config-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- update_app_config-method -->
+
+    
+      <div id="method-c-write_app_config" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">write_app_config</span><span
@@ -837,52 +924,50 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="write_app_config-source">
-<pre>
-<span class="ruby-comment"># File lib/haproxy.rb, line 142</span>
-def self.write_app_config(app_name, app_number, num_of_servers, ip)
+          <div class="method-source-code" id="write_app_config-source">
+            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 142</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">write_app_config</span>(<span class="ruby-identifier">app_name</span>, <span class="ruby-identifier">app_number</span>, <span class="ruby-identifier">num_of_servers</span>, <span class="ruby-identifier">ip</span>)
   <span class="ruby-comment"># Add a prefix to the app name to avoid possible conflicts</span>
-  full_app_name = &quot;gae_#{app_name}&quot;
+  <span class="ruby-identifier">full_app_name</span> = <span class="ruby-node">&quot;gae_#{app_name}&quot;</span>
 
-  servers = []
-  num_of_servers.times do |index|
-    port = <span class="ruby-constant">HelperFunctions</span>.application_port(app_number, index, num_of_servers)
-    server = <span class="ruby-constant">HAProxy</span>.server_config(full_app_name, index, ip, port)
-    servers &lt;&lt; server
-  end
+  <span class="ruby-identifier">servers</span> = []
+  <span class="ruby-identifier">num_of_servers</span>.<span class="ruby-identifier">times</span> <span class="ruby-keyword">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">index</span><span class="ruby-operator">|</span>
+    <span class="ruby-identifier">port</span> = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">application_port</span>(<span class="ruby-identifier">app_number</span>, <span class="ruby-identifier">index</span>, <span class="ruby-identifier">num_of_servers</span>)
+    <span class="ruby-identifier">server</span> = <span class="ruby-constant">HAProxy</span>.<span class="ruby-identifier">server_config</span>(<span class="ruby-identifier">full_app_name</span>, <span class="ruby-identifier">index</span>, <span class="ruby-identifier">ip</span>, <span class="ruby-identifier">port</span>)
+    <span class="ruby-identifier">servers</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">server</span>
+  <span class="ruby-keyword">end</span>
 
-  listen_port = <span class="ruby-constant">HAProxy</span>.app_listen_port(app_number)
-  config = &quot;# Create a load balancer for the app #{app_name} \n&quot;
-  config &lt;&lt; &quot;listen #{full_app_name} #{ip}:#{listen_port} \n&quot;
-  config &lt;&lt; servers.join(<span class="ruby-string">&quot;\n&quot;</span>)
+  <span class="ruby-identifier">listen_port</span> = <span class="ruby-constant">HAProxy</span>.<span class="ruby-identifier">app_listen_port</span>(<span class="ruby-identifier">app_number</span>)
+  <span class="ruby-identifier">config</span> = <span class="ruby-node">&quot;# Create a load balancer for the app #{app_name} \n&quot;</span>
+  <span class="ruby-identifier">config</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-node">&quot;listen #{full_app_name} #{ip}:#{listen_port} \n&quot;</span>
+  <span class="ruby-identifier">config</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">servers</span>.<span class="ruby-identifier">join</span>(<span class="ruby-string">&quot;\n&quot;</span>)
 
-  config_path = <span class="ruby-constant">File</span>.join(<span class="ruby-constant">SITES_ENABLED_PATH</span>, &quot;#{full_app_name}.#{CONFIG_EXTENSION}&quot;)
-  <span class="ruby-constant">File</span>.open(config_path, <span class="ruby-string">&quot;w+&quot;</span>) { |dest_file| dest_file.write(config) }
+  <span class="ruby-identifier">config_path</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">join</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>, 
+    <span class="ruby-node">&quot;#{full_app_name}.#{CONFIG_EXTENSION}&quot;</span>)
+  <span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-identifier">config_path</span>, <span class="ruby-string">&quot;w+&quot;</span>) { <span class="ruby-operator">|</span><span class="ruby-identifier">dest_file</span><span class="ruby-operator">|</span> <span class="ruby-identifier">dest_file</span>.<span class="ruby-identifier">write</span>(<span class="ruby-identifier">config</span>) }
 
-  <span class="ruby-constant">HAProxy</span>.regenerate_config
-end</pre>
-          </div>
+  <span class="ruby-constant">HAProxy</span>.<span class="ruby-identifier">regenerate_config</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- write_app_config-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- write_app_config-method -->
 
     
-    </div>
+    </section><!-- public-class-method-details -->
   
+  </section><!-- 5Buntitled-5D -->
 
-  </div>
+</div><!-- documentation -->
 
-  <div id="validator-badges">
-    <p><small><a href="http://validator.w3.org/check/referer">[Validate]</a></small></p>
-    <p><small>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish
-      Rdoc Generator</a> 2</small>.</p>
-  </div>
 
-</body>
-</html>
+<footer id="validator-badges">
+  <p><a href="http://validator.w3.org/check/referer">[Validate]</a>
+  <p>Generated by <a href="https://github.com/rdoc/rdoc">RDoc</a> 3.12.
+  <p>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish Rdoc Generator</a> 3.
+</footer>
 

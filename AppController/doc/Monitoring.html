@@ -1,261 +1,282 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<!DOCTYPE html>
+
+<html>
 <head>
-  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+<meta content="text/html; charset=UTF-8" http-equiv="Content-Type">
 
-  <title>Module: Monitoring</title>
+<title>module Monitoring - RDoc Documentation</title>
 
-  <link rel="stylesheet" href="./rdoc.css" type="text/css" media="screen" />
+<link type="text/css" media="screen" href="./rdoc.css" rel="stylesheet">
 
-  <script src="./js/jquery.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/thickbox-compressed.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/quicksearch.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/darkfish.js" type="text/javascript"
-    charset="utf-8"></script>
+<script type="text/javascript">
+  var rdoc_rel_prefix = "./";
+</script>
 
-</head>
-<body class="module">
+<script type="text/javascript" charset="utf-8" src="./js/jquery.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/navigation.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/search_index.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/search.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/searcher.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/darkfish.js"></script>
 
-  <div id="metadata">
-    <div id="home-metadata">
-      <div id="home-section" class="section">
-        <h3 class="section-header">
-          <a href="./index.html">Home</a>
-          <a href="./index.html#classes">Classes</a>
-          <a href="./index.html#methods">Methods</a>
-        </h3>
-      </div>
-    </div>
 
-    <div id="file-metadata">
-      <div id="file-list-section" class="section">
-        <h3 class="section-header">In Files</h3>
-        <div class="section-body">
-          <ul>
-          
-            <li><a href="./lib/monitoring_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
-              class="thickbox" title="lib/monitoring.rb">lib/monitoring.rb</a></li>
-          
-          </ul>
-        </div>
-      </div>
+<body id="top" class="module">
+<nav id="metadata">
+  <nav id="home-section" class="section">
+  <h3 class="section-header">
+    <a href="./index.html">Home</a>
+    <a href="./table_of_contents.html#classes">Classes</a>
+    <a href="./table_of_contents.html#methods">Methods</a>
+  </h3>
+</nav>
 
-      
-    </div>
 
-    <div id="class-metadata">
+  <nav id="search-section" class="section project-section" class="initially-hidden">
+  <form action="#" method="get" accept-charset="utf-8">
+    <h3 class="section-header">
+      <input type="text" name="search" placeholder="Search" id="search-field"
+             title="Type to search, Up and Down to navigate, Enter to load">
+    </h3>
+  </form>
 
-      <!-- Parent Class -->
-      
+  <ul id="search-results" class="initially-hidden"></ul>
+</nav>
 
-      <!-- Namespace Contents -->
-      
 
-      <!-- Method Quickref -->
-      
-      <div id="method-list-section" class="section">
-        <h3 class="section-header">Methods</h3>
-        <ul class="link-list">
-          
-          <li><a href="#method-c-listen_port">::listen_port</a></li>
-          
-          <li><a href="#method-c-name">::name</a></li>
-          
-          <li><a href="#method-c-proxy_port">::proxy_port</a></li>
-          
-          <li><a href="#method-c-public_directory">::public_directory</a></li>
-          
-          <li><a href="#method-c-reset">::reset</a></li>
-          
-          <li><a href="#method-c-restart">::restart</a></li>
-          
-          <li><a href="#method-c-server_ports">::server_ports</a></li>
-          
-          <li><a href="#method-c-start">::start</a></li>
-          
-          <li><a href="#method-c-stop">::stop</a></li>
-          
-        </ul>
-      </div>
-      
+  <div id="file-metadata">
+    <nav id="file-list-section" class="section">
+  <h3 class="section-header">Defined In</h3>
+  <ul>
+    <li>lib/monitoring.rb
+  </ul>
+</nav>
 
-      <!-- Included Modules -->
-      
-    </div>
-
-    <div id="project-metadata">
-      
-      
-
-      <div id="classindex-section" class="section project-section">
-        <h3 class="section-header">Class/Module Index
-          <span class="search-toggle"><img src="./images/find.png"
-            height="16" width="16" alt="[+]"
-            title="show/hide quicksearch" /></span></h3>
-        <form action="#" method="get" accept-charset="utf-8" class="initially-hidden">
-        <fieldset>
-          <legend>Quicksearch</legend>
-          <input type="text" name="quicksearch" value=""
-            class="quicksearch-field" />
-        </fieldset>
-        </form>
-
-        <ul class="link-list">
-        
-          <li><a href="./AppControllerClient.html">AppControllerClient</a></li>
-        
-          <li><a href="./BadConfigurationException.html">BadConfigurationException</a></li>
-        
-          <li><a href="./BlobServer.html">BlobServer</a></li>
-        
-          <li><a href="./Collectd.html">Collectd</a></li>
-        
-          <li><a href="./CronHelper.html">CronHelper</a></li>
-        
-          <li><a href="./Datastore.html">Datastore</a></li>
-        
-          <li><a href="./DatastoreFactory.html">DatastoreFactory</a></li>
-        
-          <li><a href="./DatastoreRepo.html">DatastoreRepo</a></li>
-        
-          <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a></li>
-        
-          <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a></li>
-        
-          <li><a href="./DatastoreS3.html">DatastoreS3</a></li>
-        
-          <li><a href="./Djinn.html">Djinn</a></li>
-        
-          <li><a href="./DjinnJobData.html">DjinnJobData</a></li>
-        
-          <li><a href="./DjinnServer.html">DjinnServer</a></li>
-        
-          <li><a href="./Ejabberd.html">Ejabberd</a></li>
-        
-          <li><a href="./EngineFactory.html">EngineFactory</a></li>
-        
-          <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a></li>
-        
-          <li><a href="./GodInterface.html">GodInterface</a></li>
-        
-          <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a></li>
-        
-          <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a></li>
-        
-          <li><a href="./HAProxy.html">HAProxy</a></li>
-        
-          <li><a href="./HelperFunctions.html">HelperFunctions</a></li>
-        
-          <li><a href="./JSONClient.html">JSONClient</a></li>
-        
-          <li><a href="./LoadBalancer.html">LoadBalancer</a></li>
-        
-          <li><a href="./Monitoring.html">Monitoring</a></li>
-        
-          <li><a href="./NeptuneJobData.html">NeptuneJobData</a></li>
-        
-          <li><a href="./Nginx.html">Nginx</a></li>
-        
-          <li><a href="./Object.html">Object</a></li>
-        
-          <li><a href="./PbServer.html">PbServer</a></li>
-        
-          <li><a href="./QueueFactory.html">QueueFactory</a></li>
-        
-          <li><a href="./RabbitMQ.html">RabbitMQ</a></li>
-        
-          <li><a href="./Repo.html">Repo</a></li>
-        
-          <li><a href="./TaskEngine.html">TaskEngine</a></li>
-        
-          <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a></li>
-        
-          <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a></li>
-        
-          <li><a href="./TaskQueue.html">TaskQueue</a></li>
-        
-          <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a></li>
-        
-          <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a></li>
-        
-          <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a></li>
-        
-          <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a></li>
-        
-          <li><a href="./UserAppClient.html">UserAppClient</a></li>
-        
-          <li><a href="./ZKInterface.html">ZKInterface</a></li>
-        
-        </ul>
-        <div id="no-class-search-results" style="display: none;">No matching classes.</div>
-      </div>
-
-      
-    </div>
+    
   </div>
 
-  <div id="documentation">
-    <h1 class="module">Monitoring</h1>
+  <div id="class-metadata">
+    
+    
+    
+    <!-- Method Quickref -->
+<nav id="method-list-section" class="section">
+  <h3 class="section-header">Methods</h3>
 
-    <div id="description">
-      
+  <ul class="link-list">
+    
+    <li><a href="#method-c-listen_port">::listen_port</a>
+    
+    <li><a href="#method-c-name">::name</a>
+    
+    <li><a href="#method-c-proxy_port">::proxy_port</a>
+    
+    <li><a href="#method-c-public_directory">::public_directory</a>
+    
+    <li><a href="#method-c-reset">::reset</a>
+    
+    <li><a href="#method-c-restart">::restart</a>
+    
+    <li><a href="#method-c-server_ports">::server_ports</a>
+    
+    <li><a href="#method-c-start">::start</a>
+    
+    <li><a href="#method-c-stop">::stop</a>
+    
+  </ul>
+</nav>
+
+  </div>
+
+  <div id="project-metadata">
+    
+    <nav id="classindex-section" class="section project-section">
+  <h3 class="section-header">Class and Module Index</h3>
+
+  <ul class="link-list">
+  
+    <li><a href="./AppControllerClient.html">AppControllerClient</a>
+  
+    <li><a href="./AppScaleException.html">AppScaleException</a>
+  
+    <li><a href="./BadConfigurationException.html">BadConfigurationException</a>
+  
+    <li><a href="./BlobServer.html">BlobServer</a>
+  
+    <li><a href="./Collectd.html">Collectd</a>
+  
+    <li><a href="./CronHelper.html">CronHelper</a>
+  
+    <li><a href="./Datastore.html">Datastore</a>
+  
+    <li><a href="./DatastoreFactory.html">DatastoreFactory</a>
+  
+    <li><a href="./DatastoreRepo.html">DatastoreRepo</a>
+  
+    <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a>
+  
+    <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a>
+  
+    <li><a href="./DatastoreS3.html">DatastoreS3</a>
+  
+    <li><a href="./Djinn.html">Djinn</a>
+  
+    <li><a href="./DjinnJobData.html">DjinnJobData</a>
+  
+    <li><a href="./DjinnServer.html">DjinnServer</a>
+  
+    <li><a href="./Ejabberd.html">Ejabberd</a>
+  
+    <li><a href="./EngineFactory.html">EngineFactory</a>
+  
+    <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a>
+  
+    <li><a href="./GodInterface.html">GodInterface</a>
+  
+    <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a>
+  
+    <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a>
+  
+    <li><a href="./HAProxy.html">HAProxy</a>
+  
+    <li><a href="./HelperFunctions.html">HelperFunctions</a>
+  
+    <li><a href="./InfrastructureManagerClient.html">InfrastructureManagerClient</a>
+  
+    <li><a href="./JSONClient.html">JSONClient</a>
+  
+    <li><a href="./LoadBalancer.html">LoadBalancer</a>
+  
+    <li><a href="./Monitoring.html">Monitoring</a>
+  
+    <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
+  
+    <li><a href="./NeptuneManager.html">NeptuneManager</a>
+  
+    <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
+  
+    <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
+  
+    <li><a href="./Nginx.html">Nginx</a>
+  
+    <li><a href="./Object.html">Object</a>
+  
+    <li><a href="./PbServer.html">PbServer</a>
+  
+    <li><a href="./QueueFactory.html">QueueFactory</a>
+  
+    <li><a href="./RabbitMQ.html">RabbitMQ</a>
+  
+    <li><a href="./Repo.html">Repo</a>
+  
+    <li><a href="./TaskEngine.html">TaskEngine</a>
+  
+    <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a>
+  
+    <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a>
+  
+    <li><a href="./TaskQueue.html">TaskQueue</a>
+  
+    <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a>
+  
+    <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a>
+  
+    <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a>
+  
+    <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a>
+  
+    <li><a href="./TestAppScaleHelper.html">TestAppScaleHelper</a>
+  
+    <li><a href="./TestBabelHelper.html">TestBabelHelper</a>
+  
+    <li><a href="./TestCiceroHelper.html">TestCiceroHelper</a>
+  
+    <li><a href="./TestDatastore.html">TestDatastore</a>
+  
+    <li><a href="./TestNeptuneJobData.html">TestNeptuneJobData</a>
+  
+    <li><a href="./TestNeptuneManager.html">TestNeptuneManager</a>
+  
+    <li><a href="./TestTaskQueue.html">TestTaskQueue</a>
+  
+    <li><a href="./UserAppClient.html">UserAppClient</a>
+  
+    <li><a href="./ZKInterface.html">ZKInterface</a>
+  
+    <li><a href="./ZooKeeperLockException.html">ZooKeeperLockException</a>
+  
+  </ul>
+</nav>
+
+  </div>
+</nav>
+
+<div id="documentation">
+  <h1 class="module">module Monitoring</h1>
+
+  <div id="description" class="description">
+    
 <p>Monitr is a Ruby on Rails application that displays system information
 written by collectd. This module configures and deploys that service.</p>
 
-    </div>
+  </div><!-- description -->
 
-    <!-- Constants -->
+  
+  
+  
+  <section id="5Buntitled-5D" class="documentation-section">
     
-    <div id="constants-list" class="section">
+
+    
+
+    
+    <!-- Constants -->
+    <section id="constants-list" class="section">
       <h3 class="section-header">Constants</h3>
       <dl>
       
-        <dt><a name="SERVER_PORTS">SERVER_PORTS</a></dt>
+        <dt id="APPSCALE_HOME">APPSCALE_HOME
         
-        <dd class="description"></dd>
-        
-      
-        <dt><a name="PROXY_PORT">PROXY_PORT</a></dt>
-        
-        <dd class="description"><p>The port which nginx will use to send requests to haproxy</p></dd>
+        <dd class="description">
         
       
-        <dt><a name="LISTEN_PORT">LISTEN_PORT</a></dt>
+        <dt id="ENVIRONMENT">ENVIRONMENT
         
-        <dd class="description"><p>The port which requests to this app will be served from</p></dd>
-        
-      
-        <dt><a name="ENVIRONMENT">ENVIRONMENT</a></dt>
-        
-        <dd class="description"></dd>
+        <dd class="description">
         
       
-        <dt><a name="RAILS_ROOT">RAILS_ROOT</a></dt>
+        <dt id="LISTEN_PORT">LISTEN_PORT
         
-        <dd class="description"></dd>
+        <dd class="description"><p>The port which requests to this app will be served from</p>
+        
+      
+        <dt id="PROXY_PORT">PROXY_PORT
+        
+        <dd class="description"><p>The port which nginx will use to send requests to haproxy</p>
+        
+      
+        <dt id="RAILS_ROOT">RAILS_ROOT
+        
+        <dd class="description">
+        
+      
+        <dt id="SERVER_PORTS">SERVER_PORTS
+        
+        <dd class="description">
         
       
       </dl>
-    </div>
+    </section>
     
 
-    <!-- Attributes -->
     
 
     <!-- Methods -->
     
-    <div id="public-class-method-details" class="method-section section">
+     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Class Methods</h3>
 
     
-      <div id="listen_port-method" class="method-detail ">
-        <a name="method-c-listen_port"></a>
-
+      <div id="method-c-listen_port" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">listen_port</span><span
@@ -270,26 +291,22 @@ written by collectd. This module configures and deploys that service.</p>
           
 
           
-          <div class="method-source-code"
-            id="listen_port-source">
-<pre>
-<span class="ruby-comment"># File lib/monitoring.rb, line 62</span>
-def self.listen_port
+          <div class="method-source-code" id="listen_port-source">
+            <pre><span class="ruby-comment"># File lib/monitoring.rb, line 65</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">listen_port</span>
   <span class="ruby-constant">LISTEN_PORT</span>
-end</pre>
-          </div>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- listen_port-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- listen_port-method -->
 
     
-      <div id="name-method" class="method-detail ">
-        <a name="method-c-name"></a>
-
+      <div id="method-c-name" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">name</span><span
@@ -304,26 +321,22 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="name-source">
-<pre>
-<span class="ruby-comment"># File lib/monitoring.rb, line 54</span>
-def self.name
+          <div class="method-source-code" id="name-source">
+            <pre><span class="ruby-comment"># File lib/monitoring.rb, line 57</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">name</span>
   <span class="ruby-string">&quot;as_mon&quot;</span>
-end</pre>
-          </div>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- name-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- name-method -->
 
     
-      <div id="proxy_port-method" class="method-detail ">
-        <a name="method-c-proxy_port"></a>
-
+      <div id="method-c-proxy_port" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">proxy_port</span><span
@@ -338,26 +351,22 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="proxy_port-source">
-<pre>
-<span class="ruby-comment"># File lib/monitoring.rb, line 70</span>
-def self.proxy_port
+          <div class="method-source-code" id="proxy_port-source">
+            <pre><span class="ruby-comment"># File lib/monitoring.rb, line 73</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">proxy_port</span>
   <span class="ruby-constant">PROXY_PORT</span>
-end</pre>
-          </div>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- proxy_port-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- proxy_port-method -->
 
     
-      <div id="public_directory-method" class="method-detail ">
-        <a name="method-c-public_directory"></a>
-
+      <div id="method-c-public_directory" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">public_directory</span><span
@@ -372,26 +381,22 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="public_directory-source">
-<pre>
-<span class="ruby-comment"># File lib/monitoring.rb, line 58</span>
-def self.public_directory
-  &quot;#{APPSCALE_HOME}/AppMonitoring/public&quot;
-end</pre>
-          </div>
+          <div class="method-source-code" id="public_directory-source">
+            <pre><span class="ruby-comment"># File lib/monitoring.rb, line 61</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">public_directory</span>
+  <span class="ruby-node">&quot;#{APPSCALE_HOME}/AppMonitoring/public&quot;</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- public_directory-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- public_directory-method -->
 
     
-      <div id="reset-method" class="method-detail ">
-        <a name="method-c-reset"></a>
-
+      <div id="method-c-reset" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">reset</span><span
@@ -406,27 +411,23 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="reset-source">
-<pre>
-<span class="ruby-comment"># File lib/monitoring.rb, line 49</span>
-def self.reset
-  `cd #{APPSCALE_HOME}/AppMonitoring; #{ENVIRONMENT} rake db:drop;`
-  `cd #{APPSCALE_HOME}/AppMonitoring; #{ENVIRONMENT} rake db:migrate;`
-end</pre>
-          </div>
+          <div class="method-source-code" id="reset-source">
+            <pre><span class="ruby-comment"># File lib/monitoring.rb, line 52</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">reset</span>
+  <span class="ruby-node">%xcd #{APPSCALE_HOME}/AppMonitoring; #{ENVIRONMENT} rake db:drop;`</span>
+  <span class="ruby-node">%xcd #{APPSCALE_HOME}/AppMonitoring; #{ENVIRONMENT} rake db:migrate;`</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- reset-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- reset-method -->
 
     
-      <div id="restart-method" class="method-detail ">
-        <a name="method-c-restart"></a>
-
+      <div id="method-c-restart" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">restart</span><span
@@ -441,27 +442,23 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="restart-source">
-<pre>
-<span class="ruby-comment"># File lib/monitoring.rb, line 43</span>
-def self.restart
-  self.stop
-  self.start
-end</pre>
-          </div>
+          <div class="method-source-code" id="restart-source">
+            <pre><span class="ruby-comment"># File lib/monitoring.rb, line 46</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">restart</span>
+  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">stop</span>
+  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">start</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- restart-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- restart-method -->
 
     
-      <div id="server_ports-method" class="method-detail ">
-        <a name="method-c-server_ports"></a>
-
+      <div id="method-c-server_ports" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">server_ports</span><span
@@ -476,26 +473,22 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="server_ports-source">
-<pre>
-<span class="ruby-comment"># File lib/monitoring.rb, line 66</span>
-def self.server_ports
+          <div class="method-source-code" id="server_ports-source">
+            <pre><span class="ruby-comment"># File lib/monitoring.rb, line 69</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">server_ports</span>
   <span class="ruby-constant">SERVER_PORTS</span>
-end</pre>
-          </div>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- server_ports-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- server_ports-method -->
 
     
-      <div id="start-method" class="method-detail ">
-        <a name="method-c-start"></a>
-
+      <div id="method-c-start" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">start</span><span
@@ -510,34 +503,30 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="start-source">
-<pre>
-<span class="ruby-comment"># File lib/monitoring.rb, line 26</span>
-def self.start
-  env_vars = { <span class="ruby-string">&quot;RAILS_ENV&quot;</span> =&gt; <span class="ruby-string">&quot;production&quot;</span>, <span class="ruby-string">&quot;APPSCALE_HOME&quot;</span> =&gt; <span class="ruby-constant">APPSCALE_HOME</span> }
+          <div class="method-source-code" id="start-source">
+            <pre><span class="ruby-comment"># File lib/monitoring.rb, line 29</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">start</span>
+  <span class="ruby-identifier">env_vars</span> = { <span class="ruby-string">&quot;RAILS_ENV&quot;</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-string">&quot;production&quot;</span>, <span class="ruby-string">&quot;APPSCALE_HOME&quot;</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-constant">APPSCALE_HOME</span> }
 
-  <span class="ruby-constant">SERVER_PORTS</span>.each { |port|
-    start_cmd = &quot;/usr/bin/mongrel_rails start -c #{RAILS_ROOT} -e production -p #{port} &quot; +
-      &quot;-P #{RAILS_ROOT}/log/mongrel.#{port}.pid&quot;
-    stop_cmd = &quot;/usr/bin/mongrel_rails stop -P #{RAILS_ROOT}/log/mongrel.#{port}.pid&quot;
+  <span class="ruby-constant">SERVER_PORTS</span>.<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">port</span><span class="ruby-operator">|</span>
+    <span class="ruby-identifier">start_cmd</span> = <span class="ruby-node">&quot;/usr/bin/mongrel_rails start -c #{RAILS_ROOT} -e production -p #{port} &quot;</span> <span class="ruby-operator">+</span>
+      <span class="ruby-node">&quot;-P #{RAILS_ROOT}/log/mongrel.#{port}.pid&quot;</span>
+    <span class="ruby-identifier">stop_cmd</span> = <span class="ruby-node">&quot;/usr/bin/mongrel_rails stop -P #{RAILS_ROOT}/log/mongrel.#{port}.pid&quot;</span>
 
-    <span class="ruby-constant">GodInterface</span>.start(:monitr, start_cmd, stop_cmd, port, env_vars)
+    <span class="ruby-constant">GodInterface</span>.<span class="ruby-identifier">start</span>(<span class="ruby-value">:monitr</span>, <span class="ruby-identifier">start_cmd</span>, <span class="ruby-identifier">stop_cmd</span>, <span class="ruby-identifier">port</span>, <span class="ruby-identifier">env_vars</span>)
   }
-end</pre>
-          </div>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- start-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- start-method -->
 
     
-      <div id="stop-method" class="method-detail ">
-        <a name="method-c-stop"></a>
-
+      <div id="method-c-stop" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">stop</span><span
@@ -552,35 +541,32 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="stop-source">
-<pre>
-<span class="ruby-comment"># File lib/monitoring.rb, line 38</span>
-def self.stop
-  <span class="ruby-constant">GodInterface</span>.stop(:monitr)
+          <div class="method-source-code" id="stop-source">
+            <pre><span class="ruby-comment"># File lib/monitoring.rb, line 41</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">stop</span>
+  <span class="ruby-constant">GodInterface</span>.<span class="ruby-identifier">stop</span>(<span class="ruby-value">:monitr</span>)
   <span class="ruby-comment">#`service appscale-monitoring stop`</span>
-end</pre>
-          </div>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- stop-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- stop-method -->
 
     
-    </div>
+    </section><!-- public-class-method-details -->
   
+  </section><!-- 5Buntitled-5D -->
 
-  </div>
+</div><!-- documentation -->
 
-  <div id="validator-badges">
-    <p><small><a href="http://validator.w3.org/check/referer">[Validate]</a></small></p>
-    <p><small>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish
-      Rdoc Generator</a> 2</small>.</p>
-  </div>
 
-</body>
-</html>
+<footer id="validator-badges">
+  <p><a href="http://validator.w3.org/check/referer">[Validate]</a>
+  <p>Generated by <a href="https://github.com/rdoc/rdoc">RDoc</a> 3.12.
+  <p>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish Rdoc Generator</a> 3.
+</footer>
 

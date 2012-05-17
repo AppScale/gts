@@ -1,272 +1,295 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<!DOCTYPE html>
+
+<html>
 <head>
-  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+<meta content="text/html; charset=UTF-8" http-equiv="Content-Type">
 
-  <title>Class: UserAppClient</title>
+<title>class UserAppClient - RDoc Documentation</title>
 
-  <link rel="stylesheet" href="./rdoc.css" type="text/css" media="screen" />
+<link type="text/css" media="screen" href="./rdoc.css" rel="stylesheet">
 
-  <script src="./js/jquery.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/thickbox-compressed.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/quicksearch.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/darkfish.js" type="text/javascript"
-    charset="utf-8"></script>
+<script type="text/javascript">
+  var rdoc_rel_prefix = "./";
+</script>
 
-</head>
-<body class="class">
+<script type="text/javascript" charset="utf-8" src="./js/jquery.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/navigation.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/search_index.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/search.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/searcher.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/darkfish.js"></script>
 
-  <div id="metadata">
-    <div id="home-metadata">
-      <div id="home-section" class="section">
-        <h3 class="section-header">
-          <a href="./index.html">Home</a>
-          <a href="./index.html#classes">Classes</a>
-          <a href="./index.html#methods">Methods</a>
-        </h3>
-      </div>
-    </div>
 
-    <div id="file-metadata">
-      <div id="file-list-section" class="section">
-        <h3 class="section-header">In Files</h3>
-        <div class="section-body">
-          <ul>
-          
-            <li><a href="./lib/user_app_client_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
-              class="thickbox" title="lib/user_app_client.rb">lib/user_app_client.rb</a></li>
-          
-          </ul>
-        </div>
-      </div>
+<body id="top" class="class">
+<nav id="metadata">
+  <nav id="home-section" class="section">
+  <h3 class="section-header">
+    <a href="./index.html">Home</a>
+    <a href="./table_of_contents.html#classes">Classes</a>
+    <a href="./table_of_contents.html#methods">Methods</a>
+  </h3>
+</nav>
 
-      
-    </div>
 
-    <div id="class-metadata">
+  <nav id="search-section" class="section project-section" class="initially-hidden">
+  <form action="#" method="get" accept-charset="utf-8">
+    <h3 class="section-header">
+      <input type="text" name="search" placeholder="Search" id="search-field"
+             title="Type to search, Up and Down to navigate, Enter to load">
+    </h3>
+  </form>
 
-      <!-- Parent Class -->
-      
-      <div id="parent-class-section" class="section">
-        <h3 class="section-header">Parent</h3>
-        
-        <p class="link"><a href="Object.html">Object</a></p>
-        
-      </div>
-      
+  <ul id="search-results" class="initially-hidden"></ul>
+</nav>
 
-      <!-- Namespace Contents -->
-      
 
-      <!-- Method Quickref -->
-      
-      <div id="method-list-section" class="section">
-        <h3 class="section-header">Methods</h3>
-        <ul class="link-list">
-          
-          <li><a href="#method-c-new">::new</a></li>
-          
-          <li><a href="#method-i-add_instance">#add_instance</a></li>
-          
-          <li><a href="#method-i-change_password">#change_password</a></li>
-          
-          <li><a href="#method-i-commit_new_app">#commit_new_app</a></li>
-          
-          <li><a href="#method-i-commit_new_app_name">#commit_new_app_name</a></li>
-          
-          <li><a href="#method-i-commit_new_user">#commit_new_user</a></li>
-          
-          <li><a href="#method-i-commit_tar">#commit_tar</a></li>
-          
-          <li><a href="#method-i-delete_app">#delete_app</a></li>
-          
-          <li><a href="#method-i-delete_instance">#delete_instance</a></li>
-          
-          <li><a href="#method-i-does_app_exist-3F">#does_app_exist?</a></li>
-          
-          <li><a href="#method-i-does_user_exist-3F">#does_user_exist?</a></li>
-          
-          <li><a href="#method-i-get_all_apps">#get_all_apps</a></li>
-          
-          <li><a href="#method-i-get_all_users">#get_all_users</a></li>
-          
-          <li><a href="#method-i-get_app_data">#get_app_data</a></li>
-          
-          <li><a href="#method-i-get_cloud_admin">#get_cloud_admin</a></li>
-          
-          <li><a href="#method-i-get_hosts_for_app">#get_hosts_for_app</a></li>
-          
-          <li><a href="#method-i-get_tar">#get_tar</a></li>
-          
-          <li><a href="#method-i-get_user_data">#get_user_data</a></li>
-          
-          <li><a href="#method-i-is_app_uploaded-3F">#is_app_uploaded?</a></li>
-          
-          <li><a href="#method-i-is_user_cloud_admin-3F">#is_user_cloud_admin?</a></li>
-          
-          <li><a href="#method-i-make_call">#make_call</a></li>
-          
-        </ul>
-      </div>
-      
+  <div id="file-metadata">
+    <nav id="file-list-section" class="section">
+  <h3 class="section-header">Defined In</h3>
+  <ul>
+    <li>lib/user_app_client.rb
+    <li>../Neptune/lib/user_app_client.rb
+  </ul>
+</nav>
 
-      <!-- Included Modules -->
-      
-    </div>
-
-    <div id="project-metadata">
-      
-      
-
-      <div id="classindex-section" class="section project-section">
-        <h3 class="section-header">Class/Module Index
-          <span class="search-toggle"><img src="./images/find.png"
-            height="16" width="16" alt="[+]"
-            title="show/hide quicksearch" /></span></h3>
-        <form action="#" method="get" accept-charset="utf-8" class="initially-hidden">
-        <fieldset>
-          <legend>Quicksearch</legend>
-          <input type="text" name="quicksearch" value=""
-            class="quicksearch-field" />
-        </fieldset>
-        </form>
-
-        <ul class="link-list">
-        
-          <li><a href="./AppControllerClient.html">AppControllerClient</a></li>
-        
-          <li><a href="./BadConfigurationException.html">BadConfigurationException</a></li>
-        
-          <li><a href="./BlobServer.html">BlobServer</a></li>
-        
-          <li><a href="./Collectd.html">Collectd</a></li>
-        
-          <li><a href="./CronHelper.html">CronHelper</a></li>
-        
-          <li><a href="./Datastore.html">Datastore</a></li>
-        
-          <li><a href="./DatastoreFactory.html">DatastoreFactory</a></li>
-        
-          <li><a href="./DatastoreRepo.html">DatastoreRepo</a></li>
-        
-          <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a></li>
-        
-          <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a></li>
-        
-          <li><a href="./DatastoreS3.html">DatastoreS3</a></li>
-        
-          <li><a href="./Djinn.html">Djinn</a></li>
-        
-          <li><a href="./DjinnJobData.html">DjinnJobData</a></li>
-        
-          <li><a href="./DjinnServer.html">DjinnServer</a></li>
-        
-          <li><a href="./Ejabberd.html">Ejabberd</a></li>
-        
-          <li><a href="./EngineFactory.html">EngineFactory</a></li>
-        
-          <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a></li>
-        
-          <li><a href="./GodInterface.html">GodInterface</a></li>
-        
-          <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a></li>
-        
-          <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a></li>
-        
-          <li><a href="./HAProxy.html">HAProxy</a></li>
-        
-          <li><a href="./HelperFunctions.html">HelperFunctions</a></li>
-        
-          <li><a href="./JSONClient.html">JSONClient</a></li>
-        
-          <li><a href="./LoadBalancer.html">LoadBalancer</a></li>
-        
-          <li><a href="./Monitoring.html">Monitoring</a></li>
-        
-          <li><a href="./NeptuneJobData.html">NeptuneJobData</a></li>
-        
-          <li><a href="./Nginx.html">Nginx</a></li>
-        
-          <li><a href="./Object.html">Object</a></li>
-        
-          <li><a href="./PbServer.html">PbServer</a></li>
-        
-          <li><a href="./QueueFactory.html">QueueFactory</a></li>
-        
-          <li><a href="./RabbitMQ.html">RabbitMQ</a></li>
-        
-          <li><a href="./Repo.html">Repo</a></li>
-        
-          <li><a href="./TaskEngine.html">TaskEngine</a></li>
-        
-          <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a></li>
-        
-          <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a></li>
-        
-          <li><a href="./TaskQueue.html">TaskQueue</a></li>
-        
-          <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a></li>
-        
-          <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a></li>
-        
-          <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a></li>
-        
-          <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a></li>
-        
-          <li><a href="./UserAppClient.html">UserAppClient</a></li>
-        
-          <li><a href="./ZKInterface.html">ZKInterface</a></li>
-        
-        </ul>
-        <div id="no-class-search-results" style="display: none;">No matching classes.</div>
-      </div>
-
-      
-    </div>
+    
   </div>
 
-  <div id="documentation">
-    <h1 class="class">UserAppClient</h1>
+  <div id="class-metadata">
+    
+    <nav id="parent-class-section" class="section">
+  <h3 class="section-header">Parent</h3>
+  
+  <p class="link"><a href="Object.html">Object</a>
+  
+</nav>
 
-    <div id="description">
-      
+    
+    <!-- Method Quickref -->
+<nav id="method-list-section" class="section">
+  <h3 class="section-header">Methods</h3>
+
+  <ul class="link-list">
+    
+    <li><a href="#method-c-new">::new</a>
+    
+    <li><a href="#method-i-add_instance">#add_instance</a>
+    
+    <li><a href="#method-i-change_password">#change_password</a>
+    
+    <li><a href="#method-i-commit_new_app">#commit_new_app</a>
+    
+    <li><a href="#method-i-commit_new_app_name">#commit_new_app_name</a>
+    
+    <li><a href="#method-i-commit_new_user">#commit_new_user</a>
+    
+    <li><a href="#method-i-commit_tar">#commit_tar</a>
+    
+    <li><a href="#method-i-delete_app">#delete_app</a>
+    
+    <li><a href="#method-i-delete_instance">#delete_instance</a>
+    
+    <li><a href="#method-i-does_app_exist-3F">#does_app_exist?</a>
+    
+    <li><a href="#method-i-does_user_exist-3F">#does_user_exist?</a>
+    
+    <li><a href="#method-i-get_all_apps">#get_all_apps</a>
+    
+    <li><a href="#method-i-get_all_users">#get_all_users</a>
+    
+    <li><a href="#method-i-get_app_data">#get_app_data</a>
+    
+    <li><a href="#method-i-get_cloud_admin">#get_cloud_admin</a>
+    
+    <li><a href="#method-i-get_hosts_for_app">#get_hosts_for_app</a>
+    
+    <li><a href="#method-i-get_tar">#get_tar</a>
+    
+    <li><a href="#method-i-get_user_data">#get_user_data</a>
+    
+    <li><a href="#method-i-is_app_uploaded-3F">#is_app_uploaded?</a>
+    
+    <li><a href="#method-i-is_user_cloud_admin-3F">#is_user_cloud_admin?</a>
+    
+    <li><a href="#method-i-make_call">#make_call</a>
+    
+  </ul>
+</nav>
+
+  </div>
+
+  <div id="project-metadata">
+    
+    <nav id="classindex-section" class="section project-section">
+  <h3 class="section-header">Class and Module Index</h3>
+
+  <ul class="link-list">
+  
+    <li><a href="./AppControllerClient.html">AppControllerClient</a>
+  
+    <li><a href="./AppScaleException.html">AppScaleException</a>
+  
+    <li><a href="./BadConfigurationException.html">BadConfigurationException</a>
+  
+    <li><a href="./BlobServer.html">BlobServer</a>
+  
+    <li><a href="./Collectd.html">Collectd</a>
+  
+    <li><a href="./CronHelper.html">CronHelper</a>
+  
+    <li><a href="./Datastore.html">Datastore</a>
+  
+    <li><a href="./DatastoreFactory.html">DatastoreFactory</a>
+  
+    <li><a href="./DatastoreRepo.html">DatastoreRepo</a>
+  
+    <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a>
+  
+    <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a>
+  
+    <li><a href="./DatastoreS3.html">DatastoreS3</a>
+  
+    <li><a href="./Djinn.html">Djinn</a>
+  
+    <li><a href="./DjinnJobData.html">DjinnJobData</a>
+  
+    <li><a href="./DjinnServer.html">DjinnServer</a>
+  
+    <li><a href="./Ejabberd.html">Ejabberd</a>
+  
+    <li><a href="./EngineFactory.html">EngineFactory</a>
+  
+    <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a>
+  
+    <li><a href="./GodInterface.html">GodInterface</a>
+  
+    <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a>
+  
+    <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a>
+  
+    <li><a href="./HAProxy.html">HAProxy</a>
+  
+    <li><a href="./HelperFunctions.html">HelperFunctions</a>
+  
+    <li><a href="./InfrastructureManagerClient.html">InfrastructureManagerClient</a>
+  
+    <li><a href="./JSONClient.html">JSONClient</a>
+  
+    <li><a href="./LoadBalancer.html">LoadBalancer</a>
+  
+    <li><a href="./Monitoring.html">Monitoring</a>
+  
+    <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
+  
+    <li><a href="./NeptuneManager.html">NeptuneManager</a>
+  
+    <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
+  
+    <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
+  
+    <li><a href="./Nginx.html">Nginx</a>
+  
+    <li><a href="./Object.html">Object</a>
+  
+    <li><a href="./PbServer.html">PbServer</a>
+  
+    <li><a href="./QueueFactory.html">QueueFactory</a>
+  
+    <li><a href="./RabbitMQ.html">RabbitMQ</a>
+  
+    <li><a href="./Repo.html">Repo</a>
+  
+    <li><a href="./TaskEngine.html">TaskEngine</a>
+  
+    <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a>
+  
+    <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a>
+  
+    <li><a href="./TaskQueue.html">TaskQueue</a>
+  
+    <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a>
+  
+    <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a>
+  
+    <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a>
+  
+    <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a>
+  
+    <li><a href="./TestAppScaleHelper.html">TestAppScaleHelper</a>
+  
+    <li><a href="./TestBabelHelper.html">TestBabelHelper</a>
+  
+    <li><a href="./TestCiceroHelper.html">TestCiceroHelper</a>
+  
+    <li><a href="./TestDatastore.html">TestDatastore</a>
+  
+    <li><a href="./TestNeptuneJobData.html">TestNeptuneJobData</a>
+  
+    <li><a href="./TestNeptuneManager.html">TestNeptuneManager</a>
+  
+    <li><a href="./TestTaskQueue.html">TestTaskQueue</a>
+  
+    <li><a href="./UserAppClient.html">UserAppClient</a>
+  
+    <li><a href="./ZKInterface.html">ZKInterface</a>
+  
+    <li><a href="./ZooKeeperLockException.html">ZooKeeperLockException</a>
+  
+  </ul>
+</nav>
+
+  </div>
+</nav>
+
+<div id="documentation">
+  <h1 class="class">class UserAppClient</h1>
+
+  <div id="description" class="description">
+    
 <p>AppControllers and other services need to read or write data relating to
 users and applications hosted in AppScale. Since it has to be done in a
 database-agnostic fashion, we throw up a special server that responds to
 SOAP requests for this information, called the UserAppServer. This class
 provides convenience methods for interacting with the UserAppServer.</p>
 
-    </div>
+<p>AppControllers and other services need to read or write data relating to
+users and applications hosted in AppScale. Since it has to be done in a
+database-agnostic fashion, we throw up a special server that responds to
+SOAP requests for this information, called the UserAppServer. This class
+provides convenience methods for interacting with the UserAppServer.</p>
 
-    <!-- Constants -->
+  </div><!-- description -->
+
+  
+  
+  
+  <section id="5Buntitled-5D" class="documentation-section">
     
-    <div id="constants-list" class="section">
+
+    
+
+    
+    <!-- Constants -->
+    <section id="constants-list" class="section">
       <h3 class="section-header">Constants</h3>
       <dl>
       
-        <dt><a name="SERVER_PORT">SERVER_PORT</a></dt>
+        <dt id="SERVER_PORT">SERVER_PORT
         
-        <dd class="description"><p>The port that the UserAppServer binds to, by default.</p></dd>
+        <dd class="description"><p>The port that the UserAppServer binds to, by default.</p>
         
       
       </dl>
-    </div>
+    </section>
     
 
-    <!-- Attributes -->
     
-    <div id="attribute-method-details" class="method-section section">
+    <!-- Attributes -->
+    <section id="attribute-method-details" class="method-section section">
       <h3 class="section-header">Attributes</h3>
 
       
-      <div id="conn-attribute-method" class="method-detail">
-        <a name="conn"></a>
-        
+      <div id="attribute-i-conn" class="method-detail">
         <div class="method-heading attribute-method-heading">
           <span class="method-name">conn</span><span
             class="attribute-access-type">[R]</span>
@@ -279,9 +302,7 @@ provides convenience methods for interacting with the UserAppServer.</p>
         </div>
       </div>
       
-      <div id="ip-attribute-method" class="method-detail">
-        <a name="ip"></a>
-        
+      <div id="attribute-i-ip" class="method-detail">
         <div class="method-heading attribute-method-heading">
           <span class="method-name">ip</span><span
             class="attribute-access-type">[R]</span>
@@ -294,9 +315,7 @@ provides convenience methods for interacting with the UserAppServer.</p>
         </div>
       </div>
       
-      <div id="secret-attribute-method" class="method-detail">
-        <a name="secret"></a>
-        
+      <div id="attribute-i-secret" class="method-detail">
         <div class="method-heading attribute-method-heading">
           <span class="method-name">secret</span><span
             class="attribute-access-type">[R]</span>
@@ -309,18 +328,16 @@ provides convenience methods for interacting with the UserAppServer.</p>
         </div>
       </div>
       
-    </div>
+    </section><!-- attribute-method-details -->
     
 
     <!-- Methods -->
     
-    <div id="public-instance-method-details" class="method-section section">
+     <section id="public-instance-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Instance Methods</h3>
 
     
-      <div id="add_instance-method" class="method-detail ">
-        <a name="method-i-add_instance"></a>
-
+      <div id="method-i-add_instance" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">add_instance</span><span
@@ -335,35 +352,31 @@ provides convenience methods for interacting with the UserAppServer.</p>
           
 
           
-          <div class="method-source-code"
-            id="add_instance-source">
-<pre>
-<span class="ruby-comment"># File lib/user_app_client.rb, line 237</span>
-def add_instance(appname, host, port, retry_on_except=true)
-  result = <span class="ruby-string">&quot;&quot;</span>
-  make_call(10, retry_on_except) {
-    result = <span class="ruby-ivar">@conn</span>.add_instance(appname, host, port, <span class="ruby-ivar">@secret</span>)
+          <div class="method-source-code" id="add_instance-source">
+            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 237</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">add_instance</span>(<span class="ruby-identifier">appname</span>, <span class="ruby-identifier">host</span>, <span class="ruby-identifier">port</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
+  <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
+  <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) {
+    <span class="ruby-identifier">result</span> = <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_instance</span>(<span class="ruby-identifier">appname</span>, <span class="ruby-identifier">host</span>, <span class="ruby-identifier">port</span>, <span class="ruby-ivar">@secret</span>)
   }
 
-  if result == <span class="ruby-string">&quot;true&quot;</span>
-    return true
-  else
-    return false
-  end
-end</pre>
-          </div>
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">result</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;true&quot;</span>
+    <span class="ruby-keyword">return</span> <span class="ruby-keyword">true</span>
+  <span class="ruby-keyword">else</span>
+    <span class="ruby-keyword">return</span> <span class="ruby-keyword">false</span>
+  <span class="ruby-keyword">end</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- add_instance-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- add_instance-method -->
 
     
-      <div id="change_password-method" class="method-detail ">
-        <a name="method-i-change_password"></a>
-
+      <div id="method-i-change_password" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">change_password</span><span
@@ -378,37 +391,33 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="change_password-source">
-<pre>
-<span class="ruby-comment"># File lib/user_app_client.rb, line 129</span>
-def change_password(user, new_password, retry_on_except=true)
-  result = <span class="ruby-string">&quot;&quot;</span>
-  make_call(10, retry_on_except) {
-    result = <span class="ruby-ivar">@conn</span>.change_password(user, new_password, <span class="ruby-ivar">@secret</span>)
+          <div class="method-source-code" id="change_password-source">
+            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 129</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">change_password</span>(<span class="ruby-identifier">user</span>, <span class="ruby-identifier">new_password</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
+  <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
+  <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) {
+    <span class="ruby-identifier">result</span> = <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">change_password</span>(<span class="ruby-identifier">user</span>, <span class="ruby-identifier">new_password</span>, <span class="ruby-ivar">@secret</span>)
   }
       
-  if result == <span class="ruby-string">&quot;true&quot;</span>
-    puts <span class="ruby-string">&quot;We successfully changed the password for the given user.&quot;</span>
-  elsif result == <span class="ruby-string">&quot;Error: user not found&quot;</span>
-    puts <span class="ruby-string">&quot;We were unable to locate a user with the given username.&quot;</span>
-  else
-    puts &quot;[unexpected] Got this message back: [#{result}]&quot;
-  end
-end</pre>
-          </div>
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">result</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;true&quot;</span>
+    <span class="ruby-identifier">puts</span> <span class="ruby-string">&quot;We successfully changed the password for the given user.&quot;</span>
+  <span class="ruby-keyword">elsif</span> <span class="ruby-identifier">result</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;Error: user not found&quot;</span>
+    <span class="ruby-identifier">puts</span> <span class="ruby-string">&quot;We were unable to locate a user with the given username.&quot;</span>
+  <span class="ruby-keyword">else</span>
+    <span class="ruby-identifier">puts</span> <span class="ruby-node">&quot;[unexpected] Got this message back: [#{result}]&quot;</span>
+  <span class="ruby-keyword">end</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- change_password-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- change_password-method -->
 
     
-      <div id="commit_new_app-method" class="method-detail ">
-        <a name="method-i-commit_new_app"></a>
-
+      <div id="method-i-commit_new_app" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">commit_new_app</span><span
@@ -423,27 +432,23 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="commit_new_app-source">
-<pre>
-<span class="ruby-comment"># File lib/user_app_client.rb, line 89</span>
-def commit_new_app(user, app_name, language, file_location)
-  commit_new_app_name(user, app_name, language)
-  commit_tar(app_name, file_location)
-end</pre>
-          </div>
+          <div class="method-source-code" id="commit_new_app-source">
+            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 89</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">commit_new_app</span>(<span class="ruby-identifier">user</span>, <span class="ruby-identifier">app_name</span>, <span class="ruby-identifier">language</span>, <span class="ruby-identifier">file_location</span>)
+  <span class="ruby-identifier">commit_new_app_name</span>(<span class="ruby-identifier">user</span>, <span class="ruby-identifier">app_name</span>, <span class="ruby-identifier">language</span>)
+  <span class="ruby-identifier">commit_tar</span>(<span class="ruby-identifier">app_name</span>, <span class="ruby-identifier">file_location</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- commit_new_app-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- commit_new_app-method -->
 
     
-      <div id="commit_new_app_name-method" class="method-detail ">
-        <a name="method-i-commit_new_app_name"></a>
-
+      <div id="method-i-commit_new_app_name" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">commit_new_app_name</span><span
@@ -458,39 +463,35 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="commit_new_app_name-source">
-<pre>
-<span class="ruby-comment"># File lib/user_app_client.rb, line 94</span>
-def commit_new_app_name(user, app_name, language, retry_on_except=true)
-  result = <span class="ruby-string">&quot;&quot;</span>
-  make_call(10, retry_on_except) {
-    result = <span class="ruby-ivar">@conn</span>.commit_new_app(user, app_name, language, <span class="ruby-ivar">@secret</span>)
+          <div class="method-source-code" id="commit_new_app_name-source">
+            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 94</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">commit_new_app_name</span>(<span class="ruby-identifier">user</span>, <span class="ruby-identifier">app_name</span>, <span class="ruby-identifier">language</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
+  <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
+  <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) {
+    <span class="ruby-identifier">result</span> = <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">commit_new_app</span>(<span class="ruby-identifier">user</span>, <span class="ruby-identifier">app_name</span>, <span class="ruby-identifier">language</span>, <span class="ruby-ivar">@secret</span>)
   }
 
-  if result == <span class="ruby-string">&quot;true&quot;</span>
-    puts &quot;We have reserved the name #{app_name} for your application.&quot;
-  elsif result == <span class="ruby-string">&quot;Error: appname already exist&quot;</span>
-    puts &quot;We are uploading a new version of the application #{app_name}.&quot;
-  elsif result == <span class="ruby-string">&quot;Error: User not found&quot;</span>
-    abort(<span class="ruby-string">&quot;We were unable to reserve the name of your application. Please contact your cloud administrator for more information.&quot;</span>)
-  else
-    puts &quot;[unexpected] Commit new app says: [#{result}]&quot;
-  end
-end</pre>
-          </div>
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">result</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;true&quot;</span>
+    <span class="ruby-identifier">puts</span> <span class="ruby-node">&quot;We have reserved the name #{app_name} for your application.&quot;</span>
+  <span class="ruby-keyword">elsif</span> <span class="ruby-identifier">result</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;Error: appname already exist&quot;</span>
+    <span class="ruby-identifier">puts</span> <span class="ruby-node">&quot;We are uploading a new version of the application #{app_name}.&quot;</span>
+  <span class="ruby-keyword">elsif</span> <span class="ruby-identifier">result</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;Error: User not found&quot;</span>
+    <span class="ruby-identifier">abort</span>(<span class="ruby-string">&quot;We were unable to reserve the name of your application. Please contact your cloud administrator for more information.&quot;</span>)
+  <span class="ruby-keyword">else</span>
+    <span class="ruby-identifier">puts</span> <span class="ruby-node">&quot;[unexpected] Commit new app says: [#{result}]&quot;</span>
+  <span class="ruby-keyword">end</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- commit_new_app_name-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- commit_new_app_name-method -->
 
     
-      <div id="commit_new_user-method" class="method-detail ">
-        <a name="method-i-commit_new_user"></a>
-
+      <div id="method-i-commit_new_user" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">commit_new_user</span><span
@@ -505,37 +506,33 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="commit_new_user-source">
-<pre>
-<span class="ruby-comment"># File lib/user_app_client.rb, line 74</span>
-def commit_new_user(user, encrypted_password, user_type, retry_on_except=true)
-  result = <span class="ruby-string">&quot;&quot;</span>
-  make_call(10, retry_on_except) { 
-    result = <span class="ruby-ivar">@conn</span>.commit_new_user(user, encrypted_password, user_type, <span class="ruby-ivar">@secret</span>)
+          <div class="method-source-code" id="commit_new_user-source">
+            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 74</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">commit_new_user</span>(<span class="ruby-identifier">user</span>, <span class="ruby-identifier">encrypted_password</span>, <span class="ruby-identifier">user_type</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
+  <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
+  <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) { 
+    <span class="ruby-identifier">result</span> = <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">commit_new_user</span>(<span class="ruby-identifier">user</span>, <span class="ruby-identifier">encrypted_password</span>, <span class="ruby-identifier">user_type</span>, <span class="ruby-ivar">@secret</span>)
   }
 
-  if result == <span class="ruby-string">&quot;true&quot;</span>
-    puts <span class="ruby-string">&quot;\nYour user account has been created successfully.&quot;</span>
-  elsif result == <span class="ruby-string">&quot;false&quot;</span>
-    abort(<span class="ruby-string">&quot;\nWe were unable to create your user account. Please contact your cloud administrator for further details.&quot;</span>)
-  else
-    puts &quot;\n[unexpected] Commit new user returned: [#{result}]&quot;
-  end
-end</pre>
-          </div>
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">result</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;true&quot;</span>
+    <span class="ruby-identifier">puts</span> <span class="ruby-string">&quot;\nYour user account has been created successfully.&quot;</span>
+  <span class="ruby-keyword">elsif</span> <span class="ruby-identifier">result</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;false&quot;</span>
+    <span class="ruby-identifier">abort</span>(<span class="ruby-string">&quot;\nWe were unable to create your user account. Please contact your cloud administrator for further details.&quot;</span>)
+  <span class="ruby-keyword">else</span>
+    <span class="ruby-identifier">puts</span> <span class="ruby-node">&quot;\n[unexpected] Commit new user returned: [#{result}]&quot;</span>
+  <span class="ruby-keyword">end</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- commit_new_user-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- commit_new_user-method -->
 
     
-      <div id="commit_tar-method" class="method-detail ">
-        <a name="method-i-commit_tar"></a>
-
+      <div id="method-i-commit_tar" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">commit_tar</span><span
@@ -550,40 +547,36 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="commit_tar-source">
-<pre>
-<span class="ruby-comment"># File lib/user_app_client.rb, line 111</span>
-def commit_tar(app_name, file_location, retry_on_except=true)
-  file = <span class="ruby-constant">File</span>.open(file_location, <span class="ruby-string">&quot;rb&quot;</span>)
-  tar_contents = <span class="ruby-constant">Base64</span>.encode64(file.read)
+          <div class="method-source-code" id="commit_tar-source">
+            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 111</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">commit_tar</span>(<span class="ruby-identifier">app_name</span>, <span class="ruby-identifier">file_location</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
+  <span class="ruby-identifier">file</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-identifier">file_location</span>, <span class="ruby-string">&quot;rb&quot;</span>)
+  <span class="ruby-identifier">tar_contents</span> = <span class="ruby-constant">Base64</span>.<span class="ruby-identifier">encode64</span>(<span class="ruby-identifier">file</span>.<span class="ruby-identifier">read</span>)
   
-  result = <span class="ruby-string">&quot;&quot;</span>
-  make_call(300, retry_on_except) {
-    result = <span class="ruby-ivar">@conn</span>.commit_tar(app_name, tar_contents, <span class="ruby-ivar">@secret</span>)
+  <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
+  <span class="ruby-identifier">make_call</span>(<span class="ruby-value">300</span>, <span class="ruby-identifier">retry_on_except</span>) {
+    <span class="ruby-identifier">result</span> = <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">commit_tar</span>(<span class="ruby-identifier">app_name</span>, <span class="ruby-identifier">tar_contents</span>, <span class="ruby-ivar">@secret</span>)
   }
  
-  if result == <span class="ruby-string">&quot;true&quot;</span>
-    puts &quot;#{app_name} was uploaded successfully.&quot;
-  elsif result == <span class="ruby-string">&quot;Error: app does not exist&quot;</span>
-    abort(<span class="ruby-string">&quot;We were unable to upload your application. Please contact your cloud administrator for more information.&quot;</span>)
-  else
-    puts &quot;[unexpected] Commit new tar says: [#{result}]&quot;
-  end
-end</pre>
-          </div>
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">result</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;true&quot;</span>
+    <span class="ruby-identifier">puts</span> <span class="ruby-node">&quot;#{app_name} was uploaded successfully.&quot;</span>
+  <span class="ruby-keyword">elsif</span> <span class="ruby-identifier">result</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;Error: app does not exist&quot;</span>
+    <span class="ruby-identifier">abort</span>(<span class="ruby-string">&quot;We were unable to upload your application. Please contact your cloud administrator for more information.&quot;</span>)
+  <span class="ruby-keyword">else</span>
+    <span class="ruby-identifier">puts</span> <span class="ruby-node">&quot;[unexpected] Commit new tar says: [#{result}]&quot;</span>
+  <span class="ruby-keyword">end</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- commit_tar-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- commit_tar-method -->
 
     
-      <div id="delete_app-method" class="method-detail ">
-        <a name="method-i-delete_app"></a>
-
+      <div id="method-i-delete_app" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">delete_app</span><span
@@ -598,35 +591,31 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="delete_app-source">
-<pre>
-<span class="ruby-comment"># File lib/user_app_client.rb, line 144</span>
-def delete_app(app, retry_on_except=true)
-  result = <span class="ruby-string">&quot;&quot;</span>
-  make_call(10, retry_on_except) {
-    result = <span class="ruby-ivar">@conn</span>.delete_app(app, <span class="ruby-ivar">@secret</span>)
+          <div class="method-source-code" id="delete_app-source">
+            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 144</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">delete_app</span>(<span class="ruby-identifier">app</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
+  <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
+  <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) {
+    <span class="ruby-identifier">result</span> = <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">delete_app</span>(<span class="ruby-identifier">app</span>, <span class="ruby-ivar">@secret</span>)
   }
   
-  if result == <span class="ruby-string">&quot;true&quot;</span>
-    return true
-  else
-    return result
-  end  
-end</pre>
-          </div>
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">result</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;true&quot;</span>
+    <span class="ruby-keyword">return</span> <span class="ruby-keyword">true</span>
+  <span class="ruby-keyword">else</span>
+    <span class="ruby-keyword">return</span> <span class="ruby-identifier">result</span>
+  <span class="ruby-keyword">end</span>  
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- delete_app-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- delete_app-method -->
 
     
-      <div id="delete_instance-method" class="method-detail ">
-        <a name="method-i-delete_instance"></a>
-
+      <div id="method-i-delete_instance" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">delete_instance</span><span
@@ -641,31 +630,27 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="delete_instance-source">
-<pre>
-<span class="ruby-comment"># File lib/user_app_client.rb, line 197</span>
-def delete_instance(appname, host, port, retry_on_except=true)
-  result = <span class="ruby-string">&quot;&quot;</span>
-  make_call(10, retry_on_except) {
-    result = <span class="ruby-ivar">@conn</span>.delete_instance(appname, host, port, <span class="ruby-ivar">@secret</span>)
+          <div class="method-source-code" id="delete_instance-source">
+            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 197</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">delete_instance</span>(<span class="ruby-identifier">appname</span>, <span class="ruby-identifier">host</span>, <span class="ruby-identifier">port</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
+  <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
+  <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) {
+    <span class="ruby-identifier">result</span> = <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">delete_instance</span>(<span class="ruby-identifier">appname</span>, <span class="ruby-identifier">host</span>, <span class="ruby-identifier">port</span>, <span class="ruby-ivar">@secret</span>)
   }
 
-  return result
-end</pre>
-          </div>
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">result</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- delete_instance-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- delete_instance-method -->
 
     
-      <div id="does_app_exist-3F-method" class="method-detail ">
-        <a name="method-i-does_app_exist-3F"></a>
-
+      <div id="method-i-does_app_exist-3F" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">does_app_exist?</span><span
@@ -680,35 +665,31 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="does_app_exist-3F-source">
-<pre>
-<span class="ruby-comment"># File lib/user_app_client.rb, line 157</span>
-def does_app_exist?(app, retry_on_except=true)
-  result = <span class="ruby-string">&quot;&quot;</span>
-  make_call(10, retry_on_except) {
-    result = <span class="ruby-ivar">@conn</span>.is_app_enabled(app, <span class="ruby-ivar">@secret</span>)
+          <div class="method-source-code" id="does_app_exist-3F-source">
+            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 157</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">does_app_exist?</span>(<span class="ruby-identifier">app</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
+  <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
+  <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) {
+    <span class="ruby-identifier">result</span> = <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">is_app_enabled</span>(<span class="ruby-identifier">app</span>, <span class="ruby-ivar">@secret</span>)
   }
   
-  if result == <span class="ruby-string">&quot;true&quot;</span>
-    return true
-  else
-    return false
-  end
-end</pre>
-          </div>
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">result</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;true&quot;</span>
+    <span class="ruby-keyword">return</span> <span class="ruby-keyword">true</span>
+  <span class="ruby-keyword">else</span>
+    <span class="ruby-keyword">return</span> <span class="ruby-keyword">false</span>
+  <span class="ruby-keyword">end</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- does_app_exist-3F-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- does_app_exist-3F-method -->
 
     
-      <div id="does_user_exist-3F-method" class="method-detail ">
-        <a name="method-i-does_user_exist-3F"></a>
-
+      <div id="method-i-does_user_exist-3F" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">does_user_exist?</span><span
@@ -723,31 +704,27 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="does_user_exist-3F-source">
-<pre>
-<span class="ruby-comment"># File lib/user_app_client.rb, line 170</span>
-def does_user_exist?(user, retry_on_except=true)
-  result = <span class="ruby-string">&quot;&quot;</span>
-  make_call(10, retry_on_except) {
-    result = <span class="ruby-ivar">@conn</span>.does_user_exist(user, <span class="ruby-ivar">@secret</span>)
+          <div class="method-source-code" id="does_user_exist-3F-source">
+            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 170</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">does_user_exist?</span>(<span class="ruby-identifier">user</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
+  <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
+  <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) {
+    <span class="ruby-identifier">result</span> = <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">does_user_exist</span>(<span class="ruby-identifier">user</span>, <span class="ruby-ivar">@secret</span>)
   }
   
-  return result
-end</pre>
-          </div>
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">result</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- does_user_exist-3F-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- does_user_exist-3F-method -->
 
     
-      <div id="get_all_apps-method" class="method-detail ">
-        <a name="method-i-get_all_apps"></a>
-
+      <div id="method-i-get_all_apps" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">get_all_apps</span><span
@@ -762,33 +739,29 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="get_all_apps-source">
-<pre>
-<span class="ruby-comment"># File lib/user_app_client.rb, line 206</span>
-def get_all_apps(retry_on_except=true)
-  all_apps = <span class="ruby-string">&quot;&quot;</span>
-  make_call(10, retry_on_except) {
-    all_apps = <span class="ruby-ivar">@conn</span>.get_all_apps(<span class="ruby-ivar">@secret</span>)
+          <div class="method-source-code" id="get_all_apps-source">
+            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 206</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">get_all_apps</span>(<span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
+  <span class="ruby-identifier">all_apps</span> = <span class="ruby-string">&quot;&quot;</span>
+  <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) {
+    <span class="ruby-identifier">all_apps</span> = <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">get_all_apps</span>(<span class="ruby-ivar">@secret</span>)
   }
 
-  app_list = all_apps.split(<span class="ruby-string">&quot;:&quot;</span>)
-  app_list = app_list - [app_list[0]] <span class="ruby-comment"># first item is a dummy value</span>
-  return app_list
-end</pre>
-          </div>
+  <span class="ruby-identifier">app_list</span> = <span class="ruby-identifier">all_apps</span>.<span class="ruby-identifier">split</span>(<span class="ruby-string">&quot;:&quot;</span>)
+  <span class="ruby-identifier">app_list</span> = <span class="ruby-identifier">app_list</span> <span class="ruby-operator">-</span> [<span class="ruby-identifier">app_list</span>[<span class="ruby-value">0</span>]] <span class="ruby-comment"># first item is a dummy value</span>
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">app_list</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- get_all_apps-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- get_all_apps-method -->
 
     
-      <div id="get_all_users-method" class="method-detail ">
-        <a name="method-i-get_all_users"></a>
-
+      <div id="method-i-get_all_users" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">get_all_users</span><span
@@ -803,33 +776,29 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="get_all_users-source">
-<pre>
-<span class="ruby-comment"># File lib/user_app_client.rb, line 217</span>
-def get_all_users(retry_on_except=true)
-  all_users = <span class="ruby-string">&quot;&quot;</span>
-  make_call(10, retry_on_except) {
-    all_users = <span class="ruby-ivar">@conn</span>.get_all_users(<span class="ruby-ivar">@secret</span>)
+          <div class="method-source-code" id="get_all_users-source">
+            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 217</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">get_all_users</span>(<span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
+  <span class="ruby-identifier">all_users</span> = <span class="ruby-string">&quot;&quot;</span>
+  <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) {
+    <span class="ruby-identifier">all_users</span> = <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">get_all_users</span>(<span class="ruby-ivar">@secret</span>)
   }
 
-  user_list = all_users.split(<span class="ruby-string">&quot;:&quot;</span>)
-  user_list = user_list - [user_list[0]]  <span class="ruby-comment"># first item is a dummy value</span>
-  return user_list
-end</pre>
-          </div>
+  <span class="ruby-identifier">user_list</span> = <span class="ruby-identifier">all_users</span>.<span class="ruby-identifier">split</span>(<span class="ruby-string">&quot;:&quot;</span>)
+  <span class="ruby-identifier">user_list</span> = <span class="ruby-identifier">user_list</span> <span class="ruby-operator">-</span> [<span class="ruby-identifier">user_list</span>[<span class="ruby-value">0</span>]]  <span class="ruby-comment"># first item is a dummy value</span>
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">user_list</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- get_all_users-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- get_all_users-method -->
 
     
-      <div id="get_app_data-method" class="method-detail ">
-        <a name="method-i-get_app_data"></a>
-
+      <div id="method-i-get_app_data" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">get_app_data</span><span
@@ -844,31 +813,27 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="get_app_data-source">
-<pre>
-<span class="ruby-comment"># File lib/user_app_client.rb, line 188</span>
-def get_app_data(appname, retry_on_except=true)
-  result = <span class="ruby-string">&quot;&quot;</span>
-  make_call(10, retry_on_except) {
-    result = <span class="ruby-ivar">@conn</span>.get_app_data(appname, <span class="ruby-ivar">@secret</span>)
+          <div class="method-source-code" id="get_app_data-source">
+            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 188</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">get_app_data</span>(<span class="ruby-identifier">appname</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
+  <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
+  <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) {
+    <span class="ruby-identifier">result</span> = <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">get_app_data</span>(<span class="ruby-identifier">appname</span>, <span class="ruby-ivar">@secret</span>)
   }
 
-  return result
-end</pre>
-          </div>
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">result</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- get_app_data-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- get_app_data-method -->
 
     
-      <div id="get_cloud_admin-method" class="method-detail ">
-        <a name="method-i-get_cloud_admin"></a>
-
+      <div id="method-i-get_cloud_admin" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">get_cloud_admin</span><span
@@ -887,32 +852,28 @@ cloud admin is to speed up future queries?</p>
           
 
           
-          <div class="method-source-code"
-            id="get_cloud_admin-source">
-<pre>
-<span class="ruby-comment"># File lib/user_app_client.rb, line 291</span>
-def get_cloud_admin()
-  user_list = get_all_users()
+          <div class="method-source-code" id="get_cloud_admin-source">
+            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 291</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">get_cloud_admin</span>()
+  <span class="ruby-identifier">user_list</span> = <span class="ruby-identifier">get_all_users</span>()
 
-  user_list.each { |user|
-    return user if is_user_cloud_admin?(user)
+  <span class="ruby-identifier">user_list</span>.<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">user</span><span class="ruby-operator">|</span>
+    <span class="ruby-keyword">return</span> <span class="ruby-identifier">user</span> <span class="ruby-keyword">if</span> <span class="ruby-identifier">is_user_cloud_admin?</span>(<span class="ruby-identifier">user</span>)
   }
 
-  raise <span class="ruby-constant">Exception</span>.new(<span class="ruby-string">&quot;Couldn't find a cloud administrator&quot;</span>)
-end</pre>
-          </div>
+  <span class="ruby-identifier">raise</span> <span class="ruby-constant">Exception</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;Couldn't find a cloud administrator&quot;</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- get_cloud_admin-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- get_cloud_admin-method -->
 
     
-      <div id="get_hosts_for_app-method" class="method-detail ">
-        <a name="method-i-get_hosts_for_app"></a>
-
+      <div id="method-i-get_hosts_for_app" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">get_hosts_for_app</span><span
@@ -928,36 +889,32 @@ that the given app is hosted at.</p>
           
 
           
-          <div class="method-source-code"
-            id="get_hosts_for_app-source">
-<pre>
-<span class="ruby-comment"># File lib/user_app_client.rb, line 272</span>
-def get_hosts_for_app(appname)
-  app_data = get_app_data(appname)
-  hosts = app_data.scan(<span class="ruby-regexp">/\nhosts:([\d\.|:]+)\n/</span>).flatten.to_s.split(<span class="ruby-string">&quot;:&quot;</span>)
-  ports = app_data.scan(<span class="ruby-regexp">/\nports: ([\d|:]+)\n/</span>).flatten.to_s.split(<span class="ruby-string">&quot;:&quot;</span>)
+          <div class="method-source-code" id="get_hosts_for_app-source">
+            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 272</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">get_hosts_for_app</span>(<span class="ruby-identifier">appname</span>)
+  <span class="ruby-identifier">app_data</span> = <span class="ruby-identifier">get_app_data</span>(<span class="ruby-identifier">appname</span>)
+  <span class="ruby-identifier">hosts</span> = <span class="ruby-identifier">app_data</span>.<span class="ruby-identifier">scan</span>(<span class="ruby-regexp">%r\nhosts:([\d\.|:]+)\n/</span>).<span class="ruby-identifier">flatten</span>.<span class="ruby-identifier">to_s</span>.<span class="ruby-identifier">split</span>(<span class="ruby-string">&quot;:&quot;</span>)
+  <span class="ruby-identifier">ports</span> = <span class="ruby-identifier">app_data</span>.<span class="ruby-identifier">scan</span>(<span class="ruby-regexp">%r\nports: ([\d|:]+)\n/</span>).<span class="ruby-identifier">flatten</span>.<span class="ruby-identifier">to_s</span>.<span class="ruby-identifier">split</span>(<span class="ruby-string">&quot;:&quot;</span>)
 
-  host_list = []
+  <span class="ruby-identifier">host_list</span> = []
 
-  hosts.each_index { |i|
-    host_list &lt;&lt; &quot;#{hosts[i]}:#{ports[i]}&quot;
+  <span class="ruby-identifier">hosts</span>.<span class="ruby-identifier">each_index</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">i</span><span class="ruby-operator">|</span>
+    <span class="ruby-identifier">host_list</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-node">&quot;#{hosts[i]}:#{ports[i]}&quot;</span>
   }
 
-  return host_list
-end</pre>
-          </div>
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">host_list</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- get_hosts_for_app-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- get_hosts_for_app-method -->
 
     
-      <div id="get_tar-method" class="method-detail ">
-        <a name="method-i-get_tar"></a>
-
+      <div id="method-i-get_tar" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">get_tar</span><span
@@ -972,31 +929,27 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="get_tar-source">
-<pre>
-<span class="ruby-comment"># File lib/user_app_client.rb, line 228</span>
-def get_tar(appname, retry_on_except=true)
-  result = <span class="ruby-string">&quot;&quot;</span>
-  make_call(300, retry_on_except) {
-    result = <span class="ruby-ivar">@conn</span>.get_tar(appname, <span class="ruby-ivar">@secret</span>)
+          <div class="method-source-code" id="get_tar-source">
+            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 228</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">get_tar</span>(<span class="ruby-identifier">appname</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
+  <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
+  <span class="ruby-identifier">make_call</span>(<span class="ruby-value">300</span>, <span class="ruby-identifier">retry_on_except</span>) {
+    <span class="ruby-identifier">result</span> = <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">get_tar</span>(<span class="ruby-identifier">appname</span>, <span class="ruby-ivar">@secret</span>)
   }
 
-  return result
-end</pre>
-          </div>
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">result</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- get_tar-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- get_tar-method -->
 
     
-      <div id="get_user_data-method" class="method-detail ">
-        <a name="method-i-get_user_data"></a>
-
+      <div id="method-i-get_user_data" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">get_user_data</span><span
@@ -1011,31 +964,27 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="get_user_data-source">
-<pre>
-<span class="ruby-comment"># File lib/user_app_client.rb, line 179</span>
-def get_user_data(username, retry_on_except=true)
-  result = <span class="ruby-string">&quot;&quot;</span>
-  make_call(10, retry_on_except) {
-    result = <span class="ruby-ivar">@conn</span>.get_user_data(username, <span class="ruby-ivar">@secret</span>)
+          <div class="method-source-code" id="get_user_data-source">
+            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 179</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">get_user_data</span>(<span class="ruby-identifier">username</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
+  <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
+  <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) {
+    <span class="ruby-identifier">result</span> = <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">get_user_data</span>(<span class="ruby-identifier">username</span>, <span class="ruby-ivar">@secret</span>)
   }
 
-  return result
-end</pre>
-          </div>
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">result</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- get_user_data-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- get_user_data-method -->
 
     
-      <div id="is_app_uploaded-3F-method" class="method-detail ">
-        <a name="method-i-is_app_uploaded-3F"></a>
-
+      <div id="method-i-is_app_uploaded-3F" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">is_app_uploaded?</span><span
@@ -1051,27 +1000,23 @@ TODO(cgb): compare this with is_app_enabled? above</p>
           
 
           
-          <div class="method-source-code"
-            id="is_app_uploaded-3F-source">
-<pre>
-<span class="ruby-comment"># File lib/user_app_client.rb, line 252</span>
-def is_app_uploaded?(appname)
-  all_apps = get_all_apps()
-  return app_list.include?(appname)
-end</pre>
-          </div>
+          <div class="method-source-code" id="is_app_uploaded-3F-source">
+            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 252</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">is_app_uploaded?</span>(<span class="ruby-identifier">appname</span>)
+  <span class="ruby-identifier">all_apps</span> = <span class="ruby-identifier">get_all_apps</span>()
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">app_list</span>.<span class="ruby-identifier">include?</span>(<span class="ruby-identifier">appname</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- is_app_uploaded-3F-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- is_app_uploaded-3F-method -->
 
     
-      <div id="is_user_cloud_admin-3F-method" class="method-detail ">
-        <a name="method-i-is_user_cloud_admin-3F"></a>
-
+      <div id="method-i-is_user_cloud_admin-3F" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">is_user_cloud_admin?</span><span
@@ -1086,39 +1031,35 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="is_user_cloud_admin-3F-source">
-<pre>
-<span class="ruby-comment"># File lib/user_app_client.rb, line 257</span>
-def is_user_cloud_admin?(user, retry_on_except=true)
-  result = <span class="ruby-string">&quot;&quot;</span>
-  make_call(10, retry_on_except) {
-    result = <span class="ruby-ivar">@conn</span>.is_user_cloud_admin(user, <span class="ruby-ivar">@secret</span>)
+          <div class="method-source-code" id="is_user_cloud_admin-3F-source">
+            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 257</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">is_user_cloud_admin?</span>(<span class="ruby-identifier">user</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
+  <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
+  <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) {
+    <span class="ruby-identifier">result</span> = <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">is_user_cloud_admin</span>(<span class="ruby-identifier">user</span>, <span class="ruby-ivar">@secret</span>)
   }
  
-  if result == <span class="ruby-string">&quot;true&quot;</span>
-    return true
-  else
-    return false
-  end
-end</pre>
-          </div>
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">result</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;true&quot;</span>
+    <span class="ruby-keyword">return</span> <span class="ruby-keyword">true</span>
+  <span class="ruby-keyword">else</span>
+    <span class="ruby-keyword">return</span> <span class="ruby-keyword">false</span>
+  <span class="ruby-keyword">end</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- is_user_cloud_admin-3F-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- is_user_cloud_admin-3F-method -->
 
     
-      <div id="make_call-method" class="method-detail ">
-        <a name="method-i-make_call"></a>
-
+      <div id="method-i-make_call" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">make_call</span><span
-            class="method-args">(timeout, retry_on_except)</span>
+            class="method-args">(timeout, retry_on_except) { || ... }</span>
           <span class="method-click-advice">click to toggle source</span>
         </div>
         
@@ -1129,55 +1070,51 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="make_call-source">
-<pre>
-<span class="ruby-comment"># File lib/user_app_client.rb, line 47</span>
-def make_call(timeout, retry_on_except)
-  result = <span class="ruby-string">&quot;&quot;</span>
-  begin
-    <span class="ruby-constant">Timeout</span>::timeout(timeout) do
-      begin
-        yield if block_given?
-      end
-    end
-  rescue <span class="ruby-constant">OpenSSL</span>::<span class="ruby-constant">SSL</span>::<span class="ruby-constant">SSLError</span>
-    retry
-  rescue <span class="ruby-constant">Errno</span>::<span class="ruby-constant">ECONNREFUSED</span>
-    if retry_on_except
-      sleep(1)
-      retry
-    else
-      abort(<span class="ruby-string">&quot;We were unable to establish a connection with the UserAppServer at the designated location. Is AppScale currently running?&quot;</span>)
-    end 
- rescue <span class="ruby-constant">Exception</span> =&gt; except
-    if except.class == <span class="ruby-constant">Interrupt</span>
-      abort
-    end
+          <div class="method-source-code" id="make_call-source">
+            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 47</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">make_call</span>(<span class="ruby-identifier">timeout</span>, <span class="ruby-identifier">retry_on_except</span>)
+  <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
+  <span class="ruby-keyword">begin</span>
+    <span class="ruby-constant">Timeout</span><span class="ruby-operator">::</span><span class="ruby-identifier">timeout</span>(<span class="ruby-identifier">timeout</span>) <span class="ruby-keyword">do</span>
+      <span class="ruby-keyword">begin</span>
+        <span class="ruby-keyword">yield</span> <span class="ruby-keyword">if</span> <span class="ruby-identifier">block_given?</span>
+      <span class="ruby-keyword">end</span>
+    <span class="ruby-keyword">end</span>
+  <span class="ruby-keyword">rescue</span> <span class="ruby-constant">OpenSSL</span><span class="ruby-operator">::</span><span class="ruby-constant">SSL</span><span class="ruby-operator">::</span><span class="ruby-constant">SSLError</span>
+    <span class="ruby-keyword">retry</span>
+  <span class="ruby-keyword">rescue</span> <span class="ruby-constant">Errno</span><span class="ruby-operator">::</span><span class="ruby-constant">ECONNREFUSED</span>
+    <span class="ruby-keyword">if</span> <span class="ruby-identifier">retry_on_except</span>
+      <span class="ruby-identifier">sleep</span>(<span class="ruby-value">1</span>)
+      <span class="ruby-keyword">retry</span>
+    <span class="ruby-keyword">else</span>
+      <span class="ruby-identifier">abort</span>(<span class="ruby-string">&quot;We were unable to establish a connection with the UserAppServer at the designated location. Is AppScale currently running?&quot;</span>)
+    <span class="ruby-keyword">end</span> 
+ <span class="ruby-keyword">rescue</span> <span class="ruby-constant">Exception</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-identifier">except</span>
+    <span class="ruby-keyword">if</span> <span class="ruby-identifier">except</span>.<span class="ruby-identifier">class</span> <span class="ruby-operator">==</span> <span class="ruby-constant">Interrupt</span>
+      <span class="ruby-identifier">abort</span>
+    <span class="ruby-keyword">end</span>
 
-    puts &quot;An exception of type #{except.class} was thrown.&quot;
-    retry if retry_on_except
-  end
-end</pre>
-          </div>
+    <span class="ruby-identifier">puts</span> <span class="ruby-node">&quot;An exception of type #{except.class} was thrown.&quot;</span>
+    <span class="ruby-keyword">retry</span> <span class="ruby-keyword">if</span> <span class="ruby-identifier">retry_on_except</span>
+  <span class="ruby-keyword">end</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- make_call-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- make_call-method -->
 
     
-    </div>
+    </section><!-- public-instance-method-details -->
   
-    <div id="public-class-method-details" class="method-section section">
+     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Class Methods</h3>
 
     
-      <div id="new-method" class="method-detail ">
-        <a name="method-c-new"></a>
-
+      <div id="method-c-new" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">new</span><span
@@ -1192,52 +1129,49 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="new-source">
-<pre>
-<span class="ruby-comment"># File lib/user_app_client.rb, line 25</span>
-def initialize(ip, secret)
-  <span class="ruby-ivar">@ip</span> = ip
-  <span class="ruby-ivar">@secret</span> = secret
+          <div class="method-source-code" id="new-source">
+            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 25</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">ip</span>, <span class="ruby-identifier">secret</span>)
+  <span class="ruby-ivar">@ip</span> = <span class="ruby-identifier">ip</span>
+  <span class="ruby-ivar">@secret</span> = <span class="ruby-identifier">secret</span>
   
-  <span class="ruby-ivar">@conn</span> = <span class="ruby-constant">SOAP</span>::<span class="ruby-constant">RPC</span>::<span class="ruby-constant">Driver</span>.new(&quot;https://#{@ip}:#{SERVER_PORT}&quot;)
-  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;change_password&quot;</span>, <span class="ruby-string">&quot;user&quot;</span>, <span class="ruby-string">&quot;password&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;commit_new_user&quot;</span>, <span class="ruby-string">&quot;user&quot;</span>, <span class="ruby-string">&quot;passwd&quot;</span>, <span class="ruby-string">&quot;utype&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;commit_new_app&quot;</span>, <span class="ruby-string">&quot;user&quot;</span>, <span class="ruby-string">&quot;appname&quot;</span>, <span class="ruby-string">&quot;language&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;commit_tar&quot;</span>, <span class="ruby-string">&quot;app_name&quot;</span>, <span class="ruby-string">&quot;tar&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;delete_app&quot;</span>, <span class="ruby-string">&quot;appname&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)    
-  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;is_app_enabled&quot;</span>, <span class="ruby-string">&quot;appname&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;is_user_cloud_admin&quot;</span>, <span class="ruby-string">&quot;username&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;does_user_exist&quot;</span>, <span class="ruby-string">&quot;username&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;get_user_data&quot;</span>, <span class="ruby-string">&quot;username&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;get_app_data&quot;</span>, <span class="ruby-string">&quot;appname&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;delete_instance&quot;</span>, <span class="ruby-string">&quot;appname&quot;</span>, <span class="ruby-string">&quot;host&quot;</span>, <span class="ruby-string">&quot;port&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;get_tar&quot;</span>, <span class="ruby-string">&quot;app_name&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;add_instance&quot;</span>, <span class="ruby-string">&quot;appname&quot;</span>, <span class="ruby-string">&quot;host&quot;</span>, <span class="ruby-string">&quot;port&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;get_all_apps&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.add_method(<span class="ruby-string">&quot;get_all_users&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-end</pre>
-          </div>
+  <span class="ruby-ivar">@conn</span> = <span class="ruby-constant">SOAP</span><span class="ruby-operator">::</span><span class="ruby-constant">RPC</span><span class="ruby-operator">::</span><span class="ruby-constant">Driver</span>.<span class="ruby-identifier">new</span>(<span class="ruby-node">&quot;https://#{@ip}:#{SERVER_PORT}&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;change_password&quot;</span>, <span class="ruby-string">&quot;user&quot;</span>, <span class="ruby-string">&quot;password&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;commit_new_user&quot;</span>, <span class="ruby-string">&quot;user&quot;</span>, <span class="ruby-string">&quot;passwd&quot;</span>, <span class="ruby-string">&quot;utype&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;commit_new_app&quot;</span>, <span class="ruby-string">&quot;user&quot;</span>, <span class="ruby-string">&quot;appname&quot;</span>, <span class="ruby-string">&quot;language&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;commit_tar&quot;</span>, <span class="ruby-string">&quot;app_name&quot;</span>, <span class="ruby-string">&quot;tar&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;delete_app&quot;</span>, <span class="ruby-string">&quot;appname&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)    
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;is_app_enabled&quot;</span>, <span class="ruby-string">&quot;appname&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;is_user_cloud_admin&quot;</span>, <span class="ruby-string">&quot;username&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;does_user_exist&quot;</span>, <span class="ruby-string">&quot;username&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;get_user_data&quot;</span>, <span class="ruby-string">&quot;username&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;get_app_data&quot;</span>, <span class="ruby-string">&quot;appname&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;delete_instance&quot;</span>, <span class="ruby-string">&quot;appname&quot;</span>, <span class="ruby-string">&quot;host&quot;</span>, <span class="ruby-string">&quot;port&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;get_tar&quot;</span>, <span class="ruby-string">&quot;app_name&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;add_instance&quot;</span>, <span class="ruby-string">&quot;appname&quot;</span>, <span class="ruby-string">&quot;host&quot;</span>, <span class="ruby-string">&quot;port&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;get_all_apps&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;get_all_users&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- new-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- new-method -->
 
     
-    </div>
+    </section><!-- public-class-method-details -->
   
+  </section><!-- 5Buntitled-5D -->
 
-  </div>
+</div><!-- documentation -->
 
-  <div id="validator-badges">
-    <p><small><a href="http://validator.w3.org/check/referer">[Validate]</a></small></p>
-    <p><small>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish
-      Rdoc Generator</a> 2</small>.</p>
-  </div>
 
-</body>
-</html>
+<footer id="validator-badges">
+  <p><a href="http://validator.w3.org/check/referer">[Validate]</a>
+  <p>Generated by <a href="https://github.com/rdoc/rdoc">RDoc</a> 3.12.
+  <p>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish Rdoc Generator</a> 3.
+</footer>
 

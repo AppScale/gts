@@ -1,253 +1,269 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<!DOCTYPE html>
+
+<html>
 <head>
-  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+<meta content="text/html; charset=UTF-8" http-equiv="Content-Type">
 
-  <title>Module: Collectd</title>
+<title>module Collectd - RDoc Documentation</title>
 
-  <link rel="stylesheet" href="./rdoc.css" type="text/css" media="screen" />
+<link type="text/css" media="screen" href="./rdoc.css" rel="stylesheet">
 
-  <script src="./js/jquery.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/thickbox-compressed.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/quicksearch.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/darkfish.js" type="text/javascript"
-    charset="utf-8"></script>
+<script type="text/javascript">
+  var rdoc_rel_prefix = "./";
+</script>
 
-</head>
-<body class="module">
+<script type="text/javascript" charset="utf-8" src="./js/jquery.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/navigation.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/search_index.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/search.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/searcher.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/darkfish.js"></script>
 
-  <div id="metadata">
-    <div id="home-metadata">
-      <div id="home-section" class="section">
-        <h3 class="section-header">
-          <a href="./index.html">Home</a>
-          <a href="./index.html#classes">Classes</a>
-          <a href="./index.html#methods">Methods</a>
-        </h3>
-      </div>
-    </div>
 
-    <div id="file-metadata">
-      <div id="file-list-section" class="section">
-        <h3 class="section-header">In Files</h3>
-        <div class="section-body">
-          <ul>
-          
-            <li><a href="./lib/collectd_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
-              class="thickbox" title="lib/collectd.rb">lib/collectd.rb</a></li>
-          
-          </ul>
-        </div>
-      </div>
+<body id="top" class="module">
+<nav id="metadata">
+  <nav id="home-section" class="section">
+  <h3 class="section-header">
+    <a href="./index.html">Home</a>
+    <a href="./table_of_contents.html#classes">Classes</a>
+    <a href="./table_of_contents.html#methods">Methods</a>
+  </h3>
+</nav>
 
-      
-    </div>
 
-    <div id="class-metadata">
+  <nav id="search-section" class="section project-section" class="initially-hidden">
+  <form action="#" method="get" accept-charset="utf-8">
+    <h3 class="section-header">
+      <input type="text" name="search" placeholder="Search" id="search-field"
+             title="Type to search, Up and Down to navigate, Enter to load">
+    </h3>
+  </form>
 
-      <!-- Parent Class -->
-      
+  <ul id="search-results" class="initially-hidden"></ul>
+</nav>
 
-      <!-- Namespace Contents -->
-      
 
-      <!-- Method Quickref -->
-      
-      <div id="method-list-section" class="section">
-        <h3 class="section-header">Methods</h3>
-        <ul class="link-list">
-          
-          <li><a href="#method-c-clear_monitoring_data">::clear_monitoring_data</a></li>
-          
-          <li><a href="#method-c-clear_sites_enabled">::clear_sites_enabled</a></li>
-          
-          <li><a href="#method-c-initialize_config">::initialize_config</a></li>
-          
-          <li><a href="#method-c-remove_app">::remove_app</a></li>
-          
-          <li><a href="#method-c-restart">::restart</a></li>
-          
-          <li><a href="#method-c-stop">::stop</a></li>
-          
-          <li><a href="#method-c-write_app_config">::write_app_config</a></li>
-          
-        </ul>
-      </div>
-      
+  <div id="file-metadata">
+    <nav id="file-list-section" class="section">
+  <h3 class="section-header">Defined In</h3>
+  <ul>
+    <li>lib/collectd.rb
+  </ul>
+</nav>
 
-      <!-- Included Modules -->
-      
-    </div>
-
-    <div id="project-metadata">
-      
-      
-
-      <div id="classindex-section" class="section project-section">
-        <h3 class="section-header">Class/Module Index
-          <span class="search-toggle"><img src="./images/find.png"
-            height="16" width="16" alt="[+]"
-            title="show/hide quicksearch" /></span></h3>
-        <form action="#" method="get" accept-charset="utf-8" class="initially-hidden">
-        <fieldset>
-          <legend>Quicksearch</legend>
-          <input type="text" name="quicksearch" value=""
-            class="quicksearch-field" />
-        </fieldset>
-        </form>
-
-        <ul class="link-list">
-        
-          <li><a href="./AppControllerClient.html">AppControllerClient</a></li>
-        
-          <li><a href="./BadConfigurationException.html">BadConfigurationException</a></li>
-        
-          <li><a href="./BlobServer.html">BlobServer</a></li>
-        
-          <li><a href="./Collectd.html">Collectd</a></li>
-        
-          <li><a href="./CronHelper.html">CronHelper</a></li>
-        
-          <li><a href="./Datastore.html">Datastore</a></li>
-        
-          <li><a href="./DatastoreFactory.html">DatastoreFactory</a></li>
-        
-          <li><a href="./DatastoreRepo.html">DatastoreRepo</a></li>
-        
-          <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a></li>
-        
-          <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a></li>
-        
-          <li><a href="./DatastoreS3.html">DatastoreS3</a></li>
-        
-          <li><a href="./Djinn.html">Djinn</a></li>
-        
-          <li><a href="./DjinnJobData.html">DjinnJobData</a></li>
-        
-          <li><a href="./DjinnServer.html">DjinnServer</a></li>
-        
-          <li><a href="./Ejabberd.html">Ejabberd</a></li>
-        
-          <li><a href="./EngineFactory.html">EngineFactory</a></li>
-        
-          <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a></li>
-        
-          <li><a href="./GodInterface.html">GodInterface</a></li>
-        
-          <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a></li>
-        
-          <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a></li>
-        
-          <li><a href="./HAProxy.html">HAProxy</a></li>
-        
-          <li><a href="./HelperFunctions.html">HelperFunctions</a></li>
-        
-          <li><a href="./JSONClient.html">JSONClient</a></li>
-        
-          <li><a href="./LoadBalancer.html">LoadBalancer</a></li>
-        
-          <li><a href="./Monitoring.html">Monitoring</a></li>
-        
-          <li><a href="./NeptuneJobData.html">NeptuneJobData</a></li>
-        
-          <li><a href="./Nginx.html">Nginx</a></li>
-        
-          <li><a href="./Object.html">Object</a></li>
-        
-          <li><a href="./PbServer.html">PbServer</a></li>
-        
-          <li><a href="./QueueFactory.html">QueueFactory</a></li>
-        
-          <li><a href="./RabbitMQ.html">RabbitMQ</a></li>
-        
-          <li><a href="./Repo.html">Repo</a></li>
-        
-          <li><a href="./TaskEngine.html">TaskEngine</a></li>
-        
-          <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a></li>
-        
-          <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a></li>
-        
-          <li><a href="./TaskQueue.html">TaskQueue</a></li>
-        
-          <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a></li>
-        
-          <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a></li>
-        
-          <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a></li>
-        
-          <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a></li>
-        
-          <li><a href="./UserAppClient.html">UserAppClient</a></li>
-        
-          <li><a href="./ZKInterface.html">ZKInterface</a></li>
-        
-        </ul>
-        <div id="no-class-search-results" style="display: none;">No matching classes.</div>
-      </div>
-
-      
-    </div>
+    
   </div>
 
-  <div id="documentation">
-    <h1 class="module">Collectd</h1>
+  <div id="class-metadata">
+    
+    
+    
+    <!-- Method Quickref -->
+<nav id="method-list-section" class="section">
+  <h3 class="section-header">Methods</h3>
 
-    <div id="description">
-      
+  <ul class="link-list">
+    
+    <li><a href="#method-c-clear_monitoring_data">::clear_monitoring_data</a>
+    
+    <li><a href="#method-c-clear_sites_enabled">::clear_sites_enabled</a>
+    
+    <li><a href="#method-c-initialize_config">::initialize_config</a>
+    
+    <li><a href="#method-c-remove_app">::remove_app</a>
+    
+    <li><a href="#method-c-restart">::restart</a>
+    
+    <li><a href="#method-c-stop">::stop</a>
+    
+    <li><a href="#method-c-write_app_config">::write_app_config</a>
+    
+  </ul>
+</nav>
+
+  </div>
+
+  <div id="project-metadata">
+    
+    <nav id="classindex-section" class="section project-section">
+  <h3 class="section-header">Class and Module Index</h3>
+
+  <ul class="link-list">
+  
+    <li><a href="./AppControllerClient.html">AppControllerClient</a>
+  
+    <li><a href="./AppScaleException.html">AppScaleException</a>
+  
+    <li><a href="./BadConfigurationException.html">BadConfigurationException</a>
+  
+    <li><a href="./BlobServer.html">BlobServer</a>
+  
+    <li><a href="./Collectd.html">Collectd</a>
+  
+    <li><a href="./CronHelper.html">CronHelper</a>
+  
+    <li><a href="./Datastore.html">Datastore</a>
+  
+    <li><a href="./DatastoreFactory.html">DatastoreFactory</a>
+  
+    <li><a href="./DatastoreRepo.html">DatastoreRepo</a>
+  
+    <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a>
+  
+    <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a>
+  
+    <li><a href="./DatastoreS3.html">DatastoreS3</a>
+  
+    <li><a href="./Djinn.html">Djinn</a>
+  
+    <li><a href="./DjinnJobData.html">DjinnJobData</a>
+  
+    <li><a href="./DjinnServer.html">DjinnServer</a>
+  
+    <li><a href="./Ejabberd.html">Ejabberd</a>
+  
+    <li><a href="./EngineFactory.html">EngineFactory</a>
+  
+    <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a>
+  
+    <li><a href="./GodInterface.html">GodInterface</a>
+  
+    <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a>
+  
+    <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a>
+  
+    <li><a href="./HAProxy.html">HAProxy</a>
+  
+    <li><a href="./HelperFunctions.html">HelperFunctions</a>
+  
+    <li><a href="./InfrastructureManagerClient.html">InfrastructureManagerClient</a>
+  
+    <li><a href="./JSONClient.html">JSONClient</a>
+  
+    <li><a href="./LoadBalancer.html">LoadBalancer</a>
+  
+    <li><a href="./Monitoring.html">Monitoring</a>
+  
+    <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
+  
+    <li><a href="./NeptuneManager.html">NeptuneManager</a>
+  
+    <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
+  
+    <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
+  
+    <li><a href="./Nginx.html">Nginx</a>
+  
+    <li><a href="./Object.html">Object</a>
+  
+    <li><a href="./PbServer.html">PbServer</a>
+  
+    <li><a href="./QueueFactory.html">QueueFactory</a>
+  
+    <li><a href="./RabbitMQ.html">RabbitMQ</a>
+  
+    <li><a href="./Repo.html">Repo</a>
+  
+    <li><a href="./TaskEngine.html">TaskEngine</a>
+  
+    <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a>
+  
+    <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a>
+  
+    <li><a href="./TaskQueue.html">TaskQueue</a>
+  
+    <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a>
+  
+    <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a>
+  
+    <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a>
+  
+    <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a>
+  
+    <li><a href="./TestAppScaleHelper.html">TestAppScaleHelper</a>
+  
+    <li><a href="./TestBabelHelper.html">TestBabelHelper</a>
+  
+    <li><a href="./TestCiceroHelper.html">TestCiceroHelper</a>
+  
+    <li><a href="./TestDatastore.html">TestDatastore</a>
+  
+    <li><a href="./TestNeptuneJobData.html">TestNeptuneJobData</a>
+  
+    <li><a href="./TestNeptuneManager.html">TestNeptuneManager</a>
+  
+    <li><a href="./TestTaskQueue.html">TestTaskQueue</a>
+  
+    <li><a href="./UserAppClient.html">UserAppClient</a>
+  
+    <li><a href="./ZKInterface.html">ZKInterface</a>
+  
+    <li><a href="./ZooKeeperLockException.html">ZooKeeperLockException</a>
+  
+  </ul>
+</nav>
+
+  </div>
+</nav>
+
+<div id="documentation">
+  <h1 class="module">module Collectd</h1>
+
+  <div id="description" class="description">
+    
 <p>A class that abstracts away interactions with collectd, the open source
 system statistics collection daemon. It provides methods to configure and
 run it as needed.</p>
 
-    </div>
+  </div><!-- description -->
 
-    <!-- Constants -->
+  
+  
+  
+  <section id="5Buntitled-5D" class="documentation-section">
     
-    <div id="constants-list" class="section">
+
+    
+
+    
+    <!-- Constants -->
+    <section id="constants-list" class="section">
       <h3 class="section-header">Constants</h3>
       <dl>
       
-        <dt><a name="COLLECTD_PATH">COLLECTD_PATH</a></dt>
+        <dt id="COLLECTD_PATH">COLLECTD_PATH
         
-        <dd class="description"></dd>
-        
-      
-        <dt><a name="SITES_ENABLED_PATH">SITES_ENABLED_PATH</a></dt>
-        
-        <dd class="description"></dd>
+        <dd class="description">
         
       
-        <dt><a name="CONFIG_EXTENSION">CONFIG_EXTENSION</a></dt>
+        <dt id="CONFIG_EXTENSION">CONFIG_EXTENSION
         
-        <dd class="description"></dd>
+        <dd class="description">
         
       
-        <dt><a name="MAIN_CONFIG_FILE">MAIN_CONFIG_FILE</a></dt>
+        <dt id="MAIN_CONFIG_FILE">MAIN_CONFIG_FILE
         
-        <dd class="description"></dd>
+        <dd class="description">
+        
+      
+        <dt id="SITES_ENABLED_PATH">SITES_ENABLED_PATH
+        
+        <dd class="description">
         
       
       </dl>
-    </div>
+    </section>
     
 
-    <!-- Attributes -->
     
 
     <!-- Methods -->
     
-    <div id="public-class-method-details" class="method-section section">
+     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Class Methods</h3>
 
     
-      <div id="clear_monitoring_data-method" class="method-detail ">
-        <a name="method-c-clear_monitoring_data"></a>
-
+      <div id="method-c-clear_monitoring_data" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">clear_monitoring_data</span><span
@@ -262,26 +278,22 @@ run it as needed.</p>
           
 
           
-          <div class="method-source-code"
-            id="clear_monitoring_data-source">
-<pre>
-<span class="ruby-comment"># File lib/collectd.rb, line 168</span>
-def self.clear_monitoring_data
-  `rm -rf /var/lib/collectd/rrd/`
-end</pre>
-          </div>
+          <div class="method-source-code" id="clear_monitoring_data-source">
+            <pre><span class="ruby-comment"># File lib/collectd.rb, line 168</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">clear_monitoring_data</span>
+  <span class="ruby-value">%xrm -rf /var/lib/collectd/rrd/`</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- clear_monitoring_data-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- clear_monitoring_data-method -->
 
     
-      <div id="clear_sites_enabled-method" class="method-detail ">
-        <a name="method-c-clear_sites_enabled"></a>
-
+      <div id="method-c-clear_sites_enabled" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">clear_sites_enabled</span><span
@@ -296,34 +308,30 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="clear_sites_enabled-source">
-<pre>
-<span class="ruby-comment"># File lib/collectd.rb, line 156</span>
-def self.clear_sites_enabled
-  if <span class="ruby-constant">File</span>.exists?(<span class="ruby-constant">SITES_ENABLED_PATH</span>)
-    sites = <span class="ruby-constant">Dir</span>.entries(<span class="ruby-constant">SITES_ENABLED_PATH</span>)
+          <div class="method-source-code" id="clear_sites_enabled-source">
+            <pre><span class="ruby-comment"># File lib/collectd.rb, line 156</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">clear_sites_enabled</span>
+  <span class="ruby-keyword">if</span> <span class="ruby-constant">File</span>.<span class="ruby-identifier">exists?</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>)
+    <span class="ruby-identifier">sites</span> = <span class="ruby-constant">Dir</span>.<span class="ruby-identifier">entries</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>)
     <span class="ruby-comment"># Remove any files that are not configs</span>
-    sites.delete_if { |site| !site.end_with?(<span class="ruby-constant">CONFIG_EXTENSION</span>) }
-    full_path_sites = sites.map { |site| <span class="ruby-constant">File</span>.join(<span class="ruby-constant">SITES_ENABLED_PATH</span>, site) }
-    <span class="ruby-constant">FileUtils</span>.rm_f full_path_sites
+    <span class="ruby-identifier">sites</span>.<span class="ruby-identifier">delete_if</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">site</span><span class="ruby-operator">|</span> <span class="ruby-operator">!</span><span class="ruby-identifier">site</span>.<span class="ruby-identifier">end_with?</span>(<span class="ruby-constant">CONFIG_EXTENSION</span>) }
+    <span class="ruby-identifier">full_path_sites</span> = <span class="ruby-identifier">sites</span>.<span class="ruby-identifier">map</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">site</span><span class="ruby-operator">|</span> <span class="ruby-constant">File</span>.<span class="ruby-identifier">join</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>, <span class="ruby-identifier">site</span>) }
+    <span class="ruby-constant">FileUtils</span>.<span class="ruby-identifier">rm_f</span> <span class="ruby-identifier">full_path_sites</span>
 
-    <span class="ruby-constant">Collectd</span>.restart
-  end
-end</pre>
-          </div>
+    <span class="ruby-constant">Collectd</span>.<span class="ruby-identifier">restart</span>
+  <span class="ruby-keyword">end</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- clear_sites_enabled-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- clear_sites_enabled-method -->
 
     
-      <div id="initialize_config-method" class="method-detail ">
-        <a name="method-c-initialize_config"></a>
-
+      <div id="method-c-initialize_config" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">initialize_config</span><span
@@ -339,46 +347,92 @@ for collectd</p>
           
 
           
-          <div class="method-source-code"
-            id="initialize_config-source">
-<pre>
-<span class="ruby-comment"># File lib/collectd.rb, line 173</span>
-  def self.initialize_config(my_ip, head_node_ip)
-    listen_line = <span class="ruby-string">&quot;&quot;</span>
-    rrdtool_line = <span class="ruby-string">&quot;&quot;</span>
-    data_plugin = <span class="ruby-string">&quot;&quot;</span>
+          <div class="method-source-code" id="initialize_config-source">
+            <pre><span class="ruby-comment"># File lib/collectd.rb, line 173</span>
+  <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">initialize_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">head_node_ip</span>)
+    <span class="ruby-identifier">listen_line</span> = <span class="ruby-string">&quot;&quot;</span>
+    <span class="ruby-identifier">rrdtool_line</span> = <span class="ruby-string">&quot;&quot;</span>
+    <span class="ruby-identifier">data_plugin</span> = <span class="ruby-string">&quot;&quot;</span>
     <span class="ruby-comment"># The head node will collect all the data, so it needs specific configs</span>
-    if my_ip == head_node_ip
-      listen_line = &quot;Listen \&quot;#{head_node_ip}\&quot; \&quot;25826\&quot;&quot;
-      data_plugin = <span class="ruby-string">&quot;LoadPlugin rrdtool&quot;</span>
-      rrdtool_line = <span class="ruby-string">&quot;&lt;Plugin rrdtool&gt;
+    <span class="ruby-keyword">if</span> <span class="ruby-identifier">my_ip</span> <span class="ruby-operator">==</span> <span class="ruby-identifier">head_node_ip</span>
+      <span class="ruby-identifier">listen_line</span> = <span class="ruby-node">&quot;Listen \&quot;#{head_node_ip}\&quot; \&quot;25826\&quot;&quot;</span>
+      <span class="ruby-identifier">data_plugin</span> = <span class="ruby-string">&quot;LoadPlugin rrdtool&quot;</span>
+      <span class="ruby-identifier">rrdtool_line</span> = <span class="ruby-string">&quot;&lt;Plugin rrdtool&gt;
         DataDir \&quot;/var/lib/collectd/rrd/\&quot;
 &lt;/Plugin&gt;&quot;</span>
-    end
+    <span class="ruby-keyword">end</span>
 
-    config = <span class="ruby-string">FQDNLookup falseHostname &quot;#{my_ip}&quot;LoadPlugin syslogLoadPlugin cpu#LoadPlugin dfLoadPlugin disk#LoadPlugin interfaceLoadPlugin loadLoadPlugin memcachedLoadPlugin memoryLoadPlugin nginxLoadPlugin networkLoadPlugin processesLoadPlugin swapLoadPlugin tail# This plugin seems to eat CPU at high load#LoadPlugin tcpconns#{data_plugin}&lt;Plugin syslog&gt;        LogLevel info&lt;/Plugin&gt;&lt;Plugin memcached&gt;        Host &quot;#{my_ip}&quot;        Port &quot;11211&quot;&lt;/Plugin&gt;&lt;Plugin &quot;nginx&quot;&gt;        URL &quot;http://#{my_ip}/nginx_status&quot;&lt;/Plugin&gt;#{rrdtool_line}#&lt;Plugin tcpconns&gt;#        ListeningPorts false#        LocalPort &quot;80&quot;#        RemotePort &quot;80&quot;#&lt;/Plugin&gt;&lt;Plugin &quot;network&quot;&gt;  Server &quot;#{head_node_ip}&quot; &quot;25826&quot;  #{listen_line}  Forward false  CacheFlush 1800&lt;/Plugin&gt;Include &quot;/etc/collectd/sites-enabled/*.conf&quot;Include &quot;/etc/collectd/thresholds.conf&quot;</span>
+    <span class="ruby-identifier">config</span> = <span class="ruby-string">&quot;FQDNLookup false
+Hostname &quot;#{my_ip}&quot;
+
+LoadPlugin syslog
+LoadPlugin cpu
+#LoadPlugin df
+LoadPlugin disk
+#LoadPlugin interface
+LoadPlugin load
+LoadPlugin memcached
+LoadPlugin memory
+LoadPlugin nginx
+LoadPlugin network
+LoadPlugin processes
+LoadPlugin swap
+LoadPlugin tail
+# This plugin seems to eat CPU at high load
+#LoadPlugin tcpconns
+#{data_plugin}
+
+&lt;Plugin syslog&gt;
+        LogLevel info
+&lt;/Plugin&gt;
+
+&lt;Plugin memcached&gt;
+        Host &quot;#{my_ip}&quot;
+        Port &quot;11211&quot;
+&lt;/Plugin&gt;
+
+&lt;Plugin &quot;nginx&quot;&gt;
+        URL &quot;http://#{my_ip}/nginx_status&quot;
+&lt;/Plugin&gt;
+
+#{rrdtool_line}
+
+#&lt;Plugin tcpconns&gt;
+#        ListeningPorts false
+#        LocalPort &quot;80&quot;
+#        RemotePort &quot;80&quot;
+#&lt;/Plugin&gt;
+
+&lt;Plugin &quot;network&quot;&gt;
+  Server &quot;#{head_node_ip}&quot; &quot;25826&quot;
+  #{listen_line}
+  Forward false
+  CacheFlush 1800
+&lt;/Plugin&gt;
+
+Include &quot;/etc/collectd/sites-enabled/*.conf&quot;
+Include &quot;/etc/collectd/thresholds.conf&quot;
+&quot;</span>
 
     <span class="ruby-comment"># Create the sites enabled folder</span>
-    unless <span class="ruby-constant">File</span>.exists? <span class="ruby-constant">SITES_ENABLED_PATH</span>
-      <span class="ruby-constant">FileUtils</span>.mkdir_p <span class="ruby-constant">SITES_ENABLED_PATH</span>
-    end
+    <span class="ruby-keyword">unless</span> <span class="ruby-constant">File</span>.<span class="ruby-identifier">exists?</span> <span class="ruby-constant">SITES_ENABLED_PATH</span>
+      <span class="ruby-constant">FileUtils</span>.<span class="ruby-identifier">mkdir_p</span> <span class="ruby-constant">SITES_ENABLED_PATH</span>
+    <span class="ruby-keyword">end</span>
 
     <span class="ruby-comment"># Write the base configuration file which sets default configuration parameters</span>
-    <span class="ruby-constant">File</span>.open(<span class="ruby-constant">MAIN_CONFIG_FILE</span>, <span class="ruby-string">&quot;w+&quot;</span>) { |dest_file| dest_file.write(config) }
-  end</pre>
-          </div>
+    <span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-constant">MAIN_CONFIG_FILE</span>, <span class="ruby-string">&quot;w+&quot;</span>) { <span class="ruby-operator">|</span><span class="ruby-identifier">dest_file</span><span class="ruby-operator">|</span> <span class="ruby-identifier">dest_file</span>.<span class="ruby-identifier">write</span>(<span class="ruby-identifier">config</span>) }
+  <span class="ruby-keyword">end</span></pre>
+          </div><!-- initialize_config-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- initialize_config-method -->
 
     
-      <div id="remove_app-method" class="method-detail ">
-        <a name="method-c-remove_app"></a>
-
+      <div id="method-c-remove_app" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">remove_app</span><span
@@ -393,28 +447,24 @@ for collectd</p>
           
 
           
-          <div class="method-source-code"
-            id="remove_app-source">
-<pre>
-<span class="ruby-comment"># File lib/collectd.rb, line 149</span>
-def self.remove_app(app_name)
-  config_name = &quot;#{app_name}.#{CONFIG_EXTENSION}&quot;
-  <span class="ruby-constant">FileUtils</span>.rm(<span class="ruby-constant">File</span>.join(<span class="ruby-constant">SITES_ENABLED_PATH</span>, config_name))
-  <span class="ruby-constant">Collectd</span>.restart
-end</pre>
-          </div>
+          <div class="method-source-code" id="remove_app-source">
+            <pre><span class="ruby-comment"># File lib/collectd.rb, line 149</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">remove_app</span>(<span class="ruby-identifier">app_name</span>)
+  <span class="ruby-identifier">config_name</span> = <span class="ruby-node">&quot;#{app_name}.#{CONFIG_EXTENSION}&quot;</span>
+  <span class="ruby-constant">FileUtils</span>.<span class="ruby-identifier">rm</span>(<span class="ruby-constant">File</span>.<span class="ruby-identifier">join</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>, <span class="ruby-identifier">config_name</span>))
+  <span class="ruby-constant">Collectd</span>.<span class="ruby-identifier">restart</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- remove_app-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- remove_app-method -->
 
     
-      <div id="restart-method" class="method-detail ">
-        <a name="method-c-restart"></a>
-
+      <div id="method-c-restart" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">restart</span><span
@@ -429,27 +479,23 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="restart-source">
-<pre>
-<span class="ruby-comment"># File lib/collectd.rb, line 27</span>
-def self.restart
-  `/etc/init.d/collectd stop`
-  `/etc/init.d/collectd start`
-end</pre>
-          </div>
+          <div class="method-source-code" id="restart-source">
+            <pre><span class="ruby-comment"># File lib/collectd.rb, line 27</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">restart</span>
+  <span class="ruby-value">%x/etc/init.d/collectd stop`</span>
+  <span class="ruby-value">%x/etc/init.d/collectd start`</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- restart-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- restart-method -->
 
     
-      <div id="stop-method" class="method-detail ">
-        <a name="method-c-stop"></a>
-
+      <div id="method-c-stop" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">stop</span><span
@@ -464,26 +510,22 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="stop-source">
-<pre>
-<span class="ruby-comment"># File lib/collectd.rb, line 23</span>
-def self.stop
-  `/etc/init.d/collectd stop`
-end</pre>
-          </div>
+          <div class="method-source-code" id="stop-source">
+            <pre><span class="ruby-comment"># File lib/collectd.rb, line 23</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">stop</span>
+  <span class="ruby-value">%x/etc/init.d/collectd stop`</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- stop-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- stop-method -->
 
     
-      <div id="write_app_config-method" class="method-detail ">
-        <a name="method-c-write_app_config"></a>
-
+      <div id="method-c-write_app_config" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">write_app_config</span><span
@@ -498,39 +540,142 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="write_app_config-source">
-<pre>
-<span class="ruby-comment"># File lib/collectd.rb, line 33</span>
-def self.write_app_config(app_name)
-  config = <span class="ruby-string">&lt;Plugin &quot;tail&quot;&gt;  &lt;File &quot;/var/apps/#{app_name}/log/server.log&quot;&gt;    Instance &quot;#{app_name}&quot;    &lt;Match&gt;      Regex &quot;APP_STAT .* status [2-4]0[0-9]&quot;      DSType &quot;CounterInc&quot;      Type &quot;counter&quot;      Instance &quot;requests-success&quot;    &lt;/Match&gt;    &lt;Match&gt;      Regex &quot;APP_STAT .* status 50[0-9]&quot;      DSType &quot;CounterInc&quot;      Type &quot;counter&quot;      Instance &quot;requests-error&quot;    &lt;/Match&gt;    &lt;Match&gt;      Regex &quot;APP_STAT .* time ([0-9.]*)&quot;      DSType &quot;GaugeAverage&quot;      Type &quot;delay&quot;      Instance &quot;requests-response-time&quot;    &lt;/Match&gt;    Instance &quot;#{app_name}-datastore&quot;    &lt;Match&gt;      Regex &quot;DS_STAT .* qtype .*&quot;      DSType &quot;CounterInc&quot;      Type &quot;counter&quot;      Instance &quot;requests&quot;    &lt;/Match&gt;    &lt;Match&gt;      Regex &quot;DS_STAT .* qtype RunQuery&quot;      DSType &quot;CounterInc&quot;      Type &quot;counter&quot;      Instance &quot;request-query&quot;    &lt;/Match&gt;    &lt;Match&gt;      Regex &quot;DS_STAT .* qtype Get&quot;      DSType &quot;CounterInc&quot;      Type &quot;counter&quot;      Instance &quot;request-get&quot;    &lt;/Match&gt;    &lt;Match&gt;      Regex &quot;DS_STAT .* qtype Put&quot;      DSType &quot;CounterInc&quot;      Type &quot;counter&quot;      Instance &quot;request-put&quot;    &lt;/Match&gt;    &lt;Match&gt;      Regex &quot;DS_STAT .* qtype Delete&quot;      DSType &quot;CounterInc&quot;      Type &quot;counter&quot;      Instance &quot;request-delete&quot;    &lt;/Match&gt;    &lt;Match&gt;      Regex &quot;DS_STAT .* time ([0-9.]*)&quot;      DSType &quot;GaugeAverage&quot;      Type &quot;delay&quot;      Instance &quot;requests-response-time&quot;    &lt;/Match&gt;    &lt;Match&gt;      Regex &quot;DS_STAT .* qtype RunQuery time ([0-9.]*)&quot;      DSType &quot;GaugeAverage&quot;      Type &quot;delay&quot;      Instance &quot;requests-response-time-query&quot;    &lt;/Match&gt;    &lt;Match&gt;      Regex &quot;DS_STAT .* qtype Get time ([0-9.]*)&quot;      DSType &quot;GaugeAverage&quot;      Type &quot;delay&quot;      Instance &quot;requests-response-time-get&quot;    &lt;/Match&gt;    &lt;Match&gt;      Regex &quot;DS_STAT .* qtype Put time ([0-9.]*)&quot;      DSType &quot;GaugeAverage&quot;      Type &quot;delay&quot;      Instance &quot;requests-response-time-put&quot;    &lt;/Match&gt;    &lt;Match&gt;      Regex &quot;DS_STAT .* qtype Delete time ([0-9.]*)&quot;      DSType &quot;GaugeAverage&quot;      Type &quot;delay&quot;      Instance &quot;requests-response-time-delete&quot;    &lt;/Match&gt;  &lt;/File&gt;  &lt;File &quot;/var/log/nginx/#{app_name}.access.log&quot;&gt;    Instance &quot;#{app_name}-nginx&quot;    &lt;Match&gt;      Regex &quot; status [2-4]0[0-9] &quot;      DSType &quot;CounterInc&quot;      Type &quot;counter&quot;      Instance &quot;requests-success&quot;    &lt;/Match&gt;    &lt;Match&gt;      Regex &quot; status 50[0-9] &quot;      DSType &quot;CounterInc&quot;      Type &quot;counter&quot;      Instance &quot;requests-error&quot;    &lt;/Match&gt;    &lt;Match&gt;      Regex &quot; upstream ([0-9.]*) &quot;      DSType GaugeAverage      Type delay      Instance &quot;response-time&quot;    &lt;/Match&gt;  &lt;/File&gt;&lt;/Plugin&gt;</span>
+          <div class="method-source-code" id="write_app_config-source">
+            <pre><span class="ruby-comment"># File lib/collectd.rb, line 33</span>
+  <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">write_app_config</span>(<span class="ruby-identifier">app_name</span>)
+    <span class="ruby-identifier">config</span> = <span class="ruby-string">&quot;&lt;Plugin &quot;tail&quot;&gt;
+  &lt;File &quot;/var/apps/#{app_name}/log/server.log&quot;&gt;
+    Instance &quot;#{app_name}&quot;
+    &lt;Match&gt;
+      Regex &quot;APP_STAT .* status [2-4]0[0-9]&quot;
+      DSType &quot;CounterInc&quot;
+      Type &quot;counter&quot;
+      Instance &quot;requests-success&quot;
+    &lt;/Match&gt;
+    &lt;Match&gt;
+      Regex &quot;APP_STAT .* status 50[0-9]&quot;
+      DSType &quot;CounterInc&quot;
+      Type &quot;counter&quot;
+      Instance &quot;requests-error&quot;
+    &lt;/Match&gt;
+    &lt;Match&gt;
+      Regex &quot;APP_STAT .* time ([0-9.]*)&quot;
+      DSType &quot;GaugeAverage&quot;
+      Type &quot;delay&quot;
+      Instance &quot;requests-response-time&quot;
+    &lt;/Match&gt;
 
-  config_path = <span class="ruby-constant">File</span>.join(<span class="ruby-constant">SITES_ENABLED_PATH</span>, &quot;#{app_name}.#{CONFIG_EXTENSION}&quot;)
-  <span class="ruby-constant">File</span>.open(config_path, <span class="ruby-string">&quot;w+&quot;</span>) { |dest_file| dest_file.write(config) }
+    Instance &quot;#{app_name}-datastore&quot;
+    &lt;Match&gt;
+      Regex &quot;DS_STAT .* qtype .*&quot;
+      DSType &quot;CounterInc&quot;
+      Type &quot;counter&quot;
+      Instance &quot;requests&quot;
+    &lt;/Match&gt;
+    &lt;Match&gt;
+      Regex &quot;DS_STAT .* qtype RunQuery&quot;
+      DSType &quot;CounterInc&quot;
+      Type &quot;counter&quot;
+      Instance &quot;request-query&quot;
+    &lt;/Match&gt;
+    &lt;Match&gt;
+      Regex &quot;DS_STAT .* qtype Get&quot;
+      DSType &quot;CounterInc&quot;
+      Type &quot;counter&quot;
+      Instance &quot;request-get&quot;
+    &lt;/Match&gt;
+    &lt;Match&gt;
+      Regex &quot;DS_STAT .* qtype Put&quot;
+      DSType &quot;CounterInc&quot;
+      Type &quot;counter&quot;
+      Instance &quot;request-put&quot;
+    &lt;/Match&gt;
+    &lt;Match&gt;
+      Regex &quot;DS_STAT .* qtype Delete&quot;
+      DSType &quot;CounterInc&quot;
+      Type &quot;counter&quot;
+      Instance &quot;request-delete&quot;
+    &lt;/Match&gt;
+    &lt;Match&gt;
+      Regex &quot;DS_STAT .* time ([0-9.]*)&quot;
+      DSType &quot;GaugeAverage&quot;
+      Type &quot;delay&quot;
+      Instance &quot;requests-response-time&quot;
+    &lt;/Match&gt;
+    &lt;Match&gt;
+      Regex &quot;DS_STAT .* qtype RunQuery time ([0-9.]*)&quot;
+      DSType &quot;GaugeAverage&quot;
+      Type &quot;delay&quot;
+      Instance &quot;requests-response-time-query&quot;
+    &lt;/Match&gt;
+    &lt;Match&gt;
+      Regex &quot;DS_STAT .* qtype Get time ([0-9.]*)&quot;
+      DSType &quot;GaugeAverage&quot;
+      Type &quot;delay&quot;
+      Instance &quot;requests-response-time-get&quot;
+    &lt;/Match&gt;
+    &lt;Match&gt;
+      Regex &quot;DS_STAT .* qtype Put time ([0-9.]*)&quot;
+      DSType &quot;GaugeAverage&quot;
+      Type &quot;delay&quot;
+      Instance &quot;requests-response-time-put&quot;
+    &lt;/Match&gt;
+    &lt;Match&gt;
+      Regex &quot;DS_STAT .* qtype Delete time ([0-9.]*)&quot;
+      DSType &quot;GaugeAverage&quot;
+      Type &quot;delay&quot;
+      Instance &quot;requests-response-time-delete&quot;
+    &lt;/Match&gt;
+  &lt;/File&gt;
+  &lt;File &quot;/var/log/nginx/#{app_name}.access.log&quot;&gt;
+    Instance &quot;#{app_name}-nginx&quot;
+    &lt;Match&gt;
+      Regex &quot; status [2-4]0[0-9] &quot;
+      DSType &quot;CounterInc&quot;
+      Type &quot;counter&quot;
+      Instance &quot;requests-success&quot;
+    &lt;/Match&gt;
+    &lt;Match&gt;
+      Regex &quot; status 50[0-9] &quot;
+      DSType &quot;CounterInc&quot;
+      Type &quot;counter&quot;
+      Instance &quot;requests-error&quot;
+    &lt;/Match&gt;
+    &lt;Match&gt;
+      Regex &quot; upstream ([0-9.]*) &quot;
+      DSType GaugeAverage
+      Type delay
+      Instance &quot;response-time&quot;
+    &lt;/Match&gt;
+  &lt;/File&gt;
+&lt;/Plugin&gt;
+&quot;</span>
 
-  <span class="ruby-constant">Collectd</span>.restart
-end</pre>
-          </div>
+    <span class="ruby-identifier">config_path</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">join</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>, <span class="ruby-node">&quot;#{app_name}.#{CONFIG_EXTENSION}&quot;</span>)
+    <span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-identifier">config_path</span>, <span class="ruby-string">&quot;w+&quot;</span>) { <span class="ruby-operator">|</span><span class="ruby-identifier">dest_file</span><span class="ruby-operator">|</span> <span class="ruby-identifier">dest_file</span>.<span class="ruby-identifier">write</span>(<span class="ruby-identifier">config</span>) }
+
+    <span class="ruby-constant">Collectd</span>.<span class="ruby-identifier">restart</span>
+  <span class="ruby-keyword">end</span></pre>
+          </div><!-- write_app_config-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- write_app_config-method -->
 
     
-    </div>
+    </section><!-- public-class-method-details -->
   
+  </section><!-- 5Buntitled-5D -->
 
-  </div>
+</div><!-- documentation -->
 
-  <div id="validator-badges">
-    <p><small><a href="http://validator.w3.org/check/referer">[Validate]</a></small></p>
-    <p><small>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish
-      Rdoc Generator</a> 2</small>.</p>
-  </div>
 
-</body>
-</html>
+<footer id="validator-badges">
+  <p><a href="http://validator.w3.org/check/referer">[Validate]</a>
+  <p>Generated by <a href="https://github.com/rdoc/rdoc">RDoc</a> 3.12.
+  <p>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish Rdoc Generator</a> 3.
+</footer>
 

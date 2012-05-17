@@ -1,282 +1,298 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<!DOCTYPE html>
+
+<html>
 <head>
-  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+<meta content="text/html; charset=UTF-8" http-equiv="Content-Type">
 
-  <title>Module: PbServer</title>
+<title>module PbServer - RDoc Documentation</title>
 
-  <link rel="stylesheet" href="./rdoc.css" type="text/css" media="screen" />
+<link type="text/css" media="screen" href="./rdoc.css" rel="stylesheet">
 
-  <script src="./js/jquery.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/thickbox-compressed.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/quicksearch.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/darkfish.js" type="text/javascript"
-    charset="utf-8"></script>
+<script type="text/javascript">
+  var rdoc_rel_prefix = "./";
+</script>
 
-</head>
-<body class="module">
+<script type="text/javascript" charset="utf-8" src="./js/jquery.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/navigation.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/search_index.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/search.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/searcher.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/darkfish.js"></script>
 
-  <div id="metadata">
-    <div id="home-metadata">
-      <div id="home-section" class="section">
-        <h3 class="section-header">
-          <a href="./index.html">Home</a>
-          <a href="./index.html#classes">Classes</a>
-          <a href="./index.html#methods">Methods</a>
-        </h3>
-      </div>
-    </div>
 
-    <div id="file-metadata">
-      <div id="file-list-section" class="section">
-        <h3 class="section-header">In Files</h3>
-        <div class="section-body">
-          <ul>
-          
-            <li><a href="./lib/pbserver_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
-              class="thickbox" title="lib/pbserver.rb">lib/pbserver.rb</a></li>
-          
-          </ul>
-        </div>
-      </div>
+<body id="top" class="module">
+<nav id="metadata">
+  <nav id="home-section" class="section">
+  <h3 class="section-header">
+    <a href="./index.html">Home</a>
+    <a href="./table_of_contents.html#classes">Classes</a>
+    <a href="./table_of_contents.html#methods">Methods</a>
+  </h3>
+</nav>
 
-      
-    </div>
 
-    <div id="class-metadata">
+  <nav id="search-section" class="section project-section" class="initially-hidden">
+  <form action="#" method="get" accept-charset="utf-8">
+    <h3 class="section-header">
+      <input type="text" name="search" placeholder="Search" id="search-field"
+             title="Type to search, Up and Down to navigate, Enter to load">
+    </h3>
+  </form>
 
-      <!-- Parent Class -->
-      
+  <ul id="search-results" class="initially-hidden"></ul>
+</nav>
 
-      <!-- Namespace Contents -->
-      
 
-      <!-- Method Quickref -->
-      
-      <div id="method-list-section" class="section">
-        <h3 class="section-header">Methods</h3>
-        <ul class="link-list">
-          
-          <li><a href="#method-c-get_executable_name">::get_executable_name</a></li>
-          
-          <li><a href="#method-c-get_server_ports">::get_server_ports</a></li>
-          
-          <li><a href="#method-c-is_running">::is_running</a></li>
-          
-          <li><a href="#method-c-restart">::restart</a></li>
-          
-          <li><a href="#method-c-start">::start</a></li>
-          
-          <li><a href="#method-c-stop">::stop</a></li>
-          
-        </ul>
-      </div>
-      
+  <div id="file-metadata">
+    <nav id="file-list-section" class="section">
+  <h3 class="section-header">Defined In</h3>
+  <ul>
+    <li>lib/pbserver.rb
+  </ul>
+</nav>
 
-      <!-- Included Modules -->
-      
-    </div>
-
-    <div id="project-metadata">
-      
-      
-
-      <div id="classindex-section" class="section project-section">
-        <h3 class="section-header">Class/Module Index
-          <span class="search-toggle"><img src="./images/find.png"
-            height="16" width="16" alt="[+]"
-            title="show/hide quicksearch" /></span></h3>
-        <form action="#" method="get" accept-charset="utf-8" class="initially-hidden">
-        <fieldset>
-          <legend>Quicksearch</legend>
-          <input type="text" name="quicksearch" value=""
-            class="quicksearch-field" />
-        </fieldset>
-        </form>
-
-        <ul class="link-list">
-        
-          <li><a href="./AppControllerClient.html">AppControllerClient</a></li>
-        
-          <li><a href="./BadConfigurationException.html">BadConfigurationException</a></li>
-        
-          <li><a href="./BlobServer.html">BlobServer</a></li>
-        
-          <li><a href="./Collectd.html">Collectd</a></li>
-        
-          <li><a href="./CronHelper.html">CronHelper</a></li>
-        
-          <li><a href="./Datastore.html">Datastore</a></li>
-        
-          <li><a href="./DatastoreFactory.html">DatastoreFactory</a></li>
-        
-          <li><a href="./DatastoreRepo.html">DatastoreRepo</a></li>
-        
-          <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a></li>
-        
-          <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a></li>
-        
-          <li><a href="./DatastoreS3.html">DatastoreS3</a></li>
-        
-          <li><a href="./Djinn.html">Djinn</a></li>
-        
-          <li><a href="./DjinnJobData.html">DjinnJobData</a></li>
-        
-          <li><a href="./DjinnServer.html">DjinnServer</a></li>
-        
-          <li><a href="./Ejabberd.html">Ejabberd</a></li>
-        
-          <li><a href="./EngineFactory.html">EngineFactory</a></li>
-        
-          <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a></li>
-        
-          <li><a href="./GodInterface.html">GodInterface</a></li>
-        
-          <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a></li>
-        
-          <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a></li>
-        
-          <li><a href="./HAProxy.html">HAProxy</a></li>
-        
-          <li><a href="./HelperFunctions.html">HelperFunctions</a></li>
-        
-          <li><a href="./JSONClient.html">JSONClient</a></li>
-        
-          <li><a href="./LoadBalancer.html">LoadBalancer</a></li>
-        
-          <li><a href="./Monitoring.html">Monitoring</a></li>
-        
-          <li><a href="./NeptuneJobData.html">NeptuneJobData</a></li>
-        
-          <li><a href="./Nginx.html">Nginx</a></li>
-        
-          <li><a href="./Object.html">Object</a></li>
-        
-          <li><a href="./PbServer.html">PbServer</a></li>
-        
-          <li><a href="./QueueFactory.html">QueueFactory</a></li>
-        
-          <li><a href="./RabbitMQ.html">RabbitMQ</a></li>
-        
-          <li><a href="./Repo.html">Repo</a></li>
-        
-          <li><a href="./TaskEngine.html">TaskEngine</a></li>
-        
-          <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a></li>
-        
-          <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a></li>
-        
-          <li><a href="./TaskQueue.html">TaskQueue</a></li>
-        
-          <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a></li>
-        
-          <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a></li>
-        
-          <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a></li>
-        
-          <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a></li>
-        
-          <li><a href="./UserAppClient.html">UserAppClient</a></li>
-        
-          <li><a href="./ZKInterface.html">ZKInterface</a></li>
-        
-        </ul>
-        <div id="no-class-search-results" style="display: none;">No matching classes.</div>
-      </div>
-
-      
-    </div>
+    
   </div>
 
-  <div id="documentation">
-    <h1 class="module">PbServer</h1>
+  <div id="class-metadata">
+    
+    
+    
+    <!-- Method Quickref -->
+<nav id="method-list-section" class="section">
+  <h3 class="section-header">Methods</h3>
 
-    <div id="description">
-      
+  <ul class="link-list">
+    
+    <li><a href="#method-c-get_executable_name">::get_executable_name</a>
+    
+    <li><a href="#method-c-get_server_ports">::get_server_ports</a>
+    
+    <li><a href="#method-c-is_running">::is_running</a>
+    
+    <li><a href="#method-c-restart">::restart</a>
+    
+    <li><a href="#method-c-start">::start</a>
+    
+    <li><a href="#method-c-stop">::stop</a>
+    
+  </ul>
+</nav>
+
+  </div>
+
+  <div id="project-metadata">
+    
+    <nav id="classindex-section" class="section project-section">
+  <h3 class="section-header">Class and Module Index</h3>
+
+  <ul class="link-list">
+  
+    <li><a href="./AppControllerClient.html">AppControllerClient</a>
+  
+    <li><a href="./AppScaleException.html">AppScaleException</a>
+  
+    <li><a href="./BadConfigurationException.html">BadConfigurationException</a>
+  
+    <li><a href="./BlobServer.html">BlobServer</a>
+  
+    <li><a href="./Collectd.html">Collectd</a>
+  
+    <li><a href="./CronHelper.html">CronHelper</a>
+  
+    <li><a href="./Datastore.html">Datastore</a>
+  
+    <li><a href="./DatastoreFactory.html">DatastoreFactory</a>
+  
+    <li><a href="./DatastoreRepo.html">DatastoreRepo</a>
+  
+    <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a>
+  
+    <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a>
+  
+    <li><a href="./DatastoreS3.html">DatastoreS3</a>
+  
+    <li><a href="./Djinn.html">Djinn</a>
+  
+    <li><a href="./DjinnJobData.html">DjinnJobData</a>
+  
+    <li><a href="./DjinnServer.html">DjinnServer</a>
+  
+    <li><a href="./Ejabberd.html">Ejabberd</a>
+  
+    <li><a href="./EngineFactory.html">EngineFactory</a>
+  
+    <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a>
+  
+    <li><a href="./GodInterface.html">GodInterface</a>
+  
+    <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a>
+  
+    <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a>
+  
+    <li><a href="./HAProxy.html">HAProxy</a>
+  
+    <li><a href="./HelperFunctions.html">HelperFunctions</a>
+  
+    <li><a href="./InfrastructureManagerClient.html">InfrastructureManagerClient</a>
+  
+    <li><a href="./JSONClient.html">JSONClient</a>
+  
+    <li><a href="./LoadBalancer.html">LoadBalancer</a>
+  
+    <li><a href="./Monitoring.html">Monitoring</a>
+  
+    <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
+  
+    <li><a href="./NeptuneManager.html">NeptuneManager</a>
+  
+    <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
+  
+    <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
+  
+    <li><a href="./Nginx.html">Nginx</a>
+  
+    <li><a href="./Object.html">Object</a>
+  
+    <li><a href="./PbServer.html">PbServer</a>
+  
+    <li><a href="./QueueFactory.html">QueueFactory</a>
+  
+    <li><a href="./RabbitMQ.html">RabbitMQ</a>
+  
+    <li><a href="./Repo.html">Repo</a>
+  
+    <li><a href="./TaskEngine.html">TaskEngine</a>
+  
+    <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a>
+  
+    <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a>
+  
+    <li><a href="./TaskQueue.html">TaskQueue</a>
+  
+    <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a>
+  
+    <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a>
+  
+    <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a>
+  
+    <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a>
+  
+    <li><a href="./TestAppScaleHelper.html">TestAppScaleHelper</a>
+  
+    <li><a href="./TestBabelHelper.html">TestBabelHelper</a>
+  
+    <li><a href="./TestCiceroHelper.html">TestCiceroHelper</a>
+  
+    <li><a href="./TestDatastore.html">TestDatastore</a>
+  
+    <li><a href="./TestNeptuneJobData.html">TestNeptuneJobData</a>
+  
+    <li><a href="./TestNeptuneManager.html">TestNeptuneManager</a>
+  
+    <li><a href="./TestTaskQueue.html">TestTaskQueue</a>
+  
+    <li><a href="./UserAppClient.html">UserAppClient</a>
+  
+    <li><a href="./ZKInterface.html">ZKInterface</a>
+  
+    <li><a href="./ZooKeeperLockException.html">ZooKeeperLockException</a>
+  
+  </ul>
+</nav>
+
+  </div>
+</nav>
+
+<div id="documentation">
+  <h1 class="module">module PbServer</h1>
+
+  <div id="description" class="description">
+    
 <p>To support the Google App Engine <a href="Datastore.html">Datastore</a> API
 in a way that is database-agnostic, App Engine applications store and
 retrieve data via the PBServer. The server inherits this name from the
 storage format of requests in the <a href="Datastore.html">Datastore</a>
 API: Protocol Buffers.</p>
 
-    </div>
+  </div><!-- description -->
 
-    <!-- Constants -->
+  
+  
+  
+  <section id="5Buntitled-5D" class="documentation-section">
     
-    <div id="constants-list" class="section">
+
+    
+
+    
+    <!-- Constants -->
+    <section id="constants-list" class="section">
       <h3 class="section-header">Constants</h3>
       <dl>
       
-        <dt><a name="NUM_PBSERVERS">NUM_PBSERVERS</a></dt>
-        
-        <dd class="description"><p>As PBServers are single-threaded, we run more than one and put nginx in
-front of it to load balance requests. This constant indicates how many
-PBServers should be run on each node.</p></dd>
-        
-      
-        <dt><a name="STARTING_PORT">STARTING_PORT</a></dt>
-        
-        <dd class="description"><p>The first port that should be used to host PBServers.</p></dd>
-        
-      
-        <dt><a name="PROXY_PORT">PROXY_PORT</a></dt>
-        
-        <dd class="description"><p>The port that we should run nginx on, to load balance requests to the
-various PBServers running on this node.</p></dd>
-        
-      
-        <dt><a name="LISTEN_PORT_NO_SSL">LISTEN_PORT_NO_SSL</a></dt>
-        
-        <dd class="description"><p>The port that nginx should be listening to for non-encrypted requests to
-the PBServers.</p></dd>
-        
-      
-        <dt><a name="LISTEN_PORT_WITH_SSL">LISTEN_PORT_WITH_SSL</a></dt>
-        
-        <dd class="description"><p>The port that nginx should be listening to for encrypted requests to the
-PBServers.</p></dd>
-        
-      
-        <dt><a name="DBS_NEEDING_ONE_PBSERVER">DBS_NEEDING_ONE_PBSERVER</a></dt>
+        <dt id="DBS_NEEDING_ONE_PBSERVER">DBS_NEEDING_ONE_PBSERVER
         
         <dd class="description"><p>A list of databases that we cannot spawn multiple PBServers for and stick
 nginx in front of, usually because they have locks or other database state
-stored in memory.</p></dd>
+stored in memory.</p>
         
       
-        <dt><a name="DBS_WITH_NATIVE_PBSERVER">DBS_WITH_NATIVE_PBSERVER</a></dt>
+        <dt id="DBS_WITH_NATIVE_PBSERVER">DBS_WITH_NATIVE_PBSERVER
         
         <dd class="description"><p>A list of databases that we have native (not database agnostic) support for
-within AppScale.</p></dd>
+within AppScale.</p>
         
       
-        <dt><a name="NAME">NAME</a></dt>
+        <dt id="LISTEN_PORT_NO_SSL">LISTEN_PORT_NO_SSL
+        
+        <dd class="description"><p>The port that nginx should be listening to for non-encrypted requests to
+the PBServers.</p>
+        
+      
+        <dt id="LISTEN_PORT_WITH_SSL">LISTEN_PORT_WITH_SSL
+        
+        <dd class="description"><p>The port that nginx should be listening to for encrypted requests to the
+PBServers.</p>
+        
+      
+        <dt id="NAME">NAME
         
         <dd class="description"><p>The name that nginx should use as the identifier for the PBServer when it
-we write its configuration files.</p></dd>
+we write its configuration files.</p>
+        
+      
+        <dt id="NUM_PBSERVERS">NUM_PBSERVERS
+        
+        <dd class="description"><p>As PBServers are single-threaded, we run more than one and put nginx in
+front of it to load balance requests. This constant indicates how many
+PBServers should be run on each node.</p>
+        
+      
+        <dt id="PROXY_PORT">PROXY_PORT
+        
+        <dd class="description"><p>The port that we should run nginx on, to load balance requests to the
+various PBServers running on this node.</p>
+        
+      
+        <dt id="STARTING_PORT">STARTING_PORT
+        
+        <dd class="description"><p>The first port that should be used to host PBServers.</p>
         
       
       </dl>
-    </div>
+    </section>
     
 
-    <!-- Attributes -->
     
 
     <!-- Methods -->
     
-    <div id="public-class-method-details" class="method-section section">
+     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Class Methods</h3>
 
     
-      <div id="get_executable_name-method" class="method-detail ">
-        <a name="method-c-get_executable_name"></a>
-
+      <div id="method-c-get_executable_name" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">get_executable_name</span><span
@@ -293,30 +309,26 @@ right version for the database selected.</p>
           
 
           
-          <div class="method-source-code"
-            id="get_executable_name-source">
-<pre>
-<span class="ruby-comment"># File lib/pbserver.rb, line 117</span>
-def self.get_executable_name(table)
-  if <span class="ruby-constant">DBS_WITH_NATIVE_PBSERVER</span>.include?(table)
-    return &quot;#{APPSCALE_HOME}/AppDB/appscale_server_#{table}.py&quot;
-  else
-    return &quot;#{APPSCALE_HOME}/AppDB/appscale_server.py&quot;
-  end
-end</pre>
-          </div>
+          <div class="method-source-code" id="get_executable_name-source">
+            <pre><span class="ruby-comment"># File lib/pbserver.rb, line 117</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_executable_name</span>(<span class="ruby-identifier">table</span>)
+  <span class="ruby-keyword">if</span> <span class="ruby-constant">DBS_WITH_NATIVE_PBSERVER</span>.<span class="ruby-identifier">include?</span>(<span class="ruby-identifier">table</span>)
+    <span class="ruby-keyword">return</span> <span class="ruby-node">&quot;#{APPSCALE_HOME}/AppDB/appscale_server_#{table}.py&quot;</span>
+  <span class="ruby-keyword">else</span>
+    <span class="ruby-keyword">return</span> <span class="ruby-node">&quot;#{APPSCALE_HOME}/AppDB/appscale_server.py&quot;</span>
+  <span class="ruby-keyword">end</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- get_executable_name-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- get_executable_name-method -->
 
     
-      <div id="get_server_ports-method" class="method-detail ">
-        <a name="method-c-get_server_ports"></a>
-
+      <div id="method-c-get_server_ports" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">get_server_ports</span><span
@@ -331,36 +343,32 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="get_server_ports-source">
-<pre>
-<span class="ruby-comment"># File lib/pbserver.rb, line 94</span>
-def self.get_server_ports(table)
-  if <span class="ruby-constant">DBS_NEEDING_ONE_PBSERVER</span>.include?(table)
-    num_pbservers = 1
-  else
-    num_pbservers = <span class="ruby-constant">NUM_PBSERVERS</span>
-  end
+          <div class="method-source-code" id="get_server_ports-source">
+            <pre><span class="ruby-comment"># File lib/pbserver.rb, line 94</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_server_ports</span>(<span class="ruby-identifier">table</span>)
+  <span class="ruby-keyword">if</span> <span class="ruby-constant">DBS_NEEDING_ONE_PBSERVER</span>.<span class="ruby-identifier">include?</span>(<span class="ruby-identifier">table</span>)
+    <span class="ruby-identifier">num_pbservers</span> = <span class="ruby-value">1</span>
+  <span class="ruby-keyword">else</span>
+    <span class="ruby-identifier">num_pbservers</span> = <span class="ruby-constant">NUM_PBSERVERS</span>
+  <span class="ruby-keyword">end</span>
 
-  server_ports = []
-  num_pbservers.times { |i|
-    server_ports &lt;&lt; <span class="ruby-constant">STARTING_PORT</span> + i
+  <span class="ruby-identifier">server_ports</span> = []
+  <span class="ruby-identifier">num_pbservers</span>.<span class="ruby-identifier">times</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">i</span><span class="ruby-operator">|</span>
+    <span class="ruby-identifier">server_ports</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-constant">STARTING_PORT</span> <span class="ruby-operator">+</span> <span class="ruby-identifier">i</span>
   }
-  return server_ports
-end</pre>
-          </div>
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">server_ports</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- get_server_ports-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- get_server_ports-method -->
 
     
-      <div id="is_running-method" class="method-detail ">
-        <a name="method-c-is_running"></a>
-
+      <div id="method-c-is_running" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">is_running</span><span
@@ -375,26 +383,22 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="is_running-source">
-<pre>
-<span class="ruby-comment"># File lib/pbserver.rb, line 109</span>
-def self.is_running(my_ip)
-  `curl http://#{my_ip}:#{PROXY_PORT}` 
-end</pre>
-          </div>
+          <div class="method-source-code" id="is_running-source">
+            <pre><span class="ruby-comment"># File lib/pbserver.rb, line 109</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">is_running</span>(<span class="ruby-identifier">my_ip</span>)
+  <span class="ruby-node">%xcurl http://#{my_ip}:#{PROXY_PORT}`</span> 
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- is_running-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- is_running-method -->
 
     
-      <div id="restart-method" class="method-detail ">
-        <a name="method-c-restart"></a>
-
+      <div id="method-c-restart" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">restart</span><span
@@ -410,27 +414,23 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="restart-source">
-<pre>
-<span class="ruby-comment"># File lib/pbserver.rb, line 87</span>
-def self.restart(master_ip, my_ip, table, zklocations)
-  self.stop()
-  self.start(master_ip, my_ip, table, zklocations)
-end</pre>
-          </div>
+          <div class="method-source-code" id="restart-source">
+            <pre><span class="ruby-comment"># File lib/pbserver.rb, line 87</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">restart</span>(<span class="ruby-identifier">master_ip</span>, <span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">table</span>, <span class="ruby-identifier">zklocations</span>)
+  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">stop</span>()
+  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">start</span>(<span class="ruby-identifier">master_ip</span>, <span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">table</span>, <span class="ruby-identifier">zklocations</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- restart-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- restart-method -->
 
     
-      <div id="start-method" class="method-detail ">
-        <a name="method-c-start"></a>
-
+      <div id="method-c-start" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">start</span><span
@@ -446,41 +446,37 @@ it ourselves, so just tell god to start it and watch it.</p>
           
 
           
-          <div class="method-source-code"
-            id="start-source">
-<pre>
-<span class="ruby-comment"># File lib/pbserver.rb, line 58</span>
-def self.start(master_ip, db_local_ip, my_ip, table, zklocations)
-  pbserver = self.get_executable_name(table)
-  ports = self.get_server_ports(table)
+          <div class="method-source-code" id="start-source">
+            <pre><span class="ruby-comment"># File lib/pbserver.rb, line 58</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">start</span>(<span class="ruby-identifier">master_ip</span>, <span class="ruby-identifier">db_local_ip</span>, <span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">table</span>, <span class="ruby-identifier">zklocations</span>)
+  <span class="ruby-identifier">pbserver</span> = <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_executable_name</span>(<span class="ruby-identifier">table</span>)
+  <span class="ruby-identifier">ports</span> = <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_server_ports</span>(<span class="ruby-identifier">table</span>)
 
-  env_vars = { 
-    <span class="ruby-string">'APPSCALE_HOME'</span> =&gt; <span class="ruby-constant">APPSCALE_HOME</span>,
-    <span class="ruby-string">&quot;MASTER_IP&quot;</span> =&gt; master_ip, 
-    <span class="ruby-string">&quot;LOCAL_DB_IP&quot;</span> =&gt; db_local_ip 
+  <span class="ruby-identifier">env_vars</span> = { 
+    <span class="ruby-string">'APPSCALE_HOME'</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-constant">APPSCALE_HOME</span>,
+    <span class="ruby-string">&quot;MASTER_IP&quot;</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-identifier">master_ip</span>, 
+    <span class="ruby-string">&quot;LOCAL_DB_IP&quot;</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-identifier">db_local_ip</span> 
   }
 
-  ports.each { |port|
-    start_cmd = &quot;/usr/bin/python2.6 #{pbserver} -p #{port} &quot; +
-        &quot;--no_encryption --type #{table} -z \'#{zklocations}\' &quot; +
-        &quot;-s #{HelperFunctions.get_secret()} -a #{my_ip} --key&quot;
-    stop_cmd = <span class="ruby-string">&quot;pkill -9 appscale_server&quot;</span>
-    <span class="ruby-constant">GodInterface</span>.start(:pbserver, start_cmd, stop_cmd, port, env_vars)
+  <span class="ruby-identifier">ports</span>.<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">port</span><span class="ruby-operator">|</span>
+    <span class="ruby-identifier">start_cmd</span> = <span class="ruby-node">&quot;/usr/bin/python2.6 #{pbserver} -p #{port} &quot;</span> <span class="ruby-operator">+</span>
+        <span class="ruby-node">&quot;--no_encryption --type #{table} -z \'#{zklocations}\' &quot;</span> <span class="ruby-operator">+</span>
+        <span class="ruby-node">&quot;-s #{HelperFunctions.get_secret()} -a #{my_ip} --key&quot;</span>
+    <span class="ruby-identifier">stop_cmd</span> = <span class="ruby-string">&quot;pkill -9 appscale_server&quot;</span>
+    <span class="ruby-constant">GodInterface</span>.<span class="ruby-identifier">start</span>(<span class="ruby-value">:pbserver</span>, <span class="ruby-identifier">start_cmd</span>, <span class="ruby-identifier">stop_cmd</span>, <span class="ruby-identifier">port</span>, <span class="ruby-identifier">env_vars</span>)
   }
-end</pre>
-          </div>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- start-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- start-method -->
 
     
-      <div id="stop-method" class="method-detail ">
-        <a name="method-c-stop"></a>
-
+      <div id="method-c-stop" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">stop</span><span
@@ -496,34 +492,31 @@ managed by god, just tell god to shut it down.</p>
           
 
           
-          <div class="method-source-code"
-            id="stop-source">
-<pre>
-<span class="ruby-comment"># File lib/pbserver.rb, line 80</span>
-def self.stop(table)
-   <span class="ruby-constant">GodInterface</span>.stop(:pbserver)
-end</pre>
-          </div>
+          <div class="method-source-code" id="stop-source">
+            <pre><span class="ruby-comment"># File lib/pbserver.rb, line 80</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">stop</span>(<span class="ruby-identifier">table</span>)
+   <span class="ruby-constant">GodInterface</span>.<span class="ruby-identifier">stop</span>(<span class="ruby-value">:pbserver</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- stop-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- stop-method -->
 
     
-    </div>
+    </section><!-- public-class-method-details -->
   
+  </section><!-- 5Buntitled-5D -->
 
-  </div>
+</div><!-- documentation -->
 
-  <div id="validator-badges">
-    <p><small><a href="http://validator.w3.org/check/referer">[Validate]</a></small></p>
-    <p><small>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish
-      Rdoc Generator</a> 2</small>.</p>
-  </div>
 
-</body>
-</html>
+<footer id="validator-badges">
+  <p><a href="http://validator.w3.org/check/referer">[Validate]</a>
+  <p>Generated by <a href="https://github.com/rdoc/rdoc">RDoc</a> 3.12.
+  <p>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish Rdoc Generator</a> 3.
+</footer>
 

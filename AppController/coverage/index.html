@@ -21,19 +21,19 @@
         <label>File Filter:</label>
         <select id="file_filter" class="filter">
           <option value="all_files">Show All</option>
-          <option value="">/</option><option value="AppDB">AppDB/</option><option value="Neptune">Neptune/</option><option value="cgb">cgb/</option><option value="clients">clients/</option><option value="home">home/</option><option value="lib">lib/</option><option value="main">main/</option><option value="main-cgb-research">main-cgb-research/</option><option value="zkappscale">zkappscale/</option>
+          <option value="">/</option><option value="AppDB">AppDB/</option><option value="appscale">appscale/</option><option value="cgb">cgb/</option><option value="home">home/</option><option value="lib">lib/</option><option value="zkappscale">zkappscale/</option>
         </select>
       </fieldset>
       <fieldset>
         <label>Code Coverage Threshold:</label>
         <select id="coverage_filter" class="filter">
           <option value="all_coverage">Show All</option>
-          <option value="10">&lt; 10% Coverage</option><option value="20">&lt; 20% Coverage</option><option value="30">&lt; 30% Coverage</option><option value="40">&lt; 40% Coverage</option><option value="50">&lt; 50% Coverage</option><option value="60">&lt; 60% Coverage</option><option value="70">&lt; 70% Coverage</option><option value="80">&lt; 80% Coverage</option><option value="90">&lt; 90% Coverage</option><option value="100">&lt; 100% Coverage</option>
-          <option value="110">= 100% Coverage</option>
+          <option value="_10">&lt; 10% Coverage</option><option value="_20">&lt; 20% Coverage</option><option value="_30">&lt; 30% Coverage</option><option value="_40">&lt; 40% Coverage</option><option value="_50">&lt; 50% Coverage</option><option value="_60">&lt; 60% Coverage</option><option value="_70">&lt; 70% Coverage</option><option value="_80">&lt; 80% Coverage</option><option value="_90">&lt; 90% Coverage</option><option value="_100">&lt; 100% Coverage</option>
+          <option value="_110">= 100% Coverage</option>
         </select>
       </fieldset>
     </div>
-    
+
     <div class="report_table_wrapper">
       <table class='report' id='report_table'>
         <thead>
@@ -48,24 +48,24 @@
         <tfoot>
           <tr>
             <td class="left_align">TOTAL</td>
-            <td class='right_align'><tt>12180</tt></td>
-            <td class='right_align'><tt>8094</tt></td>
-            <td class="left_align"><div class="percent_graph_legend"><tt class=''>39.84%</tt></div>
+            <td class='right_align'><tt>8601</tt></td>
+            <td class='right_align'><tt>5743</tt></td>
+            <td class="left_align"><div class="percent_graph_legend"><tt class=''>37.51%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:40px"></div>
-            <div class="uncovered" style="width:60px"></div>
+            <div class="covered" style="width:38px"></div>
+            <div class="uncovered" style="width:62px"></div>
           </div></td>
-            <td class="left_align"><div class="percent_graph_legend"><tt class='coverage_total'>28.38%</tt></div>
+            <td class="left_align"><div class="percent_graph_legend"><tt class='coverage_total'>25.56%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:28px"></div>
-            <div class="uncovered" style="width:72px"></div>
+            <div class="covered" style="width:26px"></div>
+            <div class="uncovered" style="width:74px"></div>
           </div></td>
           </tr>
         </tfoot>
         <tbody>
           
-            <tr class="all_files all_coverage 20 30 40 50 60 70 80 90 100  home cgb clients main main-cgb-research AppDB zkappscale even">
-              <td class="left_align"><a href="-home-cgb-clients-main-main-cgb-research-AppDB-zkappscale-zookeeper_helper_rb.html">/home/cgb/clients/main/main-cgb-research/AppDB/zkappscale/zookeeper_helper.rb</a></td>
+            <tr class="all_files all_coverage _20 _30 _40 _50 _60 _70 _80 _90 _100  home cgb appscale AppDB zkappscale even">
+              <td class="left_align"><a href="-home-cgb-appscale-AppDB-zkappscale-zookeeper_helper_rb.html">/home/cgb/appscale/AppDB/zkappscale/zookeeper_helper.rb</a></td>
               <td class='right_align'><tt>74</tt></td>
               <td class='right_align'><tt>56</tt></td>
               <td class="left_align"><div class="percent_graph_legend"><tt class=''>20.27%</tt></div>
@@ -80,359 +80,23 @@
           </div></td>
             </tr>
           
-            <tr class="all_files all_coverage 100  home cgb clients main main-cgb-research Neptune odd">
-              <td class="left_align"><a href="-home-cgb-clients-main-main-cgb-research-Neptune-appscale_helper_rb.html">/home/cgb/clients/main/main-cgb-research/Neptune/appscale_helper.rb</a></td>
-              <td class='right_align'><tt>48</tt></td>
-              <td class='right_align'><tt>30</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>93.75%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:94px"></div>
-            <div class="uncovered" style="width:6px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>93.33%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:93px"></div>
-            <div class="uncovered" style="width:7px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 60 70 80 90 100  home cgb clients main main-cgb-research Neptune even">
-              <td class="left_align"><a href="-home-cgb-clients-main-main-cgb-research-Neptune-babel_helper_rb.html">/home/cgb/clients/main/main-cgb-research/Neptune/babel_helper.rb</a></td>
-              <td class='right_align'><tt>718</tt></td>
-              <td class='right_align'><tt>432</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>65.60%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:66px"></div>
-            <div class="uncovered" style="width:34px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>53.70%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:54px"></div>
-            <div class="uncovered" style="width:46px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 20 30 40 50 60 70 80 90 100  home cgb clients main main-cgb-research Neptune odd">
-              <td class="left_align"><a href="-home-cgb-clients-main-main-cgb-research-Neptune-cicero_helper_rb.html">/home/cgb/clients/main/main-cgb-research/Neptune/cicero_helper.rb</a></td>
-              <td class='right_align'><tt>350</tt></td>
-              <td class='right_align'><tt>247</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>24.29%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:24px"></div>
-            <div class="uncovered" style="width:76px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>16.60%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:17px"></div>
-            <div class="uncovered" style="width:83px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 30 40 50 60 70 80 90 100  home cgb clients main main-cgb-research Neptune even">
-              <td class="left_align"><a href="-home-cgb-clients-main-main-cgb-research-Neptune-engine_factory_rb.html">/home/cgb/clients/main/main-cgb-research/Neptune/engine_factory.rb</a></td>
-              <td class='right_align'><tt>29</tt></td>
-              <td class='right_align'><tt>18</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>41.38%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:41px"></div>
-            <div class="uncovered" style="width:59px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>22.22%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:22px"></div>
-            <div class="uncovered" style="width:78px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 30 40 50 60 70 80 90 100  home cgb clients main main-cgb-research Neptune odd">
-              <td class="left_align"><a href="-home-cgb-clients-main-main-cgb-research-Neptune-erlang_helper_rb.html">/home/cgb/clients/main/main-cgb-research/Neptune/erlang_helper.rb</a></td>
-              <td class='right_align'><tt>71</tt></td>
-              <td class='right_align'><tt>45</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>40.85%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:41px"></div>
-            <div class="uncovered" style="width:59px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>26.67%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:27px"></div>
-            <div class="uncovered" style="width:73px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 30 40 50 60 70 80 90 100  home cgb clients main main-cgb-research Neptune even">
-              <td class="left_align"><a href="-home-cgb-clients-main-main-cgb-research-Neptune-go_helper_rb.html">/home/cgb/clients/main/main-cgb-research/Neptune/go_helper.rb</a></td>
-              <td class='right_align'><tt>68</tt></td>
-              <td class='right_align'><tt>42</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>39.71%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:40px"></div>
-            <div class="uncovered" style="width:60px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>26.19%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:26px"></div>
-            <div class="uncovered" style="width:74px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 20 30 40 50 60 70 80 90 100  home cgb clients main main-cgb-research Neptune odd">
-              <td class="left_align"><a href="-home-cgb-clients-main-main-cgb-research-Neptune-mapreduce_helper_rb.html">/home/cgb/clients/main/main-cgb-research/Neptune/mapreduce_helper.rb</a></td>
-              <td class='right_align'><tt>203</tt></td>
-              <td class='right_align'><tt>129</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>23.15%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:23px"></div>
-            <div class="uncovered" style="width:77px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>14.73%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:15px"></div>
-            <div class="uncovered" style="width:85px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 20 30 40 50 60 70 80 90 100  home cgb clients main main-cgb-research Neptune even">
-              <td class="left_align"><a href="-home-cgb-clients-main-main-cgb-research-Neptune-mpi_helper_rb.html">/home/cgb/clients/main/main-cgb-research/Neptune/mpi_helper.rb</a></td>
-              <td class='right_align'><tt>220</tt></td>
-              <td class='right_align'><tt>154</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>18.64%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:19px"></div>
-            <div class="uncovered" style="width:81px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>12.34%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:12px"></div>
-            <div class="uncovered" style="width:88px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 20 30 40 50 60 70 80 90 100  home cgb clients main main-cgb-research Neptune odd">
-              <td class="left_align"><a href="-home-cgb-clients-main-main-cgb-research-Neptune-neptune_rb.html">/home/cgb/clients/main/main-cgb-research/Neptune/neptune.rb</a></td>
-              <td class='right_align'><tt>949</tt></td>
-              <td class='right_align'><tt>676</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>16.02%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:16px"></div>
-            <div class="uncovered" style="width:84px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>11.39%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:11px"></div>
-            <div class="uncovered" style="width:89px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 110  home cgb clients main main-cgb-research Neptune even">
-              <td class="left_align"><a href="-home-cgb-clients-main-main-cgb-research-Neptune-neptune_job_data_rb.html">/home/cgb/clients/main/main-cgb-research/Neptune/neptune_job_data.rb</a></td>
-              <td class='right_align'><tt>65</tt></td>
-              <td class='right_align'><tt>43</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>100.00%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:100px"></div>
-            <div class="uncovered" style="width:0px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>100.00%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:100px"></div>
-            <div class="uncovered" style="width:0px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 60 70 80 90 100  home cgb clients main main-cgb-research Neptune odd">
-              <td class="left_align"><a href="-home-cgb-clients-main-main-cgb-research-Neptune-queue_factory_rb.html">/home/cgb/clients/main/main-cgb-research/Neptune/queue_factory.rb</a></td>
-              <td class='right_align'><tt>35</tt></td>
-              <td class='right_align'><tt>25</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>60.00%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:60px"></div>
-            <div class="uncovered" style="width:40px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>56.00%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:56px"></div>
-            <div class="uncovered" style="width:44px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 30 40 50 60 70 80 90 100  home cgb clients main main-cgb-research Neptune even">
-              <td class="left_align"><a href="-home-cgb-clients-main-main-cgb-research-Neptune-r_helper_rb.html">/home/cgb/clients/main/main-cgb-research/Neptune/r_helper.rb</a></td>
-              <td class='right_align'><tt>66</tt></td>
-              <td class='right_align'><tt>42</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>39.39%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:39px"></div>
-            <div class="uncovered" style="width:61px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>26.19%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:26px"></div>
-            <div class="uncovered" style="width:74px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 20 30 40 50 60 70 80 90 100  home cgb clients main main-cgb-research Neptune odd">
-              <td class="left_align"><a href="-home-cgb-clients-main-main-cgb-research-Neptune-ssa_helper_rb.html">/home/cgb/clients/main/main-cgb-research/Neptune/ssa_helper.rb</a></td>
-              <td class='right_align'><tt>281</tt></td>
-              <td class='right_align'><tt>197</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>16.37%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:16px"></div>
-            <div class="uncovered" style="width:84px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>10.66%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:11px"></div>
-            <div class="uncovered" style="width:89px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 20 30 40 50 60 70 80 90 100  home cgb clients main main-cgb-research Neptune even">
-              <td class="left_align"><a href="-home-cgb-clients-main-main-cgb-research-Neptune-task_engine_rb.html">/home/cgb/clients/main/main-cgb-research/Neptune/task_engine.rb</a></td>
-              <td class='right_align'><tt>103</tt></td>
-              <td class='right_align'><tt>72</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>32.04%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:32px"></div>
-            <div class="uncovered" style="width:68px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>16.67%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:17px"></div>
-            <div class="uncovered" style="width:83px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 30 40 50 60 70 80 90 100  home cgb clients main main-cgb-research Neptune odd">
-              <td class="left_align"><a href="-home-cgb-clients-main-main-cgb-research-Neptune-task_engine_appscale_rb.html">/home/cgb/clients/main/main-cgb-research/Neptune/task_engine_appscale.rb</a></td>
-              <td class='right_align'><tt>91</tt></td>
-              <td class='right_align'><tt>59</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>41.76%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:42px"></div>
-            <div class="uncovered" style="width:58px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>20.34%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:20px"></div>
-            <div class="uncovered" style="width:80px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 30 40 50 60 70 80 90 100  home cgb clients main main-cgb-research Neptune even">
-              <td class="left_align"><a href="-home-cgb-clients-main-main-cgb-research-Neptune-task_engine_google_app_engine_rb.html">/home/cgb/clients/main/main-cgb-research/Neptune/task_engine_google_app_engine.rb</a></td>
-              <td class='right_align'><tt>134</tt></td>
-              <td class='right_align'><tt>76</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>37.31%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:37px"></div>
-            <div class="uncovered" style="width:63px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>23.68%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:24px"></div>
-            <div class="uncovered" style="width:76px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 60 70 80 90 100  home cgb clients main main-cgb-research Neptune odd">
-              <td class="left_align"><a href="-home-cgb-clients-main-main-cgb-research-Neptune-task_queue_rb.html">/home/cgb/clients/main/main-cgb-research/Neptune/task_queue.rb</a></td>
-              <td class='right_align'><tt>35</tt></td>
-              <td class='right_align'><tt>14</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>80.00%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:80px"></div>
-            <div class="uncovered" style="width:20px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>50.00%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:50px"></div>
-            <div class="uncovered" style="width:50px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 30 40 50 60 70 80 90 100  home cgb clients main main-cgb-research Neptune even">
-              <td class="left_align"><a href="-home-cgb-clients-main-main-cgb-research-Neptune-task_queue_azure_queue_rb.html">/home/cgb/clients/main/main-cgb-research/Neptune/task_queue_azure_queue.rb</a></td>
-              <td class='right_align'><tt>86</tt></td>
-              <td class='right_align'><tt>53</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>50.00%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:50px"></div>
-            <div class="uncovered" style="width:50px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>28.30%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:28px"></div>
-            <div class="uncovered" style="width:72px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 20 30 40 50 60 70 80 90 100  home cgb clients main main-cgb-research Neptune odd">
-              <td class="left_align"><a href="-home-cgb-clients-main-main-cgb-research-Neptune-task_queue_google_app_engine_rb.html">/home/cgb/clients/main/main-cgb-research/Neptune/task_queue_google_app_engine.rb</a></td>
-              <td class='right_align'><tt>174</tt></td>
-              <td class='right_align'><tt>118</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>36.21%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:36px"></div>
-            <div class="uncovered" style="width:64px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>17.80%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:18px"></div>
-            <div class="uncovered" style="width:82px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 40 50 60 70 80 90 100  home cgb clients main main-cgb-research Neptune even">
-              <td class="left_align"><a href="-home-cgb-clients-main-main-cgb-research-Neptune-task_queue_rabbitmq_rb.html">/home/cgb/clients/main/main-cgb-research/Neptune/task_queue_rabbitmq.rb</a></td>
-              <td class='right_align'><tt>72</tt></td>
-              <td class='right_align'><tt>39</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>58.33%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:58px"></div>
-            <div class="uncovered" style="width:42px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>33.33%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:33px"></div>
-            <div class="uncovered" style="width:67px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 90 100  home cgb clients main main-cgb-research Neptune odd">
-              <td class="left_align"><a href="-home-cgb-clients-main-main-cgb-research-Neptune-task_queue_sqs_rb.html">/home/cgb/clients/main/main-cgb-research/Neptune/task_queue_sqs.rb</a></td>
-              <td class='right_align'><tt>117</tt></td>
-              <td class='right_align'><tt>56</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>91.45%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:91px"></div>
-            <div class="uncovered" style="width:9px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>82.14%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:82px"></div>
-            <div class="uncovered" style="width:18px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 30 40 50 60 70 80 90 100  even">
+            <tr class="all_files all_coverage _30 _40 _50 _60 _70 _80 _90 _100  odd">
               <td class="left_align"><a href="djinn_rb.html">djinn.rb</a></td>
-              <td class='right_align'><tt>2903</tt></td>
-              <td class='right_align'><tt>2018</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>36.93%</tt></div>
+              <td class='right_align'><tt>3453</tt></td>
+              <td class='right_align'><tt>2348</tt></td>
+              <td class="left_align"><div class="percent_graph_legend"><tt class=''>35.39%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:37px"></div>
-            <div class="uncovered" style="width:63px"></div>
+            <div class="covered" style="width:35px"></div>
+            <div class="uncovered" style="width:65px"></div>
           </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>28.39%</tt></div>
+              <td class="left_align"><div class="percent_graph_legend"><tt class=''>25.89%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:28px"></div>
-            <div class="uncovered" style="width:72px"></div>
+            <div class="covered" style="width:26px"></div>
+            <div class="uncovered" style="width:74px"></div>
           </div></td>
             </tr>
           
-            <tr class="all_files all_coverage 20 30 40 50 60 70 80 90 100 lib odd">
+            <tr class="all_files all_coverage _20 _30 _40 _50 _60 _70 _80 _90 _100 lib even">
               <td class="left_align"><a href="lib-app_controller_client_rb.html">lib/app_controller_client.rb</a></td>
               <td class='right_align'><tt>274</tt></td>
               <td class='right_align'><tt>180</tt></td>
@@ -448,7 +112,7 @@
           </div></td>
             </tr>
           
-            <tr class="all_files all_coverage 30 40 50 60 70 80 90 100 lib even">
+            <tr class="all_files all_coverage _30 _40 _50 _60 _70 _80 _90 _100 lib odd">
               <td class="left_align"><a href="lib-blobstore_rb.html">lib/blobstore.rb</a></td>
               <td class='right_align'><tt>62</tt></td>
               <td class='right_align'><tt>40</tt></td>
@@ -464,7 +128,7 @@
           </div></td>
             </tr>
           
-            <tr class="all_files all_coverage 10 20 30 40 50 60 70 80 90 100 lib odd">
+            <tr class="all_files all_coverage _10 _20 _30 _40 _50 _60 _70 _80 _90 _100 lib even">
               <td class="left_align"><a href="lib-collectd_rb.html">lib/collectd.rb</a></td>
               <td class='right_align'><tt>247</tt></td>
               <td class='right_align'><tt>191</tt></td>
@@ -480,7 +144,7 @@
           </div></td>
             </tr>
           
-            <tr class="all_files all_coverage 20 30 40 50 60 70 80 90 100 lib even">
+            <tr class="all_files all_coverage _20 _30 _40 _50 _60 _70 _80 _90 _100 lib odd">
               <td class="left_align"><a href="lib-cron_helper_rb.html">lib/cron_helper.rb</a></td>
               <td class='right_align'><tt>178</tt></td>
               <td class='right_align'><tt>129</tt></td>
@@ -496,103 +160,7 @@
           </div></td>
             </tr>
           
-            <tr class="all_files all_coverage 40 50 60 70 80 90 100 lib odd">
-              <td class="left_align"><a href="lib-datastore_rb.html">lib/datastore.rb</a></td>
-              <td class='right_align'><tt>61</tt></td>
-              <td class='right_align'><tt>26</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>68.85%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:69px"></div>
-            <div class="uncovered" style="width:31px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>34.62%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:35px"></div>
-            <div class="uncovered" style="width:65px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 110 lib even">
-              <td class="left_align"><a href="lib-datastore_factory_rb.html">lib/datastore_factory.rb</a></td>
-              <td class='right_align'><tt>34</tt></td>
-              <td class='right_align'><tt>20</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>100.00%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:100px"></div>
-            <div class="uncovered" style="width:0px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>100.00%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:100px"></div>
-            <div class="uncovered" style="width:0px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 110 lib odd">
-              <td class="left_align"><a href="lib-datastore_repo_rb.html">lib/datastore_repo.rb</a></td>
-              <td class='right_align'><tt>137</tt></td>
-              <td class='right_align'><tt>82</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>100.00%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:100px"></div>
-            <div class="uncovered" style="width:0px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>100.00%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:100px"></div>
-            <div class="uncovered" style="width:0px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 60 70 80 90 100 lib even">
-              <td class="left_align"><a href="lib-datastore_repo_on_app_engine_rb.html">lib/datastore_repo_on_app_engine.rb</a></td>
-              <td class='right_align'><tt>65</tt></td>
-              <td class='right_align'><tt>34</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>67.69%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:68px"></div>
-            <div class="uncovered" style="width:32px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>50.00%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:50px"></div>
-            <div class="uncovered" style="width:50px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 110 lib odd">
-              <td class="left_align"><a href="lib-datastore_repo_on_appscale_rb.html">lib/datastore_repo_on_appscale.rb</a></td>
-              <td class='right_align'><tt>35</tt></td>
-              <td class='right_align'><tt>13</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>100.00%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:100px"></div>
-            <div class="uncovered" style="width:0px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>100.00%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:100px"></div>
-            <div class="uncovered" style="width:0px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 90 100 lib even">
-              <td class="left_align"><a href="lib-datastore_s3_rb.html">lib/datastore_s3.rb</a></td>
-              <td class='right_align'><tt>196</tt></td>
-              <td class='right_align'><tt>116</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>90.31%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:90px"></div>
-            <div class="uncovered" style="width:10px"></div>
-          </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>83.62%</tt></div>
-          <div class="percent_graph">
-            <div class="covered" style="width:84px"></div>
-            <div class="uncovered" style="width:16px"></div>
-          </div></td>
-            </tr>
-          
-            <tr class="all_files all_coverage 80 90 100 lib odd">
+            <tr class="all_files all_coverage _80 _90 _100 lib even">
               <td class="left_align"><a href="lib-djinn_job_data_rb.html">lib/djinn_job_data.rb</a></td>
               <td class='right_align'><tt>184</tt></td>
               <td class='right_align'><tt>124</tt></td>
@@ -608,7 +176,7 @@
           </div></td>
             </tr>
           
-            <tr class="all_files all_coverage 10 20 30 40 50 60 70 80 90 100 lib even">
+            <tr class="all_files all_coverage _10 _20 _30 _40 _50 _60 _70 _80 _90 _100 lib odd">
               <td class="left_align"><a href="lib-ejabberd_rb.html">lib/ejabberd.rb</a></td>
               <td class='right_align'><tt>436</tt></td>
               <td class='right_align'><tt>321</tt></td>
@@ -624,103 +192,135 @@
           </div></td>
             </tr>
           
-            <tr class="all_files all_coverage 20 30 40 50 60 70 80 90 100 lib odd">
+            <tr class="all_files all_coverage _10 _20 _30 _40 _50 _60 _70 _80 _90 _100 lib even">
               <td class="left_align"><a href="lib-godinterface_rb.html">lib/godinterface.rb</a></td>
-              <td class='right_align'><tt>155</tt></td>
-              <td class='right_align'><tt>113</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>25.16%</tt></div>
+              <td class='right_align'><tt>151</tt></td>
+              <td class='right_align'><tt>110</tt></td>
+              <td class="left_align"><div class="percent_graph_legend"><tt class=''>15.23%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:25px"></div>
-            <div class="uncovered" style="width:75px"></div>
+            <div class="covered" style="width:15px"></div>
+            <div class="uncovered" style="width:85px"></div>
           </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>19.47%</tt></div>
+              <td class="left_align"><div class="percent_graph_legend"><tt class=''>7.27%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:19px"></div>
-            <div class="uncovered" style="width:81px"></div>
+            <div class="covered" style="width:7px"></div>
+            <div class="uncovered" style="width:93px"></div>
           </div></td>
             </tr>
           
-            <tr class="all_files all_coverage 30 40 50 60 70 80 90 100 lib even">
+            <tr class="all_files all_coverage _20 _30 _40 _50 _60 _70 _80 _90 _100 lib odd">
               <td class="left_align"><a href="lib-haproxy_rb.html">lib/haproxy.rb</a></td>
-              <td class='right_align'><tt>262</tt></td>
-              <td class='right_align'><tt>137</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>32.82%</tt></div>
+              <td class='right_align'><tt>297</tt></td>
+              <td class='right_align'><tt>157</tt></td>
+              <td class="left_align"><div class="percent_graph_legend"><tt class=''>31.99%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:33px"></div>
-            <div class="uncovered" style="width:67px"></div>
+            <div class="covered" style="width:32px"></div>
+            <div class="uncovered" style="width:68px"></div>
           </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>20.44%</tt></div>
+              <td class="left_align"><div class="percent_graph_legend"><tt class=''>18.47%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:20px"></div>
-            <div class="uncovered" style="width:80px"></div>
+            <div class="covered" style="width:18px"></div>
+            <div class="uncovered" style="width:82px"></div>
           </div></td>
             </tr>
           
-            <tr class="all_files all_coverage 20 30 40 50 60 70 80 90 100 lib odd">
+            <tr class="all_files all_coverage _20 _30 _40 _50 _60 _70 _80 _90 _100 lib even">
               <td class="left_align"><a href="lib-helperfunctions_rb.html">lib/helperfunctions.rb</a></td>
-              <td class='right_align'><tt>1125</tt></td>
-              <td class='right_align'><tt>799</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>24.18%</tt></div>
+              <td class='right_align'><tt>1186</tt></td>
+              <td class='right_align'><tt>834</tt></td>
+              <td class="left_align"><div class="percent_graph_legend"><tt class=''>24.20%</tt></div>
           <div class="percent_graph">
             <div class="covered" style="width:24px"></div>
             <div class="uncovered" style="width:76px"></div>
           </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>15.64%</tt></div>
+              <td class="left_align"><div class="percent_graph_legend"><tt class=''>14.87%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:16px"></div>
-            <div class="uncovered" style="width:84px"></div>
+            <div class="covered" style="width:15px"></div>
+            <div class="uncovered" style="width:85px"></div>
           </div></td>
             </tr>
           
-            <tr class="all_files all_coverage 40 50 60 70 80 90 100 lib even">
-              <td class="left_align"><a href="lib-load_balancer_rb.html">lib/load_balancer.rb</a></td>
-              <td class='right_align'><tt>76</tt></td>
-              <td class='right_align'><tt>41</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>59.21%</tt></div>
+            <tr class="all_files all_coverage _60 _70 _80 _90 _100 lib odd">
+              <td class="left_align"><a href="lib-infrastructure_manager_client_rb.html">lib/infrastructure_manager_client.rb</a></td>
+              <td class='right_align'><tt>202</tt></td>
+              <td class='right_align'><tt>122</tt></td>
+              <td class="left_align"><div class="percent_graph_legend"><tt class=''>69.80%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:59px"></div>
-            <div class="uncovered" style="width:41px"></div>
+            <div class="covered" style="width:70px"></div>
+            <div class="uncovered" style="width:30px"></div>
           </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>36.59%</tt></div>
+              <td class="left_align"><div class="percent_graph_legend"><tt class=''>54.10%</tt></div>
+          <div class="percent_graph">
+            <div class="covered" style="width:54px"></div>
+            <div class="uncovered" style="width:46px"></div>
+          </div></td>
+            </tr>
+          
+            <tr class="all_files all_coverage _40 _50 _60 _70 _80 _90 _100 lib even">
+              <td class="left_align"><a href="lib-load_balancer_rb.html">lib/load_balancer.rb</a></td>
+              <td class='right_align'><tt>79</tt></td>
+              <td class='right_align'><tt>42</tt></td>
+              <td class="left_align"><div class="percent_graph_legend"><tt class=''>60.76%</tt></div>
+          <div class="percent_graph">
+            <div class="covered" style="width:61px"></div>
+            <div class="uncovered" style="width:39px"></div>
+          </div></td>
+              <td class="left_align"><div class="percent_graph_legend"><tt class=''>38.10%</tt></div>
+          <div class="percent_graph">
+            <div class="covered" style="width:38px"></div>
+            <div class="uncovered" style="width:62px"></div>
+          </div></td>
+            </tr>
+          
+            <tr class="all_files all_coverage _40 _50 _60 _70 _80 _90 _100 lib odd">
+              <td class="left_align"><a href="lib-monitoring_rb.html">lib/monitoring.rb</a></td>
+              <td class='right_align'><tt>76</tt></td>
+              <td class='right_align'><tt>43</tt></td>
+              <td class="left_align"><div class="percent_graph_legend"><tt class=''>60.53%</tt></div>
+          <div class="percent_graph">
+            <div class="covered" style="width:61px"></div>
+            <div class="uncovered" style="width:39px"></div>
+          </div></td>
+              <td class="left_align"><div class="percent_graph_legend"><tt class=''>37.21%</tt></div>
           <div class="percent_graph">
             <div class="covered" style="width:37px"></div>
             <div class="uncovered" style="width:63px"></div>
           </div></td>
             </tr>
           
-            <tr class="all_files all_coverage 40 50 60 70 80 90 100 lib odd">
-              <td class="left_align"><a href="lib-monitoring_rb.html">lib/monitoring.rb</a></td>
-              <td class='right_align'><tt>73</tt></td>
-              <td class='right_align'><tt>42</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>58.90%</tt></div>
+            <tr class="all_files all_coverage _110 lib even">
+              <td class="left_align"><a href="lib-neptune_manager_client_rb.html">lib/neptune_manager_client.rb</a></td>
+              <td class='right_align'><tt>18</tt></td>
+              <td class='right_align'><tt>3</tt></td>
+              <td class="left_align"><div class="percent_graph_legend"><tt class=''>100.00%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:59px"></div>
-            <div class="uncovered" style="width:41px"></div>
+            <div class="covered" style="width:100px"></div>
+            <div class="uncovered" style="width:0px"></div>
           </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>35.71%</tt></div>
+              <td class="left_align"><div class="percent_graph_legend"><tt class=''>100.00%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:36px"></div>
-            <div class="uncovered" style="width:64px"></div>
+            <div class="covered" style="width:100px"></div>
+            <div class="uncovered" style="width:0px"></div>
           </div></td>
             </tr>
           
-            <tr class="all_files all_coverage 20 30 40 50 60 70 80 90 100 lib even">
+            <tr class="all_files all_coverage _20 _30 _40 _50 _60 _70 _80 _90 _100 lib odd">
               <td class="left_align"><a href="lib-nginx_rb.html">lib/nginx.rb</a></td>
-              <td class='right_align'><tt>370</tt></td>
-              <td class='right_align'><tt>248</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>22.16%</tt></div>
+              <td class='right_align'><tt>366</tt></td>
+              <td class='right_align'><tt>246</tt></td>
+              <td class="left_align"><div class="percent_graph_legend"><tt class=''>21.31%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:22px"></div>
-            <div class="uncovered" style="width:78px"></div>
+            <div class="covered" style="width:21px"></div>
+            <div class="uncovered" style="width:79px"></div>
           </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>11.69%</tt></div>
+              <td class="left_align"><div class="percent_graph_legend"><tt class=''>10.98%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:12px"></div>
-            <div class="uncovered" style="width:88px"></div>
+            <div class="covered" style="width:11px"></div>
+            <div class="uncovered" style="width:89px"></div>
           </div></td>
             </tr>
           
-            <tr class="all_files all_coverage 30 40 50 60 70 80 90 100 lib odd">
+            <tr class="all_files all_coverage _30 _40 _50 _60 _70 _80 _90 _100 lib even">
               <td class="left_align"><a href="lib-pbserver_rb.html">lib/pbserver.rb</a></td>
               <td class='right_align'><tt>125</tt></td>
               <td class='right_align'><tt>57</tt></td>
@@ -736,7 +336,7 @@
           </div></td>
             </tr>
           
-            <tr class="all_files all_coverage 100 lib even">
+            <tr class="all_files all_coverage _100 lib odd">
               <td class="left_align"><a href="lib-rabbitmq_rb.html">lib/rabbitmq.rb</a></td>
               <td class='right_align'><tt>92</tt></td>
               <td class='right_align'><tt>43</tt></td>
@@ -752,7 +352,7 @@
           </div></td>
             </tr>
           
-            <tr class="all_files all_coverage 30 40 50 60 70 80 90 100 lib odd">
+            <tr class="all_files all_coverage _30 _40 _50 _60 _70 _80 _90 _100 lib even">
               <td class="left_align"><a href="lib-repo_rb.html">lib/repo.rb</a></td>
               <td class='right_align'><tt>100</tt></td>
               <td class='right_align'><tt>50</tt></td>
@@ -768,7 +368,7 @@
           </div></td>
             </tr>
           
-            <tr class="all_files all_coverage 30 40 50 60 70 80 90 100 lib even">
+            <tr class="all_files all_coverage _30 _40 _50 _60 _70 _80 _90 _100 lib odd">
               <td class="left_align"><a href="lib-user_app_client_rb.html">lib/user_app_client.rb</a></td>
               <td class='right_align'><tt>300</tt></td>
               <td class='right_align'><tt>231</tt></td>
@@ -784,41 +384,45 @@
           </div></td>
             </tr>
           
-            <tr class="all_files all_coverage 70 80 90 100 lib odd">
+            <tr class="all_files all_coverage _70 _80 _90 _100 lib even">
               <td class="left_align"><a href="lib-zkinterface_rb.html">lib/zkinterface.rb</a></td>
               <td class='right_align'><tt>701</tt></td>
               <td class='right_align'><tt>416</tt></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>77.46%</tt></div>
+              <td class="left_align"><div class="percent_graph_legend"><tt class=''>76.60%</tt></div>
           <div class="percent_graph">
             <div class="covered" style="width:77px"></div>
             <div class="uncovered" style="width:23px"></div>
           </div></td>
-              <td class="left_align"><div class="percent_graph_legend"><tt class=''>66.11%</tt></div>
+              <td class="left_align"><div class="percent_graph_legend"><tt class=''>64.90%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:66px"></div>
-            <div class="uncovered" style="width:34px"></div>
+            <div class="covered" style="width:65px"></div>
+            <div class="uncovered" style="width:35px"></div>
           </div></td>
             </tr>
           
         </tbody>
       </table>
     </div>
-    
-    <p>Generated on Sun Apr 08 23:41:02 -0700 2012 with <a href="http://github.com/relevance/rcov">rcov 0.9.8</a></p>
+
+    <p>Generated on Wed May 16 23:23:05 -0700 2012 with <a href="http://github.com/relevance/rcov">rcov 1.0.0</a></p>
 
     <script type="text/javascript">
-      $(document).ready(function(){$("#report_table").tablesorter({widgets: ['zebra'], textExtraction: 'complex'});});
+      $(document).ready(function(){
+          $("#report_table").tablesorter({widgets: ['zebra'], textExtraction: 'complex'});
+        }
+      );
       $('.filter').change(function(){
-        ff = $('#file_filter').val();
-        cf = $('#coverage_filter').val();
-        $('table#report_table tbody tr').each(function(i){ 
-          if ((this.className.split(" ").indexOf(ff) > -1) && (this.className.split(" ").indexOf(cf) > -1)) {
-            this.style.display = "";
-          } else {
-            this.style.display = "none";
-          };
+        ff = '.' + $('#file_filter').val();
+        cf = '.' + $('#coverage_filter').val();
+        rows = 'table#report_table tbody tr';
+        // Hide all rows that don't match the filters
+        $(rows).not(cf).map(function() { $(this).hide(); });
+        $(rows).not(ff).map(function() { $(this).hide(); });
+        // Show and restripe all rows that match both filters
+        $(rows).filter(cf).filter(ff).each(function() {
+          $(this).show();
           restripe();
-        })
+        });
       })
     </script>
 
