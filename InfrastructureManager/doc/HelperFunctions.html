@@ -1,230 +1,220 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<!DOCTYPE html>
+
+<html>
 <head>
-  <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+<meta content="text/html; charset=UTF-8" http-equiv="Content-Type">
 
-  <title>Module: HelperFunctions</title>
+<title>module HelperFunctions - RDoc Documentation</title>
 
-  <link rel="stylesheet" href="./rdoc.css" type="text/css" media="screen" />
+<link type="text/css" media="screen" href="./rdoc.css" rel="stylesheet">
 
-  <script src="./js/jquery.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/thickbox-compressed.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/quicksearch.js" type="text/javascript"
-    charset="utf-8"></script>
-  <script src="./js/darkfish.js" type="text/javascript"
-    charset="utf-8"></script>
+<script type="text/javascript">
+  var rdoc_rel_prefix = "./";
+</script>
 
-</head>
-<body class="module">
+<script type="text/javascript" charset="utf-8" src="./js/jquery.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/navigation.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/search_index.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/search.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/searcher.js"></script>
+<script type="text/javascript" charset="utf-8" src="./js/darkfish.js"></script>
 
-  <div id="metadata">
-    <div id="home-metadata">
-      <div id="home-section" class="section">
-        <h3 class="section-header">
-          <a href="./index.html">Home</a>
-          <a href="./index.html#classes">Classes</a>
-          <a href="./index.html#methods">Methods</a>
-        </h3>
-      </div>
-    </div>
 
-    <div id="file-metadata">
-      <div id="file-list-section" class="section">
-        <h3 class="section-header">In Files</h3>
-        <div class="section-body">
-          <ul>
-          
-            <li><a href="./lib/helperfunctions_rb.html?TB_iframe=true&amp;height=550&amp;width=785"
-              class="thickbox" title="lib/helperfunctions.rb">lib/helperfunctions.rb</a></li>
-          
-          </ul>
-        </div>
-      </div>
+<body id="top" class="module">
+<nav id="metadata">
+  <nav id="home-section" class="section">
+  <h3 class="section-header">
+    <a href="./index.html">Home</a>
+    <a href="./table_of_contents.html#classes">Classes</a>
+    <a href="./table_of_contents.html#methods">Methods</a>
+  </h3>
+</nav>
 
-      
-    </div>
 
-    <div id="class-metadata">
+  <nav id="search-section" class="section project-section" class="initially-hidden">
+  <form action="#" method="get" accept-charset="utf-8">
+    <h3 class="section-header">
+      <input type="text" name="search" placeholder="Search" id="search-field"
+             title="Type to search, Up and Down to navigate, Enter to load">
+    </h3>
+  </form>
 
-      <!-- Parent Class -->
-      
+  <ul id="search-results" class="initially-hidden"></ul>
+</nav>
 
-      <!-- Namespace Contents -->
-      
 
-      <!-- Method Quickref -->
-      
-      <div id="method-list-section" class="section">
-        <h3 class="section-header">Methods</h3>
-        <ul class="link-list">
-          
-          <li><a href="#method-c-convert_fqdn_to_ip">::convert_fqdn_to_ip</a></li>
-          
-          <li><a href="#method-c-create_appscale_security_group">::create_appscale_security_group</a></li>
-          
-          <li><a href="#method-c-generate_ssh_key">::generate_ssh_key</a></li>
-          
-          <li><a href="#method-c-get_cert">::get_cert</a></li>
-          
-          <li><a href="#method-c-get_ips">::get_ips</a></li>
-          
-          <li><a href="#method-c-get_key">::get_key</a></li>
-          
-          <li><a href="#method-c-get_optimal_spot_price">::get_optimal_spot_price</a></li>
-          
-          <li><a href="#method-c-get_public_ips">::get_public_ips</a></li>
-          
-          <li><a href="#method-c-get_random_alphanumeric">::get_random_alphanumeric</a></li>
-          
-          <li><a href="#method-c-get_secret">::get_secret</a></li>
-          
-          <li><a href="#method-c-log_obscured_env">::log_obscured_env</a></li>
-          
-          <li><a href="#method-c-obscure_string">::obscure_string</a></li>
-          
-          <li><a href="#method-c-read_file">::read_file</a></li>
-          
-          <li><a href="#method-c-set_creds_in_env">::set_creds_in_env</a></li>
-          
-          <li><a href="#method-c-shell">::shell</a></li>
-          
-          <li><a href="#method-c-spawn_vms">::spawn_vms</a></li>
-          
-          <li><a href="#method-c-terminate_vms">::terminate_vms</a></li>
-          
-          <li><a href="#method-c-write_file">::write_file</a></li>
-          
-        </ul>
-      </div>
-      
+  <div id="file-metadata">
+    <nav id="file-list-section" class="section">
+  <h3 class="section-header">Defined In</h3>
+  <ul>
+    <li>lib/helperfunctions.rb
+  </ul>
+</nav>
 
-      <!-- Included Modules -->
-      
-    </div>
-
-    <div id="project-metadata">
-      
-      
-
-      <div id="classindex-section" class="section project-section">
-        <h3 class="section-header">Class/Module Index
-          <span class="search-toggle"><img src="./images/find.png"
-            height="16" width="16" alt="[+]"
-            title="show/hide quicksearch" /></span></h3>
-        <form action="#" method="get" accept-charset="utf-8" class="initially-hidden">
-        <fieldset>
-          <legend>Quicksearch</legend>
-          <input type="text" name="quicksearch" value=""
-            class="quicksearch-field" />
-        </fieldset>
-        </form>
-
-        <ul class="link-list">
-        
-          <li><a href="./BadConfigurationException.html">BadConfigurationException</a></li>
-        
-          <li><a href="./HelperFunctions.html">HelperFunctions</a></li>
-        
-          <li><a href="./InfrastructureManager.html">InfrastructureManager</a></li>
-        
-          <li><a href="./InfrastructureManagerServer.html">InfrastructureManagerServer</a></li>
-        
-        </ul>
-        <div id="no-class-search-results" style="display: none;">No matching classes.</div>
-      </div>
-
-      
-    </div>
+    
   </div>
 
-  <div id="documentation">
-    <h1 class="module">HelperFunctions</h1>
+  <div id="class-metadata">
+    
+    
+    
+    <!-- Method Quickref -->
+<nav id="method-list-section" class="section">
+  <h3 class="section-header">Methods</h3>
 
-    <div id="description">
-      
+  <ul class="link-list">
+    
+    <li><a href="#method-c-convert_fqdn_to_ip">::convert_fqdn_to_ip</a>
+    
+    <li><a href="#method-c-create_appscale_security_group">::create_appscale_security_group</a>
+    
+    <li><a href="#method-c-generate_ssh_key">::generate_ssh_key</a>
+    
+    <li><a href="#method-c-get_cert">::get_cert</a>
+    
+    <li><a href="#method-c-get_ips">::get_ips</a>
+    
+    <li><a href="#method-c-get_key">::get_key</a>
+    
+    <li><a href="#method-c-get_optimal_spot_price">::get_optimal_spot_price</a>
+    
+    <li><a href="#method-c-get_public_ips">::get_public_ips</a>
+    
+    <li><a href="#method-c-get_random_alphanumeric">::get_random_alphanumeric</a>
+    
+    <li><a href="#method-c-get_secret">::get_secret</a>
+    
+    <li><a href="#method-c-log_obscured_env">::log_obscured_env</a>
+    
+    <li><a href="#method-c-obscure_string">::obscure_string</a>
+    
+    <li><a href="#method-c-read_file">::read_file</a>
+    
+    <li><a href="#method-c-set_creds_in_env">::set_creds_in_env</a>
+    
+    <li><a href="#method-c-shell">::shell</a>
+    
+    <li><a href="#method-c-spawn_vms">::spawn_vms</a>
+    
+    <li><a href="#method-c-terminate_vms">::terminate_vms</a>
+    
+    <li><a href="#method-c-write_file">::write_file</a>
+    
+  </ul>
+</nav>
+
+  </div>
+
+  <div id="project-metadata">
+    
+    <nav id="classindex-section" class="section project-section">
+  <h3 class="section-header">Class and Module Index</h3>
+
+  <ul class="link-list">
+  
+    <li><a href="./BadConfigurationException.html">BadConfigurationException</a>
+  
+    <li><a href="./HelperFunctions.html">HelperFunctions</a>
+  
+    <li><a href="./InfrastructureManager.html">InfrastructureManager</a>
+  
+    <li><a href="./InfrastructureManagerServer.html">InfrastructureManagerServer</a>
+  
+  </ul>
+</nav>
+
+  </div>
+</nav>
+
+<div id="documentation">
+  <h1 class="module">module HelperFunctions</h1>
+
+  <div id="description" class="description">
+    
 <p><a href="HelperFunctions.html">HelperFunctions</a> holds miscellaneous
 functions - functions that really aren’t bound to a particular service,
 but are reused across multiple functions.</p>
 
-    </div>
+  </div><!-- description -->
 
-    <!-- Constants -->
+  
+  
+  
+  <section id="5Buntitled-5D" class="documentation-section">
     
-    <div id="constants-list" class="section">
+
+    
+
+    
+    <!-- Constants -->
+    <section id="constants-list" class="section">
       <h3 class="section-header">Constants</h3>
       <dl>
       
-        <dt><a name="MAX_VM_CREATION_TIME">MAX_VM_CREATION_TIME</a></dt>
+        <dt id="DONT_USE_SSL">DONT_USE_SSL
         
-        <dd class="description"><p>The maximum amount of time, in seconds, that we are willing to wait for a
-virtual machine to start up, from the initial run-instances request.
-Setting this value is a bit of an art, but we choose the value below
-because our image is roughly 10GB in size, and if Eucalyptus doesn’t have
-the image cached, it could take half an hour to get our image started.</p></dd>
+        <dd class="description"><p>A constant that indicates that SSL should not be used when checking if a
+given port is open.</p>
         
       
-        <dt><a name="SLEEP_TIME">SLEEP_TIME</a></dt>
-        
-        <dd class="description"><p>The amount of time that <a
-href="HelperFunctions.html#method-c-spawn_vms">spawn_vms</a> waits between
-each describe-instances request. Setting this value too low can cause
-Eucalyptus to interpret requests as replay attacks.</p></dd>
-        
-      
-        <dt><a name="IP_REGEX">IP_REGEX</a></dt>
-        
-        <dd class="description"><p>A regular expression that matches IP addresses, used to parse output from
-describe-instances to see the IPs for machines currently running.</p></dd>
-        
-      
-        <dt><a name="FQDN_REGEX">FQDN_REGEX</a></dt>
+        <dt id="FQDN_REGEX">FQDN_REGEX
         
         <dd class="description"><p>A regular expression that matches fully qualified domain names, used to 
 parse output from describe-instances to see the FQDNs for machines 
-currently running.</p></dd>
+currently running.</p>
         
       
-        <dt><a name="IP_OR_FQDN">IP_OR_FQDN</a></dt>
+        <dt id="IP_OR_FQDN">IP_OR_FQDN
         
         <dd class="description"><p>A regular expression that matches IPs or FQDNs. TODO(cgb): The <a
 href="HelperFunctions.html#FQDN_REGEX">FQDN_REGEX</a> seems general enough
 to match all of these - replace this and <a
 href="HelperFunctions.html#IP_REGEX">IP_REGEX</a> with <a
-href="HelperFunctions.html#FQDN_REGEX">FQDN_REGEX</a>?</p></dd>
+href="HelperFunctions.html#FQDN_REGEX">FQDN_REGEX</a>?</p>
         
       
-        <dt><a name="USE_SSL">USE_SSL</a></dt>
+        <dt id="IP_REGEX">IP_REGEX
+        
+        <dd class="description"><p>A regular expression that matches IP addresses, used to parse output from
+describe-instances to see the IPs for machines currently running.</p>
+        
+      
+        <dt id="MAX_VM_CREATION_TIME">MAX_VM_CREATION_TIME
+        
+        <dd class="description"><p>The maximum amount of time, in seconds, that we are willing to wait for a
+virtual machine to start up, from the initial run-instances request.
+Setting this value is a bit of an art, but we choose the value below
+because our image is roughly 10GB in size, and if Eucalyptus doesn’t have
+the image cached, it could take half an hour to get our image started.</p>
+        
+      
+        <dt id="SLEEP_TIME">SLEEP_TIME
+        
+        <dd class="description"><p>The amount of time that <a
+href="HelperFunctions.html#method-c-spawn_vms">::spawn_vms</a> waits
+between each describe-instances request. Setting this value too low can
+cause Eucalyptus to interpret requests as replay attacks.</p>
+        
+      
+        <dt id="USE_SSL">USE_SSL
         
         <dd class="description"><p>A constant that indicates that SSL should be used when checking if a given
-port is open.</p></dd>
-        
-      
-        <dt><a name="DONT_USE_SSL">DONT_USE_SSL</a></dt>
-        
-        <dd class="description"><p>A constant that indicates that SSL should not be used when checking if a
-given port is open.</p></dd>
+port is open.</p>
         
       
       </dl>
-    </div>
+    </section>
     
 
-    <!-- Attributes -->
     
 
     <!-- Methods -->
     
-    <div id="public-class-method-details" class="method-section section">
+     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Class Methods</h3>
 
     
-      <div id="convert_fqdn_to_ip-method" class="method-detail ">
-        <a name="method-c-convert_fqdn_to_ip"></a>
-
+      <div id="method-c-convert_fqdn_to_ip" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">convert_fqdn_to_ip</span><span
@@ -242,34 +232,30 @@ fails.</p>
           
 
           
-          <div class="method-source-code"
-            id="convert_fqdn_to_ip-source">
-<pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 138</span>
-def self.convert_fqdn_to_ip(host)
-  return host if host =~ /#{IP_REGEX}/
+          <div class="method-source-code" id="convert_fqdn_to_ip-source">
+            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 138</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">convert_fqdn_to_ip</span>(<span class="ruby-identifier">host</span>)
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">host</span> <span class="ruby-keyword">if</span> <span class="ruby-identifier">host</span> <span class="ruby-operator">=~</span> <span class="ruby-node">%r#{IP_REGEX}/</span>
 
-  ip = self.shell(&quot;dig #{host} +short&quot;).chomp
-  if ip.empty?
-    <span class="ruby-constant">Kernel</span>.puts(&quot;couldn't use dig to resolve [#{host}]&quot;)
-    abort(&quot;Couldn't convert #{host} to an IP address. Result of dig was \n#{ip}&quot;)
-  end
+  <span class="ruby-identifier">ip</span> = <span class="ruby-keyword">self</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-node">&quot;dig #{host} +short&quot;</span>).<span class="ruby-identifier">chomp</span>
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">ip</span>.<span class="ruby-identifier">empty?</span>
+    <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;couldn't use dig to resolve [#{host}]&quot;</span>)
+    <span class="ruby-identifier">abort</span>(<span class="ruby-node">&quot;Couldn't convert #{host} to an IP address. Result of dig was \n#{ip}&quot;</span>)
+  <span class="ruby-keyword">end</span>
 
-  return ip
-end</pre>
-          </div>
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">ip</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- convert_fqdn_to_ip-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- convert_fqdn_to_ip-method -->
 
     
-      <div id="create_appscale_security_group-method" class="method-detail ">
-        <a name="method-c-create_appscale_security_group"></a>
-
+      <div id="method-c-create_appscale_security_group" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">create_appscale_security_group</span><span
@@ -287,29 +273,25 @@ lock back down any ports that need not be open to the world.</p>
           
 
           
-          <div class="method-source-code"
-            id="create_appscale_security_group-source">
-<pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 458</span>
-def self.create_appscale_security_group(infrastructure, group)
-  self.shell(&quot;#{infrastructure}-add-group #{group} -d appscale 2&gt;&amp;1&quot;)
-  self.shell(&quot;#{infrastructure}-authorize #{group} -p 1-65535 -P udp 2&gt;&amp;1&quot;)
-  self.shell(&quot;#{infrastructure}-authorize #{group} -p 1-65535 -P tcp 2&gt;&amp;1&quot;)
-  self.shell(&quot;#{infrastructure}-authorize #{group} -s 0.0.0.0/0 -P icmp -t -1:-1 2&gt;&amp;1&quot;)
-end</pre>
-          </div>
+          <div class="method-source-code" id="create_appscale_security_group-source">
+            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 458</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_appscale_security_group</span>(<span class="ruby-identifier">infrastructure</span>, <span class="ruby-identifier">group</span>)
+  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-node">&quot;#{infrastructure}-add-group #{group} -d appscale 2&gt;&amp;1&quot;</span>)
+  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-node">&quot;#{infrastructure}-authorize #{group} -p 1-65535 -P udp 2&gt;&amp;1&quot;</span>)
+  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-node">&quot;#{infrastructure}-authorize #{group} -p 1-65535 -P tcp 2&gt;&amp;1&quot;</span>)
+  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-node">&quot;#{infrastructure}-authorize #{group} -s 0.0.0.0/0 -P icmp -t -1:-1 2&gt;&amp;1&quot;</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- create_appscale_security_group-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- create_appscale_security_group-method -->
 
     
-      <div id="generate_ssh_key-method" class="method-detail ">
-        <a name="method-c-generate_ssh_key"></a>
-
+      <div id="method-c-generate_ssh_key" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">generate_ssh_key</span><span
@@ -326,49 +308,45 @@ one.</p>
           
 
           
-          <div class="method-source-code"
-            id="generate_ssh_key-source">
-<pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 426</span>
-def self.generate_ssh_key(outputLocation, name, infrastructure)
-  ec2_output = <span class="ruby-string">&quot;&quot;</span>
-  loop {
-    ec2_output = self.shell(&quot;#{infrastructure}-add-keypair #{name} 2&gt;&amp;1&quot;)
-    break if ec2_output.include?(<span class="ruby-string">&quot;BEGIN RSA PRIVATE KEY&quot;</span>)
-    <span class="ruby-constant">Kernel</span>.puts(&quot;Trying again. Saw this from #{infrastructure}-add-keypair: #{ec2_output}&quot;)
-    self.shell(&quot;#{infrastructure}-delete-keypair #{name} 2&gt;&amp;1&quot;)
+          <div class="method-source-code" id="generate_ssh_key-source">
+            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 426</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">generate_ssh_key</span>(<span class="ruby-identifier">outputLocation</span>, <span class="ruby-identifier">name</span>, <span class="ruby-identifier">infrastructure</span>)
+  <span class="ruby-identifier">ec2_output</span> = <span class="ruby-string">&quot;&quot;</span>
+  <span class="ruby-identifier">loop</span> {
+    <span class="ruby-identifier">ec2_output</span> = <span class="ruby-keyword">self</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-node">&quot;#{infrastructure}-add-keypair #{name} 2&gt;&amp;1&quot;</span>)
+    <span class="ruby-keyword">break</span> <span class="ruby-keyword">if</span> <span class="ruby-identifier">ec2_output</span>.<span class="ruby-identifier">include?</span>(<span class="ruby-string">&quot;BEGIN RSA PRIVATE KEY&quot;</span>)
+    <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;Trying again. Saw this from #{infrastructure}-add-keypair: #{ec2_output}&quot;</span>)
+    <span class="ruby-keyword">self</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-node">&quot;#{infrastructure}-delete-keypair #{name} 2&gt;&amp;1&quot;</span>)
   }
 
   <span class="ruby-comment"># output is the ssh private key prepended with info we don't need</span>
   <span class="ruby-comment"># delimited by the first \n, so rip it off first to get just the key</span>
 
-  if outputLocation.class == <span class="ruby-constant">String</span>
-    outputLocation = [outputLocation]
-  end
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">outputLocation</span>.<span class="ruby-identifier">class</span> <span class="ruby-operator">==</span> <span class="ruby-constant">String</span>
+    <span class="ruby-identifier">outputLocation</span> = [<span class="ruby-identifier">outputLocation</span>]
+  <span class="ruby-keyword">end</span>
 
-  outputLocation.each { |path|
-    fullPath = <span class="ruby-constant">File</span>.expand_path(path)
-    <span class="ruby-constant">File</span>.open(fullPath, <span class="ruby-string">&quot;w&quot;</span>) { |file|
-      file.puts(ec2_output)
+  <span class="ruby-identifier">outputLocation</span>.<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">path</span><span class="ruby-operator">|</span>
+    <span class="ruby-identifier">fullPath</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">expand_path</span>(<span class="ruby-identifier">path</span>)
+    <span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-identifier">fullPath</span>, <span class="ruby-string">&quot;w&quot;</span>) { <span class="ruby-operator">|</span><span class="ruby-identifier">file</span><span class="ruby-operator">|</span>
+      <span class="ruby-identifier">file</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-identifier">ec2_output</span>)
     }
-    <span class="ruby-constant">FileUtils</span>.chmod(0600, fullPath) <span class="ruby-comment"># else ssh won't use the key</span>
+    <span class="ruby-constant">FileUtils</span>.<span class="ruby-identifier">chmod</span>(<span class="ruby-value">0600</span>, <span class="ruby-identifier">fullPath</span>) <span class="ruby-comment"># else ssh won't use the key</span>
   }
 
-  return
-end</pre>
-          </div>
+  <span class="ruby-keyword">return</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- generate_ssh_key-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- generate_ssh_key-method -->
 
     
-      <div id="get_cert-method" class="method-detail ">
-        <a name="method-c-get_cert"></a>
-
+      <div id="method-c-get_cert" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">get_cert</span><span
@@ -383,29 +361,25 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="get_cert-source">
-<pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 109</span>
-def self.get_cert(filename)
-  return nil unless <span class="ruby-constant">File</span>.exists?(filename)
-  <span class="ruby-constant">OpenSSL</span>::<span class="ruby-constant">X509</span>::<span class="ruby-constant">Certificate</span>.new(<span class="ruby-constant">File</span>.open(filename) { |f|
-    f.read
+          <div class="method-source-code" id="get_cert-source">
+            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 109</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_cert</span>(<span class="ruby-identifier">filename</span>)
+  <span class="ruby-keyword">return</span> <span class="ruby-keyword">nil</span> <span class="ruby-keyword">unless</span> <span class="ruby-constant">File</span>.<span class="ruby-identifier">exists?</span>(<span class="ruby-identifier">filename</span>)
+  <span class="ruby-constant">OpenSSL</span><span class="ruby-operator">::</span><span class="ruby-constant">X509</span><span class="ruby-operator">::</span><span class="ruby-constant">Certificate</span>.<span class="ruby-identifier">new</span>(<span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-identifier">filename</span>) { <span class="ruby-operator">|</span><span class="ruby-identifier">f</span><span class="ruby-operator">|</span>
+    <span class="ruby-identifier">f</span>.<span class="ruby-identifier">read</span>
   })
-end</pre>
-          </div>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- get_cert-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- get_cert-method -->
 
     
-      <div id="get_ips-method" class="method-detail ">
-        <a name="method-c-get_ips"></a>
-
+      <div id="method-c-get_ips" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">get_ips</span><span
@@ -424,64 +398,60 @@ equivalents.</p>
           
 
           
-          <div class="method-source-code"
-            id="get_ips-source">
-<pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 156</span>
-def self.get_ips(ips)
-  abort(<span class="ruby-string">&quot;ips not even length array&quot;</span>) if ips.length % 2 != 0
-  reported_public = []
-  reported_private = []
-  ips.each_index { |index|
-    if index % 2 == 0
-      reported_public &lt;&lt; ips[index]
-    else
-      reported_private &lt;&lt; ips[index]
-    end
+          <div class="method-source-code" id="get_ips-source">
+            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 156</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_ips</span>(<span class="ruby-identifier">ips</span>)
+  <span class="ruby-identifier">abort</span>(<span class="ruby-string">&quot;ips not even length array&quot;</span>) <span class="ruby-keyword">if</span> <span class="ruby-identifier">ips</span>.<span class="ruby-identifier">length</span> <span class="ruby-operator">%</span> <span class="ruby-value">2</span> <span class="ruby-operator">!=</span> <span class="ruby-value">0</span>
+  <span class="ruby-identifier">reported_public</span> = []
+  <span class="ruby-identifier">reported_private</span> = []
+  <span class="ruby-identifier">ips</span>.<span class="ruby-identifier">each_index</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">index</span><span class="ruby-operator">|</span>
+    <span class="ruby-keyword">if</span> <span class="ruby-identifier">index</span> <span class="ruby-operator">%</span> <span class="ruby-value">2</span> <span class="ruby-operator">==</span> <span class="ruby-value">0</span>
+      <span class="ruby-identifier">reported_public</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">ips</span>[<span class="ruby-identifier">index</span>]
+    <span class="ruby-keyword">else</span>
+      <span class="ruby-identifier">reported_private</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">ips</span>[<span class="ruby-identifier">index</span>]
+    <span class="ruby-keyword">end</span>
   }
   
-  <span class="ruby-constant">Kernel</span>.puts(&quot;Reported Public IPs: [#{reported_public.join(', ')}]&quot;)
-  <span class="ruby-constant">Kernel</span>.puts(&quot;Reported Private IPs: [#{reported_private.join(', ')}]&quot;)
+  <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;Reported Public IPs: [#{reported_public.join(', ')}]&quot;</span>)
+  <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;Reported Private IPs: [#{reported_private.join(', ')}]&quot;</span>)
 
-  actual_public = []
-  actual_private = []
+  <span class="ruby-identifier">actual_public</span> = []
+  <span class="ruby-identifier">actual_private</span> = []
   
-  reported_public.each_index { |index|
-    pub = reported_public[index]
-    pri = reported_private[index]
-    if pub != <span class="ruby-string">&quot;0.0.0.0&quot;</span> and pri != <span class="ruby-string">&quot;0.0.0.0&quot;</span>
-      actual_public &lt;&lt; pub
-      actual_private &lt;&lt; pri
-    end
+  <span class="ruby-identifier">reported_public</span>.<span class="ruby-identifier">each_index</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">index</span><span class="ruby-operator">|</span>
+    <span class="ruby-identifier">pub</span> = <span class="ruby-identifier">reported_public</span>[<span class="ruby-identifier">index</span>]
+    <span class="ruby-identifier">pri</span> = <span class="ruby-identifier">reported_private</span>[<span class="ruby-identifier">index</span>]
+    <span class="ruby-keyword">if</span> <span class="ruby-identifier">pub</span> <span class="ruby-operator">!=</span> <span class="ruby-string">&quot;0.0.0.0&quot;</span> <span class="ruby-keyword">and</span> <span class="ruby-identifier">pri</span> <span class="ruby-operator">!=</span> <span class="ruby-string">&quot;0.0.0.0&quot;</span>
+      <span class="ruby-identifier">actual_public</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">pub</span>
+      <span class="ruby-identifier">actual_private</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">pri</span>
+    <span class="ruby-keyword">end</span>
   }
       
-  actual_private.each_index { |index|
-    begin
-      actual_private[index] = <span class="ruby-constant">HelperFunctions</span>.convert_fqdn_to_ip(actual_private[index])
-    rescue <span class="ruby-constant">Exception</span>
+  <span class="ruby-identifier">actual_private</span>.<span class="ruby-identifier">each_index</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">index</span><span class="ruby-operator">|</span>
+    <span class="ruby-keyword">begin</span>
+      <span class="ruby-identifier">actual_private</span>[<span class="ruby-identifier">index</span>] = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">convert_fqdn_to_ip</span>(<span class="ruby-identifier">actual_private</span>[<span class="ruby-identifier">index</span>])
+    <span class="ruby-keyword">rescue</span> <span class="ruby-constant">Exception</span>
       <span class="ruby-comment"># this can happen if the private ip doesn't resolve</span>
       <span class="ruby-comment"># which can happen in hybrid environments: euca boxes wont be </span>
       <span class="ruby-comment"># able to resolve ec2 private ips, and vice-versa in euca-managed-mode</span>
-      <span class="ruby-constant">Kernel</span>.puts(&quot;rescued! failed to convert #{actual_private[index]} to public&quot;)
-      actual_private[index] = actual_public[index]
-    end
+      <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;rescued! failed to convert #{actual_private[index]} to public&quot;</span>)
+      <span class="ruby-identifier">actual_private</span>[<span class="ruby-identifier">index</span>] = <span class="ruby-identifier">actual_public</span>[<span class="ruby-identifier">index</span>]
+    <span class="ruby-keyword">end</span>
   }
   
-  return actual_public, actual_private
-end</pre>
-          </div>
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">actual_public</span>, <span class="ruby-identifier">actual_private</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- get_ips-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- get_ips-method -->
 
     
-      <div id="get_key-method" class="method-detail ">
-        <a name="method-c-get_key"></a>
-
+      <div id="method-c-get_key" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">get_key</span><span
@@ -496,29 +466,25 @@ end</pre>
           
 
           
-          <div class="method-source-code"
-            id="get_key-source">
-<pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 118</span>
-def self.get_key(filename)
-  return nil unless <span class="ruby-constant">File</span>.exists?(filename)
-  <span class="ruby-constant">OpenSSL</span>::<span class="ruby-constant">PKey</span>::<span class="ruby-constant">RSA</span>.new(<span class="ruby-constant">File</span>.open(filename) { |f|
-    f.read
+          <div class="method-source-code" id="get_key-source">
+            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 118</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_key</span>(<span class="ruby-identifier">filename</span>)
+  <span class="ruby-keyword">return</span> <span class="ruby-keyword">nil</span> <span class="ruby-keyword">unless</span> <span class="ruby-constant">File</span>.<span class="ruby-identifier">exists?</span>(<span class="ruby-identifier">filename</span>)
+  <span class="ruby-constant">OpenSSL</span><span class="ruby-operator">::</span><span class="ruby-constant">PKey</span><span class="ruby-operator">::</span><span class="ruby-constant">RSA</span>.<span class="ruby-identifier">new</span>(<span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-identifier">filename</span>) { <span class="ruby-operator">|</span><span class="ruby-identifier">f</span><span class="ruby-operator">|</span>
+    <span class="ruby-identifier">f</span>.<span class="ruby-identifier">read</span>
   })
-end</pre>
-          </div>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- get_key-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- get_key-method -->
 
     
-      <div id="get_optimal_spot_price-method" class="method-detail ">
-        <a name="method-c-get_optimal_spot_price"></a>
-
+      <div id="method-c-get_optimal_spot_price" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">get_optimal_spot_price</span><span
@@ -538,39 +504,35 @@ get to keep our instances.</p>
           
 
           
-          <div class="method-source-code"
-            id="get_optimal_spot_price-source">
-<pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 236</span>
-def self.get_optimal_spot_price(instance_type)
-  command = &quot;ec2-describe-spot-price-history -t #{instance_type} | &quot; +
-    <span class="ruby-string">&quot;grep 'Linux/UNIX' | awk '{print $2}'&quot;</span>.split(<span class="ruby-string">&quot;\n&quot;</span>)
-  prices = self.shell(&quot;#{command}&quot;)
+          <div class="method-source-code" id="get_optimal_spot_price-source">
+            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 236</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_optimal_spot_price</span>(<span class="ruby-identifier">instance_type</span>)
+  <span class="ruby-identifier">command</span> = <span class="ruby-node">&quot;ec2-describe-spot-price-history -t #{instance_type} | &quot;</span> <span class="ruby-operator">+</span>
+    <span class="ruby-string">&quot;grep 'Linux/UNIX' | awk '{print $2}'&quot;</span>.<span class="ruby-identifier">split</span>(<span class="ruby-string">&quot;\n&quot;</span>)
+  <span class="ruby-identifier">prices</span> = <span class="ruby-keyword">self</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-node">&quot;#{command}&quot;</span>)
 
-  average = prices.reduce(0.0) { |sum, price|
-    sum += <span class="ruby-constant">Float</span>(price)
+  <span class="ruby-identifier">average</span> = <span class="ruby-identifier">prices</span>.<span class="ruby-identifier">reduce</span>(<span class="ruby-value">0.0</span>) { <span class="ruby-operator">|</span><span class="ruby-identifier">sum</span>, <span class="ruby-identifier">price</span><span class="ruby-operator">|</span>
+    <span class="ruby-identifier">sum</span> <span class="ruby-operator">+=</span> <span class="ruby-constant">Float</span>(<span class="ruby-identifier">price</span>)
   }
   
-  average /= prices.length
-  plus_twenty = average * 1.20
+  <span class="ruby-identifier">average</span> <span class="ruby-operator">/=</span> <span class="ruby-identifier">prices</span>.<span class="ruby-identifier">length</span>
+  <span class="ruby-identifier">plus_twenty</span> = <span class="ruby-identifier">average</span> * <span class="ruby-value">1.20</span>
   
-  <span class="ruby-constant">Kernel</span>.puts(&quot;The average spot instance price for a #{instance_type} &quot; +
-    &quot;machine is $#{average}, and 20% more is $#{plus_twenty}&quot;)
-  return plus_twenty
-end</pre>
-          </div>
+  <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;The average spot instance price for a #{instance_type} &quot;</span> <span class="ruby-operator">+</span>
+    <span class="ruby-node">&quot;machine is $#{average}, and 20% more is $#{plus_twenty}&quot;</span>)
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">plus_twenty</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- get_optimal_spot_price-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- get_optimal_spot_price-method -->
 
     
-      <div id="get_public_ips-method" class="method-detail ">
-        <a name="method-c-get_public_ips"></a>
-
+      <div id="method-c-get_public_ips" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">get_public_ips</span><span
@@ -581,56 +543,52 @@ end</pre>
 
         <div class="method-description">
           
-          <p>Similar to <a href="HelperFunctions.html#method-c-get_ips">get_ips</a>, but
-does not attempt to resolve the private IPs seen. Returns a single array
-with the public IPs from the original array (which contains both public and
-private IPs).</p>
+          <p>Similar to <a href="HelperFunctions.html#method-c-get_ips">::get_ips</a>,
+but does not attempt to resolve the private IPs seen. Returns a single
+array with the public IPs from the original array (which contains both
+public and private IPs).</p>
           
 
           
-          <div class="method-source-code"
-            id="get_public_ips-source">
-<pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 202</span>
-def self.get_public_ips(ips)
-  abort(<span class="ruby-string">&quot;ips not even length array&quot;</span>) if ips.length % 2 != 0
-  reported_public = []
-  reported_private = []
-  ips.each_index { |index|
-    if index % 2 == 0
-      reported_public &lt;&lt; ips[index]
-    else
-      reported_private &lt;&lt; ips[index]
-    end
+          <div class="method-source-code" id="get_public_ips-source">
+            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 202</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_public_ips</span>(<span class="ruby-identifier">ips</span>)
+  <span class="ruby-identifier">abort</span>(<span class="ruby-string">&quot;ips not even length array&quot;</span>) <span class="ruby-keyword">if</span> <span class="ruby-identifier">ips</span>.<span class="ruby-identifier">length</span> <span class="ruby-operator">%</span> <span class="ruby-value">2</span> <span class="ruby-operator">!=</span> <span class="ruby-value">0</span>
+  <span class="ruby-identifier">reported_public</span> = []
+  <span class="ruby-identifier">reported_private</span> = []
+  <span class="ruby-identifier">ips</span>.<span class="ruby-identifier">each_index</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">index</span><span class="ruby-operator">|</span>
+    <span class="ruby-keyword">if</span> <span class="ruby-identifier">index</span> <span class="ruby-operator">%</span> <span class="ruby-value">2</span> <span class="ruby-operator">==</span> <span class="ruby-value">0</span>
+      <span class="ruby-identifier">reported_public</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">ips</span>[<span class="ruby-identifier">index</span>]
+    <span class="ruby-keyword">else</span>
+      <span class="ruby-identifier">reported_private</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">ips</span>[<span class="ruby-identifier">index</span>]
+    <span class="ruby-keyword">end</span>
   }
   
-  <span class="ruby-constant">Kernel</span>.puts(&quot;Reported Public IPs: [#{reported_public.join(', ')}]&quot;)
-  <span class="ruby-constant">Kernel</span>.puts(&quot;Reported Private IPs: [#{reported_private.join(', ')}]&quot;)
+  <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;Reported Public IPs: [#{reported_public.join(', ')}]&quot;</span>)
+  <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;Reported Private IPs: [#{reported_private.join(', ')}]&quot;</span>)
   
-  public_ips = []
-  reported_public.each_index { |index|
-    if reported_public[index] != <span class="ruby-string">&quot;0.0.0.0&quot;</span>
-      public_ips &lt;&lt; reported_public[index]
-    elsif reported_private[index] != <span class="ruby-string">&quot;0.0.0.0&quot;</span>
-      public_ips &lt;&lt; reported_private[index]
-    end
+  <span class="ruby-identifier">public_ips</span> = []
+  <span class="ruby-identifier">reported_public</span>.<span class="ruby-identifier">each_index</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">index</span><span class="ruby-operator">|</span>
+    <span class="ruby-keyword">if</span> <span class="ruby-identifier">reported_public</span>[<span class="ruby-identifier">index</span>] <span class="ruby-operator">!=</span> <span class="ruby-string">&quot;0.0.0.0&quot;</span>
+      <span class="ruby-identifier">public_ips</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">reported_public</span>[<span class="ruby-identifier">index</span>]
+    <span class="ruby-keyword">elsif</span> <span class="ruby-identifier">reported_private</span>[<span class="ruby-identifier">index</span>] <span class="ruby-operator">!=</span> <span class="ruby-string">&quot;0.0.0.0&quot;</span>
+      <span class="ruby-identifier">public_ips</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">reported_private</span>[<span class="ruby-identifier">index</span>]
+    <span class="ruby-keyword">end</span>
   }
   
-  return public_ips.flatten
-end</pre>
-          </div>
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">public_ips</span>.<span class="ruby-identifier">flatten</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- get_public_ips-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- get_public_ips-method -->
 
     
-      <div id="get_random_alphanumeric-method" class="method-detail ">
-        <a name="method-c-get_random_alphanumeric"></a>
-
+      <div id="method-c-get_random_alphanumeric" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">get_random_alphanumeric</span><span
@@ -646,34 +604,30 @@ user requests.</p>
           
 
           
-          <div class="method-source-code"
-            id="get_random_alphanumeric-source">
-<pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 95</span>
-def self.get_random_alphanumeric(length=10)
-  random = <span class="ruby-string">&quot;&quot;</span>
-  possible = <span class="ruby-string">&quot;0123456789abcdefghijklmnopqrstuvxwyzABCDEFGHIJKLMNOPQRSTUVWXYZ&quot;</span>
-  possible_length = possible.length
+          <div class="method-source-code" id="get_random_alphanumeric-source">
+            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 95</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_random_alphanumeric</span>(<span class="ruby-identifier">length</span>=<span class="ruby-value">10</span>)
+  <span class="ruby-identifier">random</span> = <span class="ruby-string">&quot;&quot;</span>
+  <span class="ruby-identifier">possible</span> = <span class="ruby-string">&quot;0123456789abcdefghijklmnopqrstuvxwyzABCDEFGHIJKLMNOPQRSTUVWXYZ&quot;</span>
+  <span class="ruby-identifier">possible_length</span> = <span class="ruby-identifier">possible</span>.<span class="ruby-identifier">length</span>
    
-  length.times { |index|
-    random &lt;&lt; possible[<span class="ruby-constant">Kernel</span>.rand(possible_length)]
+  <span class="ruby-identifier">length</span>.<span class="ruby-identifier">times</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">index</span><span class="ruby-operator">|</span>
+    <span class="ruby-identifier">random</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">possible</span>[<span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">rand</span>(<span class="ruby-identifier">possible_length</span>)]
   }
    
-  return random
-end</pre>
-          </div>
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">random</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- get_random_alphanumeric-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- get_random_alphanumeric-method -->
 
     
-      <div id="get_secret-method" class="method-detail ">
-        <a name="method-c-get_secret"></a>
-
+      <div id="method-c-get_secret" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">get_secret</span><span
@@ -690,26 +644,22 @@ contains.</p>
           
 
           
-          <div class="method-source-code"
-            id="get_secret-source">
-<pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 129</span>
-def self.get_secret(filename=<span class="ruby-string">&quot;/etc/appscale/secret.key&quot;</span>)
-  return self.read_file(<span class="ruby-constant">File</span>.expand_path(filename), chomp=true)
-end</pre>
-          </div>
+          <div class="method-source-code" id="get_secret-source">
+            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 129</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_secret</span>(<span class="ruby-identifier">filename</span>=<span class="ruby-string">&quot;/etc/appscale/secret.key&quot;</span>)
+  <span class="ruby-keyword">return</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">read_file</span>(<span class="ruby-constant">File</span>.<span class="ruby-identifier">expand_path</span>(<span class="ruby-identifier">filename</span>), <span class="ruby-identifier">chomp</span>=<span class="ruby-keyword">true</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- get_secret-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- get_secret-method -->
 
     
-      <div id="log_obscured_env-method" class="method-detail ">
-        <a name="method-c-log_obscured_env"></a>
-
+      <div id="method-c-log_obscured_env" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">log_obscured_env</span><span
@@ -726,34 +676,30 @@ sensitive information.</p>
           
 
           
-          <div class="method-source-code"
-            id="log_obscured_env-source">
-<pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 488</span>
-def self.log_obscured_env()
-  env = self.shell(<span class="ruby-string">&quot;env&quot;</span>)
+          <div class="method-source-code" id="log_obscured_env-source">
+            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 488</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">log_obscured_env</span>()
+  <span class="ruby-identifier">env</span> = <span class="ruby-keyword">self</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-string">&quot;env&quot;</span>)
 
-  [<span class="ruby-string">&quot;EC2_ACCESS_KEY&quot;</span>, <span class="ruby-string">&quot;EC2_SECRET_KEY&quot;</span>].each { |cred|
-    if env =~ /#{cred}=(.*)/
-      env.gsub!(/#{cred}=(.*)/, &quot;#{cred}=#{self.obscure_string($1)}&quot;)
-    end
+  [<span class="ruby-string">&quot;EC2_ACCESS_KEY&quot;</span>, <span class="ruby-string">&quot;EC2_SECRET_KEY&quot;</span>].<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">cred</span><span class="ruby-operator">|</span>
+    <span class="ruby-keyword">if</span> <span class="ruby-identifier">env</span> <span class="ruby-operator">=~</span> <span class="ruby-node">%r#{cred}=(.*)/</span>
+      <span class="ruby-identifier">env</span>.<span class="ruby-identifier">gsub!</span>(<span class="ruby-node">%r#{cred}=(.*)/</span>, <span class="ruby-node">&quot;#{cred}=#{self.obscure_string($1)}&quot;</span>)
+    <span class="ruby-keyword">end</span>
   }
  
-  <span class="ruby-constant">Kernel</span>.puts(env)
-end</pre>
-          </div>
+  <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-identifier">env</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- log_obscured_env-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- log_obscured_env-method -->
 
     
-      <div id="obscure_string-method" class="method-detail ">
-        <a name="method-c-obscure_string"></a>
-
+      <div id="method-c-obscure_string" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">obscure_string</span><span
@@ -771,29 +717,25 @@ exposed in cleartext).</p>
           
 
           
-          <div class="method-source-code"
-            id="obscure_string-source">
-<pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 477</span>
-def self.obscure_string(string)
-  return string if string.nil? or string.length &lt; 4
-  last_four = string[string.length-4, string.length]
-  obscured = <span class="ruby-string">&quot;*&quot;</span> * (string.length-4)
-  return obscured + last_four
-end</pre>
-          </div>
+          <div class="method-source-code" id="obscure_string-source">
+            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 477</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">obscure_string</span>(<span class="ruby-identifier">string</span>)
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">string</span> <span class="ruby-keyword">if</span> <span class="ruby-identifier">string</span>.<span class="ruby-identifier">nil?</span> <span class="ruby-keyword">or</span> <span class="ruby-identifier">string</span>.<span class="ruby-identifier">length</span> <span class="ruby-operator">&lt;</span> <span class="ruby-value">4</span>
+  <span class="ruby-identifier">last_four</span> = <span class="ruby-identifier">string</span>[<span class="ruby-identifier">string</span>.<span class="ruby-identifier">length</span><span class="ruby-operator">-</span><span class="ruby-value">4</span>, <span class="ruby-identifier">string</span>.<span class="ruby-identifier">length</span>]
+  <span class="ruby-identifier">obscured</span> = <span class="ruby-string">&quot;*&quot;</span> * (<span class="ruby-identifier">string</span>.<span class="ruby-identifier">length</span><span class="ruby-operator">-</span><span class="ruby-value">4</span>)
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">obscured</span> <span class="ruby-operator">+</span> <span class="ruby-identifier">last_four</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- obscure_string-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- obscure_string-method -->
 
     
-      <div id="read_file-method" class="method-detail ">
-        <a name="method-c-read_file"></a>
-
+      <div id="method-c-read_file" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">read_file</span><span
@@ -809,31 +751,27 @@ contents as a String.</p>
           
 
           
-          <div class="method-source-code"
-            id="read_file-source">
-<pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 83</span>
-def self.read_file(location, chomp=true)
-  file = <span class="ruby-constant">File</span>.open(location) { |f| f.read }
-  if chomp
-    return file.chomp
-  else
-    return file
-  end
-end</pre>
-          </div>
+          <div class="method-source-code" id="read_file-source">
+            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 83</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">read_file</span>(<span class="ruby-identifier">location</span>, <span class="ruby-identifier">chomp</span>=<span class="ruby-keyword">true</span>)
+  <span class="ruby-identifier">file</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-identifier">location</span>) { <span class="ruby-operator">|</span><span class="ruby-identifier">f</span><span class="ruby-operator">|</span> <span class="ruby-identifier">f</span>.<span class="ruby-identifier">read</span> }
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">chomp</span>
+    <span class="ruby-keyword">return</span> <span class="ruby-identifier">file</span>.<span class="ruby-identifier">chomp</span>
+  <span class="ruby-keyword">else</span>
+    <span class="ruby-keyword">return</span> <span class="ruby-identifier">file</span>
+  <span class="ruby-keyword">end</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- read_file-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- read_file-method -->
 
     
-      <div id="set_creds_in_env-method" class="method-detail ">
-        <a name="method-c-set_creds_in_env"></a>
-
+      <div id="method-c-set_creds_in_env" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">set_creds_in_env</span><span
@@ -850,42 +788,38 @@ arguments once we attempt to run any EC2 command-line tools.</p>
           
 
           
-          <div class="method-source-code"
-            id="set_creds_in_env-source">
-<pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 257</span>
-def self.set_creds_in_env(creds, cloud_num)
-  <span class="ruby-constant">ENV</span>[<span class="ruby-string">'EC2_JVM_ARGS'</span>] = nil
+          <div class="method-source-code" id="set_creds_in_env-source">
+            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 257</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">set_creds_in_env</span>(<span class="ruby-identifier">creds</span>, <span class="ruby-identifier">cloud_num</span>)
+  <span class="ruby-constant">ENV</span>[<span class="ruby-string">'EC2_JVM_ARGS'</span>] = <span class="ruby-keyword">nil</span>
 
-  creds.each_pair { |k, v|
-    next unless k =~ /\ACLOUD#{cloud_num}/
-    env_key = k.scan(/\ACLOUD#{cloud_num}_(.*)\Z/).flatten.to_s
-    <span class="ruby-constant">ENV</span>[env_key] = v
+  <span class="ruby-identifier">creds</span>.<span class="ruby-identifier">each_pair</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">k</span>, <span class="ruby-identifier">v</span><span class="ruby-operator">|</span>
+    <span class="ruby-keyword">next</span> <span class="ruby-keyword">unless</span> <span class="ruby-identifier">k</span> <span class="ruby-operator">=~</span> <span class="ruby-node">%r\ACLOUD#{cloud_num}/</span>
+    <span class="ruby-identifier">env_key</span> = <span class="ruby-identifier">k</span>.<span class="ruby-identifier">scan</span>(<span class="ruby-node">%r\ACLOUD#{cloud_num}_(.*)\Z/</span>).<span class="ruby-identifier">flatten</span>.<span class="ruby-identifier">to_s</span>
+    <span class="ruby-constant">ENV</span>[<span class="ruby-identifier">env_key</span>] = <span class="ruby-identifier">v</span>
   }
 
   <span class="ruby-comment"># note that key and cert vars are set wrong - they refer to</span>
   <span class="ruby-comment"># the location on the user's machine where the key is</span>
   <span class="ruby-comment"># thus, let's fix that</span>
 
-  cloud_keys_dir = <span class="ruby-constant">File</span>.expand_path(&quot;/etc/appscale/keys/cloud#{cloud_num}&quot;)
-  <span class="ruby-constant">ENV</span>[<span class="ruby-string">'EC2_PRIVATE_KEY'</span>] = &quot;#{cloud_keys_dir}/mykey.pem&quot;
-  <span class="ruby-constant">ENV</span>[<span class="ruby-string">'EC2_CERT'</span>] = &quot;#{cloud_keys_dir}/mycert.pem&quot;
+  <span class="ruby-identifier">cloud_keys_dir</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">expand_path</span>(<span class="ruby-node">&quot;/etc/appscale/keys/cloud#{cloud_num}&quot;</span>)
+  <span class="ruby-constant">ENV</span>[<span class="ruby-string">'EC2_PRIVATE_KEY'</span>] = <span class="ruby-node">&quot;#{cloud_keys_dir}/mykey.pem&quot;</span>
+  <span class="ruby-constant">ENV</span>[<span class="ruby-string">'EC2_CERT'</span>] = <span class="ruby-node">&quot;#{cloud_keys_dir}/mycert.pem&quot;</span>
 
-  <span class="ruby-constant">Kernel</span>.puts(&quot;Setting private key to #{cloud_keys_dir}/mykey.pem, cert to #{cloud_keys_dir}/mycert.pem&quot;)
-end</pre>
-          </div>
+  <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;Setting private key to #{cloud_keys_dir}/mykey.pem, cert to #{cloud_keys_dir}/mycert.pem&quot;</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- set_creds_in_env-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- set_creds_in_env-method -->
 
     
-      <div id="shell-method" class="method-detail ">
-        <a name="method-c-shell"></a>
-
+      <div id="method-c-shell" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">shell</span><span
@@ -902,27 +836,23 @@ method.</p>
           
 
           
-          <div class="method-source-code"
-            id="shell-source">
-<pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 69</span>
-def self.shell(cmd)
-  <span class="ruby-constant">Kernel</span>.puts(cmd)
-  return `#{cmd}`
-end</pre>
-          </div>
+          <div class="method-source-code" id="shell-source">
+            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 69</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-identifier">cmd</span>)
+  <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-identifier">cmd</span>)
+  <span class="ruby-keyword">return</span> <span class="ruby-node">%x#{cmd}`</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- shell-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- shell-method -->
 
     
-      <div id="spawn_vms-method" class="method-detail ">
-        <a name="method-c-spawn_vms"></a>
-
+      <div id="method-c-spawn_vms" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">spawn_vms</span><span
@@ -940,99 +870,97 @@ were started.</p>
           
 
           
-          <div class="method-source-code"
-            id="spawn_vms-source">
-<pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 282</span>
-def self.spawn_vms(parameters)
-  num_of_vms_to_spawn = <span class="ruby-constant">Integer</span>(parameters[<span class="ruby-string">'num_vms'</span>])
-  image_id = parameters[<span class="ruby-string">'image_id'</span>]
-  instance_type = parameters[<span class="ruby-string">'instance_type'</span>]
-  keyname = parameters[<span class="ruby-string">'keyname'</span>]
-  infrastructure = parameters[<span class="ruby-string">'infrastructure'</span>]
-  cloud = parameters[<span class="ruby-string">'cloud'</span>]
-  group = parameters[<span class="ruby-string">'group'</span>]
-  spot = false
-  <span class="ruby-constant">Kernel</span>.puts(&quot;[#{num_of_vms_to_spawn}] [#{image_id}]  [#{instance_type}] [#{keyname}] [#{infrastructure}] [#{cloud}] [#{group}] [#{spot}]&quot;)
+          <div class="method-source-code" id="spawn_vms-source">
+            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 282</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">spawn_vms</span>(<span class="ruby-identifier">parameters</span>)
+  <span class="ruby-identifier">num_of_vms_to_spawn</span> = <span class="ruby-constant">Integer</span>(<span class="ruby-identifier">parameters</span>[<span class="ruby-string">'num_vms'</span>])
+  <span class="ruby-identifier">image_id</span> = <span class="ruby-identifier">parameters</span>[<span class="ruby-string">'image_id'</span>]
+  <span class="ruby-identifier">instance_type</span> = <span class="ruby-identifier">parameters</span>[<span class="ruby-string">'instance_type'</span>]
+  <span class="ruby-identifier">keyname</span> = <span class="ruby-identifier">parameters</span>[<span class="ruby-string">'keyname'</span>]
+  <span class="ruby-identifier">infrastructure</span> = <span class="ruby-identifier">parameters</span>[<span class="ruby-string">'infrastructure'</span>]
+  <span class="ruby-identifier">cloud</span> = <span class="ruby-identifier">parameters</span>[<span class="ruby-string">'cloud'</span>]
+  <span class="ruby-identifier">group</span> = <span class="ruby-identifier">parameters</span>[<span class="ruby-string">'group'</span>]
+  <span class="ruby-identifier">spot</span> = <span class="ruby-keyword">false</span>
+  <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;[#{num_of_vms_to_spawn}] [#{image_id}]  [#{instance_type}] [#{keyname}] [#{infrastructure}] [#{cloud}] [#{group}] [#{spot}]&quot;</span>)
 
-  start_time = <span class="ruby-constant">Time</span>.now
+  <span class="ruby-identifier">start_time</span> = <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span>
 
-  public_ips = []
-  private_ips = []
-  instance_ids = []
+  <span class="ruby-identifier">public_ips</span> = []
+  <span class="ruby-identifier">private_ips</span> = []
+  <span class="ruby-identifier">instance_ids</span> = []
 
-  if num_of_vms_to_spawn &lt; 1
-    return public_ips, private_ips, instance_ids
-  end
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">num_of_vms_to_spawn</span> <span class="ruby-operator">&lt;</span> <span class="ruby-value">1</span>
+    <span class="ruby-keyword">return</span> <span class="ruby-identifier">public_ips</span>, <span class="ruby-identifier">private_ips</span>, <span class="ruby-identifier">instance_ids</span>
+  <span class="ruby-keyword">end</span>
 
-  ssh_key = <span class="ruby-constant">File</span>.expand_path(&quot;/etc/appscale/keys/#{cloud}/#{keyname}.key&quot;)
-  <span class="ruby-constant">Kernel</span>.puts(&quot;About to spawn VMs, expecting to find a key at #{ssh_key}&quot;)
+  <span class="ruby-identifier">ssh_key</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">expand_path</span>(<span class="ruby-node">&quot;/etc/appscale/keys/#{cloud}/#{keyname}.key&quot;</span>)
+  <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;About to spawn VMs, expecting to find a key at #{ssh_key}&quot;</span>)
 
-  self.log_obscured_env
+  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">log_obscured_env</span>
 
-  new_cloud = !<span class="ruby-constant">File</span>.exists?(ssh_key)
-  if new_cloud <span class="ruby-comment"># need to create security group and key</span>
-    <span class="ruby-constant">Kernel</span>.puts(&quot;Creating keys/security group for #{cloud}&quot;)
-    self.generate_ssh_key(ssh_key, keyname, infrastructure)
-    self.create_appscale_security_group(infrastructure, group)
-  else
-    <span class="ruby-constant">Kernel</span>.puts(&quot;Not creating keys/security group for #{cloud}&quot;)
-  end
+  <span class="ruby-identifier">new_cloud</span> = <span class="ruby-operator">!</span><span class="ruby-constant">File</span>.<span class="ruby-identifier">exists?</span>(<span class="ruby-identifier">ssh_key</span>)
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">new_cloud</span> <span class="ruby-comment"># need to create security group and key</span>
+    <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;Creating keys/security group for #{cloud}&quot;</span>)
+    <span class="ruby-keyword">self</span>.<span class="ruby-identifier">generate_ssh_key</span>(<span class="ruby-identifier">ssh_key</span>, <span class="ruby-identifier">keyname</span>, <span class="ruby-identifier">infrastructure</span>)
+    <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_appscale_security_group</span>(<span class="ruby-identifier">infrastructure</span>, <span class="ruby-identifier">group</span>)
+  <span class="ruby-keyword">else</span>
+    <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;Not creating keys/security group for #{cloud}&quot;</span>)
+  <span class="ruby-keyword">end</span>
 
-  instance_ids_up = []
-  public_up_already = []
-  private_up_already = []
-  <span class="ruby-constant">Kernel</span>.puts(&quot;EC2_URL = [#{ENV['EC2_URL']}]&quot;)
-  loop { <span class="ruby-comment"># need to make sure ec2 doesn't return an error message here</span>
-    describe_instances = self.shell(&quot;#{infrastructure}-describe-instances 2&gt;&amp;1&quot;)
-    <span class="ruby-constant">Kernel</span>.puts(&quot;describe-instances says [#{describe_instances}]&quot;)
-    all_ip_addrs = describe_instances.scan(/\s+(#{IP_OR_FQDN})\s+(#{IP_OR_FQDN})\s+running\s+#{keyname}\s/).flatten
-    instance_ids_up = describe_instances.scan(<span class="ruby-regexp">/INSTANCE\s+(i-\w+)/</span>).flatten
-    public_up_already, private_up_already = <span class="ruby-constant">HelperFunctions</span>.get_ips(all_ip_addrs)
-    vms_up_already = describe_instances.scan(/(#{IP_OR_FQDN})\s+running\s+#{keyname}\s+/).length
-    break if vms_up_already &gt; 0 or new_cloud <span class="ruby-comment"># crucial for hybrid cloud, where one box may not be running yet</span>
+  <span class="ruby-identifier">instance_ids_up</span> = []
+  <span class="ruby-identifier">public_up_already</span> = []
+  <span class="ruby-identifier">private_up_already</span> = []
+  <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;EC2_URL = [#{ENV['EC2_URL']}]&quot;</span>)
+  <span class="ruby-identifier">loop</span> { <span class="ruby-comment"># need to make sure ec2 doesn't return an error message here</span>
+    <span class="ruby-identifier">describe_instances</span> = <span class="ruby-keyword">self</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-node">&quot;#{infrastructure}-describe-instances 2&gt;&amp;1&quot;</span>)
+    <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;describe-instances says [#{describe_instances}]&quot;</span>)
+    <span class="ruby-identifier">all_ip_addrs</span> = <span class="ruby-identifier">describe_instances</span>.<span class="ruby-identifier">scan</span>(<span class="ruby-node">%r\s+(#{IP_OR_FQDN})\s+(#{IP_OR_FQDN})\s+running\s+#{keyname}\s/</span>).<span class="ruby-identifier">flatten</span>
+    <span class="ruby-identifier">instance_ids_up</span> = <span class="ruby-identifier">describe_instances</span>.<span class="ruby-identifier">scan</span>(<span class="ruby-regexp">%rINSTANCE\s+(i-\w+)/</span>).<span class="ruby-identifier">flatten</span>
+    <span class="ruby-identifier">public_up_already</span>, <span class="ruby-identifier">private_up_already</span> = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">get_ips</span>(<span class="ruby-identifier">all_ip_addrs</span>)
+    <span class="ruby-identifier">vms_up_already</span> = <span class="ruby-identifier">describe_instances</span>.<span class="ruby-identifier">scan</span>(<span class="ruby-node">%r(#{IP_OR_FQDN})\s+running\s+#{keyname}\s+/</span>).<span class="ruby-identifier">length</span>
+    <span class="ruby-keyword">break</span> <span class="ruby-keyword">if</span> <span class="ruby-identifier">vms_up_already</span> <span class="ruby-operator">&gt;</span> <span class="ruby-value">0</span> <span class="ruby-keyword">or</span> <span class="ruby-identifier">new_cloud</span> <span class="ruby-comment"># crucial for hybrid cloud, where one box may not be running yet</span>
   }
  
-  args = &quot;-k #{keyname} -n #{num_of_vms_to_spawn} --instance-type #{instance_type} --group #{group} #{image_id}&quot;
-  if spot
-    price = <span class="ruby-constant">HelperFunctions</span>.get_optimal_spot_price(instance_type)
-    command_to_run = &quot;ec2-request-spot-instances -p #{price} #{args}&quot;
-  else
-    command_to_run = &quot;#{infrastructure}-run-instances #{args}&quot;
-  end
+  <span class="ruby-identifier">args</span> = <span class="ruby-node">&quot;-k #{keyname} -n #{num_of_vms_to_spawn} --instance-type #{instance_type} --group #{group} #{image_id}&quot;</span>
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">spot</span>
+    <span class="ruby-identifier">price</span> = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">get_optimal_spot_price</span>(<span class="ruby-identifier">instance_type</span>)
+    <span class="ruby-identifier">command_to_run</span> = <span class="ruby-node">&quot;ec2-request-spot-instances -p #{price} #{args}&quot;</span>
+  <span class="ruby-keyword">else</span>
+    <span class="ruby-identifier">command_to_run</span> = <span class="ruby-node">&quot;#{infrastructure}-run-instances #{args}&quot;</span>
+  <span class="ruby-keyword">end</span>
 
-  loop {
-    <span class="ruby-constant">Kernel</span>.puts(command_to_run)
-    run_instances = self.shell(&quot;#{command_to_run} 2&gt;&amp;1&quot;)
-    <span class="ruby-constant">Kernel</span>.puts(&quot;run_instances says [#{run_instances}]&quot;)
-    if run_instances =~ <span class="ruby-regexp">/Please try again later./</span>
-      <span class="ruby-constant">Kernel</span>.puts(&quot;Error with run_instances: #{run_instances}. Will try again in a moment.&quot;)
-    elsif run_instances =~ <span class="ruby-regexp">/try --addressing private/</span>
-      <span class="ruby-constant">Kernel</span>.puts(<span class="ruby-string">&quot;Need to retry with addressing private. Will try again in a moment.&quot;</span>)
-      command_to_run &lt;&lt; <span class="ruby-string">&quot; --addressing private&quot;</span>
-    elsif run_instances =~ <span class="ruby-regexp">/PROBLEM/</span>
-      <span class="ruby-constant">Kernel</span>.puts(&quot;Error: #{run_instances}&quot;)
-      abort(&quot;Saw the following error message from EC2 tools. Please resolve the issue and try again:\n#{run_instances}&quot;)
-    else
-      <span class="ruby-constant">Kernel</span>.puts(<span class="ruby-string">&quot;Run instances message sent successfully. Waiting for the image to start up.&quot;</span>)
-      break
-    end
-    <span class="ruby-constant">Kernel</span>.puts(<span class="ruby-string">&quot;sleepy time&quot;</span>)
-    <span class="ruby-constant">Kernel</span>.sleep(5)
+  <span class="ruby-identifier">loop</span> {
+    <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-identifier">command_to_run</span>)
+    <span class="ruby-identifier">run_instances</span> = <span class="ruby-keyword">self</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-node">&quot;#{command_to_run} 2&gt;&amp;1&quot;</span>)
+    <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;run_instances says [#{run_instances}]&quot;</span>)
+    <span class="ruby-keyword">if</span> <span class="ruby-identifier">run_instances</span> <span class="ruby-operator">=~</span> <span class="ruby-regexp">%rPlease try again later./</span>
+      <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;Error with run_instances: #{run_instances}. Will try again in a moment.&quot;</span>)
+    <span class="ruby-keyword">elsif</span> <span class="ruby-identifier">run_instances</span> <span class="ruby-operator">=~</span> <span class="ruby-regexp">%rtry --addressing private/</span>
+      <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-string">&quot;Need to retry with addressing private. Will try again in a moment.&quot;</span>)
+      <span class="ruby-identifier">command_to_run</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-string">&quot; --addressing private&quot;</span>
+    <span class="ruby-keyword">elsif</span> <span class="ruby-identifier">run_instances</span> <span class="ruby-operator">=~</span> <span class="ruby-regexp">%rPROBLEM/</span>
+      <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;Error: #{run_instances}&quot;</span>)
+      <span class="ruby-identifier">abort</span>(<span class="ruby-node">&quot;Saw the following error message from EC2 tools. Please resolve the issue and try again:\n#{run_instances}&quot;</span>)
+    <span class="ruby-keyword">else</span>
+      <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-string">&quot;Run instances message sent successfully. Waiting for the image to start up.&quot;</span>)
+      <span class="ruby-keyword">break</span>
+    <span class="ruby-keyword">end</span>
+    <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-string">&quot;sleepy time&quot;</span>)
+    <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">sleep</span>(<span class="ruby-value">5</span>)
   }
   
-  instance_ids = []
-  public_ips = []
-  private_ips = []
+  <span class="ruby-identifier">instance_ids</span> = []
+  <span class="ruby-identifier">public_ips</span> = []
+  <span class="ruby-identifier">private_ips</span> = []
 
-  <span class="ruby-constant">Kernel</span>.sleep(10) <span class="ruby-comment"># euca 2.0.3 can throw forbidden errors if we hit it too fast</span>
+  <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">sleep</span>(<span class="ruby-value">10</span>) <span class="ruby-comment"># euca 2.0.3 can throw forbidden errors if we hit it too fast</span>
   <span class="ruby-comment"># TODO: refactor me to use rightaws gem, check for forbidden, and retry accordingly</span>
 
-  end_time = <span class="ruby-constant">Time</span>.now + <span class="ruby-constant">MAX_VM_CREATION_TIME</span>
-  while (now = <span class="ruby-constant">Time</span>.now) &lt; end_time
-    describe_instances = self.shell(&quot;#{infrastructure}-describe-instances 2&gt;&amp;1&quot;)
-    <span class="ruby-constant">Kernel</span>.puts(&quot;[#{Time.now}] #{end_time - now} seconds left...&quot;)
-    <span class="ruby-constant">Kernel</span>.puts(describe_instances)
+  <span class="ruby-identifier">end_time</span> = <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span> <span class="ruby-operator">+</span> <span class="ruby-constant">MAX_VM_CREATION_TIME</span>
+  <span class="ruby-keyword">while</span> (<span class="ruby-identifier">now</span> = <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span>) <span class="ruby-operator">&lt;</span> <span class="ruby-identifier">end_time</span>
+    <span class="ruby-identifier">describe_instances</span> = <span class="ruby-keyword">self</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-node">&quot;#{infrastructure}-describe-instances 2&gt;&amp;1&quot;</span>)
+    <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;[#{Time.now}] #{end_time - now} seconds left...&quot;</span>)
+    <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-identifier">describe_instances</span>)
  
     <span class="ruby-comment"># TODO: match on instance id</span>
     <span class="ruby-comment">#if describe_instances =~ /terminated\s+#{keyname}\s+/</span>
@@ -1046,56 +974,54 @@ def self.spawn_vms(parameters)
     <span class="ruby-comment"># changed regexes so ensure we are only checking for instances created</span>
     <span class="ruby-comment"># for appscale only (don't worry about other instances created)</span>
     
-    all_ip_addrs = describe_instances.scan(/\s+(#{IP_OR_FQDN})\s+(#{IP_OR_FQDN})\s+running\s+#{keyname}\s+/).flatten
-    public_ips, private_ips = <span class="ruby-constant">HelperFunctions</span>.get_ips(all_ip_addrs)
-    public_ips = public_ips - public_up_already
-    private_ips = private_ips - private_up_already
-    instance_ids = describe_instances.scan(/INSTANCE\s+(i-\w+)\s+[\w\-\s\.]+#{keyname}/).flatten - instance_ids_up
-    break if public_ips.length == num_of_vms_to_spawn
-    <span class="ruby-constant">Kernel</span>.sleep(<span class="ruby-constant">SLEEP_TIME</span>)
-  end
+    <span class="ruby-identifier">all_ip_addrs</span> = <span class="ruby-identifier">describe_instances</span>.<span class="ruby-identifier">scan</span>(<span class="ruby-node">%r\s+(#{IP_OR_FQDN})\s+(#{IP_OR_FQDN})\s+running\s+#{keyname}\s+/</span>).<span class="ruby-identifier">flatten</span>
+    <span class="ruby-identifier">public_ips</span>, <span class="ruby-identifier">private_ips</span> = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">get_ips</span>(<span class="ruby-identifier">all_ip_addrs</span>)
+    <span class="ruby-identifier">public_ips</span> = <span class="ruby-identifier">public_ips</span> <span class="ruby-operator">-</span> <span class="ruby-identifier">public_up_already</span>
+    <span class="ruby-identifier">private_ips</span> = <span class="ruby-identifier">private_ips</span> <span class="ruby-operator">-</span> <span class="ruby-identifier">private_up_already</span>
+    <span class="ruby-identifier">instance_ids</span> = <span class="ruby-identifier">describe_instances</span>.<span class="ruby-identifier">scan</span>(<span class="ruby-node">%rINSTANCE\s+(i-\w+)\s+[\w\-\s\.]+#{keyname}/</span>).<span class="ruby-identifier">flatten</span> <span class="ruby-operator">-</span> <span class="ruby-identifier">instance_ids_up</span>
+    <span class="ruby-keyword">break</span> <span class="ruby-keyword">if</span> <span class="ruby-identifier">public_ips</span>.<span class="ruby-identifier">length</span> <span class="ruby-operator">==</span> <span class="ruby-identifier">num_of_vms_to_spawn</span>
+    <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">sleep</span>(<span class="ruby-constant">SLEEP_TIME</span>)
+  <span class="ruby-keyword">end</span>
   
-  if public_ips.length.zero?
-    abort(<span class="ruby-string">&quot;No public IPs were able to be procured within the time limit.&quot;</span>)
-  end
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">public_ips</span>.<span class="ruby-identifier">length</span>.<span class="ruby-identifier">zero?</span>
+    <span class="ruby-identifier">abort</span>(<span class="ruby-string">&quot;No public IPs were able to be procured within the time limit.&quot;</span>)
+  <span class="ruby-keyword">end</span>
   
-  if public_ips.length != num_of_vms_to_spawn
-    potential_dead_ips = <span class="ruby-constant">HelperFunctions</span>.get_ips(all_ip_addrs) - public_up_already
-    potential_dead_ips.each_index { |index|
-      if potential_dead_ips[index] == <span class="ruby-string">&quot;0.0.0.0&quot;</span>
-        instance_to_term = instance_ids[index]
-        <span class="ruby-constant">Kernel</span>.puts(&quot;Instance #{instance_to_term} failed to get a public IP address and is being terminated.&quot;)
-        self.shell(&quot;#{infrastructure}-terminate-instances #{instance_to_term}&quot;)
-      end
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">public_ips</span>.<span class="ruby-identifier">length</span> <span class="ruby-operator">!=</span> <span class="ruby-identifier">num_of_vms_to_spawn</span>
+    <span class="ruby-identifier">potential_dead_ips</span> = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">get_ips</span>(<span class="ruby-identifier">all_ip_addrs</span>) <span class="ruby-operator">-</span> <span class="ruby-identifier">public_up_already</span>
+    <span class="ruby-identifier">potential_dead_ips</span>.<span class="ruby-identifier">each_index</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">index</span><span class="ruby-operator">|</span>
+      <span class="ruby-keyword">if</span> <span class="ruby-identifier">potential_dead_ips</span>[<span class="ruby-identifier">index</span>] <span class="ruby-operator">==</span> <span class="ruby-string">&quot;0.0.0.0&quot;</span>
+        <span class="ruby-identifier">instance_to_term</span> = <span class="ruby-identifier">instance_ids</span>[<span class="ruby-identifier">index</span>]
+        <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;Instance #{instance_to_term} failed to get a public IP address and is being terminated.&quot;</span>)
+        <span class="ruby-keyword">self</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-node">&quot;#{infrastructure}-terminate-instances #{instance_to_term}&quot;</span>)
+      <span class="ruby-keyword">end</span>
     }
-  end         
+  <span class="ruby-keyword">end</span>         
   
-  end_time = <span class="ruby-constant">Time</span>.now
-  total_time = end_time - start_time
+  <span class="ruby-identifier">end_time</span> = <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span>
+  <span class="ruby-identifier">total_time</span> = <span class="ruby-identifier">end_time</span> <span class="ruby-operator">-</span> <span class="ruby-identifier">start_time</span>
 
-  if spot
-    <span class="ruby-constant">Kernel</span>.puts(&quot;TIMING: It took #{total_time} seconds to spawn &quot; +
-      &quot;#{num_of_vms_to_spawn} spot instances&quot;)
-  else
-    <span class="ruby-constant">Kernel</span>.puts(&quot;TIMING: It took #{total_time} seconds to spawn &quot; +
-      &quot;#{num_of_vms_to_spawn} regular instances&quot;)
-  end
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">spot</span>
+    <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;TIMING: It took #{total_time} seconds to spawn &quot;</span> <span class="ruby-operator">+</span>
+      <span class="ruby-node">&quot;#{num_of_vms_to_spawn} spot instances&quot;</span>)
+  <span class="ruby-keyword">else</span>
+    <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;TIMING: It took #{total_time} seconds to spawn &quot;</span> <span class="ruby-operator">+</span>
+      <span class="ruby-node">&quot;#{num_of_vms_to_spawn} regular instances&quot;</span>)
+  <span class="ruby-keyword">end</span>
 
-  return public_ips, private_ips, instance_ids
-end</pre>
-          </div>
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">public_ips</span>, <span class="ruby-identifier">private_ips</span>, <span class="ruby-identifier">instance_ids</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- spawn_vms-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- spawn_vms-method -->
 
     
-      <div id="terminate_vms-method" class="method-detail ">
-        <a name="method-c-terminate_vms"></a>
-
+      <div id="method-c-terminate_vms" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">terminate_vms</span><span
@@ -1111,26 +1037,22 @@ infrastructure.</p>
           
 
           
-          <div class="method-source-code"
-            id="terminate_vms-source">
-<pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 468</span>
-def self.terminate_vms(ids, infrastructure)
-  self.shell(&quot;#{infrastructure}-terminate-instances #{ids.join(' ')} 2&gt;&amp;1&quot;)
-end</pre>
-          </div>
+          <div class="method-source-code" id="terminate_vms-source">
+            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 468</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">terminate_vms</span>(<span class="ruby-identifier">ids</span>, <span class="ruby-identifier">infrastructure</span>)
+  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-node">&quot;#{infrastructure}-terminate-instances #{ids.join(' ')} 2&gt;&amp;1&quot;</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- terminate_vms-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- terminate_vms-method -->
 
     
-      <div id="write_file-method" class="method-detail ">
-        <a name="method-c-write_file"></a>
-
+      <div id="method-c-write_file" class="method-detail ">
         
         <div class="method-heading">
           <span class="method-name">write_file</span><span
@@ -1146,34 +1068,31 @@ that file if it does not exist.</p>
           
 
           
-          <div class="method-source-code"
-            id="write_file-source">
-<pre>
-<span class="ruby-comment"># File lib/helperfunctions.rb, line 76</span>
-def self.write_file(location, contents)
-  <span class="ruby-constant">File</span>.open(location, <span class="ruby-string">&quot;w+&quot;</span>) { |file| file.write(contents) }
-end</pre>
-          </div>
+          <div class="method-source-code" id="write_file-source">
+            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 76</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">write_file</span>(<span class="ruby-identifier">location</span>, <span class="ruby-identifier">contents</span>)
+  <span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-identifier">location</span>, <span class="ruby-string">&quot;w+&quot;</span>) { <span class="ruby-operator">|</span><span class="ruby-identifier">file</span><span class="ruby-operator">|</span> <span class="ruby-identifier">file</span>.<span class="ruby-identifier">write</span>(<span class="ruby-identifier">contents</span>) }
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- write_file-source -->
           
         </div>
 
         
 
         
-      </div>
+      </div><!-- write_file-method -->
 
     
-    </div>
+    </section><!-- public-class-method-details -->
   
+  </section><!-- 5Buntitled-5D -->
 
-  </div>
+</div><!-- documentation -->
 
-  <div id="validator-badges">
-    <p><small><a href="http://validator.w3.org/check/referer">[Validate]</a></small></p>
-    <p><small>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish
-      Rdoc Generator</a> 2</small>.</p>
-  </div>
 
-</body>
-</html>
+<footer id="validator-badges">
+  <p><a href="http://validator.w3.org/check/referer">[Validate]</a>
+  <p>Generated by <a href="https://github.com/rdoc/rdoc">RDoc</a> 3.12.
+  <p>Generated with the <a href="http://deveiate.org/projects/Darkfish-Rdoc/">Darkfish Rdoc Generator</a> 3.
+</footer>
 
