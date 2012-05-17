@@ -27,6 +27,9 @@
 <h2 id="classes">Classes/Modules</h2>
 <ul>
   <li class="class">
+    <a href="AppControllerClient.html">AppControllerClient</a>
+  </li>
+    <li class="class">
     <a href="BadConfigurationException.html">BadConfigurationException</a>
   </li>
     <li class="class">
@@ -46,6 +49,9 @@
   </li>
     <li class="class">
     <a href="DatastoreS3.html">DatastoreS3</a>
+  </li>
+    <li class="class">
+    <a href="DjinnJobData.html">DjinnJobData</a>
   </li>
     <li class="module">
     <a href="EngineFactory.html">EngineFactory</a>
@@ -110,6 +116,9 @@
     <li class="class">
     <a href="ZKInterface.html">ZKInterface</a>
   </li>
+    <li class="class">
+    <a href="ZooKeeperLockException.html">ZooKeeperLockException</a>
+  </li>
   
 </ul>
 
@@ -124,11 +133,11 @@
   
     <li class="method"><a href="ZKInterface.html#method-c-add_roles_to_node">::add_roles_to_node &mdash; ZKInterface</a>
   
-    <li class="method"><a href="HelperFunctions.html#method-c-application_port">::application_port &mdash; HelperFunctions</a>
-  
     <li class="method"><a href="NeptuneManager.html#method-c-cleanup">::cleanup &mdash; NeptuneManager</a>
   
-    <li class="method"><a href="HelperFunctions.html#method-c-convert_fqdn_to_ip">::convert_fqdn_to_ip &mdash; HelperFunctions</a>
+    <li class="method"><a href="NeptuneManager.html#method-c-convert_location_array_to_class">::convert_location_array_to_class &mdash; NeptuneManager</a>
+  
+    <li class="method"><a href="NeptuneManager.html#method-c-convert_location_class_to_array">::convert_location_class_to_array &mdash; NeptuneManager</a>
   
     <li class="method"><a href="NeptuneManager.html#method-c-copy_code_and_inputs_to_dir">::copy_code_and_inputs_to_dir &mdash; NeptuneManager</a>
   
@@ -138,49 +147,25 @@
   
     <li class="method"><a href="NeptuneManager.html#method-c-copy_inputs_to_dir">::copy_inputs_to_dir &mdash; NeptuneManager</a>
   
-    <li class="method"><a href="HelperFunctions.html#method-c-create_appscale_security_group">::create_appscale_security_group &mdash; HelperFunctions</a>
-  
     <li class="method"><a href="NeptuneManager.html#method-c-create_temp_dir">::create_temp_dir &mdash; NeptuneManager</a>
   
-    <li class="method"><a href="HelperFunctions.html#method-c-deserialize_info_from_tools">::deserialize_info_from_tools &mdash; HelperFunctions</a>
+    <li class="method"><a href="DjinnJobData.html#method-c-deserialize">::deserialize &mdash; DjinnJobData</a>
   
-    <li class="method"><a href="HelperFunctions.html#method-c-does_image_have_location-3F">::does_image_have_location? &mdash; HelperFunctions</a>
-  
-    <li class="method"><a href="HelperFunctions.html#method-c-encrypt_password">::encrypt_password &mdash; HelperFunctions</a>
-  
-    <li class="method"><a href="HelperFunctions.html#method-c-ensure_db_is_supported">::ensure_db_is_supported &mdash; HelperFunctions</a>
-  
-    <li class="method"><a href="HelperFunctions.html#method-c-ensure_image_is_appscale">::ensure_image_is_appscale &mdash; HelperFunctions</a>
-  
-    <li class="method"><a href="HelperFunctions.html#method-c-expires_duration">::expires_duration &mdash; HelperFunctions</a>
-  
-    <li class="method"><a href="HelperFunctions.html#method-c-find_majority_item">::find_majority_item &mdash; HelperFunctions</a>
+    <li class="method"><a href="ZKInterface.html#method-c-find_open_nodes_in_cloud">::find_open_nodes_in_cloud &mdash; ZKInterface</a>
   
     <li class="method"><a href="NeptuneJobData.html#method-c-from_hash">::from_hash &mdash; NeptuneJobData</a>
-  
-    <li class="method"><a href="HelperFunctions.html#method-c-generate_location_config">::generate_location_config &mdash; HelperFunctions</a>
-  
-    <li class="method"><a href="HelperFunctions.html#method-c-generate_makefile">::generate_makefile &mdash; HelperFunctions</a>
-  
-    <li class="method"><a href="HelperFunctions.html#method-c-generate_ssh_key">::generate_ssh_key &mdash; HelperFunctions</a>
   
     <li class="method"><a href="ZKInterface.html#method-c-get_app_hosters">::get_app_hosters &mdash; ZKInterface</a>
   
     <li class="method"><a href="ZKInterface.html#method-c-get_app_instances_for_ip">::get_app_instances_for_ip &mdash; ZKInterface</a>
   
-    <li class="method"><a href="HelperFunctions.html#method-c-get_app_path">::get_app_path &mdash; HelperFunctions</a>
-  
     <li class="method"><a href="ZKInterface.html#method-c-get_appcontroller_lock">::get_appcontroller_lock &mdash; ZKInterface</a>
   
     <li class="method"><a href="ZKInterface.html#method-c-get_appcontroller_state">::get_appcontroller_state &mdash; ZKInterface</a>
   
-    <li class="method"><a href="HelperFunctions.html#method-c-get_appscale_id">::get_appscale_id &mdash; HelperFunctions</a>
-  
-    <li class="method"><a href="HelperFunctions.html#method-c-get_cache_path">::get_cache_path &mdash; HelperFunctions</a>
-  
     <li class="method"><a href="HelperFunctions.html#method-c-get_cert">::get_cert &mdash; HelperFunctions</a>
   
-    <li class="method"><a href="HelperFunctions.html#method-c-get_cloud_ips">::get_cloud_ips &mdash; HelperFunctions</a>
+    <li class="method"><a href="HelperFunctions.html#method-c-get_cloud_info">::get_cloud_info &mdash; HelperFunctions</a>
   
     <li class="method"><a href="DatastoreFactory.html#method-c-get_datastore">::get_datastore &mdash; DatastoreFactory</a>
   
@@ -188,11 +173,7 @@
   
     <li class="method"><a href="ZKInterface.html#method-c-get_failed_nodes">::get_failed_nodes &mdash; ZKInterface</a>
   
-    <li class="method"><a href="HelperFunctions.html#method-c-get_hybrid_ips">::get_hybrid_ips &mdash; HelperFunctions</a>
-  
     <li class="method"><a href="ZKInterface.html#method-c-get_ip_info">::get_ip_info &mdash; ZKInterface</a>
-  
-    <li class="method"><a href="HelperFunctions.html#method-c-get_ips">::get_ips &mdash; HelperFunctions</a>
   
     <li class="method"><a href="ZKInterface.html#method-c-get_job_data_for_ip">::get_job_data_for_ip &mdash; ZKInterface</a>
   
@@ -200,25 +181,13 @@
   
     <li class="method"><a href="ZKInterface.html#method-c-get_max_machines_for_babel_slaves">::get_max_machines_for_babel_slaves &mdash; ZKInterface</a>
   
-    <li class="method"><a href="HelperFunctions.html#method-c-get_num_cpus">::get_num_cpus &mdash; HelperFunctions</a>
-  
-    <li class="method"><a href="HelperFunctions.html#method-c-get_optimal_spot_price">::get_optimal_spot_price &mdash; HelperFunctions</a>
-  
-    <li class="method"><a href="HelperFunctions.html#method-c-get_public_ips">::get_public_ips &mdash; HelperFunctions</a>
+    <li class="method"><a href="HelperFunctions.html#method-c-get_my_public_ip">::get_my_public_ip &mdash; HelperFunctions</a>
   
     <li class="method"><a href="QueueFactory.html#method-c-get_queue">::get_queue &mdash; QueueFactory</a>
   
     <li class="method"><a href="HelperFunctions.html#method-c-get_random_alphanumeric">::get_random_alphanumeric &mdash; HelperFunctions</a>
   
-    <li class="method"><a href="HelperFunctions.html#method-c-get_relative_filename">::get_relative_filename &mdash; HelperFunctions</a>
-  
-    <li class="method"><a href="HelperFunctions.html#method-c-get_remote_appscale_home">::get_remote_appscale_home &mdash; HelperFunctions</a>
-  
     <li class="method"><a href="HelperFunctions.html#method-c-get_secret">::get_secret &mdash; HelperFunctions</a>
-  
-    <li class="method"><a href="HelperFunctions.html#method-c-get_untar_dir">::get_untar_dir &mdash; HelperFunctions</a>
-  
-    <li class="method"><a href="HelperFunctions.html#method-c-get_usage">::get_usage &mdash; HelperFunctions</a>
   
     <li class="method"><a href="ZKInterface.html#method-c-init">::init &mdash; ZKInterface</a>
   
@@ -232,61 +201,53 @@
   
     <li class="method"><a href="NeptuneManager.html#method-c-is_storage_location-3F">::is_storage_location? &mdash; NeptuneManager</a>
   
-    <li class="method"><a href="HelperFunctions.html#method-c-kill_process">::kill_process &mdash; HelperFunctions</a>
-  
     <li class="method"><a href="HelperFunctions.html#method-c-local_ip">::local_ip &mdash; HelperFunctions</a>
   
     <li class="method"><a href="ZKInterface.html#method-c-lock_and_run">::lock_and_run &mdash; ZKInterface</a>
   
     <li class="method"><a href="NeptuneManager.html#method-c-log">::log &mdash; NeptuneManager</a>
   
-    <li class="method"><a href="HelperFunctions.html#method-c-log_obscured_env">::log_obscured_env &mdash; HelperFunctions</a>
-  
     <li class="method"><a href="NeptuneManager.html#method-c-neptune_parse_creds">::neptune_parse_creds &mdash; NeptuneManager</a>
-  
-    <li class="method"><a href="UserAppClient.html#method-c-new">::new &mdash; UserAppClient</a>
-  
-    <li class="method"><a href="NeptuneManager.html#method-c-new">::new &mdash; NeptuneManager</a>
-  
-    <li class="method"><a href="NeptuneJobData.html#method-c-new">::new &mdash; NeptuneJobData</a>
-  
-    <li class="method"><a href="TaskEngineAppScale.html#method-c-new">::new &mdash; TaskEngineAppScale</a>
   
     <li class="method"><a href="TaskQueueGoogleAppEngine.html#method-c-new">::new &mdash; TaskQueueGoogleAppEngine</a>
   
-    <li class="method"><a href="TaskQueueAzureQueue.html#method-c-new">::new &mdash; TaskQueueAzureQueue</a>
+    <li class="method"><a href="TaskEngineAppScale.html#method-c-new">::new &mdash; TaskEngineAppScale</a>
   
-    <li class="method"><a href="TaskEngine.html#method-c-new">::new &mdash; TaskEngine</a>
+    <li class="method"><a href="NeptuneJobData.html#method-c-new">::new &mdash; NeptuneJobData</a>
   
-    <li class="method"><a href="TaskQueueSQS.html#method-c-new">::new &mdash; TaskQueueSQS</a>
-  
-    <li class="method"><a href="DatastoreS3.html#method-c-new">::new &mdash; DatastoreS3</a>
-  
-    <li class="method"><a href="DatastoreRepoOnAppEngine.html#method-c-new">::new &mdash; DatastoreRepoOnAppEngine</a>
-  
-    <li class="method"><a href="DatastoreRepo.html#method-c-new">::new &mdash; DatastoreRepo</a>
+    <li class="method"><a href="AppControllerClient.html#method-c-new">::new &mdash; AppControllerClient</a>
   
     <li class="method"><a href="TaskQueueRabbitMQ.html#method-c-new">::new &mdash; TaskQueueRabbitMQ</a>
   
-    <li class="method"><a href="TaskEngineGoogleAppEngine.html#method-c-new">::new &mdash; TaskEngineGoogleAppEngine</a>
+    <li class="method"><a href="TaskQueueAzureQueue.html#method-c-new">::new &mdash; TaskQueueAzureQueue</a>
   
-    <li class="method"><a href="InfrastructureManagerClient.html#method-c-new">::new &mdash; InfrastructureManagerClient</a>
-  
-    <li class="method"><a href="Datastore.html#method-c-new">::new &mdash; Datastore</a>
+    <li class="method"><a href="DatastoreRepo.html#method-c-new">::new &mdash; DatastoreRepo</a>
   
     <li class="method"><a href="TaskQueue.html#method-c-new">::new &mdash; TaskQueue</a>
   
+    <li class="method"><a href="DjinnJobData.html#method-c-new">::new &mdash; DjinnJobData</a>
+  
+    <li class="method"><a href="DatastoreRepoOnAppEngine.html#method-c-new">::new &mdash; DatastoreRepoOnAppEngine</a>
+  
+    <li class="method"><a href="DatastoreS3.html#method-c-new">::new &mdash; DatastoreS3</a>
+  
+    <li class="method"><a href="TaskEngine.html#method-c-new">::new &mdash; TaskEngine</a>
+  
+    <li class="method"><a href="UserAppClient.html#method-c-new">::new &mdash; UserAppClient</a>
+  
+    <li class="method"><a href="Datastore.html#method-c-new">::new &mdash; Datastore</a>
+  
+    <li class="method"><a href="NeptuneManager.html#method-c-new">::new &mdash; NeptuneManager</a>
+  
+    <li class="method"><a href="TaskEngineGoogleAppEngine.html#method-c-new">::new &mdash; TaskEngineGoogleAppEngine</a>
+  
     <li class="method"><a href="DatastoreRepoOnAppScale.html#method-c-new">::new &mdash; DatastoreRepoOnAppScale</a>
   
-    <li class="method"><a href="HelperFunctions.html#method-c-obscure_array">::obscure_array &mdash; HelperFunctions</a>
+    <li class="method"><a href="InfrastructureManagerClient.html#method-c-new">::new &mdash; InfrastructureManagerClient</a>
   
-    <li class="method"><a href="HelperFunctions.html#method-c-obscure_creds">::obscure_creds &mdash; HelperFunctions</a>
-  
-    <li class="method"><a href="HelperFunctions.html#method-c-obscure_string">::obscure_string &mdash; HelperFunctions</a>
+    <li class="method"><a href="TaskQueueSQS.html#method-c-new">::new &mdash; TaskQueueSQS</a>
   
     <li class="method"><a href="DatastoreS3.html#method-c-parse_s3_key">::parse_s3_key &mdash; DatastoreS3</a>
-  
-    <li class="method"><a href="HelperFunctions.html#method-c-parse_static_data">::parse_static_data &mdash; HelperFunctions</a>
   
     <li class="method"><a href="HelperFunctions.html#method-c-read_file">::read_file &mdash; HelperFunctions</a>
   
@@ -304,8 +265,6 @@
   
     <li class="method"><a href="ZKInterface.html#method-c-remove_roles_from_node">::remove_roles_from_node &mdash; ZKInterface</a>
   
-    <li class="method"><a href="HelperFunctions.html#method-c-run_app">::run_app &mdash; HelperFunctions</a>
-  
     <li class="method"><a href="NeptuneManager.html#method-c-run_code">::run_code &mdash; NeptuneManager</a>
   
     <li class="method"><a href="HelperFunctions.html#method-c-run_remote_command">::run_remote_command &mdash; HelperFunctions</a>
@@ -313,8 +272,6 @@
     <li class="method"><a href="NeptuneManager.html#method-c-save_output">::save_output &mdash; NeptuneManager</a>
   
     <li class="method"><a href="HelperFunctions.html#method-c-scp_file">::scp_file &mdash; HelperFunctions</a>
-  
-    <li class="method"><a href="HelperFunctions.html#method-c-set_creds_in_env">::set_creds_in_env &mdash; HelperFunctions</a>
   
     <li class="method"><a href="ZKInterface.html#method-c-set_done_loading">::set_done_loading &mdash; ZKInterface</a>
   
@@ -324,27 +281,9 @@
   
     <li class="method"><a href="ZKInterface.html#method-c-set_max_machines_for_babel_slaves">::set_max_machines_for_babel_slaves &mdash; ZKInterface</a>
   
-    <li class="method"><a href="HelperFunctions.html#method-c-setup_app">::setup_app &mdash; HelperFunctions</a>
-  
     <li class="method"><a href="HelperFunctions.html#method-c-shell">::shell &mdash; HelperFunctions</a>
   
-    <li class="method"><a href="HelperFunctions.html#method-c-shorten_to_n_items">::shorten_to_n_items &mdash; HelperFunctions</a>
-  
-    <li class="method"><a href="HelperFunctions.html#method-c-sleep_until_port_is_closed">::sleep_until_port_is_closed &mdash; HelperFunctions</a>
-  
     <li class="method"><a href="HelperFunctions.html#method-c-sleep_until_port_is_open">::sleep_until_port_is_open &mdash; HelperFunctions</a>
-  
-    <li class="method"><a href="HelperFunctions.html#method-c-spawn_hybrid_vms">::spawn_hybrid_vms &mdash; HelperFunctions</a>
-  
-    <li class="method"><a href="HelperFunctions.html#method-c-spawn_vms">::spawn_vms &mdash; HelperFunctions</a>
-  
-    <li class="method"><a href="HelperFunctions.html#method-c-stop_app">::stop_app &mdash; HelperFunctions</a>
-  
-    <li class="method"><a href="HelperFunctions.html#method-c-terminate_all_vms">::terminate_all_vms &mdash; HelperFunctions</a>
-  
-    <li class="method"><a href="HelperFunctions.html#method-c-terminate_hybrid_vms">::terminate_hybrid_vms &mdash; HelperFunctions</a>
-  
-    <li class="method"><a href="HelperFunctions.html#method-c-terminate_vms">::terminate_vms &mdash; HelperFunctions</a>
   
     <li class="method"><a href="ZKInterface.html#method-c-update_ips_timestamp">::update_ips_timestamp &mdash; ZKInterface</a>
   
@@ -368,6 +307,10 @@
   
     <li class="method"><a href="NeptuneManager.html#method-i-add_nodes">#add_nodes &mdash; NeptuneManager</a>
   
+    <li class="method"><a href="AppControllerClient.html#method-i-add_role">#add_role &mdash; AppControllerClient</a>
+  
+    <li class="method"><a href="DjinnJobData.html#method-i-add_roles">#add_roles &mdash; DjinnJobData</a>
+  
     <li class="method"><a href="NeptuneManager.html#method-i-add_roles_and_wait">#add_roles_and_wait &mdash; NeptuneManager</a>
   
     <li class="method"><a href="NeptuneManager.html#method-i-add_timing_info">#add_timing_info &mdash; NeptuneManager</a>
@@ -386,6 +329,8 @@
   
     <li class="method"><a href="NeptuneManager.html#method-i-can_run_job">#can_run_job &mdash; NeptuneManager</a>
   
+    <li class="method"><a href="NeptuneManager.html#method-i-can_run_jobs_in_parallel-3F">#can_run_jobs_in_parallel? &mdash; NeptuneManager</a>
+  
     <li class="method"><a href="UserAppClient.html#method-i-change_password">#change_password &mdash; UserAppClient</a>
   
     <li class="method"><a href="NeptuneManager.html#method-i-cicero_run_job">#cicero_run_job &mdash; NeptuneManager</a>
@@ -402,7 +347,7 @@
   
     <li class="method"><a href="NeptuneManager.html#method-i-compile_code">#compile_code &mdash; NeptuneManager</a>
   
-    <li class="method"><a href="NeptuneManager.html#method-i-copyFromShadow">#copyFromShadow &mdash; NeptuneManager</a>
+    <li class="method"><a href="NeptuneManager.html#method-i-copy_from_shadow">#copy_from_shadow &mdash; NeptuneManager</a>
   
     <li class="method"><a href="NeptuneJobData.html#method-i-cost">#cost &mdash; NeptuneJobData</a>
   
@@ -412,6 +357,8 @@
   
     <li class="method"><a href="InfrastructureManagerClient.html#method-i-describe_instances">#describe_instances &mdash; InfrastructureManagerClient</a>
   
+    <li class="method"><a href="NeptuneManager.html#method-i-dispatch_jobs">#dispatch_jobs &mdash; NeptuneManager</a>
+  
     <li class="method"><a href="DatastoreRepo.html#method-i-do_http_get_for_get">#do_http_get_for_get &mdash; DatastoreRepo</a>
   
     <li class="method"><a href="DatastoreRepo.html#method-i-do_http_post_for_set">#do_http_post_for_set &mdash; DatastoreRepo</a>
@@ -420,53 +367,57 @@
   
     <li class="method"><a href="NeptuneManager.html#method-i-does_file_exist">#does_file_exist &mdash; NeptuneManager</a>
   
-    <li class="method"><a href="DatastoreRepo.html#method-i-does_file_exist-3F">#does_file_exist? &mdash; DatastoreRepo</a>
+    <li class="method"><a href="Datastore.html#method-i-does_file_exist-3F">#does_file_exist? &mdash; Datastore</a>
   
     <li class="method"><a href="DatastoreS3.html#method-i-does_file_exist-3F">#does_file_exist? &mdash; DatastoreS3</a>
   
-    <li class="method"><a href="Datastore.html#method-i-does_file_exist-3F">#does_file_exist? &mdash; Datastore</a>
+    <li class="method"><a href="DatastoreRepo.html#method-i-does_file_exist-3F">#does_file_exist? &mdash; DatastoreRepo</a>
   
     <li class="method"><a href="UserAppClient.html#method-i-does_user_exist-3F">#does_user_exist? &mdash; UserAppClient</a>
-  
-    <li class="method"><a href="TaskEngineGoogleAppEngine.html#method-i-engine_name">#engine_name &mdash; TaskEngineGoogleAppEngine</a>
   
     <li class="method"><a href="TaskEngine.html#method-i-engine_name">#engine_name &mdash; TaskEngine</a>
   
     <li class="method"><a href="TaskEngineAppScale.html#method-i-engine_name">#engine_name &mdash; TaskEngineAppScale</a>
   
+    <li class="method"><a href="TaskEngineGoogleAppEngine.html#method-i-engine_name">#engine_name &mdash; TaskEngineGoogleAppEngine</a>
+  
     <li class="method"><a href="NeptuneManager.html#method-i-execute_multiple_tasks">#execute_multiple_tasks &mdash; NeptuneManager</a>
+  
+    <li class="method"><a href="DjinnJobData.html#method-i-extend_time">#extend_time &mdash; DjinnJobData</a>
   
     <li class="method"><a href="NeptuneManager.html#method-i-find_neighbors">#find_neighbors &mdash; NeptuneManager</a>
   
     <li class="method"><a href="NeptuneManager.html#method-i-find_open_nodes">#find_open_nodes &mdash; NeptuneManager</a>
   
-    <li class="method"><a href="DatastoreS3.html#method-i-get_acl">#get_acl &mdash; DatastoreS3</a>
-  
-    <li class="method"><a href="NeptuneManager.html#method-i-get_acl">#get_acl &mdash; NeptuneManager</a>
-  
     <li class="method"><a href="Datastore.html#method-i-get_acl">#get_acl &mdash; Datastore</a>
   
     <li class="method"><a href="DatastoreRepo.html#method-i-get_acl">#get_acl &mdash; DatastoreRepo</a>
   
+    <li class="method"><a href="NeptuneManager.html#method-i-get_acl">#get_acl &mdash; NeptuneManager</a>
+  
+    <li class="method"><a href="DatastoreS3.html#method-i-get_acl">#get_acl &mdash; DatastoreS3</a>
+  
     <li class="method"><a href="UserAppClient.html#method-i-get_all_apps">#get_all_apps &mdash; UserAppClient</a>
+  
+    <li class="method"><a href="AppControllerClient.html#method-i-get_all_public_ips">#get_all_public_ips &mdash; AppControllerClient</a>
   
     <li class="method"><a href="UserAppClient.html#method-i-get_all_users">#get_all_users &mdash; UserAppClient</a>
   
     <li class="method"><a href="UserAppClient.html#method-i-get_app_data">#get_app_data &mdash; UserAppClient</a>
   
-    <li class="method"><a href="TaskEngineAppScale.html#method-i-get_app_url">#get_app_url &mdash; TaskEngineAppScale</a>
-  
     <li class="method"><a href="TaskEngine.html#method-i-get_app_url">#get_app_url &mdash; TaskEngine</a>
+  
+    <li class="method"><a href="TaskEngineAppScale.html#method-i-get_app_url">#get_app_url &mdash; TaskEngineAppScale</a>
   
     <li class="method"><a href="TaskEngineGoogleAppEngine.html#method-i-get_app_url">#get_app_url &mdash; TaskEngineGoogleAppEngine</a>
   
     <li class="method"><a href="UserAppClient.html#method-i-get_cloud_admin">#get_cloud_admin &mdash; UserAppClient</a>
   
-    <li class="method"><a href="TaskQueueRabbitMQ.html#method-i-get_creds">#get_creds &mdash; TaskQueueRabbitMQ</a>
+    <li class="method"><a href="TaskQueueGoogleAppEngine.html#method-i-get_creds">#get_creds &mdash; TaskQueueGoogleAppEngine</a>
   
     <li class="method"><a href="TaskQueueSQS.html#method-i-get_creds">#get_creds &mdash; TaskQueueSQS</a>
   
-    <li class="method"><a href="TaskQueueGoogleAppEngine.html#method-i-get_creds">#get_creds &mdash; TaskQueueGoogleAppEngine</a>
+    <li class="method"><a href="TaskQueueRabbitMQ.html#method-i-get_creds">#get_creds &mdash; TaskQueueRabbitMQ</a>
   
     <li class="method"><a href="TaskQueueAzureQueue.html#method-i-get_creds">#get_creds &mdash; TaskQueueAzureQueue</a>
   
@@ -486,13 +437,15 @@
   
     <li class="method"><a href="NeptuneManager.html#method-i-get_node_roles">#get_node_roles &mdash; NeptuneManager</a>
   
-    <li class="method"><a href="NeptuneManager.html#method-i-get_output">#get_output &mdash; NeptuneManager</a>
+    <li class="method"><a href="NeptuneManager.html#method-i-get_node_with_role">#get_node_with_role &mdash; NeptuneManager</a>
   
-    <li class="method"><a href="Datastore.html#method-i-get_output_and_return_contents">#get_output_and_return_contents &mdash; Datastore</a>
+    <li class="method"><a href="NeptuneManager.html#method-i-get_output">#get_output &mdash; NeptuneManager</a>
   
     <li class="method"><a href="DatastoreS3.html#method-i-get_output_and_return_contents">#get_output_and_return_contents &mdash; DatastoreS3</a>
   
     <li class="method"><a href="DatastoreRepo.html#method-i-get_output_and_return_contents">#get_output_and_return_contents &mdash; DatastoreRepo</a>
+  
+    <li class="method"><a href="Datastore.html#method-i-get_output_and_return_contents">#get_output_and_return_contents &mdash; Datastore</a>
   
     <li class="method"><a href="Datastore.html#method-i-get_output_and_save_to_fs">#get_output_and_save_to_fs &mdash; Datastore</a>
   
@@ -502,9 +455,15 @@
   
     <li class="method"><a href="NeptuneManager.html#method-i-get_queues_from_shadow">#get_queues_from_shadow &mdash; NeptuneManager</a>
   
+    <li class="method"><a href="AppControllerClient.html#method-i-get_queues_in_use">#get_queues_in_use &mdash; AppControllerClient</a>
+  
     <li class="method"><a href="NeptuneManager.html#method-i-get_queues_in_use">#get_queues_in_use &mdash; NeptuneManager</a>
   
     <li class="method"><a href="NeptuneManager.html#method-i-get_seed_vals">#get_seed_vals &mdash; NeptuneManager</a>
+  
+    <li class="method"><a href="AppControllerClient.html#method-i-get_stats">#get_stats &mdash; AppControllerClient</a>
+  
+    <li class="method"><a href="AppControllerClient.html#method-i-get_status">#get_status &mdash; AppControllerClient</a>
   
     <li class="method"><a href="NeptuneManager.html#method-i-get_supported_babel_engines">#get_supported_babel_engines &mdash; NeptuneManager</a>
   
@@ -512,11 +471,23 @@
   
     <li class="method"><a href="UserAppClient.html#method-i-get_user_data">#get_user_data &mdash; UserAppClient</a>
   
+    <li class="method"><a href="AppControllerClient.html#method-i-get_userappserver_ip">#get_userappserver_ip &mdash; AppControllerClient</a>
+  
     <li class="method"><a href="NeptuneManager.html#method-i-has_all_required_params-3F">#has_all_required_params? &mdash; NeptuneManager</a>
+  
+    <li class="method"><a href="NeptuneManager.html#method-i-initialize_zookeeper_connection">#initialize_zookeeper_connection &mdash; NeptuneManager</a>
   
     <li class="method"><a href="DatastoreRepoOnAppEngine.html#method-i-is_app_running-3F">#is_app_running? &mdash; DatastoreRepoOnAppEngine</a>
   
     <li class="method"><a href="UserAppClient.html#method-i-is_app_uploaded-3F">#is_app_uploaded? &mdash; UserAppClient</a>
+  
+    <li class="method"><a href="NeptuneManager.html#method-i-is_cloud-3F">#is_cloud? &mdash; NeptuneManager</a>
+  
+    <li class="method"><a href="AppControllerClient.html#method-i-is_done_initializing-3F">#is_done_initializing? &mdash; AppControllerClient</a>
+  
+    <li class="method"><a href="AppControllerClient.html#method-i-is_done_loading-3F">#is_done_loading? &mdash; AppControllerClient</a>
+  
+    <li class="method"><a href="NeptuneManager.html#method-i-is_hybrid_cloud-3F">#is_hybrid_cloud? &mdash; NeptuneManager</a>
   
     <li class="method"><a href="NeptuneManager.html#method-i-is_job_running">#is_job_running &mdash; NeptuneManager</a>
   
@@ -530,9 +501,17 @@
   
     <li class="method"><a href="UserAppClient.html#method-i-make_call">#make_call &mdash; UserAppClient</a>
   
+    <li class="method"><a href="AppControllerClient.html#method-i-make_call">#make_call &mdash; AppControllerClient</a>
+  
+    <li class="method"><a href="NeptuneManager.html#method-i-manage_virtual_machines">#manage_virtual_machines &mdash; NeptuneManager</a>
+  
     <li class="method"><a href="NeptuneManager.html#method-i-mapreduce_run_job">#mapreduce_run_job &mdash; NeptuneManager</a>
   
+    <li class="method"><a href="DjinnJobData.html#method-i-method_missing">#method_missing &mdash; DjinnJobData</a>
+  
     <li class="method"><a href="NeptuneManager.html#method-i-mpi_run_job">#mpi_run_job &mdash; NeptuneManager</a>
+  
+    <li class="method"><a href="NeptuneManager.html#method-i-my_node">#my_node &mdash; NeptuneManager</a>
   
     <li class="method"><a href="NeptuneManagerServer.html#method-i-on_init">#on_init &mdash; NeptuneManagerServer</a>
   
@@ -542,37 +521,45 @@
   
     <li class="method"><a href="TaskQueueRabbitMQ.html#method-i-pop">#pop &mdash; TaskQueueRabbitMQ</a>
   
-    <li class="method"><a href="TaskQueueSQS.html#method-i-pop">#pop &mdash; TaskQueueSQS</a>
+    <li class="method"><a href="TaskQueue.html#method-i-pop">#pop &mdash; TaskQueue</a>
   
     <li class="method"><a href="TaskQueueAzureQueue.html#method-i-pop">#pop &mdash; TaskQueueAzureQueue</a>
   
-    <li class="method"><a href="TaskQueue.html#method-i-pop">#pop &mdash; TaskQueue</a>
+    <li class="method"><a href="TaskQueueSQS.html#method-i-pop">#pop &mdash; TaskQueueSQS</a>
   
     <li class="method"><a href="TaskQueueGoogleAppEngine.html#method-i-pop">#pop &mdash; TaskQueueGoogleAppEngine</a>
   
-    <li class="method"><a href="TaskEngine.html#method-i-push">#push &mdash; TaskEngine</a>
-  
     <li class="method"><a href="TaskQueueGoogleAppEngine.html#method-i-push">#push &mdash; TaskQueueGoogleAppEngine</a>
-  
-    <li class="method"><a href="TaskQueue.html#method-i-push">#push &mdash; TaskQueue</a>
-  
-    <li class="method"><a href="TaskQueueSQS.html#method-i-push">#push &mdash; TaskQueueSQS</a>
   
     <li class="method"><a href="TaskQueueAzureQueue.html#method-i-push">#push &mdash; TaskQueueAzureQueue</a>
   
     <li class="method"><a href="TaskQueueRabbitMQ.html#method-i-push">#push &mdash; TaskQueueRabbitMQ</a>
   
+    <li class="method"><a href="TaskQueueSQS.html#method-i-push">#push &mdash; TaskQueueSQS</a>
+  
+    <li class="method"><a href="TaskEngine.html#method-i-push">#push &mdash; TaskEngine</a>
+  
+    <li class="method"><a href="TaskQueue.html#method-i-push">#push &mdash; TaskQueue</a>
+  
     <li class="method"><a href="NeptuneManager.html#method-i-put_input">#put_input &mdash; NeptuneManager</a>
   
-    <li class="method"><a href="NeptuneManager.html#method-i-release_nodes">#release_nodes &mdash; NeptuneManager</a>
-  
     <li class="method"><a href="NeptuneManager.html#method-i-remove_lock_file">#remove_lock_file &mdash; NeptuneManager</a>
+  
+    <li class="method"><a href="AppControllerClient.html#method-i-remove_role">#remove_role &mdash; AppControllerClient</a>
+  
+    <li class="method"><a href="DjinnJobData.html#method-i-remove_roles">#remove_roles &mdash; DjinnJobData</a>
   
     <li class="method"><a href="NeptuneManager.html#method-i-remove_roles">#remove_roles &mdash; NeptuneManager</a>
   
     <li class="method"><a href="InfrastructureManagerClient.html#method-i-run_instances">#run_instances &mdash; InfrastructureManagerClient</a>
   
     <li class="method"><a href="NeptuneManager.html#method-i-run_job_on_master">#run_job_on_master &mdash; NeptuneManager</a>
+  
+    <li class="method"><a href="NeptuneManager.html#method-i-run_jobs_in_parallel">#run_jobs_in_parallel &mdash; NeptuneManager</a>
+  
+    <li class="method"><a href="NeptuneManager.html#method-i-run_jobs_in_serial">#run_jobs_in_serial &mdash; NeptuneManager</a>
+  
+    <li class="method"><a href="AppControllerClient.html#method-i-run_neptune_job">#run_neptune_job &mdash; AppControllerClient</a>
   
     <li class="method"><a href="NeptuneManager.html#method-i-run_or_delegate_tasks">#run_or_delegate_tasks &mdash; NeptuneManager</a>
   
@@ -588,17 +575,31 @@
   
     <li class="method"><a href="TaskEngine.html#method-i-save_output_to_datastore">#save_output_to_datastore &mdash; TaskEngine</a>
   
-    <li class="method"><a href="DatastoreRepo.html#method-i-set_acl">#set_acl &mdash; DatastoreRepo</a>
+    <li class="method"><a href="DjinnJobData.html#method-i-serialize">#serialize &mdash; DjinnJobData</a>
   
     <li class="method"><a href="NeptuneManager.html#method-i-set_acl">#set_acl &mdash; NeptuneManager</a>
   
     <li class="method"><a href="Datastore.html#method-i-set_acl">#set_acl &mdash; Datastore</a>
   
+    <li class="method"><a href="DatastoreRepo.html#method-i-set_acl">#set_acl &mdash; DatastoreRepo</a>
+  
     <li class="method"><a href="DatastoreS3.html#method-i-set_acl">#set_acl &mdash; DatastoreS3</a>
   
-    <li class="method"><a href="TaskQueueGoogleAppEngine.html#method-i-size">#size &mdash; TaskQueueGoogleAppEngine</a>
+    <li class="method"><a href="AppControllerClient.html#method-i-set_apps">#set_apps &mdash; AppControllerClient</a>
+  
+    <li class="method"><a href="AppControllerClient.html#method-i-set_parameters">#set_parameters &mdash; AppControllerClient</a>
+  
+    <li class="method"><a href="DjinnJobData.html#method-i-set_roles">#set_roles &mdash; DjinnJobData</a>
+  
+    <li class="method"><a href="DjinnJobData.html#method-i-set_time_info">#set_time_info &mdash; DjinnJobData</a>
+  
+    <li class="method"><a href="DjinnJobData.html#method-i-should_destroy-3F">#should_destroy? &mdash; DjinnJobData</a>
+  
+    <li class="method"><a href="DjinnJobData.html#method-i-should_extend-3F">#should_extend? &mdash; DjinnJobData</a>
   
     <li class="method"><a href="TaskQueueSQS.html#method-i-size">#size &mdash; TaskQueueSQS</a>
+  
+    <li class="method"><a href="TaskQueueGoogleAppEngine.html#method-i-size">#size &mdash; TaskQueueGoogleAppEngine</a>
   
     <li class="method"><a href="TaskQueueRabbitMQ.html#method-i-size">#size &mdash; TaskQueueRabbitMQ</a>
   
@@ -616,29 +617,39 @@
   
     <li class="method"><a href="NeptuneManager.html#method-i-start_job">#start_job &mdash; NeptuneManager</a>
   
+    <li class="method"><a href="NeptuneManager.html#method-i-start_job_roles">#start_job_roles &mdash; NeptuneManager</a>
+  
+    <li class="method"><a href="AppControllerClient.html#method-i-status">#status &mdash; AppControllerClient</a>
+  
+    <li class="method"><a href="AppControllerClient.html#method-i-stop_app">#stop_app &mdash; AppControllerClient</a>
+  
     <li class="method"><a href="NeptuneManager.html#method-i-stop_babel_master">#stop_babel_master &mdash; NeptuneManager</a>
   
     <li class="method"><a href="NeptuneManager.html#method-i-stop_babel_slave">#stop_babel_slave &mdash; NeptuneManager</a>
   
-    <li class="method"><a href="NeptuneManager.html#method-i-stop_job">#stop_job &mdash; NeptuneManager</a>
+    <li class="method"><a href="NeptuneManager.html#method-i-stop_job_roles">#stop_job_roles &mdash; NeptuneManager</a>
   
     <li class="method"><a href="InfrastructureManagerClient.html#method-i-terminate_instances">#terminate_instances &mdash; InfrastructureManagerClient</a>
   
     <li class="method"><a href="NeptuneJobData.html#method-i-to_hash">#to_hash &mdash; NeptuneJobData</a>
   
-    <li class="method"><a href="TaskQueueSQS.html#method-i-to_s">#to_s &mdash; TaskQueueSQS</a>
+    <li class="method"><a href="DjinnJobData.html#method-i-to_hash">#to_hash &mdash; DjinnJobData</a>
   
-    <li class="method"><a href="TaskQueueGoogleAppEngine.html#method-i-to_s">#to_s &mdash; TaskQueueGoogleAppEngine</a>
+    <li class="method"><a href="TaskQueueRabbitMQ.html#method-i-to_s">#to_s &mdash; TaskQueueRabbitMQ</a>
   
     <li class="method"><a href="TaskEngine.html#method-i-to_s">#to_s &mdash; TaskEngine</a>
   
     <li class="method"><a href="NeptuneJobData.html#method-i-to_s">#to_s &mdash; NeptuneJobData</a>
   
-    <li class="method"><a href="TaskQueueAzureQueue.html#method-i-to_s">#to_s &mdash; TaskQueueAzureQueue</a>
-  
     <li class="method"><a href="TaskQueue.html#method-i-to_s">#to_s &mdash; TaskQueue</a>
   
-    <li class="method"><a href="TaskQueueRabbitMQ.html#method-i-to_s">#to_s &mdash; TaskQueueRabbitMQ</a>
+    <li class="method"><a href="TaskQueueGoogleAppEngine.html#method-i-to_s">#to_s &mdash; TaskQueueGoogleAppEngine</a>
+  
+    <li class="method"><a href="TaskQueueAzureQueue.html#method-i-to_s">#to_s &mdash; TaskQueueAzureQueue</a>
+  
+    <li class="method"><a href="TaskQueueSQS.html#method-i-to_s">#to_s &mdash; TaskQueueSQS</a>
+  
+    <li class="method"><a href="DjinnJobData.html#method-i-to_s">#to_s &mdash; DjinnJobData</a>
   
     <li class="method"><a href="NeptuneJobData.html#method-i-total_time">#total_time &mdash; NeptuneJobData</a>
   
@@ -646,9 +657,11 @@
   
     <li class="method"><a href="NeptuneManager.html#method-i-uncompress_file">#uncompress_file &mdash; NeptuneManager</a>
   
-    <li class="method"><a href="TaskEngine.html#method-i-upload_app">#upload_app &mdash; TaskEngine</a>
+    <li class="method"><a href="AppControllerClient.html#method-i-update">#update &mdash; AppControllerClient</a>
   
     <li class="method"><a href="TaskEngineGoogleAppEngine.html#method-i-upload_app">#upload_app &mdash; TaskEngineGoogleAppEngine</a>
+  
+    <li class="method"><a href="TaskEngine.html#method-i-upload_app">#upload_app &mdash; TaskEngine</a>
   
     <li class="method"><a href="TaskEngineAppScale.html#method-i-upload_app">#upload_app &mdash; TaskEngineAppScale</a>
   
@@ -658,6 +671,8 @@
   
     <li class="method"><a href="TaskQueueGoogleAppEngine.html#method-i-wait_for_app_to_start_serving">#wait_for_app_to_start_serving &mdash; TaskQueueGoogleAppEngine</a>
   
+    <li class="method"><a href="AppControllerClient.html#method-i-wait_for_node_to_be">#wait_for_node_to_be &mdash; AppControllerClient</a>
+  
     <li class="method"><a href="TaskEngine.html#method-i-wait_for_task_to_finish">#wait_for_task_to_finish &mdash; TaskEngine</a>
   
     <li class="method"><a href="NeptuneManager.html#method-i-write_job_output">#write_job_output &mdash; NeptuneManager</a>
@@ -666,17 +681,17 @@
   
     <li class="method"><a href="NeptuneManager.html#method-i-write_job_output_str">#write_job_output_str &mdash; NeptuneManager</a>
   
+    <li class="method"><a href="DatastoreRepo.html#method-i-write_remote_file_from_local_file">#write_remote_file_from_local_file &mdash; DatastoreRepo</a>
+  
     <li class="method"><a href="DatastoreS3.html#method-i-write_remote_file_from_local_file">#write_remote_file_from_local_file &mdash; DatastoreS3</a>
   
     <li class="method"><a href="Datastore.html#method-i-write_remote_file_from_local_file">#write_remote_file_from_local_file &mdash; Datastore</a>
   
-    <li class="method"><a href="DatastoreRepo.html#method-i-write_remote_file_from_local_file">#write_remote_file_from_local_file &mdash; DatastoreRepo</a>
-  
-    <li class="method"><a href="Datastore.html#method-i-write_remote_file_from_string">#write_remote_file_from_string &mdash; Datastore</a>
-  
     <li class="method"><a href="DatastoreS3.html#method-i-write_remote_file_from_string">#write_remote_file_from_string &mdash; DatastoreS3</a>
   
     <li class="method"><a href="DatastoreRepo.html#method-i-write_remote_file_from_string">#write_remote_file_from_string &mdash; DatastoreRepo</a>
+  
+    <li class="method"><a href="Datastore.html#method-i-write_remote_file_from_string">#write_remote_file_from_string &mdash; Datastore</a>
   
 </ul>
 

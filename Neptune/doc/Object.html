@@ -47,11 +47,12 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>neptune_manager_server.rb
+    <li>lib/app_controller_client.rb
     <li>lib/job_types/babel_helper.rb
     <li>lib/job_types/mapreduce_helper.rb
     <li>lib/job_types/cicero_helper.rb
     <li>lib/neptune_job_data.rb
+    <li>lib/djinn_job_data.rb
   </ul>
 </nav>
 
@@ -78,6 +79,8 @@
 
   <ul class="link-list">
   
+    <li><a href="./AppControllerClient.html">AppControllerClient</a>
+  
     <li><a href="./BadConfigurationException.html">BadConfigurationException</a>
   
     <li><a href="./Datastore.html">Datastore</a>
@@ -91,6 +94,8 @@
     <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a>
   
     <li><a href="./DatastoreS3.html">DatastoreS3</a>
+  
+    <li><a href="./DjinnJobData.html">DjinnJobData</a>
   
     <li><a href="./EngineFactory.html">EngineFactory</a>
   
@@ -134,6 +139,8 @@
   
     <li><a href="./ZKInterface.html">ZKInterface</a>
   
+    <li><a href="./ZooKeeperLockException.html">ZooKeeperLockException</a>
+  
   </ul>
 </nav>
 
@@ -161,6 +168,11 @@
       <h3 class="section-header">Constants</h3>
       <dl>
       
+        <dt id="ABORT_ON_FAIL">ABORT_ON_FAIL
+        
+        <dd class="description">
+        
+      
         <dt id="APPSCALE_HOME">APPSCALE_HOME
         
         <dd class="description">
@@ -184,26 +196,33 @@ community or private clouds).</p>
         <dd class="description">
         
       
-        <dt id="HADOOP">HADOOP
+        <dt id="FQDN_REGEX">FQDN_REGEX
         
         <dd class="description">
         
       
-        <dt id="MULTI_NODE_COMPUTE_JOBS">MULTI_NODE_COMPUTE_JOBS
+        <dt id="HEARTBEAT_THRESHOLD">HEARTBEAT_THRESHOLD
         
-        <dd class="description"><p>A list of the Neptune jobs that AppScale will automatically spawn up more
-nodes for.</p>
-        
-      
-        <dt id="NEPTUNE_JOBS">NEPTUNE_JOBS
-        
-        <dd class="description"><p>A list of all the Neptune jobs that we support in AppScale.</p>
+        <dd class="description">
         
       
-        <dt id="NONCOMPUTE_JOBS">NONCOMPUTE_JOBS
+        <dt id="IP_OR_FQDN">IP_OR_FQDN
         
-        <dd class="description"><p>A list of Neptune jobs that are not considered to be computation jobs, and
-relate to storage or pre-computation in some way.</p>
+        <dd class="description">
+        
+      
+        <dt id="IP_REGEX">IP_REGEX
+        
+        <dd class="description">
+        
+      
+        <dt id="NO_TIMEOUT">NO_TIMEOUT
+        
+        <dd class="description"><p>Sometimes SOAP calls take a long time if large amounts of data are being
+sent over the network: for this first version we don’t want these calls
+to endlessly timeout and retry, so as a hack, just don’t let them
+timeout. The next version should replace this and properly timeout and not
+use long calls unless necessary.</p>
         
       
         <dt id="ONE_HOUR">ONE_HOUR
@@ -212,20 +231,12 @@ relate to storage or pre-computation in some way.</p>
 corresponds to a single hour.</p>
         
       
-        <dt id="RETRY_TIME">RETRY_TIME
+        <dt id="RETRY_ON_FAIL">RETRY_ON_FAIL
         
         <dd class="description">
         
       
-        <dt id="SINGLE_NODE_COMPUTE_JOBS">SINGLE_NODE_COMPUTE_JOBS
-        
-        <dd class="description"><p>A list of the Neptune jobs that AppScale will not automatically spawn up
-nodes for. Babel (our distributed task execution system) is in this list
-because it does not use the standard AppScale mechanism to acquire nodes,
-and acquires nodes via specialized scaling techniques.</p>
-        
-      
-        <dt id="STREAMING">STREAMING
+        <dt id="RETRY_TIME">RETRY_TIME
         
         <dd class="description">
         

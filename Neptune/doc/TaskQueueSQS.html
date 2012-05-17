@@ -94,6 +94,8 @@
 
   <ul class="link-list">
   
+    <li><a href="./AppControllerClient.html">AppControllerClient</a>
+  
     <li><a href="./BadConfigurationException.html">BadConfigurationException</a>
   
     <li><a href="./Datastore.html">Datastore</a>
@@ -107,6 +109,8 @@
     <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a>
   
     <li><a href="./DatastoreS3.html">DatastoreS3</a>
+  
+    <li><a href="./DjinnJobData.html">DjinnJobData</a>
   
     <li><a href="./EngineFactory.html">EngineFactory</a>
   
@@ -149,6 +153,8 @@
     <li><a href="./UserAppClient.html">UserAppClient</a>
   
     <li><a href="./ZKInterface.html">ZKInterface</a>
+  
+    <li><a href="./ZooKeeperLockException.html">ZooKeeperLockException</a>
   
   </ul>
 </nav>
@@ -231,61 +237,6 @@ store task info in SQS, we call it ‘executor-sqs’.</p>
 
     <!-- Methods -->
     
-     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
-      <h3 class="section-header">Public Class Methods</h3>
-
-    
-      <div id="method-c-new" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">new</span><span
-            class="method-args">(credentials)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          <p>Creates a new SQS queue connection and queue to store / retrieve tasks
-with, via the AWS RubyGem. We pull in the AWS RubyGem instead of the
-RightScale AWS RubyGem since the RightScale gem doesn’t work with the
-current version of SQS.</p>
-          
-
-          
-          <div class="method-source-code" id="new-source">
-            <pre><span class="ruby-comment"># File lib/task_queues/task_queue_sqs.rb, line 36</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">credentials</span>)
-  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>.<span class="ruby-identifier">class</span> <span class="ruby-operator">!=</span> <span class="ruby-constant">Hash</span>
-    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>
-  <span class="ruby-keyword">end</span>
-
-  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'EC2_ACCESS_KEY'</span>].<span class="ruby-identifier">nil?</span>
-    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>
-  <span class="ruby-keyword">end</span>
-  <span class="ruby-ivar">@EC2_ACCESS_KEY</span> = <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'EC2_ACCESS_KEY'</span>]
-
-  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'EC2_SECRET_KEY'</span>].<span class="ruby-identifier">nil?</span>
-    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>
-  <span class="ruby-keyword">end</span>
-  <span class="ruby-ivar">@EC2_SECRET_KEY</span> = <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'EC2_SECRET_KEY'</span>]
-
-  <span class="ruby-ivar">@sqs</span> = <span class="ruby-constant">AWS</span><span class="ruby-operator">::</span><span class="ruby-constant">SQS</span>.<span class="ruby-identifier">new</span>(<span class="ruby-value">:access_key_id</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@EC2_ACCESS_KEY</span>,
-    <span class="ruby-value">:secret_access_key</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@EC2_SECRET_KEY</span>)
-  <span class="ruby-ivar">@queue</span> = <span class="ruby-ivar">@sqs</span>.<span class="ruby-identifier">queues</span>.<span class="ruby-identifier">create</span>(<span class="ruby-constant">TASK_QUEUE_NAME</span>)
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- new-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- new-method -->
-
-    
-    </section><!-- public-class-method-details -->
-  
      <section id="public-instance-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Instance Methods</h3>
 
@@ -472,6 +423,61 @@ href="TaskQueue.html">TaskQueue</a>, so do so</p>
 
     
     </section><!-- public-instance-method-details -->
+  
+     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="method-c-new" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">new</span><span
+            class="method-args">(credentials)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Creates a new SQS queue connection and queue to store / retrieve tasks
+with, via the AWS RubyGem. We pull in the AWS RubyGem instead of the
+RightScale AWS RubyGem since the RightScale gem doesn’t work with the
+current version of SQS.</p>
+          
+
+          
+          <div class="method-source-code" id="new-source">
+            <pre><span class="ruby-comment"># File lib/task_queues/task_queue_sqs.rb, line 36</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">credentials</span>)
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>.<span class="ruby-identifier">class</span> <span class="ruby-operator">!=</span> <span class="ruby-constant">Hash</span>
+    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>
+  <span class="ruby-keyword">end</span>
+
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'EC2_ACCESS_KEY'</span>].<span class="ruby-identifier">nil?</span>
+    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>
+  <span class="ruby-keyword">end</span>
+  <span class="ruby-ivar">@EC2_ACCESS_KEY</span> = <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'EC2_ACCESS_KEY'</span>]
+
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'EC2_SECRET_KEY'</span>].<span class="ruby-identifier">nil?</span>
+    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>
+  <span class="ruby-keyword">end</span>
+  <span class="ruby-ivar">@EC2_SECRET_KEY</span> = <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'EC2_SECRET_KEY'</span>]
+
+  <span class="ruby-ivar">@sqs</span> = <span class="ruby-constant">AWS</span><span class="ruby-operator">::</span><span class="ruby-constant">SQS</span>.<span class="ruby-identifier">new</span>(<span class="ruby-value">:access_key_id</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@EC2_ACCESS_KEY</span>,
+    <span class="ruby-value">:secret_access_key</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@EC2_SECRET_KEY</span>)
+  <span class="ruby-ivar">@queue</span> = <span class="ruby-ivar">@sqs</span>.<span class="ruby-identifier">queues</span>.<span class="ruby-identifier">create</span>(<span class="ruby-constant">TASK_QUEUE_NAME</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- new-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- new-method -->
+
+    
+    </section><!-- public-class-method-details -->
   
   </section><!-- 5Buntitled-5D -->
 

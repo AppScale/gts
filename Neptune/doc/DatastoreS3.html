@@ -102,6 +102,8 @@
 
   <ul class="link-list">
   
+    <li><a href="./AppControllerClient.html">AppControllerClient</a>
+  
     <li><a href="./BadConfigurationException.html">BadConfigurationException</a>
   
     <li><a href="./Datastore.html">Datastore</a>
@@ -115,6 +117,8 @@
     <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a>
   
     <li><a href="./DatastoreS3.html">DatastoreS3</a>
+  
+    <li><a href="./DjinnJobData.html">DjinnJobData</a>
   
     <li><a href="./EngineFactory.html">EngineFactory</a>
   
@@ -157,6 +161,8 @@
     <li><a href="./UserAppClient.html">UserAppClient</a>
   
     <li><a href="./ZKInterface.html">ZKInterface</a>
+  
+    <li><a href="./ZooKeeperLockException.html">ZooKeeperLockException</a>
   
   </ul>
 </nav>
@@ -250,97 +256,6 @@ Google Storage and Eucalyptus Walrus).</p>
 
     <!-- Methods -->
     
-     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
-      <h3 class="section-header">Public Class Methods</h3>
-
-    
-      <div id="method-c-new" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">new</span><span
-            class="method-args">(credentials)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          <p>Validates the S3 credentials that we’ve been given and returns a new S3
-interface accordingly.</p>
-          
-
-          
-          <div class="method-source-code" id="new-source">
-            <pre><span class="ruby-comment"># File lib/datastores/datastore_s3.rb, line 36</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">credentials</span>)
-  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>.<span class="ruby-identifier">class</span> <span class="ruby-operator">!=</span> <span class="ruby-constant">Hash</span>
-    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;Credentials was not a Hash&quot;</span>)
-  <span class="ruby-keyword">end</span>
-
-  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-value">:EC2_ACCESS_KEY</span>].<span class="ruby-identifier">nil?</span>
-    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;No EC2 access key specified&quot;</span>)
-  <span class="ruby-keyword">end</span>
-  <span class="ruby-ivar">@EC2_ACCESS_KEY</span> = <span class="ruby-identifier">credentials</span>[<span class="ruby-value">:EC2_ACCESS_KEY</span>]
-
-  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-value">:EC2_SECRET_KEY</span>].<span class="ruby-identifier">nil?</span>
-    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;No EC2 secret key specified&quot;</span>)
-  <span class="ruby-keyword">end</span>
-  <span class="ruby-ivar">@EC2_SECRET_KEY</span> = <span class="ruby-identifier">credentials</span>[<span class="ruby-value">:EC2_SECRET_KEY</span>]
-
-  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-value">:S3_URL</span>].<span class="ruby-identifier">nil?</span>
-    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;No S3 URL specified&quot;</span>)
-  <span class="ruby-keyword">end</span>
-  <span class="ruby-ivar">@S3_URL</span> = <span class="ruby-identifier">credentials</span>[<span class="ruby-value">:S3_URL</span>]
-  <span class="ruby-identifier">old_s3_url</span> = <span class="ruby-constant">ENV</span>[<span class="ruby-string">'S3_URL'</span>]
-  <span class="ruby-constant">ENV</span>[<span class="ruby-string">'S3_URL'</span>] = <span class="ruby-ivar">@S3_URL</span>
-  <span class="ruby-ivar">@conn</span> = <span class="ruby-constant">RightAws</span><span class="ruby-operator">::</span><span class="ruby-constant">S3Interface</span>.<span class="ruby-identifier">new</span>(<span class="ruby-ivar">@EC2_ACCESS_KEY</span>, <span class="ruby-ivar">@EC2_SECRET_KEY</span>)
-  <span class="ruby-constant">ENV</span>[<span class="ruby-string">'S3_URL'</span>] = <span class="ruby-identifier">old_s3_url</span>
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- new-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- new-method -->
-
-    
-      <div id="method-c-parse_s3_key" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">parse_s3_key</span><span
-            class="method-args">(key)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          <p>Given a full S3 path, returns the bucket and filename.</p>
-          
-
-          
-          <div class="method-source-code" id="parse_s3_key-source">
-            <pre><span class="ruby-comment"># File lib/datastores/datastore_s3.rb, line 192</span>
-<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">parse_s3_key</span>(<span class="ruby-identifier">key</span>)
-  <span class="ruby-identifier">paths</span> = <span class="ruby-identifier">key</span>.<span class="ruby-identifier">split</span>(<span class="ruby-string">&quot;/&quot;</span>)
-  <span class="ruby-identifier">bucket</span> = <span class="ruby-identifier">paths</span>[<span class="ruby-value">1</span>]
-  <span class="ruby-identifier">file</span> = <span class="ruby-identifier">paths</span>[<span class="ruby-value">2</span>, <span class="ruby-identifier">paths</span>.<span class="ruby-identifier">length</span> <span class="ruby-operator">-</span> <span class="ruby-value">1</span>].<span class="ruby-identifier">join</span>(<span class="ruby-string">&quot;/&quot;</span>)
-  <span class="ruby-keyword">return</span> <span class="ruby-identifier">bucket</span>, <span class="ruby-identifier">file</span>
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- parse_s3_key-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- parse_s3_key-method -->
-
-    
-    </section><!-- public-class-method-details -->
-  
      <section id="public-instance-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Instance Methods</h3>
 
@@ -666,6 +581,97 @@ dives into that directory to write all files and directories contained.</p>
 
     
     </section><!-- public-instance-method-details -->
+  
+     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="method-c-new" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">new</span><span
+            class="method-args">(credentials)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Validates the S3 credentials that we’ve been given and returns a new S3
+interface accordingly.</p>
+          
+
+          
+          <div class="method-source-code" id="new-source">
+            <pre><span class="ruby-comment"># File lib/datastores/datastore_s3.rb, line 36</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">credentials</span>)
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>.<span class="ruby-identifier">class</span> <span class="ruby-operator">!=</span> <span class="ruby-constant">Hash</span>
+    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;Credentials was not a Hash&quot;</span>)
+  <span class="ruby-keyword">end</span>
+
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-value">:EC2_ACCESS_KEY</span>].<span class="ruby-identifier">nil?</span>
+    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;No EC2 access key specified&quot;</span>)
+  <span class="ruby-keyword">end</span>
+  <span class="ruby-ivar">@EC2_ACCESS_KEY</span> = <span class="ruby-identifier">credentials</span>[<span class="ruby-value">:EC2_ACCESS_KEY</span>]
+
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-value">:EC2_SECRET_KEY</span>].<span class="ruby-identifier">nil?</span>
+    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;No EC2 secret key specified&quot;</span>)
+  <span class="ruby-keyword">end</span>
+  <span class="ruby-ivar">@EC2_SECRET_KEY</span> = <span class="ruby-identifier">credentials</span>[<span class="ruby-value">:EC2_SECRET_KEY</span>]
+
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-value">:S3_URL</span>].<span class="ruby-identifier">nil?</span>
+    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;No S3 URL specified&quot;</span>)
+  <span class="ruby-keyword">end</span>
+  <span class="ruby-ivar">@S3_URL</span> = <span class="ruby-identifier">credentials</span>[<span class="ruby-value">:S3_URL</span>]
+  <span class="ruby-identifier">old_s3_url</span> = <span class="ruby-constant">ENV</span>[<span class="ruby-string">'S3_URL'</span>]
+  <span class="ruby-constant">ENV</span>[<span class="ruby-string">'S3_URL'</span>] = <span class="ruby-ivar">@S3_URL</span>
+  <span class="ruby-ivar">@conn</span> = <span class="ruby-constant">RightAws</span><span class="ruby-operator">::</span><span class="ruby-constant">S3Interface</span>.<span class="ruby-identifier">new</span>(<span class="ruby-ivar">@EC2_ACCESS_KEY</span>, <span class="ruby-ivar">@EC2_SECRET_KEY</span>)
+  <span class="ruby-constant">ENV</span>[<span class="ruby-string">'S3_URL'</span>] = <span class="ruby-identifier">old_s3_url</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- new-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- new-method -->
+
+    
+      <div id="method-c-parse_s3_key" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">parse_s3_key</span><span
+            class="method-args">(key)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Given a full S3 path, returns the bucket and filename.</p>
+          
+
+          
+          <div class="method-source-code" id="parse_s3_key-source">
+            <pre><span class="ruby-comment"># File lib/datastores/datastore_s3.rb, line 192</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">parse_s3_key</span>(<span class="ruby-identifier">key</span>)
+  <span class="ruby-identifier">paths</span> = <span class="ruby-identifier">key</span>.<span class="ruby-identifier">split</span>(<span class="ruby-string">&quot;/&quot;</span>)
+  <span class="ruby-identifier">bucket</span> = <span class="ruby-identifier">paths</span>[<span class="ruby-value">1</span>]
+  <span class="ruby-identifier">file</span> = <span class="ruby-identifier">paths</span>[<span class="ruby-value">2</span>, <span class="ruby-identifier">paths</span>.<span class="ruby-identifier">length</span> <span class="ruby-operator">-</span> <span class="ruby-value">1</span>].<span class="ruby-identifier">join</span>(<span class="ruby-string">&quot;/&quot;</span>)
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">bucket</span>, <span class="ruby-identifier">file</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- parse_s3_key-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- parse_s3_key-method -->
+
+    
+    </section><!-- public-class-method-details -->
   
   </section><!-- 5Buntitled-5D -->
 
