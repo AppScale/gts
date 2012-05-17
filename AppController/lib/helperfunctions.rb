@@ -411,7 +411,8 @@ module HelperFunctions
 
 
   def self.local_ip()
-    bound_addrs = `ifconfig`.scan(/inet addr:(\d+.\d+.\d+.\d+)/).flatten
+    ifconfig = HelperFunctions.shell("ifconfig")
+    bound_addrs = ifconfig.scan(/inet addr:(\d+.\d+.\d+.\d+)/).flatten
 
     Kernel.puts("ifconfig reports bound IP addresses as " +
       "[#{bound_addrs.join(', ')}]")

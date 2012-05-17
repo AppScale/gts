@@ -159,8 +159,8 @@ class TestDjinn < Test::Unit::TestCase
     one_node_info = ['public_ip:private_ip:some_role:instance_id:cloud1']
     app_names = []
 
-    udpsocket = flexmock(UDPSocket)
-    udpsocket.should_receive(:open).and_return("private_ip")
+    flexmock(HelperFunctions).should_receive(:local_ip).
+      and_return("private_ip")
 
     expected = "OK"
     actual = djinn.set_parameters(one_node_info, credentials, app_names,

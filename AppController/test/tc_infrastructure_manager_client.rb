@@ -37,7 +37,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'instance_type' => 'booinstancetype',
         'keyname' => 'bookeyname',
         'num_vms' => '1',
-        'spot' => 'false'
+        'cloud' => 'cloud1'
       }).and_return({
         'success' => true,
         'reservation_id' => "0000000000",
@@ -104,7 +104,7 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'instance_type' => 'booinstancetype',
         'keyname' => 'bookeyname',
         'num_vms' => '3',
-        'spot' => 'false'
+        'cloud' => 'cloud1'
       }).and_return({
         'success' => true,
         'reservation_id' => "0000000000",

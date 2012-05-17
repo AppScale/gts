@@ -162,8 +162,7 @@ class InfrastructureManagerClient
       "instance_type" => creds['instance_type'],
       "keyname" => creds['keyname'],
       "num_vms" => "#{num_vms}",
-      "cloud" => cloud,
-      "spot" => "false")
+      "cloud" => cloud)
     Djinn.log_debug("[IM] Run instances info says [#{run_result}]")
     reservation_id = run_result['reservation_id']
 

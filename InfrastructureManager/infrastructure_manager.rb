@@ -35,7 +35,7 @@ class InfrastructureManager
   # A list of the parameters required to start virtual machines via a cloud
   # infrastructure.
   RUN_INSTANCES_REQUIRED_PARAMS = %w{credentials group image_id infrastructure 
-    instance_type keyname num_vms spot}
+    instance_type keyname num_vms}
   
 
   # A list of the parameters required to query the InfrastructureManager about
