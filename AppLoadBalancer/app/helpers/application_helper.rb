@@ -77,7 +77,7 @@ module ApplicationHelper
   end
 
   def get_status_files
-    @status_files ||= Dir.glob(File.expand_path("#{APPSCALE_HOME}/.appscale/status-*")).sort
+    @status_files ||= Dir.glob(File.expand_path("/etc/appscale/status-*")).sort
   end
 
   def get_application_information

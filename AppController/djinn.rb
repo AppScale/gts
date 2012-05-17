@@ -788,8 +788,15 @@ class Djinn
         # Since we now backup state to ZK, don't make everyone do it.
         # The Shadow has the most up-to-date info, so let it handle this
         backup_appcontroller_state
-      else
-        Djinn.log_debug("No need to heartbeat, we aren't the shadow")
+      end
+
+      # Login nodes host the AppLoadBalancer app, which has links to each
+      # of the apps running in AppScale. Update the files it reads to
+      # reflect the most up-to-date info.
+      if my_node.is_login?
+        @nodes.each { |node|
+          get_status(node)
+        }
       end
 
       ensure_all_roles_are_running
@@ -1320,10 +1327,10 @@ class Djinn
     end
 
     # copy remote log over - handy for debugging
-    local_log = "#{APPSCALE_HOME}/.appscale/logs/#{ip}.log"
+    local_log = "/etc/appscale/logs/#{ip}.log"
     remote_log = "/tmp/*.log"
 
-    FileUtils.mkdir_p("#{APPSCALE_HOME}/.appscale/logs/")
+    FileUtils.mkdir_p("/etc/appscale/logs/")
     Djinn.log_run("scp -o StrictHostkeyChecking=no -i #{ssh_key} #{ip}:#{remote_log} #{local_log}")
   end
 
