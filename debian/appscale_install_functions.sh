@@ -416,7 +416,10 @@ installgems()
     GEMOPT="--no-rdoc --no-ri"
     gem install rake ${GEMOPT} 
     sleep 1
-    gem install zookeeper neptune right_aws ${GEMOPT} || exit 1
+    # ZK 1.0 breaks our existing code - upgrade later
+    gem install -v=0.9.3 zookeeper
+    sleep 1
+    gem install neptune right_aws ${GEMOPT} || exit 1
     sleep 1
     gem install god redgreen Ruby-MemCache ${GEMOPT} || exit 1
     sleep 1

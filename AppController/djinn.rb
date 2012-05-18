@@ -2411,14 +2411,15 @@ class Djinn
 
     ssh_key = dest_node.ssh_key
     ip = dest_node.private_ip
+    options = "-e 'ssh -i #{ssh_key}' -arv --filter '- *.pyc'"
 
-    Djinn.log_run("rsync -e 'ssh -i #{ssh_key}' -arv #{controller}/* root@#{ip}:#{controller}")
-    Djinn.log_run("rsync -e 'ssh -i #{ssh_key}' -arv --filter '- *.pyc' #{server}/* root@#{ip}:#{server}")
-    Djinn.log_run("rsync -e 'ssh -i #{ssh_key}' -arv #{loadbalancer}/* root@#{ip}:#{loadbalancer}")
-    Djinn.log_run("rsync -e 'ssh -i #{ssh_key}' -arv --exclude='logs/*' --exclude='hadoop-*' --exclude='hbase/hbase-*' --exclude='voldemort/voldemort/*' --exclude='cassandra/cassandra/*' #{appdb}/* root@#{ip}:#{appdb}")
-    Djinn.log_run("rsync -e 'ssh -i #{ssh_key}' -arv #{neptune}/* root@#{ip}:#{neptune}")
-    Djinn.log_run("rsync -e 'ssh -i #{ssh_key}' -arv #{loki}/* root@#{ip}:#{loki}")
-    Djinn.log_run("rsync -e 'ssh -i #{ssh_key}' -arv #{iaas_manager}/* root@#{ip}:#{iaas_manager}")
+    Djinn.log_run("rsync #{options} #{controller}/* root@#{ip}:#{controller}")
+    Djinn.log_run("rsync #{options} #{server}/* root@#{ip}:#{server}")
+    Djinn.log_run("rsync #{options} #{loadbalancer}/* root@#{ip}:#{loadbalancer}")
+    Djinn.log_run("rsync #{options} --exclude='logs/*' --exclude='hadoop-*' --exclude='hbase/hbase-*' --exclude='voldemort/voldemort/*' --exclude='cassandra/cassandra/*' #{appdb}/* root@#{ip}:#{appdb}")
+    Djinn.log_run("rsync #{options} #{neptune}/* root@#{ip}:#{neptune}")
+    Djinn.log_run("rsync #{options} #{loki}/* root@#{ip}:#{loki}")
+    Djinn.log_run("rsync #{options} #{iaas_manager}/* root@#{ip}:#{iaas_manager}")
   end
 
   def setup_config_files()

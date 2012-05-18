@@ -114,4 +114,4 @@ trap('INT') {
 
 new_thread = Thread.new { server.start }
 server.djinn.job_start(secret)
-new_thread.join
+new_thread.join()

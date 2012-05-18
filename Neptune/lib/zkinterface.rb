@@ -93,6 +93,11 @@ class ZKInterface
   DUMMY_DATA = ""
 
 
+  # The maximum amount of time that we should wait for an arbitrary ZooKeeper
+  # call to take before we believe it's timed out.
+  ZK_OPERATION_TIMEOUT = 10
+
+
   public
 
 
@@ -188,10 +193,14 @@ class ZKInterface
   # APPCONTROLLER_PATH. It returns a boolean that indicates whether or not
   # it was able to acquire the lock or not.
   def self.get_appcontroller_lock()
+    NeptuneManager.log("Getting the AppController lock")
+
     if !self.exists?(APPCONTROLLER_PATH)
+      NeptuneManager.log("Creating AppController path in ZooKeeper")
       self.set(APPCONTROLLER_PATH, DUMMY_DATA, NOT_EPHEMERAL)
     end
 
+    NeptuneManager.log("Trying to get AppController lock")
     info = self.run_zookeeper_operation {
       @@zk.create(:path => APPCONTROLLER_LOCK_PATH, 
         :ephemeral => EPHEMERAL, :data => JSON.dump(@@client_ip))
@@ -210,6 +219,7 @@ class ZKInterface
   # Releases the lock that AppControllers use to have exclusive write access,
   # which was acquired via self.get_appcontroller_lock().
   def self.release_appcontroller_lock()
+    NeptuneManager.log("Releasing AppController lock")
     self.delete(APPCONTROLLER_LOCK_PATH)
   end
 
@@ -220,8 +230,12 @@ class ZKInterface
   # it and don't want to accidentally cause a deadlock (grabbing the lock when
   # they already have it).
   def self.lock_and_run(&block)
+    NeptuneManager.log("Getting AppController lock to run caller's block")
+
     # Create the ZK lock path if it doesn't exist.
+    NeptuneManager.log("Checking to see if AppController path exists")
     if !self.exists?(APPCONTROLLER_PATH)
+      NeptuneManager.log("Creating AppController path in ZooKeeper")
       self.set(APPCONTROLLER_PATH, DUMMY_DATA, NOT_EPHEMERAL)
     end
 
@@ -230,9 +244,13 @@ class ZKInterface
     # didn't grab it), and if we don't have it, try again.
     got_lock = false
     begin
+      NeptuneManager.log("Getting AppController lock")
       if self.get_appcontroller_lock()
+        NeptuneManager.log("Got AppController lock successfully")
         got_lock = true
       else  # it may be that we already have the lock
+        NeptuneManager.log("Couldn't get the AppController lock - checking " +
+          "if we already have it.")
         info = self.run_zookeeper_operation {
           @@zk.get(:path => APPCONTROLLER_LOCK_PATH)
         }
@@ -255,6 +273,8 @@ class ZKInterface
       retry
     end
 
+    NeptuneManager.log("Got the AppController lock - running the caller's " +
+      "block")
     begin
       yield  # invoke the user's block, and catch any uncaught exceptions
     #rescue Exception => except
@@ -277,6 +297,7 @@ class ZKInterface
   # within AppScale as well as a timestamp corresponding to the time when the
   # latest node updated this information.
   def self.get_ip_info()
+    NeptuneManager.log("Getting IP info from ZooKeeper")
     return JSON.load(self.get(IP_LIST))
   end
 
@@ -286,6 +307,8 @@ class ZKInterface
   # We also update the timestamp associated with this list so that others know
   # to update it as needed.
   def self.add_ip_to_ip_list(ip)
+    NeptuneManager.log("Adding IP #{ip} to IP list in ZooKeeper")
+
     new_timestamp = 0.0
 
     if self.exists?(IP_LIST)
@@ -581,7 +604,10 @@ class ZKInterface
         node = DjinnJobData.deserialize(job_data)
 
         if node.is_open? and node.cloud == cloud_num
+          NeptuneManager.log("Using node with data #{job_data}")
           nodes_to_use << node
+        else
+          NeptuneManager.log("Not using node with data #{job_data}")
         end
 
         if nodes_to_use.length == number_of_nodes_needed
@@ -602,7 +628,14 @@ class ZKInterface
 
   def self.run_zookeeper_operation(&block)
     begin
-      yield
+      NeptuneManager.log("Running a ZooKeeper operation")
+      Timeout::timeout(ZK_OPERATION_TIMEOUT) {
+        yield
+      }
+    rescue Timeout::Error
+      NeptuneManager.log("ZooKeeper operation timed out, will try again")
+      Kernel.sleep(1)
+      retry
     rescue ZookeeperExceptions::ZookeeperException::SessionExpired,
       ZookeeperExceptions::ZookeeperException::ConnectionClosed
 
@@ -616,6 +649,7 @@ class ZKInterface
 
 
   def self.exists?(key)
+    NeptuneManager.log("Checking if #{key} exists in ZooKeeper")
     return self.run_zookeeper_operation {
       @@zk.get(:path => key)[:stat].exists
     }

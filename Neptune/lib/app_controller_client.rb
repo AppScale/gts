@@ -99,22 +99,33 @@ class AppControllerClient
     rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH
       if refused_count > max
         return false if ok_to_fail
-        abort("Connection was refused. Is the AppController running?")
+        raise Exception.new("Connection was refused. Is the AppController running?")
       else
         refused_count += 1
-        sleep(1)
+        Kernel.sleep(1)
         retry
       end
     rescue Timeout::Error
-      return false if ok_to_fail
-      retry
+      Kernel.puts("Saw a Timeout Error")
+      if ok_to_fail
+        return false
+      else
+        Kernel.sleep(1)
+        retry
+      end
     rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE, Errno::ECONNRESET
+      Kernel.puts("Saw a transient error")
+      Kernel.sleep(1)
       retry
     rescue Exception => except
+      Kernel.puts("Saw an Exception of class #{except.class}")
       if retry_on_except
         retry
       else
-        abort("[#{callr}] We saw an unexpected error of the type #{except.class} with the following message:\n#{except}.")
+        trace = except.backtrace.join("\n")
+        raise Exception.new("[#{callr}] We saw an unexpected error of the " +
+          "type #{except.class} with the following message:\n#{except}. " +
+          "Trace is #{trace}")
       end
     end
   end
@@ -132,7 +143,7 @@ class AppControllerClient
       end
     
       if status == "false: bad secret"
-        abort("\nWe were unable to verify your secret key with the head node specified in your locations file. Are you sure you have the correct secret key and locations file?\n\nSecret provided: [#{@secret}]\nHead node IP address: [#{@ip}]\n")
+        raise Exception.new("\nWe were unable to verify your secret key with the head node specified in your locations file. Are you sure you have the correct secret key and locations file?\n\nSecret provided: [#{@secret}]\nHead node IP address: [#{@ip}]\n")
       end
         
       if status =~ /Database is at (#{IP_OR_FQDN})/ and $1 != "not-up-yet"
@@ -151,7 +162,7 @@ class AppControllerClient
     make_call(10, ABORT_ON_FAIL, "set_parameters") { 
       result = conn.set_parameters(locations, creds, apps_to_start, @secret)
     }  
-    abort(result) if result =~ /Error:/
+    raise Exception.new(result) if result =~ /Error:/
   end
 
   def set_apps(app_names)
@@ -159,7 +170,7 @@ class AppControllerClient
     make_call(10, ABORT_ON_FAIL, "set_apps") { 
       result = conn.set_apps(app_names, @secret)
     }  
-    abort(result) if result =~ /Error:/
+    raise Exception.new(result) if result =~ /Error:/
   end
 
   def status(print_output=true)
@@ -178,7 +189,7 @@ class AppControllerClient
       if ok_to_fail
         return false
       else
-        abort("AppController to contact is not running")
+        raise Exception.new("AppController to contact is not running")
       end
     end
 
@@ -229,16 +240,18 @@ class AppControllerClient
     else
       type = job_data["@type"]
     end
-    NeptuneManager.log("neptune job type is #{type}")
+    NeptuneManager.log("Neptune job type is #{type}")
 
     if NeptuneManager::JOB_LIST.include?(type)
-      method_to_call = "neptune_#{type}_run_job"
+      method_to_call = "#{type}_run_job"
       @conn.add_method(method_to_call, "nodes", "jobs", "secret")
-      make_call(30, RETRY_ON_FAIL, "run_neptune_job") { @conn.send(method_to_call.to_sym, nodes, job_data, @secret) }
+      make_call(30, RETRY_ON_FAIL, "run_neptune_job") { 
+        @conn.send(method_to_call.to_sym, nodes, job_data, @secret) 
+      }
     else
       not_supported_message = "The job type you specified, '#{type}', is " +
        "not supported. Supported jobs are #{NeptuneManager::JOB_LIST.join(', ')}."
-      abort(not_supported_message)
+      raise Exception.new(not_supported_message)
     end
   end
 

@@ -36,13 +36,15 @@ class NeptuneManager
     "hadoop-streaming-#{HADOOP_VERSION}.jar"
 
 
-  def mapreduce_run_job(nodes, job_data, secret)
+  def mapreduce_run_job(nodes, jobs, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
-    Djinn.log_debug("mapreduce - run")
+    NeptuneManager.log("MapReduce - run job")
+
+    job_data = jobs[0]
 
     Thread.new {
-      keyname = @creds['keyname']
-      nodes = Djinn.convert_location_array_to_class(nodes, keyname)
+      nodes = nodes.map { |node| DjinnJobData.deserialize(node) }
+      NeptuneManager.log("Converted node data is #{nodes}")
 
       storage = job_data["@storage"]
       datastore = DatastoreFactory.get_datastore(storage, job_data)
@@ -56,11 +58,11 @@ class NeptuneManager
       input = job_data["@input"]
       output = job_data["@output"]
 
-      Djinn.log_debug("MR: Copying mapper and reducer to all boxes")
+      NeptuneManager.log("MR: Copying mapper and reducer to all boxes")
       # TODO: get files from shadow first if in cloud
 
       if mapreducejar
-        Djinn.log_debug("need to get mr jar located at #{mapreducejar}")
+        NeptuneManager.log("need to get mr jar located at #{mapreducejar}")
         mr_file = mapreducejar.split('/')[-1]
         my_mrjar = "/tmp/#{mr_file}"
         datastore.get_output_and_save_to_fs(mapreducejar, my_mrjar)
@@ -77,7 +79,7 @@ class NeptuneManager
         run_mr_command = "#{HADOOP_EXECUTABLE} jar #{my_mrjar} #{main} " +
           "#{input} #{output}"
       else
-        Djinn.log_debug("need to get map code located at #{map}, and reduce " +
+        NeptuneManager.log("need to get map code located at #{map}, and reduce " +
           "code located at #{reduce}")
 
         map_file = map.split('/')[-1]
@@ -111,27 +113,27 @@ class NeptuneManager
           "-reducer #{reduce_cmd}"
       end
 
-      Djinn.log_debug("waiting for input file #{input} to exist in HDFS")
+      NeptuneManager.log("waiting for input file #{input} to exist in HDFS")
       wait_for_hdfs_file(input)
 
       # run mr job
       start = Time.now
 
-      Djinn.log_debug("MR: Running job")
-      Djinn.log_debug("MR: Command is #{run_mr_command}")
-      Djinn.log_run(run_mr_command)
+      NeptuneManager.log("MR: Running job")
+      NeptuneManager.log("MR: Command is #{run_mr_command}")
+      HelperFunctions.shell(run_mr_command)
 
       wait_for_hdfs_file(output)
-      Djinn.log_debug("MR: Done running job!")
+      NeptuneManager.log("MR: Done running job!")
 
       fin = Time.now
-      Djinn.log_debug("TIMING: Total time is #{fin - start} seconds")
+      NeptuneManager.log("TIMING: Total time is #{fin - start} seconds")
 
       # TODO: check if no part-* files exist - if so, there's an error
       # that we should funnel to the user somehow
 
       output_cmd = "#{HADOOP_EXECUTABLE} fs -cat #{output}/part-*"
-      Djinn.log_debug("MR: Retrieving job output with command #{output_cmd}")
+      NeptuneManager.log("MR: Retrieving job output with command #{output_cmd}")
       output_str = `#{output_cmd}`
 
       neptune_write_job_output_str(job_data, output_str)
@@ -154,38 +156,38 @@ class NeptuneManager
     run_on_db_master("rm -rf #{output_location}", NO_OUTPUT) 
     run_on_db_master("#{HADOOP_EXECUTABLE} fs -get #{output} #{output_location}", NO_OUTPUT)
     unless my_node.is_db_master?
-      Djinn.log_debug("hey by the way output is [#{output}]")
+      NeptuneManager.log("hey by the way output is [#{output}]")
 
       db_master = get_db_master
       ip = db_master.public_ip
       ssh_key = db_master.ssh_key
 
-      Djinn.log_run("scp -i #{ssh_key} -o StrictHostkeyChecking=no -r #{ip}:#{output_location} #{output_location}")
+      HelperFunctions.shell("scp -i #{ssh_key} -o StrictHostkeyChecking=no -r #{ip}:#{output_location} #{output_location}")
     end
 
     return output_location
   end
 
   def start_mapreduce_master()
-    Djinn.log_debug("start mapreduce master - starting up hadoop first")
+    NeptuneManager.log("start mapreduce master - starting up hadoop first")
     #start_db_master
     #start_hadoop_slave
   end
 
   def start_mapreduce_slave()
-    Djinn.log_debug("start mapreduce slave - starting up hadoop first")
+    NeptuneManager.log("start mapreduce slave - starting up hadoop first")
     #start_db_slave
     #start_hadoop_slave
   end
 
   def stop_mapreduce_master()
-    Djinn.log_debug("stop mapreduce master - stopping hadoop")
+    NeptuneManager.log("stop mapreduce master - stopping hadoop")
     #stop_db_master
     #stop_hadoop_slave
   end
 
   def stop_mapreduce_slave()
-    Djinn.log_debug("stop mapreduce slave - stopping hadoop")
+    NeptuneManager.log("stop mapreduce slave - stopping hadoop")
     #stop_db_slave
     #stop_hadoop_slave
   end
@@ -197,9 +199,9 @@ class NeptuneManager
     ssh_key = db_master.ssh_key
     loop {
       cmd = "ssh -o StrictHostkeyChecking=no -i #{ssh_key} #{ip} '#{command}'"
-      Djinn.log_debug(cmd)
+      NeptuneManager.log(cmd)
       result = `#{cmd}`
-      Djinn.log_debug("oi: result was [#{result}]")
+      NeptuneManager.log("oi: result was [#{result}]")
       break if result.match(/Found/) # this shows up when ls returns files
       sleep(5)
     }

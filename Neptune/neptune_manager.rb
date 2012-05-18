@@ -7,6 +7,7 @@ require 'app_controller_client'
 require 'djinn_job_data'
 require 'infrastructure_manager_client'
 require "neptune_job_data"
+require 'neptune_manager_client'
 require 'helperfunctions'
 require 'zkinterface'
 
@@ -124,17 +125,18 @@ class NeptuneManager
     @secret = HelperFunctions.get_secret()
     @queues_to_read = []
     @jobs = {}
-
-    Thread.new {
-      initialize_zookeeper_connection()
-      manage_virtual_machines()
-    }
   end
 
 
   def NeptuneManager.log(msg)
     Kernel.puts(msg)
     STDOUT.flush()
+  end
+
+
+  def start()
+    initialize_zookeeper_connection()
+    #manage_virtual_machines()
   end
 
 
@@ -181,6 +183,11 @@ class NeptuneManager
         FileUtils.rm_f("/etc/appscale/status-#{node.private_ip}.json")
       end
     }
+  end
+
+  
+  def valid_secret?(secret)
+    return secret == @secret
   end
 
 
@@ -606,10 +613,11 @@ class NeptuneManager
     end
 
     master_node_ip = master_node.private_ip
-    master_acc = AppControllerClient.new(master_node_ip, HelperFunctions.get_secret)
+    nmc = NeptuneManagerClient.new(master_node_ip, HelperFunctions.get_secret)
 
-    result = master_acc.run_neptune_job(converted_nodes, job_data)
-    NeptuneManager.log("run job result was #{result}")
+    NeptuneManager.log("Dispatching job to #{master_node_ip}")
+    result = nmc.run_neptune_job(converted_nodes, job_data)
+    NeptuneManager.log("Run job result was #{result}")
 
     loop {
       shadow = get_node_with_role("shadow")
@@ -767,9 +775,7 @@ class NeptuneManager
     # TODO: assigning nodes -> nodes_to_use should be atomic?
     # or should going through this list be atomic?
 
-    cloud_num = cloud.scan(/cloud(.*)/).flatten.to_s
-
-    nodes_to_use = ZKInterface.find_open_nodes_in_cloud(nodes_needed, cloud_num)
+    nodes_to_use = ZKInterface.find_open_nodes_in_cloud(nodes_needed, cloud)
 
     @nodes_in_use = nodes_to_use
 

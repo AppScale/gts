@@ -19,7 +19,7 @@ class NeptuneManagerServer < SOAP::RPC::HTTPServer
 
 
   # The NeptuneManager that this SOAP server wraps around.
-  attr_reader :neptune_manager
+  attr_reader :manager
 
 
   # When the NeptuneManagerServer starts, this method will expose only
@@ -40,7 +40,6 @@ class NeptuneManagerServer < SOAP::RPC::HTTPServer
     add_method(@manager, "get_supported_babel_engines", "job_data", "secret")
     add_method(@manager, "get_queues_in_use", "secret")
     
-    # Finally, since all Neptune jobs define
     NeptuneManager::JOB_LIST.each { |name|
       add_method(@manager, "#{name}_run_job", "nodes", "jobs", "secret")
     }
@@ -80,6 +79,16 @@ loop {
   Kernel.sleep(5)
 }
 
+loop {
+  if File.exists?(NeptuneManager::ZK_LOCATIONS_FILE)
+    NeptuneManager.log("ZooKeeper location file found - continuing")
+    break
+  else
+    NeptuneManager.log("Waiting for the ZooKeeper locations file to exist")
+    Kernel.sleep(5)
+  end
+}
+
 
 # Finally, start the NeptuneManagerServer now that we have the
 # X509 certs.
@@ -99,4 +108,6 @@ trap('INT') {
   server.shutdown()
 }
 
-server.start()
+new_thread = Thread.new() { server.start() }
+server.manager.start()
+new_thread.join()
