@@ -853,8 +853,12 @@ class Djinn
     start_cmd = "ruby #{APPSCALE_HOME}/Neptune/neptune_manager_server.rb"
     stop_cmd = "pkill -9 neptune_manager_server"
     port = [NeptuneManagerClient::SERVER_PORT]
+    env_vars = {
+      'APPSCALE_HOME' => APPSCALE_HOME,
+      'DATABASE_USED' => @creds['table']
+    }
 
-    GodInterface.start(:neptune_manager, start_cmd, stop_cmd, port)
+    GodInterface.start(:neptune_manager, start_cmd, stop_cmd, port, env_vars)
     Djinn.log_debug("Started NeptuneManager successfully!")
   end
 

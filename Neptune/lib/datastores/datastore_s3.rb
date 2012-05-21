@@ -100,6 +100,34 @@ class DatastoreS3 < Datastore
   end
 
 
+  def get_single_file_and_save_to_fs(s3_path, local_path)
+    bucket, file = DatastoreS3.parse_s3_key(s3_path)
+    NeptuneManager.log("Doing a list bucket on #{bucket}, with prefix #{file}")
+    NeptuneManager.log("Writing local file #{local_path} from " +
+      "S3 keyname #{file} and bucket #{bucket}")
+
+    # if the user gives us a path to write to that's several directories
+    # deep, we need to make all the directories first
+    FileUtils.mkdir_p(File.dirname(local_path))
+
+    begin
+      f = File.new(local_path, File::CREAT|File::RDWR)
+      @conn.get(bucket, file) { |chunk|
+        f.write(chunk)
+      }
+      f.close
+    rescue Errno::ECONNRESET
+      NeptuneManager.log("Saw a connection reset when trying to write " +
+        "local file from S3, retrying in a moment.")
+      Kernel.sleep(5)
+      retry
+    end
+    NeptuneManager.log("Done writing file #{local_path}")
+
+    return true
+  end
+
+
   # Contacts S3 to retrieve a file, returning the contents of the file
   # as a string.
   def get_output_and_return_contents(path)
@@ -120,7 +148,7 @@ class DatastoreS3 < Datastore
       files_to_upload.split.each { |file|
         full_s3_path = s3_path + "/" + file
         full_local_path = local_path + "/" + file
-        NeptuneManager.log("recursive dive - now saving remote [#{full_s3_path}], local [#{full_local_path}]")
+        NeptuneManager.log("Recursive dive - now saving remote [#{full_s3_path}], local [#{full_local_path}]")
         success = write_remote_file_from_local_file(full_s3_path, full_local_path)
 
         if !success
@@ -128,7 +156,7 @@ class DatastoreS3 < Datastore
         end
       }
     else
-      NeptuneManager.log("attempting to put local file #{local_path} into " +
+      NeptuneManager.log("Attempting to put local file #{local_path} into " +
         "bucket #{bucket}, location #{file}")
       return @conn.put(bucket, file, File.open(local_path))
     end
@@ -140,7 +168,8 @@ class DatastoreS3 < Datastore
   # Writes a string to a file in S3.
   def write_remote_file_from_string(s3_path, string)
     bucket, file = DatastoreS3.parse_s3_key(s3_path)
-    return @conn.put(bucket, file, string, headers={"Content-Length" => val.length})
+    return @conn.put(bucket, file, string, 
+      headers={"Content-Length" => string.length})
   end
 
 

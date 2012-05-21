@@ -19,6 +19,8 @@ DBS_W_HADOOP = ["hbase", "hypertable"]
 APPSCALE_HOME = ENV['APPSCALE_HOME']
 
 
+NO_OUTPUT = false
+
 
 class NeptuneManager
 
@@ -71,7 +73,8 @@ class NeptuneManager
           HelperFunctions.scp_file(my_mrjar, my_mrjar, node.private_ip, node.ssh_key)
         }
 
-        db_master = get_db_master
+        NeptuneManager.log("Copying MapReduce jar to db_master node")
+        db_master = get_node_with_role("db_master")
         ip = db_master.private_ip
         ssh_key = db_master.ssh_key
         HelperFunctions.scp_file(my_mrjar, my_mrjar, ip, ssh_key)
@@ -79,8 +82,8 @@ class NeptuneManager
         run_mr_command = "#{HADOOP_EXECUTABLE} jar #{my_mrjar} #{main} " +
           "#{input} #{output}"
       else
-        NeptuneManager.log("need to get map code located at #{map}, and reduce " +
-          "code located at #{reduce}")
+        NeptuneManager.log("Need to get Map code located at #{map}, and " +
+          "Reduce code located at #{reduce}")
 
         map_file = map.split('/')[-1]
         red_file = reduce.split('/')[-1]
@@ -88,22 +91,32 @@ class NeptuneManager
         my_map = "/tmp/#{map_file}"
         my_red = "/tmp/#{red_file}"
 
-        datastore.get_output_and_save_to_fs(map, my_map)
-        datastore.get_output_and_save_to_fs(reduce, my_red)
+        FileUtils.rm_rf(my_map)
+        FileUtils.rm_rf(my_red)
+
+        datastore.get_single_file_and_save_to_fs(map, my_map)
+        datastore.get_single_file_and_save_to_fs(reduce, my_red)
 
         # since the db master is the initiator of the mapreduce job, it needs
         # to have both the mapper and reducer files handy
 
-        db_master = get_db_master
+        NeptuneManager.log("Copying Mapper and Reducer to db_master node, " +
+          "since it runs the MapReduce job")
+
+        db_master = get_node_with_role("db_master")
         ip = db_master.private_ip
         ssh_key = db_master.ssh_key
         HelperFunctions.scp_file(my_map, my_map, ip, ssh_key)
         HelperFunctions.scp_file(my_red, my_red, ip, ssh_key)
 
+        NeptuneManager.log("Copying Mapper and Reducer to all nodes used " +
+          "for this MapReduce job")
+
         nodes.each { |node|
           HelperFunctions.scp_file(my_map, my_map, node.private_ip, node.ssh_key)
           HelperFunctions.scp_file(my_red, my_red, node.private_ip, node.ssh_key)
         }
+
 
         map_cmd = "\"" + get_language(my_map) + " " + my_map + "\""
         reduce_cmd = "\"" + get_language(my_red) + " " + my_red + "\""
@@ -111,6 +124,8 @@ class NeptuneManager
         run_mr_command = "#{HADOOP_EXECUTABLE} jar #{HADOOP_STREAMING_JAR} " +
           "-input #{input} -output #{output} -mapper #{map_cmd} " +
           "-reducer #{reduce_cmd}"
+        NeptuneManager.log("Running MapReduce job, with command " +
+          "[#{run_mr_command}]")
       end
 
       NeptuneManager.log("waiting for input file #{input} to exist in HDFS")
@@ -134,9 +149,8 @@ class NeptuneManager
 
       output_cmd = "#{HADOOP_EXECUTABLE} fs -cat #{output}/part-*"
       NeptuneManager.log("MR: Retrieving job output with command #{output_cmd}")
-      output_str = `#{output_cmd}`
-
-      neptune_write_job_output_str(job_data, output_str)
+      output_str = HelperFunctions.shell(output_cmd)
+      write_job_output_str(job_data, output_str)
 
       remove_lock_file(job_data)
     }
@@ -152,13 +166,13 @@ class NeptuneManager
     output = job_data["@output"]
     output_location = "/tmp/#{output}"
 
-    `rm -rf #{output_location}`
-    run_on_db_master("rm -rf #{output_location}", NO_OUTPUT) 
-    run_on_db_master("#{HADOOP_EXECUTABLE} fs -get #{output} #{output_location}", NO_OUTPUT)
+    HelperFunctions.shell("rm -rf #{output_location}")
+    run_on_db_master("rm -rf #{output_location}") 
+    run_on_db_master("#{HADOOP_EXECUTABLE} fs -get #{output} #{output_location}")
     unless my_node.is_db_master?
       NeptuneManager.log("hey by the way output is [#{output}]")
 
-      db_master = get_db_master
+      db_master = get_node_with_role("db_master")
       ip = db_master.public_ip
       ssh_key = db_master.ssh_key
 
@@ -194,13 +208,13 @@ class NeptuneManager
 
   def wait_for_hdfs_file(location)
     command = "#{HADOOP_EXECUTABLE} fs -ls #{location}"
-    db_master = get_db_master
+    db_master = get_node_with_role("db_master")
     ip = db_master.public_ip
     ssh_key = db_master.ssh_key
     loop {
       cmd = "ssh -o StrictHostkeyChecking=no -i #{ssh_key} #{ip} '#{command}'"
       NeptuneManager.log(cmd)
-      result = `#{cmd}`
+      result = HelperFunctions.shell(cmd)
       NeptuneManager.log("oi: result was [#{result}]")
       break if result.match(/Found/) # this shows up when ls returns files
       sleep(5)
@@ -211,8 +225,8 @@ class NeptuneManager
     return "ruby"
   end
 
-  def run_on_db_master(command, output=WANT_OUTPUT)
-    db_master = get_db_master
+  def run_on_db_master(command)
+    db_master = get_node_with_role("db_master")
     ip = db_master.public_ip
     ssh_key = db_master.ssh_key  
     HelperFunctions.run_remote_command(ip, command, ssh_key, NO_OUTPUT) 

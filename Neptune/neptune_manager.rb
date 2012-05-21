@@ -317,17 +317,18 @@ class NeptuneManager
     # also, if we're running on hbase or hypertable, put a copy of the data
     # into HDFS for later processing via mapreduce
 
-    table = @creds["table"]
+    table = ENV['DATABASE_USED']
 
     if ["hbase", "hypertable"].include?(table)
-      unless my_node.is_db_master?
-        db_master = get_db_master
+      if !my_node.is_db_master?
+        db_master = get_node_with_role("db_master")
         ip = db_master.private_ip
         ssh_key = db_master.ssh_key
         HelperFunctions.scp_file(local_fs_location, local_fs_location, ip, ssh_key)
       end
 
-      cmd = "#{HADOOP} fs -put #{local_fs_location} #{input_location}"
+      cmd = "#{HADOOP_EXECUTABLE} fs -put #{local_fs_location} " +
+        "#{input_location}"
       NeptuneManager.log("putting input in hadoop with command [#{cmd}]")
       run_on_db_master(cmd)
     end
@@ -670,10 +671,12 @@ class NeptuneManager
   def validate_environment(job_data, secret)
     return BAD_SECRET_MSG unless valid_secret?(secret)
     #return JOB_IN_PROGRESS if lock_file_exists?(job_data)
-    return BAD_TYPE_MSG unless NEPTUNE_JOBS.include?(job_data["@type"])
+    return BAD_TYPE_MSG unless JOB_LIST.include?(job_data["@type"])
 
     if job_data["@type"] == "mapreduce"
-      return BAD_TABLE_MSG unless DBS_W_HADOOP.include?(@creds["table"])
+      if !DBS_W_HADOOP.include?(ENV['DATABASE_USED'])
+        return BAD_TABLE_MSG
+      end
     end
 
     return "no error"
@@ -993,26 +996,31 @@ class NeptuneManager
 
 
   def write_job_output(job_data, output_location)
-    neptune_write_job_output_handler(job_data, output_location, is_file=true)
+    write_job_output_handler(job_data, output_location, is_file=true)
   end
 
 
   def write_job_output_str(job_data, string)
-    neptune_write_job_output_handler(job_data, string, is_file=false)
+    write_job_output_handler(job_data, string, is_file=false)
   end
 
 
   def write_job_output_handler(job_data, output, is_file)
     db_location = job_data["@output"]
     job_type = job_data["@type"]
-    NeptuneManager.log("[#{job_type}] job done - writing output to #{db_location}")
+    storage = job_data["@storage"]
 
-    datastore = DatastoreFactory.get_datastore(job_data['@storage'], job_data)
+    NeptuneManager.log("[#{job_type}] Job done - Writing output to " +
+      "#{db_location}, backed by #{storage}")
+    datastore = DatastoreFactory.get_datastore(job_data['@storage'], 
+      job_data)
     if is_file
       datastore.write_remote_file_from_local_file(db_location, output)
     else
       datastore.write_remote_file_from_string(db_location, output)
     end
+
+    NeptuneManager.log("Done writing output to #{db_location}")
   end
 
 
