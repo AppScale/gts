@@ -47,12 +47,15 @@ module RabbitMQ
     HelperFunctions.sleep_until_port_is_open(master_ip, SERVER_PORT)
 
     # start the server, reset it to join the head node
-    start_cmds = ["rabbitmq-server -detached -setcookie #{HelperFunctions.get_secret()}",
-                 "rabbitmqctl start_app",
-                 "rabbitmqctl stop_app",
-                 "rabbitmqctl reset",
-                 "rabbitmqctl cluster rabbit@appscale-image0",
-                 "rabbitmqctl start_app"]
+    # TODO(cgb): This looks like this assumes that the head node is
+    # appscale-image0 - true for default deployments but not necessarily
+    # so in advanced placement scenarios. Change accordingly.
+    start_cmds = ["rabbitmqctl start_app",
+                  "rabbitmqctl stop_app",
+                  "rabbitmqctl reset",
+                  "rabbitmq-server -detached -setcookie #{HelperFunctions.get_secret()}",
+                  "rabbitmqctl cluster rabbit@appscale-image0",
+                  "rabbitmqctl start_app"]
     full_cmd = "#{start_cmds.join('; ')}"
 
     Djinn.log_run("#{full_cmd}")
