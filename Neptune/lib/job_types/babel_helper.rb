@@ -411,7 +411,7 @@ class NeptuneManager
     # then we need to make it executable
     if job_data["@executable"].nil? or job_data["@executable"].empty?
       NeptuneManager.log("making code executable")
-      NeptuneManager.log_run("chmod +x #{job_data['@code']}")
+      HelperFunctions.shell("chmod +x #{job_data['@code']}")
     end
 
     NeptuneManager.log("new code is #{job_data['@code']}")
@@ -486,7 +486,7 @@ class NeptuneManager
     end
 
     start_time = Time.now
-    ret_val = NeptuneManager.log_run(exec_command)
+    ret_val = HelperFunctions.shell(exec_command)
     end_time = Time.now
   
     total = end_time - start_time

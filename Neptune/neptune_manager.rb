@@ -859,8 +859,8 @@ class NeptuneManager
 
     nodes.each { |node|
       node.add_roles(roles)
+      ZKInterface.add_roles_to_node(roles, node)
       acc = AppControllerClient.new(node.private_ip, HelperFunctions.get_secret)
-      acc.add_role(roles)
       acc.wait_for_node_to_be(roles)
       NeptuneManager.log("[just added] node at #{node.private_ip} is now #{node.jobs.join(', ')}")
     }
@@ -872,8 +872,7 @@ class NeptuneManager
 
     nodes.each { |node|
       node.remove_roles(roles)
-      acc = AppControllerClient.new(node.private_ip, HelperFunctions.get_secret)
-      acc.remove_role(roles)
+      ZKInterface.remove_roles_from_node(roles, node)
       NeptuneManager.log("[just removed] node at #{node.private_ip} is now #{node.jobs.join(', ')}")
     }
   end
