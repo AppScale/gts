@@ -12,6 +12,8 @@ class TestDatastore < Test::Unit::TestCase
 
   
   def setup
+    flexmock(Kernel).should_receive(:puts).and_return()
+
     @secret = "baz"
     @helperfunctions = flexmock(HelperFunctions)
     @helperfunctions.should_receive(:sleep_until_port_is_open).and_return()

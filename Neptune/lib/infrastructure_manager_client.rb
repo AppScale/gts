@@ -79,7 +79,9 @@ class InfrastructureManagerClient
         yield if block_given?
       }
     rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH => except
-      Kernel.puts("Saw an Exception of class #{except.class}")
+      trace = except.backtrace.join("\n")
+      Kernel.puts("Saw an Exception of class #{except.class}, with " +
+        "trace: #{trace}")
       if refused_count > max
         return false if ok_to_fail
         raise AppScaleException.new("Connection was refused. Is the " +
@@ -94,20 +96,23 @@ class InfrastructureManagerClient
       return false if ok_to_fail
       retry
     rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE, Errno::ECONNRESET => except
-      Kernel.puts("Saw an Exception of class #{except.class}")
+      trace = except.backtrace.join("\n")
+      Kernel.puts("Saw an Exception of class #{except.class}, with " +
+        "trace: #{trace}")
       Kernel.sleep(1)
       retry
     rescue Exception => except
-      newline = "\n"
-      Kernel.puts("Saw an Exception of class #{except.class}")
-      Kernel.puts("#{except.backtrace.join(newline)}")
+      trace = except.backtrace.join("\n")
+      Kernel.puts("Saw an Exception of class #{except.class}, with " +
+        "trace: #{trace}")
 
       if retry_on_except
         Kernel.sleep(1)
         retry
       else
-        raise AppScaleException.new("[#{callr}] We saw an unexpected error of" +
-          " the type #{except.class} with the following message:\n#{except}.")
+        raise AppScaleException.new("[#{callr}] We saw an unexpected error " +
+          "of the type #{except.class} with the following message:\n" +
+          "#{except}. Trace is #{trace}")
       end
     end
   end

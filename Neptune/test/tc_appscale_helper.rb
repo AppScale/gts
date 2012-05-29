@@ -15,8 +15,7 @@ require 'flexmock/test_unit'
 
 class TestAppScaleHelper < Test::Unit::TestCase
   def setup
-    kernel = flexmock(Kernel)
-    kernel.should_receive(:puts).and_return()
+    flexmock(Kernel).should_receive(:puts).and_return()
 
     thread = flexmock(Thread)
     thread.should_receive(:new).and_return()

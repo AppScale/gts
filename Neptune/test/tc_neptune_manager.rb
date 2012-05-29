@@ -12,6 +12,9 @@ require 'json'
 
 class TestNeptuneManager < Test::Unit::TestCase
   def setup
+    # all writing to stdout shouldn't
+    flexmock(Kernel).should_receive(:puts).and_return()
+
     # all sleep calls should return immediately
     flexmock(Kernel).should_receive(:sleep).and_return()
 
@@ -46,9 +49,9 @@ class TestNeptuneManager < Test::Unit::TestCase
     flexmock(Thread).should_receive(:new).and_return()
 
     # assume that ZK is up
-    mocked_zookeeper = flexmock("zookeeper")
+    zookeeper = flexmock("zookeeper")
     flexmock(Zookeeper).should_receive(:new).with('public_ip1:2181').
-      and_return(mocked_zookeeper)
+      and_return(zookeeper)
 
     neptune = NeptuneManager.new()
     job_params = {}
@@ -58,13 +61,13 @@ class TestNeptuneManager < Test::Unit::TestCase
 
   def test_dispatch_parallel_jobs
     # mock out zookeeper interactions
-    mocked_zookeeper = flexmock("zookeeper")
+    zookeeper = flexmock("zookeeper")
 
     # mock out getting this node's job data
-    my_ip_job_path = ZKInterface::APPCONTROLLER_NODE_PATH + "/" + @public_ip +
+    my_ip_job_path = "#{ZKInterface::APPCONTROLLER_NODE_PATH}/#{@public_ip}" +
       "/job_data"
     job_data = "#{@public_ip}:private_ip:shadow:instance_id:cloud1"
-    mocked_zookeeper.should_receive(:get).with(:path => my_ip_job_path).
+    zookeeper.should_receive(:get).with(:path => my_ip_job_path).
       and_return({:rc => 0, :data => job_data})
 
     # mock out getting all node data
@@ -72,15 +75,20 @@ class TestNeptuneManager < Test::Unit::TestCase
       'last_updated' => 1,
       'ips' => [@public_ip]
     })
-    mocked_zookeeper.should_receive(:get).with(:path => ZKInterface::IP_LIST).
+    zookeeper.should_receive(:get).with(:path => ZKInterface::IP_LIST).
       and_return({:rc => 0, :data => all_node_data})
 
     # finally, use the mocked zookeeper object
     flexmock(Zookeeper).should_receive(:new).with('public_ip1:2181').
-      and_return(mocked_zookeeper)
+      and_return(zookeeper)
 
     # mock out appcontroller interactions
     flexmock(AppControllerClient).new_instances { |instance|
+      instance.should_receive(:make_call).and_return()
+    }
+
+    # and the same for neptunemanager calls
+    flexmock(NeptuneManagerClient).new_instances { |instance|
       instance.should_receive(:make_call).and_return()
     }
 
@@ -96,6 +104,8 @@ class TestNeptuneManager < Test::Unit::TestCase
       and_return("0\n", "2\n")
 
     neptune = NeptuneManager.new()
+    neptune.start()
+
     one = {
       "@type" => "babel",
       "@nodes_to_use" => 1
@@ -113,49 +123,49 @@ class TestNeptuneManager < Test::Unit::TestCase
 
   def test_dispatch_mpi_jobs
     # mock out zookeeper interactions
-    mocked_zookeeper = flexmock("zookeeper")
+    zookeeper = flexmock("zookeeper")
 
     # mock out getting this node's job data
     my_ip_job_path = ZKInterface::APPCONTROLLER_NODE_PATH + "/" + @public_ip +
       "/job_data"
     job_data = "#{@public_ip}:private_ip:shadow:instance_id:cloud1"
-    mocked_zookeeper.should_receive(:get).with(:path => my_ip_job_path).
+    zookeeper.should_receive(:get).with(:path => my_ip_job_path).
       and_return({:rc => 0, :data => job_data})
 
     # mock out getting an open node's job data
     ip2_job_path = ZKInterface::APPCONTROLLER_NODE_PATH + "/ip2/job_data"
     job_data = "ip2:private_ip2:open:instance_id2:cloud1"
-    mocked_zookeeper.should_receive(:get).with(:path => ip2_job_path).  
+    zookeeper.should_receive(:get).with(:path => ip2_job_path).  
       and_return({:rc => 0, :data => job_data})
 
     # mock out getting all node data
     exists = {:rc => 0, :stat => flexmock(:exists => true)}
-    mocked_zookeeper.should_receive(:get).
+    zookeeper.should_receive(:get).
       with(:path => ZKInterface::APPCONTROLLER_PATH).and_return(exists)
 
     all_node_data = JSON.dump({
       'last_updated' => 1,
       'ips' => [@public_ip, "ip2"]
     })
-    mocked_zookeeper.should_receive(:get).with(:path => ZKInterface::IP_LIST).
+    zookeeper.should_receive(:get).with(:path => ZKInterface::IP_LIST).
       and_return({:rc => 0, :data => all_node_data})
 
     # put in mocks to get and release the zookeeper lock
     all_ok = {:rc => 0}
-    mocked_zookeeper.should_receive(:create).with(
+    zookeeper.should_receive(:create).with(
       :path => ZKInterface::APPCONTROLLER_LOCK_PATH,
       :ephemeral => ZKInterface::EPHEMERAL,
       :data => JSON.dump(@public_ip)).and_return(all_ok)
-    mocked_zookeeper.should_receive(:delete).with(
+    zookeeper.should_receive(:delete).with(
       :path => ZKInterface::APPCONTROLLER_LOCK_PATH).
       and_return(all_ok)
 
     # finally, use the mocked zookeeper object
     flexmock(Zookeeper).should_receive(:new).with('public_ip1:2181').
-      and_return(mocked_zookeeper)
+      and_return(zookeeper)
 
     # mock out appcontroller interactions
-    flexmock(AppControllerClient).new_instances { |instance|
+    flexmock(NeptuneManagerClient).new_instances { |instance|
       instance.should_receive(:make_call).and_return()
     }
 
@@ -176,6 +186,8 @@ class TestNeptuneManager < Test::Unit::TestCase
       with(HelperFunctions::CLOUD_INFO_FILE, Proc).and_return(cloud_info_json)
 
     neptune = NeptuneManager.new()
+    neptune.start()
+
     one = {
       "@type" => "mpi",
       "@nodes_to_use" => 1

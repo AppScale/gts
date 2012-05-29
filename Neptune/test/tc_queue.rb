@@ -12,8 +12,7 @@ require 'flexmock/test_unit'
 
 class TestTaskQueue < Test::Unit::TestCase
   def setup
-    kernel = flexmock(Kernel)
-    kernel.should_receive(:puts).and_return()
+    flexmock(Kernel).should_receive(:puts).and_return()
   end
   
   def test_generic_queue_methods_are_abstract

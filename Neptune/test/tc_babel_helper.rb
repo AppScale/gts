@@ -15,9 +15,12 @@ require 'flexmock/test_unit'
 
 class TestBabelHelper < Test::Unit::TestCase
   def setup
-    kernel = flexmock(Kernel)
-    kernel.should_receive(:puts).and_return()
+    flexmock(Kernel).should_receive(:puts).and_return()
     
+    # mock out all shell calls to chmod
+    flexmock(HelperFunctions).should_receive(:shell).with(/\Achmod/).
+      and_return()
+
     neptune_class = flexmock(NeptuneManager)
     neptune_class.should_receive(:log_debug).and_return()
     neptune_class.should_receive(:log_run).and_return()
@@ -93,10 +96,8 @@ class TestBabelHelper < Test::Unit::TestCase
     flexmock(NeptuneManager).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
     }
-    neptune = NeptuneManager.new()
 
-    fileutils = flexmock(FileUtils)
-    fileutils.should_receive(:mkdir_p).and_return()
+    flexmock(FileUtils).should_receive(:mkdir_p).and_return()
 
     s3 = flexmock('s3')
     flexmock(RightAws::S3Interface).should_receive(:new).and_return(s3)
@@ -106,6 +107,8 @@ class TestBabelHelper < Test::Unit::TestCase
       instance.should_receive(:write_remote_file_from_local_file).and_return()
     }
 
+    flexmock(HelperFunctions).should_receive(:shell).and_return()
+
     job_data = {'@run_local' => true, '@code' => '/boo/baz',
       '@argv' => ['/boo/baz2'], '@storage' => 's3',
       '@output' => '/boo/baz3', '@EC2_ACCESS_KEY' => 'boo',
@@ -113,6 +116,8 @@ class TestBabelHelper < Test::Unit::TestCase
       '@metadata_info' => {'input_storage_time' => 0,
         'time_to_store_inputs' => 0}}
     job_list = [job_data]
+
+    neptune = NeptuneManager.new()
     result = neptune.run_or_delegate_tasks(job_list)
     assert_equal([NeptuneManager::RUN_LOCALLY], result)
 

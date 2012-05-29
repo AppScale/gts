@@ -15,8 +15,7 @@ require 'flexmock/test_unit'
 
 class TestCiceroHelper < Test::Unit::TestCase
   def setup
-    kernel = flexmock(Kernel)
-    kernel.should_receive(:puts).and_return()
+    flexmock(Kernel).should_receive(:puts).and_return()
 
     @secret = "baz"
     flexmock(HelperFunctions).should_receive(:read_file).

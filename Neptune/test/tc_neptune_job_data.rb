@@ -13,6 +13,13 @@ require 'flexmock/test_unit'
 
 
 class TestNeptuneJobData < Test::Unit::TestCase
+
+
+  def setup
+    flexmock(Kernel).should_receive(:puts).and_return()
+  end
+
+
   def test_cost_calculation
     now = Time.now
     name = "boo"
