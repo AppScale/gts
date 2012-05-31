@@ -50,4 +50,38 @@ class TestDatastoreWAZStorage < Test::Unit::TestCase
   end
 
 
+  def test_get_and_set_with_strings
+    # mock out the waz storage connection first
+    flexmock(WAZ::Storage::Base).should_receive(:establish_connection!).
+      with(:account_name => @creds['@WAZ_Account_Name'], 
+        :access_key => @creds['@WAZ_Access_Key']).and_return()
+
+    expected = "baz boo something else"
+
+    waz_container = flexmock("container")
+
+    # mock out writing to waz storage
+    waz_container.should_receive(:store).with("keyname", expected, 
+      DatastoreWAZStorage::PLAIN_TEXT).and_return()
+
+    # and mock out reading from waz storage
+    blob = flexmock("blob")
+    blob.should_receive(:value).and_return(expected)
+    waz_container.should_receive(:[]).with("keyname").and_return(blob)
+
+    # put in our mocked object
+    flexmock(WAZ::Blobs::Container).should_receive(:find).with("bucketname").
+      and_return(waz_container)
+
+
+    datastore = DatastoreFactory.get_datastore(DatastoreWAZStorage::NAME,
+      @creds)
+    remote_path = "/bucketname/keyname"
+    datastore.write_remote_file_from_string(remote_path, expected)
+
+    actual = datastore.get_output_and_return_contents(remote_path)
+    assert_equal(expected, actual)
+  end
+
+
 end
