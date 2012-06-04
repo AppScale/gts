@@ -25,76 +25,83 @@ public class DevAppServerMain {
     private String address = "127.0.0.1";
     private int port = 8080;
     private boolean disableUpdateCheck;
+    private String generatedDirectory = null;
 
-    // appscale specific
+    // add for AppScale
     private String db_location;
     private String login_server;
     private String cookie;
     private String appscale_version;
     private String admin_console_version;
 
-    private final List<Option> PARSERS = Arrays.asList(new Option[] { new Option("h", "help", true) {
-        public void apply() {
-            DevAppServerMain.printHelp(System.err);
-            System.exit(0);
-        }
-    }, new Option("s", "server", false) {
-        public void apply() {
-            server = getValue();
-        }
-    }, new Option("a", "address", false) {
-        public void apply() {
-            address = getValue();
-            System.setProperty("SERVER_NAME", getValue());
-        }
-    }, new Option("p", "port", false) {
-        public void apply() {
-            port = Integer.valueOf(getValue()).intValue();
-        }
-    }, new Option(null, "sdk_root", false) {
-        public void apply() {
-            System.setProperty("appengine.sdk.root", getValue());
-        }
-    }, new Option(null, "disable_update_check", true) {
-        public void apply() {
-            disableUpdateCheck = true;
-        }
-    }, new Option(null, "datastore_path", false) {
-        public void apply() {
-            db_location = getValue();
-            System.setProperty("DB_LOCATION", db_location);
-        }
-    }, new Option(null, "login_server", false) {
-        public void apply() {
-            login_server = getValue();
-            System.setProperty("LOGIN_SERVER", login_server);
-        }
-    }, new Option(null, "cookie_secret", false) {
-        public void apply() {
-            cookie = getValue();
-            System.setProperty("COOKIE_SECRET", cookie);
-        }
-    }, new Option(null, "appscale_version", false) {
-        public void apply() {
-            appscale_version = getValue();
-            System.setProperty("APP_SCALE_VERSION", appscale_version);
-        }
-    }, new Option(null, "admin_console_server", false) {
-        public void apply() {
-            admin_console_version = getValue();
-            System.setProperty("ADMIN_CONSOLE_VERSION", admin_console_version);
-        }
-    }, new Option(null, "NGINX_ADDRESS", false) {
-        public void apply() {
-            // admin_console_version = getValue();
-            System.setProperty("NGINX_ADDR", getValue());
-        }
-    }, new Option(null, "NGINX_PORT", false) {
-        public void apply() {
-            // admin_console_version = getValue();
-            System.setProperty("NGINX_PORT", getValue());
-        }
-    } });
+    private final List<Option> PARSERS = Arrays.asList(new Option[] {
+            new Option("h", "help", true) {
+                public void apply() {
+                    DevAppServerMain.printHelp(System.err);
+                    System.exit(0);
+                }
+            }, new Option("s", "server", false) {
+                public void apply() {
+                    server = getValue();
+                }
+            }, new Option("a", "address", false) {
+                public void apply() {
+                    address = getValue();
+                    System.setProperty("SERVER_NAME", getValue());
+                }
+            }, new Option("p", "port", false) {
+                public void apply() {
+                    port = Integer.valueOf(getValue()).intValue();
+                }
+            }, new Option(null, "sdk_root", false) {
+                public void apply() {
+                    System.setProperty("appengine.sdk.root", getValue());
+                }
+            }, new Option(null, "disable_update_check", true) {
+                public void apply() {
+                    disableUpdateCheck = true;
+                }
+            }, new Option(null, "datastore_path", false) {
+                public void apply() {
+                    db_location = getValue();
+                    System.setProperty("DB_LOCATION", db_location);
+                }
+            }, new Option(null, "generated_dir", false) {
+                public void apply() {
+                    generatedDirectory = getValue();
+                }
+            },new Option(null, "login_server", false) {
+                public void apply() {
+                    login_server = getValue();
+                    System.setProperty("LOGIN_SERVER", login_server);
+                }
+            }, new Option(null, "cookie_secret", false) {
+                public void apply() {
+                    cookie = getValue();
+                    System.setProperty("COOKIE_SECRET", cookie);
+                }
+            }, new Option(null, "appscale_version", false) {
+                public void apply() {
+                    appscale_version = getValue();
+                    System.setProperty("APP_SCALE_VERSION", appscale_version);
+                }
+            }, new Option(null, "admin_console_server", false) {
+                public void apply() {
+                    admin_console_version = getValue();
+                    System.setProperty("ADMIN_CONSOLE_VERSION", admin_console_version);
+                }
+            }, new Option(null, "NGINX_ADDRESS", false) {
+                public void apply() {
+                    // admin_console_version = getValue();
+                    System.setProperty("NGINX_ADDR", getValue());
+                }
+            }, new Option(null, "NGINX_PORT", false) {
+                public void apply() {
+                    // admin_console_version = getValue();
+                    System.setProperty("NGINX_PORT", getValue());
+                }
+            }
+    });
 
     public static void main(String[] args) throws Exception {
         recordTimeZone();
@@ -111,7 +118,7 @@ public class DevAppServerMain {
 
     public DevAppServerMain(String[] args) throws Exception {
         Parser parser = new Parser();
-        Parser.ParseResult result = parser.parseArgs(this.ACTION, this.PARSERS, args);
+        Parser.ParseResult result = parser.parseArgs(this.ACTION, this.PARSERS,args);
         result.applyArgs();
     }
 
@@ -128,6 +135,7 @@ public class DevAppServerMain {
         out.println("  -p PORT");
         out.println(" --sdk_root=root            Overrides where the SDK is located.");
         out.println(" --disable_update_check     Disable the check for newer SDK versions.");
+        out.println(" --generated_dir=dir        Set the directory where generated files are created.");
     }
 
     public static void validateWarPath(File war) {
@@ -136,7 +144,8 @@ public class DevAppServerMain {
             printHelp(System.err);
             System.exit(1);
         } else if (!war.isDirectory()) {
-            System.out.println("dev_appserver only accepts webapp directories, not war files.");
+            System.out
+                    .println("dev_appserver only accepts webapp directories, not war files.");
             printHelp(System.err);
             System.exit(1);
         }
@@ -144,7 +153,7 @@ public class DevAppServerMain {
 
     class StartAction extends Action {
         StartAction() {
-            super(new String[] { "starting AppScale_Java" });
+            super();
         }
 
         @SuppressWarnings("unchecked")
@@ -159,18 +168,23 @@ public class DevAppServerMain {
                 DevAppServerMain.validateWarPath(appDir);
 
                 UpdateCheck updateCheck = new UpdateCheck(DevAppServerMain.this.server, appDir, true);
-                if ((updateCheck.allowedToCheckForUpdates()) && (!DevAppServerMain.this.disableUpdateCheck)) {
+                if ((updateCheck.allowedToCheckForUpdates())
+                        && (!DevAppServerMain.this.disableUpdateCheck)) {
                     updateCheck.maybePrintNagScreen(System.err);
                 }
                 updateCheck.checkJavaVersion(System.err);
 
-                DevAppServer server = new DevAppServerFactory().createDevAppServer(appDir,
-                        DevAppServerMain.this.address, DevAppServerMain.this.port);
+                DevAppServer server = new DevAppServerFactory()
+                        .createDevAppServer(appDir,
+                                DevAppServerMain.this.address,
+                                DevAppServerMain.this.port);
 
                 Properties properties = System.getProperties();
 
+                @SuppressWarnings("rawtypes")
                 Map stringProperties = properties;
-                setTimeZone(properties);
+                setTimeZone(stringProperties);
+                setGeneratedDirectory(stringProperties);
                 server.setServiceProperties(stringProperties);
 
                 server.start();
@@ -188,15 +202,38 @@ public class DevAppServerMain {
             }
         }
 
-        private void setTimeZone(Properties serviceProperties) {
-            String timeZone = serviceProperties.getProperty("user.timezone");
+        private void setTimeZone(Map<String, String> serviceProperties) {
+            String timeZone = serviceProperties.get("appengine.user.timezone");
             if (timeZone != null)
                 TimeZone.setDefault(TimeZone.getTimeZone(timeZone));
             else {
-                System.out.println("using default timezone");
                 timeZone = DevAppServerMain.originalTimeZone;
             }
             serviceProperties.put("appengine.user.timezone.impl", timeZone);
+        }
+
+        private void setGeneratedDirectory(Map<String, String> stringProperties) {
+            if (DevAppServerMain.this.generatedDirectory != null) {
+                File dir = new File(DevAppServerMain.this.generatedDirectory);
+                String error = null;
+                if (dir.exists()) {
+                    if (!dir.isDirectory())
+                        error = DevAppServerMain.this.generatedDirectory
+                                + " is not a directory.";
+                    else if (!dir.canWrite())
+                        error = DevAppServerMain.this.generatedDirectory
+                                + " is not writable.";
+                } else if (!dir.mkdirs()) {
+                    error = "Could not make "
+                            + DevAppServerMain.this.generatedDirectory;
+                }
+                if (error != null) {
+                    System.err.println(error);
+                    System.exit(1);
+                }
+                stringProperties.put("appengine.generated.dir",
+                        DevAppServerMain.this.generatedDirectory);
+            }
         }
     }
 }

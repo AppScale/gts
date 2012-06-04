@@ -2,9 +2,9 @@
 <project name="AppServer_Java" default="install">
   <property name="src" location="src" />
   <property name="build" location="build" />
-  <property name="gae_version" value="1.4.3" />
-  <property name="gae_url" value="http://appscale.cs.ucsb.edu/appscale_packages/pool/appengine-java-sdk-${gae_version}.zip" />
-  <!--property name="gae_url" value="http://googleappengine.googlecode.com/files/appengine-java-sdk-1.4.3.zip" /-->
+  <property name="gae_version" value="1.6.4.1" />
+  <!--property name="gae_url" value="http://appscale.cs.ucsb.edu/appscale_packages/pool/appengine-java-sdk-${gae_version}.zip" /i-->
+  <property name="gae_url" value="http://googleappengine.googlecode.com/files/appengine-java-sdk-${gae_version}.zip" />
   <property name="gae_org" location="appengine-java-sdk-${gae_version}" />
   <property name="gae_dist" location="appengine-java-sdk-repacked" />
   <available property="sdk.exists" file="appengine-java-sdk-${gae_version}/README" />
@@ -14,6 +14,7 @@
       <include name="**/*.jar" />
       <exclude name="user/**/*.jar" />
       <exclude name="tools/orm/*.jar" />
+      <exclude name="opt/**/*.jar" />
     </fileset>
   </path>
 
@@ -68,21 +69,21 @@
 
   <target name="update-api-jar" depends="compile, repack-sdk, update-api-jar-user">
     <jar destfile="${gae_dist}/lib/impl/appengine-api.jar" basedir="${build}" update="true">
-      <include name="com/google/appengine/api/labs/mapreduce/MapReduceApiHelper*" />
+      <!--include name="com/google/appengine/api/labs/mapreduce/MapReduceApiHelper*" /-->
       <include name="com/google/appengine/api/blobstore/BlobstoreServiceImpl.class" />
     </jar>
   </target>
 
   <target name="update-api-jar-user" depends="compile, repack-sdk">
-    <jar destfile="${gae_dist}/lib/user/appengine-api-1.0-sdk-1.4.3.jar" basedir="${build}" update="true">
+    <jar destfile="${gae_dist}/lib/user/appengine-api-1.0-sdk-${gae_version}.jar" basedir="${build}" update="true">
       <include name="com/google/appengine/api/blobstore/BlobstoreServiceImpl.class" />
     </jar>
   </target>
 
   <target name="update-api-labs-jar" depends="compile, repack-sdk">
     <jar destfile="${gae_dist}/lib/impl/appengine-api-labs.jar" basedir="${build}" update="true">
-      <include name="com/google/appengine/api/labs/mapreduce/*" />
-      <exclude name="com/google/appengine/api/labs/mapreduce/MapReduceApiHelper*" />
+      <!--include name="com/google/appengine/api/labs/mapreduce/*" />
+      <exclude name="com/google/appengine/api/labs/mapreduce/MapReduceApiHelper*" /-->
     </jar>
     <copy file="${gae_dist}/lib/impl/appengine-api-labs.jar" tofile="${gae_dist}/lib/user/appengine-api-labs-${gae_version}.jar" />
   </target>
@@ -93,26 +94,26 @@
 	<include name="META-INF/services/*" />
       </patternset>
     </unjar>
-    <patch patchfile="src/mapreduce-service.patch" dir="${build}" strip="0" />
+    <!--patch patchfile="src/mapreduce-service.patch" dir="${build}" strip="0" /-->
     <jar destfile="${gae_dist}/lib/impl/appengine-api-stubs.jar" basedir="${build}" update="true">
       <include name="com/google/appengine/api/users/dev/*" />
       <include name="com/google/appengine/api/datastore/dev/*" />
       <include name="com/google/appengine/api/memcache/dev/*" />
-      <include name="com/google/appengine/api/labs/taskqueue/dev/*" />
-      <include name="com/google/appengine/api/labs/mapreduce/dev/*" />
+      <include name="com/google/appengine/api/taskqueue/dev/*" />
+      <!--include name="com/google/appengine/api/labs/mapreduce/dev/*" /-->
       <include name="com/google/appengine/api/blobstore/dev/*" />
-      <include name="META-INF/services/*" />
+      <!--include name="META-INF/services/*" /-->
     </jar>
   </target>
 
   <target name="update-local-runtime-jar" depends="compile, repack-sdk">
-    <copy file="src/com/google/appengine/tools/development/webdefault.xml" todir="${build}/com/google/appengine/tools/development/" />
+    <!--copy file="src/com/google/appengine/tools/development/webdefault.xml" todir="${build}/com/google/appengine/tools/development/" /-->
     <jar destfile="${gae_dist}/lib/impl/appengine-local-runtime.jar" basedir="${build}" update="true">
       <include name="com/google/appengine/tools/development/*" />
       <include name="com/google/appengine/tools/resources/*" />
 <!--      <exclude name="com/google/appengine/tools/development/DevAppServerMain*" /> -->
     </jar>
-    <!--copy file="src/com/google/appengine/tools/development/webdefault.xml" tofile="${gae_dist}/com/google/appengine/tools/development/" /-->
+    <copy file="src/com/google/appengine/tools/development/webdefault.xml" tofile="${gae_dist}/com/google/appengine/tools/development/" />
   </target>
 
   <target name="update-tools-api-jar" depends="compile, repack-sdk">
