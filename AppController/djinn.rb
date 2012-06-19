@@ -1202,6 +1202,24 @@ class Djinn
     end
   end
 
+  def get_all_appengine_nodes()
+    ae_nodes = []
+    @nodes.each { |node|
+      if node.is_appengine?
+        ae_nodes << node.private_ip
+      end
+    }
+    return ae_nodes
+  end
+
+  def get_loadbalancer_node()
+    @nodes.each { |node|
+      if node.is_load_balancer?
+        return node.public_ip
+      end
+    }
+  end
+
   def valid_secret?(secret)
     @@secret = HelperFunctions.get_secret
     if secret != @@secret
@@ -2782,6 +2800,21 @@ HOSTS
         CronHelper.update_cron(my_public, app_language, app)
         start_xmpp_for_app(app, app_language)
       end
+      app_number = @nginx_port - 8080
+      proxy_port = HAProxy.app_listen_port(app_number)
+      login_ip = get_login.public_ip
+      if my_node.is_login? and !my_node.is_appengine?
+        success = Nginx.write_app_loadbalancer_config(app, app_number, my_public, proxy_port, login_ip, get_all_appengine_nodes())
+        if success
+          Nginx.reload
+        else
+          Djinn.log_debug("ERROR: Failure to create valid nginx config file for application #{app} full proxy.")
+          next
+        end
+        @nginx_port += 1
+        @haproxy_port += 1
+      end
+
 
       if my_node.is_appengine?
         app_number = @nginx_port - Nginx::START_PORT
@@ -2810,8 +2843,8 @@ HOSTS
 
           xmpp_ip = get_login.public_ip
           pid = HelperFunctions.run_app(app, @appengine_port, 
-            @userappserver_private_ip, my_public, my_private, app_version, 
-            app_language, @nginx_port, xmpp_ip)
+            @userappserver_private_ip, get_loadbalancer_node(), my_private, 
+            app_version, app_language, @nginx_port, xmpp_ip)
           if pid == -1
             Djinn.log_debug("ERROR: Unable to start application #{app}.") 
             next
@@ -3166,7 +3199,7 @@ HOSTS
 
     Djinn.log_debug("Adding #{app_language} app #{app} on #{HelperFunctions.local_ip}:#{@appengine_port} ")
     xmpp_ip = get_login.public_ip
-    pid = HelperFunctions.run_app(app, @appengine_port, @userappserver_private_ip, my_public, my_private, app_version, app_language, nginx_port, xmpp_ip)
+    pid = HelperFunctions.run_app(app, @appengine_port, @userappserver_private_ip, get_loadbalancer_node(), my_private, app_version, app_language, nginx_port, xmpp_ip)
     if pid == -1
       Djinn.log_debug("ERROR: Unable to start application #{app} on port #{@appengine_port}.") 
       next
