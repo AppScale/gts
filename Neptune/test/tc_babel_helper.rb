@@ -28,8 +28,6 @@ class TestBabelHelper < Test::Unit::TestCase
     @secret = "baz"
     flexmock(File).should_receive(:open).
       with("/etc/appscale/secret.key", Proc).and_return(@secret)
-
-    flexmock(Thread).should_receive(:new).and_return()
   end
 
   def test_neptune_babel_soap_exposed_methods_bad_secret

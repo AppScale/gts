@@ -12,19 +12,31 @@ class TaskEngine
 
 
   def push(job_data)
-    dir = NeptuneManager.create_temp_dir()
-    NeptuneManager.copy_code_to_dir(job_data, dir)
+    dir = nil
+    uploaded_app = false
 
     if app_needs_uploading?(job_data)
+      dir = NeptuneManager.create_temp_dir()
+      NeptuneManager.copy_code_to_dir(job_data, dir)
       app_location = build_app_via_oration(job_data, dir)
       upload_app(job_data, app_location)
+      uploaded_app = true
     end
 
     job_data['@host'] = get_app_url(job_data)
+    start_time = Time.now.to_f
     task_id = run_task(job_data)
     wait_for_task_to_finish(job_data, task_id)
-    save_output_to_datastore(job_data)
-    NeptuneManager.cleanup(dir)
+    end_time = Time.now.to_f
+    output = save_output_to_local_fs(job_data)
+    nothing = "/tmp/baz"
+    HelperFunctions.write_file(nothing, "")
+    add_metadata_to_job(job_data, start_time, end_time)
+    NeptuneManager.write_babel_outputs(output, nothing, job_data)
+
+    if uploaded_app
+      NeptuneManager.cleanup(dir)
+    end
   end
 
 
@@ -40,7 +52,7 @@ class TaskEngine
     output = dir + "/appengine-app"
 
     # TODO(cgb) - definitely check the return val here
-    NeptuneManager.log_run("oration --file #{file} --function #{@function} " +
+    HelperFunctions.shell("oration --file #{file} --function #{@function} " +
       "--appid #{@appid} --output #{output}")
     return output
   end
@@ -78,7 +90,7 @@ class TaskEngine
   end
 
 
-  def save_output_to_datastore(job_data)
+  def save_output_to_local_fs(job_data)
     NeptuneManager.log("copying output from #{engine_name()} to remote datastore")
    
     host = job_data['@host']
@@ -91,10 +103,17 @@ class TaskEngine
     local_output = "/tmp/babel-#{rand()}.txt"
     HelperFunctions.write_file(local_output, output)
     NeptuneManager.save_output(output_location, local_output, job_data)
+    return local_output
+  end
 
-    return if DEBUG
-    NeptuneManager.log("cleaning up local output at #{local_output}")
-    FileUtils.rm_f(local_output)
+
+  def add_metadata_to_job(job_data, start_time, end_time)
+    NeptuneManager.log("Adding metadata to job data")
+    job_data['@metadata_info']['start_time'] = start_time
+    job_data['@metadata_info']['end_time'] = end_time
+    total = end_time - start_time
+    job_data['@metadata_info']['total_execution_time'] = total
+    NeptuneManager.log("Done adding metadata to job data")
   end
 
 

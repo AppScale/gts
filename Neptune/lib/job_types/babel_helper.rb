@@ -142,20 +142,25 @@ class NeptuneManager
   def get_supported_babel_engines(job_data, secret)
     return BAD_SECRET_MSG if !valid_secret?(secret)
 
-    NeptuneManager.log("checking supported engines for job data #{job_data.inspect}")
+    NeptuneManager.log("checking supported engines for job data " +
+      "#{job_data.inspect}")
 
     # all jobs can use the internal engines
     engines = INTERNAL_ENGINES
 
     # but not necessarily the others, so check them one by one
-    engines << get_engines_for_creds(job_data, AMAZON_CREDENTIALS, AMAZON_ENGINES)
-    engines << get_engines_for_creds(job_data, AZURE_CREDENTIALS, AZURE_ENGINES)
-    engines << get_engines_for_creds(job_data, GOOGLE_CREDENTIALS, GOOGLE_ENGINES)
+    engines << get_engines_for_creds(job_data, AMAZON_CREDENTIALS, 
+      AMAZON_ENGINES)
+    engines << get_engines_for_creds(job_data, AZURE_CREDENTIALS, 
+      AZURE_ENGINES)
+    engines << get_engines_for_creds(job_data, GOOGLE_CREDENTIALS, 
+      GOOGLE_ENGINES)
    
     # since we're appending arrays to arrays but want it to be a 1D array
     engines.flatten!.uniq!
 
-    NeptuneManager.log("supported engines for job data #{job_data.inspect} are [#{engines.join(', ')}]")
+    NeptuneManager.log("supported engines for job data #{job_data.inspect} " +
+      "are [#{engines.join(', ')}]")
 
     return engines
   end
@@ -207,7 +212,9 @@ class NeptuneManager
       NeptuneManager.log("prejob - this job's data is #{job.inspect}")
     }
 
+    threads = []
     jobs.each { |job|
+      threads << Thread.new {
       job_data = job.dup
       NeptuneManager.log("This job's data is #{job_data.inspect}")
 
@@ -237,8 +244,10 @@ class NeptuneManager
         where_tasks_were_run << RUN_VIA_REMOTE_ENGINE
         next
       end
+      }
     }
 
+    threads.each { |t| t.join }
     return where_tasks_were_run
   end
 
@@ -534,13 +543,13 @@ class NeptuneManager
     total_output_time = output_storage_end_time - output_storage_start_time
     job_data['@metadata_info']['output_storage_time'] = total_output_time
 
-    local_input_storage_time = job_data['@metadata_info']['time_to_store_inputs']
-    total_input_time = job_data['@metadata_info']['input_storage_time']
+    local_input_storage_time = job_data['@metadata_info']['time_to_store_inputs'] || 0.0
+    total_input_time = job_data['@metadata_info']['input_storage_time'] || 0.0
     job_data['@metadata_info']['total_storage_time'] = local_input_storage_time + 
       total_input_time + total_output_time
 
     end_of_task_time = Time.now.to_f
-    start_of_task_time = job_data['@metadata_info']['received_task_at']
+    start_of_task_time = job_data['@metadata_info']['received_task_at'] || 0.0
     total_task_time = end_of_task_time - start_of_task_time
     job_data['@metadata_info']['total_task_time'] = total_task_time
 

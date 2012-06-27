@@ -15,6 +15,25 @@ require 'neptune_manager'
 RETRY_TIME = 5  # seconds
 
 
+# A HTTP client that assumes that responses returned are JSON, and automatically
+# loads them, returning the result. Raises a NoMethodError if the host/URL is
+# down or otherwise unreachable.
+class JSONClient
+  include HTTParty
+
+  # Assume the response is JSON and load it accordingly.
+  parser(
+    Proc.new do |body, format|
+      begin
+        JSON.load(body)
+      rescue JSON::ParserError
+        Kernel.puts("Saw a ParserError when trying to parse body: #{body}")
+      end
+    end
+  )
+end
+
+
 class NeptuneManager
 
 
@@ -77,8 +96,8 @@ class NeptuneManager
             task_ids = []
             num_tasks_for_this_url.times { |j|
               output = job_data["@output"] + String(j)
-              #self.execute_task(host, function_name, inputs, output) #Python
-              task_ids << self.execute_task(host, function_name, inputs, output) #Java
+              self.execute_task(host, function_name, inputs, output) #Python
+              #task_ids << self.execute_task(host, function_name, inputs, output) #Java
               task_number = j + 1
               percent_done = task_number / Float(num_tasks_for_this_url) * 100
               NeptuneManager.log("done putting #{task_number}/" +
@@ -87,8 +106,8 @@ class NeptuneManager
 
             num_tasks_for_this_url.times { |j|
               # TODO - the task id shouldn't be the output - refactor later
-              #task_id = job_data["@output"] + String(j) #Python
-              task_id = task_ids[j] #Java
+              task_id = job_data["@output"] + String(j) #Python
+              #task_id = task_ids[j] #Java
               self.wait_for_task_to_complete(host, task_id)
               task_number = j + 1
               percent_done = task_number / Float(num_tasks_for_this_url) * 100
@@ -270,7 +289,7 @@ class NeptuneManager
       "#{function_name}, inputs [#{inputs.join(', ')}], and output [#{output}]")
 
     query_params = {:f => function_name, :num_inputs => inputs.length,
-      :output => output}
+      :output => self.sanitize(output)}
 
     begin
       # be sure to specify :body => '', so that HTTParty fills in Content-Length
@@ -288,6 +307,10 @@ class NeptuneManager
       NeptuneManager.log("PUT task failed on #{host}, retrying")
       sleep(RETRY_TIME)
       retry
+    rescue Exception => e
+      trace = e.backtrace.join("\n")
+      NeptuneManager.log("Saw an exception of class #{e.class}, with trace" +
+        "#{trace}")
     end
 
     # right now, we have tasks store data with the output as the
@@ -302,7 +325,7 @@ class NeptuneManager
     response = {}
     start_time = Time.now
     loop {
-      query_params = {:id => task_id, :task_id => task_id}
+      query_params = {:id => self.sanitize(task_id), :task_id => self.sanitize(task_id)}
       begin
         response = JSONClient.get("#{host}/task", :body => '', 
           :query => query_params)
@@ -311,6 +334,9 @@ class NeptuneManager
         sleep(RETRY_TIME)
         retry
       end
+
+      NeptuneManager.log("Response class is [#{response.class}]")
+      NeptuneManager.log("Response is [#{response.inspect}]")
 
       state = response['state']
       #start_time = response['start_time']
@@ -336,7 +362,7 @@ class NeptuneManager
 
   def self.get_output(host, output)
     begin
-      query_params = {:location => output}
+      query_params = {:location => self.sanitize(output)}
       response = JSONClient.get("#{host}/data", :body => '', 
         :query => query_params)
     rescue NoMethodError  # the host is down
@@ -347,4 +373,9 @@ class NeptuneManager
   
     return response["output"]
   end
+
+  def self.sanitize(string)
+    string.gsub(/[^\w\d]/, '')
+  end
+
 end
