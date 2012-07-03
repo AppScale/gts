@@ -1212,7 +1212,7 @@ class Djinn
     return ae_nodes
   end
 
-  def get_loadbalancer_node()
+  def get_load_balancer_ip()
     @nodes.each { |node|
       if node.is_load_balancer?
         return node.public_ip
@@ -2800,11 +2800,11 @@ HOSTS
         CronHelper.update_cron(my_public, app_language, app)
         start_xmpp_for_app(app, app_language)
       end
-      app_number = @nginx_port - 8080
+      app_number = @nginx_port - Nginx::START_PORT
       proxy_port = HAProxy.app_listen_port(app_number)
       login_ip = get_login.public_ip
       if my_node.is_login? and !my_node.is_appengine?
-        success = Nginx.write_app_loadbalancer_config(app, app_number, my_public, proxy_port, login_ip, get_all_appengine_nodes())
+        success = Nginx.write_fullproxy_app_config(app, app_number, my_public, proxy_port, login_ip, get_all_appengine_nodes())
         if success
           Nginx.reload
         else
@@ -2843,7 +2843,7 @@ HOSTS
 
           xmpp_ip = get_login.public_ip
           pid = HelperFunctions.run_app(app, @appengine_port, 
-            @userappserver_private_ip, get_loadbalancer_node(), my_private, 
+            @userappserver_private_ip, get_load_balancer_ip(), my_private, 
             app_version, app_language, @nginx_port, xmpp_ip)
           if pid == -1
             Djinn.log_debug("ERROR: Unable to start application #{app}.") 
@@ -3199,7 +3199,7 @@ HOSTS
 
     Djinn.log_debug("Adding #{app_language} app #{app} on #{HelperFunctions.local_ip}:#{@appengine_port} ")
     xmpp_ip = get_login.public_ip
-    pid = HelperFunctions.run_app(app, @appengine_port, @userappserver_private_ip, get_loadbalancer_node(), my_private, app_version, app_language, nginx_port, xmpp_ip)
+    pid = HelperFunctions.run_app(app, @appengine_port, @userappserver_private_ip, get_load_balancer_ip(), my_private, app_version, app_language, nginx_port, xmpp_ip)
     if pid == -1
       Djinn.log_debug("ERROR: Unable to start application #{app} on port #{@appengine_port}.") 
       next

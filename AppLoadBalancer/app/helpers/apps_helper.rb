@@ -50,7 +50,6 @@ module AppsHelper
       locations << "#{data[:hosts][i].gsub(/[\s\n]/, "")}:#{data[:ports][i]}"
     }
     data[:ports][0]
-    #locations
   end
 
   def get_num_ports app_data
