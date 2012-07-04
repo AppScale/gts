@@ -1507,7 +1507,6 @@ class Queue(object):
         MAX_TRANSACTIONAL_REQUEST_SIZE_BYTES.
       Error-subclass on application errors.
     """
-    logging.info(str(task))
     try:
       tasks = list(iter(task))
     except TypeError:
@@ -1571,12 +1570,10 @@ class Queue(object):
       raise TransactionalRequestTooLargeError(
           'Transactional request size must be less than %d; found %d' %
           (MAX_TRANSACTIONAL_REQUEST_SIZE_BYTES, request.ByteSize()))
-
     try:
       apiproxy_stub_map.MakeSyncCall('taskqueue', 'BulkAdd', request, response)
     except apiproxy_errors.ApplicationError, e:
       raise self.__TranslateError(e.application_error, e.error_detail)
-
     assert response.taskresult_size() == len(tasks), (
         'expected %d results from BulkAdd(), got %d' % (
         len(tasks), response.taskresult_size()))

@@ -30,14 +30,8 @@ module AppsHelper
       return not_exists(APP_NOT_RUNNING_MSG)
     end
 
-    servers = parse_app_data(app_data, app_name)
-    rand_server = find_rand_live_host servers
-
-    if rand_server.nil?
-      return not_exists(APP_FAILED_MSG)
-    end
-
-    destination = "http://#{rand_server}/#{suffix}"
+    port = parse_app_data(app_data, app_name)
+    destination = "http://#{get_head_node_ip}:#{port}"
     message = "redirect to #{destination}"
 
     exists(message, destination)
@@ -55,43 +49,7 @@ module AppsHelper
     data[:hosts].each_index { |i|
       locations << "#{data[:hosts][i].gsub(/[\s\n]/, "")}:#{data[:ports][i]}"
     }
-
-    locations
-  end
-
-  def find_rand_live_host hosts
-    possibly_live = ""
-
-    loop {
-      return nil if hosts.length.zero?
-
-      possibly_live = hosts[rand(hosts.length)]
-      if is_up? possibly_live
-        Rails.logger.info "oi! #{possibly_live} was up"
-        break
-      else
-        Rails.logger.info "oi! #{possibly_live} was down"
-        puts hosts.inspect
-        hosts = hosts - [possibly_live]
-      end
-    }
-
-    return possibly_live
-  end
-
-  def is_up? host_port
-    uri = "http://#{host_port}"
-    loop {
-      begin
-        Net::HTTP.get_response(URI.parse(uri))
-      rescue Errno::ECONNREFUSED, EOFError
-        return false
-      rescue Exception
-        return false
-      end
-
-      return true
-    }
+    data[:ports][0]
   end
 
   def get_num_ports app_data
@@ -102,16 +60,6 @@ module AppsHelper
       end
     end
     nil
-  end
-
-  def remove_old_apps
-    files = Dir.entries(FILE_UPLOAD_PATH)
-    files.each do |file|
-      file_path = File.join(FILE_UPLOAD_PATH,file)
-      if File.ctime(file_path) < 5.minutes.ago
-        `rm #{file_path}`
-      end
-    end
   end
 
   def not_exists message=""
