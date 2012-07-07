@@ -1,8 +1,13 @@
 package com.google.appengine.api.memcache.dev;
 
+import java.io.Serializable;
 import java.util.Arrays;
 
-public class Key {
+public class Key implements Serializable{
+    /**
+     * 
+     */
+    private static final long serialVersionUID = 1L;
     private byte[] keyval;
 
     public Key(byte[] bytes) {

@@ -35,25 +35,28 @@ public class HTTPClientDatastoreProxy {
     DefaultHttpClient client = null;
     String url = null;
 
+    //TODO deal with ssl?
     public HTTPClientDatastoreProxy(String host, int port, boolean isSSL) {
-    	SchemeRegistry schemeRegistry = new SchemeRegistry();
-    	schemeRegistry.register(
-    	         new Scheme("http", PlainSocketFactory.getSocketFactory(), port));
-    	ThreadSafeClientConnManager cm = new ThreadSafeClientConnManager(schemeRegistry);
-//    	 Increase max total connection to 200
-    	cm.setMaxTotal(200);
-//    	 Increase default max connection per route to 20
-    	cm.setDefaultMaxPerRoute(20);
-//    	 Increase max connections for localhost:80 to 50
-        //logger.log(Level.INFO, "http client started");
+        SchemeRegistry schemeRegistry = new SchemeRegistry();
+        schemeRegistry.register(new Scheme("http", PlainSocketFactory
+                .getSocketFactory(), port));
+        ThreadSafeClientConnManager cm = new ThreadSafeClientConnManager(
+                schemeRegistry);
+        // Increase max total connection to 200
+        cm.setMaxTotal(200);
+        // Increase default max connection per route to 20
+        cm.setDefaultMaxPerRoute(20);
+        // Increase max connections for localhost:80 to 50
+        // logger.log(Level.INFO, "http client started");
         url = "http://" + host + ":" + port + "/";
         HttpHost localhost = new HttpHost(url);
         cm.setMaxForRoute(new HttpRoute(localhost), 50);
         client = new DefaultHttpClient(cm);
-        //logger.log(Level.INFO, "connecting to pb server at: " + url);
+        // logger.log(Level.INFO, "connecting to pb server at: " + url);
     }
 
-    public void doPost(String appId, String method, ProtocolMessage<?> request, ProtocolMessage<?> response) {
+    public void doPost(String appId, String method, ProtocolMessage<?> request,
+            ProtocolMessage<?> response) {
         HttpPost post = new HttpPost(url);
         post.addHeader("ProtocolBufferType", "Request");
         String tag = appId;
@@ -84,24 +87,28 @@ public class HTTPClientDatastoreProxy {
         try {
             byte[] bytes = client.execute(post, new ByteArrayResponseHandler());
             remoteResponse.parseFrom(bytes);
-            //logger.log(Level.INFO, "raw bytes");
-            //logger.log(Level.INFO, new String(bytes));
+            // logger.log(Level.INFO, "raw bytes");
+            // logger.log(Level.INFO, new String(bytes));
         } catch (ClientProtocolException e) {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
         if (!remoteResponse.hasResponse())
-            logger.log(Level.WARNING, "no response from server for: " + method + " method!");
+            logger.log(Level.WARNING, "no response from server for: " + method
+                    + " method!");
         if (remoteResponse.hasApplicationError()) {
-            logger.log(Level.WARNING, "application error in " + method + " method !"
-            + remoteResponse.getApplicationError().toFlatString());
+            logger.log(Level.WARNING, "application error in " + method
+                    + " method !"
+                    + remoteResponse.getApplicationError().toFlatString());
         }
         if (remoteResponse.hasException()) {
-            logger.log(Level.WARNING, "exception in " + method + " method! " + remoteResponse.getException());
+            logger.log(Level.WARNING, "exception in " + method + " method! "
+                    + remoteResponse.getException());
         }
         if (remoteResponse.hasJavaException()) {
-            logger.log(Level.WARNING, "java exception in " + method + " method! " + remoteResponse.getJavaException());
+            logger.log(Level.WARNING, "java exception in " + method
+                    + " method! " + remoteResponse.getJavaException());
         }
         response.parseFrom(remoteResponse.getResponseAsBytes());
     }
@@ -113,17 +120,18 @@ public class HTTPClientDatastoreProxy {
 
     private class ByteArrayResponseHandler implements ResponseHandler<byte[]> {
 
-        public byte[] handleResponse(HttpResponse response) throws ClientProtocolException, IOException {
-        	HttpEntity entity = response.getEntity();
-        	if (entity != null) {
-        		InputStream inputStream = entity.getContent();
-        		try {
+        public byte[] handleResponse(HttpResponse response)
+                throws ClientProtocolException, IOException {
+            HttpEntity entity = response.getEntity();
+            if (entity != null) {
+                InputStream inputStream = entity.getContent();
+                try {
                     return inputStreamToArray(inputStream);
-        		} finally {
-        			entity.getContent().close();
+                } finally {
+                    entity.getContent().close();
                 }
             }
-        	return new byte[]{};
+            return new byte[] {};
         }
     }
 

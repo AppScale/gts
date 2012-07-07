@@ -1,15 +1,13 @@
 package com.google.appengine.api.users.dev;
 
 import java.io.IOException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 public final class LocalLoginServlet extends HttpServlet {
-    private static final Logger logger = Logger.getLogger(LocalLoginServlet.class.getName());
+//    private static final Logger logger = Logger.getLogger(LocalLoginServlet.class.getName());
     private static final long serialVersionUID = 1L;
     private static final String login_server = System.getProperty("LOGIN_SERVER");
     private static final String CONTINUE_PARAM = "continue";

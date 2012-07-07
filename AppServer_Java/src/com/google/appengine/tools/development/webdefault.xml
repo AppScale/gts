@@ -5,8 +5,7 @@
     trunk/modules/jetty/src/main/resources/org/mortbay/jetty/webapp/webdefault.xml
   in the Jetty SVN repository as of r2324.  It was then modified slightly.
   
-  Also added a filter for trasnlating Multipart form request coming from Blobstore Service 
-  
+  Also added a filter for translating Multipart form request coming from Blobstore Service 
 -->
 
 <!-- ===================================================================== -->
@@ -46,6 +45,13 @@
   </context-param>
 
   <filter>
+    <filter-name>_ah_BackendServersFilter</filter-name>
+    <filter-class>
+      com.google.appengine.tools.development.BackendServersFilter
+    </filter-class>
+  </filter>
+  
+  <filter>
     <filter-name>_ah_StaticFileFilter</filter-name>
     <filter-class>
       com.google.appengine.tools.development.StaticFileFilter
@@ -70,11 +76,27 @@
       com.google.appengine.api.blobstore.dev.ServeBlobFilter
     </filter-class>
   </filter>
-  
+
+<!-- add for AppScale -->
   <filter>
     <filter-name>appscale-java-blobRedirect</filter-name>
     <filter-class>com.google.appengine.api.blobstore.dev.BlobServiceRedirectFilter</filter-class>
   </filter>
+
+  <filter>
+    <filter-name>_ah_HeaderVerificationFilter</filter-name>
+    <filter-class>
+      com.google.appengine.tools.development.HeaderVerificationFilter
+    </filter-class>
+  </filter>
+
+  <filter-mapping>
+    <filter-name>_ah_BackendServersFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+    <!-- match both real and forwarded requests -->
+    <dispatcher>FORWARD</dispatcher>
+    <dispatcher>REQUEST</dispatcher>
+  </filter-mapping>
 
   <filter-mapping>
     <filter-name>_ah_StaticFileFilter</filter-name>
@@ -90,7 +112,13 @@
     <filter-name>_ah_ServeBlobFilter</filter-name>
     <url-pattern>/*</url-pattern>
   </filter-mapping>
-  
+
+  <filter-mapping>
+    <filter-name>_ah_HeaderVerificationFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+  </filter-mapping>
+
+<!-- add for AppScale -->
   <filter-mapping>
     <filter-name>appscale-java-blobRedirect</filter-name>
     <url-pattern>/*</url-pattern>
@@ -267,8 +295,18 @@
 
   <!-- Admin console servlets -->
   <servlet>
+    <servlet-name>_ah_capabilitiesViewer</servlet-name>
+    <servlet-class>com.google.apphosting.utils.servlet.CapabilitiesStatusServlet</servlet-class>
+  </servlet>
+
+  <servlet>
     <servlet-name>_ah_datastoreViewer</servlet-name>
     <servlet-class>com.google.apphosting.utils.servlet.DatastoreViewerServlet</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_backends</servlet-name>
+    <servlet-class>com.google.apphosting.utils.servlet.ServersServlet</servlet-class>
   </servlet>
 
   <servlet>
@@ -284,6 +322,11 @@
   <servlet>
     <servlet-name>_ah_inboundMail</servlet-name>
     <servlet-class>com.google.apphosting.utils.servlet.InboundMailServlet</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_search</servlet-name>
+    <servlet-class>com.google.apphosting.utils.servlet.SearchServlet</servlet-class>
   </servlet>
 
   <servlet>
@@ -312,6 +355,66 @@
   </servlet>
 
   <servlet>
+    <servlet-name>_ah_searchIndexesListHead</servlet-name>
+    <servlet-class>org.apache.jsp.ah.searchIndexesListHead_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_searchIndexesListBody</servlet-name>
+    <servlet-class>org.apache.jsp.ah.searchIndexesListBody_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_searchIndexesListFinal</servlet-name>
+    <servlet-class>org.apache.jsp.ah.searchIndexesListFinal_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_searchIndexHead</servlet-name>
+    <servlet-class>org.apache.jsp.ah.searchIndexHead_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_searchIndexBody</servlet-name>
+    <servlet-class>org.apache.jsp.ah.searchIndexBody_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_searchIndexFinal</servlet-name>
+    <servlet-class>org.apache.jsp.ah.searchIndexFinal_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_searchDocumentHead</servlet-name>
+    <servlet-class>org.apache.jsp.ah.searchDocumentHead_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_searchDocumentBody</servlet-name>
+    <servlet-class>org.apache.jsp.ah.searchDocumentBody_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_searchDocumentFinal</servlet-name>
+    <servlet-class>org.apache.jsp.ah.searchDocumentFinal_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_capabilitiesStatusHead</servlet-name>
+    <servlet-class>org.apache.jsp.ah.capabilitiesStatusHead_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_capabilitiesStatusBody</servlet-name>
+    <servlet-class>org.apache.jsp.ah.capabilitiesStatusBody_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_capabilitiesStatusFinal</servlet-name>
+    <servlet-class>org.apache.jsp.ah.capabilitiesStatusFinal_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
     <servlet-name>_ah_entityDetailsHead</servlet-name>
     <servlet-class>org.apache.jsp.ah.entityDetailsHead_jsp</servlet-class>
   </servlet>
@@ -326,6 +429,36 @@
     <servlet-class>org.apache.jsp.ah.entityDetailsFinal_jsp</servlet-class>
   </servlet>
 
+  <servlet>
+    <servlet-name>_ah_indexDetailsHead</servlet-name>
+    <servlet-class>org.apache.jsp.ah.indexDetailsHead_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_indexDetailsBody</servlet-name>
+    <servlet-class>org.apache.jsp.ah.indexDetailsBody_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_indexDetailsFinal</servlet-name>
+    <servlet-class>org.apache.jsp.ah.indexDetailsFinal_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_backendsHead</servlet-name>
+    <servlet-class>org.apache.jsp.ah.backendsHead_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_backendsBody</servlet-name>
+    <servlet-class>org.apache.jsp.ah.backendsBody_jsp</servlet-class>
+  </servlet>
+
+  <servlet>
+    <servlet-name>_ah_backendsFinal</servlet-name>
+    <servlet-class>org.apache.jsp.ah.backendsFinal_jsp</servlet-class>
+  </servlet>
+  
   <servlet>
     <servlet-name>_ah_taskqueueViewerHead</servlet-name>
     <servlet-class>org.apache.jsp.ah.taskqueueViewerHead_jsp</servlet-class>
@@ -424,6 +557,16 @@
     <url-pattern>/_ah/admin/datastore</url-pattern>
   </servlet-mapping>
 
+      <servlet-mapping>
+    <servlet-name>_ah_capabilitiesViewer</servlet-name>
+    <url-pattern>/_ah/admin/capabilitiesstatus</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_backends</servlet-name>
+    <url-pattern>/_ah/admin/backends</url-pattern>
+  </servlet-mapping>
+
   <servlet-mapping>
     <servlet-name>_ah_taskqueueViewer</servlet-name>
     <url-pattern>/_ah/admin/taskqueue</url-pattern>
@@ -437,6 +580,11 @@
   <servlet-mapping>
     <servlet-name>_ah_inboundMail</servlet-name>
     <url-pattern>/_ah/admin/inboundmail</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_search</servlet-name>
+    <url-pattern>/_ah/admin/search</url-pattern>
   </servlet-mapping>
 
   <!-- "Internal" mappings - should only be invoked from within other pages.
@@ -470,6 +618,51 @@
   </servlet-mapping>
 
   <servlet-mapping>
+    <servlet-name>_ah_searchIndexesListHead</servlet-name>
+    <url-pattern>/_ah/searchIndexesListHead</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_searchIndexesListBody</servlet-name>
+    <url-pattern>/_ah/searchIndexesListBody</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_searchIndexesListFinal</servlet-name>
+    <url-pattern>/_ah/searchIndexesListFinal</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_searchIndexHead</servlet-name>
+    <url-pattern>/_ah/searchIndexHead</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_searchIndexBody</servlet-name>
+    <url-pattern>/_ah/searchIndexBody</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_searchIndexFinal</servlet-name>
+    <url-pattern>/_ah/searchIndexFinal</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_searchDocumentHead</servlet-name>
+    <url-pattern>/_ah/searchDocumentHead</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_searchDocumentBody</servlet-name>
+    <url-pattern>/_ah/searchDocumentBody</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_searchDocumentFinal</servlet-name>
+    <url-pattern>/_ah/searchDocumentFinal</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
     <servlet-name>_ah_entityDetailsHead</servlet-name>
     <url-pattern>/_ah/entityDetailsHead</url-pattern>
   </servlet-mapping>
@@ -484,6 +677,36 @@
     <url-pattern>/_ah/entityDetailsFinal</url-pattern>
   </servlet-mapping>
 
+  <servlet-mapping>
+    <servlet-name>_ah_indexDetailsHead</servlet-name>
+    <url-pattern>/_ah/indexDetailsHead</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_indexDetailsBody</servlet-name>
+    <url-pattern>/_ah/indexDetailsBody</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_indexDetailsFinal</servlet-name>
+    <url-pattern>/_ah/indexDetailsFinal</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_backendsHead</servlet-name>
+    <url-pattern>/_ah/backendsHead</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_backendsBody</servlet-name>
+    <url-pattern>/_ah/backendsBody</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_backendsFinal</servlet-name>
+    <url-pattern>/_ah/backendsFinal</url-pattern>
+  </servlet-mapping>
+  
   <servlet-mapping>
     <servlet-name>_ah_taskqueueViewerHead</servlet-name>
     <url-pattern>/_ah/taskqueueViewerHead</url-pattern>
@@ -552,6 +775,21 @@
   <servlet-mapping>
     <servlet-name>_ah_queue_deferred</servlet-name>
     <url-pattern>/_ah/queue/__deferred__</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_capabilitiesStatusHead</servlet-name>
+    <url-pattern>/_ah/capabilitiesstatusHead</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_capabilitiesStatusBody</servlet-name>
+    <url-pattern>/_ah/capabilitiesstatusBody</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>_ah_capabilitiesStatusFinal</servlet-name>
+    <url-pattern>/_ah/capabilitiesstatusFinal</url-pattern>
   </servlet-mapping>
 
   <security-constraint>
