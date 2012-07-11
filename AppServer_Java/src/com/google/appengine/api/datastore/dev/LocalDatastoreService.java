@@ -26,6 +26,7 @@ import com.google.appengine.tools.development.LocalRpcService;
 import com.google.appengine.tools.development.LocalServerEnvironment;
 import com.google.appengine.tools.development.LocalServiceContext;
 import com.google.appengine.tools.development.ServiceProvider;
+import com.google.appengine.tools.resources.ResourceLoader;
 import com.google.apphosting.api.ApiBasePb;
 import com.google.apphosting.api.ApiBasePb.Integer64Proto;
 import com.google.apphosting.api.ApiBasePb.StringProto;
@@ -157,6 +158,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
   private LocalDatastoreCostAnalysis costAnalysis;
   private static Map<String, SpecialProperty> specialPropertyMap = Collections.singletonMap("__scatter__", SpecialProperty.SCATTER);
 
+  private HTTPClientDatastoreProxy proxy;
+
   public void clearProfiles()
   {
     for (Profile profile : this.profiles.values()) {
@@ -183,20 +186,12 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
   public void init(LocalServiceContext context, Map<String, String> properties)
   {
     this.clock = context.getClock();
-    String storeFile = (String)properties.get("datastore.backing_store");
 
-    String noStorageProp = (String)properties.get("datastore.no_storage");
-    if (noStorageProp != null) {
-      this.noStorage = Boolean.valueOf(noStorageProp).booleanValue();
-    }
-
-    if ((storeFile == null) && (!this.noStorage)) {
-      File dir = GenerationDirectory.getGenerationDirectory(context.getLocalServerEnvironment().getAppDir());
-
-      dir.mkdirs();
-      storeFile = dir.getAbsolutePath() + File.separator + "local_db.bin";
-    }
-    setBackingStore(storeFile);
+    ResourceLoader res = ResourceLoader.getResourceLoader();
+    String host = res.getPbServerIp();
+    int port = res.getPbServerPort();
+    boolean isSSL = res.getDatastoreSecurityMode();
+    this.proxy = new HTTPClientDatastoreProxy(host, port, isSSL);
 
     String storeDelayTime = (String)properties.get("datastore.store_delay");
     this.storeDelayMs = parseInt(storeDelayTime, this.storeDelayMs, "datastore.store_delay");
