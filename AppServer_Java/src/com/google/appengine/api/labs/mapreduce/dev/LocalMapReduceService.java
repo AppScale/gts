@@ -97,6 +97,18 @@ public class LocalMapReduceService implements LocalRpcService {
 		Runtime.getRuntime().addShutdownHook(this.shutdownHook);
 	}
 
+        public Integer getMaxApiRequestSize() {
+        	return Integer.valueOf(33554432);
+        }
+
+        public Double getDefaultDeadline(boolean isOfflineRequest) {
+                return Double.valueOf(30.0D);
+        }
+
+        public Double getMaximumDeadline(boolean isOfflineRequest) {
+                return Double.valueOf(30.0D);
+        }
+
 	@Override
 	public void stop() {
 		System.out.println("stub method in LocalMapReduceService: stop");

@@ -15,10 +15,10 @@ import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
 import org.quartz.impl.StdSchedulerFactory;
 
-import com.google.appengine.api.labs.taskqueue.InternalFailureException;
-import com.google.appengine.api.labs.taskqueue.QueueConstants;
-import com.google.appengine.api.labs.taskqueue.TaskQueuePb;
-import com.google.appengine.api.labs.taskqueue.TaskQueuePb.TaskQueueAddRequest;
+import com.google.appengine.api.taskqueue.InternalFailureException;
+import com.google.appengine.api.taskqueue.QueueConstants;
+import com.google.appengine.api.taskqueue.TaskQueuePb;
+import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueAddRequest;
 import com.google.appengine.api.urlfetch.dev.LocalURLFetchService;
 import com.google.appengine.tools.development.Clock;
 import com.google.appengine.tools.development.LocalRpcService;
@@ -138,6 +138,18 @@ public final class LocalTaskQueue implements LocalRpcService {
 		this.queues.clear();
 		stopScheduler(this.scheduler);
 		UrlFetchJob.getFetchService().stop();
+	}
+
+	public Integer getMaxApiRequestSize() {
+		return Integer.valueOf(33554432);
+	}
+
+	public Double getDefaultDeadline(boolean isOfflineRequest) {
+		return Double.valueOf(30.0D);
+	}
+
+	public Double getMaximumDeadline(boolean isOfflineRequest) {
+		return Double.valueOf(30.0D);
 	}
 
 	public String getPackage() {
