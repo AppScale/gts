@@ -402,7 +402,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     try {
       this.globalLock.readLock().lock();
       DatastorePb.PutResponse localPutResponse = putImpl(status, request);
-      return localPutResponse; } finally { this.globalLock.readLock().unlock(); } throw new RuntimeException();
+      return localPutResponse; } finally { this.globalLock.readLock().unlock(); }
   }
 
   private static void processEntityForSpecialProperties(OnestoreEntity.EntityProto entity, boolean store)
@@ -553,7 +553,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     try {
       this.globalLock.readLock().lock();
       DatastorePb.DeleteResponse localDeleteResponse = deleteImpl(status, request);
-      return localDeleteResponse; } finally { this.globalLock.readLock().unlock(); } throw new RuntimeException();
+      return localDeleteResponse; } finally { this.globalLock.readLock().unlock(); } 
   }
 
   @LatencyPercentiles(latency50th=1)
@@ -730,7 +730,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
       if (query.hasAncestor()) {
         final List ancestorPath = query.getAncestor().getPath().elements();
-        predicates.add(new Predicate(ancestorPath)
+        predicates.add(new Predicate()
         {
           public boolean apply(Object o) {
             OnestoreEntity.EntityProto entity = (OnestoreEntity.EntityProto) o;
@@ -743,7 +743,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
       final boolean hasNamespace = query.hasNameSpace();
       final String namespace = query.getNameSpace();
-      predicates.add(new Predicate(hasNamespace, namespace)
+      predicates.add(new Predicate()
       {
         public boolean apply(Object o) {
           OnestoreEntity.EntityProto entity = (OnestoreEntity.EntityProto) o;
@@ -763,7 +763,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
       });
       final EntityProtoComparators.EntityProtoComparator entityComparator = new EntityProtoComparators.EntityProtoComparator(validatedQuery.getQuery().orders(), validatedQuery.getQuery().filters());
 
-      predicates.add(new Predicate(entityComparator)
+      predicates.add(new Predicate()
       {
         public boolean apply(Object o) {
           OnestoreEntity.EntityProto entity = (OnestoreEntity.EntityProto) o;
@@ -782,7 +782,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
       LiveQuery liveQuery = new LiveQuery(queryEntities, query, entityComparator, this.clock);
 
-      AccessController.doPrivileged(new PrivilegedAction(validatedQuery)
+      AccessController.doPrivileged(new PrivilegedAction()
       {
         public Object run() {
           LocalCompositeIndexManager.getInstance().processQuery(validatedQuery.getQuery());
@@ -868,7 +868,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
       {
         for (Object originalResult : results) {
 	  OnestoreEntity.EntityProto result = (OnestoreEntity.EntityProto) originalResult;
-          result.addProperty().setName((String)entry.getKey()).setMeaning(OnestoreEntity.Property.Meaning.INDEX_VALUE).getMutableValue().copyFrom((ProtocolMessage)Iterables.getOnlyElement((Iterable)entry.getValue()));
+          //result.addProperty().setName((String)entry.getKey()).setMeaning(OnestoreEntity.Property.Meaning.INDEX_VALUE).getMutableValue().copyFrom((ProtocolMessage)Iterables.getOnlyElement((Iterable)entry.getValue()));
+          result.addProperty().setName((String)entry.getKey()).setMeaning(OnestoreEntity.Property.Meaning.INDEX_VALUE).getMutableValue().copyFrom((PropertyValue)Iterables.getOnlyElement((Iterable)entry.getValue()));
         }
 
         continue;
@@ -1003,7 +1004,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
       LocalDatastoreJob job = new LocalDatastoreJob(this.highRepJobPolicy, eg.pathAsKey()) {
         private DatastorePb.Cost calculateJobCost(boolean apply) {
           DatastorePb.Cost cost = LocalDatastoreService.this.calculatePutCost(apply, profile, writtenEntities);
-          LocalDatastoreService.access$1000(cost, LocalDatastoreService.this.calculateDeleteCost(apply, profile, deletedKeys));
+          //LocalDatastoreService.access$1000(cost, LocalDatastoreService.this.calculateDeleteCost(apply, profile, deletedKeys));
           return cost;
         }
 
@@ -1068,7 +1069,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     try {
       this.globalLock.readLock().lock();
       DatastorePb.AllocateIdsResponse localAllocateIdsResponse = allocateIdsImpl(req);
-      return localAllocateIdsResponse; } finally { this.globalLock.readLock().unlock(); } throw new RuntimeException();
+      return localAllocateIdsResponse; } finally { this.globalLock.readLock().unlock(); } 
   }
 
   private DatastorePb.AllocateIdsResponse allocateIdsImpl(DatastorePb.AllocateIdsRequest req)
@@ -1365,8 +1366,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     public void run()
     {
       for (LocalDatastoreService.Profile profile : LocalDatastoreService.this.profiles.values())
-        synchronized (LocalDatastoreService.Profile.access$2100(profile)) {
-          LocalDatastoreService.pruneHasCreationTimeMap(LocalDatastoreService.this.clock.getCurrentTime(), LocalDatastoreService.this.maxTransactionLifetimeMs, LocalDatastoreService.Profile.access$2100(profile));
+        synchronized (profile.txns) {
+          LocalDatastoreService.pruneHasCreationTimeMap(LocalDatastoreService.this.clock.getCurrentTime(), LocalDatastoreService.this.maxTransactionLifetimeMs, profile.txns);
         }
     }
   }
@@ -1381,8 +1382,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     public void run()
     {
       for (LocalDatastoreService.Profile profile : LocalDatastoreService.this.profiles.values())
-        synchronized (LocalDatastoreService.Profile.access$1800(profile)) {
-          LocalDatastoreService.pruneHasCreationTimeMap(LocalDatastoreService.this.clock.getCurrentTime(), LocalDatastoreService.this.maxQueryLifetimeMs, LocalDatastoreService.Profile.access$1800(profile));
+        synchronized (profile.queries) {
+          LocalDatastoreService.pruneHasCreationTimeMap(LocalDatastoreService.this.clock.getCurrentTime(), LocalDatastoreService.this.maxQueryLifetimeMs, profile.queries);
         }
     }
   }
@@ -1631,7 +1632,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         } else {
           result = (OnestoreEntity.EntityProto)entity.clone();
         }
-        LocalDatastoreService.access$1600(result, false);
+        //LocalDatastoreService.access$1600(result, false);
         results.add(result);
       }
       subList.clear();
@@ -1819,7 +1820,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
       throw new RuntimeException();
     }
 
-    private Class<LocalFullTextIndex> getFullTextIndexClass()
+    private Class getFullTextIndexClass()
     {
       try
       {
@@ -1856,7 +1857,12 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     }
 
     public synchronized LocalDatastoreService.LiveQuery getQuery(long cursor) {
-      return (LocalDatastoreService.LiveQuery)LocalDatastoreService.access$1400(getQueries(), cursor, "query has expired or is invalid. Please restart it with the last cursor to read more results.");
+      LocalDatastoreService.LiveQuery result = getQueries().get(cursor);
+      if (result == null) {
+        throw new RuntimeException("query has expired or is invalid. Please restart it with the last cursor to read more results.");
+      } else {
+        return result;
+      }
     }
 
     public synchronized void addQuery(long cursor, LocalDatastoreService.LiveQuery query) {
@@ -1877,7 +1883,12 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     }
 
     public synchronized LocalDatastoreService.LiveTxn getTxn(long handle) {
-      return (LocalDatastoreService.LiveTxn)LocalDatastoreService.access$1400(getTxns(), handle, "transaction has expired or is invalid");
+      LocalDatastoreService.LiveTxn result = getTxns().get(handle);
+      if (result == null) {
+        throw new RuntimeException("transaction has expired or is invalid");
+      } else {
+        return result;
+      }
     }
 
     public LocalFullTextIndex getFullTextIndex()
@@ -2035,7 +2046,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         DatastorePb.Cost totalCost = new DatastorePb.Cost();
         for (Iterator iter = this.unappliedJobs.iterator(); iter.hasNext(); ) {
           LocalDatastoreJob.TryApplyResult result = ((LocalDatastoreJob)iter.next()).tryApply();
-          LocalDatastoreService.access$1000(totalCost, result.cost);
+          //LocalDatastoreService.access$1000(totalCost, result.cost);
           if (!result.applied) break;
           iter.remove();
           applied++;
