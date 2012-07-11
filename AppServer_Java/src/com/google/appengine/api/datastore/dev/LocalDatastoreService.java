@@ -402,7 +402,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     try {
       this.globalLock.readLock().lock();
       DatastorePb.PutResponse localPutResponse = putImpl(status, request);
-      return localPutResponse; } finally { this.globalLock.readLock().unlock(); } throw localObject;
+      return localPutResponse; } finally { this.globalLock.readLock().unlock(); } throw new RuntimeException();
   }
 
   private static void processEntityForSpecialProperties(OnestoreEntity.EntityProto entity, boolean store)
@@ -467,10 +467,11 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
     Map entitiesByEntityGroup = new LinkedHashMap();
 
-    Profile profile = getOrCreateProfile(app);
+    final Profile profile = getOrCreateProfile(app);
     synchronized (profile) {
       LiveTxn liveTxn = null;
-      for (OnestoreEntity.EntityProto clone : clones) {
+      for (Object original : clones) {
+        OnestoreEntity.EntityProto clone = (OnestoreEntity.EntityProto) original;
         LocalDatastoreService.Profile.EntityGroup eg = profile.getGroup(clone.getEntityGroup());
         if (request.hasTransaction())
         {
@@ -489,18 +490,18 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         }
         response.mutableKeys().add(clone.getKey());
       }
-      for (Map.Entry entry : entitiesByEntityGroup.entrySet()) {
+      for (final Map.Entry entry : entitiesByEntityGroup.entrySet()) {
         LocalDatastoreService.Profile.EntityGroup eg = profile.getGroup((OnestoreEntity.Path)entry.getKey());
         eg.incrementVersion();
-        LocalDatastoreJob job = new LocalDatastoreJob(this.highRepJobPolicy, eg.pathAsKey(), profile, entry)
+        LocalDatastoreJob job = new LocalDatastoreJob(this.highRepJobPolicy, eg.pathAsKey())
         {
           DatastorePb.Cost calculateJobCost() {
-            return LocalDatastoreService.this.calculatePutCost(false, this.val$profile, (Collection)this.val$entry.getValue());
+            return LocalDatastoreService.this.calculatePutCost(false, profile, (Collection)entry.getValue());
           }
 
           DatastorePb.Cost applyInternal()
           {
-            return LocalDatastoreService.this.calculatePutCost(true, this.val$profile, (Collection)this.val$entry.getValue());
+            return LocalDatastoreService.this.calculatePutCost(true, profile, (Collection)entry.getValue());
           }
         };
         addTo(totalCost, eg.addJob(job));
@@ -551,7 +552,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     try {
       this.globalLock.readLock().lock();
       DatastorePb.DeleteResponse localDeleteResponse = deleteImpl(status, request);
-      return localDeleteResponse; } finally { this.globalLock.readLock().unlock(); } throw localObject;
+      return localDeleteResponse; } finally { this.globalLock.readLock().unlock(); } throw new RuntimeException();
   }
 
   @LatencyPercentiles(latency50th=1)
@@ -582,7 +583,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     DatastorePb.Cost totalCost = response.getMutableCost();
 
     String app = ((OnestoreEntity.Reference)request.keys().get(0)).getApp();
-    Profile profile = getOrCreateProfile(app);
+    final Profile profile = getOrCreateProfile(app);
     LiveTxn liveTxn = null;
 
     Map keysByEntityGroup = new LinkedHashMap();
@@ -607,18 +608,18 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
       }
 
-      for (Map.Entry entry : keysByEntityGroup.entrySet()) {
+      for (final Map.Entry entry : keysByEntityGroup.entrySet()) {
         LocalDatastoreService.Profile.EntityGroup eg = profile.getGroup((OnestoreEntity.Path)entry.getKey());
         eg.incrementVersion();
-        LocalDatastoreJob job = new LocalDatastoreJob(this.highRepJobPolicy, eg.pathAsKey(), profile, entry)
+        LocalDatastoreJob job = new LocalDatastoreJob(this.highRepJobPolicy, eg.pathAsKey())
         {
           DatastorePb.Cost calculateJobCost() {
-            return LocalDatastoreService.this.calculateDeleteCost(false, this.val$profile, (Collection)this.val$entry.getValue());
+            return LocalDatastoreService.this.calculateDeleteCost(false, profile, (Collection)entry.getValue());
           }
 
           public DatastorePb.Cost applyInternal()
           {
-            return LocalDatastoreService.this.calculateDeleteCost(true, this.val$profile, (Collection)this.val$entry.getValue());
+            return LocalDatastoreService.this.calculateDeleteCost(true, profile, (Collection)entry.getValue());
           }
         };
         addTo(totalCost, eg.addJob(job));
@@ -648,7 +649,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
   @LatencyPercentiles(latency50th=20)
   public DatastorePb.QueryResult runQuery(LocalRpcService.Status status, DatastorePb.Query query)
   {
-    LocalCompositeIndexManager.ValidatedQuery validatedQuery = new LocalCompositeIndexManager.ValidatedQuery(query);
+    final LocalCompositeIndexManager.ValidatedQuery validatedQuery = new LocalCompositeIndexManager.ValidatedQuery(query);
 
     query = validatedQuery.getQuery();
 
@@ -707,7 +708,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         {
           List keys = fullTextIndex.search(query.getKind(), query.getSearchQuery());
           List entities = new ArrayList(keys.size());
-          for (OnestoreEntity.Reference key : keys) {
+          for (Object originalKey : keys) {
+	    OnestoreEntity.Reference key = (OnestoreEntity.Reference) originalKey;
             entities.add(extent.getEntities().get(key));
           }
           queryEntities = entities;
@@ -725,26 +727,26 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
       List predicates = new ArrayList();
 
       if (query.hasAncestor()) {
-        List ancestorPath = query.getAncestor().getPath().elements();
+        final List ancestorPath = query.getAncestor().getPath().elements();
         predicates.add(new Predicate(ancestorPath)
         {
           public boolean apply(OnestoreEntity.EntityProto entity) {
             List path = entity.getKey().getPath().elements();
-            return (path.size() >= this.val$ancestorPath.size()) && (path.subList(0, this.val$ancestorPath.size()).equals(this.val$ancestorPath));
+            return (path.size() >= ancestorPath.size()) && (path.subList(0, ancestorPath.size()).equals(ancestorPath));
           }
 
         });
       }
 
-      boolean hasNamespace = query.hasNameSpace();
-      String namespace = query.getNameSpace();
+      final boolean hasNamespace = query.hasNameSpace();
+      final String namespace = query.getNameSpace();
       predicates.add(new Predicate(hasNamespace, namespace)
       {
         public boolean apply(OnestoreEntity.EntityProto entity) {
           OnestoreEntity.Reference ref = entity.getKey();
 
-          if (this.val$hasNamespace) {
-            if ((!ref.hasNameSpace()) || (!this.val$namespace.equals(ref.getNameSpace()))) {
+          if (hasNamespace) {
+            if ((!ref.hasNameSpace()) || (!namespace.equals(ref.getNameSpace()))) {
               return false;
             }
           }
@@ -755,12 +757,12 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
           return true;
         }
       });
-      EntityProtoComparators.EntityProtoComparator entityComparator = new EntityProtoComparators.EntityProtoComparator(validatedQuery.getQuery().orders(), validatedQuery.getQuery().filters());
+      final EntityProtoComparators.EntityProtoComparator entityComparator = new EntityProtoComparators.EntityProtoComparator(validatedQuery.getQuery().orders(), validatedQuery.getQuery().filters());
 
       predicates.add(new Predicate(entityComparator)
       {
         public boolean apply(OnestoreEntity.EntityProto entity) {
-          return this.val$entityComparator.matches(entity);
+          return entityComparator.matches(entity);
         }
       });
       Predicate queryPredicate = Predicates.not(Predicates.and(predicates));
@@ -778,18 +780,16 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
       AccessController.doPrivileged(new PrivilegedAction(validatedQuery)
       {
         public Object run() {
-          LocalCompositeIndexManager.getInstance().processQuery(this.val$validatedQuery.getQuery());
+          LocalCompositeIndexManager.getInstance().processQuery(validatedQuery.getQuery());
           return null;
         }
       });
-      int count;
       int count;
       if (query.hasCount()) {
         count = query.getCount();
       }
       else
       {
-        int count;
         if (query.hasLimit())
           count = query.getLimit();
         else {
@@ -860,7 +860,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     for (Map.Entry entry : toSplit.asMap().entrySet()) {
       if (((Collection)entry.getValue()).size() == 1)
       {
-        for (OnestoreEntity.EntityProto result : results) {
+        for (Object originalResult : results) {
+	  OnestoreEntity.EntityProto result = (OnestoreEntity.EntityProto) originalResult;
           result.addProperty().setName((String)entry.getKey()).setMeaning(OnestoreEntity.Property.Meaning.INDEX_VALUE).getMutableValue().copyFrom((ProtocolMessage)Iterables.getOnlyElement((Iterable)entry.getValue()));
         }
 
@@ -868,8 +869,10 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
       }
       List splitResults = Lists.newArrayListWithCapacity(results.size() * ((Collection)entry.getValue()).size());
 
-      for (Iterator i$ = ((Collection)entry.getValue()).iterator(); i$.hasNext(); ) { value = (OnestoreEntity.PropertyValue)i$.next();
-        for (OnestoreEntity.EntityProto result : results) {
+      for (Iterator i = ((Collection)entry.getValue()).iterator(); i.hasNext(); ) { 
+	OnestoreEntity.PropertyValue value = (OnestoreEntity.PropertyValue)i.next();
+        for (Object originalResult : results) {
+	  OnestoreEntity.EntityProto result = (OnestoreEntity.EntityProto) originalResult;
           OnestoreEntity.EntityProto split = (OnestoreEntity.EntityProto)result.clone();
           split.addProperty().setName((String)entry.getKey()).setMeaning(OnestoreEntity.Property.Meaning.INDEX_VALUE).getMutableValue().copyFrom(value);
 
@@ -884,7 +887,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
   private static <T> T safeGetFromExpiringMap(Map<Long, T> map, long key, String errorMsg)
   {
-    Object value = map.get(Long.valueOf(key));
+    T value = map.get(Long.valueOf(key));
     if (value == null) {
       throw Utils.newError(DatastorePb.Error.ErrorCode.INTERNAL_ERROR, errorMsg);
     }
@@ -975,7 +978,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     return response;
   }
 
-  private DatastorePb.Cost commitImpl(LiveTxn liveTxn, Profile profile)
+  private DatastorePb.Cost commitImpl(LiveTxn liveTxn, final Profile profile)
   {
     for (EntityGroupTracker tracker : liveTxn.getAllTrackers())
     {
@@ -989,12 +992,12 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
       LocalDatastoreService.Profile.EntityGroup eg = tracker.getEntityGroup();
       eg.incrementVersion();
 
-      Collection writtenEntities = tracker.getWrittenEntities();
-      Collection deletedKeys = tracker.getDeletedKeys();
-      LocalDatastoreJob job = new LocalDatastoreJob(this.highRepJobPolicy, eg.pathAsKey(), profile, writtenEntities, deletedKeys) {
+      final Collection writtenEntities = tracker.getWrittenEntities();
+      final Collection deletedKeys = tracker.getDeletedKeys();
+      LocalDatastoreJob job = new LocalDatastoreJob(this.highRepJobPolicy, eg.pathAsKey()) {
         private DatastorePb.Cost calculateJobCost(boolean apply) {
-          DatastorePb.Cost cost = LocalDatastoreService.this.calculatePutCost(apply, this.val$profile, this.val$writtenEntities);
-          LocalDatastoreService.access$1000(cost, LocalDatastoreService.this.calculateDeleteCost(apply, this.val$profile, this.val$deletedKeys));
+          DatastorePb.Cost cost = LocalDatastoreService.this.calculatePutCost(apply, profile, writtenEntities);
+          LocalDatastoreService.access$1000(cost, LocalDatastoreService.this.calculateDeleteCost(apply, profile, deletedKeys));
           return cost;
         }
 
@@ -1043,7 +1046,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
   public DatastorePb.CompositeIndices getIndices(LocalRpcService.Status status, ApiBasePb.StringProto req) {
     Set indexSet = LocalCompositeIndexManager.getInstance().getIndices();
     DatastorePb.CompositeIndices answer = new DatastorePb.CompositeIndices();
-    for (OnestoreEntity.Index index : indexSet) {
+    for (Object originalIndex : indexSet) {
+      OnestoreEntity.Index index = (OnestoreEntity.Index) originalIndex;
       OnestoreEntity.CompositeIndex ci = wrapIndexInCompositeIndex(req.getValue(), index);
       answer.addIndex(ci);
     }
@@ -1058,7 +1062,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     try {
       this.globalLock.readLock().lock();
       DatastorePb.AllocateIdsResponse localAllocateIdsResponse = allocateIdsImpl(req);
-      return localAllocateIdsResponse; } finally { this.globalLock.readLock().unlock(); } throw localObject;
+      return localAllocateIdsResponse; } finally { this.globalLock.readLock().unlock(); } throw new RuntimeException();
   }
 
   private DatastorePb.AllocateIdsResponse allocateIdsImpl(DatastorePb.AllocateIdsRequest req)
@@ -1197,7 +1201,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
       Extent extent = getOrCreateExtent(profile, kind);
       OnestoreEntity.EntityProto oldEntity;
       if (apply) {
-        OnestoreEntity.EntityProto oldEntity = (OnestoreEntity.EntityProto)extent.getEntities().put(entityProto.getKey(), entityProto);
+        oldEntity = (OnestoreEntity.EntityProto)extent.getEntities().put(entityProto.getKey(), entityProto);
 
         LocalFullTextIndex fullTextIndex = profile.getFullTextIndex();
         if (fullTextIndex != null)
@@ -1225,7 +1229,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
       {
         OnestoreEntity.EntityProto oldEntity;
         if (apply) {
-          OnestoreEntity.EntityProto oldEntity = (OnestoreEntity.EntityProto)extent.getEntities().remove(key);
+          oldEntity = (OnestoreEntity.EntityProto)extent.getEntities().remove(key);
           LocalFullTextIndex fullTextIndex = profile.getFullTextIndex();
           if (fullTextIndex != null)
             fullTextIndex.delete(key);
@@ -1293,7 +1297,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
       objectOut.writeObject(LocalDatastoreService.this.profiles);
 
       objectOut.close();
-      LocalDatastoreService.access$2702(LocalDatastoreService.this, false);
+      LocalDatastoreService.this.dirty = false;
       long end = LocalDatastoreService.this.clock.getCurrentTime();
 
       LocalDatastoreService.logger.log(Level.INFO, "Time to persist datastore: " + (end - start) + " ms");
@@ -1440,7 +1444,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     private boolean failed = false;
 
     LiveTxn(Clock clock, boolean allowMultipleEg) {
-      super();
+      super(clock.getCurrentTime());
       this.allowMultipleEg = allowMultipleEg;
     }
 
@@ -1528,7 +1532,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
     public LiveQuery(List<OnestoreEntity.EntityProto> entities, DatastorePb.Query query, EntityProtoComparators.EntityProtoComparator entityComparator, Clock clock)
     {
-      super();
+      super(clock.getCurrentTime());
       if (entities == null) {
         throw new NullPointerException("entities cannot be null");
       }
@@ -1591,11 +1595,11 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
       }
 
       List results = new ArrayList(subList.size());
-      for (OnestoreEntity.EntityProto entity : subList)
+      for (Object originalEntity : subList)
       {
+	OnestoreEntity.EntityProto entity = (OnestoreEntity.EntityProto) originalEntity;
         OnestoreEntity.EntityProto result;
         Set seenProps;
-        OnestoreEntity.EntityProto result;
         if (!this.projectedProperties.isEmpty()) {
           result = new OnestoreEntity.EntityProto();
           result.getMutableKey().copyFrom(entity.getKey());
@@ -1615,7 +1619,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
         }
         else if (this.query.isKeysOnly()) {
-          OnestoreEntity.EntityProto result = new OnestoreEntity.EntityProto();
+          result = new OnestoreEntity.EntityProto();
           result.getMutableKey().copyFrom(entity.getKey());
           result.getMutableEntityGroup();
         } else {
@@ -1806,7 +1810,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         throw new RuntimeException(e); 
       } catch (IllegalAccessException e) {
       }
-      throw new RuntimeException(e);
+      throw new RuntimeException();
     }
 
     private Class<LocalFullTextIndex> getFullTextIndexClass()
@@ -1830,7 +1834,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
       Map map = getGroups();
       EntityGroup group = (EntityGroup)map.get(path);
       if (group == null) {
-        group = new EntityGroup(path, null);
+        group = new EntityGroup(path);
         map.put(path, group);
       }
       return group;
@@ -1988,7 +1992,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         } catch (IOException ex) {
           throw new RuntimeException("Unable to take transaction snapshot.", ex); } catch (ClassNotFoundException ex) {
         }
-        throw new RuntimeException("Unable to take transaction snapshot.", ex);
+        throw new RuntimeException("Unable to take transaction snapshot.");
       }
 
       public String toString()
