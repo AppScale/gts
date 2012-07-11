@@ -176,6 +176,10 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
             this.properties.putAll(properties);
     }
 
+    public void appendProperties(Map<String, String> properties) {
+        this.properties.putAll(properties);
+    }
+
     public void stop() {
         for (LocalRpcService service : this.serviceCache.values()) {
             service.stop();
@@ -411,6 +415,7 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
     private class LocalServiceContextImpl implements LocalServiceContext {
         /** The local server environment */
         private final LocalServerEnvironment localServerEnvironment;
+        private final LocalCapabilitiesEnvironment localCapabilitiesEnvironment = new LocalCapabilitiesEnvironment(System.getProperties());
 
         /**
          * Creates a new context, for the given application.
@@ -426,8 +431,16 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
             return this.localServerEnvironment;
         }
 
+        public LocalCapabilitiesEnvironment getLocalCapabilitiesEnvironment() {
+            return this.localCapabilitiesEnvironment;
+        }
+
         public Clock getClock() {
             return clock;
+        }
+
+        public LocalRpcService getLocalService(String packageName) {
+            return ApiProxyLocalImpl.this.getService(packageName);
         }
     }
 }
