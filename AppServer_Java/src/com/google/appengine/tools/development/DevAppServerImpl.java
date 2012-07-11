@@ -26,21 +26,21 @@ class DevAppServerImpl implements DevAppServer {
     private ContainerService mainContainer = null;
     private final BackendContainer backendContainer;
 
-    public DevAppServerImpl(File appDir, File webXmlLocation,
-            File appEngineWebXmlLocation, String address, int port,
-            boolean useCustomStreamHandler,
-            Map<String, Object> containerConfigProperties) {
+    public DevAppServerImpl(File appDir, File externalResourceDir, 
+           File webXmlLocation, File appEngineWebXmlLocation, String address, 
+           int port, boolean useCustomStreamHandler, 
+           Map<String, Object> containerConfigProperties) {
         String serverInfo = ContainerUtils.getServerInfo();
         if (useCustomStreamHandler) {
             StreamHandlerFactory.install();
         }
         this.mainContainer = ContainerUtils.loadContainer();
-        this.environment = this.mainContainer.configure(serverInfo, appDir,
-                webXmlLocation, appEngineWebXmlLocation, address, port,
-                containerConfigProperties);
+        this.environment = this.mainContainer.configure(serverInfo, appDir, 
+                externalResourceDir, webXmlLocation, appEngineWebXmlLocation, 
+                address, port, containerConfigProperties);
 
         this.backendContainer = BackendServers.getInstance();
-        this.backendContainer.init(appDir, webXmlLocation,
+        this.backendContainer.init(appDir, externalResourceDir, webXmlLocation, 
                 appEngineWebXmlLocation, address, containerConfigProperties);
     }
 
