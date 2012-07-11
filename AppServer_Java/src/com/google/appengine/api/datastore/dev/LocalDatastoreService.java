@@ -139,11 +139,11 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     }
   });
 
-  private final RemoveStaleQueries removeStaleQueriesTask = new RemoveStaleQueries(null);
+  private final RemoveStaleQueries removeStaleQueriesTask = new RemoveStaleQueries();
 
-  private final RemoveStaleTransactions removeStaleTransactionsTask = new RemoveStaleTransactions(null);
+  private final RemoveStaleTransactions removeStaleTransactionsTask = new RemoveStaleTransactions();
 
-  private final PersistDatastore persistDatastoreTask = new PersistDatastore(null);
+  private final PersistDatastore persistDatastoreTask = new PersistDatastore();
 
   private final AtomicInteger transactionHandleProvider = new AtomicInteger(0);
   private int storeDelayMs;
@@ -490,7 +490,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         }
         response.mutableKeys().add(clone.getKey());
       }
-      for (final Map.Entry entry : entitiesByEntityGroup.entrySet()) {
+      for (Object originalEntry : entitiesByEntityGroup.entrySet()) {
+        final Map.Entry entry = (Map.Entry) originalEntry;
         LocalDatastoreService.Profile.EntityGroup eg = profile.getGroup((OnestoreEntity.Path)entry.getKey());
         eg.incrementVersion();
         LocalDatastoreJob job = new LocalDatastoreJob(this.highRepJobPolicy, eg.pathAsKey())
@@ -608,7 +609,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
       }
 
-      for (final Map.Entry entry : keysByEntityGroup.entrySet()) {
+      for (Object originalEntry : keysByEntityGroup.entrySet()) {
+        final Map.Entry entry = (Map.Entry) originalEntry;
         LocalDatastoreService.Profile.EntityGroup eg = profile.getGroup((OnestoreEntity.Path)entry.getKey());
         eg.incrementVersion();
         LocalDatastoreJob job = new LocalDatastoreJob(this.highRepJobPolicy, eg.pathAsKey())
@@ -730,7 +732,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         final List ancestorPath = query.getAncestor().getPath().elements();
         predicates.add(new Predicate(ancestorPath)
         {
-          public boolean apply(OnestoreEntity.EntityProto entity) {
+          public boolean apply(Object o) {
+            OnestoreEntity.EntityProto entity = (OnestoreEntity.EntityProto) o;
             List path = entity.getKey().getPath().elements();
             return (path.size() >= ancestorPath.size()) && (path.subList(0, ancestorPath.size()).equals(ancestorPath));
           }
@@ -742,7 +745,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
       final String namespace = query.getNameSpace();
       predicates.add(new Predicate(hasNamespace, namespace)
       {
-        public boolean apply(OnestoreEntity.EntityProto entity) {
+        public boolean apply(Object o) {
+          OnestoreEntity.EntityProto entity = (OnestoreEntity.EntityProto) o;
           OnestoreEntity.Reference ref = entity.getKey();
 
           if (hasNamespace) {
@@ -761,7 +765,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
       predicates.add(new Predicate(entityComparator)
       {
-        public boolean apply(OnestoreEntity.EntityProto entity) {
+        public boolean apply(Object o) {
+          OnestoreEntity.EntityProto entity = (OnestoreEntity.EntityProto) o;
           return entityComparator.matches(entity);
         }
       });
@@ -857,7 +862,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     clone.getMutableEntityGroup();
     List results = Lists.newArrayList(new OnestoreEntity.EntityProto[] { clone });
 
-    for (Map.Entry entry : toSplit.asMap().entrySet()) {
+    for (Object originalEntry : toSplit.asMap().entrySet()) {
+      Map.Entry entry = (Map.Entry) originalEntry;
       if (((Collection)entry.getValue()).size() == 1)
       {
         for (Object originalResult : results) {
@@ -1842,7 +1848,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
     private synchronized void groom()
     {
-      for (OnestoreEntity.Path path : new HashSet(getGroupsWithUnappliedJobs())) {
+      for (Object originalPath : new HashSet(getGroupsWithUnappliedJobs())) {
+        OnestoreEntity.Path path = (OnestoreEntity.Path) originalPath;
         EntityGroup eg = getGroup(path);
         eg.maybeRollForwardUnappliedJobs();
       }
