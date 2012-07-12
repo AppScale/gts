@@ -69,8 +69,8 @@ public class LocalMapReduceService implements LocalRpcService {
 		supportedLang.put("rb", "ruby");
 		supportedLang.put("pl", "perl");
 		supportedLang.put("py", "python");
-		hadoopHome = ResourceLoader.getResouceLoader().getHadoopHome();
-		mrTmpLocation = ResourceLoader.getResouceLoader().getMrTmpLocation();
+		hadoopHome = ResourceLoader.getResourceLoader().getHadoopHome();
+		mrTmpLocation = ResourceLoader.getResourceLoader().getMrTmpLocation();
 	}
 
 	@Override
@@ -281,7 +281,7 @@ public class LocalMapReduceService implements LocalRpcService {
 
 	protected Integer getNodeNumber() {
 		int num = 0;
-		String fileLoc = ResourceLoader.getResouceLoader().getNumOfNode();
+		String fileLoc = ResourceLoader.getResourceLoader().getNumOfNode();
 		File file = new File(fileLoc);
 		MRNodeNumResponse resp = new MRNodeNumResponse();
 		if (!file.exists()) {

@@ -286,7 +286,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
   }
 
   private void startInternal() {
-    load();
+    //load();
     this.scheduler.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
     this.scheduler.scheduleWithFixedDelay(this.removeStaleQueriesTask, this.maxQueryLifetimeMs * 5, this.maxQueryLifetimeMs * 5, TimeUnit.MILLISECONDS);
 
@@ -443,7 +443,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         lastPath.setId(this.entityId.getAndIncrement());
       }
 
-      processEntityForSpecialProperties(clone, true);
+      //processEntityForSpecialProperties(clone, true);
 
       if (clone.getEntityGroup().elementSize() == 0)
       {
