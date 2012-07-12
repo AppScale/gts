@@ -361,6 +361,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
   @LatencyPercentiles(latency50th=10)
   public DatastorePb.GetResponse get(LocalRpcService.Status status, DatastorePb.GetRequest request) {
     DatastorePb.GetResponse response = new DatastorePb.GetResponse();
+    /*
     LiveTxn liveTxn = null;
     for (OnestoreEntity.Reference key : request.keys()) {
       String app = key.getApp();
@@ -388,8 +389,9 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
         profile.groom();
       }
-    }
+    } */
 
+    proxy.doPost(request.getKey(0).getApp(), "Get", request, response);
     return response;
   }
   @LatencyPercentiles(latency50th=30, dynamicAdjuster=WriteLatencyAdjuster.class)
@@ -460,6 +462,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
       }
     }
 
+    /*
     Map entitiesByEntityGroup = new LinkedHashMap();
 
     final Profile profile = getOrCreateProfile(app);
@@ -507,6 +510,9 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
       logger.fine("put: " + request.entitySize() + " entities");
     }
     response.setCost(totalCost);
+    */
+
+    proxy.doPost(app, "Put", request, response);
     return response;
   }
 
@@ -576,6 +582,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     if (request.keySize() == 0) {
       return response;
     }
+
+    /*
     DatastorePb.Cost totalCost = response.getMutableCost();
 
     String app = ((OnestoreEntity.Reference)request.keys().get(0)).getApp();
@@ -622,6 +630,9 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         addTo(totalCost, eg.addJob(job));
       }
     }
+    */
+
+    proxy.doPost(request.getKey(0).getApp(), "Delete", request, response);
     return response;
   }
 
@@ -682,7 +693,10 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         throw Utils.newError(DatastorePb.Error.ErrorCode.BAD_REQUEST, "full-text search unsupported");
       }
 
-      List queryEntities = this.pseudoKinds.runQuery(query);
+      DatastorePb.QueryResult queryResult = new DatastorePb.QueryResult();
+      proxy.doPost(app, "RunQuery", query, queryResult);   
+      List<EntityProto> queryEntities = new ArrayList<EntityProto>(queryResult.results());
+
       if (queryEntities == null) {
         Map extents = profile.getExtents();
         Extent extent = (Extent)extents.get(query.getKind());
@@ -777,13 +791,14 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
       LiveQuery liveQuery = new LiveQuery(queryEntities, query, entityComparator, this.clock);
 
+      /*
       AccessController.doPrivileged(new PrivilegedAction()
       {
         public Object run() {
           LocalCompositeIndexManager.getInstance().processQuery(validatedQuery.getQuery());
           return null;
         }
-      });
+      }); */
       int count;
       if (query.hasCount()) {
         count = query.getCount();
@@ -807,9 +822,10 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         result.getMutableCursor().setApp(query.getApp()).setCursor(cursor);
       }
 
+/*
       for (OnestoreEntity.Index index : LocalCompositeIndexManager.getInstance().queryIndexList(query)) {
         result.addIndex(wrapIndexInCompositeIndex(app, index));
-      }
+      } */
       return result;
     }
   }
@@ -947,15 +963,17 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     if ((req.isAllowMultipleEg()) && (!isHighRep())) {
       throw Utils.newError(DatastorePb.Error.ErrorCode.BAD_REQUEST, "transactions on multiple entity groups only allowed in High Replication applications");
     }
-    profile.addTxn(txn.getHandle(), new LiveTxn(this.clock, req.isAllowMultipleEg()));
+    proxy.doPost(req.getApp(), "BeginTransaction", req, txn);
     return txn;
   }
   @LatencyPercentiles(latency50th=20, dynamicAdjuster=WriteLatencyAdjuster.class)
   public DatastorePb.CommitResponse commit(LocalRpcService.Status status, DatastorePb.Transaction req) {
     Profile profile = (Profile)this.profiles.get(req.getApp());
     DatastorePb.CommitResponse response = new DatastorePb.CommitResponse();
+    proxy.doPost(req.getApp(), "Commit", req, response);
 
     synchronized (profile) {
+      /*
       LiveTxn liveTxn = profile.removeTxn(req.getHandle());
       if (liveTxn.isDirty()) {
         try {
@@ -967,9 +985,10 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
       }
       else {
         response.setCost(new DatastorePb.Cost().setEntityWrites(0).setIndexWrites(0));
-      }
+      } */
 
-      for (TaskQueuePb.TaskQueueAddRequest action : liveTxn.getActions()) {
+      LiveTxn liveTxn = profile.removeTxn(req.getHandle());
+      for (TaskQueuePb.TaskQueueAddRequest action : liveTxn.actions) {
         try {
           ApiProxy.makeSyncCall("taskqueue", "Add", action.toByteArray());
         } catch (ApiProxy.ApplicationException e) {
@@ -1023,17 +1042,27 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
   }
   @LatencyPercentiles(latency50th=1)
   public ApiBasePb.VoidProto rollback(LocalRpcService.Status status, DatastorePb.Transaction req) {
-    ((Profile)this.profiles.get(req.getApp())).removeTxn(req.getHandle());
-    return new ApiBasePb.VoidProto();
+    VoidProto response = new VoidProto();
+    proxy.doPost(req.getApp(), "Rollback", req, response);
+    return response;
   }
 
   public ApiBasePb.Integer64Proto createIndex(LocalRpcService.Status status, OnestoreEntity.CompositeIndex req)
   {
-    throw new UnsupportedOperationException("Not yet implemented.");
+    Integer64Proto response = new Integer64Proto();
+    if (req.getId() != 0) {
+      throw new IllegalArgumentException("New index id must be 0.");
+    }
+    proxy.doPost(req.getAppId(), "CreateIndex", req, response);
+    //logger.log(Level.INFO, "createIndex response: " + response.toFlatString());
+    return response;
+    // throw new UnsupportedOperationException("Not yet implemented.");
   }
 
   public ApiBasePb.VoidProto updateIndex(LocalRpcService.Status status, OnestoreEntity.CompositeIndex req) {
-    throw new UnsupportedOperationException("Not yet implemented.");
+    VoidProto response = new ApiBasePb.VoidProto();
+    proxy.doPost(req.getAppId(), "UpdateIndex", req, response);
+    return response;
   }
 
   private OnestoreEntity.CompositeIndex wrapIndexInCompositeIndex(String app, OnestoreEntity.Index index) {
@@ -1046,18 +1075,15 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
   }
 
   public DatastorePb.CompositeIndices getIndices(LocalRpcService.Status status, ApiBasePb.StringProto req) {
-    Set indexSet = LocalCompositeIndexManager.getInstance().getIndices();
     DatastorePb.CompositeIndices answer = new DatastorePb.CompositeIndices();
-    for (Object originalIndex : indexSet) {
-      OnestoreEntity.Index index = (OnestoreEntity.Index) originalIndex;
-      OnestoreEntity.CompositeIndex ci = wrapIndexInCompositeIndex(req.getValue(), index);
-      answer.addIndex(ci);
-    }
+    proxy.doPost(req.getValue(), "GetIndices", req, answer);
     return answer;
   }
 
   public ApiBasePb.VoidProto deleteIndex(LocalRpcService.Status status, OnestoreEntity.CompositeIndex req) {
-    throw new UnsupportedOperationException("Not yet implemented.");
+    VoidProto response = new VoidProto();
+    proxy.doPost(req.getAppId(), "DeleteIndex", req, response);
+    return response;
   }
   @LatencyPercentiles(latency50th=1)
   public DatastorePb.AllocateIdsResponse allocateIds(LocalRpcService.Status status, DatastorePb.AllocateIdsRequest req) {
@@ -1069,21 +1095,13 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
   private DatastorePb.AllocateIdsResponse allocateIdsImpl(DatastorePb.AllocateIdsRequest req)
   {
-    if (req.hasSize()) {
-      if (req.getSize() > 1000000000L) {
-        throw Utils.newError(DatastorePb.Error.ErrorCode.BAD_REQUEST, "cannot get more than 1000000000 keys in a single call");
-      }
+    if (req.hasSize() && req.getSize() > MAX_BATCH_GET_KEYS) {
+      throw new ApiProxy.ApplicationException(DatastorePb.Error.ErrorCode.BAD_REQUEST.getValue(), "cannot get more than 1000000000 keys in a single call");
+    }
 
-      long start = this.entityId.getAndAdd(req.getSize());
-      return new DatastorePb.AllocateIdsResponse().setStart(start).setEnd(start + req.getSize() - 1L);
-    }
-    long current = this.entityId.get();
-    while ((current <= req.getMax()) && 
-      (!this.entityId.compareAndSet(current, req.getMax() + 1L)))
-    {
-      current = this.entityId.get();
-    }
-    return new DatastorePb.AllocateIdsResponse().setStart(current).setEnd(Math.max(req.getMax(), current - 1L));
+    DatastorePb.AllocateIdsResponse response = new DatastorePb.AllocateIdsResponse();
+    proxy.doPost("appId", "AllocateIds", req, response);
+    return response;
   }
 
   Profile getOrCreateProfile(String app)
