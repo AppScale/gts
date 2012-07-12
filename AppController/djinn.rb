@@ -2425,7 +2425,6 @@ class Djinn
   def rsync_files(dest_node)
     controller = "#{APPSCALE_HOME}/AppController"
     server = "#{APPSCALE_HOME}/AppServer"
-    server_java = "#{APPSCALE_HOME}/AppServer_Java"
     loadbalancer = "#{APPSCALE_HOME}/AppLoadBalancer"
     appdb = "#{APPSCALE_HOME}/AppDB"
     neptune = "#{APPSCALE_HOME}/Neptune"
@@ -2438,7 +2437,6 @@ class Djinn
 
     Djinn.log_run("rsync #{options} #{controller}/* root@#{ip}:#{controller}")
     Djinn.log_run("rsync #{options} #{server}/* root@#{ip}:#{server}")
-    Djinn.log_run("rsync #{options} #{server_java}/* root@#{ip}:#{server_java}")
     Djinn.log_run("rsync #{options} #{loadbalancer}/* root@#{ip}:#{loadbalancer}")
     Djinn.log_run("rsync #{options} --exclude='logs/*' --exclude='hadoop-*' --exclude='hbase/hbase-*' --exclude='voldemort/voldemort/*' --exclude='cassandra/cassandra/*' #{appdb}/* root@#{ip}:#{appdb}")
     Djinn.log_run("rsync #{options} #{neptune}/* root@#{ip}:#{neptune}")
