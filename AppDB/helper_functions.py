@@ -14,11 +14,11 @@ strings are returned in unicode and may not able
 able to be converted to a regular string
 """
 def reverseLex(ustring):
-  newstr = u""
+  newstr = ""
   for ii in ustring:
     ordinance = ord(ii)
     new_byte = 255 - ordinance
-    char = unichr(new_byte)
+    char = chr(new_byte)
     newstr += char
   return newstr
 
