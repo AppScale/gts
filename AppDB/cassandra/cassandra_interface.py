@@ -1,24 +1,27 @@
 # Cassandra Interface for AppScale
 # author: Navraj Chohan
 
-import os,sys
+import base64
+import os
+import string
+import sys
 import time
-import collections
 
 from thrift_cass.Cassandra import Client
 from thrift_cass.ttypes import *
-import helper_functions
-import string
-import base64
-from dbconstants import *
-from dbinterface_batch import *
-import appscale_logger
-import pycassa
-from pycassa.system_manager import *
 from thrift import Thrift
 from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
+
+import appscale_logger
+import helper_functions
+import pycassa
+
+from dbconstants import *
+from dbinterface_batch import *
+from pycassa.system_manager import *
+
 
 CASS_DEFAULT_PORT = 9160
 
@@ -28,10 +31,15 @@ CONSISTENCY_QUORUM = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
 
 KEYSPACE = "Keyspace1"
 
+STANDARD_COL_FAM = "Standard1"
+
 class DatastoreProxy(AppDBInterface):
+  """ A class interface to batch interfaces for Cassandra
+  """
   def __init__(self, logger = appscale_logger.getLogger("datastore-cassandra")):
     f = open(APPSCALE_HOME + '/.appscale/my_private_ip', 'r')
     self.host = f.read()
+    f.close()
     self.port = CASS_DEFAULT_PORT
     self.pool = pycassa.ConnectionPool(keyspace=KEYSPACE,
                           server_list=[self.host+":"+str(self.port)], 
@@ -49,6 +57,10 @@ class DatastoreProxy(AppDBInterface):
       A dictionary of {key:{column_name:value,...}}
     """
 
+    assert isinstance(table_name, str)
+    assert isinstance(column_names, list)
+    assert isinstance(row_keys, list)
+ 
     client = None
     results = {}
     ret = {}
@@ -59,16 +71,16 @@ class DatastoreProxy(AppDBInterface):
                                    path, 
                                    slice_predicate, 
                                    CONSISTENCY_QUORUM)
-    for ii in row_keys:
+    for row in row_keys:
       col_dic = {}
-      for kk in results[ii]:
-        col_dic[kk.column.name] = kk.column.value
-      ret[ii] = col_dic
+      for columns in results[row]:
+        col_dic[columns.column.name] = columns.column.value
+      ret[row] = col_dic
     self.__close_connection(client)
     return ret
 
   def batch_put_entity(self, table_name, row_keys, column_names, cell_values):
-    """Allows storage to multiple rows with a single call
+    """Allows callers to store multiple rows with a single call.
    
     Args: 
       table_name: The table to mutate
@@ -78,13 +90,18 @@ class DatastoreProxy(AppDBInterface):
     Returns:
       Nothing 
     """
+
+    assert isinstance(table_name, str)
+    assert isinstance(column_names, list)
+    assert isinstance(row_keys, list)
+    assert isinstance(cell_values, dict)
+ 
     cf = pycassa.ColumnFamily(self.pool,table_name)
-    curtime = self.timestamp()
     multi_map = {}
     for key in row_keys:
       cols = {}
-      for ii in column_names:
-        cols[ii] = cell_values[key][ii]
+      for cname in column_names:
+        cols[cname] = cell_values[key][cname]
       multi_map[key] = cols
     cf.batch_insert(multi_map)
       
@@ -92,34 +109,26 @@ class DatastoreProxy(AppDBInterface):
     """Remove a set of keys
      
     Args:
-      table_name: Table to mutate
+      table_name: Table to delete rows from
       row_keys: A list of keys to remove
     Returns:
       Nothing
+    Raises:
+      AppScaleDBConnectionError when unable to execute deletes
     """ 
+
+    assert isinstance(table_name, str)
+    assert isinstance(row_keys, list)
 
     path = ColumnPath(table_name)
     try:
       cf = pycassa.ColumnFamily(self.pool,table_name)
       b = cf.batch()
-      curtime = self.timestamp()
       for key in row_keys:
         b.remove(key)
       b.send()
     except Exception, ex:
       raise AppScaleDBConnectionError("Exception %s" % str(ex))
-
-  def get_schema(self, table_name):
-    """ Returns the schema of a column family
-    Args:
-      table_name: The column family name
-    Returns:
-      Nothing
-    """
-
-    #cf = pycassa.ColumnFamily(self.pool,table_name)
-    #return cf.load_schema()
-    raise NotImplementedError("No get_schema available") 
 
   def delete_table(self, table_name):
     """ Drops a given column family
@@ -130,8 +139,11 @@ class DatastoreProxy(AppDBInterface):
       Nothing
     """
 
+    assert isinstance(table_name, str)
+
     f = open(APPSCALE_HOME + '/.appscale/my_private_ip', 'r')
     host = f.read()
+    f.close()
     sysman = SystemManager(host + ":" + str(CASS_DEFAULT_PORT))
     sysman.drop_column_family(KEYSPACE, table_name)
 
@@ -145,8 +157,12 @@ class DatastoreProxy(AppDBInterface):
       Nothing
     """
 
+    assert isinstance(table_name, str)
+    assert isinstance(column_names, list)
+
     f = open(APPSCALE_HOME + '/.appscale/my_private_ip', 'r')
     host = f.read()
+    f.close()
     sysman = SystemManager(host + ":" + str(CASS_DEFAULT_PORT))
     try:
       sysman.create_column_family(KEYSPACE,
@@ -170,17 +186,23 @@ class DatastoreProxy(AppDBInterface):
         or a list of keys if keys only.
      
     Args:
-      table_name: column family name
-      column_names: columns which get returned
+      table_name: column family name (Cassandra's name for a table)
+      column_names: columns which get returned within the key range
       start_key: starts query with this key
       end_key: ends query with this key
-      limit: max number of results to return
+      limit: maximum number of results to return
       offset: cuts off these many from the results [offset:]
       start_inclusive: if results should include the start_key
       end_inclusive: if results should include the end_key
       keys_only: only returns keys and not values
     """
-
+    assert isinstance(table_name, str)
+    assert isinstance(column_names, list)
+    assert isinstance(start_key, str)
+    assert isinstance(end_key, str)
+    assert isinstance(limit, int)
+    assert isinstance(offset, int)
+    
     # We add extra rows in case we exclusde the start/end keys
     # This makes sure the limit is upheld correctly
     if start_inclusive == False or end_inclusive == False:
@@ -196,15 +218,15 @@ class DatastoreProxy(AppDBInterface):
                              row_count=limit,
                              read_consistency_level=CONSISTENCY_QUORUM)
 
-    for ii in keyslices:
+    for key in keyslices:
       if keys_only:
-        results.append(ii[0]) 
+        results.append(key[0]) 
       else:
-        columns = ii[1]
+        columns = key[1]
         col_mapping = {}
-        for hh in columns.items():
-          col_mapping[str(hh[0])] = hh[1]
-        results.append({ii[0]:col_mapping})
+        for column in columns.items():
+          col_mapping[str(column[0])] = column[1]
+        results.append({key[0]:col_mapping})
    
     if start_inclusive == False and len(results) > 0:
       if start_key in results[0]:
@@ -227,11 +249,14 @@ class DatastoreProxy(AppDBInterface):
   # private methods 
   ######################################################################
   def __setup_connection(self):
+    """ Retrives a connection from the connection pool
+    """
+
     return self.pool.get()
 
   def __close_connection(self, client):
+    """ Closes a connection by returning it to the pool
+    """
     if client:
       self.pool.return_conn(client)
 
-  def timestamp(self):
-    return int(time.time() * 1000)

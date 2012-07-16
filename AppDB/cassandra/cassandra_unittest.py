@@ -1,5 +1,6 @@
 import os
 import unittest
+
 import cassandra_interface
 from dbconstants import *
 
@@ -34,7 +35,7 @@ class PutTestCase(unittest.TestCase):
                                cell_values)
     assert self.cass.batch_get_entity(TEST1_TABLE, row_key, TEST1_TABLE_SCHEMA) == cell_values
 
-  def teadDown(self):
+  def tearDown(self):
     self.cass.delete_table(TEST1_TABLE) 
 
 class DeleteTestCase(unittest.TestCase): 
@@ -59,7 +60,7 @@ class DeleteTestCase(unittest.TestCase):
                                       TEST2_TABLE_SCHEMA) == \
                       {'a':{}, 'b':{}, 'c':{'c1':'7','c2':'8','c3':'9'}}
 
-  def teadDown(self):
+  def tearDown(self):
     self.cass.delete_table(TEST2_TABLE) 
 
 class GetOnNonExistantKey(unittest.TestCase):
@@ -73,7 +74,7 @@ class GetOnNonExistantKey(unittest.TestCase):
     ret = self.cass.batch_get_entity(TEST3_TABLE, row_key, TEST3_TABLE_SCHEMA) 
     assert ret == cell_values
 
-  def teadDown(self):
+  def tearDown(self):
     self.cass.delete_table(TEST3_TABLE) 
 
 class PutOverwriteTestCase(unittest.TestCase): 
@@ -95,7 +96,7 @@ class PutOverwriteTestCase(unittest.TestCase):
                                cell_values)
     assert self.cass.batch_get_entity(TEST4_TABLE, row_key, TEST4_TABLE_SCHEMA) == cell_values
 
-  def teadDown(self):
+  def tearDown(self):
     self.cass.delete_table(TEST4_TABLE) 
 
 class RangeTestCase(unittest.TestCase): 
@@ -184,7 +185,7 @@ class RangeTestCase(unittest.TestCase):
                                  startrow, endrow, limit, 
                                  offset, start_in, end_in) == expected
 
-  def teadDown(self):
+  def tearDown(self):
     self.cass.delete_table(TEST5_TABLE) 
 
 

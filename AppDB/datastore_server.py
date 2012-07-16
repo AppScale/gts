@@ -1,27 +1,27 @@
 #!/usr/bin/python
 #
 # Author: 
-# Navyasri Canumalla (navyasri@cs.ucsb.edu)
 # Navraj Chohan (nlake44@gmail.com)
+# Navyasri Canumalla (navyasri@cs.ucsb.edu)
 # See LICENSE file
+
+import __builtin__
+import datetime
+import getopt
+import itertools
+import md5
+import os
+import threading
+import types
+import random
+import SOAPpy
+import sys
+import socket
+import time
 
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
-
-import sys
-import socket
-import os
-import types
-import SOAPpy
-import md5
-import random
-import getopt
-import threading
-import datetime
-import time
-import itertools
-import __builtin__
 
 import appscale_logger
 import appscale_datastore
@@ -47,42 +47,24 @@ from drop_privileges import *
 from SocketServer import BaseServer
 from dbconstants import *
 
+# Buffer type used for key storage in the datastore
 buffer = __builtin__.buffer
 
-DEBUG = False
-
-DEFAULT_SSL_PORT = 8443
-
-DEFAULT_PORT = 4080
-
-DEFAULT_ENCRYPTION = 1
-
-CERT_LOCATION = "/etc/appscale/certs/mycert.pem"
-
-KEY_LOCATION = "/etc/appscale/certs/mykey.pem"
-
-SECRET_LOCATION = "/etc/appscale/secret.key"
-
-VALID_DATASTORES = []
-
-ERROR_CODES = []
-
-KEYBLOCKSIZE = 1024
-
-
 app_datastore = []
-logOn = False
-logFilePtr = ""
 keyPort = 4343
 tableHashTable = {}
 
 entity_pb.Reference.__hash__ = lambda self: hash(self.Encode())
 datastore_pb.Query.__hash__ = lambda self: hash(self.Encode())
 
-_MAXIMUM_RESULTS = 1000
+# Max number of results for a query
+_MAXIMUM_RESULTS = 100000
 
+# The most you can offset a result from a query
 _MAX_QUERY_OFFSET = 1000
 
+# The number of entries looked at when doing a composite query
+# It will keep looking at this size window when getting the result
 _MAX_COMPOSITE_WINDOW = 1000
 
 _MAX_QUERY_COMPONENTS = 63
@@ -120,6 +102,9 @@ class DatastoreDistributed():
   def __init__(self, datastore_batch):
     """
        Constructor.
+     
+     Args:
+       datastore_batch: a reference to the batch datastore interface 
     """
     # Each entry contains a tuple (last_accessed_timestamp, namespace)
     # The key is the <app_id>___<namespace>
@@ -806,7 +791,7 @@ class DatastoreDistributed():
     prefix = self.GetTablePrefix(query)
     end_inclusive = _ENABLE
     start_inclusive = _ENABLE
-    column_names = ['value']
+    column_names = ['reference']
     if not order_info:
       order = None
       prop_name = None
@@ -817,14 +802,21 @@ class DatastoreDistributed():
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
        cursor = cassandra_stub_util.ListCursor(query)
        last_result = cursor._GetLastResult()
-       startrow = self.__GetStartKey(prefix, prop_name,order,last_result)
+       startrow = self.__GetStartKey(prefix, prop_name,order, last_result)
        start_inclusive = _DISABLE
     if query.has_limit() and query.limit():
       limit = query.limit()
     else:
       limit = _MAXIMUM_RESULTS
     offset = query.offset()
-    result = cass.range_query( table_name, column_names, limit, offset, startrow, endrow, start_inclusive, end_inclusive)
+    result = self.datastore_batch.range_query(APP_KIND_TABLE, 
+                                              APP_KIND_SCHEMA, 
+                                              limit, 
+                                              offset, 
+                                              startrow, 
+                                              endrow, 
+                                              start_inclusive, 
+                                              end_inclusive)
     results = []
     if query.has_keys_only():
        results = [ i[0] for i in result]
@@ -1612,28 +1604,24 @@ pb_application = tornado.web.Application([
 def main(argv):
   global app_datastore
   global cass
-  global tableServer
   global keySecret
-  global logOn
-  global logFilePtr
-  global optimizedQuery
   global soapServer
-  global ERROR_CODES
-  global VALID_DATASTORES
-  global KEYBLOCKSIZE
   global zoo_keeper_locations
   global zoo_keeper_real
   global zoo_keeper_stub
-  global appscale_log
+
+  VALID_DATASTORES = []
+  DEFAULT_SSL_PORT = 8443
+  DEFAULT_PORT = 4080
+
   db_type = "cassandra"
   port = DEFAULT_SSL_PORT
   isEncrypted = True
+
   try:
-    opts, args = getopt.getopt( argv, "t:l:s:b:a:p:n:z:",
+    opts, args = getopt.getopt( argv, "t:s:a:p:n:z:",
                                ["type=",
-                                "log=",
                                 "secret=",
-                                "blocksize=",
                                 "soap=",
                                 "port",
                                 "no_encryption",
@@ -1649,18 +1637,9 @@ def main(argv):
     elif opt in ("-s", "--secret"):
       keySecret = arg
       print "Secret set..."
-    elif opt in ("-l", "--log"):
-      logOn = True
-      logFile = arg
-      logFilePtr = open(logFile, "w", 0)
-      logFilePtr.write("# type, app, start, end\n")
-    elif opt in ("-b", "--blocksize"):
-      KEYBLOCKSIZE = arg
-      print "Block size: ",KEYBLOCKSIZE
     elif opt in ("-a", "--soap"):
       soapServer = arg
     elif opt in ("-p", "--port"):
-      appscale_log = open("/tmp/appscale_log_" + arg, "w+", 0)
       port = int(arg)
     elif opt in ("-n", "--no_encryption"):
       isEncrypted = False
@@ -1676,13 +1655,12 @@ def main(argv):
     print "Unknown datastore "+ db_type
     exit(1)
 
-  tableServer = SOAPpy.SOAPProxy("https://" + soapServer + ":" + str(keyPort))
-
   #zoo_keeper_real = zk.ZKTransaction(zoo_keeper_locations)
   #zoo_keeper_stub = zk_stub.ZKTransaction(zoo_keeper_locations)
 
   if port == DEFAULT_SSL_PORT and not isEncrypted:
     port = DEFAULT_PORT
+
   server = tornado.httpserver.HTTPServer(pb_application)
   server.listen(port)
 

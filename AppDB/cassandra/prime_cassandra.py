@@ -1,43 +1,53 @@
 #!/usr/bin/env python
 
-import sys, time
+import sys
+import time
 
-import py_cassandra
-import dbconstants
-import pycassa
-from pycassa.system_manager import *
 import cassandra.cassandra_interface
-CASS_PORT = 9160
-KEYSPACE = "Keyspace1"
-STANDARD_COL_FAM = "Standard1"
-# Set this to False to keep old data
-DROP_TABLES = True
+import py_cassandra
+import pycassa
+
+import dbconstants
+
+from pycassa.system_manager import *
 
 def create_keyspaces(replication):
+  """ Creates keyspace which AppScale uses for storing application 
+      and user data
+  """
+
   print "Creating Cassandra Key Spaces" 
+
+  # Set this to False to keep old data
+  self.DROP_TABLES = True
+
   f = open(dbconstants.APPSCALE_HOME + '/.appscale/my_private_ip', 'r')
   host = f.read()
-  sys = SystemManager(host + ":" + str(CASS_PORT))
+  f.close()
 
-  if DROP_TABLES:
+  sysman = SystemManager(host + ":" + str(cassandra_interface.CASS_DEFAULT_PORT))
+
+  if self.DROP_TABLES:
     try:
-      sys.drop_keyspace(KEYSPACE)
+      sysman.drop_keyspace(cassandra_interface.KEYSPACE)
     except pycassa.cassandra.ttypes.InvalidRequestException, e:
       pass
 
-  sys.create_keyspace(KEYSPACE, 
+  sysman.create_keyspace(cassandra_interface.KEYSPACE, 
                       pycassa.SIMPLE_STRATEGY, 
                       {'replication_factor':str(replication)})
 
   # This column family is for testing
-  sys.create_column_family(KEYSPACE, STANDARD_COL_FAM, 
-                          comparator_type=UTF8_TYPE)
+  sysman.create_column_family(cassandra_interface.KEYSPACE, 
+                           cassandra_interface.STANDARD_COL_FAM, 
+                           comparator_type=UTF8_TYPE)
 
-  for ii in dbconstants.INITIAL_TABLES:
-    sys.create_column_family(KEYSPACE, ii,
-                          comparator_type=UTF8_TYPE)
+  for table_name in dbconstants.INITIAL_TABLES:
+    sysman.create_column_family(cassandra_interface.KEYSPACE, 
+                             table_name,
+                             comparator_type=UTF8_TYPE)
   
-  sys.close()
+  sysman.close()
 
   print "CASSANDRA SETUP SUCCESSFUL"
 
