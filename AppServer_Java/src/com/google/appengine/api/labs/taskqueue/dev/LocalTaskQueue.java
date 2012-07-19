@@ -45,6 +45,10 @@ public final class LocalTaskQueue implements LocalRpcService {
 	private LocalServerEnvironment localServerEnvironment;
 	private Clock clock;
 
+   	private final static Integer maxApiRequestSize = 33554432;
+	private final static Double defaultDeadline = 30.0D;
+	private final static Double maximumDeadline = 30.0D;
+
 	public void init(LocalServiceContext context, Map<String, String> properties) {
 		this.localServerEnvironment = context.getLocalServerEnvironment();
 		this.clock = context.getClock();
@@ -141,15 +145,15 @@ public final class LocalTaskQueue implements LocalRpcService {
 	}
 
 	public Integer getMaxApiRequestSize() {
-		return Integer.valueOf(33554432);
+		return Integer.valueOf(maxApiRequestSize);
 	}
 
 	public Double getDefaultDeadline(boolean isOfflineRequest) {
-		return Double.valueOf(30.0D);
+		return Double.valueOf(defaultDeadline);
 	}
 
 	public Double getMaximumDeadline(boolean isOfflineRequest) {
-		return Double.valueOf(30.0D);
+		return Double.valueOf(maximumDeadline);
 	}
 
 	public String getPackage() {

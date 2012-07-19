@@ -54,7 +54,11 @@ public class LocalMapReduceService implements LocalRpcService {
 	
 	private static String hadoopHome = "/opt/appscale/AppDB/hadoop-0.20.0";
 	
-	
+	private final static Integer maxApiRequestSize = 33554432;
+
+	private final static Double defaultDeadline = 30D;
+
+	private final static Double maximumDeadline = 30D;
 	
 	private static Map<String, String> supportedLang = new HashMap<String, String>();
 
@@ -98,15 +102,15 @@ public class LocalMapReduceService implements LocalRpcService {
 	}
 
         public Integer getMaxApiRequestSize() {
-        	return Integer.valueOf(33554432);
+        	return maxApiRequestSize;
         }
 
         public Double getDefaultDeadline(boolean isOfflineRequest) {
-                return Double.valueOf(30.0D);
+                return defaultDeadline;
         }
 
         public Double getMaximumDeadline(boolean isOfflineRequest) {
-                return Double.valueOf(30.0D);
+                return maximumDeadline;
         }
 
 	@Override
