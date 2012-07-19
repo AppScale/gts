@@ -20,7 +20,7 @@ import org.quartz.SimpleTrigger;
 import org.quartz.Trigger;
 import org.quartz.spi.TriggerFiredBundle;
 
-import com.google.appengine.api.labs.taskqueue.TaskQueuePb;
+import com.google.appengine.api.taskqueue.TaskQueuePb;
 import com.google.appengine.tools.development.Clock;
 import com.google.apphosting.api.ApiProxy;
 import com.google.apphosting.utils.config.QueueXml;
