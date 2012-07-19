@@ -12,7 +12,7 @@ import org.quartz.SchedulerException;
 import org.quartz.SimpleTrigger;
 import org.quartz.Trigger;
 
-import com.google.appengine.api.labs.taskqueue.TaskQueuePb;
+import com.google.appengine.api.taskqueue.TaskQueuePb;
 import com.google.appengine.api.urlfetch.URLFetchServicePb;
 import com.google.appengine.api.urlfetch.dev.LocalURLFetchService;
 import com.google.appengine.repackaged.com.google.protobuf.ByteString;

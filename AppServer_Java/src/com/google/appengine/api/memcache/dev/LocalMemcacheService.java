@@ -88,7 +88,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService {
         final List<InetSocketAddress> ipList = new ArrayList<InetSocketAddress>();
 
         try {
-            ResourceLoader res = ResourceLoader.getResouceLoader();
+            ResourceLoader res = ResourceLoader.getResourceLoader();
             FileInputStream fstream = new FileInputStream(
                     res.getMemcachedServerIp());
             // Get the object of DataInputStream

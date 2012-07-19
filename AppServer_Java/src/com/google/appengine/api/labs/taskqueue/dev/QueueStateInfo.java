@@ -5,7 +5,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
-import com.google.appengine.api.labs.taskqueue.TaskQueuePb;
+import com.google.appengine.api.taskqueue.TaskQueuePb;
 import com.google.appengine.tools.development.Clock;
 import com.google.apphosting.utils.config.QueueXml;
 

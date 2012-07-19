@@ -3,7 +3,7 @@ package com.google.appengine.api.labs.taskqueue.dev;
 import org.quartz.JobDataMap;
 import org.quartz.JobDetail;
 
-import com.google.appengine.api.labs.taskqueue.TaskQueuePb;
+import com.google.appengine.api.taskqueue.TaskQueuePb;
 
 class UrlFetchJobDetail extends JobDetail
 {
