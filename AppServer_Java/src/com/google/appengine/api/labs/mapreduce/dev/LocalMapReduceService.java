@@ -54,7 +54,11 @@ public class LocalMapReduceService implements LocalRpcService {
 	
 	private static String hadoopHome = "/opt/appscale/AppDB/hadoop-0.20.0";
 	
-	
+	private final static Integer maxApiRequestSize = 33554432;
+
+	private final static Double defaultDeadline = 30D;
+
+	private final static Double maximumDeadline = 30D;
 	
 	private static Map<String, String> supportedLang = new HashMap<String, String>();
 
@@ -69,8 +73,8 @@ public class LocalMapReduceService implements LocalRpcService {
 		supportedLang.put("rb", "ruby");
 		supportedLang.put("pl", "perl");
 		supportedLang.put("py", "python");
-		hadoopHome = ResourceLoader.getResouceLoader().getHadoopHome();
-		mrTmpLocation = ResourceLoader.getResouceLoader().getMrTmpLocation();
+		hadoopHome = ResourceLoader.getResourceLoader().getHadoopHome();
+		mrTmpLocation = ResourceLoader.getResourceLoader().getMrTmpLocation();
 	}
 
 	@Override
@@ -96,6 +100,18 @@ public class LocalMapReduceService implements LocalRpcService {
 		};
 		Runtime.getRuntime().addShutdownHook(this.shutdownHook);
 	}
+
+        public Integer getMaxApiRequestSize() {
+        	return maxApiRequestSize;
+        }
+
+        public Double getDefaultDeadline(boolean isOfflineRequest) {
+                return defaultDeadline;
+        }
+
+        public Double getMaximumDeadline(boolean isOfflineRequest) {
+                return maximumDeadline;
+        }
 
 	@Override
 	public void stop() {
@@ -269,7 +285,7 @@ public class LocalMapReduceService implements LocalRpcService {
 
 	protected Integer getNodeNumber() {
 		int num = 0;
-		String fileLoc = ResourceLoader.getResouceLoader().getNumOfNode();
+		String fileLoc = ResourceLoader.getResourceLoader().getNumOfNode();
 		File file = new File(fileLoc);
 		MRNodeNumResponse resp = new MRNodeNumResponse();
 		if (!file.exists()) {

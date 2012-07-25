@@ -19,10 +19,10 @@ public class BlobServiceRedirectFilter implements Filter {
     @Override
     public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain) throws IOException,
             ServletException {
-        System.out.println("in BlobServiceRedirect");
-        System.out.println("remote host: " + req.getRemoteAddr());
-        System.out.println("remote address: " + req.getRemoteAddr());
-        System.out.println("remote port: " + req.getRemotePort());
+        //System.out.println("in BlobServiceRedirect");
+        //System.out.println("remote host: " + req.getRemoteAddr());
+        //System.out.println("remote address: " + req.getRemoteAddr());
+        //System.out.println("remote port: " + req.getRemotePort());
         chain.doFilter(req, res);
 
     }

@@ -4,7 +4,7 @@ public class ResourceLoader {
 
     private static ResourceLoader res = null;
 
-    public static ResourceLoader getResouceLoader() {
+    public static ResourceLoader getResourceLoader() {
         if (res == null)
             res = new ResourceLoader();
         if (System.getenv("APPSCALE_HOME") != null) {
@@ -14,7 +14,7 @@ public class ResourceLoader {
         return res;
     }
 
-    private static String apphome = "/opt/appscale";
+    private static String apphome = "/root/appscale";
 
     private String DEFAULT_KEY_STORE_PATH = "/AppServer_Java/keystore.ImportKey";
     private String DEFAULT_KEYSTORE_PASSWORD = "importkey";
@@ -27,7 +27,7 @@ public class ResourceLoader {
         return DEFAULT_KEYSTORE_PASSWORD;
     }
 
-    public boolean getDatastoreSeurityMode() {
+    public boolean getDatastoreSecurityMode() {
         // true means SSL(https), otherwise normal http
         return false;
     }

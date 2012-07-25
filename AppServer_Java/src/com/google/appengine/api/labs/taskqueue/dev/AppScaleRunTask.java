@@ -8,8 +8,8 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
-import com.google.appengine.api.labs.taskqueue.TaskQueuePb;
-import com.google.appengine.api.labs.taskqueue.TaskQueuePb.TaskQueueAddRequest;
+import com.google.appengine.api.taskqueue.TaskQueuePb;
+import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueAddRequest;
 
 //***** by Yiming *****
 //this class is the appscale implementation of task 

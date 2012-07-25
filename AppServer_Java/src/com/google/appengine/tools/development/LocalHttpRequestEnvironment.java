@@ -8,46 +8,30 @@ import javax.servlet.http.HttpServletRequest;
 
 import com.google.appengine.api.NamespaceManager;
 import com.google.appengine.api.users.dev.LoginCookieUtils;
-import com.google.apphosting.utils.config.AppEngineWebXml;
-
-/**
- * {@code LocalHttpRequestEnvironment} is a simple {@link LocalEnvironment} that
- * retrieves authentication details from the cookie that is maintained by the
- * stub implementation of {@link UserService}.
- * 
- */
 
 class LocalHttpRequestEnvironment extends LocalEnvironment {
-    private static final Logger logger = Logger.getLogger(LocalHttpRequestEnvironment.class.getName());
-    /**
-     * The name of the HTTP header specifying the default namespace for API
-     * calls.
-     */
-
+    private static final Logger logger = Logger
+            .getLogger(LocalHttpRequestEnvironment.class.getName());
     static final String DEFAULT_NAMESPACE_HEADER = "X-AppEngine-Default-Namespace";
     static final String CURRENT_NAMESPACE_HEADER = "X-AppEngine-Current-Namespace";
-    private static final String CURRENT_NAMESPACE_KEY = NamespaceManager.class.getName() + ".currentNamespace";
+    private static final String CURRENT_NAMESPACE_KEY = NamespaceManager.class
+            .getName() + ".currentNamespace";
 
-    private static final String APPS_NAMESPACE_KEY = NamespaceManager.class.getName() + ".appsNamespace";
+    private static final String APPS_NAMESPACE_KEY = NamespaceManager.class
+            .getName() + ".appsNamespace";
     private static final String USER_ID_KEY = "com.google.appengine.api.users.UserService.user_id_key";
     private static final String USER_ORGANIZATION_KEY = "com.google.appengine.api.users.UserService.user_organization";
-    private LoginCookieUtils.AppScaleCookieData loginCookieData = null;
+    private static final String X_APPENGINE_QUEUE_NAME = "X-AppEngine-QueueName";
 
+    // add for AppScale
+    private LoginCookieUtils.AppScaleCookieData loginCookieData = null;
     private static final String COOKIE_NAME = "dev_appserver_login";
 
-    public LocalHttpRequestEnvironment(AppEngineWebXml appEngineWebXml, HttpServletRequest request) {
-        super(appEngineWebXml);
+    public LocalHttpRequestEnvironment(String appId, String majorVersionId,
+            HttpServletRequest request, Long deadlineMillis) {
+        super(appId, majorVersionId, deadlineMillis);
         this.loginCookieData = LoginCookieUtils.getCookieData(request);
-        if (this.loginCookieData == null) {
-            logger.log(Level.FINE, "cookie is null, this user is not logged in");
-        } else if (!this.loginCookieData.isValid()) {
-            clearCookie(request);
-            logger.log(Level.FINE, "cookie is not valid: " + this.loginCookieData.toString());
-            loginCookieData = null;
-        } else {
-            logger.log(Level.FINE, "get valid cookie for: " + loginCookieData.getUserId() + "admin: "
-                    + loginCookieData.isAdmin());
-        }
+
         String requestNamespace = request.getHeader(DEFAULT_NAMESPACE_HEADER);
         if (requestNamespace != null) {
             this.attributes.put(APPS_NAMESPACE_KEY, requestNamespace);
@@ -56,10 +40,24 @@ class LocalHttpRequestEnvironment extends LocalEnvironment {
         if (currentNamespace != null) {
             this.attributes.put(CURRENT_NAMESPACE_KEY, currentNamespace);
         }
-        if (this.loginCookieData != null) {
+        if (this.loginCookieData == null) {
+            logger.log(Level.FINE, "cookie is null, this user is not logged in");
+        } else if (!this.loginCookieData.isValid()) {
+            clearCookie(request);
+            logger.log(Level.FINE, "cookie is not valid: "
+                    + this.loginCookieData.toString());
+            loginCookieData = null;
+        } else {
+            logger.log(Level.FINE,
+                    "get valid cookie for: " + loginCookieData.getUserId()
+                            + "admin: " + loginCookieData.isAdmin());
             this.attributes.put(USER_ID_KEY, this.loginCookieData.getUserId());
             this.attributes.put(USER_ORGANIZATION_KEY, "");
         }
+
+        if (request.getHeader(X_APPENGINE_QUEUE_NAME) != null)
+            this.attributes.put("com.google.appengine.request.offline",
+                    Boolean.TRUE);
     }
 
     public boolean isLoggedIn() {
@@ -83,7 +81,9 @@ class LocalHttpRequestEnvironment extends LocalEnvironment {
             for (Cookie cookie : cookies) {
                 if (cookie.getName().equals(COOKIE_NAME)) {
                     System.out.println("removing");
-                    logger.log(Level.FINE, "removing cookie: " + cookie.getName() + ":" + cookie.getValue());
+                    logger.log(Level.FINE,
+                            "removing cookie: " + cookie.getName() + ":"
+                                    + cookie.getValue());
                     cookie.setMaxAge(0);
                     cookie.setPath("/");
                 }

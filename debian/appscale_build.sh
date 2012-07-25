@@ -32,9 +32,6 @@ if [ "$DIST" = "lucid" ]; then
     add-apt-repository "deb-src http://ppa.launchpad.net/fkrull/deadsnakes/ubuntu lucid main" 
     add-apt-repository "deb http://archive.canonical.com/ lucid partner"
 
-    # For cassandra
-    add-apt-repository "deb http://debian.datastax.com/lucid lucid main"
-    wget -O - http://debian.datastax.com/debian/repo_key | sudo apt-key add -
     # For rabbitmq
     add-apt-repository "deb http://www.rabbitmq.com/debian/ testing main"
     wget -O - http://www.rabbitmq.com/rabbitmq-signing-key-public.asc | sudo apt-key add -

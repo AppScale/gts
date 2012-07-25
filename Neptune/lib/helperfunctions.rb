@@ -91,6 +91,7 @@ module HelperFunctions
 
 
   def self.shell(cmd)
+    Kernel.puts(cmd)
     return `#{cmd}`
   end
 
