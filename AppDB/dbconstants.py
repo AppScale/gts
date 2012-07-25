@@ -43,9 +43,7 @@ APP_ENTITY_SCHEMA = [
   "txnID"]
 
 # Indexes in ascending order, references are to entity table
-ASC_PROPERTY_SCHEMA = [
-  "reference" ]
-DSC_PROPERTY_SCHEMA = [
+PROPERTY_SCHEMA = [
   "reference" ]
 APP_INDEX_SCHEMA = [
   "indexes" ]

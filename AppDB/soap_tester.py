@@ -54,7 +54,6 @@ BAD_SECRET = "Error: bad secret"
 #Navraj Chohan
 app_location = "localhost"
 bindport = DEFAULT_SSL_PORT
-super_secret = ""
 encrypt = True
 appname = ""
 username = ""
