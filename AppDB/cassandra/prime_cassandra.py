@@ -3,7 +3,7 @@
 import sys
 import time
 
-import cassandra.cassandra_interface
+from cassandra import cassandra_interface
 import py_cassandra
 import pycassa
 
@@ -19,7 +19,7 @@ def create_keyspaces(replication):
   print "Creating Cassandra Key Spaces" 
 
   # Set this to False to keep old data
-  self.DROP_TABLES = True
+  _DROP_TABLES = True
 
   f = open(dbconstants.APPSCALE_HOME + '/.appscale/my_private_ip', 'r')
   host = f.read()
@@ -27,7 +27,7 @@ def create_keyspaces(replication):
 
   sysman = SystemManager(host + ":" + str(cassandra_interface.CASS_DEFAULT_PORT))
 
-  if self.DROP_TABLES:
+  if _DROP_TABLES:
     try:
       sysman.drop_keyspace(cassandra_interface.KEYSPACE)
     except pycassa.cassandra.ttypes.InvalidRequestException, e:

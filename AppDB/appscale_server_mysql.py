@@ -633,6 +633,7 @@ class DatastoreDistributed():
     txn_id = zoo_keeper.getTransactionID(app_id)
     client = MySQLdb.connect(host=_DB_LOCATION, db=_USE_DATABASE, user=_DB_USER)
     #client.autocommit(0)
+    #TODO is this lock a bottle neck, and is it really required?
     self.__transDict_lock.acquire()
     # entity group is set to None
     self.__transDict[txn_id] = client, None, time.time()

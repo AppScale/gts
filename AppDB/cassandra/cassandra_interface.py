@@ -95,7 +95,7 @@ class DatastoreProxy(AppDBInterface):
     assert isinstance(column_names, list)
     assert isinstance(row_keys, list)
     assert isinstance(cell_values, dict)
- 
+
     cf = pycassa.ColumnFamily(self.pool,table_name)
     multi_map = {}
     for key in row_keys:

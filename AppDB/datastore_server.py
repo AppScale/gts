@@ -37,28 +37,28 @@ from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import datastore_index
 from google.appengine.datastore import datastore_stub_util
 from google.appengine.runtime import apiproxy_errors
-from google.net.proto import ProtocolBuffer
 from google.appengine.datastore import entity_pb
 from google.appengine.ext.remote_api import remote_api_pb
 from google.appengine.datastore import cassandra_stub_util
 from google.appengine.datastore import sortable_pb_encoder
 
+from google.net.proto import ProtocolBuffer
+
 from drop_privileges import *
 from SocketServer import BaseServer
+from M2Crypto import SSL
 from dbconstants import *
 
 # Buffer type used for key storage in the datastore
 buffer = __builtin__.buffer
 
 app_datastore = []
-keyPort = 4343
-tableHashTable = {}
 
 entity_pb.Reference.__hash__ = lambda self: hash(self.Encode())
 datastore_pb.Query.__hash__ = lambda self: hash(self.Encode())
 
 # Max number of results for a query
-_MAXIMUM_RESULTS = 100000
+_MAXIMUM_RESULTS = 1000000
 
 # The most you can offset a result from a query
 _MAX_QUERY_OFFSET = 1000
@@ -75,11 +75,14 @@ _BLOCK_SIZE = 10000
 # This is the largest block of IDs a user can request
 _MAX_REQUESTED_ID_BLOCK = 1000
 
+# For enabling and disabling range inclusivity
 _ENABLE = True
-
 _DISABLE = False
 
 _NAMESPACE_SEPARATOR = '/'
+
+# This is the terminating string for range queries
+_TERM_STRING = chr(255) * 500
 
 _OPERATOR_MAP = {
     datastore_pb.Query_Filter.LESS_THAN: '<',
@@ -182,6 +185,7 @@ class DatastoreDistributed():
           id = str(e.id()).zfill(10)
         path.append('%s:%s' % (e.type(), id))
       val = '!'.join(path)
+      val += '!'
       return val
     return prefix + _NAMESPACE_SEPARATOR + _encode_path(key_path) 
     
@@ -204,6 +208,7 @@ class DatastoreDistributed():
           id = str(e.id()).zfill(10)
         path.append('%s:%s' % (e.type(), id))
       val = '!'.join(path)
+      val += '!'
       return val
 
     if isinstance(pb, entity_pb.PropertyValue) and pb.has_uservalue():
@@ -319,13 +324,13 @@ class DatastoreDistributed():
     Returns:
        a string
     """
-    assert len(params) == 5
+    assert len(params) == 5 or len(params) == 4
 
     if params[-1] == None:
        # strip off the last None item
        key = '/'.join(params[:-1]) + '/'
     else:
-       key = '/'.join(params)   
+       key = '/'.join(params) 
     return key
 
   def GetIndexKVFromTuple(self, tuple_list, reverse=False):
@@ -355,7 +360,6 @@ class DatastoreDistributed():
                     str(self.__EncodeIndexPB(e.key().path()))]
 
           index_key = self.__GetIndexKey(params)
-          # remove the first char of the encoded path 
           p_vals = [index_key, 
                     buffer(prefix + '/') + \
                     self.__EncodeIndexPB(e.key().path())] 
@@ -395,6 +399,7 @@ class DatastoreDistributed():
       for prefix, e in entities:
         yield (self.__GetEntityKey(prefix, e.key().path()),
                buffer(e.Encode()))
+
     def KindRowGenerator(entities):
       for prefix, e in entities:
         # yield a tuple of kind key and a reference to entity table
@@ -409,20 +414,21 @@ class DatastoreDistributed():
     entities = sorted((self.GetTablePrefix(x), x) for x in entities)
     for prefix, group in itertools.groupby(entities, lambda x: x[0]):
       group_rows = tuple(RowGenerator(group))
-      kind_group_rows = tuple(KindRowGenerator(group))
-
       new_row_keys = [str(ii[0]) for ii in group_rows]
       row_keys += new_row_keys
-
-      new_kind_keys = [str(ii[0]) for ii in kind_group_rows]
-      kind_row_keys += new_kind_keys
-
       for ii in group_rows:
         row_values[str(ii[0])] = {APP_ENTITY_SCHEMA[0]:str(ii[1]), #ent
                            APP_ENTITY_SCHEMA[1]:"0"} #txnid
+
+    for prefix, group in itertools.groupby(entities, lambda x: x[0]):
+      kind_group_rows = tuple(KindRowGenerator(group))
+      new_kind_keys = [str(ii[0]) for ii in kind_group_rows]
+      kind_row_keys += new_kind_keys
+
       for ii in kind_group_rows:
         kind_row_values[str(ii[0])] = {APP_KIND_SCHEMA[0]:str(ii[1])}
-   
+
+
     # TODO do these in ||                        
     self.datastore_batch.batch_put_entity(APP_ENTITY_TABLE, 
                                           row_keys, 
@@ -456,20 +462,22 @@ class DatastoreDistributed():
       row_keys = [str(ii[0]) for ii in group_rows]
       for ii in group_rows:
         row_values[str(ii[0])] = {'reference':str(ii[1])}
+
     for prefix, group in itertools.groupby(entities, lambda x: x[0]):
       rev_group_rows = self.GetIndexKVFromTuple(group,True)
       rev_row_keys = [str(ii[0]) for ii in rev_group_rows]
       for ii in rev_group_rows:
         rev_row_values[str(ii[0])] = {'reference':str(ii[1])}
-    # TODO consider doing these in parallel
+
+    # TODO  these in parallel
     self.datastore_batch.batch_put_entity(ASC_PROPERTY_TABLE, 
                           row_keys, 
-                          ASC_PROPERTY_SCHEMA, 
+                          PROPERTY_SCHEMA, 
                           row_values)
 
     self.datastore_batch.batch_put_entity(DSC_PROPERTY_TABLE, 
                           rev_row_keys,  
-                          DSC_PROPERTY_SCHEMA,
+                          PROPERTY_SCHEMA,
                           rev_row_values)
 
   def __AcquireIdBlockFromDB(self, prefix):
@@ -521,18 +529,12 @@ class DatastoreDistributed():
       start and end ids: The beginning of a range of size IDs
     """
     assert size > 0
-    # First check if the id map has the prefix we're looking for
-    # Check to see if the number of ids can fit the requested ammount 
-    # if it can assign those ids and move the start id cursor up
-    # else, throw away the previous amount and get a new block to 
-    # allocate from
     next_id, end_id = self.__id_map.get(prefix, (0, 0))
     if next_id == end_id or (end_id and (next_id + size > end_id)):
       # Acquire a new block of ids, throw out the old ones
       next_id = self.__IncrementIdInDB(prefix)
       end_id = next_id + _BLOCK_SIZE - 1
        
-    # Assign and update the next_id
     start = next_id 
     end = next_id + size - 1
 
@@ -591,6 +593,7 @@ class DatastoreDistributed():
     #TODO do these in ||
     self.datastore_batch.batch_delete(APP_ENTITY_TABLE, 
                                       row_keys)
+
     self.datastore_batch.batch_delete(APP_KIND_TABLE,
                                       kind_keys)
 
@@ -616,7 +619,7 @@ class DatastoreDistributed():
     entities = put_request.entity_list()
     keys = [e.key() for e in entities]
     for entity in entities:
-      self.__ValidateKey(entity.key())
+      self.ValidateKey(entity.key())
 
       for prop in itertools.chain(entity.property_list(),
                                   entity.raw_property_list()):
@@ -657,9 +660,9 @@ class DatastoreDistributed():
     row_keys = []
     for key in key_list:
       self.ValidateAppId(key.app())
-      k = str(self.__EncodeIndexPB(key.path()))
+      index_key = str(self.__EncodeIndexPB(key.path()))
       prefix = self.GetTablePrefix(key)
-      row_keys.append(prefix + '/' + k)
+      row_keys.append(prefix + '/' + index_key)
     result = self.datastore_batch.batch_get_entity(APP_ENTITY_TABLE, 
                                                  row_keys, 
                                                  APP_ENTITY_SCHEMA) 
@@ -685,6 +688,11 @@ class DatastoreDistributed():
       keys = delete_request.key_list()
       self.DeleteEntities(delete_request.key_list())
  
+  def GenerateFilterInfo(self, filters, query):
+    """ Public wrapper for tetsing
+    """
+    self.__GenerateFilterInfo(filters, query)
+
   def __GenerateFilterInfo(self, filters, query):
     """Transform a list of filters into a more usable form.
 
@@ -717,7 +725,12 @@ class DatastoreDistributed():
       filter_info.setdefault(prop.name(), []).append((filt.op(), 
                                    self.__EncodeIndexPB(value)))
     return filter_info
-
+  
+  def GenerateOrderInfo(self, orders):
+    """ Public wrapper for testing
+    """
+    self.__GenerateOrderInfo(orders)
+   
   def __GenerateOrderInfo(self, orders):
     """Transform a list of orders into a more usable form.
 
@@ -773,8 +786,171 @@ class DatastoreDistributed():
 
     return self.__GetIndexKey(params)
 
-  def  __KindQuery(self, query, filter_info, order_info):
-    """Performs kind only queries
+  def __FetchEntities(self, refs):
+    """ Given the results from a table scan, get the references
+    
+    Args: 
+      refs: key/value pairs where the values contain a reference to 
+            the entitiy table
+    """
+    keys = [item.keys()[0] for item in refs]
+    rowkeys = []    
+    for index, ent in enumerate(refs):
+      key = keys[index]
+      ent = ent[key]['reference']
+      rowkeys.append(ent)
+
+    result = self.datastore_batch.batch_get_entity(APP_ENTITY_TABLE, 
+                                                   rowkeys,
+                                                   APP_ENTITY_SCHEMA)
+    entities = []
+    keys = result.keys()
+    for key in keys:
+      if 'entity' in result[key]:
+        entities.append(result[key]['entity'])
+
+    return entities 
+
+  def __ExtractEntities(self, kv):
+    """ Given a result from a range query on the Entity table return a 
+        list of encoded entities
+    Args:
+      kv: Key and values from a range query on the entity table
+    """
+    keys = [item.keys()[0] for item in kv]
+    results = []    
+    for index, ent in enumerate(kv):
+      key = keys[index]
+      ent = ent[key]['entity']
+      results.append(ent)
+
+    return results
+
+    
+  def __AncestorQuery(self, query, filter_info, order_info):
+    """ Performs ancestor queries
+      
+    Args: 
+      query: query
+      filter_info: tuple with filter operators and values
+      order_info: tuple with property name and the sort order
+    Returns:
+      start and end row keys
+    """       
+    ancestor = query.ancestor()
+    prefix = self.GetTablePrefix(query)
+    path = buffer(prefix + '/') + self.__EncodeIndexPB(ancestor.path())
+    startrow = path
+    endrow =  path + _TERM_STRING
+
+    end_inclusive = _ENABLE
+    start_inclusive = _ENABLE
+
+    if '__key__' in filter_info:
+      startrow = prefix + '/' + str(filter_info['__key__'][0][1])
+      start_inclusive = _DISABLE
+
+
+    column_names = ['reference']
+    if not order_info:
+      order = None
+      prop_name = None
+    
+    # TODO test this 
+    if query.has_compiled_cursor() and query.compiled_cursor().position_size():
+       cursor = cassandra_stub_util.ListCursor(query)
+       last_result = cursor._GetLastResult()
+       startrow = self.__GetStartKey(prefix, prop_name, order, last_result)
+       start_inclusive = _DISABLE
+
+    if query.has_limit() and query.limit():
+      limit = query.limit()
+    else:
+      limit = _MAXIMUM_RESULTS
+
+    offset = query.offset()
+  
+    result = self.datastore_batch.range_query(APP_ENTITY_TABLE, 
+                                              APP_ENTITY_SCHEMA, 
+                                              startrow, 
+                                              endrow, 
+                                              limit, 
+                                              offset=offset, 
+                                              start_inclusive=start_inclusive, 
+                                              end_inclusive=end_inclusive)
+    return self.__ExtractEntities(result)
+
+  def __KindlessQuery(self, query, filter_info, order_info):
+    """ Performs kindless queries
+      
+    Args: 
+      query: query
+      filter_info: tuple with filter operators and values
+      order_info: tuple with property name and the sort order
+    Returns:
+      Entities that match the query
+    """       
+    prefix = self.GetTablePrefix(query)
+    __key__ = str(filter_info['__key__'][0][1])
+    for filt in query.filter_list():
+      op = filt.op
+    startrow = prefix + '/' + __key__
+    endrow = prefix + '/'  + _TERM_STRING
+
+    end_inclusive = _ENABLE
+    start_inclusive = _ENABLE
+    if not order_info:
+      order = None
+      prop_name = None
+    
+    # TODO test this 
+    if query.has_compiled_cursor() and query.compiled_cursor().position_size():
+       cursor = cassandra_stub_util.ListCursor(query)
+       last_result = cursor._GetLastResult()
+       startrow = self.__GetStartKey(prefix, prop_name, order, last_result)
+       start_inclusive = _DISABLE
+
+    if query.has_limit() and query.limit():
+      limit = query.limit()
+    else:
+      limit = _MAXIMUM_RESULTS
+
+    offset = query.offset()
+  
+    result = self.datastore_batch.range_query(APP_ENTITY_TABLE, 
+                                              APP_ENTITY_SCHEMA, 
+                                              startrow, 
+                                              endrow, 
+                                              limit, 
+                                              offset=offset, 
+                                              start_inclusive=start_inclusive, 
+                                              end_inclusive=end_inclusive)
+
+    return self.__ExtractEntities(result)
+
+  def __KindQueryRange(self, query, filter_info, order_info):
+    """ Gets start and end keys for kind queries
+      
+    Args: 
+      query: query
+      filter_info: tuple with filter operators and values
+      order_info: tuple with property name and the sort order
+    Returns:
+      Entities that match the query
+    """       
+    prefix = self.GetTablePrefix(query)
+    startrow = prefix + '/' + query.kind() + ':'     
+    endrow = prefix + '/' + query.kind() + ':' + _TERM_STRING
+    return startrow, endrow
+
+  def KindQuery(self, query, filter_info, order_info):
+    """ Public wrapper for testing 
+    """
+    return self.__KindQuery(query, filter_info, order_info)
+    
+  def __KindQuery(self, query, filter_info, order_info):
+    """ Performs kind only queries, kind and ancestor, and ancestor queries
+        https://developers.google.com/appengine/docs/python/datastore/queries
     Args:
       query: query
       filter_info: tuple with filter operators and values
@@ -782,47 +958,56 @@ class DatastoreDistributed():
     Returns:
       list of results
     """
+
+    # Detect quicky if this is a kind query or not
+    for fi in filter_info:
+      if fi != "__key__":
+        return 
+
+    if order_info:
+      if len(order_info) > 0: return None
+    elif query.has_ancestor():
+      return self.__AncestorQuery(query, filter_info, order_info)
+    elif not query.has_kind():
+      return self.__KindlessQuery(query, filter_info, order_info)
+
     
-    if not (set(filter_info.keys()) |
-            set(x[0] for x in order_info)).issubset(['__key__']):
+    startrow, endrow = self.__KindQueryRange(query, 
+                                             filter_info, 
+                                             order_info)
+
+    if startrow == None:
       return None
-    if len(order_info) > 0:
-      return None
-    prefix = self.GetTablePrefix(query)
+
     end_inclusive = _ENABLE
     start_inclusive = _ENABLE
-    column_names = ['reference']
     if not order_info:
       order = None
       prop_name = None
     
-    startrow = prefix + '/' + query.kind() + ':'     
-    endrow = prefix + '/' + query.kind() + ':' + chr(255)
-     
+    # TODO test cursor support
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
        cursor = cassandra_stub_util.ListCursor(query)
        last_result = cursor._GetLastResult()
-       startrow = self.__GetStartKey(prefix, prop_name,order, last_result)
+       startrow = self.__GetStartKey(prefix, prop_name, order, last_result)
        start_inclusive = _DISABLE
+
     if query.has_limit() and query.limit():
       limit = query.limit()
     else:
       limit = _MAXIMUM_RESULTS
+
     offset = query.offset()
+  
     result = self.datastore_batch.range_query(APP_KIND_TABLE, 
                                               APP_KIND_SCHEMA, 
-                                              limit, 
-                                              offset, 
                                               startrow, 
                                               endrow, 
-                                              start_inclusive, 
-                                              end_inclusive)
-    results = []
-    if query.has_keys_only():
-       results = [ i[0] for i in result]
-    else:
-       results = [ i[1] for i in result]
-    return results
+                                              limit, 
+                                              offset=offset, 
+                                              start_inclusive=start_inclusive, 
+                                              end_inclusive=end_inclusive)
+    return self.__FetchEntities(result)
 
   def __SinglePropertyQuery(self, query, filter_info, order_info):
     """Performs queries satisfiable by the Single_Property tables
@@ -859,6 +1044,7 @@ class DatastoreDistributed():
          direction = order_info[0][1]
     else:
       direction = datastore_pb.Query_Order.ASCENDING
+
     prefix = self.GetTablePrefix(query)
  
     offset = query.offset()
@@ -866,28 +1052,39 @@ class DatastoreDistributed():
       limit = query.limit()
     else:
       limit = _MAXIMUM_RESULTS
+
     kind = query.kind()
+
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
-            cursor = cassandra_stub_util.ListCursor(query)
-            last_result = cursor._GetLastResult()
-            startrow = self.__GetStartKey(prefix, property_name,direction,last_result)
+      cursor = cassandra_stub_util.ListCursor(query)
+      last_result = cursor._GetLastResult()
+      startrow = self.__GetStartKey(prefix, 
+                                    property_name,
+                                    direction,
+                                    last_result)
     else:
-       startrow = None
+      startrow = None
 
-    result = self.__ApplyFilters(filter_ops, order_info, property_name, kind, prefix, limit, offset, startrow)
-    column_names = ['value']
-    table_name = prefix + 'Entities'
-    index_keys = [r[0] for r in result]
-    entity_keys = [r[1] for r in result]
-    ent_res = datastore_batch.batch_get_entity(table_name, entity_keys, column_names)
-    results = []
-    if query.has_keys_only():
-       results = [r[0] for r in ent_res]
-    else:
-       results = [r[1] for r in ent_res]
-    return results
+    references = self.__ApplyFilters(filter_ops, 
+                               order_info, 
+                               property_name, 
+                               query.kind(), 
+                               prefix, 
+                               limit, 
+                               offset, 
+                               startrow)
+    return self.__FetchEntities(references)
 
-  def __ApplyFilters(self, filter_ops, order_info, property_name, kind, prefix, limit, offset, startrow): 
+    
+  def __ApplyFilters(self, 
+                     filter_ops, 
+                     order_info, 
+                     property_name, 
+                     kind, 
+                     prefix, 
+                     limit, 
+                     offset, 
+                     startrow): 
     """Apply property filters in the query
     Args:
        filter_ops: tuple with property filter operator and value
@@ -901,158 +1098,117 @@ class DatastoreDistributed():
        Returns a list of index keys 
     """ 
     
+    end_inclusive = _ENABLE
+    start_inclusive = _ENABLE
+
+    endrow = None 
+    column_names = PROPERTY_SCHEMA
+
     if order_info:
       if order_info[0][0] == property_name:
          direction = order_info[0][1]
     else:
       direction = datastore_pb.Query_Order.ASCENDING
-   
-    column_names = ['reference']
-    if len(filter_ops) == 0 and (order_info and len(order_info) == 1):
-        end_inclusive = _ENABLE
-        start_inclusive = _ENABLE
-        if startrow:
-           start_inclusive = _DISABLE
-        else:
-           params = [prefix, kind, property_name, None]
-           startrow = self.__GetIndexKey(params)
 
-        params = [kind, property_name, chr(255)]
-        endrow = self.__GetIndexKey(params)
-        if direction == datastore_pb.Query_Order.ASCENDING:
-              table_name = prefix + 'Single_Property_ASC'
-        else: 
-              table_name = prefix + 'Single_Property_DSC'
-        result = self.datastore_batch.range_query(table_name, column_names, limit, offset, startrow, endrow, start_inclusive, end_inclusive)      
+    if direction == datastore_pb.Query_Order.ASCENDING:
+      table_name = ASC_PROPERTY_TABLE
+    else: 
+      table_name = DSC_PROPERTY_TABLE
+  
+    if startrow: start_inclusive = _DISABLE 
+
+    # This query is returning based on order on a specfic property name 
+    # The start key (if not already supplied) depends on the property
+    # name and does not take into consideration its value. The end key
+    # is based on the terminating string.
+    if len(filter_ops) == 0 and (order_info and len(order_info) == 1):
+      end_inclusive = _ENABLE
+      start_inclusive = _ENABLE
+
+      if not startrow:
+        params = [prefix, kind, property_name, None]
+        startrow = self.__GetIndexKey(params)
+
+      params = [prefix, kind, property_name, _TERM_STRING, None]
+      endrow = self.__GetIndexKey(params)
+
+      return self.datastore_batch.range_query(table_name, 
+                                          column_names, 
+                                          startrow, 
+                                          endrow, 
+                                          limit, 
+                                          offset=offset, 
+                                          start_inclusive=start_inclusive, 
+                                          end_inclusive=end_inclusive)      
+
+    #TODO byte stuff value for '/' character?
+
+    # This query has a value it bases the query on for a property name
+    # The difference between operators is what the end and start key are
     if len(filter_ops) == 1:
       oper = filter_ops[0][0]
       value = str(filter_ops[0][1])
-      value = str(value[1:])
-      if direction == datastore_pb.Query_Order.ASCENDING:
-         table_name = prefix + 'Single_Property_ASC'
-         if oper == datastore_pb.Query_Filter.EQUAL:
-            start_inclusive = _ENABLE
-            if startrow:
-               start_inclusive = _DISABLE
-            else:
-               params = [kind, property_name, value, None]
-               startrow = self.__GetIndexKey(params)
-            params = [kind, property_name, value, chr(255)]
-            endrow = self.__GetIndexKey(params)
-            end_inclusive = _DISABLE
-        
-         if oper == datastore_pb.Query_Filter.LESS_THAN:
-            start_inclusive = _ENABLE
-            if startrow:
-               start_inclusive = _DISABLE
-            else:
-               params = [kind, property_name, None]
-               startrow = self.__GetIndexKey(params)
-            params = [kind, property_name, value, None]
-            endrow = self.__GetIndexKey(params)
-            end_inclusive = _DISABLE
 
-         if oper == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
-            start_inclusive = _ENABLE
-            if startrow:
-               start_inclusive = _DISABLE
-            else:
-               params = [kind, property_name , None]
-               startrow = self.__GetIndexKey(params)
-            params = [kind, property_name, value, None]
-            endrow = self.__GetIndexKey(params)
-            end_inclusive = _ENABLE
-            
-         if oper == datastore_pb.Query_Filter.GREATER_THAN:
-            start_inclusive = _DISABLE
-            if startrow:
-               start_inclusive = _DISABLE
-            else:
-               params = [kind, property_name, value, None]
-               startrow = self.__GetIndexKey(params)
-            params = [kind, property_name, chr(255)]
-            endrow = self.__GetIndexKey(params)
-            end_inclusive = _ENABLE
+      # Strip off the first char of encoding
+      value = str(value[1:]) 
 
-         if oper == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
-            start_inclusive = _ENABLE
-            if startrow:
-               start_inclusive = _DISABLE
-            else:
-               params = [kind, property_name, value, None]
-               startrow = self.__GetIndexKey(params)
-            params = [kind,property_name, chr(255)]
-            endrow = self.__GetIndexKey(params)
-            end_inclusive = _ENABLE
+      if direction == datastore_pb.Query_Order.DESCENDING: 
+        value = helper_functions.reverseLex(value)
 
-         result = cass.range_query( table_name, column_names, limit, offset, startrow, endrow, start_inclusive, end_inclusive)
+      if oper == datastore_pb.Query_Filter.EQUAL:
+        start_value = value 
+        end_value = value + _TERM_STRING
 
+      elif oper == datastore_pb.Query_Filter.LESS_THAN:
+        start_value = None
+        end_value = value + '/'
+        if direction == datastore_pb.Query_Order.DESCENDING:
+          start_value = value + _TERM_STRING
+          end_value = _TERM_STRING
+
+      elif oper == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
+        start_value = None
+        end_value = value + '/' + _TERM_STRING
+        if direction == datastore_pb.Query_Order.DESCENDING:
+          start_value = value + '/'
+          end_value = _TERM_STRING
+      elif oper == datastore_pb.Query_Filter.GREATER_THAN:
+        start_value = value + _TERM_STRING
+        end_value = _TERM_STRING
+        if direction == datastore_pb.Query_Order.DESCENDING:
+          start_value = None
+          end_value = value + '/' 
+
+      elif oper == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
+        start_value = value + '/'
+        end_value = _TERM_STRING
+        if direction == datastore_pb.Query_Order.DESCENDING:
+          start_value = None
+          end_value = value + '/' +  _TERM_STRING
+      elif oper == datastore_pb.Query_Filter.IN:
+        raise Exception("IN queries are not implemented")
+      elif oper == datastore_pb.Query_Filter.EXIST:
+        raise Exception("EXIST queries are not implemented")
       else:
-         table_name = prefix + 'Single_Property_DSC'
-         value = helper_functions_cass.reverseLex(value)
-         if oper == datastore_pb.Query_Filter.EQUAL:
-            start_inclusive = _ENABLE
-            if startrow:
-                start_inclusive = _DISABLE
-            else:
-                params = [kind, property_name, value, None]
-                startrow = self.__GetIndexKey(params)
-            params = [kind, property_name, value, chr(255)]
-            endrow = self.__GetIndexKey(params)
-            end_inclusive = _DISABLE
- 
-         if oper == datastore_pb.Query_Filter.LESS_THAN:
-            start_inclusive = _DISABLE
-            if startrow:
-               start_inclusive = _DISABLE
-            else:
-               params = [kind, property_name, value, None]
-               startrow = self.__GetIndexKey(params)
-            params = [kind, property_name, chr(255)]
-            endrow = self.__GetIndexKey(params)
-            end_inclusive = _ENABLE            
+        raise Exception("Unknow query of operation %d"%oper)
 
-         if oper == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
-            start_inclusive = _ENABLE
-            if startrow:
-               start_inclusive = _DISABLE
-            else:
-               params = [kind, property_name, value, None]
-               startrow = self.__GetIndexKey(params)
-            params = [kind, property_name, chr(255)]
-            endrow = self.__GetIndexKey(params)
-            end_inclusive = _ENABLE
+      if not startrow:
+        params = [prefix, kind, property_name, start_value]
+        startrow = self.__GetIndexKey(params)
+        start_inclusive = _DISABLE
 
-         if oper == datastore_pb.Query_Filter.GREATER_THAN:
-            start_inclusive = _ENABLE
-            if startrow:
-               start_inclusive = _DISABLE
-            else:
-               params = [kind, property_name, None]
-               startrow = self.__GetIndexKey(params)
-            params = [kind, property_name, value, None]
-            endrow = self.__GetIndexKey(params)
-            end_inclusive = _DISABLE
-            
-         if oper == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
-            start_inclusive = _ENABLE
-            if startrow:
-               start_inclusive = _DISABLE
-            else:
-               params = [kind, property_name, None]
-               startrow = self.__GetIndexKey(params)
-            params = [kind, property_name, value, None]
-            endrow = self.__GetIndexKey(params)
-            end_inclusive = _ENABLE
-             
-         res = cass.range_query(table_name, column_names, limit, offset, startrow, endrow, start_inclusive, end_inclusive)
-         result = []
-         for r in res:
-           i = r[0]
-           l = i.split("/")
-           l[2] = helper_functions_cass.reverseLex(l[2])
-           key = "/".join(l)
-           result.append((key,r[1]))
+      params = [prefix, kind, property_name, end_value]
+      endrow = self.__GetIndexKey(params)
+
+      return self.datastore_batch.range_query(table_name, 
+                                          column_names, 
+                                          startrow, 
+                                          endrow, 
+                                          limit, 
+                                          offset=offset, 
+                                          start_inclusive=start_inclusive, 
+                                          end_inclusive=end_inclusive)      
+
        
     if len(filter_ops)>1:
       if filter_ops[0][0] == datastore_pb.Query_Filter.GREATER_THAN or filter_ops[0][0] == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
@@ -1071,13 +1227,13 @@ class DatastoreDistributed():
          value2 = str(value2[1:])
 
       if direction == datastore_pb.Query_Order.ASCENDING:
-         table_name = prefix + 'Single_Property_ASC'
+         table_name = ASC_PROPERTY_TABLE
          if oper1 == datastore_pb.Query_Filter.GREATER_THAN:
                 start_inclusive = _DISABLE
                 if startrow:
                    start_inclusive = _DISABLE
                 else:
-                   params = [kind, property_name, value1, chr(255)]
+                   params = [kind, property_name, value1, _TERM_STRING]
                    startrow = self.__GetIndexKey(params)
                 if oper2 == datastore_pb.Query_Filter.LESS_THAN:    
                    params = [kind, property_name, value2, None]
@@ -1092,7 +1248,7 @@ class DatastoreDistributed():
                 if startrow:
                    start_inclusive = _DISABLE
                 else:
-                   params = [kind, property_name, value1, chr(255)]
+                   params = [kind, property_name, value1, _TERM_STRING]
                    startrow = self.__GetIndexKey(params)
                
                 if oper2 == datastore_pb.Query_Filter.LESS_THAN:
@@ -1112,7 +1268,7 @@ class DatastoreDistributed():
                 result =  cass.batch_get_entity(table_name,keys,column_names)
        
       if direction == datastore_pb.Query_Order.DESCENDING:
-         table_name = prefix + 'Single_Property_DSC'
+         table_name = DSC_PROPERTY_TABLE
          value1 = helper_functions_cass.reverseLex(value1)
          value2 = helper_functions_cass.reverseLex(value2) 
          if oper1 == datastore_pb.Query_Filter.GREATER_THAN:   
@@ -1143,14 +1299,14 @@ class DatastoreDistributed():
                    if startrow:
                       start_inclusive = _DISABLE
                    else:
-                      params = [kind, property_name, value2, chr(255)]
+                      params = [kind, property_name, value2, _TERM_STRING]
                       startrow = self.__GetIndexKey(params)
                 if oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
                    start_inclusive = _ENABLE
                    if startrow:
                       start_inclusive = _DISABLE
                    else:
-                      params = [kind, property_name, value2, chr(255)]
+                      params = [kind, property_name, value2, _TERM_STRING]
                       startrow = self.__GetIndexKey(params)
                    
          res = cass.range_query(table_name, column_names, limit, offset, startrow, endrow, start_inclusive, end_inclusive)
@@ -1176,7 +1332,6 @@ class DatastoreDistributed():
     Returns:
       list of results
     """
-    global cass
 
     if order_info and order_info[0][0] == '__key__':
       return None
@@ -1284,16 +1439,16 @@ class DatastoreDistributed():
         else:
            sorted_vals = sorted(vals, key = lambda v:v[0])
         result = [s[1] for s in sorted_vals]
-      if query.has_keys_only():
-       results = [str(self.__EncodeIndexPB(e.key().path())) for e in result]
-      else:
-       results = [str(buffer(x.Encode())) for x in result]  
+      #if query.has_keys_only():
+      #  results = [str(self.__EncodeIndexPB(e.key().path())) for e in result]
+      #else:
+      results = [str(buffer(x.Encode())) for x in result]  
     return results 
 
 
   _QUERY_STRATEGIES = [
-      __KindQuery,
       __SinglePropertyQuery,   
+      __KindQuery,
       __CompositeQuery,
   ]
 
@@ -1305,7 +1460,6 @@ class DatastoreDistributed():
     Returns:
       Result set
     """
-    global cass
     if query.has_transaction() and not query.has_ancestor():
       raise apiproxy_errors.ApplicationError(
           datastore_pb.Error.BAD_REQUEST,
@@ -1327,22 +1481,25 @@ class DatastoreDistributed():
     filter_info = self.__GenerateFilterInfo(filters, query)
     order_info = self.__GenerateOrderInfo(orders)
     for strategy in DatastoreDistributed._QUERY_STRATEGIES:
-      result = strategy(self, query, filter_info, order_info)
-      if result:
+      results = strategy(self, query, filter_info, order_info)
+      if results:
         break
-    #else:
+
+    # TODO keys only queries
+  
+  #else:
      # raise apiproxy_errors.ApplicationError(
       #    datastore_pb.Error.BAD_REQUEST,
        #   'No strategy found to satisfy query.')
-    return result
+    return results
   
   def _Dynamic_Run_Query(self, app_id, query, query_result):
     """Populates the query result which in turn encodes cursor"""
     result = self.__GetQueryResults(query)
     count = 0
     if result:
-      for index,i in enumerate(result):
-        result[index] = entity_pb.EntityProto(i)
+      for index,ii in enumerate(result):
+        result[index] = entity_pb.EntityProto(ii)
       count = len(result)
      
     cur = cassandra_stub_util.QueryCursor(query, result)
@@ -1587,15 +1744,15 @@ class MainHandler(tornado.web.RequestHandler):
     else:
       self.unknown_request(app_id, http_request_data, pb_type)
     self.finish()
+
 def usage():
   print "AppScale Server"
   print
   print "Options:"
-  print "\t--a=<soap server hostname> "
   print "\t--type=<hypertable, hbase, cassandra, mysql, mongodb>"
-  print "\t--secret=<secrete to soap server>"
-  print "\t--blocksize=<key-block-size>"
   print "\t--no_encryption"
+  print "\t--port"
+  print "\t--zoo_keeper <zk nodes>"
 
 pb_application = tornado.web.Application([
     (r"/*", MainHandler),
@@ -1603,9 +1760,6 @@ pb_application = tornado.web.Application([
 
 def main(argv):
   global app_datastore
-  global cass
-  global keySecret
-  global soapServer
   global zoo_keeper_locations
   global zoo_keeper_real
   global zoo_keeper_stub
@@ -1619,10 +1773,8 @@ def main(argv):
   isEncrypted = True
 
   try:
-    opts, args = getopt.getopt( argv, "t:s:a:p:n:z:",
+    opts, args = getopt.getopt( argv, "t:p:n:z:",
                                ["type=",
-                                "secret=",
-                                "soap=",
                                 "port",
                                 "no_encryption",
                                 "zoo_keeper"] )
@@ -1634,11 +1786,6 @@ def main(argv):
     if  opt in ("-t", "--type"):
       db_type = arg
       print "Datastore type: ",db_type
-    elif opt in ("-s", "--secret"):
-      keySecret = arg
-      print "Secret set..."
-    elif opt in ("-a", "--soap"):
-      soapServer = arg
     elif opt in ("-p", "--port"):
       port = int(arg)
     elif opt in ("-n", "--no_encryption"):
