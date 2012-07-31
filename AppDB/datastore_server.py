@@ -761,7 +761,7 @@ class DatastoreDistributed():
       plist = e.property_list()
     else:   
       rkey = prefix + '/' + str(self.__EncodeIndexPB(e.key().path()))
-      ret = datastore_batch.batch_get_entity(APP_ENTITY_TABLE, 
+      ret = self.datastore_batch.batch_get_entity(APP_ENTITY_TABLE, 
                                              [rkey], 
                                              APP_ENTITY_SCHEMA)
       if 'entity' in ret[rkey]:
@@ -793,19 +793,21 @@ class DatastoreDistributed():
       refs: key/value pairs where the values contain a reference to 
             the entitiy table
     """
+    if len(refs) == 0:
+      return {}
     keys = [item.keys()[0] for item in refs]
     rowkeys = []    
     for index, ent in enumerate(refs):
       key = keys[index]
       ent = ent[key]['reference']
       rowkeys.append(ent)
-
+  
     result = self.datastore_batch.batch_get_entity(APP_ENTITY_TABLE, 
                                                    rowkeys,
                                                    APP_ENTITY_SCHEMA)
     entities = []
     keys = result.keys()
-    for key in keys:
+    for key in rowkeys:
       if 'entity' in result[key]:
         entities.append(result[key]['entity'])
 
@@ -840,6 +842,7 @@ class DatastoreDistributed():
     ancestor = query.ancestor()
     prefix = self.GetTablePrefix(query)
     path = buffer(prefix + '/') + self.__EncodeIndexPB(ancestor.path())
+
     startrow = path
     endrow =  path + _TERM_STRING
 
@@ -847,8 +850,22 @@ class DatastoreDistributed():
     start_inclusive = _ENABLE
 
     if '__key__' in filter_info:
-      startrow = prefix + '/' + str(filter_info['__key__'][0][1])
-      start_inclusive = _DISABLE
+      op = filter_info['__key__'][0][0]
+      __key__ = str(filter_info['__key__'][0][1])
+      if op and op == datastore_pb.Query_Filter.EQUAL:
+        startrow = prefix + '/' + __key__
+        endrow = prefix + '/' + __key__
+      elif op and op == datastore_pb.Query_Filter.GREATER_THAN:
+        start_inclusive = _DISABLE
+        startrow = prefix + '/' + __key__ 
+      elif op and op == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
+        startrow = prefix + '/' + __key__
+      elif op and op == datastore_pb.Query_Filter.LESS_THAN:
+        endrow = prefix + '/'  + __key__
+        end_inclusive = _DISABLE
+      elif op and op == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
+        endrow = prefix + '/' + __key__ 
+
 
 
     column_names = ['reference']
@@ -891,14 +908,33 @@ class DatastoreDistributed():
       Entities that match the query
     """       
     prefix = self.GetTablePrefix(query)
+
     __key__ = str(filter_info['__key__'][0][1])
-    for filt in query.filter_list():
-      op = filt.op
-    startrow = prefix + '/' + __key__
-    endrow = prefix + '/'  + _TERM_STRING
+    op = filter_info['__key__'][0][0]
 
     end_inclusive = _ENABLE
     start_inclusive = _ENABLE
+
+    startrow = prefix + '/' + __key__ + _TERM_STRING
+    endrow = prefix + '/'  + _TERM_STRING
+    if op and op == datastore_pb.Query_Filter.EQUAL:
+      startrow = prefix + '/' + __key__
+      endrow = prefix + '/' + __key__
+    elif op and op == datastore_pb.Query_Filter.GREATER_THAN:
+      start_inclusive = _DISABLE
+      startrow = prefix + '/' + __key__ 
+      endrow = prefix + '/'  + _TERM_STRING
+    elif op and op == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
+      startrow = prefix + '/' + __key__
+      endrow = prefix + '/'  + _TERM_STRING
+    elif op and op == datastore_pb.Query_Filter.LESS_THAN:
+      startrow = prefix + '/'  
+      endrow = prefix + '/'  + __key__
+      end_inclusive = _DISABLE
+    elif op and op == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
+      startrow = prefix + '/' 
+      endrow = prefix + '/' + __key__ 
+
     if not order_info:
       order = None
       prop_name = None
@@ -989,6 +1025,7 @@ class DatastoreDistributed():
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
        cursor = cassandra_stub_util.ListCursor(query)
        last_result = cursor._GetLastResult()
+       prefix = self.GetTablePrefix(query)
        startrow = self.__GetStartKey(prefix, prop_name, order, last_result)
        start_inclusive = _DISABLE
 
@@ -1064,7 +1101,6 @@ class DatastoreDistributed():
                                     last_result)
     else:
       startrow = None
-
     references = self.__ApplyFilters(filter_ops, 
                                order_info, 
                                property_name, 
@@ -1097,7 +1133,7 @@ class DatastoreDistributed():
     Results:
        Returns a list of index keys 
     """ 
-    
+
     end_inclusive = _ENABLE
     start_inclusive = _ENABLE
 
@@ -1116,7 +1152,6 @@ class DatastoreDistributed():
       table_name = DSC_PROPERTY_TABLE
   
     if startrow: start_inclusive = _DISABLE 
-
     # This query is returning based on order on a specfic property name 
     # The start key (if not already supplied) depends on the property
     # name and does not take into consideration its value. The end key
@@ -1200,6 +1235,97 @@ class DatastoreDistributed():
       params = [prefix, kind, property_name, end_value]
       endrow = self.__GetIndexKey(params)
 
+      ret = self.datastore_batch.range_query(table_name, 
+                                          column_names, 
+                                          startrow, 
+                                          endrow, 
+                                          limit, 
+                                          offset=offset, 
+                                          start_inclusive=start_inclusive, 
+                                          end_inclusive=end_inclusive)      
+
+      return ret 
+
+    # Here we have two filters and so we set the start and end key to 
+    # get the given value within those ranges. 
+    if len(filter_ops) > 1:
+      if filter_ops[0][0] == datastore_pb.Query_Filter.GREATER_THAN or \
+         filter_ops[0][0] == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
+        oper1 = filter_ops[0][0]
+        oper2 = filter_ops[1][0]
+        value1 = str(filter_ops[0][1])
+        value1 = str(value1[1:])
+        value2 = str(filter_ops[1][1])
+        value2 = str(value2[1:])
+      else:
+        oper1 = filter_ops[1][0]
+        oper2 = filter_ops[0][0]
+        value1 = str(filter_ops[1][1])
+        value1 = str(value1[1:])
+        value2 = str(filter_ops[0][1])
+        value2 = str(value2[1:])
+
+      if direction == datastore_pb.Query_Order.ASCENDING:
+        table_name = ASC_PROPERTY_TABLE
+        # The first operator will always be either > or >=
+        if startrow:
+          start_inclusive = _DISABLE
+        elif oper1 == datastore_pb.Query_Filter.GREATER_THAN:
+          params = [prefix, kind, property_name, value1 + '/' + _TERM_STRING]
+          startrow = self.__GetIndexKey(params)
+        elif oper1 == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
+          params = [prefix, kind, property_name, value1 + '/']
+          startrow = self.__GetIndexKey(params)
+        else:
+          raise Exception("Bad filter ordering")
+
+        # The second operator will be either < or <=
+        if oper2 == datastore_pb.Query_Filter.LESS_THAN:    
+          params = [prefix, kind, property_name, value2 + '/']
+          endrow = self.__GetIndexKey(params)
+          end_inclusive = _DISABLE
+        elif oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
+          params = [prefix, kind, property_name, value2 + '/' + _TERM_STRING]
+          endrow = self.__GetIndexKey(params)
+          end_inclusive = _ENABLE
+        else:
+          raise Exception("Bad filter ordering") 
+
+        # What is this?
+        #if oper1 == datastore_pb.Query_Filter.EQUAL and \
+        #   oper2 == datastore_pb.Query_Filter.EQUAL:
+        #  key1 = self.__GetIndexKey([prefix, kind, property_name, value1])
+        #  key2 = self.__GetIndexKey([prefix, kind, property_name, value2])
+        #  keys = [key1, key2]
+        #  result =  self.batch_get_entity(table_name, keys, column_names)
+       
+      if direction == datastore_pb.Query_Order.DESCENDING:
+        table_name = DSC_PROPERTY_TABLE
+        value1 = helper_functions.reverseLex(value1)
+        value2 = helper_functions.reverseLex(value2) 
+
+        if oper1 == datastore_pb.Query_Filter.GREATER_THAN:   
+          params = [prefix, kind, property_name, value1 + '/']
+          endrow = self.__GetIndexKey(params)
+          end_inclusive = _DISABLE
+        elif oper1 == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
+          params = [prefix, kind, property_name, value1 + '/' + _TERM_STRING]
+          endrow = self.__GetIndexKey(params)
+          end_inclusive = _ENABLE
+
+        if startrow:
+          start_inclusive = _DISABLE
+        elif oper2 == datastore_pb.Query_Filter.LESS_THAN:
+          params = [prefix, kind, property_name, value2 + '/' + _TERM_STRING]
+          startrow = self.__GetIndexKey(params)
+        elif oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
+          params = [prefix, kind, property_name, value2 + '/']
+          startrow = self.__GetIndexKey(params)
+        
+        # What is this?
+        #if oper1 == datastore_pb.Query_Filter.EQUAL and oper2 == datastore_pb.Query_Filter.EQUAL:
+        #  keys = [self.__GetIndexKey([prefix, kind, property_name, value1, None]), self.__GetIndexKey([prefix, kind, property_name, value2, None])]
+        #  res =  cass.batch_get_entity(table_name,keys,column_names) 
       return self.datastore_batch.range_query(table_name, 
                                           column_names, 
                                           startrow, 
@@ -1209,119 +1335,8 @@ class DatastoreDistributed():
                                           start_inclusive=start_inclusive, 
                                           end_inclusive=end_inclusive)      
 
-       
-    if len(filter_ops)>1:
-      if filter_ops[0][0] == datastore_pb.Query_Filter.GREATER_THAN or filter_ops[0][0] == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
-         oper1 = filter_ops[0][0]
-         oper2 = filter_ops[1][0]
-         value1 = str(filter_ops[0][1])
-         value1 = str(value1[1:])
-         value2 = str(filter_ops[1][1])
-         value2 = str(value2[1:])
-      else:
-         oper1 = filter_ops[1][0]
-         oper2 = filter_ops[0][0]
-         value1 = str(filter_ops[1][1])
-         value1 = str(value1[1:])
-         value2 = str(filter_ops[0][1])
-         value2 = str(value2[1:])
-
-      if direction == datastore_pb.Query_Order.ASCENDING:
-         table_name = ASC_PROPERTY_TABLE
-         if oper1 == datastore_pb.Query_Filter.GREATER_THAN:
-                start_inclusive = _DISABLE
-                if startrow:
-                   start_inclusive = _DISABLE
-                else:
-                   params = [kind, property_name, value1, _TERM_STRING]
-                   startrow = self.__GetIndexKey(params)
-                if oper2 == datastore_pb.Query_Filter.LESS_THAN:    
-                   params = [kind, property_name, value2, None]
-                   endrow = self.__GetIndexKey(params)
-                   end_inclusive = _DISABLE
-                if oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
-                   params = [kind, property_name, value2, None]
-                   endrow = self.__GetIndexKey(params)
-                   end_inclusive = _ENABLE
-         if oper1 == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
-                start_inclusive = _ENABLE
-                if startrow:
-                   start_inclusive = _DISABLE
-                else:
-                   params = [kind, property_name, value1, _TERM_STRING]
-                   startrow = self.__GetIndexKey(params)
-               
-                if oper2 == datastore_pb.Query_Filter.LESS_THAN:
-                   params = [kind, property_name, value2, None]
-                   endrow = self.__GetIndexKey(params)
-                   end_inclusive = _DISABLE
-                if oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
-                   params = [kind, property_name, value2, None]
-                   endrow = self.__GetIndexKey(params)
-                   end_inclusive = _ENABLE
-
-
-         result = cass.range_query( table_name, column_names, limit, offset, startrow, endrow,start_inclusive, end_inclusive)
-         if oper1 == datastore_pb.Query_Filter.EQUAL and oper2 == datastore_pb.Query_Filter.EQUAL:
-                
-                keys = [self.__GetIndexKey([kind, property_name, value1, None]), self.__GetIndexKey([kind, property_name, value2, None])]
-                result =  cass.batch_get_entity(table_name,keys,column_names)
-       
-      if direction == datastore_pb.Query_Order.DESCENDING:
-         table_name = DSC_PROPERTY_TABLE
-         value1 = helper_functions_cass.reverseLex(value1)
-         value2 = helper_functions_cass.reverseLex(value2) 
-         if oper1 == datastore_pb.Query_Filter.GREATER_THAN:   
-                params = [kind, property_name, value1, None]
-                endrow = self.__GetIndexKey(params)
-                end_inclusive = _DISABLE
-                if oper2 == datastore_pb.Query_Filter.LESS_THAN:
-                   start_inclusive = _DISABLE
-                   if startrow:
-                      start_inclusive = _DISABLE
-                   else:  
-                      params = [kind, property_name, value2, None]
-                      startroe = self.__GetIndexKey(params)
-                if filter_ops[1][0] == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
-                   start_inclusive = _ENABLE
-                   if startrow:
-                      start_inclusive = _DISABLE
-                   else:
-                      params = [kind, property_name, value2, None]
-                      startrow = self.__GetIndexKey(params)
-                   
-         if oper1 == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
-                params = [kind, property_name, value1, None]
-                endrow = self.__GetIndexKey(params)
-                end_inclusive = _ENABLE
-                if oper2 == datastore_pb.Query_Filter.LESS_THAN:
-                   start_inclusive = _DISABLE
-                   if startrow:
-                      start_inclusive = _DISABLE
-                   else:
-                      params = [kind, property_name, value2, _TERM_STRING]
-                      startrow = self.__GetIndexKey(params)
-                if oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
-                   start_inclusive = _ENABLE
-                   if startrow:
-                      start_inclusive = _DISABLE
-                   else:
-                      params = [kind, property_name, value2, _TERM_STRING]
-                      startrow = self.__GetIndexKey(params)
-                   
-         res = cass.range_query(table_name, column_names, limit, offset, startrow, endrow, start_inclusive, end_inclusive)
-         if oper1 == datastore_pb.Query_Filter.EQUAL and oper2 == datastore_pb.Query_Filter.EQUAL:
-                keys = [self.__GetIndexKey([kind, property_name, value1, None]), self.__GetIndexKey([kind, property_name, value2, None])]
-                res =  cass.batch_get_entity(table_name,keys,column_names)          
-         result =[] 
-         for r in res:
-           i = r[0]
-           l = i.split("/")
-           l[2] = helper_functions_cass.reverseLex(l[2])
-           key = "/".join(l)
-           result.append((key,r[1]))
-          
-    return result
+         
+    return None
 
   def __CompositeQuery(self, query, filter_info, order_info):  
     """Performs Composite queries 
@@ -1351,22 +1366,22 @@ class DatastoreDistributed():
       return None
     property_name = None
     for p in filter_info.keys():
-        f = filter_info[p]
-        if f[0][0] != datastore_pb.Query_Filter.EQUAL: 
-           property_name = p     
-           property_names.remove(p)
+      f = filter_info[p]
+      if f[0][0] != datastore_pb.Query_Filter.EQUAL: 
+        property_name = p     
+        property_names.remove(p)
     if not property_name:
-        property_name = property_names.pop()
+      property_name = property_names.pop()
     filter_ops = filter_info.get(property_name, [])
     order_ops = []
     
     for i in order_info:
-        if i[0] == property_name:
-           order_ops = [i]
-           break
+      if i[0] == property_name:
+        order_ops = [i]
+        break
     if order_ops:
       if order_ops[0][0] == property_name:
-         direction = order_ops[0][1]
+        direction = order_ops[0][1]
     else:
       direction = datastore_pb.Query_Order.ASCENDING
     
@@ -1374,18 +1389,18 @@ class DatastoreDistributed():
     off = 0              
     kind = query.kind()
     if query.has_limit() and query.limit(): 
-       limit = query.limit()
+      limit = query.limit()
     else:
-       limit = _MAXIMUM_RESULTS
+      limit = _MAXIMUM_RESULTS
     offset = query.offset()
     prefix = self.GetTablePrefix(query)
 
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
-            cursor = cassandra_stub_util.ListCursor(query)
-            last_result = cursor._GetLastResult()
-            startrow = self.__GetStartKey(prefix, property_name,direction,last_result)
+      cursor = cassandra_stub_util.ListCursor(query)
+      last_result = cursor._GetLastResult()
+      startrow = self.__GetStartKey(prefix, property_name,direction,last_result)
     else:
-        startrow = None
+      startrow = None
 
     result = []     
     temp_res = self.__ApplyFilters(filter_ops, order_ops, property_name, kind, prefix, count, off, startrow)
@@ -1484,7 +1499,6 @@ class DatastoreDistributed():
       results = strategy(self, query, filter_info, order_info)
       if results:
         break
-
     # TODO keys only queries
   
   #else:

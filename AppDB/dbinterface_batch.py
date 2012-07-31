@@ -34,7 +34,7 @@ class AppDBInterface:
                   keys_only=False):
     raise NotImplementedError("range_query is not implemented in %s." % self.__class__)
 
-  def create_table(self,tabel_name, column_names):
+  def create_table(self,table_name, column_names):
     raise NotImplementedError("create_table is not implemented in %s." % self.__class__)
   def commit(self, txnid):
     raise NotImplementedError("commit is not implemented in %s." % self.__class__)

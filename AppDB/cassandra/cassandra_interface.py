@@ -22,6 +22,7 @@ from dbconstants import *
 from dbinterface_batch import *
 from pycassa.system_manager import *
 
+PROFILE = False
 
 CASS_DEFAULT_PORT = 9160
 
@@ -60,7 +61,6 @@ class DatastoreProxy(AppDBInterface):
     assert isinstance(table_name, str)
     assert isinstance(column_names, list)
     assert isinstance(row_keys, list)
- 
     client = None
     results = {}
     ret = {}
@@ -71,6 +71,8 @@ class DatastoreProxy(AppDBInterface):
                                    path, 
                                    slice_predicate, 
                                    CONSISTENCY_QUORUM)
+    
+ 
     for row in row_keys:
       col_dic = {}
       for columns in results[row]:
@@ -218,6 +220,7 @@ class DatastoreProxy(AppDBInterface):
                              row_count=limit,
                              read_consistency_level=CONSISTENCY_QUORUM)
 
+    #keyslices = list(keyslices)
     for key in keyslices:
       if keys_only:
         results.append(key[0]) 
@@ -225,8 +228,15 @@ class DatastoreProxy(AppDBInterface):
         columns = key[1]
         col_mapping = {}
         for column in columns.items():
-          col_mapping[str(column[0])] = column[1]
-        results.append({key[0]:col_mapping})
+          col_name = str(column[0]) 
+          col_val = column[1]
+          col_mapping[col_name] = col_val
+
+        k = key[0]
+        v = col_mapping
+        item = {k:v}
+        results.append(item)
+
    
     if start_inclusive == False and len(results) > 0:
       if start_key in results[0]:
@@ -241,7 +251,7 @@ class DatastoreProxy(AppDBInterface):
 
     if offset != 0 and offset <= len(results):
       results = results[offset:]
-
+    
     return results 
      
 
