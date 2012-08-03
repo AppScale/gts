@@ -12,12 +12,13 @@ import urllib
 from google.appengine.api import users
 
 
+# The path on the local filesystem where we read and write EC2 credentials.
 EC2_CREDS_PATH = "/tmp/ec2/"
 
 
 class EC2Exception(Exception):
   """
-    EC2Exception is a custom exception type that is thrown whenever method calls
+    EC2Exception is a custom exception type that is raised whenever method calls
       in the EC2 API are called incorrectly or experience unexpected behaviors.
   """
   pass
