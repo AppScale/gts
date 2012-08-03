@@ -12,6 +12,9 @@ import urllib
 from google.appengine.api import users
 
 
+EC2_CREDS_PATH = "/tmp/ec2/"
+
+
 class EC2Exception(Exception):
   """
     EC2Exception is a custom exception type that is thrown whenever method calls
@@ -385,7 +388,7 @@ def write_ec2_creds(cert, pk, ec2_url, s3_url, ec2_access_key, ec2_secret_key):
   user = get_current_user()
   if not user:
     raise NameError('Cannot call write_ec2_creds while not logged in.')
-  cred_dir = "/tmp/ec2/" + user.nickname()
+  cred_dir = EC2_CREDS_PATH + user.nickname()
   os.system("mkdir -p " + cred_dir)
 
   ec2_cert_loc = cred_dir + "/cert.pem"
@@ -433,7 +436,7 @@ def get_credentials():
   """
   ensure_user_is_ec2_authorized()
   user = get_current_user()
-  cred_dir = "/tmp/ec2/" + user.nickname()
+  cred_dir = EC2_CREDS_PATH + user.nickname()
   cert = cred_dir + "/cert.pem"
   pk = cred_dir + "/pk.pem"
   ec2_url = get_ec2_url()
@@ -457,7 +460,7 @@ def get_ec2_cert():
   """
   ensure_user_is_ec2_authorized()
   user = get_current_user()
-  cert_loc = "/tmp/ec2/" + user.nickname() + "/cert.pem"
+  cert_loc = EC2_CREDS_PATH + user.nickname() + "/cert.pem"
 
   contents = None
   if os.path.exists(cert_loc):
@@ -481,7 +484,7 @@ def get_ec2_pk():
   """
   ensure_user_is_ec2_authorized()
   user = get_current_user()
-  pk_loc = "/tmp/ec2/" + user.nickname() + "/pk.pem"
+  pk_loc = EC2_CREDS_PATH + user.nickname() + "/pk.pem"
 
   contents = None
   if os.path.exists(pk_loc):
@@ -505,7 +508,7 @@ def get_ec2_url():
   """
   ensure_user_is_ec2_authorized()
   user = get_current_user()
-  ec2_url_loc = "/tmp/ec2/" + user.nickname() + "/ec2url"
+  ec2_url_loc = EC2_CREDS_PATH + user.nickname() + "/ec2url"
 
   contents = None
   if os.path.exists(ec2_url_loc):
@@ -529,7 +532,7 @@ def get_s3_url():
   """
   ensure_user_is_ec2_authorized()
   user = get_current_user()
-  s3_url_loc = "/tmp/ec2/" + user.nickname() + "/s3url"
+  s3_url_loc = EC2_CREDS_PATH + user.nickname() + "/s3url"
 
   contents = None
   if os.path.exists(s3_url_loc):
@@ -553,7 +556,7 @@ def get_ec2_access_key():
   """
   ensure_user_is_ec2_authorized()
   user = get_current_user()
-  ec2_access_key_loc = "/tmp/ec2/" + user.nickname() + "/ec2accesskey"
+  ec2_access_key_loc = EC2_CREDS_PATH + user.nickname() + "/ec2accesskey"
 
   contents = None
   if os.path.exists(ec2_access_key_loc):
@@ -577,7 +580,7 @@ def get_ec2_secret_key():
   """
   ensure_user_is_ec2_authorized()
   user = get_current_user()
-  ec2_secret_key_loc = "/tmp/ec2/" + user.nickname() + "/ec2secretkey"
+  ec2_secret_key_loc = EC2_CREDS_PATH + user.nickname() + "/ec2secretkey"
 
   contents = None
   if os.path.exists(ec2_secret_key_loc):
@@ -601,5 +604,5 @@ def remove_ec2_creds():
   """
   ensure_user_is_ec2_authorized()
   user = get_current_user()
-  cred_dir = "/tmp/ec2/" + user.nickname()
+  cred_dir = EC2_CREDS_PATH + user.nickname()
   os.system("rm -rf " + cred_dir)
