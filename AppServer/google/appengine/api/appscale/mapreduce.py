@@ -82,7 +82,7 @@ def can_run_jobs():
     return False
 
 
-def getLang(filename):
+def get_lang(filename):
   """
     Parses the given filename to see what executable can be used to run that
       type of code in a MapReduce Streaming job.
@@ -131,7 +131,7 @@ def ensure_user_is_mapreduce_authorized():
     raise MapReduceException("this user cannot call the mapreduce api")
 
 
-def writeTempFile(suffix, data):
+def write_temp_file(suffix, data):
   """
     Writes a file on the local filesystem with the given contents, to be used as
       input to a Hadoop MapReduce job.
@@ -160,7 +160,7 @@ def writeTempFile(suffix, data):
   return fileLoc
 
 
-def getAllIPs():
+def get_all_ips():
   """
     Returns a list of all the IP addresses in the currently running AppScale
       deployment that can be used to run MapReduce jobs.
@@ -182,7 +182,7 @@ def getAllIPs():
   return all_ips
 
 
-def getNumOfNodes():
+def get_num_of_nodes():
   """
     Determines how many nodes are running in this AppScale deployment.
 
@@ -203,7 +203,7 @@ def getNumOfNodes():
   return num_of_nodes
 
 
-def putMRInput(data, inputLoc):
+def put_mr_input(data, inputLoc):
   """
     Stores the given string to a file in HDFS.
 
@@ -237,7 +237,7 @@ def putMRInput(data, inputLoc):
   os.system(put)
 
 
-def runMRJob(mapper, reducer, inputLoc, outputLoc, config={}):
+def run_mr_job(mapper, reducer, inputLoc, outputLoc, config={}):
   """
     Runs a Hadoop MapReduce Streaming job.
     
@@ -286,7 +286,7 @@ def runMRJob(mapper, reducer, inputLoc, outputLoc, config={}):
   sys.stderr.write("\nTime elapsed = " + str(end - start) + "seconds\n")
 
 
-def getMROutput(outputLoc):
+def get_mr_output(outputLoc):
   """
     Queries HDFS for the contents of the file at the named location.
 
@@ -321,7 +321,7 @@ def getMROutput(outputLoc):
     raise MapReduceException("HDFS file not found.")
 
 
-def getMRLogs(outputLoc):
+def get_mr_logs(outputLoc):
   """
     Queries HDFS to see if any log files exist for the named MapReduce job.
 
