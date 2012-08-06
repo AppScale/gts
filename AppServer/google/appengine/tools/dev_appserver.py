@@ -132,9 +132,10 @@ from google.appengine.api.blobstore import datastore_blob_storage
 from google.appengine.api.memcache import memcache_distributed
 from google.appengine.api.xmpp import xmpp_service_real
 # AppScale APIs
-from google.appengine.api.appscale.mapreduce import mapreduce
-from google.appengine.api.appscale.ec2 import ec2
-from google.appengine.api.appscale.neptune import neptune
+from google.appengine.api.appscale import babel
+from google.appengine.api.appscale import ec2
+from google.appengine.api.appscale import mapreduce
+from google.appengine.api.appscale import neptune
 
 try:
   from google.appengine.runtime import request_environment
