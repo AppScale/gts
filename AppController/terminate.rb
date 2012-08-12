@@ -110,7 +110,7 @@ end
 
 ["memcached",
  "nginx", "haproxy", "collectd", "collectdmon",
- "soap_server", "appscale_server",
+ "soap_server", "appscale_server", "datastore_server",
  "AppLoadBalancer", "AppMonitoring",
  # AppServer
  "dev_appserver", "DevAppServerMain",

@@ -371,6 +371,7 @@ class AppServerRequest(object):
     infile: File-like object with input data from the request.
     force_admin: Allow request admin-only URLs to proceed regardless of whether
       user is logged in or is an admin.
+    secret_hash: Security for task queue paths
   """
 
   ATTRIBUTES = ['relative_url',

@@ -64,14 +64,26 @@ module PbServer
       "MASTER_IP" => master_ip, 
       "LOCAL_DB_IP" => db_local_ip 
     }
-
-    ports.each { |port|
-      start_cmd = "/usr/bin/python2.6 #{pbserver} -p #{port} " +
+  
+    if table == "cassandra"
+      ports.each { |port|
+        start_cmd = "/usr/bin/python2.6 #{pbserver} -p #{port} " +
+            "--no_encryption --type #{table} -z \'#{zklocations}\' "
+        # stop command doesn work, relies on terminate.rb
+        stop_cmd = "pkill -9 datastore_server"
+        GodInterface.start(:pbserver, start_cmd, stop_cmd, port, env_vars)
+      }
+    else
+      ports.each { |port|
+        start_cmd = "/usr/bin/python2.6 #{pbserver} -p #{port} " +
+            "--no_encryption --type #{table} -z \'#{zklocations}\' "
           "--no_encryption --type #{table} -z \'#{zklocations}\' " +
           "-s #{HelperFunctions.get_secret()} -a #{my_ip} --key"
-      stop_cmd = "pkill -9 appscale_server"
-      GodInterface.start(:pbserver, start_cmd, stop_cmd, port, env_vars)
-    }
+        # stop command doesn work, relies on terminate.rb
+        stop_cmd = "pkill -9 appscale_server"
+        GodInterface.start(:pbserver, start_cmd, stop_cmd, port, env_vars)
+      }
+    end
   end
 
 
@@ -117,6 +129,10 @@ module PbServer
   def self.get_executable_name(table)
     if DBS_WITH_NATIVE_PBSERVER.include?(table)
       return "#{APPSCALE_HOME}/AppDB/appscale_server_#{table}.py"
+    elsif table == "cassandra"
+      return "#{APPSCALE_HOME}/AppDB/datastore_server.py"
+    #elsif table == "hypertable"
+    #  return "#{APPSCALE_HOME}/AppDB/datastore_server.py"
     else
       return "#{APPSCALE_HOME}/AppDB/appscale_server.py"
     end

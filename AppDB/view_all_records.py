@@ -27,6 +27,9 @@ def main(argv):
     DB_TYPE = argv[1]
   
   db = appscale_datastore_batch.DatastoreFactory.getDatastore(DB_TYPE)
+  entities = get_entities(APP_NAMESPACE_TABLE, APP_NAMESPACE_SCHEMA, db)
+  view_all(entities, APP_NAMESPACE_TABLE, db) 
+
   entities = get_entities(APP_ENTITY_TABLE, APP_ENTITY_SCHEMA, db)   
   view_all(entities, APP_ENTITY_TABLE, db) 
 

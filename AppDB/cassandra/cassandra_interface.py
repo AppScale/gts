@@ -202,7 +202,7 @@ class DatastoreProxy(AppDBInterface):
     assert isinstance(column_names, list)
     assert isinstance(start_key, str)
     assert isinstance(end_key, str)
-    assert isinstance(limit, int)
+    assert isinstance(limit, int) or isinstance(limit, long)
     assert isinstance(offset, int)
     
     # We add extra rows in case we exclusde the start/end keys

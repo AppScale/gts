@@ -2117,7 +2117,7 @@ class Djinn
       retval = 0
       while retries > 0
         replication = @creds["replication"]
-        Djinn.log_run("MASTER_IP='localhost' LOCAL_DB_IP='localhost' python2.6 #{prime_script} #{replication}; echo $? > /tmp/retval")
+        Djinn.log_run("APPSCALE_HOME='#{APPSCALE_HOME}' MASTER_IP='localhost' LOCAL_DB_IP='localhost' python2.6 #{prime_script} #{replication}; echo $? > /tmp/retval")
         retval = `cat /tmp/retval`.to_i
         break if retval == 0
         Djinn.log_debug("Fail to create initial table. Retry #{retries} times.")
