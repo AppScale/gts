@@ -141,7 +141,7 @@ class DatastoreDistributed():
     pass
 
   @staticmethod
-  def __GetEntityKind(key):
+  def GetEntityKind(key):
     """ Returns the Kind of the Entity
 
     Args:
@@ -154,7 +154,7 @@ class DatastoreDistributed():
       key = key.key()
     return key.path().element_list()[-1].type()
 
-  def __GetEntityKey(self, prefix, pb):
+  def GetEntityKey(self, prefix, pb):
     """ Returns the key for the entity table
     
     Args:
@@ -165,7 +165,7 @@ class DatastoreDistributed():
     """
     return buffer(prefix + _NAMESPACE_SEPARATOR) + self.__EncodeIndexPB(pb) 
 
-  def __GetKindKey(self, prefix, key_path):
+  def GetKindKey(self, prefix, key_path):
     """ Returns a key for the kind table
     
     Args:
@@ -270,7 +270,7 @@ class DatastoreDistributed():
 
     return app_id + "/" + name_space + "/" + kind + "/" + index_name
 
-  def __ConfigureNamespace(self, prefix, app_id, name_space):
+  def ConfigureNamespace(self, prefix, app_id, name_space):
     """ Stores a key for the given namespac
 
     Args:
@@ -311,13 +311,13 @@ class DatastoreDistributed():
     #prefix = formatTableName(prefix)
 
     if data not in self.__namespaces:
-      if self.__ConfigureNamespace(prefix, *data):
+      if self.ConfigureNamespace(prefix, *data):
         self.__namespaces.append(data)
 
     return prefix
 
-  def __GetIndexKey(self, params):
-    """Returns the index key
+  def GetIndexKeyFromParams(self, params):
+    """Returns the index key from params
     Args:
        params: a list of strings to be concatenated to form the key made of:
               prefix, kind, property name, and path
@@ -325,7 +325,6 @@ class DatastoreDistributed():
        a string
     """
     assert len(params) == 5 or len(params) == 4
-
     if params[-1] == None:
        # strip off the last None item
        key = '/'.join(params[:-1]) + '/'
@@ -354,12 +353,12 @@ class DatastoreDistributed():
             val = helper_functions.reverseLex(val)
 
           params = [prefix, 
-                    self.__GetEntityKind(e), 
+                    self.GetEntityKind(e), 
                     p.name(), 
                     val, 
                     str(self.__EncodeIndexPB(e.key().path()))]
 
-          index_key = self.__GetIndexKey(params)
+          index_key = self.GetIndexKeyFromParams(params)
           p_vals = [index_key, 
                     buffer(prefix + '/') + \
                     self.__EncodeIndexPB(e.key().path())] 
@@ -388,7 +387,7 @@ class DatastoreDistributed():
     # TODO Consider doing these in parallel with threads
     self.datastore_batch.batch_delete(ASC_PROPERTY_TABLE, asc_index_keys)
     self.datastore_batch.batch_delete(DSC_PROPERTY_TABLE, desc_index_keys)
-
+    
   def InsertEntities(self, entities):
     """Inserts or updates entities in the DB.
     Args:      
@@ -397,14 +396,14 @@ class DatastoreDistributed():
 
     def RowGenerator(entities):
       for prefix, e in entities:
-        yield (self.__GetEntityKey(prefix, e.key().path()),
+        yield (self.GetEntityKey(prefix, e.key().path()),
                buffer(e.Encode()))
 
     def KindRowGenerator(entities):
       for prefix, e in entities:
         # yield a tuple of kind key and a reference to entity table
-        yield (self.__GetKindKey(prefix, e.key().path()),
-               self.__GetEntityKey(prefix, e.key().path()))
+        yield (self.GetKindKey(prefix, e.key().path()),
+               self.GetEntityKey(prefix, e.key().path()))
     row_values = {}
     row_keys = []
 
@@ -562,14 +561,14 @@ class DatastoreDistributed():
     """
     def RowGenerator(key_list):
       for prefix, k in key_list:
-        yield (self.__GetEntityKey(prefix, k.path()),
+        yield (self.GetEntityKey(prefix, k.path()),
                buffer(k.Encode()))
 
     def KindRowGenerator(key_list):
       for prefix, k in key_list:
         # yield a tuple of kind key and a reference to entity table
-        yield (self.__GetKindKey(prefix, k.path()),
-               self.__GetEntityKey(prefix, k.path()))
+        yield (self.GetKindKey(prefix, k.path()),
+               self.GetEntityKey(prefix, k.path()))
  
     row_keys = []
     kind_keys = []
@@ -780,12 +779,12 @@ class DatastoreDistributed():
     if order == datastore_pb.Query_Order.DESCENDING:
       val = helper_functions.reverseLex(val)        
     params = [prefix,
-              self.__GetEntityKind(e), 
+              self.GetEntityKind(e), 
               p.name(), 
               val, 
               str(self.__EncodeIndexPB(e.key().path()))]
 
-    return self.__GetIndexKey(params)
+    return self.GetIndexKeyFromParams(params)
 
   def __FetchEntities(self, refs):
     """ Given the results from a table scan, get the references
@@ -1162,10 +1161,10 @@ class DatastoreDistributed():
 
       if not startrow:
         params = [prefix, kind, property_name, None]
-        startrow = self.__GetIndexKey(params)
+        startrow = self.GetIndexKeyFromParams(params)
 
       params = [prefix, kind, property_name, _TERM_STRING, None]
-      endrow = self.__GetIndexKey(params)
+      endrow = self.GetIndexKeyFromParams(params)
 
       return self.datastore_batch.range_query(table_name, 
                                           column_names, 
@@ -1228,10 +1227,10 @@ class DatastoreDistributed():
 
       if not startrow:
         params = [prefix, kind, property_name, start_value]
-        startrow = self.__GetIndexKey(params)
+        startrow = self.GetIndexKeyFromParams(params)
         start_inclusive = _DISABLE
       params = [prefix, kind, property_name, end_value]
-      endrow = self.__GetIndexKey(params)
+      endrow = self.GetIndexKeyFromParams(params)
 
       ret = self.datastore_batch.range_query(table_name, 
                                           column_names, 
@@ -1270,21 +1269,21 @@ class DatastoreDistributed():
           start_inclusive = _DISABLE
         elif oper1 == datastore_pb.Query_Filter.GREATER_THAN:
           params = [prefix, kind, property_name, value1 + '/' + _TERM_STRING]
-          startrow = self.__GetIndexKey(params)
+          startrow = self.GetIndexKeyFromParams(params)
         elif oper1 == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
           params = [prefix, kind, property_name, value1 + '/']
-          startrow = self.__GetIndexKey(params)
+          startrow = self.GetIndexKeyFromParams(params)
         else:
           raise Exception("Bad filter ordering")
 
         # The second operator will be either < or <=
         if oper2 == datastore_pb.Query_Filter.LESS_THAN:    
           params = [prefix, kind, property_name, value2 + '/']
-          endrow = self.__GetIndexKey(params)
+          endrow = self.GetIndexKeyFromParams(params)
           end_inclusive = _DISABLE
         elif oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
           params = [prefix, kind, property_name, value2 + '/' + _TERM_STRING]
-          endrow = self.__GetIndexKey(params)
+          endrow = self.GetIndexKeyFromParams(params)
           end_inclusive = _ENABLE
         else:
           raise Exception("Bad filter ordering") 
@@ -1296,21 +1295,21 @@ class DatastoreDistributed():
 
         if oper1 == datastore_pb.Query_Filter.GREATER_THAN:   
           params = [prefix, kind, property_name, value1 + '/']
-          endrow = self.__GetIndexKey(params)
+          endrow = self.GetIndexKeyFromParams(params)
           end_inclusive = _DISABLE
         elif oper1 == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
           params = [prefix, kind, property_name, value1 + '/' + _TERM_STRING]
-          endrow = self.__GetIndexKey(params)
+          endrow = self.GetIndexKeyFromParams(params)
           end_inclusive = _ENABLE
 
         if startrow:
           start_inclusive = _DISABLE
         elif oper2 == datastore_pb.Query_Filter.LESS_THAN:
           params = [prefix, kind, property_name, value2 + '/' + _TERM_STRING]
-          startrow = self.__GetIndexKey(params)
+          startrow = self.GetIndexKeyFromParams(params)
         elif oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
           params = [prefix, kind, property_name, value2 + '/']
-          startrow = self.__GetIndexKey(params)
+          startrow = self.GetIndexKeyFromParams(params)
         
       return self.datastore_batch.range_query(table_name, 
                                           column_names, 
@@ -1398,7 +1397,6 @@ class DatastoreDistributed():
                                     last_result)
     else:
       startrow = None
-
     temp_res = self.__ApplyFilters(filter_ops, 
                                    order_ops, 
                                    property_name, 
@@ -1416,10 +1414,10 @@ class DatastoreDistributed():
     # best filter to apply via range queries. 
     while len(result) < (limit+offset) and temp_res:
       ent_res = self.__FetchEntities(temp_res)
+
       # Create a copy from which we filter out
       filtered_entities = ent_res[:]
 
-      property_name, property_names = set_prop_names(filter_info)
       # Apply in-memory filters for each property
       for ent in ent_res:
         e = entity_pb.EntityProto(ent)

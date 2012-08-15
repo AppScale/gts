@@ -33,30 +33,37 @@ def create_keyspaces(replication):
     except pycassa.cassandra.ttypes.InvalidRequestException, e:
       pass
 
-  sysman.create_keyspace(cassandra_interface.KEYSPACE, 
+  try:
+    sysman.create_keyspace(cassandra_interface.KEYSPACE, 
                       pycassa.SIMPLE_STRATEGY, 
                       {'replication_factor':str(replication)})
-
-  # This column family is for testing
-  sysman.create_column_family(cassandra_interface.KEYSPACE, 
+    # This column family is for testing
+    sysman.create_column_family(cassandra_interface.KEYSPACE, 
                            cassandra_interface.STANDARD_COL_FAM, 
                            comparator_type=UTF8_TYPE)
 
-  for table_name in dbconstants.INITIAL_TABLES:
-    sysman.create_column_family(cassandra_interface.KEYSPACE, 
-                             table_name,
-                             comparator_type=UTF8_TYPE)
+    for table_name in dbconstants.INITIAL_TABLES:
+      sysman.create_column_family(cassandra_interface.KEYSPACE, 
+                               table_name,
+                               comparator_type=UTF8_TYPE)
   
-  sysman.close()
+    sysman.close()
+  except Exception, e:
+    if _DROP_TABLES:
+      raise e
 
   print "CASSANDRA SETUP SUCCESSFUL"
 
 def prime_cassandra(replication):
   create_keyspaces(int(replication))
   print "prime cassandra database"
-  db = py_cassandra.DatastoreProxy()
-  db.create_table(dbconstants.USERS_TABLE, dbconstants.USERS_SCHEMA)
-  db.create_table(dbconstants.APPS_TABLE, dbconstants.APPS_SCHEMA)
+  try:
+    db = py_cassandra.DatastoreProxy()
+    db.create_table(dbconstants.USERS_TABLE, dbconstants.USERS_SCHEMA)
+    db.create_table(dbconstants.APPS_TABLE, dbconstants.APPS_SCHEMA)
+  except Exception, e:
+    if _DROP_TABLES:
+      raise e
 
   if len(db.get_schema(dbconstants.USERS_TABLE)) > 1 and \
      len(db.get_schema(dbconstants.APPS_TABLE)) > 1:
