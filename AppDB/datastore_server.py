@@ -479,7 +479,7 @@ class DatastoreDistributed():
                           PROPERTY_SCHEMA,
                           rev_row_values)
 
-  def __AcquireIdBlockFromDB(self, prefix):
+  def AcquireIdBlockFromDB(self, prefix):
     """ Gets a block of keys from the DB
 
     Args: 
@@ -494,7 +494,7 @@ class DatastoreDistributed():
       return int(res[prefix][APP_ID_SCHEMA[0]])
     return 0
 
-  def __IncrementIdInDB(self, prefix):
+  def IncrementIdInDB(self, prefix):
     """ Updates the counter for a prefix to the DB
 
     Args: 
@@ -503,13 +503,8 @@ class DatastoreDistributed():
       next_block id
     """
     # TODO needs to be transactional
-    current_block = self.__AcquireIdBlockFromDB(prefix)
-    next_block = 0
-    if current_block:
-      next_block = current_block + 1
-    else: 
-      next_block = 1
-
+    current_block = self.AcquireIdBlockFromDB(prefix)
+    next_block = current_block + 1
     cell_values = {prefix:{APP_ID_SCHEMA[0]:str(next_block)}} 
 
     res = self.datastore_batch.batch_put_entity(APP_ID_TABLE, 
@@ -532,7 +527,7 @@ class DatastoreDistributed():
     next_id, end_id = self.__id_map.get(prefix, (0, 0))
     if next_id == end_id or (end_id and (next_id + size > end_id)):
       # Acquire a new block of ids, throw out the old ones
-      next_id = self.__IncrementIdInDB(prefix)
+      next_id = self.IncrementIdInDB(prefix)
       end_id = next_id + _BLOCK_SIZE - 1
        
     start = next_id 
@@ -1534,16 +1529,10 @@ class DatastoreDistributed():
       results = strategy(self, query, filter_info, order_info)
       if results:
         break
-    # TODO keys only queries
-    if query.has_keys_only():
-      results = [str(self.__EncodeIndexPB(e.key().path())) for e in result]
-    #else:
 
- 
-  #else:
-     # raise apiproxy_errors.ApplicationError(
-      #    datastore_pb.Error.BAD_REQUEST,
-       #   'No strategy found to satisfy query.')
+    # TODO keys only queries. They work but pass the entire entity back to the AppServer
+    if query.has_keys_only():
+      pass
     return results
   
   def _Dynamic_Run_Query(self, app_id, query, query_result):
