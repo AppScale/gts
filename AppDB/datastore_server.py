@@ -385,8 +385,12 @@ class DatastoreDistributed():
     asc_index_keys = [x[0] for x in asc_index_keys] 
     desc_index_keys = [x[0] for x in desc_index_keys] 
     # TODO Consider doing these in parallel with threads
-    self.datastore_batch.batch_delete(ASC_PROPERTY_TABLE, asc_index_keys)
-    self.datastore_batch.batch_delete(DSC_PROPERTY_TABLE, desc_index_keys)
+    self.datastore_batch.batch_delete(ASC_PROPERTY_TABLE, 
+                                      asc_index_keys, 
+                                      column_names=PROPERTY_SCHEMA)
+    self.datastore_batch.batch_delete(DSC_PROPERTY_TABLE, 
+                                      desc_index_keys,
+                                      column_names=PROPERTY_SCHEMA)
     
   def InsertEntities(self, entities):
     """Inserts or updates entities in the DB.
@@ -587,10 +591,10 @@ class DatastoreDistributed():
 
     #TODO do these in ||
     self.datastore_batch.batch_delete(APP_ENTITY_TABLE, 
-                                      row_keys)
+                                      row_keys, column_names=APP_ENTITY_SCHEMA)
 
     self.datastore_batch.batch_delete(APP_KIND_TABLE,
-                                      kind_keys)
+                                      kind_keys, column_names=APP_KIND_SCHEMA)
 
     entities = []
     for row_key in ret:
@@ -919,9 +923,11 @@ class DatastoreDistributed():
       start_inclusive = _DISABLE
       startrow = prefix + '/' + __key__ 
       endrow = prefix + '/'  + _TERM_STRING
+      end_inclusive = _DISABLE
     elif op and op == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
       startrow = prefix + '/' + __key__
       endrow = prefix + '/'  + _TERM_STRING
+      end_inclusive = _DISABLE
     elif op and op == datastore_pb.Query_Filter.LESS_THAN:
       startrow = prefix + '/'  
       endrow = prefix + '/'  + __key__
@@ -1039,6 +1045,7 @@ class DatastoreDistributed():
                                               offset=offset, 
                                               start_inclusive=start_inclusive, 
                                               end_inclusive=end_inclusive)
+    print result
     return self.__FetchEntities(result)
 
   def __SinglePropertyQuery(self, query, filter_info, order_info):

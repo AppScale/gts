@@ -23,15 +23,27 @@ from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 import py_hbase
+import hbase_interface
 from dbconstants import *
 
 def create_table(tablename, columns):
   client = py_hbase.DatastoreProxy()
   return client.create_table(tablename, columns)
 
+def create_app_tables():
+  db = hbase_interface.DatastoreProxy()
+  db.create_table(ASC_PROPERTY_TABLE, PROPERTY_SCHEMA)
+  db.create_table(DSC_PROPERTY_TABLE, PROPERTY_SCHEMA)
+  db.create_table(APP_INDEX_TABLE, APP_INDEX_SCHEMA)
+  db.create_table(APP_NAMESPACE_TABLE, APP_NAMESPACE_SCHEMA)
+  db.create_table(APP_ID_TABLE, APP_ID_SCHEMA)
+  db.create_table(APP_ENTITY_TABLE, APP_ENTITY_SCHEMA)
+  db.create_table(APP_KIND_TABLE, APP_KIND_SCHEMA)
+
 
 def prime_hbase():
   print "prime hbase database"
+  create_app_tables()
   create_table(USERS_TABLE, USERS_SCHEMA)
   result = create_table(APPS_TABLE, APPS_SCHEMA)
   if (USERS_TABLE in result) and (APPS_TABLE in result):

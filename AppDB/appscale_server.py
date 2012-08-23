@@ -1078,7 +1078,7 @@ class MainHandler(tornado.web.RequestHandler):
                   'No group entity or root key.')
         try:          
           locktime = time.time()
-          print root_key
+          #print root_key
           gotLock = zoo_keeper.acquireLock( app_id, txn.handle(), root_key)
           if PROFILE: appscale_log.write("ACQUIRELOCK %d %f\n"%(txn.handle(), time.time() - locktime))
         except zk.ZKTransactionException, zkex:

@@ -47,6 +47,8 @@ module PbServer
   # within AppScale.
   DBS_WITH_NATIVE_PBSERVER = ["mysql"]
 
+  # A list of databases that use the v2 for database query support
+  DBS_WITH_V2_PBSERVER = ['cassandra', 'hypertable', "hbase"]
 
   # The name that nginx should use as the identifier for the PBServer when it
   # we write its configuration files.
@@ -65,7 +67,7 @@ module PbServer
       "LOCAL_DB_IP" => db_local_ip 
     }
   
-    if table == "cassandra"
+    if DBS_WITH_V2_PBSERVER.include?(table)
       ports.each { |port|
         start_cmd = "/usr/bin/python2.6 #{pbserver} -p #{port} " +
             "--no_encryption --type #{table} -z \'#{zklocations}\' "
@@ -129,10 +131,8 @@ module PbServer
   def self.get_executable_name(table)
     if DBS_WITH_NATIVE_PBSERVER.include?(table)
       return "#{APPSCALE_HOME}/AppDB/appscale_server_#{table}.py"
-    elsif table == "cassandra"
+    elsif DBS_WITH_V2_PBSERVER.include?(table)
       return "#{APPSCALE_HOME}/AppDB/datastore_server.py"
-    #elsif table == "hypertable"
-    #  return "#{APPSCALE_HOME}/AppDB/datastore_server.py"
     else
       return "#{APPSCALE_HOME}/AppDB/appscale_server.py"
     end

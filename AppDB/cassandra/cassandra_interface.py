@@ -107,12 +107,13 @@ class DatastoreProxy(AppDBInterface):
       multi_map[key] = cols
     cf.batch_insert(multi_map)
       
-  def batch_delete(self, table_name, row_keys):
+  def batch_delete(self, table_name, row_keys, column_names=[]):
     """Remove a set of keys
      
     Args:
       table_name: Table to delete rows from
       row_keys: A list of keys to remove
+      column_names: Not used
     Returns:
       Nothing
     Raises:

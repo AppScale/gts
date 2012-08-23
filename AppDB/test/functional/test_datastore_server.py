@@ -10,7 +10,7 @@ from google.appengine.datastore import entity_pb
 from google.appengine.datastore import datastore_query
 import time
 NAMESPACE_SEP = '/'
-DB = "cassandra"
+DB = "hbase"
 class ValidateIDCase(unittest.TestCase):
   def setUp(self):
     datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(DB)
@@ -40,7 +40,7 @@ class GetPrefixCase(unittest.TestCase):
   def tearDown(self):
     key = self.app_datastore.GetTablePrefix(("hi1", "bye1"))
     datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(DB)
-    datastore_batch.batch_delete(APP_NAMESPACE_TABLE, [key])
+    datastore_batch.batch_delete(APP_NAMESPACE_TABLE, [key], column_names=APP_NAMESPACE_SCHEMA)
     
 
 class ConfigureNamespaceCase(unittest.TestCase):
@@ -55,7 +55,7 @@ class ConfigureNamespaceCase(unittest.TestCase):
   def tearDown(self):
     key = self.app_datastore.GetTablePrefix(("hi", "bye"))
     datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(DB)
-    datastore_batch.batch_delete(APP_NAMESPACE_TABLE, [key])
+    datastore_batch.batch_delete(APP_NAMESPACE_TABLE, [key], APP_NAMESPACE_SCHEMA)
     assert datastore_batch.batch_get_entity(APP_NAMESPACE_TABLE, ["hi/bye"],
                            ['namespaces']) == {'hi/bye':{}}
 
@@ -102,8 +102,8 @@ class InsertEntityCase(unittest.TestCase):
 
   def tearDown(self): 
     datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(DB)
-    datastore_batch.batch_delete(APP_ENTITY_TABLE, self.keys)
-    datastore_batch.batch_delete(APP_KIND_TABLE, self.keys)
+    datastore_batch.batch_delete(APP_ENTITY_TABLE, self.keys, APP_ENTITY_SCHEMA)
+    datastore_batch.batch_delete(APP_KIND_TABLE, self.keys, APP_KIND_SCHEMA)
     # Verify an entity has been deleted
     ret = datastore_batch.batch_get_entity(APP_ENTITY_TABLE, self.keys,
                                            APP_ENTITY_SCHEMA)
@@ -150,8 +150,8 @@ class InsertEntityGroupCase(unittest.TestCase):
 
   def tearDown(self): 
     datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(DB)
-    ret = datastore_batch.batch_delete(APP_ENTITY_TABLE, self.keys)
-    ret = datastore_batch.batch_delete(APP_KIND_TABLE, self.kkeys)
+    ret = datastore_batch.batch_delete(APP_ENTITY_TABLE, self.keys, APP_ENTITY_SCHEMA)
+    ret = datastore_batch.batch_delete(APP_KIND_TABLE, self.kkeys, APP_KIND_SCHEMA)
     # Verify an entity has been deleted
     ret = datastore_batch.batch_get_entity(APP_ENTITY_TABLE, self.keys,
                                            APP_ENTITY_SCHEMA)
@@ -204,8 +204,8 @@ class InsertEntityIndexCase(unittest.TestCase):
 
   def tearDown(self): 
     datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(DB)
-    ret = datastore_batch.batch_delete(ASC_PROPERTY_TABLE, self.keys)
-    ret = datastore_batch.batch_delete(DSC_PROPERTY_TABLE, self.rkeys)
+    ret = datastore_batch.batch_delete(ASC_PROPERTY_TABLE, self.keys, PROPERTY_SCHEMA)
+    ret = datastore_batch.batch_delete(DSC_PROPERTY_TABLE, self.rkeys, PROPERTY_SCHEMA)
     # Verify an entity has been deleted
     ret = datastore_batch.batch_get_entity(ASC_PROPERTY_TABLE, self.keys,
                                            PROPERTY_SCHEMA)
@@ -259,8 +259,8 @@ class InsertGroupEntityIndexCase(unittest.TestCase):
 
   def tearDown(self): 
     datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(DB)
-    ret = datastore_batch.batch_delete(ASC_PROPERTY_TABLE, self.keys)
-    ret = datastore_batch.batch_delete(DSC_PROPERTY_TABLE, self.rkeys)
+    ret = datastore_batch.batch_delete(ASC_PROPERTY_TABLE, self.keys, PROPERTY_SCHEMA)
+    ret = datastore_batch.batch_delete(DSC_PROPERTY_TABLE, self.rkeys, PROPERTY_SCHEMA)
     # Verify an entity has been deleted
     ret = datastore_batch.batch_get_entity(ASC_PROPERTY_TABLE, self.keys,
                                            PROPERTY_SCHEMA)
@@ -270,7 +270,7 @@ class InsertGroupEntityIndexCase(unittest.TestCase):
 class AllocateIDsCase(unittest.TestCase):
   def setUp(self): 
     datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(DB)
-    datastore_batch.batch_delete(APP_ID_TABLE, ["a/a"])
+    datastore_batch.batch_delete(APP_ID_TABLE, ["a/a"], APP_ID_SCHEMA)
     self.app_datastore = datastore_server.DatastoreDistributed(datastore_batch) 
   def runTest(self):
     s, e = self.app_datastore.AllocateIds("a/a", 1000)
