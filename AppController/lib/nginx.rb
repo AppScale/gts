@@ -138,7 +138,8 @@ CONFIG
   end
 
   # Creates a Nginx config file for the provided app name on the load balancer
-  def self.write_fullproxy_app_config(app_name, app_number, my_public_ip, proxy_port, login_ip, appengine_server_ips)
+  def self.write_fullproxy_app_config(app_name, app_number, my_public_ip, 
+    my_private_ip, proxy_port, login_ip, appengine_server_ips)
     listen_port = Nginx.app_listen_port(app_number)
     ssl_listen_port = listen_port - SSL_PORT_OFFSET
     blob_servers = []
@@ -296,13 +297,17 @@ CONFIG
   end
 
   # Create the configuration file for the AppLoadBalancer Rails application
-  def self.create_app_load_balancer_config(my_ip, proxy_port)
-    self.create_app_config(my_ip, proxy_port, LoadBalancer.listen_port, LoadBalancer.name, LoadBalancer.public_directory, LoadBalancer.listen_ssl_port)
+  def self.create_app_load_balancer_config(my_public_ip, my_private_ip, 
+    proxy_port)
+    self.create_app_config(my_public_ip, my_private_ip, proxy_port, 
+      LoadBalancer.listen_port, LoadBalancer.name, 
+      LoadBalancer.public_directory, LoadBalancer.listen_ssl_port)
   end
 
   # Create the configuration file for the AppMonitoring Rails application
-  def self.create_app_monitoring_config(my_ip, proxy_port)
-    self.create_app_config(my_ip, proxy_port, Monitoring.listen_port, Monitoring.name, Monitoring.public_directory)
+  def self.create_app_monitoring_config(my_public_ip, my_private_ip, proxy_port)
+    self.create_app_config(my_public_ip, my_private_ip, proxy_port, 
+      Monitoring.listen_port, Monitoring.name, Monitoring.public_directory)
   end
 
   # Create the configuration file for the pbserver
@@ -379,11 +384,12 @@ CONFIG
 
 
   # A generic function for creating nginx config files used by appscale services
-  def self.create_app_config(my_ip, proxy_port, listen_port, name, public_dir, ssl_port=nil)
+  def self.create_app_config(my_public_ip, my_private_ip, proxy_port, 
+    listen_port, name, public_dir, ssl_port=nil)
 
     config = <<CONFIG
 upstream #{name} {
-   server #{my_ip}:#{proxy_port};
+   server #{my_private_ip}:#{proxy_port};
 }
 CONFIG
 
@@ -392,7 +398,7 @@ CONFIG
       config += <<CONFIG
 server {
     listen #{listen_port};
-    rewrite ^(.*) https://#{my_ip}:#{ssl_port}$1 permanent;
+    rewrite ^(.*) https://#{my_public_ip}:#{ssl_port}$1 permanent;
 }
 
 server {
@@ -448,7 +454,6 @@ CONFIG
 
     HAProxy.regenerate_config
   end
-
 
 
   # Set up the folder structure and creates the configuration files necessary for nginx
