@@ -2653,18 +2653,23 @@ HOSTS
     @state = "Starting up Load Balancer"
     Djinn.log_debug("Starting up Load Balancer")
 
-    my_ip = my_node.public_ip
-    HAProxy.create_app_load_balancer_config(my_node.private_ip, LoadBalancer.proxy_port)
-    Nginx.create_app_load_balancer_config(my_ip, LoadBalancer.proxy_port)
+    my_public = my_node.public_ip
+    my_private = my_node.private_ip
+    HAProxy.create_app_load_balancer_config(my_public, my_private, 
+      LoadBalancer.proxy_port)
+    Nginx.create_app_load_balancer_config(my_public, my_private, 
+      LoadBalancer.proxy_port)
     LoadBalancer.start
     Nginx.restart
     Collectd.restart
 
     head_node_ip = get_public_ip(@creds['hostname'])
-    if my_ip == head_node_ip
+    if my_public == head_node_ip
       # Only start monitoring on the head node
-      HAProxy.create_app_monitoring_config(my_node.private_ip, Monitoring.proxy_port)
-      Nginx.create_app_monitoring_config(my_ip, Monitoring.proxy_port)
+      HAProxy.create_app_monitoring_config(my_public, my_private, 
+        Monitoring.proxy_port)
+      Nginx.create_app_monitoring_config(my_public, my_private, 
+        Monitoring.proxy_port)
       Nginx.restart
       Monitoring.start
     end
@@ -2804,7 +2809,8 @@ HOSTS
       proxy_port = HAProxy.app_listen_port(app_number)
       login_ip = get_login.public_ip
       if my_node.is_login? and !my_node.is_appengine?
-        success = Nginx.write_fullproxy_app_config(app, app_number, my_public, proxy_port, login_ip, get_all_appengine_nodes())
+        success = Nginx.write_fullproxy_app_config(app, app_number, my_public,
+          my_private, proxy_port, login_ip, get_all_appengine_nodes())
         if success
           Nginx.reload
         else
@@ -2822,7 +2828,8 @@ HOSTS
         static_handlers = HelperFunctions.parse_static_data(app)
         proxy_port = HAProxy.app_listen_port(app_number)
         login_ip = get_login.public_ip
-        success = Nginx.write_app_config(app, app_number, my_public, proxy_port, static_handlers, login_ip)
+        success = Nginx.write_app_config(app, app_number, my_public, 
+          proxy_port, static_handlers, login_ip)
         if not success
           Djinn.log_debug("ERROR: Failure to create valid nginx config file for application #{app}.")
           next
