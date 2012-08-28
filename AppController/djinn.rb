@@ -279,6 +279,11 @@ class Djinn
   NUM_DATA_POINTS = 10
 
 
+  # The minimum number of AppServers (for all applications) that should be run
+  # on this node.
+  MIN_APPSERVERS_ON_THIS_NODE = 1
+
+
   # The maximum number of AppServers (for all applications) that should be run
   # on this node.
   MAX_APPSERVERS_ON_THIS_NODE = 10
@@ -3138,15 +3143,16 @@ HOSTS
 
     if time_since_last_decision > SCALEDOWN_TIME_THRESHOLD and
       !@app_info_map[app_name][:appengine].nil? and 
-      appservers_running > 1
+      appservers_running > MIN_APPSERVERS_ON_THIS_NODE
 
       Djinn.log_debug("Removing an AppServer on this node for #{app_name}")
       remove_appserver_process(app_name)
       @last_decision[app_name] = Time.now.to_i
     elsif !@app_info_map[app_name][:appengine].nil? and 
-      appservers_running <= 1
+      appservers_running <= MIN_APPSERVERS_ON_THIS_NODE
 
-      Djinn.log_debug("Only 1 AppServer is running - don't kill it")
+      Djinn.log_debug("Only #{MIN_APPSERVERS_ON_THIS_NODE} AppServer(s) " +
+        "running - don't kill")
     elsif time_since_last_decision <= SCALEDOWN_TIME_THRESHOLD 
       Djinn.log_debug("Last decision was taken within the time threshold")
     end
