@@ -33,15 +33,16 @@ from google.appengine.api import datastore
 from google.appengine.api import datastore_errors
 from google.appengine.api import datastore_types
 from google.appengine.api import users
+
 from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import datastore_index
 from google.appengine.datastore import datastore_stub_util
-from google.appengine.runtime import apiproxy_errors
 from google.appengine.datastore import entity_pb
-from google.appengine.ext.remote_api import remote_api_pb
 from google.appengine.datastore import cassandra_stub_util
 from google.appengine.datastore import sortable_pb_encoder
 
+from google.appengine.runtime import apiproxy_errors
+from google.appengine.ext.remote_api import remote_api_pb
 from google.net.proto import ProtocolBuffer
 
 from drop_privileges import *
@@ -1045,7 +1046,6 @@ class DatastoreDistributed():
                                               offset=offset, 
                                               start_inclusive=start_inclusive, 
                                               end_inclusive=end_inclusive)
-    print result
     return self.__FetchEntities(result)
 
   def __SinglePropertyQuery(self, query, filter_info, order_info):
@@ -1399,14 +1399,6 @@ class DatastoreDistributed():
                                     last_result)
     else:
       startrow = None
-    temp_res = self.__ApplyFilters(filter_ops, 
-                                   order_ops, 
-                                   property_name, 
-                                   kind, 
-                                   prefix, 
-                                   count, 
-                                   0, 
-                                   startrow)
     result = []     
     pre_filter = []
     # We loop and collect enough to fill the limit or until there are 
@@ -1414,7 +1406,17 @@ class DatastoreDistributed():
     # direct to the datastore, followed by in memory filters
     # There is a potential research area on figuring out what is the 
     # best filter to apply via range queries. 
-    while len(result) < (limit+offset) and temp_res:
+    while len(result) < (limit+offset):
+      temp_res = self.__ApplyFilters(filter_ops, 
+                                   order_ops, 
+                                   property_name, 
+                                   kind, 
+                                   prefix, 
+                                   count, 
+                                   0, 
+                                   startrow)
+      if not temp_res: break
+
       ent_res = self.__FetchEntities(temp_res)
 
       # Create a copy from which we filter out
@@ -1445,14 +1447,7 @@ class DatastoreDistributed():
      
       result += filtered_entities  
       startrow = temp_res[-1].keys()[0]
-      temp_res = self.__ApplyFilters(filter_ops, 
-                                     order_ops, 
-                                     property_name, 
-                                     kind, 
-                                     prefix, 
-                                     count, 
-                                     0, 
-                                     startrow) 
+
     if len(order_info) > 1:
       result = self.__OrderCompositeResults(result, order_info) 
 

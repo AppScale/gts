@@ -22,7 +22,7 @@ def view_all(entities, table, db):
 def main(argv):
   DB_TYPE="cassandra"
   if len(argv) < 2:
-    print "usage: ./view_app_recode.py db_type"
+    print "usage: ./view_all_records.py db_type"
   else:
     DB_TYPE = argv[1]
   

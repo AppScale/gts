@@ -72,12 +72,12 @@ class DatastoreProxy(AppDBInterface):
                                    slice_predicate, 
                                    CONSISTENCY_QUORUM)
     
- 
     for row in row_keys:
       col_dic = {}
       for columns in results[row]:
         col_dic[columns.column.name] = columns.column.value
       ret[row] = col_dic
+
     self.__close_connection(client)
     return ret
 
@@ -221,7 +221,6 @@ class DatastoreProxy(AppDBInterface):
                              row_count=limit,
                              read_consistency_level=CONSISTENCY_QUORUM)
 
-    #keyslices = list(keyslices)
     for key in keyslices:
       if keys_only:
         results.append(key[0]) 
@@ -262,7 +261,6 @@ class DatastoreProxy(AppDBInterface):
   def __setup_connection(self):
     """ Retrives a connection from the connection pool
     """
-
     return self.pool.get()
 
   def __close_connection(self, client):
