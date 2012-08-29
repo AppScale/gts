@@ -8,6 +8,10 @@ require 'logger'
 require 'soap/rpc/driver'
 
 
+ENV['EC2_HOME'] = "/usr/local/ec2-api-tools"
+ENV['JAVA_HOME'] = "/usr/lib/jvm/java-6-openjdk"
+
+
 # Import for InfrastructureManager
 $:.unshift File.join(File.dirname(__FILE__))
 require 'infrastructure_manager'
