@@ -1,5 +1,6 @@
 require 'rubygems'
 require 'rake'
+require 'rake/rdoctask'
 require 'rake/testtask'
 require 'rcov/rcovtask'
 
@@ -7,26 +8,28 @@ require 'rcov/rcovtask'
 namespace :appcontroller do
 
 
-  TEST_SUITE_FILE = "AppController/test/ts_all.rb"
+  APPCONTROLLER_TEST_SUITE = "AppController/test/ts_all.rb"
 
 
   desc "Generates AppController code coverage statistics"
-  Rcov::RcovTask.new(:coverage) do |t|
-    t.test_files = FileList[TEST_SUITE_FILE]
+  Rcov::RcovTask.new(:coverage) { |t|
+    t.test_files = FileList[APPCONTROLLER_TEST_SUITE]
     t.output_dir = "AppController/coverage"
-    t.rcov_opts << "-x #{TEST_SUITE_FILE} -x ~/.rvm -x /usr/local/lib/site_ruby/1.8/rubygems/gem_path_searcher.rb"
-  end
+    t.rcov_opts << "-x #{APPCONTROLLER_TEST_SUITE} -x ~/.rvm -x /usr/local/lib/site_ruby/1.8/rubygems/gem_path_searcher.rb"
+  }
 
 
   desc "Generates AppController rdoc"
-  task :doc do
-    puts `bash AppController/generate_rdoc.sh`
-  end
+  Rake::RDocTask.new(:doc) { |rd|
+    rd.rdoc_files.include("AppController/djinn.rb", 
+      "AppController/djinnServer.rb", "AppController/lib")
+    rd.rdoc_dir = "AppController/doc"
+  }
 
 
   desc "Runs AppController unit tests"
   Rake::TestTask.new("test") do |t|
-    t.pattern = TEST_SUITE_FILE
+    t.pattern = APPCONTROLLER_TEST_SUITE
     t.verbose = true
     t.warning = false
   end
@@ -38,29 +41,31 @@ end
 namespace :neptunemanager do
 
 
-  TEST_SUITE_FILE = "Neptune/test/ts_all.rb"
+  NEPTUNE_TEST_SUITE = "Neptune/test/ts_all.rb"
 
 
   desc "Generates NeptuneManager code coverage statistics"
-  Rcov::RcovTask.new(:coverage) do |t|
-    t.test_files = FileList[TEST_SUITE_FILE]
+  Rcov::RcovTask.new(:coverage) { |t|
+    t.test_files = FileList[NEPTUNE_TEST_SUITE]
     t.output_dir = "Neptune/coverage"
-    t.rcov_opts << "-x #{TEST_SUITE_FILE} -x ~/.rvm -x /usr/local/lib/site_ruby/1.8/rubygems/gem_path_searcher.rb"
-  end
+    t.rcov_opts << "-x #{NEPTUNE_TEST_SUITE} -x ~/.rvm -x /usr/local/lib/site_ruby/1.8/rubygems/gem_path_searcher.rb"
+  }
 
 
   desc "Generates NeptuneManager rdoc"
-  task :doc do
-    puts `bash Neptune/generate_rdoc.sh`
-  end
+  Rake::RDocTask.new(:doc) { |rd|
+    rd.rdoc_files.include("Neptune/neptune_manager.rb", 
+      "Neptune/neptune_manager_server.rb", "Neptune/lib")
+    rd.rdoc_dir = "Neptune/doc"
+  }
 
 
   desc "Runs NeptuneManager unit tests"
-  Rake::TestTask.new("test") do |t|
+  Rake::TestTask.new("test") { |t|
     t.pattern = 'Neptune/test/ts_all.rb'
     t.verbose = true
     t.warning = false
-  end
+  }
 
 
 end
