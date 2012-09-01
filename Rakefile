@@ -1,4 +1,5 @@
 require 'rake'
+require 'rake/testtask'
 
 
 namespace :appcontroller do
@@ -17,9 +18,11 @@ namespace :appcontroller do
 
 
   desc "Runs AppController unit tests"
-  task :test do
-    puts `ruby AppController/test/ts_all.rb`
-  end
+  Rake::TestTask.new("test") { |t|
+    t.pattern = 'AppController/test/ts_all.rb'
+    t.verbose = true
+    t.warning = false
+  }
 
 
 end
@@ -41,9 +44,11 @@ namespace :neptunemanager do
 
 
   desc "Runs NeptuneManager unit tests"
-  task :test do
-    puts `ruby Neptune/test/ts_all.rb`
-  end
+  Rake::TestTask.new("test") { |t|
+    t.pattern = 'Neptune/test/ts_all.rb'
+    t.verbose = true
+    t.warning = false
+  }
 
 
 end
