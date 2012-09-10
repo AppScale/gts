@@ -72,29 +72,34 @@ module HAProxy
   end
 
   # Create the configuration file for the AppLoadBalancer Rails application
-  def self.create_app_load_balancer_config(my_ip, listen_port)
-    self.create_app_config(my_ip, listen_port, LoadBalancer.server_ports, LoadBalancer.name)
+  def self.create_app_load_balancer_config(my_public_ip, my_private_ip, 
+    listen_port)
+    self.create_app_config(my_public_ip, my_private_ip, listen_port, 
+      LoadBalancer.server_ports, LoadBalancer.name)
   end
 
   # Create the configuration file for the AppMonitoring Rails application
-  def self.create_app_monitoring_config(my_ip, listen_port)
-    self.create_app_config(my_ip, listen_port, Monitoring.server_ports, Monitoring.name)
+  def self.create_app_monitoring_config(my_public_ip, my_private_ip, listen_port)
+    self.create_app_config(my_public_ip, my_private_ip, listen_port, 
+      Monitoring.server_ports, Monitoring.name)
   end
 
   # Create the config file for PBServer applications
   def self.create_pbserver_config(my_ip, listen_port, table)
-    self.create_app_config(my_ip, listen_port, PbServer.get_server_ports(table), PbServer::NAME)
+    self.create_app_config(my_ip, my_ip, listen_port, 
+      PbServer.get_server_ports(table), PbServer::NAME)
   end
 
   # A generic function for creating haproxy config files used by appscale services
-  def self.create_app_config(my_ip, listen_port, server_ports, name)
+  def self.create_app_config(my_public_ip, my_private_ip, listen_port, 
+    server_ports, name)
     servers = []
     server_ports.each_with_index do |port, index|
-      servers << HAProxy.server_config(name, index, my_ip, port)
+      servers << HAProxy.server_config(name, index, my_private_ip, port)
     end
 
     config = "# Create a load balancer for the #{name} application \n"
-    config << "listen #{name} #{my_ip}:#{listen_port} \n"
+    config << "listen #{name} #{my_private_ip}:#{listen_port} \n"
     config << servers.join("\n")
 
     config_path = File.join(SITES_ENABLED_PATH, "#{name}.#{CONFIG_EXTENSION}")
