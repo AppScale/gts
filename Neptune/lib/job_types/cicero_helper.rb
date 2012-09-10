@@ -338,9 +338,9 @@ class NeptuneManager
       NeptuneManager.log("Response class is [#{response.class}]")
       NeptuneManager.log("Response is [#{response.inspect}]")
 
-      state = response['state']
+      status = response['status']
       #start_time = response['start_time']
-      if state == "finished"
+      if status == "finished"
         NeptuneManager.log("Task with id [#{task_id}] has finished")
         break
       end
@@ -351,9 +351,9 @@ class NeptuneManager
       #end
 
       NeptuneManager.log("Current state of job with task id [#{task_id}], " +
-        "is #{state}, waiting for it to become 'finished'")
+        "is #{status}, waiting for it to become 'finished'")
       #NeptuneManager.log("Current state of job with task id [#{task_id}], started" +
-      #  " at #{start_time}, is '#{state}', waiting for it to become 'finished'")
+      #  " at #{start_time}, is '#{status}', waiting for it to become 'finished'")
       sleep(RETRY_TIME)
     }
 
