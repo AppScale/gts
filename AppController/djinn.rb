@@ -2244,7 +2244,7 @@ class Djinn
     zoo_connection = get_zk_connection_string(@nodes)
     PbServer.start(db_master_ip, @userappserver_private_ip, my_ip, table, zoo_connection)
     HAProxy.create_pbserver_config(my_node.private_ip, PbServer::PROXY_PORT, table)
-    Nginx.create_pbserver_config(my_ip, PbServer::PROXY_PORT)
+    Nginx.create_pbserver_config(my_node.private_ip, PbServer::PROXY_PORT)
     Nginx.restart()
 
     # TODO check the return value
@@ -2812,7 +2812,7 @@ HOSTS
       end
       app_number = @nginx_port - Nginx::START_PORT
       proxy_port = HAProxy.app_listen_port(app_number)
-      login_ip = get_login.public_ip
+      login_ip = get_login.private_ip
       if my_node.is_login? and !my_node.is_appengine?
         success = Nginx.write_fullproxy_app_config(app, app_number, my_public,
           my_private, proxy_port, login_ip, get_all_appengine_nodes())
@@ -2832,8 +2832,8 @@ HOSTS
         start_port = HelperFunctions::APP_START_PORT
         static_handlers = HelperFunctions.parse_static_data(app)
         proxy_port = HAProxy.app_listen_port(app_number)
-        login_ip = get_login.public_ip
-        success = Nginx.write_app_config(app, app_number, my_public, 
+        login_ip = get_login.private_ip
+        success = Nginx.write_app_config(app, app_number, my_public, my_private,
           proxy_port, static_handlers, login_ip)
         if not success
           Djinn.log_debug("ERROR: Failure to create valid nginx config file for application #{app}.")
@@ -2865,7 +2865,7 @@ HOSTS
           pid_file_name = "/etc/appscale/#{app}-#{@appengine_port}.pid"
           HelperFunctions.write_file(pid_file_name, pid)
 
-          location = "http://#{my_public}:#{@appengine_port}#{warmup_url}"
+          location = "http://#{my_private}:#{@appengine_port}#{warmup_url}"
           wget_cmd = "wget #{WGET_OPTIONS} #{location}"
  
           Djinn.log_run(wget_cmd)
@@ -2874,7 +2874,7 @@ HOSTS
         }
 
         HAProxy.update_app_config(app, app_number, 
-          @app_info_map[app][:appengine], my_public)
+          @app_info_map[app][:appengine], my_private)
         Nginx.reload
         HAProxy.reload
         Collectd.restart
@@ -2902,7 +2902,7 @@ HOSTS
         login_ip = get_login.public_ip
 
         Thread.new {
-          haproxy_location = "http://#{my_public}:#{haproxy}#{warmup_url}"
+          haproxy_location = "http://#{my_private}:#{haproxy}#{warmup_url}"
           nginx_location = "http://#{my_public}:#{nginx}#{warmup_url}"
 
           wget_haproxy = "wget #{WGET_OPTIONS} #{haproxy_location}"
@@ -3208,7 +3208,7 @@ HOSTS
     my_private = my_node.private_ip
     Djinn.log_debug("port apps error contains - #{@app_info_map[app][:appengine]}")
     HAProxy.update_app_config(app, app_number, @app_info_map[app][:appengine],
-      my_public)     
+      my_private)     
 
     Djinn.log_debug("Adding #{app_language} app #{app} on #{HelperFunctions.local_ip}:#{@appengine_port} ")
     xmpp_ip = get_login.public_ip
@@ -3220,7 +3220,7 @@ HOSTS
     pid_file_name = "#{APPSCALE_HOME}/.appscale/#{app}-#{@appengine_port}.pid"
     HelperFunctions.write_file(pid_file_name, pid)
 
-    location = "http://#{my_public}:#{@appengine_port}#{warmup_url}"
+    location = "http://#{my_private}:#{@appengine_port}#{warmup_url}"
     wget_cmd = "wget #{WGET_OPTIONS} #{location}"
         
     Djinn.log_run(wget_cmd)
@@ -3233,10 +3233,8 @@ HOSTS
 
     # add_instance_info = uac.add_instance(app, my_public, @nginx_port)
    
-    login_ip = get_login.public_ip
-
     Thread.new {
-      haproxy_location = "http://#{my_public}:#{haproxy_port}#{warmup_url}"
+      haproxy_location = "http://#{my_private}:#{haproxy_port}#{warmup_url}"
       nginx_location = "http://#{my_public}:#{nginx_port}#{warmup_url}"
 
       wget_haproxy = "wget #{WGET_OPTIONS} #{haproxy_location}"
@@ -3293,7 +3291,7 @@ HOSTS
     @app_info_map[app][:appengine].delete(port)
 
     HAProxy.update_app_config(app, app_number, @app_info_map[app][:appengine],
-      my_public)
+      my_private)
     HAProxy.reload
   end 
  
@@ -3440,11 +3438,12 @@ HOSTS
 
     my_public = my_node.public_ip
     my_private = my_node.private_ip
-    login_ip = get_login.public_ip
+    pub_login_ip = get_login.public_ip
+    pri_login_ip = get_login.private_ip
 
     static_handlers = HelperFunctions.parse_static_data(app)
     proxy_port = HAProxy.app_listen_port(app_number)
-    Nginx.write_app_config(app, app_number, my_public, proxy_port, static_handlers, login_ip)
+    Nginx.write_app_config(app, app_number, my_public, my_private, proxy_port, static_handlers, pri_login_ip)
     HAProxy.write_app_config(app, app_number, num_servers, my_private)
     Collectd.write_app_config(app)
 
@@ -3452,7 +3451,7 @@ HOSTS
       Djinn.log_debug("Starting #{app_language} app #{app} on " +
         "#{HelperFunctions.local_ip}:#{port}")
       pid = HelperFunctions.run_app(app, port, @userappserver_private_ip, 
-        my_public, my_private, app_version, app_language, nginx_port, login_ip)
+        my_public, my_private, app_version, app_language, nginx_port, pub_login_ip)
       pid_file_name = "#{APPSCALE_HOME}/.appscale/#{app}-#{port}.pid"
       HelperFunctions.write_file(pid_file_name, pid)
     }
