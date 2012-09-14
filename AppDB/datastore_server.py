@@ -1465,7 +1465,7 @@ class DatastoreDistributed():
     """
     # Because we can not fully filter past one filter without getting
     # the entire table, this will only work on the batches requested
-    # Entities at the endge of each batch have a high chance of being out
+    # Entities at the edge of each batch have a high chance of being out
     # of order
 
     # Put all the values appended based on order info into a dictionary,

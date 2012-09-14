@@ -372,12 +372,12 @@ class DatastoreProxy(AppDBInterface):
       self.pool.return_conn(client)
 
   def __encode(self, bytes_in):
-    """ Removes first \x00 character with \x01
+    """ Removes \x00 character with \x01
     """
-    return bytes_in.replace('\x00','\x01', 1)
+    return bytes_in.replace('\x00','\x01')
 
   def __decode(self, bytes_out):
-    """ Replaces first \x01 character with \x00
+    """ Replaces \x01 character with \x00
     """
-    return bytes_out.replace('\x01', '\x00', 1)
+    return bytes_out.replace('\x01', '\x00')
 
