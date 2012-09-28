@@ -47,7 +47,7 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>lib/datastores/datastore_factory.rb
+    <li>Neptune/lib/datastores/datastore_factory.rb
   </ul>
 </nav>
 
@@ -100,6 +100,8 @@
   
     <li><a href="./DatastoreS3.html">DatastoreS3</a>
   
+    <li><a href="./DatastoreWAZStorage.html">DatastoreWAZStorage</a>
+  
     <li><a href="./DjinnJobData.html">DjinnJobData</a>
   
     <li><a href="./EngineFactory.html">EngineFactory</a>
@@ -114,9 +116,13 @@
   
     <li><a href="./InfrastructureManagerClient.html">InfrastructureManagerClient</a>
   
+    <li><a href="./JSONClient.html">JSONClient</a>
+  
     <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
   
     <li><a href="./NeptuneManager.html">NeptuneManager</a>
+  
+    <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
   
     <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
   
@@ -198,7 +204,7 @@ with the given credentials.</p>
 
           
           <div class="method-source-code" id="get_datastore-source">
-            <pre><span class="ruby-comment"># File lib/datastores/datastore_factory.rb, line 15</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/datastores/datastore_factory.rb, line 16</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_datastore</span>(<span class="ruby-identifier">name</span>, <span class="ruby-identifier">credentials</span>)
   <span class="ruby-keyword">case</span> <span class="ruby-identifier">name</span>
   <span class="ruby-keyword">when</span> <span class="ruby-constant">DatastoreS3</span><span class="ruby-operator">::</span><span class="ruby-constant">NAME</span>
@@ -212,6 +218,10 @@ with the given credentials.</p>
     <span class="ruby-comment"># Since Repo in AppScale is authenticated w / the secret that we</span>
     <span class="ruby-comment"># can get at anytime, we don't need to give it any credentials.</span>
     <span class="ruby-keyword">return</span> <span class="ruby-constant">DatastoreRepoOnAppScale</span>.<span class="ruby-identifier">new</span>({})
+  <span class="ruby-keyword">when</span> <span class="ruby-constant">DatastoreWAZStorage</span><span class="ruby-operator">::</span><span class="ruby-constant">NAME</span>
+    <span class="ruby-identifier">waz_creds</span> = {<span class="ruby-value">:WAZ_Account_Name</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'@WAZ_Account_Name'</span>],
+      <span class="ruby-value">:WAZ_Access_Key</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'@WAZ_Access_Key'</span>]}
+    <span class="ruby-keyword">return</span> <span class="ruby-constant">DatastoreWAZStorage</span>.<span class="ruby-identifier">new</span>(<span class="ruby-identifier">waz_creds</span>)
   <span class="ruby-keyword">else</span>
     <span class="ruby-identifier">raise</span> <span class="ruby-constant">NotImplementedError</span>
   <span class="ruby-keyword">end</span>

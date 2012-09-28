@@ -47,7 +47,7 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>lib/task_queues/task_queue_rabbitmq.rb
+    <li>Neptune/lib/task_queues/task_queue_rabbitmq.rb
   </ul>
 </nav>
 
@@ -110,6 +110,8 @@
   
     <li><a href="./DatastoreS3.html">DatastoreS3</a>
   
+    <li><a href="./DatastoreWAZStorage.html">DatastoreWAZStorage</a>
+  
     <li><a href="./DjinnJobData.html">DjinnJobData</a>
   
     <li><a href="./EngineFactory.html">EngineFactory</a>
@@ -124,9 +126,13 @@
   
     <li><a href="./InfrastructureManagerClient.html">InfrastructureManagerClient</a>
   
+    <li><a href="./JSONClient.html">JSONClient</a>
+  
     <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
   
     <li><a href="./NeptuneManager.html">NeptuneManager</a>
+  
+    <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
   
     <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
   
@@ -196,6 +202,51 @@
 
     <!-- Methods -->
     
+     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="method-c-new" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">new</span><span
+            class="method-args">(credentials)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>creates a new RabbitMQ queue via the Bunny RubyGem code mostly adapted from
+<a href="https://github.com/ruby-amqp/bunny">github.com/ruby-amqp/bunny</a></p>
+          
+
+          
+          <div class="method-source-code" id="new-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/task_queues/task_queue_rabbitmq.rb, line 19</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">credentials</span>)
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>.<span class="ruby-identifier">class</span> <span class="ruby-operator">!=</span> <span class="ruby-constant">Hash</span>
+    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;credentials not a Hash&quot;</span>)
+  <span class="ruby-keyword">end</span>
+
+  <span class="ruby-ivar">@bunny</span> = <span class="ruby-constant">Bunny</span>.<span class="ruby-identifier">new</span>(<span class="ruby-value">:logging</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-keyword">true</span>)
+  <span class="ruby-ivar">@bunny</span>.<span class="ruby-identifier">start</span>
+
+  <span class="ruby-ivar">@queue</span> = <span class="ruby-ivar">@bunny</span>.<span class="ruby-identifier">queue</span>(<span class="ruby-constant">TASK_QUEUE_NAME</span>)
+  <span class="ruby-ivar">@exchange</span> = <span class="ruby-ivar">@bunny</span>.<span class="ruby-identifier">exchange</span>(<span class="ruby-string">&quot;&quot;</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- new-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- new-method -->
+
+    
+    </section><!-- public-class-method-details -->
+  
      <section id="public-instance-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Instance Methods</h3>
 
@@ -217,7 +268,7 @@ what credentials are necessary</p>
 
           
           <div class="method-source-code" id="get_creds-source">
-            <pre><span class="ruby-comment"># File lib/task_queues/task_queue_rabbitmq.rb, line 54</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_queues/task_queue_rabbitmq.rb, line 54</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_creds</span>()
   <span class="ruby-keyword">return</span> {}
 <span class="ruby-keyword">end</span></pre>
@@ -247,7 +298,7 @@ what credentials are necessary</p>
 
           
           <div class="method-source-code" id="pop-source">
-            <pre><span class="ruby-comment"># File lib/task_queues/task_queue_rabbitmq.rb, line 43</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_queues/task_queue_rabbitmq.rb, line 43</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">pop</span>()
   <span class="ruby-identifier">json_item</span> = <span class="ruby-ivar">@queue</span>.<span class="ruby-identifier">pop</span>()[<span class="ruby-value">:payload</span>]
   <span class="ruby-keyword">return</span> <span class="ruby-keyword">nil</span> <span class="ruby-keyword">if</span> <span class="ruby-identifier">json_item</span> <span class="ruby-operator">==</span> <span class="ruby-value">:queue_empty</span>  <span class="ruby-comment"># occurs when the queue is empty</span>
@@ -281,7 +332,7 @@ what credentials are necessary</p>
 
           
           <div class="method-source-code" id="push-source">
-            <pre><span class="ruby-comment"># File lib/task_queues/task_queue_rabbitmq.rb, line 33</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_queues/task_queue_rabbitmq.rb, line 33</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">push</span>(<span class="ruby-identifier">item</span>)
   <span class="ruby-keyword">if</span> <span class="ruby-identifier">item</span>.<span class="ruby-identifier">class</span> <span class="ruby-operator">!=</span> <span class="ruby-constant">Hash</span>
     <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>
@@ -316,7 +367,7 @@ what credentials are necessary</p>
 
           
           <div class="method-source-code" id="size-source">
-            <pre><span class="ruby-comment"># File lib/task_queues/task_queue_rabbitmq.rb, line 60</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_queues/task_queue_rabbitmq.rb, line 60</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">size</span>()
   <span class="ruby-keyword">return</span> <span class="ruby-ivar">@queue</span>.<span class="ruby-identifier">message_count</span>
 <span class="ruby-keyword">end</span></pre>
@@ -348,7 +399,7 @@ href="TaskQueue.html">TaskQueue</a>, so do so</p>
 
           
           <div class="method-source-code" id="to_s-source">
-            <pre><span class="ruby-comment"># File lib/task_queues/task_queue_rabbitmq.rb, line 69</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_queues/task_queue_rabbitmq.rb, line 69</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">to_s</span>()
   <span class="ruby-keyword">return</span> <span class="ruby-string">&quot;Queue type: RabbitMQ&quot;</span>
 <span class="ruby-keyword">end</span></pre>
@@ -363,51 +414,6 @@ href="TaskQueue.html">TaskQueue</a>, so do so</p>
 
     
     </section><!-- public-instance-method-details -->
-  
-     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
-      <h3 class="section-header">Public Class Methods</h3>
-
-    
-      <div id="method-c-new" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">new</span><span
-            class="method-args">(credentials)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          <p>creates a new RabbitMQ queue via the Bunny RubyGem code mostly adapted from
-<a href="https://github.com/ruby-amqp/bunny">github.com/ruby-amqp/bunny</a></p>
-          
-
-          
-          <div class="method-source-code" id="new-source">
-            <pre><span class="ruby-comment"># File lib/task_queues/task_queue_rabbitmq.rb, line 19</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">credentials</span>)
-  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>.<span class="ruby-identifier">class</span> <span class="ruby-operator">!=</span> <span class="ruby-constant">Hash</span>
-    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;credentials not a Hash&quot;</span>)
-  <span class="ruby-keyword">end</span>
-
-  <span class="ruby-ivar">@bunny</span> = <span class="ruby-constant">Bunny</span>.<span class="ruby-identifier">new</span>(<span class="ruby-value">:logging</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-keyword">true</span>)
-  <span class="ruby-ivar">@bunny</span>.<span class="ruby-identifier">start</span>
-
-  <span class="ruby-ivar">@queue</span> = <span class="ruby-ivar">@bunny</span>.<span class="ruby-identifier">queue</span>(<span class="ruby-constant">TASK_QUEUE_NAME</span>)
-  <span class="ruby-ivar">@exchange</span> = <span class="ruby-ivar">@bunny</span>.<span class="ruby-identifier">exchange</span>(<span class="ruby-string">&quot;&quot;</span>)
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- new-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- new-method -->
-
-    
-    </section><!-- public-class-method-details -->
   
   </section><!-- 5Buntitled-5D -->
 

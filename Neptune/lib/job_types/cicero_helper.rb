@@ -325,7 +325,7 @@ class NeptuneManager
     response = {}
     start_time = Time.now
     loop {
-      query_params = {:id => self.sanitize(task_id), :task_id => self.sanitize(task_id)}
+      query_params = {:id => task_id, :task_id => task_id}
       begin
         response = JSONClient.get("#{host}/task", :body => '', 
           :query => query_params)
@@ -338,9 +338,9 @@ class NeptuneManager
       NeptuneManager.log("Response class is [#{response.class}]")
       NeptuneManager.log("Response is [#{response.inspect}]")
 
-      status = response['status']
+      state = response['state']
       #start_time = response['start_time']
-      if status == "finished"
+      if state == "finished"
         NeptuneManager.log("Task with id [#{task_id}] has finished")
         break
       end
@@ -351,9 +351,9 @@ class NeptuneManager
       #end
 
       NeptuneManager.log("Current state of job with task id [#{task_id}], " +
-        "is #{status}, waiting for it to become 'finished'")
+        "is #{state}, waiting for it to become 'finished'")
       #NeptuneManager.log("Current state of job with task id [#{task_id}], started" +
-      #  " at #{start_time}, is '#{status}', waiting for it to become 'finished'")
+      #  " at #{start_time}, is '#{state}', waiting for it to become 'finished'")
       sleep(RETRY_TIME)
     }
 
@@ -375,6 +375,7 @@ class NeptuneManager
   end
 
   def self.sanitize(string)
+    return string
     string.gsub(/[^\w\d]/, '')
   end
 

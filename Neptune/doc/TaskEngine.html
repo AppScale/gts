@@ -47,7 +47,7 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>lib/task_engines/task_engine.rb
+    <li>Neptune/lib/task_engines/task_engine.rb
   </ul>
 </nav>
 
@@ -72,6 +72,8 @@
     
     <li><a href="#method-c-new">::new</a>
     
+    <li><a href="#method-i-add_metadata_to_job">#add_metadata_to_job</a>
+    
     <li><a href="#method-i-app_needs_uploading-3F">#app_needs_uploading?</a>
     
     <li><a href="#method-i-build_app_via_oration">#build_app_via_oration</a>
@@ -84,7 +86,7 @@
     
     <li><a href="#method-i-run_task">#run_task</a>
     
-    <li><a href="#method-i-save_output_to_datastore">#save_output_to_datastore</a>
+    <li><a href="#method-i-save_output_to_local_fs">#save_output_to_local_fs</a>
     
     <li><a href="#method-i-to_s">#to_s</a>
     
@@ -120,6 +122,8 @@
   
     <li><a href="./DatastoreS3.html">DatastoreS3</a>
   
+    <li><a href="./DatastoreWAZStorage.html">DatastoreWAZStorage</a>
+  
     <li><a href="./DjinnJobData.html">DjinnJobData</a>
   
     <li><a href="./EngineFactory.html">EngineFactory</a>
@@ -134,9 +138,13 @@
   
     <li><a href="./InfrastructureManagerClient.html">InfrastructureManagerClient</a>
   
+    <li><a href="./JSONClient.html">JSONClient</a>
+  
     <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
   
     <li><a href="./NeptuneManager.html">NeptuneManager</a>
+  
+    <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
   
     <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
   
@@ -193,8 +201,79 @@
 
     <!-- Methods -->
     
+     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="method-c-new" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">new</span><span
+            class="method-args">(credentials)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="new-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/task_engines/task_engine.rb, line 9</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">credentials</span>)
+  <span class="ruby-identifier">raise</span> <span class="ruby-constant">NotImplementedError</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- new-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- new-method -->
+
+    
+    </section><!-- public-class-method-details -->
+  
      <section id="public-instance-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Instance Methods</h3>
+
+    
+      <div id="method-i-add_metadata_to_job" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">add_metadata_to_job</span><span
+            class="method-args">(job_data, start_time, end_time)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="add_metadata_to_job-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/task_engines/task_engine.rb, line 110</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">add_metadata_to_job</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">start_time</span>, <span class="ruby-identifier">end_time</span>)
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;Adding metadata to job data&quot;</span>)
+  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'start_time'</span>] = <span class="ruby-identifier">start_time</span>
+  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'end_time'</span>] = <span class="ruby-identifier">end_time</span>
+  <span class="ruby-identifier">total</span> = <span class="ruby-identifier">end_time</span> <span class="ruby-operator">-</span> <span class="ruby-identifier">start_time</span>
+  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'total_execution_time'</span>] = <span class="ruby-identifier">total</span>
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;Done adding metadata to job data&quot;</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- add_metadata_to_job-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- add_metadata_to_job-method -->
 
     
       <div id="method-i-app_needs_uploading-3F" class="method-detail ">
@@ -213,7 +292,7 @@
 
           
           <div class="method-source-code" id="app_needs_uploading-3F-source">
-            <pre><span class="ruby-comment"># File lib/task_engines/task_engine.rb, line 31</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_engines/task_engine.rb, line 43</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">app_needs_uploading?</span>(<span class="ruby-identifier">job_data</span>)
   <span class="ruby-identifier">raise</span> <span class="ruby-constant">NotImplementedError</span>
 <span class="ruby-keyword">end</span></pre>
@@ -243,7 +322,7 @@
 
           
           <div class="method-source-code" id="build_app_via_oration-source">
-            <pre><span class="ruby-comment"># File lib/task_engines/task_engine.rb, line 36</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_engines/task_engine.rb, line 48</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">build_app_via_oration</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">dir</span>)
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;building app via oration&quot;</span>)
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;job data is #{job_data.inspect}&quot;</span>)
@@ -251,7 +330,7 @@
   <span class="ruby-identifier">output</span> = <span class="ruby-identifier">dir</span> <span class="ruby-operator">+</span> <span class="ruby-string">&quot;/appengine-app&quot;</span>
 
   <span class="ruby-comment"># TODO(cgb) - definitely check the return val here</span>
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log_run</span>(<span class="ruby-node">&quot;oration --file #{file} --function #{@function} &quot;</span> <span class="ruby-operator">+</span>
+  <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-node">&quot;oration --file #{file} --function #{@function} &quot;</span> <span class="ruby-operator">+</span>
     <span class="ruby-node">&quot;--appid #{@appid} --output #{output}&quot;</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-identifier">output</span>
 <span class="ruby-keyword">end</span></pre>
@@ -281,7 +360,7 @@
 
           
           <div class="method-source-code" id="engine_name-source">
-            <pre><span class="ruby-comment"># File lib/task_engines/task_engine.rb, line 106</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_engines/task_engine.rb, line 125</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">engine_name</span>()
   <span class="ruby-identifier">raise</span> <span class="ruby-constant">NotImplementedError</span>
 <span class="ruby-keyword">end</span></pre>
@@ -311,7 +390,7 @@
 
           
           <div class="method-source-code" id="get_app_url-source">
-            <pre><span class="ruby-comment"># File lib/task_engines/task_engine.rb, line 54</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_engines/task_engine.rb, line 66</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_app_url</span>(<span class="ruby-identifier">job_data</span>)
   <span class="ruby-identifier">raise</span> <span class="ruby-constant">NotImplementedError</span>
 <span class="ruby-keyword">end</span></pre>
@@ -341,21 +420,33 @@
 
           
           <div class="method-source-code" id="push-source">
-            <pre><span class="ruby-comment"># File lib/task_engines/task_engine.rb, line 14</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_engines/task_engine.rb, line 14</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">push</span>(<span class="ruby-identifier">job_data</span>)
-  <span class="ruby-identifier">dir</span> = <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">create_temp_dir</span>()
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">copy_code_to_dir</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">dir</span>)
+  <span class="ruby-identifier">dir</span> = <span class="ruby-keyword">nil</span>
+  <span class="ruby-identifier">uploaded_app</span> = <span class="ruby-keyword">false</span>
 
   <span class="ruby-keyword">if</span> <span class="ruby-identifier">app_needs_uploading?</span>(<span class="ruby-identifier">job_data</span>)
+    <span class="ruby-identifier">dir</span> = <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">create_temp_dir</span>()
+    <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">copy_code_to_dir</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">dir</span>)
     <span class="ruby-identifier">app_location</span> = <span class="ruby-identifier">build_app_via_oration</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">dir</span>)
     <span class="ruby-identifier">upload_app</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">app_location</span>)
+    <span class="ruby-identifier">uploaded_app</span> = <span class="ruby-keyword">true</span>
   <span class="ruby-keyword">end</span>
 
   <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@host'</span>] = <span class="ruby-identifier">get_app_url</span>(<span class="ruby-identifier">job_data</span>)
+  <span class="ruby-identifier">start_time</span> = <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span>.<span class="ruby-identifier">to_f</span>
   <span class="ruby-identifier">task_id</span> = <span class="ruby-identifier">run_task</span>(<span class="ruby-identifier">job_data</span>)
   <span class="ruby-identifier">wait_for_task_to_finish</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">task_id</span>)
-  <span class="ruby-identifier">save_output_to_datastore</span>(<span class="ruby-identifier">job_data</span>)
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">cleanup</span>(<span class="ruby-identifier">dir</span>)
+  <span class="ruby-identifier">end_time</span> = <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span>.<span class="ruby-identifier">to_f</span>
+  <span class="ruby-identifier">output</span> = <span class="ruby-identifier">save_output_to_local_fs</span>(<span class="ruby-identifier">job_data</span>)
+  <span class="ruby-identifier">nothing</span> = <span class="ruby-string">&quot;/tmp/baz&quot;</span>
+  <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">write_file</span>(<span class="ruby-identifier">nothing</span>, <span class="ruby-string">&quot;&quot;</span>)
+  <span class="ruby-identifier">add_metadata_to_job</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">start_time</span>, <span class="ruby-identifier">end_time</span>)
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">write_babel_outputs</span>(<span class="ruby-identifier">output</span>, <span class="ruby-identifier">nothing</span>, <span class="ruby-identifier">job_data</span>)
+
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">uploaded_app</span>
+    <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">cleanup</span>(<span class="ruby-identifier">dir</span>)
+  <span class="ruby-keyword">end</span>
 <span class="ruby-keyword">end</span></pre>
           </div><!-- push-source -->
           
@@ -383,7 +474,7 @@
 
           
           <div class="method-source-code" id="run_task-source">
-            <pre><span class="ruby-comment"># File lib/task_engines/task_engine.rb, line 59</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_engines/task_engine.rb, line 71</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">run_task</span>(<span class="ruby-identifier">job_data</span>)
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;running a task in #{engine_name()}&quot;</span>)
   <span class="ruby-identifier">host</span> = <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@host'</span>]
@@ -407,10 +498,10 @@
       </div><!-- run_task-method -->
 
     
-      <div id="method-i-save_output_to_datastore" class="method-detail ">
+      <div id="method-i-save_output_to_local_fs" class="method-detail ">
         
         <div class="method-heading">
-          <span class="method-name">save_output_to_datastore</span><span
+          <span class="method-name">save_output_to_local_fs</span><span
             class="method-args">(job_data)</span>
           <span class="method-click-advice">click to toggle source</span>
         </div>
@@ -422,9 +513,9 @@
           
 
           
-          <div class="method-source-code" id="save_output_to_datastore-source">
-            <pre><span class="ruby-comment"># File lib/task_engines/task_engine.rb, line 81</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">save_output_to_datastore</span>(<span class="ruby-identifier">job_data</span>)
+          <div class="method-source-code" id="save_output_to_local_fs-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/task_engines/task_engine.rb, line 93</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">save_output_to_local_fs</span>(<span class="ruby-identifier">job_data</span>)
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;copying output from #{engine_name()} to remote datastore&quot;</span>)
  
   <span class="ruby-identifier">host</span> = <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@host'</span>]
@@ -437,19 +528,16 @@
   <span class="ruby-identifier">local_output</span> = <span class="ruby-node">&quot;/tmp/babel-#{rand()}.txt&quot;</span>
   <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">write_file</span>(<span class="ruby-identifier">local_output</span>, <span class="ruby-identifier">output</span>)
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">save_output</span>(<span class="ruby-identifier">output_location</span>, <span class="ruby-identifier">local_output</span>, <span class="ruby-identifier">job_data</span>)
-
-  <span class="ruby-keyword">return</span> <span class="ruby-keyword">if</span> <span class="ruby-constant">DEBUG</span>
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;cleaning up local output at #{local_output}&quot;</span>)
-  <span class="ruby-constant">FileUtils</span>.<span class="ruby-identifier">rm_f</span>(<span class="ruby-identifier">local_output</span>)
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">local_output</span>
 <span class="ruby-keyword">end</span></pre>
-          </div><!-- save_output_to_datastore-source -->
+          </div><!-- save_output_to_local_fs-source -->
           
         </div>
 
         
 
         
-      </div><!-- save_output_to_datastore-method -->
+      </div><!-- save_output_to_local_fs-method -->
 
     
       <div id="method-i-to_s" class="method-detail ">
@@ -468,7 +556,7 @@
 
           
           <div class="method-source-code" id="to_s-source">
-            <pre><span class="ruby-comment"># File lib/task_engines/task_engine.rb, line 101</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_engines/task_engine.rb, line 120</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">to_s</span>()
   <span class="ruby-keyword">return</span> <span class="ruby-node">&quot;Engine type: #{engine_name()}&quot;</span>
 <span class="ruby-keyword">end</span></pre>
@@ -498,7 +586,7 @@
 
           
           <div class="method-source-code" id="upload_app-source">
-            <pre><span class="ruby-comment"># File lib/task_engines/task_engine.rb, line 49</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_engines/task_engine.rb, line 61</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">upload_app</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">app_location</span>)
   <span class="ruby-identifier">raise</span> <span class="ruby-constant">NotImplementedError</span>
 <span class="ruby-keyword">end</span></pre>
@@ -528,7 +616,7 @@
 
           
           <div class="method-source-code" id="wait_for_task_to_finish-source">
-            <pre><span class="ruby-comment"># File lib/task_engines/task_engine.rb, line 74</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_engines/task_engine.rb, line 86</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">wait_for_task_to_finish</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">task_id</span>)
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;waiting for #{engine_name()} task to finish&quot;</span>)
   <span class="ruby-identifier">host</span> = <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@host'</span>]
@@ -545,42 +633,6 @@
 
     
     </section><!-- public-instance-method-details -->
-  
-     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
-      <h3 class="section-header">Public Class Methods</h3>
-
-    
-      <div id="method-c-new" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">new</span><span
-            class="method-args">(credentials)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="new-source">
-            <pre><span class="ruby-comment"># File lib/task_engines/task_engine.rb, line 9</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">credentials</span>)
-  <span class="ruby-identifier">raise</span> <span class="ruby-constant">NotImplementedError</span>
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- new-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- new-method -->
-
-    
-    </section><!-- public-class-method-details -->
   
   </section><!-- 5Buntitled-5D -->
 

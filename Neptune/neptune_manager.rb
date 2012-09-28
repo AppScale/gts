@@ -120,23 +120,44 @@ class NeptuneManager
   attr_accessor :jobs
 
 
+  # A list of the roles that this NeptuneManager has started.
+  attr_accessor :roles_running
+
+
+  # A DjinnJobData corresponding to my node's information, to be used as a
+  # possibly stale version of this node's data if ZooKeeper cannot be
+  # contacted for the latest version.
+  attr_accessor :cached_my_node
+
+
   # TODO(cgb): back these up to zookeeper and restore from there as needed
   def initialize()
     @secret = HelperFunctions.get_secret()
     @queues_to_read = []
     @jobs = {}
+    @roles_running = []
+    @kill_sig_received = false
+    @cached_my_node = nil
   end
 
 
   def NeptuneManager.log(msg)
-    Kernel.puts(msg)
+    Kernel.puts("[#{Time.now}] #{msg}")
     STDOUT.flush()
   end
 
 
-  def start()
+  def start(max_iterations=10000000)
     initialize_zookeeper_connection()
-    #manage_virtual_machines()
+
+    current_iteration = 0
+    loop {
+      break if current_iteration >= max_iterations
+      #manage_virtual_machines()
+      manage_neptune_roles()
+      current_iteration += 1
+      Kernel.sleep(10)
+    }
   end
 
 
@@ -185,12 +206,47 @@ class NeptuneManager
     }
   end
 
+
+  def manage_neptune_roles()
+    roles = my_node.jobs
+    
+    roles_to_start = roles - @roles_running
+    NeptuneManager.log("About to start the following roles: " +
+      "#{roles_to_start.join(', ')}")
+    roles_to_start.each { |role|
+      method = "start_#{role}".to_sym
+      if respond_to?(method)
+        Thread.new { send(method) }
+      else
+        NeptuneManager.log("NeptuneManager does not implement #{method} - " +
+          "not calling it.")
+      end
+    }
+    
+    roles_to_stop = @roles_running - roles
+    NeptuneManager.log("About to stop the following roles: " +
+      "#{roles_to_stop.join(', ')}")
+    roles_to_stop.each { |role|
+      method = "stop_#{role}".to_sym
+      if respond_to?(method)
+        send(method)
+      else
+        NeptuneManager.log("NeptuneManager does not implement #{method} - " +
+          "not calling it.")
+      end
+    }
+
+    NeptuneManager.log("Done updating my roles!")
+    @roles_running = roles
+  end
+
   
   def valid_secret?(secret)
     return secret == @secret
   end
 
 
+  # FIXME: not called jobs anymore - make this the batch version!
   def start_job(jobs, secret)
     if jobs.class == Hash
       jobs = [jobs]
@@ -551,6 +607,9 @@ class NeptuneManager
 
   def start_job_roles(nodes, job_data)
     NeptuneManager.log("job - start")
+    return # TODO(cgb): is this needed with the new refactoring?
+    # or should we only be waiting for roles to be added if we had to add them?
+    # e.g., not wait if they were already the correct role (e.g., babel_master)
 
     # if all the resources are remotely owned, we can't add roles to
     # them, so don't
@@ -1116,10 +1175,23 @@ class NeptuneManager
 
 
   def my_node
-    my_ip = HelperFunctions.get_my_public_ip()
-    zk_job_data = ZKInterface.get_job_data_for_ip(my_ip)
-    NeptuneManager.log("My node's job data is #{zk_job_data}")
-    return DjinnJobData.deserialize(zk_job_data)
+    begin
+      my_ip = HelperFunctions.get_my_public_ip()
+      zk_job_data = ZKInterface.get_job_data_for_ip(my_ip)
+      NeptuneManager.log("My node's job data is #{zk_job_data}")
+      @cached_my_node = DjinnJobData.deserialize(zk_job_data)
+    rescue Exception => e
+      NeptuneManager.log("Saw an Exception of class #{e.class} when trying " +
+        "to get my node's data from ZooKeeper - returning cached version for " +
+        "now.")
+    end
+
+    return @cached_my_node
+  end
+
+
+  def get_shadow
+    get_node_with_role("shadow")  
   end
 
 
@@ -1184,6 +1256,105 @@ class NeptuneManager
   def is_hybrid_cloud?()
     cloud_info = HelperFunctions.get_cloud_info()
     return cloud_info['is_hybrid_cloud?']
+  end
+
+
+  # Runs a series of jobs in parallel, if the correct secret is given. Jobs is
+  # expected to be an Array of Hashes, where each Hash is a job to run. This
+  # function provides batch functionality for the 'start_job' method.
+  def batch_start_job(jobs, secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
+    Thread.new {
+      dispatch_jobs(jobs)
+    }
+    return {"success" => true, "state" => JOB_IS_RUNNING}
+  end
+
+
+  # Stores a series of files in the specified datastores, if the correct
+  # secret is given. 'files' is assumed to be a Hash that maps a given set of
+  # datastore credentials to the files that can be stored with those 
+  # credentials. This method provides batch functionality for the 'put_input' 
+  # method.
+  def batch_put_input(creds_and_files, secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
+
+    creds_and_files.each { |creds, files|
+      name = creds["@storage"]
+      datastore = DatastoreFactory.get_datastore(name, creds)
+      files.each { |file_data|
+        local = file_data["local"]
+        remote = file_data["remote"]
+        wait_for_file_to_exist(local)
+        datastore.write_remote_file_from_local_file(remote, local)
+        FileUtils.rm_rf(local)
+      }
+    }
+
+    return {"success" => true}
+  end
+
+
+  # Waits for the specified file to exist on the local filesystem, and then
+  # returns.
+  def wait_for_file_to_exist(filename)
+    loop {
+      if File.exists?(filename)
+        NeptuneManager.log("Found file #{filename}, returning.")
+        return
+      else
+        NeptuneManager.log("Still waiting for #{filename} to exist")
+        Kernel.sleep(5)
+      end
+    }
+  end
+
+
+  # For each file given, determines if it exists in the specified datastore
+  # with the specified credentials. 'creds_and_files' is assumed to be a Hash
+  # that maps a given set of datastore credentials to the files that can be
+  # checked with those credentials. This method provides batch functionality
+  # for the 'does_file_exist' method.
+  def batch_does_file_exist(creds_and_files, secret)
+    return BAD_SECRET_MSG unless valid_secret?(secret)
+
+    creds_and_files_that_exist = {}
+    creds_and_files_that_dont_exist = {}
+
+    creds_and_files.each { |creds, files|
+      name = creds["@storage"]
+      datastore = DatastoreFactory.get_datastore(name, creds)
+      file_status = datastore.batch_does_file_exist?(files)
+      creds_and_files_that_exist[creds] = []
+      creds_and_files_that_dont_exist[creds] = []
+      file_status.each { |filename, exists|
+        if exists
+          creds_and_files_that_exist[creds] << filename
+        else
+          creds_and_files_that_dont_exist[creds] << filename
+        end
+      }
+    }
+
+    # finally, remove any entries if there aren't any files associated
+    # with them
+    creds_and_files_that_exist.each { |creds, files|
+      if files.empty?
+        creds_and_files_that_exist.delete(creds)
+      end
+    }
+
+    creds_and_files_that_dont_exist.each { |creds, files|
+      if files.empty?
+        creds_and_files_that_dont_exist.delete(creds)
+      end
+    }
+
+    return {
+      "files_that_exist" => creds_and_files_that_exist,
+      "files_that_dont_exist" => creds_and_files_that_dont_exist,
+      "success" => true
+    }
   end
 
 
