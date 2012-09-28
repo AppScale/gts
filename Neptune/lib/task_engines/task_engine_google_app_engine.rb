@@ -62,6 +62,7 @@ class TaskEngineGoogleAppEngine < TaskEngine
   # app - identified by its file name and function.
   def app_needs_uploading?(job_data)
     NeptuneManager.log("seeing if app needs to be uploaded to App Engine")
+    return false
 
     # We're expecting to see the filename (minus the extension), a dot, and
     # the function name (no parens).
@@ -128,6 +129,7 @@ class TaskEngineGoogleAppEngine < TaskEngine
 
 
   def get_app_url(job_data)
+    #host = "http://#{job_data['@appid']}.cloudapp.net"
     host = "http://#{job_data['@appid']}.appspot.com"
     NeptuneManager.log("Google App Engine app is hosted at #{host}")
     return host

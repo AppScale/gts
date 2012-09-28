@@ -58,4 +58,10 @@ class Datastore
   end
 
 
+  # Checks whether the given files exist in the specified datastore.
+  def batch_does_file_exist?(paths)
+    raise NotImplementedError.new("Batch does file exist is abstract")
+  end
+
+
 end

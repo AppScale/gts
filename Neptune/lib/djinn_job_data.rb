@@ -5,8 +5,6 @@ $:.unshift File.join(File.dirname(__FILE__), "..")
 require 'neptune_manager'
 
 
-ONE_HOUR = 3600 # seconds
-HEARTBEAT_THRESHOLD = 10
 
 
 # A class that represents a single node running in AppScale. It provides methods
@@ -15,7 +13,21 @@ HEARTBEAT_THRESHOLD = 10
 # also contains info about when we spawned the node (helpful for optimizing
 # costs, which may charge on an hourly basis).
 class DjinnJobData
+
+
+  # The location where we store Neptune job type files, each of which defining
+  # 'start/stop_job_master' and 'start/stop_job_slave' functions.
+  JOB_TYPES_FOLDER = File.join(File.dirname(__FILE__), "job_types")
+
+
+  # A constant representing the number of seconds in an hour, useful for the
+  # per-hour metering performed by Amazon Web Services.
+  ONE_HOUR = 3600
+
+
   attr_accessor :public_ip, :private_ip, :jobs, :instance_id, :cloud, :ssh_key
+
+
   attr_accessor :creation_time, :destruction_time
  
 
@@ -44,18 +56,15 @@ class DjinnJobData
     @creation_time = nil
     @destruction_time = nil  # best variable name EVER
 
-    appscale_jobs = ["load_balancer", "shadow"]
-    appscale_jobs += ["db_master", "db_slave"]
-    appscale_jobs += ["zookeeper"]
-    appscale_jobs += ["login"]
-    appscale_jobs += ["memcache"]
-    appscale_jobs += ["open"]
-    appscale_jobs += ["rabbitmq_master", "rabbitmq_slave"]
-    appscale_jobs += ["babel_master", "babel_slave"]
-    appscale_jobs += ["appengine"] # appengine must go last
-    
+    neptune_jobs = ["shadow"]  # add in shadow since methods call .is_shadow?
+    Dir.foreach(JOB_TYPES_FOLDER) { |filename|
+      if filename =~ /\A(.*)_helper.rb\Z/
+        neptune_jobs << "#{$1}_master"
+        neptune_jobs << "#{$1}_slave"
+      end
+    } 
         
-    appscale_jobs.each { |job|
+    neptune_jobs.each { |job|
       @jobs << job if roles.include?(job)
     }
   end

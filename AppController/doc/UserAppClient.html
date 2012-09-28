@@ -47,8 +47,7 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>lib/user_app_client.rb
-    <li>../Neptune/lib/user_app_client.rb
+    <li>AppController/lib/user_app_client.rb
   </ul>
 </nav>
 
@@ -137,18 +136,6 @@
   
     <li><a href="./CronHelper.html">CronHelper</a>
   
-    <li><a href="./Datastore.html">Datastore</a>
-  
-    <li><a href="./DatastoreFactory.html">DatastoreFactory</a>
-  
-    <li><a href="./DatastoreRepo.html">DatastoreRepo</a>
-  
-    <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a>
-  
-    <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a>
-  
-    <li><a href="./DatastoreS3.html">DatastoreS3</a>
-  
     <li><a href="./Djinn.html">Djinn</a>
   
     <li><a href="./DjinnJobData.html">DjinnJobData</a>
@@ -157,15 +144,9 @@
   
     <li><a href="./Ejabberd.html">Ejabberd</a>
   
-    <li><a href="./EngineFactory.html">EngineFactory</a>
-  
     <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a>
   
     <li><a href="./GodInterface.html">GodInterface</a>
-  
-    <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a>
-  
-    <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a>
   
     <li><a href="./HAProxy.html">HAProxy</a>
   
@@ -179,13 +160,7 @@
   
     <li><a href="./Monitoring.html">Monitoring</a>
   
-    <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
-  
-    <li><a href="./NeptuneManager.html">NeptuneManager</a>
-  
     <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
-  
-    <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
   
     <li><a href="./Nginx.html">Nginx</a>
   
@@ -193,47 +168,13 @@
   
     <li><a href="./PbServer.html">PbServer</a>
   
-    <li><a href="./QueueFactory.html">QueueFactory</a>
-  
     <li><a href="./RabbitMQ.html">RabbitMQ</a>
   
     <li><a href="./Repo.html">Repo</a>
   
-    <li><a href="./TaskEngine.html">TaskEngine</a>
-  
-    <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a>
-  
-    <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a>
-  
-    <li><a href="./TaskQueue.html">TaskQueue</a>
-  
-    <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a>
-  
-    <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a>
-  
-    <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a>
-  
-    <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a>
-  
-    <li><a href="./TestAppScaleHelper.html">TestAppScaleHelper</a>
-  
-    <li><a href="./TestBabelHelper.html">TestBabelHelper</a>
-  
-    <li><a href="./TestCiceroHelper.html">TestCiceroHelper</a>
-  
-    <li><a href="./TestDatastore.html">TestDatastore</a>
-  
-    <li><a href="./TestNeptuneJobData.html">TestNeptuneJobData</a>
-  
-    <li><a href="./TestNeptuneManager.html">TestNeptuneManager</a>
-  
-    <li><a href="./TestTaskQueue.html">TestTaskQueue</a>
-  
     <li><a href="./UserAppClient.html">UserAppClient</a>
   
     <li><a href="./ZKInterface.html">ZKInterface</a>
-  
-    <li><a href="./ZooKeeperLockException.html">ZooKeeperLockException</a>
   
   </ul>
 </nav>
@@ -246,12 +187,6 @@
 
   <div id="description" class="description">
     
-<p>AppControllers and other services need to read or write data relating to
-users and applications hosted in AppScale. Since it has to be done in a
-database-agnostic fashion, we throw up a special server that responds to
-SOAP requests for this information, called the UserAppServer. This class
-provides convenience methods for interacting with the UserAppServer.</p>
-
 <p>AppControllers and other services need to read or write data relating to
 users and applications hosted in AppScale. Since it has to be done in a
 database-agnostic fashion, we throw up a special server that responds to
@@ -333,6 +268,60 @@ provides convenience methods for interacting with the UserAppServer.</p>
 
     <!-- Methods -->
     
+     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="method-c-new" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">new</span><span
+            class="method-args">(ip, secret)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="new-source">
+            <pre><span class="ruby-comment"># File AppController/lib/user_app_client.rb, line 25</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">ip</span>, <span class="ruby-identifier">secret</span>)
+  <span class="ruby-ivar">@ip</span> = <span class="ruby-identifier">ip</span>
+  <span class="ruby-ivar">@secret</span> = <span class="ruby-identifier">secret</span>
+  
+  <span class="ruby-ivar">@conn</span> = <span class="ruby-constant">SOAP</span><span class="ruby-operator">::</span><span class="ruby-constant">RPC</span><span class="ruby-operator">::</span><span class="ruby-constant">Driver</span>.<span class="ruby-identifier">new</span>(<span class="ruby-node">&quot;https://#{@ip}:#{SERVER_PORT}&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;change_password&quot;</span>, <span class="ruby-string">&quot;user&quot;</span>, <span class="ruby-string">&quot;password&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;commit_new_user&quot;</span>, <span class="ruby-string">&quot;user&quot;</span>, <span class="ruby-string">&quot;passwd&quot;</span>, <span class="ruby-string">&quot;utype&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;commit_new_app&quot;</span>, <span class="ruby-string">&quot;user&quot;</span>, <span class="ruby-string">&quot;appname&quot;</span>, <span class="ruby-string">&quot;language&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;commit_tar&quot;</span>, <span class="ruby-string">&quot;app_name&quot;</span>, <span class="ruby-string">&quot;tar&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;delete_app&quot;</span>, <span class="ruby-string">&quot;appname&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)    
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;is_app_enabled&quot;</span>, <span class="ruby-string">&quot;appname&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;is_user_cloud_admin&quot;</span>, <span class="ruby-string">&quot;username&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;does_user_exist&quot;</span>, <span class="ruby-string">&quot;username&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;get_user_data&quot;</span>, <span class="ruby-string">&quot;username&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;get_app_data&quot;</span>, <span class="ruby-string">&quot;appname&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;delete_instance&quot;</span>, <span class="ruby-string">&quot;appname&quot;</span>, <span class="ruby-string">&quot;host&quot;</span>, <span class="ruby-string">&quot;port&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;get_tar&quot;</span>, <span class="ruby-string">&quot;app_name&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;add_instance&quot;</span>, <span class="ruby-string">&quot;appname&quot;</span>, <span class="ruby-string">&quot;host&quot;</span>, <span class="ruby-string">&quot;port&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;get_all_apps&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;get_all_users&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- new-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- new-method -->
+
+    
+    </section><!-- public-class-method-details -->
+  
      <section id="public-instance-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Instance Methods</h3>
 
@@ -353,7 +342,7 @@ provides convenience methods for interacting with the UserAppServer.</p>
 
           
           <div class="method-source-code" id="add_instance-source">
-            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 237</span>
+            <pre><span class="ruby-comment"># File AppController/lib/user_app_client.rb, line 237</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">add_instance</span>(<span class="ruby-identifier">appname</span>, <span class="ruby-identifier">host</span>, <span class="ruby-identifier">port</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
   <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
   <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) {
@@ -392,7 +381,7 @@ provides convenience methods for interacting with the UserAppServer.</p>
 
           
           <div class="method-source-code" id="change_password-source">
-            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 129</span>
+            <pre><span class="ruby-comment"># File AppController/lib/user_app_client.rb, line 129</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">change_password</span>(<span class="ruby-identifier">user</span>, <span class="ruby-identifier">new_password</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
   <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
   <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) {
@@ -433,7 +422,7 @@ provides convenience methods for interacting with the UserAppServer.</p>
 
           
           <div class="method-source-code" id="commit_new_app-source">
-            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 89</span>
+            <pre><span class="ruby-comment"># File AppController/lib/user_app_client.rb, line 89</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">commit_new_app</span>(<span class="ruby-identifier">user</span>, <span class="ruby-identifier">app_name</span>, <span class="ruby-identifier">language</span>, <span class="ruby-identifier">file_location</span>)
   <span class="ruby-identifier">commit_new_app_name</span>(<span class="ruby-identifier">user</span>, <span class="ruby-identifier">app_name</span>, <span class="ruby-identifier">language</span>)
   <span class="ruby-identifier">commit_tar</span>(<span class="ruby-identifier">app_name</span>, <span class="ruby-identifier">file_location</span>)
@@ -464,7 +453,7 @@ provides convenience methods for interacting with the UserAppServer.</p>
 
           
           <div class="method-source-code" id="commit_new_app_name-source">
-            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 94</span>
+            <pre><span class="ruby-comment"># File AppController/lib/user_app_client.rb, line 94</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">commit_new_app_name</span>(<span class="ruby-identifier">user</span>, <span class="ruby-identifier">app_name</span>, <span class="ruby-identifier">language</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
   <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
   <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) {
@@ -507,7 +496,7 @@ provides convenience methods for interacting with the UserAppServer.</p>
 
           
           <div class="method-source-code" id="commit_new_user-source">
-            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 74</span>
+            <pre><span class="ruby-comment"># File AppController/lib/user_app_client.rb, line 74</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">commit_new_user</span>(<span class="ruby-identifier">user</span>, <span class="ruby-identifier">encrypted_password</span>, <span class="ruby-identifier">user_type</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
   <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
   <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) { 
@@ -548,7 +537,7 @@ provides convenience methods for interacting with the UserAppServer.</p>
 
           
           <div class="method-source-code" id="commit_tar-source">
-            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 111</span>
+            <pre><span class="ruby-comment"># File AppController/lib/user_app_client.rb, line 111</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">commit_tar</span>(<span class="ruby-identifier">app_name</span>, <span class="ruby-identifier">file_location</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
   <span class="ruby-identifier">file</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-identifier">file_location</span>, <span class="ruby-string">&quot;rb&quot;</span>)
   <span class="ruby-identifier">tar_contents</span> = <span class="ruby-constant">Base64</span>.<span class="ruby-identifier">encode64</span>(<span class="ruby-identifier">file</span>.<span class="ruby-identifier">read</span>)
@@ -592,7 +581,7 @@ provides convenience methods for interacting with the UserAppServer.</p>
 
           
           <div class="method-source-code" id="delete_app-source">
-            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 144</span>
+            <pre><span class="ruby-comment"># File AppController/lib/user_app_client.rb, line 144</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">delete_app</span>(<span class="ruby-identifier">app</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
   <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
   <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) {
@@ -631,7 +620,7 @@ provides convenience methods for interacting with the UserAppServer.</p>
 
           
           <div class="method-source-code" id="delete_instance-source">
-            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 197</span>
+            <pre><span class="ruby-comment"># File AppController/lib/user_app_client.rb, line 197</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">delete_instance</span>(<span class="ruby-identifier">appname</span>, <span class="ruby-identifier">host</span>, <span class="ruby-identifier">port</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
   <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
   <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) {
@@ -666,7 +655,7 @@ provides convenience methods for interacting with the UserAppServer.</p>
 
           
           <div class="method-source-code" id="does_app_exist-3F-source">
-            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 157</span>
+            <pre><span class="ruby-comment"># File AppController/lib/user_app_client.rb, line 157</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">does_app_exist?</span>(<span class="ruby-identifier">app</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
   <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
   <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) {
@@ -705,7 +694,7 @@ provides convenience methods for interacting with the UserAppServer.</p>
 
           
           <div class="method-source-code" id="does_user_exist-3F-source">
-            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 170</span>
+            <pre><span class="ruby-comment"># File AppController/lib/user_app_client.rb, line 170</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">does_user_exist?</span>(<span class="ruby-identifier">user</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
   <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
   <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) {
@@ -740,7 +729,7 @@ provides convenience methods for interacting with the UserAppServer.</p>
 
           
           <div class="method-source-code" id="get_all_apps-source">
-            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 206</span>
+            <pre><span class="ruby-comment"># File AppController/lib/user_app_client.rb, line 206</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_all_apps</span>(<span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
   <span class="ruby-identifier">all_apps</span> = <span class="ruby-string">&quot;&quot;</span>
   <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) {
@@ -777,7 +766,7 @@ provides convenience methods for interacting with the UserAppServer.</p>
 
           
           <div class="method-source-code" id="get_all_users-source">
-            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 217</span>
+            <pre><span class="ruby-comment"># File AppController/lib/user_app_client.rb, line 217</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_all_users</span>(<span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
   <span class="ruby-identifier">all_users</span> = <span class="ruby-string">&quot;&quot;</span>
   <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) {
@@ -814,7 +803,7 @@ provides convenience methods for interacting with the UserAppServer.</p>
 
           
           <div class="method-source-code" id="get_app_data-source">
-            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 188</span>
+            <pre><span class="ruby-comment"># File AppController/lib/user_app_client.rb, line 188</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_app_data</span>(<span class="ruby-identifier">appname</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
   <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
   <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) {
@@ -853,7 +842,7 @@ cloud admin is to speed up future queries?</p>
 
           
           <div class="method-source-code" id="get_cloud_admin-source">
-            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 291</span>
+            <pre><span class="ruby-comment"># File AppController/lib/user_app_client.rb, line 291</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_cloud_admin</span>()
   <span class="ruby-identifier">user_list</span> = <span class="ruby-identifier">get_all_users</span>()
 
@@ -890,7 +879,7 @@ that the given app is hosted at.</p>
 
           
           <div class="method-source-code" id="get_hosts_for_app-source">
-            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 272</span>
+            <pre><span class="ruby-comment"># File AppController/lib/user_app_client.rb, line 272</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_hosts_for_app</span>(<span class="ruby-identifier">appname</span>)
   <span class="ruby-identifier">app_data</span> = <span class="ruby-identifier">get_app_data</span>(<span class="ruby-identifier">appname</span>)
   <span class="ruby-identifier">hosts</span> = <span class="ruby-identifier">app_data</span>.<span class="ruby-identifier">scan</span>(<span class="ruby-regexp">%r\nhosts:([\d\.|:]+)\n/</span>).<span class="ruby-identifier">flatten</span>.<span class="ruby-identifier">to_s</span>.<span class="ruby-identifier">split</span>(<span class="ruby-string">&quot;:&quot;</span>)
@@ -930,7 +919,7 @@ that the given app is hosted at.</p>
 
           
           <div class="method-source-code" id="get_tar-source">
-            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 228</span>
+            <pre><span class="ruby-comment"># File AppController/lib/user_app_client.rb, line 228</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_tar</span>(<span class="ruby-identifier">appname</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
   <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
   <span class="ruby-identifier">make_call</span>(<span class="ruby-value">300</span>, <span class="ruby-identifier">retry_on_except</span>) {
@@ -965,7 +954,7 @@ that the given app is hosted at.</p>
 
           
           <div class="method-source-code" id="get_user_data-source">
-            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 179</span>
+            <pre><span class="ruby-comment"># File AppController/lib/user_app_client.rb, line 179</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_user_data</span>(<span class="ruby-identifier">username</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
   <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
   <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) {
@@ -1001,7 +990,7 @@ TODO(cgb): compare this with is_app_enabled? above</p>
 
           
           <div class="method-source-code" id="is_app_uploaded-3F-source">
-            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 252</span>
+            <pre><span class="ruby-comment"># File AppController/lib/user_app_client.rb, line 252</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">is_app_uploaded?</span>(<span class="ruby-identifier">appname</span>)
   <span class="ruby-identifier">all_apps</span> = <span class="ruby-identifier">get_all_apps</span>()
   <span class="ruby-keyword">return</span> <span class="ruby-identifier">app_list</span>.<span class="ruby-identifier">include?</span>(<span class="ruby-identifier">appname</span>)
@@ -1032,7 +1021,7 @@ TODO(cgb): compare this with is_app_enabled? above</p>
 
           
           <div class="method-source-code" id="is_user_cloud_admin-3F-source">
-            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 257</span>
+            <pre><span class="ruby-comment"># File AppController/lib/user_app_client.rb, line 257</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">is_user_cloud_admin?</span>(<span class="ruby-identifier">user</span>, <span class="ruby-identifier">retry_on_except</span>=<span class="ruby-keyword">true</span>)
   <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
   <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-identifier">retry_on_except</span>) {
@@ -1071,7 +1060,7 @@ TODO(cgb): compare this with is_app_enabled? above</p>
 
           
           <div class="method-source-code" id="make_call-source">
-            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 47</span>
+            <pre><span class="ruby-comment"># File AppController/lib/user_app_client.rb, line 47</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">make_call</span>(<span class="ruby-identifier">timeout</span>, <span class="ruby-identifier">retry_on_except</span>)
   <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
   <span class="ruby-keyword">begin</span>
@@ -1109,60 +1098,6 @@ TODO(cgb): compare this with is_app_enabled? above</p>
 
     
     </section><!-- public-instance-method-details -->
-  
-     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
-      <h3 class="section-header">Public Class Methods</h3>
-
-    
-      <div id="method-c-new" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">new</span><span
-            class="method-args">(ip, secret)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="new-source">
-            <pre><span class="ruby-comment"># File lib/user_app_client.rb, line 25</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">ip</span>, <span class="ruby-identifier">secret</span>)
-  <span class="ruby-ivar">@ip</span> = <span class="ruby-identifier">ip</span>
-  <span class="ruby-ivar">@secret</span> = <span class="ruby-identifier">secret</span>
-  
-  <span class="ruby-ivar">@conn</span> = <span class="ruby-constant">SOAP</span><span class="ruby-operator">::</span><span class="ruby-constant">RPC</span><span class="ruby-operator">::</span><span class="ruby-constant">Driver</span>.<span class="ruby-identifier">new</span>(<span class="ruby-node">&quot;https://#{@ip}:#{SERVER_PORT}&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;change_password&quot;</span>, <span class="ruby-string">&quot;user&quot;</span>, <span class="ruby-string">&quot;password&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;commit_new_user&quot;</span>, <span class="ruby-string">&quot;user&quot;</span>, <span class="ruby-string">&quot;passwd&quot;</span>, <span class="ruby-string">&quot;utype&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;commit_new_app&quot;</span>, <span class="ruby-string">&quot;user&quot;</span>, <span class="ruby-string">&quot;appname&quot;</span>, <span class="ruby-string">&quot;language&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;commit_tar&quot;</span>, <span class="ruby-string">&quot;app_name&quot;</span>, <span class="ruby-string">&quot;tar&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;delete_app&quot;</span>, <span class="ruby-string">&quot;appname&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)    
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;is_app_enabled&quot;</span>, <span class="ruby-string">&quot;appname&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;is_user_cloud_admin&quot;</span>, <span class="ruby-string">&quot;username&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;does_user_exist&quot;</span>, <span class="ruby-string">&quot;username&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;get_user_data&quot;</span>, <span class="ruby-string">&quot;username&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;get_app_data&quot;</span>, <span class="ruby-string">&quot;appname&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;delete_instance&quot;</span>, <span class="ruby-string">&quot;appname&quot;</span>, <span class="ruby-string">&quot;host&quot;</span>, <span class="ruby-string">&quot;port&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;get_tar&quot;</span>, <span class="ruby-string">&quot;app_name&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;add_instance&quot;</span>, <span class="ruby-string">&quot;appname&quot;</span>, <span class="ruby-string">&quot;host&quot;</span>, <span class="ruby-string">&quot;port&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;get_all_apps&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;get_all_users&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- new-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- new-method -->
-
-    
-    </section><!-- public-class-method-details -->
   
   </section><!-- 5Buntitled-5D -->
 

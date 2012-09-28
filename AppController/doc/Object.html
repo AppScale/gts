@@ -47,17 +47,11 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>djinn.rb
-    <li>djinnServer.rb
-    <li>lib/app_controller_client.rb
-    <li>lib/cron_helper.rb
-    <li>lib/djinn_job_data.rb
-    <li>../Neptune/lib/app_controller_client.rb
-    <li>../Neptune/lib/job_types/babel_helper.rb
-    <li>../Neptune/lib/job_types/mapreduce_helper.rb
-    <li>../Neptune/lib/job_types/cicero_helper.rb
-    <li>../Neptune/lib/neptune_job_data.rb
-    <li>../Neptune/lib/djinn_job_data.rb
+    <li>AppController/djinn.rb
+    <li>AppController/djinnServer.rb
+    <li>AppController/lib/app_controller_client.rb
+    <li>AppController/lib/cron_helper.rb
+    <li>AppController/lib/djinn_job_data.rb
   </ul>
 </nav>
 
@@ -108,18 +102,6 @@
   
     <li><a href="./CronHelper.html">CronHelper</a>
   
-    <li><a href="./Datastore.html">Datastore</a>
-  
-    <li><a href="./DatastoreFactory.html">DatastoreFactory</a>
-  
-    <li><a href="./DatastoreRepo.html">DatastoreRepo</a>
-  
-    <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a>
-  
-    <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a>
-  
-    <li><a href="./DatastoreS3.html">DatastoreS3</a>
-  
     <li><a href="./Djinn.html">Djinn</a>
   
     <li><a href="./DjinnJobData.html">DjinnJobData</a>
@@ -128,15 +110,9 @@
   
     <li><a href="./Ejabberd.html">Ejabberd</a>
   
-    <li><a href="./EngineFactory.html">EngineFactory</a>
-  
     <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a>
   
     <li><a href="./GodInterface.html">GodInterface</a>
-  
-    <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a>
-  
-    <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a>
   
     <li><a href="./HAProxy.html">HAProxy</a>
   
@@ -150,13 +126,7 @@
   
     <li><a href="./Monitoring.html">Monitoring</a>
   
-    <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
-  
-    <li><a href="./NeptuneManager.html">NeptuneManager</a>
-  
     <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
-  
-    <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
   
     <li><a href="./Nginx.html">Nginx</a>
   
@@ -164,47 +134,13 @@
   
     <li><a href="./PbServer.html">PbServer</a>
   
-    <li><a href="./QueueFactory.html">QueueFactory</a>
-  
     <li><a href="./RabbitMQ.html">RabbitMQ</a>
   
     <li><a href="./Repo.html">Repo</a>
   
-    <li><a href="./TaskEngine.html">TaskEngine</a>
-  
-    <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a>
-  
-    <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a>
-  
-    <li><a href="./TaskQueue.html">TaskQueue</a>
-  
-    <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a>
-  
-    <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a>
-  
-    <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a>
-  
-    <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a>
-  
-    <li><a href="./TestAppScaleHelper.html">TestAppScaleHelper</a>
-  
-    <li><a href="./TestBabelHelper.html">TestBabelHelper</a>
-  
-    <li><a href="./TestCiceroHelper.html">TestCiceroHelper</a>
-  
-    <li><a href="./TestDatastore.html">TestDatastore</a>
-  
-    <li><a href="./TestNeptuneJobData.html">TestNeptuneJobData</a>
-  
-    <li><a href="./TestNeptuneManager.html">TestNeptuneManager</a>
-  
-    <li><a href="./TestTaskQueue.html">TestTaskQueue</a>
-  
     <li><a href="./UserAppClient.html">UserAppClient</a>
   
     <li><a href="./ZKInterface.html">ZKInterface</a>
-  
-    <li><a href="./ZooKeeperLockException.html">ZooKeeperLockException</a>
   
   </ul>
 </nav>
@@ -249,24 +185,6 @@
 exposed SOAP method but provide an incorrect secret.</p>
         
       
-        <dt id="BAD_TABLE_MSG">BAD_TABLE_MSG
-        
-        <dd class="description">
-        
-      
-        <dt id="COST">COST
-        
-        <dd class="description"><p>The current costs for EC2 instances in the East Coast region. TODO(cgb):
-Find out some way to get this dynamically so we can record costs in more
-than one region, or utilize clouds with a different cloud model (e.g.,
-community or private clouds).</p>
-        
-      
-        <dt id="DBS_W_HADOOP">DBS_W_HADOOP
-        
-        <dd class="description">
-        
-      
         <dt id="FQDN_REGEX">FQDN_REGEX
         
         <dd class="description">
@@ -303,8 +221,7 @@ use long calls unless necessary.</p>
       
         <dt id="ONE_HOUR">ONE_HOUR
         
-        <dd class="description"><p>EC2 meters on a per-hour basis, so keep a constant for later use that
-corresponds to a single hour.</p>
+        <dd class="description">
         
       
         <dt id="RESTRICTED_APPS">RESTRICTED_APPS
@@ -316,18 +233,6 @@ outside of the normal start_appengine method.</p>
         <dt id="RETRY_ON_FAIL">RETRY_ON_FAIL
         
         <dd class="description">
-        
-      
-        <dt id="RETRY_TIME">RETRY_TIME
-        
-        <dd class="description">
-        
-      
-        <dt id="TASK_QUEUE_NAME">TASK_QUEUE_NAME
-        
-        <dd class="description"><p>The name of the queue to use when storing or receiving tasks. Since some
-providers use it as part of a FQDN, don’t put underscores or other
-non-FQDN characters in it.</p>
         
       
         <dt id="WANT_OUTPUT">WANT_OUTPUT
