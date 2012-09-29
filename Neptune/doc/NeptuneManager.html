@@ -47,12 +47,12 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>neptune_manager.rb
-    <li>lib/job_types/mpi_helper.rb
-    <li>lib/job_types/appscale_helper.rb
-    <li>lib/job_types/babel_helper.rb
-    <li>lib/job_types/mapreduce_helper.rb
-    <li>lib/job_types/cicero_helper.rb
+    <li>Neptune/neptune_manager.rb
+    <li>Neptune/lib/job_types/mpi_helper.rb
+    <li>Neptune/lib/job_types/appscale_helper.rb
+    <li>Neptune/lib/job_types/babel_helper.rb
+    <li>Neptune/lib/job_types/mapreduce_helper.rb
+    <li>Neptune/lib/job_types/cicero_helper.rb
   </ul>
 </nav>
 
@@ -219,6 +219,8 @@
     
     <li><a href="#method-i-spawn_nodes_for_neptune-3F">#spawn_nodes_for_neptune?</a>
     
+    <li><a href="#method-i-start">#start</a>
+    
     <li><a href="#method-i-start_babel_master">#start_babel_master</a>
     
     <li><a href="#method-i-start_babel_slave">#start_babel_slave</a>
@@ -236,6 +238,8 @@
     <li><a href="#method-i-touch_lock_file">#touch_lock_file</a>
     
     <li><a href="#method-i-uncompress_file">#uncompress_file</a>
+    
+    <li><a href="#method-i-valid_secret-3F">#valid_secret?</a>
     
     <li><a href="#method-i-validate_environment">#validate_environment</a>
     
@@ -275,6 +279,8 @@
   
     <li><a href="./DatastoreS3.html">DatastoreS3</a>
   
+    <li><a href="./DatastoreWAZStorage.html">DatastoreWAZStorage</a>
+  
     <li><a href="./DjinnJobData.html">DjinnJobData</a>
   
     <li><a href="./EngineFactory.html">EngineFactory</a>
@@ -289,9 +295,13 @@
   
     <li><a href="./InfrastructureManagerClient.html">InfrastructureManagerClient</a>
   
+    <li><a href="./JSONClient.html">JSONClient</a>
+  
     <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
   
     <li><a href="./NeptuneManager.html">NeptuneManager</a>
+  
+    <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
   
     <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
   
@@ -643,6 +653,637 @@ can be stored in.</p>
 
     <!-- Methods -->
     
+     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="method-c-cleanup" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">cleanup</span><span
+            class="method-args">(dir)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="cleanup-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 576</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">cleanup</span>(<span class="ruby-identifier">dir</span>)
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Cleaning up directory #{dir}&quot;</span>)
+  <span class="ruby-comment"># don't clean up if we want to debug the system</span>
+  <span class="ruby-keyword">return</span> <span class="ruby-keyword">if</span> <span class="ruby-constant">DEBUG</span>
+  <span class="ruby-constant">FileUtils</span>.<span class="ruby-identifier">rm_rf</span>(<span class="ruby-identifier">dir</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- cleanup-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- cleanup-method -->
+
+    
+      <div id="method-c-convert_location_array_to_class" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">convert_location_array_to_class</span><span
+            class="method-args">(nodes, keyname)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="convert_location_array_to_class-source">
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 1126</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">convert_location_array_to_class</span>(<span class="ruby-identifier">nodes</span>, <span class="ruby-identifier">keyname</span>)
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Keyname is of class #{keyname.class}&quot;</span>)
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Keyname is #{keyname}&quot;</span>)
+
+  <span class="ruby-identifier">array_of_nodes</span> = []
+  <span class="ruby-identifier">nodes</span>.<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">node</span><span class="ruby-operator">|</span>
+    <span class="ruby-identifier">converted</span> = <span class="ruby-constant">DjinnJobData</span>.<span class="ruby-identifier">new</span>(<span class="ruby-identifier">node</span>, <span class="ruby-identifier">keyname</span>)
+    <span class="ruby-identifier">array_of_nodes</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">converted</span>
+    <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;Adding data &quot;</span> <span class="ruby-operator">+</span> <span class="ruby-identifier">converted</span>.<span class="ruby-identifier">to_s</span>)
+  }
+
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">array_of_nodes</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- convert_location_array_to_class-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- convert_location_array_to_class-method -->
+
+    
+      <div id="method-c-convert_location_class_to_array" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">convert_location_class_to_array</span><span
+            class="method-args">(djinn_locations)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="convert_location_class_to_array-source">
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 1141</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">convert_location_class_to_array</span>(<span class="ruby-identifier">djinn_locations</span>)
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">djinn_locations</span>.<span class="ruby-identifier">class</span> <span class="ruby-operator">!=</span> <span class="ruby-constant">Array</span>
+    <span class="ruby-identifier">raise</span> <span class="ruby-constant">Exception</span>, <span class="ruby-string">&quot;Locations should be an array&quot;</span>
+  <span class="ruby-keyword">end</span>
+
+  <span class="ruby-identifier">djinn_loc_array</span> = []
+  <span class="ruby-identifier">djinn_locations</span>.<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">location</span><span class="ruby-operator">|</span>
+    <span class="ruby-identifier">djinn_loc_array</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">location</span>.<span class="ruby-identifier">serialize</span>
+    <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;Serializing data &quot;</span> <span class="ruby-operator">+</span> <span class="ruby-identifier">location</span>.<span class="ruby-identifier">serialize</span>)
+  }
+
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">djinn_loc_array</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- convert_location_class_to_array-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- convert_location_class_to_array-method -->
+
+    
+      <div id="method-c-copy_code_and_inputs_to_dir" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">copy_code_and_inputs_to_dir</span><span
+            class="method-args">(job_data, dir)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="copy_code_and_inputs_to_dir-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 402</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">copy_code_and_inputs_to_dir</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">dir</span>)
+  <span class="ruby-identifier">input_storage_start_time</span> = <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span>
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">copy_code_to_dir</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">dir</span>)
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">copy_inputs_to_dir</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">dir</span>)
+  <span class="ruby-identifier">input_storage_end_time</span> = <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span>
+  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'input_storage_time'</span>] = <span class="ruby-identifier">input_storage_end_time</span> <span class="ruby-operator">-</span> <span class="ruby-identifier">input_storage_start_time</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- copy_code_and_inputs_to_dir-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- copy_code_and_inputs_to_dir-method -->
+
+    
+      <div id="method-c-copy_code_to_dir" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">copy_code_to_dir</span><span
+            class="method-args">(job_data, dir)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="copy_code_to_dir-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 410</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">copy_code_to_dir</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">dir</span>)
+  <span class="ruby-keyword">if</span> <span class="ruby-operator">!</span><span class="ruby-keyword">self</span>.<span class="ruby-identifier">is_storage_location?</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@code'</span>])
+    <span class="ruby-identifier">abort</span>(<span class="ruby-node">&quot;The given code, #{job_data['@code']}, is not something we can fetch&quot;</span>)
+  <span class="ruby-keyword">end</span>
+
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;old code is #{job_data['@code']}&quot;</span>)
+  <span class="ruby-identifier">local_folder</span> = <span class="ruby-keyword">self</span>.<span class="ruby-identifier">copy_file_to_dir</span>(<span class="ruby-constant">File</span>.<span class="ruby-identifier">dirname</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@code'</span>]), <span class="ruby-identifier">dir</span>, <span class="ruby-identifier">job_data</span>)
+  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@code'</span>] = <span class="ruby-identifier">local_folder</span> <span class="ruby-operator">+</span> <span class="ruby-string">'/'</span> <span class="ruby-operator">+</span> <span class="ruby-constant">File</span>.<span class="ruby-identifier">basename</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@code'</span>])
+
+  <span class="ruby-comment"># If the code isn't going to be executed by a different program (e.g., python)</span>
+  <span class="ruby-comment"># then we need to make it executable</span>
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">job_data</span>[<span class="ruby-string">&quot;@executable&quot;</span>].<span class="ruby-identifier">nil?</span> <span class="ruby-keyword">or</span> <span class="ruby-identifier">job_data</span>[<span class="ruby-string">&quot;@executable&quot;</span>].<span class="ruby-identifier">empty?</span>
+    <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;making code executable&quot;</span>)
+    <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-node">&quot;chmod +x #{job_data['@code']}&quot;</span>)
+  <span class="ruby-keyword">end</span>
+
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;new code is #{job_data['@code']}&quot;</span>)
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@code'</span>]
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- copy_code_to_dir-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- copy_code_to_dir-method -->
+
+    
+      <div id="method-c-copy_file_to_dir" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">copy_file_to_dir</span><span
+            class="method-args">(remote, local, job_data)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="copy_file_to_dir-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 451</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">copy_file_to_dir</span>(<span class="ruby-identifier">remote</span>, <span class="ruby-identifier">local</span>, <span class="ruby-identifier">job_data</span>)
+  <span class="ruby-identifier">bucket</span>, <span class="ruby-identifier">file</span> = <span class="ruby-constant">DatastoreS3</span>.<span class="ruby-identifier">parse_s3_key</span>(<span class="ruby-identifier">remote</span>)
+  <span class="ruby-identifier">remote_dir</span> = <span class="ruby-identifier">file</span>
+  <span class="ruby-identifier">local_file</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">expand_path</span>(<span class="ruby-identifier">local</span> <span class="ruby-operator">+</span> <span class="ruby-string">&quot;/&quot;</span> <span class="ruby-operator">+</span> <span class="ruby-identifier">remote_dir</span>)
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;downloading remote file #{remote} to local location #{local_file}&quot;</span>)
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;bucket is #{bucket}, file is #{file}&quot;</span>)
+
+  <span class="ruby-identifier">datastore</span> = <span class="ruby-constant">DatastoreFactory</span>.<span class="ruby-identifier">get_datastore</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@storage'</span>], <span class="ruby-identifier">job_data</span>)
+  <span class="ruby-identifier">datastore</span>.<span class="ruby-identifier">get_output_and_save_to_fs</span>(<span class="ruby-identifier">remote</span>, <span class="ruby-identifier">local</span>)
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">local_file</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- copy_file_to_dir-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- copy_file_to_dir-method -->
+
+    
+      <div id="method-c-copy_inputs_to_dir" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">copy_inputs_to_dir</span><span
+            class="method-args">(job_data, dir)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="copy_inputs_to_dir-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 431</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">copy_inputs_to_dir</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">dir</span>)
+  <span class="ruby-keyword">return</span> <span class="ruby-keyword">if</span> <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@argv'</span>].<span class="ruby-identifier">class</span> <span class="ruby-operator">!=</span> <span class="ruby-constant">Array</span>
+
+  <span class="ruby-identifier">new_argv</span> = []
+
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;old argv is #{job_data['@argv'].join(' ')}&quot;</span>)
+  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@argv'</span>].<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">arg</span><span class="ruby-operator">|</span>
+    <span class="ruby-keyword">if</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">is_storage_location?</span>(<span class="ruby-identifier">arg</span>)
+      <span class="ruby-identifier">new_argv</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">copy_file_to_dir</span>(<span class="ruby-identifier">arg</span>, <span class="ruby-identifier">dir</span>, <span class="ruby-identifier">job_data</span>)
+    <span class="ruby-keyword">else</span>
+      <span class="ruby-identifier">new_argv</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">arg</span>
+    <span class="ruby-keyword">end</span>
+  }
+
+  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@argv'</span>] = <span class="ruby-identifier">new_argv</span>
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;new argv is #{job_data['@argv'].join(' ')}&quot;</span>)
+  <span class="ruby-keyword">return</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- copy_inputs_to_dir-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- copy_inputs_to_dir-method -->
+
+    
+      <div id="method-c-create_temp_dir" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">create_temp_dir</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="create_temp_dir-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 395</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_temp_dir</span>()
+  <span class="ruby-identifier">dir</span> = <span class="ruby-node">&quot;/tmp/babel-#{rand(10000)}/&quot;</span>
+  <span class="ruby-constant">FileUtils</span>.<span class="ruby-identifier">mkdir_p</span>(<span class="ruby-identifier">dir</span>)
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">dir</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- create_temp_dir-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- create_temp_dir-method -->
+
+    
+      <div id="method-c-is_storage_location-3F" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">is_storage_location?</span><span
+            class="method-args">(file)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="is_storage_location-3F-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 584</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">is_storage_location?</span>(<span class="ruby-identifier">file</span>)
+  <span class="ruby-keyword">return</span> <span class="ruby-constant">STORAGE_PARAM_REGEX</span>.<span class="ruby-identifier">match</span>(<span class="ruby-identifier">file</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- is_storage_location-3F-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- is_storage_location-3F-method -->
+
+    
+      <div id="method-c-log" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">log</span><span
+            class="method-args">(msg)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="log-source">
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 131</span>
+<span class="ruby-keyword">def</span> <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-identifier">msg</span>)
+  <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-identifier">msg</span>)
+  <span class="ruby-constant">STDOUT</span>.<span class="ruby-identifier">flush</span>()
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- log-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- log-method -->
+
+    
+      <div id="method-c-neptune_parse_creds" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">neptune_parse_creds</span><span
+            class="method-args">(storage, job_data)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="neptune_parse_creds-source">
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 1105</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">neptune_parse_creds</span>(<span class="ruby-identifier">storage</span>, <span class="ruby-identifier">job_data</span>)
+  <span class="ruby-identifier">creds</span> = {}
+
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">storage</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;s3&quot;</span>
+    [<span class="ruby-string">'EC2_ACCESS_KEY'</span>, <span class="ruby-string">'EC2_SECRET_KEY'</span>, <span class="ruby-string">'S3_URL'</span>].<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">item</span><span class="ruby-operator">|</span>
+      <span class="ruby-identifier">creds</span>[<span class="ruby-identifier">item</span>] = <span class="ruby-identifier">job_data</span>[<span class="ruby-node">&quot;@#{item}&quot;</span>]
+    }
+  <span class="ruby-keyword">end</span>
+
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">creds</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- neptune_parse_creds-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- neptune_parse_creds-method -->
+
+    
+      <div id="method-c-new" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">new</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>TODO(cgb): back these up to zookeeper and restore from there as needed</p>
+          
+
+          
+          <div class="method-source-code" id="new-source">
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 124</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>()
+  <span class="ruby-ivar">@secret</span> = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">get_secret</span>()
+  <span class="ruby-ivar">@queues_to_read</span> = []
+  <span class="ruby-ivar">@jobs</span> = {}
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- new-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- new-method -->
+
+    
+      <div id="method-c-run_code" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">run_code</span><span
+            class="method-args">(job_data, dir)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="run_code-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 464</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">run_code</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">dir</span>)
+  <span class="ruby-identifier">filename_to_exec</span> = <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@code'</span>]
+
+  <span class="ruby-identifier">executable</span> = <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@executable'</span>] <span class="ruby-operator">||</span> <span class="ruby-string">&quot;&quot;</span>
+
+  <span class="ruby-comment"># If the user specifies an argv to pass to the code to exec, be sure to</span>
+  <span class="ruby-comment"># capture it and pass it along</span>
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">job_data</span>[<span class="ruby-string">&quot;@argv&quot;</span>]
+    <span class="ruby-identifier">argv</span> = <span class="ruby-identifier">job_data</span>[<span class="ruby-string">&quot;@argv&quot;</span>].<span class="ruby-identifier">join</span>(<span class="ruby-string">' '</span>)
+    <span class="ruby-comment"># TODO(cgb): filter out colons and other things that malicious users could</span>
+    <span class="ruby-comment"># use to hijack the system</span>
+  <span class="ruby-keyword">else</span>
+    <span class="ruby-identifier">argv</span> = <span class="ruby-string">&quot;&quot;</span>
+  <span class="ruby-keyword">end</span>
+
+  <span class="ruby-identifier">output_file</span> = <span class="ruby-node">&quot;#{dir}/stdout-#{HelperFunctions.get_random_alphanumeric()}&quot;</span>
+  <span class="ruby-identifier">error_file</span> = <span class="ruby-node">&quot;#{dir}/stderr-#{HelperFunctions.get_random_alphanumeric()}&quot;</span>
+
+  <span class="ruby-comment"># For most file types, we can use the full path when executing them. For</span>
+  <span class="ruby-comment"># programs that run over the JVM (e.g., Java, Scala), we can't - we need </span>
+  <span class="ruby-comment"># to change into the directory where the file is located and exec the file </span>
+  <span class="ruby-comment"># from there.</span>
+  <span class="ruby-comment"># TODO(cgb): Consider a job_data['@jvm_args'] option (with an array val)</span>
+  <span class="ruby-comment"># that users can set to pass in arguments that we should pass to the JVM</span>
+  <span class="ruby-comment"># we are about to run.</span>
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">executable</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;java&quot;</span> <span class="ruby-keyword">or</span> <span class="ruby-identifier">executable</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;scala&quot;</span>
+    <span class="ruby-identifier">dir</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">dirname</span>(<span class="ruby-identifier">filename_to_exec</span>)
+    <span class="ruby-identifier">file</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">basename</span>(<span class="ruby-identifier">filename_to_exec</span>)
+    <span class="ruby-identifier">exec_command</span> = <span class="ruby-node">&quot;cd #{dir}; #{executable} #{file} #{argv} 1&gt;#{output_file} 2&gt;#{error_file}&quot;</span>
+  <span class="ruby-keyword">else</span>
+    <span class="ruby-identifier">exec_command</span> = <span class="ruby-node">&quot;#{executable} #{filename_to_exec} #{argv} 1&gt;#{output_file} 2&gt;#{error_file}&quot;</span>
+  <span class="ruby-keyword">end</span>
+
+  <span class="ruby-identifier">start_time</span> = <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span>
+  <span class="ruby-identifier">ret_val</span> = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-identifier">exec_command</span>)
+  <span class="ruby-identifier">end_time</span> = <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span>
+
+  <span class="ruby-identifier">total</span> = <span class="ruby-identifier">end_time</span> <span class="ruby-operator">-</span> <span class="ruby-identifier">start_time</span>
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;Babel: Done running job!&quot;</span>)
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;TIMING: Took #{total} seconds&quot;</span>)
+
+  <span class="ruby-comment"># Save some data about the task we just ran. At a high level, there are two</span>
+  <span class="ruby-comment"># types of information we want to save: debugging information (in case the</span>
+  <span class="ruby-comment"># task failed and the user needs to deduce why), and profiling information</span>
+  <span class="ruby-comment"># (so the user can see how long their code took to run).</span>
+
+  <span class="ruby-comment"># Add in debugging information.</span>
+  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'command'</span>] = <span class="ruby-identifier">exec_command</span>
+  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'return_value'</span>] = <span class="ruby-identifier">ret_val</span>
+  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'cpu_info'</span>] = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-string">&quot;cat /proc/cpuinfo&quot;</span>)
+  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'mem_info'</span>] = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-string">&quot;cat /proc/meminfo&quot;</span>)
+  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'df_h'</span>] = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-string">&quot;df -h&quot;</span>)
+
+  <span class="ruby-comment"># Add in profiling information, with all times converted to seconds since epoch.</span>
+  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'start_time'</span>] = <span class="ruby-identifier">start_time</span>.<span class="ruby-identifier">to_i</span>
+  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'end_time'</span>] = <span class="ruby-identifier">end_time</span>.<span class="ruby-identifier">to_i</span>
+  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'total_execution_time'</span>] = <span class="ruby-identifier">total</span>
+
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">output_file</span>, <span class="ruby-identifier">error_file</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- run_code-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- run_code-method -->
+
+    
+      <div id="method-c-save_output" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">save_output</span><span
+            class="method-args">(remote_output, local_output, job_data)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="save_output-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 569</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">save_output</span>(<span class="ruby-identifier">remote_output</span>, <span class="ruby-identifier">local_output</span>, <span class="ruby-identifier">job_data</span>)
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Saving local output #{local_output} to remote location #{remote_output}&quot;</span>)
+  <span class="ruby-identifier">datastore</span> = <span class="ruby-constant">DatastoreFactory</span>.<span class="ruby-identifier">get_datastore</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@storage'</span>], <span class="ruby-identifier">job_data</span>)
+  <span class="ruby-identifier">datastore</span>.<span class="ruby-identifier">write_remote_file_from_local_file</span>(<span class="ruby-identifier">remote_output</span>, <span class="ruby-identifier">local_output</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- save_output-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- save_output-method -->
+
+    
+      <div id="method-c-write_babel_outputs" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">write_babel_outputs</span><span
+            class="method-args">(output, error, job_data)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Writes the stdout and stderr that a Babel task produces to the remote
+datastore that the user has specified to use. We also automatically collect
+some metadata about the task, so we write that to the datastore as well.</p>
+          
+
+          
+          <div class="method-source-code" id="write_babel_outputs-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 529</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">write_babel_outputs</span>(<span class="ruby-identifier">output</span>, <span class="ruby-identifier">error</span>, <span class="ruby-identifier">job_data</span>)
+  <span class="ruby-identifier">datastore</span> = <span class="ruby-constant">DatastoreFactory</span>.<span class="ruby-identifier">get_datastore</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@storage'</span>], <span class="ruby-identifier">job_data</span>)
+
+  <span class="ruby-comment"># Write our stdout file</span>
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Saving stdout at #{output} to remote location&quot;</span> <span class="ruby-operator">+</span> 
+    <span class="ruby-node">&quot; #{job_data['@output']}&quot;</span>)
+  <span class="ruby-identifier">output_storage_start_time</span> = <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span>
+  <span class="ruby-identifier">datastore</span>.<span class="ruby-identifier">write_remote_file_from_local_file</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@output'</span>], <span class="ruby-identifier">output</span>)
+
+  <span class="ruby-comment"># Write our stderr file</span>
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Saving stderr #{error} to remote location&quot;</span> <span class="ruby-operator">+</span>
+    <span class="ruby-node">&quot; #{job_data['@error']}&quot;</span>)
+  <span class="ruby-identifier">datastore</span>.<span class="ruby-identifier">write_remote_file_from_local_file</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@error'</span>], <span class="ruby-identifier">error</span>)
+  <span class="ruby-identifier">output_storage_end_time</span> = <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span>
+  <span class="ruby-identifier">total_output_time</span> = <span class="ruby-identifier">output_storage_end_time</span> <span class="ruby-operator">-</span> <span class="ruby-identifier">output_storage_start_time</span>
+  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'output_storage_time'</span>] = <span class="ruby-identifier">total_output_time</span>
+
+  <span class="ruby-identifier">local_input_storage_time</span> = <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'time_to_store_inputs'</span>] <span class="ruby-operator">||</span> <span class="ruby-value">0.0</span>
+  <span class="ruby-identifier">total_input_time</span> = <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'input_storage_time'</span>] <span class="ruby-operator">||</span> <span class="ruby-value">0.0</span>
+  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'total_storage_time'</span>] = <span class="ruby-identifier">local_input_storage_time</span> <span class="ruby-operator">+</span> 
+    <span class="ruby-identifier">total_input_time</span> <span class="ruby-operator">+</span> <span class="ruby-identifier">total_output_time</span>
+
+  <span class="ruby-identifier">end_of_task_time</span> = <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span>.<span class="ruby-identifier">to_f</span>
+  <span class="ruby-identifier">start_of_task_time</span> = <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'received_task_at'</span>] <span class="ruby-operator">||</span> <span class="ruby-value">0.0</span>
+  <span class="ruby-identifier">total_task_time</span> = <span class="ruby-identifier">end_of_task_time</span> <span class="ruby-operator">-</span> <span class="ruby-identifier">start_of_task_time</span>
+  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'total_task_time'</span>] = <span class="ruby-identifier">total_task_time</span>
+
+  <span class="ruby-comment"># Write our metadata info, which is not a file, but a hash we will turn to</span>
+  <span class="ruby-comment"># a string via JSON</span>
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Saving metadata #{job_data['@metadata_info'].inspect} &quot;</span> <span class="ruby-operator">+</span>
+    <span class="ruby-node">&quot;to remote location #{job_data['@metadata']}&quot;</span>)
+  <span class="ruby-identifier">metadata_file</span> = <span class="ruby-node">&quot;/tmp/metadata-#{HelperFunctions.get_random_alphanumeric()}&quot;</span>
+  <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">write_file</span>(<span class="ruby-identifier">metadata_file</span>, 
+    <span class="ruby-constant">JSON</span>.<span class="ruby-identifier">dump</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>]))
+  <span class="ruby-identifier">datastore</span>.<span class="ruby-identifier">write_remote_file_from_local_file</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata'</span>], 
+    <span class="ruby-identifier">metadata_file</span>)
+  <span class="ruby-constant">FileUtils</span>.<span class="ruby-identifier">rm_f</span>(<span class="ruby-identifier">metadata_file</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- write_babel_outputs-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- write_babel_outputs-method -->
+
+    
+    </section><!-- public-class-method-details -->
+  
      <section id="public-instance-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Instance Methods</h3>
 
@@ -663,7 +1304,7 @@ can be stored in.</p>
 
           
           <div class="method-source-code" id="acquire_nodes-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 714</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 725</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">acquire_nodes</span>(<span class="ruby-identifier">job_data</span>)
   <span class="ruby-comment"># for jobs where no nodes need to be acquired (e.g., concurrent but not</span>
   <span class="ruby-comment"># distributed programs), run them on the shadow node</span>
@@ -740,7 +1381,7 @@ can be stored in.</p>
 
           
           <div class="method-source-code" id="acquire_nodes_for_cloud-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 805</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 814</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">acquire_nodes_for_cloud</span>(<span class="ruby-identifier">cloud_num</span>, <span class="ruby-identifier">new_vms_needed</span>, <span class="ruby-identifier">job_data</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-keyword">if</span> <span class="ruby-identifier">new_vms_needed</span> <span class="ruby-operator">&lt;</span> <span class="ruby-value">1</span>
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;spawning up #{new_vms_needed} vms&quot;</span>)
@@ -779,7 +1420,7 @@ can be stored in.</p>
 
           
           <div class="method-source-code" id="add_nodes-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 818</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 827</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">add_nodes</span>(<span class="ruby-identifier">node_info</span>)
   <span class="ruby-identifier">keyname</span> = <span class="ruby-ivar">@creds</span>[<span class="ruby-string">'keyname'</span>]
   <span class="ruby-identifier">new_nodes</span> = <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">convert_location_array_to_class</span>(<span class="ruby-identifier">node_info</span>, <span class="ruby-identifier">keyname</span>)
@@ -821,14 +1462,14 @@ can be stored in.</p>
 
           
           <div class="method-source-code" id="add_roles_and_wait-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 848</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 857</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">add_roles_and_wait</span>(<span class="ruby-identifier">nodes</span>, <span class="ruby-identifier">roles</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-keyword">if</span> <span class="ruby-identifier">nodes</span>.<span class="ruby-identifier">nil?</span>
 
   <span class="ruby-identifier">nodes</span>.<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">node</span><span class="ruby-operator">|</span>
     <span class="ruby-identifier">node</span>.<span class="ruby-identifier">add_roles</span>(<span class="ruby-identifier">roles</span>)
+    <span class="ruby-constant">ZKInterface</span>.<span class="ruby-identifier">add_roles_to_node</span>(<span class="ruby-identifier">roles</span>, <span class="ruby-identifier">node</span>)
     <span class="ruby-identifier">acc</span> = <span class="ruby-constant">AppControllerClient</span>.<span class="ruby-identifier">new</span>(<span class="ruby-identifier">node</span>.<span class="ruby-identifier">private_ip</span>, <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">get_secret</span>)
-    <span class="ruby-identifier">acc</span>.<span class="ruby-identifier">add_role</span>(<span class="ruby-identifier">roles</span>)
     <span class="ruby-identifier">acc</span>.<span class="ruby-identifier">wait_for_node_to_be</span>(<span class="ruby-identifier">roles</span>)
     <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;[just added] node at #{node.private_ip} is now #{node.jobs.join(', ')}&quot;</span>)
   }
@@ -859,7 +1500,7 @@ can be stored in.</p>
 
           
           <div class="method-source-code" id="add_timing_info-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 1062</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 1075</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">add_timing_info</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">nodes_to_use</span>, <span class="ruby-identifier">start_time</span>, <span class="ruby-identifier">end_time</span>)
   <span class="ruby-identifier">name</span> = <span class="ruby-identifier">get_job_name</span>(<span class="ruby-identifier">job_data</span>)
   <span class="ruby-identifier">num_nodes</span> = <span class="ruby-identifier">nodes_to_use</span>.<span class="ruby-identifier">length</span>
@@ -897,7 +1538,7 @@ can be stored in.</p>
 
           
           <div class="method-source-code" id="appscale_run_job-source">
-            <pre><span class="ruby-comment"># File lib/job_types/appscale_helper.rb, line 12</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/appscale_helper.rb, line 12</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">appscale_run_job</span>(<span class="ruby-identifier">nodes</span>, <span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">secret</span>)
   <span class="ruby-keyword">if</span> <span class="ruby-operator">!</span><span class="ruby-identifier">valid_secret?</span>(<span class="ruby-identifier">secret</span>)
     <span class="ruby-keyword">return</span> <span class="ruby-constant">BAD_SECRET_MSG</span>
@@ -947,7 +1588,7 @@ return.</p>
 
           
           <div class="method-source-code" id="babel_run_job-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 188</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 193</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">babel_run_job</span>(<span class="ruby-identifier">nodes</span>, <span class="ruby-identifier">jobs</span>, <span class="ruby-identifier">secret</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-constant">BAD_SECRET_MSG</span> <span class="ruby-keyword">if</span> <span class="ruby-operator">!</span><span class="ruby-identifier">valid_secret?</span>(<span class="ruby-identifier">secret</span>)
 
@@ -987,7 +1628,7 @@ return.</p>
 
           
           <div class="method-source-code" id="can_run_job-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 444</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 452</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">can_run_job</span>(<span class="ruby-identifier">job_data</span>)
   <span class="ruby-comment"># no input / output for appscale jobs</span>
   <span class="ruby-keyword">return</span> <span class="ruby-value">:ok</span> <span class="ruby-keyword">if</span> <span class="ruby-identifier">job_data</span>[<span class="ruby-string">&quot;@type&quot;</span>] <span class="ruby-operator">==</span> <span class="ruby-string">&quot;appscale&quot;</span>
@@ -1112,7 +1753,7 @@ return.</p>
 
           
           <div class="method-source-code" id="can_run_jobs_in_parallel-3F-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 200</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 207</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">can_run_jobs_in_parallel?</span>(<span class="ruby-identifier">jobs</span>)
   <span class="ruby-identifier">jobs</span>.<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">job_data</span><span class="ruby-operator">|</span>
     <span class="ruby-keyword">if</span> <span class="ruby-operator">!</span><span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@type'</span>] <span class="ruby-operator">==</span> <span class="ruby-string">&quot;babel&quot;</span>
@@ -1149,7 +1790,7 @@ return.</p>
 
           
           <div class="method-source-code" id="cicero_run_job-source">
-            <pre><span class="ruby-comment"># File lib/job_types/cicero_helper.rb, line 21</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/cicero_helper.rb, line 40</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">cicero_run_job</span>(<span class="ruby-identifier">nodes</span>, <span class="ruby-identifier">jobs</span>, <span class="ruby-identifier">secret</span>)
   <span class="ruby-keyword">if</span> <span class="ruby-operator">!</span><span class="ruby-identifier">valid_secret?</span>(<span class="ruby-identifier">secret</span>)
     <span class="ruby-keyword">return</span> <span class="ruby-constant">BAD_SECRET_MSG</span>
@@ -1198,7 +1839,7 @@ return.</p>
 
           
           <div class="method-source-code" id="cleanup_code-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 1075</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 1088</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">cleanup_code</span>(<span class="ruby-identifier">code</span>)
   <span class="ruby-keyword">if</span> <span class="ruby-identifier">code</span>.<span class="ruby-identifier">nil?</span>
     <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;no code to remove&quot;</span>)
@@ -1240,7 +1881,7 @@ return.</p>
 
           
           <div class="method-source-code" id="compile_code-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 412</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 420</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">compile_code</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">secret</span>)
   <span class="ruby-identifier">message</span> = <span class="ruby-identifier">validate_environment</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">secret</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-identifier">message</span> <span class="ruby-keyword">unless</span> <span class="ruby-identifier">message</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;no error&quot;</span>
@@ -1297,7 +1938,7 @@ return.</p>
 
           
           <div class="method-source-code" id="copy_from_shadow-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 873</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 881</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">copy_from_shadow</span>(<span class="ruby-identifier">location_on_shadow</span>)
   <span class="ruby-identifier">shadow</span> = <span class="ruby-identifier">get_node_with_role</span>(<span class="ruby-string">&quot;shadow&quot;</span>)
   <span class="ruby-identifier">shadow_ip</span> = <span class="ruby-identifier">shadow</span>.<span class="ruby-identifier">private_ip</span>
@@ -1332,7 +1973,7 @@ return.</p>
 
           
           <div class="method-source-code" id="dispatch_jobs-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 212</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 219</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">dispatch_jobs</span>(<span class="ruby-identifier">jobs</span>)
   <span class="ruby-keyword">if</span> <span class="ruby-identifier">can_run_jobs_in_parallel?</span>(<span class="ruby-identifier">jobs</span>)
     <span class="ruby-identifier">run_jobs_in_parallel</span>(<span class="ruby-identifier">jobs</span>)
@@ -1368,7 +2009,7 @@ return.</p>
 
           
           <div class="method-source-code" id="does_file_exist-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 332</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 340</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">does_file_exist</span>(<span class="ruby-identifier">file</span>, <span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">secret</span>)
   <span class="ruby-identifier">datastore</span> = <span class="ruby-constant">DatastoreFactory</span>.<span class="ruby-identifier">get_datastore</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@storage'</span>], <span class="ruby-identifier">job_data</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-identifier">datastore</span>.<span class="ruby-identifier">does_file_exist?</span>(<span class="ruby-identifier">file</span>)
@@ -1400,7 +2041,7 @@ parallel. It then waits for all tasks to complete before returning.</p>
 
           
           <div class="method-source-code" id="execute_multiple_tasks-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 721</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 730</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">execute_multiple_tasks</span>(<span class="ruby-identifier">tasks</span>)
   <span class="ruby-identifier">threads</span> = []
   <span class="ruby-identifier">tasks</span>.<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">task</span><span class="ruby-operator">|</span>
@@ -1437,7 +2078,7 @@ parallel. It then waits for all tasks to complete before returning.</p>
 
           
           <div class="method-source-code" id="find_neighbors-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 952</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 960</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">find_neighbors</span>(<span class="ruby-identifier">val</span>, <span class="ruby-identifier">search_space</span>)
   <span class="ruby-identifier">abort</span>(<span class="ruby-string">&quot;no empty arrays&quot;</span>) <span class="ruby-keyword">if</span> <span class="ruby-identifier">search_space</span>.<span class="ruby-identifier">nil?</span> <span class="ruby-keyword">or</span> <span class="ruby-identifier">search_space</span>.<span class="ruby-identifier">empty?</span>
 
@@ -1489,14 +2130,12 @@ parallel. It then waits for all tasks to complete before returning.</p>
 
           
           <div class="method-source-code" id="find_open_nodes-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 766</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 777</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">find_open_nodes</span>(<span class="ruby-identifier">cloud</span>, <span class="ruby-identifier">nodes_needed</span>, <span class="ruby-identifier">job_data</span>)
   <span class="ruby-comment"># TODO: assigning nodes -&gt; nodes_to_use should be atomic?</span>
   <span class="ruby-comment"># or should going through this list be atomic?</span>
 
-  <span class="ruby-identifier">cloud_num</span> = <span class="ruby-identifier">cloud</span>.<span class="ruby-identifier">scan</span>(<span class="ruby-regexp">%rcloud(.*)/</span>).<span class="ruby-identifier">flatten</span>.<span class="ruby-identifier">to_s</span>
-
-  <span class="ruby-identifier">nodes_to_use</span> = <span class="ruby-constant">ZKInterface</span>.<span class="ruby-identifier">find_open_nodes_in_cloud</span>(<span class="ruby-identifier">nodes_needed</span>, <span class="ruby-identifier">cloud_num</span>)
+  <span class="ruby-identifier">nodes_to_use</span> = <span class="ruby-constant">ZKInterface</span>.<span class="ruby-identifier">find_open_nodes_in_cloud</span>(<span class="ruby-identifier">nodes_needed</span>, <span class="ruby-identifier">cloud</span>)
 
   <span class="ruby-ivar">@nodes_in_use</span> = <span class="ruby-identifier">nodes_to_use</span>
 
@@ -1553,7 +2192,7 @@ parallel. It then waits for all tasks to complete before returning.</p>
 
           
           <div class="method-source-code" id="get_acl-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 362</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 370</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_acl</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">secret</span>)
   <span class="ruby-identifier">message</span> = <span class="ruby-identifier">validate_environment</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">secret</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-identifier">message</span> <span class="ruby-keyword">unless</span> <span class="ruby-identifier">message</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;no error&quot;</span>
@@ -1602,7 +2241,7 @@ the list of engines that can be safely added.</p>
 
           
           <div class="method-source-code" id="get_engines_for_creds-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 167</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 172</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_engines_for_creds</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">credentials</span>, <span class="ruby-identifier">engines_to_add</span>)
 
   <span class="ruby-identifier">credentials</span>.<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">cred</span><span class="ruby-operator">|</span>
@@ -1642,7 +2281,7 @@ the list of engines that can be safely added.</p>
 
           
           <div class="method-source-code" id="get_job_data-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 979</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 987</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_job_data</span>(<span class="ruby-identifier">job_name</span>, <span class="ruby-identifier">time</span>)
   <span class="ruby-identifier">relevant_jobs</span> = <span class="ruby-ivar">@jobs</span>[<span class="ruby-identifier">job_name</span>]
   <span class="ruby-identifier">relevant_jobs</span>.<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">job</span><span class="ruby-operator">|</span>
@@ -1677,7 +2316,7 @@ the list of engines that can be safely added.</p>
 
           
           <div class="method-source-code" id="get_job_name-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 835</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 844</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_job_name</span>(<span class="ruby-identifier">job_data</span>)
   <span class="ruby-identifier">job_name</span> = <span class="ruby-identifier">job_data</span>[<span class="ruby-string">&quot;@type&quot;</span>]
 
@@ -1715,7 +2354,7 @@ the list of engines that can be safely added.</p>
 
           
           <div class="method-source-code" id="get_length_of_all_queues-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 607</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 616</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_length_of_all_queues</span>(<span class="ruby-identifier">queues</span>)
   <span class="ruby-comment"># something to consider: do leased tasks count in the size?</span>
   <span class="ruby-identifier">length</span> = <span class="ruby-value">0</span>
@@ -1750,7 +2389,7 @@ the list of engines that can be safely added.</p>
 
           
           <div class="method-source-code" id="get_lock_file_path-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 697</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 708</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_lock_file_path</span>(<span class="ruby-identifier">job_data</span>)
   <span class="ruby-keyword">if</span> <span class="ruby-identifier">job_data</span>.<span class="ruby-identifier">class</span> <span class="ruby-operator">==</span> <span class="ruby-constant">Hash</span>
     <span class="ruby-identifier">job</span> = <span class="ruby-identifier">job_data</span>
@@ -1786,7 +2425,7 @@ the list of engines that can be safely added.</p>
 
           
           <div class="method-source-code" id="get_n_items_of_work-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 617</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 626</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_n_items_of_work</span>(<span class="ruby-identifier">n</span>, <span class="ruby-identifier">queues</span>)
   <span class="ruby-identifier">items</span> = []
 
@@ -1847,7 +2486,7 @@ the list of engines that can be safely added.</p>
 
           
           <div class="method-source-code" id="get_node_roles-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 575</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 583</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_node_roles</span>(<span class="ruby-identifier">job_data</span>)
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;getting node roles&quot;</span>)
   <span class="ruby-identifier">job_type</span> = <span class="ruby-identifier">job_data</span>[<span class="ruby-string">&quot;@type&quot;</span>]
@@ -1894,7 +2533,7 @@ the list of engines that can be safely added.</p>
 
           
           <div class="method-source-code" id="get_node_with_role-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 1143</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 1156</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_node_with_role</span>(<span class="ruby-identifier">role</span>)
   <span class="ruby-identifier">ip_info</span> = <span class="ruby-constant">ZKInterface</span>.<span class="ruby-identifier">get_ip_info</span>()
   <span class="ruby-identifier">all_ips</span> = <span class="ruby-identifier">ip_info</span>[<span class="ruby-string">'ips'</span>]
@@ -1941,7 +2580,7 @@ the list of engines that can be safely added.</p>
 
           
           <div class="method-source-code" id="get_output-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 338</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 346</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_output</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">secret</span>)
   <span class="ruby-identifier">message</span> = <span class="ruby-identifier">validate_environment</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">secret</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-identifier">message</span> <span class="ruby-keyword">unless</span> <span class="ruby-identifier">message</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;no error&quot;</span>
@@ -1990,7 +2629,7 @@ the list of engines that can be safely added.</p>
 
           
           <div class="method-source-code" id="get_queues_from_shadow-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 580</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 589</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_queues_from_shadow</span>()
   <span class="ruby-identifier">secret</span> = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">get_secret</span>()
   <span class="ruby-identifier">acc</span> = <span class="ruby-constant">AppControllerClient</span>.<span class="ruby-identifier">new</span>(<span class="ruby-identifier">get_shadow</span>.<span class="ruby-identifier">public_ip</span>, <span class="ruby-identifier">secret</span>)
@@ -2044,7 +2683,7 @@ currently in use and the credentials needed to access them.</p>
 
           
           <div class="method-source-code" id="get_queues_in_use-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 300</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 309</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_queues_in_use</span>(<span class="ruby-identifier">secret</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-constant">BAD_SECRET_MSG</span> <span class="ruby-keyword">if</span> <span class="ruby-operator">!</span><span class="ruby-identifier">valid_secret?</span>(<span class="ruby-identifier">secret</span>)
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;@queues_to_read is #{@queues_to_read.join(', ')}, class #{@queues_to_read.class}&quot;</span>)
@@ -2076,7 +2715,7 @@ currently in use and the credentials needed to access them.</p>
 
           
           <div class="method-source-code" id="get_seed_vals-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 1013</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 1026</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_seed_vals</span>(<span class="ruby-identifier">num_vals</span>)
   <span class="ruby-identifier">random_numbers</span> = []
   <span class="ruby-identifier">num_vals</span>.<span class="ruby-identifier">times</span> {
@@ -2119,24 +2758,29 @@ which engines can be used.</p>
 
           
           <div class="method-source-code" id="get_supported_babel_engines-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 142</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 142</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_supported_babel_engines</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">secret</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-constant">BAD_SECRET_MSG</span> <span class="ruby-keyword">if</span> <span class="ruby-operator">!</span><span class="ruby-identifier">valid_secret?</span>(<span class="ruby-identifier">secret</span>)
 
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;checking supported engines for job data #{job_data.inspect}&quot;</span>)
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;checking supported engines for job data &quot;</span> <span class="ruby-operator">+</span>
+    <span class="ruby-node">&quot;#{job_data.inspect}&quot;</span>)
 
   <span class="ruby-comment"># all jobs can use the internal engines</span>
   <span class="ruby-identifier">engines</span> = <span class="ruby-constant">INTERNAL_ENGINES</span>
 
   <span class="ruby-comment"># but not necessarily the others, so check them one by one</span>
-  <span class="ruby-identifier">engines</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">get_engines_for_creds</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-constant">AMAZON_CREDENTIALS</span>, <span class="ruby-constant">AMAZON_ENGINES</span>)
-  <span class="ruby-identifier">engines</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">get_engines_for_creds</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-constant">AZURE_CREDENTIALS</span>, <span class="ruby-constant">AZURE_ENGINES</span>)
-  <span class="ruby-identifier">engines</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">get_engines_for_creds</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-constant">GOOGLE_CREDENTIALS</span>, <span class="ruby-constant">GOOGLE_ENGINES</span>)
+  <span class="ruby-identifier">engines</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">get_engines_for_creds</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-constant">AMAZON_CREDENTIALS</span>, 
+    <span class="ruby-constant">AMAZON_ENGINES</span>)
+  <span class="ruby-identifier">engines</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">get_engines_for_creds</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-constant">AZURE_CREDENTIALS</span>, 
+    <span class="ruby-constant">AZURE_ENGINES</span>)
+  <span class="ruby-identifier">engines</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">get_engines_for_creds</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-constant">GOOGLE_CREDENTIALS</span>, 
+    <span class="ruby-constant">GOOGLE_ENGINES</span>)
  
   <span class="ruby-comment"># since we're appending arrays to arrays but want it to be a 1D array</span>
   <span class="ruby-identifier">engines</span>.<span class="ruby-identifier">flatten!</span>.<span class="ruby-identifier">uniq!</span>
 
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;supported engines for job data #{job_data.inspect} are [#{engines.join(', ')}]&quot;</span>)
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;supported engines for job data #{job_data.inspect} &quot;</span> <span class="ruby-operator">+</span>
+    <span class="ruby-node">&quot;are [#{engines.join(', ')}]&quot;</span>)
 
   <span class="ruby-keyword">return</span> <span class="ruby-identifier">engines</span>
 <span class="ruby-keyword">end</span></pre>
@@ -2167,7 +2811,7 @@ required_params.</p>
 
           
           <div class="method-source-code" id="has_all_required_params-3F-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 1051</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 1064</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">has_all_required_params?</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">required_params</span>)
   <span class="ruby-identifier">required_params</span>.<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">param</span><span class="ruby-operator">|</span>
     <span class="ruby-keyword">if</span> <span class="ruby-identifier">job_data</span>[<span class="ruby-identifier">param</span>].<span class="ruby-identifier">nil?</span>
@@ -2203,7 +2847,7 @@ required_params.</p>
 
           
           <div class="method-source-code" id="initialize_zookeeper_connection-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 141</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 143</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize_zookeeper_connection</span>()
   <span class="ruby-keyword">if</span> <span class="ruby-operator">!</span><span class="ruby-constant">File</span>.<span class="ruby-identifier">exists?</span>(<span class="ruby-constant">ZK_LOCATIONS_FILE</span>)
     <span class="ruby-identifier">raise</span> <span class="ruby-constant">Exception</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;Couldn't find the ZooKeeper locations file&quot;</span>)
@@ -2255,7 +2899,7 @@ required_params.</p>
 
           
           <div class="method-source-code" id="is_cloud-3F-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 1165</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 1178</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">is_cloud?</span>()
   <span class="ruby-identifier">cloud_info</span> = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">get_cloud_info</span>()
   <span class="ruby-keyword">return</span> <span class="ruby-identifier">cloud_info</span>[<span class="ruby-string">'is_cloud?'</span>]
@@ -2286,7 +2930,7 @@ required_params.</p>
 
           
           <div class="method-source-code" id="is_hybrid_cloud-3F-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 1171</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 1184</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">is_hybrid_cloud?</span>()
   <span class="ruby-identifier">cloud_info</span> = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">get_cloud_info</span>()
   <span class="ruby-keyword">return</span> <span class="ruby-identifier">cloud_info</span>[<span class="ruby-string">'is_hybrid_cloud?'</span>]
@@ -2317,7 +2961,7 @@ required_params.</p>
 
           
           <div class="method-source-code" id="is_job_running-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 272</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 279</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">is_job_running</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">secret</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-constant">BAD_SECRET_MSG</span> <span class="ruby-keyword">unless</span> <span class="ruby-identifier">valid_secret?</span>(<span class="ruby-identifier">secret</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-identifier">lock_file_exists?</span>(<span class="ruby-identifier">job_data</span>)
@@ -2348,7 +2992,7 @@ required_params.</p>
 
           
           <div class="method-source-code" id="lock_file_exists-3F-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 675</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 686</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">lock_file_exists?</span>(<span class="ruby-identifier">job_data</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-constant">File</span>.<span class="ruby-identifier">exists?</span>(<span class="ruby-identifier">get_lock_file_path</span>(<span class="ruby-identifier">job_data</span>))
 <span class="ruby-keyword">end</span></pre>
@@ -2378,7 +3022,7 @@ required_params.</p>
 
           
           <div class="method-source-code" id="manage_virtual_machines-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 169</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 171</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">manage_virtual_machines</span>()
   <span class="ruby-ivar">@nodes_in_use</span>.<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">node</span><span class="ruby-operator">|</span>
     <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_debug</span>(<span class="ruby-node">&quot;Currently examining node [#{node}]&quot;</span>)
@@ -2409,7 +3053,7 @@ required_params.</p>
         
         <div class="method-heading">
           <span class="method-name">mapreduce_run_job</span><span
-            class="method-args">(nodes, job_data, secret)</span>
+            class="method-args">(nodes, jobs, secret)</span>
           <span class="method-click-advice">click to toggle source</span>
         </div>
         
@@ -2421,14 +3065,16 @@ required_params.</p>
 
           
           <div class="method-source-code" id="mapreduce_run_job-source">
-            <pre><span class="ruby-comment"># File lib/job_types/mapreduce_helper.rb, line 39</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">mapreduce_run_job</span>(<span class="ruby-identifier">nodes</span>, <span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">secret</span>)
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/mapreduce_helper.rb, line 41</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">mapreduce_run_job</span>(<span class="ruby-identifier">nodes</span>, <span class="ruby-identifier">jobs</span>, <span class="ruby-identifier">secret</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-constant">BAD_SECRET_MSG</span> <span class="ruby-keyword">unless</span> <span class="ruby-identifier">valid_secret?</span>(<span class="ruby-identifier">secret</span>)
-  <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_debug</span>(<span class="ruby-string">&quot;mapreduce - run&quot;</span>)
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;MapReduce - run job&quot;</span>)
+
+  <span class="ruby-identifier">job_data</span> = <span class="ruby-identifier">jobs</span>[<span class="ruby-value">0</span>]
 
   <span class="ruby-constant">Thread</span>.<span class="ruby-identifier">new</span> {
-    <span class="ruby-identifier">keyname</span> = <span class="ruby-ivar">@creds</span>[<span class="ruby-string">'keyname'</span>]
-    <span class="ruby-identifier">nodes</span> = <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">convert_location_array_to_class</span>(<span class="ruby-identifier">nodes</span>, <span class="ruby-identifier">keyname</span>)
+    <span class="ruby-identifier">nodes</span> = <span class="ruby-identifier">nodes</span>.<span class="ruby-identifier">map</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">node</span><span class="ruby-operator">|</span> <span class="ruby-constant">DjinnJobData</span>.<span class="ruby-identifier">deserialize</span>(<span class="ruby-identifier">node</span>) }
+    <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Converted node data is #{nodes}&quot;</span>)
 
     <span class="ruby-identifier">storage</span> = <span class="ruby-identifier">job_data</span>[<span class="ruby-string">&quot;@storage&quot;</span>]
     <span class="ruby-identifier">datastore</span> = <span class="ruby-constant">DatastoreFactory</span>.<span class="ruby-identifier">get_datastore</span>(<span class="ruby-identifier">storage</span>, <span class="ruby-identifier">job_data</span>)
@@ -2442,11 +3088,11 @@ required_params.</p>
     <span class="ruby-identifier">input</span> = <span class="ruby-identifier">job_data</span>[<span class="ruby-string">&quot;@input&quot;</span>]
     <span class="ruby-identifier">output</span> = <span class="ruby-identifier">job_data</span>[<span class="ruby-string">&quot;@output&quot;</span>]
 
-    <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_debug</span>(<span class="ruby-string">&quot;MR: Copying mapper and reducer to all boxes&quot;</span>)
+    <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;MR: Copying mapper and reducer to all boxes&quot;</span>)
     <span class="ruby-comment"># TODO: get files from shadow first if in cloud</span>
 
     <span class="ruby-keyword">if</span> <span class="ruby-identifier">mapreducejar</span>
-      <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_debug</span>(<span class="ruby-node">&quot;need to get mr jar located at #{mapreducejar}&quot;</span>)
+      <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;need to get mr jar located at #{mapreducejar}&quot;</span>)
       <span class="ruby-identifier">mr_file</span> = <span class="ruby-identifier">mapreducejar</span>.<span class="ruby-identifier">split</span>(<span class="ruby-string">'/'</span>)[<span class="ruby-value">-1</span>]
       <span class="ruby-identifier">my_mrjar</span> = <span class="ruby-node">&quot;/tmp/#{mr_file}&quot;</span>
       <span class="ruby-identifier">datastore</span>.<span class="ruby-identifier">get_output_and_save_to_fs</span>(<span class="ruby-identifier">mapreducejar</span>, <span class="ruby-identifier">my_mrjar</span>)
@@ -2455,7 +3101,8 @@ required_params.</p>
         <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">scp_file</span>(<span class="ruby-identifier">my_mrjar</span>, <span class="ruby-identifier">my_mrjar</span>, <span class="ruby-identifier">node</span>.<span class="ruby-identifier">private_ip</span>, <span class="ruby-identifier">node</span>.<span class="ruby-identifier">ssh_key</span>)
       }
 
-      <span class="ruby-identifier">db_master</span> = <span class="ruby-identifier">get_db_master</span>
+      <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;Copying MapReduce jar to db_master node&quot;</span>)
+      <span class="ruby-identifier">db_master</span> = <span class="ruby-identifier">get_node_with_role</span>(<span class="ruby-string">&quot;db_master&quot;</span>)
       <span class="ruby-identifier">ip</span> = <span class="ruby-identifier">db_master</span>.<span class="ruby-identifier">private_ip</span>
       <span class="ruby-identifier">ssh_key</span> = <span class="ruby-identifier">db_master</span>.<span class="ruby-identifier">ssh_key</span>
       <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">scp_file</span>(<span class="ruby-identifier">my_mrjar</span>, <span class="ruby-identifier">my_mrjar</span>, <span class="ruby-identifier">ip</span>, <span class="ruby-identifier">ssh_key</span>)
@@ -2463,8 +3110,8 @@ required_params.</p>
       <span class="ruby-identifier">run_mr_command</span> = <span class="ruby-node">&quot;#{HADOOP_EXECUTABLE} jar #{my_mrjar} #{main} &quot;</span> <span class="ruby-operator">+</span>
         <span class="ruby-node">&quot;#{input} #{output}&quot;</span>
     <span class="ruby-keyword">else</span>
-      <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_debug</span>(<span class="ruby-node">&quot;need to get map code located at #{map}, and reduce &quot;</span> <span class="ruby-operator">+</span>
-        <span class="ruby-node">&quot;code located at #{reduce}&quot;</span>)
+      <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Need to get Map code located at #{map}, and &quot;</span> <span class="ruby-operator">+</span>
+        <span class="ruby-node">&quot;Reduce code located at #{reduce}&quot;</span>)
 
       <span class="ruby-identifier">map_file</span> = <span class="ruby-identifier">map</span>.<span class="ruby-identifier">split</span>(<span class="ruby-string">'/'</span>)[<span class="ruby-value">-1</span>]
       <span class="ruby-identifier">red_file</span> = <span class="ruby-identifier">reduce</span>.<span class="ruby-identifier">split</span>(<span class="ruby-string">'/'</span>)[<span class="ruby-value">-1</span>]
@@ -2472,22 +3119,32 @@ required_params.</p>
       <span class="ruby-identifier">my_map</span> = <span class="ruby-node">&quot;/tmp/#{map_file}&quot;</span>
       <span class="ruby-identifier">my_red</span> = <span class="ruby-node">&quot;/tmp/#{red_file}&quot;</span>
 
-      <span class="ruby-identifier">datastore</span>.<span class="ruby-identifier">get_output_and_save_to_fs</span>(<span class="ruby-identifier">map</span>, <span class="ruby-identifier">my_map</span>)
-      <span class="ruby-identifier">datastore</span>.<span class="ruby-identifier">get_output_and_save_to_fs</span>(<span class="ruby-identifier">reduce</span>, <span class="ruby-identifier">my_red</span>)
+      <span class="ruby-constant">FileUtils</span>.<span class="ruby-identifier">rm_rf</span>(<span class="ruby-identifier">my_map</span>)
+      <span class="ruby-constant">FileUtils</span>.<span class="ruby-identifier">rm_rf</span>(<span class="ruby-identifier">my_red</span>)
+
+      <span class="ruby-identifier">datastore</span>.<span class="ruby-identifier">get_single_file_and_save_to_fs</span>(<span class="ruby-identifier">map</span>, <span class="ruby-identifier">my_map</span>)
+      <span class="ruby-identifier">datastore</span>.<span class="ruby-identifier">get_single_file_and_save_to_fs</span>(<span class="ruby-identifier">reduce</span>, <span class="ruby-identifier">my_red</span>)
 
       <span class="ruby-comment"># since the db master is the initiator of the mapreduce job, it needs</span>
       <span class="ruby-comment"># to have both the mapper and reducer files handy</span>
 
-      <span class="ruby-identifier">db_master</span> = <span class="ruby-identifier">get_db_master</span>
+      <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;Copying Mapper and Reducer to db_master node, &quot;</span> <span class="ruby-operator">+</span>
+        <span class="ruby-string">&quot;since it runs the MapReduce job&quot;</span>)
+
+      <span class="ruby-identifier">db_master</span> = <span class="ruby-identifier">get_node_with_role</span>(<span class="ruby-string">&quot;db_master&quot;</span>)
       <span class="ruby-identifier">ip</span> = <span class="ruby-identifier">db_master</span>.<span class="ruby-identifier">private_ip</span>
       <span class="ruby-identifier">ssh_key</span> = <span class="ruby-identifier">db_master</span>.<span class="ruby-identifier">ssh_key</span>
       <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">scp_file</span>(<span class="ruby-identifier">my_map</span>, <span class="ruby-identifier">my_map</span>, <span class="ruby-identifier">ip</span>, <span class="ruby-identifier">ssh_key</span>)
       <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">scp_file</span>(<span class="ruby-identifier">my_red</span>, <span class="ruby-identifier">my_red</span>, <span class="ruby-identifier">ip</span>, <span class="ruby-identifier">ssh_key</span>)
 
+      <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;Copying Mapper and Reducer to all nodes used &quot;</span> <span class="ruby-operator">+</span>
+        <span class="ruby-string">&quot;for this MapReduce job&quot;</span>)
+
       <span class="ruby-identifier">nodes</span>.<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">node</span><span class="ruby-operator">|</span>
         <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">scp_file</span>(<span class="ruby-identifier">my_map</span>, <span class="ruby-identifier">my_map</span>, <span class="ruby-identifier">node</span>.<span class="ruby-identifier">private_ip</span>, <span class="ruby-identifier">node</span>.<span class="ruby-identifier">ssh_key</span>)
         <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">scp_file</span>(<span class="ruby-identifier">my_red</span>, <span class="ruby-identifier">my_red</span>, <span class="ruby-identifier">node</span>.<span class="ruby-identifier">private_ip</span>, <span class="ruby-identifier">node</span>.<span class="ruby-identifier">ssh_key</span>)
       }
+
 
       <span class="ruby-identifier">map_cmd</span> = <span class="ruby-string">&quot;\&quot;&quot;</span> <span class="ruby-operator">+</span> <span class="ruby-identifier">get_language</span>(<span class="ruby-identifier">my_map</span>) <span class="ruby-operator">+</span> <span class="ruby-string">&quot; &quot;</span> <span class="ruby-operator">+</span> <span class="ruby-identifier">my_map</span> <span class="ruby-operator">+</span> <span class="ruby-string">&quot;\&quot;&quot;</span>
       <span class="ruby-identifier">reduce_cmd</span> = <span class="ruby-string">&quot;\&quot;&quot;</span> <span class="ruby-operator">+</span> <span class="ruby-identifier">get_language</span>(<span class="ruby-identifier">my_red</span>) <span class="ruby-operator">+</span> <span class="ruby-string">&quot; &quot;</span> <span class="ruby-operator">+</span> <span class="ruby-identifier">my_red</span> <span class="ruby-operator">+</span> <span class="ruby-string">&quot;\&quot;&quot;</span>
@@ -2495,32 +3152,33 @@ required_params.</p>
       <span class="ruby-identifier">run_mr_command</span> = <span class="ruby-node">&quot;#{HADOOP_EXECUTABLE} jar #{HADOOP_STREAMING_JAR} &quot;</span> <span class="ruby-operator">+</span>
         <span class="ruby-node">&quot;-input #{input} -output #{output} -mapper #{map_cmd} &quot;</span> <span class="ruby-operator">+</span>
         <span class="ruby-node">&quot;-reducer #{reduce_cmd}&quot;</span>
+      <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;Running MapReduce job, with command &quot;</span> <span class="ruby-operator">+</span>
+        <span class="ruby-node">&quot;[#{run_mr_command}]&quot;</span>)
     <span class="ruby-keyword">end</span>
 
-    <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_debug</span>(<span class="ruby-node">&quot;waiting for input file #{input} to exist in HDFS&quot;</span>)
+    <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;waiting for input file #{input} to exist in HDFS&quot;</span>)
     <span class="ruby-identifier">wait_for_hdfs_file</span>(<span class="ruby-identifier">input</span>)
 
     <span class="ruby-comment"># run mr job</span>
     <span class="ruby-identifier">start</span> = <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span>
 
-    <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_debug</span>(<span class="ruby-string">&quot;MR: Running job&quot;</span>)
-    <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_debug</span>(<span class="ruby-node">&quot;MR: Command is #{run_mr_command}&quot;</span>)
-    <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_run</span>(<span class="ruby-identifier">run_mr_command</span>)
+    <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;MR: Running job&quot;</span>)
+    <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;MR: Command is #{run_mr_command}&quot;</span>)
+    <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-identifier">run_mr_command</span>)
 
     <span class="ruby-identifier">wait_for_hdfs_file</span>(<span class="ruby-identifier">output</span>)
-    <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_debug</span>(<span class="ruby-string">&quot;MR: Done running job!&quot;</span>)
+    <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;MR: Done running job!&quot;</span>)
 
     <span class="ruby-identifier">fin</span> = <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span>
-    <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_debug</span>(<span class="ruby-node">&quot;TIMING: Total time is #{fin - start} seconds&quot;</span>)
+    <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;TIMING: Total time is #{fin - start} seconds&quot;</span>)
 
     <span class="ruby-comment"># TODO: check if no part-* files exist - if so, there's an error</span>
     <span class="ruby-comment"># that we should funnel to the user somehow</span>
 
     <span class="ruby-identifier">output_cmd</span> = <span class="ruby-node">&quot;#{HADOOP_EXECUTABLE} fs -cat #{output}/part-*&quot;</span>
-    <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_debug</span>(<span class="ruby-node">&quot;MR: Retrieving job output with command #{output_cmd}&quot;</span>)
-    <span class="ruby-identifier">output_str</span> = <span class="ruby-node">%x#{output_cmd}`</span>
-
-    <span class="ruby-identifier">neptune_write_job_output_str</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">output_str</span>)
+    <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;MR: Retrieving job output with command #{output_cmd}&quot;</span>)
+    <span class="ruby-identifier">output_str</span> = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-identifier">output_cmd</span>)
+    <span class="ruby-identifier">write_job_output_str</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">output_str</span>)
 
     <span class="ruby-identifier">remove_lock_file</span>(<span class="ruby-identifier">job_data</span>)
   }
@@ -2553,7 +3211,7 @@ required_params.</p>
 
           
           <div class="method-source-code" id="mpi_run_job-source">
-            <pre><span class="ruby-comment"># File lib/job_types/mpi_helper.rb, line 20</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/mpi_helper.rb, line 20</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">mpi_run_job</span>(<span class="ruby-identifier">nodes</span>, <span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">secret</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-constant">BAD_SECRET_MSG</span> <span class="ruby-keyword">unless</span> <span class="ruby-identifier">valid_secret?</span>(<span class="ruby-identifier">secret</span>)
   <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_debug</span>(<span class="ruby-string">&quot;mpi - run&quot;</span>)
@@ -2681,7 +3339,7 @@ required_params.</p>
 
           
           <div class="method-source-code" id="my_node-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 1105</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 1118</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">my_node</span>
   <span class="ruby-identifier">my_ip</span> = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">get_my_public_ip</span>()
   <span class="ruby-identifier">zk_job_data</span> = <span class="ruby-constant">ZKInterface</span>.<span class="ruby-identifier">get_job_data_for_ip</span>(<span class="ruby-identifier">my_ip</span>)
@@ -2714,7 +3372,7 @@ required_params.</p>
 
           
           <div class="method-source-code" id="optimal_nodes-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 883</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 891</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">optimal_nodes</span>(<span class="ruby-identifier">job_data</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-identifier">job_data</span>[<span class="ruby-string">&quot;@nodes_to_use&quot;</span>]
 <span class="ruby-keyword">end</span></pre>
@@ -2754,7 +3412,7 @@ required_params.</p>
 
           
           <div class="method-source-code" id="optimal_nodes_hill_climbing-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 900</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 908</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">optimal_nodes_hill_climbing</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">thing_to_optimize</span>)
   <span class="ruby-identifier">job_name</span> = <span class="ruby-identifier">get_job_name</span>(<span class="ruby-identifier">job_data</span>)
 
@@ -2831,7 +3489,7 @@ required_params.</p>
 
           
           <div class="method-source-code" id="put_input-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 278</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 285</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">put_input</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">secret</span>)
   <span class="ruby-identifier">message</span> = <span class="ruby-identifier">validate_environment</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">secret</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-identifier">message</span> <span class="ruby-keyword">unless</span> <span class="ruby-identifier">message</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;no error&quot;</span>
@@ -2867,17 +3525,18 @@ required_params.</p>
   <span class="ruby-comment"># also, if we're running on hbase or hypertable, put a copy of the data</span>
   <span class="ruby-comment"># into HDFS for later processing via mapreduce</span>
 
-  <span class="ruby-identifier">table</span> = <span class="ruby-ivar">@creds</span>[<span class="ruby-string">&quot;table&quot;</span>]
+  <span class="ruby-identifier">table</span> = <span class="ruby-constant">ENV</span>[<span class="ruby-string">'DATABASE_USED'</span>]
 
   <span class="ruby-keyword">if</span> [<span class="ruby-string">&quot;hbase&quot;</span>, <span class="ruby-string">&quot;hypertable&quot;</span>].<span class="ruby-identifier">include?</span>(<span class="ruby-identifier">table</span>)
-    <span class="ruby-keyword">unless</span> <span class="ruby-identifier">my_node</span>.<span class="ruby-identifier">is_db_master?</span>
-      <span class="ruby-identifier">db_master</span> = <span class="ruby-identifier">get_db_master</span>
+    <span class="ruby-keyword">if</span> <span class="ruby-operator">!</span><span class="ruby-identifier">my_node</span>.<span class="ruby-identifier">is_db_master?</span>
+      <span class="ruby-identifier">db_master</span> = <span class="ruby-identifier">get_node_with_role</span>(<span class="ruby-string">&quot;db_master&quot;</span>)
       <span class="ruby-identifier">ip</span> = <span class="ruby-identifier">db_master</span>.<span class="ruby-identifier">private_ip</span>
       <span class="ruby-identifier">ssh_key</span> = <span class="ruby-identifier">db_master</span>.<span class="ruby-identifier">ssh_key</span>
       <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">scp_file</span>(<span class="ruby-identifier">local_fs_location</span>, <span class="ruby-identifier">local_fs_location</span>, <span class="ruby-identifier">ip</span>, <span class="ruby-identifier">ssh_key</span>)
     <span class="ruby-keyword">end</span>
 
-    <span class="ruby-identifier">cmd</span> = <span class="ruby-node">&quot;#{HADOOP} fs -put #{local_fs_location} #{input_location}&quot;</span>
+    <span class="ruby-identifier">cmd</span> = <span class="ruby-node">&quot;#{HADOOP_EXECUTABLE} fs -put #{local_fs_location} &quot;</span> <span class="ruby-operator">+</span>
+      <span class="ruby-node">&quot;#{input_location}&quot;</span>
     <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;putting input in hadoop with command [#{cmd}]&quot;</span>)
     <span class="ruby-identifier">run_on_db_master</span>(<span class="ruby-identifier">cmd</span>)
   <span class="ruby-keyword">end</span>
@@ -2910,7 +3569,7 @@ required_params.</p>
 
           
           <div class="method-source-code" id="remove_lock_file-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 687</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 698</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">remove_lock_file</span>(<span class="ruby-identifier">job_data</span>)
   <span class="ruby-identifier">shadow</span> = <span class="ruby-identifier">get_node_with_role</span>(<span class="ruby-string">&quot;shadow&quot;</span>)
   <span class="ruby-identifier">shadow_ip</span> = <span class="ruby-identifier">shadow</span>.<span class="ruby-identifier">private_ip</span>
@@ -2945,14 +3604,13 @@ required_params.</p>
 
           
           <div class="method-source-code" id="remove_roles-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 861</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 870</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">remove_roles</span>(<span class="ruby-identifier">nodes</span>, <span class="ruby-identifier">roles</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-keyword">if</span> <span class="ruby-identifier">nodes</span>.<span class="ruby-identifier">nil?</span>
 
   <span class="ruby-identifier">nodes</span>.<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">node</span><span class="ruby-operator">|</span>
     <span class="ruby-identifier">node</span>.<span class="ruby-identifier">remove_roles</span>(<span class="ruby-identifier">roles</span>)
-    <span class="ruby-identifier">acc</span> = <span class="ruby-constant">AppControllerClient</span>.<span class="ruby-identifier">new</span>(<span class="ruby-identifier">node</span>.<span class="ruby-identifier">private_ip</span>, <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">get_secret</span>)
-    <span class="ruby-identifier">acc</span>.<span class="ruby-identifier">remove_role</span>(<span class="ruby-identifier">roles</span>)
+    <span class="ruby-constant">ZKInterface</span>.<span class="ruby-identifier">remove_roles_from_node</span>(<span class="ruby-identifier">roles</span>, <span class="ruby-identifier">node</span>)
     <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;[just removed] node at #{node.private_ip} is now #{node.jobs.join(', ')}&quot;</span>)
   }
 <span class="ruby-keyword">end</span></pre>
@@ -2982,7 +3640,7 @@ required_params.</p>
 
           
           <div class="method-source-code" id="run_job_on_master-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 597</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 605</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">run_job_on_master</span>(<span class="ruby-identifier">master_node</span>, <span class="ruby-identifier">nodes_to_use</span>, <span class="ruby-identifier">job_data</span>)
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;run job on master&quot;</span>)
   <span class="ruby-identifier">converted_nodes</span> = <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">convert_location_class_to_array</span>(<span class="ruby-identifier">nodes_to_use</span>)
@@ -2995,10 +3653,11 @@ required_params.</p>
   <span class="ruby-keyword">end</span>
 
   <span class="ruby-identifier">master_node_ip</span> = <span class="ruby-identifier">master_node</span>.<span class="ruby-identifier">private_ip</span>
-  <span class="ruby-identifier">master_acc</span> = <span class="ruby-constant">AppControllerClient</span>.<span class="ruby-identifier">new</span>(<span class="ruby-identifier">master_node_ip</span>, <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">get_secret</span>)
+  <span class="ruby-identifier">nmc</span> = <span class="ruby-constant">NeptuneManagerClient</span>.<span class="ruby-identifier">new</span>(<span class="ruby-identifier">master_node_ip</span>, <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">get_secret</span>)
 
-  <span class="ruby-identifier">result</span> = <span class="ruby-identifier">master_acc</span>.<span class="ruby-identifier">run_neptune_job</span>(<span class="ruby-identifier">converted_nodes</span>, <span class="ruby-identifier">job_data</span>)
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;run job result was #{result}&quot;</span>)
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Dispatching job to #{master_node_ip}&quot;</span>)
+  <span class="ruby-identifier">result</span> = <span class="ruby-identifier">nmc</span>.<span class="ruby-identifier">run_neptune_job</span>(<span class="ruby-identifier">converted_nodes</span>, <span class="ruby-identifier">job_data</span>)
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Run job result was #{result}&quot;</span>)
 
   <span class="ruby-identifier">loop</span> {
     <span class="ruby-identifier">shadow</span> = <span class="ruby-identifier">get_node_with_role</span>(<span class="ruby-string">&quot;shadow&quot;</span>)
@@ -3043,7 +3702,7 @@ required_params.</p>
 
           
           <div class="method-source-code" id="run_jobs_in_parallel-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 223</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 230</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">run_jobs_in_parallel</span>(<span class="ruby-identifier">jobs</span>)
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;Running jobs with optimized path&quot;</span>)
   <span class="ruby-comment"># TODO(cgb): be a bit more intelligent about batch_info</span>
@@ -3092,7 +3751,7 @@ required_params.</p>
 
           
           <div class="method-source-code" id="run_jobs_in_serial-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 247</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 254</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">run_jobs_in_serial</span>(<span class="ruby-identifier">jobs</span>)
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;Running jobs with non-optimized path&quot;</span>)
   <span class="ruby-identifier">jobs</span>.<span class="ruby-identifier">each_with_index</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">i</span><span class="ruby-operator">|</span>
@@ -3142,7 +3801,7 @@ required_params.</p>
 
           
           <div class="method-source-code" id="run_or_delegate_tasks-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 203</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 208</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">run_or_delegate_tasks</span>(<span class="ruby-identifier">jobs</span>)
   <span class="ruby-identifier">where_tasks_were_run</span> = []
 
@@ -3150,7 +3809,9 @@ required_params.</p>
     <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;prejob - this job's data is #{job.inspect}&quot;</span>)
   }
 
+  <span class="ruby-identifier">threads</span> = []
   <span class="ruby-identifier">jobs</span>.<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">job</span><span class="ruby-operator">|</span>
+    <span class="ruby-identifier">threads</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-constant">Thread</span>.<span class="ruby-identifier">new</span> {
     <span class="ruby-identifier">job_data</span> = <span class="ruby-identifier">job</span>.<span class="ruby-identifier">dup</span>
     <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;This job's data is #{job_data.inspect}&quot;</span>)
 
@@ -3180,8 +3841,10 @@ required_params.</p>
       <span class="ruby-identifier">where_tasks_were_run</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-constant">RUN_VIA_REMOTE_ENGINE</span>
       <span class="ruby-keyword">next</span>
     <span class="ruby-keyword">end</span>
+    }
   }
 
+  <span class="ruby-identifier">threads</span>.<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">t</span><span class="ruby-operator">|</span> <span class="ruby-identifier">t</span>.<span class="ruby-identifier">join</span> }
   <span class="ruby-keyword">return</span> <span class="ruby-identifier">where_tasks_were_run</span>
 <span class="ruby-keyword">end</span></pre>
           </div><!-- run_or_delegate_tasks-source -->
@@ -3210,7 +3873,7 @@ required_params.</p>
 
           
           <div class="method-source-code" id="run_task-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 377</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 386</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">run_task</span>(<span class="ruby-identifier">job_data</span>)
   <span class="ruby-identifier">dir</span> = <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">create_temp_dir</span>()
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">copy_code_and_inputs_to_dir</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">dir</span>)
@@ -3246,7 +3909,7 @@ push the task to and let it take care of.</p>
 
           
           <div class="method-source-code" id="run_via_engine-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 278</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 287</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">run_via_engine</span>(<span class="ruby-identifier">engine</span>, <span class="ruby-identifier">job_data</span>)
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;running job with data #{job_data.inspect} via a remote engine&quot;</span>)
 
@@ -3292,7 +3955,7 @@ AppScale.</p>
 
           
           <div class="method-source-code" id="run_via_executor-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 248</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 257</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">run_via_executor</span>(<span class="ruby-identifier">engine</span>, <span class="ruby-identifier">job_data</span>)
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;running job with data #{job_data.inspect} via executor&quot;</span>)
   <span class="ruby-identifier">q</span> = <span class="ruby-constant">QueueFactory</span>.<span class="ruby-identifier">get_queue</span>(<span class="ruby-identifier">engine</span>, <span class="ruby-identifier">job_data</span>)
@@ -3344,7 +4007,7 @@ AppScale.</p>
 
           
           <div class="method-source-code" id="set_acl-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 384</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 392</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">set_acl</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">secret</span>)
   <span class="ruby-identifier">message</span> = <span class="ruby-identifier">validate_environment</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">secret</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-identifier">message</span> <span class="ruby-keyword">unless</span> <span class="ruby-identifier">message</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;no error&quot;</span>
@@ -3398,7 +4061,7 @@ the system as needed.</p>
 
           
           <div class="method-source-code" id="spawn_babel_slaves-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 655</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 664</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">spawn_babel_slaves</span>(<span class="ruby-identifier">num_of_waiting_tasks</span>)
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;spawning workers to handle #{num_of_waiting_tasks} tasks&quot;</span>)
 
@@ -3487,7 +4150,7 @@ the system as needed.</p>
 
           
           <div class="method-source-code" id="spawn_nodes_for_neptune-3F-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 708</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 719</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">spawn_nodes_for_neptune?</span>(<span class="ruby-identifier">job_data</span>)
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;neptune_info = #{job_data}&quot;</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-operator">!</span><span class="ruby-identifier">job_data</span>[<span class="ruby-string">&quot;@nodes_to_use&quot;</span>].<span class="ruby-identifier">nil?</span>
@@ -3500,6 +4163,37 @@ the system as needed.</p>
 
         
       </div><!-- spawn_nodes_for_neptune-3F-method -->
+
+    
+      <div id="method-i-start" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">start</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="start-source">
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 137</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">start</span>()
+  <span class="ruby-identifier">initialize_zookeeper_connection</span>()
+  <span class="ruby-comment">#manage_virtual_machines()</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- start-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- start-method -->
 
     
       <div id="method-i-start_babel_master" class="method-detail ">
@@ -3520,7 +4214,7 @@ tasks waiting to be executed in all queues.</p>
 
           
           <div class="method-source-code" id="start_babel_master-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 310</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 319</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">start_babel_master</span>()
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;#{my_node.private_ip} is starting babel master&quot;</span>)
 
@@ -3565,7 +4259,7 @@ number of tasks at a time.</p>
 
           
           <div class="method-source-code" id="start_babel_slave-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 331</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 340</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">start_babel_slave</span>()
   <span class="ruby-constant">Thread</span>.<span class="ruby-identifier">new</span> {
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;#{my_node.private_ip} is starting babel slave&quot;</span>)
@@ -3626,7 +4320,7 @@ number of tasks at a time.</p>
 
           
           <div class="method-source-code" id="start_job-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 187</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 194</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">start_job</span>(<span class="ruby-identifier">jobs</span>, <span class="ruby-identifier">secret</span>)
   <span class="ruby-keyword">if</span> <span class="ruby-identifier">jobs</span>.<span class="ruby-identifier">class</span> <span class="ruby-operator">==</span> <span class="ruby-constant">Hash</span>
     <span class="ruby-identifier">jobs</span> = [<span class="ruby-identifier">jobs</span>]
@@ -3664,7 +4358,7 @@ number of tasks at a time.</p>
 
           
           <div class="method-source-code" id="start_job_roles-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 544</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 552</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">start_job_roles</span>(<span class="ruby-identifier">nodes</span>, <span class="ruby-identifier">job_data</span>)
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;job - start&quot;</span>)
 
@@ -3720,7 +4414,7 @@ number of tasks at a time.</p>
 
           
           <div class="method-source-code" id="stop_babel_master-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 367</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 376</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">stop_babel_master</span>()
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;#{my_node.private_ip} is stopping babel master&quot;</span>)
 <span class="ruby-keyword">end</span></pre>
@@ -3750,7 +4444,7 @@ number of tasks at a time.</p>
 
           
           <div class="method-source-code" id="stop_babel_slave-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 372</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/babel_helper.rb, line 381</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">stop_babel_slave</span>()
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;#{my_node.private_ip} is stopping babel slave&quot;</span>)
 <span class="ruby-keyword">end</span></pre>
@@ -3780,7 +4474,7 @@ number of tasks at a time.</p>
 
           
           <div class="method-source-code" id="stop_job_roles-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 633</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 642</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">stop_job_roles</span>(<span class="ruby-identifier">nodes</span>, <span class="ruby-identifier">job_data</span>)
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;job - stop&quot;</span>)
 
@@ -3834,7 +4528,7 @@ number of tasks at a time.</p>
 
           
           <div class="method-source-code" id="touch_lock_file-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 680</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 691</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">touch_lock_file</span>(<span class="ruby-identifier">job_data</span>)
   <span class="ruby-identifier">job_data</span>[<span class="ruby-string">&quot;@job_id&quot;</span>] = <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">rand</span>(<span class="ruby-value">1000000</span>)
   <span class="ruby-identifier">touch_lock_file</span> = <span class="ruby-node">&quot;touch #{get_lock_file_path(job_data)}&quot;</span>
@@ -3866,7 +4560,7 @@ number of tasks at a time.</p>
 
           
           <div class="method-source-code" id="uncompress_file-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 1029</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 1042</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">uncompress_file</span>(<span class="ruby-identifier">tar</span>)
   <span class="ruby-keyword">unless</span> <span class="ruby-constant">File</span>.<span class="ruby-identifier">exists?</span>(<span class="ruby-identifier">tar</span>)
     <span class="ruby-identifier">abort</span>(<span class="ruby-node">&quot;The file #{tar} didn't exist, so we couldn't uncompress it.&quot;</span>)
@@ -3895,6 +4589,36 @@ number of tasks at a time.</p>
       </div><!-- uncompress_file-method -->
 
     
+      <div id="method-i-valid_secret-3F" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">valid_secret?</span><span
+            class="method-args">(secret)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="valid_secret-3F-source">
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 189</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">valid_secret?</span>(<span class="ruby-identifier">secret</span>)
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">secret</span> <span class="ruby-operator">==</span> <span class="ruby-ivar">@secret</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- valid_secret-3F-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- valid_secret-3F-method -->
+
+    
       <div id="method-i-validate_environment" class="method-detail ">
         
         <div class="method-heading">
@@ -3911,14 +4635,16 @@ number of tasks at a time.</p>
 
           
           <div class="method-source-code" id="validate_environment-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 662</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 671</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">validate_environment</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">secret</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-constant">BAD_SECRET_MSG</span> <span class="ruby-keyword">unless</span> <span class="ruby-identifier">valid_secret?</span>(<span class="ruby-identifier">secret</span>)
   <span class="ruby-comment">#return JOB_IN_PROGRESS if lock_file_exists?(job_data)</span>
-  <span class="ruby-keyword">return</span> <span class="ruby-constant">BAD_TYPE_MSG</span> <span class="ruby-keyword">unless</span> <span class="ruby-constant">NEPTUNE_JOBS</span>.<span class="ruby-identifier">include?</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">&quot;@type&quot;</span>])
+  <span class="ruby-keyword">return</span> <span class="ruby-constant">BAD_TYPE_MSG</span> <span class="ruby-keyword">unless</span> <span class="ruby-constant">JOB_LIST</span>.<span class="ruby-identifier">include?</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">&quot;@type&quot;</span>])
 
   <span class="ruby-keyword">if</span> <span class="ruby-identifier">job_data</span>[<span class="ruby-string">&quot;@type&quot;</span>] <span class="ruby-operator">==</span> <span class="ruby-string">&quot;mapreduce&quot;</span>
-    <span class="ruby-keyword">return</span> <span class="ruby-constant">BAD_TABLE_MSG</span> <span class="ruby-keyword">unless</span> <span class="ruby-constant">DBS_W_HADOOP</span>.<span class="ruby-identifier">include?</span>(<span class="ruby-ivar">@creds</span>[<span class="ruby-string">&quot;table&quot;</span>])
+    <span class="ruby-keyword">if</span> <span class="ruby-operator">!</span><span class="ruby-constant">DBS_W_HADOOP</span>.<span class="ruby-identifier">include?</span>(<span class="ruby-constant">ENV</span>[<span class="ruby-string">'DATABASE_USED'</span>])
+      <span class="ruby-keyword">return</span> <span class="ruby-constant">BAD_TABLE_MSG</span>
+    <span class="ruby-keyword">end</span>
   <span class="ruby-keyword">end</span>
 
   <span class="ruby-keyword">return</span> <span class="ruby-string">&quot;no error&quot;</span>
@@ -3951,7 +4677,7 @@ TODO(cgb): What about cases when the nodes should last forever?</p>
 
           
           <div class="method-source-code" id="wait_for_allotted_time-source">
-            <pre><span class="ruby-comment"># File lib/job_types/appscale_helper.rb, line 35</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/job_types/appscale_helper.rb, line 35</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">wait_for_allotted_time</span>(<span class="ruby-identifier">job_data</span>)
   <span class="ruby-identifier">start_time</span> = <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span>
   <span class="ruby-identifier">time_allotted</span> = <span class="ruby-constant">Integer</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">&quot;@time_needed_for&quot;</span>])
@@ -3994,9 +4720,9 @@ TODO(cgb): What about cases when the nodes should last forever?</p>
 
           
           <div class="method-source-code" id="write_job_output-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 989</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 997</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">write_job_output</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">output_location</span>)
-  <span class="ruby-identifier">neptune_write_job_output_handler</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">output_location</span>, <span class="ruby-identifier">is_file</span>=<span class="ruby-keyword">true</span>)
+  <span class="ruby-identifier">write_job_output_handler</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">output_location</span>, <span class="ruby-identifier">is_file</span>=<span class="ruby-keyword">true</span>)
 <span class="ruby-keyword">end</span></pre>
           </div><!-- write_job_output-source -->
           
@@ -4024,18 +4750,23 @@ TODO(cgb): What about cases when the nodes should last forever?</p>
 
           
           <div class="method-source-code" id="write_job_output_handler-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 999</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 1007</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">write_job_output_handler</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">output</span>, <span class="ruby-identifier">is_file</span>)
   <span class="ruby-identifier">db_location</span> = <span class="ruby-identifier">job_data</span>[<span class="ruby-string">&quot;@output&quot;</span>]
   <span class="ruby-identifier">job_type</span> = <span class="ruby-identifier">job_data</span>[<span class="ruby-string">&quot;@type&quot;</span>]
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;[#{job_type}] job done - writing output to #{db_location}&quot;</span>)
+  <span class="ruby-identifier">storage</span> = <span class="ruby-identifier">job_data</span>[<span class="ruby-string">&quot;@storage&quot;</span>]
 
-  <span class="ruby-identifier">datastore</span> = <span class="ruby-constant">DatastoreFactory</span>.<span class="ruby-identifier">get_datastore</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@storage'</span>], <span class="ruby-identifier">job_data</span>)
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;[#{job_type}] Job done - Writing output to &quot;</span> <span class="ruby-operator">+</span>
+    <span class="ruby-node">&quot;#{db_location}, backed by #{storage}&quot;</span>)
+  <span class="ruby-identifier">datastore</span> = <span class="ruby-constant">DatastoreFactory</span>.<span class="ruby-identifier">get_datastore</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@storage'</span>], 
+    <span class="ruby-identifier">job_data</span>)
   <span class="ruby-keyword">if</span> <span class="ruby-identifier">is_file</span>
     <span class="ruby-identifier">datastore</span>.<span class="ruby-identifier">write_remote_file_from_local_file</span>(<span class="ruby-identifier">db_location</span>, <span class="ruby-identifier">output</span>)
   <span class="ruby-keyword">else</span>
     <span class="ruby-identifier">datastore</span>.<span class="ruby-identifier">write_remote_file_from_string</span>(<span class="ruby-identifier">db_location</span>, <span class="ruby-identifier">output</span>)
   <span class="ruby-keyword">end</span>
+
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Done writing output to #{db_location}&quot;</span>)
 <span class="ruby-keyword">end</span></pre>
           </div><!-- write_job_output_handler-source -->
           
@@ -4063,9 +4794,9 @@ TODO(cgb): What about cases when the nodes should last forever?</p>
 
           
           <div class="method-source-code" id="write_job_output_str-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 994</span>
+            <pre><span class="ruby-comment"># File Neptune/neptune_manager.rb, line 1002</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">write_job_output_str</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">string</span>)
-  <span class="ruby-identifier">neptune_write_job_output_handler</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">string</span>, <span class="ruby-identifier">is_file</span>=<span class="ruby-keyword">false</span>)
+  <span class="ruby-identifier">write_job_output_handler</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">string</span>, <span class="ruby-identifier">is_file</span>=<span class="ruby-keyword">false</span>)
 <span class="ruby-keyword">end</span></pre>
           </div><!-- write_job_output_str-source -->
           
@@ -4078,642 +4809,6 @@ TODO(cgb): What about cases when the nodes should last forever?</p>
 
     
     </section><!-- public-instance-method-details -->
-  
-     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
-      <h3 class="section-header">Public Class Methods</h3>
-
-    
-      <div id="method-c-cleanup" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">cleanup</span><span
-            class="method-args">(dir)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="cleanup-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 567</span>
-<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">cleanup</span>(<span class="ruby-identifier">dir</span>)
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Cleaning up directory #{dir}&quot;</span>)
-  <span class="ruby-comment"># don't clean up if we want to debug the system</span>
-  <span class="ruby-keyword">return</span> <span class="ruby-keyword">if</span> <span class="ruby-constant">DEBUG</span>
-  <span class="ruby-constant">FileUtils</span>.<span class="ruby-identifier">rm_rf</span>(<span class="ruby-identifier">dir</span>)
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- cleanup-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- cleanup-method -->
-
-    
-      <div id="method-c-convert_location_array_to_class" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">convert_location_array_to_class</span><span
-            class="method-args">(nodes, keyname)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="convert_location_array_to_class-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 1113</span>
-<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">convert_location_array_to_class</span>(<span class="ruby-identifier">nodes</span>, <span class="ruby-identifier">keyname</span>)
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Keyname is of class #{keyname.class}&quot;</span>)
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Keyname is #{keyname}&quot;</span>)
-
-  <span class="ruby-identifier">array_of_nodes</span> = []
-  <span class="ruby-identifier">nodes</span>.<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">node</span><span class="ruby-operator">|</span>
-    <span class="ruby-identifier">converted</span> = <span class="ruby-constant">DjinnJobData</span>.<span class="ruby-identifier">new</span>(<span class="ruby-identifier">node</span>, <span class="ruby-identifier">keyname</span>)
-    <span class="ruby-identifier">array_of_nodes</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">converted</span>
-    <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;Adding data &quot;</span> <span class="ruby-operator">+</span> <span class="ruby-identifier">converted</span>.<span class="ruby-identifier">to_s</span>)
-  }
-
-  <span class="ruby-keyword">return</span> <span class="ruby-identifier">array_of_nodes</span>
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- convert_location_array_to_class-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- convert_location_array_to_class-method -->
-
-    
-      <div id="method-c-convert_location_class_to_array" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">convert_location_class_to_array</span><span
-            class="method-args">(djinn_locations)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="convert_location_class_to_array-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 1128</span>
-<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">convert_location_class_to_array</span>(<span class="ruby-identifier">djinn_locations</span>)
-  <span class="ruby-keyword">if</span> <span class="ruby-identifier">djinn_locations</span>.<span class="ruby-identifier">class</span> <span class="ruby-operator">!=</span> <span class="ruby-constant">Array</span>
-    <span class="ruby-identifier">raise</span> <span class="ruby-constant">Exception</span>, <span class="ruby-string">&quot;Locations should be an array&quot;</span>
-  <span class="ruby-keyword">end</span>
-
-  <span class="ruby-identifier">djinn_loc_array</span> = []
-  <span class="ruby-identifier">djinn_locations</span>.<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">location</span><span class="ruby-operator">|</span>
-    <span class="ruby-identifier">djinn_loc_array</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">location</span>.<span class="ruby-identifier">serialize</span>
-    <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;Serializing data &quot;</span> <span class="ruby-operator">+</span> <span class="ruby-identifier">location</span>.<span class="ruby-identifier">serialize</span>)
-  }
-
-  <span class="ruby-keyword">return</span> <span class="ruby-identifier">djinn_loc_array</span>
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- convert_location_class_to_array-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- convert_location_class_to_array-method -->
-
-    
-      <div id="method-c-copy_code_and_inputs_to_dir" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">copy_code_and_inputs_to_dir</span><span
-            class="method-args">(job_data, dir)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="copy_code_and_inputs_to_dir-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 393</span>
-<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">copy_code_and_inputs_to_dir</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">dir</span>)
-  <span class="ruby-identifier">input_storage_start_time</span> = <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span>
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">copy_code_to_dir</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">dir</span>)
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">copy_inputs_to_dir</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">dir</span>)
-  <span class="ruby-identifier">input_storage_end_time</span> = <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span>
-  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'input_storage_time'</span>] = <span class="ruby-identifier">input_storage_end_time</span> <span class="ruby-operator">-</span> <span class="ruby-identifier">input_storage_start_time</span>
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- copy_code_and_inputs_to_dir-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- copy_code_and_inputs_to_dir-method -->
-
-    
-      <div id="method-c-copy_code_to_dir" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">copy_code_to_dir</span><span
-            class="method-args">(job_data, dir)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="copy_code_to_dir-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 401</span>
-<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">copy_code_to_dir</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">dir</span>)
-  <span class="ruby-keyword">if</span> <span class="ruby-operator">!</span><span class="ruby-keyword">self</span>.<span class="ruby-identifier">is_storage_location?</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@code'</span>])
-    <span class="ruby-identifier">abort</span>(<span class="ruby-node">&quot;The given code, #{job_data['@code']}, is not something we can fetch&quot;</span>)
-  <span class="ruby-keyword">end</span>
-
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;old code is #{job_data['@code']}&quot;</span>)
-  <span class="ruby-identifier">local_folder</span> = <span class="ruby-keyword">self</span>.<span class="ruby-identifier">copy_file_to_dir</span>(<span class="ruby-constant">File</span>.<span class="ruby-identifier">dirname</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@code'</span>]), <span class="ruby-identifier">dir</span>, <span class="ruby-identifier">job_data</span>)
-  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@code'</span>] = <span class="ruby-identifier">local_folder</span> <span class="ruby-operator">+</span> <span class="ruby-string">'/'</span> <span class="ruby-operator">+</span> <span class="ruby-constant">File</span>.<span class="ruby-identifier">basename</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@code'</span>])
-
-  <span class="ruby-comment"># If the code isn't going to be executed by a different program (e.g., python)</span>
-  <span class="ruby-comment"># then we need to make it executable</span>
-  <span class="ruby-keyword">if</span> <span class="ruby-identifier">job_data</span>[<span class="ruby-string">&quot;@executable&quot;</span>].<span class="ruby-identifier">nil?</span> <span class="ruby-keyword">or</span> <span class="ruby-identifier">job_data</span>[<span class="ruby-string">&quot;@executable&quot;</span>].<span class="ruby-identifier">empty?</span>
-    <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;making code executable&quot;</span>)
-    <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log_run</span>(<span class="ruby-node">&quot;chmod +x #{job_data['@code']}&quot;</span>)
-  <span class="ruby-keyword">end</span>
-
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;new code is #{job_data['@code']}&quot;</span>)
-  <span class="ruby-keyword">return</span> <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@code'</span>]
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- copy_code_to_dir-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- copy_code_to_dir-method -->
-
-    
-      <div id="method-c-copy_file_to_dir" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">copy_file_to_dir</span><span
-            class="method-args">(remote, local, job_data)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="copy_file_to_dir-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 442</span>
-<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">copy_file_to_dir</span>(<span class="ruby-identifier">remote</span>, <span class="ruby-identifier">local</span>, <span class="ruby-identifier">job_data</span>)
-  <span class="ruby-identifier">bucket</span>, <span class="ruby-identifier">file</span> = <span class="ruby-constant">DatastoreS3</span>.<span class="ruby-identifier">parse_s3_key</span>(<span class="ruby-identifier">remote</span>)
-  <span class="ruby-identifier">remote_dir</span> = <span class="ruby-identifier">file</span>
-  <span class="ruby-identifier">local_file</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">expand_path</span>(<span class="ruby-identifier">local</span> <span class="ruby-operator">+</span> <span class="ruby-string">&quot;/&quot;</span> <span class="ruby-operator">+</span> <span class="ruby-identifier">remote_dir</span>)
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;downloading remote file #{remote} to local location #{local_file}&quot;</span>)
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;bucket is #{bucket}, file is #{file}&quot;</span>)
-
-  <span class="ruby-identifier">datastore</span> = <span class="ruby-constant">DatastoreFactory</span>.<span class="ruby-identifier">get_datastore</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@storage'</span>], <span class="ruby-identifier">job_data</span>)
-  <span class="ruby-identifier">datastore</span>.<span class="ruby-identifier">get_output_and_save_to_fs</span>(<span class="ruby-identifier">remote</span>, <span class="ruby-identifier">local</span>)
-  <span class="ruby-keyword">return</span> <span class="ruby-identifier">local_file</span>
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- copy_file_to_dir-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- copy_file_to_dir-method -->
-
-    
-      <div id="method-c-copy_inputs_to_dir" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">copy_inputs_to_dir</span><span
-            class="method-args">(job_data, dir)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="copy_inputs_to_dir-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 422</span>
-<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">copy_inputs_to_dir</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">dir</span>)
-  <span class="ruby-keyword">return</span> <span class="ruby-keyword">if</span> <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@argv'</span>].<span class="ruby-identifier">class</span> <span class="ruby-operator">!=</span> <span class="ruby-constant">Array</span>
-
-  <span class="ruby-identifier">new_argv</span> = []
-
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;old argv is #{job_data['@argv'].join(' ')}&quot;</span>)
-  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@argv'</span>].<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">arg</span><span class="ruby-operator">|</span>
-    <span class="ruby-keyword">if</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">is_storage_location?</span>(<span class="ruby-identifier">arg</span>)
-      <span class="ruby-identifier">new_argv</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">copy_file_to_dir</span>(<span class="ruby-identifier">arg</span>, <span class="ruby-identifier">dir</span>, <span class="ruby-identifier">job_data</span>)
-    <span class="ruby-keyword">else</span>
-      <span class="ruby-identifier">new_argv</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">arg</span>
-    <span class="ruby-keyword">end</span>
-  }
-
-  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@argv'</span>] = <span class="ruby-identifier">new_argv</span>
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;new argv is #{job_data['@argv'].join(' ')}&quot;</span>)
-  <span class="ruby-keyword">return</span>
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- copy_inputs_to_dir-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- copy_inputs_to_dir-method -->
-
-    
-      <div id="method-c-create_temp_dir" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">create_temp_dir</span><span
-            class="method-args">()</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="create_temp_dir-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 386</span>
-<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_temp_dir</span>()
-  <span class="ruby-identifier">dir</span> = <span class="ruby-node">&quot;/tmp/babel-#{rand(10000)}/&quot;</span>
-  <span class="ruby-constant">FileUtils</span>.<span class="ruby-identifier">mkdir_p</span>(<span class="ruby-identifier">dir</span>)
-  <span class="ruby-keyword">return</span> <span class="ruby-identifier">dir</span>
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- create_temp_dir-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- create_temp_dir-method -->
-
-    
-      <div id="method-c-is_storage_location-3F" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">is_storage_location?</span><span
-            class="method-args">(file)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="is_storage_location-3F-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 575</span>
-<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">is_storage_location?</span>(<span class="ruby-identifier">file</span>)
-  <span class="ruby-keyword">return</span> <span class="ruby-constant">STORAGE_PARAM_REGEX</span>.<span class="ruby-identifier">match</span>(<span class="ruby-identifier">file</span>)
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- is_storage_location-3F-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- is_storage_location-3F-method -->
-
-    
-      <div id="method-c-log" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">log</span><span
-            class="method-args">(msg)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="log-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 135</span>
-<span class="ruby-keyword">def</span> <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-identifier">msg</span>)
-  <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-identifier">msg</span>)
-  <span class="ruby-constant">STDOUT</span>.<span class="ruby-identifier">flush</span>()
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- log-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- log-method -->
-
-    
-      <div id="method-c-neptune_parse_creds" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">neptune_parse_creds</span><span
-            class="method-args">(storage, job_data)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="neptune_parse_creds-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 1092</span>
-<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">neptune_parse_creds</span>(<span class="ruby-identifier">storage</span>, <span class="ruby-identifier">job_data</span>)
-  <span class="ruby-identifier">creds</span> = {}
-
-  <span class="ruby-keyword">if</span> <span class="ruby-identifier">storage</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;s3&quot;</span>
-    [<span class="ruby-string">'EC2_ACCESS_KEY'</span>, <span class="ruby-string">'EC2_SECRET_KEY'</span>, <span class="ruby-string">'S3_URL'</span>].<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">item</span><span class="ruby-operator">|</span>
-      <span class="ruby-identifier">creds</span>[<span class="ruby-identifier">item</span>] = <span class="ruby-identifier">job_data</span>[<span class="ruby-node">&quot;@#{item}&quot;</span>]
-    }
-  <span class="ruby-keyword">end</span>
-
-  <span class="ruby-keyword">return</span> <span class="ruby-identifier">creds</span>
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- neptune_parse_creds-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- neptune_parse_creds-method -->
-
-    
-      <div id="method-c-new" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">new</span><span
-            class="method-args">()</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          <p>TODO(cgb): back these up to zookeeper and restore from there as needed</p>
-          
-
-          
-          <div class="method-source-code" id="new-source">
-            <pre><span class="ruby-comment"># File neptune_manager.rb, line 123</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>()
-  <span class="ruby-ivar">@secret</span> = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">get_secret</span>()
-  <span class="ruby-ivar">@queues_to_read</span> = []
-  <span class="ruby-ivar">@jobs</span> = {}
-
-  <span class="ruby-constant">Thread</span>.<span class="ruby-identifier">new</span> {
-    <span class="ruby-identifier">initialize_zookeeper_connection</span>()
-    <span class="ruby-identifier">manage_virtual_machines</span>()
-  }
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- new-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- new-method -->
-
-    
-      <div id="method-c-run_code" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">run_code</span><span
-            class="method-args">(job_data, dir)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="run_code-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 455</span>
-<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">run_code</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">dir</span>)
-  <span class="ruby-identifier">filename_to_exec</span> = <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@code'</span>]
-
-  <span class="ruby-identifier">executable</span> = <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@executable'</span>] <span class="ruby-operator">||</span> <span class="ruby-string">&quot;&quot;</span>
-
-  <span class="ruby-comment"># If the user specifies an argv to pass to the code to exec, be sure to</span>
-  <span class="ruby-comment"># capture it and pass it along</span>
-  <span class="ruby-keyword">if</span> <span class="ruby-identifier">job_data</span>[<span class="ruby-string">&quot;@argv&quot;</span>]
-    <span class="ruby-identifier">argv</span> = <span class="ruby-identifier">job_data</span>[<span class="ruby-string">&quot;@argv&quot;</span>].<span class="ruby-identifier">join</span>(<span class="ruby-string">' '</span>)
-    <span class="ruby-comment"># TODO(cgb): filter out colons and other things that malicious users could</span>
-    <span class="ruby-comment"># use to hijack the system</span>
-  <span class="ruby-keyword">else</span>
-    <span class="ruby-identifier">argv</span> = <span class="ruby-string">&quot;&quot;</span>
-  <span class="ruby-keyword">end</span>
-
-  <span class="ruby-identifier">output_file</span> = <span class="ruby-node">&quot;#{dir}/stdout-#{HelperFunctions.get_random_alphanumeric()}&quot;</span>
-  <span class="ruby-identifier">error_file</span> = <span class="ruby-node">&quot;#{dir}/stderr-#{HelperFunctions.get_random_alphanumeric()}&quot;</span>
-
-  <span class="ruby-comment"># For most file types, we can use the full path when executing them. For</span>
-  <span class="ruby-comment"># programs that run over the JVM (e.g., Java, Scala), we can't - we need </span>
-  <span class="ruby-comment"># to change into the directory where the file is located and exec the file </span>
-  <span class="ruby-comment"># from there.</span>
-  <span class="ruby-comment"># TODO(cgb): Consider a job_data['@jvm_args'] option (with an array val)</span>
-  <span class="ruby-comment"># that users can set to pass in arguments that we should pass to the JVM</span>
-  <span class="ruby-comment"># we are about to run.</span>
-  <span class="ruby-keyword">if</span> <span class="ruby-identifier">executable</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;java&quot;</span> <span class="ruby-keyword">or</span> <span class="ruby-identifier">executable</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;scala&quot;</span>
-    <span class="ruby-identifier">dir</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">dirname</span>(<span class="ruby-identifier">filename_to_exec</span>)
-    <span class="ruby-identifier">file</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">basename</span>(<span class="ruby-identifier">filename_to_exec</span>)
-    <span class="ruby-identifier">exec_command</span> = <span class="ruby-node">&quot;cd #{dir}; #{executable} #{file} #{argv} 1&gt;#{output_file} 2&gt;#{error_file}&quot;</span>
-  <span class="ruby-keyword">else</span>
-    <span class="ruby-identifier">exec_command</span> = <span class="ruby-node">&quot;#{executable} #{filename_to_exec} #{argv} 1&gt;#{output_file} 2&gt;#{error_file}&quot;</span>
-  <span class="ruby-keyword">end</span>
-
-  <span class="ruby-identifier">start_time</span> = <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span>
-  <span class="ruby-identifier">ret_val</span> = <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log_run</span>(<span class="ruby-identifier">exec_command</span>)
-  <span class="ruby-identifier">end_time</span> = <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span>
-
-  <span class="ruby-identifier">total</span> = <span class="ruby-identifier">end_time</span> <span class="ruby-operator">-</span> <span class="ruby-identifier">start_time</span>
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;Babel: Done running job!&quot;</span>)
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;TIMING: Took #{total} seconds&quot;</span>)
-
-  <span class="ruby-comment"># Save some data about the task we just ran. At a high level, there are two</span>
-  <span class="ruby-comment"># types of information we want to save: debugging information (in case the</span>
-  <span class="ruby-comment"># task failed and the user needs to deduce why), and profiling information</span>
-  <span class="ruby-comment"># (so the user can see how long their code took to run).</span>
-
-  <span class="ruby-comment"># Add in debugging information.</span>
-  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'command'</span>] = <span class="ruby-identifier">exec_command</span>
-  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'return_value'</span>] = <span class="ruby-identifier">ret_val</span>
-  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'cpu_info'</span>] = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-string">&quot;cat /proc/cpuinfo&quot;</span>)
-  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'mem_info'</span>] = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-string">&quot;cat /proc/meminfo&quot;</span>)
-  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'df_h'</span>] = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-string">&quot;df -h&quot;</span>)
-
-  <span class="ruby-comment"># Add in profiling information, with all times converted to seconds since epoch.</span>
-  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'start_time'</span>] = <span class="ruby-identifier">start_time</span>.<span class="ruby-identifier">to_i</span>
-  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'end_time'</span>] = <span class="ruby-identifier">end_time</span>.<span class="ruby-identifier">to_i</span>
-  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'total_execution_time'</span>] = <span class="ruby-identifier">total</span>
-
-  <span class="ruby-keyword">return</span> <span class="ruby-identifier">output_file</span>, <span class="ruby-identifier">error_file</span>
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- run_code-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- run_code-method -->
-
-    
-      <div id="method-c-save_output" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">save_output</span><span
-            class="method-args">(remote_output, local_output, job_data)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="save_output-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 560</span>
-<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">save_output</span>(<span class="ruby-identifier">remote_output</span>, <span class="ruby-identifier">local_output</span>, <span class="ruby-identifier">job_data</span>)
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Saving local output #{local_output} to remote location #{remote_output}&quot;</span>)
-  <span class="ruby-identifier">datastore</span> = <span class="ruby-constant">DatastoreFactory</span>.<span class="ruby-identifier">get_datastore</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@storage'</span>], <span class="ruby-identifier">job_data</span>)
-  <span class="ruby-identifier">datastore</span>.<span class="ruby-identifier">write_remote_file_from_local_file</span>(<span class="ruby-identifier">remote_output</span>, <span class="ruby-identifier">local_output</span>)
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- save_output-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- save_output-method -->
-
-    
-      <div id="method-c-write_babel_outputs" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">write_babel_outputs</span><span
-            class="method-args">(output, error, job_data)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          <p>Writes the stdout and stderr that a Babel task produces to the remote
-datastore that the user has specified to use. We also automatically collect
-some metadata about the task, so we write that to the datastore as well.</p>
-          
-
-          
-          <div class="method-source-code" id="write_babel_outputs-source">
-            <pre><span class="ruby-comment"># File lib/job_types/babel_helper.rb, line 520</span>
-<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">write_babel_outputs</span>(<span class="ruby-identifier">output</span>, <span class="ruby-identifier">error</span>, <span class="ruby-identifier">job_data</span>)
-  <span class="ruby-identifier">datastore</span> = <span class="ruby-constant">DatastoreFactory</span>.<span class="ruby-identifier">get_datastore</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@storage'</span>], <span class="ruby-identifier">job_data</span>)
-
-  <span class="ruby-comment"># Write our stdout file</span>
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Saving stdout at #{output} to remote location&quot;</span> <span class="ruby-operator">+</span> 
-    <span class="ruby-node">&quot; #{job_data['@output']}&quot;</span>)
-  <span class="ruby-identifier">output_storage_start_time</span> = <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span>
-  <span class="ruby-identifier">datastore</span>.<span class="ruby-identifier">write_remote_file_from_local_file</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@output'</span>], <span class="ruby-identifier">output</span>)
-
-  <span class="ruby-comment"># Write our stderr file</span>
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Saving stderr #{error} to remote location&quot;</span> <span class="ruby-operator">+</span>
-    <span class="ruby-node">&quot; #{job_data['@error']}&quot;</span>)
-  <span class="ruby-identifier">datastore</span>.<span class="ruby-identifier">write_remote_file_from_local_file</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@error'</span>], <span class="ruby-identifier">error</span>)
-  <span class="ruby-identifier">output_storage_end_time</span> = <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span>
-  <span class="ruby-identifier">total_output_time</span> = <span class="ruby-identifier">output_storage_end_time</span> <span class="ruby-operator">-</span> <span class="ruby-identifier">output_storage_start_time</span>
-  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'output_storage_time'</span>] = <span class="ruby-identifier">total_output_time</span>
-
-  <span class="ruby-identifier">local_input_storage_time</span> = <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'time_to_store_inputs'</span>]
-  <span class="ruby-identifier">total_input_time</span> = <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'input_storage_time'</span>]
-  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'total_storage_time'</span>] = <span class="ruby-identifier">local_input_storage_time</span> <span class="ruby-operator">+</span> 
-    <span class="ruby-identifier">total_input_time</span> <span class="ruby-operator">+</span> <span class="ruby-identifier">total_output_time</span>
-
-  <span class="ruby-identifier">end_of_task_time</span> = <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span>.<span class="ruby-identifier">to_f</span>
-  <span class="ruby-identifier">start_of_task_time</span> = <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'received_task_at'</span>]
-  <span class="ruby-identifier">total_task_time</span> = <span class="ruby-identifier">end_of_task_time</span> <span class="ruby-operator">-</span> <span class="ruby-identifier">start_of_task_time</span>
-  <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>][<span class="ruby-string">'total_task_time'</span>] = <span class="ruby-identifier">total_task_time</span>
-
-  <span class="ruby-comment"># Write our metadata info, which is not a file, but a hash we will turn to</span>
-  <span class="ruby-comment"># a string via JSON</span>
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Saving metadata #{job_data['@metadata_info'].inspect} &quot;</span> <span class="ruby-operator">+</span>
-    <span class="ruby-node">&quot;to remote location #{job_data['@metadata']}&quot;</span>)
-  <span class="ruby-identifier">metadata_file</span> = <span class="ruby-node">&quot;/tmp/metadata-#{HelperFunctions.get_random_alphanumeric()}&quot;</span>
-  <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">write_file</span>(<span class="ruby-identifier">metadata_file</span>, 
-    <span class="ruby-constant">JSON</span>.<span class="ruby-identifier">dump</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata_info'</span>]))
-  <span class="ruby-identifier">datastore</span>.<span class="ruby-identifier">write_remote_file_from_local_file</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@metadata'</span>], 
-    <span class="ruby-identifier">metadata_file</span>)
-  <span class="ruby-constant">FileUtils</span>.<span class="ruby-identifier">rm_f</span>(<span class="ruby-identifier">metadata_file</span>)
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- write_babel_outputs-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- write_babel_outputs-method -->
-
-    
-    </section><!-- public-class-method-details -->
   
   </section><!-- 5Buntitled-5D -->
 

@@ -47,7 +47,7 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>lib/ejabberd.rb
+    <li>AppController/lib/ejabberd.rb
   </ul>
 </nav>
 
@@ -102,18 +102,6 @@
   
     <li><a href="./CronHelper.html">CronHelper</a>
   
-    <li><a href="./Datastore.html">Datastore</a>
-  
-    <li><a href="./DatastoreFactory.html">DatastoreFactory</a>
-  
-    <li><a href="./DatastoreRepo.html">DatastoreRepo</a>
-  
-    <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a>
-  
-    <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a>
-  
-    <li><a href="./DatastoreS3.html">DatastoreS3</a>
-  
     <li><a href="./Djinn.html">Djinn</a>
   
     <li><a href="./DjinnJobData.html">DjinnJobData</a>
@@ -122,15 +110,9 @@
   
     <li><a href="./Ejabberd.html">Ejabberd</a>
   
-    <li><a href="./EngineFactory.html">EngineFactory</a>
-  
     <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a>
   
     <li><a href="./GodInterface.html">GodInterface</a>
-  
-    <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a>
-  
-    <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a>
   
     <li><a href="./HAProxy.html">HAProxy</a>
   
@@ -144,13 +126,7 @@
   
     <li><a href="./Monitoring.html">Monitoring</a>
   
-    <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
-  
-    <li><a href="./NeptuneManager.html">NeptuneManager</a>
-  
     <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
-  
-    <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
   
     <li><a href="./Nginx.html">Nginx</a>
   
@@ -158,47 +134,13 @@
   
     <li><a href="./PbServer.html">PbServer</a>
   
-    <li><a href="./QueueFactory.html">QueueFactory</a>
-  
     <li><a href="./RabbitMQ.html">RabbitMQ</a>
   
     <li><a href="./Repo.html">Repo</a>
   
-    <li><a href="./TaskEngine.html">TaskEngine</a>
-  
-    <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a>
-  
-    <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a>
-  
-    <li><a href="./TaskQueue.html">TaskQueue</a>
-  
-    <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a>
-  
-    <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a>
-  
-    <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a>
-  
-    <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a>
-  
-    <li><a href="./TestAppScaleHelper.html">TestAppScaleHelper</a>
-  
-    <li><a href="./TestBabelHelper.html">TestBabelHelper</a>
-  
-    <li><a href="./TestCiceroHelper.html">TestCiceroHelper</a>
-  
-    <li><a href="./TestDatastore.html">TestDatastore</a>
-  
-    <li><a href="./TestNeptuneJobData.html">TestNeptuneJobData</a>
-  
-    <li><a href="./TestNeptuneManager.html">TestNeptuneManager</a>
-  
-    <li><a href="./TestTaskQueue.html">TestTaskQueue</a>
-  
     <li><a href="./UserAppClient.html">UserAppClient</a>
   
     <li><a href="./ZKInterface.html">ZKInterface</a>
-  
-    <li><a href="./ZooKeeperLockException.html">ZooKeeperLockException</a>
   
   </ul>
 </nav>
@@ -274,7 +216,7 @@ start and stop ejabberd, and write its configuration files.</p>
 
           
           <div class="method-source-code" id="clear_online_users-source">
-            <pre><span class="ruby-comment"># File lib/ejabberd.rb, line 38</span>
+            <pre><span class="ruby-comment"># File AppController/lib/ejabberd.rb, line 38</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">clear_online_users</span>
   <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_run</span>(<span class="ruby-node">&quot;rm #{ONLINE_USERS_FILE}&quot;</span>)
 <span class="ruby-keyword">end</span></pre>
@@ -304,7 +246,7 @@ start and stop ejabberd, and write its configuration files.</p>
 
           
           <div class="method-source-code" id="does_app_need_receive-3F-source">
-            <pre><span class="ruby-comment"># File lib/ejabberd.rb, line 42</span>
+            <pre><span class="ruby-comment"># File AppController/lib/ejabberd.rb, line 42</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">does_app_need_receive?</span>(<span class="ruby-identifier">app</span>, <span class="ruby-identifier">lang</span>)
   <span class="ruby-keyword">if</span> [<span class="ruby-string">&quot;python&quot;</span>, <span class="ruby-string">&quot;go&quot;</span>].<span class="ruby-identifier">include?</span>(<span class="ruby-identifier">lang</span>)
     <span class="ruby-identifier">app_yaml_file</span> = <span class="ruby-node">&quot;/var/apps/#{app}/app/app.yaml&quot;</span>
@@ -348,7 +290,7 @@ start and stop ejabberd, and write its configuration files.</p>
 
           
           <div class="method-source-code" id="start-source">
-            <pre><span class="ruby-comment"># File lib/ejabberd.rb, line 27</span>
+            <pre><span class="ruby-comment"># File AppController/lib/ejabberd.rb, line 27</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">start</span>
   <span class="ruby-identifier">start_cmd</span> = <span class="ruby-string">&quot;/etc/init.d/ejabberd start&quot;</span>
   <span class="ruby-identifier">stop_cmd</span> = <span class="ruby-string">&quot;/etc/init.d/ejabberd stop&quot;</span>
@@ -381,7 +323,7 @@ start and stop ejabberd, and write its configuration files.</p>
 
           
           <div class="method-source-code" id="stop-source">
-            <pre><span class="ruby-comment"># File lib/ejabberd.rb, line 34</span>
+            <pre><span class="ruby-comment"># File AppController/lib/ejabberd.rb, line 34</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">stop</span>
   <span class="ruby-constant">GodInterface</span>.<span class="ruby-identifier">stop</span>(<span class="ruby-value">:ejabberd</span>)
 <span class="ruby-keyword">end</span></pre>
@@ -411,7 +353,7 @@ start and stop ejabberd, and write its configuration files.</p>
 
           
           <div class="method-source-code" id="write_auth_script-source">
-            <pre><span class="ruby-comment"># File lib/ejabberd.rb, line 73</span>
+            <pre><span class="ruby-comment"># File AppController/lib/ejabberd.rb, line 73</span>
   <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">write_auth_script</span>(<span class="ruby-identifier">login_ip</span>, <span class="ruby-identifier">secret</span>)
     <span class="ruby-identifier">auth_script</span> = <span class="ruby-string">&quot;#!/usr/bin/python
 
@@ -592,7 +534,7 @@ logging.info(&quot;extauth script terminating&quot;)
 
           
           <div class="method-source-code" id="write_config_file-source">
-            <pre><span class="ruby-comment"># File lib/ejabberd.rb, line 229</span>
+            <pre><span class="ruby-comment"># File AppController/lib/ejabberd.rb, line 229</span>
   <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">write_config_file</span>(<span class="ruby-identifier">my_public_ip</span>)
     <span class="ruby-identifier">config</span> = <span class="ruby-string">&quot;%%%
 %%%     Debian ejabberd configuration file
@@ -825,7 +767,7 @@ logging.info(&quot;extauth script terminating&quot;)
 
           
           <div class="method-source-code" id="write_online_users_list-source">
-            <pre><span class="ruby-comment"># File lib/ejabberd.rb, line 60</span>
+            <pre><span class="ruby-comment"># File AppController/lib/ejabberd.rb, line 60</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">write_online_users_list</span>(<span class="ruby-identifier">nodes</span>)
   <span class="ruby-identifier">online_users</span> = <span class="ruby-value">%xejabberdctl connected-users`</span>
   <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">write_file</span>(<span class="ruby-constant">ONLINE_USERS_FILE</span>, <span class="ruby-identifier">online_users</span>)

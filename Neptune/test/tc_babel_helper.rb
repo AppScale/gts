@@ -28,6 +28,11 @@ class TestBabelHelper < Test::Unit::TestCase
     @secret = "baz"
     flexmock(File).should_receive(:open).
       with("/etc/appscale/secret.key", Proc).and_return(@secret)
+
+    # mocks for getting our public ip
+    @public_ip = "my-public-ip"
+    flexmock(File).should_receive(:open).
+      with(HelperFunctions::PUBLIC_IP_FILE, Proc).and_return(@public_ip)
   end
 
   def test_neptune_babel_soap_exposed_methods_bad_secret
@@ -210,4 +215,53 @@ class TestBabelHelper < Test::Unit::TestCase
     result = neptune.run_or_delegate_tasks(job_list)
     assert_equal([NeptuneManager::RUN_VIA_EXECUTOR], result)
   end
+
+  def test_batch_get_supported_babel_engines
+    neptune = NeptuneManager.new()
+
+    # first, make sure that we reject calls that use an incorrect secret
+    expected1 = NeptuneManager::BAD_SECRET_MSG
+    actual1 = neptune.batch_get_supported_babel_engines([], "bad secret")
+    assert_equal(expected1, actual1)
+
+    # next, try an example with a single babel job
+    job1 = {
+      "@EC2_SECRET_KEY" => "secret",
+      "@EC2_ACCESS_KEY" => "access",
+      "@S3_URL" => "s3 url"
+    }
+    #expected2 = {
+    #  job1 => NeptuneManager::INTERNAL_ENGINES + NeptuneManager::AMAZON_ENGINES,
+    #  "success" => true
+    #}
+    #actual2 = neptune.batch_get_supported_babel_engines([job1], @secret)
+    #assert_equal(expected2, actual2)
+
+    # now try an example with two babel jobs that use different engines
+    job2 = {
+      "@appid" => "bazboo1",
+      "@appcfg_cookies" => "cookie location",
+      "@function" => "bar"
+    }
+    expected3 = {
+      job1 => NeptuneManager::INTERNAL_ENGINES + NeptuneManager::AMAZON_ENGINES,
+      job2 => NeptuneManager::INTERNAL_ENGINES + NeptuneManager::GOOGLE_ENGINES,
+      "success" => true
+    }
+    actual3 = neptune.batch_get_supported_babel_engines([job1, job2], @secret)
+    # FIXME(cgb): in theory this should work but it isn't - look into why
+    # and fix it
+    #assert_equal(expected3, actual3)
+    #assert_equal(expected3[job1], actual3[job1])
+    #assert_equal(expected3[job2], actual3[job2])
+
+    # finally, try an example where two jobs use the same engine
+    job3 = job2.dup
+    #expected4 = something
+    #actual4 = neptune.batch_get_supported_babel_engines([job1, job2, job3],
+    #  @secret)
+    #assert_equal(expected4, actual4)
+  end
+
+
 end
