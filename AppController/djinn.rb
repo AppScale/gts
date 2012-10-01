@@ -225,7 +225,7 @@ class Djinn
   # A boolean that indicates whether or not we should turn the firewall on,
   # and continuously keep it on. Should definitely be on for releases, and
   # on whenever possible.
-  FIREWALL_IS_ON = true
+  FIREWALL_IS_ON = false
 
 
   # The location on the local filesystem where the AppController writes
