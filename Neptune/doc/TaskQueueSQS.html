@@ -47,7 +47,7 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>lib/task_queues/task_queue_sqs.rb
+    <li>Neptune/lib/task_queues/task_queue_sqs.rb
   </ul>
 </nav>
 
@@ -110,6 +110,8 @@
   
     <li><a href="./DatastoreS3.html">DatastoreS3</a>
   
+    <li><a href="./DatastoreWAZStorage.html">DatastoreWAZStorage</a>
+  
     <li><a href="./DjinnJobData.html">DjinnJobData</a>
   
     <li><a href="./EngineFactory.html">EngineFactory</a>
@@ -124,9 +126,13 @@
   
     <li><a href="./InfrastructureManagerClient.html">InfrastructureManagerClient</a>
   
+    <li><a href="./JSONClient.html">JSONClient</a>
+  
     <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
   
     <li><a href="./NeptuneManager.html">NeptuneManager</a>
+  
+    <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
   
     <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
   
@@ -237,6 +243,61 @@ store task info in SQS, we call it ‘executor-sqs’.</p>
 
     <!-- Methods -->
     
+     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="method-c-new" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">new</span><span
+            class="method-args">(credentials)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Creates a new SQS queue connection and queue to store / retrieve tasks
+with, via the AWS RubyGem. We pull in the AWS RubyGem instead of the
+RightScale AWS RubyGem since the RightScale gem doesn’t work with the
+current version of SQS.</p>
+          
+
+          
+          <div class="method-source-code" id="new-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/task_queues/task_queue_sqs.rb, line 36</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">credentials</span>)
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>.<span class="ruby-identifier">class</span> <span class="ruby-operator">!=</span> <span class="ruby-constant">Hash</span>
+    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>
+  <span class="ruby-keyword">end</span>
+
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'EC2_ACCESS_KEY'</span>].<span class="ruby-identifier">nil?</span>
+    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>
+  <span class="ruby-keyword">end</span>
+  <span class="ruby-ivar">@EC2_ACCESS_KEY</span> = <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'EC2_ACCESS_KEY'</span>]
+
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'EC2_SECRET_KEY'</span>].<span class="ruby-identifier">nil?</span>
+    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>
+  <span class="ruby-keyword">end</span>
+  <span class="ruby-ivar">@EC2_SECRET_KEY</span> = <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'EC2_SECRET_KEY'</span>]
+
+  <span class="ruby-ivar">@sqs</span> = <span class="ruby-constant">AWS</span><span class="ruby-operator">::</span><span class="ruby-constant">SQS</span>.<span class="ruby-identifier">new</span>(<span class="ruby-value">:access_key_id</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@EC2_ACCESS_KEY</span>,
+    <span class="ruby-value">:secret_access_key</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@EC2_SECRET_KEY</span>)
+  <span class="ruby-ivar">@queue</span> = <span class="ruby-ivar">@sqs</span>.<span class="ruby-identifier">queues</span>.<span class="ruby-identifier">create</span>(<span class="ruby-constant">TASK_QUEUE_NAME</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- new-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- new-method -->
+
+    
+    </section><!-- public-class-method-details -->
+  
      <section id="public-instance-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Instance Methods</h3>
 
@@ -258,7 +319,7 @@ just the access key and secret key</p>
 
           
           <div class="method-source-code" id="get_creds-source">
-            <pre><span class="ruby-comment"># File lib/task_queues/task_queue_sqs.rb, line 93</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_queues/task_queue_sqs.rb, line 93</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_creds</span>()
   <span class="ruby-keyword">return</span> {<span class="ruby-string">'@EC2_ACCESS_KEY'</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@EC2_ACCESS_KEY</span>,
     <span class="ruby-string">'@EC2_SECRET_KEY'</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@EC2_SECRET_KEY</span>}
@@ -296,7 +357,7 @@ solve the problem?</p>
 
           
           <div class="method-source-code" id="pop-source">
-            <pre><span class="ruby-comment"># File lib/task_queues/task_queue_sqs.rb, line 78</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_queues/task_queue_sqs.rb, line 78</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">pop</span>()
   <span class="ruby-identifier">json_item</span> = <span class="ruby-ivar">@queue</span>.<span class="ruby-identifier">receive_message</span>()
   <span class="ruby-keyword">return</span> <span class="ruby-keyword">nil</span> <span class="ruby-keyword">if</span> <span class="ruby-identifier">json_item</span>.<span class="ruby-identifier">nil?</span>  <span class="ruby-comment"># occurs when the queue is empty</span>
@@ -336,7 +397,7 @@ SQS can store.</p>
 
           
           <div class="method-source-code" id="push-source">
-            <pre><span class="ruby-comment"># File lib/task_queues/task_queue_sqs.rb, line 60</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_queues/task_queue_sqs.rb, line 60</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">push</span>(<span class="ruby-identifier">item</span>)
   <span class="ruby-keyword">if</span> <span class="ruby-identifier">item</span>.<span class="ruby-identifier">class</span> <span class="ruby-operator">!=</span> <span class="ruby-constant">Hash</span>
     <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>
@@ -373,7 +434,7 @@ immediately delete messages upon receiving them).</p>
 
           
           <div class="method-source-code" id="size-source">
-            <pre><span class="ruby-comment"># File lib/task_queues/task_queue_sqs.rb, line 102</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_queues/task_queue_sqs.rb, line 102</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">size</span>()
   <span class="ruby-keyword">return</span> <span class="ruby-ivar">@queue</span>.<span class="ruby-identifier">visible_messages</span>
 <span class="ruby-keyword">end</span></pre>
@@ -405,7 +466,7 @@ href="TaskQueue.html">TaskQueue</a>, so do so</p>
 
           
           <div class="method-source-code" id="to_s-source">
-            <pre><span class="ruby-comment"># File lib/task_queues/task_queue_sqs.rb, line 111</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_queues/task_queue_sqs.rb, line 111</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">to_s</span>()
   <span class="ruby-identifier">access_key</span> = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">obscure_string</span>(<span class="ruby-ivar">@EC2_ACCESS_KEY</span>)
   <span class="ruby-identifier">secret_key</span> = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">obscure_string</span>(<span class="ruby-ivar">@EC2_SECRET_KEY</span>)
@@ -423,61 +484,6 @@ href="TaskQueue.html">TaskQueue</a>, so do so</p>
 
     
     </section><!-- public-instance-method-details -->
-  
-     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
-      <h3 class="section-header">Public Class Methods</h3>
-
-    
-      <div id="method-c-new" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">new</span><span
-            class="method-args">(credentials)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          <p>Creates a new SQS queue connection and queue to store / retrieve tasks
-with, via the AWS RubyGem. We pull in the AWS RubyGem instead of the
-RightScale AWS RubyGem since the RightScale gem doesn’t work with the
-current version of SQS.</p>
-          
-
-          
-          <div class="method-source-code" id="new-source">
-            <pre><span class="ruby-comment"># File lib/task_queues/task_queue_sqs.rb, line 36</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">credentials</span>)
-  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>.<span class="ruby-identifier">class</span> <span class="ruby-operator">!=</span> <span class="ruby-constant">Hash</span>
-    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>
-  <span class="ruby-keyword">end</span>
-
-  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'EC2_ACCESS_KEY'</span>].<span class="ruby-identifier">nil?</span>
-    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>
-  <span class="ruby-keyword">end</span>
-  <span class="ruby-ivar">@EC2_ACCESS_KEY</span> = <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'EC2_ACCESS_KEY'</span>]
-
-  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'EC2_SECRET_KEY'</span>].<span class="ruby-identifier">nil?</span>
-    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>
-  <span class="ruby-keyword">end</span>
-  <span class="ruby-ivar">@EC2_SECRET_KEY</span> = <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'EC2_SECRET_KEY'</span>]
-
-  <span class="ruby-ivar">@sqs</span> = <span class="ruby-constant">AWS</span><span class="ruby-operator">::</span><span class="ruby-constant">SQS</span>.<span class="ruby-identifier">new</span>(<span class="ruby-value">:access_key_id</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@EC2_ACCESS_KEY</span>,
-    <span class="ruby-value">:secret_access_key</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@EC2_SECRET_KEY</span>)
-  <span class="ruby-ivar">@queue</span> = <span class="ruby-ivar">@sqs</span>.<span class="ruby-identifier">queues</span>.<span class="ruby-identifier">create</span>(<span class="ruby-constant">TASK_QUEUE_NAME</span>)
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- new-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- new-method -->
-
-    
-    </section><!-- public-class-method-details -->
   
   </section><!-- 5Buntitled-5D -->
 

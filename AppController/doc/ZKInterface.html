@@ -47,8 +47,7 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>lib/zkinterface.rb
-    <li>../Neptune/lib/zkinterface.rb
+    <li>AppController/lib/zkinterface.rb
   </ul>
 </nav>
 
@@ -78,8 +77,6 @@
     <li><a href="#method-c-add_ip_to_ip_list">::add_ip_to_ip_list</a>
     
     <li><a href="#method-c-add_roles_to_node">::add_roles_to_node</a>
-    
-    <li><a href="#method-c-find_open_nodes_in_cloud">::find_open_nodes_in_cloud</a>
     
     <li><a href="#method-c-get_app_hosters">::get_app_hosters</a>
     
@@ -157,18 +154,6 @@
   
     <li><a href="./CronHelper.html">CronHelper</a>
   
-    <li><a href="./Datastore.html">Datastore</a>
-  
-    <li><a href="./DatastoreFactory.html">DatastoreFactory</a>
-  
-    <li><a href="./DatastoreRepo.html">DatastoreRepo</a>
-  
-    <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a>
-  
-    <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a>
-  
-    <li><a href="./DatastoreS3.html">DatastoreS3</a>
-  
     <li><a href="./Djinn.html">Djinn</a>
   
     <li><a href="./DjinnJobData.html">DjinnJobData</a>
@@ -177,15 +162,9 @@
   
     <li><a href="./Ejabberd.html">Ejabberd</a>
   
-    <li><a href="./EngineFactory.html">EngineFactory</a>
-  
     <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a>
   
     <li><a href="./GodInterface.html">GodInterface</a>
-  
-    <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a>
-  
-    <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a>
   
     <li><a href="./HAProxy.html">HAProxy</a>
   
@@ -199,13 +178,7 @@
   
     <li><a href="./Monitoring.html">Monitoring</a>
   
-    <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
-  
-    <li><a href="./NeptuneManager.html">NeptuneManager</a>
-  
     <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
-  
-    <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
   
     <li><a href="./Nginx.html">Nginx</a>
   
@@ -213,47 +186,13 @@
   
     <li><a href="./PbServer.html">PbServer</a>
   
-    <li><a href="./QueueFactory.html">QueueFactory</a>
-  
     <li><a href="./RabbitMQ.html">RabbitMQ</a>
   
     <li><a href="./Repo.html">Repo</a>
   
-    <li><a href="./TaskEngine.html">TaskEngine</a>
-  
-    <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a>
-  
-    <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a>
-  
-    <li><a href="./TaskQueue.html">TaskQueue</a>
-  
-    <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a>
-  
-    <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a>
-  
-    <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a>
-  
-    <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a>
-  
-    <li><a href="./TestAppScaleHelper.html">TestAppScaleHelper</a>
-  
-    <li><a href="./TestBabelHelper.html">TestBabelHelper</a>
-  
-    <li><a href="./TestCiceroHelper.html">TestCiceroHelper</a>
-  
-    <li><a href="./TestDatastore.html">TestDatastore</a>
-  
-    <li><a href="./TestNeptuneJobData.html">TestNeptuneJobData</a>
-  
-    <li><a href="./TestNeptuneManager.html">TestNeptuneManager</a>
-  
-    <li><a href="./TestTaskQueue.html">TestTaskQueue</a>
-  
     <li><a href="./UserAppClient.html">UserAppClient</a>
   
     <li><a href="./ZKInterface.html">ZKInterface</a>
-  
-    <li><a href="./ZooKeeperLockException.html">ZooKeeperLockException</a>
   
   </ul>
 </nav>
@@ -266,12 +205,6 @@
 
   <div id="description" class="description">
     
-<p>The AppController employs the open source software ZooKeeper as a highly
-available naming service, to store and retrieve information about the
-status of applications hosted within AppScale. This class provides methods
-to communicate with ZooKeeper, and automates commonly performed functions
-by the AppController.</p>
-
 <p>The AppController employs the open source software ZooKeeper as a highly
 available naming service, to store and retrieve information about the
 status of applications hosted within AppScale. This class provides methods
@@ -398,7 +331,7 @@ currently running within AppScale.</p>
 
           
           <div class="method-source-code" id="add_app_entry-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 135</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 135</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">add_app_entry</span>(<span class="ruby-identifier">appname</span>, <span class="ruby-identifier">ip</span>, <span class="ruby-identifier">location</span>)
   <span class="ruby-identifier">appname_path</span> = <span class="ruby-constant">ROOT_APP_PATH</span> <span class="ruby-operator">+</span> <span class="ruby-node">&quot;/#{appname}&quot;</span>
   <span class="ruby-identifier">full_path</span> = <span class="ruby-identifier">appname_path</span> <span class="ruby-operator">+</span> <span class="ruby-node">&quot;/#{ip}&quot;</span>
@@ -438,7 +371,7 @@ AppLoadBalancer should that node fail.</p>
 
           
           <div class="method-source-code" id="add_app_instance-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 496</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 496</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">add_app_instance</span>(<span class="ruby-identifier">app_name</span>, <span class="ruby-identifier">ip</span>, <span class="ruby-identifier">port</span>)
   <span class="ruby-identifier">app_instance_file</span> = <span class="ruby-node">&quot;#{APPCONTROLLER_NODE_PATH}/#{ip}/#{APP_INSTANCE}&quot;</span>
   <span class="ruby-keyword">if</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">exists?</span>(<span class="ruby-identifier">app_instance_file</span>)
@@ -480,7 +413,7 @@ others know to update it as needed.</p>
 
           
           <div class="method-source-code" id="add_ip_to_ip_list-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 282</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 282</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">add_ip_to_ip_list</span>(<span class="ruby-identifier">ip</span>)
   <span class="ruby-identifier">new_timestamp</span> = <span class="ruby-value">0.0</span>
 
@@ -543,7 +476,7 @@ representing the node that we want to add the roles to</p>
 
           
           <div class="method-source-code" id="add_roles_to_node-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 532</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 532</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">add_roles_to_node</span>(<span class="ruby-identifier">roles</span>, <span class="ruby-identifier">node</span>)
   <span class="ruby-identifier">old_job_data</span> = <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_job_data_for_ip</span>(<span class="ruby-identifier">node</span>.<span class="ruby-identifier">public_ip</span>)
   <span class="ruby-identifier">new_node</span> = <span class="ruby-constant">DjinnJobData</span>.<span class="ruby-identifier">deserialize</span>(<span class="ruby-identifier">old_job_data</span>)
@@ -563,63 +496,6 @@ representing the node that we want to add the roles to</p>
       </div><!-- add_roles_to_node-method -->
 
     
-      <div id="method-c-find_open_nodes_in_cloud" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">find_open_nodes_in_cloud</span><span
-            class="method-args">(number_of_nodes_needed, cloud_num)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="find_open_nodes_in_cloud-source">
-            <pre><span class="ruby-comment"># File ../Neptune/lib/zkinterface.rb, line 568</span>
-<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">find_open_nodes_in_cloud</span>(<span class="ruby-identifier">number_of_nodes_needed</span>, <span class="ruby-identifier">cloud_num</span>)
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Trying to find #{number_of_nodes_needed} nodes in&quot;</span> <span class="ruby-operator">+</span>
-    <span class="ruby-node">&quot; cloud #{cloud_num}&quot;</span>)
-
-  <span class="ruby-identifier">nodes_to_use</span> = []
-  <span class="ruby-constant">ZKInterface</span>.<span class="ruby-identifier">lock_and_run</span> {
-    <span class="ruby-identifier">ip_info</span> = <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_ip_info</span>()
-    <span class="ruby-identifier">all_ips</span> = <span class="ruby-identifier">ip_info</span>[<span class="ruby-string">'ips'</span>]
-    <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;All IPs currently in use are #{all_ips.join(', ')}&quot;</span>)
-
-    <span class="ruby-identifier">all_ips</span>.<span class="ruby-identifier">each</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">ip</span><span class="ruby-operator">|</span>
-      <span class="ruby-identifier">job_data</span> = <span class="ruby-constant">ZKInterface</span>.<span class="ruby-identifier">get_job_data_for_ip</span>(<span class="ruby-identifier">ip</span>)
-      <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Job data for IP #{ip} is #{job_data}&quot;</span>)
-      <span class="ruby-identifier">node</span> = <span class="ruby-constant">DjinnJobData</span>.<span class="ruby-identifier">deserialize</span>(<span class="ruby-identifier">job_data</span>)
-
-      <span class="ruby-keyword">if</span> <span class="ruby-identifier">node</span>.<span class="ruby-identifier">is_open?</span> <span class="ruby-keyword">and</span> <span class="ruby-identifier">node</span>.<span class="ruby-identifier">cloud</span> <span class="ruby-operator">==</span> <span class="ruby-identifier">cloud_num</span>
-        <span class="ruby-identifier">nodes_to_use</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">node</span>
-      <span class="ruby-keyword">end</span>
-
-      <span class="ruby-keyword">if</span> <span class="ruby-identifier">nodes_to_use</span>.<span class="ruby-identifier">length</span> <span class="ruby-operator">==</span> <span class="ruby-identifier">number_of_nodes_needed</span>
-        <span class="ruby-keyword">return</span> <span class="ruby-identifier">nodes_to_use</span>
-      <span class="ruby-keyword">end</span>
-    }
-  }
-
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;#{number_of_nodes_needed} open nodes were &quot;</span> <span class="ruby-operator">+</span> 
-    <span class="ruby-node">&quot;requested, but we were only able to procure #{nodes_to_use.length} &quot;</span> <span class="ruby-operator">+</span>
-    <span class="ruby-string">&quot;nodes&quot;</span>)
-  <span class="ruby-keyword">return</span> <span class="ruby-identifier">nodes_to_use</span>
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- find_open_nodes_in_cloud-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- find_open_nodes_in_cloud-method -->
-
-    
       <div id="method-c-get_app_hosters" class="method-detail ">
         
         <div class="method-heading">
@@ -636,7 +512,7 @@ representing the node that we want to add the roles to</p>
 
           
           <div class="method-source-code" id="get_app_hosters-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 154</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 154</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_app_hosters</span>(<span class="ruby-identifier">appname</span>)
   <span class="ruby-keyword">if</span> <span class="ruby-operator">!</span><span class="ruby-keyword">defined?</span>(<span class="ruby-identifier">@@zk</span>)
     <span class="ruby-keyword">return</span> []
@@ -679,7 +555,7 @@ nginx port that the app is hosted on.</p>
 
           
           <div class="method-source-code" id="get_app_instances_for_ip-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 482</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 482</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_app_instances_for_ip</span>(<span class="ruby-identifier">ip</span>)
   <span class="ruby-identifier">app_instance_file</span> = <span class="ruby-node">&quot;#{APPCONTROLLER_NODE_PATH}/#{ip}/#{APP_INSTANCE}&quot;</span>
   <span class="ruby-keyword">if</span> <span class="ruby-operator">!</span><span class="ruby-keyword">self</span>.<span class="ruby-identifier">exists?</span>(<span class="ruby-identifier">app_instance_file</span>)
@@ -719,7 +595,7 @@ lock or not.</p>
 
           
           <div class="method-source-code" id="get_appcontroller_lock-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 186</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 186</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_appcontroller_lock</span>()
   <span class="ruby-keyword">if</span> <span class="ruby-operator">!</span><span class="ruby-keyword">self</span>.<span class="ruby-identifier">exists?</span>(<span class="ruby-constant">APPCONTROLLER_PATH</span>)
     <span class="ruby-keyword">self</span>.<span class="ruby-identifier">set</span>(<span class="ruby-constant">APPCONTROLLER_PATH</span>, <span class="ruby-constant">DUMMY_DATA</span>, <span class="ruby-constant">NOT_EPHEMERAL</span>)
@@ -764,7 +640,7 @@ lock or not.</p>
 
           
           <div class="method-source-code" id="get_appcontroller_state-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 169</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 169</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_appcontroller_state</span>()
   <span class="ruby-keyword">return</span> <span class="ruby-constant">JSON</span>.<span class="ruby-identifier">load</span>(<span class="ruby-keyword">self</span>.<span class="ruby-identifier">get</span>(<span class="ruby-constant">APPCONTROLLER_STATE_PATH</span>))
 <span class="ruby-keyword">end</span></pre>
@@ -796,7 +672,7 @@ alive. Returns an Array of IPs corresponding to failed nodes.</p>
 
           
           <div class="method-source-code" id="get_failed_nodes-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 345</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 345</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_failed_nodes</span>
   <span class="ruby-identifier">failed_nodes</span> = []
 
@@ -843,7 +719,7 @@ latest node updated this information.</p>
 
           
           <div class="method-source-code" id="get_ip_info-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 273</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 273</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_ip_info</span>()
   <span class="ruby-keyword">return</span> <span class="ruby-constant">JSON</span>.<span class="ruby-identifier">load</span>(<span class="ruby-keyword">self</span>.<span class="ruby-identifier">get</span>(<span class="ruby-constant">IP_LIST</span>))
 <span class="ruby-keyword">end</span></pre>
@@ -875,7 +751,7 @@ deserialize to get a <a href="DjinnJobData.html">DjinnJobData</a> object.</p>
 
           
           <div class="method-source-code" id="get_job_data_for_ip-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 513</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 513</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_job_data_for_ip</span>(<span class="ruby-identifier">ip</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get</span>(<span class="ruby-node">&quot;#{APPCONTROLLER_NODE_PATH}/#{ip}/job_data&quot;</span>)
 <span class="ruby-keyword">end</span></pre>
@@ -906,7 +782,7 @@ deserialize to get a <a href="DjinnJobData.html">DjinnJobData</a> object.</p>
 
           
           <div class="method-source-code" id="get_max_machines_for_babel_slaves-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 469</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 469</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_max_machines_for_babel_slaves</span>()
   <span class="ruby-keyword">if</span> <span class="ruby-operator">!</span><span class="ruby-keyword">self</span>.<span class="ruby-identifier">exists?</span>(<span class="ruby-constant">BABEL_MAX_MACHINES_PATH</span>)
     <span class="ruby-keyword">return</span> <span class="ruby-value">0</span>
@@ -944,7 +820,7 @@ ZooKeeper box to connect to.</p>
 
           
           <div class="method-source-code" id="init-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 119</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 119</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">init</span>(<span class="ruby-identifier">my_node</span>, <span class="ruby-identifier">all_nodes</span>)
   <span class="ruby-keyword">self</span>.<span class="ruby-identifier">init_to_ip</span>(<span class="ruby-identifier">my_node</span>.<span class="ruby-identifier">public_ip</span>, <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_zk_location</span>(<span class="ruby-identifier">my_node</span>, 
     <span class="ruby-identifier">all_nodes</span>))
@@ -976,7 +852,7 @@ should use this when they know exactly which node hosts ZooKeeper.</p>
 
           
           <div class="method-source-code" id="init_to_ip-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 97</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 97</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">init_to_ip</span>(<span class="ruby-identifier">client_ip</span>, <span class="ruby-identifier">ip</span>)
   <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_debug</span>(<span class="ruby-node">&quot;Waiting for #{ip}:#{SERVER_PORT} to open&quot;</span>)
   <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">sleep_until_port_is_open</span>(<span class="ruby-identifier">ip</span>, <span class="ruby-constant">SERVER_PORT</span>)
@@ -1019,7 +895,7 @@ which it indicates via a file in a particular path.</p>
 
           
           <div class="method-source-code" id="is_node_done_loading-3F-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 409</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 409</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">is_node_done_loading?</span>(<span class="ruby-identifier">ip</span>)
   <span class="ruby-keyword">if</span> <span class="ruby-operator">!</span><span class="ruby-keyword">self</span>.<span class="ruby-identifier">exists?</span>(<span class="ruby-constant">APPCONTROLLER_NODE_PATH</span>)
     <span class="ruby-keyword">return</span> <span class="ruby-keyword">false</span>
@@ -1064,7 +940,7 @@ ephemeral file it has created is still present.</p>
 
           
           <div class="method-source-code" id="is_node_live-3F-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 450</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 450</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">is_node_live?</span>(<span class="ruby-identifier">ip</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">exists?</span>(<span class="ruby-node">&quot;#{APPCONTROLLER_NODE_PATH}/#{ip}/live&quot;</span>)
 <span class="ruby-keyword">end</span></pre>
@@ -1098,7 +974,7 @@ they already have it).</p>
 
           
           <div class="method-source-code" id="lock_and_run-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 218</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 218</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">lock_and_run</span>(&amp;<span class="ruby-identifier">block</span>)
   <span class="ruby-comment"># Create the ZK lock path if it doesn't exist.</span>
   <span class="ruby-keyword">if</span> <span class="ruby-operator">!</span><span class="ruby-keyword">self</span>.<span class="ruby-identifier">exists?</span>(<span class="ruby-constant">APPCONTROLLER_PATH</span>)
@@ -1178,7 +1054,7 @@ disconnected.</p>
 
           
           <div class="method-source-code" id="reinitialize-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 129</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 129</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">reinitialize</span>()
   <span class="ruby-keyword">self</span>.<span class="ruby-identifier">init_to_ip</span>(<span class="ruby-identifier">@@client_ip</span>, <span class="ruby-identifier">@@ip</span>)
   <span class="ruby-keyword">self</span>.<span class="ruby-identifier">set_live_node_ephemeral_link</span>(<span class="ruby-identifier">@@client_ip</span>)
@@ -1210,7 +1086,7 @@ which was acquired via self.get_appcontroller_lock().</p>
 
           
           <div class="method-source-code" id="release_appcontroller_lock-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 208</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 208</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">release_appcontroller_lock</span>()
   <span class="ruby-keyword">self</span>.<span class="ruby-identifier">delete</span>(<span class="ruby-constant">APPCONTROLLER_LOCK_PATH</span>)
 <span class="ruby-keyword">end</span></pre>
@@ -1240,7 +1116,7 @@ which was acquired via self.get_appcontroller_lock().</p>
 
           
           <div class="method-source-code" id="remove_app_entry-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 148</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 148</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">remove_app_entry</span>(<span class="ruby-identifier">appname</span>)
   <span class="ruby-identifier">appname_path</span> = <span class="ruby-constant">ROOT_APP_PATH</span> <span class="ruby-operator">+</span> <span class="ruby-node">&quot;/#{appname}&quot;</span>
   <span class="ruby-keyword">self</span>.<span class="ruby-identifier">delete</span>(<span class="ruby-identifier">appname_path</span>)
@@ -1272,7 +1148,7 @@ IP address from that list.</p>
 
           
           <div class="method-source-code" id="remove_ip_from_ip_list-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 316</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 316</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">remove_ip_from_ip_list</span>(<span class="ruby-identifier">ip</span>)
   <span class="ruby-keyword">if</span> <span class="ruby-operator">!</span><span class="ruby-keyword">self</span>.<span class="ruby-identifier">exists?</span>(<span class="ruby-constant">IP_LIST</span>)
     <span class="ruby-keyword">return</span>
@@ -1312,7 +1188,7 @@ ZooKeeper.</p>
 
           
           <div class="method-source-code" id="remove_node_information-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 402</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 402</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">remove_node_information</span>(<span class="ruby-identifier">ip</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">recursive_delete</span>(<span class="ruby-node">&quot;#{APPCONTROLLER_NODE_PATH}/#{ip}&quot;</span>)
 <span class="ruby-keyword">end</span></pre>
@@ -1349,7 +1225,7 @@ want to remove the roles from</p>
 
           
           <div class="method-source-code" id="remove_roles_from_node-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 551</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 551</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">remove_roles_from_node</span>(<span class="ruby-identifier">roles</span>, <span class="ruby-identifier">node</span>)
   <span class="ruby-identifier">old_job_data</span> = <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_job_data_for_ip</span>(<span class="ruby-identifier">node</span>.<span class="ruby-identifier">public_ip</span>)
   <span class="ruby-identifier">new_node</span> = <span class="ruby-constant">DjinnJobData</span>.<span class="ruby-identifier">deserialize</span>(<span class="ruby-identifier">old_job_data</span>)
@@ -1387,7 +1263,7 @@ not done loading (if they have roles they need to start or stop).</p>
 
           
           <div class="method-source-code" id="set_done_loading-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 442</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 442</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">set_done_loading</span>(<span class="ruby-identifier">ip</span>, <span class="ruby-identifier">val</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">set</span>(<span class="ruby-node">&quot;#{APPCONTROLLER_NODE_PATH}/#{ip}/done_loading&quot;</span>, 
     <span class="ruby-constant">JSON</span>.<span class="ruby-identifier">dump</span>(<span class="ruby-identifier">val</span>), <span class="ruby-constant">NOT_EPHEMERAL</span>)
@@ -1418,7 +1294,7 @@ not done loading (if they have roles they need to start or stop).</p>
 
           
           <div class="method-source-code" id="set_job_data_for_ip-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 518</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 518</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">set_job_data_for_ip</span>(<span class="ruby-identifier">ip</span>, <span class="ruby-identifier">job_data</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">set</span>(<span class="ruby-node">&quot;#{APPCONTROLLER_NODE_PATH}/#{ip}/job_data&quot;</span>, 
     <span class="ruby-identifier">job_data</span>, <span class="ruby-constant">NOT_EPHEMERAL</span>)
@@ -1451,7 +1327,7 @@ is alive, and not do it on behalf of other nodes.</p>
 
           
           <div class="method-source-code" id="set_live_node_ephemeral_link-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 431</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 431</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">set_live_node_ephemeral_link</span>(<span class="ruby-identifier">ip</span>)
   <span class="ruby-keyword">self</span>.<span class="ruby-identifier">run_zookeeper_operation</span> {
     <span class="ruby-identifier">@@zk</span>.<span class="ruby-identifier">create</span>(<span class="ruby-value">:path</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-node">&quot;#{APPCONTROLLER_NODE_PATH}/#{ip}/live&quot;</span>, 
@@ -1486,7 +1362,7 @@ virtual machines) to become Babel slaves (workers).</p>
 
           
           <div class="method-source-code" id="set_max_machines_for_babel_slaves-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 458</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 458</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">set_max_machines_for_babel_slaves</span>(<span class="ruby-identifier">maximum</span>)
   <span class="ruby-keyword">if</span> <span class="ruby-operator">!</span><span class="ruby-keyword">self</span>.<span class="ruby-identifier">exists?</span>(<span class="ruby-constant">BABEL_PATH</span>)
     <span class="ruby-keyword">self</span>.<span class="ruby-identifier">set</span>(<span class="ruby-constant">BABEL_PATH</span>, <span class="ruby-constant">DUMMY_DATA</span>, <span class="ruby-constant">NOT_EPHEMERAL</span>)
@@ -1522,7 +1398,7 @@ should update their local @nodes</p>
 
           
           <div class="method-source-code" id="update_ips_timestamp-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 332</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 332</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">update_ips_timestamp</span>()
   <span class="ruby-identifier">data</span> = <span class="ruby-constant">JSON</span>.<span class="ruby-identifier">load</span>(<span class="ruby-keyword">self</span>.<span class="ruby-identifier">get</span>(<span class="ruby-constant">IP_LIST</span>))
   <span class="ruby-identifier">new_timestamp</span> = <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span>.<span class="ruby-identifier">to_i</span>
@@ -1557,7 +1433,7 @@ should update their local @nodes</p>
 
           
           <div class="method-source-code" id="write_appcontroller_state-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 174</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 174</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">write_appcontroller_state</span>(<span class="ruby-identifier">state</span>)
   <span class="ruby-comment"># Create the top-level AC dir, then the actual node that stores</span>
   <span class="ruby-comment"># our data</span>
@@ -1592,7 +1468,7 @@ if so, what functionality it was providing at the time.</p>
 
           
           <div class="method-source-code" id="write_node_information-source">
-            <pre><span class="ruby-comment"># File lib/zkinterface.rb, line 368</span>
+            <pre><span class="ruby-comment"># File AppController/lib/zkinterface.rb, line 368</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">write_node_information</span>(<span class="ruby-identifier">node</span>, <span class="ruby-identifier">done_loading</span>)
   <span class="ruby-comment"># Create the folder for all nodes if it doesn't exist.</span>
   <span class="ruby-keyword">if</span> <span class="ruby-operator">!</span><span class="ruby-keyword">self</span>.<span class="ruby-identifier">exists?</span>(<span class="ruby-constant">APPCONTROLLER_NODE_PATH</span>)

@@ -47,8 +47,7 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>lib/infrastructure_manager_client.rb
-    <li>../Neptune/lib/infrastructure_manager_client.rb
+    <li>AppController/lib/infrastructure_manager_client.rb
   </ul>
 </nav>
 
@@ -107,18 +106,6 @@
   
     <li><a href="./CronHelper.html">CronHelper</a>
   
-    <li><a href="./Datastore.html">Datastore</a>
-  
-    <li><a href="./DatastoreFactory.html">DatastoreFactory</a>
-  
-    <li><a href="./DatastoreRepo.html">DatastoreRepo</a>
-  
-    <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a>
-  
-    <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a>
-  
-    <li><a href="./DatastoreS3.html">DatastoreS3</a>
-  
     <li><a href="./Djinn.html">Djinn</a>
   
     <li><a href="./DjinnJobData.html">DjinnJobData</a>
@@ -127,15 +114,9 @@
   
     <li><a href="./Ejabberd.html">Ejabberd</a>
   
-    <li><a href="./EngineFactory.html">EngineFactory</a>
-  
     <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a>
   
     <li><a href="./GodInterface.html">GodInterface</a>
-  
-    <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a>
-  
-    <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a>
   
     <li><a href="./HAProxy.html">HAProxy</a>
   
@@ -149,13 +130,7 @@
   
     <li><a href="./Monitoring.html">Monitoring</a>
   
-    <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
-  
-    <li><a href="./NeptuneManager.html">NeptuneManager</a>
-  
     <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
-  
-    <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
   
     <li><a href="./Nginx.html">Nginx</a>
   
@@ -163,47 +138,13 @@
   
     <li><a href="./PbServer.html">PbServer</a>
   
-    <li><a href="./QueueFactory.html">QueueFactory</a>
-  
     <li><a href="./RabbitMQ.html">RabbitMQ</a>
   
     <li><a href="./Repo.html">Repo</a>
   
-    <li><a href="./TaskEngine.html">TaskEngine</a>
-  
-    <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a>
-  
-    <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a>
-  
-    <li><a href="./TaskQueue.html">TaskQueue</a>
-  
-    <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a>
-  
-    <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a>
-  
-    <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a>
-  
-    <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a>
-  
-    <li><a href="./TestAppScaleHelper.html">TestAppScaleHelper</a>
-  
-    <li><a href="./TestBabelHelper.html">TestBabelHelper</a>
-  
-    <li><a href="./TestCiceroHelper.html">TestCiceroHelper</a>
-  
-    <li><a href="./TestDatastore.html">TestDatastore</a>
-  
-    <li><a href="./TestNeptuneJobData.html">TestNeptuneJobData</a>
-  
-    <li><a href="./TestNeptuneManager.html">TestNeptuneManager</a>
-  
-    <li><a href="./TestTaskQueue.html">TestTaskQueue</a>
-  
     <li><a href="./UserAppClient.html">UserAppClient</a>
   
     <li><a href="./ZKInterface.html">ZKInterface</a>
-  
-    <li><a href="./ZooKeeperLockException.html">ZooKeeperLockException</a>
   
   </ul>
 </nav>
@@ -298,6 +239,49 @@ or on any AppScale machine.</p>
 
     <!-- Methods -->
     
+     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="method-c-new" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">new</span><span
+            class="method-args">(secret)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="new-source">
+            <pre><span class="ruby-comment"># File AppController/lib/infrastructure_manager_client.rb, line 53</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">secret</span>)
+  <span class="ruby-identifier">ip</span> = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">local_ip</span>()
+  <span class="ruby-ivar">@secret</span> = <span class="ruby-identifier">secret</span>
+  
+  <span class="ruby-ivar">@conn</span> = <span class="ruby-constant">SOAP</span><span class="ruby-operator">::</span><span class="ruby-constant">RPC</span><span class="ruby-operator">::</span><span class="ruby-constant">Driver</span>.<span class="ruby-identifier">new</span>(<span class="ruby-node">&quot;https://#{ip}:#{SERVER_PORT}&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;get_queues_in_use&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;run_instances&quot;</span>, <span class="ruby-string">&quot;parameters&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;describe_instances&quot;</span>, <span class="ruby-string">&quot;parameters&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;terminate_instances&quot;</span>, <span class="ruby-string">&quot;parameters&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- new-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- new-method -->
+
+    
+    </section><!-- public-class-method-details -->
+  
      <section id="public-instance-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Instance Methods</h3>
 
@@ -318,7 +302,7 @@ or on any AppScale machine.</p>
 
           
           <div class="method-source-code" id="describe_instances-source">
-            <pre><span class="ruby-comment"># File lib/infrastructure_manager_client.rb, line 131</span>
+            <pre><span class="ruby-comment"># File AppController/lib/infrastructure_manager_client.rb, line 131</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">describe_instances</span>(<span class="ruby-identifier">parameters</span>)
   <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_debug</span>(<span class="ruby-string">&quot;Calling describe_instances with parameters &quot;</span> <span class="ruby-operator">+</span>
     <span class="ruby-node">&quot;#{parameters.inspect}&quot;</span>)
@@ -365,7 +349,7 @@ The result of the block is returned to the caller.</p>
 
           
           <div class="method-source-code" id="make_call-source">
-            <pre><span class="ruby-comment"># File lib/infrastructure_manager_client.rb, line 78</span>
+            <pre><span class="ruby-comment"># File AppController/lib/infrastructure_manager_client.rb, line 78</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">make_call</span>(<span class="ruby-identifier">time</span>, <span class="ruby-identifier">retry_on_except</span>, <span class="ruby-identifier">callr</span>, <span class="ruby-identifier">ok_to_fail</span>=<span class="ruby-keyword">false</span>)
   <span class="ruby-identifier">refused_count</span> = <span class="ruby-value">0</span>
   <span class="ruby-identifier">max</span> = <span class="ruby-value">5</span>
@@ -433,7 +417,7 @@ The result of the block is returned to the caller.</p>
 
           
           <div class="method-source-code" id="run_instances-source">
-            <pre><span class="ruby-comment"># File lib/infrastructure_manager_client.rb, line 121</span>
+            <pre><span class="ruby-comment"># File AppController/lib/infrastructure_manager_client.rb, line 121</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">run_instances</span>(<span class="ruby-identifier">parameters</span>)
   <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_debug</span>(<span class="ruby-string">&quot;Calling run_instances with parameters &quot;</span> <span class="ruby-operator">+</span>
     <span class="ruby-node">&quot;#{parameters.inspect}&quot;</span>)
@@ -468,7 +452,7 @@ The result of the block is returned to the caller.</p>
 
           
           <div class="method-source-code" id="spawn_vms-source">
-            <pre><span class="ruby-comment"># File lib/infrastructure_manager_client.rb, line 151</span>
+            <pre><span class="ruby-comment"># File AppController/lib/infrastructure_manager_client.rb, line 151</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">spawn_vms</span>(<span class="ruby-identifier">num_vms</span>, <span class="ruby-identifier">creds</span>, <span class="ruby-identifier">job</span>, <span class="ruby-identifier">cloud</span>)
   <span class="ruby-identifier">credentials</span> = {
     <span class="ruby-string">'EC2_ACCESS_KEY'</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-identifier">creds</span>[<span class="ruby-string">'ec2_access_key'</span>],
@@ -543,7 +527,7 @@ The result of the block is returned to the caller.</p>
 
           
           <div class="method-source-code" id="terminate_instances-source">
-            <pre><span class="ruby-comment"># File lib/infrastructure_manager_client.rb, line 141</span>
+            <pre><span class="ruby-comment"># File AppController/lib/infrastructure_manager_client.rb, line 141</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">terminate_instances</span>(<span class="ruby-identifier">parameters</span>)
   <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_debug</span>(<span class="ruby-string">&quot;Calling terminate_instances with parameters &quot;</span> <span class="ruby-operator">+</span>
     <span class="ruby-node">&quot;#{parameters.inspect}&quot;</span>)
@@ -563,49 +547,6 @@ The result of the block is returned to the caller.</p>
 
     
     </section><!-- public-instance-method-details -->
-  
-     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
-      <h3 class="section-header">Public Class Methods</h3>
-
-    
-      <div id="method-c-new" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">new</span><span
-            class="method-args">(secret)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="new-source">
-            <pre><span class="ruby-comment"># File lib/infrastructure_manager_client.rb, line 53</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">secret</span>)
-  <span class="ruby-identifier">ip</span> = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">local_ip</span>()
-  <span class="ruby-ivar">@secret</span> = <span class="ruby-identifier">secret</span>
-  
-  <span class="ruby-ivar">@conn</span> = <span class="ruby-constant">SOAP</span><span class="ruby-operator">::</span><span class="ruby-constant">RPC</span><span class="ruby-operator">::</span><span class="ruby-constant">Driver</span>.<span class="ruby-identifier">new</span>(<span class="ruby-node">&quot;https://#{ip}:#{SERVER_PORT}&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;get_queues_in_use&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;run_instances&quot;</span>, <span class="ruby-string">&quot;parameters&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;describe_instances&quot;</span>, <span class="ruby-string">&quot;parameters&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;terminate_instances&quot;</span>, <span class="ruby-string">&quot;parameters&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- new-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- new-method -->
-
-    
-    </section><!-- public-class-method-details -->
   
   </section><!-- 5Buntitled-5D -->
 

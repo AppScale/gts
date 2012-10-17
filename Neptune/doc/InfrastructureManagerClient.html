@@ -47,7 +47,7 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>lib/infrastructure_manager_client.rb
+    <li>Neptune/lib/infrastructure_manager_client.rb
   </ul>
 </nav>
 
@@ -110,6 +110,8 @@
   
     <li><a href="./DatastoreS3.html">DatastoreS3</a>
   
+    <li><a href="./DatastoreWAZStorage.html">DatastoreWAZStorage</a>
+  
     <li><a href="./DjinnJobData.html">DjinnJobData</a>
   
     <li><a href="./EngineFactory.html">EngineFactory</a>
@@ -124,9 +126,13 @@
   
     <li><a href="./InfrastructureManagerClient.html">InfrastructureManagerClient</a>
   
+    <li><a href="./JSONClient.html">JSONClient</a>
+  
     <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
   
     <li><a href="./NeptuneManager.html">NeptuneManager</a>
+  
+    <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
   
     <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
   
@@ -249,6 +255,49 @@ or on any AppScale machine.</p>
 
     <!-- Methods -->
     
+     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="method-c-new" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">new</span><span
+            class="method-args">(secret)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="new-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/infrastructure_manager_client.rb, line 48</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">secret</span>)
+  <span class="ruby-identifier">ip</span> = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">local_ip</span>()
+  <span class="ruby-ivar">@secret</span> = <span class="ruby-identifier">secret</span>
+  
+  <span class="ruby-ivar">@conn</span> = <span class="ruby-constant">SOAP</span><span class="ruby-operator">::</span><span class="ruby-constant">RPC</span><span class="ruby-operator">::</span><span class="ruby-constant">Driver</span>.<span class="ruby-identifier">new</span>(<span class="ruby-node">&quot;https://#{ip}:#{SERVER_PORT}&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;get_queues_in_use&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;run_instances&quot;</span>, <span class="ruby-string">&quot;parameters&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;describe_instances&quot;</span>, <span class="ruby-string">&quot;parameters&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;terminate_instances&quot;</span>, <span class="ruby-string">&quot;parameters&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- new-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- new-method -->
+
+    
+    </section><!-- public-class-method-details -->
+  
      <section id="public-instance-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Instance Methods</h3>
 
@@ -269,7 +318,7 @@ or on any AppScale machine.</p>
 
           
           <div class="method-source-code" id="describe_instances-source">
-            <pre><span class="ruby-comment"># File lib/infrastructure_manager_client.rb, line 126</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/infrastructure_manager_client.rb, line 131</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">describe_instances</span>(<span class="ruby-identifier">parameters</span>)
   <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-string">&quot;Calling describe_instances with parameters &quot;</span> <span class="ruby-operator">+</span>
     <span class="ruby-node">&quot;#{parameters.inspect}&quot;</span>)
@@ -316,7 +365,7 @@ The result of the block is returned to the caller.</p>
 
           
           <div class="method-source-code" id="make_call-source">
-            <pre><span class="ruby-comment"># File lib/infrastructure_manager_client.rb, line 73</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/infrastructure_manager_client.rb, line 73</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">make_call</span>(<span class="ruby-identifier">time</span>, <span class="ruby-identifier">retry_on_except</span>, <span class="ruby-identifier">callr</span>, <span class="ruby-identifier">ok_to_fail</span>=<span class="ruby-keyword">false</span>)
   <span class="ruby-identifier">refused_count</span> = <span class="ruby-value">0</span>
   <span class="ruby-identifier">max</span> = <span class="ruby-value">5</span>
@@ -326,7 +375,9 @@ The result of the block is returned to the caller.</p>
       <span class="ruby-keyword">yield</span> <span class="ruby-keyword">if</span> <span class="ruby-identifier">block_given?</span>
     }
   <span class="ruby-keyword">rescue</span> <span class="ruby-constant">Errno</span><span class="ruby-operator">::</span><span class="ruby-constant">ECONNREFUSED</span>, <span class="ruby-constant">Errno</span><span class="ruby-operator">::</span><span class="ruby-constant">EHOSTUNREACH</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-identifier">except</span>
-    <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;Saw an Exception of class #{except.class}&quot;</span>)
+    <span class="ruby-identifier">trace</span> = <span class="ruby-identifier">except</span>.<span class="ruby-identifier">backtrace</span>.<span class="ruby-identifier">join</span>(<span class="ruby-string">&quot;\n&quot;</span>)
+    <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;Saw an Exception of class #{except.class}, with &quot;</span> <span class="ruby-operator">+</span>
+      <span class="ruby-node">&quot;trace: #{trace}&quot;</span>)
     <span class="ruby-keyword">if</span> <span class="ruby-identifier">refused_count</span> <span class="ruby-operator">&gt;</span> <span class="ruby-identifier">max</span>
       <span class="ruby-keyword">return</span> <span class="ruby-keyword">false</span> <span class="ruby-keyword">if</span> <span class="ruby-identifier">ok_to_fail</span>
       <span class="ruby-identifier">raise</span> <span class="ruby-constant">AppScaleException</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;Connection was refused. Is the &quot;</span> <span class="ruby-operator">+</span>
@@ -341,20 +392,23 @@ The result of the block is returned to the caller.</p>
     <span class="ruby-keyword">return</span> <span class="ruby-keyword">false</span> <span class="ruby-keyword">if</span> <span class="ruby-identifier">ok_to_fail</span>
     <span class="ruby-keyword">retry</span>
   <span class="ruby-keyword">rescue</span> <span class="ruby-constant">OpenSSL</span><span class="ruby-operator">::</span><span class="ruby-constant">SSL</span><span class="ruby-operator">::</span><span class="ruby-constant">SSLError</span>, <span class="ruby-constant">NotImplementedError</span>, <span class="ruby-constant">Errno</span><span class="ruby-operator">::</span><span class="ruby-constant">EPIPE</span>, <span class="ruby-constant">Errno</span><span class="ruby-operator">::</span><span class="ruby-constant">ECONNRESET</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-identifier">except</span>
-    <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;Saw an Exception of class #{except.class}&quot;</span>)
+    <span class="ruby-identifier">trace</span> = <span class="ruby-identifier">except</span>.<span class="ruby-identifier">backtrace</span>.<span class="ruby-identifier">join</span>(<span class="ruby-string">&quot;\n&quot;</span>)
+    <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;Saw an Exception of class #{except.class}, with &quot;</span> <span class="ruby-operator">+</span>
+      <span class="ruby-node">&quot;trace: #{trace}&quot;</span>)
     <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">sleep</span>(<span class="ruby-value">1</span>)
     <span class="ruby-keyword">retry</span>
   <span class="ruby-keyword">rescue</span> <span class="ruby-constant">Exception</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-identifier">except</span>
-    <span class="ruby-identifier">newline</span> = <span class="ruby-string">&quot;\n&quot;</span>
-    <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;Saw an Exception of class #{except.class}&quot;</span>)
-    <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;#{except.backtrace.join(newline)}&quot;</span>)
+    <span class="ruby-identifier">trace</span> = <span class="ruby-identifier">except</span>.<span class="ruby-identifier">backtrace</span>.<span class="ruby-identifier">join</span>(<span class="ruby-string">&quot;\n&quot;</span>)
+    <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;Saw an Exception of class #{except.class}, with &quot;</span> <span class="ruby-operator">+</span>
+      <span class="ruby-node">&quot;trace: #{trace}&quot;</span>)
 
     <span class="ruby-keyword">if</span> <span class="ruby-identifier">retry_on_except</span>
       <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">sleep</span>(<span class="ruby-value">1</span>)
       <span class="ruby-keyword">retry</span>
     <span class="ruby-keyword">else</span>
-      <span class="ruby-identifier">raise</span> <span class="ruby-constant">AppScaleException</span>.<span class="ruby-identifier">new</span>(<span class="ruby-node">&quot;[#{callr}] We saw an unexpected error of&quot;</span> <span class="ruby-operator">+</span>
-        <span class="ruby-node">&quot; the type #{except.class} with the following message:\n#{except}.&quot;</span>)
+      <span class="ruby-identifier">raise</span> <span class="ruby-constant">AppScaleException</span>.<span class="ruby-identifier">new</span>(<span class="ruby-node">&quot;[#{callr}] We saw an unexpected error &quot;</span> <span class="ruby-operator">+</span>
+        <span class="ruby-node">&quot;of the type #{except.class} with the following message:\n&quot;</span> <span class="ruby-operator">+</span>
+        <span class="ruby-node">&quot;#{except}. Trace is #{trace}&quot;</span>)
     <span class="ruby-keyword">end</span>
   <span class="ruby-keyword">end</span>
 <span class="ruby-keyword">end</span></pre>
@@ -384,7 +438,7 @@ The result of the block is returned to the caller.</p>
 
           
           <div class="method-source-code" id="run_instances-source">
-            <pre><span class="ruby-comment"># File lib/infrastructure_manager_client.rb, line 116</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/infrastructure_manager_client.rb, line 121</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">run_instances</span>(<span class="ruby-identifier">parameters</span>)
   <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-string">&quot;Calling run_instances with parameters &quot;</span> <span class="ruby-operator">+</span>
     <span class="ruby-node">&quot;#{parameters.inspect}&quot;</span>)
@@ -419,7 +473,7 @@ The result of the block is returned to the caller.</p>
 
           
           <div class="method-source-code" id="spawn_vms-source">
-            <pre><span class="ruby-comment"># File lib/infrastructure_manager_client.rb, line 146</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/infrastructure_manager_client.rb, line 151</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">spawn_vms</span>(<span class="ruby-identifier">num_vms</span>, <span class="ruby-identifier">creds</span>, <span class="ruby-identifier">job</span>, <span class="ruby-identifier">cloud</span>)
   <span class="ruby-identifier">credentials</span> = {
     <span class="ruby-string">'EC2_ACCESS_KEY'</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-identifier">creds</span>[<span class="ruby-string">'ec2_access_key'</span>],
@@ -495,7 +549,7 @@ The result of the block is returned to the caller.</p>
 
           
           <div class="method-source-code" id="terminate_instances-source">
-            <pre><span class="ruby-comment"># File lib/infrastructure_manager_client.rb, line 136</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/infrastructure_manager_client.rb, line 141</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">terminate_instances</span>(<span class="ruby-identifier">parameters</span>)
   <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-string">&quot;Calling terminate_instances with parameters &quot;</span> <span class="ruby-operator">+</span>
     <span class="ruby-node">&quot;#{parameters.inspect}&quot;</span>)
@@ -515,49 +569,6 @@ The result of the block is returned to the caller.</p>
 
     
     </section><!-- public-instance-method-details -->
-  
-     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
-      <h3 class="section-header">Public Class Methods</h3>
-
-    
-      <div id="method-c-new" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">new</span><span
-            class="method-args">(secret)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="new-source">
-            <pre><span class="ruby-comment"># File lib/infrastructure_manager_client.rb, line 48</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">secret</span>)
-  <span class="ruby-identifier">ip</span> = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">local_ip</span>()
-  <span class="ruby-ivar">@secret</span> = <span class="ruby-identifier">secret</span>
-  
-  <span class="ruby-ivar">@conn</span> = <span class="ruby-constant">SOAP</span><span class="ruby-operator">::</span><span class="ruby-constant">RPC</span><span class="ruby-operator">::</span><span class="ruby-constant">Driver</span>.<span class="ruby-identifier">new</span>(<span class="ruby-node">&quot;https://#{ip}:#{SERVER_PORT}&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;get_queues_in_use&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;run_instances&quot;</span>, <span class="ruby-string">&quot;parameters&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;describe_instances&quot;</span>, <span class="ruby-string">&quot;parameters&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;terminate_instances&quot;</span>, <span class="ruby-string">&quot;parameters&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- new-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- new-method -->
-
-    
-    </section><!-- public-class-method-details -->
   
   </section><!-- 5Buntitled-5D -->
 
