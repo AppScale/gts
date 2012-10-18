@@ -25,9 +25,9 @@ from google.appengine.api import urlfetch
 from google.appengine.api import users
 from google.appengine.api import xmpp
 
-from google.appengine.api.appscale.ec2 import ec2
-from google.appengine.api.appscale.mapreduce import mapreduce
-from google.appengine.api.appscale.neptune import neptune
+from google.appengine.api.appscale import ec2
+from google.appengine.api.appscale import mapreduce
+from google.appengine.api.appscale import neptune
 
 import logging
 

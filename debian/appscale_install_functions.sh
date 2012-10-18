@@ -258,6 +258,11 @@ installtornado()
     fi
 }
 
+installflexmock()
+{
+    easy_install flexmock || exit 1
+}
+
 postinstalltornado()
 {
     # just enable tornado

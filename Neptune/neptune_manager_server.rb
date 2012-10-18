@@ -28,8 +28,8 @@ class NeptuneManagerServer < SOAP::RPC::HTTPServer
   def on_init
     @manager = NeptuneManager.new()
 
-    # Expose NeptuneManager methods to the outside world
-    add_method(@manager, "start_job", 'jobs', 'secret')
+    # Add the regular, non-batched SOAP calls.
+    add_method(@manager, "start_job", 'job_data', 'secret')
     add_method(@manager, "is_job_running", "job_data", "secret")
     add_method(@manager, "put_input", "job_data", "secret")
     add_method(@manager, "get_output", "job_data", "secret")
@@ -40,6 +40,12 @@ class NeptuneManagerServer < SOAP::RPC::HTTPServer
     add_method(@manager, "get_supported_babel_engines", "job_data", "secret")
     add_method(@manager, "get_queues_in_use", "secret")
     
+    # Add the new, batch SOAP calls.
+    add_method(@manager, "batch_start_job", "jobs", "secret")
+    add_method(@manager, "batch_put_input", "creds_and_files", "secret")
+    add_method(@manager, "batch_get_supported_babel_engines", "jobs", "secret")
+    add_method(@manager, "batch_does_file_exist", "creds_and_files", "secret")
+
     NeptuneManager::JOB_LIST.each { |name|
       add_method(@manager, "#{name}_run_job", "nodes", "jobs", "secret")
     }

@@ -47,7 +47,7 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>lib/nginx.rb
+    <li>AppController/lib/nginx.rb
   </ul>
 </nav>
 
@@ -84,6 +84,8 @@
     
     <li><a href="#method-c-reload">::reload</a>
     
+    <li><a href="#method-c-reload_nginx">::reload_nginx</a>
+    
     <li><a href="#method-c-remove_app">::remove_app</a>
     
     <li><a href="#method-c-restart">::restart</a>
@@ -93,6 +95,8 @@
     <li><a href="#method-c-stop">::stop</a>
     
     <li><a href="#method-c-write_app_config">::write_app_config</a>
+    
+    <li><a href="#method-c-write_fullproxy_app_config">::write_fullproxy_app_config</a>
     
   </ul>
 </nav>
@@ -118,18 +122,6 @@
   
     <li><a href="./CronHelper.html">CronHelper</a>
   
-    <li><a href="./Datastore.html">Datastore</a>
-  
-    <li><a href="./DatastoreFactory.html">DatastoreFactory</a>
-  
-    <li><a href="./DatastoreRepo.html">DatastoreRepo</a>
-  
-    <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a>
-  
-    <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a>
-  
-    <li><a href="./DatastoreS3.html">DatastoreS3</a>
-  
     <li><a href="./Djinn.html">Djinn</a>
   
     <li><a href="./DjinnJobData.html">DjinnJobData</a>
@@ -138,15 +130,9 @@
   
     <li><a href="./Ejabberd.html">Ejabberd</a>
   
-    <li><a href="./EngineFactory.html">EngineFactory</a>
-  
     <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a>
   
     <li><a href="./GodInterface.html">GodInterface</a>
-  
-    <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a>
-  
-    <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a>
   
     <li><a href="./HAProxy.html">HAProxy</a>
   
@@ -160,13 +146,7 @@
   
     <li><a href="./Monitoring.html">Monitoring</a>
   
-    <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
-  
-    <li><a href="./NeptuneManager.html">NeptuneManager</a>
-  
     <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
-  
-    <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
   
     <li><a href="./Nginx.html">Nginx</a>
   
@@ -174,47 +154,13 @@
   
     <li><a href="./PbServer.html">PbServer</a>
   
-    <li><a href="./QueueFactory.html">QueueFactory</a>
-  
     <li><a href="./RabbitMQ.html">RabbitMQ</a>
   
     <li><a href="./Repo.html">Repo</a>
   
-    <li><a href="./TaskEngine.html">TaskEngine</a>
-  
-    <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a>
-  
-    <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a>
-  
-    <li><a href="./TaskQueue.html">TaskQueue</a>
-  
-    <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a>
-  
-    <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a>
-  
-    <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a>
-  
-    <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a>
-  
-    <li><a href="./TestAppScaleHelper.html">TestAppScaleHelper</a>
-  
-    <li><a href="./TestBabelHelper.html">TestBabelHelper</a>
-  
-    <li><a href="./TestCiceroHelper.html">TestCiceroHelper</a>
-  
-    <li><a href="./TestDatastore.html">TestDatastore</a>
-  
-    <li><a href="./TestNeptuneJobData.html">TestNeptuneJobData</a>
-  
-    <li><a href="./TestNeptuneManager.html">TestNeptuneManager</a>
-  
-    <li><a href="./TestTaskQueue.html">TestTaskQueue</a>
-  
     <li><a href="./UserAppClient.html">UserAppClient</a>
   
     <li><a href="./ZKInterface.html">ZKInterface</a>
-  
-    <li><a href="./ZooKeeperLockException.html">ZooKeeperLockException</a>
   
   </ul>
 </nav>
@@ -250,6 +196,16 @@ deploys nginx within AppScale.</p>
       <h3 class="section-header">Constants</h3>
       <dl>
       
+        <dt id="BLOBSERVER_PORT">BLOBSERVER_PORT
+        
+        <dd class="description">
+        
+      
+        <dt id="CHANNELSERVER_PORT">CHANNELSERVER_PORT
+        
+        <dd class="description">
+        
+      
         <dt id="CONFIG_EXTENSION">CONFIG_EXTENSION
         
         <dd class="description">
@@ -268,6 +224,12 @@ deploys nginx within AppScale.</p>
         <dt id="SITES_ENABLED_PATH">SITES_ENABLED_PATH
         
         <dd class="description">
+        
+      
+        <dt id="SSL_PORT_OFFSET">SSL_PORT_OFFSET
+        
+        <dd class="description"><p>This is the start port of SSL connections to applications. Where an app
+would have the set of ports (8080, 3700), (8081, 3701), and so on.</p>
         
       
         <dt id="START_PORT">START_PORT
@@ -303,7 +265,7 @@ deploys nginx within AppScale.</p>
 
           
           <div class="method-source-code" id="app_listen_port-source">
-            <pre><span class="ruby-comment"># File lib/nginx.rb, line 65</span>
+            <pre><span class="ruby-comment"># File AppController/lib/nginx.rb, line 72</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">app_listen_port</span>(<span class="ruby-identifier">app_number</span>)
   <span class="ruby-constant">START_PORT</span> <span class="ruby-operator">+</span> <span class="ruby-identifier">app_number</span>
 <span class="ruby-keyword">end</span></pre>
@@ -333,7 +295,7 @@ deploys nginx within AppScale.</p>
 
           
           <div class="method-source-code" id="check_config-source">
-            <pre><span class="ruby-comment"># File lib/nginx.rb, line 70</span>
+            <pre><span class="ruby-comment"># File AppController/lib/nginx.rb, line 77</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">check_config</span>
   <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-node">&quot;nginx -t -c #{MAIN_CONFIG_FILE}&quot;</span>)
   <span class="ruby-keyword">return</span> (<span class="ruby-identifier">$?</span>.<span class="ruby-identifier">to_i</span> <span class="ruby-operator">==</span> <span class="ruby-value">0</span>)
@@ -364,7 +326,7 @@ deploys nginx within AppScale.</p>
 
           
           <div class="method-source-code" id="clear_sites_enabled-source">
-            <pre><span class="ruby-comment"># File lib/nginx.rb, line 146</span>
+            <pre><span class="ruby-comment"># File AppController/lib/nginx.rb, line 287</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">clear_sites_enabled</span>
   <span class="ruby-keyword">if</span> <span class="ruby-constant">File</span>.<span class="ruby-identifier">exists?</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>)
     <span class="ruby-identifier">sites</span> = <span class="ruby-constant">Dir</span>.<span class="ruby-identifier">entries</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>)
@@ -390,7 +352,7 @@ deploys nginx within AppScale.</p>
         
         <div class="method-heading">
           <span class="method-name">create_app_config</span><span
-            class="method-args">(my_ip, proxy_port, listen_port, name, public_dir, ssl_port=nil)</span>
+            class="method-args">(my_public_ip, my_private_ip, proxy_port, listen_port, name, public_dir, ssl_port=nil)</span>
           <span class="method-click-advice">click to toggle source</span>
         </div>
         
@@ -403,11 +365,12 @@ services</p>
 
           
           <div class="method-source-code" id="create_app_config-source">
-            <pre><span class="ruby-comment"># File lib/nginx.rb, line 242</span>
-  <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">proxy_port</span>, <span class="ruby-identifier">listen_port</span>, <span class="ruby-identifier">name</span>, <span class="ruby-identifier">public_dir</span>, <span class="ruby-identifier">ssl_port</span>=<span class="ruby-keyword">nil</span>)
+            <pre><span class="ruby-comment"># File AppController/lib/nginx.rb, line 387</span>
+  <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_config</span>(<span class="ruby-identifier">my_public_ip</span>, <span class="ruby-identifier">my_private_ip</span>, <span class="ruby-identifier">proxy_port</span>, 
+    <span class="ruby-identifier">listen_port</span>, <span class="ruby-identifier">name</span>, <span class="ruby-identifier">public_dir</span>, <span class="ruby-identifier">ssl_port</span>=<span class="ruby-keyword">nil</span>)
 
     <span class="ruby-identifier">config</span> = <span class="ruby-string">&quot;upstream #{name} {
-   server #{my_ip}:#{proxy_port};
+   server #{my_private_ip}:#{proxy_port};
 }
 &quot;</span>
 
@@ -415,7 +378,7 @@ services</p>
       <span class="ruby-comment"># redirect all request to ssl port.</span>
       <span class="ruby-identifier">config</span> <span class="ruby-operator">+=</span> <span class="ruby-string">&quot;server {
     listen #{listen_port};
-    rewrite ^(.*) https://#{my_ip}:#{ssl_port}$1 permanent;
+    rewrite ^(.*) https://#{my_public_ip}:#{ssl_port}$1 permanent;
 }
 
 server {
@@ -483,7 +446,7 @@ server {
         
         <div class="method-heading">
           <span class="method-name">create_app_load_balancer_config</span><span
-            class="method-args">(my_ip, proxy_port)</span>
+            class="method-args">(my_public_ip, my_private_ip, proxy_port)</span>
           <span class="method-click-advice">click to toggle source</span>
         </div>
         
@@ -495,9 +458,12 @@ server {
 
           
           <div class="method-source-code" id="create_app_load_balancer_config-source">
-            <pre><span class="ruby-comment"># File lib/nginx.rb, line 159</span>
-<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_load_balancer_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">proxy_port</span>)
-  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">proxy_port</span>, <span class="ruby-constant">LoadBalancer</span>.<span class="ruby-identifier">listen_port</span>, <span class="ruby-constant">LoadBalancer</span>.<span class="ruby-identifier">name</span>, <span class="ruby-constant">LoadBalancer</span>.<span class="ruby-identifier">public_directory</span>, <span class="ruby-constant">LoadBalancer</span>.<span class="ruby-identifier">listen_ssl_port</span>)
+            <pre><span class="ruby-comment"># File AppController/lib/nginx.rb, line 300</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_load_balancer_config</span>(<span class="ruby-identifier">my_public_ip</span>, <span class="ruby-identifier">my_private_ip</span>, 
+  <span class="ruby-identifier">proxy_port</span>)
+  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_config</span>(<span class="ruby-identifier">my_public_ip</span>, <span class="ruby-identifier">my_private_ip</span>, <span class="ruby-identifier">proxy_port</span>, 
+    <span class="ruby-constant">LoadBalancer</span>.<span class="ruby-identifier">listen_port</span>, <span class="ruby-constant">LoadBalancer</span>.<span class="ruby-identifier">name</span>, 
+    <span class="ruby-constant">LoadBalancer</span>.<span class="ruby-identifier">public_directory</span>, <span class="ruby-constant">LoadBalancer</span>.<span class="ruby-identifier">listen_ssl_port</span>)
 <span class="ruby-keyword">end</span></pre>
           </div><!-- create_app_load_balancer_config-source -->
           
@@ -513,7 +479,7 @@ server {
         
         <div class="method-heading">
           <span class="method-name">create_app_monitoring_config</span><span
-            class="method-args">(my_ip, proxy_port)</span>
+            class="method-args">(my_public_ip, my_private_ip, proxy_port)</span>
           <span class="method-click-advice">click to toggle source</span>
         </div>
         
@@ -525,9 +491,10 @@ server {
 
           
           <div class="method-source-code" id="create_app_monitoring_config-source">
-            <pre><span class="ruby-comment"># File lib/nginx.rb, line 164</span>
-<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_monitoring_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">proxy_port</span>)
-  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">proxy_port</span>, <span class="ruby-constant">Monitoring</span>.<span class="ruby-identifier">listen_port</span>, <span class="ruby-constant">Monitoring</span>.<span class="ruby-identifier">name</span>, <span class="ruby-constant">Monitoring</span>.<span class="ruby-identifier">public_directory</span>)
+            <pre><span class="ruby-comment"># File AppController/lib/nginx.rb, line 308</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_monitoring_config</span>(<span class="ruby-identifier">my_public_ip</span>, <span class="ruby-identifier">my_private_ip</span>, <span class="ruby-identifier">proxy_port</span>)
+  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_config</span>(<span class="ruby-identifier">my_public_ip</span>, <span class="ruby-identifier">my_private_ip</span>, <span class="ruby-identifier">proxy_port</span>, 
+    <span class="ruby-constant">Monitoring</span>.<span class="ruby-identifier">listen_port</span>, <span class="ruby-constant">Monitoring</span>.<span class="ruby-identifier">name</span>, <span class="ruby-constant">Monitoring</span>.<span class="ruby-identifier">public_directory</span>)
 <span class="ruby-keyword">end</span></pre>
           </div><!-- create_app_monitoring_config-source -->
           
@@ -555,7 +522,7 @@ server {
 
           
           <div class="method-source-code" id="create_pbserver_config-source">
-            <pre><span class="ruby-comment"># File lib/nginx.rb, line 169</span>
+            <pre><span class="ruby-comment"># File AppController/lib/nginx.rb, line 314</span>
   <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_pbserver_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">proxy_port</span>)
     <span class="ruby-identifier">config</span> = <span class="ruby-string">&quot;upstream #{PbServer::NAME} {
     server #{my_ip}:#{proxy_port};
@@ -652,7 +619,7 @@ for nginx</p>
 
           
           <div class="method-source-code" id="initialize_config-source">
-            <pre><span class="ruby-comment"># File lib/nginx.rb, line 315</span>
+            <pre><span class="ruby-comment"># File AppController/lib/nginx.rb, line 460</span>
   <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">initialize_config</span>
     <span class="ruby-identifier">config</span> = <span class="ruby-string">&quot;user www-data;
 worker_processes  1;
@@ -729,7 +696,7 @@ http {
 
           
           <div class="method-source-code" id="is_running-3F-source">
-            <pre><span class="ruby-comment"># File lib/nginx.rb, line 55</span>
+            <pre><span class="ruby-comment"># File AppController/lib/nginx.rb, line 62</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">is_running?</span>
   <span class="ruby-identifier">processes</span> = <span class="ruby-value">%xps ax | grep nginx | grep -v grep | wc -l`</span>.<span class="ruby-identifier">chomp</span>
   <span class="ruby-keyword">if</span> <span class="ruby-identifier">processes</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;0&quot;</span>
@@ -764,7 +731,7 @@ http {
 
           
           <div class="method-source-code" id="reload-source">
-            <pre><span class="ruby-comment"># File lib/nginx.rb, line 51</span>
+            <pre><span class="ruby-comment"># File AppController/lib/nginx.rb, line 58</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">reload</span>
   <span class="ruby-keyword">self</span>.<span class="ruby-identifier">restart</span>
 <span class="ruby-keyword">end</span></pre>
@@ -776,6 +743,43 @@ http {
 
         
       </div><!-- reload-method -->
+
+    
+      <div id="method-c-reload_nginx" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">reload_nginx</span><span
+            class="method-args">(config_path, app_name)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="reload_nginx-source">
+            <pre><span class="ruby-comment"># File AppController/lib/nginx.rb, line 269</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">reload_nginx</span>(<span class="ruby-identifier">config_path</span>, <span class="ruby-identifier">app_name</span>)
+  <span class="ruby-keyword">if</span> <span class="ruby-constant">Nginx</span>.<span class="ruby-identifier">check_config</span>
+    <span class="ruby-constant">Nginx</span>.<span class="ruby-identifier">reload</span>
+    <span class="ruby-keyword">return</span> <span class="ruby-keyword">true</span>
+  <span class="ruby-keyword">else</span>
+    <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_debug</span>(<span class="ruby-node">&quot;Unable to load Nginx config for #{app_name}&quot;</span>) 
+    <span class="ruby-constant">FileUtils</span>.<span class="ruby-identifier">rm</span>(<span class="ruby-identifier">config_path</span>)
+    <span class="ruby-keyword">return</span> <span class="ruby-keyword">false</span>
+  <span class="ruby-keyword">end</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- reload_nginx-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- reload_nginx-method -->
 
     
       <div id="method-c-remove_app" class="method-detail ">
@@ -794,7 +798,7 @@ http {
 
           
           <div class="method-source-code" id="remove_app-source">
-            <pre><span class="ruby-comment"># File lib/nginx.rb, line 139</span>
+            <pre><span class="ruby-comment"># File AppController/lib/nginx.rb, line 280</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">remove_app</span>(<span class="ruby-identifier">app_name</span>)
   <span class="ruby-identifier">config_name</span> = <span class="ruby-node">&quot;#{app_name}.#{CONFIG_EXTENSION}&quot;</span>
   <span class="ruby-constant">FileUtils</span>.<span class="ruby-identifier">rm</span>(<span class="ruby-constant">File</span>.<span class="ruby-identifier">join</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>, <span class="ruby-identifier">config_name</span>))
@@ -826,7 +830,7 @@ http {
 
           
           <div class="method-source-code" id="restart-source">
-            <pre><span class="ruby-comment"># File lib/nginx.rb, line 46</span>
+            <pre><span class="ruby-comment"># File AppController/lib/nginx.rb, line 53</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">restart</span>
   <span class="ruby-keyword">self</span>.<span class="ruby-identifier">stop</span>
   <span class="ruby-keyword">self</span>.<span class="ruby-identifier">start</span>
@@ -857,7 +861,7 @@ http {
 
           
           <div class="method-source-code" id="start-source">
-            <pre><span class="ruby-comment"># File lib/nginx.rb, line 38</span>
+            <pre><span class="ruby-comment"># File AppController/lib/nginx.rb, line 45</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">start</span>
   <span class="ruby-value">%x/etc/init.d/nginx start`</span>
 <span class="ruby-keyword">end</span></pre>
@@ -887,7 +891,7 @@ http {
 
           
           <div class="method-source-code" id="stop-source">
-            <pre><span class="ruby-comment"># File lib/nginx.rb, line 42</span>
+            <pre><span class="ruby-comment"># File AppController/lib/nginx.rb, line 49</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">stop</span>
   <span class="ruby-value">%x/etc/init.d/nginx stop`</span>
 <span class="ruby-keyword">end</span></pre>
@@ -912,12 +916,13 @@ http {
 
         <div class="method-description">
           
-          <p>Creates a config file for the provided app name</p>
+          <p>Creates a <a href="Nginx.html">Nginx</a> config file for the provided app
+name</p>
           
 
           
           <div class="method-source-code" id="write_app_config-source">
-            <pre><span class="ruby-comment"># File lib/nginx.rb, line 76</span>
+            <pre><span class="ruby-comment"># File AppController/lib/nginx.rb, line 83</span>
   <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">write_app_config</span>(<span class="ruby-identifier">app_name</span>, <span class="ruby-identifier">app_number</span>, <span class="ruby-identifier">my_public_ip</span>, <span class="ruby-identifier">proxy_port</span>, <span class="ruby-identifier">static_handlers</span>, <span class="ruby-identifier">login_ip</span>)
     <span class="ruby-identifier">static_locations</span> = <span class="ruby-identifier">static_handlers</span>.<span class="ruby-identifier">map</span> { <span class="ruby-operator">|</span><span class="ruby-identifier">handler</span><span class="ruby-operator">|</span> <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">generate_location_config</span>(<span class="ruby-identifier">handler</span>) }.<span class="ruby-identifier">join</span>
     <span class="ruby-identifier">listen_port</span> = <span class="ruby-constant">Nginx</span>.<span class="ruby-identifier">app_listen_port</span>(<span class="ruby-identifier">app_number</span>)
@@ -962,7 +967,7 @@ server {
       proxy_buffering off;
       tcp_nodelay on;
       keepalive_timeout 55;
-      proxy_pass http://#{login_ip}:5280/http-bind;
+      proxy_pass http://#{login_ip}:#{CHANNELSERVER_PORT}/http-bind;
     }
 
 }
@@ -971,13 +976,7 @@ server {
     <span class="ruby-identifier">config_path</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">join</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>, <span class="ruby-node">&quot;#{app_name}.#{CONFIG_EXTENSION}&quot;</span>)
     <span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-identifier">config_path</span>, <span class="ruby-string">&quot;w+&quot;</span>) { <span class="ruby-operator">|</span><span class="ruby-identifier">dest_file</span><span class="ruby-operator">|</span> <span class="ruby-identifier">dest_file</span>.<span class="ruby-identifier">write</span>(<span class="ruby-identifier">config</span>) }
 
-    <span class="ruby-keyword">if</span> <span class="ruby-constant">Nginx</span>.<span class="ruby-identifier">check_config</span>
-      <span class="ruby-constant">Nginx</span>.<span class="ruby-identifier">reload</span>
-      <span class="ruby-keyword">return</span> <span class="ruby-keyword">true</span>
-    <span class="ruby-keyword">else</span>
-      <span class="ruby-constant">FileUtils</span>.<span class="ruby-identifier">rm</span>(<span class="ruby-identifier">config_path</span>)
-      <span class="ruby-keyword">return</span> <span class="ruby-keyword">false</span>
-    <span class="ruby-keyword">end</span>
+    <span class="ruby-keyword">return</span> <span class="ruby-identifier">reload_nginx</span>(<span class="ruby-identifier">config_path</span>, <span class="ruby-identifier">app_name</span>)
   <span class="ruby-keyword">end</span></pre>
           </div><!-- write_app_config-source -->
           
@@ -987,6 +986,160 @@ server {
 
         
       </div><!-- write_app_config-method -->
+
+    
+      <div id="method-c-write_fullproxy_app_config" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">write_fullproxy_app_config</span><span
+            class="method-args">(app_name, app_number, my_public_ip, my_private_ip, proxy_port, login_ip, appengine_server_ips)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Creates a <a href="Nginx.html">Nginx</a> config file for the provided app
+name on the load balancer</p>
+          
+
+          
+          <div class="method-source-code" id="write_fullproxy_app_config-source">
+            <pre><span class="ruby-comment"># File AppController/lib/nginx.rb, line 141</span>
+  <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">write_fullproxy_app_config</span>(<span class="ruby-identifier">app_name</span>, <span class="ruby-identifier">app_number</span>, <span class="ruby-identifier">my_public_ip</span>, 
+    <span class="ruby-identifier">my_private_ip</span>, <span class="ruby-identifier">proxy_port</span>, <span class="ruby-identifier">login_ip</span>, <span class="ruby-identifier">appengine_server_ips</span>)
+    <span class="ruby-identifier">listen_port</span> = <span class="ruby-constant">Nginx</span>.<span class="ruby-identifier">app_listen_port</span>(<span class="ruby-identifier">app_number</span>)
+    <span class="ruby-identifier">ssl_listen_port</span> = <span class="ruby-identifier">listen_port</span> <span class="ruby-operator">-</span> <span class="ruby-constant">SSL_PORT_OFFSET</span>
+    <span class="ruby-identifier">blob_servers</span> = []
+    <span class="ruby-identifier">servers</span> = []
+    <span class="ruby-identifier">appengine_server_ips</span>.<span class="ruby-identifier">each</span> <span class="ruby-keyword">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">ip</span><span class="ruby-operator">|</span>
+      <span class="ruby-identifier">servers</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-node">&quot;server #{ip}:#{listen_port};&quot;</span>
+    <span class="ruby-keyword">end</span>
+    <span class="ruby-identifier">appengine_server_ips</span>.<span class="ruby-identifier">each</span> <span class="ruby-keyword">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">ip</span><span class="ruby-operator">|</span>
+      <span class="ruby-identifier">blob_servers</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-node">&quot;server #{ip}:#{BLOBSERVER_PORT};&quot;</span>
+    <span class="ruby-keyword">end</span>
+    <span class="ruby-identifier">servers</span> = <span class="ruby-identifier">servers</span>.<span class="ruby-identifier">join</span>(<span class="ruby-string">&quot;\n&quot;</span>)
+    <span class="ruby-identifier">config</span> = <span class="ruby-string">&quot;# Any requests that arent static files get sent to haproxy
+upstream gae_#{app_name} {
+    #{servers}
+}
+upstream gae_#{app_name}_blobstore {
+    #{blob_servers}
+}
+server {
+    listen #{listen_port};
+    server_name #{my_public_ip}-#{app_name};
+    #root /var/apps/#{app_name}/app;
+    # Uncomment these lines to enable logging, and comment out the following two
+    #access_log  /var/log/nginx/#{app_name}.access.log upstream;
+    error_log  /var/log/nginx/#{app_name}.error.log;
+    access_log off;
+    #error_log /dev/null crit;
+
+    rewrite_log off;
+    error_page 404 = /404.html;
+    set $cache_dir /var/apps/#{app_name}/cache;
+
+    location / {
+      proxy_set_header  X-Real-IP  $remote_addr;
+      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header Host $http_host;
+      proxy_redirect off;
+      proxy_pass http://gae_#{app_name};
+      client_max_body_size 2G;
+      proxy_connect_timeout 60;
+      client_body_timeout 60;
+      proxy_read_timeout 60;
+    }
+
+    location /reserved-channel-appscale-path {
+      proxy_buffering off;
+      tcp_nodelay on;
+      keepalive_timeout 55;
+      proxy_pass http://#{login_ip}:#{CHANNELSERVER_PORT}/http-bind;
+    }
+
+}
+server {
+    listen #{BLOBSERVER_PORT};
+    server_name #{my_public_ip}-#{app_name}-blobstore;
+    #root /var/apps/#{app_name}/app;
+    # Uncomment these lines to enable logging, and comment out the following two
+    #access_log  /var/log/nginx/#{app_name}-blobstore.access.log upstream;
+    error_log  /var/log/nginx/#{app_name}-blobstore.error.log;
+    access_log off;
+    #error_log /dev/null crit;
+
+    rewrite_log off;
+    error_page 404 = /404.html;
+
+    location / {
+      proxy_set_header  X-Real-IP  $remote_addr;
+      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header Host $http_host;
+      proxy_redirect off;
+      proxy_pass http://gae_#{app_name}_blobstore;
+      client_max_body_size 2G;
+      proxy_connect_timeout 600;
+      client_body_timeout 600;
+      proxy_read_timeout 600;
+    }
+}    
+
+server {
+    listen #{ssl_listen_port};
+    server_name #{my_public_ip}-#{app_name}-ssl;
+    ssl on;
+    ssl_certificate /etc/nginx/mycert.pem;
+    ssl_certificate_key /etc/nginx/mykey.pem;
+
+    #root /var/apps/#{app_name}/app;
+    # Uncomment these lines to enable logging, and comment out the following two
+    #access_log  /var/log/nginx/#{app_name}.access.log upstream;
+    error_log  /var/log/nginx/#{app_name}.error.log;
+    access_log off;
+    #error_log /dev/null crit;
+
+    rewrite_log off;
+    error_page 404 = /404.html;
+    set $cache_dir /var/apps/#{app_name}/cache;
+
+    location / {
+      proxy_set_header  X-Real-IP  $remote_addr;
+      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header Host $http_host;
+      proxy_redirect off;
+      proxy_pass http://gae_#{app_name};
+      client_max_body_size 2G;
+      proxy_connect_timeout 60;
+      client_body_timeout 60;
+      proxy_read_timeout 60;
+    }
+
+    location /reserved-channel-appscale-path {
+      proxy_buffering off;
+      tcp_nodelay on;
+      keepalive_timeout 55;
+      proxy_pass http://#{login_ip}:#{CHANNELSERVER_PORT}/http-bind;
+    }
+
+
+}
+&quot;</span>
+
+    <span class="ruby-identifier">config_path</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">join</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>, <span class="ruby-node">&quot;#{app_name}.#{CONFIG_EXTENSION}&quot;</span>)
+    <span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-identifier">config_path</span>, <span class="ruby-string">&quot;w+&quot;</span>) { <span class="ruby-operator">|</span><span class="ruby-identifier">dest_file</span><span class="ruby-operator">|</span> <span class="ruby-identifier">dest_file</span>.<span class="ruby-identifier">write</span>(<span class="ruby-identifier">config</span>) }
+
+    <span class="ruby-keyword">return</span> <span class="ruby-identifier">reload_nginx</span>(<span class="ruby-identifier">config_path</span>, <span class="ruby-identifier">app_name</span>)
+  <span class="ruby-keyword">end</span></pre>
+          </div><!-- write_fullproxy_app_config-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- write_fullproxy_app_config-method -->
 
     
     </section><!-- public-class-method-details -->

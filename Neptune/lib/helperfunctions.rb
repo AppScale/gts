@@ -244,6 +244,7 @@ module HelperFunctions
       f.read
     })
   end
+
   
   def self.get_key(filename)
     return nil unless File.exists?(filename)
@@ -251,6 +252,7 @@ module HelperFunctions
       f.read
     })
   end
+
   
   def self.get_secret(filename="/etc/appscale/secret.key")
     return self.read_file(File.expand_path(filename), chomp=true)
@@ -262,6 +264,7 @@ module HelperFunctions
   def self.local_ip
     UDPSocket.open {|s| s.connect("64.233.187.99", 1); s.addr.last }
   end
+
 
   def self.get_random_alphanumeric(length=10)
     random = ""
@@ -278,6 +281,19 @@ module HelperFunctions
 
   def self.get_cloud_info()
     return self.read_json_file(CLOUD_INFO_FILE)
+  end
+
+
+  def self.get_num_cpus()
+    return Integer(`cat /proc/cpuinfo | grep 'processor' | wc -l`.chomp)
+  end
+
+
+  def self.obscure_string(string)
+    return string if string.nil? or string.length < 4
+    last_four = string[string.length-4, string.length]
+    obscured = "*" * (string.length-4)
+    return obscured + last_four
   end
 
 

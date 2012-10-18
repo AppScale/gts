@@ -8,6 +8,8 @@ require 'logger'
 require 'soap/rpc/driver'
 
 APPSCALE_HOME = ENV['APPSCALE_HOME']
+ENV['EC2_HOME'] = "/usr/local/ec2-api-tools"
+ENV['JAVA_HOME'] = "/usr/lib/jvm/java-6-openjdk"
 
 # Import for AppController
 $:.unshift File.join(File.dirname(__FILE__))
@@ -68,6 +70,7 @@ end
 `rm -f #{APPSCALE_HOME}/.appscale/status-*`
 `rm -f #{APPSCALE_HOME}/.appscale/database_info`
 `rm -f /tmp/mysql.sock`
+puts `apt-get remove -y consolekit`
 Nginx.clear_sites_enabled
 Collectd.clear_sites_enabled
 HAProxy.clear_sites_enabled

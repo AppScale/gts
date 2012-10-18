@@ -47,7 +47,7 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>lib/rabbitmq.rb
+    <li>AppController/lib/rabbitmq.rb
   </ul>
 </nav>
 
@@ -98,18 +98,6 @@
   
     <li><a href="./CronHelper.html">CronHelper</a>
   
-    <li><a href="./Datastore.html">Datastore</a>
-  
-    <li><a href="./DatastoreFactory.html">DatastoreFactory</a>
-  
-    <li><a href="./DatastoreRepo.html">DatastoreRepo</a>
-  
-    <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a>
-  
-    <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a>
-  
-    <li><a href="./DatastoreS3.html">DatastoreS3</a>
-  
     <li><a href="./Djinn.html">Djinn</a>
   
     <li><a href="./DjinnJobData.html">DjinnJobData</a>
@@ -118,15 +106,9 @@
   
     <li><a href="./Ejabberd.html">Ejabberd</a>
   
-    <li><a href="./EngineFactory.html">EngineFactory</a>
-  
     <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a>
   
     <li><a href="./GodInterface.html">GodInterface</a>
-  
-    <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a>
-  
-    <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a>
   
     <li><a href="./HAProxy.html">HAProxy</a>
   
@@ -140,13 +122,7 @@
   
     <li><a href="./Monitoring.html">Monitoring</a>
   
-    <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
-  
-    <li><a href="./NeptuneManager.html">NeptuneManager</a>
-  
     <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
-  
-    <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
   
     <li><a href="./Nginx.html">Nginx</a>
   
@@ -154,47 +130,13 @@
   
     <li><a href="./PbServer.html">PbServer</a>
   
-    <li><a href="./QueueFactory.html">QueueFactory</a>
-  
     <li><a href="./RabbitMQ.html">RabbitMQ</a>
   
     <li><a href="./Repo.html">Repo</a>
   
-    <li><a href="./TaskEngine.html">TaskEngine</a>
-  
-    <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a>
-  
-    <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a>
-  
-    <li><a href="./TaskQueue.html">TaskQueue</a>
-  
-    <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a>
-  
-    <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a>
-  
-    <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a>
-  
-    <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a>
-  
-    <li><a href="./TestAppScaleHelper.html">TestAppScaleHelper</a>
-  
-    <li><a href="./TestBabelHelper.html">TestBabelHelper</a>
-  
-    <li><a href="./TestCiceroHelper.html">TestCiceroHelper</a>
-  
-    <li><a href="./TestDatastore.html">TestDatastore</a>
-  
-    <li><a href="./TestNeptuneJobData.html">TestNeptuneJobData</a>
-  
-    <li><a href="./TestNeptuneManager.html">TestNeptuneManager</a>
-  
-    <li><a href="./TestTaskQueue.html">TestTaskQueue</a>
-  
     <li><a href="./UserAppClient.html">UserAppClient</a>
   
     <li><a href="./ZKInterface.html">ZKInterface</a>
-  
-    <li><a href="./ZooKeeperLockException.html">ZooKeeperLockException</a>
   
   </ul>
 </nav>
@@ -270,7 +212,7 @@ runs.</p>
 
           
           <div class="method-source-code" id="erase_local_files-source">
-            <pre><span class="ruby-comment"># File lib/rabbitmq.rb, line 86</span>
+            <pre><span class="ruby-comment"># File AppController/lib/rabbitmq.rb, line 89</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">erase_local_files</span>()
   <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_run</span>(<span class="ruby-string">&quot;rm -rf /var/log/rabbitmq/*&quot;</span>)
   <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_run</span>(<span class="ruby-string">&quot;rm -rf /var/lib/rabbitmq/mnesia/*&quot;</span>)
@@ -303,7 +245,7 @@ be running <a href="RabbitMQ.html">RabbitMQ</a>.</p>
 
           
           <div class="method-source-code" id="start_master-source">
-            <pre><span class="ruby-comment"># File lib/rabbitmq.rb, line 26</span>
+            <pre><span class="ruby-comment"># File AppController/lib/rabbitmq.rb, line 26</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">start_master</span>()
   <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_debug</span>(<span class="ruby-string">&quot;Starting RabbitMQ Master&quot;</span>)
   <span class="ruby-keyword">self</span>.<span class="ruby-identifier">write_cookie</span>()
@@ -342,7 +284,7 @@ the machine playing the ‘rabbitmq_master’ role.”</p>
 
           
           <div class="method-source-code" id="start_slave-source">
-            <pre><span class="ruby-comment"># File lib/rabbitmq.rb, line 40</span>
+            <pre><span class="ruby-comment"># File AppController/lib/rabbitmq.rb, line 40</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">start_slave</span>(<span class="ruby-identifier">master_ip</span>)
   <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_debug</span>(<span class="ruby-string">&quot;Starting RabbitMQ Slave&quot;</span>)
   <span class="ruby-keyword">self</span>.<span class="ruby-identifier">write_cookie</span>()
@@ -353,12 +295,15 @@ the machine playing the ‘rabbitmq_master’ role.”</p>
   <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">sleep_until_port_is_open</span>(<span class="ruby-identifier">master_ip</span>, <span class="ruby-constant">SERVER_PORT</span>)
 
   <span class="ruby-comment"># start the server, reset it to join the head node</span>
-  <span class="ruby-identifier">start_cmds</span> = [<span class="ruby-node">&quot;rabbitmq-server -detached -setcookie #{HelperFunctions.get_secret()}&quot;</span>,
-               <span class="ruby-string">&quot;rabbitmqctl start_app&quot;</span>,
-               <span class="ruby-string">&quot;rabbitmqctl stop_app&quot;</span>,
-               <span class="ruby-string">&quot;rabbitmqctl reset&quot;</span>,
-               <span class="ruby-string">&quot;rabbitmqctl cluster rabbit@appscale-image0&quot;</span>,
-               <span class="ruby-string">&quot;rabbitmqctl start_app&quot;</span>]
+  <span class="ruby-comment"># TODO(cgb): This looks like this assumes that the head node is</span>
+  <span class="ruby-comment"># appscale-image0 - true for default deployments but not necessarily</span>
+  <span class="ruby-comment"># so in advanced placement scenarios. Change accordingly.</span>
+  <span class="ruby-identifier">start_cmds</span> = [<span class="ruby-string">&quot;rabbitmqctl start_app&quot;</span>,
+                <span class="ruby-string">&quot;rabbitmqctl stop_app&quot;</span>,
+                <span class="ruby-string">&quot;rabbitmqctl reset&quot;</span>,
+                <span class="ruby-node">&quot;rabbitmq-server -detached -setcookie #{HelperFunctions.get_secret()}&quot;</span>,
+                <span class="ruby-string">&quot;rabbitmqctl cluster rabbit@appscale-image0&quot;</span>,
+                <span class="ruby-string">&quot;rabbitmqctl start_app&quot;</span>]
   <span class="ruby-identifier">full_cmd</span> = <span class="ruby-node">&quot;#{start_cmds.join('; ')}&quot;</span>
 
   <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_run</span>(<span class="ruby-node">&quot;#{full_cmd}&quot;</span>)
@@ -394,7 +339,7 @@ need to do to stop the server.</p>
 
           
           <div class="method-source-code" id="stop-source">
-            <pre><span class="ruby-comment"># File lib/rabbitmq.rb, line 68</span>
+            <pre><span class="ruby-comment"># File AppController/lib/rabbitmq.rb, line 71</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">stop</span>()
   <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">log_debug</span>(<span class="ruby-string">&quot;Shutting down RabbitMQ&quot;</span>)
 <span class="ruby-keyword">end</span></pre>
@@ -428,7 +373,7 @@ the other.</p>
 
           
           <div class="method-source-code" id="write_cookie-source">
-            <pre><span class="ruby-comment"># File lib/rabbitmq.rb, line 78</span>
+            <pre><span class="ruby-comment"># File AppController/lib/rabbitmq.rb, line 81</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">write_cookie</span>()
   <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">write_file</span>(<span class="ruby-constant">COOKIE_FILE</span>, <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">get_secret</span>())
 <span class="ruby-keyword">end</span></pre>

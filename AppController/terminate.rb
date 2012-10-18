@@ -90,6 +90,7 @@ end
 
 # TODO(cgb): Use FileUtils.rm_rf
 # I remember it had some problems with *s, so look into that
+# maybe glob it with Dir.glob? to alleviate this?
 `rm -rf /var/apps/`
 `rm -rf #{APPSCALE_HOME}/.appscale/*.pid`
 `rm -rf /tmp/ec2/*`
@@ -104,13 +105,15 @@ end
 # TODO(cgb): Use the constant in djinn.rb (ZK_LOCATIONS_FILE)
 `rm -rf /etc/appscale/zookeeper_locations.json`
 
+`rm -rf /var/cache/neptune/*`
+
 `echo "" > /root/.ssh/known_hosts` # empty it out but leave the file there
 
 # force kill processes
 
 ["memcached",
  "nginx", "haproxy", "collectd", "collectdmon",
- "soap_server", "appscale_server",
+ "soap_server", "appscale_server", "datastore_server",
  "AppLoadBalancer", "AppMonitoring",
  # AppServer
  "dev_appserver", "DevAppServerMain",

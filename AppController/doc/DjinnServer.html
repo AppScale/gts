@@ -47,7 +47,7 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>djinnServer.rb
+    <li>AppController/djinnServer.rb
   </ul>
 </nav>
 
@@ -100,18 +100,6 @@
   
     <li><a href="./CronHelper.html">CronHelper</a>
   
-    <li><a href="./Datastore.html">Datastore</a>
-  
-    <li><a href="./DatastoreFactory.html">DatastoreFactory</a>
-  
-    <li><a href="./DatastoreRepo.html">DatastoreRepo</a>
-  
-    <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a>
-  
-    <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a>
-  
-    <li><a href="./DatastoreS3.html">DatastoreS3</a>
-  
     <li><a href="./Djinn.html">Djinn</a>
   
     <li><a href="./DjinnJobData.html">DjinnJobData</a>
@@ -120,15 +108,9 @@
   
     <li><a href="./Ejabberd.html">Ejabberd</a>
   
-    <li><a href="./EngineFactory.html">EngineFactory</a>
-  
     <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a>
   
     <li><a href="./GodInterface.html">GodInterface</a>
-  
-    <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a>
-  
-    <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a>
   
     <li><a href="./HAProxy.html">HAProxy</a>
   
@@ -142,13 +124,7 @@
   
     <li><a href="./Monitoring.html">Monitoring</a>
   
-    <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
-  
-    <li><a href="./NeptuneManager.html">NeptuneManager</a>
-  
     <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
-  
-    <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
   
     <li><a href="./Nginx.html">Nginx</a>
   
@@ -156,47 +132,13 @@
   
     <li><a href="./PbServer.html">PbServer</a>
   
-    <li><a href="./QueueFactory.html">QueueFactory</a>
-  
     <li><a href="./RabbitMQ.html">RabbitMQ</a>
   
     <li><a href="./Repo.html">Repo</a>
   
-    <li><a href="./TaskEngine.html">TaskEngine</a>
-  
-    <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a>
-  
-    <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a>
-  
-    <li><a href="./TaskQueue.html">TaskQueue</a>
-  
-    <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a>
-  
-    <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a>
-  
-    <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a>
-  
-    <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a>
-  
-    <li><a href="./TestAppScaleHelper.html">TestAppScaleHelper</a>
-  
-    <li><a href="./TestBabelHelper.html">TestBabelHelper</a>
-  
-    <li><a href="./TestCiceroHelper.html">TestCiceroHelper</a>
-  
-    <li><a href="./TestDatastore.html">TestDatastore</a>
-  
-    <li><a href="./TestNeptuneJobData.html">TestNeptuneJobData</a>
-  
-    <li><a href="./TestNeptuneManager.html">TestNeptuneManager</a>
-  
-    <li><a href="./TestTaskQueue.html">TestTaskQueue</a>
-  
     <li><a href="./UserAppClient.html">UserAppClient</a>
   
     <li><a href="./ZKInterface.html">ZKInterface</a>
-  
-    <li><a href="./ZooKeeperLockException.html">ZooKeeperLockException</a>
   
   </ul>
 </nav>
@@ -268,7 +210,7 @@ href="Djinn.html">Djinn</a> that adds SOAP capabilities to it.</p>
 
           
           <div class="method-source-code" id="djinn_locations-source">
-            <pre><span class="ruby-comment"># File djinnServer.rb, line 38</span>
+            <pre><span class="ruby-comment"># File AppController/djinnServer.rb, line 38</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">djinn_locations</span>
   <span class="ruby-ivar">@djinn</span>.<span class="ruby-identifier">djinn_locations</span>
 <span class="ruby-keyword">end</span></pre>
@@ -298,7 +240,7 @@ href="Djinn.html">Djinn</a> that adds SOAP capabilities to it.</p>
 
           
           <div class="method-source-code" id="job-source">
-            <pre><span class="ruby-comment"># File djinnServer.rb, line 34</span>
+            <pre><span class="ruby-comment"># File AppController/djinnServer.rb, line 34</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">job</span>
   <span class="ruby-ivar">@djinn</span>.<span class="ruby-identifier">job</span>
 <span class="ruby-keyword">end</span></pre>
@@ -328,7 +270,7 @@ href="Djinn.html">Djinn</a> that adds SOAP capabilities to it.</p>
 
           
           <div class="method-source-code" id="on_init-source">
-            <pre><span class="ruby-comment"># File djinnServer.rb, line 42</span>
+            <pre><span class="ruby-comment"># File AppController/djinnServer.rb, line 42</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">on_init</span>
   <span class="ruby-ivar">@djinn</span> = <span class="ruby-constant">Djinn</span>.<span class="ruby-identifier">new</span>
 

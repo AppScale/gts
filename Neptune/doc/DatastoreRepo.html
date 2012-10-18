@@ -47,7 +47,7 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>lib/datastores/datastore_repo.rb
+    <li>Neptune/lib/datastores/datastore_repo.rb
   </ul>
 </nav>
 
@@ -118,6 +118,8 @@
   
     <li><a href="./DatastoreS3.html">DatastoreS3</a>
   
+    <li><a href="./DatastoreWAZStorage.html">DatastoreWAZStorage</a>
+  
     <li><a href="./DjinnJobData.html">DjinnJobData</a>
   
     <li><a href="./EngineFactory.html">EngineFactory</a>
@@ -132,9 +134,13 @@
   
     <li><a href="./InfrastructureManagerClient.html">InfrastructureManagerClient</a>
   
+    <li><a href="./JSONClient.html">JSONClient</a>
+  
     <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
   
     <li><a href="./NeptuneManager.html">NeptuneManager</a>
+  
+    <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
   
     <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
   
@@ -233,6 +239,44 @@ amongst <a href="Datastore.html">Datastore</a> implementers.</p>
 
     <!-- Methods -->
     
+     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="method-c-new" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">new</span><span
+            class="method-args">(credentials)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Creates a new connection to the Repo running on AppScale. Since AppScale
+starts the Repo automatically, this initialization does not start it or
+verify that it is running (although it perhaps should do the latter).</p>
+          
+
+          
+          <div class="method-source-code" id="new-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/datastores/datastore_repo.rb, line 28</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">credentials</span>)
+  <span class="ruby-identifier">raise</span> <span class="ruby-constant">NotImplementedError</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;Can't init an abstract Repo&quot;</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- new-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- new-method -->
+
+    
+    </section><!-- public-class-method-details -->
+  
      <section id="public-instance-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Instance Methods</h3>
 
@@ -254,7 +298,7 @@ app, returning whatever it returns.</p>
 
           
           <div class="method-source-code" id="do_http_get_for_get-source">
-            <pre><span class="ruby-comment"># File lib/datastores/datastore_repo.rb, line 111</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/datastores/datastore_repo.rb, line 111</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">do_http_get_for_get</span>(<span class="ruby-identifier">repo_path</span>, <span class="ruby-identifier">type</span>)
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Performing a get on key [#{repo_path}], type [#{type}]&quot;</span>)
   <span class="ruby-identifier">get_url</span> = <span class="ruby-node">&quot;http://#{@host}/get&quot;</span>
@@ -290,7 +334,7 @@ app, returning a boolean corresponding to if the operation succeeded.</p>
 
           
           <div class="method-source-code" id="do_http_post_for_set-source">
-            <pre><span class="ruby-comment"># File lib/datastores/datastore_repo.rb, line 123</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/datastores/datastore_repo.rb, line 123</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">do_http_post_for_set</span>(<span class="ruby-identifier">repo_path</span>, <span class="ruby-identifier">type</span>, <span class="ruby-identifier">val</span>)
   <span class="ruby-identifier">encoded_val</span> = <span class="ruby-constant">Base64</span>.<span class="ruby-identifier">encode64</span>(<span class="ruby-identifier">val</span>)
   <span class="ruby-identifier">set_url</span> = <span class="ruby-node">&quot;http://#{@host}/set&quot;</span>
@@ -330,7 +374,7 @@ app, returning a boolean corresponding to if the operation succeeded.</p>
 
           
           <div class="method-source-code" id="does_file_exist-3F-source">
-            <pre><span class="ruby-comment"># File lib/datastores/datastore_repo.rb, line 96</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/datastores/datastore_repo.rb, line 96</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">does_file_exist?</span>(<span class="ruby-identifier">repo_path</span>)
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Performing a does_file_exist? on file [#{repo_path}]&quot;</span>)
   <span class="ruby-identifier">exists_url</span> = <span class="ruby-node">&quot;http://#{@host}/doesexist&quot;</span>
@@ -368,7 +412,7 @@ app, returning a boolean corresponding to if the operation succeeded.</p>
 
           
           <div class="method-source-code" id="get_acl-source">
-            <pre><span class="ruby-comment"># File lib/datastores/datastore_repo.rb, line 82</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/datastores/datastore_repo.rb, line 82</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_acl</span>(<span class="ruby-identifier">repo_path</span>)
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Attempting to get acl for file [#{repo_path}]&quot;</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-identifier">do_http_get_for_get</span>(<span class="ruby-identifier">repo_path</span>, <span class="ruby-value">:acl</span>)
@@ -399,7 +443,7 @@ app, returning a boolean corresponding to if the operation succeeded.</p>
 
           
           <div class="method-source-code" id="get_output_and_return_contents-source">
-            <pre><span class="ruby-comment"># File lib/datastores/datastore_repo.rb, line 41</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/datastores/datastore_repo.rb, line 41</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_output_and_return_contents</span>(<span class="ruby-identifier">repo_path</span>)
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Attempting to get output for file [#{repo_path}]&quot;</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-identifier">do_http_get_for_get</span>(<span class="ruby-identifier">repo_path</span>, <span class="ruby-value">:output</span>)
@@ -430,7 +474,7 @@ app, returning a boolean corresponding to if the operation succeeded.</p>
 
           
           <div class="method-source-code" id="get_output_and_save_to_fs-source">
-            <pre><span class="ruby-comment"># File lib/datastores/datastore_repo.rb, line 34</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/datastores/datastore_repo.rb, line 34</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_output_and_save_to_fs</span>(<span class="ruby-identifier">repo_path</span>, <span class="ruby-identifier">local_path</span>)
   <span class="ruby-identifier">data</span> = <span class="ruby-identifier">get_output_and_return_contents</span>(<span class="ruby-identifier">repo_path</span>)
   <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">write_file</span>(<span class="ruby-identifier">local_path</span>, <span class="ruby-identifier">data</span>)
@@ -461,7 +505,7 @@ app, returning a boolean corresponding to if the operation succeeded.</p>
 
           
           <div class="method-source-code" id="set_acl-source">
-            <pre><span class="ruby-comment"># File lib/datastores/datastore_repo.rb, line 89</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/datastores/datastore_repo.rb, line 89</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">set_acl</span>(<span class="ruby-identifier">repo_path</span>, <span class="ruby-identifier">acl</span>)
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Attempting to set acl to [#{acl}] for file #{repo_path}&quot;</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-identifier">do_http_post_for_set</span>(<span class="ruby-identifier">repo_path</span>, <span class="ruby-value">:acl</span>, <span class="ruby-identifier">acl</span>)
@@ -494,7 +538,7 @@ that directory.</p>
 
           
           <div class="method-source-code" id="write_remote_file_from_local_file-source">
-            <pre><span class="ruby-comment"># File lib/datastores/datastore_repo.rb, line 50</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/datastores/datastore_repo.rb, line 50</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">write_remote_file_from_local_file</span>(<span class="ruby-identifier">repo_path</span>, <span class="ruby-identifier">local_path</span>)
   <span class="ruby-keyword">if</span> <span class="ruby-constant">File</span>.<span class="ruby-identifier">directory?</span>(<span class="ruby-identifier">local_path</span>)
     <span class="ruby-identifier">files_to_upload</span> = <span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-node">&quot;ls #{local_path}&quot;</span>)
@@ -543,7 +587,7 @@ that directory.</p>
 
           
           <div class="method-source-code" id="write_remote_file_from_string-source">
-            <pre><span class="ruby-comment"># File lib/datastores/datastore_repo.rb, line 75</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/datastores/datastore_repo.rb, line 75</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">write_remote_file_from_string</span>(<span class="ruby-identifier">repo_path</span>, <span class="ruby-identifier">string</span>)
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Attempting to put local file into location #{repo_path}&quot;</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-identifier">do_http_post_for_set</span>(<span class="ruby-identifier">repo_path</span>, <span class="ruby-value">:output</span>, <span class="ruby-identifier">string</span>)
@@ -559,44 +603,6 @@ that directory.</p>
 
     
     </section><!-- public-instance-method-details -->
-  
-     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
-      <h3 class="section-header">Public Class Methods</h3>
-
-    
-      <div id="method-c-new" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">new</span><span
-            class="method-args">(credentials)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          <p>Creates a new connection to the Repo running on AppScale. Since AppScale
-starts the Repo automatically, this initialization does not start it or
-verify that it is running (although it perhaps should do the latter).</p>
-          
-
-          
-          <div class="method-source-code" id="new-source">
-            <pre><span class="ruby-comment"># File lib/datastores/datastore_repo.rb, line 28</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">credentials</span>)
-  <span class="ruby-identifier">raise</span> <span class="ruby-constant">NotImplementedError</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;Can't init an abstract Repo&quot;</span>)
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- new-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- new-method -->
-
-    
-    </section><!-- public-class-method-details -->
   
   </section><!-- 5Buntitled-5D -->
 
