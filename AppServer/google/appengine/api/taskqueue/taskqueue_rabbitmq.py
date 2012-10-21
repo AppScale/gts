@@ -360,12 +360,9 @@ class _BackgroundTaskScheduler(object):
     self._should_exit = False
     self.task_executor = task_executor
     self.default_retry_seconds = retry_seconds
-    try:
-      self.connection = pika.BlockingConnection(pika.ConnectionParameters(
+    self.connection = pika.BlockingConnection(pika.ConnectionParameters(
         host='localhost'))
-      self.channel = self.connection.channel()
-    except Exception, e:
-      logging.error("Unable to connecto RabbitMQ")
+    self.channel = self.connection.channel()
     self._queue_name = "app_%s"%app_name
     if kwargs:
       raise TypeError('Unknown parameters: %s' % ', '.join(kwargs))
@@ -447,8 +444,6 @@ class _BackgroundTaskScheduler(object):
           self.connection = pika.BlockingConnection(pika.ConnectionParameters(
                                                     host='localhost'))
           self.channel = self.connection.channel()
-        except Exception, e:
-          logging.error("Unable to connect to RabbitMQ")
         # TODO should be done transactionally with the publish and reject 
         # The API does support transactions see
         # http://www.rabbitmq.com/amqp-0-9-1-reference.html
@@ -458,7 +453,6 @@ class _BackgroundTaskScheduler(object):
  
   def MainLoop(self):
     """The main loop of the scheduler."""
-    reconnect_time = 1
     while 1:
       try:
         logging.info("Connecting to RabbitMQ")
@@ -474,9 +468,8 @@ class _BackgroundTaskScheduler(object):
         logging.error("RabbitMQ Connection error %s"%str(e))
       except Exception, e:
         logging.error("RabbitMQ Unknown exception %s"%str(e))
-      logging.info("Reconnecting in " + str(reconnect_time) + " seconds")
-      time.sleep(reconnect_time) 
-      reconnect_time *= 2
+      logging.info("Reconnecting in 5 seconds")
+      time.sleep(5) 
 
 class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
   """Python only task queue service stub.
@@ -526,13 +519,10 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     self._task_scheduler = _BackgroundTaskScheduler(
         _TaskExecutor(default_http_server, self._secret_hash), app_id, 
         retry_seconds=task_retry_seconds)
-    try:
-      self.connection = pika.BlockingConnection(pika.ConnectionParameters(
+    self.connection = pika.BlockingConnection(pika.ConnectionParameters(
         host='localhost'))
-      self.channel = self.connection.channel()
-      self.channel.queue_declare(queue='app_%s'%app_id, durable=False)
-    except Exception, e:
-      logging.error("Unable to connecto to RabbitMQ")
+    self.channel = self.connection.channel()
+    self.channel.queue_declare(queue='app_%s'%app_id, durable=False)
 
   def StartBackgroundExecution(self):
     """Start automatic task execution."""
@@ -755,8 +745,6 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
                                                    host='localhost'))
       raise apiproxy_errors.ApplicationError(
                  taskqueue_service_pb.TaskQueueServiceError.TRANSIENT_ERROR)
-    except Exception, e:
-      logging.error("Unable to connect to RabbitMQ")
 
   def _LocateTaskByName(self, task_name):
     """ Makes sure the task does not exist or tombstoned
