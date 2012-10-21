@@ -94,6 +94,9 @@ class TestDjinn < Test::Unit::TestCase
 
 
   def test_set_params_w_bad_params
+    flexmock(HelperFunctions).should_receive(:local_ip).
+      and_return("127.0.0.1")
+
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
     }
