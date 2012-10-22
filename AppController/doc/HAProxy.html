@@ -47,7 +47,7 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>lib/haproxy.rb
+    <li>AppController/lib/haproxy.rb
   </ul>
 </nav>
 
@@ -120,18 +120,6 @@
   
     <li><a href="./CronHelper.html">CronHelper</a>
   
-    <li><a href="./Datastore.html">Datastore</a>
-  
-    <li><a href="./DatastoreFactory.html">DatastoreFactory</a>
-  
-    <li><a href="./DatastoreRepo.html">DatastoreRepo</a>
-  
-    <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a>
-  
-    <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a>
-  
-    <li><a href="./DatastoreS3.html">DatastoreS3</a>
-  
     <li><a href="./Djinn.html">Djinn</a>
   
     <li><a href="./DjinnJobData.html">DjinnJobData</a>
@@ -140,15 +128,9 @@
   
     <li><a href="./Ejabberd.html">Ejabberd</a>
   
-    <li><a href="./EngineFactory.html">EngineFactory</a>
-  
     <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a>
   
     <li><a href="./GodInterface.html">GodInterface</a>
-  
-    <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a>
-  
-    <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a>
   
     <li><a href="./HAProxy.html">HAProxy</a>
   
@@ -162,13 +144,7 @@
   
     <li><a href="./Monitoring.html">Monitoring</a>
   
-    <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
-  
-    <li><a href="./NeptuneManager.html">NeptuneManager</a>
-  
     <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
-  
-    <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
   
     <li><a href="./Nginx.html">Nginx</a>
   
@@ -176,47 +152,13 @@
   
     <li><a href="./PbServer.html">PbServer</a>
   
-    <li><a href="./QueueFactory.html">QueueFactory</a>
-  
     <li><a href="./RabbitMQ.html">RabbitMQ</a>
   
     <li><a href="./Repo.html">Repo</a>
   
-    <li><a href="./TaskEngine.html">TaskEngine</a>
-  
-    <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a>
-  
-    <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a>
-  
-    <li><a href="./TaskQueue.html">TaskQueue</a>
-  
-    <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a>
-  
-    <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a>
-  
-    <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a>
-  
-    <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a>
-  
-    <li><a href="./TestAppScaleHelper.html">TestAppScaleHelper</a>
-  
-    <li><a href="./TestBabelHelper.html">TestBabelHelper</a>
-  
-    <li><a href="./TestCiceroHelper.html">TestCiceroHelper</a>
-  
-    <li><a href="./TestDatastore.html">TestDatastore</a>
-  
-    <li><a href="./TestNeptuneJobData.html">TestNeptuneJobData</a>
-  
-    <li><a href="./TestNeptuneManager.html">TestNeptuneManager</a>
-  
-    <li><a href="./TestTaskQueue.html">TestTaskQueue</a>
-  
     <li><a href="./UserAppClient.html">UserAppClient</a>
   
     <li><a href="./ZKInterface.html">ZKInterface</a>
-  
-    <li><a href="./ZooKeeperLockException.html">ZooKeeperLockException</a>
   
   </ul>
 </nav>
@@ -317,7 +259,7 @@ number</p>
 
           
           <div class="method-source-code" id="app_listen_port-source">
-            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 70</span>
+            <pre><span class="ruby-comment"># File AppController/lib/haproxy.rb, line 70</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">app_listen_port</span>(<span class="ruby-identifier">app_number</span>)
   <span class="ruby-constant">START_PORT</span> <span class="ruby-operator">+</span> <span class="ruby-identifier">app_number</span>
 <span class="ruby-keyword">end</span></pre>
@@ -347,7 +289,7 @@ number</p>
 
           
           <div class="method-source-code" id="clear_sites_enabled-source">
-            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 203</span>
+            <pre><span class="ruby-comment"># File AppController/lib/haproxy.rb, line 208</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">clear_sites_enabled</span>
   <span class="ruby-keyword">if</span> <span class="ruby-constant">File</span>.<span class="ruby-identifier">exists?</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>)
     <span class="ruby-identifier">sites</span> = <span class="ruby-constant">Dir</span>.<span class="ruby-identifier">entries</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>)
@@ -373,7 +315,7 @@ number</p>
         
         <div class="method-heading">
           <span class="method-name">create_app_config</span><span
-            class="method-args">(my_ip, listen_port, server_ports, name)</span>
+            class="method-args">(my_public_ip, my_private_ip, listen_port, server_ports, name)</span>
           <span class="method-click-advice">click to toggle source</span>
         </div>
         
@@ -386,15 +328,16 @@ services</p>
 
           
           <div class="method-source-code" id="create_app_config-source">
-            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 90</span>
-<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">listen_port</span>, <span class="ruby-identifier">server_ports</span>, <span class="ruby-identifier">name</span>)
+            <pre><span class="ruby-comment"># File AppController/lib/haproxy.rb, line 94</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_config</span>(<span class="ruby-identifier">my_public_ip</span>, <span class="ruby-identifier">my_private_ip</span>, <span class="ruby-identifier">listen_port</span>, 
+  <span class="ruby-identifier">server_ports</span>, <span class="ruby-identifier">name</span>)
   <span class="ruby-identifier">servers</span> = []
   <span class="ruby-identifier">server_ports</span>.<span class="ruby-identifier">each_with_index</span> <span class="ruby-keyword">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">port</span>, <span class="ruby-identifier">index</span><span class="ruby-operator">|</span>
-    <span class="ruby-identifier">servers</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-constant">HAProxy</span>.<span class="ruby-identifier">server_config</span>(<span class="ruby-identifier">name</span>, <span class="ruby-identifier">index</span>, <span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">port</span>)
+    <span class="ruby-identifier">servers</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-constant">HAProxy</span>.<span class="ruby-identifier">server_config</span>(<span class="ruby-identifier">name</span>, <span class="ruby-identifier">index</span>, <span class="ruby-identifier">my_private_ip</span>, <span class="ruby-identifier">port</span>)
   <span class="ruby-keyword">end</span>
 
   <span class="ruby-identifier">config</span> = <span class="ruby-node">&quot;# Create a load balancer for the #{name} application \n&quot;</span>
-  <span class="ruby-identifier">config</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-node">&quot;listen #{name} #{my_ip}:#{listen_port} \n&quot;</span>
+  <span class="ruby-identifier">config</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-node">&quot;listen #{name} #{my_private_ip}:#{listen_port} \n&quot;</span>
   <span class="ruby-identifier">config</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">servers</span>.<span class="ruby-identifier">join</span>(<span class="ruby-string">&quot;\n&quot;</span>)
 
   <span class="ruby-identifier">config_path</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">join</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>, <span class="ruby-node">&quot;#{name}.#{CONFIG_EXTENSION}&quot;</span>)
@@ -416,7 +359,7 @@ services</p>
         
         <div class="method-heading">
           <span class="method-name">create_app_load_balancer_config</span><span
-            class="method-args">(my_ip, listen_port)</span>
+            class="method-args">(my_public_ip, my_private_ip, listen_port)</span>
           <span class="method-click-advice">click to toggle source</span>
         </div>
         
@@ -428,9 +371,11 @@ services</p>
 
           
           <div class="method-source-code" id="create_app_load_balancer_config-source">
-            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 75</span>
-<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_load_balancer_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">listen_port</span>)
-  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">listen_port</span>, <span class="ruby-constant">LoadBalancer</span>.<span class="ruby-identifier">server_ports</span>, <span class="ruby-constant">LoadBalancer</span>.<span class="ruby-identifier">name</span>)
+            <pre><span class="ruby-comment"># File AppController/lib/haproxy.rb, line 75</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_load_balancer_config</span>(<span class="ruby-identifier">my_public_ip</span>, <span class="ruby-identifier">my_private_ip</span>, 
+  <span class="ruby-identifier">listen_port</span>)
+  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_config</span>(<span class="ruby-identifier">my_public_ip</span>, <span class="ruby-identifier">my_private_ip</span>, <span class="ruby-identifier">listen_port</span>, 
+    <span class="ruby-constant">LoadBalancer</span>.<span class="ruby-identifier">server_ports</span>, <span class="ruby-constant">LoadBalancer</span>.<span class="ruby-identifier">name</span>)
 <span class="ruby-keyword">end</span></pre>
           </div><!-- create_app_load_balancer_config-source -->
           
@@ -446,7 +391,7 @@ services</p>
         
         <div class="method-heading">
           <span class="method-name">create_app_monitoring_config</span><span
-            class="method-args">(my_ip, listen_port)</span>
+            class="method-args">(my_public_ip, my_private_ip, listen_port)</span>
           <span class="method-click-advice">click to toggle source</span>
         </div>
         
@@ -458,9 +403,10 @@ services</p>
 
           
           <div class="method-source-code" id="create_app_monitoring_config-source">
-            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 80</span>
-<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_monitoring_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">listen_port</span>)
-  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">listen_port</span>, <span class="ruby-constant">Monitoring</span>.<span class="ruby-identifier">server_ports</span>, <span class="ruby-constant">Monitoring</span>.<span class="ruby-identifier">name</span>)
+            <pre><span class="ruby-comment"># File AppController/lib/haproxy.rb, line 82</span>
+<span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_monitoring_config</span>(<span class="ruby-identifier">my_public_ip</span>, <span class="ruby-identifier">my_private_ip</span>, <span class="ruby-identifier">listen_port</span>)
+  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_config</span>(<span class="ruby-identifier">my_public_ip</span>, <span class="ruby-identifier">my_private_ip</span>, <span class="ruby-identifier">listen_port</span>, 
+    <span class="ruby-constant">Monitoring</span>.<span class="ruby-identifier">server_ports</span>, <span class="ruby-constant">Monitoring</span>.<span class="ruby-identifier">name</span>)
 <span class="ruby-keyword">end</span></pre>
           </div><!-- create_app_monitoring_config-source -->
           
@@ -488,9 +434,10 @@ services</p>
 
           
           <div class="method-source-code" id="create_pbserver_config-source">
-            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 85</span>
+            <pre><span class="ruby-comment"># File AppController/lib/haproxy.rb, line 88</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_pbserver_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">listen_port</span>, <span class="ruby-identifier">table</span>)
-  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">listen_port</span>, <span class="ruby-constant">PbServer</span>.<span class="ruby-identifier">get_server_ports</span>(<span class="ruby-identifier">table</span>), <span class="ruby-constant">PbServer</span><span class="ruby-operator">::</span><span class="ruby-constant">NAME</span>)
+  <span class="ruby-keyword">self</span>.<span class="ruby-identifier">create_app_config</span>(<span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">listen_port</span>, 
+    <span class="ruby-constant">PbServer</span>.<span class="ruby-identifier">get_server_ports</span>(<span class="ruby-identifier">table</span>), <span class="ruby-constant">PbServer</span><span class="ruby-operator">::</span><span class="ruby-constant">NAME</span>)
 <span class="ruby-keyword">end</span></pre>
           </div><!-- create_pbserver_config-source -->
           
@@ -519,7 +466,7 @@ for haproxy</p>
 
           
           <div class="method-source-code" id="initialize_config-source">
-            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 216</span>
+            <pre><span class="ruby-comment"># File AppController/lib/haproxy.rb, line 221</span>
   <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">initialize_config</span>
     <span class="ruby-identifier">base_config</span> = <span class="ruby-string">&quot;global
   maxconn 64000
@@ -626,7 +573,7 @@ defaults
 
           
           <div class="method-source-code" id="is_running-3F-source">
-            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 60</span>
+            <pre><span class="ruby-comment"># File AppController/lib/haproxy.rb, line 60</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">is_running?</span>
   <span class="ruby-identifier">processes</span> = <span class="ruby-value">%xps ax | grep haproxy | grep -v grep | wc -l`</span>.<span class="ruby-identifier">chomp</span>
   <span class="ruby-keyword">if</span> <span class="ruby-identifier">processes</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;0&quot;</span>
@@ -662,7 +609,7 @@ provide an file include option we emulate that functionality here.</p>
 
           
           <div class="method-source-code" id="regenerate_config-source">
-            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 108</span>
+            <pre><span class="ruby-comment"># File AppController/lib/haproxy.rb, line 113</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">regenerate_config</span>
   <span class="ruby-identifier">conf</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-constant">MAIN_CONFIG_FILE</span>,<span class="ruby-string">&quot;w+&quot;</span>)
   
@@ -717,7 +664,7 @@ provide an file include option we emulate that functionality here.</p>
 
           
           <div class="method-source-code" id="reload-source">
-            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 56</span>
+            <pre><span class="ruby-comment"># File AppController/lib/haproxy.rb, line 56</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">reload</span>
   <span class="ruby-value">%xservice haproxy reload`</span>
 <span class="ruby-keyword">end</span></pre>
@@ -747,7 +694,7 @@ provide an file include option we emulate that functionality here.</p>
 
           
           <div class="method-source-code" id="remove_app-source">
-            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 195</span>
+            <pre><span class="ruby-comment"># File AppController/lib/haproxy.rb, line 200</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">remove_app</span>(<span class="ruby-identifier">app_name</span>)
   <span class="ruby-identifier">config_name</span> = <span class="ruby-node">&quot;gae_#{app_name}.#{CONFIG_EXTENSION}&quot;</span>
   <span class="ruby-constant">FileUtils</span>.<span class="ruby-identifier">rm</span>(<span class="ruby-constant">File</span>.<span class="ruby-identifier">join</span>(<span class="ruby-constant">SITES_ENABLED_PATH</span>, <span class="ruby-identifier">config_name</span>))
@@ -779,7 +726,7 @@ provide an file include option we emulate that functionality here.</p>
 
           
           <div class="method-source-code" id="restart-source">
-            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 52</span>
+            <pre><span class="ruby-comment"># File AppController/lib/haproxy.rb, line 52</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">restart</span>
   <span class="ruby-value">%xservice haproxy restart`</span>
 <span class="ruby-keyword">end</span></pre>
@@ -809,7 +756,7 @@ provide an file include option we emulate that functionality here.</p>
 
           
           <div class="method-source-code" id="server_config-source">
-            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 138</span>
+            <pre><span class="ruby-comment"># File AppController/lib/haproxy.rb, line 143</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">server_config</span> <span class="ruby-identifier">app_name</span>, <span class="ruby-identifier">index</span>, <span class="ruby-identifier">ip</span>, <span class="ruby-identifier">port</span>
   <span class="ruby-node">&quot;  server #{app_name}-#{index} #{ip}:#{port} #{SERVER_OPTIONS}&quot;</span>
 <span class="ruby-keyword">end</span></pre>
@@ -839,7 +786,7 @@ provide an file include option we emulate that functionality here.</p>
 
           
           <div class="method-source-code" id="stop-source">
-            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 48</span>
+            <pre><span class="ruby-comment"># File AppController/lib/haproxy.rb, line 48</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">stop</span>
   <span class="ruby-value">%xservice haproxy stop`</span>
 <span class="ruby-keyword">end</span></pre>
@@ -875,7 +822,7 @@ eliminate it.</p>
 
           
           <div class="method-source-code" id="update_app_config-source">
-            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 170</span>
+            <pre><span class="ruby-comment"># File AppController/lib/haproxy.rb, line 175</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">update_app_config</span>(<span class="ruby-identifier">app_name</span>, <span class="ruby-identifier">app_number</span>, <span class="ruby-identifier">ports</span>, <span class="ruby-identifier">public_ip</span>)
   <span class="ruby-comment"># Add a prefix to the app name to avoid collisions with non-GAE apps</span>
   <span class="ruby-identifier">full_app_name</span> = <span class="ruby-node">&quot;gae_#{app_name}&quot;</span>
@@ -925,7 +872,7 @@ eliminate it.</p>
 
           
           <div class="method-source-code" id="write_app_config-source">
-            <pre><span class="ruby-comment"># File lib/haproxy.rb, line 142</span>
+            <pre><span class="ruby-comment"># File AppController/lib/haproxy.rb, line 147</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">write_app_config</span>(<span class="ruby-identifier">app_name</span>, <span class="ruby-identifier">app_number</span>, <span class="ruby-identifier">num_of_servers</span>, <span class="ruby-identifier">ip</span>)
   <span class="ruby-comment"># Add a prefix to the app name to avoid possible conflicts</span>
   <span class="ruby-identifier">full_app_name</span> = <span class="ruby-node">&quot;gae_#{app_name}&quot;</span>

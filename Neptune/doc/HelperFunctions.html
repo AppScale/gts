@@ -47,7 +47,7 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>lib/helperfunctions.rb
+    <li>Neptune/lib/helperfunctions.rb
   </ul>
 </nav>
 
@@ -124,6 +124,8 @@
   
     <li><a href="./DatastoreS3.html">DatastoreS3</a>
   
+    <li><a href="./DatastoreWAZStorage.html">DatastoreWAZStorage</a>
+  
     <li><a href="./DjinnJobData.html">DjinnJobData</a>
   
     <li><a href="./EngineFactory.html">EngineFactory</a>
@@ -138,9 +140,13 @@
   
     <li><a href="./InfrastructureManagerClient.html">InfrastructureManagerClient</a>
   
+    <li><a href="./JSONClient.html">JSONClient</a>
+  
     <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
   
     <li><a href="./NeptuneManager.html">NeptuneManager</a>
+  
+    <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
   
     <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
   
@@ -317,7 +323,7 @@ port is open.</p>
 
           
           <div class="method-source-code" id="get_cert-source">
-            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 240</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/helperfunctions.rb, line 241</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_cert</span>(<span class="ruby-identifier">filename</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-keyword">nil</span> <span class="ruby-keyword">unless</span> <span class="ruby-constant">File</span>.<span class="ruby-identifier">exists?</span>(<span class="ruby-identifier">filename</span>)
   <span class="ruby-constant">OpenSSL</span><span class="ruby-operator">::</span><span class="ruby-constant">X509</span><span class="ruby-operator">::</span><span class="ruby-constant">Certificate</span>.<span class="ruby-identifier">new</span>(<span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-identifier">filename</span>) { <span class="ruby-operator">|</span><span class="ruby-identifier">f</span><span class="ruby-operator">|</span>
@@ -350,7 +356,7 @@ port is open.</p>
 
           
           <div class="method-source-code" id="get_cloud_info-source">
-            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 278</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/helperfunctions.rb, line 279</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_cloud_info</span>()
   <span class="ruby-keyword">return</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">read_json_file</span>(<span class="ruby-constant">CLOUD_INFO_FILE</span>)
 <span class="ruby-keyword">end</span></pre>
@@ -380,7 +386,7 @@ port is open.</p>
 
           
           <div class="method-source-code" id="get_key-source">
-            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 247</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/helperfunctions.rb, line 248</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_key</span>(<span class="ruby-identifier">filename</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-keyword">nil</span> <span class="ruby-keyword">unless</span> <span class="ruby-constant">File</span>.<span class="ruby-identifier">exists?</span>(<span class="ruby-identifier">filename</span>)
   <span class="ruby-constant">OpenSSL</span><span class="ruby-operator">::</span><span class="ruby-constant">PKey</span><span class="ruby-operator">::</span><span class="ruby-constant">RSA</span>.<span class="ruby-identifier">new</span>(<span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-identifier">filename</span>) { <span class="ruby-operator">|</span><span class="ruby-identifier">f</span><span class="ruby-operator">|</span>
@@ -413,7 +419,7 @@ port is open.</p>
 
           
           <div class="method-source-code" id="get_my_public_ip-source">
-            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 138</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/helperfunctions.rb, line 139</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_my_public_ip</span>()
   <span class="ruby-keyword">return</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">read_file</span>(<span class="ruby-constant">PUBLIC_IP_FILE</span>, <span class="ruby-identifier">chomp</span>=<span class="ruby-keyword">true</span>)
 <span class="ruby-keyword">end</span></pre>
@@ -444,7 +450,7 @@ user requests.</p>
 
           
           <div class="method-source-code" id="get_random_alphanumeric-source">
-            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 125</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/helperfunctions.rb, line 126</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_random_alphanumeric</span>(<span class="ruby-identifier">length</span>=<span class="ruby-value">10</span>)
   <span class="ruby-identifier">random</span> = <span class="ruby-string">&quot;&quot;</span>
   <span class="ruby-identifier">possible</span> = <span class="ruby-string">&quot;0123456789abcdefghijklmnopqrstuvxwyzABCDEFGHIJKLMNOPQRSTUVWXYZ&quot;</span>
@@ -482,7 +488,7 @@ user requests.</p>
 
           
           <div class="method-source-code" id="get_secret-source">
-            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 254</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/helperfunctions.rb, line 255</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_secret</span>(<span class="ruby-identifier">filename</span>=<span class="ruby-string">&quot;/etc/appscale/secret.key&quot;</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">read_file</span>(<span class="ruby-constant">File</span>.<span class="ruby-identifier">expand_path</span>(<span class="ruby-identifier">filename</span>), <span class="ruby-identifier">chomp</span>=<span class="ruby-keyword">true</span>)
 <span class="ruby-keyword">end</span></pre>
@@ -512,7 +518,7 @@ user requests.</p>
 
           
           <div class="method-source-code" id="is_port_open-3F-source">
-            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 159</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/helperfunctions.rb, line 160</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">is_port_open?</span>(<span class="ruby-identifier">ip</span>, <span class="ruby-identifier">port</span>, <span class="ruby-identifier">use_ssl</span>=<span class="ruby-constant">DONT_USE_SSL</span>)
   <span class="ruby-keyword">begin</span>
     <span class="ruby-constant">Timeout</span><span class="ruby-operator">::</span><span class="ruby-identifier">timeout</span>(<span class="ruby-value">1</span>) <span class="ruby-keyword">do</span>
@@ -566,7 +572,7 @@ href="http://coderrr.wordpress.com/2008/05/28/get-your-local-ip-address/">coderr
 
           
           <div class="method-source-code" id="local_ip-source">
-            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 261</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/helperfunctions.rb, line 262</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">local_ip</span>
   <span class="ruby-constant">UDPSocket</span>.<span class="ruby-identifier">open</span> {<span class="ruby-operator">|</span><span class="ruby-identifier">s</span><span class="ruby-operator">|</span> <span class="ruby-identifier">s</span>.<span class="ruby-identifier">connect</span>(<span class="ruby-string">&quot;64.233.187.99&quot;</span>, <span class="ruby-value">1</span>); <span class="ruby-identifier">s</span>.<span class="ruby-identifier">addr</span>.<span class="ruby-identifier">last</span> }
 <span class="ruby-keyword">end</span></pre>
@@ -596,7 +602,7 @@ href="http://coderrr.wordpress.com/2008/05/28/get-your-local-ip-address/">coderr
 
           
           <div class="method-source-code" id="read_file-source">
-            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 105</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/helperfunctions.rb, line 106</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">read_file</span>(<span class="ruby-identifier">location</span>, <span class="ruby-identifier">chomp</span>=<span class="ruby-keyword">true</span>)
   <span class="ruby-identifier">file</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-identifier">location</span>) { <span class="ruby-operator">|</span><span class="ruby-identifier">f</span><span class="ruby-operator">|</span> <span class="ruby-identifier">f</span>.<span class="ruby-identifier">read</span> }
   <span class="ruby-keyword">if</span> <span class="ruby-identifier">chomp</span>
@@ -632,7 +638,7 @@ returns that JSON back to the caller.</p>
 
           
           <div class="method-source-code" id="read_json_file-source">
-            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 117</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/helperfunctions.rb, line 118</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">read_json_file</span>(<span class="ruby-identifier">location</span>)
   <span class="ruby-identifier">data</span> = <span class="ruby-keyword">self</span>.<span class="ruby-identifier">read_file</span>(<span class="ruby-identifier">location</span>, <span class="ruby-identifier">chomp</span>=<span class="ruby-keyword">false</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-constant">JSON</span>.<span class="ruby-identifier">load</span>(<span class="ruby-identifier">data</span>)
@@ -663,7 +669,7 @@ returns that JSON back to the caller.</p>
 
           
           <div class="method-source-code" id="run_remote_command-source">
-            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 185</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/helperfunctions.rb, line 186</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">run_remote_command</span>(<span class="ruby-identifier">ip</span>, <span class="ruby-identifier">command</span>, <span class="ruby-identifier">public_key_loc</span>, <span class="ruby-identifier">want_output</span>)
   <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-node">&quot;ip is [#{ip}], command is [#{command}], public key is [#{public_key_loc}], want output? [#{want_output}]&quot;</span>)
   <span class="ruby-identifier">public_key_loc</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">expand_path</span>(<span class="ruby-identifier">public_key_loc</span>)
@@ -712,7 +718,7 @@ returns that JSON back to the caller.</p>
 
           
           <div class="method-source-code" id="scp_file-source">
-            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 208</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/helperfunctions.rb, line 209</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">scp_file</span>(<span class="ruby-identifier">local_file_loc</span>, <span class="ruby-identifier">remote_file_loc</span>, <span class="ruby-identifier">target_ip</span>, <span class="ruby-identifier">private_key_loc</span>)
   <span class="ruby-identifier">private_key_loc</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">expand_path</span>(<span class="ruby-identifier">private_key_loc</span>)
   <span class="ruby-node">%xchmod 0600 #{private_key_loc}`</span>
@@ -769,8 +775,9 @@ returns that JSON back to the caller.</p>
 
           
           <div class="method-source-code" id="shell-source">
-            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 93</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/helperfunctions.rb, line 93</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">shell</span>(<span class="ruby-identifier">cmd</span>)
+  <span class="ruby-constant">Kernel</span>.<span class="ruby-identifier">puts</span>(<span class="ruby-identifier">cmd</span>)
   <span class="ruby-keyword">return</span> <span class="ruby-node">%x#{cmd}`</span>
 <span class="ruby-keyword">end</span></pre>
           </div><!-- shell-source -->
@@ -799,7 +806,7 @@ returns that JSON back to the caller.</p>
 
           
           <div class="method-source-code" id="sleep_until_port_is_open-source">
-            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 143</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/helperfunctions.rb, line 144</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">sleep_until_port_is_open</span>(<span class="ruby-identifier">ip</span>, <span class="ruby-identifier">port</span>, <span class="ruby-identifier">use_ssl</span>=<span class="ruby-constant">DONT_USE_SSL</span>)
   <span class="ruby-identifier">sleep_time</span> = <span class="ruby-value">1</span>
 
@@ -840,7 +847,7 @@ returns that JSON back to the caller.</p>
 
           
           <div class="method-source-code" id="write_file-source">
-            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 97</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/helperfunctions.rb, line 98</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">write_file</span>(<span class="ruby-identifier">location</span>, <span class="ruby-identifier">contents</span>)
   <span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-identifier">location</span>, <span class="ruby-string">&quot;w+&quot;</span>) { <span class="ruby-operator">|</span><span class="ruby-identifier">file</span><span class="ruby-operator">|</span> <span class="ruby-identifier">file</span>.<span class="ruby-identifier">write</span>(<span class="ruby-identifier">contents</span>) }
 <span class="ruby-keyword">end</span></pre>
@@ -870,7 +877,7 @@ returns that JSON back to the caller.</p>
 
           
           <div class="method-source-code" id="write_json_file-source">
-            <pre><span class="ruby-comment"># File lib/helperfunctions.rb, line 101</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/helperfunctions.rb, line 102</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">write_json_file</span>(<span class="ruby-identifier">location</span>, <span class="ruby-identifier">contents</span>)
   <span class="ruby-keyword">self</span>.<span class="ruby-identifier">write_file</span>(<span class="ruby-identifier">location</span>, <span class="ruby-constant">JSON</span>.<span class="ruby-identifier">dump</span>(<span class="ruby-identifier">contents</span>))
 <span class="ruby-keyword">end</span></pre>

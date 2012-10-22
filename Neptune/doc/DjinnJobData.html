@@ -47,7 +47,7 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>lib/djinn_job_data.rb
+    <li>Neptune/lib/djinn_job_data.rb
   </ul>
 </nav>
 
@@ -124,6 +124,8 @@
   
     <li><a href="./DatastoreS3.html">DatastoreS3</a>
   
+    <li><a href="./DatastoreWAZStorage.html">DatastoreWAZStorage</a>
+  
     <li><a href="./DjinnJobData.html">DjinnJobData</a>
   
     <li><a href="./EngineFactory.html">EngineFactory</a>
@@ -138,9 +140,13 @@
   
     <li><a href="./InfrastructureManagerClient.html">InfrastructureManagerClient</a>
   
+    <li><a href="./JSONClient.html">JSONClient</a>
+  
     <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
   
     <li><a href="./NeptuneManager.html">NeptuneManager</a>
+  
+    <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
   
     <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
   
@@ -314,394 +320,6 @@ infrastructure, it also contains info about when we spawned the node
 
     <!-- Methods -->
     
-     <section id="public-instance-5Buntitled-5D-method-details" class="method-section section">
-      <h3 class="section-header">Public Instance Methods</h3>
-
-    
-      <div id="method-i-add_roles" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">add_roles</span><span
-            class="method-args">(roles)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="add_roles-source">
-            <pre><span class="ruby-comment"># File lib/djinn_job_data.rb, line 64</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">add_roles</span>(<span class="ruby-identifier">roles</span>)
-  <span class="ruby-identifier">new_jobs</span> = <span class="ruby-identifier">roles</span>.<span class="ruby-identifier">split</span>(<span class="ruby-string">&quot;:&quot;</span>)
-  <span class="ruby-ivar">@jobs</span> = (<span class="ruby-ivar">@jobs</span> <span class="ruby-operator">+</span> <span class="ruby-identifier">new_jobs</span>).<span class="ruby-identifier">uniq</span>
-  <span class="ruby-ivar">@jobs</span>.<span class="ruby-identifier">delete</span>(<span class="ruby-string">&quot;open&quot;</span>)
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- add_roles-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- add_roles-method -->
-
-    
-      <div id="method-i-extend_time" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">extend_time</span><span
-            class="method-args">()</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="extend_time-source">
-            <pre><span class="ruby-comment"># File lib/djinn_job_data.rb, line 162</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">extend_time</span>
-  <span class="ruby-keyword">return</span> <span class="ruby-keyword">if</span> <span class="ruby-ivar">@creation_time</span>.<span class="ruby-identifier">nil?</span> <span class="ruby-keyword">or</span> <span class="ruby-ivar">@destruction_time</span>.<span class="ruby-identifier">nil?</span>
-  <span class="ruby-ivar">@destruction_time</span> <span class="ruby-operator">+=</span> <span class="ruby-constant">ONE_HOUR</span>
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- extend_time-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- extend_time-method -->
-
-    
-      <div id="method-i-method_missing" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">method_missing</span><span
-            class="method-args">(id, *args, &block)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          <p><a href="DjinnJobData.html#method-i-method_missing">#method_missing</a>:
-will intercept calls to is_load_balancer?, is_appengine? and so on, without
-having all these methods to copy pasta as of writing this only the two
-named methods are in use TODO: remove this and place dynamic method adds in
-initialize</p>
-          
-
-          
-          <div class="method-source-code" id="method_missing-source">
-            <pre><span class="ruby-comment"># File lib/djinn_job_data.rb, line 172</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">method_missing</span>(<span class="ruby-identifier">id</span>, *<span class="ruby-identifier">args</span>, &amp;<span class="ruby-identifier">block</span>)
-  <span class="ruby-keyword">if</span> <span class="ruby-identifier">id</span>.<span class="ruby-identifier">to_s</span> <span class="ruby-operator">=~</span> <span class="ruby-regexp">%ris_(.*)\?/</span>
-    <span class="ruby-keyword">if</span> <span class="ruby-ivar">@jobs</span>.<span class="ruby-identifier">include?</span>(<span class="ruby-node">$1</span>)
-      <span class="ruby-keyword">return</span> <span class="ruby-keyword">true</span>
-    <span class="ruby-keyword">else</span>
-      <span class="ruby-keyword">return</span> <span class="ruby-keyword">false</span>
-    <span class="ruby-keyword">end</span>
-  <span class="ruby-keyword">end</span>
-  <span class="ruby-keyword">super</span>
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- method_missing-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- method_missing-method -->
-
-    
-      <div id="method-i-remove_roles" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">remove_roles</span><span
-            class="method-args">(roles)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="remove_roles-source">
-            <pre><span class="ruby-comment"># File lib/djinn_job_data.rb, line 71</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">remove_roles</span>(<span class="ruby-identifier">roles</span>)
-  <span class="ruby-identifier">new_jobs</span> = <span class="ruby-identifier">roles</span>.<span class="ruby-identifier">split</span>(<span class="ruby-string">&quot;:&quot;</span>)
-  <span class="ruby-ivar">@jobs</span> = (<span class="ruby-ivar">@jobs</span> <span class="ruby-operator">-</span> <span class="ruby-identifier">new_jobs</span>)
-  <span class="ruby-ivar">@jobs</span> = [<span class="ruby-string">&quot;open&quot;</span>] <span class="ruby-keyword">if</span> <span class="ruby-ivar">@jobs</span>.<span class="ruby-identifier">empty?</span>
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- remove_roles-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- remove_roles-method -->
-
-    
-      <div id="method-i-serialize" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">serialize</span><span
-            class="method-args">()</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          <p>not the best name for this but basically correct</p>
-          
-
-          
-          <div class="method-source-code" id="serialize-source">
-            <pre><span class="ruby-comment"># File lib/djinn_job_data.rb, line 84</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">serialize</span>
-  <span class="ruby-identifier">keyname</span> = <span class="ruby-ivar">@ssh_key</span>.<span class="ruby-identifier">split</span>(<span class="ruby-string">&quot;/&quot;</span>)[<span class="ruby-value">-1</span>]
-  <span class="ruby-identifier">serialized</span> = <span class="ruby-node">&quot;#{@public_ip}:#{@private_ip}:#{@jobs.join(':')}:#{@instance_id}:#{@cloud}:#{keyname}&quot;</span>
-  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Serialized current node to #{serialized}&quot;</span>)
-  <span class="ruby-keyword">return</span> <span class="ruby-identifier">serialized</span>
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- serialize-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- serialize-method -->
-
-    
-      <div id="method-i-set_roles" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">set_roles</span><span
-            class="method-args">(roles)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="set_roles-source">
-            <pre><span class="ruby-comment"># File lib/djinn_job_data.rb, line 78</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">set_roles</span>(<span class="ruby-identifier">roles</span>)
-  <span class="ruby-ivar">@jobs</span> = <span class="ruby-identifier">roles</span>.<span class="ruby-identifier">split</span>(<span class="ruby-string">&quot;:&quot;</span>)
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- set_roles-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- set_roles-method -->
-
-    
-      <div id="method-i-set_time_info" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">set_time_info</span><span
-            class="method-args">(creation_time, destruction_time)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="set_time_info-source">
-            <pre><span class="ruby-comment"># File lib/djinn_job_data.rb, line 135</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">set_time_info</span>(<span class="ruby-identifier">creation_time</span>, <span class="ruby-identifier">destruction_time</span>)
-  <span class="ruby-ivar">@creation_time</span> = <span class="ruby-identifier">creation_time</span>
-  <span class="ruby-ivar">@destruction_time</span> = <span class="ruby-identifier">destruction_time</span>
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- set_time_info-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- set_time_info-method -->
-
-    
-      <div id="method-i-should_destroy-3F" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">should_destroy?</span><span
-            class="method-args">()</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="should_destroy-3F-source">
-            <pre><span class="ruby-comment"># File lib/djinn_job_data.rb, line 141</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">should_destroy?</span>
-  <span class="ruby-keyword">return</span> <span class="ruby-keyword">false</span> <span class="ruby-keyword">if</span> <span class="ruby-ivar">@creation_time</span>.<span class="ruby-identifier">nil?</span> <span class="ruby-keyword">or</span> <span class="ruby-ivar">@destruction_time</span>.<span class="ruby-identifier">nil?</span>
-  <span class="ruby-keyword">if</span> <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span> <span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@destruction_time</span>
-    <span class="ruby-keyword">return</span> <span class="ruby-keyword">true</span>
-  <span class="ruby-keyword">else</span>
-    <span class="ruby-keyword">return</span> <span class="ruby-keyword">false</span>
-  <span class="ruby-keyword">end</span>
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- should_destroy-3F-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- should_destroy-3F-method -->
-
-    
-      <div id="method-i-should_extend-3F" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">should_extend?</span><span
-            class="method-args">()</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="should_extend-3F-source">
-            <pre><span class="ruby-comment"># File lib/djinn_job_data.rb, line 151</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">should_extend?</span>
-  <span class="ruby-keyword">return</span> <span class="ruby-keyword">false</span> <span class="ruby-keyword">if</span> <span class="ruby-ivar">@creation_time</span>.<span class="ruby-identifier">nil?</span> <span class="ruby-keyword">or</span> <span class="ruby-ivar">@destruction_time</span>.<span class="ruby-identifier">nil?</span>
-  <span class="ruby-comment"># if we are about to kill the VM, don't do it if it's being used</span>
-  <span class="ruby-keyword">if</span> <span class="ruby-identifier">should_destroy?</span> <span class="ruby-keyword">and</span> <span class="ruby-operator">!</span><span class="ruby-ivar">@jobs</span>.<span class="ruby-identifier">include?</span>(<span class="ruby-string">&quot;open&quot;</span>)
-    <span class="ruby-keyword">return</span> <span class="ruby-keyword">true</span>
-  <span class="ruby-keyword">else</span>
-    <span class="ruby-keyword">return</span> <span class="ruby-keyword">false</span>
-  <span class="ruby-keyword">end</span>
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- should_extend-3F-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- should_extend-3F-method -->
-
-    
-      <div id="method-i-to_hash" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">to_hash</span><span
-            class="method-args">()</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          <p>Produces a Hash that contains all the information contained in this object.</p>
-          
-
-          
-          <div class="method-source-code" id="to_hash-source">
-            <pre><span class="ruby-comment"># File lib/djinn_job_data.rb, line 104</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">to_hash</span>
-  <span class="ruby-keyword">return</span> {
-    <span class="ruby-string">'public_ip'</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@public_ip</span>,
-    <span class="ruby-string">'private_ip'</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@private_ip</span>,
-    <span class="ruby-string">'jobs'</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@jobs</span>,
-    <span class="ruby-string">'instance_id'</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@instance_id</span>,
-    <span class="ruby-string">'cloud'</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@cloud</span>,
-    <span class="ruby-string">'ssh_key'</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@ssh_key</span>,
-    <span class="ruby-string">'creation_time'</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@creation_time</span>,
-    <span class="ruby-string">'destruction_time'</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@destruction_time</span>
-  }
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- to_hash-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- to_hash-method -->
-
-    
-      <div id="method-i-to_s" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">to_s</span><span
-            class="method-args">()</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="to_s-source">
-            <pre><span class="ruby-comment"># File lib/djinn_job_data.rb, line 118</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">to_s</span>
-  <span class="ruby-keyword">if</span> <span class="ruby-ivar">@jobs</span>.<span class="ruby-identifier">empty?</span>
-    <span class="ruby-identifier">jobs</span> = <span class="ruby-string">&quot;not doing anything&quot;</span>
-  <span class="ruby-keyword">else</span>
-    <span class="ruby-identifier">jobs</span> = <span class="ruby-ivar">@jobs</span>.<span class="ruby-identifier">join</span>(<span class="ruby-string">', '</span>)
-  <span class="ruby-keyword">end</span>
-
-  
-  <span class="ruby-identifier">status</span> = <span class="ruby-node">&quot;Node in cloud #{@cloud} with instance id #{@instance_id}&quot;</span> <span class="ruby-operator">+</span>
-    <span class="ruby-node">&quot; responds to ssh key #{@ssh_key}, has pub IP #{@public_ip},&quot;</span> <span class="ruby-operator">+</span>
-    <span class="ruby-node">&quot; priv IP #{@private_ip}, and is currently #{@jobs.join(', ')}.&quot;</span> <span class="ruby-operator">+</span>
-    <span class="ruby-node">&quot; It was created at #{@creation_time} and should be destroyed at &quot;</span> <span class="ruby-operator">+</span>
-    <span class="ruby-node">&quot; #{@destruction_time}.&quot;</span>
-  <span class="ruby-keyword">return</span> <span class="ruby-identifier">status</span>  
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- to_s-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- to_s-method -->
-
-    
-    </section><!-- public-instance-method-details -->
-  
      <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Class Methods</h3>
 
@@ -722,7 +340,7 @@ initialize</p>
 
           
           <div class="method-source-code" id="deserialize-source">
-            <pre><span class="ruby-comment"># File lib/djinn_job_data.rb, line 92</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/djinn_job_data.rb, line 92</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">deserialize</span>(<span class="ruby-identifier">serialized</span>)
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;serialized is [#{serialized}]&quot;</span>)
   <span class="ruby-identifier">split_data</span> = <span class="ruby-identifier">serialized</span>.<span class="ruby-identifier">split</span>(<span class="ruby-string">&quot;:&quot;</span>)
@@ -757,7 +375,7 @@ initialize</p>
 
           
           <div class="method-source-code" id="new-source">
-            <pre><span class="ruby-comment"># File lib/djinn_job_data.rb, line 22</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/djinn_job_data.rb, line 22</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">roles</span>, <span class="ruby-identifier">keyname</span>)
   <span class="ruby-comment"># format: &quot;publicIP:privateIP:load_balancer:appengine:table-master:table-slave:instance_id:cloud&quot;</span>
 
@@ -809,6 +427,394 @@ initialize</p>
 
     
     </section><!-- public-class-method-details -->
+  
+     <section id="public-instance-5Buntitled-5D-method-details" class="method-section section">
+      <h3 class="section-header">Public Instance Methods</h3>
+
+    
+      <div id="method-i-add_roles" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">add_roles</span><span
+            class="method-args">(roles)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="add_roles-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/djinn_job_data.rb, line 64</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">add_roles</span>(<span class="ruby-identifier">roles</span>)
+  <span class="ruby-identifier">new_jobs</span> = <span class="ruby-identifier">roles</span>.<span class="ruby-identifier">split</span>(<span class="ruby-string">&quot;:&quot;</span>)
+  <span class="ruby-ivar">@jobs</span> = (<span class="ruby-ivar">@jobs</span> <span class="ruby-operator">+</span> <span class="ruby-identifier">new_jobs</span>).<span class="ruby-identifier">uniq</span>
+  <span class="ruby-ivar">@jobs</span>.<span class="ruby-identifier">delete</span>(<span class="ruby-string">&quot;open&quot;</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- add_roles-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- add_roles-method -->
+
+    
+      <div id="method-i-extend_time" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">extend_time</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="extend_time-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/djinn_job_data.rb, line 162</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">extend_time</span>
+  <span class="ruby-keyword">return</span> <span class="ruby-keyword">if</span> <span class="ruby-ivar">@creation_time</span>.<span class="ruby-identifier">nil?</span> <span class="ruby-keyword">or</span> <span class="ruby-ivar">@destruction_time</span>.<span class="ruby-identifier">nil?</span>
+  <span class="ruby-ivar">@destruction_time</span> <span class="ruby-operator">+=</span> <span class="ruby-constant">ONE_HOUR</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- extend_time-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- extend_time-method -->
+
+    
+      <div id="method-i-method_missing" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">method_missing</span><span
+            class="method-args">(id, *args, &block)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p><a href="DjinnJobData.html#method-i-method_missing">#method_missing</a>:
+will intercept calls to is_load_balancer?, is_appengine? and so on, without
+having all these methods to copy pasta as of writing this only the two
+named methods are in use TODO: remove this and place dynamic method adds in
+initialize</p>
+          
+
+          
+          <div class="method-source-code" id="method_missing-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/djinn_job_data.rb, line 172</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">method_missing</span>(<span class="ruby-identifier">id</span>, *<span class="ruby-identifier">args</span>, &amp;<span class="ruby-identifier">block</span>)
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">id</span>.<span class="ruby-identifier">to_s</span> <span class="ruby-operator">=~</span> <span class="ruby-regexp">%ris_(.*)\?/</span>
+    <span class="ruby-keyword">if</span> <span class="ruby-ivar">@jobs</span>.<span class="ruby-identifier">include?</span>(<span class="ruby-node">$1</span>)
+      <span class="ruby-keyword">return</span> <span class="ruby-keyword">true</span>
+    <span class="ruby-keyword">else</span>
+      <span class="ruby-keyword">return</span> <span class="ruby-keyword">false</span>
+    <span class="ruby-keyword">end</span>
+  <span class="ruby-keyword">end</span>
+  <span class="ruby-keyword">super</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- method_missing-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- method_missing-method -->
+
+    
+      <div id="method-i-remove_roles" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">remove_roles</span><span
+            class="method-args">(roles)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="remove_roles-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/djinn_job_data.rb, line 71</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">remove_roles</span>(<span class="ruby-identifier">roles</span>)
+  <span class="ruby-identifier">new_jobs</span> = <span class="ruby-identifier">roles</span>.<span class="ruby-identifier">split</span>(<span class="ruby-string">&quot;:&quot;</span>)
+  <span class="ruby-ivar">@jobs</span> = (<span class="ruby-ivar">@jobs</span> <span class="ruby-operator">-</span> <span class="ruby-identifier">new_jobs</span>)
+  <span class="ruby-ivar">@jobs</span> = [<span class="ruby-string">&quot;open&quot;</span>] <span class="ruby-keyword">if</span> <span class="ruby-ivar">@jobs</span>.<span class="ruby-identifier">empty?</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- remove_roles-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- remove_roles-method -->
+
+    
+      <div id="method-i-serialize" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">serialize</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>not the best name for this but basically correct</p>
+          
+
+          
+          <div class="method-source-code" id="serialize-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/djinn_job_data.rb, line 84</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">serialize</span>
+  <span class="ruby-identifier">keyname</span> = <span class="ruby-ivar">@ssh_key</span>.<span class="ruby-identifier">split</span>(<span class="ruby-string">&quot;/&quot;</span>)[<span class="ruby-value">-1</span>]
+  <span class="ruby-identifier">serialized</span> = <span class="ruby-node">&quot;#{@public_ip}:#{@private_ip}:#{@jobs.join(':')}:#{@instance_id}:#{@cloud}:#{keyname}&quot;</span>
+  <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-node">&quot;Serialized current node to #{serialized}&quot;</span>)
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">serialized</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- serialize-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- serialize-method -->
+
+    
+      <div id="method-i-set_roles" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">set_roles</span><span
+            class="method-args">(roles)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="set_roles-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/djinn_job_data.rb, line 78</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">set_roles</span>(<span class="ruby-identifier">roles</span>)
+  <span class="ruby-ivar">@jobs</span> = <span class="ruby-identifier">roles</span>.<span class="ruby-identifier">split</span>(<span class="ruby-string">&quot;:&quot;</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- set_roles-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- set_roles-method -->
+
+    
+      <div id="method-i-set_time_info" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">set_time_info</span><span
+            class="method-args">(creation_time, destruction_time)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="set_time_info-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/djinn_job_data.rb, line 135</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">set_time_info</span>(<span class="ruby-identifier">creation_time</span>, <span class="ruby-identifier">destruction_time</span>)
+  <span class="ruby-ivar">@creation_time</span> = <span class="ruby-identifier">creation_time</span>
+  <span class="ruby-ivar">@destruction_time</span> = <span class="ruby-identifier">destruction_time</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- set_time_info-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- set_time_info-method -->
+
+    
+      <div id="method-i-should_destroy-3F" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">should_destroy?</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="should_destroy-3F-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/djinn_job_data.rb, line 141</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">should_destroy?</span>
+  <span class="ruby-keyword">return</span> <span class="ruby-keyword">false</span> <span class="ruby-keyword">if</span> <span class="ruby-ivar">@creation_time</span>.<span class="ruby-identifier">nil?</span> <span class="ruby-keyword">or</span> <span class="ruby-ivar">@destruction_time</span>.<span class="ruby-identifier">nil?</span>
+  <span class="ruby-keyword">if</span> <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span> <span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@destruction_time</span>
+    <span class="ruby-keyword">return</span> <span class="ruby-keyword">true</span>
+  <span class="ruby-keyword">else</span>
+    <span class="ruby-keyword">return</span> <span class="ruby-keyword">false</span>
+  <span class="ruby-keyword">end</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- should_destroy-3F-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- should_destroy-3F-method -->
+
+    
+      <div id="method-i-should_extend-3F" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">should_extend?</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="should_extend-3F-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/djinn_job_data.rb, line 151</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">should_extend?</span>
+  <span class="ruby-keyword">return</span> <span class="ruby-keyword">false</span> <span class="ruby-keyword">if</span> <span class="ruby-ivar">@creation_time</span>.<span class="ruby-identifier">nil?</span> <span class="ruby-keyword">or</span> <span class="ruby-ivar">@destruction_time</span>.<span class="ruby-identifier">nil?</span>
+  <span class="ruby-comment"># if we are about to kill the VM, don't do it if it's being used</span>
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">should_destroy?</span> <span class="ruby-keyword">and</span> <span class="ruby-operator">!</span><span class="ruby-ivar">@jobs</span>.<span class="ruby-identifier">include?</span>(<span class="ruby-string">&quot;open&quot;</span>)
+    <span class="ruby-keyword">return</span> <span class="ruby-keyword">true</span>
+  <span class="ruby-keyword">else</span>
+    <span class="ruby-keyword">return</span> <span class="ruby-keyword">false</span>
+  <span class="ruby-keyword">end</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- should_extend-3F-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- should_extend-3F-method -->
+
+    
+      <div id="method-i-to_hash" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">to_hash</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Produces a Hash that contains all the information contained in this object.</p>
+          
+
+          
+          <div class="method-source-code" id="to_hash-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/djinn_job_data.rb, line 104</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">to_hash</span>
+  <span class="ruby-keyword">return</span> {
+    <span class="ruby-string">'public_ip'</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@public_ip</span>,
+    <span class="ruby-string">'private_ip'</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@private_ip</span>,
+    <span class="ruby-string">'jobs'</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@jobs</span>,
+    <span class="ruby-string">'instance_id'</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@instance_id</span>,
+    <span class="ruby-string">'cloud'</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@cloud</span>,
+    <span class="ruby-string">'ssh_key'</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@ssh_key</span>,
+    <span class="ruby-string">'creation_time'</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@creation_time</span>,
+    <span class="ruby-string">'destruction_time'</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-ivar">@destruction_time</span>
+  }
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- to_hash-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- to_hash-method -->
+
+    
+      <div id="method-i-to_s" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">to_s</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="to_s-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/djinn_job_data.rb, line 118</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">to_s</span>
+  <span class="ruby-keyword">if</span> <span class="ruby-ivar">@jobs</span>.<span class="ruby-identifier">empty?</span>
+    <span class="ruby-identifier">jobs</span> = <span class="ruby-string">&quot;not doing anything&quot;</span>
+  <span class="ruby-keyword">else</span>
+    <span class="ruby-identifier">jobs</span> = <span class="ruby-ivar">@jobs</span>.<span class="ruby-identifier">join</span>(<span class="ruby-string">', '</span>)
+  <span class="ruby-keyword">end</span>
+
+  
+  <span class="ruby-identifier">status</span> = <span class="ruby-node">&quot;Node in cloud #{@cloud} with instance id #{@instance_id}&quot;</span> <span class="ruby-operator">+</span>
+    <span class="ruby-node">&quot; responds to ssh key #{@ssh_key}, has pub IP #{@public_ip},&quot;</span> <span class="ruby-operator">+</span>
+    <span class="ruby-node">&quot; priv IP #{@private_ip}, and is currently #{@jobs.join(', ')}.&quot;</span> <span class="ruby-operator">+</span>
+    <span class="ruby-node">&quot; It was created at #{@creation_time} and should be destroyed at &quot;</span> <span class="ruby-operator">+</span>
+    <span class="ruby-node">&quot; #{@destruction_time}.&quot;</span>
+  <span class="ruby-keyword">return</span> <span class="ruby-identifier">status</span>  
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- to_s-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- to_s-method -->
+
+    
+    </section><!-- public-instance-method-details -->
   
   </section><!-- 5Buntitled-5D -->
 
