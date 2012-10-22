@@ -70,6 +70,10 @@ end
 `rm -f #{APPSCALE_HOME}/.appscale/status-*`
 `rm -f #{APPSCALE_HOME}/.appscale/database_info`
 `rm -f /tmp/mysql.sock`
+
+puts `apt-get remove -y consolekit`
+puts `apt-get install -y htop`
+
 Nginx.clear_sites_enabled
 Collectd.clear_sites_enabled
 HAProxy.clear_sites_enabled
