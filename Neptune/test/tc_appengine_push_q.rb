@@ -114,7 +114,7 @@ class TestGoogleAppEnginePushQueue < Test::Unit::TestCase
       and_return()
 
     neptune = NeptuneManager.new()
-    neptune.start()
+    neptune.start(max_iterations=0)
 
     job = {
       "@S3_URL" => "https://s3.amazonaws.com/",

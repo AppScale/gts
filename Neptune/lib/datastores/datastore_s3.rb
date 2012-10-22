@@ -30,6 +30,10 @@ class DatastoreS3 < Datastore
   # can refer to it without worrying about mispelling it.
   NAME = "s3"
 
+  
+  # The maximum number of retries that we allow for when saving files to S3.
+  MAX_RETRIES = 5
+
 
   # Validates the S3 credentials that we've been given and returns a new
   # S3 interface accordingly.
@@ -81,6 +85,18 @@ class DatastoreS3 < Datastore
       # if the user gives us a file to fetch that's several directories
       # deep, we need to make all the directories first
       FileUtils.mkdir_p(File.dirname(full_local_path))
+
+      if full_local_path[-1].chr == "/"
+        NeptuneManager.log("Local file #{full_local_path} is a directory - " +
+          "not downloading it remotely")
+        next
+      end
+
+      if File.exists?(full_local_path)
+        NeptuneManager.log("Local file #{full_local_path} already exists - " +
+          "not downloading it again.")
+        next
+      end
 
       begin
         f = File.new(full_local_path, File::CREAT|File::RDWR)
@@ -158,7 +174,21 @@ class DatastoreS3 < Datastore
     else
       NeptuneManager.log("Attempting to put local file #{local_path} into " +
         "bucket #{bucket}, location #{file}")
-      return @conn.put(bucket, file, File.open(local_path))
+      tries = 0
+      begin
+        result = @conn.put(bucket, file, File.open(local_path))
+        return result
+      rescue Exception => e
+        NeptuneManager.log("Saw an Exception of class #{e.class} when trying " +
+          "to save local file.")
+        if tries < MAX_RETRIES
+          tries += 1
+          Kernel.sleep(1)
+          retry
+        else
+          return false
+        end
+      end
     end
 
     return true
@@ -203,6 +233,16 @@ class DatastoreS3 < Datastore
       NeptuneManager.log("[does file exist] saw a RightAws::AwsError on path [#{path}]")
       return false
     end
+  end
+
+
+  # Checks whether the given files exist in S3.
+  def batch_does_file_exist?(paths)
+    results = {}
+    paths.each { |path|
+      results[path] = does_file_exist?(path)
+    }
+    return results
   end
 
 

@@ -47,7 +47,7 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>lib/task_engines/task_engine_appscale.rb
+    <li>Neptune/lib/task_engines/task_engine_appscale.rb
   </ul>
 </nav>
 
@@ -108,6 +108,8 @@
   
     <li><a href="./DatastoreS3.html">DatastoreS3</a>
   
+    <li><a href="./DatastoreWAZStorage.html">DatastoreWAZStorage</a>
+  
     <li><a href="./DjinnJobData.html">DjinnJobData</a>
   
     <li><a href="./EngineFactory.html">EngineFactory</a>
@@ -122,9 +124,13 @@
   
     <li><a href="./InfrastructureManagerClient.html">InfrastructureManagerClient</a>
   
+    <li><a href="./JSONClient.html">JSONClient</a>
+  
     <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
   
     <li><a href="./NeptuneManager.html">NeptuneManager</a>
+  
+    <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
   
     <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
   
@@ -240,6 +246,54 @@
 
     <!-- Methods -->
     
+     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="method-c-new" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">new</span><span
+            class="method-args">(credentials)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+
+          
+          <div class="method-source-code" id="new-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/task_engines/task_engine_appscale.rb, line 22</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">credentials</span>)
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>.<span class="ruby-identifier">class</span> <span class="ruby-operator">!=</span> <span class="ruby-constant">Hash</span>
+    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;Credentials not a hash.&quot;</span>)
+  <span class="ruby-keyword">end</span>
+  
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'@appid'</span>].<span class="ruby-identifier">nil?</span>
+    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;No appid provided.&quot;</span>)
+  <span class="ruby-keyword">end</span>
+  <span class="ruby-ivar">@appid</span> = <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'@appid'</span>]
+  
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'@function'</span>].<span class="ruby-identifier">nil?</span>
+    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;No function provided.&quot;</span>)
+  <span class="ruby-keyword">end</span>
+  <span class="ruby-ivar">@function</span> = <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'@function'</span>]
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- new-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- new-method -->
+
+    
+    </section><!-- public-class-method-details -->
+  
      <section id="public-instance-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Instance Methods</h3>
 
@@ -262,7 +316,7 @@ uploaded.</p>
 
           
           <div class="method-source-code" id="app_needs_uploading-3F-source">
-            <pre><span class="ruby-comment"># File lib/task_engines/task_engine_appscale.rb, line 42</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_engines/task_engine_appscale.rb, line 42</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">app_needs_uploading?</span>(<span class="ruby-identifier">job_data</span>)
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;Seeing if app needs to be uploaded, with &quot;</span> <span class="ruby-operator">+</span>
     <span class="ruby-node">&quot;job data #{job_data.inspect}&quot;</span>)
@@ -298,7 +352,7 @@ uploaded.</p>
 
           
           <div class="method-source-code" id="engine_name-source">
-            <pre><span class="ruby-comment"># File lib/task_engines/task_engine_appscale.rb, line 93</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_engines/task_engine_appscale.rb, line 93</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">engine_name</span>()
   <span class="ruby-keyword">return</span> <span class="ruby-string">&quot;AppScale&quot;</span>
 <span class="ruby-keyword">end</span></pre>
@@ -330,7 +384,7 @@ automatically route users to the app.</p>
 
           
           <div class="method-source-code" id="get_app_url-source">
-            <pre><span class="ruby-comment"># File lib/task_engines/task_engine_appscale.rb, line 81</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_engines/task_engine_appscale.rb, line 81</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_app_url</span>(<span class="ruby-identifier">job_data</span>)
   <span class="ruby-identifier">uac</span> = <span class="ruby-constant">UserAppClient</span>.<span class="ruby-identifier">new</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@uaserver_ip'</span>], <span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@secret'</span>])
   <span class="ruby-identifier">hosts</span> = <span class="ruby-identifier">uac</span>.<span class="ruby-identifier">get_hosts_for_app</span>(<span class="ruby-identifier">job_data</span>[<span class="ruby-string">'@appid'</span>])
@@ -369,7 +423,7 @@ info on failure conditions</p>
 
           
           <div class="method-source-code" id="upload_app-source">
-            <pre><span class="ruby-comment"># File lib/task_engines/task_engine_appscale.rb, line 56</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_engines/task_engine_appscale.rb, line 56</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">upload_app</span>(<span class="ruby-identifier">job_data</span>, <span class="ruby-identifier">app_location</span>)
   <span class="ruby-comment"># TODO(cgb): definitely check the return value of this</span>
   <span class="ruby-comment"># instead of assuming success</span>
@@ -401,54 +455,6 @@ info on failure conditions</p>
 
     
     </section><!-- public-instance-method-details -->
-  
-     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
-      <h3 class="section-header">Public Class Methods</h3>
-
-    
-      <div id="method-c-new" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">new</span><span
-            class="method-args">(credentials)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          
-          
-
-          
-          <div class="method-source-code" id="new-source">
-            <pre><span class="ruby-comment"># File lib/task_engines/task_engine_appscale.rb, line 22</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">credentials</span>)
-  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>.<span class="ruby-identifier">class</span> <span class="ruby-operator">!=</span> <span class="ruby-constant">Hash</span>
-    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;Credentials not a hash.&quot;</span>)
-  <span class="ruby-keyword">end</span>
-  
-  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'@appid'</span>].<span class="ruby-identifier">nil?</span>
-    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;No appid provided.&quot;</span>)
-  <span class="ruby-keyword">end</span>
-  <span class="ruby-ivar">@appid</span> = <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'@appid'</span>]
-  
-  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'@function'</span>].<span class="ruby-identifier">nil?</span>
-    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;No function provided.&quot;</span>)
-  <span class="ruby-keyword">end</span>
-  <span class="ruby-ivar">@function</span> = <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'@function'</span>]
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- new-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- new-method -->
-
-    
-    </section><!-- public-class-method-details -->
   
   </section><!-- 5Buntitled-5D -->
 

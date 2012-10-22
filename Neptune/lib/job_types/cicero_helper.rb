@@ -325,7 +325,7 @@ class NeptuneManager
     response = {}
     start_time = Time.now
     loop {
-      query_params = {:id => self.sanitize(task_id), :task_id => self.sanitize(task_id)}
+      query_params = {:id => task_id, :task_id => task_id}
       begin
         response = JSONClient.get("#{host}/task", :body => '', 
           :query => query_params)
@@ -375,6 +375,7 @@ class NeptuneManager
   end
 
   def self.sanitize(string)
+    return string
     string.gsub(/[^\w\d]/, '')
   end
 

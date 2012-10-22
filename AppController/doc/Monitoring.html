@@ -47,7 +47,7 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>lib/monitoring.rb
+    <li>AppController/lib/monitoring.rb
   </ul>
 </nav>
 
@@ -106,18 +106,6 @@
   
     <li><a href="./CronHelper.html">CronHelper</a>
   
-    <li><a href="./Datastore.html">Datastore</a>
-  
-    <li><a href="./DatastoreFactory.html">DatastoreFactory</a>
-  
-    <li><a href="./DatastoreRepo.html">DatastoreRepo</a>
-  
-    <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a>
-  
-    <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a>
-  
-    <li><a href="./DatastoreS3.html">DatastoreS3</a>
-  
     <li><a href="./Djinn.html">Djinn</a>
   
     <li><a href="./DjinnJobData.html">DjinnJobData</a>
@@ -126,15 +114,9 @@
   
     <li><a href="./Ejabberd.html">Ejabberd</a>
   
-    <li><a href="./EngineFactory.html">EngineFactory</a>
-  
     <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a>
   
     <li><a href="./GodInterface.html">GodInterface</a>
-  
-    <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a>
-  
-    <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a>
   
     <li><a href="./HAProxy.html">HAProxy</a>
   
@@ -148,13 +130,7 @@
   
     <li><a href="./Monitoring.html">Monitoring</a>
   
-    <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
-  
-    <li><a href="./NeptuneManager.html">NeptuneManager</a>
-  
     <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
-  
-    <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
   
     <li><a href="./Nginx.html">Nginx</a>
   
@@ -162,47 +138,13 @@
   
     <li><a href="./PbServer.html">PbServer</a>
   
-    <li><a href="./QueueFactory.html">QueueFactory</a>
-  
     <li><a href="./RabbitMQ.html">RabbitMQ</a>
   
     <li><a href="./Repo.html">Repo</a>
   
-    <li><a href="./TaskEngine.html">TaskEngine</a>
-  
-    <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a>
-  
-    <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a>
-  
-    <li><a href="./TaskQueue.html">TaskQueue</a>
-  
-    <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a>
-  
-    <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a>
-  
-    <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a>
-  
-    <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a>
-  
-    <li><a href="./TestAppScaleHelper.html">TestAppScaleHelper</a>
-  
-    <li><a href="./TestBabelHelper.html">TestBabelHelper</a>
-  
-    <li><a href="./TestCiceroHelper.html">TestCiceroHelper</a>
-  
-    <li><a href="./TestDatastore.html">TestDatastore</a>
-  
-    <li><a href="./TestNeptuneJobData.html">TestNeptuneJobData</a>
-  
-    <li><a href="./TestNeptuneManager.html">TestNeptuneManager</a>
-  
-    <li><a href="./TestTaskQueue.html">TestTaskQueue</a>
-  
     <li><a href="./UserAppClient.html">UserAppClient</a>
   
     <li><a href="./ZKInterface.html">ZKInterface</a>
-  
-    <li><a href="./ZooKeeperLockException.html">ZooKeeperLockException</a>
   
   </ul>
 </nav>
@@ -292,7 +234,7 @@ written by collectd. This module configures and deploys that service.</p>
 
           
           <div class="method-source-code" id="listen_port-source">
-            <pre><span class="ruby-comment"># File lib/monitoring.rb, line 65</span>
+            <pre><span class="ruby-comment"># File AppController/lib/monitoring.rb, line 65</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">listen_port</span>
   <span class="ruby-constant">LISTEN_PORT</span>
 <span class="ruby-keyword">end</span></pre>
@@ -322,7 +264,7 @@ written by collectd. This module configures and deploys that service.</p>
 
           
           <div class="method-source-code" id="name-source">
-            <pre><span class="ruby-comment"># File lib/monitoring.rb, line 57</span>
+            <pre><span class="ruby-comment"># File AppController/lib/monitoring.rb, line 57</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">name</span>
   <span class="ruby-string">&quot;as_mon&quot;</span>
 <span class="ruby-keyword">end</span></pre>
@@ -352,7 +294,7 @@ written by collectd. This module configures and deploys that service.</p>
 
           
           <div class="method-source-code" id="proxy_port-source">
-            <pre><span class="ruby-comment"># File lib/monitoring.rb, line 73</span>
+            <pre><span class="ruby-comment"># File AppController/lib/monitoring.rb, line 73</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">proxy_port</span>
   <span class="ruby-constant">PROXY_PORT</span>
 <span class="ruby-keyword">end</span></pre>
@@ -382,7 +324,7 @@ written by collectd. This module configures and deploys that service.</p>
 
           
           <div class="method-source-code" id="public_directory-source">
-            <pre><span class="ruby-comment"># File lib/monitoring.rb, line 61</span>
+            <pre><span class="ruby-comment"># File AppController/lib/monitoring.rb, line 61</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">public_directory</span>
   <span class="ruby-node">&quot;#{APPSCALE_HOME}/AppMonitoring/public&quot;</span>
 <span class="ruby-keyword">end</span></pre>
@@ -412,7 +354,7 @@ written by collectd. This module configures and deploys that service.</p>
 
           
           <div class="method-source-code" id="reset-source">
-            <pre><span class="ruby-comment"># File lib/monitoring.rb, line 52</span>
+            <pre><span class="ruby-comment"># File AppController/lib/monitoring.rb, line 52</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">reset</span>
   <span class="ruby-node">%xcd #{APPSCALE_HOME}/AppMonitoring; #{ENVIRONMENT} rake db:drop;`</span>
   <span class="ruby-node">%xcd #{APPSCALE_HOME}/AppMonitoring; #{ENVIRONMENT} rake db:migrate;`</span>
@@ -443,7 +385,7 @@ written by collectd. This module configures and deploys that service.</p>
 
           
           <div class="method-source-code" id="restart-source">
-            <pre><span class="ruby-comment"># File lib/monitoring.rb, line 46</span>
+            <pre><span class="ruby-comment"># File AppController/lib/monitoring.rb, line 46</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">restart</span>
   <span class="ruby-keyword">self</span>.<span class="ruby-identifier">stop</span>
   <span class="ruby-keyword">self</span>.<span class="ruby-identifier">start</span>
@@ -474,7 +416,7 @@ written by collectd. This module configures and deploys that service.</p>
 
           
           <div class="method-source-code" id="server_ports-source">
-            <pre><span class="ruby-comment"># File lib/monitoring.rb, line 69</span>
+            <pre><span class="ruby-comment"># File AppController/lib/monitoring.rb, line 69</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">server_ports</span>
   <span class="ruby-constant">SERVER_PORTS</span>
 <span class="ruby-keyword">end</span></pre>
@@ -504,7 +446,7 @@ written by collectd. This module configures and deploys that service.</p>
 
           
           <div class="method-source-code" id="start-source">
-            <pre><span class="ruby-comment"># File lib/monitoring.rb, line 29</span>
+            <pre><span class="ruby-comment"># File AppController/lib/monitoring.rb, line 29</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">start</span>
   <span class="ruby-identifier">env_vars</span> = { <span class="ruby-string">&quot;RAILS_ENV&quot;</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-string">&quot;production&quot;</span>, <span class="ruby-string">&quot;APPSCALE_HOME&quot;</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-constant">APPSCALE_HOME</span> }
 
@@ -542,7 +484,7 @@ written by collectd. This module configures and deploys that service.</p>
 
           
           <div class="method-source-code" id="stop-source">
-            <pre><span class="ruby-comment"># File lib/monitoring.rb, line 41</span>
+            <pre><span class="ruby-comment"># File AppController/lib/monitoring.rb, line 41</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">stop</span>
   <span class="ruby-constant">GodInterface</span>.<span class="ruby-identifier">stop</span>(<span class="ruby-value">:monitr</span>)
   <span class="ruby-comment">#`service appscale-monitoring stop`</span>
