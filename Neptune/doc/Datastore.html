@@ -47,7 +47,7 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>lib/datastores/datastore.rb
+    <li>Neptune/lib/datastores/datastore.rb
   </ul>
 </nav>
 
@@ -114,6 +114,8 @@
   
     <li><a href="./DatastoreS3.html">DatastoreS3</a>
   
+    <li><a href="./DatastoreWAZStorage.html">DatastoreWAZStorage</a>
+  
     <li><a href="./DjinnJobData.html">DjinnJobData</a>
   
     <li><a href="./EngineFactory.html">EngineFactory</a>
@@ -128,9 +130,13 @@
   
     <li><a href="./InfrastructureManagerClient.html">InfrastructureManagerClient</a>
   
+    <li><a href="./JSONClient.html">JSONClient</a>
+  
     <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
   
     <li><a href="./NeptuneManager.html">NeptuneManager</a>
+  
+    <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
   
     <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
   
@@ -191,6 +197,43 @@ modified, the underlying datastore must have this capability as well.</p>
 
     <!-- Methods -->
     
+     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="method-c-new" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">new</span><span
+            class="method-args">(credentials)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Creates a new <a href="Datastore.html">Datastore</a> from the given
+credentials (a Hash).</p>
+          
+
+          
+          <div class="method-source-code" id="new-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/datastores/datastore.rb, line 11</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">credentials</span>)
+  <span class="ruby-identifier">raise</span> <span class="ruby-constant">NotImplementedError</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;Datastore initialize is abstract&quot;</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- new-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- new-method -->
+
+    
+    </section><!-- public-class-method-details -->
+  
      <section id="public-instance-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Instance Methods</h3>
 
@@ -211,7 +254,7 @@ modified, the underlying datastore must have this capability as well.</p>
 
           
           <div class="method-source-code" id="does_file_exist-3F-source">
-            <pre><span class="ruby-comment"># File lib/datastores/datastore.rb, line 56</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/datastores/datastore.rb, line 56</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">does_file_exist?</span>(<span class="ruby-identifier">path</span>)
   <span class="ruby-identifier">raise</span> <span class="ruby-constant">NotImplementedError</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;Does file exist is abstract&quot;</span>)
 <span class="ruby-keyword">end</span></pre>
@@ -241,7 +284,7 @@ modified, the underlying datastore must have this capability as well.</p>
 
           
           <div class="method-source-code" id="get_acl-source">
-            <pre><span class="ruby-comment"># File lib/datastores/datastore.rb, line 44</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/datastores/datastore.rb, line 44</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_acl</span>(<span class="ruby-identifier">path</span>)
   <span class="ruby-identifier">raise</span> <span class="ruby-constant">NotImplementedError</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;Get acl is abstract&quot;</span>)
 <span class="ruby-keyword">end</span></pre>
@@ -272,7 +315,7 @@ a string</p>
 
           
           <div class="method-source-code" id="get_output_and_return_contents-source">
-            <pre><span class="ruby-comment"># File lib/datastores/datastore.rb, line 25</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/datastores/datastore.rb, line 25</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_output_and_return_contents</span>(<span class="ruby-identifier">remote_path</span>)
   <span class="ruby-identifier">raise</span> <span class="ruby-constant">NotImplementedError</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;Get output to string is abstract&quot;</span>)
 <span class="ruby-keyword">end</span></pre>
@@ -303,7 +346,7 @@ the local filesystem.</p>
 
           
           <div class="method-source-code" id="get_output_and_save_to_fs-source">
-            <pre><span class="ruby-comment"># File lib/datastores/datastore.rb, line 18</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/datastores/datastore.rb, line 18</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_output_and_save_to_fs</span>(<span class="ruby-identifier">remote_path</span>, <span class="ruby-identifier">local_path</span>)
   <span class="ruby-identifier">raise</span> <span class="ruby-constant">NotImplementedError</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;Get output to FS is abstract&quot;</span>)
 <span class="ruby-keyword">end</span></pre>
@@ -333,7 +376,7 @@ the local filesystem.</p>
 
           
           <div class="method-source-code" id="set_acl-source">
-            <pre><span class="ruby-comment"># File lib/datastores/datastore.rb, line 50</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/datastores/datastore.rb, line 50</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">set_acl</span>(<span class="ruby-identifier">path</span>, <span class="ruby-identifier">acl</span>)
   <span class="ruby-identifier">raise</span> <span class="ruby-constant">NotImplementedError</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;Set acl is abstract&quot;</span>)
 <span class="ruby-keyword">end</span></pre>
@@ -364,7 +407,7 @@ datastore.</p>
 
           
           <div class="method-source-code" id="write_remote_file_from_local_file-source">
-            <pre><span class="ruby-comment"># File lib/datastores/datastore.rb, line 32</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/datastores/datastore.rb, line 32</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">write_remote_file_from_local_file</span>(<span class="ruby-identifier">remote_path</span>, <span class="ruby-identifier">local_path</span>)
   <span class="ruby-identifier">raise</span> <span class="ruby-constant">NotImplementedError</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;Write output to file is abstract&quot;</span>)
 <span class="ruby-keyword">end</span></pre>
@@ -394,7 +437,7 @@ datastore.</p>
 
           
           <div class="method-source-code" id="write_remote_file_from_string-source">
-            <pre><span class="ruby-comment"># File lib/datastores/datastore.rb, line 38</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/datastores/datastore.rb, line 38</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">write_remote_file_from_string</span>(<span class="ruby-identifier">remote_path</span>, <span class="ruby-identifier">string</span>)
   <span class="ruby-identifier">raise</span> <span class="ruby-constant">NotImplementedError</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;Write output to string is abstract&quot;</span>)
 <span class="ruby-keyword">end</span></pre>
@@ -409,43 +452,6 @@ datastore.</p>
 
     
     </section><!-- public-instance-method-details -->
-  
-     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
-      <h3 class="section-header">Public Class Methods</h3>
-
-    
-      <div id="method-c-new" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">new</span><span
-            class="method-args">(credentials)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          <p>Creates a new <a href="Datastore.html">Datastore</a> from the given
-credentials (a Hash).</p>
-          
-
-          
-          <div class="method-source-code" id="new-source">
-            <pre><span class="ruby-comment"># File lib/datastores/datastore.rb, line 11</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">credentials</span>)
-  <span class="ruby-identifier">raise</span> <span class="ruby-constant">NotImplementedError</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;Datastore initialize is abstract&quot;</span>)
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- new-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- new-method -->
-
-    
-    </section><!-- public-class-method-details -->
   
   </section><!-- 5Buntitled-5D -->
 

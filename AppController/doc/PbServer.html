@@ -47,7 +47,7 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>lib/pbserver.rb
+    <li>AppController/lib/pbserver.rb
   </ul>
 </nav>
 
@@ -100,18 +100,6 @@
   
     <li><a href="./CronHelper.html">CronHelper</a>
   
-    <li><a href="./Datastore.html">Datastore</a>
-  
-    <li><a href="./DatastoreFactory.html">DatastoreFactory</a>
-  
-    <li><a href="./DatastoreRepo.html">DatastoreRepo</a>
-  
-    <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a>
-  
-    <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a>
-  
-    <li><a href="./DatastoreS3.html">DatastoreS3</a>
-  
     <li><a href="./Djinn.html">Djinn</a>
   
     <li><a href="./DjinnJobData.html">DjinnJobData</a>
@@ -120,15 +108,9 @@
   
     <li><a href="./Ejabberd.html">Ejabberd</a>
   
-    <li><a href="./EngineFactory.html">EngineFactory</a>
-  
     <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a>
   
     <li><a href="./GodInterface.html">GodInterface</a>
-  
-    <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a>
-  
-    <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a>
   
     <li><a href="./HAProxy.html">HAProxy</a>
   
@@ -142,13 +124,7 @@
   
     <li><a href="./Monitoring.html">Monitoring</a>
   
-    <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
-  
-    <li><a href="./NeptuneManager.html">NeptuneManager</a>
-  
     <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
-  
-    <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
   
     <li><a href="./Nginx.html">Nginx</a>
   
@@ -156,47 +132,13 @@
   
     <li><a href="./PbServer.html">PbServer</a>
   
-    <li><a href="./QueueFactory.html">QueueFactory</a>
-  
     <li><a href="./RabbitMQ.html">RabbitMQ</a>
   
     <li><a href="./Repo.html">Repo</a>
   
-    <li><a href="./TaskEngine.html">TaskEngine</a>
-  
-    <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a>
-  
-    <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a>
-  
-    <li><a href="./TaskQueue.html">TaskQueue</a>
-  
-    <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a>
-  
-    <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a>
-  
-    <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a>
-  
-    <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a>
-  
-    <li><a href="./TestAppScaleHelper.html">TestAppScaleHelper</a>
-  
-    <li><a href="./TestBabelHelper.html">TestBabelHelper</a>
-  
-    <li><a href="./TestCiceroHelper.html">TestCiceroHelper</a>
-  
-    <li><a href="./TestDatastore.html">TestDatastore</a>
-  
-    <li><a href="./TestNeptuneJobData.html">TestNeptuneJobData</a>
-  
-    <li><a href="./TestNeptuneManager.html">TestNeptuneManager</a>
-  
-    <li><a href="./TestTaskQueue.html">TestTaskQueue</a>
-  
     <li><a href="./UserAppClient.html">UserAppClient</a>
   
     <li><a href="./ZKInterface.html">ZKInterface</a>
-  
-    <li><a href="./ZooKeeperLockException.html">ZooKeeperLockException</a>
   
   </ul>
 </nav>
@@ -209,11 +151,10 @@
 
   <div id="description" class="description">
     
-<p>To support the Google App Engine <a href="Datastore.html">Datastore</a> API
-in a way that is database-agnostic, App Engine applications store and
-retrieve data via the PBServer. The server inherits this name from the
-storage format of requests in the <a href="Datastore.html">Datastore</a>
-API: Protocol Buffers.</p>
+<p>To support the Google App Engine Datastore API in a way that is
+database-agnostic, App Engine applications store and retrieve data via the
+PBServer. The server inherits this name from the storage format of requests
+in the Datastore API: Protocol Buffers.</p>
 
   </div><!-- description -->
 
@@ -310,7 +251,7 @@ right version for the database selected.</p>
 
           
           <div class="method-source-code" id="get_executable_name-source">
-            <pre><span class="ruby-comment"># File lib/pbserver.rb, line 117</span>
+            <pre><span class="ruby-comment"># File AppController/lib/pbserver.rb, line 117</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_executable_name</span>(<span class="ruby-identifier">table</span>)
   <span class="ruby-keyword">if</span> <span class="ruby-constant">DBS_WITH_NATIVE_PBSERVER</span>.<span class="ruby-identifier">include?</span>(<span class="ruby-identifier">table</span>)
     <span class="ruby-keyword">return</span> <span class="ruby-node">&quot;#{APPSCALE_HOME}/AppDB/appscale_server_#{table}.py&quot;</span>
@@ -344,7 +285,7 @@ right version for the database selected.</p>
 
           
           <div class="method-source-code" id="get_server_ports-source">
-            <pre><span class="ruby-comment"># File lib/pbserver.rb, line 94</span>
+            <pre><span class="ruby-comment"># File AppController/lib/pbserver.rb, line 94</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_server_ports</span>(<span class="ruby-identifier">table</span>)
   <span class="ruby-keyword">if</span> <span class="ruby-constant">DBS_NEEDING_ONE_PBSERVER</span>.<span class="ruby-identifier">include?</span>(<span class="ruby-identifier">table</span>)
     <span class="ruby-identifier">num_pbservers</span> = <span class="ruby-value">1</span>
@@ -384,7 +325,7 @@ right version for the database selected.</p>
 
           
           <div class="method-source-code" id="is_running-source">
-            <pre><span class="ruby-comment"># File lib/pbserver.rb, line 109</span>
+            <pre><span class="ruby-comment"># File AppController/lib/pbserver.rb, line 109</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">is_running</span>(<span class="ruby-identifier">my_ip</span>)
   <span class="ruby-node">%xcurl http://#{my_ip}:#{PROXY_PORT}`</span> 
 <span class="ruby-keyword">end</span></pre>
@@ -415,7 +356,7 @@ right version for the database selected.</p>
 
           
           <div class="method-source-code" id="restart-source">
-            <pre><span class="ruby-comment"># File lib/pbserver.rb, line 87</span>
+            <pre><span class="ruby-comment"># File AppController/lib/pbserver.rb, line 87</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">restart</span>(<span class="ruby-identifier">master_ip</span>, <span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">table</span>, <span class="ruby-identifier">zklocations</span>)
   <span class="ruby-keyword">self</span>.<span class="ruby-identifier">stop</span>()
   <span class="ruby-keyword">self</span>.<span class="ruby-identifier">start</span>(<span class="ruby-identifier">master_ip</span>, <span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">table</span>, <span class="ruby-identifier">zklocations</span>)
@@ -447,7 +388,7 @@ it ourselves, so just tell god to start it and watch it.</p>
 
           
           <div class="method-source-code" id="start-source">
-            <pre><span class="ruby-comment"># File lib/pbserver.rb, line 58</span>
+            <pre><span class="ruby-comment"># File AppController/lib/pbserver.rb, line 58</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">start</span>(<span class="ruby-identifier">master_ip</span>, <span class="ruby-identifier">db_local_ip</span>, <span class="ruby-identifier">my_ip</span>, <span class="ruby-identifier">table</span>, <span class="ruby-identifier">zklocations</span>)
   <span class="ruby-identifier">pbserver</span> = <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_executable_name</span>(<span class="ruby-identifier">table</span>)
   <span class="ruby-identifier">ports</span> = <span class="ruby-keyword">self</span>.<span class="ruby-identifier">get_server_ports</span>(<span class="ruby-identifier">table</span>)
@@ -493,7 +434,7 @@ managed by god, just tell god to shut it down.</p>
 
           
           <div class="method-source-code" id="stop-source">
-            <pre><span class="ruby-comment"># File lib/pbserver.rb, line 80</span>
+            <pre><span class="ruby-comment"># File AppController/lib/pbserver.rb, line 80</span>
 <span class="ruby-keyword">def</span> <span class="ruby-keyword">self</span>.<span class="ruby-identifier">stop</span>(<span class="ruby-identifier">table</span>)
    <span class="ruby-constant">GodInterface</span>.<span class="ruby-identifier">stop</span>(<span class="ruby-value">:pbserver</span>)
 <span class="ruby-keyword">end</span></pre>
