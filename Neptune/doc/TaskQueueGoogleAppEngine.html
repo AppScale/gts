@@ -47,7 +47,7 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>lib/task_queues/task_queue_google_app_engine.rb
+    <li>Neptune/lib/task_queues/task_queue_google_app_engine.rb
   </ul>
 </nav>
 
@@ -114,6 +114,8 @@
   
     <li><a href="./DatastoreS3.html">DatastoreS3</a>
   
+    <li><a href="./DatastoreWAZStorage.html">DatastoreWAZStorage</a>
+  
     <li><a href="./DjinnJobData.html">DjinnJobData</a>
   
     <li><a href="./EngineFactory.html">EngineFactory</a>
@@ -128,9 +130,13 @@
   
     <li><a href="./InfrastructureManagerClient.html">InfrastructureManagerClient</a>
   
+    <li><a href="./JSONClient.html">JSONClient</a>
+  
     <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
   
     <li><a href="./NeptuneManager.html">NeptuneManager</a>
+  
+    <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
   
     <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
   
@@ -200,6 +206,63 @@
 
     <!-- Methods -->
     
+     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="method-c-new" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">new</span><span
+            class="method-args">(credentials)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>creates a new App Engine queue via the gtaskqueue executable</p>
+          
+
+          
+          <div class="method-source-code" id="new-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/task_queues/task_queue_google_app_engine.rb, line 43</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">credentials</span>)
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>.<span class="ruby-identifier">class</span> <span class="ruby-operator">!=</span> <span class="ruby-constant">Hash</span>
+    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>
+  <span class="ruby-keyword">end</span>
+  <span class="ruby-ivar">@credentials</span> = <span class="ruby-identifier">credentials</span>
+
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'@appid'</span>].<span class="ruby-identifier">nil?</span>
+    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>
+  <span class="ruby-keyword">end</span>
+  <span class="ruby-ivar">@appid</span> = <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'@appid'</span>]
+  
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'@appcfg_cookies'</span>].<span class="ruby-identifier">nil?</span>
+    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>
+  <span class="ruby-keyword">end</span>
+  <span class="ruby-ivar">@appcfg_cookies</span> = <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'@appcfg_cookies'</span>]
+
+  <span class="ruby-comment"># The App Engine pull queue interface we use is an App Engine app, so make</span>
+  <span class="ruby-comment"># sure that the app is already in App Engine, and if not, upload it.</span>
+  <span class="ruby-keyword">if</span> <span class="ruby-operator">!</span><span class="ruby-identifier">is_pull_queue_app_running?</span>
+    <span class="ruby-identifier">app_location</span> = <span class="ruby-string">'/root/appscale/AppServer/demos/pullqueueapp'</span>
+    <span class="ruby-constant">TaskEngineGoogleAppEngine</span>.<span class="ruby-identifier">upload_app</span>(<span class="ruby-identifier">credentials</span>, <span class="ruby-identifier">app_location</span>)
+    <span class="ruby-identifier">wait_for_app_to_start_serving</span>
+  <span class="ruby-keyword">end</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- new-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- new-method -->
+
+    
+    </section><!-- public-class-method-details -->
+  
      <section id="public-instance-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Instance Methods</h3>
 
@@ -221,7 +284,7 @@ it’s all the job data, since we may have to upload the app</p>
 
           
           <div class="method-source-code" id="get_creds-source">
-            <pre><span class="ruby-comment"># File lib/task_queues/task_queue_google_app_engine.rb, line 113</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_queues/task_queue_google_app_engine.rb, line 113</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_creds</span>()
   <span class="ruby-keyword">return</span> <span class="ruby-ivar">@credentials</span>
 <span class="ruby-keyword">end</span></pre>
@@ -251,7 +314,7 @@ it’s all the job data, since we may have to upload the app</p>
 
           
           <div class="method-source-code" id="is_pull_queue_app_running-3F-source">
-            <pre><span class="ruby-comment"># File lib/task_queues/task_queue_google_app_engine.rb, line 146</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_queues/task_queue_google_app_engine.rb, line 146</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">is_pull_queue_app_running?</span>()
   <span class="ruby-identifier">host</span> = <span class="ruby-node">&quot;http://#{@appid}.appspot.com&quot;</span>
 
@@ -297,7 +360,7 @@ it’s all the job data, since we may have to upload the app</p>
 
           
           <div class="method-source-code" id="pop-source">
-            <pre><span class="ruby-comment"># File lib/task_queues/task_queue_google_app_engine.rb, line 95</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_queues/task_queue_google_app_engine.rb, line 95</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">pop</span>()
   <span class="ruby-identifier">host</span> = <span class="ruby-node">&quot;http://#{@appid}.appspot.com&quot;</span>
 
@@ -338,7 +401,7 @@ and pushing it to our app engine app</p>
 
           
           <div class="method-source-code" id="push-source">
-            <pre><span class="ruby-comment"># File lib/task_queues/task_queue_google_app_engine.rb, line 71</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_queues/task_queue_google_app_engine.rb, line 71</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">push</span>(<span class="ruby-identifier">item</span>)
   <span class="ruby-keyword">if</span> <span class="ruby-identifier">item</span>.<span class="ruby-identifier">class</span> <span class="ruby-operator">!=</span> <span class="ruby-constant">Hash</span>
     <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>
@@ -389,7 +452,7 @@ size of the queue</p>
 
           
           <div class="method-source-code" id="size-source">
-            <pre><span class="ruby-comment"># File lib/task_queues/task_queue_google_app_engine.rb, line 121</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_queues/task_queue_google_app_engine.rb, line 121</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">size</span>()
   <span class="ruby-identifier">host</span> = <span class="ruby-node">&quot;http://#{@appid}.appspot.com&quot;</span>
 
@@ -432,7 +495,7 @@ href="TaskQueue.html">TaskQueue</a>, so do so</p>
 
           
           <div class="method-source-code" id="to_s-source">
-            <pre><span class="ruby-comment"># File lib/task_queues/task_queue_google_app_engine.rb, line 141</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_queues/task_queue_google_app_engine.rb, line 141</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">to_s</span>()
   <span class="ruby-keyword">return</span> <span class="ruby-node">&quot;Queue type: Google App Engine, app id: #{@appid}, &quot;</span> <span class="ruby-operator">+</span>
     <span class="ruby-node">&quot;appcfg_cookies: #{@appcfg_cookies}&quot;</span>
@@ -463,7 +526,7 @@ href="TaskQueue.html">TaskQueue</a>, so do so</p>
 
           
           <div class="method-source-code" id="wait_for_app_to_start_serving-source">
-            <pre><span class="ruby-comment"># File lib/task_queues/task_queue_google_app_engine.rb, line 166</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/task_queues/task_queue_google_app_engine.rb, line 166</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">wait_for_app_to_start_serving</span>()
   <span class="ruby-identifier">host</span> = <span class="ruby-node">&quot;http://#{@appid}.appspot.com&quot;</span>
   <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;waiting for app to start serving&quot;</span>)
@@ -488,63 +551,6 @@ href="TaskQueue.html">TaskQueue</a>, so do so</p>
 
     
     </section><!-- public-instance-method-details -->
-  
-     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
-      <h3 class="section-header">Public Class Methods</h3>
-
-    
-      <div id="method-c-new" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">new</span><span
-            class="method-args">(credentials)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          <p>creates a new App Engine queue via the gtaskqueue executable</p>
-          
-
-          
-          <div class="method-source-code" id="new-source">
-            <pre><span class="ruby-comment"># File lib/task_queues/task_queue_google_app_engine.rb, line 43</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">credentials</span>)
-  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>.<span class="ruby-identifier">class</span> <span class="ruby-operator">!=</span> <span class="ruby-constant">Hash</span>
-    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>
-  <span class="ruby-keyword">end</span>
-  <span class="ruby-ivar">@credentials</span> = <span class="ruby-identifier">credentials</span>
-
-  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'@appid'</span>].<span class="ruby-identifier">nil?</span>
-    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>
-  <span class="ruby-keyword">end</span>
-  <span class="ruby-ivar">@appid</span> = <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'@appid'</span>]
-  
-  <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'@appcfg_cookies'</span>].<span class="ruby-identifier">nil?</span>
-    <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>
-  <span class="ruby-keyword">end</span>
-  <span class="ruby-ivar">@appcfg_cookies</span> = <span class="ruby-identifier">credentials</span>[<span class="ruby-string">'@appcfg_cookies'</span>]
-
-  <span class="ruby-comment"># The App Engine pull queue interface we use is an App Engine app, so make</span>
-  <span class="ruby-comment"># sure that the app is already in App Engine, and if not, upload it.</span>
-  <span class="ruby-keyword">if</span> <span class="ruby-operator">!</span><span class="ruby-identifier">is_pull_queue_app_running?</span>
-    <span class="ruby-identifier">app_location</span> = <span class="ruby-string">'/root/appscale/AppServer/demos/pullqueueapp'</span>
-    <span class="ruby-constant">TaskEngineGoogleAppEngine</span>.<span class="ruby-identifier">upload_app</span>(<span class="ruby-identifier">credentials</span>, <span class="ruby-identifier">app_location</span>)
-    <span class="ruby-identifier">wait_for_app_to_start_serving</span>
-  <span class="ruby-keyword">end</span>
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- new-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- new-method -->
-
-    
-    </section><!-- public-class-method-details -->
   
   </section><!-- 5Buntitled-5D -->
 

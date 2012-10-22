@@ -47,8 +47,7 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>lib/app_controller_client.rb
-    <li>../Neptune/lib/app_controller_client.rb
+    <li>AppController/lib/app_controller_client.rb
   </ul>
 </nav>
 
@@ -131,18 +130,6 @@
   
     <li><a href="./CronHelper.html">CronHelper</a>
   
-    <li><a href="./Datastore.html">Datastore</a>
-  
-    <li><a href="./DatastoreFactory.html">DatastoreFactory</a>
-  
-    <li><a href="./DatastoreRepo.html">DatastoreRepo</a>
-  
-    <li><a href="./DatastoreRepoOnAppEngine.html">DatastoreRepoOnAppEngine</a>
-  
-    <li><a href="./DatastoreRepoOnAppScale.html">DatastoreRepoOnAppScale</a>
-  
-    <li><a href="./DatastoreS3.html">DatastoreS3</a>
-  
     <li><a href="./Djinn.html">Djinn</a>
   
     <li><a href="./DjinnJobData.html">DjinnJobData</a>
@@ -151,15 +138,9 @@
   
     <li><a href="./Ejabberd.html">Ejabberd</a>
   
-    <li><a href="./EngineFactory.html">EngineFactory</a>
-  
     <li><a href="./FailedZooKeeperOperationException.html">FailedZooKeeperOperationException</a>
   
     <li><a href="./GodInterface.html">GodInterface</a>
-  
-    <li><a href="./GoogleAppEnginePullQueue.html">GoogleAppEnginePullQueue</a>
-  
-    <li><a href="./GoogleAppEnginePushQueue.html">GoogleAppEnginePushQueue</a>
   
     <li><a href="./HAProxy.html">HAProxy</a>
   
@@ -173,13 +154,7 @@
   
     <li><a href="./Monitoring.html">Monitoring</a>
   
-    <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
-  
-    <li><a href="./NeptuneManager.html">NeptuneManager</a>
-  
     <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
-  
-    <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
   
     <li><a href="./Nginx.html">Nginx</a>
   
@@ -187,47 +162,13 @@
   
     <li><a href="./PbServer.html">PbServer</a>
   
-    <li><a href="./QueueFactory.html">QueueFactory</a>
-  
     <li><a href="./RabbitMQ.html">RabbitMQ</a>
   
     <li><a href="./Repo.html">Repo</a>
   
-    <li><a href="./TaskEngine.html">TaskEngine</a>
-  
-    <li><a href="./TaskEngineAppScale.html">TaskEngineAppScale</a>
-  
-    <li><a href="./TaskEngineGoogleAppEngine.html">TaskEngineGoogleAppEngine</a>
-  
-    <li><a href="./TaskQueue.html">TaskQueue</a>
-  
-    <li><a href="./TaskQueueAzureQueue.html">TaskQueueAzureQueue</a>
-  
-    <li><a href="./TaskQueueGoogleAppEngine.html">TaskQueueGoogleAppEngine</a>
-  
-    <li><a href="./TaskQueueRabbitMQ.html">TaskQueueRabbitMQ</a>
-  
-    <li><a href="./TaskQueueSQS.html">TaskQueueSQS</a>
-  
-    <li><a href="./TestAppScaleHelper.html">TestAppScaleHelper</a>
-  
-    <li><a href="./TestBabelHelper.html">TestBabelHelper</a>
-  
-    <li><a href="./TestCiceroHelper.html">TestCiceroHelper</a>
-  
-    <li><a href="./TestDatastore.html">TestDatastore</a>
-  
-    <li><a href="./TestNeptuneJobData.html">TestNeptuneJobData</a>
-  
-    <li><a href="./TestNeptuneManager.html">TestNeptuneManager</a>
-  
-    <li><a href="./TestTaskQueue.html">TestTaskQueue</a>
-  
     <li><a href="./UserAppClient.html">UserAppClient</a>
   
     <li><a href="./ZKInterface.html">ZKInterface</a>
-  
-    <li><a href="./ZooKeeperLockException.html">ZooKeeperLockException</a>
   
   </ul>
 </nav>
@@ -240,10 +181,6 @@
 
   <div id="description" class="description">
     
-<p>A client that uses SOAP messages to communicate with the underlying cloud
-platform (here, AppScale). This client is similar to that used in the
-AppScale Tools, but with non-Neptune SOAP calls removed.</p>
-
 <p>A client that uses SOAP messages to communicate with the underlying cloud
 platform (here, AppScale). This client is similar to that used in the
 AppScale Tools, but with non-Neptune SOAP calls removed.</p>
@@ -312,6 +249,62 @@ be found on the machine that ran that tool, or on any AppScale machine.</p>
 
     <!-- Methods -->
     
+     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
+      <h3 class="section-header">Public Class Methods</h3>
+
+    
+      <div id="method-c-new" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">new</span><span
+            class="method-args">(ip, secret)</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>A constructor that requires both the IP address of the machine to
+communicate with as well as the secret (string) needed to perform
+communication. AppControllers will reject SOAP calls if this secret
+(basically a password) is not present - it can be found in the user’s
+.appscale directory, and a helper method is usually present to fetch this
+for us.</p>
+          
+
+          
+          <div class="method-source-code" id="new-source">
+            <pre><span class="ruby-comment"># File AppController/lib/app_controller_client.rb, line 58</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">ip</span>, <span class="ruby-identifier">secret</span>)
+  <span class="ruby-ivar">@ip</span> = <span class="ruby-identifier">ip</span>
+  <span class="ruby-ivar">@secret</span> = <span class="ruby-identifier">secret</span>
+  
+  <span class="ruby-ivar">@conn</span> = <span class="ruby-constant">SOAP</span><span class="ruby-operator">::</span><span class="ruby-constant">RPC</span><span class="ruby-operator">::</span><span class="ruby-constant">Driver</span>.<span class="ruby-identifier">new</span>(<span class="ruby-node">&quot;https://#{@ip}:17443&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;set_parameters&quot;</span>, <span class="ruby-string">&quot;djinn_locations&quot;</span>, <span class="ruby-string">&quot;database_credentials&quot;</span>, <span class="ruby-string">&quot;app_names&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;set_apps&quot;</span>, <span class="ruby-string">&quot;app_names&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;status&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;get_stats&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;update&quot;</span>, <span class="ruby-string">&quot;app_names&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;stop_app&quot;</span>, <span class="ruby-string">&quot;app_name&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)    
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;get_all_public_ips&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;is_done_loading&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;is_done_initializing&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;add_role&quot;</span>, <span class="ruby-string">&quot;new_role&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;remove_role&quot;</span>, <span class="ruby-string">&quot;old_role&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;get_queues_in_use&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- new-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- new-method -->
+
+    
+    </section><!-- public-class-method-details -->
+  
      <section id="public-instance-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Instance Methods</h3>
 
@@ -332,7 +325,7 @@ be found on the machine that ran that tool, or on any AppScale machine.</p>
 
           
           <div class="method-source-code" id="add_role-source">
-            <pre><span class="ruby-comment"># File lib/app_controller_client.rb, line 214</span>
+            <pre><span class="ruby-comment"># File AppController/lib/app_controller_client.rb, line 214</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">add_role</span>(<span class="ruby-identifier">role</span>)
   <span class="ruby-identifier">make_call</span>(<span class="ruby-constant">NO_TIMEOUT</span>, <span class="ruby-constant">RETRY_ON_FAIL</span>, <span class="ruby-string">&quot;add_role&quot;</span>) { <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_role</span>(<span class="ruby-identifier">role</span>, <span class="ruby-ivar">@secret</span>) }
 <span class="ruby-keyword">end</span></pre>
@@ -362,7 +355,7 @@ be found on the machine that ran that tool, or on any AppScale machine.</p>
 
           
           <div class="method-source-code" id="get_all_public_ips-source">
-            <pre><span class="ruby-comment"># File lib/app_controller_client.rb, line 210</span>
+            <pre><span class="ruby-comment"># File AppController/lib/app_controller_client.rb, line 210</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_all_public_ips</span>()
   <span class="ruby-identifier">make_call</span>(<span class="ruby-value">30</span>, <span class="ruby-constant">RETRY_ON_FAIL</span>, <span class="ruby-string">&quot;get_all_public_ips&quot;</span>) { <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">get_all_public_ips</span>(<span class="ruby-ivar">@secret</span>) }
 <span class="ruby-keyword">end</span></pre>
@@ -392,7 +385,7 @@ be found on the machine that ran that tool, or on any AppScale machine.</p>
 
           
           <div class="method-source-code" id="get_queues_in_use-source">
-            <pre><span class="ruby-comment"># File lib/app_controller_client.rb, line 268</span>
+            <pre><span class="ruby-comment"># File AppController/lib/app_controller_client.rb, line 268</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_queues_in_use</span>()
   <span class="ruby-identifier">make_call</span>(<span class="ruby-constant">NO_TIMEOUT</span>, <span class="ruby-constant">RETRY_ON_FAIL</span>, <span class="ruby-string">&quot;get_queues_in_use&quot;</span>) { 
     <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">get_queues_in_use</span>(<span class="ruby-ivar">@secret</span>)
@@ -424,7 +417,7 @@ be found on the machine that ran that tool, or on any AppScale machine.</p>
 
           
           <div class="method-source-code" id="get_stats-source">
-            <pre><span class="ruby-comment"># File lib/app_controller_client.rb, line 190</span>
+            <pre><span class="ruby-comment"># File AppController/lib/app_controller_client.rb, line 190</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_stats</span>(<span class="ruby-identifier">ok_to_fail</span>=<span class="ruby-keyword">false</span>)
   <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-operator">!</span><span class="ruby-identifier">ok_to_fail</span>, <span class="ruby-string">&quot;get_stats&quot;</span>, <span class="ruby-identifier">ok_to_fail</span>) { <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">get_stats</span>(<span class="ruby-ivar">@secret</span>) }
 <span class="ruby-keyword">end</span></pre>
@@ -454,7 +447,7 @@ be found on the machine that ran that tool, or on any AppScale machine.</p>
 
           
           <div class="method-source-code" id="get_status-source">
-            <pre><span class="ruby-comment"># File lib/app_controller_client.rb, line 176</span>
+            <pre><span class="ruby-comment"># File AppController/lib/app_controller_client.rb, line 176</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_status</span>(<span class="ruby-identifier">ok_to_fail</span>=<span class="ruby-keyword">false</span>)
   <span class="ruby-keyword">if</span> <span class="ruby-operator">!</span><span class="ruby-constant">HelperFunctions</span>.<span class="ruby-identifier">is_port_open?</span>(<span class="ruby-ivar">@ip</span>, <span class="ruby-value">17443</span>)
     <span class="ruby-keyword">if</span> <span class="ruby-identifier">ok_to_fail</span>
@@ -494,7 +487,7 @@ be found on the machine that ran that tool, or on any AppScale machine.</p>
 
           
           <div class="method-source-code" id="get_userappserver_ip-source">
-            <pre><span class="ruby-comment"># File lib/app_controller_client.rb, line 123</span>
+            <pre><span class="ruby-comment"># File AppController/lib/app_controller_client.rb, line 123</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">get_userappserver_ip</span>(<span class="ruby-identifier">verbose_level</span>=<span class="ruby-string">&quot;low&quot;</span>) 
   <span class="ruby-identifier">userappserver_ip</span>, <span class="ruby-identifier">status</span>, <span class="ruby-identifier">state</span>, <span class="ruby-identifier">new_state</span> = <span class="ruby-string">&quot;&quot;</span>, <span class="ruby-string">&quot;&quot;</span>, <span class="ruby-string">&quot;&quot;</span>, <span class="ruby-string">&quot;&quot;</span>
   <span class="ruby-identifier">loop</span> {
@@ -546,7 +539,7 @@ be found on the machine that ran that tool, or on any AppScale machine.</p>
 
           
           <div class="method-source-code" id="is_done_initializing-3F-source">
-            <pre><span class="ruby-comment"># File lib/app_controller_client.rb, line 202</span>
+            <pre><span class="ruby-comment"># File AppController/lib/app_controller_client.rb, line 202</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">is_done_initializing?</span>()
   <span class="ruby-identifier">make_call</span>(<span class="ruby-value">30</span>, <span class="ruby-constant">RETRY_ON_FAIL</span>, <span class="ruby-string">&quot;is_done_initializing&quot;</span>, <span class="ruby-identifier">ok_to_fail</span>=<span class="ruby-keyword">true</span>) { <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">is_done_initializing</span>(<span class="ruby-ivar">@secret</span>) }
 <span class="ruby-keyword">end</span></pre>
@@ -576,7 +569,7 @@ be found on the machine that ran that tool, or on any AppScale machine.</p>
 
           
           <div class="method-source-code" id="is_done_loading-3F-source">
-            <pre><span class="ruby-comment"># File lib/app_controller_client.rb, line 206</span>
+            <pre><span class="ruby-comment"># File AppController/lib/app_controller_client.rb, line 206</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">is_done_loading?</span>()
   <span class="ruby-identifier">make_call</span>(<span class="ruby-value">30</span>, <span class="ruby-constant">RETRY_ON_FAIL</span>, <span class="ruby-string">&quot;is_done_loading&quot;</span>, <span class="ruby-identifier">ok_to_fail</span>=<span class="ruby-keyword">true</span>) { <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">is_done_loading</span>(<span class="ruby-ivar">@secret</span>) }
 <span class="ruby-keyword">end</span></pre>
@@ -617,7 +610,7 @@ The result of the block is returned to the caller.</p>
 
           
           <div class="method-source-code" id="make_call-source">
-            <pre><span class="ruby-comment"># File lib/app_controller_client.rb, line 91</span>
+            <pre><span class="ruby-comment"># File AppController/lib/app_controller_client.rb, line 91</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">make_call</span>(<span class="ruby-identifier">time</span>, <span class="ruby-identifier">retry_on_except</span>, <span class="ruby-identifier">callr</span>, <span class="ruby-identifier">ok_to_fail</span>=<span class="ruby-keyword">false</span>)
   <span class="ruby-identifier">refused_count</span> = <span class="ruby-value">0</span>
   <span class="ruby-identifier">max</span> = <span class="ruby-value">5</span>
@@ -676,7 +669,7 @@ case</p>
 
           
           <div class="method-source-code" id="remove_role-source">
-            <pre><span class="ruby-comment"># File lib/app_controller_client.rb, line 221</span>
+            <pre><span class="ruby-comment"># File AppController/lib/app_controller_client.rb, line 221</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">remove_role</span>(<span class="ruby-identifier">role</span>)
   <span class="ruby-identifier">make_call</span>(<span class="ruby-constant">NO_TIMEOUT</span>, <span class="ruby-constant">RETRY_ON_FAIL</span>, <span class="ruby-string">&quot;remove_role&quot;</span>) { <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">remove_role</span>(<span class="ruby-identifier">role</span>, <span class="ruby-ivar">@secret</span>) }
 <span class="ruby-keyword">end</span></pre>
@@ -706,7 +699,7 @@ case</p>
 
           
           <div class="method-source-code" id="run_neptune_job-source">
-            <pre><span class="ruby-comment"># File lib/app_controller_client.rb, line 225</span>
+            <pre><span class="ruby-comment"># File AppController/lib/app_controller_client.rb, line 225</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">run_neptune_job</span>(<span class="ruby-identifier">nodes</span>, <span class="ruby-identifier">job_data</span>)
   <span class="ruby-identifier">type</span> = <span class="ruby-string">&quot;&quot;</span>
   <span class="ruby-keyword">if</span> <span class="ruby-identifier">job_data</span>.<span class="ruby-identifier">class</span> <span class="ruby-operator">==</span> <span class="ruby-constant">Array</span>
@@ -752,7 +745,7 @@ case</p>
 
           
           <div class="method-source-code" id="set_apps-source">
-            <pre><span class="ruby-comment"># File lib/app_controller_client.rb, line 157</span>
+            <pre><span class="ruby-comment"># File AppController/lib/app_controller_client.rb, line 157</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">set_apps</span>(<span class="ruby-identifier">app_names</span>)
   <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
   <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-constant">ABORT_ON_FAIL</span>, <span class="ruby-string">&quot;set_apps&quot;</span>) { 
@@ -786,7 +779,7 @@ case</p>
 
           
           <div class="method-source-code" id="set_parameters-source">
-            <pre><span class="ruby-comment"># File lib/app_controller_client.rb, line 149</span>
+            <pre><span class="ruby-comment"># File AppController/lib/app_controller_client.rb, line 149</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">set_parameters</span>(<span class="ruby-identifier">locations</span>, <span class="ruby-identifier">creds</span>, <span class="ruby-identifier">apps_to_start</span>)
   <span class="ruby-identifier">result</span> = <span class="ruby-string">&quot;&quot;</span>
   <span class="ruby-identifier">make_call</span>(<span class="ruby-value">10</span>, <span class="ruby-constant">ABORT_ON_FAIL</span>, <span class="ruby-string">&quot;set_parameters&quot;</span>) { 
@@ -820,7 +813,7 @@ case</p>
 
           
           <div class="method-source-code" id="status-source">
-            <pre><span class="ruby-comment"># File lib/app_controller_client.rb, line 165</span>
+            <pre><span class="ruby-comment"># File AppController/lib/app_controller_client.rb, line 165</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">status</span>(<span class="ruby-identifier">print_output</span>=<span class="ruby-keyword">true</span>)
   <span class="ruby-identifier">status</span> = <span class="ruby-identifier">get_status</span>()
        
@@ -857,7 +850,7 @@ case</p>
 
           
           <div class="method-source-code" id="stop_app-source">
-            <pre><span class="ruby-comment"># File lib/app_controller_client.rb, line 194</span>
+            <pre><span class="ruby-comment"># File AppController/lib/app_controller_client.rb, line 194</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">stop_app</span>(<span class="ruby-identifier">app_name</span>)
   <span class="ruby-identifier">make_call</span>(<span class="ruby-value">30</span>, <span class="ruby-constant">RETRY_ON_FAIL</span>, <span class="ruby-string">&quot;stop_app&quot;</span>) { <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">stop_app</span>(<span class="ruby-identifier">app_name</span>, <span class="ruby-ivar">@secret</span>) }
 <span class="ruby-keyword">end</span></pre>
@@ -887,7 +880,7 @@ case</p>
 
           
           <div class="method-source-code" id="update-source">
-            <pre><span class="ruby-comment"># File lib/app_controller_client.rb, line 198</span>
+            <pre><span class="ruby-comment"># File AppController/lib/app_controller_client.rb, line 198</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">update</span>(<span class="ruby-identifier">app_names</span>)
   <span class="ruby-identifier">make_call</span>(<span class="ruby-value">30</span>, <span class="ruby-constant">RETRY_ON_FAIL</span>, <span class="ruby-string">&quot;update&quot;</span>) { <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">update</span>(<span class="ruby-identifier">app_names</span>, <span class="ruby-ivar">@secret</span>) }
 <span class="ruby-keyword">end</span></pre>
@@ -917,7 +910,7 @@ case</p>
 
           
           <div class="method-source-code" id="wait_for_node_to_be-source">
-            <pre><span class="ruby-comment"># File lib/app_controller_client.rb, line 245</span>
+            <pre><span class="ruby-comment"># File AppController/lib/app_controller_client.rb, line 245</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">wait_for_node_to_be</span>(<span class="ruby-identifier">new_roles</span>)
   <span class="ruby-identifier">roles</span> = <span class="ruby-identifier">new_roles</span>.<span class="ruby-identifier">split</span>(<span class="ruby-string">&quot;:&quot;</span>)
 
@@ -951,62 +944,6 @@ case</p>
 
     
     </section><!-- public-instance-method-details -->
-  
-     <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
-      <h3 class="section-header">Public Class Methods</h3>
-
-    
-      <div id="method-c-new" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">new</span><span
-            class="method-args">(ip, secret)</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          <p>A constructor that requires both the IP address of the machine to
-communicate with as well as the secret (string) needed to perform
-communication. AppControllers will reject SOAP calls if this secret
-(basically a password) is not present - it can be found in the user’s
-.appscale directory, and a helper method is usually present to fetch this
-for us.</p>
-          
-
-          
-          <div class="method-source-code" id="new-source">
-            <pre><span class="ruby-comment"># File lib/app_controller_client.rb, line 58</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">ip</span>, <span class="ruby-identifier">secret</span>)
-  <span class="ruby-ivar">@ip</span> = <span class="ruby-identifier">ip</span>
-  <span class="ruby-ivar">@secret</span> = <span class="ruby-identifier">secret</span>
-  
-  <span class="ruby-ivar">@conn</span> = <span class="ruby-constant">SOAP</span><span class="ruby-operator">::</span><span class="ruby-constant">RPC</span><span class="ruby-operator">::</span><span class="ruby-constant">Driver</span>.<span class="ruby-identifier">new</span>(<span class="ruby-node">&quot;https://#{@ip}:17443&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;set_parameters&quot;</span>, <span class="ruby-string">&quot;djinn_locations&quot;</span>, <span class="ruby-string">&quot;database_credentials&quot;</span>, <span class="ruby-string">&quot;app_names&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;set_apps&quot;</span>, <span class="ruby-string">&quot;app_names&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;status&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;get_stats&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;update&quot;</span>, <span class="ruby-string">&quot;app_names&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;stop_app&quot;</span>, <span class="ruby-string">&quot;app_name&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)    
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;get_all_public_ips&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;is_done_loading&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;is_done_initializing&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;add_role&quot;</span>, <span class="ruby-string">&quot;new_role&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;remove_role&quot;</span>, <span class="ruby-string">&quot;old_role&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-  <span class="ruby-ivar">@conn</span>.<span class="ruby-identifier">add_method</span>(<span class="ruby-string">&quot;get_queues_in_use&quot;</span>, <span class="ruby-string">&quot;secret&quot;</span>)
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- new-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- new-method -->
-
-    
-    </section><!-- public-class-method-details -->
   
   </section><!-- 5Buntitled-5D -->
 

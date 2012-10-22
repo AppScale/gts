@@ -47,7 +47,7 @@
     <nav id="file-list-section" class="section">
   <h3 class="section-header">Defined In</h3>
   <ul>
-    <li>lib/datastores/datastore_repo_on_app_engine.rb
+    <li>Neptune/lib/datastores/datastore_repo_on_app_engine.rb
   </ul>
 </nav>
 
@@ -102,6 +102,8 @@
   
     <li><a href="./DatastoreS3.html">DatastoreS3</a>
   
+    <li><a href="./DatastoreWAZStorage.html">DatastoreWAZStorage</a>
+  
     <li><a href="./DjinnJobData.html">DjinnJobData</a>
   
     <li><a href="./EngineFactory.html">EngineFactory</a>
@@ -116,9 +118,13 @@
   
     <li><a href="./InfrastructureManagerClient.html">InfrastructureManagerClient</a>
   
+    <li><a href="./JSONClient.html">JSONClient</a>
+  
     <li><a href="./NeptuneJobData.html">NeptuneJobData</a>
   
     <li><a href="./NeptuneManager.html">NeptuneManager</a>
+  
+    <li><a href="./NeptuneManagerClient.html">NeptuneManagerClient</a>
   
     <li><a href="./NeptuneManagerServer.html">NeptuneManagerServer</a>
   
@@ -213,49 +219,6 @@ basically use it as an interface to AppScale’s database agnostic layer.</p>
 
     <!-- Methods -->
     
-     <section id="public-instance-5Buntitled-5D-method-details" class="method-section section">
-      <h3 class="section-header">Public Instance Methods</h3>
-
-    
-      <div id="method-i-is_app_running-3F" class="method-detail ">
-        
-        <div class="method-heading">
-          <span class="method-name">is_app_running?</span><span
-            class="method-args">()</span>
-          <span class="method-click-advice">click to toggle source</span>
-        </div>
-        
-
-        <div class="method-description">
-          
-          <p>Sees if the Repo application is running at the @host we’ve set for it.</p>
-          
-
-          
-          <div class="method-source-code" id="is_app_running-3F-source">
-            <pre><span class="ruby-comment"># File lib/datastores/datastore_repo_on_app_engine.rb, line 54</span>
-<span class="ruby-keyword">def</span> <span class="ruby-identifier">is_app_running?</span>()
-  <span class="ruby-identifier">result</span> = <span class="ruby-identifier">do_http_get_for_get</span>(<span class="ruby-string">&quot;/any-path&quot;</span>, <span class="ruby-string">&quot;any-type&quot;</span>)
-  <span class="ruby-keyword">if</span> <span class="ruby-identifier">result</span>
-    <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;App appears to be running&quot;</span>)
-    <span class="ruby-keyword">return</span> <span class="ruby-keyword">true</span>
-  <span class="ruby-keyword">else</span>
-    <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;App isn't running&quot;</span>)
-    <span class="ruby-keyword">return</span> <span class="ruby-keyword">false</span>
-  <span class="ruby-keyword">end</span>
-<span class="ruby-keyword">end</span></pre>
-          </div><!-- is_app_running-3F-source -->
-          
-        </div>
-
-        
-
-        
-      </div><!-- is_app_running-3F-method -->
-
-    
-    </section><!-- public-instance-method-details -->
-  
      <section id="public-class-5Buntitled-5D-method-details" class="method-section section">
       <h3 class="section-header">Public Class Methods</h3>
 
@@ -278,7 +241,7 @@ see if our app is running on App Engine before trying to re-upload it.</p>
 
           
           <div class="method-source-code" id="new-source">
-            <pre><span class="ruby-comment"># File lib/datastores/datastore_repo_on_app_engine.rb, line 30</span>
+            <pre><span class="ruby-comment"># File Neptune/lib/datastores/datastore_repo_on_app_engine.rb, line 30</span>
 <span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">credentials</span>)
   <span class="ruby-keyword">if</span> <span class="ruby-identifier">credentials</span>.<span class="ruby-identifier">class</span> <span class="ruby-operator">!=</span> <span class="ruby-constant">Hash</span>
     <span class="ruby-identifier">raise</span> <span class="ruby-constant">BadConfigurationException</span>.<span class="ruby-identifier">new</span>(<span class="ruby-string">&quot;Credentials was not a Hash&quot;</span>)
@@ -311,6 +274,49 @@ see if our app is running on App Engine before trying to re-upload it.</p>
 
     
     </section><!-- public-class-method-details -->
+  
+     <section id="public-instance-5Buntitled-5D-method-details" class="method-section section">
+      <h3 class="section-header">Public Instance Methods</h3>
+
+    
+      <div id="method-i-is_app_running-3F" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">is_app_running?</span><span
+            class="method-args">()</span>
+          <span class="method-click-advice">click to toggle source</span>
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Sees if the Repo application is running at the @host we’ve set for it.</p>
+          
+
+          
+          <div class="method-source-code" id="is_app_running-3F-source">
+            <pre><span class="ruby-comment"># File Neptune/lib/datastores/datastore_repo_on_app_engine.rb, line 54</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">is_app_running?</span>()
+  <span class="ruby-identifier">result</span> = <span class="ruby-identifier">do_http_get_for_get</span>(<span class="ruby-string">&quot;/any-path&quot;</span>, <span class="ruby-string">&quot;any-type&quot;</span>)
+  <span class="ruby-keyword">if</span> <span class="ruby-identifier">result</span>
+    <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;App appears to be running&quot;</span>)
+    <span class="ruby-keyword">return</span> <span class="ruby-keyword">true</span>
+  <span class="ruby-keyword">else</span>
+    <span class="ruby-constant">NeptuneManager</span>.<span class="ruby-identifier">log</span>(<span class="ruby-string">&quot;App isn't running&quot;</span>)
+    <span class="ruby-keyword">return</span> <span class="ruby-keyword">false</span>
+  <span class="ruby-keyword">end</span>
+<span class="ruby-keyword">end</span></pre>
+          </div><!-- is_app_running-3F-source -->
+          
+        </div>
+
+        
+
+        
+      </div><!-- is_app_running-3F-method -->
+
+    
+    </section><!-- public-instance-method-details -->
   
   </section><!-- 5Buntitled-5D -->
 
