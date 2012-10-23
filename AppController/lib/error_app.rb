@@ -1,17 +1,16 @@
 #!/usr/bin/ruby -w
 
 require 'fileutils'
-require 'custom_exceptions'
 
 $:.unshift File.join(File.dirname(__FILE__))
+$:.unshift File.join(File.dirname(__FILE__), "..")
+
+require 'custom_exceptions'
+require 'djinn'
 require 'helperfunctions'
 
 
-$:.unshift File.join(File.dirname(__FILE__), "..")
-require 'djinn'
-
-
-# This class generates an application that relays an error message to 
+# This class generates a python GAE application that relays an error message to 
 # the user as to why their app failed to come up
 class ErrorApp
 
@@ -61,28 +60,19 @@ if __name__ == '__main__':
   main()
 
 SCRIPT
-    File.open(@dir_path + 'app.yaml', "w+") { |dest_file| dest_file.write(app_yaml) }
-    File.open(@dir_path + "#{@app_name}.py", "w+") { |dest_file| dest_file.write(script) }
+
+    HelperFunctions.write_file(@dir_path + 'app.yaml', app_yaml)
+    HelperFunctions.write_file(@dir_path + "#{@app_name}.py", script) 
      
-    puts "Running: tar zcvf #{@dir_path}/#{@app_name}.tar.gz #{@dir_path}"
-    run_shell("rm #{@dir_path}/#{@app_name}.tar.gz")
+    Djinn.log_run("rm #{@dir_path}/#{@app_name}.tar.gz")
     ret = 0
     Dir.chdir(@dir_path) do
-      run_shell("tar zcvf #{@app_name}.tar.gz app.yaml #{@app_name}.py")
+      Djinn.log_debug("Running: tar zcvf #{@dir_path}/#{@app_name}.tar.gz #{@dir_path}")
+      Djinn.log_run("tar zcvf #{@app_name}.tar.gz app.yaml #{@app_name}.py")
     end
 
-#    if ret != 0
-#      puts "Received a return value of #{ret}"
-#      raise FailedShellExec.new("Taring of error app failed for #{@app_name}")
-#    else
     return true
-   # end
   end
 
-  # Wrapper for a shell command. Allows for mocking. 
-  def run_shell(cmd)
-    puts cmd
-    return `#{cmd}`
-  end
 end
 

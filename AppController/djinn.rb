@@ -2739,6 +2739,8 @@ HOSTS
     Djinn.log_debug("Stopping Shadow role")
   end
 
+  # Swaps out an application with one that relays an error message to the 
+  # developer
   def place_error_app(app_name, err_msg)
     Djinn.log_debug("Placing error application for #{app_name} because of: #{err_msg}")
     ea = ErrorApp.new(app_name, err_msg)
@@ -2848,7 +2850,7 @@ HOSTS
         login_ip = get_login.private_ip
         success = Nginx.write_app_config(app, app_number, my_public, my_private,
           proxy_port, static_handlers, login_ip)
-        if not success
+        if !success
           place_error_app("ERROR: Failure to create valid nginx config file for application #{app}.")
           next
         end
@@ -3451,17 +3453,17 @@ HOSTS
 
     my_public = my_node.public_ip
     my_private = my_node.private_ip
-    pub_login_ip = get_login.public_ip
-    pri_login_ip = get_login.private_ip
+    public_login_ip = get_login.public_ip
+    private_login_ip = get_login.private_ip
   
     begin
       static_handlers = HelperFunctions.parse_static_data(app)
-    rescue Exception
-      place_error_app(app, "ERROR: Unable to parse app.yaml file for #{app}.")
+    rescue Exception => e
+      place_error_app(app, "ERROR: Unable to parse app.yaml file for #{app}. Exception of type #{e.class}")
       next
     end
     proxy_port = HAProxy.app_listen_port(app_number)
-    Nginx.write_app_config(app, app_number, my_public, my_private, proxy_port, static_handlers, pri_login_ip)
+    Nginx.write_app_config(app, app_number, my_public, my_private, proxy_port, static_handlers, private_login_ip)
     HAProxy.write_app_config(app, app_number, num_servers, my_private)
     Collectd.write_app_config(app)
 
@@ -3469,7 +3471,7 @@ HOSTS
       Djinn.log_debug("Starting #{app_language} app #{app} on " +
         "#{HelperFunctions.local_ip}:#{port}")
       pid = HelperFunctions.run_app(app, port, @userappserver_private_ip, 
-        my_public, my_private, app_version, app_language, nginx_port, pub_login_ip)
+        my_public, my_private, app_version, app_language, nginx_port, public_login_ip)
       pid_file_name = "#{APPSCALE_HOME}/.appscale/#{app}-#{port}.pid"
       HelperFunctions.write_file(pid_file_name, pid)
     }
