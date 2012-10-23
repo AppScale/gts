@@ -319,7 +319,7 @@ class TestDjinn < Test::Unit::TestCase
 
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
-    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181").
+    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181", ZKInterface::TIMEOUT).
       and_return(baz)
     ZKInterface.init_to_ip("public_ip", "public_ip")
     assert_equal(nil, djinn.write_our_node_info)
@@ -388,7 +388,7 @@ class TestDjinn < Test::Unit::TestCase
 
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
-    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181").
+    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181", ZKInterface::TIMEOUT).
       and_return(baz)
     ZKInterface.init_to_ip("public_ip", "public_ip")
 
@@ -406,19 +406,6 @@ class TestDjinn < Test::Unit::TestCase
     # finally, since done_loading can change as we start or stop roles,
     # make sure it got set back to true when it's done
     assert_equal(true, djinn.done_loading)
-  end
-
-  def test_ensure_all_roles_are_running_w_other_open_nodes
-    my_role = "public_ip:private_ip:shadow:instance_id:cloud1"
-    other_role = "public_ip2:private_ip2:open:instance_id:cloud1"
-    djinn = Djinn.new
-    djinn.my_index = 0
-    djinn.nodes = [DjinnJobData.new(my_role, "appscale"),
-      DjinnJobData.new(other_role, "appscale")]
- 
-    # first, make sure that we (my_role) takes no action since there
-    # already is an open node that should be watching
-    assert_equal([], djinn.ensure_all_roles_are_running())
   end
 
   def test_ensure_all_roles_are_running
@@ -587,7 +574,7 @@ class TestDjinn < Test::Unit::TestCase
     # mocks for zookeeper initialization
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return() 
-    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181").
+    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181", ZKInterface::TIMEOUT).
       and_return(baz)
 
     djinn = Djinn.new
@@ -639,7 +626,7 @@ class TestDjinn < Test::Unit::TestCase
     # mock out ZooKeeper's init stuff
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return() 
-    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181").
+    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181", ZKInterface::TIMEOUT).
       and_return(mocked_zk)
 
     ZKInterface.init_to_ip("public_ip", "public_ip")
