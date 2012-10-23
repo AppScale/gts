@@ -62,6 +62,7 @@ MAX_TASK_SIZE = MAX_PUSH_TASK_SIZE_BYTES
 MAX_REQUEST_SIZE = 32 << 20
 MAX_RETRIES = 10
 MAX_WAIT = 60 # max wait in seconds
+MAX_RECONNECT_TIME = 1024
 BUILT_IN_HEADERS = set(['x-appengine-queuename',
                         'x-appengine-taskname',
                         'x-appengine-taskretrycount',
@@ -360,9 +361,14 @@ class _BackgroundTaskScheduler(object):
     self._should_exit = False
     self.task_executor = task_executor
     self.default_retry_seconds = retry_seconds
-    self.connection = pika.BlockingConnection(pika.ConnectionParameters(
+    try:
+      self.connection = pika.BlockingConnection(pika.ConnectionParameters(
         host='localhost'))
-    self.channel = self.connection.channel()
+      self.channel = self.connection.channel()
+    except pika.exceptions.AMQPConnectionError, e:
+      logging.error("Unable to connect to RabbitMQ: " + str(e))
+    except Exception, e:
+      logging.error("Unable to connect to RabbitMQ: " + str(e))
     self._queue_name = "app_%s"%app_name
     if kwargs:
       raise TypeError('Unknown parameters: %s' % ', '.join(kwargs))
@@ -444,7 +450,12 @@ class _BackgroundTaskScheduler(object):
           self.connection = pika.BlockingConnection(pika.ConnectionParameters(
                                                     host='localhost'))
           self.channel = self.connection.channel()
-        # TODO should be done transactionally with the publish and reject 
+        except pika.exceptions.AMQPConnectionError, e:
+          logging.error("Unable to connect to RabbitMQ: " + str(e))
+        except Exception, e:
+          logging.error("Unable to connect to RabbitMQ: " + str(e))
+        # TODO rabbitmq's public and reject should be done transactionally
+        #
         # The API does support transactions see
         # http://www.rabbitmq.com/amqp-0-9-1-reference.html
         else:
@@ -453,6 +464,7 @@ class _BackgroundTaskScheduler(object):
  
   def MainLoop(self):
     """The main loop of the scheduler."""
+    reconnect_time = 1
     while 1:
       try:
         logging.info("Connecting to RabbitMQ")
@@ -468,8 +480,10 @@ class _BackgroundTaskScheduler(object):
         logging.error("RabbitMQ Connection error %s"%str(e))
       except Exception, e:
         logging.error("RabbitMQ Unknown exception %s"%str(e))
-      logging.info("Reconnecting in 5 seconds")
-      time.sleep(5) 
+      logging.info("Reconnecting in " + str(reconnect_time) + " seconds")
+      time.sleep(reconnect_time) 
+      if reconnect_time <= MAX_RECONNECT_TIME:
+        reconnect_time *= 2
 
 class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
   """Python only task queue service stub.
@@ -519,10 +533,15 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     self._task_scheduler = _BackgroundTaskScheduler(
         _TaskExecutor(default_http_server, self._secret_hash), app_id, 
         retry_seconds=task_retry_seconds)
-    self.connection = pika.BlockingConnection(pika.ConnectionParameters(
+    try:
+      self.connection = pika.BlockingConnection(pika.ConnectionParameters(
         host='localhost'))
-    self.channel = self.connection.channel()
-    self.channel.queue_declare(queue='app_%s'%app_id, durable=False)
+      self.channel = self.connection.channel()
+      self.channel.queue_declare(queue='app_%s'%app_id, durable=False)
+    except pika.exceptions.AMQPConnectionError, e:
+      logging.error("RabbitMQ Connection error %s"%str(e))
+    except Exception, e:
+      logging.error("Unable to connecto to RabbitMQ")
 
   def StartBackgroundExecution(self):
     """Start automatic task execution."""
@@ -745,6 +764,8 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
                                                    host='localhost'))
       raise apiproxy_errors.ApplicationError(
                  taskqueue_service_pb.TaskQueueServiceError.TRANSIENT_ERROR)
+    except Exception, e:
+      logging.error("Unable to connect to RabbitMQ")
 
   def _LocateTaskByName(self, task_name):
     """ Makes sure the task does not exist or tombstoned
