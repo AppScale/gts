@@ -2944,7 +2944,7 @@ HOSTS
       return
     end
 
-    if @creds["autoscale"]
+    if @creds["autoscale"] == "true"
       Djinn.log_debug("Examining AppServers to autoscale them")
       perform_scaling_for_appservers()
     else
