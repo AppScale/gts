@@ -2847,7 +2847,7 @@ HOSTS
         begin
           static_handlers = HelperFunctions.parse_static_data(app)
         rescue Exception
-          error_msg = "ERROR: Unable to parse app.yaml file for #{app}.")
+          error_msg = "ERROR: Unable to parse app.yaml file for #{app}."
           place_error_app(app, error_msg)
           next 
         end
@@ -2880,7 +2880,8 @@ HOSTS
             @userappserver_private_ip, get_load_balancer_ip(), my_private, 
             app_version, app_language, @nginx_port, xmpp_ip)
           if pid == -1
-            place_error_app(app, "ERROR: Unable to start application #{app}. Please check the application logs.") 
+            place_error_app(app, "ERROR: Unable to start application " + \
+                "#{app}. Please check the application logs.") 
             next
           end
 
