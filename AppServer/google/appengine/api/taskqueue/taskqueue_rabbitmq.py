@@ -53,21 +53,35 @@ from google.appengine.api import datastore_errors
 import pika
 
 DEFAULT_RATE = '5.00/s'
+
 DEFAULT_RATE_FLOAT = 5.0
+
 DEFAULT_BUCKET_SIZE = 5
+
 MAX_ETA = datetime.timedelta(days=30)
+
 MAX_PULL_TASK_SIZE_BYTES = 2 ** 20
+
 MAX_PUSH_TASK_SIZE_BYTES = 100 * (2 ** 10)
+
 MAX_TASK_SIZE = MAX_PUSH_TASK_SIZE_BYTES
+
 MAX_REQUEST_SIZE = 32 << 20
+
 MAX_RETRIES = 10
-MAX_WAIT = 60 # max wait in seconds
+
+# Max wait in seconds
+MAX_WAIT = 60 
+
+# Max time for exponential backoff for RabbitMQ reconnect
 MAX_RECONNECT_TIME = 1024
+
 BUILT_IN_HEADERS = set(['x-appengine-queuename',
                         'x-appengine-taskname',
                         'x-appengine-taskretrycount',
                         'x-appengine-development-payload',
                         'content-length'])
+
 DEFAULT_QUEUE_NAME = 'default'
 
 QUEUE_MODE = taskqueue_service_pb.TaskQueueMode
@@ -75,6 +89,7 @@ QUEUE_MODE = taskqueue_service_pb.TaskQueueMode
 AUTOMATIC_QUEUES = {
     DEFAULT_QUEUE_NAME: (0.2, DEFAULT_BUCKET_SIZE, DEFAULT_RATE),
     '__cron': (1, 1, '1/s')}
+
 _TASKQUEUE_KIND = "___TaskQueue___"
      
 def _GetAppId(request):
@@ -368,7 +383,7 @@ class _BackgroundTaskScheduler(object):
     except pika.exceptions.AMQPConnectionError, e:
       logging.error("Unable to connect to RabbitMQ: " + str(e))
     except Exception, e:
-      logging.error("Unable to connect to RabbitMQ: " + str(e))
+      logging.error("Unknown Exception--unable to connect to RabbitMQ: " + str(e))
     self._queue_name = "app_%s"%app_name
     if kwargs:
       raise TypeError('Unknown parameters: %s' % ', '.join(kwargs))
@@ -453,10 +468,10 @@ class _BackgroundTaskScheduler(object):
         except pika.exceptions.AMQPConnectionError, e:
           logging.error("Unable to connect to RabbitMQ: " + str(e))
         except Exception, e:
-          logging.error("Unable to connect to RabbitMQ: " + str(e))
-        # TODO rabbitmq's public and reject should be done transactionally
-        #
-        # The API does support transactions see
+          logging.error("Unknown exception--unable to connect to RabbitMQ: " + str(e))
+        # TODO RabbitMQ's basic_publish and reject should be 
+        # done transactionally to prevent race conditions and duplicate
+        # tasks being enqueued. The API does support transactions see:
         # http://www.rabbitmq.com/amqp-0-9-1-reference.html
         else:
           ch.basic_reject(delivery_tag = method.delivery_tag, requeue = False)
@@ -541,7 +556,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     except pika.exceptions.AMQPConnectionError, e:
       logging.error("RabbitMQ Connection error %s"%str(e))
     except Exception, e:
-      logging.error("Unable to connecto to RabbitMQ")
+      logging.error("Unknown exception--Unable to connect to to RabbitMQ")
 
   def StartBackgroundExecution(self):
     """Start automatic task execution."""
@@ -765,7 +780,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
       raise apiproxy_errors.ApplicationError(
                  taskqueue_service_pb.TaskQueueServiceError.TRANSIENT_ERROR)
     except Exception, e:
-      logging.error("Unable to connect to RabbitMQ")
+      logging.error("Unknown exception--Unable to connect to RabbitMQ")
 
   def _LocateTaskByName(self, task_name):
     """ Makes sure the task does not exist or tombstoned
