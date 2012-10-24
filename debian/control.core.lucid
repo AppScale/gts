@@ -35,6 +35,7 @@ Depends: appscale-tools,
 # Monitoring
  collectd, rrdtool,
  sqlite3,
+ htop,
 # Thrift
  libevent-1.4-2,
  libboost-filesystem1.40.0, libboost-serialization1.40.0,
