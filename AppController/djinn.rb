@@ -2847,6 +2847,7 @@ HOSTS
         begin
           static_handlers = HelperFunctions.parse_static_data(app)
         rescue Exception
+          # This specific exception may be a json parse error
           error_msg = "ERROR: Unable to parse app.yaml file for #{app}."
           place_error_app(app, error_msg)
           next 

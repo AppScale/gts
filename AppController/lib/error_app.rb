@@ -65,7 +65,6 @@ SCRIPT
     HelperFunctions.write_file(@dir_path + "#{@app_name}.py", script) 
      
     Djinn.log_run("rm #{@dir_path}/#{@app_name}.tar.gz")
-    ret = 0
     Dir.chdir(@dir_path) do
       Djinn.log_debug("Running: tar zcvf #{@dir_path}/#{@app_name}.tar.gz #{@dir_path}")
       Djinn.log_run("tar zcvf #{@app_name}.tar.gz app.yaml #{@app_name}.py")
