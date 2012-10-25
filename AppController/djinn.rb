@@ -3475,7 +3475,7 @@ HOSTS
       static_handlers = HelperFunctions.parse_static_data(app)
     rescue Exception => e
       error_msg = "ERROR: Unable to parse app.yaml file for #{app}." + \
-                  " Exception of type #{e.class}"
+                  " Exception of type #{e.class}. Exception message #{e.message}"
       place_error_app(app, error_msg)
     end
     proxy_port = HAProxy.app_listen_port(app_number)
