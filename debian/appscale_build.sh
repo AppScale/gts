@@ -130,7 +130,7 @@ fi
 
 # remove conflict package
 apt-get -y purge haproxy
-#apt-get -y remove consolekit
+apt-get -y remove consolekit
 bash debian/appscale_install.sh all
 
 mkdir -p $APPSCALE_HOME_RUNTIME/.appscale/certs
