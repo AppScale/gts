@@ -2739,10 +2739,19 @@ HOSTS
     Djinn.log_debug("Stopping Shadow role")
   end
 
+  #
   # Swaps out an application with one that relays an error message to the 
   # developer. It will take the application that currently exists in the 
-  # application folder, delete it, and place templated app that prints out the 
-  # given error message.
+  # application folder, deletes it, and places a templated app that prints out the 
+  # given error message. 
+  #
+  # Args: 
+  #   app_name: Name of application
+  #   err_msg: Message to relay to developer
+  #
+  # Returns: 
+  #   Returns: Nothing
+  #
   def place_error_app(app_name, err_msg)
     Djinn.log_debug("Placing error application for #{app_name} because of: #{err_msg}")
     ea = ErrorApp.new(app_name, err_msg)
