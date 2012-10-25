@@ -2857,7 +2857,7 @@ HOSTS
         rescue Exception => e
           # This specific exception may be a json parse error
           error_msg = "ERROR: Unable to parse app.yaml file for #{app}." + \
-                      " Exception of #{e.class}" 
+                      " Exception of #{e.class} with message #{e.message}" 
           place_error_app(app, error_msg)
         end
         proxy_port = HAProxy.app_listen_port(app_number)
