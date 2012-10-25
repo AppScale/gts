@@ -258,6 +258,11 @@ installtornado()
     fi
 }
 
+installflexmock()
+{
+    easy_install flexmock || exit 1
+}
+
 postinstalltornado()
 {
     # just enable tornado
@@ -471,6 +476,11 @@ installgems()
 
     # This is for the LogManager, which will rotate logs on a daily basis.
     gem install -v=1.2.1 logrotate ${GEMOPT} || exit 1
+
+    # This is for the unit testing framework
+    gem install -v=1.0.4 flexmock ${GEMOPT} || exit 1
+    gem install -v=1.0.0 rcov ${GEMOPT} || exit 1
+
 }
 
 postinstallgems()
