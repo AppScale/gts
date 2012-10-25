@@ -52,6 +52,7 @@ from google.appengine.api import datastore
 from google.appengine.api import datastore_errors
 import pika
 
+#TODO document these globals
 DEFAULT_RATE = '5.00/s'
 
 DEFAULT_RATE_FLOAT = 5.0
@@ -73,7 +74,7 @@ MAX_RETRIES = 10
 # Max wait in seconds
 MAX_WAIT = 60 
 
-# Max time for exponential backoff for RabbitMQ reconnect
+# Max for time for exponential backoff for RabbitMQ reconnect
 MAX_RECONNECT_TIME = 1024
 
 BUILT_IN_HEADERS = set(['x-appengine-queuename',
@@ -497,8 +498,11 @@ class _BackgroundTaskScheduler(object):
         logging.error("RabbitMQ Unknown exception %s"%str(e))
       logging.info("Reconnecting in " + str(reconnect_time) + " seconds")
       time.sleep(reconnect_time) 
+
       if reconnect_time <= MAX_RECONNECT_TIME:
         reconnect_time *= 2
+      else:
+        reconnect_time = MAX_RECONNECT_TIME
 
 class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
   """Python only task queue service stub.
