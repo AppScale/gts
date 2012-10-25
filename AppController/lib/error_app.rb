@@ -11,17 +11,27 @@ require 'djinn'
 
 
 # This class generates a Python Google App Engine application that 
-# relays an error message to the user as to why their app failed to come up
+# relays an error message to the user as to why their app failed to come up.
 class ErrorApp
-
+ 
+  #
+  # Constructor 
+  #
+  # Args: 
+  #   app_name: Name of the application to construct an error application for.
+  #   error_msg: A String message that will be displayed as the reason 
+  #              why we couldn't start their application.
   def initialize(app_name, error_msg)
     @app_name = app_name
     @error_msg = error_msg
     @dir_path = "/var/apps/#{app_name}/app/"
   end
 
+  #
   # This function places an updated app.yaml and error.py into the application
-  # and retars the application file 
+  # and retars the application file.
+  # 
+  # Args: None
   def generate()
     app_yaml = <<CONFIG
 application: #{@app_name}

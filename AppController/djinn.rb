@@ -2746,8 +2746,9 @@ HOSTS
   # given error message. 
   #
   # Args: 
-  #   app_name: Name of application
-  #   err_msg: Message to relay to developer
+  #   app_name: Name of application to construct an error application for
+  #   err_msg: A String message that will be displayed as 
+  #            the reason why we couldn't start their application.
   #
   # Returns: 
   #   Returns: Nothing
@@ -2822,7 +2823,6 @@ HOSTS
        
       if !copy_app_to_local(app)
         place_error_app(app, "ERROR: Failed to copy app: #{app}")
-        next
       end
       HelperFunctions.setup_app(app)
 
@@ -2843,7 +2843,6 @@ HOSTS
           err_msg = "ERROR: Failure to create valid nginx config file"\
                     " for application #{app} full proxy."
           place_error_app(app, err_msg)
-          next
         end
         @nginx_port += 1
         @haproxy_port += 1
@@ -2859,7 +2858,6 @@ HOSTS
           # This specific exception may be a json parse error
           error_msg = "ERROR: Unable to parse app.yaml file for #{app}."
           place_error_app(app, error_msg)
-          next 
         end
         proxy_port = HAProxy.app_listen_port(app_number)
         login_ip = get_login.private_ip
@@ -2869,7 +2867,6 @@ HOSTS
           error_msg = "ERROR: Failure to create valid nginx config file " + \
                       "for application #{app}."
           place_error_app(app, error_msg)
-          next
         end
         Collectd.write_app_config(app)
 
@@ -2892,7 +2889,6 @@ HOSTS
           if pid == -1
             place_error_app(app, "ERROR: Unable to start application " + \
                 "#{app}. Please check the application logs.") 
-            next
           end
 
           pid_file_name = "/etc/appscale/#{app}-#{@appengine_port}.pid"
@@ -3480,11 +3476,9 @@ HOSTS
       error_msg = "ERROR: Unable to parse app.yaml file for #{app}." + \
                   " Exception of type #{e.class}"
       place_error_app(app, error_msg)
-      next
     end
     proxy_port = HAProxy.app_listen_port(app_number)
-    Nginx.write_app_config(app, app_number, my_public, my_private, 
-                           proxy_port, static_handlers, login_ip)
+    Nginx.write_app_config(app, app_number, my_public, my_private, proxy_port, static_handlers, private_login_ip)
     HAProxy.write_app_config(app, app_number, num_servers, my_private)
     Collectd.write_app_config(app)
 
