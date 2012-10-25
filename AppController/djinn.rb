@@ -2834,7 +2834,7 @@ HOSTS
         static_handlers = HelperFunctions.parse_static_data(app)
         proxy_port = HAProxy.app_listen_port(app_number)
         login_ip = get_login.public_ip
-        success = Nginx.write_app_config(app, app_number, my_public, 
+        success = Nginx.write_app_config(app, app_number, my_public, my_private,
           proxy_port, static_handlers, login_ip)
         if not success
           Djinn.log_debug("ERROR: Failure to create valid nginx config file for application #{app}.")
@@ -3445,7 +3445,8 @@ HOSTS
 
     static_handlers = HelperFunctions.parse_static_data(app)
     proxy_port = HAProxy.app_listen_port(app_number)
-    Nginx.write_app_config(app, app_number, my_public, proxy_port, static_handlers, login_ip)
+    Nginx.write_app_config(app, app_number, my_public, my_private, 
+                           proxy_port, static_handlers, login_ip)
     HAProxy.write_app_config(app, app_number, num_servers, my_private)
     Collectd.write_app_config(app)
 
