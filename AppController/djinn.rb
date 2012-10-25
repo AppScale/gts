@@ -2840,7 +2840,7 @@ HOSTS
         if success
           Nginx.reload
         else
-          err_msg = "ERROR: Failure to create valid nginx config file"\
+          err_msg = "ERROR: Failure to create valid nginx config file" + \
                     " for application #{app} full proxy."
           place_error_app(app, err_msg)
         end
@@ -2854,9 +2854,10 @@ HOSTS
         start_port = HelperFunctions::APP_START_PORT
         begin
           static_handlers = HelperFunctions.parse_static_data(app)
-        rescue Exception
+        rescue Exception => e
           # This specific exception may be a json parse error
-          error_msg = "ERROR: Unable to parse app.yaml file for #{app}."
+          error_msg = "ERROR: Unable to parse app.yaml file for #{app}." + \
+                      " Exception of #{e.class}" 
           place_error_app(app, error_msg)
         end
         proxy_port = HAProxy.app_listen_port(app_number)
