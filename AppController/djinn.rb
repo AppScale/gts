@@ -20,26 +20,25 @@ require 'zookeeper'
 
 # Imports for AppController libraries
 $:.unshift File.join(File.dirname(__FILE__), "lib")
-require 'helperfunctions'
-require 'cron_helper'
-require 'haproxy'
-require 'collectd'
-require 'nginx'
-require 'pbserver'
-require 'blobstore'
-require 'rabbitmq'
 require 'app_controller_client'
-require 'user_app_client'
+require 'blobstore'
+require 'custom_exceptions'
 require 'ejabberd'
-require 'repo'
-require 'zkinterface'
+require 'error_app'
+require 'collectd'
+require 'cron_helper'
 require 'godinterface'
+require 'haproxy'
+require 'helperfunctions'
 require 'infrastructure_manager_client'
 require 'neptune_manager_client'
+require 'pbserver'
+require 'nginx'
+require 'rabbitmq'
+require 'repo'
+require 'user_app_client'
+require 'zkinterface'
 
-
-class AppScaleException < Exception
-end
 
 
 WANT_OUTPUT = true
@@ -1543,7 +1542,6 @@ class Djinn
 
  
   def update_api_status()
-    return
     if my_node.is_appengine?
       repo_host = my_node.private_ip
     else
@@ -2741,6 +2739,26 @@ HOSTS
     Djinn.log_debug("Stopping Shadow role")
   end
 
+  #
+  # Swaps out an application with one that relays an error message to the 
+  # developer. It will take the application that currently exists in the 
+  # application folder, deletes it, and places a templated app that prints out the 
+  # given error message. 
+  #
+  # Args: 
+  #   app_name: Name of application to construct an error application for
+  #   err_msg: A String message that will be displayed as 
+  #            the reason why we couldn't start their application.
+  #
+  # Returns: 
+  #   Returns: Nothing
+  #
+  def place_error_app(app_name, err_msg)
+    Djinn.log_debug("Placing error application for #{app_name} because of: #{err_msg}")
+    ea = ErrorApp.new(app_name, err_msg)
+    ea.generate() 
+  end
+
   def start_appengine()
     @state = "Preparing to run AppEngine apps if needed"
     Djinn.log_debug("Starting appengine - pbserver is at [#{@userappserver_private_ip}]")
@@ -2803,7 +2821,9 @@ HOSTS
       app_path = "#{app_dir}/#{app}.tar.gz"
       FileUtils.mkdir_p(app_dir)
        
-      copy_app_to_local(app)
+      if !copy_app_to_local(app)
+        place_error_app(app, "ERROR: Failed to copy app: #{app}")
+      end
       HelperFunctions.setup_app(app)
 
        
@@ -2820,8 +2840,9 @@ HOSTS
         if success
           Nginx.reload
         else
-          Djinn.log_debug("ERROR: Failure to create valid nginx config file for application #{app} full proxy.")
-          next
+          err_msg = "ERROR: Failure to create valid nginx config file" + \
+                    " for application #{app} full proxy."
+          place_error_app(app, err_msg)
         end
         @nginx_port += 1
         @haproxy_port += 1
@@ -2831,14 +2852,22 @@ HOSTS
       if my_node.is_appengine?
         app_number = @nginx_port - Nginx::START_PORT
         start_port = HelperFunctions::APP_START_PORT
-        static_handlers = HelperFunctions.parse_static_data(app)
+        begin
+          static_handlers = HelperFunctions.parse_static_data(app)
+        rescue Exception => e
+          # This specific exception may be a json parse error
+          error_msg = "ERROR: Unable to parse app.yaml file for #{app}." + \
+                      " Exception of #{e.class} with message #{e.message}" 
+          place_error_app(app, error_msg)
+        end
         proxy_port = HAProxy.app_listen_port(app_number)
         login_ip = get_login.private_ip
         success = Nginx.write_app_config(app, app_number, my_public, my_private,
           proxy_port, static_handlers, login_ip)
-        if not success
-          Djinn.log_debug("ERROR: Failure to create valid nginx config file for application #{app}.")
-          next
+        if !success
+          error_msg = "ERROR: Failure to create valid nginx config file " + \
+                      "for application #{app}."
+          place_error_app(app, error_msg)
         end
         Collectd.write_app_config(app)
 
@@ -2859,8 +2888,8 @@ HOSTS
             @userappserver_private_ip, get_load_balancer_ip(), my_private, 
             app_version, app_language, @nginx_port, xmpp_ip)
           if pid == -1
-            Djinn.log_debug("ERROR: Unable to start application #{app}.") 
-            next
+            place_error_app(app, "ERROR: Unable to start application " + \
+                "#{app}. Please check the application logs.") 
           end
 
           pid_file_name = "/etc/appscale/#{app}-#{@appengine_port}.pid"
@@ -2944,7 +2973,7 @@ HOSTS
       return
     end
 
-    if @creds["autoscale"]
+    if @creds["autoscale"] == "true"
       Djinn.log_debug("Examining AppServers to autoscale them")
       perform_scaling_for_appservers()
     else
@@ -3439,12 +3468,18 @@ HOSTS
 
     my_public = my_node.public_ip
     my_private = my_node.private_ip
-    pub_login_ip = get_login.public_ip
-    pri_login_ip = get_login.private_ip
-
-    static_handlers = HelperFunctions.parse_static_data(app)
+    public_login_ip = get_login.public_ip
+    private_login_ip = get_login.private_ip
+  
+    begin
+      static_handlers = HelperFunctions.parse_static_data(app)
+    rescue Exception => e
+      error_msg = "ERROR: Unable to parse app.yaml file for #{app}." + \
+                  " Exception of type #{e.class}. Exception message #{e.message}"
+      place_error_app(app, error_msg)
+    end
     proxy_port = HAProxy.app_listen_port(app_number)
-    Nginx.write_app_config(app, app_number, my_public, my_private, proxy_port, static_handlers, pri_login_ip)
+    Nginx.write_app_config(app, app_number, my_public, my_private, proxy_port, static_handlers, private_login_ip)
     HAProxy.write_app_config(app, app_number, num_servers, my_private)
     Collectd.write_app_config(app)
 
@@ -3452,7 +3487,7 @@ HOSTS
       Djinn.log_debug("Starting #{app_language} app #{app} on " +
         "#{HelperFunctions.local_ip}:#{port}")
       pid = HelperFunctions.run_app(app, port, @userappserver_private_ip, 
-        my_public, my_private, app_version, app_language, nginx_port, pub_login_ip)
+        my_public, my_private, app_version, app_language, nginx_port, public_login_ip)
       pid_file_name = "#{APPSCALE_HOME}/.appscale/#{app}-#{port}.pid"
       HelperFunctions.write_file(pid_file_name, pid)
     }
