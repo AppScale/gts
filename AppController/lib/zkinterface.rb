@@ -89,6 +89,13 @@ class ZKInterface
   DUMMY_DATA = ""
 
 
+  # The amount of time that has to elapse before Zookeeper expires the
+  # session (and all ephemeral locks) with our client. Setting this value at
+  # or below 10 seconds has historically not been a good idea for us (as
+  # sessions repeatedly time out).
+  TIMEOUT = 60
+
+
   public
 
 
@@ -106,7 +113,7 @@ class ZKInterface
     end
 
     @@lock.synchronize {
-      @@zk = Zookeeper.new("#{ip}:#{SERVER_PORT}")
+      @@zk = Zookeeper.new("#{ip}:#{SERVER_PORT}", timeout=TIMEOUT)
     }
   end
 
@@ -565,9 +572,7 @@ class ZKInterface
   def self.run_zookeeper_operation(&block)
     begin
       yield
-    rescue ZookeeperExceptions::ZookeeperException::SessionExpired,
-      ZookeeperExceptions::ZookeeperException::ConnectionClosed
-
+    rescue ZookeeperExceptions::ZookeeperException::ConnectionClosed
       Djinn.log_debug("Lost our ZooKeeper connection - making a new " +
         "connection and trying again.")
       self.reinitialize()
@@ -618,24 +623,40 @@ class ZKInterface
 
 
   def self.set(key, val, ephemeral)
-    Djinn.log_debug("[ZK] trying to set #{key} to #{val} with ephemeral = #{ephemeral}")
-    info = {}
-    if self.exists?(key)
-      Djinn.log_debug("[ZK] Key #{key} exists, so setting it")
-      info = self.run_zookeeper_operation {
-        @@zk.set(:path => key, :data => val)
-      }
-    else
-      Djinn.log_debug("[ZK] Key #{key} does not exist, so creating it")
-      info = self.run_zookeeper_operation {
-        @@zk.create(:path => key, :ephemeral => ephemeral, :data => val)
-      }
-    end
+    retries_left = 5
+    begin
+      Djinn.log_debug("[ZK] trying to set #{key} to #{val} with ephemeral = #{ephemeral}")
+      info = {}
+      if self.exists?(key)
+        Djinn.log_debug("[ZK] Key #{key} exists, so setting it")
+        info = self.run_zookeeper_operation {
+          @@zk.set(:path => key, :data => val)
+        }
+      else
+        Djinn.log_debug("[ZK] Key #{key} does not exist, so creating it")
+        info = self.run_zookeeper_operation {
+          @@zk.create(:path => key, :ephemeral => ephemeral, :data => val)
+        }
+      end
 
-    if !info[:rc].zero?
-      raise FailedZooKeeperOperationException.new("Failed to set path " +
-        "#{key} with data #{val}, ephemeral = #{ephemeral}, saw " +
-        "info #{info.inspect}")
+      if !info[:rc].zero?
+        raise FailedZooKeeperOperationException.new("Failed to set path " +
+          "#{key} with data #{val}, ephemeral = #{ephemeral}, saw " +
+          "info #{info.inspect}")
+      end
+    rescue FailedZooKeeperOperationException => e
+      retries_left -= 1
+      Djinn.log_debug("Saw a failure trying to write to ZK, with " +
+        "info [#{e}]")
+      if retries_left > 0
+        Djinn.log_debug("Retrying write operation, with #{retries_left}" +
+          " retries left")
+        Kernel.sleep(5)
+        retry
+      else
+        Djinn.log_debug("[ERROR] Failed to write to ZK and no retries " +
+          "left. Skipping on this write for now.")
+      end
     end
   end
 

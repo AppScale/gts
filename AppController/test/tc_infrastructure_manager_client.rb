@@ -69,6 +69,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       }).and_return(first_result, second_result)
     }
 
+    flexmock(HelperFunctions).should_receive(:local_ip).
+      and_return("127.0.0.1")
 
     imc = InfrastructureManagerClient.new("secret")
     creds = {
@@ -136,6 +138,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       }).and_return(first_result, second_result)
     }
 
+    flexmock(HelperFunctions).should_receive(:local_ip).
+      and_return("127.0.0.1")
 
     imc = InfrastructureManagerClient.new("secret")
     creds = {
