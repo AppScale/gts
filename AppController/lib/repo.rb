@@ -70,7 +70,7 @@ class Repo
 
     static_handlers = HelperFunctions.parse_static_data(app)
     proxy_port = HAProxy.app_listen_port(app_number)
-    Nginx.write_app_config(app, app_number, @@ip, proxy_port, static_handlers, login_ip)
+    Nginx.write_app_config(app, app_number, @@ip, @@private_ip, proxy_port, static_handlers, login_ip)
     HAProxy.write_app_config(app, app_number, num_servers, @@private_ip)
     Collectd.write_app_config(app)
 

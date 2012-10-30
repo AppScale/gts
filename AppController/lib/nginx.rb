@@ -80,13 +80,13 @@ module Nginx
   end
 
   # Creates a Nginx config file for the provided app name
-  def self.write_app_config(app_name, app_number, my_public_ip, proxy_port, static_handlers, login_ip)
+  def self.write_app_config(app_name, app_number, my_public_ip, my_private_ip, proxy_port, static_handlers, login_ip)
     static_locations = static_handlers.map { |handler| HelperFunctions.generate_location_config(handler) }.join
     listen_port = Nginx.app_listen_port(app_number)
     config = <<CONFIG
 # Any requests that arent static files get sent to haproxy
 upstream gae_#{app_name} {
-    server #{my_public_ip}:#{proxy_port};
+    server #{my_private_ip}:#{proxy_port};
 }
 
 server {
