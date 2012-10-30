@@ -4,15 +4,46 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
-The current release is 1.6, relased XXX, 2012.
-Included in this release (over 1.5) is:
-....
-XXXXXXXXXXXXXXXXXXXXXXXXX
+The current release is 1.6.3, relased October 30, 2012.
 
-Included in this release (over 1.4) is:
+Bugs fixed in this release:
+- Autoscaler scales down when --appengine is used (https://github.com/AppScale/appscale/issues/43)
+- AppController crashes in response to failed ZooKeeper operations (https://github.com/AppScale/appscale/issues/47)
+- Python applications should start even if rabbitmq fails to start (https://github.com/AppScale/appscale/issues/62)
+- Bad applications crash appscale (https://github.com/AppScale/appscale/issues/57)
+
+and updated versions of Cassandra and HBase used - more info to come soon!
+
+Information about previous releases:
 ....
 
-The AppScale version 1.4, released September 7, 2010.
+AppScale version 1.5 was released July 28, 2011. Features include:
+
+	Support for the bulkloader, enabling persistence for your data
+	Upgraded Java and Python AppServers to GAE 1.4.3
+	Support for Go App Engine apps (SDK version 1.5.0), including support for apps that use multiple processes
+	Fault tolerance for almost all services (processes monitored and revived by god)
+	Faster startup and termination of AppScale, especially over larger numbers of nodes
+	Tools and image now verify that all instances used have AppScale installed
+	EC2 and Eucalyptus credentials are now obscured when they are printed to logs
+	Channel API for Python (multiple receivers can also be used) - implemented via Strophe.js
+	Blobstore and Files API for Python
+	XMPP API for Python - implemented via ejabberd
+	Hybrid cloud support - run AppScale over multiple clouds in a single deployment (e.g., Eucalyptus and EC2, EC2 East Coast and EC2 West Coast)
+	Neptune language support
+	Table caching for MySQL, HBase, Hypertable to improve performance
+	Updated interface for Amazon SimpleDB
+	Upgraded Cassandra version used to 0.7.6-2
+	Upgraded HBase version used to 0.89
+	Upgraded Hadoop version used to 0.20.2
+	Upgraded Hypertable version used to 0.9.43
+	Namespacing support
+	Added Loki, a fault tolerance tester along the lines of Netflix's Chaos Monkey
+	User authorization system for MapReduce, EC2, and Neptune APIs
+	Ability to remove transaction overhead via namespaces
+	Various other bug fixes
+
+AppScale version 1.4 was released September 7, 2010.
 
 Included in this release (over version 1.3) is:
 
