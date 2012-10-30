@@ -12,7 +12,7 @@ fi
 #if [ -z "$APPSCALE_HOME" ]; then
  #  export APPSCALE_HOME= /root/appscale/
 #fi 
-export APPSCALE_VERSION=1.5
+export APPSCALE_VERSION=1.6.3
 
 increaseconnections()
 {
