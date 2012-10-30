@@ -12,6 +12,8 @@ Bugs fixed in this release:
 - Python applications should start even if rabbitmq fails to start (https://github.com/AppScale/appscale/issues/62)
 - Bad applications crash appscale (https://github.com/AppScale/appscale/issues/57)
 
+and updated versions of Cassandra and HBase used - more info to come soon!
+
 Information about previous releases:
 ....
 
