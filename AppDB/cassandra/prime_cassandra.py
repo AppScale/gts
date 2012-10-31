@@ -1,50 +1,75 @@
 #!/usr/bin/env python
 
-import sys, time
+import sys
+import time
 
+from cassandra import cassandra_interface
 import py_cassandra
-from dbconstants import *
 import pycassa
+
+import dbconstants
+
 from pycassa.system_manager import *
-CASS_PORT = 9160
+
 def create_keyspaces(replication):
-  print "Creating Key Spaces" 
-  f = open(APPSCALE_HOME + '/.appscale/my_private_ip', 'r')
+  """ Creates keyspace which AppScale uses for storing application 
+      and user data
+  """
+
+  print "Creating Cassandra Key Spaces" 
+
+  # Set this to False to keep old data
+  _DROP_TABLES = True
+
+  f = open(dbconstants.APPSCALE_HOME + '/.appscale/my_private_ip', 'r')
   host = f.read()
-  sys = SystemManager(host + ":" + str(CASS_PORT))
+  f.close()
+
+  sysman = SystemManager(host + ":" + str(cassandra_interface.CASS_DEFAULT_PORT))
+
+  if _DROP_TABLES:
+    try:
+      sysman.drop_keyspace(cassandra_interface.KEYSPACE)
+    except pycassa.cassandra.ttypes.InvalidRequestException, e:
+      pass
 
   try:
-    sys.drop_keyspace('Keyspace1')
-  except pycassa.cassandra.ttypes.InvalidRequestException, e:
-    pass
+    sysman.create_keyspace(cassandra_interface.KEYSPACE, 
+                      pycassa.SIMPLE_STRATEGY, 
+                      {'replication_factor':str(replication)})
+    # This column family is for testing
+    sysman.create_column_family(cassandra_interface.KEYSPACE, 
+                           cassandra_interface.STANDARD_COL_FAM, 
+                           comparator_type=UTF8_TYPE)
 
-  sys.create_keyspace('Keyspace1', pycassa.SIMPLE_STRATEGY, {'replication_factor':str(replication)})
-  sys.create_column_family('Keyspace1', 'Standard1', #column_type="Standard",
-                          comparator_type=UTF8_TYPE)
-  sys.create_column_family('Keyspace1', 'Standard2', #column_type="Standard",
-                          comparator_type=UTF8_TYPE)
-  sys.create_column_family('Keyspace1', 'StandardByTime1', #column_type="Standard",
-                          comparator_type=TIME_UUID_TYPE)
-  sys.create_column_family('Keyspace1', 'StandardByTime2', #column_type="Standard",
-                          comparator_type=TIME_UUID_TYPE)
-  #sys.create_column_family('Keyspace1', 'Super1',  column_type="Super",
-  #                        comparator_type=UTF8_TYPE)
-  #sys.create_column_family('Keyspace1', 'Super2', column_type="Super",
-  #                        comparator_type=UTF8_TYPE)
-  sys.close()
-  print "SUCCESS"
+    for table_name in dbconstants.INITIAL_TABLES:
+      sysman.create_column_family(cassandra_interface.KEYSPACE, 
+                               table_name,
+                               comparator_type=UTF8_TYPE)
+  
+    sysman.close()
+  except Exception, e:
+    if _DROP_TABLES:
+      raise e
+
+  print "CASSANDRA SETUP SUCCESSFUL"
 
 def prime_cassandra(replication):
   create_keyspaces(int(replication))
   print "prime cassandra database"
-  db = py_cassandra.DatastoreProxy()
-  #print db.get("__keys_") 
-  db.create_table(USERS_TABLE, USERS_SCHEMA)
-  db.create_table(APPS_TABLE, APPS_SCHEMA)
-  if len(db.get_schema(USERS_TABLE)) > 1 and len(db.get_schema(APPS_TABLE)) > 1:
+  try:
+    db = py_cassandra.DatastoreProxy()
+    db.create_table(dbconstants.USERS_TABLE, dbconstants.USERS_SCHEMA)
+    db.create_table(dbconstants.APPS_TABLE, dbconstants.APPS_SCHEMA)
+  except Exception, e:
+    if _DROP_TABLES:
+      raise e
+
+  if len(db.get_schema(dbconstants.USERS_TABLE)) > 1 and \
+     len(db.get_schema(dbconstants.APPS_TABLE)) > 1:
     print "CREATE TABLE SUCCESS FOR USER AND APPS"
-    print db.get_schema(USERS_TABLE)
-    print db.get_schema(APPS_TABLE)
+    print "USERS:",db.get_schema(dbconstants.USERS_TABLE)
+    print "APPS:",db.get_schema(dbconstants.APPS_TABLE)
     return 0
   else: 
     print "FAILED TO CREATE TABLE FOR USER AND APPS"

@@ -2,23 +2,24 @@
 Author: Navraj Chohan
 Random functions/classes which are used by datastores
 """
+import hashlib
 import logging
 import logging.handlers
 import os
 import os.path
 import random
-import hashlib
+import time
 """
 strings must be in unicode to reverse the string
 strings are returned in unicode and may not able 
 able to be converted to a regular string
 """
 def reverseLex(ustring):
-  newstr = u""
+  newstr = ""
   for ii in ustring:
     ordinance = ord(ii)
     new_byte = 255 - ordinance
-    char = unichr(new_byte)
+    char = chr(new_byte)
     newstr += char
   return newstr
 
@@ -67,3 +68,20 @@ import inspect
 def lineno():
     """Returns the current line number in our program."""
     return inspect.currentframe().f_back.f_lineno
+
+class Timer():
+  def __init__(self):
+    self.init = time.time()
+    self.start = time.time()
+
+  def done(self):
+    self.end = time.time()
+    self.interval = self.end - self.start
+    self.start = time.time()
+    return self.interval
+
+  def total(self):
+    self.end = time.time()
+    self.interval = self.end - self.init
+    return self.interval
+

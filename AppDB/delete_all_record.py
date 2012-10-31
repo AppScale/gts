@@ -2,68 +2,41 @@
 # 
 # delete all application record for testing.
 # 
-# Author: Soo Hwan Park (suwanny@gmail.com)
+# Author: Navraj Chohan
 #
 
-import sys, os
+import os
+import sys
+from dbconstants import *
+import appscale_datastore_batch
 
-APPSCALE_HOME = os.environ.get("APPSCALE_HOME")
-if APPSCALE_HOME:
-  pass
-else:
-  APPSCALE_HOME = "/etc/appscale"
-  os.environ["APPSCALE_HOME"] =  APPSCALE_HOME
-  print "APPSCALE_HOME env var not set. Setting to " + APPSCALE_HOME
+def get_entities(table, schema, db):
+  return db.range_query(table, schema, "", "", 1000000)
 
-sys.path.append("/usr/lib/python2.6/site-packages")
-sys.path.append("/etc/appscale/AppDB")
-sys.path.append("/etc/appscale/AppDB/hypertable/src/hypertable-0.9.2.5-alpha/src/py/ThriftClient/gen-py")
-
-from appscale_datastore import Datastore
-
-USER_ID="a@a.a"
-entityDict = {"guestbook":"Greeting", }
-DEBUG=False
+def delete_all(entities, table, db):
+  for ii in entities:
+    db.batch_delete(table, ii.keys())
 
 def main(argv):
-  DB_TYPE="hbase"
+  DB_TYPE="cassandra"
   if len(argv) < 2:
-    print "usage: ./delete_app_recode.py db_type table_name"
+    print "usage: ./delete_app_recode.py db_type"
   else:
     DB_TYPE = argv[1]
   
-  db = Datastore(DB_TYPE)
+  db = appscale_datastore_batch.DatastoreFactory.getDatastore(DB_TYPE)
+  entities = get_entities(APP_ENTITY_TABLE, APP_ENTITY_SCHEMA, db)   
+  delete_all(entities, APP_ENTITY_TABLE, db) 
 
-  app_schema = db.get_schema("APPS__")[1:]
-  user_schema = db.get_schema("USERS__")[1:]
-  #print "APPS", app_schema
-  #print "USER", user_schema
+  entities = get_entities(ASC_PROPERTY_TABLE, PROPERTY_SCHEMA, db)
+  delete_all(entities, ASC_PROPERTY_TABLE, db) 
+
+  entities = get_entities(DSC_PROPERTY_TABLE, PROPERTY_SCHEMA, db)
+  delete_all(entities, DSC_PROPERTY_TABLE, db) 
+
+  entities = get_entities(APP_KIND_TABLE, APP_KIND_SCHEMA, db)
+  delete_all(entities, APP_KIND_TABLE, db) 
   
-  app = db.get_entity("USERS__", USER_ID, ['applications'])[1]
-  if DEBUG: print "application:", app
-  
-  #app_table = app + "___" + entityDict[app]
-  #if DEBUG: print "app table:", app_table 
-
-  version, classes, count = db.get_entity("APPS__", app, ['version', 'classes', 'num_entries'])[1:]
-  version = int(version)
-  count = int(count)
-  print "version:", version, ", classes:", classes, ", num_entries:", count
-
-  if DEBUG: print "delete all rows"
-
-  for i in range(version + 1):
-    app_table = app + "___" + classes + "___" + str(i)
-    print "table name:", app_table 
-    for i in range(count + 1): 
-      db.delete_row(app_table, str(i)) 
-      if DEBUG: print "delete table: %s, key: %s" % (app_table, str(i))
-  print "delete_all_table is completed"
-  
-  #for i in range(count + 1):
-  #  db.delete_row(app_table, str(i))
-  #print "deleted entrites:", count
-
 if __name__ == "__main__":
   try:
     main(sys.argv)
