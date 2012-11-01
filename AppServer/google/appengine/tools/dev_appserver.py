@@ -239,7 +239,7 @@ DEVEL_FAKE_IS_ADMIN_RAW_HEADER = 'X-AppEngine-Fake-Is-Admin'
 SOFT_CAP_MEM = 150000
 
 # Max number for randomly killing the dev_appserver when over the soft 
-# memory cap
+# memory cap.
 MAX_RANDOM_TARGET = 25
 
 class Error(Exception):
