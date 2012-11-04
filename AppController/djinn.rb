@@ -691,7 +691,7 @@ class Djinn
         HAProxy.remove_app(app_name)
         Nginx.reload
         Collectd.restart
-        ZKInterface.remove_app_entry(app_name)
+        ZKInterface.remove_app_entry(app_name, my_node.serialize)
 
         # If this node has any information about AppServers for this app,
         # clear that information out.
