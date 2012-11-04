@@ -1,4 +1,4 @@
-from os import environ
+from agents.factory import InfrastructureAgentFactory
 from utils import utils
 
 __author__ = 'hiranya'
@@ -38,6 +38,7 @@ class InfrastructureManager:
     def __init__(self):
         self.secret = utils.get_secret()
         self.reservations = { }
+        self.agent_factory = InfrastructureAgentFactory()
 
     def describe_instances(self, parameters, secret):
         if self.secret != secret:
@@ -91,13 +92,3 @@ class InfrastructureManager:
             for key, value in extra.items():
                 response[key] = value
         return response
-
-class IaaSAgent:
-    def set_environment_variables(self, variables, cloud_num):
-        prefix = 'CLOUD' + str(cloud_num) + '_'
-        for key, value in variables.items():
-            if key.startswith(prefix):
-                environ[key[len(prefix):]] = value
-
-    def spawn_vms(self, parameters):
-        raise NotImplementedError
