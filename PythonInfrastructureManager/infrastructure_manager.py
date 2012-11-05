@@ -1,5 +1,6 @@
 from agents.factory import InfrastructureAgentFactory
 from utils import utils
+from utils.utils import has_parameter
 
 __author__ = 'hiranya'
 
@@ -9,27 +10,15 @@ REASON_RESERVATION_NOT_FOUND    = 'reservation_id not found'
 REASON_NONE                     = 'none'
 
 PARAM_RESERVATION_ID    = 'reservation_id'
-PARAM_CREDENTIALS       = 'credentials'
-PARAM_GROUP             = 'group'
-PARAM_IMAGE_ID          = 'image_id'
 PARAM_INFRASTRUCTURE    = 'infrastructure'
-PARAM_INSTANCE_TYPE     = 'instance_type'
-PARAM_KEYNAME           = 'keyname'
 PARAM_NUM_VMS           = 'num_vms'
 
 # A list of the parameters required to query the InfrastructureManager about
 # the state of a run_instances request.
 DESCRIBE_INSTANCES_REQUIRED_PARAMS = ( PARAM_RESERVATION_ID, )
 
-# A list of the parameters required to query the InfrastructureManager about
-# the state of a run_instances request.
 RUN_INSTANCES_REQUIRED_PARAMS = (
-    PARAM_CREDENTIALS,
-    PARAM_GROUP,
-    PARAM_IMAGE_ID,
     PARAM_INFRASTRUCTURE,
-    PARAM_INSTANCE_TYPE,
-    PARAM_KEYNAME,
     PARAM_NUM_VMS
 )
 
@@ -45,7 +34,7 @@ class InfrastructureManager:
             return self.__generate_response(False, REASON_BAD_SECRET)
 
         for param in DESCRIBE_INSTANCES_REQUIRED_PARAMS:
-            if not self.__has_parameter(param, parameters):
+            if not has_parameter(param, parameters):
                 return self.__generate_response(False, 'no ' + param)
 
         reservation_id = parameters[PARAM_RESERVATION_ID]
@@ -68,8 +57,15 @@ class InfrastructureManager:
 
         print 'Request parameters are', str(parameters)
         for param in RUN_INSTANCES_REQUIRED_PARAMS:
-            if not self.__has_parameter(param, parameters):
+            if not has_parameter(param, parameters):
                 return self.__generate_response(False, 'no ' + param)
+
+        num_vms = parameters[PARAM_NUM_VMS]
+        infrastructure = parameters[PARAM_INFRASTRUCTURE]
+        agent = self.agent_factory.create_agent(infrastructure)
+        status, reason = agent.has_required_parameters(parameters)
+        if not status:
+            return self.__generate_response(False, reason)
 
         reservation_id = utils.get_random_alphanumeric()
         self.reservations[reservation_id] = {
@@ -83,8 +79,11 @@ class InfrastructureManager:
         print 'Successfully started request',  reservation_id, '.'
         return self.__generate_response(True, REASON_NONE, { 'reservation_id' : reservation_id })
 
-    def __has_parameter(self, p, params):
-        return params.has_key(p) and params[p] is not None and len(params[p]) > 0
+    def __spawn_vms(self, agent, num_vms, parameters):
+        if num_vms < 0:
+            return [], [], []
+        agent.configure_instance_security(parameters)
+        agent.run_instances(num_vms, parameters)
 
     def __generate_response(self, status, msg, extra = None):
         response = { 'success' : status, 'reason' : msg }
