@@ -82,8 +82,8 @@ class InfrastructureManager:
     def __spawn_vms(self, agent, num_vms, parameters):
         if num_vms < 0:
             return [], [], []
-        agent.configure_instance_security(parameters)
-        agent.run_instances(num_vms, parameters)
+        security_configured = agent.configure_instance_security(parameters)
+        agent.run_instances(num_vms, parameters, security_configured)
 
     def __generate_response(self, status, msg, extra = None):
         response = { 'success' : status, 'reason' : msg }

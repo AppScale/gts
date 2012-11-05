@@ -16,7 +16,7 @@ class BaseAgent:
     def describe_instances(self, parameters):
         raise NotImplementedError
 
-    def run_instances(self, count, parameters):
+    def run_instances(self, count, parameters, security_configured):
         raise NotImplementedError
 
     def terminate_instances(self, parameters):

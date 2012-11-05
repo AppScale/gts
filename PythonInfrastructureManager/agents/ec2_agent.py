@@ -46,7 +46,6 @@ class EC2Agent(BaseAgent):
 
     def __init__(self):
         self.prefix = 'ec2'
-        self.new_cloud = True
 
     def set_environment_variables(self, variables, cloud_num):
         BaseAgent.set_environment_variables(self, variables, cloud_num)
@@ -64,13 +63,14 @@ class EC2Agent(BaseAgent):
         ssh_key = abspath('/etc/appscale/keys/{0}/{1}.key'.format(cloud, keyname))
         print 'About to spawn EC2 instances - Expecting to find a key at', ssh_key
         #TODO: log obscured
-        self.new_cloud = not exists(ssh_key)
-        if self.new_cloud:
+        if not exists(ssh_key):
             print 'Creating keys/security group for', cloud
             #TODO: generate key
             #TODO: create appscale security group
+            return True
         else:
             print 'Not creating keys/security group for', cloud
+            return False
 
     def has_required_parameters(self, parameters):
         for param in REQUIRED_EC2_RUN_INSTANCES_PARAMS:
@@ -80,25 +80,16 @@ class EC2Agent(BaseAgent):
 
     def describe_instances(self, parameters):
         keyname = parameters[PARAM_KEYNAME]
-        instances = []
-        public_ips = []
-        private_ips = []
-        print 'EC2_URL = [{0}]'.format(environ['EC2_URL'])
-        while True:
-            describe_instances = shell(self.prefix + '-describe-instances 2>&1')
-            print 'describe-instances says', describe_instances
-            fqdn_regex = re.compile('\s+({0})\s+({0})\s+running\s+{1}\s'.format(FQDN_REGEX, keyname))
-            instance_regex = re.compile('INSTANCE\s+(i-\w+)')
-            vm_count_regex = re.compile('({0})\s+running\s+#{keyname}\s+'.format(FQDN_REGEX))
-            all_ip_addresses = flatten(fqdn_regex.findall(describe_instances))
-            instances = flatten(instance_regex.findall(describe_instances))
-            public_ips, private_ips = get_ip_addresses(all_ip_addresses)
-            vms_up_already = len(vm_count_regex.findall(describe_instances))
-            if vms_up_already > 0 or self.new_cloud:
-                break
+        describe_instances = shell(self.prefix + '-describe-instances 2>&1')
+        print 'describe-instances says', describe_instances
+        fqdn_regex = re.compile('\s+({0})\s+({0})\s+running\s+{1}\s'.format(FQDN_REGEX, keyname))
+        instance_regex = re.compile('INSTANCE\s+(i-\w+)')
+        all_ip_addresses = flatten(fqdn_regex.findall(describe_instances))
+        instances = flatten(instance_regex.findall(describe_instances))
+        public_ips, private_ips = get_ip_addresses(all_ip_addresses)
         return public_ips, private_ips, instances
 
-    def run_instances(self, count, parameters):
+    def run_instances(self, count, parameters, security_configured):
         image_id = parameters[PARAM_IMAGE_ID]
         instance_type = parameters[PARAM_INSTANCE_TYPE]
         keyname = parameters[PARAM_KEYNAME]
@@ -110,8 +101,19 @@ class EC2Agent(BaseAgent):
             image_id, instance_type, keyname, cloud, group, spot)
 
         start_time = datetime.now()
-        active_public_ips, active_private_ips, active_instances = self.describe_instances(
-            parameters)
+        active_public_ips = []
+        active_private_ips = []
+        active_instances = []
+        print 'EC2_URL = [{0}]'.format(environ['EC2_URL'])
+        while True:
+            active_public_ips, active_private_ips, active_instances = \
+                self.describe_instances(parameters)
+            # If security has been configured on this agent just now,
+            # that's an indication that this is a fresh cloud deployment.
+            # As such it's not expected to have any running VMs.
+            if len(active_instances) > 0 or security_configured:
+                break
+
         args = '-k {0} -n {1} --instance-type {2} --group {3} {4}'.format(keyname,
             count, instance_type, group, image_id)
         if spot:
