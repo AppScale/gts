@@ -84,6 +84,11 @@ module HelperFunctions
   DONT_USE_SSL = false
 
 
+  # A class variable that is used to locally cache our own IP address, so that
+  # we don't keep asking the system for it.
+  @@my_local_ip = nil
+
+
   def self.shell(cmd)
     return `#{cmd}`
   end
@@ -410,8 +415,22 @@ module HelperFunctions
   end
 
 
+  # Returns the IP address associated with this machine. To get around
+  # issues where a VM may forget its IP address
+  # (https://github.com/AppScale/appscale/issues/84), we locally cache it
+  # to not repeatedly ask the system for this IP (which shouldn't be changing).
+  # TODO(cgb): Consider the implications of caching the IP address if
+  # VLAN tagging is used, and the IP address may be used.
+  # TODO(cgb): This doesn't solve the problem if the IP address isn't there
+  # the first time around - should we sleep and retry in that case?
   def self.local_ip()
+    if !@@my_local_ip.nil?
+      Kernel.puts("Returning cached ip #{@@my_local_ip}")
+      return @@my_local_ip
+    end
+
     ifconfig = HelperFunctions.shell("ifconfig")
+    Kernel.puts("ifconfig returned the following: [#{ifconfig}]")
     bound_addrs = ifconfig.scan(/inet addr:(\d+.\d+.\d+.\d+)/).flatten
 
     Kernel.puts("ifconfig reports bound IP addresses as " +
@@ -422,6 +441,7 @@ module HelperFunctions
       end
 
       Kernel.puts("Returning #{addr} as our local IP address")
+      @@my_local_ip = addr
       return addr
     }
 
