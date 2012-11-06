@@ -1,5 +1,6 @@
 package com.google.appengine.api.datastore.dev;
 
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -28,137 +29,165 @@ import com.google.appengine.repackaged.com.google.io.protocol.ProtocolMessage;
 import com.google.apphosting.utils.remoteapi.RemoteApiPb.Request;
 import com.google.apphosting.utils.remoteapi.RemoteApiPb.Response;
 
-public class HTTPClientDatastoreProxy {
 
-    private static final Logger logger = Logger.getLogger(HTTPClientDatastoreProxy.class.getName());
+public class HTTPClientDatastoreProxy
+{
 
-    DefaultHttpClient client = null;
-    String url = null;
+	private static final Logger	logger	= Logger.getLogger(HTTPClientDatastoreProxy.class.getName());
 
-    //TODO deal with ssl?
-    public HTTPClientDatastoreProxy(String host, int port, boolean isSSL) {
-        SchemeRegistry schemeRegistry = new SchemeRegistry();
-        schemeRegistry.register(new Scheme("http", PlainSocketFactory
-                .getSocketFactory(), port));
-        ThreadSafeClientConnManager cm = new ThreadSafeClientConnManager(
-                schemeRegistry);
-        // Increase max total connection to 200
-        cm.setMaxTotal(200);
-        // Increase default max connection per route to 20
-        cm.setDefaultMaxPerRoute(20);
-        // Increase max connections for localhost:80 to 50
-        // logger.log(Level.INFO, "http client started");
-        url = "http://" + host + ":" + port + "/";
-        HttpHost localhost = new HttpHost(url);
-        cm.setMaxForRoute(new HttpRoute(localhost), 50);
-        client = new DefaultHttpClient(cm);
-        // logger.log(Level.INFO, "connecting to pb server at: " + url);
-    }
+	private DefaultHttpClient	client	= null;
 
-    public void doPost(String appId, String method, ProtocolMessage<?> request,
-            ProtocolMessage<?> response) {
-        HttpPost post = new HttpPost(url);
-        post.addHeader("ProtocolBufferType", "Request");
-        String tag = appId;
-        User user = getUser();
-        if (user != null) {
-            tag += ":" + user.getEmail();
-            tag += ":" + user.getNickname();
-            tag += ":" + user.getAuthDomain();
-        }
-        post.addHeader("AppData", tag);
+	String						url		= null;
 
-        Request remoteRequest = new Request();
-        remoteRequest.setMethod(method);
-        remoteRequest.setServiceName("datastore_v3");
-        remoteRequest.setRequestAsBytes(request.toByteArray());
+	// TODO deal with ssl?
+	public HTTPClientDatastoreProxy( String host, int port, boolean isSSL )
+	{
+		SchemeRegistry schemeRegistry = new SchemeRegistry();
+		schemeRegistry.register(new Scheme("http", PlainSocketFactory.getSocketFactory(), port));
+		ThreadSafeClientConnManager cm = new ThreadSafeClientConnManager(schemeRegistry);
+		// Increase max total connection to 200
+		cm.setMaxTotal(200);
+		// Increase default max connection per route to 20
+		cm.setDefaultMaxPerRoute(20);
+		// Increase max connections for localhost:80 to 50
+		// logger.log(Level.INFO, "http client started");
+		url = "http://" + host + ":" + port + "/";
+		HttpHost localhost = new HttpHost(url);
+		cm.setMaxForRoute(new HttpRoute(localhost), 50);
+		client = new DefaultHttpClient(cm);
+		// logger.log(Level.INFO, "connecting to pb server at: " + url);
+	}
 
-        ByteArrayOutputStream bao = new ByteArrayOutputStream();
-        try {
-            bao.write(remoteRequest.toByteArray());
-            ByteArrayEntity entity = new ByteArrayEntity(bao.toByteArray());
-            post.setEntity(entity);
-            bao.close();
-        } catch (IOException e1) {
-            e1.printStackTrace();
-        }
+	public void doPost( String appId, String method, ProtocolMessage<?> request, ProtocolMessage<?> response )
+	{
+		HttpPost post = new HttpPost(url);
+		post.addHeader("ProtocolBufferType", "Request");
+		String tag = appId;
+		User user = getUser();
+		if (user != null)
+		{
+			tag += ":" + user.getEmail();
+			tag += ":" + user.getNickname();
+			tag += ":" + user.getAuthDomain();
+		}
+		post.addHeader("AppData", tag);
 
-        Response remoteResponse = new Response();
-        try {
-            byte[] bytes = client.execute(post, new ByteArrayResponseHandler());
-            remoteResponse.parseFrom(bytes);
-            // logger.log(Level.INFO, "raw bytes");
-            // logger.log(Level.INFO, new String(bytes));
-        } catch (ClientProtocolException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        if (!remoteResponse.hasResponse())
-            logger.log(Level.WARNING, "no response from server for: " + method
-                    + " method!");
-        if (remoteResponse.hasApplicationError()) {
-            logger.log(Level.WARNING, "application error in " + method
-                    + " method !"
-                    + remoteResponse.getApplicationError().toFlatString());
-        }
-        if (remoteResponse.hasException()) {
-            logger.log(Level.WARNING, "exception in " + method + " method! "
-                    + remoteResponse.getException());
-        }
-        if (remoteResponse.hasJavaException()) {
-            logger.log(Level.WARNING, "java exception in " + method
-                    + " method! " + remoteResponse.getJavaException());
-        }
-        response.parseFrom(remoteResponse.getResponseAsBytes());
-    }
+		Request remoteRequest = new Request();
+		remoteRequest.setMethod(method);
+		remoteRequest.setServiceName("datastore_v3");
+		remoteRequest.setRequestAsBytes(request.toByteArray());
 
-    private User getUser() {
-        UserService userService = UserServiceFactory.getUserService();
-        return userService.getCurrentUser();
-    }
+		ByteArrayOutputStream bao = new ByteArrayOutputStream();
+		try
+		{
+			bao.write(remoteRequest.toByteArray());
+			ByteArrayEntity entity = new ByteArrayEntity(bao.toByteArray());
+			post.setEntity(entity);
+			bao.close();
+		}
+		catch (IOException e1)
+		{
+			e1.printStackTrace();
+		}
 
-    private class ByteArrayResponseHandler implements ResponseHandler<byte[]> {
+		Response remoteResponse = new Response();
+		try
+		{
+			byte[] bytes = client.execute(post, new ByteArrayResponseHandler());
+			remoteResponse.parseFrom(bytes);
+			// logger.log(Level.INFO, "raw bytes");
+			// logger.log(Level.INFO, new String(bytes));
+		}
+		catch (ClientProtocolException e)
+		{
+			e.printStackTrace();
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
+		}
+		if (!remoteResponse.hasResponse()) logger.log(Level.WARNING, "no response from server for: " + method + " method!");
+		if (remoteResponse.hasApplicationError())
+		{
+			logger.log(Level.WARNING, "application error in " + method + " method !" + remoteResponse.getApplicationError().toFlatString());
+		}
+		if (remoteResponse.hasException())
+		{
+			logger.log(Level.WARNING, "exception in " + method + " method! " + remoteResponse.getException());
+		}
+		if (remoteResponse.hasJavaException())
+		{
+			logger.log(Level.WARNING, "java exception in " + method + " method! " + remoteResponse.getJavaException());
+		}
+		response.parseFrom(remoteResponse.getResponseAsBytes());
+	}
 
-        public byte[] handleResponse(HttpResponse response)
-                throws ClientProtocolException, IOException {
-            HttpEntity entity = response.getEntity();
-            if (entity != null) {
-                InputStream inputStream = entity.getContent();
-                try {
-                    return inputStreamToArray(inputStream);
-                } finally {
-                    entity.getContent().close();
-                }
-            }
-            return new byte[] {};
-        }
-    }
+	private User getUser()
+	{
+		UserService userService = UserServiceFactory.getUserService();
+		return userService.getCurrentUser();
+	}
 
-    private byte[] inputStreamToArray(InputStream in) {
-        int len;
-        int size = 10240;
-        byte[] buf = null;
-        try {
-            if (in instanceof ByteArrayInputStream) {
-                size = in.available();
-                buf = new byte[size];
-                len = in.read(buf, 0, size);
-            } else {
-                ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                buf = new byte[size];
-                // long t1 = System.nanoTime();
-                while ((len = in.read(buf, 0, size)) != -1) {
-                    bos.write(buf, 0, len);
-                }
-                // long t2 = System.nanoTime();
-                buf = bos.toByteArray();
+	private class ByteArrayResponseHandler implements ResponseHandler<byte[]>
+	{
 
-            }
-            in.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return buf;
-    }
+		public byte[] handleResponse( HttpResponse response ) throws ClientProtocolException, IOException
+		{
+			HttpEntity entity = response.getEntity();
+			if (entity != null)
+			{
+				InputStream inputStream = entity.getContent();
+				try
+				{
+					return inputStreamToArray(inputStream);
+				}
+				finally
+				{
+					entity.getContent().close();
+				}
+			}
+			return new byte[] {};
+		}
+	}
+
+	private byte[] inputStreamToArray( InputStream in )
+	{
+		int len;
+		int size = 10240;
+		byte[] buf = null;
+		try
+		{
+			if (in instanceof ByteArrayInputStream)
+			{
+				size = in.available();
+				buf = new byte[size];
+				len = in.read(buf, 0, size);
+			}
+			else
+			{
+				ByteArrayOutputStream bos = new ByteArrayOutputStream();
+				buf = new byte[size];
+				// long t1 = System.nanoTime();
+				while ((len = in.read(buf, 0, size)) != -1)
+				{
+					bos.write(buf, 0, len);
+				}
+				// long t2 = System.nanoTime();
+				buf = bos.toByteArray();
+
+			}
+			in.close();
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
+		}
+		return buf;
+	}
+	
+	//used for setting this as a mock object for unit tests
+	public void setClient( DefaultHttpClient client )
+	{
+		this.client = client;
+	}
 }
