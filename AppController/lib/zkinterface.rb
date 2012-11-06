@@ -152,8 +152,8 @@ class ZKInterface
   end
 
 
-  def self.remove_app_entry(appname)
-    appname_path = ROOT_APP_PATH + "/#{appname}"
+  def self.remove_app_entry(appname, ip)
+    appname_path = ROOT_APP_PATH + "/#{appname}/#{ip}"
     self.delete(appname_path)
   end
 
