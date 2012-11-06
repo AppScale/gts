@@ -1,7 +1,8 @@
 from commands import getoutput
 from os.path import abspath
-from random import random
+from random import choice
 from string import digits, letters
+import sys
 
 __author__ = 'hiranya'
 
@@ -18,7 +19,7 @@ def read_file(location, chomp = True):
 
 def get_random_alphanumeric(length = 10):
     alphabet = digits + letters
-    return ''.join(random.choice(alphabet) for i in range(length))
+    return ''.join(choice(alphabet) for i in range(length))
 
 def shell(cmd):
     print cmd
@@ -33,8 +34,8 @@ def flatten(list):
             result.append(l)
     return result
 
-def get_ip_addresses(all_addresses):
-    return None
-
 def has_parameter(p, params):
     return params.has_key(p) and params[p] is not None and len(params[p]) > 0
+
+def diff(list1, list2):
+    return sorted(set(list1) - set(list2))

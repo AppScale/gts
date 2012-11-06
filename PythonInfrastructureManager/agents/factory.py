@@ -7,4 +7,4 @@ class InfrastructureAgentFactory:
         if infrastructure == 'ec2':
             return EC2Agent()
         else:
-            raise ValueError('Unrecognized infrastructure: ' +   infrastructure)
+            raise NameError('Unrecognized infrastructure: ' +   infrastructure)

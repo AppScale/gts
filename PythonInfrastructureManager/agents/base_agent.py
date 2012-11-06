@@ -4,11 +4,8 @@ __author__ = 'hiranya'
 
 class BaseAgent:
 
-    def set_environment_variables(self, variables, cloud_num):
-        prefix = 'CLOUD' + str(cloud_num) + '_'
-        for key, value in variables.items():
-            if key.startswith(prefix):
-                environ[key[len(prefix):]] = value
+    def set_environment_variables(self, parameters, cloud_num):
+        pass
 
     def configure_instance_security(self, parameters):
         raise NotImplementedError

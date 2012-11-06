@@ -60,7 +60,7 @@ class InfrastructureManager:
             if not has_parameter(param, parameters):
                 return self.__generate_response(False, 'no ' + param)
 
-        num_vms = parameters[PARAM_NUM_VMS]
+        num_vms = int(parameters[PARAM_NUM_VMS])
         infrastructure = parameters[PARAM_INFRASTRUCTURE]
         agent = self.agent_factory.create_agent(infrastructure)
         status, reason = agent.has_required_parameters(parameters)
@@ -76,12 +76,14 @@ class InfrastructureManager:
         }
         print 'Generated reservation id', reservation_id, 'for this request.'
         # TODO: Start deployment on separate thread
+        self.__spawn_vms(agent, num_vms, parameters)
         print 'Successfully started request',  reservation_id, '.'
         return self.__generate_response(True, REASON_NONE, { 'reservation_id' : reservation_id })
 
     def __spawn_vms(self, agent, num_vms, parameters):
         if num_vms < 0:
             return [], [], []
+        agent.set_environment_variables(parameters, '1')
         security_configured = agent.configure_instance_security(parameters)
         agent.run_instances(num_vms, parameters, security_configured)
 

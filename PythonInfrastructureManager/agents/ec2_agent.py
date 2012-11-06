@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from os import environ
 from os.path import abspath
 from os.path import exists
@@ -6,7 +6,7 @@ import re
 import sys
 from time import sleep
 from agents.base_agent import BaseAgent
-from utils.utils import shell, flatten, get_ip_addresses, has_parameter
+from utils import utils
 
 __author__ = 'hiranya'
 
@@ -47,8 +47,13 @@ class EC2Agent(BaseAgent):
     def __init__(self):
         self.prefix = 'ec2'
 
-    def set_environment_variables(self, variables, cloud_num):
-        BaseAgent.set_environment_variables(self, variables, cloud_num)
+    def set_environment_variables(self, parameters, cloud_num):
+        variables = parameters[PARAM_CREDENTIALS]
+        prefix = 'CLOUD' + str(cloud_num) + '_'
+        for key, value in variables.items():
+            if key.startswith(prefix):
+                environ[key[len(prefix):]] = value
+
         if environ.has_key('EC2_JVM_ARGS'):
             del(environ['EC2_JVM_ARGS'])
         ec2_keys_dir = abspath('/etc/appscale/keys/cloud' + str(cloud_num))
@@ -74,19 +79,19 @@ class EC2Agent(BaseAgent):
 
     def has_required_parameters(self, parameters):
         for param in REQUIRED_EC2_RUN_INSTANCES_PARAMS:
-            if not has_parameter(param, parameters):
+            if not utils.has_parameter(param, parameters):
                 return False, 'no ' + param
         return True, 'none'
 
     def describe_instances(self, parameters):
         keyname = parameters[PARAM_KEYNAME]
-        describe_instances = shell(self.prefix + '-describe-instances 2>&1')
+        describe_instances = utils.shell(self.prefix + '-describe-instances 2>&1')
         print 'describe-instances says', describe_instances
         fqdn_regex = re.compile('\s+({0})\s+({0})\s+running\s+{1}\s'.format(FQDN_REGEX, keyname))
         instance_regex = re.compile('INSTANCE\s+(i-\w+)')
-        all_ip_addresses = flatten(fqdn_regex.findall(describe_instances))
-        instances = flatten(instance_regex.findall(describe_instances))
-        public_ips, private_ips = get_ip_addresses(all_ip_addresses)
+        all_ip_addresses = utils.flatten(fqdn_regex.findall(describe_instances))
+        instances = utils.flatten(instance_regex.findall(describe_instances))
+        public_ips, private_ips = self.get_ip_addresses(all_ip_addresses)
         return public_ips, private_ips, instances
 
     def run_instances(self, count, parameters, security_configured):
@@ -124,7 +129,7 @@ class EC2Agent(BaseAgent):
 
         while True:
             print command_to_run
-            run_instances = shell(command_to_run)
+            run_instances = utils.shell(command_to_run)
             print 'Run instances says', run_instances
             status, command_to_run = self.run_instances_response(command_to_run, run_instances)
             if status:
@@ -137,14 +142,22 @@ class EC2Agent(BaseAgent):
         private_ips = []
         sleep(10)
 
-        end_time = datetime.now() + datetime.timedelta(0, MAX_VM_CREATION_TIME)
+        end_time = datetime.now() + timedelta(0, MAX_VM_CREATION_TIME)
         now = datetime.now()
         while now < end_time:
-            describe_instances = shell(self.prefix + '-describe-instances 2>&1')
+            describe_instances = utils.shell(self.prefix + '-describe-instances 2>&1')
             print '[{0}] {1} seconds left...'.format(now, (end_time - now).seconds)
             print describe_instances
-
-            #TODO: regex stuff
+            fqdn_regex = re.compile('\s+({0})\s+({0})\s+running\s+{1}\s'.format(FQDN_REGEX, keyname))
+            instance_regex = re.compile('INSTANCE\s+(i-\w+)')
+            all_ip_addresses = utils.flatten(fqdn_regex.findall(describe_instances))
+            instances = utils.flatten(instance_regex.findall(describe_instances))
+            public_ips, private_ips = self.get_ip_addresses(all_ip_addresses)
+            public_ips = utils.diff(public_ips, active_public_ips)
+            private_ips = utils.diff(private_ips, active_private_ips)
+            instances = utils.diff(instances, active_instances)
+            if count == len(public_ips):
+                break
             sleep(SLEEP_TIME)
             now = datetime.now()
 
@@ -152,8 +165,13 @@ class EC2Agent(BaseAgent):
             sys.exit('No public IPs were able to be procured within the time limit')
 
         if len(public_ips) != count:
+            for index in range(0, len(public_ips)):
+                if public_ips[index] == '0.0.0.0':
+                    instance_to_term = instances[index]
+                    print 'Instance {0} failed to get a public IP address and is being terminated'.\
+                        format(instance_to_term)
+                    utils.shell(self.prefix + '-terminate-instances ' + instance_to_term)
             pass
-            #TODO: More regex stuff
 
         end_time = datetime.now()
         total_time = end_time - start_time
@@ -181,6 +199,34 @@ class EC2Agent(BaseAgent):
 
     def get_optimal_spot_price(self, instance_type):
         return None
+
+    def get_ip_addresses(self, all_addresses):
+        if len(all_addresses) % 2 != 0:
+            sys.exit('IP address list is not of even length')
+        reported_public = []
+        reported_private = []
+        for index in range(0, len(all_addresses)):
+            if index % 2 == 0:
+                reported_public.append(all_addresses[index])
+            else:
+                reported_private.append(all_addresses[index])
+        print 'Reported public IPs:', reported_public
+        print 'Reported private IPs:', reported_private
+
+        actual_public = []
+        actual_private = []
+        for index in range(0, len(reported_public)):
+            public = reported_public[index]
+            private = reported_private[index]
+            if public != '0.0.0.0' and private != '0.0.0.0':
+                actual_public.append(public)
+                actual_private.append(private)
+
+        for index in range(0, len(actual_private)):
+            #TODO: Convert FQDN to IP
+            pass
+        return actual_public, actual_private
+
 
 
 
