@@ -480,7 +480,6 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       compiled_query.mutable_primaryscan().set_index_name(query.Encode())
 
   def _Dynamic_Next(self, next_request, query_result):
-    logging.info(str(next_request))
     self.__ValidateAppId(next_request.cursor().app())
 
     cursor_handle = next_request.cursor().cursor()

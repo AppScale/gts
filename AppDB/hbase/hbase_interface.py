@@ -1,57 +1,36 @@
 #Author: Navraj Chohan
 
 import os
-
-import Hbase
-import ttypes
 import time
+
+import appscale_logger
+import Hbase
+import helper_functions
+import threading
+import ttypes
+
 from thrift import Thrift
 from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 from dbinterface import *
-#import sqlalchemy.pool as pool
-import appscale_logger
-import threading
-from socket import gethostname; 
-PROFILING = False
-ERROR_HB = "DB_ERROR:"
-DB_LOCATION = gethostname()
+
+# Thrift port to connect to HBase
 THRIFT_PORT = 9090
 
 class DatastoreProxy(AppDBInterface):
-
+  """ 
+    The AppScale DB API class implementation for HBase
+  """
   def __init__(self, logger = appscale_logger.getLogger("datastore-hbase")):
-    self.logger = logger
+    """
+    Constructor
+    Args:
+      logger: Used for logging
+    """
     self.lock = threading.Lock()
-    self.connection = self.__createConnection()
-    #self.pool = pool.QueuePool(self.__createConnection)
-
-  def logTiming(self, function, start_time, end_time):
-    if PROFILING:
-      self.logger.debug(function + ": " + str(end_time - start_time) + " s")
-
-  def __createConnection(self):
-    t = TSocket.TSocket(DB_LOCATION, THRIFT_PORT)
-    #t = TSocket.TSocket(self.get_local_ip(), THRIFT_PORT)
-    t = TTransport.TBufferedTransport(t)
-    p = TBinaryProtocol.TBinaryProtocol(t)
-    c = Hbase.Client(p)
-    t.open()
-    return c
-
-  def __initConnection(self):
-    self.lock.acquire()
-    if self.connection:
-      return self.connection
-    else:
-      self.connection = self.__createConnection()
-      return self.connection
-    #return self.pool.connect()
-
-  def __closeConnection(self, conn):
-    #conn.close()
-    self.lock.release()
+    self.logger = logger
+    self.connection = self.createConnection()
 
   def batch_get_entity(self, table_name, row_keys, column_names):
     """Allows access to multiple rows with a single call
@@ -62,15 +41,17 @@ class DatastoreProxy(AppDBInterface):
       column_names: A list of columns to access
     Returns:
       A dictionary of {key:{column_name:value,...}}
+    Raise: 
+      TypeError: Raised when given bad types of for args.
     """
 
-    assert isinstance(table_name, str)
-    assert isinstance(column_names, list)
-    assert isinstance(row_keys, list)
+    if not isinstance(table_name, str): raise TypeError
+    if not isinstance(column_names, list): raise TypeError
+    if not isinstance(row_keys, list): raise TypeError
 
     client = self.__initConnection() 
     result = {}
-    rows = None
+    rows = []
     column_list = []
 
     for ii in column_names:
@@ -82,6 +63,7 @@ class DatastoreProxy(AppDBInterface):
       for col in column_names:
         if (col+":") in row.columns:
           result[row.row][col] = row.columns[col + ":"].value
+
     for row in row_keys:
       if row not in result:
         result[row] = {}
@@ -98,12 +80,15 @@ class DatastoreProxy(AppDBInterface):
       cell_values: A dict of key/value pairs
     Returns:
       Nothing 
+    Raises:
+      TypeError: Raised when given bad types of for args.
     """
 
-    assert isinstance(table_name, str)
-    assert isinstance(column_names, list)
-    assert isinstance(row_keys, list)
-    assert isinstance(cell_values, dict)
+    if not isinstance(table_name, str): raise TypeError
+    if not isinstance(column_names, list): raise TypeError
+    if not isinstance(row_keys, list): raise TypeError
+    if not isinstance(cell_values, dict): raise TypeError
+
     client = self.__initConnection()
 
     all_mutations = []
@@ -131,12 +116,13 @@ class DatastoreProxy(AppDBInterface):
       column_names: A list of column names
     Returns:
       Nothing
-    Raises:
-      AppScaleDBConnectionError when unable to execute deletes
+    Raises: 
+      TypeError: Raised when given bad types of for args.
     """
 
-    assert isinstance(table_name, str)
-    assert isinstance(row_keys, list)
+    if not isinstance(table_name, str): raise TypeError
+    if not isinstance(row_keys, list): raise TypeError
+
     client = self.__initConnection()
 
     all_mutations = []
@@ -154,14 +140,16 @@ class DatastoreProxy(AppDBInterface):
     self.__closeConnection(client)
  
   def delete_table(self, table_name):
-    """ Drops a given column family
+    """ Drops a given table
   
     Args:
-      table_name: The column family name
+      table_name: The table to drop
     Returns:
       Nothing
+    Raises:
+      TypeError: Raised when given bad types of for args.
     """
-    assert isinstance(table_name, str)
+    if not isinstance(table_name, str): raise TypeError
 
     client = self.__initConnection() 
     try:
@@ -179,6 +167,8 @@ class DatastoreProxy(AppDBInterface):
       column_names: not used
     Returns:
       Nothing
+    Raises:
+      TypeError: Raised when given bad types of for args.
     """
 
     assert isinstance(table_name, str)
@@ -209,38 +199,49 @@ class DatastoreProxy(AppDBInterface):
         or a list of keys if keys only.
      
     Args:
-      table_name: column family name (Cassandra's name for a table)
-      column_names: columns which get returned within the key range
-      start_key: starts query with this key
-      end_key: ends query with this key
-      limit: maximum number of results to return
-      offset: cuts off these many from the results [offset:]
-      start_inclusive: if results should include the start_key
-      end_inclusive: if results should include the end_key
-      keys_only: only returns keys and not values
+      table_name: Table to access
+      column_names: Columns which get returned within the key range
+      start_key: String key starting the range query
+      end_key: String key ending the range query
+      limit: Maximum number of results to return
+      offset: Number to cut off from the results [offset:]
+      start_inclusive: Boolean if results should include the start_key
+      end_inclusive: Boolean if results should include the end_key
+      keys_only: Boolean if only returns keys and not values
+    Raises: 
+      TypeError: Raised when given bad types of for args.
+    Returns:
+      Dictionary of the results
     """
-    assert isinstance(table_name, str)
-    assert isinstance(column_names, list)
-    assert isinstance(start_key, str)
-    assert isinstance(end_key, str)
-    assert isinstance(limit, int) or isinstance(limit, long)
-    assert isinstance(offset, int)
+    if not isinstance(table_name, str): raise TypeError
+    if not isinstance(column_names, list): raise TypeError
+    if not isinstance(start_key, str): raise TypeError
+    if not isinstance(end_key, str): raise TypeError
+    if not isinstance(limit, int) and not isinstance(limit, long): 
+      raise TypeError
+    if not isinstance(offset, int): raise TypeError
 
     results = []
 
-    # We add extra rows in case we exclusde the start/end keys
+    # We add extra rows in case we exclude the start/end keys
     # This makes sure the limit is upheld correctly
-    rowcount = limit
-    if not start_inclusive or not end_inclusive:
-      rowcount = limit + 2
+    row_count = limit
+    if not start_inclusive:
+      row_count += 1
+    if not end_inclusive:
+      row_count += 1
+
     client = self.__initConnection()
     col_names = []
     for col in column_names:
       col_names.append(col + ":")
-    scanner = client.scannerOpenWithStop(table_name, start_key, end_key, col_names) 
-    rowresult = client.scannerGetList(scanner, rowcount)
+
+    scanner = client.scannerOpenWithStop(
+                  table_name, start_key, end_key, col_names) 
+
+    rowresult = client.scannerGetList(scanner, row_count)
     while rowresult:
-      rowcount -= len(rowresult) 
+      row_count -= len(rowresult) 
       for row in rowresult:
         item = {}
         col_dict = {}
@@ -248,15 +249,15 @@ class DatastoreProxy(AppDBInterface):
           col_dict[c] = row.columns[c+":"].value
         item[row.row] = col_dict
         results.append(item)   
-      if rowcount <= 0:
+      if row_count <= 0:
         break
-      rowresult = client.scannerGetList(scanner, rowcount)
+      rowresult = client.scannerGetList(scanner, row_count)
     client.scannerClose(scanner) 
     self.__closeConnection(client)
 
     # The end key is not included in the scanner. Get the last key if 
     # needed
-    if rowcount != 0 and end_inclusive:
+    if row_count != 0 and end_inclusive:
       item = self.batch_get_entity(table_name, [end_key], column_names)
       if item[end_key]:
         results.append(item)
@@ -276,4 +277,44 @@ class DatastoreProxy(AppDBInterface):
       results = results[offset:]
 
     return results
+
+  ########################
+  # Private methods
+  ########################
+  def createConnection(self):
+    """
+    Creates a connection to HBase's Thrift
+    Returns: 
+      An HBase client object
+    """
+    host = helper_functions.read_file('/etc/appscale/my_private_ip')
+    t = TSocket.TSocket(host, THRIFT_PORT)
+    t = TTransport.TBufferedTransport(t)
+    p = TBinaryProtocol.TBinaryProtocol(t)
+    c = Hbase.Client(p)
+    t.open()
+    return c
+
+  def __initConnection(self):
+    """
+    Provides a locking wrapper around a connection to make it threadsafe. 
+    Blocks until the lock is available.
+    Returns:
+      An HBase connection
+    """
+    self.lock.acquire()
+    if self.connection:
+      return self.connection
+    else:
+      self.connection = self.createConnection()
+      return self.connection
+
+  def __closeConnection(self, conn):
+    """
+    Releases the connection lock.
+    Returns:
+      Nothing
+    """ 
+    self.lock.release()
+
 

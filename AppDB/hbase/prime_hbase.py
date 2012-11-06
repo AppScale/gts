@@ -26,11 +26,19 @@ import py_hbase
 import hbase_interface
 from dbconstants import *
 
-def create_table(tablename, columns):
+def create_table(table_name, columns):
+  """ Calls HBase to create a table 
+
+  Args:
+  table_name: Table to create
+  columns: columns for the table
+  """
   client = py_hbase.DatastoreProxy()
-  return client.create_table(tablename, columns)
+  client.create_table(table_name, columns)
 
 def create_app_tables():
+  """ Creates application tables for AppScale
+  """
   db = hbase_interface.DatastoreProxy()
   db.create_table(ASC_PROPERTY_TABLE, PROPERTY_SCHEMA)
   db.create_table(DSC_PROPERTY_TABLE, PROPERTY_SCHEMA)
@@ -40,8 +48,9 @@ def create_app_tables():
   db.create_table(APP_ENTITY_TABLE, APP_ENTITY_SCHEMA)
   db.create_table(APP_KIND_TABLE, APP_KIND_SCHEMA)
 
-
 def prime_hbase():
+  """ Creates tables required for AppScale
+  """
   print "prime hbase database"
   create_app_tables()
   create_table(USERS_TABLE, USERS_SCHEMA)

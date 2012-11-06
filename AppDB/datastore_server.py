@@ -1,9 +1,8 @@
 #!/usr/bin/python
+# See LICENSE file
 #
 # Author: 
-# Navraj Chohan (nlake44@gmail.com)
-# Navyasri Canumalla (navyasri@cs.ucsb.edu)
-# See LICENSE file
+# Navraj Chohan (raj@appscale.com)
 
 import __builtin__
 import datetime
@@ -23,6 +22,7 @@ import tornado.httpserver
 import tornado.ioloop
 import tornado.web
 
+import dbconstants
 import appscale_logger
 import appscale_datastore
 import appscale_datastore_batch
@@ -48,12 +48,12 @@ from google.net.proto import ProtocolBuffer
 from drop_privileges import *
 from SocketServer import BaseServer
 from M2Crypto import SSL
-from dbconstants import *
 
 # Buffer type used for key storage in the datastore
 buffer = __builtin__.buffer
 
-app_datastore = []
+# Global for accessing the datastore. An instance of DatastoreDistributed.
+datastore_access = None
 
 entity_pb.Reference.__hash__ = lambda self: hash(self.Encode())
 datastore_pb.Query.__hash__ = lambda self: hash(self.Encode())
@@ -68,6 +68,7 @@ _MAX_QUERY_OFFSET = 1000
 # It will keep looking at this size window when getting the result
 _MAX_COMPOSITE_WINDOW = 1000
 
+# Maximum amount of filter and orderings allowed within a query
 _MAX_QUERY_COMPONENTS = 63
 
 # IDs are acquired in block sizes of this
@@ -98,9 +99,19 @@ _ORDER_MAP = {
     datastore_pb.Query_Order.DESCENDING: 'DESC',
 }
 
+# The datastores supported for this version of the AppScale datastore
+VALID_DATASTORES = ['cassandra', 'hbase', 'hypertable']
+
+# Port this service binds to if using SSL
+DEFAULT_SSL_PORT = 8443
+
+# Port this service binds to (unencrypted and hence better performance)
+DEFAULT_PORT = 4080
 
 class DatastoreDistributed():
-  """Persistent stub for the Python datastore API.
+  """ AppScale persistent layer for the datastore API. It is the 
+      replacement for the AppServers to persist their data into 
+      a distributed datastore instead of a flat file.
   """
 
   def __init__(self, datastore_batch):
@@ -123,44 +134,44 @@ class DatastoreDistributed():
     # The key is the <app_id>/<namespace>/<kind>/<index>
     self.__indexes = {}
 
-    #TODO
+    #TODO: Use locks for operations that should be atomic, i.e., we are
+    # updating global shared state
     # lock for namespace and indexes during periodic garbage collection
     self.__lock = threading.Lock()
 
-    # initialize a clean up thread
-    self.__start_gc_thread()
+    # TODO initialize a clean up thread
+    #self.__start_gc_thread()
  
     # datastore accessor
     self.datastore_batch = datastore_batch 
 
   def __start_gc_thread(self):
     """ Scans through indexes and namespaces, removed ones which have not
-        been accessed in the past day
+        been accessed within a prescribed amount of time (TDB)
     """
-
-    #TODO
-    pass
+    raise NotImplementedError
 
   @staticmethod
-  def GetEntityKind(key):
+  def GetEntityKind(key_path):
     """ Returns the Kind of the Entity
 
     Args:
-        key: the key path of entity
+        key_path: the key path of entity
     Returns:
         kind of the entity
     """
 
-    if isinstance(key, entity_pb.EntityProto):
-      key = key.key()
-    return key.path().element_list()[-1].type()
+    if isinstance(key_path, entity_pb.EntityProto):
+      key_path = key_path.key()
+    return key_path.path().element_list()[-1].type()
 
   def GetEntityKey(self, prefix, pb):
     """ Returns the key for the entity table
     
     Args:
-        prefix: per-app name and namespace
-        pb: index name
+        prefix: app name and namespace string
+                example-- 'guestbook/mynamespace'
+        pb: protocol buffer for which we will get encode the index name
     Returns:
         Key for entity table
     """
@@ -170,25 +181,24 @@ class DatastoreDistributed():
     """ Returns a key for the kind table
     
     Args:
-        prefix: per-app name and namespace
+        prefix: app name and namespace string
         key_path: key path to build row key with
     Returns:
         Row key for kind table
     """
-    def _encode_path(pb):
-      # reverse of index paths because child kind must come first
-      path = []
-      all_reversed = pb.element_list()[::-1]
-      for e in all_reversed:
-        if e.has_name():
-          id = e.name()
-        elif e.has_id():
-          id = str(e.id()).zfill(10)
-        path.append('%s:%s' % (e.type(), id))
-      val = '!'.join(path)
-      val += '!'
-      return val
-    return prefix + _NAMESPACE_SEPARATOR + _encode_path(key_path) 
+    path = []
+    # reverse of index paths because child kind must come first
+    all_reversed = key_path.element_list()[::-1]
+    for e in all_reversed:
+      if e.has_name():
+        key_id = e.name()
+      elif e.has_id():
+        key_id = str(e.id()).zfill(10)
+      path.append('%s:%s' % (e.type(), key_id))
+    encoded_path = '!'.join(path)
+    encoded_path += '!'
+    
+    return prefix + _NAMESPACE_SEPARATOR + encoded_path
     
   @staticmethod
   def __EncodeIndexPB(pb):
@@ -201,13 +211,15 @@ class DatastoreDistributed():
     """
 
     def _encode_path(pb):
+      """ Takes a protocol buffer and returns the encoded path """
+
       path = []
       for e in pb.element_list():
         if e.has_name():
-          id = e.name()
+          key_id = e.name()
         elif e.has_id():
-          id = str(e.id()).zfill(10)
-        path.append('%s:%s' % (e.type(), id))
+          key_id = str(e.id()).zfill(10)
+        path.append('%s:%s' % (e.type(), key_id))
       val = '!'.join(path)
       val += '!'
       return val
@@ -234,11 +246,11 @@ class DatastoreDistributed():
       app_id: An application ID.
 
     Raises:
-      datastore_errors.BadRequestError: if this is not the stub for app_id.
+      AppScaleBadArg if name is not set
     """
 
-    assert app_id
-
+    if not app_id: 
+      raise dbconstants.AppScaleBadArg("Application name must be set")
 
   def ValidateKey(self, key):
     """ Validate this key.
@@ -248,14 +260,15 @@ class DatastoreDistributed():
 
     Raises:
       datastore_errors.BadRequestError: if the key is invalid
+      TypeError if key is not of entity_pb.Reference
     """
 
-    assert isinstance(key, entity_pb.Reference)
+    if not isinstance(key, entity_pb.Reference): raise TypeError
 
     self.ValidateAppId(key.app())
 
     for elem in key.path().element_list():
-      if elem.has_id() == elem.has_name():
+      if elem.has_id() and elem.has_name():
         raise datastore_errors.BadRequestError(
             'each key path element should have id or name but not both: %r'
             % key)
@@ -267,6 +280,8 @@ class DatastoreDistributed():
       name_space: The per-app namespace name.
       kind: The per-app kind name.
       index_name: The per-app index name.
+    Returns:
+      Key string for storing namespaces
     """
 
     return app_id + "/" + name_space + "/" + kind + "/" + index_name
@@ -278,14 +293,16 @@ class DatastoreDistributed():
       prefix: The namespace prefix to configure.
       app_id: The app ID.
       name_space: The per-app namespace name.
+    Returns:
+      True upon success, False otherwise.
     """
     
     vals = {}
     row_key = prefix
     vals[row_key] = {"namespaces":name_space}
-    self.datastore_batch.batch_put_entity(APP_NAMESPACE_TABLE, 
+    self.datastore_batch.batch_put_entity(dbconstants.APP_NAMESPACE_TABLE, 
                           [row_key], 
-                          APP_NAMESPACE_SCHEMA, 
+                          dbconstants.APP_NAMESPACE_SCHEMA, 
                           vals)
     return True
 
@@ -298,10 +315,6 @@ class DatastoreDistributed():
     Returns:
       A valid table prefix
     """
-    def formatTableName(tableName):
-      import re
-      return re.sub("[^\w\d_]","",tableName)
-
     if isinstance(data, entity_pb.EntityProto):
       data = data.key()
 
@@ -309,7 +322,6 @@ class DatastoreDistributed():
       data = (data.app(), data.name_space())
 
     prefix = ('%s/%s' % data).replace('"', '""')
-    #prefix = formatTableName(prefix)
 
     if data not in self.__namespaces:
       if self.ConfigureNamespace(prefix, *data):
@@ -324,8 +336,11 @@ class DatastoreDistributed():
               prefix, kind, property name, and path
     Returns:
        a string
+    Raises:
+       ValueError if params are not of the correct cardinality
     """
-    assert len(params) == 5 or len(params) == 4
+    if len(params) != 5 and len(params) != 4: raise ValueError
+
     if params[-1] == None:
        # strip off the last None item
        key = '/'.join(params[:-1]) + '/'
@@ -386,12 +401,12 @@ class DatastoreDistributed():
     asc_index_keys = [x[0] for x in asc_index_keys] 
     desc_index_keys = [x[0] for x in desc_index_keys] 
     # TODO Consider doing these in parallel with threads
-    self.datastore_batch.batch_delete(ASC_PROPERTY_TABLE, 
+    self.datastore_batch.batch_delete(dbconstants.ASC_PROPERTY_TABLE, 
                                       asc_index_keys, 
-                                      column_names=PROPERTY_SCHEMA)
-    self.datastore_batch.batch_delete(DSC_PROPERTY_TABLE, 
+                                      column_names=dbconstants.PROPERTY_SCHEMA)
+    self.datastore_batch.batch_delete(dbconstants.DSC_PROPERTY_TABLE, 
                                       desc_index_keys,
-                                      column_names=PROPERTY_SCHEMA)
+                                      column_names=dbconstants.PROPERTY_SCHEMA)
     
   def InsertEntities(self, entities):
     """Inserts or updates entities in the DB.
@@ -421,8 +436,8 @@ class DatastoreDistributed():
       new_row_keys = [str(ii[0]) for ii in group_rows]
       row_keys += new_row_keys
       for ii in group_rows:
-        row_values[str(ii[0])] = {APP_ENTITY_SCHEMA[0]:str(ii[1]), #ent
-                           APP_ENTITY_SCHEMA[1]:"0"} #txnid
+        row_values[str(ii[0])] = {dbconstants.APP_ENTITY_SCHEMA[0]:str(ii[1]), #ent
+                           dbconstants.APP_ENTITY_SCHEMA[1]:"0"} #txnid
 
     for prefix, group in itertools.groupby(entities, lambda x: x[0]):
       kind_group_rows = tuple(KindRowGenerator(group))
@@ -430,18 +445,18 @@ class DatastoreDistributed():
       kind_row_keys += new_kind_keys
 
       for ii in kind_group_rows:
-        kind_row_values[str(ii[0])] = {APP_KIND_SCHEMA[0]:str(ii[1])}
+        kind_row_values[str(ii[0])] = {dbconstants.APP_KIND_SCHEMA[0]:str(ii[1])}
 
 
     # TODO do these in ||                        
-    self.datastore_batch.batch_put_entity(APP_ENTITY_TABLE, 
+    self.datastore_batch.batch_put_entity(dbconstants.APP_ENTITY_TABLE, 
                                           row_keys, 
-                                          APP_ENTITY_SCHEMA, 
+                                          dbconstants.APP_ENTITY_SCHEMA, 
                                           row_values)    
 
-    self.datastore_batch.batch_put_entity(APP_KIND_TABLE,
+    self.datastore_batch.batch_put_entity(dbconstants.APP_KIND_TABLE,
                                           kind_row_keys,
-                                          APP_KIND_SCHEMA, 
+                                          dbconstants.APP_KIND_SCHEMA, 
                                           kind_row_values) 
 
   def InsertIndexEntries(self, entities):
@@ -474,14 +489,14 @@ class DatastoreDistributed():
         rev_row_values[str(ii[0])] = {'reference':str(ii[1])}
 
     # TODO  these in parallel
-    self.datastore_batch.batch_put_entity(ASC_PROPERTY_TABLE, 
+    self.datastore_batch.batch_put_entity(dbconstants.ASC_PROPERTY_TABLE, 
                           row_keys, 
-                          PROPERTY_SCHEMA, 
+                          dbconstants.PROPERTY_SCHEMA, 
                           row_values)
 
-    self.datastore_batch.batch_put_entity(DSC_PROPERTY_TABLE, 
+    self.datastore_batch.batch_put_entity(dbconstants.DSC_PROPERTY_TABLE, 
                           rev_row_keys,  
-                          PROPERTY_SCHEMA,
+                          dbconstants.PROPERTY_SCHEMA,
                           rev_row_values)
 
   def AcquireIdBlockFromDB(self, prefix):
@@ -490,13 +505,13 @@ class DatastoreDistributed():
     Args: 
       prefix: A table namespace prefix
     Returns:
-      next_id 
+      next id available
     """  
-    res  = self.datastore_batch.batch_get_entity(APP_ID_TABLE, 
+    res  = self.datastore_batch.batch_get_entity(dbconstants.APP_ID_TABLE, 
                                                  [prefix], 
-                                                 APP_ID_SCHEMA)
-    if APP_ID_SCHEMA[0] in res[prefix]:
-      return int(res[prefix][APP_ID_SCHEMA[0]])
+                                                 dbconstants.APP_ID_SCHEMA)
+    if dbconstants.APP_ID_SCHEMA[0] in res[prefix]:
+      return int(res[prefix][dbconstants.APP_ID_SCHEMA[0]])
     return 0
 
   def IncrementIdInDB(self, prefix):
@@ -507,14 +522,14 @@ class DatastoreDistributed():
     Returns: 
       next_block id
     """
-    # TODO needs to be transactional
+    # TODO getting and updating a block needs to be transactional
     current_block = self.AcquireIdBlockFromDB(prefix)
     next_block = current_block + 1
-    cell_values = {prefix:{APP_ID_SCHEMA[0]:str(next_block)}} 
+    cell_values = {prefix:{dbconstants.APP_ID_SCHEMA[0]:str(next_block)}} 
 
-    res = self.datastore_batch.batch_put_entity(APP_ID_TABLE, 
+    res = self.datastore_batch.batch_put_entity(dbconstants.APP_ID_TABLE, 
                           [prefix],  
-                          APP_ID_SCHEMA,
+                          dbconstants.APP_ID_SCHEMA,
                           cell_values)
     return next_block * _BLOCK_SIZE
 
@@ -526,9 +541,12 @@ class DatastoreDistributed():
       size: Number of IDs to allocate.
     Returns:
       start and end ids: The beginning of a range of size IDs
+    Raises: 
+      ValueError if size is less than or equal to 0
     """
-    # TODO make this thread safe
-    assert size > 0
+    # TODO make this thread safe because we're accessing global variables
+    if size <= 0: raise ValueError 
+
     next_id, end_id = self.__id_map.get(prefix, (0, 0))
     if next_id == end_id or (end_id and (next_id + size > end_id)):
       # Acquire a new block of ids, throw out the old ones
@@ -586,16 +604,18 @@ class DatastoreDistributed():
       kind_keys += new_row_keys
 
     # Must fetch the entities to get the keys of indexes before deleting
-    ret = self.datastore_batch.batch_get_entity(APP_ENTITY_TABLE, 
+    ret = self.datastore_batch.batch_get_entity(dbconstants.APP_ENTITY_TABLE, 
                                                 row_keys,
-                                                APP_ENTITY_SCHEMA)
+                                                dbconstants.APP_ENTITY_SCHEMA)
 
     #TODO do these in ||
-    self.datastore_batch.batch_delete(APP_ENTITY_TABLE, 
-                                      row_keys, column_names=APP_ENTITY_SCHEMA)
+    self.datastore_batch.batch_delete(dbconstants.APP_ENTITY_TABLE, 
+                                      row_keys, 
+                                      column_names=dbconstants.APP_ENTITY_SCHEMA)
 
-    self.datastore_batch.batch_delete(APP_KIND_TABLE,
-                                      kind_keys, column_names=APP_KIND_SCHEMA)
+    self.datastore_batch.batch_delete(dbconstants.APP_KIND_TABLE,
+                                      kind_keys, 
+                                      column_names=dbconstants.APP_KIND_SCHEMA)
 
     entities = []
     for row_key in ret:
@@ -663,9 +683,9 @@ class DatastoreDistributed():
       index_key = str(self.__EncodeIndexPB(key.path()))
       prefix = self.GetTablePrefix(key)
       row_keys.append(prefix + '/' + index_key)
-    result = self.datastore_batch.batch_get_entity(APP_ENTITY_TABLE, 
+    result = self.datastore_batch.batch_get_entity(dbconstants.APP_ENTITY_TABLE, 
                                                  row_keys, 
-                                                 APP_ENTITY_SCHEMA) 
+                                                 dbconstants.APP_ENTITY_SCHEMA) 
     return (result, row_keys)
 
   def _Dynamic_Get(self, _, get_request, get_response):
@@ -755,15 +775,15 @@ class DatastoreDistributed():
     e = last_result
     start_key = None
     if not prop_name and not order:
-        return str(prefix + '/' + self.__EncodeIndexPB(e.key().path())) 
+        return str(prefix + '/' + str(self.__EncodeIndexPB(e.key().path())))
      
     if e.property_list():
       plist = e.property_list()
     else:   
       rkey = prefix + '/' + str(self.__EncodeIndexPB(e.key().path()))
-      ret = self.datastore_batch.batch_get_entity(APP_ENTITY_TABLE, 
+      ret = self.datastore_batch.batch_get_entity(dbconstants.APP_ENTITY_TABLE, 
                                              [rkey], 
-                                             APP_ENTITY_SCHEMA)
+                                             dbconstants.APP_ENTITY_SCHEMA)
       if 'entity' in ret[rkey]:
         ent = entity_pb.EntityProto(ret[rkey]['entity'])
         plist = ent.property_list() 
@@ -792,9 +812,11 @@ class DatastoreDistributed():
     Args: 
       refs: key/value pairs where the values contain a reference to 
             the entitiy table
+    Returns:
+      Entities retrieved from entity table
     """
     if len(refs) == 0:
-      return {}
+      return []
     keys = [item.keys()[0] for item in refs]
     rowkeys = []    
     for index, ent in enumerate(refs):
@@ -802,9 +824,9 @@ class DatastoreDistributed():
       ent = ent[key]['reference']
       rowkeys.append(ent)
   
-    result = self.datastore_batch.batch_get_entity(APP_ENTITY_TABLE, 
+    result = self.datastore_batch.batch_get_entity(dbconstants.APP_ENTITY_TABLE, 
                                                    rowkeys,
-                                                   APP_ENTITY_SCHEMA)
+                                                   dbconstants.APP_ENTITY_SCHEMA)
     entities = []
     keys = result.keys()
     for key in rowkeys:
@@ -818,6 +840,8 @@ class DatastoreDistributed():
         list of encoded entities
     Args:
       kv: Key and values from a range query on the entity table
+    Returns:
+      The extracted entities
     """
     keys = [item.keys()[0] for item in kv]
     results = []    
@@ -827,7 +851,6 @@ class DatastoreDistributed():
       results.append(ent)
 
     return results
-
     
   def __AncestorQuery(self, query, filter_info, order_info):
     """ Performs ancestor queries
@@ -873,7 +896,6 @@ class DatastoreDistributed():
       order = None
       prop_name = None
     
-    # TODO test this 
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
        cursor = cassandra_stub_util.ListCursor(query)
        last_result = cursor._GetLastResult()
@@ -887,8 +909,8 @@ class DatastoreDistributed():
 
     offset = query.offset()
   
-    result = self.datastore_batch.range_query(APP_ENTITY_TABLE, 
-                                              APP_ENTITY_SCHEMA, 
+    result = self.datastore_batch.range_query(dbconstants.APP_ENTITY_TABLE, 
+                                              dbconstants.APP_ENTITY_SCHEMA, 
                                               startrow, 
                                               endrow, 
                                               limit, 
@@ -941,7 +963,6 @@ class DatastoreDistributed():
       order = None
       prop_name = None
     
-    # TODO test this 
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
        cursor = cassandra_stub_util.ListCursor(query)
        last_result = cursor._GetLastResult()
@@ -955,8 +976,8 @@ class DatastoreDistributed():
 
     offset = query.offset()
   
-    result = self.datastore_batch.range_query(APP_ENTITY_TABLE, 
-                                              APP_ENTITY_SCHEMA, 
+    result = self.datastore_batch.range_query(dbconstants.APP_ENTITY_TABLE, 
+                                              dbconstants.APP_ENTITY_SCHEMA, 
                                               startrow, 
                                               endrow, 
                                               limit, 
@@ -1023,7 +1044,6 @@ class DatastoreDistributed():
       order = None
       prop_name = None
     
-    # TODO test cursor support
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
        cursor = cassandra_stub_util.ListCursor(query)
        last_result = cursor._GetLastResult()
@@ -1038,8 +1058,8 @@ class DatastoreDistributed():
 
     offset = query.offset()
   
-    result = self.datastore_batch.range_query(APP_KIND_TABLE, 
-                                              APP_KIND_SCHEMA, 
+    result = self.datastore_batch.range_query(dbconstants.APP_KIND_TABLE, 
+                                              dbconstants.APP_KIND_SCHEMA, 
                                               startrow, 
                                               endrow, 
                                               limit, 
@@ -1123,23 +1143,27 @@ class DatastoreDistributed():
                      limit, 
                      offset, 
                      startrow): 
-    """Apply property filters in the query
+    """
+    Applies property filters in the query.
     Args:
-       filter_ops: tuple with property filter operator and value
-       order_info: tuple with property name and sort order
-       kind: Kind of the entity
-       prefix: prefix for the table
-       limit: number of results
-       offset: number of results to skip
-       startrow: start key for the range scan
+      filter_ops: Tuple with property filter operator and value
+      order_info: Tuple with property name and sort order
+      kind: Kind of the entity
+      prefix: Prefix for the table
+      limit: Number of results
+      offset: Number of results to skip
+      startrow: Start key for the range scan
     Results:
-       Returns a list of index keys 
+      Returns a list of index keys 
+    Raises:
+      NotImplementedError: For unsupported queries.
+      AppScaleMisconfiguredQuery: Bad filters or orderings
     """ 
     end_inclusive = _ENABLE
     start_inclusive = _ENABLE
 
     endrow = None 
-    column_names = PROPERTY_SCHEMA
+    column_names = dbconstants.PROPERTY_SCHEMA
 
     if order_info:
       if order_info[0][0] == property_name:
@@ -1148,11 +1172,12 @@ class DatastoreDistributed():
       direction = datastore_pb.Query_Order.ASCENDING
 
     if direction == datastore_pb.Query_Order.ASCENDING:
-      table_name = ASC_PROPERTY_TABLE
+      table_name = dbconstants.ASC_PROPERTY_TABLE
     else: 
-      table_name = DSC_PROPERTY_TABLE
+      table_name = dbconstants.DSC_PROPERTY_TABLE
   
     if startrow: start_inclusive = _DISABLE 
+
     # This query is returning based on order on a specfic property name 
     # The start key (if not already supplied) depends on the property
     # name and does not take into consideration its value. The end key
@@ -1221,11 +1246,11 @@ class DatastoreDistributed():
           start_value = None
           end_value = value + '/' +  _TERM_STRING
       elif oper == datastore_pb.Query_Filter.IN:
-        raise Exception("IN queries are not implemented")
+        raise NotImplementedError("IN queries are not implemented")
       elif oper == datastore_pb.Query_Filter.EXIST:
-        raise Exception("EXIST queries are not implemented")
+        raise NotImplementedError("EXIST queries are not implemented")
       else:
-        raise Exception("Unknow query of operation %d"%oper)
+        raise NotImplementedError("Unknow query of operation %d"%oper)
 
       if not startrow:
         params = [prefix, kind, property_name, start_value]
@@ -1265,7 +1290,7 @@ class DatastoreDistributed():
         value2 = str(value2[1:])
 
       if direction == datastore_pb.Query_Order.ASCENDING:
-        table_name = ASC_PROPERTY_TABLE
+        table_name = dbconstants.ASC_PROPERTY_TABLE
         # The first operator will always be either > or >=
         if startrow:
           start_inclusive = _DISABLE
@@ -1276,7 +1301,7 @@ class DatastoreDistributed():
           params = [prefix, kind, property_name, value1 + '/']
           startrow = self.GetIndexKeyFromParams(params)
         else:
-          raise Exception("Bad filter ordering")
+          raise dbconstants.AppScaleMisconfiguredQuery("Bad filter ordering")
 
         # The second operator will be either < or <=
         if oper2 == datastore_pb.Query_Filter.LESS_THAN:    
@@ -1288,10 +1313,10 @@ class DatastoreDistributed():
           endrow = self.GetIndexKeyFromParams(params)
           end_inclusive = _ENABLE
         else:
-          raise Exception("Bad filter ordering") 
+          raise dbconstants.AppScaleMisconfiguredQuery("Bad filter ordering") 
       
       if direction == datastore_pb.Query_Order.DESCENDING:
-        table_name = DSC_PROPERTY_TABLE
+        table_name = dbconstants.DSC_PROPERTY_TABLE
         value1 = helper_functions.reverseLex(value1)
         value2 = helper_functions.reverseLex(value2) 
 
@@ -1404,7 +1429,7 @@ class DatastoreDistributed():
     # We loop and collect enough to fill the limit or until there are 
     # no more matching entities. The first filter is what we apply 
     # direct to the datastore, followed by in memory filters
-    # There is a potential research area on figuring out what is the 
+    # Research is required on figuring out what is the 
     # best filter to apply via range queries. 
     while len(result) < (limit+offset):
       temp_res = self.__ApplyFilters(filter_ops, 
@@ -1463,10 +1488,12 @@ class DatastoreDistributed():
       Returns:
         A list of ordered entities
     """
-    # Because we can not fully filter past one filter without getting
-    # the entire table, this will only work on the batches requested
-    # Entities at the edge of each batch have a high chance of being out
-    # of order
+    # We can not fully filter past one filter without getting
+    # the entire table to make sure results are in the correct order. 
+    # Composites must be implemented the correct way with specialized 
+    # indexes to get the correct result.
+    # The effect is that entities at the edge of each batch have a high 
+    # chance of being out of order with our current implementation.
 
     # Put all the values appended based on order info into a dictionary,
     # The key being the values appended and the value being the index
@@ -1532,7 +1559,8 @@ class DatastoreDistributed():
       if results:
         break
 
-    # TODO keys only queries. They work but pass the entire entity back to the AppServer
+    # TODO keys only queries. 
+    # They work but pass the entire entity back to the AppServer
     if query.has_keys_only():
       pass
     return results
@@ -1615,55 +1643,50 @@ class MainHandler(tornado.web.RequestHandler):
       response = api_base_pb.Integer64Proto()
       response.set_value(0)
       response = response.Encode()
-      #logger.debug(errdetail)
 
     elif method == "GetIndices":
       response = datastore_pb.CompositeIndices().Encode()
       errcode = 0
       errdetail = ""
-      #logger.debug(errdetail)
 
     elif method == "UpdateIndex":
       response = api_base_pb.VoidProto().Encode()
       errcode = 0
       errdetail = ""
-      #logger.debug(errdetail)
 
     elif method == "DeleteIndex":
       response = api_base_pb.VoidProto().Encode()
       errcode = 0
       errdetail = ""
-      #logger.debug(errdetail)
 
     else:
       errcode = datastore_pb.Error.BAD_REQUEST 
       errdetail = "Unknown datastore message" 
-      #logger.debug(errdetail)
-    
       
     apiresponse.set_response(response)
     if errcode != 0:
       apperror_pb = apiresponse.mutable_application_error()
       apperror_pb.set_code(errcode)
       apperror_pb.set_detail(errdetail)
+
     if errcode != 0:
       print "REPLY",method," AT TIME",time.time()
       print "errcode:",errcode
       print "errdetail:",errdetail
+
     self.write(apiresponse.Encode() )    
 
   def begin_transaction_request(self, app_id, http_request_data):
-    global app_datastore
+    global datastore_access
     transaction_pb = datastore_pb.Transaction()
-    handle = 0
-    #print "Begin Trans Handle:",handle
-    handle = app_datastore._SetupTransaction(app_id)
+    handle = datastore_access._SetupTransaction(app_id)
     transaction_pb.set_app(app_id)
     transaction_pb.set_handle(handle)
     return (transaction_pb.Encode(), 0, "")
 
   def commit_transaction_request(self, app_id, http_request_data):
     commitres_pb = datastore_pb.CommitResponse()
+    # TODO implement transactions
     """
     transaction_pb = datastore_pb.Transaction(http_request_data)
     txn_id = transaction_pb.handle()
@@ -1677,11 +1700,12 @@ class MainHandler(tornado.web.RequestHandler):
     return (commitres_pb.Encode(), 0, "")
 
   def rollback_transaction_request(self, app_id, http_request_data):
+    # TODO implement transactions
     """
     transaction_pb = datastore_pb.Transaction(http_request_data)
     handle = transaction_pb.handle()
     try:
-      self.app_datastore._Dynamic_Rollback(app_id, transaction_pb, None)
+      self.datastore_access._Dynamic_Rollback(app_id, transaction_pb, None)
     except:
       return(api_base_pb.VoidProto().Encode(), 
              datastore_pb.Error.PERMISSION_DENIED, 
@@ -1690,47 +1714,92 @@ class MainHandler(tornado.web.RequestHandler):
     return (api_base_pb.VoidProto().Encode(), 0, "")
 
   def run_query(self, app_id, http_request_data):
+    """ High level function for running queries
+    Args:
+      app_id: Name of the application 
+      http_request_data: Stores the protocol buffer request from the AppServer
+    Returns:
+      Returns an encoded query response
+    """
 
-    global app_datastore
+    global datastore_access
     query = datastore_pb.Query(http_request_data)
+
     # Pack Results into a clone of QueryResult #
     clone_qr_pb = datastore_pb.QueryResult()
-    app_datastore._Dynamic_Run_Query(app_id, query, clone_qr_pb)
+    datastore_access._Dynamic_Run_Query(app_id, query, clone_qr_pb)
     return (clone_qr_pb.Encode(), 0, "")
 
 
   def put_request(self, app_id, http_request_data):
-    global app_datastore
-    start_time = time.time() 
+    """ High level function for doing puts
+    Args:
+      app_id: Name of the application 
+      http_request_data: Stores the protocol buffer request from the AppServer
+    Returns:
+      Returns an encoded put response
+    """ 
+
+    global datastore_access
     putreq_pb = datastore_pb.PutRequest(http_request_data)
     putresp_pb = datastore_pb.PutResponse( )
-    app_datastore._Dynamic_Put(app_id, putreq_pb, putresp_pb)
+    datastore_access._Dynamic_Put(app_id, putreq_pb, putresp_pb)
     return (putresp_pb.Encode(), 0, "")
     
   def get_request(self, app_id, http_request_data):
-    global app_datastore
+    """ High level function for doing gets
+    Args:
+      app_id: Name of the application 
+      http_request_data: Stores the protocol buffer request from the AppServer
+    Returns:
+      Returns an encoded get response
+    """ 
+
+    global datastore_access
     getreq_pb = datastore_pb.GetRequest(http_request_data)
-    logger.debug("GET_REQUEST: %s" % getreq_pb)
     getresp_pb = datastore_pb.GetResponse()
-    app_datastore._Dynamic_Get(app_id, getreq_pb, getresp_pb)
+    datastore_access._Dynamic_Get(app_id, getreq_pb, getresp_pb)
     return (getresp_pb.Encode(), 0, "")
 
   def delete_request(self, app_id, http_request_data):
-    global app_datastore
-    logger.debug("DeleteRequest Received...")
+    """ High level function for doing deletes
+    Args:
+      app_id: Name of the application 
+      http_request_data: Stores the protocol buffer request from the AppServer
+    Returns:
+      Returns an encoded delete response
+    """ 
+
+    global datastore_access
     delreq_pb = datastore_pb.DeleteRequest( http_request_data )
-    logger.debug("DELETE_REQUEST: %s" % delreq_pb)
     delresp_pb = api_base_pb.VoidProto() 
-    app_datastore._Dynamic_Delete(app_id, delreq_pb, delresp_pb)
+    datastore_access._Dynamic_Delete(app_id, delreq_pb, delresp_pb)
     return (delresp_pb.Encode(), 0, "")
 
   def void_proto(self, app_id, http_request_data):
+    """ Function which handles void protocol buffers
+    Args:
+      app_id: Name of the application 
+      http_request_data: Stores the protocol buffer request from the AppServer
+    Returns:
+      Default message for void protocol buffers 
+    """ 
+
     resp_pb = api_base_pb.VoidProto() 
     print "Got void"
     logger.debug("VOID_RESPONSE: %s to void" % resp_pb)
     return (resp_pb.Encode(), 0, "" )
   
   def str_proto(self, app_id, http_request_data):
+    """ Function which handles string protocol buffers
+    Args:
+      app_id: Name of the application 
+      http_request_data: Stores the protocol buffer request from the AppServer
+    Returns:
+      Default message for string protocol buffers which is a composite 
+      response
+    """ 
+
     str_pb = api_base_pb.StringProto( http_request_data )
     composite_pb = datastore_pb.CompositeIndices()
     print "Got a string proto"
@@ -1740,6 +1809,14 @@ class MainHandler(tornado.web.RequestHandler):
     return (composite_pb.Encode(), 0, "" )    
   
   def int64_proto(self, app_id, http_request_data):
+    """ Function which handles integer protocol buffers
+    Args:
+      app_id: Name of the application 
+      http_request_data: Stores the protocol buffer request from the AppServer
+    Returns:
+      void protocol buffer
+    """ 
+
     int64_pb = api_base_pb.Integer64Proto( http_request_data ) 
     resp_pb = api_base_pb.VoidProto()
     print "Got a int 64"
@@ -1749,27 +1826,39 @@ class MainHandler(tornado.web.RequestHandler):
     return (resp_pb.Encode(), 0, "")
  
   def compositeindex_proto(self, app_id, http_request_data):
+    """ Function which handles composite index protocol buffers
+    Args:
+      app_id: Name of the application 
+      http_request_data: Stores the protocol buffer request from the AppServer
+    Returns:
+      Default message for string protocol buffers which is a void protocol 
+      buffer
+    """ 
+
     compindex_pb = entity_pb.CompositeIndex( http_request_data)
     resp_pb = api_base_pb.VoidProto()
     print "Got Composite Index"
-    #print compindex_pb
     logger.debug("CompositeIndex proto recieved: %s"%str(compindex_pb))
     logger.debug("VOID_RESPONSE to composite index: %s" % resp_pb)
     return (resp_pb.Encode(), 0, "")
-
 
   ##############
   # OTHER TYPE #
   ##############
   def unknown_request(self, app_id, http_request_data, pb_type):
+    """ Function which handles unknown protocol buffers
+    Args:
+      app_id: Name of the application 
+      http_request_data: Stores the protocol buffer request from the AppServer
+    Returns:
+      void protocol buffer
+    """ 
     logger.debug("Received Unknown Protocol Buffer %s" % pb_type )
     print "ERROR: Received Unknown Protocol Buffer <" + pb_type +">.",
     print "Nothing has been implemented to handle this Protocol Buffer type."
     print "http request data:"
     print http_request_data 
-    print "http done"
     self.void_proto(app_id, http_request_data)
-
   
   #########################
   # POST Request Handling #
@@ -1782,7 +1871,6 @@ class MainHandler(tornado.web.RequestHandler):
     pb_type = request.headers['protocolbuffertype']
     app_data = request.headers['appdata']
     app_data  = app_data.split(':')
-    #logger.debug("POST len: %d" % len(app_data))
 
     if len(app_data) == 4:
       app_id, user_email, nick_name, auth_domain = app_data
@@ -1794,7 +1882,6 @@ class MainHandler(tornado.web.RequestHandler):
       app_id = app_data[0]
       os.environ['APPLICATION_ID'] = app_id
     else:
-      #logger.debug("UNABLE TO EXTRACT APPLICATION DATA")
       return
 
     if pb_type == "Request":
@@ -1807,7 +1894,7 @@ def usage():
   print "AppScale Server"
   print
   print "Options:"
-  print "\t--type=<hypertable, hbase, cassandra, mysql, mongodb>"
+  print "\t--type=<" + ','.join(VALID_DATASTORES) +  ">"
   print "\t--no_encryption"
   print "\t--port"
   print "\t--zoo_keeper <zk nodes>"
@@ -1817,14 +1904,8 @@ pb_application = tornado.web.Application([
 ])
 
 def main(argv):
-  global app_datastore
-  global zoo_keeper_locations
-  global zoo_keeper_real
-  global zoo_keeper_stub
-
-  VALID_DATASTORES = []
-  DEFAULT_SSL_PORT = 8443
-  DEFAULT_PORT = 4080
+  global datastore_access
+  zoo_keeper_locations = ""
 
   db_type = "cassandra"
   port = DEFAULT_SSL_PORT
@@ -1850,16 +1931,16 @@ def main(argv):
       isEncrypted = False
     elif opt in ("-z", "--zoo_keeper"):
       zoo_keeper_locations = arg
- 
-  datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(db_type)
-  app_datastore = DatastoreDistributed(datastore_batch)
-
-  VALID_DATASTORES = appscale_datastore_batch.DatastoreFactory.valid_datastores()
 
   if db_type not in VALID_DATASTORES:
-    print "Unknown datastore "+ db_type
+    print "This datastore is not supported for this version of the AppScale\
+          datastore API:" + db_type
     exit(1)
+ 
+  datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(db_type)
+  datastore_access = DatastoreDistributed(datastore_batch)
 
+  # TODO use ZK for transaction support
   #zoo_keeper_real = zk.ZKTransaction(zoo_keeper_locations)
   #zoo_keeper_stub = zk_stub.ZKTransaction(zoo_keeper_locations)
 
@@ -1875,12 +1956,9 @@ def main(argv):
       tornado.ioloop.IOLoop.instance().start()
     except SSL.SSLError:
       pass
-      #logger.debug("\n\nUnexcepted input for AppScale-Secure-Server")
     except KeyboardInterrupt:
-      #server.socket.close() 
       print "Server interrupted by user, terminating..."
       exit(1)
 
 if __name__ == '__main__':
-  #cProfile.run("main(sys.argv[1:])")
   main(sys.argv[1:])

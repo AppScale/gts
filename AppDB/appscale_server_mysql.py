@@ -1,26 +1,35 @@
 #!/usr/bin/python
+# See LICENSE file
 #
 # Author: 
-# Navraj Chohan (nchohan@cs.ucsb.edu)
-# See LICENSE file
+# Navraj Chohan (raj@appscale.com)
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
 
-import sys
-import socket
-import os 
-import types
-import appscale_datastore
-#import helper_functions
-import SOAPpy
-from dbconstants import *
-import appscale_logger
-import md5 
-import random
-import getopt
-import threading
+import array
 import datetime 
+import getopt
+import itertools
+import md5 
+import MySQLdb
+import random
+import SOAPpy
+import socket
+import sys
+import os 
+import threading
+import time
+import types
+
+from SocketServer import BaseServer
+from M2Crypto import SSL
+import MySQLdb.constants.CR
+
+import appscale_datastore
+import appscale_logger
+from dbconstants import *
+
 from google.appengine.api import api_base_pb
 from google.appengine.api import datastore
 from google.appengine.api import datastore_errors
@@ -33,34 +42,39 @@ from google.appengine.runtime import apiproxy_errors
 from google.net.proto import ProtocolBuffer
 from google.appengine.datastore import entity_pb
 from google.appengine.ext.remote_api import remote_api_pb
-from SocketServer import BaseServer
-from M2Crypto import SSL
 from drop_privileges import *
 from zkappscale import zktransaction
-import time
-import array
-import itertools
 from google.appengine.api import apiproxy_stub
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.datastore import sortable_pb_encoder
-import MySQLdb
-import MySQLdb.constants.CR
 import __builtin__
 buffer = __builtin__.buffer
 zoo_keeper = None
 
 DEBUG = False 
+
 DEFAULT_SSL_PORT = 8443
+
 DEFAULT_PORT = 4080
+
 DEFAULT_ENCRYPTION = 1
+
 CERT_LOCATION = "/etc/appscale/certs/mycert.pem"
+
 KEY_LOCATION = "/etc/appscale/certs/mykey.pem"
+
 SECRET_LOCATION = "/etc/appscale/secret.key"
+
 VALID_DATASTORES = []
+
 ERROR_CODES = []
+
 ID_KEY_LENGTH = 64
+
 app_datastore = []
+
 logOn = False
+
 logFilePtr = ""
 
 tableHashTable = {}
@@ -70,34 +84,32 @@ Entities are stored in a MySQL database in a similar fashion to the production
 datastore. Based on Nick Johnson's SQLite stub and Typhoonae's mysql stub
 """
 
-
 entity_pb.Reference.__hash__ = lambda self: hash(self.Encode())
 datastore_pb.Query.__hash__ = lambda self: hash(self.Encode())
 datastore_pb.Transaction.__hash__ = lambda self: hash(self.Encode())
 datastore_pb.Cursor.__hash__ = lambda self: hash(self.Encode())
 
 _DB_LOCATION = "127.0.0.1"
-_USE_DATABASE = "appscale"
-_DB_USER = "root"
-_MAX_CONNECTIONS = 10
-_GC_TIME = 60
-_MAXIMUM_RESULTS = 1000
 
+_USE_DATABASE = "appscale"
+
+_DB_USER = "root"
+
+_MAX_CONNECTIONS = 10
+
+_GC_TIME = 60
+
+_MAXIMUM_RESULTS = 1000
 
 _MAX_QUERY_OFFSET = 1000
 
-
 _MAX_QUERY_COMPONENTS = 63
-
 
 _BATCH_SIZE = 20
 
-
 _MAX_ACTIONS_PER_TXN = 5
 
-
 _MAX_TIMEOUT = 5.0
-
 
 _OPERATOR_MAP = {
     datastore_pb.Query_Filter.LESS_THAN: '<',

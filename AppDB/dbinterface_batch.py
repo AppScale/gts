@@ -13,7 +13,7 @@ class AppDBInterface:
   def batch_put_entity(self, table_name, row_key, column_names, cell_values):
     raise NotImplementedError("put_entity is not implemented in %s." % self.__class__)
 
-  def batch_delete(self, table_name, row_keys):
+  def batch_delete(self, table_name, row_keys, column_names=[]):
     raise NotImplementedError("delete_row is not implemented in %s." % self.__class__)
 
   def get_schema(self, table_name):

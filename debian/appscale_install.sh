@@ -25,6 +25,7 @@ case "$1" in
 	installthrift_fromsource
         installtornado_fromsource
         installflexmock
+        installnose
 	installhadoop
 #	if [ "$DIST" = "jaunty" -o "$DIST" = "karmic" ]; then
 	installzookeeper
