@@ -32,9 +32,11 @@ def create_table(table_name, columns):
   Args:
   table_name: Table to create
   columns: columns for the table
+  Returns:
+  A list of current tables
   """
   client = py_hbase.DatastoreProxy()
-  client.create_table(table_name, columns)
+  return client.create_table(table_name, columns)
 
 def create_app_tables():
   """ Creates application tables for AppScale
