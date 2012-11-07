@@ -7,6 +7,7 @@ import sys
 from time import sleep
 from agents.base_agent import BaseAgent
 from utils import utils
+from utils.utils import get_obscured_env
 
 __author__ = 'hiranya'
 
@@ -64,13 +65,20 @@ class EC2Agent(BaseAgent):
 
     def configure_instance_security(self, parameters):
         keyname = parameters[PARAM_KEYNAME]
-        cloud = parameters['cloud']
+        cloud = parameters['cloud'] #Chris: What is this?
         ssh_key = abspath('/etc/appscale/keys/{0}/{1}.key'.format(cloud, keyname))
         print 'About to spawn EC2 instances - Expecting to find a key at', ssh_key
-        #TODO: log obscured
+        print get_obscured_env(['EC2_ACCESS_KEY', 'EC2_SECRET_KEY'])
         if not exists(ssh_key):
             print 'Creating keys/security group for', cloud
-            #TODO: generate key
+            ec2_output = ''
+            while True:
+                ec2_output = utils.shell('{0}-add-keypair {1} 2>&1'.format(self.prefix, keyname))
+                if ec2_output.find('BEGIN RSA PRIVATE KEY') != -1:
+                    break
+                print 'Trying again. Saw this from', self.prefix + '-add-keypair:', ec2_output
+                utils.shell('{0}-delete-keypair {1} 2>&1'.format(self.prefix, keyname))
+            utils.write_key_file(ssh_key, ec2_output)
             #TODO: create appscale security group
             return True
         else:

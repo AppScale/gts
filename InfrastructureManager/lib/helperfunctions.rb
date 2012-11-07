@@ -451,7 +451,7 @@ module HelperFunctions
   end
 
 
-  # Creates a new security group in the given cloud infrastructure and opens
+paw # Creates a new security group in the given cloud infrastructure and opens
   # all the TCP, UDP, and ICMP ports within it. We open the ports under the
   # presumption that the AppScale firewall rules will be applied to iptables
   # to lock back down any ports that need not be open to the world.

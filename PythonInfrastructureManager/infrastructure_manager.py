@@ -76,16 +76,23 @@ class InfrastructureManager:
         }
         print 'Generated reservation id', reservation_id, 'for this request.'
         # TODO: Start deployment on separate thread
-        self.__spawn_vms(agent, num_vms, parameters)
+        self.__spawn_vms(agent, num_vms, parameters, reservation_id)
         print 'Successfully started request',  reservation_id, '.'
         return self.__generate_response(True, REASON_NONE, { 'reservation_id' : reservation_id })
 
-    def __spawn_vms(self, agent, num_vms, parameters):
+    def __spawn_vms(self, agent, num_vms, parameters, reservation_id):
         if num_vms < 0:
             return [], [], []
         agent.set_environment_variables(parameters, '1')
         security_configured = agent.configure_instance_security(parameters)
-        agent.run_instances(num_vms, parameters, security_configured)
+        ids, public_ips, private_ips = agent.run_instances(num_vms, parameters, security_configured)
+        self.reservations[reservation_id]["state"] = "running"
+        self.reservations[reservation_id]["vm_info"] = {
+            "public_ips" : public_ips,
+            "private_ips" : private_ips,
+            "instance_ids" : ids
+        }
+        print "Successfully finished request {0}.".format(reservation_id)
 
     def __generate_response(self, status, msg, extra = None):
         response = { 'success' : status, 'reason' : msg }

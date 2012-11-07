@@ -52,3 +52,12 @@ class TestEC2Agent(TestCase):
         }
         self.assertEquals(full_result, i.run_instances(full_params, "secret"))
 
+        # next, look at run_instances internally to make sure it actually is
+        # updating its reservation info
+        self.assertEquals("running", i.reservations[id]["state"])
+
+        vm_info = i.reservations[id]["vm_info"]
+        self.assertEquals(["public-ip"], vm_info["public_ips"])
+        self.assertEquals(["private-ip"], vm_info["private_ips"])
+        self.assertEquals(["i-id"], vm_info["instance_ids"])
+
