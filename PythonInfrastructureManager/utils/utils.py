@@ -2,7 +2,9 @@ from commands import getoutput
 import os
 from os.path import abspath
 from random import choice
+import re
 from string import digits, letters
+import sys
 
 __author__ = 'hiranya'
 
@@ -12,6 +14,7 @@ def get_secret(filename = '/etc/appscale/secret.key'):
 def read_file(location, chomp = True):
     file_handle = open(location, 'r')
     contents = file_handle.read()
+    file_handle.close()
     if chomp:
         return contents.rstrip('\n')
     else:
@@ -70,5 +73,20 @@ def get_obscured_env(list=[]):
             old = env[env.find('=', index) + 1:env.find('\n', index)]
             env = env.replace(old, obscure_string(old))
     return env
+
+def convert_fqdn_to_ip(fqdn):
+    ip_regex = re.compile('\d+\.\d+\.\d+\.\d+')
+    if ip_regex.match(fqdn) is not None:
+        return fqdn
+
+    ip = shell('dig {0} +short'.format(fqdn)).rstrip()
+    if not len(ip):
+        return None
+    else:
+        list = ip.split('\n')
+        if len(list) > 1:
+            print 'Warning: Host name {0} resolved to multiple IPs: {1}'.format(fqdn, ip)
+            print 'Using the first address in the list'
+        return list[0]
 
 

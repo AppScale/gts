@@ -1,3 +1,5 @@
+import thread
+from agents.base_agent import BaseAgent
 from agents.factory import InfrastructureAgentFactory
 from utils import utils
 from utils.utils import has_parameter
@@ -22,6 +24,10 @@ RUN_INSTANCES_REQUIRED_PARAMS = (
     PARAM_NUM_VMS
 )
 
+TERMINATE_INSTANCES_REQUIRED_PARAMS = (
+    PARAM_INFRASTRUCTURE
+)
+
 class InfrastructureManager:
 
     def __init__(self):
@@ -43,11 +49,12 @@ class InfrastructureManager:
         else:
             return self.__generate_response(False, REASON_RESERVATION_NOT_FOUND)
 
-    # Acquires machines via a cloud infrastructure. As this process could take
-    # longer than the timeout for SOAP calls, we return to the user a reservation
-    # ID that can be passed to describe_instances to poll for the state of the
-    # new machines.
     def run_instances(self, parameters, secret):
+        """
+        Acquires machines via a cloud infrastructure. As this process could take
+        longer than the timeout for SOAP calls, we return to the user a reservation
+        ID that can be passed to describe_instances to poll for the state of the
+        new machines."""
         print 'Received a request to run instances.'
 
         if self.secret != secret:
@@ -63,7 +70,7 @@ class InfrastructureManager:
         num_vms = int(parameters[PARAM_NUM_VMS])
         infrastructure = parameters[PARAM_INFRASTRUCTURE]
         agent = self.agent_factory.create_agent(infrastructure)
-        status, reason = agent.has_required_parameters(parameters)
+        status, reason = agent.has_required_parameters(parameters, BaseAgent.OPERATION_RUN)
         if not status:
             return self.__generate_response(False, reason)
 
@@ -75,10 +82,26 @@ class InfrastructureManager:
             'vm_info' : None
         }
         print 'Generated reservation id', reservation_id, 'for this request.'
-        # TODO: Start deployment on separate thread
-        self.__spawn_vms(agent, num_vms, parameters, reservation_id)
+        thread.start_new_thread(self.__spawn_vms, (agent, num_vms, parameters, reservation_id))
         print 'Successfully started request',  reservation_id, '.'
         return self.__generate_response(True, REASON_NONE, { 'reservation_id' : reservation_id })
+
+    def terminate_instances(self, parameters, secret):
+        if self.secret != secret:
+            return self.__generate_response(False, REASON_BAD_SECRET)
+
+        for param in TERMINATE_INSTANCES_REQUIRED_PARAMS:
+            if not has_parameter(param, parameters):
+                return self.__generate_response(False, 'no ' + param)
+
+        infrastructure = parameters[PARAM_INFRASTRUCTURE]
+        agent = self.agent_factory.create_agent(infrastructure)
+        status, reason = agent.has_required_parameters(parameters, BaseAgent.OPERATION_TERMINATE)
+        if not status:
+            return self.__generate_response(False, reason)
+
+        thread.start_new_thread(self.__kill_vms, (agent, parameters))
+        return self.__generate_response(True, 'none')
 
     def __spawn_vms(self, agent, num_vms, parameters, reservation_id):
         if num_vms < 0:
@@ -93,6 +116,10 @@ class InfrastructureManager:
             "instance_ids" : ids
         }
         print "Successfully finished request {0}.".format(reservation_id)
+
+    def __kill_vms(self, agent, parameters):
+        agent.set_environment_variables(parameters, '1')
+        agent.terminate_instances(parameters)
 
     def __generate_response(self, status, msg, extra = None):
         response = { 'success' : status, 'reason' : msg }

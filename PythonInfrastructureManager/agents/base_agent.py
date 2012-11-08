@@ -1,8 +1,9 @@
-from os import environ
-
 __author__ = 'hiranya'
 
 class BaseAgent:
+
+    OPERATION_RUN = 'run'
+    OPERATION_TERMINATE = 'terminate'
 
     def set_environment_variables(self, parameters, cloud_num):
         pass
@@ -19,5 +20,5 @@ class BaseAgent:
     def terminate_instances(self, parameters):
         raise NotImplementedError
 
-    def has_required_parameters(self, parameters):
+    def has_required_parameters(self, parameters, operation):
         return True, 'none'

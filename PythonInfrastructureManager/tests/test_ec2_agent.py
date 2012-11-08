@@ -1,5 +1,6 @@
 from unittest.case import TestCase
 from flexmock import flexmock
+import time
 from infrastructure_manager import InfrastructureManager
 from utils import utils
 
@@ -9,6 +10,7 @@ class TestEC2Agent(TestCase):
 
     def setUp(self):
         flexmock(utils, get_secret='secret')
+        #flexmock(time).should_receive('sleep').and_return()
 
     def test_ec2_run_instances(self):
         flexmock(utils, get_random_alphanumeric='0000000000')
@@ -24,14 +26,27 @@ class TestEC2Agent(TestCase):
             'ec2-describe-instances 2>&1').and_return(first_time).and_return(second_time)
         flexmock(utils).should_receive('shell').with_args(
             'ec2-run-instances -k bookeyname -n 1 --instance-type booinstance_type --group boogroup booid').and_return('')
-
+        flexmock(utils).should_receive('shell').with_args(
+            'dig private-ip +short').and_return('private-ip\n')
+        flexmock(utils).should_receive('shell').with_args(
+            'ec2-add-keypair bookeyname 2>&1').and_return('BEGIN RSA PRIVATE KEY')
+        flexmock(utils).should_receive('write_key_file').and_return()
+        flexmock(utils).should_receive('shell').with_args(
+            'ec2-add-group boogroup -d appscale 2>&1').and_return()
+        flexmock(utils).should_receive('shell').with_args(
+            'ec2-authorize boogroup -p 1-65535 -P udp 2>&1').and_return()
+        flexmock(utils).should_receive('shell').with_args(
+            'ec2-authorize boogroup -p 1-65535 -P tcp 2>&1').and_return()
+        flexmock(utils).should_receive('shell').with_args(
+            'ec2-authorize boogroup -s 0.0.0.0/0 -P icmp -t -1:-1 2>&1').and_return()
+        flexmock(utils).should_receive('shell').with_args('env').and_return('')
 
         i = InfrastructureManager()
 
         # first, validate that the run_instances call goes through successfully
         # and gives the user a reservation id
         full_params = {
-            # ASK_CHRIS: Why this wasn't an issue in Ruby?
+            # Chris: Why this wasn't an issue in Ruby?
             "credentials" : {'a' : 'b', 'CLOUD1_EC2_URL' : 'http://ec2.url.com'},
             "group" : "boogroup",
             "image_id" : "booid",
@@ -40,8 +55,7 @@ class TestEC2Agent(TestCase):
             "keyname" : "bookeyname",
             "num_vms" : "1",
             "spot" : "False",
-            'cloud' : 1 # How on earth the Ruby test is passing without this?
-
+            'cloud' : 1 # Chris: How on earth the Ruby test is passing without this?
         }
 
         id = '0000000000'  # no longer randomly generated
@@ -54,6 +68,8 @@ class TestEC2Agent(TestCase):
 
         # next, look at run_instances internally to make sure it actually is
         # updating its reservation info
+        # Chris: How was this race condition addressed by the Ruby test?
+        time.sleep(12)
         self.assertEquals("running", i.reservations[id]["state"])
 
         vm_info = i.reservations[id]["vm_info"]
@@ -61,3 +77,6 @@ class TestEC2Agent(TestCase):
         self.assertEquals(["private-ip"], vm_info["private_ips"])
         self.assertEquals(["i-id"], vm_info["instance_ids"])
 
+    def tearDown(self):
+        flexmock(utils).should_receive('shell').with_args('env').reset()
+        flexmock(utils).should_receive('get_random_alphanumeric').reset()

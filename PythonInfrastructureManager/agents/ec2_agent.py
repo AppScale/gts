@@ -4,7 +4,7 @@ from os.path import abspath
 from os.path import exists
 import re
 import sys
-from time import sleep
+import time
 from agents.base_agent import BaseAgent
 from utils import utils
 from utils.utils import get_obscured_env
@@ -34,6 +34,7 @@ PARAM_GROUP             = 'group'
 PARAM_IMAGE_ID          = 'image_id'
 PARAM_INSTANCE_TYPE     = 'instance_type'
 PARAM_KEYNAME           = 'keyname'
+PARAM_INSTANCE_IDS      = 'instance_ids'
 
 REQUIRED_EC2_RUN_INSTANCES_PARAMS = (
     PARAM_CREDENTIALS,
@@ -41,6 +42,11 @@ REQUIRED_EC2_RUN_INSTANCES_PARAMS = (
     PARAM_IMAGE_ID,
     PARAM_INSTANCE_TYPE,
     PARAM_KEYNAME
+)
+
+REQUIRED_EC2_TERMINATE_INSTANCES_PARAMS = (
+    PARAM_CREDENTIALS,
+    PARAM_INSTANCE_IDS
 )
 
 class EC2Agent(BaseAgent):
@@ -65,6 +71,7 @@ class EC2Agent(BaseAgent):
 
     def configure_instance_security(self, parameters):
         keyname = parameters[PARAM_KEYNAME]
+        group = parameters[PARAM_GROUP]
         cloud = parameters['cloud'] #Chris: What is this?
         ssh_key = abspath('/etc/appscale/keys/{0}/{1}.key'.format(cloud, keyname))
         print 'About to spawn EC2 instances - Expecting to find a key at', ssh_key
@@ -79,14 +86,22 @@ class EC2Agent(BaseAgent):
                 print 'Trying again. Saw this from', self.prefix + '-add-keypair:', ec2_output
                 utils.shell('{0}-delete-keypair {1} 2>&1'.format(self.prefix, keyname))
             utils.write_key_file(ssh_key, ec2_output)
-            #TODO: create appscale security group
+            utils.shell('{0}-add-group {1} -d appscale 2>&1'.format(self.prefix, group))
+            utils.shell('{0}-authorize {1} -p 1-65535 -P udp 2>&1'.format(self.prefix, group))
+            utils.shell('{0}-authorize {1} -p 1-65535 -P tcp 2>&1'.format(self.prefix, group))
+            utils.shell('{0}-authorize {1} -s 0.0.0.0/0 -P icmp -t -1:-1 2>&1'.format(self.prefix, group))
             return True
         else:
             print 'Not creating keys/security group for', cloud
             return False
 
-    def has_required_parameters(self, parameters):
-        for param in REQUIRED_EC2_RUN_INSTANCES_PARAMS:
+    def has_required_parameters(self, parameters, operation):
+        required_params = ()
+        if operation == BaseAgent.OPERATION_RUN:
+            required_params = REQUIRED_EC2_RUN_INSTANCES_PARAMS
+        elif operation == BaseAgent.OPERATION_TERMINATE:
+            required_params = REQUIRED_EC2_TERMINATE_INSTANCES_PARAMS
+        for param in required_params:
             if not utils.has_parameter(param, parameters):
                 return False, 'no ' + param
         return True, 'none'
@@ -143,12 +158,12 @@ class EC2Agent(BaseAgent):
             if status:
                 break
             print 'sleepy time'
-            sleep(5)
+            time.sleep(5)
 
         instances = []
         public_ips = []
         private_ips = []
-        sleep(10)
+        time.sleep(10)
 
         end_time = datetime.now() + timedelta(0, MAX_VM_CREATION_TIME)
         now = datetime.now()
@@ -166,7 +181,7 @@ class EC2Agent(BaseAgent):
             instances = utils.diff(instances, active_instances)
             if count == len(public_ips):
                 break
-            sleep(SLEEP_TIME)
+            time.sleep(SLEEP_TIME)
             now = datetime.now()
 
         if not public_ips:
@@ -190,6 +205,11 @@ class EC2Agent(BaseAgent):
             print 'TIMING: It took {0} seconds to spawn {1} regular instances'.format(
                 total_time.seconds, count)
         return instances, public_ips, private_ips
+
+    def terminate_instances(self, parameters):
+        instance_ids = parameters[PARAM_INSTANCE_IDS]
+        arg = ' '.join(instance_ids)
+        utils.shell('{0}-terminate-instances {1} 2>&1'.format(self.prefix, arg))
 
     def run_instances_response(self, command, output):
         if output.find('Please try again later') != -1:
@@ -231,8 +251,12 @@ class EC2Agent(BaseAgent):
                 actual_private.append(private)
 
         for index in range(0, len(actual_private)):
-            #TODO: Convert FQDN to IP
-            pass
+            ip = utils.convert_fqdn_to_ip(actual_private[index])
+            if ip is None:
+                print 'Failed to convert', actual_private[index], 'into an IP'
+            else:
+                actual_private[index] = ip
+
         return actual_public, actual_private
 
 
