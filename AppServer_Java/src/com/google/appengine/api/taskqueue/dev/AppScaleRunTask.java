@@ -19,97 +19,97 @@ import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueAddRequest;
 public class AppScaleRunTask extends Thread
 {
 
-	private static final Logger	logger	= Logger.getLogger(AppScaleRunTask.class.getName());
-	String						ip		= System.getProperty("MY_IP_ADDRESS");
-	String						port	= System.getProperty("MY_PORT");
-	String						method;
-	String						url;
-	String						body;
+    private static final Logger logger = Logger.getLogger(AppScaleRunTask.class.getName());
+    String                      ip     = System.getProperty("MY_IP_ADDRESS");
+    String                      port   = System.getProperty("MY_PORT");
+    String                      method;
+    String                      url;
+    String                      body;
 
-	public AppScaleRunTask( TaskQueuePb.TaskQueueAddRequest addRequest )
-	{
-		logger.fine("Sending a task request, ip is [" + ip + "], port is [" + port + "]");
-		logger.fine("The requested body: " + addRequest.getBody());
-		logger.fine("The requested url: " + addRequest.getUrl());
+    public AppScaleRunTask( TaskQueuePb.TaskQueueAddRequest addRequest )
+    {
+        logger.fine("Sending a task request, ip is [" + ip + "], port is [" + port + "]");
+        logger.fine("The requested body: " + addRequest.getBody());
+        logger.fine("The requested url: " + addRequest.getUrl());
 
-		url = addRequest.getUrl();
+        url = addRequest.getUrl();
 
-		if (addRequest.getMethod() == TaskQueueAddRequest.RequestMethod.DELETE.getValue()) method = "DELETE";
-		if (addRequest.getMethod() == TaskQueueAddRequest.RequestMethod.GET.getValue()) method = "GET";
-		if (addRequest.getMethod() == TaskQueueAddRequest.RequestMethod.POST.getValue()) method = "POST";
-		if (addRequest.getMethod() == TaskQueueAddRequest.RequestMethod.PUT.getValue()) method = "PUT";
-		if (addRequest.getMethod() == TaskQueueAddRequest.RequestMethod.HEAD.getValue()) method = "HEAD";
-		
-		logger.fine("The requested method: " + method);
-		body = addRequest.getBody();
-	}
+        if (addRequest.getMethod() == TaskQueueAddRequest.RequestMethod.DELETE.getValue()) method = "DELETE";
+        if (addRequest.getMethod() == TaskQueueAddRequest.RequestMethod.GET.getValue()) method = "GET";
+        if (addRequest.getMethod() == TaskQueueAddRequest.RequestMethod.POST.getValue()) method = "POST";
+        if (addRequest.getMethod() == TaskQueueAddRequest.RequestMethod.PUT.getValue()) method = "PUT";
+        if (addRequest.getMethod() == TaskQueueAddRequest.RequestMethod.HEAD.getValue()) method = "HEAD";
 
-	@Override
-	public void run()
-	{
-		logger.info("Opening connection: " + "http://" + this.ip + ":" + this.port + this.url + "in AppScaleRunTask");
-		URL u;
-		HttpURLConnection con = null;
-		OutputStreamWriter wr = null;
-		BufferedReader rd = null;
-		try
-		{
-			u = new URL("http://" + this.ip + ":" + this.port + this.url);
-			con = (HttpURLConnection)u.openConnection();
-			con.setRequestMethod(this.method);
+        logger.fine("The requested method: " + method);
+        body = addRequest.getBody();
+    }
 
-			// Construct data
-			String[] data1 = this.body.split("&");
+    @Override
+    public void run()
+    {
+        logger.info("Opening connection: " + "http://" + this.ip + ":" + this.port + this.url + "in AppScaleRunTask");
+        URL u;
+        HttpURLConnection con = null;
+        OutputStreamWriter wr = null;
+        BufferedReader rd = null;
+        try
+        {
+            u = new URL("http://" + this.ip + ":" + this.port + this.url);
+            con = (HttpURLConnection)u.openConnection();
+            con.setRequestMethod(this.method);
 
-			String data = new String();
-			for (int i = 0; i < data1.length; i++)
-			{
-				String[] subdata = data1[i].split("=");
-				if (i != 0) data += "&";
-				data += URLEncoder.encode(subdata[0], "UTF-8") + "=" + URLEncoder.encode(subdata[1], "UTF-8");
-			}
+            // Construct data
+            String[] data1 = this.body.split("&");
 
-			logger.fine("The data to post: " + data);
+            String data = new String();
+            for (int i = 0; i < data1.length; i++)
+            {
+                String[] subdata = data1[i].split("=");
+                if (i != 0) data += "&";
+                data += URLEncoder.encode(subdata[0], "UTF-8") + "=" + URLEncoder.encode(subdata[1], "UTF-8");
+            }
 
-			// Send data
+            logger.fine("The data to post: " + data);
 
-			con.setDoOutput(true);
-			wr = new OutputStreamWriter(con.getOutputStream());
-			wr.write(data);
-			wr.flush();
+            // Send data
 
-			// Get the response
-			rd = new BufferedReader(new InputStreamReader(con.getInputStream()));
-			String line;
-			while ((line = rd.readLine()) != null)
-			{
-				System.out.println(line);
-			}
-			// wr.close();
+            con.setDoOutput(true);
+            wr = new OutputStreamWriter(con.getOutputStream());
+            wr.write(data);
+            wr.flush();
 
-		}
-		catch (MalformedURLException e)
-		{
-			e.printStackTrace();
-		}
-		catch (IOException e)
-		{
-			e.printStackTrace();
-		}
-		finally
-		{
-			try
-			{
-				if (rd != null) rd.close();
-				if (wr != null) wr.close();
-				if (con != null) con.disconnect();
-			}
-			catch (IOException e)
-			{
-				e.printStackTrace();
-			}
+            // Get the response
+            rd = new BufferedReader(new InputStreamReader(con.getInputStream()));
+            String line;
+            while ((line = rd.readLine()) != null)
+            {
+                System.out.println(line);
+            }
+            // wr.close();
 
-		}
-	}
+        }
+        catch (MalformedURLException e)
+        {
+            e.printStackTrace();
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+        finally
+        {
+            try
+            {
+                if (rd != null) rd.close();
+                if (wr != null) wr.close();
+                if (con != null) con.disconnect();
+            }
+            catch (IOException e)
+            {
+                e.printStackTrace();
+            }
+
+        }
+    }
 
 }
