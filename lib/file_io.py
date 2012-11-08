@@ -1,4 +1,10 @@
 # Programmer: Navraj Chohan
+import os
+
+""" 
+This file contains functions for doing file IO operations. Many 
+of the functions serve as wrapper for easy mocking.
+"""
 
 def read(file_name):
   """ Opens and reads a file, returning the contents of the file
@@ -22,4 +28,19 @@ def write(file_name, contents):
   FILE = open(file_name, "w")
   FILE.write(contents)
   FILE.close()
- 
+
+def delete(file_name):
+  """ Deletes a given file. 
+  
+  Args:
+    file_name: The name of the file to delete
+  """
+  os.remove(file_name) 
+
+def exists(file_name):
+  """ Checks to see if a file exists.
+  
+  Args:
+    file_name: The file to check if it exists. 
+  """
+  return os.path.exists(file_path)
