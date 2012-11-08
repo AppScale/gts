@@ -228,7 +228,7 @@ class UploadHandler(tornado.web.RequestHandler):
     # This request is sent to the upload handler of the app
     # in the hope it returns a redirect to be forwarded to the user
     urlrequest = urllib2.Request(success_path)
-
+    print success_path
     # Forward all relevant headers
     # Create data for request
 
@@ -286,14 +286,16 @@ class UploadHandler(tornado.web.RequestHandler):
       output = f.read()
       self.finish(output)
     except urllib2.HTTPError, e: 
-      if "Location" in e.hdrs:  
-        redirect_path = e.hdrs["Location"] 
-        toks = redirect_path.split(':')
-        # The java app server redirects to the private IP if the POST to 
-        # the successful path was from the private IP
-        if toks[1] == "//"+private:
-          redirect_path = toks[0] + "://" + public + ":" + ':'.join(toks[2:])
-        self.redirect(redirect_path)
+      if "Location" in e.hdrs:
+	#catch any errors, use the success path to 
+	#get the ip and port, use the redirect path
+	#for the path. We split redirect_path just in case
+	#its a full path  
+        redirect_path = e.hdrs["Location"]
+	success_path_toks = success_path.split('/')
+	redirect_toks = redirect_path.split("/")
+        final_redirect_path = success_path_toks[0] + '//' + success_path_toks[2] + '/' + redirect_toks[len(redirect_toks)-1]
+	self.redirect(final_redirect_path)
         return
       else:
         self.finish(UPLOAD_ERROR + "</br>" + str(e.hdrs) + "</br>" + str(e))
