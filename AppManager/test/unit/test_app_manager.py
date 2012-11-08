@@ -3,9 +3,10 @@ import sys
 import unittest
 from flexmock import flexmock
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import app_manager
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib"))
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
 import file_io
 import appscale_info
 

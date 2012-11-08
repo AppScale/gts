@@ -3,17 +3,13 @@ import sys
 import unittest
 from flexmock import flexmock
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import god_app_interface
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
 import file_io
 
 class TestGodAppInterface(unittest.TestCase):
-  def test_start(self):
-    flexmock(file_io)\
-      .should_receive('write')\
-      .and_return()
   def test_create_config_file(self):
     flexmock(file_io)\
       .should_receive('write')\

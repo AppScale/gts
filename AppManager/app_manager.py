@@ -10,7 +10,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
 import constants
 
-# IP used for binding
+# IP used for binding app_manager SOAP service
 DEFAULT_IP = '127.0.0.1'
 
 # Required configuration fields for starting an application
