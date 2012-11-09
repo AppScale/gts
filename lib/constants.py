@@ -29,3 +29,12 @@ UA_SERVER_PORT = 4343
 
 # The port of the application manager soap server
 APP_MANAGER_PORT = 49934
+
+# Python programs
+PYTHON = "python"
+
+# Python programs
+PYTHON27 = "python27"
+
+# Java programs
+JAVA = "java"

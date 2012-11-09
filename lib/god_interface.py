@@ -18,7 +18,7 @@ def start(config_loc, watch):
   the configuration after it is used. 
 
   Args:
-    config_loc: The location of the god configuration file
+    config_loc: The location of the God configuration file
     watch: Name of the watch being started
   Returns:
     True on success, False otherwise
@@ -42,10 +42,10 @@ def start(config_loc, watch):
   return True
 
 def stop(watch):
-  """ Stop a watch on god. 
+  """ Stop a watch on God. 
  
   Args:
-    watch: The tag to which we should stop the watch
+    watch: The God tag identifier which will be stopped 
   Returns:
     True on success, False otherwise.
   """
