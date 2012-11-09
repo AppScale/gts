@@ -8,8 +8,10 @@ require 'openssl'
 require 'soap/rpc/driver'
 require 'timeout'
 
-# Number of seconds to wait before timing out when doing a SOAP call
-MAX_TIMEOUT = 30
+# Number of seconds to wait before timing out when doing a SOAP call.
+# This number should be hire than the maximum time required for remote calls
+# to properly execute.
+MAX_TIME_OUT = 180
 
 # This is transitional glue code as we shift from ruby to python. The 
 # AppManager is written in python and hence we use a SOAP client to communicate
@@ -61,7 +63,8 @@ class AppManager
                 load_balancer_ip,
                 load_balancer_port, 
                 language, 
-                xmpp_ip)
+                xmpp_ip,
+                db_locations)
     # Wrapper for SOAP call to the AppManager to start an instance of 
     #    an application server.
     #
@@ -72,6 +75,7 @@ class AppManager
     #   load_balancer_port: The port of the load balancer
     #   language: The language the application is written in
     #   xmpp_ip: The IP for XMPP
+    #   db_locations: A list of datastore server IPs
     # Returns:
     #   The PID of the process started
     
@@ -80,7 +84,8 @@ class AppManager
                      'load_balancer_ip' => load_balancer_ip,
                      'load_balancer_port' => load_balancer_port,
                      'language' => language,
-                     'xmpp_ip' => xmpp_ip}
+                     'xmpp_ip' => xmpp_ip,
+                     'dblocations' => db_locations}
     
     result = ""
     make_call(MAX_TIME_OUT, retry_on_except) { 

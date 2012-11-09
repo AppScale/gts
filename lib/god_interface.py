@@ -55,4 +55,12 @@ def stop(watch):
     logging.error("God stop command returned with status %d when stopping \
                   watch %s"%(return_status, watch))
     return False
+
+  return_status = subprocess.call(['god', 'remove', watch])
+  if return_status != 0:
+    logging.error("God remove command returned with status %d when removing \
+                  watch %s"%(return_status, watch))
+
+    return False
+
   return True

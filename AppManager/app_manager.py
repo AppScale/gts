@@ -65,9 +65,7 @@ def start_app(config):
   start_cmd = ""
   stop_cmd = ""
   env_vars = {}
-  watch = "app___" + config['app_name'] +\
-          "-" + str(config['app_port'])
-
+  watch = "app___" + config['app_name'] + "-" + str(config['app_port'])
  
   if config['language'] == constants.PYTHON:
     start_cmd = create_python_start_cmd(config['app_name'],
@@ -110,16 +108,19 @@ def start_app(config):
 
   return get_pid_from_port(config['app_port'])
 
-def stop_app(app_name):
+def stop_app(app_name, port):
   """ Stops a Google App Engine application on this host machine.
 
   Args:
     app_name: Name of application to stop
+    port: The port the application is running on
   Returns:
     True on success, False otherwise
   """
 
   logging.info("Stopping application %s"%app_name)
+  watch = "appscale-" + app_name + "-" + str(port)
+  god_interface.stop(watch)
   return True
 
 def get_app_listing():

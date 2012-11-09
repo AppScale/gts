@@ -1,5 +1,6 @@
 # Programmer: Navraj Chohan
 import os
+import subprocess
 import sys
 import time
 import unittest
@@ -88,7 +89,9 @@ class TestAppManager(unittest.TestCase):
     assert str(port) in cmd 
  
   def test_stop_app(self):
-    app_manager.stop_app('test')
+    flexmock(subprocess).should_receive('call')\
+                        .and_return(0)
+    app_manager.stop_app('test', 8080)
 
   def test_get_app_listing(self):
     app_manager.get_app_listing()
