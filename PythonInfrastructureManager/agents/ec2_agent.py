@@ -104,7 +104,7 @@ class EC2Agent(BaseAgent):
         for param in required_params:
             if not utils.has_parameter(param, parameters):
                 return False, 'no ' + param
-        return True, 'none'
+        return BaseAgent.has_required_parameters(self, parameters, operation)
 
     def describe_instances(self, parameters):
         keyname = parameters[PARAM_KEYNAME]
@@ -158,12 +158,12 @@ class EC2Agent(BaseAgent):
             if status:
                 break
             print 'sleepy time'
-            time.sleep(5)
+            utils.sleep(5)
 
         instances = []
         public_ips = []
         private_ips = []
-        time.sleep(10)
+        utils.sleep(10)
 
         end_time = datetime.now() + timedelta(0, MAX_VM_CREATION_TIME)
         now = datetime.now()

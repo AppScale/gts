@@ -5,6 +5,7 @@ from random import choice
 import re
 from string import digits, letters
 import sys
+import time
 
 __author__ = 'hiranya'
 
@@ -88,5 +89,8 @@ def convert_fqdn_to_ip(fqdn):
             print 'Warning: Host name {0} resolved to multiple IPs: {1}'.format(fqdn, ip)
             print 'Using the first address in the list'
         return list[0]
+
+def sleep(seconds):
+    time.sleep(seconds)
 
 

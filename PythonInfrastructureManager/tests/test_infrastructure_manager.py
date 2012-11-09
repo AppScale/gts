@@ -8,7 +8,10 @@ __author__ = 'hiranya'
 class TestInfrastructureManager(TestCase):
 
     def setUp(self):
-        flexmock(utils, get_secret='secret')
+        flexmock(utils).should_receive('get_secret').and_return('secret')
+
+    def tearDown(self):
+        flexmock(utils).should_receive('get_secret').reset()
 
     def test_initialize(self):
         i = InfrastructureManager()
@@ -70,3 +73,17 @@ class TestInfrastructureManager(TestCase):
         result3 = i.run_instances(params3, 'secret')
         self.assertFalse(result3['success'])
         self.assertEquals(result3['reason'], 'no num_vms')
+
+    def test_terminate_instances(self):
+        i = InfrastructureManager()
+
+        params1 = {}
+        result1 = i.terminate_instances(params1, 'secret1')
+        self.assertFalse(result1['success'])
+        self.assertEquals(result1['reason'], REASON_BAD_SECRET)
+
+        params2 = {}
+        result2 = i.terminate_instances(params2, 'secret')
+        self.assertFalse(result2['success'])
+        self.assertEquals(result2['reason'], 'no infrastructure')
+
