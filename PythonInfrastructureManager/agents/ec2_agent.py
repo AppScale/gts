@@ -5,7 +5,7 @@ from os.path import exists
 import re
 import sys
 import time
-from agents.base_agent import BaseAgent
+from agents.base_agent import BaseAgent, AgentConfigurationException
 from utils import utils
 from utils.utils import get_obscured_env
 
@@ -95,16 +95,16 @@ class EC2Agent(BaseAgent):
             print 'Not creating keys/security group for', cloud
             return False
 
-    def has_required_parameters(self, parameters, operation):
+    def assert_required_parameters(self, parameters, operation):
         required_params = ()
         if operation == BaseAgent.OPERATION_RUN:
             required_params = REQUIRED_EC2_RUN_INSTANCES_PARAMS
         elif operation == BaseAgent.OPERATION_TERMINATE:
             required_params = REQUIRED_EC2_TERMINATE_INSTANCES_PARAMS
+
         for param in required_params:
             if not utils.has_parameter(param, parameters):
-                return False, 'no ' + param
-        return BaseAgent.has_required_parameters(self, parameters, operation)
+                raise AgentConfigurationException('no ' + param)
 
     def describe_instances(self, parameters):
         keyname = parameters[PARAM_KEYNAME]

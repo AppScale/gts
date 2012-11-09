@@ -64,6 +64,7 @@ class TestEC2Agent(TestCase):
         }
         result2 = i.terminate_instances(params2, 'secret')
         self.assertTrue(result2['success'])
+        time.sleep(2)
 
     def setUp(self):
         (flexmock(utils)

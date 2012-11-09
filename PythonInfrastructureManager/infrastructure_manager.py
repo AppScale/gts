@@ -1,31 +1,9 @@
 import thread
-from agents.base_agent import BaseAgent
+from agents.base_agent import BaseAgent, AgentConfigurationException
 from agents.factory import InfrastructureAgentFactory
 from utils import utils
 
 __author__ = 'hiranya'
-
-# Default reasons which might be returned by this module
-REASON_BAD_SECRET               = 'bad secret'
-REASON_RESERVATION_NOT_FOUND    = 'reservation_id not found'
-REASON_NONE                     = 'none'
-
-PARAM_RESERVATION_ID    = 'reservation_id'
-PARAM_INFRASTRUCTURE    = 'infrastructure'
-PARAM_NUM_VMS           = 'num_vms'
-
-# A list of the parameters required to query the InfrastructureManager about
-# the state of a run_instances request.
-DESCRIBE_INSTANCES_REQUIRED_PARAMS = ( PARAM_RESERVATION_ID, )
-
-RUN_INSTANCES_REQUIRED_PARAMS = (
-    PARAM_INFRASTRUCTURE,
-    PARAM_NUM_VMS
-)
-
-TERMINATE_INSTANCES_REQUIRED_PARAMS = (
-    PARAM_INFRASTRUCTURE,
-)
 
 class InfrastructureManager:
     """
@@ -45,6 +23,29 @@ class InfrastructureManager:
     initializes cloud agents on demand by looking at the 'infrastructure'
     parameter passed into the methods of this class.
     """
+
+    # Default reasons which might be returned by this module
+    REASON_BAD_SECRET               = 'bad secret'
+    REASON_RESERVATION_NOT_FOUND    = 'reservation_id not found'
+    REASON_NONE                     = 'none'
+
+    # Parameters required by InfrastructureManager
+    PARAM_RESERVATION_ID    = 'reservation_id'
+    PARAM_INFRASTRUCTURE    = 'infrastructure'
+    PARAM_NUM_VMS           = 'num_vms'
+
+    # A list of parameters required to query the InfrastructureManager about
+    # the state of a run_instances request.
+    DESCRIBE_INSTANCES_REQUIRED_PARAMS = ( PARAM_RESERVATION_ID, )
+
+    # A list of parameters required to initiate a VM deployment process
+    RUN_INSTANCES_REQUIRED_PARAMS = (
+        PARAM_INFRASTRUCTURE,
+        PARAM_NUM_VMS
+    )
+
+    # A list of parameters required to initiate a VM termination process
+    TERMINATE_INSTANCES_REQUIRED_PARAMS = ( PARAM_INFRASTRUCTURE, )
 
     def __init__(self):
         """
@@ -92,17 +93,17 @@ class InfrastructureManager:
             set to a simple error message describing the cause of the error.
         """
         if self.secret != secret:
-            return self.__generate_response(False, REASON_BAD_SECRET)
+            return self.__generate_response(False, self.REASON_BAD_SECRET)
 
-        for param in DESCRIBE_INSTANCES_REQUIRED_PARAMS:
+        for param in self.DESCRIBE_INSTANCES_REQUIRED_PARAMS:
             if not utils.has_parameter(param, parameters):
                 return self.__generate_response(False, 'no ' + param)
 
-        reservation_id = parameters[PARAM_RESERVATION_ID]
+        reservation_id = parameters[self.PARAM_RESERVATION_ID]
         if self.reservations.has_key(reservation_id):
             return self.reservations[reservation_id]
         else:
-            return self.__generate_response(False, REASON_RESERVATION_NOT_FOUND)
+            return self.__generate_response(False, self.REASON_RESERVATION_NOT_FOUND)
 
     def run_instances(self, parameters, secret):
         """
@@ -137,21 +138,22 @@ class InfrastructureManager:
         print 'Received a request to run instances.'
 
         if self.secret != secret:
-            print 'Incoming secret', secret, 'does not match the current secret', \
-                self.secret, '- Rejecting request.'
-            return self.__generate_response(False, REASON_BAD_SECRET)
+            print 'Incoming secret {0} does not match the current secret {1} - ' \
+                  'Rejecting request.'.format(secret, self.secret)
+            return self.__generate_response(False, self.REASON_BAD_SECRET)
 
         print 'Request parameters are', str(parameters)
-        for param in RUN_INSTANCES_REQUIRED_PARAMS:
+        for param in self.RUN_INSTANCES_REQUIRED_PARAMS:
             if not utils.has_parameter(param, parameters):
                 return self.__generate_response(False, 'no ' + param)
 
-        num_vms = int(parameters[PARAM_NUM_VMS])
-        infrastructure = parameters[PARAM_INFRASTRUCTURE]
+        num_vms = int(parameters[self.PARAM_NUM_VMS])
+        infrastructure = parameters[self.PARAM_INFRASTRUCTURE]
         agent = self.agent_factory.create_agent(infrastructure)
-        status, reason = agent.has_required_parameters(parameters, BaseAgent.OPERATION_RUN)
-        if not status:
-            return self.__generate_response(False, reason)
+        try:
+            agent.assert_required_parameters(parameters, BaseAgent.OPERATION_RUN)
+        except AgentConfigurationException as e:
+            return self.__generate_response(False, e.message)
 
         reservation_id = utils.get_random_alphanumeric()
         self.reservations[reservation_id] = {
@@ -160,27 +162,51 @@ class InfrastructureManager:
             'state' : 'pending',
             'vm_info' : None
         }
-        print 'Generated reservation id', reservation_id, 'for this request.'
+        print 'Generated reservation id {0} for this request.'.format(reservation_id)
         thread.start_new_thread(self.__spawn_vms, (agent, num_vms, parameters, reservation_id))
-        print 'Successfully started request',  reservation_id, '.'
-        return self.__generate_response(True, REASON_NONE, { 'reservation_id' : reservation_id })
+        print 'Successfully started request {0}.'.format(reservation_id)
+        return self.__generate_response(True, self.REASON_NONE, { 'reservation_id' : reservation_id })
 
     def terminate_instances(self, parameters, secret):
-        if self.secret != secret:
-            return self.__generate_response(False, REASON_BAD_SECRET)
+        """
+        Terminate a group of virtual machines using the provided parameters.
+        The input parameter map must contain an 'infrastructure' parameter which
+        will be used to instantiate a suitable cloud agent. Any additional
+        environment specific parameters should also be available in the same
+        map.
 
-        for param in TERMINATE_INSTANCES_REQUIRED_PARAMS:
+        VM termination could take a fairly long time. Therefore this method
+        simply initiates the termination process and returns.
+
+        Arguments:
+            - parameters    A dictionary of parameters containing the required
+                            'infrastructure' parameter and any other platform
+                            dependent required parameters.
+            - secret        A previously established secret
+
+        Returns:
+            If the secret is valid and all the parameters required to successfully
+            start a termination process are present in the parameters dictionary,
+            this method will return a dictionary with the key 'success' set to
+            True. Otherwise it returns a dictionary with 'success' set to False
+            and 'reason' set to a simple error message.
+        """
+        if self.secret != secret:
+            return self.__generate_response(False, self.REASON_BAD_SECRET)
+
+        for param in self.TERMINATE_INSTANCES_REQUIRED_PARAMS:
             if not utils.has_parameter(param, parameters):
                 return self.__generate_response(False, 'no ' + param)
 
-        infrastructure = parameters[PARAM_INFRASTRUCTURE]
+        infrastructure = parameters[self.PARAM_INFRASTRUCTURE]
         agent = self.agent_factory.create_agent(infrastructure)
-        status, reason = agent.has_required_parameters(parameters, BaseAgent.OPERATION_TERMINATE)
-        if not status:
-            return self.__generate_response(False, reason)
+        try:
+            agent.assert_required_parameters(parameters, BaseAgent.OPERATION_TERMINATE)
+        except AgentConfigurationException as e:
+            return self.__generate_response(False, e.message)
 
         thread.start_new_thread(self.__kill_vms, (agent, parameters))
-        return self.__generate_response(True, REASON_NONE)
+        return self.__generate_response(True, self.REASON_NONE)
 
     def __spawn_vms(self, agent, num_vms, parameters, reservation_id):
         if num_vms < 0:
@@ -188,13 +214,13 @@ class InfrastructureManager:
         agent.set_environment_variables(parameters, '1')
         security_configured = agent.configure_instance_security(parameters)
         ids, public_ips, private_ips = agent.run_instances(num_vms, parameters, security_configured)
-        self.reservations[reservation_id]["state"] = "running"
-        self.reservations[reservation_id]["vm_info"] = {
-            "public_ips" : public_ips,
-            "private_ips" : private_ips,
-            "instance_ids" : ids
+        self.reservations[reservation_id]['state'] = 'running'
+        self.reservations[reservation_id]['vm_info'] = {
+            'public_ips' : public_ips,
+            'private_ips' : private_ips,
+            'instance_ids' : ids
         }
-        print "Successfully finished request {0}.".format(reservation_id)
+        print 'Successfully finished request {0}.'.format(reservation_id)
 
     def __kill_vms(self, agent, parameters):
         agent.set_environment_variables(parameters, '1')
