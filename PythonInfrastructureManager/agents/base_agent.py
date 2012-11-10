@@ -35,9 +35,15 @@ class BaseAgent:
         agent. This method is called whenever InfrastructureManager is about
         start a set of VMs using this agent. Implementations may configure
         security features such as VM login and firewalls in this method.
+        Implementations also have the option of not taking any action upon
+        this method call.
 
          Arguments:
             - parameters    A dictionary of parameters
+
+        Returns:
+            True if some action was taken to configure security for the VMs
+            and False otherwise.
         """
         raise NotImplementedError
 
@@ -57,9 +63,32 @@ class BaseAgent:
         raise NotImplementedError
 
     def run_instances(self, count, parameters, security_configured):
+        """
+        Start a set of virtual machines using the parameters provided.
+
+        Arguments:
+            - count                 An integer that indicates the number of
+                                    VMs to be spawned
+            - parameters            A dictionary of parameters required by
+                                    the agent implementation to create the VMs
+            - security_configured   True if security has been configured for the VMs
+                                    by this agent, or False otherwise. This is
+                                    usually the value that was returned by a call
+                                    to the configure_instance_security method
+        Returns:
+            A tuple consisting of information related to the spawned VMs. The
+            tuple should contain a list of instance IDs, a list of public IP
+            addresses and a list of private IP addresses.
+        """
         raise NotImplementedError
 
     def terminate_instances(self, parameters):
+        """
+        Terminate a set of virtual machines using the parameters given.
+
+        Arguments:
+            - parameters    A dictionary of parameters
+        """
         raise NotImplementedError
 
     def assert_required_parameters(self, parameters, operation):

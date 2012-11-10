@@ -132,7 +132,10 @@ class EC2Agent(BaseAgent):
         active_public_ips = []
         active_private_ips = []
         active_instances = []
-        print 'EC2_URL = [{0}]'.format(environ['EC2_URL'])
+        if environ.has_key('EC2_URL'):
+            print 'EC2_URL = [{0}]'.format(environ['EC2_URL'])
+        else:
+            print 'Warning: EC2_URL environment not found in the process runtime!'
         while True:
             active_public_ips, active_private_ips, active_instances = \
                 self.describe_instances(parameters)

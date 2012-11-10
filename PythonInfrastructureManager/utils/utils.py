@@ -1,11 +1,16 @@
+"""
+A collection of common utility functions which can be used by any
+module within the AppScale Infrastructure Manager implementation.
+"""
+
 from commands import getoutput
 import os
 from os.path import abspath
 from random import choice
 import re
 from string import digits, letters
-import sys
 import time
+import sys
 
 __author__ = 'hiranya'
 
@@ -13,6 +18,17 @@ def get_secret(filename = '/etc/appscale/secret.key'):
     return read_file(abspath(filename), chomp = True)
 
 def read_file(location, chomp = True):
+    """
+    Read the specified file and return the contents. Optionally
+    the file content could be subjected to a chomp operation
+    before returning.
+
+    Arguments:
+        location    Location of the file that needs to be read
+        chomp       True if the file content needs to be chomped
+                    prior to returning. This is an optional parameter
+                    and defaults to True.
+    """
     file_handle = open(location, 'r')
     contents = file_handle.read()
     file_handle.close()
@@ -30,6 +46,10 @@ def write_key_file(location, content):
         file_handle.write(content)
         file_handle.close()
         os.chmod(path, 0600)
+
+def log(msg):
+    print msg
+    sys.stdout.flush()
 
 def get_random_alphanumeric(length = 10):
     alphabet = digits + letters
@@ -49,7 +69,7 @@ def flatten(list):
     return result
 
 def has_parameter(p, params):
-    return params.has_key(p) and params[p] is not None and len(params[p]) > 0
+    return params.has_key(p) and params[p] is not None
 
 def diff(list1, list2):
     return sorted(set(list1) - set(list2))
@@ -61,12 +81,13 @@ def obscure_string(string):
     obscured = '*' * (len(string) - 4)
     return obscured + last_four
 
-def get_obscured_env(list=[]):
+def get_obscured_env(list=None):
     """
     Prints out a list of environment variables currently set in this process'
     runtime along with their values. Any environment variables specified
     in the input 'list' will be obscured for privacy and security reasons.
     """
+    if not list: list = []
     env = shell('env')
     for item in list:
         index = env.find(item)

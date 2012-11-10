@@ -26,6 +26,8 @@ class InfrastructureManager:
 
     # Default reasons which might be returned by this module
     REASON_BAD_SECRET               = 'bad secret'
+    REASON_BAD_VM_COUNT             = 'bad vm count'
+    REASON_BAD_ARGUMENTS            = 'bad arguments'
     REASON_RESERVATION_NOT_FOUND    = 'reservation_id not found'
     REASON_NONE                     = 'none'
 
@@ -33,6 +35,10 @@ class InfrastructureManager:
     PARAM_RESERVATION_ID    = 'reservation_id'
     PARAM_INFRASTRUCTURE    = 'infrastructure'
     PARAM_NUM_VMS           = 'num_vms'
+
+    # States a particular VM deployment could be in
+    STATE_PENDING   = 'pending'
+    STATE_RUNNING   = 'running'
 
     # A list of parameters required to query the InfrastructureManager about
     # the state of a run_instances request.
@@ -92,6 +98,9 @@ class InfrastructureManager:
             and 'reason' where 'success' would be set to False, and 'reason' is
             set to a simple error message describing the cause of the error.
         """
+        if type(parameters) != type({}) or type(secret) != type(''):
+            return self.__generate_response(False, self.REASON_BAD_ARGUMENTS)
+
         if self.secret != secret:
             return self.__generate_response(False, self.REASON_BAD_SECRET)
 
@@ -135,6 +144,9 @@ class InfrastructureManager:
             parameter is missing, this method will return a different map with the
             key 'success' set to False and 'reason' set to a simple error message.
         """
+        if type(parameters) != type({}) or type(secret) != type(''):
+            return self.__generate_response(False, self.REASON_BAD_ARGUMENTS)
+
         print 'Received a request to run instances.'
 
         if self.secret != secret:
@@ -142,12 +154,16 @@ class InfrastructureManager:
                   'Rejecting request.'.format(secret, self.secret)
             return self.__generate_response(False, self.REASON_BAD_SECRET)
 
-        print 'Request parameters are', str(parameters)
+        print 'Request parameters are {0}'.format(parameters)
         for param in self.RUN_INSTANCES_REQUIRED_PARAMS:
             if not utils.has_parameter(param, parameters):
                 return self.__generate_response(False, 'no ' + param)
 
         num_vms = int(parameters[self.PARAM_NUM_VMS])
+        if num_vms <= 0:
+            print 'Invalid VM count: {0}'.format(num_vms)
+            return self.__generate_response(False, self.REASON_BAD_VM_COUNT)
+
         infrastructure = parameters[self.PARAM_INFRASTRUCTURE]
         agent = self.agent_factory.create_agent(infrastructure)
         try:
@@ -159,7 +175,7 @@ class InfrastructureManager:
         self.reservations[reservation_id] = {
             'success' : True,
             'reason' : 'received run request',
-            'state' : 'pending',
+            'state' : self.STATE_PENDING,
             'vm_info' : None
         }
         print 'Generated reservation id {0} for this request.'.format(reservation_id)
@@ -191,6 +207,9 @@ class InfrastructureManager:
             True. Otherwise it returns a dictionary with 'success' set to False
             and 'reason' set to a simple error message.
         """
+        if type(parameters) != type({}) or type(secret) != type(''):
+            return self.__generate_response(False, self.REASON_BAD_ARGUMENTS)
+
         if self.secret != secret:
             return self.__generate_response(False, self.REASON_BAD_SECRET)
 
@@ -209,12 +228,10 @@ class InfrastructureManager:
         return self.__generate_response(True, self.REASON_NONE)
 
     def __spawn_vms(self, agent, num_vms, parameters, reservation_id):
-        if num_vms < 0:
-            return [], [], []
         agent.set_environment_variables(parameters, '1')
         security_configured = agent.configure_instance_security(parameters)
         ids, public_ips, private_ips = agent.run_instances(num_vms, parameters, security_configured)
-        self.reservations[reservation_id]['state'] = 'running'
+        self.reservations[reservation_id]['state'] = self.STATE_RUNNING
         self.reservations[reservation_id]['vm_info'] = {
             'public_ips' : public_ips,
             'private_ips' : private_ips,
