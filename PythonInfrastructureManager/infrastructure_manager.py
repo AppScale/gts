@@ -53,11 +53,20 @@ class InfrastructureManager:
     # A list of parameters required to initiate a VM termination process
     TERMINATE_INSTANCES_REQUIRED_PARAMS = ( PARAM_INFRASTRUCTURE, )
 
-    def __init__(self):
+    def __init__(self, blocking = False):
         """
         Create a new InfrastructureManager instance. This constructor
-        does not accept any arguments.
+        accepts an optional boolean parameter which decides whether the
+        InfrastructureManager instance should operate in blocking mode
+        or not. A blocking InfrastructureManager does not return until
+        each requested run/terminate operation is complete. This mode
+        is useful for testing and verification purposes. In a real-world
+        deployment it's advisable to instantiate the InfrastructureManager
+        in the non-blocking mode as run/terminate operations could take
+        a rather long time to complete. By default InfrastructureManager
+        instances are created in the non-blocking mode.
         """
+        self.blocking = blocking
         self.secret = utils.get_secret()
         self.reservations = { }
         self.agent_factory = InfrastructureAgentFactory()
@@ -125,11 +134,10 @@ class InfrastructureManager:
         be spawned. In addition to that any parameters required to spawn VMs in the
         specified cloud environment must be included in the parameters map.
 
-        A typical VM deployment could take a fairly long time. Therefore this method
-        simply initiates the VM deployment process and returns a 'reservation_id'
-        value, without waiting for the VMs to start up. The returned 'reservation_id'
-        can be passed into the describe_instances method of this class to check
-        the status of the deployment process.
+        If this InfrastructureManager instance has been created in the blocking mode,
+        this method will not return until the VM deployment is complete. Otherwise
+        this method will simply kick off the VM deployment process and return
+        immediately.
 
         Arguments:
             - parameters    A parameter map containing the keys 'infrastructure',
@@ -140,7 +148,7 @@ class InfrastructureManager:
         Returns:
             If the secret is valid and all the required parameters are available in
             the input parameter map, this method will return a dictionary containing
-            a special 'reservation_id' key. If tje secret is invalid or a required
+            a special 'reservation_id' key. If the secret is invalid or a required
             parameter is missing, this method will return a different map with the
             key 'success' set to False and 'reason' set to a simple error message.
         """
@@ -179,7 +187,10 @@ class InfrastructureManager:
             'vm_info' : None
         }
         print 'Generated reservation id {0} for this request.'.format(reservation_id)
-        thread.start_new_thread(self.__spawn_vms, (agent, num_vms, parameters, reservation_id))
+        if self.blocking:
+            self.__spawn_vms(agent, num_vms, parameters, reservation_id)
+        else:
+            thread.start_new_thread(self.__spawn_vms, (agent, num_vms, parameters, reservation_id))
         print 'Successfully started request {0}.'.format(reservation_id)
         return self.__generate_response(True, self.REASON_NONE, { 'reservation_id' : reservation_id })
 
@@ -191,8 +202,9 @@ class InfrastructureManager:
         environment specific parameters should also be available in the same
         map.
 
-        VM termination could take a fairly long time. Therefore this method
-        simply initiates the termination process and returns.
+        If this InfrastructureManager instance has been created in the blocking mode,
+        this method will not return until the VM deployment is complete. Otherwise
+        this method simply starts the VM termination process and returns immediately.
 
         Arguments:
             - parameters    A dictionary of parameters containing the required
@@ -224,7 +236,10 @@ class InfrastructureManager:
         except AgentConfigurationException as e:
             return self.__generate_response(False, e.message)
 
-        thread.start_new_thread(self.__kill_vms, (agent, parameters))
+        if self.blocking:
+            self.__kill_vms(agent, parameters)
+        else:
+            thread.start_new_thread(self.__kill_vms, (agent, parameters))
         return self.__generate_response(True, self.REASON_NONE)
 
     def __spawn_vms(self, agent, num_vms, parameters, reservation_id):

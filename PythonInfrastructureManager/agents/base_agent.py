@@ -108,5 +108,10 @@ class BaseAgent:
         pass
 
 class AgentConfigurationException(Exception):
+    """
+    An agent implementation may throw this exception when it detects that a
+    given cloud configuration is missing some required parameters or contains
+    invalid values.
+    """
     def __init__(self,msg):
         Exception.__init__(self, msg)

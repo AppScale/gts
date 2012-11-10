@@ -10,26 +10,28 @@ class TestEC2Agent(TestCase):
 
     def test_ec2_run_instances(self):
         self.do_set_up('ec2')
-        self.run_instances('ec2')
+        self.run_instances('ec2', True)
+        self.run_instances('ec2', False)
         self.do_tear_down('ec2')
 
     def test_ec2_terminate_instances(self):
         self.do_set_up('ec2')
-        self.terminate_instances('ec2')
+        self.terminate_instances('ec2', True)
+        self.terminate_instances('ec2', False)
         self.do_tear_down('ec2')
 
     def test_euca_run_instances(self):
         self.do_set_up('euca')
-        self.run_instances('euca')
+        self.run_instances('euca', False)
         self.do_tear_down('euca')
 
     def test_euca_terminate_instances(self):
         self.do_set_up('euca')
-        self.terminate_instances('euca')
+        self.terminate_instances('euca', False)
         self.do_tear_down('euca')
 
-    def run_instances(self, prefix):
-        i = InfrastructureManager()
+    def run_instances(self, prefix, blocking):
+        i = InfrastructureManager(blocking)
 
         # first, validate that the run_instances call goes through successfully
         # and gives the user a reservation id
@@ -57,7 +59,8 @@ class TestEC2Agent(TestCase):
         # next, look at run_instances internally to make sure it actually is
         # updating its reservation info
         # Chris: How was this race condition addressed by the Ruby test?
-        time.sleep(2)
+        if not blocking:
+            time.sleep(2)
         self.assertEquals(InfrastructureManager.STATE_RUNNING, i.reservations[id]['state'])
 
         vm_info = i.reservations[id]['vm_info']
@@ -65,8 +68,8 @@ class TestEC2Agent(TestCase):
         self.assertEquals(['private-ip'], vm_info['private_ips'])
         self.assertEquals(['i-id'], vm_info['instance_ids'])
 
-    def terminate_instances(self, prefix):
-        i = InfrastructureManager()
+    def terminate_instances(self, prefix, blocking):
+        i = InfrastructureManager(blocking)
 
         params1 = { 'infrastructure' : prefix }
         result1 = i.terminate_instances(params1, 'secret')
@@ -80,7 +83,6 @@ class TestEC2Agent(TestCase):
         }
         result2 = i.terminate_instances(params2, 'secret')
         self.assertTrue(result2['success'])
-        time.sleep(2)
 
     def do_set_up(self, prefix):
         (flexmock(utils)
