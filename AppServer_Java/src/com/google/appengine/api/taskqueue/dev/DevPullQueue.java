@@ -20,8 +20,10 @@ import com.google.apphosting.utils.config.QueueXml;
 
 public class DevPullQueue extends DevQueue
 {
-    private Map<String, TaskQueuePb.TaskQueueAddRequest> taskMap = Collections.synchronizedMap(new HashMap<String, TaskQueuePb.TaskQueueAddRequest>());
+    private Map<String, TaskQueuePb.TaskQueueAddRequest> taskMap                   = Collections.synchronizedMap(new HashMap<String, TaskQueuePb.TaskQueueAddRequest>());
     private Clock                                        clock;
+    private double                                       oneSecondInMilli          = 1000;
+    private double                                       oneThousandSecondsInMilli = 1000000;
 
     TaskQueuePb.TaskQueueMode.Mode getMode()
     {
@@ -227,7 +229,7 @@ public class DevPullQueue extends DevQueue
         for (QueueStateInfo.TaskStateInfo task : tasks)
         {
             TaskQueuePb.TaskQueueAddRequest addRequest = task.getAddRequest();
-            addRequest.setEtaUsec((long)(nowMillis * 1000.0D + leaseSeconds * 1000000.0D));
+            addRequest.setEtaUsec((long)(nowMillis * oneSecondInMilli + leaseSeconds * oneThousandSecondsInMilli));
             result.add(addRequest);
         }
 
@@ -250,13 +252,13 @@ public class DevPullQueue extends DevQueue
             throw new ApiProxy.ApplicationException(TaskQueuePb.TaskQueueServiceError.ErrorCode.TASK_LEASE_EXPIRED.getValue());
         }
 
-        long timeNowUsec = System.currentTimeMillis() * 1000;
+        long timeNowUsec = System.currentTimeMillis() * (long)oneSecondInMilli;
         if (task.getEtaUsec() < timeNowUsec)
         {
             throw new ApiProxy.ApplicationException(TaskQueuePb.TaskQueueServiceError.ErrorCode.TASK_LEASE_EXPIRED.getValue());
         }
 
-        long requestLeaseUsec = (long)(request.getLeaseSeconds() * 1000000);
+        long requestLeaseUsec = (long)(request.getLeaseSeconds() * oneThousandSecondsInMilli);
         long etaUsec = timeNowUsec + requestLeaseUsec;
         task.setEtaUsec(etaUsec);
         response.setUpdatedEtaUsec(etaUsec);

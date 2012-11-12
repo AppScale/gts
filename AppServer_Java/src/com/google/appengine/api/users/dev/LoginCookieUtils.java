@@ -34,8 +34,8 @@ public final class LoginCookieUtils
 
     /*
      * AppScale -- replaced method body -- should not be called b/c
-     * AppLoadBalancer handles this now Chandra says: this method is not called
-     * as far as I can tell, so adding Exception to catch when it is, so we know
+     * AppLoadBalancer handles this now, this method is not called
+     * so adding Exception to catch when it is
      */
     public static Cookie createCookie( String email, boolean isAdmin )
     {

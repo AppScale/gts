@@ -42,13 +42,17 @@ import com.google.apphosting.api.ApiProxy;
 @ServiceProvider(LocalRpcService.class)
 public final class LocalMemcacheService extends AbstractLocalRpcService
 {
-    private static final Logger               logger           = Logger.getLogger(LocalMemcacheService.class.getName());
-    public static final String                PACKAGE          = "memcache";
-    public static final String                SIZE_PROPERTY    = "memcache.maxsize";
-    private static final String               DEFAULT_MAX_SIZE = "100M";
-    private static final String               UTF8             = "UTF-8";
-    private static final BigInteger           UINT64_MIN_VALUE = BigInteger.valueOf(0L);
-    private static final BigInteger           UINT64_MAX_VALUE = new BigInteger("FFFFFFFFFFFFFFFF", 16);
+    private static final Logger               logger               = Logger.getLogger(LocalMemcacheService.class.getName());
+    public static final String                PACKAGE              = "memcache";
+    public static final String                SIZE_PROPERTY        = "memcache.maxsize";
+    private static final String               DEFAULT_MAX_SIZE     = "100M";
+    private static final String               UTF8                 = "UTF-8";
+    private static final BigInteger           UINT64_MIN_VALUE     = BigInteger.valueOf(0L);
+    private static final BigInteger           UINT64_MAX_VALUE     = new BigInteger("FFFFFFFFFFFFFFFF", 16);
+    private final int                         MEMCACHE_PORT        = 11211;
+    private final int                         TWO_TO_TENTH_SQUARED = 1048576;
+    private final int                         TWO_TO_THE_TENTH     = 1024;
+    private final int                         MAX_REQUEST_SIZE     = 33554432;
     /*
      * AppScale - removed mockCache and lru
      */
@@ -59,8 +63,8 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
     /*
      * AppScale - Added MemcachedClient and appName
      */
-    private MemcachedClient                   memcacheClient   = null;
-    private String                            appName          = "";
+    private MemcachedClient                   memcacheClient       = null;
+    private String                            appName              = "";
 
     public LocalMemcacheService()
     {
@@ -138,7 +142,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
                 // Print the content on the console
                 String ip = strLine;
                 logger.info("Memcache adding ip: " + strLine);
-                if (isIp(ip)) ipList.add(new InetSocketAddress(ip, 11211));
+                if (isIp(ip)) ipList.add(new InetSocketAddress(ip, MEMCACHE_PORT));
             }
             // Close the input stream
             in.close();
@@ -164,7 +168,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
 
         String propValue = (String)properties.get("memcache.maxsize");
         if (propValue == null)
-            propValue = "100M";
+            propValue = DEFAULT_MAX_SIZE;
         else
         {
             propValue = propValue.toUpperCase();
@@ -173,10 +177,10 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
         if ((propValue.endsWith("M")) || (propValue.endsWith("K")))
         {
             if (propValue.endsWith("M"))
-                multiplier = 1048576;
+                multiplier = TWO_TO_TENTH_SQUARED;
             else
             {
-                multiplier = 1024;
+                multiplier = TWO_TO_THE_TENTH;
             }
             propValue = propValue.substring(0, propValue.length() - 1);
         }
@@ -445,7 +449,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
         }
         try
         {
-            value = new BigInteger(new String(ce.getValue(), "UTF-8"));
+            value = new BigInteger(new String(ce.getValue(), UTF8));
         }
         catch (NumberFormatException e)
         {
@@ -471,7 +475,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
         }
         try
         {
-            ce.setValue(value.toString().getBytes("UTF-8"));
+            ce.setValue(value.toString().getBytes(UTF8));
         }
         catch (UnsupportedEncodingException e)
         {
@@ -646,7 +650,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
 
     public Integer getMaxApiRequestSize()
     {
-        return Integer.valueOf(33554432);
+        return Integer.valueOf(MAX_REQUEST_SIZE);
     }
 
     /*

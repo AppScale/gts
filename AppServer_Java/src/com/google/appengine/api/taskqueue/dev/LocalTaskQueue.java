@@ -3,7 +3,6 @@ package com.google.appengine.api.taskqueue.dev;
 
 import com.google.appengine.api.taskqueue.InternalFailureException;
 import com.google.appengine.api.taskqueue.QueueConstants;
-//
 import com.google.appengine.api.taskqueue.TaskQueuePb;
 import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueAddRequest;
 import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueAddResponse;
@@ -84,6 +83,9 @@ public final class LocalTaskQueue extends AbstractLocalRpcService
     private LocalTaskQueueCallback      callback;
     private Thread                      shutdownHook;
     private Random                      rng;
+    private final int                   tenMinutesInMillis          = 600000;
+    private final static String         localHostIp                 = "127.0.0.1";
+    private final static long           ONE_SECOND_IN_MILLIS        = 1000;
     /*
      * AppScale - added taskNameGenerator field
      */
@@ -132,7 +134,7 @@ public final class LocalTaskQueue extends AbstractLocalRpcService
         this.fetchService = new LocalURLFetchService();
         this.fetchService.init(null, new HashMap());
 
-        this.fetchService.setTimeoutInMs(600000);
+        this.fetchService.setTimeoutInMs(tenMinutesInMillis);
 
         this.rng = new Random();
 
@@ -268,7 +270,7 @@ public final class LocalTaskQueue extends AbstractLocalRpcService
         String destAddress = localServerEnvironment.getAddress();
         if ("0.0.0.0".equals(destAddress))
         {
-            destAddress = "127.0.0.1";
+            destAddress = localHostIp;
         }
         return String.format("http://%s:%d", new Object[] { destAddress, Integer.valueOf(localServerEnvironment.getPort()) });
     }
@@ -299,7 +301,7 @@ public final class LocalTaskQueue extends AbstractLocalRpcService
 
     public String getPackage()
     {
-        return "taskqueue";
+        return PACKAGE;
     }
 
     private long currentTimeMillis()
@@ -309,7 +311,7 @@ public final class LocalTaskQueue extends AbstractLocalRpcService
 
     private long currentTimeUsec()
     {
-        return currentTimeMillis() * 1000L;
+        return currentTimeMillis() * ONE_SECOND_IN_MILLIS;
     }
 
     TaskQueuePb.TaskQueueServiceError.ErrorCode validateAddRequest( TaskQueuePb.TaskQueueAddRequest addRequest )
@@ -364,7 +366,7 @@ public final class LocalTaskQueue extends AbstractLocalRpcService
 
     static long getMaxEtaDeltaUsec()
     {
-        return QueueConstants.getMaxEtaDeltaMillis() * 1000L;
+        return QueueConstants.getMaxEtaDeltaMillis() * ONE_SECOND_IN_MILLIS;
     }
 
     @LatencyPercentiles(latency50th = 4)
@@ -414,7 +416,7 @@ public final class LocalTaskQueue extends AbstractLocalRpcService
             else
             {
                 stats.setNumTasks(this.rng.nextInt(2000) + 1);
-                stats.setOldestEtaUsec(currentTimeMillis() * 1000L);
+                stats.setOldestEtaUsec(currentTimeMillis() * ONE_SECOND_IN_MILLIS);
             }
             stats.setScannerInfo(scannerInfo);
 
