@@ -39,22 +39,10 @@ require 'repo'
 require 'user_app_client'
 require 'zkinterface'
 
-
-
-WANT_OUTPUT = true
-
-
 NO_OUTPUT = false
-
-
-# A list of App Engine apps that the AppController will start and control
-# outside of the normal start_appengine method.
-RESTRICTED_APPS = ["sisyphus"]
-
 
 $:.unshift File.join(File.dirname(__FILE__), "..", "AppDB", "zkappscale")
 require "zookeeper_helper"
-
 
 # A HTTP client that assumes that responses returned are JSON, and automatically
 # loads them, returning the result. Raises a NoMethodError if the host/URL is 
@@ -195,12 +183,6 @@ class Djinn
   # stored for execution, as well as the parameters needed to execute them
   # (e.g., input location, output location, cloud credentials).
   attr_accessor :queues_to_read
-
-
-  # Each component that writes log data to Sisyphus must register itself
-  # first, so this boolean ensures that we only register ourselves once.
-  attr_accessor :registered_with_sisyphus
-
 
   # An integer timestamp that corresponds to the last time this AppController
   # has updated @nodes, which we use to compare with a similar timestamp in
@@ -343,11 +325,6 @@ class Djinn
     # methods exposed via SOAP.
     @@secret = HelperFunctions.get_secret()
 
-    # AppController logs (see self.log_debug) are printed to stdout for
-    # immediate reading, and are buffered for delayed sending to Sisyphus, for
-    # later viewing via web. 
-    @@log_buffer = Queue.new
-
     @nodes = []
     @my_index = nil
     @creds = {}
@@ -369,7 +346,6 @@ class Djinn
     @neptune_nodes = []
     @api_status = {}
     @queues_to_read = []
-    @registered_with_sisyphus = false
     @last_updated = 0
     @app_info_map = {}
 
@@ -442,7 +418,6 @@ class Djinn
       # turned on since that was the state they started in
 
       stop_ejabberd if my_node.is_login?
-      stop_sisyphus if my_node.is_appengine?
       Repo.stop if my_node.is_shadow? or my_node.is_appengine?
 
       jobs_to_run = my_node.jobs
@@ -782,7 +757,6 @@ class Djinn
       write_zookeeper_locations
       write_neptune_info 
       update_api_status
-      send_logs_to_sisyphus
 
       update_local_nodes
 
@@ -1074,15 +1048,12 @@ class Djinn
 
   # This method is the nexus of all AppController logging - all messages get
   # sent to stdout immediately (which god will send to 
-  # /var/log/appscale/controller-17443.log for tailing), and also buffered in
-  # @@log_buffer, which eventually gets pushed to Sisyphus for viewing.
-  # See send_logs_to_sisyphus for that code.
+  # /var/log/appscale/controller-17443.log for tailing)
   # Important: Definitely do not log within the following three methods, as
   # it would cause an infinite loop.
   def self.log_debug(msg)
     time = Time.now
     self.log_to_stdout(time, msg)
-    self.log_to_buffer(time, msg)
   end
 
 
@@ -1092,15 +1063,6 @@ class Djinn
   def self.log_to_stdout(time, msg)
     Kernel.puts "[#{time}] #{msg}"
     STDOUT.flush
-  end
-
-
-  # Logs and timestamps the given message to a log queue, for later processing
-  # via the Sisyphus web app.
-  def self.log_to_buffer(time, msg)
-    sec_since_epoch = time.strftime("%s")
-    this_event = {:text => msg, :timestamp => sec_since_epoch}
-    @@log_buffer << this_event
   end
 
   
@@ -1585,128 +1547,6 @@ class Djinn
     HelperFunctions.write_file(HEALTH_FILE, json_state)
   end
 
-
-  # This method empties the logs buffer that this AppController has
-  # accumulated and pushes the logs to Sisyphus, an App Engine app that
-  # displays logs from various components.
-  # IMPORTANT: Don't write logs in the loop below, otherwise an infinite
-  # loop will be created (since you're pulling off items at the same rate
-  # that you're pushing items onto it).
-  def send_logs_to_sisyphus
-    return
-    Djinn.log_debug("Popping logs off of @@log_buffer to send to Sisyphus")
-
-    retries_left = 3
-    begin
-      if !HelperFunctions.is_port_open?(@userappserver_private_ip,  
-        UserAppClient::SERVER_PORT, HelperFunctions::USE_SSL)
-        raise Exception
-      end
-    rescue Exception => except
-      if retries_left > 0
-        Djinn.log_debug("Saw an exception of class #{except.class} when " +
-          "trying to connect to UserAppServer - trying again shortly")
-        Kernel.sleep(5)
-        retries_left -= 1
-        retry
-      else
-        Djinn.log_debug("UserAppServer at #{@userappserver_private_ip} " +
-          "does not appear to be up - will try again later.")
-        return
-      end
-    end
-
-    uac = UserAppClient.new(@userappserver_private_ip, @@secret)
-
-    host = ""
-    loop {
-      hosts = uac.get_hosts_for_app("sisyphus")
-      if hosts.length.zero?
-        Djinn.log_debug("Nobody is currently hosting the Sisyphus app - " +
-          "will try again later")
-        return
-      else
-        host = hosts[rand(hosts.length)]
-        break
-      end
-    }
-
-    retries_left = 3
-    begin
-      ip, port = host.split(":")
-      if !HelperFunctions.is_port_open?(ip, port, 
-        HelperFunctions::DONT_USE_SSL)
-        raise Exception
-      end
-    rescue Exception => except
-      if retries_left > 0
-        Djinn.log_debug("Saw an exception of class #{except.class} when " +
-          "trying to connect to Sisyphus (#{ip}:#{port}) - trying again " +
-          "shortly")
-        Kernel.sleep(5)
-        retries_left -= 1
-        retry
-      else
-        Djinn.log_debug("Sisyphus at #{ip}:#{port} does not appear to be " +
-          "up - will try again later.")
-        return
-      end
-    end
- 
-    # The first time around, we may not be registered with Sisyphus, so do
-    # so now.
-    this_component = {"name" => "AppController", "ip" => my_node.public_ip}
-    if !@registered_with_sisyphus
-      Djinn.log_debug("Not registered with Sisyphus, doing so now")
-      payload = {"payload" => JSON.dump({"components" => [this_component]})}
-      register_response = JSONClient.post("http://#{host}/component", 
-        :body => '', :query => payload)
-      Djinn.log_debug("Done registering with Sisyphus, received a response" +
-        " of #{register_response.inspect}")
-      @registered_with_sisyphus = true
-    end
-
-    # If Sisyphus isn't ready for requests, it may reject requests, so send
-    # it a dummy log to see if it's ready for us
-    if !post_logs_to_sisyphus(host, [{:text => "Dummy log message", 
-      :timestamp => Time.now.to_i}])
-      Djinn.log_debug("Saw a problem pushing dummy log to Sisyphus - " + 
-        " will try again later.")
-      return
-    end
-
-    # Now that we know that the Sisyphus app is up, dump our logs to it.
-    logs_to_push = []
-    loop {
-      break if @@log_buffer.empty?
-      logs_to_push << @@log_buffer.pop
-    }
-    Djinn.log_debug("Sending #{logs_to_push.length} logs to Sisyphus")
- 
-    # do a POST /logs
-    post_logs_to_sisyphus(host, logs_to_push)
-  end
-
-  
-  def post_logs_to_sisyphus(host, logs_to_push)
-    this_component = {"name" => "AppController", "ip" => my_node.public_ip,
-      "logs" => logs_to_push}
-    payload = {:body => {:payload => JSON.dump(this_component)}}
-
-    begin
-      send_response = JSONClient.post("http://#{host}/log", payload)
-    rescue Exception => e
-      Djinn.log_debug("Posting to Sisyphus saw an exception of class " +
-        "#{e.class}")
-      return false
-    end
-
-    Djinn.log_debug("Done pushing logs to Sisyphus, received a response" +
-      " of #{send_response.inspect}")
-    return true
-  end
-
-
   # Backs up information about what this node is doing (roles, apps it is
   # running) to ZooKeeper, for later recovery or updates by other nodes.
   def write_our_node_info
@@ -2166,7 +2006,6 @@ class Djinn
     Repo.init(repo_ip, repo_private_ip,  @@secret)
 
     if my_node.is_shadow? or my_node.is_appengine?
-      start_sisyphus
       Repo.start(get_login.public_ip, @userappserver_private_ip)
     end
 
@@ -2770,7 +2609,7 @@ HOSTS
       app_list = uac.get_all_apps()
       Djinn.log_debug("All apps are [#{app_list.join(', ')}]")
       app_list.each { |app|
-        if uac.does_app_exist?(app) and !RESTRICTED_APPS.include?(app)
+        if uac.does_app_exist?(app)
           Djinn.log_debug("App #{app} is enabled, so restoring it")
           @app_names = @app_names + [app]
         else
@@ -2987,7 +2826,6 @@ HOSTS
   # are sitting in haproxy's queue, waiting to be served.
   def perform_scaling_for_appservers()
     @apps_loaded.each { |app_name|
-      next if RESTRICTED_APPS.include?(app_name)
 
       Djinn.log_debug("Deciding whether to scale AppServers for #{app_name}")
         
@@ -3440,93 +3278,6 @@ HOSTS
     end
 
     return creds
-  end
-
-  def start_sisyphus
-    # its just another app engine app - but since numbering starts
-    # at zero, this app has to be app neg two
-
-    # TODO: tell the tools to disallow uploading apps called 'sisyphus'
-    # and start_appengine to do the same
-    # TODO: this code is copy-pasted from repo - should be a way to
-    # extract this code to a helper function of some kind
-
-    Djinn.log_debug("Starting Sisyphus")
-
-    num_servers = 3
-    app_number = -2
-    nginx_port = 8078
-    start_port = 19994
-    app = "sisyphus"
-    app_language = "python"
-    app_version = "1"
-
-    app_location = "/var/apps/#{app}/app"
-    Djinn.log_run("mkdir -p #{app_location}")
-    Djinn.log_run("cp -r #{APPSCALE_HOME}/AppServer/demos/sisyphus/* #{app_location}")
-    HelperFunctions.setup_app(app, untar=false)
-
-    my_public = my_node.public_ip
-    my_private = my_node.private_ip
-    public_login_ip = get_login.public_ip
-    private_login_ip = get_login.private_ip
-  
-    begin
-      static_handlers = HelperFunctions.parse_static_data(app)
-    rescue Exception => e
-      error_msg = "ERROR: Unable to parse app.yaml file for #{app}." + \
-                  " Exception of type #{e.class}. Exception message #{e.message}"
-      place_error_app(app, error_msg)
-    end
-    proxy_port = HAProxy.app_listen_port(app_number)
-    Nginx.write_app_config(app, app_number, my_public, my_private, proxy_port, static_handlers, private_login_ip)
-    HAProxy.write_app_config(app, app_number, num_servers, my_private)
-    Collectd.write_app_config(app)
-
-    [19994, 19995, 19996].each { |port|
-      Djinn.log_debug("Starting #{app_language} app #{app} on " +
-        "#{HelperFunctions.local_ip}:#{port}")
-      pid = HelperFunctions.run_app(app, port, @userappserver_private_ip, 
-        my_public, my_private, app_version, app_language, nginx_port, public_login_ip)
-      pid_file_name = "#{APPSCALE_HOME}/.appscale/#{app}-#{port}.pid"
-      HelperFunctions.write_file(pid_file_name, pid)
-    }
-
-    Nginx.reload
-    Collectd.restart
-
-    # Register the application with the UserAppServer so that we can use the
-    # AppLoadBalancer to route traffic to it, or let clients query the UAServer
-    # to see where it's hosted.
-    uac = UserAppClient.new(@userappserver_private_ip, @@secret)
-
-    cloud_admin = ""
-    begin
-      cloud_admin = uac.get_cloud_admin()
-      Djinn.log_debug("Registering Sisyphus with cloud admin #{cloud_admin}")
-    rescue Exception
-      Djinn.log_debug("No cloud admin found - waiting for the tools to " +
-        "register one.") 
-      Kernel.sleep(5)
-      retry
-    end
-
-    uac.commit_new_app_name(cloud_admin, app, app_language)
-
-    loop {
-      Kernel.sleep(5)
-      success = uac.add_instance(app, my_public, nginx_port)
-      Djinn.log_debug("Add instance returned #{success}")
-      break if success
-    }
-
-    @apps_loaded << "sisyphus"
-    Djinn.log_debug("Done starting Sisyphus!")
-  end
-
-  def stop_sisyphus
-    Djinn.log_debug("Stopping Sisyphus")
-    stop_app("sisyphus", @@secret)
   end
 
   def start_open
