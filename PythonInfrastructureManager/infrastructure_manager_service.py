@@ -13,7 +13,7 @@ APPSCALE_DIR = '/etc/appscale/'
 
 class InfrastructureManagerService:
 
-    def __init__(self, host, port):
+    def __init__(self, host, port, ssl = True):
         self.host = host
         self.port = port
 
@@ -28,20 +28,24 @@ class InfrastructureManagerService:
         utils.log('Found the secret set to: {0}'.format(secret))
 
         SOAPpy.Config.simplify_objects = True
-        utils.log('Checking for the certificate and private key')
-        cert = APPSCALE_DIR + 'certs/mycert.pem'
-        key = APPSCALE_DIR + 'certs/mykey.pem'
-        while True:
-            if os.path.exists(cert) and os.path.exists(key):
-                break
-            else:
-                utils.log('Waiting for certificates')
-                utils.sleep(5)
 
-        ssl_context = SSL.Context()
-        ssl_context.load_cert(cert, key)
+        if ssl:
+            utils.log('Checking for the certificate and private key')
+            cert = APPSCALE_DIR + 'certs/mycert.pem'
+            key = APPSCALE_DIR + 'certs/mykey.pem'
+            while True:
+                if os.path.exists(cert) and os.path.exists(key):
+                    break
+                else:
+                    utils.log('Waiting for certificates')
+                    utils.sleep(5)
 
-        self.server = SOAPpy.SOAPServer((host, port), ssl_context = ssl_context)
+            ssl_context = SSL.Context()
+            ssl_context.load_cert(cert, key)
+            self.server = SOAPpy.SOAPServer((host, port), ssl_context = ssl_context)
+        else:
+            self.server = SOAPpy.SOAPServer((host, port))
+
         i = InfrastructureManager()
         self.server.registerFunction(i.describe_instances)
         self.server.registerFunction(i.run_instances)

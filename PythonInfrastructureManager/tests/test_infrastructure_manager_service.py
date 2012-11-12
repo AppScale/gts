@@ -22,7 +22,7 @@ class TestInfrastructureManagerService(TestCase):
 
 
     def test_service(self):
-        proxy = SOAPpy.SOAPProxy('https://{0}:{1}'.format(DEFAULT_HOST, self.port))
+        proxy = SOAPpy.SOAPProxy('http://{0}:{1}'.format(DEFAULT_HOST, self.port))
         result = proxy.describe_instances({ InfrastructureManager.PARAM_RESERVATION_ID : 'foo' },
             'wrong_secret')
         self.assertFalse(result['success'])
@@ -37,7 +37,7 @@ class TestInfrastructureManagerService(TestCase):
         port = self.DEFAULT_TEST_PORT
         while True:
             try:
-                service = InfrastructureManagerService(DEFAULT_HOST, port)
+                service = InfrastructureManagerService(DEFAULT_HOST, port, False)
                 thread.start_new_thread(service.start, ())
                 return service, port
             except Exception:
