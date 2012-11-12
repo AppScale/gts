@@ -107,6 +107,8 @@ class InfrastructureManager:
             and 'reason' where 'success' would be set to False, and 'reason' is
             set to a simple error message describing the cause of the error.
         """
+        print parameters
+        print secret
         if type(parameters) != type({}) or type(secret) != type(''):
             return self.__generate_response(False, self.REASON_BAD_ARGUMENTS)
 
@@ -243,7 +245,7 @@ class InfrastructureManager:
         return self.__generate_response(True, self.REASON_NONE)
 
     def __spawn_vms(self, agent, num_vms, parameters, reservation_id):
-        agent.set_environment_variables(parameters, '1')
+        agent.set_environment_variables(parameters)
         security_configured = agent.configure_instance_security(parameters)
         ids, public_ips, private_ips = agent.run_instances(num_vms, parameters, security_configured)
         self.reservations[reservation_id]['state'] = self.STATE_RUNNING
@@ -255,7 +257,7 @@ class InfrastructureManager:
         print 'Successfully finished request {0}.'.format(reservation_id)
 
     def __kill_vms(self, agent, parameters):
-        agent.set_environment_variables(parameters, '1')
+        agent.set_environment_variables(parameters)
         agent.terminate_instances(parameters)
 
     def __generate_response(self, status, msg, extra = None):

@@ -1,5 +1,6 @@
 from os import environ
 from unittest.case import TestCase
+from flexmock import flexmock
 from utils import utils
 
 __author__ = 'hiranya'
@@ -16,6 +17,46 @@ class TestUtils(TestCase):
 
         result = utils.flatten([ ['foo'], [ 'bar', '123' ]])
         self.assertEquals(ref, result)
+
+    def test_convert_fqdn_to_ip(self):
+        google_ip = """74.125.224.167
+74.125.224.165
+74.125.224.161
+74.125.224.163
+74.125.224.160
+74.125.224.166
+74.125.224.174
+74.125.224.162
+74.125.224.169
+74.125.224.164
+74.125.224.168"""
+        (flexmock(utils)
+             .should_receive('shell')
+             .with_args('dig {0} +short'.format('google.com'))
+             .and_return(google_ip))
+
+        (flexmock(utils)
+             .should_receive('shell')
+             .with_args('dig {0} +short'.format('appscale.com'))
+             .and_return('107.21.138.175'))
+
+        ip = utils.convert_fqdn_to_ip('google.com')
+        self.assertEquals(ip, '74.125.224.167')
+
+        ip = utils.convert_fqdn_to_ip('appscale.com')
+        self.assertEquals(ip, '107.21.138.175')
+
+        ip = utils.convert_fqdn_to_ip('1.2.3.4')
+        self.assertEquals(ip, '1.2.3.4')
+
+        (flexmock(utils)
+             .should_receive('shell')
+             .with_args('dig {0} +short'.format('google.com'))
+             .reset())
+        (flexmock(utils)
+             .should_receive('shell')
+             .with_args('dig {0} +short'.format('appscale.com'))
+             .reset())
 
     def test_random_alphanumeric(self):
         result = utils.get_random_alphanumeric()

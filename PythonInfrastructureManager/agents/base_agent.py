@@ -14,7 +14,7 @@ class BaseAgent:
     OPERATION_RUN = 'run'
     OPERATION_TERMINATE = 'terminate'
 
-    def set_environment_variables(self, parameters, cloud_num):
+    def set_environment_variables(self, parameters):
         """
         Set any cloud platform specific environment variables
         in the current process.
@@ -25,7 +25,6 @@ class BaseAgent:
                             in the current process as environment variables.
                             Agent implementations may decide which subset of
                             parameters should be set as environment variables.
-            - cloud_num     A string identifier
         """
         pass
 

@@ -36,7 +36,6 @@ class TestEC2Agent(TestCase):
         # first, validate that the run_instances call goes through successfully
         # and gives the user a reservation id
         full_params = {
-            # Chris: Why this wasn't an issue in Ruby?
             'credentials' : {'a' : 'b', 'CLOUD1_EC2_URL' : 'http://ec2.url.com'},
             'group' : 'boogroup',
             'image_id' : 'booid',
@@ -45,7 +44,6 @@ class TestEC2Agent(TestCase):
             'keyname' : 'bookeyname',
             'num_vms' : '1',
             'spot' : 'False',
-            'cloud' : 1 # Chris: How on earth the Ruby test is passing without this?
         }
 
         id = '0000000000'  # no longer randomly generated
@@ -58,7 +56,6 @@ class TestEC2Agent(TestCase):
 
         # next, look at run_instances internally to make sure it actually is
         # updating its reservation info
-        # Chris: How was this race condition addressed by the Ruby test?
         if not blocking:
             time.sleep(2)
         self.assertEquals(InfrastructureManager.STATE_RUNNING, i.reservations[id]['state'])
@@ -82,6 +79,8 @@ class TestEC2Agent(TestCase):
             'instance_ids' : [ 'i-12345' ]
         }
         result2 = i.terminate_instances(params2, 'secret')
+        if not blocking:
+            time.sleep(2)
         self.assertTrue(result2['success'])
 
     def do_set_up(self, prefix):

@@ -54,16 +54,16 @@ class EC2Agent(BaseAgent):
     def __init__(self):
         self.prefix = 'ec2'
 
-    def set_environment_variables(self, parameters, cloud_num):
+    def set_environment_variables(self, parameters):
         variables = parameters[PARAM_CREDENTIALS]
-        prefix = 'CLOUD' + str(cloud_num) + '_'
+        prefix = 'CLOUD_'
         for key, value in variables.items():
             if key.startswith(prefix):
                 environ[key[len(prefix):]] = value
 
         if environ.has_key('EC2_JVM_ARGS'):
             del(environ['EC2_JVM_ARGS'])
-        ec2_keys_dir = abspath('/etc/appscale/keys/cloud' + str(cloud_num))
+        ec2_keys_dir = abspath('/etc/appscale/keys')
         environ['EC2_PRIVATE_KEY'] = ec2_keys_dir + '/mykey.pem'
         environ['EC2_CERT'] = ec2_keys_dir + '/mycert.pem'
         print 'Setting private key to: {0} and certificate to: {1}'.format(
@@ -72,12 +72,11 @@ class EC2Agent(BaseAgent):
     def configure_instance_security(self, parameters):
         keyname = parameters[PARAM_KEYNAME]
         group = parameters[PARAM_GROUP]
-        cloud = parameters['cloud'] #Chris: What is this?
-        ssh_key = abspath('/etc/appscale/keys/{0}/{1}.key'.format(cloud, keyname))
+        ssh_key = abspath('/etc/appscale/keys/{0}.key'.format(keyname))
         print 'About to spawn EC2 instances - Expecting to find a key at', ssh_key
         print get_obscured_env(['EC2_ACCESS_KEY', 'EC2_SECRET_KEY'])
         if not exists(ssh_key):
-            print 'Creating keys/security group for', cloud
+            print 'Creating keys/security group'
             ec2_output = ''
             while True:
                 ec2_output = utils.shell('{0}-add-keypair {1} 2>&1'.format(self.prefix, keyname))
@@ -92,7 +91,7 @@ class EC2Agent(BaseAgent):
             utils.shell('{0}-authorize {1} -s 0.0.0.0/0 -P icmp -t -1:-1 2>&1'.format(self.prefix, group))
             return True
         else:
-            print 'Not creating keys/security group for', cloud
+            print 'Not creating keys/security group'
             return False
 
     def assert_required_parameters(self, parameters, operation):
@@ -122,11 +121,10 @@ class EC2Agent(BaseAgent):
         instance_type = parameters[PARAM_INSTANCE_TYPE]
         keyname = parameters[PARAM_KEYNAME]
         group = parameters[PARAM_GROUP]
-        cloud = parameters['cloud']
         spot = False
 
-        print '[{0}] [{1}] [{2}] [{3}] [ec2] [{4}] [{5}] [{6}]'.format(count,
-            image_id, instance_type, keyname, cloud, group, spot)
+        print '[{0}] [{1}] [{2}] [{3}] [ec2] [{4}] [{5}]'.format(count,
+            image_id, instance_type, keyname, group, spot)
 
         start_time = datetime.now()
         active_public_ips = []
