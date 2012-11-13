@@ -86,7 +86,7 @@ class DevAppServerImpl implements DevAppServer
             this.apiProxyLocal.appendProperties(this.mainContainer.getServiceProperties());
 
             /*
-             * AppScale - added config and setting system property if config is
+             * AppScale - added config and setting system property if config isn't
              * null
              */
             AppEngineWebXml config = this.mainContainer.getAppEngineWebXmlConfig();
