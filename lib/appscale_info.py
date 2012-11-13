@@ -5,6 +5,7 @@ to AppScale and the current node/machine
 """
 import logging
 import multiprocessing
+import yaml
 
 import file_io
 import constants
@@ -46,3 +47,11 @@ def get_num_cpus():
   
   return multiprocessing.cpu_count() 
 
+def get_db_info():
+  """ Get information on the database being used
+  
+  Returns:
+    A dictionary with database info
+  """
+  info = file_io.read(constants.DB_INFO_LOC) 
+  return yaml.load(info) 

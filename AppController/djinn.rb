@@ -47,6 +47,9 @@ WANT_OUTPUT = true
 NO_OUTPUT = false
 
 
+# IP of localhost used to connect to local services
+LOCALHOST = '127.0.0.1'
+
 # A list of App Engine apps that the AppController will start and control
 # outside of the normal start_appengine method.
 RESTRICTED_APPS = ["sisyphus"]
@@ -700,7 +703,7 @@ class Djinn
         end
 
         # TODO God does not shut down the application, so do it here for 
-        # A temp fix.
+        # A hack fix.
         Djinn.log_run("ps -ef | grep dev_appserver | grep #{app_name} | grep -v grep | grep cookie_secret | awk '{print $2}' | xargs kill -9")
         result = "true"
       end
@@ -1217,6 +1220,20 @@ class Djinn
       end
     }
     return ae_nodes
+  end
+
+  def get_all_dbslave_nodes()
+    # Gets the private IPs of all the database slave nodes.
+    #
+    # Returns:
+    #   An array of ips 
+    db_nodes = []
+    @nodes.each { |node|
+      if node.is_db_slave?
+        db_nodes << node.private_ip
+      end
+    }
+    return db_nodes
   end
 
   def get_load_balancer_ip()
@@ -2764,6 +2781,7 @@ HOSTS
     Djinn.log_debug("Starting appengine - pbserver is at [#{@userappserver_private_ip}]")
 
     uac = UserAppClient.new(@userappserver_private_ip, @@secret)
+    app_manager = AppManagerClient.new(LOCALHOST)
 
     if @restored == false #and restore_from_db?
       Djinn.log_debug("Need to restore")
@@ -2884,9 +2902,11 @@ HOSTS
           @app_info_map[app][:appengine] << @appengine_port
 
           xmpp_ip = get_login.public_ip
-          pid = HelperFunctions.run_app(app, @appengine_port, 
-            @userappserver_private_ip, get_load_balancer_ip(), my_private, 
-            app_version, app_language, @nginx_port, xmpp_ip)
+
+          pid = app_manager.start_app(app, @appengine_port, 
+            get_load_balancer_ip(), @nginx_port, app_language, 
+            xmpp_ip, get_all_dbslave_nodes())
+
           if pid == -1
             place_error_app(app, "ERROR: Unable to start application " + \
                 "#{app}. Please check the application logs.") 
@@ -2894,11 +2914,6 @@ HOSTS
 
           pid_file_name = "/etc/appscale/#{app}-#{@appengine_port}.pid"
           HelperFunctions.write_file(pid_file_name, pid)
-
-          location = "http://#{my_private}:#{@appengine_port}#{warmup_url}"
-          wget_cmd = "wget #{WGET_OPTIONS} #{location}"
- 
-          Djinn.log_run(wget_cmd)
 
           @appengine_port += 1
         }
@@ -3197,6 +3212,8 @@ HOSTS
     @state = "Adding an AppServer for #{app}"
 
     uac = UserAppClient.new(@userappserver_private_ip, @@secret)
+    app_manager = AppManagerClient.new(LOCALHOST)
+
     warmup_url = "/"
 
     app_data = uac.get_app_data(app)
@@ -3241,19 +3258,19 @@ HOSTS
       my_private)     
 
     Djinn.log_debug("Adding #{app_language} app #{app} on #{HelperFunctions.local_ip}:#{@appengine_port} ")
+
     xmpp_ip = get_login.public_ip
-    pid = HelperFunctions.run_app(app, @appengine_port, @userappserver_private_ip, get_load_balancer_ip(), my_private, app_version, app_language, nginx_port, xmpp_ip)
+
+    pid = app_manager.start_app(app, @appengine_port, 
+            get_load_balancer_ip(), @nginx_port, app_language, 
+            xmpp_ip, get_all_dbslave_nodes())
+
     if pid == -1
       Djinn.log_debug("ERROR: Unable to start application #{app} on port #{@appengine_port}.") 
       next
     end
     pid_file_name = "#{APPSCALE_HOME}/.appscale/#{app}-#{@appengine_port}.pid"
     HelperFunctions.write_file(pid_file_name, pid)
-
-    location = "http://#{my_private}:#{@appengine_port}#{warmup_url}"
-    wget_cmd = "wget #{WGET_OPTIONS} #{location}"
-        
-    Djinn.log_run(wget_cmd)
 
     @appengine_port += 1
 
@@ -3486,8 +3503,10 @@ HOSTS
     [19994, 19995, 19996].each { |port|
       Djinn.log_debug("Starting #{app_language} app #{app} on " +
         "#{HelperFunctions.local_ip}:#{port}")
-      pid = HelperFunctions.run_app(app, port, @userappserver_private_ip, 
-        my_public, my_private, app_version, app_language, nginx_port, public_login_ip)
+      pid = app_manager.start_app(app, port,
+            get_load_balancer_ip(), @nginx_port, app_language, 
+            public_login_ip, get_all_dbslave_nodes())
+
       pid_file_name = "#{APPSCALE_HOME}/.appscale/#{app}-#{port}.pid"
       HelperFunctions.write_file(pid_file_name, pid)
     }
@@ -3499,6 +3518,7 @@ HOSTS
     # AppLoadBalancer to route traffic to it, or let clients query the UAServer
     # to see where it's hosted.
     uac = UserAppClient.new(@userappserver_private_ip, @@secret)
+
 
     cloud_admin = ""
     begin

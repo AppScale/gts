@@ -4,22 +4,23 @@
 
 # Imports within Ruby's standard libraries
 require 'base64'
+require 'json'
 require 'openssl'
 require 'soap/rpc/driver'
 require 'timeout'
 
 # Number of seconds to wait before timing out when doing a SOAP call.
-# This number should be hire than the maximum time required for remote calls
+# This number should be higher than the maximum time required for remote calls
 # to properly execute.
 MAX_TIME_OUT = 180
 
 # This is transitional glue code as we shift from ruby to python. The 
 # AppManager is written in python and hence we use a SOAP client to communicate
 # between the two services
-class AppManager
+class AppManagerClient
   attr_reader :conn, :ip
 
-  # The port that the AppManager binds to, by default.
+  # The port that the AppManager binds to.
   SERVER_PORT = 49934
 
   def initialize(ip)
@@ -28,10 +29,12 @@ class AppManager
     @conn = SOAP::RPC::Driver.new("https://#{@ip}:#{SERVER_PORT}")
     @conn.add_method("start_app", "configuration")
     @conn.add_method("stop_app", "app_name")
-    @conn.add_method("get_app_listing")
   end
 
   def make_call(timeout, retry_on_except)
+    #
+    #  This code was copy/pasted from app_controller_client
+    #
     result = ""
     begin
       Timeout::timeout(timeout) do
@@ -78,18 +81,22 @@ class AppManager
     #   db_locations: A list of datastore server IPs
     # Returns:
     #   The PID of the process started
+    # Note:
+    #   We currently send hashes over in SOAP using json because 
+    #   of incompatibilities between SOAP mappings from ruby to python. 
+    #   As we convert over to python we should use native dictionaries.
     
-    configuration = {'app_name' => app_name,
-                     'app_port' => app_port,
-                     'load_balancer_ip' => load_balancer_ip,
-                     'load_balancer_port' => load_balancer_port,
-                     'language' => language,
-                     'xmpp_ip' => xmpp_ip,
-                     'dblocations' => db_locations}
-    
+    config = {'app_name' => app_name,
+              'app_port' => app_port,
+              'load_balancer_ip' => load_balancer_ip,
+              'load_balancer_port' => load_balancer_port,
+              'language' => language,
+              'xmpp_ip' => xmpp_ip,
+              'dblocations' => db_locations}
+    config = JSON.loads(config)
     result = ""
     make_call(MAX_TIME_OUT, retry_on_except) { 
-      result = @conn.start_app(configuration)
+      result = @conn.start_app(config)
     }
     return result
   end

@@ -677,24 +677,25 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     #  raise apiproxy_errors.ApplicationError(datastore_pb.Error.BAD_REQUEST,
     #                                         'Index already exists.')
 
-    self._RemoteSend(index, id_response, "CreateIndex")
+    #self._RemoteSend(index, id_response, "CreateIndex")
+    id_response.set_value(0)
     return id_response
 
   def _Dynamic_GetIndices(self, app_str, composite_indices):
     self.__ValidateAppId(app_str.value())
     #string_pb = api_base_pb.StringProto()
     #string_pb.set_value(app_str)
-    self._RemoteSend(app_str, composite_indices, "GetIndices")
+    #self._RemoteSend(app_str, composite_indices, "GetIndices")
     return 
 
   def _Dynamic_UpdateIndex(self, index, void):
     self.__ValidateAppId(index.app_id())
-    self._RemoteSend(index, void, "UpdateIndex")
+    #self._RemoteSend(index, void, "UpdateIndex")
     return 
     
   def _Dynamic_DeleteIndex(self, index, void):
     self.__ValidateAppId(index.app_id())
-    self._RemoteSend(index, void, "DeleteIndex")
+    #self._RemoteSend(index, void, "DeleteIndex")
     return void
 
 

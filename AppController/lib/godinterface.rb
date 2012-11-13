@@ -27,7 +27,7 @@ BOO
     body = <<'BAZ'
     PORTS.each do |port|
       God.watch do |w|
-        w.name = "appscale-#{WATCH}-#{port}"
+        w.name = "#{WATCH}-#{port}"
         w.group = WATCH
         w.interval = 30.seconds # default      
         w.start = START_CMD

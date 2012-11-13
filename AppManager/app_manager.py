@@ -1,4 +1,5 @@
 # Programmer: Navraj Chohan
+import json
 import logging
 import os
 import random
@@ -15,6 +16,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
 import constants
 import god_interface 
+import file_io
 
 # IP used for binding app_manager SOAP service
 DEFAULT_IP = '127.0.0.1'
@@ -53,7 +55,14 @@ def start_app(config):
     TypeError if config is not a dictionary
   """
 
-  if not isinstance(config, dict): raise TypeError
+ 
+  logging.info("Configuration for app received:" + str(config))
+
+  try:
+    config = json.loads(config)
+  except ValueError, e:
+    logging.error("Unable to parse configuration:" + str(e)) 
+    return BAD_PID
 
   if not is_config_valid(config): 
     logging.error("Invalid configuration for application")
@@ -65,7 +74,7 @@ def start_app(config):
   start_cmd = ""
   stop_cmd = ""
   env_vars = {}
-  watch = "app___" + config['app_name'] + "-" + str(config['app_port'])
+  watch = "app___" + config['app_name']
  
   if config['language'] == constants.PYTHON:
     start_cmd = create_python_start_cmd(config['app_name'],
@@ -76,23 +85,30 @@ def start_app(config):
                             config['xmpp_ip'],
                             config['dblocations'])
     stop_cmd = create_python_stop_cmd(config['app_port'])
+    env_vars = create_python_app_env(config['load_balancer_ip'], 
+                            config['load_balancer_port'], 
+                            config['app_name'])
   elif config['language'] == constants.JAVA:
     start_cmd = create_java_start_cmd(config['app_name'],
                             config['load_balancer_ip'],
                             config['app_port'],
                             config['load_balancer_ip'],
                             config['load_balancer_port'],
-                            config['xmpp_ip'],
                             config['dblocations'])
     stop_cmd = create_java_stop_cmd(config['app_port'])
+    env_vars = create_java_app_env()
   else:
     logging.error("Unknown application language %s for appname %s"\
                   %(config['language'], config['app_name'])) 
     return BAD_PID
 
-  config_file_loc = god_app_interface.create_config_file(watch,
-                                                     start_cmd, 
-                                                     stop_cmd, 
+  logging.info("Start command: " + str(start_cmd))
+  logging.info("Stop command: " + str(stop_cmd))
+  logging.info("Environment variables: " +str(env_vars))
+
+  config_file_loc = god_app_interface.create_config_file(str(watch),
+                                                     str(start_cmd), 
+                                                     str(stop_cmd), 
                                                      [config['app_port']],
                                                      env_vars)
 
@@ -119,19 +135,9 @@ def stop_app(app_name, port):
   """
 
   logging.info("Stopping application %s"%app_name)
-  watch = "appscale-" + app_name + "-" + str(port)
+  watch = "app___" + app_name + "-" + str(port)
   god_interface.stop(watch)
   return True
-
-def get_app_listing():
-  """ Returns a dictionary on information applications
-      running on this host.
-
-  Returns:
-    A dictionary of information on apps running on this host.
-  """
-
-  return {}
 
 ######################
 # Private Functions
@@ -191,8 +197,10 @@ def choose_db_location(db_locations):
   Raise:
     ValueError if there are no locations given in the args.
   """
+
   if len(db_locations) == 0: raise ValueError("DB locations \
      were not correctly set")
+
   index = random.randint(0, len(db_locations) - 1)
   return db_locations[index]
 
@@ -213,7 +221,7 @@ def create_python_app_env(public_ip, port, app_name):
   env_vars['MY_PORT'] = str(port)
   env_vars['APPNAME'] = app_name
   env_vars['GOMAXPROCS'] = appscale_info.get_num_cpus()
-
+  env_vars['APPSCALE_HOME'] = constants.APPSCALE_HOME
   return env_vars
 
 def create_java_app_env():
@@ -224,8 +232,9 @@ def create_java_app_env():
   Returns:
     A dictionary containing the environment variables  
   """
-
-  return {}
+  env_vars = {}
+  env_vars['APPSCALE_HOME'] = constants.APPSCALE_HOME
+  return env_vars
 
 def create_python_start_cmd(app_name,
                             login_ip, 
@@ -272,11 +281,43 @@ def create_python_start_cmd(app_name,
   
   return ' '.join(cmd)
 
-def create_java_start_cmd():
+def create_java_start_cmd(app_name,
+                          login_ip, 
+                          port, 
+                          load_balancer_host, 
+                          load_balancer_port,
+                          db_locations):
   """
+  Creates the command line to run the python application server.
+  
+  Args:
+    app_name: The name of the application to run
+    login_ip: The public IP
+    port: The local port the application server will bind to
+    load_balancer_host: The host of the load balancer
+    load_balancer_port: The port of the load balancer
+    xmpp_ip: The IP of the XMPP service
+  Returns:
+    A string of the start command.
   """
 
-  return
+  db_location = choose_db_location(db_locations)
+
+  cmd = ["cd " + constants.JAVA_APPSERVER + " &&",
+             "./genKeystore.sh &&",
+             "./appengine-java-sdk-repacked/bin/dev_appserver.sh",
+             "--port=" + str(port),
+             "--cookie_secret=" + appscale_info.get_secret(),
+             "--address=" + appscale_info.get_private_ip(),
+             "--datastore_path=" + db_location,
+             "--login_server=" + load_balancer_host,
+             "--appscale_version=1",
+             "--NGINX_ADDRESS=" + load_balancer_host,
+             "--NGINX_PORT=" + str(load_balancer_port),
+             "/var/apps/" + app_name +"/app/war/",
+             ]
+ 
+  return ' '.join(cmd)
 
 def create_python_stop_cmd(port):
   """ This creates the stop command for an application which is 
@@ -297,10 +338,10 @@ def create_python_stop_cmd(port):
   cmd = ' '.join(cmd)
 
   stop_cmd = "ps aux | grep '" + cmd +\
-             "' | grep -v grep | awk '{ print $2 }' | xargs -d '\n' kill -9"
+             "' | grep -v grep | awk '{ print $2 }' | xargs -r kill -9"
   return stop_cmd
 
-def create_java_stop_cmd():
+def create_java_stop_cmd(port):
   """ This creates the stop command for an application which is 
   uniquely identified by a port number. Additional portions of the 
   start command are included to prevent the termination of other 
@@ -312,20 +353,15 @@ def create_java_stop_cmd():
     A string of the stop command.
   """
 
-  return ""
+  cmd = ["appengine-java-sdk-repacked/bin/dev_appserver.sh",
+         "--port=" + str(port),
+         "--address=" + appscale_info.get_private_ip(),
+         "--cookie_secret=" + appscale_info.get_secret()]
 
-def run_python_app():
-  """
-  """
-  # validate that the app.yaml configuration file is there
-
-  return 
-
-def run_java_app():
-  """
-  """
-  # validate that the xml configuration file is there
-  return
+  cmd = ' '.join(cmd)
+  stop_cmd = "ps aux | grep '" + cmd + \
+             "' | grep -v grep | awk '{print $2'}' xargs -d '\n' kill -9"
+  return stop_cmd
 
 def is_config_valid(config):
   """ Takes a configuration and checks to make sure all required properties 
@@ -336,8 +372,13 @@ def is_config_valid(config):
   Returns:
     True if valid, false otherwise
   """
+
   for ii in REQUIRED_CONFIG_FIELDS:
-    if not ii in config:
+    try:
+      if config[ii]:
+        pass
+    except KeyError:
+      logging.error("Unable to find " + str(ii) + " in configuration")
       return False 
   return True
 
@@ -359,6 +400,8 @@ if __name__ == "__main__":
   server.registerFunction(start_app)
   server.registerFunction(stop_app)
 
+  file_io.set_logging_format()
+  
   while 1:
     try: 
       server.serve_forever()

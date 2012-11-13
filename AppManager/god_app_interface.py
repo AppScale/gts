@@ -17,7 +17,7 @@ def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={}):
       correct configuration.
   
   Args:
-    watch: The name of the watch
+    watch: A string which identifies this process with god
     start_cmd: The start command to start the process
     stop_cmd: The stop command to kill the process
     ports: A list of ports that are being watched
@@ -29,7 +29,7 @@ def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={}):
   Note: 
     The caller is responsible for deleting the created file.
   """
-  
+
   if not isinstance(watch, str): raise TypeError
   if not isinstance(start_cmd, str): raise TypeError
   if not isinstance(stop_cmd, str): raise TypeError
@@ -40,7 +40,7 @@ def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={}):
 
   env = ""
   for ii in env_vars:
-    env += "          \""+ii+"\" => \""+env_vars[ii]+"\",\n" 
+    env += "          \"" + str(ii) + "\" => \"" + str(env_vars[ii]) + "\",\n" 
   if env: env = "w.env = {" + env + "}"
 
   # Convert ints to strings for template formatting

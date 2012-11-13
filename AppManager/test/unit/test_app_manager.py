@@ -1,4 +1,5 @@
 # Programmer: Navraj Chohan
+import json
 import os
 import subprocess
 import sys
@@ -20,7 +21,11 @@ import god_interface
 class TestAppManager(unittest.TestCase):
   def test_start_app_badconfig(self):
     file_io.disable_logging()
-    assert -1 == app_manager.start_app({})
+    assert app_manager.BAD_PID == app_manager.start_app({})
+
+  def test_start_app_badconfig(self):
+    file_io.disable_logging()
+    assert app_manager.BAD_PID == app_manager.start_app("{'app_name':'test'}")
 
   def test_start_app_goodconfig(self):
     configuration = {'app_name': 'test',
@@ -29,7 +34,8 @@ class TestAppManager(unittest.TestCase):
                      'load_balancer_ip': '127.0.0.1',
                      'load_balancer_port': 8080,
                      'xmpp_ip': '127.0.0.1',
-                     'dblocations': ["127.0.0.1", "127.0.0.2"]}
+                     'dblocations': ['127.0.0.1', '127.0.0.2']}
+    configuration = json.dumps(configuration)
 
     flexmock(god_app_interface).should_receive('create_config_file')\
                                .and_return('fakeconfig')
@@ -40,7 +46,7 @@ class TestAppManager(unittest.TestCase):
     flexmock(os).should_receive('popen')\
                 .and_return(flexmock(read=lambda: '12345\n'))
 
-    assert -1 != app_manager.start_app(configuration)
+    assert app_manager.BAD_PID != app_manager.start_app(configuration)
 
   def test_choose_db_location(self):
     db_locations = ['127.0.0.1']
@@ -55,11 +61,49 @@ class TestAppManager(unittest.TestCase):
     assert '1' == env_vars['MY_IP_ADDRESS']
     assert '2' == env_vars['MY_PORT']
     assert '3' == env_vars['APPNAME']
+    assert 'appscale' in env_vars['APPSCALE_HOME']
     assert 0 < int(env_vars['GOMAXPROCS'])
 
+  def test_create_java_app_env(self):
+    env_vars = app_manager.create_java_app_env()
+    assert 'appscale' in env_vars['APPSCALE_HOME']
+
+  def test_create_java_start_cmd(self): 
+    fake_secret = "XXXXXX"
+    flexmock(appscale_info).should_receive('get_secret')\
+      .and_return(fake_secret)
+    flexmock(appscale_info).should_receive('get_private_ip')\
+      .and_return('<private_ip>')
+    db_locations = ['127.0.1.0', '127.0.2.0']
+    app_id = 'testapp'
+    cmd = app_manager.create_java_start_cmd(app_id,
+                                            '127.0.0.1',
+                                            '20000',
+                                            '127.0.0.2',
+                                            '8080',
+                                            db_locations)
+    assert fake_secret in cmd
+    assert app_id in cmd
+
+  def test_create_java_stop_cmd(self): 
+    fake_secret = "XXXXXX"
+    port = "20000"
+    flexmock(appscale_info).should_receive('get_secret')\
+      .and_return(fake_secret)
+    cmd = app_manager.create_java_stop_cmd(port)
+    assert port in cmd 
+    assert fake_secret in cmd 
+    assert 'kill' in cmd
+
+    # Test with a numerial port instead of a string
+    port = 20000    
+    cmd = app_manager.create_python_stop_cmd(port)
+    assert str(port) in cmd 
+ 
   def test_create_python_start_cmd(self): 
     fake_secret = "XXXXXX"
-    flexmock(appscale_info).should_receive('get_secret').and_return(fake_secret)
+    flexmock(appscale_info).should_receive('get_secret')\
+      .and_return(fake_secret)
     flexmock(appscale_info).should_receive('get_private_ip')\
       .and_return('<private_ip>')
     db_locations = ['127.0.1.0', '127.0.2.0']
@@ -77,13 +121,13 @@ class TestAppManager(unittest.TestCase):
   def test_create_python_stop_cmd(self): 
     fake_secret = "XXXXXX"
     port = "20000"
-    flexmock(appscale_info).should_receive('get_secret').and_return(fake_secret)
+    flexmock(appscale_info).should_receive('get_secret')\
+      .and_return(fake_secret)
     cmd = app_manager.create_python_stop_cmd(port)
     assert port in cmd 
     assert fake_secret in cmd 
     assert 'kill' in cmd
 
-    # Test with a numerial port instead of a string
     port = 20000    
     cmd = app_manager.create_python_stop_cmd(port)
     assert str(port) in cmd 
@@ -93,15 +137,13 @@ class TestAppManager(unittest.TestCase):
                         .and_return(0)
     app_manager.stop_app('test', 8080)
 
-  def test_get_app_listing(self):
-    app_manager.get_app_listing()
-
   def test_wait_on_app(self):
     port = 20000
     ip = '127.0.0.1'
     file_io.disable_logging()
     flexmock(urllib).should_receive('urlopen').and_return()
-    flexmock(appscale_info).should_receive('get_private_ip').and_return(ip)
+    flexmock(appscale_info).should_receive('get_private_ip')\
+      .and_return(ip)
     assert app_manager.wait_on_app(port)
 
     flexmock(time).should_receive('sleep').and_return()
@@ -115,7 +157,7 @@ class TestAppManager(unittest.TestCase):
     assert 12345 == app_manager.get_pid_from_port(54321)
     flexmock(os).should_receive('popen')\
                 .and_return(flexmock(read=lambda: ''))
-    assert -1 == app_manager.get_pid_from_port(54321)
+    assert app_manager.BAD_PID == app_manager.get_pid_from_port(54321)
 
 if __name__ == "__main__":
   unittest.main()
