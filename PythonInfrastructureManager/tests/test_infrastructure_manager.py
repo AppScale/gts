@@ -56,9 +56,20 @@ class TestInfrastructureManager(TestCase):
         result4 = i.reservations[id]
         self.assertEquals(result4, i.describe_instances(params4, "secret"))
 
-        result5 = i.describe_instances('foo', 'bar')
-        self.assertFalse(result5['success'])
-        self.assertEquals(result5['reason'], InfrastructureManager.REASON_BAD_ARGUMENTS)
+        params5 = json.dumps(params4)
+        self.assertEquals(result4, i.describe_instances(params5, "secret"))
+
+        try:
+            i.describe_instances('foo', 'bar')
+            self.fail('Must throw an exception')
+        except Exception:
+            pass
+
+        try:
+            i.describe_instances({ 'reservation_id' : 'foo' }, {})
+            self.fail('Must throw an exception')
+        except TypeError:
+            pass
 
     def test_run_instances(self):
         i = InfrastructureManager()
@@ -83,9 +94,11 @@ class TestInfrastructureManager(TestCase):
         self.assertFalse(result4['success'])
         self.assertEquals(result4['reason'], InfrastructureManager.REASON_BAD_VM_COUNT)
 
-        result5 = i.run_instances('foo', 'bar')
-        self.assertFalse(result5['success'])
-        self.assertEquals(result5['reason'], InfrastructureManager.REASON_BAD_ARGUMENTS)
+        try:
+            result5 = i.run_instances('foo', 'bar')
+            self.fail('Must throw an exception')
+        except Exception:
+            pass
 
     def test_terminate_instances(self):
         i = InfrastructureManager()
@@ -100,7 +113,9 @@ class TestInfrastructureManager(TestCase):
         self.assertFalse(result2['success'])
         self.assertEquals(result2['reason'], 'no infrastructure')
 
-        result3 = i.terminate_instances('foo', 'bar')
-        self.assertFalse(result3['success'])
-        self.assertEquals(result3['reason'], InfrastructureManager.REASON_BAD_ARGUMENTS)
+        try:
+            result3 = i.terminate_instances('foo', 'bar')
+            self.fail('Must throw an exception')
+        except Exception:
+            pass
 

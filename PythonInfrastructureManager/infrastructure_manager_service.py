@@ -6,7 +6,7 @@ from M2Crypto import SSL
 
 __author__ = 'hiranya'
 
-DEFAULT_HOST = '127.0.0.1'
+DEFAULT_HOST = '0.0.0.0'
 DEFAULT_PORT = 17444
 
 APPSCALE_DIR = '/etc/appscale/'
@@ -58,13 +58,14 @@ class InfrastructureManagerService:
         else:
             utils.log('Starting AppScale Infrastructure Manager on port: ' + str(self.port))
             self.started = True
-            self.server.serve_forever()
+            while self.started:
+                self.server.serve_forever()
 
     def stop(self):
         if self.started:
             utils.log('Stopping AppScale Infrastructure Manager')
-            self.server.shutdown()
             self.started = False
+            self.server.shutdown()
         else:
             utils.log('Warning - Stop called on already stopped server')
 
