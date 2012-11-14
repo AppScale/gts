@@ -2396,7 +2396,7 @@ class Djinn
     if is_hybrid_cloud?
       cloud_num = 1
       loop {
-        cloud_type = @creds["CLOUD#{cloud_num}_TYPE"]
+        cloud_type = @creds["CLOUD_TYPE"]
         break if cloud_type.nil? or cloud_type == ""
         cloud_keys_dir = File.expand_path("/etc/appscale/keys/cloud#{cloud_num}")
         make_dir = "mkdir -p #{cloud_keys_dir}"
