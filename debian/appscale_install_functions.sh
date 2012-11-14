@@ -419,7 +419,8 @@ installgems()
 
     # gem update
     GEMOPT="--no-rdoc --no-ri"
-    gem install rake ${GEMOPT} 
+    # Rake 10.0 depecates rake/rdoctask - upgrade later
+    gem install -v=0.9.2.2 rake ${GEMOPT} 
     sleep 1
     # ZK 1.0 breaks our existing code - upgrade later
     gem install -v=0.9.3 zookeeper
