@@ -55,15 +55,15 @@ class EC2Agent(BaseAgent):
         self.prefix = 'ec2'
 
     def set_environment_variables(self, parameters):
-        variables = parameters[PARAM_CREDENTIALS]
-        prefix = 'CLOUD_'
-        for key, value in variables.items():
-            if key.startswith(prefix):
-                environ[key[len(prefix):]] = value
-
         if environ.has_key('EC2_JVM_ARGS'):
             del(environ['EC2_JVM_ARGS'])
-        ec2_keys_dir = abspath('/etc/appscale/keys')
+
+        variables = parameters[PARAM_CREDENTIALS]
+        for key, value in variables.items():
+            print 'Setting {0} to {1} in our environment.'.format(key, value)
+            environ[key] = value
+
+        ec2_keys_dir = abspath('/etc/appscale/keys/cloud1')
         environ['EC2_PRIVATE_KEY'] = ec2_keys_dir + '/mykey.pem'
         environ['EC2_CERT'] = ec2_keys_dir + '/mycert.pem'
         print 'Setting private key to: {0} and certificate to: {1}'.format(
@@ -72,7 +72,7 @@ class EC2Agent(BaseAgent):
     def configure_instance_security(self, parameters):
         keyname = parameters[PARAM_KEYNAME]
         group = parameters[PARAM_GROUP]
-        ssh_key = abspath('/etc/appscale/keys/{0}.key'.format(keyname))
+        ssh_key = abspath('/etc/appscale/keys/cloud1/{0}.key'.format(keyname))
         print 'About to spawn EC2 instances - Expecting to find a key at', ssh_key
         print get_obscured_env(['EC2_ACCESS_KEY', 'EC2_SECRET_KEY'])
         if not exists(ssh_key):
