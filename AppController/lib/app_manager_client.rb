@@ -1,7 +1,6 @@
 #!/usr/bin/ruby -w
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
-# Imports within Ruby's standard libraries
 require 'base64'
 require 'json'
 require 'openssl'
@@ -26,6 +25,7 @@ class AppManagerClient
   SERVER_PORT = 49934
 
   # Initialization function for AppManagerClient
+  #
   def initialize()
     @conn = SOAP::RPC::Driver.new("http://#{SERVER_IP}:#{SERVER_PORT}")
     @conn.add_method("start_app", "config")
@@ -45,6 +45,7 @@ class AppManagerClient
   #   This code was copy/pasted from app_controller_client 
   #   and can be factored out to a library. Note this for 
   #   the transition to the python port.
+  #
   def make_call(timeout, retry_on_except)
     result = ""
     begin
@@ -89,6 +90,7 @@ class AppManagerClient
    #   We currently send hashes over in SOAP using json because 
    #   of incompatibilities between SOAP mappings from ruby to python. 
    #   As we convert over to python we should use native dictionaries.
+   #
    def start_app(app_name, 
                  app_port,
                  load_balancer_ip,
@@ -96,7 +98,6 @@ class AppManagerClient
                  language, 
                  xmpp_ip,
                  db_locations)
-    Djinn.log_debug("DB locations: #{db_locations}")
     config = {'app_name' => app_name,
               'app_port' => app_port,
               'load_balancer_ip' => load_balancer_ip,
@@ -120,6 +121,7 @@ class AppManagerClient
   #   port: The port the instance of the application is running
   # Returns:
   #   True on success, False otherwise
+  #
   def stop_app_instance(app_name, port)
     make_call(MAX_TIME_OUT, false){
       result = @conn.stop_app(app_name, port)
@@ -133,6 +135,7 @@ class AppManagerClient
   #   app_name: The name of the application
   # Returns:
   #   True on success, False otherwise
+  #
   def stop_app(app_name)
     make_call(MAX_TIME_OUT, false){
       result = @conn.stop_app(app_name)

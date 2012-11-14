@@ -172,26 +172,22 @@ def stop_app(app_name):
   Returns:
     True on success, False otherwise
   """
-  logging.error("1")
+
   logging.info("Stopping application %s"%app_name)
   watch = "app___" + app_name 
   god_result = god_interface.stop(watch)
-  logging.error("2")
 
   if not misc.is_app_name_valid(app_name): 
     return False
-  logging.error("3")
 
   # hack: God fails to shutdown processes so we do it via a system command
   cmd = "ps -ef | grep dev_appserver | grep " + app_name + " | grep -v grep | grep cookie_secret | awk '{print $2}' | xargs kill -9"
   if os.system(cmd) != 0:
     return False
-  logging.error("4")
   
   cmd = "rm -f " + constants.APP_PID_DIR + app_name + "-*"
   if os.system(cmd) != 0:
     return False
-  logging.error("5")
 
   return True
 

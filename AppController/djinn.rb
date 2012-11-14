@@ -544,7 +544,14 @@ class Djinn
     @app_names = app_names
     return "App names is now #{@app_names.join(', ')}"
   end
- 
+
+  # Gets the status of the current AppScale deployment
+  # 
+  # Args:
+  #   secret: The shared key for authentication
+  # Returns:
+  #   A string with the current AppScale status
+  # 
   def status(secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
@@ -571,7 +578,7 @@ class Djinn
 
       stats['apps'].each { |app_name, is_loaded|
         next if !is_loaded
-
+        next if app_name == "none"
         if !@app_info_map[app_name][:appengine].nil?
           stats_str << "    The number of AppServers for app #{app_name} is: " +
             "#{@app_info_map[app_name][:appengine].length}\n"
@@ -611,6 +618,12 @@ class Djinn
     return stats
   end
 
+  # Removes an application and stops all its running process instances
+  #
+  # Args:
+  #   app_name: The application to stop
+  #   secret: Shared key for authentication
+  #
   def stop_app(app_name, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
@@ -2667,7 +2680,6 @@ HOSTS
       loop {
         app_version = app_data.scan(/version:(\d+)/).flatten.to_s
         Djinn.log_debug("Waiting for app data to have instance info for app named #{app}: #{app_data}")
-        Djinn.log_debug("The app's version is #{app_version}, and its class is #{app_version.class}")
 
         if app_data[0..4] != "Error"
           app_version = "0" if app_version == ""
@@ -2839,6 +2851,7 @@ HOSTS
   # This method guards access to perform_scaling_for_appservers so that only 
   # one thread call it at a time. We also only perform scaling if the user 
   # wants us to, and simply return otherwise.
+  #
   def scale_appservers
     if !my_node.is_appengine?
       Djinn.log_debug("Not autoscaling, because we aren't an AppServer")
@@ -2857,11 +2870,16 @@ HOSTS
   # Adds or removes AppServers within a node based on the number of requests
   # that each application has received as well as the number of requests that
   # are sitting in haproxy's queue, waiting to be served.
+  #
+  # Note: Accessing global state should use a lock. Failure to do so causes 
+  #   race conditions where arrays are accessed using indexes that are no 
+  #   longer valid. 
+  #
   def perform_scaling_for_appservers()
     @apps_loaded.each { |app_name|
 
+      next if app_name == "none"  
       Djinn.log_debug("Deciding whether to scale AppServers for #{app_name}")
-        
       initialize_scaling_info_for_app(app_name)
 
       if is_cpu_or_mem_maxed_out?(@app_info_map[app_name][:language])
@@ -2884,6 +2902,10 @@ HOSTS
 
   # Sets up information about the request rate and number of requests in
   # haproxy's queue for the given application.
+  #
+  # Args:
+  #   app_name: The name of the application to set up info
+  #
   def initialize_scaling_info_for_app(app_name)
     return if @initialized_apps[app_name]
 
@@ -3063,6 +3085,10 @@ HOSTS
   # Starts a new AppServer for the given application.
   # TODO(cgb): This is mostly copy-pasta'd from start_appengine - consolidate
   # this somehow
+  #
+  # Args:
+  #   app: Name of the application for which we're adding a process instance
+  #
   def add_appserver_process(app)
     # Starting a appserver instance on request to scale the application 
     @state = "Adding an AppServer for #{app}"
