@@ -825,7 +825,7 @@ class Djinn
       return
     end
 
-    start_cmd = "python #{APPSCALE_HOME}/PythonInfrastructureManager/infrastructure_manager_service.py"
+    start_cmd = "python #{APPSCALE_HOME}/InfrastructureManager/infrastructure_manager_service.py"
     stop_cmd = "pkill -9 infrastructure_manager_service"
     port = [InfrastructureManagerClient::SERVER_PORT]
 
