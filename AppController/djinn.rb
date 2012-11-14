@@ -825,8 +825,8 @@ class Djinn
       return
     end
 
-    start_cmd = "ruby #{APPSCALE_HOME}/InfrastructureManager/infrastructure_manager_server.rb"
-    stop_cmd = "pkill -9 infrastructure_manager_server"
+    start_cmd = "python #{APPSCALE_HOME}/PythonInfrastructureManager/infrastructure_manager_service.py"
+    stop_cmd = "pkill -9 infrastructure_manager_service"
     port = [InfrastructureManagerClient::SERVER_PORT]
 
     GodInterface.start(:iaas_manager, start_cmd, stop_cmd, port)
