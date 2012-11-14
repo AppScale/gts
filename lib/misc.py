@@ -1,7 +1,7 @@
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
 # These are invalid characters for an application name
-BAD_APP_NAME_CHARS = "!@#$%^&*()+=;"
+BAD_APP_NAME_CHARS = '/\\!~?<>:{}@#$%^|&*()+=;'
 
 def is_app_name_valid(app_name):
   """ Validates an application by checking if it contains certain 

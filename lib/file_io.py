@@ -10,7 +10,7 @@ of the functions serve as wrapper for easy mocking.
 """
 
 def read(file_name):
-  """ Opens and reads a file, returning the contents of the file
+  """ Opens and reads a file, returning the contents of the file.
   
   Args:
     file_name: The full path or relative path of the file to read

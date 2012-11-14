@@ -9,16 +9,16 @@ require 'timeout'
 
 # Number of seconds to wait before timing out when doing a SOAP call.
 # This number should be higher than the maximum time required for remote calls
-# to properly execute.
+# to properly execute (i.e., starting a process may take more than 2 minutes).
 MAX_TIME_OUT = 180
 
 # This is transitional glue code as we shift from ruby to python. The 
 # AppManager is written in python and hence we use a SOAP client to communicate
-# between the two services
+# between the two services.
 class AppManagerClient
   attr_reader :conn, :ip
 
-  # The local ip to connect to for the AppManager
+  # The local IP to connect to for the AppManager
   SERVER_IP = '127.0.0.1'
 
   # The port that the AppManager binds to.
@@ -61,7 +61,8 @@ class AppManagerClient
         sleep(1)
         retry
       else
-        abort("We were unable to establish a connection with the AppManager at the designated location. Is AppScale currently running?")
+	trace = except.backtrace.join("\n")
+        abort("[#{callr}] We saw an unexpected error of the type #{except.class} with the following message:\n#{except}, with trace: #{trace}")
       end 
    rescue Exception => except
       if except.class == Interrupt
@@ -113,8 +114,8 @@ class AppManagerClient
     return result
   end
 
-  # Wrapper for SOAP call to the AppManager to remove an application
-  # from the current host
+  # Wrapper for SOAP call to the AppManager to stop an application
+  # instance from the current host.
   #
   # Args:
   #   app_name: The name of the application
@@ -128,8 +129,8 @@ class AppManagerClient
     }
   end
 
-  # Wrapper for SOAP call to the AppManager to stop an instance of 
-  # an application server. 
+  # Wrapper for SOAP call to the AppManager to remove an application
+  # from the current host.
   # 
   # Args:
   #   app_name: The name of the application

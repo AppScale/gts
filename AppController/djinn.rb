@@ -671,12 +671,12 @@ class Djinn
           result = "true"
         end
       end    
-      Djinn.log_debug("(stop_app) Removing from app engine role")
+
       if my_node.is_appengine?
         app_manager = AppManagerClient.new()
         Djinn.log_debug("(stop_app) Calling AppManager")
         if !app_manager.stop_app(app_name)
-          Djinn.log_debug("Unable to stop app #{app_name}") 
+          Djinn.log_debug("(stop_app) ERROR: Unable to stop app #{app_name}") 
         end
         Djinn.log_debug("(stop_app) Done Calling AppManager")
 
@@ -1195,20 +1195,6 @@ class Djinn
       end
     }
     return ae_nodes
-  end
-
-  def get_all_dbslave_nodes()
-    # Gets the private IPs of all the database slave nodes.
-    #
-    # Returns:
-    #   An array of ips 
-    db_nodes = []
-    @nodes.each { |node|
-      if node.is_db_slave?
-        db_nodes << node.private_ip
-      end
-    }
-    return db_nodes
   end
 
   def get_load_balancer_ip()
@@ -2075,7 +2061,7 @@ class Djinn
   # Starts the application manager which is a SOAP service in charge of 
   # starting and stopping applications.
   def start_app_manager_server
-    @state = "Starting up SOAP Server and PBServer"
+    @state = "Starting up AppManager"
     env_vars = {}
     start_cmd = ["/usr/bin/python2.6 #{APPSCALE_HOME}/AppManager/app_manager_server.py"]
     stop_cmd = "pkill -9 app_manager_server"
@@ -2141,6 +2127,8 @@ class Djinn
     GodInterface.stop(:uaserver)
   end 
 
+  # Stops the AppManager service
+  #
   def stop_app_manager_server
     GodInterface.stop(:appmanagerserver)
   end 
@@ -2678,14 +2666,7 @@ HOSTS
       Djinn.log_debug("Get app data for #{app} said [#{app_data}]")
 
       loop {
-        app_version = app_data.scan(/version:(\d+)/).flatten.to_s
         Djinn.log_debug("Waiting for app data to have instance info for app named #{app}: #{app_data}")
-
-        if app_data[0..4] != "Error"
-          app_version = "0" if app_version == ""
-          app_version = Integer(app_version)
-          break if app_version >= 0
-        end
 
         app_data = uac.get_app_data(app)
         Kernel.sleep(5)
@@ -2693,7 +2674,6 @@ HOSTS
 
       my_public = my_node.public_ip
       my_private = my_node.private_ip
-      app_version = app_data.scan(/version:(\d+)/).flatten.to_s
       app_language = app_data.scan(/language:(\w+)/).flatten.to_s
       
       @app_info_map[app] = {}
@@ -2775,7 +2755,6 @@ HOSTS
             get_load_balancer_ip(), @nginx_port, app_language, 
             xmpp_ip, [Djinn.get_nearest_db_ip(false)])
 
-#get_all_dbslave_nodes())
           if pid == -1
             place_error_app(app, "ERROR: Unable to start application " + \
                 "#{app}. Please check the application logs.") 
@@ -3103,21 +3082,12 @@ HOSTS
     Djinn.log_debug("Get app data for #{app} said [#{app_data}]")
 
     loop {
-        app_version = app_data.scan(/version:(\d+)/).flatten.to_s
-        Djinn.log_debug("Waiting for app data to have instance info for app named #{app}: #{app_data} "+
-        "The app's version is #{app_version}, and its class is #{app_version.class}")
-
-        if app_data[0..4] != "Error"
-          app_version = "0" if app_version.empty?
-          app_version = Integer(app_version)
-          break if app_version >= 0
-        end
+        Djinn.log_debug("Waiting for app data to have instance info for app named #{app}: #{app_data}")
 
         app_data = uac.get_app_data(app)
         sleep(5)
      }
     
-    app_version = app_data.scan(/version:(\d+)/).flatten.to_s
     app_language = app_data.scan(/language:(\w+)/).flatten.to_s
     my_public = my_node.public_ip
     my_private = my_node.private_ip
@@ -3143,8 +3113,8 @@ HOSTS
 
     xmpp_ip = get_login.public_ip
 
-    pid = upp_manager.start_app(app, @appengine_port, 
-            get_load_balancer_ip(), @nginx_port, app_language, 
+    pid = app_manager.start_app(app, @appengine_port, 
+            get_load_balancer_ip(), nginx_port, app_language, 
             xmpp_ip, [Djinn.get_nearest_db_ip(false)])
 
     if pid == -1
@@ -3178,7 +3148,8 @@ HOSTS
   # Terminates a random AppServer that hosts the specified App Engine app.
   #
   # Args:
-  #   app: The name of the application for which we're removing an instance
+  #   app: The name of the application for which we're removing a 
+  #        process instance
   #
   def remove_appserver_process(app)
     @state = "Stopping an AppServer to free unused resources"

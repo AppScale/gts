@@ -1,5 +1,5 @@
 """
-This file contains constants used throughput AppScale
+This file contains constants used throughout AppScale.
 """
 import os 
 
@@ -12,7 +12,7 @@ APPSCALE_HOME = os.environ.get("APPSCALE_HOME")
 # For unit testing 
 if not APPSCALE_HOME: APPSCALE_HOME = '/root/appscale'
 
-# Location of pid files for processes and applications
+# Location of PID files for processes and applications
 APP_PID_DIR = APPSCALE_HOME + '/.appscale/'
 
 # Location of Java Server
@@ -27,7 +27,7 @@ PUBLIC_IP_LOC = '/etc/appscale/my_public_ip'
 # The location of the file which holds the AppScale secret key
 SECRET_LOC = '/etc/appscale/secret.key'
 
-# The location of the file which contains information on the current db
+# The location of the file which contains information on the current DB
 DB_INFO_LOC = '/etc/appscale/database_info.yaml'
 
 # The port of the datastore server
@@ -42,10 +42,12 @@ APP_MANAGER_PORT = 49934
 # Python programs
 PYTHON = "python"
 
-# Python programs
+# Python2.7 programs
 PYTHON27 = "python27"
 
 # Java programs
 JAVA = "java"
 
+# Go programs
+GO = "go"
 

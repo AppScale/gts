@@ -1,7 +1,7 @@
 # Programmer: Navraj Chohan
 """ 
 This file contains functions for getting and setting information related 
-to AppScale and the current node/machine
+to AppScale and the current node/machine.
 """
 import logging
 import multiprocessing
@@ -48,7 +48,7 @@ def get_num_cpus():
   return multiprocessing.cpu_count() 
 
 def get_db_info():
-  """ Get information on the database being used
+  """ Get information on the database being used.
   
   Returns:
     A dictionary with database info

@@ -26,6 +26,10 @@ DEFAULT_IP = '127.0.0.1'
 # Most attempts to see if an application server comes up before failing
 MAX_FETCH_ATTEMPTS = 7
 
+# The initial amount of time to wait when trying to check if an application
+# is up or not
+INITIAL_BACKOFF_TIME = 1
+
 # The PID number to return when a process did not start correctly
 BAD_PID = -1
 
@@ -53,8 +57,6 @@ def start_app(config):
        dblocations: List of database locations 
   Returns:
     PID of process on success, -1 otherwise
-  Raises:
-    TypeError if config is not a dictionary
   """
 
   logging.info("Configuration for app received:" + str(config))
@@ -82,7 +84,8 @@ def start_app(config):
   env_vars = {}
   watch = "app___" + config['app_name']
  
-  if config['language'] == constants.PYTHON:
+  if config['language'] == constants.PYTHON or \
+     config['language'] == constants.GO:
     start_cmd = create_python_start_cmd(config['app_name'],
                             config['load_balancer_ip'],
                             config['app_port'],
@@ -156,7 +159,7 @@ def stop_app_instance(app_name, port):
 
   if str(port).isdigit(): 
     if subprocess.call(['kill', '-9', pid]) != 0:
-      logging.error("Unable to kill app process %s on port %d with pid %d"%\
+      logging.error("Unable to kill app process %s on port %d with pid %s"%\
                     (app_name, int(port), str(pid)))
 
   file_io.delete(pid_file)
@@ -195,7 +198,7 @@ def stop_app(app_name):
 # Private Functions
 ######################
 def get_pid_from_port(port):
-  """ Gets the PID of the process binded to the given port
+  """ Gets the PID of the process binded to the given port.
    
   Args:
     port: The port in which you want the process binding it
@@ -213,8 +216,8 @@ def get_pid_from_port(port):
     return BAD_PID
  
 def wait_on_app(port):
-  """ Attempts fetch from the given port and backs off until it 
-     comes up, or times out.
+  """ Attempts a fetch from the given port and backs off until it 
+     comes up or until a maximum number of attempted fetches fail.
   
   Args:
     port: The port to fetch from
@@ -222,7 +225,7 @@ def wait_on_app(port):
     True on success, False otherwise
   """
 
-  backoff = 1
+  backoff = INITIAL_BACKOFF_TIME
   retries = MAX_FETCH_ATTEMPTS
   private_ip = appscale_info.get_private_ip()
 
@@ -243,12 +246,12 @@ def wait_on_app(port):
      
 def choose_db_location(db_locations):
   """ Given a string containing multiple datastore locations
-  select one randomly.
+  select one randomly to spread load.
 
   Args:
     db_locations: A list of datastore locations
   Returns:
-    One IP location randomly selected from the string.
+    One IP location randomly selected from the list.
   Raise:
     ValueError if there are no locations given in the args.
   """
@@ -261,7 +264,7 @@ def choose_db_location(db_locations):
 
 def create_python_app_env(public_ip, port, app_name):
   """ Returns the environment variables used to start a python 
-  application
+  application.
   
   Args:
     public_ip: The public IP
@@ -281,9 +284,8 @@ def create_python_app_env(public_ip, port, app_name):
 
 def create_java_app_env():
   """ Returns the environment variables used to start a java 
-  application
+  application.
   
-  Args: None
   Returns:
     A dictionary containing the environment variables  
   """
@@ -420,7 +422,7 @@ def create_java_stop_cmd(port):
 
 def is_config_valid(config):
   """ Takes a configuration and checks to make sure all required properties 
-    are present
+    are present.
  
   Args:
     config: The dictionary to validate

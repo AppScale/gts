@@ -8,17 +8,17 @@ import file_io
 
 """ 
 This file contains top level functions for starting and stopping 
-monitoring of processes using the God framework. Each component is in
+monitoring of processes using the god framework. Each component is in
 charge of creating their own configuration file when starting up a new
 process.
 """
 
 def start(config_loc, watch):
-  """  Starts a watch on God given a configuration file. Deletes
-  the configuration after it is used. 
+  """  Starts a watch on god given a configuration file. Deletes
+       the configuration after it is used. 
 
   Args:
-    config_loc: The location of the God configuration file
+    config_loc: The location of the god configuration file
     watch: Name of the watch being started
   Returns:
     True on success, False otherwise
@@ -42,10 +42,10 @@ def start(config_loc, watch):
   return True
 
 def stop(watch):
-  """ Stop a watch on God. 
+  """ Stop a watch on god. 
  
   Args:
-    watch: The God tag identifier which will be stopped 
+    watch: The god tag identifier which will be stopped 
   Returns:
     True on success, False otherwise.
   """
@@ -60,7 +60,6 @@ def stop(watch):
   if return_status != 0:
     logging.error("God remove command returned with status %d when removing \
                   watch %s"%(return_status, watch))
-
     return False
 
   return True

@@ -46,6 +46,11 @@ class Repo
   # since we don't necessarily want users accessing it.
   # TODO(cgb): Let it register with the UAServer but change the Repo app to
   # prevent unauthorized access.
+  # 
+  # Args: 
+  #   login_ip: The IP of the login role
+  #   uaserver_ip: The IP of the users/app server
+  # 
   def self.start(login_ip, uaserver_ip)
     # its just another app engine app - but since numbering starts
     # at zero, this app has to be app neg one
@@ -57,7 +62,6 @@ class Repo
     app_number = -1
     app = "therepo"
     app_language = "python"
-    app_version = "1"
 
     app_manager = AppManagerClient.new()
 
@@ -96,12 +100,13 @@ class Repo
 
 
   # Stops the Repo app.
-  # TODO(cgb): This kills all AppServers, which definitely is not the correct
-  # thing to do. Since the Repo is an App Engine app, we should be able to use
-  # the other functions that stop App Engine apps here as well.
+  #
   def self.stop
-    Djinn.log_debug(`pkill -f dev_appserver`)
-    Djinn.log_debug(`pkill -f DevAppServerMain`)
+    Djinn.log_debug("Stopping app #{app} on #{HelperFunctions.local_ip}")
+    app_manager = AppManagerClient.new()
+    if app_manager.stop_app(app) 
+      Djinn.log_debug("Failed to start app #{app} on #{HelperFunctions.local_ip}")
+    end
   end
 
 

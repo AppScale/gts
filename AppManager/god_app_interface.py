@@ -49,7 +49,7 @@ def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={}):
 
   # 'WATCH' and 'port' are substituted here as the last two arguments 
   # because the template script itself uses {}. If we do not sub for them 
-  # a key error is raised by template.format()
+  # a key error is raised by template.format().
   template = template.format(watch, 
                              start_cmd, 
                              stop_cmd, 
