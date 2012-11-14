@@ -1,6 +1,16 @@
 #!/usr/bin/ruby -w
 
 
+# A constant that we use to indicate that we want the output produced
+# by remotely executed SSH commands.
+WANT_OUTPUT = true
+
+
+# A constant that we use to indicate that we do not want the output 
+# produced by remotely executed SSH commands.
+NO_OUTPUT = false
+
+
 # Most daemons within AppScale aren't fault-tolerant, so to make them
 # fault-tolerant, we use the open source process monitor god. This
 # module hides away having to write god config files, deploying it, and
