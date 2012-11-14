@@ -37,14 +37,12 @@ class RunPythonAppTestCase(unittest.TestCase):
     assert -1 != self.pid
 
   def runTest(self):
-    assert(os.path.exists("/proc/"+str(self.pid)))
+    assert os.path.exists("/proc/"+str(self.pid))
 
   def tearDown(self):
-    command = 'ps aux | grep ' + self.appname + ' | grep -v grep | awk {\'print $2\'} | xargs -r kill -9'
-    os.system(command)
-    server.stop_app(self.appname, self.port)
+    assert server.stop_app(self.appname)
     teardown_app_dir(self.appname)
-    assert(not os.path.exists("/proc/"+str(self.pid)))
+    assert not os.path.exists("/proc/"+str(self.pid))
 
 # This test case verifies bad apps are not loaded, but is commented out 
 # because the timeouts make the testing take over 2 minutes. 
@@ -71,9 +69,9 @@ class RunBadPythonAppTestCase(unittest.TestCase):
   def tearDown(self):
     command = 'ps aux | grep ' + self.appname + ' | grep -v grep | awk {\'print $2\'} | xargs -r kill -9'
     os.system(command)
-    server.stop_app(self.appname, self.port)
+    assert server.stop_app(self.appname, self.port)
     teardown_app_dir(self.appname)
-    assert(not os.path.exists("/proc/"+str(self.pid)))
+    assert not os.path.exists("/proc/"+str(self.pid))
 """
 
 class RunJavaAppTestCase(unittest.TestCase):
@@ -93,14 +91,12 @@ class RunJavaAppTestCase(unittest.TestCase):
     assert -1 != self.pid
 
   def runTest(self):
-    assert(os.path.exists("/proc/"+str(self.pid)))
+    assert os.path.exists("/proc/"+str(self.pid))
 
   def tearDown(self):
-    command = 'ps aux | grep ' + self.appname + ' | grep -v grep | awk {\'print $2\'} | xargs -r kill -9'
-    os.system(command)
-    server.stop_app(self.appname, self.port)
+    assert server.stop_app(self.appname)
     teardown_app_dir(self.appname)
-    assert(not os.path.exists("/proc/"+str(self.pid)))
+    assert not os.path.exists("/proc/"+str(self.pid))
   
 if __name__ == "__main__":
   unittest.main()

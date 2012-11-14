@@ -2669,6 +2669,9 @@ HOSTS
         Djinn.log_debug("Waiting for app data to have instance info for app named #{app}: #{app_data}")
 
         app_data = uac.get_app_data(app)
+        if app_data[0..4] != "Error"
+          break
+        end
         Kernel.sleep(5)
       }
 
@@ -3085,6 +3088,9 @@ HOSTS
         Djinn.log_debug("Waiting for app data to have instance info for app named #{app}: #{app_data}")
 
         app_data = uac.get_app_data(app)
+        if app_data[0..4] != "Error"
+          break
+        end
         sleep(5)
      }
     

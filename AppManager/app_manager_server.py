@@ -184,12 +184,14 @@ def stop_app(app_name):
     return False
 
   # hack: God fails to shutdown processes so we do it via a system command
-  cmd = "ps -ef | grep dev_appserver | grep " + app_name + " | grep -v grep | grep cookie_secret | awk '{print $2}' | xargs kill -9"
+  cmd = "ps -ef | grep \"dev_appserver\|AppServer_Java\" | grep " + app_name + " | grep -v grep | grep cookie_secret | awk '{print $2}' | xargs kill -9"
   if os.system(cmd) != 0:
+    logging.error("Unable to shut down processes for app %s"%app_name)
     return False
   
   cmd = "rm -f " + constants.APP_PID_DIR + app_name + "-*"
   if os.system(cmd) != 0:
+    logging.error("Unable to remove PID files for app %s"%app_name)
     return False
 
   return True
