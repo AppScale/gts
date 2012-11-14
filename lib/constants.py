@@ -12,6 +12,9 @@ APPSCALE_HOME = os.environ.get("APPSCALE_HOME")
 # For unit testing 
 if not APPSCALE_HOME: APPSCALE_HOME = '/root/appscale'
 
+# Location of pid files for processes and applications
+APP_PID_DIR = APPSCALE_HOME + '/.appscale/'
+
 # Location of Java Server
 JAVA_APPSERVER = APPSCALE_HOME + '/AppServer_Java'
 
@@ -28,7 +31,7 @@ SECRET_LOC = '/etc/appscale/secret.key'
 DB_INFO_LOC = '/etc/appscale/database_info.yaml'
 
 # The port of the datastore server
-DB_SERVER_PORT = 4080
+DB_SERVER_PORT = 8888
 
 # The port of the users/apps SOAP server
 UA_SERVER_PORT = 4343

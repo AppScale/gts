@@ -1,4 +1,5 @@
-# Programmer: Navraj Chohan
+# Programmer: Navraj Chohan <nlake44@gmail.com>
+
 import json
 import logging
 import os
@@ -17,6 +18,7 @@ import appscale_info
 import constants
 import god_interface 
 import file_io
+import misc 
 
 # IP used for binding app_manager SOAP service
 DEFAULT_IP = '127.0.0.1'
@@ -55,15 +57,19 @@ def start_app(config):
     TypeError if config is not a dictionary
   """
 
- 
   logging.info("Configuration for app received:" + str(config))
 
   try:
     config = json.loads(config)
   except ValueError, e:
-    logging.error("Unable to parse configuration:" + str(e)) 
+    logging.error("%s Exception--Unable to parse configuration: %s"%\
+                   (e.__class__, str(e)))
     return BAD_PID
-
+  except TypeError, e:
+    logging.error("%s Exception--Unable to parse configuration: %s"%\
+                   (e.__class__, str(e)))
+    return BAD_PID
+  
   if not is_config_valid(config): 
     logging.error("Invalid configuration for application")
     return BAD_PID
@@ -117,15 +123,21 @@ def start_app(config):
     return BAD_PID
 
   if not wait_on_app(int(config['app_port'])):
-    logging.error("Application server did not come up in time, \
-                   removing god watch")
+    logging.error("Application server did not come up in time, " + \
+                   "removing god watch")
     god_interface.stop(watch)
     return BAD_PID
 
-  return get_pid_from_port(config['app_port'])
+  pid = get_pid_from_port(config['app_port'])
+  pid_file = constants.APP_PID_DIR + config['app_name'] + '-' +\
+             str(config['app_port'])
+  file_io.write(pid_file, str(pid))
+      
+  return pid
 
-def stop_app(app_name, port):
-  """ Stops a Google App Engine application on this host machine.
+def stop_app_instance(app_name, port):
+  """ Stops a Google App Engine application instance on current 
+      host machine.
 
   Args:
     app_name: Name of application to stop
@@ -136,7 +148,51 @@ def stop_app(app_name, port):
 
   logging.info("Stopping application %s"%app_name)
   watch = "app___" + app_name + "-" + str(port)
-  god_interface.stop(watch)
+  god_result = god_interface.stop(watch)
+
+  # hack: God fails to shutdown processes so we do it via a system command
+  pid_file = constants.APP_PID_DIR + app_name + '-' + port
+  pid = file_io.read(pid_file)
+
+  if str(port).isdigit(): 
+    if subprocess.call(['kill', '-9', pid]) != 0:
+      logging.error("Unable to kill app process %s on port %d with pid %d"%\
+                    (app_name, int(port), str(pid)))
+
+  file_io.delete(pid_file)
+
+  return god_result
+
+def stop_app(app_name):
+  """ Stops all instances of a Google App Engine application on this 
+      host machine.
+
+  Args:
+    app_name: Name of application to stop
+  Returns:
+    True on success, False otherwise
+  """
+  logging.error("1")
+  logging.info("Stopping application %s"%app_name)
+  watch = "app___" + app_name 
+  god_result = god_interface.stop(watch)
+  logging.error("2")
+
+  if not misc.is_app_name_valid(app_name): 
+    return False
+  logging.error("3")
+
+  # hack: God fails to shutdown processes so we do it via a system command
+  cmd = "ps -ef | grep dev_appserver | grep " + app_name + " | grep -v grep | grep cookie_secret | awk '{print $2}' | xargs kill -9"
+  if os.system(cmd) != 0:
+    return False
+  logging.error("4")
+  
+  cmd = "rm -f " + constants.APP_PID_DIR + app_name + "-*"
+  if os.system(cmd) != 0:
+    return False
+  logging.error("5")
+
   return True
 
 ######################
@@ -150,6 +206,9 @@ def get_pid_from_port(port):
   Returns:
     The PID on success, and -1 on failure
   """ 
+  
+  if not str(port).isdigit(): return BAD_PID
+
   s = os.popen("lsof -i:" + str(port) + " | grep -v COMMAND | awk {'print $2'}")
   pid = s.read().rstrip()
   if pid:
@@ -198,8 +257,8 @@ def choose_db_location(db_locations):
     ValueError if there are no locations given in the args.
   """
 
-  if len(db_locations) == 0: raise ValueError("DB locations \
-     were not correctly set")
+  if len(db_locations) == 0: raise ValueError("DB locations " + \
+     "were not correctly set: " + str(db_locations))
 
   index = random.randint(0, len(db_locations) - 1)
   return db_locations[index]
@@ -399,6 +458,7 @@ if __name__ == "__main__":
  
   server.registerFunction(start_app)
   server.registerFunction(stop_app)
+  server.registerFunction(stop_app_instance)
 
   file_io.set_logging_format()
   

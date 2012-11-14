@@ -1,4 +1,5 @@
-# Programmer: Navraj Chohan
+# Programmer: Navraj Chohan <nlake44@gmail.com>
+
 import os
 import subprocess
 import sys
