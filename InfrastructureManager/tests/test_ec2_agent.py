@@ -1,6 +1,10 @@
+from StringIO import StringIO
+from os import environ
 from unittest.case import TestCase
 from flexmock import flexmock
 import time
+import sys
+from agents.factory import InfrastructureAgentFactory
 from infrastructure_manager import InfrastructureManager
 from utils import utils
 
@@ -29,6 +33,31 @@ class TestEC2Agent(TestCase):
         self.do_set_up('euca')
         self.terminate_instances('euca', False)
         self.do_tear_down('euca')
+
+    def test_environment_variables(self):
+        factory = InfrastructureAgentFactory()
+        agent = factory.create_agent('ec2')
+        credentials = {
+            'TEST1' : 'TEST1_VALUE',
+            'TEST2' : 'TEST2_VALUE',
+            'TEST_KEY' : 'TEST_KEY_VALUE'
+        }
+        params = {
+            'credentials' : credentials,
+        }
+
+        old_std_out = sys.stdout
+        sys.stdout = my_std_out = StringIO()
+        agent.set_environment_variables(params)
+        self.assertEquals(environ['TEST1'], 'TEST1_VALUE')
+        self.assertEquals(environ['TEST2'], 'TEST2_VALUE')
+        self.assertEquals(environ['TEST_KEY'], 'TEST_KEY_VALUE')
+        sys.stdout = old_std_out
+
+        output = my_std_out.getvalue()
+        print output
+        self.assertTrue(output.find('**********ALUE') != -1)
+        self.assertTrue(output.find('TEST_KEY_VALUE') == -1)
 
     def run_instances(self, prefix, blocking):
         i = InfrastructureManager(blocking)

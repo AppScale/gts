@@ -165,21 +165,21 @@ class InfrastructureManager:
         """
         parameters, secret = self.__validate_args(parameters, secret)
 
-        print 'Received a request to run instances.'
+        utils.log('Received a request to run instances.')
 
         if self.secret != secret:
-            print 'Incoming secret {0} does not match the current secret {1} - ' \
-                  'Rejecting request.'.format(secret, self.secret)
+            utils.log('Incoming secret {0} does not match the current secret {1} - ' \
+                  'Rejecting request.'.format(secret, self.secret))
             return self.__generate_response(False, self.REASON_BAD_SECRET)
 
-        print 'Request parameters are {0}'.format(parameters)
+        utils.log('Request parameters are {0}'.format(parameters))
         for param in self.RUN_INSTANCES_REQUIRED_PARAMS:
             if not utils.has_parameter(param, parameters):
                 return self.__generate_response(False, 'no ' + param)
 
         num_vms = int(parameters[self.PARAM_NUM_VMS])
         if num_vms <= 0:
-            print 'Invalid VM count: {0}'.format(num_vms)
+            utils.log('Invalid VM count: {0}'.format(num_vms))
             return self.__generate_response(False, self.REASON_BAD_VM_COUNT)
 
         infrastructure = parameters[self.PARAM_INFRASTRUCTURE]
@@ -196,12 +196,12 @@ class InfrastructureManager:
             'state' : self.STATE_PENDING,
             'vm_info' : None
         }
-        print 'Generated reservation id {0} for this request.'.format(reservation_id)
+        utils.log('Generated reservation id {0} for this request.'.format(reservation_id))
         if self.blocking:
             self.__spawn_vms(agent, num_vms, parameters, reservation_id)
         else:
             thread.start_new_thread(self.__spawn_vms, (agent, num_vms, parameters, reservation_id))
-        print 'Successfully started request {0}.'.format(reservation_id)
+        utils.log('Successfully started request {0}.'.format(reservation_id))
         return self.__generate_response(True, self.REASON_NONE, { 'reservation_id' : reservation_id })
 
     def terminate_instances(self, parameters, secret):
@@ -267,7 +267,7 @@ class InfrastructureManager:
             'private_ips' : private_ips,
             'instance_ids' : ids
         }
-        print 'Successfully finished request {0}.'.format(reservation_id)
+        utils.log('Successfully finished request {0}.'.format(reservation_id))
 
     def __kill_vms(self, agent, parameters):
         agent.set_environment_variables(parameters)

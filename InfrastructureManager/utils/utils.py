@@ -56,7 +56,7 @@ def get_random_alphanumeric(length = 10):
     return ''.join(choice(alphabet) for i in range(length))
 
 def shell(cmd):
-    print cmd
+    log(cmd)
     return getoutput(cmd)
 
 def flatten(list):
@@ -83,7 +83,7 @@ def obscure_string(string):
 
 def get_obscured_env(list=None):
     """
-    Prints out a list of environment variables currently set in this process'
+    Returns the set of environment variables currently set in this process'
     runtime along with their values. Any environment variables specified
     in the input 'list' will be obscured for privacy and security reasons.
     """
@@ -107,8 +107,8 @@ def convert_fqdn_to_ip(fqdn):
     else:
         list = ip.split('\n')
         if len(list) > 1:
-            print 'Warning: Host name {0} resolved to multiple IPs: {1}'.format(fqdn, ip)
-            print 'Using the first address in the list'
+            log('Warning: Host name {0} resolved to multiple IPs: {1}'.format(fqdn, ip))
+            log('Using the first address in the list')
         return list[0]
 
 def sleep(seconds):
