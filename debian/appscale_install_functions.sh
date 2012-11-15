@@ -1146,148 +1146,6 @@ postinstallzookeeper()
     update-rc.d -f zookeeper remove || true
 }
 
-installneptune()
-{
-    #installmpi
-    installx10
-    installupc
-    installnfs
-    installdwssa
-    installstochkit
-    installkdt
-}
-
-postinstallneptune()
-{
-    postinstallmpi
-    postinstallx10
-    postinstallupc
-    postinstallnfs
-    postinstalldwssa
-    postinstallstochkit
-    postinstallkdt
-}
-
-installmpi()
-{
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    wget http://appscale.cs.ucsb.edu/appscale_files/mpich2-1.2.1p1.tar.gz || exit 1
-    tar zxvf mpich2-1.2.1p1.tar.gz || exit 1
-    rm -v mpich2-1.2.1p1.tar.gz
-    pushd mpich2-1.2.1p1
-    # fix the installation problem for deb package.
-    patch -p0 -i ${APPSCALE_HOME}/Neptune/patch/mpi-install.patch || exit 1
-    ./configure --prefix=/usr/local/mpich2 || exit 1
-    make || exit 1
-    make install DESTDIR=$DESTDIR || exit 1
-    popd
-    rm -rfv mpich2-1.2.1p1
-    DESTFILE=${DESTDIR}/etc/profile.d/mpi.sh
-    mkdir -pv $(dirname $DESTFILE)
-    echo "Generating $DESTFILE"
-    cat <<EOF | tee $DESTFILE || exit 1
-export PATH=/usr/local/mpich2/bin:\$PATH
-EOF
-    DESTFILE=${DESTDIR}/etc/ld.so.conf.d/mpi.conf
-    mkdir -pv $(dirname $DESTFILE)
-    echo "Generating $DESTFILE"
-    cat <<EOF | tee $DESTFILE || exit 1
-/usr/local/mpich2/lib
-EOF
-}
-
-postinstallmpi()
-{
-#    echo "/usr/local/mpich2/bin" >> /etc/environment
-    echo "MPD_SECRETWORD=something" >> /etc/mpd.conf
-    chmod -v 600 /etc/mpd.conf
-}
-
-installx10()
-{
-    cd ${DESTDIR}/usr/local/
-    wget http://appscale.cs.ucsb.edu/appscale_files/x10-2.2.2.1-prebuilt.tar.gz || exit 1
-    tar zxvf x10-2.2.2.1-prebuilt.tar.gz || exit 1
-    #cd x10/x10.dist
-    #ant dist -DX10RT_MPI=true # this will fail with a cvs message, but it actually gets
-    # far enough to succeed
-    chmod +x x10/x10.dist/bin/x10c++ x10/x10.dist/bin/x10c
-    cd ${DESTDIR}/usr/local/
-    rm -v x10-2.2.2.1-prebuilt.tar.gz
-}
-
-postinstallx10()
-{
-    :;
-}
-
-installupc()
-{
-    # Fetch pre-built UPC and untar it - saves a lot of time
-    cd ${DESTDIR}/usr/local/
-    wget http://appscale.cs.ucsb.edu/appscale_files/berkeley_upc-2.12.1-prebuilt.tar.gz || exit 1
-    tar zxvf berkeley_upc-2.12.1-prebuilt.tar.gz
-    rm -v berkeley_upc-2.12.1-prebuilt.tar.gz
-}
-
-postinstallupc()
-{
-    :;
-}
-
-installnfs()
-{
-# this should be in control.core
-#    apt-get install -y nfs-kernel-server
-    mkdir -pv ${DESTDIR}/mirrornfs
-}
-
-postinstallnfs()
-{
-    service nfs-kernel-server stop || true
-    service nfs-common stop || true
-    update-rc.d -f nfs-kernel-server remove || true
-    if [ ! -e /etc/exports -o -z "$(grep mirrornfs /etc/exports)" ]; then
-	echo "/mirrornfs *(rw,no_root_squash,sync)" >> /etc/exports
-    fi
-}
-
-installstochkit()
-{
-    cd ${DESTDIR}/usr/local/
-    wget http://appscale.cs.ucsb.edu/appscale_files/StochKit2.0.tgz -O StochKit2.0.tgz || exit 1
-    tar zxvf StochKit2.0.tgz
-    cd StochKit2.0
-    ./install.sh
-    cd ${DESTDIR}/usr/local/
-    rm -fv StochKit2.0.tgz
-}
-
-postinstallstochkit()
-{
-    :;
-}
-
-installkdt()
-{
-    cd ${DESTDIR}/usr/local/
-    wget http://appscale.cs.ucsb.edu/appscale_files/kdt-0.2-beta2.tar.gz || exit 1	
-    tar zxvf kdt-0.2-beta2.tar.gz
-    cd kdt-0.2
-    export CC=mpicxx
-    export CXX=mpicxx
-    python setup.py build || exit 1
-    python setup.py install || exit 1
-    cd ${DESTDIR}/usr/local/
-    rm -fv kdt-0.2-beta2.tar.gz
-}
-
-postinstallkdt()
-{
-    :;
-}
-
 installsetuptools()
 {
     mkdir -pv ${APPSCALE_HOME}/downloads
@@ -1305,32 +1163,6 @@ postinstallsetuptools()
     :;
 }
 
-installdwssa()
-{
-    wget http://appscale.cs.ucsb.edu/appscale_files/cewSSA_0.5-1.tar.gz || exit 1
-    R CMD INSTALL cewSSA_0.5-1.tar.gz
-    rm cewSSA_0.5-1.tar.gz
-}
-
-postinstalldwssa()
-{
-    :;
-}
-
-installactivecloud()
-{
-    mkdir -pv ${DESTDIR}/usr/local
-    cd ${DESTDIR}/usr/local
-    wget http://appscale.cs.ucsb.edu/appscale_files/active-cloud-0.1-tar.gz || exit 1
-    tar zxvf active-cloud-0.1-tar.gz || exit 1
-    rm -v active-cloud-0.1-tar.gz
-}
-
-postinstallactivecloud()
-{
-    :;
-}
-
 keygen()
 {
     test -e /root/.ssh/id_rsa || ssh-keygen -q -t rsa -f /root/.ssh/id_rsa -N ""
@@ -1344,11 +1176,6 @@ postinstallsimpledb()
 {
     mkdir -p ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}
     touch ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}/simpledb
-}
-
-installsocat()
-{
-    apt-get install socat
 }
 
 installrabbitmq()
