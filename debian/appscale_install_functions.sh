@@ -453,30 +453,10 @@ installgems()
     #	exit 1
     #fi
 
-    # This is for Neptune's Babel RabbitMQ interface
-    gem install -v=0.7.9 bunny ${GEMOPT} || exit 1
-
-    # This is for Neptune's Babel SQS interface
-    gem install -v=1.4.4 nokogiri  ${GEMOPT} || exit 1
-
-    gem install -v=1.5.1 aws-sdk ${GEMOPT} || exit 1
-
-    # This is for Neptune's Babel Azure Storage interface
-    gem install -v=1.1.2 waz-storage ${GEMOPT} || exit 1
-
-    # This is for Neptune's Babel Azure Task Queue interface
-    gem install -v=0.1.0 waz-queues ${GEMOPT} || exit 1
-
-    # This is for Neptune's Babel App Engine push queue interface
-    gem install -v=0.0.4 oration ${GEMOPT} || exit 1
-
     # This is for Neptune's Babel App Engine pull queue interface
     # which is just REST, but httparty does such a nice job compared
     # to previously used things
     gem install -v=0.8.3 httparty ${GEMOPT} || exit 1
-
-    # This is for the LogManager, which will rotate logs on a daily basis.
-    gem install -v=1.2.1 logrotate ${GEMOPT} || exit 1
 
     # This is for the unit testing framework
     gem install -v=1.0.4 flexmock ${GEMOPT} || exit 1
