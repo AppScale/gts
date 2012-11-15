@@ -3,6 +3,8 @@ package com.google.appengine.tools.development;
 
 import com.google.apphosting.api.ApiProxy;
 import com.google.apphosting.api.ApiProxy.Environment;
+import com.google.apphosting.utils.config.AppEngineWebXml;
+
 import java.io.File;
 import java.io.PrintStream;
 import java.lang.reflect.Field;
@@ -15,22 +17,29 @@ import java.util.logging.ConsoleHandler;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import com.google.apphosting.api.ApiProxy;
-import com.google.apphosting.utils.config.AppEngineWebXml;
 
 
 class DevAppServerImpl implements DevAppServer
 {
     private final LocalServerEnvironment environment;
-    private Map<String, String>          serviceProperties = new HashMap();
+    private Map<String, String>          serviceProperties           = new HashMap();
 
-    private Logger                       logger            = Logger.getLogger(DevAppServerImpl.class.getName());
+    private Logger                       logger                      = Logger.getLogger(DevAppServerImpl.class.getName());
 
-    private ServerState                  serverState       = ServerState.INITIALIZING;
+    private ServerState                  serverState                 = ServerState.INITIALIZING;
 
-    private ContainerService             mainContainer     = null;
+    private ContainerService             mainContainer               = null;
     private final BackendContainer       backendContainer;
     private ApiProxyLocal                apiProxyLocal;
+
+    private final String                 APPLICATION_ID_PROPERTY     = "APPLICATION_ID";
+    private final String                 LOCALHOST                   = "localhost";
+    private final String                 DEFAULT_ZONE                = "defaultZoneTL";
+    private final String                 LOCAL_HOST_IP               = "127.0.0.1";
+    private final String                 APPENGINE_TIMEZONE_PROPERTY = "appengine.user.timezone.impl";
+    private final String                 UTC                         = "UTC";
+    private final String                 GET_METHOD                  = "get";
+    private final String                 SET_METHOD                  = "set";
 
     public DevAppServerImpl( File appDir, File externalResourceDir, File webXmlLocation, File appEngineWebXmlLocation, String address, int port, boolean useCustomStreamHandler, Map<String, Object> containerConfigProperties )
     {
@@ -80,15 +89,11 @@ class DevAppServerImpl implements DevAppServer
             this.mainContainer.startup();
 
             ApiProxy.Environment env = ApiProxy.getCurrentEnvironment();
-            env.getAttributes().put("com.google.appengine.runtime.default_version_hostname", "localhost:" + getPort());
+            env.getAttributes().put("com.google.appengine.runtime.default_version_hostname", LOCALHOST + getPort());
 
             this.serviceProperties.putAll(this.mainContainer.getServiceProperties());
             this.apiProxyLocal.appendProperties(this.mainContainer.getServiceProperties());
-
-            /*
-             * AppScale - added config and setting system property if config isn't
-             * null
-             */
+            // add for AppScale
             AppEngineWebXml config = this.mainContainer.getAppEngineWebXmlConfig();
             if (config == null)
             {
@@ -96,9 +101,8 @@ class DevAppServerImpl implements DevAppServer
             }
             else
             {
-                System.setProperty("APPLICATION_ID", config.getAppId());
+                System.setProperty(APPLICATION_ID_PROPERTY, config.getAppId());
             }
-
             this.backendContainer.startupAll(this.mainContainer.getBackendsXml(), this.apiProxyLocal);
         }
         catch (BindException ex)
@@ -117,9 +121,9 @@ class DevAppServerImpl implements DevAppServer
         this.serverState = ServerState.RUNNING;
 
         String prettyAddress = this.mainContainer.getAddress();
-        if ((prettyAddress.equals("0.0.0.0")) || (prettyAddress.equals("127.0.0.1")))
+        if ((prettyAddress.equals("0.0.0.0")) || (prettyAddress.equals(LOCAL_HOST_IP)))
         {
-            prettyAddress = "localhost";
+            prettyAddress = LOCALHOST;
         }
 
         String listeningHostAndPort = prettyAddress + ":" + this.mainContainer.getPort();
@@ -129,22 +133,22 @@ class DevAppServerImpl implements DevAppServer
 
     private TimeZone setServerTimeZone()
     {
-        String sysTimeZone = (String)this.serviceProperties.get("appengine.user.timezone.impl");
+        String sysTimeZone = (String)this.serviceProperties.get(APPENGINE_TIMEZONE_PROPERTY);
         if ((sysTimeZone != null) && (sysTimeZone.trim().length() > 0))
         {
             return null;
         }
 
-        TimeZone utc = TimeZone.getTimeZone("UTC");
-        assert (utc.getID().equals("UTC")) : "Unable to retrieve the UTC TimeZone";
+        TimeZone utc = TimeZone.getTimeZone(UTC);
+        assert (utc.getID().equals(UTC)) : "Unable to retrieve the UTC TimeZone";
         try
         {
-            Field f = TimeZone.class.getDeclaredField("defaultZoneTL");
+            Field f = TimeZone.class.getDeclaredField(DEFAULT_ZONE);
             f.setAccessible(true);
             ThreadLocal tl = (ThreadLocal)f.get(null);
-            Method getZone = ThreadLocal.class.getMethod("get", new Class[0]);
+            Method getZone = ThreadLocal.class.getMethod(GET_METHOD, new Class[0]);
             TimeZone previousZone = (TimeZone)getZone.invoke(tl, new Object[0]);
-            Method setZone = ThreadLocal.class.getMethod("set", new Class[] { Object.class });
+            Method setZone = ThreadLocal.class.getMethod(SET_METHOD, new Class[] { Object.class });
             setZone.invoke(tl, new Object[] { utc });
             return previousZone;
         }
@@ -169,7 +173,7 @@ class DevAppServerImpl implements DevAppServer
 
     private void restoreLocalTimeZone( TimeZone timeZone )
     {
-        String sysTimeZone = (String)this.serviceProperties.get("appengine.user.timezone.impl");
+        String sysTimeZone = (String)this.serviceProperties.get(APPENGINE_TIMEZONE_PROPERTY);
         if ((sysTimeZone != null) && (sysTimeZone.trim().length() > 0))
         {
             return;
@@ -179,7 +183,7 @@ class DevAppServerImpl implements DevAppServer
             Field f = TimeZone.class.getDeclaredField("defaultZoneTL");
             f.setAccessible(true);
             ThreadLocal tl = (ThreadLocal)f.get(null);
-            Method setZone = ThreadLocal.class.getMethod("set", new Class[] { Object.class });
+            Method setZone = ThreadLocal.class.getMethod(SET_METHOD, new Class[] { Object.class });
             setZone.invoke(tl, new Object[] { timeZone });
         }
         catch (Exception e)
