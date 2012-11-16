@@ -8,18 +8,18 @@ __email__ = 'hiranya@appscale.com'
 
 class TestAgentFactory(TestCase):
 
-    def test_create_agent(self):
-        factory = InfrastructureAgentFactory()
-        agent = factory.create_agent('ec2')
-        self.assertEquals(type(agent), type(EC2Agent()))
+  def test_create_agent(self):
+    factory = InfrastructureAgentFactory()
+    agent = factory.create_agent('ec2')
+    self.assertEquals(type(agent), type(EC2Agent()))
 
-        agent = factory.create_agent('euca')
-        self.assertEquals(type(agent), type(EucalyptusAgent()))
+    agent = factory.create_agent('euca')
+    self.assertEquals(type(agent), type(EucalyptusAgent()))
 
-        try:
-            factory.create_agent('bogus')
-            self.fail('No exception thrown for invalid infrastructure')
-        except NameError:
-            pass
-        except Exception:
-            self.fail('Unexpected exception thrown for invalid infrastructure')
+    try:
+      factory.create_agent('bogus')
+      self.fail('No exception thrown for invalid infrastructure')
+    except NameError:
+      pass
+    except Exception:
+      self.fail('Unexpected exception thrown for invalid infrastructure')

@@ -4,11 +4,11 @@ __author__ = 'hiranya'
 __email__ = 'hiranya@appscale.com'
 
 class EucalyptusAgent(EC2Agent):
-    """
-    Eucalyptus infrastructure agent which can be used to spawn and terminate
-    VMs in an Eucalyptus based environment.
-    """
+  """
+  Eucalyptus infrastructure agent which can be used to spawn and terminate
+  VMs in an Eucalyptus based environment.
+  """
 
-    def __init__(self):
-        EC2Agent.__init__(self)
-        self.prefix = 'euca'
+  def __init__(self):
+    EC2Agent.__init__(self)
+    self.prefix = 'euca'
