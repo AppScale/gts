@@ -35,6 +35,12 @@ class TestEC2Agent(TestCase):
         self.do_tear_down('euca')
 
     def test_environment_variables(self):
+        """
+        Make sure all the provided environment variables are
+        set in the runtime. Failure to do so had caused issues
+        in Euca3 in the past. Also make sure all sensitive
+        information are obscured in the log.
+        """
         factory = InfrastructureAgentFactory()
         agent = factory.create_agent('ec2')
         credentials = {

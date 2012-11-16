@@ -12,8 +12,23 @@ DEFAULT_PORT = 17444
 APPSCALE_DIR = '/etc/appscale/'
 
 class InfrastructureManagerService:
+    """
+    SOAP based web service that exposes the InfrastructureManager
+    implementation to the rest of AppScale.
+    """
 
-    def __init__(self, host, port, ssl = True):
+    def __init__(self, host, port = DEFAULT_PORT, ssl = True):
+        """
+        Initialize a new instance of the infrastructure manager service.
+
+        Args:
+            - host  Hostname to which the service should bind
+            - port  Port of the service (Optional). Default to 17444
+            - ssl   True if SSL should be engaged or False otherwise (Optional).
+                    Defaults to True. When engaged, this implementation expects
+                    to find the necessary SSL certificates in the /etc/appscale/certs
+                    directory.
+        """
         self.host = host
         self.port = port
 
@@ -53,6 +68,11 @@ class InfrastructureManagerService:
         self.started = False
 
     def start(self):
+        """
+        Start the infrastructure manager service. This method blocks
+        as long as the service is alive. The caller should handle the
+        threading requirements
+        """
         if self.started:
             utils.log('Warning - Start called on already running server')
         else:
@@ -62,6 +82,9 @@ class InfrastructureManagerService:
                 self.server.serve_forever()
 
     def stop(self):
+        """
+        Stop the infrastructure manager service.
+        """
         if self.started:
             utils.log('Stopping AppScale Infrastructure Manager')
             self.started = False

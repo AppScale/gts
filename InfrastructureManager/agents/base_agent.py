@@ -19,7 +19,7 @@ class BaseAgent:
         Set any cloud platform specific environment variables
         in the current process.
 
-        Arguments:
+        Args:
             - parameters    A dictionary of parameters that may include
                             parameters that should not be actually set in
                             in the current process as environment variables.
@@ -37,7 +37,7 @@ class BaseAgent:
         Implementations also have the option of not taking any action upon
         this method call.
 
-         Arguments:
+         Args:
             - parameters    A dictionary of parameters
 
         Returns:
@@ -51,7 +51,7 @@ class BaseAgent:
         Query the underlying cloud platform regarding VMs that are already
         up and running.
 
-        Arguments:
+        Args:
             - parameters    A dictionary of parameters
 
         Returns:
@@ -65,7 +65,7 @@ class BaseAgent:
         """
         Start a set of virtual machines using the parameters provided.
 
-        Arguments:
+        Args:
             - count                 An integer that indicates the number of
                                     VMs to be spawned
             - parameters            A dictionary of parameters required by
@@ -85,7 +85,7 @@ class BaseAgent:
         """
         Terminate a set of virtual machines using the parameters given.
 
-        Arguments:
+        Args:
             - parameters    A dictionary of parameters
         """
         raise NotImplementedError
@@ -97,11 +97,11 @@ class BaseAgent:
         given operation is available this method simply returns. Otherwise
         it throws an AgentConfigurationException.
 
-        Arguments:
+        Args:
             - parameters    A dictionary of parameters
             - operation     Operation for which the parameters should be checked
 
-        Throws:
+        Raises:
             - AgentConfigurationException   If a required parameter is absent
         """
         pass

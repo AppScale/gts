@@ -1,13 +1,10 @@
-from datetime import datetime, timedelta
-from os import environ
-from os.path import abspath
-from os.path import exists
+import os
 import re
 import sys
 import time
+import datetime
 from agents.base_agent import BaseAgent, AgentConfigurationException
 from utils import utils
-from utils.utils import get_obscured_env
 
 __author__ = 'hiranya'
 
@@ -50,13 +47,17 @@ REQUIRED_EC2_TERMINATE_INSTANCES_PARAMS = (
 )
 
 class EC2Agent(BaseAgent):
+    """
+    EC2 infrastructure agent class which can be used to spawn and terminate
+    VMs in an EC2 based environment.
+    """
 
     def __init__(self):
         self.prefix = 'ec2'
 
     def set_environment_variables(self, parameters):
-        if environ.has_key('EC2_JVM_ARGS'):
-            del(environ['EC2_JVM_ARGS'])
+        if os.environ.has_key('EC2_JVM_ARGS'):
+            del(os.environ['EC2_JVM_ARGS'])
 
         variables = parameters[PARAM_CREDENTIALS]
         for key, value in variables.items():
@@ -65,21 +66,21 @@ class EC2Agent(BaseAgent):
                     key, utils.obscure_string(value)))
             else:
                 utils.log('Setting {0} to {1} in our environment.'.format(key, value))
-            environ[key] = value
+            os.environ[key] = value
 
-        ec2_keys_dir = abspath('/etc/appscale/keys/cloud1')
-        environ['EC2_PRIVATE_KEY'] = ec2_keys_dir + '/mykey.pem'
-        environ['EC2_CERT'] = ec2_keys_dir + '/mycert.pem'
+        ec2_keys_dir = os.path.abspath('/etc/appscale/keys/cloud1')
+        os.environ['EC2_PRIVATE_KEY'] = ec2_keys_dir + '/mykey.pem'
+        os.environ['EC2_CERT'] = ec2_keys_dir + '/mycert.pem'
         utils.log('Setting private key to: {0} and certificate to: {1}'.format(
-            environ['EC2_PRIVATE_KEY'], environ['EC2_CERT']))
+            os.environ['EC2_PRIVATE_KEY'], os.environ['EC2_CERT']))
 
     def configure_instance_security(self, parameters):
         keyname = parameters[PARAM_KEYNAME]
         group = parameters[PARAM_GROUP]
-        ssh_key = abspath('/etc/appscale/keys/cloud1/{0}.key'.format(keyname))
+        ssh_key = os.path.abspath('/etc/appscale/keys/cloud1/{0}.key'.format(keyname))
         utils.log('About to spawn EC2 instances - Expecting to find a key at {0}'.format(ssh_key))
-        utils.log(get_obscured_env(['EC2_ACCESS_KEY', 'EC2_SECRET_KEY']))
-        if not exists(ssh_key):
+        utils.log(utils.get_obscured_env(['EC2_ACCESS_KEY', 'EC2_SECRET_KEY']))
+        if not os.path.exists(ssh_key):
             utils.log('Creating keys/security group')
             ec2_output = ''
             while True:
@@ -131,12 +132,12 @@ class EC2Agent(BaseAgent):
         utils.log('[{0}] [{1}] [{2}] [{3}] [ec2] [{4}] [{5}]'.format(count,
             image_id, instance_type, keyname, group, spot))
 
-        start_time = datetime.now()
+        start_time = datetime.datetime.now()
         active_public_ips = []
         active_private_ips = []
         active_instances = []
-        if environ.has_key('EC2_URL'):
-            utils.log('EC2_URL = [{0}]'.format(environ['EC2_URL']))
+        if os.environ.has_key('EC2_URL'):
+            utils.log('EC2_URL = [{0}]'.format(os.environ['EC2_URL']))
         else:
             utils.log('Warning: EC2_URL environment not found in the process runtime!')
         while True:
@@ -170,8 +171,8 @@ class EC2Agent(BaseAgent):
         private_ips = []
         utils.sleep(10)
 
-        end_time = datetime.now() + timedelta(0, MAX_VM_CREATION_TIME)
-        now = datetime.now()
+        end_time = datetime.datetime.now() + datetime.timedelta(0, MAX_VM_CREATION_TIME)
+        now = datetime.datetime.now()
         while now < end_time:
             describe_instances = utils.shell(self.prefix + '-describe-instances 2>&1')
             utils.log('[{0}] {1} seconds left...'.format(now, (end_time - now).seconds))
@@ -187,7 +188,7 @@ class EC2Agent(BaseAgent):
             if count == len(public_ips):
                 break
             time.sleep(SLEEP_TIME)
-            now = datetime.now()
+            now = datetime.datetime.now()
 
         if not public_ips:
             sys.exit('No public IPs were able to be procured within the time limit')
@@ -201,7 +202,7 @@ class EC2Agent(BaseAgent):
                     utils.shell(self.prefix + '-terminate-instances ' + instance_to_term)
             pass
 
-        end_time = datetime.now()
+        end_time = datetime.datetime.now()
         total_time = end_time - start_time
         if spot:
             utils.log('TIMING: It took {0} seconds to spawn {1} spot instances'.format(

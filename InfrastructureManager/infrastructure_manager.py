@@ -80,7 +80,7 @@ class InfrastructureManager:
         The dictionary of parameters must include a 'reservation_id' parameter
         which is used to reference past virtual machine deployments.
 
-        Arguments:
+        Args:
             - parameters    A dictionary of parameters which contains a valid
                             'reservation_id' parameter. A valid 'reservation_id'
                             is an ID issued by the run_instances method of the
@@ -110,7 +110,7 @@ class InfrastructureManager:
             and 'reason' where 'success' would be set to False, and 'reason' is
             set to a simple error message describing the cause of the error.
 
-        Throws:
+        Raises:
             - TypeError     If the inputs are not of the expected types
             - ValueError    If the input JSON string (parameters) cannot be parsed properly
         """
@@ -145,7 +145,7 @@ class InfrastructureManager:
         this method will simply kick off the VM deployment process and return
         immediately.
 
-        Arguments:
+        Args:
             - parameters    A parameter map containing the keys 'infrastructure',
                             'num_vms' and any other cloud platform specific
                             parameters. Alternatively one may provide a valid
@@ -159,7 +159,7 @@ class InfrastructureManager:
             parameter is missing, this method will return a different map with the
             key 'success' set to False and 'reason' set to a simple error message.
 
-        Throws:
+        Raises:
             - TypeError     If the inputs are not of the expected types
             - ValueError    If the input JSON string (parameters) cannot be parsed properly
         """
@@ -216,7 +216,7 @@ class InfrastructureManager:
         this method will not return until the VM deployment is complete. Otherwise
         this method simply starts the VM termination process and returns immediately.
 
-        Arguments:
+        Args:
             - parameters    A dictionary of parameters containing the required
                             'infrastructure' parameter and any other platform
                             dependent required parameters. Alternatively one
@@ -231,7 +231,7 @@ class InfrastructureManager:
             True. Otherwise it returns a dictionary with 'success' set to False
             and 'reason' set to a simple error message.
 
-        Throws:
+        Raises:
             - TypeError     If the inputs are not of the expected types
             - ValueError    If the input JSON string (parameters) cannot be parsed properly
         """
