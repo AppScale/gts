@@ -69,4 +69,25 @@ class TestZKInterface < Test::Unit::TestCase
     assert_equal([instance2], ZKInterface.get_app_instances_for_ip("ip2"))
   end
 
+
+  def test_add_and_remove_app_entry
+
+    # first, make a connection to zookeeper 
+    ZKInterface.init_to_ip("public_ip", "public_ip")
+
+    # next, add two app entries
+    ZKInterface.add_app_entry("app", "ip1", "/boo/baz1")
+    ZKInterface.add_app_entry("app", "ip2", "/boo/baz2")
+
+    # make sure they show up when we do a 'get'
+
+    # then remove the entries
+    ZKInterface.remove_app_entry("app", "ip1")
+    ZKInterface.remove_app_entry("app", "ip2")
+
+    # make sure they no longer show up when we do a 'get'
+
+  end
+
+
 end
