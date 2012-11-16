@@ -2698,6 +2698,7 @@ HOSTS
           error_msg = "ERROR: Unable to parse app.yaml file for #{app}." + \
                       " Exception of #{e.class} with message #{e.message}" 
           place_error_app(app, error_msg)
+          static_handlers = []
         end
         proxy_port = HAProxy.app_listen_port(app_number)
         login_ip = get_login.private_ip
