@@ -26,7 +26,6 @@ def get_public_ip():
   """
   return file_io.read(constants.PUBLIC_IP_LOC).rstrip()
 
-
 def get_secret():
   """ Get AppScale shared security key for authentication.
     

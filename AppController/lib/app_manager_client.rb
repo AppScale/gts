@@ -6,6 +6,7 @@ require 'json'
 require 'openssl'
 require 'soap/rpc/driver'
 require 'timeout'
+require 'helperfunctions'
 
 # Number of seconds to wait before timing out when doing a SOAP call.
 # This number should be higher than the maximum time required for remote calls
@@ -21,7 +22,7 @@ class AppManagerClient
   attr_reader :conn, :ip
 
   # The local IP to connect to for the AppManager
-  SERVER_IP = '127.0.0.1'
+  SERVER_IP = HelperFunctions.local_ip()
 
   # The port that the AppManager binds to
   SERVER_PORT = 49934
@@ -43,7 +44,7 @@ class AppManagerClient
   #     the call
   # Returns:
   #   The result of the remote call.
-  # Note: 
+  # TODO: 
   #   This code was copy/pasted from app_controller_client 
   #   and can be factored out to a library. Note this for 
   #   the transition to the python port.
@@ -76,7 +77,7 @@ class AppManagerClient
     end
   end
  
-   # Wrapper for SOAP call to the AppManager to start an instance of 
+   # Wrapper for SOAP call to the AppManager to start an process instance of 
    # an application server.
    #
    # Args:
@@ -117,11 +118,11 @@ class AppManagerClient
   end
 
   # Wrapper for SOAP call to the AppManager to stop an application
-  # instance from the current host.
+  # process instance from the current host.
   #
   # Args:
   #   app_name: The name of the application
-  #   port: The port the instance of the application is running
+  #   port: The port the process instance of the application is running
   # Returns:
   #   True on success, False otherwise
   #
@@ -129,6 +130,7 @@ class AppManagerClient
     make_call(MAX_TIME_OUT, false){
       result = @conn.stop_app(app_name, port)
     }
+    return result
   end
 
   # Wrapper for SOAP call to the AppManager to remove an application
@@ -143,5 +145,6 @@ class AppManagerClient
     make_call(MAX_TIME_OUT, false){
       result = @conn.stop_app(app_name)
     }
+    return result
   end
 end

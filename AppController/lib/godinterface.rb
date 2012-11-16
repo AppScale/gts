@@ -7,7 +7,6 @@
 # sending config files to it.
 module GodInterface
 
-
   def self.start_god(remote_ip, remote_key)
     self.run_god_command("god", remote_ip, remote_key)
   end

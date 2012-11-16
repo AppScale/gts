@@ -2854,7 +2854,7 @@ HOSTS
   # that each application has received as well as the number of requests that
   # are sitting in haproxy's queue, waiting to be served.
   #
-  # Note: Accessing global state should use a lock. Failure to do so causes 
+  # TODO: Accessing global state should use a lock. Failure to do so causes 
   #   race conditions where arrays are accessed using indexes that are no 
   #   longer valid. 
   #

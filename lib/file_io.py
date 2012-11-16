@@ -1,4 +1,4 @@
-# Programmer: Navraj Chohan
+# Programmer: Navraj Chohan <nlake44@gmail.com>
 import logging
 import os
 

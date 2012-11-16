@@ -1,4 +1,4 @@
-# Programmer: Navraj Chohan
+# Programmer: Navraj Chohan <nlake44@gmail.com>
 import logging
 import os 
 import subprocess
@@ -10,8 +10,7 @@ import misc
 """ 
 This file contains top level functions for starting and stopping 
 monitoring of processes using the god framework. Each component is in
-charge of creating their own configuration file when starting up a new
-process.
+charge of creating configuration files for the process they want started. 
 """
 
 def start(config_loc, watch):
@@ -25,13 +24,11 @@ def start(config_loc, watch):
     True on success, False otherwise
   """
   if not misc.is_string_secure(config_loc):
-    logging.error("Configuration file location str (%s) is a possible " + \
-                  "security violation"%config_loc)
+    logging.error("Configuration file location str (%s) is a possible security violation"%config_loc)
     return False
 
   if not misc.is_string_secure(watch):
-    logging.error("Watch string (%s) is a possible security " + \
-                  "violation"%watch)
+    logging.error("Watch string (%s) is a possible security violation"%watch)
     return False
 
   return_status = subprocess.call(['god', 'load', config_loc])

@@ -46,6 +46,33 @@ REQUIRED_CONFIG_FIELDS = ['app_name',
 # The web path to fetch to see if the application is up
 FETCH_PATH = '/_ah'
 
+def convert_config_from_json(config):
+  """ Takes the configuration in JSON format and converts it to a dictionary.
+      Validates the dictionary configuration before returning.
+  
+  Args:
+    config: The configuration to convert
+  Returns:
+    None if it failed to convert the config and a dictionary if it succeeded
+  """
+
+  logging.info("Configuration for app:" + str(config))
+  try:
+    config = json.loads(config)
+  except ValueError, e:
+    logging.error("%s Exception--Unable to parse configuration: %s"%\
+                   (e.__class__, str(e)))
+    return None
+  except TypeError, e:
+    logging.error("%s Exception--Unable to parse configuration: %s"%\
+                   (e.__class__, str(e)))
+    return None
+
+  if is_config_valid(config): 
+    return config
+  else:
+    return None
+  
 def start_app(config):
   """ Starts a Google App Engine application on this machine. It 
       will start it up and then proceed to fetch the main page.
@@ -63,23 +90,11 @@ def start_app(config):
     PID of process on success, -1 otherwise
   """
 
-  logging.info("Configuration for app received:" + str(config))
-
-  try:
-    config = json.loads(config)
-  except ValueError, e:
-    logging.error("%s Exception--Unable to parse configuration: %s"%\
-                   (e.__class__, str(e)))
-    return BAD_PID
-  except TypeError, e:
-    logging.error("%s Exception--Unable to parse configuration: %s"%\
-                   (e.__class__, str(e)))
-    return BAD_PID
-  
-  if not is_config_valid(config): 
+  config = convert_config_from_json(config)
+  if config == None:
     logging.error("Invalid configuration for application")
-    return BAD_PID
-
+    return BAD_PID 
+  
   logging.info("Starting %s application %s"%(config['language'], 
                                              config['app_name']))
 
@@ -291,8 +306,7 @@ def choose_db_location(db_locations):
   return db_locations[index]
 
 def create_python_app_env(public_ip, port, app_name):
-  """ Returns the environment variables used to start a python 
-  application.
+  """ Returns the environment variables the python application server uses.
   
   Args:
     public_ip: The public IP of the load balancer
@@ -311,8 +325,7 @@ def create_python_app_env(public_ip, port, app_name):
   return env_vars
 
 def create_java_app_env():
-  """ Returns the environment variables used to start a java 
-  application.
+  """ Returns the environment variables java application servers uses.
   
   Returns:
     A dictionary containing the environment variables  
@@ -328,8 +341,7 @@ def create_python_start_cmd(app_name,
                             load_balancer_port,
                             xmpp_ip,
                             db_locations):
-  """
-  Creates the start command to run the python application server.
+  """ Creates the start command to run the python application server.
   
   Args:
     app_name: The name of the application to run

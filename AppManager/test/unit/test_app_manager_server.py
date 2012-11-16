@@ -21,6 +21,24 @@ import god_interface
 import testing
 
 class TestAppManager(unittest.TestCase):
+  def test_bad_convert_config_from_json(config):
+    print app_manager_server.convert_config_from_json(None)
+    assert None == app_manager_server.convert_config_from_json(None)
+    assert None == app_manager_server.convert_config_from_json("{}")
+    assert None == app_manager_server.convert_config_from_json("{'app_name':'test'}")
+
+  def test_good_convert_config_from_json(config):
+    configuration = {'app_name': 'test',
+                     'app_port': 2000,
+                     'language': 'python',
+                     'load_balancer_ip': '127.0.0.1',
+                     'load_balancer_port': 8080,
+                     'xmpp_ip': '127.0.0.1',
+                     'dblocations': ['127.0.0.1', '127.0.0.2']}
+    configuration = json.dumps(configuration)
+
+    assert isinstance(app_manager_server.convert_config_from_json(configuration), dict)
+   
   def test_start_app_badconfig(self):
     testing.disable_logging()
     assert app_manager_server.BAD_PID == app_manager_server.start_app({})
@@ -40,6 +58,8 @@ class TestAppManager(unittest.TestCase):
     configuration = json.dumps(configuration)
 
     fake_secret = "XXXXXX"
+    flexmock(appscale_info).should_receive('get_private_ip')\
+      .and_return('<private_ip>')
     flexmock(appscale_info).should_receive('get_secret')\
                            .and_return(fake_secret)
     flexmock(god_app_interface).should_receive('create_config_file')\
@@ -95,6 +115,8 @@ class TestAppManager(unittest.TestCase):
     port = "20000"
     flexmock(appscale_info).should_receive('get_secret')\
       .and_return(fake_secret)
+    flexmock(appscale_info).should_receive('get_private_ip')\
+      .and_return('<private_ip>')
     cmd = app_manager_server.create_java_stop_cmd(port)
     assert port in cmd 
     assert fake_secret in cmd 
