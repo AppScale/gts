@@ -47,7 +47,8 @@ module PbServer
   # within AppScale.
   DBS_WITH_NATIVE_PBSERVER = ["mysql"]
 
-  # A list of databases that use the v2 for database query support
+  # A list of databases that use the version 2 of database query support.
+  # The second version has secondary index support.
   DBS_WITH_V2_PBSERVER = ['cassandra', 'hypertable', "hbase"]
 
   # The name that nginx should use as the identifier for the PBServer when it
@@ -71,7 +72,7 @@ module PbServer
       ports.each { |port|
         start_cmd = "/usr/bin/python2.6 #{pbserver} -p #{port} " +
             "--no_encryption --type #{table} -z \'#{zklocations}\' "
-        # stop command doesn work, relies on terminate.rb
+        # stop command doesn't work, relies on terminate.rb
         stop_cmd = "pkill -9 datastore_server"
         GodInterface.start(:pbserver, start_cmd, stop_cmd, port, env_vars)
       }

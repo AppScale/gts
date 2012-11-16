@@ -19,15 +19,19 @@ def create_keyspaces(replication):
 
   Args:
     replication: Replication factor for Cassandra
+  Raises:
+    AppScaleBadArg: When args are bad
   """
   if int(replication) <= 0: 
     raise dbconstants.AppScaleBadArg("Replication must be greater than zero")
 
   print "Creating Cassandra Key Spaces" 
 
-  # Set this to False to keep old data
+  # Set this to False to keep data from a previous deployment. Setting it
+  # it to True will remove previous tables.
   _DROP_TABLES = True
 
+  # TODO use shared library to get constants
   host = helper_functions.read_file('/etc/appscale/my_private_ip')
 
   sysman = system_manager.SystemManager(host + ":" +\
@@ -44,7 +48,7 @@ def create_keyspaces(replication):
                       pycassa.SIMPLE_STRATEGY, 
                       {'replication_factor':str(replication)})
 
-    # This column family is for testing
+    # This column family is for testing for functional testing
     sysman.create_column_family(cassandra_interface.KEYSPACE, 
                            cassandra_interface.STANDARD_COL_FAM, 
                            comparator_type=system_manager.UTF8_TYPE)
@@ -58,6 +62,8 @@ def create_keyspaces(replication):
   # TODO: Figure out the exact exceptions we're trying to catch in the 
   # case where we are doing data persistance
   except Exception, e:
+    sysman.close()
+    # TODO: Figure out the exact exceptions we're trying to catch in the 
     print "Received an exception of type " + str(e.__class__) +\
           " with message: " + str(e)
     if _DROP_TABLES:

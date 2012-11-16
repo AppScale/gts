@@ -1,7 +1,6 @@
-#Author: Navraj Chohan
+# Author: Navraj Chohan <nlake44@gmail.com>
 
 import os
-import time
 
 import appscale_logger
 import Hbase
@@ -30,7 +29,7 @@ class DatastoreProxy(AppDBInterface):
     """
     self.lock = threading.Lock()
     self.logger = logger
-    self.connection = self.createConnection()
+    self.connection = self.create_connection()
 
   def batch_get_entity(self, table_name, row_keys, column_names):
     """Allows access to multiple rows with a single call
@@ -42,17 +41,17 @@ class DatastoreProxy(AppDBInterface):
     Returns:
       A dictionary of {key:{column_name:value,...}}
     Raise: 
-      TypeError: Raised when given bad types of for args.
+      TypeError: Raised when given bad types for args.
     """
 
-    if not isinstance(table_name, str): raise TypeError
-    if not isinstance(column_names, list): raise TypeError
-    if not isinstance(row_keys, list): raise TypeError
+    if not isinstance(table_name, str): raise TypeError("Expected str")
+    if not isinstance(column_names, list): raise TypeError("Expected list")
+    if not isinstance(row_keys, list): raise TypeError("Expected list")
 
-    client = self.__initConnection() 
     result = {}
     rows = []
     column_list = []
+    client = self.__init_connection() 
 
     for ii in column_names:
       column_list.append(ii + ":") 
@@ -67,7 +66,7 @@ class DatastoreProxy(AppDBInterface):
     for row in row_keys:
       if row not in result:
         result[row] = {}
-    self.__closeConnection(client)
+    self.__release_lock()
     return result  
 
   def batch_put_entity(self, table_name, row_keys, column_names, cell_values):
@@ -84,12 +83,11 @@ class DatastoreProxy(AppDBInterface):
       TypeError: Raised when given bad types of for args.
     """
 
-    if not isinstance(table_name, str): raise TypeError
-    if not isinstance(column_names, list): raise TypeError
-    if not isinstance(row_keys, list): raise TypeError
-    if not isinstance(cell_values, dict): raise TypeError
+    if not isinstance(table_name, str): raise TypeError("Expected str")
+    if not isinstance(column_names, list): raise TypeError("Expected list")
+    if not isinstance(row_keys, list): raise TypeError("Expected list")
+    if not isinstance(cell_values, dict): raise TypeError("Expected dict")
 
-    client = self.__initConnection()
 
     all_mutations = []
     for row in row_keys:
@@ -104,11 +102,12 @@ class DatastoreProxy(AppDBInterface):
       batch_mutation.row = row
       all_mutations.append(batch_mutation) 
 
+    client = self.__init_connection()
     client.mutateRows(table_name, all_mutations)
-    self.__closeConnection(client)
+    self.__release_lock()
  
   def batch_delete(self, table_name, row_keys, column_names=[]):
-    """Remove a set of keys
+    """ Remove a batch of rows.
      
     Args:
       table_name: Table to delete rows from
@@ -120,10 +119,9 @@ class DatastoreProxy(AppDBInterface):
       TypeError: Raised when given bad types of for args.
     """
 
-    if not isinstance(table_name, str): raise TypeError
-    if not isinstance(row_keys, list): raise TypeError
+    if not isinstance(table_name, str): raise TypeError("Expected str")
+    if not isinstance(row_keys, list): raise TypeError("Expected list")
 
-    client = self.__initConnection()
 
     all_mutations = []
     for row in row_keys:
@@ -136,8 +134,9 @@ class DatastoreProxy(AppDBInterface):
       batch_mutation.mutations = mutations
       batch_mutation.row = row
       all_mutations.append(batch_mutation) 
+    client = self.__init_connection()
     client.mutateRows(table_name, all_mutations)
-    self.__closeConnection(client)
+    self.__release_lock()
  
   def delete_table(self, table_name):
     """ Drops a given table
@@ -149,18 +148,18 @@ class DatastoreProxy(AppDBInterface):
     Raises:
       TypeError: Raised when given bad types of for args.
     """
-    if not isinstance(table_name, str): raise TypeError
+    if not isinstance(table_name, str): raise TypeError("Excepted str")
 
-    client = self.__initConnection() 
+    client = self.__init_connection() 
     try:
       client.disableTable(table_name)
       client.deleteTable(table_name)
     except ttypes.IOError, io: # table not found
       pass
-    self.__closeConnection(client)
+    self.__release_lock()
 
   def create_table(self, table_name, column_names):
-    """ Creates a table as a column family
+    """ Creates a table as a column family.
     
     Args:
       table_name: The column family name
@@ -171,18 +170,18 @@ class DatastoreProxy(AppDBInterface):
       TypeError: Raised when given bad types of for args.
     """
 
-    assert isinstance(table_name, str)
-    assert isinstance(column_names, list)
+    if not isinstance(table_name, str): raise TypeError("Expected str")
+    if not isinstance(column_names, list): raise TypeError("Expected list")
 
-    client = self.__initConnection()
     columnlist = []
     for ii in column_names:
       col = ttypes.ColumnDescriptor()
       col.name = ii + ":"
       col.maxVersions = 1
       columnlist.append(col)
+    client = self.__init_connection()
     client.createTable(table_name, columnlist)
-    self.__closeConnection(client)
+    self.__release_lock()
 
   def range_query(self,
                   table_name,
@@ -213,12 +212,12 @@ class DatastoreProxy(AppDBInterface):
     Returns:
       Dictionary of the results
     """
-    if not isinstance(table_name, str): raise TypeError
-    if not isinstance(column_names, list): raise TypeError
-    if not isinstance(start_key, str): raise TypeError
-    if not isinstance(end_key, str): raise TypeError
+    if not isinstance(table_name, str): raise TypeError("Expected str")
+    if not isinstance(column_names, list): raise TypeError("Expected list")
+    if not isinstance(start_key, str): raise TypeError("Expected str")
+    if not isinstance(end_key, str): raise TypeError("Expected str")
     if not isinstance(limit, int) and not isinstance(limit, long): 
-      raise TypeError
+      raise TypeError("Expected int or long")
     if not isinstance(offset, int): raise TypeError
 
     results = []
@@ -231,11 +230,11 @@ class DatastoreProxy(AppDBInterface):
     if not end_inclusive:
       row_count += 1
 
-    client = self.__initConnection()
     col_names = []
     for col in column_names:
       col_names.append(col + ":")
 
+    client = self.__init_connection()
     scanner = client.scannerOpenWithStop(
                   table_name, start_key, end_key, col_names) 
 
@@ -253,7 +252,7 @@ class DatastoreProxy(AppDBInterface):
         break
       rowresult = client.scannerGetList(scanner, row_count)
     client.scannerClose(scanner) 
-    self.__closeConnection(client)
+    self.__release_lock()
 
     # The end key is not included in the scanner. Get the last key if 
     # needed
@@ -281,9 +280,9 @@ class DatastoreProxy(AppDBInterface):
   ########################
   # Private methods
   ########################
-  def createConnection(self):
-    """
-    Creates a connection to HBase's Thrift
+  def create_connection(self):
+    """ Creates a connection to HBase's Thrift to the local node.
+
     Returns: 
       An HBase client object
     """
@@ -295,7 +294,7 @@ class DatastoreProxy(AppDBInterface):
     t.open()
     return c
 
-  def __initConnection(self):
+  def __init_connection(self):
     """
     Provides a locking wrapper around a connection to make it threadsafe. 
     Blocks until the lock is available.
@@ -306,15 +305,12 @@ class DatastoreProxy(AppDBInterface):
     if self.connection:
       return self.connection
     else:
-      self.connection = self.createConnection()
+      self.connection = self.create_connection()
       return self.connection
 
-  def __closeConnection(self, conn):
+  def __release_lock(self):
     """
     Releases the connection lock.
-    Returns:
-      Nothing
     """ 
     self.lock.release()
-
 

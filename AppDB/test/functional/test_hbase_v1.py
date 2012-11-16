@@ -4,7 +4,7 @@ import unittest
 import hbase_interface
 from dbconstants import *
 
-# Prereq: Cassandra must be running first 
+# Prereq: HBase must be running first 
 TEST1_TABLE = "TestTable1"
 TEST1_TABLE_SCHEMA = ['c1','c2','c3']
 
@@ -37,6 +37,7 @@ class PutTestCase(unittest.TestCase):
 
   def tearDown(self):
     self.dbstore.delete_table(TEST1_TABLE) 
+
 class DeleteTestCase(unittest.TestCase): 
   def setUp(self):
     self.dbstore = hbase_interface.DatastoreProxy()
@@ -63,7 +64,7 @@ class DeleteTestCase(unittest.TestCase):
   def tearDown(self):
     self.dbstore.delete_table(TEST2_TABLE) 
 
-class GetOnNonExistantKey(unittest.TestCase):
+class GetOnNonExistentKey(unittest.TestCase):
   def setUp(self):
     self.dbstore = hbase_interface.DatastoreProxy()
     self.dbstore.delete_table(TEST3_TABLE) 

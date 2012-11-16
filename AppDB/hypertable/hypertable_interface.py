@@ -1,6 +1,8 @@
-# Hypertable Interface for AppScale
-# author: Navraj Chohan
+# Programmer: Navraj Chohan <nlake44@gmail.com>
 
+"""
+ Hypertable Interface for AppScale
+"""
 import os
 import time
 
@@ -21,6 +23,7 @@ from xml.sax import ContentHandler
 from xml.sax import saxutils
 from xml.sax.handler import ContentHandler
 
+# The port hypertable's thrift uses on the local machine
 THRIFT_PORT = 38080
 
 # AppScale default namespace for Hypertable
@@ -37,8 +40,6 @@ NAME_TAG_TEXT = "Name"
 NAME_TAG_BEGIN="<"+NAME_TAG_TEXT+">"
 NAME_TAG_END="</"+NAME_TAG_TEXT+">"
 
-# Boolean for turning on profiling/timing of Hypertable results
-PROFILING = False
 
 class XmlSchemaParser(ContentHandler):
   def __init__(self, tag_name):
@@ -68,6 +69,11 @@ class DatastoreProxy(AppDBInterface):
       to work properly.
   """
   def __init__(self, logger = appscale_logger.getLogger("datastore-hypertable")):
+    """ Constructor
+
+    Args:
+      logger: Object where log messages are sent
+    """
     self.logger = logger
     self.host = helper_functions.read_file(
                    APPSCALE_HOME + '/.appscale/my_private_ip')
@@ -87,11 +93,10 @@ class DatastoreProxy(AppDBInterface):
       A dictionary of {key:{column_name:value,...}}
     """
 
-    if not isinstance(table_name, str): raise TypeError
-    if not isinstance(column_names, list): raise TypeError
-    if not isinstance(row_keys, list): raise TypeError
+    if not isinstance(table_name, str): raise TypeError("Expected str")
+    if not isinstance(column_names, list): raise TypeError("Expected list")
+    if not isinstance(row_keys, list): raise TypeError("Expected list")
 
-    if PROFILING: start = time.time()
  
     row_keys = [self.__encode(row) for row in row_keys]
 
@@ -126,7 +131,6 @@ class DatastoreProxy(AppDBInterface):
         col_dict = {}
         ret[self.__decode(row)] = col_dict
 
-    if PROFILING: print "GET: " + str(time.time() - start)
     return ret
 
   def batch_put_entity(self, table_name, row_keys, column_names, cell_values):
@@ -143,12 +147,11 @@ class DatastoreProxy(AppDBInterface):
       Nothing 
     """
 
-    if not isinstance(table_name, str): raise TypeError
-    if not isinstance(column_names, list): raise TypeError
-    if not isinstance(row_keys, list): raise TypeError
-    if not isinstance(cell_values, dict): raise TypeError
+    if not isinstance(table_name, str): raise TypeError("Expected str")
+    if not isinstance(column_names, list): raise TypeError("Expected list")
+    if not isinstance(row_keys, list): raise TypeError("Expected list")
+    if not isinstance(cell_values, dict): raise TypeError("Expected dict")
 
-    if PROFILING: start = time.time()
     __INSERT = 255
     cell_list = []
 
@@ -166,7 +169,6 @@ class DatastoreProxy(AppDBInterface):
 
     self.conn.mutator_set_cells(mutator, cell_list)
     self.conn.mutator_close(mutator)
-    if PROFILING: print "PUT: " + str(time.time() - start)
 
   def batch_delete(self, table_name, row_keys, column_names=[]):
     """Remove a set of keys
@@ -182,10 +184,9 @@ class DatastoreProxy(AppDBInterface):
       Nothing
     """ 
 
-    if not isinstance(table_name, str): raise TypeError
-    if not isinstance(row_keys, list): raise TypeError
+    if not isinstance(table_name, str): raise TypeError("Expected str")
+    if not isinstance(row_keys, list): raise TypeError("Expected list")
 
-    if PROFILING: start = time.time()
     row_keys = [self.__encode(row) for row in row_keys]
     __DELETE_ROW = 0
     cell_list = []
@@ -200,7 +201,6 @@ class DatastoreProxy(AppDBInterface):
 
     self.conn.mutator_set_cells(mutator, cell_list)
     self.conn.mutator_close(mutator)
-    if PROFILING: print "DELETE: " + str(time.time() - start)
 
 
   def delete_table(self, table_name):
@@ -213,7 +213,7 @@ class DatastoreProxy(AppDBInterface):
     Returns:
       Nothing
     """
-    if not isinstance(table_name, str): raise TypeError
+    if not isinstance(table_name, str): raise TypeError("Expected str")
 
     self.conn.drop_table(self.ns, table_name, 1)
     return 
@@ -231,10 +231,10 @@ class DatastoreProxy(AppDBInterface):
       Nothing
     """
 
-    if not isinstance(table_name, str): raise TypeError
-    if not isinstance(column_names, list): raise TypeError
+    if not isinstance(table_name, str): raise TypeError("Expected str")
+    if not isinstance(column_names, list): raise TypeError("Expected list")
 
-    table_schema_xml = self.__constructSchemaXml(column_names)
+    table_schema_xml = self.__construct_schema_xml(column_names)
     self.conn.create_table(self.ns,table_name,table_schema_xml)
     return 
 
@@ -267,15 +267,14 @@ class DatastoreProxy(AppDBInterface):
     Return:
       List of ordered results.
     """
-    if not isinstance(table_name, str): raise TypeError
-    if not isinstance(column_names, list): raise TypeError
-    if not isinstance(start_key, str): raise TypeError
-    if not isinstance(end_key, str): raise TypeError
+    if not isinstance(table_name, str): raise TypeError("Expected str")
+    if not isinstance(column_names, list): raise TypeError("Expected list")
+    if not isinstance(start_key, str): raise TypeError("Expected str")
+    if not isinstance(end_key, str): raise TypeError("Expected str")
     if not isinstance(limit, int) and not isinstance(limit, long): 
-      raise TypeError
-    if not isinstance(offset, int): raise TypeError
+      raise TypeError("Expected int or long")
+    if not isinstance(offset, int): raise TypeError("Expected int")
    
-    if PROFILING: start = time.time()
     start_key = self.__encode(start_key) 
     end_key = self.__encode(end_key) 
 
@@ -341,20 +340,21 @@ class DatastoreProxy(AppDBInterface):
     if offset != 0 and offset <= len(results):
       results = results[offset:]
 
-    if PROFILING: print "RANGE: " + str(time.time() - start)
     return results
 
   ######################################################################
   # private methods 
   ######################################################################
 
-  def __constructSchemaXml(self, column_names):
+  def __construct_schema_xml(self, column_names):
     """ For the column names of a table, this method returns
         an xml string representing the columns, which can 
         then be used with hypertable's thrift api
+    Args:
+      column_names: A list of column names to construct xml
     """
 
-    if not isinstance(column_names, list): raise TypeError
+    if not isinstance(column_names, list): raise TypeError("Expected list")
 
     schema_xml = ''.join([ROOT_TAG_BEGIN, ACCGRP_TAG_BEGIN])
 
@@ -370,12 +370,24 @@ class DatastoreProxy(AppDBInterface):
 
 
   def __encode(self, bytes_in):
-    """ Removes \x00 character with \x01
+    """ Removes \x00 character with \x01 because hypertable truncates strings
+        with null chars.
+   
+    Args:
+      bytes_in: The string which will be encoded
+    Returns:
+      modified string with replaced chars
     """
     return bytes_in.replace('\x00','\x01')
 
   def __decode(self, bytes_out):
-    """ Replaces \x01 character with \x00
+    """ Replaces \x01 character with \x00 because we swap out strings to 
+        prevent truncating keys.
+   
+    Args:
+      bytes_out: The string which will be decoded 
+    Returns:
+      Modified string with replaced chars
     """
     return bytes_out.replace('\x01', '\x00')
 

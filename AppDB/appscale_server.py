@@ -956,8 +956,6 @@ class MainHandler(tornado.web.RequestHandler):
 
     start_time = time.time() 
     putreq_pb = datastore_pb.PutRequest(http_request_data)
-    #print "RECEIVED PUT_REQUEST %s" % putreq_pb
-    #logger.debug("RECEIVED PUT_REQUEST %s" % putreq_pb)
     putresp_pb = datastore_pb.PutResponse( )
     txn = None
     root_key = None
@@ -1039,7 +1037,6 @@ class MainHandler(tornado.web.RequestHandler):
         # then the global counter is used
         # gen unique id only wants to know if a child exist
         uid = generate_unique_id(app_id, root_key, child_key)
-        #print "UID:" + str(uid)
         if uid <= 0: 
           return(putresp_pb.Encode(), 
                  datastore_pb.Error.INTERNAL_ERROR, 
@@ -1078,7 +1075,6 @@ class MainHandler(tornado.web.RequestHandler):
                   'No group entity or root key.')
         try:          
           locktime = time.time()
-          #print root_key
           gotLock = zoo_keeper.acquireLock( app_id, txn.handle(), root_key)
           if PROFILE: appscale_log.write("ACQUIRELOCK %d %f\n"%(txn.handle(), time.time() - locktime))
         except zk.ZKTransactionException, zkex:
@@ -1092,7 +1088,6 @@ class MainHandler(tornado.web.RequestHandler):
       #######################################
       # insert key 
       table_name = getTableName(app_id, kind, namespace)
-      #print "Put Using table name:",table_name
       # Notify Users/Apps table if a new class is being added 
       if table_name not in tableHashTable:
         # This is the first time this pbserver has seen this table
@@ -1171,7 +1166,6 @@ class MainHandler(tornado.web.RequestHandler):
                          JOURNAL_SCHEMA,
                          [e.Encode()])
       entPut = putThread()
-      #print "Row key:" + str(row_key)
       handle = 0
       if is_trans_on: 
         handle = txn.handle() 
@@ -1220,7 +1214,6 @@ class MainHandler(tornado.web.RequestHandler):
     global app_datastore
     getreq_pb = datastore_pb.GetRequest(http_request_data)
     #logger.debug("GET_REQUEST: %s" % getreq_pb)
-    #print "GET_REQUEST: %s" % getreq_pb
     getresp_pb = datastore_pb.GetResponse()
 
     is_trans_on = True
@@ -1262,9 +1255,6 @@ class MainHandler(tornado.web.RequestHandler):
         zoo_keeper = zoo_keeper_stub
       table_name = getTableName(app_id, kind, namespace)
       row_key = getRowKey(app_id,key.path().element_list())
-      #print "get row key:" + str(row_key)
-      #print "table_name:" + str(table_name)
-      #print "schema:" + str(ENTITY_TABLE_SCHEMA)
       r = app_datastore.get_entity( table_name, row_key, ENTITY_TABLE_SCHEMA )
       err = r[0]
       if err not in ERROR_CODES or len(r) != 3: 
@@ -1482,35 +1472,21 @@ class MainHandler(tornado.web.RequestHandler):
 
   def void_proto(self, app_id, http_request_data):
     resp_pb = api_base_pb.VoidProto() 
-    print "Got void"
-    #logger.debug("VOID_RESPONSE: %s to void" % resp_pb)
     return (resp_pb.Encode(), 0, "" )
   
   def str_proto(self, app_id, http_request_data):
     str_pb = api_base_pb.StringProto( http_request_data )
     composite_pb = datastore_pb.CompositeIndices()
-    print "Got a string proto"
-    print str_pb
-    #logger.debug("String proto received: %s"%str_pb)
-    #logger.debug("CompositeIndex response to string: %s" % composite_pb)
     return (composite_pb.Encode(), 0, "" )    
   
   def int64_proto(self, app_id, http_request_data):
     int64_pb = api_base_pb.Integer64Proto( http_request_data ) 
     resp_pb = api_base_pb.VoidProto()
-    print "Got a int 64"
-    print int64_pb
-    #logger.debug("Int64 proto received: %s"%int64_pb)
-    #logger.debug("VOID_RESPONSE to int64: %s" % resp_pb)
     return (resp_pb.Encode(), 0, "")
  
   def compositeindex_proto(self, app_id, http_request_data):
     compindex_pb = entity_pb.CompositeIndex( http_request_data)
     resp_pb = api_base_pb.VoidProto()
-    print "Got Composite Index"
-    #print compindex_pb
-    #logger.debug("CompositeIndex proto recieved: %s"%str(compindex_pb))
-    #logger.debug("VOID_RESPONSE to composite index: %s" % resp_pb)
     return (resp_pb.Encode(), 0, "")
 
 # Returns 0 on success, 1 on failure
@@ -1526,28 +1502,22 @@ class MainHandler(tornado.web.RequestHandler):
       return 1
     """
     table_name = "__" + app_id + "__" + "single_prop_asc"
-    print "Building table: " + table_name
     columns = ["reference"]
     returned = app_datastore.create_table( table_name, columns )
     err,res = returned
     if err not in ERROR_CODES:
-      #logger.debug("%s" % err)
       return 1
 
     table_name = "__" + app_id + "__" + "single_prop_desc"
-    print "Building table: " + table_name
     returned = app_datastore.create_table( table_name, columns )
     err,res = returned
     if err not in ERROR_CODES:
-      #logger.debug("%s" % err)
       return 1
  
     table_name = "__" + app_id + "__" + "composite"
-    print "Building table: " + table_name
     returned = app_datastore.create_table( table_name, columns )
     err,res = returned
     if err not in ERROR_CODES:
-      #logger.debug("%s" % err)
       return 1 
    
     return 0 

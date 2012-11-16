@@ -1,5 +1,5 @@
+# Programmer: Navraj Chohan <nlake44@gmail.com>
 """
-Author: Navraj Chohan
 Helpful functions and classes which are used by AppDB
 """
 import hashlib
@@ -12,9 +12,8 @@ import random
 import time
 
 def read_file(file_name):
-  """
-  Description: Opens and reads a file. Helpful for mocking out builtin
-    functions.
+  """ Opens and reads a file. Helpful for mocking out builtin
+      functions.
   Args:
     file_name: path to file to read
   Returns:
@@ -25,11 +24,11 @@ def read_file(file_name):
   fp.close()
   return contents
 
-def reverseLex(ustring):
-  """
-  Description: strings must be in unicode to reverse the string
+def reverse_lex(ustring):
+  """ Strings must be in unicode to reverse the string
     strings are returned in unicode and may not able 
     able to be converted to a regular string
+
   Args: 
     ustring: String to reverse
   """
@@ -41,10 +40,10 @@ def reverseLex(ustring):
     newstr += char
   return newstr
 
-def reverseLex128(ustring):
-  """ 
-  Description: Cetain datastores are unable to store keys with unichars of 
-     128 or more this function reflects on 127 and less.
+def reverse_lex_128(ustring):
+  """ Certain datastores are unable to store keys with unichars of 
+      128 or more this function reflects on 127 and less.
+
   Args:
     ustring: String to reverse
   """
@@ -76,10 +75,9 @@ class ThreadedLogger():
     if self.loggingOn:
       self.log_logger.info(string)
 
-def randomString(length):
-  """ 
-  Description:
-    Returns a string of a given length. 
+def random_string(length):
+  """ Returns a string of a given length. 
+
   Args:
     length: The length of the random string which is returned.
   Returns:
@@ -93,30 +91,11 @@ def randomString(length):
   return ret[0:length]
 
 def lineno():
-  """
-  Description:   
-    Returns the current line number in our program.
+  """ Returns the current line number in our program.
+
+  Returns:
+    The current line number in our program.
   """
   return inspect.currentframe().f_back.f_lineno
-
-class Timer():
-  """ 
-  Description: 
-    Class for timing code paths. 
-  """
-  def __init__(self):
-    self.init = time.time()
-    self.start = time.time()
-
-  def done(self):
-    self.end = time.time()
-    self.interval = self.end - self.start
-    self.start = time.time()
-    return self.interval
-
-  def total(self):
-    self.end = time.time()
-    self.interval = self.end - self.init
-    return self.interval
 
 

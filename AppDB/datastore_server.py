@@ -1,8 +1,7 @@
 #!/usr/bin/python
+# Programmer: Navraj Chohan <nlake44@gmail.com>
 # See LICENSE file
 #
-# Author: 
-# Navraj Chohan (raj@appscale.com)
 
 import __builtin__
 import datetime
@@ -10,22 +9,22 @@ import getopt
 import itertools
 import md5
 import os
-import threading
-import types
 import random
 import SOAPpy
 import sys
 import socket
 import time
+import threading
+import types
 
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
 
-import dbconstants
 import appscale_logger
 import appscale_datastore
 import appscale_datastore_batch
+import dbconstants
 import helper_functions
 
 from google.appengine.api import api_base_pb
@@ -34,11 +33,11 @@ from google.appengine.api import datastore_errors
 from google.appengine.api import datastore_types
 from google.appengine.api import users
 
+from google.appengine.datastore import cassandra_stub_util
 from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import datastore_index
 from google.appengine.datastore import datastore_stub_util
 from google.appengine.datastore import entity_pb
-from google.appengine.datastore import cassandra_stub_util
 from google.appengine.datastore import sortable_pb_encoder
 
 from google.appengine.runtime import apiproxy_errors
@@ -58,47 +57,6 @@ datastore_access = None
 entity_pb.Reference.__hash__ = lambda self: hash(self.Encode())
 datastore_pb.Query.__hash__ = lambda self: hash(self.Encode())
 
-# Max number of results for a query
-_MAXIMUM_RESULTS = 1000000
-
-# The most you can offset a result from a query
-_MAX_QUERY_OFFSET = 1000
-
-# The number of entries looked at when doing a composite query
-# It will keep looking at this size window when getting the result
-_MAX_COMPOSITE_WINDOW = 1000
-
-# Maximum amount of filter and orderings allowed within a query
-_MAX_QUERY_COMPONENTS = 63
-
-# IDs are acquired in block sizes of this
-_BLOCK_SIZE = 10000
-
-# This is the largest block of IDs a user can request
-_MAX_REQUESTED_ID_BLOCK = 1000
-
-# For enabling and disabling range inclusivity
-_ENABLE = True
-_DISABLE = False
-
-_NAMESPACE_SEPARATOR = '/'
-
-# This is the terminating string for range queries
-_TERM_STRING = chr(255) * 500
-
-_OPERATOR_MAP = {
-    datastore_pb.Query_Filter.LESS_THAN: '<',
-    datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL: '<=',
-    datastore_pb.Query_Filter.EQUAL: '=',
-    datastore_pb.Query_Filter.GREATER_THAN: '>',
-    datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL: '>=',
-}
-
-_ORDER_MAP = {
-    datastore_pb.Query_Order.ASCENDING: 'ASC',
-    datastore_pb.Query_Order.DESCENDING: 'DESC',
-}
-
 # The datastores supported for this version of the AppScale datastore
 VALID_DATASTORES = ['cassandra', 'hbase', 'hypertable']
 
@@ -108,11 +66,35 @@ DEFAULT_SSL_PORT = 8443
 # Port this service binds to (unencrypted and hence better performance)
 DEFAULT_PORT = 4080
 
+# IDs are acquired in block sizes of this
+BLOCK_SIZE = 10000
+ 
 class DatastoreDistributed():
   """ AppScale persistent layer for the datastore API. It is the 
       replacement for the AppServers to persist their data into 
       a distributed datastore instead of a flat file.
   """
+  # Max number of results for a query
+  _MAXIMUM_RESULTS = 1000000
+
+  # The number of entries looked at when doing a composite query
+  # It will keep looking at this size window when getting the result
+  _MAX_COMPOSITE_WINDOW = 1000
+
+  # Maximum amount of filter and orderings allowed within a query
+  _MAX_QUERY_COMPONENTS = 63
+
+ 
+  # For enabling and disabling range inclusivity
+  _ENABLE_INCLUSIVITY = True
+  _DISABLE_INCLUSIVITY = False
+
+  # Delimiter between app names and namespace and the rest of an entity key
+  _NAMESPACE_SEPARATOR = '/'
+
+  # This is the terminating string for range queries
+  _TERM_STRING = chr(255) * 500
+
 
   def __init__(self, datastore_batch):
     """
@@ -139,21 +121,13 @@ class DatastoreDistributed():
     # lock for namespace and indexes during periodic garbage collection
     self.__lock = threading.Lock()
 
-    # TODO initialize a clean up thread
-    #self.__start_gc_thread()
- 
-    # datastore accessor
+    # datastore accessor used by this class to do datastore operations
     self.datastore_batch = datastore_batch 
 
-  def __start_gc_thread(self):
-    """ Scans through indexes and namespaces, removed ones which have not
-        been accessed within a prescribed amount of time (TDB)
-    """
-    raise NotImplementedError
-
   @staticmethod
-  def GetEntityKind(key_path):
-    """ Returns the Kind of the Entity
+  def get_entity_kind(key_path):
+    """ Returns the Kind of the Entity. A Kind is like a type or a 
+        particular class of entity.
 
     Args:
         key_path: the key path of entity
@@ -165,19 +139,19 @@ class DatastoreDistributed():
       key_path = key_path.key()
     return key_path.path().element_list()[-1].type()
 
-  def GetEntityKey(self, prefix, pb):
+  def get_entity_key(self, prefix, pb):
     """ Returns the key for the entity table
     
     Args:
         prefix: app name and namespace string
                 example-- 'guestbook/mynamespace'
-        pb: protocol buffer for which we will get encode the index name
+        pb: protocol buffer for which we will encode the index name
     Returns:
         Key for entity table
     """
-    return buffer(prefix + _NAMESPACE_SEPARATOR) + self.__EncodeIndexPB(pb) 
+    return buffer(prefix + self._NAMESPACE_SEPARATOR) + self.__encode_index_pb(pb) 
 
-  def GetKindKey(self, prefix, key_path):
+  def get_kind_key(self, prefix, key_path):
     """ Returns a key for the kind table
     
     Args:
@@ -193,15 +167,17 @@ class DatastoreDistributed():
       if e.has_name():
         key_id = e.name()
       elif e.has_id():
+        # make sure ids are ordered lexigraphically by making sure they 
+        # are of set size i.e. 2 > 0003 but 0002 < 0003
         key_id = str(e.id()).zfill(10)
       path.append('%s:%s' % (e.type(), key_id))
     encoded_path = '!'.join(path)
     encoded_path += '!'
     
-    return prefix + _NAMESPACE_SEPARATOR + encoded_path
+    return prefix + self._NAMESPACE_SEPARATOR + encoded_path
     
   @staticmethod
-  def __EncodeIndexPB(pb):
+  def __encode_index_pb(pb):
     """ Returns an encoded buffer
   
     Args:
@@ -239,33 +215,32 @@ class DatastoreDistributed():
     elif isinstance(pb, entity_pb.Path):
       return buffer(_encode_path(pb))
 
-  def ValidateAppId(self, app_id):
+  def validate_app_id(self, app_id):
     """ Verify that this is the stub for app_id.
 
     Args:
       app_id: An application ID.
-
     Raises:
-      AppScaleBadArg if name is not set
+      AppScaleBadArg: if name is not set
     """
 
     if not app_id: 
       raise dbconstants.AppScaleBadArg("Application name must be set")
 
-  def ValidateKey(self, key):
-    """ Validate this key.
+  def validate_key(self, key):
+    """ Validate this key by checking to see if it has a name or id.
 
     Args:
       key: entity_pb.Reference
-
     Raises:
       datastore_errors.BadRequestError: if the key is invalid
-      TypeError if key is not of entity_pb.Reference
+      TypeError: if key is not of entity_pb.Reference
     """
 
-    if not isinstance(key, entity_pb.Reference): raise TypeError
+    if not isinstance(key, entity_pb.Reference): 
+      raise TypeError("Expected type Reference")
 
-    self.ValidateAppId(key.app())
+    self.validate_app_id(key.app())
 
     for elem in key.path().element_list():
       if elem.has_id() and elem.has_name():
@@ -273,8 +248,8 @@ class DatastoreDistributed():
             'each key path element should have id or name but not both: %r'
             % key)
 
-  def GetIndexKey(self, app_id, name_space, kind, index_name):
-    """ Returns key string for storing namespaces
+  def get_index_key(self, app_id, name_space, kind, index_name):
+    """ Returns key string for storing namespaces.
     Args:
       app_id: The app ID.
       name_space: The per-app namespace name.
@@ -286,15 +261,13 @@ class DatastoreDistributed():
 
     return app_id + "/" + name_space + "/" + kind + "/" + index_name
 
-  def ConfigureNamespace(self, prefix, app_id, name_space):
-    """ Stores a key for the given namespac
+  def configure_namespace(self, prefix, app_id, name_space):
+    """ Stores a key for the given namespace.
 
     Args:
       prefix: The namespace prefix to configure.
       app_id: The app ID.
       name_space: The per-app namespace name.
-    Returns:
-      True upon success, False otherwise.
     """
     
     vals = {}
@@ -304,10 +277,9 @@ class DatastoreDistributed():
                           [row_key], 
                           dbconstants.APP_NAMESPACE_SCHEMA, 
                           vals)
-    return True
 
 
-  def GetTablePrefix(self, data):
+  def get_table_prefix(self, data):
     """ Returns the namespace prefix for a query.
 
     Args:
@@ -324,12 +296,12 @@ class DatastoreDistributed():
     prefix = ('%s/%s' % data).replace('"', '""')
 
     if data not in self.__namespaces:
-      if self.ConfigureNamespace(prefix, *data):
-        self.__namespaces.append(data)
+      self.configure_namespace(prefix, *data)
+      self.__namespaces.append(data)
 
     return prefix
 
-  def GetIndexKeyFromParams(self, params):
+  def get_index_key_from_params(self, params):
     """Returns the index key from params
     Args:
        params: a list of strings to be concatenated to form the key made of:
@@ -337,7 +309,7 @@ class DatastoreDistributed():
     Returns:
        a string
     Raises:
-       ValueError if params are not of the correct cardinality
+       ValueError: if params are not of the correct cardinality
     """
     if len(params) != 5 and len(params) != 4: raise ValueError
 
@@ -348,7 +320,7 @@ class DatastoreDistributed():
        key = '/'.join(params) 
     return key
 
-  def GetIndexKVFromTuple(self, tuple_list, reverse=False):
+  def get_index_kv_from_tuple(self, tuple_list, reverse=False):
     """ Returns keys/value of indexes for a set of entities
  
     Args: 
@@ -357,32 +329,32 @@ class DatastoreDistributed():
     Returns:
        A list of keys and values of indexes
     """
-    def RowGenerator(entities,rev):
+    def row_generator(entities,rev):
       all_rows = []
       for prefix, e in entities:
         for p in e.property_list():
-          val = str(self.__EncodeIndexPB(p.value()))
-          # Remove the first binary character
+          val = str(self.__encode_index_pb(p.value()))
+          # Remove the first binary character for lexigraphical ordering
           val = str(val[1:])
 
           if rev:
-            val = helper_functions.reverseLex(val)
+            val = helper_functions.reverse_lex(val)
 
           params = [prefix, 
-                    self.GetEntityKind(e), 
+                    self.get_entity_kind(e), 
                     p.name(), 
                     val, 
-                    str(self.__EncodeIndexPB(e.key().path()))]
+                    str(self.__encode_index_pb(e.key().path()))]
 
-          index_key = self.GetIndexKeyFromParams(params)
+          index_key = self.get_index_key_from_params(params)
           p_vals = [index_key, 
                     buffer(prefix + '/') + \
-                    self.__EncodeIndexPB(e.key().path())] 
+                    self.__encode_index_pb(e.key().path())] 
           all_rows.append(p_vals)
       return tuple(ii for ii in all_rows)
-    return RowGenerator(tuple_list, reverse)
+    return row_generator(tuple_list, reverse)
 
-  def DeleteIndexEntries(self, entities):
+  def delete_index_entries(self, entities):
     """ Deletes the entities in the DB
 
     Args:
@@ -392,10 +364,10 @@ class DatastoreDistributed():
 
     if len(entities) == 0: return
 
-    entities_tuple = sorted((self.GetTablePrefix(x), x) for x in entities)
-    asc_index_keys = self.GetIndexKVFromTuple(entities_tuple, 
+    entities_tuple = sorted((self.get_table_prefix(x), x) for x in entities)
+    asc_index_keys = self.get_index_kv_from_tuple(entities_tuple, 
                                                      reverse=False)
-    desc_index_keys = self.GetIndexKVFromTuple(entities_tuple, 
+    desc_index_keys = self.get_index_kv_from_tuple(entities_tuple, 
                                                      reverse=True)
     # Remove the value, just get keys
     asc_index_keys = [x[0] for x in asc_index_keys] 
@@ -408,31 +380,31 @@ class DatastoreDistributed():
                                       desc_index_keys,
                                       column_names=dbconstants.PROPERTY_SCHEMA)
     
-  def InsertEntities(self, entities):
+  def insert_entities(self, entities):
     """Inserts or updates entities in the DB.
     Args:      
       entities: A list of entities to store.
     """
 
-    def RowGenerator(entities):
+    def row_generator(entities):
       for prefix, e in entities:
-        yield (self.GetEntityKey(prefix, e.key().path()),
+        yield (self.get_entity_key(prefix, e.key().path()),
                buffer(e.Encode()))
 
-    def KindRowGenerator(entities):
+    def kind_row_generator(entities):
       for prefix, e in entities:
         # yield a tuple of kind key and a reference to entity table
-        yield (self.GetKindKey(prefix, e.key().path()),
-               self.GetEntityKey(prefix, e.key().path()))
+        yield (self.get_kind_key(prefix, e.key().path()),
+               self.get_entity_key(prefix, e.key().path()))
     row_values = {}
     row_keys = []
 
     kind_row_keys = []
     kind_row_values = {}
 
-    entities = sorted((self.GetTablePrefix(x), x) for x in entities)
+    entities = sorted((self.get_table_prefix(x), x) for x in entities)
     for prefix, group in itertools.groupby(entities, lambda x: x[0]):
-      group_rows = tuple(RowGenerator(group))
+      group_rows = tuple(row_generator(group))
       new_row_keys = [str(ii[0]) for ii in group_rows]
       row_keys += new_row_keys
       for ii in group_rows:
@@ -440,7 +412,7 @@ class DatastoreDistributed():
                            dbconstants.APP_ENTITY_SCHEMA[1]:"0"} #txnid
 
     for prefix, group in itertools.groupby(entities, lambda x: x[0]):
-      kind_group_rows = tuple(KindRowGenerator(group))
+      kind_group_rows = tuple(kind_row_generator(group))
       new_kind_keys = [str(ii[0]) for ii in kind_group_rows]
       kind_row_keys += new_kind_keys
 
@@ -459,7 +431,7 @@ class DatastoreDistributed():
                                           dbconstants.APP_KIND_SCHEMA, 
                                           kind_row_values) 
 
-  def InsertIndexEntries(self, entities):
+  def insert_index_entries(self, entities):
     """ Inserts index entries for the supplied entities.
 
     Args:
@@ -467,9 +439,9 @@ class DatastoreDistributed():
                 to create index entries for.
     """
 
-    entities = sorted((self.GetTablePrefix(x), x) for x in entities)
-    asc_index_keys = self.GetIndexKVFromTuple(entities, reverse=False)
-    desc_index_keys = self.GetIndexKVFromTuple(entities, reverse=True)
+    entities = sorted((self.get_table_prefix(x), x) for x in entities)
+    asc_index_keys = self.get_index_kv_from_tuple(entities, reverse=False)
+    desc_index_keys = self.get_index_kv_from_tuple(entities, reverse=True)
  
     row_keys = []
     rev_row_keys = []
@@ -477,13 +449,13 @@ class DatastoreDistributed():
     rev_row_values = {}
 
     for prefix, group in itertools.groupby(entities, lambda x: x[0]):
-      group_rows = self.GetIndexKVFromTuple(group,False)
+      group_rows = self.get_index_kv_from_tuple(group,False)
       row_keys = [str(ii[0]) for ii in group_rows]
       for ii in group_rows:
         row_values[str(ii[0])] = {'reference':str(ii[1])}
 
     for prefix, group in itertools.groupby(entities, lambda x: x[0]):
-      rev_group_rows = self.GetIndexKVFromTuple(group,True)
+      rev_group_rows = self.get_index_kv_from_tuple(group,True)
       rev_row_keys = [str(ii[0]) for ii in rev_group_rows]
       for ii in rev_group_rows:
         rev_row_values[str(ii[0])] = {'reference':str(ii[1])}
@@ -499,7 +471,7 @@ class DatastoreDistributed():
                           dbconstants.PROPERTY_SCHEMA,
                           rev_row_values)
 
-  def AcquireIdBlockFromDB(self, prefix):
+  def acquire_id_block_from_db(self, prefix):
     """ Gets a block of keys from the DB
 
     Args: 
@@ -507,6 +479,7 @@ class DatastoreDistributed():
     Returns:
       next id available
     """  
+
     res  = self.datastore_batch.batch_get_entity(dbconstants.APP_ID_TABLE, 
                                                  [prefix], 
                                                  dbconstants.APP_ID_SCHEMA)
@@ -514,7 +487,7 @@ class DatastoreDistributed():
       return int(res[prefix][dbconstants.APP_ID_SCHEMA[0]])
     return 0
 
-  def IncrementIdInDB(self, prefix):
+  def increment_id_in_db(self, prefix):
     """ Updates the counter for a prefix to the DB
 
     Args: 
@@ -523,7 +496,7 @@ class DatastoreDistributed():
       next_block id
     """
     # TODO getting and updating a block needs to be transactional
-    current_block = self.AcquireIdBlockFromDB(prefix)
+    current_block = self.acquire_id_block_from_db(prefix)
     next_block = current_block + 1
     cell_values = {prefix:{dbconstants.APP_ID_SCHEMA[0]:str(next_block)}} 
 
@@ -531,9 +504,9 @@ class DatastoreDistributed():
                           [prefix],  
                           dbconstants.APP_ID_SCHEMA,
                           cell_values)
-    return next_block * _BLOCK_SIZE
+    return next_block * BLOCK_SIZE
 
-  def AllocateIds(self, prefix, size):
+  def allocate_ids(self, prefix, size):
     """ Allocates IDs.
 
     Args:
@@ -542,7 +515,7 @@ class DatastoreDistributed():
     Returns:
       start and end ids: The beginning of a range of size IDs
     Raises: 
-      ValueError if size is less than or equal to 0
+      ValueError: if size is less than or equal to 0
     """
     # TODO make this thread safe because we're accessing global variables
     if size <= 0: raise ValueError 
@@ -550,8 +523,8 @@ class DatastoreDistributed():
     next_id, end_id = self.__id_map.get(prefix, (0, 0))
     if next_id == end_id or (end_id and (next_id + size > end_id)):
       # Acquire a new block of ids, throw out the old ones
-      next_id = self.IncrementIdInDB(prefix)
-      end_id = next_id + _BLOCK_SIZE - 1
+      next_id = self.increment_id_in_db(prefix)
+      end_id = next_id + BLOCK_SIZE - 1
        
     start = next_id 
     end = next_id + size - 1
@@ -559,47 +532,47 @@ class DatastoreDistributed():
     self.__id_map[prefix] = (next_id + size, end_id)
     return start, end
 
-  def PutEntities(self, entities):
+  def put_entities(self, entities):
     """ Updates indexes of existing entities, inserts new entities and 
         indexes for them
     Args:
        entities: list of entities
     """
-    ents = sorted((self.GetTablePrefix(x), x) for x in entities)
-    for prefix, group in itertools.groupby(ents, lambda x: x[0]):
+    sorted_entities= sorted((self.get_table_prefix(x), x) for x in entities)
+    for prefix, group in itertools.groupby(sorted_entities, lambda x: x[0]):
       keys = [e.key() for e in entities]
-      self.DeleteEntities(keys)
-      self.InsertEntities(entities)
-      self.InsertIndexEntries(entities)
+      self.delete_entities(keys)
+      self.insert_entities(entities)
+      self.insert_index_entries(entities)
 
-  def DeleteEntities(self, keys):
+  def delete_entities(self, keys):
     """ Deletes the entities and the indexes associated with them.
     Args:
        keys: list of keys to be deleted
     """
-    def RowGenerator(key_list):
+    def row_generator(key_list):
       for prefix, k in key_list:
-        yield (self.GetEntityKey(prefix, k.path()),
+        yield (self.get_entity_key(prefix, k.path()),
                buffer(k.Encode()))
 
-    def KindRowGenerator(key_list):
+    def kind_row_generator(key_list):
       for prefix, k in key_list:
         # yield a tuple of kind key and a reference to entity table
-        yield (self.GetKindKey(prefix, k.path()),
-               self.GetEntityKey(prefix, k.path()))
+        yield (self.get_kind_key(prefix, k.path()),
+               self.get_entity_key(prefix, k.path()))
  
     row_keys = []
     kind_keys = []
 
-    entities = sorted((self.GetTablePrefix(x), x) for x in keys)
+    entities = sorted((self.get_table_prefix(x), x) for x in keys)
 
     for prefix, group in itertools.groupby(entities, lambda x: x[0]):
-      group_rows = tuple(RowGenerator(group))
+      group_rows = tuple(row_generator(group))
       new_row_keys = [str(ii[0]) for ii in group_rows]
       row_keys += new_row_keys
 
     for prefix, group in itertools.groupby(entities, lambda x: x[0]):
-      group_rows = tuple(KindRowGenerator(group))
+      group_rows = tuple(kind_row_generator(group))
       new_row_keys = [str(ii[0]) for ii in group_rows]
       kind_keys += new_row_keys
 
@@ -625,9 +598,9 @@ class DatastoreDistributed():
         ent.ParseFromString(ret[row_key]['entity'])
         entities.append(ent)
 
-    self.DeleteIndexEntries(entities)
+    self.delete_index_entries(entities)
 
-  def _Dynamic_Put(self, app_id, put_request, put_response):
+  def _dynamic_put(self, app_id, put_request, put_response):
     """ Stores and entity and its indexes in the datastore
     
     Args:
@@ -639,7 +612,7 @@ class DatastoreDistributed():
     entities = put_request.entity_list()
     keys = [e.key() for e in entities]
     for entity in entities:
-      self.ValidateKey(entity.key())
+      self.validate_key(entity.key())
 
       for prop in itertools.chain(entity.property_list(),
                                   entity.raw_property_list()):
@@ -648,29 +621,22 @@ class DatastoreDistributed():
           uid = '1' + ''.join(['%02d' % ord(x) for x in uid])[:20]
           prop.mutable_value().mutable_uservalue().set_obfuscated_gaiaid(uid)
 
-      assert entity.has_key()
-      assert entity.key().path().element_size() > 0
-      
       last_path = entity.key().path().element_list()[-1]
       if last_path.id() == 0 and not last_path.has_name():
  
-        id_, ignored = self.AllocateIds(self.GetTablePrefix(entity.key()), 1)
+        id_, ignored = self.allocate_ids(self.get_table_prefix(entity.key()), 1)
         last_path.set_id(id_)
 
-        assert entity.entity_group().element_size() == 0
         group = entity.mutable_entity_group()
         root = entity.key().path().element(0)
         group.add_element().CopyFrom(root)
 
-      else:
-        assert (entity.has_entity_group() and
-                entity.entity_group().element_size() > 0)
 
-    self.PutEntities(entities)
+    self.put_entities(entities)
     put_response.key_list().extend([e.key() for e in entities])
 
-  def FetchKeys(self, key_list):
-    """ Given a list of keys fetch the entities
+  def fetch_keys(self, key_list):
+    """ Given a list of keys fetch the entities.
     
     Args:
       key_list: A list of keys to fetch
@@ -679,17 +645,17 @@ class DatastoreDistributed():
     """
     row_keys = []
     for key in key_list:
-      self.ValidateAppId(key.app())
-      index_key = str(self.__EncodeIndexPB(key.path()))
-      prefix = self.GetTablePrefix(key)
+      self.validate_app_id(key.app())
+      index_key = str(self.__encode_index_pb(key.path()))
+      prefix = self.get_table_prefix(key)
       row_keys.append(prefix + '/' + index_key)
     result = self.datastore_batch.batch_get_entity(dbconstants.APP_ENTITY_TABLE, 
                                                  row_keys, 
                                                  dbconstants.APP_ENTITY_SCHEMA) 
     return (result, row_keys)
 
-  def _Dynamic_Get(self, _, get_request, get_response):
-    """ Fetch keys from the datastore
+  def _dynamic_get(self, get_request, get_response):
+    """ Fetch keys from the datastore.
     
     Args: 
        get_request: Request with list of keys
@@ -697,23 +663,24 @@ class DatastoreDistributed():
     """ 
 
     keys = get_request.key_list()
-    results, row_keys = self.FetchKeys(keys) 
+    results, row_keys = self.fetch_keys(keys) 
     for r in row_keys:
       if r in results and 'entity' in results[r]:
         group = get_response.add_entity() 
         group.mutable_entity().CopyFrom(
                entity_pb.EntityProto(results[r]['entity']))
 
-  def _Dynamic_Delete(self, app_id, delete_request, delete_response):
-      keys = delete_request.key_list()
-      self.DeleteEntities(delete_request.key_list())
- 
-  def GenerateFilterInfo(self, filters, query):
-    """ Public wrapper for tetsing
+  def _dynamic_delete(self, delete_request, delete_response):
+    """ Deletes a set of rows.
+    
+    Args: 
+      delete_request: Request with a list of keys
+      delete_response: Response to application server
     """
-    self.__GenerateFilterInfo(filters, query)
-
-  def __GenerateFilterInfo(self, filters, query):
+    keys = delete_request.key_list()
+    self.delete_entities(delete_request.key_list())
+ 
+  def generate_filter_info(self, filters, query):
     """Transform a list of filters into a more usable form.
 
     Args:
@@ -723,7 +690,7 @@ class DatastoreDistributed():
       A dict mapping property names to lists of (op, value) tuples.
     """
 
-    def ReferencePropertyToReference(refprop):
+    def reference_property_to_reference(refprop):
       ref = entity_pb.Reference()
       ref.set_app(refprop.app())
       if refprop.has_name_space():
@@ -734,25 +701,18 @@ class DatastoreDistributed():
 
     filter_info = {}
     for filt in filters:
-      assert filt.property_size() == 1
       prop = filt.property(0)
       value = prop.value()
       if prop.name() == '__key__':
-        value = ReferencePropertyToReference(value.referencevalue())
-        assert value.app() == query.app()
-        assert value.name_space() == query.name_space()
+        value = reference_property_to_reference(value.referencevalue())
         value = value.path()
       filter_info.setdefault(prop.name(), []).append((filt.op(), 
-                                   self.__EncodeIndexPB(value)))
+                                   self.__encode_index_pb(value)))
     return filter_info
   
-  def GenerateOrderInfo(self, orders):
-    """ Public wrapper for testing
-    """
-    self.__GenerateOrderInfo(orders)
-   
-  def __GenerateOrderInfo(self, orders):
-    """Transform a list of orders into a more usable form.
+  def generate_order_info(self, orders):
+    """Transform a list of orders into a more usable form which 
+       is a tuple of properties and ordering directions.
 
     Args:
       orders: A list of order PBs.
@@ -764,7 +724,7 @@ class DatastoreDistributed():
       orders.pop()
     return orders
 
-  def __GetStartKey(self, prefix, prop_name, order, last_result):
+  def __get_start_key(self, prefix, prop_name, order, last_result):
     """ Builds the start key for cursor query
 
     Args: 
@@ -775,12 +735,12 @@ class DatastoreDistributed():
     e = last_result
     start_key = None
     if not prop_name and not order:
-        return str(prefix + '/' + str(self.__EncodeIndexPB(e.key().path())))
+        return str(prefix + '/' + str(self.__encode_index_pb(e.key().path())))
      
     if e.property_list():
       plist = e.property_list()
     else:   
-      rkey = prefix + '/' + str(self.__EncodeIndexPB(e.key().path()))
+      rkey = prefix + '/' + str(self.__encode_index_pb(e.key().path()))
       ret = self.datastore_batch.batch_get_entity(dbconstants.APP_ENTITY_TABLE, 
                                              [rkey], 
                                              dbconstants.APP_ENTITY_SCHEMA)
@@ -792,21 +752,21 @@ class DatastoreDistributed():
       if p.name() == prop_name:
         break
 
-    val = str(self.__EncodeIndexPB(p.value()))
-    # remove first binary char
+    val = str(self.__encode_index_pb(p.value()))
+    # remove first binary char for correct lexigraphical ordering
     val = str(val[1:])
 
     if order == datastore_pb.Query_Order.DESCENDING:
-      val = helper_functions.reverseLex(val)        
+      val = helper_functions.reverse_lex(val)        
     params = [prefix,
-              self.GetEntityKind(e), 
+              self.get_entity_kind(e), 
               p.name(), 
               val, 
-              str(self.__EncodeIndexPB(e.key().path()))]
+              str(self.__encode_index_pb(e.key().path()))]
 
-    return self.GetIndexKeyFromParams(params)
+    return self.get_index_key_from_params(params)
 
-  def __FetchEntities(self, refs):
+  def __fetch_entities(self, refs):
     """ Given the results from a table scan, get the references
     
     Args: 
@@ -835,7 +795,7 @@ class DatastoreDistributed():
 
     return entities 
 
-  def __ExtractEntities(self, kv):
+  def __extract_entities(self, kv):
     """ Given a result from a range query on the Entity table return a 
         list of encoded entities
     Args:
@@ -845,32 +805,33 @@ class DatastoreDistributed():
     """
     keys = [item.keys()[0] for item in kv]
     results = []    
-    for index, ent in enumerate(kv):
+    for index, entity in enumerate(kv):
       key = keys[index]
-      ent = ent[key]['entity']
-      results.append(ent)
+      entity = entity[key]['entity']
+      results.append(entity)
 
     return results
     
   def __AncestorQuery(self, query, filter_info, order_info):
-    """ Performs ancestor queries
+    """ Performs ancestor queries which is where you select 
+        entities based on a particular root entitiy. 
       
     Args: 
-      query: query
+      query: The query to run
       filter_info: tuple with filter operators and values
       order_info: tuple with property name and the sort order
     Returns:
       start and end row keys
     """       
     ancestor = query.ancestor()
-    prefix = self.GetTablePrefix(query)
-    path = buffer(prefix + '/') + self.__EncodeIndexPB(ancestor.path())
+    prefix = self.get_table_prefix(query)
+    path = buffer(prefix + '/') + self.__encode_index_pb(ancestor.path())
 
     startrow = path
-    endrow =  path + _TERM_STRING
+    endrow = path + self._TERM_STRING
 
-    end_inclusive = _ENABLE
-    start_inclusive = _ENABLE
+    end_inclusive = self._ENABLE_INCLUSIVITY
+    start_inclusive = self._ENABLE_INCLUSIVITY
 
     if '__key__' in filter_info:
       op = filter_info['__key__'][0][0]
@@ -879,17 +840,15 @@ class DatastoreDistributed():
         startrow = prefix + '/' + __key__
         endrow = prefix + '/' + __key__
       elif op and op == datastore_pb.Query_Filter.GREATER_THAN:
-        start_inclusive = _DISABLE
+        start_inclusive = self._DISABLE_INCLUSIVITY
         startrow = prefix + '/' + __key__ 
       elif op and op == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
         startrow = prefix + '/' + __key__
       elif op and op == datastore_pb.Query_Filter.LESS_THAN:
         endrow = prefix + '/'  + __key__
-        end_inclusive = _DISABLE
+        end_inclusive = self._DISABLE_INCLUSIVITY
       elif op and op == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
         endrow = prefix + '/' + __key__ 
-
-
 
     column_names = ['reference']
     if not order_info:
@@ -899,13 +858,10 @@ class DatastoreDistributed():
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
        cursor = cassandra_stub_util.ListCursor(query)
        last_result = cursor._GetLastResult()
-       startrow = self.__GetStartKey(prefix, prop_name, order, last_result)
-       start_inclusive = _DISABLE
+       startrow = self.__get_start_key(prefix, prop_name, order, last_result)
+       start_inclusive = self._DISABLE_INCLUSIVITY
 
-    if query.has_limit() and query.limit():
-      limit = query.limit()
-    else:
-      limit = _MAXIMUM_RESULTS
+    limit = query.limit() or self._MAXIMUM_RESULTS
 
     offset = query.offset()
   
@@ -917,44 +873,45 @@ class DatastoreDistributed():
                                               offset=offset, 
                                               start_inclusive=start_inclusive, 
                                               end_inclusive=end_inclusive)
-    return self.__ExtractEntities(result)
+    return self.__extract_entities(result)
 
   def __KindlessQuery(self, query, filter_info, order_info):
-    """ Performs kindless queries
+    """ Performs kindless queries where queries are performed 
+        on the entity table and go across kinds.
       
     Args: 
-      query: query
+      query: The query to run
       filter_info: tuple with filter operators and values
       order_info: tuple with property name and the sort order
     Returns:
       Entities that match the query
     """       
-    prefix = self.GetTablePrefix(query)
+    prefix = self.get_table_prefix(query)
 
     __key__ = str(filter_info['__key__'][0][1])
     op = filter_info['__key__'][0][0]
 
-    end_inclusive = _ENABLE
-    start_inclusive = _ENABLE
+    end_inclusive = self._ENABLE_INCLUSIVITY
+    start_inclusive = self._ENABLE_INCLUSIVITY
 
-    startrow = prefix + '/' + __key__ + _TERM_STRING
-    endrow = prefix + '/'  + _TERM_STRING
+    startrow = prefix + '/' + __key__ + self._TERM_STRING
+    endrow = prefix + '/'  + self._TERM_STRING
     if op and op == datastore_pb.Query_Filter.EQUAL:
       startrow = prefix + '/' + __key__
       endrow = prefix + '/' + __key__
     elif op and op == datastore_pb.Query_Filter.GREATER_THAN:
-      start_inclusive = _DISABLE
+      start_inclusive = self._DISABLE_INCLUSIVITY
       startrow = prefix + '/' + __key__ 
-      endrow = prefix + '/'  + _TERM_STRING
-      end_inclusive = _DISABLE
+      endrow = prefix + '/'  + self._TERM_STRING
+      end_inclusive = self._DISABLE_INCLUSIVITY
     elif op and op == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
       startrow = prefix + '/' + __key__
-      endrow = prefix + '/'  + _TERM_STRING
-      end_inclusive = _DISABLE
+      endrow = prefix + '/'  + self._TERM_STRING
+      end_inclusive = self._DISABLE_INCLUSIVITY
     elif op and op == datastore_pb.Query_Filter.LESS_THAN:
       startrow = prefix + '/'  
       endrow = prefix + '/'  + __key__
-      end_inclusive = _DISABLE
+      end_inclusive = self._DISABLE_INCLUSIVITY
     elif op and op == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
       startrow = prefix + '/' 
       endrow = prefix + '/' + __key__ 
@@ -966,14 +923,10 @@ class DatastoreDistributed():
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
        cursor = cassandra_stub_util.ListCursor(query)
        last_result = cursor._GetLastResult()
-       startrow = self.__GetStartKey(prefix, prop_name, order, last_result)
-       start_inclusive = _DISABLE
+       startrow = self.__get_start_key(prefix, prop_name, order, last_result)
+       start_inclusive = self._DISABLE_INCLUSIVITY
 
-    if query.has_limit() and query.limit():
-      limit = query.limit()
-    else:
-      limit = _MAXIMUM_RESULTS
-
+    limit = query.limit() or self._MAXIMUM_RESULTS
     offset = query.offset()
   
     result = self.datastore_batch.range_query(dbconstants.APP_ENTITY_TABLE, 
@@ -985,40 +938,35 @@ class DatastoreDistributed():
                                               start_inclusive=start_inclusive, 
                                               end_inclusive=end_inclusive)
 
-    return self.__ExtractEntities(result)
+    return self.__extract_entities(result)
 
-  def __KindQueryRange(self, query, filter_info, order_info):
+  def kind_query_range(self, query, filter_info, order_info):
     """ Gets start and end keys for kind queries
       
     Args: 
-      query: query
+      query: The query to run
       filter_info: tuple with filter operators and values
       order_info: tuple with property name and the sort order
     Returns:
       Entities that match the query
     """       
-    prefix = self.GetTablePrefix(query)
+    prefix = self.get_table_prefix(query)
     startrow = prefix + '/' + query.kind() + ':'     
-    endrow = prefix + '/' + query.kind() + ':' + _TERM_STRING
+    endrow = prefix + '/' + query.kind() + ':' + self._TERM_STRING
     return startrow, endrow
-
-  def KindQuery(self, query, filter_info, order_info):
-    """ Public wrapper for testing 
-    """
-    return self.__KindQuery(query, filter_info, order_info)
-    
-  def __KindQuery(self, query, filter_info, order_info):
+   
+  def __kind_query(self, query, filter_info, order_info):
     """ Performs kind only queries, kind and ancestor, and ancestor queries
         https://developers.google.com/appengine/docs/python/datastore/queries
     Args:
-      query: query
+      query: The query to run
       filter_info: tuple with filter operators and values
       order_info: tuple with property name and the sort order
     Returns:
-      list of results
+      An ordered list of entities matching the query
     """
 
-    # Detect quicky if this is a kind query or not
+    # Detect quickly if this is a kind query or not
     for fi in filter_info:
       if fi != "__key__":
         return 
@@ -1029,17 +977,16 @@ class DatastoreDistributed():
       return self.__AncestorQuery(query, filter_info, order_info)
     elif not query.has_kind():
       return self.__KindlessQuery(query, filter_info, order_info)
-
     
-    startrow, endrow = self.__KindQueryRange(query, 
+    startrow, endrow = self.kind_query_range(query, 
                                              filter_info, 
                                              order_info)
 
     if startrow == None:
       return None
 
-    end_inclusive = _ENABLE
-    start_inclusive = _ENABLE
+    end_inclusive = self._ENABLE_INCLUSIVITY
+    start_inclusive = self._ENABLE_INCLUSIVITY
     if not order_info:
       order = None
       prop_name = None
@@ -1047,14 +994,11 @@ class DatastoreDistributed():
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
        cursor = cassandra_stub_util.ListCursor(query)
        last_result = cursor._GetLastResult()
-       prefix = self.GetTablePrefix(query)
-       startrow = self.__GetStartKey(prefix, prop_name, order, last_result)
-       start_inclusive = _DISABLE
+       prefix = self.get_table_prefix(query)
+       startrow = self.__get_start_key(prefix, prop_name, order, last_result)
+       start_inclusive = self._DISABLE_INCLUSIVITY
 
-    if query.has_limit() and query.limit():
-      limit = query.limit()
-    else:
-      limit = _MAXIMUM_RESULTS
+    limit = query.limit() or self._MAXIMUM_RESULTS
 
     offset = query.offset()
   
@@ -1066,16 +1010,16 @@ class DatastoreDistributed():
                                               offset=offset, 
                                               start_inclusive=start_inclusive, 
                                               end_inclusive=end_inclusive)
-    return self.__FetchEntities(result)
+    return self.__fetch_entities(result)
 
-  def __SinglePropertyQuery(self, query, filter_info, order_info):
+  def __single_property_query(self, query, filter_info, order_info):
     """Performs queries satisfiable by the Single_Property tables
     Args:
-      query: query
+      query: The query to run
       filter_info: tuple with filter operators and values
       order_info: tuple with property name and the sort order
     Returns:
-      list of results
+      List of entities retrieved from the given query
     """
     property_names = set(filter_info.keys())
     property_names.update(x[0] for x in order_info)
@@ -1104,26 +1048,24 @@ class DatastoreDistributed():
     else:
       direction = datastore_pb.Query_Order.ASCENDING
 
-    prefix = self.GetTablePrefix(query)
+    prefix = self.get_table_prefix(query)
  
     offset = query.offset()
-    if query.has_limit() and query.limit():
-      limit = query.limit()
-    else:
-      limit = _MAXIMUM_RESULTS
+
+    limit = query.limit() or self._MAXIMUM_RESULTS
 
     kind = query.kind()
 
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
       cursor = cassandra_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
-      startrow = self.__GetStartKey(prefix, 
+      startrow = self.__get_start_key(prefix, 
                                     property_name,
                                     direction,
                                     last_result)
     else:
       startrow = None
-    references = self.__ApplyFilters(filter_ops, 
+    references = self.__apply_filters(filter_ops, 
                                order_info, 
                                property_name, 
                                query.kind(), 
@@ -1131,10 +1073,10 @@ class DatastoreDistributed():
                                limit, 
                                offset, 
                                startrow)
-    return self.__FetchEntities(references)
+    return self.__fetch_entities(references)
 
     
-  def __ApplyFilters(self, 
+  def __apply_filters(self, 
                      filter_ops, 
                      order_info, 
                      property_name, 
@@ -1154,13 +1096,13 @@ class DatastoreDistributed():
       offset: Number of results to skip
       startrow: Start key for the range scan
     Results:
-      Returns a list of index keys 
+      Returns a list of entity keys 
     Raises:
       NotImplementedError: For unsupported queries.
       AppScaleMisconfiguredQuery: Bad filters or orderings
     """ 
-    end_inclusive = _ENABLE
-    start_inclusive = _ENABLE
+    end_inclusive = self._ENABLE_INCLUSIVITY
+    start_inclusive = self._ENABLE_INCLUSIVITY
 
     endrow = None 
     column_names = dbconstants.PROPERTY_SCHEMA
@@ -1176,22 +1118,22 @@ class DatastoreDistributed():
     else: 
       table_name = dbconstants.DSC_PROPERTY_TABLE
   
-    if startrow: start_inclusive = _DISABLE 
+    if startrow: start_inclusive = self._DISABLE_INCLUSIVITY 
 
     # This query is returning based on order on a specfic property name 
     # The start key (if not already supplied) depends on the property
     # name and does not take into consideration its value. The end key
     # is based on the terminating string.
     if len(filter_ops) == 0 and (order_info and len(order_info) == 1):
-      end_inclusive = _ENABLE
-      start_inclusive = _ENABLE
+      end_inclusive = self._ENABLE_INCLUSIVITY
+      start_inclusive = self._ENABLE_INCLUSIVITY
 
       if not startrow:
         params = [prefix, kind, property_name, None]
-        startrow = self.GetIndexKeyFromParams(params)
+        startrow = self.get_index_key_from_params(params)
 
-      params = [prefix, kind, property_name, _TERM_STRING, None]
-      endrow = self.GetIndexKeyFromParams(params)
+      params = [prefix, kind, property_name, self._TERM_STRING, None]
+      endrow = self.get_index_key_from_params(params)
 
       return self.datastore_batch.range_query(table_name, 
                                           column_names, 
@@ -1202,7 +1144,8 @@ class DatastoreDistributed():
                                           start_inclusive=start_inclusive, 
                                           end_inclusive=end_inclusive)      
 
-    #TODO byte stuff value for '/' character?
+    #TODO byte stuff value for '/' character? Since it's an escape 
+    # character and we might have issues if data contains this char
     # This query has a value it bases the query on for a property name
     # The difference between operators is what the end and start key are
     if len(filter_ops) == 1:
@@ -1213,51 +1156,48 @@ class DatastoreDistributed():
       value = str(value[1:]) 
 
       if direction == datastore_pb.Query_Order.DESCENDING: 
-        value = helper_functions.reverseLex(value)
+        value = helper_functions.reverse_lex(value)
 
       if oper == datastore_pb.Query_Filter.EQUAL:
         start_value = value 
-        end_value = value + _TERM_STRING
-
+        end_value = value + self._TERM_STRING
       elif oper == datastore_pb.Query_Filter.LESS_THAN:
         start_value = None
         end_value = value + '/'
         if direction == datastore_pb.Query_Order.DESCENDING:
-          start_value = value + _TERM_STRING
-          end_value = _TERM_STRING
-
+          start_value = value + self._TERM_STRING
+          end_value = self._TERM_STRING
       elif oper == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
         start_value = None
-        end_value = value + '/' + _TERM_STRING
+        end_value = value + '/' + self._TERM_STRING
         if direction == datastore_pb.Query_Order.DESCENDING:
           start_value = value + '/'
-          end_value = _TERM_STRING
+          end_value = self._TERM_STRING
       elif oper == datastore_pb.Query_Filter.GREATER_THAN:
-        start_value = value + _TERM_STRING
-        end_value = _TERM_STRING
+        start_value = value + self._TERM_STRING
+        end_value = self._TERM_STRING
         if direction == datastore_pb.Query_Order.DESCENDING:
           start_value = None
           end_value = value + '/' 
-
       elif oper == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
         start_value = value + '/'
-        end_value = _TERM_STRING
+        end_value = self._TERM_STRING
         if direction == datastore_pb.Query_Order.DESCENDING:
           start_value = None
-          end_value = value + '/' +  _TERM_STRING
+          end_value = value + '/' +  self._TERM_STRING
       elif oper == datastore_pb.Query_Filter.IN:
         raise NotImplementedError("IN queries are not implemented")
       elif oper == datastore_pb.Query_Filter.EXIST:
         raise NotImplementedError("EXIST queries are not implemented")
       else:
-        raise NotImplementedError("Unknow query of operation %d"%oper)
+        raise NotImplementedError("Unknown query of operation %d"%oper)
 
       if not startrow:
         params = [prefix, kind, property_name, start_value]
-        startrow = self.GetIndexKeyFromParams(params)
-        start_inclusive = _DISABLE
+        startrow = self.get_index_key_from_params(params)
+        start_inclusive = self._DISABLE_INCLUSIVITY
       params = [prefix, kind, property_name, end_value]
-      endrow = self.GetIndexKeyFromParams(params)
+      endrow = self.get_index_key_from_params(params)
 
       ret = self.datastore_batch.range_query(table_name, 
                                           column_names, 
@@ -1293,50 +1233,50 @@ class DatastoreDistributed():
         table_name = dbconstants.ASC_PROPERTY_TABLE
         # The first operator will always be either > or >=
         if startrow:
-          start_inclusive = _DISABLE
+          start_inclusive = self._DISABLE_INCLUSIVITY
         elif oper1 == datastore_pb.Query_Filter.GREATER_THAN:
-          params = [prefix, kind, property_name, value1 + '/' + _TERM_STRING]
-          startrow = self.GetIndexKeyFromParams(params)
+          params = [prefix, kind, property_name, value1 + '/' + self._TERM_STRING]
+          startrow = self.get_index_key_from_params(params)
         elif oper1 == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
           params = [prefix, kind, property_name, value1 + '/']
-          startrow = self.GetIndexKeyFromParams(params)
+          startrow = self.get_index_key_from_params(params)
         else:
           raise dbconstants.AppScaleMisconfiguredQuery("Bad filter ordering")
 
         # The second operator will be either < or <=
         if oper2 == datastore_pb.Query_Filter.LESS_THAN:    
           params = [prefix, kind, property_name, value2 + '/']
-          endrow = self.GetIndexKeyFromParams(params)
-          end_inclusive = _DISABLE
+          endrow = self.get_index_key_from_params(params)
+          end_inclusive = self._DISABLE_INCLUSIVITY
         elif oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
-          params = [prefix, kind, property_name, value2 + '/' + _TERM_STRING]
-          endrow = self.GetIndexKeyFromParams(params)
-          end_inclusive = _ENABLE
+          params = [prefix, kind, property_name, value2 + '/' + self._TERM_STRING]
+          endrow = self.get_index_key_from_params(params)
+          end_inclusive = self._ENABLE_INCLUSIVITY
         else:
           raise dbconstants.AppScaleMisconfiguredQuery("Bad filter ordering") 
       
       if direction == datastore_pb.Query_Order.DESCENDING:
         table_name = dbconstants.DSC_PROPERTY_TABLE
-        value1 = helper_functions.reverseLex(value1)
-        value2 = helper_functions.reverseLex(value2) 
+        value1 = helper_functions.reverse_lex(value1)
+        value2 = helper_functions.reverse_lex(value2) 
 
         if oper1 == datastore_pb.Query_Filter.GREATER_THAN:   
           params = [prefix, kind, property_name, value1 + '/']
-          endrow = self.GetIndexKeyFromParams(params)
-          end_inclusive = _DISABLE
+          endrow = self.get_index_key_from_params(params)
+          end_inclusive = self._DISABLE_INCLUSIVITY
         elif oper1 == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
-          params = [prefix, kind, property_name, value1 + '/' + _TERM_STRING]
-          endrow = self.GetIndexKeyFromParams(params)
-          end_inclusive = _ENABLE
+          params = [prefix, kind, property_name, value1 + '/' + self._TERM_STRING]
+          endrow = self.get_index_key_from_params(params)
+          end_inclusive = self._ENABLE_INCLUSIVITY
 
         if startrow:
-          start_inclusive = _DISABLE
+          start_inclusive = self._DISABLE_INCLUSIVITY
         elif oper2 == datastore_pb.Query_Filter.LESS_THAN:
-          params = [prefix, kind, property_name, value2 + '/' + _TERM_STRING]
-          startrow = self.GetIndexKeyFromParams(params)
+          params = [prefix, kind, property_name, value2 + '/' + self._TERM_STRING]
+          startrow = self.get_index_key_from_params(params)
         elif oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
           params = [prefix, kind, property_name, value2 + '/']
-          startrow = self.GetIndexKeyFromParams(params)
+          startrow = self.get_index_key_from_params(params)
         
       return self.datastore_batch.range_query(table_name, 
                                           column_names, 
@@ -1346,18 +1286,18 @@ class DatastoreDistributed():
                                           offset=offset, 
                                           start_inclusive=start_inclusive, 
                                           end_inclusive=end_inclusive)      
-
          
-    return None
+    return []
 
-  def __CompositeQuery(self, query, filter_info, order_info):  
-    """Performs Composite queries 
+  def __composite_query(self, query, filter_info, order_info):  
+    """Performs Composite queries which is a combination of 
+       multiple properties to query on.
     Args:
-      query: query
+      query: The query to run
       filter_info: tuple with filter operators and values
       order_info: tuple with property name and the sort order
     Returns:
-      list of results
+      List of entities retrieved from the given query
     """
     if order_info and order_info[0][0] == '__key__':
       return None
@@ -1371,12 +1311,12 @@ class DatastoreDistributed():
     order_names = [x[0] for x in order_info]
 
     def set_prop_names(filt_info):
-      pname = None
       pnames = set(filt_info.keys())
       pnames.update(x[0] for x in order_info)
       pnames.discard('__key__')
       pnames = list(pnames)
 
+      pname = None
       for p in filt_info.keys():
         f = filt_info[p]
         if f[0][0] != datastore_pb.Query_Filter.EQUAL: 
@@ -1404,21 +1344,18 @@ class DatastoreDistributed():
     else:
       direction = datastore_pb.Query_Order.ASCENDING
     
-    count = _MAX_COMPOSITE_WINDOW
+    count = self._MAX_COMPOSITE_WINDOW
     kind = query.kind()
 
-    if query.has_limit() and query.limit(): 
-      limit = query.limit()
-    else:
-      limit = _MAXIMUM_RESULTS
+    limit = query.limit() or self._MAXIMUM_RESULTS
 
     offset = query.offset()
-    prefix = self.GetTablePrefix(query)
+    prefix = self.get_table_prefix(query)
 
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
       cursor = cassandra_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
-      startrow = self.__GetStartKey(prefix, 
+      startrow = self.__get_start_key(prefix, 
                                     property_name,
                                     direction,
                                     last_result)
@@ -1432,7 +1369,7 @@ class DatastoreDistributed():
     # Research is required on figuring out what is the 
     # best filter to apply via range queries. 
     while len(result) < (limit+offset):
-      temp_res = self.__ApplyFilters(filter_ops, 
+      temp_res = self.__apply_filters(filter_ops, 
                                    order_ops, 
                                    property_name, 
                                    kind, 
@@ -1442,7 +1379,7 @@ class DatastoreDistributed():
                                    startrow)
       if not temp_res: break
 
-      ent_res = self.__FetchEntities(temp_res)
+      ent_res = self.__fetch_entities(temp_res)
 
       # Create a copy from which we filter out
       filtered_entities = ent_res[:]
@@ -1467,19 +1404,19 @@ class DatastoreDistributed():
             oper = temp_filt[0][0]
             value = str(temp_filt[0][1])
             if oper == datastore_pb.Query_Filter.EQUAL:
-              if cur_prop and str(self.__EncodeIndexPB(cur_prop.value())) != value:
+              if cur_prop and str(self.__encode_index_pb(cur_prop.value())) != value:
                 if ent in filtered_entities: filtered_entities.remove(ent)   
      
       result += filtered_entities  
       startrow = temp_res[-1].keys()[0]
 
     if len(order_info) > 1:
-      result = self.__OrderCompositeResults(result, order_info) 
+      result = self.__order_composite_results(result, order_info) 
 
     if result: result = result[offset:]
     return result 
 
-  def __OrderCompositeResults(self, result, order_info):
+  def __order_composite_results(self, result, order_info):
     """ Takes results and applies ordering based on properties and 
         whether it should be ascending or decending.
       Args: 
@@ -1509,7 +1446,7 @@ class DatastoreDistributed():
         for each in prop_list:
           if each.name() == ord_prop:
             if ord_dir == datastore_pb.Query_Order.DESCENDING:
-              key = str(key+ '/' + helper_functions.reverseLex(str(each.value())))
+              key = str(key+ '/' + helper_functions.reverse_lex(str(each.value())))
             else:
               key = str(key + '/' + str(each.value()))
             break
@@ -1519,14 +1456,16 @@ class DatastoreDistributed():
     result = [e.Encode() for e in sorted_vals]
     return result
 
-
+  # These are the three different types of queries attempted. Queries 
+  # can be identified by their filters and orderings
   _QUERY_STRATEGIES = [
-      __SinglePropertyQuery,   
-      __KindQuery,
-      __CompositeQuery,
+      __single_property_query,   
+      __kind_query,
+      __composite_query,
   ]
 
-  def __GetQueryResults(self, query):
+
+  def __get_query_results(self, query):
     """Applies the strategy for the provided query.
 
     Args:    
@@ -1542,18 +1481,18 @@ class DatastoreDistributed():
     num_components = len(query.filter_list()) + len(query.order_list())
     if query.has_ancestor():
       num_components += 1
-    if num_components > _MAX_QUERY_COMPONENTS:
+    if num_components > self._MAX_QUERY_COMPONENTS:
       raise apiproxy_errors.ApplicationError(
           datastore_pb.Error.BAD_REQUEST,
           ('query is too large. may not have more than %s filters'
-           ' + sort orders ancestor total' % _MAX_QUERY_COMPONENTS))
+           ' + sort orders ancestor total' % self._MAX_QUERY_COMPONENTS))
 
     app_id = query.app()
-    self.ValidateAppId(app_id)
+    self.validate_app_id(app_id)
     filters, orders = datastore_index.Normalize(query.filter_list(),
                                                 query.order_list())
-    filter_info = self.__GenerateFilterInfo(filters, query)
-    order_info = self.__GenerateOrderInfo(orders)
+    filter_info = self.generate_filter_info(filters, query)
+    order_info = self.generate_order_info(orders)
     for strategy in DatastoreDistributed._QUERY_STRATEGIES:
       results = strategy(self, query, filter_info, order_info)
       if results:
@@ -1565,9 +1504,15 @@ class DatastoreDistributed():
       pass
     return results
   
-  def _Dynamic_Run_Query(self, app_id, query, query_result):
-    """Populates the query result which in turn encodes cursor"""
-    result = self.__GetQueryResults(query)
+  def _dynamic_run_query(self, app_id, query, query_result):
+    """Populates the query result and use that query result to 
+       encode a cursor
+    Args:
+      app_id: The application ID
+      query: The query to run
+      query_result: The response given to the application server
+    """
+    result = self.__get_query_results(query)
     count = 0
     if result:
       for index,ii in enumerate(result):
@@ -1577,9 +1522,9 @@ class DatastoreDistributed():
     cur = cassandra_stub_util.QueryCursor(query, result)
     cur.PopulateQueryResult(count, query.offset(), query_result) 
   
-  def _SetupTransaction(self, app_id) :
+  def setup_transaction(self, app_id) :
     """ Gets a transaction ID for a new transaction """
-    _MAX_RAND = 1000000
+    _MAX_RAND = 1000000  # arbitary large number
     return random.randint(1, _MAX_RAND)
 
 logger = appscale_logger.getLogger("pb_server")
@@ -1590,12 +1535,74 @@ class MainHandler(tornado.web.RequestHandler):
   HTTP requests.
   """
 
+  ##############
+  # OTHER TYPE #
+  ##############
+  def unknown_request(self, app_id, http_request_data, pb_type):
+    """ Function which handles unknown protocol buffers
+    Args:
+      app_id: Name of the application 
+      http_request_data: Stores the protocol buffer request from the AppServer
+    Raises:
+      Raises exception.
+    """ 
+    raise NotImplementedError("Unknown request of operation %s"%pb_type)
+  
+  #########################
+  # POST Request Handling #
+  #########################
+
+  @tornado.web.asynchronous
+  def post( self ):
+    """ Function which handles POST requests. Data of the request is 
+        the request from the AppServer in an encoded protocol buffer 
+        format.
+    """
+    request = self.request
+    http_request_data = request.body
+    pb_type = request.headers['protocolbuffertype']
+    app_data = request.headers['appdata']
+    app_data  = app_data.split(':')
+
+    if len(app_data) == 4:
+      app_id, user_email, nick_name, auth_domain = app_data
+      os.environ['AUTH_DOMAIN'] = auth_domain
+      os.environ['USER_EMAIL'] = user_email
+      os.environ['USER_NICKNAME'] = nick_name
+      os.environ['APPLICATION_ID'] = app_id
+    elif len(app_data) == 1:
+      app_id = app_data[0]
+      os.environ['APPLICATION_ID'] = app_id
+    else:
+      return
+
+    if pb_type == "Request":
+      self.remote_request(app_id, http_request_data)
+    else:
+      self.unknown_request(app_id, http_request_data, pb_type)
+    self.finish()
+  
+  #########################
+  # GET Request Handling  #
+  #########################
+
   @tornado.web.asynchronous
   def get(self):
+    """ Handles get request for the web server. Returns that it is currently
+        up in json.
+    """
     self.write("{'status':'up'}")
     self.finish() 
 
   def remote_request(self, app_id, http_request_data):
+    """ Receives a remote request to which it should give the correct 
+        response. The http_request_data holds an encoded protocol buffer
+        of a certain type. Each type has a particular response type. 
+    
+    Args:
+      app_id: The application ID that is sending this request
+      http_request_data: Encoded protocol buffer 
+    """
     apirequest = remote_api_pb.Request()
     apirequest.ParseFromString(http_request_data)
     apiresponse = remote_api_pb.Response()
@@ -1670,21 +1677,37 @@ class MainHandler(tornado.web.RequestHandler):
       apperror_pb.set_detail(errdetail)
 
     if errcode != 0:
-      print "REPLY",method," AT TIME",time.time()
-      print "errcode:",errcode
-      print "errdetail:",errdetail
+      logger.debug("Reply: %s\nerrcode: %s\nerror details: %s" %\
+                   (str(method), str(errcode), str(errdetail)))
 
     self.write(apiresponse.Encode() )    
 
   def begin_transaction_request(self, app_id, http_request_data):
+    """ Handles the intial request to start a transaction. Replies with 
+        a unique identifier to handle this transaction in future requests.
+  
+    Args:
+      app_id: The application ID requesting the transaction
+      http_request_data: The encoded request
+    Returns:
+      An encoded transaction protocol buffer with a unique handler
+    """
     global datastore_access
     transaction_pb = datastore_pb.Transaction()
-    handle = datastore_access._SetupTransaction(app_id)
+    handle = datastore_access.setup_transaction(app_id)
     transaction_pb.set_app(app_id)
     transaction_pb.set_handle(handle)
     return (transaction_pb.Encode(), 0, "")
 
   def commit_transaction_request(self, app_id, http_request_data):
+    """ Handles the commit phase of a transaction
+
+    Args:
+      app_id: The application ID requesting the transaction commit
+      http_request_data: The encoded request
+    Returns:
+      An encoded protocol buffer commit response
+    """
     commitres_pb = datastore_pb.CommitResponse()
     # TODO implement transactions
     """
@@ -1700,6 +1723,14 @@ class MainHandler(tornado.web.RequestHandler):
     return (commitres_pb.Encode(), 0, "")
 
   def rollback_transaction_request(self, app_id, http_request_data):
+    """ Handles the rollback phase of a transaction
+
+    Args:
+      app_id: The application ID requesting the rollback
+      http_request_data: The encoded request
+    Returns:
+      An encoded protocol buffer void response
+    """
     # TODO implement transactions
     """
     transaction_pb = datastore_pb.Transaction(http_request_data)
@@ -1727,7 +1758,7 @@ class MainHandler(tornado.web.RequestHandler):
 
     # Pack Results into a clone of QueryResult #
     clone_qr_pb = datastore_pb.QueryResult()
-    datastore_access._Dynamic_Run_Query(app_id, query, clone_qr_pb)
+    datastore_access._dynamic_run_query(app_id, query, clone_qr_pb)
     return (clone_qr_pb.Encode(), 0, "")
 
 
@@ -1743,7 +1774,7 @@ class MainHandler(tornado.web.RequestHandler):
     global datastore_access
     putreq_pb = datastore_pb.PutRequest(http_request_data)
     putresp_pb = datastore_pb.PutResponse( )
-    datastore_access._Dynamic_Put(app_id, putreq_pb, putresp_pb)
+    datastore_access._dynamic_put(app_id, putreq_pb, putresp_pb)
     return (putresp_pb.Encode(), 0, "")
     
   def get_request(self, app_id, http_request_data):
@@ -1758,7 +1789,7 @@ class MainHandler(tornado.web.RequestHandler):
     global datastore_access
     getreq_pb = datastore_pb.GetRequest(http_request_data)
     getresp_pb = datastore_pb.GetResponse()
-    datastore_access._Dynamic_Get(app_id, getreq_pb, getresp_pb)
+    datastore_access._dynamic_get(getreq_pb, getresp_pb)
     return (getresp_pb.Encode(), 0, "")
 
   def delete_request(self, app_id, http_request_data):
@@ -1773,7 +1804,7 @@ class MainHandler(tornado.web.RequestHandler):
     global datastore_access
     delreq_pb = datastore_pb.DeleteRequest( http_request_data )
     delresp_pb = api_base_pb.VoidProto() 
-    datastore_access._Dynamic_Delete(app_id, delreq_pb, delresp_pb)
+    datastore_access._dynamic_delete(delreq_pb, delresp_pb)
     return (delresp_pb.Encode(), 0, "")
 
   def void_proto(self, app_id, http_request_data):
@@ -1786,7 +1817,6 @@ class MainHandler(tornado.web.RequestHandler):
     """ 
 
     resp_pb = api_base_pb.VoidProto() 
-    print "Got void"
     logger.debug("VOID_RESPONSE: %s to void" % resp_pb)
     return (resp_pb.Encode(), 0, "" )
   
@@ -1802,14 +1832,14 @@ class MainHandler(tornado.web.RequestHandler):
 
     str_pb = api_base_pb.StringProto( http_request_data )
     composite_pb = datastore_pb.CompositeIndices()
-    print "Got a string proto"
-    print str_pb
     logger.debug("String proto received: %s"%str_pb)
     logger.debug("CompositeIndex response to string: %s" % composite_pb)
     return (composite_pb.Encode(), 0, "" )    
   
   def int64_proto(self, app_id, http_request_data):
-    """ Function which handles integer protocol buffers
+    """ Function which handles integer protocol buffers. Application
+        server expects a void protocol as an acknowledgement.
+
     Args:
       app_id: Name of the application 
       http_request_data: Stores the protocol buffer request from the AppServer
@@ -1819,14 +1849,13 @@ class MainHandler(tornado.web.RequestHandler):
 
     int64_pb = api_base_pb.Integer64Proto( http_request_data ) 
     resp_pb = api_base_pb.VoidProto()
-    print "Got a int 64"
-    print int64_pb
     logger.debug("Int64 proto received: %s"%int64_pb)
     logger.debug("VOID_RESPONSE to int64: %s" % resp_pb)
     return (resp_pb.Encode(), 0, "")
  
   def compositeindex_proto(self, app_id, http_request_data):
-    """ Function which handles composite index protocol buffers
+    """ Function which handles composite index protocol buffers.
+
     Args:
       app_id: Name of the application 
       http_request_data: Stores the protocol buffer request from the AppServer
@@ -1837,58 +1866,9 @@ class MainHandler(tornado.web.RequestHandler):
 
     compindex_pb = entity_pb.CompositeIndex( http_request_data)
     resp_pb = api_base_pb.VoidProto()
-    print "Got Composite Index"
     logger.debug("CompositeIndex proto recieved: %s"%str(compindex_pb))
     logger.debug("VOID_RESPONSE to composite index: %s" % resp_pb)
     return (resp_pb.Encode(), 0, "")
-
-  ##############
-  # OTHER TYPE #
-  ##############
-  def unknown_request(self, app_id, http_request_data, pb_type):
-    """ Function which handles unknown protocol buffers
-    Args:
-      app_id: Name of the application 
-      http_request_data: Stores the protocol buffer request from the AppServer
-    Returns:
-      void protocol buffer
-    """ 
-    logger.debug("Received Unknown Protocol Buffer %s" % pb_type )
-    print "ERROR: Received Unknown Protocol Buffer <" + pb_type +">.",
-    print "Nothing has been implemented to handle this Protocol Buffer type."
-    print "http request data:"
-    print http_request_data 
-    self.void_proto(app_id, http_request_data)
-  
-  #########################
-  # POST Request Handling #
-  #########################
-
-  @tornado.web.asynchronous
-  def post( self ):
-    request = self.request
-    http_request_data = request.body
-    pb_type = request.headers['protocolbuffertype']
-    app_data = request.headers['appdata']
-    app_data  = app_data.split(':')
-
-    if len(app_data) == 4:
-      app_id, user_email, nick_name, auth_domain = app_data
-      os.environ['AUTH_DOMAIN'] = auth_domain
-      os.environ['USER_EMAIL'] = user_email
-      os.environ['USER_NICKNAME'] = nick_name
-      os.environ['APPLICATION_ID'] = app_id
-    elif len(app_data) == 1:
-      app_id = app_data[0]
-      os.environ['APPLICATION_ID'] = app_id
-    else:
-      return
-
-    if pb_type == "Request":
-      self.remote_request(app_id, http_request_data)
-    else:
-      self.unknown_request(app_id, http_request_data, pb_type)
-    self.finish()
 
 def usage():
   print "AppScale Server"
@@ -1940,10 +1920,6 @@ def main(argv):
   datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(db_type)
   datastore_access = DatastoreDistributed(datastore_batch)
 
-  # TODO use ZK for transaction support
-  #zoo_keeper_real = zk.ZKTransaction(zoo_keeper_locations)
-  #zoo_keeper_stub = zk_stub.ZKTransaction(zoo_keeper_locations)
-
   if port == DEFAULT_SSL_PORT and not isEncrypted:
     port = DEFAULT_PORT
 
@@ -1955,6 +1931,8 @@ def main(argv):
       # Start Server #
       tornado.ioloop.IOLoop.instance().start()
     except SSL.SSLError:
+      # This happens when connections timeout, there is a just a bad
+      # SSL connection such as it does not use SSL when expected. 
       pass
     except KeyboardInterrupt:
       print "Server interrupted by user, terminating..."

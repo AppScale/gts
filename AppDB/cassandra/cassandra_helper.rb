@@ -1,7 +1,9 @@
+# Programmer: Navraj Chohan <nlake44@gmail.com>
 require 'djinn'
 require 'djinn_job_data'
 require 'helperfunctions'
 
+# Whether to remove old data from a previous start
 DROP_TABLES = true
 
 def get_uaserver_ip()
@@ -65,8 +67,8 @@ def start_db_master()
 
   Djinn.log_run("pkill ThriftBroker")
   if DROP_TABLES
-    `rm -rf /var/appscale/cassandra*`
-    `rm /var/log/appscale/cassandra/system.log`
+    Djinn.log_run("rm -rf /var/appscale/cassandra*")
+    Djinn.log_run("rm /var/log/appscale/cassandra/system.log")
   end
   
   Djinn.log_run("#{APPSCALE_HOME}/AppDB/cassandra/cassandra/bin/cassandra start -p /var/appscale/appscale-cassandra.pid")
@@ -80,10 +82,10 @@ def start_db_slave()
   HelperFunctions.sleep_until_port_is_open(Djinn.get_db_master_ip, 9160)
   sleep(5)
   if DROP_TABLES
-    `rm -rf /var/appscale/cassandra*`
-    `rm /var/log/appscale/cassandra/system.log`
+    Djinn.log_run("rm -rf /var/appscale/cassandra*")
+    Djinn.log_run("rm /var/log/appscale/cassandra/system.log")
   end
-  `#{APPSCALE_HOME}/AppDB/cassandra/cassandra/bin/cassandra start -p /var/appscale/appscale-cassandra.pid`
+  Djinn.log_run("#{APPSCALE_HOME}/AppDB/cassandra/cassandra/bin/cassandra start -p /var/appscale/appscale-cassandra.pid")
   Djinn.log_run("#{APPSCALE_HOME}/AppDB/cassandra/cassandra/bin/cassandra start -p /var/appscale/appscale-cassandra.pid")
   HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip, 9160)
 end

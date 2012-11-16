@@ -40,7 +40,7 @@ class TestHBase(unittest.TestCase):
         .should_receive('read_file') \
         .and_return('127.0.0.1')
 
-    flexmock(hbase_interface.DatastoreProxy).should_receive("createConnection") \
+    flexmock(hbase_interface.DatastoreProxy).should_receive("create_connection") \
         .and_return(FakeHBaseClient())
 
     db = hbase_interface.DatastoreProxy()
@@ -50,7 +50,7 @@ class TestHBase(unittest.TestCase):
         .should_receive('read_file') \
         .and_return('127.0.0.1')
 
-    flexmock(hbase_interface.DatastoreProxy).should_receive("createConnection") \
+    flexmock(hbase_interface.DatastoreProxy).should_receive("create_connection") \
         .and_return(FakeHBaseClient())
 
     db = hbase_interface.DatastoreProxy()
@@ -63,7 +63,7 @@ class TestHBase(unittest.TestCase):
         .should_receive('read_file') \
         .and_return('127.0.0.1')
 
-    flexmock(hbase_interface.DatastoreProxy).should_receive("createConnection") \
+    flexmock(hbase_interface.DatastoreProxy).should_receive("create_connection") \
         .and_return(FakeHBaseClient())
 
     db = hbase_interface.DatastoreProxy()
@@ -76,7 +76,7 @@ class TestHBase(unittest.TestCase):
         .should_receive('read_file') \
         .and_return('127.0.0.1')
 
-    flexmock(hbase_interface.DatastoreProxy).should_receive("createConnection") \
+    flexmock(hbase_interface.DatastoreProxy).should_receive("create_connection") \
         .and_return(FakeHBaseClient())
 
     db = hbase_interface.DatastoreProxy()
@@ -89,7 +89,7 @@ class TestHBase(unittest.TestCase):
         .should_receive('read_file') \
         .and_return('127.0.0.1')
 
-    flexmock(hbase_interface.DatastoreProxy).should_receive("createConnection") \
+    flexmock(hbase_interface.DatastoreProxy).should_receive("create_connection") \
         .and_return(FakeHBaseClient())
 
     db = hbase_interface.DatastoreProxy()
@@ -102,7 +102,7 @@ class TestHBase(unittest.TestCase):
         .should_receive('read_file') \
         .and_return('127.0.0.1')
 
-    flexmock(hbase_interface.DatastoreProxy).should_receive("createConnection") \
+    flexmock(hbase_interface.DatastoreProxy).should_receive("create_connection") \
         .and_return(FakeHBaseClient())
 
     db = hbase_interface.DatastoreProxy()

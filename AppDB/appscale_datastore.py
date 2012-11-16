@@ -5,13 +5,14 @@
 # Author: Gaurav Kumar Mehta
 # Author: NOMURA Yoshihide
 # See LICENSE file
-import threading
-import sys
-import string, cgi
-import socket
-import os
-import types
 import imp
+import os
+import sys
+import string
+import socket
+import threading
+import types
+
 import appscale_logger
 from dbconstants import *
 
@@ -34,9 +35,10 @@ class DatastoreFactory:
       d_mod = imp.load_source(d_name, mod_path)
       datastore = d_mod.DatastoreProxy(app_datastore_logger)
     else:
-      app_datastore_logger.error("Fail to use datastore: %s. Please\
-                                check the datastore type." % d_type)
-      raise Exception("Fail to use datastore: %s" % d_type)
+      app_datastore_logger.error("Fail to use datastore: %s. Please " + \
+                                 "check the datastore type." % d_type)
+      raise Exception("Datastore was not found in %d directory. " + \
+                      "Fail to use datastore: %s" %(DATASTORE_DIR, d_type))
     return datastore
 
   @classmethod

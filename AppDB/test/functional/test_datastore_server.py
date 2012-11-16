@@ -1,16 +1,25 @@
+# Programmer: Navraj Chohan <nlake44@gmail.com>
 import os
+import time
 import unittest 
-import datastore_server
+
 import appscale_datastore_batch
+import datastore_server
+
 from dbconstants import *
+
 from google.appengine.api import datastore
 from google.appengine.api import datastore_types
 from google.appengine.datastore import datastore_index
 from google.appengine.datastore import entity_pb
 from google.appengine.datastore import datastore_query
-import time
+
+# The separator of the namespace
 NAMESPACE_SEP = '/'
+
+# Default DB to use
 DB = "hbase"
+
 class ValidateIDCase(unittest.TestCase):
   def setUp(self):
     datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(DB)

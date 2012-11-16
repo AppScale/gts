@@ -2,7 +2,7 @@
 # See LICENSE file
 #
 # Author: 
-# Navraj Chohan (raj@appscale.com)
+# Navraj Chohan (nlake44@gmail.com)
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
@@ -13,11 +13,11 @@ import getopt
 import itertools
 import md5 
 import MySQLdb
+import os 
 import random
 import SOAPpy
 import socket
 import sys
-import os 
 import threading
 import time
 import types
@@ -51,33 +51,29 @@ import __builtin__
 buffer = __builtin__.buffer
 zoo_keeper = None
 
-DEBUG = False 
-
+# Port used if server is using encryption
 DEFAULT_SSL_PORT = 8443
 
+# Port used if no encryption is used by the server
 DEFAULT_PORT = 4080
 
+# Whether encryption is on by default
 DEFAULT_ENCRYPTION = 1
 
+# The SSL cert location
 CERT_LOCATION = "/etc/appscale/certs/mycert.pem"
 
+# The SSL private key location
 KEY_LOCATION = "/etc/appscale/certs/mykey.pem"
 
+# Where the secret key is located
 SECRET_LOCATION = "/etc/appscale/secret.key"
 
-VALID_DATASTORES = []
-
-ERROR_CODES = []
-
+# The length of a numerial key, padded until the key is this length
 ID_KEY_LENGTH = 64
 
+# The accessor for the datastore 
 app_datastore = []
-
-logOn = False
-
-logFilePtr = ""
-
-tableHashTable = {}
 
 """MySQL-based stub for the Python datastore API.
 Entities are stored in a MySQL database in a similar fashion to the production
@@ -640,11 +636,10 @@ class DatastoreDistributed():
     self.__transDict_lock.release()
     last_gc_time = time.time()
 
-  def setupTransaction(self, app_id):
+  def setup_transaction(self, app_id):
     # New connection 
     txn_id = zoo_keeper.getTransactionID(app_id)
     client = MySQLdb.connect(host=_DB_LOCATION, db=_USE_DATABASE, user=_DB_USER)
-    #client.autocommit(0)
     #TODO is this lock a bottle neck, and is it really required?
     self.__transDict_lock.acquire()
     # entity group is set to None
@@ -953,30 +948,6 @@ class DatastoreDistributed():
     lock_str = app_id + '_' + entity_group
     cursor.execute("SELECT RELEASE_LOCK('%s');" % lock_str)
     self.__connection.commit()
-
-  def __getRootKey(app_id, ancestor_list):
-    key = app_id # mysql cannot have \ as the first char in the row key
-    a = ancestor_list[0]
-    key += "/"
-
-    # append _ if the name is a number, prevents collisions of key names
-    if a.has_type():
-      key += a.type()
-    else:
-      return None
-
-    if a.has_id():
-      zero_padded_id = ("0" * (ID_KEY_LENGTH - len(str(a.id())))) + str(a.id())
-      key += ":" + zero_padded_id
-    elif a.has_name():
-      if a.name().isdigit():
-        key += ":__key__" + a.name()
-      else:
-        key += ":" + a.name()
-    else:
-      return None
-
-    return key
 
   @staticmethod
   def __ExtractEntityGroupFromKeys(app_id, keys):
@@ -1840,7 +1811,7 @@ class MainHandler(tornado.web.RequestHandler):
     transaction_pb = datastore_pb.Transaction()
     handle = 0
     #print "Begin Trans Handle:",handle
-    handle = app_datastore.setupTransaction(app_id)
+    handle = app_datastore.setup_transaction(app_id)
     transaction_pb.set_app(app_id)
     transaction_pb.set_handle(handle)
     return (transaction_pb.Encode(), 0, "")
@@ -1996,16 +1967,7 @@ def usage():
   print "\t--no_encryption"
 def main(argv):
   global app_datastore
-  #global getKeyFromServer
-  #global tableServer
-  #global keySecret
-  global logOn
   global logFilePtr
-  #global optimizedQuery
-  #global soapServer
-  global ERROR_CODES
-  global VALID_DATASTORES
-  #global KEYBLOCKSIZE
   global zoo_keeper
   cert_file = CERT_LOCATION
   key_file = KEY_LOCATION
@@ -2031,26 +1993,16 @@ def main(argv):
     if opt in ("-c", "--certificate"):
       cert_file = arg
       print "Using cert..."
-    #elif opt in ("-k", "--key" ):
-    #  getKeyFromServer = True
-    #  print "Using key server..."
     elif  opt in ("-t", "--type"):
       db_type = arg
       print "Datastore type: ",db_type 
     elif opt in ("-s", "--secret"):
-      #keySecret = arg
       print "Secret set..."
     elif opt in ("-l", "--log"):
-      logOn = True
-      logFile = arg
-      logFilePtr = open(logFile, "w")
-      logFilePtr.write("# type, app, start, end\n")
+      pass
     elif opt in ("-b", "--blocksize"):
-      #KEYBLOCKSIZE = arg
-      #print "Block size: ",KEYBLOCKSIZE
       pass
     elif opt in ("-a", "--soap"):
-      #soapServer = arg
       pass
     elif opt in ("-p", "--port"):
       port = int(arg)
@@ -2060,12 +2012,9 @@ def main(argv):
       zoo_keeper_locations = arg      
 
   app_datastore = DatastoreDistributed()
-  #tableServer = SOAPpy.SOAPProxy("https://" + soapServer + ":" + str(keyPort))
-  
-  #global keyDictionaryLock 
+
   zoo_keeper = zktransaction.ZKTransaction(zoo_keeper_locations)
 
-  #keyDictionaryLock = threading.Lock()
   if port == DEFAULT_SSL_PORT and not isEncrypted:
     port = DEFAULT_PORT
   pb_application = tornado.web.Application([
