@@ -18,14 +18,15 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
 import file_io
 import appscale_info
 import god_interface
+import testing
 
 class TestAppManager(unittest.TestCase):
   def test_start_app_badconfig(self):
-    file_io.disable_logging()
+    testing.disable_logging()
     assert app_manager_server.BAD_PID == app_manager_server.start_app({})
 
   def test_start_app_badconfig2(self):
-    file_io.disable_logging()
+    testing.disable_logging()
     assert app_manager_server.BAD_PID == app_manager_server.start_app("{'app_name':'test'}")
 
   def test_start_app_goodconfig(self):
@@ -82,7 +83,6 @@ class TestAppManager(unittest.TestCase):
     db_locations = ['127.0.1.0', '127.0.2.0']
     app_id = 'testapp'
     cmd = app_manager_server.create_java_start_cmd(app_id,
-                                            '127.0.0.1',
                                             '20000',
                                             '127.0.0.2',
                                             '8080',
@@ -156,7 +156,7 @@ class TestAppManager(unittest.TestCase):
   def test_wait_on_app(self):
     port = 20000
     ip = '127.0.0.1'
-    file_io.disable_logging()
+    testing.disable_logging()
     flexmock(urllib).should_receive('urlopen').and_return()
     flexmock(appscale_info).should_receive('get_private_ip')\
       .and_return(ip)

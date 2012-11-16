@@ -48,8 +48,8 @@ class Repo
   # prevent unauthorized access.
   # 
   # Args: 
-  #   login_ip: The IP of the login role
-  #   uaserver_ip: The IP of the users/app server
+  #   login_ip: The IP of the load balancer
+  #   uaserver_ip: The IP of a UserAppServer
   # 
   def self.start(login_ip, uaserver_ip)
     # its just another app engine app - but since numbering starts

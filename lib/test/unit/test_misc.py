@@ -16,5 +16,12 @@ class TestMisc(unittest.TestCase):
     assert not misc.is_app_name_valid("asdf#")
     assert not misc.is_app_name_valid("%##;")
     assert not misc.is_app_name_valid("$78;")
+  def test_is_string_secure(self):
+    assert misc.is_string_secure("guestbook")
+    assert misc.is_string_secure("guestbook132")
+    assert not misc.is_string_secure("asdf#")
+    assert not misc.is_string_secure("%##;")
+    assert not misc.is_string_secure("$78;")
+     
 if __name__ == "__main__":
   unittest.main()

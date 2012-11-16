@@ -16,12 +16,14 @@ MAX_TIME_OUT = 180
 # AppManager is written in python and hence we use a SOAP client to communicate
 # between the two services.
 class AppManagerClient
+
+  # The connection to use and IP to connect to
   attr_reader :conn, :ip
 
   # The local IP to connect to for the AppManager
   SERVER_IP = '127.0.0.1'
 
-  # The port that the AppManager binds to.
+  # The port that the AppManager binds to
   SERVER_PORT = 49934
 
   # Initialization function for AppManagerClient
@@ -33,7 +35,7 @@ class AppManagerClient
     @conn.add_method("stop_app_instance", "app_name", "port")
   end
 
-  # Make a SOAP call out to a the AppManager. 
+  # Make a SOAP call out to the AppManager. 
   # 
   # Args: 
   #   timeout: The maximum time to wait on a remote call
@@ -61,7 +63,7 @@ class AppManagerClient
         sleep(1)
         retry
       else
-	trace = except.backtrace.join("\n")
+        trace = except.backtrace.join("\n")
         abort("[#{callr}] We saw an unexpected error of the type #{except.class} with the following message:\n#{except}, with trace: #{trace}")
       end 
    rescue Exception => except
@@ -106,10 +108,10 @@ class AppManagerClient
               'language' => language,
               'xmpp_ip' => xmpp_ip,
               'dblocations' => db_locations}
-    config = JSON.dump(config)
+    json_config = JSON.dump(config)
     result = ""
     make_call(MAX_TIME_OUT, false) { 
-      result = @conn.start_app(config)
+      result = @conn.start_app(json_config)
     }
     return result
   end

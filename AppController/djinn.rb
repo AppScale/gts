@@ -545,12 +545,12 @@ class Djinn
     return "App names is now #{@app_names.join(', ')}"
   end
 
-  # Gets the status of the current AppScale deployment
+  # Gets the status of the current node in the AppScale deployment
   # 
   # Args:
   #   secret: The shared key for authentication
   # Returns:
-  #   A string with the current AppScale status
+  #   A string with the current node's status
   # 
   def status(secret)
     if !valid_secret?(secret)
@@ -618,7 +618,7 @@ class Djinn
     return stats
   end
 
-  # Removes an application and stops all its running process instances
+  # Removes an application and stops all AppServers hosting this application.
   #
   # Args:
   #   app_name: The application to stop
@@ -674,11 +674,12 @@ class Djinn
 
       if my_node.is_appengine?
         app_manager = AppManagerClient.new()
-        Djinn.log_debug("(stop_app) Calling AppManager")
+        Djinn.log_debug("(stop_app) Calling AppManager for app #{app_name}")
         if !app_manager.stop_app(app_name)
           Djinn.log_debug("(stop_app) ERROR: Unable to stop app #{app_name}") 
+        else
+          Djinn.log_debug("(stop_app) AppManager shut down app #{app_name}")
         end
-        Djinn.log_debug("(stop_app) Done Calling AppManager")
 
         Nginx.remove_app(app_name)
         Collectd.remove_app(app_name)
@@ -2886,7 +2887,7 @@ HOSTS
   # haproxy's queue for the given application.
   #
   # Args:
-  #   app_name: The name of the application to set up info
+  #   app_name: The name of the application to set up scaling info
   #
   def initialize_scaling_info_for_app(app_name)
     return if @initialized_apps[app_name]

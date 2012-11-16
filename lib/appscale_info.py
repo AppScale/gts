@@ -1,4 +1,4 @@
-# Programmer: Navraj Chohan
+# Programmer: Navraj Chohan <nlake44@gmail.com>
 """ 
 This file contains functions for getting and setting information related 
 to AppScale and the current node/machine.
@@ -7,8 +7,8 @@ import logging
 import multiprocessing
 import yaml
 
-import file_io
 import constants
+import file_io
 
 def get_private_ip():
   """ Get the private IP of the current machine.
@@ -16,7 +16,6 @@ def get_private_ip():
   Returns:
     String containing the private IP of the current machine.
   """
-
   return file_io.read(constants.PRIVATE_IP_LOC).rstrip()
 
 def get_public_ip():
@@ -25,7 +24,6 @@ def get_public_ip():
   Returns:
     String containing the public IP of the current machine.
   """
-
   return file_io.read(constants.PUBLIC_IP_LOC).rstrip()
 
 
@@ -35,7 +33,6 @@ def get_secret():
   Returns:
     String containing the secret key.
   """
-
   return file_io.read(constants.SECRET_LOC).rstrip()
  
 def get_num_cpus():
@@ -44,7 +41,6 @@ def get_num_cpus():
   Returns:
     Integer of the number of CPUs on the current machine
   """
-  
   return multiprocessing.cpu_count() 
 
 def get_db_info():

@@ -15,7 +15,8 @@ TEMPLATE_LOCATION = os.path.join(os.path.dirname(__file__)) +\
 
 def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={}):
   """ Reads in a template file for god and fills it with the 
-      correct configuration.
+      correct configuration. The caller is responsible for deleting 
+      the created file.
   
   Args:
     watch: A string which identifies this process with god
@@ -27,15 +28,13 @@ def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={}):
     The name of the created configuration file. 
   Raises: 
     TypeError with bad argument types
-  Note: 
-    The caller is responsible for deleting the created file.
   """
 
-  if not isinstance(watch, str): raise TypeError
-  if not isinstance(start_cmd, str): raise TypeError
-  if not isinstance(stop_cmd, str): raise TypeError
-  if not isinstance(ports, list): raise TypeError
-  if not isinstance(env_vars, dict): raise TypeError
+  if not isinstance(watch, str): raise TypeError("Expected str")
+  if not isinstance(start_cmd, str): raise TypeError("Expected str")
+  if not isinstance(stop_cmd, str): raise TypeError("Expected str")
+  if not isinstance(ports, list): raise TypeError("Expected list")
+  if not isinstance(env_vars, dict): raise TypeError("Expected dict")
 
   template = file_io.read(TEMPLATE_LOCATION)
 

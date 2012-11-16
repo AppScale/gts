@@ -1,3 +1,4 @@
+# Programmer: Navraj Chohan <nlake44@gmail.com>
 """
 This file contains constants used throughout AppScale.
 """
@@ -13,7 +14,7 @@ APPSCALE_HOME = os.environ.get("APPSCALE_HOME")
 if not APPSCALE_HOME: APPSCALE_HOME = '/root/appscale'
 
 # Location of PID files for processes and applications
-APP_PID_DIR = APPSCALE_HOME + '/.appscale/'
+APP_PID_DIR = '/etc/appscale/'
 
 # Location of Java Server
 JAVA_APPSERVER = APPSCALE_HOME + '/AppServer_Java'
@@ -33,7 +34,7 @@ DB_INFO_LOC = '/etc/appscale/database_info.yaml'
 # The port of the datastore server
 DB_SERVER_PORT = 8888
 
-# The port of the users/apps SOAP server
+# The port of the UserAppServer SOAP server
 UA_SERVER_PORT = 4343
 
 # The port of the application manager soap server

@@ -10,10 +10,11 @@ import god_interface
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
 import file_io
+import testing
 
 class TestGodInterface(unittest.TestCase):
   def test_start(self):
-    file_io.disable_logging()
+    testing.disable_logging()
 
     flexmock(file_io)\
       .should_receive('delete')\
@@ -32,7 +33,7 @@ class TestGodInterface(unittest.TestCase):
     assert not god_interface.start("fakeconfig.conf", "watch_name")
 
   def test_stop(self):
-    file_io.disable_logging()
+    testing.disable_logging()
 
     flexmock(subprocess)\
       .should_receive('call')\

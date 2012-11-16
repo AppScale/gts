@@ -114,7 +114,7 @@ class AppControllerClient
       if retry_on_except
         retry
       else
-	trace = except.backtrace.join("\n")
+        trace = except.backtrace.join("\n")
         abort("[#{callr}] We saw an unexpected error of the type #{except.class} with the following message:\n#{except}, with trace: #{trace}")
       end
     end

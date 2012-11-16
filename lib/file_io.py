@@ -4,6 +4,12 @@ import os
 
 from flexmock import flexmock
 
+# Read only permissions for file access
+READ_ONLY = 'r'
+
+# Write only permissions for file access
+WRITE_ONLY = 'w'
+
 """ 
 This file contains functions for doing file IO and logging operations. Many 
 of the functions serve as wrapper for easy mocking.
@@ -15,10 +21,10 @@ def read(file_name):
   Args:
     file_name: The full path or relative path of the file to read
   Returns:
-    String containing the contents
+    String containing the contents of the file
   """
 
-  FILE = open(file_name, "r")
+  FILE = open(file_name, READ_ONLY)
   contents = FILE.read()  
   FILE.close()
   return contents 
@@ -29,8 +35,7 @@ def write(file_name, contents):
   Args:
     file_name: The full path or relative path of the file to write to
   """
-
-  FILE = open(file_name, "w")
+  FILE = open(file_name, WRITE_ONLY)
   FILE.write(contents)
   FILE.close()
 
@@ -40,7 +45,6 @@ def delete(file_name):
   Args:
     file_name: The name of the file to delete
   """
-
   os.remove(file_name) 
 
 def exists(file_name):
@@ -49,23 +53,7 @@ def exists(file_name):
   Args:
     file_name: The file to check if it exists. 
   """
-
   return os.path.exists(file_path)
-
-def disable_logging():
-  """ Mocks out logging for testing output.
-  """
-  flexmock(logging)\
-    .should_receive('error')\
-    .and_return() 
-
-  flexmock(logging)\
-    .should_receive('warning')\
-    .and_return() 
-
-  flexmock(logging)\
-    .should_receive('info')\
-    .and_return() 
 
 def set_logging_format():
   """ Sets the logging format to have a unified format.

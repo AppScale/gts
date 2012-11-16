@@ -5,6 +5,7 @@ import logging
 import os
 import random
 import SOAPpy
+import subprocess
 import sys
 import time
 import urllib
@@ -16,18 +17,18 @@ import god_app_interface
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
 import constants
-import god_interface 
 import file_io
+import god_interface 
 import misc 
 
-# IP used for binding app_manager SOAP service
+# IP used for binding AppManager SOAP service
 DEFAULT_IP = '127.0.0.1'
 
 # Most attempts to see if an application server comes up before failing
 MAX_FETCH_ATTEMPTS = 7
 
 # The initial amount of time to wait when trying to check if an application
-# is up or not
+# is up or not. In seconds.
 INITIAL_BACKOFF_TIME = 1
 
 # The PID number to return when a process did not start correctly
@@ -42,8 +43,11 @@ REQUIRED_CONFIG_FIELDS = ['app_name',
                           'xmpp_ip',
                           'dblocations']
 
+# The web path to fetch to see if the application is up
+FETCH_PATH = '/_ah'
+
 def start_app(config):
-  """ Starts a Google App Engine application on this host machine. It 
+  """ Starts a Google App Engine application on this machine. It 
       will start it up and then proceed to fetch the main page.
   
   Args:
@@ -99,7 +103,6 @@ def start_app(config):
                             config['app_name'])
   elif config['language'] == constants.JAVA:
     start_cmd = create_java_start_cmd(config['app_name'],
-                            config['load_balancer_ip'],
                             config['app_port'],
                             config['load_balancer_ip'],
                             config['load_balancer_port'],
@@ -139,8 +142,8 @@ def start_app(config):
   return pid
 
 def stop_app_instance(app_name, port):
-  """ Stops a Google App Engine application instance on current 
-      host machine.
+  """ Stops a Google App Engine application process instance on current 
+      machine.
 
   Args:
     app_name: Name of application to stop
@@ -149,11 +152,17 @@ def stop_app_instance(app_name, port):
     True on success, False otherwise
   """
 
+  if not misc.is_app_name_valid(app_name): 
+    logging.error("Unable to kill app process %s on port %d because of " +\
+                  "invalid name for application"%(app_name, int(port)))
+    return False
+
   logging.info("Stopping application %s"%app_name)
   watch = "app___" + app_name + "-" + str(port)
   god_result = god_interface.stop(watch)
 
   # hack: God fails to shutdown processes so we do it via a system command
+  # TODO: fix it or find an alternative to god
   pid_file = constants.APP_PID_DIR + app_name + '-' + port
   pid = file_io.read(pid_file)
 
@@ -167,8 +176,8 @@ def stop_app_instance(app_name, port):
   return god_result
 
 def stop_app(app_name):
-  """ Stops all instances of a Google App Engine application on this 
-      host machine.
+  """ Stops all process instances of a Google App Engine application on this 
+      machine.
 
   Args:
     app_name: Name of application to stop
@@ -176,22 +185,36 @@ def stop_app(app_name):
     True on success, False otherwise
   """
 
+  if not misc.is_app_name_valid(app_name): 
+    logging.error("Unable to kill app process %s on because of " +\
+                  "invalid name for application"%(app_name))
+    return False
+
   logging.info("Stopping application %s"%app_name)
   watch = "app___" + app_name 
   god_result = god_interface.stop(watch)
-
-  if not misc.is_app_name_valid(app_name): 
+ 
+  if not god_result:
+    logging.error("Unable to shut down god interface for watch %s"%watch)
     return False
 
   # hack: God fails to shutdown processes so we do it via a system command
-  cmd = "ps -ef | grep \"dev_appserver\|AppServer_Java\" | grep " + app_name + " | grep -v grep | grep cookie_secret | awk '{print $2}' | xargs kill -9"
-  if os.system(cmd) != 0:
-    logging.error("Unable to shut down processes for app %s"%app_name)
+  # TODO: fix it or find an alternative to god
+  cmd = "ps -ef | grep \"dev_appserver\|AppServer_Java\" | grep " + \
+        app_name + " | grep -v grep | grep cookie_secret | awk '{print $2}' " +\
+        "| xargs kill -9"
+
+  ret = os.system(cmd)
+  if ret != 0:
+    logging.error("Unable to shut down processes for app %s with exit value %d"\
+                 %(app_name, ret))
     return False
   
   cmd = "rm -f " + constants.APP_PID_DIR + app_name + "-*"
-  if os.system(cmd) != 0:
-    logging.error("Unable to remove PID files for app %s"%app_name)
+  ret = os.system(cmd)
+  if ret != 0:
+    logging.error("Unable to remove PID files for app %s with exit value %d"\
+                  %(app_name, ret))
     return False
 
   return True
@@ -200,7 +223,7 @@ def stop_app(app_name):
 # Private Functions
 ######################
 def get_pid_from_port(port):
-  """ Gets the PID of the process binded to the given port.
+  """ Gets the PID of the process bound to the given port.
    
   Args:
     port: The port in which you want the process binding it
@@ -214,15 +237,15 @@ def get_pid_from_port(port):
   pid = s.read().rstrip()
   if pid:
     return int(pid)
-  else: 
-    return BAD_PID
- 
+  else:
+    return BAD_PID  
+
 def wait_on_app(port):
-  """ Attempts a fetch from the given port and backs off until it 
-     comes up or until a maximum number of attempted fetches fail.
+  """ Waits for the application hosted on this machine, on the given port, 
+      to respond to HTTP requests.
   
   Args:
-    port: The port to fetch from
+    port: Port where app is hosted on the local machine
   Returns:
     True on success, False otherwise
   """
@@ -231,35 +254,38 @@ def wait_on_app(port):
   retries = MAX_FETCH_ATTEMPTS
   private_ip = appscale_info.get_private_ip()
 
+  url = "http://" + private_ip + ":" + str(port) + FETCH_PATH
   while retries > 0:
     try:
-      f = urllib.urlopen("http://" + private_ip + ":" + str(port))
+      urllib.urlopen(url)
       return True
     except IOError:
       retries -= 1
 
-    logging.warning("Application was not up, retrying in %d seconds"%backoff)
+    logging.warning("Application was not up at %s, retrying in %d seconds"%\
+                   (url, backoff))
     time.sleep(backoff)
     backoff *= 2
 
-  logging.error("Application did not come up on port %d after %d attemps"%\
-                (port, MAX_FETCH_ATTEMPTS))
+  logging.error("Application did not come up on %s after %d attemps"%\
+                (url, MAX_FETCH_ATTEMPTS))
   return False
      
 def choose_db_location(db_locations):
   """ Given a string containing multiple datastore locations
-  select one randomly to spread load.
+      select one randomly to spread load.
 
   Args:
     db_locations: A list of datastore locations
   Returns:
-    One IP location randomly selected from the list.
+    An IP address that can be used for datastore access
   Raise:
-    ValueError if there are no locations given in the args.
+    ValueError: if there are no locations given in the args.
   """
 
-  if len(db_locations) == 0: raise ValueError("DB locations " + \
-     "were not correctly set: " + str(db_locations))
+  if len(db_locations) == 0: 
+    raise ValueError("DB locations " + \
+                     "were not correctly set: " + str(db_locations))
 
   index = random.randint(0, len(db_locations) - 1)
   return db_locations[index]
@@ -269,7 +295,7 @@ def create_python_app_env(public_ip, port, app_name):
   application.
   
   Args:
-    public_ip: The public IP
+    public_ip: The public IP of the load balancer
     port: The port the application is using
     app_name: The name of the application to be run
   Returns:
@@ -303,7 +329,7 @@ def create_python_start_cmd(app_name,
                             xmpp_ip,
                             db_locations):
   """
-  Creates the command line to run the python application server.
+  Creates the start command to run the python application server.
   
   Args:
     app_name: The name of the application to run
@@ -341,17 +367,15 @@ def create_python_start_cmd(app_name,
   return ' '.join(cmd)
 
 def create_java_start_cmd(app_name,
-                          login_ip, 
                           port, 
                           load_balancer_host, 
                           load_balancer_port,
                           db_locations):
   """
-  Creates the command line to run the python application server.
+  Creates the start command to run the java application server.
   
   Args:
     app_name: The name of the application to run
-    login_ip: The public IP
     port: The local port the application server will bind to
     load_balancer_host: The host of the load balancer
     load_balancer_port: The port of the load balancer
@@ -429,7 +453,7 @@ def is_config_valid(config):
   Args:
     config: The dictionary to validate
   Returns:
-    True if valid, false otherwise
+    True if valid, False otherwise
   """
 
   for ii in REQUIRED_CONFIG_FIELDS:
