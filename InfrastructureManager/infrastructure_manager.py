@@ -1,10 +1,11 @@
-import json
-import thread
 from agents.base_agent import BaseAgent, AgentConfigurationException
 from agents.factory import InfrastructureAgentFactory
+import json
+import thread
 from utils import utils
 
 __author__ = 'hiranya'
+__email__ = 'hiranya@appscale.com'
 
 class InfrastructureManager:
     """
@@ -81,13 +82,13 @@ class InfrastructureManager:
         which is used to reference past virtual machine deployments.
 
         Args:
-            - parameters    A dictionary of parameters which contains a valid
+            parameters      A dictionary of parameters which contains a valid
                             'reservation_id' parameter. A valid 'reservation_id'
                             is an ID issued by the run_instances method of the
                             same InfrastructureManager object. Alternatively one
                             may provide a valid JSON string instead of a dictionary
                             object.
-            - secret        A previously established secret
+            secret          A previously established secret
 
         Returns:
             If the provided secret key is valid and the parameters map contains
@@ -111,8 +112,8 @@ class InfrastructureManager:
             set to a simple error message describing the cause of the error.
 
         Raises:
-            - TypeError     If the inputs are not of the expected types
-            - ValueError    If the input JSON string (parameters) cannot be parsed properly
+            TypeError     If the inputs are not of the expected types
+            ValueError    If the input JSON string (parameters) cannot be parsed properly
         """
         parameters, secret = self.__validate_args(parameters, secret)
 
@@ -146,11 +147,11 @@ class InfrastructureManager:
         immediately.
 
         Args:
-            - parameters    A parameter map containing the keys 'infrastructure',
+            parameters      A parameter map containing the keys 'infrastructure',
                             'num_vms' and any other cloud platform specific
                             parameters. Alternatively one may provide a valid
                             JSON string instead of a dictionary object.
-            - secret        A previously established secret
+            secret          A previously established secret
 
         Returns:
             If the secret is valid and all the required parameters are available in
@@ -160,8 +161,8 @@ class InfrastructureManager:
             key 'success' set to False and 'reason' set to a simple error message.
 
         Raises:
-            - TypeError     If the inputs are not of the expected types
-            - ValueError    If the input JSON string (parameters) cannot be parsed properly
+            TypeError     If the inputs are not of the expected types
+            ValueError    If the input JSON string (parameters) cannot be parsed properly
         """
         parameters, secret = self.__validate_args(parameters, secret)
 
@@ -217,12 +218,12 @@ class InfrastructureManager:
         this method simply starts the VM termination process and returns immediately.
 
         Args:
-            - parameters    A dictionary of parameters containing the required
+            parameters      A dictionary of parameters containing the required
                             'infrastructure' parameter and any other platform
                             dependent required parameters. Alternatively one
                             may provide a valid JSON string instead of a dictionary
                             object.
-            - secret        A previously established secret
+            secret          A previously established secret
 
         Returns:
             If the secret is valid and all the parameters required to successfully
@@ -232,8 +233,8 @@ class InfrastructureManager:
             and 'reason' set to a simple error message.
 
         Raises:
-            - TypeError     If the inputs are not of the expected types
-            - ValueError    If the input JSON string (parameters) cannot be parsed properly
+            TypeError     If the inputs are not of the expected types
+            ValueError    If the input JSON string (parameters) cannot be parsed properly
         """
         parameters, secret = self.__validate_args(parameters, secret)
 
@@ -258,6 +259,15 @@ class InfrastructureManager:
         return self.__generate_response(True, self.REASON_NONE)
 
     def __spawn_vms(self, agent, num_vms, parameters, reservation_id):
+        """
+        Private method for starting a set of VMs
+
+        Args:
+            agent           Infrastructure agent in charge of current operation
+            num_vms         No. of VMs to be spawned
+            parameters      A dictionary of parameters
+            reservation_id  Reservation ID of the current run request
+        """
         agent.set_environment_variables(parameters)
         security_configured = agent.configure_instance_security(parameters)
         ids, public_ips, private_ips = agent.run_instances(num_vms, parameters, security_configured)
@@ -270,10 +280,28 @@ class InfrastructureManager:
         utils.log('Successfully finished request {0}.'.format(reservation_id))
 
     def __kill_vms(self, agent, parameters):
+        """
+        Private method for stopping a set of VMs
+
+        Args:
+            agent       Infrastructure agent in charge of current operation
+            parameters  A dictionary of parameters
+        """
         agent.set_environment_variables(parameters)
         agent.terminate_instances(parameters)
 
     def __generate_response(self, status, msg, extra = None):
+        """
+        Generate an infrastructure manager service response
+
+        Args:
+            status  A boolean value indicating the status
+            msg     A reason message (useful if this a failed operation)
+            extra   Any extra fields to be included in the response (Optional)
+
+        Returns:
+            A dictionary containing the operation response
+        """
         response = { 'success' : status, 'reason' : msg }
         if extra is not None:
             for key, value in extra.items():
@@ -281,6 +309,19 @@ class InfrastructureManager:
         return response
 
     def __validate_args(self, parameters, secret):
+        """
+        Validate the arguments provided by user.
+
+        Args:
+            parameters  A dictionary (or a JSON string) provided by the client
+            secret      Secret sent by the client
+
+        Returns:
+            Processed user arguments
+
+        Raises
+            TypeError If at least one user argument is not of the current type
+        """
         if type(parameters) != type('') and type(parameters) != type({}):
             raise TypeError('Invalid data type for parameters. Must be a JSON string or a dictionary.')
         elif type(secret) != type(''):

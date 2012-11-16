@@ -1,12 +1,13 @@
+from agents.base_agent import BaseAgent, AgentConfigurationException
+import datetime
 import os
 import re
 import sys
 import time
-import datetime
-from agents.base_agent import BaseAgent, AgentConfigurationException
 from utils import utils
 
 __author__ = 'hiranya'
+__email__ = 'hiranya@appscale.com'
 
 # A regular expression that matches fully qualified domain names, used to
 # parse output from describe-instances to see the FQDNs for machines
@@ -56,11 +57,23 @@ class EC2Agent(BaseAgent):
         self.prefix = 'ec2'
 
     def set_environment_variables(self, parameters):
+        """
+        Set the EC2 specific environment variables. Required values for the
+        environment variables are read from the 'credentials' parameter of
+        the parameters map. (Also see documentation for the BaseAgent class)
+
+        Args:
+            parameters    A dictionary containing the 'credentials' key
+        """
         if os.environ.has_key('EC2_JVM_ARGS'):
             del(os.environ['EC2_JVM_ARGS'])
 
         variables = parameters[PARAM_CREDENTIALS]
         for key, value in variables.items():
+            if value is None:
+                utils.log('None value detected for the credential: {0}.'.format(key))
+                continue
+
             if key.find('KEY') != -1:
                 utils.log('Setting {0} to {1} in our environment.'.format(
                     key, utils.obscure_string(value)))
@@ -75,6 +88,18 @@ class EC2Agent(BaseAgent):
             os.environ['EC2_PRIVATE_KEY'], os.environ['EC2_CERT']))
 
     def configure_instance_security(self, parameters):
+        """
+        Setup EC2 security keys and groups. Required input values are read from
+        the parameters dictionary. More specifically, this method expects to
+        find a 'keyname' parameter and a 'group' parameter in the parameters
+        dictionary. Using these provided values, this method will create a new
+        EC2 key-pair and a security group. Security group will be granted permissions
+        to access any port on the instantiated VMs. (Also see documentation for the
+        BaseAgent class)
+
+        Args:
+            parameters    A dictionary of parameters
+        """
         keyname = parameters[PARAM_KEYNAME]
         group = parameters[PARAM_GROUP]
         ssh_key = os.path.abspath('/etc/appscale/keys/cloud1/{0}.key'.format(keyname))
@@ -101,6 +126,14 @@ class EC2Agent(BaseAgent):
             return False
 
     def assert_required_parameters(self, parameters, operation):
+        """
+        Assert that all the parameters required for the EC2 agent are in place.
+        (Also see documentation for the BaseAgent class)
+
+        Args:
+            parameters    A dictionary of parameters
+            operation     Operations to be invoked using the above parameters
+        """
         required_params = ()
         if operation == BaseAgent.OPERATION_RUN:
             required_params = REQUIRED_EC2_RUN_INSTANCES_PARAMS
@@ -112,6 +145,18 @@ class EC2Agent(BaseAgent):
                 raise AgentConfigurationException('no ' + param)
 
     def describe_instances(self, parameters):
+        """
+        Execute the ec2-describe-instances command and returns a summary of the
+        already running EC2 instances. (Also see documentation for the BaseAgent
+        class)
+
+        Args:
+            parameters    A dictionary containing the 'keyname' parameter
+
+        Returns:
+            A tuple of the form (public_ips, private_ips, instances) where each
+            member is a list.
+        """
         keyname = parameters[PARAM_KEYNAME]
         describe_instances = utils.shell(self.prefix + '-describe-instances 2>&1')
         utils.log('describe-instances says {0}'.format(describe_instances))
@@ -123,6 +168,25 @@ class EC2Agent(BaseAgent):
         return public_ips, private_ips, instances
 
     def run_instances(self, count, parameters, security_configured):
+        """
+        Spawn the specified number of EC2 instances using the parameters
+        provided. This method relies on the ec2-run-instances command to
+        spawn the actual VMs in the cloud. This method is blocking in that
+        it waits until the requested VMs are properly booted up. However
+        if the requested VMs cannot be procured within 1800 seconds, this
+        method will treat it as an error and return. (Also see documentation
+        for the BaseAgent class)
+
+        Args:
+            count         No. of VMs to spawned
+            parameters      A dictionary of parameters. This must contain 'keyname',
+                            'group', 'image_id' and 'instance_type' parameters.
+            security_configured     Uses this boolean value as an heuristic to
+                                    detect brand new AppScale deployments.
+
+        Returns:
+            A tuple of the form (instances, public_ips, private_ips)
+        """
         image_id = parameters[PARAM_IMAGE_ID]
         instance_type = parameters[PARAM_INSTANCE_TYPE]
         keyname = parameters[PARAM_KEYNAME]
@@ -213,11 +277,33 @@ class EC2Agent(BaseAgent):
         return instances, public_ips, private_ips
 
     def terminate_instances(self, parameters):
+        """
+        Stop one of more EC2 instances using the ec2-terminate-instance command.
+        The input instance IDs are fetched from the 'instance_ids' parameters
+        in the input map. (Also see documentation for the BaseAgent class)
+
+        Args:
+            parameters    A dictionary of parameters
+        """
         instance_ids = parameters[PARAM_INSTANCE_IDS]
         arg = ' '.join(instance_ids)
         utils.shell('{0}-terminate-instances {1} 2>&1'.format(self.prefix, arg))
 
     def run_instances_response(self, command, output):
+        """
+        Local utility method to parse the validate the output of ec2-run-instances
+        command.
+
+        Args:
+            command Exact command executed
+            output Output of the command
+
+        Returns:
+            A tuple of the form (status,command) where status is a boolean value
+            indicating the success/failure status of the output and command is
+            the modified command to be retried in case the previous attempt had
+            failed.
+        """
         if output.find('Please try again later') != -1:
             utils.log('Error with run instances: {0}. Will try again in a moment.'.format(output))
             return False, command
@@ -232,9 +318,42 @@ class EC2Agent(BaseAgent):
             return True, command
 
     def get_optimal_spot_price(self, instance_type):
-        return None
+        """
+        Returns the spot price for an EC2 instance of the specified instance type.
+        ec2-describe-spot-price-history command is used to obtain a set of spot
+        prices from EC2 and the returned value is computed by averaging all the
+        returned values and incrementing it by extra 20%.
+
+        Args:
+            instance_type     An EC2 instance type
+
+        Returns:
+            The estimated spot price for the specified instance type
+        """
+        command = 'ec2-describe-spot-price-history -t {0} | grep \'Linux/UNIX\' | ' \
+                  'awk \'{{print $2}}\''.format(instance_type)
+        prices = utils.shell(command).split('\n')
+        sum = 0.0
+        for price in prices:
+            sum += float(price)
+        average = sum/len(prices)
+        plus_twenty = average * 1.20
+        utils.log('The average spot instance price for a {0} machine is {1}, ' \
+                  'and 20% more is {2}'.format(instance_type, average, plus_twenty))
+        return plus_twenty
 
     def get_ip_addresses(self, all_addresses):
+        """
+        Extract public IPs and private IPs from a list of IP addresses.
+        This method is used to extract the IP addresses from the EC2
+        command outputs.
+
+        Args:
+            all_addresses     A list of IP addresses
+
+        Returns:
+            A tuple of the form (public_ips, private_ips)
+        """
         if len(all_addresses) % 2 != 0:
             sys.exit('IP address list is not of even length')
         reported_public = []
@@ -258,24 +377,9 @@ class EC2Agent(BaseAgent):
 
         for index in range(0, len(actual_private)):
             ip = utils.convert_fqdn_to_ip(actual_private[index])
-            if ip is None:
-                utils.log('Failed to convert {0} into an IP'.format(actual_private[index]))
-            else:
+            if ip is not None:
                 actual_private[index] = ip
+            else:
+                utils.log('Failed to convert {0} into an IP'.format(actual_private[index]))
 
         return actual_public, actual_private
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

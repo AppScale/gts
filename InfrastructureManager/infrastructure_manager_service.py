@@ -1,15 +1,11 @@
 import os
 from infrastructure_manager import InfrastructureManager
-from utils import utils
-import SOAPpy
 from M2Crypto import SSL
+import SOAPpy
+from utils import utils
 
 __author__ = 'hiranya'
-
-DEFAULT_HOST = '0.0.0.0'
-DEFAULT_PORT = 17444
-
-APPSCALE_DIR = '/etc/appscale/'
+__email__ = 'hiranya@appscale.com'
 
 class InfrastructureManagerService:
     """
@@ -17,14 +13,23 @@ class InfrastructureManagerService:
     implementation to the rest of AppScale.
     """
 
-    def __init__(self, host, port = DEFAULT_PORT, ssl = True):
+    # Default bind address for infrastructure manager service
+    DEFAULT_HOST = '0.0.0.0'
+
+    # Default port number for infrastructure manager service
+    DEFAULT_PORT = 17444
+
+    APPSCALE_DIR = '/etc/appscale/'
+
+    def __init__(self, host = DEFAULT_HOST, port = DEFAULT_PORT, ssl = True):
         """
         Initialize a new instance of the infrastructure manager service.
 
         Args:
-            - host  Hostname to which the service should bind
-            - port  Port of the service (Optional). Default to 17444
-            - ssl   True if SSL should be engaged or False otherwise (Optional).
+            host    Hostname to which the service should bind (Optional). Defaults
+                    to 0.0.0.0.
+            port    Port of the service (Optional). Default to 17444.
+            ssl     True if SSL should be engaged or False otherwise (Optional).
                     Defaults to True. When engaged, this implementation expects
                     to find the necessary SSL certificates in the /etc/appscale/certs
                     directory.
@@ -35,7 +40,7 @@ class InfrastructureManagerService:
         secret = None
         while True:
             try:
-                secret = utils.get_secret(APPSCALE_DIR + 'secret.key')
+                secret = utils.get_secret(self.APPSCALE_DIR + 'secret.key')
                 break
             except Exception:
                 utils.log('Waiting for the secret key to become available')
@@ -46,8 +51,8 @@ class InfrastructureManagerService:
 
         if ssl:
             utils.log('Checking for the certificate and private key')
-            cert = APPSCALE_DIR + 'certs/mycert.pem'
-            key = APPSCALE_DIR + 'certs/mykey.pem'
+            cert = self.APPSCALE_DIR + 'certs/mycert.pem'
+            key = self.APPSCALE_DIR + 'certs/mykey.pem'
             while True:
                 if os.path.exists(cert) and os.path.exists(key):
                     break
@@ -93,5 +98,5 @@ class InfrastructureManagerService:
             utils.log('Warning - Stop called on already stopped server')
 
 if __name__ == '__main__':
-    service = InfrastructureManagerService(DEFAULT_HOST, DEFAULT_PORT)
+    service = InfrastructureManagerService()
     service.start()

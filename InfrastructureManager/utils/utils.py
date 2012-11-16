@@ -11,6 +11,7 @@ import time
 import sys
 
 __author__ = 'hiranya'
+__email__ = 'hiranya@appscale.com'
 
 def get_secret(filename = '/etc/appscale/secret.key'):
     """
@@ -18,15 +19,15 @@ def get_secret(filename = '/etc/appscale/secret.key'):
     it.
 
     Args:
-        - filename  The input file from which the secret should be
-                    (Optional). If not specified defaults to
+        filename    The input file from which the secret should be
+                    read from (Optional). If not specified defaults to
                     /etc/appscale/secret.key
 
     Returns:
         A secret key string read from the input file
 
     Raises
-        - IOError   If the input file does not exist
+        IOError   If the input file does not exist
     """
     return read_file(os.path.abspath(filename), chomp = True)
 
@@ -43,7 +44,7 @@ def read_file(location, chomp = True):
                     and defaults to True.
 
     Raises:
-        - IOError     If the specified file does not exist
+        IOError     If the specified file does not exist
     """
     file_handle = open(location, 'r')
     contents = file_handle.read()
@@ -59,8 +60,8 @@ def write_key_file(location, content):
     and set the file permissions to 0600.
 
     Args:
-        - location  A file name (string) or a list of file names
-        - content   Content of the cryptographic key
+        location  A file name (string) or a list of file names
+        content   Content of the cryptographic key
     """
     if type(location) == type(''):
         location = [ location ]
@@ -76,7 +77,7 @@ def log(msg):
     Log the specified message to the stdout and flush the stream.
 
     Args:
-        - msg   Message to be logged
+        msg   Message to be logged
     """
     print msg
     sys.stdout.flush()
@@ -86,7 +87,7 @@ def get_random_alphanumeric(length = 10):
     Generate a random alphanumeric string of the specified length.
 
     Args:
-        - length    Length of the random string that should be
+        length      Length of the random string that should be
                     generated (Optional). Defaults to 10.
 
     Returns:
@@ -100,7 +101,7 @@ def shell(cmd):
     Log and execute the given shell command.
 
     Args:
-        - cmd   A Unix/Linux shell command to be executed
+        cmd   A Unix/Linux shell command to be executed
 
     Returns:
         Output of the shell command as a string.
@@ -115,7 +116,7 @@ def flatten(list):
     the resulting list will be [1,2,3,4,5,6,7].
 
     Args:
-        - list  A list of items where each member item could be a list
+        list  A list of items where each member item could be a list
 
     Returns:
         A single list with no lists as its elements
@@ -133,8 +134,8 @@ def has_parameter(p, params):
     Checks whether the parameter p is present in the params map.
 
     Args:
-        - p         A parameter name
-        - params    A dictionary of parameters
+        p         A parameter name
+        params    A dictionary of parameters
 
     Returns:
         True if params contains p and the value of p is not None.
@@ -148,8 +149,8 @@ def diff(list1, list2):
     in list2.
 
     Args:
-        - list1     A list of elements
-        - list2     Another list of elements
+        list1     A list of elements
+        list2     Another list of elements
 
     Returns:
         A list of elements unique to list1
@@ -163,7 +164,7 @@ def obscure_string(string):
     credentials, credit card numbers etc.
 
     Args:
-        - string    A string of characters
+        string    A string of characters
 
     Returns:
         A new string where all but the last 4 characters of the input
@@ -182,7 +183,7 @@ def get_obscured_env(list=None):
     in the input 'list' will be obscured for privacy and security reasons.
 
     Args:
-        - list  A list of environment variable names that needs to be
+        list    A list of environment variable names that needs to be
                 obscured (Optional). If not provided, all the environment
                 variables will be listed in plain text.
 
@@ -205,7 +206,7 @@ def convert_fqdn_to_ip(fqdn):
     OS.
 
     Args:
-        fgdn: A full qualified domain name
+        fgdn    A full qualified domain name
 
     Returns:
         An IP address or None if the fqdn could not be resolved.
@@ -229,7 +230,7 @@ def sleep(seconds):
     Sleep and delay for the specified number of seconds.
 
     Args:
-        - seconds   Number of seconds to sleep
+        seconds   Number of seconds to sleep
     """
     time.sleep(seconds)
 

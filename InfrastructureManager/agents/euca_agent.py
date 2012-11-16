@@ -1,6 +1,7 @@
 from agents.ec2_agent import EC2Agent
 
 __author__ = 'hiranya'
+__email__ = 'hiranya@appscale.com'
 
 class EucalyptusAgent(EC2Agent):
     """

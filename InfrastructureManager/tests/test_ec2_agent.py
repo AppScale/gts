@@ -1,14 +1,15 @@
-from StringIO import StringIO
-from os import environ
-from unittest.case import TestCase
-from flexmock import flexmock
-import time
-import sys
 from agents.factory import InfrastructureAgentFactory
+from flexmock import flexmock
 from infrastructure_manager import InfrastructureManager
+from os import environ
+from StringIO import StringIO
+import sys
+import time
+from unittest.case import TestCase
 from utils import utils
 
 __author__ = 'hiranya'
+__email__ = 'hiranya@appscale.com'
 
 class TestEC2Agent(TestCase):
 
@@ -46,7 +47,8 @@ class TestEC2Agent(TestCase):
         credentials = {
             'TEST1' : 'TEST1_VALUE',
             'TEST2' : 'TEST2_VALUE',
-            'TEST_KEY' : 'TEST_KEY_VALUE'
+            'TEST_KEY' : 'TEST_KEY_VALUE',
+            'NONE_VALUE_KEY' : None
         }
         params = {
             'credentials' : credentials,
@@ -64,6 +66,23 @@ class TestEC2Agent(TestCase):
         print output
         self.assertTrue(output.find('**********ALUE') != -1)
         self.assertTrue(output.find('TEST_KEY_VALUE') == -1)
+        self.assertTrue(output.find('None value detected for the credential: NONE_VALUE_KEY') != -1)
+
+    def test_spot_price_estimation(self):
+        spot_prices = """0.1
+0.1
+0.2
+0.3
+0.2
+0.3"""
+        (flexmock(utils)
+             .should_receive('shell')
+             .with_args('ec2-describe-spot-price-history -t m1.large | grep \'Linux/UNIX\' | awk \'{print $2}\'')
+             .and_return(spot_prices))
+        factory = InfrastructureAgentFactory()
+        agent = factory.create_agent('ec2')
+        self.assertEqual('{0:.2f}'.format(0.2 * 1.2),
+            '{0:.2f}'.format(agent.get_optimal_spot_price('m1.large')))
 
     def run_instances(self, prefix, blocking):
         i = InfrastructureManager(blocking)

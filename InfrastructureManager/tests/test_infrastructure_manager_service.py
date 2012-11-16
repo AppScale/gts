@@ -3,11 +3,12 @@ from unittest.case import TestCase
 import thread
 from flexmock import flexmock
 from infrastructure_manager import InfrastructureManager
-from infrastructure_manager_service import InfrastructureManagerService, DEFAULT_HOST
+from infrastructure_manager_service import InfrastructureManagerService
 from utils import utils
 import SOAPpy
 
 __author__ = 'hiranya'
+__email__ = 'hiranya@appscale.com'
 
 class TestInfrastructureManagerService(TestCase):
 
@@ -22,7 +23,7 @@ class TestInfrastructureManagerService(TestCase):
 
 
     def test_service(self):
-        proxy = SOAPpy.SOAPProxy('http://{0}:{1}'.format(DEFAULT_HOST, self.port))
+        proxy = SOAPpy.SOAPProxy('http://{0}:{1}'.format('127.0.0.1', self.port))
         result = proxy.describe_instances({ InfrastructureManager.PARAM_RESERVATION_ID : 'foo' },
             'wrong_secret')
         self.assertFalse(result['success'])
@@ -37,7 +38,7 @@ class TestInfrastructureManagerService(TestCase):
         port = self.DEFAULT_TEST_PORT
         while True:
             try:
-                service = InfrastructureManagerService(DEFAULT_HOST, port, False)
+                service = InfrastructureManagerService(port=port, ssl=False)
                 thread.start_new_thread(service.start, ())
                 return service, port
             except Exception:

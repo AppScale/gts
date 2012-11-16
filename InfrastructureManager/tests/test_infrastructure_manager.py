@@ -4,6 +4,7 @@ from utils import utils
 from infrastructure_manager import *
 
 __author__ = 'hiranya'
+__email__ = 'hiranya@appscale.com'
 
 class TestInfrastructureManager(TestCase):
 

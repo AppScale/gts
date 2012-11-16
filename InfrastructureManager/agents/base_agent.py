@@ -1,4 +1,5 @@
 __author__ = 'hiranya'
+__email__ = 'hiranya@appscale.com'
 
 class BaseAgent:
     """
@@ -20,13 +21,13 @@ class BaseAgent:
         in the current process.
 
         Args:
-            - parameters    A dictionary of parameters that may include
+            parameters      A dictionary of parameters that may include
                             parameters that should not be actually set in
                             in the current process as environment variables.
                             Agent implementations may decide which subset of
                             parameters should be set as environment variables.
         """
-        pass
+        raise NotImplementedError
 
     def configure_instance_security(self, parameters):
         """
@@ -38,7 +39,7 @@ class BaseAgent:
         this method call.
 
          Args:
-            - parameters    A dictionary of parameters
+            parameters    A dictionary of parameters
 
         Returns:
             True if some action was taken to configure security for the VMs
@@ -52,7 +53,7 @@ class BaseAgent:
         up and running.
 
         Args:
-            - parameters    A dictionary of parameters
+            parameters    A dictionary of parameters
 
         Returns:
             A tuple of the form (public, private, id) where public is a list
@@ -66,11 +67,11 @@ class BaseAgent:
         Start a set of virtual machines using the parameters provided.
 
         Args:
-            - count                 An integer that indicates the number of
+            count                   An integer that indicates the number of
                                     VMs to be spawned
-            - parameters            A dictionary of parameters required by
+            parameters              A dictionary of parameters required by
                                     the agent implementation to create the VMs
-            - security_configured   True if security has been configured for the VMs
+            security_configured     True if security has been configured for the VMs
                                     by this agent, or False otherwise. This is
                                     usually the value that was returned by a call
                                     to the configure_instance_security method
@@ -86,7 +87,7 @@ class BaseAgent:
         Terminate a set of virtual machines using the parameters given.
 
         Args:
-            - parameters    A dictionary of parameters
+            parameters    A dictionary of parameters
         """
         raise NotImplementedError
 
@@ -98,13 +99,13 @@ class BaseAgent:
         it throws an AgentConfigurationException.
 
         Args:
-            - parameters    A dictionary of parameters
-            - operation     Operation for which the parameters should be checked
+            parameters    A dictionary of parameters
+            operation     Operation for which the parameters should be checked
 
         Raises:
-            - AgentConfigurationException   If a required parameter is absent
+            AgentConfigurationException   If a required parameter is absent
         """
-        pass
+        raise NotImplementedError
 
 class AgentConfigurationException(Exception):
     """

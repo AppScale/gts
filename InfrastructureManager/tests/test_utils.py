@@ -4,6 +4,7 @@ from flexmock import flexmock
 from utils import utils
 
 __author__ = 'hiranya'
+__email__ = 'hiranya@appscale.com'
 
 class TestUtils(TestCase):
 
