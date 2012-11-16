@@ -133,12 +133,12 @@ apt-get -y purge haproxy
 apt-get -y remove consolekit
 
 if [ $1 ]; then
-        echo "Installing full AppScale image"
-	bash debian/appscale_install.sh all
-else
 	echo "Installing only AppScale with support for " + $1
 	bash debian/appscale_install.sh core
 	bash debian/appscale_install.sh $1
+else
+        echo "Installing full AppScale image"
+	bash debian/appscale_install.sh all
 fi
 
 mkdir -p $APPSCALE_HOME_RUNTIME/.appscale/certs
