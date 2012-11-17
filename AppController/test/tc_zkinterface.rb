@@ -71,6 +71,65 @@ class TestZKInterface < Test::Unit::TestCase
 
 
   def test_add_and_remove_app_entry
+    app_path = ZKInterface::ROOT_APP_PATH + "/app"
+    ip1_path = "#{app_path}/ip1"
+    ip2_path = "#{app_path}/ip2"
+
+    all_ok = {:rc => 0}
+    file_does_exist = {:rc => 0, :stat => flexmock(:exists => true)}
+    file_does_not_exist = {:rc => 0, :stat => flexmock(:exists => false)}
+
+    # mocks for zookeeper
+    zk = flexmock("zookeeper")
+
+    # let's say the app directory structure already exists
+    zk.should_receive(:get).with(:path => ZKInterface::ROOT_APP_PATH).
+      and_return(file_does_exist)
+    zk.should_receive(:set).with(:path => ZKInterface::ROOT_APP_PATH,
+      :data => ZKInterface::DUMMY_DATA).and_return(all_ok)
+
+    zk.should_receive(:get).with(:path => app_path).
+      and_return(file_does_exist)
+    zk.should_receive(:set).with(:path => app_path, 
+      :data => ZKInterface::DUMMY_DATA).and_return(all_ok)
+
+    # but let's say that there's no node (file) for each of our IPs
+    zk.should_receive(:get).with(:path => ip1_path).
+      and_return(file_does_not_exist)
+    zk.should_receive(:get).with(:path => ip2_path).
+      and_return(file_does_not_exist)
+
+    # creating those files should be fine
+    zk.should_receive(:create).with(:path => ip1_path, 
+      :ephemeral => ZKInterface::EPHEMERAL, :data => "/boo/baz1").
+      and_return(all_ok)
+    zk.should_receive(:create).with(:path => ip2_path, 
+      :ephemeral => ZKInterface::EPHEMERAL, :data => "/boo/baz2").
+      and_return(all_ok)
+
+    # getting a list of the IPs hosting the app should return both
+    # IPs the first time around, and no IPs the second time around
+    # also, mock out DjinnJobData because we aren't passing those
+    # objects around as the keynames
+    zk.should_receive(:get_children).with(:path => app_path).
+      and_return({:children => ["ip1", "ip2"]}, {:children => []})
+
+    flexmock(DjinnJobData).should_receive(:deserialize).with("ip1").
+      and_return("ip1")
+    flexmock(DjinnJobData).should_receive(:deserialize).with("ip2").
+      and_return("ip2")
+
+    # next, mock out when we try to delete app info
+    zk.should_receive(:delete).with(:path => ip1_path).
+      and_return(all_ok)
+    zk.should_receive(:delete).with(:path => ip2_path).
+      and_return(all_ok)
+
+    # mocks for zookeeper initialization
+    flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
+      and_return() 
+    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181", ZKInterface::TIMEOUT).
+      and_return(zk)
 
     # first, make a connection to zookeeper 
     ZKInterface.init_to_ip("public_ip", "public_ip")
@@ -80,13 +139,14 @@ class TestZKInterface < Test::Unit::TestCase
     ZKInterface.add_app_entry("app", "ip2", "/boo/baz2")
 
     # make sure they show up when we do a 'get'
+    assert_equal(["ip1", "ip2"], ZKInterface.get_app_hosters("app"))
 
     # then remove the entries
     ZKInterface.remove_app_entry("app", "ip1")
     ZKInterface.remove_app_entry("app", "ip2")
 
     # make sure they no longer show up when we do a 'get'
-
+    assert_equal([], ZKInterface.get_app_hosters("app"))
   end
 
 
