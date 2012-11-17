@@ -1,50 +1,111 @@
 #!/usr/bin/env python
 
-import sys, time
-
-import py_cassandra
-from dbconstants import *
 import pycassa
-from pycassa.system_manager import *
-CASS_PORT = 9160
+import sys
+import time
+
+import dbconstants
+import helper_functions
+import py_cassandra
+
+from cassandra import cassandra_interface
+
+from pycassa import system_manager
+
 def create_keyspaces(replication):
-  print "Creating Key Spaces" 
-  f = open(APPSCALE_HOME + '/.appscale/my_private_ip', 'r')
-  host = f.read()
-  sys = SystemManager(host + ":" + str(CASS_PORT))
+  """ 
+  Creates keyspace which AppScale uses for storing application 
+  and user data
+
+  Args:
+    replication: Replication factor for Cassandra
+  Raises:
+    AppScaleBadArg: When args are bad
+  """
+  if int(replication) <= 0: 
+    raise dbconstants.AppScaleBadArg("Replication must be greater than zero")
+
+  print "Creating Cassandra Key Spaces" 
+
+  # Set this to False to keep data from a previous deployment. Setting it
+  # it to True will remove previous tables.
+  _DROP_TABLES = True
+
+  # TODO use shared library to get constants
+  host = helper_functions.read_file('/etc/appscale/my_private_ip')
+
+  sysman = system_manager.SystemManager(host + ":" +\
+              str(cassandra_interface.CASS_DEFAULT_PORT))
+
+  if _DROP_TABLES:
+    try:
+      sysman.drop_keyspace(cassandra_interface.KEYSPACE)
+    except pycassa.cassandra.ttypes.InvalidRequestException, e:
+      pass
 
   try:
-    sys.drop_keyspace('Keyspace1')
-  except pycassa.cassandra.ttypes.InvalidRequestException, e:
-    pass
+    sysman.create_keyspace(cassandra_interface.KEYSPACE, 
+                      pycassa.SIMPLE_STRATEGY, 
+                      {'replication_factor':str(replication)})
 
-  sys.create_keyspace('Keyspace1', pycassa.SIMPLE_STRATEGY, {'replication_factor':str(replication)})
-  sys.create_column_family('Keyspace1', 'Standard1', #column_type="Standard",
-                          comparator_type=UTF8_TYPE)
-  sys.create_column_family('Keyspace1', 'Standard2', #column_type="Standard",
-                          comparator_type=UTF8_TYPE)
-  sys.create_column_family('Keyspace1', 'StandardByTime1', #column_type="Standard",
-                          comparator_type=TIME_UUID_TYPE)
-  sys.create_column_family('Keyspace1', 'StandardByTime2', #column_type="Standard",
-                          comparator_type=TIME_UUID_TYPE)
-  #sys.create_column_family('Keyspace1', 'Super1',  column_type="Super",
-  #                        comparator_type=UTF8_TYPE)
-  #sys.create_column_family('Keyspace1', 'Super2', column_type="Super",
-  #                        comparator_type=UTF8_TYPE)
-  sys.close()
-  print "SUCCESS"
+    # This column family is for testing for functional testing
+    sysman.create_column_family(cassandra_interface.KEYSPACE, 
+                           cassandra_interface.STANDARD_COL_FAM, 
+                           comparator_type=system_manager.UTF8_TYPE)
+
+    for table_name in dbconstants.INITIAL_TABLES:
+      sysman.create_column_family(cassandra_interface.KEYSPACE, 
+                               table_name,
+                               comparator_type=system_manager.UTF8_TYPE)
+  
+    sysman.close()
+  # TODO: Figure out the exact exceptions we're trying to catch in the 
+  # case where we are doing data persistance
+  except Exception, e:
+    sysman.close()
+    # TODO: Figure out the exact exceptions we're trying to catch in the 
+    print "Received an exception of type " + str(e.__class__) +\
+          " with message: " + str(e)
+    if _DROP_TABLES:
+      raise e
+
+  print "CASSANDRA SETUP SUCCESSFUL"
+  return True
 
 def prime_cassandra(replication):
+  """
+  Create required tables for AppScale
+
+  Args:
+    replication: Replication factor of data
+  Raises:
+    AppScaleBadArg if replication factor is not greater than 0
+    Cassandra specific exceptions upon failure
+  Returns:
+    0 on success, 1 on failure. Passed up as process exit value.
+  """ 
+  if int(replication) <= 0: 
+    raise AppScaleBadArg("Replication must be greater than zero")
+
   create_keyspaces(int(replication))
-  print "prime cassandra database"
-  db = py_cassandra.DatastoreProxy()
-  #print db.get("__keys_") 
-  db.create_table(USERS_TABLE, USERS_SCHEMA)
-  db.create_table(APPS_TABLE, APPS_SCHEMA)
-  if len(db.get_schema(USERS_TABLE)) > 1 and len(db.get_schema(APPS_TABLE)) > 1:
+  print "Prime Cassandra database"
+  try:
+    db = py_cassandra.DatastoreProxy()
+    db.create_table(dbconstants.USERS_TABLE, dbconstants.USERS_SCHEMA)
+    db.create_table(dbconstants.APPS_TABLE, dbconstants.APPS_SCHEMA)
+  # TODO: Figure out the exact exceptions we're trying to catch in the 
+  # case where we are doing data persistance
+  except Exception, e:
+    print "Received an exception of type " + str(e.__class__) +\
+          " with message: " + str(e)
+    if _DROP_TABLES:
+      raise e
+
+  if len(db.get_schema(dbconstants.USERS_TABLE)) > 1 and \
+     len(db.get_schema(dbconstants.APPS_TABLE)) > 1:
     print "CREATE TABLE SUCCESS FOR USER AND APPS"
-    print db.get_schema(USERS_TABLE)
-    print db.get_schema(APPS_TABLE)
+    print "USERS:",db.get_schema(dbconstants.USERS_TABLE)
+    print "APPS:",db.get_schema(dbconstants.APPS_TABLE)
     return 0
   else: 
     print "FAILED TO CREATE TABLE FOR USER AND APPS"

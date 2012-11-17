@@ -589,7 +589,7 @@ def GetAsync(keys, **kwargs):
     if multiple:
       result = entities
     else:
-      if entities[0] is None:
+      if not entities or entities[0] is None:
         raise datastore_errors.EntityNotFoundError()
       result = entities[0]
     if extra_hook:
