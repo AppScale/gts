@@ -22,7 +22,7 @@ class TestGodAppInterface(unittest.TestCase):
                                                      [1,2,3],
                                                      {'ENV1':"VALUE1",
                                                       'ENV2':"VALUE2"})
-    assert temp_file
+    self.assertNotEqual(None, temp_file)
     
 if __name__ == "__main__":
   unittest.main()

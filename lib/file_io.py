@@ -23,7 +23,6 @@ def read(file_name):
   Returns:
     String containing the contents of the file
   """
-
   FILE = open(file_name, READ_ONLY)
   contents = FILE.read()  
   FILE.close()
@@ -58,6 +57,5 @@ def exists(file_name):
 def set_logging_format():
   """ Sets the logging format to have a unified format.
   """
-
   logging.basicConfig(format=('%(asctime)s %(levelname)s %(filename)s:'\
                               '%(lineno)s %(message)s '))

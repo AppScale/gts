@@ -4,6 +4,7 @@ import json
 import os 
 import sys
 import SOAPpy
+import time
 import unittest
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
@@ -34,15 +35,16 @@ class RunPythonAppTestCase(unittest.TestCase):
               'dblocations': ['appscale-image0'] }
     config = json.dumps(config)
     self.pid = server.start_app(config)
-    assert -1 != self.pid
-
+    self.assertNotEqual(-1, self.pid)
+  
   def runTest(self):
-    assert os.path.exists("/proc/"+str(self.pid))
+    self.assertEqual(True, os.path.exists("/proc/"+str(self.pid)))
 
   def tearDown(self):
-    assert server.stop_app(self.appname)
+    self.assertEqual(True, server.stop_app(self.appname))
     teardown_app_dir(self.appname)
-    assert not os.path.exists("/proc/"+str(self.pid))
+    time.sleep(1)
+    self.assertEqual(False, os.path.exists("/proc/"+str(self.pid)))
 
 class RunJavaAppTestCase(unittest.TestCase):
   def setUp(self):
@@ -58,15 +60,16 @@ class RunJavaAppTestCase(unittest.TestCase):
               'dblocations': ['appscale-image0'] }
     config = json.dumps(config)
     self.pid = server.start_app(config)
-    assert -1 != self.pid
+    self.assertNotEqual(-1, self.pid)
 
   def runTest(self):
-    assert os.path.exists("/proc/"+str(self.pid))
+    self.assertEqual(True, os.path.exists("/proc/"+str(self.pid)))
 
   def tearDown(self):
-    assert server.stop_app(self.appname)
+    self.assertEqual(True, server.stop_app(self.appname))
     teardown_app_dir(self.appname)
-    assert not os.path.exists("/proc/"+str(self.pid))
+    time.sleep(1)
+    self.assertEqual(False, os.path.exists("/proc/"+str(self.pid)))
   
 if __name__ == "__main__":
   unittest.main()

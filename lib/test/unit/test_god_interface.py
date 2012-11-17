@@ -24,13 +24,13 @@ class TestGodInterface(unittest.TestCase):
       .should_receive('call')\
       .and_return(0) 
 
-    assert god_interface.start("fakeconfig.conf", "watch_name")
+    self.assertEqual(True, god_interface.start("fakeconfig.conf", "watch_name"))
 
     flexmock(subprocess)\
       .should_receive('call')\
       .and_return(1) 
 
-    assert not god_interface.start("fakeconfig.conf", "watch_name")
+    self.assertEqual(False, god_interface.start("fakeconfig.conf", "watch_name"))
 
   def test_stop(self):
     testing.disable_logging()
@@ -38,12 +38,12 @@ class TestGodInterface(unittest.TestCase):
     flexmock(subprocess)\
       .should_receive('call')\
       .and_return(0) 
-    assert god_interface.stop("watch_name")
+    self.assertEqual(True, god_interface.stop("watch_name"))
 
     flexmock(subprocess)\
       .should_receive('call')\
       .and_return(1) 
-    assert not god_interface.stop("watch_name")
+    self.assertEqual(False, god_interface.stop("watch_name"))
        
 if __name__ == "__main__":
   unittest.main()

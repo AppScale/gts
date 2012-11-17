@@ -6,7 +6,7 @@ import re
 VALID_APP_NAME_CHARS_REGEX = "^[A-Za-z0-9_-]*$"
 
 # These characters are flagged as possible security threats
-VALID_CHARS_REGEX = "^[.A-Za-z0-9_-]*$"
+VALID_CHARS_REGEX = "^[/.A-Za-z0-9_-]*$"
 
 def is_app_name_valid(app_name):
   """ Validates an application by checking if it contains certain 

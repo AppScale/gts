@@ -11,7 +11,7 @@ import file_io
 
 class TestAppScaleInfo(unittest.TestCase):
   def test_get_num_cpus(self):
-    assert 0 != appscale_info.get_num_cpus()
+    self.assertNotEqual(0, appscale_info.get_num_cpus())
 
   def test_stop(self):
     YAML_INFO="""--- 
@@ -22,10 +22,10 @@ class TestAppScaleInfo(unittest.TestCase):
     flexmock(file_io)\
       .should_receive('read')\
       .and_return(YAML_INFO) 
-    assert 'cassandra' == appscale_info.get_db_info()[':table']
-    assert '1' == appscale_info.get_db_info()[':replication']
-    assert 'appscale' == appscale_info.get_db_info()[':keyname']
-    assert isinstance(appscale_info.get_db_info(), dict)
+    self.assertEqual('cassandra', appscale_info.get_db_info()[':table'])
+    self.assertEqual( '1', appscale_info.get_db_info()[':replication'])
+    self.assertEqual( 'appscale', appscale_info.get_db_info()[':keyname'])
+    self.assertEqual(True, isinstance(appscale_info.get_db_info(), dict))
        
 if __name__ == "__main__":
   unittest.main()

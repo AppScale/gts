@@ -61,8 +61,6 @@ def stop(watch):
   
   return_status = subprocess.call(['god', 'stop', watch])
   if return_status != 0:
-    print return_status
-    print watch
     logging.error("God stop command returned with status %d when stopping watch %s"%(return_status, watch))
     return False
 

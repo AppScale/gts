@@ -21,8 +21,9 @@ class AppManagerClient
   # The connection to use and IP to connect to
   attr_reader :conn, :ip
 
-  # The local IP to connect to for the AppManager
-  SERVER_IP = HelperFunctions.local_ip()
+  # Connect to localhost for the AppManager. Outside connections are not 
+  # allowed for security reasons.
+  SERVER_IP = 'localhost'
 
   # The port that the AppManager binds to
   SERVER_PORT = 49934
@@ -59,13 +60,13 @@ class AppManagerClient
       end
     rescue OpenSSL::SSL::SSLError
       retry
-    rescue Errno::ECONNREFUSED
+    rescue Errno::ECONNREFUSED => except
       if retry_on_except
         sleep(1)
         retry
       else
         trace = except.backtrace.join("\n")
-        abort("[#{callr}] We saw an unexpected error of the type #{except.class} with the following message:\n#{except}, with trace: #{trace}")
+        abort("We saw an unexpected error of the type #{except.class} with the following message:\n#{except}, with trace: #{trace}")
       end 
    rescue Exception => except
       if except.class == Interrupt
@@ -127,6 +128,7 @@ class AppManagerClient
   #   True on success, False otherwise
   #
   def stop_app_instance(app_name, port)
+    result = ""
     make_call(MAX_TIME_OUT, false){
       result = @conn.stop_app(app_name, port)
     }
@@ -142,6 +144,7 @@ class AppManagerClient
   #   True on success, False otherwise
   #
   def stop_app(app_name)
+    result = ""
     make_call(MAX_TIME_OUT, false){
       result = @conn.stop_app(app_name)
     }

@@ -102,6 +102,7 @@ class Repo
   # Stops the Repo app.
   #
   def self.stop
+    app = "therepo"
     Djinn.log_debug("Stopping app #{app} on #{HelperFunctions.local_ip}")
     app_manager = AppManagerClient.new()
     if app_manager.stop_app(app) 

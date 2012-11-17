@@ -21,13 +21,13 @@ import god_interface
 import testing
 
 class TestAppManager(unittest.TestCase):
-  def test_bad_convert_config_from_json(config):
-    print app_manager_server.convert_config_from_json(None)
-    assert None == app_manager_server.convert_config_from_json(None)
-    assert None == app_manager_server.convert_config_from_json("{}")
-    assert None == app_manager_server.convert_config_from_json("{'app_name':'test'}")
+  def test_bad_convert_config_from_json(self):
+    testing.disable_logging()
+    self.assertEqual(None, app_manager_server.convert_config_from_json(None))
+    self.assertEqual(None, app_manager_server.convert_config_from_json("{}"))
+    self.assertEqual(None, app_manager_server.convert_config_from_json("{'app_name':'test'}"))
 
-  def test_good_convert_config_from_json(config):
+  def test_good_convert_config_from_json(self):
     configuration = {'app_name': 'test',
                      'app_port': 2000,
                      'language': 'python',
@@ -37,15 +37,15 @@ class TestAppManager(unittest.TestCase):
                      'dblocations': ['127.0.0.1', '127.0.0.2']}
     configuration = json.dumps(configuration)
 
-    assert isinstance(app_manager_server.convert_config_from_json(configuration), dict)
+    self.assertEqual(True, isinstance(app_manager_server.convert_config_from_json(configuration), dict))
    
   def test_start_app_badconfig(self):
     testing.disable_logging()
-    assert app_manager_server.BAD_PID == app_manager_server.start_app({})
+    self.assertEqual(app_manager_server.BAD_PID, app_manager_server.start_app({}))
 
   def test_start_app_badconfig2(self):
     testing.disable_logging()
-    assert app_manager_server.BAD_PID == app_manager_server.start_app("{'app_name':'test'}")
+    self.assertEqual(app_manager_server.BAD_PID, app_manager_server.start_app("{'app_name':'test'}"))
 
   def test_start_app_goodconfig(self):
     configuration = {'app_name': 'test',
@@ -72,21 +72,20 @@ class TestAppManager(unittest.TestCase):
                 .and_return(flexmock(read=lambda: '12345\n'))
     flexmock(file_io).should_receive('write')\
                         .and_return()
-    assert 12345 == app_manager_server.start_app(configuration)
+    self.assertEqual(12345, app_manager_server.start_app(configuration))
 
   def test_choose_db_location(self):
     db_locations = ['127.0.0.1']
-    assert "127.0.0.1" == app_manager_server.choose_db_location(db_locations)
+    self.assertEqual("127.0.0.1", app_manager_server.choose_db_location(db_locations))
     db_locations = ['127.0.0.1', '127.0.0.2']
-    assert app_manager_server.choose_db_location(db_locations) in db_locations
-    self.assertRaises(ValueError, app_manager_server.choose_db_location, 
-                      [])            
+    assert  app_manager_server.choose_db_location(db_locations) in db_locations
+    self.assertRaises(ValueError, app_manager_server.choose_db_location, [])            
 
   def test_create_python_app_env(self):
     env_vars = app_manager_server.create_python_app_env('1', '2', '3') 
-    assert '1' == env_vars['MY_IP_ADDRESS']
-    assert '2' == env_vars['MY_PORT']
-    assert '3' == env_vars['APPNAME']
+    self.assertEqual('1', env_vars['MY_IP_ADDRESS'])
+    self.assertEqual('2', env_vars['MY_PORT'])
+    self.assertEqual('3', env_vars['APPNAME'])
     assert 'appscale' in env_vars['APPSCALE_HOME']
     assert 0 < int(env_vars['GOMAXPROCS'])
 
@@ -119,7 +118,7 @@ class TestAppManager(unittest.TestCase):
       .and_return('<private_ip>')
     cmd = app_manager_server.create_java_stop_cmd(port)
     assert port in cmd 
-    assert fake_secret in cmd 
+    assert  fake_secret in cmd 
     assert 'kill' in cmd
 
     # Test with a numerial port instead of a string
@@ -182,20 +181,20 @@ class TestAppManager(unittest.TestCase):
     flexmock(urllib).should_receive('urlopen').and_return()
     flexmock(appscale_info).should_receive('get_private_ip')\
       .and_return(ip)
-    assert app_manager_server.wait_on_app(port)
+    self.assertEqual(True, app_manager_server.wait_on_app(port))
 
     flexmock(time).should_receive('sleep').and_return()
     flexmock(urllib).should_receive('urlopen').and_raise(IOError)
-    assert not app_manager_server.wait_on_app(port)
+    self.assertEqual(False, app_manager_server.wait_on_app(port))
      
 
   def test_get_pid_from_port(self):
     flexmock(os).should_receive('popen')\
                 .and_return(flexmock(read=lambda: '12345\n'))
-    assert 12345 == app_manager_server.get_pid_from_port(54321)
+    self.assertEqual(12345, app_manager_server.get_pid_from_port(54321))
     flexmock(os).should_receive('popen')\
                 .and_return(flexmock(read=lambda: ''))
-    assert app_manager_server.BAD_PID == app_manager_server.get_pid_from_port(54321)
+    self.assertEqual(app_manager_server.BAD_PID, app_manager_server.get_pid_from_port(54321))
 
 if __name__ == "__main__":
   unittest.main()
