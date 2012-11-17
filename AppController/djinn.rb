@@ -21,6 +21,7 @@ require 'zookeeper'
 # Imports for AppController libraries
 $:.unshift File.join(File.dirname(__FILE__), "lib")
 require 'app_controller_client'
+require 'app_manager_client'
 require 'blobstore'
 require 'custom_exceptions'
 require 'ejabberd'
@@ -317,7 +318,6 @@ class Djinn
   # memory, set different limits per language.
   MAX_MEM_FOR_APPSERVERS = {'python' => 90.00, 'java' => 95.00, 'go' => 90.00}
 
-
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
   def initialize()
@@ -442,7 +442,8 @@ class Djinn
         stop_soap_server
         stop_pbserver
       end
-
+     
+      stop_app_manager_server
       stop_neptune_manager
       stop_infrastructure_manager
     end
@@ -543,7 +544,14 @@ class Djinn
     @app_names = app_names
     return "App names is now #{@app_names.join(', ')}"
   end
- 
+
+  # Gets the status of the current node in the AppScale deployment
+  # 
+  # Args:
+  #   secret: The shared key for authentication
+  # Returns:
+  #   A string with the current node's status
+  # 
   def status(secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
@@ -570,7 +578,7 @@ class Djinn
 
       stats['apps'].each { |app_name, is_loaded|
         next if !is_loaded
-
+        next if app_name == "none"
         if !@app_info_map[app_name][:appengine].nil?
           stats_str << "    The number of AppServers for app #{app_name} is: " +
             "#{@app_info_map[app_name][:appengine].length}\n"
@@ -610,6 +618,12 @@ class Djinn
     return stats
   end
 
+  # Removes an application and stops all AppServers hosting this application.
+  #
+  # Args:
+  #   app_name: The application to stop
+  #   secret: Shared key for authentication
+  #
   def stop_app(app_name, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
@@ -659,8 +673,14 @@ class Djinn
       end    
 
       if my_node.is_appengine?
-        GodInterface.stop(app_name)
-        GodInterface.remove(app_name)
+        app_manager = AppManagerClient.new()
+        Djinn.log_debug("(stop_app) Calling AppManager for app #{app_name}")
+        if !app_manager.stop_app(app_name)
+          Djinn.log_debug("(stop_app) ERROR: Unable to stop app #{app_name}") 
+        else
+          Djinn.log_debug("(stop_app) AppManager shut down app #{app_name}")
+        end
+
         Nginx.remove_app(app_name)
         Collectd.remove_app(app_name)
         HAProxy.remove_app(app_name)
@@ -674,9 +694,6 @@ class Djinn
           @app_info_map.delete(app_name)
         end
 
-        # TODO God does not shut down the application, so do it here for 
-        # A temp fix.
-        Djinn.log_run("ps -ef | grep dev_appserver | grep #{app_name} | grep -v grep | grep cookie_secret | awk '{print $2}' | xargs kill -9")
         result = "true"
       end
 
@@ -1961,6 +1978,9 @@ class Djinn
       end
     end
 
+    # All nodes have application managers
+    start_app_manager_server
+
     # start soap server and pb server
     if has_soap_server?(my_node)
       @state = "Starting up SOAP Server and PBServer"
@@ -2020,6 +2040,16 @@ class Djinn
     return true
   end
 
+  # Starts the application manager which is a SOAP service in charge of 
+  # starting and stopping applications.
+  def start_app_manager_server
+    @state = "Starting up AppManager"
+    env_vars = {}
+    start_cmd = ["/usr/bin/python2.6 #{APPSCALE_HOME}/AppManager/app_manager_server.py"]
+    stop_cmd = "pkill -9 app_manager_server"
+    port = [AppManagerClient::SERVER_PORT]
+    GodInterface.start(:appmanagerserver, start_cmd, stop_cmd, port, env_vars)
+  end
 
   def start_soap_server
     db_master_ip = nil
@@ -2077,6 +2107,12 @@ class Djinn
 
   def stop_soap_server
     GodInterface.stop(:uaserver)
+  end 
+
+  # Stops the AppManager service
+  #
+  def stop_app_manager_server
+    GodInterface.stop(:appmanagerserver)
   end 
 
   def stop_pbserver
@@ -2584,6 +2620,7 @@ HOSTS
     Djinn.log_debug("Starting appengine - pbserver is at [#{@userappserver_private_ip}]")
 
     uac = UserAppClient.new(@userappserver_private_ip, @@secret)
+    app_manager = AppManagerClient.new()
 
     if @restored == false #and restore_from_db?
       Djinn.log_debug("Need to restore")
@@ -2611,23 +2648,17 @@ HOSTS
       Djinn.log_debug("Get app data for #{app} said [#{app_data}]")
 
       loop {
-        app_version = app_data.scan(/version:(\d+)/).flatten.to_s
         Djinn.log_debug("Waiting for app data to have instance info for app named #{app}: #{app_data}")
-        Djinn.log_debug("The app's version is #{app_version}, and its class is #{app_version.class}")
-
-        if app_data[0..4] != "Error"
-          app_version = "0" if app_version == ""
-          app_version = Integer(app_version)
-          break if app_version >= 0
-        end
 
         app_data = uac.get_app_data(app)
+        if app_data[0..4] != "Error"
+          break
+        end
         Kernel.sleep(5)
       }
 
       my_public = my_node.public_ip
       my_private = my_node.private_ip
-      app_version = app_data.scan(/version:(\d+)/).flatten.to_s
       app_language = app_data.scan(/language:(\w+)/).flatten.to_s
       
       @app_info_map[app] = {}
@@ -2705,9 +2736,11 @@ HOSTS
           @app_info_map[app][:appengine] << @appengine_port
 
           xmpp_ip = get_login.public_ip
-          pid = HelperFunctions.run_app(app, @appengine_port, 
-            @userappserver_private_ip, get_load_balancer_ip(), my_private, 
-            app_version, app_language, @nginx_port, xmpp_ip)
+
+          pid = app_manager.start_app(app, @appengine_port, 
+            get_load_balancer_ip(), @nginx_port, app_language, 
+            xmpp_ip, [Djinn.get_nearest_db_ip(false)])
+
           if pid == -1
             place_error_app(app, "ERROR: Unable to start application " + \
                 "#{app}. Please check the application logs.") 
@@ -2715,11 +2748,6 @@ HOSTS
 
           pid_file_name = "/etc/appscale/#{app}-#{@appengine_port}.pid"
           HelperFunctions.write_file(pid_file_name, pid)
-
-          location = "http://#{my_private}:#{@appengine_port}#{warmup_url}"
-          wget_cmd = "wget #{WGET_OPTIONS} #{location}"
- 
-          Djinn.log_run(wget_cmd)
 
           @appengine_port += 1
         }
@@ -2788,6 +2816,7 @@ HOSTS
   # This method guards access to perform_scaling_for_appservers so that only 
   # one thread call it at a time. We also only perform scaling if the user 
   # wants us to, and simply return otherwise.
+  #
   def scale_appservers
     if !my_node.is_appengine?
       Djinn.log_debug("Not autoscaling, because we aren't an AppServer")
@@ -2806,11 +2835,16 @@ HOSTS
   # Adds or removes AppServers within a node based on the number of requests
   # that each application has received as well as the number of requests that
   # are sitting in haproxy's queue, waiting to be served.
+  #
+  # TODO: Accessing global state should use a lock. Failure to do so causes 
+  #   race conditions where arrays are accessed using indexes that are no 
+  #   longer valid. 
+  #
   def perform_scaling_for_appservers()
     @apps_loaded.each { |app_name|
 
+      next if app_name == "none"  
       Djinn.log_debug("Deciding whether to scale AppServers for #{app_name}")
-        
       initialize_scaling_info_for_app(app_name)
 
       if is_cpu_or_mem_maxed_out?(@app_info_map[app_name][:language])
@@ -2833,6 +2867,10 @@ HOSTS
 
   # Sets up information about the request rate and number of requests in
   # haproxy's queue for the given application.
+  #
+  # Args:
+  #   app_name: The name of the application to set up scaling info
+  #
   def initialize_scaling_info_for_app(app_name)
     return if @initialized_apps[app_name]
 
@@ -3012,11 +3050,17 @@ HOSTS
   # Starts a new AppServer for the given application.
   # TODO(cgb): This is mostly copy-pasta'd from start_appengine - consolidate
   # this somehow
+  #
+  # Args:
+  #   app: Name of the application for which we're adding a process instance
+  #
   def add_appserver_process(app)
     # Starting a appserver instance on request to scale the application 
     @state = "Adding an AppServer for #{app}"
 
     uac = UserAppClient.new(@userappserver_private_ip, @@secret)
+    app_manager = AppManagerClient.new()
+
     warmup_url = "/"
 
     app_data = uac.get_app_data(app)
@@ -3024,21 +3068,15 @@ HOSTS
     Djinn.log_debug("Get app data for #{app} said [#{app_data}]")
 
     loop {
-        app_version = app_data.scan(/version:(\d+)/).flatten.to_s
-        Djinn.log_debug("Waiting for app data to have instance info for app named #{app}: #{app_data} "+
-        "The app's version is #{app_version}, and its class is #{app_version.class}")
-
-        if app_data[0..4] != "Error"
-          app_version = "0" if app_version.empty?
-          app_version = Integer(app_version)
-          break if app_version >= 0
-        end
+        Djinn.log_debug("Waiting for app data to have instance info for app named #{app}: #{app_data}")
 
         app_data = uac.get_app_data(app)
+        if app_data[0..4] != "Error"
+          break
+        end
         sleep(5)
      }
     
-    app_version = app_data.scan(/version:(\d+)/).flatten.to_s
     app_language = app_data.scan(/language:(\w+)/).flatten.to_s
     my_public = my_node.public_ip
     my_private = my_node.private_ip
@@ -3061,19 +3099,19 @@ HOSTS
       my_private)     
 
     Djinn.log_debug("Adding #{app_language} app #{app} on #{HelperFunctions.local_ip}:#{@appengine_port} ")
+
     xmpp_ip = get_login.public_ip
-    pid = HelperFunctions.run_app(app, @appengine_port, @userappserver_private_ip, get_load_balancer_ip(), my_private, app_version, app_language, nginx_port, xmpp_ip)
+
+    pid = app_manager.start_app(app, @appengine_port, 
+            get_load_balancer_ip(), nginx_port, app_language, 
+            xmpp_ip, [Djinn.get_nearest_db_ip(false)])
+
     if pid == -1
       Djinn.log_debug("ERROR: Unable to start application #{app} on port #{@appengine_port}.") 
       next
     end
     pid_file_name = "#{APPSCALE_HOME}/.appscale/#{app}-#{@appengine_port}.pid"
     HelperFunctions.write_file(pid_file_name, pid)
-
-    location = "http://#{my_private}:#{@appengine_port}#{warmup_url}"
-    wget_cmd = "wget #{WGET_OPTIONS} #{location}"
-        
-    Djinn.log_run(wget_cmd)
 
     @appengine_port += 1
 
@@ -3097,11 +3135,17 @@ HOSTS
 
 
   # Terminates a random AppServer that hosts the specified App Engine app.
+  #
+  # Args:
+  #   app: The name of the application for which we're removing a 
+  #        process instance
+  #
   def remove_appserver_process(app)
     @state = "Stopping an AppServer to free unused resources"
     Djinn.log_debug("Deleting appserver instance to free up unused resources")
 
     uac = UserAppClient.new(@userappserver_private_ip, @@secret)
+    app_manager = AppManagerClient.new()
     warmup_url = "/"
 
     my_public = my_node.public_ip
@@ -3121,21 +3165,10 @@ HOSTS
     # Select a random AppServer to kill.
     ports = @app_info_map[app][:appengine]
     port = ports[rand(ports.length)]
-    HelperFunctions.stop_app(app, port)
 
-    # Get PID for the AppServer to kill.
-    pid_file = "#{APPSCALE_HOME}/.appscale/#{app}-#{port}.pid"
-    pid = HelperFunctions.read_file(pid_file)
-
-    # Kill the AppServer in case god wasn't able to.
-    cmd = "kill -9 #{pid}"
-    Djinn.log_run(cmd)
-    Djinn.log_debug("Explicitly killed #{pid} for #{app} on port #{port}")
-
-    # Finally, remove the PID file corresponding to that AppServer.
-    cmd = "rm #{pid_file}"
-    Djinn.log_run(cmd)
-    Djinn.log_debug("Deleted pid file #{pid_file}")
+    if !app_manager.stop_app_instance(app, port)
+      Djinn.log_debug("Unable to stop instance on port #{port} app #{app_name}") 
+    end
 
     # Delete the port number from the app_info_map
     @app_info_map[app][:appengine].delete(port)
