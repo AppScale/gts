@@ -60,11 +60,11 @@ def getStDev(points, average=None):
 def createRandomList(number_of_columns, column_name_len):
   columns = [] 
   for ii in range(0, number_of_columns):
-    columns += [hf.randomString(column_name_len)]
+    columns += [hf.random_string(column_name_len)]
   return columns
 columns = createRandomList(NUM_COLUMNS, 10)
 data = createRandomList(NUM_COLUMNS, 100)
-table_name = hf.randomString(10)
+table_name = hf.random_string(10)
 NUM_ACC = 10001
 print "table= " + table_name
 #print "columns= " + str(columns)

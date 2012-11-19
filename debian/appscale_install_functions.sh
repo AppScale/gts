@@ -258,6 +258,11 @@ installtornado()
     fi
 }
 
+installnose()
+{
+  easy_install nose || exit 1
+}
+
 installflexmock()
 {
     easy_install flexmock || exit 1
