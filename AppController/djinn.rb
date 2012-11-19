@@ -1661,25 +1661,6 @@ class Djinn
   # they are still running, and if not, to remedy it somehow.
   # Returns an Array of the roles that this process started.
   def ensure_all_roles_are_running
-    return  # this method appears to erroneously believe that non-failed nodes
-    # are failed.
-
-    # Open nodes should be given priority to take on roles from other nodes.
-    # if my node isnt open and there are open nodes, return
-    #are_open_nodes = false
-    #@nodes.each { |node|
-    #  if node.is_open?
-    #    are_open_nodes = true
-    #    break
-    #  end
-    #}
-
-    #if !my_node.is_open? and are_open_nodes
-    #  Djinn.log_debug("My node isn't open and other nodes are, so deferring " +
-    #    "cloud healing to other nodes")
-    #  return []
-    #end
-
     roles_to_add = []
     ZKInterface.lock_and_run {
       Djinn.log_debug("Seeing if other roles need to be taken over")
@@ -2729,6 +2710,7 @@ HOSTS
           error_msg = "ERROR: Unable to parse app.yaml file for #{app}." + \
                       " Exception of #{e.class} with message #{e.message}" 
           place_error_app(app, error_msg)
+          static_handlers = []
         end
         proxy_port = HAProxy.app_listen_port(app_number)
         login_ip = get_login.private_ip

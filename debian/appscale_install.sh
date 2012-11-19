@@ -30,7 +30,6 @@ case "$1" in
 #	if [ "$DIST" = "jaunty" -o "$DIST" = "karmic" ]; then
 	installzookeeper
 #	fi
-	installneptune
 	installservice
         patchxmpp
 	;;
@@ -82,10 +81,6 @@ case "$1" in
     hadoop)
 	installhadoop
 	postinstallhadoop
-	;;
-    neptune)
-	installneptune
-	postinstallneptune
 	;;
     protobuf-src)
 	installprotobuf_fromsource
@@ -143,8 +138,6 @@ case "$1" in
 	postinstallmemcachedb
 	installtimesten
 	postinstalltimesten
-	installneptune
-	postinstallneptune
         installrabbitmq
         postinstallrabbitmq
 	installservice
@@ -153,7 +146,6 @@ case "$1" in
         patchxmpp
 	sethosts
         setulimits
-	installsocat
 #	keygen
 	;;
 esac
