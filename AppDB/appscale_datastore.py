@@ -5,24 +5,21 @@
 # Author: Gaurav Kumar Mehta
 # Author: NOMURA Yoshihide
 # See LICENSE file
-import threading
-import sys
-import string, cgi
-import socket
-import os
-import types
 import imp
+import os
+import sys
+import string
+import socket
+import threading
+import types
+
 import appscale_logger
 from dbconstants import *
 
-#from helper_functions import ThreadedLogger
-#LOG_DIR = "%s/AppDB/logs" % APPSCALE_HOME
-#LOG_FILENAME = LOG_DIR + "/appscale_datastore.log"
-#app_datastore_logger = ThreadedLogger(LOG_FILENAME)
-#app_datastore_logger.turnLoggingOn()
 app_datastore_logger = appscale_logger.getLogger("appscale_datastore")
 
 DB_ERROR = "DB_ERROR:"
+
 ERROR_CODES = [DB_ERROR]
 
 DATASTORE_DIR= "%s/AppDB" % APPSCALE_HOME
@@ -38,8 +35,10 @@ class DatastoreFactory:
       d_mod = imp.load_source(d_name, mod_path)
       datastore = d_mod.DatastoreProxy(app_datastore_logger)
     else:
-      app_datastore_logger.error("Fail to use datastore: %s. Please check the datastore type." % d_type)
-      raise Exception("Fail to use datastore: %s" % d_type)
+      app_datastore_logger.error("Fail to use datastore: %s. Please " + \
+                                 "check the datastore type." % d_type)
+      raise Exception("Datastore was not found in %d directory. " + \
+                      "Fail to use datastore: %s" %(DATASTORE_DIR, d_type))
     return datastore
 
   @classmethod
