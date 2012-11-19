@@ -8,7 +8,7 @@ from thrift.Thrift import *
 from ttypes import *
 from thrift.Thrift import TProcessor
 from thrift.transport import TTransport
-from thrift.protocol import TBinaryProtocol
+from thrift.protocol import TBinaryProtocol, TProtocol
 try:
   from thrift.protocol import fastbinary
 except:
@@ -19,10 +19,9 @@ class Iface:
   def enableTable(self, tableName):
     """
     Brings a table on-line (enables it)
-    @param tableName name of the table
-    
+
     Parameters:
-     - tableName
+     - tableName: name of the table
     """
     pass
 
@@ -30,20 +29,18 @@ class Iface:
     """
     Disables a table (takes it off-line) If it is being served, the master
     will tell the servers to stop serving it.
-    @param tableName name of the table
-    
+
     Parameters:
-     - tableName
+     - tableName: name of the table
     """
     pass
 
   def isTableEnabled(self, tableName):
     """
-    @param tableName name of table to check
     @return true if table is on-line
-    
+
     Parameters:
-     - tableName
+     - tableName: name of the table to check
     """
     pass
 
@@ -64,29 +61,30 @@ class Iface:
   def getTableNames(self, ):
     """
     List all the userspace tables.
-    @return - returns a list of names
+
+    @return returns a list of names
     """
     pass
 
   def getColumnDescriptors(self, tableName):
     """
     List all the column families assoicated with a table.
-    @param tableName table name
+
     @return list of column family descriptors
-    
+
     Parameters:
-     - tableName
+     - tableName: table name
     """
     pass
 
   def getTableRegions(self, tableName):
     """
     List the regions associated with a table.
-    @param tableName table name
+
     @return list of region descriptors
-    
+
     Parameters:
-     - tableName
+     - tableName: table name
     """
     pass
 
@@ -94,30 +92,28 @@ class Iface:
     """
     Create a table with the specified column families.  The name
     field for each ColumnDescriptor must be set and must end in a
-    colon (:).  All other fields are optional and will get default
+    colon (:). All other fields are optional and will get default
     values if not explicitly specified.
-    
-    @param tableName name of table to create
-    @param columnFamilies list of column family descriptors
-    
+
     @throws IllegalArgument if an input parameter is invalid
+
     @throws AlreadyExists if the table name already exists
-    
+
     Parameters:
-     - tableName
-     - columnFamilies
+     - tableName: name of table to create
+     - columnFamilies: list of column family descriptors
     """
     pass
 
   def deleteTable(self, tableName):
     """
     Deletes a table
-    @param tableName name of table to delete
+
     @throws IOError if table doesn't exist on server or there was some other
     problem
-    
+
     Parameters:
-     - tableName
+     - tableName: name of table to delete
     """
     pass
 
@@ -125,16 +121,13 @@ class Iface:
     """
     Get a single TCell for the specified table, row, and column at the
     latest timestamp. Returns an empty list if no such value exists.
-    
-    @param tableName name of table
-    @param row row key
-    @param column column name
+
     @return value for specified row/column
-    
+
     Parameters:
-     - tableName
-     - row
-     - column
+     - tableName: name of table
+     - row: row key
+     - column: column name
     """
     pass
 
@@ -142,18 +135,14 @@ class Iface:
     """
     Get the specified number of versions for the specified table,
     row, and column.
-    
-    @param tableName name of table
-    @param row row key
-    @param column column name
-    @param numVersions number of versions to retrieve
+
     @return list of cells for specified row/column
-    
+
     Parameters:
-     - tableName
-     - row
-     - column
-     - numVersions
+     - tableName: name of table
+     - row: row key
+     - column: column name
+     - numVersions: number of versions to retrieve
     """
     pass
 
@@ -162,20 +151,15 @@ class Iface:
     Get the specified number of versions for the specified table,
     row, and column.  Only versions less than or equal to the specified
     timestamp will be returned.
-    
-    @param tableName name of table
-    @param row row key
-    @param column column name
-    @param timestamp timestamp
-    @param numVersions number of versions to retrieve
+
     @return list of cells for specified row/column
-    
+
     Parameters:
-     - tableName
-     - row
-     - column
-     - timestamp
-     - numVersions
+     - tableName: name of table
+     - row: row key
+     - column: column name
+     - timestamp: timestamp
+     - numVersions: number of versions to retrieve
     """
     pass
 
@@ -183,14 +167,12 @@ class Iface:
     """
     Get all the data for the specified table and row at the latest
     timestamp. Returns an empty list if the row does not exist.
-    
-    @param tableName name of table
-    @param row row key
+
     @return TRowResult containing the row and map of columns to TCells
-    
+
     Parameters:
-     - tableName
-     - row
+     - tableName: name of table
+     - row: row key
     """
     pass
 
@@ -198,16 +180,13 @@ class Iface:
     """
     Get the specified columns for the specified table and row at the latest
     timestamp. Returns an empty list if the row does not exist.
-    
-    @param tableName name of table
-    @param row row key
-    @param columns List of columns to return, null for all columns
+
     @return TRowResult containing the row and map of columns to TCells
-    
+
     Parameters:
-     - tableName
-     - row
-     - columns
+     - tableName: name of table
+     - row: row key
+     - columns: List of columns to return, null for all columns
     """
     pass
 
@@ -215,16 +194,13 @@ class Iface:
     """
     Get all the data for the specified table and row at the specified
     timestamp. Returns an empty list if the row does not exist.
-    
-    @param tableName of table
-    @param row row key
-    @param timestamp timestamp
+
     @return TRowResult containing the row and map of columns to TCells
-    
+
     Parameters:
-     - tableName
-     - row
-     - timestamp
+     - tableName: name of the table
+     - row: row key
+     - timestamp: timestamp
     """
     pass
 
@@ -232,16 +208,69 @@ class Iface:
     """
     Get the specified columns for the specified table and row at the specified
     timestamp. Returns an empty list if the row does not exist.
-    
-    @param tableName name of table
-    @param row row key
-    @param columns List of columns to return, null for all columns
+
     @return TRowResult containing the row and map of columns to TCells
-    
+
     Parameters:
-     - tableName
-     - row
-     - columns
+     - tableName: name of table
+     - row: row key
+     - columns: List of columns to return, null for all columns
+     - timestamp
+    """
+    pass
+
+  def getRows(self, tableName, rows):
+    """
+    Get all the data for the specified table and rows at the latest
+    timestamp. Returns an empty list if no rows exist.
+
+    @return TRowResult containing the rows and map of columns to TCells
+
+    Parameters:
+     - tableName: name of table
+     - rows: row keys
+    """
+    pass
+
+  def getRowsWithColumns(self, tableName, rows, columns):
+    """
+    Get the specified columns for the specified table and rows at the latest
+    timestamp. Returns an empty list if no rows exist.
+
+    @return TRowResult containing the rows and map of columns to TCells
+
+    Parameters:
+     - tableName: name of table
+     - rows: row keys
+     - columns: List of columns to return, null for all columns
+    """
+    pass
+
+  def getRowsTs(self, tableName, rows, timestamp):
+    """
+    Get all the data for the specified table and rows at the specified
+    timestamp. Returns an empty list if no rows exist.
+
+    @return TRowResult containing the rows and map of columns to TCells
+
+    Parameters:
+     - tableName: name of the table
+     - rows: row keys
+     - timestamp: timestamp
+    """
+    pass
+
+  def getRowsWithColumnsTs(self, tableName, rows, columns, timestamp):
+    """
+    Get the specified columns for the specified table and rows at the specified
+    timestamp. Returns an empty list if no rows exist.
+
+    @return TRowResult containing the rows and map of columns to TCells
+
+    Parameters:
+     - tableName: name of table
+     - rows: row keys
+     - columns: List of columns to return, null for all columns
      - timestamp
     """
     pass
@@ -252,15 +281,11 @@ class Iface:
     single transaction.  If an exception is thrown, then the
     transaction is aborted.  Default current timestamp is used, and
     all entries will have an identical timestamp.
-    
-    @param tableName name of table
-    @param row row key
-    @param mutations list of mutation commands
-    
+
     Parameters:
-     - tableName
-     - row
-     - mutations
+     - tableName: name of table
+     - row: row key
+     - mutations: list of mutation commands
     """
     pass
 
@@ -270,17 +295,12 @@ class Iface:
     single transaction.  If an exception is thrown, then the
     transaction is aborted.  The specified timestamp is used, and
     all entries will have an identical timestamp.
-    
-    @param tableName name of table
-    @param row row key
-    @param mutations list of mutation commands
-    @param timestamp timestamp
-    
+
     Parameters:
-     - tableName
-     - row
-     - mutations
-     - timestamp
+     - tableName: name of table
+     - row: row key
+     - mutations: list of mutation commands
+     - timestamp: timestamp
     """
     pass
 
@@ -290,13 +310,10 @@ class Iface:
     in a single transaction.  If an exception is thrown, then the
     transaction is aborted.  Default current timestamp is used, and
     all entries will have an identical timestamp.
-    
-    @param tableName name of table
-    @param rowBatches list of row batches
-    
+
     Parameters:
-     - tableName
-     - rowBatches
+     - tableName: name of table
+     - rowBatches: list of row batches
     """
     pass
 
@@ -306,46 +323,34 @@ class Iface:
     in a single transaction.  If an exception is thrown, then the
     transaction is aborted.  The specified timestamp is used, and
     all entries will have an identical timestamp.
-    
-    @param tableName name of table
-    @param rowBatches list of row batches
-    @param timestamp timestamp
-    
+
     Parameters:
-     - tableName
-     - rowBatches
-     - timestamp
+     - tableName: name of table
+     - rowBatches: list of row batches
+     - timestamp: timestamp
     """
     pass
 
   def atomicIncrement(self, tableName, row, column, value):
     """
     Atomically increment the column value specified.  Returns the next value post increment.
-    @param tableName name of table
-    @param row row to increment
-    @param column name of column
-    @param value amount to increment by
-    
+
     Parameters:
-     - tableName
-     - row
-     - column
-     - value
+     - tableName: name of table
+     - row: row to increment
+     - column: name of column
+     - value: amount to increment by
     """
     pass
 
   def deleteAll(self, tableName, row, column):
     """
     Delete all cells that match the passed row and column.
-    
-    @param tableName name of table
-    @param row Row to update
-    @param column name of column whose value is to be deleted
-    
+
     Parameters:
-     - tableName
-     - row
-     - column
+     - tableName: name of table
+     - row: Row to update
+     - column: name of column whose value is to be deleted
     """
     pass
 
@@ -353,30 +358,22 @@ class Iface:
     """
     Delete all cells that match the passed row and column and whose
     timestamp is equal-to or older than the passed timestamp.
-    
-    @param tableName name of table
-    @param row Row to update
-    @param column name of column whose value is to be deleted
-    @param timestamp timestamp
-    
+
     Parameters:
-     - tableName
-     - row
-     - column
-     - timestamp
+     - tableName: name of table
+     - row: Row to update
+     - column: name of column whose value is to be deleted
+     - timestamp: timestamp
     """
     pass
 
   def deleteAllRow(self, tableName, row):
     """
     Completely delete the row's cells.
-    
-    @param tableName name of table
-    @param row key of the row to be completely deleted.
-    
+
     Parameters:
-     - tableName
-     - row
+     - tableName: name of table
+     - row: key of the row to be completely deleted.
     """
     pass
 
@@ -384,15 +381,11 @@ class Iface:
     """
     Completely delete the row's cells marked with a timestamp
     equal-to or older than the passed timestamp.
-    
-    @param tableName name of table
-    @param row key of the row to be completely deleted.
-    @param timestamp timestamp
-    
+
     Parameters:
-     - tableName
-     - row
-     - timestamp
+     - tableName: name of table
+     - row: key of the row to be completely deleted.
+     - timestamp: timestamp
     """
     pass
 
@@ -400,20 +393,16 @@ class Iface:
     """
     Get a scanner on the current table starting at the specified row and
     ending at the last row in the table.  Return the specified columns.
-    
-    @param columns columns to scan. If column name is a column family, all
-    columns of the specified column family are returned.  Its also possible
-    to pass a regex in the column qualifier.
-    @param tableName name of table
-    @param startRow starting row in table to scan.  send "" (empty string) to
-                    start at the first row.
-    
+
     @return scanner id to be used with other scanner procedures
-    
+
     Parameters:
-     - tableName
-     - startRow
-     - columns
+     - tableName: name of table
+     - startRow: Starting row in table to scan.
+    Send "" (empty string) to start at the first row.
+     - columns: columns to scan. If column name is a column family, all
+    columns of the specified column family are returned. It's also possible
+    to pass a regex in the column qualifier.
     """
     pass
 
@@ -422,23 +411,32 @@ class Iface:
     Get a scanner on the current table starting and stopping at the
     specified rows.  ending at the last row in the table.  Return the
     specified columns.
-    
-    @param columns columns to scan. If column name is a column family, all
-    columns of the specified column family are returned.  Its also possible
-    to pass a regex in the column qualifier.
-    @param tableName name of table
-    @param startRow starting row in table to scan.  send "" (empty string) to
-                    start at the first row.
-    @param stopRow row to stop scanning on.  This row is *not* included in the
-                   scanner's results
-    
+
     @return scanner id to be used with other scanner procedures
-    
+
     Parameters:
-     - tableName
-     - startRow
-     - stopRow
-     - columns
+     - tableName: name of table
+     - startRow: Starting row in table to scan.
+    Send "" (empty string) to start at the first row.
+     - stopRow: row to stop scanning on. This row is *not* included in the
+    scanner's results
+     - columns: columns to scan. If column name is a column family, all
+    columns of the specified column family are returned. It's also possible
+    to pass a regex in the column qualifier.
+    """
+    pass
+
+  def scannerOpenWithPrefix(self, tableName, startAndPrefix, columns):
+    """
+    Open a scanner for a given prefix.  That is all rows will have the specified
+    prefix. No other rows will be returned.
+
+    @return scanner id to use with other scanner calls
+
+    Parameters:
+     - tableName: name of table
+     - startAndPrefix: the prefix (and thus start row) of the keys you want
+     - columns: the columns you want returned
     """
     pass
 
@@ -447,22 +445,17 @@ class Iface:
     Get a scanner on the current table starting at the specified row and
     ending at the last row in the table.  Return the specified columns.
     Only values with the specified timestamp are returned.
-    
-    @param columns columns to scan. If column name is a column family, all
-    columns of the specified column family are returned.  Its also possible
-    to pass a regex in the column qualifier.
-    @param tableName name of table
-    @param startRow starting row in table to scan.  send "" (empty string) to
-                    start at the first row.
-    @param timestamp timestamp
-    
+
     @return scanner id to be used with other scanner procedures
-    
+
     Parameters:
-     - tableName
-     - startRow
-     - columns
-     - timestamp
+     - tableName: name of table
+     - startRow: Starting row in table to scan.
+    Send "" (empty string) to start at the first row.
+     - columns: columns to scan. If column name is a column family, all
+    columns of the specified column family are returned. It's also possible
+    to pass a regex in the column qualifier.
+     - timestamp: timestamp
     """
     pass
 
@@ -472,25 +465,19 @@ class Iface:
     specified rows.  ending at the last row in the table.  Return the
     specified columns.  Only values with the specified timestamp are
     returned.
-    
-    @param columns columns to scan. If column name is a column family, all
-    columns of the specified column family are returned.  Its also possible
-    to pass a regex in the column qualifier.
-    @param tableName name of table
-    @param startRow starting row in table to scan.  send "" (empty string) to
-                    start at the first row.
-    @param stopRow row to stop scanning on.  This row is *not* included
-                   in the scanner's results
-    @param timestamp timestamp
-    
+
     @return scanner id to be used with other scanner procedures
-    
+
     Parameters:
-     - tableName
-     - startRow
-     - stopRow
-     - columns
-     - timestamp
+     - tableName: name of table
+     - startRow: Starting row in table to scan.
+    Send "" (empty string) to start at the first row.
+     - stopRow: row to stop scanning on. This row is *not* included in the
+    scanner's results
+     - columns: columns to scan. If column name is a column family, all
+    columns of the specified column family are returned. It's also possible
+    to pass a regex in the column qualifier.
+     - timestamp: timestamp
     """
     pass
 
@@ -500,14 +487,15 @@ class Iface:
     row in the table.  When there are no more rows in the table, or a key
     greater-than-or-equal-to the scanner's specified stopRow is reached,
     an empty list is returned.
-    
-    @param id id of a scanner returned by scannerOpen
+
     @return a TRowResult containing the current row and a map of the columns to TCells.
+
     @throws IllegalArgument if ScannerID is invalid
+
     @throws NotFound when the scanner reaches the end
-    
+
     Parameters:
-     - id
+     - id: id of a scanner returned by scannerOpen
     """
     pass
 
@@ -517,28 +505,27 @@ class Iface:
     rows and advances to the next row in the table.  When there are no more
     rows in the table, or a key greater-than-or-equal-to the scanner's
     specified stopRow is reached,  an empty list is returned.
-    
-    @param id id of a scanner returned by scannerOpen
-    @param nbRows number of results to regturn
+
     @return a TRowResult containing the current row and a map of the columns to TCells.
+
     @throws IllegalArgument if ScannerID is invalid
+
     @throws NotFound when the scanner reaches the end
-    
+
     Parameters:
-     - id
-     - nbRows
+     - id: id of a scanner returned by scannerOpen
+     - nbRows: number of results to return
     """
     pass
 
   def scannerClose(self, id):
     """
     Closes the server-state associated with an open scanner.
-    
-    @param id id of a scanner returned by scannerOpen
+
     @throws IllegalArgument if ScannerID is invalid
-    
+
     Parameters:
-     - id
+     - id: id of a scanner returned by scannerOpen
     """
     pass
 
@@ -553,10 +540,9 @@ class Client(Iface):
   def enableTable(self, tableName):
     """
     Brings a table on-line (enables it)
-    @param tableName name of the table
-    
+
     Parameters:
-     - tableName
+     - tableName: name of the table
     """
     self.send_enableTable(tableName)
     self.recv_enableTable()
@@ -587,10 +573,9 @@ class Client(Iface):
     """
     Disables a table (takes it off-line) If it is being served, the master
     will tell the servers to stop serving it.
-    @param tableName name of the table
-    
+
     Parameters:
-     - tableName
+     - tableName: name of the table
     """
     self.send_disableTable(tableName)
     self.recv_disableTable()
@@ -619,11 +604,10 @@ class Client(Iface):
 
   def isTableEnabled(self, tableName):
     """
-    @param tableName name of table to check
     @return true if table is on-line
-    
+
     Parameters:
-     - tableName
+     - tableName: name of the table to check
     """
     self.send_isTableEnabled(tableName)
     return self.recv_isTableEnabled()
@@ -715,7 +699,8 @@ class Client(Iface):
   def getTableNames(self, ):
     """
     List all the userspace tables.
-    @return - returns a list of names
+
+    @return returns a list of names
     """
     self.send_getTableNames()
     return self.recv_getTableNames()
@@ -746,11 +731,11 @@ class Client(Iface):
   def getColumnDescriptors(self, tableName):
     """
     List all the column families assoicated with a table.
-    @param tableName table name
+
     @return list of column family descriptors
-    
+
     Parameters:
-     - tableName
+     - tableName: table name
     """
     self.send_getColumnDescriptors(tableName)
     return self.recv_getColumnDescriptors()
@@ -782,11 +767,11 @@ class Client(Iface):
   def getTableRegions(self, tableName):
     """
     List the regions associated with a table.
-    @param tableName table name
+
     @return list of region descriptors
-    
+
     Parameters:
-     - tableName
+     - tableName: table name
     """
     self.send_getTableRegions(tableName)
     return self.recv_getTableRegions()
@@ -819,18 +804,16 @@ class Client(Iface):
     """
     Create a table with the specified column families.  The name
     field for each ColumnDescriptor must be set and must end in a
-    colon (:).  All other fields are optional and will get default
+    colon (:). All other fields are optional and will get default
     values if not explicitly specified.
-    
-    @param tableName name of table to create
-    @param columnFamilies list of column family descriptors
-    
+
     @throws IllegalArgument if an input parameter is invalid
+
     @throws AlreadyExists if the table name already exists
-    
+
     Parameters:
-     - tableName
-     - columnFamilies
+     - tableName: name of table to create
+     - columnFamilies: list of column family descriptors
     """
     self.send_createTable(tableName, columnFamilies)
     self.recv_createTable()
@@ -865,12 +848,12 @@ class Client(Iface):
   def deleteTable(self, tableName):
     """
     Deletes a table
-    @param tableName name of table to delete
+
     @throws IOError if table doesn't exist on server or there was some other
     problem
-    
+
     Parameters:
-     - tableName
+     - tableName: name of table to delete
     """
     self.send_deleteTable(tableName)
     self.recv_deleteTable()
@@ -901,16 +884,13 @@ class Client(Iface):
     """
     Get a single TCell for the specified table, row, and column at the
     latest timestamp. Returns an empty list if no such value exists.
-    
-    @param tableName name of table
-    @param row row key
-    @param column column name
+
     @return value for specified row/column
-    
+
     Parameters:
-     - tableName
-     - row
-     - column
+     - tableName: name of table
+     - row: row key
+     - column: column name
     """
     self.send_get(tableName, row, column)
     return self.recv_get()
@@ -945,18 +925,14 @@ class Client(Iface):
     """
     Get the specified number of versions for the specified table,
     row, and column.
-    
-    @param tableName name of table
-    @param row row key
-    @param column column name
-    @param numVersions number of versions to retrieve
+
     @return list of cells for specified row/column
-    
+
     Parameters:
-     - tableName
-     - row
-     - column
-     - numVersions
+     - tableName: name of table
+     - row: row key
+     - column: column name
+     - numVersions: number of versions to retrieve
     """
     self.send_getVer(tableName, row, column, numVersions)
     return self.recv_getVer()
@@ -993,20 +969,15 @@ class Client(Iface):
     Get the specified number of versions for the specified table,
     row, and column.  Only versions less than or equal to the specified
     timestamp will be returned.
-    
-    @param tableName name of table
-    @param row row key
-    @param column column name
-    @param timestamp timestamp
-    @param numVersions number of versions to retrieve
+
     @return list of cells for specified row/column
-    
+
     Parameters:
-     - tableName
-     - row
-     - column
-     - timestamp
-     - numVersions
+     - tableName: name of table
+     - row: row key
+     - column: column name
+     - timestamp: timestamp
+     - numVersions: number of versions to retrieve
     """
     self.send_getVerTs(tableName, row, column, timestamp, numVersions)
     return self.recv_getVerTs()
@@ -1043,14 +1014,12 @@ class Client(Iface):
     """
     Get all the data for the specified table and row at the latest
     timestamp. Returns an empty list if the row does not exist.
-    
-    @param tableName name of table
-    @param row row key
+
     @return TRowResult containing the row and map of columns to TCells
-    
+
     Parameters:
-     - tableName
-     - row
+     - tableName: name of table
+     - row: row key
     """
     self.send_getRow(tableName, row)
     return self.recv_getRow()
@@ -1084,16 +1053,13 @@ class Client(Iface):
     """
     Get the specified columns for the specified table and row at the latest
     timestamp. Returns an empty list if the row does not exist.
-    
-    @param tableName name of table
-    @param row row key
-    @param columns List of columns to return, null for all columns
+
     @return TRowResult containing the row and map of columns to TCells
-    
+
     Parameters:
-     - tableName
-     - row
-     - columns
+     - tableName: name of table
+     - row: row key
+     - columns: List of columns to return, null for all columns
     """
     self.send_getRowWithColumns(tableName, row, columns)
     return self.recv_getRowWithColumns()
@@ -1128,16 +1094,13 @@ class Client(Iface):
     """
     Get all the data for the specified table and row at the specified
     timestamp. Returns an empty list if the row does not exist.
-    
-    @param tableName of table
-    @param row row key
-    @param timestamp timestamp
+
     @return TRowResult containing the row and map of columns to TCells
-    
+
     Parameters:
-     - tableName
-     - row
-     - timestamp
+     - tableName: name of the table
+     - row: row key
+     - timestamp: timestamp
     """
     self.send_getRowTs(tableName, row, timestamp)
     return self.recv_getRowTs()
@@ -1172,16 +1135,13 @@ class Client(Iface):
     """
     Get the specified columns for the specified table and row at the specified
     timestamp. Returns an empty list if the row does not exist.
-    
-    @param tableName name of table
-    @param row row key
-    @param columns List of columns to return, null for all columns
+
     @return TRowResult containing the row and map of columns to TCells
-    
+
     Parameters:
-     - tableName
-     - row
-     - columns
+     - tableName: name of table
+     - row: row key
+     - columns: List of columns to return, null for all columns
      - timestamp
     """
     self.send_getRowWithColumnsTs(tableName, row, columns, timestamp)
@@ -1214,21 +1174,181 @@ class Client(Iface):
       raise result.io
     raise TApplicationException(TApplicationException.MISSING_RESULT, "getRowWithColumnsTs failed: unknown result");
 
+  def getRows(self, tableName, rows):
+    """
+    Get all the data for the specified table and rows at the latest
+    timestamp. Returns an empty list if no rows exist.
+
+    @return TRowResult containing the rows and map of columns to TCells
+
+    Parameters:
+     - tableName: name of table
+     - rows: row keys
+    """
+    self.send_getRows(tableName, rows)
+    return self.recv_getRows()
+
+  def send_getRows(self, tableName, rows):
+    self._oprot.writeMessageBegin('getRows', TMessageType.CALL, self._seqid)
+    args = getRows_args()
+    args.tableName = tableName
+    args.rows = rows
+    args.write(self._oprot)
+    self._oprot.writeMessageEnd()
+    self._oprot.trans.flush()
+
+  def recv_getRows(self, ):
+    (fname, mtype, rseqid) = self._iprot.readMessageBegin()
+    if mtype == TMessageType.EXCEPTION:
+      x = TApplicationException()
+      x.read(self._iprot)
+      self._iprot.readMessageEnd()
+      raise x
+    result = getRows_result()
+    result.read(self._iprot)
+    self._iprot.readMessageEnd()
+    if result.success != None:
+      return result.success
+    if result.io != None:
+      raise result.io
+    raise TApplicationException(TApplicationException.MISSING_RESULT, "getRows failed: unknown result");
+
+  def getRowsWithColumns(self, tableName, rows, columns):
+    """
+    Get the specified columns for the specified table and rows at the latest
+    timestamp. Returns an empty list if no rows exist.
+
+    @return TRowResult containing the rows and map of columns to TCells
+
+    Parameters:
+     - tableName: name of table
+     - rows: row keys
+     - columns: List of columns to return, null for all columns
+    """
+    self.send_getRowsWithColumns(tableName, rows, columns)
+    return self.recv_getRowsWithColumns()
+
+  def send_getRowsWithColumns(self, tableName, rows, columns):
+    self._oprot.writeMessageBegin('getRowsWithColumns', TMessageType.CALL, self._seqid)
+    args = getRowsWithColumns_args()
+    args.tableName = tableName
+    args.rows = rows
+    args.columns = columns
+    args.write(self._oprot)
+    self._oprot.writeMessageEnd()
+    self._oprot.trans.flush()
+
+  def recv_getRowsWithColumns(self, ):
+    (fname, mtype, rseqid) = self._iprot.readMessageBegin()
+    if mtype == TMessageType.EXCEPTION:
+      x = TApplicationException()
+      x.read(self._iprot)
+      self._iprot.readMessageEnd()
+      raise x
+    result = getRowsWithColumns_result()
+    result.read(self._iprot)
+    self._iprot.readMessageEnd()
+    if result.success != None:
+      return result.success
+    if result.io != None:
+      raise result.io
+    raise TApplicationException(TApplicationException.MISSING_RESULT, "getRowsWithColumns failed: unknown result");
+
+  def getRowsTs(self, tableName, rows, timestamp):
+    """
+    Get all the data for the specified table and rows at the specified
+    timestamp. Returns an empty list if no rows exist.
+
+    @return TRowResult containing the rows and map of columns to TCells
+
+    Parameters:
+     - tableName: name of the table
+     - rows: row keys
+     - timestamp: timestamp
+    """
+    self.send_getRowsTs(tableName, rows, timestamp)
+    return self.recv_getRowsTs()
+
+  def send_getRowsTs(self, tableName, rows, timestamp):
+    self._oprot.writeMessageBegin('getRowsTs', TMessageType.CALL, self._seqid)
+    args = getRowsTs_args()
+    args.tableName = tableName
+    args.rows = rows
+    args.timestamp = timestamp
+    args.write(self._oprot)
+    self._oprot.writeMessageEnd()
+    self._oprot.trans.flush()
+
+  def recv_getRowsTs(self, ):
+    (fname, mtype, rseqid) = self._iprot.readMessageBegin()
+    if mtype == TMessageType.EXCEPTION:
+      x = TApplicationException()
+      x.read(self._iprot)
+      self._iprot.readMessageEnd()
+      raise x
+    result = getRowsTs_result()
+    result.read(self._iprot)
+    self._iprot.readMessageEnd()
+    if result.success != None:
+      return result.success
+    if result.io != None:
+      raise result.io
+    raise TApplicationException(TApplicationException.MISSING_RESULT, "getRowsTs failed: unknown result");
+
+  def getRowsWithColumnsTs(self, tableName, rows, columns, timestamp):
+    """
+    Get the specified columns for the specified table and rows at the specified
+    timestamp. Returns an empty list if no rows exist.
+
+    @return TRowResult containing the rows and map of columns to TCells
+
+    Parameters:
+     - tableName: name of table
+     - rows: row keys
+     - columns: List of columns to return, null for all columns
+     - timestamp
+    """
+    self.send_getRowsWithColumnsTs(tableName, rows, columns, timestamp)
+    return self.recv_getRowsWithColumnsTs()
+
+  def send_getRowsWithColumnsTs(self, tableName, rows, columns, timestamp):
+    self._oprot.writeMessageBegin('getRowsWithColumnsTs', TMessageType.CALL, self._seqid)
+    args = getRowsWithColumnsTs_args()
+    args.tableName = tableName
+    args.rows = rows
+    args.columns = columns
+    args.timestamp = timestamp
+    args.write(self._oprot)
+    self._oprot.writeMessageEnd()
+    self._oprot.trans.flush()
+
+  def recv_getRowsWithColumnsTs(self, ):
+    (fname, mtype, rseqid) = self._iprot.readMessageBegin()
+    if mtype == TMessageType.EXCEPTION:
+      x = TApplicationException()
+      x.read(self._iprot)
+      self._iprot.readMessageEnd()
+      raise x
+    result = getRowsWithColumnsTs_result()
+    result.read(self._iprot)
+    self._iprot.readMessageEnd()
+    if result.success != None:
+      return result.success
+    if result.io != None:
+      raise result.io
+    raise TApplicationException(TApplicationException.MISSING_RESULT, "getRowsWithColumnsTs failed: unknown result");
+
   def mutateRow(self, tableName, row, mutations):
     """
     Apply a series of mutations (updates/deletes) to a row in a
     single transaction.  If an exception is thrown, then the
     transaction is aborted.  Default current timestamp is used, and
     all entries will have an identical timestamp.
-    
-    @param tableName name of table
-    @param row row key
-    @param mutations list of mutation commands
-    
+
     Parameters:
-     - tableName
-     - row
-     - mutations
+     - tableName: name of table
+     - row: row key
+     - mutations: list of mutation commands
     """
     self.send_mutateRow(tableName, row, mutations)
     self.recv_mutateRow()
@@ -1265,17 +1385,12 @@ class Client(Iface):
     single transaction.  If an exception is thrown, then the
     transaction is aborted.  The specified timestamp is used, and
     all entries will have an identical timestamp.
-    
-    @param tableName name of table
-    @param row row key
-    @param mutations list of mutation commands
-    @param timestamp timestamp
-    
+
     Parameters:
-     - tableName
-     - row
-     - mutations
-     - timestamp
+     - tableName: name of table
+     - row: row key
+     - mutations: list of mutation commands
+     - timestamp: timestamp
     """
     self.send_mutateRowTs(tableName, row, mutations, timestamp)
     self.recv_mutateRowTs()
@@ -1313,13 +1428,10 @@ class Client(Iface):
     in a single transaction.  If an exception is thrown, then the
     transaction is aborted.  Default current timestamp is used, and
     all entries will have an identical timestamp.
-    
-    @param tableName name of table
-    @param rowBatches list of row batches
-    
+
     Parameters:
-     - tableName
-     - rowBatches
+     - tableName: name of table
+     - rowBatches: list of row batches
     """
     self.send_mutateRows(tableName, rowBatches)
     self.recv_mutateRows()
@@ -1355,15 +1467,11 @@ class Client(Iface):
     in a single transaction.  If an exception is thrown, then the
     transaction is aborted.  The specified timestamp is used, and
     all entries will have an identical timestamp.
-    
-    @param tableName name of table
-    @param rowBatches list of row batches
-    @param timestamp timestamp
-    
+
     Parameters:
-     - tableName
-     - rowBatches
-     - timestamp
+     - tableName: name of table
+     - rowBatches: list of row batches
+     - timestamp: timestamp
     """
     self.send_mutateRowsTs(tableName, rowBatches, timestamp)
     self.recv_mutateRowsTs()
@@ -1397,16 +1505,12 @@ class Client(Iface):
   def atomicIncrement(self, tableName, row, column, value):
     """
     Atomically increment the column value specified.  Returns the next value post increment.
-    @param tableName name of table
-    @param row row to increment
-    @param column name of column
-    @param value amount to increment by
-    
+
     Parameters:
-     - tableName
-     - row
-     - column
-     - value
+     - tableName: name of table
+     - row: row to increment
+     - column: name of column
+     - value: amount to increment by
     """
     self.send_atomicIncrement(tableName, row, column, value)
     return self.recv_atomicIncrement()
@@ -1443,15 +1547,11 @@ class Client(Iface):
   def deleteAll(self, tableName, row, column):
     """
     Delete all cells that match the passed row and column.
-    
-    @param tableName name of table
-    @param row Row to update
-    @param column name of column whose value is to be deleted
-    
+
     Parameters:
-     - tableName
-     - row
-     - column
+     - tableName: name of table
+     - row: Row to update
+     - column: name of column whose value is to be deleted
     """
     self.send_deleteAll(tableName, row, column)
     self.recv_deleteAll()
@@ -1484,17 +1584,12 @@ class Client(Iface):
     """
     Delete all cells that match the passed row and column and whose
     timestamp is equal-to or older than the passed timestamp.
-    
-    @param tableName name of table
-    @param row Row to update
-    @param column name of column whose value is to be deleted
-    @param timestamp timestamp
-    
+
     Parameters:
-     - tableName
-     - row
-     - column
-     - timestamp
+     - tableName: name of table
+     - row: Row to update
+     - column: name of column whose value is to be deleted
+     - timestamp: timestamp
     """
     self.send_deleteAllTs(tableName, row, column, timestamp)
     self.recv_deleteAllTs()
@@ -1527,13 +1622,10 @@ class Client(Iface):
   def deleteAllRow(self, tableName, row):
     """
     Completely delete the row's cells.
-    
-    @param tableName name of table
-    @param row key of the row to be completely deleted.
-    
+
     Parameters:
-     - tableName
-     - row
+     - tableName: name of table
+     - row: key of the row to be completely deleted.
     """
     self.send_deleteAllRow(tableName, row)
     self.recv_deleteAllRow()
@@ -1565,15 +1657,11 @@ class Client(Iface):
     """
     Completely delete the row's cells marked with a timestamp
     equal-to or older than the passed timestamp.
-    
-    @param tableName name of table
-    @param row key of the row to be completely deleted.
-    @param timestamp timestamp
-    
+
     Parameters:
-     - tableName
-     - row
-     - timestamp
+     - tableName: name of table
+     - row: key of the row to be completely deleted.
+     - timestamp: timestamp
     """
     self.send_deleteAllRowTs(tableName, row, timestamp)
     self.recv_deleteAllRowTs()
@@ -1606,20 +1694,16 @@ class Client(Iface):
     """
     Get a scanner on the current table starting at the specified row and
     ending at the last row in the table.  Return the specified columns.
-    
-    @param columns columns to scan. If column name is a column family, all
-    columns of the specified column family are returned.  Its also possible
-    to pass a regex in the column qualifier.
-    @param tableName name of table
-    @param startRow starting row in table to scan.  send "" (empty string) to
-                    start at the first row.
-    
+
     @return scanner id to be used with other scanner procedures
-    
+
     Parameters:
-     - tableName
-     - startRow
-     - columns
+     - tableName: name of table
+     - startRow: Starting row in table to scan.
+    Send "" (empty string) to start at the first row.
+     - columns: columns to scan. If column name is a column family, all
+    columns of the specified column family are returned. It's also possible
+    to pass a regex in the column qualifier.
     """
     self.send_scannerOpen(tableName, startRow, columns)
     return self.recv_scannerOpen()
@@ -1655,23 +1739,18 @@ class Client(Iface):
     Get a scanner on the current table starting and stopping at the
     specified rows.  ending at the last row in the table.  Return the
     specified columns.
-    
-    @param columns columns to scan. If column name is a column family, all
-    columns of the specified column family are returned.  Its also possible
-    to pass a regex in the column qualifier.
-    @param tableName name of table
-    @param startRow starting row in table to scan.  send "" (empty string) to
-                    start at the first row.
-    @param stopRow row to stop scanning on.  This row is *not* included in the
-                   scanner's results
-    
+
     @return scanner id to be used with other scanner procedures
-    
+
     Parameters:
-     - tableName
-     - startRow
-     - stopRow
-     - columns
+     - tableName: name of table
+     - startRow: Starting row in table to scan.
+    Send "" (empty string) to start at the first row.
+     - stopRow: row to stop scanning on. This row is *not* included in the
+    scanner's results
+     - columns: columns to scan. If column name is a column family, all
+    columns of the specified column family are returned. It's also possible
+    to pass a regex in the column qualifier.
     """
     self.send_scannerOpenWithStop(tableName, startRow, stopRow, columns)
     return self.recv_scannerOpenWithStop()
@@ -1703,27 +1782,63 @@ class Client(Iface):
       raise result.io
     raise TApplicationException(TApplicationException.MISSING_RESULT, "scannerOpenWithStop failed: unknown result");
 
+  def scannerOpenWithPrefix(self, tableName, startAndPrefix, columns):
+    """
+    Open a scanner for a given prefix.  That is all rows will have the specified
+    prefix. No other rows will be returned.
+
+    @return scanner id to use with other scanner calls
+
+    Parameters:
+     - tableName: name of table
+     - startAndPrefix: the prefix (and thus start row) of the keys you want
+     - columns: the columns you want returned
+    """
+    self.send_scannerOpenWithPrefix(tableName, startAndPrefix, columns)
+    return self.recv_scannerOpenWithPrefix()
+
+  def send_scannerOpenWithPrefix(self, tableName, startAndPrefix, columns):
+    self._oprot.writeMessageBegin('scannerOpenWithPrefix', TMessageType.CALL, self._seqid)
+    args = scannerOpenWithPrefix_args()
+    args.tableName = tableName
+    args.startAndPrefix = startAndPrefix
+    args.columns = columns
+    args.write(self._oprot)
+    self._oprot.writeMessageEnd()
+    self._oprot.trans.flush()
+
+  def recv_scannerOpenWithPrefix(self, ):
+    (fname, mtype, rseqid) = self._iprot.readMessageBegin()
+    if mtype == TMessageType.EXCEPTION:
+      x = TApplicationException()
+      x.read(self._iprot)
+      self._iprot.readMessageEnd()
+      raise x
+    result = scannerOpenWithPrefix_result()
+    result.read(self._iprot)
+    self._iprot.readMessageEnd()
+    if result.success != None:
+      return result.success
+    if result.io != None:
+      raise result.io
+    raise TApplicationException(TApplicationException.MISSING_RESULT, "scannerOpenWithPrefix failed: unknown result");
+
   def scannerOpenTs(self, tableName, startRow, columns, timestamp):
     """
     Get a scanner on the current table starting at the specified row and
     ending at the last row in the table.  Return the specified columns.
     Only values with the specified timestamp are returned.
-    
-    @param columns columns to scan. If column name is a column family, all
-    columns of the specified column family are returned.  Its also possible
-    to pass a regex in the column qualifier.
-    @param tableName name of table
-    @param startRow starting row in table to scan.  send "" (empty string) to
-                    start at the first row.
-    @param timestamp timestamp
-    
+
     @return scanner id to be used with other scanner procedures
-    
+
     Parameters:
-     - tableName
-     - startRow
-     - columns
-     - timestamp
+     - tableName: name of table
+     - startRow: Starting row in table to scan.
+    Send "" (empty string) to start at the first row.
+     - columns: columns to scan. If column name is a column family, all
+    columns of the specified column family are returned. It's also possible
+    to pass a regex in the column qualifier.
+     - timestamp: timestamp
     """
     self.send_scannerOpenTs(tableName, startRow, columns, timestamp)
     return self.recv_scannerOpenTs()
@@ -1761,25 +1876,19 @@ class Client(Iface):
     specified rows.  ending at the last row in the table.  Return the
     specified columns.  Only values with the specified timestamp are
     returned.
-    
-    @param columns columns to scan. If column name is a column family, all
-    columns of the specified column family are returned.  Its also possible
-    to pass a regex in the column qualifier.
-    @param tableName name of table
-    @param startRow starting row in table to scan.  send "" (empty string) to
-                    start at the first row.
-    @param stopRow row to stop scanning on.  This row is *not* included
-                   in the scanner's results
-    @param timestamp timestamp
-    
+
     @return scanner id to be used with other scanner procedures
-    
+
     Parameters:
-     - tableName
-     - startRow
-     - stopRow
-     - columns
-     - timestamp
+     - tableName: name of table
+     - startRow: Starting row in table to scan.
+    Send "" (empty string) to start at the first row.
+     - stopRow: row to stop scanning on. This row is *not* included in the
+    scanner's results
+     - columns: columns to scan. If column name is a column family, all
+    columns of the specified column family are returned. It's also possible
+    to pass a regex in the column qualifier.
+     - timestamp: timestamp
     """
     self.send_scannerOpenWithStopTs(tableName, startRow, stopRow, columns, timestamp)
     return self.recv_scannerOpenWithStopTs()
@@ -1818,14 +1927,15 @@ class Client(Iface):
     row in the table.  When there are no more rows in the table, or a key
     greater-than-or-equal-to the scanner's specified stopRow is reached,
     an empty list is returned.
-    
-    @param id id of a scanner returned by scannerOpen
+
     @return a TRowResult containing the current row and a map of the columns to TCells.
+
     @throws IllegalArgument if ScannerID is invalid
+
     @throws NotFound when the scanner reaches the end
-    
+
     Parameters:
-     - id
+     - id: id of a scanner returned by scannerOpen
     """
     self.send_scannerGet(id)
     return self.recv_scannerGet()
@@ -1862,16 +1972,16 @@ class Client(Iface):
     rows and advances to the next row in the table.  When there are no more
     rows in the table, or a key greater-than-or-equal-to the scanner's
     specified stopRow is reached,  an empty list is returned.
-    
-    @param id id of a scanner returned by scannerOpen
-    @param nbRows number of results to regturn
+
     @return a TRowResult containing the current row and a map of the columns to TCells.
+
     @throws IllegalArgument if ScannerID is invalid
+
     @throws NotFound when the scanner reaches the end
-    
+
     Parameters:
-     - id
-     - nbRows
+     - id: id of a scanner returned by scannerOpen
+     - nbRows: number of results to return
     """
     self.send_scannerGetList(id, nbRows)
     return self.recv_scannerGetList()
@@ -1906,12 +2016,11 @@ class Client(Iface):
   def scannerClose(self, id):
     """
     Closes the server-state associated with an open scanner.
-    
-    @param id id of a scanner returned by scannerOpen
+
     @throws IllegalArgument if ScannerID is invalid
-    
+
     Parameters:
-     - id
+     - id: id of a scanner returned by scannerOpen
     """
     self.send_scannerClose(id)
     self.recv_scannerClose()
@@ -1962,6 +2071,10 @@ class Processor(Iface, TProcessor):
     self._processMap["getRowWithColumns"] = Processor.process_getRowWithColumns
     self._processMap["getRowTs"] = Processor.process_getRowTs
     self._processMap["getRowWithColumnsTs"] = Processor.process_getRowWithColumnsTs
+    self._processMap["getRows"] = Processor.process_getRows
+    self._processMap["getRowsWithColumns"] = Processor.process_getRowsWithColumns
+    self._processMap["getRowsTs"] = Processor.process_getRowsTs
+    self._processMap["getRowsWithColumnsTs"] = Processor.process_getRowsWithColumnsTs
     self._processMap["mutateRow"] = Processor.process_mutateRow
     self._processMap["mutateRowTs"] = Processor.process_mutateRowTs
     self._processMap["mutateRows"] = Processor.process_mutateRows
@@ -1973,6 +2086,7 @@ class Processor(Iface, TProcessor):
     self._processMap["deleteAllRowTs"] = Processor.process_deleteAllRowTs
     self._processMap["scannerOpen"] = Processor.process_scannerOpen
     self._processMap["scannerOpenWithStop"] = Processor.process_scannerOpenWithStop
+    self._processMap["scannerOpenWithPrefix"] = Processor.process_scannerOpenWithPrefix
     self._processMap["scannerOpenTs"] = Processor.process_scannerOpenTs
     self._processMap["scannerOpenWithStopTs"] = Processor.process_scannerOpenWithStopTs
     self._processMap["scannerGet"] = Processor.process_scannerGet
@@ -2236,6 +2350,62 @@ class Processor(Iface, TProcessor):
     oprot.writeMessageEnd()
     oprot.trans.flush()
 
+  def process_getRows(self, seqid, iprot, oprot):
+    args = getRows_args()
+    args.read(iprot)
+    iprot.readMessageEnd()
+    result = getRows_result()
+    try:
+      result.success = self._handler.getRows(args.tableName, args.rows)
+    except IOError, io:
+      result.io = io
+    oprot.writeMessageBegin("getRows", TMessageType.REPLY, seqid)
+    result.write(oprot)
+    oprot.writeMessageEnd()
+    oprot.trans.flush()
+
+  def process_getRowsWithColumns(self, seqid, iprot, oprot):
+    args = getRowsWithColumns_args()
+    args.read(iprot)
+    iprot.readMessageEnd()
+    result = getRowsWithColumns_result()
+    try:
+      result.success = self._handler.getRowsWithColumns(args.tableName, args.rows, args.columns)
+    except IOError, io:
+      result.io = io
+    oprot.writeMessageBegin("getRowsWithColumns", TMessageType.REPLY, seqid)
+    result.write(oprot)
+    oprot.writeMessageEnd()
+    oprot.trans.flush()
+
+  def process_getRowsTs(self, seqid, iprot, oprot):
+    args = getRowsTs_args()
+    args.read(iprot)
+    iprot.readMessageEnd()
+    result = getRowsTs_result()
+    try:
+      result.success = self._handler.getRowsTs(args.tableName, args.rows, args.timestamp)
+    except IOError, io:
+      result.io = io
+    oprot.writeMessageBegin("getRowsTs", TMessageType.REPLY, seqid)
+    result.write(oprot)
+    oprot.writeMessageEnd()
+    oprot.trans.flush()
+
+  def process_getRowsWithColumnsTs(self, seqid, iprot, oprot):
+    args = getRowsWithColumnsTs_args()
+    args.read(iprot)
+    iprot.readMessageEnd()
+    result = getRowsWithColumnsTs_result()
+    try:
+      result.success = self._handler.getRowsWithColumnsTs(args.tableName, args.rows, args.columns, args.timestamp)
+    except IOError, io:
+      result.io = io
+    oprot.writeMessageBegin("getRowsWithColumnsTs", TMessageType.REPLY, seqid)
+    result.write(oprot)
+    oprot.writeMessageEnd()
+    oprot.trans.flush()
+
   def process_mutateRow(self, seqid, iprot, oprot):
     args = mutateRow_args()
     args.read(iprot)
@@ -2400,6 +2570,20 @@ class Processor(Iface, TProcessor):
     oprot.writeMessageEnd()
     oprot.trans.flush()
 
+  def process_scannerOpenWithPrefix(self, seqid, iprot, oprot):
+    args = scannerOpenWithPrefix_args()
+    args.read(iprot)
+    iprot.readMessageEnd()
+    result = scannerOpenWithPrefix_result()
+    try:
+      result.success = self._handler.scannerOpenWithPrefix(args.tableName, args.startAndPrefix, args.columns)
+    except IOError, io:
+      result.io = io
+    oprot.writeMessageBegin("scannerOpenWithPrefix", TMessageType.REPLY, seqid)
+    result.write(oprot)
+    oprot.writeMessageEnd()
+    oprot.trans.flush()
+
   def process_scannerOpenTs(self, seqid, iprot, oprot):
     args = scannerOpenTs_args()
     args.read(iprot)
@@ -2482,7 +2666,7 @@ class Processor(Iface, TProcessor):
 class enableTable_args:
   """
   Attributes:
-   - tableName
+   - tableName: name of the table
   """
 
   thrift_spec = (
@@ -2523,6 +2707,9 @@ class enableTable_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -2580,6 +2767,9 @@ class enableTable_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -2595,7 +2785,7 @@ class enableTable_result:
 class disableTable_args:
   """
   Attributes:
-   - tableName
+   - tableName: name of the table
   """
 
   thrift_spec = (
@@ -2636,6 +2826,9 @@ class disableTable_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -2693,6 +2886,9 @@ class disableTable_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -2708,7 +2904,7 @@ class disableTable_result:
 class isTableEnabled_args:
   """
   Attributes:
-   - tableName
+   - tableName: name of the table to check
   """
 
   thrift_spec = (
@@ -2749,6 +2945,9 @@ class isTableEnabled_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -2817,6 +3016,9 @@ class isTableEnabled_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -2873,6 +3075,9 @@ class compact_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -2930,6 +3135,9 @@ class compact_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -2986,6 +3194,9 @@ class majorCompact_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -3043,6 +3254,9 @@ class majorCompact_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -3081,6 +3295,9 @@ class getTableNames_args:
     oprot.writeStructBegin('getTableNames_args')
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -3157,6 +3374,9 @@ class getTableNames_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -3172,7 +3392,7 @@ class getTableNames_result:
 class getColumnDescriptors_args:
   """
   Attributes:
-   - tableName
+   - tableName: table name
   """
 
   thrift_spec = (
@@ -3213,6 +3433,9 @@ class getColumnDescriptors_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -3292,6 +3515,9 @@ class getColumnDescriptors_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -3307,7 +3533,7 @@ class getColumnDescriptors_result:
 class getTableRegions_args:
   """
   Attributes:
-   - tableName
+   - tableName: table name
   """
 
   thrift_spec = (
@@ -3348,6 +3574,9 @@ class getTableRegions_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -3425,6 +3654,9 @@ class getTableRegions_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -3440,8 +3672,8 @@ class getTableRegions_result:
 class createTable_args:
   """
   Attributes:
-   - tableName
-   - columnFamilies
+   - tableName: name of table to create
+   - columnFamilies: list of column family descriptors
   """
 
   thrift_spec = (
@@ -3502,6 +3734,9 @@ class createTable_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -3585,6 +3820,9 @@ class createTable_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -3600,7 +3838,7 @@ class createTable_result:
 class deleteTable_args:
   """
   Attributes:
-   - tableName
+   - tableName: name of table to delete
   """
 
   thrift_spec = (
@@ -3641,6 +3879,9 @@ class deleteTable_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -3698,6 +3939,9 @@ class deleteTable_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -3713,9 +3957,9 @@ class deleteTable_result:
 class get_args:
   """
   Attributes:
-   - tableName
-   - row
-   - column
+   - tableName: name of table
+   - row: row key
+   - column: column name
   """
 
   thrift_spec = (
@@ -3778,6 +4022,9 @@ class get_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -3855,6 +4102,9 @@ class get_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -3870,10 +4120,10 @@ class get_result:
 class getVer_args:
   """
   Attributes:
-   - tableName
-   - row
-   - column
-   - numVersions
+   - tableName: name of table
+   - row: row key
+   - column: column name
+   - numVersions: number of versions to retrieve
   """
 
   thrift_spec = (
@@ -3947,6 +4197,9 @@ class getVer_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -4024,6 +4277,9 @@ class getVer_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -4039,11 +4295,11 @@ class getVer_result:
 class getVerTs_args:
   """
   Attributes:
-   - tableName
-   - row
-   - column
-   - timestamp
-   - numVersions
+   - tableName: name of table
+   - row: row key
+   - column: column name
+   - timestamp: timestamp
+   - numVersions: number of versions to retrieve
   """
 
   thrift_spec = (
@@ -4128,6 +4384,9 @@ class getVerTs_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -4205,6 +4464,9 @@ class getVerTs_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -4220,8 +4482,8 @@ class getVerTs_result:
 class getRow_args:
   """
   Attributes:
-   - tableName
-   - row
+   - tableName: name of table
+   - row: row key
   """
 
   thrift_spec = (
@@ -4273,6 +4535,9 @@ class getRow_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -4350,6 +4615,9 @@ class getRow_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -4365,9 +4633,9 @@ class getRow_result:
 class getRowWithColumns_args:
   """
   Attributes:
-   - tableName
-   - row
-   - columns
+   - tableName: name of table
+   - row: row key
+   - columns: List of columns to return, null for all columns
   """
 
   thrift_spec = (
@@ -4438,6 +4706,9 @@ class getRowWithColumns_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -4515,6 +4786,9 @@ class getRowWithColumns_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -4530,9 +4804,9 @@ class getRowWithColumns_result:
 class getRowTs_args:
   """
   Attributes:
-   - tableName
-   - row
-   - timestamp
+   - tableName: name of the table
+   - row: row key
+   - timestamp: timestamp
   """
 
   thrift_spec = (
@@ -4595,6 +4869,9 @@ class getRowTs_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -4672,6 +4949,9 @@ class getRowTs_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -4687,9 +4967,9 @@ class getRowTs_result:
 class getRowWithColumnsTs_args:
   """
   Attributes:
-   - tableName
-   - row
-   - columns
+   - tableName: name of table
+   - row: row key
+   - columns: List of columns to return, null for all columns
    - timestamp
   """
 
@@ -4772,6 +5052,9 @@ class getRowWithColumnsTs_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -4849,6 +5132,709 @@ class getRowWithColumnsTs_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
+
+class getRows_args:
+  """
+  Attributes:
+   - tableName: name of table
+   - rows: row keys
+  """
+
+  thrift_spec = (
+    None, # 0
+    (1, TType.STRING, 'tableName', None, None, ), # 1
+    (2, TType.LIST, 'rows', (TType.STRING,None), None, ), # 2
+  )
+
+  def __init__(self, tableName=None, rows=None,):
+    self.tableName = tableName
+    self.rows = rows
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      if fid == 1:
+        if ftype == TType.STRING:
+          self.tableName = iprot.readString();
+        else:
+          iprot.skip(ftype)
+      elif fid == 2:
+        if ftype == TType.LIST:
+          self.rows = []
+          (_etype112, _size109) = iprot.readListBegin()
+          for _i113 in xrange(_size109):
+            _elem114 = iprot.readString();
+            self.rows.append(_elem114)
+          iprot.readListEnd()
+        else:
+          iprot.skip(ftype)
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('getRows_args')
+    if self.tableName != None:
+      oprot.writeFieldBegin('tableName', TType.STRING, 1)
+      oprot.writeString(self.tableName)
+      oprot.writeFieldEnd()
+    if self.rows != None:
+      oprot.writeFieldBegin('rows', TType.LIST, 2)
+      oprot.writeListBegin(TType.STRING, len(self.rows))
+      for iter115 in self.rows:
+        oprot.writeString(iter115)
+      oprot.writeListEnd()
+      oprot.writeFieldEnd()
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+    def validate(self):
+      return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
+
+class getRows_result:
+  """
+  Attributes:
+   - success
+   - io
+  """
+
+  thrift_spec = (
+    (0, TType.LIST, 'success', (TType.STRUCT,(TRowResult, TRowResult.thrift_spec)), None, ), # 0
+    (1, TType.STRUCT, 'io', (IOError, IOError.thrift_spec), None, ), # 1
+  )
+
+  def __init__(self, success=None, io=None,):
+    self.success = success
+    self.io = io
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      if fid == 0:
+        if ftype == TType.LIST:
+          self.success = []
+          (_etype119, _size116) = iprot.readListBegin()
+          for _i120 in xrange(_size116):
+            _elem121 = TRowResult()
+            _elem121.read(iprot)
+            self.success.append(_elem121)
+          iprot.readListEnd()
+        else:
+          iprot.skip(ftype)
+      elif fid == 1:
+        if ftype == TType.STRUCT:
+          self.io = IOError()
+          self.io.read(iprot)
+        else:
+          iprot.skip(ftype)
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('getRows_result')
+    if self.success != None:
+      oprot.writeFieldBegin('success', TType.LIST, 0)
+      oprot.writeListBegin(TType.STRUCT, len(self.success))
+      for iter122 in self.success:
+        iter122.write(oprot)
+      oprot.writeListEnd()
+      oprot.writeFieldEnd()
+    if self.io != None:
+      oprot.writeFieldBegin('io', TType.STRUCT, 1)
+      self.io.write(oprot)
+      oprot.writeFieldEnd()
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+    def validate(self):
+      return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
+
+class getRowsWithColumns_args:
+  """
+  Attributes:
+   - tableName: name of table
+   - rows: row keys
+   - columns: List of columns to return, null for all columns
+  """
+
+  thrift_spec = (
+    None, # 0
+    (1, TType.STRING, 'tableName', None, None, ), # 1
+    (2, TType.LIST, 'rows', (TType.STRING,None), None, ), # 2
+    (3, TType.LIST, 'columns', (TType.STRING,None), None, ), # 3
+  )
+
+  def __init__(self, tableName=None, rows=None, columns=None,):
+    self.tableName = tableName
+    self.rows = rows
+    self.columns = columns
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      if fid == 1:
+        if ftype == TType.STRING:
+          self.tableName = iprot.readString();
+        else:
+          iprot.skip(ftype)
+      elif fid == 2:
+        if ftype == TType.LIST:
+          self.rows = []
+          (_etype126, _size123) = iprot.readListBegin()
+          for _i127 in xrange(_size123):
+            _elem128 = iprot.readString();
+            self.rows.append(_elem128)
+          iprot.readListEnd()
+        else:
+          iprot.skip(ftype)
+      elif fid == 3:
+        if ftype == TType.LIST:
+          self.columns = []
+          (_etype132, _size129) = iprot.readListBegin()
+          for _i133 in xrange(_size129):
+            _elem134 = iprot.readString();
+            self.columns.append(_elem134)
+          iprot.readListEnd()
+        else:
+          iprot.skip(ftype)
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('getRowsWithColumns_args')
+    if self.tableName != None:
+      oprot.writeFieldBegin('tableName', TType.STRING, 1)
+      oprot.writeString(self.tableName)
+      oprot.writeFieldEnd()
+    if self.rows != None:
+      oprot.writeFieldBegin('rows', TType.LIST, 2)
+      oprot.writeListBegin(TType.STRING, len(self.rows))
+      for iter135 in self.rows:
+        oprot.writeString(iter135)
+      oprot.writeListEnd()
+      oprot.writeFieldEnd()
+    if self.columns != None:
+      oprot.writeFieldBegin('columns', TType.LIST, 3)
+      oprot.writeListBegin(TType.STRING, len(self.columns))
+      for iter136 in self.columns:
+        oprot.writeString(iter136)
+      oprot.writeListEnd()
+      oprot.writeFieldEnd()
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+    def validate(self):
+      return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
+
+class getRowsWithColumns_result:
+  """
+  Attributes:
+   - success
+   - io
+  """
+
+  thrift_spec = (
+    (0, TType.LIST, 'success', (TType.STRUCT,(TRowResult, TRowResult.thrift_spec)), None, ), # 0
+    (1, TType.STRUCT, 'io', (IOError, IOError.thrift_spec), None, ), # 1
+  )
+
+  def __init__(self, success=None, io=None,):
+    self.success = success
+    self.io = io
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      if fid == 0:
+        if ftype == TType.LIST:
+          self.success = []
+          (_etype140, _size137) = iprot.readListBegin()
+          for _i141 in xrange(_size137):
+            _elem142 = TRowResult()
+            _elem142.read(iprot)
+            self.success.append(_elem142)
+          iprot.readListEnd()
+        else:
+          iprot.skip(ftype)
+      elif fid == 1:
+        if ftype == TType.STRUCT:
+          self.io = IOError()
+          self.io.read(iprot)
+        else:
+          iprot.skip(ftype)
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('getRowsWithColumns_result')
+    if self.success != None:
+      oprot.writeFieldBegin('success', TType.LIST, 0)
+      oprot.writeListBegin(TType.STRUCT, len(self.success))
+      for iter143 in self.success:
+        iter143.write(oprot)
+      oprot.writeListEnd()
+      oprot.writeFieldEnd()
+    if self.io != None:
+      oprot.writeFieldBegin('io', TType.STRUCT, 1)
+      self.io.write(oprot)
+      oprot.writeFieldEnd()
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+    def validate(self):
+      return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
+
+class getRowsTs_args:
+  """
+  Attributes:
+   - tableName: name of the table
+   - rows: row keys
+   - timestamp: timestamp
+  """
+
+  thrift_spec = (
+    None, # 0
+    (1, TType.STRING, 'tableName', None, None, ), # 1
+    (2, TType.LIST, 'rows', (TType.STRING,None), None, ), # 2
+    (3, TType.I64, 'timestamp', None, None, ), # 3
+  )
+
+  def __init__(self, tableName=None, rows=None, timestamp=None,):
+    self.tableName = tableName
+    self.rows = rows
+    self.timestamp = timestamp
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      if fid == 1:
+        if ftype == TType.STRING:
+          self.tableName = iprot.readString();
+        else:
+          iprot.skip(ftype)
+      elif fid == 2:
+        if ftype == TType.LIST:
+          self.rows = []
+          (_etype147, _size144) = iprot.readListBegin()
+          for _i148 in xrange(_size144):
+            _elem149 = iprot.readString();
+            self.rows.append(_elem149)
+          iprot.readListEnd()
+        else:
+          iprot.skip(ftype)
+      elif fid == 3:
+        if ftype == TType.I64:
+          self.timestamp = iprot.readI64();
+        else:
+          iprot.skip(ftype)
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('getRowsTs_args')
+    if self.tableName != None:
+      oprot.writeFieldBegin('tableName', TType.STRING, 1)
+      oprot.writeString(self.tableName)
+      oprot.writeFieldEnd()
+    if self.rows != None:
+      oprot.writeFieldBegin('rows', TType.LIST, 2)
+      oprot.writeListBegin(TType.STRING, len(self.rows))
+      for iter150 in self.rows:
+        oprot.writeString(iter150)
+      oprot.writeListEnd()
+      oprot.writeFieldEnd()
+    if self.timestamp != None:
+      oprot.writeFieldBegin('timestamp', TType.I64, 3)
+      oprot.writeI64(self.timestamp)
+      oprot.writeFieldEnd()
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+    def validate(self):
+      return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
+
+class getRowsTs_result:
+  """
+  Attributes:
+   - success
+   - io
+  """
+
+  thrift_spec = (
+    (0, TType.LIST, 'success', (TType.STRUCT,(TRowResult, TRowResult.thrift_spec)), None, ), # 0
+    (1, TType.STRUCT, 'io', (IOError, IOError.thrift_spec), None, ), # 1
+  )
+
+  def __init__(self, success=None, io=None,):
+    self.success = success
+    self.io = io
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      if fid == 0:
+        if ftype == TType.LIST:
+          self.success = []
+          (_etype154, _size151) = iprot.readListBegin()
+          for _i155 in xrange(_size151):
+            _elem156 = TRowResult()
+            _elem156.read(iprot)
+            self.success.append(_elem156)
+          iprot.readListEnd()
+        else:
+          iprot.skip(ftype)
+      elif fid == 1:
+        if ftype == TType.STRUCT:
+          self.io = IOError()
+          self.io.read(iprot)
+        else:
+          iprot.skip(ftype)
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('getRowsTs_result')
+    if self.success != None:
+      oprot.writeFieldBegin('success', TType.LIST, 0)
+      oprot.writeListBegin(TType.STRUCT, len(self.success))
+      for iter157 in self.success:
+        iter157.write(oprot)
+      oprot.writeListEnd()
+      oprot.writeFieldEnd()
+    if self.io != None:
+      oprot.writeFieldBegin('io', TType.STRUCT, 1)
+      self.io.write(oprot)
+      oprot.writeFieldEnd()
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+    def validate(self):
+      return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
+
+class getRowsWithColumnsTs_args:
+  """
+  Attributes:
+   - tableName: name of table
+   - rows: row keys
+   - columns: List of columns to return, null for all columns
+   - timestamp
+  """
+
+  thrift_spec = (
+    None, # 0
+    (1, TType.STRING, 'tableName', None, None, ), # 1
+    (2, TType.LIST, 'rows', (TType.STRING,None), None, ), # 2
+    (3, TType.LIST, 'columns', (TType.STRING,None), None, ), # 3
+    (4, TType.I64, 'timestamp', None, None, ), # 4
+  )
+
+  def __init__(self, tableName=None, rows=None, columns=None, timestamp=None,):
+    self.tableName = tableName
+    self.rows = rows
+    self.columns = columns
+    self.timestamp = timestamp
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      if fid == 1:
+        if ftype == TType.STRING:
+          self.tableName = iprot.readString();
+        else:
+          iprot.skip(ftype)
+      elif fid == 2:
+        if ftype == TType.LIST:
+          self.rows = []
+          (_etype161, _size158) = iprot.readListBegin()
+          for _i162 in xrange(_size158):
+            _elem163 = iprot.readString();
+            self.rows.append(_elem163)
+          iprot.readListEnd()
+        else:
+          iprot.skip(ftype)
+      elif fid == 3:
+        if ftype == TType.LIST:
+          self.columns = []
+          (_etype167, _size164) = iprot.readListBegin()
+          for _i168 in xrange(_size164):
+            _elem169 = iprot.readString();
+            self.columns.append(_elem169)
+          iprot.readListEnd()
+        else:
+          iprot.skip(ftype)
+      elif fid == 4:
+        if ftype == TType.I64:
+          self.timestamp = iprot.readI64();
+        else:
+          iprot.skip(ftype)
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('getRowsWithColumnsTs_args')
+    if self.tableName != None:
+      oprot.writeFieldBegin('tableName', TType.STRING, 1)
+      oprot.writeString(self.tableName)
+      oprot.writeFieldEnd()
+    if self.rows != None:
+      oprot.writeFieldBegin('rows', TType.LIST, 2)
+      oprot.writeListBegin(TType.STRING, len(self.rows))
+      for iter170 in self.rows:
+        oprot.writeString(iter170)
+      oprot.writeListEnd()
+      oprot.writeFieldEnd()
+    if self.columns != None:
+      oprot.writeFieldBegin('columns', TType.LIST, 3)
+      oprot.writeListBegin(TType.STRING, len(self.columns))
+      for iter171 in self.columns:
+        oprot.writeString(iter171)
+      oprot.writeListEnd()
+      oprot.writeFieldEnd()
+    if self.timestamp != None:
+      oprot.writeFieldBegin('timestamp', TType.I64, 4)
+      oprot.writeI64(self.timestamp)
+      oprot.writeFieldEnd()
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+    def validate(self):
+      return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
+
+class getRowsWithColumnsTs_result:
+  """
+  Attributes:
+   - success
+   - io
+  """
+
+  thrift_spec = (
+    (0, TType.LIST, 'success', (TType.STRUCT,(TRowResult, TRowResult.thrift_spec)), None, ), # 0
+    (1, TType.STRUCT, 'io', (IOError, IOError.thrift_spec), None, ), # 1
+  )
+
+  def __init__(self, success=None, io=None,):
+    self.success = success
+    self.io = io
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      if fid == 0:
+        if ftype == TType.LIST:
+          self.success = []
+          (_etype175, _size172) = iprot.readListBegin()
+          for _i176 in xrange(_size172):
+            _elem177 = TRowResult()
+            _elem177.read(iprot)
+            self.success.append(_elem177)
+          iprot.readListEnd()
+        else:
+          iprot.skip(ftype)
+      elif fid == 1:
+        if ftype == TType.STRUCT:
+          self.io = IOError()
+          self.io.read(iprot)
+        else:
+          iprot.skip(ftype)
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('getRowsWithColumnsTs_result')
+    if self.success != None:
+      oprot.writeFieldBegin('success', TType.LIST, 0)
+      oprot.writeListBegin(TType.STRUCT, len(self.success))
+      for iter178 in self.success:
+        iter178.write(oprot)
+      oprot.writeListEnd()
+      oprot.writeFieldEnd()
+    if self.io != None:
+      oprot.writeFieldBegin('io', TType.STRUCT, 1)
+      self.io.write(oprot)
+      oprot.writeFieldEnd()
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -4864,9 +5850,9 @@ class getRowWithColumnsTs_result:
 class mutateRow_args:
   """
   Attributes:
-   - tableName
-   - row
-   - mutations
+   - tableName: name of table
+   - row: row key
+   - mutations: list of mutation commands
   """
 
   thrift_spec = (
@@ -4903,11 +5889,11 @@ class mutateRow_args:
       elif fid == 3:
         if ftype == TType.LIST:
           self.mutations = []
-          (_etype112, _size109) = iprot.readListBegin()
-          for _i113 in xrange(_size109):
-            _elem114 = Mutation()
-            _elem114.read(iprot)
-            self.mutations.append(_elem114)
+          (_etype182, _size179) = iprot.readListBegin()
+          for _i183 in xrange(_size179):
+            _elem184 = Mutation()
+            _elem184.read(iprot)
+            self.mutations.append(_elem184)
           iprot.readListEnd()
         else:
           iprot.skip(ftype)
@@ -4932,12 +5918,15 @@ class mutateRow_args:
     if self.mutations != None:
       oprot.writeFieldBegin('mutations', TType.LIST, 3)
       oprot.writeListBegin(TType.STRUCT, len(self.mutations))
-      for iter115 in self.mutations:
-        iter115.write(oprot)
+      for iter185 in self.mutations:
+        iter185.write(oprot)
       oprot.writeListEnd()
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -5008,6 +5997,9 @@ class mutateRow_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -5023,10 +6015,10 @@ class mutateRow_result:
 class mutateRowTs_args:
   """
   Attributes:
-   - tableName
-   - row
-   - mutations
-   - timestamp
+   - tableName: name of table
+   - row: row key
+   - mutations: list of mutation commands
+   - timestamp: timestamp
   """
 
   thrift_spec = (
@@ -5065,11 +6057,11 @@ class mutateRowTs_args:
       elif fid == 3:
         if ftype == TType.LIST:
           self.mutations = []
-          (_etype119, _size116) = iprot.readListBegin()
-          for _i120 in xrange(_size116):
-            _elem121 = Mutation()
-            _elem121.read(iprot)
-            self.mutations.append(_elem121)
+          (_etype189, _size186) = iprot.readListBegin()
+          for _i190 in xrange(_size186):
+            _elem191 = Mutation()
+            _elem191.read(iprot)
+            self.mutations.append(_elem191)
           iprot.readListEnd()
         else:
           iprot.skip(ftype)
@@ -5099,8 +6091,8 @@ class mutateRowTs_args:
     if self.mutations != None:
       oprot.writeFieldBegin('mutations', TType.LIST, 3)
       oprot.writeListBegin(TType.STRUCT, len(self.mutations))
-      for iter122 in self.mutations:
-        iter122.write(oprot)
+      for iter192 in self.mutations:
+        iter192.write(oprot)
       oprot.writeListEnd()
       oprot.writeFieldEnd()
     if self.timestamp != None:
@@ -5109,6 +6101,9 @@ class mutateRowTs_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -5179,6 +6174,9 @@ class mutateRowTs_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -5194,8 +6192,8 @@ class mutateRowTs_result:
 class mutateRows_args:
   """
   Attributes:
-   - tableName
-   - rowBatches
+   - tableName: name of table
+   - rowBatches: list of row batches
   """
 
   thrift_spec = (
@@ -5225,11 +6223,11 @@ class mutateRows_args:
       elif fid == 2:
         if ftype == TType.LIST:
           self.rowBatches = []
-          (_etype126, _size123) = iprot.readListBegin()
-          for _i127 in xrange(_size123):
-            _elem128 = BatchMutation()
-            _elem128.read(iprot)
-            self.rowBatches.append(_elem128)
+          (_etype196, _size193) = iprot.readListBegin()
+          for _i197 in xrange(_size193):
+            _elem198 = BatchMutation()
+            _elem198.read(iprot)
+            self.rowBatches.append(_elem198)
           iprot.readListEnd()
         else:
           iprot.skip(ftype)
@@ -5250,12 +6248,15 @@ class mutateRows_args:
     if self.rowBatches != None:
       oprot.writeFieldBegin('rowBatches', TType.LIST, 2)
       oprot.writeListBegin(TType.STRUCT, len(self.rowBatches))
-      for iter129 in self.rowBatches:
-        iter129.write(oprot)
+      for iter199 in self.rowBatches:
+        iter199.write(oprot)
       oprot.writeListEnd()
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -5326,6 +6327,9 @@ class mutateRows_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -5341,9 +6345,9 @@ class mutateRows_result:
 class mutateRowsTs_args:
   """
   Attributes:
-   - tableName
-   - rowBatches
-   - timestamp
+   - tableName: name of table
+   - rowBatches: list of row batches
+   - timestamp: timestamp
   """
 
   thrift_spec = (
@@ -5375,11 +6379,11 @@ class mutateRowsTs_args:
       elif fid == 2:
         if ftype == TType.LIST:
           self.rowBatches = []
-          (_etype133, _size130) = iprot.readListBegin()
-          for _i134 in xrange(_size130):
-            _elem135 = BatchMutation()
-            _elem135.read(iprot)
-            self.rowBatches.append(_elem135)
+          (_etype203, _size200) = iprot.readListBegin()
+          for _i204 in xrange(_size200):
+            _elem205 = BatchMutation()
+            _elem205.read(iprot)
+            self.rowBatches.append(_elem205)
           iprot.readListEnd()
         else:
           iprot.skip(ftype)
@@ -5405,8 +6409,8 @@ class mutateRowsTs_args:
     if self.rowBatches != None:
       oprot.writeFieldBegin('rowBatches', TType.LIST, 2)
       oprot.writeListBegin(TType.STRUCT, len(self.rowBatches))
-      for iter136 in self.rowBatches:
-        iter136.write(oprot)
+      for iter206 in self.rowBatches:
+        iter206.write(oprot)
       oprot.writeListEnd()
       oprot.writeFieldEnd()
     if self.timestamp != None:
@@ -5415,6 +6419,9 @@ class mutateRowsTs_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -5485,6 +6492,9 @@ class mutateRowsTs_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -5500,10 +6510,10 @@ class mutateRowsTs_result:
 class atomicIncrement_args:
   """
   Attributes:
-   - tableName
-   - row
-   - column
-   - value
+   - tableName: name of table
+   - row: row to increment
+   - column: name of column
+   - value: amount to increment by
   """
 
   thrift_spec = (
@@ -5577,6 +6587,9 @@ class atomicIncrement_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -5658,6 +6671,9 @@ class atomicIncrement_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -5673,9 +6689,9 @@ class atomicIncrement_result:
 class deleteAll_args:
   """
   Attributes:
-   - tableName
-   - row
-   - column
+   - tableName: name of table
+   - row: Row to update
+   - column: name of column whose value is to be deleted
   """
 
   thrift_spec = (
@@ -5738,6 +6754,9 @@ class deleteAll_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -5795,6 +6814,9 @@ class deleteAll_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -5810,10 +6832,10 @@ class deleteAll_result:
 class deleteAllTs_args:
   """
   Attributes:
-   - tableName
-   - row
-   - column
-   - timestamp
+   - tableName: name of table
+   - row: Row to update
+   - column: name of column whose value is to be deleted
+   - timestamp: timestamp
   """
 
   thrift_spec = (
@@ -5887,6 +6909,9 @@ class deleteAllTs_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -5944,6 +6969,9 @@ class deleteAllTs_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -5959,8 +6987,8 @@ class deleteAllTs_result:
 class deleteAllRow_args:
   """
   Attributes:
-   - tableName
-   - row
+   - tableName: name of table
+   - row: key of the row to be completely deleted.
   """
 
   thrift_spec = (
@@ -6012,6 +7040,9 @@ class deleteAllRow_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -6069,6 +7100,9 @@ class deleteAllRow_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -6084,9 +7118,9 @@ class deleteAllRow_result:
 class deleteAllRowTs_args:
   """
   Attributes:
-   - tableName
-   - row
-   - timestamp
+   - tableName: name of table
+   - row: key of the row to be completely deleted.
+   - timestamp: timestamp
   """
 
   thrift_spec = (
@@ -6149,6 +7183,9 @@ class deleteAllRowTs_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -6206,6 +7243,9 @@ class deleteAllRowTs_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -6221,9 +7261,12 @@ class deleteAllRowTs_result:
 class scannerOpen_args:
   """
   Attributes:
-   - tableName
-   - startRow
-   - columns
+   - tableName: name of table
+   - startRow: Starting row in table to scan.
+  Send "" (empty string) to start at the first row.
+   - columns: columns to scan. If column name is a column family, all
+  columns of the specified column family are returned. It's also possible
+  to pass a regex in the column qualifier.
   """
 
   thrift_spec = (
@@ -6260,10 +7303,10 @@ class scannerOpen_args:
       elif fid == 3:
         if ftype == TType.LIST:
           self.columns = []
-          (_etype140, _size137) = iprot.readListBegin()
-          for _i141 in xrange(_size137):
-            _elem142 = iprot.readString();
-            self.columns.append(_elem142)
+          (_etype210, _size207) = iprot.readListBegin()
+          for _i211 in xrange(_size207):
+            _elem212 = iprot.readString();
+            self.columns.append(_elem212)
           iprot.readListEnd()
         else:
           iprot.skip(ftype)
@@ -6288,12 +7331,15 @@ class scannerOpen_args:
     if self.columns != None:
       oprot.writeFieldBegin('columns', TType.LIST, 3)
       oprot.writeListBegin(TType.STRING, len(self.columns))
-      for iter143 in self.columns:
-        oprot.writeString(iter143)
+      for iter213 in self.columns:
+        oprot.writeString(iter213)
       oprot.writeListEnd()
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -6362,6 +7408,9 @@ class scannerOpen_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -6377,10 +7426,14 @@ class scannerOpen_result:
 class scannerOpenWithStop_args:
   """
   Attributes:
-   - tableName
-   - startRow
-   - stopRow
-   - columns
+   - tableName: name of table
+   - startRow: Starting row in table to scan.
+  Send "" (empty string) to start at the first row.
+   - stopRow: row to stop scanning on. This row is *not* included in the
+  scanner's results
+   - columns: columns to scan. If column name is a column family, all
+  columns of the specified column family are returned. It's also possible
+  to pass a regex in the column qualifier.
   """
 
   thrift_spec = (
@@ -6424,10 +7477,10 @@ class scannerOpenWithStop_args:
       elif fid == 4:
         if ftype == TType.LIST:
           self.columns = []
-          (_etype147, _size144) = iprot.readListBegin()
-          for _i148 in xrange(_size144):
-            _elem149 = iprot.readString();
-            self.columns.append(_elem149)
+          (_etype217, _size214) = iprot.readListBegin()
+          for _i218 in xrange(_size214):
+            _elem219 = iprot.readString();
+            self.columns.append(_elem219)
           iprot.readListEnd()
         else:
           iprot.skip(ftype)
@@ -6456,12 +7509,15 @@ class scannerOpenWithStop_args:
     if self.columns != None:
       oprot.writeFieldBegin('columns', TType.LIST, 4)
       oprot.writeListBegin(TType.STRING, len(self.columns))
-      for iter150 in self.columns:
-        oprot.writeString(iter150)
+      for iter220 in self.columns:
+        oprot.writeString(iter220)
       oprot.writeListEnd()
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -6530,6 +7586,171 @@ class scannerOpenWithStop_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
+
+class scannerOpenWithPrefix_args:
+  """
+  Attributes:
+   - tableName: name of table
+   - startAndPrefix: the prefix (and thus start row) of the keys you want
+   - columns: the columns you want returned
+  """
+
+  thrift_spec = (
+    None, # 0
+    (1, TType.STRING, 'tableName', None, None, ), # 1
+    (2, TType.STRING, 'startAndPrefix', None, None, ), # 2
+    (3, TType.LIST, 'columns', (TType.STRING,None), None, ), # 3
+  )
+
+  def __init__(self, tableName=None, startAndPrefix=None, columns=None,):
+    self.tableName = tableName
+    self.startAndPrefix = startAndPrefix
+    self.columns = columns
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      if fid == 1:
+        if ftype == TType.STRING:
+          self.tableName = iprot.readString();
+        else:
+          iprot.skip(ftype)
+      elif fid == 2:
+        if ftype == TType.STRING:
+          self.startAndPrefix = iprot.readString();
+        else:
+          iprot.skip(ftype)
+      elif fid == 3:
+        if ftype == TType.LIST:
+          self.columns = []
+          (_etype224, _size221) = iprot.readListBegin()
+          for _i225 in xrange(_size221):
+            _elem226 = iprot.readString();
+            self.columns.append(_elem226)
+          iprot.readListEnd()
+        else:
+          iprot.skip(ftype)
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('scannerOpenWithPrefix_args')
+    if self.tableName != None:
+      oprot.writeFieldBegin('tableName', TType.STRING, 1)
+      oprot.writeString(self.tableName)
+      oprot.writeFieldEnd()
+    if self.startAndPrefix != None:
+      oprot.writeFieldBegin('startAndPrefix', TType.STRING, 2)
+      oprot.writeString(self.startAndPrefix)
+      oprot.writeFieldEnd()
+    if self.columns != None:
+      oprot.writeFieldBegin('columns', TType.LIST, 3)
+      oprot.writeListBegin(TType.STRING, len(self.columns))
+      for iter227 in self.columns:
+        oprot.writeString(iter227)
+      oprot.writeListEnd()
+      oprot.writeFieldEnd()
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+    def validate(self):
+      return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
+
+class scannerOpenWithPrefix_result:
+  """
+  Attributes:
+   - success
+   - io
+  """
+
+  thrift_spec = (
+    (0, TType.I32, 'success', None, None, ), # 0
+    (1, TType.STRUCT, 'io', (IOError, IOError.thrift_spec), None, ), # 1
+  )
+
+  def __init__(self, success=None, io=None,):
+    self.success = success
+    self.io = io
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      if fid == 0:
+        if ftype == TType.I32:
+          self.success = iprot.readI32();
+        else:
+          iprot.skip(ftype)
+      elif fid == 1:
+        if ftype == TType.STRUCT:
+          self.io = IOError()
+          self.io.read(iprot)
+        else:
+          iprot.skip(ftype)
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('scannerOpenWithPrefix_result')
+    if self.success != None:
+      oprot.writeFieldBegin('success', TType.I32, 0)
+      oprot.writeI32(self.success)
+      oprot.writeFieldEnd()
+    if self.io != None:
+      oprot.writeFieldBegin('io', TType.STRUCT, 1)
+      self.io.write(oprot)
+      oprot.writeFieldEnd()
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -6545,10 +7766,13 @@ class scannerOpenWithStop_result:
 class scannerOpenTs_args:
   """
   Attributes:
-   - tableName
-   - startRow
-   - columns
-   - timestamp
+   - tableName: name of table
+   - startRow: Starting row in table to scan.
+  Send "" (empty string) to start at the first row.
+   - columns: columns to scan. If column name is a column family, all
+  columns of the specified column family are returned. It's also possible
+  to pass a regex in the column qualifier.
+   - timestamp: timestamp
   """
 
   thrift_spec = (
@@ -6587,10 +7811,10 @@ class scannerOpenTs_args:
       elif fid == 3:
         if ftype == TType.LIST:
           self.columns = []
-          (_etype154, _size151) = iprot.readListBegin()
-          for _i155 in xrange(_size151):
-            _elem156 = iprot.readString();
-            self.columns.append(_elem156)
+          (_etype231, _size228) = iprot.readListBegin()
+          for _i232 in xrange(_size228):
+            _elem233 = iprot.readString();
+            self.columns.append(_elem233)
           iprot.readListEnd()
         else:
           iprot.skip(ftype)
@@ -6620,8 +7844,8 @@ class scannerOpenTs_args:
     if self.columns != None:
       oprot.writeFieldBegin('columns', TType.LIST, 3)
       oprot.writeListBegin(TType.STRING, len(self.columns))
-      for iter157 in self.columns:
-        oprot.writeString(iter157)
+      for iter234 in self.columns:
+        oprot.writeString(iter234)
       oprot.writeListEnd()
       oprot.writeFieldEnd()
     if self.timestamp != None:
@@ -6630,6 +7854,9 @@ class scannerOpenTs_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -6698,6 +7925,9 @@ class scannerOpenTs_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -6713,11 +7943,15 @@ class scannerOpenTs_result:
 class scannerOpenWithStopTs_args:
   """
   Attributes:
-   - tableName
-   - startRow
-   - stopRow
-   - columns
-   - timestamp
+   - tableName: name of table
+   - startRow: Starting row in table to scan.
+  Send "" (empty string) to start at the first row.
+   - stopRow: row to stop scanning on. This row is *not* included in the
+  scanner's results
+   - columns: columns to scan. If column name is a column family, all
+  columns of the specified column family are returned. It's also possible
+  to pass a regex in the column qualifier.
+   - timestamp: timestamp
   """
 
   thrift_spec = (
@@ -6763,10 +7997,10 @@ class scannerOpenWithStopTs_args:
       elif fid == 4:
         if ftype == TType.LIST:
           self.columns = []
-          (_etype161, _size158) = iprot.readListBegin()
-          for _i162 in xrange(_size158):
-            _elem163 = iprot.readString();
-            self.columns.append(_elem163)
+          (_etype238, _size235) = iprot.readListBegin()
+          for _i239 in xrange(_size235):
+            _elem240 = iprot.readString();
+            self.columns.append(_elem240)
           iprot.readListEnd()
         else:
           iprot.skip(ftype)
@@ -6800,8 +8034,8 @@ class scannerOpenWithStopTs_args:
     if self.columns != None:
       oprot.writeFieldBegin('columns', TType.LIST, 4)
       oprot.writeListBegin(TType.STRING, len(self.columns))
-      for iter164 in self.columns:
-        oprot.writeString(iter164)
+      for iter241 in self.columns:
+        oprot.writeString(iter241)
       oprot.writeListEnd()
       oprot.writeFieldEnd()
     if self.timestamp != None:
@@ -6810,6 +8044,9 @@ class scannerOpenWithStopTs_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -6878,6 +8115,9 @@ class scannerOpenWithStopTs_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -6893,7 +8133,7 @@ class scannerOpenWithStopTs_result:
 class scannerGet_args:
   """
   Attributes:
-   - id
+   - id: id of a scanner returned by scannerOpen
   """
 
   thrift_spec = (
@@ -6934,6 +8174,9 @@ class scannerGet_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -6977,11 +8220,11 @@ class scannerGet_result:
       if fid == 0:
         if ftype == TType.LIST:
           self.success = []
-          (_etype168, _size165) = iprot.readListBegin()
-          for _i169 in xrange(_size165):
-            _elem170 = TRowResult()
-            _elem170.read(iprot)
-            self.success.append(_elem170)
+          (_etype245, _size242) = iprot.readListBegin()
+          for _i246 in xrange(_size242):
+            _elem247 = TRowResult()
+            _elem247.read(iprot)
+            self.success.append(_elem247)
           iprot.readListEnd()
         else:
           iprot.skip(ftype)
@@ -7010,8 +8253,8 @@ class scannerGet_result:
     if self.success != None:
       oprot.writeFieldBegin('success', TType.LIST, 0)
       oprot.writeListBegin(TType.STRUCT, len(self.success))
-      for iter171 in self.success:
-        iter171.write(oprot)
+      for iter248 in self.success:
+        iter248.write(oprot)
       oprot.writeListEnd()
       oprot.writeFieldEnd()
     if self.io != None:
@@ -7024,6 +8267,9 @@ class scannerGet_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -7039,8 +8285,8 @@ class scannerGet_result:
 class scannerGetList_args:
   """
   Attributes:
-   - id
-   - nbRows
+   - id: id of a scanner returned by scannerOpen
+   - nbRows: number of results to return
   """
 
   thrift_spec = (
@@ -7092,6 +8338,9 @@ class scannerGetList_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -7135,11 +8384,11 @@ class scannerGetList_result:
       if fid == 0:
         if ftype == TType.LIST:
           self.success = []
-          (_etype175, _size172) = iprot.readListBegin()
-          for _i176 in xrange(_size172):
-            _elem177 = TRowResult()
-            _elem177.read(iprot)
-            self.success.append(_elem177)
+          (_etype252, _size249) = iprot.readListBegin()
+          for _i253 in xrange(_size249):
+            _elem254 = TRowResult()
+            _elem254.read(iprot)
+            self.success.append(_elem254)
           iprot.readListEnd()
         else:
           iprot.skip(ftype)
@@ -7168,8 +8417,8 @@ class scannerGetList_result:
     if self.success != None:
       oprot.writeFieldBegin('success', TType.LIST, 0)
       oprot.writeListBegin(TType.STRUCT, len(self.success))
-      for iter178 in self.success:
-        iter178.write(oprot)
+      for iter255 in self.success:
+        iter255.write(oprot)
       oprot.writeListEnd()
       oprot.writeFieldEnd()
     if self.io != None:
@@ -7182,6 +8431,9 @@ class scannerGetList_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -7197,7 +8449,7 @@ class scannerGetList_result:
 class scannerClose_args:
   """
   Attributes:
-   - id
+   - id: id of a scanner returned by scannerOpen
   """
 
   thrift_spec = (
@@ -7238,6 +8490,9 @@ class scannerClose_args:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -7308,6 +8563,9 @@ class scannerClose_result:
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
+    def validate(self):
+      return
+
 
   def __repr__(self):
     L = ['%s=%r' % (key, value)
@@ -7319,5 +8577,3 @@ class scannerClose_result:
 
   def __ne__(self, other):
     return not (self == other)
-
-

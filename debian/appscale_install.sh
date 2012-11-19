@@ -35,6 +35,8 @@ case "$1" in
         postinstalltornado
 	installprotobuf
 	postinstallprotobuf
+        installflexmock
+        installnose
 	installhadoop
 	postinstallhadoop
 	installzookeeper

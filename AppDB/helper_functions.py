@@ -1,32 +1,52 @@
+# Programmer: Navraj Chohan <nlake44@gmail.com>
 """
-Author: Navraj Chohan
-Random functions/classes which are used by datastores
+Helpful functions and classes which are used by AppDB
 """
+import hashlib
 import logging
 import logging.handlers
+import inspect
 import os
 import os.path
 import random
-import hashlib
-"""
-strings must be in unicode to reverse the string
-strings are returned in unicode and may not able 
-able to be converted to a regular string
-"""
-def reverseLex(ustring):
-  newstr = u""
+import time
+
+def read_file(file_name):
+  """ Opens and reads a file. Helpful for mocking out builtin
+      functions.
+  Args:
+    file_name: path to file to read
+  Returns:
+    Contents of file 
+  """
+  fp = open(file_name, 'r')
+  contents = fp.read()
+  fp.close()
+  return contents
+
+def reverse_lex(ustring):
+  """ Strings must be in unicode to reverse the string
+    strings are returned in unicode and may not able 
+    able to be converted to a regular string
+
+  Args: 
+    ustring: String to reverse
+  """
+  newstr = ""
   for ii in ustring:
     ordinance = ord(ii)
     new_byte = 255 - ordinance
-    char = unichr(new_byte)
+    char = chr(new_byte)
     newstr += char
   return newstr
 
-""" 
-Cetain datastores are unable to store keys with unichars of 128 or more
-this function reflects on 127 and less.
-"""
-def reverseLex128(ustring):
+def reverse_lex_128(ustring):
+  """ Certain datastores are unable to store keys with unichars of 
+      128 or more this function reflects on 127 and less.
+
+  Args:
+    ustring: String to reverse
+  """
   newstr = u""
   for ii in ustring:
     ordinance = ord(ii)
@@ -38,8 +58,8 @@ def reverseLex128(ustring):
 class ThreadedLogger():
   def __init__(self, filename):
     split_path = os.path.split(filename)
-    dir = split_path[0]
-    if not os.path.exists(dir): os.mkdir(dir, 0777)
+    directory = split_path[0]
+    if not os.path.exists(directory): os.mkdir(directory, 0777)
     self.log_logger = logging.getLogger(filename)
     self.log_logger.setLevel(logging.INFO)
     self.formatter = logging.Formatter("%(asctime)s %(module)s:%(lineno)-4d %(message)s")
@@ -55,7 +75,14 @@ class ThreadedLogger():
     if self.loggingOn:
       self.log_logger.info(string)
 
-def randomString(length):
+def random_string(length):
+  """ Returns a string of a given length. 
+
+  Args:
+    length: The length of the random string which is returned.
+  Returns:
+    A random string.
+  """
   s = hashlib.sha256()
   ret = "a"
   while len(ret) < length:
@@ -63,7 +90,12 @@ def randomString(length):
     ret += s.hexdigest()
   return ret[0:length]
 
-import inspect
 def lineno():
-    """Returns the current line number in our program."""
-    return inspect.currentframe().f_back.f_lineno
+  """ Returns the current line number in our program.
+
+  Returns:
+    The current line number in our program.
+  """
+  return inspect.currentframe().f_back.f_lineno
+
+
