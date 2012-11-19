@@ -2,8 +2,6 @@
 import logging
 import os
 
-from flexmock import flexmock
-
 # Read only permissions for file access
 READ_ONLY = 'r'
 
