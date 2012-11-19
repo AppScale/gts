@@ -132,7 +132,10 @@ fi
 apt-get -y purge haproxy
 apt-get -y remove consolekit
 
-if [ $1 ]; then
+if [ $2 ]; then
+    echo "Usage: bash appscale_build.sh <optional: one database name>"
+    exit 1
+elif [ $1 ]; then
     echo "Installing AppScale with $1 as the only supported database."
     bash debian/appscale_install.sh core
     bash debian/appscale_install.sh $1
