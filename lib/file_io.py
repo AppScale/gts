@@ -50,7 +50,7 @@ def exists(file_name):
   Args:
     file_name: The file to check if it exists. 
   """
-  return os.path.exists(file_path)
+  return os.path.exists(file_name)
 
 def set_logging_format():
   """ Sets the logging format to have a unified format.
