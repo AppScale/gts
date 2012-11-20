@@ -258,9 +258,8 @@ module HelperFunctions
     ENV['EC2_JVM_ARGS'] = nil
 
     creds.each_pair { |k, v|
-      next unless k =~ /\ACLOUD#{cloud_num}/
-      env_key = k.scan(/\ACLOUD#{cloud_num}_(.*)\Z/).flatten.to_s
-      ENV[env_key] = v
+      Kernel.puts("Setting #{k} to #{v} in our environment.")
+      ENV[k] = v
     }
 
     # note that key and cert vars are set wrong - they refer to

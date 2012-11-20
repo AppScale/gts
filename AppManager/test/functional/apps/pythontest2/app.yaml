@@ -1,0 +1,6 @@
+application: pythontest2
+version: 1
+runtime: python
+api_version: 1
+
+# This is a bad app since its missing handlers

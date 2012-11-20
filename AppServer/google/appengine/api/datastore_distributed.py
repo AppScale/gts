@@ -324,7 +324,6 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
                                              error_pb.detail())
 
     if api_response.has_exception():
-      #exception = api_response.exception()
       raise api_response.exception()
    
     response.ParseFromString(api_response.response())
@@ -362,13 +361,6 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     results = query_response.result_list()
     results = [datastore.Entity._FromPb(r) for r in results]
 
-    if query.has_ancestor():
-      ancestor_path = query.ancestor().path().element_list()
-      def is_descendant(entity):
-        path = entity.key()._Key__reference.path().element_list()
-        return path[:len(ancestor_path)] == ancestor_path
-      results = filter(is_descendant, results)
-
     operators = {datastore_pb.Query_Filter.LESS_THAN:             '<',
                  datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:    '<=',
                  datastore_pb.Query_Filter.GREATER_THAN:          '>',
@@ -392,20 +384,6 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
         if type(value) not in datastore_types._RAW_PROPERTY_TYPES:
           return True
       return False
-
-    for filt in filters:
-      assert filt.op() != datastore_pb.Query_Filter.IN
-
-      prop = filt.property(0).name().decode('utf-8')
-      op = operators[filt.op()]
-
-      filter_val_list = [datastore_types.FromPropertyPb(filter_prop)
-                         for filter_prop in filt.property_list()]
-
-
-    for order in orders:
-      prop = order.property().decode('utf-8')
-      results = [entity for entity in results if has_prop_indexed(entity, prop)]
 
     def order_compare_entities(a, b):
       """ Return a negative, zero or positive number depending on whether
@@ -467,18 +445,11 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       else:
         return cmp(x_type, y_type)
 
-    results.sort(order_compare_entities)
-
     clone = datastore_pb.Query()
     clone.CopyFrom(query)
     clone.clear_hint()
     clone.clear_limit()
     clone.clear_offset()
-    #if clone in self.__query_history:
-    #  self.__query_history[clone] += 1
-    #else:
-    #  self.__query_history[clone] = 1
-
     results = [r._ToPb() for r in results]
     for result in results:
       datastore_stub_util.PrepareSpecialPropertiesForLoad(result)
@@ -488,7 +459,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
     cursor = datastore_stub_util.ListCursor(query, results,
                                             order_compare_entities_pb)
-    self.__queries[cursor.cursor] = cursor
+    self.__queries = cursor
 
     if query.has_count():
       count = query.count()
@@ -510,15 +481,14 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     self.__ValidateAppId(next_request.cursor().app())
 
     cursor_handle = next_request.cursor().cursor()
-
-    try:
-      cursor = self.__queries[cursor_handle]
-    except KeyError:
+   
+    cursor = self.__queries
+    if cursor.cursor != cursor_handle:
       raise apiproxy_errors.ApplicationError(
-          datastore_pb.Error.BAD_REQUEST, 'Cursor %d not found' % cursor_handle)
+            datastore_pb.Error.BAD_REQUEST, 'Cursor %d not found' % cursor_handle)
 
     assert cursor.app == next_request.cursor().app()
-
+    logging.info(str(cursor))
     count = _BATCH_SIZE
     if next_request.has_count():
       count = next_request.count()
@@ -673,28 +643,14 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     if index.id() != 0:
       raise apiproxy_errors.ApplicationError(datastore_pb.Error.BAD_REQUEST,
                                              'New index id must be 0.')
-    #elif self.__FindIndex(index):
-    #  raise apiproxy_errors.ApplicationError(datastore_pb.Error.BAD_REQUEST,
-    #                                         'Index already exists.')
-
-    self._RemoteSend(index, id_response, "CreateIndex")
+    id_response.set_value(0)
     return id_response
 
   def _Dynamic_GetIndices(self, app_str, composite_indices):
-    self.__ValidateAppId(app_str.value())
-    #string_pb = api_base_pb.StringProto()
-    #string_pb.set_value(app_str)
-    self._RemoteSend(app_str, composite_indices, "GetIndices")
     return 
 
   def _Dynamic_UpdateIndex(self, index, void):
-    self.__ValidateAppId(index.app_id())
-    self._RemoteSend(index, void, "UpdateIndex")
     return 
     
   def _Dynamic_DeleteIndex(self, index, void):
-    self.__ValidateAppId(index.app_id())
-    self._RemoteSend(index, void, "DeleteIndex")
     return void
-
-

@@ -8,6 +8,7 @@ require 'fileutils'
 
 $:.unshift File.join(File.dirname(__FILE__))
 require 'helperfunctions'
+require 'app_manager_client'
 
 
 $:.unshift File.join(File.dirname(__FILE__), "..")
@@ -45,6 +46,11 @@ class Repo
   # since we don't necessarily want users accessing it.
   # TODO(cgb): Let it register with the UAServer but change the Repo app to
   # prevent unauthorized access.
+  # 
+  # Args: 
+  #   login_ip: The IP of the load balancer
+  #   uaserver_ip: The IP of a UserAppServer
+  # 
   def self.start(login_ip, uaserver_ip)
     # its just another app engine app - but since numbering starts
     # at zero, this app has to be app neg one
@@ -56,7 +62,8 @@ class Repo
     app_number = -1
     app = "therepo"
     app_language = "python"
-    app_version = "1"
+
+    app_manager = AppManagerClient.new()
 
     app_location = "/var/apps/#{app}/app"
     Djinn.log_run("mkdir -p #{app_location}")
@@ -76,9 +83,15 @@ class Repo
 
     [19997, 19998, 19999].each { |port|
       Djinn.log_debug("Starting #{app_language} app #{app} on #{HelperFunctions.local_ip}:#{port}")
-      pid = HelperFunctions.run_app(app, port, uaserver_ip, @@ip, @@private_ip, app_version, app_language, SERVER_PORT, login_ip)
-      pid_file_name = "#{APPSCALE_HOME}/.appscale/#{app}-#{port}.pid"
-      HelperFunctions.write_file(pid_file_name, pid)
+      pid = app_manager.start_app(app, port, uaserver_ip, 
+                                  SERVER_PORT, app_language, login_ip,
+                                  [uaserver_ip])
+      if pid == -1
+        Djinn.log_debug("Failed to start app #{app} on #{HelperFunctions.local_ip}:#{port}")
+      else
+        pid_file_name = "#{APPSCALE_HOME}/.appscale/#{app}-#{port}.pid"
+        HelperFunctions.write_file(pid_file_name, pid)
+      end
     }
 
     Nginx.reload
@@ -87,12 +100,14 @@ class Repo
 
 
   # Stops the Repo app.
-  # TODO(cgb): This kills all AppServers, which definitely is not the correct
-  # thing to do. Since the Repo is an App Engine app, we should be able to use
-  # the other functions that stop App Engine apps here as well.
+  #
   def self.stop
-    Djinn.log_debug(`pkill -f dev_appserver`)
-    Djinn.log_debug(`pkill -f DevAppServerMain`)
+    app = "therepo"
+    Djinn.log_debug("Stopping app #{app} on #{HelperFunctions.local_ip}")
+    app_manager = AppManagerClient.new()
+    if app_manager.stop_app(app) 
+      Djinn.log_debug("Failed to start app #{app} on #{HelperFunctions.local_ip}")
+    end
   end
 
 
