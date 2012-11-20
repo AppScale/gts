@@ -1,5 +1,6 @@
 package com.google.appengine.api.datastore.dev;
 
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -28,106 +29,119 @@ import com.google.appengine.repackaged.com.google.io.protocol.ProtocolMessage;
 import com.google.apphosting.utils.remoteapi.RemoteApiPb.Request;
 import com.google.apphosting.utils.remoteapi.RemoteApiPb.Response;
 
-public class HTTPClientDatastoreProxy {
 
-    private static final Logger logger = Logger.getLogger(HTTPClientDatastoreProxy.class.getName());
+public class HTTPClientDatastoreProxy
+{
+    private static final Logger logger                              = Logger.getLogger(HTTPClientDatastoreProxy.class.getName());
 
-    DefaultHttpClient client = null;
-    String url = null;
+    private DefaultHttpClient   client                              = null;
+    private String              url                                 = null;
+    private final int           MAX_TOTAL_CONNECTIONS               = 200;
+    private final int           MAX_CONNECTIONS_PER_ROUTE           = 20;
+    private final int           MAX_CONNECTIONS_PER_ROUTE_LOCALHOST = 80;
+    private final int           INPUT_STREAM_SIZE                   = 10240;
+    private final String        APPDATA_HEADER                      = "AppData";
+    private final String        SERVICE_NAME                        = "datastore_v3";
+    private final String        PROTOCOL_BUFFER_HEADER              = "ProtocolBufferType";
+    private final String        PROTOCOL_BUFFER_VALUE               = "Request";
 
-    //TODO deal with ssl?
-    public HTTPClientDatastoreProxy(String host, int port, boolean isSSL) {
+    // TODO deal with ssl?
+    public HTTPClientDatastoreProxy( String host, int port, boolean isSSL )
+    {
         SchemeRegistry schemeRegistry = new SchemeRegistry();
-        schemeRegistry.register(new Scheme("http", PlainSocketFactory
-                .getSocketFactory(), port));
-        ThreadSafeClientConnManager cm = new ThreadSafeClientConnManager(
-                schemeRegistry);
-        // Increase max total connection to 200
-        cm.setMaxTotal(200);
-        // Increase default max connection per route to 20
-        cm.setDefaultMaxPerRoute(20);
-        // Increase max connections for localhost:80 to 50
-        // logger.log(Level.INFO, "http client started");
+        schemeRegistry.register(new Scheme("http", PlainSocketFactory.getSocketFactory(), port));
+        ThreadSafeClientConnManager cm = new ThreadSafeClientConnManager(schemeRegistry);
+        cm.setMaxTotal(MAX_TOTAL_CONNECTIONS);
+        cm.setDefaultMaxPerRoute(MAX_CONNECTIONS_PER_ROUTE);
         url = "http://" + host + ":" + port + "/";
         HttpHost localhost = new HttpHost(url);
-        cm.setMaxForRoute(new HttpRoute(localhost), 50);
+        cm.setMaxForRoute(new HttpRoute(localhost), MAX_CONNECTIONS_PER_ROUTE_LOCALHOST);
         client = new DefaultHttpClient(cm);
-        // logger.log(Level.INFO, "connecting to pb server at: " + url);
     }
 
-    public void doPost(String appId, String method, ProtocolMessage<?> request,
-            ProtocolMessage<?> response) {
+    public void doPost( String appId, String method, ProtocolMessage<?> request, ProtocolMessage<?> response )
+    {
         HttpPost post = new HttpPost(url);
-        post.addHeader("ProtocolBufferType", "Request");
+        post.addHeader(PROTOCOL_BUFFER_HEADER, PROTOCOL_BUFFER_VALUE);
         String tag = appId;
         User user = getUser();
-        if (user != null) {
+        if (user != null)
+        {
             tag += ":" + user.getEmail();
             tag += ":" + user.getNickname();
             tag += ":" + user.getAuthDomain();
         }
-        post.addHeader("AppData", tag);
+        post.addHeader(APPDATA_HEADER, tag);
 
         Request remoteRequest = new Request();
         remoteRequest.setMethod(method);
-        remoteRequest.setServiceName("datastore_v3");
+        remoteRequest.setServiceName(SERVICE_NAME);
         remoteRequest.setRequestAsBytes(request.toByteArray());
 
         ByteArrayOutputStream bao = new ByteArrayOutputStream();
-        try {
+        try
+        {
             bao.write(remoteRequest.toByteArray());
             ByteArrayEntity entity = new ByteArrayEntity(bao.toByteArray());
             post.setEntity(entity);
             bao.close();
-        } catch (IOException e1) {
+        }
+        catch (IOException e1)
+        {
             e1.printStackTrace();
         }
 
         Response remoteResponse = new Response();
-        try {
+        try
+        {
             byte[] bytes = client.execute(post, new ByteArrayResponseHandler());
             remoteResponse.parseFrom(bytes);
-            // logger.log(Level.INFO, "raw bytes");
-            // logger.log(Level.INFO, new String(bytes));
-        } catch (ClientProtocolException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
+        }
+        catch (ClientProtocolException e)
+        {
             e.printStackTrace();
         }
-        if (!remoteResponse.hasResponse())
-            logger.log(Level.WARNING, "no response from server for: " + method
-                    + " method!");
-        if (remoteResponse.hasApplicationError()) {
-            logger.log(Level.WARNING, "application error in " + method
-                    + " method !"
-                    + remoteResponse.getApplicationError().toFlatString());
+        catch (IOException e)
+        {
+            e.printStackTrace();
         }
-        if (remoteResponse.hasException()) {
-            logger.log(Level.WARNING, "exception in " + method + " method! "
-                    + remoteResponse.getException());
+        if (!remoteResponse.hasResponse()) logger.log(Level.WARNING, "no response from server for: " + method + " method!");
+        if (remoteResponse.hasApplicationError())
+        {
+            logger.log(Level.WARNING, "Application error in " + method + " method !" + remoteResponse.getApplicationError().toFlatString());
         }
-        if (remoteResponse.hasJavaException()) {
-            logger.log(Level.WARNING, "java exception in " + method
-                    + " method! " + remoteResponse.getJavaException());
+        if (remoteResponse.hasException())
+        {
+            logger.log(Level.WARNING, "Exception in " + method + " method! " + remoteResponse.getException());
+        }
+        if (remoteResponse.hasJavaException())
+        {
+            logger.log(Level.WARNING, "Java exception in " + method + " method! " + remoteResponse.getJavaException());
         }
         response.parseFrom(remoteResponse.getResponseAsBytes());
     }
 
-    private User getUser() {
+    private User getUser()
+    {
         UserService userService = UserServiceFactory.getUserService();
         return userService.getCurrentUser();
     }
 
-    private class ByteArrayResponseHandler implements ResponseHandler<byte[]> {
+    private class ByteArrayResponseHandler implements ResponseHandler<byte[]>
+    {
 
-        public byte[] handleResponse(HttpResponse response)
-                throws ClientProtocolException, IOException {
+        public byte[] handleResponse( HttpResponse response ) throws ClientProtocolException, IOException
+        {
             HttpEntity entity = response.getEntity();
-            if (entity != null) {
+            if (entity != null)
+            {
                 InputStream inputStream = entity.getContent();
-                try {
+                try
+                {
                     return inputStreamToArray(inputStream);
-                } finally {
+                }
+                finally
+                {
                     entity.getContent().close();
                 }
             }
@@ -135,30 +149,42 @@ public class HTTPClientDatastoreProxy {
         }
     }
 
-    private byte[] inputStreamToArray(InputStream in) {
+    private byte[] inputStreamToArray( InputStream in )
+    {
         int len;
-        int size = 10240;
+        int size = INPUT_STREAM_SIZE;
         byte[] buf = null;
-        try {
-            if (in instanceof ByteArrayInputStream) {
+        try
+        {
+            if (in instanceof ByteArrayInputStream)
+            {
                 size = in.available();
                 buf = new byte[size];
                 len = in.read(buf, 0, size);
-            } else {
+            }
+            else
+            {
                 ByteArrayOutputStream bos = new ByteArrayOutputStream();
                 buf = new byte[size];
-                // long t1 = System.nanoTime();
-                while ((len = in.read(buf, 0, size)) != -1) {
+                while ((len = in.read(buf, 0, size)) != -1)
+                {
                     bos.write(buf, 0, len);
                 }
-                // long t2 = System.nanoTime();
                 buf = bos.toByteArray();
 
             }
             in.close();
-        } catch (IOException e) {
+        }
+        catch (IOException e)
+        {
             e.printStackTrace();
         }
         return buf;
+    }
+
+    // used for setting this as a mock object for unit tests
+    public void setClient( DefaultHttpClient client )
+    {
+        this.client = client;
     }
 }

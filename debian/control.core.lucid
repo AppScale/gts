@@ -28,6 +28,7 @@ Depends: appscale-tools,
  iptables, cron,
  curl, lsof, tcpdump,
  memcached, python-memcache,
+ socat,
 # AppLoadBalancer
  nginx,
 # haproxy
@@ -42,22 +43,6 @@ Depends: appscale-tools,
  libboost-iostreams1.40.0, libboost-python1.40.0,
 # ZooKeeper
  liblog4j1.2-java, libjline-java,
-# Neptune(nfs)
- nfs-kernel-server,
-# Neptune(mpi)
- mpi, mpich2,
-# Neptune(cewssa)
- r-base, r-base-dev,
-# Neptune(dfsp)
- gsl-bin, libgsl0-dev,
-# kdt dependencies
- python-numpy, python-scipy,
- libatlas-base-dev, libatlas-headers, liblapack-pic,
-# Neptune(medea)
- gnat-4.4, mono-complete, ghc6, scala, ocaml-nox, 
-# aws-sdk
- ruby1.8-dev, ri1.8, irb1.8, libreadline-ruby1.8,
- libxslt-dev, libxml2-dev,
 # unknown
  make
 # TaskQueue

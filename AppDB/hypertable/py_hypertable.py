@@ -1,45 +1,51 @@
 # Author: Navraj Chohan
 # Author: Kowshik Prakasam
-
-import sys
+# TODO: deprecate this file and move towards updated DB interface
 import os
+import string
+import sys
 import time
+import xml
 
-import helper_functions
 from hypertable.thriftclient import * 
 import hyperthrift.gen.ttypes as ttypes
-#from hyperthrift.gen2 import *
-import string
-import cgi
+
 from xml.sax import make_parser
-import xml
 from xml.sax import parseString
 from xml.sax.handler import feature_namespaces
 from xml.sax import ContentHandler
 from xml.sax import saxutils
 from xml.sax.handler import ContentHandler
-#import sqlalchemy.pool as pool
-from dbinterface import *
+
 import appscale_logger
+from dbinterface import *
+import helper_functions
 import threading 
 
 THRIFT_PORT = 38080
+
 ERROR_HT = "DB_ERROR:"
+
 DB_LOCATION = "localhost"
+
 NS = "/appscale"
 
 ROOT_TAG_BEGIN="<Schema>"
+
 ROOT_TAG_END="</Schema>"
 
 ACCGRP_TAG_BEGIN='<AccessGroup name="default">'
+
 ACCGRP_TAG_END="</AccessGroup>"
 
 COLFMLY_TAG_BEGIN="<ColumnFamily>"
+
 COLFMLY_TAG_END="</ColumnFamily>"
 
 NAME_TAG_TEXT = "Name"
 
 NAME_TAG_BEGIN="<"+NAME_TAG_TEXT+">"
+
 NAME_TAG_END="</"+NAME_TAG_TEXT+">"
 
 PROFILING = False
@@ -53,8 +59,6 @@ class HTLogger:
       self.ht_lock.acquire()
       self.ht_logger.info(string)
       self.ht_lock.release()
-
-#ht_logger = HTLogger(log_logger)
 
 class XmlSchemaParser(ContentHandler):
   def __init__(self, tag_name):
@@ -78,12 +82,8 @@ class XmlSchemaParser(ContentHandler):
       self.attributes.append(ch)
 
 class DatastoreProxy(AppDBInterface):
-
   def __init__(self, logger = appscale_logger.getLogger("datastore-hypertable")):
     self.logger = logger
-    #self.pool = pool.QueuePool(self.__createConnection)
-    #self.conn = ThriftClient(self.get_local_ip(), THRIFT_PORT)
-    #self.ns = self.conn.open_namespace(NS)
     self.conn = None
     self.tableCache = []
     self.lock = threading.Lock()
@@ -99,22 +99,15 @@ class DatastoreProxy(AppDBInterface):
         print "Unable to create namepsace"
         print e
       self.ns = self.conn.namespace_open(NS)
-    # self.ns = self.conn.open_namespace(NS)
-    #if PROFILING:
-    #  self.logger.debug("HT InitConnection: %s"%str(endtime - starttime))
     return self.conn
 
   def __closeConnection(self, conn):
-    #if conn:
     self.lock.release()
-    #conn.close_namespace(self.ns)
-    #conn.close() 
 
   # tag is the xml tag which holds the schema attributes
   def getListFromXMLSchema(self, table, tag):
     parser = make_parser()
 
-    #parser = setFeature(feature_namespaces, 0)
     dh = XmlSchemaParser(tag)
     dh.clear_attributes()
     parser.setContentHandler(dh)

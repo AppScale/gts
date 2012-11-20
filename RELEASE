@@ -4,18 +4,28 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
-The current release is 1.6.3, relased October 30, 2012.
+The current release is 1.6.4, released November 21, 2012.
+
+Bugs fixed in this release:
+
+- Update Java AppServer to 1.7.2.1
+- Python AppServer leaks memory
+- InfrastructureManager is not using given user's credentials
+- AppController crashes if it can't determine its own IP address
+- Failure to delete app data from ZooKeeper prevents app removal 
+- Uploading apps via web UI doesn't work 
+- Removed sisyphus from code base 
+- New builds fail due to Rake error 
+- AppScale lite - selectively build one database into AppScale instead of all of them
+
+AppScale version 1.6.3 was released October 30, 2012.
 
 Bugs fixed in this release:
 - Autoscaler scales down when --appengine is used (https://github.com/AppScale/appscale/issues/43)
 - AppController crashes in response to failed ZooKeeper operations (https://github.com/AppScale/appscale/issues/47)
 - Python applications should start even if rabbitmq fails to start (https://github.com/AppScale/appscale/issues/62)
 - Bad applications crash appscale (https://github.com/AppScale/appscale/issues/57)
-
-and updated versions of Cassandra and HBase used - more info to come soon!
-
-Information about previous releases:
-....
+and updated versions of Cassandra and HBase used.
 
 AppScale version 1.5 was released July 28, 2011. Features include:
 

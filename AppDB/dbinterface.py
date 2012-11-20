@@ -32,7 +32,7 @@ class AppDBInterface:
     raise NotImplementedError("commit is not implemented in %s." % self.__class__)
   def rollback(self, txnid):
     raise NotImplementedError("rollback is not implemented in %s." % self.__class__)
-  def setupTransaction(self, txnid):
+  def setup_transaction(self, txnid):
     raise NotImplementedError("rollback is not implemented in %s." % self.__class__)
     
 

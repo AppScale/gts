@@ -47,6 +47,9 @@ module PbServer
   # within AppScale.
   DBS_WITH_NATIVE_PBSERVER = ["mysql"]
 
+  # A list of databases that use the version 2 of database query support.
+  # The second version has secondary index support.
+  DBS_WITH_V2_PBSERVER = ['cassandra', 'hypertable', "hbase"]
 
   # The name that nginx should use as the identifier for the PBServer when it
   # we write its configuration files.
@@ -64,14 +67,26 @@ module PbServer
       "MASTER_IP" => master_ip, 
       "LOCAL_DB_IP" => db_local_ip 
     }
-
-    ports.each { |port|
-      start_cmd = "/usr/bin/python2.6 #{pbserver} -p #{port} " +
+  
+    if DBS_WITH_V2_PBSERVER.include?(table)
+      ports.each { |port|
+        start_cmd = "/usr/bin/python2.6 #{pbserver} -p #{port} " +
+            "--no_encryption --type #{table} -z \'#{zklocations}\' "
+        # stop command doesn't work, relies on terminate.rb
+        stop_cmd = "pkill -9 datastore_server"
+        GodInterface.start(:pbserver, start_cmd, stop_cmd, port, env_vars)
+      }
+    else
+      ports.each { |port|
+        start_cmd = "/usr/bin/python2.6 #{pbserver} -p #{port} " +
+            "--no_encryption --type #{table} -z \'#{zklocations}\' "
           "--no_encryption --type #{table} -z \'#{zklocations}\' " +
           "-s #{HelperFunctions.get_secret()} -a #{my_ip} --key"
-      stop_cmd = "pkill -9 appscale_server"
-      GodInterface.start(:pbserver, start_cmd, stop_cmd, port, env_vars)
-    }
+        # stop command doesn work, relies on terminate.rb
+        stop_cmd = "pkill -9 appscale_server"
+        GodInterface.start(:pbserver, start_cmd, stop_cmd, port, env_vars)
+      }
+    end
   end
 
 
@@ -117,6 +132,8 @@ module PbServer
   def self.get_executable_name(table)
     if DBS_WITH_NATIVE_PBSERVER.include?(table)
       return "#{APPSCALE_HOME}/AppDB/appscale_server_#{table}.py"
+    elsif DBS_WITH_V2_PBSERVER.include?(table)
+      return "#{APPSCALE_HOME}/AppDB/datastore_server.py"
     else
       return "#{APPSCALE_HOME}/AppDB/appscale_server.py"
     end

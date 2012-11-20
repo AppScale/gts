@@ -1,12 +1,21 @@
 #!/usr/bin/ruby -w
 
 
+# A constant that we use to indicate that we want the output produced
+# by remotely executed SSH commands.
+WANT_OUTPUT = true
+
+
+# A constant that we use to indicate that we do not want the output 
+# produced by remotely executed SSH commands.
+NO_OUTPUT = false
+
+
 # Most daemons within AppScale aren't fault-tolerant, so to make them
 # fault-tolerant, we use the open source process monitor god. This
 # module hides away having to write god config files, deploying it, and
 # sending config files to it.
 module GodInterface
-
 
   def self.start_god(remote_ip, remote_key)
     self.run_god_command("god", remote_ip, remote_key)
@@ -27,7 +36,7 @@ BOO
     body = <<'BAZ'
     PORTS.each do |port|
       God.watch do |w|
-        w.name = "appscale-#{WATCH}-#{port}"
+        w.name = "#{WATCH}-#{port}"
         w.group = WATCH
         w.interval = 30.seconds # default      
         w.start = START_CMD

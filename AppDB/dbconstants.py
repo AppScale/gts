@@ -1,4 +1,7 @@
-# Constants
+# Programmer: Navraj Chohan <nlake44@gmail.com>
+"""
+ Datastore Constants
+"""
 
 import os
 APPSCALE_HOME=os.environ.get("APPSCALE_HOME")
@@ -8,16 +11,57 @@ LOG_DIR = "%s/AppDB/logs" % APPSCALE_HOME
 ERROR_DEFAULT = "DB_ERROR:"
 NONEXISTANT_TRANSACTION = "0"
 
-# DB schema
-
+# Table names
 USERS_TABLE = "USERS__"
 APPS_TABLE = "APPS__"
 JOURNAL_TABLE = "JOURNAL__"
+
+ASC_PROPERTY_TABLE = "ASC_PROPERTY__"
+DSC_PROPERTY_TABLE = "DSC_PROPERTY__"
+APP_INDEX_TABLE = "APP_INDEXES__"
+APP_NAMESPACE_TABLE = "APP_NAMESPACES__"
+APP_ID_TABLE = "APP_IDS__"
+APP_ENTITY_TABLE = "ENTITIES__"
+APP_KIND_TABLE = "KINDS__"
+
+INITIAL_TABLES = [ASC_PROPERTY_TABLE,
+                  DSC_PROPERTY_TABLE,
+                  APP_INDEX_TABLE,
+                  APP_NAMESPACE_TABLE,
+                  APP_ID_TABLE,
+                  APP_ENTITY_TABLE,
+                  APP_KIND_TABLE]
+
+###########################################
+# DB schemas for version 1 of the datastore
+###########################################
 JOURNAL_SCHEMA = [
   "Encoded_Entity"]
+
 ENTITY_TABLE_SCHEMA = [
   "Encoded_Entity",
-  "Txn_Num" ]
+  "Txn_Num"]
+
+###########################################
+# DB schema for version 2 of the datastore
+###########################################
+
+# The schema of the table which holds the encoded entities
+APP_ENTITY_SCHEMA = [
+  "entity",
+  "txnID"]
+
+# Index tables store references are to entity table
+PROPERTY_SCHEMA = [
+  "reference" ]
+APP_INDEX_SCHEMA = [
+  "indexes" ]
+APP_NAMESPACE_SCHEMA = [
+  "namespaces" ]
+APP_ID_SCHEMA = [
+  "next_id" ]
+APP_KIND_SCHEMA = [
+  "reference" ]
 
 USERS_SCHEMA = [
   "email",
@@ -74,3 +118,31 @@ CREATE TABLE IF NOT EXISTS IdSeq (
 ) ENGINE=ndbcluster;
 """]
 
+###############################
+# Generic Datastore Exceptions
+###############################
+class AppScaleDBConnectionError(Exception):
+  """ Tossed when there is a bad connection
+  """ 
+  def __init__(self, value):
+    self.value = value
+  def __str__(self):
+    return repr(self.value)
+
+class AppScaleMisconfiguredQuery(Exception):
+  """ Tossed when a query is misconfigured
+  """
+  def __init__(self, value):
+    self.value = value
+  def __str__(self):
+    return repr(self.value)
+
+class AppScaleBadArg(Exception):
+  """ Bad Argument given for a function
+  """
+  def __init__(self, value):
+    self.value = value
+  def __str__(self):
+    return repr(self.value)
+
+  
