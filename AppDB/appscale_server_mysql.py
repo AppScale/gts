@@ -596,12 +596,6 @@ class DatastoreDistributed():
 
     self.__ValidateAppId(key.app())
 
-    for elem in key.path().element_list():
-      if elem.has_id() == elem.has_name():
-        raise datastore_errors.BadRequestError(
-            'each key path element should have id or name but not both: %r'
-            % key)
-
   def __get_connection(self, txnid):
     conn = None
     self.__gc()
