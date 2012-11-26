@@ -26,7 +26,6 @@ from google.appengine.api import users
 from google.appengine.api import xmpp
 
 from google.appengine.api.appscale import ec2
-from google.appengine.api.appscale import mapreduce
 from google.appengine.api.appscale import neptune
 
 import logging
@@ -292,16 +291,6 @@ class HealthChecker(webapp.RequestHandler):
       except Exception, e:
         health['xmpp'] = FAILED
         logging.error("xmpp API FAILED %s"%(str(e)))
-
-    if capability == "all" or capability == "mapreduce":
-      try:
-        if mapreduce.can_run_jobs():
-          health['mapreduce'] = RUNNING
-        else:
-          health['mapreduce'] = FAILED
-      except Exception, e:
-        health['mapreduce'] = FAILED
-        logging.error("mapreduce API FAILED %s"%(str(e)))
 
     if capability == "all" or capability == "ec2":
       try:
