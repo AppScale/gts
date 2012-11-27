@@ -4,7 +4,6 @@ require 'helperfunctions'
 require 'task_queue'
 
 require 'rubygems'
-require 'aws-sdk'
 require 'json'
 
 
