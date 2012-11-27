@@ -28,17 +28,17 @@
         <tbody>
           <tr>
             <td class="left_align"><a href="lib-godinterface_rb.html">lib/godinterface.rb</a></td>
-            <td class='right_align'><tt>151</tt></td>
-            <td class='right_align'><tt>110</tt></td>
-            <td class="left_align"><div class="percent_graph_legend"><tt class=''>15.23%</tt></div>
+            <td class='right_align'><tt>160</tt></td>
+            <td class='right_align'><tt>112</tt></td>
+            <td class="left_align"><div class="percent_graph_legend"><tt class=''>20.00%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:15px"></div>
-            <div class="uncovered" style="width:85px"></div>
+            <div class="covered" style="width:20px"></div>
+            <div class="uncovered" style="width:80px"></div>
           </div></td>
-            <td class="left_align"><div class="percent_graph_legend"><tt class=''>7.27%</tt></div>
+            <td class="left_align"><div class="percent_graph_legend"><tt class=''>8.93%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:7px"></div>
-            <div class="uncovered" style="width:93px"></div>
+            <div class="covered" style="width:9px"></div>
+            <div class="uncovered" style="width:91px"></div>
           </div></td>
           </tr>
         </tbody>
@@ -75,469 +75,469 @@
           
           
           <tr class="inferred">
-            <td><pre><a name="line4">4</a> # Most daemons within AppScale aren't fault-tolerant, so to make them</pre></td>
+            <td><pre><a name="line4">4</a> # A constant that we use to indicate that we want the output produced</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line5">5</a> # fault-tolerant, we use the open source process monitor god. This</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line6">6</a> # module hides away having to write god config files, deploying it, and</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line7">7</a> # sending config files to it.</pre></td>
+            <td><pre><a name="line5">5</a> # by remotely executed SSH commands.</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line8">8</a> module GodInterface</pre></td>
+            <td><pre><a name="line6">6</a> WANT_OUTPUT = true</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line9">9</a> </pre></td>
+            <td><pre><a name="line7">7</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line10">10</a> </pre></td>
+            <td><pre><a name="line8">8</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line9">9</a> # A constant that we use to indicate that we do not want the output </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line10">10</a> # produced by remotely executed SSH commands.</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line11">11</a>   def self.start_god(remote_ip, remote_key)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line12">12</a>     self.run_god_command(&quot;god&quot;, remote_ip, remote_key)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line13">13</a>   end</pre></td>
+            <td><pre><a name="line11">11</a> NO_OUTPUT = false</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line14">14</a> </pre></td>
+            <td><pre><a name="line12">12</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line13">13</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line14">14</a> # Most daemons within AppScale aren't fault-tolerant, so to make them</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line15">15</a> # fault-tolerant, we use the open source process monitor god. This</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line16">16</a> # module hides away having to write god config files, deploying it, and</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line17">17</a> # sending config files to it.</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line15">15</a>   def self.start(watch, start_cmd, stop_cmd, ports, env_vars=nil, remote_ip=nil, remote_key=nil)</pre></td>
+            <td><pre><a name="line18">18</a> module GodInterface</pre></td>
           </tr>
         
           
           
-          <tr class="uncovered">
-            <td><pre><a name="line16">16</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line17">17</a>     ports = [ports] unless ports.class == Array</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line18">18</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line19">19</a>     prologue = &lt;&lt;BOO</pre></td>
+          <tr class="inferred">
+            <td><pre><a name="line19">19</a> </pre></td>
           </tr>
         
           
           
-          <tr class="uncovered">
-            <td><pre><a name="line20">20</a>     WATCH = &quot;#{watch}&quot;</pre></td>
+          <tr class="marked">
+            <td><pre><a name="line20">20</a>   def self.start_god(remote_ip, remote_key)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line21">21</a>     START_CMD = &quot;#{start_cmd}&quot;</pre></td>
+            <td><pre><a name="line21">21</a>     self.run_god_command(&quot;god&quot;, remote_ip, remote_key)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line22">22</a>     STOP_CMD = &quot;#{stop_cmd}&quot;</pre></td>
+            <td><pre><a name="line22">22</a>   end</pre></td>
           </tr>
         
           
           
-          <tr class="uncovered">
-            <td><pre><a name="line23">23</a>     PORTS = [#{ports.join(', ')}]</pre></td>
+          <tr class="inferred">
+            <td><pre><a name="line23">23</a> </pre></td>
           </tr>
         
           
           
-          <tr class="uncovered">
-            <td><pre><a name="line24">24</a> </pre></td>
+          <tr class="marked">
+            <td><pre><a name="line24">24</a>   def self.start(watch, start_cmd, stop_cmd, ports, env_vars=nil, remote_ip=nil, remote_key=nil)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line25">25</a> BOO</pre></td>
+            <td><pre><a name="line25">25</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line26">26</a> </pre></td>
+            <td><pre><a name="line26">26</a>     ports = [ports] unless ports.class == Array</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line27">27</a>     body = &lt;&lt;'BAZ'</pre></td>
+            <td><pre><a name="line27">27</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line28">28</a>     PORTS.each do |port|</pre></td>
+            <td><pre><a name="line28">28</a>     prologue = &lt;&lt;BOO</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line29">29</a>       God.watch do |w|</pre></td>
+            <td><pre><a name="line29">29</a>     WATCH = &quot;#{watch}&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line30">30</a>         w.name = &quot;appscale-#{WATCH}-#{port}&quot;</pre></td>
+            <td><pre><a name="line30">30</a>     START_CMD = &quot;#{start_cmd}&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line31">31</a>         w.group = WATCH</pre></td>
+            <td><pre><a name="line31">31</a>     STOP_CMD = &quot;#{stop_cmd}&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line32">32</a>         w.interval = 30.seconds # default      </pre></td>
+            <td><pre><a name="line32">32</a>     PORTS = [#{ports.join(', ')}]</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line33">33</a>         w.start = START_CMD</pre></td>
+            <td><pre><a name="line33">33</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line34">34</a>         w.stop = STOP_CMD</pre></td>
+            <td><pre><a name="line34">34</a> BOO</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line35">35</a>         w.start_grace = 20.seconds</pre></td>
+            <td><pre><a name="line35">35</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line36">36</a>         w.restart_grace = 20.seconds</pre></td>
+            <td><pre><a name="line36">36</a>     body = &lt;&lt;'BAZ'</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line37">37</a>         w.log = &quot;/var/log/appscale/#{WATCH}-#{port}.log&quot;</pre></td>
+            <td><pre><a name="line37">37</a>     PORTS.each do |port|</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line38">38</a>         w.pid_file = &quot;/var/appscale/#{WATCH}-#{port}.pid&quot;</pre></td>
+            <td><pre><a name="line38">38</a>       God.watch do |w|</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line39">39</a>     </pre></td>
+            <td><pre><a name="line39">39</a>         w.name = &quot;#{WATCH}-#{port}&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line40">40</a>         w.behavior(:clean_pid_file)</pre></td>
+            <td><pre><a name="line40">40</a>         w.group = WATCH</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line41">41</a> </pre></td>
+            <td><pre><a name="line41">41</a>         w.interval = 30.seconds # default      </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line42">42</a>         w.start_if do |start|</pre></td>
+            <td><pre><a name="line42">42</a>         w.start = START_CMD</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line43">43</a>           start.condition(:process_running) do |c|</pre></td>
+            <td><pre><a name="line43">43</a>         w.stop = STOP_CMD</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line44">44</a>             c.running = false</pre></td>
+            <td><pre><a name="line44">44</a>         w.start_grace = 20.seconds</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line45">45</a>           end</pre></td>
+            <td><pre><a name="line45">45</a>         w.restart_grace = 20.seconds</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line46">46</a>         end</pre></td>
+            <td><pre><a name="line46">46</a>         w.log = &quot;/var/log/appscale/#{WATCH}-#{port}.log&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line47">47</a>     </pre></td>
+            <td><pre><a name="line47">47</a>         w.pid_file = &quot;/var/appscale/#{WATCH}-#{port}.pid&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line48">48</a>         w.restart_if do |restart|</pre></td>
+            <td><pre><a name="line48">48</a>     </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line49">49</a>           restart.condition(:memory_usage) do |c|</pre></td>
+            <td><pre><a name="line49">49</a>         w.behavior(:clean_pid_file)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line50">50</a>             c.above = 150.megabytes</pre></td>
+            <td><pre><a name="line50">50</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line51">51</a>             c.times = [3, 5] # 3 out of 5 intervals</pre></td>
+            <td><pre><a name="line51">51</a>         w.start_if do |start|</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line52">52</a>           end</pre></td>
+            <td><pre><a name="line52">52</a>           start.condition(:process_running) do |c|</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line53">53</a>     </pre></td>
+            <td><pre><a name="line53">53</a>             c.running = false</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line54">54</a>           restart.condition(:cpu_usage) do |c|</pre></td>
+            <td><pre><a name="line54">54</a>           end</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line55">55</a>             c.above = 50.percent</pre></td>
+            <td><pre><a name="line55">55</a>         end</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line56">56</a>             c.times = 5</pre></td>
+            <td><pre><a name="line56">56</a>     </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line57">57</a>           end</pre></td>
+            <td><pre><a name="line57">57</a>         w.restart_if do |restart|</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line58">58</a>         end</pre></td>
+            <td><pre><a name="line58">58</a>           restart.condition(:memory_usage) do |c|</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line59">59</a>     </pre></td>
+            <td><pre><a name="line59">59</a>             c.above = 150.megabytes</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line60">60</a>         # lifecycle</pre></td>
+            <td><pre><a name="line60">60</a>             c.times = [3, 5] # 3 out of 5 intervals</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line61">61</a>         w.lifecycle do |on|</pre></td>
+            <td><pre><a name="line61">61</a>           end</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line62">62</a>           on.condition(:flapping) do |c|</pre></td>
+            <td><pre><a name="line62">62</a>     </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line63">63</a>             c.to_state = [:start, :restart]</pre></td>
+            <td><pre><a name="line63">63</a>           restart.condition(:cpu_usage) do |c|</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line64">64</a>             c.times = 5</pre></td>
+            <td><pre><a name="line64">64</a>             c.above = 50.percent</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line65">65</a>             c.within = 5.minute</pre></td>
+            <td><pre><a name="line65">65</a>             c.times = 5</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line66">66</a>             c.transition = :unmonitored</pre></td>
+            <td><pre><a name="line66">66</a>           end</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line67">67</a>             c.retry_in = 10.minutes</pre></td>
+            <td><pre><a name="line67">67</a>         end</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line68">68</a>             c.retry_times = 5</pre></td>
+            <td><pre><a name="line68">68</a>     </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line69">69</a>             c.retry_within = 2.hours</pre></td>
+            <td><pre><a name="line69">69</a>         # lifecycle</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line70">70</a>           end</pre></td>
+            <td><pre><a name="line70">70</a>         w.lifecycle do |on|</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line71">71</a>         end</pre></td>
+            <td><pre><a name="line71">71</a>           on.condition(:flapping) do |c|</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line72">72</a> BAZ</pre></td>
+            <td><pre><a name="line72">72</a>             c.to_state = [:start, :restart]</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line73">73</a> </pre></td>
+            <td><pre><a name="line73">73</a>             c.times = 5</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line74">74</a>     if !env_vars.nil? and !env_vars.empty?</pre></td>
+            <td><pre><a name="line74">74</a>             c.within = 5.minute</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line75">75</a>       env_vars_str = &quot;&quot;</pre></td>
+            <td><pre><a name="line75">75</a>             c.transition = :unmonitored</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line76">76</a> </pre></td>
+            <td><pre><a name="line76">76</a>             c.retry_in = 10.minutes</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line77">77</a>       env_vars.each { |k, v|</pre></td>
+            <td><pre><a name="line77">77</a>             c.retry_times = 5</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line78">78</a>         env_vars_str += &quot;          \&quot;#{k}\&quot; =&gt; \&quot;#{v}\&quot;,\n&quot;</pre></td>
+            <td><pre><a name="line78">78</a>             c.retry_within = 2.hours</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line79">79</a>       }</pre></td>
+            <td><pre><a name="line79">79</a>           end</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line80">80</a> </pre></td>
+            <td><pre><a name="line80">80</a>         end</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line81">81</a>       body += &lt;&lt;BOO</pre></td>
+            <td><pre><a name="line81">81</a> BAZ</pre></td>
           </tr>
         
           
@@ -549,115 +549,115 @@
           
           
           <tr class="uncovered">
-            <td><pre><a name="line83">83</a>         w.env = {</pre></td>
+            <td><pre><a name="line83">83</a>     if !env_vars.nil? and !env_vars.empty?</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line84">84</a>           #{env_vars_str}</pre></td>
+            <td><pre><a name="line84">84</a>       env_vars_str = &quot;&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line85">85</a>         }</pre></td>
+            <td><pre><a name="line85">85</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line86">86</a> BOO</pre></td>
+            <td><pre><a name="line86">86</a>       env_vars.each { |k, v|</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line87">87</a>     end</pre></td>
+            <td><pre><a name="line87">87</a>         env_vars_str += &quot;          \&quot;#{k}\&quot; =&gt; \&quot;#{v}\&quot;,\n&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line88">88</a> </pre></td>
+            <td><pre><a name="line88">88</a>       }</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line89">89</a>     epilogue = &lt;&lt;BAZ</pre></td>
+            <td><pre><a name="line89">89</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line90">90</a>       end</pre></td>
+            <td><pre><a name="line90">90</a>       body += &lt;&lt;BOO</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line91">91</a>     end</pre></td>
+            <td><pre><a name="line91">91</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line92">92</a> BAZ</pre></td>
+            <td><pre><a name="line92">92</a>         w.env = {</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line93">93</a> </pre></td>
+            <td><pre><a name="line93">93</a>           #{env_vars_str}</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line94">94</a>     config_file = prologue + body + epilogue</pre></td>
+            <td><pre><a name="line94">94</a>         }</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line95">95</a>     tempfile = &quot;/tmp/god-#{rand(10000)}.god&quot;</pre></td>
+            <td><pre><a name="line95">95</a> BOO</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line96">96</a> </pre></td>
+            <td><pre><a name="line96">96</a>     end</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line97">97</a>     HelperFunctions.write_file(tempfile, config_file)</pre></td>
+            <td><pre><a name="line97">97</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line98">98</a> </pre></td>
+            <td><pre><a name="line98">98</a>     epilogue = &lt;&lt;BAZ</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line99">99</a>     if remote_ip</pre></td>
+            <td><pre><a name="line99">99</a>       end</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line100">100</a>       HelperFunctions.scp_file(tempfile, tempfile, remote_ip, remote_key)</pre></td>
+            <td><pre><a name="line100">100</a>     end</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line101">101</a>     end</pre></td>
+            <td><pre><a name="line101">101</a> BAZ</pre></td>
           </tr>
         
           
@@ -669,31 +669,31 @@
           
           
           <tr class="uncovered">
-            <td><pre><a name="line103">103</a>     self.run_god_command(&quot;god load #{tempfile}&quot;, remote_ip, remote_key)</pre></td>
+            <td><pre><a name="line103">103</a>     config_file = prologue + body + epilogue</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line104">104</a>     Kernel.sleep(5)</pre></td>
+            <td><pre><a name="line104">104</a>     tempfile = &quot;/tmp/god-#{rand(10000)}.god&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line105">105</a>     FileUtils.rm_f(tempfile)</pre></td>
+            <td><pre><a name="line105">105</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line106">106</a> </pre></td>
+            <td><pre><a name="line106">106</a>     HelperFunctions.write_file(tempfile, config_file)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line107">107</a>     ip = remote_ip || HelperFunctions.local_ip</pre></td>
+            <td><pre><a name="line107">107</a> </pre></td>
           </tr>
         
           
@@ -705,265 +705,319 @@
           
           
           <tr class="uncovered">
-            <td><pre><a name="line109">109</a>       remove = &quot;rm -rf #{tempfile}&quot;</pre></td>
+            <td><pre><a name="line109">109</a>       HelperFunctions.scp_file(tempfile, tempfile, remote_ip, remote_key)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line110">110</a>       HelperFunctions.run_remote_command(ip, remove, remote_key, NO_OUTPUT)</pre></td>
+            <td><pre><a name="line110">110</a>     end</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line111">111</a>     end</pre></td>
+            <td><pre><a name="line111">111</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line112">112</a> </pre></td>
+            <td><pre><a name="line112">112</a>     self.run_god_command(&quot;god load #{tempfile}&quot;, remote_ip, remote_key)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line113">113</a>     god_info = &quot;Starting #{watch} on ip #{ip}, port #{ports.join(', ')}&quot; +</pre></td>
+            <td><pre><a name="line113">113</a>     Kernel.sleep(5)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line114">114</a>       &quot; with start command [#{start_cmd}] and stop command [#{stop_cmd}]&quot;</pre></td>
+            <td><pre><a name="line114">114</a>     FileUtils.rm_f(tempfile)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line115">115</a>     Djinn.log_debug(god_info)   </pre></td>
+            <td><pre><a name="line115">115</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line116">116</a> </pre></td>
+            <td><pre><a name="line116">116</a>     ip = remote_ip || HelperFunctions.local_ip</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line117">117</a>     self.run_god_command(&quot;god start #{watch}&quot;, remote_ip, remote_key)</pre></td>
+            <td><pre><a name="line117">117</a>     if remote_ip</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line118">118</a>   end</pre></td>
+            <td><pre><a name="line118">118</a>       remove = &quot;rm -rf #{tempfile}&quot;</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line119">119</a>       HelperFunctions.run_remote_command(ip, remove, remote_key, NO_OUTPUT)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line120">120</a>     end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line121">121</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line122">122</a>     god_info = &quot;Starting #{watch} on ip #{ip}, port #{ports.join(', ')}&quot; +</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line123">123</a>       &quot; with start command [#{start_cmd}] and stop command [#{stop_cmd}]&quot;</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line124">124</a>     Djinn.log_debug(god_info)   </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line125">125</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line126">126</a>     self.run_god_command(&quot;god start #{watch}&quot;, remote_ip, remote_key)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line127">127</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line119">119</a> </pre></td>
+            <td><pre><a name="line128">128</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line120">120</a>   def self.stop(watch, remote_ip=nil, remote_key=nil)</pre></td>
+            <td><pre><a name="line129">129</a>   def self.stop(watch, remote_ip=nil, remote_key=nil)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line121">121</a>     self.run_god_command(&quot;god stop #{watch}&quot;, remote_ip, remote_key)</pre></td>
+            <td><pre><a name="line130">130</a>     self.run_god_command(&quot;god stop #{watch}&quot;, remote_ip, remote_key)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line122">122</a>   end</pre></td>
+            <td><pre><a name="line131">131</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line123">123</a> </pre></td>
+            <td><pre><a name="line132">132</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line124">124</a>   def self.remove(watch, remote_ip=nil, remote_key=nil)</pre></td>
+            <td><pre><a name="line133">133</a>   def self.remove(watch, remote_ip=nil, remote_key=nil)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line125">125</a>     self.run_god_command(&quot;god remove #{watch}&quot;, remote_ip, remote_key)</pre></td>
+            <td><pre><a name="line134">134</a>     self.run_god_command(&quot;god remove #{watch}&quot;, remote_ip, remote_key)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line126">126</a>   end</pre></td>
+            <td><pre><a name="line135">135</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line127">127</a> </pre></td>
+            <td><pre><a name="line136">136</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line128">128</a>   def self.shutdown(remote_ip=nil, remote_key=nil)</pre></td>
+            <td><pre><a name="line137">137</a>   def self.shutdown(remote_ip=nil, remote_key=nil)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line129">129</a>     god_status = `god status`</pre></td>
+            <td><pre><a name="line138">138</a>     god_status = `god status`</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line130">130</a>     services = god_status.scan(/^([\w\d]+)/).flatten</pre></td>
+            <td><pre><a name="line139">139</a>     services = god_status.scan(/^([\w\d]+)/).flatten</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line131">131</a> </pre></td>
+            <td><pre><a name="line140">140</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line132">132</a>     services.each { |service|</pre></td>
+            <td><pre><a name="line141">141</a>     services.each { |service|</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line133">133</a>       self.run_god_command(&quot;god stop #{service}&quot;, remote_ip, remote_key)</pre></td>
+            <td><pre><a name="line142">142</a>       self.run_god_command(&quot;god stop #{service}&quot;, remote_ip, remote_key)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line134">134</a>     }</pre></td>
+            <td><pre><a name="line143">143</a>     }</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line135">135</a> </pre></td>
+            <td><pre><a name="line144">144</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line136">136</a>     self.run_god_command(&quot;god terminate&quot;, remote_ip, remote_key)</pre></td>
+            <td><pre><a name="line145">145</a>     self.run_god_command(&quot;god terminate&quot;, remote_ip, remote_key)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line137">137</a>   end</pre></td>
+            <td><pre><a name="line146">146</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line138">138</a> </pre></td>
+            <td><pre><a name="line147">147</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line139">139</a>   private</pre></td>
+            <td><pre><a name="line148">148</a>   private</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line140">140</a>   def self.run_god_command(cmd, ip, ssh_key)</pre></td>
+            <td><pre><a name="line149">149</a>   def self.run_god_command(cmd, ip, ssh_key)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line141">141</a>     local = ip.nil?</pre></td>
+            <td><pre><a name="line150">150</a>     local = ip.nil?</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line142">142</a>     </pre></td>
+            <td><pre><a name="line151">151</a>     </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line143">143</a>     if local</pre></td>
+            <td><pre><a name="line152">152</a>     if local</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line144">144</a>       Djinn.log_run(cmd)</pre></td>
+            <td><pre><a name="line153">153</a>       Djinn.log_run(cmd)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line145">145</a>     else</pre></td>
+            <td><pre><a name="line154">154</a>     else</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line146">146</a>       output = HelperFunctions.run_remote_command(ip, cmd, ssh_key, WANT_OUTPUT)</pre></td>
+            <td><pre><a name="line155">155</a>       output = HelperFunctions.run_remote_command(ip, cmd, ssh_key, WANT_OUTPUT)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line147">147</a>       Djinn.log_debug(&quot;running command #{cmd} on ip #{ip} returned #{output}&quot;)</pre></td>
+            <td><pre><a name="line156">156</a>       Djinn.log_debug(&quot;running command #{cmd} on ip #{ip} returned #{output}&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line148">148</a>     end</pre></td>
+            <td><pre><a name="line157">157</a>     end</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line149">149</a>   end</pre></td>
+            <td><pre><a name="line158">158</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line150">150</a> end</pre></td>
+            <td><pre><a name="line159">159</a> end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line151">151</a> </pre></td>
+            <td><pre><a name="line160">160</a> </pre></td>
           </tr>
         
       </tbody>
     </table>
 
-    <p>Generated on Wed May 16 23:23:05 -0700 2012 with <a href="http://github.com/relevance/rcov">rcov 1.0.0</a></p>
+    <p>Generated on Tue Nov 27 14:29:18 -0800 2012 with <a href="http://github.com/relevance/rcov">rcov 1.0.0</a></p>
 
   </body>
 </html>

@@ -28,17 +28,17 @@
         <tbody>
           <tr>
             <td class="left_align"><a href="lib-haproxy_rb.html">lib/haproxy.rb</a></td>
-            <td class='right_align'><tt>297</tt></td>
-            <td class='right_align'><tt>157</tt></td>
-            <td class="left_align"><div class="percent_graph_legend"><tt class=''>31.99%</tt></div>
+            <td class='right_align'><tt>302</tt></td>
+            <td class='right_align'><tt>162</tt></td>
+            <td class="left_align"><div class="percent_graph_legend"><tt class=''>32.12%</tt></div>
           <div class="percent_graph">
             <div class="covered" style="width:32px"></div>
             <div class="uncovered" style="width:68px"></div>
           </div></td>
-            <td class="left_align"><div class="percent_graph_legend"><tt class=''>18.47%</tt></div>
+            <td class="left_align"><div class="percent_graph_legend"><tt class=''>19.14%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:18px"></div>
-            <div class="uncovered" style="width:82px"></div>
+            <div class="covered" style="width:19px"></div>
+            <div class="uncovered" style="width:81px"></div>
           </div></td>
           </tr>
         </tbody>
@@ -501,391 +501,391 @@
           
           
           <tr class="marked">
-            <td><pre><a name="line75">75</a>   def self.create_app_load_balancer_config(my_ip, listen_port)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line76">76</a>     self.create_app_config(my_ip, listen_port, LoadBalancer.server_ports, LoadBalancer.name)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line77">77</a>   end</pre></td>
+            <td><pre><a name="line75">75</a>   def self.create_app_load_balancer_config(my_public_ip, my_private_ip, </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line78">78</a> </pre></td>
+            <td><pre><a name="line76">76</a>     listen_port)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line77">77</a>     self.create_app_config(my_public_ip, my_private_ip, listen_port, </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line78">78</a>       LoadBalancer.server_ports, LoadBalancer.name)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line79">79</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line79">79</a>   # Create the configuration file for the AppMonitoring Rails application</pre></td>
+            <td><pre><a name="line80">80</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line81">81</a>   # Create the configuration file for the AppMonitoring Rails application</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line80">80</a>   def self.create_app_monitoring_config(my_ip, listen_port)</pre></td>
+            <td><pre><a name="line82">82</a>   def self.create_app_monitoring_config(my_public_ip, my_private_ip, listen_port)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line81">81</a>     self.create_app_config(my_ip, listen_port, Monitoring.server_ports, Monitoring.name)</pre></td>
+            <td><pre><a name="line83">83</a>     self.create_app_config(my_public_ip, my_private_ip, listen_port, </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line82">82</a>   end</pre></td>
+            <td><pre><a name="line84">84</a>       Monitoring.server_ports, Monitoring.name)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line85">85</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line83">83</a> </pre></td>
+            <td><pre><a name="line86">86</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line84">84</a>   # Create the config file for PBServer applications</pre></td>
+            <td><pre><a name="line87">87</a>   # Create the config file for PBServer applications</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line85">85</a>   def self.create_pbserver_config(my_ip, listen_port, table)</pre></td>
+            <td><pre><a name="line88">88</a>   def self.create_pbserver_config(my_ip, listen_port, table)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line86">86</a>     self.create_app_config(my_ip, listen_port, PbServer.get_server_ports(table), PbServer::NAME)</pre></td>
+            <td><pre><a name="line89">89</a>     self.create_app_config(my_ip, my_ip, listen_port, </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line87">87</a>   end</pre></td>
+            <td><pre><a name="line90">90</a>       PbServer.get_server_ports(table), PbServer::NAME)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line91">91</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line88">88</a> </pre></td>
+            <td><pre><a name="line92">92</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line89">89</a>   # A generic function for creating haproxy config files used by appscale services</pre></td>
+            <td><pre><a name="line93">93</a>   # A generic function for creating haproxy config files used by appscale services</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line90">90</a>   def self.create_app_config(my_ip, listen_port, server_ports, name)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line91">91</a>     servers = []</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line92">92</a>     server_ports.each_with_index do |port, index|</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line93">93</a>       servers &lt;&lt; HAProxy.server_config(name, index, my_ip, port)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line94">94</a>     end</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line95">95</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line96">96</a>     config = &quot;# Create a load balancer for the #{name} application \n&quot;</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line97">97</a>     config &lt;&lt; &quot;listen #{name} #{my_ip}:#{listen_port} \n&quot;</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line98">98</a>     config &lt;&lt; servers.join(&quot;\n&quot;)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line99">99</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line100">100</a>     config_path = File.join(SITES_ENABLED_PATH, &quot;#{name}.#{CONFIG_EXTENSION}&quot;)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line101">101</a>     File.open(config_path, &quot;w+&quot;) { |dest_file| dest_file.write(config) }</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line102">102</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line103">103</a>     HAProxy.regenerate_config</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line104">104</a>   end</pre></td>
+            <td><pre><a name="line94">94</a>   def self.create_app_config(my_public_ip, my_private_ip, listen_port, </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line105">105</a> </pre></td>
+            <td><pre><a name="line95">95</a>     server_ports, name)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line96">96</a>     servers = []</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line97">97</a>     server_ports.each_with_index do |port, index|</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line98">98</a>       servers &lt;&lt; HAProxy.server_config(name, index, my_private_ip, port)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line99">99</a>     end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line100">100</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line101">101</a>     config = &quot;# Create a load balancer for the #{name} application \n&quot;</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line102">102</a>     config &lt;&lt; &quot;listen #{name} #{my_private_ip}:#{listen_port} \n&quot;</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line103">103</a>     config &lt;&lt; servers.join(&quot;\n&quot;)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line104">104</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line105">105</a>     config_path = File.join(SITES_ENABLED_PATH, &quot;#{name}.#{CONFIG_EXTENSION}&quot;)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line106">106</a>     File.open(config_path, &quot;w+&quot;) { |dest_file| dest_file.write(config) }</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line107">107</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line108">108</a>     HAProxy.regenerate_config</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line109">109</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line106">106</a>   # Generates a load balancer configuration file. Since haproxy doesn't provide</pre></td>
+            <td><pre><a name="line110">110</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line107">107</a>   # an file include option we emulate that functionality here.</pre></td>
+            <td><pre><a name="line111">111</a>   # Generates a load balancer configuration file. Since haproxy doesn't provide</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line112">112</a>   # an file include option we emulate that functionality here.</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line108">108</a>   def self.regenerate_config</pre></td>
+            <td><pre><a name="line113">113</a>   def self.regenerate_config</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line109">109</a>     conf = File.open(MAIN_CONFIG_FILE,&quot;w+&quot;)</pre></td>
+            <td><pre><a name="line114">114</a>     conf = File.open(MAIN_CONFIG_FILE,&quot;w+&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line110">110</a>     </pre></td>
+            <td><pre><a name="line115">115</a>     </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line111">111</a>     # Start by writing in the base file</pre></td>
+            <td><pre><a name="line116">116</a>     # Start by writing in the base file</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line112">112</a>     File.open(BASE_CONFIG_FILE, &quot;r&quot;) do |base|</pre></td>
+            <td><pre><a name="line117">117</a>     File.open(BASE_CONFIG_FILE, &quot;r&quot;) do |base|</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line113">113</a>       conf.write(base.read())</pre></td>
+            <td><pre><a name="line118">118</a>       conf.write(base.read())</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line114">114</a>     end</pre></td>
+            <td><pre><a name="line119">119</a>     end</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line115">115</a> </pre></td>
+            <td><pre><a name="line120">120</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line116">116</a>     sites = Dir.entries(SITES_ENABLED_PATH)</pre></td>
+            <td><pre><a name="line121">121</a>     sites = Dir.entries(SITES_ENABLED_PATH)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line117">117</a>     # Remove any files that are not configs</pre></td>
+            <td><pre><a name="line122">122</a>     # Remove any files that are not configs</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line118">118</a>     sites.delete_if { |site| !site.end_with?(CONFIG_EXTENSION) }</pre></td>
+            <td><pre><a name="line123">123</a>     sites.delete_if { |site| !site.end_with?(CONFIG_EXTENSION) }</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line119">119</a> </pre></td>
+            <td><pre><a name="line124">124</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line120">120</a>     sites.sort!</pre></td>
+            <td><pre><a name="line125">125</a>     sites.sort!</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line121">121</a> </pre></td>
+            <td><pre><a name="line126">126</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line122">122</a>     # Append each one of the configs into the main one</pre></td>
+            <td><pre><a name="line127">127</a>     # Append each one of the configs into the main one</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line123">123</a>     sites.each do |site|</pre></td>
+            <td><pre><a name="line128">128</a>     sites.each do |site|</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line124">124</a>       conf.write(&quot;\n&quot;)</pre></td>
+            <td><pre><a name="line129">129</a>       conf.write(&quot;\n&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line125">125</a>       File.open(File.join(SITES_ENABLED_PATH, site), &quot;r&quot;) do |site_config|</pre></td>
+            <td><pre><a name="line130">130</a>       File.open(File.join(SITES_ENABLED_PATH, site), &quot;r&quot;) do |site_config|</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line126">126</a>         conf.write(site_config.read())</pre></td>
+            <td><pre><a name="line131">131</a>         conf.write(site_config.read())</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line127">127</a>       end</pre></td>
+            <td><pre><a name="line132">132</a>       end</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line128">128</a>       conf.write(&quot;\n&quot;)</pre></td>
+            <td><pre><a name="line133">133</a>       conf.write(&quot;\n&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line129">129</a>     end</pre></td>
+            <td><pre><a name="line134">134</a>     end</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line130">130</a> </pre></td>
+            <td><pre><a name="line135">135</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line131">131</a>     conf.close()</pre></td>
+            <td><pre><a name="line136">136</a>     conf.close()</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line132">132</a>     </pre></td>
+            <td><pre><a name="line137">137</a>     </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line133">133</a>     # Restart haproxy since we have changed the config</pre></td>
+            <td><pre><a name="line138">138</a>     # Restart haproxy since we have changed the config</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line134">134</a>     HAProxy.restart</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line135">135</a>   end</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line136">136</a>   </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line137">137</a>   # Generate the server configuration line for the provided inputs</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="marked">
-            <td><pre><a name="line138">138</a>   def self.server_config app_name, index, ip, port</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line139">139</a>     &quot;  server #{app_name}-#{index} #{ip}:#{port} #{SERVER_OPTIONS}&quot;</pre></td>
+            <td><pre><a name="line139">139</a>     HAProxy.restart</pre></td>
           </tr>
         
           
@@ -897,97 +897,97 @@
           
           
           <tr class="inferred">
-            <td><pre><a name="line141">141</a> </pre></td>
+            <td><pre><a name="line141">141</a>   </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line142">142</a>   # Generate the server configuration line for the provided inputs</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line142">142</a>   def self.write_app_config(app_name, app_number, num_of_servers, ip)</pre></td>
+            <td><pre><a name="line143">143</a>   def self.server_config app_name, index, ip, port</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line143">143</a>     # Add a prefix to the app name to avoid possible conflicts</pre></td>
+            <td><pre><a name="line144">144</a>     &quot;  server #{app_name}-#{index} #{ip}:#{port} #{SERVER_OPTIONS}&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line144">144</a>     full_app_name = &quot;gae_#{app_name}&quot;</pre></td>
+            <td><pre><a name="line145">145</a>   end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line146">146</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line147">147</a>   def self.write_app_config(app_name, app_number, num_of_servers, ip)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line145">145</a> </pre></td>
+            <td><pre><a name="line148">148</a>     # Add a prefix to the app name to avoid possible conflicts</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line146">146</a>     servers = []</pre></td>
+            <td><pre><a name="line149">149</a>     full_app_name = &quot;gae_#{app_name}&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line147">147</a>     num_of_servers.times do |index|</pre></td>
+            <td><pre><a name="line150">150</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line148">148</a>       port = HelperFunctions.application_port(app_number, index, num_of_servers)</pre></td>
+            <td><pre><a name="line151">151</a>     servers = []</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line149">149</a>       server = HAProxy.server_config(full_app_name, index, ip, port)</pre></td>
+            <td><pre><a name="line152">152</a>     num_of_servers.times do |index|</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line150">150</a>       servers &lt;&lt; server</pre></td>
+            <td><pre><a name="line153">153</a>       port = HelperFunctions.application_port(app_number, index, num_of_servers)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line151">151</a>     end</pre></td>
+            <td><pre><a name="line154">154</a>       server = HAProxy.server_config(full_app_name, index, ip, port)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line152">152</a> </pre></td>
+            <td><pre><a name="line155">155</a>       servers &lt;&lt; server</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line153">153</a>     listen_port = HAProxy.app_listen_port(app_number)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line154">154</a>     config = &quot;# Create a load balancer for the app #{app_name} \n&quot;</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line155">155</a>     config &lt;&lt; &quot;listen #{full_app_name} #{ip}:#{listen_port} \n&quot;</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line156">156</a>     config &lt;&lt; servers.join(&quot;\n&quot;)</pre></td>
+            <td><pre><a name="line156">156</a>     end</pre></td>
           </tr>
         
           
@@ -999,169 +999,169 @@
           
           
           <tr class="uncovered">
-            <td><pre><a name="line158">158</a>     config_path = File.join(SITES_ENABLED_PATH, </pre></td>
+            <td><pre><a name="line158">158</a>     listen_port = HAProxy.app_listen_port(app_number)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line159">159</a>       &quot;#{full_app_name}.#{CONFIG_EXTENSION}&quot;)</pre></td>
+            <td><pre><a name="line159">159</a>     config = &quot;# Create a load balancer for the app #{app_name} \n&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line160">160</a>     File.open(config_path, &quot;w+&quot;) { |dest_file| dest_file.write(config) }</pre></td>
+            <td><pre><a name="line160">160</a>     config &lt;&lt; &quot;listen #{full_app_name} #{ip}:#{listen_port} \n&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line161">161</a> </pre></td>
+            <td><pre><a name="line161">161</a>     config &lt;&lt; servers.join(&quot;\n&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line162">162</a>     HAProxy.regenerate_config</pre></td>
+            <td><pre><a name="line162">162</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line163">163</a>   end</pre></td>
+            <td><pre><a name="line163">163</a>     config_path = File.join(SITES_ENABLED_PATH, </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line164">164</a>       &quot;#{full_app_name}.#{CONFIG_EXTENSION}&quot;)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line165">165</a>     File.open(config_path, &quot;w+&quot;) { |dest_file| dest_file.write(config) }</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line166">166</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line167">167</a>     HAProxy.regenerate_config</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line168">168</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line164">164</a> </pre></td>
+            <td><pre><a name="line169">169</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line165">165</a> </pre></td>
+            <td><pre><a name="line170">170</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line166">166</a>   # Updates the HAProxy config file for this App Engine application to</pre></td>
+            <td><pre><a name="line171">171</a>   # Updates the HAProxy config file for this App Engine application to</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line167">167</a>   # point to all the ports currently the application. In contrast with</pre></td>
+            <td><pre><a name="line172">172</a>   # point to all the ports currently the application. In contrast with</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line168">168</a>   # write_app_config, these ports can be non-contiguous.</pre></td>
+            <td><pre><a name="line173">173</a>   # write_app_config, these ports can be non-contiguous.</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line169">169</a>   # TODO(cgb): Lots of copypasta here with write_app_config - eliminate it.</pre></td>
+            <td><pre><a name="line174">174</a>   # TODO(cgb): Lots of copy/paste here with write_app_config - eliminate it.</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line170">170</a>   def self.update_app_config(app_name, app_number, ports, public_ip)</pre></td>
+            <td><pre><a name="line175">175</a>   def self.update_app_config(app_name, app_number, ports, private_ip)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line171">171</a>     # Add a prefix to the app name to avoid collisions with non-GAE apps</pre></td>
+            <td><pre><a name="line176">176</a>     # Add a prefix to the app name to avoid collisions with non-GAE apps</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line172">172</a>     full_app_name = &quot;gae_#{app_name}&quot;</pre></td>
+            <td><pre><a name="line177">177</a>     full_app_name = &quot;gae_#{app_name}&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line173">173</a>     index = 0</pre></td>
+            <td><pre><a name="line178">178</a>     index = 0</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line174">174</a>     servers = []</pre></td>
+            <td><pre><a name="line179">179</a>     servers = []</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line175">175</a> </pre></td>
+            <td><pre><a name="line180">180</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line176">176</a>     ports.each { |port|</pre></td>
+            <td><pre><a name="line181">181</a>     ports.each { |port|</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line177">177</a>       server = HAProxy.server_config(full_app_name, index, public_ip, port)</pre></td>
+            <td><pre><a name="line182">182</a>       server = HAProxy.server_config(full_app_name, index, private_ip, port)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line178">178</a>       index += 1</pre></td>
+            <td><pre><a name="line183">183</a>       index += 1</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line179">179</a>       servers &lt;&lt; server</pre></td>
+            <td><pre><a name="line184">184</a>       servers &lt;&lt; server</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line180">180</a>     }</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line181">181</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line182">182</a>     listen_port = HAProxy.app_listen_port(app_number)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line183">183</a>     config = &quot;# Create a load balancer for the app #{app_name} \n&quot;</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line184">184</a>     config &lt;&lt; &quot;listen #{full_app_name} #{public_ip}:#{listen_port} \n&quot;</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line185">185</a>     config &lt;&lt; servers.join(&quot;\n&quot;)</pre></td>
+            <td><pre><a name="line185">185</a>     }</pre></td>
           </tr>
         
           
@@ -1173,235 +1173,235 @@
           
           
           <tr class="uncovered">
-            <td><pre><a name="line187">187</a>     config_path = File.join(SITES_ENABLED_PATH, </pre></td>
+            <td><pre><a name="line187">187</a>     listen_port = HAProxy.app_listen_port(app_number)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line188">188</a>       &quot;#{full_app_name}.#{CONFIG_EXTENSION}&quot;)</pre></td>
+            <td><pre><a name="line188">188</a>     config = &quot;# Create a load balancer for the app #{app_name} \n&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line189">189</a>     File.open(config_path, &quot;w+&quot;) { |dest_file| dest_file.write(config) }</pre></td>
+            <td><pre><a name="line189">189</a>     config &lt;&lt; &quot;listen #{full_app_name} #{private_ip}:#{listen_port} \n&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line190">190</a>  </pre></td>
+            <td><pre><a name="line190">190</a>     config &lt;&lt; servers.join(&quot;\n&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line191">191</a>     HAProxy.regenerate_config()</pre></td>
+            <td><pre><a name="line191">191</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line192">192</a>   end</pre></td>
+            <td><pre><a name="line192">192</a>     config_path = File.join(SITES_ENABLED_PATH, </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line193">193</a>       &quot;#{full_app_name}.#{CONFIG_EXTENSION}&quot;)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line194">194</a>     File.open(config_path, &quot;w+&quot;) { |dest_file| dest_file.write(config) }</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line195">195</a>  </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line196">196</a>     HAProxy.regenerate_config()</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line197">197</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line193">193</a> </pre></td>
+            <td><pre><a name="line198">198</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line194">194</a> </pre></td>
+            <td><pre><a name="line199">199</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line195">195</a>   def self.remove_app(app_name)</pre></td>
+            <td><pre><a name="line200">200</a>   def self.remove_app(app_name)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line196">196</a>     config_name = &quot;gae_#{app_name}.#{CONFIG_EXTENSION}&quot;</pre></td>
+            <td><pre><a name="line201">201</a>     config_name = &quot;gae_#{app_name}.#{CONFIG_EXTENSION}&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line197">197</a>     FileUtils.rm(File.join(SITES_ENABLED_PATH, config_name))</pre></td>
+            <td><pre><a name="line202">202</a>     FileUtils.rm(File.join(SITES_ENABLED_PATH, config_name))</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line198">198</a>     HAProxy.regenerate_config</pre></td>
+            <td><pre><a name="line203">203</a>     HAProxy.regenerate_config</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line199">199</a>   end</pre></td>
+            <td><pre><a name="line204">204</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line200">200</a> </pre></td>
+            <td><pre><a name="line205">205</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line201">201</a> </pre></td>
+            <td><pre><a name="line206">206</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line202">202</a>   # Removes all the enabled sites</pre></td>
+            <td><pre><a name="line207">207</a>   # Removes all the enabled sites</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line203">203</a>   def self.clear_sites_enabled</pre></td>
+            <td><pre><a name="line208">208</a>   def self.clear_sites_enabled</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line204">204</a>     if File.exists?(SITES_ENABLED_PATH)</pre></td>
+            <td><pre><a name="line209">209</a>     if File.exists?(SITES_ENABLED_PATH)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line205">205</a>       sites = Dir.entries(SITES_ENABLED_PATH)</pre></td>
+            <td><pre><a name="line210">210</a>       sites = Dir.entries(SITES_ENABLED_PATH)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line206">206</a>       # Remove any files that are not configs</pre></td>
+            <td><pre><a name="line211">211</a>       # Remove any files that are not configs</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line207">207</a>       sites.delete_if { |site| !site.end_with?(CONFIG_EXTENSION) }</pre></td>
+            <td><pre><a name="line212">212</a>       sites.delete_if { |site| !site.end_with?(CONFIG_EXTENSION) }</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line208">208</a>       full_path_sites = sites.map { |site| File.join(SITES_ENABLED_PATH, site) }</pre></td>
+            <td><pre><a name="line213">213</a>       full_path_sites = sites.map { |site| File.join(SITES_ENABLED_PATH, site) }</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line209">209</a>       FileUtils.rm_f full_path_sites</pre></td>
+            <td><pre><a name="line214">214</a>       FileUtils.rm_f full_path_sites</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line210">210</a> </pre></td>
+            <td><pre><a name="line215">215</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line211">211</a>       HAProxy.regenerate_config</pre></td>
+            <td><pre><a name="line216">216</a>       HAProxy.regenerate_config</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line212">212</a>     end</pre></td>
+            <td><pre><a name="line217">217</a>     end</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line213">213</a>   end</pre></td>
+            <td><pre><a name="line218">218</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line214">214</a> </pre></td>
+            <td><pre><a name="line219">219</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line215">215</a>   # Set up the folder structure and creates the configuration files necessary for haproxy</pre></td>
+            <td><pre><a name="line220">220</a>   # Set up the folder structure and creates the configuration files necessary for haproxy</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line216">216</a>   def self.initialize_config</pre></td>
+            <td><pre><a name="line221">221</a>   def self.initialize_config</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line217">217</a>     base_config = &lt;&lt;CONFIG</pre></td>
+            <td><pre><a name="line222">222</a>     base_config = &lt;&lt;CONFIG</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line218">218</a> global</pre></td>
+            <td><pre><a name="line223">223</a> global</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line219">219</a>   maxconn 64000</pre></td>
+            <td><pre><a name="line224">224</a>   maxconn 64000</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line220">220</a>   ulimit-n 200000</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line221">221</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line222">222</a>   # log incoming requests - may need to tell syslog to accept these requests</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line223">223</a>   # http://kevin.vanzonneveld.net/techblog/article/haproxy_logging/</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line224">224</a>   log             127.0.0.1       local0</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line225">225</a>   log             127.0.0.1       local1 notice</pre></td>
+            <td><pre><a name="line225">225</a>   ulimit-n 200000</pre></td>
           </tr>
         
           
@@ -1413,115 +1413,115 @@
           
           
           <tr class="uncovered">
-            <td><pre><a name="line227">227</a>   # Distribute the health checks with a bit of randomness</pre></td>
+            <td><pre><a name="line227">227</a>   # log incoming requests - may need to tell syslog to accept these requests</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line228">228</a>   spread-checks 5</pre></td>
+            <td><pre><a name="line228">228</a>   # http://kevin.vanzonneveld.net/techblog/article/haproxy_logging/</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line229">229</a> </pre></td>
+            <td><pre><a name="line229">229</a>   log             127.0.0.1       local0</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line230">230</a>   # Bind socket for haproxy stats</pre></td>
+            <td><pre><a name="line230">230</a>   log             127.0.0.1       local1 notice</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line231">231</a>   stats socket /etc/haproxy/stats</pre></td>
+            <td><pre><a name="line231">231</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line232">232</a> </pre></td>
+            <td><pre><a name="line232">232</a>   # Distribute the health checks with a bit of randomness</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line233">233</a> # Settings in the defaults section apply to all services (unless overridden in a specific config)</pre></td>
+            <td><pre><a name="line233">233</a>   spread-checks 5</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line234">234</a> defaults</pre></td>
+            <td><pre><a name="line234">234</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line235">235</a> </pre></td>
+            <td><pre><a name="line235">235</a>   # Bind socket for haproxy stats</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line236">236</a>   # apply log settings from the global section above to services</pre></td>
+            <td><pre><a name="line236">236</a>   stats socket /etc/haproxy/stats</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line237">237</a>   log global</pre></td>
+            <td><pre><a name="line237">237</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line238">238</a> </pre></td>
+            <td><pre><a name="line238">238</a> # Settings in the defaults section apply to all services (unless overridden in a specific config)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line239">239</a>   # Proxy incoming traffic as HTTP requests</pre></td>
+            <td><pre><a name="line239">239</a> defaults</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line240">240</a>   mode http</pre></td>
+            <td><pre><a name="line240">240</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line241">241</a> </pre></td>
+            <td><pre><a name="line241">241</a>   # apply log settings from the global section above to services</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line242">242</a>   # Use round robin load balancing, however since we will use maxconn that will take precedence</pre></td>
+            <td><pre><a name="line242">242</a>   log global</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line243">243</a>   balance roundrobin</pre></td>
+            <td><pre><a name="line243">243</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line244">244</a> </pre></td>
+            <td><pre><a name="line244">244</a>   # Proxy incoming traffic as HTTP requests</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line245">245</a>   maxconn 64000</pre></td>
+            <td><pre><a name="line245">245</a>   mode http</pre></td>
           </tr>
         
           
@@ -1533,13 +1533,13 @@
           
           
           <tr class="uncovered">
-            <td><pre><a name="line247">247</a>   # Log details about HTTP requests</pre></td>
+            <td><pre><a name="line247">247</a>   # Use round robin load balancing, however since we will use maxconn that will take precedence</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line248">248</a>   #option httplog</pre></td>
+            <td><pre><a name="line248">248</a>   balance roundrobin</pre></td>
           </tr>
         
           
@@ -1551,295 +1551,325 @@
           
           
           <tr class="uncovered">
-            <td><pre><a name="line250">250</a>   # Abort request if client closes its output channel while waiting for the </pre></td>
+            <td><pre><a name="line250">250</a>   maxconn 64000</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line251">251</a>   # request. HAProxy documentation has a long explanation for this option.</pre></td>
+            <td><pre><a name="line251">251</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line252">252</a>   option abortonclose</pre></td>
+            <td><pre><a name="line252">252</a>   # Log details about HTTP requests</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line253">253</a> </pre></td>
+            <td><pre><a name="line253">253</a>   #option httplog</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line254">254</a>   # Check if a &quot;Connection: close&quot; header is already set in each direction,</pre></td>
+            <td><pre><a name="line254">254</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line255">255</a>   # and will add one if missing.</pre></td>
+            <td><pre><a name="line255">255</a>   # Abort request if client closes its output channel while waiting for the </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line256">256</a>   option httpclose</pre></td>
+            <td><pre><a name="line256">256</a>   # request. HAProxy documentation has a long explanation for this option.</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line257">257</a> </pre></td>
+            <td><pre><a name="line257">257</a>   option abortonclose</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line258">258</a>   # If sending a request fails, try to send it to another, 3 times</pre></td>
+            <td><pre><a name="line258">258</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line259">259</a>   # before aborting the request</pre></td>
+            <td><pre><a name="line259">259</a>   # Check if a &quot;Connection: close&quot; header is already set in each direction,</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line260">260</a>   retries 3</pre></td>
+            <td><pre><a name="line260">260</a>   # and will add one if missing.</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line261">261</a> </pre></td>
+            <td><pre><a name="line261">261</a>   option httpclose</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line262">262</a>   # Do not enforce session affinity (i.e., an HTTP session can be served by </pre></td>
+            <td><pre><a name="line262">262</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line263">263</a>   # any Mongrel, not just the one that started the session</pre></td>
+            <td><pre><a name="line263">263</a>   # If sending a request fails, try to send it to another, 3 times</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line264">264</a>   option redispatch</pre></td>
+            <td><pre><a name="line264">264</a>   # before aborting the request</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line265">265</a> </pre></td>
+            <td><pre><a name="line265">265</a>   retries 3</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line266">266</a>   # Timeout a request if the client did not read any data for 60 seconds</pre></td>
+            <td><pre><a name="line266">266</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line267">267</a>   timeout client 60000</pre></td>
+            <td><pre><a name="line267">267</a>   # Do not enforce session affinity (i.e., an HTTP session can be served by </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line268">268</a> </pre></td>
+            <td><pre><a name="line268">268</a>   # any Mongrel, not just the one that started the session</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line269">269</a>   # Timeout a request if Mongrel does not accept a connection for 60 seconds</pre></td>
+            <td><pre><a name="line269">269</a>   option redispatch</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line270">270</a>   timeout connect 60000</pre></td>
+            <td><pre><a name="line270">270</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line271">271</a> </pre></td>
+            <td><pre><a name="line271">271</a>   # Timeout a request if the client did not read any data for 60 seconds</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line272">272</a>   # Timeout a request if Mongrel does not accept the data on the connection,</pre></td>
+            <td><pre><a name="line272">272</a>   timeout client 60000</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line273">273</a>   # or does not send a response back in 60 seconds</pre></td>
+            <td><pre><a name="line273">273</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line274">274</a>   timeout server 60000</pre></td>
+            <td><pre><a name="line274">274</a>   # Timeout a request if Mongrel does not accept a connection for 60 seconds</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line275">275</a>   </pre></td>
+            <td><pre><a name="line275">275</a>   timeout connect 60000</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line276">276</a>   # Enable the statistics page </pre></td>
+            <td><pre><a name="line276">276</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line277">277</a>   stats enable</pre></td>
+            <td><pre><a name="line277">277</a>   # Timeout a request if Mongrel does not accept the data on the connection,</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line278">278</a>   stats uri     /haproxy?stats</pre></td>
+            <td><pre><a name="line278">278</a>   # or does not send a response back in 60 seconds</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line279">279</a>   stats realm   Haproxy\ Statistics</pre></td>
+            <td><pre><a name="line279">279</a>   timeout server 60000</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line280">280</a>   stats auth    haproxy:stats</pre></td>
+            <td><pre><a name="line280">280</a>   </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line281">281</a> </pre></td>
+            <td><pre><a name="line281">281</a>   # Enable the statistics page </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line282">282</a>   # Create a monitorable URI which returns a 200 if haproxy is up</pre></td>
+            <td><pre><a name="line282">282</a>   stats enable</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line283">283</a>   # monitor-uri /haproxy?monitor</pre></td>
+            <td><pre><a name="line283">283</a>   stats uri     /haproxy?stats</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line284">284</a> </pre></td>
+            <td><pre><a name="line284">284</a>   stats realm   Haproxy\ Statistics</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line285">285</a>   # Amount of time after which a health check is considered to have timed out</pre></td>
+            <td><pre><a name="line285">285</a>   stats auth    haproxy:stats</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line286">286</a>   timeout check 5000</pre></td>
+            <td><pre><a name="line286">286</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line287">287</a> CONFIG</pre></td>
+            <td><pre><a name="line287">287</a>   # Create a monitorable URI which returns a 200 if haproxy is up</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line288">288</a> </pre></td>
+            <td><pre><a name="line288">288</a>   # monitor-uri /haproxy?monitor</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line289">289</a>     # Create the sites enabled folder</pre></td>
+            <td><pre><a name="line289">289</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line290">290</a>     unless File.exists? SITES_ENABLED_PATH</pre></td>
+            <td><pre><a name="line290">290</a>   # Amount of time after which a health check is considered to have timed out</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line291">291</a>       FileUtils.mkdir_p SITES_ENABLED_PATH</pre></td>
+            <td><pre><a name="line291">291</a>   timeout check 5000</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line292">292</a>     end</pre></td>
+            <td><pre><a name="line292">292</a> CONFIG</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line293">293</a>     </pre></td>
+            <td><pre><a name="line293">293</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line294">294</a>     # Write the base configuration file which sets default configuration parameters</pre></td>
+            <td><pre><a name="line294">294</a>     # Create the sites enabled folder</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line295">295</a>     File.open(BASE_CONFIG_FILE, &quot;w+&quot;) { |dest_file| dest_file.write(base_config) }</pre></td>
+            <td><pre><a name="line295">295</a>     unless File.exists? SITES_ENABLED_PATH</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line296">296</a>   end</pre></td>
+            <td><pre><a name="line296">296</a>       FileUtils.mkdir_p SITES_ENABLED_PATH</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line297">297</a> end</pre></td>
+            <td><pre><a name="line297">297</a>     end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line298">298</a>     </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line299">299</a>     # Write the base configuration file which sets default configuration parameters</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line300">300</a>     File.open(BASE_CONFIG_FILE, &quot;w+&quot;) { |dest_file| dest_file.write(base_config) }</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line301">301</a>   end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line302">302</a> end</pre></td>
           </tr>
         
       </tbody>
     </table>
 
-    <p>Generated on Wed May 16 23:23:05 -0700 2012 with <a href="http://github.com/relevance/rcov">rcov 1.0.0</a></p>
+    <p>Generated on Tue Nov 27 14:29:18 -0800 2012 with <a href="http://github.com/relevance/rcov">rcov 1.0.0</a></p>
 
   </body>
 </html>
