@@ -1834,20 +1834,21 @@ class Djinn
   # speaking, we assume that our node is identifiable by private IP.
   def find_me_in_locations()
     @my_index = nil
-    Djinn.log_debug("Searching for node index for #{HelperFunctions.local_ip}")
+    all_local_ips = HelperFunctions.get_all_local_ips()
+    Djinn.log_debug("Seeing which node has a private IP that matches " +
+      "our private IPs, which are: #{all_local_ips.join(', ')}")
     Djinn.log_debug("@nodes is #{@nodes.join(', ')}")
     @nodes.each_index { |index|
       Djinn.log_debug("Am I #{@nodes[index].private_ip}?")
-      if @nodes[index].private_ip == HelperFunctions.local_ip
+      if all_local_ips.include?(@nodes[index].private_ip)
         Djinn.log_debug("Yes!")
         @my_index = index
-        break
+        HelperFunctions.set_local_ip(@nodes[index].private_ip)
+        return
       end
       Djinn.log_debug("No...")
     }
-    if @my_index.nil?
-      Djinn.log_debug("I am lost, could not find my node") 
-    end
+    Djinn.log_debug("I am lost, could not find my node") 
   end
 
 

@@ -84,6 +84,10 @@ module HelperFunctions
   DONT_USE_SSL = false
 
 
+  # The IPv4 address that corresponds to the reserved localhost IP.
+  LOCALHOST_IP = "127.0.0.1"
+
+
   # A class variable that is used to locally cache our own IP address, so that
   # we don't keep asking the system for it.
   @@my_local_ip = nil
@@ -325,6 +329,43 @@ module HelperFunctions
     self.shell("tar --file #{tar_path} --force-local -C #{tar_dir} -zx") if untar
   end
 
+
+  # Queries the operating system to determine which IP addresses are
+  # bound to this virtual machine.
+  # Args:
+  #   remove_lo: A boolean that indicates whether or not the lo
+  #     device's IP should be removed from the results. By default,
+  #     we remove it, since it is on all virtual machines and thus
+  #     not useful towards uniquely identifying a particular machine.
+  # Returns:
+  #   An Array of Strings, each of which is an IP address bound to
+  #     this virtual machine.
+  def self.get_all_local_ips(remove_lo=true)
+    ifconfig = HelperFunctions.shell("ifconfig")
+    Kernel.puts("ifconfig returned the following: [#{ifconfig}]")
+    bound_addrs = ifconfig.scan(/inet addr:(\d+.\d+.\d+.\d+)/).flatten
+
+    Kernel.puts("ifconfig reports bound IP addresses as " +
+      "[#{bound_addrs.join(', ')}]")
+    if remove_lo
+      bound_addrs.delete(LOCALHOST_IP)
+    end
+    return bound_addrs
+  end
+
+  
+  # Sets the locally cached IP address to the provided value. Callers
+  # should use this if they believe the IP address on this machine
+  # is not the first IP returned by 'ifconfig', which can occur if
+  # the IP to reach this machine on is eth1, eth2, etc.
+  # Args:
+  #   ip: The IP address that other AppScale nodes can reach this
+  #     machine via.
+  def self.set_local_ip(ip)
+    @@my_local_ip = ip
+  end
+
+
   # Returns the IP address associated with this machine. To get around
   # issues where a VM may forget its IP address
   # (https://github.com/AppScale/appscale/issues/84), we locally cache it
@@ -339,23 +380,15 @@ module HelperFunctions
       return @@my_local_ip
     end
 
-    ifconfig = HelperFunctions.shell("ifconfig")
-    Kernel.puts("ifconfig returned the following: [#{ifconfig}]")
-    bound_addrs = ifconfig.scan(/inet addr:(\d+.\d+.\d+.\d+)/).flatten
+    bound_addrs = self.get_all_local_ips()
+    if bound_addrs.length.zero?
+      raise Exception.new("Couldn't get our local IP address")
+    end
 
-    Kernel.puts("ifconfig reports bound IP addresses as " +
-      "[#{bound_addrs.join(', ')}]")
-    bound_addrs.each { |addr|
-      if addr == "127.0.0.1"
-        next
-      end
-
-      Kernel.puts("Returning #{addr} as our local IP address")
-      @@my_local_ip = addr
-      return addr
-    }
-
-    raise Exception.new("Couldn't get our local IP address")
+    addr = bound_addrs[0]
+    Kernel.puts("Returning #{addr} as our local IP address")
+    @@my_local_ip = addr
+    return addr
   end
 
   # In cloudy deployments, the recommended way to determine a machine's true
