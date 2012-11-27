@@ -12,6 +12,7 @@ class TestDjinn < Test::Unit::TestCase
   def setup
     kernel = flexmock(Kernel)
     kernel.should_receive(:puts).and_return()
+    kernel.should_receive(:shell).with("").and_return()
     kernel.should_receive(:sleep).and_return()
 
     djinn_class = flexmock(Djinn)
@@ -159,11 +160,11 @@ class TestDjinn < Test::Unit::TestCase
 
     credentials = ['table', 'cassandra', 'hostname', 'public_ip', 'ips', '', 
       'keyname', 'appscale']
-    one_node_info = ['public_ip:private_ip:some_role:instance_id:cloud1']
+    one_node_info = ['public_ip:1.2.3.4:some_role:instance_id:cloud1']
     app_names = []
 
-    flexmock(HelperFunctions).should_receive(:local_ip).
-      and_return("private_ip")
+    flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
+      and_return("inet addr:1.2.3.4")
 
     expected = "OK"
     actual = djinn.set_parameters(one_node_info, credentials, app_names,
