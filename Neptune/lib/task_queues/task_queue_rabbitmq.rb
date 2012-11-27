@@ -4,7 +4,7 @@ require 'helperfunctions'
 require 'task_queue'
 
 require 'rubygems'
-require 'bunny'
+#require 'bunny'
 require 'json'
 
 

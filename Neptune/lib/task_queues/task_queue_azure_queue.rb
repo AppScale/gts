@@ -4,8 +4,8 @@ require 'helperfunctions'
 require 'task_queue'
 
 require 'rubygems'
-require 'waz-storage'
-require 'waz-queues'
+#require 'waz-storage'
+#require 'waz-queues'
 require 'json'
 
 
