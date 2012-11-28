@@ -124,7 +124,7 @@ class ZKInterface
   # this method when they don't want to determine on their own which
   # ZooKeeper box to connect to.
   def self.init(my_node, all_nodes)
-    self.init_to_ip(my_node.public_ip, self.get_zk_location(my_node, 
+    self.init_to_ip(my_node.private_ip, self.get_zk_location(my_node,
       all_nodes))
   end
 
@@ -715,7 +715,7 @@ class ZKInterface
       abort(no_zks)
     end
 
-    return zk_node.public_ip
+    return zk_node.private_ip
   end
 
 
