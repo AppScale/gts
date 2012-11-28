@@ -12,6 +12,7 @@ require 'timeout'
 
 # Imports for AppController libraries
 $:.unshift File.join(File.dirname(__FILE__))
+require 'custom_exceptions'
 require 'user_app_client'
 
 
@@ -1053,6 +1054,25 @@ module HelperFunctions
       abort(fail_msg)
     end
   end
+
+
+  # Checks to see if the virtual machine at the given IP address has
+  # the same version of AppScale installed as these tools.
+  # Args:
+  #   ip: The IP address of the VM to check the version on.
+  #   key: The SSH key that can be used to log into the machine at the
+  #     given IP address.
+  # Raises:
+  #   AppScaleException: If the virtual machine at the given IP address
+  #     does not have the same version of AppScale installed as these
+  #     tools.
+  def self.ensure_version_is_supported(ip, key)
+    return if self.does_image_have_location?(ip, "/etc/appscale/#{VER_NUM}", key)
+    raise AppScaleException.new("The image at #{ip} does not support " +
+      "this version of AppScale (#{VER_NUM}). Please install AppScale" +
+      " #{VER_NUM} on it and try again.")
+  end
+
 
   def self.ensure_db_is_supported(ip, db, key)
     if self.does_image_have_location?(ip, "/etc/appscale/#{VER_NUM}/#{db}", key)
