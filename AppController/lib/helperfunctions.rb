@@ -12,6 +12,7 @@ require 'timeout'
 
 # Imports for AppController libraries
 $:.unshift File.join(File.dirname(__FILE__))
+require 'custom_exceptions'
 require 'user_app_client'
 
 
@@ -29,7 +30,7 @@ end
 module HelperFunctions
 
 
-  VER_NUM = "1.6.3"
+  VER_NUM = "1.6.4"
 
   
   APPSCALE_HOME = ENV['APPSCALE_HOME']
@@ -82,6 +83,15 @@ module HelperFunctions
   # A constant that indicates that SSL should not be used when checking if a
   # given port is open.
   DONT_USE_SSL = false
+
+
+  # The IPv4 address that corresponds to the reserved localhost IP.
+  LOCALHOST_IP = "127.0.0.1"
+
+
+  # A class variable that is used to locally cache our own IP address, so that
+  # we don't keep asking the system for it.
+  @@my_local_ip = nil
 
 
   def self.shell(cmd)
@@ -320,112 +330,66 @@ module HelperFunctions
     self.shell("tar --file #{tar_path} --force-local -C #{tar_dir} -zx") if untar
   end
 
-  # Returns pid if successful, -1 if not
-  def self.run_app(app_name, port, db_location, public_ip, private_ip, app_version, app_language, nginx_port, xmpp_ip)
-    secret = HelperFunctions.get_secret    
 
-    start_cmd = ""
-    stop_cmd = ""
-    env_vars = {}
-    
-    if app_language == "python"
-      if File.exist?("/var/apps/#{app_name}/app/app.yaml") == false
-        Kernel.puts("The #{app_name} application was missing a app.yaml")
-        return -1 
-      end
-      
-      Kernel.puts("saw a python app coming through")
-      env_vars['MY_IP_ADDRESS'] = public_ip
-      env_vars['MY_PORT'] = port
-      env_vars['APPNAME'] = app_name
-      env_vars['GOMAXPROCS'] = self.get_num_cpus()
-
-      start_cmd = [ "python2.5 ",
-             "#{APPSCALE_HOME}/AppServer/dev_appserver.py",
-             "-p #{port}",
-             "--cookie_secret #{secret}",
-             "--login_server #{public_ip}",
-             "--admin_console_server ''",
-             "--nginx_port #{nginx_port}",
-             "--nginx_host #{public_ip}",
-             "--require_indexes",
-             "--enable_sendmail",
-             "--xmpp_path #{xmpp_ip}",
-             "--uaserver_path #{db_location}:#{UserAppClient::SERVER_PORT}",
-             "--datastore_path #{db_location}:#{PbServer::LISTEN_PORT_NO_SSL}",
-             "--history_path /var/apps/#{app_name}/data/app.datastore.history",
-             "/var/apps/#{app_name}/app",
-             "-a #{private_ip}",
-             #">> /var/apps/#{app_name}/log/server.log 2>&1 &"
-             ].join(' ')
-      stop_cmd = "ps ax | grep #{start_cmd} | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9"
-    elsif app_language == "java"
-      if File.exist?("/var/apps/#{app_name}/app/war/WEB-INF/web.xml") == false and File.exist?("/var/apps/#{app_name}/app/app.yaml") == false
-        Kernel.puts("The #{app_name} application was missing a web.xml or app.yaml file")
-        return -1
-      end
-
-      Kernel.puts("saw a java app coming through")
-      `cp #{APPSCALE_HOME}/AppServer_Java/appengine-java-sdk-repacked/lib/user/*.jar /var/apps/#{app_name}/app/war/WEB-INF/lib/`
-      `cp #{APPSCALE_HOME}/AppServer_Java/appengine-java-sdk-repacked/lib/user/orm/*.jar /var/apps/#{app_name}/app/war/WEB-INF/lib/`
-      start_cmd = ["cd #{APPSCALE_HOME}/AppServer_Java &&",
-             "./genKeystore.sh &&",
-             "./appengine-java-sdk-repacked/bin/dev_appserver.sh",
-             "--port=#{port}",
-             "--address=#{private_ip}",
-             "--datastore_path=#{db_location}",
-             "--cookie_secret=#{secret}",
-             "--login_server=#{public_ip}",
-             "--appscale_version=#{app_version}",
-	     "--NGINX_ADDRESS=#{public_ip}",
-             "--NGINX_PORT=#{nginx_port}",
-             "/var/apps/#{app_name}/app/war/",
-             #">> /var/apps/#{app_name}/log/server.log 2>&1 &"
-             ].join(' ')
-      stop_cmd = "ps ax | grep #{start_cmd} | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9"
-    else
-      Kernel.puts("Currently we only support python, go, and java applications, not #{app_language}.")
-    end
-
-    env_vars['APPSCALE_HOME'] = APPSCALE_HOME
-
-    GodInterface.start(app_name, start_cmd, stop_cmd, port, env_vars)
-    HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip, port)
-
-    pid = `lsof -t -i :#{port}`
-    Kernel.puts("Started app #{app_name} with pid #{pid}")
-    
-    return pid
-  end
-
-
-  # Instructs god to terminate and stop watching an App Engine application, 
-  # identified by its name and the port that it runs on.
-  def self.stop_app(app_name, port)
-    watch = "appscale-" + app_name + "-" + port.to_s
-    GodInterface.stop(watch)
-    Kernel.puts("Stopped #{watch} process via god.")
-    GodInterface.remove(watch)
-    Kernel.puts("Stopped watching #{watch} via god.")
-  end
-
-
-  def self.local_ip()
+  # Queries the operating system to determine which IP addresses are
+  # bound to this virtual machine.
+  # Args:
+  #   remove_lo: A boolean that indicates whether or not the lo
+  #     device's IP should be removed from the results. By default,
+  #     we remove it, since it is on all virtual machines and thus
+  #     not useful towards uniquely identifying a particular machine.
+  # Returns:
+  #   An Array of Strings, each of which is an IP address bound to
+  #     this virtual machine.
+  def self.get_all_local_ips(remove_lo=true)
     ifconfig = HelperFunctions.shell("ifconfig")
+    Kernel.puts("ifconfig returned the following: [#{ifconfig}]")
     bound_addrs = ifconfig.scan(/inet addr:(\d+.\d+.\d+.\d+)/).flatten
 
     Kernel.puts("ifconfig reports bound IP addresses as " +
       "[#{bound_addrs.join(', ')}]")
-    bound_addrs.each { |addr|
-      if addr == "127.0.0.1"
-        next
-      end
+    if remove_lo
+      bound_addrs.delete(LOCALHOST_IP)
+    end
+    return bound_addrs
+  end
 
-      Kernel.puts("Returning #{addr} as our local IP address")
-      return addr
-    }
+  
+  # Sets the locally cached IP address to the provided value. Callers
+  # should use this if they believe the IP address on this machine
+  # is not the first IP returned by 'ifconfig', which can occur if
+  # the IP to reach this machine on is eth1, eth2, etc.
+  # Args:
+  #   ip: The IP address that other AppScale nodes can reach this
+  #     machine via.
+  def self.set_local_ip(ip)
+    @@my_local_ip = ip
+  end
 
-    raise Exception.new("Couldn't get our local IP address")
+
+  # Returns the IP address associated with this machine. To get around
+  # issues where a VM may forget its IP address
+  # (https://github.com/AppScale/appscale/issues/84), we locally cache it
+  # to not repeatedly ask the system for this IP (which shouldn't be changing).
+  # TODO(cgb): Consider the implications of caching the IP address if
+  # VLAN tagging is used, and the IP address may be used.
+  # TODO(cgb): This doesn't solve the problem if the IP address isn't there
+  # the first time around - should we sleep and retry in that case?
+  def self.local_ip()
+    if !@@my_local_ip.nil?
+      Kernel.puts("Returning cached ip #{@@my_local_ip}")
+      return @@my_local_ip
+    end
+
+    bound_addrs = self.get_all_local_ips()
+    if bound_addrs.length.zero?
+      raise Exception.new("Couldn't get our local IP address")
+    end
+
+    addr = bound_addrs[0]
+    Kernel.puts("Returning #{addr} as our local IP address")
+    @@my_local_ip = addr
+    return addr
   end
 
   # In cloudy deployments, the recommended way to determine a machine's true
@@ -1090,6 +1054,25 @@ module HelperFunctions
       abort(fail_msg)
     end
   end
+
+
+  # Checks to see if the virtual machine at the given IP address has
+  # the same version of AppScale installed as these tools.
+  # Args:
+  #   ip: The IP address of the VM to check the version on.
+  #   key: The SSH key that can be used to log into the machine at the
+  #     given IP address.
+  # Raises:
+  #   AppScaleException: If the virtual machine at the given IP address
+  #     does not have the same version of AppScale installed as these
+  #     tools.
+  def self.ensure_version_is_supported(ip, key)
+    return if self.does_image_have_location?(ip, "/etc/appscale/#{VER_NUM}", key)
+    raise AppScaleException.new("The image at #{ip} does not support " +
+      "this version of AppScale (#{VER_NUM}). Please install AppScale" +
+      " #{VER_NUM} on it and try again.")
+  end
+
 
   def self.ensure_db_is_supported(ip, db, key)
     if self.does_image_have_location?(ip, "/etc/appscale/#{VER_NUM}/#{db}", key)

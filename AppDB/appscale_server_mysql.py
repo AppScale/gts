@@ -1,26 +1,35 @@
 #!/usr/bin/python
+# See LICENSE file
 #
 # Author: 
-# Navraj Chohan (nchohan@cs.ucsb.edu)
-# See LICENSE file
+# Navraj Chohan (nlake44@gmail.com)
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
 
-import sys
-import socket
-import os 
-import types
-import appscale_datastore
-#import helper_functions
-import SOAPpy
-from dbconstants import *
-import appscale_logger
-import md5 
-import random
-import getopt
-import threading
+import array
 import datetime 
+import getopt
+import itertools
+import md5 
+import MySQLdb
+import os 
+import random
+import SOAPpy
+import socket
+import sys
+import threading
+import time
+import types
+
+from SocketServer import BaseServer
+from M2Crypto import SSL
+import MySQLdb.constants.CR
+
+import appscale_datastore
+import appscale_logger
+from dbconstants import *
+
 from google.appengine.api import api_base_pb
 from google.appengine.api import datastore
 from google.appengine.api import datastore_errors
@@ -33,43 +42,43 @@ from google.appengine.runtime import apiproxy_errors
 from google.net.proto import ProtocolBuffer
 from google.appengine.datastore import entity_pb
 from google.appengine.ext.remote_api import remote_api_pb
-from SocketServer import BaseServer
-from M2Crypto import SSL
 from drop_privileges import *
 from zkappscale import zktransaction
-import time
-import array
-import itertools
 from google.appengine.api import apiproxy_stub
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.datastore import sortable_pb_encoder
-import MySQLdb
-import MySQLdb.constants.CR
 import __builtin__
 buffer = __builtin__.buffer
 zoo_keeper = None
 
-DEBUG = False 
+# Port used if server is using encryption
 DEFAULT_SSL_PORT = 8443
-DEFAULT_PORT = 4080
-DEFAULT_ENCRYPTION = 1
-CERT_LOCATION = "/etc/appscale/certs/mycert.pem"
-KEY_LOCATION = "/etc/appscale/certs/mykey.pem"
-SECRET_LOCATION = "/etc/appscale/secret.key"
-VALID_DATASTORES = []
-ERROR_CODES = []
-ID_KEY_LENGTH = 64
-app_datastore = []
-logOn = False
-logFilePtr = ""
 
-tableHashTable = {}
+# Port used if no encryption is used by the server
+DEFAULT_PORT = 4080
+
+# Whether encryption is on by default
+DEFAULT_ENCRYPTION = 1
+
+# The SSL cert location
+CERT_LOCATION = "/etc/appscale/certs/mycert.pem"
+
+# The SSL private key location
+KEY_LOCATION = "/etc/appscale/certs/mykey.pem"
+
+# Where the secret key is located
+SECRET_LOCATION = "/etc/appscale/secret.key"
+
+# The length of a numerial key, padded until the key is this length
+ID_KEY_LENGTH = 64
+
+# The accessor for the datastore 
+app_datastore = []
 
 """MySQL-based stub for the Python datastore API.
 Entities are stored in a MySQL database in a similar fashion to the production
 datastore. Based on Nick Johnson's SQLite stub and Typhoonae's mysql stub
 """
-
 
 entity_pb.Reference.__hash__ = lambda self: hash(self.Encode())
 datastore_pb.Query.__hash__ = lambda self: hash(self.Encode())
@@ -77,27 +86,26 @@ datastore_pb.Transaction.__hash__ = lambda self: hash(self.Encode())
 datastore_pb.Cursor.__hash__ = lambda self: hash(self.Encode())
 
 _DB_LOCATION = "127.0.0.1"
-_USE_DATABASE = "appscale"
-_DB_USER = "root"
-_MAX_CONNECTIONS = 10
-_GC_TIME = 60
-_MAXIMUM_RESULTS = 1000
 
+_USE_DATABASE = "appscale"
+
+_DB_USER = "root"
+
+_MAX_CONNECTIONS = 10
+
+_GC_TIME = 60
+
+_MAXIMUM_RESULTS = 1000
 
 _MAX_QUERY_OFFSET = 1000
 
-
 _MAX_QUERY_COMPONENTS = 63
-
 
 _BATCH_SIZE = 20
 
-
 _MAX_ACTIONS_PER_TXN = 5
 
-
 _MAX_TIMEOUT = 5.0
-
 
 _OPERATOR_MAP = {
     datastore_pb.Query_Filter.LESS_THAN: '<',
@@ -588,12 +596,6 @@ class DatastoreDistributed():
 
     self.__ValidateAppId(key.app())
 
-    for elem in key.path().element_list():
-      if elem.has_id() == elem.has_name():
-        raise datastore_errors.BadRequestError(
-            'each key path element should have id or name but not both: %r'
-            % key)
-
   def __get_connection(self, txnid):
     conn = None
     self.__gc()
@@ -628,11 +630,11 @@ class DatastoreDistributed():
     self.__transDict_lock.release()
     last_gc_time = time.time()
 
-  def setupTransaction(self, app_id):
+  def setup_transaction(self, app_id):
     # New connection 
     txn_id = zoo_keeper.getTransactionID(app_id)
     client = MySQLdb.connect(host=_DB_LOCATION, db=_USE_DATABASE, user=_DB_USER)
-    #client.autocommit(0)
+    #TODO is this lock a bottle neck, and is it really required?
     self.__transDict_lock.acquire()
     # entity group is set to None
     self.__transDict[txn_id] = client, None, time.time()
@@ -940,30 +942,6 @@ class DatastoreDistributed():
     lock_str = app_id + '_' + entity_group
     cursor.execute("SELECT RELEASE_LOCK('%s');" % lock_str)
     self.__connection.commit()
-
-  def __getRootKey(app_id, ancestor_list):
-    key = app_id # mysql cannot have \ as the first char in the row key
-    a = ancestor_list[0]
-    key += "/"
-
-    # append _ if the name is a number, prevents collisions of key names
-    if a.has_type():
-      key += a.type()
-    else:
-      return None
-
-    if a.has_id():
-      zero_padded_id = ("0" * (ID_KEY_LENGTH - len(str(a.id())))) + str(a.id())
-      key += ":" + zero_padded_id
-    elif a.has_name():
-      if a.name().isdigit():
-        key += ":__key__" + a.name()
-      else:
-        key += ":" + a.name()
-    else:
-      return None
-
-    return key
 
   @staticmethod
   def __ExtractEntityGroupFromKeys(app_id, keys):
@@ -1827,7 +1805,7 @@ class MainHandler(tornado.web.RequestHandler):
     transaction_pb = datastore_pb.Transaction()
     handle = 0
     #print "Begin Trans Handle:",handle
-    handle = app_datastore.setupTransaction(app_id)
+    handle = app_datastore.setup_transaction(app_id)
     transaction_pb.set_app(app_id)
     transaction_pb.set_handle(handle)
     return (transaction_pb.Encode(), 0, "")
@@ -1983,16 +1961,7 @@ def usage():
   print "\t--no_encryption"
 def main(argv):
   global app_datastore
-  #global getKeyFromServer
-  #global tableServer
-  #global keySecret
-  global logOn
   global logFilePtr
-  #global optimizedQuery
-  #global soapServer
-  global ERROR_CODES
-  global VALID_DATASTORES
-  #global KEYBLOCKSIZE
   global zoo_keeper
   cert_file = CERT_LOCATION
   key_file = KEY_LOCATION
@@ -2018,26 +1987,16 @@ def main(argv):
     if opt in ("-c", "--certificate"):
       cert_file = arg
       print "Using cert..."
-    #elif opt in ("-k", "--key" ):
-    #  getKeyFromServer = True
-    #  print "Using key server..."
     elif  opt in ("-t", "--type"):
       db_type = arg
       print "Datastore type: ",db_type 
     elif opt in ("-s", "--secret"):
-      #keySecret = arg
       print "Secret set..."
     elif opt in ("-l", "--log"):
-      logOn = True
-      logFile = arg
-      logFilePtr = open(logFile, "w")
-      logFilePtr.write("# type, app, start, end\n")
+      pass
     elif opt in ("-b", "--blocksize"):
-      #KEYBLOCKSIZE = arg
-      #print "Block size: ",KEYBLOCKSIZE
       pass
     elif opt in ("-a", "--soap"):
-      #soapServer = arg
       pass
     elif opt in ("-p", "--port"):
       port = int(arg)
@@ -2047,12 +2006,9 @@ def main(argv):
       zoo_keeper_locations = arg      
 
   app_datastore = DatastoreDistributed()
-  #tableServer = SOAPpy.SOAPProxy("https://" + soapServer + ":" + str(keyPort))
-  
-  #global keyDictionaryLock 
+
   zoo_keeper = zktransaction.ZKTransaction(zoo_keeper_locations)
 
-  #keyDictionaryLock = threading.Lock()
   if port == DEFAULT_SSL_PORT and not isEncrypted:
     port = DEFAULT_PORT
   pb_application = tornado.web.Application([

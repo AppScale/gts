@@ -1,5 +1,6 @@
 package com.google.appengine.api.blobstore.dev;
 
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -19,88 +20,99 @@ import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.KeyFactory;
 
-public class DatastoreBlobStorage implements BlobStorage {
-	private static final Logger logger = Logger
-			.getLogger(DatastoreBlobStorage.class.getName());
-	private BlobInfoStorage blobInfoStorage;
-	private final String _BLOB_CHUNK_KIND_ = "__BlobChunk__";
-	DatastoreService dataStoreService = DatastoreServiceFactory
-			.getDatastoreService();
 
-	public DatastoreBlobStorage(BlobInfoStorage blobinfostorage) {
-		this.blobInfoStorage = blobinfostorage;
-	}
+public class DatastoreBlobStorage implements BlobStorage
+{
+    private static final Logger logger            = Logger.getLogger(DatastoreBlobStorage.class.getName());
+    private BlobInfoStorage     blobInfoStorage;
+    private final String        _BLOB_CHUNK_KIND_ = "__BlobChunk__";
+    DatastoreService            dataStoreService  = DatastoreServiceFactory.getDatastoreService();
 
-	public void deleteBlob(BlobKey blob_key) throws IOException {
-		BlobInfo blobInfo = this.blobInfoStorage.loadBlobInfo(blob_key);
+    public DatastoreBlobStorage( BlobInfoStorage blobinfostorage )
+    {
+        this.blobInfoStorage = blobinfostorage;
+    }
 
-		long count = blobInfo.getSize() / BlobstoreService.MAX_BLOB_FETCH_SIZE;
-		while (count >= 0) {
-			// delete the content of the blob
-			dataStoreService.delete(getLocalChunkKey(blob_key, count));
-			count--;
-		}
-		// delete blob-meta key
-		this.blobInfoStorage.deleteBlobInfo(blob_key);
-	}
+    public void deleteBlob( BlobKey blob_key ) throws IOException
+    {
+        logger.fine("deleteBlob called with key [" + blob_key.getKeyString() + "]");
+        BlobInfo blobInfo = this.blobInfoStorage.loadBlobInfo(blob_key);
 
-	private Key getLocalChunkKey(BlobKey blobKey, long count) {
-		String namespace = NamespaceManager.get();
-		Key localKey = null;
-		try {
-			NamespaceManager.set("");
-			localKey = KeyFactory.createKey(_BLOB_CHUNK_KIND_,
-					blobKey.getKeyString() + "__" + count);
-			return localKey;
-		} finally {
-			NamespaceManager.set(namespace);
-		}
-	}
+        long count = blobInfo.getSize() / BlobstoreService.MAX_BLOB_FETCH_SIZE;
+        while (count >= 0)
+        {
+            // delete the content of the blob
+            dataStoreService.delete(getLocalChunkKey(blob_key, count));
+            count--;
+        }
+        // delete blob-meta key
+        this.blobInfoStorage.deleteBlobInfo(blob_key);
+    }
 
-	@Override
-	public InputStream fetchBlob(BlobKey arg0) throws IOException {
-		return new BlobstoreInputStream(arg0);
-	}
+    private Key getLocalChunkKey( BlobKey blobKey, long count )
+    {
+        String namespace = NamespaceManager.get();
+        Key localKey = null;
+        try
+        {
+            NamespaceManager.set("");
+            localKey = KeyFactory.createKey(_BLOB_CHUNK_KIND_, blobKey.getKeyString() + "__" + count);
+            return localKey;
+        }
+        finally
+        {
+            NamespaceManager.set(namespace);
+        }
+    }
 
-	@Override
-	public boolean hasBlob(BlobKey arg0) {
-		// TODO Auto-generated method stub
-		// logger.info("blob key: " + arg0.toString());
-		return this.blobInfoStorage.loadBlobInfo(arg0) != null;
-		// return true;
-	}
+    @Override
+    public InputStream fetchBlob( BlobKey arg0 ) throws IOException
+    {
+        return new BlobstoreInputStream(arg0);
+    }
 
-	@Override
-	public OutputStream storeBlob(final BlobKey blockKey) throws IOException {
-		return new ByteArrayOutputStream() {
-			@Override
-			public void close() throws IOException {
-				super.close();
-				byte[] stream = toByteArray();
-				int blockCount = 0;
-				int startPos = 0;
-				int streamSize = stream.length;
+    @Override
+    public boolean hasBlob( BlobKey arg0 )
+    {
+        return this.blobInfoStorage.loadBlobInfo(arg0) != null;
+    }
 
-				while (true) {
-					int endPos = startPos
-							+ BlobstoreService.MAX_BLOB_FETCH_SIZE > streamSize ? streamSize
-							: startPos + BlobstoreService.MAX_BLOB_FETCH_SIZE;
+    @Override
+    public OutputStream storeBlob( final BlobKey blockKey ) throws IOException
+    {
+        logger.fine("storeBlob called with key [" + blockKey.getKeyString() + "]");
+        return new ByteArrayOutputStream()
+        {
+            @Override
+            public void close() throws IOException
+            {
+                super.close();
+                byte[] stream = toByteArray();
+                int blockCount = 0;
+                int startPos = 0;
+                int streamSize = stream.length;
 
-					byte[] block = Arrays.copyOfRange(stream, startPos, endPos);
+                while (true)
+                {
+                    int endPos = startPos + BlobstoreService.MAX_BLOB_FETCH_SIZE > streamSize ? streamSize : startPos + BlobstoreService.MAX_BLOB_FETCH_SIZE;
 
-					Entity blockEntity = new Entity(getLocalChunkKey(blockKey,
-							blockCount));
-					blockEntity.setProperty("block", new Blob(block));
-					dataStoreService.put(blockEntity);
-					blockCount++;
-					if (endPos < streamSize) {
-						startPos = endPos;
-					} else {
-						break;
-					}
-				}
-			}
-		};
-	}
+                    byte[] block = Arrays.copyOfRange(stream, startPos, endPos);
+
+                    Entity blockEntity = new Entity(getLocalChunkKey(blockKey, blockCount));
+                    blockEntity.setProperty("block", new Blob(block));
+                    dataStoreService.put(blockEntity);
+                    blockCount++;
+                    if (endPos < streamSize)
+                    {
+                        startPos = endPos;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+            }
+        };
+    }
 
 }
