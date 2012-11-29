@@ -1748,7 +1748,7 @@ class Djinn
 
   def parse_creds
     got_data_msg = "Got data from another node! DLoc = " + \
-      "#{@nodes.join(', ')}, #{@creds.inspect}, AppsToLoad = " + \
+      "#{@nodes.join(', ')}, #{HelperFunctions.obscure_creds(@creds.inspect)}, AppsToLoad = " + \
       "#{@app_names.join(', ')}"
     Djinn.log_debug(got_data_msg)
         

@@ -66,8 +66,9 @@ module HelperFunctions
   TIME_IN_SECONDS = { "d" => 86400, "h" => 3600, "m" => 60, "s" => 1 }
 
 
-  CLOUDY_CREDS = ["EC2_ACCESS_KEY", "EC2_SECRET_KEY", "AWS_ACCESS_KEY_ID",
-    "AWS_SECRET_ACCESS_KEY"]
+  CLOUDY_CREDS = ["ec2_access_key", "ec2_secret_key", "EC2_ACCESS_KEY",
+    "EC2_SECRET_KEY", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY",
+    "CLOUD1_EC2_ACCESS_KEY", "CLOUD1_EC2_SECRET_KEY"]
 
 
   # The first port that should be used to host Google App Engine applications
@@ -1026,7 +1027,21 @@ module HelperFunctions
     }
   end
 
+  
+  # Searches through the key/value pairs given for items that may
+  # be too sensitive to log in cleartext. If any of these items are
+  # found, a sanitized version of the item is returned in its place.
+  # Args:
+  #   creds: The item to sanitize. As we are expecting Hashes here,
+  #     callers that pass in non-Hash items can expect no change to
+  #     be performed on their argument.
+  # Returns:
+  #   A sanitized version of the given Hash, that can be safely
+  #     logged via stdout or saved in log files. In the case of
+  #     non-Hash items, the original item is returned.
   def self.obscure_creds(creds)
+    return creds if creds.class != Hash
+
     obscured = {}
     creds.each { |k, v|
       if CLOUDY_CREDS.include?(k)
