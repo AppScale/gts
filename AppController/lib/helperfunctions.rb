@@ -66,8 +66,9 @@ module HelperFunctions
   TIME_IN_SECONDS = { "d" => 86400, "h" => 3600, "m" => 60, "s" => 1 }
 
 
-  CLOUDY_CREDS = ["EC2_ACCESS_KEY", "EC2_SECRET_KEY", "AWS_ACCESS_KEY_ID",
-    "AWS_SECRET_ACCESS_KEY"]
+  CLOUDY_CREDS = ["ec2_access_key", "ec2_secret_key", "EC2_ACCESS_KEY",
+    "EC2_SECRET_KEY", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY",
+    "CLOUD1_EC2_ACCESS_KEY", "CLOUD1_EC2_SECRET_KEY"]
 
 
   # The first port that should be used to host Google App Engine applications
@@ -1027,6 +1028,8 @@ module HelperFunctions
   end
 
   def self.obscure_creds(creds)
+    return if creds.class != Hash
+
     obscured = {}
     creds.each { |k, v|
       if CLOUDY_CREDS.include?(k)
