@@ -39,7 +39,7 @@ class BaseAgent:
     this method call.
 
     Args:
-      parameters    A dictionary of parameters
+      parameters    A dictionary containing the required security parameters
 
     Returns:
       True if some action was taken to configure security for the VMs
@@ -53,7 +53,8 @@ class BaseAgent:
     up and running.
 
     Args:
-      parameters  A dictionary of parameters
+      parameters  A dictionary containing the parameters required by the
+                  infrastructure agent.
 
     Returns:
       A tuple of the form (public, private, id) where public is a list
@@ -99,7 +100,7 @@ class BaseAgent:
     it throws an AgentConfigurationException.
 
     Args:
-      parameters  A dictionary of parameters
+      parameters  A dictionary of parameters (as provided by the client)
       operation   Operation for which the parameters should be checked
 
     Raises:

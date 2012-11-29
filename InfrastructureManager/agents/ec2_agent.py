@@ -9,49 +9,49 @@ from utils import utils
 __author__ = 'hiranya'
 __email__ = 'hiranya@appscale.com'
 
-# A regular expression that matches fully qualified domain names, used to
-# parse output from describe-instances to see the FQDNs for machines
-# currently running.
-FQDN_REGEX = '[\w\d\.\-]+'
-
-# The maximum amount of time, in seconds, that we are willing to wait for
-# a virtual machine to start up, from the initial run-instances request.
-# Setting this value is a bit of an art, but we choose the value below
-# because our image is roughly 10GB in size, and if Eucalyptus doesn't
-# have the image cached, it could take half an hour to get our image
-# started.
-MAX_VM_CREATION_TIME = 1800
-
-# The amount of time that run_instances waits between each describe-instances
-# request. Setting this value too low can cause Eucalyptus to interpret
-# requests as replay attacks.
-SLEEP_TIME = 20
-
-PARAM_CREDENTIALS = 'credentials'
-PARAM_GROUP = 'group'
-PARAM_IMAGE_ID = 'image_id'
-PARAM_INSTANCE_TYPE = 'instance_type'
-PARAM_KEYNAME = 'keyname'
-PARAM_INSTANCE_IDS = 'instance_ids'
-
-REQUIRED_EC2_RUN_INSTANCES_PARAMS = (
-  PARAM_CREDENTIALS,
-  PARAM_GROUP,
-  PARAM_IMAGE_ID,
-  PARAM_INSTANCE_TYPE,
-  PARAM_KEYNAME
-  )
-
-REQUIRED_EC2_TERMINATE_INSTANCES_PARAMS = (
-  PARAM_CREDENTIALS,
-  PARAM_INSTANCE_IDS
-  )
-
 class EC2Agent(BaseAgent):
   """
   EC2 infrastructure agent class which can be used to spawn and terminate
   VMs in an EC2 based environment.
   """
+
+  # A regular expression that matches fully qualified domain names, used to
+  # parse output from describe-instances to see the FQDNs for machines
+  # currently running.
+  FQDN_REGEX = '[\w\d\.\-]+'
+
+  # The maximum amount of time, in seconds, that we are willing to wait for
+  # a virtual machine to start up, from the initial run-instances request.
+  # Setting this value is a bit of an art, but we choose the value below
+  # because our image is roughly 10GB in size, and if Eucalyptus doesn't
+  # have the image cached, it could take half an hour to get our image
+  # started.
+  MAX_VM_CREATION_TIME = 1800
+
+  # The amount of time that run_instances waits between each describe-instances
+  # request. Setting this value too low can cause Eucalyptus to interpret
+  # requests as replay attacks.
+  SLEEP_TIME = 20
+
+  PARAM_CREDENTIALS = 'credentials'
+  PARAM_GROUP = 'group'
+  PARAM_IMAGE_ID = 'image_id'
+  PARAM_INSTANCE_TYPE = 'instance_type'
+  PARAM_KEYNAME = 'keyname'
+  PARAM_INSTANCE_IDS = 'instance_ids'
+
+  REQUIRED_EC2_RUN_INSTANCES_PARAMS = (
+    PARAM_CREDENTIALS,
+    PARAM_GROUP,
+    PARAM_IMAGE_ID,
+    PARAM_INSTANCE_TYPE,
+    PARAM_KEYNAME
+    )
+
+  REQUIRED_EC2_TERMINATE_INSTANCES_PARAMS = (
+    PARAM_CREDENTIALS,
+    PARAM_INSTANCE_IDS
+  )
 
   def __init__(self):
     self.prefix = 'ec2'
@@ -68,7 +68,7 @@ class EC2Agent(BaseAgent):
     if os.environ.has_key('EC2_JVM_ARGS'):
       del(os.environ['EC2_JVM_ARGS'])
 
-    variables = parameters[PARAM_CREDENTIALS]
+    variables = parameters[self.PARAM_CREDENTIALS]
     for key, value in variables.items():
       if value is None:
         utils.log('None value detected for the credential: {0}.'.format(key))
@@ -100,8 +100,8 @@ class EC2Agent(BaseAgent):
     Args:
       parameters  A dictionary of parameters
     """
-    keyname = parameters[PARAM_KEYNAME]
-    group = parameters[PARAM_GROUP]
+    keyname = parameters[self.PARAM_KEYNAME]
+    group = parameters[self.PARAM_GROUP]
     ssh_key = os.path.abspath('/etc/appscale/keys/cloud1/{0}.key'.format(keyname))
     utils.log('About to spawn EC2 instances - Expecting to find a key at {0}'.format(ssh_key))
     utils.log(utils.get_obscured_env(['EC2_ACCESS_KEY', 'EC2_SECRET_KEY']))
@@ -136,9 +136,9 @@ class EC2Agent(BaseAgent):
     """
     required_params = ()
     if operation == BaseAgent.OPERATION_RUN:
-      required_params = REQUIRED_EC2_RUN_INSTANCES_PARAMS
+      required_params = self.REQUIRED_EC2_RUN_INSTANCES_PARAMS
     elif operation == BaseAgent.OPERATION_TERMINATE:
-      required_params = REQUIRED_EC2_TERMINATE_INSTANCES_PARAMS
+      required_params = self.REQUIRED_EC2_TERMINATE_INSTANCES_PARAMS
 
     for param in required_params:
       if not utils.has_parameter(param, parameters):
@@ -157,10 +157,10 @@ class EC2Agent(BaseAgent):
       A tuple of the form (public_ips, private_ips, instances) where each
       member is a list.
     """
-    keyname = parameters[PARAM_KEYNAME]
+    keyname = parameters[self.PARAM_KEYNAME]
     describe_instances = utils.shell(self.prefix + '-describe-instances 2>&1')
     utils.log('describe-instances says {0}'.format(describe_instances))
-    fqdn_regex = re.compile('\s+({0})\s+({0})\s+running\s+{1}\s'.format(FQDN_REGEX, keyname))
+    fqdn_regex = re.compile('\s+({0})\s+({0})\s+running\s+{1}\s'.format(self.FQDN_REGEX, keyname))
     instance_regex = re.compile('INSTANCE\s+(i-\w+)')
     all_ip_addresses = utils.flatten(fqdn_regex.findall(describe_instances))
     instances = utils.flatten(instance_regex.findall(describe_instances))
@@ -187,10 +187,10 @@ class EC2Agent(BaseAgent):
     Returns:
       A tuple of the form (instances, public_ips, private_ips)
     """
-    image_id = parameters[PARAM_IMAGE_ID]
-    instance_type = parameters[PARAM_INSTANCE_TYPE]
-    keyname = parameters[PARAM_KEYNAME]
-    group = parameters[PARAM_GROUP]
+    image_id = parameters[self.PARAM_IMAGE_ID]
+    instance_type = parameters[self.PARAM_INSTANCE_TYPE]
+    keyname = parameters[self.PARAM_KEYNAME]
+    group = parameters[self.PARAM_GROUP]
     spot = False
 
     utils.log('[{0}] [{1}] [{2}] [{3}] [ec2] [{4}] [{5}]'.format(count,
@@ -235,13 +235,13 @@ class EC2Agent(BaseAgent):
     private_ips = []
     utils.sleep(10)
 
-    end_time = datetime.datetime.now() + datetime.timedelta(0, MAX_VM_CREATION_TIME)
+    end_time = datetime.datetime.now() + datetime.timedelta(0, self.MAX_VM_CREATION_TIME)
     now = datetime.datetime.now()
     while now < end_time:
       describe_instances = utils.shell(self.prefix + '-describe-instances 2>&1')
       utils.log('[{0}] {1} seconds left...'.format(now, (end_time - now).seconds))
       utils.log(describe_instances)
-      fqdn_regex = re.compile('\s+({0})\s+({0})\s+running\s+{1}\s'.format(FQDN_REGEX, keyname))
+      fqdn_regex = re.compile('\s+({0})\s+({0})\s+running\s+{1}\s'.format(self.FQDN_REGEX, keyname))
       instance_regex = re.compile('INSTANCE\s+(i-\w+)')
       all_ip_addresses = utils.flatten(fqdn_regex.findall(describe_instances))
       instances = utils.flatten(instance_regex.findall(describe_instances))
@@ -251,7 +251,7 @@ class EC2Agent(BaseAgent):
       instances = utils.diff(instances, active_instances)
       if count == len(public_ips):
         break
-      time.sleep(SLEEP_TIME)
+      time.sleep(self.SLEEP_TIME)
       now = datetime.datetime.now()
 
     if not public_ips:
@@ -285,7 +285,7 @@ class EC2Agent(BaseAgent):
     Args:
       parameters  A dictionary of parameters
     """
-    instance_ids = parameters[PARAM_INSTANCE_IDS]
+    instance_ids = parameters[self.PARAM_INSTANCE_IDS]
     arg = ' '.join(instance_ids)
     utils.shell('{0}-terminate-instances {1} 2>&1'.format(self.prefix, arg))
 
