@@ -1027,8 +1027,20 @@ module HelperFunctions
     }
   end
 
+  
+  # Searches through the key/value pairs given for items that may
+  # be too sensitive to log in cleartext. If any of these items are
+  # found, a sanitized version of the item is returned in its place.
+  # Args:
+  #   creds: The item to sanitize. As we are expecting Hashes here,
+  #     callers that pass in non-Hash items can expect no change to
+  #     be performed on their argument.
+  # Returns:
+  #   A sanitized version of the given Hash, that can be safely
+  #     logged via stdout or saved in log files. In the case of
+  #     non-Hash items, the original item is returned.
   def self.obscure_creds(creds)
-    return if creds.class != Hash
+    return creds if creds.class != Hash
 
     obscured = {}
     creds.each { |k, v|
