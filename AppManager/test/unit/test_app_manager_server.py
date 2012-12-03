@@ -47,7 +47,7 @@ class TestAppManager(unittest.TestCase):
     testing.disable_logging()
     self.assertEqual(app_manager_server.BAD_PID, app_manager_server.start_app("{'app_name':'test'}"))
 
-  def test_start_app_goodconfig(self):
+  def test_start_app_goodconfig_python(self):
     configuration = {'app_name': 'test',
                      'app_port': 2000,
                      'language': 'python',
@@ -73,6 +73,64 @@ class TestAppManager(unittest.TestCase):
     flexmock(file_io).should_receive('write')\
                         .and_return()
     self.assertEqual(12345, app_manager_server.start_app(configuration))
+  
+  def test_start_app_goodconfig_java(self):
+    configuration = {'app_name': 'test',
+                     'app_port': 2000,
+                     'language': 'java',
+                     'load_balancer_ip': '127.0.0.1',
+                     'load_balancer_port': 8080,
+                     'xmpp_ip': '127.0.0.1',
+                     'dblocations': ['127.0.0.1', '127.0.0.2']}
+    configuration = json.dumps(configuration)
+
+    fake_secret = "XXXXXX"
+    flexmock(appscale_info).should_receive('get_private_ip')\
+      .and_return('<private_ip>')
+    flexmock(appscale_info).should_receive('get_secret')\
+                           .and_return(fake_secret)
+    flexmock(god_app_interface).should_receive('create_config_file')\
+                               .and_return('fakeconfig')
+    flexmock(god_interface).should_receive('start')\
+                           .and_return(True)
+    flexmock(app_manager_server).should_receive('wait_on_app')\
+                         .and_return(True)
+    flexmock(os).should_receive('popen')\
+                .and_return(flexmock(read=lambda: '12345\n'))
+    flexmock(file_io).should_receive('write')\
+                        .and_return()
+    flexmock(subprocess).should_receive('call')\
+                        .and_return(0)
+    self.assertEqual(12345, app_manager_server.start_app(configuration))
+
+  def test_start_app_failed_copy_java(self):
+    configuration = {'app_name': 'test',
+                     'app_port': 2000,
+                     'language': 'java',
+                     'load_balancer_ip': '127.0.0.1',
+                     'load_balancer_port': 8080,
+                     'xmpp_ip': '127.0.0.1',
+                     'dblocations': ['127.0.0.1', '127.0.0.2']}
+    configuration = json.dumps(configuration)
+
+    fake_secret = "XXXXXX"
+    flexmock(appscale_info).should_receive('get_private_ip')\
+      .and_return('<private_ip>')
+    flexmock(appscale_info).should_receive('get_secret')\
+                           .and_return(fake_secret)
+    flexmock(god_app_interface).should_receive('create_config_file')\
+                               .and_return('fakeconfig')
+    flexmock(god_interface).should_receive('start')\
+                           .and_return(True)
+    flexmock(app_manager_server).should_receive('wait_on_app')\
+                         .and_return(True)
+    flexmock(os).should_receive('popen')\
+                .and_return(flexmock(read=lambda: '12345\n'))
+    flexmock(file_io).should_receive('write')\
+                        .and_return()
+    flexmock(subprocess).should_receive('call')\
+                        .and_return(1)
+    self.assertEqual(-1, app_manager_server.start_app(configuration))
 
   def test_choose_db_location(self):
     db_locations = ['127.0.0.1']
@@ -195,6 +253,22 @@ class TestAppManager(unittest.TestCase):
     flexmock(os).should_receive('popen')\
                 .and_return(flexmock(read=lambda: ''))
     self.assertEqual(app_manager_server.BAD_PID, app_manager_server.get_pid_from_port(54321))
+  
+  def test_copy_java_sdk_changes_success(self):
+    app_name = 'test'
+    flexmock(subprocess).should_receive('call').and_return(0)
+    self.assertEqual(True, app_manager_server.copy_java_sdk_changes(app_name))  
+  
+  def test_copy_java_sdk_changes_fail_case_1(self):
+    app_name = 'test'
+    #return 0 the first time, 1 the second time
+    flexmock(subprocess).should_receive('call').and_return(0).and_return(1)
+    self.assertEqual(False, app_manager_server.copy_java_sdk_changes(app_name))
 
+  def test_copy_java_sdk_changes_fail_case_2(self):
+    app_name = 'test'
+    flexmock(subprocess).should_receive('call').and_return(1)
+    self.assertEqual(False, app_manager_server.copy_java_sdk_changes(app_name))
+    
 if __name__ == "__main__":
   unittest.main()

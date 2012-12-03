@@ -117,6 +117,9 @@ def start_app(config):
                             config['load_balancer_port'], 
                             config['app_name'])
   elif config['language'] == constants.JAVA:
+    copy_successful = copy_java_sdk_changes(config['app_name'])
+    if copy_successful == False:
+      return BAD_PID
     start_cmd = create_java_start_cmd(config['app_name'],
                             config['app_port'],
                             config['load_balancer_ip'],
@@ -377,6 +380,40 @@ def create_python_start_cmd(app_name,
          "-a " + appscale_info.get_private_ip()]
   
   return ' '.join(cmd)
+
+def copy_java_sdk_changes(app_name):
+  """
+  Copies the changes made to the Java SDK
+  for AppScale into the apps lib folder.
+
+  Args: 
+    app_name: The name of the application to run
+
+  Returns:
+    false if there was any errors, true if success
+  """
+  appscale_home = constants.APPSCALE_HOME
+
+  cp_result = subprocess.call("cp " +  appscale_home + "/AppServer_Java/" +\
+                              "appengine-java-sdk-repacked/lib/user/*.jar " +\
+                              "/var/apps/" + app_name + "/app/war/WEB-INF/" +\
+                              "lib/", shell=True)
+  if cp_result > 0:
+    logging.error("Failed to copy appengine-java-sdk-repacked/lib/user jars " +\
+                  "to lib directory of " + app_name)
+    return False
+  
+  cp_result = subprocess.call("cp " + appscale_home + "/AppServer_Java/" +\
+                              "appengine-java-sdk-repacked/lib/user/orm/" +\
+                              "*.jar /var/apps/" + app_name + "/app/war/" +\
+                              "WEB-INF/lib/", shell=True)
+  if cp_result > 0:
+    logging.error("Failed to copy appengine-java-sdk-repacked/lib/user/orm" +\
+                  " jars to lib directory of " + app_name)
+    return False
+  
+  logging.info("Successfully copied repacked sdk jars into lib directory of " + app_name)
+  return True
 
 def create_java_start_cmd(app_name,
                           port, 
