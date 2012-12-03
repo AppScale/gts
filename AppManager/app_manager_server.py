@@ -412,7 +412,8 @@ def copy_java_sdk_changes(app_name):
                   " jars to lib directory of " + app_name)
     return False
   
-  logging.info("Successfully copied repacked sdk jars into lib directory of " + app_name)
+  logging.info("Successfully copied repacked sdk jars into " +\
+               "lib directory of " + app_name)
   return True
 
 def create_java_start_cmd(app_name,
