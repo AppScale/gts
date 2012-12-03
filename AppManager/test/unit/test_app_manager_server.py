@@ -46,6 +46,17 @@ class TestAppManager(unittest.TestCase):
   def test_start_app_badconfig2(self):
     testing.disable_logging()
     self.assertEqual(app_manager_server.BAD_PID, app_manager_server.start_app("{'app_name':'test'}"))
+  
+  def test_start_app_bad_appname(self):
+    configuration = {'app_name': 'badName!@#$%^&*([]/.,',
+                     'app_port': 2000,
+                     'language': 'python',
+                     'load_balancer_ip': '127.0.0.1',
+                     'load_balancer_port': 8080,
+                     'xmpp_ip': '127.0.0.1',
+                     'dblocations': ['127.0.0.1', '127.0.0.2']}
+    configuration = json.dumps(configuration)
+    self.assertEqual(-1, app_manager_server.start_app(configuration)) 
 
   def test_start_app_goodconfig_python(self):
     configuration = {'app_name': 'test',
@@ -254,21 +265,21 @@ class TestAppManager(unittest.TestCase):
                 .and_return(flexmock(read=lambda: ''))
     self.assertEqual(app_manager_server.BAD_PID, app_manager_server.get_pid_from_port(54321))
   
-  def test_copy_java_sdk_changes_success(self):
+  def test_copy_modified_jars_success(self):
     app_name = 'test'
     flexmock(subprocess).should_receive('call').and_return(0)
-    self.assertEqual(True, app_manager_server.copy_java_sdk_changes(app_name))  
+    self.assertEqual(True, app_manager_server.copy_modified_jars(app_name))  
   
-  def test_copy_java_sdk_changes_fail_case_1(self):
+  def test_copy_modified_jars_fail_case_1(self):
     app_name = 'test'
     #return 0 the first time, 1 the second time
     flexmock(subprocess).should_receive('call').and_return(0).and_return(1)
-    self.assertEqual(False, app_manager_server.copy_java_sdk_changes(app_name))
+    self.assertEqual(False, app_manager_server.copy_modified_jars(app_name))
 
-  def test_copy_java_sdk_changes_fail_case_2(self):
+  def test_copy_modified_jars_fail_case_2(self):
     app_name = 'test'
     flexmock(subprocess).should_receive('call').and_return(1)
-    self.assertEqual(False, app_manager_server.copy_java_sdk_changes(app_name))
+    self.assertEqual(False, app_manager_server.copy_modified_jars(app_name))
     
 if __name__ == "__main__":
   unittest.main()

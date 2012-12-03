@@ -95,6 +95,10 @@ def start_app(config):
     logging.error("Invalid configuration for application")
     return BAD_PID 
   
+  if not misc.is_app_name_valid(config['app_name']):
+    logging.error("Invalid app name for application: " +\
+                  config['app_name'])
+    return BAD_PID
   logging.info("Starting %s application %s"%(config['language'], 
                                              config['app_name']))
 
@@ -117,8 +121,8 @@ def start_app(config):
                             config['load_balancer_port'], 
                             config['app_name'])
   elif config['language'] == constants.JAVA:
-    copy_successful = copy_java_sdk_changes(config['app_name'])
-    if copy_successful == False:
+    copy_successful = copy_modified_jars(config['app_name'])
+    if not copy_successful:
       return BAD_PID
     start_cmd = create_java_start_cmd(config['app_name'],
                             config['app_port'],
@@ -381,7 +385,7 @@ def create_python_start_cmd(app_name,
   
   return ' '.join(cmd)
 
-def copy_java_sdk_changes(app_name):
+def copy_modified_jars(app_name):
   """
   Copies the changes made to the Java SDK
   for AppScale into the apps lib folder.
@@ -390,7 +394,7 @@ def copy_java_sdk_changes(app_name):
     app_name: The name of the application to run
 
   Returns:
-    false if there was any errors, true if success
+    False if there were any errors, True if success
   """
   appscale_home = constants.APPSCALE_HOME
 
@@ -398,7 +402,7 @@ def copy_java_sdk_changes(app_name):
                               "appengine-java-sdk-repacked/lib/user/*.jar " +\
                               "/var/apps/" + app_name + "/app/war/WEB-INF/" +\
                               "lib/", shell=True)
-  if cp_result > 0:
+  if cp_result != 0:
     logging.error("Failed to copy appengine-java-sdk-repacked/lib/user jars " +\
                   "to lib directory of " + app_name)
     return False
@@ -407,7 +411,7 @@ def copy_java_sdk_changes(app_name):
                               "appengine-java-sdk-repacked/lib/user/orm/" +\
                               "*.jar /var/apps/" + app_name + "/app/war/" +\
                               "WEB-INF/lib/", shell=True)
-  if cp_result > 0:
+  if cp_result != 0:
     logging.error("Failed to copy appengine-java-sdk-repacked/lib/user/orm" +\
                   " jars to lib directory of " + app_name)
     return False
