@@ -639,4 +639,17 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(2, boo)
   end
 
+  def test_start_roles_on_nodes_bad_input
+    # Calling start_roles_on_nodes with something other than a Hash
+    # isn't acceptable
+    flexmock(Djinn).new_instances { |instance|
+      instance.should_receive(:valid_secret?).and_return(true)
+    }
+
+    djinn = Djinn.new()
+    expected = Djinn::BAD_INPUT_MSG
+    actual = djinn.start_roles_on_nodes("", @secret)
+    assert_equal(expected, actual)
+  end
+
 end

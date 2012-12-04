@@ -970,6 +970,12 @@ class Djinn
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
+
+    if ips_hash.class != Hash
+      Djinn.log_debug("Was expecting ips_hash to be a Hash, not " +
+        "a #{ips_hash.class}")
+      return BAD_INPUT_MSG
+    end
   end
 
 
