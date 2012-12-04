@@ -8,8 +8,8 @@ require 'logger'
 require 'soap/rpc/driver'
 
 APPSCALE_HOME = ENV['APPSCALE_HOME']
-ENV['EC2_HOME'] = "/usr/local/ec2-api-tools"
-ENV['JAVA_HOME'] = "/usr/lib/jvm/java-6-openjdk"
+#ENV['EC2_HOME'] = "/usr/local/ec2-api-tools"
+#ENV['JAVA_HOME'] = "/usr/lib/jvm/java-6-openjdk"
 
 # Import for AppController
 $:.unshift File.join(File.dirname(__FILE__))
