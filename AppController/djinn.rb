@@ -966,6 +966,13 @@ class Djinn
   end
 
 
+  def start_roles_on_nodes(ips_hash, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+  end
+
+
   # Starts the given roles by using open nodes, spawning new nodes, or some
   # combination of the two. 'nodes_needed' should be an Array, where each 
   # item is an Array of the roles to start on each node.

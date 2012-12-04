@@ -53,6 +53,7 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(BAD_SECRET_MSG, djinn.is_app_running(@app, @secret))
     assert_equal(BAD_SECRET_MSG, djinn.add_role("baz", @secret))
     assert_equal(BAD_SECRET_MSG, djinn.remove_role("baz", @secret))
+    assert_equal(BAD_SECRET_MSG, djinn.start_roles_on_nodes({}, @secret))
     assert_equal(BAD_SECRET_MSG, djinn.start_new_roles_on_nodes([], '', 
       @secret))
   end
