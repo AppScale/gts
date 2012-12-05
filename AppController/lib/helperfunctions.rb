@@ -36,6 +36,14 @@ module HelperFunctions
   APPSCALE_HOME = ENV['APPSCALE_HOME']
 
 
+  # The location on the filesystem where configuration files about
+  # AppScale are stored.
+  APPSCALE_CONFIG_DIR = "/etc/appscale"
+
+
+  APPSCALE_KEYS_DIR = "#{APPSCALE_CONFIG_DIR}/keys/cloud1"
+
+
   # The maximum amount of time, in seconds, that we are willing to wait for
   # a virtual machine to start up, from the initial run-instances request.
   # Setting this value is a bit of an art, but we choose the value below
@@ -251,15 +259,15 @@ module HelperFunctions
 
   def self.scp_file(local_file_loc, remote_file_loc, target_ip, private_key_loc)
     private_key_loc = File.expand_path(private_key_loc)
-    FileUtils.chmod(0600, private_key_loc) # else ssh won't use the key
+    FileUtils.chmod(CHMOD_READ_ONLY, private_key_loc)
     local_file_loc = File.expand_path(local_file_loc)
     retval_file = "/etc/appscale/retval-#{Kernel.rand()}"
     cmd = "scp -i #{private_key_loc} -o StrictHostkeyChecking=no 2>&1 #{local_file_loc} root@#{target_ip}:#{remote_file_loc}; echo $? > #{retval_file}"
-    scp_result = `#{cmd}`
+    scp_result = self.shell("#{cmd}")
 
     loop {
       break if File.exists?(retval_file)
-      sleep(5)
+      Kernel.sleep(5)
     }
 
     retval = (File.open(retval_file) { |f| f.read }).chomp
@@ -270,8 +278,8 @@ module HelperFunctions
       Kernel.puts("\n\n[#{cmd}] returned #{retval} instead of 0 as expected. Will try to copy again momentarily...")
       fails += 1
       abort("SCP failed") if fails >= 5
-      sleep(2)
-      `#{cmd}`
+      Kernel.sleep(2)
+      self.shell("#{cmd}")
       retval = (File.open(retval_file) { |f| f.read }).chomp
     }
 

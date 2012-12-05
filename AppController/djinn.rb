@@ -976,6 +976,56 @@ class Djinn
         "a #{ips_hash.class}")
       return BAD_INPUT_MSG
     end
+
+    # ips_hash maps roles to IPs, but the internal format here maps
+    # IPs to roles, so convert to the right format
+    ips_to_roles = {}
+    ips_hash.each { |role, ip_or_ips|
+      if ip_or_ips.class == String
+        ips = [ip_or_ips]  # just one IP
+      else
+        ips = ip_or_ips  # a list of IPs
+      end
+
+      ips.each { |ip|
+        if ips_to_roles[ip].nil?
+          ips_to_roles[ip] = []
+        end
+        ips_to_roles[ip] << role
+      }
+    }
+
+    Thread.new {
+      if is_cloud?
+
+      else
+        start_new_roles_on_nodes_in_xen(ips_to_roles)
+      end
+    }
+
+    return ips_to_roles
+  end
+
+
+  def start_new_roles_on_nodes_in_xen(ips_to_roles)
+    # get zk lock?
+
+    # Change ips_to_roles to the format that DjinnJobData's constructor
+    # likes to see.
+    # TODO(cgb): Add another constructor to DjinnJobData that takes
+    # data in a more reasonable format so that we don't have to do this
+    # conversion.
+    nodes_info = []
+    keyname = @creds['keyname']
+    ips_to_roles.each { |ip, roles|
+      string_info = "#{ip}:#{ip}:#{roles.join(':')}:#{keyname}:cloud1"
+      nodes_info << DjinnJobData.new(string_info, keyname)
+    }
+
+    initialize_nodes_in_parallel(nodes_info)
+    # wait for them to finish loading
+
+    return nodes_info
   end
 
 

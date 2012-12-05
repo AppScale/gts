@@ -22,7 +22,8 @@ class TestDjinn < Test::Unit::TestCase
     @secret = "baz"
     flexmock(HelperFunctions).should_receive(:read_file).
       with("/etc/appscale/secret.key", true).and_return(@secret)
-
+    flexmock(HelperFunctions).should_receive(:shell).
+      with("").and_return()
     @app = "app"
   end
 
@@ -96,8 +97,8 @@ class TestDjinn < Test::Unit::TestCase
 
 
   def test_set_params_w_bad_params
-    flexmock(HelperFunctions).should_receive(:local_ip).
-      and_return("127.0.0.1")
+    flexmock(HelperFunctions).should_receive(:get_all_local_ips).
+      and_return(["127.0.0.1"])
 
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
@@ -399,8 +400,8 @@ class TestDjinn < Test::Unit::TestCase
     baz.should_receive(:set).with(:path => done_loading,
       :data => JSON.dump(true)).and_return(all_ok)
 
-    flexmock(HelperFunctions).should_receive(:local_ip).
-      and_return("private_ip")
+    flexmock(HelperFunctions).should_receive(:get_all_local_ips).
+      and_return(["private_ip"])
 
     flexmock(GodInterface).should_receive(:start).and_return()
 
@@ -665,6 +666,40 @@ class TestDjinn < Test::Unit::TestCase
     djinn = Djinn.new()
     expected = Djinn::BAD_INPUT_MSG
     actual = djinn.start_roles_on_nodes("", @secret)
+    assert_equal(expected, actual)
+  end
+
+  def test_start_roles_on_nodes_in_xen
+    ips_hash = {'appengine' => ['node-1', 'node-2']}
+    djinn = Djinn.new()
+    expected = {'node-1' => ['appengine'], 'node-2' => ['appengine']}
+    actual = djinn.start_roles_on_nodes(ips_hash, @secret)
+    assert_equal(expected, actual)
+  end
+
+  def test_start_new_roles_on_nodes_in_xen
+    # try adding two new nodes to an appscale deployment, assuming that
+    # the machines are already running and have appscale installed
+    ips_to_roles = {'1.2.3.4' => ['appengine'], '1.2.3.5' => ['appengine']}
+
+    # assume the machines are running and that we can scp and ssh to them
+    flexmock(HelperFunctions).should_receive(:is_port_open?).
+      with('1.2.3.4', Djinn::SSH_PORT, HelperFunctions::DONT_USE_SSL).
+      and_return(true)
+    flexmock(HelperFunctions).should_receive(:is_port_open?).
+      with('1.2.3.5', Djinn::SSH_PORT, HelperFunctions::DONT_USE_SSL).
+      and_return(true)
+
+    key_location = "#{HelperFunctions::APPSCALE_KEYS_DIR}/boo.key"
+    flexmock(FileUtils).should_receive(:chmod).
+      with(HelperFunctions::CHMOD_READ_ONLY, key_location).and_return()
+
+    djinn = Djinn.new()
+    djinn.creds = {'keyname' => 'boo'}
+    node1_info = "1.2.3.4:1.2.3.4:appengine:bookey:cloud1"
+    node2_info = "1.2.3.5:1.2.3.5:appengine:bookey:cloud1"
+    expected = [node1_info, node2_info]
+    actual = djinn.start_new_roles_on_nodes_in_xen(ips_to_roles)
     assert_equal(expected, actual)
   end
 
