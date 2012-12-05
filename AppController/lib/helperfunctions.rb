@@ -90,6 +90,11 @@ module HelperFunctions
   LOCALHOST_IP = "127.0.0.1"
 
 
+  # The file permissions that indicate that only the owner of a file
+  # can read or write to it (necessary for SSH keys).
+  CHMOD_READ_ONLY = 0600
+
+
   # A class variable that is used to locally cache our own IP address, so that
   # we don't keep asking the system for it.
   @@my_local_ip = nil
@@ -246,11 +251,10 @@ module HelperFunctions
 
   def self.scp_file(local_file_loc, remote_file_loc, target_ip, private_key_loc)
     private_key_loc = File.expand_path(private_key_loc)
-    `chmod 0600 #{private_key_loc}`
+    FileUtils.chmod(0600, private_key_loc) # else ssh won't use the key
     local_file_loc = File.expand_path(local_file_loc)
     retval_file = "/etc/appscale/retval-#{Kernel.rand()}"
     cmd = "scp -i #{private_key_loc} -o StrictHostkeyChecking=no 2>&1 #{local_file_loc} root@#{target_ip}:#{remote_file_loc}; echo $? > #{retval_file}"
-    #Kernel.puts(cmd)
     scp_result = `#{cmd}`
 
     loop {

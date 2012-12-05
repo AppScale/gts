@@ -15,9 +15,9 @@ class TestDjinn < Test::Unit::TestCase
     kernel.should_receive(:shell).with("").and_return()
     kernel.should_receive(:sleep).and_return()
 
-    djinn_class = flexmock(Djinn)
-    djinn_class.should_receive(:log_debug).and_return()
-    djinn_class.should_receive(:log_run).and_return()
+    djinn = flexmock(Djinn)
+    djinn.should_receive(:log_debug).and_return()
+    djinn.should_receive(:log_run).with("").and_return()
 
     @secret = "baz"
     flexmock(HelperFunctions).should_receive(:read_file).
@@ -207,6 +207,14 @@ class TestDjinn < Test::Unit::TestCase
     file = flexmock(File)
     file.should_receive(:open).with(RabbitMQ::COOKIE_FILE, "w+", Proc).and_return()
 
+    # mock out when the AppController tries to clean up any old
+    # RabbitMQ config files
+    flexmock(Djinn).should_receive(:log_run).with(/\Arm -rf/).and_return()
+
+    # also mock out when the AppController tries to start rabbitmq
+    flexmock(Djinn).should_receive(:log_run).with(/\Arabbitmq/).
+      and_return()
+
     assert_equal(true, djinn.start_rabbitmq_master())
   end
 
@@ -233,6 +241,14 @@ class TestDjinn < Test::Unit::TestCase
 
     file = flexmock(File)
     file.should_receive(:open).with(RabbitMQ::COOKIE_FILE, "w+", Proc).and_return()
+
+    # mock out when the AppController tries to clean up any old
+    # RabbitMQ config files
+    flexmock(Djinn).should_receive(:log_run).with(/\Arm -rf/).and_return()
+
+    # also mock out when the AppController tries to start rabbitmq
+    flexmock(Djinn).should_receive(:log_run).with(/\Arabbitmq/).
+      and_return()
 
     assert_equal(true, djinn.start_rabbitmq_slave())
   end
