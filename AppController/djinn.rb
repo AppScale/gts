@@ -1018,11 +1018,10 @@ class Djinn
     nodes_info = []
     keyname = @creds['keyname']
     ips_to_roles.each { |ip, roles|
-      string_info = "#{ip}:#{ip}:#{roles.join(':')}:#{keyname}:cloud1"
-      nodes_info << DjinnJobData.new(string_info, keyname)
+      nodes_info << "#{ip}:#{ip}:#{roles.join(':')}:#{keyname}:cloud1"
     }
 
-    initialize_nodes_in_parallel(nodes_info)
+    add_nodes(nodes_info)
     # wait for them to finish loading
 
     return nodes_info
@@ -1103,6 +1102,14 @@ class Djinn
     wait_for_nodes_to_finish_loading(vms_to_use)
 
     return "OK"
+  end
+
+
+  def add_nodes(node_info)
+    keyname = @creds['keyname']
+    new_nodes = Djinn.convert_location_array_to_class(node_info, keyname)
+    @nodes.concat(new_nodes)
+    initialize_nodes_in_parallel(new_nodes)
   end
 
 
@@ -2257,7 +2264,7 @@ class Djinn
   def initialize_nodes_in_parallel(node_info)
     threads = []
     node_info.each { |slave|
-      threads << Thread.new { 
+      threads << Thread.new {
         initialize_node(slave)
       }
     }

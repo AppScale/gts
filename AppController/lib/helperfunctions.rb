@@ -250,9 +250,9 @@ module HelperFunctions
     Kernel.puts("Running [#{remote_cmd}]")
 
     if want_output
-      return `#{remote_cmd}`
+      return self.shell("#{remote_cmd}")
     else
-      Kernel.system remote_cmd
+      Kernel.system(remote_cmd)
       return remote_cmd
     end
   end
@@ -261,7 +261,7 @@ module HelperFunctions
     private_key_loc = File.expand_path(private_key_loc)
     FileUtils.chmod(CHMOD_READ_ONLY, private_key_loc)
     local_file_loc = File.expand_path(local_file_loc)
-    retval_file = "/etc/appscale/retval-#{Kernel.rand()}"
+    retval_file = "#{APPSCALE_CONFIG_DIR}/retval-#{Kernel.rand()}"
     cmd = "scp -i #{private_key_loc} -o StrictHostkeyChecking=no 2>&1 #{local_file_loc} root@#{target_ip}:#{remote_file_loc}; echo $? > #{retval_file}"
     scp_result = self.shell("#{cmd}")
 
@@ -283,14 +283,13 @@ module HelperFunctions
       retval = (File.open(retval_file) { |f| f.read }).chomp
     }
 
-    #Kernel.puts(scp_result)
-    `rm -fv #{retval_file}`
+    self.shell("rm -fv #{retval_file}")
   end
 
   def self.get_remote_appscale_home(ip, key)
     cat = "cat /etc/appscale/home"
     remote_cmd = "ssh -i #{key} -o NumberOfPasswordPrompts=0 -o StrictHostkeyChecking=no 2>&1 root@#{ip} '#{cat}'"
-    possible_home = `#{remote_cmd}`.chomp
+    possible_home = self.shell("#{remote_cmd}").chomp
     if possible_home.nil? or possible_home.empty?
       return "/root/appscale/"
     else
@@ -1067,7 +1066,7 @@ module HelperFunctions
   end
 
   def self.does_image_have_location?(ip, location, key)
-    ret_val = `ssh -i #{key} -o NumberOfPasswordPrompts=0 -o StrictHostkeyChecking=no 2>&1 root@#{ip} 'ls #{location}'; echo $?`.chomp[-1]
+    ret_val = self.shell("ssh -i #{key} -o NumberOfPasswordPrompts=0 -o StrictHostkeyChecking=no 2>&1 root@#{ip} 'ls #{location}'; echo $?").chomp[-1]
     return ret_val.chr == "0"
   end
 
