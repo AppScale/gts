@@ -98,5 +98,7 @@ class InfrastructureManagerService:
       utils.log('Warning - Stop called on already stopped server')
 
 if __name__ == '__main__':
+  os.environ['EC2_HOME'] = '/usr/local/ec2-api-tools'
+  os.environ['JAVA_HOME'] = '/usr/lib/jvm/java-6-openjdk'
   service = InfrastructureManagerService()
   service.start()
