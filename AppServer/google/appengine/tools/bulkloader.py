@@ -3905,8 +3905,8 @@ def _PerformBulkload(arg_dict,
                             Queue.Queue)
       try:
         return_code = app.Run()
-      except AuthenticationError:
-        logger.info('Authentication Failed')
+      except AuthenticationError, e:
+        logger.info('Authentication Failed %s' % str(e))
     finally:
       loader.finalize()
   elif download or dump or create_config:
@@ -3938,12 +3938,12 @@ def _PerformBulkload(arg_dict,
                               Queue.Queue)
       try:
         return_code = app.Run()
-      except AuthenticationError:
-        logger.info('Authentication Failed')
+      except AuthenticationError, e:
+        logger.info('Authentication Failed %s' % str(e))
       except KindStatError:
         logger.error('Unable to download kind stats for all-kinds download.')
         logger.error('Kind stats are generated periodically by the appserver')
-        logger.error('Kind stats are not available on dev_appserver.')
+        logger.error('Kind stats are not available on dev_appserver or AppScale.')
     finally:
       exporter.finalize()
   elif perform_map:
@@ -3972,8 +3972,8 @@ def _PerformBulkload(arg_dict,
                           Queue.Queue)
       try:
         return_code = app.Run()
-      except AuthenticationError:
-        logger.info('Authentication Failed')
+      except AuthenticationError, e:
+        logger.info('Authentication Failed %s' % str(e))
     finally:
       mapper.finalize()
   return return_code
