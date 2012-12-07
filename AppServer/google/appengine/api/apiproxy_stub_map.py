@@ -244,14 +244,16 @@ class APIProxyStubMap(object):
     """Gets a collection for all precall hooks."""
     return self.__postcall_hooks
 
-  def RegisterStub(self, service, stub):
-    """Register the provided stub for the specified service.
+  def ReplaceStub(self, service, stub):
+    """Replace the existing stub for the specified service with a new one.
+
+    NOTE: This is a risky operation; external callers should use this with
+    caution.
 
     Args:
       service: string
       stub: stub
     """
-    #assert not self.__stub_map.has_key(service), repr(service)
     self.__stub_map[service] = stub
 
 
@@ -262,6 +264,25 @@ class APIProxyStubMap(object):
 
     if service == 'datastore':
       self.RegisterStub('datastore_v3', stub)
+
+  def RegisterStub(self, service, stub):
+    """Register the provided stub for the specified service.
+
+    Args:
+      service: string
+      stub: stub
+    """
+    # AppScale
+    # This is commented out because the blobstore server uses 
+    # the stub map and it re-registers the service that 
+    # already exists. It was written with the hope of being 
+    # multithreaded, but it looks like there is only one datastore entry
+    # when uploading multiple blobs. 
+    # TODO Requires investigation
+    # if we want the blobstore service to be scalable.
+
+    # assert not self.__stub_map.has_key(service), repr(service)
+    self.ReplaceStub(service, stub)
 
   def GetStub(self, service):
     """Retrieve the stub registered for the specified service.

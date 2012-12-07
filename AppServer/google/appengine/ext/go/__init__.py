@@ -20,28 +20,6 @@
 
 """A bridge between dev_appserver.py and a Go app."""
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import asyncore
 import atexit
 import getpass
@@ -217,7 +195,7 @@ def find_go_files_mtime(basedir):
 
 
 def wait_until_go_app_ready():
-
+  """ Backs off and sleeps until the GO application is up. """
   t = 0.0625
   while t < 10:
     time.sleep(t)

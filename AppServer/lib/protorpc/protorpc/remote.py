@@ -51,7 +51,7 @@ above functionality.  It implements all required and optional methods for a
 service.  It also has convenience methods for creating factory functions that
 can pass persistent global state to a new service instance.
 
-The 'remote' decorator is used to declare which methods of a class are
+The 'method' decorator is used to declare which methods of a class are
 meant to service RPCs.  While this decorator is not responsible for handling
 actual remote method invocations, such as handling sockets, handling various
 RPC protocols and checking messages for correctness, it does attach information
@@ -101,11 +101,14 @@ make an asynchronous call, do:
   response = rpc.get_response()
 """
 
+from __future__ import with_statement
+
 __author__ = 'rafek@google.com (Rafe Kaplan)'
 
 import logging
 import os
 import sys
+import threading
 from wsgiref import headers as wsgi_headers
 
 from . import message_types
@@ -638,7 +641,7 @@ class _ServiceClass(type):
 
           if get_remote_method_info(value):
             raise ServiceDefinitionError(
-              'Do not use remote decorator when overloading remote method %s '
+              'Do not use method decorator when overloading remote method %s '
               'on service %s.' %
               (attribute, name))
 
@@ -871,6 +874,8 @@ class Service(object):
   """
 
   __metaclass__ = _ServiceClass
+
+  __request_state = None
 
   @classmethod
   def all_remote_methods(cls):
@@ -1129,6 +1134,9 @@ class Protocols(object):
     content_types: Sorted list of supported content-types.
   """
 
+  __default_protocols = None
+  __lock = threading.Lock()
+
   def __init__(self):
     """Constructor."""
     self.__by_name = {}
@@ -1209,3 +1217,35 @@ class Protocols(object):
     protocols.add_protocol(protobuf, 'protobuf')
     protocols.add_protocol(protojson, 'protojson')
     return protocols
+
+  @classmethod
+  def get_default(cls):
+    """Get the global default Protocols instance.
+
+    Returns:
+      Current global default Protocols instance.
+    """
+    default_protocols = cls.__default_protocols
+    if default_protocols is None:
+      with cls.__lock:
+        default_protocols = cls.__default_protocols
+        if default_protocols is None:
+          default_protocols = cls.new_default()
+          cls.__default_protocols = default_protocols
+    return default_protocols
+
+  @classmethod
+  def set_default(cls, protocols):
+    """Set the global default Protocols instance.
+
+    Args:
+      protocols: A Protocols instance.
+
+    Raises:
+      TypeError if protocols is not an instance of Protocols.
+    """
+    if not isinstance(protocols, Protocols):
+      raise TypeError(
+        'Expected value of type "Protocols", found %r' % protocols)
+    with cls.__lock:
+      cls.__default_protocols = protocols

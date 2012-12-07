@@ -41,6 +41,12 @@ class URLFetchServiceError(ProtocolBuffer.ProtocolMessage):
   RESPONSE_TOO_LARGE =    4
   DEADLINE_EXCEEDED =    5
   SSL_CERTIFICATE_ERROR =    6
+  DNS_ERROR    =    7
+  CLOSED       =    8
+  INTERNAL_TRANSIENT_ERROR =    9
+  TOO_MANY_REDIRECTS =   10
+  MALFORMED_REPLY =   11
+  CONNECTION_ERROR =   12
 
   _ErrorCode_NAMES = {
     0: "OK",
@@ -50,6 +56,12 @@ class URLFetchServiceError(ProtocolBuffer.ProtocolMessage):
     4: "RESPONSE_TOO_LARGE",
     5: "DEADLINE_EXCEEDED",
     6: "SSL_CERTIFICATE_ERROR",
+    7: "DNS_ERROR",
+    8: "CLOSED",
+    9: "INTERNAL_TRANSIENT_ERROR",
+    10: "TOO_MANY_REDIRECTS",
+    11: "MALFORMED_REPLY",
+    12: "CONNECTION_ERROR",
   }
 
   def ErrorCode_Name(cls, x): return cls._ErrorCode_NAMES.get(x, "")

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}
+  {% if error %}
+    Problem starting jobs
+  {% else %}
+    Restore from backup jobs kicked off
+  {% endif %}
+{% endblock %}
+{% block body %}
+  <h2>Restore from backup Job Status</h2>
+  {% if xsrf_error %}
+    <div class="ae-errorbox">
+      The token used to submit this form has expired.
+    </div>
+  {% else %}
+    {% if job_list %}
+      <div class="ae-message">
+        <div class="ae-alert">
+          The following jobs were launched by MapReduce.
+        </div>
+        <p>Each job's status will only be available for as long as the
+        job takes to complete.  Once the job is complete, it will remove the
+        status objects from your datastore.  Click a job's id for status
+        information.
+        </p>
+      </div>
+    {% endif %}
+    {% for id in job_list %}
+      <p>Backup <a href="{{mapreduce_detail|escape}}{{id|escape}}">job with id
+        {{id|escape}}</a>
+          kicked off.</p>
+    {% endfor %}
+
+    {% if error %}
+      <p>There was a problem kicking off the jobs.
+      {% if job_list %}The above jobs did start successfully.  The error
+        starting the remaining jobs was:
+      {% else %}The error was:
+      {% endif %}</p>
+      <pre><code>{{error|escape}}</code></pre>
+    {% endif %}
+  {% endif %}
+  <a href="{{datastore_admin_home}}">Back to Datastore Admin</a>
+{% endblock %}
+

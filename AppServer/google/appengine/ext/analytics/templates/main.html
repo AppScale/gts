@@ -1,0 +1,47 @@
+<!doctype html>
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="local/analytics_css.css"/>
+    <title> Appstats Analytics </title>
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+    <script type="text/javascript">
+      google.load('visualization', '1', {packages: ['corechart']});
+    </script>
+    <script type="text/javascript" src="local/analytics_js.js"></script>
+  </head>
+  <body>
+    <center><b>Analyzing Appstats Snapshot from {{source}}</b></center><br>
+
+    {% if not resptime_byfreq %}
+      No records in this Appstats Snapshot! <br><br>
+    {% endif %}
+
+    <a href="/stats">Analyze another Appstats snapshot</a><br><br>
+
+    <b>Recording for this snapshot started at {{recordingstart}} UTC</b>
+
+    {% if resptime_byfreq %}
+    <table>
+      <tr>
+        <th>URL</th>
+        <th>Histogram of number of requests in each latency range<br>
+            (milliseconds)</th>
+      </tr>
+    {% for triple in resptime_byfreq %}
+      <tr>
+        <td><a href="?source={{source}}&url={{triple.0|urlencode}}">{{triple.0}}</a><br>
+             Requests: {{triple.1|length}}</td>
+        <td><div id="latency-{{triple.0}}"></div></td>
+      </tr>
+    {% endfor %}
+    </table>
+    {% endif %}
+
+    <script>
+      {% for triple in resptime_byfreq %}
+        ae.Charts.latencyHistogram({{intervals}},
+            {{triple.2}}, '{{triple.0}}');
+      {% endfor %}
+    </script>
+  </body>
+</html>

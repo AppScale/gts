@@ -103,7 +103,7 @@ def make_filter(name, op, values):
     Other exception types (like OverflowError): if the property value does not
       meet type-specific criteria.
   """
-  datastore_types.ValidateProperty(name, values, read_only=True)
+  datastore_types.ValidateProperty(name, values)
   properties = datastore_types.ToPropertyPb(name, values)
   if isinstance(properties, list):
     filters = [PropertyFilter(op, prop) for prop in properties]
@@ -329,6 +329,9 @@ class PropertyFilter(_SinglePropertyFilter):
 
   def _apply_to_value(self, value):
     if not hasattr(self, '_cmp_value'):
+      if self._filter.op() == datastore_pb.Query_Filter.EXISTS:
+
+        return True
       self._cmp_value = datastore_types.PropertyValueToKeyValue(
           self._filter.property(0).value())
       self._condition = ('value %s self._cmp_value' %
@@ -1293,6 +1296,45 @@ class QueryOptions(FetchOptions):
     return value
 
   @datastore_rpc.ConfigOption
+  def projection(value):
+    """A list or tuple of property names to project.
+
+    If None, the entire entity is returned.
+
+    Specifying a projection:
+    - may change the index requirements for the given query;
+    - will cause a partial entity to be returned;
+    - will cause only entities that contain those properties to be returned;
+
+    A partial entities only contain the property name and value for properties
+    in the projection (meaning and multiple will not be set). They will also
+    only contain a single value for any multi-valued property. However, if a
+    multi-valued property is specified in the order, an inequality property, or
+    the projected properties, the entity will be returned multiple times. Once
+    for each unique combination of values.
+
+    However, projection queries are significantly faster than normal queries.
+
+    Raises:
+      datastore_errors.BadArgumentError if value is empty or not a list or tuple
+    of strings.
+    """
+    if isinstance(value, list):
+      value = tuple(value)
+    elif not isinstance(value, tuple):
+      raise datastore_errors.BadArgumentError(
+          'properties argument should be a list or tuple (%r)' % (value,))
+    if not value:
+      raise datastore_errors.BadArgumentError(
+          'properties argument cannot be empty')
+    for prop in value:
+      if not isinstance(prop, basestring):
+        raise datastore_errors.BadArgumentError(
+            'properties argument should contain only strings (%r)' % (prop,))
+
+    return value
+
+  @datastore_rpc.ConfigOption
   def limit(value):
     """Limit on the number of results to return.
 
@@ -1375,7 +1417,7 @@ class Cursor(_BaseComponent):
   """
 
   @datastore_rpc._positional(1)
-  def __init__(self, _cursor_pb=None):
+  def __init__(self, _cursor_pb=None, urlsafe=None):
     """Constructor.
 
     A Cursor constructed with no arguments points the first result of any
@@ -1385,6 +1427,11 @@ class Cursor(_BaseComponent):
 
 
     super(Cursor, self).__init__()
+    if urlsafe is not None:
+      if _cursor_pb is not None:
+        raise datastore_errors.BadArgumentError(
+            'Do not use _cursor_pb and urlsafe together')
+      _cursor_pb = self._bytes_to_cursor_pb(self._urlsafe_to_bytes(urlsafe))
     if _cursor_pb is not None:
       if not isinstance(_cursor_pb, datastore_pb.CompiledCursor):
         raise datastore_errors.BadArgumentError(
@@ -1433,6 +1480,12 @@ class Cursor(_BaseComponent):
       datastore_errors.BadValueError if the cursor argument does not represent a
       serialized cursor.
     """
+    cursor_pb = Cursor._bytes_to_cursor_pb(cursor)
+    return Cursor(_cursor_pb=cursor_pb)
+
+  @staticmethod
+  def _bytes_to_cursor_pb(cursor):
+
     try:
       cursor_pb = datastore_pb.CompiledCursor(cursor)
     except (ValueError, TypeError), e:
@@ -1450,15 +1503,16 @@ class Cursor(_BaseComponent):
             'Invalid cursor %s. Details: %s' % (cursor, e))
       else:
         raise
-    return Cursor(_cursor_pb=cursor_pb)
+    return cursor_pb
 
-  def to_websafe_string(self):
+  def urlsafe(self):
     """Serialize cursor as a websafe string.
 
     Returns:
       A base64-encoded serialized cursor.
     """
     return base64.urlsafe_b64encode(self.to_bytes())
+  to_websafe_string = urlsafe
 
   @staticmethod
   def from_websafe_string(cursor):
@@ -1477,6 +1531,12 @@ class Cursor(_BaseComponent):
       datastore_errors.BadValueError if the cursor argument is not a string
       type of does not represent a serialized cursor.
     """
+    decoded_bytes = Cursor._urlsafe_to_bytes(cursor)
+    return Cursor.from_bytes(decoded_bytes)
+
+  @staticmethod
+  def _urlsafe_to_bytes(cursor):
+
     if not isinstance(cursor, basestring):
       raise datastore_errors.BadValueError(
           'cursor argument should be str or unicode (%r)' % (cursor,))
@@ -1488,7 +1548,7 @@ class Cursor(_BaseComponent):
     except (ValueError, TypeError), e:
       raise datastore_errors.BadValueError(
           'Invalid cursor %s. Details: %s' % (cursor, e))
-    return Cursor.from_bytes(decoded_bytes)
+    return decoded_bytes
 
   @staticmethod
   def _from_query_result(query_result):
@@ -1782,9 +1842,9 @@ class Query(_BaseQuery):
     if not start_cursor and query_options.produce_cursors:
       start_cursor = Cursor()
 
-    batch0 = Batch(query_options, self, conn, start_cursor=start_cursor)
     req = self._to_pb(conn, query_options)
-    return batch0._make_query_result_rpc_call('RunQuery', query_options, req)
+    return Batch.create_async(self, query_options, conn, req,
+                              start_cursor=start_cursor)
 
   @classmethod
   def _from_pb(cls, query_pb):
@@ -1826,6 +1886,10 @@ class Query(_BaseQuery):
 
     if QueryOptions.keys_only(query_options, conn.config):
       pb.set_keys_only(True)
+
+    projection = QueryOptions.projection(query_options, conn.config)
+    if projection:
+      pb.property_name_list().extend(projection)
 
     if QueryOptions.produce_cursors(query_options, conn.config):
       pb.set_compile(True)
@@ -2030,11 +2094,10 @@ class _AugmentedQuery(_BaseQuery):
     if not start_cursor and query_options.produce_cursors:
       start_cursor = Cursor()
 
-    batch0 = _AugmentedBatch(query_options, self, conn,
-                            in_memory_offset=in_memory_offset,
-                            in_memory_limit=in_memory_limit,
-                            start_cursor=start_cursor)
-    return batch0._make_query_result_rpc_call('RunQuery', query_options, req)
+    return _AugmentedBatch.create_async(self, query_options, conn, req,
+                                        in_memory_offset=in_memory_offset,
+                                        in_memory_limit=in_memory_limit,
+                                        start_cursor=start_cursor)
 
 
 @datastore_rpc._positional(1)
@@ -2089,6 +2152,63 @@ def inject_results(query, updated_entities=None, deleted_keys=None):
                          max_filtered_count=len(overriden_keys))
 
 
+class _BatchShared(object):
+  """Data shared among the batches of a query."""
+
+  def __init__(self, query, query_options, conn, augmented_query=None):
+    self.__query = query
+    self.__query_options = query_options
+    self.__conn = conn
+    self.__augmented_query = augmented_query
+    self.__was_first_result_processed = False
+
+  @property
+  def query(self):
+    return self.__query
+
+  @property
+  def query_options(self):
+    return self.__query_options
+
+  @property
+  def conn(self):
+    return self.__conn
+
+  @property
+  def augmented_query(self):
+    return self.__augmented_query
+
+  @property
+  def keys_only(self):
+    return self.__keys_only
+
+  @property
+  def compiled_query(self):
+    return self.__compiled_query
+
+  @property
+  def index_list(self):
+    """Returns the list of indexes used by the query.
+    Possibly None when the adapter does not implement pb_to_index.
+    """
+    return self.__index_list
+
+  def process_query_result_if_first(self, query_result):
+    if not self.__was_first_result_processed:
+      self.__was_first_result_processed = True
+      self.__keys_only = query_result.keys_only()
+      if query_result.has_compiled_query():
+        self.__compiled_query = query_result.compiled_query
+      else:
+        self.__compiled_query = None
+      try:
+        self.__index_list = [self.__conn.adapter.pb_to_index(index_pb)
+                             for index_pb in query_result.index_list()]
+      except NotImplementedError:
+
+        self.__index_list = None
+
+
 class Batch(object):
   """A batch of results returned by a query.
 
@@ -2125,9 +2245,16 @@ class Batch(object):
   offset or results needed). The Batcher class hides these limitations.
   """
 
-  @datastore_rpc._positional(4)
-  def __init__(self, query_options, query, conn,
-               start_cursor=Cursor(), _compiled_query=None):
+  @classmethod
+  @datastore_rpc._positional(5)
+  def create_async(cls, query, query_options, conn, req,
+                   start_cursor):
+    batch_shared = _BatchShared(query, query_options, conn)
+    batch0 = cls(batch_shared, start_cursor=start_cursor)
+    return batch0._make_query_result_rpc_call('RunQuery', query_options, req)
+
+  @datastore_rpc._positional(2)
+  def __init__(self, batch_shared, start_cursor=Cursor()):
     """Constructor.
 
     This class is constructed in stages (one when an RPC is sent and another
@@ -2138,28 +2265,23 @@ class Batch(object):
     This constructor does not perform verification.
 
     Args:
-      query_options: The QueryOptions used to run the given query.
-      query: The Query the batch is derived from.
-      conn: A datastore_rpc.Connection to use.
+      batch_shared: Data shared between batches for a a single query run.
       start_cursor: Optional cursor pointing before this batch.
     """
 
 
-    self.__query = query
-    self._conn = conn
-    self.__query_options = query_options
+    self._batch_shared = batch_shared
     self.__start_cursor = start_cursor
-    self._compiled_query = _compiled_query
 
   @property
   def query_options(self):
     """The QueryOptions used to retrieve the first batch."""
-    return self.__query_options
+    return self._batch_shared.query_options
 
   @property
   def query(self):
     """The query the current batch came from."""
-    return self.__query
+    return self._batch_shared.query
 
   @property
   def results(self):
@@ -2169,7 +2291,14 @@ class Batch(object):
   @property
   def keys_only(self):
     """Whether the entities in this batch only contain keys."""
-    return self.__keys_only
+    return self._batch_shared.keys_only
+
+  @property
+  def index_list(self):
+    """Returns the list of indexes used to peform this batch's query.
+    Possibly None when the adapter does not implement pb_to_index.
+    """
+    return self._batch_shared.index_list
 
   @property
   def start_cursor(self):
@@ -2212,6 +2341,9 @@ class Batch(object):
       return None
     return async.get_result()
 
+  def _compiled_query(self):
+    return self._batch_shared.compiled_query
+
   def cursor(self, index):
     """Gets the cursor that points to the result at the given index.
 
@@ -2242,7 +2374,8 @@ class Batch(object):
       return self.__start_cursor
     else:
       return self.__start_cursor.advance(index + self._skipped_results,
-                                         self.__query, self._conn)
+                                         self._batch_shared.query,
+                                         self._batch_shared.conn)
 
   def next_batch_async(self, fetch_options=None):
     """Asynchronously get the next batch or None if there are no more batches.
@@ -2262,7 +2395,7 @@ class Batch(object):
     fetch_options, next_batch = self._make_next_batch(fetch_options)
     req = self._to_pb(fetch_options)
 
-    config = self.__query_options.merge(fetch_options)
+    config = self._batch_shared.query_options.merge(fetch_options)
     return next_batch._make_query_result_rpc_call(
         'Next', config, req)
 
@@ -2270,13 +2403,13 @@ class Batch(object):
     req = datastore_pb.NextRequest()
 
     if FetchOptions.produce_cursors(fetch_options,
-                                    self.__query_options,
-                                    self._conn.config):
+                                    self._batch_shared.query_options,
+                                    self._batch_shared.conn.config):
       req.set_compile(True)
 
     count = FetchOptions.batch_size(fetch_options,
-                                    self.__query_options,
-                                    self._conn.config)
+                                    self._batch_shared.query_options,
+                                    self._batch_shared.conn.config)
     if count is not None:
       req.set_count(count)
 
@@ -2307,27 +2440,36 @@ class Batch(object):
     Returns:
       A UserRPC object that can be used to fetch the result of the RPC.
     """
-    return self._conn.make_rpc_call(config, name, req,
-                                    datastore_pb.QueryResult(),
-                                    self.__query_result_hook)
+    return self._batch_shared.conn.make_rpc_call(config, name, req,
+                                                 datastore_pb.QueryResult(),
+                                                 self.__query_result_hook)
+
+  _need_index_header = 'The suggested index for this query is:'
 
   def __query_result_hook(self, rpc):
     """Internal method used as get_result_hook for RunQuery/Next operation."""
     try:
-      self._conn.check_rpc_success(rpc)
+      self._batch_shared.conn.check_rpc_success(rpc)
     except datastore_errors.NeedIndexError, exc:
 
       if isinstance(rpc.request, datastore_pb.Query):
-        yaml = datastore_index.IndexYamlForQuery(
-            *datastore_index.CompositeIndexForQuery(rpc.request)[1:-1])
+        _, kind, ancestor, props = datastore_index.CompositeIndexForQuery(
+            rpc.request)
+
+        props = datastore_index.GetRecommendedIndexProperties(props)
+        yaml = datastore_index.IndexYamlForQuery(kind, ancestor, props)
+        xml = datastore_index.IndexXmlForQuery(kind, ancestor, props)
+
+
         raise datastore_errors.NeedIndexError(
-            str(exc) + '\nThe suggested index for this query is:\n' + yaml)
+            '\n'.join([str(exc), self._need_index_header, yaml]),
+            original_message=str(exc), header=self._need_index_header,
+            yaml_index=yaml, xml_index=xml)
       raise
     query_result = rpc.response
-    if query_result.has_compiled_query():
-      self._compiled_query = query_result.compiled_query
 
-    self.__keys_only = query_result.keys_only()
+    self._batch_shared.process_query_result_if_first(query_result)
+
     self.__end_cursor = Cursor._from_query_result(query_result)
     self._skipped_results = query_result.skipped_results()
 
@@ -2356,9 +2498,8 @@ class Batch(object):
       A tuple containing the fetch options that should be used internally and
       the object that should be used to contain the next batch.
     """
-    return fetch_options, Batch(self.__query_options, self.__query, self._conn,
-                                start_cursor=self.__end_cursor,
-                                _compiled_query=self._compiled_query)
+    return fetch_options, Batch(self._batch_shared,
+                                start_cursor=self.__end_cursor)
 
   def _process_results(self, results):
     """Converts the datastore results into results returned to the user.
@@ -2369,7 +2510,8 @@ class Batch(object):
     Returns:
       A list of results that should be returned to the user.
     """
-    return [self._conn.adapter.pb_to_query_result(result, self.__keys_only)
+    pb_to_query_result = self._batch_shared.conn.adapter.pb_to_query_result
+    return [pb_to_query_result(result, self._batch_shared.query_options)
             for result in results]
 
   def __getstate__(self):
@@ -2380,21 +2522,33 @@ class Batch(object):
 class _AugmentedBatch(Batch):
   """A batch produced by a datastore_query._AugmentedQuery."""
 
-  @datastore_rpc._positional(4)
-  def __init__(self, query_options, augmented_query, conn,
-               in_memory_offset=None, in_memory_limit=None,
-               start_cursor=Cursor(), _compiled_query=None,
-               next_index=0):
+  @classmethod
+  @datastore_rpc._positional(5)
+  def create_async(cls, augmented_query, query_options, conn, req,
+                   in_memory_offset, in_memory_limit, start_cursor):
+    batch_shared = _BatchShared(augmented_query._query,
+                                query_options,
+                                conn,
+                                augmented_query)
+    batch0 = cls(batch_shared,
+                 in_memory_offset=in_memory_offset,
+                 in_memory_limit=in_memory_limit,
+                 start_cursor=start_cursor)
+    return batch0._make_query_result_rpc_call('RunQuery', query_options, req)
+
+  @datastore_rpc._positional(2)
+  def __init__(self, batch_shared,
+               in_memory_offset=None,
+               in_memory_limit=None,
+               next_index=0,
+               start_cursor=Cursor()):
     """A Constructor for datastore_query._AugmentedBatch.
 
     Constructed by datastore_query._AugmentedQuery. Should not be called
     directly.
     """
-    super(_AugmentedBatch, self).__init__(query_options, augmented_query._query,
-                                          conn,
-                                          start_cursor=start_cursor,
-                                          _compiled_query=_compiled_query)
-    self.__augmented_query = augmented_query
+    super(_AugmentedBatch, self).__init__(batch_shared,
+                                          start_cursor=start_cursor)
     self.__in_memory_offset = in_memory_offset
     self.__in_memory_limit = in_memory_limit
     self.__next_index = next_index
@@ -2402,7 +2556,7 @@ class _AugmentedBatch(Batch):
   @property
   def query(self):
     """The query the current batch came from."""
-    return self.__augmented_query
+    return self._batch_shared.augmented_query
 
   def cursor(self, index):
     raise NotImplementedError
@@ -2415,12 +2569,12 @@ class _AugmentedBatch(Batch):
 
   def _process_results(self, results):
 
-    in_memory_filter = self.__augmented_query._in_memory_filter
+    in_memory_filter = self._batch_shared.augmented_query._in_memory_filter
     if in_memory_filter:
       results = filter(in_memory_filter, results)
 
 
-    in_memory_results = self.__augmented_query._in_memory_results
+    in_memory_results = self._batch_shared.augmented_query._in_memory_results
     if in_memory_results and self.__next_index < len(in_memory_results):
 
       original_query = super(_AugmentedBatch, self).query
@@ -2466,18 +2620,17 @@ class _AugmentedBatch(Batch):
 
   def _make_next_batch(self, fetch_options):
     in_memory_offset = FetchOptions.offset(fetch_options)
-    if in_memory_offset and (self.__augmented_query._in_memory_filter or
-                             self.__augmented_query._in_memory_results):
+    augmented_query = self._batch_shared.augmented_query
+    if in_memory_offset and (augmented_query._in_memory_filter or
+                             augmented_query._in_memory_results):
       fetch_options = FetchOptions(offset=0)
     else:
       in_memory_offset = None
     return (fetch_options,
-            _AugmentedBatch(self.query_options, self.__augmented_query,
-                            self._conn,
+            _AugmentedBatch(self._batch_shared,
                             in_memory_offset=in_memory_offset,
                             in_memory_limit=self.__in_memory_limit,
                             start_cursor=self.end_cursor,
-                            _compiled_query=self._compiled_query,
                             next_index=self.__next_index))
 
 
@@ -2514,7 +2667,7 @@ class Batcher(object):
     Args:
       query_options: The QueryOptions used to create the first batch.
       first_async_batch: The first batch produced by
-        Query.run_asyn(query_options).
+        Query.run_async(query_options).
     """
     self.__next_batch = first_async_batch
     self.__initial_offset = QueryOptions.offset(query_options) or 0
@@ -2617,7 +2770,7 @@ class ResultsIterator(object):
     """Constructor.
 
     Args:
-      batcher: A datastore_query.Bather
+      batcher: A datastore_query.Batcher
     """
     if not isinstance(batcher, Batcher):
       raise datastore_errors.BadArgumentError(
@@ -2628,13 +2781,21 @@ class ResultsIterator(object):
     self.__current_batch = None
     self.__current_pos = 0
 
+  def index_list(self):
+    """Returns the list of indexes used to perform the query.
+    Possibly None when the adapter does not implement pb_to_index.
+    """
+    return self._ensure_current_batch().index_list
+
   def cursor(self):
     """Returns a cursor that points just after the last result returned."""
+    return self._ensure_current_batch().cursor(self.__current_pos)
 
+  def _ensure_current_batch(self):
     if not self.__current_batch:
       self.__current_batch = self.__batcher.next()
       self.__current_pos = 0
-    return self.__current_batch.cursor(self.__current_pos)
+    return self.__current_batch
 
   def _compiled_query(self):
     """Returns the compiled query associated with the iterator.
@@ -2644,7 +2805,7 @@ class ResultsIterator(object):
     if not self.__current_batch:
       self.__current_batch = self.__batcher.next()
       self.__current_pos = 0
-    return self.__current_batch._compiled_query
+    return self.__current_batch._compiled_query()
 
 
   def next(self):

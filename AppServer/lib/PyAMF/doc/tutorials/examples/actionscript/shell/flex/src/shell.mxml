@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<pyamf:Shell xmlns:mx="http://www.adobe.com/2006/mxml"
+			 xmlns:pyamf="org.pyamf.examples.shell.*"
+		     width="100%" height="100%">
+				
+	<mx:Style source="resources/main.css"/>
+	
+	<mx:VBox width="100%" height="100%">
+		<mx:Label text="Interactive Python shell" width="100%"
+				  styleName="title"/>
+		<mx:TextArea width="100%" height="100%" editable="false"
+					 id="shell_txt" styleName="prompt"
+					 valueCommit="{shell_txt.verticalScrollPosition=shell_txt.maxVerticalScrollPosition}"/>
+		<mx:TextArea width="100%" height="100" styleName="prompt"
+					 id="input_txt"/>
+		<mx:Spacer height="5"/>
+		<mx:HBox verticalAlign="middle" width="100%">
+			<mx:Label text="Ctrl-Up/Down for history  | "/>
+			<mx:ComboBox selectedIndex="1" id="submitMethod">
+				<mx:dataProvider>
+					<mx:Object label="Enter" data="enter"/>
+					<mx:Object label="Ctrl-Enter" data="ctrlenter"/>
+					<mx:Object label="Alt-Enter" data="altenter"/>
+				</mx:dataProvider>
+			</mx:ComboBox>
+			<mx:Label text="submits"/>
+			<mx:Spacer width="100%"/>
+			<mx:Button label="Clear" click="clear()"/>
+			<mx:Button label="Submit" click="evalCode();inputKeyUpHandler();"/>
+		</mx:HBox>
+	</mx:VBox>
+		
+</pyamf:Shell>

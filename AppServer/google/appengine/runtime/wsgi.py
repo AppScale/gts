@@ -31,8 +31,16 @@ code.
 
 
 import logging
+import sys
+import types
 
+from google.appengine import runtime
 from google.appengine.api import lib_config
+
+
+
+
+_DEADLINE_DURING_LOADING = 22
 
 
 class Error(Exception):
@@ -42,6 +50,14 @@ class Error(Exception):
 class InvalidResponseError(Error):
   """An error indicating that the response is invalid."""
   pass
+
+
+def _GetTypeName(x):
+  """Returns a user-friendly name descriping the given object's type."""
+  if type(x) is types.InstanceType:
+    return x.__class__.__name__
+  else:
+    return type(x).__name__
 
 
 class WsgiRequest(object):
@@ -91,7 +107,8 @@ class WsgiRequest(object):
       InvalidResponseError: body_data is not a str.
     """
     if not isinstance(body_data, str):
-      raise InvalidResponseError('body_data must be a str.')
+      raise InvalidResponseError('body_data must be a str, got %r' %
+                                 _GetTypeName(body_data))
     self._written_body.append(body_data)
 
   def _StartResponse(self, status, response_headers, exc_info=None):
@@ -115,24 +132,35 @@ class WsgiRequest(object):
       InvalidResponseError: The arguments passed are invalid.
     """
     if not isinstance(status, str):
-      raise InvalidResponseError('status must be a string')
+      raise InvalidResponseError('status must be a str, got %r (%r)' %
+                                 (_GetTypeName(status), status))
     if not status:
       raise InvalidResponseError('status must not be empty')
     if not isinstance(response_headers, list):
-      raise InvalidResponseError('response_headers must be a list')
+      raise InvalidResponseError('response_headers must be a list, got %r' %
+                                 _GetTypeName(response_headers))
     for header in response_headers:
       if not isinstance(header, tuple):
-        raise InvalidResponseError('headers must be tuples')
+        raise InvalidResponseError('response_headers items must be tuple, '
+                                   'got %r' % _GetTypeName(header))
       if len(header) != 2:
-        raise InvalidResponseError('header tuples must have length 2')
-      if not isinstance(header[0], str) or not isinstance(header[1], str):
-        raise InvalidResponseError('headers must be str')
+        raise InvalidResponseError('header tuples must have length 2, '
+                                   'actual length %d' % len(header))
+      name, value = header
+      if not isinstance(name, str):
+        raise InvalidResponseError('header names must be str, got %r (%r)' %
+                                   (_GetTypeName(name), name))
+      if not isinstance(value, str):
+        raise InvalidResponseError('header values must be str, '
+                                   'got %r (%r) for %r' %
+                                   (_GetTypeName(value), value, name))
     try:
       status_number = int(status.split(' ')[0])
     except ValueError:
-      raise InvalidResponseError('status code is not a number')
+      raise InvalidResponseError('status code %r is not a number' % status)
     if status_number < 200 or status_number >= 600:
-      raise InvalidResponseError('status code must be in the range [200,600)')
+      raise InvalidResponseError('status code must be in the range [200,600), '
+                                 'got %d' % status_number)
 
     if exc_info is not None:
 
@@ -166,12 +194,33 @@ class WsgiRequest(object):
     """
     try:
       handler = _config_handle.add_wsgi_middleware(self._LoadHandler())
+    except runtime.DeadlineExceededError:
+
+
+
+
+
+
+
+
+      exc_info = sys.exc_info()
+      try:
+        logging.error('', exc_info=exc_info)
+      except runtime.DeadlineExceededError:
+
+        logging.exception('Deadline exception ocurred while logging a '
+                          'deadline exception.')
+
+
+
+        logging.error('Original exception:', exc_info=exc_info)
+      return {'error': _DEADLINE_DURING_LOADING}
     except:
       logging.exception('')
       return {'error': 1}
     result = None
     try:
-      result = handler(self._environ, self._StartResponse)
+      result = handler(dict(self._environ), self._StartResponse)
       for chunk in result:
         if not isinstance(chunk, str):
           raise InvalidResponseError('handler must return an iterable of str')

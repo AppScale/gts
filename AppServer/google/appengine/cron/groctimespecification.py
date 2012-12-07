@@ -412,7 +412,6 @@ class SpecificTimeSpecification(TimeSpecification):
 
   def __init__(self, ordinals=None, weekdays=None, months=None, monthdays=None,
                timestr='00:00', timezone=None):
-
     super(SpecificTimeSpecification, self).__init__()
     if weekdays and monthdays:
       raise ValueError('cannot supply both monthdays and weekdays')
@@ -421,24 +420,45 @@ class SpecificTimeSpecification(TimeSpecification):
       self.ordinals = set(range(1, 6))
     else:
       self.ordinals = set(ordinals)
+      if self.ordinals and (min(self.ordinals) < 1 or max(self.ordinals) > 5):
+        raise ValueError('ordinals must be between 1 and 5 inclusive, '
+                         'got %r' % ordinals)
 
     if weekdays is None:
 
       self.weekdays = set(range(7))
     else:
       self.weekdays = set(weekdays)
+      if self.weekdays and (min(self.weekdays) < 0 or max(self.weekdays) > 6):
+        raise ValueError('weekdays must be between '
+                         '0 (sun) and 6 (sat) inclusive, '
+                         'got %r' % weekdays)
 
     if months is None:
 
       self.months = set(range(1, 13))
     else:
       self.months = set(months)
+      if self.months and (min(self.months) < 1 or max(self.months) > 12):
+        raise ValueError('months must be between '
+                         '1 (jan) and 12 (dec) inclusive, '
+                         'got %r' % months)
 
     if not monthdays:
       self.monthdays = set()
     else:
-      if max(monthdays) > 31 or min(monthdays) < 1:
-        raise ValueError('invalid day of month')
+      if min(monthdays) < 1:
+        raise ValueError('day of month must be greater than 0')
+      if max(monthdays) > 31:
+        raise ValueError('day of month must be less than 32')
+      if self.months:
+        for month in self.months:
+          _, ndays = calendar.monthrange(4, month)
+          if min(monthdays) <= ndays:
+            break
+        else:
+          raise ValueError('invalid day of month, '
+                           'got day %r of month %r' % (max(monthdays), month))
       self.monthdays = set(monthdays)
     self.time = _GetTime(timestr)
     self.timezone = _GetTimezone(timezone)
@@ -572,7 +592,7 @@ class SpecificTimeSpecification(TimeSpecification):
             for _ in range(24):
 
 
-              out = out + datetime.timedelta(minutes=60)
+              out += datetime.timedelta(minutes=60)
               try:
                 out = self.timezone.localize(out)
               except NonExistentTimeError:

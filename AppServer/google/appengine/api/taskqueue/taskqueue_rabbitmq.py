@@ -26,13 +26,12 @@ from __future__ import with_statement
 
 __all__ = []
 import base64
-import bisect
 import calendar
-import cgi
 import datetime
 import httplib
 import logging
 import os
+import pika
 import random
 import socket
 import string
@@ -41,7 +40,6 @@ import time
 import simplejson as json
 
 import taskqueue_service_pb
-import taskqueue
 
 from google.appengine.api import api_base_pb
 from google.appengine.api import apiproxy_stub
@@ -50,15 +48,20 @@ from google.appengine.api import queueinfo
 from google.appengine.runtime import apiproxy_errors
 from google.appengine.api import datastore
 from google.appengine.api import datastore_errors
-import pika
 
-#TODO document these globals
+# The rate at which tasks are processed
 DEFAULT_RATE = '5.00/s'
 
+# The rate at which tasks are processed as a float
 DEFAULT_RATE_FLOAT = 5.0
 
+# Limits how fast the queue is processed when many tasks are in the queue 
+# and the rate is high. This allows you to have a high rate so processing 
+# starts shortly after a task is enqueued, but still limit resource usage 
+# when many tasks are enqueued in a short period of time.
 DEFAULT_BUCKET_SIZE = 5
 
+# The longest you can delay a tasks
 MAX_ETA = datetime.timedelta(days=30)
 
 MAX_PULL_TASK_SIZE_BYTES = 2 ** 20
@@ -69,9 +72,10 @@ MAX_TASK_SIZE = MAX_PUSH_TASK_SIZE_BYTES
 
 MAX_REQUEST_SIZE = 32 << 20
 
+# The most amount of times a task is retried before giving up
 MAX_RETRIES = 10
 
-# Max wait in seconds
+# Max backoff of a tasks in seconds
 MAX_WAIT = 60 
 
 # Max for time for exponential backoff for RabbitMQ reconnect
@@ -83,6 +87,7 @@ BUILT_IN_HEADERS = set(['x-appengine-queuename',
                         'x-appengine-development-payload',
                         'content-length'])
 
+# The queue name which is used if not specified
 DEFAULT_QUEUE_NAME = 'default'
 
 QUEUE_MODE = taskqueue_service_pb.TaskQueueMode
@@ -91,8 +96,12 @@ AUTOMATIC_QUEUES = {
     DEFAULT_QUEUE_NAME: (0.2, DEFAULT_BUCKET_SIZE, DEFAULT_RATE),
     '__cron': (1, 1, '1/s')}
 
+# The kind used for keeping track of tasks in the datastore
 _TASKQUEUE_KIND = "___TaskQueue___"
-     
+
+# The maximum length of a random string used for self generated task names
+RAND_LENGTH_SIZE = 32
+
 def _GetAppId(request):
   """Returns the app id to use for the given request.
   Args:
@@ -205,8 +214,13 @@ def QueryTasksResponseToDict(queue_name, task_response, now, secret_hash):
   return task
 
 def _GetRandomString():
+  """ Generates a random string of RAND_LENGTH_SIZE.
+  
+  Returns:
+    A random string
+  """
   return ''.join(random.choice(string.ascii_uppercase + string.digits) \
-                    for x in range(32))
+                    for x in range(RAND_LENGTH_SIZE))
 
 def _ChooseTaskName():
   """Returns a string containing a unique task name."""
@@ -236,7 +250,8 @@ def _VerifyTaskQueueAddRequest(request, now):
 
   queue_name_response = taskqueue_service_pb.TaskQueueServiceError.OK
   if not request.queue_name():
-      queue_name_response = taskqueue_service_pb.TaskQueueServiceError.INVALID_QUEUE_NAME
+    queue_name_response = \
+        taskqueue_service_pb.TaskQueueServiceError.INVALID_QUEUE_NAME
   if queue_name_response != taskqueue_service_pb.TaskQueueServiceError.OK:
     return queue_name_response
 
@@ -254,6 +269,7 @@ def _VerifyTaskQueueAddRequest(request, now):
   return taskqueue_service_pb.TaskQueueServiceError.OK
 
 class TaskStates:
+  """ Defines different states a task can be in. """
   Running = "Running"
   Tombstoned = "Tombstoned"
   Failed = "Failed" 
@@ -377,6 +393,7 @@ class _BackgroundTaskScheduler(object):
     self._should_exit = False
     self.task_executor = task_executor
     self.default_retry_seconds = retry_seconds
+
     try:
       self.connection = pika.BlockingConnection(pika.ConnectionParameters(
         host='localhost'))
@@ -384,40 +401,37 @@ class _BackgroundTaskScheduler(object):
     except pika.exceptions.AMQPConnectionError, e:
       logging.error("Unable to connect to RabbitMQ: " + str(e))
     except Exception, e:
-      logging.error("Unknown Exception--unable to connect to RabbitMQ: " + str(e))
-    self._queue_name = "app_%s"%app_name
+      logging.error("Unknown Exception--unable to connect to RabbitMQ: " + \
+                    str(e))
+    self._queue_name = "app_%s" % app_name
     if kwargs:
       raise TypeError('Unknown parameters: %s' % ', '.join(kwargs))
 
-  def UpdateNextEventTime(self, next_event_time):
-    """Notify the TaskExecutor of the closest event it needs to process.
-
-    Args:
-      next_event_time: The time of the event in seconds since the epoch.
-    """
-    with self._wakeup_lock:
-      if next_event_time < self._next_wakeup:
-        self._next_wakeup = next_event_time
-        self._event.set()
-  
   def _backoff(self, task):
     """ Backoff time based on how many retries thus far
     """
     for index, header in enumerate(task["headers"]):
       if header[0].lower() == "x-appengine-taskretrycount":
         current_attempts = int(task["headers"][index][1])
-        sleep_time = pow(current_attempts,2)
+        sleep_time = pow(current_attempts, 2)
         if sleep_time != 0: 
-          logging.info("Task %s is going to backoff for %d seconds"%(task['name'],sleep_time))
+          logging.info("Task %s is going to backoff for %d seconds" % \
+                       (task['name'],sleep_time))
           time.sleep(sleep_time)
 
   def Shutdown(self):
-    """Request this TaskExecutor to exit."""
+    """ Request this TaskExecutor to exit."""
     self._should_exit = True
-    self._event.set()
 
   def _TaskCallback(self, ch, method, properties, body):
-    logging.info("TaskQueue: Received %r"%(body,))
+    """ The call back function used by RabbitMQ once a task has been
+        attempted. 
+    Args:
+      ch: the rabbitmq channel object
+      method: the method of delivery of rabbitmq message
+      properties: properties of the message
+      body: the contents of the message body
+    """
     try:
       task = json.loads(body)
     except Exception, e:
@@ -441,19 +455,23 @@ class _BackgroundTaskScheduler(object):
         if header[0].lower() == "x-appengine-taskretrycount":
           current_attempts = int(task["headers"][index][1])
           task["headers"][index][1] = str(int(current_attempts) + 1)
-          logging.info("Task %s has tried %d times"%(task['name'], int(task["headers"][index][1])))
+          logging.info("Task %s has tried %d times"%(task['name'], 
+                       int(task["headers"][index][1])))
+
       # Too many retries
       if int(current_attempts) > MAX_RETRIES:
         ch.basic_reject(delivery_tag = method.delivery_tag, requeue = False)
         logging.warning(
-            'Task %s failed to execute. The task has no remaining retries. '% task['name'] )
+            'Task %s failed to execute. The task has no remaining retries. ' % \
+             task['name'] )
         entity = datastore.Entity(_TASKQUEUE_KIND,
                                 name=str(task['name']), namespace='')
         entity.update({'state': TaskStates.Failed, 'name': task['name']})
         datastore.Put(entity)
-      else: # Reinqueue with updated number of tries
+      else: 
+        # Reinqueue with updated number of tries
         logging.warning(
-            'Task %s failed to execute. This task will retry.'% task['name'])
+            'Task %s failed to execute. This task will retry.' % task['name'])
         try: 
           self.channel.basic_publish(exchange='',
                       routing_key=self._queue_name,
@@ -469,7 +487,8 @@ class _BackgroundTaskScheduler(object):
         except pika.exceptions.AMQPConnectionError, e:
           logging.error("Unable to connect to RabbitMQ: " + str(e))
         except Exception, e:
-          logging.error("Unknown exception--unable to connect to RabbitMQ: " + str(e))
+          logging.error("Unknown exception--unable to connect to RabbitMQ: " + \
+                        str(e))
         # TODO RabbitMQ's basic_publish and reject should be 
         # done transactionally to prevent race conditions and duplicate
         # tasks being enqueued. The API does support transactions see:
@@ -493,9 +512,9 @@ class _BackgroundTaskScheduler(object):
         logging.info("Success: connected to RabbitMQ")
         self.channel.start_consuming() 
       except pika.exceptions.AMQPConnectionError, e:
-        logging.error("RabbitMQ Connection error %s"%str(e))
+        logging.error("RabbitMQ Connection error %s" % str(e))
       except Exception, e:
-        logging.error("RabbitMQ Unknown exception %s"%str(e))
+        logging.error("RabbitMQ Unknown exception %s" % str(e))
       logging.info("Reconnecting in " + str(reconnect_time) + " seconds")
       time.sleep(reconnect_time) 
 
@@ -556,9 +575,9 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
       self.connection = pika.BlockingConnection(pika.ConnectionParameters(
         host='localhost'))
       self.channel = self.connection.channel()
-      self.channel.queue_declare(queue='app_%s'%app_id, durable=False)
+      self.channel.queue_declare(queue='app_%s' % app_id, durable=False)
     except pika.exceptions.AMQPConnectionError, e:
-      logging.error("RabbitMQ Connection error %s"%str(e))
+      logging.error("RabbitMQ Connection error %s" % str(e))
     except Exception, e:
       logging.error("Unknown exception--Unable to connect to to RabbitMQ")
 
@@ -599,17 +618,6 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
         fh.close()
     return None
 
-  def _UpdateNextEventTime(self, callback_time):
-    """Enqueue a task to be automatically scheduled.
-
-    Note: If auto task running is disabled, this function is a no-op.
-
-    Args:
-      callback_time: The earliest time this task may be run, in seconds since
-        the epoch.
-    """
-    self._task_scheduler.UpdateNextEventTime(callback_time)
-
   def _Dynamic_Add(self, request, response):
     """Add a single task to a queue.
 
@@ -646,7 +654,8 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     See taskqueue_service.proto for a full description of the RPC.
 
     Args:
-      request: The taskqueue_service_pb.TaskQueueBulkAddRequest. See taskqueue_service.proto.
+      request: The taskqueue_service_pb.TaskQueueBulkAddRequest. See 
+          taskqueue_service.proto.
       response: The taskqueue_service_pb.TaskQueueBulkAddResponse. See
           taskqueue_service.proto.
     """
@@ -714,8 +723,6 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
         not be filled-in.
       now: A datetime.datetime object containing the current time in UTC.
     """
-    queue_mode = request.add_request(0).mode()
-    queue_name = request.add_request(0).queue_name()
     for add_request, task_result in zip(request.add_request_list(),
                                         response.taskresult_list()):
       try:
@@ -758,33 +765,34 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
       task.mutable_retry_parameters().CopyFrom(request.retry_parameters())
     if request.has_tag():
       task.set_tag(request.tag())
-    # Unable to turn the pb into a string and decode it, truncated error comes up
-    queue_name = 'app_%s'%self._app_id
+
+    # Unable to turn the pb into a string and decode it, 
+    # truncated error comes up.
+    queue_name = 'app_%s' % self._app_id
     task_dict = QueryTasksResponseToDict(queue_name, 
                                          task, 
                                          now, 
                                          self._secret_hash)
     task_dict = json.dumps(task_dict)
-    #logging.info("Enqueuing task: %s"%task_dict)
     try:
       entity = datastore.Entity(_TASKQUEUE_KIND,
                                 name=str(task.task_name()), namespace='')
       entity.update({'state': TaskStates.Running, 'name':task.task_name()})
       datastore.Put(entity)
-      ret = self.channel.basic_publish(exchange='',
+      self.channel.basic_publish(exchange='',
                       routing_key=queue_name,
                       body=task_dict,
                       properties=pika.BasicProperties(
                          delivery_mode = 2, # make message persistent
                       )) 
-    except pika.exceptions.AMQPConnectionError, e:
-      ch.basic_reject(delivery_tag = method.delivery_tag, requeue = True)
+    except pika.exceptions.AMQPConnectionError:
       self.connection = pika.BlockingConnection(pika.ConnectionParameters(
                                                    host='localhost'))
       raise apiproxy_errors.ApplicationError(
                  taskqueue_service_pb.TaskQueueServiceError.TRANSIENT_ERROR)
     except Exception, e:
-      logging.error("Unknown exception--Unable to connect to RabbitMQ")
+      logging.error("Unknown exception--Unable to connect to RabbitMQ: %s" % \
+                   str(e))
 
   def _LocateTaskByName(self, task_name):
     """ Makes sure the task does not exist or tombstoned
@@ -794,18 +802,23 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     try:
       db_task = datastore.Get(key)
     except datastore_errors.EntityNotFoundError, err:
+      logging.error("Unable to locate task in datastore for:")
+      logging.error("%s with key %s with task name %s" % \
+                    (str(err), str(key), str(task_name)))
       return None
     else:
       if not db_task:
         return None
+
       if db_task['state'] == TaskStates.Running:
         raise apiproxy_errors.ApplicationError(
           taskqueue_service_pb.TaskQueueServiceError.TASK_ALREADY_EXISTS)
-      if db_task['state'] == TaskStates.Tombstoned:
+      elif db_task['state'] == TaskStates.Tombstoned:
         raise apiproxy_errors.ApplicationError(
           taskqueue_service_pb.TaskQueueServiceError.TOMBSTONED_TASK)
       else: 
-        logging.error("Bad state for task %s was set to %s"%(db_task['name'], db_task['state'])) 
+        logging.error("Bad state for task %s was set to %s" % \
+                     (db_task['name'], db_task['state'])) 
         return None
     return None
  
@@ -819,7 +832,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
       request: A taskqueue_service_pb.TaskQueuePurgeQueueRequest.
       response: A taskqueue_service_pb.TaskQueuePurgeQueueResponse.
     """
-    queue_name = "app_%s"%self._app_id
+    queue_name = "app_%s" % self._app_id
     self.channel.queue_purge(queue=queue_name) 
     #TODO purge the datastore of TQ state
 

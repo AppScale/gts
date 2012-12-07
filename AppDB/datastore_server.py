@@ -1471,7 +1471,7 @@ class DatastoreDistributed():
     app_id = query.app()
     self.validate_app_id(app_id)
     filters, orders = datastore_index.Normalize(query.filter_list(),
-                                                query.order_list())
+                                                query.order_list(), [])
     filter_info = self.generate_filter_info(filters, query)
     order_info = self.generate_order_info(orders)
     for strategy in DatastoreDistributed._QUERY_STRATEGIES:

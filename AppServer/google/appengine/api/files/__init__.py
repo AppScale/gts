@@ -24,3 +24,4 @@
 from file import *
 import blobstore
 import gs
+import shuffler

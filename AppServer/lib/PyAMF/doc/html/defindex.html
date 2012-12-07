@@ -1,0 +1,47 @@
+{% extends "basic/defindex.html" %}
+{% block body %}
+
+<h1>{{ docstitle|e }}</h1>
+
+{% include 'intro.html' %}
+
+<hr/>
+
+  <table class="contentstable" align="center">
+    <td width="50%">
+      <p ><a class="biglink" href="{{ pathto("whatsnew/0.6") }}">What's new in PyAMF 0.6?</a><br/>
+         <span class="linkdescr">Changes since the previous major release</span></p>
+      <p><a class="biglink" href="{{ pathto("community/download") }}">Download</a><br/>
+         <span class="linkdescr">Stable releases and source access</span></p>
+      <p class="biglink"><a class="biglink" href="{{ pathto("architecture/overview") }}">Features</a><br/>
+         <span class="linkdescr">High-level overview of PyAMF's functionality</span></p>
+      <p class="biglink"><a class="biglink" href="{{ pathto("install") }}">Installation</a><br/>
+         <span class="linkdescr">Setting up your system</span></p>
+
+      </td><td width="50%">
+      <p class="biglink"><a class="biglink" href="http://api.pyamf.org">Library Reference</a><br/>
+         <span class="linkdescr">Module documentation with examples</span></p>
+      <p class="biglink"><a class="biglink" href="{{ pathto("tutorials/index") }}">Tutorials</a><br/>
+         <span class="linkdescr">How to use PyAMF</span></p>
+      <p class="biglink"><a class="biglink" href="{{ pathto("architecture/index") }}">Architecture</a><br/>
+         <span class="linkdescr">The PyAMF internals</span></p>
+      <p class="biglink"><a class="biglink" href="{{ pathto("contents") }}">Complete Table of Contents</a><br/>
+         <span class="linkdescr">Lists all sections and subsections</span></p>
+      </td>
+  </table>
+
+<hr/>
+
+  <table class="contentstable" align="center"><tr>
+    <td width="50%">
+      <p class="biglink"><a class="biglink" href="{{ pathto("community/mailinglist") }}">Mailing List</a></p>
+      <p class="biglink"><a class="biglink" href="{{ pathto("community/irc") }}">IRC Channel</a></p>
+      <p class="biglink"><a class="biglink" href="{{ pathto("bugs") }}">Reporting bugs</a></p>
+      </td><td width="50%">
+      <p class="biglink"><a class="biglink" href="{{ pathto("search") }}">Search page</a></p>
+      <p class="biglink"><a class="biglink" href="{{ pathto("license") }}">License</a><br/>
+      <p class="biglink"><a class="biglink" href="{{ pathto("about") }}">About the documentation</a></p>
+    </td></tr>
+  </table>
+
+{% endblock %}
