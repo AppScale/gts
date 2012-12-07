@@ -976,6 +976,9 @@ class Djinn
         "a #{ips_hash.class}")
       return BAD_INPUT_MSG
     end
+    Djinn.log_debug("Received a request to start additional roles on " +
+      "new machines, with the following placement strategy: " +
+      "#{ips_hash.inspect}")
 
     # ips_hash maps roles to IPs, but the internal format here maps
     # IPs to roles, so convert to the right format
@@ -997,7 +1000,7 @@ class Djinn
 
     Thread.new {
       if is_cloud?
-
+        raise NotImplementedError
       else
         start_new_roles_on_nodes_in_xen(ips_to_roles)
       end
@@ -1018,6 +1021,8 @@ class Djinn
     nodes_info = []
     keyname = @creds['keyname']
     ips_to_roles.each { |ip, roles|
+      Djinn.log_debug("Will add roles #{roles.join(', ')} to new " +
+        "node at IP address #{ip}")
       nodes_info << "#{ip}:#{ip}:#{roles.join(':')}:#{keyname}:cloud1"
     }
 
@@ -2301,6 +2306,7 @@ class Djinn
 
   def copy_encryption_keys(dest_node)
     ip = dest_node.private_ip
+    Djinn.log_debug("Copying SSH keys to node at IP address #{ip}")
     ssh_key = dest_node.ssh_key
 
     HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
