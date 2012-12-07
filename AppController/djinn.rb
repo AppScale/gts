@@ -819,8 +819,13 @@ class Djinn
     start_cmd = "python #{APPSCALE_HOME}/InfrastructureManager/infrastructure_manager_service.py"
     stop_cmd = "pkill -9 infrastructure_manager_service"
     port = [InfrastructureManagerClient::SERVER_PORT]
+    env = {
+      'APPSCALE_HOME' => APPSCALE_HOME,
+      'EC2_HOME' => ENV['EC2_HOME'],
+      'JAVA_HOME' => ENV['JAVA_HOME']
+    }
 
-    GodInterface.start(:iaas_manager, start_cmd, stop_cmd, port)
+    GodInterface.start(:iaas_manager, start_cmd, stop_cmd, port, env)
     Djinn.log_debug("Started InfrastructureManager successfully!")
   end
 

@@ -108,8 +108,8 @@ EOF
  /usr/lib/jvm/java-6-openjdk\
  /usr/lib/jvm/default-java
     do
-      if [ -e \$jpath ]; then
-        echo "export JAVA_HOME=\$jpath" >> ~/.bashrc
+      if [ -e $jpath ]; then
+        echo "export JAVA_HOME=$jpath" >> ~/.bashrc
         break
       fi
     done
