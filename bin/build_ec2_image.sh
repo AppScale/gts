@@ -2,6 +2,8 @@
 
 set -e
 
+source /etc/profile.d/appscale_config.sh
+
 PYTHON=/var/lib/appscale/virtualenvs/appscale-tools/bin/python
 APPSCALE_BOOTSTRAP=/var/lib/appscale/virtualenvs/appscale-tools/bin/appscale-bootstrap
 
