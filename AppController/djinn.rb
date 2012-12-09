@@ -2452,8 +2452,11 @@ HOSTS
     ssh_key = node.ssh_key
 
     remote_home = HelperFunctions.get_remote_appscale_home(ip, ssh_key)
-    env = {'APPSCALE_HOME' => remote_home}
-
+    env = {
+      'APPSCALE_HOME' => APPSCALE_HOME,
+      'EC2_HOME' => ENV['EC2_HOME'],
+      'JAVA_HOME' => ENV['JAVA_HOME']
+    }
     start = "ruby #{remote_home}/AppController/djinnServer.rb"
     stop = "ruby #{remote_home}/AppController/terminate.rb"
 
