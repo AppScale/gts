@@ -1000,7 +1000,7 @@ class Djinn
 
     Thread.new {
       if is_cloud?
-        raise NotImplementedError
+        start_new_roles_on_nodes_in_cloud(ips_to_roles)
       else
         start_new_roles_on_nodes_in_xen(ips_to_roles)
       end
@@ -1010,7 +1010,37 @@ class Djinn
   end
 
 
+  def start_new_roles_on_nodes_in_cloud(ips_to_roles)
+    Djinn.log_debug("Starting new roles in cloud with following info: " +
+      "#{ips_to_roles.inspect}")
+    # get zk lock?
+
+    # Change ips_to_roles to the format that DjinnJobData's constructor
+    # likes to see.
+    # TODO(cgb): Add another constructor to DjinnJobData that takes
+    # data in a more reasonable format so that we don't have to do this
+    # conversion.
+    keyname = @creds['keyname']
+    num_of_vms = ips_to_roles.keys.length
+    roles = ips_to_roles.values
+    Djinn.log_debug("Need to spawn up #{num_of_vms} VMs")
+    imc = InfrastructureManagerClient.new(@@secret)
+    new_nodes_info = imc.spawn_vms(num_of_vms, @creds, roles, "cloud1")
+
+    # initialize them and wait for them to start up
+    Djinn.log_debug("info about new nodes is " +
+      "[#{new_nodes_info.join(', ')}]")
+
+    add_nodes(new_nodes_info)
+    # wait for them to finish loading
+
+    return new_nodes_info
+  end
+
+
   def start_new_roles_on_nodes_in_xen(ips_to_roles)
+    Djinn.log_debug("Starting new roles in virt with following info: " +
+      "#{ips_to_roles.inspect}")
     # get zk lock?
 
     # Change ips_to_roles to the format that DjinnJobData's constructor

@@ -786,4 +786,139 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(true, actual.include?(node2_info))
   end
 
+  def test_start_new_roles_on_nodes_in_cloud
+    # try adding two new nodes to an appscale deployment, assuming that
+    # the machines are already running and have appscale installed
+    ips_to_roles = {'node-1' => ['appengine'], 'node-2' => ['appengine']}
+
+    # mock out spawning the two new machines, assuming they get IPs
+    # 1.2.3.4 and 1.2.3.5
+    flexmock(InfrastructureManagerClient).new_instances { |instance|
+      instance.should_receive(:make_call).
+      with(InfrastructureManagerClient::NO_TIMEOUT,
+        InfrastructureManagerClient::RETRY_ON_FAIL, "run_instances",
+        Proc).
+      and_return({'reservation_id' => '0123456'})
+
+    # let's say that the first time we do 'describe-instances', the
+    # machines aren't initially ready, and that they become ready the
+    # second time
+    new_two_nodes_info = {
+      'public_ips' => ['1.2.3.4', '1.2.3.5'],
+      'private_ips' => ['1.2.3.4', '1.2.3.5'],
+      'instance_ids' => ['i-ABCDEFG', 'i-HIJKLMN'],
+    }
+
+    pending = {'state' => 'pending'}
+    ready = {'state' => 'running', 'vm_info' => new_two_nodes_info}
+      instance.should_receive(:make_call).
+      with(InfrastructureManagerClient::NO_TIMEOUT,
+        InfrastructureManagerClient::RETRY_ON_FAIL, "describe_instances",
+        Proc).
+      and_return(pending, ready)
+    }
+
+    # assume the machines are running and that we can scp and ssh to them
+    flexmock(HelperFunctions).should_receive(:is_port_open?).
+      with('1.2.3.4', Djinn::SSH_PORT, HelperFunctions::DONT_USE_SSL).
+      and_return(true)
+    flexmock(HelperFunctions).should_receive(:is_port_open?).
+      with('1.2.3.5', Djinn::SSH_PORT, HelperFunctions::DONT_USE_SSL).
+      and_return(true)
+
+    key_location = "#{HelperFunctions::APPSCALE_KEYS_DIR}/boo.key"
+    flexmock(FileUtils).should_receive(:chmod).
+      with(HelperFunctions::CHMOD_READ_ONLY, key_location).and_return()
+    flexmock(HelperFunctions).should_receive(:shell).with(/\Ascp/).
+      and_return()
+    flexmock(File).should_receive(:exists?).
+      with(/\A#{HelperFunctions::APPSCALE_CONFIG_DIR}\/retval-/).
+      and_return(true)
+    flexmock(File).should_receive(:open).
+      with(/\A#{HelperFunctions::APPSCALE_CONFIG_DIR}\/retval-/, Proc).
+      and_return("0\n")
+    flexmock(HelperFunctions).should_receive(:shell).with(/\Arm -fv/).
+      and_return()
+
+    # for individual ssh commands, the mock depends on what we're mocking
+    # out - we don't just assume success
+    flexmock(Kernel).should_receive(:system).with(/\Assh.* 'mkdir -p/).
+      and_return('')
+
+    # next, mock out our checks to see if the new boxes are AppScale
+    # VMs and assume they are
+    flexmock(HelperFunctions).should_receive(:shell).
+      with(/\Assh.* root@1.2.3.4 'ls #{HelperFunctions::APPSCALE_CONFIG_DIR}/).and_return("0\n")
+    flexmock(HelperFunctions).should_receive(:shell).
+      with(/\Assh.* root@1.2.3.5 'ls #{HelperFunctions::APPSCALE_CONFIG_DIR}/).and_return("0\n")
+
+    # mock out our attempts to rsync over to the new boxes
+    flexmock(Djinn).should_receive(:log_run).with(/\Arsync.* root@1.2.3.4/).and_return()
+    flexmock(Djinn).should_receive(:log_run).with(/\Arsync.* root@1.2.3.5/).and_return()
+
+    # when the appcontroller asks those boxes where APPSCALE_HOME is,
+    # let's assume they say it's in /usr/appscale
+    flexmock(HelperFunctions).should_receive(:shell).
+      with(/\Assh.* root@1.2.3.4 'cat #{HelperFunctions::APPSCALE_CONFIG_DIR}\/home/).and_return("/usr/appscale\n")
+    flexmock(HelperFunctions).should_receive(:shell).
+      with(/\Assh.* root@1.2.3.5 'cat #{HelperFunctions::APPSCALE_CONFIG_DIR}\/home/).and_return("/usr/appscale\n")
+
+    # next, the appcontroller removes the json service metadata file
+    # off of each of these nodes - assume it succeeds
+    flexmock(Kernel).should_receive(:system).with(/\Assh.* root@1.2.3.4 'rm -rf #{HelperFunctions::APPSCALE_CONFIG_DIR}/).
+      and_return('')
+    flexmock(Kernel).should_receive(:system).with(/\Assh.* root@1.2.3.5 'rm -rf #{HelperFunctions::APPSCALE_CONFIG_DIR}/).
+      and_return('')
+
+    # finally, mock out when the appcontroller starts god and the
+    # remote appcontrollers on the other boxes
+    flexmock(File).should_receive(:open).with(/\A\/tmp\/god/, "w+", Proc).
+      and_return()
+    flexmock(HelperFunctions).should_receive(:shell).with(/\Assh.* root@1.2.3.4 'god/).
+      and_return('')
+    flexmock(HelperFunctions).should_receive(:shell).with(/\Assh.* root@1.2.3.5 'god/).
+      and_return('')
+    flexmock(Kernel).should_receive(:system).
+      with(/\Assh.* root@1.2.3.4 'rm -rf \/tmp\/god/).and_return('')
+    flexmock(Kernel).should_receive(:system).
+      with(/\Assh.* root@1.2.3.5 'rm -rf \/tmp\/god/).and_return('')
+
+    # and assume that the appcontrollers start up fine
+    flexmock(HelperFunctions).should_receive(:is_port_open?).
+      with('1.2.3.4', Djinn::SERVER_PORT, HelperFunctions::USE_SSL).
+      and_return(true)
+    flexmock(HelperFunctions).should_receive(:is_port_open?).
+      with('1.2.3.5', Djinn::SERVER_PORT, HelperFunctions::USE_SSL).
+      and_return(true)
+
+    original_node_info = "1.2.3.3:1.2.3.3:shadow:i-000000:cloud1"
+    node1_info = "1.2.3.4:1.2.3.4:appengine:i-ABCDEFG:cloud1"
+    node2_info = "1.2.3.5:1.2.3.5:appengine:i-HIJKLMN:cloud1"
+
+    original_node = DjinnJobData.new(original_node_info, "boo")
+    new_node1 = DjinnJobData.new(node1_info, "boo")
+    new_node2 = DjinnJobData.new(node2_info, "boo")
+    all_nodes_serialized = [original_node.serialize, new_node1.serialize,
+      new_node2.serialize]
+    puts "#{all_nodes_serialized.join(', ')}"
+
+    creds = {'keyname' => 'boo'}
+    creds_as_array = creds.to_a.flatten
+    no_apps = []
+
+    # and that the appcontrollers receive the initial message to start
+    # up from our appcontroller
+    flexmock(AppControllerClient).new_instances { |instance|
+      instance.should_receive(:set_parameters).with(all_nodes_serialized,
+        creds_as_array, no_apps).and_return("OK")
+    }
+
+    djinn = Djinn.new()
+    djinn.nodes = [original_node]
+    djinn.creds = creds
+    actual = djinn.start_new_roles_on_nodes_in_cloud(ips_to_roles)
+    assert_equal(true, actual.include?(node1_info))
+    assert_equal(true, actual.include?(node2_info))
+  end
+
 end
