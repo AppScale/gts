@@ -100,19 +100,17 @@ done
 export PYTHON_EGG_CACHE=/tmp/.python_eggs
 export EC2_PRIVATE_KEY=\${APPSCALE_HOME}/.appscale/certs/mykey.pem
 export EC2_CERT=\${APPSCALE_HOME}/.appscale/certs/mycert.pem
-export EC2_HOME=/usr/local/ec2-api-tools
+EOF
+# create the global AppScale environment file
+    DESTFILE=${DESTDIR}/etc/appscale/environment.yaml
+    mkdir -pv $(dirname $DESTFILE)
+    echo "Generating $DESTFILE"
+    cat <<EOF | tee $DESTFILE || exit 1
+APPSCALE_HOME=${APPSCALE_HOME_RUNTIME}
+EC2_HOME=/usr/local/ec2-api-tools
+JAVA_HOME=/usr/lib/jvm/java-6-openjdk
 EOF
 # enable to load AppServer and AppDB modules. It must be before the python-support.
-    echo "export EC2_HOME=/usr/local/ec2-api-tools" >> ~/.bashrc
-    for jpath in\
- /usr/lib/jvm/java-6-openjdk\
- /usr/lib/jvm/default-java
-    do
-      if [ -e $jpath ]; then
-        echo "export JAVA_HOME=$jpath" >> ~/.bashrc
-        break
-      fi
-    done
     DESTFILE=${DESTDIR}/usr/lib/python2.6/dist-packages/appscale_appserver.pth
     mkdir -pv $(dirname $DESTFILE)
     echo "Generating $DESTFILE"
