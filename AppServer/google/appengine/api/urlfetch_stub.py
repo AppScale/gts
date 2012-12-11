@@ -64,7 +64,7 @@ APPSCALE_DISABLED = [8443, 9090, 8020, 50010, 50020, 50100, 8021, 9001, 8012, 88
 
 def _IsAllowedPort(port):
   """ Checks to see if outbound port is authorized to do a remote fetch. 
-      Current ports are blocked off to internal AppScale services. 
+      Some ports are blocked off to internal AppScale services. 
   Args:
     port: Int, the port to check
   """

@@ -271,8 +271,8 @@ class TaskHandler(webapp.RequestHandler):
       return
 
 
-    # In AppScale we do not check for this XSRF attacks. We need some additional
-    # auth like we do for taskqueue with a secret hash.
+    # TODO In AppScale we do not check for this XSRF attacks. 
+    # We need some additional # auth like we do for taskqueue with a secret hash.
     #
     #in_prod = (
     #    not self.request.environ.get("SERVER_SOFTWARE").startswith("Devel"))

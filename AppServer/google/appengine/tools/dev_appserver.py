@@ -141,7 +141,6 @@ from google.appengine.tools import dev_appserver_blobstore
 from google.appengine.tools import dev_appserver_channel
 from google.appengine.tools import dev_appserver_import_hook
 from google.appengine.tools import dev_appserver_login
-#from google.appengine.tools import dev_appserver_multiprocess as multiprocess
 from google.appengine.tools import dev_appserver_oauth
 
 from google.storage.speckle.python.api import rdbms
@@ -2995,7 +2994,6 @@ def CreateRequestHandler(root_path,
         os.environ['REQUEST_ID_HASH'] = request_id_hash
 
 
-        #multiprocess.GlobalProcess().UpdateEnv(env_dict)
 
         cookies = ', '.join(self.headers.getheaders('cookie'))
         email_addr, user_id, admin, valid_cookie = \
@@ -3015,8 +3013,6 @@ def CreateRequestHandler(root_path,
 
 
 
-        #if multiprocess.GlobalProcess().HandleRequest(self):
-        #  return
 
         outfile = cStringIO.StringIO()
         try:
@@ -3052,7 +3048,6 @@ def CreateRequestHandler(root_path,
           response.body = cStringIO.StringIO(new_response)
 
 
-        #multiprocess.GlobalProcess().RequestComplete(self, response)
 
       except yaml_errors.EventListenerError, e:
         title = 'Fatal error when loading application configuration'
@@ -3345,7 +3340,6 @@ def LoadAppConfig(root_path,
       # if config.application:
       #   config.application = AppIdWithDefaultPartition(config.application,
       #                                                  default_partition)
-      #multiprocess.GlobalProcess().NewAppInfo(config)
 
       if static_caching:
         if config.default_expiration:
@@ -3550,7 +3544,6 @@ def SetupStubs(app_id, **config):
     _RemoveFile(search_index_path)
 
 
-  #if not multiprocess.GlobalProcess().MaybeConfigureRemoteDataApis():
 
 
 
@@ -3682,7 +3675,6 @@ def SetupStubs(app_id, **config):
       logservice_stub.LogServiceStub(persist_logs))
 
   system_service_stub = system_stub.SystemServiceStub()
-  #multiprocess.GlobalProcess().UpdateSystemStub(system_service_stub)
   apiproxy_stub_map.apiproxy.RegisterStub('system', system_service_stub)
 
 
@@ -3936,9 +3928,6 @@ def CreateServer(root_path,
 
     python_path_list.insert(0, absolute_root_path)
 
-  #if multiprocess.Enabled():
-  #  server = HttpServerWithMultiProcess((serve_address, port), handler_class)
-  #else:
   server = HTTPServerWithScheduler((serve_address, port), handler_class)
 
 
@@ -4077,20 +4066,4 @@ class HTTPServerWithScheduler(BaseHTTPServer.HTTPServer):
         break
 
 
-#class HttpServerWithMultiProcess(HTTPServerWithScheduler):
-#  """Class extending HTTPServerWithScheduler with multi-process handling."""
-#
-#  def __init__(self, server_address, request_handler_class):
-#    """Constructor.
-#
-#    Args:
-#      server_address: the bind address of the server.
-#      request_handler_class: class used to handle requests.
-#    """
-#    HTTPServerWithScheduler.__init__(self, server_address,
-#                                     request_handler_class)
-#    multiprocess.GlobalProcess().SetHttpServer(self)
-#
-#  def process_request(self, request, client_address):
-#    """Overrides the SocketServer process_request call."""
-#    multiprocess.GlobalProcess().ProcessRequest(request, client_address)
+

@@ -61,7 +61,7 @@ DEFAULT_RATE_FLOAT = 5.0
 # when many tasks are enqueued in a short period of time.
 DEFAULT_BUCKET_SIZE = 5
 
-# The longest you can delay a tasks
+# The longest you can delay a task
 MAX_ETA = datetime.timedelta(days=30)
 
 MAX_PULL_TASK_SIZE_BYTES = 2 ** 20
@@ -469,7 +469,7 @@ class _BackgroundTaskScheduler(object):
         entity.update({'state': TaskStates.Failed, 'name': task['name']})
         datastore.Put(entity)
       else: 
-        # Reinqueue with updated number of tries
+        # Re-enqueue with updated number of tries
         logging.warning(
             'Task %s failed to execute. This task will retry.' % task['name'])
         try: 

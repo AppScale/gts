@@ -326,7 +326,7 @@ def is_user_capable(user, api_name):
   server = SOAPpy.SOAPProxy("https://" + uaserver + ":4343")
   capabilities = server.get_capabilities(user, secret)
 
-  # If a non-existant user was specified this will be ['DB_ERROR', 'no user']
+  # If a non-existent user was specified this will be ['DB_ERROR', 'no user']
   # instead of a string with their capabilities
   if not isinstance(capabilities, str):
     return False
