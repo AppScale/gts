@@ -6,10 +6,12 @@ require 'soap/rpc/httpserver'
 require 'webrick/https'
 require 'logger'
 require 'soap/rpc/driver'
+require 'yaml'
+
+environment = YAML.load_file('/etc/appscale/environment.yaml')
+environment.each { |k,v| ENV[k] = v }
 
 APPSCALE_HOME = ENV['APPSCALE_HOME']
-ENV['EC2_HOME'] = "/usr/local/ec2-api-tools"
-ENV['JAVA_HOME'] = "/usr/lib/jvm/java-6-openjdk"
 
 # Import for AppController
 $:.unshift File.join(File.dirname(__FILE__))
