@@ -62,6 +62,7 @@ class Message(object):
     return clone
 
   def __eq__(self, other_msg):
+    """Recursively compares two messages by value and structure."""
     raise NotImplementedError
 
   def __ne__(self, other_msg):
@@ -72,9 +73,11 @@ class Message(object):
     raise TypeError('unhashable object')
 
   def __str__(self):
+    """Outputs a human-readable representation of the message."""
     raise NotImplementedError
 
   def __unicode__(self):
+    """Outputs a human-readable representation of the message."""
     raise NotImplementedError
 
   def MergeFrom(self, other_msg):

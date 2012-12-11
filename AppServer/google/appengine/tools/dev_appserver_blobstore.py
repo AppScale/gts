@@ -38,15 +38,13 @@ import cStringIO
 import logging
 import mimetools
 import re
-import sys
 
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import blobstore
 from google.appengine.api import datastore
 from google.appengine.api import datastore_errors
+from google.appengine.api.files import file_service_stub
 from google.appengine.tools import dev_appserver_upload
-
-from webob import byterange
 
 
 
@@ -81,119 +79,12 @@ def GetBlobStorage():
   return apiproxy_stub_map.apiproxy.GetStub('blobstore').storage
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-_BYTESRANGE_IS_EXCLUSIVE = not hasattr(byterange.Range, 'serialize_bytes')
-
-if _BYTESRANGE_IS_EXCLUSIVE:
-
-  ParseRange = byterange.Range.parse_bytes
-
-  MakeContentRange = byterange.ContentRange
-
-  def GetContentRangeStop(content_range):
-    return content_range.stop
-
-
-
-
-
-
-
-  _orig_is_content_range_valid = byterange._is_content_range_valid
-
-  def _new_is_content_range_valid(start, stop, length, response=False):
-    return _orig_is_content_range_valid(start, stop, length, False)
-
-  def ParseContentRange(content_range_header):
-
-
-
-    try:
-      byterange._is_content_range_valid = _new_is_content_range_valid
-      return byterange.ContentRange.parse(content_range_header)
-    finally:
-      byterange._is_content_range_valid = _orig_is_content_range_valid
-
-else:
-
-  def ParseRange(range_header):
-
-
-    original_stdout = sys.stdout
-    sys.stdout = cStringIO.StringIO()
-    try:
-      parse_result = byterange.Range.parse_bytes(range_header)
-    finally:
-      sys.stdout = original_stdout
-    if parse_result is None:
-      return None
-    else:
-      ranges = []
-      for start, end in parse_result[1]:
-        if end is not None:
-          end += 1
-        ranges.append((start, end))
-      return parse_result[0], ranges
-
-  class _FixedContentRange(byterange.ContentRange):
-
-
-
-
-
-
-
-    def __init__(self, start, stop, length):
-
-      self.start = start
-      self.stop = stop
-      self.length = length
-
-
-
-
-
-
-
-
-
-  def MakeContentRange(start, stop, length):
-    if stop is not None:
-      stop -= 2
-    content_range = _FixedContentRange(start, stop, length)
-    return content_range
-
-  def GetContentRangeStop(content_range):
-    stop = content_range.stop
-    if stop is not None:
-      stop += 2
-    return stop
-
-  def ParseContentRange(content_range_header):
-    return _FixedContentRange.parse(content_range_header)
-
-
 def ParseRangeHeader(range_header):
   """Parse HTTP Range header.
 
   Args:
-    range_header: Range header as retrived from Range or X-AppEngine-BlobRange.
+    range_header: A str representing the value of a range header as retrived
+      from Range or X-AppEngine-BlobRange.
 
   Returns:
     Tuple (start, end):
@@ -203,12 +94,112 @@ def ParseRangeHeader(range_header):
   """
   if not range_header:
     return None, None
-  parsed_range = ParseRange(range_header)
-  if parsed_range:
-    range_tuple = parsed_range[1]
-    if len(range_tuple) == 1:
-      return range_tuple[0]
-  return None, None
+  try:
+
+    range_type, ranges = range_header.split('=', 1)
+    if range_type != 'bytes':
+      return None, None
+    ranges = ranges.lstrip()
+    if ',' in ranges:
+      return None, None
+    end = None
+    if ranges.startswith('-'):
+      start = int(ranges)
+      if start == 0:
+        return None, None
+    else:
+      split_range = ranges.split('-', 1)
+      start = int(split_range[0])
+      if len(split_range) == 2 and split_range[1].strip():
+        end = int(split_range[1]) + 1
+        if start > end:
+          return None, None
+    return start, end
+  except ValueError:
+    return None, None
+
+
+def _GetGoogleStorageFileMetadata(blob_key):
+  """Retreive metadata about a GS blob from the blob_key.
+
+  Args:
+    blob_key: The BlobKey of the blob.
+
+  Returns:
+    Tuple (size, content_type, open_key):
+      size: The size of the blob.
+      content_type: The content type of the blob.
+      open_key: The key used as an argument to BlobStorage to open the blob
+        for reading.
+    (None, None, None) if the blob metadata was not found.
+  """
+  try:
+    gs_info = datastore.Get(
+        datastore.Key.from_path(file_service_stub.GS_INFO_KIND,
+                                blob_key,
+                                namespace=''))
+    return gs_info['size'], gs_info['content_type'], gs_info['storage_key']
+  except datastore_errors.EntityNotFoundError:
+    return None, None, None
+
+
+def _GetBlobstoreMetadata(blob_key):
+  """Retreive metadata about a blobstore blob from the blob_key.
+
+  Args:
+    blob_key: The BlobKey of the blob.
+
+  Returns:
+    Tuple (size, content_type, open_key):
+      size: The size of the blob.
+      content_type: The content type of the blob.
+      open_key: The key used as an argument to BlobStorage to open the blob
+        for reading.
+    (None, None, None) if the blob metadata was not found.
+  """
+  try:
+    blob_info = datastore.Get(
+        datastore.Key.from_path(blobstore.BLOB_INFO_KIND,
+                                blob_key,
+                                namespace=''))
+    return blob_info['size'], blob_info['content_type'], blob_key
+  except datastore_errors.EntityNotFoundError:
+    return None, None, None
+
+
+def _GetBlobMetadata(blob_key):
+  """Retrieve the metadata about a blob from the blob_key.
+
+  Args:
+    blob_key: The BlobKey of the blob.
+
+  Returns:
+    Tuple (size, content_type, open_key):
+      size: The size of the blob.
+      content_type: The content type of the blob.
+      open_key: The key used as an argument to BlobStorage to open the blob
+        for reading.
+    (None, None, None) if the blob metadata was not found.
+  """
+  size, content_type, open_key = _GetGoogleStorageFileMetadata(blob_key)
+  if size is None:
+    size, content_type, open_key = _GetBlobstoreMetadata(blob_key)
+  return size, content_type, open_key
+
+
+def _SetRangeRequestNotSatisfiable(response, blob_size):
+  """Short circuit response and return 416 error.
+
+  Args:
+    response: Response object to be rewritten.
+    blob_size: The size of the blob.
+  """
+  response.status_code = 416
+  response.status_message = 'Requested Range Not Satisfiable'
+  response.body = cStringIO.StringIO('')
+  response.headers['Content-Length'] = '0'
+  response.headers['Content-Range'] = '*/%d' % blob_size
+  del response.headers['Content-Type']
 
 
 def DownloadRewriter(response, request_headers):
@@ -223,10 +214,9 @@ def DownloadRewriter(response, request_headers):
   If the application itself provides a content-type header, it will override
   the content-type stored in the action blob.
 
-  If Content-Range header is provided, blob will be partially served.  The
-  application can set blobstore.BLOB_RANGE_HEADER if the size of the blob is
-  not known.  If Range is present, and not blobstore.BLOB_RANGE_HEADER, will
-  use Range instead.
+  If blobstore.BLOB_RANGE_HEADER header is provided, blob will be partially
+  served.  If Range is present, and not blobstore.BLOB_RANGE_HEADER, will use
+  Range instead.
 
   Args:
     response: Response object to be rewritten.
@@ -237,93 +227,69 @@ def DownloadRewriter(response, request_headers):
   if blob_key:
     del response.headers[blobstore.BLOB_KEY_HEADER]
 
+    blob_size, blob_content_type, blob_open_key = _GetBlobMetadata(blob_key)
 
-    try:
-      blob_info = datastore.Get(
-          datastore.Key.from_path(blobstore.BLOB_INFO_KIND,
-                                  blob_key,
-                                  namespace=''))
+    range_header = response.headers.getheader(blobstore.BLOB_RANGE_HEADER)
+    if range_header is not None:
+      del response.headers[blobstore.BLOB_RANGE_HEADER]
+    else:
+      range_header = request_headers.getheader('Range')
 
-      content_range_header = response.headers.getheader('Content-Range')
-      blob_size = blob_info['size']
-      range_header = response.headers.getheader(blobstore.BLOB_RANGE_HEADER)
-      if range_header is not None:
-        del response.headers[blobstore.BLOB_RANGE_HEADER]
-      else:
-        range_header = request_headers.getheader('Range')
 
-      def not_satisfiable():
-        """Short circuit response and return 416 error."""
-        response.status_code = 416
-        response.status_message = 'Requested Range Not Satisfiable'
-        response.body = cStringIO.StringIO('')
-        response.headers['Content-Length'] = '0'
-        del response.headers['Content-Type']
-        del response.headers['Content-Range']
 
-      if range_header:
-        start, end = ParseRangeHeader(range_header)
-        if start is not None:
-          if end is None:
-            if start >= 0:
-              content_range_start = start
-            else:
-              content_range_start = blob_size + start
-            content_range = MakeContentRange(
-                content_range_start, blob_size, blob_size)
-            content_range_header = str(content_range)
-          else:
-            content_range = MakeContentRange(start, min(end, blob_size),
-                                             blob_size)
-            content_range_header = str(content_range)
-          response.headers['Content-Range'] = content_range_header
-        else:
-          not_satisfiable()
-          return
-
-      content_range_header = response.headers.getheader('Content-Range')
+    if (blob_size is not None and blob_content_type is not None and
+        response.status_code == 200):
       content_length = blob_size
       start = 0
       end = content_length
-      if content_range_header is not None:
-        content_range = ParseContentRange(content_range_header)
-        if content_range:
-          start = content_range.start
-          stop = GetContentRangeStop(content_range)
-          content_length = min(stop, blob_size) - start
-          stop = start + content_length
-          content_range = MakeContentRange(start, stop, blob_size)
-          response.headers['Content-Range'] = str(content_range)
-        else:
-          not_satisfiable()
-          return
 
-      blob_stream = GetBlobStorage().OpenBlob(blob_key)
+      if range_header:
+        start, end = ParseRangeHeader(range_header)
+        if start is None:
+          _SetRangeRequestNotSatisfiable(response, blob_size)
+          return
+        else:
+          if start < 0:
+            start = max(blob_size + start, 0)
+          elif start >= blob_size:
+            _SetRangeRequestNotSatisfiable(response, blob_size)
+            return
+          if end is not None:
+            end = min(end, blob_size)
+          else:
+            end = blob_size
+          content_length = min(end, blob_size) - start
+          end = start + content_length
+          response.status_code = 206
+          response.status_message = 'Partial Content'
+          response.headers['Content-Range'] = 'bytes %d-%d/%d' % (
+              start, end - 1, blob_size)
+
+      blob_stream = GetBlobStorage().OpenBlob(blob_open_key)
       blob_stream.seek(start)
       response.body = cStringIO.StringIO(blob_stream.read(content_length))
       response.headers['Content-Length'] = str(content_length)
 
       content_type = response.headers.getheader('Content-Type')
       if not content_type or content_type == AUTO_MIME_TYPE:
-        response.headers['Content-Type'] = blob_info['content_type']
+        response.headers['Content-Type'] = blob_content_type
       response.large_response = True
 
+    else:
 
-
-    except datastore_errors.EntityNotFoundError:
+      if response.status_code != 200:
+        logging.error('Blob-serving response with status %d, expected 200.',
+                      response.status_code)
+      else:
+        logging.error('Could not find blob with key %s.', blob_key)
 
       response.status_code = 500
       response.status_message = 'Internal Error'
       response.body = cStringIO.StringIO()
 
-      if response.headers.getheader('status'):
-        del response.headers['status']
-      if response.headers.getheader('location'):
-        del response.headers['location']
       if response.headers.getheader('content-type'):
         del response.headers['content-type']
-
-      logging.error('Could not find blob with key %s.', blob_key)
+      response.headers['Content-Length'] = '0'
 
 
 def CreateUploadDispatcher(get_blob_storage=GetBlobStorage):

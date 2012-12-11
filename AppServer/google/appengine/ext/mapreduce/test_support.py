@@ -83,6 +83,7 @@ def execute_task(task, handlers_map=None):
   handler = None
 
   for (re_str, handler_class) in handlers_map:
+    re_str = "^" + re_str + "($|\\?)"
     if re.match(re_str, url):
       handler = handler_class()
       break
@@ -94,12 +95,15 @@ def execute_task(task, handlers_map=None):
                      mock_webapp.MockResponse())
   handler.request.set_url(url)
 
-  for k, v in task["headers"]:
+  handler.request.environ["HTTP_HOST"] = "myapp.appspot.com"
+  for k, v in task.get("headers", []):
     handler.request.headers[k] = v
     environ_key = "HTTP_" + k.replace("-", "_").upper()
     handler.request.environ[environ_key] = v
-  handler.request.environ["HTTP_X_APPENGINE_TASKNAME"] = task["name"]
-  handler.request.environ["HTTP_X_APPENGINE_QUEUENAME"] = task["queue_name"]
+  handler.request.environ["HTTP_X_APPENGINE_TASKNAME"] = (
+      task.get("name", "default_task_name"))
+  handler.request.environ["HTTP_X_APPENGINE_QUEUENAME"] = (
+      task.get("queue_name", "default"))
   handler.request.environ["PATH_INFO"] = handler.request.path
 
   saved_os_environ = os.environ
@@ -135,7 +139,7 @@ def execute_all_tasks(taskqueue, queue="default", handlers_map=None):
   tasks = taskqueue.GetTasks(queue)
   taskqueue.FlushQueue(queue)
   for task in tasks:
-    execute_task(task,handlers_map=handlers_map)
+    execute_task(task, handlers_map=handlers_map)
 
 
 def execute_until_empty(taskqueue, queue="default", handlers_map=None):

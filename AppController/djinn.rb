@@ -2016,8 +2016,7 @@ class Djinn
 
   def start_blobstore_server
     db_local_ip = @userappserver_private_ip
-    my_ip = my_node.public_ip
-    BlobServer.start(db_local_ip, PbServer::LISTEN_PORT_NO_SSL, my_ip)
+    BlobServer.start(db_local_ip, PbServer::LISTEN_PORT_NO_SSL)
     BlobServer.is_running(db_local_ip)
 
     return true

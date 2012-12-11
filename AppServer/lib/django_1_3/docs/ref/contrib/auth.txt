@@ -1,0 +1,4 @@
+``django.contrib.auth``
+=======================
+
+See :doc:`/topics/auth`.

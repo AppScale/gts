@@ -27,6 +27,7 @@
 
 __all__ = [
 
+    '_threading_local',
     'ftplib',
     'httplib',
     'neo_cgi',

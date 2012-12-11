@@ -111,7 +111,8 @@ def _to_app_identity_error(error):
   if error.application_error in error_map:
     return error_map[error.application_error](error.error_detail)
   else:
-    return error
+    return InternalError('%s: %s' %
+                         (error.application_error, error.error_detail))
 
 
 class PublicCertificate(object):
@@ -372,7 +373,7 @@ def get_default_version_hostname():
   return os.getenv('DEFAULT_VERSION_HOSTNAME')
 
 
-def make_get_access_token_call(rpc, scopes):
+def make_get_access_token_call(rpc, scopes, service_account_id=None):
   """OAuth2 access token to act on behalf of the application (async, uncached).
 
   Most developers should use get_access_token instead.
@@ -380,6 +381,7 @@ def make_get_access_token_call(rpc, scopes):
   Args:
     rpc: RPC object.
     scopes: The requested API scope string, or a list of strings.
+
   Raises:
     InvalidScope: if the scopes are unspecified or invalid.
   """
@@ -392,6 +394,8 @@ def make_get_access_token_call(rpc, scopes):
   else:
     for scope in scopes:
       request.add_scope(scope)
+  if service_account_id:
+    request.set_service_account_id(service_account_id)
   response = app_identity_service_pb.GetAccessTokenResponse()
 
   def get_access_token_result(rpc):
@@ -420,7 +424,7 @@ def make_get_access_token_call(rpc, scopes):
                 response, get_access_token_result)
 
 
-def get_access_token_uncached(scopes, deadline=None):
+def get_access_token_uncached(scopes, deadline=None, service_account_id=None):
   """OAuth2 access token to act on behalf of the application (sync, uncached).
 
   Most developers should use get_access_token instead.
@@ -429,16 +433,18 @@ def get_access_token_uncached(scopes, deadline=None):
     scopes: The requested API scope string, or a list of strings.
     deadline: Optional deadline in seconds for the operation; the default
       is a system-specific deadline (typically 5 seconds).
+
   Returns:
     Pair, Access token (string) and expiration time (seconds since the epoch).
   """
+
   rpc = create_rpc(deadline)
-  make_get_access_token_call(rpc, scopes)
+  make_get_access_token_call(rpc, scopes, service_account_id=service_account_id)
   rpc.wait()
   return rpc.get_result()
 
 
-def get_access_token(scopes):
+def get_access_token(scopes, service_account_id=None):
   """OAuth2 access token to act on behalf of the application, cached.
 
   Generates and caches an OAuth2 access token for the service account for the
@@ -451,16 +457,22 @@ def get_access_token(scopes):
 
   Args:
     scopes: The requested API scope string, or a list of strings.
+
   Returns:
     Pair, Access token (string) and expiration time (seconds since the epoch).
   """
 
+
+
   memcache_key = _MEMCACHE_KEY_PREFIX + str(scopes)
+  if service_account_id:
+    memcache_key += ',%d' % service_account_id
   memcache_value = memcache.get(memcache_key, namespace=_MEMCACHE_NAMESPACE)
   if memcache_value:
     access_token, expires_at = memcache_value
   else:
-    access_token, expires_at = get_access_token_uncached(scopes)
+    access_token, expires_at = get_access_token_uncached(
+        scopes, service_account_id=service_account_id)
 
     memcache.add(memcache_key, (access_token, expires_at), expires_at - 300,
                  namespace=_MEMCACHE_NAMESPACE)

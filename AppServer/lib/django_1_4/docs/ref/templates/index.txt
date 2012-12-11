@@ -1,0 +1,19 @@
+=========
+Templates
+=========
+
+Django's template engine provides a powerful mini-language for defining the
+user-facing layer of your application, encouraging a clean separation of
+application and presentation logic. Templates can be maintained by anyone with
+an understanding of HTML; no knowledge of Python is required.
+
+.. toctree::
+   :maxdepth: 2
+
+   builtins
+   api
+
+.. seealso::
+
+    For information on writing your own custom tags and filters, see
+    :doc:`/howto/custom-template-tags`.

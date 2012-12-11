@@ -13,29 +13,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-#  AppScale modification by Navraj Chohan
 
 """
+AppScale modifications 
+
 Distributed Method:
-All calls are made to a remote location for queries, gets, puts, and deletes,
-Index functions, transaction functions
+All calls are made to a datastore server for queries, gets, puts, and deletes,
+Index functions, transaction functions.
 """
-
 
 import datetime
 import logging
-import md5
-import os
 import sys
 import threading
 import warnings
-try:
-  from urlparse import parse_qsl
-except ImportError:
-  from cgi import parse_qsl
-
-APPSCALE_HOME = os.environ.get("APPSCALE_HOME")
 
 from google.appengine.api import api_base_pb
 from google.appengine.api import apiproxy_stub
@@ -52,10 +43,15 @@ from google.appengine.datastore import entity_pb
 from google.appengine.ext.remote_api import remote_api_pb
 from google.appengine.datastore import datastore_stub_util
 
+# Where the SSL certificate is placed for encrypted communication
 CERT_LOCATION = "/etc/appscale/certs/mycert.pem"
+
+# Where the SSL private key is placed for encrypted communication
 KEY_LOCATION = "/etc/appscale/certs/mykey.pem"
 
+# The default SSL port to connect to
 SSL_DEFAULT_PORT = 8443
+
 try:
   __import__('google.appengine.api.taskqueue.taskqueue_service_pb')
   taskqueue_service_pb = sys.modules.get(
@@ -146,13 +142,11 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     super(DatastoreDistributed, self).__init__(service_name)
 
     # TODO lock any use of these global variables
-
     assert isinstance(app_id, basestring) and app_id != ''
     self.__app_id = app_id
     self.__datastore_location = datastore_location
-    # If the port is 443, then it is encrypted 
-    self.__is_encrypted = True
 
+    self.__is_encrypted = True
     res = self.__datastore_location.split(':')
     if len(res) == 2:
       if int(res[1]) != SSL_DEFAULT_PORT:
@@ -289,10 +283,11 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     pb.Encode()
 
   def QueryHistory(self):
-    """Returns a dict that maps Query PBs to times they've been run.
-    """
+    """Returns a dict that maps Query PBs to times they've been run."""
     return []
+
   def _RemoteSend(self, request, response, method):
+    """Sends a request remotely to the datstore server. """
     tag = self.__app_id
     user = users.GetCurrentUser()
     if user != None:
@@ -314,7 +309,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       CERT_LOCATION)
 
     if not api_response or not api_response.has_response():
-         raise datastore_errors.InternalError(
+      raise datastore_errors.InternalError(
           'No response from db server on %s requests.'%method)
     
     if api_response.has_application_error():
@@ -329,28 +324,32 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     response.ParseFromString(api_response.response())
 
   def _Dynamic_Put(self, put_request, put_response):
+    """Send a put request to the datastore server. """
     put_request.set_trusted(self.__trusted)
     self._RemoteSend(put_request, put_response, "Put")
     return put_response 
 
   def _Dynamic_Get(self, get_request, get_response):
+    """Send a get request to the datastore server. """
     self._RemoteSend(get_request, get_response, "Get")
     return get_response
 
 
   def _Dynamic_Delete(self, delete_request, delete_response):
+    """Send a delete request to the datastore server. """
     delete_request.set_trusted(self.__trusted)
     self._RemoteSend(delete_request, delete_response, "Delete")
     return delete_response
 
   def _Dynamic_RunQuery(self, query, query_result):
+    """Send a query request to the datastore server. """
     if query.has_transaction():
       if not query.has_ancestor():
         raise apiproxy_errors.ApplicationError(
           datastore_pb.Error.BAD_REQUEST,
           'Only ancestor queries are allowed inside transactions.')
     (filters, orders) = datastore_index.Normalize(query.filter_list(),
-                                                  query.order_list())
+                                                  query.order_list(), [])
     
     datastore_stub_util.FillUsersInQuery(filters)
 
@@ -360,14 +359,6 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     self._RemoteSend(query, query_response, "RunQuery")
     results = query_response.result_list()
     results = [datastore.Entity._FromPb(r) for r in results]
-
-    operators = {datastore_pb.Query_Filter.LESS_THAN:             '<',
-                 datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:    '<=',
-                 datastore_pb.Query_Filter.GREATER_THAN:          '>',
-                 datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL: '>=',
-                 datastore_pb.Query_Filter.EQUAL:                 '==',
-                 }
-
 
     def has_prop_indexed(entity, prop):
       """Returns True if prop is in the entity and is indexed."""
@@ -478,6 +469,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       compiled_query.mutable_primaryscan().set_index_name(query.Encode())
 
   def _Dynamic_Next(self, next_request, query_result):
+    """Get the next set of entities from a previously run query. """
     self.__ValidateAppId(next_request.cursor().app())
 
     cursor_handle = next_request.cursor().cursor()
@@ -485,7 +477,8 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     cursor = self.__queries
     if cursor.cursor != cursor_handle:
       raise apiproxy_errors.ApplicationError(
-            datastore_pb.Error.BAD_REQUEST, 'Cursor %d not found' % cursor_handle)
+            datastore_pb.Error.BAD_REQUEST, 
+            'Cursor %d not found' % cursor_handle)
 
     assert cursor.app == next_request.cursor().app()
     logging.info(str(cursor))
@@ -497,12 +490,14 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
                                next_request.compile())
 
   def _Dynamic_Count(self, query, integer64proto):
+    """Get the number of entities for a query. """
     query_result = datastore_pb.QueryResult()
     self._Dynamic_RunQuery(query, query_result)
     count = query_result.result_size()
     integer64proto.set_value(count)
 
   def _Dynamic_BeginTransaction(self, request, transaction):
+    """Send a begin transaction request from the datastore server. """
     request.set_app(self.__app_id)
     self._RemoteSend(request, transaction, "BeginTransaction")
     self.__tx_actions = []
@@ -532,6 +527,8 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
 
   def _Dynamic_Commit(self, transaction, transaction_response):
+    """ Send a transaction request to commit a transaction to the 
+        datastore server. """
     transaction.set_app(self.__app_id)
 
     self._RemoteSend(transaction, transaction_response, "Commit")
@@ -552,6 +549,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       self.__tx_actions = []
    
   def _Dynamic_Rollback(self, transaction, transaction_response):
+    """ Send a rollback request to the datastore server. """
     transaction.set_app(self.__app_id)
  
     self.__tx_actions = []
@@ -560,6 +558,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     return transaction_response
 
   def _Dynamic_GetSchema(self, req, schema):
+    """ Get the schema of a particular kind of entity. """
     app_str = req.app()
     self.__ValidateAppId(app_str)
 
@@ -635,10 +634,12 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     schema.set_more_results(False)
 
   def _Dynamic_AllocateIds(self, allocate_ids_request, allocate_ids_response):
+    """Send a request for allocation of IDs to the datastore server. """
     self._RemoteSend(allocate_ids_request, allocate_ids_response, "AllocateIds")
     return  allocate_ids_response
 
   def _Dynamic_CreateIndex(self, index, id_response):
+    """ Create a new index. Currently stubbed out."""
     self.__ValidateAppId(index.app_id())
     if index.id() != 0:
       raise apiproxy_errors.ApplicationError(datastore_pb.Error.BAD_REQUEST,
@@ -647,10 +648,13 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     return id_response
 
   def _Dynamic_GetIndices(self, app_str, composite_indices):
+    """ Gets the indices of the current app. Currently stubbed out. """
     return 
 
   def _Dynamic_UpdateIndex(self, index, void):
+    """ Updates the indices of the current app. Currently stubbed out. """
     return 
     
   def _Dynamic_DeleteIndex(self, index, void):
+    """ Deletes an index of the current app. Currently stubbed out. """
     return void

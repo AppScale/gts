@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Confirm Aborting of a pending backup{% endblock %}
+{% block body %}
+  <h2>Datastore Admin: Abort a pending backup</h2>
+  {% if backups %}
+    Are you sure you want to abort the following pending backups:
+    <ul>
+      {% for backup in backups %}
+        <li>{{ backup.name }}</li>
+      {% endfor %}
+    </ul>
+    <p>Warning, aborting a pending backup may leave temporary files around. These files can be deleted manually after operation completes.</p>
+    <form action="{{base_path}}/{{form_target}}" method="post" style="width:39.39em;">
+      {% for backup in backups %}
+        <input type="hidden" name="backup_id" value="{{backup.key}}">
+      {% endfor %}
+      <input type="hidden" name="namespace" value="{{namespace|escape}}">
+      <input type="hidden" name="xsrf_token" value="{{xsrf_token|escape}}">
+      <input type="Submit" value="Yes">
+      <a href="{{ cancel_url|escape }}">No</a>
+    </form>
+
+  {% else %}
+    <div class="ae-errorbox">Backup was not found.</div>
+  {% endif %}
+{% endblock %}
+

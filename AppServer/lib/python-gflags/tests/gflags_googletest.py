@@ -90,17 +90,27 @@ def MultiLineEqual(expected, actual):
 class TestCase(unittest.TestCase):
   def assertListEqual(self, list1, list2):
     """Asserts that, when sorted, list1 and list2 are identical."""
-    self.assertEqual(Sorted(list1), Sorted(list2))
+    # This exists in python 2.7, but not previous versions.  Use the
+    # built-in version if possible.
+    if hasattr(unittest.TestCase, "assertListEqual"):
+      unittest.TestCase.assertListEqual(self, Sorted(list1), Sorted(list2))
+    else:
+      self.assertEqual(Sorted(list1), Sorted(list2))
 
   def assertMultiLineEqual(self, expected, actual):
-    self.assert_(MultiLineEqual(expected, actual))
+    # This exists in python 2.7, but not previous versions.  Use the
+    # built-in version if possible.
+    if hasattr(unittest.TestCase, "assertMultiLineEqual"):
+      unittest.TestCase.assertMultiLineEqual(self, expected, actual)
+    else:
+      self.assertTrue(MultiLineEqual(expected, actual))
 
   def assertRaisesWithRegexpMatch(self, exception, regexp, fn, *args, **kwargs):
     try:
       fn(*args, **kwargs)
     except exception, why:
-      self.assert_(re.search(regexp, str(why)),
-                   "'%s' does not match '%s'" % (regexp, why))
+      self.assertTrue(re.search(regexp, str(why)),
+                      "'%s' does not match '%s'" % (regexp, why))
       return
     self.fail(exception.__name__ + " not raised")
 

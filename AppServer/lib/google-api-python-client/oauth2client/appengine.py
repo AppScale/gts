@@ -25,18 +25,9 @@ import logging
 import pickle
 import time
 
-try: # pragma: no cover
-  import simplejson
-except ImportError: # pragma: no cover
-  try:
-    # Try to import from django, should work on App Engine
-    from django.utils import simplejson
-  except ImportError:
-    # Should work for Python2.6 and higher.
-    import json as simplejson
-
 import clientsecrets
 
+from anyjson import simplejson
 from client import AccessTokenRefreshError
 from client import AssertionCredentials
 from client import Credentials
@@ -248,12 +239,15 @@ class StorageByKeyName(Storage):
       json = self._cache.get(self._key_name)
       if json:
         return Credentials.new_from_json(json)
-    entity = self._model.get_or_insert(self._key_name)
-    credential = getattr(entity, self._property_name)
-    if credential and hasattr(credential, 'set_store'):
-      credential.set_store(self)
-      if self._cache:
-        self._cache.set(self._key_name, credentials.to_json())
+
+    credential = None
+    entity = self._model.get_by_key_name(self._key_name)
+    if entity is not None:
+      credential = getattr(entity, self._property_name)
+      if credential and hasattr(credential, 'set_store'):
+        credential.set_store(self)
+        if self._cache:
+          self._cache.set(self._key_name, credentials.to_json())
 
     return credential
 
@@ -289,7 +283,7 @@ class OAuth2Decorator(object):
     decorator = OAuth2Decorator(
         client_id='837...ent.com',
         client_secret='Qh...wwI',
-        scope='https://www.googleapis.com/auth/buzz')
+        scope='https://www.googleapis.com/auth/plus')
 
 
     class MainHandler(webapp.RequestHandler):
@@ -305,7 +299,7 @@ class OAuth2Decorator(object):
   def __init__(self, client_id, client_secret, scope,
                auth_uri='https://accounts.google.com/o/oauth2/auth',
                token_uri='https://accounts.google.com/o/oauth2/token',
-               message=None):
+               message=None, **kwargs):
 
     """Constructor for OAuth2Decorator
 
@@ -321,9 +315,11 @@ class OAuth2Decorator(object):
       message: Message to display if there are problems with the OAuth 2.0
         configuration. The message may contain HTML and will be presented on the
         web interface for any method that uses the decorator.
+      **kwargs: dict, Keyword arguments are be passed along as kwargs to the
+        OAuth2WebServerFlow constructor.
     """
     self.flow = OAuth2WebServerFlow(client_id, client_secret, scope, None,
-        auth_uri, token_uri)
+        auth_uri, token_uri, **kwargs)
     self.credentials = None
     self._request_handler = None
     self._message = message
@@ -446,7 +442,7 @@ class OAuth2DecoratorFromClientSecrets(OAuth2Decorator):
 
     decorator = OAuth2DecoratorFromClientSecrets(
       os.path.join(os.path.dirname(__file__), 'client_secrets.json')
-      scope='https://www.googleapis.com/auth/buzz')
+      scope='https://www.googleapis.com/auth/plus')
 
 
     class MainHandler(webapp.RequestHandler):
@@ -528,7 +524,7 @@ class OAuth2Handler(webapp.RequestHandler):
         credentials = flow.step2_exchange(self.request.params)
         StorageByKeyName(
             CredentialsModel, user.user_id(), 'credentials').put(credentials)
-        self.redirect(self.request.get('state'))
+        self.redirect(str(self.request.get('state')))
       else:
         # TODO Add error handling here.
         pass

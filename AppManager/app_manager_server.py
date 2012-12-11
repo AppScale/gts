@@ -44,7 +44,7 @@ REQUIRED_CONFIG_FIELDS = ['app_name',
                           'dblocations']
 
 # The web path to fetch to see if the application is up
-FETCH_PATH = '/_ah'
+FETCH_PATH = '/_ah/health_check'
 
 def convert_config_from_json(config):
   """ Takes the configuration in JSON format and converts it to a dictionary.

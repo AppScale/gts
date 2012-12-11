@@ -30,15 +30,12 @@ supply no parameters.
 
 import cgi
 import Cookie
-import md5
 import os
 import re
 import sys
 import urllib
 import sha
 import logging
-from django.utils import simplejson
-from google.appengine.api import urlfetch
 
 
 CONTINUE_PARAM = 'continue'
@@ -91,7 +88,7 @@ def GetUserInfo(http_cookie, cookie_name=COOKIE_NAME):
   else:
     vhsh = sha.new(email+nickname+admin+COOKIE_SECRET).hexdigest()
     if hsh != vhsh:
-      logging.info(email+" had invalid cookie, clearing it")
+      logging.info(email + " had invalid cookie, clearing it")
       valid_cookie = False
       email = ''
       admin = ''
@@ -153,15 +150,17 @@ def LoginRedirect(login_url,
   outfile.write('Location: %s\r\n\r\n' % redirect_url)
 
 def LoginServiceRedirect(dest_url, endpoint, ah_url, outfile):
-  #dest_url = "foo" # cgb fix for grinder testing
+  """Sends the requester to a redirected path. """
   redirect_url = '%s?%s=%s' % (endpoint,
                         CONTINUE_PARAM,
-                        urllib.quote('%s?%s=%s' %(ah_url,CONTINUE_PARAM,dest_url)))
+                        urllib.quote('%s?%s=%s' % \
+                        (ah_url,CONTINUE_PARAM,dest_url)))
   outfile.write('Status: 302 Redirecting to login service URL\r\n')
   outfile.write('Location: %s\r\n' % redirect_url)
   outfile.write('\r\n')
 
 def Logout(continue_url, outfile):
+  """ The handler for having users log out. """
   output_headers = []
   output_headers.append(ClearUserInfoCookie())
 
@@ -193,25 +192,27 @@ def main():
 
   continue_url = form.getfirst(CONTINUE_PARAM, '')
 
-  # sometimes the continue url doesn't have the port number on it
-  # so rip off the suffix and add it on
+  # The continue url may not have the port number on it
+  # so rip off the suffix and add it on.
   host_w_port = nginx_url + ":" + nginx_port
   if host_w_port not in continue_url:
     regex = nginx_url + "(.*)\Z"
     pattern = re.compile(regex)
     suffix = re.search(pattern, continue_url)
     if suffix:
-      continue_url = "http://" + nginx_url + ":" + nginx_port + suffix.group(1)
+      continue_url = "http://" + nginx_url + ":" + \
+                     nginx_port + suffix.group(1)
 
   login_service_endpoint = "https://"+LOGIN_SERVER+"/login"
   if action.lower() == LOGOUT_ACTION.lower():
     Logout(continue_url, sys.stdout)
   else:
-    LoginServiceRedirect(continue_url, login_service_endpoint, ah_login_url, sys.stdout)
+    LoginServiceRedirect(continue_url, 
+                         login_service_endpoint, 
+                         ah_login_url, 
+                         sys.stdout)
   return 0
 
 if __name__ == '__main__':
   main()
-
-
 

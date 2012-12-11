@@ -15,14 +15,7 @@
 # limitations under the License.
 #
 
-
-
-
-"""Utility functions shared between the file and sqlite datastore stubs."""
-
-
-
-
+"""Utility functions used by the datstore server. """
 
 try:
   import hashlib
@@ -118,7 +111,7 @@ def GetInvisibleSpecialPropertyNames():
   """Gets the names of all non user-visible special properties."""
   invisible_names = []
   for name, value in _SPECIAL_PROPERTY_MAP.items():
-    is_visible, is_stored, property_func = value
+    is_visible, _, _ = value
     if not is_visible:
       invisible_names.append(name)
   return invisible_names
@@ -177,6 +170,7 @@ def ValidateQuery(query, filters, orders, max_query_components):
   """
 
   def BadRequest(message):
+    """ Exception raised if there was a bad request. """
     raise apiproxy_errors.ApplicationError(
         datastore_pb.Error.BAD_REQUEST, message)
 
@@ -189,14 +183,12 @@ def ValidateQuery(query, filters, orders, max_query_components):
     if not query.has_ancestor():
       BadRequest('Only ancestor queries are allowed inside transactions.')
 
-
   num_components = len(filters) + len(orders)
   if query.has_ancestor():
     num_components += 1
   if num_components > max_query_components:
     BadRequest('query is too large. may not have more than %s filters'
                ' + sort orders ancestor total' % max_query_components)
-
 
   if query.has_ancestor():
     ancestor = query.ancestor()
@@ -311,11 +303,15 @@ class ValueRange(object):
       True iff value is contained in this range.
     """
     if self.__start is not None:
-      if self.__start_inclusive and value < self.__start: return False
-      if not self.__start_inclusive and value <= self.__start: return False
+      if self.__start_inclusive and value < self.__start: 
+        return False
+      if not self.__start_inclusive and value <= self.__start: 
+        return False
     if self.__end is not None:
-      if self.__end_inclusive and value > self.__end: return False
-      if not self.__end_inclusive and value >= self.__end: return False
+      if self.__end_inclusive and value > self.__end: 
+        return False
+      if not self.__end_inclusive and value >= self.__end: 
+        return False
     return True
 
   def Remap(self, mapper):
@@ -601,6 +597,7 @@ class BaseCursor(object):
     self.cursor = self._AcquireCursorID()
 
   def PopulateCursor(self, query_result):
+    """ Creates cursor for the given query result. """
     if query_result.more_results():
       cursor = query_result.mutable_cursor()
       cursor.set_app(self.app)
@@ -699,7 +696,7 @@ class QueryCursor(object):
         if prop.name() in order_names:
           entity_info.add_property().MergeFrom(prop)
       else:
-          entity_info.add_property().MergeFrom(prop)
+        entity_info.add_property().MergeFrom(prop)
     return entity_info
 
 
@@ -747,7 +744,7 @@ class QueryCursor(object):
     result.set_keys_only(self.__query.keys_only())
     result.set_more_results(offset < count)
     if self.__results:
-       self._EncodeCompiledCursor(result.mutable_compiled_cursor())
+      self._EncodeCompiledCursor(result.mutable_compiled_cursor())
 
 
 class ListCursor(BaseCursor):
@@ -771,7 +768,7 @@ class ListCursor(BaseCursor):
     super(ListCursor, self).__init__(query.app())
 
     if query.has_compiled_cursor() and query.compiled_cursor().position_list():
-      (self.__last_result, inclusive) = self._DecodeCompiledCursor(
+      (self.__last_result, _) = self._DecodeCompiledCursor(
           query, query.compiled_cursor())
     self.__query = query
     self.__offset = 0
@@ -781,7 +778,8 @@ class ListCursor(BaseCursor):
     self.keys_only = query.keys_only()
     
   def _GetLastResult(self):
-     return self.__last_result
+    """ Protected access to private member. """
+    return self.__last_result
 
   @staticmethod
   def _GetCursorOffset(results, cursor_entity, inclusive, compare):
@@ -856,7 +854,8 @@ class ListCursor(BaseCursor):
     
     position = compiled_cursor.position(0)
     entity_as_pb = datastore_pb.EntityProto()
-    (query_info_encoded, entity_encoded) = position.start_key().split(_CURSOR_CONCAT_STR, 1)
+    (query_info_encoded, entity_encoded) = \
+               position.start_key().split(_CURSOR_CONCAT_STR, 1)
     query_info_pb = datastore_pb.Query()
     query_info_pb.ParseFromString(query_info_encoded)
     self._ValidateQuery(query, query_info_pb)

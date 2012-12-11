@@ -1,0 +1,407 @@
+Changelog
+=========
+
+This document contains information about the changes between the different
+versions of PyAMF.
+
+.. contents::
+
+
+0.6.1 (28-02-2011)
+----------------
+- Switched to Distribute as the future of Python packaging (Ticket:682)
+
+0.6 (21-10-2010)
+----------------
+- Ability to exclude 'stock' attributes with AppEngine Datastore/SQLAlchemy
+  (Ticket:790)
+- Fixed issue with Django models db_column not matching the attr name
+  (Ticket:807)
+- Added generator support (Ticket:793,800)
+- Fixed issue with ``amf3.use_proxy_default=True`` and Flex messaging
+  (Ticket:794)
+- Support for AppEngine's ``BlobReferenceProperty`` (Ticket:787)
+- Improved unit test discovery with unittest2 (Ticket:780)
+- Ability to define attribute synonyms (Ticket:779)
+- Provide support for AMF3 remoting packets (BlazeDS acting as a client)
+  (Ticket:737,766)
+- AMF0 Remoting error tracebacks will be a list rather than a string
+  (Ticket:767,663)
+- Moved documentation from the Trac wiki to a local Sphinx documentation
+  build (Ticket:752,672,670,662,661,657)
+- Switch the PyAMF client to use :py:mod:`urllib2`. Provides support for
+  proxying and gzipped responses. Thanks to @PaulWinkeler for the heavy
+  lifting (Ticket:751,622,590,566,778)
+- Added support for SQLAlchemy 0.6 (Ticket:747,748)
+- Added support for the lxml library (Ticket:735)
+- Introduced a new adapter for Elixir, a thin wrapper around SQLAlchemy
+  (Ticket:724)
+- Simplified ``type_map`` in ``Encoder`` classes (Ticket:746)
+- Fixed a small bug when handling empty M2M relationships with unpersisted
+  Django objects (Ticket:741)
+- Updates to support Plasma (Ticket:736)
+- Fixed a small bug in ``BaseGateway.removeService``, thanks agronholm for the
+  patch (Ticket:729)
+- Pure Python AMF3 Decoding performance improvements (up to x3) (Ticket:723)
+- Non-ascii characters in the exception message would cause a ``UnicodeError``
+  (Ticket:727)
+- All ORM adapters will no longer set properties as static attributes
+  (Ticket:677)
+- Default to using ``__new__`` for instance creation if available. (Ticket:700)
+- Ability to ``unregister_type_alias`` (Ticket:707)
+- ``__amf__.proxy`` actually works (Ticket:712)
+- Django adapter now uses ``get_all_field_names`` to find model properties
+  (Ticket:625)
+- Added ``ClassAlias.bases`` and deep class tree support for typed classes
+  (Ticket:715)
+- ``use_references`` keyword arg has been removed from ``amf3.Encoder.write*``
+  (Ticket:713)
+- ``ClassAlias.getEncodableAttributes`` now will return a single dict of
+  properties (Ticket:714)
+- PyAMF Client will raise an exception if the remote gateway returns a service
+  error (Ticket:260)
+- Fixed a reference bug with unsaved Django model instances. Thanks to wolver
+  for the patch and tests (Ticket:691).
+- Fixed a small bug in decoding Django relations when declared as static.
+  Thanks to wolver for the patch. (Ticket:693)
+- Removed ``exceptions`` from all ``Context`` and ``pyamf.util.Indexed*``
+  classes (Ticket:660)
+- Empty Django relations are now encoded as ``None``, not ``pyamf.Undefined``
+  (Ticket:659)
+- ``pyamf.ClientType`` removed, as it is not spec compliant (Ticket:651)
+
+0.5.1 (2009-09-19)
+------------------
+- ``pyamf.register_package`` can now accept a list of classes (Ticket:650)
+- Fixed a regression in ``TwistedGateway`` where services would be called
+  twice (Ticket:648)
+- Fixed a bug with encoding anonymous trait references (Ticket:644)
+- Moved ``IndexedCollection`` into ``cpyamf`` (Ticket:424)
+- ``amf3.encode_int`` now encodes signed 29bit ints, not unsigned. Thanks
+  to gerard for the report, investigation and patch! (Ticket:646)
+
+0.5 (2009-09-07)
+----------------
+- Added the ability to modify the timezones of dates being de/encoded for
+  legacy systems. (Ticket:612)
+- Fixed a Django reference bug where ``parent.child.parent`` is parent
+  would encode 3 objects and not 2. (Ticket:642)
+- Setting ``None`` on a Django ``DateField`` would blow up the encoder
+  (Ticket:632)
+- ``rootCause`` in ``ErrorFault`` objects are now populated with the
+  traceback object. (Ticket:637)
+- Support for encoding/decoding BlazeDS specific messages (Ticket:581)
+- Removed tracebacks from exception messages if ``debug=False`` (Ticket:552)
+- Support for ``google.appengine.ext.db.polymodel.PolyModel`` (Ticket:633)
+- Support for Django ``File``/``ImageField`` (Ticket:631)
+- Support for Django model inheritance (Ticket:626)
+- Rewrote attribute handling code. Added the ability to exclude, set
+  read-only and static attributes. See
+  http://pyamf.org/architecture/attributecontrol.html for more details
+  (Ticket:601)
+- Exposed the amf request object if ``expose_request=True``.
+  Twisted/Django/Google have an ``amf_request`` property on the http request
+  object.  WSGI has an entry in the environ dict now - ``pyamf.request``
+  (Ticket:234)
+- Added support for the :py:mod:`array` module (Ticket:468)
+- Fixed an issue with Django model ``AutoFields`` being set to 0 by the Flex
+  client (Ticket:556)
+- Added support for the :py:mod:`collections` module. (Ticket:474)
+- Added type checks for class objects. (Ticket:473)
+- GAE ``FloatProperty`` can now accept int without issue (Ticket:609)
+- Revamped the lazy imports module to use :py:data:`sys.meta_path` instead.
+  Fixes all erroneous import errors (Ticket:485).
+- Django models will now accept dynamic properties (Ticket:575)
+- Django PK properties will be set first to allow related properties to apply
+  correctly (Ticket:599)
+- p.r.encode/p.r.decode both have a new ``logger`` kwarg. Supply a
+  :py:class:`logging.Logger` instance if you want to see debug output
+  (Ticket:588)
+- ``pyamf.TypedObjectClassAlias`` now forces the class type (Ticket:537)
+- If a call to ``Decoder.readElement`` results in an ``IOError`` exception,
+  the original position of the stream will be restored (Ticket:573)
+- Replaced hardcoded Python implementation title in p.r.gateway.SERVER_NAME
+  (Ticket:541)
+- Provide a user friendly way to handle :py:class:`datetime.time` objects
+  (Ticket:498)
+- Removed the useless ``pyamf.logging`` module (Ticket:577)
+- Added a new ``register_package`` helper function to make bulk class
+  registration easier. Check the docstring for more info. (Ticket:576)
+- ``cpyamf.amf3._decode_int`` now propagates exceptions correctly (Ticket:506)
+- Fixed an incorrect ``OverflowError`` when encoding large integers in AMF3
+  (Ticket:519)
+- Added ``append`` to ``pyamf.util.BufferedByteStream`` (Ticket:574)
+- Added Epydoc signatures to all ``util.StringIOProxy``, ``util.DataTypeMixIn``
+  and ``util.BufferedByteStream`` classes (Ticket:440)
+- Removed dependancy on ``fpconst``. Platforms with broken platforms are
+  detected and handled correctly internally (Ticket:564)
+- ``amf0.Encoder`` now supports attribute ordering (Ticket:558)
+- Removed duplicate method ``Context.reset``, in favour of ``Context.clear``
+  (Ticket:527)
+- Rewrote ``cpyamf.util.BufferedByteStream`` to not depend on :py:mod:`cStringIO`.
+  Added a C based api for stream functions (Ticket:513)
+- Unified exceptions for ``BufferedByteStream`` so that only ``IOError``
+  is raised. (Ticket:520)
+- Made raising ``pyamf.ReferenceError`` optional for all Indexed* and
+  ``Context`` classes. Refactored AMF3 so that only one ``ClassDefinition``
+  is created per class (Ticket:524)
+- Strict type checking now on ``pyamf.util.BufferedByteStream`` (Ticket:512)
+- Removed the default loggers from p.r.gateway.*. To re-enable supply a
+  ``logger`` instance as a keyword arg to the gateway constructor (Ticket:525)
+- Removed ``pyamf.util.make_classic_instance`` (as it is not used)
+  (Ticket:521)
+- Removed ``pyamf.util.get_mro``, in favour of :py:func:`inspect.getmro`
+  (Ticket:526)
+- Removed ``pyamf.util.Indexed[Collection|Map].remove`` (Ticket:518)
+
+0.4.2 (2009-04-20)
+------------------
+- Support for decoding the ``source`` property on ``ArrayCollection``
+  (Ticket:488)
+- Fixed an issue in the GAE adapter where dynamic properties would be missing
+  on referenced objects. (Ticket:511)
+- Fixed a critical issue with AMF0 reference counting when encoding remoting
+  responses. (Ticket:510)
+- Strengthened HTTP header handling in the client (Ticket:492)
+- Support for Django i18n ``ugettext_lazy`` (Ticket:496)
+- Added support for microseconds for :py:mod:`datetime` objects. Thanks to
+  Derek Payton for the patch. (Ticket:490)
+- Added support for property types on SQLAlchemy mapped classes. (Ticket:491)
+- Added support for property types for Google AppEngine ``db.Model`` and
+  ``db.Expando``. (Ticket:487)
+
+0.4.1 (2009-02-23)
+------------------
+- ``amf0.Encoder.use_amf3`` has been extended to cover all object types
+  (Ticket:453,467)
+- Property types on Django models will now encode as expected. (Ticket:480)
+- Django ``models.ForeignKey`` properties will be followed only if previously
+  accessed outside of PyAMF. ``_[attr]_cache`` is no longer encoded.
+  (Ticket:456)
+- Encoding ``{0:0, '0':1}`` will now raise an ``AttributeError``. (Ticket:458)
+- Google AppEngine adapter improvements - see ticket for details (Ticket:479)
+- ``amf0.Encoder`` will encode all elements as AMF3 if ``use_amf3`` option is
+  set to ``True`` (Ticket:453)
+- Unicode handling in ``__repr__`` functions has been improved (Ticket:455)
+- object attributes and dict keys are now utf8 encoded bytestrings. Python
+  \**kwargs doesn't accept unicode key objects. (Ticket:463)
+- Django ``models.TimeField``, ``models.DateField`` will now be converted to
+  the correct type (``datetime.time`` and ``datetime.date`` respectively).
+  ``fields.NOT_PROVIDED`` is also checked for by converting to
+  ``pyamf.Undefined`` and back again. (Ticket:457)
+
+0.4 (2009-01-18)
+----------------
+- cpyamf now deals with exceptional floats the same way as pure Python -
+  especially on Windows (Ticket:448)
+- Support for SQLAlchemy 0.5.1 (Ticket:449)
+- ``amf0.Encoder`` now has a ``use_amf3`` flag which determines which XML
+  type to return to the client (Ticket:435)
+- ``BufferedByteStream.truncate(length)`` now actually does something useful
+  (Ticket:444)
+- setup.py now gets the version number from ``pyamf/__init__.py`` source
+  (Ticket:429)
+
+0.4rc3 (2009-01-14)
+-------------------
+- Support for SQLAlchemy 0.5.0 (Ticket:436)
+- pyamf.util.DataTypeMixIn/cpyamf.util.BufferedByteStream can now
+  encode/decode 24bit un/signed integers. (Ticket:422)
+- pyamf.util.StringIOProxy/cpyamf.util.BufferedByteStream both have new
+  consume methods that will chop of the tail of the stream (already read
+  stream). (Ticket:423)
+- Now checking for all types of supported xml lib types for encoding, but
+  will only use the first implementation for decoding (Ticket:426)
+- fpconst dependancy is now only required if the platform requires it
+  (Ticket:356)
+- Decoding negative timestamps on certain platforms (namely Windows) are now
+  supported (Ticket:390)
+
+0.4rc2 (2009-01-05)
+-------------------
+- Support for SQLAlchemy 0.4.0 (Ticket:410)
+
+0.4rc1 (2008-12-31)
+-------------------
+- Support for encoding/decoding SQLAlchemy ORM objects with a new adapter.
+  Lots of people involved in this one, but special thanks to Dave Thompson
+  and Michael Van Tellingen for making this happen. (Ticket:277)
+- All gateways now log exceptions when exceptions are raised during
+  en/decoding. (Ticket:394)
+- Flex messaging now uses correct static attributes for encoding. Determining
+  static/dynamic attributes on objects is now easier (Ticket:357)
+- Added use_proxy option to amf3 which will automagically convert ObjectProxy
+  to dict and ArrayCollection to list on decoding, and vice versa on encode.
+  Thanks to dthompso for the excellent patch (Ticket:355)
+- flex.ArrayCollection now subclasses list instead of dict as non-int keys
+  are not allowed. IList interface has been implemented. (Ticket:349)
+- Encoding registered subclass of list that define the 'externalised'
+  metadata will be encoded as an object.
+- Encoders how have a 'strict' mode. Not generally useful for the time being
+  but will help with developments in the future. Type mapped functions now
+  require a second 'encoder' attribute. (Ticket:378)
+- Added adapter to handle the :py:mod:`decimal` module and, if strict is set
+  to False, silently converts a Decimal instance to a float (Ticket:376)
+- ClassAlias can now be subclassed and three new methods have been added:
+  applyAttributes, createInstance, getAttributes all which help to provide
+  fine control for object/instance manipulation (Ticket:348)
+- Added support for __slots__ (Ticket:347)
+- Fixed problem when decoding objects that map to GAE db.Model objects with
+  required properties (Ticket:342)
+- ByteArray now does not throw an error when used in the Remoting framework
+  (Ticket:379)
+- A new adapter that converts sets.ImmutableSet and sets.Set to tuples before
+  encoding. (Ticket:280)
+- A revamped google app engine adapter that checks for the _key attribute in
+  an aliased class and first loads the object from the datastore and then
+  applies that properties in the object stream. (Ticket:307)
+- New helper function to make it easier to manually add adapters (Ticket:350)
+- Ability to disable the c extension with passing --disable-ext to setup.py
+  (Ticket:381, 391)
+- Python C-extension for the pyamf.util.BufferedByteStream class. Originally
+  contributed by Gerard Escalante (Ticket:225, 405)
+- New API to add headers such as cookies in pyamf.remoting.client
+  (Ticket:337)
+- Now clearing the context between remoting requests (Ticket:309)
+- Fixed issue with AMF3 class definition references (Ticket:341)
+- More helpful description for register_class args check (Ticket:334)
+- pyamf.register_class now checks to ensure that __init__ args do not have
+  any arguments (Ticket:322)
+- Added RemoteObject support for AsyncMessage (Ticket:292)
+- pyamf.remoting.ErrorFault.__repr__ now displays the traceback info (if it
+  exists). (Ticket:331)
+- Both Encoders will now raise pyamf.EncodeError if a function is encoded
+  (Ticket:311)
+- Twisted Gateway would fall over when returning tuples (Ticket:313)
+- The remoting gateways now send a customizable Server header (Ticket:317)
+- The remoting client now sends a customizable User-Agent header (Ticket:306)
+- Added ability to set the HTTP referer in remoting client (Ticket:316)
+- Fixed issue where the AMF3 encoder assumed objects with a 'tag' attribute
+  needed XML encoding. Reported by cy-man (Ticket:303)
+- Solved issue with repr for AbstractMessage. Reported by datafunk
+  (Ticket:283)
+- Content-type was missing in POST requests from the AMF client. Reported by
+  magog (Ticket:304)
+- Added the disconnect Command operation (Ticket:325)
+- Fixed issue with the unit tests for Django (Ticket:281)
+- Removed the NetworkIOMixIn class (Ticket:232)
+
+0.3.1 (2008-05-04)
+------------------
+- Importing module now has tests (Ticket:266)
+- Django model adapter now imported only when django.db.models is imported
+  (Ticket:261)
+- Google Model/Expando encoding now works out of the box
+- Fixed issue with Remote Object destination (Ticket:270)
+- Added a new gateway for the Google App Engine - see
+  pyamf.remoting.gateway.google.WebAppGateway (Ticket:253)
+- amf0 Encoder now takes amf3 contexts into account (Ticket:268)
+- amf*.encode helpers can now accept multiple arguments (Ticket:267)
+- Removed the dependancy of fpconst for Python 2.5 or newer (Ticket:243)
+- Solved issue with AMFPHP exceptions in AMF client (Ticket:258)
+- Fixed issue with url parsing in AMF client (Ticket:256)
+- Client no longer raises httplib.ResponseNotReady when making multiple
+  requests using the same RemotingService (Ticket:254)
+
+0.3 (2008-04-14)
+----------------
+- Added compatibility module for Google App Engine (Ticket:247)
+- Fixed the signed interpretation of compressed integers in AMF3 (Ticket:241)
+- Classic class decoding would throw an AttributeError (Ticket:248)
+- Reloading adapter modules caused errors in Django, Pylons and Google App
+  Engine. Resolved by removing dependancy on Importing module and
+  incorporating into pyamf.util (Ticket:250)
+- Adapter framework can now be fired when only loading submodules
+  (Ticket:246)
+- Made util.BufferedByteStream endian aware (Ticket:231)
+- Fixed issue with Twisted threads (Ticket:233)
+
+0.2 (2008-03-12)
+----------------
+- Removed amfinfo console_script (Ticket:226)
+- Encoders/Decoders now check for __getstate__/__setstate__ respectively
+  (Ticket:209)
+- Gateway import hack has now been removed - permanently (Ticket:224)
+- Encoding/decoding performance has been increased 2x for AMF0 and up-to
+  10x(!) for AMF3 (Ticket:198)
+- Logging is now possible in all the supported gateways (Ticket:173)
+- A new preprocessor function that runs after authentication, but before
+  invoking the service method (Ticket:196)
+- authenticator can now be decorated with expose_request (Ticket:195)
+- Python 2.3 support (Ticket:33)
+- Python 2.6 support (Ticket:222)
+- Made PyAMF distributable as zip-based Python Egg (Ticket:193)
+
+0.1.1 (2008-02-18)
+------------------
+- AMF3 encoder reported incorrect byte length header for non-ASCII string
+  data. Patch supplied by akaihola. (Ticket:194)
+- Decoder context not cleared between reading the remoting header and body.
+  Reported by gerard (Ticket:192)
+
+0.1 (2008-02-11)
+----------------
+- New error handling api useful for registering custom exception classes
+  (Ticket:185)
+- When a client receives a remoting error, an exception is generated
+  (Ticket:167)
+- expose_request per service control vastly improved (Ticket:169)
+- Authentication per service control vastly improved (Ticket:166)
+- uuid is no longer installed when using Python 2.5 or newer (Ticket:182)
+- The inheritance tree was not consulted when encoding attributes (Ticket:172)
+- TypedObjects didn't work with old style classes (Ticket:171)
+- ErrorFault now prints details (Ticket:168)
+- Added expose_request to TwistedGateway (Ticket:165)
+- TwistedGateway now expects deferred from service functions (Ticket:164)
+
+0.1b (2008-01-13)
+-----------------
+- IExternalizable now takes its methods from the class and fine grain control
+  over attr encoding (Ticket:110)
+- Added an adapter framework that gets imported when the related module is
+  imported. See http://pyamf.org/architecture/adapters.html for more info
+- Added 'expose_environ' argument to WSGIGateway to expose the WSGI environ
+  as the first arg in the called services.
+- Implemented Local Shared Object (LSO) support (Ticket:11)
+- ByteArray now implements IDataInput and IDataOutput instead of
+  StringIOProxy (Ticket:151)
+- dicts are now used as the default for anonymous objects (Ticket:131)
+- remoting.client mostly fully supports the predefined headers (defined at
+  http://osflash.org/documentation/amf/envelopes/remoting/headers). The only
+  one missing is amf_server_debug (Ticket:39)
+- LazyImporter objects now set the __file__ attribute to None, so that
+  querying :py:data:`sys.modules` don't accidentally import the underlying
+  module (Ticket:147)
+- Fixed argument positioning for RemoteObject processing. Thanks akaihola!
+  (Ticket:145)
+- ElementTree requirement is now ignored when using Python >= 2.5
+  (Ticket:144)
+- Added tests for TwistedGateway (Ticket:132)
+- Workaround for Python 2.4 float shortcomings (Ticket:78)
+- Service Browser ('DescribeService' header) requests supported. (Ticket:138)
+- Remoting client now supports authentication. (Ticket:137)
+- Proper encoding for aliased subclassed builtin types, specifically
+  flex.ArrayCollection.
+- Added support for easy encoding of Django object queries
+  (Foo.objects.all())
+- Added 'add_type' allowing finer grain control of how a class is encoded in
+  an AMF stream. (Ticket:130)
+- 'authenticator' keyword added to all gateways (moved from ServiceRequest)
+  (Ticket:129)
+- Added ``expose_request`` argument to DjangoGateway to expose the underlying
+  HTTP Request object as the first arg in the called services. (Ticket:103)
+
+0.1.0a (2007-12-12)
+-------------------
+- AMF0 and AMF3 encoders/decoders
+- Additional support for IExternalizable, ArrayCollection, ObjectProxy,
+  ByteArray, RecordSet and RemoteObject
+- Remoting gateways for Twisted, WSGI, and Django
+- Authentication/setCredentials support
+- zlib compression support for ByteArray
+- Remoting client with :py:mod:`httplib`
+
+0.0.1 (2007-10-19)
+------------------
+- Started project based on previous work done in the RTMPy (http://rtmpy.org)
+  project.

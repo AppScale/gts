@@ -1,0 +1,22 @@
+WSGIPythonPath "/usr/src/pyamf:/var/www/myApp"
+
+<VirtualHost 192.168.1.100:80>
+
+        ServerName example.server.com
+
+        CustomLog /var/log/apache2/myApp-access.log combined
+        ErrorLog /var/log/apache2/myApp-error.log
+
+	# Set this to 'warn' when you're done with debugging
+        LogLevel debug
+
+        # PyAMF remoting gateway
+        WSGIScriptAlias /flashservices/gateway /var/www/wsgi/myApp.wsgi
+        
+        <Directory /var/www/wsgi>
+                WSGIApplicationGroup %{GLOBAL}
+                Order allow,deny  
+                Allow from all 
+        </Directory>
+
+</VirtualHost>

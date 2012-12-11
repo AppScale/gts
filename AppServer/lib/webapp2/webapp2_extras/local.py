@@ -12,7 +12,7 @@
 """
 try:
     from greenlet import getcurrent as get_current_greenlet
-except ImportError:  # pragma: no cover
+except ImportError: # pragma: no cover
     try:
         from py.magic import greenlet
         get_current_greenlet = greenlet.getcurrent
@@ -22,14 +22,14 @@ except ImportError:  # pragma: no cover
         get_current_greenlet = int
 try:
     from thread import get_ident as get_current_thread, allocate_lock
-except ImportError:  # pragma: no cover
+except ImportError: # pragma: no cover
     from dummy_thread import get_ident as get_current_thread, allocate_lock
 
 
 # get the best ident function.  if greenlets are not installed we can
 # safely just use the builtin thread function and save a python methodcall
 # and the cost of calculating a hash.
-if get_current_greenlet is int:  # pragma: no cover
+if get_current_greenlet is int: # pragma: no cover
     get_ident = get_current_thread
 else:
     get_ident = lambda: (get_current_thread(), get_current_greenlet())

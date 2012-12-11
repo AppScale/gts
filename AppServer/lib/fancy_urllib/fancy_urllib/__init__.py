@@ -65,7 +65,8 @@ else:
 
 
 def create_fancy_connection(tunnel_host=None, key_file=None,
-                            cert_file=None, ca_certs=None):
+                            cert_file=None, ca_certs=None,
+                            proxy_authorization=None):
   # This abomination brought to you by the fact that
   # the HTTPHandler creates the connection instance in the middle
   # of do_open so we need to add the tunnel host to the class.
@@ -93,7 +94,15 @@ def create_fancy_connection(tunnel_host=None, key_file=None,
       self._set_hostport(self._tunnel_host, None)
       logging.info("Connecting through tunnel to: %s:%d",
                    self.host, self.port)
-      self.send("CONNECT %s:%d HTTP/1.0\r\n\r\n" % (self.host, self.port))
+
+      self.send("CONNECT %s:%d HTTP/1.0\r\n" % (self.host, self.port))
+
+      if proxy_authorization:
+        self.send("Proxy-Authorization: %s\r\n" % proxy_authorization)
+
+      # blank line
+      self.send("\r\n")
+
       response = self.response_class(self.sock, strict=self.strict,
                                      method=self._method)
       (_, code, message) = response._read_status()
@@ -342,6 +351,12 @@ class FancyHTTPSHandler(urllib2.HTTPSHandler):
   """An HTTPSHandler that works with CONNECT-enabled proxies."""
 
   def do_open(self, http_class, req):
+    proxy_authorization = None
+    for header in req.headers:
+      if header.lower() == "proxy-authorization":
+        proxy_authorization = req.headers[header]
+        break
+
     # Intentionally very specific so as to opt for false negatives
     # rather than false positives.
     try:
@@ -350,7 +365,8 @@ class FancyHTTPSHandler(urllib2.HTTPSHandler):
           create_fancy_connection(req._tunnel_host,
                                   req._key_file,
                                   req._cert_file,
-                                  req._ca_certs),
+                                  req._ca_certs,
+                                  proxy_authorization),
           req)
     except urllib2.URLError, url_error:
       try:

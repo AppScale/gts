@@ -8,6 +8,7 @@
     :copyright: 2011 by tipfy.org.
     :license: Apache Sotware License, see LICENSE for details.
 """
+import Cookie
 import hashlib
 import hmac
 import logging
@@ -62,6 +63,9 @@ class SecureCookieSerializer(object):
         """
         if not value:
             return None
+
+        # Unquote for old WebOb.
+        value = Cookie._unquote(value)
 
         parts = value.split('|')
         if len(parts) != 3:

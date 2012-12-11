@@ -14,62 +14,71 @@
 {% block body %}
 <h3>Task Queues</h3>
 
-{% if queues %}
-  <p>
-  Select a queue to run tasks manually.
-  </p>
+{% for queueBatch in queueBatches %}
+  {% if queueBatch %}
+    <p>
+      {% if queueBatch.run_manually %}
+        Select a push queue to run tasks manually.
+      {% endif %}
+    </p>
 
-  <table id="ah-queues" class="ae-table ae-table-striped">
-    <thead>
-      <tr>
-        <th>Queue Name</th>
-        <th>Maximum Rate</th>
-        <th>Bucket Size</th>
-        <th>Oldest Task (UTC)</th>
-        <th>Tasks in Queue</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for queue in queues %}
-        <tr class="{% cycle ae-odd,ae-even %}">
-          <td valign="top">
-            <a href="{{ tasks_path }}?queue={{ queue.name|escape }}">
-            {{ queue.name|escape }}</a>
-          </td>
-          <td valign="top">
-            {{ queue.rate|escape }}
-          </td>
-          <td valign="top">
-            {{ queue.bucket_size|escape }}
-          </td>
-          <td valign="top">
-            {% if queue.oldest_task %}
-              {{ queue.oldest_task|escape }}<br/>
-              ({{ queue.eta_delta|escape }})
-            {% else %}
-              None
-            {% endif %}
-          </td>
-          <td valign="top">
-            {{ queue.tasks_in_queue|escape }}
-          </td>
-          <td valign="top">
-            <form action="{{ queues_path }}" method="post">
-            <input type="hidden" name="xsrf_token" value="{{ xsrf_token }}"/>
-            <input type="hidden" name="queue" value="{{ queue.name|escape }}"/>
-            <input type="submit" name="action:purgequeue" value="Purge Queue"
-             onclick="return confirm('Are you sure you want to purge all ' +
-                                     'tasks from {{ queue.name|escape }}?');"/>
-            </form>
-          </td>
+    <table id="ah-queues" class="ae-table ae-table-striped">
+      <thead>
+        <tr>
+          <th>Queue Name</th>
+          {% if queueBatch.rate_limited %}
+            <th>Maximum Rate</th>
+            <th>Bucket Size</th>
+          {% endif %}
+          <th>Oldest Task (UTC)</th>
+          <th>Tasks in Queue</th>
+          <th></th>
         </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-{% else %}
-  This application doesn't define any task queues. See the documentation for more.
-{% endif %}
+      </thead>
+      <caption><strong>{{ queueBatch.title }}</strong></caption>
+      <tbody>
+        {% for queue in queueBatch %}
+          <tr class="{% cycle ae-odd,ae-even %}">
+            <td valign="top">
+              <a href="{{ tasks_path }}?queue={{ queue.name|escape }}">
+              {{ queue.name|escape }}</a>
+            </td>
+            {% if queueBatch.rate_limited %}
+              <td valign="top">
+                {{ queue.rate|escape }}
+              </td>
+              <td valign="top">
+                {{ queue.bucket_size|escape }}
+              </td>
+            {% endif %}
+            <td valign="top">
+              {% if queue.oldest_task %}
+                {{ queue.oldest_task|escape }}<br/>
+                ({{ queue.eta_delta|escape }})
+              {% else %}
+                None
+              {% endif %}
+            </td>
+            <td valign="top">
+              {{ queue.tasks_in_queue|escape }}
+            </td>
+            <td valign="top">
+              <form action="{{ queues_path }}" method="post">
+              <input type="hidden" name="xsrf_token" value="{{ xsrf_token }}"/>
+              <input type="hidden" name="queue" value="{{ queue.name|escape }}"/>
+              <input type="submit" name="action:purgequeue" value="Purge Queue"
+              onclick="return confirm('Are you sure you want to purge all ' +
+                                      'tasks from {{ queue.name|escape }}?');"/>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    This application doesn't define any {{ queueBatch.title }}. See the documentation for more.
+  {% endif %}
+{% endfor %}
 
 
 {% endblock %}

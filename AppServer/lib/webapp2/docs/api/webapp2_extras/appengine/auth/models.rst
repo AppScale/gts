@@ -6,8 +6,6 @@ User Models
 
 A collection of user related models for :ref:`api.webapp2_extras.auth`.
 
-This module requires you to add the ``ndb`` package to your app. See `NDB`_.
-
 .. warning::
    This is an experimental module. The API is subject to changes.
 

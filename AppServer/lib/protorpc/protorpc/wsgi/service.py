@@ -27,6 +27,7 @@ WSGI applications.  For more information about WSGI, please see:
 __author__ = 'rafek@google.com (Rafe Kaplan)'
 
 import cgi
+import cStringIO
 import httplib
 import logging
 import re
@@ -36,11 +37,13 @@ from wsgiref import headers as wsgi_headers
 from .. import protobuf
 from .. import protojson
 from .. import messages
+from .. import registry
 from .. import remote
 from .. import util
 from . import util as wsgi_util
 
 __all__ = [
+  'DEFAULT_REGISTRY_PATH',
   'service_app',
 ]
 
@@ -50,6 +53,8 @@ _REQUEST_PATH_PATTERN = r'^(%%s)%s$' % _METHOD_PATTERN
 _HTTP_BAD_REQUEST = wsgi_util.error(httplib.BAD_REQUEST)
 _HTTP_NOT_FOUND = wsgi_util.error(httplib.NOT_FOUND)
 _HTTP_UNSUPPORTED_MEDIA_TYPE = wsgi_util.error(httplib.UNSUPPORTED_MEDIA_TYPE)
+
+DEFAULT_REGISTRY_PATH = '/protorpc'
 
 
 @util.positional(2)
@@ -65,12 +70,9 @@ def service_mapping(service_factory, service_path=r'.*', protocols=None):
     protocols: remote.Protocols instance that configures supported protocols
       on server.
   """
-  if protocols is None:
-    protocols = remote.Protocols.new_default()
-
   service_class = getattr(service_factory, 'service_class', service_factory)
   remote_methods = service_class.all_remote_methods()
-  path_matcher = re.compile(_REQUEST_PATH_PATTERN % service_path)  
+  path_matcher = re.compile(_REQUEST_PATH_PATTERN % service_path)
 
   def protorpc_service_app(environ, start_response):
     """Actual WSGI application function."""
@@ -106,8 +108,9 @@ def service_mapping(service_factory, service_path=r'.*', protocols=None):
         content_type='text/plain; charset=utf-8')
       return error_handler(environ, start_response)
 
+    local_protocols = protocols or remote.Protocols.get_default()
     try:
-      protocol = protocols.lookup_by_content_type(content_type)
+      protocol = local_protocols.lookup_by_content_type(content_type)
     except KeyError:
       return _HTTP_UNSUPPORTED_MEDIA_TYPE(environ,start_response)
 
@@ -142,7 +145,7 @@ def service_mapping(service_factory, service_path=r'.*', protocols=None):
                             remote.RpcState.METHOD_NOT_FOUND_ERROR,
                             'Unrecognized RPC method: %s' % method_name)
 
-    content_length = int(environ.get('CONTENT_LENGTH', '0'))
+    content_length = int(environ.get('CONTENT_LENGTH') or '0')
 
     remote_info = method.remote
     try:
@@ -202,3 +205,68 @@ def service_mapping(service_factory, service_path=r'.*', protocols=None):
 
   # Return WSGI application.
   return protorpc_service_app
+
+
+@util.positional(1)
+def service_mappings(services, registry_path=DEFAULT_REGISTRY_PATH):
+  """Create multiple service mappings with optional RegistryService.
+
+  Use this function to create single WSGI application that maps to
+  multiple ProtoRPC services plus an optional RegistryService.
+
+  Example:
+    services = service.service_mappings(
+        [(r'/time', TimeService),
+         (r'/weather', WeatherService)
+        ])
+
+    In this example, the services WSGI application will map to two services,
+    TimeService and WeatherService to the '/time' and '/weather' paths
+    respectively.  In addition, it will also add a ProtoRPC RegistryService
+    configured to serve information about both services at the (default) path
+    '/protorpc'.
+
+  Args:
+    services: If a dictionary is provided instead of a list of tuples, the
+      dictionary item pairs are used as the mappings instead.
+      Otherwise, a list of tuples (service_path, service_factory):
+      service_path: The path to mount service on.
+      service_factory: A service class or service instance factory.
+    registry_path: A string to change where the registry is mapped (the default
+      location is '/protorpc').  When None, no registry is created or mounted.
+
+  Returns:
+    WSGI application that serves ProtoRPC services on their respective URLs
+    plus optional RegistryService.
+  """
+  if isinstance(services, dict):
+    services = services.iteritems()
+
+  final_mapping = []
+  paths = set()
+  registry_map = {} if registry_path else None
+
+  for service_path, service_factory in services:
+    try:
+      service_class = service_factory.service_class
+    except AttributeError:
+      service_class = service_factory
+
+    if service_path not in paths:
+      paths.add(service_path)
+    else:
+      raise remote.ServiceConfigurationError(
+        'Path %r is already defined in service mapping' %
+        service_path.encode('utf-8'))
+
+    if registry_map is not None:
+      registry_map[service_path] = service_class
+
+    final_mapping.append(service_mapping(service_factory, service_path))
+
+  if registry_map is not None:
+    final_mapping.append(service_mapping(
+      registry.RegistryService.new_factory(registry_map), registry_path))
+
+  return wsgi_util.first_found(final_mapping)
+

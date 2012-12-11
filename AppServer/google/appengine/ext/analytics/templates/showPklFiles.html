@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+  <head>
+    <title> Appstats Analytics </title>
+    <link rel="stylesheet" type="text/css" href="local/analytics_css.css"/>
+  </head>
+  <body>
+    <center><p> <b>Appstats Analytics</b></p></center>
+
+    <p> This tool is intended to help you analyze the performance of your
+    application. The tool analyzes data recorded by the Appstats tool, and
+    helps you visualize a variety of metrics such as the distribution of
+    response times of requests for different URLs, global views of RPCs
+    invoked by each request and times taken by them, entity access counts,
+    and entity group access counts. </p>
+
+    <p> Analyze <a href = ?source=MEMCACHE> latest snapshot in memcache </a> </p>
+
+    {% if not pklfiles %}
+      You currently do not have any downloaded snapshot of Appstats.
+      Note that you can download appstats snapshots to local disk using
+      the download_appstats.py tool in your local SDK.
+    {% else %}
+
+      <p> Analyze an earlier downloaded snapshot of Appstats </p>
+
+      <table>
+        <tr>
+          <th> Appstats Snapshot </th>
+          <th> When Downloaded </th>
+        </tr>
+        {% for file, elapsed_secs, elapsed_text in pklfiles %}
+        <tr>
+          <td> <a href = ?source={{file}}> {{file}} </a>  </td>
+          <td> {{elapsed_text}}  </td>
+        </tr>
+        {% endfor %}
+      </table>
+    {% endif %}
+  </body>
+</html>

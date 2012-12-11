@@ -132,9 +132,10 @@ class AppIdentityServiceStub(apiproxy_stub.APIProxyStub):
     This API returns an invalid token, as the dev_appserver does not have
     access to an actual service account.
     """
-    response.set_access_token('InvalidToken:%s:%s' %
-                              (':'.join(request.scope_list()),
-                               time.time() % 100))
+    token = ':'.join(request.scope_list())
+    service_account_id = request.service_account_id()
+    if service_account_id:
+      token += '.%d' % service_account_id
+    response.set_access_token('InvalidToken:%s:%s' % (token, time.time() % 100))
 
-    response.set_expiration_time(time.time() + 1800)
-
+    response.set_expiration_time(int(time.time()) + 1800)

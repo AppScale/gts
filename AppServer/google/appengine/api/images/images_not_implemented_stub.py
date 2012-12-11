@@ -25,7 +25,7 @@
 class ImagesNotImplementedServiceStub(object):
   """Stub version of images API which raises a NotImplementedError."""
 
-  def MakeSyncCall(self, service, call, request, response):
+  def MakeSyncCall(self, service, call, request, response, request_id=None):
     """Main entry point.
 
     Args:
@@ -33,6 +33,8 @@ class ImagesNotImplementedServiceStub(object):
       call: str, name of the RPC to make, must be part of ImagesService.
       request: pb object, corresponding args to the 'call' argument.
       response: pb object, return value for the 'call' argument.
+      request_id: A unique string identifying the request associated with the
+          API call.
     """
     raise NotImplementedError("Unable to find the Python PIL library.  Please "
                               "view the SDK documentation for details about "

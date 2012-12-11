@@ -11,7 +11,6 @@ sys.path[0:0] = [
     tests_path,
     gae_path,
     # All libs used by webapp2 and extras.
-    os.path.join(current_path, 'lib', 'appengine-ndb-experiment'),
     os.path.join(current_path, 'lib', 'babel'),
     os.path.join(current_path, 'lib', 'Jinja2-2.6'),
     os.path.join(current_path, 'lib', 'Mako-0.4.1'),

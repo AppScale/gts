@@ -1107,6 +1107,7 @@ class PropertyValue(ProtocolBuffer.ProtocolMessage):
 class Property(ProtocolBuffer.ProtocolMessage):
 
 
+  NO_MEANING   =    0
   BLOB         =   14
   TEXT         =   15
   BYTESTRING   =   16
@@ -1124,8 +1125,11 @@ class Property(ProtocolBuffer.ProtocolMessage):
   GD_POSTALADDRESS =   12
   GD_RATING    =   13
   BLOBKEY      =   17
+  ENTITY_PROTO =   19
+  INDEX_VALUE  =   18
 
   _Meaning_NAMES = {
+    0: "NO_MEANING",
     14: "BLOB",
     15: "TEXT",
     16: "BYTESTRING",
@@ -1143,6 +1147,8 @@ class Property(ProtocolBuffer.ProtocolMessage):
     12: "GD_POSTALADDRESS",
     13: "GD_RATING",
     17: "BLOBKEY",
+    19: "ENTITY_PROTO",
+    18: "INDEX_VALUE",
   }
 
   def Meaning_Name(cls, x): return cls._Meaning_NAMES.get(x, "")
@@ -3021,6 +3027,8 @@ class CompositeIndex(ProtocolBuffer.ProtocolMessage):
   has_definition_ = 0
   has_state_ = 0
   state_ = 0
+  has_only_use_if_required_ = 0
+  only_use_if_required_ = 0
 
   def __init__(self, contents=None):
     self.definition_ = Index()
@@ -3073,6 +3081,19 @@ class CompositeIndex(ProtocolBuffer.ProtocolMessage):
 
   def has_state(self): return self.has_state_
 
+  def only_use_if_required(self): return self.only_use_if_required_
+
+  def set_only_use_if_required(self, x):
+    self.has_only_use_if_required_ = 1
+    self.only_use_if_required_ = x
+
+  def clear_only_use_if_required(self):
+    if self.has_only_use_if_required_:
+      self.has_only_use_if_required_ = 0
+      self.only_use_if_required_ = 0
+
+  def has_only_use_if_required(self): return self.has_only_use_if_required_
+
 
   def MergeFrom(self, x):
     assert x is not self
@@ -3080,6 +3101,7 @@ class CompositeIndex(ProtocolBuffer.ProtocolMessage):
     if (x.has_id()): self.set_id(x.id())
     if (x.has_definition()): self.mutable_definition().MergeFrom(x.definition())
     if (x.has_state()): self.set_state(x.state())
+    if (x.has_only_use_if_required()): self.set_only_use_if_required(x.only_use_if_required())
 
   def Equals(self, x):
     if x is self: return 1
@@ -3091,6 +3113,8 @@ class CompositeIndex(ProtocolBuffer.ProtocolMessage):
     if self.has_definition_ and self.definition_ != x.definition_: return 0
     if self.has_state_ != x.has_state_: return 0
     if self.has_state_ and self.state_ != x.state_: return 0
+    if self.has_only_use_if_required_ != x.has_only_use_if_required_: return 0
+    if self.has_only_use_if_required_ and self.only_use_if_required_ != x.only_use_if_required_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -3120,6 +3144,7 @@ class CompositeIndex(ProtocolBuffer.ProtocolMessage):
     n += self.lengthVarInt64(self.id_)
     n += self.lengthString(self.definition_.ByteSize())
     n += self.lengthVarInt64(self.state_)
+    if (self.has_only_use_if_required_): n += 2
     return n + 4
 
   def ByteSizePartial(self):
@@ -3136,6 +3161,7 @@ class CompositeIndex(ProtocolBuffer.ProtocolMessage):
     if (self.has_state_):
       n += 1
       n += self.lengthVarInt64(self.state_)
+    if (self.has_only_use_if_required_): n += 2
     return n
 
   def Clear(self):
@@ -3143,6 +3169,7 @@ class CompositeIndex(ProtocolBuffer.ProtocolMessage):
     self.clear_id()
     self.clear_definition()
     self.clear_state()
+    self.clear_only_use_if_required()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(10)
@@ -3154,6 +3181,9 @@ class CompositeIndex(ProtocolBuffer.ProtocolMessage):
     self.definition_.OutputUnchecked(out)
     out.putVarInt32(32)
     out.putVarInt32(self.state_)
+    if (self.has_only_use_if_required_):
+      out.putVarInt32(48)
+      out.putBoolean(self.only_use_if_required_)
 
   def OutputPartial(self, out):
     if (self.has_app_id_):
@@ -3169,6 +3199,9 @@ class CompositeIndex(ProtocolBuffer.ProtocolMessage):
     if (self.has_state_):
       out.putVarInt32(32)
       out.putVarInt32(self.state_)
+    if (self.has_only_use_if_required_):
+      out.putVarInt32(48)
+      out.putBoolean(self.only_use_if_required_)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -3188,6 +3221,9 @@ class CompositeIndex(ProtocolBuffer.ProtocolMessage):
       if tt == 32:
         self.set_state(d.getVarInt32())
         continue
+      if tt == 48:
+        self.set_only_use_if_required(d.getBoolean())
+        continue
 
 
       if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
@@ -3203,6 +3239,7 @@ class CompositeIndex(ProtocolBuffer.ProtocolMessage):
       res+=self.definition_.__str__(prefix + "  ", printElemNumber)
       res+=prefix+">\n"
     if self.has_state_: res+=prefix+("state: %s\n" % self.DebugFormatInt32(self.state_))
+    if self.has_only_use_if_required_: res+=prefix+("only_use_if_required: %s\n" % self.DebugFormatBool(self.only_use_if_required_))
     return res
 
 
@@ -3213,6 +3250,7 @@ class CompositeIndex(ProtocolBuffer.ProtocolMessage):
   kid = 2
   kdefinition = 3
   kstate = 4
+  konly_use_if_required = 6
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
@@ -3220,7 +3258,8 @@ class CompositeIndex(ProtocolBuffer.ProtocolMessage):
     2: "id",
     3: "definition",
     4: "state",
-  }, 4)
+    6: "only_use_if_required",
+  }, 6)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
@@ -3228,7 +3267,8 @@ class CompositeIndex(ProtocolBuffer.ProtocolMessage):
     2: ProtocolBuffer.Encoder.NUMERIC,
     3: ProtocolBuffer.Encoder.STRING,
     4: ProtocolBuffer.Encoder.NUMERIC,
-  }, 4, ProtocolBuffer.Encoder.MAX_TYPE)
+    6: ProtocolBuffer.Encoder.NUMERIC,
+  }, 6, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""

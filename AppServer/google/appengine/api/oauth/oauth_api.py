@@ -16,8 +16,6 @@
 #
 
 
-
-
 """OAuth API.
 
 A service that enables App Engine apps to validate OAuth requests.
@@ -98,7 +96,7 @@ def get_current_user(_scope=None):
   return _get_user_from_environ()
 
 
-def is_current_user_admin():
+def is_current_user_admin(_scope=None):
   """Returns true if the User on whose behalf the request was made is an admin.
 
   Returns:
@@ -108,7 +106,8 @@ def is_current_user_admin():
     OAuthRequestError: The request was not a valid OAuth request.
     OAuthServiceFailureError: An unknown error occurred.
   """
-  _maybe_call_get_oauth_user()
+
+  _maybe_call_get_oauth_user(_scope)
   return os.environ.get('OAUTH_IS_ADMIN', '0') == '1'
 
 
@@ -131,12 +130,12 @@ def get_oauth_consumer_key():
   except apiproxy_errors.ApplicationError, e:
     if (e.application_error ==
         user_service_pb.UserServiceError.OAUTH_INVALID_REQUEST):
-      raise InvalidOAuthParametersError
+      raise InvalidOAuthParametersError(e.error_detail)
     elif (e.application_error ==
           user_service_pb.UserServiceError.OAUTH_ERROR):
-      raise OAuthServiceFailureError
+      raise OAuthServiceFailureError(e.error_detail)
     else:
-      raise OAuthServiceFailureError
+      raise OAuthServiceFailureError(e.error_detail)
   return resp.oauth_consumer_key()
 
 
@@ -144,10 +143,11 @@ def _maybe_call_get_oauth_user(_scope=None):
   """Makes an GetOAuthUser RPC and stores the results in os.environ.
 
   This method will only make the RPC if 'OAUTH_ERROR_CODE' has not already
-  been set.
+  been set or 'OAUTH_LAST_SCOPE' is different to _scope.
   """
 
-  if 'OAUTH_ERROR_CODE' not in os.environ:
+  if ('OAUTH_ERROR_CODE' not in os.environ or
+      os.environ.get('OAUTH_LAST_SCOPE', None) != _scope):
     req = user_service_pb.GetOAuthUserRequest()
     if _scope:
       req.set_scope(_scope)
@@ -165,6 +165,11 @@ def _maybe_call_get_oauth_user(_scope=None):
       os.environ['OAUTH_ERROR_CODE'] = ''
     except apiproxy_errors.ApplicationError, e:
       os.environ['OAUTH_ERROR_CODE'] = str(e.application_error)
+      os.environ['OAUTH_ERROR_DETAIL'] = e.error_detail
+    if _scope:
+      os.environ['OAUTH_LAST_SCOPE'] = _scope
+    else:
+      os.environ.pop('OAUTH_LAST_SCOPE', None)
   _maybe_raise_exception()
 
 
@@ -177,16 +182,18 @@ def _maybe_raise_exception():
   assert 'OAUTH_ERROR_CODE' in os.environ
   error = os.environ['OAUTH_ERROR_CODE']
   if error:
+    assert 'OAUTH_ERROR_DETAIL' in os.environ
+    error_detail = os.environ['OAUTH_ERROR_DETAIL']
     if error == str(user_service_pb.UserServiceError.NOT_ALLOWED):
-      raise NotAllowedError
+      raise NotAllowedError(error_detail)
     elif error == str(user_service_pb.UserServiceError.OAUTH_INVALID_REQUEST):
-      raise InvalidOAuthParametersError
+      raise InvalidOAuthParametersError(error_detail)
     elif error == str(user_service_pb.UserServiceError.OAUTH_INVALID_TOKEN):
-      raise InvalidOAuthTokenError
+      raise InvalidOAuthTokenError(error_detail)
     elif error == str(user_service_pb.UserServiceError.OAUTH_ERROR):
-      raise OAuthServiceFailureError
+      raise OAuthServiceFailureError(error_detail)
     else:
-      raise OAuthServiceFailureError
+      raise OAuthServiceFailureError(error_detail)
 
 
 def _get_user_from_environ():

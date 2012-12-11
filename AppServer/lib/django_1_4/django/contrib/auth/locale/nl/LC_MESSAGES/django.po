@@ -1,0 +1,294 @@
+# This file is distributed under the same license as the Django package.
+#
+# Translators:
+# Harro van der Klauw <hvdklauw@gmail.com>, 2012.
+# Jannis Leidel <jannis@leidel.info>, 2011.
+# Jeffrey Gelens <jeffrey@noppo.pro>, 2011, 2012.
+# Tino de Bruijn <tinodb@gmail.com>, 2011.
+msgid ""
+msgstr ""
+"Project-Id-Version: Django\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2012-03-23 02:36+0100\n"
+"PO-Revision-Date: 2012-03-08 12:07+0000\n"
+"Last-Translator: Harro van der Klauw <hvdklauw@gmail.com>\n"
+"Language-Team: Dutch (http://www.transifex.net/projects/p/django/language/"
+"nl/)\n"
+"Language: nl\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1)\n"
+
+#: admin.py:41
+msgid "Personal info"
+msgstr "Persoonlijke informatie"
+
+#: admin.py:42
+msgid "Permissions"
+msgstr "Rechten"
+
+#: admin.py:44
+msgid "Important dates"
+msgstr "Belangrijke datums"
+
+#: admin.py:125
+msgid "Password changed successfully."
+msgstr "Wachtwoord wijzigen is geslaagd."
+
+#: admin.py:135
+#, python-format
+msgid "Change password: %s"
+msgstr "Wijzig wachtwoord: %s"
+
+#: forms.py:62
+msgid "A user with that username already exists."
+msgstr "Een gebruiker met deze gebruikersnaam bestaat al."
+
+#: forms.py:63 forms.py:251 forms.py:308
+msgid "The two password fields didn't match."
+msgstr "De twee ingevulde wachtwoorden zijn niet gelijk."
+
+#: forms.py:65 forms.py:110 forms.py:139
+msgid "Username"
+msgstr "Gebruikersnaam"
+
+#: forms.py:67 forms.py:111
+msgid "Required. 30 characters or fewer. Letters, digits and @/./+/-/_ only."
+msgstr ""
+"Vereist. 30 tekens of minder. Alleen letters, cijfers en @/,/+/-/_ tekens "
+"zijn toegestaan."
+
+#: forms.py:70 forms.py:114
+msgid "This value may contain only letters, numbers and @/./+/-/_ characters."
+msgstr "Dit veld mag alleen letters, cijfers en @/,/+/-/_ tekens bevatten."
+
+#: forms.py:72 forms.py:116 forms.py:140 forms.py:310
+msgid "Password"
+msgstr "Wachtwoord"
+
+#: forms.py:74
+msgid "Password confirmation"
+msgstr "Bevestiging wachtwoord"
+
+#: forms.py:76
+msgid "Enter the same password as above, for verification."
+msgstr "Vul hetzelfde wachtwoord als hierboven in, ter bevestiging."
+
+#: forms.py:117
+msgid ""
+"Raw passwords are not stored, so there is no way to see this user's "
+"password, but you can change the password using <a href=\"password/\">this "
+"form</a>."
+msgstr ""
+"Wachtwoorden worden niet als tekst opgeslagen, dus je kunt een gebruikers "
+"wachtwoord niet zien. Je kunt hem aanpassen via <a href=\"password/\">dit "
+"formulier</a>."
+
+#: forms.py:143
+msgid ""
+"Please enter a correct username and password. Note that both fields are case-"
+"sensitive."
+msgstr ""
+"Voer een correcte gebruikersnaam en wachtwoord in. Let op, de velden zijn "
+"hoofdletter-gevoelig."
+
+#: forms.py:145
+msgid ""
+"Your Web browser doesn't appear to have cookies enabled. Cookies are "
+"required for logging in."
+msgstr ""
+"Het lijkt erop dat uw browser geen cookies accepteert. Om in te loggen "
+"moeten cookies worden geaccepteerd."
+
+#: forms.py:147
+msgid "This account is inactive."
+msgstr "Dit account is inactief."
+
+#: forms.py:191
+msgid ""
+"That e-mail address doesn't have an associated user account. Are you sure "
+"you've registered?"
+msgstr ""
+"Dat e-mailadres heeft geen gerelateerd gebruikersaccount. Weet u zeker dat u "
+"zich heeft geregistreerd?"
+
+#: forms.py:193
+msgid ""
+"The user account associated with this e-mail address cannot reset the "
+"password."
+msgstr ""
+"De gebruiker gekoppeld aan dit e-mail adres kan het wachtwoord niet resetten."
+
+#: forms.py:196
+msgid "E-mail"
+msgstr "E-mail"
+
+#: forms.py:253
+msgid "New password"
+msgstr "Nieuw wachtwoord"
+
+#: forms.py:255
+msgid "New password confirmation"
+msgstr "Nieuw wachtwoord bevestigen"
+
+#: forms.py:284
+msgid "Your old password was entered incorrectly. Please enter it again."
+msgstr ""
+"Uw oude wachtwoord is niet correct ingevoerd. Voert u het alstublieft "
+"opnieuw in."
+
+#: forms.py:287
+msgid "Old password"
+msgstr "Oud wachtwoord"
+
+#: forms.py:312
+msgid "Password (again)"
+msgstr "Wachtwoord (nogmaals)"
+
+#: hashers.py:218 hashers.py:269 hashers.py:298 hashers.py:326 hashers.py:355
+#: hashers.py:389
+msgid "algorithm"
+msgstr "algoritme"
+
+#: hashers.py:219
+msgid "iterations"
+msgstr "iteraties"
+
+#: hashers.py:220 hashers.py:271 hashers.py:299 hashers.py:327 hashers.py:390
+msgid "salt"
+msgstr "salt"
+
+#: hashers.py:221 hashers.py:300 hashers.py:328 hashers.py:356 hashers.py:391
+msgid "hash"
+msgstr "hash"
+
+#: hashers.py:270
+msgid "work factor"
+msgstr "arbeidsfactor"
+
+#: hashers.py:272
+msgid "checksum"
+msgstr "checksum"
+
+#: models.py:66 models.py:113
+msgid "name"
+msgstr "naam"
+
+#: models.py:68
+msgid "codename"
+msgstr "codenaam"
+
+#: models.py:72
+msgid "permission"
+msgstr "recht"
+
+#: models.py:73 models.py:115
+msgid "permissions"
+msgstr "rechten"
+
+#: models.py:120
+msgid "group"
+msgstr "groep"
+
+#: models.py:121 models.py:250
+msgid "groups"
+msgstr "groepen"
+
+#: models.py:232
+msgid "username"
+msgstr "gebruikersnaam"
+
+#: models.py:233
+msgid ""
+"Required. 30 characters or fewer. Letters, numbers and @/./+/-/_ characters"
+msgstr "Vereist. 30 tekens of minder. Letters, cijfers en /./+/-/_ tekens."
+
+#: models.py:235
+msgid "first name"
+msgstr "voornaam"
+
+#: models.py:236
+msgid "last name"
+msgstr "achternaam"
+
+#: models.py:237
+msgid "e-mail address"
+msgstr "e-mailadres"
+
+#: models.py:238
+msgid "password"
+msgstr "wachtwoord"
+
+#: models.py:239
+msgid "staff status"
+msgstr "stafstatus"
+
+#: models.py:240
+msgid "Designates whether the user can log into this admin site."
+msgstr "Bepaalt of de gebruiker kan inloggen op deze beheersite."
+
+#: models.py:242
+msgid "active"
+msgstr "actief"
+
+#: models.py:243
+msgid ""
+"Designates whether this user should be treated as active. Unselect this "
+"instead of deleting accounts."
+msgstr ""
+"Bepaalt of deze gebruiker als actief dient te worden behandeld. U kunt dit "
+"uitvinken in plaats van een gebruiker te verwijderen."
+
+#: models.py:245
+msgid "superuser status"
+msgstr "supergebruikerstatus"
+
+#: models.py:246
+msgid ""
+"Designates that this user has all permissions without explicitly assigning "
+"them."
+msgstr ""
+"Bepaalt dat deze gebruiker alle rechten heeft, zonder deze expliciet toe te "
+"wijzen."
+
+#: models.py:248
+msgid "last login"
+msgstr "laatste inlog"
+
+#: models.py:249
+msgid "date joined"
+msgstr "datum toegetreden"
+
+#: models.py:251
+msgid ""
+"The groups this user belongs to. A user will get all permissions granted to "
+"each of his/her group."
+msgstr ""
+"De groepen waar deze gebruiker toe behoord. Een gebruiker zal alle rechten "
+"krijgen van zijn/haar groepen."
+
+#: models.py:255
+msgid "user permissions"
+msgstr "gebruikersrechten"
+
+#: models.py:260
+msgid "user"
+msgstr "gebruiker"
+
+#: models.py:261
+msgid "users"
+msgstr "gebruikers"
+
+#: views.py:93
+msgid "Logged out"
+msgstr "Afmelden"
+
+#: management/commands/createsuperuser.py:27
+msgid "Enter a valid e-mail address."
+msgstr "Geef een geldig e-mailadres op."
+
+#: templates/registration/password_reset_subject.txt:2
+#, python-format
+msgid "Password reset on %(site_name)s"
+msgstr "Wachtwoord reset voor %(site_name)s"

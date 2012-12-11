@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Confirm Backup of {{kind_str|escape}}{% endblock %}
+{% block body %}
+  <h2>Datastore Admin: Backup to Blobstore or Google Cloud Storage</h2>
+  {% if kind_list %}
+    {% comment %}
+    size_total represents the total size of the figures for which we have
+    datastore statistics available.
+    sizes_known indicates whether or not we have datastore statistics for all
+    kinds.
+    These two variables are used to render different messages for the three
+    possible scenarios: all sizes known, some sizes known, no sizes known.
+    {% endcomment %}
+
+    <form class="ae-form" action="{{base_path}}/{{form_target}}" method="post"
+        style="width:39.39em;">
+      {% for kind in kind_list %}
+      <input type="hidden" name="kind" value="{{kind|escape}}">
+      {% endfor %}
+
+      <div class="ae-input-row">
+        <div class="ae-label-row">
+          <label for="backup_name">Backup name: </label>
+        </div>
+        <div class="ae-input-row">
+          <input type="text" id="backup_name" name="backup_name"
+              style="width:100%"
+              value="{{backup_name}}">
+        </div>
+      </div>
+      {% if has_namespace %}
+      <input type="hidden" name="namespace" value="{{namespace|escape}}">
+      {% endif %}
+      <input type="hidden" name="xsrf_token" value="{{xsrf_token|escape}}">
+
+      {% if notreadonly_warning %}
+      <div>
+        <h4 style="padding:0;margin-top:1em;margin-bottom:0.46em;">WARNING</h4>
+        <p>The application is not in read-only mode and updates
+        during the backup process may not be captured.
+        To place the application in read-only mode,
+        please follow the instructions at
+        <a href="https://developers.google.com/appengine/docs/adminconsole/applicationsettings#Disable_Datastore_Writes" target="_blank">
+        Disable Datastore Writes</a>
+        </p>
+      </div>
+      {% endif %}
+
+      {% if blob_warning %}
+      <p>The application has blob data.  BlobInfo records and data will NOT be
+      backed up.</p>
+      {% endif %}
+
+      <p>Operation will be performed using the selected queue:
+        {% if queues %}
+        <select name="queue">
+          {% for queue in queues %}
+            <option value="{{ queue }}">{{ queue }}</option>
+          {% endfor %}
+        </select>
+        {% else %}
+        <input type="text" name="queue" value="default"/>
+        {% endif %}
+      </p>
+
+      <table>
+        <tr>
+          <td>
+            Backup storage destination:
+            <select name="filesystem" id="ae-datastore-admin-filesystem">
+              <option value="blobstore" selected="selected">Blobstore</option>
+              <option value="gs">Google Cloud Storage</option>
+            </select>
+          </td>
+        </tr>
+        <tr style="display:none;" id="gs_bucket_tr">
+          <td>
+            Google Cloud Storage bucket name
+            (<a href="https://developers.google.com/appengine/docs/adminconsole/datastoreadmin#Backing-up-Data">More info?</a>):
+            <input type="text" id="gs_bucket_name" name="gs_bucket_name" value="" />
+          </td>
+        </tr>
+      </table>
+
+      <table style="margin-top: 1em;"><tr>
+        <td style="padding-right: 0.5em;">
+          <input class="goog-button" type="submit" name="backup"
+              value="Backup Entities"></td>
+        <td style="color: #666667;">
+          or <a href="{{ cancel_url|escape }}">Cancel</a></td>
+      </tr></table>
+    </form>
+  {% else %}
+    <div class="ae-errorbox">No entity kinds to backup.</div>
+  {% endif %}
+{% endblock %}

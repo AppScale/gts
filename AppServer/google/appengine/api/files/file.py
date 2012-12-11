@@ -25,12 +25,15 @@ from __future__ import with_statement
 
 __all__ = [
            'ApiTemporaryUnavailableError',
+           'BLOBSTORE_FILESYSTEM',
            'Error',
            'ExclusiveLockFailedError',
            'ExistenceError',
            'FileNotOpenedError',
            'FileTemporaryUnavailableError',
+           'FILESYSTEMS',
            'FinalizationError',
+           'GS_FILESYSTEM',
            'InvalidArgumentError',
            'InvalidFileNameError',
            'InvalidParameterError',
@@ -45,21 +48,32 @@ __all__ = [
            'WrongOpenModeError',
 
            'RAW',
+           'READ_BLOCK_SIZE',
 
            'delete',
            'finalize',
+           'listdir',
            'open',
+           'stat',
 
            'BufferedFile',
            ]
 
-import logging
-import gc
 import os
+import sys
+import StringIO
 
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api.files import file_service_pb
 from google.appengine.runtime import apiproxy_errors
+
+
+BLOBSTORE_FILESYSTEM = 'blobstore'
+GS_FILESYSTEM = 'gs'
+FILESYSTEMS = (BLOBSTORE_FILESYSTEM, GS_FILESYSTEM)
+READ_BLOCK_SIZE = 1024 * 512
+_CREATION_HANDLE_PREFIX = 'writable:'
+_DEFAULT_BUFFER_SIZE = 512 * 1024
 
 
 class Error(Exception):
@@ -97,8 +111,8 @@ class SequenceKeyOutOfOrderError(Error):
     last_sequence_key: last sequence key which was written to the file.
   """
 
-  def __init__(self, last_sequence_key):
-    Error.__init__(self)
+  def __init__(self, last_sequence_key, cause=None):
+    Error.__init__(self, cause)
     self.last_sequence_key = last_sequence_key
 
 
@@ -157,51 +171,53 @@ def _raise_app_error(e):
        file_service_pb.FileServiceErrors.EXISTENCE_ERROR_METADATA_NOT_FOUND,
        file_service_pb.FileServiceErrors.EXISTENCE_ERROR_METADATA_FOUND,
        file_service_pb.FileServiceErrors.EXISTENCE_ERROR_SHARDING_MISMATCH,
+       file_service_pb.FileServiceErrors.EXISTENCE_ERROR_OBJECT_NOT_FOUND,
+       file_service_pb.FileServiceErrors.EXISTENCE_ERROR_BUCKET_NOT_FOUND,
        ]):
-    raise ExistenceError()
+    raise ExistenceError(e)
   elif (e.application_error ==
         file_service_pb.FileServiceErrors.API_TEMPORARILY_UNAVAILABLE):
-    raise ApiTemporaryUnavailableError()
+    raise ApiTemporaryUnavailableError(e)
   elif (e.application_error ==
         file_service_pb.FileServiceErrors.FINALIZATION_ERROR):
-    raise FinalizationError()
+    raise FinalizationError(e)
   elif (e.application_error ==
         file_service_pb.FileServiceErrors.IO_ERROR):
-    raise UnknownError()
+    raise UnknownError(e)
   elif (e.application_error ==
         file_service_pb.FileServiceErrors.SEQUENCE_KEY_OUT_OF_ORDER):
-    raise SequenceKeyOutOfOrderError(e.error_detail)
+    raise SequenceKeyOutOfOrderError(e.error_detail, e)
   elif (e.application_error ==
         file_service_pb.FileServiceErrors.INVALID_FILE_NAME):
-    raise InvalidFileNameError()
+    raise InvalidFileNameError(e)
   elif (e.application_error ==
         file_service_pb.FileServiceErrors.FILE_NOT_OPENED):
-    raise FileNotOpenedError()
+    raise FileNotOpenedError(e)
   elif (e.application_error ==
         file_service_pb.FileServiceErrors.READ_ONLY):
-    raise ReadOnlyError()
+    raise ReadOnlyError(e)
   elif (e.application_error ==
         file_service_pb.FileServiceErrors.WRONG_CONTENT_TYPE):
-    raise WrongContentTypeError()
+    raise WrongContentTypeError(e)
   elif (e.application_error ==
         file_service_pb.FileServiceErrors.WRONG_OPEN_MODE):
-    raise WrongOpenModeError()
+    raise WrongOpenModeError(e)
   elif (e.application_error ==
         file_service_pb.FileServiceErrors.OPERATION_NOT_SUPPORTED):
-    raise OperationNotSupportedError()
+    raise OperationNotSupportedError(e)
   elif (e.application_error ==
         file_service_pb.FileServiceErrors.PERMISSION_DENIED):
-    raise PermissionDeniedError()
+    raise PermissionDeniedError(e)
   elif (e.application_error ==
         file_service_pb.FileServiceErrors.FILE_TEMPORARILY_UNAVAILABLE):
-    raise FileTemporaryUnavailableError()
+    raise FileTemporaryUnavailableError(e)
   elif (e.application_error ==
         file_service_pb.FileServiceErrors.INVALID_PARAMETER):
-    raise InvalidParameterError()
+    raise InvalidParameterError(e)
   elif (e.application_error ==
         file_service_pb.FileServiceErrors.EXCLUSIVE_LOCK_FAILED):
-    raise ExclusiveLockFailedError()
-  raise Error(str(e))
+    raise ExclusiveLockFailedError(e)
+  raise Error(e)
 
 
 def _create_rpc(deadline):
@@ -326,23 +342,28 @@ class _File(object):
     Args:
       offset: seek offset as number.
       whence: seek mode. Supported modes are os.SEEK_SET (absolute seek),
-        and os.SEEK_CUR (seek relative to the current position).
+        and os.SEEK_CUR (seek relative to the current position) and os.SEEK_END
+        (seek relative to the end, offset should be negative).
     """
     self._verify_read_mode()
     if whence == os.SEEK_SET:
       self._offset = offset
     elif whence == os.SEEK_CUR:
       self._offset += offset
+    elif whence == os.SEEK_END:
+      file_stat = self.stat()
+      self._offset = file_stat.st_size + offset
     else:
       raise InvalidArgumentError('Whence mode %d is not supported', whence)
 
-  def read(self, size):
+  def read(self, size=None):
     """Read data from RAW file.
 
     Args:
       size: Number of bytes to read as integer. Actual number of bytes
         read might be less than specified, but it's never 0 unless current
-        offset is at the end of the file.
+        offset is at the end of the file. If it is None, then file is read
+        until the end.
 
     Returns:
       A string with data read.
@@ -352,18 +373,36 @@ class _File(object):
       raise UnsupportedContentTypeError(
           'Unsupported content type: %s' % self._content_type)
 
-    request = file_service_pb.ReadRequest()
-    response = file_service_pb.ReadResponse()
-    request.set_filename(self._filename)
-    request.set_pos(self._offset)
-    request.set_max_bytes(size)
-    self._make_rpc_call_with_retry('Read', request, response)
-    result = response.data()
-    self._offset += len(result)
-    return result
+    buf = StringIO.StringIO()
+    original_offset = self._offset
+
+    try:
+      if size is None:
+        size = sys.maxint
+
+      while size > 0:
+        request = file_service_pb.ReadRequest()
+        response = file_service_pb.ReadResponse()
+        request.set_filename(self._filename)
+        request.set_pos(self._offset)
+        request.set_max_bytes(min(READ_BLOCK_SIZE, size))
+        self._make_rpc_call_with_retry('Read', request, response)
+        chunk = response.data()
+        self._offset += len(chunk)
+        if len(chunk) == 0:
+          break
+        buf.write(chunk)
+        size -= len(chunk)
+
+      return buf.getvalue()
+    except:
+      self._offset = original_offset
+      raise
+    finally:
+      buf.close()
 
   def _verify_read_mode(self):
-    if self._mode != 'r':
+    if self._mode not in ('r', 'rb'):
       raise WrongOpenModeError('File is opened for write.')
 
   def _open(self):
@@ -374,9 +413,9 @@ class _File(object):
     request.set_exclusive_lock(self._exclusive_lock)
     request.set_content_type(self._content_type)
 
-    if self._mode == 'a':
+    if self._mode in ('a', 'ab'):
       request.set_open_mode(file_service_pb.OpenRequest.APPEND)
-    elif self._mode == 'r':
+    elif self._mode in ('r', 'rb'):
       request.set_open_mode(file_service_pb.OpenRequest.READ)
     else:
       raise UnsupportedOpenModeError('Unsupported open mode: %s', self._mode)
@@ -398,8 +437,46 @@ class _File(object):
       self._open()
       _make_call(method, request, response)
 
+  def stat(self):
+    """Get status of a finalized file.
 
-def open(filename, mode='r', content_type=RAW, exclusive_lock=False):
+    Returns:
+      a _FileStat object similar to that returned by python's os.stat(path).
+
+    Throws:
+      FinalizationError if file is not finalized.
+    """
+    self._verify_read_mode()
+
+    request = file_service_pb.StatRequest()
+    response = file_service_pb.StatResponse()
+    request.set_filename(self._filename)
+
+    _make_call('Stat', request, response)
+
+    if response.stat_size() == 0:
+      raise ExistenceError("File %s not found." % self._filename)
+
+    if response.stat_size() > 1:
+      raise ValueError(
+          "Requested stat for one file. Got more than one response.")
+
+    file_stat_pb = response.stat(0)
+    file_stat = _FileStat()
+    file_stat.filename = file_stat_pb.filename()
+    file_stat.finalized = file_stat_pb.finalized()
+    file_stat.st_size = file_stat_pb.length()
+    file_stat.st_mtime = file_stat_pb.mtime()
+    file_stat.st_ctime = file_stat_pb.ctime()
+
+    return file_stat
+
+
+def open(filename,
+         mode='r',
+         content_type=RAW,
+         exclusive_lock=False,
+         buffering=0):
   """Open a file.
 
   Args:
@@ -408,10 +485,17 @@ def open(filename, mode='r', content_type=RAW, exclusive_lock=False):
     content_type: File's content type. Value from FileContentType.ContentType
       enum.
     exclusive_lock: If file should be exclusively locked. All other exclusive
-      lock attempts will file untile file is correctly closed.
+      lock attempts will file until file is correctly closed.
+    buffering: optional argument similar to the one in Python's open.
+      It specifies the file's desired buffer size: 0 means unbuffered, positive
+      value means use a buffer of that size, any negative value means the
+      default size. Only read buffering is supported.
 
   Returns:
     File object.
+
+  Raises:
+    InvalidArgumentError: Raised when given illegal argument value or type.
   """
   if not filename:
     raise InvalidArgumentError('Filename is empty')
@@ -420,12 +504,48 @@ def open(filename, mode='r', content_type=RAW, exclusive_lock=False):
                                (filename.__class__, filename))
   if content_type != RAW:
     raise InvalidArgumentError('Invalid content type')
+  if not (isinstance(buffering, int) or isinstance(buffering, long)):
+    raise InvalidArgumentError('buffering should be an int but is %s'
+                               % buffering)
 
-  f = _File(filename,
-            mode=mode,
-            content_type=content_type,
-            exclusive_lock=exclusive_lock)
-  return f
+  if mode == 'r' or mode == 'rb':
+    if buffering > 0:
+      return BufferedFile(filename, buffering)
+    elif buffering < 0:
+      return BufferedFile(filename, _DEFAULT_BUFFER_SIZE)
+
+  return _File(filename,
+               mode=mode,
+               content_type=content_type,
+               exclusive_lock=exclusive_lock)
+
+
+def listdir(path, **kwargs):
+  """Return a sorted list of filenames (matching a pattern) in the given path.
+
+  Only Google Cloud Storage paths are supported in current implementation.
+
+  Args:
+    path: a Google Cloud Storage path of "/gs/bucketname" form.
+    kwargs: other keyword arguments to be relayed to Google Cloud Storage.
+      This can be used to select certain files with names matching a pattern.
+      See google.appengine.api.files.gs.listdir for details.
+
+  Returns:
+    a list containing filenames (matching a pattern) from the given path.
+    Sorted by Python String.
+  """
+
+  from google.appengine.api.files import gs
+
+  if not isinstance(path, basestring):
+    raise InvalidArgumentError('path should be a string, but is %s(%r)' %
+                               (path.__class__.__name__, path))
+
+  if path.startswith(gs._GS_PREFIX):
+    return gs.listdir(path, kwargs)
+  else:
+    raise InvalidFileNameError('Unsupported path: %s' % path)
 
 
 def finalize(filename, content_type=RAW):
@@ -449,6 +569,42 @@ def finalize(filename, content_type=RAW):
   except FinalizationError:
 
     pass
+
+
+class _FileStat(object):
+  """_FileStat contains file attributes.
+
+  Attributes:
+    filename: the uploaded filename of the file;
+    finalized: whether the file is finalized. This is always true by now;
+    st_size: number of bytes of the file;
+    st_ctime: creation time;
+    st_mtime: modification time.
+  """
+  def __init__(self):
+    self.filename = None
+    self.finalized = True
+    self.st_size = None
+    self.st_ctime = None
+    self.st_mtime = None
+
+
+def stat(filename):
+  """Get status of a finalized file given it's full path filename.
+
+  Returns:
+    a _FileStat object similar to that returned by python's os.stat(path).
+
+  Throws:
+    FinalizationError if file is not finalized.
+  """
+  if not filename:
+    raise InvalidArgumentError('Filename is empty')
+  if not isinstance(filename, basestring):
+    raise InvalidArgumentError('Filename should be a string')
+
+  with open(filename, 'r') as f:
+    return f.stat()
 
 
 def _create(filesystem, content_type=RAW, filename=None, params=None):
@@ -492,21 +648,67 @@ def _create(filesystem, content_type=RAW, filename=None, params=None):
   return response.filename()
 
 
-def delete(filename):
-  """Permanently delete a file.
+def __checkIsFinalizedName(filename):
+  """Check if a filename is finalized.
+
+  A filename is finalized when it has creation handle prefix, which is the same
+  for both blobstore and gs files.
 
   Args:
-    filename: finalized file name as string.
-  """
-  from google.appengine.api.files import blobstore as files_blobstore
+    filename: a gs or blobstore filename that starts with '/gs/' or
+      '/blobstore/'
 
-  if not isinstance(filename, basestring):
-    raise InvalidArgumentError('Filename should be a string, but is %s(%r)' %
-                               (filename.__class__.__name__, filename))
-  if filename.startswith(files_blobstore._BLOBSTORE_DIRECTORY):
-    files_blobstore._delete(filename)
-  else:
-    raise InvalidFileNameError( 'Unsupported file name: %s' % filename)
+  Raises:
+    InvalidFileNameError: raised when filename is finalized.
+  """
+  if filename.split('/')[2].startswith(_CREATION_HANDLE_PREFIX):
+    raise InvalidFileNameError('File %s should have finalized filename' %
+                               filename)
+
+
+def delete(*filenames):
+  """Permanently delete files.
+
+  Delete on non-finalized/non-existent files is a no-op.
+
+  Args:
+    filenames: finalized file names as strings. filename should has format
+      "/gs/bucket/filename" or "/blobstore/blobkey".
+
+  Raises:
+    InvalidFileNameError: Raised when any filename is not of valid format or
+      not a finalized name.
+    IOError: Raised if any problem occurs contacting the backend system.
+  """
+
+  from google.appengine.api.files import blobstore as files_blobstore
+  from google.appengine.api.files import gs
+  from google.appengine.ext import blobstore
+
+  blobkeys = []
+
+  for filename in filenames:
+    if not isinstance(filename, basestring):
+      raise InvalidArgumentError('Filename should be a string, but is %s(%r)' %
+                                 (filename.__class__.__name__, filename))
+    if filename.startswith(files_blobstore._BLOBSTORE_DIRECTORY):
+      __checkIsFinalizedName(filename)
+      blobkey = files_blobstore.get_blob_key(filename)
+      if blobkey:
+        blobkeys.append(blobkey)
+    elif filename.startswith(gs._GS_PREFIX):
+
+      __checkIsFinalizedName(filename)
+      blobkeys.append(blobstore.create_gs_key(filename))
+    else:
+      raise InvalidFileNameError('Filename should start with /%s or /%s' %
+                                 (files_blobstore._BLOBSTORE_DIRECTORY,
+                                 gs._GS_PREFIX))
+
+  try:
+    blobstore.delete(blobkeys)
+  except Exception, e:
+    raise IOError('Blobstore failure.', e)
 
 
 def _get_capabilities():
@@ -525,9 +727,7 @@ def _get_capabilities():
 class BufferedFile(object):
   """BufferedFile is a file-like object reading underlying file in chunks."""
 
-  _BUFFER_SIZE = 512 * 1024
-
-  def __init__(self, filename, buffer_size=_BUFFER_SIZE):
+  def __init__(self, filename, buffer_size=_DEFAULT_BUFFER_SIZE):
     """Constructor.
 
     Args:
@@ -539,6 +739,18 @@ class BufferedFile(object):
     self._buffer = ''
     self._buffer_pos = 0
     self._buffer_size = buffer_size
+    self._eof = False
+
+  def __enter__(self):
+    return self
+
+  def __exit__(self, atype, value, traceback):
+    self.close()
+
+  def close(self):
+    self._buffer = ''
+    self._eof = True
+    self._buffer_pos = 0
 
   def tell(self):
     """Return file's current position."""
@@ -554,28 +766,78 @@ class BufferedFile(object):
     Returns:
       A string with data read.
     """
-    while len(self._buffer) - self._buffer_pos < size:
-      self._buffer = self._buffer[self._buffer_pos:]
-      self._buffer_pos = 0
-      with open(self._filename, 'r') as f:
-        f.seek(self._position + len(self._buffer))
-        data = f.read(self._buffer_size)
-        if not data:
-          break
-        self._buffer += data
-      gc.collect()
+    data_list = []
+    while True:
+      result = self.__readBuffer(size)
+      data_list.append(result)
+      size -= len(result)
+      if size == 0 or self._eof:
+        return ''.join(data_list)
+      self.__refillBuffer()
 
-    if len(self._buffer) - self._buffer_pos < size:
-      result = self._buffer[self._buffer_pos:]
-      self._buffer = ''
-      self._buffer_pos = 0
-      self._position += len(result)
-      return result
-    else:
-      result = self._buffer[self._buffer_pos:self._buffer_pos + size]
-      self._buffer_pos += size
-      self._position += size
-      return result
+  def readline(self, size=-1):
+    """Read one line delimited by '\n' from the file.
+
+    A trailing newline character is kept in the string. It may be absent when a
+    file ends with an incomplete line. If the size argument is non-negative,
+    it specifies the maximum string size (counting the newline) to return. An
+    empty string is returned only when EOF is encountered immediately.
+
+    Args:
+      size: Maximum number of bytes to read. If not specified, readline stops
+        only on '\n' or EOF.
+
+    Returns:
+      The data read as a string.
+    """
+    data_list = []
+
+    while True:
+
+      if size < 0:
+        end_pos = len(self._buffer)
+      else:
+        end_pos = self._buffer_pos + size
+      newline_pos = self._buffer.find('\n', self._buffer_pos, end_pos)
+
+      if newline_pos != -1:
+
+        data_list.append(self.__readBuffer(newline_pos + 1 - self._buffer_pos))
+        return ''.join(data_list)
+      else:
+        result = self.__readBuffer(size)
+        data_list.append(result)
+        size -= len(result)
+        if size == 0 or self._eof:
+          return ''.join(data_list)
+        self.__refillBuffer()
+
+  def __readBuffer(self, size):
+    """Read chars from self._buffer.
+
+    Args:
+      size: number of chars to read. Read the entire buffer if negative.
+
+    Returns:
+      chars read in string.
+    """
+    if size < 0:
+      size = len(self._buffer) - self._buffer_pos
+    result = self._buffer[self._buffer_pos:self._buffer_pos+size]
+
+    self._position += len(result)
+
+    self._buffer_pos += len(result)
+    return result
+
+  def __refillBuffer(self):
+    """Refill _buffer with another read from source."""
+    with open(self._filename, 'r') as f:
+      f.seek(self._position)
+      data = f.read(self._buffer_size)
+    self._eof = len(data) < self._buffer_size
+    self._buffer = data
+    self._buffer_pos = 0
 
   def seek(self, offset, whence=os.SEEK_SET):
     """Set the file's current position.
@@ -583,7 +845,8 @@ class BufferedFile(object):
     Args:
       offset: seek offset as number.
       whence: seek mode. Supported modes are os.SEEK_SET (absolute seek),
-        and os.SEEK_CUR (seek relative to the current position).
+        os.SEEK_CUR (seek relative to the current position), and os.SEEK_END
+        (seek relative to the end, offset should be negative).
     """
     if whence == os.SEEK_SET:
       self._position = offset
@@ -593,5 +856,24 @@ class BufferedFile(object):
       self._position += offset
       self._buffer = ''
       self._buffer_pos = 0
+    elif whence == os.SEEK_END:
+      file_stat = stat(self._filename)
+      self._position = file_stat.st_size + offset
+      self._buffer = ''
+      self._buffer_pos = 0
     else:
       raise InvalidArgumentError('Whence mode %d is not supported', whence)
+
+
+def _default_gs_bucket_name():
+  """Return the default Google Storage bucket name for the application.
+
+  Returns:
+    A string that is the default bucket name for the application.
+  """
+  request = file_service_pb.GetDefaultGsBucketNameRequest()
+  response = file_service_pb.GetDefaultGsBucketNameResponse()
+
+  _make_call('GetDefaultGsBucketName', request, response)
+
+  return response.default_gs_bucket_name()

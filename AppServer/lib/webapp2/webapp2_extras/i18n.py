@@ -21,7 +21,7 @@ from babel import support
 try:
     # Monkeypatches pytz for gae.
     import pytz.gae
-except ImportError:  # pragma: no cover
+except ImportError: # pragma: no cover
     pass
 
 import pytz

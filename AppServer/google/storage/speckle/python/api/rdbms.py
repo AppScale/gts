@@ -27,7 +27,6 @@ http://www.python.org/dev/peps/pep-0249/
 import collections
 import datetime
 import exceptions
-import os
 import time
 import types
 
@@ -47,7 +46,10 @@ __path__ = api.__path__
 
 
 
-OAUTH_CREDENTIALS_PATH = os.path.expanduser('~/.googlesql_oauth2.dat')
+
+
+
+OAUTH_CREDENTIALS_PATH = '~/.googlesql_oauth2.dat'
 
 
 
@@ -150,13 +152,14 @@ _PYTHON_TYPE_TO_JDBC_TYPE = {
 
 
 def _ConvertFormatToQmark(statement, args):
-  """Replaces '%s' with '?'.
+  """Replaces '%s' or '%(name)s' with '?'.
 
   The server actually supports '?' for bind parameters, but the
-  MySQLdb implementation of PEP 249 uses '%s'.  Most clients don't
-  bother checking the paramstyle member and just hardcode '%s' in
-  their statements.  This function converts a format-style statement
-  into a qmark-style statement.
+  MySQLdb implementation of PEP 249 uses 'format' paramstyle (%s) when the
+  given args list is a sequence, and 'pyformat' paramstyle (%(name)s) when the
+  args list is a mapping.  Most clients don't bother checking the paramstyle
+  member and just hardcode '%s' or '%(name)s' in their statements.  This
+  function converts a (py)format-style statement into a qmark-style statement.
 
   Args:
     statement: A string, a SQL statement.
@@ -166,10 +169,61 @@ def _ConvertFormatToQmark(statement, args):
   Returns:
     The converted string.
   """
-  if args:
+  if isinstance(args, dict):
+    return statement % collections.defaultdict(lambda: '?')
+  elif args:
     qmarks = tuple('?' * len(args))
     return statement % qmarks
   return statement
+
+
+class _AccessLogger(object):
+  """Simple dict-like object that records all lookup attempts.
+
+  Attributes:
+    accessed_keys: List of all lookup keys, in the order which they occurred.
+  """
+
+  def __init__(self):
+    self.accessed_keys = []
+
+  def __getitem__(self, key):
+    self.accessed_keys.append(key)
+    return ''
+
+
+def _ConvertArgsDictToList(statement, args):
+  """Convert a given args mapping to a list of positional arguments.
+
+  Takes a statement written in 'pyformat' style which uses mapping keys from
+  the given args mapping, and returns the list of args values that would be
+  used for interpolation if the statement were written in a positional
+  'format' style instead.
+
+  For example, consider the following pyformat string and a mapping used for
+  interpolation:
+
+    '%(foo)s '%(bar)s' % {'foo': 1, 'bar': 2}
+
+  Given these parameters, this function would return the following output:
+
+    [1, 2]
+
+  This could then be used for interpolation if the given string were instead
+  expressed using a positional format style:
+
+    '%s %s' % (1, 2)
+
+  Args:
+    statement: The statement, possibly containing pyformat style tokens.
+    args: Mapping to pull values from.
+
+  Returns:
+    A list containing values from the given args mapping.
+  """
+  access_logger = _AccessLogger()
+  statement % access_logger
+  return [args[key] for key in access_logger.accessed_keys]
 
 
 class Cursor(object):
@@ -189,6 +243,8 @@ class Cursor(object):
     self._open = True
     self.lastrowid = None
     self._use_dict_cursor = use_dict_cursor
+    self._statement_id = -1
+    self._more_results = None
 
   @property
   def description(self):
@@ -260,41 +316,62 @@ class Cursor(object):
       raise InterfaceError('unknown JDBC type %d' % datatype)
     return converter(value)
 
-  def execute(self, statement, args=None):
-    """Prepares and executes a database operation (query or command).
+  def _AddBindVariablesToRequest(self, statement, args, bind_variable_factory,
+                                 direction=client_pb2.BindVariableProto.IN):
+    """Add args to the request BindVariableProto list.
 
     Args:
-      statement: A string, a SQL statement.
-      args: A sequence of arguments matching the statement's bind variables,
-        if any.
+      statement: The SQL statement.
+      args: Sequence of arguments to turn into BindVariableProtos.
+      bind_variable_factory: A callable which returns new BindVariableProtos.
+      direction: The direction to set for all variables in the request.
 
     Raises:
       InterfaceError: Unknown type used as a bind variable.
+    """
+    if isinstance(args, dict):
+      args = _ConvertArgsDictToList(statement, args)
+
+    for i, arg in enumerate(args):
+      bv = bind_variable_factory()
+      bv.position = i + 1
+      bv.direction = direction
+      if arg is None:
+        bv.type = jdbc_type.NULL
+      else:
+        try:
+          bv.type, bv.value = self._EncodeVariable(arg)
+        except TypeError:
+          raise InterfaceError('unknown type %s for arg %d' % (type(arg), i))
+
+  def _DoExec(self, request):
+    """Send an ExecRequest and handle the response.
+
+    Args:
+      request: The sql_pb2.ExecRequest to send.
+
+    Returns:
+      The client_pb2.ResultProto returned by the server.
+
+    Raises:
       DatabaseError: A SQL exception occurred.
       OperationalError: RPC problem.
     """
-    self._CheckOpen()
-
-    request = sql_pb2.ExecRequest()
-    request.options.include_generated_keys = True
-    if args is not None:
-
-      if not hasattr(args, '__iter__'):
-        args = [args]
-      for i, arg in enumerate(args):
-        bv = request.bind_variable.add()
-        bv.position = i + 1
-        if arg is None:
-          bv.type = jdbc_type.NULL
-        else:
-          try:
-            bv.type, bv.value = self._EncodeVariable(arg)
-          except TypeError:
-            raise InterfaceError('unknown type %s for arg %d' % (type(arg), i))
-    request.statement = _ConvertFormatToQmark(statement, args)
-
     response = self._conn.MakeRequest('Exec', request)
-    result = response.result
+    return self._HandleResult(response.result)
+
+  def _HandleResult(self, result):
+    """Handle the ResultProto from an Exec/ExecOp call.
+
+    Args:
+      result: The client_pb2.ResultProto to handle.
+
+    Returns:
+      The given client_pb2.ResultProto.
+
+    Raises:
+      DatabaseError: A SQL exception occurred.
+    """
     if result.HasField('sql_exception'):
       raise DatabaseError('%d: %s' % (result.sql_exception.code,
                                       result.sql_exception.message))
@@ -336,20 +413,129 @@ class Cursor(object):
     if result.generated_keys:
       self.lastrowid = long(result.generated_keys[-1])
 
-  def executemany(self, statement, seq_of_args):
-    """Calls execute() for each value of seq_of_args.
+    if result.HasField('statement_id'):
+      self._statement_id = result.statement_id
+
+    self._more_results = result.more_results
+
+    return result
+
+  def execute(self, statement, args=None):
+    """Prepares and executes a database operation (query or command).
 
     Args:
       statement: A string, a SQL statement.
-      seq_of_args: A sequence, each entry of which is a sequence of arguments
-        matching the statement's bind variables, if any.
+      args: A sequence or mapping of arguments matching the statement's bind
+        variables, if any.
+
+    Raises:
+      InterfaceError: Unknown type used as a bind variable.
+      DatabaseError: A SQL exception occurred.
+      OperationalError: RPC problem.
     """
     self._CheckOpen()
-    rowcount = 0
+
+    request = sql_pb2.ExecRequest()
+    request.options.include_generated_keys = True
+    if args is not None:
+
+      if not hasattr(args, '__iter__'):
+        args = [args]
+      self._AddBindVariablesToRequest(
+          statement, args, request.bind_variable.add)
+    request.statement = _ConvertFormatToQmark(statement, args)
+    self._DoExec(request)
+
+  def executemany(self, statement, seq_of_args):
+    """Prepares and executes a database operation for given parameter sequences.
+
+    Args:
+      statement: A string, a SQL statement.
+      seq_of_args: A sequence, each entry of which is a sequence or mapping of
+        arguments matching the statement's bind variables, if any.
+
+    Raises:
+      InterfaceError: Unknown type used as a bind variable.
+      DatabaseError: A SQL exception occurred.
+      OperationalError: RPC problem.
+    """
+    self._CheckOpen()
+
+    request = sql_pb2.ExecRequest()
+    request.options.include_generated_keys = True
+
+    args = None
     for args in seq_of_args:
-      self.execute(statement, args)
-      rowcount += self.rowcount
-    self._rowcount = rowcount
+
+      if not hasattr(args, '__iter__'):
+        args = [args]
+      bbv = request.batch.batch_bind_variable.add()
+      self._AddBindVariablesToRequest(
+          statement, args, bbv.bind_variable.add)
+    request.statement = _ConvertFormatToQmark(statement, args)
+    result = self._DoExec(request)
+    self._rowcount = sum(result.batch_rows_updated)
+
+  def callproc(self, procname, args=()):
+    """Calls a stored database procedure with the given name.
+
+    Args:
+      procname: A string, the name of the stored procedure.
+      args: A sequence of parameters to use with the procedure.
+
+    Returns:
+      A modified copy of the given input args. Input parameters are left
+      untouched, output and input/output parameters replaced with possibly new
+      values.
+
+    Raises:
+      InternalError: The cursor has been closed, or no statement has been
+        executed yet.
+      DatabaseError: A SQL exception occurred.
+      OperationalError: RPC problem.
+    """
+    self._CheckOpen()
+    request = sql_pb2.ExecRequest()
+    request.statement_type = sql_pb2.ExecRequest.CALLABLE_STATEMENT
+    request.statement = 'CALL %s(%s)' % (procname, ','.join('?' * len(args)))
+
+
+
+
+    self._AddBindVariablesToRequest(
+        request.statement, args, request.bind_variable.add,
+        direction=client_pb2.BindVariableProto.INOUT)
+    result = self._DoExec(request)
+
+
+    return_args = list(args[:])
+    for var in result.output_variable:
+      return_args[var.position - 1] = self._DecodeVariable(var.type, var.value)
+    return tuple(return_args)
+
+  def nextset(self):
+    """Advance to the next result set.
+
+    Returns:
+      True if there was an available set to advance to, otherwise, None.
+
+    Raises:
+      InternalError: The cursor has been closed, or no statement has been
+        executed yet.
+      DatabaseError: A SQL exception occurred.
+      OperationalError: RPC problem.
+    """
+    self._CheckOpen()
+    if self._more_results is None:
+      raise InternalError('nextset() called before execute')
+    if not self._more_results:
+      return None
+
+    request = sql_pb2.ExecOpRequest()
+    request.op.type = client_pb2.OpProto.NEXT_RESULT
+    request.op.statement_id = self._statement_id
+    self._HandleResult(self._conn.MakeRequest('ExecOp', request).result)
+    return True
 
   def fetchone(self):
     """Fetches the next row of a query result set.
@@ -434,7 +620,7 @@ class Cursor(object):
 class Connection(object):
 
   def __init__(self, dsn, instance, database=None, user='root', password=None,
-               deadline_seconds=30.0, conv=None,
+               deadline_seconds=60.0, conv=None,
                query_deadline_seconds=86400.0, retry_interval_seconds=30.0):
     """Creates a new SQL Service connection.
 
@@ -451,11 +637,14 @@ class Connection(object):
     Raises:
       OperationalError: Transport failure.
       DatabaseError: Error from SQL Service server.
+      TypeError: Invalid value provided for instance.
     """
 
 
 
     self._dsn = dsn
+    if not instance:
+      raise TypeError('Invalid value for instance (%s)' % instance)
     self._instance = instance
     self._database = database
     self._user = user
@@ -518,7 +707,12 @@ class Connection(object):
     """
     self.CheckOpen()
     request = sql_pb2.CloseConnectionRequest()
-    self.MakeRequest('CloseConnection', request)
+    try:
+      self.MakeRequest('CloseConnection', request)
+    except DatabaseError:
+
+
+      pass
     self._connection_id = None
 
   def CheckOpen(self):
@@ -592,8 +786,7 @@ class Connection(object):
     Raises:
       DatabaseError: Error from SQL Service server.
     """
-    if self._instance:
-      request.instance = self._instance
+    request.instance = self._instance
     if self._connection_id is not None:
       request.connection_id = self._connection_id
     if stub_method in ('Exec', 'ExecOp', 'GetMetadata'):

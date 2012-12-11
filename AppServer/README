@@ -17,7 +17,8 @@ CONTENTS
 INSTALLING ON Mac OSX
 =====================
 1) Download and install Python 2.5 from http://www.python.org/download/
-2) Download the SDK installer from http://code.google.com/appengine/downloads
+2) Download the SDK installer from
+https://developers.google.com/appengine/downloads
 3) Install the SDK by double-clicking on the GoogleAppEngine.dmg file and
 running the installer.
 
@@ -25,7 +26,8 @@ running the installer.
 INSTALLING ON WINDOWS
 =====================
 1) Download and install Python 2.5 from http://www.python.org/download/
-2) Download the SDK installer from http://code.google.com/appengine/downloads
+2) Download the SDK installer from
+https://developers.google.com/appengine/downloads
 3) Install the SDK by double-clicking on the GoogleAppEngine.msi file and
 running the installer.
 
@@ -33,7 +35,8 @@ running the installer.
 INSTALLING ON LINUX AND OTHER PLATFORMS
 ===============================
 1) Download and install Python 2.5 from http://www.python.org/download/
-2) Download the SDK zip file from http://code.google.com/appengine/downloads
+2) Download the SDK zip file from
+https://developers.google.com/appengine/downloads
 3) Unpack the zip file.
 
 
@@ -65,6 +68,7 @@ Options:
                              file stub data.
   --clear_prospective_search Clear the Prospective Search subscription index
                              (Default false).
+  --clear_search_indexes     Clear the Full Text Search indexes (Default false).
   --datastore_path=DS_FILE   Path to file to use for storing Datastore file
                              stub data.
                              (Default /tmp/dev_appserver.datastore)
@@ -100,6 +104,8 @@ Options:
                              (Default '%(mysql_socket)s')
   --require_indexes          Disallows queries that require composite indexes
                              not defined in index.yaml.
+  --search_indexes_path=PATH Path to file to use for storing Full Text Search
+                             indexes (Default %(search_indexes_path)s).
   --show_mail_body           Log the body of emails in mail stub.
                              (Default false)
   --skip_sdk_update_check    Skip checking for SDK updates. If false, fall back
@@ -120,7 +126,13 @@ Options:
                              (Default '30')
   --use_sqlite               Use the new, SQLite based datastore stub.
                              (Default false)
-
+  --port_sqlite_data         Converts the data from the file based datastore
+                             stub to the new SQLite stub, one time use only.
+                             Requires enough RAM to hold all of the entities.
+                             (Default false)
+  --[enable|disable]_console Enables/disables the interactive console.
+                             (Default enabled if --address is unset,
+                              disabled if --address is set)
 
 
 USING THE SDK
@@ -128,7 +140,7 @@ USING THE SDK
 For instructions on getting started with Google App Engine, please see the
 Google App Engine Getting Started Guide
 
-http://code.google.com/appengine/docs/gettingstarted
+https://developers.google.com/appengine/docs/python/gettingstarted
 
 
 USING THE APP ENGINE LAUNCHER

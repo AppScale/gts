@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Confirm Restore from a backup copy{% endblock %}
+{% block body %}
+  <h2>Datastore Admin: Restore from a backup copy</h2>
+  {% if backup %}
+    Are you sure you want to restore from {{ backup.name }}?
+    <br/>Restore does not delete any new entities added since the backup.
+    However, it will replace existing entities with the backed-up version for the following kinds:
+    <form action="{{base_path}}/{{form_target}}" method="post" style="width:39.39em;">
+      <input type="hidden" name="backup_id" value="{{backup.key}}">
+      <input type="hidden" name="xsrf_token" value="{{xsrf_token|escape}}">
+      <input type="hidden" name="delete_backup_after_restore" value="{{delete_backup_after_restore}}">
+      <ul>
+        {% for kind in backup.kinds %}
+          <li><input type="checkbox" name="kind" value="{{kind}}" checked="checked"/>{{ kind }}</li>
+        {% endfor %}
+      </ul>
+      {% if notreadonly_warning %}
+      <div>
+        <h4 style="padding:0;margin-top:1em;margin-bottom:0.46em;">WARNING</h4>
+        {% if original_app_warning %}
+          <ul><li>
+        {% else %}
+          <p>
+        {% endif %}
+        The application is not in read-only mode and restore may
+        conflict with other changes.
+        To place the application in read-only mode,
+        please follow the instructions at
+        <a href="https://developers.google.com/appengine/docs/adminconsole/applicationsettings#Disable_Datastore_Writes" target="_blank">
+        Disable Datastore Writes</a>
+        {% if not original_app_warning %}
+          </p>
+          </div>
+        {% endif %}
+      {% endif %}
+      {% if original_app_warning %}
+        {% if not notreadonly_warning %}
+          <div>
+          <h4 style="padding:0;margin-top:1em;margin-bottom:0.46em;">WARNING</h4>
+          <p>
+        {% else %}
+          <li>
+        {% endif %}
+        The backup data comes from a different application, {{original_app_warning|escape}}.
+        {% if not notreadonly_warning %}
+          </p>
+        {% else %}
+          </li>
+        {% endif %}
+        </div>
+      {% endif %}
+      <p>Operation will be performed using the selected queue:
+        {% if queues %}
+        <select name="queue">
+          {% for queue in queues %}
+            <option value="{{ queue }}">{{ queue }}</option>
+          {% endfor %}
+        </select>
+        {% else %}
+        <input type="text" name="queue" value="default"/>
+        {% endif %}
+      </p>
+      <input type="submit" value="Restore">
+      <a href="{{ cancel_url|escape }}">Cancel</a>
+    </form>
+  {% else %}
+    <div class="ae-errorbox">Backup was not found.</div>
+  {% endif %}
+{% endblock %}

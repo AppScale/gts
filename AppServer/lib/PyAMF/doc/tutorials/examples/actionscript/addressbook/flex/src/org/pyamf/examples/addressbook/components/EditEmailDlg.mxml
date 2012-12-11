@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view:EditEmailDlgClass xmlns:mx="http://www.adobe.com/2006/mxml"
+						xmlns:view="org.pyamf.examples.addressbook.components.*"
+						layout="vertical" title="Edit Email">
+				
+	<mx:Form>
+		<mx:FormItem label="Persistent:">
+			<mx:Label text="{email.isPersistent()}" />
+		</mx:FormItem>
+	
+		<mx:FormItem label="Label:">
+			<mx:TextInput
+				id="emailLabel"
+				text="{email.label}" />
+		</mx:FormItem>
+		
+		<mx:FormItem label="Email:">
+			<mx:TextInput
+				id="emailText"
+				text="{email.email}" />
+		</mx:FormItem>
+	</mx:Form>
+
+	<mx:HBox width="100%" horizontalAlign="center"
+			 verticalAlign="center">
+		<mx:Button
+			label="Close" click="close()"
+			toolTip="Close window" />
+	</mx:HBox>
+</view:EditEmailDlgClass>

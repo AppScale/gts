@@ -895,7 +895,7 @@ class Regex(Validator):
       raise AttributeDefinitionError(
           'Regex fields must be a string type not %s.' % str(string_type))
     if isinstance(regex, basestring):
-      self.re = re.compile('^%s$' % regex)
+      self.re = re.compile('^(?:%s)$' % regex)
     else:
       raise AttributeDefinitionError(
           'Regular expression must be string.  Found %s.' % str(regex))

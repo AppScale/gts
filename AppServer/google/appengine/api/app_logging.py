@@ -35,6 +35,7 @@ Classes defined here:
 
 import logging
 
+from google.appengine import runtime
 from google.appengine.api import logservice
 
 
@@ -95,7 +96,7 @@ class AppLogsHandler(logging.StreamHandler):
 
 
       logservice.write(message)
-    except (KeyboardInterrupt, SystemExit):
+    except (KeyboardInterrupt, SystemExit, runtime.DeadlineExceededError):
       raise
     except:
       self.handleError(record)

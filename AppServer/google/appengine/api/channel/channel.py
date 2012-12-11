@@ -155,7 +155,7 @@ def create_channel(client_id):
   except apiproxy_errors.ApplicationError, e:
     raise _ToChannelError(e)
 
-  return response.client_id()
+  return response.token()
 
 
 

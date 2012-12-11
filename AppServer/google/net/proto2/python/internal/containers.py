@@ -67,8 +67,13 @@ class BaseContainer(object):
   def __repr__(self):
     return repr(self._values)
 
-  def sort(self, sort_function=cmp):
-    self._values.sort(sort_function)
+  def sort(self, *args, **kwargs):
+
+
+
+    if 'sort_function' in kwargs:
+      kwargs['cmp'] = kwargs.pop('sort_function')
+    self._values.sort(*args, **kwargs)
 
 
 class RepeatedScalarFieldContainer(BaseContainer):

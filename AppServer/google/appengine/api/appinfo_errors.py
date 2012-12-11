@@ -112,3 +112,56 @@ class ThreadsafeWithCgiHandler(Error):
 
 class MissingThreadsafe(Error):
   """Raised when the runtime needs a threadsafe declaration and it's missing."""
+
+
+class InvalidHttpHeaderName(Error):
+  """Raised when an invalid HTTP header name is used.
+
+  This issue arrises what a static handler uses http_headers. For example, the
+  following would not be allowed:
+
+    handlers:
+    - url: /static
+      static_dir: static
+      http_headers:
+        D@nger: Will Robinson
+  """
+
+
+class InvalidHttpHeaderValue(Error):
+  """Raised when an invalid HTTP header value is used.
+
+  This issue arrises what a static handler uses http_headers. For example, the
+  following would not be allowed:
+
+    handlers:
+    - url: /static
+      static_dir: static
+      http_headers:
+        Some-Unicode: "\u2628"
+  """
+
+
+class ContentTypeSpecifiedMultipleTimes(Error):
+  """Raised when mime_type and http_headers specify a mime type.
+
+  N.B. This will be raised even when both fields specify the same content type.
+  E.g. the following configuration (snippet) will be rejected:
+
+    handlers:
+    - url: /static
+      static_dir: static
+      mime_type: text/html
+      http_headers:
+        content-type: text/html
+
+  This only applies to static handlers i.e. a handler that specifies static_dir
+  or static_files.
+  """
+
+
+class TooManyHttpHeaders(Error):
+  """Raised when a handler specified too many HTTP headers.
+
+  The message should indicate the maximum number of headers allowed.
+  """

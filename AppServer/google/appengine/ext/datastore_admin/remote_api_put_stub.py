@@ -218,7 +218,8 @@ def get_remote_appid(remote_url, extra_headers=None):
     extra_headers['X-appcfg-api-version'] = '1'
   try:
     urlfetch_response = urlfetch.fetch(url, None, urlfetch.GET,
-                                       extra_headers, follow_redirects=False)
+                                       extra_headers, follow_redirects=False,
+                                       deadline=10)
   except Exception, e:
 
 

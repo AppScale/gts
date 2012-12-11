@@ -1,0 +1,191 @@
+# This file is distributed under the same license as the Django package.
+#
+# Translators:
+# Jannis Leidel <jannis@leidel.info>, 2011.
+# Nuno Mariz <nmariz@gmail.com>, 2011.
+msgid ""
+msgstr ""
+"Project-Id-Version: Django\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2012-03-23 02:36+0100\n"
+"PO-Revision-Date: 2012-02-14 13:06+0000\n"
+"Last-Translator: Nuno Mariz <nmariz@gmail.com>\n"
+"Language-Team: Portuguese (http://www.transifex.net/projects/p/django/"
+"language/pt/)\n"
+"Language: pt\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1)\n"
+
+#: views.py:57 views.py:59 views.py:61
+msgid "tag:"
+msgstr "tag:"
+
+#: views.py:92 views.py:94 views.py:96
+msgid "filter:"
+msgstr "filtro:"
+
+#: views.py:155 views.py:157 views.py:159
+msgid "view:"
+msgstr "view:"
+
+#: views.py:187
+#, python-format
+msgid "App %r not found"
+msgstr "A aplicação %r não encontrada"
+
+#: views.py:194
+#, python-format
+msgid "Model %(model_name)r not found in app %(app_label)r"
+msgstr "O Model %(model_name)r não foi encontrado na aplicação %(app_label)r"
+
+#: views.py:206
+#, python-format
+msgid "the related `%(app_label)s.%(data_type)s` object"
+msgstr "o objeto `%(app_label)s.%(data_type)s` relacionado"
+
+#: views.py:206 views.py:225 views.py:230 views.py:244 views.py:258
+#: views.py:263
+msgid "model:"
+msgstr "model:"
+
+#: views.py:221 views.py:253
+#, python-format
+msgid "related `%(app_label)s.%(object_name)s` objects"
+msgstr "os objetos `%(app_label)s.%(object_name)s` relacionados"
+
+#: views.py:225 views.py:258
+#, python-format
+msgid "all %s"
+msgstr "todos %s"
+
+#: views.py:230 views.py:263
+#, python-format
+msgid "number of %s"
+msgstr "número de %s"
+
+#: views.py:268
+#, python-format
+msgid "Fields on %s objects"
+msgstr "Campos nos objetos %s"
+
+#: views.py:360
+#, python-format
+msgid "%s does not appear to be a urlpattern object"
+msgstr "%s não parece ser um objeto urlpattern"
+
+#: templates/admin_doc/bookmarklets.html:7 templates/admin_doc/index.html:7
+#: templates/admin_doc/missing_docutils.html:7
+#: templates/admin_doc/model_detail.html:15
+#: templates/admin_doc/model_index.html:9
+#: templates/admin_doc/template_detail.html:7
+#: templates/admin_doc/template_filter_index.html:8
+#: templates/admin_doc/template_tag_index.html:8
+#: templates/admin_doc/view_detail.html:7
+#: templates/admin_doc/view_index.html:8
+msgid "Home"
+msgstr "Início"
+
+#: templates/admin_doc/bookmarklets.html:8 templates/admin_doc/index.html:8
+#: templates/admin_doc/missing_docutils.html:8
+#: templates/admin_doc/model_detail.html:16
+#: templates/admin_doc/model_index.html:10
+#: templates/admin_doc/template_detail.html:8
+#: templates/admin_doc/template_filter_index.html:9
+#: templates/admin_doc/template_tag_index.html:9
+#: templates/admin_doc/view_detail.html:8
+#: templates/admin_doc/view_index.html:9
+msgid "Documentation"
+msgstr "Documentação"
+
+#: templates/admin_doc/bookmarklets.html:9
+msgid "Bookmarklets"
+msgstr "Bookmarklets"
+
+#: templates/admin_doc/bookmarklets.html:12
+msgid "Documentation bookmarklets"
+msgstr "Documentação dos bookmarklets"
+
+#: templates/admin_doc/bookmarklets.html:16
+msgid ""
+"\n"
+"<p class=\"help\">To install bookmarklets, drag the link to your bookmarks\n"
+"toolbar, or right-click the link and add it to your bookmarks. Now you can\n"
+"select the bookmarklet from any page in the site.  Note that some of these\n"
+"bookmarklets require you to be viewing the site from a computer designated\n"
+"as \"internal\" (talk to your system administrator if you aren't sure if\n"
+"your computer is \"internal\").</p>\n"
+msgstr ""
+"\n"
+"<p class=\"help\">Para instalar bookmarklets, arraste o link para sua "
+"barra \n"
+"de bookmarks, ou clique com o lado direito do rato no link e adicione ao "
+"seus bookmarks. Agora pode \n"
+"seleccionar o bookmarklet de qualquer página no site. Note que alguns "
+"destes \n"
+"bookmarklets requerem que visualize o site de um computador designado \n"
+"por \"internal\" (entre em contacto com o seu administrador de sistema se \n"
+"não tiver a certeza se o seu computador é \"internal\").</p>\n"
+
+#: templates/admin_doc/bookmarklets.html:26
+msgid "Documentation for this page"
+msgstr "Documentação desta página"
+
+#: templates/admin_doc/bookmarklets.html:27
+msgid ""
+"Jumps you from any page to the documentation for the view that generates "
+"that page."
+msgstr ""
+"Vai de qualquer página para a documentação da view que gera essa página."
+
+#: templates/admin_doc/bookmarklets.html:29
+msgid "Show object ID"
+msgstr "Mostrar o ID do objeto"
+
+#: templates/admin_doc/bookmarklets.html:30
+msgid ""
+"Shows the content-type and unique ID for pages that represent a single "
+"object."
+msgstr ""
+"Mostra o tipo de conteúdo e o ID único para as páginas que representam um "
+"único objeto."
+
+#: templates/admin_doc/bookmarklets.html:32
+msgid "Edit this object (current window)"
+msgstr "Editar este objeto (janela actual)"
+
+#: templates/admin_doc/bookmarklets.html:33
+msgid "Jumps to the admin page for pages that represent a single object."
+msgstr ""
+"Vai para a página de admin para as páginas que representam um único objeto."
+
+#: templates/admin_doc/bookmarklets.html:35
+msgid "Edit this object (new window)"
+msgstr "Editar este objeto (nova janela)"
+
+#: templates/admin_doc/bookmarklets.html:36
+msgid "As above, but opens the admin page in a new window."
+msgstr "Tal como acima, mas abre a página de admin numa nova janela."
+
+#: templates/admin_doc/model_detail.html:17
+#: templates/admin_doc/model_index.html:11
+msgid "Models"
+msgstr ""
+
+#: templates/admin_doc/template_detail.html:9
+msgid "Templates"
+msgstr ""
+
+#: templates/admin_doc/template_filter_index.html:10
+msgid "Filters"
+msgstr ""
+
+#: templates/admin_doc/template_tag_index.html:10
+msgid "Tags"
+msgstr ""
+
+#: templates/admin_doc/view_detail.html:9
+#: templates/admin_doc/view_index.html:10
+msgid "Views"
+msgstr ""

@@ -25,57 +25,58 @@ from google.appengine._internal.antlr3.compat import set, frozenset
 HIDDEN = BaseRecognizer.HIDDEN
 
 
+FUNCTION=7
 LT=19
-EXPONENT=36
-LETTER=40
-FUZZY=6
-OCTAL_ESC=44
+EXPONENT=37
+LETTER=42
+FUZZY=8
+OCTAL_ESC=46
 FLOAT=27
-NAME_START=38
-NOT=33
-AND=31
+NAME_START=39
+NOT=34
+AND=32
 EOF=-1
 LPAREN=25
-WORD=14
-HAS=7
+WORD=15
+HAS=24
 RPAREN=26
-NAME=16
-ESC_SEQ=37
-DIGIT=34
+NAME=29
+ESC_SEQ=38
+ARGS=4
+DIGIT=35
 EQ=23
-DOT=35
+DOT=36
 NE=22
 GE=20
-T__46=46
 T__47=47
-T__45=45
 T__48=48
-CONJUNCTION=4
-UNICODE_ESC=43
-NAME_MID=39
-NUMBER=11
-HEX_DIGIT=42
-UNDERSCORE=41
-LITERAL=8
+T__49=49
+CONJUNCTION=5
+UNICODE_ESC=45
+NAME_MID=40
+NUMBER=12
+HEX_DIGIT=44
+UNDERSCORE=43
+LITERAL=9
 INT=28
-VALUE=15
-TEXT=30
-PHRASE=29
-RESTRICTION=12
-COLON=24
-DISJUNCTION=5
+VALUE=16
+TEXT=31
+PHRASE=30
+RESTRICTION=13
+DISJUNCTION=6
 WS=17
-NEGATION=9
-OR=32
+NEGATION=10
+OR=33
+NEG=41
 GT=21
-GLOBAL=10
+GLOBAL=11
 LE=18
-STRING=13
+STRING=14
 
 
 class QueryLexer(Lexer):
 
-    grammarFileName = "blaze-out/host/genfiles/apphosting/api/search/genantlr/Query.g"
+    grammarFileName = ""
     antlr_version = version_str_to_tuple("3.1.1")
     antlr_version_str = "3.1.1"
 
@@ -84,78 +85,28 @@ class QueryLexer(Lexer):
             state = RecognizerSharedState()
         Lexer.__init__(self, input, state)
 
-        self.dfa8 = self.DFA8(
-            self, 8,
-            eot = self.DFA8_eot,
-            eof = self.DFA8_eof,
-            min = self.DFA8_min,
-            max = self.DFA8_max,
-            accept = self.DFA8_accept,
-            special = self.DFA8_special,
-            transition = self.DFA8_transition
+        self.dfa12 = self.DFA12(
+            self, 12,
+            eot = self.DFA12_eot,
+            eof = self.DFA12_eof,
+            min = self.DFA12_min,
+            max = self.DFA12_max,
+            accept = self.DFA12_accept,
+            special = self.DFA12_special,
+            transition = self.DFA12_transition
             )
 
-        self.dfa16 = self.DFA16(
-            self, 16,
-            eot = self.DFA16_eot,
-            eof = self.DFA16_eof,
-            min = self.DFA16_min,
-            max = self.DFA16_max,
-            accept = self.DFA16_accept,
-            special = self.DFA16_special,
-            transition = self.DFA16_transition
+        self.dfa20 = self.DFA20(
+            self, 20,
+            eot = self.DFA20_eot,
+            eof = self.DFA20_eof,
+            min = self.DFA20_min,
+            max = self.DFA20_max,
+            accept = self.DFA20_accept,
+            special = self.DFA20_special,
+            transition = self.DFA20_transition
             )
 
-
-
-
-
-
-
-    def mT__45(self, ):
-
-        try:
-            _type = T__45
-            _channel = DEFAULT_CHANNEL
-
-
-
-            pass
-            self.match(43)
-
-
-
-            self._state.type = _type
-            self._state.channel = _channel
-
-        finally:
-
-            pass
-
-
-
-
-
-
-    def mT__46(self, ):
-
-        try:
-            _type = T__46
-            _channel = DEFAULT_CHANNEL
-
-
-
-            pass
-            self.match(126)
-
-
-
-            self._state.type = _type
-            self._state.channel = _channel
-
-        finally:
-
-            pass
 
 
 
@@ -171,7 +122,7 @@ class QueryLexer(Lexer):
 
 
             pass
-            self.match(45)
+            self.match(43)
 
 
 
@@ -196,7 +147,57 @@ class QueryLexer(Lexer):
 
 
             pass
+            self.match(126)
+
+
+
+            self._state.type = _type
+            self._state.channel = _channel
+
+        finally:
+
+            pass
+
+
+
+
+
+
+    def mT__49(self, ):
+
+        try:
+            _type = T__49
+            _channel = DEFAULT_CHANNEL
+
+
+
+            pass
             self.match(44)
+
+
+
+            self._state.type = _type
+            self._state.channel = _channel
+
+        finally:
+
+            pass
+
+
+
+
+
+
+    def mHAS(self, ):
+
+        try:
+            _type = HAS
+            _channel = DEFAULT_CHANNEL
+
+
+
+            pass
+            self.match(58)
 
 
 
@@ -297,56 +298,44 @@ class QueryLexer(Lexer):
 
             pass
 
-            cnt1 = 0
+            alt1 = 2
+            LA1_0 = self.input.LA(1)
+
+            if (LA1_0 == 45) :
+                alt1 = 1
+            if alt1 == 1:
+
+                pass
+                self.match(45)
+
+
+
+
+            cnt2 = 0
             while True:
-                alt1 = 2
-                LA1_0 = self.input.LA(1)
+                alt2 = 2
+                LA2_0 = self.input.LA(1)
 
-                if ((48 <= LA1_0 <= 57)) :
-                    alt1 = 1
+                if ((48 <= LA2_0 <= 57)) :
+                    alt2 = 1
 
 
-                if alt1 == 1:
+                if alt2 == 1:
 
                     pass
                     self.mDIGIT()
 
 
                 else:
-                    if cnt1 >= 1:
+                    if cnt2 >= 1:
                         break
 
-                    eee = EarlyExitException(1, self.input)
+                    eee = EarlyExitException(2, self.input)
                     raise eee
 
-                cnt1 += 1
+                cnt2 += 1
 
 
-
-
-
-            self._state.type = _type
-            self._state.channel = _channel
-
-        finally:
-
-            pass
-
-
-
-
-
-
-    def mCOLON(self, ):
-
-        try:
-            _type = COLON
-            _channel = DEFAULT_CHANNEL
-
-
-
-            pass
-            self.match(58)
 
 
 
@@ -369,78 +358,52 @@ class QueryLexer(Lexer):
             _channel = DEFAULT_CHANNEL
 
 
-            alt8 = 3
-            alt8 = self.dfa8.predict(self.input)
-            if alt8 == 1:
+            alt12 = 3
+            alt12 = self.dfa12.predict(self.input)
+            if alt12 == 1:
 
                 pass
 
-                cnt2 = 0
-                while True:
-                    alt2 = 2
-                    LA2_0 = self.input.LA(1)
+                alt3 = 2
+                LA3_0 = self.input.LA(1)
 
-                    if ((48 <= LA2_0 <= 57)) :
-                        alt2 = 1
-
-
-                    if alt2 == 1:
-
-                        pass
-                        self.mDIGIT()
-
-
-                    else:
-                        if cnt2 >= 1:
-                            break
-
-                        eee = EarlyExitException(2, self.input)
-                        raise eee
-
-                    cnt2 += 1
-
-
-                self.mDOT()
-
-                while True:
-                    alt3 = 2
-                    LA3_0 = self.input.LA(1)
-
-                    if ((48 <= LA3_0 <= 57)) :
-                        alt3 = 1
-
-
-                    if alt3 == 1:
-
-                        pass
-                        self.mDIGIT()
-
-
-                    else:
-                        break
-
-
-
-                alt4 = 2
-                LA4_0 = self.input.LA(1)
-
-                if (LA4_0 == 69 or LA4_0 == 101) :
-                    alt4 = 1
-                if alt4 == 1:
+                if (LA3_0 == 45) :
+                    alt3 = 1
+                if alt3 == 1:
 
                     pass
-                    self.mEXPONENT()
+                    self.match(45)
 
 
 
 
+                cnt4 = 0
+                while True:
+                    alt4 = 2
+                    LA4_0 = self.input.LA(1)
 
-            elif alt8 == 2:
+                    if ((48 <= LA4_0 <= 57)) :
+                        alt4 = 1
 
-                pass
+
+                    if alt4 == 1:
+
+                        pass
+                        self.mDIGIT()
+
+
+                    else:
+                        if cnt4 >= 1:
+                            break
+
+                        eee = EarlyExitException(4, self.input)
+                        raise eee
+
+                    cnt4 += 1
+
+
                 self.mDOT()
 
-                cnt5 = 0
                 while True:
                     alt5 = 2
                     LA5_0 = self.input.LA(1)
@@ -456,13 +419,7 @@ class QueryLexer(Lexer):
 
 
                     else:
-                        if cnt5 >= 1:
-                            break
-
-                        eee = EarlyExitException(5, self.input)
-                        raise eee
-
-                    cnt5 += 1
+                        break
 
 
 
@@ -480,33 +437,104 @@ class QueryLexer(Lexer):
 
 
 
-            elif alt8 == 3:
+            elif alt12 == 2:
 
                 pass
 
-                cnt7 = 0
+                alt7 = 2
+                LA7_0 = self.input.LA(1)
+
+                if (LA7_0 == 45) :
+                    alt7 = 1
+                if alt7 == 1:
+
+                    pass
+                    self.match(45)
+
+
+
+                self.mDOT()
+
+                cnt8 = 0
                 while True:
-                    alt7 = 2
-                    LA7_0 = self.input.LA(1)
+                    alt8 = 2
+                    LA8_0 = self.input.LA(1)
 
-                    if ((48 <= LA7_0 <= 57)) :
-                        alt7 = 1
+                    if ((48 <= LA8_0 <= 57)) :
+                        alt8 = 1
 
 
-                    if alt7 == 1:
+                    if alt8 == 1:
 
                         pass
                         self.mDIGIT()
 
 
                     else:
-                        if cnt7 >= 1:
+                        if cnt8 >= 1:
                             break
 
-                        eee = EarlyExitException(7, self.input)
+                        eee = EarlyExitException(8, self.input)
                         raise eee
 
-                    cnt7 += 1
+                    cnt8 += 1
+
+
+
+                alt9 = 2
+                LA9_0 = self.input.LA(1)
+
+                if (LA9_0 == 69 or LA9_0 == 101) :
+                    alt9 = 1
+                if alt9 == 1:
+
+                    pass
+                    self.mEXPONENT()
+
+
+
+
+
+            elif alt12 == 3:
+
+                pass
+
+                alt10 = 2
+                LA10_0 = self.input.LA(1)
+
+                if (LA10_0 == 45) :
+                    alt10 = 1
+                if alt10 == 1:
+
+                    pass
+                    self.match(45)
+
+
+
+
+                cnt11 = 0
+                while True:
+                    alt11 = 2
+                    LA11_0 = self.input.LA(1)
+
+                    if ((48 <= LA11_0 <= 57)) :
+                        alt11 = 1
+
+
+                    if alt11 == 1:
+
+                        pass
+                        self.mDIGIT()
+
+
+                    else:
+                        if cnt11 >= 1:
+                            break
+
+                        eee = EarlyExitException(11, self.input)
+                        raise eee
+
+                    cnt11 += 1
 
 
                 self.mEXPONENT()
@@ -567,22 +595,22 @@ class QueryLexer(Lexer):
             self.match(34)
 
             while True:
-                alt9 = 3
-                LA9_0 = self.input.LA(1)
+                alt13 = 3
+                LA13_0 = self.input.LA(1)
 
-                if (LA9_0 == 92) :
-                    alt9 = 1
-                elif ((0 <= LA9_0 <= 33) or (35 <= LA9_0 <= 91) or (93 <= LA9_0 <= 65535)) :
-                    alt9 = 2
+                if (LA13_0 == 92) :
+                    alt13 = 1
+                elif ((0 <= LA13_0 <= 33) or (35 <= LA13_0 <= 91) or (93 <= LA13_0 <= 65535)) :
+                    alt13 = 2
 
 
-                if alt9 == 1:
+                if alt13 == 1:
 
                     pass
                     self.mESC_SEQ()
 
 
-                elif alt9 == 2:
+                elif alt13 == 2:
 
                     pass
                     if (0 <= self.input.LA(1) <= 33) or (35 <= self.input.LA(1) <= 91) or (93 <= self.input.LA(1) <= 65535):
@@ -626,14 +654,14 @@ class QueryLexer(Lexer):
             self.mNAME_START()
 
             while True:
-                alt10 = 2
-                LA10_0 = self.input.LA(1)
+                alt14 = 2
+                LA14_0 = self.input.LA(1)
 
-                if ((48 <= LA10_0 <= 57) or (65 <= LA10_0 <= 90) or LA10_0 == 95 or (97 <= LA10_0 <= 122) or (192 <= LA10_0 <= 214) or (216 <= LA10_0 <= 246) or (248 <= LA10_0 <= 8191) or (12352 <= LA10_0 <= 12687) or (13056 <= LA10_0 <= 13183) or (13312 <= LA10_0 <= 15661) or (19968 <= LA10_0 <= 40959) or (63744 <= LA10_0 <= 64255)) :
-                    alt10 = 1
+                if ((48 <= LA14_0 <= 57) or (65 <= LA14_0 <= 90) or LA14_0 == 95 or (97 <= LA14_0 <= 122) or (192 <= LA14_0 <= 214) or (216 <= LA14_0 <= 246) or (248 <= LA14_0 <= 8191) or (12352 <= LA14_0 <= 12687) or (13056 <= LA14_0 <= 13183) or (13312 <= LA14_0 <= 15661) or (19968 <= LA14_0 <= 40959) or (63744 <= LA14_0 <= 64255)) :
+                    alt14 = 1
 
 
-                if alt10 == 1:
+                if alt14 == 1:
 
                     pass
                     self.mNAME_MID()
@@ -858,6 +886,31 @@ class QueryLexer(Lexer):
 
 
 
+    def mNEG(self, ):
+
+        try:
+            _type = NEG
+            _channel = DEFAULT_CHANNEL
+
+
+
+            pass
+            self.match(45)
+
+
+
+            self._state.type = _type
+            self._state.channel = _channel
+
+        finally:
+
+            pass
+
+
+
+
+
+
     def mTEXT(self, ):
 
         try:
@@ -867,7 +920,7 @@ class QueryLexer(Lexer):
 
 
             pass
-            if self.input.LA(1) == 33 or (35 <= self.input.LA(1) <= 39) or self.input.LA(1) == 44 or (46 <= self.input.LA(1) <= 57) or self.input.LA(1) == 59 or (63 <= self.input.LA(1) <= 125) or (256 <= self.input.LA(1) <= 32767):
+            if self.input.LA(1) == 33 or (35 <= self.input.LA(1) <= 39) or (46 <= self.input.LA(1) <= 57) or self.input.LA(1) == 59 or (63 <= self.input.LA(1) <= 125) or (256 <= self.input.LA(1) <= 32767):
                 self.input.consume()
             else:
                 mse = MismatchedSetException(None, self.input)
@@ -876,17 +929,17 @@ class QueryLexer(Lexer):
 
 
             while True:
-                alt11 = 2
-                LA11_0 = self.input.LA(1)
+                alt15 = 2
+                LA15_0 = self.input.LA(1)
 
-                if (LA11_0 == 33 or (35 <= LA11_0 <= 39) or (44 <= LA11_0 <= 57) or LA11_0 == 59 or (63 <= LA11_0 <= 125) or (256 <= LA11_0 <= 32767)) :
-                    alt11 = 1
+                if (LA15_0 == 33 or (35 <= LA15_0 <= 39) or (45 <= LA15_0 <= 57) or LA15_0 == 59 or (63 <= LA15_0 <= 125) or (256 <= LA15_0 <= 32767)) :
+                    alt15 = 1
 
 
-                if alt11 == 1:
+                if alt15 == 1:
 
                     pass
-                    if self.input.LA(1) == 33 or (35 <= self.input.LA(1) <= 39) or (44 <= self.input.LA(1) <= 57) or self.input.LA(1) == 59 or (63 <= self.input.LA(1) <= 125) or (256 <= self.input.LA(1) <= 32767):
+                    if self.input.LA(1) == 33 or (35 <= self.input.LA(1) <= 39) or (45 <= self.input.LA(1) <= 57) or self.input.LA(1) == 59 or (63 <= self.input.LA(1) <= 125) or (256 <= self.input.LA(1) <= 32767):
                         self.input.consume()
                     else:
                         mse = MismatchedSetException(None, self.input)
@@ -1066,12 +1119,12 @@ class QueryLexer(Lexer):
                 raise mse
 
 
-            alt12 = 2
-            LA12_0 = self.input.LA(1)
+            alt16 = 2
+            LA16_0 = self.input.LA(1)
 
-            if (LA12_0 == 43 or LA12_0 == 45) :
-                alt12 = 1
-            if alt12 == 1:
+            if (LA16_0 == 43 or LA16_0 == 45) :
+                alt16 = 1
+            if alt16 == 1:
 
                 pass
                 if self.input.LA(1) == 43 or self.input.LA(1) == 45:
@@ -1085,29 +1138,29 @@ class QueryLexer(Lexer):
 
 
 
-            cnt13 = 0
+            cnt17 = 0
             while True:
-                alt13 = 2
-                LA13_0 = self.input.LA(1)
+                alt17 = 2
+                LA17_0 = self.input.LA(1)
 
-                if ((48 <= LA13_0 <= 57)) :
-                    alt13 = 1
+                if ((48 <= LA17_0 <= 57)) :
+                    alt17 = 1
 
 
-                if alt13 == 1:
+                if alt17 == 1:
 
                     pass
                     self.matchRange(48, 57)
 
 
                 else:
-                    if cnt13 >= 1:
+                    if cnt17 >= 1:
                         break
 
-                    eee = EarlyExitException(13, self.input)
+                    eee = EarlyExitException(17, self.input)
                     raise eee
 
-                cnt13 += 1
+                cnt17 += 1
 
 
 
@@ -1153,28 +1206,28 @@ class QueryLexer(Lexer):
 
         try:
 
-            alt14 = 3
-            LA14_0 = self.input.LA(1)
+            alt18 = 3
+            LA18_0 = self.input.LA(1)
 
-            if (LA14_0 == 92) :
-                LA14 = self.input.LA(2)
-                if LA14 == 34 or LA14 == 39 or LA14 == 92 or LA14 == 98 or LA14 == 102 or LA14 == 110 or LA14 == 114 or LA14 == 116:
-                    alt14 = 1
-                elif LA14 == 117:
-                    alt14 = 2
-                elif LA14 == 48 or LA14 == 49 or LA14 == 50 or LA14 == 51 or LA14 == 52 or LA14 == 53 or LA14 == 54 or LA14 == 55:
-                    alt14 = 3
+            if (LA18_0 == 92) :
+                LA18 = self.input.LA(2)
+                if LA18 == 34 or LA18 == 39 or LA18 == 92 or LA18 == 98 or LA18 == 102 or LA18 == 110 or LA18 == 114 or LA18 == 116:
+                    alt18 = 1
+                elif LA18 == 117:
+                    alt18 = 2
+                elif LA18 == 48 or LA18 == 49 or LA18 == 50 or LA18 == 51 or LA18 == 52 or LA18 == 53 or LA18 == 54 or LA18 == 55:
+                    alt18 = 3
                 else:
-                    nvae = NoViableAltException("", 14, 1, self.input)
+                    nvae = NoViableAltException("", 18, 1, self.input)
 
                     raise nvae
 
             else:
-                nvae = NoViableAltException("", 14, 0, self.input)
+                nvae = NoViableAltException("", 18, 0, self.input)
 
                 raise nvae
 
-            if alt14 == 1:
+            if alt18 == 1:
 
                 pass
                 self.match(92)
@@ -1187,13 +1240,13 @@ class QueryLexer(Lexer):
 
 
 
-            elif alt14 == 2:
+            elif alt18 == 2:
 
                 pass
                 self.mUNICODE_ESC()
 
 
-            elif alt14 == 3:
+            elif alt18 == 3:
 
                 pass
                 self.mOCTAL_ESC()
@@ -1213,42 +1266,42 @@ class QueryLexer(Lexer):
 
         try:
 
-            alt15 = 3
-            LA15_0 = self.input.LA(1)
+            alt19 = 3
+            LA19_0 = self.input.LA(1)
 
-            if (LA15_0 == 92) :
-                LA15_1 = self.input.LA(2)
+            if (LA19_0 == 92) :
+                LA19_1 = self.input.LA(2)
 
-                if ((48 <= LA15_1 <= 51)) :
-                    LA15_2 = self.input.LA(3)
+                if ((48 <= LA19_1 <= 51)) :
+                    LA19_2 = self.input.LA(3)
 
-                    if ((48 <= LA15_2 <= 55)) :
-                        LA15_4 = self.input.LA(4)
+                    if ((48 <= LA19_2 <= 55)) :
+                        LA19_4 = self.input.LA(4)
 
-                        if ((48 <= LA15_4 <= 55)) :
-                            alt15 = 1
+                        if ((48 <= LA19_4 <= 55)) :
+                            alt19 = 1
                         else:
-                            alt15 = 2
+                            alt19 = 2
                     else:
-                        alt15 = 3
-                elif ((52 <= LA15_1 <= 55)) :
-                    LA15_3 = self.input.LA(3)
+                        alt19 = 3
+                elif ((52 <= LA19_1 <= 55)) :
+                    LA19_3 = self.input.LA(3)
 
-                    if ((48 <= LA15_3 <= 55)) :
-                        alt15 = 2
+                    if ((48 <= LA19_3 <= 55)) :
+                        alt19 = 2
                     else:
-                        alt15 = 3
+                        alt19 = 3
                 else:
-                    nvae = NoViableAltException("", 15, 1, self.input)
+                    nvae = NoViableAltException("", 19, 1, self.input)
 
                     raise nvae
 
             else:
-                nvae = NoViableAltException("", 15, 0, self.input)
+                nvae = NoViableAltException("", 19, 0, self.input)
 
                 raise nvae
 
-            if alt15 == 1:
+            if alt19 == 1:
 
                 pass
                 self.match(92)
@@ -1275,7 +1328,7 @@ class QueryLexer(Lexer):
 
 
 
-            elif alt15 == 2:
+            elif alt19 == 2:
 
                 pass
                 self.match(92)
@@ -1295,7 +1348,7 @@ class QueryLexer(Lexer):
 
 
 
-            elif alt15 == 3:
+            elif alt19 == 3:
 
                 pass
                 self.match(92)
@@ -1344,135 +1397,135 @@ class QueryLexer(Lexer):
 
     def mTokens(self):
 
-        alt16 = 22
-        alt16 = self.dfa16.predict(self.input)
-        if alt16 == 1:
-
-            pass
-            self.mT__45()
-
-
-        elif alt16 == 2:
-
-            pass
-            self.mT__46()
-
-
-        elif alt16 == 3:
+        alt20 = 22
+        alt20 = self.dfa20.predict(self.input)
+        if alt20 == 1:
 
             pass
             self.mT__47()
 
 
-        elif alt16 == 4:
+        elif alt20 == 2:
 
             pass
             self.mT__48()
 
 
-        elif alt16 == 5:
+        elif alt20 == 3:
+
+            pass
+            self.mT__49()
+
+
+        elif alt20 == 4:
+
+            pass
+            self.mHAS()
+
+
+        elif alt20 == 5:
 
             pass
             self.mOR()
 
 
-        elif alt16 == 6:
+        elif alt20 == 6:
 
             pass
             self.mAND()
 
 
-        elif alt16 == 7:
+        elif alt20 == 7:
 
             pass
             self.mNOT()
 
 
-        elif alt16 == 8:
+        elif alt20 == 8:
 
             pass
             self.mINT()
 
 
-        elif alt16 == 9:
-
-            pass
-            self.mCOLON()
-
-
-        elif alt16 == 10:
+        elif alt20 == 9:
 
             pass
             self.mFLOAT()
 
 
-        elif alt16 == 11:
+        elif alt20 == 10:
 
             pass
             self.mWS()
 
 
-        elif alt16 == 12:
+        elif alt20 == 11:
 
             pass
             self.mPHRASE()
 
 
-        elif alt16 == 13:
+        elif alt20 == 12:
 
             pass
             self.mNAME()
 
 
-        elif alt16 == 14:
+        elif alt20 == 13:
 
             pass
             self.mLPAREN()
 
 
-        elif alt16 == 15:
+        elif alt20 == 14:
 
             pass
             self.mRPAREN()
 
 
-        elif alt16 == 16:
+        elif alt20 == 15:
 
             pass
             self.mLT()
 
 
-        elif alt16 == 17:
+        elif alt20 == 16:
 
             pass
             self.mGT()
 
 
-        elif alt16 == 18:
+        elif alt20 == 17:
 
             pass
             self.mGE()
 
 
-        elif alt16 == 19:
+        elif alt20 == 18:
 
             pass
             self.mLE()
 
 
-        elif alt16 == 20:
+        elif alt20 == 19:
 
             pass
             self.mNE()
 
 
-        elif alt16 == 21:
+        elif alt20 == 20:
 
             pass
             self.mEQ()
 
 
-        elif alt16 == 22:
+        elif alt20 == 21:
+
+            pass
+            self.mNEG()
+
+
+        elif alt20 == 22:
 
             pass
             self.mTEXT()
@@ -1485,34 +1538,35 @@ class QueryLexer(Lexer):
 
 
 
-    DFA8_eot = DFA.unpack(
-        u"\5\uffff"
+    DFA12_eot = DFA.unpack(
+        u"\6\uffff"
         )
 
-    DFA8_eof = DFA.unpack(
-        u"\5\uffff"
+    DFA12_eof = DFA.unpack(
+        u"\6\uffff"
         )
 
-    DFA8_min = DFA.unpack(
-        u"\2\56\3\uffff"
+    DFA12_min = DFA.unpack(
+        u"\1\55\2\56\3\uffff"
         )
 
-    DFA8_max = DFA.unpack(
-        u"\1\71\1\145\3\uffff"
+    DFA12_max = DFA.unpack(
+        u"\2\71\1\145\3\uffff"
         )
 
-    DFA8_accept = DFA.unpack(
-        u"\2\uffff\1\2\1\1\1\3"
+    DFA12_accept = DFA.unpack(
+        u"\3\uffff\1\2\1\3\1\1"
         )
 
-    DFA8_special = DFA.unpack(
-        u"\5\uffff"
+    DFA12_special = DFA.unpack(
+        u"\6\uffff"
         )
 
 
-    DFA8_transition = [
-        DFA.unpack(u"\1\2\1\uffff\12\1"),
-        DFA.unpack(u"\1\3\1\uffff\12\1\13\uffff\1\4\37\uffff\1\4"),
+    DFA12_transition = [
+        DFA.unpack(u"\1\1\1\3\1\uffff\12\2"),
+        DFA.unpack(u"\1\3\1\uffff\12\2"),
+        DFA.unpack(u"\1\5\1\uffff\12\2\13\uffff\1\4\37\uffff\1\4"),
         DFA.unpack(u""),
         DFA.unpack(u""),
         DFA.unpack(u"")
@@ -1520,46 +1574,46 @@ class QueryLexer(Lexer):
 
 
 
-    DFA8 = DFA
+    DFA12 = DFA
 
 
-    DFA16_eot = DFA.unpack(
-        u"\4\uffff\1\26\3\24\1\33\1\uffff\1\25\2\uffff\1\24\2\uffff\1\41"
-        u"\1\43\1\25\4\uffff\1\45\3\24\1\uffff\1\33\1\25\2\52\6\uffff\1\56"
-        u"\1\57\1\25\1\52\1\uffff\1\52\2\25\2\uffff\1\25\1\52\1\25\1\52"
+    DFA20_eot = DFA.unpack(
+        u"\5\uffff\3\24\1\32\1\35\1\25\2\uffff\1\24\2\uffff\1\43\1\45\1\25"
+        u"\3\uffff\1\47\3\24\1\uffff\1\35\2\uffff\1\25\1\35\2\34\6\uffff"
+        u"\1\57\1\60\1\25\2\34\2\25\2\uffff\1\25\1\34\1\25\1\34"
         )
 
-    DFA16_eof = DFA.unpack(
-        u"\64\uffff"
+    DFA20_eof = DFA.unpack(
+        u"\65\uffff"
         )
 
-    DFA16_min = DFA.unpack(
-        u"\1\11\3\uffff\5\41\1\uffff\1\60\2\uffff\1\41\2\uffff\3\75\4\uffff"
-        u"\4\41\1\uffff\1\41\1\53\2\41\6\uffff\2\41\1\60\1\41\1\uffff\1\41"
-        u"\2\53\2\uffff\1\60\1\41\1\60\1\41"
+    DFA20_min = DFA.unpack(
+        u"\1\11\4\uffff\3\41\1\56\1\41\1\60\2\uffff\1\41\2\uffff\3\75\3\uffff"
+        u"\4\41\1\uffff\1\56\2\uffff\1\53\3\41\6\uffff\2\41\1\60\2\41\2\53"
+        u"\2\uffff\1\60\1\41\1\60\1\41"
         )
 
-    DFA16_max = DFA.unpack(
-        u"\1\ufaff\3\uffff\5\u7fff\1\uffff\1\71\2\uffff\1\u7fff\2\uffff\3"
-        u"\75\4\uffff\1\ufaff\3\u7fff\1\uffff\1\u7fff\1\71\2\u7fff\6\uffff"
-        u"\2\ufaff\1\71\1\u7fff\1\uffff\1\u7fff\2\71\2\uffff\1\71\1\u7fff"
-        u"\1\71\1\u7fff"
+    DFA20_max = DFA.unpack(
+        u"\1\ufaff\4\uffff\3\u7fff\1\71\1\u7fff\1\71\2\uffff\1\u7fff\2\uffff"
+        u"\3\75\3\uffff\1\ufaff\3\u7fff\1\uffff\1\145\2\uffff\1\71\3\u7fff"
+        u"\6\uffff\2\ufaff\1\71\2\u7fff\2\71\2\uffff\1\71\1\u7fff\1\71\1"
+        u"\u7fff"
         )
 
-    DFA16_accept = DFA.unpack(
-        u"\1\uffff\1\1\1\2\1\3\5\uffff\1\11\1\uffff\1\13\1\14\1\uffff\1\16"
-        u"\1\17\3\uffff\1\25\1\15\1\26\1\4\4\uffff\1\10\4\uffff\1\23\1\20"
-        u"\1\22\1\21\1\24\1\5\4\uffff\1\12\3\uffff\1\6\1\7\4\uffff"
+    DFA20_accept = DFA.unpack(
+        u"\1\uffff\1\1\1\2\1\3\1\4\6\uffff\1\12\1\13\1\uffff\1\15\1\16\3"
+        u"\uffff\1\24\1\14\1\26\4\uffff\1\25\1\uffff\1\11\1\10\4\uffff\1"
+        u"\22\1\17\1\21\1\20\1\23\1\5\7\uffff\1\6\1\7\4\uffff"
         )
 
-    DFA16_special = DFA.unpack(
-        u"\64\uffff"
+    DFA20_special = DFA.unpack(
+        u"\65\uffff"
         )
 
 
-    DFA16_transition = [
+    DFA20_transition = [
         DFA.unpack(u"\2\13\2\uffff\1\13\22\uffff\1\13\1\22\1\14\5\25\1\16"
-        u"\1\17\1\uffff\1\1\1\4\1\3\1\12\1\25\12\10\1\11\1\25\1\20\1\23\1"
+        u"\1\17\1\uffff\1\1\1\3\1\10\1\12\1\25\12\11\1\4\1\25\1\20\1\23\1"
         u"\21\2\25\1\6\14\15\1\7\1\5\13\15\4\25\1\15\1\25\32\15\3\25\1\2"
         u"\101\uffff\27\24\1\uffff\37\24\1\uffff\10\24\u1f00\15\u1040\25"
         u"\u0150\15\u0170\25\u0080\15\u0080\25\u092e\15\u10d2\25\u3200\15"
@@ -1567,101 +1621,101 @@ class QueryLexer(Lexer):
         DFA.unpack(u""),
         DFA.unpack(u""),
         DFA.unpack(u""),
-        DFA.unpack(u"\1\25\1\uffff\5\25\4\uffff\16\25\1\uffff\1\25\3\uffff"
-        u"\77\25\u0082\uffff\u7f00\25"),
-        DFA.unpack(u"\1\25\1\uffff\5\25\4\uffff\4\25\12\30\1\uffff\1\25"
-        u"\3\uffff\2\25\21\30\1\27\10\30\4\25\1\30\1\25\32\30\3\25\u0082"
-        u"\uffff\u1f00\30\u1040\25\u0150\30\u0170\25\u0080\30\u0080\25\u092e"
-        u"\30\u10d2\25\u3200\30"),
-        DFA.unpack(u"\1\25\1\uffff\5\25\4\uffff\4\25\12\30\1\uffff\1\25"
-        u"\3\uffff\2\25\15\30\1\31\14\30\4\25\1\30\1\25\32\30\3\25\u0082"
-        u"\uffff\u1f00\30\u1040\25\u0150\30\u0170\25\u0080\30\u0080\25\u092e"
-        u"\30\u10d2\25\u3200\30"),
-        DFA.unpack(u"\1\25\1\uffff\5\25\4\uffff\4\25\12\30\1\uffff\1\25"
-        u"\3\uffff\2\25\16\30\1\32\13\30\4\25\1\30\1\25\32\30\3\25\u0082"
-        u"\uffff\u1f00\30\u1040\25\u0150\30\u0170\25\u0080\30\u0080\25\u092e"
-        u"\30\u10d2\25\u3200\30"),
-        DFA.unpack(u"\1\25\1\uffff\5\25\4\uffff\2\25\1\36\1\25\12\34\1\uffff"
-        u"\1\25\3\uffff\6\25\1\35\37\25\1\35\30\25\u0082\uffff\u7f00\25"),
         DFA.unpack(u""),
-        DFA.unpack(u"\12\37"),
-        DFA.unpack(u""),
-        DFA.unpack(u""),
-        DFA.unpack(u"\1\25\1\uffff\5\25\4\uffff\4\25\12\30\1\uffff\1\25"
-        u"\3\uffff\2\25\32\30\4\25\1\30\1\25\32\30\3\25\u0082\uffff\u1f00"
-        u"\30\u1040\25\u0150\30\u0170\25\u0080\30\u0080\25\u092e\30\u10d2"
-        u"\25\u3200\30"),
+        DFA.unpack(u"\1\25\1\uffff\5\25\5\uffff\3\25\12\27\1\uffff\1\25"
+        u"\3\uffff\2\25\21\27\1\26\10\27\4\25\1\27\1\25\32\27\3\25\u0082"
+        u"\uffff\u1f00\27\u1040\25\u0150\27\u0170\25\u0080\27\u0080\25\u092e"
+        u"\27\u10d2\25\u3200\27"),
+        DFA.unpack(u"\1\25\1\uffff\5\25\5\uffff\3\25\12\27\1\uffff\1\25"
+        u"\3\uffff\2\25\15\27\1\30\14\27\4\25\1\27\1\25\32\27\3\25\u0082"
+        u"\uffff\u1f00\27\u1040\25\u0150\27\u0170\25\u0080\27\u0080\25\u092e"
+        u"\27\u10d2\25\u3200\27"),
+        DFA.unpack(u"\1\25\1\uffff\5\25\5\uffff\3\25\12\27\1\uffff\1\25"
+        u"\3\uffff\2\25\16\27\1\31\13\27\4\25\1\27\1\25\32\27\3\25\u0082"
+        u"\uffff\u1f00\27\u1040\25\u0150\27\u0170\25\u0080\27\u0080\25\u092e"
+        u"\27\u10d2\25\u3200\27"),
+        DFA.unpack(u"\1\34\1\uffff\12\33"),
+        DFA.unpack(u"\1\25\1\uffff\5\25\5\uffff\1\25\1\40\1\25\12\37\1\uffff"
+        u"\1\25\3\uffff\6\25\1\36\37\25\1\36\30\25\u0082\uffff\u7f00\25"),
+        DFA.unpack(u"\12\41"),
         DFA.unpack(u""),
         DFA.unpack(u""),
-        DFA.unpack(u"\1\40"),
+        DFA.unpack(u"\1\25\1\uffff\5\25\5\uffff\3\25\12\27\1\uffff\1\25"
+        u"\3\uffff\2\25\32\27\4\25\1\27\1\25\32\27\3\25\u0082\uffff\u1f00"
+        u"\27\u1040\25\u0150\27\u0170\25\u0080\27\u0080\25\u092e\27\u10d2"
+        u"\25\u3200\27"),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
         DFA.unpack(u"\1\42"),
         DFA.unpack(u"\1\44"),
+        DFA.unpack(u"\1\46"),
         DFA.unpack(u""),
         DFA.unpack(u""),
         DFA.unpack(u""),
-        DFA.unpack(u""),
-        DFA.unpack(u"\1\25\1\uffff\5\25\4\uffff\4\25\12\30\1\uffff\1\25"
-        u"\3\uffff\2\25\32\30\4\25\1\30\1\25\32\30\3\25\102\uffff\27\24\1"
-        u"\uffff\37\24\1\uffff\10\24\u1f00\30\u1040\25\u0150\30\u0170\25"
-        u"\u0080\30\u0080\25\u092e\30\u10d2\25\u3200\30\u2000\24\u5900\uffff"
+        DFA.unpack(u"\1\25\1\uffff\5\25\5\uffff\3\25\12\27\1\uffff\1\25"
+        u"\3\uffff\2\25\32\27\4\25\1\27\1\25\32\27\3\25\102\uffff\27\24\1"
+        u"\uffff\37\24\1\uffff\10\24\u1f00\27\u1040\25\u0150\27\u0170\25"
+        u"\u0080\27\u0080\25\u092e\27\u10d2\25\u3200\27\u2000\24\u5900\uffff"
         u"\u0200\24"),
-        DFA.unpack(u"\1\25\1\uffff\5\25\4\uffff\4\25\12\30\1\uffff\1\25"
-        u"\3\uffff\2\25\32\30\4\25\1\30\1\25\32\30\3\25\u0082\uffff\u1f00"
-        u"\30\u1040\25\u0150\30\u0170\25\u0080\30\u0080\25\u092e\30\u10d2"
-        u"\25\u3200\30"),
-        DFA.unpack(u"\1\25\1\uffff\5\25\4\uffff\4\25\12\30\1\uffff\1\25"
-        u"\3\uffff\2\25\3\30\1\46\26\30\4\25\1\30\1\25\32\30\3\25\u0082\uffff"
-        u"\u1f00\30\u1040\25\u0150\30\u0170\25\u0080\30\u0080\25\u092e\30"
-        u"\u10d2\25\u3200\30"),
-        DFA.unpack(u"\1\25\1\uffff\5\25\4\uffff\4\25\12\30\1\uffff\1\25"
-        u"\3\uffff\2\25\23\30\1\47\6\30\4\25\1\30\1\25\32\30\3\25\u0082\uffff"
-        u"\u1f00\30\u1040\25\u0150\30\u0170\25\u0080\30\u0080\25\u092e\30"
-        u"\u10d2\25\u3200\30"),
+        DFA.unpack(u"\1\25\1\uffff\5\25\5\uffff\3\25\12\27\1\uffff\1\25"
+        u"\3\uffff\2\25\32\27\4\25\1\27\1\25\32\27\3\25\u0082\uffff\u1f00"
+        u"\27\u1040\25\u0150\27\u0170\25\u0080\27\u0080\25\u092e\27\u10d2"
+        u"\25\u3200\27"),
+        DFA.unpack(u"\1\25\1\uffff\5\25\5\uffff\3\25\12\27\1\uffff\1\25"
+        u"\3\uffff\2\25\3\27\1\50\26\27\4\25\1\27\1\25\32\27\3\25\u0082\uffff"
+        u"\u1f00\27\u1040\25\u0150\27\u0170\25\u0080\27\u0080\25\u092e\27"
+        u"\u10d2\25\u3200\27"),
+        DFA.unpack(u"\1\25\1\uffff\5\25\5\uffff\3\25\12\27\1\uffff\1\25"
+        u"\3\uffff\2\25\23\27\1\51\6\27\4\25\1\27\1\25\32\27\3\25\u0082\uffff"
+        u"\u1f00\27\u1040\25\u0150\27\u0170\25\u0080\27\u0080\25\u092e\27"
+        u"\u10d2\25\u3200\27"),
         DFA.unpack(u""),
-        DFA.unpack(u"\1\25\1\uffff\5\25\4\uffff\2\25\1\36\1\25\12\34\1\uffff"
-        u"\1\25\3\uffff\6\25\1\35\37\25\1\35\30\25\u0082\uffff\u7f00\25"),
-        DFA.unpack(u"\1\52\1\uffff\1\50\2\uffff\12\51"),
-        DFA.unpack(u"\1\25\1\uffff\5\25\4\uffff\4\25\12\53\1\uffff\1\25"
-        u"\3\uffff\6\25\1\54\37\25\1\54\30\25\u0082\uffff\u7f00\25"),
-        DFA.unpack(u"\1\25\1\uffff\5\25\4\uffff\4\25\12\37\1\uffff\1\25"
+        DFA.unpack(u"\1\34\1\uffff\12\33\13\uffff\1\34\37\uffff\1\34"),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u"\1\34\1\uffff\1\52\2\uffff\12\53"),
+        DFA.unpack(u"\1\25\1\uffff\5\25\5\uffff\1\25\1\40\1\25\12\37\1\uffff"
+        u"\1\25\3\uffff\6\25\1\36\37\25\1\36\30\25\u0082\uffff\u7f00\25"),
+        DFA.unpack(u"\1\25\1\uffff\5\25\5\uffff\3\25\12\54\1\uffff\1\25"
         u"\3\uffff\6\25\1\55\37\25\1\55\30\25\u0082\uffff\u7f00\25"),
+        DFA.unpack(u"\1\25\1\uffff\5\25\5\uffff\3\25\12\41\1\uffff\1\25"
+        u"\3\uffff\6\25\1\56\37\25\1\56\30\25\u0082\uffff\u7f00\25"),
         DFA.unpack(u""),
         DFA.unpack(u""),
         DFA.unpack(u""),
         DFA.unpack(u""),
         DFA.unpack(u""),
         DFA.unpack(u""),
-        DFA.unpack(u"\1\25\1\uffff\5\25\4\uffff\4\25\12\30\1\uffff\1\25"
-        u"\3\uffff\2\25\32\30\4\25\1\30\1\25\32\30\3\25\102\uffff\27\24\1"
-        u"\uffff\37\24\1\uffff\10\24\u1f00\30\u1040\25\u0150\30\u0170\25"
-        u"\u0080\30\u0080\25\u092e\30\u10d2\25\u3200\30\u2000\24\u5900\uffff"
+        DFA.unpack(u"\1\25\1\uffff\5\25\5\uffff\3\25\12\27\1\uffff\1\25"
+        u"\3\uffff\2\25\32\27\4\25\1\27\1\25\32\27\3\25\102\uffff\27\24\1"
+        u"\uffff\37\24\1\uffff\10\24\u1f00\27\u1040\25\u0150\27\u0170\25"
+        u"\u0080\27\u0080\25\u092e\27\u10d2\25\u3200\27\u2000\24\u5900\uffff"
         u"\u0200\24"),
-        DFA.unpack(u"\1\25\1\uffff\5\25\4\uffff\4\25\12\30\1\uffff\1\25"
-        u"\3\uffff\2\25\32\30\4\25\1\30\1\25\32\30\3\25\102\uffff\27\24\1"
-        u"\uffff\37\24\1\uffff\10\24\u1f00\30\u1040\25\u0150\30\u0170\25"
-        u"\u0080\30\u0080\25\u092e\30\u10d2\25\u3200\30\u2000\24\u5900\uffff"
+        DFA.unpack(u"\1\25\1\uffff\5\25\5\uffff\3\25\12\27\1\uffff\1\25"
+        u"\3\uffff\2\25\32\27\4\25\1\27\1\25\32\27\3\25\102\uffff\27\24\1"
+        u"\uffff\37\24\1\uffff\10\24\u1f00\27\u1040\25\u0150\27\u0170\25"
+        u"\u0080\27\u0080\25\u092e\27\u10d2\25\u3200\27\u2000\24\u5900\uffff"
         u"\u0200\24"),
-        DFA.unpack(u"\12\51"),
-        DFA.unpack(u"\1\25\1\uffff\5\25\4\uffff\4\25\12\51\1\uffff\1\25"
+        DFA.unpack(u"\12\53"),
+        DFA.unpack(u"\1\25\1\uffff\5\25\5\uffff\3\25\12\53\1\uffff\1\25"
         u"\3\uffff\77\25\u0082\uffff\u7f00\25"),
+        DFA.unpack(u"\1\25\1\uffff\5\25\5\uffff\3\25\12\54\1\uffff\1\25"
+        u"\3\uffff\6\25\1\55\37\25\1\55\30\25\u0082\uffff\u7f00\25"),
+        DFA.unpack(u"\1\34\1\uffff\1\61\2\uffff\12\62"),
+        DFA.unpack(u"\1\34\1\uffff\1\63\2\uffff\12\64"),
         DFA.unpack(u""),
-        DFA.unpack(u"\1\25\1\uffff\5\25\4\uffff\4\25\12\53\1\uffff\1\25"
-        u"\3\uffff\6\25\1\54\37\25\1\54\30\25\u0082\uffff\u7f00\25"),
-        DFA.unpack(u"\1\52\1\uffff\1\60\2\uffff\12\61"),
-        DFA.unpack(u"\1\52\1\uffff\1\62\2\uffff\12\63"),
         DFA.unpack(u""),
-        DFA.unpack(u""),
-        DFA.unpack(u"\12\61"),
-        DFA.unpack(u"\1\25\1\uffff\5\25\4\uffff\4\25\12\61\1\uffff\1\25"
+        DFA.unpack(u"\12\62"),
+        DFA.unpack(u"\1\25\1\uffff\5\25\5\uffff\3\25\12\62\1\uffff\1\25"
         u"\3\uffff\77\25\u0082\uffff\u7f00\25"),
-        DFA.unpack(u"\12\63"),
-        DFA.unpack(u"\1\25\1\uffff\5\25\4\uffff\4\25\12\63\1\uffff\1\25"
+        DFA.unpack(u"\12\64"),
+        DFA.unpack(u"\1\25\1\uffff\5\25\5\uffff\3\25\12\64\1\uffff\1\25"
         u"\3\uffff\77\25\u0082\uffff\u7f00\25")
     ]
 
 
 
-    DFA16 = DFA
+    DFA20 = DFA
 
 
 
