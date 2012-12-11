@@ -276,11 +276,8 @@ class APIProxyStubMap(object):
     # This is commented out because the blobstore server uses 
     # the stub map and it re-registers the service that 
     # already exists. It was written with the hope of being 
-    # multithreaded, but it looks like there is only one datastore entry
+    # multithreaded, but there is only one datastore entry
     # when uploading multiple blobs. 
-    # TODO Requires investigation
-    # if we want the blobstore service to be scalable.
-
     # assert not self.__stub_map.has_key(service), repr(service)
     self.ReplaceStub(service, stub)
 
