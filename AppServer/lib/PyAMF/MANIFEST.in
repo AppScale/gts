@@ -1,0 +1,11 @@
+graft doc
+graft pyamf/tests/imports
+prune doc/build
+prune doc/_build
+include distribute_setup.py
+include setupinfo.py
+include *.txt
+global-exclude *.swf
+global-exclude *.pyc
+include cpyamf/*.pyx
+include cpyamf/*.pxd

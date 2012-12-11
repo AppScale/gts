@@ -48,6 +48,29 @@ if _implementation_type != 'python':
 
 
 
+_implementation_version_str = os.getenv(
+    'PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION_VERSION',
+    '1')
+
+
+if _implementation_version_str not in ('1', '2'):
+  raise ValueError(
+      "unsupported PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION_VERSION: '" +
+      _implementation_version_str + "' (supported versions: 1, 2)"
+      )
+
+
+_implementation_version = int(_implementation_version_str)
+
+
+
+
+
+
 
 def Type():
   return _implementation_type
+
+
+def Version():
+  return _implementation_version

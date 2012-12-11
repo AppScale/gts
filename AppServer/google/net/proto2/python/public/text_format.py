@@ -109,7 +109,11 @@ def PrintFieldValue(field, value, out, indent=0,
       PrintMessage(value, out, indent + 2, as_utf8, as_one_line)
       out.write(' ' * indent + '}')
   elif field.cpp_type == descriptor.FieldDescriptor.CPPTYPE_ENUM:
-    out.write(field.enum_type.values_by_number[value].name)
+    enum_value = field.enum_type.values_by_number.get(value, None)
+    if enum_value is not None:
+      out.write(enum_value.name)
+    else:
+      out.write(str(value))
   elif field.cpp_type == descriptor.FieldDescriptor.CPPTYPE_STRING:
     out.write('\"')
     if type(value) is unicode:

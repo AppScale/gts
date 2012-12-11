@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view:EditUserDlgClass xmlns:mx="http://www.adobe.com/2006/mxml"
+					   xmlns:view="org.pyamf.examples.addressbook.components.*"
+					   layout="vertical" title="Edit User" width="600">
+				
+	<mx:Form>
+		<mx:FormItem label="Persistent:">
+			<mx:Label text="{user.isPersistent()}" />
+		</mx:FormItem>
+	
+		<mx:FormItem label="First Name:">
+			<mx:TextInput
+				id="firstName"
+				text="{user.first_name}" />
+		</mx:FormItem>
+		
+		<mx:FormItem label="Last Name:">
+			<mx:TextInput
+				id="lastName"
+				text="{user.last_name}" />
+		</mx:FormItem>
+		<mx:FormItem label="Created:">
+			<mx:Label
+				id="created"
+				text="{user.created}" />
+		</mx:FormItem>
+	</mx:Form>
+	
+	<mx:HRule width="100%"/>
+	
+	<mx:HBox width="100%">
+		<mx:VBox width="100%">
+			<mx:DataGrid
+				id="emails"
+				width="100%"
+				allowMultipleSelection="true"
+				dataProvider="{user.emails}"
+				doubleClickEnabled="true"
+				doubleClick="editEmail()"
+				toolTip="Double click on an e-mail to edit it">
+				<mx:columns>
+					<mx:DataGridColumn headerText="Label" dataField="label"/>
+					<mx:DataGridColumn headerText="E-mail" dataField="email"/>
+				</mx:columns>
+			</mx:DataGrid>
+			
+			<mx:HBox width="100%" horizontalAlign="center" verticalAlign="center">
+				<mx:Button
+					label="Add Email"
+					click="addEmail()"
+					toolTip="Add a new e-mail" />
+				<mx:Button
+					label="Remove Email"
+					click="removeEmails()"
+					toolTip="Remove selected emails" />
+			</mx:HBox>
+		</mx:VBox>
+			
+		<mx:VRule height="100%"/>
+			
+		<mx:VBox width="100%">
+			<mx:DataGrid
+				id="phone_numbers"
+				width="100%"
+				allowMultipleSelection="true"
+				dataProvider="{user.phone_numbers}"
+				doubleClickEnabled="true"
+				doubleClick="editPhone()"
+				toolTip="Double click on a phone number to edit it">
+				<mx:columns>
+					<mx:DataGridColumn headerText="Label" dataField="label"/>
+					<mx:DataGridColumn headerText="Number" dataField="number"/>
+				</mx:columns>
+			</mx:DataGrid>
+		
+			<mx:HBox width="100%" horizontalAlign="center" verticalAlign="center">
+				<mx:Button
+					label="Add Phone"
+					click="addPhone()"
+					toolTip="Add a new phone number" />
+				<mx:Button
+					label="Remove Phone"
+					click="removePhones()"
+					toolTip="Remove selected phone numbers" />
+			</mx:HBox>
+		</mx:VBox>
+	</mx:HBox>
+
+	<mx:HRule width="100%"/>
+
+	<mx:HBox width="100%" horizontalAlign="center" verticalAlign="center">
+		<mx:Button
+			label="Save"
+			click="save()"
+			toolTip="Save user" />
+		<mx:Button
+			label="Close"
+			click="close()"
+			toolTip="Close window" />
+	</mx:HBox>
+	
+</view:EditUserDlgClass>

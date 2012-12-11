@@ -36,9 +36,11 @@
 <h3>Tasks for Queue: {{ queue_name|escape }}</h3>
 
 {% if tasks %}
-  <p>
-  Push the 'Run' button to execute a task manually.
-  </p>
+  {% if is_push_queue %}
+    <p>
+    Push the 'Run' button to execute a task manually.
+    </p>
+  {% endif %}
 
   <table id="ah-tasks" class="ae-table ae-table-striped">
     <thead>
@@ -68,15 +70,17 @@
             {{ task.url|escape }}
           </td>
           <td valign="top">
-            <form id="runform.{{ task.name|escape }}" action="{{ task.url|escape }}" method="{{ task.method|escape }}" onsubmit="(new Webhook('runform.{{ task.name|escape }}')).run(handleTaskResult); return false">
-            <input type="hidden" name="xsrf_token" value="{{ xsrf_token }}"/>
-            <input type="hidden" name="payload" value="{{ task.body|escape }}">
-            {% for header in task.headers %}
-              <input type="hidden" name="header:{{ header.0|escape }}"
-               value="{{ header.1|escape }}"/>
-            {% endfor %}
-            <input type="submit" value="Run"/>
-            </form>
+            {% if is_push_queue %}
+              <form id="runform.{{ task.name|escape }}" action="{{ task.url|escape }}" method="{{ task.method|escape }}" onsubmit="(new Webhook('runform.{{ task.name|escape }}')).run(handleTaskResult); return false">
+              <input type="hidden" name="xsrf_token" value="{{ xsrf_token }}"/>
+              <input type="hidden" name="payload" value="{{ task.body|escape }}">
+              {% for header in task.headers %}
+                <input type="hidden" name="header:{{ header.0|escape }}"
+                 value="{{ header.1|escape }}"/>
+              {% endfor %}
+              <input type="submit" value="Run"/>
+              </form>
+            {% endif %}
           </td>
           <td valign="top">
             <form id="deleteform.{{ task.name|escape }}" action="{{ tasks_path }}" method="post">

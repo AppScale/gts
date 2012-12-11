@@ -216,6 +216,43 @@ class Property(BaseMetadata):
       return key.name()
 
 
+class EntityGroup(BaseMetadata):
+  """Model for __entity_group__ metadata (available in HR datastore only).
+
+  This metadata contains a numeric __version__ property that is guaranteed
+  to increase on every change to the entity group. The version may increase
+  even in the absence of user-visible changes to the entity group. The
+  __entity_group__ entity may not exist None if the entity group was never
+  written to.
+  """
+
+  KIND_NAME = '__entity_group__'
+  ID = 1
+
+  version = db.IntegerProperty(name='__version__')
+
+  @classmethod
+  def key_for_entity(cls, entity_or_key):
+    """Return the metadata key for the entity group containing entity_or_key.
+
+    Use this key to get() the __entity_group__ metadata entity for the
+    entity group containing entity_or_key.
+
+    Args:
+      entity_or_key: a key or entity whose __entity_group__ key you want.
+
+    Returns:
+      The __entity_group__ key for the entity group containing entity_or_key.
+    """
+    if isinstance(entity_or_key, db.Model):
+      key = entity_or_key.key()
+    else:
+      key = entity_or_key
+    while key.parent():
+      key = key.parent()
+    return db.Key.from_path(cls.KIND_NAME, cls.ID, parent=key)
+
+
 def get_namespaces(start=None, end=None):
   """Return all namespaces in the specified range.
 
@@ -309,3 +346,25 @@ def get_representations_of_kind(kind, start=None, end=None):
     result[property.property_name] = property.property_representation
 
   return result
+
+
+def get_entity_group_version(entity_or_key):
+  """Return the version of the entity group containing entity_or_key.
+
+  Args:
+    entity_or_key: a key or entity whose version you want.
+
+  Returns: The version of the entity group containing entity_or_key. This
+    version is guaranteed to increase on every change to the entity
+    group. The version may increase even in the absence of user-visible
+    changes to the entity group. May return None if the entity group was
+    never written to.
+
+    On non-HR datatores, this function returns None.
+  """
+
+  eg = db.get(EntityGroup.key_for_entity(entity_or_key))
+  if eg:
+    return eg.version
+  else:
+    return None
