@@ -151,9 +151,9 @@ EOF
     mkdir -pv $(dirname $DESTFILE)
     echo "Generating $DESTFILE"
     cat <<EOF | tee $DESTFILE || exit 1
-APPSCALE_HOME=${APPSCALE_HOME_RUNTIME}
-EC2_HOME=/usr/local/ec2-api-tools
-JAVA_HOME=/usr/lib/jvm/java-6-openjdk
+APPSCALE_HOME: ${APPSCALE_HOME_RUNTIME}
+EC2_HOME: /usr/local/ec2-api-tools
+JAVA_HOME: /usr/lib/jvm/java-6-openjdk
 EOF
     mkdir -pv /var/log/appscale
     mkdir -pv /var/appscale/

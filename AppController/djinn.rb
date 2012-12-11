@@ -45,9 +45,6 @@ NO_OUTPUT = false
 $:.unshift File.join(File.dirname(__FILE__), "..", "AppDB", "zkappscale")
 require "zookeeper_helper"
 
-environment = YAML.load_file('/etc/appscale/environment.yaml')
-environment.each { |k,v| ENV[k] = v }
-
 # A HTTP client that assumes that responses returned are JSON, and automatically
 # loads them, returning the result. Raises a NoMethodError if the host/URL is 
 # down or otherwise unreachable.

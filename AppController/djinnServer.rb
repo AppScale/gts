@@ -6,6 +6,10 @@ require 'soap/rpc/httpserver'
 require 'webrick/https'
 require 'logger'
 require 'soap/rpc/driver'
+require 'yaml'
+
+environment = YAML.load_file('/etc/appscale/environment.yaml')
+environment.each { |k,v| ENV[k] = v }
 
 APPSCALE_HOME = ENV['APPSCALE_HOME']
 
