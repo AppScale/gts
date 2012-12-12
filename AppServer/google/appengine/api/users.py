@@ -26,15 +26,9 @@ Classes defined here:
   NotAllowedError: UserService exception
 """
 
-
-
-
-
 import os
-import re
 import SOAPpy
 import sys
-import time
 import urllib
 
 from google.appengine.api import apiproxy_stub_map
@@ -266,13 +260,16 @@ CreateLogoutURL = create_logout_url
 
 
 def get_current_user():
+  """ Gets the current user of the current request.
+  Returns:
+    None if there is no user, and a user object if there is
+  """
   try:
     return User()
   except UserNotFoundError:
     return None
 
 GetCurrentUser = get_current_user
-
 
 def is_current_user_admin():
   """Return true if the user making this request is an admin for this
@@ -287,17 +284,35 @@ def is_current_user_admin():
 IsCurrentUserAdmin = is_current_user_admin
 
 def is_current_user_capable(api_name):
+  """ Checks to see if the current user is capable to run a certain API 
+  
+  Args:
+    api_name: A string of the API to check for
+  Returns:
+    True if capable, False if not
+  """
   user = get_current_user()
   if not user:
-    sys.stderr.write("user is not logged in - cannot use api " + api_name + "\n")
+    sys.stderr.write("user is not logged in - cannot use api " + \
+                      api_name + "\n")
     return False
 
   email = user.email()
   return is_user_capable(email, api_name)
 
 def is_user_capable(user, api_name):
+  """ Checks to see if the given user has access to user a particular API.
+  
+  Args:
+    user: The current user email
+    api_name: The API we're checking to see if the user has permission
+  Returns:
+    True is capable, False otherwise
+  """
+
   user = urllib.unquote(user)
-  sys.stderr.write("checking permissions for user " + user + " on api " + api_name + "\n")
+  sys.stderr.write("checking permissions for user " + \
+                   user + " on api " + api_name + "\n")
 
   secret_file = open('/etc/appscale/secret.key', 'r')
   secret = secret_file.read()
@@ -306,27 +321,23 @@ def is_user_capable(user, api_name):
 
   uaserver_file = open('/etc/appscale/hypersoap', 'r')
   uaserver = uaserver_file.read()
-  # uaserver = uaserver[0:-1] # no newline on this file
   uaserver_file.close()
 
-  #sys.stderr.write("will create a connection to https://" + uaserver + ":4343\n")
   server = SOAPpy.SOAPProxy("https://" + uaserver + ":4343")
   capabilities = server.get_capabilities(user, secret)
 
-  # if a non-existant user was specified this will be ['DB_ERROR', 'no user']
+  # If a non-existent user was specified this will be ['DB_ERROR', 'no user']
   # instead of a string with their capabilities
   if not isinstance(capabilities, str):
     return False
 
   capabilities = capabilities.split(":")
 
-  sys.stderr.write("user " + user + " has the following capabilities: " + str(capabilities) + "\n")
+  sys.stderr.write("user " + user + " has the following capabilities: " + \
+                   str(capabilities) + "\n")
 
   if api_name in capabilities:
     return True
   else:
     return False
-
-
-
 

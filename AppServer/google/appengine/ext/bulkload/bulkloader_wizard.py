@@ -23,7 +23,7 @@
 
 Helper functions to call from the bulkloader.yaml.
 The wizard is run by having bulkloader.py download datastore statistics
-(http://code.google.com/appengine/docs/python/datastore/stats.html ,
+(https://developers.google.com/appengine/docs/python/datastore/stats,
 specifically __Stat_PropertyType_PropertyName_Kind__) configured with
 bulkloader_wizard.yaml.
 """

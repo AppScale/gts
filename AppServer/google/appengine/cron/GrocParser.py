@@ -539,9 +539,6 @@ class GrocParser(Parser):
                     pass
                     self.match(self.input, EVERY, self.FOLLOW_EVERY_in_ordinals218)
 
-                    self.ordinal_set = self.ordinal_set.union(allOrdinals)
-
-
 
                 elif alt7 == 2:
 
@@ -549,7 +546,7 @@ class GrocParser(Parser):
 
 
                     pass
-                    self._state.following.append(self.FOLLOW_ordinal_in_ordinals234)
+                    self._state.following.append(self.FOLLOW_ordinal_in_ordinals226)
                     self.ordinal()
 
                     self._state.following.pop()
@@ -565,8 +562,8 @@ class GrocParser(Parser):
                         if alt6 == 1:
 
                             pass
-                            self.match(self.input, COMMA, self.FOLLOW_COMMA_in_ordinals237)
-                            self._state.following.append(self.FOLLOW_ordinal_in_ordinals239)
+                            self.match(self.input, COMMA, self.FOLLOW_COMMA_in_ordinals229)
+                            self._state.following.append(self.FOLLOW_ordinal_in_ordinals231)
                             self.ordinal()
 
                             self._state.following.pop()
@@ -698,7 +695,7 @@ class GrocParser(Parser):
 
 
                 pass
-                self._state.following.append(self.FOLLOW_monthday_in_monthdays322)
+                self._state.following.append(self.FOLLOW_monthday_in_monthdays314)
                 self.monthday()
 
                 self._state.following.pop()
@@ -714,8 +711,8 @@ class GrocParser(Parser):
                     if alt8 == 1:
 
                         pass
-                        self.match(self.input, COMMA, self.FOLLOW_COMMA_in_monthdays326)
-                        self._state.following.append(self.FOLLOW_monthday_in_monthdays328)
+                        self.match(self.input, COMMA, self.FOLLOW_COMMA_in_monthdays318)
+                        self._state.following.append(self.FOLLOW_monthday_in_monthdays320)
                         self.monthday()
 
                         self._state.following.pop()
@@ -810,13 +807,20 @@ class GrocParser(Parser):
                 if alt10 == 1:
 
                     pass
-                    self.match(self.input, DAY, self.FOLLOW_DAY_in_weekdays373)
+                    self.match(self.input, DAY, self.FOLLOW_DAY_in_weekdays365)
 
 
-                    self.weekday_set = set([self.ValueOf(SUNDAY), self.ValueOf(MONDAY),
-                            self.ValueOf(TUESDAY), self.ValueOf(WEDNESDAY),
-                            self.ValueOf(THURSDAY), self.ValueOf(FRIDAY),
-                            self.ValueOf(SATURDAY), self.ValueOf(SUNDAY)])
+                    if self.ordinal_set:
+
+
+                      self.monthday_set = self.ordinal_set
+                      self.ordinal_set = set()
+                    else:
+                      self.ordinal_set = self.ordinal_set.union(allOrdinals)
+                      self.weekday_set = set([self.ValueOf(SUNDAY), self.ValueOf(MONDAY),
+                              self.ValueOf(TUESDAY), self.ValueOf(WEDNESDAY),
+                              self.ValueOf(THURSDAY), self.ValueOf(FRIDAY),
+                              self.ValueOf(SATURDAY), self.ValueOf(SUNDAY)])
 
 
 
@@ -827,7 +831,7 @@ class GrocParser(Parser):
 
 
                     pass
-                    self._state.following.append(self.FOLLOW_weekday_in_weekdays381)
+                    self._state.following.append(self.FOLLOW_weekday_in_weekdays373)
                     self.weekday()
 
                     self._state.following.pop()
@@ -843,8 +847,8 @@ class GrocParser(Parser):
                         if alt9 == 1:
 
                             pass
-                            self.match(self.input, COMMA, self.FOLLOW_COMMA_in_weekdays384)
-                            self._state.following.append(self.FOLLOW_weekday_in_weekdays386)
+                            self.match(self.input, COMMA, self.FOLLOW_COMMA_in_weekdays376)
+                            self._state.following.append(self.FOLLOW_weekday_in_weekdays378)
                             self.weekday()
 
                             self._state.following.pop()
@@ -852,6 +856,12 @@ class GrocParser(Parser):
 
                         else:
                             break
+
+
+
+
+                    if not self.ordinal_set:
+                      self.ordinal_set = self.ordinal_set.union(allOrdinals)
 
 
 
@@ -943,7 +953,7 @@ class GrocParser(Parser):
                 if alt11 == 1:
 
                     pass
-                    self.match(self.input, MONTH, self.FOLLOW_MONTH_in_monthspec466)
+                    self.match(self.input, MONTH, self.FOLLOW_MONTH_in_monthspec459)
 
 
                     self.month_set = self.month_set.union(set([
@@ -959,7 +969,7 @@ class GrocParser(Parser):
                 elif alt11 == 2:
 
                     pass
-                    self._state.following.append(self.FOLLOW_months_in_monthspec476)
+                    self._state.following.append(self.FOLLOW_months_in_monthspec469)
                     self.months()
 
                     self._state.following.pop()
@@ -994,7 +1004,7 @@ class GrocParser(Parser):
 
 
                 pass
-                self._state.following.append(self.FOLLOW_month_in_months493)
+                self._state.following.append(self.FOLLOW_month_in_months486)
                 self.month()
 
                 self._state.following.pop()
@@ -1010,8 +1020,8 @@ class GrocParser(Parser):
                     if alt12 == 1:
 
                         pass
-                        self.match(self.input, COMMA, self.FOLLOW_COMMA_in_months496)
-                        self._state.following.append(self.FOLLOW_month_in_months498)
+                        self.match(self.input, COMMA, self.FOLLOW_COMMA_in_months489)
+                        self._state.following.append(self.FOLLOW_month_in_months491)
                         self.month()
 
                         self._state.following.pop()
@@ -1105,7 +1115,7 @@ class GrocParser(Parser):
                 if alt13 == 1:
 
                     pass
-                    self.match(self.input, QUARTER, self.FOLLOW_QUARTER_in_quarterspec590)
+                    self.match(self.input, QUARTER, self.FOLLOW_QUARTER_in_quarterspec583)
 
 
                     self.month_set = self.month_set.union(set([
@@ -1120,13 +1130,13 @@ class GrocParser(Parser):
 
 
                     pass
-                    self._state.following.append(self.FOLLOW_quarter_ordinals_in_quarterspec602)
+                    self._state.following.append(self.FOLLOW_quarter_ordinals_in_quarterspec595)
                     self.quarter_ordinals()
 
                     self._state.following.pop()
-                    self.match(self.input, MONTH, self.FOLLOW_MONTH_in_quarterspec604)
-                    self.match(self.input, OF, self.FOLLOW_OF_in_quarterspec606)
-                    self.match(self.input, QUARTER, self.FOLLOW_QUARTER_in_quarterspec608)
+                    self.match(self.input, MONTH, self.FOLLOW_MONTH_in_quarterspec597)
+                    self.match(self.input, OF, self.FOLLOW_OF_in_quarterspec599)
+                    self.match(self.input, QUARTER, self.FOLLOW_QUARTER_in_quarterspec601)
 
 
 
@@ -1161,7 +1171,7 @@ class GrocParser(Parser):
 
 
                 pass
-                self._state.following.append(self.FOLLOW_month_of_quarter_ordinal_in_quarter_ordinals627)
+                self._state.following.append(self.FOLLOW_month_of_quarter_ordinal_in_quarter_ordinals620)
                 self.month_of_quarter_ordinal()
 
                 self._state.following.pop()
@@ -1177,8 +1187,8 @@ class GrocParser(Parser):
                     if alt14 == 1:
 
                         pass
-                        self.match(self.input, COMMA, self.FOLLOW_COMMA_in_quarter_ordinals630)
-                        self._state.following.append(self.FOLLOW_month_of_quarter_ordinal_in_quarter_ordinals632)
+                        self.match(self.input, COMMA, self.FOLLOW_COMMA_in_quarter_ordinals623)
+                        self._state.following.append(self.FOLLOW_month_of_quarter_ordinal_in_quarter_ordinals625)
                         self.month_of_quarter_ordinal()
 
                         self._state.following.pop()
@@ -1266,22 +1276,22 @@ class GrocParser(Parser):
 
 
                 pass
-                self.match(self.input, FROM, self.FOLLOW_FROM_in_time_range680)
+                self.match(self.input, FROM, self.FOLLOW_FROM_in_time_range673)
 
 
                 pass
-                start_time=self.match(self.input, TIME, self.FOLLOW_TIME_in_time_range687)
+                start_time=self.match(self.input, TIME, self.FOLLOW_TIME_in_time_range680)
 
                 self.start_time_string = start_time.text
 
 
 
 
-                self.match(self.input, TO, self.FOLLOW_TO_in_time_range698)
+                self.match(self.input, TO, self.FOLLOW_TO_in_time_range691)
 
 
                 pass
-                end_time=self.match(self.input, TIME, self.FOLLOW_TIME_in_time_range705)
+                end_time=self.match(self.input, TIME, self.FOLLOW_TIME_in_time_range698)
 
                 self.end_time_string = end_time.text
 
@@ -1374,39 +1384,39 @@ class GrocParser(Parser):
     FOLLOW_time_range_in_interval176 = frozenset([1])
     FOLLOW_SYNCHRONIZED_in_interval189 = frozenset([1])
     FOLLOW_EVERY_in_ordinals218 = frozenset([1])
-    FOLLOW_ordinal_in_ordinals234 = frozenset([1, 10])
-    FOLLOW_COMMA_in_ordinals237 = frozenset([11, 12, 13, 14, 15, 16])
-    FOLLOW_ordinal_in_ordinals239 = frozenset([1, 10])
-    FOLLOW_set_in_ordinal260 = frozenset([1])
-    FOLLOW_set_in_period299 = frozenset([1])
-    FOLLOW_monthday_in_monthdays322 = frozenset([1, 10])
-    FOLLOW_COMMA_in_monthdays326 = frozenset([7, 8])
-    FOLLOW_monthday_in_monthdays328 = frozenset([1, 10])
-    FOLLOW_set_in_monthday348 = frozenset([1])
-    FOLLOW_DAY_in_weekdays373 = frozenset([1])
-    FOLLOW_weekday_in_weekdays381 = frozenset([1, 10])
-    FOLLOW_COMMA_in_weekdays384 = frozenset([19, 20, 21, 22, 23, 24, 25, 26])
-    FOLLOW_weekday_in_weekdays386 = frozenset([1, 10])
-    FOLLOW_set_in_weekday407 = frozenset([1])
-    FOLLOW_MONTH_in_monthspec466 = frozenset([1])
-    FOLLOW_months_in_monthspec476 = frozenset([1])
-    FOLLOW_month_in_months493 = frozenset([1, 10])
-    FOLLOW_COMMA_in_months496 = frozenset([27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39])
-    FOLLOW_month_in_months498 = frozenset([1, 10])
-    FOLLOW_set_in_month517 = frozenset([1])
-    FOLLOW_QUARTER_in_quarterspec590 = frozenset([1])
-    FOLLOW_quarter_ordinals_in_quarterspec602 = frozenset([27])
-    FOLLOW_MONTH_in_quarterspec604 = frozenset([4])
-    FOLLOW_OF_in_quarterspec606 = frozenset([40])
-    FOLLOW_QUARTER_in_quarterspec608 = frozenset([1])
-    FOLLOW_month_of_quarter_ordinal_in_quarter_ordinals627 = frozenset([1, 10])
-    FOLLOW_COMMA_in_quarter_ordinals630 = frozenset([11, 12, 13, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40])
-    FOLLOW_month_of_quarter_ordinal_in_quarter_ordinals632 = frozenset([1, 10])
-    FOLLOW_set_in_month_of_quarter_ordinal651 = frozenset([1])
-    FOLLOW_FROM_in_time_range680 = frozenset([5])
-    FOLLOW_TIME_in_time_range687 = frozenset([42])
-    FOLLOW_TO_in_time_range698 = frozenset([5])
-    FOLLOW_TIME_in_time_range705 = frozenset([1])
+    FOLLOW_ordinal_in_ordinals226 = frozenset([1, 10])
+    FOLLOW_COMMA_in_ordinals229 = frozenset([11, 12, 13, 14, 15, 16])
+    FOLLOW_ordinal_in_ordinals231 = frozenset([1, 10])
+    FOLLOW_set_in_ordinal252 = frozenset([1])
+    FOLLOW_set_in_period291 = frozenset([1])
+    FOLLOW_monthday_in_monthdays314 = frozenset([1, 10])
+    FOLLOW_COMMA_in_monthdays318 = frozenset([7, 8])
+    FOLLOW_monthday_in_monthdays320 = frozenset([1, 10])
+    FOLLOW_set_in_monthday340 = frozenset([1])
+    FOLLOW_DAY_in_weekdays365 = frozenset([1])
+    FOLLOW_weekday_in_weekdays373 = frozenset([1, 10])
+    FOLLOW_COMMA_in_weekdays376 = frozenset([19, 20, 21, 22, 23, 24, 25, 26])
+    FOLLOW_weekday_in_weekdays378 = frozenset([1, 10])
+    FOLLOW_set_in_weekday400 = frozenset([1])
+    FOLLOW_MONTH_in_monthspec459 = frozenset([1])
+    FOLLOW_months_in_monthspec469 = frozenset([1])
+    FOLLOW_month_in_months486 = frozenset([1, 10])
+    FOLLOW_COMMA_in_months489 = frozenset([27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39])
+    FOLLOW_month_in_months491 = frozenset([1, 10])
+    FOLLOW_set_in_month510 = frozenset([1])
+    FOLLOW_QUARTER_in_quarterspec583 = frozenset([1])
+    FOLLOW_quarter_ordinals_in_quarterspec595 = frozenset([27])
+    FOLLOW_MONTH_in_quarterspec597 = frozenset([4])
+    FOLLOW_OF_in_quarterspec599 = frozenset([40])
+    FOLLOW_QUARTER_in_quarterspec601 = frozenset([1])
+    FOLLOW_month_of_quarter_ordinal_in_quarter_ordinals620 = frozenset([1, 10])
+    FOLLOW_COMMA_in_quarter_ordinals623 = frozenset([11, 12, 13, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40])
+    FOLLOW_month_of_quarter_ordinal_in_quarter_ordinals625 = frozenset([1, 10])
+    FOLLOW_set_in_month_of_quarter_ordinal644 = frozenset([1])
+    FOLLOW_FROM_in_time_range673 = frozenset([5])
+    FOLLOW_TIME_in_time_range680 = frozenset([42])
+    FOLLOW_TO_in_time_range691 = frozenset([5])
+    FOLLOW_TIME_in_time_range698 = frozenset([1])
 
 
 

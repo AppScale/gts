@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view:EditPhoneDlgClass xmlns:mx="http://www.adobe.com/2006/mxml"
+						xmlns:view="org.pyamf.examples.addressbook.components.*"
+						layout="vertical" title="Edit Phone Number">
+				
+	<mx:Form>
+		<mx:FormItem label="Persistent:">
+			<mx:Label text="{phone.isPersistent()}" />
+		</mx:FormItem>
+	
+		<mx:FormItem label="Label:">
+			<mx:TextInput
+				id="phoneLabel"
+				text="{phone.label}" />
+		</mx:FormItem>
+		
+		<mx:FormItem label="Number:">
+			<mx:TextInput
+				id="phoneNumber"
+				text="{phone.number}" />
+		</mx:FormItem>
+	</mx:Form>
+
+	<mx:HBox width="100%" horizontalAlign="center" verticalAlign="center">
+		<mx:Button
+			label="Close"
+			click="close()"
+			toolTip="Close window." />
+	</mx:HBox>
+
+</view:EditPhoneDlgClass>

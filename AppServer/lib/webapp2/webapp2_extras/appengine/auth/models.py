@@ -10,7 +10,10 @@
 """
 import time
 
-from ndb import model
+try:
+    from ndb import model
+except ImportError: # pragma: no cover
+    from google.appengine.ext.ndb import model
 
 from webapp2_extras import auth
 from webapp2_extras import security
@@ -217,6 +220,29 @@ class User(model.Expando):
     def get_id(self):
         """Returns this user's unique ID, which can be an integer or string."""
         return self._key.id()
+
+    def add_auth_id(self, auth_id):
+        """A helper method to add additional auth ids to a User
+
+        :param auth_id:
+            String representing a unique id for the user. Examples:
+
+            - own:username
+            - google:username
+        :returns:
+            A tuple (boolean, info). The boolean indicates if the user
+            was saved. If creation succeeds, ``info`` is the user entity;
+            otherwise it is a list of duplicated unique properties that
+            caused creation to fail.
+        """
+        self.auth_ids.append(auth_id)
+        unique = '%s.auth_id:%s' % (self.__class__.__name__, auth_id)
+        ok = self.unique_model.create(unique)
+        if ok:
+            self.put()
+            return True, self
+        else:
+            return False, ['auth_id']
 
     @classmethod
     def get_by_auth_id(cls, auth_id):

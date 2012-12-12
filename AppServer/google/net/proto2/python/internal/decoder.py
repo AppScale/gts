@@ -565,6 +565,7 @@ def MessageSetItemDecoder(extensions_by_number):
   local_SkipField = SkipField
 
   def DecodeItem(buffer, pos, end, message, field_dict):
+    message_set_item_start = pos
     type_id = -1
     message_start = -1
     message_end = -1
@@ -603,6 +604,11 @@ def MessageSetItemDecoder(extensions_by_number):
 
 
         raise _DecodeError('Unexpected end-group tag.')
+    else:
+      if not message._unknown_fields:
+        message._unknown_fields = []
+      message._unknown_fields.append((MESSAGE_SET_ITEM_TAG,
+                                      buffer[message_set_item_start:pos]))
 
     return pos
 

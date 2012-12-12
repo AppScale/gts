@@ -1,10 +1,10 @@
-This package was debianized by Tim 'mithro' Ansell <mithro@mithis.com> on
-Thu, 12 Nov 2009 11:25:53 +1100.
+This package was debianized by Craig Silverstein <google-gflags@googlegroups.com> on
+Wed, 18 Jan 2012 13:57:39 -0800.
 
-It was downloaded from http://code.google.com/p/google-gflags/downloads/list
+It was downloaded from http://code.google.com/p/python-gflags/downloads/list
 
-Upstream Author: Google Inc. <opensource@google.com>
-Copyright: Google Inc. <opensource@google.com>
+Upstream Author: Google Inc. and others <google-gflags@googlegroups.com>
+Copyright: Google Inc. and others <google-gflags@googlegroups.com> 
 
 License:
 
@@ -37,5 +37,5 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-The Debian packaging is (C) 2009, Tim 'mithro' Ansell <mithro@mithis.com> and
+The Debian packaging is (C) 2011, Tim 'mithro' Ansell <mithro@mithis.com> and
 is licensed under the above.

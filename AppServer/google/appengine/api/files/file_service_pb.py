@@ -57,6 +57,9 @@ class FileServiceErrors(ProtocolBuffer.ProtocolMessage):
   EXISTENCE_ERROR_METADATA_NOT_FOUND =  105
   EXISTENCE_ERROR_METADATA_FOUND =  106
   EXISTENCE_ERROR_SHARDING_MISMATCH =  107
+  FINALIZATION_IN_PROGRESS =  108
+  EXISTENCE_ERROR_OBJECT_NOT_FOUND =  109
+  EXISTENCE_ERROR_BUCKET_NOT_FOUND =  110
   SEQUENCE_KEY_OUT_OF_ORDER =  300
   OUT_OF_BOUNDS =  500
   GLOBS_NOT_SUPPORTED =  600
@@ -94,6 +97,9 @@ class FileServiceErrors(ProtocolBuffer.ProtocolMessage):
     105: "EXISTENCE_ERROR_METADATA_NOT_FOUND",
     106: "EXISTENCE_ERROR_METADATA_FOUND",
     107: "EXISTENCE_ERROR_SHARDING_MISMATCH",
+    108: "FINALIZATION_IN_PROGRESS",
+    109: "EXISTENCE_ERROR_OBJECT_NOT_FOUND",
+    110: "EXISTENCE_ERROR_BUCKET_NOT_FOUND",
     300: "SEQUENCE_KEY_OUT_OF_ORDER",
     500: "OUT_OF_BOUNDS",
     600: "GLOBS_NOT_SUPPORTED",
@@ -319,6 +325,8 @@ class KeyValue(ProtocolBuffer.ProtocolMessage):
 class KeyValues(ProtocolBuffer.ProtocolMessage):
   has_key_ = 0
   key_ = ""
+  has_partial_ = 0
+  partial_ = 0
 
   def __init__(self, contents=None):
     self.value_ = []
@@ -352,11 +360,25 @@ class KeyValues(ProtocolBuffer.ProtocolMessage):
   def clear_value(self):
     self.value_ = []
 
+  def partial(self): return self.partial_
+
+  def set_partial(self, x):
+    self.has_partial_ = 1
+    self.partial_ = x
+
+  def clear_partial(self):
+    if self.has_partial_:
+      self.has_partial_ = 0
+      self.partial_ = 0
+
+  def has_partial(self): return self.has_partial_
+
 
   def MergeFrom(self, x):
     assert x is not self
     if (x.has_key()): self.set_key(x.key())
     for i in xrange(x.value_size()): self.add_value(x.value(i))
+    if (x.has_partial()): self.set_partial(x.partial())
 
   def Equals(self, x):
     if x is self: return 1
@@ -365,6 +387,8 @@ class KeyValues(ProtocolBuffer.ProtocolMessage):
     if len(self.value_) != len(x.value_): return 0
     for e1, e2 in zip(self.value_, x.value_):
       if e1 != e2: return 0
+    if self.has_partial_ != x.has_partial_: return 0
+    if self.has_partial_ and self.partial_ != x.partial_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -380,6 +404,7 @@ class KeyValues(ProtocolBuffer.ProtocolMessage):
     n += self.lengthString(len(self.key_))
     n += 1 * len(self.value_)
     for i in xrange(len(self.value_)): n += self.lengthString(len(self.value_[i]))
+    if (self.has_partial_): n += 2
     return n + 1
 
   def ByteSizePartial(self):
@@ -389,11 +414,13 @@ class KeyValues(ProtocolBuffer.ProtocolMessage):
       n += self.lengthString(len(self.key_))
     n += 1 * len(self.value_)
     for i in xrange(len(self.value_)): n += self.lengthString(len(self.value_[i]))
+    if (self.has_partial_): n += 2
     return n
 
   def Clear(self):
     self.clear_key()
     self.clear_value()
+    self.clear_partial()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(10)
@@ -401,6 +428,9 @@ class KeyValues(ProtocolBuffer.ProtocolMessage):
     for i in xrange(len(self.value_)):
       out.putVarInt32(18)
       out.putPrefixedString(self.value_[i])
+    if (self.has_partial_):
+      out.putVarInt32(24)
+      out.putBoolean(self.partial_)
 
   def OutputPartial(self, out):
     if (self.has_key_):
@@ -409,6 +439,9 @@ class KeyValues(ProtocolBuffer.ProtocolMessage):
     for i in xrange(len(self.value_)):
       out.putVarInt32(18)
       out.putPrefixedString(self.value_[i])
+    if (self.has_partial_):
+      out.putVarInt32(24)
+      out.putBoolean(self.partial_)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -418,6 +451,9 @@ class KeyValues(ProtocolBuffer.ProtocolMessage):
         continue
       if tt == 18:
         self.add_value(d.getPrefixedString())
+        continue
+      if tt == 24:
+        self.set_partial(d.getBoolean())
         continue
 
 
@@ -434,6 +470,7 @@ class KeyValues(ProtocolBuffer.ProtocolMessage):
       if printElemNumber: elm="(%d)" % cnt
       res+=prefix+("value%s: %s\n" % (elm, self.DebugFormatString(e)))
       cnt+=1
+    if self.has_partial_: res+=prefix+("partial: %s\n" % self.DebugFormatBool(self.partial_))
     return res
 
 
@@ -442,18 +479,21 @@ class KeyValues(ProtocolBuffer.ProtocolMessage):
 
   kkey = 1
   kvalue = 2
+  kpartial = 3
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
     1: "key",
     2: "value",
-  }, 2)
+    3: "partial",
+  }, 3)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
     1: ProtocolBuffer.Encoder.STRING,
     2: ProtocolBuffer.Encoder.STRING,
-  }, 2, ProtocolBuffer.Encoder.MAX_TYPE)
+    3: ProtocolBuffer.Encoder.NUMERIC,
+  }, 3, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
@@ -3370,11 +3410,9 @@ class ReadKeyValueResponse(ProtocolBuffer.ProtocolMessage):
 class ShuffleEnums(ProtocolBuffer.ProtocolMessage):
 
 
-  CSV_INPUT    =    0
   RECORDS_KEY_VALUE_PROTO_INPUT =    1
 
   _InputFormat_NAMES = {
-    0: "CSV_INPUT",
     1: "RECORDS_KEY_VALUE_PROTO_INPUT",
   }
 
@@ -3383,11 +3421,9 @@ class ShuffleEnums(ProtocolBuffer.ProtocolMessage):
 
 
 
-  CSV_OUTPUT   =    0
   RECORDS_KEY_MULTI_VALUE_PROTO_OUTPUT =    1
 
   _OutputFormat_NAMES = {
-    0: "CSV_OUTPUT",
     1: "RECORDS_KEY_MULTI_VALUE_PROTO_OUTPUT",
   }
 
@@ -3483,7 +3519,7 @@ class ShuffleEnums(ProtocolBuffer.ProtocolMessage):
   _PROTO_DESCRIPTOR_NAME = 'apphosting.files.ShuffleEnums'
 class ShuffleInputSpecification(ProtocolBuffer.ProtocolMessage):
   has_format_ = 0
-  format_ = 0
+  format_ = 1
   has_path_ = 0
   path_ = ""
 
@@ -3499,7 +3535,7 @@ class ShuffleInputSpecification(ProtocolBuffer.ProtocolMessage):
   def clear_format(self):
     if self.has_format_:
       self.has_format_ = 0
-      self.format_ = 0
+      self.format_ = 1
 
   def has_format(self): return self.has_format_
 
@@ -3617,7 +3653,7 @@ class ShuffleInputSpecification(ProtocolBuffer.ProtocolMessage):
   _PROTO_DESCRIPTOR_NAME = 'apphosting.files.ShuffleInputSpecification'
 class ShuffleOutputSpecification(ProtocolBuffer.ProtocolMessage):
   has_format_ = 0
-  format_ = 0
+  format_ = 1
 
   def __init__(self, contents=None):
     self.path_ = []
@@ -3632,7 +3668,7 @@ class ShuffleOutputSpecification(ProtocolBuffer.ProtocolMessage):
   def clear_format(self):
     if self.has_format_:
       self.has_format_ = 0
-      self.format_ = 0
+      self.format_ = 1
 
   def has_format(self): return self.has_format_
 
@@ -4738,7 +4774,638 @@ class GetCapabilitiesResponse(ProtocolBuffer.ProtocolMessage):
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
   _PROTO_DESCRIPTOR_NAME = 'apphosting.files.GetCapabilitiesResponse'
+class FinalizeRequest(ProtocolBuffer.ProtocolMessage):
+  has_filename_ = 0
+  filename_ = ""
+
+  def __init__(self, contents=None):
+    if contents is not None: self.MergeFromString(contents)
+
+  def filename(self): return self.filename_
+
+  def set_filename(self, x):
+    self.has_filename_ = 1
+    self.filename_ = x
+
+  def clear_filename(self):
+    if self.has_filename_:
+      self.has_filename_ = 0
+      self.filename_ = ""
+
+  def has_filename(self): return self.has_filename_
+
+
+  def MergeFrom(self, x):
+    assert x is not self
+    if (x.has_filename()): self.set_filename(x.filename())
+
+  def Equals(self, x):
+    if x is self: return 1
+    if self.has_filename_ != x.has_filename_: return 0
+    if self.has_filename_ and self.filename_ != x.filename_: return 0
+    return 1
+
+  def IsInitialized(self, debug_strs=None):
+    initialized = 1
+    if (not self.has_filename_):
+      initialized = 0
+      if debug_strs is not None:
+        debug_strs.append('Required field: filename not set.')
+    return initialized
+
+  def ByteSize(self):
+    n = 0
+    n += self.lengthString(len(self.filename_))
+    return n + 1
+
+  def ByteSizePartial(self):
+    n = 0
+    if (self.has_filename_):
+      n += 1
+      n += self.lengthString(len(self.filename_))
+    return n
+
+  def Clear(self):
+    self.clear_filename()
+
+  def OutputUnchecked(self, out):
+    out.putVarInt32(10)
+    out.putPrefixedString(self.filename_)
+
+  def OutputPartial(self, out):
+    if (self.has_filename_):
+      out.putVarInt32(10)
+      out.putPrefixedString(self.filename_)
+
+  def TryMerge(self, d):
+    while d.avail() > 0:
+      tt = d.getVarInt32()
+      if tt == 10:
+        self.set_filename(d.getPrefixedString())
+        continue
+
+
+      if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
+      d.skipData(tt)
+
+
+  def __str__(self, prefix="", printElemNumber=0):
+    res=""
+    if self.has_filename_: res+=prefix+("filename: %s\n" % self.DebugFormatString(self.filename_))
+    return res
+
+
+  def _BuildTagLookupTable(sparse, maxtag, default=None):
+    return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
+
+  kfilename = 1
+
+  _TEXT = _BuildTagLookupTable({
+    0: "ErrorCode",
+    1: "filename",
+  }, 1)
+
+  _TYPES = _BuildTagLookupTable({
+    0: ProtocolBuffer.Encoder.NUMERIC,
+    1: ProtocolBuffer.Encoder.STRING,
+  }, 1, ProtocolBuffer.Encoder.MAX_TYPE)
+
+
+  _STYLE = """"""
+  _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.files.FinalizeRequest'
+class FinalizeResponse(ProtocolBuffer.ProtocolMessage):
+
+  def __init__(self, contents=None):
+    pass
+    if contents is not None: self.MergeFromString(contents)
+
+
+  def MergeFrom(self, x):
+    assert x is not self
+
+  def Equals(self, x):
+    if x is self: return 1
+    return 1
+
+  def IsInitialized(self, debug_strs=None):
+    initialized = 1
+    return initialized
+
+  def ByteSize(self):
+    n = 0
+    return n
+
+  def ByteSizePartial(self):
+    n = 0
+    return n
+
+  def Clear(self):
+    pass
+
+  def OutputUnchecked(self, out):
+    pass
+
+  def OutputPartial(self, out):
+    pass
+
+  def TryMerge(self, d):
+    while d.avail() > 0:
+      tt = d.getVarInt32()
+
+
+      if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
+      d.skipData(tt)
+
+
+  def __str__(self, prefix="", printElemNumber=0):
+    res=""
+    return res
+
+
+  def _BuildTagLookupTable(sparse, maxtag, default=None):
+    return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
+
+
+  _TEXT = _BuildTagLookupTable({
+    0: "ErrorCode",
+  }, 0)
+
+  _TYPES = _BuildTagLookupTable({
+    0: ProtocolBuffer.Encoder.NUMERIC,
+  }, 0, ProtocolBuffer.Encoder.MAX_TYPE)
+
+
+  _STYLE = """"""
+  _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.files.FinalizeResponse'
+class GetDefaultGsBucketNameRequest(ProtocolBuffer.ProtocolMessage):
+
+  def __init__(self, contents=None):
+    pass
+    if contents is not None: self.MergeFromString(contents)
+
+
+  def MergeFrom(self, x):
+    assert x is not self
+
+  def Equals(self, x):
+    if x is self: return 1
+    return 1
+
+  def IsInitialized(self, debug_strs=None):
+    initialized = 1
+    return initialized
+
+  def ByteSize(self):
+    n = 0
+    return n
+
+  def ByteSizePartial(self):
+    n = 0
+    return n
+
+  def Clear(self):
+    pass
+
+  def OutputUnchecked(self, out):
+    pass
+
+  def OutputPartial(self, out):
+    pass
+
+  def TryMerge(self, d):
+    while d.avail() > 0:
+      tt = d.getVarInt32()
+
+
+      if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
+      d.skipData(tt)
+
+
+  def __str__(self, prefix="", printElemNumber=0):
+    res=""
+    return res
+
+
+  def _BuildTagLookupTable(sparse, maxtag, default=None):
+    return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
+
+
+  _TEXT = _BuildTagLookupTable({
+    0: "ErrorCode",
+  }, 0)
+
+  _TYPES = _BuildTagLookupTable({
+    0: ProtocolBuffer.Encoder.NUMERIC,
+  }, 0, ProtocolBuffer.Encoder.MAX_TYPE)
+
+
+  _STYLE = """"""
+  _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.files.GetDefaultGsBucketNameRequest'
+class GetDefaultGsBucketNameResponse(ProtocolBuffer.ProtocolMessage):
+  has_default_gs_bucket_name_ = 0
+  default_gs_bucket_name_ = ""
+
+  def __init__(self, contents=None):
+    if contents is not None: self.MergeFromString(contents)
+
+  def default_gs_bucket_name(self): return self.default_gs_bucket_name_
+
+  def set_default_gs_bucket_name(self, x):
+    self.has_default_gs_bucket_name_ = 1
+    self.default_gs_bucket_name_ = x
+
+  def clear_default_gs_bucket_name(self):
+    if self.has_default_gs_bucket_name_:
+      self.has_default_gs_bucket_name_ = 0
+      self.default_gs_bucket_name_ = ""
+
+  def has_default_gs_bucket_name(self): return self.has_default_gs_bucket_name_
+
+
+  def MergeFrom(self, x):
+    assert x is not self
+    if (x.has_default_gs_bucket_name()): self.set_default_gs_bucket_name(x.default_gs_bucket_name())
+
+  def Equals(self, x):
+    if x is self: return 1
+    if self.has_default_gs_bucket_name_ != x.has_default_gs_bucket_name_: return 0
+    if self.has_default_gs_bucket_name_ and self.default_gs_bucket_name_ != x.default_gs_bucket_name_: return 0
+    return 1
+
+  def IsInitialized(self, debug_strs=None):
+    initialized = 1
+    return initialized
+
+  def ByteSize(self):
+    n = 0
+    if (self.has_default_gs_bucket_name_): n += 1 + self.lengthString(len(self.default_gs_bucket_name_))
+    return n
+
+  def ByteSizePartial(self):
+    n = 0
+    if (self.has_default_gs_bucket_name_): n += 1 + self.lengthString(len(self.default_gs_bucket_name_))
+    return n
+
+  def Clear(self):
+    self.clear_default_gs_bucket_name()
+
+  def OutputUnchecked(self, out):
+    if (self.has_default_gs_bucket_name_):
+      out.putVarInt32(10)
+      out.putPrefixedString(self.default_gs_bucket_name_)
+
+  def OutputPartial(self, out):
+    if (self.has_default_gs_bucket_name_):
+      out.putVarInt32(10)
+      out.putPrefixedString(self.default_gs_bucket_name_)
+
+  def TryMerge(self, d):
+    while d.avail() > 0:
+      tt = d.getVarInt32()
+      if tt == 10:
+        self.set_default_gs_bucket_name(d.getPrefixedString())
+        continue
+
+
+      if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
+      d.skipData(tt)
+
+
+  def __str__(self, prefix="", printElemNumber=0):
+    res=""
+    if self.has_default_gs_bucket_name_: res+=prefix+("default_gs_bucket_name: %s\n" % self.DebugFormatString(self.default_gs_bucket_name_))
+    return res
+
+
+  def _BuildTagLookupTable(sparse, maxtag, default=None):
+    return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
+
+  kdefault_gs_bucket_name = 1
+
+  _TEXT = _BuildTagLookupTable({
+    0: "ErrorCode",
+    1: "default_gs_bucket_name",
+  }, 1)
+
+  _TYPES = _BuildTagLookupTable({
+    0: ProtocolBuffer.Encoder.NUMERIC,
+    1: ProtocolBuffer.Encoder.STRING,
+  }, 1, ProtocolBuffer.Encoder.MAX_TYPE)
+
+
+  _STYLE = """"""
+  _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.files.GetDefaultGsBucketNameResponse'
+class ListDirRequest(ProtocolBuffer.ProtocolMessage):
+  has_path_ = 0
+  path_ = ""
+  has_marker_ = 0
+  marker_ = ""
+  has_max_keys_ = 0
+  max_keys_ = 0
+  has_prefix_ = 0
+  prefix_ = ""
+
+  def __init__(self, contents=None):
+    if contents is not None: self.MergeFromString(contents)
+
+  def path(self): return self.path_
+
+  def set_path(self, x):
+    self.has_path_ = 1
+    self.path_ = x
+
+  def clear_path(self):
+    if self.has_path_:
+      self.has_path_ = 0
+      self.path_ = ""
+
+  def has_path(self): return self.has_path_
+
+  def marker(self): return self.marker_
+
+  def set_marker(self, x):
+    self.has_marker_ = 1
+    self.marker_ = x
+
+  def clear_marker(self):
+    if self.has_marker_:
+      self.has_marker_ = 0
+      self.marker_ = ""
+
+  def has_marker(self): return self.has_marker_
+
+  def max_keys(self): return self.max_keys_
+
+  def set_max_keys(self, x):
+    self.has_max_keys_ = 1
+    self.max_keys_ = x
+
+  def clear_max_keys(self):
+    if self.has_max_keys_:
+      self.has_max_keys_ = 0
+      self.max_keys_ = 0
+
+  def has_max_keys(self): return self.has_max_keys_
+
+  def prefix(self): return self.prefix_
+
+  def set_prefix(self, x):
+    self.has_prefix_ = 1
+    self.prefix_ = x
+
+  def clear_prefix(self):
+    if self.has_prefix_:
+      self.has_prefix_ = 0
+      self.prefix_ = ""
+
+  def has_prefix(self): return self.has_prefix_
+
+
+  def MergeFrom(self, x):
+    assert x is not self
+    if (x.has_path()): self.set_path(x.path())
+    if (x.has_marker()): self.set_marker(x.marker())
+    if (x.has_max_keys()): self.set_max_keys(x.max_keys())
+    if (x.has_prefix()): self.set_prefix(x.prefix())
+
+  def Equals(self, x):
+    if x is self: return 1
+    if self.has_path_ != x.has_path_: return 0
+    if self.has_path_ and self.path_ != x.path_: return 0
+    if self.has_marker_ != x.has_marker_: return 0
+    if self.has_marker_ and self.marker_ != x.marker_: return 0
+    if self.has_max_keys_ != x.has_max_keys_: return 0
+    if self.has_max_keys_ and self.max_keys_ != x.max_keys_: return 0
+    if self.has_prefix_ != x.has_prefix_: return 0
+    if self.has_prefix_ and self.prefix_ != x.prefix_: return 0
+    return 1
+
+  def IsInitialized(self, debug_strs=None):
+    initialized = 1
+    if (not self.has_path_):
+      initialized = 0
+      if debug_strs is not None:
+        debug_strs.append('Required field: path not set.')
+    return initialized
+
+  def ByteSize(self):
+    n = 0
+    n += self.lengthString(len(self.path_))
+    if (self.has_marker_): n += 1 + self.lengthString(len(self.marker_))
+    if (self.has_max_keys_): n += 1 + self.lengthVarInt64(self.max_keys_)
+    if (self.has_prefix_): n += 1 + self.lengthString(len(self.prefix_))
+    return n + 1
+
+  def ByteSizePartial(self):
+    n = 0
+    if (self.has_path_):
+      n += 1
+      n += self.lengthString(len(self.path_))
+    if (self.has_marker_): n += 1 + self.lengthString(len(self.marker_))
+    if (self.has_max_keys_): n += 1 + self.lengthVarInt64(self.max_keys_)
+    if (self.has_prefix_): n += 1 + self.lengthString(len(self.prefix_))
+    return n
+
+  def Clear(self):
+    self.clear_path()
+    self.clear_marker()
+    self.clear_max_keys()
+    self.clear_prefix()
+
+  def OutputUnchecked(self, out):
+    out.putVarInt32(10)
+    out.putPrefixedString(self.path_)
+    if (self.has_marker_):
+      out.putVarInt32(18)
+      out.putPrefixedString(self.marker_)
+    if (self.has_max_keys_):
+      out.putVarInt32(24)
+      out.putVarInt64(self.max_keys_)
+    if (self.has_prefix_):
+      out.putVarInt32(34)
+      out.putPrefixedString(self.prefix_)
+
+  def OutputPartial(self, out):
+    if (self.has_path_):
+      out.putVarInt32(10)
+      out.putPrefixedString(self.path_)
+    if (self.has_marker_):
+      out.putVarInt32(18)
+      out.putPrefixedString(self.marker_)
+    if (self.has_max_keys_):
+      out.putVarInt32(24)
+      out.putVarInt64(self.max_keys_)
+    if (self.has_prefix_):
+      out.putVarInt32(34)
+      out.putPrefixedString(self.prefix_)
+
+  def TryMerge(self, d):
+    while d.avail() > 0:
+      tt = d.getVarInt32()
+      if tt == 10:
+        self.set_path(d.getPrefixedString())
+        continue
+      if tt == 18:
+        self.set_marker(d.getPrefixedString())
+        continue
+      if tt == 24:
+        self.set_max_keys(d.getVarInt64())
+        continue
+      if tt == 34:
+        self.set_prefix(d.getPrefixedString())
+        continue
+
+
+      if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
+      d.skipData(tt)
+
+
+  def __str__(self, prefix="", printElemNumber=0):
+    res=""
+    if self.has_path_: res+=prefix+("path: %s\n" % self.DebugFormatString(self.path_))
+    if self.has_marker_: res+=prefix+("marker: %s\n" % self.DebugFormatString(self.marker_))
+    if self.has_max_keys_: res+=prefix+("max_keys: %s\n" % self.DebugFormatInt64(self.max_keys_))
+    if self.has_prefix_: res+=prefix+("prefix: %s\n" % self.DebugFormatString(self.prefix_))
+    return res
+
+
+  def _BuildTagLookupTable(sparse, maxtag, default=None):
+    return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
+
+  kpath = 1
+  kmarker = 2
+  kmax_keys = 3
+  kprefix = 4
+
+  _TEXT = _BuildTagLookupTable({
+    0: "ErrorCode",
+    1: "path",
+    2: "marker",
+    3: "max_keys",
+    4: "prefix",
+  }, 4)
+
+  _TYPES = _BuildTagLookupTable({
+    0: ProtocolBuffer.Encoder.NUMERIC,
+    1: ProtocolBuffer.Encoder.STRING,
+    2: ProtocolBuffer.Encoder.STRING,
+    3: ProtocolBuffer.Encoder.NUMERIC,
+    4: ProtocolBuffer.Encoder.STRING,
+  }, 4, ProtocolBuffer.Encoder.MAX_TYPE)
+
+
+  _STYLE = """"""
+  _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.files.ListDirRequest'
+class ListDirResponse(ProtocolBuffer.ProtocolMessage):
+
+  def __init__(self, contents=None):
+    self.filenames_ = []
+    if contents is not None: self.MergeFromString(contents)
+
+  def filenames_size(self): return len(self.filenames_)
+  def filenames_list(self): return self.filenames_
+
+  def filenames(self, i):
+    return self.filenames_[i]
+
+  def set_filenames(self, i, x):
+    self.filenames_[i] = x
+
+  def add_filenames(self, x):
+    self.filenames_.append(x)
+
+  def clear_filenames(self):
+    self.filenames_ = []
+
+
+  def MergeFrom(self, x):
+    assert x is not self
+    for i in xrange(x.filenames_size()): self.add_filenames(x.filenames(i))
+
+  def Equals(self, x):
+    if x is self: return 1
+    if len(self.filenames_) != len(x.filenames_): return 0
+    for e1, e2 in zip(self.filenames_, x.filenames_):
+      if e1 != e2: return 0
+    return 1
+
+  def IsInitialized(self, debug_strs=None):
+    initialized = 1
+    return initialized
+
+  def ByteSize(self):
+    n = 0
+    n += 1 * len(self.filenames_)
+    for i in xrange(len(self.filenames_)): n += self.lengthString(len(self.filenames_[i]))
+    return n
+
+  def ByteSizePartial(self):
+    n = 0
+    n += 1 * len(self.filenames_)
+    for i in xrange(len(self.filenames_)): n += self.lengthString(len(self.filenames_[i]))
+    return n
+
+  def Clear(self):
+    self.clear_filenames()
+
+  def OutputUnchecked(self, out):
+    for i in xrange(len(self.filenames_)):
+      out.putVarInt32(10)
+      out.putPrefixedString(self.filenames_[i])
+
+  def OutputPartial(self, out):
+    for i in xrange(len(self.filenames_)):
+      out.putVarInt32(10)
+      out.putPrefixedString(self.filenames_[i])
+
+  def TryMerge(self, d):
+    while d.avail() > 0:
+      tt = d.getVarInt32()
+      if tt == 10:
+        self.add_filenames(d.getPrefixedString())
+        continue
+
+
+      if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
+      d.skipData(tt)
+
+
+  def __str__(self, prefix="", printElemNumber=0):
+    res=""
+    cnt=0
+    for e in self.filenames_:
+      elm=""
+      if printElemNumber: elm="(%d)" % cnt
+      res+=prefix+("filenames%s: %s\n" % (elm, self.DebugFormatString(e)))
+      cnt+=1
+    return res
+
+
+  def _BuildTagLookupTable(sparse, maxtag, default=None):
+    return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
+
+  kfilenames = 1
+
+  _TEXT = _BuildTagLookupTable({
+    0: "ErrorCode",
+    1: "filenames",
+  }, 1)
+
+  _TYPES = _BuildTagLookupTable({
+    0: ProtocolBuffer.Encoder.NUMERIC,
+    1: ProtocolBuffer.Encoder.STRING,
+  }, 1, ProtocolBuffer.Encoder.MAX_TYPE)
+
+
+  _STYLE = """"""
+  _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.files.ListDirResponse'
 if _extension_runtime:
   pass
 
-__all__ = ['FileServiceErrors','KeyValue','KeyValues','FileContentType','CreateRequest_Parameter','CreateRequest','CreateResponse','OpenRequest','OpenResponse','CloseRequest','CloseResponse','FileStat','StatRequest','StatResponse','AppendRequest','AppendResponse','DeleteRequest','DeleteResponse','ReadRequest','ReadResponse','ReadKeyValueRequest','ReadKeyValueResponse_KeyValue','ReadKeyValueResponse','ShuffleEnums','ShuffleInputSpecification','ShuffleOutputSpecification','ShuffleRequest_Callback','ShuffleRequest','ShuffleResponse','GetShuffleStatusRequest','GetShuffleStatusResponse','GetCapabilitiesRequest','GetCapabilitiesResponse']
+__all__ = ['FileServiceErrors','KeyValue','KeyValues','FileContentType','CreateRequest_Parameter','CreateRequest','CreateResponse','OpenRequest','OpenResponse','CloseRequest','CloseResponse','FileStat','StatRequest','StatResponse','AppendRequest','AppendResponse','DeleteRequest','DeleteResponse','ReadRequest','ReadResponse','ReadKeyValueRequest','ReadKeyValueResponse_KeyValue','ReadKeyValueResponse','ShuffleEnums','ShuffleInputSpecification','ShuffleOutputSpecification','ShuffleRequest_Callback','ShuffleRequest','ShuffleResponse','GetShuffleStatusRequest','GetShuffleStatusResponse','GetCapabilitiesRequest','GetCapabilitiesResponse','FinalizeRequest','FinalizeResponse','GetDefaultGsBucketNameRequest','GetDefaultGsBucketNameResponse','ListDirRequest','ListDirResponse']

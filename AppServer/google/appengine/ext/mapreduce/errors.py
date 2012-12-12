@@ -34,13 +34,18 @@
 
 
 __all__ = [
+    "BadCombinerOutputError",
     "BadParamsError",
     "BadReaderParamsError",
     "BadWriterParamsError",
     "BadYamlError",
     "Error",
+    "FailJobError",
     "MissingYamlError",
     "MultipleDocumentsInMrYaml",
+    "NotEnoughArgumentsError",
+    "RetrySliceError",
+    "ShuffleServiceError",
     ]
 
 class Error(Exception):
@@ -69,3 +74,28 @@ class BadReaderParamsError(BadParamsError):
 
 class BadWriterParamsError(BadParamsError):
   """The input parameters to a reader were invalid."""
+
+
+class ShuffleServiceError(Error):
+  """Error doing shuffle through shuffle service."""
+
+
+class BadCombinerOutputError(Error):
+  """Combiner outputs data instead of yielding it."""
+
+
+class FailJobError(Error):
+  """The job will be failed if this exception is thrown anywhere."""
+
+
+class RetrySliceError(Error):
+  """The slice will be retried up to some maximum number of times.
+
+  The job will be failed if the slice can't progress before maximum
+  number of retries.
+  """
+
+
+class NotEnoughArgumentsError(Error):
+  """Required argument is missing."""
+

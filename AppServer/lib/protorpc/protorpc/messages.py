@@ -138,7 +138,7 @@ class ValidationError(Error):
     except AttributeError:
       return message
     else:
-      return 'Field %s: %s' % (field_name, message)
+      return message
 
 
 # Attributes that are reserved by a class definition that
@@ -1086,8 +1086,15 @@ class Field(object):
       try:
         self.validate_default(default)
       except ValidationError, err:
-        raise InvalidDefaultError('Invalid default value for field: %s: %s' %
-                                  (default, err))
+        try:
+          name = self.name
+        except AttributeError:         
+          # For when raising error before name initialization.
+          raise InvalidDefaultError('Invalid default value for %s: %s: %s' %
+                                    (self.__class__.__name__, default, err))
+        else:
+          raise InvalidDefaultError('Invalid default value for field %s: '
+                                    '%s: %s' % (name, default, err))
 
     self.__default = default
     self.__initialized = True
@@ -1159,8 +1166,17 @@ class Field(object):
         if self.required:
           raise ValidationError('Required field is missing')
       else:
-        raise ValidationError('Expected type %s, found %s (type %s)' %
-                              (self.type, value, type(value)))
+        try:
+          name = self.name
+        except AttributeError:
+          raise ValidationError('Expected type %s for %s, '
+                                'found %s (type %s)' %
+                                (self.type, self.__class__.__name__,
+                                 value, type(value)))
+        else:
+          raise ValidationError('Expected type %s for field %s, '
+                                'found %s (type %s)' %
+                                (self.type, name, value, type(value)))
 
   def __validate(self, value, validate_element):
     """Internal validation function.
@@ -1181,10 +1197,24 @@ class Field(object):
       if isinstance(value, (list, tuple)):
         for element in value:
           if element is None:
-            raise ValidationError('Repeated values may not be None')
+            try:
+              name = self.name
+            except AttributeError:
+              raise ValidationError('Repeated values for %s '
+                                    'may not be None' % self.__class__.__name__)
+            else:
+              raise ValidationError('Repeated values for field %s '
+                                    'may not be None' % name)
           validate_element(element)
       elif value is not None:
-        raise ValidationError('Field is repeated. Found: %s' % value)
+        try:
+          name = self.name
+        except AttributeError:
+          raise ValidationError('%s is repeated. Found: %s' % (
+            self.__class__.__name__, value))
+        else:
+          raise ValidationError('Field %s is repeated. Found: %s' % (name,
+                                                                     value))
 
   def validate(self, value):
     """Validate value assigned to field.
@@ -1314,9 +1344,18 @@ class StringField(Field):
       try:
         unicode(value)
       except UnicodeDecodeError, err:
-        validation_error = ValidationError(
-          'Encountered non-ASCII string %s: %s' % (value, err))
-        validation_error.field_name = self.name
+        try:
+          name = self.name
+        except AttributeError:
+          validation_error = ValidationError(
+            'Field encountered non-ASCII string %s: %s' % (value,
+                                                           err))
+        else:
+          validation_error = ValidationError(
+            'Field %s encountered non-ASCII string %s: %s' % (self.name,
+                                                              value,
+                                                              err))
+          validation_error.field_name = self.name
         raise validation_error
     else:
       super(StringField, self).validate_element(value)

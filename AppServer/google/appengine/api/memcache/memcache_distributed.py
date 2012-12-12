@@ -15,12 +15,9 @@
 # limitations under the License.
 #
 
-"""non-stub version of the memcache API, keeping all data in memcached."""
-
-# Programmer: Chris Bunch
-# uses the python-memcached library to interface with memcached
-# tested with python-memcached 1.40, from apt-get
-
+""" Non-stub version of the memcache API, keeping all data in memcached.
+Uses the python-memcached library to interface with memcached.
+"""
 import memcache
 import time
 import os
@@ -55,6 +52,7 @@ class CacheEntry(object):
     self.created_time = self._gettime()
     self.will_expire = expiration != 0
     self.locked = False
+    self.expiration = 0
     self._SetExpiration(expiration)
 
   def _SetExpiration(self, expiration):
@@ -115,8 +113,10 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     memcaches = [ip + ":11211" for ip in all_ips if ip != '']
 
     self._memcache = memcache.Client(memcaches, debug=0)
-    self._ResetStats()
-
+    self._hits = 0
+    self._misses = 0
+    self._byte_hits = 0
+    self._cache_creation_time = self._gettime()
     self._the_cache = {}
 
   def _ResetStats(self):

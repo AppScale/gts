@@ -816,11 +816,16 @@ class Djinn
       return
     end
 
-    start_cmd = "ruby #{APPSCALE_HOME}/InfrastructureManager/infrastructure_manager_server.rb"
-    stop_cmd = "pkill -9 infrastructure_manager_server"
+    start_cmd = "python #{APPSCALE_HOME}/InfrastructureManager/infrastructure_manager_service.py"
+    stop_cmd = "pkill -9 infrastructure_manager_service"
     port = [InfrastructureManagerClient::SERVER_PORT]
+    env = {
+      'APPSCALE_HOME' => APPSCALE_HOME,
+      'EC2_HOME' => ENV['EC2_HOME'],
+      'JAVA_HOME' => ENV['JAVA_HOME']
+    }
 
-    GodInterface.start(:iaas_manager, start_cmd, stop_cmd, port)
+    GodInterface.start(:iaas_manager, start_cmd, stop_cmd, port, env)
     Djinn.log_debug("Started InfrastructureManager successfully!")
   end
 
@@ -2016,8 +2021,7 @@ class Djinn
 
   def start_blobstore_server
     db_local_ip = @userappserver_private_ip
-    my_ip = my_node.public_ip
-    BlobServer.start(db_local_ip, PbServer::LISTEN_PORT_NO_SSL, my_ip)
+    BlobServer.start(db_local_ip, PbServer::LISTEN_PORT_NO_SSL)
     BlobServer.is_running(db_local_ip)
 
     return true
@@ -2256,7 +2260,7 @@ class Djinn
     if is_hybrid_cloud?
       cloud_num = 1
       loop {
-        cloud_type = @creds["CLOUD#{cloud_num}_TYPE"]
+        cloud_type = @creds["CLOUD_TYPE"]
         break if cloud_type.nil? or cloud_type == ""
         cloud_keys_dir = File.expand_path("/etc/appscale/keys/cloud#{cloud_num}")
         make_dir = "mkdir -p #{cloud_keys_dir}"
@@ -2469,8 +2473,11 @@ HOSTS
     ssh_key = node.ssh_key
 
     remote_home = HelperFunctions.get_remote_appscale_home(ip, ssh_key)
-    env = {'APPSCALE_HOME' => remote_home}
-
+    env = {
+      'APPSCALE_HOME' => APPSCALE_HOME,
+      'EC2_HOME' => ENV['EC2_HOME'],
+      'JAVA_HOME' => ENV['JAVA_HOME']
+    }
     start = "ruby #{remote_home}/AppController/djinnServer.rb"
     stop = "ruby #{remote_home}/AppController/terminate.rb"
 

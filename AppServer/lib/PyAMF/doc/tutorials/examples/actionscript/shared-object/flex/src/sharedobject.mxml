@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<pyamf:SharedObjectExample xmlns:mx="http://www.adobe.com/2006/mxml"
+						   xmlns:pyamf="org.pyamf.examples.sharedobject.*">
+	
+	<mx:Style source="style.css"/>
+
+	<mx:HDividedBox height="100%" width="100%">
+	
+		<mx:Panel title="PyAMF - Local Shared Object Browser" height="100%">
+			<mx:HBox verticalAlign="middle" width="100%">
+				<mx:Button click="refresh()" label="Refresh" enabled="{ !loading }"/>
+				<mx:Label width="100%" textAlign="right" text="{ path }" paddingTop="2"/>
+			</mx:HBox>
+			<mx:DataGrid id="main_dg" dataProvider="{ apps }" height="100%" width="100%"
+						 enabled="{ !loading }" dataTipFunction="getTotalFiles"
+						 change="showDetails()">
+				<mx:columns>
+					<mx:DataGridColumn dataField="domain" headerText="Domain" width="270"/>
+					<mx:DataGridColumn dataField="name" headerText="Application" width="270"/>
+					<mx:DataGridColumn headerText="Files">
+						<mx:itemRenderer>
+	                        <mx:Component>
+	                                <mx:Text text="{data.files.length}"
+	                                		 selectable="false" paddingLeft="4"/>
+	                        </mx:Component>
+	                    </mx:itemRenderer>
+					</mx:DataGridColumn>
+				</mx:columns>
+			</mx:DataGrid>
+		</mx:Panel>
+		
+		<mx:Panel width="100%" height="100%" title="Details">
+			<mx:VDividedBox height="100%" width="100%" enabled="{ !loading }">
+				<mx:Form borderStyle="solid" width="100%" indicatorGap="3"
+						 horizontalScrollPolicy="off" verticalScrollPolicy="off">
+					<mx:FormItem label="Name:">
+						<mx:Label text="{ so_name }" fontWeight="bold" selectable="true"/>
+					</mx:FormItem>
+					<mx:FormItem label="Path:" width="100%" height="100%">
+						<mx:Label htmlText="{ so_path }" fontWeight="bold" width="100%"
+							     selectable="true"/>
+					</mx:FormItem>
+					<mx:FormItem label="Domain:">
+						<mx:Label text="{ so_domain }" fontWeight="bold" selectable="true"/>
+					</mx:FormItem>
+				</mx:Form>
+				<mx:DataGrid id="sub_dg" dataProvider="{ files }" width="100%" height="200"
+							 change="viewFile()">
+					<mx:columns>
+						<mx:DataGridColumn dataField="filename" headerText="Filename"
+										   width="270"/>
+						<mx:DataGridColumn dataField="size" headerText="Bytes"/>
+					</mx:columns>
+				</mx:DataGrid>
+				
+				<mx:TextArea width="100%" height="100%" id="details_txt"/>
+			</mx:VDividedBox>
+		</mx:Panel>
+	
+	</mx:HDividedBox>
+	
+</pyamf:SharedObjectExample>
