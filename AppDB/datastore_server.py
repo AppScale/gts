@@ -495,15 +495,17 @@ class DatastoreDistributed():
     Raises: 
       ValueError: if size is less than or equal to 0
     """
-    # TODO make this thread safe because we're accessing global variables
+
     if size and max_id:
       raise ValueError("Both size and max cannot be set.")
 
     current_id = self.acquire_next_id_from_db(prefix)
-    next_id = current_id + size
+
+    if size:
+      next_id = current_id + size
 
     if max_id:
-      next_id = max(next_id, max_id + 1)
+      next_id = max(current_id, max_id + 1)
 
     cell_values = {prefix: {dbconstants.APP_ID_SCHEMA[0]: str(next_id)}} 
 
