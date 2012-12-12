@@ -511,8 +511,8 @@ module HelperFunctions
     ENV['EC2_JVM_ARGS'] = nil
 
     creds.each_pair { |k, v|
-      next unless k =~ /\ACLOUD#{cloud_num}/
-      env_key = k.scan(/\ACLOUD#{cloud_num}_(.*)\Z/).flatten.to_s
+      next unless k =~ /\ACLOUD/
+      env_key = k.scan(/\ACLOUD_(.*)\Z/).flatten.to_s
       ENV[env_key] = v
     }
 
