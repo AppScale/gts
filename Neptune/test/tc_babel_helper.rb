@@ -224,12 +224,6 @@ class TestBabelHelper < Test::Unit::TestCase
       "@EC2_ACCESS_KEY" => "access",
       "@S3_URL" => "s3 url"
     }
-    #expected2 = {
-    #  job1 => NeptuneManager::INTERNAL_ENGINES + NeptuneManager::AMAZON_ENGINES,
-    #  "success" => true
-    #}
-    #actual2 = neptune.batch_get_supported_babel_engines([job1], @secret)
-    #assert_equal(expected2, actual2)
 
     # now try an example with two babel jobs that use different engines
     job2 = {
