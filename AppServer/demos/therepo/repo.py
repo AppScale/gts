@@ -215,11 +215,6 @@ class HealthChecker(webapp.RequestHandler):
       try:
         entry = Entry.get_by_key_name("bazbookey")
         health['datastore'] = RUNNING
-      except Exception, e:
-        health['datastore'] = FAILED
-        logging.error("Datastore FAILED %s"%(str(e)))
-    if capability == "all" or capability == "datastore_write":
-      try:
         entry = StatusText(key_name = "bazbookey")
         entry.content = "bazbooval"
         if entry.put():
@@ -228,8 +223,8 @@ class HealthChecker(webapp.RequestHandler):
           health['datastore_write'] = FAILED
           logging.error("Datastore write FAILED no exception given")
       except Exception, e:
-        health['datastore_write'] = FAILED
-        logging.error("Datastore write FAILED %s"%(str(e)))
+        health['datastore'] = FAILED
+        logging.error("Datastore FAILED %s"%(str(e)))
 
     if capability == "all" or capability == "images":
       try:
