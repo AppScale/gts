@@ -1,9 +1,9 @@
-import sys
 from infrastructure_manager import InfrastructureManager
 import json
 from M2Crypto import SSL
 import os
 import SOAPpy
+import sys
 from utils import utils
 from utils.persistent_dictionary import PersistentStoreFactory
 

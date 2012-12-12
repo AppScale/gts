@@ -12,6 +12,16 @@ class PersistentDictionary:
   """
 
   def __init__(self, store=None):
+    """
+    Create a new instance with an optional persistent backing store. If no
+    backing store is provided, this instance will behave as a regular in-memory
+    dictionary. If however a PersistentStore is provided as an argument, the
+    created dictionary will write through all its updates to the specified
+    store.
+
+    Args:
+      store   An instance of PersistentStore class (Optional)
+    """
     self.store = store
     if store is not None:
       self.dict = store.get_all_entries()
@@ -19,14 +29,44 @@ class PersistentDictionary:
       self.dict = {}
 
   def put(self, key, value):
+    """
+    Insert the specified key-value pair to the dictionary. If this instance
+    of PersistentDictionary is backed by an instance of PersistentStore, the
+    inserted entry will also be written to that store.
+
+    Args:
+      key   Key of the entry
+      value Value of the entry
+    """
     self.dict[key] = value
     if self.store is not None:
       self.store.save_all_entries(self.dict)
 
   def get(self, key):
+    """
+    Retrieve the value of the specified key from the dictionary.
+
+    Args:
+      key Key of the entry
+
+    Returns:
+      Value of the entry if the key exists in the map
+
+    Raises:
+      KeyError  If the specified key does not exist in the dictionary
+    """
     return self.dict[key]
 
   def has_key(self, key):
+    """
+    Checks whether the specified key exists in the dictionary.
+
+    Args:
+      key Key of the entry
+
+    Returns:
+      True if the key exists and False otherwise.
+    """
     return self.dict.has_key(key)
 
 
@@ -89,14 +129,34 @@ class PersistentStoreFactory:
       raise NameError('Unrecognized persistent store type')
 
 class FileSystemBasedPersistentStore(PersistentStore):
+  """
+  A simple PersistentStore implementation that writes through to
+  the local file system. The location of the target file can be
+  specified using PARAM_FILE_PATH option in the dictionary
+  passed into the constructor. This implementation uses locking
+  to prevent concurrent reads and writes. Therefore it should not
+  be used in a highly concurrent environment. Also it writes the
+  entire dictionary to the file system every time something is
+  changed in the dictionary. Therefore it should not be used with
+  large amounts of data either.
+  """
 
   PARAM_FILE_PATH = 'file_path'
 
   def __init__(self, parameters):
+    """
+    Create a new instance of the persistent store.
+
+    Args:
+      parameters  A dictionary containing the PARAM_FILE_PATH entry
+    """
     self.file_path = parameters[self.PARAM_FILE_PATH]
     self.lock = Lock()
 
   def get_all_entries(self):
+    """
+    See parent class documentation
+    """
     self.lock.acquire()
     if os.path.exists(self.file_path):
       file_handle = open(self.file_path, 'r')
@@ -109,6 +169,9 @@ class FileSystemBasedPersistentStore(PersistentStore):
       return {}
 
   def save_all_entries(self, dict):
+    """
+    See parent class documentation
+    """
     self.lock.acquire()
     file_handle = open(self.file_path, 'w')
     json.dump(dict, file_handle)
