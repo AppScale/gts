@@ -1,8 +1,11 @@
-import os
+import sys
 from infrastructure_manager import InfrastructureManager
+import json
 from M2Crypto import SSL
+import os
 import SOAPpy
 from utils import utils
+from utils.persistent_dictionary import PersistentStoreFactory
 
 __author__ = 'hiranya'
 __email__ = 'hiranya@appscale.com'
@@ -20,6 +23,8 @@ class InfrastructureManagerService:
   DEFAULT_PORT = 17444
 
   APPSCALE_DIR = '/etc/appscale/'
+
+  CONFIG_FILE = 'conf.json'
 
   def __init__(self, host=DEFAULT_HOST, port=DEFAULT_PORT, ssl=True):
     """
@@ -66,7 +71,20 @@ class InfrastructureManagerService:
     else:
       self.server = SOAPpy.SOAPServer((host, port))
 
-    i = InfrastructureManager()
+    parent_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
+    config_file = os.path.join(parent_dir, self.CONFIG_FILE)
+    if os.path.exists(config_file):
+      file_handle = open(config_file, 'r')
+      params = json.load(file_handle)
+      file_handle.close()
+      if params.has_key(PersistentStoreFactory.PARAM_STORE_TYPE):
+        utils.log('Loading infrastructure manager configuration from ' + config_file)
+        i = InfrastructureManager(params)
+      else:
+        i = InfrastructureManager()
+    else:
+      i = InfrastructureManager()
+
     self.server.registerFunction(i.describe_instances)
     self.server.registerFunction(i.run_instances)
     self.server.registerFunction(i.terminate_instances)

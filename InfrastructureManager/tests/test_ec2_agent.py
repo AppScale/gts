@@ -12,10 +12,15 @@ __author__ = 'hiranya'
 __email__ = 'hiranya@appscale.com'
 
 class TestEC2Agent(TestCase):
+
   def test_ec2_run_instances(self):
     self.do_set_up('ec2')
     self.run_instances('ec2', True)
     self.run_instances('ec2', False)
+    self.do_tear_down('ec2')
+    self.do_set_up('ec2', False)
+    self.run_instances('ec2', True, False)
+    self.run_instances('ec2', False, False)
     self.do_tear_down('ec2')
 
   def test_ec2_terminate_instances(self):
@@ -84,8 +89,8 @@ class TestEC2Agent(TestCase):
     self.assertEqual('{0:.2f}'.format(0.2 * 1.2),
       '{0:.2f}'.format(agent.get_optimal_spot_price('m1.large')))
 
-  def run_instances(self, prefix, blocking):
-    i = InfrastructureManager(blocking)
+  def run_instances(self, prefix, blocking, success=True):
+    i = InfrastructureManager(blocking=blocking)
 
     # first, validate that the run_instances call goes through successfully
     # and gives the user a reservation id
@@ -98,7 +103,7 @@ class TestEC2Agent(TestCase):
       'keyname': 'bookeyname',
       'num_vms': '1',
       'spot': 'False',
-      }
+    }
 
     id = '0000000000'  # no longer randomly generated
     full_result = {
@@ -112,15 +117,18 @@ class TestEC2Agent(TestCase):
     # updating its reservation info
     if not blocking:
       time.sleep(2)
-    self.assertEquals(InfrastructureManager.STATE_RUNNING, i.reservations[id]['state'])
 
-    vm_info = i.reservations[id]['vm_info']
-    self.assertEquals(['public-ip'], vm_info['public_ips'])
-    self.assertEquals(['private-ip'], vm_info['private_ips'])
-    self.assertEquals(['i-id'], vm_info['instance_ids'])
+    if success:
+      self.assertEquals(InfrastructureManager.STATE_RUNNING, i.reservations.get(id)['state'])
+      vm_info = i.reservations.get(id)['vm_info']
+      self.assertEquals(['public-ip'], vm_info['public_ips'])
+      self.assertEquals(['private-ip'], vm_info['private_ips'])
+      self.assertEquals(['i-id'], vm_info['instance_ids'])
+    else:
+      self.assertEquals(InfrastructureManager.STATE_FAILED, i.reservations.get(id)['state'])
 
   def terminate_instances(self, prefix, blocking):
-    i = InfrastructureManager(blocking)
+    i = InfrastructureManager(blocking=blocking)
 
     params1 = {'infrastructure': prefix}
     result1 = i.terminate_instances(params1, 'secret')
@@ -137,7 +145,7 @@ class TestEC2Agent(TestCase):
       time.sleep(2)
     self.assertTrue(result2['success'])
 
-  def do_set_up(self, prefix):
+  def do_set_up(self, prefix, success=True):
     (flexmock(utils)
      .should_receive('get_secret')
      .and_return('secret'))
@@ -156,6 +164,9 @@ class TestEC2Agent(TestCase):
     second_time = """
         RESERVATION     r-55560977      admin   default
         INSTANCE        i-id      emi-721D0EBA    public-ip    private-ip  running  bookeyname   0       c1.medium       2010-05-07T07:17:48.23Z         myueccluster    eki-675412F5    eri-A1E113E0"""
+    run_instances_response = ''
+    if not success:
+      run_instances_response = 'Please try again later'
     (flexmock(utils)
      .should_receive('shell')
      .with_args('{0}-describe-instances 2>&1'.format(prefix))
@@ -166,7 +177,7 @@ class TestEC2Agent(TestCase):
      .with_args(
       '{0}-run-instances -k bookeyname -n 1 --instance-type booinstance_type --group boogroup booid'.format(
         prefix))
-     .and_return(''))
+     .and_return(run_instances_response))
     (flexmock(utils)
      .should_receive('shell')
      .with_args('dig private-ip +short')

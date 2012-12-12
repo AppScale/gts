@@ -44,6 +44,9 @@ class BaseAgent:
     Returns:
       True if some action was taken to configure security for the VMs
       and False otherwise.
+
+    Raises:
+      AgentRuntimeException If an error occurs while configuring security
     """
     raise NotImplementedError
 
@@ -80,6 +83,9 @@ class BaseAgent:
       A tuple consisting of information related to the spawned VMs. The
       tuple should contain a list of instance IDs, a list of public IP
       addresses and a list of private IP addresses.
+
+    Raises:
+      AgentRuntimeException If an error occurs while trying to spawn VMs
     """
     raise NotImplementedError
 
@@ -115,6 +121,12 @@ class AgentConfigurationException(Exception):
   given cloud configuration is missing some required parameters or contains
   invalid values.
   """
+
+  def __init__(self, msg):
+    Exception.__init__(self, msg)
+
+
+class AgentRuntimeException(Exception):
 
   def __init__(self, msg):
     Exception.__init__(self, msg)

@@ -1,8 +1,7 @@
-from agents.base_agent import BaseAgent, AgentConfigurationException
+from agents.base_agent import BaseAgent, AgentConfigurationException, AgentRuntimeException
 import datetime
 import os
 import re
-import sys
 import time
 from utils import utils
 
@@ -52,6 +51,10 @@ class EC2Agent(BaseAgent):
     PARAM_CREDENTIALS,
     PARAM_INSTANCE_IDS
   )
+
+  RUN_INSTANCES_RETRY_COUNT = 3
+  ADD_KEY_PAIR_RETRY_COUNT = 3
+  DESCRIBE_INSTANCES_RETRY_COUNT = 3
 
   def __init__(self):
     self.prefix = 'ec2'
@@ -108,10 +111,13 @@ class EC2Agent(BaseAgent):
     if not os.path.exists(ssh_key):
       utils.log('Creating keys/security group')
       ec2_output = ''
+      attempts = 1
       while True:
         ec2_output = utils.shell('{0}-add-keypair {1} 2>&1'.format(self.prefix, keyname))
         if ec2_output.find('BEGIN RSA PRIVATE KEY') != -1:
           break
+        elif attempts == self.ADD_KEY_PAIR_RETRY_COUNT:
+          raise AgentRuntimeException('Failed to invoke add_keypair')
         utils.log('Trying again. Saw this from {0}-add-keypair: {1}'.format(
           self.prefix, ec2_output))
         utils.shell('{0}-delete-keypair {1} 2>&1'.format(self.prefix, keyname))
@@ -204,6 +210,8 @@ class EC2Agent(BaseAgent):
       utils.log('EC2_URL = [{0}]'.format(os.environ['EC2_URL']))
     else:
       utils.log('Warning: EC2_URL environment not found in the process runtime!')
+
+    attempts = 1
     while True:
       active_public_ips, active_private_ips, active_instances =\
       self.describe_instances(parameters)
@@ -212,6 +220,9 @@ class EC2Agent(BaseAgent):
       # As such it's not expected to have any running VMs.
       if len(active_instances) > 0 or security_configured:
         break
+      elif attempts == self.DESCRIBE_INSTANCES_RETRY_COUNT:
+        raise AgentRuntimeException('Failed to invoke describe_instances')
+      attempts += 1
 
     args = '-k {0} -n {1} --instance-type {2} --group {3} {4}'.format(keyname,
       count, instance_type, group, image_id)
@@ -221,12 +232,16 @@ class EC2Agent(BaseAgent):
     else:
       command_to_run = '{0}-run-instances {1}'.format(self.prefix, args)
 
+    attempts = 1
     while True:
       run_instances = utils.shell(command_to_run)
       utils.log('Run instances says {0}'.format(run_instances))
       status, command_to_run = self.run_instances_response(command_to_run, run_instances)
       if status:
         break
+      elif attempts == self.RUN_INSTANCES_RETRY_COUNT:
+        raise AgentRuntimeException('Failed to invoke run_instances')
+      attempts += 1
       utils.log('sleepy time')
       utils.sleep(5)
 
@@ -255,7 +270,7 @@ class EC2Agent(BaseAgent):
       now = datetime.datetime.now()
 
     if not public_ips:
-      sys.exit('No public IPs were able to be procured within the time limit')
+      raise AgentRuntimeException('No public IPs were able to be procured within the time limit')
 
     if len(public_ips) != count:
       for index in range(0, len(public_ips)):
@@ -312,7 +327,7 @@ class EC2Agent(BaseAgent):
       return False, command + ' --addressing private'
     elif output.find('PROBLEM') != -1:
       utils.log('Error: {0}'.format(output))
-      sys.exit('Saw the following error from EC2 tools: {0}'.format(output))
+      raise AgentRuntimeException('Saw the following error from EC2 tools: {0}'.format(output))
     else:
       utils.log('Run instances message sent successfully. Waiting for the image to start up.')
       return True, command
@@ -355,7 +370,7 @@ class EC2Agent(BaseAgent):
       A tuple of the form (public_ips, private_ips)
     """
     if len(all_addresses) % 2 != 0:
-      sys.exit('IP address list is not of even length')
+      raise AgentRuntimeException('IP address list is not of even length')
     reported_public = []
     reported_private = []
     for index in range(0, len(all_addresses)):
