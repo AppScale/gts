@@ -163,7 +163,7 @@ class TestBabelHelper < Test::Unit::TestCase
     # the actual job data to test with
     job_data = {'@run_local' => false, '@code' => '/boo/baz',
       '@argv' => ['/boo/baz2'], '@storage' => 's3',
-      '@output' => '/boo/baz3', '@engine' => 'executor-sqs',
+      '@output' => '/boo/baz3', '@engine' => 'executor-booqueue',
       '@EC2_ACCESS_KEY' => 'access key', '@EC2_SECRET_KEY' => 'secret key',
       '@global_max_nodes' => 3}
     job_data['@metadata_info'] = {'received_task_at' => now}
@@ -197,19 +197,13 @@ class TestBabelHelper < Test::Unit::TestCase
       and_return(mocked_zk)
     ZKInterface.init_to_ip("public_ip", "public_ip") 
 
-    # mock out sqs
-    q = flexmock("q")
-    flexmock(JSON).should_receive(:dump).with(job_data).and_return(dumped)
-    q.should_receive(:send_message).with(dumped).and_return()
-    q.should_receive(:pop_message).and_return(dumped, 'null')
+    # mock out our fake queue
+    fake_queue = flexmock("queue")
+    fake_queue.should_receive(:get_creds).and_return({})
+    fake_queue.should_receive(:push).with(job_data).and_return()
 
-    q_collection = flexmock("q_collection")
-    q_collection.should_receive(:create).with(TASK_QUEUE_NAME).and_return(q)
-
-    sqs = flexmock("sqs")
-    sqs.should_receive(:queues).and_return(q_collection)
-
-    flexmock(AWS::SQS).should_receive(:new).and_return(sqs)
+    flexmock(QueueFactory).should_receive(:get_queue).
+      with("executor-booqueue", job_data).and_return(fake_queue)
 
     neptune = NeptuneManager.new()
     result = neptune.run_or_delegate_tasks(job_list)
