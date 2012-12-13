@@ -814,6 +814,9 @@ class DatastoreDistributed():
     ancestor = query.ancestor()
     prefix = self.get_table_prefix(query)
     path = buffer(prefix + '/') + self.__encode_index_pb(ancestor.path())
+  
+    if query.has_kind():
+      path += query.kind() + ":"
 
     startrow = path
     endrow = path + self._TERM_STRING
