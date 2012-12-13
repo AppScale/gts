@@ -26,6 +26,7 @@ import copy
 import httplib2
 import logging
 import os
+import random
 import re
 import uritemplate
 import urllib
@@ -38,16 +39,22 @@ try:
 except ImportError:
     from cgi import parse_qsl
 
-from anyjson import simplejson
+from apiclient.errors import HttpError
+from apiclient.errors import InvalidJsonError
+from apiclient.errors import MediaUploadSizeError
+from apiclient.errors import UnacceptableMimeTypeError
+from apiclient.errors import UnknownApiNameOrVersion
+from apiclient.errors import UnknownLinkType
+from apiclient.http import HttpRequest
+from apiclient.http import MediaFileUpload
+from apiclient.http import MediaUpload
+from apiclient.model import JsonModel
+from apiclient.model import RawModel
+from apiclient.schema import Schemas
 from email.mime.multipart import MIMEMultipart
 from email.mime.nonmultipart import MIMENonMultipart
-from errors import HttpError
-from errors import InvalidJsonError
-from errors import MediaUploadSizeError
-from errors import UnacceptableMimeTypeError
-from errors import UnknownLinkType
-from http import HttpRequest
-from model import JsonModel
+from oauth2client.anyjson import simplejson
+
 
 URITEMPLATE = re.compile('{[^}]*}')
 VARNAME = re.compile('[a-zA-Z0-9_-]+')
@@ -156,10 +163,10 @@ def build(serviceName, version,
 
   requested_url = uritemplate.expand(discoveryServiceUrl, params)
 
-  # REMOTE_ADDR is defined by the CGI spec [RFC3875] as the environment variable
-  # that contains the network address of the client sending the request. If it
-  # exists then add that to the request for the discovery document to avoid
-  # exceeding the quota on discovery requests.
+  # REMOTE_ADDR is defined by the CGI spec [RFC3875] as the environment
+  # variable that contains the network address of the client sending the
+  # request. If it exists then add that to the request for the discovery
+  # document to avoid exceeding the quota on discovery requests.
   if 'REMOTE_ADDR' in os.environ:
     requested_url = _add_query_parameter(requested_url, 'userIp',
                                          os.environ['REMOTE_ADDR'])
@@ -167,6 +174,9 @@ def build(serviceName, version,
 
   resp, content = http.request(requested_url)
 
+  if resp.status == 404:
+    raise UnknownApiNameOrVersion("name: %s  version: %s" % (serviceName,
+                                                            version))
   if resp.status >= 400:
     raise HttpError(resp, content, requested_url)
 
@@ -229,7 +239,7 @@ def build_from_document(
   else:
     future = {}
     auth_discovery = {}
-  schema = service.get('schemas', {})
+  schema = Schemas(service)
 
   if model is None:
     features = service.get('features', [])
@@ -321,6 +331,7 @@ def createResource(http, baseUrl, model, requestBuilder,
     if 'mediaUpload' in methodDesc:
       mediaUpload = methodDesc['mediaUpload']
       mediaPathUrl = mediaUpload['protocols']['simple']['path']
+      mediaResumablePathUrl = mediaUpload['protocols']['resumable']['path']
       accept = mediaUpload['accept']
       maxSize = _media_size_to_long(mediaUpload.get('maxSize', ''))
 
@@ -332,18 +343,23 @@ def createResource(http, baseUrl, model, requestBuilder,
           'location': 'query'
           }
 
-    if httpMethod in ['PUT', 'POST', 'PATCH']:
+    if httpMethod in ['PUT', 'POST', 'PATCH'] and 'request' in methodDesc:
       methodDesc['parameters']['body'] = {
           'description': 'The request body.',
           'type': 'object',
           'required': True,
           }
-      if 'mediaUpload' in methodDesc:
-        methodDesc['parameters']['media_body'] = {
-            'description': 'The filename of the media request body.',
-            'type': 'string',
-            'required': False,
-            }
+      if 'request' in methodDesc:
+        methodDesc['parameters']['body'].update(methodDesc['request'])
+      else:
+        methodDesc['parameters']['body']['type'] = 'object'
+    if 'mediaUpload' in methodDesc:
+      methodDesc['parameters']['media_body'] = {
+          'description': 'The filename of the media request body.',
+          'type': 'string',
+          'required': False,
+          }
+      if 'body' in methodDesc['parameters']:
         methodDesc['parameters']['body']['required'] = False
 
     argmap = {} # Map from method parameter name to query parameter name
@@ -393,10 +409,15 @@ def createResource(http, baseUrl, model, requestBuilder,
 
       for name, regex in pattern_params.iteritems():
         if name in kwargs:
-          if re.match(regex, kwargs[name]) is None:
-            raise TypeError(
-                'Parameter "%s" value "%s" does not match the pattern "%s"' %
-                (name, kwargs[name], regex))
+          if isinstance(kwargs[name], basestring):
+            pvalues = [kwargs[name]]
+          else:
+            pvalues = kwargs[name]
+          for pvalue in pvalues:
+            if re.match(regex, pvalue) is None:
+              raise TypeError(
+                  'Parameter "%s" value "%s" does not match the pattern "%s"' %
+                  (name, pvalue, regex))
 
       for name, enums in enum_params.iteritems():
         if name in kwargs:
@@ -424,67 +445,89 @@ def createResource(http, baseUrl, model, requestBuilder,
       if self._developerKey:
         actual_query_params['key'] = self._developerKey
 
+      model = self._model
+      # If there is no schema for the response then presume a binary blob.
+      if 'response' not in methodDesc:
+        model = RawModel()
+
       headers = {}
-      headers, params, query, body = self._model.request(headers,
+      headers, params, query, body = model.request(headers,
           actual_path_params, actual_query_params, body_value)
 
       expanded_url = uritemplate.expand(pathUrl, params)
       url = urlparse.urljoin(self._baseUrl, expanded_url + query)
 
+      resumable = None
+      multipart_boundary = ''
+
       if media_filename:
-        (media_mime_type, encoding) = mimetypes.guess_type(media_filename)
-        if media_mime_type is None:
-          raise UnknownFileType(media_filename)
-        if not mimeparse.best_match([media_mime_type], ','.join(accept)):
-          raise UnacceptableMimeTypeError(media_mime_type)
+        # Ensure we end up with a valid MediaUpload object.
+        if isinstance(media_filename, basestring):
+          (media_mime_type, encoding) = mimetypes.guess_type(media_filename)
+          if media_mime_type is None:
+            raise UnknownFileType(media_filename)
+          if not mimeparse.best_match([media_mime_type], ','.join(accept)):
+            raise UnacceptableMimeTypeError(media_mime_type)
+          media_upload = MediaFileUpload(media_filename, media_mime_type)
+        elif isinstance(media_filename, MediaUpload):
+          media_upload = media_filename
+        else:
+          raise TypeError('media_filename must be str or MediaUpload.')
 
         # Check the maxSize
-        if maxSize > 0 and os.path.getsize(media_filename) > maxSize:
-          raise MediaUploadSizeError(media_filename)
+        if maxSize > 0 and media_upload.size() > maxSize:
+          raise MediaUploadSizeError("Media larger than: %s" % maxSize)
 
         # Use the media path uri for media uploads
-        expanded_url = uritemplate.expand(mediaPathUrl, params)
+        if media_upload.resumable():
+          expanded_url = uritemplate.expand(mediaResumablePathUrl, params)
+        else:
+          expanded_url = uritemplate.expand(mediaPathUrl, params)
         url = urlparse.urljoin(self._baseUrl, expanded_url + query)
 
-        if body is None:
-          headers['content-type'] = media_mime_type
-          # make the body the contents of the file
-          f = file(media_filename, 'rb')
-          body = f.read()
-          f.close()
+        if media_upload.resumable():
+          # This is all we need to do for resumable, if the body exists it gets
+          # sent in the first request, otherwise an empty body is sent.
+          resumable = media_upload
         else:
-          msgRoot = MIMEMultipart('related')
-          # msgRoot should not write out it's own headers
-          setattr(msgRoot, '_write_headers', lambda self: None)
+          # A non-resumable upload
+          if body is None:
+            # This is a simple media upload
+            headers['content-type'] = media_upload.mimetype()
+            body = media_upload.getbytes(0, media_upload.size())
+          else:
+            # This is a multipart/related upload.
+            msgRoot = MIMEMultipart('related')
+            # msgRoot should not write out it's own headers
+            setattr(msgRoot, '_write_headers', lambda self: None)
 
-          # attach the body as one part
-          msg = MIMENonMultipart(*headers['content-type'].split('/'))
-          msg.set_payload(body)
-          msgRoot.attach(msg)
+            # attach the body as one part
+            msg = MIMENonMultipart(*headers['content-type'].split('/'))
+            msg.set_payload(body)
+            msgRoot.attach(msg)
 
-          # attach the media as the second part
-          msg = MIMENonMultipart(*media_mime_type.split('/'))
-          msg['Content-Transfer-Encoding'] = 'binary'
+            # attach the media as the second part
+            msg = MIMENonMultipart(*media_upload.mimetype().split('/'))
+            msg['Content-Transfer-Encoding'] = 'binary'
 
-          f = file(media_filename, 'rb')
-          msg.set_payload(f.read())
-          f.close()
-          msgRoot.attach(msg)
+            payload = media_upload.getbytes(0, media_upload.size())
+            msg.set_payload(payload)
+            msgRoot.attach(msg)
+            body = msgRoot.as_string()
 
-          body = msgRoot.as_string()
-
-          # must appear after the call to as_string() to get the right boundary
-          headers['content-type'] = ('multipart/related; '
-                                     'boundary="%s"') % msgRoot.get_boundary()
+            multipart_boundary = msgRoot.get_boundary()
+            headers['content-type'] = ('multipart/related; '
+                                       'boundary="%s"') % multipart_boundary
 
       logging.info('URL being requested: %s' % url)
       return self._requestBuilder(self._http,
-                                  self._model.response,
+                                  model.response,
                                   url,
                                   method=httpMethod,
                                   body=body,
                                   headers=headers,
-                                  methodId=methodId)
+                                  methodId=methodId,
+                                  resumable=resumable)
 
     docs = [methodDesc.get('description', DEFAULT_METHOD_DOC), '\n\n']
     if len(argmap) > 0:
@@ -500,15 +543,24 @@ def createResource(http, baseUrl, model, requestBuilder,
         required = ' (required)'
       paramdesc = methodDesc['parameters'][argmap[arg]]
       paramdoc = paramdesc.get('description', 'A parameter')
-      paramtype = paramdesc.get('type', 'string')
-      docs.append('  %s: %s, %s%s%s\n' % (arg, paramtype, paramdoc, required,
-                                          repeated))
+      if '$ref' in paramdesc:
+        docs.append(
+            ('  %s: object, %s%s%s\n    The object takes the'
+            ' form of:\n\n%s\n\n') % (arg, paramdoc, required, repeated,
+              schema.prettyPrintByName(paramdesc['$ref'])))
+      else:
+        paramtype = paramdesc.get('type', 'string')
+        docs.append('  %s: %s, %s%s%s\n' % (arg, paramtype, paramdoc, required,
+                                            repeated))
       enum = paramdesc.get('enum', [])
       enumDesc = paramdesc.get('enumDescriptions', [])
       if enum and enumDesc:
         docs.append('    Allowed values\n')
         for (name, desc) in zip(enum, enumDesc):
           docs.append('      %s - %s\n' % (name, desc))
+    if 'response' in methodDesc:
+      docs.append('\nReturns:\n  An object of the form\n\n    ')
+      docs.append(schema.prettyPrintSchema(methodDesc['response']))
 
     setattr(method, '__doc__', ''.join(docs))
     setattr(theclass, methodName, method)
@@ -600,7 +652,6 @@ def createResource(http, baseUrl, model, requestBuilder,
 
     setattr(theclass, methodName, methodNext)
 
-
   # Add basic methods to Resource
   if 'methods' in resourceDesc:
     for methodName, methodDesc in resourceDesc['methods'].iteritems():
@@ -647,7 +698,7 @@ def createResource(http, baseUrl, model, requestBuilder,
       if 'response' in methodDesc:
         responseSchema = methodDesc['response']
         if '$ref' in responseSchema:
-          responseSchema = schema[responseSchema['$ref']]
+          responseSchema = schema.get(responseSchema['$ref'])
         hasNextPageToken = 'nextPageToken' in responseSchema.get('properties',
                                                                  {})
         hasPageToken = 'pageToken' in methodDesc.get('parameters', {})

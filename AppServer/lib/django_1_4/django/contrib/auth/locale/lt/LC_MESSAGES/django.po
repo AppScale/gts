@@ -1,0 +1,292 @@
+# This file is distributed under the same license as the Django package.
+#
+# Translators:
+# Jannis Leidel <jannis@leidel.info>, 2011.
+# lauris <lauris@runbox.com>, 2011.
+# Simonas Simas <simonas@kazlauskas.me>, 2012.
+msgid ""
+msgstr ""
+"Project-Id-Version: Django\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2012-03-23 02:36+0100\n"
+"PO-Revision-Date: 2012-03-09 16:03+0000\n"
+"Last-Translator: Simonas Simas <simonas@kazlauskas.me>\n"
+"Language-Team: Lithuanian (http://www.transifex.net/projects/p/django/"
+"language/lt/)\n"
+"Language: lt\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && (n"
+"%100<10 || n%100>=20) ? 1 : 2)\n"
+
+#: admin.py:41
+msgid "Personal info"
+msgstr "Asmeninė informacija"
+
+#: admin.py:42
+msgid "Permissions"
+msgstr "Leidimai"
+
+#: admin.py:44
+msgid "Important dates"
+msgstr "Svarbios datos"
+
+#: admin.py:125
+msgid "Password changed successfully."
+msgstr "Slaptažodis pakeistas sėkmingai."
+
+#: admin.py:135
+#, python-format
+msgid "Change password: %s"
+msgstr "Pakeisti slaptažodį: %s"
+
+#: forms.py:62
+msgid "A user with that username already exists."
+msgstr "Jau egzistuoja vartotojas su tokiu vardu."
+
+#: forms.py:63 forms.py:251 forms.py:308
+msgid "The two password fields didn't match."
+msgstr "Slaptažodžio laukai nesutapo"
+
+#: forms.py:65 forms.py:110 forms.py:139
+msgid "Username"
+msgstr "Vartotojo vardas"
+
+#: forms.py:67 forms.py:111
+msgid "Required. 30 characters or fewer. Letters, digits and @/./+/-/_ only."
+msgstr ""
+"Privalomas. 30 arba mažiau simbolių. Raidės, skaičiai bei @/./+/-/_ "
+"simboliai."
+
+#: forms.py:70 forms.py:114
+msgid "This value may contain only letters, numbers and @/./+/-/_ characters."
+msgstr "Ši reikšmė gali turėti tik raides, skaičius  ir @/./+/-/_ simbolius."
+
+#: forms.py:72 forms.py:116 forms.py:140 forms.py:310
+msgid "Password"
+msgstr "Slaptažodis"
+
+#: forms.py:74
+msgid "Password confirmation"
+msgstr "Slaptažodžio patvirtinimas"
+
+#: forms.py:76
+msgid "Enter the same password as above, for verification."
+msgstr "Patikrinimui įvesk tokį patį slaptažodį, kaip viršuje."
+
+#: forms.py:117
+msgid ""
+"Raw passwords are not stored, so there is no way to see this user's "
+"password, but you can change the password using <a href=\"password/\">this "
+"form</a>."
+msgstr ""
+"Neužkoduoti slaptažodžiai nėra saugomi, todėl galimybės pasižiūrėti šio "
+"vartotojo slaptažodį nėra. Tiesa galite slaptažodį pakeisti naudodamiesi <a "
+"href=\"password/\">šia forma</a>."
+
+#: forms.py:143
+msgid ""
+"Please enter a correct username and password. Note that both fields are case-"
+"sensitive."
+msgstr ""
+"Įveskite teisingą vartotojo vardą ir slaptažodį. Abiejuose laukuose "
+"didžiosios mažosios raidės skiriasi"
+
+#: forms.py:145
+msgid ""
+"Your Web browser doesn't appear to have cookies enabled. Cookies are "
+"required for logging in."
+msgstr ""
+"Atrodo, jūsų naršyklė nepriima sausainėlių(cookies). Sausainėliai yra "
+"reikalingi norint prisijungti."
+
+#: forms.py:147
+msgid "This account is inactive."
+msgstr "Ši paskyra yra neaktyvi."
+
+#: forms.py:191
+msgid ""
+"That e-mail address doesn't have an associated user account. Are you sure "
+"you've registered?"
+msgstr ""
+"Šis emailas nėra registruotas sistemoje. Ar esi tikras, kad tu "
+"užsiregistravęs?"
+
+#: forms.py:193
+msgid ""
+"The user account associated with this e-mail address cannot reset the "
+"password."
+msgstr ""
+"Vartotojas susietas su šiuo el. pašto adresu negali atkurti slaptažodžio."
+
+#: forms.py:196
+msgid "E-mail"
+msgstr "El. paštas"
+
+#: forms.py:253
+msgid "New password"
+msgstr "Naujas slaptažodis"
+
+#: forms.py:255
+msgid "New password confirmation"
+msgstr "Naujo slaptažodžio patvirtinimas"
+
+#: forms.py:284
+msgid "Your old password was entered incorrectly. Please enter it again."
+msgstr "Blogai įvestas senas slaptažodis. Bandykite dar kartą."
+
+#: forms.py:287
+msgid "Old password"
+msgstr "Senas slaptažodis"
+
+#: forms.py:312
+msgid "Password (again)"
+msgstr "Slaptažodis (dar kartą)"
+
+#: hashers.py:218 hashers.py:269 hashers.py:298 hashers.py:326 hashers.py:355
+#: hashers.py:389
+msgid "algorithm"
+msgstr "algoritmas"
+
+#: hashers.py:219
+msgid "iterations"
+msgstr "iteracijos"
+
+#: hashers.py:220 hashers.py:271 hashers.py:299 hashers.py:327 hashers.py:390
+msgid "salt"
+msgstr "druska"
+
+#: hashers.py:221 hashers.py:300 hashers.py:328 hashers.py:356 hashers.py:391
+msgid "hash"
+msgstr "maiša"
+
+#: hashers.py:270
+msgid "work factor"
+msgstr ""
+
+#: hashers.py:272
+msgid "checksum"
+msgstr "kontrolinė suma"
+
+#: models.py:66 models.py:113
+msgid "name"
+msgstr "vardas"
+
+#: models.py:68
+msgid "codename"
+msgstr "kodinis vardas"
+
+#: models.py:72
+msgid "permission"
+msgstr "leidimas"
+
+#: models.py:73 models.py:115
+msgid "permissions"
+msgstr "leidimai"
+
+#: models.py:120
+msgid "group"
+msgstr "grupė"
+
+#: models.py:121 models.py:250
+msgid "groups"
+msgstr "grupės"
+
+#: models.py:232
+msgid "username"
+msgstr "vartotojo vardas"
+
+#: models.py:233
+msgid ""
+"Required. 30 characters or fewer. Letters, numbers and @/./+/-/_ characters"
+msgstr ""
+"Privalomas. 30 arba mažiau simbolių. Raidės, skaičiai bei @/./+/-/_ "
+"simboliai."
+
+#: models.py:235
+msgid "first name"
+msgstr "vardas"
+
+#: models.py:236
+msgid "last name"
+msgstr "pavardė"
+
+#: models.py:237
+msgid "e-mail address"
+msgstr "e-mailo adresas"
+
+#: models.py:238
+msgid "password"
+msgstr "slaptažodis"
+
+#: models.py:239
+msgid "staff status"
+msgstr "personalo statusas"
+
+#: models.py:240
+msgid "Designates whether the user can log into this admin site."
+msgstr "Nurodo ar vartotojas gali prisijungti prie administravimo puslapio."
+
+#: models.py:242
+msgid "active"
+msgstr "aktyvus"
+
+#: models.py:243
+msgid ""
+"Designates whether this user should be treated as active. Unselect this "
+"instead of deleting accounts."
+msgstr ""
+"Nurodo ar vartotojas yra aktyvuotas. Užuot pašalinę vartotoją, galite nuimti "
+"šią žymę."
+
+#: models.py:245
+msgid "superuser status"
+msgstr "supervartotojo statusas"
+
+#: models.py:246
+msgid ""
+"Designates that this user has all permissions without explicitly assigning "
+"them."
+msgstr "Pažymi, kad šis vartotojas turi visas teises be specialių nustatymų."
+
+#: models.py:248
+msgid "last login"
+msgstr "paskutinį kartą prisijungęs"
+
+#: models.py:249
+msgid "date joined"
+msgstr "data, kada prisijungė"
+
+#: models.py:251
+msgid ""
+"The groups this user belongs to. A user will get all permissions granted to "
+"each of his/her group."
+msgstr ""
+"Grupės, kurioms šis vartotojas priklauso. Vartotojas gaus visas teises, "
+"kurios yra suteiktos jo grupėms."
+
+#: models.py:255
+msgid "user permissions"
+msgstr "vartotojo leidimai"
+
+#: models.py:260
+msgid "user"
+msgstr "vartotojas"
+
+#: models.py:261
+msgid "users"
+msgstr "vartotojai"
+
+#: views.py:93
+msgid "Logged out"
+msgstr "Atsijungęs"
+
+#: management/commands/createsuperuser.py:27
+msgid "Enter a valid e-mail address."
+msgstr "Įvesk tinkamą e-mailą."
+
+#: templates/registration/password_reset_subject.txt:2
+#, python-format
+msgid "Password reset on %(site_name)s"
+msgstr "Slaptažodis atkurtas ant %(site_name)s"

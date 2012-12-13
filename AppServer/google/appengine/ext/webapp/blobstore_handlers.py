@@ -42,15 +42,10 @@ Public Exceptions (indentation indications class hierarchy):
 
 
 import cgi
-import cStringIO
-import os
 import re
-import sys
 
 from google.appengine.ext import blobstore
 from google.appengine.ext import webapp
-
-from webob import byterange
 
 
 __all__ = [
@@ -91,7 +86,7 @@ class UnsupportedRangeFormatError(RangeFormatError):
 
 
 def _serialize_range(start, end):
-  """Return a string suitable for use as a value in a RANGE header.
+  """Return a string suitable for use as a value in a Range header.
 
   Args:
     start: The start of the bytes range e.g. 50.
@@ -99,46 +94,73 @@ def _serialize_range(start, end):
       be None if the end of the range is not specified.
 
   Returns:
-    Returns a string (e.g. "bytes=50-100") that represents a serialized RANGE
+    Returns a string (e.g. "bytes=50-100") that represents a serialized Range
     header value.
   """
-  if hasattr(byterange.Range, 'serialize_bytes'):
-    return byterange.Range.serialize_bytes(_BYTES_UNIT, [(start, end)])
+  if start < 0:
+    range_str = '%d' % start
+  elif end is None:
+    range_str = '%d-' % start
   else:
-    if end is not None:
-      end += 1
-    return str(byterange.Range([(start, end)]))
+    range_str = '%d-%d' % (start, end)
+  return 'bytes=%s' % range_str
+
+
+def _parse_range_value(range_value):
+  """Parses a single range value from a Range header.
+
+  Parses strings of the form "0-0", "0-", "0" and "-1" into (start, end) tuples,
+  respectively, (0, 0), (0, None), (0, None), (-1, None).
+
+  Args:
+    range_value: A str containing a single range of a Range header.
+
+  Returns:
+    A tuple containing (start, end) where end is None if the range only has a
+    start value.
+
+  Raises:
+    ValueError: If range_value is not a valid range.
+  """
+  end = None
+  if range_value.startswith('-'):
+    start = int(range_value)
+    if start == 0:
+      raise ValueError('-0 is not a valid range.')
+  else:
+    split_range = range_value.split('-', 1)
+    start = int(split_range[0])
+    if len(split_range) > 1 and split_range[1].strip():
+      end = int(split_range[1])
+      if start > end:
+        raise ValueError('start must be <= end.')
+  return (start, end)
 
 
 def _parse_bytes(range_header):
-  """Returns a list of byte ranges given the value of a RANGE header."""
+  """Parses a full HTTP Range header.
 
+  Args:
+    range_header: The str value of the Range header.
 
-
-
-
-
-  if not hasattr(byterange.Range, 'serialize_bytes'):
-    parse_result = byterange.Range.parse_bytes(range_header)
-    if parse_result is None:
+  Returns:
+    A tuple (units, parsed_ranges) where:
+      units: A str containing the units of the Range header, e.g. "bytes".
+      parsed_ranges: A list of (start, end) tuples in the form that
+        _parsed_range_value returns.
+  """
+  try:
+    parsed_ranges = []
+    units, ranges = range_header.split('=', 1)
+    for range_value in ranges.split(','):
+      range_value = range_value.strip()
+      if range_value:
+        parsed_ranges.append(_parse_range_value(range_value))
+    if not parsed_ranges:
       return None
-
-    ranges = []
-    for start, end in parse_result[1]:
-      if end is not None:
-        end -= 1
-      ranges.append((start, end))
-    return parse_result[0], ranges
-  else:
-
-
-
-    original_stdout = sys.stdout
-    sys.stdout = cStringIO.StringIO()
-    try:
-      return byterange.Range.parse_bytes(range_header)
-    finally:
-      sys.stdout = original_stdout
+    return units, parsed_ranges
+  except ValueError:
+    return None
 
 
 def _check_ranges(start, end, use_range_set, use_range, range_header):
@@ -169,11 +191,10 @@ def _check_ranges(start, end, use_range_set, use_range, range_header):
   use_indexes = start is not None
   if use_indexes:
     if end is not None:
-
-
       if start > end:
         raise ValueError('start must be < end.')
-
+      elif start < 0:
+        raise ValueError('end cannot be set if start < 0.')
     range_indexes = _serialize_range(start, end)
 
 
@@ -253,6 +274,10 @@ class BlobstoreDownloadHandler(webapp.RequestHandler):
     if isinstance(blob_key_or_info, blobstore.BlobInfo):
       blob_key = blob_key_or_info.key()
       blob_info = blob_key_or_info
+    elif isinstance(blob_key_or_info, str) and blob_key_or_info.startswith(
+        '/gs/'):
+      blob_key = blobstore.create_gs_key(blob_key_or_info)
+      blob_info = None
     else:
       blob_key = blob_key_or_info
       blob_info = None
@@ -307,10 +332,7 @@ class BlobstoreDownloadHandler(webapp.RequestHandler):
     if range_header is None:
       return None
 
-    try:
-      parsed_range = _parse_bytes(range_header)
-    except TypeError, err:
-      raise RangeFormatError('Invalid range header: %s' % err)
+    parsed_range = _parse_bytes(range_header)
     if parsed_range is None:
       raise RangeFormatError('Invalid range header: %s' % range_header)
 
@@ -321,7 +343,7 @@ class BlobstoreDownloadHandler(webapp.RequestHandler):
 
     if units != _BYTES_UNIT:
       raise UnsupportedRangeFormatError(
-          'Invalid unit in range header type: %s', range_header)
+          'Invalid unit in range header type: %s' % range_header)
 
     return ranges[0]
 

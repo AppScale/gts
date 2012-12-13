@@ -42,6 +42,8 @@ class Request(ProtocolBuffer.ProtocolMessage):
   method_ = ""
   has_request_ = 0
   request_ = ""
+  has_request_id_ = 0
+  request_id_ = ""
 
   def __init__(self, contents=None):
     if contents is not None: self.MergeFromString(contents)
@@ -85,12 +87,26 @@ class Request(ProtocolBuffer.ProtocolMessage):
 
   def has_request(self): return self.has_request_
 
+  def request_id(self): return self.request_id_
+
+  def set_request_id(self, x):
+    self.has_request_id_ = 1
+    self.request_id_ = x
+
+  def clear_request_id(self):
+    if self.has_request_id_:
+      self.has_request_id_ = 0
+      self.request_id_ = ""
+
+  def has_request_id(self): return self.has_request_id_
+
 
   def MergeFrom(self, x):
     assert x is not self
     if (x.has_service_name()): self.set_service_name(x.service_name())
     if (x.has_method()): self.set_method(x.method())
     if (x.has_request()): self.set_request(x.request())
+    if (x.has_request_id()): self.set_request_id(x.request_id())
 
   def Equals(self, x):
     if x is self: return 1
@@ -100,6 +116,8 @@ class Request(ProtocolBuffer.ProtocolMessage):
     if self.has_method_ and self.method_ != x.method_: return 0
     if self.has_request_ != x.has_request_: return 0
     if self.has_request_ and self.request_ != x.request_: return 0
+    if self.has_request_id_ != x.has_request_id_: return 0
+    if self.has_request_id_ and self.request_id_ != x.request_id_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -123,6 +141,7 @@ class Request(ProtocolBuffer.ProtocolMessage):
     n += self.lengthString(len(self.service_name_))
     n += self.lengthString(len(self.method_))
     n += self.lengthString(len(self.request_))
+    if (self.has_request_id_): n += 1 + self.lengthString(len(self.request_id_))
     return n + 3
 
   def ByteSizePartial(self):
@@ -136,12 +155,14 @@ class Request(ProtocolBuffer.ProtocolMessage):
     if (self.has_request_):
       n += 1
       n += self.lengthString(len(self.request_))
+    if (self.has_request_id_): n += 1 + self.lengthString(len(self.request_id_))
     return n
 
   def Clear(self):
     self.clear_service_name()
     self.clear_method()
     self.clear_request()
+    self.clear_request_id()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(18)
@@ -150,6 +171,9 @@ class Request(ProtocolBuffer.ProtocolMessage):
     out.putPrefixedString(self.method_)
     out.putVarInt32(34)
     out.putPrefixedString(self.request_)
+    if (self.has_request_id_):
+      out.putVarInt32(42)
+      out.putPrefixedString(self.request_id_)
 
   def OutputPartial(self, out):
     if (self.has_service_name_):
@@ -161,6 +185,9 @@ class Request(ProtocolBuffer.ProtocolMessage):
     if (self.has_request_):
       out.putVarInt32(34)
       out.putPrefixedString(self.request_)
+    if (self.has_request_id_):
+      out.putVarInt32(42)
+      out.putPrefixedString(self.request_id_)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -174,6 +201,9 @@ class Request(ProtocolBuffer.ProtocolMessage):
       if tt == 34:
         self.set_request(d.getPrefixedString())
         continue
+      if tt == 42:
+        self.set_request_id(d.getPrefixedString())
+        continue
 
 
       if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
@@ -185,6 +215,7 @@ class Request(ProtocolBuffer.ProtocolMessage):
     if self.has_service_name_: res+=prefix+("service_name: %s\n" % self.DebugFormatString(self.service_name_))
     if self.has_method_: res+=prefix+("method: %s\n" % self.DebugFormatString(self.method_))
     if self.has_request_: res+=prefix+("request: %s\n" % self.DebugFormatString(self.request_))
+    if self.has_request_id_: res+=prefix+("request_id: %s\n" % self.DebugFormatString(self.request_id_))
     return res
 
 
@@ -194,20 +225,23 @@ class Request(ProtocolBuffer.ProtocolMessage):
   kservice_name = 2
   kmethod = 3
   krequest = 4
+  krequest_id = 5
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
     2: "service_name",
     3: "method",
     4: "request",
-  }, 4)
+    5: "request_id",
+  }, 5)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
     2: ProtocolBuffer.Encoder.STRING,
     3: ProtocolBuffer.Encoder.STRING,
     4: ProtocolBuffer.Encoder.STRING,
-  }, 4, ProtocolBuffer.Encoder.MAX_TYPE)
+    5: ProtocolBuffer.Encoder.STRING,
+  }, 5, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
@@ -686,6 +720,8 @@ class TransactionRequest(ProtocolBuffer.ProtocolMessage):
   puts_ = None
   has_deletes_ = 0
   deletes_ = None
+  has_allow_multiple_eg_ = 0
+  allow_multiple_eg_ = 0
 
   def __init__(self, contents=None):
     self.precondition_ = []
@@ -746,12 +782,26 @@ class TransactionRequest(ProtocolBuffer.ProtocolMessage):
 
   def has_deletes(self): return self.has_deletes_
 
+  def allow_multiple_eg(self): return self.allow_multiple_eg_
+
+  def set_allow_multiple_eg(self, x):
+    self.has_allow_multiple_eg_ = 1
+    self.allow_multiple_eg_ = x
+
+  def clear_allow_multiple_eg(self):
+    if self.has_allow_multiple_eg_:
+      self.has_allow_multiple_eg_ = 0
+      self.allow_multiple_eg_ = 0
+
+  def has_allow_multiple_eg(self): return self.has_allow_multiple_eg_
+
 
   def MergeFrom(self, x):
     assert x is not self
     for i in xrange(x.precondition_size()): self.add_precondition().CopyFrom(x.precondition(i))
     if (x.has_puts()): self.mutable_puts().MergeFrom(x.puts())
     if (x.has_deletes()): self.mutable_deletes().MergeFrom(x.deletes())
+    if (x.has_allow_multiple_eg()): self.set_allow_multiple_eg(x.allow_multiple_eg())
 
   def Equals(self, x):
     if x is self: return 1
@@ -762,6 +812,8 @@ class TransactionRequest(ProtocolBuffer.ProtocolMessage):
     if self.has_puts_ and self.puts_ != x.puts_: return 0
     if self.has_deletes_ != x.has_deletes_: return 0
     if self.has_deletes_ and self.deletes_ != x.deletes_: return 0
+    if self.has_allow_multiple_eg_ != x.has_allow_multiple_eg_: return 0
+    if self.has_allow_multiple_eg_ and self.allow_multiple_eg_ != x.allow_multiple_eg_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -778,6 +830,7 @@ class TransactionRequest(ProtocolBuffer.ProtocolMessage):
     for i in xrange(len(self.precondition_)): n += self.precondition_[i].ByteSize()
     if (self.has_puts_): n += 1 + self.lengthString(self.puts_.ByteSize())
     if (self.has_deletes_): n += 1 + self.lengthString(self.deletes_.ByteSize())
+    if (self.has_allow_multiple_eg_): n += 2
     return n
 
   def ByteSizePartial(self):
@@ -786,12 +839,14 @@ class TransactionRequest(ProtocolBuffer.ProtocolMessage):
     for i in xrange(len(self.precondition_)): n += self.precondition_[i].ByteSizePartial()
     if (self.has_puts_): n += 1 + self.lengthString(self.puts_.ByteSizePartial())
     if (self.has_deletes_): n += 1 + self.lengthString(self.deletes_.ByteSizePartial())
+    if (self.has_allow_multiple_eg_): n += 2
     return n
 
   def Clear(self):
     self.clear_precondition()
     self.clear_puts()
     self.clear_deletes()
+    self.clear_allow_multiple_eg()
 
   def OutputUnchecked(self, out):
     for i in xrange(len(self.precondition_)):
@@ -806,6 +861,9 @@ class TransactionRequest(ProtocolBuffer.ProtocolMessage):
       out.putVarInt32(42)
       out.putVarInt32(self.deletes_.ByteSize())
       self.deletes_.OutputUnchecked(out)
+    if (self.has_allow_multiple_eg_):
+      out.putVarInt32(48)
+      out.putBoolean(self.allow_multiple_eg_)
 
   def OutputPartial(self, out):
     for i in xrange(len(self.precondition_)):
@@ -820,6 +878,9 @@ class TransactionRequest(ProtocolBuffer.ProtocolMessage):
       out.putVarInt32(42)
       out.putVarInt32(self.deletes_.ByteSizePartial())
       self.deletes_.OutputPartial(out)
+    if (self.has_allow_multiple_eg_):
+      out.putVarInt32(48)
+      out.putBoolean(self.allow_multiple_eg_)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -838,6 +899,9 @@ class TransactionRequest(ProtocolBuffer.ProtocolMessage):
         tmp = ProtocolBuffer.Decoder(d.buffer(), d.pos(), d.pos() + length)
         d.skip(length)
         self.mutable_deletes().TryMerge(tmp)
+        continue
+      if tt == 48:
+        self.set_allow_multiple_eg(d.getBoolean())
         continue
 
 
@@ -863,6 +927,7 @@ class TransactionRequest(ProtocolBuffer.ProtocolMessage):
       res+=prefix+"deletes <\n"
       res+=self.deletes_.__str__(prefix + "  ", printElemNumber)
       res+=prefix+">\n"
+    if self.has_allow_multiple_eg_: res+=prefix+("allow_multiple_eg: %s\n" % self.DebugFormatBool(self.allow_multiple_eg_))
     return res
 
 
@@ -874,6 +939,7 @@ class TransactionRequest(ProtocolBuffer.ProtocolMessage):
   kPreconditionhash = 3
   kputs = 4
   kdeletes = 5
+  kallow_multiple_eg = 6
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
@@ -882,7 +948,8 @@ class TransactionRequest(ProtocolBuffer.ProtocolMessage):
     3: "hash",
     4: "puts",
     5: "deletes",
-  }, 5)
+    6: "allow_multiple_eg",
+  }, 6)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
@@ -891,13 +958,211 @@ class TransactionRequest(ProtocolBuffer.ProtocolMessage):
     3: ProtocolBuffer.Encoder.STRING,
     4: ProtocolBuffer.Encoder.STRING,
     5: ProtocolBuffer.Encoder.STRING,
-  }, 5, ProtocolBuffer.Encoder.MAX_TYPE)
+    6: ProtocolBuffer.Encoder.NUMERIC,
+  }, 6, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
   _PROTO_DESCRIPTOR_NAME = 'apphosting.ext.remote_api.TransactionRequest'
+class TransactionQueryResult(ProtocolBuffer.ProtocolMessage):
+  has_result_ = 0
+  has_entity_group_key_ = 0
+  has_entity_group_ = 0
+  entity_group_ = None
+
+  def __init__(self, contents=None):
+    self.result_ = QueryResult()
+    self.entity_group_key_ = Reference()
+    self.lazy_init_lock_ = thread.allocate_lock()
+    if contents is not None: self.MergeFromString(contents)
+
+  def result(self): return self.result_
+
+  def mutable_result(self): self.has_result_ = 1; return self.result_
+
+  def clear_result(self):self.has_result_ = 0; self.result_.Clear()
+
+  def has_result(self): return self.has_result_
+
+  def entity_group_key(self): return self.entity_group_key_
+
+  def mutable_entity_group_key(self): self.has_entity_group_key_ = 1; return self.entity_group_key_
+
+  def clear_entity_group_key(self):self.has_entity_group_key_ = 0; self.entity_group_key_.Clear()
+
+  def has_entity_group_key(self): return self.has_entity_group_key_
+
+  def entity_group(self):
+    if self.entity_group_ is None:
+      self.lazy_init_lock_.acquire()
+      try:
+        if self.entity_group_ is None: self.entity_group_ = EntityProto()
+      finally:
+        self.lazy_init_lock_.release()
+    return self.entity_group_
+
+  def mutable_entity_group(self): self.has_entity_group_ = 1; return self.entity_group()
+
+  def clear_entity_group(self):
+
+    if self.has_entity_group_:
+      self.has_entity_group_ = 0;
+      if self.entity_group_ is not None: self.entity_group_.Clear()
+
+  def has_entity_group(self): return self.has_entity_group_
+
+
+  def MergeFrom(self, x):
+    assert x is not self
+    if (x.has_result()): self.mutable_result().MergeFrom(x.result())
+    if (x.has_entity_group_key()): self.mutable_entity_group_key().MergeFrom(x.entity_group_key())
+    if (x.has_entity_group()): self.mutable_entity_group().MergeFrom(x.entity_group())
+
+  def Equals(self, x):
+    if x is self: return 1
+    if self.has_result_ != x.has_result_: return 0
+    if self.has_result_ and self.result_ != x.result_: return 0
+    if self.has_entity_group_key_ != x.has_entity_group_key_: return 0
+    if self.has_entity_group_key_ and self.entity_group_key_ != x.entity_group_key_: return 0
+    if self.has_entity_group_ != x.has_entity_group_: return 0
+    if self.has_entity_group_ and self.entity_group_ != x.entity_group_: return 0
+    return 1
+
+  def IsInitialized(self, debug_strs=None):
+    initialized = 1
+    if (not self.has_result_):
+      initialized = 0
+      if debug_strs is not None:
+        debug_strs.append('Required field: result not set.')
+    elif not self.result_.IsInitialized(debug_strs): initialized = 0
+    if (not self.has_entity_group_key_):
+      initialized = 0
+      if debug_strs is not None:
+        debug_strs.append('Required field: entity_group_key not set.')
+    elif not self.entity_group_key_.IsInitialized(debug_strs): initialized = 0
+    if (self.has_entity_group_ and not self.entity_group_.IsInitialized(debug_strs)): initialized = 0
+    return initialized
+
+  def ByteSize(self):
+    n = 0
+    n += self.lengthString(self.result_.ByteSize())
+    n += self.lengthString(self.entity_group_key_.ByteSize())
+    if (self.has_entity_group_): n += 1 + self.lengthString(self.entity_group_.ByteSize())
+    return n + 2
+
+  def ByteSizePartial(self):
+    n = 0
+    if (self.has_result_):
+      n += 1
+      n += self.lengthString(self.result_.ByteSizePartial())
+    if (self.has_entity_group_key_):
+      n += 1
+      n += self.lengthString(self.entity_group_key_.ByteSizePartial())
+    if (self.has_entity_group_): n += 1 + self.lengthString(self.entity_group_.ByteSizePartial())
+    return n
+
+  def Clear(self):
+    self.clear_result()
+    self.clear_entity_group_key()
+    self.clear_entity_group()
+
+  def OutputUnchecked(self, out):
+    out.putVarInt32(10)
+    out.putVarInt32(self.result_.ByteSize())
+    self.result_.OutputUnchecked(out)
+    out.putVarInt32(18)
+    out.putVarInt32(self.entity_group_key_.ByteSize())
+    self.entity_group_key_.OutputUnchecked(out)
+    if (self.has_entity_group_):
+      out.putVarInt32(26)
+      out.putVarInt32(self.entity_group_.ByteSize())
+      self.entity_group_.OutputUnchecked(out)
+
+  def OutputPartial(self, out):
+    if (self.has_result_):
+      out.putVarInt32(10)
+      out.putVarInt32(self.result_.ByteSizePartial())
+      self.result_.OutputPartial(out)
+    if (self.has_entity_group_key_):
+      out.putVarInt32(18)
+      out.putVarInt32(self.entity_group_key_.ByteSizePartial())
+      self.entity_group_key_.OutputPartial(out)
+    if (self.has_entity_group_):
+      out.putVarInt32(26)
+      out.putVarInt32(self.entity_group_.ByteSizePartial())
+      self.entity_group_.OutputPartial(out)
+
+  def TryMerge(self, d):
+    while d.avail() > 0:
+      tt = d.getVarInt32()
+      if tt == 10:
+        length = d.getVarInt32()
+        tmp = ProtocolBuffer.Decoder(d.buffer(), d.pos(), d.pos() + length)
+        d.skip(length)
+        self.mutable_result().TryMerge(tmp)
+        continue
+      if tt == 18:
+        length = d.getVarInt32()
+        tmp = ProtocolBuffer.Decoder(d.buffer(), d.pos(), d.pos() + length)
+        d.skip(length)
+        self.mutable_entity_group_key().TryMerge(tmp)
+        continue
+      if tt == 26:
+        length = d.getVarInt32()
+        tmp = ProtocolBuffer.Decoder(d.buffer(), d.pos(), d.pos() + length)
+        d.skip(length)
+        self.mutable_entity_group().TryMerge(tmp)
+        continue
+
+
+      if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
+      d.skipData(tt)
+
+
+  def __str__(self, prefix="", printElemNumber=0):
+    res=""
+    if self.has_result_:
+      res+=prefix+"result <\n"
+      res+=self.result_.__str__(prefix + "  ", printElemNumber)
+      res+=prefix+">\n"
+    if self.has_entity_group_key_:
+      res+=prefix+"entity_group_key <\n"
+      res+=self.entity_group_key_.__str__(prefix + "  ", printElemNumber)
+      res+=prefix+">\n"
+    if self.has_entity_group_:
+      res+=prefix+"entity_group <\n"
+      res+=self.entity_group_.__str__(prefix + "  ", printElemNumber)
+      res+=prefix+">\n"
+    return res
+
+
+  def _BuildTagLookupTable(sparse, maxtag, default=None):
+    return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
+
+  kresult = 1
+  kentity_group_key = 2
+  kentity_group = 3
+
+  _TEXT = _BuildTagLookupTable({
+    0: "ErrorCode",
+    1: "result",
+    2: "entity_group_key",
+    3: "entity_group",
+  }, 3)
+
+  _TYPES = _BuildTagLookupTable({
+    0: ProtocolBuffer.Encoder.NUMERIC,
+    1: ProtocolBuffer.Encoder.STRING,
+    2: ProtocolBuffer.Encoder.STRING,
+    3: ProtocolBuffer.Encoder.STRING,
+  }, 3, ProtocolBuffer.Encoder.MAX_TYPE)
+
+
+  _STYLE = """"""
+  _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.ext.remote_api.TransactionQueryResult'
 if _extension_runtime:
   pass
 
-__all__ = ['Request','ApplicationError','Response','TransactionRequest','TransactionRequest_Precondition']
+__all__ = ['Request','ApplicationError','Response','TransactionRequest','TransactionRequest_Precondition','TransactionQueryResult']

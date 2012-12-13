@@ -28,337 +28,40 @@
 
 import base64
 import bisect
-import itertools
-import operator
-import os
-import re
-import sys
-import time
-import urllib
 
 
 import cPickle as pickle
+import itertools
+import logging
+import os
+import re
+import time
+import urllib
 
-from collections import deque
 from google.appengine.api import apiproxy_stub
 from google.appengine.api.prospective_search import error_pb
 from google.appengine.api.prospective_search import prospective_search_pb
+from google.appengine.api.search import query_parser
+from google.appengine.api.search import QueryParser
 from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.runtime import apiproxy_errors
 
+
 def ValidateSubscriptionId(sub_id):
-  if sub_id == '':
+  if not sub_id:
     RaiseBadRequest('Invalid subscription id.')
 
+
 def ValidateTopic(topic):
-  if topic == '':
+  if not topic:
     RaiseBadRequest('Invalid topic.')
 
+
 def ValidateQuery(query):
-  if query == '':
-    RaiseBadRequest('Invalid query.')
+  query_parser.Parse(unicode(query, 'utf-8'))
 
 def RaiseBadRequest(message):
   raise apiproxy_errors.ApplicationError(error_pb.Error.BAD_REQUEST, message)
-
-
-class _TrueExpr(object):
-  """Trivially true callable. Should generally use _EMPTY singleton."""
-
-  def __call__(self, doc):
-    return True
-
-  def __str__(self):
-    return '(t)'
-
-
-_EMPTY = _TrueExpr()
-
-
-class _Not(object):
-  """NOT callable."""
-
-  def __init__(self, expr):
-    self.expr = expr
-
-  def __call__(self, doc):
-    return not self.expr(doc)
-
-  def __str__(self):
-    return '(n %s)' % str(self.expr)
-
-
-def _MakeNot(expr):
-  if expr is _EMPTY:
-    return _EMPTY
-  return _Not(expr)
-
-
-class _AndOr(object):
-  """AND/OR callable."""
-
-  def __init__(self, left, right, is_and=True):
-    self.left = left
-    self.right = right
-    self.is_and = is_and
-
-  def __call__(self, doc):
-    if self.is_and:
-      return self.left(doc) and self.right(doc)
-    else:
-      return self.left(doc) or self.right(doc)
-
-  def __str__(self):
-    if self.is_and:
-      name = 'a'
-    else:
-      name = 'o'
-    return '(%s %s %s)' % (name, str(self.left), str(self.right))
-
-
-def _MakeAndOr(left, right, is_and=True):
-  if right is _EMPTY:
-    return left
-  return _AndOr(left, right, is_and=is_and)
-
-
-class _NumberOp(object):
-  """Basic numeric callable."""
-
-  SYMBOL_TO_OPERATOR = {
-      '<': operator.lt,
-      '<=': operator.le,
-      '=<': operator.le,
-      ':': operator.eq,
-      '=': operator.eq,
-      '==': operator.eq,
-      '>=': operator.ge,
-      '=>': operator.ge,
-      '>': operator.gt,
-      }
-
-  def __init__(self, field, sym, target):
-    self.field = field
-    self.sym = sym
-    self.target = target
-
-  def __call__(self, doc):
-    value = doc.get(self.field, [])
-    for item in value:
-      if self.SYMBOL_TO_OPERATOR[self.sym](item, self.target):
-        return True
-    return False
-
-  def __str__(self):
-    return '(%s:%s %f)' % (self.sym, self.field, self.target)
-
-  @classmethod
-  def IsSymbol(cls, sym):
-    return sym in cls.SYMBOL_TO_OPERATOR
-
-  @staticmethod
-  def IsNumber(num):
-    try:
-      float(num)
-    except ValueError:
-      return False
-    return True
-
-
-class _RangeOp(object):
-  """Number in range callable."""
-
-  def __init__(self, field, left, right):
-    self.field = field
-    self.left = left
-    self.right = right
-
-  def __call__(self, doc):
-    value = doc.get(self.field, [])
-    for item in value:
-      if self.left <= item and item <= self.right:
-        return True
-    return False
-
-  def __str__(self):
-    return '(=:%s %f..%f)' % (self.field, self.left, self.right)
-
-
-class _InField(object):
-  """Text in field callable.
-
-  Functions by swapping the field passed to __init__ into the special '' field.
-  """
-
-  def __init__(self, field, expr):
-    self.field = field
-    self.expr = expr
-
-  def __call__(self, doc):
-
-    old_field = doc['']
-    doc[''] = doc.get(self.field, [])
-    ret = self.expr(doc)
-    doc[''] = old_field
-    return ret
-
-  def __str__(self):
-    return '(infield:%s %s)' % (self.field, str(self.expr))
-
-
-class _TextHas(object):
-  """Text in default field callable.
-
-  Usually used in conjunction with _InField.
-  """
-
-  def __init__(self, text):
-    self.text = text
-    self.regex = re.compile(ur'\b%s\b' % re.escape(unicode(text, 'utf-8')),
-                            re.UNICODE)
-
-  def __call__(self, doc):
-    for item in doc['']:
-      try:
-        if self.regex.search(item):
-          return True
-      except TypeError:
-        pass
-    return False
-
-  def __str__(self):
-    if ' ' in self.text:
-      return '"%s"' % self.text
-    return self.text
-
-
-class _BoolIs(object):
-  """Boolean field has specified value. """
-
-  def __init__(self, field, value):
-    self.field = field
-    if (value == 'true'):
-      self.value = True
-    else:
-
-      self.value = False
-
-  def __call__(self, doc):
-    if self.value in doc.get(self.field, []):
-      return True
-    return False
-
-  def __str__(self):
-    return '(BoolIs:%s %s)' % (self.field, self.value)
-
-
-class _Parser(object):
-  """Parse vanillia query to expression callable."""
-
-
-
-
-  LEX_RE = re.compile(r"""
-      \s*  # whitespace
-      (-?\d*\.?\d+  # number
-      |[^\s(){}:|=<>"\.-][^\s(){}:|=<>"]*  # term
-      |"(?:\\.|[^"])*"?  # phrase
-      |[(){}:|-]|[=<>]+|\.\.\.?)  # symbol
-      """, re.VERBOSE)
-
-  FIELD_RE = re.compile(r'[a-zA-Z_]')
-
-  def __init__(self, vanilla_query, schema):
-    """Init.
-
-    Args:
-      vanilla_query: string vanilla query
-    """
-    self.src = deque(self.LEX_RE.findall(vanilla_query))
-    self.src.append(None)
-    self.token = self.src.popleft()
-    self.schema = schema
-
-  def ParseQuery(self):
-    """Parse the entire vanilla_query."""
-    return self._ParseCompound('')
-
-  def _ParseExpr(self):
-    """Parse an expression."""
-    while (self.token == ')' or self.token == '}' or
-           self.token == 'AND' or self.token == 'OR' or self.token == '|'):
-      self.token = self.src.popleft()
-    if len(self.src) >= 2 and self.FIELD_RE.match(self.token):
-      field = self.token
-      if (len(self.src) >= 4 and self.src[0] in [':', '=', '=='] and
-          _NumberOp.IsNumber(self.src[1]) and self.src[2] in ['..', '...'] and
-          _NumberOp.IsNumber(self.src[3])):
-        self.src.popleft()
-        left = float(self.src.popleft())
-        self.src.popleft()
-        right = float(self.src.popleft())
-        self.token = self.src.popleft()
-        return _RangeOp(field, left, right)
-      elif _NumberOp.IsSymbol(self.src[0]) and _NumberOp.IsNumber(self.src[1]):
-        sym = self.src.popleft()
-        number = float(self.src.popleft())
-        self.token = self.src.popleft()
-        return _NumberOp(field, sym, number)
-      elif (self.src[0] in [':', '='] and
-            prospective_search_pb.SchemaEntry.BOOLEAN
-             == self.schema.get(field, None)):
-        self.src.popleft()
-        bool_value = self.src.popleft()
-        self.token = self.src.popleft()
-        return _BoolIs(field, bool_value)
-      elif self.src[0] in [':', '=']:
-        self.token = self.src.popleft()
-        self.token = self.src.popleft()
-        return _InField(field, self._ParseCompoundOrLiteral())
-    return self._ParseCompoundOrLiteral()
-
-  def _ParseCompoundOrLiteral(self):
-    """Parse a compound or a text literal."""
-    if self.token is None:
-      return _EMPTY
-    last_token = self.token
-    self.token = self.src.popleft()
-    if last_token == '(':
-      return self._ParseCompound(')')
-    elif last_token == '{':
-      return self._ParseCompound('}')
-    elif last_token == '-' or last_token == 'NOT':
-      return _MakeNot(self._ParseExpr())
-    else:
-      if last_token[0] == '"':
-        last_token = last_token[1:]
-        if len(last_token) >= 1 and last_token[-1] == '"':
-          last_token = last_token[:-1]
-      return _TextHas(last_token)
-
-  def _ParseCompound(self, end_token):
-    """Parse a compound (AND/OR).
-
-    Args:
-      end_token: the token that ends this compound, usually ')' or '}'
-    """
-    if self.token is None:
-      return _EMPTY
-    elif (self.token == end_token or self.token == 'AND' or
-          self.token == 'OR' or self.token == '|'):
-      self.token = self.src.popleft()
-      return _EMPTY
-    else:
-      left = self._ParseExpr()
-      is_and = end_token != '}'
-      if self.token == 'AND':
-        self.token = self.src.popleft()
-      elif self.token == 'OR' or self.token == '|':
-        is_and = False
-        self.token = self.src.popleft()
-      return _MakeAndOr(left,
-                        self._ParseCompound(end_token),
-                        is_and=is_and)
 
 
 class ProspectiveSearchStub(apiproxy_stub.APIProxyStub):
@@ -372,12 +75,12 @@ class ProspectiveSearchStub(apiproxy_stub.APIProxyStub):
       prospective_search_path: path for file that persists subscriptions.
       taskqueue_stub: taskqueue service stub for returning results.
       service_name: Service name expected for all calls.
+      openfile: function to open the pickled subscription state.
     """
     super(ProspectiveSearchStub, self).__init__(service_name)
     self.prospective_search_path = prospective_search_path
     self.taskqueue_stub = taskqueue_stub
     self.topics = {}
-    self.topics_parsed = {}
     self.topics_schema = {}
     if os.path.isfile(self.prospective_search_path):
       stream = openfile(self.prospective_search_path, 'rb')
@@ -386,13 +89,6 @@ class ProspectiveSearchStub(apiproxy_stub.APIProxyStub):
       if stream.tell() != 0:
         stream.seek(0)
         self.topics, self.topics_schema = pickle.load(stream)
-        for topic, topic_subs in self.topics.iteritems():
-          for sub_id, entry in topic_subs.items():
-            vanilla_query, _ = entry
-            schema = self.topics_schema.setdefault(topic, {})
-            parsed = _Parser(vanilla_query, schema).ParseQuery()
-            topic_parsed_subs = self.topics_parsed.setdefault(topic, {})
-            topic_parsed_subs[sub_id] = parsed
 
   def _Write(self, openfile=open):
     """Persist subscriptions."""
@@ -401,10 +97,12 @@ class ProspectiveSearchStub(apiproxy_stub.APIProxyStub):
     persisted.close()
 
   def _Get_Schema(self, schema_entries):
-    """Returns dictionary mapping field names to SchemaEntry types.
+    """Converts a schema list to a schema dictionary.
 
     Args:
       schema_entries: list of SchemaEntry entries.
+    Returns:
+      Dictionary mapping field names to SchemaEntry types.
     """
     schema = {}
     for entry in schema_entries:
@@ -416,22 +114,20 @@ class ProspectiveSearchStub(apiproxy_stub.APIProxyStub):
 
     Args:
       request: SubscribeRequest
-      response: SubscribeResponse
+      response: SubscribeResponse (not used)
     """
     ValidateSubscriptionId(request.sub_id())
     ValidateTopic(request.topic())
+
     ValidateQuery(request.vanilla_query())
     schema = self._Get_Schema(request.schema_entry_list())
     self.topics_schema[request.topic()] = schema
-    parsed = _Parser(request.vanilla_query(), schema).ParseQuery()
-    if (request.lease_duration_sec() == 0):
+    if request.lease_duration_sec() == 0:
       expires = time.time() + 0xffffffff
     else:
       expires = time.time() + request.lease_duration_sec()
     topic_subs = self.topics.setdefault(request.topic(), {})
     topic_subs[request.sub_id()] = (request.vanilla_query(), expires)
-    topic_parsed_subs = self.topics_parsed.setdefault(request.topic(), {})
-    topic_parsed_subs[request.sub_id()] = parsed
     self._Write()
 
 
@@ -440,20 +136,18 @@ class ProspectiveSearchStub(apiproxy_stub.APIProxyStub):
 
     Args:
       request: UnsubscribeRequest
-      response: UnsubscribeResponse
+      response: UnsubscribeResponse (not used)
     """
     ValidateSubscriptionId(request.sub_id())
     ValidateTopic(request.topic())
     try:
       del self.topics[request.topic()][request.sub_id()]
-      del self.topics_parsed[request.topic()][request.sub_id()]
     except KeyError:
       pass
     self._Write()
 
   def _ExpireSubscriptions(self):
-    """Remove expired subscriptions.
-    """
+    """Remove expired subscriptions."""
     now = time.time()
     empty_topics = []
     for topic, topic_subs in self.topics.iteritems():
@@ -464,12 +158,10 @@ class ProspectiveSearchStub(apiproxy_stub.APIProxyStub):
           expired_sub_ids.append(sub_id)
       for sub_id in expired_sub_ids:
         del topic_subs[sub_id]
-        del self.topics_parsed[topic][sub_id]
       if len(topic_subs) == 0:
         empty_topics.append(topic)
     for topic in empty_topics:
       del self.topics[topic]
-      del self.topics_parsed[topic]
 
   def _Dynamic_ListSubscriptions(self, request, response):
     """List subscriptions.
@@ -517,7 +209,7 @@ class ProspectiveSearchStub(apiproxy_stub.APIProxyStub):
     """Deliver list of subscriptions as batches using taskqueue.
 
     Args:
-      subcriptions: list of subscription ids
+      subscriptions: list of subscription ids
       match_request: MatchRequest
     """
     parameters = {'topic': match_request.topic()}
@@ -552,35 +244,209 @@ class ProspectiveSearchStub(apiproxy_stub.APIProxyStub):
 
     Args:
       request: MatchRequest
-      response: MatchResponse
+      response: MatchResponse (not used)
     """
     self._ExpireSubscriptions()
-    doc = {'': []}
+    doc = {}
     properties = itertools.chain(request.document().property_list(),
                                  request.document().raw_property_list())
     for prop in properties:
 
-      doc.setdefault(prop.name(), [])
+      prop_name = unicode(prop.name(), 'utf-8')
+      doc.setdefault(prop_name, [])
       if prop.value().has_int64value():
         value = prop.value().int64value()
 
         if (value < 2**32) and (value >= -2**32):
-          doc[prop.name()].append(prop.value().int64value())
+          doc[prop_name].append(prop.value().int64value())
       elif prop.value().has_stringvalue():
 
         unicode_value = unicode(prop.value().stringvalue(), 'utf-8')
-        doc[prop.name()].append(unicode_value)
-
-        doc[''].append(unicode_value)
+        doc[prop_name].append(unicode_value)
       elif prop.value().has_doublevalue():
-        doc[prop.name()].append(prop.value().doublevalue())
+        doc[prop_name].append(prop.value().doublevalue())
       elif prop.value().has_booleanvalue():
-        doc[prop.name()].append(prop.value().booleanvalue())
+        doc[prop_name].append(prop.value().booleanvalue())
 
     matches = []
-    topic_subs = self.topics_parsed.get(request.topic(), {})
-    for sub_id, parsed in topic_subs.iteritems():
-      if parsed(doc):
+    topic_subs = self.topics.get(request.topic(), {})
+    sub_ids = topic_subs.keys()
+    for sub_id in sub_ids:
+      vanilla_query, _ = topic_subs[sub_id]
+      if self._FindMatches(vanilla_query, doc):
         matches.append(sub_id)
     if matches:
       self._DeliverMatches(matches, request)
+
+  def _FindMatches(self, query, doc):
+    """Entry point for matching document against a query."""
+    self._Debug('_FindMatches: query: %r, doc: %s' % (query, doc), 0)
+    query_tree = self._Simplify(query_parser.Parse(unicode(query, 'utf-8')))
+    match = self._WalkQueryTree(query_tree, doc)
+    self._Debug('_FindMatches: result: %s' % match, 0)
+    return match
+
+  def _WalkQueryTree(self, query_node, doc, query_field=None, level=0):
+    """Recursive match of doc from query tree at the given node."""
+    query_type = query_node.getType()
+    query_text = query_node.getText()
+
+    self._Debug('_WalkQueryTree: query type: %r, field: %r, text: %r'
+                % (query_type, query_field, query_text), level=level)
+
+    if query_type is QueryParser.CONJUNCTION:
+      for child in query_node.children:
+        if not self._WalkQueryTree(child, doc, query_field, level=level + 1):
+          return False
+      return True
+
+    elif query_type is QueryParser.DISJUNCTION:
+      for child in query_node.children:
+        if self._WalkQueryTree(child, doc, query_field, level=level + 1):
+          return True
+
+    if query_type is QueryParser.NEGATION:
+      self._Debug(('No such field so no match: field: %r, children: %r'
+                   % (query_type, query_node.children[0])),
+                  level)
+      child = query_node.children[0]
+      return not self._WalkQueryTree(child, doc, query_field, level=level + 1)
+
+    elif query_type is QueryParser.RESTRICTION:
+      query_field = query_node.children[0].getText()
+      if query_field not in doc:
+        self._Debug(('No such field so no match: field: %r' % query_field),
+                    level)
+        return False
+      return self._WalkQueryTree(query_node.children[1], doc, query_field,
+                                 level=level + 1)
+
+
+    elif query_type is QueryParser.HAS:
+      return self._WalkQueryTree(query_node.children[0], doc, query_field,
+                                 level=level + 1)
+
+    elif (query_type is QueryParser.PHRASE or
+          query_type is QueryParser.TEXT or
+          query_type is QueryParser.NAME):
+      if query_field is not None:
+        return self._MatchField(doc, query_field, query_text, level=level)
+
+      for field_name in doc:
+        if self._MatchField(doc, field_name, query_text, level=level):
+          return True
+
+    elif (query_type is QueryParser.EQ or
+          query_type is QueryParser.GT or
+          query_type is QueryParser.LT or
+          query_type is QueryParser.GE or
+          query_type is QueryParser.LE):
+      query_text = query_node.children[0].getText()
+      if query_field is not None:
+        return self._MatchField(doc, query_field, query_text, query_type,
+                                level=level)
+      for field_name in doc:
+        if self._MatchField(doc, field_name, query_text, query_type,
+                            level=level):
+          return True
+
+
+    self._Debug('Fallthrough at %s returning false, query_node.children: %s'
+                % (query_text, [n.getText() for n in query_node.children]),
+                level)
+    return False
+
+  def _MatchField(self, doc, field_name, query_val, op=QueryParser.HAS,
+                  level=0):
+    """Returns true iff 'doc[field_name] op query_val' evaluates to true."""
+    field_vals = doc[field_name]
+    if type(field_vals) is not list:
+      field_vals = list(field_vals)
+
+    self._Debug('_MatchField: doc[%s]: %r %s %r'
+                % (field_name, field_vals, op, query_val), level)
+
+    if (op is QueryParser.HAS
+        or (op is QueryParser.EQ
+            and type(field_vals[0]) is unicode)):
+
+
+      if query_val.startswith('"') and query_val.endswith('"'):
+        query_val = query_val[1:-1]
+      query_val = re.sub(r'\s+', r'\s+', query_val)
+      re_query = re.compile(u'(^\\s*|\\s+)%s(\\s+|\\s*$)'
+                            % query_val, re.IGNORECASE)
+      for val in field_vals:
+        value_text = ('%s' % val)
+        if re_query.search(value_text):
+          return True
+    elif op is QueryParser.EQ:
+      for val in field_vals:
+        if (type(val) is int) or (type(val) is float):
+          if val == float(query_val):
+            return True
+        elif type(val) is bool:
+          query_bool = re.match('(?i)true', query_val) is not None
+          if val == bool(query_bool):
+            return True
+    else:
+      query_num = float(query_val)
+      if op is QueryParser.GT:
+        for val in field_vals:
+          if val > query_num: return True
+      elif op is QueryParser.GE:
+        for val in field_vals:
+          if val >= query_num: return True
+      elif op is QueryParser.LT:
+        for val in field_vals:
+          if val < query_num: return True
+      elif op is QueryParser.LE:
+        for val in field_vals:
+          if val <= query_num: return True
+
+    return False
+
+
+
+
+
+  def _Simplify(self, parser_return):
+    """Simplifies the output of the parser."""
+    if parser_return.tree:
+      return self._SimplifyNode(parser_return.tree)
+    return parser_return
+
+  def _SimplifyNode(self, node):
+    """Simplifies the node removing singleton conjunctions and others."""
+    if not node.getType():
+      return self._SimplifyNode(node.children[0])
+    elif (node.getType() is QueryParser.CONJUNCTION
+          and node.getChildCount() is 1):
+      return self._SimplifyNode(node.children[0])
+    elif (node.getType() is QueryParser.DISJUNCTION
+          and node.getChildCount() is 1):
+      return self._SimplifyNode(node.children[0])
+    elif (node.getType() is QueryParser.RESTRICTION
+          and node.getChildCount() is 2
+          and node.children[0].getType() is QueryParser.GLOBAL):
+      return self._SimplifyNode(node.children[1])
+    elif (node.getType() is QueryParser.VALUE
+          and node.getChildCount() is 2 and
+          (node.children[0].getType() is QueryParser.WORD or
+           node.children[0].getType() is QueryParser.STRING or
+           node.children[0].getType() is QueryParser.NUMBER)):
+      return self._SimplifyNode(node.children[1])
+    elif (node.getType() is QueryParser.EQ and
+          (node.children[0].getType() is QueryParser.CONJUNCTION
+           or node.children[0].getType() is QueryParser.DISJUNCTION)):
+      return self._SimplifyNode(node.children[0])
+    elif (node.getType() is QueryParser.HAS
+          and node.getChildCount() is 1):
+      return self._SimplifyNode(node.children[0])
+    for i, child in enumerate(node.children):
+      node.setChild(i, self._SimplifyNode(child))
+    return node
+
+  def _Debug(self, msg, level):
+    """Helper method to print out indented messages."""
+    logging.info('%s%s', ''.join(' ' for _ in range(level)), msg)

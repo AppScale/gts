@@ -79,18 +79,20 @@ class XmppServiceStub(apiproxy_stub.APIProxyStub):
       response: An XmppMessageResponse .
     """
     from_jid = self._GetFrom(request.from_jid())
-    self.log('Sending an XMPP Message:')
-    self.log('    From:')
-    self.log('       ' + from_jid)
-    self.log('    Body:')
-    self.log('       ' + request.body())
-    self.log('    Type:')
-    self.log('       ' + request.type())
-    self.log('    Raw Xml:')
-    self.log('       ' + str(request.raw_xml()))
-    self.log('    To JIDs:')
+    log_message = []
+    log_message.append('Sending an XMPP Message:')
+    log_message.append('    From:')
+    log_message.append('       ' + from_jid)
+    log_message.append('    Body:')
+    log_message.append('       ' + request.body())
+    log_message.append('    Type:')
+    log_message.append('       ' + request.type())
+    log_message.append('    Raw Xml:')
+    log_message.append('       ' + str(request.raw_xml()))
+    log_message.append('    To JIDs:')
     for jid in request.jid_list():
-      self.log('       ' + jid)
+      log_message.append('       ' + jid)
+    self.log('\n'.join(log_message))
 
     for jid in request.jid_list():
       response.add_status(xmpp_service_pb.XmppMessageResponse.NO_ERROR)
@@ -103,10 +105,12 @@ class XmppServiceStub(apiproxy_stub.APIProxyStub):
       response: An XmppInviteResponse .
     """
     from_jid = self._GetFrom(request.from_jid())
-    self.log('Sending an XMPP Invite:')
-    self.log('    From:')
-    self.log('       ' + from_jid)
-    self.log('    To: ' + request.jid())
+    log_message = []
+    log_message.append('Sending an XMPP Invite:')
+    log_message.append('    From:')
+    log_message.append('       ' + from_jid)
+    log_message.append('    To: ' + request.jid())
+    self.log('\n'.join(log_message))
 
   def _Dynamic_SendPresence(self, request, response):
     """Implementation of XmppService::SendPresence.
@@ -116,19 +120,24 @@ class XmppServiceStub(apiproxy_stub.APIProxyStub):
       response: An XmppSendPresenceResponse .
     """
     from_jid = self._GetFrom(request.from_jid())
-    self.log('Sending an XMPP Presence:')
-    self.log('    From:')
-    self.log('       ' + from_jid)
-    self.log('    To: ' + request.jid())
+    log_message = []
+    log_message.append('Sending an XMPP Presence:')
+    log_message.append('    From:')
+    log_message.append('       ' + from_jid)
+    log_message.append('    To: ' + request.jid())
     if request.type():
-      self.log('    Type: ' + request.type())
+      log_message.append('    Type: ' + request.type())
     if request.show():
-      self.log('    Show: ' + request.show())
+      log_message.append('    Show: ' + request.show())
     if request.status():
-      self.log('    Status: ' + request.status())
+      log_message.append('    Status: ' + request.status())
+    self.log('\n'.join(log_message))
 
   def _GetFrom(self, requested):
     """Validates that the from JID is valid.
+
+    The JID uses the display-app-id for all apps to simulate a common case
+    in production (alias === display-app-id).
 
     Args:
       requested: The requested from JID.
@@ -140,9 +149,11 @@ class XmppServiceStub(apiproxy_stub.APIProxyStub):
       xmpp.InvalidJidError if the requested JID is invalid.
     """
 
-    appid = app_identity.get_application_id()
+    full_appid = os.environ.get('APPLICATION_ID')
+    partition, domain_name, display_app_id = (
+        app_identity.app_identity._ParseFullAppId(full_appid))
     if requested == None or requested == '':
-      return appid + '@appspot.com/bot'
+      return display_app_id + '@appspot.com/bot'
 
 
     node, domain, resource = ('', '', '')
@@ -172,11 +183,41 @@ class XmppServiceStub(apiproxy_stub.APIProxyStub):
                requested)
       raise xmpp.InvalidJidError()
 
-    if domain == 'appspot.com' and node == appid:
+    if domain == 'appspot.com' and node == display_app_id:
       return node + '@' + domain + '/' + resource
-    elif domain == appid + '.appspotchat.com':
+    elif domain == display_app_id + '.appspotchat.com':
       return node + '@' + domain + '/' + resource
 
     self.log('Invalid From JID: Must be appid@appspot.com[/resource] or '
              'node@appid.appspotchat.com[/resource]. JID: %s', requested)
     raise xmpp.InvalidJidError()
+
+  def _Dynamic_CreateChannel(self, request, response):
+    """Implementation of XmppService::CreateChannel.
+
+    Args:
+      request: A CreateChannelRequest.
+      response: A CreateChannelResponse.
+    """
+    log_message = []
+    log_message.append('Sending a Create Channel:')
+    log_message.append('    Client ID:')
+    log_message.append('       ' + request.application_key())
+    if request.duration_minutes():
+      log_message.append('    Duration minutes: ' + request.duration_minutes())
+    self.log('\n'.join(log_message))
+
+  def _Dynamic_SendChannelMessage(self, request, response):
+    """Implementation of XmppService::SendChannelMessage.
+
+    Args:
+      request: A SendMessageRequest.
+      response: A SendMessageRequest.
+    """
+    log_message = []
+    log_message.append('Sending a Channel Message:')
+    log_message.append('    Client ID:')
+    log_message.append('       ' + request.application_key())
+    log_message.append('    Message:')
+    log_message.append('       ' + request.duration_minutes())
+    self.log('\n'.join(log_message))

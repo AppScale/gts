@@ -248,8 +248,9 @@ class _BaseIndex(object):
         The order of the properties is based on the order in the index.
     """
     argument_error = datastore_errors.BadArgumentError
-    datastore_types.ValidateInteger(index_id, 'index_id', argument_error)
-    datastore_types.ValidateString(kind, 'kind', argument_error)
+    datastore_types.ValidateInteger(index_id, 'index_id', argument_error,
+                                    zero_ok=True)
+    datastore_types.ValidateString(kind, 'kind', argument_error, empty_ok=True)
     if not isinstance(properties, (list, tuple)):
       raise argument_error('properties must be a list or a tuple')
     for idx, index_property in enumerate(properties):
@@ -281,7 +282,7 @@ class _BaseIndex(object):
     return self.__id
 
   def _Kind(self):
-    """Returns the index kind, a string."""
+    """Returns the index kind, a string.  Empty string ('') if none."""
     return self.__kind
 
   def _HasAncestor(self):
@@ -523,6 +524,9 @@ def PutAsync(entities, **kwargs):
   entities, multiple = NormalizeAndTypeCheck(entities, Entity)
 
   for entity in entities:
+    if entity.is_projection():
+      raise datastore_errors.BadRequestError(
+        'Cannot put a partial entity: %s' % entity)
     if not entity.kind() or not entity.app():
       raise datastore_errors.BadRequestError(
           'App and kind must not be empty, in entity: %s' % entity)
@@ -697,6 +701,10 @@ class Entity(dict):
   Includes read-only accessors for app id, kind, and primary key. Also
   provides dictionary-style access to properties.
   """
+
+
+  __projection = False
+
   def __init__(self, kind, parent=None, _app=None, name=None, id=None,
                unindexed_properties=[], namespace=None, **kwds):
     """Constructor. Takes the kind and transaction root, which cannot be
@@ -740,7 +748,7 @@ class Entity(dict):
     if namespace is None:
       namespace = _namespace
     elif _namespace is not None:
-        raise datastore_errors.BadArgumentError(
+      raise datastore_errors.BadArgumentError(
             "Must not set both _namespace and namespace parameters.")
 
     datastore_types.ValidateString(kind, 'kind',
@@ -792,25 +800,31 @@ class Entity(dict):
     return self.__key.app()
 
   def namespace(self):
-    """Returns the namespace of this entity, a string or None.
-    """
+    """Returns the namespace of this entity, a string or None."""
     return self.__key.namespace()
 
   def kind(self):
-    """Returns this entity's kind, a string.
-    """
+    """Returns this entity's kind, a string."""
     return self.__key.kind()
 
   def is_saved(self):
-    """Returns if this entity has been saved to the datastore
-    """
+    """Returns if this entity has been saved to the datastore."""
     last_path = self.__key._Key__reference.path().element_list()[-1]
     return ((last_path.has_name() ^ last_path.has_id()) and
             self.__key.has_id_or_name())
 
-  def key(self):
-    """Returns this entity's primary key, a Key instance.
+  def is_projection(self):
+    """Returns if this entity is a projection from full entity.
+
+    Projected entities:
+    - may not contain all properties from the original entity;
+    - only contain single values for lists;
+    - may not contain values with the same type as the original entity.
     """
+    return self.__projection
+
+  def key(self):
+    """Returns this entity's primary key, a Key instance."""
     return self.__key
 
   def parent(self):
@@ -1028,27 +1042,30 @@ class Entity(dict):
     return pb
 
   @staticmethod
-  def FromPb(pb, validate_reserved_properties=True):
+  def FromPb(pb, validate_reserved_properties=True,
+             default_kind='<not specified>'):
     """Static factory method. Returns the Entity representation of the
     given protocol buffer (datastore_pb.Entity).
 
     Args:
       pb: datastore_pb.Entity or str encoding of a datastore_pb.Entity
+      validate_reserved_properties: deprecated
+      default_kind: str, the kind to use if the pb has no key.
 
     Returns:
       Entity: the Entity representation of pb
     """
+
     if isinstance(pb, str):
       real_pb = entity_pb.EntityProto()
-      real_pb.ParseFromString(pb)
+      real_pb.ParsePartialFromString(pb)
       pb = real_pb
 
     return Entity._FromPb(
-        pb, require_valid_key=False,
-        validate_reserved_properties=validate_reserved_properties)
+        pb, require_valid_key=False, default_kind=default_kind)
 
   @staticmethod
-  def _FromPb(pb, require_valid_key=True, validate_reserved_properties=True):
+  def _FromPb(pb, require_valid_key=True, default_kind='<not specified>'):
     """Static factory method. Returns the Entity representation of the
     given protocol buffer (datastore_pb.Entity). Not intended to be used by
     application developers.
@@ -1059,13 +1076,15 @@ class Entity(dict):
     Args:
       # a protocol buffer Entity
       pb: datastore_pb.Entity
+      default_kind: str, the kind to use if the pb has no key.
 
     Returns:
       # the Entity representation of the argument
       Entity
     """
 
-    assert pb.key().path().element_size() > 0
+    if not pb.key().path().element_size():
+      pb.mutable_key().CopyFrom(Key.from_path(default_kind, 0)._ToPb())
 
     last_path = pb.key().path().element_list()[-1]
     if require_valid_key:
@@ -1077,14 +1096,15 @@ class Entity(dict):
         assert last_path.name()
 
 
-    unindexed_properties = [p.name() for p in pb.raw_property_list()]
+    unindexed_properties = [unicode(p.name(), 'utf-8')
+                            for p in pb.raw_property_list()]
 
 
     if pb.key().has_name_space():
       namespace = pb.key().name_space()
     else:
       namespace = ''
-    e = Entity(unicode(last_path.type().decode('utf-8')),
+    e = Entity(unicode(last_path.type(), 'utf-8'),
                unindexed_properties=unindexed_properties,
                _app=pb.key().app(), namespace=namespace)
     ref = e.__key._Key__reference
@@ -1096,6 +1116,8 @@ class Entity(dict):
 
     for prop_list in (pb.property_list(), pb.raw_property_list()):
       for prop in prop_list:
+        if prop.meaning() == entity_pb.Property.INDEX_VALUE:
+          e.__projection = True
         try:
           value = datastore_types.FromPropertyPb(prop)
         except (AssertionError, AttributeError, TypeError, ValueError), e:
@@ -1121,13 +1143,12 @@ class Entity(dict):
 
 
     for name, value in temporary_values.iteritems():
-      decoded_name = unicode(name.decode('utf-8'))
+      decoded_name = unicode(name, 'utf-8')
 
 
 
 
-      datastore_types.ValidateReadProperty(
-          decoded_name, value, read_only=(not validate_reserved_properties))
+      datastore_types.ValidateReadProperty(decoded_name, value)
 
       dict.__setitem__(e, decoded_name, value)
 
@@ -1235,14 +1256,11 @@ class Query(dict):
   __app = None
   __namespace = None
   __orderings = None
-  __hint = None
   __ancestor_pb = None
-  __compile = None
 
-
-  __cursor = None
-
-  __end_cursor = None
+  __index_list_source = None
+  __cursor_source = None
+  __compiled_query_source = None
 
 
 
@@ -1256,19 +1274,22 @@ class Query(dict):
 
   def __init__(self, kind=None, filters={}, _app=None, keys_only=False,
                compile=True, cursor=None, namespace=None, end_cursor=None,
-               **kwds):
+               projection=None, _namespace=None):
     """Constructor.
 
     Raises BadArgumentError if kind is not a string. Raises BadValueError or
     BadFilterError if filters is not a dictionary of valid filters.
 
     Args:
-      # kind is required. filters is optional; if provided, it's used
-      # as an initial set of property filters. keys_only defaults to False.
-      kind: string
-      filters: dict
-      keys_only: boolean
-      namespace: string
+      namespace: string, the namespace to query.
+      kind: string, the kind of entities to query, or None.
+      filters: dict, initial set of filters.
+      keys_only: boolean, if keys should be returned instead of entities.
+      projection: iterable of property names to project.
+      compile: boolean, if the query should generate cursors.
+      cursor: datastore_query.Cursor, the start cursor to use.
+      end_cursor: datastore_query.Cursor, the end cursor to use.
+      _namespace: deprecated, use namespace instead.
     """
 
 
@@ -1276,19 +1297,12 @@ class Query(dict):
 
 
 
-    _namespace = kwds.pop('_namespace', None)
-
-    if kwds:
-      raise datastore_errors.BadArgumentError(
-          'Excess keyword arguments ' + repr(kwds))
-
-
 
 
     if namespace is None:
       namespace = _namespace
     elif _namespace is not None:
-        raise datastore_errors.BadArgumentError(
+      raise datastore_errors.BadArgumentError(
             "Must not set both _namespace and namespace parameters.")
 
     if kind is not None:
@@ -1302,10 +1316,13 @@ class Query(dict):
 
     self.__app = datastore_types.ResolveAppId(_app)
     self.__namespace = datastore_types.ResolveNamespace(namespace)
-    self.__keys_only = keys_only
-    self.__compile = compile
-    self.__cursor = cursor
-    self.__end_cursor = end_cursor
+
+    self.__query_options = datastore_query.QueryOptions(
+        keys_only=keys_only,
+        produce_cursors=compile,
+        start_cursor=cursor,
+        end_cursor=end_cursor,
+        projection=projection)
 
   def Order(self, *orderings):
     """Specify how the query results should be sorted.
@@ -1430,11 +1447,9 @@ class Query(dict):
       # this query
       Query
     """
-    if hint not in [self.ORDER_FIRST, self.ANCESTOR_FIRST, self.FILTER_FIRST]:
-      raise datastore_errors.BadArgumentError(
-        'Query hint must be ORDER_FIRST, ANCESTOR_FIRST, or FILTER_FIRST.')
-
-    self.__hint = hint
+    if hint is not self.__query_options.hint:
+      self.__query_options = datastore_query.QueryOptions(
+          hint=hint, config=self.__query_options)
     return self
 
   def Ancestor(self, ancestor):
@@ -1460,15 +1475,11 @@ class Query(dict):
 
   def IsKeysOnly(self):
     """Returns True if this query is keys only, false otherwise."""
-    return self.__keys_only
+    return self.__query_options.keys_only
 
   def GetQueryOptions(self):
     """Returns a datastore_query.QueryOptions for the current instance."""
-    return datastore_query.QueryOptions(keys_only=self.__keys_only,
-                                        produce_cursors=self.__compile,
-                                        start_cursor=self.__cursor,
-                                        end_cursor=self.__end_cursor,
-                                        hint=self.__hint)
+    return self.__query_options
 
   def GetQuery(self):
     """Returns a datastore_query.Query for the current instance."""
@@ -1528,6 +1539,21 @@ class Query(dict):
           property_filters)
     return None
 
+  def GetIndexList(self):
+    """Get the index list from the last run of this query.
+
+    Returns:
+      A list of indexes used by the last run of this query.
+
+    Raises:
+      AssertionError: The query has not yet been run.
+    """
+    index_list_function = self.__index_list_source
+    if index_list_function:
+      return index_list_function()
+    raise AssertionError('No index list available because this query has not '
+                         'been executed')
+
   def GetCursor(self):
     """Get the cursor from the last run of this query.
 
@@ -1539,20 +1565,22 @@ class Query(dict):
       - Count: A cursor that points immediately after the last result counted.
 
     Returns:
-      A datastore_query.Cursor object that can be used in subsiquent query
+      A datastore_query.Cursor object that can be used in subsequent query
       requests.
+
+    Raises:
+      AssertionError: The query has not yet been run or cannot be compiled.
     """
-    try:
 
 
-      cursor = self.__cursor_source()
-      if not cursor:
-        raise AttributeError()
-    except AttributeError:
-      raise AssertionError('No cursor available, either this query has not '
-                           'been executed or there is no compilation '
-                           'available for this kind of query')
-    return cursor
+    cursor_function = self.__cursor_source
+    if cursor_function:
+      cursor = cursor_function()
+      if cursor:
+        return cursor
+    raise AssertionError('No cursor available, either this query has not '
+                         'been executed or there is no compilation '
+                         'available for this kind of query')
 
   def GetBatcher(self, config=None):
     """Runs this query and returns a datastore_query.Batcher.
@@ -1579,7 +1607,7 @@ class Query(dict):
     invalid, raises BadValueError. If an IN filter is provided, and a sort
     order on another property is provided, raises BadQueryError.
 
-    If you know in advance how many results you want, use Get() instead. It's
+    If you know in advance how many results you want, use limit=#. It's
     more efficient.
 
     Args:
@@ -1592,6 +1620,8 @@ class Query(dict):
     config = _GetConfigFromKwargs(kwargs, convert_rpc=True,
                                   config_class=datastore_query.QueryOptions)
     itr = Iterator(self.GetBatcher(config=config))
+
+    self.__index_list_source = itr.GetIndexList
 
     self.__cursor_source = itr.cursor
 
@@ -1638,6 +1668,8 @@ class Query(dict):
                                   config_class=datastore_query.QueryOptions)
 
     batch = self.GetBatcher(config=config).next()
+    self.__index_list_source = (
+        lambda: [index for index, state in batch.index_list])
     self.__cursor_source = lambda: batch.cursor(0)
     self.__compiled_query_source = lambda: batch._compiled_query
     return max(0, batch.skipped_results - original_offset)
@@ -1648,11 +1680,20 @@ class Query(dict):
 
   def __getstate__(self):
     state = self.__dict__.copy()
-    if '_Query__cursor_source' in state:
-      del state['_Query__cursor_source']
-    if '_Query__compiled_query_source' in state:
-      del state['_Query__compiled_query_source']
+    state['_Query__index_list_source'] = None
+    state['_Query__cursor_source'] = None
+    state['_Query__compiled_query_source'] = None
     return state
+
+  def __setstate__(self, state):
+
+    if '_Query__query_options' not in state:
+      state['_Query__query_options'] = datastore_query.QueryOptions(
+        keys_only=state.pop('_Query__keys_only'),
+        produce_cursors=state.pop('_Query__compile'),
+        start_cursor=state.pop('_Query__cursor'),
+        end_cursor=state.pop('_Query__end_cursor'))
+    self.__dict__ = state
 
   def __setitem__(self, filter, value):
     """Implements the [] operator. Used to set filters.
@@ -1663,7 +1704,7 @@ class Query(dict):
     if isinstance(value, tuple):
       value = list(value)
 
-    datastore_types.ValidateProperty(' ', value, read_only=True)
+    datastore_types.ValidateProperty(' ', value)
     match = self._CheckFilter(filter, value)
     property = match.group(1)
     operator = match.group(3)
@@ -1827,18 +1868,18 @@ class Query(dict):
     """Returns the internal-only pb representation of the last query run.
 
     Do not use.
+
+    Raises:
+      AssertionError: Query not compiled or not yet executed.
     """
-    try:
-
-
-      compiled_query = self.__compiled_query_source()
-      if not compiled_query:
-        raise AttributeError()
-    except AttributeError:
-      raise AssertionError('No compiled query available, either this query has '
-                           'not been executed or there is no compilation '
-                           'available for this kind of query')
-    return compiled_query
+    compiled_query_function = self.__compiled_query_source
+    if compiled_query_function:
+      compiled_query = compiled_query_function()
+      if compiled_query:
+        return compiled_query
+    raise AssertionError('No compiled query available, either this query has '
+                         'not been executed or there is no compilation '
+                         'available for this kind of query')
 
   GetCompiledQuery = _GetCompiledQuery
   GetCompiledCursor = GetCursor
@@ -1917,11 +1958,18 @@ class MultiQuery(Query):
           ' Probable cause: too many IN/!= filters in query.' %
           (MAX_ALLOWABLE_QUERIES, len(bound_queries)))
 
+    projection = (bound_queries and
+                  bound_queries[0].GetQueryOptions().projection)
+
     for query in bound_queries:
+      if projection != query.GetQueryOptions().projection:
+        raise datastore_errors.BadQueryError(
+            'All queries must have the same projection.')
       if query.IsKeysOnly():
         raise datastore_errors.BadQueryError(
             'MultiQuery does not support keys_only.')
 
+    self.__projection = projection
     self.__bound_queries = bound_queries
     self.__orderings = orderings
     self.__compile = False
@@ -2092,6 +2140,32 @@ class MultiQuery(Query):
                                             config=config)
     return lower_bound, upper_bound, config
 
+  def __GetProjectionOverride(self,  config):
+    """Returns a tuple of (original projection, projeciton override).
+
+    If projection is None, there is no projection. If override is None,
+    projection is sufficent for this query.
+    """
+    projection = datastore_query.QueryOptions.projection(config)
+    if  projection is None:
+      projection = self.__projection
+    else:
+      projection = projection
+
+    if not projection:
+      return None, None
+
+
+
+    override = set()
+    for prop, _ in self.__orderings:
+      if prop not in projection:
+        override.add(prop)
+    if not override:
+      return projection, None
+
+    return projection, projection + tuple(override)
+
   def Run(self, **kwargs):
     """Return an iterable output with all results in order.
 
@@ -2113,6 +2187,10 @@ class MultiQuery(Query):
 
     lower_bound, upper_bound, config = self._ExtractBounds(config)
 
+    projection, override = self.__GetProjectionOverride(config)
+    if override:
+      config = datastore_query.QueryOptions(projection=override, config=config)
+
     results = []
     count = 1
     log_level = logging.DEBUG - 1
@@ -2120,6 +2198,15 @@ class MultiQuery(Query):
       logging.log(log_level, 'Running query #%i' % count)
       results.append(bound_query.Run(config=config))
       count += 1
+
+    def GetDedupeKey(sort_order_entity):
+      if projection:
+
+        return (sort_order_entity.GetEntity().key(),
+
+               frozenset(sort_order_entity.GetEntity().iteritems()))
+      else:
+        return sort_order_entity.GetEntity().key()
 
     def IterateResults(results):
       """Iterator function to return all results in sorted order.
@@ -2154,21 +2241,26 @@ class MultiQuery(Query):
 
           break
         top_result = heapq.heappop(result_heap)
+        dedupe_key = GetDedupeKey(top_result)
+        if dedupe_key not in used_keys:
+          result = top_result.GetEntity()
+          if override:
 
-        results_to_push = []
-        if top_result.GetEntity().key() not in used_keys:
-          yield top_result.GetEntity()
+            for key in result.keys():
+              if key not in projection:
+                del result[key]
+          yield result
         else:
 
           pass
 
-        used_keys.add(top_result.GetEntity().key())
+        used_keys.add(dedupe_key)
 
 
         results_to_push = []
         while result_heap:
           next = heapq.heappop(result_heap)
-          if cmp(top_result, next):
+          if dedupe_key != GetDedupeKey(next):
 
             results_to_push.append(next)
             break
@@ -2211,10 +2303,16 @@ class MultiQuery(Query):
       count of the number of entries returned.
     """
 
-    kwargs['keys_only'] = True
     kwargs['limit'] = limit
     config = _GetConfigFromKwargs(kwargs, convert_rpc=True,
                                   config_class=datastore_query.QueryOptions)
+
+    projection, override = self.__GetProjectionOverride(config)
+
+    if not projection:
+      config = datastore_query.QueryOptions(keys_only=True, config=config)
+    elif override:
+      config = datastore_query.QueryOptions(projection=override, config=config)
 
 
     lower_bound, upper_bound, config = self._ExtractBounds(config)
@@ -2222,17 +2320,27 @@ class MultiQuery(Query):
 
     used_keys = set()
     for bound_query in self.__bound_queries:
-      for key in bound_query.Run(config=config):
-        used_keys.add(key)
+      for result in bound_query.Run(config=config):
+        if projection:
+
+          dedupe_key = (result.key(),
+                        tuple(result.iteritems()))
+        else:
+          dedupe_key = result
+        used_keys.add(dedupe_key)
         if upper_bound and len(used_keys) >= upper_bound:
           return upper_bound - lower_bound
 
     return max(0, len(used_keys) - lower_bound)
 
+  def GetIndexList(self):
+
+    raise AssertionError('No index_list available for a MultiQuery (queries '
+                         'using "IN" or "!=" operators)')
+
   def GetCursor(self):
     raise AssertionError('No cursor available for a MultiQuery (queries '
                          'using "IN" or "!=" operators)')
-
 
   def _GetCompiledQuery(self):
     """Internal only, do not use."""
@@ -2428,27 +2536,43 @@ def RunInTransactionOptions(options, function, *args, **kwargs):
 
 
 
+  options = datastore_rpc.TransactionOptions(options)
+  if IsInTransaction():
+    if options.propagation in (None, datastore_rpc.TransactionOptions.NESTED):
 
-  retries = datastore_rpc.TransactionOptions.retries(options)
+      raise datastore_errors.BadRequestError(
+          'Nested transactions are not supported.')
+    elif options.propagation is datastore_rpc.TransactionOptions.INDEPENDENT:
+
+
+      txn_connection = _GetConnection()
+      _SetConnection(_thread_local.old_connection)
+      try:
+        return RunInTransactionOptions(options, function, *args, **kwargs)
+      finally:
+        _SetConnection(txn_connection)
+    return function(*args, **kwargs)
+
+  if options.propagation is datastore_rpc.TransactionOptions.MANDATORY:
+    raise datastore_errors.BadRequestError(
+      'Requires an existing transaction.')
+
+
+  retries = options.retries
   if retries is None:
     retries = DEFAULT_TRANSACTION_RETRIES
 
-
-  if IsInTransaction():
-    raise datastore_errors.BadRequestError(
-      'Nested transactions are not supported.')
-
-  old_connection = _GetConnection()
+  _thread_local.old_connection = _GetConnection()
 
   for _ in range(0, retries + 1):
-    new_connection = old_connection.new_transaction(options)
+    new_connection = _thread_local.old_connection.new_transaction(options)
     _SetConnection(new_connection)
     try:
       ok, result = _DoOneTry(new_connection, function, args, kwargs)
       if ok:
         return result
     finally:
-      _SetConnection(old_connection)
+      _SetConnection(_thread_local.old_connection)
 
 
   raise datastore_errors.TransactionFailedError(
@@ -2521,34 +2645,80 @@ def IsInTransaction():
   return isinstance(_GetConnection(), datastore_rpc.TransactionalConnection)
 
 
-datastore_rpc._positional(1)
-def Transactional(_func=None, require_new=False, **kwargs):
+def Transactional(_func=None, **kwargs):
   """A decorator that makes sure a function is run in a transaction.
+
+  Defaults propagation to datastore_rpc.TransactionOptions.ALLOWED, which means
+  any existing transaction will be used in place of creating a new one.
 
   WARNING: Reading from the datastore while in a transaction will not see any
   changes made in the same transaction. If the function being decorated relies
-  on seeing all changes made in the calling scoope, set require_new=True.
+  on seeing all changes made in the calling scoope, set
+  propagation=datastore_rpc.TransactionOptions.NESTED.
 
   Args:
     _func: do not use.
-    require_new: A bool that indicates the function requires its own transaction
-      and cannot share a transaction with the calling scope (nested transactions
-      are not currently supported by the datastore).
     **kwargs: TransactionOptions configuration options.
 
   Returns:
     A wrapper for the given function that creates a new transaction if needed.
   """
-  if _func is None:
-    return lambda function: Transactional(_func=function,
-                                          require_new=require_new,
-                                          **kwargs)
+
+  if _func is not None:
+    return Transactional()(_func)
+
+
+  if not kwargs.pop('require_new', None):
+
+    kwargs.setdefault('propagation', datastore_rpc.TransactionOptions.ALLOWED)
+
   options = datastore_rpc.TransactionOptions(**kwargs)
-  def wrapper(*args, **kwds):
-    if not require_new and IsInTransaction():
-      return _func(*args, **kwds)
-    return RunInTransactionOptions(options, _func, *args, **kwds)
-  return wrapper
+
+  def outer_wrapper(func):
+    def inner_wrapper(*args, **kwds):
+      return RunInTransactionOptions(options, func, *args, **kwds)
+    return inner_wrapper
+  return outer_wrapper
+
+
+@datastore_rpc._positional(1)
+def NonTransactional(_func=None, allow_existing=True):
+  """A decorator that insures a function is run outside a transaction.
+
+  If there is an existing transaction (and allow_existing=True), the existing
+  transaction is paused while the function is executed.
+
+  Args:
+    _func: do not use
+    allow_existing: If false, throw an exception if called from within a
+      transaction
+
+  Returns:
+    A wrapper for the decorated function that ensures it runs outside a
+    transaction.
+  """
+
+  if _func is not None:
+    return NonTransactional()(_func)
+
+  def outer_wrapper(func):
+    def inner_wrapper(*args, **kwds):
+      if not IsInTransaction():
+        return func(*args, **kwds)
+
+      if not allow_existing:
+        raise datastore_errors.BadRequestError(
+            'Function cannot be called from within a transaction.')
+
+
+      txn_connection = _GetConnection()
+      _SetConnection(_thread_local.old_connection)
+      try:
+        return func(*args, **kwds)
+      finally:
+        _SetConnection(txn_connection)
+    return inner_wrapper
+  return outer_wrapper
 
 
 def _GetCompleteKeyOrError(arg):
@@ -2635,20 +2805,30 @@ class Iterator(datastore_query.ResultsIterator):
 
   Deprecated, do not use, only for backwards compatability.
   """
+
   def _Next(self, count=None):
     if count is None:
       count = 20
     result = []
     for r in self:
       if len(result) >= count:
-        break;
+        break
       result.append(r)
     return result
 
   def GetCompiledCursor(self, query):
     return self.cursor()
 
+  def GetIndexList(self):
+    """Returns the list of indexes used to perform the query."""
+    tuple_index_list = super(Iterator, self).index_list()
+    return [index for index, state in tuple_index_list]
+
   _Get = _Next
+
+
+
+  index_list = GetIndexList
 
 
 

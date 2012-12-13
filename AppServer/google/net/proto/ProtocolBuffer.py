@@ -18,19 +18,17 @@
 
 
 
-import struct
 import array
-import string
-import re
-from google.pyglib.gexcept import AbstractMethod
 import httplib
-from string import strip, split
+import re
+import struct
 
 __all__ = ['ProtocolMessage', 'Encoder', 'Decoder',
            'ExtendableProtocolMessage',
            'ProtocolBufferDecodeError',
            'ProtocolBufferEncodeError',
            'ProtocolBufferReturnError']
+
 
 URL_RE = re.compile('^(https?)://([^/]+)(/.*)$')
 
@@ -41,18 +39,18 @@ class ProtocolMessage:
 
 
   def __init__(self, contents=None):
-    raise AbstractMethod
+    raise NotImplementedError
 
   def Clear(self):
-    raise AbstractMethod
+    raise NotImplementedError
 
   def IsInitialized(self, debug_strs=None):
-    raise AbstractMethod
+    raise NotImplementedError
 
   def Encode(self):
     try:
       return self._CEncode()
-    except AbstractMethod:
+    except NotImplementedError:
       e = Encoder()
       self.Output(e)
       return e.buffer().tostring()
@@ -63,16 +61,16 @@ class ProtocolMessage:
   def SerializePartialToString(self):
     try:
       return self._CEncodePartial()
-    except (AbstractMethod, AttributeError):
+    except (NotImplementedError, AttributeError):
       e = Encoder()
       self.OutputPartial(e)
       return e.buffer().tostring()
 
   def _CEncode(self):
-    raise AbstractMethod
+    raise NotImplementedError
 
   def _CEncodePartial(self):
-    raise AbstractMethod
+    raise NotImplementedError
 
   def ParseFromString(self, s):
     self.Clear()
@@ -91,7 +89,7 @@ class ProtocolMessage:
   def MergePartialFromString(self, s):
     try:
       self._CMergeFromString(s)
-    except AbstractMethod:
+    except NotImplementedError:
 
 
       a = array.array('B')
@@ -100,7 +98,7 @@ class ProtocolMessage:
       self.TryMerge(d)
 
   def _CMergeFromString(self, s):
-    raise AbstractMethod
+    raise NotImplementedError
 
   def __getstate__(self):
     return self.Encode()
@@ -119,9 +117,11 @@ class ProtocolMessage:
         conn = httplib.HTTPSConnection(server)
     else:
       conn = httplib.HTTPConnection(server)
-    # Mods for AppScale
     conn.putrequest("POST", "/")
-    pb_type = split(str(self.__class__),'.')[-1]
+    # AppScale
+    # We add additional headers for the datastore server to reason 
+    # about what request it is getting
+    pb_type = str(self.__class__).split('.')[-1]
     conn.putheader("ProtocolBufferType" , pb_type)
     conn.putheader("AppData", url) # app id, user email, nick name, auth domain
 
@@ -151,7 +151,7 @@ class ProtocolMessage:
                             secure=1, keyfile=keyfile, certfile=certfile)
 
   def __str__(self, prefix="", printElemNumber=0):
-    raise AbstractMethod
+    raise NotImplementedError
 
   def ToASCII(self):
     return self._CToASCII(ProtocolMessage._SYMBOLIC_FULL_ASCII)
@@ -169,16 +169,16 @@ class ProtocolMessage:
   _SYMBOLIC_FULL_ASCII = 2
 
   def _CToASCII(self, output_format):
-    raise AbstractMethod
+    raise NotImplementedError
 
   def ParseASCII(self, ascii_string):
-    raise AbstractMethod
+    raise NotImplementedError
 
   def ParseASCIIIgnoreUnknown(self, ascii_string):
-    raise AbstractMethod
+    raise NotImplementedError
 
   def Equals(self, other):
-    raise AbstractMethod
+    raise NotImplementedError
 
   def __eq__(self, other):
 
@@ -212,10 +212,10 @@ class ProtocolMessage:
     return
 
   def OutputUnchecked(self, e):
-    raise AbstractMethod
+    raise NotImplementedError
 
   def OutputPartial(self, e):
-    raise AbstractMethod
+    raise NotImplementedError
 
   def Parse(self, d):
     self.Clear()
@@ -230,7 +230,7 @@ class ProtocolMessage:
     return
 
   def TryMerge(self, d):
-    raise AbstractMethod
+    raise NotImplementedError
 
   def CopyFrom(self, pb):
     if (pb == self): return
@@ -238,7 +238,7 @@ class ProtocolMessage:
     self.MergeFrom(pb)
 
   def MergeFrom(self, pb):
-    raise AbstractMethod
+    raise NotImplementedError
 
 
 
@@ -834,7 +834,7 @@ class ExtendableProtocolMessage(ProtocolMessage):
           value.OutputPartial(out)
         else:
           value.OutputUnchecked(out)
-        out.putVarInt32(wire_tag + 1)
+        out.putVarInt32(ext.wire_tag + 1)
       elif ext.field_type == TYPE_FOREIGN:
         if partial:
           out.putVarInt32(value.ByteSizePartial())

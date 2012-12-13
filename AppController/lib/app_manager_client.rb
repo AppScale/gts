@@ -50,8 +50,9 @@ class AppManagerClient
   #   and can be factored out to a library. Note this for 
   #   the transition to the python port.
   #
-  def make_call(timeout, retry_on_except)
+  def make_call(timeout, retry_on_except, callr)
     result = ""
+    Djinn.log_debug("Calling the AppManager - #{callr}")
     begin
       Timeout::timeout(timeout) do
         begin
@@ -59,9 +60,13 @@ class AppManagerClient
         end
       end
     rescue OpenSSL::SSL::SSLError
+      Djinn.log_debug("Saw a SSLError when calling #{callr}" +
+        " - trying again momentarily.")
       retry
     rescue Errno::ECONNREFUSED => except
       if retry_on_except
+        Djinn.log_debug("Saw a connection refused when calling #{callr}" +
+          " - trying again momentarily.")
         sleep(1)
         retry
       else
@@ -112,7 +117,7 @@ class AppManagerClient
               'dblocations' => db_locations}
     json_config = JSON.dump(config)
     result = ""
-    make_call(MAX_TIME_OUT, false) { 
+    make_call(MAX_TIME_OUT, false, "start_app") {
       result = @conn.start_app(json_config)
     }
     return result
@@ -129,7 +134,7 @@ class AppManagerClient
   #
   def stop_app_instance(app_name, port)
     result = ""
-    make_call(MAX_TIME_OUT, false){
+    make_call(MAX_TIME_OUT, false, "stop_app_instance") {
       result = @conn.stop_app(app_name, port)
     }
     return result
@@ -145,7 +150,7 @@ class AppManagerClient
   #
   def stop_app(app_name)
     result = ""
-    make_call(MAX_TIME_OUT, false){
+    make_call(MAX_TIME_OUT, false, "stop_app") {
       result = @conn.stop_app(app_name)
     }
     return result

@@ -25,9 +25,6 @@ from google.appengine.api import urlfetch
 from google.appengine.api import users
 from google.appengine.api import xmpp
 
-from google.appengine.api.appscale import ec2
-from google.appengine.api.appscale import neptune
-
 import logging
 
 SECRET = "PLACE SECRET HERE"
@@ -218,11 +215,6 @@ class HealthChecker(webapp.RequestHandler):
       try:
         entry = Entry.get_by_key_name("bazbookey")
         health['datastore'] = RUNNING
-      except Exception, e:
-        health['datastore'] = FAILED
-        logging.error("Datastore FAILED %s"%(str(e)))
-    if capability == "all" or capability == "datastore_write":
-      try:
         entry = StatusText(key_name = "bazbookey")
         entry.content = "bazbooval"
         if entry.put():
@@ -231,8 +223,8 @@ class HealthChecker(webapp.RequestHandler):
           health['datastore_write'] = FAILED
           logging.error("Datastore write FAILED no exception given")
       except Exception, e:
-        health['datastore_write'] = FAILED
-        logging.error("Datastore write FAILED %s"%(str(e)))
+        health['datastore'] = FAILED
+        logging.error("Datastore FAILED %s"%(str(e)))
 
     if capability == "all" or capability == "images":
       try:
@@ -291,27 +283,6 @@ class HealthChecker(webapp.RequestHandler):
       except Exception, e:
         health['xmpp'] = FAILED
         logging.error("xmpp API FAILED %s"%(str(e)))
-
-    if capability == "all" or capability == "ec2":
-      try:
-        if ec2.can_run_jobs():
-          health['ec2'] = RUNNING
-        else:
-          health['ec2'] = FAILED
-          logging.error("ec2 API FAILED no exception")
-      except Exception, e:
-        health['ec2'] = FAILED
-        logging.error("ec2 API FAILED %s"%(str(e)))
-
-    if capability == "all" or capability == "neptune":
-      try:
-        if neptune.can_run_jobs():
-          health['neptune'] = RUNNING
-        else:
-          health['neptune'] = FAILED
-      except Exception, e:
-        health['neptune'] = FAILED
-        logging.error("neptune API FAILED %s"%(str(e)))
 
     self.response.out.write(json.dumps(health))
 

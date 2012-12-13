@@ -31,7 +31,7 @@ See deferred.py for full documentation.
 
 
 
-from google.appengine.ext import deferred
+from google.appengine.ext.deferred import deferred
 from google.appengine.ext.webapp.util import run_wsgi_app
 
 

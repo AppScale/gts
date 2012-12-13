@@ -1,6 +1,6 @@
 require 'dbfrontend'
 
-ALL_CAPABILITIES = ["upload_app", "mr_api", "ec2_api", "neptune_api"]
+ALL_CAPABILITIES = ["upload_app"]
 
 module AuthorizeHelper
   include ApplicationHelper
@@ -9,7 +9,7 @@ module AuthorizeHelper
     head_node_ip = get_head_node_ip
     my_ip = get_my_ip
 
-    (head_node_ip != my_ip) && get_neptune_jobs.empty?
+    head_node_ip != my_ip
   end
 
   def head_node_url

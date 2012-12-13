@@ -133,7 +133,7 @@ app = webapp2.WSGIApplication([
     webapp2.Route('/methods', MethodsHandler, name='methods'),
     webapp2.Route('/broken', BrokenHandler),
     webapp2.Route('/broken-but-fixed', BrokenButFixedHandler),
-    webapp2.Route('/<year:\d{4}>/<month:\d\d>/<name>', None, name='route-test'),
+    webapp2.Route('/<year:\d{4}>/<month:\d{1,2}>/<name>', None, name='route-test'),
     webapp2.Route('/<:\d\d>/<:\d{2}>/<:\w+>', PositionalHandler, name='positional'),
     webapp2.Route('/redirect-me', webapp2.RedirectHandler, defaults={'_uri': '/broken'}),
     webapp2.Route('/redirect-me2', webapp2.RedirectHandler, defaults={'_uri': get_redirect_url}),
@@ -215,9 +215,9 @@ class TestHandler(test_base.BaseTestCase):
         app = webapp2.WSGIApplication([
             webapp2.Route('/broken', BrokenHandler),
         ], debug=True)
-
         req = webapp2.Request.blank('/broken')
-        self.assertRaises(ValueError, req.get_response, app)
+        rsp = req.get_response(app)
+        self.assertEqual(rsp.status_int, 500)
 
     def test_custom_error_handlers(self):
         app.error_handlers = {
@@ -420,6 +420,7 @@ The resource was found at http://localhost/somewhere; you should be redirected a
             self.assertEqual(func('methods', _scheme='https', _full=False), 'https://localhost:80/methods')
             self.assertEqual(func('methods', _scheme='https', _fragment='my-anchor'), 'https://localhost:80/methods#my-anchor')
 
+            self.assertEqual(func('route-test', year='2010', month='0', name='test'), '/2010/0/test')
             self.assertEqual(func('route-test', year='2010', month='07', name='test'), '/2010/07/test')
             self.assertEqual(func('route-test', year='2010', month='07', name='test', foo='bar'), '/2010/07/test?foo=bar')
             self.assertEqual(func('route-test', _fragment='my-anchor', year='2010', month='07', name='test', foo='bar'), '/2010/07/test?foo=bar#my-anchor')
@@ -518,7 +519,8 @@ The resource was found at http://localhost/somewhere; you should be redirected a
         app.error_handlers[500] = handle_exception
 
         req = webapp2.Request.blank('/')
-        self.assertRaises(ValueError, req.get_response, app)
+        rsp = req.get_response(app)
+        self.assertEqual(rsp.status_int, 500)
 
     def test_function_handler(self):
         def my_view(request, *args, **kwargs):

@@ -13,19 +13,24 @@ The API here is inspired by Monocle.
 import collections
 import logging
 import os
-import threading
 import time
 
-from google.appengine.api.apiproxy_rpc import RPC
-from google.appengine.datastore import datastore_rpc
+from .google_imports import apiproxy_rpc
+from .google_imports import datastore_rpc
 
 from . import utils
 
-logging_debug = utils.logging_debug
+__all__ = ['EventLoop',
+           'add_idle', 'queue_call', 'queue_rpc',
+           'get_event_loop',
+           'run', 'run0', 'run1',
+           ]
 
-IDLE = RPC.IDLE
-RUNNING = RPC.RUNNING
-FINISHING = RPC.FINISHING
+_logging_debug = utils.logging_debug
+
+_IDLE = apiproxy_rpc.RPC.IDLE
+_RUNNING = apiproxy_rpc.RPC.RUNNING
+_FINISHING = apiproxy_rpc.RPC.FINISHING
 
 
 class EventLoop(object):
@@ -38,6 +43,29 @@ class EventLoop(object):
     self.inactive = 0  # How many idlers in a row were no-ops
     self.queue = []  # Sorted list of (time, callback, args, kwds)
     self.rpcs = {}  # Map of rpc -> (callback, args, kwds)
+
+  def clear(self):
+    """Remove all pending events without running any."""
+    while self.current or self.idlers or self.queue or self.rpcs:
+      current = self.current
+      idlers = self.idlers
+      queue = self.queue
+      rpcs = self.rpcs
+      _logging_debug('Clearing stale EventLoop instance...')
+      if current:
+        _logging_debug('  current = %s', current)
+      if idlers:
+        _logging_debug('  idlers = %s', idlers)
+      if queue:
+        _logging_debug('  queue = %s', queue)
+      if rpcs:
+        _logging_debug('  rpcs = %s', rpcs)
+      self.__init__()
+      current.clear()
+      idlers.clear()
+      queue[:] = []
+      rpcs.clear()
+      _logging_debug('Cleared')
 
   def insort_event_right(self, event, lo=0, hi=None):
     """Insert event in queue, and keep it sorted assuming queue is sorted.
@@ -59,7 +87,6 @@ class EventLoop(object):
         else: lo = mid + 1
     self.queue.insert(lo, event)
 
-  # TODO: Rename to queue_callback?
   def queue_call(self, delay, callback, *args, **kwds):
     """Schedule a function call at a specific time in the future."""
     if delay is None:
@@ -83,7 +110,7 @@ class EventLoop(object):
     """
     if rpc is None:
       return
-    if rpc.state not in (RUNNING, FINISHING):
+    if rpc.state not in (_RUNNING, _FINISHING):
       raise RuntimeError('rpc must be sent to service before queueing')
     if isinstance(rpc, datastore_rpc.MultiRpc):
       rpcs = rpc.rpcs
@@ -91,7 +118,7 @@ class EventLoop(object):
         # Don't call the callback until all sub-rpcs have completed.
         rpc.__done = False
         def help_multi_rpc_along(r=rpc, c=callback, a=args, k=kwds):
-          if r.state == FINISHING and not r.__done:
+          if r.state == _FINISHING and not r.__done:
             r.__done = True
             c(*a, **k)
             # TODO: And again, what about exceptions?
@@ -127,7 +154,7 @@ class EventLoop(object):
       return False
     idler = self.idlers.popleft()
     callback, args, kwds = idler
-    logging_debug('idler: %s', callback.__name__)
+    _logging_debug('idler: %s', callback.__name__)
     res = callback(*args, **kwds)
     # See add_idle() for the meaning of the callback return value.
     if res is not None:
@@ -137,7 +164,7 @@ class EventLoop(object):
         self.inactive += 1
       self.idlers.append(idler)
     else:
-      logging_debug('idler %s removed', callback.__name__)
+      _logging_debug('idler %s removed', callback.__name__)
     return True
 
   def run0(self):
@@ -150,7 +177,7 @@ class EventLoop(object):
     if self.current:
       self.inactive = 0
       callback, args, kwds = self.current.popleft()
-      logging_debug('nowevent: %s', callback.__name__)
+      _logging_debug('nowevent: %s', callback.__name__)
       callback(*args, **kwds)
       return 0
     if self.run_idle():
@@ -161,7 +188,7 @@ class EventLoop(object):
       if delay <= 0:
         self.inactive = 0
         _, callback, args, kwds = self.queue.pop(0)
-        logging_debug('event: %s', callback.__name__)
+        _logging_debug('event: %s', callback.__name__)
         callback(*args, **kwds)
         # TODO: What if it raises an exception?
         return 0
@@ -169,7 +196,7 @@ class EventLoop(object):
       self.inactive = 0
       rpc = datastore_rpc.MultiRpc.wait_any(self.rpcs)
       if rpc is not None:
-        logging_debug('rpc: %s.%s', rpc.service, rpc.method)
+        _logging_debug('rpc: %s.%s', rpc.service, rpc.method)
         # Yes, wait_any() may return None even for a non-empty argument.
         # But no, it won't ever return an RPC not in its argument.
         if rpc not in self.rpcs:
@@ -205,7 +232,7 @@ class EventLoop(object):
         break
 
 
-class _State(threading.local):
+class _State(utils.threading_local):
   event_loop = None
 
 
@@ -221,10 +248,11 @@ def get_event_loop():
   that we're in a new request by inspecting os.environ, which is reset
   at the start of each request.  Also, each thread gets its own loop.
   """
-  # TODO: Make sure this works with the multithreaded Python 2.7 runtime.
-  ev = None
-  if os.getenv(_EVENT_LOOP_KEY):
-    ev = _state.event_loop
+  ev = _state.event_loop
+  if not os.getenv(_EVENT_LOOP_KEY) and ev is not None:
+    ev.clear()
+    _state.event_loop = None
+    ev = None
   if ev is None:
     ev = EventLoop()
     _state.event_loop = ev

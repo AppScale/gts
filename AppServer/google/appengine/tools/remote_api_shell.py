@@ -47,12 +47,10 @@ from google.appengine.tools import appengine_rpc
 
 
 
-from google.appengine.api import datastore
 from google.appengine.api import memcache
 from google.appengine.api import urlfetch
 from google.appengine.api import users
 from google.appengine.ext import db
-from google.appengine.ext import search
 
 
 HISTORY_PATH = os.path.expanduser('~/.remote_api_shell_history')
@@ -91,7 +89,18 @@ def remote_api_shell(servername, appid, path, secure, rpc_server_factory):
       readline.read_history_file(HISTORY_PATH)
 
 
-  code.interact(banner=BANNER, local=globals())
+  if '' not in sys.path:
+    sys.path.insert(0, '')
+
+  preimported_locals = {
+      'memcache': memcache,
+      'urlfetch': urlfetch,
+      'users': users,
+      'db': db,
+      }
+
+
+  code.interact(banner=BANNER, local=preimported_locals)
 
 
 def main(argv):

@@ -156,12 +156,9 @@ class RPC(apiproxy_rpc.RPC):
             sys.modules,
             sys.path)
 
-    if isinstance(self.request, ProtocolBuffer.ProtocolMessage):
-      e = ProtocolBuffer.Encoder()
-      self.request.Output(e)
-      request_data = e.buffer()
-    else:
-      request_data = self.request.SerializeToString()
+
+
+    request_data = self.request.SerializeToString()
 
     self.__state = RPC.RUNNING
 

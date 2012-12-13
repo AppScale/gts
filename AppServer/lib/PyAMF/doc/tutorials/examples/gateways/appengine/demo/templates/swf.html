@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block head %}
+<script type="text/javascript" src="/assets/swfobject.js"></script>
+<script type="text/javascript">
+    swfobject.embedSWF("{{ swf_url }}", "swf", "{{ width }}", "{{ height }}", "{{ flash_ver }}");
+</script>
+{% endblock %}
+
+{% block body %}
+<div id="swf">
+	This PyAMF demo required the Flash Player, min. version {{ flash_ver }}
+</div>
+{% endblock %}

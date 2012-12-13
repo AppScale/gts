@@ -86,6 +86,7 @@ def CreateChannelDispatcher(channel_service_stub):
       page = path.rsplit('/', 1)[-1]
 
       if page == 'jsapi':
-        path = os.path.join(os.path.dirname(__file__), 'appscale-channel-js-min.js')
+        path = os.path.join(os.path.dirname(__file__), 
+                            'appscale-channel-js-min.js')
         outfile.write(open(path).read())
   return ChannelDispatcher(channel_service_stub)
