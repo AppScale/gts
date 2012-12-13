@@ -1381,7 +1381,7 @@ class DatastoreDistributed():
     self.__ValidateAppId(app_id)
 
     filters, orders = datastore_index.Normalize(query.filter_list(),
-                                                query.order_list())
+                                                query.order_list(), [])
 
     filter_info = self.__GenerateFilterInfo(filters, query)
     order_info = self.__GenerateOrderInfo(orders)
