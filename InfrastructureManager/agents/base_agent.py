@@ -15,20 +15,6 @@ class BaseAgent:
   OPERATION_RUN = 'run'
   OPERATION_TERMINATE = 'terminate'
 
-  def set_environment_variables(self, parameters):
-    """
-    Set any cloud platform specific environment variables
-    in the current process.
-
-    Args:
-      parameters  A dictionary of parameters that may include parameters
-                  that should not be actually set in  in the current process
-                  as environment variables. Agent implementations may decide
-                  which subset of parameters should be set as environment
-                  variables.
-    """
-    raise NotImplementedError
-
   def configure_instance_security(self, parameters):
     """
     Configure and setup security features for the VMs spawned via this

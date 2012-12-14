@@ -285,7 +285,6 @@ class InfrastructureManager:
     status_info = self.reservations.get(reservation_id)
     try:
       security_configured = agent.configure_instance_security(parameters)
-      agent.set_environment_variables(parameters)
       ids, public_ips, private_ips = agent.run_instances(num_vms, parameters, security_configured)
       status_info['state'] = self.STATE_RUNNING
       status_info['vm_info'] = {
@@ -308,7 +307,6 @@ class InfrastructureManager:
       agent       Infrastructure agent in charge of current operation
       parameters  A dictionary of parameters
     """
-    agent.set_environment_variables(parameters)
     agent.terminate_instances(parameters)
 
   def __generate_response(self, status, msg, extra=None):
