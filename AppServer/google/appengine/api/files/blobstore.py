@@ -25,18 +25,19 @@ from __future__ import with_statement
 
 __all__ = ['create', 'get_blob_key', 'get_file_name']
 
+import hashlib
 import urllib
 
-from google.appengine.api.files import file as files
 from google.appengine.api import datastore
+from google.appengine.api import namespace_manager
+from google.appengine.api.files import file as files
 from google.appengine.ext import blobstore
 
 
 
-_BLOBSTORE_FILESYSTEM = 'blobstore'
+_BLOBSTORE_FILESYSTEM = files.BLOBSTORE_FILESYSTEM
 _BLOBSTORE_DIRECTORY = '/' + _BLOBSTORE_FILESYSTEM + '/'
 _BLOBSTORE_NEW_FILE_NAME = 'new'
-_CREATION_HANDLE_PREFIX = 'writable:'
 _MIME_TYPE_PARAMETER = 'content_type'
 _BLOBINFO_UPLOADED_FILENAME_PARAMETER = 'file_name'
 
@@ -76,6 +77,16 @@ _BLOB_FILE_INDEX_KIND = '__BlobFileIndex__'
 _BLOB_KEY_PROPERTY_NAME = 'blob_key'
 
 
+def _get_blob_file_index_key_name(creation_handle):
+  """Get key name for a __BlobFileIndex__ entity.
+
+  Returns creation_handle if it is < 500 symbols and its sha512 otherwise.
+  """
+  if len(creation_handle) < 500:
+    return creation_handle
+  return hashlib.sha512(creation_handle).hexdigest()
+
+
 def get_blob_key(create_file_name):
   """Get a blob key for finalized blobstore file.
 
@@ -101,14 +112,16 @@ def get_blob_key(create_file_name):
         (create_file_name, _BLOBSTORE_DIRECTORY))
   ticket = create_file_name[len(_BLOBSTORE_DIRECTORY):]
 
-  if not ticket.startswith(_CREATION_HANDLE_PREFIX):
+  if not ticket.startswith(files._CREATION_HANDLE_PREFIX):
 
     return blobstore.BlobKey(ticket)
 
 
+
   blob_file_index = datastore.Get([datastore.Key.from_path(
       _BLOB_FILE_INDEX_KIND,
-      ticket)])[0]
+      _get_blob_file_index_key_name(ticket),
+      namespace='')])[0]
   if blob_file_index:
     blob_key_str = blob_file_index[_BLOB_KEY_PROPERTY_NAME]
 
@@ -119,7 +132,7 @@ def get_blob_key(create_file_name):
 
 
     results = datastore.Get([datastore.Key.from_path(
-        blobstore.BLOB_INFO_KIND, blob_key_str)])
+        blobstore.BLOB_INFO_KIND, blob_key_str, namespace='')])
     if results[0] is None:
       return None
   else:
@@ -152,19 +165,3 @@ def get_file_name(blob_key):
   if not isinstance(blob_key, (blobstore.BlobKey, basestring)):
     raise files.InvalidArgumentError('Expected string or blobstore.BlobKey')
   return '%s%s' % (_BLOBSTORE_DIRECTORY, blob_key)
-
-
-def _delete(filename):
-  """Permanently delete a file.
-
-  Args:
-    filename: finalized file name as string.
-  """
-
-  blob_key = get_blob_key(filename)
-  if blob_key is None:
-    return
-  blob_info = blobstore.BlobInfo.get(blob_key)
-  if blob_info is None:
-    return
-  blob_info.delete()

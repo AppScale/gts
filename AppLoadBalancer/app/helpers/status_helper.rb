@@ -1,7 +1,7 @@
 require 'json'
 require 'usertools'
 
-SERVICE_NAMES = %w{ blobstore datastore datastore_write images memcache taskqueue urlfetch users xmpp ec2 neptune}
+SERVICE_NAMES = %w{ blobstore datastore images memcache taskqueue urlfetch users xmpp }
 
 module StatusHelper
   include ApplicationHelper

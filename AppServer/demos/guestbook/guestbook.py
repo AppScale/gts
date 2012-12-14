@@ -16,11 +16,10 @@
 #
 import cgi
 import datetime
-import wsgiref.handlers
+import webapp2
 
 from google.appengine.ext import db
 from google.appengine.api import users
-from google.appengine.ext import webapp
 
 class Greeting(db.Model):
   author = db.UserProperty()
@@ -28,7 +27,7 @@ class Greeting(db.Model):
   date = db.DateTimeProperty(auto_now_add=True)
 
 
-class MainPage(webapp.RequestHandler):
+class MainPage(webapp2.RequestHandler):
   def get(self):
     self.response.out.write('<html><body>')
 
@@ -54,7 +53,7 @@ class MainPage(webapp.RequestHandler):
       </html>""")
 
 
-class Guestbook(webapp.RequestHandler):
+class Guestbook(webapp2.RequestHandler):
   def post(self):
     greeting = Greeting()
 
@@ -66,15 +65,7 @@ class Guestbook(webapp.RequestHandler):
     self.redirect('/')
 
 
-application = webapp.WSGIApplication([
+app = webapp2.WSGIApplication([
   ('/', MainPage),
   ('/sign', Guestbook)
 ], debug=True)
-
-
-def main():
-  wsgiref.handlers.CGIHandler().run(application)
-
-
-if __name__ == '__main__':
-  main()

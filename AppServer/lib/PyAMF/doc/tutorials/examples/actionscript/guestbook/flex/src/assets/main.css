@@ -1,0 +1,15 @@
+/* CSS file */
+
+Application {
+	background-color			: #FFFFFF;
+	background-gradient-colors	: white, white;
+	background-alpha			: 1;
+}
+
+Panel { 
+   	cornerRadius				: 4;
+	backgroundAlpha				: 0;
+    roundedBottomCorners		: true;
+    background-color			: #FFFFFF;
+    vertical-gap				: 0;
+}

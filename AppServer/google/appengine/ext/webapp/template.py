@@ -56,11 +56,6 @@ import warnings
 if os.environ.get('APPENGINE_RUNTIME') == 'python27':
   import google.appengine._internal.django.template.loader
   from google.appengine._internal import django
-  warnings.warn(
-      'google.appengine.ext.webapp.template is deprecated. Please use another '
-      'templating system such as django.template or jinja2.',
-      DeprecationWarning,
-      stacklevel=2)
 else:
   from google.appengine.ext import webapp
   webapp._config_handle.django_setup()
@@ -68,6 +63,10 @@ else:
   import django.template
   import django.template.loader
 
+
+_PYTHON27_DEPRECATION = (
+    'google.appengine.ext.webapp.template is deprecated. Please use another '
+    'templating system such as django.template or jinja2.')
 
 template_cache = {}
 
@@ -85,7 +84,11 @@ def render(template_path, template_dict, debug=False):
   Returns:
     The rendered template as a string.
   """
-  t = load(template_path, debug)
+  if os.environ.get('APPENGINE_RUNTIME') == 'python27':
+    warnings.warn(_PYTHON27_DEPRECATION, DeprecationWarning, stacklevel=2)
+    t = _load_internal_django(template_path, debug)
+  else:
+    t = _load_user_django(template_path, debug)
   return t.render(Context(template_dict))
 
 
@@ -180,6 +183,7 @@ def load(path, debug=False):
   if you want imports and extends to work in the template.
   """
   if os.environ.get('APPENGINE_RUNTIME') == 'python27':
+    warnings.warn(_PYTHON27_DEPRECATION, DeprecationWarning, stacklevel=2)
     return _load_internal_django(path, debug)
   else:
     return _load_user_django(path, debug)

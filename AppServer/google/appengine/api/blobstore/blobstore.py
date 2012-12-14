@@ -63,6 +63,8 @@ __all__ = ['BLOB_INFO_KIND',
            'delete_async',
            'fetch_data',
            'fetch_data_async',
+           'create_gs_key',
+           'create_gs_key_async',
           ]
 
 
@@ -111,7 +113,6 @@ class _CreationFormatError(Error):
 
 class PermissionDeniedError(Error):
   """Raised when permissions are lacking for a requested operation."""
-
 
 
 def _ToBlobstoreError(error):
@@ -234,7 +235,8 @@ def _get_result_hook(rpc):
 def create_upload_url(success_path,
                       max_bytes_per_blob=None,
                       max_bytes_total=None,
-                      rpc=None):
+                      rpc=None,
+                      gs_bucket_name=None):
   """Create upload URL for POST form.
 
   Args:
@@ -245,6 +247,11 @@ def create_upload_url(success_path,
     max_bytes_total: The maximum size in bytes that the aggregate sizes of all
       of the blobs in the upload can be or None for no maximum size.
     rpc: Optional UserRPC object.
+    gs_bucket_name: The Google Storage bucket name that the blobs should be
+      uploaded to. The application's service account must have the correct
+      permissions to write to this bucket. The bucket name may be of the foramt
+      'bucket/path/', in which case the included path will be prepended to the
+      uploaded object name.
 
   Returns:
     The upload URL.
@@ -255,14 +262,18 @@ def create_upload_url(success_path,
       positive values.
   """
   rpc = create_upload_url_async(success_path,
-                                max_bytes_per_blob, max_bytes_total, rpc)
+                                max_bytes_per_blob=max_bytes_per_blob,
+                                max_bytes_total=max_bytes_total,
+                                rpc=rpc,
+                                gs_bucket_name=gs_bucket_name)
   return rpc.get_result()
 
 
 def create_upload_url_async(success_path,
                             max_bytes_per_blob=None,
                             max_bytes_total=None,
-                            rpc=None):
+                            rpc=None,
+                            gs_bucket_name=None):
   """Create upload URL for POST form -- async version.
 
   Args:
@@ -273,6 +284,11 @@ def create_upload_url_async(success_path,
     max_bytes_total: The maximum size in bytes that the aggregate sizes of all
       of the blobs in the upload can be or None for no maximum size.
     rpc: Optional UserRPC object.
+    gs_bucket_name: The Google Storage bucket name that the blobs should be
+      uploaded to. The application's service account must have the correct
+      permissions to write to this bucket. The bucket name may be of the foramt
+      'bucket/path/', in which case the included path will be prepended to the
+      uploaded object name.
 
   Returns:
     A UserRPC whose result will be the upload URL.
@@ -306,6 +322,11 @@ def create_upload_url_async(success_path,
         request.max_upload_size_per_blob_bytes()):
       raise ValueError('max_bytes_total can not be less'
                        ' than max_upload_size_per_blob_bytes')
+
+  if gs_bucket_name is not None:
+    if not isinstance(gs_bucket_name, basestring):
+      raise TypeError('gs_bucket_name must be a string.')
+    request.set_gs_bucket_name(gs_bucket_name)
 
   return _make_async_call(rpc, 'CreateUploadURL', request, response,
                           _get_result_hook, lambda rpc: rpc.response.url())
@@ -430,3 +451,67 @@ def fetch_data_async(blob_key, start_index, end_index, rpc=None):
 
   return _make_async_call(rpc, 'FetchData', request, response,
                           _get_result_hook, lambda rpc: rpc.response.data())
+
+
+def create_gs_key(filename, rpc=None):
+  """Create an encoded key for a Google Storage file.
+
+  The created blob key will include short lived access token using the
+  application's service account for authorization.
+
+  This blob key should not be stored permanently as the access token will
+  expire.
+
+  Args:
+    filename: The filename of the google storage object to create the key for.
+    rpc: Optional UserRPC object.
+
+  Returns:
+    An encrypted blob key object that also contains a short term access token
+      that represents the application's service account.
+  """
+  rpc = create_gs_key_async(filename, rpc)
+  return rpc.get_result()
+
+
+def create_gs_key_async(filename, rpc=None):
+  """Create an encoded key for a google storage file - async version.
+
+  The created blob key will include short lived access token using the
+  application's service account for authorization.
+
+  This blob key should not be stored permanently as the access token will
+  expire.
+
+  Args:
+    filename: The filename of the google storage object to create the
+      key for.
+    rpc: Optional UserRPC object.
+
+  Returns:
+    A UserRPC whose result will be a str as returned by create_gs_key.
+
+  Raises:
+    TypeError: If filename is not a string.
+    ValueError: If filename is not in the format '/gs/bucket_name/object_name'
+  """
+
+  if not isinstance(filename, basestring):
+    raise TypeError('filename must be str: %s' % filename)
+  if not filename.startswith('/gs/'):
+    raise ValueError('filename must start with "/gs/": %s' % filename)
+  if not '/' in filename[4:]:
+    raise ValueError('filename must have the format '
+                     '"/gs/bucket_name/object_name": %s' % filename)
+
+  request = blobstore_service_pb.CreateEncodedGoogleStorageKeyRequest()
+  response = blobstore_service_pb.CreateEncodedGoogleStorageKeyResponse()
+
+  request.set_filename(filename)
+
+  return _make_async_call(rpc,
+                          'CreateEncodedGoogleStorageKey',
+                          request,
+                          response,
+                          _get_result_hook,
+                          lambda rpc: rpc.response.blob_key())

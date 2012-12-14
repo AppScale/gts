@@ -41,6 +41,7 @@ following classes:
 
 
 import logging
+import optparse
 import os
 import sys
 
@@ -66,6 +67,9 @@ sqlcmd.DEFAULT_CONFIG_DIR = os.path.join(os.environ.get('HOME', os.getcwd()),
 sqlcmd.RC_FILE = os.path.join(sqlcmd.DEFAULT_CONFIG_DIR, 'config')
 sqlcmd.HISTORY_FILE_FORMAT = os.path.join(sqlcmd.DEFAULT_CONFIG_DIR, '%s.hist')
 sqlcmd.INTRO = 'Google SQL Client\n\nType "help" or "?" for help.\n'
+
+DEFAULT_ENCODING = 'utf-8'
+USAGE = '%prog [options] instance [database]'
 
 
 class DatabaseConfig(object):
@@ -146,6 +150,10 @@ class GoogleSqlCmd(sqlcmd.SQLCmd):
   def __init__(self, *args, **kwargs):
     sqlcmd.SQLCmd.__init__(self, *args, **kwargs)
     self.prompt = sqlcmd.SQLCmd.MAIN_PROMPT
+    self.output_encoding = DEFAULT_ENCODING
+
+  def set_output_encoding(self, encoding):
+    self.output_encoding = encoding
 
   def do_quit(self, args):
     """Quit the google_sql.  Same as exit."""
@@ -176,19 +184,11 @@ class GoogleSqlCmd(sqlcmd.SQLCmd):
     self._SQLCmd__exec_SQL(cursor, command, args)
     table = self._BuildTable(cursor)
     if table:
-      print table
-
-
-def Exit(exit_code=0, message=None):
-  """Exit the program.
-
-  Args:
-    exit_code: The integer code to pass to sys.exit().
-    message: The message to print before exiting the application.
-  """
-  if message:
-    print message
-  sys.exit(exit_code)
+      output = table.get_string()
+      if isinstance(output, unicode):
+        print output.encode(self.output_encoding)
+      else:
+        print output
 
 
 def _CreateConfigDir():
@@ -201,9 +201,17 @@ def _CreateConfigDir():
 
 
 def main(argv):
-  args = argv[1:]
+  parser = optparse.OptionParser(usage=USAGE)
+  parser.add_option('-e', '--output_encoding', dest='output_encoding',
+                    default=DEFAULT_ENCODING,
+                    help='Output encoding. Defaults to %s.' % DEFAULT_ENCODING)
+
+  (options, args) = parser.parse_args(argv[1:])
+
   if len(args) < 1 or len(args) > 2:
-    Exit(2, 'Usage: google_sql.py instance [database]')
+    parser.print_help(sys.stderr)
+    sys.exit(1)
+
   instance = args[0]
   database = None
   if len(args) == 2:
@@ -221,6 +229,7 @@ def main(argv):
   sql_cmd_config.add('__googlesql__', instance, None, None, database,
                      GoogleSqlDriver.NAME, None, None)
   sql_cmd = GoogleSqlCmd(sql_cmd_config)
+  sql_cmd.set_output_encoding(options.output_encoding)
   sql_cmd.set_database(instance)
   sql_cmd.cmdloop()
 

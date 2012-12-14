@@ -1,0 +1,103 @@
+A test of the decorator module::
+
+    >>> from doctest import ELLIPSIS
+    >>> from webob.dec import wsgify
+    >>> from webob import Response, Request
+    >>> from webob import exc
+    >>> @wsgify
+    ... def test_app(req):
+    ...     return 'hey, this is a test: %s' % req.url
+    >>> def testit(app, req):
+    ...     if isinstance(req, basestring):
+    ...         req = Request.blank(req)
+    ...     resp = req.get_response(app)
+    ...     print resp
+    >>> testit(test_app, '/a url')
+    200 OK
+    Content-Type: text/html; charset=UTF-8
+    Content-Length: 45
+    <BLANKLINE>
+    hey, this is a test: http://localhost/a%20url
+    >>> test_app
+    wsgify(test_app)
+
+Now some middleware testing::
+
+    >>> @wsgify.middleware
+    ... def set_urlvar(req, app, **vars):
+    ...     req.urlvars.update(vars)
+    ...     return app(req)
+    >>> @wsgify
+    ... def show_vars(req):
+    ...     return 'These are the vars: %r' % (sorted(req.urlvars.items()))
+    >>> show_vars2 = set_urlvar(show_vars, a=1, b=2)
+    >>> show_vars2
+    wsgify.middleware(set_urlvar)(wsgify(show_vars), a=1, b=2)
+    >>> testit(show_vars2, '/path')
+    200 OK
+    Content-Type: text/html; charset=UTF-8
+    Content-Length: 40
+    <BLANKLINE>
+    These are the vars: [('a', 1), ('b', 2)]
+
+Some examples from Sergey::
+
+    >>> class HostMap(dict):
+    ...     @wsgify
+    ...     def __call__(self, req):
+    ...         return self[req.host.split(':')[0]]
+    >>> app = HostMap()
+    >>> app['example.com'] = Response('1')
+    >>> app['other.com'] = Response('2')
+    >>> print Request.blank('http://example.com/').get_response(wsgify(app))
+    200 OK
+    Content-Type: text/html; charset=UTF-8
+    Content-Length: 1
+    <BLANKLINE>
+    1
+
+    >>> @wsgify.middleware
+    ... def override_https(req, normal_app, secure_app):
+    ...     if req.scheme == 'https':
+    ...         return secure_app
+    ...     else:
+    ...         return normal_app
+    >>> app = override_https(Response('http'), secure_app=Response('https'))
+    >>> print Request.blank('http://x.com/').get_response(app)
+    200 OK
+    Content-Type: text/html; charset=UTF-8
+    Content-Length: 4
+    <BLANKLINE>
+    http
+
+A status checking middleware::
+
+    >>> @wsgify.middleware
+    ... def catch(req, app, catchers):
+    ...     resp = req.get_response(app)
+    ...     return catchers.get(resp.status_int, resp)
+    >>> @wsgify
+    ... def simple(req):
+    ...     return other_app # Just to mess around
+    >>> @wsgify
+    ... def other_app(req):
+    ...     return Response('hey', status_int=int(req.path_info.strip('/')))
+    >>> app = catch(simple, catchers={500: Response('error!'), 404: Response('nothing')})
+    >>> print Request.blank('/200').get_response(app)
+    200 OK
+    Content-Type: text/html; charset=UTF-8
+    Content-Length: 3
+    <BLANKLINE>
+    hey
+    >>> print Request.blank('/500').get_response(app)
+    200 OK
+    Content-Type: text/html; charset=UTF-8
+    Content-Length: 6
+    <BLANKLINE>
+    error!
+    >>> print Request.blank('/404').get_response(app)
+    200 OK
+    Content-Type: text/html; charset=UTF-8
+    Content-Length: 7
+    <BLANKLINE>
+    nothing

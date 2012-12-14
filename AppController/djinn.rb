@@ -207,7 +207,7 @@ class Djinn
   # A boolean that indicates whether or not we should turn the firewall on,
   # and continuously keep it on. Should definitely be on for releases, and
   # on whenever possible.
-  FIREWALL_IS_ON = false
+  FIREWALL_IS_ON = true
 
 
   # The location on the local filesystem where the AppController writes
@@ -1466,7 +1466,7 @@ class Djinn
     zookeeper_data['locations'].each { |ip|
       begin
         Djinn.log_debug("Restoring AppController state from ZK at #{ip}")
-        ZKInterface.init_to_ip(my_node.public_ip, ip)
+        ZKInterface.init_to_ip(my_node.private_ip, ip)
         json_state = ZKInterface.get_appcontroller_state()
       rescue Exception => e
         Djinn.log_debug("Saw exception of class #{e.class} from #{ip}, " +
@@ -1753,7 +1753,7 @@ class Djinn
 
   def parse_creds
     got_data_msg = "Got data from another node! DLoc = " + \
-      "#{@nodes.join(', ')}, #{@creds.inspect}, AppsToLoad = " + \
+      "#{@nodes.join(', ')}, #{HelperFunctions.obscure_creds(@creds.inspect)}, AppsToLoad = " + \
       "#{@app_names.join(', ')}"
     Djinn.log_debug(got_data_msg)
         
@@ -2021,8 +2021,7 @@ class Djinn
 
   def start_blobstore_server
     db_local_ip = @userappserver_private_ip
-    my_ip = my_node.public_ip
-    BlobServer.start(db_local_ip, PbServer::LISTEN_PORT_NO_SSL, my_ip)
+    BlobServer.start(db_local_ip, PbServer::LISTEN_PORT_NO_SSL)
     BlobServer.is_running(db_local_ip)
 
     return true
@@ -2250,10 +2249,12 @@ class Djinn
     secret_key_loc = "/etc/appscale/secret.key"
     cert_loc = "/etc/appscale/certs/mycert.pem"
     key_loc = "/etc/appscale/certs/mykey.pem"
+    pub_key = File.expand_path("~/.ssh/id_rsa.pub")
 
     HelperFunctions.scp_file(secret_key_loc, secret_key_loc, ip, ssh_key)
     HelperFunctions.scp_file(cert_loc, cert_loc, ip, ssh_key)
     HelperFunctions.scp_file(key_loc, key_loc, ip, ssh_key)
+    scp_ssh_key_to_ip(ip, ssh_key, pub_key)
 
     # TODO: should be able to merge these together
     if is_hybrid_cloud?
@@ -2288,7 +2289,27 @@ class Djinn
       HelperFunctions.scp_file(cloud_cert, cloud_cert, ip, ssh_key)
     end
   end
+
  
+  # Copies over SSH keys to ~/.ssh on the given machine, enabling that
+  # machine to log in to itself or any other AppScale VM without being
+  # prompted for a password. Note that since this copies keys to ~./ssh,
+  # it will overwrite any keys that already exist there.
+  # Args:
+  #   ip: The IP address to copy SSH keys to.
+  #   private_key: The SSH private key that should be copied over.
+  #   public_key: The SSH public key that should be copied over.
+  def scp_ssh_key_to_ip(ip, private_key, public_key)
+    HelperFunctions.scp_file(private_key, "~/.ssh/id_rsa", ip,
+      private_key)
+    # this is needed for EC2 integration.
+    HelperFunctions.scp_file(private_key, "~/.ssh/id_dsa", ip,
+      private_key)
+    HelperFunctions.scp_file(public_key, "~/.ssh/id_rsa.pub", ip,
+      private_key)
+  end
+
+
   def rsync_files(dest_node)
     controller = "#{APPSCALE_HOME}/AppController"
     server = "#{APPSCALE_HOME}/AppServer"
@@ -3276,10 +3297,10 @@ HOSTS
     # for app named baz, this translates to baz@login_ip
 
     login_ip = get_login.public_ip
-    login_uac = UserAppClient.new(login_ip, @@secret)
+    uac = UserAppClient.new(@userappserver_public_ip, @@secret)
     xmpp_user = "#{app}@#{login_ip}"
     xmpp_pass = HelperFunctions.encrypt_password(xmpp_user, @@secret)
-    login_uac.commit_new_user(xmpp_user, xmpp_pass, "app")
+    uac.commit_new_user(xmpp_user, xmpp_pass, "app")
 
     Djinn.log_debug("Created user [#{xmpp_user}] with password [#{@@secret}] and hashed password [#{xmpp_pass}]")
 

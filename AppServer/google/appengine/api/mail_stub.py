@@ -22,12 +22,8 @@ send real email via SMTP or sendmail."""
 
 
 
-from email import MIMEBase
-from email import MIMEMultipart
-from email import MIMEText
 import logging
 import mail
-import mimetypes
 import subprocess
 import smtplib
 
@@ -157,7 +153,8 @@ class MailServiceStub(apiproxy_stub.APIProxyStub):
       popen: popen function to create a new sub-process.
     """
     if not users.is_current_user_admin():
-      raise mail_errors.InvalidSenderError("You must log in as the administrator to send mail.")
+      raise mail_errors.InvalidSenderError(
+            "You must log in as the administrator to send mail.")
 
     try:
       tos = [mime_message[to] for to in ['To', 'Cc', 'Bcc'] if mime_message[to]]
@@ -175,8 +172,6 @@ class MailServiceStub(apiproxy_stub.APIProxyStub):
         child.stdin.write(str(mime_message))
         child.stdin.close()
       finally:
-        #while child.poll() is None:
-        #  child.stdout.read(100)
         child.stdout.close()
     except (IOError, OSError), e:
       logging.error('Error sending mail using sendmail: ' + str(e))
@@ -204,8 +199,6 @@ class MailServiceStub(apiproxy_stub.APIProxyStub):
 
     if self._smtp_host and self._enable_sendmail:
       log('Both SMTP and sendmail are enabled.  Ignoring sendmail.')
-
-    import email
 
     mime_message = mail.MailMessageToMIMEMessage(request)
     if self._smtp_host:

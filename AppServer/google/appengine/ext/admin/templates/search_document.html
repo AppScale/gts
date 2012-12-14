@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ application_name }} Development Console - Full Text Search{% endblock %}
+
+{% block head %}
+{% endblock %}
+
+{% block breadcrumbs %}
+  <span class="item"><a href="">Full Text Search</a></span>
+{% endblock %}
+
+{% block body %}
+<h3>Text Search > <a href="{{ prev }}">{{ index }}</a>
+{% if namespace %}
+  <br>
+  Namespace: {{ namespace }}
+{% endif %}</h3>
+
+{{ resp }}
+{% if doc %}
+  <table id="ah-tasks" class="ae-table ae-table-striped">
+    <thead>
+      <tr>
+        <td colspan="2">Document Id: {{ doc_id }}</td>
+      </tr>
+      {% if doc.order_id %}
+      <tr>
+        <td colspan="2">Order Id: {{ doc.order_id }}</td>
+      </tr>
+      {% endif %}
+      <tr>
+        <th>Field Name</th>
+        <th>Field Value</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for field in doc.fields %}
+      <tr class="{% cycle ae-odd,ae-even %}">
+        <td valign="top">
+          {{ field.name }}
+        </td>
+        <td valign="top">
+          {{ field.value }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+{% else %}
+  No document with id: "{{ doc_id}}".
+{% endif %}
+{% endblock %}

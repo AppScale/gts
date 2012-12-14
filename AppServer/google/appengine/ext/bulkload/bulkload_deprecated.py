@@ -37,8 +37,6 @@ import csv
 import httplib
 import os
 import traceback
-
-import google
 import wsgiref.handlers
 
 from google.appengine.api import datastore

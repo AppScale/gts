@@ -10,7 +10,7 @@ Welcome to webapp2!
 `webapp2`_ is a lightweight Python web framework compatible with Google App
 Engine's `webapp`_.
 
-webapp2 is a `single file`_ that follows the simplicity of webapp, but improves
+webapp2 is a `simple`_. it follows the simplicity of webapp, but improves
 it in some ways: it adds better URI routing and exception handling, a full
 featured response object and a more flexible dispatching mechanism.
 
@@ -22,6 +22,11 @@ webapp2 can also be used outside of Google App Engine, independently of the
 App Engine SDK.
 
 For a complete description of how webapp2 improves webapp, see :ref:`features`.
+
+.. note::
+   webapp2 is part of the Python 2.7 runtime since App Engine SDK 1.6.0.
+   To include it in your app see
+   `Configuring Libraries <http://code.google.com/appengine/docs/python/python27/using27.html#Configuring_Libraries>`_.
 
 
 Quick links
@@ -83,7 +88,6 @@ API Reference - webapp2_extras
    api/webapp2_extras/json.rst
    api/webapp2_extras/local.rst
    api/webapp2_extras/mako.rst
-   api/webapp2_extras/protorpc.rst
    api/webapp2_extras/routes.rst
    api/webapp2_extras/securecookie.rst
    api/webapp2_extras/security.rst
@@ -132,7 +136,6 @@ Indices and tables
    api/extras.local.rst
    api/extras.local_app.rst
    api/extras.mako.rst
-   api/extras.protorpc.rst
    api/extras.routes.rst
    api/extras.securecookie.rst
    api/extras.security.rst
@@ -195,7 +198,7 @@ webapp2 is licensed under the `Apache License 2.0`_.
 
 .. _webapp: http://code.google.com/appengine/docs/python/tools/webapp/
 .. _webapp2: http://code.google.com/p/webapp-improved/
-.. _single file: http://code.google.com/p/webapp-improved/source/browse/webapp2.py
+.. _simple: http://code.google.com/p/webapp-improved/source/browse/webapp2.py
 .. _WebOb: http://docs.webob.org/
 .. _Werkzeug: http://werkzeug.pocoo.org/
 .. _Tipfy: http://www.tipfy.org/

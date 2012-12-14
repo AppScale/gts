@@ -15,19 +15,16 @@
 # limitations under the License.
 #
 
-"""Real version of the XMPP API, using the xmpppy library."""
+""" Implementation of the XMPP API, using the xmpppy library powered by 
+    ejabberd.
+"""
 
-
-
-
-
+import hashlib
 import logging
 import os
-import re
 import SOAPpy
 import xmpp as xmpppy
-import SOAPpy
-import hashlib
+
 from google.appengine.api import xmpp
 from google.appengine.api.xmpp import xmpp_service_pb
 from google.appengine.api import apiproxy_stub
@@ -57,6 +54,7 @@ class XmppService(apiproxy_stub.APIProxyStub):
     self.xmpp_domain = domain
     self.uaserver = "https://" + uaserver
     self.login = "https://localhost:17443"
+
     if not uasecret:
       secret_file = open("/etc/appscale/secret.key", 'r')
       uasecret = secret_file.read().rstrip('\n')
@@ -74,11 +72,6 @@ class XmppService(apiproxy_stub.APIProxyStub):
       request: A PresenceRequest.
       response: A PresenceResponse.
     """
-
-    appname = os.environ['APPNAME']
-
-    xmpp_username = appname + "@" + self.xmpp_domain
-
     jid = request.jid()
     server = SOAPpy.SOAPProxy(self.login)
     online_users = server.get_online_users_list(self.uasecret)
@@ -110,7 +103,8 @@ class XmppService(apiproxy_stub.APIProxyStub):
     client.auth(my_jid.getNode(), self.uasecret, resource=my_jid.getResource())
 
     for jid in request.jid_list():
-      message = xmpppy.protocol.Message(frm=xmpp_username, to=jid, body=request.body(), typ=request.type())
+      message = xmpppy.protocol.Message(frm=xmpp_username, to=jid, 
+                                        body=request.body(), typ=request.type())
       client.send(message)
       response.add_status(xmpp_service_pb.XmppMessageResponse.NO_ERROR)
 
@@ -169,7 +163,8 @@ class XmppService(apiproxy_stub.APIProxyStub):
     if domain == self.xmpp_domain and node == appid:
       return node + '@' + domain + '/' + resource
 
-    self.log('Invalid From JID: Must be appid@[IP address or FQDN][/resource]. JID: %s', requested)
+    self.log('Invalid From JID: Must be appid@[IP address or ' +\
+             'FQDN][/resource]. JID: %s', requested)
     raise xmpp.InvalidJidError()
 
   def _Dynamic_CreateChannel(self, request, response):
@@ -192,7 +187,7 @@ class XmppService(apiproxy_stub.APIProxyStub):
     client_id = 'channel~%s~%s@%s' % (unique_app_id,
                                       application_key,
                                       self.xmpp_domain)
-    # Create an xmpp user
+
     server = SOAPpy.SOAPProxy(self.uaserver) 
     password = application_key
     encry_pw = hashlib.sha1(client_id+password)
@@ -204,13 +199,12 @@ class XmppService(apiproxy_stub.APIProxyStub):
       # We are allowing reuse of ids
       # TODO reset the timestamp of the xmpp user
       pass
-      #self.log("User already exits")
     elif ret != "true":
       self.log("Comming a new channel user error: %s"%ret) 
       raise apiproxy_errors.ApplicationError(
           channel_service_pb.ChannelServiceError.INTERNAL_ERROR)
     
-    response.set_client_id(client_id)
+    response.set_token(client_id)
 
   def _Dynamic_SendChannelMessage(self, request, response):
     """Implementation of channel.send_message.
@@ -239,7 +233,8 @@ class XmppService(apiproxy_stub.APIProxyStub):
     client.connect()
     client.auth(my_jid.getNode(), self.uasecret, resource=my_jid.getResource())
 
-    message = xmpppy.protocol.Message(frm=xmpp_username, to=jid, body=request.message(), typ="chat")
+    message = xmpppy.protocol.Message(frm=xmpp_username, to=jid, 
+                                      body=request.message(), typ="chat")
     client.send(message)
 
 

@@ -59,9 +59,11 @@ import os
 import sys
 
 from django.core import exceptions
+from django.db import backends
 from django.db.backends import signals
 from django.utils import safestring
 
+from google.appengine.api import apiproxy_stub_map
 from google.storage.speckle.python.api import rdbms
 from google.storage.speckle.python.django.backend import client
 
@@ -86,17 +88,6 @@ old_modules = [(name, sys.modules.pop(name)) for name in modules_to_swap
                if name in sys.modules]
 
 sys.modules['MySQLdb'] = rdbms
-
-try:
-
-  from google.third_party import python
-  python.MySQLdb = rdbms
-  for module_name in modules_to_swap:
-    module_name = 'google.third_party.python.' + module_name
-    old_modules.append((module_name, sys.modules.pop(module_name, None)))
-  sys.modules['google.third_party.python.MySQLdb'] = rdbms
-except ImportError:
-  pass
 
 from django.db.backends.mysql import base
 
@@ -141,9 +132,8 @@ def _GetDriver(driver_name=None):
     The imported driver module, or None if a suitable driver can not be found.
   """
   if not driver_name:
-    server_software = os.getenv('SERVER_SOFTWARE', '')
     base_pkg_path = 'google.storage.speckle.python.api.'
-    if server_software.startswith(PROD_SERVER_SOFTWARE):
+    if apiproxy_stub_map.apiproxy.GetStub('rdbms'):
       driver_name = base_pkg_path + 'rdbms_apiproxy'
     else:
       driver_name = base_pkg_path + 'rdbms_googleapi'
@@ -171,9 +161,9 @@ def Connect(driver_name=None, oauth2_refresh_token=None, **kwargs):
       found in storage and no oauth2_refresh_token was given.
   """
   driver = _GetDriver(driver_name)
-  server_software = os.getenv('SERVER_SOFTWARE', '')
-  if server_software and driver.__name__.endswith('rdbms_googleapi'):
-    if server_software.startswith(PROD_SERVER_SOFTWARE):
+  if (os.getenv('APPENGINE_RUNTIME') and
+      driver.__name__.endswith('rdbms_googleapi')):
+    if os.getenv('SERVER_SOFTWARE', '').startswith(PROD_SERVER_SOFTWARE):
       logging.warning(
           'Using the Google API driver is not recommended when running on '
           'production App Engine.  You should instead use the GAE API Proxy '
@@ -206,6 +196,32 @@ def Connect(driver_name=None, oauth2_refresh_token=None, **kwargs):
   return driver.connect(**kwargs)
 
 
+class DatabaseOperations(base.DatabaseOperations):
+  """DatabaseOperations for use with rdbms."""
+
+
+  def last_executed_query(self, cursor, sql, params):
+    """Returns the query last executed by the given cursor.
+
+    Placeholders found in the given sql string will be replaced with actual
+    values from the params list.
+
+    Args:
+      cursor: The database Cursor.
+      sql: The raw query containing placeholders.
+      params: The sequence of parameters.
+
+    Returns:
+      The string representing the query last executed by the cursor.
+    """
+
+
+
+
+    return backends.BaseDatabaseOperations.last_executed_query(
+        self, cursor, sql, params)
+
+
 class DatabaseWrapper(base.DatabaseWrapper):
   """Django DatabaseWrapper for use with rdbms.
 
@@ -217,6 +233,11 @@ class DatabaseWrapper(base.DatabaseWrapper):
   def __init__(self, *args, **kwargs):
     super(DatabaseWrapper, self).__init__(*args, **kwargs)
     self.client = client.DatabaseClient(self)
+    try:
+      self.ops = DatabaseOperations()
+    except TypeError:
+
+      self.ops = DatabaseOperations(self)
 
   def _cursor(self):
     if not self._valid_connection():
