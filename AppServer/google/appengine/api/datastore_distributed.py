@@ -357,6 +357,11 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     query_response = datastore_pb.QueryResult()
     query.set_app(self.__app_id)
     self._RemoteSend(query, query_response, "RunQuery")
+
+    skipped_results = 0
+    if query_response.has_skipped_results():
+      skipped_results = query_response.skipped_results()
+
     results = query_response.result_list()
     results = [datastore.Entity._FromPb(r) for r in results]
 
@@ -462,7 +467,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     cursor.PopulateQueryResult(query_result, count,
                                query.offset(), compile=query.compile())
   
-
+    query_result.set_skipped_results(skipped_results)
     if query.compile():
       compiled_query = query_result.mutable_compiled_query()
       compiled_query.set_keys_only(query.keys_only())
