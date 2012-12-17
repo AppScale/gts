@@ -1920,7 +1920,7 @@ class Djinn
 
     memcache_ips = []
     @nodes.each { |node|
-      memcache_ips << node.public_ip if node.is_memcache?
+      memcache_ips << node.private_ip if node.is_memcache?
     }
 
     Djinn.log_debug("Memcache servers will be at #{memcache_ips.join(', ')}")
@@ -2528,11 +2528,11 @@ HOSTS
 
   def start_ejabberd()
     @state = "Starting up XMPP server"
-    my_public = my_node.public_ip
+    my_private = my_node.private_ip
     Ejabberd.stop
     Djinn.log_run("rm -f /var/lib/ejabberd/*")
-    Ejabberd.write_auth_script(my_public, @@secret)
-    Ejabberd.write_config_file(my_public)
+    Ejabberd.write_auth_script(my_private, @@secret)
+    Ejabberd.write_config_file(my_private)
     Ejabberd.start
   end
 
