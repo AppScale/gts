@@ -854,14 +854,13 @@ class DatastoreDistributed():
 
     limit = query.limit() or self._MAXIMUM_RESULTS
 
-    offset = query.offset()
   
     result = self.datastore_batch.range_query(dbconstants.APP_ENTITY_TABLE, 
                                               dbconstants.APP_ENTITY_SCHEMA, 
                                               startrow, 
                                               endrow, 
                                               limit, 
-                                              offset=offset, 
+                                              offset=0, 
                                               start_inclusive=start_inclusive, 
                                               end_inclusive=end_inclusive)
     return self.__extract_entities(result)
@@ -918,14 +917,13 @@ class DatastoreDistributed():
       start_inclusive = self._DISABLE_INCLUSIVITY
 
     limit = query.limit() or self._MAXIMUM_RESULTS
-    offset = query.offset()
   
     result = self.datastore_batch.range_query(dbconstants.APP_ENTITY_TABLE, 
                                               dbconstants.APP_ENTITY_SCHEMA, 
                                               startrow, 
                                               endrow, 
                                               limit, 
-                                              offset=offset, 
+                                              offset=0, 
                                               start_inclusive=start_inclusive, 
                                               end_inclusive=end_inclusive)
 
@@ -991,14 +989,13 @@ class DatastoreDistributed():
 
     limit = query.limit() or self._MAXIMUM_RESULTS
 
-    offset = query.offset()
   
     result = self.datastore_batch.range_query(dbconstants.APP_KIND_TABLE, 
                                               dbconstants.APP_KIND_SCHEMA, 
                                               startrow, 
                                               endrow, 
                                               limit, 
-                                              offset=offset, 
+                                              offset=0, 
                                               start_inclusive=start_inclusive, 
                                               end_inclusive=end_inclusive)
     return self.__fetch_entities(result)
@@ -1041,7 +1038,6 @@ class DatastoreDistributed():
 
     prefix = self.get_table_prefix(query)
  
-    offset = query.offset()
 
     limit = query.limit() or self._MAXIMUM_RESULTS
 
@@ -1060,7 +1056,7 @@ class DatastoreDistributed():
                                query.kind(), 
                                prefix, 
                                limit, 
-                               offset, 
+                               0, 
                                startrow)
     return self.__fetch_entities(references)
 
@@ -1129,7 +1125,7 @@ class DatastoreDistributed():
                                           startrow, 
                                           endrow, 
                                           limit, 
-                                          offset=offset, 
+                                          offset=0, 
                                           start_inclusive=start_inclusive, 
                                           end_inclusive=end_inclusive)      
 
@@ -1193,7 +1189,7 @@ class DatastoreDistributed():
                                           startrow, 
                                           endrow, 
                                           limit, 
-                                          offset=offset, 
+                                          offset=0, 
                                           start_inclusive=start_inclusive, 
                                           end_inclusive=end_inclusive)      
 
@@ -1272,7 +1268,7 @@ class DatastoreDistributed():
                                           startrow, 
                                           endrow, 
                                           limit, 
-                                          offset=offset, 
+                                          offset=0, 
                                           start_inclusive=start_inclusive, 
                                           end_inclusive=end_inclusive)      
          
@@ -1354,7 +1350,7 @@ class DatastoreDistributed():
     # direct to the datastore, followed by in memory filters
     # Research is required on figuring out what is the 
     # best filter to apply via range queries. 
-    while len(result) < (limit+offset):
+    while len(result) < (limit + offset):
       temp_res = self.__apply_filters(filter_ops, 
                                    order_ops, 
                                    property_name, 
@@ -1399,7 +1395,6 @@ class DatastoreDistributed():
     if len(order_info) > 1:
       result = self.__order_composite_results(result, order_info) 
 
-    if result: result = result[offset:]
     return result 
 
   def __order_composite_results(self, result, order_info):
@@ -1500,11 +1495,14 @@ class DatastoreDistributed():
     """
     result = self.__get_query_results(query)
     count = 0
+    offset = query.offset()
     if result:
-      for index, ii in enumerate(result):
-        result[index] = entity_pb.EntityProto(ii)
+      query_result.set_skipped_results(len(result) - offset)
       count = len(result)
-     
+      result = result[offset:]
+      for index, ii in enumerate(result):
+        result[index] = entity_pb.EntityProto(ii) 
+
     cur = cassandra_stub_util.QueryCursor(query, result)
     cur.PopulateQueryResult(count, query.offset(), query_result) 
   
