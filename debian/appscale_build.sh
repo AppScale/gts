@@ -13,6 +13,21 @@ if [ ! -e VERSION ]; then
     exit 1
 fi
 
+supported_dbs=(hbase hypertable mysql cassandra voldemort mongodb memcachedb redisdb)
+if [ $1 ]; then
+    found=false
+    for i in "${supported_dbs[@]}"
+    do
+        if [ "$i" == $1 ] ; then
+            found=true
+        fi
+    done
+    if ! $found ; then
+      echo "$1 is not a supported database."
+      exit 1
+    fi
+fi
+
 if [ $2 ]; then
     echo "Usage: bash appscale_build.sh <optional: one database name>"
     exit 1
