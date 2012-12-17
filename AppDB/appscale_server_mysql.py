@@ -127,13 +127,13 @@ CREATE TABLE IF NOT EXISTS Apps (
   app_id VARCHAR(255) NOT NULL PRIMARY KEY,
   indexes VARCHAR(255)
 ) ENGINE=ndbcluster;
-""","""
+""", """
 CREATE TABLE IF NOT EXISTS Namespaces (
   app_id VARCHAR(255) NOT NULL,
   name_space VARCHAR(255) NOT NULL,
   PRIMARY KEY (app_id, name_space)
 ) ENGINE=ndbcluster;
-""","""
+""", """
 CREATE TABLE IF NOT EXISTS IdSeq (
   prefix VARCHAR(255) NOT NULL PRIMARY KEY,
   next_id INT(100) NOT NULL
@@ -148,7 +148,7 @@ CREATE TABLE IF NOT EXISTS %(prefix)s_Entities (
   INDEX(kind),
   INDEX(__path__)
 ) ENGINE=ndbcluster;
-""","""
+""", """
 CREATE TABLE IF NOT EXISTS %(prefix)s_EntitiesByProperty (
   kind VARCHAR(255) NOT NULL,
   name VARCHAR(255) NOT NULL,
@@ -158,20 +158,34 @@ CREATE TABLE IF NOT EXISTS %(prefix)s_EntitiesByProperty (
   PRIMARY KEY(hashed_index),
   INDEX(value(32))
 ) ENGINE=ndbcluster;
-""","""
+""", """
 INSERT IGNORE INTO Apps (app_id) VALUES ('%(app_id)s');
-""","""
+""", """
 INSERT IGNORE INTO Namespaces (app_id, name_space)
   VALUES ('%(app_id)s', '%(name_space)s');
-""","""
+""", """
 INSERT IGNORE INTO IdSeq VALUES ('%(prefix)s', 1);
 """]
 
 def formatTableName(tableName):
-    import re
-    return re.sub("[^\w\d_]","",tableName)
+  """ Formats a table name so it is compatible with MySQL.
+
+  Args:
+    tableName: The table name that will be formatted.
+  Returns:
+    A string of the formatted table name.
+  """
+  import re
+  return re.sub("[^\w\d_]", "", tableName)
 
 def ReferencePropertyToReference(refprop):
+  """ Converts a ReferenceProperty type into a Reference type.
+
+  Args:
+    refprop: A ReferenceProperty for which we want a Reference.
+  Returns:
+    A new Reference type derived from a ReferenceProperty.
+  """
   ref = entity_pb.Reference()
   ref.set_app(refprop.app())
   if refprop.has_name_space():
@@ -360,7 +374,6 @@ class QueryCursor(object):
     limited_offset = min(offset, _MAX_QUERY_OFFSET)
     if limited_offset:
       result.set_skipped_results(self.Skip(limited_offset))
-
     if offset == limited_offset:
       if count > _MAXIMUM_RESULTS:
         count = _MAXIMUM_RESULTS
@@ -408,7 +421,9 @@ class DatastoreDistributed():
     self.__id_map = {}
     self.__id_lock = threading.Lock()
 
-    self.__connection = MySQLdb.connect(host=_DB_LOCATION, db=_USE_DATABASE, user=_DB_USER)
+    self.__connection = MySQLdb.connect(host=_DB_LOCATION, 
+                                        db=_USE_DATABASE, 
+                                        user=_DB_USER)
     self.__connection_lock = threading.Lock()
     self.__cursors = {}
 
@@ -425,7 +440,9 @@ class DatastoreDistributed():
   def __setupDB(self):
     """Initializes MySQL database and creates required tables."""
     self.__connection_lock.acquire()
-    self.__connection = MySQLdb.connect(host=_DB_LOCATION, db=_USE_DATABASE, user=_DB_USER)
+    self.__connection = MySQLdb.connect(host=_DB_LOCATION, 
+                                        db=_USE_DATABASE, 
+                                        user=_DB_USER)
     cursor = self.__connection.cursor()
 
     for sql_command in _NAMESPACE_TABLES:
@@ -435,8 +452,6 @@ class DatastoreDistributed():
         print "ERROR creating namespace table!"
         print str(e)
     self.__connection.commit()
-    #print cursor.execute('show tables')
-    #print cursor.fetchall()
 
     # If the tables were not created, see what apps/namespaces exist
     cursor.execute('SELECT app_id, name_space FROM Namespaces')
@@ -455,22 +470,6 @@ class DatastoreDistributed():
     # Looks like we are not storing index info in self.__indexes
     # When GetIndicies are called it should return the indexes for said app
     self.__connection_lock.release() 
-  def Clear(self):
-    pass
-
-  def Read(self):
-    pass
-
-  def Write(self):
-    pass
-
-  def SetTrusted(self, trusted):
-    """
-    A trusted app can write to datastores of other apps.
-    Args:
-      trusted: boolean.
-    """
-    self.__trusted = trusted
 
   @staticmethod
   def __MakeParamList(size):
@@ -485,13 +484,29 @@ class DatastoreDistributed():
 
   @staticmethod
   def __GetEntityKind(key):
+    """Returns the kind of a given entity.
+
+    Args: 
+      key: A Key type or EntityProto for which we 
+           want an entity kind.
+    Returns:
+      Returns the kind/type of the last element in the ancestor list .
+    """
     if isinstance(key, entity_pb.EntityProto):
       key = key.key()
     return key.path().element_list()[-1].type()
 
   @staticmethod
   def __EncodeIndexPB(pb):
+    """Encodes an index and gives the key used for the datastore.
+  
+    Args:
+      pb: The protocol buffer for which we want an index key.
+    Returns:
+      A string to be used as a key into the datastore.
+    """
     def _encode_path(pb):
+      """ Creates a string key using the ancestor path. """
       path = []
       for e in pb.element_list():
         if e.has_name():
@@ -519,6 +534,7 @@ class DatastoreDistributed():
 
   @staticmethod
   def __AddQueryParam(params, param):
+    """ Appends parameters and returns the new length of the parameters. """
     params.append(param)
     return len(params)
 
@@ -538,7 +554,6 @@ class DatastoreDistributed():
     for prop, operator, value in filter_list:
       sql_op = _OPERATOR_MAP[operator]
 
-      value_index = DatastoreDistributed.__AddQueryParam(params, value)
       clauses.append('%s %s %%s' % (prop, sql_op))
 
     filters = ' AND '.join(clauses)
@@ -597,6 +612,9 @@ class DatastoreDistributed():
     self.__ValidateAppId(key.app())
 
   def __get_connection(self, txnid):
+    """ Get the connection to the datastore and garbage 
+        collect transactions. 
+    """
     conn = None
     self.__gc()
 
@@ -614,6 +632,8 @@ class DatastoreDistributed():
 
   # clean up expired connections
   def __gc(self):
+    """ Garbage collects transactions which have timed out.
+    """
     curtime = time.time()
     if curtime < self.__last_gc_time + _GC_TIME:
       return
@@ -631,7 +651,7 @@ class DatastoreDistributed():
     last_gc_time = time.time()
 
   def setup_transaction(self, app_id):
-    # New connection 
+    """ Setup a client connection for a transaction. """
     txn_id = zoo_keeper.getTransactionID(app_id)
     client = MySQLdb.connect(host=_DB_LOCATION, db=_USE_DATABASE, user=_DB_USER)
     #TODO is this lock a bottle neck, and is it really required?
@@ -642,6 +662,7 @@ class DatastoreDistributed():
     return txn_id
 
   def __cleanupConnection(self, txnid):
+    """ Remove a connection associated to a transaction. """
     self.__transDict_lock.acquire()
     if txnid in self.__transDict:
       client, ent_group, start_time = self.__transDict[txnid]
@@ -650,8 +671,7 @@ class DatastoreDistributed():
     return
 
   def __getEntityGroup(self, transaction):
-    """ Get the entity group associated with a transaction
-    """
+    """ Get the entity group associated with a transaction. """
     if transaction.has_handle(): 
       txnid = transaction.handle()
       self.__transDict_lock.acquire()
@@ -681,7 +701,9 @@ class DatastoreDistributed():
   def __checkConnection(self):
     self.__connection_lock.acquire()
     if self.__connection.open == 0:
-      self.__connection = MySQLdb.connect(host=_DB_LOCATION, db=_USE_DATABASE, user=_DB_USER)
+      self.__connection = MySQLdb.connect(host=_DB_LOCATION, 
+                                          db=_USE_DATABASE, 
+                                          user=_DB_USER)
     self.__connection_lock.release()
 
   def __ReleaseConnection(self, conn, rollback=False):
@@ -770,7 +792,8 @@ class DatastoreDistributed():
       The number of rows deleted.
     """
     cursor = conn.cursor()
-    sql_command = 'DELETE FROM %s WHERE __path__ IN (%s)'%(table, self.__MakeParamList(len(paths)))
+    sql_command = 'DELETE FROM %s WHERE __path__ IN (%s)' % \
+                  (table, self.__MakeParamList(len(paths)))
     cursor.execute(sql_command, paths)
     return cursor.rowcount
 
@@ -832,10 +855,14 @@ class DatastoreDistributed():
       all_rows = []
       for unused_prefix, e in entities:
         for p in e.property_list():
-          p_vals = [self.__GetEntityKind(e), p.name(), self.__EncodeIndexPB(p.value()), self.__EncodeIndexPB(e.key().path())]
+          p_vals = [self.__GetEntityKind(e), 
+                    p.name(), 
+                    self.__EncodeIndexPB(p.value()), 
+                    self.__EncodeIndexPB(e.key().path())]
 
           hashed_index = md5.new(''.join(p_vals[:2]))
-          hashed_index.update(p_vals[2]) #buffer values cannot be joined into a string
+          #buffer values cannot be joined into a string
+          hashed_index.update(p_vals[2]) 
           hashed_index.update(p_vals[3])
           p_vals.append( hashed_index.hexdigest() )
           all_rows.append(p_vals)
@@ -890,7 +917,7 @@ class DatastoreDistributed():
             (size, prefix))
         assert int(cursor.rowcount) == 1
       else:
-        ret = next_id;
+        ret = next_id
         next_id += size
         block_size -= size
         self.__id_map[prefix] = (next_id, block_size)
@@ -906,8 +933,10 @@ class DatastoreDistributed():
     self.__id_lock.release()
     return ret
 
-  def __AcquireLockForEntityGroup(self, app_id, conn, txn_id, entity_group='', timeout=30):
-    """Acquire a lock for a specified entity group. Only get it if not already locked.
+  def __AcquireLockForEntityGroup(self, app_id, conn, txn_id, 
+                                  entity_group='', timeout=30):
+    """Acquire a lock for a specified entity group. 
+       Only get it if not already locked.
 
     Args:
       conn: A MySQL connection.
@@ -998,10 +1027,6 @@ class DatastoreDistributed():
     try:
       entities = put_request.entity_list()
       keys = [e.key() for e in entities]
-      if put_request.has_transaction():
-        entity_group = self.__ExtractEntityGroupFromKeys(app_id, keys)
-        txn_id = put_request.transaction().handle()
-        self.__AcquireLockForEntityGroup(app_id, conn, txn_id, entity_group)
       for entity in entities:
         self.__ValidateKey(entity.key())
 
@@ -1029,6 +1054,11 @@ class DatastoreDistributed():
           assert (entity.has_entity_group() and
                   entity.entity_group().element_size() > 0)
 
+      if put_request.has_transaction():
+        entity_group = self.__ExtractEntityGroupFromKeys(app_id, keys)
+        txn_id = put_request.transaction().handle()
+        self.__AcquireLockForEntityGroup(app_id, conn, txn_id, entity_group)
+
       self.__PutEntities(conn, entities)
       put_response.key_list().extend([e.key() for e in entities])
     except Exception, e:
@@ -1042,15 +1072,15 @@ class DatastoreDistributed():
     try:
       keys = get_request.key_list()
       if get_request.has_transaction():
-          entity_group = self.__ExtractEntityGroupFromKeys(app_id, keys)
-          txn_id = get_request.transaction().handle()
-          self.__AcquireLockForEntityGroup(app_id, conn, txn_id, entity_group)
+        entity_group = self.__ExtractEntityGroupFromKeys(app_id, keys)
+        txn_id = get_request.transaction().handle()
+        self.__AcquireLockForEntityGroup(app_id, conn, txn_id, entity_group)
       for key in keys:
         self.__ValidateAppId(key.app())
         prefix = self.__GetTablePrefix(key)
         cursor = conn.cursor()
         cursor.execute(
-            'SELECT entity FROM %s_Entities WHERE __path__ = %%s'%prefix,
+            'SELECT entity FROM %s_Entities WHERE __path__ = %%s' % prefix,
             (self.__EncodeIndexPB(key.path()),))
         group = get_response.add_entity()
         row = cursor.fetchone()
@@ -1445,7 +1475,6 @@ class DatastoreDistributed():
         count = query.limit()
       else:
         count = _BATCH_SIZE
-
       cursor.PopulateQueryResult(count, query.offset(), query_result)
       self.__cursors[cursor_pb] = cursor
     finally: 
@@ -1830,7 +1859,7 @@ class MainHandler(tornado.web.RequestHandler):
     except Exception, e:
       print str(e)
       return(api_base_pb.VoidProto().Encode(), datastore_pb.Error.PERMISSION_DENIED, "Unable to rollback for this transaction")
-    print "Transaction with handle %d was roll backed"%handle
+    print "Transaction with handle %d was roll backed" % handle
     return (api_base_pb.VoidProto().Encode(), 0, "")
 
 
@@ -1880,7 +1909,7 @@ class MainHandler(tornado.web.RequestHandler):
     composite_pb = datastore_pb.CompositeIndices()
     print "Got a string proto"
     print str_pb
-    logger.debug("String proto received: %s"%str_pb)
+    logger.debug("String proto received: %s" % str_pb)
     logger.debug("CompositeIndex response to string: %s" % composite_pb)
     return (composite_pb.Encode(), 0, "" )    
   
@@ -1889,7 +1918,7 @@ class MainHandler(tornado.web.RequestHandler):
     resp_pb = api_base_pb.VoidProto()
     print "Got a int 64"
     print int64_pb
-    logger.debug("Int64 proto received: %s"%int64_pb)
+    logger.debug("Int64 proto received: %s" % int64_pb)
     logger.debug("VOID_RESPONSE to int64: %s" % resp_pb)
     return (resp_pb.Encode(), 0, "")
  
@@ -1898,7 +1927,7 @@ class MainHandler(tornado.web.RequestHandler):
     resp_pb = api_base_pb.VoidProto()
     print "Got Composite Index"
     #print compindex_pb
-    logger.debug("CompositeIndex proto recieved: %s"%str(compindex_pb))
+    logger.debug("CompositeIndex proto recieved: %s" % str(compindex_pb))
     logger.debug("VOID_RESPONSE to composite index: %s" % resp_pb)
     return (resp_pb.Encode(), 0, "")
 
