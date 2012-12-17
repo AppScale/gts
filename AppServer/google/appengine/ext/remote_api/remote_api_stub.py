@@ -73,7 +73,6 @@ import sys
 import thread
 import threading
 import yaml
-import logging 
 
 from google.appengine.api import datastore
 from google.appengine.api import apiproxy_rpc
@@ -577,7 +576,6 @@ def MaybeInvokeAuthentication():
   """
   datastore_stub = apiproxy_stub_map.apiproxy.GetStub('datastore_v3')
   if isinstance(datastore_stub, RemoteStub):
-    logging.error("Maybe invoke: %s" % datastore_stub._path)
     datastore_stub._server.Send(datastore_stub._path, payload=None)
   else:
     raise ConfigurationError('remote_api is not configured.')
