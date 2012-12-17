@@ -1920,7 +1920,7 @@ class Djinn
 
     memcache_ips = []
     @nodes.each { |node|
-      memcache_ips << node.public_ip if node.is_memcache?
+      memcache_ips << node.private_ip if node.is_memcache?
     }
 
     Djinn.log_debug("Memcache servers will be at #{memcache_ips.join(', ')}")
