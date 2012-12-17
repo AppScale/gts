@@ -653,7 +653,7 @@ class Djinn
 
       # Contact the soap server and remove the application
       if (@app_names.include?(app_name) and !my_node.is_appengine?) or @nodes.length == 1
-        ip = HelperFunctions.read_file("#{APPSCALE_HOME}/.appscale/masters")
+        ip = HelperFunctions.read_file("/etc/appscale/masters")
         uac = UserAppClient.new(ip, @@secret)
         result = uac.delete_app(app_name)
         Djinn.log_debug("(stop_app) Delete app: #{ip} returned #{result} (#{result.class})")
@@ -661,7 +661,7 @@ class Djinn
      
       # may need to stop XMPP listener
       if my_node.is_login? 
-        pid_files = `ls #{APPSCALE_HOME}/.appscale/xmpp-#{app_name}.pid`.split
+        pid_files = `ls /etc/appscale/xmpp-#{app_name}.pid`.split
         unless pid_files.nil? # not an error here - XMPP is optional
           pid_files.each { |pid_file|
             pid = HelperFunctions.read_file(pid_file)
@@ -1268,13 +1268,13 @@ class Djinn
   end
 
   def self.get_db_master_ip
-    masters_file = File.expand_path("#{APPSCALE_HOME}/.appscale/masters")
+    masters_file = File.expand_path("/etc/appscale/masters")
     master_ip = HelperFunctions.read_file(masters_file)
     return master_ip
   end
 
   def self.get_db_slave_ips
-    slaves_file = File.expand_path("#{APPSCALE_HOME}/.appscale/slaves")
+    slaves_file = File.expand_path("/etc/appscale/slaves")
     slave_ips = File.open(slaves_file).readlines.map { |f| f.chomp! }
     slave_ips = [] if slave_ips == [""]
     return slave_ips
@@ -1466,11 +1466,11 @@ class Djinn
     keyname = @creds["keyname"]
     
     tree = { :table => table, :replication => replication, :keyname => keyname }
-    db_info_path = "#{APPSCALE_HOME}/.appscale/database_info.yaml"
+    db_info_path = "/etc/appscale/database_info.yaml"
     File.open(db_info_path, "w") { |file| YAML.dump(tree, file) }
     
     num_of_nodes = @nodes.length
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/num_of_nodes", "#{num_of_nodes}\n")
+    HelperFunctions.write_file("/etc/appscale/num_of_nodes", "#{num_of_nodes}\n")
     
     all_ips = []
     @nodes.each { |node|
@@ -1478,7 +1478,7 @@ class Djinn
       all_ips << node.private_ip
     }
     all_ips << "\n"
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/all_ips", all_ips.join("\n"))
+    HelperFunctions.write_file("/etc/appscale/all_ips", all_ips.join("\n"))
 
     # Re-run the filewall script here since we just wrote the all_ips file
     if FIREWALL_IS_ON
@@ -2467,18 +2467,18 @@ class Djinn
     Djinn.log_debug("Master is at #{master_ip}, slaves are at #{slave_ips.join(', ')}")
 
     my_public = my_node.public_ip
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/my_public_ip", "#{my_public}\n")
+    HelperFunctions.write_file("/etc/appscale/my_public_ip", "#{my_public}\n")
 
     my_private = my_node.private_ip
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/my_private_ip", "#{my_private}\n")
+    HelperFunctions.write_file("/etc/appscale/my_private_ip", "#{my_private}\n")
    
     head_node_ip = get_public_ip(@creds['hostname'])
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/head_node_ip", "#{head_node_ip}\n")
+    HelperFunctions.write_file("/etc/appscale/head_node_ip", "#{head_node_ip}\n")
 
     login_ip = get_login.public_ip
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/login_ip", "#{login_ip}\n")
+    HelperFunctions.write_file("/etc/appscale/login_ip", "#{login_ip}\n")
     
-    masters_file = "#{APPSCALE_HOME}/.appscale/masters"
+    masters_file = "/etc/appscale/masters"
     HelperFunctions.write_file(masters_file, "#{master_ip}\n")
 
     if @total_boxes == 1
@@ -2486,7 +2486,7 @@ class Djinn
     end
     
     slave_ips_newlined = slave_ips.join("\n")
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/slaves", "#{slave_ips_newlined}\n")
+    HelperFunctions.write_file("/etc/appscale/slaves", "#{slave_ips_newlined}\n")
 
     # n = @creds["replication"]
 
@@ -2541,7 +2541,7 @@ HOSTS
   end
 
   def write_hypersoap()
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/hypersoap", @userappserver_private_ip)
+    HelperFunctions.write_file("/etc/appscale/hypersoap", @userappserver_private_ip)
   end
 
   def my_node()
@@ -3247,7 +3247,7 @@ HOSTS
       Djinn.log_debug("ERROR: Unable to start application #{app} on port #{@appengine_port}.") 
       next
     end
-    pid_file_name = "#{APPSCALE_HOME}/.appscale/#{app}-#{@appengine_port}.pid"
+    pid_file_name = "/etc/appscale/#{app}-#{@appengine_port}.pid"
     HelperFunctions.write_file(pid_file_name, pid)
 
     @appengine_port += 1
