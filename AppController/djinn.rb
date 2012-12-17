@@ -1994,13 +1994,15 @@ class Djinn
     jobs_to_run = my_data.jobs
     
     if @creds['ips']
-      @total_boxes = @creds['ips'].length + 1
+      @total_boxes = @nodes.length
     elsif @creds['min_images']
       @total_boxes = Integer(@creds['min_images'])
     end
 
     Djinn.log_debug("Pre-loop: #{@nodes.join('\n')}")
-    if @nodes.size == 1 and @total_boxes > 1
+    if my_node.is_shadow?
+      # TODO(cgb): Check to make sure the machines aren't already
+      # initialized before attempting to start up AppScale on them.
       spawn_and_setup_appengine
       loop {
         Djinn.log_debug("Looping: #{@nodes.join('\n')}")
@@ -2482,6 +2484,8 @@ class Djinn
     HelperFunctions.write_file(masters_file, "#{master_ip}\n")
 
     if @total_boxes == 1
+      Djinn.log_debug("Only saw one machine, therefore my node is " +
+        "also a slave node")
       slave_ips = [ my_private ]
     end
     
