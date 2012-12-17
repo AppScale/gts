@@ -578,6 +578,7 @@ def ParseArguments(argv):
   os.environ['MY_PORT'] = port
   os.environ['COOKIE_SECRET'] = secret
   os.environ['NGINX_HOST'] = nginx_host
+  os.environ['NGINX_PORT'] = nginx_port
 
   option_dict.setdefault(ARG_CONSOLE,
                          option_dict[ARG_ADDRESS] == DEFAULT_ARGS[ARG_ADDRESS])
