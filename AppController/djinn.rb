@@ -653,7 +653,7 @@ class Djinn
 
       # Contact the soap server and remove the application
       if (@app_names.include?(app_name) and !my_node.is_appengine?) or @nodes.length == 1
-        ip = HelperFunctions.read_file("#{APPSCALE_HOME}/.appscale/masters")
+        ip = HelperFunctions.read_file("/etc/appscale/masters")
         uac = UserAppClient.new(ip, @@secret)
         result = uac.delete_app(app_name)
         Djinn.log_debug("(stop_app) Delete app: #{ip} returned #{result} (#{result.class})")
@@ -661,7 +661,7 @@ class Djinn
      
       # may need to stop XMPP listener
       if my_node.is_login? 
-        pid_files = `ls #{APPSCALE_HOME}/.appscale/xmpp-#{app_name}.pid`.split
+        pid_files = `ls /etc/appscale/xmpp-#{app_name}.pid`.split
         unless pid_files.nil? # not an error here - XMPP is optional
           pid_files.each { |pid_file|
             pid = HelperFunctions.read_file(pid_file)
@@ -971,6 +971,103 @@ class Djinn
   end
 
 
+  def start_roles_on_nodes(ips_hash, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    if ips_hash.class != Hash
+      Djinn.log_debug("Was expecting ips_hash to be a Hash, not " +
+        "a #{ips_hash.class}")
+      return BAD_INPUT_MSG
+    end
+    Djinn.log_debug("Received a request to start additional roles on " +
+      "new machines, with the following placement strategy: " +
+      "#{ips_hash.inspect}")
+
+    # ips_hash maps roles to IPs, but the internal format here maps
+    # IPs to roles, so convert to the right format
+    ips_to_roles = {}
+    ips_hash.each { |role, ip_or_ips|
+      if ip_or_ips.class == String
+        ips = [ip_or_ips]  # just one IP
+      else
+        ips = ip_or_ips  # a list of IPs
+      end
+
+      ips.each { |ip|
+        if ips_to_roles[ip].nil?
+          ips_to_roles[ip] = []
+        end
+        ips_to_roles[ip] << role
+      }
+    }
+
+    Thread.new {
+      if is_cloud?
+        start_new_roles_on_nodes_in_cloud(ips_to_roles)
+      else
+        start_new_roles_on_nodes_in_xen(ips_to_roles)
+      end
+    }
+
+    return ips_to_roles
+  end
+
+
+  def start_new_roles_on_nodes_in_cloud(ips_to_roles)
+    Djinn.log_debug("Starting new roles in cloud with following info: " +
+      "#{ips_to_roles.inspect}")
+    # get zk lock?
+
+    # Change ips_to_roles to the format that DjinnJobData's constructor
+    # likes to see.
+    # TODO(cgb): Add another constructor to DjinnJobData that takes
+    # data in a more reasonable format so that we don't have to do this
+    # conversion.
+    keyname = @creds['keyname']
+    num_of_vms = ips_to_roles.keys.length
+    roles = ips_to_roles.values
+    Djinn.log_debug("Need to spawn up #{num_of_vms} VMs")
+    imc = InfrastructureManagerClient.new(@@secret)
+    new_nodes_info = imc.spawn_vms(num_of_vms, @creds, roles, "cloud1")
+
+    # initialize them and wait for them to start up
+    Djinn.log_debug("info about new nodes is " +
+      "[#{new_nodes_info.join(', ')}]")
+
+    add_nodes(new_nodes_info)
+    # wait for them to finish loading
+
+    return new_nodes_info
+  end
+
+
+  def start_new_roles_on_nodes_in_xen(ips_to_roles)
+    Djinn.log_debug("Starting new roles in virt with following info: " +
+      "#{ips_to_roles.inspect}")
+    # get zk lock?
+
+    # Change ips_to_roles to the format that DjinnJobData's constructor
+    # likes to see.
+    # TODO(cgb): Add another constructor to DjinnJobData that takes
+    # data in a more reasonable format so that we don't have to do this
+    # conversion.
+    nodes_info = []
+    keyname = @creds['keyname']
+    ips_to_roles.each { |ip, roles|
+      Djinn.log_debug("Will add roles #{roles.join(', ')} to new " +
+        "node at IP address #{ip}")
+      nodes_info << "#{ip}:#{ip}:#{roles.join(':')}:#{keyname}:cloud1"
+    }
+
+    add_nodes(nodes_info)
+    # wait for them to finish loading
+
+    return nodes_info
+  end
+
+
   # Starts the given roles by using open nodes, spawning new nodes, or some
   # combination of the two. 'nodes_needed' should be an Array, where each 
   # item is an Array of the roles to start on each node.
@@ -1045,6 +1142,14 @@ class Djinn
     wait_for_nodes_to_finish_loading(vms_to_use)
 
     return "OK"
+  end
+
+
+  def add_nodes(node_info)
+    keyname = @creds['keyname']
+    new_nodes = Djinn.convert_location_array_to_class(node_info, keyname)
+    @nodes.concat(new_nodes)
+    initialize_nodes_in_parallel(new_nodes)
   end
 
 
@@ -1163,13 +1268,13 @@ class Djinn
   end
 
   def self.get_db_master_ip
-    masters_file = File.expand_path("#{APPSCALE_HOME}/.appscale/masters")
+    masters_file = File.expand_path("/etc/appscale/masters")
     master_ip = HelperFunctions.read_file(masters_file)
     return master_ip
   end
 
   def self.get_db_slave_ips
-    slaves_file = File.expand_path("#{APPSCALE_HOME}/.appscale/slaves")
+    slaves_file = File.expand_path("/etc/appscale/slaves")
     slave_ips = File.open(slaves_file).readlines.map { |f| f.chomp! }
     slave_ips = [] if slave_ips == [""]
     return slave_ips
@@ -1361,11 +1466,11 @@ class Djinn
     keyname = @creds["keyname"]
     
     tree = { :table => table, :replication => replication, :keyname => keyname }
-    db_info_path = "#{APPSCALE_HOME}/.appscale/database_info.yaml"
+    db_info_path = "/etc/appscale/database_info.yaml"
     File.open(db_info_path, "w") { |file| YAML.dump(tree, file) }
     
     num_of_nodes = @nodes.length
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/num_of_nodes", "#{num_of_nodes}\n")
+    HelperFunctions.write_file("/etc/appscale/num_of_nodes", "#{num_of_nodes}\n")
     
     all_ips = []
     @nodes.each { |node|
@@ -1373,7 +1478,7 @@ class Djinn
       all_ips << node.private_ip
     }
     all_ips << "\n"
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/all_ips", all_ips.join("\n"))
+    HelperFunctions.write_file("/etc/appscale/all_ips", all_ips.join("\n"))
 
     # Re-run the filewall script here since we just wrote the all_ips file
     if FIREWALL_IS_ON
@@ -1889,13 +1994,15 @@ class Djinn
     jobs_to_run = my_data.jobs
     
     if @creds['ips']
-      @total_boxes = @creds['ips'].length + 1
+      @total_boxes = @nodes.length
     elsif @creds['min_images']
       @total_boxes = Integer(@creds['min_images'])
     end
 
     Djinn.log_debug("Pre-loop: #{@nodes.join('\n')}")
-    if @nodes.size == 1 and @total_boxes > 1
+    if my_node.is_shadow?
+      # TODO(cgb): Check to make sure the machines aren't already
+      # initialized before attempting to start up AppScale on them.
       spawn_and_setup_appengine
       loop {
         Djinn.log_debug("Looping: #{@nodes.join('\n')}")
@@ -2198,7 +2305,7 @@ class Djinn
   def initialize_nodes_in_parallel(node_info)
     threads = []
     node_info.each { |slave|
-      threads << Thread.new { 
+      threads << Thread.new {
         initialize_node(slave)
       }
     }
@@ -2235,6 +2342,7 @@ class Djinn
 
   def copy_encryption_keys(dest_node)
     ip = dest_node.private_ip
+    Djinn.log_debug("Copying SSH keys to node at IP address #{ip}")
     ssh_key = dest_node.ssh_key
 
     HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
@@ -2361,26 +2469,28 @@ class Djinn
     Djinn.log_debug("Master is at #{master_ip}, slaves are at #{slave_ips.join(', ')}")
 
     my_public = my_node.public_ip
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/my_public_ip", "#{my_public}\n")
+    HelperFunctions.write_file("/etc/appscale/my_public_ip", "#{my_public}\n")
 
     my_private = my_node.private_ip
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/my_private_ip", "#{my_private}\n")
+    HelperFunctions.write_file("/etc/appscale/my_private_ip", "#{my_private}\n")
    
     head_node_ip = get_public_ip(@creds['hostname'])
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/head_node_ip", "#{head_node_ip}\n")
+    HelperFunctions.write_file("/etc/appscale/head_node_ip", "#{head_node_ip}\n")
 
     login_ip = get_login.public_ip
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/login_ip", "#{login_ip}\n")
+    HelperFunctions.write_file("/etc/appscale/login_ip", "#{login_ip}\n")
     
-    masters_file = "#{APPSCALE_HOME}/.appscale/masters"
+    masters_file = "/etc/appscale/masters"
     HelperFunctions.write_file(masters_file, "#{master_ip}\n")
 
     if @total_boxes == 1
+      Djinn.log_debug("Only saw one machine, therefore my node is " +
+        "also a slave node")
       slave_ips = [ my_private ]
     end
     
     slave_ips_newlined = slave_ips.join("\n")
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/slaves", "#{slave_ips_newlined}\n")
+    HelperFunctions.write_file("/etc/appscale/slaves", "#{slave_ips_newlined}\n")
 
     # n = @creds["replication"]
 
@@ -2435,7 +2545,7 @@ HOSTS
   end
 
   def write_hypersoap()
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/hypersoap", @userappserver_private_ip)
+    HelperFunctions.write_file("/etc/appscale/hypersoap", @userappserver_private_ip)
   end
 
   def my_node()
@@ -3141,7 +3251,7 @@ HOSTS
       Djinn.log_debug("ERROR: Unable to start application #{app} on port #{@appengine_port}.") 
       next
     end
-    pid_file_name = "#{APPSCALE_HOME}/.appscale/#{app}-#{@appengine_port}.pid"
+    pid_file_name = "/etc/appscale/#{app}-#{@appengine_port}.pid"
     HelperFunctions.write_file(pid_file_name, pid)
 
     @appengine_port += 1

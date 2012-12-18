@@ -30,10 +30,18 @@ end
 module HelperFunctions
 
 
-  VER_NUM = "1.6.4"
+  VER_NUM = "1.6.5"
 
   
   APPSCALE_HOME = ENV['APPSCALE_HOME']
+
+
+  # The location on the filesystem where configuration files about
+  # AppScale are stored.
+  APPSCALE_CONFIG_DIR = "/etc/appscale"
+
+
+  APPSCALE_KEYS_DIR = "#{APPSCALE_CONFIG_DIR}/keys/cloud1"
 
 
   # The maximum amount of time, in seconds, that we are willing to wait for
@@ -88,6 +96,11 @@ module HelperFunctions
 
   # The IPv4 address that corresponds to the reserved localhost IP.
   LOCALHOST_IP = "127.0.0.1"
+
+
+  # The file permissions that indicate that only the owner of a file
+  # can read or write to it (necessary for SSH keys).
+  CHMOD_READ_ONLY = 0600
 
 
   # A class variable that is used to locally cache our own IP address, so that
@@ -237,25 +250,24 @@ module HelperFunctions
     Kernel.puts("Running [#{remote_cmd}]")
 
     if want_output
-      return `#{remote_cmd}`
+      return self.shell("#{remote_cmd}")
     else
-      Kernel.system remote_cmd
+      Kernel.system(remote_cmd)
       return remote_cmd
     end
   end
 
   def self.scp_file(local_file_loc, remote_file_loc, target_ip, private_key_loc)
     private_key_loc = File.expand_path(private_key_loc)
-    `chmod 0600 #{private_key_loc}`
+    FileUtils.chmod(CHMOD_READ_ONLY, private_key_loc)
     local_file_loc = File.expand_path(local_file_loc)
-    retval_file = "/etc/appscale/retval-#{Kernel.rand()}"
+    retval_file = "#{APPSCALE_CONFIG_DIR}/retval-#{Kernel.rand()}"
     cmd = "scp -i #{private_key_loc} -o StrictHostkeyChecking=no 2>&1 #{local_file_loc} root@#{target_ip}:#{remote_file_loc}; echo $? > #{retval_file}"
-    #Kernel.puts(cmd)
-    scp_result = `#{cmd}`
+    scp_result = self.shell("#{cmd}")
 
     loop {
       break if File.exists?(retval_file)
-      sleep(5)
+      Kernel.sleep(5)
     }
 
     retval = (File.open(retval_file) { |f| f.read }).chomp
@@ -266,19 +278,18 @@ module HelperFunctions
       Kernel.puts("\n\n[#{cmd}] returned #{retval} instead of 0 as expected. Will try to copy again momentarily...")
       fails += 1
       abort("SCP failed") if fails >= 5
-      sleep(2)
-      `#{cmd}`
+      Kernel.sleep(2)
+      self.shell("#{cmd}")
       retval = (File.open(retval_file) { |f| f.read }).chomp
     }
 
-    #Kernel.puts(scp_result)
-    `rm -fv #{retval_file}`
+    self.shell("rm -fv #{retval_file}")
   end
 
   def self.get_remote_appscale_home(ip, key)
     cat = "cat /etc/appscale/home"
     remote_cmd = "ssh -i #{key} -o NumberOfPasswordPrompts=0 -o StrictHostkeyChecking=no 2>&1 root@#{ip} '#{cat}'"
-    possible_home = `#{remote_cmd}`.chomp
+    possible_home = self.shell("#{remote_cmd}").chomp
     if possible_home.nil? or possible_home.empty?
       return "/root/appscale/"
     else
@@ -1055,7 +1066,7 @@ module HelperFunctions
   end
 
   def self.does_image_have_location?(ip, location, key)
-    ret_val = `ssh -i #{key} -o NumberOfPasswordPrompts=0 -o StrictHostkeyChecking=no 2>&1 root@#{ip} 'ls #{location}'; echo $?`.chomp[-1]
+    ret_val = self.shell("ssh -i #{key} -o NumberOfPasswordPrompts=0 -o StrictHostkeyChecking=no 2>&1 root@#{ip} 'ls #{location}'; echo $?").chomp[-1]
     return ret_val.chr == "0"
   end
 
