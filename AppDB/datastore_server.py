@@ -721,7 +721,6 @@ class DatastoreDistributed():
         last_result: last result encoded in cursor
     """
     e = last_result
-    start_key = None
     if not prop_name and not order:
       return str(prefix + '/' + str(self.__encode_index_pb(e.key().path())))
      
@@ -1069,7 +1068,8 @@ class DatastoreDistributed():
                      prefix, 
                      limit, 
                      offset, 
-                     startrow): 
+                     startrow,
+                     force_start_key_exclusive=False): 
     """
     Applies property filters in the query.
     Args:
@@ -1080,6 +1080,7 @@ class DatastoreDistributed():
       limit: Number of results
       offset: Number of results to skip
       startrow: Start key for the range scan
+      force_start_key_exclusive: Do not include the start key
     Results:
       Returns a list of entity keys 
     Raises:
@@ -1119,7 +1120,8 @@ class DatastoreDistributed():
 
       params = [prefix, kind, property_name, self._TERM_STRING, None]
       endrow = self.get_index_key_from_params(params)
-
+      if force_start_key_exclusive:
+        start_inclusive = False
       return self.datastore_batch.range_query(table_name, 
                                           column_names, 
                                           startrow, 
@@ -1183,6 +1185,9 @@ class DatastoreDistributed():
         start_inclusive = self._DISABLE_INCLUSIVITY
       params = [prefix, kind, property_name, end_value]
       endrow = self.get_index_key_from_params(params)
+
+      if force_start_key_exclusive:
+        start_inclusive = False
 
       ret = self.datastore_batch.range_query(table_name, 
                                           column_names, 
@@ -1263,6 +1268,9 @@ class DatastoreDistributed():
           params = [prefix, kind, property_name, value2 + '/']
           startrow = self.get_index_key_from_params(params)
         
+      if force_start_key_exclusive:
+        start_inclusive = False
+
       return self.datastore_batch.range_query(table_name, 
                                           column_names, 
                                           startrow, 
@@ -1358,8 +1366,10 @@ class DatastoreDistributed():
                                    prefix, 
                                    count, 
                                    0, 
-                                   startrow)
-      if not temp_res: break
+                                   startrow,
+                                   force_start_key_exclusive=True)
+      if not temp_res: 
+        break
 
       ent_res = self.__fetch_entities(temp_res)
 
