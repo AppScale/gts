@@ -4,7 +4,20 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
-The current release is 1.6.4, released November 21, 2012.
+The current release is 1.6.5, released December 19, 2012.
+
+Bugs fixed in this release:
+
+- Update Java AppServer to 1.7.3
+- Update Python AppServer to 1.7.3
+- Make bulkloader work with AppScale
+- AppScale fails to start if eth0's IP is not externally accessible
+- NeptuneManager no longer starts up correctly
+- AppController should validate AppScale version
+- Firewall needs to be on
+- Hypertable does not start when db_master != node1
+
+AppScale version 1.6.4 was released November 21, 2012.
 
 Bugs fixed in this release:
 
