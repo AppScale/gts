@@ -57,7 +57,9 @@
     <% if apps.empty? %>
       <li>none</li>
     <% else %>
-      <% apps.each do |app, is_running| %>
+      <% apps.sort.each do |app_info| %>
+      <% app = app_info[0] %>
+      <% is_running = app_info[1] %>
         <li>
           <% if is_running %>
             <a href="/apps/<%= h(app) %>" target="_blank"><%= h(app) %></a>
