@@ -42,7 +42,7 @@ require 'zkinterface'
 
 NO_OUTPUT = false
 
-# This lock makes it so that global variables are not updated 
+# This lock makes it so that global variables related to apps are not updated 
 # concurrently, preventing race conditions. 
 APPS_LOCK = Monitor.new()
 
