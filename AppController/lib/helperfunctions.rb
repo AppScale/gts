@@ -12,6 +12,7 @@ require 'timeout'
 
 # Imports for AppController libraries
 $:.unshift File.join(File.dirname(__FILE__))
+require 'custom_exceptions'
 require 'user_app_client'
 
 
@@ -29,7 +30,7 @@ end
 module HelperFunctions
 
 
-  VER_NUM = "1.6.4"
+  VER_NUM = "1.6.5"
 
   
   APPSCALE_HOME = ENV['APPSCALE_HOME']
@@ -65,8 +66,9 @@ module HelperFunctions
   TIME_IN_SECONDS = { "d" => 86400, "h" => 3600, "m" => 60, "s" => 1 }
 
 
-  CLOUDY_CREDS = ["EC2_ACCESS_KEY", "EC2_SECRET_KEY", "AWS_ACCESS_KEY_ID",
-    "AWS_SECRET_ACCESS_KEY"]
+  CLOUDY_CREDS = ["ec2_access_key", "ec2_secret_key", "EC2_ACCESS_KEY",
+    "EC2_SECRET_KEY", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY",
+    "CLOUD1_EC2_ACCESS_KEY", "CLOUD1_EC2_SECRET_KEY"]
 
 
   # The first port that should be used to host Google App Engine applications
@@ -82,6 +84,10 @@ module HelperFunctions
   # A constant that indicates that SSL should not be used when checking if a
   # given port is open.
   DONT_USE_SSL = false
+
+
+  # The IPv4 address that corresponds to the reserved localhost IP.
+  LOCALHOST_IP = "127.0.0.1"
 
 
   # A class variable that is used to locally cache our own IP address, so that
@@ -325,6 +331,43 @@ module HelperFunctions
     self.shell("tar --file #{tar_path} --force-local -C #{tar_dir} -zx") if untar
   end
 
+
+  # Queries the operating system to determine which IP addresses are
+  # bound to this virtual machine.
+  # Args:
+  #   remove_lo: A boolean that indicates whether or not the lo
+  #     device's IP should be removed from the results. By default,
+  #     we remove it, since it is on all virtual machines and thus
+  #     not useful towards uniquely identifying a particular machine.
+  # Returns:
+  #   An Array of Strings, each of which is an IP address bound to
+  #     this virtual machine.
+  def self.get_all_local_ips(remove_lo=true)
+    ifconfig = HelperFunctions.shell("ifconfig")
+    Kernel.puts("ifconfig returned the following: [#{ifconfig}]")
+    bound_addrs = ifconfig.scan(/inet addr:(\d+.\d+.\d+.\d+)/).flatten
+
+    Kernel.puts("ifconfig reports bound IP addresses as " +
+      "[#{bound_addrs.join(', ')}]")
+    if remove_lo
+      bound_addrs.delete(LOCALHOST_IP)
+    end
+    return bound_addrs
+  end
+
+  
+  # Sets the locally cached IP address to the provided value. Callers
+  # should use this if they believe the IP address on this machine
+  # is not the first IP returned by 'ifconfig', which can occur if
+  # the IP to reach this machine on is eth1, eth2, etc.
+  # Args:
+  #   ip: The IP address that other AppScale nodes can reach this
+  #     machine via.
+  def self.set_local_ip(ip)
+    @@my_local_ip = ip
+  end
+
+
   # Returns the IP address associated with this machine. To get around
   # issues where a VM may forget its IP address
   # (https://github.com/AppScale/appscale/issues/84), we locally cache it
@@ -339,23 +382,15 @@ module HelperFunctions
       return @@my_local_ip
     end
 
-    ifconfig = HelperFunctions.shell("ifconfig")
-    Kernel.puts("ifconfig returned the following: [#{ifconfig}]")
-    bound_addrs = ifconfig.scan(/inet addr:(\d+.\d+.\d+.\d+)/).flatten
+    bound_addrs = self.get_all_local_ips()
+    if bound_addrs.length.zero?
+      raise Exception.new("Couldn't get our local IP address")
+    end
 
-    Kernel.puts("ifconfig reports bound IP addresses as " +
-      "[#{bound_addrs.join(', ')}]")
-    bound_addrs.each { |addr|
-      if addr == "127.0.0.1"
-        next
-      end
-
-      Kernel.puts("Returning #{addr} as our local IP address")
-      @@my_local_ip = addr
-      return addr
-    }
-
-    raise Exception.new("Couldn't get our local IP address")
+    addr = bound_addrs[0]
+    Kernel.puts("Returning #{addr} as our local IP address")
+    @@my_local_ip = addr
+    return addr
   end
 
   # In cloudy deployments, the recommended way to determine a machine's true
@@ -476,8 +511,8 @@ module HelperFunctions
     ENV['EC2_JVM_ARGS'] = nil
 
     creds.each_pair { |k, v|
-      next unless k =~ /\ACLOUD#{cloud_num}/
-      env_key = k.scan(/\ACLOUD#{cloud_num}_(.*)\Z/).flatten.to_s
+      next unless k =~ /\ACLOUD/
+      env_key = k.scan(/\ACLOUD_(.*)\Z/).flatten.to_s
       ENV[env_key] = v
     }
 
@@ -992,7 +1027,21 @@ module HelperFunctions
     }
   end
 
+  
+  # Searches through the key/value pairs given for items that may
+  # be too sensitive to log in cleartext. If any of these items are
+  # found, a sanitized version of the item is returned in its place.
+  # Args:
+  #   creds: The item to sanitize. As we are expecting Hashes here,
+  #     callers that pass in non-Hash items can expect no change to
+  #     be performed on their argument.
+  # Returns:
+  #   A sanitized version of the given Hash, that can be safely
+  #     logged via stdout or saved in log files. In the case of
+  #     non-Hash items, the original item is returned.
   def self.obscure_creds(creds)
+    return creds if creds.class != Hash
+
     obscured = {}
     creds.each { |k, v|
       if CLOUDY_CREDS.include?(k)
@@ -1020,6 +1069,25 @@ module HelperFunctions
       abort(fail_msg)
     end
   end
+
+
+  # Checks to see if the virtual machine at the given IP address has
+  # the same version of AppScale installed as these tools.
+  # Args:
+  #   ip: The IP address of the VM to check the version on.
+  #   key: The SSH key that can be used to log into the machine at the
+  #     given IP address.
+  # Raises:
+  #   AppScaleException: If the virtual machine at the given IP address
+  #     does not have the same version of AppScale installed as these
+  #     tools.
+  def self.ensure_version_is_supported(ip, key)
+    return if self.does_image_have_location?(ip, "/etc/appscale/#{VER_NUM}", key)
+    raise AppScaleException.new("The image at #{ip} does not support " +
+      "this version of AppScale (#{VER_NUM}). Please install AppScale" +
+      " #{VER_NUM} on it and try again.")
+  end
+
 
   def self.ensure_db_is_supported(ip, db, key)
     if self.does_image_have_location?(ip, "/etc/appscale/#{VER_NUM}/#{db}", key)

@@ -111,7 +111,7 @@ def HandleRequest(unused_environ, handler_name, unused_url, post_data,
       else:
         if parent_module:
           parent_module.__dict__[submodule_name] = module
-    return _ParseResponse(body.getvalue())
+    return _ParseResponse(body)
   except:
     exception = sys.exc_info()
 
@@ -131,7 +131,7 @@ def _ParseResponse(response):
   """Parses an HTTP response into a dict.
 
   Args:
-    response: A str containing the HTTP response.
+    response: A cStringIO.StringIO (StringO) containing the HTTP response.
 
   Returns:
     A dict with fields:
@@ -139,17 +139,28 @@ def _ParseResponse(response):
       headers: A list containing tuples (key, value) of key and value pairs.
       response_code: An int containing the HTTP response code.
   """
+
+  response.reset()
   parser = feedparser.FeedParser()
 
   parser._set_headersonly()
-  parser.feed(response)
+
+
+  while True:
+    line = response.readline()
+    if not feedparser.headerRE.match(line):
+      if not feedparser.NLCRE.match(line):
+        parser.feed(line)
+      break
+    parser.feed(line)
   parsed_response = parser.close()
+
   if 'Status' in parsed_response:
     status = int(parsed_response['Status'].split(' ', 1)[0])
     del parsed_response['Status']
   else:
     status = 200
-  return {'body': parsed_response.get_payload(),
+  return {'body': parsed_response.get_payload() + response.read(),
           'headers': parsed_response.items(),
           'response_code': status}
 

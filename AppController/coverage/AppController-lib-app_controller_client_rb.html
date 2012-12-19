@@ -28,14 +28,14 @@
         <tbody>
           <tr>
             <td class="left_align"><a href="AppController-lib-app_controller_client_rb.html">AppController/lib/app_controller_client.rb</a></td>
-            <td class='right_align'><tt>274</tt></td>
-            <td class='right_align'><tt>180</tt></td>
-            <td class="left_align"><div class="percent_graph_legend"><tt class=''>40.51%</tt></div>
+            <td class='right_align'><tt>275</tt></td>
+            <td class='right_align'><tt>181</tt></td>
+            <td class="left_align"><div class="percent_graph_legend"><tt class=''>40.36%</tt></div>
           <div class="percent_graph">
-            <div class="covered" style="width:41px"></div>
-            <div class="uncovered" style="width:59px"></div>
+            <div class="covered" style="width:40px"></div>
+            <div class="uncovered" style="width:60px"></div>
           </div></td>
-            <td class="left_align"><div class="percent_graph_legend"><tt class=''>17.22%</tt></div>
+            <td class="left_align"><div class="percent_graph_legend"><tt class=''>17.13%</tt></div>
           <div class="percent_graph">
             <div class="covered" style="width:17px"></div>
             <div class="uncovered" style="width:83px"></div>
@@ -753,31 +753,31 @@
           
           
           <tr class="uncovered">
-            <td><pre><a name="line117">117</a>         abort(&quot;[#{callr}] We saw an unexpected error of the type #{except.class} with the following message:\n#{except}.&quot;)</pre></td>
+            <td><pre><a name="line117">117</a>         trace = except.backtrace.join(&quot;\n&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line118">118</a>       end</pre></td>
+            <td><pre><a name="line118">118</a>         abort(&quot;[#{callr}] We saw an unexpected error of the type #{except.class} with the following message:\n#{except}, with trace: #{trace}&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line119">119</a>     end</pre></td>
+            <td><pre><a name="line119">119</a>       end</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line120">120</a>   end</pre></td>
+            <td><pre><a name="line120">120</a>     end</pre></td>
           </tr>
         
           
           
-          <tr class="inferred">
-            <td><pre><a name="line121">121</a> </pre></td>
+          <tr class="uncovered">
+            <td><pre><a name="line121">121</a>   end</pre></td>
           </tr>
         
           
@@ -788,920 +788,926 @@
         
           
           
-          <tr class="marked">
-            <td><pre><a name="line123">123</a>   def get_userappserver_ip(verbose_level=&quot;low&quot;) </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line124">124</a>     userappserver_ip, status, state, new_state = &quot;&quot;, &quot;&quot;, &quot;&quot;, &quot;&quot;</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line125">125</a>     loop {</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line126">126</a>       status = get_status()</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line127">127</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line128">128</a>       new_state = status.scan(/Current State: ([\w\s\d\.,]+)\n/).flatten.to_s.chomp</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line129">129</a>       if verbose_level == &quot;high&quot; and new_state != state</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line130">130</a>         puts new_state</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line131">131</a>         state = new_state</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line132">132</a>       end</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line133">133</a>     </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line134">134</a>       if status == &quot;false: bad secret&quot;</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line135">135</a>         abort(&quot;\nWe were unable to verify your secret key with the head node specified in your locations file. Are you sure you have the correct secret key and locations file?\n\nSecret provided: [#{@secret}]\nHead node IP address: [#{@ip}]\n&quot;)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line136">136</a>       end</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line137">137</a>         </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line138">138</a>       if status =~ /Database is at (#{IP_OR_FQDN})/ and $1 != &quot;not-up-yet&quot;</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line139">139</a>         userappserver_ip = $1</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line140">140</a>         break</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line141">141</a>       end</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line142">142</a>       </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line143">143</a>       sleep(10)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line144">144</a>     }</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line145">145</a>     </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line146">146</a>     return userappserver_ip</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line147">147</a>   end</pre></td>
-          </tr>
-        
-          
-          
           <tr class="inferred">
-            <td><pre><a name="line148">148</a> </pre></td>
+            <td><pre><a name="line123">123</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line149">149</a>   def set_parameters(locations, creds, apps_to_start)</pre></td>
+            <td><pre><a name="line124">124</a>   def get_userappserver_ip(verbose_level=&quot;low&quot;) </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line150">150</a>     result = &quot;&quot;</pre></td>
+            <td><pre><a name="line125">125</a>     userappserver_ip, status, state, new_state = &quot;&quot;, &quot;&quot;, &quot;&quot;, &quot;&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line151">151</a>     make_call(10, ABORT_ON_FAIL, &quot;set_parameters&quot;) { </pre></td>
+            <td><pre><a name="line126">126</a>     loop {</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line152">152</a>       result = conn.set_parameters(locations, creds, apps_to_start, @secret)</pre></td>
+            <td><pre><a name="line127">127</a>       status = get_status()</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line153">153</a>     }  </pre></td>
+            <td><pre><a name="line128">128</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line154">154</a>     abort(result) if result =~ /Error:/</pre></td>
+            <td><pre><a name="line129">129</a>       new_state = status.scan(/Current State: ([\w\s\d\.,]+)\n/).flatten.to_s.chomp</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line155">155</a>   end</pre></td>
+            <td><pre><a name="line130">130</a>       if verbose_level == &quot;high&quot; and new_state != state</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line131">131</a>         puts new_state</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line132">132</a>         state = new_state</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line133">133</a>       end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line134">134</a>     </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line135">135</a>       if status == &quot;false: bad secret&quot;</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line136">136</a>         abort(&quot;\nWe were unable to verify your secret key with the head node specified in your locations file. Are you sure you have the correct secret key and locations file?\n\nSecret provided: [#{@secret}]\nHead node IP address: [#{@ip}]\n&quot;)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line137">137</a>       end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line138">138</a>         </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line139">139</a>       if status =~ /Database is at (#{IP_OR_FQDN})/ and $1 != &quot;not-up-yet&quot;</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line140">140</a>         userappserver_ip = $1</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line141">141</a>         break</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line142">142</a>       end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line143">143</a>       </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line144">144</a>       sleep(10)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line145">145</a>     }</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line146">146</a>     </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line147">147</a>     return userappserver_ip</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line148">148</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line156">156</a> </pre></td>
+            <td><pre><a name="line149">149</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line157">157</a>   def set_apps(app_names)</pre></td>
+            <td><pre><a name="line150">150</a>   def set_parameters(locations, creds, apps_to_start)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line158">158</a>     result = &quot;&quot;</pre></td>
+            <td><pre><a name="line151">151</a>     result = &quot;&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line159">159</a>     make_call(10, ABORT_ON_FAIL, &quot;set_apps&quot;) { </pre></td>
+            <td><pre><a name="line152">152</a>     make_call(10, ABORT_ON_FAIL, &quot;set_parameters&quot;) { </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line160">160</a>       result = conn.set_apps(app_names, @secret)</pre></td>
+            <td><pre><a name="line153">153</a>       result = conn.set_parameters(locations, creds, apps_to_start, @secret)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line161">161</a>     }  </pre></td>
+            <td><pre><a name="line154">154</a>     }  </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line162">162</a>     abort(result) if result =~ /Error:/</pre></td>
+            <td><pre><a name="line155">155</a>     abort(result) if result =~ /Error:/</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line163">163</a>   end</pre></td>
+            <td><pre><a name="line156">156</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line164">164</a> </pre></td>
+            <td><pre><a name="line157">157</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line165">165</a>   def status(print_output=true)</pre></td>
+            <td><pre><a name="line158">158</a>   def set_apps(app_names)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line166">166</a>     status = get_status()</pre></td>
+            <td><pre><a name="line159">159</a>     result = &quot;&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line167">167</a>          </pre></td>
+            <td><pre><a name="line160">160</a>     make_call(10, ABORT_ON_FAIL, &quot;set_apps&quot;) { </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line168">168</a>     if print_output</pre></td>
+            <td><pre><a name="line161">161</a>       result = conn.set_apps(app_names, @secret)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line169">169</a>       puts &quot;Status of node at #{ip}:&quot;</pre></td>
+            <td><pre><a name="line162">162</a>     }  </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line170">170</a>       puts &quot;#{status}&quot;</pre></td>
+            <td><pre><a name="line163">163</a>     abort(result) if result =~ /Error:/</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line171">171</a>     end</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line172">172</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line173">173</a>     return status</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line174">174</a>   end</pre></td>
+            <td><pre><a name="line164">164</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line175">175</a> </pre></td>
+            <td><pre><a name="line165">165</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line176">176</a>   def get_status(ok_to_fail=false)</pre></td>
+            <td><pre><a name="line166">166</a>   def status(print_output=true)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line177">177</a>     if !HelperFunctions.is_port_open?(@ip, 17443)</pre></td>
+            <td><pre><a name="line167">167</a>     status = get_status()</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line178">178</a>       if ok_to_fail</pre></td>
+            <td><pre><a name="line168">168</a>          </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line179">179</a>         return false</pre></td>
+            <td><pre><a name="line169">169</a>     if print_output</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line180">180</a>       else</pre></td>
+            <td><pre><a name="line170">170</a>       puts &quot;Status of node at #{ip}:&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line181">181</a>         abort(&quot;AppController to contact is not running&quot;)</pre></td>
+            <td><pre><a name="line171">171</a>       puts &quot;#{status}&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line182">182</a>       end</pre></td>
+            <td><pre><a name="line172">172</a>     end</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line183">183</a>     end</pre></td>
+            <td><pre><a name="line173">173</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line184">184</a> </pre></td>
+            <td><pre><a name="line174">174</a>     return status</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line185">185</a>     make_call(10, !ok_to_fail, &quot;get_status&quot;, ok_to_fail) { </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line186">186</a>       @conn.status(@secret) </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line187">187</a>     }</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line188">188</a>   end</pre></td>
+            <td><pre><a name="line175">175</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line189">189</a> </pre></td>
+            <td><pre><a name="line176">176</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line190">190</a>   def get_stats(ok_to_fail=false)</pre></td>
+            <td><pre><a name="line177">177</a>   def get_status(ok_to_fail=false)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line191">191</a>     make_call(10, !ok_to_fail, &quot;get_stats&quot;, ok_to_fail) { @conn.get_stats(@secret) }</pre></td>
+            <td><pre><a name="line178">178</a>     if !HelperFunctions.is_port_open?(@ip, 17443)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line192">192</a>   end</pre></td>
+            <td><pre><a name="line179">179</a>       if ok_to_fail</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line180">180</a>         return false</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line181">181</a>       else</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line182">182</a>         abort(&quot;AppController to contact is not running&quot;)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line183">183</a>       end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line184">184</a>     end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line185">185</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line186">186</a>     make_call(10, !ok_to_fail, &quot;get_status&quot;, ok_to_fail) { </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line187">187</a>       @conn.status(@secret) </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line188">188</a>     }</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line189">189</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line193">193</a> </pre></td>
+            <td><pre><a name="line190">190</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line194">194</a>   def stop_app(app_name)</pre></td>
+            <td><pre><a name="line191">191</a>   def get_stats(ok_to_fail=false)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line195">195</a>     make_call(30, RETRY_ON_FAIL, &quot;stop_app&quot;) { @conn.stop_app(app_name, @secret) }</pre></td>
+            <td><pre><a name="line192">192</a>     make_call(10, !ok_to_fail, &quot;get_stats&quot;, ok_to_fail) { @conn.get_stats(@secret) }</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line196">196</a>   end</pre></td>
+            <td><pre><a name="line193">193</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line197">197</a>   </pre></td>
+            <td><pre><a name="line194">194</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line198">198</a>   def update(app_names)</pre></td>
+            <td><pre><a name="line195">195</a>   def stop_app(app_name)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line199">199</a>     make_call(30, RETRY_ON_FAIL, &quot;update&quot;) { @conn.update(app_names, @secret) }</pre></td>
+            <td><pre><a name="line196">196</a>     make_call(30, RETRY_ON_FAIL, &quot;stop_app&quot;) { @conn.stop_app(app_name, @secret) }</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line200">200</a>   end</pre></td>
+            <td><pre><a name="line197">197</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line201">201</a> </pre></td>
+            <td><pre><a name="line198">198</a>   </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line202">202</a>   def is_done_initializing?()</pre></td>
+            <td><pre><a name="line199">199</a>   def update(app_names)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line203">203</a>     make_call(30, RETRY_ON_FAIL, &quot;is_done_initializing&quot;, ok_to_fail=true) { @conn.is_done_initializing(@secret) }</pre></td>
+            <td><pre><a name="line200">200</a>     make_call(30, RETRY_ON_FAIL, &quot;update&quot;) { @conn.update(app_names, @secret) }</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line204">204</a>   end</pre></td>
+            <td><pre><a name="line201">201</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line205">205</a> </pre></td>
+            <td><pre><a name="line202">202</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line206">206</a>   def is_done_loading?()</pre></td>
+            <td><pre><a name="line203">203</a>   def is_done_initializing?()</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line207">207</a>     make_call(30, RETRY_ON_FAIL, &quot;is_done_loading&quot;, ok_to_fail=true) { @conn.is_done_loading(@secret) }</pre></td>
+            <td><pre><a name="line204">204</a>     make_call(30, RETRY_ON_FAIL, &quot;is_done_initializing&quot;, ok_to_fail=true) { @conn.is_done_initializing(@secret) }</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line208">208</a>   end</pre></td>
+            <td><pre><a name="line205">205</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line209">209</a>  </pre></td>
+            <td><pre><a name="line206">206</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line210">210</a>   def get_all_public_ips()</pre></td>
+            <td><pre><a name="line207">207</a>   def is_done_loading?()</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line211">211</a>     make_call(30, RETRY_ON_FAIL, &quot;get_all_public_ips&quot;) { @conn.get_all_public_ips(@secret) }</pre></td>
+            <td><pre><a name="line208">208</a>     make_call(30, RETRY_ON_FAIL, &quot;is_done_loading&quot;, ok_to_fail=true) { @conn.is_done_loading(@secret) }</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line212">212</a>   end</pre></td>
+            <td><pre><a name="line209">209</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line213">213</a> </pre></td>
+            <td><pre><a name="line210">210</a>  </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line214">214</a>   def add_role(role)</pre></td>
+            <td><pre><a name="line211">211</a>   def get_all_public_ips()</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line215">215</a>     make_call(NO_TIMEOUT, RETRY_ON_FAIL, &quot;add_role&quot;) { @conn.add_role(role, @secret) }</pre></td>
+            <td><pre><a name="line212">212</a>     make_call(30, RETRY_ON_FAIL, &quot;get_all_public_ips&quot;) { @conn.get_all_public_ips(@secret) }</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line216">216</a>   end</pre></td>
+            <td><pre><a name="line213">213</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line217">217</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line218">218</a>   # CGB - removed timeout here - removing cassandra slave requires it to port</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line219">219</a>   # the data it owns to somebody else, which takes ~30 seconds in the trivial</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line220">220</a>   # case</pre></td>
+            <td><pre><a name="line214">214</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line221">221</a>   def remove_role(role)</pre></td>
+            <td><pre><a name="line215">215</a>   def add_role(role)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line222">222</a>     make_call(NO_TIMEOUT, RETRY_ON_FAIL, &quot;remove_role&quot;) { @conn.remove_role(role, @secret) }</pre></td>
+            <td><pre><a name="line216">216</a>     make_call(NO_TIMEOUT, RETRY_ON_FAIL, &quot;add_role&quot;) { @conn.add_role(role, @secret) }</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line223">223</a>   end</pre></td>
+            <td><pre><a name="line217">217</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line224">224</a> </pre></td>
+            <td><pre><a name="line218">218</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line219">219</a>   # CGB - removed timeout here - removing cassandra slave requires it to port</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line220">220</a>   # the data it owns to somebody else, which takes ~30 seconds in the trivial</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line221">221</a>   # case</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line225">225</a>   def run_neptune_job(nodes, job_data)</pre></td>
+            <td><pre><a name="line222">222</a>   def remove_role(role)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line226">226</a>     type = &quot;&quot;</pre></td>
+            <td><pre><a name="line223">223</a>     make_call(NO_TIMEOUT, RETRY_ON_FAIL, &quot;remove_role&quot;) { @conn.remove_role(role, @secret) }</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line227">227</a>     if job_data.class == Array</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line228">228</a>       type = job_data[0][&quot;@type&quot;]</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line229">229</a>     else</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line230">230</a>       type = job_data[&quot;@type&quot;]</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line231">231</a>     end</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line232">232</a>     Djinn.log_debug(&quot;neptune job type is #{type}&quot;)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line233">233</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line234">234</a>     if NEPTUNE_JOBS.include?(type)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line235">235</a>       method_to_call = &quot;neptune_#{type}_run_job&quot;</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line236">236</a>       @conn.add_method(method_to_call, &quot;nodes&quot;, &quot;jobs&quot;, &quot;secret&quot;)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line237">237</a>       make_call(30, RETRY_ON_FAIL, &quot;run_neptune_job&quot;) { @conn.send(method_to_call.to_sym, nodes, job_data, @secret) }</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line238">238</a>     else</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line239">239</a>       not_supported_message = &quot;The job type you specified, '#{type}', is &quot; +</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line240">240</a>        &quot;not supported. Supported jobs are #{NEPTUNE_JOBS.join(', ')}.&quot;</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line241">241</a>       abort(not_supported_message)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line242">242</a>     end</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line243">243</a>   end</pre></td>
+            <td><pre><a name="line224">224</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line244">244</a> </pre></td>
+            <td><pre><a name="line225">225</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line245">245</a>   def wait_for_node_to_be(new_roles)</pre></td>
+            <td><pre><a name="line226">226</a>   def run_neptune_job(nodes, job_data)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line246">246</a>     roles = new_roles.split(&quot;:&quot;)</pre></td>
+            <td><pre><a name="line227">227</a>     type = &quot;&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line247">247</a> </pre></td>
+            <td><pre><a name="line228">228</a>     if job_data.class == Array</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line248">248</a>     loop {</pre></td>
+            <td><pre><a name="line229">229</a>       type = job_data[0][&quot;@type&quot;]</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line249">249</a>       ready = true</pre></td>
+            <td><pre><a name="line230">230</a>     else</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line250">250</a>       status = get_status</pre></td>
+            <td><pre><a name="line231">231</a>       type = job_data[&quot;@type&quot;]</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line251">251</a>       Djinn.log_debug(&quot;ACC: Node at #{@ip} said [#{status}]&quot;)</pre></td>
+            <td><pre><a name="line232">232</a>     end</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line252">252</a>       roles.each { |role|</pre></td>
+            <td><pre><a name="line233">233</a>     Djinn.log_debug(&quot;neptune job type is #{type}&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line253">253</a>         if status =~ /#{role}/</pre></td>
+            <td><pre><a name="line234">234</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line254">254</a>           Djinn.log_debug(&quot;ACC: Node is #{role}&quot;)</pre></td>
+            <td><pre><a name="line235">235</a>     if NEPTUNE_JOBS.include?(type)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line255">255</a>         else</pre></td>
+            <td><pre><a name="line236">236</a>       method_to_call = &quot;neptune_#{type}_run_job&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line256">256</a>           ready = false</pre></td>
+            <td><pre><a name="line237">237</a>       @conn.add_method(method_to_call, &quot;nodes&quot;, &quot;jobs&quot;, &quot;secret&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line257">257</a>           Djinn.log_debug(&quot;ACC: Node is not yet #{role}&quot;)</pre></td>
+            <td><pre><a name="line238">238</a>       make_call(30, RETRY_ON_FAIL, &quot;run_neptune_job&quot;) { @conn.send(method_to_call.to_sym, nodes, job_data, @secret) }</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line258">258</a>         end</pre></td>
+            <td><pre><a name="line239">239</a>     else</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line259">259</a>       }</pre></td>
+            <td><pre><a name="line240">240</a>       not_supported_message = &quot;The job type you specified, '#{type}', is &quot; +</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line260">260</a> </pre></td>
+            <td><pre><a name="line241">241</a>        &quot;not supported. Supported jobs are #{NEPTUNE_JOBS.join(', ')}.&quot;</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line261">261</a>       break if ready      </pre></td>
+            <td><pre><a name="line242">242</a>       abort(not_supported_message)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line262">262</a>     }</pre></td>
+            <td><pre><a name="line243">243</a>     end</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line263">263</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line264">264</a>     Djinn.log_debug(&quot;ACC: Node at #{@ip} is now #{new_roles}&quot;)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line265">265</a>     return</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="uncovered">
-            <td><pre><a name="line266">266</a>   end</pre></td>
+            <td><pre><a name="line244">244</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line267">267</a> </pre></td>
+            <td><pre><a name="line245">245</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line268">268</a>   def get_queues_in_use()</pre></td>
+            <td><pre><a name="line246">246</a>   def wait_for_node_to_be(new_roles)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line269">269</a>     make_call(NO_TIMEOUT, RETRY_ON_FAIL, &quot;get_queues_in_use&quot;) { </pre></td>
+            <td><pre><a name="line247">247</a>     roles = new_roles.split(&quot;:&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line270">270</a>       @conn.get_queues_in_use(@secret)</pre></td>
+            <td><pre><a name="line248">248</a> </pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line271">271</a>     }</pre></td>
+            <td><pre><a name="line249">249</a>     loop {</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line272">272</a>   end</pre></td>
+            <td><pre><a name="line250">250</a>       ready = true</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line273">273</a> end</pre></td>
+            <td><pre><a name="line251">251</a>       status = get_status</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line252">252</a>       Djinn.log_debug(&quot;ACC: Node at #{@ip} said [#{status}]&quot;)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line253">253</a>       roles.each { |role|</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line254">254</a>         if status =~ /#{role}/</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line255">255</a>           Djinn.log_debug(&quot;ACC: Node is #{role}&quot;)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line256">256</a>         else</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line257">257</a>           ready = false</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line258">258</a>           Djinn.log_debug(&quot;ACC: Node is not yet #{role}&quot;)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line259">259</a>         end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line260">260</a>       }</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line261">261</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line262">262</a>       break if ready      </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line263">263</a>     }</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line264">264</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line265">265</a>     Djinn.log_debug(&quot;ACC: Node at #{@ip} is now #{new_roles}&quot;)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line266">266</a>     return</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line267">267</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line274">274</a> </pre></td>
+            <td><pre><a name="line268">268</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line269">269</a>   def get_queues_in_use()</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line270">270</a>     make_call(NO_TIMEOUT, RETRY_ON_FAIL, &quot;get_queues_in_use&quot;) { </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line271">271</a>       @conn.get_queues_in_use(@secret)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line272">272</a>     }</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line273">273</a>   end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="uncovered">
+            <td><pre><a name="line274">274</a> end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line275">275</a> </pre></td>
           </tr>
         
       </tbody>
     </table>
 
-    <p>Generated on Sat Sep 01 14:53:08 -0700 2012 with <a href="http://github.com/relevance/rcov">rcov 1.0.0</a></p>
+    <p>Generated on Tue Nov 27 14:27:59 -0800 2012 with <a href="http://github.com/relevance/rcov">rcov 1.0.0</a></p>
 
   </body>
 </html>

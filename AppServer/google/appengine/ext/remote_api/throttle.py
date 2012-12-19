@@ -64,12 +64,18 @@ it for details.
 
 
 import logging
+import os
 import threading
 import time
 import urllib2
 import urlparse
 
-from google.appengine.api import apiproxy_stub_map
+
+if os.environ.get('APPENGINE_RUNTIME') == 'python27':
+  from google.appengine.api import apiproxy_stub_map
+else:
+  from google.appengine.api import apiproxy_stub_map
+
 from google.appengine.ext.remote_api import remote_api_stub
 from google.appengine.tools import appengine_rpc
 

@@ -86,28 +86,6 @@ class ChannelServiceStub(apiproxy_stub.APIProxyStub):
     self._update_event = None
 
 
-  def _Dynamic_CreateChannel(self, request, response):
-    """Implementation of channel.get_channel.
-
-    Args:
-      request: A ChannelServiceRequest.
-      response: A ChannelServiceResponse
-    """
-
-    client_id = request.application_key()
-    if not client_id:
-      raise apiproxy_errors.ApplicationError(
-          channel_service_pb.ChannelServiceError.INVALID_CHANNEL_KEY)
-
-    token = 'channel-%s-%s' % (random.randint(0, 2 ** 32),
-                               client_id)
-    self._log('Creating channel token %s with client id %s',
-              token, request.application_key())
-
-
-    response.set_client_id(token)
-
-
   def _Dynamic_SendChannelMessage(self, request, response):
     """Implementation of channel.send_message.
 

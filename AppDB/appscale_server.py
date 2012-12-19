@@ -630,7 +630,7 @@ class MainHandler(tornado.web.RequestHandler):
       #logger.debug("RESULTS: %s" % results )
    
       (filters, orders) = datastore_index.Normalize(query.filter_list(),
-                                                    query.order_list())
+                                                    query.order_list(), [])
       datastore_stub_util.ValidateQuery(query, filters, orders,
           _MAX_QUERY_COMPONENTS)
       datastore_stub_util.FillUsersInQuery(filters)

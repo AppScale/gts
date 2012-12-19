@@ -46,6 +46,19 @@ class DictBlobStorage(blobstore_stub.BlobStorage):
     """Constructor."""
     self._blobs = {}
 
+  def StoreBlob(self, blob_key, blob_stream):
+    """Store blob stream."""
+    content = StringIO.StringIO()
+    try:
+      while True:
+        block = blob_stream.read(1 << 20)
+        if not block:
+          break
+        content.write(block)
+      self.CreateBlob(blob_key, content.getvalue())
+    finally:
+      content.close()
+
   def CreateBlob(self, blob_key, blob):
     """Store blob in map."""
     self._blobs[blobstore.BlobKey(unicode(blob_key))] = blob

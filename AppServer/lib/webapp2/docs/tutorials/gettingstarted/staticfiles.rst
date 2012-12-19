@@ -22,15 +22,16 @@ Edit ``helloworld/app.yaml`` and replace its contents with the following:
 
    application: helloworld
    version: 1
-   runtime: python
+   runtime: python27
    api_version: 1
+   threadsafe: true
 
    handlers:
    - url: /stylesheets
      static_dir: stylesheets
 
    - url: /.*
-     script: helloworld.py
+     script: helloworld.app
 
 The new ``handlers`` section defines two handlers for URLs. When App Engine
 receives a request with a URL beginning with ``/stylesheets``, it maps the

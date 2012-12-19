@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Backup Information{% endblock %}
+{% block body %}
+  <h2>Datastore Admin: Backup Information</h2>
+  {% for backup in backups %}
+  <p>
+    <table title="{{backup.name}}" style="border-spacing: 0px 50px;">
+      <thead>
+        <tr><td><b>Name:</b></td><td>{{backup.name|escape}}{% if backup.original_app %} (Imported from {{backup.original_app|escape}}){% endif %}</td></tr>
+      </thead>
+      <tbody>
+        <tr><td><b>Kinds:</b></td><td>{{ backup.kinds|join:', '}}</td></tr>
+        <tr><td><b>Target:</b></td><td>{% if backup.filesystem == 'gs'%}Google Cloud Strorage{% else %}{{backup.filesystem}}{% endif %}</td></tr>
+        <tr><td><b>Started:</b></td><td>{{backup.start_time}}</td></tr>
+        {% if backup.complete_time %}
+          <tr><td><b>Completed:</b></td><td>{{backup.complete_time}}</td></tr>
+        {% endif %}
+        {% if backup.gs_handle %}
+          <tr><td><b>Handle:</b></td><td>{{backup.gs_handle|escape}}</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </p>
+  {% endfor %}
+  <form action="{{ back_target }}" method="post">
+    <input class="goog-button" type="submit" value="Back">
+  </form>
+{% endblock %}

@@ -1,0 +1,155 @@
+<!doctype html>
+<html>
+  <head>
+    <title> Appstats Analytics </title>
+    <link rel="stylesheet" type="text/css" href="local/analytics_css.css"/>
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+    <script type="text/javascript">
+      google.load('visualization', '1', {packages: ['corechart']});
+    </script>
+    <script type="text/javascript" src="local/analytics_js.js"></script>
+  </head>
+  <body>
+    <center><b> Detailed Analysis of URL {{url}} of Appstats Snapshot from {{source}} </b> </center> <br>
+
+    <a href = ?source={{source}}> Analyze another URL of this Appstats snapshot </a> <br> <br>
+    <a href = ?> Analyze another Appstats snapshot </a> <br> <br>
+
+    <b> Recording for this snapshot started at {{recordingstart}} UTC </b>
+
+    <center>
+      <div id="LatencyVsTimestamp"></div>
+      <center> <p class="help"> Each dot represents latency of a request to {{url}}. Click on the dot to get
+      detailed RPC times for that request. </p> </center>
+
+      <form>
+        Filter Requests by time range (in seconds since start of recording) or by request latency (milliseconds) <br>
+        <input type=hidden name=source value='{{source}}'>
+        <input type=hidden name=url value='{{url}}'>
+        {% if filter.starttime  %}
+          Start Time: <input type="text" name="starttime" value={{filter.starttime}} size="1">
+        {% else %}
+          Start Time: <input type="text" name="starttime" size="1">
+        {% endif %}
+        {% if filter.endtime >= 0 %}
+          End Time: <input type="text" name="endtime" value={{filter.endtime}} size="1"/>
+        {% else %}
+          End Time: <input type="text" name="endtime" size="1">
+        {% endif %}
+        {% if filter.latency_lower >= 0 %}
+          Latency Lower <input type="text" name="latency_lower" value={{filter.latency_lower}} size="1" />
+        {% else %}
+          Latency Lower <input type="text" name="latency_lower" size="1" />
+        {% endif %}
+        {% if filter.latency_upper >= 0 %}
+          Latency Upper <input type="text" name="latency_upper" value={{filter.latency_upper}} size="1" />
+        {% else %}
+          Latency Upper <input type="text" name="latency_upper" size="1" />
+        {% endif %}
+        <div><input type="submit" value="Apply Filter"></div>
+      </form>
+    </center>
+
+    <div id="rpcvariation"></div>
+      <center> <p class="help"> Candlestick chart. Bars show the 25th and 75%iles for time spent in an RPC
+      across all requests. Lines extend from the 10th to the 90th %ile. </p> </center>
+
+    <table>
+      <tr>
+        <th> RPC <br>
+          #Requests, <br>
+          #RPC calls <br>
+        </th>
+        <th>
+          Time spent in RPC per request (milliseconds)
+          <div title=
+            "Vertically aligned bars correspond to same request. Hover on bar to get number of times an RPC was called and # of entities written/read by calls to that RPC. Click on bar to get detailed per-request timing information.">
+            <center> <p class="help"> Hover for help on how to read graph. </p> </center>
+          </div>
+        </th>
+      </tr>
+      <tr>
+        <td> Request Latency <br>
+             Requests: {{drill.reqsummary.totaltimes|length}} <br> </td>
+        <td>  <div id="rpctime-total"></div> </td>
+      </tr>
+      <tr>
+        <td> Time in all RPCs <br>
+             Requests: {{drill.reqsummary.totaltimes|length}} <br> </td>
+        <td>  <div id="rpctime-allrpc"></div> </td>
+      </tr>
+      {% for rpcsummary in drill.rpcsummaries %}
+        <tr>
+          <td> {{rpcsummary.0}} <br>
+               Requests:  {{rpcsummary.1}} <br>
+               RPC Calls: {{rpcsummary.2}}  <br>
+         </td>
+          <td> <div id="rpctime-{{rpcsummary.0}}"></div> </td>
+        </tr>
+      {% endfor %}
+    </table>
+
+    <br>
+
+    {% if drill.entitycounts %}
+      <table>
+        <tr>
+          <th> Entity Kind </th>
+          <th> Accesses (Reads/writes) per entity <br>
+               (only top 50 by accesses shown)
+               <p class="help"> Hover on bar for entity name/id. </p>
+          </th>
+        </tr>
+        {% for triple in drill.entitycounts %}
+          <tr>
+            <td> {{triple.0}} <br>
+                 Total Entities: {{triple.1}} </td>
+            <td> <div id="fetchcount-{{triple.0}}"></div> </td>
+          </tr>
+        {% endfor %}
+      </table>
+    {% endif %}
+
+    {% if drill.groupcounts %}
+      <table>
+        <tr>
+          <th> Entity Group <br> Kind </th>
+          <th> Accesses (Reads/writes) per group <br>
+               (only top 50 by accesses shown)
+               <p class="help"> Hover on bar for entity group name/id. </p> </th>
+        </tr>
+        {% for triple in drill.groupcounts %}
+          <tr>
+          <td> {{triple.0}} <br>
+               Total Entities: {{triple.1}} </td>
+          <td> <div id="groupcount-{{triple.0}}"></div> </td>
+        {% endfor %}
+      </table>
+    {% endif %}
+
+    <script>
+       ae.Charts.latencyTimestampScatter( {{drill.reqsummary.timestamps}}, {{drill.reqsummary.totaltimes}},
+           {{first_timestamp}}, {{filter_json|safe}}, "?source={{source}}&url={{url}}");
+       ae.Charts.rpcVariationCandlestick({{drill.rpc_variation|safe}});
+       ae.Charts.totalTimeBarChart('total', {{drill.reqsummary.totaltimes}}, {{filter_json|safe}}, "?source={{source}}&url={{url}}");
+       ae.Charts.totalTimeBarChart('allrpc', {{drill.reqsummary.totalrpctimes}}, {{filter_json|safe}}, "?source={{source}}&url={{url}}");
+
+       {% for rpcsummary in drill.rpcsummaries %}
+         ae.Charts.rpcTimeBarChart('{{rpcsummary.0}}', {{drill.reqsummary.totaltimes|length}}, {{rpcsummary.3|safe}}, {{filter_json|safe}}, "?source={{source}}&url={{url}}");
+       {% endfor %}
+
+       {% for  triple in drill.entitycounts %}
+         ae.Charts.entityCountBarChart('{{triple.0}}',{{triple.2|safe}}, {{drill.maxentitycount}}, 'fetchcount')
+       {% endfor %}
+
+       {% for  triple in drill.groupcounts %}
+         ae.Charts.entityCountBarChart('{{triple.0}}',{{triple.2|safe}}, {{drill.maxgroupcount}}, 'groupcount')
+       {% endfor %}
+    </script>
+
+    <br>
+
+    <form><input type="button" value="Back" onclick="history.back()"></form>
+
+  </body>
+</html>

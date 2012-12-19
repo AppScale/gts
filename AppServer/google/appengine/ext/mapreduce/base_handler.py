@@ -36,10 +36,7 @@
 
 
 import logging
-try:
-  import json as simplejson
-except ImportError:
-  import simplejson
+import simplejson
 
 import google
 try:

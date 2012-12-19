@@ -29,7 +29,7 @@ Contents:
 import base64
 import cStringIO
 import datetime
-import md5
+import hashlib
 import random
 import time
 
@@ -84,7 +84,7 @@ def GenerateBlobKey(time_func=time.time, random_func=random.random):
   tries = 0
   while tries < 10:
     number = str(random_func())
-    digester = md5.md5()
+    digester = hashlib.md5()
     digester.update(timestamp)
     digester.update(number)
     blob_key = base64.urlsafe_b64encode(digester.digest())

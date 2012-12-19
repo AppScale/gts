@@ -22,33 +22,43 @@
 
 
 import base64
-import cgi
 import datetime
+import hashlib
 import os
 import random
 import string
 import StringIO
 import tempfile
 import time
-import urllib
-import urlparse
 
 from google.appengine.api import apiproxy_stub
 from google.appengine.api import datastore
 from google.appengine.api import datastore_errors
+from google.appengine.api import blobstore as api_blobstore
+from google.appengine.api.blobstore import blobstore_stub
 from google.appengine.api.files import blobstore as files_blobstore
+from google.appengine.api.files import file as files
 from google.appengine.api.files import file_service_pb
 from google.appengine.api.files import gs
 from google.appengine.ext import blobstore
 from google.appengine.runtime import apiproxy_errors
-from google.appengine.tools import dev_appserver_upload
 
 
 MAX_REQUEST_SIZE = 32 << 20
-
+GS_INFO_KIND = blobstore_stub._GS_INFO_KIND
 
 
 _now_function = datetime.datetime.now
+
+
+def _to_seconds(datetime_obj):
+  return time.mktime(datetime_obj.timetuple())
+
+
+def _random_string(length):
+  """Generate a random string of given length."""
+  return ''.join(
+      random.choice(string.letters + string.digits) for _ in range(length))
 
 
 def raise_error(error_code, error_detail=''):
@@ -77,40 +87,51 @@ class GoogleStorage(object):
   def _Upload(self, buf, content_type, key):
     return _GoogleStorageUpload([buf, content_type, key])
 
-  def __init__(self):
-    self.index = 0
-    self.keys = {}
+  def __init__(self, blob_storage):
+    """Constructor.
+
+    Args:
+      blob_storage:
+          apphosting.api.blobstore.blobstore_stub.BlobStorage instance.
+    """
+    self.blob_storage = blob_storage
     self.uploads = {}
     self.finalized = set()
-
-  def ParseIndex(self, filename):
-    """Returns 123 from /gs/writable:123."""
-    assert filename
-    assert filename.startswith(_GS_UPLOAD_PREFIX)
-    return filename[len(_GS_UPLOAD_PREFIX):]
+    self.sequence_keys = {}
 
   def has_upload(self, filename):
     """Checks if there is an upload at this filename."""
-    return self.ParseIndex(filename) in self.uploads
-
-  def has_key(self, filename):
-    """Checks if there is a key at this filename."""
-    return filename in self.keys
+    return filename in self.uploads
 
   def finalize(self, filename):
     """Marks file as finalized."""
-    index = self.ParseIndex(filename)
-    upload = self.uploads[index]
-    self.keys[upload.key] = upload.buf
-    self.finalized.add(index)
-    self.uploads[index] = self._Upload(
-        None, upload.content_type, upload.key)
+    upload = self.uploads[filename]
+    self.finalized.add(filename)
+    upload.buf.seek(0)
+    self.blob_storage.StoreBlob(self.get_blob_key(upload.key), upload.buf)
+    del self.sequence_keys[filename]
+
+
+    encoded_key = blobstore.create_gs_key(upload.key)
+    file_info = datastore.Entity(GS_INFO_KIND,
+                                 name=encoded_key,
+                                 namespace='')
+    file_info['creation'] = _now_function()
+    file_info['filename'] = upload.key
+    file_info['size'] = upload.buf.len
+    file_info['content_type'] = upload.content_type
+    file_info['storage_key'] = self.get_blob_key(upload.key)
+    datastore.Put(file_info)
+
+  @staticmethod
+  def get_blob_key(key):
+    """Converts a bigstore key into a base64 encoded blob key/filename."""
+    return base64.urlsafe_b64encode(key)
 
   def is_finalized(self, filename):
     """Checks if file is already finalized."""
-    index = self.ParseIndex(filename)
-    assert index in self.uploads
-    return index in self.finalized
+    assert filename in self.uploads
+    return filename in self.finalized
 
   def start_upload(self, request):
     """Starts a new upload based on the specified CreateRequest."""
@@ -139,23 +160,83 @@ class GoogleStorage(object):
     elif not gs_filename:
       raise_error(file_service_pb.FileServiceErrors.INVALID_PARAMETER)
 
-    self.index += 1
-    self.uploads[str(self.index)] = self._Upload(
+    random_str = ''.join(
+        random.choice(string.ascii_uppercase + string.digits)
+        for _ in range(64))
+    writable_name = '%s%s' % (
+        _GS_UPLOAD_PREFIX, base64.urlsafe_b64encode(random_str))
+    self.uploads[writable_name] = self._Upload(
         StringIO.StringIO(), mime_type, gs_filename)
-    return '%s%d' % (_GS_UPLOAD_PREFIX, self.index)
+    self.sequence_keys[writable_name] = None
 
-  def append(self, filename, data):
+
+    datastore.Delete(
+        datastore.Key.from_path(GS_INFO_KIND,
+                                blobstore.create_gs_key(gs_filename),
+                                namespace=''))
+    return writable_name
+
+  def append(self, filename, data, sequence_key):
     """Appends data to the upload filename."""
-    index = self.ParseIndex(filename)
     assert not self.is_finalized(filename)
-    self.uploads[index].buf.write(data)
+    if sequence_key:
+      current_sequence_key = self.sequence_keys[filename]
+      if current_sequence_key and current_sequence_key >= sequence_key:
+        raise_error(file_service_pb.FileServiceErrors.SEQUENCE_KEY_OUT_OF_ORDER,
+                    error_detail=current_sequence_key)
+      self.sequence_keys[filename] = sequence_key
+    self.uploads[filename].buf.write(data)
 
-  def read(self, key, pos, max_data):
-    """Reads max_data bytes from key starting at pos."""
-    assert key in self.keys
-    buf = self.keys[key]
-    buf.seek(pos)
-    return buf.read(max_data)
+  def stat(self, filename):
+    """
+    Returns:
+      file info for a finalized file with given filename
+    """
+    blob_key = blobstore.create_gs_key(filename)
+    try:
+      return datastore.Get(
+          datastore.Key.from_path(GS_INFO_KIND, blob_key, namespace=''))
+    except datastore_errors.EntityNotFoundError:
+      raise raise_error(file_service_pb.FileServiceErrors.EXISTENCE_ERROR,
+                        filename)
+
+  def get_reader(self, filename):
+    try:
+      return self.blob_storage.OpenBlob(self.get_blob_key(filename))
+    except IOError:
+      return None
+
+  def listdir(self, request, response):
+    """listdir.
+
+    Args:
+      request: ListDir RPC request.
+      response: ListDir RPC response.
+
+    Returns:
+      A list of fully qualified filenames under a certain path sorted by in
+      char order.
+    """
+    path = request.path()
+    prefix = request.prefix() if request.has_prefix() else ''
+
+    q = datastore.Query(GS_INFO_KIND, namespace='')
+    fully_qualified_name = '/'.join([path, prefix])
+    if request.has_marker():
+      q['filename >'] = '/'.join([path, request.marker()])
+    else:
+      q['filename >='] = fully_qualified_name
+
+    if request.has_max_keys():
+      max_keys = request.max_keys()
+    else:
+      max_keys = 2**31-1
+    for gs_file_info in q.Get(max_keys):
+      filename = gs_file_info['filename']
+      if filename.startswith(fully_qualified_name):
+        response.add_filenames(filename)
+      else:
+        break
 
 
 class GoogleStorageFile(object):
@@ -188,8 +269,10 @@ class GoogleStorageFile(object):
       elif self.filename.startswith(_GS_UPLOAD_PREFIX):
 
         raise_error(file_service_pb.FileServiceErrors.INVALID_FILE_NAME)
-      elif not self.file_storage.has_key(self.filename):
-        raise_error(file_service_pb.FileServiceErrors.EXISTENCE_ERROR)
+      else:
+        self.buf = self.file_storage.get_reader(self.filename)
+        if not self.buf:
+          raise_error(file_service_pb.FileServiceErrors.EXISTENCE_ERROR)
 
     if content_type != file_service_pb.FileContentType.RAW:
       raise_error(file_service_pb.FileServiceErrors.WRONG_CONTENT_TYPE)
@@ -199,19 +282,36 @@ class GoogleStorageFile(object):
     """Checks if the file is opened for appending or reading."""
     return self.open_mode == file_service_pb.OpenRequest.APPEND
 
+  def stat(self, request, response):
+    """Fill response with file stat.
+
+    Current implementation only fills length, finalized, filename, and content
+    type. File must be opened in read mode before stat is called.
+    """
+    file_info = self.file_storage.stat(self.filename)
+    file_stat = response.add_stat()
+    file_stat.set_filename(file_info['filename'])
+    file_stat.set_finalized(True)
+    file_stat.set_length(file_info['size'])
+    file_stat.set_ctime(_to_seconds(file_info['creation']))
+    file_stat.set_mtime(_to_seconds(file_info['creation']))
+    file_stat.set_content_type(file_service_pb.FileContentType.RAW)
+    response.set_more_files_found(False)
+
   def read(self, request, response):
     """Copies up to max_bytes starting at pos into response from filename."""
     if self.is_appending:
       raise_error(file_service_pb.FileServiceErrors.WRONG_OPEN_MODE)
-    data = self.file_storage.read(
-        self.filename, request.pos(), request.max_bytes())
+    self.buf.seek(request.pos())
+    data = self.buf.read(request.max_bytes())
     response.set_data(data)
 
   def append(self, request, response):
     """Appends data to filename."""
     if not self.is_appending:
       raise_error(file_service_pb.FileServiceErrors.WRONG_OPEN_MODE)
-    self.file_storage.append(self.filename, request.data())
+    self.file_storage.append(
+        self.filename, request.data(), request.sequence_key())
 
   def finalize(self):
     """Finalize a file.
@@ -253,6 +353,7 @@ class BlobstoreStorage(object):
 
 
     self.blob_content_types = {}
+
 
     self.blob_file_names = {}
 
@@ -299,7 +400,7 @@ class BlobstoreStorage(object):
         random.choice(string.ascii_uppercase + string.digits)
         for _ in range(64))
     filename = (_BLOBSTORE_DIRECTORY +
-                files_blobstore._CREATION_HANDLE_PREFIX +
+                files._CREATION_HANDLE_PREFIX +
                 base64.urlsafe_b64encode(random_str))
     self.blobstore_files.add(filename)
     self.blob_content_types[filename] = mime_type
@@ -313,6 +414,20 @@ class BlobstoreStorage(object):
   def set_sequence_key(self, filename, sequence_key):
     """Set sequence key for a file."""
     self.sequence_keys[filename] = sequence_key
+
+  def stat(self, filename):
+    """
+    Returns:
+      file info for a finalized file with given filename."""
+    blob_key = files_blobstore.get_blob_key(filename)
+    file_info = datastore.Get(
+        datastore.Key.from_path(api_blobstore.BLOB_INFO_KIND, str(blob_key),
+            namespace=''))
+    if file_info == None:
+      raise raise_error(
+          file_service_pb.FileServiceErrors.EXISTENCE_ERROR_MEATADATA_NOT_FOUND,
+          filename)
+    return file_info
 
   def save_blob(self, filename, blob_key):
     """Save filename temp data to a blobstore under given key."""
@@ -332,6 +447,16 @@ class BlobstoreStorage(object):
       self.data_files[filename] = f
       return f
     return self.data_files[filename]
+
+  def get_md5_from_blob(self, blobkey):
+    """Get md5 hexdigest of the blobfile with blobkey."""
+    try:
+      f = self.blob_storage.OpenBlob(blobkey)
+      file_md5 = hashlib.md5()
+      file_md5.update(f.read())
+      return file_md5.hexdigest()
+    finally:
+      f.close()
 
   def append(self, filename, data):
     """Append data to file."""
@@ -373,20 +498,53 @@ class BlobstoreFile(object):
       if not self.file_storage.has_blobstore_file(self.filename):
         raise_error(file_service_pb.FileServiceErrors.EXISTENCE_ERROR)
 
+      if self.file_storage.is_finalized(self.filename):
+        raise_error(file_service_pb.FileServiceErrors.FINALIZATION_ERROR,
+                    'File is already finalized')
+
       self.mime_content_type = self.file_storage.get_content_type(self.filename)
       self.blob_file_name = self.file_storage.get_blob_file_name(self.filename)
     else:
-      blob_info = blobstore.BlobInfo.get(self.ticket)
+      if self.ticket.startswith(files._CREATION_HANDLE_PREFIX):
+        blobkey = self.file_storage.get_blob_key(self.ticket)
+        if not blobkey:
+          raise_error(file_service_pb.FileServiceErrors.FINALIZATION_ERROR,
+                      'Blobkey not found.')
+      else:
+        blobkey = self.ticket
+
+      blob_info = blobstore.BlobInfo.get(blobkey)
+
       if not blob_info:
-        raise_error(file_service_pb.FileServiceErrors.FINALIZATION_ERROR)
+        raise_error(file_service_pb.FileServiceErrors.FINALIZATION_ERROR,
+                    'Blobinfo not found.')
+
       self.blob_reader = blobstore.BlobReader(blob_info)
       self.mime_content_type = blob_info.content_type
+
     if content_type != file_service_pb.FileContentType.RAW:
       raise_error(file_service_pb.FileServiceErrors.WRONG_CONTENT_TYPE)
 
-    if self.file_storage.is_finalized(self.filename):
-      raise_error(file_service_pb.FileServiceErrors.FINALIZATION_ERROR,
-                  'File is already finalized')
+  @property
+  def is_appending(self):
+    """Checks if the file is opened for appending or reading."""
+    return self.blob_reader == None
+
+  def stat(self, request, response):
+    """Fill response with file stat.
+
+    Current implementation only fills length, finalized, filename, and content
+    type. File must be opened in read mode before stat is called.
+    """
+    file_info = self.file_storage.stat(self.filename)
+    file_stat = response.add_stat()
+    file_stat.set_filename(self.filename)
+    file_stat.set_finalized(True)
+    file_stat.set_length(file_info['size'])
+    file_stat.set_ctime(_to_seconds(file_info['creation']))
+    file_stat.set_mtime(_to_seconds(file_info['creation']))
+    file_stat.set_content_type(file_service_pb.FileContentType.RAW)
+    response.set_more_files_found(False)
 
   def read(self, request, response):
     """Read data from file
@@ -395,7 +553,7 @@ class BlobstoreFile(object):
       request: An instance of file_service_pb.ReadRequest.
       response: An instance of file_service_pb.ReadResponse.
     """
-    if not self.blob_reader:
+    if self.is_appending:
       raise_error(file_service_pb.FileServiceErrors.WRONG_OPEN_MODE)
     self.blob_reader.seek(request.pos())
     response.set_data(self.blob_reader.read(request.max_bytes()))
@@ -423,18 +581,18 @@ class BlobstoreFile(object):
     Copies temp file data to the blobstore.
     """
     self.file_storage.finalize(self.filename)
-    blob_key = dev_appserver_upload.GenerateBlobKey()
+    blob_key = _random_string(64)
     self.file_storage.register_blob_key(self.ticket, blob_key)
 
     size = self.file_storage.save_blob(self.filename, blob_key)
-    blob_info = datastore.Entity('__BlobInfo__',
-                                   name=str(blob_key),
-                                   namespace='')
+    blob_info = datastore.Entity(api_blobstore.BLOB_INFO_KIND,
+        name=str(blob_key), namespace='')
     blob_info['content_type'] = self.mime_content_type
     blob_info['creation'] = _now_function()
     blob_info['filename'] = self.blob_file_name
     blob_info['size'] = size
     blob_info['creation_handle'] = self.ticket
+    blob_info['md5_hash'] = self.file_storage.get_md5_from_blob(blob_key)
     datastore.Put(blob_info)
 
     blob_file = datastore.Entity('__BlobFileIndex__',
@@ -453,7 +611,7 @@ class FileServiceStub(apiproxy_stub.APIProxyStub):
                                           max_request_size=MAX_REQUEST_SIZE)
     self.open_files = {}
     self.file_storage = BlobstoreStorage(blob_storage)
-    self.gs_storage = GoogleStorage()
+    self.gs_storage = GoogleStorage(blob_storage)
 
   def _Dynamic_Create(self, request, response):
     filesystem = request.filesystem()
@@ -471,8 +629,6 @@ class FileServiceStub(apiproxy_stub.APIProxyStub):
   def _Dynamic_Open(self, request, response):
     """Handler for Open RPC call."""
     filename = request.filename()
-    content_type = request.content_type()
-    open_mode = request.open_mode()
 
     if request.exclusive_lock() and filename in self.open_files:
       raise_error(file_service_pb.FileServiceErrors.EXCLUSIVE_LOCK_FAILED)
@@ -497,6 +653,18 @@ class FileServiceStub(apiproxy_stub.APIProxyStub):
 
     del self.open_files[filename]
 
+  def _Dynamic_Stat(self, request, response):
+    """Handler for Stat RPC call."""
+    filename = request.filename()
+
+    if not filename in self.open_files:
+      raise_error(file_service_pb.FileServiceErrors.FILE_NOT_OPENED)
+
+    file = self.open_files[filename]
+    if file.is_appending:
+      raise_error(file_service_pb.FileServiceErrors.WRONG_OPEN_MODE)
+    file.stat(request, response)
+
   def _Dynamic_Read(self, request, response):
     """Handler for Read RPC call."""
     filename = request.filename()
@@ -520,3 +688,17 @@ class FileServiceStub(apiproxy_stub.APIProxyStub):
     response.add_filesystem('blobstore')
     response.add_filesystem('gs')
     response.set_shuffle_available(False)
+
+  def _Dynamic_GetDefaultGsBucketName(self, request, response):
+    """Handler for GetDefaultGsBucketName RPC call."""
+    response.set_default_gs_bucket_name('app_default_bucket')
+
+  def _Dynamic_ListDir(self, request, response):
+    """Handler for ListDir RPC call.
+
+    Only for dev app server. See b/6761691.
+    """
+    path = request.path()
+    if not path.startswith(_GS_PREFIX):
+      raise_error(file_service_pb.FileServiceErrors.UNSUPPORTED_FILE_SYSTEM)
+    self.gs_storage.listdir(request, response)

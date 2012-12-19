@@ -218,7 +218,8 @@ class DatastoreProxy(AppDBInterface):
     if not isinstance(end_key, str): raise TypeError("Expected str")
     if not isinstance(limit, int) and not isinstance(limit, long): 
       raise TypeError("Expected int or long")
-    if not isinstance(offset, int): raise TypeError
+    if not isinstance(offset, int) and not isinstance(offset, long): 
+      raise TypeError("Expected an int or long")
 
     results = []
 

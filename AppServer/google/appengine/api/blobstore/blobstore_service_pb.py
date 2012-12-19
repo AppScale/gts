@@ -44,6 +44,7 @@ class BlobstoreServiceError(ProtocolBuffer.ProtocolMessage):
   DATA_INDEX_OUT_OF_RANGE =    5
   BLOB_FETCH_SIZE_TOO_LARGE =    6
   ARGUMENT_OUT_OF_RANGE =    8
+  INVALID_BLOB_KEY =    9
 
   _ErrorCode_NAMES = {
     0: "OK",
@@ -54,6 +55,7 @@ class BlobstoreServiceError(ProtocolBuffer.ProtocolMessage):
     5: "DATA_INDEX_OUT_OF_RANGE",
     6: "BLOB_FETCH_SIZE_TOO_LARGE",
     8: "ARGUMENT_OUT_OF_RANGE",
+    9: "INVALID_BLOB_KEY",
   }
 
   def ErrorCode_Name(cls, x): return cls._ErrorCode_NAMES.get(x, "")
@@ -130,6 +132,8 @@ class CreateUploadURLRequest(ProtocolBuffer.ProtocolMessage):
   max_upload_size_bytes_ = 0
   has_max_upload_size_per_blob_bytes_ = 0
   max_upload_size_per_blob_bytes_ = 0
+  has_gs_bucket_name_ = 0
+  gs_bucket_name_ = ""
 
   def __init__(self, contents=None):
     if contents is not None: self.MergeFromString(contents)
@@ -173,12 +177,26 @@ class CreateUploadURLRequest(ProtocolBuffer.ProtocolMessage):
 
   def has_max_upload_size_per_blob_bytes(self): return self.has_max_upload_size_per_blob_bytes_
 
+  def gs_bucket_name(self): return self.gs_bucket_name_
+
+  def set_gs_bucket_name(self, x):
+    self.has_gs_bucket_name_ = 1
+    self.gs_bucket_name_ = x
+
+  def clear_gs_bucket_name(self):
+    if self.has_gs_bucket_name_:
+      self.has_gs_bucket_name_ = 0
+      self.gs_bucket_name_ = ""
+
+  def has_gs_bucket_name(self): return self.has_gs_bucket_name_
+
 
   def MergeFrom(self, x):
     assert x is not self
     if (x.has_success_path()): self.set_success_path(x.success_path())
     if (x.has_max_upload_size_bytes()): self.set_max_upload_size_bytes(x.max_upload_size_bytes())
     if (x.has_max_upload_size_per_blob_bytes()): self.set_max_upload_size_per_blob_bytes(x.max_upload_size_per_blob_bytes())
+    if (x.has_gs_bucket_name()): self.set_gs_bucket_name(x.gs_bucket_name())
 
   def Equals(self, x):
     if x is self: return 1
@@ -188,6 +206,8 @@ class CreateUploadURLRequest(ProtocolBuffer.ProtocolMessage):
     if self.has_max_upload_size_bytes_ and self.max_upload_size_bytes_ != x.max_upload_size_bytes_: return 0
     if self.has_max_upload_size_per_blob_bytes_ != x.has_max_upload_size_per_blob_bytes_: return 0
     if self.has_max_upload_size_per_blob_bytes_ and self.max_upload_size_per_blob_bytes_ != x.max_upload_size_per_blob_bytes_: return 0
+    if self.has_gs_bucket_name_ != x.has_gs_bucket_name_: return 0
+    if self.has_gs_bucket_name_ and self.gs_bucket_name_ != x.gs_bucket_name_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -203,6 +223,7 @@ class CreateUploadURLRequest(ProtocolBuffer.ProtocolMessage):
     n += self.lengthString(len(self.success_path_))
     if (self.has_max_upload_size_bytes_): n += 1 + self.lengthVarInt64(self.max_upload_size_bytes_)
     if (self.has_max_upload_size_per_blob_bytes_): n += 1 + self.lengthVarInt64(self.max_upload_size_per_blob_bytes_)
+    if (self.has_gs_bucket_name_): n += 1 + self.lengthString(len(self.gs_bucket_name_))
     return n + 1
 
   def ByteSizePartial(self):
@@ -212,12 +233,14 @@ class CreateUploadURLRequest(ProtocolBuffer.ProtocolMessage):
       n += self.lengthString(len(self.success_path_))
     if (self.has_max_upload_size_bytes_): n += 1 + self.lengthVarInt64(self.max_upload_size_bytes_)
     if (self.has_max_upload_size_per_blob_bytes_): n += 1 + self.lengthVarInt64(self.max_upload_size_per_blob_bytes_)
+    if (self.has_gs_bucket_name_): n += 1 + self.lengthString(len(self.gs_bucket_name_))
     return n
 
   def Clear(self):
     self.clear_success_path()
     self.clear_max_upload_size_bytes()
     self.clear_max_upload_size_per_blob_bytes()
+    self.clear_gs_bucket_name()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(10)
@@ -228,6 +251,9 @@ class CreateUploadURLRequest(ProtocolBuffer.ProtocolMessage):
     if (self.has_max_upload_size_per_blob_bytes_):
       out.putVarInt32(24)
       out.putVarInt64(self.max_upload_size_per_blob_bytes_)
+    if (self.has_gs_bucket_name_):
+      out.putVarInt32(34)
+      out.putPrefixedString(self.gs_bucket_name_)
 
   def OutputPartial(self, out):
     if (self.has_success_path_):
@@ -239,6 +265,9 @@ class CreateUploadURLRequest(ProtocolBuffer.ProtocolMessage):
     if (self.has_max_upload_size_per_blob_bytes_):
       out.putVarInt32(24)
       out.putVarInt64(self.max_upload_size_per_blob_bytes_)
+    if (self.has_gs_bucket_name_):
+      out.putVarInt32(34)
+      out.putPrefixedString(self.gs_bucket_name_)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -252,6 +281,9 @@ class CreateUploadURLRequest(ProtocolBuffer.ProtocolMessage):
       if tt == 24:
         self.set_max_upload_size_per_blob_bytes(d.getVarInt64())
         continue
+      if tt == 34:
+        self.set_gs_bucket_name(d.getPrefixedString())
+        continue
 
 
       if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
@@ -263,6 +295,7 @@ class CreateUploadURLRequest(ProtocolBuffer.ProtocolMessage):
     if self.has_success_path_: res+=prefix+("success_path: %s\n" % self.DebugFormatString(self.success_path_))
     if self.has_max_upload_size_bytes_: res+=prefix+("max_upload_size_bytes: %s\n" % self.DebugFormatInt64(self.max_upload_size_bytes_))
     if self.has_max_upload_size_per_blob_bytes_: res+=prefix+("max_upload_size_per_blob_bytes: %s\n" % self.DebugFormatInt64(self.max_upload_size_per_blob_bytes_))
+    if self.has_gs_bucket_name_: res+=prefix+("gs_bucket_name: %s\n" % self.DebugFormatString(self.gs_bucket_name_))
     return res
 
 
@@ -272,20 +305,23 @@ class CreateUploadURLRequest(ProtocolBuffer.ProtocolMessage):
   ksuccess_path = 1
   kmax_upload_size_bytes = 2
   kmax_upload_size_per_blob_bytes = 3
+  kgs_bucket_name = 4
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
     1: "success_path",
     2: "max_upload_size_bytes",
     3: "max_upload_size_per_blob_bytes",
-  }, 3)
+    4: "gs_bucket_name",
+  }, 4)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
     1: ProtocolBuffer.Encoder.STRING,
     2: ProtocolBuffer.Encoder.NUMERIC,
     3: ProtocolBuffer.Encoder.NUMERIC,
-  }, 3, ProtocolBuffer.Encoder.MAX_TYPE)
+    4: ProtocolBuffer.Encoder.STRING,
+  }, 4, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
@@ -1259,7 +1295,207 @@ class DecodeBlobKeyResponse(ProtocolBuffer.ProtocolMessage):
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
   _PROTO_DESCRIPTOR_NAME = 'apphosting.DecodeBlobKeyResponse'
+class CreateEncodedGoogleStorageKeyRequest(ProtocolBuffer.ProtocolMessage):
+  has_filename_ = 0
+  filename_ = ""
+
+  def __init__(self, contents=None):
+    if contents is not None: self.MergeFromString(contents)
+
+  def filename(self): return self.filename_
+
+  def set_filename(self, x):
+    self.has_filename_ = 1
+    self.filename_ = x
+
+  def clear_filename(self):
+    if self.has_filename_:
+      self.has_filename_ = 0
+      self.filename_ = ""
+
+  def has_filename(self): return self.has_filename_
+
+
+  def MergeFrom(self, x):
+    assert x is not self
+    if (x.has_filename()): self.set_filename(x.filename())
+
+  def Equals(self, x):
+    if x is self: return 1
+    if self.has_filename_ != x.has_filename_: return 0
+    if self.has_filename_ and self.filename_ != x.filename_: return 0
+    return 1
+
+  def IsInitialized(self, debug_strs=None):
+    initialized = 1
+    if (not self.has_filename_):
+      initialized = 0
+      if debug_strs is not None:
+        debug_strs.append('Required field: filename not set.')
+    return initialized
+
+  def ByteSize(self):
+    n = 0
+    n += self.lengthString(len(self.filename_))
+    return n + 1
+
+  def ByteSizePartial(self):
+    n = 0
+    if (self.has_filename_):
+      n += 1
+      n += self.lengthString(len(self.filename_))
+    return n
+
+  def Clear(self):
+    self.clear_filename()
+
+  def OutputUnchecked(self, out):
+    out.putVarInt32(10)
+    out.putPrefixedString(self.filename_)
+
+  def OutputPartial(self, out):
+    if (self.has_filename_):
+      out.putVarInt32(10)
+      out.putPrefixedString(self.filename_)
+
+  def TryMerge(self, d):
+    while d.avail() > 0:
+      tt = d.getVarInt32()
+      if tt == 10:
+        self.set_filename(d.getPrefixedString())
+        continue
+
+
+      if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
+      d.skipData(tt)
+
+
+  def __str__(self, prefix="", printElemNumber=0):
+    res=""
+    if self.has_filename_: res+=prefix+("filename: %s\n" % self.DebugFormatString(self.filename_))
+    return res
+
+
+  def _BuildTagLookupTable(sparse, maxtag, default=None):
+    return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
+
+  kfilename = 1
+
+  _TEXT = _BuildTagLookupTable({
+    0: "ErrorCode",
+    1: "filename",
+  }, 1)
+
+  _TYPES = _BuildTagLookupTable({
+    0: ProtocolBuffer.Encoder.NUMERIC,
+    1: ProtocolBuffer.Encoder.STRING,
+  }, 1, ProtocolBuffer.Encoder.MAX_TYPE)
+
+
+  _STYLE = """"""
+  _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.CreateEncodedGoogleStorageKeyRequest'
+class CreateEncodedGoogleStorageKeyResponse(ProtocolBuffer.ProtocolMessage):
+  has_blob_key_ = 0
+  blob_key_ = ""
+
+  def __init__(self, contents=None):
+    if contents is not None: self.MergeFromString(contents)
+
+  def blob_key(self): return self.blob_key_
+
+  def set_blob_key(self, x):
+    self.has_blob_key_ = 1
+    self.blob_key_ = x
+
+  def clear_blob_key(self):
+    if self.has_blob_key_:
+      self.has_blob_key_ = 0
+      self.blob_key_ = ""
+
+  def has_blob_key(self): return self.has_blob_key_
+
+
+  def MergeFrom(self, x):
+    assert x is not self
+    if (x.has_blob_key()): self.set_blob_key(x.blob_key())
+
+  def Equals(self, x):
+    if x is self: return 1
+    if self.has_blob_key_ != x.has_blob_key_: return 0
+    if self.has_blob_key_ and self.blob_key_ != x.blob_key_: return 0
+    return 1
+
+  def IsInitialized(self, debug_strs=None):
+    initialized = 1
+    if (not self.has_blob_key_):
+      initialized = 0
+      if debug_strs is not None:
+        debug_strs.append('Required field: blob_key not set.')
+    return initialized
+
+  def ByteSize(self):
+    n = 0
+    n += self.lengthString(len(self.blob_key_))
+    return n + 1
+
+  def ByteSizePartial(self):
+    n = 0
+    if (self.has_blob_key_):
+      n += 1
+      n += self.lengthString(len(self.blob_key_))
+    return n
+
+  def Clear(self):
+    self.clear_blob_key()
+
+  def OutputUnchecked(self, out):
+    out.putVarInt32(10)
+    out.putPrefixedString(self.blob_key_)
+
+  def OutputPartial(self, out):
+    if (self.has_blob_key_):
+      out.putVarInt32(10)
+      out.putPrefixedString(self.blob_key_)
+
+  def TryMerge(self, d):
+    while d.avail() > 0:
+      tt = d.getVarInt32()
+      if tt == 10:
+        self.set_blob_key(d.getPrefixedString())
+        continue
+
+
+      if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
+      d.skipData(tt)
+
+
+  def __str__(self, prefix="", printElemNumber=0):
+    res=""
+    if self.has_blob_key_: res+=prefix+("blob_key: %s\n" % self.DebugFormatString(self.blob_key_))
+    return res
+
+
+  def _BuildTagLookupTable(sparse, maxtag, default=None):
+    return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
+
+  kblob_key = 1
+
+  _TEXT = _BuildTagLookupTable({
+    0: "ErrorCode",
+    1: "blob_key",
+  }, 1)
+
+  _TYPES = _BuildTagLookupTable({
+    0: ProtocolBuffer.Encoder.NUMERIC,
+    1: ProtocolBuffer.Encoder.STRING,
+  }, 1, ProtocolBuffer.Encoder.MAX_TYPE)
+
+
+  _STYLE = """"""
+  _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.CreateEncodedGoogleStorageKeyResponse'
 if _extension_runtime:
   pass
 
-__all__ = ['BlobstoreServiceError','CreateUploadURLRequest','CreateUploadURLResponse','DeleteBlobRequest','FetchDataRequest','FetchDataResponse','CloneBlobRequest','CloneBlobResponse','DecodeBlobKeyRequest','DecodeBlobKeyResponse']
+__all__ = ['BlobstoreServiceError','CreateUploadURLRequest','CreateUploadURLResponse','DeleteBlobRequest','FetchDataRequest','FetchDataResponse','CloneBlobRequest','CloneBlobResponse','DecodeBlobKeyRequest','DecodeBlobKeyResponse','CreateEncodedGoogleStorageKeyRequest','CreateEncodedGoogleStorageKeyResponse']

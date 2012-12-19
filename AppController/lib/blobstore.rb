@@ -14,15 +14,13 @@ module BlobServer
   SERVER_PORTS = [6106]
 
 
-  def self.start(db_local_ip, db_local_port, public_ip)
+  def self.start(db_local_ip, db_local_port)
     blobserver = self.blob_script
     ports = self.server_ports
     ports.each { |blobserver_port|
       start_cmd = ["/usr/bin/python2.6 #{blobserver}",
             "-d #{db_local_ip}:#{db_local_port}",
-            "-p #{blobserver_port}",
-            "-u #{public_ip}",
-            "-r #{db_local_ip}"].join(' ')
+            "-p #{blobserver_port}"].join(' ')
 
       stop_cmd = "pkill -9 blobstore_server"
 

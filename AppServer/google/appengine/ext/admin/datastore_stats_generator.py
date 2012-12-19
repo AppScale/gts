@@ -32,6 +32,7 @@ import datetime
 import logging
 
 from google.appengine.api import datastore
+from google.appengine.api import datastore_admin
 from google.appengine.api import datastore_types
 from google.appengine.api import users
 from google.appengine.ext.db import stats
@@ -44,27 +45,30 @@ _GLOBAL_KEY = (stats.GlobalStat, 'total_entity_usage', '')
 
 
 
+
+
 _PROPERTY_TYPE_TO_DSS_NAME = {
-    unicode: 'String',
-    bool: 'Boolean',
-    long: 'Integer',
-    type(None): 'NULL',
-    float: 'Float',
-    datastore_types.Key: 'Key',
-    datastore_types.Blob: 'Blob',
-    datastore_types.ByteString: 'ShortBlob',
-    datastore_types.Text: 'Text',
-    users.User: 'User',
-    datastore_types.Category: 'Category',
-    datastore_types.Link: 'Link',
-    datastore_types.Email: 'Email',
-    datetime.datetime: 'Date/Time',
-    datastore_types.GeoPt: 'GeoPt',
-    datastore_types.IM: 'IM',
-    datastore_types.PhoneNumber: 'PhoneNumber',
-    datastore_types.PostalAddress: 'PostalAddress',
-    datastore_types.Rating: 'Rating',
-    datastore_types.BlobKey: 'BlobKey',
+    unicode: ('String', 'STRING'),
+    bool: ('Boolean', 'BOOLEAN'),
+    long: ('Integer', 'INT64'),
+    type(None): ('NULL', 'NULL'),
+    float: ('Float', 'DOUBLE'),
+    datastore_types.Key: ('Key', 'REFERENCE'),
+    datastore_types.Blob: ('Blob', 'STRING'),
+    datastore_types.EmbeddedEntity: ('EmbeddedEntity', 'STRING'),
+    datastore_types.ByteString: ('ShortBlob', 'STRING'),
+    datastore_types.Text: ('Text', 'STRING'),
+    users.User: ('User', 'USER'),
+    datastore_types.Category: ('Category', 'STRING'),
+    datastore_types.Link: ('Link', 'STRING'),
+    datastore_types.Email: ('Email', 'STRING'),
+    datetime.datetime: ('Date/Time', 'INT64'),
+    datastore_types.GeoPt: ('GeoPt', 'POINT'),
+    datastore_types.IM: ('IM', 'STRING'),
+    datastore_types.PhoneNumber: ('PhoneNumber', 'STRING'),
+    datastore_types.PostalAddress: ('PostalAddress', 'STRING'),
+    datastore_types.Rating: ('Rating', 'INT64'),
+    datastore_types.BlobKey: ('BlobKey', 'STRING'),
     }
 
 
@@ -120,23 +124,72 @@ class DatastoreStatsProcessor(object):
         stat_kind = stats._DATASTORE_STATS_CLASSES_BY_KIND[entity.key().kind()]
 
         self.old_stat_keys.append(entity.key())
-        self.__AggregateTotal(proto_size, namespace, stat_kind)
+        self.__AggregateTotal(proto_size, entity.key(), proto, namespace,
+                              stat_kind)
       else:
         self.__ProcessUserEntity(proto_size, entity.key(), proto, namespace)
 
+  def __GetPropertyIndexStat(self, namespace, kind_name,
+                             entity_key_size, prop):
+    """Return the size and count of indexes for a property of an EntityProto."""
+
+    property_index_size = (len(self.app_id) + len(kind_name) +
+                           len(prop.value().SerializeToString()) +
+                           len(namespace) + entity_key_size)
+
+    return (property_index_size, 2)
+
+  def __GetTypeIndexStat(self, namespace, kind_name, entity_key_size):
+    """Return the size and count of indexes by type of an EntityProto."""
+    type_index_size = (len(self.app_id) + len(kind_name) + entity_key_size
+                       + len(namespace))
+    return (type_index_size, 1)
+
   def __ProcessUserEntity(self, proto_size, key, proto, namespace):
     """Increment datastore stats for a non stats record."""
-    self.__AggregateTotal(proto_size, namespace, None)
+    self.__AggregateTotal(proto_size, key, proto, namespace, None)
 
     kind_name = key.kind()
 
+    entity_key_size = (len(proto.key().app()) + len(namespace) +
+                       len(proto.key().path().SerializeToString()) +
+                       len(proto.entity_group().SerializeToString()))
+
+    self.__AggregateCompositeIndices(proto, namespace, kind_name,
+                                     entity_key_size)
+
+    type_index_size, type_index_count = self.__GetTypeIndexStat(namespace,
+                                                                kind_name,
+                                                                entity_key_size)
+    property_index_count = 0
+    property_index_size = 0
+
+
+    for prop_list in (proto.property_list(), proto.raw_property_list()):
+      for prop in prop_list:
+        index_size, index_count = self.__GetPropertyIndexStat(namespace,
+                                                              kind_name,
+                                                              entity_key_size,
+                                                              prop)
+        property_index_size += index_size
+        property_index_count += index_count
+
+    builtin_index_size = type_index_size + property_index_size
+    builtin_index_count = type_index_count + property_index_count
+
     self.__Increment(self.whole_app_stats, 1,
                      (stats.KindStat, kind_name, ''),
-                     proto_size, kind_name=kind_name)
+                     proto_size,
+                     builtin_index_count=builtin_index_count,
+                     builtin_index_size=builtin_index_size,
+                     kind_name=kind_name)
 
     self.__Increment(self.namespace_stats, 1,
                      (stats.NamespaceKindStat, kind_name, namespace),
-                     proto_size, kind_name=kind_name)
+                     proto_size,
+                     builtin_index_count=builtin_index_count,
+                     builtin_index_size=builtin_index_size,
+                     kind_name=kind_name)
 
 
 
@@ -149,80 +202,300 @@ class DatastoreStatsProcessor(object):
 
     self.__Increment(self.whole_app_stats, 1,
                      (whole_app_model, kind_name, ''),
-                     proto_size, kind_name=kind_name)
+                     proto_size,
+                     kind_name=kind_name)
 
     self.__Increment(self.namespace_stats, 1,
                      (namespace_model, kind_name, namespace),
-                     proto_size, kind_name=kind_name)
+                     proto_size,
+                     kind_name=kind_name)
 
     self.__ProcessProperties(
         kind_name,
         namespace,
+        entity_key_size,
         (proto.property_list(), proto.raw_property_list()))
 
-  def __ProcessProperties(self, kind_name, namespace, prop_lists):
+  def __ProcessProperties(self, kind_name, namespace, entity_key_size,
+                          prop_lists):
     for prop_list in prop_lists:
       for prop in prop_list:
         try:
           value = datastore_types.FromPropertyPb(prop)
-          self.__AggregateProperty(kind_name, namespace, prop, value)
+          self.__AggregateProperty(kind_name, namespace, entity_key_size,
+                                   prop, value)
         except (AssertionError, AttributeError, TypeError, ValueError), e:
           logging.error('Cannot process property %r, exception %s' %
                         (prop, e))
 
-  def __AggregateProperty(self, kind_name, namespace, prop, value):
+  def __AggregateProperty(self, kind_name, namespace, entity_key_size,
+                          prop, value):
     property_name = prop.name()
-    property_type = _PROPERTY_TYPE_TO_DSS_NAME[type(value)]
+    property_type = _PROPERTY_TYPE_TO_DSS_NAME[type(value)][0]
+    index_property_type = _PROPERTY_TYPE_TO_DSS_NAME[type(value)][1]
     size = len(prop.SerializeToString())
+
+
+    index_size, index_count = self.__GetPropertyIndexStat(namespace, kind_name,
+                                                          entity_key_size, prop)
+
+
+
 
 
     self.__Increment(self.whole_app_stats, 1,
                      (stats.PropertyTypeStat, property_type, ''),
-                     size, property_type=property_type)
+                     size,
+                     builtin_index_count=0,
+                     builtin_index_size=0,
+                     property_type=property_type)
+
+    self.__Increment(self.whole_app_stats, 0,
+                     (stats.PropertyTypeStat, index_property_type, ''),
+                     0,
+                     builtin_index_count=index_count,
+                     builtin_index_size=index_size,
+                     property_type=index_property_type)
 
     self.__Increment(self.namespace_stats, 1,
                      (stats.NamespacePropertyTypeStat,
                       property_type, namespace),
-                     size, property_type=property_type)
+                     size,
+                     builtin_index_count=0,
+                     builtin_index_size=0,
+                     property_type=property_type)
+
+    self.__Increment(self.namespace_stats, 0,
+                     (stats.NamespacePropertyTypeStat,
+                      index_property_type, namespace),
+                     0,
+                     builtin_index_count=index_count,
+                     builtin_index_size=index_size,
+                     property_type=index_property_type)
 
 
     self.__Increment(self.whole_app_stats, 1,
                      (stats.KindPropertyTypeStat,
                       property_type + '_' + kind_name, ''),
-                     size, property_type=property_type, kind_name=kind_name)
+                     size,
+                     builtin_index_count=0,
+                     builtin_index_size=0,
+                     property_type=property_type, kind_name=kind_name)
+
+    self.__Increment(self.whole_app_stats, 0,
+                     (stats.KindPropertyTypeStat,
+                      index_property_type + '_' + kind_name, ''),
+                     0,
+                     builtin_index_count=index_count,
+                     builtin_index_size=index_size,
+                     property_type=index_property_type, kind_name=kind_name)
 
     self.__Increment(self.namespace_stats, 1,
                      (stats.NamespaceKindPropertyTypeStat,
                       property_type + '_' + kind_name, namespace),
-                     size, property_type=property_type, kind_name=kind_name)
+                     size,
+                     builtin_index_count=0,
+                     builtin_index_size=0,
+                     property_type=property_type, kind_name=kind_name)
+
+    self.__Increment(self.namespace_stats, 0,
+                     (stats.NamespaceKindPropertyTypeStat,
+                      index_property_type + '_' + kind_name, namespace),
+                     0,
+                     builtin_index_count=index_count,
+                     builtin_index_size=index_size,
+                     property_type=index_property_type, kind_name=kind_name)
 
 
     self.__Increment(self.whole_app_stats, 1,
                      (stats.KindPropertyNameStat,
                       property_name + '_' + kind_name, ''),
-                     size, property_name=property_name, kind_name=kind_name)
+                     size,
+                     builtin_index_count=index_count,
+                     builtin_index_size=index_size,
+                     property_name=property_name, kind_name=kind_name)
 
     self.__Increment(self.namespace_stats, 1,
                      (stats.NamespaceKindPropertyNameStat,
                       property_name + '_' + kind_name, namespace),
-                     size, property_name=property_name, kind_name=kind_name)
+                     size,
+                     builtin_index_count=index_count,
+                     builtin_index_size=index_size,
+                     property_name=property_name, kind_name=kind_name)
 
 
     self.__Increment(self.whole_app_stats, 1,
                      (stats.KindPropertyNamePropertyTypeStat,
                       property_type + '_' + property_name + '_' + kind_name,
-                      ''), size, property_type=property_type,
+                      ''), size,
+                     builtin_index_count=0,
+                     builtin_index_size=0,
+                     property_type=property_type,
+                     property_name=property_name, kind_name=kind_name)
+
+    self.__Increment(self.whole_app_stats, 0,
+                     (stats.KindPropertyNamePropertyTypeStat,
+                      index_property_type + '_' + property_name + '_' +
+                      kind_name,
+                      ''), 0,
+                     builtin_index_count=index_count,
+                     builtin_index_size=index_size,
+                     property_type=index_property_type,
                      property_name=property_name, kind_name=kind_name)
 
     self.__Increment(self.namespace_stats, 1,
                      (stats.NamespaceKindPropertyNamePropertyTypeStat,
                       property_type + '_' + property_name + '_' + kind_name,
                       namespace),
-                     size, property_type=property_type,
+                     size,
+                     builtin_index_count=0,
+                     builtin_index_size=0,
+                     property_type=property_type,
                      property_name=property_name, kind_name=kind_name)
 
-  def __AggregateTotal(self, size, namespace, stat_kind):
+    self.__Increment(self.namespace_stats, 0,
+                     (stats.NamespaceKindPropertyNamePropertyTypeStat,
+                      index_property_type + '_' + property_name + '_' +
+                      kind_name,
+                      namespace),
+                     0,
+                     builtin_index_count=index_count,
+                     builtin_index_size=index_size,
+                     property_type=index_property_type,
+                     property_name=property_name, kind_name=kind_name)
+
+  def __GetCompositeIndexStat(self, definition, proto, namespace, kind_name,
+                              entity_key_size):
+    """Get statistics of composite index for a index definition of an entity."""
+
+
+
+
+
+
+    property_list = proto.property_list()
+    property_count = []
+    property_size = []
+    index_count = 1
+    for indexed_prop in definition.property_list():
+      name = indexed_prop.name()
+      count = 0
+      prop_size = 0
+      for prop in property_list:
+        if prop.name() == name:
+          count += 1
+          prop_size += len(prop.SerializeToString())
+
+      property_count.append(count)
+      property_size.append(prop_size)
+      index_count *= count
+
+    if index_count == 0:
+      return (0, 0)
+
+    index_only_size = 0
+    for i in range(len(property_size)):
+      index_only_size += property_size[i] * (index_count / property_count[i])
+
+
+
+
+
+    index_size = (index_count * (entity_key_size + len(kind_name) +
+                                 len(self.app_id) + len(namespace)) +
+                  index_only_size * 2)
+
+    return (index_size, index_count)
+
+  def __AggregateCompositeIndices(self, proto, namespace, kind_name,
+                                  entity_key_size):
+    """Aggregate statistics of composite indexes for an entity."""
+    composite_indices = datastore_admin.GetIndices(self.app_id)
+    for index in composite_indices:
+      definition = index.definition()
+      if kind_name != definition.entity_type():
+        continue
+
+      index_size, index_count = self.__GetCompositeIndexStat(definition, proto,
+                                                             namespace,
+                                                             kind_name,
+                                                             entity_key_size)
+
+      if index_count == 0:
+        continue
+
+
+      name_id = namespace
+      if not name_id:
+        name_id = 1
+
+
+      self.__Increment(self.whole_app_stats, 0, _GLOBAL_KEY, 0,
+                       composite_index_count=index_count,
+                       composite_index_size=index_size)
+
+      self.__Increment(self.whole_app_stats, 0,
+                       (stats.NamespaceStat, name_id, ''), 0,
+                       composite_index_count=index_count,
+                       composite_index_size=index_size,
+                       subject_namespace=namespace)
+
+      self.__Increment(self.namespace_stats, 0,
+                       (stats.NamespaceGlobalStat, 'total_entity_usage',
+                        namespace), 0,
+                       composite_index_count=index_count,
+                       composite_index_size=index_size)
+
+
+      self.__Increment(self.whole_app_stats, 0,
+                       (stats.KindStat, kind_name, ''), 0,
+                       composite_index_count=index_count,
+                       composite_index_size=index_size,
+                       kind_name=kind_name)
+
+      self.__Increment(self.namespace_stats, 0,
+                       (stats.NamespaceKindStat, kind_name, namespace), 0,
+                       composite_index_count=index_count,
+                       composite_index_size=index_size,
+                       kind_name=kind_name)
+
+
+      index_id = index.id()
+      self.__Increment(self.whole_app_stats, index_count,
+                       (stats.KindCompositeIndexStat,
+                        kind_name + '_%s' % index_id, ''), index_size,
+                       kind_name=kind_name, index_id=index_id)
+
+      self.__Increment(self.namespace_stats, index_count,
+                       (stats.NamespaceKindCompositeIndexStat,
+                        kind_name + '_%s' % index_id, namespace), index_size,
+                       kind_name=kind_name, index_id=index_id)
+
+  def __AggregateTotal(self, size, key, proto, namespace, stat_kind):
     """Aggregate total datastore stats."""
+    kind_name = key.kind()
+
+    entity_key_size = (len(proto.key().app()) +
+                       len(proto.key().path().SerializeToString()) +
+                       len(proto.entity_group().SerializeToString()))
+
+    type_index_size, type_index_count = self.__GetTypeIndexStat(namespace,
+                                                                kind_name,
+                                                                entity_key_size)
+    property_index_count = 0
+    property_index_size = 0
+    for prop_list in (proto.property_list(), proto.raw_property_list()):
+      for prop in prop_list:
+        index_size, index_count = self.__GetPropertyIndexStat(namespace,
+                                                              kind_name,
+                                                              entity_key_size,
+                                                              prop)
+        property_index_size += index_size
+        property_index_count += index_count
+
+    builtin_index_size = type_index_size + property_index_size
+    builtin_index_count = type_index_count + property_index_count
+
 
     if stat_kind == stats.GlobalStat:
       count = 0
@@ -230,7 +503,9 @@ class DatastoreStatsProcessor(object):
       count = 1
 
 
-    self.__Increment(self.whole_app_stats, count, _GLOBAL_KEY, size)
+    self.__Increment(self.whole_app_stats, count, _GLOBAL_KEY, size,
+                     builtin_index_count=builtin_index_count,
+                     builtin_index_size=builtin_index_size)
 
 
     name_id = namespace
@@ -243,7 +518,10 @@ class DatastoreStatsProcessor(object):
 
     self.__Increment(self.whole_app_stats, count,
                      (stats.NamespaceStat, name_id, ''),
-                     size, subject_namespace=namespace)
+                     size,
+                     builtin_index_count=builtin_index_count,
+                     builtin_index_size=builtin_index_size,
+                     subject_namespace=namespace)
 
     if stat_kind == stats.NamespaceGlobalStat:
       count = 0
@@ -251,9 +529,13 @@ class DatastoreStatsProcessor(object):
 
     self.__Increment(
         self.namespace_stats, count,
-        (stats.NamespaceGlobalStat, 'total_entity_usage', namespace), size)
+        (stats.NamespaceGlobalStat, 'total_entity_usage', namespace), size,
+        builtin_index_count=builtin_index_count,
+        builtin_index_size=builtin_index_size)
 
-  def __Increment(self, stats_dict, count, stat_key, size, **kwds):
+  def __Increment(self, stats_dict, count, stat_key, size,
+                  builtin_index_count=0, builtin_index_size=0,
+                  composite_index_count=0, composite_index_size=0, **kwds):
     """Increment stats for a particular kind.
 
     Args:
@@ -263,6 +545,10 @@ class DatastoreStatsProcessor(object):
         count: The amount to increment the datastore stat by.
         stat_key: A tuple of (db.Model of the stat, key value, namespace).
         size: The "bytes" to increment the size by.
+        builtin_index_count: The bytes of builtin index to add in to a stat.
+        builtin_index_size: The count of builtin index to add in to a stat.
+        composite_index_count: The bytes of composite index to add in to a stat.
+        composite_index_size: The count of composite index to add in to a stat.
         kwds: Name value pairs that are set on the created entities.
     """
 
@@ -277,12 +563,28 @@ class DatastoreStatsProcessor(object):
       for field, value in kwds.iteritems():
         setattr(stat_model, field, value)
       stat_model.count = count
-      stat_model.bytes = size
+      if size:
+        stat_model.entity_bytes = size
+      if builtin_index_size:
+        stat_model.builtin_index_bytes = builtin_index_size
+        stat_model.builtin_index_count = builtin_index_count
+      if composite_index_size:
+        stat_model.composite_index_bytes = composite_index_size
+        stat_model.composite_index_count = composite_index_count
+      stat_model.bytes = size + builtin_index_size + composite_index_size
       stat_model.timestamp = self.timestamp
     else:
       stat_model = stats_dict[stat_key]
       stat_model.count += count
-      stat_model.bytes += size
+      if size:
+        stat_model.entity_bytes += size
+      if builtin_index_size:
+        stat_model.builtin_index_bytes += builtin_index_size
+        stat_model.builtin_index_count += builtin_index_count
+      if composite_index_size:
+        stat_model.composite_index_bytes += composite_index_size
+        stat_model.composite_index_count += composite_index_count
+      stat_model.bytes += size + builtin_index_size + composite_index_size
 
   def __Finalize(self):
     """Finishes processing, deletes all old stats and writes new ones."""
@@ -293,7 +595,8 @@ class DatastoreStatsProcessor(object):
     self.written = 0
 
     for stat in self.whole_app_stats.itervalues():
-      if stat.count:
+      if stat.count or not (isinstance(stat, stats.GlobalStat) or
+                            isinstance(stat, stats.NamespaceStat)):
         stat.put()
         self.written += 1
 
@@ -301,7 +604,7 @@ class DatastoreStatsProcessor(object):
 
     if self.found_non_empty_namespace:
       for stat in self.namespace_stats.itervalues():
-        if stat.count:
+        if stat.count or not isinstance(stat, stats.NamespaceGlobalStat):
           stat.put()
           self.written += 1
 
@@ -314,14 +617,26 @@ class DatastoreStatsProcessor(object):
   def Report(self):
     """Produce a small report about the result."""
     stat = self.whole_app_stats.get(_GLOBAL_KEY, None)
-    total_size = 0
-    total_count = 0
+    entity_size = 0
+    entity_count = 0
+    builtin_index_size = 0
+    builtin_index_count = 0
+    composite_index_size = 0
+    composite_index_count = 0
     if stat:
-      total_size = stat.bytes
-      total_count = stat.count
+      entity_size = stat.entity_bytes
+      entity_count = stat.count
+      builtin_index_size = stat.builtin_index_bytes
+      builtin_index_count = stat.builtin_index_count
+      composite_index_size = stat.composite_index_bytes
+      composite_index_count = stat.composite_index_count
 
-      if not total_count:
-        total_count = 1
+      if not entity_count:
+        entity_count = 1
 
-    return ('Scanned %d entities of total %d bytes. Inserted %d new records.'
-            % (total_count, total_size, self.written))
+    return ('Scanned %d entities of total %d bytes, %d index entries of total '
+            '%d bytes and %d composite index entries of total %d bytes. '
+            'Inserted %d new records.'
+            % (entity_count, entity_size, builtin_index_count,
+               builtin_index_size, composite_index_count, composite_index_size,
+               self.written))

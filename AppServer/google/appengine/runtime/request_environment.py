@@ -143,10 +143,13 @@ current_request = RequestEnvironment()
 
 
 
-def PatchOsEnviron():
+def PatchOsEnviron(os_module=os):
   """Replace os.environ by a RequestLocalEnviron instance.
 
   This is called from init.py when it modifies the execution
   environment (in the wider sense of the word).
+
+  Args:
+    os_module: An optional module to patch. Defaults to os.
   """
-  os.environ = RequestLocalEnviron(current_request)
+  os_module.environ = RequestLocalEnviron(current_request)

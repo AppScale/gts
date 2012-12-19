@@ -179,7 +179,7 @@ class ObjectBuilder(yaml_builder.Builder):
         error_str = '<unknown>'
 
 
-      raise validation.ValidationError("Invalid object:\n%s" % error_str, e)
+      raise validation.ValidationError(error_str, e)
 
   def BuildSequence(self, top_value):
     """New instance of object sequence.

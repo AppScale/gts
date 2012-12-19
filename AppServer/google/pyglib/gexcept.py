@@ -14,17 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+"""Generic exceptions."""
 
-
-
-
-
-
-
-
-"""
-Generic exceptions.
-"""
 
 class TimeoutException(Exception):
   def __init__(self, msg=""):
@@ -39,11 +30,13 @@ class NestedException(Exception):
   def exc_info(self):
     return self.exc_info_
 
-class AbstractMethod(Exception):
-  """Raise this exception to indicate that a method is abstract.  Example:
-        class Foo:
-          def Bar(self):
-            raise gexcept.AbstractMethod"""
-  def __init__(self):
-    Exception.__init__(self)
 
+class AbstractMethod(Exception):
+  """DEPRECATED. Only use in "except" where older code may raise this.
+
+  Instead use NotImplementedError which has been in Python since 1.5.2.
+  """
+
+  def __init__(self):
+    """DEPRECATED. Introduce no new call sites."""
+    Exception.__init__(self)
