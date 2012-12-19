@@ -34,6 +34,20 @@ IsEnabledRequest = capabilities.IsEnabledRequest
 IsEnabledResponse = capabilities.IsEnabledResponse
 CapabilityConfig = capabilities.CapabilityConfig
 
+
+
+SUPPORTED_CAPABILITIES = (
+    'blobstore',
+    'datastore_v3',
+    'images',
+    'mail',
+    'memcache',
+    'taskqueue',
+    'urlfetch',
+    'xmpp',
+)
+
+
 class CapabilityServiceStub(apiproxy_stub.APIProxyStub):
   """Python only capability service stub."""
 
@@ -46,6 +60,23 @@ class CapabilityServiceStub(apiproxy_stub.APIProxyStub):
     super(CapabilityServiceStub, self).__init__(service_name)
 
 
+    self._packages = dict.fromkeys(SUPPORTED_CAPABILITIES, True)
+
+  def SetPackageEnabled(self, package, enabled):
+    """Set all features of a given package to enabled.
+
+    This method is thread-unsafe, so should only be called during set-up, before
+    multiple API server threads start.
+
+    Args:
+      package: Name of package.
+      enabled: True to enable, False to disable.
+    """
+
+    self._packages[package] = enabled
+
+
+
   def _Dynamic_IsEnabled(self, request, response):
     """Implementation of CapabilityService::IsEnabled().
 
@@ -53,9 +84,21 @@ class CapabilityServiceStub(apiproxy_stub.APIProxyStub):
       request: An IsEnabledRequest.
       response: An IsEnabledResponse.
     """
-    response.set_summary_status(IsEnabledResponse.ENABLED)
-
     default_config = response.add_config()
     default_config.set_package('')
     default_config.set_capability('')
-    default_config.set_status(CapabilityConfig.ENABLED)
+
+    try:
+      package_enabled = self._packages[request.package()]
+    except KeyError:
+      summary_status = IsEnabledResponse.UNKNOWN
+      config_status = CapabilityConfig.UNKNOWN
+    else:
+      if package_enabled:
+        summary_status = IsEnabledResponse.ENABLED
+        config_status = CapabilityConfig.ENABLED
+      else:
+        summary_status = IsEnabledResponse.DISABLED
+        config_status = CapabilityConfig.DISABLED
+    response.set_summary_status(summary_status)
+    default_config.set_status(config_status)

@@ -1,0 +1,445 @@
+This demonstrates how the Response object works, and tests it at the
+same time.
+
+    >>> from doctest import ELLIPSIS
+    >>> from webob import Response, UTC
+    >>> from datetime import datetime
+    >>> res = Response('Test', status='200 OK')
+
+This is a minimal response object.  We can do things like get and set
+the body:
+
+    >>> res.body
+    'Test'
+    >>> res.body = 'Another test'
+    >>> res.body
+    'Another test'
+    >>> res.body = 'Another'
+    >>> res.write(' test')
+    >>> res.app_iter
+    ['Another', ' test']
+    >>> res.content_length
+    12
+    >>> res.headers['content-length']
+    '12'
+
+Content-Length is only applied when setting the body to a string; you
+have to set it manually otherwise.  There are also getters and setters
+for the various pieces:
+
+    >>> res.app_iter = ['test']
+    >>> print res.content_length
+    None
+    >>> res.content_length = 4
+    >>> res.status
+    '200 OK'
+    >>> res.status_int
+    200
+    >>> res.headers
+    ResponseHeaders([('Content-Type', 'text/html; charset=UTF-8'), ('Content-Length', '4')])
+    >>> res.headerlist
+    [('Content-Type', 'text/html; charset=UTF-8'), ('Content-Length', '4')]
+
+Content-type and charset are handled separately as properties, though
+they are both in the ``res.headers['content-type']`` header:
+
+    >>> res.content_type
+    'text/html'
+    >>> res.content_type = 'text/html'
+    >>> res.content_type
+    'text/html'
+    >>> res.charset
+    'UTF-8'
+    >>> res.charset = 'iso-8859-1'
+    >>> res.charset
+    'iso-8859-1'
+    >>> res.content_type
+    'text/html'
+    >>> res.headers['content-type']
+    'text/html; charset=iso-8859-1'
+
+Cookie handling is done through methods:
+
+    >>> res.set_cookie('test', 'value')
+    >>> res.headers['set-cookie']
+    'test=value; Path=/'
+    >>> res.set_cookie('test2', 'value2', max_age=10000)
+    >>> res.headers['set-cookie'] # We only see the last header
+    'test2=value2; Max-Age=10000; Path=/; expires=... GMT'
+    >>> res.headers.getall('set-cookie')
+    ['test=value; Path=/', 'test2=value2; Max-Age=10000; Path=/; expires=... GMT']
+    >>> res.unset_cookie('test')
+    >>> res.headers.getall('set-cookie')
+    ['test2=value2; Max-Age=10000; Path=/; expires=... GMT']
+    >>> res.set_cookie('test2', 'value2-add')
+    >>> res.headers.getall('set-cookie')
+    ['test2=value2; Max-Age=10000; Path=/; expires=... GMT', 'test2=value2-add; Path=/']
+    >>> res.set_cookie('test2', 'value2-replace', overwrite=True)
+    >>> res.headers.getall('set-cookie')
+    ['test2=value2-replace; Path=/']
+
+
+    >>> r = Response()
+    >>> r.set_cookie('x', 'x')
+    >>> r.set_cookie('y', 'y')
+    >>> r.set_cookie('z', 'z')
+    >>> r.headers.getall('set-cookie')
+    ['x=x; Path=/', 'y=y; Path=/', 'z=z; Path=/']
+    >>> r.unset_cookie('y')
+    >>> r.headers.getall('set-cookie')
+    ['x=x; Path=/', 'z=z; Path=/']
+
+
+Most headers are available in a parsed getter/setter form through
+properties:
+
+    >>> res.age = 10
+    >>> res.age, res.headers['age']
+    (10, '10')
+    >>> res.allow = ['GET', 'PUT']
+    >>> res.allow, res.headers['allow']
+    (('GET', 'PUT'), 'GET, PUT')
+    >>> res.cache_control
+    <CacheControl ''>
+    >>> print res.cache_control.max_age
+    None
+    >>> res.cache_control.properties['max-age'] = None
+    >>> print res.cache_control.max_age
+    -1
+    >>> res.cache_control.max_age = 10
+    >>> res.cache_control
+    <CacheControl 'max-age=10'>
+    >>> res.headers['cache-control']
+    'max-age=10'
+    >>> res.cache_control.max_stale = 10
+    Traceback (most recent call last):
+        ...
+    AttributeError: The property max-stale only applies to request Cache-Control
+    >>> res.cache_control = {}
+    >>> res.cache_control
+    <CacheControl ''>
+    >>> res.content_disposition = 'attachment; filename=foo.xml'
+    >>> (res.content_disposition, res.headers['content-disposition'])
+    ('attachment; filename=foo.xml', 'attachment; filename=foo.xml')
+    >>> res.content_encoding = 'gzip'
+    >>> (res.content_encoding, res.headers['content-encoding'])
+    ('gzip', 'gzip')
+    >>> res.content_language = 'en'
+    >>> (res.content_language, res.headers['content-language'])
+    (('en',), 'en')
+    >>> res.content_location = 'http://localhost:8080'
+    >>> res.headers['content-location']
+    'http://localhost:8080'
+    >>> res.content_range = (0, 100, 1000)
+    >>> (res.content_range, res.headers['content-range'])
+    (<ContentRange bytes 0-99/1000>, 'bytes 0-99/1000')
+    >>> res.date = datetime(2005, 1, 1, 12, 0, tzinfo=UTC)
+    >>> (res.date, res.headers['date'])
+    (datetime.datetime(2005, 1, 1, 12, 0, tzinfo=UTC), 'Sat, 01 Jan 2005 12:00:00 GMT')
+    >>> print res.etag
+    None
+    >>> res.etag = 'foo'
+    >>> (res.etag, res.headers['etag'])
+    ('foo', '"foo"')
+    >>> res.etag = 'something-with-"quotes"'
+    >>> (res.etag, res.headers['etag'])
+    ('something-with-"quotes"', '"something-with-\\"quotes\\""')
+    >>> res.expires = res.date
+    >>> res.retry_after = 120 # two minutes
+    >>> res.retry_after
+    datetime.datetime(...)
+    >>> res.server = 'Python/foo'
+    >>> res.headers['server']
+    'Python/foo'
+    >>> res.vary = ['Cookie']
+    >>> (res.vary, res.headers['vary'])
+    (('Cookie',), 'Cookie')
+
+The location header will absolutify itself when the response
+application is actually served.  We can force this with
+``req.get_response``::
+
+    >>> res.location = '/test.html'
+    >>> from webob import Request
+    >>> req = Request.blank('/')
+    >>> res.location
+    '/test.html'
+    >>> req.get_response(res).location
+    'http://localhost/test.html'
+    >>> res.location = '/test2.html'
+    >>> req.get_response(res).location
+    'http://localhost/test2.html'
+
+There's some conditional response handling too (you have to turn on
+conditional_response)::
+
+    >>> res = Response('abc', conditional_response=True) # doctest: +ELLIPSIS
+    >>> req = Request.blank('/')
+    >>> res.etag = 'tag'
+    >>> req.if_none_match = 'tag'
+    >>> req.get_response(res)
+    <Response ... 304 Not Modified>
+    >>> res.etag = 'other-tag'
+    >>> req.get_response(res)
+    <Response ... 200 OK>
+    >>> del req.if_none_match
+    >>> req.if_modified_since = datetime(2005, 1, 1, 12, 1, tzinfo=UTC)
+    >>> res.last_modified = datetime(2005, 1, 1, 12, 1, tzinfo=UTC)
+    >>> print req.get_response(res)
+    304 Not Modified
+    ETag: "other-tag"
+    Last-Modified: Sat, 01 Jan 2005 12:01:00 GMT
+    >>> res.last_modified = datetime(2006, 1, 1, 12, 1, tzinfo=UTC)
+    >>> req.get_response(res)
+    <Response ... 200 OK>
+    >>> res.last_modified = None
+    >>> req.get_response(res)
+    <Response ... 200 OK>
+
+Weak etags::
+
+    >>> req = Request.blank('/', if_none_match='W/"test"')
+    >>> res = Response(conditional_response=True, etag='test')
+    >>> req.get_response(res).status
+    '304 Not Modified'
+
+Also range response::
+
+    >>> res = Response('0123456789', conditional_response=True)
+    >>> req = Request.blank('/', range=(1, 5))
+    >>> req.range
+    <Range ranges=(1, 5)>
+    >>> str(req.range)
+    'bytes=1-4'
+    >>> result = req.get_response(res)
+    >>> result.body
+    '1234'
+    >>> result.content_range.stop
+    5
+    >>> result.content_range
+    <ContentRange bytes 1-4/10>
+    >>> tuple(result.content_range)
+    (1, 5, 10)
+    >>> result.content_length
+    4
+
+
+    >>> req.range = (5, 20)
+    >>> str(req.range)
+    'bytes=5-19'
+    >>> result = req.get_response(res)
+    >>> print result
+    206 Partial Content
+    Content-Length: 5
+    Content-Range: bytes 5-9/10
+    Content-Type: text/html; charset=UTF-8
+    <BLANKLINE>
+    56789
+    >>> tuple(result.content_range)
+    (5, 10, 10)
+
+    >>> req_head = req.copy()
+    >>> req_head.method = 'HEAD'
+    >>> print req_head.get_response(res)
+    206 Partial Content
+    Content-Length: 5
+    Content-Range: bytes 5-9/10
+    Content-Type: text/html; charset=UTF-8
+
+And an invalid requested range:
+
+    >>> req.range = (10, 20)
+    >>> result = req.get_response(res)
+    >>> print result
+    416 Requested Range Not Satisfiable
+    Content-Length: 44
+    Content-Range: bytes */10
+    Content-Type: text/plain
+    <BLANKLINE>
+    Requested range not satisfiable: bytes=10-19
+    >>> str(result.content_range)
+    'bytes */10'
+
+    >>> req_head = req.copy()
+    >>> req_head.method = 'HEAD'
+    >>> print req_head.get_response(res)
+    416 Requested Range Not Satisfiable
+    Content-Length: 44
+    Content-Range: bytes */10
+    Content-Type: text/plain
+
+    >>> Request.blank('/', range=(1,2)).get_response(
+    ...     Response('0123456789', conditional_response=True)).content_length
+    1
+
+
+That was easier; we'll try it with a iterator for the body::
+
+    >>> res = Response(conditional_response=True)
+    >>> res.app_iter = ['01234', '567', '89']
+    >>> req = Request.blank('/')
+    >>> req.range = (1, 5)
+    >>> result = req.get_response(res)
+
+Because we don't know the length of the app_iter, this doesn't work::
+
+    >>> result.body
+    '0123456789'
+    >>> print result.content_range
+    None
+
+But it will, if we set content_length::
+    >>> res.content_length = 10
+    >>> req.range = (5, None)
+    >>> result = req.get_response(res)
+    >>> result.body
+    '56789'
+    >>> result.content_range
+    <ContentRange bytes 5-9/10>
+
+
+Ranges requesting x last bytes are supported too:
+
+    >>> req.range = 'bytes=-1'
+    >>> req.range
+    <Range ranges=(-1, None)>
+    >>> result = req.get_response(res)
+    >>> result.body
+    '9'
+    >>> result.content_range
+    <ContentRange bytes 9-9/10>
+    >>> result.content_length
+    1
+
+
+If those ranges are not satisfiable, a 416 error is returned:
+
+    >>> req.range = 'bytes=-100'
+    >>> result = req.get_response(res)
+    >>> result.status
+    '416 Requested Range Not Satisfiable'
+    >>> result.content_range
+    <ContentRange bytes */10>
+    >>> result.body
+    'Requested range not satisfiable: bytes=-100'
+
+
+If we set Content-Length then we can use it with an app_iter
+
+    >>> res.content_length = 10
+    >>> req.range = (1, 5) # python-style range
+    >>> req.range
+    <Range ranges=(1, 5)>
+    >>> result = req.get_response(res)
+    >>> result.body
+    '1234'
+    >>> result.content_range
+    <ContentRange bytes 1-4/10>
+    >>> # And trying If-modified-since
+    >>> res.etag = 'foobar'
+    >>> req.if_range = 'foobar'
+    >>> req.if_range
+    <IfRange etag="foobar", date=*>
+    >>> result = req.get_response(res)
+    >>> result.content_range
+    <ContentRange bytes 1-4/10>
+    >>> req.if_range = 'blah'
+    >>> result = req.get_response(res)
+    >>> result.content_range
+    >>> req.if_range = datetime(2005, 1, 1, 12, 0, tzinfo=UTC)
+    >>> res.last_modified = datetime(2005, 1, 1, 12, 0, tzinfo=UTC)
+    >>> result = req.get_response(res)
+    >>> result.content_range
+    <ContentRange bytes 1-4/10>
+    >>> res.last_modified = datetime(2006, 1, 1, 12, 0, tzinfo=UTC)
+    >>> result = req.get_response(res)
+    >>> result.content_range
+
+Some tests of Content-Range parsing::
+
+    >>> from webob.byterange import ContentRange
+    >>> ContentRange.parse('bytes */*')
+    <ContentRange bytes */*>
+    >>> ContentRange.parse('bytes */10')
+    <ContentRange bytes */10>
+    >>> ContentRange.parse('bytes 5-9/10')
+    <ContentRange bytes 5-9/10>
+    >>> ContentRange.parse('bytes 5-10/*')
+    <ContentRange bytes 5-10/*>
+    >>> print ContentRange.parse('bytes 5-10/10')
+    None
+    >>> print ContentRange.parse('bytes 5-4/10')
+    None
+    >>> print ContentRange.parse('bytes 5-*/10')
+    None
+
+Some tests of exceptions::
+
+    >>> from webob import exc
+    >>> res = exc.HTTPNotFound('Not found!')
+    >>> res.content_type = 'text/plain'
+    >>> res.content_type
+    'text/plain'
+    >>> res = exc.HTTPNotModified()
+    >>> res.headers
+    ResponseHeaders([])
+
+Headers can be set to unicode values::
+
+    >>> res = Response('test')
+    >>> res.etag = u'fran\xe7ais'
+
+But they come out as str::
+
+    >>> res.etag
+    'fran\xe7ais'
+
+
+Unicode can come up in unexpected places, make sure it doesn't break things
+(this particular case could be caused by a `from __future__ import unicode_literals`)::
+
+    >>> Request.blank('/', method=u'POST').get_response(exc.HTTPMethodNotAllowed())
+    <Response at ... 405 Method Not Allowed>
+
+Copying Responses should copy their internal structures
+
+    >>> r = Response(app_iter=[])
+    >>> r2 = r.copy()
+    >>> r.headerlist is r2.headerlist
+    False
+    >>> r.app_iter is r2.app_iter
+    False
+
+    >>> r = Response(app_iter=iter(['foo']))
+    >>> r2 = r.copy()
+    >>> del r2.content_type
+    >>> r2.body_file.write(' bar')
+    >>> print r
+    200 OK
+    Content-Type: text/html; charset=UTF-8
+    <BLANKLINE>
+    foo
+    >>> print r2
+    200 OK
+    Content-Length: 7
+    <BLANKLINE>
+    foo bar
+
+
+Additional Response constructor keywords are used to set attributes
+
+    >>> r = Response(cache_expires=True)
+    >>> r.headers['Cache-Control']
+    'max-age=0, must-revalidate, no-cache, no-store'
+
+
+
+    >>> from webob.exc import HTTPBadRequest
+    >>> raise HTTPBadRequest('bad data')
+    Traceback (most recent call last):
+    ...
+    HTTPBadRequest: bad data
+    >>> raise HTTPBadRequest()
+    Traceback (most recent call last):
+    ...
+    HTTPBadRequest: The server could not comply with the request since it is either malformed or otherwise incorrect.

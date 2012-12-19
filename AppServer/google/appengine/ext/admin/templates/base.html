@@ -40,9 +40,14 @@
 
             <ul id="menu">
               <li><a href="{{ datastore_path }}">Datastore Viewer</a></li>
+              {% if datastore_admin_path %}
+              <li><a href="{{ datastore_admin_path }}">Datastore Admin</a></li>
+              {% endif %}
               <li><a href="{{ datastore_indexes }}">Datastore Indexes</a></li>
               <li><a href="{{ datastore_stats_path }}">Datastore Stats</a></li>
+              {% if interactive_console %}
               <li><a href="{{ interactive_path }}">Interactive Console</a></li>
+              {% endif %}
               <li><a href="{{ memcache_path }}">Memcache Viewer</a></li>
               <li><a href="{{ queues_path }}">Task Queues</a></li>
               {% if cron_path %}

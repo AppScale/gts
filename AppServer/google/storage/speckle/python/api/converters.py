@@ -55,6 +55,7 @@ Decoder
 
 
 import datetime
+import functools
 import types
 
 from google.storage.speckle.proto import jdbc_type
@@ -68,9 +69,20 @@ class Blob(str):
 def SwallowArgs(func):
   """Decorator to allow a single arg function to accept multiple arguments."""
 
+  @functools.wraps(func)
   def Decorator(arg, *unused_args):
     return func(arg)
   return Decorator
+
+
+@SwallowArgs
+def Any2Str(arg):
+  return str(arg)
+
+
+
+
+Thing2Literal = Any2Str
 
 
 @SwallowArgs
@@ -135,17 +147,17 @@ def Str2Datetime(arg):
 
 conversions = {
 
-    types.IntType: SwallowArgs(str),
-    types.LongType: SwallowArgs(str),
-    types.FloatType: SwallowArgs(str),
+    types.IntType: Any2Str,
+    types.LongType: Any2Str,
+    types.FloatType: Any2Str,
     types.TupleType: Tuple2Str,
     types.BooleanType: Bool2Str,
-    types.StringType: SwallowArgs(str),
+    types.StringType: Any2Str,
     types.UnicodeType: Unicode2Str,
     datetime.date: Date2Str,
     datetime.datetime: Datetime2Str,
     datetime.time: Time2Str,
-    Blob: SwallowArgs(str),
+    Blob: Any2Str,
 
 
     jdbc_type.BIT: int,

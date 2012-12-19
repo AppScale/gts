@@ -1,3 +1,21 @@
+python-gflags (2.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Google Inc. <google-gflags@googlegroups.com>  Wed, 18 Jan 2012 13:57:39 -0800
+
+python-gflags (1.8-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Google Inc. <google-gflags@googlegroups.com>  Wed, 18 Jan 2012 11:54:03 -0800
+
+python-gflags (1.7-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Google Inc. <opensource@google.com>  Tue, 20 Dec 2011 17:10:41 -0800
+
 python-gflags (1.6-1) unstable; urgency=low
 
   * New upstream release.

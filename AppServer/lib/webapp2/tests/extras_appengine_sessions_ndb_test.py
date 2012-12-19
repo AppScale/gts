@@ -158,9 +158,6 @@ class TestNdbSession(test_base.BaseTestCase):
 
     def test_misc(self):
 
-        p = sessions_ndb.PickledProperty(dict)
-        self.assertRaises(datastore_errors.BadValueError, p._validate, ['foo'])
-
         s = sessions_ndb.Session(id='foo')
         key = s.put()
 

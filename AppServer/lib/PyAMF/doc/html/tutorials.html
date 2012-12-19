@@ -1,0 +1,121 @@
+{% extends "page.html" %}
+{% set title = _('Tutorials') %}
+{% block body %}
+
+  <h1>{{ title|e }}</h1>
+
+  <p>{{ project|e }} tutorials are documents that cover a single, specific topic,
+  and attempt to cover it fairly completely. Modelled on Python's
+  HOWTO collection, this collection is an effort to foster
+  documentation that's more detailed than the API documentation.</p>
+
+  <h2>General</h2>
+
+  <table class="contentstable" align="center">
+    <td width="50%">
+      <p ><a class="biglink" href="{{ pathto("tutorials/general/helloworld/index") }}">Hello World</a><br/>
+         <span class="linkdescr">The classic example</span></p>
+      <p class="biglink"><a class="biglink" href="{{ pathto("tutorials/actionscript/simple") }}">Simple Example</a><br/>
+         <span class="linkdescr">A stripped down example showing object passing across AMF channels</span></p>
+      </td><td width="50%">
+      <p><a class="biglink" href="{{ pathto("tutorials/general/authentication/index") }}">Authentication</a><br/>
+         <span class="linkdescr">Using authentication for AMF applications</span></p>
+      <p class="biglink"><a class="biglink" href="{{ pathto("tutorials/general/remoteobject") }}">RemoteObject</a><br/>
+         <span class="linkdescr">How to configure a RemoteObject for use with PyAMF without relying on remoting-config.xml</span></p>
+      </td>
+  </table>
+
+  <h2>Actionscript</h2>
+
+  <table class="contentstable" align="center">
+    <td width="50%">
+      <p><a class="biglink" href="{{ pathto("tutorials/actionscript/shell") }}">Python Shell</a><br/>
+         <span class="linkdescr"><a href='http://opensource.adobe.com/wiki/display/flexsdk'>Flex</a> interface for interactive Python shell access using <a href="{{ pathto("tutorials/gateways/django") }}">Django</a></span></p>
+      <p class="biglink"><a class="biglink" href="{{ pathto("tutorials/actionscript/ohloh") }}">Ohloh API</a><br/>
+         <span class="linkdescr">Grab account information from the <a href='http://ohloh.net'>Ohloh</a> API using Python and <a href='http://opensource.adobe.com/wiki/display/flexsdk'>Flex</a></span></p>
+      <p ><a class="biglink" href="{{ pathto("tutorials/actionscript/addressbook") }}">Addressbook</a><br/>
+         <span class="linkdescr">Using <a href="{{ pathto("tutorials/gateways/sqlalchemy") }}">SQLAlchemy</a> and <a href='http://opensource.adobe.com/wiki/display/flexsdk'>Flex</a> to create an addressbook</span></p>
+      <p class="biglink"><a class="biglink" href="{{ pathto("tutorials/actionscript/socket") }}">Binary Socket</a><br/>
+         <span class="linkdescr">Using the Socket ActionScript 3.0 class with <a href="{{ pathto("tutorials/gateways/twisted") }}">Twisted</a></span></p>
+      <p class="biglink"><a class="biglink" href="{{ pathto("tutorials/actionscript/udp") }}">UDP</a><br/>
+         <span class="linkdescr">Using the UDP support in Adobe AIR 2.0 with <a href="{{ pathto("tutorials/gateways/twisted") }}">Twisted</a></span></p> 
+     </td><td width="50%">
+       <p class="biglink"><a class="biglink" href="{{ pathto("tutorials/actionscript/bytearray") }}">ByteArray</a><br/>
+         <span class="linkdescr">Using the ByteArray class with <a href="{{ pathto("tutorials/gateways/django") }}">Django</a> and <a href='http://opensource.adobe.com/wiki/display/flexsdk'>Flex</a></span></p>
+      <p><a class="biglink" href="{{ pathto("tutorials/actionscript/geoip") }}">GeoIP</a><br/>
+         <span class="linkdescr">Add geolocation information to <a href='http://opensource.adobe.com/wiki/display/flexsdk'>Flex</a> applications with the <a href='http://sourceforge.net/projects/geoip'>GeoIP</a> APIs</span></p>
+      <p><a class="biglink" href="{{ pathto("tutorials/actionscript/recordset") }}">RecordSet</a><br/>
+         <span class="linkdescr">How to use RecordSet and <a href='http://sqlalchemy.org'>SQLAlchemy</a> with ActionScript 2.0</span></p>
+      <p class="biglink"><a class="biglink" href="{{ pathto("tutorials/actionscript/guestbook") }}">Guestbook</a><br/>
+         <span class="linkdescr">Simple guestbook application using <a href="{{ pathto("tutorials/gateways/twisted") }}">Twisted</a>, <a href='http://mysql.org'>MySQL</a> and <a href='http://opensource.adobe.com/wiki/display/flexsdk'>Flex</a></span></p>
+      <p class="biglink"><br/></p>
+      </td>
+  </table>
+
+<h2>Python</h2>
+
+<table class="contentstable" align="center">
+    <td width="50%">
+      <p><a class="biglink" href="{{ pathto("tutorials/general/client") }}">AMF Client</a><br/>
+         <span class="linkdescr">Making service requests to an arbitrary Remoting gateway</span></p>
+      <p class="biglink"><a class="biglink" href="{{ pathto("tutorials/gateways/django") }}">Django</a><br/>
+         <span class="linkdescr">Getting started with AMF for <a href="http://djangoproject.com">Django</a></span></p>
+     <p class="biglink"><a class="biglink" href="{{ pathto("tutorials/gateways/pylons") }}">Pylons</a><br/>
+         <span class="linkdescr">Setting up an AMF Remoting gateway in a <a href='http://pylonshq.com'>Pylons</a> project</span></p>
+    <p><a class="biglink" href="{{ pathto("tutorials/gateways/twisted") }}">Twisted</a><br/>
+         <span class="linkdescr">Creating AMF Remoting gateways with <a href='http://twistedmatrix.com'>Twisted</a></span></p>
+      <p class="biglink"><a class="biglink" href="{{ pathto("tutorials/gateways/appengine") }}">Google App Engine</a><br/>
+         <span class="linkdescr">Run your PyAMF applications on Google's infrastructure</span></p>
+      <p><a class="biglink" href="{{ pathto("tutorials/gateways/turbogears") }}">TurboGears</a><br/>
+         <span class="linkdescr">Using PyAMF with the <a href='http://turbogears.org'>TurboGears2</a> framework</span></p>
+      <p><a class="biglink" href="{{ pathto("tutorials/gateways/web2py") }}">Web2PY</a><br/>
+         <span class="linkdescr">Creating Flash RPC applications using <a href='http://www.web2py.com'>Web2PY</a></p>
+      </td>
+      <td width="50%">
+      <p><a class="biglink" href="{{ pathto("tutorials/gateways/cherrypy") }}">CherryPy</a><br/>
+         <span class="linkdescr">Configure a AMF Remoting gateway for <a href='http://cherrypy.org'>CherryPy</a> web servers</span></p>
+      <p><a class="biglink" href="{{ pathto("tutorials/gateways/sqlalchemy") }}">SQLAlchemy</a><br/>
+         <span class="linkdescr">Using <a href='http://sqlalchemy.org'>SQLAlchemy</a> with PyAMF</p>
+      <p class="biglink"><a class="biglink" href="{{ pathto("tutorials/gateways/stackless") }}">Stackless Python</a><br/>
+         <span class="linkdescr">Remoting gateway with <a href='http://stackless.com'>Stackless Python</a> and
+         <a href='http://twistedmatrix.com'>Twisted</a></span></p>
+      <p class="biglink"><a class="biglink" href="{{ pathto("tutorials/gateways/buildbot") }}">Buildbot</a><br/>
+         <span class="linkdescr">Query build results from AMF applications with the gateway for <a href="http://buildbot.net">Buildbot</a></span></p>
+      <p class="biglink"><a class="biglink" href="{{ pathto("tutorials/gateways/werkzeug") }}">Werkzeug</a><br/>
+         <span class="linkdescr">Using PyAMF with <a href='http://werkzeug.pocoo.org'>Werkzeug</a></span></p>
+      <br/><br/><br/>
+      </td>
+  </table>
+
+<!--
+|| [LocalSharedObject SharedObject] || Read and write Adobe Flash Player's cookie files with Python ||-->
+
+<h2>Apache</h2>
+  <p>Deploy your PyAMF application on the <a href='http://httpd.apache.org'>Apache</a> webserver:</p>
+
+  <table class="contentstable" align="center">
+    <td width="20%">
+      <p ><a class="biglink" href="{{ pathto("tutorials/apache/mod_wsgi") }}">mod_wsgi</a><br/>
+         <span class="linkdescr">Using <a href='http://www.modpython.org'>mod_wsgi</a></span></p>
+    </td>
+    <td>
+      <p class="biglink"><a class="biglink" href="{{ pathto("tutorials/apache/mod_python") }}">mod_python</a><br/>
+         <span class="linkdescr">Using <a href='http://www.modpython.org'>mod_python</a></span></p>
+    </td>
+  </table>
+
+<h2>Jython</h2>
+   <p>Using PyAMF with <a href='http://www.jython.org'>Jython</a>, the Java implementation of Python.</p>
+
+   <table class="contentstable" align="center">
+    <td>
+      <p ><a class="biglink" href="{{ pathto("tutorials/jython/modjy") }}">modjy</a><br/>
+         <span class="linkdescr">Run your application on <a href='http://tomcat.apache.org'>Apache Tomcat</a> with Jython's modjy</span></p>
+<p class="biglink"><a class="biglink" href="{{ pathto("tutorials/jython/swing") }}">Swing</a><br/>
+         <span class="linkdescr">Setting up an AMF server and client in a native Swing GUI</span></p>
+       <p ><a class="biglink" href="{{ pathto("tutorials/jython/ant") }}">Ant</a><br/>
+         <span class="linkdescr">Using AMF servers and clients in <a href='http://ant.apache.org'>Apache Ant</a></span></p>
+    </td>
+  </table>
+
+{% endblock %}

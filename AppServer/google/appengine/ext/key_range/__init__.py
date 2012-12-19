@@ -40,6 +40,13 @@ from google.appengine.api import namespace_manager
 from google.appengine.datastore import datastore_pb
 from google.appengine.ext import db
 
+try:
+  from google.appengine.ext import ndb
+except ImportError:
+  ndb = None
+# It is acceptable to set key_range.ndb to the ndb module,
+# imported through some other way (e.g. from the app dir).
+
 
 class Error(Exception):
   """Base class for exceptions in this module."""
@@ -51,6 +58,10 @@ class KeyRangeError(Error):
 
 class SimplejsonUnavailableError(Error):
   """Error using json functionality with unavailable json and simplejson."""
+
+
+def _IsNdbQuery(query):
+  return ndb is not None and isinstance(query, ndb.Query)
 
 
 class KeyRange(object):
@@ -76,13 +87,16 @@ class KeyRange(object):
     """Initialize a KeyRange object.
 
     Args:
-      key_start: The starting key for this range.
-      key_end: The ending key for this range.
+      key_start: The starting key for this range (db.Key or ndb.Key).
+      key_end: The ending key for this range (db.Key or ndb.Key).
       direction: The direction of the query for this range.
       include_start: Whether the start key should be included in the range.
       include_end: Whether the end key should be included in the range.
       namespace: The namespace for this range. If None then the current
           namespace is used.
+
+    NOTE: If NDB keys are passed in, they are converted to db.Key
+    instances before being stored.
     """
 
 
@@ -92,6 +106,13 @@ class KeyRange(object):
       direction = KeyRange.ASC
     assert direction in (KeyRange.ASC, KeyRange.DESC)
     self.direction = direction
+
+
+    if ndb is not None:
+      if isinstance(key_start, ndb.Key):
+        key_start = key_start.to_old_key()
+      if isinstance(key_end, ndb.Key):
+        key_end = key_end.to_old_key()
     self.key_start = key_start
     self.key_end = key_end
     self.include_start = include_start
@@ -128,21 +149,36 @@ class KeyRange(object):
     """Updates the start of the range immediately past the specified key.
 
     Args:
-      key: A db.Key.
+      key: A db.Key or ndb.Key.
     """
     self.include_start = False
+    if ndb is not None:
+      if isinstance(key, ndb.Key):
+        key = key.to_old_key()
     self.key_start = key
 
-  def filter_query(self, query):
+  def filter_query(self, query, filters=None):
     """Add query filter to restrict to this key range.
 
     Args:
-      query: A db.Query instance.
+      query: A db.Query or ndb.Query instance.
+      filters: optional list of filters to apply to the query. Each filter is
+        a tuple: (<property_name_as_str>, <query_operation_as_str>, <value>).
+        User filters are applied first.
 
     Returns:
       The input query restricted to this key range.
     """
-    assert isinstance(query, db.Query)
+    if ndb is not None:
+      if _IsNdbQuery(query):
+        return self.filter_ndb_query(query, filters=filters)
+    assert not _IsNdbQuery(query)
+
+
+    if filters:
+      for f in filters:
+        query.filter("%s %s" % (f[0], f[1]), f[2])
+
     if self.include_start:
       start_comparator = ">="
     else:
@@ -157,16 +193,61 @@ class KeyRange(object):
       query.filter("__key__ %s" % end_comparator, self.key_end)
     return query
 
-  def filter_datastore_query(self, query):
+  def filter_ndb_query(self, query, filters=None):
+    """Add query filter to restrict to this key range.
+
+    Args:
+      query: An ndb.Query instance.
+      filters: optional list of filters to apply to the query. Each filter is
+        a tuple: (<property_name_as_str>, <query_operation_as_str>, <value>).
+        User filters are applied first.
+
+    Returns:
+      The input query restricted to this key range.
+    """
+    assert _IsNdbQuery(query)
+
+
+    if filters:
+      for f in filters:
+        query = query.filter(ndb.FilterNode(*f))
+
+    if self.include_start:
+      start_comparator = ">="
+    else:
+      start_comparator = ">"
+    if self.include_end:
+      end_comparator = "<="
+    else:
+      end_comparator = "<"
+    if self.key_start:
+      query = query.filter(ndb.FilterNode("__key__",
+                                          start_comparator,
+                                          self.key_start))
+    if self.key_end:
+      query = query.filter(ndb.FilterNode("__key__",
+                                          end_comparator,
+                                          self.key_end))
+    return query
+
+  def filter_datastore_query(self, query, filters=None):
     """Add query filter to restrict to this key range.
 
     Args:
       query: A datastore.Query instance.
+      filters: optional list of filters to apply to the query. Each filter is
+        a tuple: (<property_name_as_str>, <query_operation_as_str>, <value>).
+        User filters are applied first.
 
     Returns:
       The input query restricted to this key range.
     """
     assert isinstance(query, datastore.Query)
+
+    if filters:
+      for f in filters:
+        query.update({"%s %s" % (f[0], f[1]): f[2]})
+
     if self.include_start:
       start_comparator = ">="
     else:
@@ -205,21 +286,53 @@ class KeyRange(object):
     """Construct a query for this key range, including the scan direction.
 
     Args:
-      kind_class: A kind implementation class.
+      kind_class: A kind implementation class (a subclass of either
+        db.Model or ndb.Model).
       keys_only: bool, default False, use keys_only on Query?
 
     Returns:
-      A db.Query instance.
+      A db.Query or ndb.Query instance (corresponding to kind_class).
 
     Raises:
       KeyRangeError: if self.direction is not in (KeyRange.ASC, KeyRange.DESC).
     """
+    if ndb is not None:
+      if issubclass(kind_class, ndb.Model):
+        return self.make_directed_ndb_query(kind_class, keys_only=keys_only)
     assert self._app is None, '_app is not supported for db.Query'
     direction = self.__get_direction("", "-")
     query = db.Query(kind_class, namespace=self.namespace, keys_only=keys_only)
     query.order("%s__key__" % direction)
 
     query = self.filter_query(query)
+    return query
+
+  def make_directed_ndb_query(self, kind_class, keys_only=False):
+    """Construct an NDB query for this key range, including the scan direction.
+
+    Args:
+      kind_class: An ndb.Model subclass.
+      keys_only: bool, default False, use keys_only on Query?
+
+    Returns:
+      An ndb.Query instance.
+
+    Raises:
+      KeyRangeError: if self.direction is not in (KeyRange.ASC, KeyRange.DESC).
+    """
+    assert issubclass(kind_class, ndb.Model)
+    if keys_only:
+      default_options = ndb.QueryOptions(keys_only=True)
+    else:
+      default_options = None
+    query = kind_class.query(app=self._app,
+                             namespace=self.namespace,
+                             default_options=default_options)
+    query = self.filter_ndb_query(query)
+    if self.__get_direction(True, False):
+      query = query.order(kind_class._key)
+    else:
+      query = query.order(-kind_class._key)
     return query
 
   def make_directed_datastore_query(self, kind, keys_only=False):
@@ -243,29 +356,62 @@ class KeyRange(object):
     query = self.filter_datastore_query(query)
     return query
 
-  def make_ascending_query(self, kind_class, keys_only=False):
+  def make_ascending_query(self, kind_class, keys_only=False, filters=None):
     """Construct a query for this key range without setting the scan direction.
 
     Args:
-      kind_class: A kind implementation class.
+      kind_class: A kind implementation class (a subclass of either
+        db.Model or ndb.Model).
       keys_only: bool, default False, query only for keys.
+      filters: optional list of filters to apply to the query. Each filter is
+        a tuple: (<property_name_as_str>, <query_operation_as_str>, <value>).
+        User filters are applied first.
 
     Returns:
-      A db.Query instance.
+      A db.Query or ndb.Query instance (corresponding to kind_class).
     """
+    if ndb is not None:
+      if issubclass(kind_class, ndb.Model):
+        return self.make_ascending_ndb_query(
+            kind_class, keys_only=keys_only, filters=filters)
     assert self._app is None, '_app is not supported for db.Query'
     query = db.Query(kind_class, namespace=self.namespace, keys_only=keys_only)
     query.order("__key__")
 
-    query = self.filter_query(query)
+    query = self.filter_query(query, filters=filters)
     return query
 
-  def make_ascending_datastore_query(self, kind, keys_only=False):
+  def make_ascending_ndb_query(self, kind_class, keys_only=False, filters=None):
+    """Construct an NDB query for this key range, without the scan direction.
+
+    Args:
+      kind_class: An ndb.Model subclass.
+      keys_only: bool, default False, query only for keys.
+
+    Returns:
+      An ndb.Query instance.
+    """
+    assert issubclass(kind_class, ndb.Model)
+    if keys_only:
+      default_options = ndb.QueryOptions(keys_only=True)
+    else:
+      default_options = None
+    query = kind_class.query(app=self._app,
+                             namespace=self.namespace,
+                             default_options=default_options)
+    query = self.filter_ndb_query(query, filters=filters)
+    query = query.order(kind_class._key)
+    return query
+
+  def make_ascending_datastore_query(self, kind, keys_only=False, filters=None):
     """Construct a query for this key range without setting the scan direction.
 
     Args:
       kind: A string.
       keys_only: bool, default False, use keys_only on Query?
+      filters: optional list of filters to apply to the query. Each filter is
+        a tuple: (<property_name_as_str>, <query_operation_as_str>, <value>).
+        User filters are applied first.
 
     Returns:
       A datastore.Query instance.
@@ -276,7 +422,7 @@ class KeyRange(object):
                             keys_only=keys_only)
     query.Order(("__key__", datastore.Query.ASCENDING))
 
-    query = self.filter_datastore_query(query)
+    query = self.filter_datastore_query(query, filters=filters)
     return query
 
   def split_range(self, batch_size=0):
@@ -342,11 +488,7 @@ class KeyRange(object):
     return ranges
 
   def __hash__(self):
-    return hash([self.key_start,
-                 self.key_end,
-                 self.direction,
-                 self._app,
-                 self.namespace])
+    raise TypeError('KeyRange is unhashable')
 
   def __cmp__(self, other):
     """Compare two key ranges.
@@ -465,13 +607,23 @@ class KeyRange(object):
     followed by the generated split component.
 
     Args:
-      key_start: A db.Key instance for the lower end of a range.
-      key_end: A db.Key instance for the upper end of a range.
+      key_start: A db.Key or ndb.Key instance for the lower end of a range.
+      key_end: A db.Key or ndb.Key instance for the upper end of a range.
       batch_size: The maximum size of a range that should not be split.
 
     Returns:
       A db.Key instance, k, such that key_start <= k <= key_end.
+
+    NOTE: Even though ndb.Key instances are accepted as arguments,
+    the return value is always a db.Key instance.
     """
+    if ndb is not None:
+
+
+      if isinstance(key_start, ndb.Key):
+        key_start = key_start.to_old_key()
+      if isinstance(key_end, ndb.Key):
+        key_end = key_end.to_old_key()
     assert key_start.app() == key_end.app()
     assert key_start.namespace() == key_end.namespace()
     path1 = key_start.to_path()
@@ -575,7 +727,7 @@ class KeyRange(object):
 
     Args:
       key_start: The starting key of the search range. In most cases this
-        should be id = 0 or name = '\0'.
+        should be id = 0 or name = '\0'.  May be db.Key or ndb.Key.
       kind: String name of the entity kind.
       probe_count: Optional, how many probe queries to run.
       split_rate: Exponential rate to use for splitting the range on the
@@ -583,10 +735,18 @@ class KeyRange(object):
         be higher so more of the keyspace is skipped on initial descent.
 
     Returns:
-      datastore.Key that is guaranteed to be as high or higher than the
+      db.Key that is guaranteed to be as high or higher than the
       highest key existing for this Kind. Doing a query between 'key_start' and
       this returned Key (inclusive) will contain all entities of this Kind.
+
+    NOTE: Even though an ndb.Key instance is accepted as argument,
+    the return value is always a db.Key instance.
     """
+    if ndb is not None:
+
+
+      if isinstance(key_start, ndb.Key):
+        key_start = key_start.to_old_key()
     app = key_start.app()
     namespace = key_start.namespace()
 
@@ -602,8 +762,8 @@ class KeyRange(object):
 
         full_path[index] = 2**63 - 1
 
-    key_end = datastore.Key.from_path(*full_path,
-                                      **{"_app": app, "namespace": namespace})
+    key_end = db.Key.from_path(*full_path,
+                               **{"_app": app, "namespace": namespace})
     split_key = key_end
 
     for i in xrange(probe_count):

@@ -302,6 +302,7 @@ class ConfigHandle(object):
     try:
       self._initialized = False
       for key in self._defaults:
+        self._overrides.pop(key, None)
         try:
           delattr(self, key)
         except AttributeError:

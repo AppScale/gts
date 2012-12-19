@@ -22,6 +22,7 @@
 import dummy_thread
 import errno
 import imp
+import inspect
 import itertools
 import locale
 import logging
@@ -45,16 +46,23 @@ except ImportError:
 
 
 
-from google.appengine import dist
 
+from google.appengine import dist
+try:
+  from google.appengine import dist27
+except ImportError:
+  dist27 = None
+
+from google.appengine.api import appinfo
 
 
 SITE_PACKAGES = os.path.normcase(os.path.join(os.path.dirname(os.__file__),
                                               'site-packages'))
 
 
-import google
-SDK_ROOT = os.path.dirname(os.path.dirname(google.__file__))
+import google.appengine
+SDK_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
+    google.appengine.__file__)))
 
 
 CODING_COOKIE_RE = re.compile("coding[:=]\s*([-\w.]+)")
@@ -81,11 +89,6 @@ def FakeUnlink(path):
   else:
     raise OSError(errno.EPERM, "Operation not permitted", path)
 
-def FakeRead(filename, flags, mode=0777):
-  raise OSError(errno.EPERM, "Operation not permitted", filename)
-
-def FakeWrite(filename, flags, mode=0777):
-  raise OSError(errno.EPERM, "Operation not permitted", filename)
 
 def FakeReadlink(path):
   """Fake version of os.readlink."""
@@ -120,13 +123,6 @@ def FakeRename(src, dst):
 def FakeUTime(path, times):
   """Fake version of os.utime."""
   raise OSError(errno.EPERM, "Operation not permitted", path)
-
-
-def FakeFileObject(fp, mode='rb', bufsize=-1, close=False):
-  """Assuming that the argument is a StringIO or file instance."""
-  if not hasattr(fp, 'fileno'):
-    fp.fileno = lambda: None
-  return fp
 
 
 def FakeGetHostByAddr(addr):
@@ -165,6 +161,11 @@ def FakeGetPlatform():
     return 'macosx-'
   else:
     return distutils.util.get_platform()
+
+
+def FakeCryptoRandomOSRNGnew(*args, **kwargs):
+  from Crypto.Random.OSRNG import fallback
+  return fallback.new(*args, **kwargs)
 
 
 
@@ -278,6 +279,18 @@ class FakeFile(file):
       os.path.normcase(os.path.dirname(os.path.realpath(os.__file__))),
       os.path.normcase(os.path.dirname(os.path.abspath(os.__file__))),
   ])
+  os_source_location = inspect.getsourcefile(os)
+
+  if os_source_location is not None:
+
+
+
+    ALLOWED_DIRS.update([
+        os.path.normcase(os.path.realpath(os.path.dirname(os_source_location))),
+        os.path.normcase(os.path.abspath(os.path.dirname(os_source_location))),
+        os.path.normcase(os.path.dirname(os.path.realpath(os_source_location))),
+        os.path.normcase(os.path.dirname(os.path.abspath(os_source_location))),
+    ])
 
 
 
@@ -310,8 +323,10 @@ class FakeFile(file):
 
           [os.path.join('Crypto')],
           GeneratePythonPaths('Crypto', '__init__'),
+          GeneratePythonPaths('Crypto', 'pct_warnings'),
           [os.path.join('Crypto', 'Cipher')],
           GeneratePythonPaths('Crypto', 'Cipher', '__init__'),
+          GeneratePythonPaths('Crypto', 'Cipher', 'blockalgo'),
           GeneratePythonPaths('Crypto', 'Cipher', 'AES'),
           GeneratePythonPaths('Crypto', 'Cipher', 'ARC2'),
           GeneratePythonPaths('Crypto', 'Cipher', 'ARC4'),
@@ -319,31 +334,67 @@ class FakeFile(file):
           GeneratePythonPaths('Crypto', 'Cipher', 'CAST'),
           GeneratePythonPaths('Crypto', 'Cipher', 'DES'),
           GeneratePythonPaths('Crypto', 'Cipher', 'DES3'),
+          GeneratePythonPaths('Crypto', 'Cipher', 'PKCS1_OAEP'),
+          GeneratePythonPaths('Crypto', 'Cipher', 'PKCS1_v1_5'),
           GeneratePythonPaths('Crypto', 'Cipher', 'XOR'),
           [os.path.join('Crypto', 'Hash')],
           GeneratePythonPaths('Crypto', 'Hash', '__init__'),
+          GeneratePythonPaths('Crypto', 'Hash', 'hashalgo'),
           GeneratePythonPaths('Crypto', 'Hash', 'HMAC'),
-          os.path.join('Crypto', 'Hash', 'MD2'),
-          os.path.join('Crypto', 'Hash', 'MD4'),
+          GeneratePythonPaths('Crypto', 'Hash', 'MD2'),
+          GeneratePythonPaths('Crypto', 'Hash', 'MD4'),
           GeneratePythonPaths('Crypto', 'Hash', 'MD5'),
           GeneratePythonPaths('Crypto', 'Hash', 'SHA'),
-          os.path.join('Crypto', 'Hash', 'SHA256'),
-          os.path.join('Crypto', 'Hash', 'RIPEMD'),
+          GeneratePythonPaths('Crypto', 'Hash', 'SHA224'),
+          GeneratePythonPaths('Crypto', 'Hash', 'SHA256'),
+          GeneratePythonPaths('Crypto', 'Hash', 'SHA384'),
+          GeneratePythonPaths('Crypto', 'Hash', 'SHA512'),
+          GeneratePythonPaths('Crypto', 'Hash', 'RIPEMD'),
           [os.path.join('Crypto', 'Protocol')],
           GeneratePythonPaths('Crypto', 'Protocol', '__init__'),
           GeneratePythonPaths('Crypto', 'Protocol', 'AllOrNothing'),
           GeneratePythonPaths('Crypto', 'Protocol', 'Chaffing'),
+          GeneratePythonPaths('Crypto', 'Protocol', 'KDF'),
           [os.path.join('Crypto', 'PublicKey')],
           GeneratePythonPaths('Crypto', 'PublicKey', '__init__'),
           GeneratePythonPaths('Crypto', 'PublicKey', 'DSA'),
+          GeneratePythonPaths('Crypto', 'PublicKey', '_DSA'),
           GeneratePythonPaths('Crypto', 'PublicKey', 'ElGamal'),
           GeneratePythonPaths('Crypto', 'PublicKey', 'RSA'),
+          GeneratePythonPaths('Crypto', 'PublicKey', '_RSA'),
           GeneratePythonPaths('Crypto', 'PublicKey', 'pubkey'),
           GeneratePythonPaths('Crypto', 'PublicKey', 'qNEW'),
+          GeneratePythonPaths('Crypto', 'PublicKey', '_slowmath'),
+          [os.path.join('Crypto', 'Random')],
+          GeneratePythonPaths('Crypto', 'Random', '__init__'),
+          GeneratePythonPaths('Crypto', 'Random', 'random'),
+          GeneratePythonPaths('Crypto', 'Random', '_UserFriendlyRNG'),
+          [os.path.join('Crypto', 'Random', 'OSRNG')],
+          GeneratePythonPaths('Crypto', 'Random', 'OSRNG', '__init__'),
+          GeneratePythonPaths('Crypto', 'Random', 'OSRNG', 'fallback'),
+          GeneratePythonPaths('Crypto', 'Random', 'OSRNG', 'nt'),
+          GeneratePythonPaths('Crypto', 'Random', 'OSRNG', 'posix'),
+          GeneratePythonPaths('Crypto', 'Random', 'OSRNG', 'rng_base'),
+          [os.path.join('Crypto', 'Random', 'Fortuna')],
+          GeneratePythonPaths('Crypto', 'Random', 'Fortuna', '__init__'),
+          GeneratePythonPaths('Crypto', 'Random', 'Fortuna',
+                              'FortunaAccumulator'),
+          GeneratePythonPaths('Crypto', 'Random', 'Fortuna',
+                              'FortunaGenerator'),
+          GeneratePythonPaths('Crypto', 'Random', 'Fortuna', 'SHAd256'),
+          [os.path.join('Crypto', 'Signature')],
+          GeneratePythonPaths('Crypto', 'Signature', '__init__'),
+          GeneratePythonPaths('Crypto', 'Signature', 'PKCS1_PSS'),
+          GeneratePythonPaths('Crypto', 'Signature', 'PKCS1_v1_5'),
           [os.path.join('Crypto', 'Util')],
           GeneratePythonPaths('Crypto', 'Util', '__init__'),
+          GeneratePythonPaths('Crypto', 'Util', 'asn1'),
+          GeneratePythonPaths('Crypto', 'Util', 'Counter'),
           GeneratePythonPaths('Crypto', 'Util', 'RFC1751'),
           GeneratePythonPaths('Crypto', 'Util', 'number'),
+          GeneratePythonPaths('Crypto', 'Util', '_number_new'),
+          GeneratePythonPaths('Crypto', 'Util', 'py3compat'),
+          GeneratePythonPaths('Crypto', 'Util', 'python_compat'),
           GeneratePythonPaths('Crypto', 'Util', 'randpool'),
           ]))
 
@@ -455,7 +506,8 @@ class FakeFile(file):
     FakeFile._availability_cache = {}
 
   @staticmethod
-  def IsFileAccessible(filename, normcase=os.path.normcase):
+  def IsFileAccessible(filename, normcase=os.path.normcase,
+                       py27_optional=False):
     """Determines if a file's path is accessible.
 
     SetAllowedPaths(), SetSkippedFiles() and SetStaticFileConfigMatcher() must
@@ -466,6 +518,8 @@ class FakeFile(file):
         directory, in which case access for files inside that directory will
         be checked.
       normcase: Used for dependency injection.
+      py27_optional: Whether the filename being checked matches the name of an
+        optional python27 runtime library.
 
     Returns:
       True if the file is accessible, False otherwise.
@@ -484,12 +538,14 @@ class FakeFile(file):
     result = FakeFile._availability_cache.get(logical_filename)
     if result is None:
       result = FakeFile._IsFileAccessibleNoCache(logical_filename,
-                                                 normcase=normcase)
+                                                 normcase=normcase,
+                                                 py27_optional=py27_optional)
       FakeFile._availability_cache[logical_filename] = result
     return result
 
   @staticmethod
-  def _IsFileAccessibleNoCache(logical_filename, normcase=os.path.normcase):
+  def _IsFileAccessibleNoCache(logical_filename, normcase=os.path.normcase,
+                               py27_optional=False):
     """Determines if a file's path is accessible.
 
     This is an internal part of the IsFileAccessible implementation.
@@ -497,6 +553,8 @@ class FakeFile(file):
     Args:
       logical_filename: Absolute path of the file to check.
       normcase: Used for dependency injection.
+      py27_optional: Whether the filename being checked matches the name of an
+        optional python27 runtime library.
 
     Returns:
       True if the file is accessible, False otherwise.
@@ -506,8 +564,10 @@ class FakeFile(file):
 
 
     logical_dirfakefile = logical_filename
+    is_dir = False
     if os.path.isdir(logical_filename):
       logical_dirfakefile = os.path.join(logical_filename, 'foo')
+      is_dir = True
 
 
     if IsPathInSubdirectories(logical_dirfakefile, [FakeFile._root_path],
@@ -517,6 +577,12 @@ class FakeFile(file):
 
       if not FakeFile._allow_skipped_files:
         path = relative_filename
+        if is_dir:
+
+
+
+
+          path = os.path.dirname(path)
         while path != os.path.dirname(path):
           if FakeFile._skip_files.match(path):
             logging.warning('Blocking access to skipped file "%s"',
@@ -528,6 +594,11 @@ class FakeFile(file):
         logging.warning('Blocking access to static file "%s"',
                         logical_filename)
         return False
+
+    if py27_optional:
+
+
+      return True
 
     if logical_filename in FakeFile.ALLOWED_FILES:
       return True
@@ -553,14 +624,17 @@ class FakeFile(file):
 
   def __init__(self, filename, mode='r', bufsize=-1, **kwargs):
     """Initializer. See file built-in documentation."""
-    #if mode not in FakeFile.ALLOWED_MODES:
-      #raise IOError('invalid mode: %s' % mode)
+    if mode not in FakeFile.ALLOWED_MODES:
 
-    #if not FakeFile.IsFileAccessible(filename):
-    #  raise IOError(errno.EACCES, 'file not accessible', filename)
+
+
+
+      raise IOError('invalid mode: %s' % mode)
+
+    if not FakeFile.IsFileAccessible(filename):
+      raise IOError(errno.EACCES, 'file not accessible', filename)
 
     super(FakeFile, self).__init__(filename, mode, bufsize, **kwargs)
-
 
 
 
@@ -610,6 +684,10 @@ class CouldNotFindModuleError(ImportError):
   In contrast to when a module has been found, but cannot be loaded because of
   hardening restrictions.
   """
+
+
+class Py27OptionalModuleError(ImportError):
+  """Raised for error conditions relating to optional Python 2.7 modules."""
 
 
 def Trace(func):
@@ -701,6 +779,22 @@ class HardenedModulesHook(object):
       'SHA256',
       'XOR',
 
+      '_AES',
+      '_ARC2',
+      '_ARC4',
+      '_Blowfish',
+      '_CAST',
+      '_DES',
+      '_DES3',
+      '_MD2',
+      '_MD4',
+      '_RIPEMD160',
+      '_SHA224',
+      '_SHA256',
+      '_SHA384',
+      '_SHA512',
+      '_XOR',
+
       '_Crypto_Cipher__AES',
       '_Crypto_Cipher__ARC2',
       '_Crypto_Cipher__ARC4',
@@ -733,6 +827,7 @@ class HardenedModulesHook(object):
       'pyexpat',
       'sha',
       'struct',
+      'strxor',
       'sys',
       'time',
       'timing',
@@ -748,11 +843,14 @@ class HardenedModulesHook(object):
       '_codecs_kr',
       '_codecs_tw',
       '_collections',
+      '_counter',
       '_csv',
       '_elementtree',
+      '_fastmath',
       '_functools',
       '_hashlib',
       '_heapq',
+      '_io',
       '_locale',
       '_lsprof',
       '_md5',
@@ -775,7 +873,6 @@ class HardenedModulesHook(object):
   _PY27_ALLOWED_MODULES = [
     '_bytesio',
     '_fileio',
-    '_io',
     '_json',
     '_symtable',
     '_yaml',
@@ -807,7 +904,7 @@ class HardenedModulesHook(object):
   __PY27_OPTIONAL_ALLOWED_MODULES = {
 
     'django': [],
-    'jinja2': ['_speedups'],
+    'jinja2': ['_debugsupport', '_speedups'],
     'lxml': ['etree', 'objectify'],
     'markupsafe': ['_speedups'],
     'numpy': [
@@ -936,9 +1033,7 @@ class HardenedModulesHook(object):
           'unlink',
           'urandom',
           'utime',
-          #'walk',
-          'read', # prevent reads as root
-          'write', # same
+          'walk',
           'WCOREDUMP',
           'WEXITSTATUS',
           'WIFEXITED',
@@ -950,6 +1045,7 @@ class HardenedModulesHook(object):
           'WUNTRACED',
           'W_OK',
           'X_OK',
+          '_get_exports_list',
       ],
 
 
@@ -1117,7 +1213,6 @@ class HardenedModulesHook(object):
       },
 
       'socket': {
-          '_fileobject': FakeFileObject,
           'ssl': None,
 
 
@@ -1134,6 +1229,10 @@ class HardenedModulesHook(object):
 
       'distutils.util': {
           'get_platform': FakeGetPlatform,
+      },
+
+      'Crypto.Random.OSRNG': {
+          'new': FakeCryptoRandomOSRNGnew,
       },
   }
 
@@ -1188,39 +1287,66 @@ class HardenedModulesHook(object):
 
 
 
+
       self._white_list_partial_modules['os'] = (
-        list(self._white_list_partial_modules['os']) + ['getpid', 'getuid'])
-
-      if self._config.libraries:
-        for libentry in self._config.libraries:
-          self._enabled_modules.append(libentry.name)
-          extra = self.__PY27_OPTIONAL_ALLOWED_MODULES.get(libentry.name)
-          logging.debug('Enabling %s: %r', libentry.name, extra)
-          if extra:
-            self._white_list_c_modules.extend(extra)
-          if libentry.name == 'django':
+        list(self._white_list_partial_modules['os']) +
+        ['getpid', 'getuid', 'sys'])
 
 
 
 
-            if 'django' not in self._module_dict:
-              version = libentry.version
-              if version == 'latest':
-                version = '1.2'
-              sitedir = os.path.join(SDK_ROOT,
-                                     'lib',
-                                     'django_%s' % version.replace('.', '_'))
-              if os.path.isdir(sitedir):
-                logging.debug('Enabling Django version %s at %s',
-                              version, sitedir)
-                sys.path[:] = [dirname
-                               for dirname in sys.path
-                               if not dirname.startswith(os.path.join(
-                                 SDK_ROOT, 'lib', 'django'))]
-                sys.path.insert(1, sitedir)
-              else:
-                logging.warn('Enabling Django version %s (no directory found)',
-                             version)
+      self._white_list_partial_modules['socket'] = (
+        list(self._white_list_partial_modules['socket']) +
+        ['getdefaulttimeout', 'setdefaulttimeout'])
+
+
+      for k in self._white_list_partial_modules.keys():
+        if k.startswith('Crypto'):
+          del self._white_list_partial_modules[k]
+
+
+      webob_path = os.path.join(SDK_ROOT, 'lib', 'webob_1_1_1')
+      if webob_path not in sys.path:
+        sys.path.insert(1, webob_path)
+
+      for libentry in self._config.GetAllLibraries():
+        self._enabled_modules.append(libentry.name)
+        extra = self.__PY27_OPTIONAL_ALLOWED_MODULES.get(libentry.name)
+        logging.debug('Enabling %s: %r', libentry.name, extra)
+        if extra:
+          self._white_list_c_modules.extend(extra)
+        if libentry.name == 'django':
+
+
+
+
+          if 'django' not in self._module_dict:
+            version = libentry.version
+            if version == 'latest':
+              django_library = appinfo._NAME_TO_SUPPORTED_LIBRARY['django']
+              version = django_library.non_deprecated_versions[-1]
+            if google.__name__.endswith('3'):
+
+
+              try:
+                __import__('django.v' + version.replace('.', '_'))
+                continue
+              except ImportError:
+                sys.modules.pop('django', None)
+            sitedir = os.path.join(SDK_ROOT,
+                                   'lib',
+                                   'django_%s' % version.replace('.', '_'))
+            if os.path.isdir(sitedir):
+              logging.debug('Enabling Django version %s at %s',
+                            version, sitedir)
+              sys.path[:] = [dirname
+                             for dirname in sys.path
+                             if not dirname.startswith(os.path.join(
+                               SDK_ROOT, 'lib', 'django'))]
+              sys.path.insert(1, sitedir)
+            else:
+              logging.warn('Enabling Django version %s (no directory found)',
+                           version)
 
 
   @Trace
@@ -1281,6 +1407,14 @@ class HardenedModulesHook(object):
 
       return None
 
+    except Py27OptionalModuleError, err:
+
+
+
+
+      logging.error(err)
+      raise
+
 
 
     return self
@@ -1289,8 +1423,12 @@ class HardenedModulesHook(object):
     """Check if the named module has a stub replacement."""
     if name in sys.builtin_module_names:
       name = 'py_%s' % name
-    if name in dist.__all__:
-      return True
+    if self._config and self._config.runtime == 'python27':
+      if dist27 is not None and name in dist27.MODULE_OVERRIDES:
+        return True
+    else:
+      if name in dist.__all__:
+        return True
     return False
 
   def ImportStubModule(self, name):
@@ -1299,9 +1437,15 @@ class HardenedModulesHook(object):
       name = 'py_%s' % name
 
 
+    providing_dist = dist
+    if self._config and self._config.runtime == 'python27':
 
-    module = __import__(dist.__name__, {}, {}, [name])
-    return getattr(module, name)
+
+      if dist27 is not None and name in dist27.__all__:
+        providing_dist = dist27
+    fullname = '%s.%s' % (providing_dist.__name__, name)
+    __import__(fullname, {}, {})
+    return sys.modules[fullname]
 
   @Trace
   def FixModule(self, module):
@@ -1364,32 +1508,16 @@ class HardenedModulesHook(object):
 
       search_path = [None] + sys.path
 
-    module_import_ok = False
+    py27_optional = False
+    py27_enabled = False
+    topmodule = None
     if self._config and self._config.runtime == 'python27':
-
-
-
 
 
       topmodule = submodule_fullname.split('.')[0]
       if topmodule in self.__PY27_OPTIONAL_ALLOWED_MODULES:
-        if topmodule in self._enabled_modules:
-
-
-
-
-          module_import_ok = True
-
-
-
-        else:
-          msg = ('Third party package %s must be included in the '
-                 '"libraries:" clause of your app.yaml file '
-                 'in order to be imported.' % topmodule)
-          logging.error(msg)
-
-
-          raise ImportError(msg)
+        py27_optional = True
+        py27_enabled = topmodule in self._enabled_modules
 
 
 
@@ -1427,12 +1555,17 @@ class HardenedModulesHook(object):
         suffix, mode, file_type = description
 
         try:
-          if (file_type not in (self._imp.C_BUILTIN, self._imp.C_EXTENSION) and
-              not module_import_ok and
-              not FakeFile.IsFileAccessible(pathname)):
-            error_message = 'Access to module file denied: %s' % pathname
-            logging.debug(error_message)
-            raise ImportError(error_message)
+          if (file_type not in (self._imp.C_BUILTIN, self._imp.C_EXTENSION)):
+            pkg_pathname = pathname
+            if file_type == self._imp.PKG_DIRECTORY:
+
+
+              pkg_pathname = os.path.join(pkg_pathname, '__init__.py')
+            if not FakeFile.IsFileAccessible(
+                pkg_pathname, py27_optional=py27_optional):
+              error_message = 'Access to module file denied: %s' % pathname
+              logging.debug(error_message)
+              raise ImportError(error_message)
 
           if (file_type not in self._ENABLED_FILE_TYPES and
               submodule not in self._white_list_c_modules):
@@ -1440,16 +1573,44 @@ class HardenedModulesHook(object):
                              'or built-in module' % submodule_fullname)
             logging.debug(error_message)
             raise ImportError(error_message)
+
+          if (py27_optional and not py27_enabled and
+              not pathname.startswith(self._app_code_path)):
+            error_message = ('Third party package %s not enabled.' % topmodule)
+            logging.debug(error_message)
+            raise ImportError(error_message)
+
           return source_file, pathname, description
         except ImportError, e:
 
 
           import_error = e
 
+
+
+    if py27_optional and submodule_fullname == topmodule:
+      if py27_enabled:
+        msg = ('Third party package %s was enabled in app.yaml '
+               'but not found on import. You may have to download '
+               'and install it.' % topmodule)
+      else:
+        msg = ('Third party package %s must be included in the '
+               '"libraries:" clause of your app.yaml file '
+               'in order to be imported.' % topmodule)
+
+
+
+      logging.debug(msg)
+      raise Py27OptionalModuleError(msg)
+
     if import_error:
 
 
+
+
       raise import_error
+
+
 
 
     self.log('Could not find module "%s"', submodule_fullname)
@@ -1513,7 +1674,7 @@ class HardenedModulesHook(object):
         pass
     else:
 
-      loader = importer.find_module(submodule)
+      loader = importer.find_module(submodule_fullname)
       if loader is not None:
 
 
@@ -1649,10 +1810,18 @@ class HardenedModulesHook(object):
 
 
 
+
     module.__loader__ = self
     self.FixModule(module)
     if submodule_fullname not in self._module_dict:
       self._module_dict[submodule_fullname] = module
+    if submodule_fullname != submodule:
+      parent_module = self._module_dict.get(
+          submodule_fullname[:-len(submodule) - 1])
+
+
+      if parent_module and not hasattr(parent_module, submodule):
+        setattr(parent_module, submodule, module)
 
     if submodule_fullname == 'os':
 

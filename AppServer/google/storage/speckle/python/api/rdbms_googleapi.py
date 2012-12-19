@@ -24,6 +24,7 @@
 
 
 import logging
+import os
 
 import google
 
@@ -35,7 +36,7 @@ except ImportError:
 
   try:
     import google_sql
-    google_sql.fix_sys_path(include_google_sql_libs=True)
+    google_sql.fix_sys_path(google_sql.GOOGLE_SQL_EXTRA_PATHS)
   except ImportError:
     logging.warning(
         'Attempt to automatically load Google Cloud SQL dependencies failed! '
@@ -48,7 +49,6 @@ from apiclient import model
 import httplib2
 from oauth2client import client
 from oauth2client import file as oauth_file
-from oauth2client import tools
 
 from google.storage.speckle.proto import sql_pb2
 from google.storage.speckle.python.api import rdbms
@@ -83,8 +83,8 @@ class RdbmsGoogleApiClient(object):
   """A Google API client for rdbms."""
 
   def __init__(self, api_url='https://www.googleapis.com/sql/v1/',
-               oauth_credentials_path=rdbms.OAUTH_CREDENTIALS_PATH,
-               oauth_storage=None, developer_key=None):
+               oauth_credentials_path=None, oauth_storage=None,
+               developer_key=None):
     """Constructs an RdbmsGoogleApiClient.
 
     Args:
@@ -98,10 +98,22 @@ class RdbmsGoogleApiClient(object):
     """
     self._api_url = api_url
     self._developer_key = developer_key
-    storage = oauth_storage or oauth_file.Storage(oauth_credentials_path)
-    credentials = storage.get()
+    if oauth_storage is None:
+      if oauth_credentials_path is None:
+
+
+        oauth_credentials_path = os.path.expanduser(
+            rdbms.OAUTH_CREDENTIALS_PATH)
+      oauth_storage = oauth_file.Storage(oauth_credentials_path)
+    credentials = oauth_storage.get()
     if credentials is None or credentials.invalid:
-      credentials = tools.run(GetFlow(), storage)
+
+
+
+
+
+      from oauth2client import tools
+      credentials = tools.run(GetFlow(), oauth_storage)
     self._transport = credentials.authorize(httplib2.Http())
 
   def OpenConnection(self, request):

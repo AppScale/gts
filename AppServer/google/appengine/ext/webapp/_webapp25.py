@@ -683,10 +683,19 @@ class WSGIApplication(object):
     for regexp, handler_class in self._url_mapping:
       match = regexp.match(request.path)
       if match:
-        handler = handler_class()
+        try:
+          handler = handler_class()
 
 
-        handler.initialize(request, response)
+
+          handler.initialize(request, response)
+        except Exception, e:
+          if handler is None:
+            handler = RequestHandler()
+          handler.response = response
+          handler.handle_exception(e, self.__debug)
+          response.wsgi_write(start_response)
+          return ['']
         groups = match.groups()
         break
 

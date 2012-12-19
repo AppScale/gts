@@ -22,6 +22,7 @@
 
 
 from google.appengine._internal import antlr3
+from google.appengine._internal.antlr3 import tree
 from google.appengine.api.search import QueryLexer
 from google.appengine.api.search import QueryParser
 
@@ -111,3 +112,25 @@ def _SimplifyNode(node):
   for i, child in enumerate(node.children):
     node.setChild(i, _SimplifyNode(child))
   return node
+
+
+def CreateQueryNode(text, type):
+  token = tree.CommonTreeAdaptor().createToken(tokenType=type, text=text)
+  return tree.CommonTree(token)
+
+
+def GetQueryNodeText(node):
+  """Returns the text from the node, handling that it could be unicode."""
+  return node.getText().encode('utf-8')
+
+
+def GetPhraseQueryNodeText(node):
+  """Returns the text from a query node."""
+  text = GetQueryNodeText(node)
+  if text:
+
+
+
+    if text[0] == '"' and text[-1] == '"':
+      text = text[1:-1]
+  return text

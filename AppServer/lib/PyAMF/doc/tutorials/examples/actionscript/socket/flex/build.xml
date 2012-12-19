@@ -1,0 +1,46 @@
+<?xml version="1.0" ?>
+<project default="build">
+
+	<!-- SDK properties -->
+	<property name="FLEX_HOME" value="/Developer/SDKs/flex3" />
+	<property name="FLEX_TASKS" value="${FLEX_HOME}/ant/lib/flexTasks.jar" />
+
+	<!-- Project properties -->
+	<property name="APP_NAME" value="socket" />
+	<property name="APP_ROOT_DIR" value="." />
+	<property name="MAIN_SOURCE_FILE" value="${APP_ROOT_DIR}/src/${APP_NAME}.mxml" />
+	<property name="APP_FILE_NAME" value="${APP_NAME}.swf" />
+	<property name="APP_SOURCE" location="${APP_ROOT_DIR}/src" />
+	<property name="BUILD_DIR" location="${APP_ROOT_DIR}/build" />
+	<property name="APP_OUTPUT_FILE" location="${BUILD_DIR}/${APP_FILE_NAME}" />
+	
+	<taskdef resource="flexTasks.tasks" classpath="${FLEX_TASKS}" />
+
+	<target name="clean" description="clean up">
+		<delete dir="${BUILD_DIR}" />
+	</target>
+
+	<target name="init" depends="clean" description="setup build">
+		<tstamp />
+		<mkdir dir="${BUILD_DIR}" />
+	</target>
+
+	<target name="build" depends="init" description="compile application">
+		<mxmlc file="${MAIN_SOURCE_FILE}" output="${APP_OUTPUT_FILE}" 
+			   actionscript-file-encoding="UTF-8" keep-generated-actionscript="false" 
+			   incremental="true" benchmark="true">
+			
+			<!-- Get default compiler options. -->
+			<load-config filename="${FLEX_HOME}/frameworks/flex-config.xml" />
+			<source-path path-element="${FLEX_HOME}/frameworks" />
+			<source-path path-element="${APP_SOURCE}" />
+
+			<!-- SDK core (locale is included in .swc with Flex 3) -->
+			<compiler.library-path dir="${FLEX_HOME}/frameworks" append="true">
+				<include name="libs" />
+			</compiler.library-path>
+			
+		</mxmlc>
+	</target>
+
+</project>

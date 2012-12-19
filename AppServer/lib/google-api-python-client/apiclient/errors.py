@@ -23,7 +23,7 @@ should be defined in this file.
 __author__ = 'jcgregorio@google.com (Joe Gregorio)'
 
 
-from anyjson import simplejson
+from oauth2client.anyjson import simplejson
 
 
 class Error(Exception):
@@ -71,6 +71,11 @@ class UnknownLinkType(Error):
   pass
 
 
+class UnknownApiNameOrVersion(Error):
+  """No API with that name and version exists."""
+  pass
+
+
 class UnacceptableMimeTypeError(Error):
   """That is an unacceptable mimetype for this operation."""
   pass
@@ -79,6 +84,25 @@ class UnacceptableMimeTypeError(Error):
 class MediaUploadSizeError(Error):
   """Media is larger than the method can accept."""
   pass
+
+
+class ResumableUploadError(Error):
+  """Error occured during resumable upload."""
+  pass
+
+
+class BatchError(HttpError):
+  """Error occured during batch operations."""
+
+  def __init__(self, reason, resp=None, content=None):
+    self.resp = resp
+    self.content = content
+    self.reason = reason
+
+  def __repr__(self):
+      return '<BatchError %s "%s">' % (self.resp.status, self.reason)
+
+  __str__ = __repr__
 
 
 class UnexpectedMethodError(Error):

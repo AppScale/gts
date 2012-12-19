@@ -1,0 +1,4 @@
+{% load url from future %}unicode: {{ user }}
+id: {{ user.id }}
+username: {{ user.username }}
+url: {% url 'userpage' user %}

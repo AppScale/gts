@@ -95,7 +95,7 @@ tuple ``(regex, handler)``, we define each route using the class
     ])
 
 The first argument in the routes above is a
-:ref:`regex template <guide.routing.the-regex-template>`, the `handler`
+:ref:`URL template <guide.routing.the-url-template>`, the `handler`
 argument is the :ref:`request handler <guide.handlers>` to be used, and the
 `name` argument third is a name used to
 :ref:`build a URI <guide.routing.building-uris>` for that route.
@@ -104,12 +104,14 @@ Check :meth:`webapp2.Route.__init__` in the API reference for the parameters
 accepted by the ``Route`` constructor. We will explain some of them in details
 below.
 
-.. _guide.routing.the-regex-template:
+.. _guide.routing.the-url-template:
 
-The regex template
-~~~~~~~~~~~~~~~~~~
-The regex template can have variables enclosed by ``<>`` that define a name, a
-regular expression or both. Examples:
+The URL template
+~~~~~~~~~~~~~~~~
+The URL template defines the URL path to be matched. It can have regular
+expressions for variables using the syntax ``<name:regex>``; everything
+outside of ``<>`` is not interpreted as a regular expression to be matched.
+Both name and regex are optional, like in the examples below:
 
 =================  ==================================
 Format             Example
@@ -121,8 +123,9 @@ Format             Example
 
 The same template can mix parts with name, regular expression or both.
 
-If the name is set, the value of the matched regular expression is passed as
-keyword argument to the handler. Otherwise it is passed as positional argument.
+The name, if defined, is used to build URLs for the route. When it is set,
+the value of the matched regular expression is passed as keyword argument to
+the handler. Otherwise it is passed as positional argument.
 
 If only the name is set, it will match anything except a slash. So these
 routes are equivalent::

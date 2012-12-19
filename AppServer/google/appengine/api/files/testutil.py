@@ -25,6 +25,7 @@ __all__ = ['TestFileServiceStub']
 
 
 from google.appengine.api import apiproxy_stub
+from google.appengine.api.files import file_service_pb
 
 
 class TestFileServiceStub(apiproxy_stub.APIProxyStub):
@@ -54,6 +55,14 @@ class TestFileServiceStub(apiproxy_stub.APIProxyStub):
     content = self._file_content[request.filename()]
     pos = request.pos()
     response.set_data(content[pos:pos + request.max_bytes()])
+
+  def _Dynamic_Stat(self, request, response):
+    file_stat = response.add_stat()
+    file_stat.set_length(len(self.get_content(request.filename())))
+    file_stat.set_filename(request.filename())
+    file_stat.set_content_type(file_service_pb.FileContentType.RAW)
+    file_stat.set_finalized(True)
+    response.set_more_files_found(False)
 
   def get_content(self, filename):
     """Get current in-memory file content."""

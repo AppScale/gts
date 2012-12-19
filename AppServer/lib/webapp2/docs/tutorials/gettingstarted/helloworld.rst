@@ -41,8 +41,9 @@ following contents:
 
    application: helloworld
    version: 1
-   runtime: python
+   runtime: python27
    api_version: 1
+   threadsafe: true
 
    handlers:
    - url: /.*

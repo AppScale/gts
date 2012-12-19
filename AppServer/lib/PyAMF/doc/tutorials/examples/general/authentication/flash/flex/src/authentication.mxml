@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Application xmlns:mx="http://www.adobe.com/2006/mxml" 
+				horizontalAlign="center" verticalAlign="middle"
+				backgroundColor="#FFFFFF" backgroundAlpha="0">
+				
+	<mx:Script>
+	<![CDATA[
+			import flash.net.NetConnection;
+			import flash.net.Responder;
+			
+			// These vars hols the data we want to pass to the remote service.
+			private var a:int = 1;
+			private var b:int = 2;
+			
+			// Gateway connection object
+	        private var gateway:NetConnection;
+	
+	        public function login( event:MouseEvent ): void
+	        {
+		    	var username:String = username_txt.text;
+     		    var pass:String = password_txt.text;
+
+	            // Setup connection
+	            gateway = new NetConnection();
+	
+	            // Connect to gateway
+	            gateway.connect( "http://localhost:8000" );
+		    
+		    	// Authentication     
+       		    gateway.addHeader( "Credentials", false, {userid: username, password: pass} );
+	
+	            // Set responder property to the object and methods that will receive the 
+	            // result or fault condition that the service returns.
+	            var responder:Responder = new Responder( onResult, onFault );
+	            
+	            // Call remote service.method 'calc.sum' to fetch data
+	            gateway.call( "calc.sum", responder, a, b );
+	        }
+	
+	        // Result handler method 
+	        private function onResult( result:* ): void
+	        {
+	            var myData:String = result;
+	            trace( myData ); // prints "3"
+	            status_txt.text = a +"+"+ b + "=" + myData;
+	        }
+	        
+	        // Fault handler method displays error message 
+	        private function onFault( error:* ): void
+	        {
+	            // Notify the user of the problem
+	            status_txt.text = "Remoting error:";
+	            for ( var d:String in error ) {
+	               status_txt.text += error[d] + "\n";
+	            }
+	        }
+	]]>
+	</mx:Script>
+	
+	<mx:Form label="Login">
+		<mx:FormItem label="Username">
+			<mx:TextInput id="username_txt"/>
+		</mx:FormItem>
+		<mx:FormItem label="Password">
+			<mx:TextInput id="password_txt" displayAsPassword="true"/>
+		</mx:FormItem>
+		<mx:FormItem horizontalAlign="right" paddingBottom="10">
+			<mx:Button label="Submit" click="login(event)"/>
+		</mx:FormItem>
+		
+		<mx:Text id="status_txt" textAlign="center" fontWeight="bold" 
+				 width="250" height="100"/>
+	</mx:Form>
+
+	
+</mx:Application>

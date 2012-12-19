@@ -240,11 +240,11 @@ Old URIs can be conveniently redirected using a simple route::
     ])
 
 
-Single file, well-tested and documented
----------------------------------------
-webapp2 is an extensively documented `single file <http://code.google.com/p/webapp-improved/source/browse/webapp2.py>`_
-and has almost 100% test coverage. The source code is explicit, magic-free
-and made to be extended. We like less.
+Simple, well-tested and documented
+----------------------------------
+webapp2 is `simple <http://code.google.com/p/webapp-improved/source/browse/webapp2.py>`_,
+extensively documented and has almost 100% test coverage. The source code is
+explicit, magic-free and made to be extended. We like less.
 
 
 Independent of the App Engine SDK
@@ -284,6 +284,6 @@ package provides common utilities that integrate well with webapp2:
 - Localization and internationalization support
 - Sessions using secure cookies, memcache or datastore
 - Extra route classes -- to match subdomains and other conveniences
-- Support for third party libraries: Jinja2, Mako and Google's ProtoRPC
+- Support for third party libraries: Jinja2 and Mako
 - Support for threaded environments, so that you can use webapp2 outside of
   App Engine or in the upcoming App Engine Python 2.7 runtime

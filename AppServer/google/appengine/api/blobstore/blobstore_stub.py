@@ -34,7 +34,6 @@ import time
 from google.appengine.api import apiproxy_stub
 from google.appengine.api import datastore
 from google.appengine.api import datastore_errors
-from google.appengine.api import datastore_types
 from google.appengine.api import users
 from google.appengine.api import blobstore
 from google.appengine.api.blobstore import blobstore_service_pb
@@ -58,7 +57,7 @@ class ConfigurationError(Error):
 
 
 _UPLOAD_SESSION_KIND = '__BlobUploadSession__'
-
+_GS_INFO_KIND = '__Gs_Info__'
 
 def CreateUploadSession(creation, success_path, user):
   """Create upload session in datastore.
@@ -75,9 +74,9 @@ def CreateUploadSession(creation, success_path, user):
     String encoded key of new Datastore entity.
   """
   entity = datastore.Entity(_UPLOAD_SESSION_KIND, namespace='')
-  path = "http://%s:%s%s"%(os.environ["SERVER_NAME"],
-                            os.environ["NGINX_PORT"],
-                            success_path)
+  path = "http://%s:%s%s" % (os.environ["SERVER_NAME"],
+                             os.environ["NGINX_PORT"],
+                             success_path)
 
   entity.update({'creation': creation,
                  'success_path': path,
@@ -170,6 +169,7 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
     self.__next_session_id = 1
     self.__uploader_path = uploader_path
     self.__block_key_cache = None
+
   @property
   def storage(self):
     """Access BlobStorage used by service stub.
@@ -240,11 +240,6 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
       response: Not used but should be a VoidProto.
     """
     for blob_key in request.blob_key_list():
-      key = datastore_types.Key.from_path(blobstore.BLOB_INFO_KIND,
-                                          str(blob_key),
-                                          namespace='')
-
-      #datastore.Delete(key)
       self.__storage.DeleteBlob(blob_key)
 
   def _Dynamic_FetchData(self, request, response):
@@ -281,13 +276,13 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
       raise apiproxy_errors.ApplicationError(
           blobstore_service_pb.BlobstoreServiceError.BLOB_FETCH_SIZE_TOO_LARGE)
     blob_key = request.blob_key()
-    #blob_info_key = datastore.Key.from_path(blobstore.BLOB_INFO_KIND,
-    #                                        blob_key,
-    #                                        namespace='')
+
     # Get the block we will start from
     block_count = int(start_index/blobstore.MAX_BLOB_FETCH_SIZE)
+
     # Get the block's bytes we'll copy
-    block_modulo = int(start_index%blobstore.MAX_BLOB_FETCH_SIZE)
+    block_modulo = int(start_index % blobstore.MAX_BLOB_FETCH_SIZE)
+
     # This is the last block we'll look at for this request
     block_count_end = int(end_index/blobstore.MAX_BLOB_FETCH_SIZE)
 
@@ -335,6 +330,6 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
 
     self.__block_cache = block["block"]
     self.__block_key_cache = str(block_key)
-    data.append(self.__block_cache[0,fetch_size - data_size])
+    data.append(self.__block_cache[0, fetch_size - data_size])
     response.set_data(data)
  

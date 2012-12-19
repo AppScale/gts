@@ -123,7 +123,7 @@ class InfrastructureManagerClient
       "#{parameters.inspect}")
 
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, "run_instances") { 
-      @conn.run_instances(parameters, @secret)
+      @conn.run_instances(parameters.to_json, @secret)
     }
   end
 
@@ -133,7 +133,7 @@ class InfrastructureManagerClient
       "#{parameters.inspect}")
 
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, "describe_instances") { 
-      @conn.describe_instances(parameters, @secret)
+      @conn.describe_instances(parameters.to_json, @secret)
     }
   end
 
@@ -143,7 +143,7 @@ class InfrastructureManagerClient
       "#{parameters.inspect}")
 
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, "terminate_instances") { 
-      @conn.terminate_instances(parameters, @secret)
+      @conn.terminate_instances(parameters.to_json, @secret)
     }
   end
  

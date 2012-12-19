@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml">
+
+	<mx:Metadata>
+        [Event(name="onSubmit", type="org.pyamf.examples.guestbook.events.SubmitEvent")]
+    </mx:Metadata>
+    
+	<mx:Script>
+        <![CDATA[
+        	import org.pyamf.examples.guestbook.vo.Message;
+            import org.pyamf.examples.guestbook.events.SubmitEvent;
+            
+            [Bindable]
+            public var status:String;
+            
+            public function submitMessage(): void
+            {
+            	var message:String = message_txt.text;
+            	var name:String = name_txt.text;
+        		var msg:Message = new Message( name, url_txt.text, email_txt.text,
+											   new Date(), message );
+											   
+            	var eventObj:SubmitEvent = new SubmitEvent( msg );
+            	status = "";
+            	
+            	if ( message.length > 0 && name.length > 0 ) {
+					this.dispatchEvent( eventObj );
+            	}
+            	
+            	message_txt.text = "";
+            	name_txt.text = "";
+            	url_txt.text = "";
+            	email_txt.text = "";
+            }
+        ]]>
+    </mx:Script>
+    
+    <mx:HBox width="100%">
+    	<mx:Form>
+			<mx:FormItem label="Name:">
+				<mx:TextInput id="name_txt"/>
+			</mx:FormItem>
+			<mx:FormItem label="Email:">
+				<mx:TextInput id="email_txt"/>
+			</mx:FormItem>
+			<mx:FormItem label="Website:">
+				<mx:TextInput id="url_txt"/>
+			</mx:FormItem>
+		</mx:Form>
+		
+		<mx:VBox paddingTop="17" width="100%">
+			<mx:Label text="Message:"/>
+			<mx:TextArea id="message_txt" height="52" width="100%"/>
+		</mx:VBox>
+    </mx:HBox>
+	
+	<mx:HBox width="100%" paddingTop="2" horizontalAlign="left">
+		<mx:Spacer width="100%"/>
+		<mx:Label text="{status}" color="red" paddingTop="3"
+				  paddingRight="30" fontWeight="bold"/>
+		<mx:Button label="Submit" click="submitMessage()"/>
+	</mx:HBox>
+	
+</mx:VBox>

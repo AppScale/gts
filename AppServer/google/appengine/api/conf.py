@@ -129,8 +129,8 @@ class _ValidParameterName(validation.Validator):
     except db.ReservedWordError:
       raise validation.ValidationError(
           'The config parameter name %.100r is reserved by db.Model see: '
-          'http://code.google.com/appengine/docs/python/datastore/'
-          'modelclass.html#Disallowed_Property_Names for details.' % value)
+          'https://developers.google.com/appengine/docs/python/datastore/'
+          'modelclass#Disallowed_Property_Names for details.' % value)
 
     if value.startswith(RESERVED_MARKER):
       raise validation.ValidationError(

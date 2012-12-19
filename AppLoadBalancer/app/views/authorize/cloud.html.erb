@@ -6,18 +6,12 @@
       <tr>
         <td align="center">Username</td>
         <td align="center">Upload / Remove App</td>
-        <td align="center">MapReduce API</td>
-        <td align="center">EC2 API</td>
-        <td align="center">Neptune API</td>
       </tr>
       <% info = get_authorization_info %>
       <% info.each do |user, caps| %>
         <tr>
           <td align="center"><%= user %></td>
           <td align="center"><%= check_box_tag "#{user}-upload_app", "#{user}-upload_app", user_has_ability?("upload_app", caps) %></td>
-          <td align="center"><%= check_box_tag "#{user}-mr_api", "#{user}-mr_api", user_has_ability?("mr_api", caps) %></td>
-          <td align="center"><%= check_box_tag "#{user}-ec2_api", "#{user}-ec2_api", user_has_ability?("ec2_api", caps) %></td>
-          <td align="center"><%= check_box_tag "#{user}-neptune_api", "#{user}-neptune_api", user_has_ability?("neptune_api", caps) %></td>
         </tr>
       <% end %>
     </table>

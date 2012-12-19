@@ -145,6 +145,37 @@ class UnacceptableVersionError(Exception):
   pass
 
 
+
+class LooseVersion(object):
+  """Shallow class compatible with distutils.version.LooseVersion."""
+
+  def __init__(self, version):
+    """Create a new instance of LooseVersion.
+
+    Args:
+      version: iterable containing the version values.
+    """
+    self.version = tuple(map(str, version))
+
+  def __repr__(self):
+    return '.'.join(self.version)
+
+  def __str__(self):
+    return '.'.join(self.version)
+
+  @classmethod
+  def parse(cls, string):
+    """Parse a version string and create a new LooseVersion instance.
+
+    Args:
+      string: dot delimited version string.
+
+    Returns:
+      A distutils.version.LooseVersion compatible object.
+    """
+    return cls(string.split('.'))
+
+
 def DjangoVersion():
   """Discover the version of Django installed.
 
@@ -157,7 +188,11 @@ def DjangoVersion():
   except ImportError:
     pass
   import django
-  return distutils.version.LooseVersion('.'.join(map(str, django.VERSION)))
+  try:
+    return distutils.version.LooseVersion('.'.join(map(str, django.VERSION)))
+  except AttributeError:
+
+    return LooseVersion(django.VERSION)
 
 
 def PylonsVersion():
@@ -189,6 +224,7 @@ PACKAGES = {
                 '1.0': None,
                 '1.1': None,
                 '1.2': None,
+                '1.3': None,
                 }),
 
 
@@ -293,7 +329,12 @@ def CheckInstalledVersion(name, desired, explicit):
     global _DESIRED_DJANGO_VERSION
     _DESIRED_DJANGO_VERSION = 'v' + desired.replace('.', '_')
   installed_version = find_version()
-  desired_version = distutils.version.LooseVersion(desired)
+  try:
+    desired_version = distutils.version.LooseVersion(desired)
+  except AttributeError:
+
+    desired_version = LooseVersion.parse(desired)
+
   if not EqualVersions(installed_version, desired_version):
     raise UnacceptableVersionError(
         '%s %s was requested, but %s is already in use' %
@@ -314,7 +355,7 @@ def CallSetAllowedModule(name, desired):
 
 
 
-    if desired in ('0.96', '1.2'):
+    if desired in ('0.96', '1.2', '1.3'):
       sys.path.insert(1, os.path.join(PYTHON_LIB, 'lib',
                                       'django_' + desired.replace('.', '_')))
   SetAllowedModule(name)

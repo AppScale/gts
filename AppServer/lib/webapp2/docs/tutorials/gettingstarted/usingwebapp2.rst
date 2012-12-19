@@ -49,11 +49,19 @@ Let's rewrite our friendly greeting as a ``webapp2`` application. Edit
         ('/', MainPage)
     ], debug=True)
 
-    def main():
-        application.run()
+Also edit ``app.yaml`` and replace its contents with the following:
 
-    if __name__ == "__main__":
-        main()
+.. code-block:: yaml
+
+   application: helloworld
+   version: 1
+   runtime: python27
+   api_version: 1
+   threadsafe: true
+
+   handlers:
+   - url: /.*
+     script: helloworld.app
 
 Reload `http://localhost:8080/ <http://localhost:8080/>`_ in your browser to
 see the new version in action (if you stopped your web server, restart it by

@@ -395,4 +395,7 @@ class MessageSet(ProtocolBuffer.ProtocolMessage):
         text += "%s>\n" % prefix
     return text
 
+
+  _PROTO_DESCRIPTOR_NAME = 'MessageSet'
+
 __all__ = ['MessageSet']

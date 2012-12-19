@@ -18,8 +18,6 @@
 """Tool for performing authenticated RPCs against App Engine."""
 
 
-import google
-
 import cookielib
 import fancy_urllib
 import logging
@@ -45,11 +43,7 @@ def GetPlatformToken(os_module=os, sys_module=sys, platform=sys.platform):
   Returns:
     String containing the platform token for the host system.
   """
-  if hasattr(sys_module, "getwindowsversion"):
-    windows_version = sys_module.getwindowsversion()
-    version_info = ".".join(str(i) for i in windows_version[:4])
-    return platform + "/" + version_info
-  elif hasattr(os_module, "uname"):
+  if hasattr(os_module, "uname"):
     uname = os_module.uname()
     return "%s/%s" % (uname[0], uname[2])
   else:
@@ -124,6 +118,12 @@ class AbstractRpcServer(object):
       rpc_tries: The number of rpc retries upon http server error (i.e.
         Response code >= 500 and < 600) before failing.
     """
+    # AppScale's login path which requires an email and password
+    self._APPSCALE_LOGIN_PAGE = "users/login"
+    # AppScale's authentication page where an auth token is acquired
+    self._APPSCALE_AUTH_PAGE = "users/authenticate"
+
+
     if secure:
       self.scheme = "https"
     else:
@@ -278,32 +278,32 @@ class AbstractRpcServer(object):
         auth_token = self._GetAuthToken(credentials[0], credentials[1])
       except ClientLoginError, e:
         if e.reason == "BadAuthentication":
-          print >>sys.stderr, "Invalid username or password."
+          print >> sys.stderr, "Invalid username or password."
           continue
         if e.reason == "CaptchaRequired":
-          print >>sys.stderr, (
+          print >> sys.stderr, (
               "Please go to\n"
               "https://www.google.com/accounts/DisplayUnlockCaptcha\n"
               "and verify you are a human.  Then try again.")
           break
         if e.reason == "NotVerified":
-          print >>sys.stderr, "Account not verified."
+          print >> sys.stderr, "Account not verified."
           break
         if e.reason == "TermsNotAgreed":
-          print >>sys.stderr, "User has not agreed to TOS."
+          print >> sys.stderr, "User has not agreed to TOS."
           break
         if e.reason == "AccountDeleted":
-          print >>sys.stderr, "The user account has been deleted."
+          print >> sys.stderr, "The user account has been deleted."
           break
         if e.reason == "AccountDisabled":
-          print >>sys.stderr, "The user account has been disabled."
+          print >> sys.stderr, "The user account has been disabled."
           break
         if e.reason == "ServiceDisabled":
-          print >>sys.stderr, ("The user's access to the service has been "
+          print >> sys.stderr, ("The user's access to the service has been "
                                "disabled.")
           break
         if e.reason == "ServiceUnavailable":
-          print >>sys.stderr, "The service is not available; try again later."
+          print >> sys.stderr, "The service is not available; try again later."
           break
         raise
       self._GetAuthCookie(auth_token)
@@ -326,14 +326,14 @@ class AbstractRpcServer(object):
     
     """
     
-    loginUrl=self._GetAppServerLoginUrl()
-    curlCommand = "curl -v -k -X GET " + loginUrl +" 2>&1 | grep \"authenticity_token\|_load-balancer_session\""    
-    cmdStatus, cmdOutput = self._RunCommand(curlCommand)
+    loginUrl = self._GetLoadBalancerLoginUrl()
+    curlCommand = "curl -v -k -X GET " + loginUrl + \
+            " 2>&1 | grep \"authenticity_token\|_load-balancer_session\""    
+    _, cmdOutput = self._RunCommand(curlCommand)
 
-    lbaCookie=self._GetLbaSessionCookie(cmdOutput)
-    authToken=self._GetAppScaleAuthToken(cmdOutput)
+    lbaCookie = self._GetLbaSessionCookie(cmdOutput)
+    authToken = self._GetAppScaleAuthToken(cmdOutput)
 
-    #Read user credentials once
     if not self.read_credentials:
       credentials = self.auth_function()
       self.username = credentials[0]
@@ -341,16 +341,16 @@ class AbstractRpcServer(object):
       self.read_credentials = True
 
     curlCommand = "curl -k "
-    curlCommand+= "-c %s " % self._GetAppScaleCookiePath()
-    curlCommand+= "--data-urlencode authenticity_token=%s " % authToken
-    curlCommand+= "--data-urlencode user[email]=%s " % self.username
-    curlCommand+= "--data-urlencode user[password]=%s " % self.password
-    curlCommand+= "--data-urlencode commit=login "
-    curlCommand+= "-b \"%s\" " % lbaCookie
-    curlCommand+= "-X POST "
-    curlCommand+= "%s" % self._GetAppServerAuthUrl()
+    curlCommand += "-c %s " % self._GetAppScaleCookiePath()
+    curlCommand += "--data-urlencode authenticity_token=%s " % authToken
+    curlCommand += "--data-urlencode user[email]=%s " % self.username
+    curlCommand += "--data-urlencode user[password]=%s " % self.password
+    curlCommand += "--data-urlencode commit=login "
+    curlCommand += "-b \"%s\" " % lbaCookie
+    curlCommand += "-X POST "
+    curlCommand += "%s" % self._GetLoadBalancerAuthUrl()
                    
-    cmdStatus, cmdOutput = self._RunCommand(curlCommand)
+    _, cmdOutput = self._RunCommand(curlCommand)
 
     self._LoadAppScaleCookie()
     self.cookie_jar.load()
@@ -369,18 +369,17 @@ class AbstractRpcServer(object):
     Raises:
       AppScaleRedirectionError : if unable to extract the authenticity token
     """
-    authTokenRegex='value="(.+)"'
-    match=re.search(authTokenRegex, html_code)
+    authTokenRegex = 'value="(.+)"'
+    match = re.search(authTokenRegex, html_code)
     if not match:
-      msg="Unable to extract authenticity token.\n"
-      msg+="Regex used : "+authTokenRegex+"\n"
-      msg+="HTML : "+html_code+"\n"
+      msg = "Unable to extract authenticity token.\n"
+      msg += "Regex used : " + authTokenRegex + "\n"
+      msg += "HTML : " + html_code + "\n"
       raise AppScaleAuthenticationError(msg)
     return match.group(1)    
     
   def _GetLbaSessionCookie(self, http_header):
-    """
-    Extracts App Load Balancer (LBA) session cookie from the http header.
+    """ Extracts App Load Balancer (LBA) session cookie from the http header.
     
     Args:
        http_header: Output of a Curl command containing the http header with 
@@ -393,53 +392,62 @@ class AbstractRpcServer(object):
     Raises:
       AppScaleRedirectionError if unable to extract LBA cookie
     """
-    lbaCookieRegex="(_load-balancer_session=.+); path"
-    match=re.search(lbaCookieRegex, http_header)
+    lbaCookieRegex = "(_load-balancer_session=.+); path"
+    match = re.search(lbaCookieRegex, http_header)
     if not match:
-      msg="Unable to extract App Load Balancer session cookie.\n"
-      msg+="Regex used : "+lbaCookieRegex+"\n"
-      msg+="HTTP Header : "+http_header+"\n"
+      msg = "Unable to extract App Load Balancer session cookie.\n"
+      msg += "Regex used : " + lbaCookieRegex + "\n"
+      msg += "HTTP Header : " + http_header + "\n"
       raise AppScaleAuthenticationError(msg)      
     return match.group(1)
 
-  def _GetAppServerIp(self):
-   """
-   Extracts the AppServer IP from the AppServer URL.
+  def _GetAppServerName(self):
+    """ Extracts the AppServer IP/DNS from the AppServer URL.
    
-   Returns:
-      AppServer IP extracted from the AppServer URL.
-      Example : 128.111.55.227
-   """
-   regex="%s://([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}):([0-9]+)" % self.scheme
-   match=re.search(regex, self.appserver_url)
-   if not match:
-     msg="AppServer IP address could not be extracted.\n"
-     msg+="Error in address : "+self.appserver_url
-     raise AppScaleRedirectionError(msg)
-   appServerIp=match.group(1)
-   return appServerIp
-   
-  def _GetAppServerLoginUrl(self):   
-   return "%s://%s/users/login" %(self.scheme+"s", self._GetAppServerIp(),)
-
-  def _GetAppServerAuthUrl(self):   
-   return "%s://%s/users/authenticate" %(self.scheme+"s", self._GetAppServerIp(),)
-
-  def _GetAppPath(self, request_path):
+    Returns:
+       AppServer IP extracted from the AppServer URL.
+       Example : 128.111.55.227
     """
-    Extracts the web application path from the request path.
-    Example : If request path is /apps/guestbook/remote_api,
-              then the value returned is : /apps/guestbook/
-    
-    Args:
-      request_path: String containing the request_path.
+    tokens = self.appserver_url.split(':')
+    if len(tokens) == 0:
+      return None
+    return tokens[0]
+  
+  def _GetLoadBalancerHost(self):
+    """ Takes the host and port of where the application is hosted and
+        extracts the host of the loadbalancer.
+
+    Returns:
+      The host of the load balancer
+    Raises:
+      AppScaleAuthenticationError: When it fails to parse the hostname
     """
-    appPath=request_path
-    if request_path.endswith("remote_api"):
-      index=request_path.rfind("remote_api")
-      if index!=0:
-        appPath=request_path[:index]
-    return appPath
+    host = self.host.split(':')
+    if len(host) < 1:
+      raise AppScaleAuthenticationError("Could not authenticate with " + \
+                                        "AppScale. Bad URL endpoint " + \
+                                        "provided: %s." % self.host)
+    return host[0]
+
+  def _GetLoadBalancerLoginUrl(self):   
+    """ Returns the login URL for AppScale's Load Balancer based off the 
+        location of where the application is hosted.
+ 
+    Returns:
+      The URL for the AppScale Load Balancer's login page
+    """
+    host = self._GetLoadBalancerHost()
+    return "%s://%s/%s" % (self.scheme + "s", host, self._APPSCALE_LOGIN_PAGE)
+
+  def _GetLoadBalancerAuthUrl(self):   
+    """ Returns the authentication URL for AppScale's Load Balancer
+        based off the location of where the application is hosted.
+ 
+    Returns:
+      The URL for the AppScale Load Balancer's authentication page
+    """
+    host = self._GetLoadBalancerHost()
+    return "%s://%s/%s" % (self.scheme + "s", host, self._APPSCALE_AUTH_PAGE)
 
   def _ExtractRemoteApiPath(self, request_path):
     """
@@ -450,7 +458,7 @@ class AbstractRpcServer(object):
     Args:
       request_path: String containing the request_path.
     """
-    remoteApiPath=request_path
+    remoteApiPath = request_path
     if request_path.endswith("remote_api"):
       return "/remote_api"
     return remoteApiPath
@@ -472,35 +480,10 @@ class AbstractRpcServer(object):
              command_output is a string containing the output of the 
              command (stdout + stderr)
     """    
-    cmdStatus, cmdOutput=commands.getstatusoutput(command)    
+    cmdStatus, cmdOutput = commands.getstatusoutput(command)    
     if cmdStatus != 0:
       raise BadCommandError(cmdStatus, command)
     return (cmdStatus, cmdOutput)
-
-
-  def _GetLbaRedirectUrl(self, appPath):
-    """
-    Returns the redirection URL obtained from the App Load Balancer (LBA), when 
-    an AppScale GAE app is accessed through http.
-    
-    The redirection URL returned will be 
-    of the format : https://<AppLoadBalancer>:<Port>/apps/<AppName>
-
-    Example: https://128.111.55.207:443/apps/guestbook
-              
-    Args:
-       appPath : String containing the application path. Example : /apps/guestbook       
-    """
-    url = "%s://%s%s" % (self.scheme, self.host, appPath)
-    
-    #timeout intended to catch bad urls
-    curlCommand = "curl -I --connect-timeout 5 -X GET " + url +" 2>/dev/null | grep Location"    
-    cmdStatus, cmdOutput = self._RunCommand(curlCommand)
-    
-    #extracting redirection url from http header returned in the curl command
-    redirectUrl=cmdOutput.rstrip().replace("Location: ","")
-
-    return redirectUrl
 
   def _GetAppServerRedirectUrl(self, lbaRedirectUrl):
     """
@@ -514,55 +497,29 @@ class AbstractRpcServer(object):
     Example : https://128.111.55.227:8080/
 
     Args:
-       lbaRedirectUrl : String containing the top-level redirect URL obtained from the App Load Balancer
+       lbaRedirectUrl : String containing the top-level redirect URL obtained 
+                        from the App Load Balancer
     """
-    
-    #timeout intended to catch bad urls
-    curlCommand = "curl -k -I --connect-timeout 5 -X GET " + lbaRedirectUrl +" 2>/dev/null | grep Location"
-    cmdStatus, cmdOutput = self._RunCommand(curlCommand)
-    #extracting redirection url from http header returned in the curl command
-    redirectUrl=cmdOutput.rstrip().replace("Location: ","")
-    #on successful redirection, a url of the format : http://<AppServerIP>:<port>/ is obtained.
-    #performing a regex check to see if redirect url obtained matches the format : http://<AppServerIP>:<port>/ 
-    regex="%s://[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}:[0-9]+/" % self.scheme
-    if not re.search(regex, redirectUrl):    
-      msg ="Redirection to AppServer failed.\n"
-      msg+="Expected AppServer URL of the format : http://<AppServerIP>:<port>/\n"
-      msg+="But obtained AppServer URL : %s\nCommand : %s" % (redirectUrl, curlCommand,)
-      raise AppScaleRedirectionError(msg)
-    #stripping terminating '/'
+    curlCommand = "curl -k -I --connect-timeout 5 -X GET " +  \
+                  lbaRedirectUrl + " 2>/dev/null | grep Location"
+    _, cmdOutput = self._RunCommand(curlCommand)
+
+    # Extracting redirection url from http header returned in the curl command
+    redirectUrl = cmdOutput.rstrip().replace("Location: ", "")
     if redirectUrl.endswith("/"):
-      redirectUrl=redirectUrl[:len(redirectUrl)-1]
+      redirectUrl = redirectUrl[:-1]
     return redirectUrl
     
-  def _ExtractAppServerUrl(self, request_path):
-    """
-    Returns the redirection URL to the corresponding App Server, obtained from 
-    the App Load Balancer (LBA), when an AppScale GAE app is accessed through http.
-
-    The redirection URL returned will be 
-    of the format : https://<AppServer>:<Port>/
-    
-    Example : https://128.111.55.227:8080/
-
-    Args:
-      request_path: String containing the request_path.
-    """
-
-    appPath = self._GetAppPath(request_path)
-    lbaRedirectUrl = self._GetLbaRedirectUrl(appPath)
-    appServerUrl=self._GetAppServerRedirectUrl(lbaRedirectUrl)
-    return appServerUrl
-  
   def _GetAppScaleCookiePath(self):
     """
     Returns the cookie path for the current AppServer
     """
     if self.appserver_url is not None:      
-      appServerIp=self._GetAppServerIp()
+      appServerName = self._GetAppServerName()
     else:
-      appServerIp = ''
-    return os.path.expanduser("%s_%s" % (HttpRpcServer.APPSCALE_COOKIE_FILE_PATH, appServerIp))
+      appServerName = ''
+    return os.path.expanduser("%s_%s" % \
+           (HttpRpcServer.APPSCALE_COOKIE_FILE_PATH, appServerName))
     
   def _LoadAppScaleCookie(self):
     """
@@ -574,42 +531,12 @@ class AbstractRpcServer(object):
     if os.path.exists(self.cookie_jar.filename):
       try:
         self.cookie_jar.load()
-        logger.info("Loaded authentication cookies from %s",
+        logger.info("Loaded authentication cookies from %s" % \
                     self.cookie_jar.filename)
       except (OSError, IOError, cookielib.LoadError), e:
-        logger.debug("Could not load authentication cookies; %s: %s",
-                     e.__class__.__name__, e)
+        logger.debug("Could not load authentication cookies; %s: %s" % \
+                     (e.__class__.__name__, e))
         
-        
-  def _IsNewAppServer(self):
-    """
-    Checks if the current AppServer is new.
-    i.e. compares current AppServer IP with the 
-         IP address of the previous AppServer that 
-         was successfully authenticated.
-    
-    Returns:
-      True if the current AppServer is new.
-      False otherwise.
-    """
-
-    if self.last_appserver_ip == None:
-      return True
-
-    if self.appserver_url is not None:      
-      appServerIp=self._GetAppServerIp()
-      return not self.last_appserver_ip == appServerIp
-    else:
-      return False
-
-
-  def _GetAppServerUrl(self):
-    """
-    Returns the current AppServer URL
-    """
-    return self.appserver_url
-
-
   def _SetAppServerUrl(self, newAppServerUrl):
     """
     Updates AppServer URL to the passed argument
@@ -618,16 +545,8 @@ class AbstractRpcServer(object):
        newAppServerUrl: New AppServer URL to be set
     """
     if self.appserver_url is not None:      
-      self.last_appserver_ip = self._GetAppServerIp()      
+      self.last_appserver_ip = self._GetAppServerName()      
     self.appserver_url = newAppServerUrl
-
-
-  def _ResetAppServerInfo(self):
-    """
-    Resets AppServer information
-    """
-    self.appserver_url = None
-    self.last_appserver_ip = None
 
 
   def Send(self, request_path, payload="",
@@ -649,25 +568,22 @@ class AbstractRpcServer(object):
     """
     auth_domain = ''
     if 'AUTH_DOMAIN' in os.environ:
-      auth_domain=os.environ['AUTH_DOMAIN'].lower()
+      auth_domain = os.environ['AUTH_DOMAIN'].lower()
     old_timeout = socket.getdefaulttimeout()
     socket.setdefaulttimeout(timeout)
+
     try:
       tries = 0      
-      self._ResetAppServerInfo()
       while True:        
         tries += 1
-        #AppScale authentication hook
         if auth_domain == 'appscale':
-          appServerUrl = self._ExtractAppServerUrl(request_path)
-          self._SetAppServerUrl(appServerUrl)
           self._LoadAppScaleCookie()
-          url = self._GetAppServerUrl() \
-                + self._ExtractRemoteApiPath(request_path)
-        else:
-          url =  "%s://%s%s" % (self.scheme, self.host, request_path)
+
+        url =  "%s://%s%s" % (self.scheme, self.host, request_path)
+
         if kwargs:
           url += "?" + urllib.urlencode(kwargs)
+
         req = self._CreateRequest(url=url, data=payload)
         req.add_header("Content-Type", content_type)
         req.add_header("X-appcfg-api-version", "1")
@@ -682,20 +598,17 @@ class AbstractRpcServer(object):
         except urllib2.HTTPError, e:
           logger.debug("Got http error, this is try #%s", tries)
 
-          #Skipping rpc_tries check for AppScale, because every time 
-          #we could hit a new App Server
-          if auth_domain != 'appscale' and tries > self.rpc_tries:
-            raise
+          if tries > self.rpc_tries:
+            raise AppScaleAuthenticationError("Unable to authenticate " + \
+                                              "with AppScale.")
           
-          #App Load Balancer returns HTTP 502 if invalid cookie 
-          #is used for authentication, though ideally it should throw HTTP 401 only.
-          #But handling HTTP 502 here until the App Load Balancer code is fixed.
+          # App Load Balancer returns HTTP 502 if invalid cookie 
+          # is used for authentication, though ideally it should throw 
+          # HTTP 401 only. But handling HTTP 502 here until the App 
+          # Load Balancer code is fixed.
           if e.code == 401 or e.code == 502:
-            #AppScale authentication hook
             if auth_domain == 'appscale':
               self._AppScaleAuthenticate()
-            elif tries >= 2:
-              raise
             else:
               self._Authenticate()
           
@@ -704,14 +617,13 @@ class AbstractRpcServer(object):
 
           elif e.code == 302:
             if tries >= 2:
-              #AppScale authentication hook
               if auth_domain == 'appscale':
-                 if not self._IsNewAppServer():
-                   logger.info("Deleting authentication cookie : %s",
-                               self.cookie_jar.filename)
-                   if os.path.isfile(self.cookie_jar.filename):
-                     os.remove(self.cookie_jar.filename)
-                   raise AppScaleAuthenticationError("Could not authenticate with AppScale. Wrong username/password.")
+                logger.info("Deleting authentication cookie : %s" % \
+                            self.cookie_jar.filename)
+                if os.path.isfile(self.cookie_jar.filename):
+                  os.remove(self.cookie_jar.filename)
+                raise AppScaleAuthenticationError("Could not " + \
+                      "authenticate with AppScale. Wrong username/password.")
               else:                
                 raise
             loc = e.info()["location"]
@@ -723,7 +635,6 @@ class AbstractRpcServer(object):
               self.account_type = os.getenv("APPENGINE_RPC_HOSTED_LOGIN_TYPE",
                                             "HOSTED")
               self._Authenticate()
-            #AppScale authentication hook
             elif auth_domain == 'appscale':
               self._AppScaleAuthenticate()
             elif loc.startswith("http://%s/_ah/login" % (self.host,)):
@@ -731,13 +642,12 @@ class AbstractRpcServer(object):
             else:
               raise
           elif e.code == 403:
-            #AppScale authentication hook
             if auth_domain == 'appscale':
-              if not self._IsNewAppServer():
-                logger.info("Deleting authentication cookie : %s",
-                            self.cookie_jar.filename)
-                os.remove(self.cookie_jar.filename)
-                raise AppScaleAuthenticationError("Could not authenticate with AppScale.")
+              logger.info("Deleting authentication cookie : %s" % \
+                          self.cookie_jar.filename)
+              os.remove(self.cookie_jar.filename)
+              raise AppScaleAuthenticationError("Could not authenticate " + \
+                                                 "with AppScale.")
             else:
               raise            
           else:
@@ -789,7 +699,7 @@ To learn more, see http://code.google.com/appengine/kb/general.html#rpcssl .""")
 
     Args:
       appServerUrl : String containing the URL of the AppServer.
-                     It should be of the format : https://<AppServerIP>:<Port>/
+                     It should be of the format : https://<AppServer>:<Port>/
                      Example : https://128.111.55.227:8080/
    
     Raises:
@@ -799,7 +709,7 @@ To learn more, see http://code.google.com/appengine/kb/general.html#rpcssl .""")
     super(HttpRpcServer, self)._AppScaleAuthenticate()
     
     if self.cookie_jar.filename is not None and not self.save_cookies:
-      logger.info("Deleting authentication cookie : %s",
+      logger.info("Deleting authentication cookie : %s" % \
                   self.cookie_jar.filename)
       os.remove(self.cookie_jar.filename)
 
@@ -819,11 +729,11 @@ To learn more, see http://code.google.com/appengine/kb/general.html#rpcssl .""")
 
     auth_domain = ''
     if 'AUTH_DOMAIN' in os.environ:
-      auth_domain=os.environ['AUTH_DOMAIN'].lower()
+      auth_domain = os.environ['AUTH_DOMAIN'].lower()
 
     if self.save_cookies:
       if auth_domain == 'appscale':
-        cookies_dir=os.path.expanduser(HttpRpcServer.APPSCALE_COOKIE_DIR)
+        cookies_dir = os.path.expanduser(HttpRpcServer.APPSCALE_COOKIE_DIR)
         if not os.path.exists(cookies_dir):
           os.mkdir(cookies_dir)
       else:
@@ -845,16 +755,17 @@ To learn more, see http://code.google.com/appengine/kb/general.html#rpcssl .""")
               fd = os.open(self.cookie_jar.filename, os.O_CREAT, 0600)
               os.close(fd)
             except (OSError, IOError), e:
-              logger.debug("Could not create authentication cookies file; %s: %s",
-                           e.__class__.__name__, e)
+              logger.debug("Could not create authentication cookies file " + \
+                           "; %s: %s" % (e.__class__.__name__, e))
               self.cookie_jar.filename = None
 
     opener.add_handler(urllib2.HTTPCookieProcessor(self.cookie_jar))
     return opener
 
-#AppScale
 class BadCommandError(Exception):
-  """Raised to indicate that the execution of a system command failed with bad exit status"""
+  """Raised to indicate that the execution of a system command failed with 
+     bad exit status.
+  """
 
   def __init__(self, exitStatus, command):
     """
@@ -868,11 +779,11 @@ class BadCommandError(Exception):
     self.command = command
     
   def __str__(self):
-    return "\nCommand : "+str(self.command)+"\nExit Status : "+str(self.exitStatus)+"\n"
+    return "\nCommand : " + str(self.command) + "\nExit Status : " + \
+            str(self.exitStatus)+"\n"
 
-#AppScale
 class AppScaleRedirectionError(Exception):
-  """Raised to indicate that URL redirection in AppScale failed at some point"""
+  """Raised to indicate that URL redirection in AppScale failed at some point."""
 
   def __init__(self, reason):
     """
@@ -881,14 +792,13 @@ class AppScaleRedirectionError(Exception):
     Args:
       reason: Message explaining the redirection failure
     """
-    self.reason=reason
+    self.reason = reason
     
   def __str__(self):
     return str(self.reason)
 
-#AppScale
 class AppScaleAuthenticationError(Exception):
-  """Raised to indicate that AppScale authentication failed at some point"""
+  """Raised to indicate that AppScale authentication failed at some point."""
 
   def __init__(self, reason):
     """
@@ -897,7 +807,7 @@ class AppScaleAuthenticationError(Exception):
     Args:
       reason: Message explaining the AppScale authentication failure
     """
-    self.reason=reason
+    self.reason = reason
     
   def __str__(self):
     return str(self.reason)

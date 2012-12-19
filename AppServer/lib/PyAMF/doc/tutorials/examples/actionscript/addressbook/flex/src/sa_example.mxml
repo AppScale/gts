@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<view:AddressBook xmlns:mx="http://www.adobe.com/2006/mxml"
+				  xmlns:view="org.pyamf.examples.addressbook.*"
+				  enabled="false">
+
+	<mx:Panel width="100%" height="100%"
+			  title="Flex + PyAMF + SQLAlchemy - Address Book Example"
+			  paddingLeft="-1" paddingRight="-1">
+			  
+		<mx:Form>
+			<mx:FormItem label="Server:">
+				<mx:TextInput id="server" text="localhost"
+							  toolTip="Hostname" />
+			</mx:FormItem>
+			
+			<mx:FormItem label="Port:">
+				<mx:TextInput id="port" text="8000"
+							  toolTip="Port number" />
+			</mx:FormItem>
+		</mx:Form>
+		
+		<mx:DataGrid
+			id="userGrid" width="100%" height="100%"
+			doubleClickEnabled="true" doubleClick="editUser()"
+			dataProvider="{users}" allowMultipleSelection="true"
+			toolTip="Double click on a user to edit their details">
+			<mx:columns>
+				<mx:DataGridColumn headerText="Key"
+								   dataField="sa_key" />
+				<mx:DataGridColumn headerText="First Name"
+								   dataField="first_name" />
+				<mx:DataGridColumn headerText="Last Name"
+								   dataField="last_name" />
+			</mx:columns>
+		</mx:DataGrid>
+		
+		<mx:ControlBar horizontalAlign="center">
+			<mx:Button
+				label="Add"
+				click="addUser()"
+				toolTip="Add a new user" />
+			<mx:Button
+				label="Reload"
+				click="loadUsers()"
+				toolTip="Reload users from server" />
+			<mx:Button
+				label="Insert Default"
+				click="insertDefaultData()"
+				toolTip="Insert default data" />
+			<mx:Button
+				label="Remove"
+				click="removeUser()"
+				toolTip="Remove selected users from server" />
+		</mx:ControlBar>
+		
+	</mx:Panel>
+
+</view:AddressBook>

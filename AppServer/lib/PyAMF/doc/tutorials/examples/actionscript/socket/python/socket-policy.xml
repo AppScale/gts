@@ -1,0 +1,4 @@
+<cross-domain-policy>
+  <site-control permitted-cross-domain-policies="all"/>
+  <allow-access-from domain="*" to-ports="8000" />
+</cross-domain-policy>

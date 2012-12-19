@@ -101,11 +101,10 @@ class KindPseudoKind(object):
   """
   name = '__kind__'
 
-  def Query(self, entities, query, filters, orders):
+  def Query(self, query, filters, orders):
     """Perform a query on this pseudo-kind.
 
     Args:
-      entities: all the app's entities.
       query: the original datastore_pb.Query.
       filters: the filters from query.
       orders: the orders from query.
@@ -122,7 +121,7 @@ class KindPseudoKind(object):
     kinds = []
 
 
-    for app_namespace, kind in entities:
+    for app_namespace, kind in self._stub._GetAllEntities():
       if app_namespace != app_namespace_str: continue
       kind = kind.decode('utf-8')
       if not kind_range.Contains(kind): continue
@@ -142,22 +141,10 @@ class PropertyPseudoKind(object):
   """
   name = '__property__'
 
-  def __init__(self, filestub):
-    """Constructor.
-
-    Initializes a __property__ pseudo-kind definition.
-
-    Args:
-      filestub: the DatastoreFileStub instance being served by this
-          pseudo-kind.
-    """
-    self.filestub = filestub
-
-  def Query(self, entities, query, filters, orders):
+  def Query(self, query, filters, orders):
     """Perform a query on this pseudo-kind.
 
     Args:
-      entities: all the app's entities.
       query: the original datastore_pb.Query.
       filters: the filters from query.
       orders: the orders from query.
@@ -180,6 +167,7 @@ class PropertyPseudoKind(object):
     else:
       usekey = '__property__'
 
+    entities = self._stub._GetAllEntities()
     for app_namespace, kind in entities:
       if app_namespace != app_namespace_str: continue
 
@@ -195,7 +183,7 @@ class PropertyPseudoKind(object):
         continue
 
 
-      kind_properties = self.filestub._GetSchemaCache(app_kind, usekey)
+      kind_properties = self._stub._GetSchemaCache(app_kind, usekey)
       if not kind_properties:
         kind_properties = []
         kind_key = datastore_types.Key.from_path(KindPseudoKind.name, kind,
@@ -229,7 +217,7 @@ class PropertyPseudoKind(object):
 
           kind_properties.append(property_e._ToPb())
 
-        self.filestub._SetSchemaCache(app_kind, usekey, kind_properties)
+        self._stub._SetSchemaCache(app_kind, usekey, kind_properties)
 
 
       def InQuery(property_e):
@@ -250,11 +238,10 @@ class NamespacePseudoKind(object):
   """
   name = '__namespace__'
 
-  def Query(self, entities, query, filters, orders):
+  def Query(self, query, filters, orders):
     """Perform a query on this pseudo-kind.
 
     Args:
-      entities: all the app's entities.
       query: the original datastore_pb.Query.
       filters: the filters from query.
       orders: the orders from query.
@@ -271,7 +258,7 @@ class NamespacePseudoKind(object):
 
     namespaces = set()
 
-    for app_namespace, _ in entities:
+    for app_namespace, _ in self._stub._GetAllEntities():
       (app_id, namespace) = datastore_types.DecodeAppIdNamespace(app_namespace)
       if app_id == app_str and namespace_range.Contains(namespace):
         namespaces.add(namespace)
@@ -309,7 +296,9 @@ class DatastoreFileStub(datastore_stub_util.BaseDatastore,
                service_name='datastore_v3',
                trusted=False,
                consistency_policy=None,
-               save_changes=True):
+               save_changes=True,
+               root_path=None,
+               use_atexit=True):
     """Constructor.
 
     Initializes and loads the datastore from the backing files, if they exist.
@@ -329,12 +318,9 @@ class DatastoreFileStub(datastore_stub_util.BaseDatastore,
         datastore_stub_util.*ConsistencyPolicy
       save_changes: bool, default True. If this stub should modify
         datastore_file when entities are changed.
+      root_path: string, the root path of the app.
+      use_atexit: bool, indicates if the stub should save itself atexit.
     """
-    datastore_stub_util.BaseDatastore.__init__(self, require_indexes,
-                                               consistency_policy)
-    apiproxy_stub.APIProxyStub.__init__(self, service_name)
-    datastore_stub_util.DatastoreStub.__init__(self, weakref.proxy(self),
-                                               app_id, trusted)
 
 
 
@@ -359,18 +345,23 @@ class DatastoreFileStub(datastore_stub_util.BaseDatastore,
 
     self.__schema_cache = {}
 
-
-    self.__query_history = {}
-
     self.__next_id = 1L
     self.__id_lock = threading.Lock()
 
     self.__file_lock = threading.Lock()
 
+    datastore_stub_util.BaseDatastore.__init__(
+        self, require_indexes, consistency_policy,
+        use_atexit and self.__IsSaveable())
+    apiproxy_stub.APIProxyStub.__init__(self, service_name)
+    datastore_stub_util.DatastoreStub.__init__(self, weakref.proxy(self),
+                                               app_id, trusted, root_path)
+
 
     self._RegisterPseudoKind(KindPseudoKind())
-    self._RegisterPseudoKind(PropertyPseudoKind(weakref.proxy(self)))
+    self._RegisterPseudoKind(PropertyPseudoKind())
     self._RegisterPseudoKind(NamespacePseudoKind())
+    self._RegisterPseudoKind(datastore_stub_util.EntityGroupPseudoKind())
 
     self.Read()
 
@@ -384,10 +375,17 @@ class DatastoreFileStub(datastore_stub_util.BaseDatastore,
 
       self.__entities_by_kind = collections.defaultdict(dict)
       self.__entities_by_group = collections.defaultdict(dict)
-      self.__query_history = {}
       self.__schema_cache = {}
     finally:
       self.__entities_lock.release()
+
+  def _GetAllEntities(self):
+    """Get all entities.
+
+    Returns:
+      Map from kind to _StoredEntity() list. Do not modify directly.
+    """
+    return self.__entities_by_kind
 
   def _GetEntityLocation(self, key):
     """Get keys to self.__entities_by_* from the given key.
@@ -482,17 +480,22 @@ class DatastoreFileStub(datastore_stub_util.BaseDatastore,
           self.__next_id = last_path.id() + 1
 
   def Write(self):
-    """ Writes out the datastore and history files. Be careful! If the files
-    already exist, this method overwrites them!
+    """Writes out the datastore and history files.
+
+    Be careful! If the files already exist, this method overwrites them!
     """
+    super(DatastoreFileStub, self).Write()
     self.__WriteDatastore()
+
+  def __IsSaveable(self):
+    return (self.__datastore_file and self.__datastore_file != '/dev/null' and
+            self.__save_changes)
 
   def __WriteDatastore(self):
     """ Writes out the datastore file. Be careful! If the file already exists,
     this method overwrites it!
     """
-    if (self.__datastore_file and self.__datastore_file != '/dev/null' and
-        self.__save_changes):
+    if self.__IsSaveable():
       encoded = []
       for kind_dict in self.__entities_by_kind.values():
         encoded.extend(entity.encoded_protobuf for entity in kind_dict.values())
@@ -506,7 +509,10 @@ class DatastoreFileStub(datastore_stub_util.BaseDatastore,
 
     try:
       try:
-        if filename and filename != '/dev/null' and os.path.isfile(filename):
+        if (filename and
+            filename != '/dev/null' and
+            os.path.isfile(filename) and
+            os.stat(filename).st_size > 0):
           return pickle.load(open(filename, 'rb'))
         else:
           logging.warning('Could not read datastore data from %s', filename)
@@ -558,13 +564,14 @@ class DatastoreFileStub(datastore_stub_util.BaseDatastore,
     finally:
       self.__file_lock.release()
 
-  def MakeSyncCall(self, service, call, request, response):
+  def MakeSyncCall(self, service, call, request, response, request_id=None):
     """ The main RPC entry point. service must be 'datastore_v3'."""
     self.assertPbIsInitialized(request)
     super(DatastoreFileStub, self).MakeSyncCall(service,
                                                 call,
                                                 request,
-                                                response)
+                                                response,
+                                                request_id)
     self.assertPbIsInitialized(response)
 
   def assertPbIsInitialized(self, pb):
@@ -573,13 +580,6 @@ class DatastoreFileStub(datastore_stub_util.BaseDatastore,
     assert pb.IsInitialized(explanation), explanation
 
     pb.Encode()
-
-  def QueryHistory(self):
-    """Returns a dict that maps Query PBs to times they've been run.
-    """
-
-    return dict((pb, times) for pb, times in self.__query_history.items()
-                if pb.app() == self._app_id)
 
   def _GetSchemaCache(self, kind, usekey):
     if kind in self.__schema_cache and usekey in self.__schema_cache[kind]:
@@ -637,7 +637,7 @@ class DatastoreFileStub(datastore_stub_util.BaseDatastore,
     eg_k = datastore_types.ReferenceToKeyValue(entity_group)
     return self.__entities_by_group[eg_k].copy()
 
-  def _GetQueryCursor(self, query, filters, orders):
+  def _GetQueryCursor(self, query, filters, orders, index_list):
     app_id = query.app()
     namespace = query.name_space()
 
@@ -653,8 +653,7 @@ class DatastoreFileStub(datastore_stub_util.BaseDatastore,
       app_ns = datastore_types.EncodeAppIdNamespace(app_id, namespace)
       if pseudo_kind:
 
-        (results, filters, orders) = pseudo_kind.Query(self.__entities_by_kind,
-                                                       query, filters, orders)
+        (results, filters, orders) = pseudo_kind.Query(query, filters, orders)
       elif query.has_kind():
         results = [entity.protobuf for entity in
                    self.__entities_by_kind[app_ns, query.kind()].values()]
@@ -668,7 +667,8 @@ class DatastoreFileStub(datastore_stub_util.BaseDatastore,
     finally:
       self.__entities_lock.release()
 
-    return datastore_stub_util._ExecuteQuery(results, query, filters, orders)
+    return datastore_stub_util._ExecuteQuery(results, query,
+                                             filters, orders, index_list)
 
   def _AllocateIds(self, reference, size=1, max_id=None):
     datastore_stub_util.Check(not (size and max_id),
@@ -689,23 +689,3 @@ class DatastoreFileStub(datastore_stub_util.BaseDatastore,
       self.__id_lock.release()
 
     return (start, end)
-
-
-
-  def _OnApply(self):
-    self.__WriteDatastore()
-
-  def _Dynamic_RunQuery(self, query, query_result):
-    super(DatastoreFileStub, self)._Dynamic_RunQuery(query, query_result)
-
-
-    clone = datastore_pb.Query()
-    clone.CopyFrom(query)
-    clone.clear_hint()
-    clone.clear_limit()
-    clone.clear_offset()
-    clone.clear_count()
-    if clone in self.__query_history:
-      self.__query_history[clone] += 1
-    else:
-      self.__query_history[clone] = 1

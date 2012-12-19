@@ -33,6 +33,7 @@ Also a section at the end for the remote_api handler.
 
 
 import logging
+import os
 import random
 import re
 
@@ -62,7 +63,7 @@ import re
 
 # 2) Configuration constants.
 
-# DEBUG: True of False.  When True, verbose messages are logged at the
+# DEBUG: True or False.  When True, verbose messages are logged at the
 # DEBUG level.  Also, this flag is causes tracebacks to be shown in
 # the web UI when an exception occurs.  (Tracebacks are always logged
 # at the ERROR level as well.)
@@ -77,6 +78,16 @@ appstats_DEBUG = False
 # recording implementation.
 
 appstats_DUMP_LEVEL = -1
+
+# SHELL_OK: True or False.  Defaults to True in SDK, False in production.
+# If True, /_ah/stats/shell brings up a UI where you can run arbitrary
+# Python code.  This is like /_ah/admin/interactive, but also displays
+# full Appstats details about the code you ran.
+
+appstats_SHELL_OK = os.getenv('SERVER_SOFTWARE', '').startswith('Dev')
+
+# DEFAULT_SCRIPT: Default script for shell window.
+appstats_DEFAULT_SCRIPT = "print 'Hello, world.'"
 
 # The following constants control the resolution and range of the
 # memcache keys used to record information about individual requests.
@@ -156,6 +167,23 @@ appstats_RECORD_FRACTION = 1.0
 
 appstats_FILTER_LIST = []
 
+# DATASTORE_DETAILS: True or False. This is an experimental flag
+# and is not guaranteed to be supported or work the same way in the
+# future. When True, information regarding keys of entities read or
+# written during various datastore operations and other related details
+# are recorded. Currently the information is logged for the following
+# datastore calls: Get, Put, RunQuery and Next.
+
+appstats_DATASTORE_DETAILS = False
+
+# CALC_RPC_COSTS: True or False. This is an experimental flag
+# and is not guaranteed to be supported or work the same way in the
+# future. When True, the cost and billed operations for each RPC are
+# recorded and displayed in the AppStats UI. Turning this option on
+# may negatively impact application performance.
+
+appstats_CALC_RPC_COSTS = False
+
 # 3) Configuration functions.
 
 # should_record() can be used to record a random percentage of calls.
@@ -227,4 +255,3 @@ def appstats_extract_key(request):
 
 # remoteapi_CUSTOM_ENVIRONMENT_AUTHENTICATION = (
 #     'HTTP_X_APPENGINE_INBOUND_APPID', ['a trusted appid here'])
-

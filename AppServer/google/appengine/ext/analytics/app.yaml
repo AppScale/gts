@@ -1,0 +1,18 @@
+application: appstats-analytics
+version: appstats-analytics
+runtime: python27
+api_version: 1
+threadsafe: false
+
+libraries:
+- name: django
+  version: "1.2"
+
+
+handlers:
+
+- url: /stats.*
+  script: main.app
+
+- url: /.*
+  script: standaloneapp.app

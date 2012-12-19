@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ application_name }} Development Console - Full Text Search{% endblock %}
+
+{% block head %}
+  <style type="text/css">{% include "css/datastore.css" %}</style>
+  <style type="text/css">{% include "css/pager.css" %}</style>
+  <script type="text/javascript">
+  //<![CDATA[
+  function checkAllEntities() {
+    var allCheckBox = document.getElementById("alldocs");
+    var check = allCheckBox.checked;
+    for (var i = 1; i <= {{ values.documents|length }}; i++) {
+      var box = document.getElementById("doc" + i);
+      if (box)
+        box.checked = check;
+    }
+    updateDeleteButtonAndCheckbox();
+  }
+
+  function updateDeleteButtonAndCheckbox() {
+    var button = document.getElementById("delete_button");
+    var uncheck = false;
+    var disable = true;
+    for (var i = 1; i <= {{ values.documents|length }}; i++) {
+      var box = document.getElementById("doc" + i);
+      if (box) {
+        if (box.checked) {
+          disable = false;
+        } else {
+          uncheck = true;
+        }
+      }
+    }
+    button.disabled = disable;
+    if (uncheck)
+      document.getElementById("alldocs").checked = false;
+  }
+  //]]>
+  </script>
+{% endblock %}
+
+{% block breadcrumbs %}
+  <span class="item"><a href="">Text Search</a></span>
+{% endblock %}
+
+{% block body %}
+<h3><a href="{{ prev }}">Text Search</a> > {{ index }}</h3>
+
+<form action="{{ search_index_path }}" method="get">
+  <input type="hidden" name="index" value="{{ index }}"/>
+  <dl>
+    <div id="datastore_search">
+      <div>Query string:</div>
+      <textarea name="query" rows="3" cols="70">{{ query }}</textarea>
+      <div class="field-hint">
+        Learn more about
+        <a href="https://developers.google.com/appengine/docs/python/search/overview#Query_Language_Overview"
+          target="_blank">text search syntax</a>.
+      </div>
+    </div>
+    <div id="datastore_search">
+      Namespace:
+      <div class="ae-input-row">
+        <input id="ae-search-documents-namespace-query" name="namespace"
+        type="text" value="{{ namespace }}">
+        <div class="field-hint">
+          Leave empty for default namespace.
+        </div>
+      </div>
+    </div>
+    <div id="datastore_search">
+      <input type="submit" value="Run Query">
+    </div>
+    </dd>
+  </dl>
+</form>
+<br>
+
+{% if values.documents %}
+  <form action="{{ search_batch_delete_path }}" method="post">
+  <input type="hidden" name="xsrf_token" value="{{ xsrf_token }}"/>
+  <input type="hidden" name="index" value="{{ index }}"/>
+  <input type="hidden" name="namespace" value="{{ namespace }}"/>
+  <input type="hidden" name="numdocs" value="{{ values.documents|length }}"/>
+  <input type="hidden" name="next" value="{{ start_base_url }}"/>
+  <table id="ah-tasks" class="ae-table ae-table-striped">
+    <thead>
+      <tr>
+        <th><input id="alldocs" type="checkbox" onclick="checkAllEntities();"/></th>
+        <th>Document Id</th>
+        {% for field in values.field_names %}
+        <th>{{ field }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for document in values.documents %}
+      <tr class="{% cycle ae-odd,ae-even %}">
+         <td><input id="doc{{ forloop.counter }}" type="checkbox" name="doc{{ forloop.counter }}" value="{{ document.doc_id|urlencode }}" onclick="updateDeleteButtonAndCheckbox();"/></td>
+        <td valign="top">
+          <a href="{{ search_document_path }}?index={{ index|urlencode }}&namespace={{ namespace|urlencode }}&id={{ document.doc_id|urlencode }}&next={{ next }}"> {{ document.doc_id }}</a>
+        </td>
+        {% for field in document.fields %}
+          <td valign="top">
+            {{ field }}
+          </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="entities g-section g-tpl-50-50">
+    <div class="g-unit g-first">
+      <div id="entities-control">
+        <input id="delete_button" type="submit"
+        value="Delete" onclick="return confirm('Are you sure you wish to delete these documents?')" />
+      </div>
+    </div>
+    <div class="g-unit">
+      <div id="entities-pager">
+        {% if paging %}
+          {% include "pager.html" %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  </form>
+{% else %}
+  {% if query %}
+  No documents in the index match the query.
+  {% else %}
+  No documents found in the index.
+  {% endif %}
+{% endif %}
+{% endblock %}
+
+{% block final %}
+  <script type="text/javascript">
+  //<![CDATA[
+  {% if values.documents %}
+  updateDeleteButtonAndCheckbox();
+  {% endif %}
+  //]]>
+  </script>
+{% endblock %}

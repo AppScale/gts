@@ -21,8 +21,10 @@
 """A fast but lossy, totally generic object formatter."""
 
 
+import os
 import types
 
+from google.net.proto import ProtocolBuffer
 
 
 EASY_TYPES = (type(None), int, long, float, bool)
@@ -96,14 +98,17 @@ def _format_value(val, limit, level, len=len, repr=repr):
 
   if typ in STRING_TYPES:
     n1 = (limit - 3) // 2
+    if n1 < 1:
+      n1 = 1
     n2 = (limit - 3) - n1
+    if n2 < 1:
+      n2 = 1
     if len(val) > limit:
-      head = repr(val[:n1])
-      tail = repr(val[-n2:])
-      return head[:n1] + '...' + tail[-n2:]
-    rep = repr(val)
-    if len(rep) <= limit:
-      return rep
+      rep = repr(val[:n1] + val[-n2:])
+    else:
+      rep = repr(val)
+      if len(rep) <= limit:
+        return rep
     return rep[:n1] + '...' + rep[-n2:]
 
   if typ is types.MethodType:
@@ -111,7 +116,10 @@ def _format_value(val, limit, level, len=len, repr=repr):
       fmt = '<unbound method %s of %s>'
     else:
       fmt = '<method %s of %s<>>'
-    return fmt % (val.__name__, val.im_class.__name__)
+    if val.im_class is not None:
+      return fmt % (val.__name__, val.im_class.__name__)
+    else:
+      return fmt % (val.__name__, '?')
 
   if typ is types.FunctionType:
     nam = val.__name__
@@ -123,7 +131,7 @@ def _format_value(val, limit, level, len=len, repr=repr):
   if typ is types.BuiltinFunctionType:
     if val.__self__ is not None:
       return '<built-in method %s of %s<>>' % (val.__name__,
-                                               val.__self__.__class__.__name__)
+                                               type(val.__self__).__name__)
     else:
       return '<built-in function %s>' % val.__name__
 
@@ -135,6 +143,57 @@ def _format_value(val, limit, level, len=len, repr=repr):
 
   if typ is types.CodeType:
     return '<code object %s>' % val.co_name
+
+  if isinstance(val, ProtocolBuffer.ProtocolMessage):
+    buf = [val.__class__.__name__, '<']
+    limit -= len(buf[0]) + 2
+    append = buf.append
+    first = True
+
+    dct = getattr(val, '__dict__', None)
+    if dct:
+      for k, v in sorted(dct.items()):
+        if k.startswith('has_') or not k.endswith('_'):
+          continue
+        name = k[:-1]
+
+        has_method = getattr(val, 'has_' + name, None)
+        if has_method is not None:
+
+
+
+          if type(has_method) is not types.MethodType or not has_method():
+            continue
+
+        size_method = getattr(val, name + '_size', None)
+        if size_method is not None:
+
+
+
+
+          if type(size_method) is not types.MethodType or not size_method():
+            continue
+
+
+
+        if has_method is None and size_method is None:
+          continue
+
+        if first:
+          first = False
+        else:
+          append(', ')
+        limit -= len(name) + 2
+        if limit <= 0:
+          append('...')
+          break
+        append(name)
+        append('=')
+        rep = _format_value(v, limit, level-1)
+        limit -= len(rep)
+        append(rep)
+    append('>')
+    return ''.join(buf)
 
   dct = getattr(val, '__dict__', None)
   if type(dct) is dict:
@@ -199,27 +258,32 @@ def _format_value(val, limit, level, len=len, repr=repr):
     isdict = typ is dict
     if isdict and len(val) <= limit//4:
       series = sorted(val)
-    for elem in series:
-      if limit <= 0:
-        append('...')
-        break
-      rep = _format_value(elem, limit, level-1)
-      limit -= len(rep) + 2
-      append(rep)
-      if isdict:
-        rep = _format_value(val[elem], limit, level-1)
-        limit -= len(rep)
-        append(':')
+    try:
+      for elem in series:
+        if limit <= 0:
+          append('...')
+          break
+        rep = _format_value(elem, limit, level-1)
+        limit -= len(rep) + 2
         append(rep)
-      append(', ')
-    if buffer[-1] == ', ':
-      if tail == ')' and len(val) == 1:
-        buffer[-1] = ',)'
+        if isdict:
+          rep = _format_value(val[elem], limit, level-1)
+          limit -= len(rep)
+          append(':')
+          append(rep)
+        append(', ')
+      if buffer[-1] == ', ':
+        if tail == ')' and len(val) == 1:
+          buffer[-1] = ',)'
+        else:
+          buffer[-1] = tail
       else:
-        buffer[-1] = tail
-    else:
-      append(tail)
-    return ''.join(buffer)
+        append(tail)
+      return ''.join(buffer)
+    except (RuntimeError, KeyError):
+
+
+      return head + tail + ' (Container modified during iteration)'
 
   if issubclass(typ, BUILTIN_TYPES):
 
@@ -236,5 +300,51 @@ def _format_value(val, limit, level, len=len, repr=repr):
           typnam = typ.__name__
           limit -= len(typnam) + 2
           return '%s<%s>' % (typnam, _format_value(val, limit, level-1))
+
+  if (os.environ.get('APPENGINE_RUNTIME') == 'python27' and not
+      os.environ.get('SERVER_SOFTWARE').startswith('Development')):
+    from google.appengine._internal.proto1 import message
+    if isinstance(val, message.Message):
+      buffer = [typ.__name__, '<']
+      limit -= len(buffer[0]) + 2
+      append = buffer.append
+      first = True
+      fields = val.ListFields()
+
+      for f, v in fields:
+        if first:
+          first = False
+        else:
+          append(', ')
+        name = f.name
+        limit -= len(name) + 2
+        if limit <= 0:
+          append('...')
+          break
+        append(name)
+        append('=')
+        if f.label == f.LABEL_REPEATED:
+          limit -= 2
+          append('[')
+          first_sub = True
+          for item in v:
+            if first_sub:
+              first_sub = False
+            else:
+              limit -= 2
+              append(', ')
+            if limit <= 0:
+              append('...')
+              break
+            rep = _format_value(item, limit, level-1)
+            limit -= len(rep)
+            append(rep)
+          append(']')
+        else:
+          rep = _format_value(v, limit, level-1)
+          limit -= len(rep)
+          append(rep)
+      append('>')
+      return ''.join(buffer)
 
   return typ.__name__ + '<>'

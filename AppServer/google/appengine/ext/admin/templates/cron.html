@@ -56,9 +56,7 @@
             {% if job.timezone %}
               <strong>Timezone: {{ job.timezone }}</strong>
               <div class="ah-cron-message">
-                Schedules with timezones won't be calculated correctly here. Use the
-                appcfg.py cron_info command to view the next run times for this schedule,
-                after installing the pytz package.
+                Schedules with timezones won't be calculated correctly here.
               </div>
             {% endif %}
             <div class="ah-cron-times">

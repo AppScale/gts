@@ -50,6 +50,7 @@ import os
 import re
 from xml.sax import saxutils
 
+from google.appengine.api import namespace_manager
 from google.appengine.api import mail
 from google.appengine.ext import db
 from google.appengine.ext import ereporter
@@ -165,6 +166,7 @@ class ReportGenerator(webapp.RequestHandler):
     self.debug = isTrue(self.request.GET.get('debug', 'false'))
     self.delete = isTrue(self.request.GET.get('delete', 'true'))
 
+    namespace_manager.set_namespace('')
     try:
       exceptions = self.GetQuery(order='-minor_version').fetch(self.max_results)
     except db.NeedIndexError:

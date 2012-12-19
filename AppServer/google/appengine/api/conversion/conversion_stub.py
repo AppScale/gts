@@ -146,7 +146,10 @@ class ConversionServiceStub(apiproxy_stub.APIProxyStub):
 
   def __init__(self, service_name="conversion"):
     """Constructor."""
-    apiproxy_stub.APIProxyStub.__init__(self, service_name)
+    apiproxy_stub.APIProxyStub.__init__(
+        self, service_name,
+        conversion.CONVERSION_MAX_SIZE_BYTES *
+        conversion.CONVERSION_MAX_NUM_PER_REQUEST)
 
   def _Dynamic_Convert(self, request, response):
     _validate_conversion_request(request)

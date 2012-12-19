@@ -23,6 +23,11 @@ unpack it and add ``webapp2.py`` to that directory. If you want to use extra
 features such as sessions, extra routes, localization, internationalization
 and more, also add the ``webapp2_extras`` directory to your app.
 
+.. note::
+   webapp2 is part of the Python 2.7 runtime since App Engine SDK 1.6.0,
+   so you don't need to upload it with your app anymore. To include it in
+   your app see
+   `Configuring Libraries <http://code.google.com/appengine/docs/python/python27/using27.html#Configuring_Libraries>`_.
 
 Hello, webapp2!
 ---------------
@@ -30,14 +35,15 @@ Create an ``app.yaml`` file in your app directory with the following contents:
 
 .. code-block:: yaml
 
-   application: hellowebapp2
+   application: helloworld
    version: 1
-   runtime: python
+   runtime: python27
    api_version: 1
+   threadsafe: true
 
    handlers:
    - url: /.*
-     script: main.py
+     script: main.app
 
 Then create a file ``main.py`` and define a handler to display a
 'Hello, webapp2!' message::
@@ -51,12 +57,6 @@ Then create a file ``main.py`` and define a handler to display a
     app = webapp2.WSGIApplication([
         ('/', HelloWebapp2),
     ], debug=True)
-
-    def main():
-        app.run()
-
-    if __name__ == '__main__':
-        main()
 
 
 Test your app

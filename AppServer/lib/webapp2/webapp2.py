@@ -17,6 +17,7 @@ import os
 import re
 import sys
 import threading
+import traceback
 import urllib
 import urlparse
 from wsgiref import handlers
@@ -26,34 +27,34 @@ from webob import exc
 
 _webapp = _webapp_util = _local = None
 
-try:  # pragma: no cover
+try: # pragma: no cover
     # WebOb < 1.0 (App Engine Python 2.5).
     from webob.statusreasons import status_reasons
     from webob.headerdict import HeaderDict as BaseResponseHeaders
-except ImportError:  # pragma: no cover
+except ImportError: # pragma: no cover
     # WebOb >= 1.0.
     from webob.util import status_reasons
     from webob.headers import ResponseHeaders as BaseResponseHeaders
 
 # google.appengine.ext.webapp imports webapp2 in the
 # App Engine Python 2.7 runtime.
-if os.environ.get('APPENGINE_RUNTIME') != 'python27':  # pragma: no cover
+if os.environ.get('APPENGINE_RUNTIME') != 'python27': # pragma: no cover
     try:
         from google.appengine.ext import webapp as _webapp
-    except ImportError:  # pragma: no cover
+    except ImportError: # pragma: no cover
         # Running webapp2 outside of GAE.
         pass
 
-try:  # pragma: no cover
+try: # pragma: no cover
     # Thread-local variables container.
     from webapp2_extras import local
     _local = local.Local()
-except ImportError:  # pragma: no cover
+except ImportError: # pragma: no cover
     logging.warning("webapp2_extras.local is not available "
                     "so webapp2 won't be thread-safe!")
 
 
-__version_info__ = (2, 3)
+__version_info__ = (2, 5, 1)
 __version__ = '.'.join(str(n) for n in __version_info__)
 
 #: Base HTTP exception, set here as public interface.
@@ -68,6 +69,30 @@ _route_re = re.compile(r"""
     """, re.VERBOSE)
 #: Regex extract charset from environ.
 _charset_re = re.compile(r';\s*charset=([^;]*)', re.I)
+
+#: To show exceptions in debug mode.
+_debug_template = """<html>
+  <head>
+    <title>Internal Server Error</title>
+    <style>
+      body {
+        padding: 20px;
+        font-family: arial, sans-serif;
+        font-size: 14px;
+      }
+      pre {
+        background: #F2F2F2;
+        padding: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Internal Server Error</h1>
+    <p>The server has either erred or is incapable of performing
+    the requested operation.</p>
+    <pre>%s</pre>
+  </body>
+</html>"""
 
 # Set same default messages from webapp plus missing ones.
 _webapp_status_reasons = {
@@ -116,17 +141,17 @@ class Request(webob.Request):
         :param environ:
             A WSGI-compliant environment dictionary.
         """
-        if kwargs.get('charset') is None:
+        if kwargs.get('charset') is None and not hasattr(webob, '__version__'):
+            # webob 0.9 didn't have a __version__ attribute and also defaulted
+            # to None rather than UTF-8 if no charset was provided. Providing a
+            # default charset is required for backwards compatibility.
             match = _charset_re.search(environ.get('CONTENT_TYPE', ''))
             if match:
                 charset = match.group(1).lower().strip().strip('"').strip()
             else:
                 charset = 'utf-8'
-
             kwargs['charset'] = charset
 
-        kwargs.setdefault('unicode_errors', 'ignore')
-        kwargs.setdefault('decode_param_names', True)
         super(Request, self).__init__(environ, *args, **kwargs)
         self.registry = {}
 
@@ -235,7 +260,7 @@ class Request(webob.Request):
 
     @classmethod
     def blank(cls, path, environ=None, base_url=None,
-              headers=None, **kwargs):  # pragma: no cover
+              headers=None, **kwargs): # pragma: no cover
         """Adds parameters compatible with WebOb >= 1.0: POST and **kwargs."""
         try:
             return super(Request, cls).blank(path, environ=environ,
@@ -997,7 +1022,7 @@ class Route(BaseRoute):
         values = {}
         for name, regex in variables.iteritems():
             value = kwargs.pop(name, self.defaults.get(name))
-            if not value:
+            if value is None:
                 raise KeyError('Missing argument "%s" to build URI.' % \
                     name.strip('_'))
 
@@ -1470,18 +1495,18 @@ class WSGIApplication(object):
         :param request:
             A :class:`Request` instance.
         """
-        if _local is not None:  # pragma: no cover
+        if _local is not None: # pragma: no cover
             _local.app = app
             _local.request = request
-        else:  # pragma: no cover
+        else: # pragma: no cover
             WSGIApplication.app = WSGIApplication.active_instance = app
             WSGIApplication.request = request
 
     def clear_globals(self):
         """Clears global variables. See :meth:`set_globals`."""
-        if _local is not None:  # pragma: no cover
+        if _local is not None: # pragma: no cover
             _local.__release_local__()
-        else:  # pragma: no cover
+        else: # pragma: no cover
             WSGIApplication.app = WSGIApplication.active_instance = None
             WSGIApplication.request = None
 
@@ -1527,7 +1552,9 @@ class WSGIApplication(object):
         """Last resource error for :meth:`__call__`."""
         logging.exception(exception)
         if self.debug:
-            raise
+            lines = ''.join(traceback.format_exception(*sys.exc_info()))
+            html = _debug_template % (cgi.escape(lines, quote=True))
+            return Response(body=html, status=500)
 
         return exc.HTTPInternalServerError()
 
@@ -1549,7 +1576,7 @@ class WSGIApplication(object):
 
         :param request:
             A :class:`Request` instance.
-        :param request:
+        :param response:
             A :class:`Response` instance.
         :param e:
             The uncaught exception.
@@ -1588,7 +1615,7 @@ class WSGIApplication(object):
                 _webapp_util.run_bare_wsgi_app(self)
             else:
                 _webapp_util.run_wsgi_app(self)
-        else:  # pragma: no cover
+        else: # pragma: no cover
             handlers.CGIHandler().run(self)
 
     def get_response(self, *args, **kwargs):
@@ -1939,7 +1966,7 @@ def _get_route_variables(match, default_kwargs=None):
 
 def _set_thread_safe_app():
     """Assigns WSGIApplication globals to a proxy pointing to thread-local."""
-    if _local is not None:  # pragma: no cover
+    if _local is not None: # pragma: no cover
         WSGIApplication.app = WSGIApplication.active_instance = _local('app')
         WSGIApplication.request = _local('request')
 
@@ -1956,5 +1983,5 @@ _set_thread_safe_app()
 # runtime imports this module to provide its public interface.
 try:
     from google.appengine.ext.webapp import util as _webapp_util
-except ImportError:  # pragma: no cover
+except ImportError: # pragma: no cover
     pass

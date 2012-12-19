@@ -207,7 +207,7 @@ class Djinn
   # A boolean that indicates whether or not we should turn the firewall on,
   # and continuously keep it on. Should definitely be on for releases, and
   # on whenever possible.
-  FIREWALL_IS_ON = false
+  FIREWALL_IS_ON = true
 
 
   # The location on the local filesystem where the AppController writes
@@ -816,11 +816,16 @@ class Djinn
       return
     end
 
-    start_cmd = "ruby #{APPSCALE_HOME}/InfrastructureManager/infrastructure_manager_server.rb"
-    stop_cmd = "pkill -9 infrastructure_manager_server"
+    start_cmd = "python #{APPSCALE_HOME}/InfrastructureManager/infrastructure_manager_service.py"
+    stop_cmd = "pkill -9 infrastructure_manager_service"
     port = [InfrastructureManagerClient::SERVER_PORT]
+    env = {
+      'APPSCALE_HOME' => APPSCALE_HOME,
+      'EC2_HOME' => ENV['EC2_HOME'],
+      'JAVA_HOME' => ENV['JAVA_HOME']
+    }
 
-    GodInterface.start(:iaas_manager, start_cmd, stop_cmd, port)
+    GodInterface.start(:iaas_manager, start_cmd, stop_cmd, port, env)
     Djinn.log_debug("Started InfrastructureManager successfully!")
   end
 
@@ -1461,7 +1466,7 @@ class Djinn
     zookeeper_data['locations'].each { |ip|
       begin
         Djinn.log_debug("Restoring AppController state from ZK at #{ip}")
-        ZKInterface.init_to_ip(my_node.public_ip, ip)
+        ZKInterface.init_to_ip(my_node.private_ip, ip)
         json_state = ZKInterface.get_appcontroller_state()
       rescue Exception => e
         Djinn.log_debug("Saw exception of class #{e.class} from #{ip}, " +
@@ -1748,7 +1753,7 @@ class Djinn
 
   def parse_creds
     got_data_msg = "Got data from another node! DLoc = " + \
-      "#{@nodes.join(', ')}, #{@creds.inspect}, AppsToLoad = " + \
+      "#{@nodes.join(', ')}, #{HelperFunctions.obscure_creds(@creds.inspect)}, AppsToLoad = " + \
       "#{@app_names.join(', ')}"
     Djinn.log_debug(got_data_msg)
         
@@ -1834,20 +1839,21 @@ class Djinn
   # speaking, we assume that our node is identifiable by private IP.
   def find_me_in_locations()
     @my_index = nil
-    Djinn.log_debug("Searching for node index for #{HelperFunctions.local_ip}")
+    all_local_ips = HelperFunctions.get_all_local_ips()
+    Djinn.log_debug("Seeing which node has a private IP that matches " +
+      "our private IPs, which are: #{all_local_ips.join(', ')}")
     Djinn.log_debug("@nodes is #{@nodes.join(', ')}")
     @nodes.each_index { |index|
       Djinn.log_debug("Am I #{@nodes[index].private_ip}?")
-      if @nodes[index].private_ip == HelperFunctions.local_ip
+      if all_local_ips.include?(@nodes[index].private_ip)
         Djinn.log_debug("Yes!")
         @my_index = index
-        break
+        HelperFunctions.set_local_ip(@nodes[index].private_ip)
+        return
       end
       Djinn.log_debug("No...")
     }
-    if @my_index.nil?
-      Djinn.log_debug("I am lost, could not find my node") 
-    end
+    Djinn.log_debug("I am lost, could not find my node") 
   end
 
 
@@ -1914,7 +1920,7 @@ class Djinn
 
     memcache_ips = []
     @nodes.each { |node|
-      memcache_ips << node.public_ip if node.is_memcache?
+      memcache_ips << node.private_ip if node.is_memcache?
     }
 
     Djinn.log_debug("Memcache servers will be at #{memcache_ips.join(', ')}")
@@ -2015,8 +2021,7 @@ class Djinn
 
   def start_blobstore_server
     db_local_ip = @userappserver_private_ip
-    my_ip = my_node.public_ip
-    BlobServer.start(db_local_ip, PbServer::LISTEN_PORT_NO_SSL, my_ip)
+    BlobServer.start(db_local_ip, PbServer::LISTEN_PORT_NO_SSL)
     BlobServer.is_running(db_local_ip)
 
     return true
@@ -2213,6 +2218,7 @@ class Djinn
     ip = node.public_ip
     key = node.ssh_key
     HelperFunctions.ensure_image_is_appscale(ip, key)
+    HelperFunctions.ensure_version_is_supported(ip, key)
     HelperFunctions.ensure_db_is_supported(ip, @creds["table"], key)
   end
 
@@ -2243,16 +2249,18 @@ class Djinn
     secret_key_loc = "/etc/appscale/secret.key"
     cert_loc = "/etc/appscale/certs/mycert.pem"
     key_loc = "/etc/appscale/certs/mykey.pem"
+    pub_key = File.expand_path("~/.ssh/id_rsa.pub")
 
     HelperFunctions.scp_file(secret_key_loc, secret_key_loc, ip, ssh_key)
     HelperFunctions.scp_file(cert_loc, cert_loc, ip, ssh_key)
     HelperFunctions.scp_file(key_loc, key_loc, ip, ssh_key)
+    scp_ssh_key_to_ip(ip, ssh_key, pub_key)
 
     # TODO: should be able to merge these together
     if is_hybrid_cloud?
       cloud_num = 1
       loop {
-        cloud_type = @creds["CLOUD#{cloud_num}_TYPE"]
+        cloud_type = @creds["CLOUD_TYPE"]
         break if cloud_type.nil? or cloud_type == ""
         cloud_keys_dir = File.expand_path("/etc/appscale/keys/cloud#{cloud_num}")
         make_dir = "mkdir -p #{cloud_keys_dir}"
@@ -2281,7 +2289,27 @@ class Djinn
       HelperFunctions.scp_file(cloud_cert, cloud_cert, ip, ssh_key)
     end
   end
+
  
+  # Copies over SSH keys to ~/.ssh on the given machine, enabling that
+  # machine to log in to itself or any other AppScale VM without being
+  # prompted for a password. Note that since this copies keys to ~./ssh,
+  # it will overwrite any keys that already exist there.
+  # Args:
+  #   ip: The IP address to copy SSH keys to.
+  #   private_key: The SSH private key that should be copied over.
+  #   public_key: The SSH public key that should be copied over.
+  def scp_ssh_key_to_ip(ip, private_key, public_key)
+    HelperFunctions.scp_file(private_key, "~/.ssh/id_rsa", ip,
+      private_key)
+    # this is needed for EC2 integration.
+    HelperFunctions.scp_file(private_key, "~/.ssh/id_dsa", ip,
+      private_key)
+    HelperFunctions.scp_file(public_key, "~/.ssh/id_rsa.pub", ip,
+      private_key)
+  end
+
+
   def rsync_files(dest_node)
     controller = "#{APPSCALE_HOME}/AppController"
     server = "#{APPSCALE_HOME}/AppServer"
@@ -2445,8 +2473,11 @@ HOSTS
     ssh_key = node.ssh_key
 
     remote_home = HelperFunctions.get_remote_appscale_home(ip, ssh_key)
-    env = {'APPSCALE_HOME' => remote_home}
-
+    env = {
+      'APPSCALE_HOME' => APPSCALE_HOME,
+      'EC2_HOME' => ENV['EC2_HOME'],
+      'JAVA_HOME' => ENV['JAVA_HOME']
+    }
     start = "ruby #{remote_home}/AppController/djinnServer.rb"
     stop = "ruby #{remote_home}/AppController/terminate.rb"
 
@@ -2497,11 +2528,11 @@ HOSTS
 
   def start_ejabberd()
     @state = "Starting up XMPP server"
-    my_public = my_node.public_ip
+    my_private = my_node.private_ip
     Ejabberd.stop
     Djinn.log_run("rm -f /var/lib/ejabberd/*")
-    Ejabberd.write_auth_script(my_public, @@secret)
-    Ejabberd.write_config_file(my_public)
+    Ejabberd.write_auth_script(my_private, @@secret)
+    Ejabberd.write_config_file(my_private)
     Ejabberd.start
   end
 
@@ -3266,10 +3297,10 @@ HOSTS
     # for app named baz, this translates to baz@login_ip
 
     login_ip = get_login.public_ip
-    login_uac = UserAppClient.new(login_ip, @@secret)
+    uac = UserAppClient.new(@userappserver_public_ip, @@secret)
     xmpp_user = "#{app}@#{login_ip}"
     xmpp_pass = HelperFunctions.encrypt_password(xmpp_user, @@secret)
-    login_uac.commit_new_user(xmpp_user, xmpp_pass, "app")
+    uac.commit_new_user(xmpp_user, xmpp_pass, "app")
 
     Djinn.log_debug("Created user [#{xmpp_user}] with password [#{@@secret}] and hashed password [#{xmpp_pass}]")
 

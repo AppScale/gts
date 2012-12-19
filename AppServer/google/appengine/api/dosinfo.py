@@ -90,12 +90,13 @@ class DosInfoExternal(validation.Validated):
   }
 
 
-def LoadSingleDos(dos_info):
+def LoadSingleDos(dos_info, open_fn=None):
   """Load a dos.yaml file or string and return a DosInfoExternal object.
 
   Args:
     dos_info: The contents of a dos.yaml file as a string, or an open file
       object.
+    open_fn: Function for opening files. Unused.
 
   Returns:
     A DosInfoExternal instance which represents the contents of the parsed yaml

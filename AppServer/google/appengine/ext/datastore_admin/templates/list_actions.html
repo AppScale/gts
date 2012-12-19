@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block body %}
-  <h2>Datastore Admin</h2>
+  <h2>Datastore Admin of {{hosting_app_id}}</h2>
   {% if error %}
   <div class="ae-errorbox">
     {{ error }}
@@ -21,7 +21,7 @@
             Entity statistics unavailable.
           {% endif %}
           <a target="_top"
-             href="http://code.google.com/appengine/kb/adminconsole.html#datastore_stats">
+             href="http://developers.google.com/appengine/kb/adminconsole.html#datastore_stats">
             <img class="ae-help-icon" src="{{ base_path }}/static/img/help.gif"
               height="14" width="14" alt="help">
           </a>
@@ -32,6 +32,9 @@
   </div>
   {% if kind_stats %}
   <form action="{{ base_path }}/" method="post">
+    {% if has_namespace %}
+    <input type="hidden" name="namespace" value="{{ namespace|escape}}">
+    {% endif %}
     <input type="hidden" name="app_id" value="{{ app_id }}">
     <input type="hidden" name="cancel_url" value="{{ cancel_url }}">
     <table id="kinds" class="ae-table ae-table-striped">
@@ -93,26 +96,181 @@
       </tbody>
     </table>
   {% endif %}
-  {% if operations %}
+  {% if pending_backups %}
     <p>
-    <h2>Operations' Status</h2>
+    <div class="ae-table-caption">
+      <div class="ae-paginate">
+        <div class="g-section g-tpl-50-50 g-split">
+          <div class="g-unit g-first">
+            <strong>Pending Backups</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+    <form action="{{ base_path }}/" method="post">
+      <input type="hidden" name="app_id" value="{{ app_id }}">
+      <input type="hidden" name="cancel_url" value="{{ cancel_url }}">
+      <table id="pending_backups" class="ae-table ae-table-striped">
+        <thead>
+          <tr>
+            <th scope="col" class="cbc tct-selectall"></th>
+            <th scope="col" class="id">Name</th>
+            <th scope="col" class="id">Start-Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for pending_backup in pending_backups %}
+            <tr>
+              <td class="cbc">
+                <input type="checkbox" name="backup_id" value="{{ pending_backup.key }}" id="{{ pending_backup.key }}">
+              </td>
+              <td class="id">
+                <span title="Kinds: {{ pending_backup.kinds|join:', '|truncatewords:20|escape}}">{{ pending_backup.name }}{% if pending_backup.original_app %} (Imported from {{pending_backup.original_app|escape}}){% endif %}</span>
+              </td>
+              <td class="id">
+                {{ pending_backup.start_time }}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4" nowrap="nowrap">
+              {% for pending_backup_action in pending_backup_action_list %}
+                  <input type="submit" name="action" style="" class="goog-button" value="{{ pending_backup_action }}">
+              {% endfor %}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </form>
+  {% endif %}
+  <p>
+  <div class="ae-table-caption">
+    <div class="ae-paginate">
+      <div class="g-section g-tpl-50-50 g-split">
+        <div class="g-unit g-first">
+          <strong>Backups</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% if backups %}
+    <form action="{{ base_path }}/" method="post">
+      <input type="hidden" name="app_id" value="{{ app_id }}">
+      <input type="hidden" name="cancel_url" value="{{ cancel_url }}">
+      <table id="backups" class="ae-table ae-table-striped">
+        <thead>
+          <tr>
+            <th scope="col" class="cbc tct-selectall"></th>
+            <th scope="col" class="id">Name</th>
+            <th scope="col" class="id">Start-Time</th>
+            <th scope="col" class="id">End-Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for backup in backups %}
+            <tr>
+              <td class="cbc">
+                <input type="checkbox" name="backup_id" value="{{ backup.key }}" id="{{ backup.key }}">
+              </td>
+              <td class="id">
+                <span title="Kinds: {{ backup.kinds|join:', '|truncatewords:20|escape }}">{{ backup.name }}{% if backup.original_app %} (Imported from {{backup.original_app|escape}}){% endif %}</span>
+              </td>
+              <td class="id">
+                {{ backup.start_time }}
+              </td>
+              <td class="id">
+                {{ backup.complete_time }}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4" nowrap="nowrap">
+              {% for backup_action in backup_action_list %}
+                  <input type="submit" name="action" style="" class="goog-button" value="{{ backup_action }}">
+              {% endfor %}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </form>
+  {% endif %}
+  <div class="ae-table-caption">
+    <form action="{{ base_path }}/" method="post" >
+      <input type="hidden" name="cancel_url" value="{{ cancel_url }}">
+      <input type="submit" name="action" value="Import Backup Information" title="Import Backup Information or restore from Google Cloud Storage"/>
+      <input type="text" name="gs_handle" value="" size="50" title="Google Cloud Storage path of a backup info file or a bucket name"/>
+    </form>
+  </div>
+  {% if active_operations %}
+    <p>
+    <div class="ae-table-caption">
+      <div class="ae-paginate">
+        <div class="g-section g-tpl-50-50 g-split">
+          <div class="g-unit g-first">
+            <strong>Active Operations</strong>
+          </div>
+        </div>
+      </div>
+    </div>
     <table id="operations" class="ae-table ae-table-striped">
       <thead>
         <tr>
           <th scope="col" class="id">Description</th>
-          <th scope="col" class="id">Status</th>
+          <th scope="col" class="id">Jobs</th>
         </tr>
       </thead>
       <tbody>
-        {% for operation in operations %}
+        {% for operation in active_operations %}
           <tr>
             <td class="id">
               {{ operation.description }}
             </td>
             <td class="id">
-              {{ operation.status }}
               ({{operation.completed_jobs}} steps completed,
               {{operation.active_jobs}} active)
+              {% for job_id in operation.active_job_ids %}
+               <br/><a href="{{ map_reduce_path }}?mapreduce_id={{job_id}}">Job {{job_id}}</a>
+              {% endfor %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+  {% if completed_operations %}
+    <p>
+    <div class="ae-table-caption">
+      <div class="ae-paginate">
+        <div class="g-section g-tpl-50-50 g-split">
+          <div class="g-unit g-first">
+            <strong>Completed Operations</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+    <table id="operations" class="ae-table ae-table-striped">
+      <thead>
+        <tr>
+          <th scope="col" class="id">Description</th>
+          <th scope="col" class="id">Completed steps</th>
+          <th scope="col" class="id">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for operation in completed_operations %}
+          <tr>
+            <td class="id">
+              {{ operation.description }}
+            </td>
+            <td class="id">
+              {{operation.completed_jobs}} steps
+            </td>
+            <td class="id">
+              {{operation.status}}
             </td>
           </tr>
         {% endfor %}

@@ -64,7 +64,7 @@ module Ejabberd
     return if nodes.nil?
     nodes.each { |node|
       next if node.is_login? # don't copy the file to itself
-      ip = node.public_ip
+      ip = node.private_ip
       ssh_key = node.ssh_key
       HelperFunctions.scp_file(ONLINE_USERS_FILE, ONLINE_USERS_FILE, ip, ssh_key)
     }
@@ -226,7 +226,7 @@ SCRIPT
     Djinn.log_run("chmod +x #{AUTH_SCRIPT_LOCATION}")
   end
 
-  def self.write_config_file(my_public_ip)
+  def self.write_config_file(my_private_ip)
     config = <<CONFIG
 %%%
 %%%     Debian ejabberd configuration file
@@ -241,10 +241,10 @@ SCRIPT
 %% Options which are set by Debconf and managed by ucf
 
 %% Admin user
-{acl, admin, {user, "admin", "#{my_public_ip}"}}.
+{acl, admin, {user, "admin", "#{my_private_ip}"}}.
 
 %% Hostname
-{hosts, ["#{my_public_ip}"]}.
+{hosts, ["#{my_private_ip}"]}.
 
 {loglevel, 4}.
 

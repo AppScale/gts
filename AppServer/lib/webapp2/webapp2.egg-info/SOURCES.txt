@@ -31,7 +31,6 @@ docs/api/extras.json.rst
 docs/api/extras.local.rst
 docs/api/extras.local_app.rst
 docs/api/extras.mako.rst
-docs/api/extras.protorpc.rst
 docs/api/extras.routes.rst
 docs/api/extras.securecookie.rst
 docs/api/extras.security.rst
@@ -49,7 +48,6 @@ docs/api/webapp2_extras/json.rst
 docs/api/webapp2_extras/local.rst
 docs/api/webapp2_extras/local_app.rst
 docs/api/webapp2_extras/mako.rst
-docs/api/webapp2_extras/protorpc.rst
 docs/api/webapp2_extras/routes.rst
 docs/api/webapp2_extras/securecookie.rst
 docs/api/webapp2_extras/security.rst
@@ -97,7 +95,6 @@ tests/extras_jinja2_test.py
 tests/extras_json_test.py
 tests/extras_local_app_test.py
 tests/extras_mako_test.py
-tests/extras_protorpc_test.py
 tests/extras_routes_test.py
 tests/extras_securecookie_test.py
 tests/extras_security_test.py
@@ -134,7 +131,6 @@ webapp2_extras/json.py
 webapp2_extras/local.py
 webapp2_extras/local_app.py
 webapp2_extras/mako.py
-webapp2_extras/protorpc.py
 webapp2_extras/routes.py
 webapp2_extras/securecookie.py
 webapp2_extras/security.py

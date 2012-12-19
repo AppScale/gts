@@ -62,7 +62,7 @@ can ensure that the traces from the newest minor versions get included by adding
 this to your index.yaml:
 
   indexes:
-  - kind: __google_ExceptionRecord
+  - kind: ExceptionRecord
     properties:
     - name: date
     - name: major_version
@@ -86,6 +86,7 @@ import traceback
 import urllib
 
 from google.appengine.api import memcache
+from google.appengine.api import namespace_manager
 from google.appengine.ext import db
 from google.appengine.ext import webapp
 
@@ -225,13 +226,19 @@ class ExceptionRecordingHandler(logging.Handler):
 
       signature = self.__GetSignature(record.exc_info)
 
+      old_namespace = namespace_manager.get_namespace()
+      try:
+        namespace_manager.set_namespace('')
 
-      if not memcache.add(signature, None, self.log_interval):
-        return
+
+        if not memcache.add(signature, None, self.log_interval):
+          return
 
 
-      db.run_in_transaction_custom_retries(1, self.__EmitTx, signature,
-                                           record.exc_info)
+        db.run_in_transaction_custom_retries(1, self.__EmitTx, signature,
+                                             record.exc_info)
+      finally:
+        namespace_manager.set_namespace(old_namespace)
     except Exception:
       self.handleError(record)
 

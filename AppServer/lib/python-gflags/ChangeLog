@@ -1,3 +1,24 @@
+Wed Jan 18 13:57:39 2012  Google Inc. <google-gflags@googlegroups.com>
+
+	* python-gflags: version 2.0
+	* No changes from version 1.8.
+
+Wed Jan 18 11:54:03 2012  Google Inc. <google-gflags@googlegroups.com>
+
+	* python-gflags: version 1.8
+	* Don't raise DuplicateFlag when re-importing a module (mmcdonald)
+	* Changed the 'official' python-gflags email in setup.py/etc
+	* Changed copyright text to reflect Google's relinquished ownership
+
+Tue Dec 20 17:10:41 2011  Google Inc. <opensource@google.com>
+
+	* python-gflags: version 1.7
+	* Prepare gflags for python 3.x, keeping 2.4 compatibility (twouters)
+	* If output is a tty, use terminal's width to wrap help-text (wiesmann)
+	* PORTING: Fix ImportError for non-Unix platforms (kdeus)
+	* PORTING: Run correctly when termios isn't available (shines)
+	* Add unicode support to flags (csilvers)
+
 Fri Jul 29 12:24:08 2011  Google Inc. <opensource@google.com>
 
 	* python-gflags: version 1.6

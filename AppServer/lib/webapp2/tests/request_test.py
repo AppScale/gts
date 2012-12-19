@@ -54,6 +54,12 @@ class TestRequest(test_base.BaseTestCase):
         self.assertEqual(req.content_type, 'application/json')
         self.assertEqual(req.charset, 'iso-8859-1')
 
+        req = webapp2.Request.blank('/', environ={
+            'CONTENT_TYPE': 'application/json',
+        })
+        self.assertEqual(req.content_type, 'application/json')
+        self.assertEqual(req.charset.lower(), 'utf-8')
+
         match = webapp2._charset_re.search('text/html')
         if match:
             charset = match.group(1).lower().strip().strip('"').strip()

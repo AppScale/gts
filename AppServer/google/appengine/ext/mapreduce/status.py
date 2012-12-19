@@ -280,7 +280,8 @@ class ResourceHandler(base_handler.BaseHandler):
     "status": ("overview.html", "text/html"),
     "detail": ("detail.html", "text/html"),
     "base.css": ("base.css", "text/css"),
-    "jquery.js": ("jquery-1.4.2.min.js", "text/javascript"),
+    "jquery.js": ("jquery-1.6.1.min.js", "text/javascript"),
+    "jquery-json.js": ("jquery.json-2.2.min.js", "text/javascript"),
     "status.js": ("status.js", "text/javascript"),
   }
 
@@ -335,6 +336,7 @@ class ListJobsHandler(base_handler.GetJsonHandler):
 
 
           "chart_url": job.sparkline_url,
+          "chart_width": job.chart_width,
           "active_shards": job.active_shards,
           "shards": job.mapreduce_spec.mapper.shard_count,
       }
