@@ -47,6 +47,15 @@ ff02::2 ip6-allrouters
 ff02::3 ip6-allhosts
 EOF
 }
+
+installpython27()
+{
+    cd /usr/local
+    wget http://appscale.cs.ucsb.edu/appscale_files/Python-2.7.3.tgz
+    tar zxvf Python-2.7.3.tgz
+    rm /usr/local/Python-2.7.3.tgz
+}
+
 patchxmpp()
 {
     PYTHON26_XMPP=/usr/lib/python2.6/dist-packages/xmpp/
