@@ -25,6 +25,7 @@ case "$1" in
 	postinstallhaproxy
 	installnginx
 	postinstallnginx
+        installpython27
 	installappserverjava
 	postinstallappserverjava
 	installmonitoring
@@ -117,6 +118,7 @@ case "$1" in
 	postinstallhaproxy
 	installnginx
 	postinstallnginx
+        installpython27
 	installappserverjava
 	postinstallappserverjava
 	installmonitoring
