@@ -6,8 +6,6 @@
 import os
 import time
 
-import helper_functions
-
 import hyperthrift.gen.ttypes as ttypes
 
 from dbinterface_batch import *
@@ -24,6 +22,7 @@ from xml.sax.handler import ContentHandler
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import constants
+import file_io
 
 # The port hypertable's thrift uses on the local machine
 THRIFT_PORT = 38080
@@ -74,7 +73,7 @@ class DatastoreProxy(AppDBInterface):
     """
       Constructor.
     """
-    self.host = helper_functions.read_file(
+    self.host = file_io.read(
                    constants.APPSCALE_HOME + '/.appscale/my_private_ip')
     self.conn = thriftclient.ThriftClient(self.host, THRIFT_PORT)
     self.ns = self.conn.namespace_open(NS)

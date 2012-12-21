@@ -11,19 +11,6 @@ import os.path
 import random
 import time
 
-def read_file(file_name):
-  """ Opens and reads a file. Helpful for mocking out builtin
-      functions.
-  Args:
-    file_name: path to file to read
-  Returns:
-    Contents of file 
-  """
-  fp = open(file_name, 'r')
-  contents = fp.read()
-  fp.close()
-  return contents
-
 def reverse_lex(ustring):
   """ Strings must be in unicode to reverse the string
     strings are returned in unicode and may not able 

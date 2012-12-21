@@ -25,6 +25,7 @@ from pycassa.system_manager import *
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
 import constants
+import file_io
 
 # This is the default cassandra connection port
 CASS_DEFAULT_PORT = 9160
@@ -49,7 +50,7 @@ class DatastoreProxy(AppDBInterface):
     Constructor.
     """
 
-    self.host = helper_functions.read_file(constants.APPSCALE_HOME + \
+    self.host = file_io.read(constants.APPSCALE_HOME + \
                 '/.appscale/my_private_ip')
     self.port = CASS_DEFAULT_PORT
     self.pool = pycassa.ConnectionPool(keyspace=KEYSPACE,
