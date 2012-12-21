@@ -17,8 +17,8 @@ echo "Success"
 
 echo -n "Getting source code..."
 apt-get install -y git-core
-git clone https://github.com/$USER/appscale.git $BRANCH
-git clone https://github.com/$USER/appscale-tools.git $BRANCH
+git clone https://github.com/$USER/appscale.git --branch $BRANCH
+git clone https://github.com/$USER/appscale-tools.git --branch $BRANCH
 echo "Success"
 
 echo "Building AppScale Image..."
