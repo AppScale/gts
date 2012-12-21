@@ -46,7 +46,7 @@ MAX_ROW_COUNT = 10000000
 table_cache = {}
 class DatastoreProxy(AppDBInterface):
   def __init__(self):
-    self.host = file_io.read_file(constants.APPSCALE_HOME + '/.appscale/my_private_ip')
+    self.host = file_io.read(constants.APPSCALE_HOME + '/.appscale/my_private_ip')
     self.port = DEFAULT_PORT
     self.pool = pycassa.ConnectionPool(keyspace='Keyspace1', 
                            server_list=[self.host+":"+str(self.port)], 

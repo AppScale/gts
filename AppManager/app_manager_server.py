@@ -472,12 +472,13 @@ def choose_python_executable(py_version):
   Returns:
     String of python executable path
   """
-  if py_version == constants.PYTHON:
+  if py_version in [constants.PYTHON, constants.GO]:
     return "/usr/bin/python2.5"
   elif py_version == constants.PYTHON27:
     return "/usr/local/Python-2.7.3/python"
   else:
-    raise NotImplementedError
+    raise NotImplementedError("Unknown python version %s" % \
+                               py_version)
 
 
 def create_python_stop_cmd(port, py_version):

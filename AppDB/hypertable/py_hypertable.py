@@ -18,7 +18,6 @@ from xml.sax import saxutils
 from xml.sax.handler import ContentHandler
 
 from dbinterface import *
-import helper_functions
 import threading 
 
 THRIFT_PORT = 38080

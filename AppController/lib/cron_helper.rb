@@ -12,7 +12,7 @@ module CronHelper
   def self.update_cron(ip, lang, app)
     Djinn.log_debug("saw a cron request with args [#{ip}][#{lang}][#{app}]") 
 
-    if lang == "python" or lang == "python27"
+    if lang == "python" or lang == "python27" or lang == "go"
       cron_file = "/var/apps/#{app}/app/cron.yaml"
       return unless File.exists?(cron_file)
       cron_yaml = YAML.load_file(cron_file)["cron"]
@@ -65,7 +65,7 @@ module CronHelper
         }
       }
     else
-      abort("cron: lang was neither python nor java but was [#{lang}]")
+      Djinn.log_debug("ERROR: lang was neither python, go, nor java but was [#{lang}] (cron)")
     end
   end
 
@@ -115,7 +115,8 @@ module CronHelper
     splitted = schedule.split
 
     unless splitted.length == 3 or splitted.length == 5
-      abort("bad format, length = #{splitted.length}")
+      Djinn.log_debug("bad format, length = #{splitted.length}")
+      return ""
     end
 
     ord = splitted[0]
@@ -139,7 +140,8 @@ module CronHelper
     if ord == "every" # simple case
       cron_lines = ["#{min} #{hour} * #{months_of_year} #{days_of_week}"]
     else # complex case, not implemented yet
-      abort("not implemented yet")
+      Djinn.log_debug("ERROR: not implemented yet (cron)")
+      return ""
     end
 
     return cron_lines

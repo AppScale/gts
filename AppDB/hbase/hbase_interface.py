@@ -3,7 +3,6 @@
 import os
 import sys
 import Hbase
-import helper_functions
 import threading
 import ttypes
 
@@ -12,6 +11,9 @@ from thrift import Thrift
 from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
+import file_io
 
 # Thrift port to connect to HBase
 THRIFT_PORT = 9090
@@ -283,7 +285,7 @@ class DatastoreProxy(AppDBInterface):
     Returns: 
       An HBase client object
     """
-    host = helper_functions.read_file('/etc/appscale/my_private_ip')
+    host = file_io.read('/etc/appscale/my_private_ip')
     t = TSocket.TSocket(host, THRIFT_PORT)
     t = TTransport.TBufferedTransport(t)
     p = TBinaryProtocol.TBinaryProtocol(t)
