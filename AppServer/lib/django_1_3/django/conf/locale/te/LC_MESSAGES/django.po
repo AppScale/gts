@@ -1,0 +1,1125 @@
+# This file is distributed under the same license as the Django package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Django\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2011-03-15 13:11-0400\n"
+"PO-Revision-Date: 2011-03-14 14:52+0000\n"
+"Last-Translator: veeven <veeven@gmail.com>\n"
+"Language-Team: Telugu <>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: te\n"
+"Plural-Forms: nplurals=2; plural=(n != 1)\n"
+
+#: conf/global_settings.py:44
+msgid "Arabic"
+msgstr "ఆరబిక్"
+
+#: conf/global_settings.py:45
+msgid "Azerbaijani"
+msgstr ""
+
+#: conf/global_settings.py:46
+msgid "Bulgarian"
+msgstr "బల్గేరియన్"
+
+#: conf/global_settings.py:47
+msgid "Bengali"
+msgstr "బెంగాలీ"
+
+#: conf/global_settings.py:48
+msgid "Bosnian"
+msgstr "బోస్నియన్"
+
+#: conf/global_settings.py:49
+msgid "Catalan"
+msgstr "కాటలాన్"
+
+#: conf/global_settings.py:50
+msgid "Czech"
+msgstr "ఛెక్"
+
+#: conf/global_settings.py:51
+msgid "Welsh"
+msgstr "వెల్ష్"
+
+#: conf/global_settings.py:52
+msgid "Danish"
+msgstr "డానిష్"
+
+#: conf/global_settings.py:53
+msgid "German"
+msgstr "జెర్మన్"
+
+#: conf/global_settings.py:54
+msgid "Greek"
+msgstr "గ్రీక్"
+
+#: conf/global_settings.py:55
+msgid "English"
+msgstr "ఆంగ్లం"
+
+#: conf/global_settings.py:56
+msgid "British English"
+msgstr "బ్రిటీష్ ఆంగ్లం"
+
+#: conf/global_settings.py:57
+msgid "Spanish"
+msgstr "స్పానిష్"
+
+#: conf/global_settings.py:58
+msgid "Argentinian Spanish"
+msgstr "అర్జెంటీనా స్పానిష్"
+
+#: conf/global_settings.py:59
+msgid "Mexican Spanish"
+msgstr ""
+
+#: conf/global_settings.py:60
+msgid "Estonian"
+msgstr "ఎస్టొనియన్"
+
+#: conf/global_settings.py:61
+msgid "Basque"
+msgstr "బాస్క్"
+
+#: conf/global_settings.py:62
+msgid "Persian"
+msgstr "పారసీ"
+
+#: conf/global_settings.py:63
+msgid "Finnish"
+msgstr "ఫీన్నిష్"
+
+#: conf/global_settings.py:64
+msgid "French"
+msgstr "ఫ్రెంచ్"
+
+#: conf/global_settings.py:65
+msgid "Frisian"
+msgstr "ఫ్రిసియన్"
+
+#: conf/global_settings.py:66
+msgid "Irish"
+msgstr "ఐరిష్"
+
+#: conf/global_settings.py:67
+msgid "Galician"
+msgstr "గలిసియన్"
+
+#: conf/global_settings.py:68
+msgid "Hebrew"
+msgstr "హీబ్రూ"
+
+#: conf/global_settings.py:69
+msgid "Hindi"
+msgstr "హిందీ"
+
+#: conf/global_settings.py:70
+msgid "Croatian"
+msgstr "క్రొయేషియన్"
+
+#: conf/global_settings.py:71
+msgid "Hungarian"
+msgstr "హంగేరియన్"
+
+#: conf/global_settings.py:72
+msgid "Indonesian"
+msgstr "ఇండోనేషియన్"
+
+#: conf/global_settings.py:73
+msgid "Icelandic"
+msgstr "ఐస్లాండిక్"
+
+#: conf/global_settings.py:74
+msgid "Italian"
+msgstr "ఇటాలియవ్"
+
+#: conf/global_settings.py:75
+msgid "Japanese"
+msgstr "జపనీ"
+
+#: conf/global_settings.py:76
+msgid "Georgian"
+msgstr "జార్జియన్"
+
+#: conf/global_settings.py:77
+msgid "Khmer"
+msgstr "ఖ్మెర్"
+
+#: conf/global_settings.py:78
+msgid "Kannada"
+msgstr "కన్నడ"
+
+#: conf/global_settings.py:79
+msgid "Korean"
+msgstr "కొరియన్"
+
+#: conf/global_settings.py:80
+msgid "Lithuanian"
+msgstr "లిథుయేనియన్"
+
+#: conf/global_settings.py:81
+msgid "Latvian"
+msgstr "లాత్వియన్"
+
+#: conf/global_settings.py:82
+msgid "Macedonian"
+msgstr "మెసిడోనియన్"
+
+#: conf/global_settings.py:83
+msgid "Malayalam"
+msgstr "మలయాళం"
+
+#: conf/global_settings.py:84
+msgid "Mongolian"
+msgstr "మంగోలియన్"
+
+#: conf/global_settings.py:85
+msgid "Dutch"
+msgstr "డచ్"
+
+#: conf/global_settings.py:86
+msgid "Norwegian"
+msgstr "నార్వీజియన్"
+
+#: conf/global_settings.py:87
+msgid "Norwegian Bokmal"
+msgstr ""
+
+#: conf/global_settings.py:88
+msgid "Norwegian Nynorsk"
+msgstr ""
+
+#: conf/global_settings.py:89
+msgid "Punjabi"
+msgstr "పంజాబీ"
+
+#: conf/global_settings.py:90
+msgid "Polish"
+msgstr "పొలిష్"
+
+#: conf/global_settings.py:91
+msgid "Portuguese"
+msgstr "పోర్చుగీస్"
+
+#: conf/global_settings.py:92
+msgid "Brazilian Portuguese"
+msgstr "బ్రజీలియన్  పోర్చుగీస్"
+
+#: conf/global_settings.py:93
+msgid "Romanian"
+msgstr "రొమానియన్"
+
+#: conf/global_settings.py:94
+msgid "Russian"
+msgstr "రష్యన్"
+
+#: conf/global_settings.py:95
+msgid "Slovak"
+msgstr "స్లొవాక్"
+
+#: conf/global_settings.py:96
+msgid "Slovenian"
+msgstr "స్లొవానియన్"
+
+#: conf/global_settings.py:97
+msgid "Albanian"
+msgstr "అల్బేనియన్"
+
+#: conf/global_settings.py:98
+msgid "Serbian"
+msgstr "సెర్బియన్"
+
+#: conf/global_settings.py:99
+msgid "Serbian Latin"
+msgstr "సెర్బియన్ లాటిన్"
+
+#: conf/global_settings.py:100
+msgid "Swedish"
+msgstr "స్వీడిష్"
+
+#: conf/global_settings.py:101
+msgid "Tamil"
+msgstr "తమిళం"
+
+#: conf/global_settings.py:102
+msgid "Telugu"
+msgstr "తెలుగు"
+
+#: conf/global_settings.py:103
+msgid "Thai"
+msgstr "థాయి"
+
+#: conf/global_settings.py:104
+msgid "Turkish"
+msgstr "టర్కిష్"
+
+#: conf/global_settings.py:105
+msgid "Ukrainian"
+msgstr "ఉక్రేనియన్"
+
+#: conf/global_settings.py:106
+msgid "Urdu"
+msgstr "ఉర్దూ"
+
+#: conf/global_settings.py:107
+msgid "Vietnamese"
+msgstr "వియెత్నామీ"
+
+#: conf/global_settings.py:108
+msgid "Simplified Chinese"
+msgstr "సరళ చైనీ"
+
+#: conf/global_settings.py:109
+msgid "Traditional Chinese"
+msgstr "సాంప్రదాయ  చైనీ"
+
+#: core/validators.py:21 forms/fields.py:67
+msgid "Enter a valid value."
+msgstr "సరైన విలువని ఇవ్వండి."
+
+#: core/validators.py:89 forms/fields.py:575
+msgid "This URL appears to be a broken link."
+msgstr ""
+
+#: core/validators.py:94 forms/fields.py:574
+msgid "Enter a valid URL."
+msgstr "సరైన URL ఇవ్వండి."
+
+#: core/validators.py:138 forms/fields.py:449
+msgid "Enter a valid e-mail address."
+msgstr "సరైన ఈమెయిలు చిరునామాను ఇవ్వండి."
+
+#: core/validators.py:141 forms/fields.py:958
+msgid ""
+"Enter a valid 'slug' consisting of letters, numbers, underscores or hyphens."
+msgstr ""
+
+#: core/validators.py:144 forms/fields.py:951
+msgid "Enter a valid IPv4 address."
+msgstr "దయచేసి సరైన IPv4 అడ్రస్ ఇవ్వండి"
+
+#: core/validators.py:147 db/models/fields/__init__.py:575
+msgid "Enter only digits separated by commas."
+msgstr "కామాల తో అంకెలు విడడీసి ఇవ్వండి "
+
+#: core/validators.py:153
+#, python-format
+msgid "Ensure this value is %(limit_value)s (it is %(show_value)s)."
+msgstr ""
+
+#: core/validators.py:171 forms/fields.py:222 forms/fields.py:275
+#, python-format
+msgid "Ensure this value is less than or equal to %(limit_value)s."
+msgstr ""
+
+#: core/validators.py:176 forms/fields.py:223 forms/fields.py:276
+#, python-format
+msgid "Ensure this value is greater than or equal to %(limit_value)s."
+msgstr ""
+
+#: core/validators.py:182
+#, python-format
+msgid ""
+"Ensure this value has at least %(limit_value)d characters (it has %"
+"(show_value)d)."
+msgstr ""
+
+#: core/validators.py:188
+#, python-format
+msgid ""
+"Ensure this value has at most %(limit_value)d characters (it has %"
+"(show_value)d)."
+msgstr ""
+
+#: db/models/base.py:769
+#, python-format
+msgid "%(field_name)s must be unique for %(date_field)s %(lookup)s."
+msgstr ""
+
+#: db/models/base.py:784 db/models/base.py:792
+#, python-format
+msgid "%(model_name)s with this %(field_label)s already exists."
+msgstr ""
+
+#: db/models/base.py:791 forms/models.py:562
+msgid "and"
+msgstr "మరియు"
+
+#: db/models/fields/__init__.py:63
+#, python-format
+msgid "Value %r is not a valid choice."
+msgstr ""
+
+#: db/models/fields/__init__.py:64
+msgid "This field cannot be null."
+msgstr "ఈ ఫీల్డ్ కాళీగా ఉందకూడడు      "
+
+#: db/models/fields/__init__.py:65
+msgid "This field cannot be blank."
+msgstr "ఈ ఖాళీని తప్పనిసరిగా పూరించాలి"
+
+#: db/models/fields/__init__.py:70
+#, python-format
+msgid "Field of type: %(field_type)s"
+msgstr ""
+
+#: db/models/fields/__init__.py:451 db/models/fields/__init__.py:871
+#: db/models/fields/__init__.py:980 db/models/fields/__init__.py:991
+#: db/models/fields/__init__.py:1018
+msgid "Integer"
+msgstr "పూర్ణసంఖ్య"
+
+#: db/models/fields/__init__.py:455 db/models/fields/__init__.py:869
+msgid "This value must be an integer."
+msgstr "ఈ విలువ తప్పనిసరిగా పూర్ణసంఖ్య అయివుండాలి."
+
+#: db/models/fields/__init__.py:493
+msgid "This value must be either True or False."
+msgstr "ఈ విలువ తప్పనిసరిగా సత్యము లేదా అసత్యము అయివుండాలి."
+
+#: db/models/fields/__init__.py:495
+msgid "Boolean (Either True or False)"
+msgstr "బూలియన్ (అవునా లేక కాదా)"
+
+#: db/models/fields/__init__.py:542 db/models/fields/__init__.py:1001
+#, python-format
+msgid "String (up to %(max_length)s)"
+msgstr "పదబంధం (గరిష్ఠం %(max_length)s)"
+
+#: db/models/fields/__init__.py:570
+msgid "Comma-separated integers"
+msgstr "కామా  తో విడడీసిన  సంఖ్య"
+
+#: db/models/fields/__init__.py:584
+msgid "Date (without time)"
+msgstr "తేదీ (సమయం లేకుండా)"
+
+#: db/models/fields/__init__.py:588
+msgid "Enter a valid date in YYYY-MM-DD format."
+msgstr "సరైన తేదీని (YYYY-MM-DD రూపంలో) ఇవ్వండి."
+
+#: db/models/fields/__init__.py:589
+#, python-format
+msgid "Invalid date: %s"
+msgstr "చెల్లని తేదీ: %s"
+
+#: db/models/fields/__init__.py:670
+msgid "Enter a valid date/time in YYYY-MM-DD HH:MM[:ss[.uuuuuu]] format."
+msgstr "సరైన తేదీ/సమయాన్ని (YYYY-MM-DD HH:MM[:ss[.uuuuuu]] రూపంలో) ఇవ్వండి."
+
+#: db/models/fields/__init__.py:672
+msgid "Date (with time)"
+msgstr "తేది (సమయం తో)"
+
+#: db/models/fields/__init__.py:746
+msgid "This value must be a decimal number."
+msgstr ""
+
+#: db/models/fields/__init__.py:748
+msgid "Decimal number"
+msgstr "దశగణసంఖ్య"
+
+#: db/models/fields/__init__.py:803
+msgid "E-mail address"
+msgstr "ఇటపా"
+
+#: db/models/fields/__init__.py:818 db/models/fields/files.py:220
+#: db/models/fields/files.py:326
+msgid "File path"
+msgstr "ఫైల్   పాత్"
+
+#: db/models/fields/__init__.py:841
+msgid "This value must be a float."
+msgstr ""
+
+#: db/models/fields/__init__.py:843
+msgid "Floating point number"
+msgstr ""
+
+#: db/models/fields/__init__.py:902
+msgid "Big (8 byte) integer"
+msgstr ""
+
+#: db/models/fields/__init__.py:915
+msgid "IP address"
+msgstr "ఐపీ చిరునామా"
+
+#: db/models/fields/__init__.py:931
+msgid "This value must be either None, True or False."
+msgstr ""
+
+#: db/models/fields/__init__.py:933
+msgid "Boolean (Either True, False or None)"
+msgstr ""
+
+#: db/models/fields/__init__.py:1024
+msgid "Text"
+msgstr "పాఠ్యం"
+
+#: db/models/fields/__init__.py:1040
+msgid "Time"
+msgstr "సమయం"
+
+#: db/models/fields/__init__.py:1044
+msgid "Enter a valid time in HH:MM[:ss[.uuuuuu]] format."
+msgstr "దయచేసి సరైన సమయం (HH:MM[:ss[.uuuuuu]] రూపలావన్యం) ఇవ్వండి"
+
+#: db/models/fields/__init__.py:1120
+msgid "URL"
+msgstr "URL"
+
+#: db/models/fields/__init__.py:1136
+msgid "XML text"
+msgstr "ఎక్స్  ఎమ్   ఎల్"
+
+#: db/models/fields/related.py:815
+#, python-format
+msgid "Model %(model)s with pk %(pk)r does not exist."
+msgstr ""
+
+#: db/models/fields/related.py:817
+msgid "Foreign Key (type determined by related field)"
+msgstr ""
+
+#: db/models/fields/related.py:941
+msgid "One-to-one relationship"
+msgstr ""
+
+#: db/models/fields/related.py:1003
+msgid "Many-to-many relationship"
+msgstr ""
+
+#: db/models/fields/related.py:1023
+msgid ""
+"Hold down \"Control\", or \"Command\" on a Mac, to select more than one."
+msgstr "\"Control\" కాని  \"Command\" మాక్ లో  నొక్కి ఉంచండి  , ఒకటి కన్న ఎక్కువ ఎన్నుకోవటానికి"
+
+#: forms/fields.py:66
+msgid "This field is required."
+msgstr "ఈ ఫీల్డ్ అవసరము"
+
+#: forms/fields.py:221
+msgid "Enter a whole number."
+msgstr "పూర్ణ సంఖ్య ఇవ్వండి"
+
+#: forms/fields.py:253 forms/fields.py:274
+msgid "Enter a number."
+msgstr "దయచేసి పూర్ణ సంఖ్య ఇవ్వండి"
+
+#: forms/fields.py:277
+#, python-format
+msgid "Ensure that there are no more than %s digits in total."
+msgstr ""
+
+#: forms/fields.py:278
+#, python-format
+msgid "Ensure that there are no more than %s decimal places."
+msgstr ""
+
+#: forms/fields.py:279
+#, python-format
+msgid "Ensure that there are no more than %s digits before the decimal point."
+msgstr ""
+
+#: forms/fields.py:342 forms/fields.py:918
+msgid "Enter a valid date."
+msgstr "దయచేసి సరైన తేది ఇవ్వండి."
+
+#: forms/fields.py:370 forms/fields.py:919
+msgid "Enter a valid time."
+msgstr "దయచేసి సరైన సమయం ఇవ్వండి."
+
+#: forms/fields.py:396
+msgid "Enter a valid date/time."
+msgstr "దయచేసి సరైన తెది/సమయం ఇవ్వండి."
+
+#: forms/fields.py:460
+msgid "No file was submitted. Check the encoding type on the form."
+msgstr ""
+
+#: forms/fields.py:461
+msgid "No file was submitted."
+msgstr ""
+
+#: forms/fields.py:462
+msgid "The submitted file is empty."
+msgstr "మీరు సమర్పించిన  ఫైల్ కాళీగా ఉంది "
+
+#: forms/fields.py:463
+#, python-format
+msgid ""
+"Ensure this filename has at most %(max)d characters (it has %(length)d)."
+msgstr ""
+
+#: forms/fields.py:464
+msgid "Please either submit a file or check the clear checkbox, not both."
+msgstr ""
+
+#: forms/fields.py:518
+msgid ""
+"Upload a valid image. The file you uploaded was either not an image or a "
+"corrupted image."
+msgstr ""
+
+#: forms/fields.py:650 forms/fields.py:725
+#, python-format
+msgid "Select a valid choice. %(value)s is not one of the available choices."
+msgstr ""
+
+#: forms/fields.py:726 forms/fields.py:814 forms/models.py:985
+msgid "Enter a list of values."
+msgstr ""
+
+#: forms/formsets.py:305 forms/formsets.py:307
+msgid "Order"
+msgstr "అంతరము"
+
+#: forms/formsets.py:309
+msgid "Delete"
+msgstr "తొలగించు"
+
+#: forms/models.py:556
+#, python-format
+msgid "Please correct the duplicate data for %(field)s."
+msgstr ""
+
+#: forms/models.py:560
+#, python-format
+msgid "Please correct the duplicate data for %(field)s, which must be unique."
+msgstr ""
+
+#: forms/models.py:566
+#, python-format
+msgid ""
+"Please correct the duplicate data for %(field_name)s which must be unique "
+"for the %(lookup)s in %(date_field)s."
+msgstr ""
+
+#: forms/models.py:574
+msgid "Please correct the duplicate values below."
+msgstr ""
+
+#: forms/models.py:835
+msgid "The inline foreign key did not match the parent instance primary key."
+msgstr ""
+
+#: forms/models.py:896
+msgid "Select a valid choice. That choice is not one of the available choices."
+msgstr ""
+
+#: forms/models.py:986
+#, python-format
+msgid "Select a valid choice. %s is not one of the available choices."
+msgstr ""
+
+#: forms/models.py:988
+#, python-format
+msgid "\"%s\" is not a valid value for a primary key."
+msgstr ""
+
+#: forms/widgets.py:299
+msgid "Currently"
+msgstr ""
+
+#: forms/widgets.py:300
+msgid "Change"
+msgstr "మార్చు"
+
+#: forms/widgets.py:301
+msgid "Clear"
+msgstr ""
+
+#: forms/widgets.py:548
+msgid "Unknown"
+msgstr "తెలియనది"
+
+#: forms/widgets.py:548
+msgid "Yes"
+msgstr "అవును"
+
+#: forms/widgets.py:548
+msgid "No"
+msgstr "కాదు"
+
+#: template/defaultfilters.py:777
+msgid "yes,no,maybe"
+msgstr "అవును, కాదు , ఏమొ"
+
+#: template/defaultfilters.py:805 template/defaultfilters.py:810
+#, python-format
+msgid "%(size)d byte"
+msgid_plural "%(size)d bytes"
+msgstr[0] "%(size)d బైటు"
+msgstr[1] "%(size)d బైట్లు"
+
+#: template/defaultfilters.py:812
+#, python-format
+msgid "%s KB"
+msgstr "%s కిబై"
+
+#: template/defaultfilters.py:814
+#, python-format
+msgid "%s MB"
+msgstr "%s మెబై"
+
+#: template/defaultfilters.py:816
+#, python-format
+msgid "%s GB"
+msgstr "%s గిబై"
+
+#: template/defaultfilters.py:818
+#, python-format
+msgid "%s TB"
+msgstr ""
+
+#: template/defaultfilters.py:819
+#, python-format
+msgid "%s PB"
+msgstr ""
+
+#: utils/dateformat.py:42
+msgid "p.m."
+msgstr "p.m."
+
+#: utils/dateformat.py:43
+msgid "a.m."
+msgstr "a.m."
+
+#: utils/dateformat.py:48
+msgid "PM"
+msgstr "PM"
+
+#: utils/dateformat.py:49
+msgid "AM"
+msgstr "AM"
+
+#: utils/dateformat.py:98
+msgid "midnight"
+msgstr "అర్ధరాత్రి"
+
+#: utils/dateformat.py:100
+msgid "noon"
+msgstr "మధ్యాహ్నం"
+
+#: utils/dates.py:6
+msgid "Monday"
+msgstr "సోమవారం"
+
+#: utils/dates.py:6
+msgid "Tuesday"
+msgstr "మంగళవారం"
+
+#: utils/dates.py:6
+msgid "Wednesday"
+msgstr "బుధవారం"
+
+#: utils/dates.py:6
+msgid "Thursday"
+msgstr "గురువారం"
+
+#: utils/dates.py:6
+msgid "Friday"
+msgstr "శుక్రవారం"
+
+#: utils/dates.py:7
+msgid "Saturday"
+msgstr "శనివారం"
+
+#: utils/dates.py:7
+msgid "Sunday"
+msgstr "ఆదివారం"
+
+#: utils/dates.py:10
+msgid "Mon"
+msgstr "సోమ"
+
+#: utils/dates.py:10
+msgid "Tue"
+msgstr "మంగళ"
+
+#: utils/dates.py:10
+msgid "Wed"
+msgstr "బుధ"
+
+#: utils/dates.py:10
+msgid "Thu"
+msgstr "గురు"
+
+#: utils/dates.py:10
+msgid "Fri"
+msgstr "శుక్ర"
+
+#: utils/dates.py:11
+msgid "Sat"
+msgstr "శని"
+
+#: utils/dates.py:11
+msgid "Sun"
+msgstr "ఆది"
+
+#: utils/dates.py:18
+msgid "January"
+msgstr "జనవరి"
+
+#: utils/dates.py:18
+msgid "February"
+msgstr "ఫిబ్రవరి"
+
+#: utils/dates.py:18
+msgid "March"
+msgstr "మార్చి"
+
+#: utils/dates.py:18
+msgid "April"
+msgstr "ఎప్రిల్"
+
+#: utils/dates.py:18
+msgid "May"
+msgstr "మే"
+
+#: utils/dates.py:18
+msgid "June"
+msgstr "జూన్"
+
+#: utils/dates.py:19
+msgid "July"
+msgstr "జులై"
+
+#: utils/dates.py:19
+msgid "August"
+msgstr "ఆగష్టు"
+
+#: utils/dates.py:19
+msgid "September"
+msgstr "సెప్టెంబర్"
+
+#: utils/dates.py:19
+msgid "October"
+msgstr "అక్టోబర్"
+
+#: utils/dates.py:19
+msgid "November"
+msgstr "నవంబర్"
+
+#: utils/dates.py:20
+msgid "December"
+msgstr "డిసెంబర్"
+
+#: utils/dates.py:23
+msgid "jan"
+msgstr "జన"
+
+#: utils/dates.py:23
+msgid "feb"
+msgstr "ఫిబ్ర"
+
+#: utils/dates.py:23
+msgid "mar"
+msgstr "మార్చి"
+
+#: utils/dates.py:23
+msgid "apr"
+msgstr "ఎప్రి"
+
+#: utils/dates.py:23
+msgid "may"
+msgstr "మే"
+
+#: utils/dates.py:23
+msgid "jun"
+msgstr "జూన్"
+
+#: utils/dates.py:24
+msgid "jul"
+msgstr "జూలై"
+
+#: utils/dates.py:24
+msgid "aug"
+msgstr "ఆగ"
+
+#: utils/dates.py:24
+msgid "sep"
+msgstr "సెప్టెం"
+
+#: utils/dates.py:24
+msgid "oct"
+msgstr "అక్టో"
+
+#: utils/dates.py:24
+msgid "nov"
+msgstr "నవం"
+
+#: utils/dates.py:24
+msgid "dec"
+msgstr "డిసెం"
+
+#: utils/dates.py:31
+msgctxt "abbrev. month"
+msgid "Jan."
+msgstr "జన."
+
+#: utils/dates.py:32
+msgctxt "abbrev. month"
+msgid "Feb."
+msgstr "ఫిబ్ర."
+
+#: utils/dates.py:33
+msgctxt "abbrev. month"
+msgid "March"
+msgstr "మార్చి"
+
+#: utils/dates.py:34
+msgctxt "abbrev. month"
+msgid "April"
+msgstr "ఏప్రి."
+
+#: utils/dates.py:35
+msgctxt "abbrev. month"
+msgid "May"
+msgstr "మే"
+
+#: utils/dates.py:36
+msgctxt "abbrev. month"
+msgid "June"
+msgstr "జూన్"
+
+#: utils/dates.py:37
+msgctxt "abbrev. month"
+msgid "July"
+msgstr "జూలై"
+
+#: utils/dates.py:38
+msgctxt "abbrev. month"
+msgid "Aug."
+msgstr "ఆగ."
+
+#: utils/dates.py:39
+msgctxt "abbrev. month"
+msgid "Sept."
+msgstr "సెప్టెం."
+
+#: utils/dates.py:40
+msgctxt "abbrev. month"
+msgid "Oct."
+msgstr "అక్టో."
+
+#: utils/dates.py:41
+msgctxt "abbrev. month"
+msgid "Nov."
+msgstr "నవం."
+
+#: utils/dates.py:42
+msgctxt "abbrev. month"
+msgid "Dec."
+msgstr "డిసెం."
+
+#: utils/dates.py:45
+msgctxt "alt. month"
+msgid "January"
+msgstr "జనవరి"
+
+#: utils/dates.py:46
+msgctxt "alt. month"
+msgid "February"
+msgstr "ఫిబ్రవరి"
+
+#: utils/dates.py:47
+msgctxt "alt. month"
+msgid "March"
+msgstr "మార్చి"
+
+#: utils/dates.py:48
+msgctxt "alt. month"
+msgid "April"
+msgstr "ఏప్రిల్"
+
+#: utils/dates.py:49
+msgctxt "alt. month"
+msgid "May"
+msgstr "మే"
+
+#: utils/dates.py:50
+msgctxt "alt. month"
+msgid "June"
+msgstr "జూన్"
+
+#: utils/dates.py:51
+msgctxt "alt. month"
+msgid "July"
+msgstr "జూలై"
+
+#: utils/dates.py:52
+msgctxt "alt. month"
+msgid "August"
+msgstr "ఆగస్ట్"
+
+#: utils/dates.py:53
+msgctxt "alt. month"
+msgid "September"
+msgstr "సెప్టెంబర్"
+
+#: utils/dates.py:54
+msgctxt "alt. month"
+msgid "October"
+msgstr "అక్టోబర్"
+
+#: utils/dates.py:55
+msgctxt "alt. month"
+msgid "November"
+msgstr "నవంబర్"
+
+#: utils/dates.py:56
+msgctxt "alt. month"
+msgid "December"
+msgstr "డిసెంబర్"
+
+#: utils/text.py:136
+msgid "or"
+msgstr "లేదా"
+
+#. Translators: This string is used as a separator between list elements
+#: utils/text.py:153
+msgid ", "
+msgstr ", "
+
+#: utils/timesince.py:21
+msgid "year"
+msgid_plural "years"
+msgstr[0] "సంవత్సరం"
+msgstr[1] "సంవత్సరాలు"
+
+#: utils/timesince.py:22
+msgid "month"
+msgid_plural "months"
+msgstr[0] "నెల"
+msgstr[1] "నెలలు"
+
+#: utils/timesince.py:23
+msgid "week"
+msgid_plural "weeks"
+msgstr[0] "వారం"
+msgstr[1] "వారాలు"
+
+#: utils/timesince.py:24
+msgid "day"
+msgid_plural "days"
+msgstr[0] "రోజు"
+msgstr[1] "రోజులు"
+
+#: utils/timesince.py:25
+msgid "hour"
+msgid_plural "hours"
+msgstr[0] "గంట"
+msgstr[1] "గంటలు"
+
+#: utils/timesince.py:26
+msgid "minute"
+msgid_plural "minutes"
+msgstr[0] "నిమిషం"
+msgstr[1] "నిమిషాలు"
+
+#: utils/timesince.py:45
+msgid "minutes"
+msgstr "నిమిషాలు"
+
+#: utils/timesince.py:50
+#, python-format
+msgid "%(number)d %(type)s"
+msgstr "%(number)d %(type)s"
+
+#: utils/timesince.py:56
+#, python-format
+msgid ", %(number)d %(type)s"
+msgstr ", %(number)d %(type)s"
+
+#: utils/translation/trans_real.py:568
+msgid "DATE_FORMAT"
+msgstr "N j, Y"
+
+#: utils/translation/trans_real.py:569
+msgid "DATETIME_FORMAT"
+msgstr "N j, Y, P"
+
+#: utils/translation/trans_real.py:570
+msgid "TIME_FORMAT"
+msgstr "P"
+
+#: utils/translation/trans_real.py:591
+msgid "YEAR_MONTH_FORMAT"
+msgstr "F Y"
+
+#: utils/translation/trans_real.py:592
+msgid "MONTH_DAY_FORMAT"
+msgstr "F j"
+
+#: views/generic/create_update.py:121
+#, python-format
+msgid "The %(verbose_name)s was created successfully."
+msgstr "%(verbose_name)s జయప్రదంగా తయారయింది"
+
+#: views/generic/create_update.py:164
+#, python-format
+msgid "The %(verbose_name)s was updated successfully."
+msgstr "%(verbose_name)s జయప్రదంగా  @@"
+
+#: views/generic/create_update.py:207
+#, python-format
+msgid "The %(verbose_name)s was deleted."
+msgstr "%(verbose_name)s తీసివేయబడినది"
+
+#: views/generic/dates.py:33
+msgid "No year specified"
+msgstr ""
+
+#: views/generic/dates.py:58
+msgid "No month specified"
+msgstr ""
+
+#: views/generic/dates.py:99
+msgid "No day specified"
+msgstr ""
+
+#: views/generic/dates.py:138
+msgid "No week specified"
+msgstr ""
+
+#: views/generic/dates.py:198 views/generic/dates.py:214
+#, python-format
+msgid "No %(verbose_name_plural)s available"
+msgstr ""
+
+#: views/generic/dates.py:466
+#, python-format
+msgid ""
+"Future %(verbose_name_plural)s not available because %(class_name)s."
+"allow_future is False."
+msgstr ""
+
+#: views/generic/dates.py:500
+#, python-format
+msgid "Invalid date string '%(datestr)s' given format '%(format)s'"
+msgstr ""
+
+#: views/generic/detail.py:51
+#, python-format
+msgid "No %(verbose_name)s found matching the query"
+msgstr ""
+
+#: views/generic/list.py:47
+msgid "Page is not 'last', nor can it be converted to an int."
+msgstr ""
+
+#: views/generic/list.py:52
+#, python-format
+msgid "Invalid page (%(page_number)s)"
+msgstr ""
+
+#: views/generic/list.py:119
+#, python-format
+msgid "Empty list and '%(class_name)s.allow_empty' is False."
+msgstr ""

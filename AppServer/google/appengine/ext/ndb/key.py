@@ -73,10 +73,12 @@ __author__ = 'guido@google.com (Guido van Rossum)'
 import base64
 import os
 
-from google.appengine.api import datastore_errors
-from google.appengine.api import namespace_manager
-from google.appengine.datastore import datastore_rpc
-from google.appengine.datastore import entity_pb
+from .google_imports import datastore_errors
+from .google_imports import datastore_types
+from .google_imports import namespace_manager
+from .google_imports import entity_pb
+
+from . import utils
 
 __all__ = ['Key']
 
@@ -97,7 +99,7 @@ class Key(object):
   - Key(pairs=[(kind1, id1), (kind2, id2), ...])
   - Key(flat=[kind1, id1, kind2, id2, ...])
 
-  Either of the above constructor forms can additional pass in another
+  Either of the above constructor forms can additionally pass in another
   key using parent=<key>.  The (kind, id) pairs of the parent key are
   inserted before the (kind, id) pairs passed explicitly.
 
@@ -199,7 +201,8 @@ class Key(object):
         kwargs = _args[0]
       else:
         if 'flat' in kwargs:
-          raise TypeError('Key() cannot accept flat as a keyword argument.')
+          raise TypeError('Key() with positional arguments '
+                          'cannot accept flat as a keyword argument.')
         kwargs['flat'] = _args
     self = super(Key, cls).__new__(cls)
     # Either __reference or (__pairs, __app, __namespace) must be set.
@@ -251,6 +254,8 @@ class Key(object):
       if not isinstance(kind, str):
           raise TypeError('Key kind must be a string or Model class; '
                           'received %r' % kind)
+      if not id:
+        id = None
       pairs[i] = (kind, id)
     if parent is not None:
       if not isinstance(parent, Key):
@@ -315,6 +320,8 @@ class Key(object):
 
   def __eq__(self, other):
     """Equality comparison operation."""
+    # This does not use __tuple() because it is usually enough to
+    # compare pairs(), and we're performance-conscious here.
     if not isinstance(other, Key):
       return NotImplemented
     return (tuple(self.pairs()) == tuple(other.pairs()) and
@@ -326,6 +333,34 @@ class Key(object):
     if not isinstance(other, Key):
       return NotImplemented
     return not self.__eq__(other)
+
+  def __tuple(self):
+    """Helper to return an orderable tuple."""
+    return (self.app(), self.namespace(), self.pairs())
+
+  def __lt__(self, other):
+    """Less than ordering."""
+    if not isinstance(other, Key):
+      return NotImplemented
+    return self.__tuple() < other.__tuple()
+
+  def __le__(self, other):
+    """Less than or equal ordering."""
+    if not isinstance(other, Key):
+      return NotImplemented
+    return self.__tuple() <= other.__tuple()
+
+  def __gt__(self, other):
+    """Greater than ordering."""
+    if not isinstance(other, Key):
+      return NotImplemented
+    return self.__tuple() > other.__tuple()
+
+  def __ge__(self, other):
+    """Greater than or equal ordering."""
+    if not isinstance(other, Key):
+      return NotImplemented
+    return self.__tuple() >= other.__tuple()
 
   def __getstate__(self):
     """Private API used for pickling."""
@@ -504,7 +539,7 @@ class Key(object):
     """
     from . import model, tasklets
     ctx = tasklets.get_context()
-    cls = model.Model._get_kind_map().get(self.kind())
+    cls = model.Model._kind_map.get(self.kind())
     if cls:
       cls._pre_get_hook(self)
     fut = ctx.get(self, **ctx_options)
@@ -532,7 +567,7 @@ class Key(object):
     """
     from . import tasklets, model
     ctx = tasklets.get_context()
-    cls = model.Model._get_kind_map().get(self.kind())
+    cls = model.Model._kind_map.get(self.kind())
     if cls:
       cls._pre_delete_hook(self)
     fut = ctx.delete(self, **ctx_options)
@@ -543,10 +578,18 @@ class Key(object):
         fut.add_immediate_callback(post_hook, self, fut)
     return fut
 
+  @classmethod
+  def from_old_key(cls, old_key):
+    return cls(urlsafe=str(old_key))
+
+  def to_old_key(self):
+    return datastore_types.Key(encoded=self.urlsafe())
+
 
 # The remaining functions in this module are private.
+# TODO: Conform to PEP 8 naming, e.g. _construct_reference() etc.
 
-@datastore_rpc._positional(1)
+@utils.positional(1)
 def _ConstructReference(cls, pairs=None, flat=None,
                         reference=None, serialized=None, urlsafe=None,
                         app=None, namespace=None, parent=None):
@@ -598,7 +641,7 @@ def _ConstructReference(cls, pairs=None, flat=None,
     if serialized:
       reference = _ReferenceFromSerialized(serialized)
     if not reference.path().element_size():
-      raise RuntimeError('Key reference path has no element size (%r, %r, %r).'
+      raise RuntimeError('Key reference has no path or elements (%r, %r, %r).'
                          % (urlsafe, serialized, str(reference)))
     # TODO: ensure that each element has a type and either an id or a name
     if not serialized:

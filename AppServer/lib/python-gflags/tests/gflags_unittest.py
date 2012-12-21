@@ -34,6 +34,7 @@
 __pychecker__ = "no-local" # for unittest
 
 
+import cStringIO
 import sys
 import os
 import shutil
@@ -46,6 +47,10 @@ from flags_modules_for_testing import module_baz
 FLAGS=gflags.FLAGS
 
 import gflags_googletest as googletest
+
+# TODO(csilvers): add a wrapper function around FLAGS(argv) that
+# verifies the input is a list or tuple.  This avoids bugs where we
+# make argv a string instead of a list, by mistake.
 
 class FlagsUnitTest(googletest.TestCase):
   "Flags Unit Test"
@@ -70,7 +75,7 @@ class FlagsUnitTest(googletest.TestCase):
     gflags.DEFINE_boolean("quack", 0, "superstring of 'q'")
     gflags.DEFINE_boolean("noexec", 1, "boolean flag with no as prefix")
     gflags.DEFINE_integer("x", 3, "how eXtreme to be")
-    gflags.DEFINE_integer("l", 0x7fffffff00000000L, "how long to be")
+    gflags.DEFINE_integer("l", 0x7fffffff00000000, "how long to be")
     gflags.DEFINE_list('letters', 'a,b,c', "a list of letters")
     gflags.DEFINE_list('numbers', [1, 2, 3], "a list of numbers")
     gflags.DEFINE_enum("kwery", None, ['who', 'what', 'why', 'where', 'when'],
@@ -87,8 +92,8 @@ class FlagsUnitTest(googletest.TestCase):
     assert FLAGS.debug == 0, "boolean default values not set:" + FLAGS.debug
     assert FLAGS.q == 1, "boolean default values not set:" + FLAGS.q
     assert FLAGS.x == 3, "integer default values not set:" + FLAGS.x
-    assert FLAGS.l == 0x7fffffff00000000L, ("integer default values not set:"
-                                            + FLAGS.l)
+    assert FLAGS.l == 0x7fffffff00000000, ("integer default values not set:"
+                                           + FLAGS.l)
     assert FLAGS.letters == ['a', 'b', 'c'], ("list default values not set:"
                                               + FLAGS.letters)
     assert FLAGS.numbers == [1, 2, 3], ("list default values not set:"
@@ -104,7 +109,7 @@ class FlagsUnitTest(googletest.TestCase):
     assert flag_values['q'] == 1
     assert flag_values['quack'] == 0
     assert flag_values['x'] == 3
-    assert flag_values['l'] == 0x7fffffff00000000L
+    assert flag_values['l'] == 0x7fffffff00000000
     assert flag_values['letters'] == ['a', 'b', 'c']
     assert flag_values['numbers'] == [1, 2, 3]
     assert flag_values['kwery'] is None
@@ -484,7 +489,7 @@ class FlagsUnitTest(googletest.TestCase):
     try:
       gflags.DEFINE_boolean("run", 0, "runhelp", short_name='q')
       raise AssertionError("duplicate flag detection failed")
-    except gflags.DuplicateFlag, e:
+    except gflags.DuplicateFlag:
       pass
 
     # Duplicate short flag detection
@@ -531,7 +536,7 @@ class FlagsUnitTest(googletest.TestCase):
                            allow_override=1)
       flag = FLAGS.FlagDict()['dup1']
       self.assertEqual(flag.default, 1)
-    except gflags.DuplicateFlag, e:
+    except gflags.DuplicateFlag:
       raise AssertionError("allow_override did not permit a flag duplication")
 
     # Make sure allow_override works
@@ -545,7 +550,7 @@ class FlagsUnitTest(googletest.TestCase):
                            allow_override=0)
       flag = FLAGS.FlagDict()['dup2']
       self.assertEqual(flag.default, 1)
-    except gflags.DuplicateFlag, e:
+    except gflags.DuplicateFlag:
       raise AssertionError("allow_override did not permit a flag duplication")
 
     # Make sure allow_override doesn't work with None default
@@ -558,8 +563,17 @@ class FlagsUnitTest(googletest.TestCase):
       gflags.DEFINE_boolean("dup3", None, "runhelp d32", short_name='u3',
                            allow_override=1)
       raise AssertionError('Cannot override a flag with a default of None')
-    except gflags.DuplicateFlagCannotPropagateNoneToSwig, e:
+    except gflags.DuplicateFlagCannotPropagateNoneToSwig:
       pass
+
+    # Make sure that re-importing a module does not cause a DuplicateFlagError
+    # to be raised.
+    try:
+      sys.modules.pop(
+          "flags_modules_for_testing.module_baz")
+      import flags_modules_for_testing.module_baz
+    except gflags.DuplicateFlagError:
+      raise AssertionError("Module reimport caused flag duplication error")
 
     # Make sure that when we override, the help string gets updated correctly
     gflags.DEFINE_boolean("dup3", 0, "runhelp d31", short_name='u',
@@ -614,7 +628,7 @@ class FlagsUnitTest(googletest.TestCase):
     try:
       FLAGS.AppendFlagValues(new_flags)
       raise AssertionError("ignore_copy was not set but caused no exception")
-    except gflags.DuplicateFlag, e:
+    except gflags.DuplicateFlag:
       pass
 
     # Integer out of bounds
@@ -795,7 +809,7 @@ class MultiNumericalFlagsTest(googletest.TestCase):
     # Test non-parseable defaults.
     self.assertRaisesWithRegexpMatch(
         gflags.IllegalFlagValue,
-        'flag --m_int2=abc: invalid literal for long\(\) with base 10: \'abc\'',
+        'flag --m_int2=abc: invalid literal for int\(\) with base 10: \'abc\'',
         gflags.DEFINE_multi_int, 'm_int2', ['abc'], 'desc')
 
     self.assertRaisesWithRegexpMatch(
@@ -809,7 +823,7 @@ class MultiNumericalFlagsTest(googletest.TestCase):
     argv = ('./program', '--m_int2=def')
     self.assertRaisesWithRegexpMatch(
         gflags.IllegalFlagValue,
-        'flag --m_int2=def: invalid literal for long\(\) with base 10: \'def\'',
+        'flag --m_int2=def: invalid literal for int\(\) with base 10: \'def\'',
         FLAGS, argv)
 
     gflags.DEFINE_multi_float('m_float2', 2.2,
@@ -819,6 +833,59 @@ class MultiNumericalFlagsTest(googletest.TestCase):
         gflags.IllegalFlagValue,
         'flag --m_float2=def: invalid literal for float\(\): def',
         FLAGS, argv)
+
+
+class UnicodeFlagsTest(googletest.TestCase):
+  """Testing proper unicode support for flags."""
+
+  def testUnicodeDefaultAndHelpstring(self):
+    gflags.DEFINE_string("unicode_str", "\xC3\x80\xC3\xBD".decode("utf-8"),
+                        "help:\xC3\xAA".decode("utf-8"))
+    argv = ("./program",)
+    FLAGS(argv)   # should not raise any exceptions
+
+    argv = ("./program", "--unicode_str=foo")
+    FLAGS(argv)   # should not raise any exceptions
+
+  def testUnicodeInList(self):
+    gflags.DEFINE_list("unicode_list", ["abc", "\xC3\x80".decode("utf-8"),
+                                       "\xC3\xBD".decode("utf-8")],
+                      "help:\xC3\xAB".decode("utf-8"))
+    argv = ("./program",)
+    FLAGS(argv)   # should not raise any exceptions
+
+    argv = ("./program", "--unicode_list=hello,there")
+    FLAGS(argv)   # should not raise any exceptions
+
+  def testXMLOutput(self):
+    gflags.DEFINE_string("unicode1", "\xC3\x80\xC3\xBD".decode("utf-8"),
+                        "help:\xC3\xAC".decode("utf-8"))
+    gflags.DEFINE_list("unicode2", ["abc", "\xC3\x80".decode("utf-8"),
+                                   "\xC3\xBD".decode("utf-8")],
+                      "help:\xC3\xAD".decode("utf-8"))
+    gflags.DEFINE_list("non_unicode", ["abc", "def", "ghi"],
+                      "help:\xC3\xAD".decode("utf-8"))
+
+    outfile = cStringIO.StringIO()
+    FLAGS.WriteHelpInXMLFormat(outfile)
+    actual_output = outfile.getvalue()
+
+    # The xml output is large, so we just check parts of it.
+    self.assertTrue("<name>unicode1</name>\n"
+                    "    <meaning>help:&#236;</meaning>\n"
+                    "    <default>&#192;&#253;</default>\n"
+                    "    <current>&#192;&#253;</current>"
+                    in actual_output)
+    self.assertTrue("<name>unicode2</name>\n"
+                    "    <meaning>help:&#237;</meaning>\n"
+                    "    <default>abc,&#192;,&#253;</default>\n"
+                    "    <current>[\'abc\', u\'\\xc0\', u\'\\xfd\']</current>"
+                    in actual_output)
+    self.assertTrue("<name>non_unicode</name>\n"
+                    "    <meaning>help:&#237;</meaning>\n"
+                    "    <default>abc,def,ghi</default>\n"
+                    "    <current>[\'abc\', \'def\', \'ghi\']</current>"
+                    in actual_output)
 
 
 class LoadFromFlagFileTest(googletest.TestCase):
@@ -1307,7 +1374,7 @@ class FlagsParsingTest(googletest.TestCase):
               '--undefok=nosuchflagg', 'extra')
       self.flag_values(argv)
       raise AssertionError("Unknown flag exception not raised")
-    except gflags.UnrecognizedFlag:
+    except gflags.UnrecognizedFlag, e:
       assert e.flagname == 'nosuchflag'
 
     # Allow unknown short flag -w if specified with undefok
@@ -1725,18 +1792,18 @@ class GetCallingModuleTest(googletest.TestCase):
     # code and execute it.
     code = ("import gflags\n"
             "module_name = gflags._GetCallingModule()")
-    exec code
+    exec(code)
 
     # Next two exec statements executes code with a global environment
     # that is different from the global environment of any imported
     # module.
-    exec code in {}
+    exec(code, {})
     # vars(self) returns a dictionary corresponding to the symbol
     # table of the self object.  dict(...) makes a distinct copy of
     # this dictionary, such that any new symbol definition by the
     # exec-ed code (e.g., import flags, module_name = ...) does not
     # affect the symbol table of self.
-    exec code in dict(vars(self))
+    exec(code, dict(vars(self)))
 
     # Next test is actually more involved: it checks not only that
     # _GetCallingModule does not crash inside exec code, it also checks
@@ -1745,7 +1812,7 @@ class GetCallingModuleTest(googletest.TestCase):
     # check it twice: first time by executing exec from the main
     # module, second time by executing it from module_bar.
     global_dict = {}
-    exec code in global_dict
+    exec(code, global_dict)
     self.assertEqual(global_dict['module_name'],
                      sys.argv[0])
 
@@ -1779,6 +1846,22 @@ class GetCallingModuleTest(googletest.TestCase):
           'flags_modules_for_testing.module_foo')
     finally:
       sys.modules = orig_sys_modules
+
+
+class FindModuleTest(googletest.TestCase):
+  """Testing methods that find a module that defines a given flag."""
+
+  def testFindModuleDefiningFlag(self):
+    self.assertEqual('default', FLAGS.FindModuleDefiningFlag(
+        '__NON_EXISTENT_FLAG__', 'default'))
+    self.assertEqual(
+        module_baz.__name__, FLAGS.FindModuleDefiningFlag('tmod_baz_x'))
+
+  def testFindModuleIdDefiningFlag(self):
+    self.assertEqual('default', FLAGS.FindModuleIdDefiningFlag(
+        '__NON_EXISTENT_FLAG__', 'default'))
+    self.assertEqual(
+        id(module_baz), FLAGS.FindModuleIdDefiningFlag('tmod_baz_x'))
 
 
 class FlagsErrorMessagesTest(googletest.TestCase):

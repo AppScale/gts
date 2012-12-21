@@ -32,7 +32,9 @@ Methods defined in this module:
 
 
 
+import httplib
 import os
+import StringIO
 import threading
 import UserDict
 import urllib2
@@ -73,9 +75,9 @@ class _CaselessDict(UserDict.IterableUserDict):
   This class was lifted from os.py and slightly modified.
   """
 
-  def __init__(self):
-    UserDict.IterableUserDict.__init__(self)
+  def __init__(self, dict=None, **kwargs):
     self.caseless_keys = {}
+    UserDict.IterableUserDict.__init__(self, dict, **kwargs)
 
   def __setitem__(self, key, item):
     """Set dictionary item.
@@ -257,6 +259,7 @@ def fetch(url, payload=None, method=GET, headers={},
   of the returned structure, so HTTP errors like 404 do not result in an
   exception.
   """
+
   rpc = create_rpc(deadline=deadline)
   make_fetch_call(rpc, url, payload, method, headers,
                   allow_truncated, follow_redirects, validate_certificate)
@@ -274,6 +277,7 @@ def make_fetch_call(rpc, url, payload=None, method=GET, headers={},
   Returns:
     The rpc object passed into the function.
   """
+
   assert rpc.service == 'urlfetch', repr(rpc.service)
   if isinstance(method, basestring):
     method = method.upper()
@@ -351,27 +355,57 @@ def _get_fetch_result(rpc):
   """
   assert rpc.service == 'urlfetch', repr(rpc.service)
   assert rpc.method == 'Fetch', repr(rpc.method)
+
+  url = rpc.request.url()
+
   try:
     rpc.check_success()
   except apiproxy_errors.ApplicationError, err:
+    error_detail = ''
+    if err.error_detail:
+      error_detail = ' Error: ' + err.error_detail
     if (err.application_error ==
         urlfetch_service_pb.URLFetchServiceError.INVALID_URL):
-      raise InvalidURLError(str(err))
+      raise InvalidURLError(
+          'Invalid request URL: ' + url + error_detail)
+    if (err.application_error ==
+        urlfetch_service_pb.URLFetchServiceError.CLOSED):
+      raise ConnectionClosedError(
+          'Connection closed unexpectedly by server at URL: ' + url)
+    if (err.application_error ==
+        urlfetch_service_pb.URLFetchServiceError.TOO_MANY_REDIRECTS):
+      raise TooManyRedirectsError(
+          'Too many redirects at URL: ' + url + ' with redirect=true')
+    if (err.application_error ==
+        urlfetch_service_pb.URLFetchServiceError.MALFORMED_REPLY):
+      raise MalformedReplyError(
+          'Malformed HTTP reply received from server at URL: '
+          + url + error_detail)
+    if (err.application_error ==
+        urlfetch_service_pb.URLFetchServiceError.INTERNAL_TRANSIENT_ERROR):
+      raise InteralTransientError(
+          'Temporary error in fetching URL: ' + url + ', please re-try')
+    if (err.application_error ==
+        urlfetch_service_pb.URLFetchServiceError.DNS_ERROR):
+      raise DNSLookupFailedError('DNS lookup failed for URL: ' + url)
     if (err.application_error ==
         urlfetch_service_pb.URLFetchServiceError.UNSPECIFIED_ERROR):
-      raise DownloadError(str(err))
+      raise DownloadError("Unspecified error in fetching URL: "
+                          + url + error_detail)
     if (err.application_error ==
         urlfetch_service_pb.URLFetchServiceError.FETCH_ERROR):
-      raise DownloadError(str(err))
+      raise DownloadError("Unable to fetch URL: " + url + error_detail)
     if (err.application_error ==
         urlfetch_service_pb.URLFetchServiceError.RESPONSE_TOO_LARGE):
-      raise ResponseTooLargeError(None)
+      raise ResponseTooLargeError('HTTP response too large from URL: ' + url)
     if (err.application_error ==
         urlfetch_service_pb.URLFetchServiceError.DEADLINE_EXCEEDED):
-      raise DeadlineExceededError(str(err))
+      raise DeadlineExceededError(
+          'Deadline exceeded while waiting for HTTP response from URL: ' + url)
     if (err.application_error ==
         urlfetch_service_pb.URLFetchServiceError.SSL_CERTIFICATE_ERROR):
-      raise SSLCertificateError(str(err))
+      raise SSLCertificateError(
+        'Invalid and/or missing SSL certificate for URL: ' + url)
     raise err
 
   response = rpc.response
@@ -381,9 +415,7 @@ def _get_fetch_result(rpc):
     raise ResponseTooLargeError(result)
   return result
 
-
 Fetch = fetch
-
 
 class _URLFetchResult(object):
   """A Pythonic representation of our fetch response protocol buffer.
@@ -399,11 +431,11 @@ class _URLFetchResult(object):
     self.content = response_proto.content()
     self.status_code = response_proto.statuscode()
     self.content_was_truncated = response_proto.contentwastruncated()
-    self.headers = _CaselessDict()
     self.final_url = response_proto.finalurl() or None
-    for header_proto in response_proto.header_list():
-      self.headers[header_proto.key()] = header_proto.value()
-
+    self.header_msg = httplib.HTTPMessage(
+        StringIO.StringIO(''.join(['%s: %s\n' % (h.key(), h.value())
+                          for h in response_proto.header_list()] + ['\n'])))
+    self.headers = _CaselessDict(self.header_msg.items())
 
 def get_default_fetch_deadline():
   """Get the default value for create_rpc()'s deadline parameter."""

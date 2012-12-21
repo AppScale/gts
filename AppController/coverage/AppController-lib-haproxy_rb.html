@@ -1095,13 +1095,13 @@
           
           
           <tr class="inferred">
-            <td><pre><a name="line174">174</a>   # TODO(cgb): Lots of copypasta here with write_app_config - eliminate it.</pre></td>
+            <td><pre><a name="line174">174</a>   # TODO(cgb): Lots of copy/paste here with write_app_config - eliminate it.</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line175">175</a>   def self.update_app_config(app_name, app_number, ports, public_ip)</pre></td>
+            <td><pre><a name="line175">175</a>   def self.update_app_config(app_name, app_number, ports, private_ip)</pre></td>
           </tr>
         
           
@@ -1143,7 +1143,7 @@
           
           
           <tr class="uncovered">
-            <td><pre><a name="line182">182</a>       server = HAProxy.server_config(full_app_name, index, public_ip, port)</pre></td>
+            <td><pre><a name="line182">182</a>       server = HAProxy.server_config(full_app_name, index, private_ip, port)</pre></td>
           </tr>
         
           
@@ -1185,7 +1185,7 @@
           
           
           <tr class="uncovered">
-            <td><pre><a name="line189">189</a>     config &lt;&lt; &quot;listen #{full_app_name} #{public_ip}:#{listen_port} \n&quot;</pre></td>
+            <td><pre><a name="line189">189</a>     config &lt;&lt; &quot;listen #{full_app_name} #{private_ip}:#{listen_port} \n&quot;</pre></td>
           </tr>
         
           
@@ -1869,7 +1869,7 @@
       </tbody>
     </table>
 
-    <p>Generated on Sat Sep 01 14:53:08 -0700 2012 with <a href="http://github.com/relevance/rcov">rcov 1.0.0</a></p>
+    <p>Generated on Tue Nov 27 14:27:59 -0800 2012 with <a href="http://github.com/relevance/rcov">rcov 1.0.0</a></p>
 
   </body>
 </html>

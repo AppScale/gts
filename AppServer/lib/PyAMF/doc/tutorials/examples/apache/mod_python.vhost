@@ -1,0 +1,26 @@
+<VirtualHost 192.168.1.100:80>
+
+        ServerName example.server.com
+        DocumentRoot /var/www/myApp
+
+        CustomLog /var/log/apache2/myApp-access.log combined
+        ErrorLog /var/log/apache2/myApp-error.log
+
+        LogLevel warn
+        ServerSignature Off
+
+        # PyAMF gateway
+        <Location /flashservices/gateway>
+                SetHandler mod_python
+                PythonPath "['/var/www/myApp', '/usr/src/pyamf']+sys.path"
+                PythonHandler wsgi
+                PythonOption wsgi.application startup::application
+                PythonOption SCRIPT_NAME /flashservices/gateway
+
+                # Only enable the options below when you're debugging the
+                # application. Turn them Off in a production environment.
+                PythonDebug On
+                PythonAutoReload On
+        </Location>
+
+</VirtualHost>

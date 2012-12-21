@@ -48,6 +48,7 @@ _handler_dir = None
 
 
 _available_builtins = None
+BUILTINS_NOT_AVAIABLE_IN_PYTHON27 = set(['datastore_admin', 'mapreduce'])
 
 
 INCLUDE_FILENAME_TEMPLATE = 'include-%s.yaml'
@@ -108,10 +109,15 @@ def get_yaml_path(builtin_name, runtime=''):
   if _handler_dir is None:
     set_builtins_dir(DEFAULT_DIR)
 
-  if builtin_name not in _available_builtins:
-    raise InvalidBuiltinName('%s is not the name of a valid builtin handler.\n'
-                             'Available handlers are: %s' % (
-                             builtin_name, ', '.join(_available_builtins)))
+  available_builtins = set(_available_builtins)
+  if runtime == 'python27':
+    available_builtins = available_builtins - BUILTINS_NOT_AVAIABLE_IN_PYTHON27
+
+  if builtin_name not in available_builtins:
+    raise InvalidBuiltinName(
+        '%s is not the name of a valid builtin.\n'
+        'Available handlers are: %s' % (
+            builtin_name, ', '.join(sorted(available_builtins))))
   return _get_yaml_path(builtin_name, runtime)
 
 

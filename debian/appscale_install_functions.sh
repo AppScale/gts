@@ -12,7 +12,7 @@ fi
 #if [ -z "$APPSCALE_HOME" ]; then
  #  export APPSCALE_HOME= /root/appscale/
 #fi 
-export APPSCALE_VERSION=1.6.4
+export APPSCALE_VERSION=1.6.5
 
 increaseconnections()
 {
@@ -145,6 +145,15 @@ EOF
 
     cat <<EOF | tee /etc/appscale/home || exit
 ${APPSCALE_HOME_RUNTIME}
+EOF
+    # create the global AppScale environment file
+    DESTFILE=${DESTDIR}/etc/appscale/environment.yaml
+    mkdir -pv $(dirname $DESTFILE)
+    echo "Generating $DESTFILE"
+    cat <<EOF | tee $DESTFILE || exit 1
+APPSCALE_HOME: ${APPSCALE_HOME_RUNTIME}
+EC2_HOME: /usr/local/ec2-api-tools
+JAVA_HOME: /usr/lib/jvm/java-6-openjdk
 EOF
     mkdir -pv /var/log/appscale
     mkdir -pv /var/appscale/

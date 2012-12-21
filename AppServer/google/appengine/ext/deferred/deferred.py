@@ -271,7 +271,9 @@ class TaskHandler(webapp.RequestHandler):
       return
 
 
-
+    # TODO In AppScale we do not check for this XSRF attacks. 
+    # We need some additional # auth like we do for taskqueue with a secret hash.
+    #
     #in_prod = (
     #    not self.request.environ.get("SERVER_SOFTWARE").startswith("Devel"))
     #if in_prod and self.request.environ.get("REMOTE_ADDR") != "0.1.0.2":
@@ -296,11 +298,6 @@ application = webapp.WSGIApplication([(".*", TaskHandler)])
 
 
 def main():
-  #if os.environ["SERVER_SOFTWARE"].startswith("Devel"):
-  logging.warn("You are using deferred in a deprecated fashion. Please change"
-                 " the request handler path for /_ah/queue/deferred in app.yaml"
-                 " to $PYTHON_LIB/google/appengine/ext/deferred/handler.py to"
-                 " avoid encountering import errors.")
   run_wsgi_app(application)
 
 

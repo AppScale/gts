@@ -165,7 +165,8 @@ class _LogRecord(db.Model):
 
 
     time_seconds = (self.end_time or self.start_time) / 10**6
-    date_string = time.strftime('%d/%b/%Y:%T %z', time.localtime(time_seconds))
+    date_string = time.strftime('%d/%b/%Y:%H:%M:%S %z',
+                                time.localtime(time_seconds))
     log.set_combined('%s - %s [%s] \"%s %s %s\" %d %d - \"%s\"' %
                      (self.ip, self.nickname, date_string, self.method,
                       self.resource, self.http_version, self.status or 0,
@@ -274,7 +275,7 @@ class RequestLogWriter(object):
     now_time_usecs = self.get_time_now()
     log.request_id = str(now_time_usecs)
 
-    if start_time:
+    if start_time is not None:
       log.start_time = start_time
     else:
       log.start_time = now_time_usecs
@@ -488,6 +489,11 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
 
     if index == limit:
       response.mutable_offset().set_request_id(str(result.key()))
+
+
+  def _Dynamic_Usage(self, request, response):
+    """Dummy method for compatibility."""
+    raise apiproxy_errors.CapabilityDisabledError('Usage not allowed in tests.')
 
   def get_status(self):
     """Internal method for dev_appserver to read the status."""

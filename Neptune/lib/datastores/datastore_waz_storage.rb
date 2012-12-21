@@ -6,7 +6,6 @@ require 'datastore_s3'
 
 
 require 'rubygems'
-require 'waz-blobs'
 
 
 class DatastoreWAZStorage < Datastore

@@ -95,11 +95,15 @@ def __django_version_setup():
                    'Django version. '
                    'For more information see %s',
                    version,
-                   'http://code.google.com/appengine/docs/python/tools/'
-                   'libraries.html#Django')
+                   'https://developers.google.com/appengine/docs/python/tools/'
+                   'libraries#Django')
     try:
 
-      from django import v0_96
+
+
+      import django
+      if not hasattr(django, 'VERSION'):
+        from django import v0_96
     except ImportError:
 
       pass
@@ -120,7 +124,7 @@ def _django_setup():
   should also work:
 
     # Example taken from from
-    # http://code.google.com/appengine/docs/python/tools/libraries.html#Django
+    # https://developers.google.com/appengine/docs/python/tools/libraries#Django
 
     import os
     os.environ['DJANGO_SETTINGS_MODULE'] = 'settings'

@@ -22,9 +22,18 @@ Small collection of helpful utilities for working with WSGI.
 
 __author__ = 'rafek@google.com (Rafe Kaplan)'
 
+import cStringIO
 import httplib
+import re
 
 from .. import util
+
+__all__ = ['static_page',
+           'error',
+           'first_found',
+]
+
+_STATUS_PATTERN = re.compile('^(\d{3})\s')
 
 
 @util.positional(1)
@@ -107,3 +116,52 @@ def error(status_code, status_message=None,
                      content_type=content_type,
                      headers=headers)
 
+
+def first_found(apps):
+  """Serve the first application that does not response with 404 Not Found.
+
+  If no application serves content, will respond with generic 404 Not Found.
+
+  Args:
+    apps: List of WSGI applications to search through.  Will serve the content
+      of the first of these that does not return a 404 Not Found.  Applications
+      in this list must not modify the environment or any objects in it if they
+      do not match.  Applications that do not obey this restriction can create
+      unpredictable results.
+
+  Returns:
+    Compound application that serves the contents of the first application that
+    does not response with 404 Not Found.
+  """
+  apps = tuple(apps)
+  not_found = error(httplib.NOT_FOUND)
+
+  def first_found_app(environ, start_response):
+    """Compound application returned from the first_found function."""
+    final_result = {}  # Used in absence of Python local scoping.
+
+    def first_found_start_response(status, response_headers):
+      """Replacement for start_response as passed in to first_found_app.
+
+      Called by each application in apps instead of the real start response.
+      Checks the response status, and if anything other than 404, sets 'status'
+      and 'response_headers' in final_result.
+      """
+      status_match = _STATUS_PATTERN.match(status)
+      assert status_match, ('Status must be a string beginning '
+                            'with 3 digit number. Found: %s' % status)
+      status_code = status_match.group(0)
+      if int(status_code) == httplib.NOT_FOUND:
+        return
+
+      final_result['status'] = status
+      final_result['response_headers'] = response_headers
+
+    for app in apps:
+      response = app(environ, first_found_start_response)
+      if final_result:
+        start_response(final_result['status'], final_result['response_headers'])
+        return response
+
+    return not_found(environ, start_response)
+  return first_found_app

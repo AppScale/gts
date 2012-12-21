@@ -29,6 +29,8 @@
 
 
 
+import logging
+
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api.conversion import conversion_service_pb
 from google.appengine.runtime import apiproxy_errors
@@ -461,6 +463,8 @@ def make_convert_call(rpc, conversion):
     TypeError: Input conversions with wrong type.
     See more details in _to_conversion_error function.
   """
+  logging.warning("The Conversion API will be decommissioned in November 2012 "
+                  "and all calls to it will return an error.")
   request = conversion_service_pb.ConversionRequest()
   response = conversion_service_pb.ConversionResponse()
 
