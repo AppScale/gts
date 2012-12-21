@@ -16,13 +16,15 @@ from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 
-import appscale_logger
 import helper_functions
 import pycassa
 
 from dbconstants import *
 from dbinterface_batch import *
 from pycassa.system_manager import *
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
+import constants
 
 # This is the default cassandra connection port
 CASS_DEFAULT_PORT = 9160
@@ -42,21 +44,17 @@ class DatastoreProxy(AppDBInterface):
   """ 
     Cassandra implementation of the AppDBInterface
   """
-  def __init__(self, logger = appscale_logger.getLogger("datastore-cassandra")):
+  def __init__(self):
     """
-    Constructor
-
-    Args:
-       logger: An object that logging messages can be sent to
+    Constructor.
     """
 
-    self.host = helper_functions.read_file(APPSCALE_HOME + \
+    self.host = helper_functions.read_file(constants.APPSCALE_HOME + \
                 '/.appscale/my_private_ip')
     self.port = CASS_DEFAULT_PORT
     self.pool = pycassa.ConnectionPool(keyspace=KEYSPACE,
                           server_list=[self.host+":"+str(self.port)], 
                           prefill=False)
-    self.logger = logger
 
   def batch_get_entity(self, table_name, row_keys, column_names):
     """

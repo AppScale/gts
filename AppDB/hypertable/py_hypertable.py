@@ -17,7 +17,6 @@ from xml.sax import ContentHandler
 from xml.sax import saxutils
 from xml.sax.handler import ContentHandler
 
-import appscale_logger
 from dbinterface import *
 import helper_functions
 import threading 
@@ -50,16 +49,6 @@ NAME_TAG_END="</"+NAME_TAG_TEXT+">"
 
 PROFILING = False
 
-class HTLogger:
-  def __init__(self, log):
-    self.ht_lock = threading.Lock()
-    self.ht_logger = log
-  def debug(self, string):
-    if PROFILING == True:
-      self.ht_lock.acquire()
-      self.ht_logger.info(string)
-      self.ht_lock.release()
-
 class XmlSchemaParser(ContentHandler):
   def __init__(self, tag_name):
     self.tag_name = tag_name
@@ -82,8 +71,7 @@ class XmlSchemaParser(ContentHandler):
       self.attributes.append(ch)
 
 class DatastoreProxy(AppDBInterface):
-  def __init__(self, logger = appscale_logger.getLogger("datastore-hypertable")):
-    self.logger = logger
+  def __init__(self):
     self.conn = None
     self.tableCache = []
     self.lock = threading.Lock()
@@ -177,7 +165,6 @@ class DatastoreProxy(AppDBInterface):
     return table_names
     
   def get_entity(self, table_name, row_key, column_names):
-    starttime = time.time()
     elist = [ERROR_HT]
 
     client = None
@@ -194,16 +181,12 @@ class DatastoreProxy(AppDBInterface):
             break
     except:
       elist[0] += "Not Found"
-    endtime = time.time() 
-    if PROFILING:
-      self.logger.debug("HT GET: %s"%str(endtime - starttime))
     self.__closeConnection(client)
     if len(elist) == 1:
       elist[0] += "Not Found"
     return elist
 
   def delete_table(self, table_name):
-    starttime = time.time()
     elist = [ERROR_HT]
     client = self.__initConnection()
     if self.__table_exist(table_name, client):
@@ -213,16 +196,12 @@ class DatastoreProxy(AppDBInterface):
         elist[0] += "Error deleting table" 
     else:
       elist[0] += "Table not found"
-    endtime = time.time()
-    if PROFILING:
-      self.logger.debug("HT DELETE_TABLE: %s"%str(endtime - starttime))
     self.__closeConnection(client)
     if table_name in self.tableCache:
       self.tableCache.remove(table_name)
     return elist
 
   def put_entity(self, table_name, row_key, column_names, cell_values):
-    starttime = time.time()
     elist = [ERROR_HT]
 
     if len(column_names) != len(cell_values):
@@ -263,14 +242,10 @@ class DatastoreProxy(AppDBInterface):
       elist[0] += "Error in put call"  
       print e
     elist.append("0")
-    endtime = time.time()
-    if PROFILING:
-      self.logger.debug("HT PUT: %s"%str(endtime - starttime))
     self.__closeConnection(client)
     return elist 
 
   def __table_exist(self, table_name,client):
-    starttime = time.time()
     if table_name in self.tableCache:
       return True
 
@@ -287,7 +262,6 @@ class DatastoreProxy(AppDBInterface):
     return ret
 
   def delete_row(self, table_name, row_id):
-    starttime = time.time()
     elist = [ERROR_HT]
     client = None
     try:
@@ -296,14 +270,10 @@ class DatastoreProxy(AppDBInterface):
       client.hql_query(self.ns,query)
     except:
       elist[0] += "Not Found"
-    endtime = time.time()
-    if PROFILING: 
-      self.logger.debug("HT DELETE: %s"%str(endtime - starttime))
     self.__closeConnection(client)
     return elist
 
   def get_row_count(self, table_name):
-    starttime = time.time()
     elist = [ERROR_HT]
     value = 0
     try: 
@@ -319,14 +289,10 @@ class DatastoreProxy(AppDBInterface):
       elist += [value]
     except:
       elist += [0]
-    endtime = time.time()
-    if PROFILING:
-      self.logger.debug("HT GETROWCOUNT: %s"%str(endtime - starttime))
 
     return elist
 
   def get_table(self, table_name, column_names):
-    starttime = time.time()
     elist = [ERROR_HT]
     client = None
     try:
@@ -338,9 +304,6 @@ class DatastoreProxy(AppDBInterface):
           elist += [res[ii].value]
     except:
       pass
-    endtime = time.time()
-    if PROFILING:
-      self.logger.debug("HT GET_TABLE: %s"%str(endtime - starttime))
     self.__closeConnection(client)
     return elist
 
@@ -351,7 +314,6 @@ class DatastoreProxy(AppDBInterface):
     return ret
 
   def run_query(self, table_name, column_names, limit, offset, startrow, endrow, getOnlyKeys, start_inclusive, end_inclusive):
-    starttime = time.time() 
     elist = [ERROR_HT]
     client = None
     try:
@@ -371,8 +333,5 @@ class DatastoreProxy(AppDBInterface):
             elist += [cell.value]
     except:
       elist[0] += "Exception thrown while running a scanner"  
-    endtime = time.time()
-    if PROFILING:
-      self.logger.debug("HT RUN_QUERY: %s"%str(endtime - starttime))
     self.__closeConnection(client)
     return elist

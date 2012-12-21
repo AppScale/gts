@@ -1,23 +1,27 @@
-#
-# Cassandra Interface for AppScale
-# Rewritten by Navraj Chohan for pycassa
-# Modified by Chris Bunch for upgrade to Cassandra 0.50.0 # on 2/17/10
-# Original author: suwanny@gmail.com
+"""
+Cassandra Interface for AppScale
+"""
 
-import os,sys
+import base64   
+import os
+import pycassa
+import sys
 import time
 import string
-import base64   
+
 from dbconstants import *
 from dbinterface import *
-import appscale_logger
-import pycassa
 from pycassa.system_manager import *
+from pycassa.cassandra.ttypes import NotFoundException
+
 from thrift import Thrift
 from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
-from pycassa.cassandra.ttypes import NotFoundException
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
+import constants
+import file_io
 
 ERROR_DEFAULT = "DB_ERROR:" # ERROR_CASSANDRA
 # Store all schema information in a special table
@@ -41,16 +45,13 @@ CONSISTENCY_QUORUM = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
 MAX_ROW_COUNT = 10000000
 table_cache = {}
 class DatastoreProxy(AppDBInterface):
-  def __init__(self, logger = appscale_logger.getLogger("datastore-cassandra")):
-    f = open(APPSCALE_HOME + '/.appscale/my_private_ip', 'r')
-    self.host = f.read()
+  def __init__(self):
+    self.host = file_io.read_file(constants.APPSCALE_HOME + '/.appscale/my_private_ip')
     self.port = DEFAULT_PORT
     self.pool = pycassa.ConnectionPool(keyspace='Keyspace1', 
                            server_list=[self.host+":"+str(self.port)], 
                            prefill=False)
-    f = open(APPSCALE_HOME + '/.appscale/my_private_ip', 'r')
-    host = f.read()
-    sys = SystemManager(host + ":" + str(DEFAULT_PORT))
+    sys = SystemManager(self.host + ":" + str(DEFAULT_PORT))
     try: 
       sys.create_column_family('Keyspace1', 
                                SCHEMA_TABLE, 
@@ -59,12 +60,7 @@ class DatastoreProxy(AppDBInterface):
       print "Exception creating column family: %s"%str(e)
       pass
 
-    self.logger = logger
 
-  def logTiming(self, function, start_time, end_time):
-    if PROFILING:
-      self.logger.debug(function + ": " + str(end_time - start_time) + " s")
-  
   def get_entity(self, table_name, row_key, column_names):
     error = [ERROR_DEFAULT]
     list = error
@@ -129,10 +125,8 @@ class DatastoreProxy(AppDBInterface):
                               finish=end_key)
       keyslices = list(keyslices)
     except pycassa.NotFoundException, ex:
-      self.logger.debug("No column fam yet--exception %s" % ex)
       return result
     except Exception, ex:
-      self.logger.debug("Exception %s" % ex)
       result[0] += "Exception: " + str(ex)
       return result
     # keyslices format is [key:(column1:val,col2:val2), key2...]
@@ -161,7 +155,6 @@ class DatastoreProxy(AppDBInterface):
       # Result is a column type which has name, value, timestamp
       cf.remove(row_key)
     except Exception, ex:
-      self.logger.debug("Exception %s" % ex)
       ret[0]+=("Exception: %s"%ex)
       return ret 
     ret.append("0")
@@ -195,7 +188,6 @@ class DatastoreProxy(AppDBInterface):
       cf.truncate()
       self.delete_row(SCHEMA_TABLE, row_key)
     except Exception, ex:
-      self.logger.debug("Exception %s" % ex)
       result[0]+=("Exception: %s"%ex)
       return result
     if table_name not in table_cache:
@@ -215,9 +207,7 @@ class DatastoreProxy(AppDBInterface):
     # Get and make sure we are not overwriting previous schemas
     ret = self.get_entity(SCHEMA_TABLE, row_key, SCHEMA_TABLE_SCHEMA)
     if ret[0] != ERROR_DEFAULT:
-      f = open(APPSCALE_HOME + '/.appscale/my_private_ip', 'r')
-      host = f.read()
-      sysman = SystemManager(host + ":" + str(DEFAULT_PORT))
+      sysman = SystemManager(self.host + ":" + str(DEFAULT_PORT))
       print "Creating column family %s"%table_name
       try:
         sysman.create_column_family('Keyspace1', string.replace(table_name, '-','a'), comparator_type=UTF8_TYPE)

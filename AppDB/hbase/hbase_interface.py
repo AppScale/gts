@@ -1,18 +1,17 @@
 # Author: Navraj Chohan <nlake44@gmail.com>
 
 import os
-
-import appscale_logger
+import sys
 import Hbase
 import helper_functions
 import threading
 import ttypes
 
+from dbinterface import *
 from thrift import Thrift
 from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
-from dbinterface import *
 
 # Thrift port to connect to HBase
 THRIFT_PORT = 9090
@@ -21,14 +20,11 @@ class DatastoreProxy(AppDBInterface):
   """ 
     The AppScale DB API class implementation for HBase
   """
-  def __init__(self, logger = appscale_logger.getLogger("datastore-hbase")):
+  def __init__(self):
     """
-    Constructor
-    Args:
-      logger: Used for logging
+    Constructor.
     """
     self.lock = threading.Lock()
-    self.logger = logger
     self.connection = self.create_connection()
 
   def batch_get_entity(self, table_name, row_keys, column_names):
@@ -154,7 +150,7 @@ class DatastoreProxy(AppDBInterface):
     try:
       client.disableTable(table_name)
       client.deleteTable(table_name)
-    except ttypes.IOError, io: # table not found
+    except ttypes.IOError: # table not found
       pass
     self.__release_lock()
 

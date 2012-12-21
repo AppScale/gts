@@ -6,7 +6,6 @@
 import os
 import time
 
-import appscale_logger
 import helper_functions
 
 import hyperthrift.gen.ttypes as ttypes
@@ -22,6 +21,9 @@ from xml.sax.handler import feature_namespaces
 from xml.sax import ContentHandler
 from xml.sax import saxutils
 from xml.sax.handler import ContentHandler
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
+import constants
 
 # The port hypertable's thrift uses on the local machine
 THRIFT_PORT = 38080
@@ -68,15 +70,12 @@ class DatastoreProxy(AppDBInterface):
       decoding functions must keep lexigraphical ordering for range queries 
       to work properly.
   """
-  def __init__(self, logger = appscale_logger.getLogger("datastore-hypertable")):
-    """ Constructor
-
-    Args:
-      logger: Object where log messages are sent
+  def __init__(self):
     """
-    self.logger = logger
+      Constructor.
+    """
     self.host = helper_functions.read_file(
-                   APPSCALE_HOME + '/.appscale/my_private_ip')
+                   constants.APPSCALE_HOME + '/.appscale/my_private_ip')
     self.conn = thriftclient.ThriftClient(self.host, THRIFT_PORT)
     self.ns = self.conn.namespace_open(NS)
 
