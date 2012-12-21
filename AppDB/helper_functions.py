@@ -55,26 +55,6 @@ def reverse_lex_128(ustring):
     newstr += char
   return newstr
 
-class ThreadedLogger():
-  def __init__(self, filename):
-    split_path = os.path.split(filename)
-    directory = split_path[0]
-    if not os.path.exists(directory): os.mkdir(directory, 0777)
-    self.log_logger = logging.getLogger(filename)
-    self.log_logger.setLevel(logging.INFO)
-    self.formatter = logging.Formatter("%(asctime)s %(module)s:%(lineno)-4d %(message)s")
-    self.handler = logging.handlers.RotatingFileHandler(filename, maxBytes=10000000, backupCount=10)
-    self.handler.setFormatter(self.formatter)
-    self.log_logger.addHandler(self.handler)
-    self.loggingOn = False
-
-  def turnLoggingOn(self):
-   self.loggingOn = True
-
-  def debug(self, string):
-    if self.loggingOn:
-      self.log_logger.info(string)
-
 def random_string(length):
   """ Returns a string of a given length. 
 

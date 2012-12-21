@@ -2,11 +2,13 @@
 """
  Datastore Constants
 """
-
 import os
-APPSCALE_HOME=os.environ.get("APPSCALE_HOME")
+import sys 
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
+import constants
+
 SECRET_LOCATION = "/etc/appscale/secret.key"
-LOG_DIR = "%s/AppDB/logs" % APPSCALE_HOME
 
 ERROR_DEFAULT = "DB_ERROR:"
 NONEXISTANT_TRANSACTION = "0"
