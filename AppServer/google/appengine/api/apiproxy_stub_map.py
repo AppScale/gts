@@ -445,7 +445,12 @@ class UserRPC(object):
 
 
 
-      raise apiproxy_errors.InterruptedError(None, self.__rpc)
+      # AppScale: This Error will erroneously be thrown if the ndb library is
+      # used. Commenting it out to allow that library to work.
+      # TODO(nlake44): Consider the ramifications upon other possible API calls
+      # of doing this.
+      # raise apiproxy_errors.InterruptedError(None, self.__rpc)
+      pass
 
   @property
   def service(self):
