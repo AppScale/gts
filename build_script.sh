@@ -7,7 +7,6 @@ fi
 echo "Success"
 
 set -e
-set -x
 BRANCH=master
 USER=AppScale
 
