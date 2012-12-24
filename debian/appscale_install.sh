@@ -26,6 +26,8 @@ case "$1" in
 	installnginx
 	postinstallnginx
         installpython27
+        installnumpy
+        installmatplotlib
 	installappserverjava
 	postinstallappserverjava
 	installmonitoring
@@ -119,6 +121,8 @@ case "$1" in
 	installnginx
 	postinstallnginx
         installpython27
+        installnumpy
+        installmatplotlib
 	installappserverjava
 	postinstallappserverjava
 	installmonitoring

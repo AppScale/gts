@@ -956,7 +956,7 @@ class DatastoreDistributed():
     # Detect quickly if this is a kind query or not
     for fi in filter_info:
       if fi != "__key__":
-        return 
+        return None
 
     if order_info:
       if len(order_info) > 0: return None
@@ -1514,7 +1514,7 @@ class DatastoreDistributed():
 
     cur = cassandra_stub_util.QueryCursor(query, result)
     cur.PopulateQueryResult(count, query.offset(), query_result) 
-  
+
   def setup_transaction(self, app_id) :
     """ Gets a transaction ID for a new transaction """
     _MAX_RAND = 1000000  # arbitary large number
