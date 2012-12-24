@@ -12,7 +12,7 @@ module CronHelper
   def self.update_cron(ip, lang, app)
     Djinn.log_debug("saw a cron request with args [#{ip}][#{lang}][#{app}]") 
 
-    if lang == "python"
+    if lang == "python" or lang == "python27"
       cron_file = "/var/apps/#{app}/app/cron.yaml"
       return unless File.exists?(cron_file)
       cron_yaml = YAML.load_file(cron_file)["cron"]
