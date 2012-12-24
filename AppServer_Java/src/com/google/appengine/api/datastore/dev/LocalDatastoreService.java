@@ -151,7 +151,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     public static final String                  HIGH_REP_JOB_POLICY_CLASS_PROPERTY = "datastore.high_replication_job_policy_class";
     private static final Pattern                RESERVED_NAME                      = Pattern.compile("^__.*__$");
 
-    private static final Set<String>            RESERVED_NAME_WHITELIST            = new HashSet(Arrays.asList(new String[] { "__BlobUploadSession__", "__BlobInfo__", "__ProspectiveSearchSubscriptions__", "__BlobFileIndex__", "__GsFileInfo__", "__BlobServingUrl__" }));
+    private static final Set<String>            RESERVED_NAME_WHITELIST            = new HashSet(Arrays.asList(new String[] { "__BlobUploadSession__", "__BlobInfo__", "__ProspectiveSearchSubscriptions__", "__BlobFileIndex__", "__GsFileInfo__", "__BlobServingUrl__", "__BlobChunk__" }));
     static final String                         ENTITY_GROUP_MESSAGE               = "cross-group transaction need to be explicitly specified, see TransactionOptions.Builder.withXG";
     static final String                         TOO_MANY_ENTITY_GROUP_MESSAGE      = "operating on too many entity groups in a single transaction.";
     static final String                         MULTI_EG_TXN_NOT_ALLOWED           = "transactions on multiple entity groups only allowed in High Replication applications";
@@ -1059,6 +1059,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
          * AppScale line replacement
          */
         proxy.doPost(req.getApp(), "BeginTransaction", req, txn);
+        profile.addTxn(txn.getHandle(), new LiveTxn(this.clock, req.isAllowMultipleEg()));
         return txn;
     }
 
