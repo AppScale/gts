@@ -16,7 +16,6 @@ import appscale_datastore
 #import helper_functions
 import SOAPpy
 from dbconstants import *
-import appscale_logger
 import md5 
 import random
 import datetime
@@ -123,20 +122,6 @@ appname/Grandparent:<ID>/Parent:<ID>/Child:<ID>
 for the entity table
 """
 appscale_log = ""
-class ThreadLogger:
-  def __init__(self, log):
-    self.logger_ = log
-    self.log_lock = threading.Lock()
-
-  def debug(self, string):
-    return
-    self.log_lock.acquire()
-    print string
-    self.logger_.info(string)
-    self.log_lock.release()
-
-logger = appscale_logger.getLogger("pb_server")
-
 
 class putThread(threading.Thread):
   def setup(self, db, table, key, fields, values):
@@ -166,7 +151,6 @@ def getTableName(app_id, kind, namespace):
 
 def getRowKey(app_id, ancestor_list):
   if ancestor_list == None:
-    #logger.debug("Generate row key received null ancestor list")
     return ""
 
   key = app_id 
@@ -382,7 +366,6 @@ class MainHandler(tornado.web.RequestHandler):
       response = api_base_pb.Integer64Proto()
       response.set_value(0)
       response = response.Encode()
-      #logger.debug(errdetail)
       """
       response, errcode, errdetail = self.create_index_request(app_id, 
                                                 appscale_version,
@@ -392,7 +375,6 @@ class MainHandler(tornado.web.RequestHandler):
       response = datastore_pb.CompositeIndices().Encode()
       errcode = 0
       errdetail = ""
-      #logger.debug(errdetail)
       """
       response, errcode, errdetail = self.get_indices_request(app_id, 
                                                appscale_version,
@@ -402,7 +384,6 @@ class MainHandler(tornado.web.RequestHandler):
       response = api_base_pb.VoidProto().Encode()
       errcode = 0
       errdetail = ""
-      #logger.debug(errdetail)
       """
       response, errcode, errdetail = self.update_index_request(app_id, 
                                                 appscale_version,
@@ -412,7 +393,6 @@ class MainHandler(tornado.web.RequestHandler):
       response = api_base_pb.VoidProto().Encode()
       errcode = 0
       errdetail = ""
-      #logger.debug(errdetail)
 
       """
       response, errcode, errdetail = self.delete_index_request(app_id, 
@@ -422,7 +402,6 @@ class MainHandler(tornado.web.RequestHandler):
     else:
       errcode = datastore_pb.Error.BAD_REQUEST 
       errdetail = "Unknown datastore message" 
-      #logger.debug(errdetail)
     apiresponse.set_response(response)  
     #if response:
     #  rawmessage.set_response(response)
@@ -492,7 +471,6 @@ class MainHandler(tornado.web.RequestHandler):
   def run_query(self, app_id, http_request_data):
     query = datastore_pb.Query(http_request_data)
     namespace = query.name_space()
-    logger.debug("QUERY:%s" % query)
     results = []
     kinds = []
     is_trans_on = True
@@ -627,7 +605,6 @@ class MainHandler(tornado.web.RequestHandler):
       delete_list.reverse()
       for ii in delete_list:
         del results[ii]
-      #logger.debug("RESULTS: %s" % results )
    
       (filters, orders) = datastore_index.Normalize(query.filter_list(),
                                                     query.order_list(), [])
@@ -635,8 +612,6 @@ class MainHandler(tornado.web.RequestHandler):
           _MAX_QUERY_COMPONENTS)
       datastore_stub_util.FillUsersInQuery(filters)
    
-      #logger.debug("====results pre filter====")
-      #logger.debug("%s" % results)
       if query.has_ancestor():
         ancestor_path = query.ancestor().path().element_list()
         def is_descendant(entity):
@@ -671,7 +646,6 @@ class MainHandler(tornado.web.RequestHandler):
             for filter_prop in filt.property_list():
               filter_val = datastore_types.FromPropertyPb(filter_prop)
               comp = u'%r %s %r' % (fixed_entity_val, op, filter_val)
-              #logger.debug('Evaling filter expression "%s"' % comp )
               if eval(comp):
                 return True
           return False
@@ -748,14 +722,7 @@ class MainHandler(tornado.web.RequestHandler):
           return cmp(x_type, y_type)
 
       results.sort(order_compare_entities)
-      #limit = query.limit()
-      #offset = query.offset() 
-      #if query.has_limit():
-      #  results = results[:query.limit()]
-
-
-      #logger.debug("****results after filtering:****")
-      #logger.debug("%s" % results)
+  
    
     results = [ent._ToPb() for ent in results]
     for result in results:
@@ -769,7 +736,6 @@ class MainHandler(tornado.web.RequestHandler):
     
     clone_qr_pb.clear_cursor()
     clone_qr_pb.set_more_results( len(results)>0 )
-    #logger.debug("QUERY_RESULT: %s" % clone_qr_pb)
     del results
     return (clone_qr_pb.Encode(), 0, "")
 
@@ -806,10 +772,8 @@ class MainHandler(tornado.web.RequestHandler):
 
   def allocate_ids_request(self, app_id, http_request_data): # kowshik
     zoo_keeper = zoo_keeper_real
-    #logger.info("inside allocate_ids_request handler")
     request = datastore_pb.AllocateIdsRequest(http_request_data)
     response = datastore_pb.AllocateIdsResponse()
-    #logger.info("created request and response objects")
     # The highest key
     highest_key = request.size()
     # Reference, which holds path info
@@ -839,7 +803,6 @@ class MainHandler(tornado.web.RequestHandler):
     # that are larger than one
 
     # we could not use generate_unique_id because it should not be cached.
-    #logger.info("just before attempting to allocate ids with zookeeper")
     uid = 0
     blockSize = 0
     while uid + blockSize <= highest_key and uid >= 0:
@@ -849,7 +812,6 @@ class MainHandler(tornado.web.RequestHandler):
         uid, blockSize = zoo_keeper.generateIDBlock(app_id)
 
     if uid < 0:
-     logger.info("Failed!") 
      return (request.Encode(),
                datastore_pb.Error.INTERNAL_ERROR,
               'Allocation of id failed.')
@@ -1099,15 +1061,8 @@ class MainHandler(tornado.web.RequestHandler):
           tableHashTable[table_name] = 1
         
       # Store One Entity #
-      """
-      logger.debug("put: %s___%s___%s with id: %s" % (app_id, 
-                                                      kind, 
-                                                      appscale_version, 
-                                                      str(uid)))
-      """
       row_key = getRowKey(app_id, e.key().path().element_list())
       inter_time = time.time() 
-      #logger.debug("Time spent in put before datastore call: " + str(inter_time - start_time))
 
       ################################################
       # Do a read before a write to get the old values
@@ -1213,7 +1168,6 @@ class MainHandler(tornado.web.RequestHandler):
   def get_request(self, app_id, http_request_data):
     global app_datastore
     getreq_pb = datastore_pb.GetRequest(http_request_data)
-    #logger.debug("GET_REQUEST: %s" % getreq_pb)
     getresp_pb = datastore_pb.GetResponse()
 
     is_trans_on = True
@@ -1248,7 +1202,6 @@ class MainHandler(tornado.web.RequestHandler):
 
       if last_path.has_type():
         kind = last_path.type()
-      #logger.debug("get: %s___%s___%s %s" % (app_id, kind, appscale_version, str(entity_id)))
       namespace = key.name_space()
       if namespace.startswith("notrans_"):
         is_trans_on = False
@@ -1300,7 +1253,6 @@ class MainHandler(tornado.web.RequestHandler):
         group.mutable_entity().CopyFrom(e_pb)
         
     # Send Response #
-    #logger.debug("GET_RESPONSE: %s" % getresp_pb)
     return (getresp_pb.Encode(), 0, "")
 
   """ Deletes are just PUTs using a sentinal value of DELETED
@@ -1316,9 +1268,7 @@ class MainHandler(tornado.web.RequestHandler):
 
     root_key = None
     txn = None
-    #logger.debug("DeleteRequest Received...")
     delreq_pb = datastore_pb.DeleteRequest( http_request_data )
-    #logger.debug("DELETE_REQUEST: %s" % delreq_pb)
     delresp_pb = api_base_pb.VoidProto() 
     if delreq_pb.has_transaction():
       txn = delreq_pb.transaction()
@@ -1446,7 +1396,6 @@ class MainHandler(tornado.web.RequestHandler):
                                            field_value_list)
       if is_trans_on:
         err = r[0]
-        #logger.debug("Response from DB for delete request %s" % err)
         if err not in ERROR_CODES: 
           if DEBUG: print err
           self.maybe_rollback_transaction(app_id, delreq_pb, txn.handle())
@@ -1492,15 +1441,6 @@ class MainHandler(tornado.web.RequestHandler):
 # Returns 0 on success, 1 on failure
   def create_index_tables(self, app_id):
     global app_datastore
-    """table_name = "__" + app_id + "__" + "kind"
-    columns = ["reference"]
-    print "Building table: " + table_name
-    returned = app_datastore.create_table( table_name, columns )
-    err,res = returned
-    if err not in ERROR_CODES:
-      logger.debug("%s" % err)
-      return 1
-    """
     table_name = "__" + app_id + "__" + "single_prop_asc"
     columns = ["reference"]
     returned = app_datastore.create_table( table_name, columns )
@@ -1526,7 +1466,6 @@ class MainHandler(tornado.web.RequestHandler):
   # OTHER TYPE #
   ##############
   def unknown_request(self, app_id, http_request_data, pb_type):
-    #logger.debug("Received Unknown Protocol Buffer %s" % pb_type )
     print "ERROR: Received Unknown Protocol Buffer <" + pb_type +">.",
     print "Nothing has been implemented to handle this Protocol Buffer type."
     print "http request data:"
@@ -1545,7 +1484,6 @@ class MainHandler(tornado.web.RequestHandler):
     pb_type = request.headers['protocolbuffertype']   
     app_data = request.headers['appdata']
     app_data  = app_data.split(':')
-    #logger.debug("POST len: %d" % len(app_data))
 
     if len(app_data) == 4:
       app_id, user_email, nick_name, auth_domain = app_data
@@ -1557,12 +1495,9 @@ class MainHandler(tornado.web.RequestHandler):
       app_id = app_data[0]
       os.environ['APPLICATION_ID'] = app_id 
     else:
-      #logger.debug("UNABLE TO EXTRACT APPLICATION DATA")
       return
 
     # Default HTTP Response Data #
-    #logger.debug("For app id: " + app_id)
-    #logger.debug("For app version: " + appscale_version)
 
     if pb_type == "Request":
       self.remote_request(app_id, http_request_data)
@@ -1665,7 +1600,6 @@ def main(argv):
   if DEBUG: print VALID_DATASTORES
   if db_type in VALID_DATASTORES:
     pass
-    #logger.debug("Using datastore %s" % db_type)
   else:
     print "Unknown datastore "+ db_type
     exit(1)
@@ -1687,9 +1621,7 @@ def main(argv):
       tornado.ioloop.IOLoop.instance().start()
     except SSL.SSLError:
       pass
-      #logger.debug("\n\nUnexcepted input for AppScale-Secure-Server")
     except KeyboardInterrupt:
-      #server.socket.close() 
       print "Server interrupted by user, terminating..."
       exit(1)
 

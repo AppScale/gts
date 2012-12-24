@@ -11,8 +11,8 @@ from flexmock import flexmock
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../cassandra"))  
 import cassandra_interface
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
-import helper_functions 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib/"))  
+import file_io
 
 class FakeCassClient():
   """ Fake cassandra client class for mocking """
@@ -47,8 +47,8 @@ class FakeSystemManager():
 
 class TestCassandra(unittest.TestCase):
   def testConstructor(self):
-    flexmock(helper_functions) \
-        .should_receive('read_file') \
+    flexmock(file_io) \
+        .should_receive('read') \
         .and_return('127.0.0.1')
 
     flexmock(pycassa).should_receive("ConnectionPool") \
@@ -57,8 +57,8 @@ class TestCassandra(unittest.TestCase):
     db = cassandra_interface.DatastoreProxy()
 
   def testGet(self):
-    flexmock(helper_functions) \
-        .should_receive('read_file') \
+    flexmock(file_io) \
+        .should_receive('read') \
         .and_return('127.0.0.1')
 
     flexmock(pycassa).should_receive("ConnectionPool") \
@@ -70,8 +70,8 @@ class TestCassandra(unittest.TestCase):
     assert {} == db.batch_get_entity('table', [], [])
 
   def testPut(self):
-    flexmock(helper_functions) \
-        .should_receive('read_file') \
+    flexmock(file_io) \
+        .should_receive('read') \
         .and_return('127.0.0.1')
 
     flexmock(pycassa) \
@@ -84,8 +84,8 @@ class TestCassandra(unittest.TestCase):
     assert None == db.batch_put_entity('table', [], [], {})
 
   def testDeleteTable(self):
-    flexmock(helper_functions) \
-        .should_receive('read_file') \
+    flexmock(file_io) \
+        .should_receive('read') \
         .and_return('127.0.0.1')
 
     flexmock(pycassa.system_manager) \
@@ -98,8 +98,8 @@ class TestCassandra(unittest.TestCase):
     db.delete_table('table')    
 
   def testRangeQuery(self):
-    flexmock(helper_functions) \
-        .should_receive('read_file') \
+    flexmock(file_io) \
+        .should_receive('read') \
         .and_return('127.0.0.1')
 
     flexmock(pycassa) \
