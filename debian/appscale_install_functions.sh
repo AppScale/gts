@@ -84,6 +84,18 @@ installmatplotlib()
     rm -fdr matplotlib
 }
 
+installPIL()
+{
+    mkdir -pv ${APPSCALE_HOME}/downloads
+    cd ${APPSCALE_HOME}/downloads
+    wget http://appscale.cs.ucsb.edu/appscale_files/Imaging-1.1.7.tar.gz 
+    tar zxvf Imaging-1.1.7.tar.gz
+    cd Imaging-1.1.7
+    /usr/local/Python-2.7.3/python setup.py install
+    cd ..
+    rm -fdr Imaging-1.1.7*
+}
+
 patchxmpp()
 {
     PYTHON26_XMPP=/usr/lib/python2.6/dist-packages/xmpp/

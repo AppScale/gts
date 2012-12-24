@@ -28,6 +28,7 @@ case "$1" in
         installpython27
         installnumpy
         installmatplotlib
+        installPIL
 	installappserverjava
 	postinstallappserverjava
 	installmonitoring
@@ -123,6 +124,7 @@ case "$1" in
         installpython27
         installnumpy
         installmatplotlib
+        installPIL
 	installappserverjava
 	postinstallappserverjava
 	installmonitoring

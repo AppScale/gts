@@ -95,7 +95,7 @@ EXTRA_PATHS = [
   os.path.join(DIR_PATH, 'lib', 'google.appengine._internal.graphy'),
   '/usr/share/pyshared',
   '/usr/lib/python2.5/site-packages/pika-0.9.5-py2.5.egg',
-  '/usr/local/lib/python2.7/site-packages/',
+  '/usr/local/lib/python2.7/site-packages',
 ]
 
 API_SERVER_EXTRA_PATHS = [
