@@ -65,8 +65,8 @@ def write_key_file(location, content):
   """
   if type(location) == type(''):
     location = [location]
-  for l in location:
-    path = os.path.abspath(l)
+  for entry in location:
+    path = os.path.abspath(entry)
     file_handle = open(path, 'w')
     file_handle.write(content)
     file_handle.close()
@@ -112,11 +112,11 @@ def flatten(list):
     A single list with no lists as its elements
   """
   result = []
-  for l in list:
-    if hasattr(l, '__iter__'):
-      result.extend(flatten(l))
+  for entry in list:
+    if hasattr(entry, '__iter__'):
+      result.extend(flatten(entry))
     else:
-      result.append(l)
+      result.append(entry)
   return result
 
 
@@ -150,23 +150,23 @@ def diff(list1, list2):
   return sorted(set(list1) - set(list2))
 
 
-def obscure_string(string):
+def obscure_string(input_string):
   """
   Obscures the input string by replacing all but the last 4 characters
   in the string with the character '*'. Useful for obscuring, security
   credentials, credit card numbers etc.
 
   Args:
-    string  A string of characters
+    input_string  A string of characters
 
   Returns:
     A new string where all but the last 4 characters of the input
     string has been replaced by '*'.
   """
-  if string is None or len(string) < 4:
-    return string
-  last_four = string[-4:]
-  obscured = '*' * (len(string) - 4)
+  if input_string is None or len(input_string) < 4:
+    return input_string
+  last_four = input_string[-4:]
+  obscured = '*' * (len(input_string) - 4)
   return obscured + last_four
 
 def sleep(seconds):

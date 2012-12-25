@@ -200,8 +200,8 @@ class InfrastructureManager:
     agent = self.agent_factory.create_agent(infrastructure)
     try:
       agent.assert_required_parameters(parameters, BaseAgent.OPERATION_RUN)
-    except AgentConfigurationException as e:
-      return self.__generate_response(False, e.message)
+    except AgentConfigurationException as exception:
+      return self.__generate_response(False, exception.message)
 
     reservation_id = utils.get_random_alphanumeric()
     status_info = {
@@ -211,13 +211,16 @@ class InfrastructureManager:
       'vm_info': None
     }
     self.reservations.put(reservation_id, status_info)
-    utils.log('Generated reservation id {0} for this request.'.format(reservation_id))
+    utils.log('Generated reservation id {0} for this request.'.format(
+      reservation_id))
     if self.blocking:
       self.__spawn_vms(agent, num_vms, parameters, reservation_id)
     else:
-      thread.start_new_thread(self.__spawn_vms, (agent, num_vms, parameters, reservation_id))
+      thread.start_new_thread(self.__spawn_vms,
+        (agent, num_vms, parameters, reservation_id))
     utils.log('Successfully started request {0}.'.format(reservation_id))
-    return self.__generate_response(True, self.REASON_NONE, {'reservation_id': reservation_id})
+    return self.__generate_response(True,
+      self.REASON_NONE, {'reservation_id': reservation_id})
 
   def terminate_instances(self, parameters, secret):
     """
@@ -262,9 +265,10 @@ class InfrastructureManager:
     infrastructure = parameters[self.PARAM_INFRASTRUCTURE]
     agent = self.agent_factory.create_agent(infrastructure)
     try:
-      agent.assert_required_parameters(parameters, BaseAgent.OPERATION_TERMINATE)
-    except AgentConfigurationException as e:
-      return self.__generate_response(False, e.message)
+      agent.assert_required_parameters(parameters,
+        BaseAgent.OPERATION_TERMINATE)
+    except AgentConfigurationException as exception:
+      return self.__generate_response(False, exception.message)
 
     if self.blocking:
       self.__kill_vms(agent, parameters)
@@ -285,7 +289,11 @@ class InfrastructureManager:
     status_info = self.reservations.get(reservation_id)
     try:
       security_configured = agent.configure_instance_security(parameters)
-      ids, public_ips, private_ips = agent.run_instances(num_vms, parameters, security_configured)
+      instance_info = agent.run_instances(num_vms, parameters,
+        security_configured)
+      ids = instance_info[0]
+      public_ips = instance_info[1]
+      private_ips = instance_info[2]
       status_info['state'] = self.STATE_RUNNING
       status_info['vm_info'] = {
         'public_ips': public_ips,
@@ -293,9 +301,9 @@ class InfrastructureManager:
         'instance_ids': ids
       }
       utils.log('Successfully finished request {0}.'.format(reservation_id))
-    except AgentRuntimeException as e:
+    except AgentRuntimeException as exception:
       status_info['state'] = self.STATE_FAILED
-      status_info['reason'] = e.message
+      status_info['reason'] = exception.message
     self.reservations.put(reservation_id, status_info)
 
 
@@ -342,7 +350,8 @@ class InfrastructureManager:
       TypeError If at least one user argument is not of the current type
     """
     if type(parameters) != type('') and type(parameters) != type({}):
-      raise TypeError('Invalid data type for parameters. Must be a JSON string or a dictionary.')
+      raise TypeError('Invalid data type for parameters. Must be a '
+                      'JSON string or a dictionary.')
     elif type(secret) != type(''):
       raise TypeError('Invalid data type for secret. Must be a string.')
 

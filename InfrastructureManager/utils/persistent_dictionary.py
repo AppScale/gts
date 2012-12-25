@@ -24,9 +24,9 @@ class PersistentDictionary:
     """
     self.store = store
     if store is not None:
-      self.dict = store.get_all_entries()
+      self.dictionary = store.get_all_entries()
     else:
-      self.dict = {}
+      self.dictionary = {}
 
   def put(self, key, value):
     """
@@ -38,9 +38,9 @@ class PersistentDictionary:
       key   Key of the entry
       value Value of the entry
     """
-    self.dict[key] = value
+    self.dictionary[key] = value
     if self.store is not None:
-      self.store.save_all_entries(self.dict)
+      self.store.save_all_entries(self.dictionary)
 
   def get(self, key):
     """
@@ -55,7 +55,7 @@ class PersistentDictionary:
     Raises:
       KeyError  If the specified key does not exist in the dictionary
     """
-    return self.dict[key]
+    return self.dictionary[key]
 
   def has_key(self, key):
     """
@@ -67,7 +67,7 @@ class PersistentDictionary:
     Returns:
       True if the key exists and False otherwise.
     """
-    return self.dict.has_key(key)
+    return self.dictionary.has_key(key)
 
 
 class PersistentStore:
@@ -87,7 +87,7 @@ class PersistentStore:
     """
     raise NotImplementedError
 
-  def save_all_entries(self, dict):
+  def save_all_entries(self, dictionary):
     """
     Save the contents of the given dictionary to the data store,
     thereby overwriting any previous content.
@@ -122,8 +122,8 @@ class PersistentStoreFactory:
     Raises:
       NameError   If the type name provided is invalid
     """
-    type = parameters[self.PARAM_STORE_TYPE]
-    if type == 'file':
+    store_type = parameters[self.PARAM_STORE_TYPE]
+    if store_type == 'file':
       return FileSystemBasedPersistentStore(parameters)
     else:
       raise NameError('Unrecognized persistent store type')
@@ -160,20 +160,20 @@ class FileSystemBasedPersistentStore(PersistentStore):
     self.lock.acquire()
     if os.path.exists(self.file_path):
       file_handle = open(self.file_path, 'r')
-      dict = json.load(file_handle)
+      dictionary = json.load(file_handle)
       file_handle.close()
       self.lock.release()
-      return dict
+      return dictionary
     else:
       self.lock.release()
       return {}
 
-  def save_all_entries(self, dict):
+  def save_all_entries(self, dictionary):
     """
     See parent class documentation
     """
     self.lock.acquire()
     file_handle = open(self.file_path, 'w')
-    json.dump(dict, file_handle)
+    json.dump(dictionary, file_handle)
     file_handle.close()
     self.lock.release()

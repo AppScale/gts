@@ -78,7 +78,8 @@ class InfrastructureManagerService:
       params = json.load(file_handle)
       file_handle.close()
       if params.has_key(PersistentStoreFactory.PARAM_STORE_TYPE):
-        utils.log('Loading infrastructure manager configuration from ' + config_file)
+        utils.log('Loading infrastructure manager configuration from ' +
+                  config_file)
         i = InfrastructureManager(params)
       else:
         i = InfrastructureManager()
@@ -99,7 +100,8 @@ class InfrastructureManagerService:
     if self.started:
       utils.log('Warning - Start called on already running server')
     else:
-      utils.log('Starting AppScale Infrastructure Manager on port: ' + str(self.port))
+      utils.log('Starting AppScale Infrastructure Manager on port: ' +
+                str(self.port))
       self.started = True
       while self.started:
         self.server.serve_forever()
