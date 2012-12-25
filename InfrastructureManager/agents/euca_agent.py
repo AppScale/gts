@@ -44,4 +44,5 @@ class EucalyptusAgent(EC2Agent):
       aws_secret_access_key=secret_key,
       port=port,
       path=result.path,
-      is_secure=(result.scheme == 'https'), api_version=self.EUCA_API_VERSION, debug=2)
+      is_secure=(result.scheme == 'https'),
+      api_version=self.EUCA_API_VERSION, debug=2)

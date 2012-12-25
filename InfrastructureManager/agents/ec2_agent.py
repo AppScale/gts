@@ -66,10 +66,13 @@ class EC2Agent(BaseAgent):
     keyname = parameters[self.PARAM_KEYNAME]
     group = parameters[self.PARAM_GROUP]
 
-    ssh_key = os.path.abspath('/etc/appscale/keys/cloud1/{0}.key'.format(keyname))
-    utils.log('About to spawn EC2 instances - Expecting to find a key at {0}'.format(ssh_key))
+    key_path = '/etc/appscale/keys/cloud1/{0}.key'.format(keyname)
+    ssh_key = os.path.abspath(key_path)
+    utils.log('About to spawn EC2 instances - ' \
+              'Expecting to find a key at {0}'.format(ssh_key))
     if os.path.exists(ssh_key):
-      utils.log('SSH keys found in the local system - Not initializing EC2 security')
+      utils.log('SSH keys found in the local system - '
+                'Not initializing EC2 security')
       return False
 
     try:
@@ -90,15 +93,20 @@ class EC2Agent(BaseAgent):
       if not group_exists:
         utils.log('Creating security group: ' + group)
         conn.create_security_group(group, 'AppScale security group')
-        conn.authorize_security_group(group, from_port=1, to_port=65535, ip_protocol='udp')
-        conn.authorize_security_group(group, from_port=1, to_port=65535, ip_protocol='tcp')
-        conn.authorize_security_group(group, ip_protocol='icmp', cidr_ip='0.0.0.0/0')
+        conn.authorize_security_group(group, from_port=1,
+          to_port=65535, ip_protocol='udp')
+        conn.authorize_security_group(group, from_port=1,
+          to_port=65535, ip_protocol='tcp')
+        conn.authorize_security_group(group, ip_protocol='icmp',
+          cidr_ip='0.0.0.0/0')
 
       return True
-    except EC2ResponseError as e:
-      self.handle_failure('EC2 response error while initializing security: ' + e.error_message)
-    except Exception as e:
-      self.handle_failure('Error while initializing EC2 security: ' + e.message)
+    except EC2ResponseError as exception:
+      self.handle_failure('EC2 response error while initializing '
+                          'security: ' + exception.error_message)
+    except Exception as exception:
+      self.handle_failure('Error while initializing EC2 '
+                          'security: ' + exception.message)
 
   def assert_required_parameters(self, parameters, operation):
     """
@@ -182,7 +190,11 @@ class EC2Agent(BaseAgent):
     try:
       attempts = 1
       while True:
-        active_public_ips, active_private_ips, active_instances = self.describe_instances(parameters)
+        instance_info = self.describe_instances(parameters)
+        active_public_ips = instance_info[0]
+        active_private_ips = instance_info[1]
+        active_instances = instance_info[2]
+
         # If security has been configured on this agent just now,
         # that's an indication that this is a fresh cloud deployment.
         # As such it's not expected to have any running VMs.
@@ -205,12 +217,17 @@ class EC2Agent(BaseAgent):
       public_ips = []
       private_ips = []
       utils.sleep(10)
-      end_time = datetime.datetime.now() + datetime.timedelta(0, self.MAX_VM_CREATION_TIME)
+      end_time = datetime.datetime.now() + datetime.timedelta(0,
+        self.MAX_VM_CREATION_TIME)
       now = datetime.datetime.now()
 
       while now < end_time:
-        utils.log('[{0}] {1} seconds left...'.format(now, (end_time - now).seconds))
-        public_ips, private_ips, instance_ids = self.describe_instances(parameters)
+        time_left = (end_time - now).seconds
+        utils.log('[{0}] {1} seconds left...'.format(now, time_left))
+        instance_info = self.describe_instances(parameters)
+        public_ips = instance_info[0]
+        private_ips = instance_info[1]
+        instance_ids = instance_info[2]
         public_ips = utils.diff(public_ips, active_public_ips)
         private_ips = utils.diff(private_ips, active_private_ips)
         instance_ids = utils.diff(instance_ids, active_instances)
@@ -220,32 +237,34 @@ class EC2Agent(BaseAgent):
         now = datetime.datetime.now()
 
       if not public_ips:
-        self.handle_failure('No public IPs were able to be procured within the time limit')
+        self.handle_failure('No public IPs were able to be procured '
+                            'within the time limit')
 
       if len(public_ips) != count:
         for index in range(0, len(public_ips)):
           if public_ips[index] == '0.0.0.0':
             instance_to_term = instance_ids[index]
-            utils.log('Instance {0} failed to get a public IP address and is being terminated'.\
-            format(instance_to_term))
+            utils.log('Instance {0} failed to get a public IP address and' \
+                      ' is being terminated'.format(instance_to_term))
             conn.terminate_instances([instance_to_term])
 
       end_time = datetime.datetime.now()
       total_time = end_time - start_time
       if spot:
-        utils.log('TIMING: It took {0} seconds to spawn {1} spot instances'.format(
-          total_time.seconds, count))
+        utils.log('TIMING: It took {0} seconds to spawn {1} spot ' \
+                  'instances'.format(total_time.seconds, count))
       else:
-        utils.log('TIMING: It took {0} seconds to spawn {1} regular instances'.format(
-          total_time.seconds, count))
+        utils.log('TIMING: It took {0} seconds to spawn {1} ' \
+                  'regular instances'.format(total_time.seconds, count))
       return instance_ids, public_ips, private_ips
-    except EC2ResponseError as e:
-      self.handle_failure('EC2 response error while starting VMs: ' + e.error_message)
-    except Exception as e:
-      if isinstance(e, AgentRuntimeException):
-        raise e
+    except EC2ResponseError as exception:
+      self.handle_failure('EC2 response error while starting VMs: ' +
+                          exception.error_message)
+    except Exception as exception:
+      if isinstance(exception, AgentRuntimeException):
+        raise exception
       else:
-        self.handle_failure('Error while starting VMs: ' + e.message)
+        self.handle_failure('Error while starting VMs: ' + exception.message)
 
   def terminate_instances(self, parameters):
     """
@@ -296,7 +315,8 @@ class EC2Agent(BaseAgent):
       An instance of Boto EC2Connection
     """
     credentials = parameters[self.PARAM_CREDENTIALS]
-    return boto.connect_ec2(str(credentials['EC2_ACCESS_KEY']), str(credentials['EC2_SECRET_KEY']))
+    return boto.connect_ec2(str(credentials['EC2_ACCESS_KEY']),
+      str(credentials['EC2_SECRET_KEY']))
 
   def handle_failure(self, msg):
     """
