@@ -14,7 +14,7 @@ import py_hypertable
 import prime_hypertable
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
-import helper_functions
+import file_io
 
 class FakeHypertableClient():
   """ Fake hypertable client class for mocking """
@@ -37,8 +37,8 @@ class FakeHypertableClient():
  
 class TestHypertable(unittest.TestCase):
   def testConstructor(self):
-    flexmock(helper_functions) \
-        .should_receive('read_file') \
+    flexmock(file_io) \
+        .should_receive('read') \
         .and_return('127.0.0.1')
 
     flexmock(py_hypertable).should_receive("DatastoreProxy") \

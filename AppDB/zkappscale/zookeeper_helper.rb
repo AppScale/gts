@@ -1,4 +1,5 @@
 require 'djinn'
+require 'godinterface'
 
 ZOOKEEPER_PORT="2181"
 
@@ -53,11 +54,20 @@ def start_zookeeper(initialize = true)
   end
   # myid is needed for multi node configuration.
   Djinn.log_debug(`ln -sfv /etc/zookeeper/conf/myid /var/appscale/zookeeper/`)
-  Djinn.log_debug(`service zookeeper start`)
+
+  start_cmd = "service zookeeper start"
+  stop_cmd = "service zookeeper stop"
+  env = {'JAVA_HOME' => ENV['JAVA_HOME']}
+  GodInterface.start(:zoo_keeper, start_cmd, 
+                     stop_cmd, ZOOKEEPER_PORT, env)
+  Djinn.log_debug('Started ZooKeeper')
 end
 
 def stop_zookeeper
-  Djinn.log_debug("stopping ZooKeeper")
+  Djinn.log_debug("Stopping ZooKeeper")
+  GodInterface.stop(:zoo_keeper)  
+  # God has problems correctly shutting down processes, 
+  # so we double up on stopping ZK here.
   Djinn.log_debug(`service zookeeper stop`)
 end
 

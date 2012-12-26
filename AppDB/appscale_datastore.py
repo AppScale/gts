@@ -1,28 +1,19 @@
 #!/usr/bin/python
-# Author: Navraj Chohan
-# Author: Soo Hwan Park
-# Author: Chris Bunch
-# Author: Gaurav Kumar Mehta
-# Author: NOMURA Yoshihide
 # See LICENSE file
+
 import imp
 import os
 import sys
-import string
-import socket
-import threading
-import types
-
-import appscale_logger
 from dbconstants import *
 
-app_datastore_logger = appscale_logger.getLogger("appscale_datastore")
+sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
+import constants 
 
 DB_ERROR = "DB_ERROR:"
 
 ERROR_CODES = [DB_ERROR]
 
-DATASTORE_DIR= "%s/AppDB" % APPSCALE_HOME
+DATASTORE_DIR= "%s/AppDB" % constants.APPSCALE_HOME
 
 class DatastoreFactory:
   @classmethod
@@ -33,10 +24,8 @@ class DatastoreFactory:
     if os.path.exists(mod_path):
       sys.path.append(DATASTORE_DIR + "/" + d_type)
       d_mod = imp.load_source(d_name, mod_path)
-      datastore = d_mod.DatastoreProxy(app_datastore_logger)
+      datastore = d_mod.DatastoreProxy()
     else:
-      app_datastore_logger.error("Fail to use datastore: %s. Please " + \
-                                 "check the datastore type." % d_type)
       raise Exception("Datastore was not found in %d directory. " + \
                       "Fail to use datastore: %s" %(DATASTORE_DIR, d_type))
     return datastore

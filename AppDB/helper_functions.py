@@ -11,19 +11,6 @@ import os.path
 import random
 import time
 
-def read_file(file_name):
-  """ Opens and reads a file. Helpful for mocking out builtin
-      functions.
-  Args:
-    file_name: path to file to read
-  Returns:
-    Contents of file 
-  """
-  fp = open(file_name, 'r')
-  contents = fp.read()
-  fp.close()
-  return contents
-
 def reverse_lex(ustring):
   """ Strings must be in unicode to reverse the string
     strings are returned in unicode and may not able 
@@ -54,26 +41,6 @@ def reverse_lex_128(ustring):
     char = unichr(new_byte)
     newstr += char
   return newstr
-
-class ThreadedLogger():
-  def __init__(self, filename):
-    split_path = os.path.split(filename)
-    directory = split_path[0]
-    if not os.path.exists(directory): os.mkdir(directory, 0777)
-    self.log_logger = logging.getLogger(filename)
-    self.log_logger.setLevel(logging.INFO)
-    self.formatter = logging.Formatter("%(asctime)s %(module)s:%(lineno)-4d %(message)s")
-    self.handler = logging.handlers.RotatingFileHandler(filename, maxBytes=10000000, backupCount=10)
-    self.handler.setFormatter(self.formatter)
-    self.log_logger.addHandler(self.handler)
-    self.loggingOn = False
-
-  def turnLoggingOn(self):
-   self.loggingOn = True
-
-  def debug(self, string):
-    if self.loggingOn:
-      self.log_logger.info(string)
 
 def random_string(length):
   """ Returns a string of a given length. 

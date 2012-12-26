@@ -10,12 +10,12 @@ import sys
 import threading
 import types
 
-import appscale_logger
 import dbconstants
 
-app_datastore_logger = appscale_logger.getLogger("appscale_datastore_batch")
+sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
+import constants
 
-DATASTORE_DIR= "%s/AppDB" % dbconstants.APPSCALE_HOME
+DATASTORE_DIR= "%s/AppDB" % constants.APPSCALE_HOME
 
 class DatastoreFactory:
 
@@ -35,10 +35,8 @@ class DatastoreFactory:
     if os.path.exists(mod_path):
       sys.path.append(DATASTORE_DIR + "/" + d_type)
       d_mod = imp.load_source(d_type+"_interface.py", mod_path)
-      datastore = d_mod.DatastoreProxy(app_datastore_logger)
+      datastore = d_mod.DatastoreProxy()
     else:
-      app_datastore_logger.error("Fail to use datastore: %s. Please \
-                                  check the datastore type." % d_type)
       raise Exception("Fail to use datastore: %s" % d_type)
 
     return datastore

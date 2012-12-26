@@ -913,7 +913,6 @@ module HelperFunctions
       return []
     end
 
-    handlers = tree["handlers"]
     default_expiration = expires_duration(tree["default_expiration"])
     
     # Create the destination cache directory
@@ -929,6 +928,12 @@ module HelperFunctions
       # Remove any superfluous spaces since they will break the regex
       input_regex.gsub!(/ /,"")
       skip_files_regex = Regexp.new(input_regex)
+    end
+
+    if tree["handlers"]
+      handlers = tree["handlers"]
+    else
+      return []
     end
 
     handlers.map! do |handler|

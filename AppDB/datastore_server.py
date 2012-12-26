@@ -20,7 +20,6 @@ import tornado.httpserver
 import tornado.ioloop
 import tornado.web
 
-import appscale_logger
 import appscale_datastore_batch
 import dbconstants
 import helper_functions
@@ -957,7 +956,7 @@ class DatastoreDistributed():
     # Detect quickly if this is a kind query or not
     for fi in filter_info:
       if fi != "__key__":
-        return 
+        return None
 
     if order_info:
       if len(order_info) > 0: return None
@@ -1515,13 +1514,12 @@ class DatastoreDistributed():
 
     cur = cassandra_stub_util.QueryCursor(query, result)
     cur.PopulateQueryResult(count, query.offset(), query_result) 
-  
+
   def setup_transaction(self, app_id) :
     """ Gets a transaction ID for a new transaction """
     _MAX_RAND = 1000000  # arbitary large number
     return random.randint(1, _MAX_RAND)
 
-logger = appscale_logger.getLogger("pb_server")
 
 class MainHandler(tornado.web.RequestHandler):
   """
@@ -1671,10 +1669,6 @@ class MainHandler(tornado.web.RequestHandler):
       apperror_pb = apiresponse.mutable_application_error()
       apperror_pb.set_code(errcode)
       apperror_pb.set_detail(errdetail)
-
-    if errcode != 0:
-      logger.debug("Reply: %s\nerrcode: %s\nerror details: %s" %\
-                   (str(method), str(errcode), str(errdetail)))
 
     self.write(apiresponse.Encode() )    
 
@@ -1835,7 +1829,6 @@ class MainHandler(tornado.web.RequestHandler):
     """ 
 
     resp_pb = api_base_pb.VoidProto() 
-    logger.debug("VOID_RESPONSE: %s to void" % resp_pb)
     return (resp_pb.Encode(), 0, "" )
   
   def str_proto(self, app_id, http_request_data):
@@ -1850,8 +1843,6 @@ class MainHandler(tornado.web.RequestHandler):
 
     str_pb = api_base_pb.StringProto( http_request_data )
     composite_pb = datastore_pb.CompositeIndices()
-    logger.debug("String proto received: %s"%str_pb)
-    logger.debug("CompositeIndex response to string: %s" % composite_pb)
     return (composite_pb.Encode(), 0, "" )    
   
   def int64_proto(self, app_id, http_request_data):
@@ -1867,8 +1858,6 @@ class MainHandler(tornado.web.RequestHandler):
 
     int64_pb = api_base_pb.Integer64Proto( http_request_data ) 
     resp_pb = api_base_pb.VoidProto()
-    logger.debug("Int64 proto received: %s"%int64_pb)
-    logger.debug("VOID_RESPONSE to int64: %s" % resp_pb)
     return (resp_pb.Encode(), 0, "")
  
   def compositeindex_proto(self, app_id, http_request_data):
@@ -1884,8 +1873,6 @@ class MainHandler(tornado.web.RequestHandler):
 
     compindex_pb = entity_pb.CompositeIndex( http_request_data)
     resp_pb = api_base_pb.VoidProto()
-    logger.debug("CompositeIndex proto recieved: %s"%str(compindex_pb))
-    logger.debug("VOID_RESPONSE to composite index: %s" % resp_pb)
     return (resp_pb.Encode(), 0, "")
 
 def usage():
