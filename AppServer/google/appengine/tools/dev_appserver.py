@@ -1639,7 +1639,7 @@ def ExecuteCGI(config,
 
   if handler_path == '_go_app':
     from google.appengine.ext.go import execute_go_cgi
-    return execute_go_cgi(root_path, config, handler_path, cgi_path,
+    return execute_go_cgi(root_path, handler_path, cgi_path,
         env, infile, outfile)
 
 

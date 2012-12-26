@@ -6,6 +6,8 @@
 #
 # Written by Yoshi <nomura@pobox.com>
 
+set -e
+
 if [ -z "$APPSCALE_HOME_RUNTIME" ]; then
     export APPSCALE_HOME_RUNTIME=/opt/appscale
 fi
@@ -47,6 +49,53 @@ ff02::2 ip6-allrouters
 ff02::3 ip6-allhosts
 EOF
 }
+
+installpython27()
+{
+    cd /usr/local
+    wget http://appscale.cs.ucsb.edu/appscale_files/Python-2.7.3.tgz
+    tar zxvf Python-2.7.3.tgz
+    rm /usr/local/Python-2.7.3.tgz
+}
+
+installnumpy()
+{
+    mkdir -pv ${APPSCALE_HOME}/downloads
+    cd ${APPSCALE_HOME}/downloads
+    wget http://appscale.cs.ucsb.edu/appscale_files/appscale-numpy.tar.gz
+    tar zxvf appscale-numpy.tar.gz
+    cd numpy
+    /usr/local/Python-2.7.3/python setup.py install
+    cd ..
+    rm appscale-numpy.tar.gz
+    rm -fdr  numpy
+}
+
+installmatplotlib()
+{
+    mkdir -pv ${APPSCALE_HOME}/downloads
+    cd ${APPSCALE_HOME}/downloads
+    wget http://appscale.cs.ucsb.edu/appscale_files/appscale-matplotlib.tar.gz
+    tar zxvf appscale-matplotlib.tar.gz
+    cd matplotlib
+    /usr/local/Python-2.7.3/python setup.py install
+    cd ..
+    rm appscale-matplotlib.tar.gz
+    rm -fdr matplotlib
+}
+
+installPIL()
+{
+    mkdir -pv ${APPSCALE_HOME}/downloads
+    cd ${APPSCALE_HOME}/downloads
+    wget http://appscale.cs.ucsb.edu/appscale_files/Imaging-1.1.7.tar.gz 
+    tar zxvf Imaging-1.1.7.tar.gz
+    cd Imaging-1.1.7
+    /usr/local/Python-2.7.3/python setup.py install
+    cd ..
+    rm -fdr Imaging-1.1.7*
+}
+
 patchxmpp()
 {
     PYTHON26_XMPP=/usr/lib/python2.6/dist-packages/xmpp/

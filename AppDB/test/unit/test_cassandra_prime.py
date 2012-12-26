@@ -13,7 +13,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../../cassandra"))
 import prime_cassandra
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
-import helper_functions 
+import file_io 
 
 class FakeCassClient():
   """ Fake cassandra client class for mocking """
@@ -57,8 +57,8 @@ class FakeSystemManager():
 
 class TestCassandraPrimer(unittest.TestCase):
   def test_primer(self):
-    flexmock(helper_functions) \
-        .should_receive('read_file') \
+    flexmock(file_io) \
+        .should_receive('read') \
         .and_return('127.0.0.1')
 
     flexmock(pycassa.system_manager).should_receive("SystemManager") \
@@ -67,8 +67,8 @@ class TestCassandraPrimer(unittest.TestCase):
     assert prime_cassandra.create_keyspaces(1)
  
   def test_bad_arg(self):
-    flexmock(helper_functions) \
-       .should_receive('read_file') \
+    flexmock(file_io) \
+       .should_receive('read') \
        .and_return('127.0.0.1')
 
     flexmock(pycassa.system_manager).should_receive("SystemManager") \
