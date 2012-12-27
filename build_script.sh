@@ -38,7 +38,6 @@ echo "****************************"
 echo "Running Unit tests"
 cd appscale
 rake
-sh ts_python.sh
 
 cd ..
 cd appscale-tools
