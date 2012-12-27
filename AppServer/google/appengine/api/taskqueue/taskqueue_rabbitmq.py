@@ -271,7 +271,7 @@ def _VerifyTaskQueueAddRequest(request, now):
 def GetTaskState(task_name):
   """ Returns the state of a task given a task name.
   Args: 
-    task_name: A string representing the task name
+    task_name: A string representing the task name.
   Returns:
     The current state of the task.
   """
