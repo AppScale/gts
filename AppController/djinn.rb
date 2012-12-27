@@ -2389,10 +2389,6 @@ class Djinn
     slave_ips_newlined = slave_ips.join("\n")
     HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/slaves", "#{slave_ips_newlined}\n")
 
-    # n = @creds["replication"]
-
-    # setup_hadoop_config(template_loc, hadoop_hbase_loc, master_ip, slave_ips, n)
-
     # Invoke datastore helper function
     setup_db_config_files(master_ip, slave_ips, @creds)
 
@@ -2579,34 +2575,6 @@ HOSTS
       rescue SocketError
       end
     end
-  end
-
-  # TODO: this function should use hadoop_helper
-  def setup_hadoop_config_org(source_dir, dest_dir, master_ip, slave_ips, n)
-    ["source_dir", "dest_dir", "master_ip"].each { |param_name|
-      param = eval(param_name)
-      abort("#{param_name} wasn't a String. It was a/an #{param.class}") if param.class != String
-    }
-
-    source_dir = File.expand_path(source_dir)
-    dest_dir = File.expand_path(dest_dir)
-
-    abort("Source dir [#{source_dir}] didn't exist") unless File.directory?(source_dir)
-    abort("Dest dir [#{dest_dir}] didn't exist") unless File.directory?(dest_dir)
-
-    files_to_config = `ls #{source_dir}`.split
-    files_to_config.each{ |filename|
-      full_path_to_read = source_dir + File::Separator + filename
-      full_path_to_write = dest_dir + File::Separator + filename
-      File.open(full_path_to_read) { |source_file|
-        contents = source_file.read
-        contents.gsub!(/APPSCALE-MASTER/, master_ip)
-        contents.gsub!(/APPSCALE-SLAVES/, slave_ips.join("\n"))
-        contents.gsub!(/REPLICATION/, n)
-  
-        HelperFunctions.write_file(full_path_to_write, contents)
-      }
-    }
   end
 
   def stop_load_balancer()
