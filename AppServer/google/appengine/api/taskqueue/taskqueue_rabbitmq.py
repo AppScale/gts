@@ -844,7 +844,6 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
       logging.error("Unknown exception--Unable to connect to RabbitMQ: %s" % \
                    str(e))
 
-   
   def _TaskStatus(self, task_name):
     """ Makes sure the task does not exist or tombstoned.
     Args:
