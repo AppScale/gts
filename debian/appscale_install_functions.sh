@@ -75,13 +75,12 @@ installmatplotlib()
 {
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://appscale.cs.ucsb.edu/appscale_files/appscale-matplotlib.tar.gz
-    tar zxvf appscale-matplotlib.tar.gz
-    cd matplotlib
+    wget http://appscale.cs.ucsb.edu/appscale_files/matplotlib-1.2.0.tar.gz
+    tar zxvf matplotlib-1.2.0.tar.gz
+    cd matplotlib-1.2.0
     /usr/local/Python-2.7.3/python setup.py install
     cd ..
-    rm appscale-matplotlib.tar.gz
-    rm -fdr matplotlib
+    rm -fdr matplotlib-1.2.0*
 }
 
 installPIL()
