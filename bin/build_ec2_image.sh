@@ -13,7 +13,7 @@ APPSCALE_BOOTSTRAP=/var/lib/appscale/virtualenvs/appscale-tools/bin/appscale-boo
 # rather than the branch that was pushed.  Because of this, use `git log
 # --decorate` to associate the commit with a branch.  Use sed to rip off the
 # prefix (using basename might work too).
-current_branch=$(git log --decorate -n 1 | head -n 1 | sed -e 's/.*\(origin\/[^),]*\).*/\1/')
+current_branch=$(git log --decorate -n 1 | head -n 1 | sed -e 's,origin/HEAD,,' -e 's/.*\(origin\/[^),]*\).*/\1/')
 
 # add some logging
 head=$(git rev-list HEAD --max-count=1)
