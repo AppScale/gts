@@ -15,4 +15,9 @@ APPSCALE_BOOTSTRAP=/var/lib/appscale/virtualenvs/appscale-tools/bin/appscale-boo
 # prefix (using basename might work too).
 current_branch=$(git log --decorate -n 1 | head -n 1 | sed -e 's/.*\(origin\/[^),]*\).*/\1/')
 
+# add some logging
+head=$(git rev-list HEAD --max-count=1)
+logger -t "$0" "HEAD is at $head"
+logger -t "$0" "current_branch: ${current_branch}"
+
 ${PYTHON} ${APPSCALE_BOOTSTRAP} -t m1.large --ami='ami-d59818bc' --appscale-branch=${current_branch}
