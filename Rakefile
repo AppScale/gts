@@ -67,8 +67,16 @@ namespace :neptunemanager do
     t.warning = false
   }
 
+end
+
+
+namespace :python do
+
+  task :test do
+    sh "bash ts_python.sh"
+  end
 
 end
 
 
-task :default => ['appcontroller:test', 'neptunemanager:test']
+task :default => ['appcontroller:test', 'neptunemanager:test', 'python:test']
