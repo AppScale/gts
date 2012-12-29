@@ -20,10 +20,10 @@ import tornado.httpserver
 import tornado.ioloop
 import tornado.web
 
-import appscale_logger
 import appscale_datastore_batch
 import dbconstants
 import helper_functions
+from zkappscale import zktransaction as zk
 
 from google.appengine.api import api_base_pb
 from google.appengine.api import datastore_errors
@@ -44,6 +44,9 @@ buffer = __builtin__.buffer
 
 # Global for accessing the datastore. An instance of DatastoreDistributed.
 datastore_access = None
+
+# ZooKeeper global variable for locking
+zookeeper = None
 
 entity_pb.Reference.__hash__ = lambda self: hash(self.Encode())
 datastore_pb.Query.__hash__ = lambda self: hash(self.Encode())
@@ -89,12 +92,13 @@ class DatastoreDistributed():
   # When assigning the first allocated ID, give this value
   _FIRST_VALID_ALLOCATED_ID = 1
 
-  def __init__(self, datastore_batch):
+  def __init__(self, datastore_batch, zookeeper=None):
     """
        Constructor.
      
      Args:
-       datastore_batch: a reference to the batch datastore interface 
+       datastore_batch: a reference to the batch datastore interface .
+       zookeeper: a reference to the zookeeper interface.
     """
     # Each entry contains a tuple (last_accessed_timestamp, namespace)
     # The key is the <app_id>/<namespace>
@@ -111,6 +115,9 @@ class DatastoreDistributed():
 
     # datastore accessor used by this class to do datastore operations
     self.datastore_batch = datastore_batch 
+
+    # zookeeper instance for accesing ZK functionality
+    self.zookeeper = zookeeper
 
   @staticmethod
   def get_entity_kind(key_path):
@@ -495,10 +502,10 @@ class DatastoreDistributed():
     Raises: 
       ValueError: if size is less than or equal to 0
     """
-
     if size and max_id:
       raise ValueError("Both size and max cannot be set.")
 
+    self.zookeeper.acquireLock(prefix, 0)
     current_id = self.acquire_next_id_from_db(prefix)
 
     if size:
@@ -513,6 +520,7 @@ class DatastoreDistributed():
                           [prefix],  
                           dbconstants.APP_ID_SCHEMA,
                           cell_values)
+    self.zookeeper.releaseLock(prefix, 0)
 
     start = current_id
     end = next_id - 1
@@ -957,7 +965,7 @@ class DatastoreDistributed():
     # Detect quickly if this is a kind query or not
     for fi in filter_info:
       if fi != "__key__":
-        return 
+        return None
 
     if order_info:
       if len(order_info) > 0: return None
@@ -1515,13 +1523,12 @@ class DatastoreDistributed():
 
     cur = cassandra_stub_util.QueryCursor(query, result)
     cur.PopulateQueryResult(count, query.offset(), query_result) 
-  
+
   def setup_transaction(self, app_id) :
     """ Gets a transaction ID for a new transaction """
     _MAX_RAND = 1000000  # arbitary large number
     return random.randint(1, _MAX_RAND)
 
-logger = appscale_logger.getLogger("pb_server")
 
 class MainHandler(tornado.web.RequestHandler):
   """
@@ -1671,10 +1678,6 @@ class MainHandler(tornado.web.RequestHandler):
       apperror_pb = apiresponse.mutable_application_error()
       apperror_pb.set_code(errcode)
       apperror_pb.set_detail(errdetail)
-
-    if errcode != 0:
-      logger.debug("Reply: %s\nerrcode: %s\nerror details: %s" %\
-                   (str(method), str(errcode), str(errdetail)))
 
     self.write(apiresponse.Encode() )    
 
@@ -1835,7 +1838,6 @@ class MainHandler(tornado.web.RequestHandler):
     """ 
 
     resp_pb = api_base_pb.VoidProto() 
-    logger.debug("VOID_RESPONSE: %s to void" % resp_pb)
     return (resp_pb.Encode(), 0, "" )
   
   def str_proto(self, app_id, http_request_data):
@@ -1850,8 +1852,6 @@ class MainHandler(tornado.web.RequestHandler):
 
     str_pb = api_base_pb.StringProto( http_request_data )
     composite_pb = datastore_pb.CompositeIndices()
-    logger.debug("String proto received: %s"%str_pb)
-    logger.debug("CompositeIndex response to string: %s" % composite_pb)
     return (composite_pb.Encode(), 0, "" )    
   
   def int64_proto(self, app_id, http_request_data):
@@ -1867,8 +1867,6 @@ class MainHandler(tornado.web.RequestHandler):
 
     int64_pb = api_base_pb.Integer64Proto( http_request_data ) 
     resp_pb = api_base_pb.VoidProto()
-    logger.debug("Int64 proto received: %s"%int64_pb)
-    logger.debug("VOID_RESPONSE to int64: %s" % resp_pb)
     return (resp_pb.Encode(), 0, "")
  
   def compositeindex_proto(self, app_id, http_request_data):
@@ -1884,8 +1882,6 @@ class MainHandler(tornado.web.RequestHandler):
 
     compindex_pb = entity_pb.CompositeIndex( http_request_data)
     resp_pb = api_base_pb.VoidProto()
-    logger.debug("CompositeIndex proto recieved: %s"%str(compindex_pb))
-    logger.debug("VOID_RESPONSE to composite index: %s" % resp_pb)
     return (resp_pb.Encode(), 0, "")
 
 def usage():
@@ -1905,7 +1901,7 @@ pb_application = tornado.web.Application([
 def main(argv):
   """ Starts a web service for handing datastore requests """
   global datastore_access
-  zoo_keeper_locations = ""
+  zookeeper_locations = ""
 
   db_type = "cassandra"
   port = DEFAULT_SSL_PORT
@@ -1930,7 +1926,7 @@ def main(argv):
     elif opt in ("-n", "--no_encryption"):
       isEncrypted = False
     elif opt in ("-z", "--zoo_keeper"):
-      zoo_keeper_locations = arg
+      zookeeper_locations = arg
 
   if db_type not in VALID_DATASTORES:
     print "This datastore is not supported for this version of the AppScale\
@@ -1938,8 +1934,8 @@ def main(argv):
     exit(1)
  
   datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(db_type)
-  datastore_access = DatastoreDistributed(datastore_batch)
-
+  zookeeper = zk.ZKTransaction(zookeeper_locations)
+  datastore_access = DatastoreDistributed(datastore_batch, zookeeper=zookeeper)
   if port == DEFAULT_SSL_PORT and not isEncrypted:
     port = DEFAULT_PORT
 

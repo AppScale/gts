@@ -12,7 +12,7 @@ import py_hbase
 import prime_hbase
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
-import helper_functions
+import file_io
 
 class FakeHBaseClient():
   """ Fake hbase client class for mocking """
@@ -37,8 +37,8 @@ class FakeHBaseClient():
  
 class TestHBasePrimer(unittest.TestCase):
   def testPrimer(self):
-    flexmock(helper_functions) \
-        .should_receive('read_file') \
+    flexmock(file_io) \
+        .should_receive('read') \
         .and_return('127.0.0.1')
 
     flexmock(py_hbase).should_receive("DatastoreProxy") \

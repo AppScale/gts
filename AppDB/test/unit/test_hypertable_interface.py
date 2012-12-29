@@ -12,7 +12,7 @@ from hypertable import thriftclient
 import hypertable_interface
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
-import helper_functions
+import file_io
 
 class FakeHypertableClient():
   """ Fake hypertable client class for mocking """
@@ -33,8 +33,8 @@ class FakeHypertableClient():
  
 class TestHypertable(unittest.TestCase):
   def testConstructor(self):
-    flexmock(helper_functions) \
-        .should_receive('read_file') \
+    flexmock(file_io) \
+        .should_receive('read') \
         .and_return('127.0.0.1')
 
     flexmock(thriftclient).should_receive("ThriftClient") \
@@ -43,8 +43,8 @@ class TestHypertable(unittest.TestCase):
     db = hypertable_interface.DatastoreProxy()
 
   def testGet(self):
-    flexmock(helper_functions) \
-        .should_receive('read_file') \
+    flexmock(file_io) \
+        .should_receive('read') \
         .and_return('127.0.0.1')
 
     flexmock(thriftclient).should_receive("ThriftClient") \
@@ -56,8 +56,8 @@ class TestHypertable(unittest.TestCase):
     assert {} == db.batch_get_entity('table', [], [])
 
   def testPut(self):
-    flexmock(helper_functions) \
-        .should_receive('read_file') \
+    flexmock(file_io) \
+        .should_receive('read') \
         .and_return('127.0.0.1')
 
     flexmock(thriftclient).should_receive("ThriftClient") \
@@ -69,8 +69,8 @@ class TestHypertable(unittest.TestCase):
     assert None == db.batch_put_entity('table', [], [], {})
 
   def testDeleteTable(self):
-    flexmock(helper_functions) \
-        .should_receive('read_file') \
+    flexmock(file_io) \
+        .should_receive('read') \
         .and_return('127.0.0.1')
 
     flexmock(thriftclient).should_receive("ThriftClient") \
@@ -82,8 +82,8 @@ class TestHypertable(unittest.TestCase):
     assert None == db.delete_table('table')
 
   def testDelete(self):
-    flexmock(helper_functions) \
-        .should_receive('read_file') \
+    flexmock(file_io) \
+        .should_receive('read') \
         .and_return('127.0.0.1')
 
     flexmock(thriftclient).should_receive("ThriftClient") \
@@ -95,8 +95,8 @@ class TestHypertable(unittest.TestCase):
     assert None == db.batch_delete('table', [])
 
   def testRangeQuery(self):
-    flexmock(helper_functions) \
-        .should_receive('read_file') \
+    flexmock(file_io) \
+        .should_receive('read') \
         .and_return('127.0.0.1')
 
     flexmock(thriftclient).should_receive("ThriftClient") \

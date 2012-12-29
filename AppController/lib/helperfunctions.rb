@@ -243,15 +243,22 @@ module HelperFunctions
       return remote_cmd
     end
   end
-
+  
+  # Secure copies a given file to a remote location.
+  # Args:
+  #   local_file_loc: The local file to copy over.
+  #   remote_file_loc: The remote location to copy to.
+  #   target_ip: The remote target IP.
+  #   private_key_loc: The private key to use.
+  # Raises:
+  #   AppScaleSCPException: When a scp fails.
   def self.scp_file(local_file_loc, remote_file_loc, target_ip, private_key_loc)
     private_key_loc = File.expand_path(private_key_loc)
-    `chmod 0600 #{private_key_loc}`
+    self.shell("chmod 0600 #{private_key_loc}")
     local_file_loc = File.expand_path(local_file_loc)
     retval_file = "/etc/appscale/retval-#{Kernel.rand()}"
     cmd = "scp -i #{private_key_loc} -o StrictHostkeyChecking=no 2>&1 #{local_file_loc} root@#{target_ip}:#{remote_file_loc}; echo $? > #{retval_file}"
-    #Kernel.puts(cmd)
-    scp_result = `#{cmd}`
+    scp_result = self.shell(cmd)
 
     loop {
       break if File.exists?(retval_file)
@@ -265,14 +272,15 @@ module HelperFunctions
       break if retval == "0"
       Kernel.puts("\n\n[#{cmd}] returned #{retval} instead of 0 as expected. Will try to copy again momentarily...")
       fails += 1
-      abort("SCP failed") if fails >= 5
+      if fails >= 5:
+        raise AppScaleSCPException.new("Failed to copy over #{local_file_loc} to #{remote_file_loc} to #{target_ip} with private key #{private_key_loc}")
+      end
       sleep(2)
-      `#{cmd}`
+      self.shell(cmd)
       retval = (File.open(retval_file) { |f| f.read }).chomp
     }
 
-    #Kernel.puts(scp_result)
-    `rm -fv #{retval_file}`
+    self.shell("rm -fv #{retval_file}")
   end
 
   def self.get_remote_appscale_home(ip, key)
@@ -545,7 +553,7 @@ module HelperFunctions
       elsif cloud_type == "ec2"
         machine = creds["CLOUD#{cloud_num}_AMI"]
       else
-        abort("cloud type was #{cloud_type}, which is not a supported value.")
+        abort("Cloud type was #{cloud_type}, which is not a supported value.")
       end
 
       num_of_vms = 0
@@ -913,7 +921,6 @@ module HelperFunctions
       return []
     end
 
-    handlers = tree["handlers"]
     default_expiration = expires_duration(tree["default_expiration"])
     
     # Create the destination cache directory
@@ -929,6 +936,12 @@ module HelperFunctions
       # Remove any superfluous spaces since they will break the regex
       input_regex.gsub!(/ /,"")
       skip_files_regex = Regexp.new(input_regex)
+    end
+
+    if tree["handlers"]
+      handlers = tree["handlers"]
+    else
+      return []
     end
 
     handlers.map! do |handler|
@@ -1098,42 +1111,6 @@ module HelperFunctions
       Kernel.puts(fail_msg)
       abort(fail_msg)
     end
-  end
-
-  def self.generate_makefile(code, input_loc)
-    abort("code is nil") if code.nil?
-
-    makefile = "all:\n\t"
-    if code =~ /\.x10\Z/
-      out = code.scan(/\A(.*)\.x10\Z/).flatten.to_s
-      makefile << "/usr/local/x10/x10.dist/bin/x10c++ -x10rt mpi -o #{out} #{code}\n\n"
-    elsif code =~ /\.erl\Z/
-      makefile << "HOME=/root erlc #{code}"
-    elsif code =~ /\.c\Z/
-      out = code.scan(/\A(.*)\.c\Z/).flatten.to_s
-
-      code_path = File.expand_path(input_loc + "/" + code)
-      contents = self.read_file(code_path)
-      if contents =~ /#include .mpi\.h./
-        makefile << "mpicc #{code} -o #{out} -Wall"
-
-      # for upc, there's upc_relaxed, upc_strict, and upc
-      # this should catch them all - just like pokemon
-      elsif contents.include?("#include <upc")
-        makefile << "/usr/local/berkeley_upc-2.12.1/upcc --network=mpi -o #{out} #{code}"
-      else # its plain old c
-        makefile << "gcc -o #{out} #{code} -Wall"
-      end
-    elsif code =~ /\.go\Z/
-        prefix = code.scan(/\A(.*)\.go\Z/).flatten.to_s
-        link = "#{prefix}.6"
-        makefile << "GOROOT=#{GOROOT} #{GOBIN}/6g #{code} && GOROOT=#{GOROOT} #{GOBIN}/6l -o #{prefix} #{link}"
-    else
-      abort("code type not supported for auto-gen makefile")
-    end
-
-    makefile_location = File.expand_path(input_loc + "/Makefile")
-    self.write_file(makefile_location, makefile)
   end
 
   def self.log_obscured_env()
