@@ -23,6 +23,7 @@ import tornado.web
 import appscale_datastore_batch
 import dbconstants
 import helper_functions
+from zkappscale import zktransaction as zk
 
 from google.appengine.api import api_base_pb
 from google.appengine.api import datastore_errors
@@ -43,6 +44,9 @@ buffer = __builtin__.buffer
 
 # Global for accessing the datastore. An instance of DatastoreDistributed.
 datastore_access = None
+
+# ZooKeeper global variable for locking
+zookeeper = None
 
 entity_pb.Reference.__hash__ = lambda self: hash(self.Encode())
 datastore_pb.Query.__hash__ = lambda self: hash(self.Encode())
@@ -88,12 +92,13 @@ class DatastoreDistributed():
   # When assigning the first allocated ID, give this value
   _FIRST_VALID_ALLOCATED_ID = 1
 
-  def __init__(self, datastore_batch):
+  def __init__(self, datastore_batch, zookeeper=None):
     """
        Constructor.
      
      Args:
-       datastore_batch: a reference to the batch datastore interface 
+       datastore_batch: a reference to the batch datastore interface .
+       zookeeper: a reference to the zookeeper interface.
     """
     # Each entry contains a tuple (last_accessed_timestamp, namespace)
     # The key is the <app_id>/<namespace>
@@ -110,6 +115,9 @@ class DatastoreDistributed():
 
     # datastore accessor used by this class to do datastore operations
     self.datastore_batch = datastore_batch 
+
+    # zookeeper instance for accesing ZK functionality
+    self.zookeeper = zookeeper
 
   @staticmethod
   def get_entity_kind(key_path):
@@ -494,10 +502,10 @@ class DatastoreDistributed():
     Raises: 
       ValueError: if size is less than or equal to 0
     """
-
     if size and max_id:
       raise ValueError("Both size and max cannot be set.")
 
+    self.zookeeper.acquireLock(prefix, 0)
     current_id = self.acquire_next_id_from_db(prefix)
 
     if size:
@@ -512,6 +520,7 @@ class DatastoreDistributed():
                           [prefix],  
                           dbconstants.APP_ID_SCHEMA,
                           cell_values)
+    self.zookeeper.releaseLock(prefix, 0)
 
     start = current_id
     end = next_id - 1
@@ -1892,7 +1901,7 @@ pb_application = tornado.web.Application([
 def main(argv):
   """ Starts a web service for handing datastore requests """
   global datastore_access
-  zoo_keeper_locations = ""
+  zookeeper_locations = ""
 
   db_type = "cassandra"
   port = DEFAULT_SSL_PORT
@@ -1917,7 +1926,7 @@ def main(argv):
     elif opt in ("-n", "--no_encryption"):
       isEncrypted = False
     elif opt in ("-z", "--zoo_keeper"):
-      zoo_keeper_locations = arg
+      zookeeper_locations = arg
 
   if db_type not in VALID_DATASTORES:
     print "This datastore is not supported for this version of the AppScale\
@@ -1925,8 +1934,8 @@ def main(argv):
     exit(1)
  
   datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(db_type)
-  datastore_access = DatastoreDistributed(datastore_batch)
-
+  zookeeper = zk.ZKTransaction(zookeeper_locations)
+  datastore_access = DatastoreDistributed(datastore_batch, zookeeper=zookeeper)
   if port == DEFAULT_SSL_PORT and not isEncrypted:
     port = DEFAULT_PORT
 

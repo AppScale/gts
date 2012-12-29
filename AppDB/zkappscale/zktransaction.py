@@ -274,7 +274,13 @@ class ZKTransaction:
 
     You must call getTransactionID() first to obtain transaction ID.
     You could call this method anytime if the root entity key is same.
-    If you could not get lock, this returns False.
+    Args:
+      app_id: The application ID to acquire a lock for.
+      txid: The transaction ID you are acquiring a lock for. Built into 
+            the path. 
+       entity_key: Used to get the root path.
+    Raises:
+      ZKTransactionException: If it could not get the lock.
     """
     self.__waitForConnect()
     txpath = self.__getTransactionPath(app_id, txid)
@@ -339,6 +345,14 @@ class ZKTransaction:
     if the transaction is not valid or it is expired, this raises Exception.
     After the release lock, you could not use transaction ID again.
     If there is no lock, this method returns False.
+    Args:
+      app_id: The application ID we are releasing a lock for.
+      txid: The transaction ID we are releasing a lock for.
+      key: The entity key we use to build the path.
+    Returns:
+      True on success.
+    Raises:
+      ZKTransactionException: When a lock can not be released. 
     """
     self.__waitForConnect()
     self.checkTransaction(app_id, txid)
