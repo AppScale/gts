@@ -1,9 +1,37 @@
 {% extends "base.html" %}
 {% block headstuff %}{% endblock %}
 {% block content %}
-  {% if not record %}
-    <p>Invalid or stale record key!</p>
+  {% if is_shell %}
+    <div>
+      <p>
+       Welcome to the interactive playground!
+        Here you can enter and run any Python code and analyze it immediately.
+        {% if multithread %}
+        <br>
+        <b>WARNING!</b> The playground is not thread-safe,
+        but your app is using threadsafe mode.
+        Use at your own risk.
+      {% endif %}
+      </p>
+      <form method=POST action=shell>
+        <input type=hidden name=xsrf_token value={{xsrf_token}}>
+        <textarea name=script rows=10 cols=80>{{script}}</textarea>
+        <input type=submit value=Run>
+      </form>
+      <hr>
+      Output:
+      <pre>{{output}}</pre>
+      <hr>
+      Errors:
+      <pre>{{errors}}</pre>
+      <hr>
+    </div>
   {% else %}
+    {% if not record %}
+      <p>Invalid or stale record key!</p>
+    {% endif %}
+  {% endif %}
+  {% if record %}
     <div class="g-section" id="ae-stats-summary">
       <dl>
         <dt>
@@ -21,6 +49,9 @@
           real={{record.duration_milliseconds}}ms
           api={{record.api_milliseconds}}ms
           overhead={{record.overhead_walltime_milliseconds}}ms
+          cost={{record.combined_rpc_cost_micropennies}}
+          <br>
+          billed_ops={{record.combined_rpc_billed_ops}}
         </dd>
       </dl>
     </div>
@@ -54,6 +85,8 @@
                   <b>{{t.service_call_name|escape}}</b>
                   real={{t.duration_milliseconds}}ms
                   api={{t.api_milliseconds}}ms
+                  cost={{t.call_cost_microdollars}}
+                  billed_ops=[{{t.billed_ops_str}}]
                 </td>
               </tr>
             </tbody>
@@ -105,6 +138,8 @@
             <td align="right">#RPCs</td>
             <td align="right">real time</td>
             <td align="right">api time</td>
+            <td align="right">Cost</td>
+            <td align="right">Billed Ops</td>
           </tr>
           {% for item in rpcstats_by_count %}
           <tr>
@@ -112,6 +147,8 @@
             <td align="right">{{item.1|escape}}</td>
             <td align="right">{{item.2}}ms</td>
             <td align="right">{{item.3}}ms</td>
+            <td align="right">{{item.4}}</td>
+            <td align="right">{{item.5}}</td>
           </tr>
           {% endfor %}
         </tbody>

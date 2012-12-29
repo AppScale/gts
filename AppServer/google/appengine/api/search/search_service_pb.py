@@ -265,6 +265,34 @@ class IndexSpec(ProtocolBuffer.ProtocolMessage):
   def Consistency_Name(cls, x): return cls._Consistency_NAMES.get(x, "")
   Consistency_Name = classmethod(Consistency_Name)
 
+
+
+  SEARCH       =    0
+  DATASTORE    =    1
+  CLOUD_STORAGE =    2
+
+  _Source_NAMES = {
+    0: "SEARCH",
+    1: "DATASTORE",
+    2: "CLOUD_STORAGE",
+  }
+
+  def Source_Name(cls, x): return cls._Source_NAMES.get(x, "")
+  Source_Name = classmethod(Source_Name)
+
+
+
+  PRIORITY     =    0
+  BACKGROUND   =    1
+
+  _Mode_NAMES = {
+    0: "PRIORITY",
+    1: "BACKGROUND",
+  }
+
+  def Mode_Name(cls, x): return cls._Mode_NAMES.get(x, "")
+  Mode_Name = classmethod(Mode_Name)
+
   has_name_ = 0
   name_ = ""
   has_consistency_ = 0
@@ -273,6 +301,10 @@ class IndexSpec(ProtocolBuffer.ProtocolMessage):
   namespace_ = ""
   has_version_ = 0
   version_ = 0
+  has_source_ = 0
+  source_ = 0
+  has_mode_ = 0
+  mode_ = 0
 
   def __init__(self, contents=None):
     if contents is not None: self.MergeFromString(contents)
@@ -329,6 +361,32 @@ class IndexSpec(ProtocolBuffer.ProtocolMessage):
 
   def has_version(self): return self.has_version_
 
+  def source(self): return self.source_
+
+  def set_source(self, x):
+    self.has_source_ = 1
+    self.source_ = x
+
+  def clear_source(self):
+    if self.has_source_:
+      self.has_source_ = 0
+      self.source_ = 0
+
+  def has_source(self): return self.has_source_
+
+  def mode(self): return self.mode_
+
+  def set_mode(self, x):
+    self.has_mode_ = 1
+    self.mode_ = x
+
+  def clear_mode(self):
+    if self.has_mode_:
+      self.has_mode_ = 0
+      self.mode_ = 0
+
+  def has_mode(self): return self.has_mode_
+
 
   def MergeFrom(self, x):
     assert x is not self
@@ -336,6 +394,8 @@ class IndexSpec(ProtocolBuffer.ProtocolMessage):
     if (x.has_consistency()): self.set_consistency(x.consistency())
     if (x.has_namespace()): self.set_namespace(x.namespace())
     if (x.has_version()): self.set_version(x.version())
+    if (x.has_source()): self.set_source(x.source())
+    if (x.has_mode()): self.set_mode(x.mode())
 
   def Equals(self, x):
     if x is self: return 1
@@ -347,6 +407,10 @@ class IndexSpec(ProtocolBuffer.ProtocolMessage):
     if self.has_namespace_ and self.namespace_ != x.namespace_: return 0
     if self.has_version_ != x.has_version_: return 0
     if self.has_version_ and self.version_ != x.version_: return 0
+    if self.has_source_ != x.has_source_: return 0
+    if self.has_source_ and self.source_ != x.source_: return 0
+    if self.has_mode_ != x.has_mode_: return 0
+    if self.has_mode_ and self.mode_ != x.mode_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -363,6 +427,8 @@ class IndexSpec(ProtocolBuffer.ProtocolMessage):
     if (self.has_consistency_): n += 1 + self.lengthVarInt64(self.consistency_)
     if (self.has_namespace_): n += 1 + self.lengthString(len(self.namespace_))
     if (self.has_version_): n += 1 + self.lengthVarInt64(self.version_)
+    if (self.has_source_): n += 1 + self.lengthVarInt64(self.source_)
+    if (self.has_mode_): n += 1 + self.lengthVarInt64(self.mode_)
     return n + 1
 
   def ByteSizePartial(self):
@@ -373,6 +439,8 @@ class IndexSpec(ProtocolBuffer.ProtocolMessage):
     if (self.has_consistency_): n += 1 + self.lengthVarInt64(self.consistency_)
     if (self.has_namespace_): n += 1 + self.lengthString(len(self.namespace_))
     if (self.has_version_): n += 1 + self.lengthVarInt64(self.version_)
+    if (self.has_source_): n += 1 + self.lengthVarInt64(self.source_)
+    if (self.has_mode_): n += 1 + self.lengthVarInt64(self.mode_)
     return n
 
   def Clear(self):
@@ -380,6 +448,8 @@ class IndexSpec(ProtocolBuffer.ProtocolMessage):
     self.clear_consistency()
     self.clear_namespace()
     self.clear_version()
+    self.clear_source()
+    self.clear_mode()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(10)
@@ -393,6 +463,12 @@ class IndexSpec(ProtocolBuffer.ProtocolMessage):
     if (self.has_version_):
       out.putVarInt32(32)
       out.putVarInt32(self.version_)
+    if (self.has_source_):
+      out.putVarInt32(40)
+      out.putVarInt32(self.source_)
+    if (self.has_mode_):
+      out.putVarInt32(48)
+      out.putVarInt32(self.mode_)
 
   def OutputPartial(self, out):
     if (self.has_name_):
@@ -407,6 +483,12 @@ class IndexSpec(ProtocolBuffer.ProtocolMessage):
     if (self.has_version_):
       out.putVarInt32(32)
       out.putVarInt32(self.version_)
+    if (self.has_source_):
+      out.putVarInt32(40)
+      out.putVarInt32(self.source_)
+    if (self.has_mode_):
+      out.putVarInt32(48)
+      out.putVarInt32(self.mode_)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -423,6 +505,12 @@ class IndexSpec(ProtocolBuffer.ProtocolMessage):
       if tt == 32:
         self.set_version(d.getVarInt32())
         continue
+      if tt == 40:
+        self.set_source(d.getVarInt32())
+        continue
+      if tt == 48:
+        self.set_mode(d.getVarInt32())
+        continue
 
 
       if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
@@ -435,6 +523,8 @@ class IndexSpec(ProtocolBuffer.ProtocolMessage):
     if self.has_consistency_: res+=prefix+("consistency: %s\n" % self.DebugFormatInt32(self.consistency_))
     if self.has_namespace_: res+=prefix+("namespace: %s\n" % self.DebugFormatString(self.namespace_))
     if self.has_version_: res+=prefix+("version: %s\n" % self.DebugFormatInt32(self.version_))
+    if self.has_source_: res+=prefix+("source: %s\n" % self.DebugFormatInt32(self.source_))
+    if self.has_mode_: res+=prefix+("mode: %s\n" % self.DebugFormatInt32(self.mode_))
     return res
 
 
@@ -445,6 +535,8 @@ class IndexSpec(ProtocolBuffer.ProtocolMessage):
   kconsistency = 2
   knamespace = 3
   kversion = 4
+  ksource = 5
+  kmode = 6
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
@@ -452,7 +544,9 @@ class IndexSpec(ProtocolBuffer.ProtocolMessage):
     2: "consistency",
     3: "namespace",
     4: "version",
-  }, 4)
+    5: "source",
+    6: "mode",
+  }, 6)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
@@ -460,7 +554,9 @@ class IndexSpec(ProtocolBuffer.ProtocolMessage):
     2: ProtocolBuffer.Encoder.NUMERIC,
     3: ProtocolBuffer.Encoder.STRING,
     4: ProtocolBuffer.Encoder.NUMERIC,
-  }, 4, ProtocolBuffer.Encoder.MAX_TYPE)
+    5: ProtocolBuffer.Encoder.NUMERIC,
+    6: ProtocolBuffer.Encoder.NUMERIC,
+  }, 6, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
@@ -627,9 +723,11 @@ class IndexDocumentParams(ProtocolBuffer.ProtocolMessage):
 
 
   SYNCHRONOUSLY =    0
+  WHEN_CONVENIENT =    1
 
   _Freshness_NAMES = {
     0: "SYNCHRONOUSLY",
+    1: "WHEN_CONVENIENT",
   }
 
   def Freshness_Name(cls, x): return cls._Freshness_NAMES.get(x, "")
@@ -2069,6 +2167,8 @@ class ListIndexesParams(ProtocolBuffer.ProtocolMessage):
   index_name_prefix_ = ""
   has_offset_ = 0
   offset_ = 0
+  has_source_ = 0
+  source_ = 0
 
   def __init__(self, contents=None):
     if contents is not None: self.MergeFromString(contents)
@@ -2164,6 +2264,19 @@ class ListIndexesParams(ProtocolBuffer.ProtocolMessage):
 
   def has_offset(self): return self.has_offset_
 
+  def source(self): return self.source_
+
+  def set_source(self, x):
+    self.has_source_ = 1
+    self.source_ = x
+
+  def clear_source(self):
+    if self.has_source_:
+      self.has_source_ = 0
+      self.source_ = 0
+
+  def has_source(self): return self.has_source_
+
 
   def MergeFrom(self, x):
     assert x is not self
@@ -2174,6 +2287,7 @@ class ListIndexesParams(ProtocolBuffer.ProtocolMessage):
     if (x.has_include_start_index()): self.set_include_start_index(x.include_start_index())
     if (x.has_index_name_prefix()): self.set_index_name_prefix(x.index_name_prefix())
     if (x.has_offset()): self.set_offset(x.offset())
+    if (x.has_source()): self.set_source(x.source())
 
   def Equals(self, x):
     if x is self: return 1
@@ -2191,6 +2305,8 @@ class ListIndexesParams(ProtocolBuffer.ProtocolMessage):
     if self.has_index_name_prefix_ and self.index_name_prefix_ != x.index_name_prefix_: return 0
     if self.has_offset_ != x.has_offset_: return 0
     if self.has_offset_ and self.offset_ != x.offset_: return 0
+    if self.has_source_ != x.has_source_: return 0
+    if self.has_source_ and self.source_ != x.source_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -2206,6 +2322,7 @@ class ListIndexesParams(ProtocolBuffer.ProtocolMessage):
     if (self.has_include_start_index_): n += 2
     if (self.has_index_name_prefix_): n += 1 + self.lengthString(len(self.index_name_prefix_))
     if (self.has_offset_): n += 1 + self.lengthVarInt64(self.offset_)
+    if (self.has_source_): n += 1 + self.lengthVarInt64(self.source_)
     return n
 
   def ByteSizePartial(self):
@@ -2217,6 +2334,7 @@ class ListIndexesParams(ProtocolBuffer.ProtocolMessage):
     if (self.has_include_start_index_): n += 2
     if (self.has_index_name_prefix_): n += 1 + self.lengthString(len(self.index_name_prefix_))
     if (self.has_offset_): n += 1 + self.lengthVarInt64(self.offset_)
+    if (self.has_source_): n += 1 + self.lengthVarInt64(self.source_)
     return n
 
   def Clear(self):
@@ -2227,6 +2345,7 @@ class ListIndexesParams(ProtocolBuffer.ProtocolMessage):
     self.clear_include_start_index()
     self.clear_index_name_prefix()
     self.clear_offset()
+    self.clear_source()
 
   def OutputUnchecked(self, out):
     if (self.has_fetch_schema_):
@@ -2250,6 +2369,9 @@ class ListIndexesParams(ProtocolBuffer.ProtocolMessage):
     if (self.has_offset_):
       out.putVarInt32(56)
       out.putVarInt32(self.offset_)
+    if (self.has_source_):
+      out.putVarInt32(64)
+      out.putVarInt32(self.source_)
 
   def OutputPartial(self, out):
     if (self.has_fetch_schema_):
@@ -2273,6 +2395,9 @@ class ListIndexesParams(ProtocolBuffer.ProtocolMessage):
     if (self.has_offset_):
       out.putVarInt32(56)
       out.putVarInt32(self.offset_)
+    if (self.has_source_):
+      out.putVarInt32(64)
+      out.putVarInt32(self.source_)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -2298,6 +2423,9 @@ class ListIndexesParams(ProtocolBuffer.ProtocolMessage):
       if tt == 56:
         self.set_offset(d.getVarInt32())
         continue
+      if tt == 64:
+        self.set_source(d.getVarInt32())
+        continue
 
 
       if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
@@ -2313,6 +2441,7 @@ class ListIndexesParams(ProtocolBuffer.ProtocolMessage):
     if self.has_include_start_index_: res+=prefix+("include_start_index: %s\n" % self.DebugFormatBool(self.include_start_index_))
     if self.has_index_name_prefix_: res+=prefix+("index_name_prefix: %s\n" % self.DebugFormatString(self.index_name_prefix_))
     if self.has_offset_: res+=prefix+("offset: %s\n" % self.DebugFormatInt32(self.offset_))
+    if self.has_source_: res+=prefix+("source: %s\n" % self.DebugFormatInt32(self.source_))
     return res
 
 
@@ -2326,6 +2455,7 @@ class ListIndexesParams(ProtocolBuffer.ProtocolMessage):
   kinclude_start_index = 5
   kindex_name_prefix = 6
   koffset = 7
+  ksource = 8
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
@@ -2336,7 +2466,8 @@ class ListIndexesParams(ProtocolBuffer.ProtocolMessage):
     5: "include_start_index",
     6: "index_name_prefix",
     7: "offset",
-  }, 7)
+    8: "source",
+  }, 8)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
@@ -2347,7 +2478,8 @@ class ListIndexesParams(ProtocolBuffer.ProtocolMessage):
     5: ProtocolBuffer.Encoder.NUMERIC,
     6: ProtocolBuffer.Encoder.STRING,
     7: ProtocolBuffer.Encoder.NUMERIC,
-  }, 7, ProtocolBuffer.Encoder.MAX_TYPE)
+    8: ProtocolBuffer.Encoder.NUMERIC,
+  }, 8, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
@@ -2648,6 +2780,406 @@ class ListIndexesResponse(ProtocolBuffer.ProtocolMessage):
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
   _PROTO_DESCRIPTOR_NAME = 'apphosting.ListIndexesResponse'
+class DeleteSchemaParams(ProtocolBuffer.ProtocolMessage):
+  has_source_ = 0
+  source_ = 0
+
+  def __init__(self, contents=None):
+    self.index_spec_ = []
+    if contents is not None: self.MergeFromString(contents)
+
+  def source(self): return self.source_
+
+  def set_source(self, x):
+    self.has_source_ = 1
+    self.source_ = x
+
+  def clear_source(self):
+    if self.has_source_:
+      self.has_source_ = 0
+      self.source_ = 0
+
+  def has_source(self): return self.has_source_
+
+  def index_spec_size(self): return len(self.index_spec_)
+  def index_spec_list(self): return self.index_spec_
+
+  def index_spec(self, i):
+    return self.index_spec_[i]
+
+  def mutable_index_spec(self, i):
+    return self.index_spec_[i]
+
+  def add_index_spec(self):
+    x = IndexSpec()
+    self.index_spec_.append(x)
+    return x
+
+  def clear_index_spec(self):
+    self.index_spec_ = []
+
+  def MergeFrom(self, x):
+    assert x is not self
+    if (x.has_source()): self.set_source(x.source())
+    for i in xrange(x.index_spec_size()): self.add_index_spec().CopyFrom(x.index_spec(i))
+
+  def Equals(self, x):
+    if x is self: return 1
+    if self.has_source_ != x.has_source_: return 0
+    if self.has_source_ and self.source_ != x.source_: return 0
+    if len(self.index_spec_) != len(x.index_spec_): return 0
+    for e1, e2 in zip(self.index_spec_, x.index_spec_):
+      if e1 != e2: return 0
+    return 1
+
+  def IsInitialized(self, debug_strs=None):
+    initialized = 1
+    for p in self.index_spec_:
+      if not p.IsInitialized(debug_strs): initialized=0
+    return initialized
+
+  def ByteSize(self):
+    n = 0
+    if (self.has_source_): n += 1 + self.lengthVarInt64(self.source_)
+    n += 1 * len(self.index_spec_)
+    for i in xrange(len(self.index_spec_)): n += self.lengthString(self.index_spec_[i].ByteSize())
+    return n
+
+  def ByteSizePartial(self):
+    n = 0
+    if (self.has_source_): n += 1 + self.lengthVarInt64(self.source_)
+    n += 1 * len(self.index_spec_)
+    for i in xrange(len(self.index_spec_)): n += self.lengthString(self.index_spec_[i].ByteSizePartial())
+    return n
+
+  def Clear(self):
+    self.clear_source()
+    self.clear_index_spec()
+
+  def OutputUnchecked(self, out):
+    if (self.has_source_):
+      out.putVarInt32(8)
+      out.putVarInt32(self.source_)
+    for i in xrange(len(self.index_spec_)):
+      out.putVarInt32(18)
+      out.putVarInt32(self.index_spec_[i].ByteSize())
+      self.index_spec_[i].OutputUnchecked(out)
+
+  def OutputPartial(self, out):
+    if (self.has_source_):
+      out.putVarInt32(8)
+      out.putVarInt32(self.source_)
+    for i in xrange(len(self.index_spec_)):
+      out.putVarInt32(18)
+      out.putVarInt32(self.index_spec_[i].ByteSizePartial())
+      self.index_spec_[i].OutputPartial(out)
+
+  def TryMerge(self, d):
+    while d.avail() > 0:
+      tt = d.getVarInt32()
+      if tt == 8:
+        self.set_source(d.getVarInt32())
+        continue
+      if tt == 18:
+        length = d.getVarInt32()
+        tmp = ProtocolBuffer.Decoder(d.buffer(), d.pos(), d.pos() + length)
+        d.skip(length)
+        self.add_index_spec().TryMerge(tmp)
+        continue
+
+
+      if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
+      d.skipData(tt)
+
+
+  def __str__(self, prefix="", printElemNumber=0):
+    res=""
+    if self.has_source_: res+=prefix+("source: %s\n" % self.DebugFormatInt32(self.source_))
+    cnt=0
+    for e in self.index_spec_:
+      elm=""
+      if printElemNumber: elm="(%d)" % cnt
+      res+=prefix+("index_spec%s <\n" % elm)
+      res+=e.__str__(prefix + "  ", printElemNumber)
+      res+=prefix+">\n"
+      cnt+=1
+    return res
+
+
+  def _BuildTagLookupTable(sparse, maxtag, default=None):
+    return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
+
+  ksource = 1
+  kindex_spec = 2
+
+  _TEXT = _BuildTagLookupTable({
+    0: "ErrorCode",
+    1: "source",
+    2: "index_spec",
+  }, 2)
+
+  _TYPES = _BuildTagLookupTable({
+    0: ProtocolBuffer.Encoder.NUMERIC,
+    1: ProtocolBuffer.Encoder.NUMERIC,
+    2: ProtocolBuffer.Encoder.STRING,
+  }, 2, ProtocolBuffer.Encoder.MAX_TYPE)
+
+
+  _STYLE = """"""
+  _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.DeleteSchemaParams'
+class DeleteSchemaRequest(ProtocolBuffer.ProtocolMessage):
+  has_params_ = 0
+  has_app_id_ = 0
+  app_id_ = ""
+
+  def __init__(self, contents=None):
+    self.params_ = DeleteSchemaParams()
+    if contents is not None: self.MergeFromString(contents)
+
+  def params(self): return self.params_
+
+  def mutable_params(self): self.has_params_ = 1; return self.params_
+
+  def clear_params(self):self.has_params_ = 0; self.params_.Clear()
+
+  def has_params(self): return self.has_params_
+
+  def app_id(self): return self.app_id_
+
+  def set_app_id(self, x):
+    self.has_app_id_ = 1
+    self.app_id_ = x
+
+  def clear_app_id(self):
+    if self.has_app_id_:
+      self.has_app_id_ = 0
+      self.app_id_ = ""
+
+  def has_app_id(self): return self.has_app_id_
+
+
+  def MergeFrom(self, x):
+    assert x is not self
+    if (x.has_params()): self.mutable_params().MergeFrom(x.params())
+    if (x.has_app_id()): self.set_app_id(x.app_id())
+
+  def Equals(self, x):
+    if x is self: return 1
+    if self.has_params_ != x.has_params_: return 0
+    if self.has_params_ and self.params_ != x.params_: return 0
+    if self.has_app_id_ != x.has_app_id_: return 0
+    if self.has_app_id_ and self.app_id_ != x.app_id_: return 0
+    return 1
+
+  def IsInitialized(self, debug_strs=None):
+    initialized = 1
+    if (not self.has_params_):
+      initialized = 0
+      if debug_strs is not None:
+        debug_strs.append('Required field: params not set.')
+    elif not self.params_.IsInitialized(debug_strs): initialized = 0
+    return initialized
+
+  def ByteSize(self):
+    n = 0
+    n += self.lengthString(self.params_.ByteSize())
+    if (self.has_app_id_): n += 1 + self.lengthString(len(self.app_id_))
+    return n + 1
+
+  def ByteSizePartial(self):
+    n = 0
+    if (self.has_params_):
+      n += 1
+      n += self.lengthString(self.params_.ByteSizePartial())
+    if (self.has_app_id_): n += 1 + self.lengthString(len(self.app_id_))
+    return n
+
+  def Clear(self):
+    self.clear_params()
+    self.clear_app_id()
+
+  def OutputUnchecked(self, out):
+    out.putVarInt32(10)
+    out.putVarInt32(self.params_.ByteSize())
+    self.params_.OutputUnchecked(out)
+    if (self.has_app_id_):
+      out.putVarInt32(26)
+      out.putPrefixedString(self.app_id_)
+
+  def OutputPartial(self, out):
+    if (self.has_params_):
+      out.putVarInt32(10)
+      out.putVarInt32(self.params_.ByteSizePartial())
+      self.params_.OutputPartial(out)
+    if (self.has_app_id_):
+      out.putVarInt32(26)
+      out.putPrefixedString(self.app_id_)
+
+  def TryMerge(self, d):
+    while d.avail() > 0:
+      tt = d.getVarInt32()
+      if tt == 10:
+        length = d.getVarInt32()
+        tmp = ProtocolBuffer.Decoder(d.buffer(), d.pos(), d.pos() + length)
+        d.skip(length)
+        self.mutable_params().TryMerge(tmp)
+        continue
+      if tt == 26:
+        self.set_app_id(d.getPrefixedString())
+        continue
+
+
+      if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
+      d.skipData(tt)
+
+
+  def __str__(self, prefix="", printElemNumber=0):
+    res=""
+    if self.has_params_:
+      res+=prefix+"params <\n"
+      res+=self.params_.__str__(prefix + "  ", printElemNumber)
+      res+=prefix+">\n"
+    if self.has_app_id_: res+=prefix+("app_id: %s\n" % self.DebugFormatString(self.app_id_))
+    return res
+
+
+  def _BuildTagLookupTable(sparse, maxtag, default=None):
+    return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
+
+  kparams = 1
+  kapp_id = 3
+
+  _TEXT = _BuildTagLookupTable({
+    0: "ErrorCode",
+    1: "params",
+    3: "app_id",
+  }, 3)
+
+  _TYPES = _BuildTagLookupTable({
+    0: ProtocolBuffer.Encoder.NUMERIC,
+    1: ProtocolBuffer.Encoder.STRING,
+    3: ProtocolBuffer.Encoder.STRING,
+  }, 3, ProtocolBuffer.Encoder.MAX_TYPE)
+
+
+  _STYLE = """"""
+  _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.DeleteSchemaRequest'
+class DeleteSchemaResponse(ProtocolBuffer.ProtocolMessage):
+
+  def __init__(self, contents=None):
+    self.status_ = []
+    if contents is not None: self.MergeFromString(contents)
+
+  def status_size(self): return len(self.status_)
+  def status_list(self): return self.status_
+
+  def status(self, i):
+    return self.status_[i]
+
+  def mutable_status(self, i):
+    return self.status_[i]
+
+  def add_status(self):
+    x = RequestStatus()
+    self.status_.append(x)
+    return x
+
+  def clear_status(self):
+    self.status_ = []
+
+  def MergeFrom(self, x):
+    assert x is not self
+    for i in xrange(x.status_size()): self.add_status().CopyFrom(x.status(i))
+
+  def Equals(self, x):
+    if x is self: return 1
+    if len(self.status_) != len(x.status_): return 0
+    for e1, e2 in zip(self.status_, x.status_):
+      if e1 != e2: return 0
+    return 1
+
+  def IsInitialized(self, debug_strs=None):
+    initialized = 1
+    for p in self.status_:
+      if not p.IsInitialized(debug_strs): initialized=0
+    return initialized
+
+  def ByteSize(self):
+    n = 0
+    n += 1 * len(self.status_)
+    for i in xrange(len(self.status_)): n += self.lengthString(self.status_[i].ByteSize())
+    return n
+
+  def ByteSizePartial(self):
+    n = 0
+    n += 1 * len(self.status_)
+    for i in xrange(len(self.status_)): n += self.lengthString(self.status_[i].ByteSizePartial())
+    return n
+
+  def Clear(self):
+    self.clear_status()
+
+  def OutputUnchecked(self, out):
+    for i in xrange(len(self.status_)):
+      out.putVarInt32(10)
+      out.putVarInt32(self.status_[i].ByteSize())
+      self.status_[i].OutputUnchecked(out)
+
+  def OutputPartial(self, out):
+    for i in xrange(len(self.status_)):
+      out.putVarInt32(10)
+      out.putVarInt32(self.status_[i].ByteSizePartial())
+      self.status_[i].OutputPartial(out)
+
+  def TryMerge(self, d):
+    while d.avail() > 0:
+      tt = d.getVarInt32()
+      if tt == 10:
+        length = d.getVarInt32()
+        tmp = ProtocolBuffer.Decoder(d.buffer(), d.pos(), d.pos() + length)
+        d.skip(length)
+        self.add_status().TryMerge(tmp)
+        continue
+
+
+      if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
+      d.skipData(tt)
+
+
+  def __str__(self, prefix="", printElemNumber=0):
+    res=""
+    cnt=0
+    for e in self.status_:
+      elm=""
+      if printElemNumber: elm="(%d)" % cnt
+      res+=prefix+("status%s <\n" % elm)
+      res+=e.__str__(prefix + "  ", printElemNumber)
+      res+=prefix+">\n"
+      cnt+=1
+    return res
+
+
+  def _BuildTagLookupTable(sparse, maxtag, default=None):
+    return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
+
+  kstatus = 1
+
+  _TEXT = _BuildTagLookupTable({
+    0: "ErrorCode",
+    1: "status",
+  }, 1)
+
+  _TYPES = _BuildTagLookupTable({
+    0: ProtocolBuffer.Encoder.NUMERIC,
+    1: ProtocolBuffer.Encoder.STRING,
+  }, 1, ProtocolBuffer.Encoder.MAX_TYPE)
+
+
+  _STYLE = """"""
+  _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.DeleteSchemaResponse'
 class SortSpec(ProtocolBuffer.ProtocolMessage):
   has_sort_expression_ = 0
   sort_expression_ = ""
@@ -3319,6 +3851,19 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
   def CursorType_Name(cls, x): return cls._CursorType_NAMES.get(x, "")
   CursorType_Name = classmethod(CursorType_Name)
 
+
+
+  STRICT       =    0
+  RELAXED      =    1
+
+  _ParsingMode_NAMES = {
+    0: "STRICT",
+    1: "RELAXED",
+  }
+
+  def ParsingMode_Name(cls, x): return cls._ParsingMode_NAMES.get(x, "")
+  ParsingMode_Name = classmethod(ParsingMode_Name)
+
   has_index_spec_ = 0
   has_query_ = 0
   query_ = ""
@@ -3338,6 +3883,8 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
   field_spec_ = None
   has_keys_only_ = 0
   keys_only_ = 0
+  has_parsing_mode_ = 0
+  parsing_mode_ = 0
 
   def __init__(self, contents=None):
     self.index_spec_ = IndexSpec()
@@ -3498,6 +4045,19 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
 
   def has_keys_only(self): return self.has_keys_only_
 
+  def parsing_mode(self): return self.parsing_mode_
+
+  def set_parsing_mode(self, x):
+    self.has_parsing_mode_ = 1
+    self.parsing_mode_ = x
+
+  def clear_parsing_mode(self):
+    if self.has_parsing_mode_:
+      self.has_parsing_mode_ = 0
+      self.parsing_mode_ = 0
+
+  def has_parsing_mode(self): return self.has_parsing_mode_
+
 
   def MergeFrom(self, x):
     assert x is not self
@@ -3512,6 +4072,7 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
     if (x.has_scorer_spec()): self.mutable_scorer_spec().MergeFrom(x.scorer_spec())
     if (x.has_field_spec()): self.mutable_field_spec().MergeFrom(x.field_spec())
     if (x.has_keys_only()): self.set_keys_only(x.keys_only())
+    if (x.has_parsing_mode()): self.set_parsing_mode(x.parsing_mode())
 
   def Equals(self, x):
     if x is self: return 1
@@ -3538,6 +4099,8 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
     if self.has_field_spec_ and self.field_spec_ != x.field_spec_: return 0
     if self.has_keys_only_ != x.has_keys_only_: return 0
     if self.has_keys_only_ and self.keys_only_ != x.keys_only_: return 0
+    if self.has_parsing_mode_ != x.has_parsing_mode_: return 0
+    if self.has_parsing_mode_ and self.parsing_mode_ != x.parsing_mode_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -3571,6 +4134,7 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
     if (self.has_scorer_spec_): n += 1 + self.lengthString(self.scorer_spec_.ByteSize())
     if (self.has_field_spec_): n += 1 + self.lengthString(self.field_spec_.ByteSize())
     if (self.has_keys_only_): n += 2
+    if (self.has_parsing_mode_): n += 1 + self.lengthVarInt64(self.parsing_mode_)
     return n + 2
 
   def ByteSizePartial(self):
@@ -3591,6 +4155,7 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
     if (self.has_scorer_spec_): n += 1 + self.lengthString(self.scorer_spec_.ByteSizePartial())
     if (self.has_field_spec_): n += 1 + self.lengthString(self.field_spec_.ByteSizePartial())
     if (self.has_keys_only_): n += 2
+    if (self.has_parsing_mode_): n += 1 + self.lengthVarInt64(self.parsing_mode_)
     return n
 
   def Clear(self):
@@ -3605,6 +4170,7 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
     self.clear_scorer_spec()
     self.clear_field_spec()
     self.clear_keys_only()
+    self.clear_parsing_mode()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(10)
@@ -3642,6 +4208,9 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
     if (self.has_keys_only_):
       out.putVarInt32(96)
       out.putBoolean(self.keys_only_)
+    if (self.has_parsing_mode_):
+      out.putVarInt32(104)
+      out.putVarInt32(self.parsing_mode_)
 
   def OutputPartial(self, out):
     if (self.has_index_spec_):
@@ -3681,6 +4250,9 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
     if (self.has_keys_only_):
       out.putVarInt32(96)
       out.putBoolean(self.keys_only_)
+    if (self.has_parsing_mode_):
+      out.putVarInt32(104)
+      out.putVarInt32(self.parsing_mode_)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -3730,6 +4302,9 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
       if tt == 96:
         self.set_keys_only(d.getBoolean())
         continue
+      if tt == 104:
+        self.set_parsing_mode(d.getVarInt32())
+        continue
 
 
       if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
@@ -3765,6 +4340,7 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
       res+=self.field_spec_.__str__(prefix + "  ", printElemNumber)
       res+=prefix+">\n"
     if self.has_keys_only_: res+=prefix+("keys_only: %s\n" % self.DebugFormatBool(self.keys_only_))
+    if self.has_parsing_mode_: res+=prefix+("parsing_mode: %s\n" % self.DebugFormatInt32(self.parsing_mode_))
     return res
 
 
@@ -3782,6 +4358,7 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
   kscorer_spec = 9
   kfield_spec = 10
   kkeys_only = 12
+  kparsing_mode = 13
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
@@ -3796,7 +4373,8 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
     10: "field_spec",
     11: "offset",
     12: "keys_only",
-  }, 12)
+    13: "parsing_mode",
+  }, 13)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
@@ -3811,7 +4389,8 @@ class SearchParams(ProtocolBuffer.ProtocolMessage):
     10: ProtocolBuffer.Encoder.STRING,
     11: ProtocolBuffer.Encoder.NUMERIC,
     12: ProtocolBuffer.Encoder.NUMERIC,
-  }, 12, ProtocolBuffer.Encoder.MAX_TYPE)
+    13: ProtocolBuffer.Encoder.NUMERIC,
+  }, 13, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
@@ -4420,4 +4999,4 @@ class SearchResponse(ProtocolBuffer.ProtocolMessage):
 if _extension_runtime:
   pass
 
-__all__ = ['SearchServiceError','RequestStatus','IndexSpec','IndexMetadata','IndexDocumentParams','IndexDocumentRequest','IndexDocumentResponse','DeleteDocumentParams','DeleteDocumentRequest','DeleteDocumentResponse','ListDocumentsParams','ListDocumentsRequest','ListDocumentsResponse','ListIndexesParams','ListIndexesRequest','ListIndexesResponse','SortSpec','ScorerSpec','FieldSpec','FieldSpec_Expression','SearchParams','SearchRequest','SearchResult','SearchResponse']
+__all__ = ['SearchServiceError','RequestStatus','IndexSpec','IndexMetadata','IndexDocumentParams','IndexDocumentRequest','IndexDocumentResponse','DeleteDocumentParams','DeleteDocumentRequest','DeleteDocumentResponse','ListDocumentsParams','ListDocumentsRequest','ListDocumentsResponse','ListIndexesParams','ListIndexesRequest','ListIndexesResponse','DeleteSchemaParams','DeleteSchemaRequest','DeleteSchemaResponse','SortSpec','ScorerSpec','FieldSpec','FieldSpec_Expression','SearchParams','SearchRequest','SearchResult','SearchResponse']

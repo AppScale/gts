@@ -7,7 +7,6 @@
 import cStringIO
 import mimetools
 
-
 HTTP_PORT = 80
 HTTPS_PORT = 443
 
@@ -149,9 +148,6 @@ class HTTPMessage(mimetools.Message):
     else:
       combined = ", ".join((prev, value))
       self.dict[key] = combined
-    # App Engine Note: Headers are stored in both self.dict and self.headers, so
-    # add the header to self.headers as well.
-    self.headers.append('%s: %s' % (key, value))
 
   def addcontinue(self, key, more):
     """Add more field data from a continuation line."""
@@ -251,7 +247,7 @@ class HTTPMessage(mimetools.Message):
 
 class HTTPResponse:
   # App Engine Note: The public interface is identical to the interface provided
-  #    in Python 2.7 excep __init__ takes a
+  #    in Python 2.7 except __init__ takes a
   #    google.appengine.api.urlfetch.Response instance rather than a socket.
 
   def __init__(self,
@@ -284,9 +280,7 @@ class HTTPResponse:
       # we've already started reading the response
       return
 
-    self.msg = HTTPMessage(cStringIO.StringIO(''))
-    for name, value in self._fetch_response.headers.items():
-      self.msg.addheader(name.lower(), str(value))
+    self.msg = self._fetch_response.header_msg
 
     self.version = 11  # We can't get the real HTTP version so make one up.
     self.status = self._fetch_response.status_code
@@ -370,6 +364,12 @@ class HTTPConnection:
     }
     self.host = host
     self.port = port
+    # With urllib2 in Python 2.6, an object can be passed here.
+    # The default is set to socket.GLOBAL_DEFAULT_TIMEOUT which is an object.
+    # We only accept float, int or long values, otherwise it can be
+    # silently ignored.
+    if not isinstance(timeout, (float, int, long)):
+      timeout = None
     self.timeout = timeout
     # Both 'strict' and 'source_address' are ignored.
     self._method = self._url = None

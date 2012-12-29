@@ -403,8 +403,10 @@ def parse_blob_info(field_storage):
 
   field_name = field_storage.name
 
-  def get_value(dict, name):
-    value = dict.get(name, None)
+  def get_value(diction, name):
+    """ Gets the value from a dictionary given a name and raises an exception
+        if it does not exist. """
+    value = diction.get(name, None)
     if value is None:
       raise BlobInfoParseError(
           'Field %s has no %s.' % (field_name, name))
@@ -417,7 +419,7 @@ def parse_blob_info(field_storage):
   content_type = get_value(upload_content, 'content-type')
   size = get_value(upload_content, 'content-length')
   creation_string = get_value(upload_content, UPLOAD_INFO_CREATION_HEADER)
-  #md5_hash_encoded = get_value(upload_content, 'content-md5')
+  #md5_hash_encoded = '0' # get_value(upload_content, 'content-md5')
   #md5_hash = base64.urlsafe_b64decode(md5_hash_encoded)
 
   try:

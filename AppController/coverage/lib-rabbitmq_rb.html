@@ -28,9 +28,9 @@
         <tbody>
           <tr>
             <td class="left_align"><a href="lib-rabbitmq_rb.html">lib/rabbitmq.rb</a></td>
-            <td class='right_align'><tt>92</tt></td>
+            <td class='right_align'><tt>95</tt></td>
             <td class='right_align'><tt>43</tt></td>
-            <td class="left_align"><div class="percent_graph_legend"><tt class=''>97.83%</tt></div>
+            <td class="left_align"><div class="percent_graph_legend"><tt class=''>97.89%</tt></div>
           <div class="percent_graph">
             <div class="covered" style="width:98px"></div>
             <div class="uncovered" style="width:2px"></div>
@@ -350,266 +350,284 @@
         
           
           
-          <tr class="marked">
-            <td><pre><a name="line50">50</a>     start_cmds = [&quot;rabbitmq-server -detached -setcookie #{HelperFunctions.get_secret()}&quot;,</pre></td>
+          <tr class="inferred">
+            <td><pre><a name="line50">50</a>     # TODO(cgb): This looks like this assumes that the head node is</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line51">51</a>                  &quot;rabbitmqctl start_app&quot;,</pre></td>
+            <td><pre><a name="line51">51</a>     # appscale-image0 - true for default deployments but not necessarily</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line52">52</a>                  &quot;rabbitmqctl stop_app&quot;,</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line53">53</a>                  &quot;rabbitmqctl reset&quot;,</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line54">54</a>                  &quot;rabbitmqctl cluster rabbit@appscale-image0&quot;,</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line55">55</a>                  &quot;rabbitmqctl start_app&quot;]</pre></td>
+            <td><pre><a name="line52">52</a>     # so in advanced placement scenarios. Change accordingly.</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line56">56</a>     full_cmd = &quot;#{start_cmds.join('; ')}&quot;</pre></td>
+            <td><pre><a name="line53">53</a>     start_cmds = [&quot;rabbitmqctl start_app&quot;,</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line57">57</a> </pre></td>
+            <td><pre><a name="line54">54</a>                   &quot;rabbitmqctl stop_app&quot;,</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line55">55</a>                   &quot;rabbitmqctl reset&quot;,</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line58">58</a>     Djinn.log_run(&quot;#{full_cmd}&quot;)</pre></td>
+            <td><pre><a name="line56">56</a>                   &quot;rabbitmq-server -detached -setcookie #{HelperFunctions.get_secret()}&quot;,</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line57">57</a>                   &quot;rabbitmqctl cluster rabbit@appscale-image0&quot;,</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line58">58</a>                   &quot;rabbitmqctl start_app&quot;]</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line59">59</a>     Djinn.log_debug(&quot;Waiting for RabbitMQ on local node to come up&quot;)</pre></td>
+            <td><pre><a name="line59">59</a>     full_cmd = &quot;#{start_cmds.join('; ')}&quot;</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line60">60</a> </pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line60">60</a>     HelperFunctions.sleep_until_port_is_open(&quot;localhost&quot;, SERVER_PORT)</pre></td>
+            <td><pre><a name="line61">61</a>     Djinn.log_run(&quot;#{full_cmd}&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line61">61</a>     Djinn.log_debug(&quot;Done starting rabbitmq_slave on this node&quot;)</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line62">62</a>   end</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line63">63</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line64">64</a> </pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line65">65</a>   # Stops the RabbitMQ server on this node.</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line66">66</a>   # TODO(cgb): It doesn't actually do anything right now - find out what we</pre></td>
-          </tr>
-        
-          
-          
-          <tr class="inferred">
-            <td><pre><a name="line67">67</a>   # need to do to stop the server.</pre></td>
+            <td><pre><a name="line62">62</a>     Djinn.log_debug(&quot;Waiting for RabbitMQ on local node to come up&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line68">68</a>   def self.stop()</pre></td>
+            <td><pre><a name="line63">63</a>     HelperFunctions.sleep_until_port_is_open(&quot;localhost&quot;, SERVER_PORT)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line64">64</a>     Djinn.log_debug(&quot;Done starting rabbitmq_slave on this node&quot;)</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line65">65</a>   end</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line66">66</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line67">67</a> </pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line68">68</a>   # Stops the RabbitMQ server on this node.</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line69">69</a>   # TODO(cgb): It doesn't actually do anything right now - find out what we</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="inferred">
+            <td><pre><a name="line70">70</a>   # need to do to stop the server.</pre></td>
+          </tr>
+        
+          
+          
+          <tr class="marked">
+            <td><pre><a name="line71">71</a>   def self.stop()</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line69">69</a>     Djinn.log_debug(&quot;Shutting down RabbitMQ&quot;)</pre></td>
+            <td><pre><a name="line72">72</a>     Djinn.log_debug(&quot;Shutting down RabbitMQ&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="uncovered">
-            <td><pre><a name="line70">70</a>   end</pre></td>
+            <td><pre><a name="line73">73</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line71">71</a> </pre></td>
+            <td><pre><a name="line74">74</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line72">72</a> </pre></td>
+            <td><pre><a name="line75">75</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line73">73</a>   # Erlang processes use a secret value as a password to authenticate between</pre></td>
+            <td><pre><a name="line76">76</a>   # Erlang processes use a secret value as a password to authenticate between</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line74">74</a>   # one another. Since this is pretty much the same thing we do in AppScale</pre></td>
+            <td><pre><a name="line77">77</a>   # one another. Since this is pretty much the same thing we do in AppScale</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line75">75</a>   # with our secret key, use the same key here.</pre></td>
+            <td><pre><a name="line78">78</a>   # with our secret key, use the same key here.</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line76">76</a>   # TODO(cgb): Consider using a different key, so that if one key is compromised</pre></td>
+            <td><pre><a name="line79">79</a>   # TODO(cgb): Consider using a different key, so that if one key is compromised</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line77">77</a>   # it doesn't compromise the other.</pre></td>
+            <td><pre><a name="line80">80</a>   # it doesn't compromise the other.</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line78">78</a>   def self.write_cookie()</pre></td>
+            <td><pre><a name="line81">81</a>   def self.write_cookie()</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line79">79</a>     HelperFunctions.write_file(COOKIE_FILE, HelperFunctions.get_secret())</pre></td>
+            <td><pre><a name="line82">82</a>     HelperFunctions.write_file(COOKIE_FILE, HelperFunctions.get_secret())</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line80">80</a>   end</pre></td>
+            <td><pre><a name="line83">83</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line81">81</a> </pre></td>
+            <td><pre><a name="line84">84</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line82">82</a> </pre></td>
+            <td><pre><a name="line85">85</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line83">83</a>   # Erases all the files that RabbitMQ normally writes to, which can be useful</pre></td>
+            <td><pre><a name="line86">86</a>   # Erases all the files that RabbitMQ normally writes to, which can be useful</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line84">84</a>   # to ensure that we start up RabbitMQ without left-over state from previous</pre></td>
+            <td><pre><a name="line87">87</a>   # to ensure that we start up RabbitMQ without left-over state from previous</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line85">85</a>   # runs.</pre></td>
+            <td><pre><a name="line88">88</a>   # runs.</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line86">86</a>   def self.erase_local_files()</pre></td>
+            <td><pre><a name="line89">89</a>   def self.erase_local_files()</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line87">87</a>     Djinn.log_run(&quot;rm -rf /var/log/rabbitmq/*&quot;)</pre></td>
+            <td><pre><a name="line90">90</a>     Djinn.log_run(&quot;rm -rf /var/log/rabbitmq/*&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="marked">
-            <td><pre><a name="line88">88</a>     Djinn.log_run(&quot;rm -rf /var/lib/rabbitmq/mnesia/*&quot;)</pre></td>
+            <td><pre><a name="line91">91</a>     Djinn.log_run(&quot;rm -rf /var/lib/rabbitmq/mnesia/*&quot;)</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line89">89</a>   end</pre></td>
+            <td><pre><a name="line92">92</a>   end</pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line90">90</a>     </pre></td>
+            <td><pre><a name="line93">93</a>     </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line91">91</a> </pre></td>
+            <td><pre><a name="line94">94</a> </pre></td>
           </tr>
         
           
           
           <tr class="inferred">
-            <td><pre><a name="line92">92</a> end</pre></td>
+            <td><pre><a name="line95">95</a> end</pre></td>
           </tr>
         
       </tbody>
     </table>
 
-    <p>Generated on Wed May 16 23:23:05 -0700 2012 with <a href="http://github.com/relevance/rcov">rcov 1.0.0</a></p>
+    <p>Generated on Tue Dec 11 11:59:27 -0800 2012 with <a href="http://github.com/relevance/rcov">rcov 1.0.0</a></p>
 
   </body>
 </html>

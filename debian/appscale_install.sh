@@ -15,23 +15,40 @@ echo "APPSCALE_HOME in runtime=${APPSCALE_HOME_RUNTIME}"
 
 case "$1" in
     core)
+	# scratch install of appscale including post script.
 	installappscaleprofile
+	. /etc/profile.d/appscale.sh
 	installgems
+	postinstallgems
         installsetuptools
 	installhaproxy
+	postinstallhaproxy
 	installnginx
+	postinstallnginx
 	installappserverjava
+	postinstallappserverjava
 	installmonitoring
+	postinstallmonitoring
 	installthrift_fromsource
+	postinstallthrift_fromsource
         installtornado_fromsource
+        postinstalltornado
+	installprotobuf
+	postinstallprotobuf
         installflexmock
+        installnose
 	installhadoop
-#	if [ "$DIST" = "jaunty" -o "$DIST" = "karmic" ]; then
+	postinstallhadoop
 	installzookeeper
-#	fi
-	installneptune
+	postinstallzookeeper
+        installrabbitmq
+        postinstallrabbitmq
 	installservice
+	postinstallservice
+	updatealternatives
         patchxmpp
+	sethosts
+        setulimits
 	;;
     cassandra)
 	installcassandra
@@ -49,7 +66,6 @@ case "$1" in
     hypertable)
 	installhypertable
 	postinstallhypertable
-	#installhypertablemonitoring
 	;;
     mysql)
 	installmysql
@@ -82,10 +98,6 @@ case "$1" in
 	installhadoop
 	postinstallhadoop
 	;;
-    neptune)
-	installneptune
-	postinstallneptune
-	;;
     protobuf-src)
 	installprotobuf_fromsource
 	postinstallprotobuf
@@ -112,16 +124,15 @@ case "$1" in
 	installthrift_fromsource
 	postinstallthrift_fromsource
         installtornado_fromsource
+        installflexmock
+        installnose
         postinstalltornado
 	installprotobuf
 	postinstallprotobuf
 	installhadoop
 	postinstallhadoop
-#	if [ "$DIST" = "jaunty" -o "$DIST" = "karmic" ]; then
-	    installzookeeper
-#	fi
+	installzookeeper
 	postinstallzookeeper
-
         installcassandra
 	postinstallcassandra
 	installvoldemort
@@ -130,8 +141,6 @@ case "$1" in
 	postinstallhbase
 	installhypertable
 	postinstallhypertable
-	#installhypertablemonitoring
-	#postinstallhypertablemonitoring
 	installmysql
 	postinstallmysql
 	installmongodb
@@ -142,8 +151,6 @@ case "$1" in
 	postinstallmemcachedb
 	installtimesten
 	postinstalltimesten
-	installneptune
-	postinstallneptune
         installrabbitmq
         postinstallrabbitmq
 	installservice
@@ -152,7 +159,5 @@ case "$1" in
         patchxmpp
 	sethosts
         setulimits
-	installsocat
-#	keygen
 	;;
 esac

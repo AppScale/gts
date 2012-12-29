@@ -124,7 +124,7 @@ class ZKInterface
   # this method when they don't want to determine on their own which
   # ZooKeeper box to connect to.
   def self.init(my_node, all_nodes)
-    self.init_to_ip(my_node.public_ip, self.get_zk_location(my_node, 
+    self.init_to_ip(my_node.private_ip, self.get_zk_location(my_node,
       all_nodes))
   end
 
@@ -625,7 +625,7 @@ class ZKInterface
   def self.set(key, val, ephemeral)
     retries_left = 5
     begin
-      Djinn.log_debug("[ZK] trying to set #{key} to #{val} with ephemeral = #{ephemeral}")
+      Djinn.log_debug("[ZK] trying to set #{key} to #{HelperFunctions.obscure_creds(val)} with ephemeral = #{ephemeral}")
       info = {}
       if self.exists?(key)
         Djinn.log_debug("[ZK] Key #{key} exists, so setting it")
@@ -715,7 +715,7 @@ class ZKInterface
       abort(no_zks)
     end
 
-    return zk_node.public_ip
+    return zk_node.private_ip
   end
 
 

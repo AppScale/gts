@@ -1,5 +1,6 @@
 package com.google.appengine.api.taskqueue.dev;
 
+
 import com.google.appengine.api.taskqueue.TaskQueuePb;
 import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueAddRequest;
 import com.google.appengine.api.taskqueue.TaskQueuePb.TaskQueueAddResponse;
@@ -12,71 +13,86 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
+
 abstract class DevQueue
 {
-  protected static final Logger logger = Logger.getLogger(DevQueue.class.getName());
-  protected final QueueXml.Entry queueXmlEntry;
-  static AtomicInteger taskNameGenerator = null;
+    protected static final Logger  logger            = Logger.getLogger(DevQueue.class.getName());
+    protected final QueueXml.Entry queueXmlEntry;
+    static AtomicInteger           taskNameGenerator = null;
 
-  DevQueue(QueueXml.Entry queueXmlEntry) {
-    this.queueXmlEntry = queueXmlEntry;
-  }
-
-  DevQueue(QueueXml.Entry queueXmlEntry, AtomicInteger taskNameGeneratorIn) {
-    this.queueXmlEntry = queueXmlEntry;
-    taskNameGenerator = taskNameGeneratorIn;
-  }
-
-  static String genTaskName() {
-    if (taskNameGenerator != null) {
-      return "task" + taskNameGenerator.incrementAndGet();
-    }
-    return "task-" + UUID.randomUUID().toString();
-  }
-
-  abstract TaskQueuePb.TaskQueueAddResponse add(TaskQueuePb.TaskQueueAddRequest paramTaskQueueAddRequest);
-
-  protected String getQueueName()
-  {
-    return this.queueXmlEntry.getName();
-  }
-
-  protected TaskQueuePb.TaskQueueRetryParameters getRetryParameters(TaskQueuePb.TaskQueueAddRequest addRequest)
-  {
-    if (addRequest.hasRetryParameters()) {
-      return addRequest.getRetryParameters();
-    }
-    QueueXml.RetryParameters retryParams = this.queueXmlEntry.getRetryParameters();
-    if (retryParams == null) {
-      return null;
+    DevQueue( QueueXml.Entry queueXmlEntry )
+    {
+        this.queueXmlEntry = queueXmlEntry;
     }
 
-    TaskQueuePb.TaskQueueRetryParameters paramsPb = new TaskQueuePb.TaskQueueRetryParameters();
-    if (retryParams.getRetryLimit() != null) {
-      paramsPb.setRetryLimit(retryParams.getRetryLimit().intValue());
+    DevQueue( QueueXml.Entry queueXmlEntry, AtomicInteger taskNameGeneratorIn )
+    {
+        this.queueXmlEntry = queueXmlEntry;
+        /*
+         * AppScale - setting taskNameGenerator
+         */
+        taskNameGenerator = taskNameGeneratorIn;
     }
-    if (retryParams.getAgeLimitSec() != null) {
-      paramsPb.setAgeLimitSec(retryParams.getAgeLimitSec().intValue());
+
+    static String genTaskName()
+    {
+        if (taskNameGenerator != null)
+        {
+            return "task" + taskNameGenerator.incrementAndGet();
+        }
+        return "task-" + UUID.randomUUID().toString();
     }
-    if (retryParams.getMinBackoffSec() != null) {
-      paramsPb.setMinBackoffSec(retryParams.getMinBackoffSec().doubleValue());
+
+    abstract TaskQueuePb.TaskQueueAddResponse add( TaskQueuePb.TaskQueueAddRequest paramTaskQueueAddRequest );
+
+    protected String getQueueName()
+    {
+        return this.queueXmlEntry.getName();
     }
-    if (retryParams.getMaxBackoffSec() != null) {
-      paramsPb.setMaxBackoffSec(retryParams.getMaxBackoffSec().doubleValue());
+
+    protected TaskQueuePb.TaskQueueRetryParameters getRetryParameters( TaskQueuePb.TaskQueueAddRequest addRequest )
+    {
+        if (addRequest.hasRetryParameters())
+        {
+            return addRequest.getRetryParameters();
+        }
+        QueueXml.RetryParameters retryParams = this.queueXmlEntry.getRetryParameters();
+        if (retryParams == null)
+        {
+            return null;
+        }
+
+        TaskQueuePb.TaskQueueRetryParameters paramsPb = new TaskQueuePb.TaskQueueRetryParameters();
+        if (retryParams.getRetryLimit() != null)
+        {
+            paramsPb.setRetryLimit(retryParams.getRetryLimit().intValue());
+        }
+        if (retryParams.getAgeLimitSec() != null)
+        {
+            paramsPb.setAgeLimitSec(retryParams.getAgeLimitSec().intValue());
+        }
+        if (retryParams.getMinBackoffSec() != null)
+        {
+            paramsPb.setMinBackoffSec(retryParams.getMinBackoffSec().doubleValue());
+        }
+        if (retryParams.getMaxBackoffSec() != null)
+        {
+            paramsPb.setMaxBackoffSec(retryParams.getMaxBackoffSec().doubleValue());
+        }
+        if (retryParams.getMaxDoublings() != null)
+        {
+            paramsPb.setMaxDoublings(retryParams.getMaxDoublings().intValue());
+        }
+        return paramsPb;
     }
-    if (retryParams.getMaxDoublings() != null) {
-      paramsPb.setMaxDoublings(retryParams.getMaxDoublings().intValue());
-    }
-    return paramsPb;
-  }
 
-  abstract QueueStateInfo getStateInfo();
+    abstract QueueStateInfo getStateInfo();
 
-  abstract boolean deleteTask(String paramString);
+    abstract boolean deleteTask( String paramString );
 
-  abstract void flush();
+    abstract void flush();
 
-  abstract TaskQueuePb.TaskQueueMode.Mode getMode();
+    abstract TaskQueuePb.TaskQueueMode.Mode getMode();
 
-  abstract boolean runTask(String paramString);
+    abstract boolean runTask( String paramString );
 }

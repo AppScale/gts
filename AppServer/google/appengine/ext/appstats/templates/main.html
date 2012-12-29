@@ -29,6 +29,8 @@
           <tr>
             <th>RPC</th>
             <th>Count</th>
+            <th>Cost</th>
+            <th>Cost&nbsp;%</th>
           </tr>
         </thead>
         {% for item in allstats_by_count %}
@@ -39,13 +41,17 @@
               {{item.0|escape}}
             </td>
             <td>{{item.1}}</td>
+            <td title="{{item.3|escape}}">{{item.2}}</td>
+            <td>{{item.4}}%</td>
           </tr>
         </tbody>
         <tbody class="ae-rpc-detail" id="ae-rpc-expand-{{forloop.counter}}-detail">
-          {% for subitem in item.2 %}
+          {% for subitem in item.5 %}
           <tr>
             <td class="rpc-req">{{subitem.0|escape}}</td>
             <td>{{subitem.1}}</td>
+            <td title="{{subitem.3}}">{{subitem.2}}</td>
+            <td>{{subitem.4}}%</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -74,6 +80,8 @@
           <tr>
             <th>Path</th>
             <th>#RPCs</th>
+            <th>Cost</th>
+            <th>Cost%</th>
             <th>#Requests</th>
             <th>Most Recent requests</th>
           </tr>
@@ -87,21 +95,26 @@
           <td>
             {{item.1}}
           </td>
-          <td>{{item.2}}</td>
+          <td title="{{item.3}}">{{item.2}}</td>
+          <td>{{item.4}}%</td>
+          <td>{{item.5}}</td>
           <td>
-            {% for index in item.3 %}
-              {% if index %} <a href="#req-{{index}}">({{index}})</a> {% else %} ... {% endif %}
+            {% for index in item.6 %}
+            {% if index %} <a href="#req-{{index}}">({{index}})</a> {% else %} ... {% endif %}
             {% endfor %}
           </td>
-        <tbody class="path path-{{forloop.counter}}">
-          {% for subitem in item.4 %}
-          <tr>
-            <td class="rpc-req">{{subitem.0|escape}}</td>
-            <td>{{subitem.1|escape}}</td>
-            <td></td>
-          </tr>
-          {% endfor %}
-        </tbody>
+          <tbody class="path path-{{forloop.counter}}">
+            {% for subitem in item.7 %}
+            <tr>
+              <td class="rpc-req">{{subitem.0|escape}}</td>
+              <td>{{subitem.1|escape}}</td>
+              <td title="{{subitem.3|escape}}">{{subitem.2|escape}}</td>
+              <td>{{subitem.4}}%</td>
+              <td></td>
+              <td></td>
+            </tr>
+            {% endfor %}
+          </tbody>
         {% endfor %}
       </table>
     </div>
@@ -122,13 +135,13 @@
     </colgroup>
     <thead>
       <tr>
-        <th colspan="2">Request</th>
+        <th colspan="4">Request</th>
       </tr>
     </thead>
     {% for r in requests %}
     <tbody>
       <tr>
-        <td colspan="2" class="ae-hanging-indent">
+        <td colspan="4" class="ae-hanging-indent">
           <span class="goog-inline-block ae-zippy ae-zippy-expand" id="ae-path-requests-{{forloop.counter}}"></span>
           ({{forloop.counter}})
           <a name="req-{{forloop.counter}}" href="details?time={{r.start_timestamp_milliseconds}}" class="ae-stats-request-link">
@@ -140,7 +153,9 @@
           real={{r.duration_milliseconds}}ms
           api={{r.api_milliseconds}}ms
           overhead={{r.overhead_walltime_milliseconds}}ms
-          ({{r.combined_rpc_count}} RPC{{r.combined_rpc_count|pluralize}})
+          ({{r.combined_rpc_count}} RPC{{r.combined_rpc_count|pluralize}},
+            cost={{r.combined_rpc_cost_micropennies}},
+            billed_ops=[{{r.combined_rpc_billed_ops}}])
         </td>
       </tr>
     </tbody>
@@ -149,6 +164,9 @@
       <tr>
         <td class="rpc-req">{{item.service_call_name}}</td>
         <td>{{item.total_amount_of_calls}}</td>
+
+        <td>{{item.total_cost_of_calls_microdollars}}</td>
+        <td>{{item.total_billed_ops_str}}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -160,7 +178,8 @@
   No requests have been recorded yet.  While it is possible that you
   simply need to wait until your server receives some requests, this
   is often caused by a configuration problem.
-  <a href="http://code.google.com/appengine/docs/python/tools/appstats.html#Installing_the_Event_Recorder"
+  <!-- TODO:maxr templatize python/java in the below link -->
+  <a href="https://developers.google.com/appengine/docs/python/tools/appstats#EventRecorders"
   >Learn more</a>
 </div>
 {% endif %}
@@ -174,3 +193,4 @@
   var z3 = new ae.Stats.MakeZippys('ae-table-request', 'ae-request-expand-all');
 </script>
 {% endblock %}
+

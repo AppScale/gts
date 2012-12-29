@@ -61,6 +61,7 @@ class AppIdentityServiceError(ProtocolBuffer.ProtocolMessage):
   NOT_A_VALID_APP = 1002
   UNKNOWN_ERROR = 1003
   GAIAMINT_NOT_INITIAILIZED = 1004
+  NOT_ALLOWED  = 1005
 
   _ErrorCode_NAMES = {
     0: "SUCCESS",
@@ -70,6 +71,7 @@ class AppIdentityServiceError(ProtocolBuffer.ProtocolMessage):
     1002: "NOT_A_VALID_APP",
     1003: "UNKNOWN_ERROR",
     1004: "GAIAMINT_NOT_INITIAILIZED",
+    1005: "NOT_ALLOWED",
   }
 
   def ErrorCode_Name(cls, x): return cls._ErrorCode_NAMES.get(x, "")
@@ -167,7 +169,7 @@ class AppIdentityServiceError(ProtocolBuffer.ProtocolMessage):
   _STYLE_CONTENT_TYPE = """"""
   _PROTO_DESCRIPTOR_NAME = 'apphosting.AppIdentityServiceError'
   _SERIALIZED_DESCRIPTOR = array.array('B')
-  _SERIALIZED_DESCRIPTOR.fromstring(base64.decodestring("WjZhcHBob3N0aW5nL2FwaS9hcHBfaWRlbnRpdHkvYXBwX2lkZW50aXR5X3NlcnZpY2UucHJvdG8KImFwcGhvc3RpbmcuQXBwSWRlbnRpdHlTZXJ2aWNlRXJyb3JzeglFcnJvckNvZGWLAZIBB1NVQ0NFU1OYAQCMAYsBkgENVU5LTk9XTl9TQ09QRZgBCYwBiwGSAQ5CTE9CX1RPT19MQVJHRZgB6AeMAYsBkgERREVBRExJTkVfRVhDRUVERUSYAekHjAGLAZIBD05PVF9BX1ZBTElEX0FQUJgB6geMAYsBkgENVU5LTk9XTl9FUlJPUpgB6weMAYsBkgEZR0FJQU1JTlRfTk9UX0lOSVRJQUlMSVpFRJgB7AeMAXS6AaMKCjZhcHBob3N0aW5nL2FwaS9hcHBfaWRlbnRpdHkvYXBwX2lkZW50aXR5X3NlcnZpY2UucHJvdG8SCmFwcGhvc3RpbmcivgEKF0FwcElkZW50aXR5U2VydmljZUVycm9yIqIBCglFcnJvckNvZGUSCwoHU1VDQ0VTUxAAEhEKDVVOS05PV05fU0NPUEUQCRITCg5CTE9CX1RPT19MQVJHRRDoBxIWChFERUFETElORV9FWENFRURFRBDpBxIUCg9OT1RfQV9WQUxJRF9BUFAQ6gcSEgoNVU5LTk9XTl9FUlJPUhDrBxIeChlHQUlBTUlOVF9OT1RfSU5JVElBSUxJWkVEEOwHIioKEVNpZ25Gb3JBcHBSZXF1ZXN0EhUKDWJ5dGVzX3RvX3NpZ24YASABKAwiPwoSU2lnbkZvckFwcFJlc3BvbnNlEhAKCGtleV9uYW1lGAEgASgJEhcKD3NpZ25hdHVyZV9ieXRlcxgCIAEoDCIjCiFHZXRQdWJsaWNDZXJ0aWZpY2F0ZUZvckFwcFJlcXVlc3QiQwoRUHVibGljQ2VydGlmaWNhdGUSEAoIa2V5X25hbWUYASABKAkSHAoUeDUwOV9jZXJ0aWZpY2F0ZV9wZW0YAiABKAkijQEKIkdldFB1YmxpY0NlcnRpZmljYXRlRm9yQXBwUmVzcG9uc2USPgoXcHVibGljX2NlcnRpZmljYXRlX2xpc3QYASADKAsyHS5hcHBob3N0aW5nLlB1YmxpY0NlcnRpZmljYXRlEicKH21heF9jbGllbnRfY2FjaGVfdGltZV9pbl9zZWNvbmQYAiABKAMiHgocR2V0U2VydmljZUFjY291bnROYW1lUmVxdWVzdCI9Ch1HZXRTZXJ2aWNlQWNjb3VudE5hbWVSZXNwb25zZRIcChRzZXJ2aWNlX2FjY291bnRfbmFtZRgBIAEoCSImChVHZXRBY2Nlc3NUb2tlblJlcXVlc3QSDQoFc2NvcGUYASADKAkiRwoWR2V0QWNjZXNzVG9rZW5SZXNwb25zZRIUCgxhY2Nlc3NfdG9rZW4YASABKAkSFwoPZXhwaXJhdGlvbl90aW1lGAIgASgDMqIDCg5TaWduaW5nU2VydmljZRJLCgpTaWduRm9yQXBwEh0uYXBwaG9zdGluZy5TaWduRm9yQXBwUmVxdWVzdBoeLmFwcGhvc3RpbmcuU2lnbkZvckFwcFJlc3BvbnNlEnwKG0dldFB1YmxpY0NlcnRpZmljYXRlc0ZvckFwcBItLmFwcGhvc3RpbmcuR2V0UHVibGljQ2VydGlmaWNhdGVGb3JBcHBSZXF1ZXN0Gi4uYXBwaG9zdGluZy5HZXRQdWJsaWNDZXJ0aWZpY2F0ZUZvckFwcFJlc3BvbnNlEmwKFUdldFNlcnZpY2VBY2NvdW50TmFtZRIoLmFwcGhvc3RpbmcuR2V0U2VydmljZUFjY291bnROYW1lUmVxdWVzdBopLmFwcGhvc3RpbmcuR2V0U2VydmljZUFjY291bnROYW1lUmVzcG9uc2USVwoOR2V0QWNjZXNzVG9rZW4SIS5hcHBob3N0aW5nLkdldEFjY2Vzc1Rva2VuUmVxdWVzdBoiLmFwcGhvc3RpbmcuR2V0QWNjZXNzVG9rZW5SZXNwb25zZUJACiRjb20uZ29vZ2xlLmFwcGVuZ2luZS5hcGkuYXBwaWRlbnRpdHkgASgCQhRBcHBJZGVudGl0eVNlcnZpY2VQYg=="))
+  _SERIALIZED_DESCRIPTOR.fromstring(base64.decodestring("WjZhcHBob3N0aW5nL2FwaS9hcHBfaWRlbnRpdHkvYXBwX2lkZW50aXR5X3NlcnZpY2UucHJvdG8KImFwcGhvc3RpbmcuQXBwSWRlbnRpdHlTZXJ2aWNlRXJyb3JzeglFcnJvckNvZGWLAZIBB1NVQ0NFU1OYAQCMAYsBkgENVU5LTk9XTl9TQ09QRZgBCYwBiwGSAQ5CTE9CX1RPT19MQVJHRZgB6AeMAYsBkgERREVBRExJTkVfRVhDRUVERUSYAekHjAGLAZIBD05PVF9BX1ZBTElEX0FQUJgB6geMAYsBkgENVU5LTk9XTl9FUlJPUpgB6weMAYsBkgEZR0FJQU1JTlRfTk9UX0lOSVRJQUlMSVpFRJgB7AeMAYsBkgELTk9UX0FMTE9XRUSYAe0HjAF0ugHZCgo2YXBwaG9zdGluZy9hcGkvYXBwX2lkZW50aXR5L2FwcF9pZGVudGl0eV9zZXJ2aWNlLnByb3RvEgphcHBob3N0aW5nItABChdBcHBJZGVudGl0eVNlcnZpY2VFcnJvciK0AQoJRXJyb3JDb2RlEgsKB1NVQ0NFU1MQABIRCg1VTktOT1dOX1NDT1BFEAkSEwoOQkxPQl9UT09fTEFSR0UQ6AcSFgoRREVBRExJTkVfRVhDRUVERUQQ6QcSFAoPTk9UX0FfVkFMSURfQVBQEOoHEhIKDVVOS05PV05fRVJST1IQ6wcSHgoZR0FJQU1JTlRfTk9UX0lOSVRJQUlMSVpFRBDsBxIQCgtOT1RfQUxMT1dFRBDtByIqChFTaWduRm9yQXBwUmVxdWVzdBIVCg1ieXRlc190b19zaWduGAEgASgMIj8KElNpZ25Gb3JBcHBSZXNwb25zZRIQCghrZXlfbmFtZRgBIAEoCRIXCg9zaWduYXR1cmVfYnl0ZXMYAiABKAwiIwohR2V0UHVibGljQ2VydGlmaWNhdGVGb3JBcHBSZXF1ZXN0IkMKEVB1YmxpY0NlcnRpZmljYXRlEhAKCGtleV9uYW1lGAEgASgJEhwKFHg1MDlfY2VydGlmaWNhdGVfcGVtGAIgASgJIo0BCiJHZXRQdWJsaWNDZXJ0aWZpY2F0ZUZvckFwcFJlc3BvbnNlEj4KF3B1YmxpY19jZXJ0aWZpY2F0ZV9saXN0GAEgAygLMh0uYXBwaG9zdGluZy5QdWJsaWNDZXJ0aWZpY2F0ZRInCh9tYXhfY2xpZW50X2NhY2hlX3RpbWVfaW5fc2Vjb25kGAIgASgDIh4KHEdldFNlcnZpY2VBY2NvdW50TmFtZVJlcXVlc3QiPQodR2V0U2VydmljZUFjY291bnROYW1lUmVzcG9uc2USHAoUc2VydmljZV9hY2NvdW50X25hbWUYASABKAkiQgoVR2V0QWNjZXNzVG9rZW5SZXF1ZXN0Eg0KBXNjb3BlGAEgAygJEhoKEnNlcnZpY2VfYWNjb3VudF9pZBgCIAEoAyJHChZHZXRBY2Nlc3NUb2tlblJlc3BvbnNlEhQKDGFjY2Vzc190b2tlbhgBIAEoCRIXCg9leHBpcmF0aW9uX3RpbWUYAiABKAMyqgMKDlNpZ25pbmdTZXJ2aWNlEk0KClNpZ25Gb3JBcHASHS5hcHBob3N0aW5nLlNpZ25Gb3JBcHBSZXF1ZXN0Gh4uYXBwaG9zdGluZy5TaWduRm9yQXBwUmVzcG9uc2UiABJ+ChtHZXRQdWJsaWNDZXJ0aWZpY2F0ZXNGb3JBcHASLS5hcHBob3N0aW5nLkdldFB1YmxpY0NlcnRpZmljYXRlRm9yQXBwUmVxdWVzdBouLmFwcGhvc3RpbmcuR2V0UHVibGljQ2VydGlmaWNhdGVGb3JBcHBSZXNwb25zZSIAEm4KFUdldFNlcnZpY2VBY2NvdW50TmFtZRIoLmFwcGhvc3RpbmcuR2V0U2VydmljZUFjY291bnROYW1lUmVxdWVzdBopLmFwcGhvc3RpbmcuR2V0U2VydmljZUFjY291bnROYW1lUmVzcG9uc2UiABJZCg5HZXRBY2Nlc3NUb2tlbhIhLmFwcGhvc3RpbmcuR2V0QWNjZXNzVG9rZW5SZXF1ZXN0GiIuYXBwaG9zdGluZy5HZXRBY2Nlc3NUb2tlblJlc3BvbnNlIgBCQAokY29tLmdvb2dsZS5hcHBlbmdpbmUuYXBpLmFwcGlkZW50aXR5IAEoAkIUQXBwSWRlbnRpdHlTZXJ2aWNlUGI="))
   if _net_proto___parse__python is not None:
     _net_proto___parse__python.RegisterType(
         _SERIALIZED_DESCRIPTOR.tostring())
@@ -1130,6 +1132,8 @@ class GetServiceAccountNameResponse(ProtocolBuffer.ProtocolMessage):
         _SERIALIZED_DESCRIPTOR.tostring())
 
 class GetAccessTokenRequest(ProtocolBuffer.ProtocolMessage):
+  has_service_account_id_ = 0
+  service_account_id_ = 0
 
   def __init__(self, contents=None):
     self.scope_ = []
@@ -1150,10 +1154,24 @@ class GetAccessTokenRequest(ProtocolBuffer.ProtocolMessage):
   def clear_scope(self):
     self.scope_ = []
 
+  def service_account_id(self): return self.service_account_id_
+
+  def set_service_account_id(self, x):
+    self.has_service_account_id_ = 1
+    self.service_account_id_ = x
+
+  def clear_service_account_id(self):
+    if self.has_service_account_id_:
+      self.has_service_account_id_ = 0
+      self.service_account_id_ = 0
+
+  def has_service_account_id(self): return self.has_service_account_id_
+
 
   def MergeFrom(self, x):
     assert x is not self
     for i in xrange(x.scope_size()): self.add_scope(x.scope(i))
+    if (x.has_service_account_id()): self.set_service_account_id(x.service_account_id())
 
   if _net_proto___parse__python is not None:
     def _CMergeFromString(self, s):
@@ -1187,6 +1205,8 @@ class GetAccessTokenRequest(ProtocolBuffer.ProtocolMessage):
     if len(self.scope_) != len(x.scope_): return 0
     for e1, e2 in zip(self.scope_, x.scope_):
       if e1 != e2: return 0
+    if self.has_service_account_id_ != x.has_service_account_id_: return 0
+    if self.has_service_account_id_ and self.service_account_id_ != x.service_account_id_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -1197,32 +1217,44 @@ class GetAccessTokenRequest(ProtocolBuffer.ProtocolMessage):
     n = 0
     n += 1 * len(self.scope_)
     for i in xrange(len(self.scope_)): n += self.lengthString(len(self.scope_[i]))
+    if (self.has_service_account_id_): n += 1 + self.lengthVarInt64(self.service_account_id_)
     return n
 
   def ByteSizePartial(self):
     n = 0
     n += 1 * len(self.scope_)
     for i in xrange(len(self.scope_)): n += self.lengthString(len(self.scope_[i]))
+    if (self.has_service_account_id_): n += 1 + self.lengthVarInt64(self.service_account_id_)
     return n
 
   def Clear(self):
     self.clear_scope()
+    self.clear_service_account_id()
 
   def OutputUnchecked(self, out):
     for i in xrange(len(self.scope_)):
       out.putVarInt32(10)
       out.putPrefixedString(self.scope_[i])
+    if (self.has_service_account_id_):
+      out.putVarInt32(16)
+      out.putVarInt64(self.service_account_id_)
 
   def OutputPartial(self, out):
     for i in xrange(len(self.scope_)):
       out.putVarInt32(10)
       out.putPrefixedString(self.scope_[i])
+    if (self.has_service_account_id_):
+      out.putVarInt32(16)
+      out.putVarInt64(self.service_account_id_)
 
   def TryMerge(self, d):
     while d.avail() > 0:
       tt = d.getVarInt32()
       if tt == 10:
         self.add_scope(d.getPrefixedString())
+        continue
+      if tt == 16:
+        self.set_service_account_id(d.getVarInt64())
         continue
 
 
@@ -1238,6 +1270,7 @@ class GetAccessTokenRequest(ProtocolBuffer.ProtocolMessage):
       if printElemNumber: elm="(%d)" % cnt
       res+=prefix+("scope%s: %s\n" % (elm, self.DebugFormatString(e)))
       cnt+=1
+    if self.has_service_account_id_: res+=prefix+("service_account_id: %s\n" % self.DebugFormatInt64(self.service_account_id_))
     return res
 
 
@@ -1245,23 +1278,26 @@ class GetAccessTokenRequest(ProtocolBuffer.ProtocolMessage):
     return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
 
   kscope = 1
+  kservice_account_id = 2
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
     1: "scope",
-  }, 1)
+    2: "service_account_id",
+  }, 2)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
     1: ProtocolBuffer.Encoder.STRING,
-  }, 1, ProtocolBuffer.Encoder.MAX_TYPE)
+    2: ProtocolBuffer.Encoder.NUMERIC,
+  }, 2, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
   _PROTO_DESCRIPTOR_NAME = 'apphosting.GetAccessTokenRequest'
   _SERIALIZED_DESCRIPTOR = array.array('B')
-  _SERIALIZED_DESCRIPTOR.fromstring(base64.decodestring("WjZhcHBob3N0aW5nL2FwaS9hcHBfaWRlbnRpdHkvYXBwX2lkZW50aXR5X3NlcnZpY2UucHJvdG8KIGFwcGhvc3RpbmcuR2V0QWNjZXNzVG9rZW5SZXF1ZXN0ExoFc2NvcGUgASgCMAk4AxTCASJhcHBob3N0aW5nLkFwcElkZW50aXR5U2VydmljZUVycm9y"))
+  _SERIALIZED_DESCRIPTOR.fromstring(base64.decodestring("WjZhcHBob3N0aW5nL2FwaS9hcHBfaWRlbnRpdHkvYXBwX2lkZW50aXR5X3NlcnZpY2UucHJvdG8KIGFwcGhvc3RpbmcuR2V0QWNjZXNzVG9rZW5SZXF1ZXN0ExoFc2NvcGUgASgCMAk4AxQTGhJzZXJ2aWNlX2FjY291bnRfaWQgAigAMAM4ARTCASJhcHBob3N0aW5nLkFwcElkZW50aXR5U2VydmljZUVycm9y"))
   if _net_proto___parse__python is not None:
     _net_proto___parse__python.RegisterType(
         _SERIALIZED_DESCRIPTOR.tostring())
@@ -1586,6 +1622,15 @@ class _SigningService_RPC2ClientStub(_SigningService_ClientBaseStub):
 
 class SigningService(_server_stub_base_class):
   """Base class for SigningService Stubby servers."""
+
+  @classmethod
+  def _MethodSignatures(cls):
+    return {
+      'SignForApp': (SignForAppRequest, SignForAppResponse),
+      'GetPublicCertificatesForApp': (GetPublicCertificateForAppRequest, GetPublicCertificateForAppResponse),
+      'GetServiceAccountName': (GetServiceAccountNameRequest, GetServiceAccountNameResponse),
+      'GetAccessToken': (GetAccessTokenRequest, GetAccessTokenResponse),
+      }
 
   def __init__(self, *args, **kwargs):
     """Creates a Stubby RPC server.

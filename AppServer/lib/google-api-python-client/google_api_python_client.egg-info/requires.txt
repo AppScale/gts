@@ -1,3 +1,0 @@
-httplib2
-oauth2
-python-gflags

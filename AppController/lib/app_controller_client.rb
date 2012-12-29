@@ -92,6 +92,7 @@ class AppControllerClient
     refused_count = 0
     max = 5
 
+    Djinn.log_debug("Calling #{callr} on an AppController")
     begin
       Timeout::timeout(time) {
         yield if block_given?
@@ -114,7 +115,8 @@ class AppControllerClient
       if retry_on_except
         retry
       else
-        abort("[#{callr}] We saw an unexpected error of the type #{except.class} with the following message:\n#{except}.")
+        trace = except.backtrace.join("\n")
+        abort("[#{callr}] We saw an unexpected error of the type #{except.class} with the following message:\n#{except}, with trace: #{trace}")
       end
     end
   end

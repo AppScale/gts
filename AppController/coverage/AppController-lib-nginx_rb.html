@@ -549,7 +549,7 @@
           
           
           <tr class="marked">
-            <td><pre><a name="line83">83</a>   def self.write_app_config(app_name, app_number, my_public_ip, proxy_port, static_handlers, login_ip)</pre></td>
+            <td><pre><a name="line83">83</a>   def self.write_app_config(app_name, app_number, my_public_ip, my_private_ip, proxy_port, static_handlers, login_ip)</pre></td>
           </tr>
         
           
@@ -585,7 +585,7 @@
           
           
           <tr class="uncovered">
-            <td><pre><a name="line89">89</a>     server #{my_public_ip}:#{proxy_port};</pre></td>
+            <td><pre><a name="line89">89</a>     server #{my_private_ip}:#{proxy_port};</pre></td>
           </tr>
         
           
@@ -3123,7 +3123,7 @@
       </tbody>
     </table>
 
-    <p>Generated on Sat Sep 01 14:53:08 -0700 2012 with <a href="http://github.com/relevance/rcov">rcov 1.0.0</a></p>
+    <p>Generated on Tue Nov 27 14:27:59 -0800 2012 with <a href="http://github.com/relevance/rcov">rcov 1.0.0</a></p>
 
   </body>
 </html>

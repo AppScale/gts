@@ -1,20 +1,19 @@
 #!/usr/bin/python
-# Author: Navraj Chohan
+# Programmer: Navraj Chohan <nlake44@gmail.com>
 # See LICENSE file
 
-import cgi
 import imp
 import os
-import sys
-import string
 import socket
+import string
+import sys
 import threading
 import types
 
 import appscale_logger
 import dbconstants
 
-app_datastore_logger = appscale_logger.getLogger("appscale_datastore")
+app_datastore_logger = appscale_logger.getLogger("appscale_datastore_batch")
 
 DATASTORE_DIR= "%s/AppDB" % dbconstants.APPSCALE_HOME
 
@@ -23,7 +22,8 @@ class DatastoreFactory:
   @classmethod
   def getDatastore(cls, d_type):
     """ Returns a reference for the datastore. Validates where 
-        the <datastore>_interface.py is and changes the path.
+        the <datastore>_interface.py is and adds that path to 
+        the system path.
    
     Args: 
       d_type: The name of the datastore (ex: cassandra)

@@ -191,8 +191,17 @@ def decode_message(message_type, encoded_message):
         elif isinstance(field, messages.MessageField):
           item = decode_dictionary(field.type, item)
         elif (isinstance(field, messages.FloatField) and
-              isinstance(item, (int, long))):
-          item = float(item)
+              isinstance(item, (int, long, basestring))):
+          try:
+            item = float(item)
+          except:
+            pass
+        elif (isinstance(field, messages.IntegerField) and
+              isinstance(item, basestring)):
+          try:
+            item = int(item)
+          except:
+            pass
         valid_value.append(item)
 
       if field.repeated:

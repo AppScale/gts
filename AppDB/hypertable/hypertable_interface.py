@@ -1,13 +1,10 @@
-# Hypertable Interface for AppScale
-# author: Navraj Chohan
+# Programmer: Navraj Chohan <nlake44@gmail.com>
 
-import cgi
+"""
+ Hypertable Interface for AppScale
+"""
 import os
-import string
-import sys
 import time
-import threading
-import xml
 
 import appscale_logger
 import helper_functions
@@ -16,7 +13,8 @@ import hyperthrift.gen.ttypes as ttypes
 
 from dbinterface_batch import *
 from dbconstants import *
-from hypertable.thriftclient import *
+from hypertable import thriftclient
+
 
 from xml.sax import make_parser
 from xml.sax import parseString
@@ -25,29 +23,23 @@ from xml.sax import ContentHandler
 from xml.sax import saxutils
 from xml.sax.handler import ContentHandler
 
+# The port hypertable's thrift uses on the local machine
 THRIFT_PORT = 38080
 
+# AppScale default namespace for Hypertable
 NS = "/appscale"
 
+# XML tags used for parsing Hypertable results
 ROOT_TAG_BEGIN="<Schema>"
-
 ROOT_TAG_END="</Schema>"
-
 ACCGRP_TAG_BEGIN='<AccessGroup name="default">'
-
 ACCGRP_TAG_END="</AccessGroup>"
-
 COLFMLY_TAG_BEGIN="<ColumnFamily>"
-
 COLFMLY_TAG_END="</ColumnFamily>"
-
 NAME_TAG_TEXT = "Name"
-
 NAME_TAG_BEGIN="<"+NAME_TAG_TEXT+">"
-
 NAME_TAG_END="</"+NAME_TAG_TEXT+">"
 
-PROFILING = False
 
 class XmlSchemaParser(ContentHandler):
   def __init__(self, tag_name):
@@ -72,20 +64,20 @@ class XmlSchemaParser(ContentHandler):
 
 class DatastoreProxy(AppDBInterface):
   """ Note: Hypertable will truncate any bytes after the terminating char
-      and hence requires encoding/decoding functions 
+      and hence requires encoding/decoding functions. Yet, the encoding and 
+      decoding functions must keep lexigraphical ordering for range queries 
+      to work properly.
   """
   def __init__(self, logger = appscale_logger.getLogger("datastore-hypertable")):
+    """ Constructor
+
+    Args:
+      logger: Object where log messages are sent
+    """
     self.logger = logger
-    self.conn = None
-    self.lock = threading.Lock()
-    self.host = None
-
-    #self.lock.acquire()
-    f = open(APPSCALE_HOME + '/.appscale/my_private_ip', 'r')
-    self.host = f.read()
-    f.close()
-
-    self.conn = ThriftClient(self.host, THRIFT_PORT)
+    self.host = helper_functions.read_file(
+                   APPSCALE_HOME + '/.appscale/my_private_ip')
+    self.conn = thriftclient.ThriftClient(self.host, THRIFT_PORT)
     self.ns = self.conn.namespace_open(NS)
 
   def batch_get_entity(self, table_name, row_keys, column_names):
@@ -95,17 +87,19 @@ class DatastoreProxy(AppDBInterface):
       table_name: The table to access
       row_keys: A list of keys to access
       column_names: A list of columns to access
+    Raises:
+      TypeError: Bad argument types
     Returns:
       A dictionary of {key:{column_name:value,...}}
     """
 
-    assert isinstance(table_name, str)
-    assert isinstance(column_names, list)
-    assert isinstance(row_keys, list)
+    if not isinstance(table_name, str): raise TypeError("Expected str")
+    if not isinstance(column_names, list): raise TypeError("Expected list")
+    if not isinstance(row_keys, list): raise TypeError("Expected list")
 
+ 
     row_keys = [self.__encode(row) for row in row_keys]
 
-    results = {}
     ret = {}
     row_intervals = []
     cell_intervals = None
@@ -147,14 +141,16 @@ class DatastoreProxy(AppDBInterface):
       row_keys: A list of keys to store on
       column_names: A list of columns to mutate
       cell_values: A dict of key/value pairs
+    Raises:
+      TypeError: Bad argument types
     Returns:
       Nothing 
     """
 
-    assert isinstance(table_name, str)
-    assert isinstance(column_names, list)
-    assert isinstance(row_keys, list)
-    assert isinstance(cell_values, dict)
+    if not isinstance(table_name, str): raise TypeError("Expected str")
+    if not isinstance(column_names, list): raise TypeError("Expected list")
+    if not isinstance(row_keys, list): raise TypeError("Expected list")
+    if not isinstance(cell_values, dict): raise TypeError("Expected dict")
 
     __INSERT = 255
     cell_list = []
@@ -164,7 +160,6 @@ class DatastoreProxy(AppDBInterface):
     for key in row_keys:
       for col in column_names: 
         cell = ttypes.Cell()
-        keyflag = ttypes.KeyFlag()
         ttypekey = ttypes.Key(row=self.__encode(key), 
                               column_family=col, 
                               flag=__INSERT)
@@ -182,14 +177,15 @@ class DatastoreProxy(AppDBInterface):
       table_name: Table to delete rows from
       row_keys: A list of keys to remove
       column_names: Not used
-    Returns:
-      Nothing
     Raises:
       AppScaleDBConnectionError when unable to execute deletes
+      TypeError: Bad argument types
+    Returns:
+      Nothing
     """ 
 
-    assert isinstance(table_name, str)
-    assert isinstance(row_keys, list)
+    if not isinstance(table_name, str): raise TypeError("Expected str")
+    if not isinstance(row_keys, list): raise TypeError("Expected list")
 
     row_keys = [self.__encode(row) for row in row_keys]
     __DELETE_ROW = 0
@@ -199,7 +195,6 @@ class DatastoreProxy(AppDBInterface):
 
     for key in row_keys:
       cell = ttypes.Cell()
-      keyflag = ttypes.KeyFlag()
       ttypekey = ttypes.Key(row=key, flag=__DELETE_ROW)
       cell.key = ttypekey
       cell_list.append(cell)
@@ -207,15 +202,18 @@ class DatastoreProxy(AppDBInterface):
     self.conn.mutator_set_cells(mutator, cell_list)
     self.conn.mutator_close(mutator)
 
+
   def delete_table(self, table_name):
     """ Drops a given column family
   
     Args:
       table_name: The column family name
+    Raises: 
+      TypeError: Bad argument types
     Returns:
       Nothing
     """
-    assert isinstance(table_name, str)
+    if not isinstance(table_name, str): raise TypeError("Expected str")
 
     self.conn.drop_table(self.ns, table_name, 1)
     return 
@@ -226,18 +224,18 @@ class DatastoreProxy(AppDBInterface):
     
     Args:
       table_name: The column family name
-      column_names: not used
+      column_names: Not used
+    Raises: 
+      TypeError: Bad argument types
     Returns:
       Nothing
     """
 
-    assert isinstance(table_name, str)
-    assert isinstance(column_names, list)
-    table_names = None
-    table_schema_xml = self.__constructSchemaXml(column_names)
+    if not isinstance(table_name, str): raise TypeError("Expected str")
+    if not isinstance(column_names, list): raise TypeError("Expected list")
+
+    table_schema_xml = self.__construct_schema_xml(column_names)
     self.conn.create_table(self.ns,table_name,table_schema_xml)
-    table_names = self.conn.get_tables(self.ns)
-    self.__closeConnection(self.conn)
     return 
 
   def range_query(self, 
@@ -251,34 +249,44 @@ class DatastoreProxy(AppDBInterface):
                   end_inclusive=True,
                   keys_only=False):
     """ Gets a dense range ordered by keys. Returns an ordered list of 
-        dictionary of [key:{column1:value1, column2:value2},...]
+        a dictionary of [key:{column1:value1, column2:value2},...]
         or a list of keys if keys only.
      
     Args:
-      table_name: column family name (Cassandra's name for a table)
-      column_names: columns which get returned within the key range
-      start_key: starts query with this key
-      end_key: ends query with this key
-      limit: maximum number of results to return
-      offset: cuts off these many from the results [offset:]
-      start_inclusive: if results should include the start_key
-      end_inclusive: if results should include the end_key
-      keys_only: only returns keys and not values
+      table_name: Name of table to access
+      column_names: Columns which get returned within the key range
+      start_key: String for which the query starts at
+      end_key: String for which the query ends at
+      limit: Maximum number of results to return
+      offset: Number to cut off from the results [offset:]
+      start_inclusive: Boolean if results should include the start_key
+      end_inclusive: Boolean if results should include the end_key
+      keys_only: Boolean if to only keys and not values
+    Raises:
+      TypeError: Bad argument types
+    Return:
+      List of ordered results.
     """
-    assert isinstance(table_name, str)
-    assert isinstance(column_names, list)
-    assert isinstance(start_key, str)
-    assert isinstance(end_key, str)
-    assert isinstance(limit, int) or isinstance(limit, long)
-    assert isinstance(offset, int)
+    if not isinstance(table_name, str): raise TypeError("Expected str")
+    if not isinstance(column_names, list): raise TypeError("Expected list")
+    if not isinstance(start_key, str): raise TypeError("Expected str")
+    if not isinstance(end_key, str): raise TypeError("Expected str")
+    if not isinstance(limit, int) and not isinstance(limit, long): 
+      raise TypeError("Expected int or long")
+    if not isinstance(offset, int) and not isinstance(offset, long): 
+      raise TypeError("Expected an int or long")
    
     start_key = self.__encode(start_key) 
     end_key = self.__encode(end_key) 
 
-    # We add extra rows in case we exclusde the start/end keys
-    # This makes sure the limit is upheld correctly
-    if start_inclusive == False or end_inclusive == False:
-      rowcount = limit + 2
+    # We add two extra rows in case we exclude the start/end keys
+    # This makes sure the limit is upheld correctly, where we have
+    # to remove the first and last key
+    row_count = limit
+    if not start_inclusive:
+      row_count += 1
+    if not end_inclusive:
+      row_count += 1
   
     row_intervals = []
     row_intervals.append(ttypes.RowInterval(start_key, 
@@ -293,7 +301,7 @@ class DatastoreProxy(AppDBInterface):
                                 cell_intervals, 
                                 include_deletes, 
                                 1, # max revisions
-                                limit, 
+                                row_count, 
                                 0, 
                                 None, 
                                 column_names)
@@ -319,11 +327,11 @@ class DatastoreProxy(AppDBInterface):
           col_dict[cell.key.column_family] = cell.value
           results.append({self.__decode(cell.key.row):col_dict})
 
-    if start_inclusive == False and len(results) > 0:
+    if not start_inclusive and len(results) > 0:
       if start_key in results[0]:
         results = results[1:] 
 
-    if end_inclusive == False and len(results) > 0:
+    if not end_inclusive and len(results) > 0:
       if end_key in results[-1]:
         results = results[:-1]
 
@@ -338,16 +346,17 @@ class DatastoreProxy(AppDBInterface):
   ######################################################################
   # private methods 
   ######################################################################
-  def __closeConnection(self, conn):
-    pass
-    #self.lock.release()
 
-  def __constructSchemaXml(self, column_names):
+  def __construct_schema_xml(self, column_names):
     """ For the column names of a table, this method returns
         an xml string representing the columns, which can 
         then be used with hypertable's thrift api
+    Args:
+      column_names: A list of column names to construct xml
     """
-    assert isinstance(column_names, list)
+
+    if not isinstance(column_names, list): raise TypeError("Expected list")
+
     schema_xml = ''.join([ROOT_TAG_BEGIN, ACCGRP_TAG_BEGIN])
 
     for col_name in column_names:
@@ -360,24 +369,26 @@ class DatastoreProxy(AppDBInterface):
     schema_xml += ''.join([ACCGRP_TAG_END, ROOT_TAG_END])
     return schema_xml
 
-  def __setup_connection(self):
-    """ Retrives a connection from the connection pool
-    """
-    return self.pool.get()
-
-  def __close_connection(self, client):
-    """ Closes a connection by returning it to the pool
-    """
-    if client:
-      self.pool.return_conn(client)
 
   def __encode(self, bytes_in):
-    """ Removes \x00 character with \x01
+    """ Removes \x00 character with \x01 because hypertable truncates strings
+        with null chars.
+   
+    Args:
+      bytes_in: The string which will be encoded
+    Returns:
+      modified string with replaced chars
     """
     return bytes_in.replace('\x00','\x01')
 
   def __decode(self, bytes_out):
-    """ Replaces \x01 character with \x00
+    """ Replaces \x01 character with \x00 because we swap out strings to 
+        prevent truncating keys.
+   
+    Args:
+      bytes_out: The string which will be decoded 
+    Returns:
+      Modified string with replaced chars
     """
     return bytes_out.replace('\x01', '\x00')
 

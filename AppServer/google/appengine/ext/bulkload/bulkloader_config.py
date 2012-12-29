@@ -223,16 +223,23 @@ class DictConvertor(object):
       key = self.__dict_to_prop(self._create_key, input_dict, bulkload_state)
       if isinstance(key, (int, long)):
         key = datastore.Key.from_path(self._transformer_spec.kind, key)
-      if isinstance(key, datastore.Key):
-        parent = key.parent()
-        if key.name() == None:
-          return datastore.Entity(self._transformer_spec.kind,
-                                  parent=parent, id=key.id())
+      if self._transformer_spec.model:
+        if isinstance(key, datastore.Key):
+          return self._transformer_spec.model(key=key)
         else:
-          return datastore.Entity(self._transformer_spec.kind,
-                                  parent=parent, name=key.name())
-    if self._transformer_spec.model:
-      return self._transformer_spec.model(key=key)
+          return self._transformer_spec.model(key_name=key)
+      else:
+        if isinstance(key, datastore.Key):
+          parent = key.parent()
+          if key.name() is None:
+            return datastore.Entity(self._transformer_spec.kind,
+                                    parent=parent, id=key.id())
+          else:
+            return datastore.Entity(self._transformer_spec.kind,
+                                    parent=parent, name=key.name())
+    elif self._transformer_spec.model:
+      return self._transformer_spec.model()
+
     return datastore.Entity(self._transformer_spec.kind, name=key)
 
   def __run_import_transforms(self, input_dict, instance, bulkload_state):

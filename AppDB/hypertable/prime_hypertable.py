@@ -18,7 +18,7 @@ else:
   exit(1)
 
 def create_app_tables():
-  db = hypertable_interface.DatastoreProxy()
+  db = py_hypertable.DatastoreProxy()
   db.create_table(ASC_PROPERTY_TABLE, PROPERTY_SCHEMA)
   db.create_table(DSC_PROPERTY_TABLE, PROPERTY_SCHEMA)
   db.create_table(APP_INDEX_TABLE, APP_INDEX_SCHEMA)

@@ -1,25 +1,45 @@
 #!/usr/bin/env python
-# 
-# view all application record for testing.
-# 
-# Author: Navraj Chohan
-#
+# Programmer: Navraj Chohan <nlake44@gmail.com>
+""" 
+ View all application entities.
+""" 
 
 import os
 import sys
+
 from dbconstants import *
 import appscale_datastore_batch
 
+_MAX_ENTITIES = 1000000 
 def get_entities(table, schema, db):
-  return db.range_query(table, schema, "", "", 1000000)
+  """ Gets entities from a table.
+    
+  Args:
+    table: Name of the table
+    schema: The schema of table to get from
+    db: The database accessor
+  Returns: 
+    The entire table up to _MAX_ENTITIES
+  """
+  return db.range_query(table, schema, "", "", _MAX_ENTITIES)
 
 def view_all(entities, table, db):
+  """ View all entities for a table
+  
+  Args:
+    entities: Shows all entities in a list
+    table: The table these entities are from
+    db: database accessor
+  """
   print 
   print "TABLE:",table
   for ii in entities:
     print ii
   print
+
 def main(argv):
+  """ Main 
+  """
   DB_TYPE="cassandra"
   if len(argv) < 2:
     print "usage: ./view_all_records.py db_type"

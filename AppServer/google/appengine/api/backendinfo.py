@@ -201,11 +201,12 @@ class BackendInfoExternal(validation.Validated):
   }
 
 
-def LoadBackendInfo(backend_info):
+def LoadBackendInfo(backend_info, open_fn=None):
   """Parses a BackendInfoExternal object from a string.
 
   Args:
     backend_info: a backends stanza (list of backends) as a string
+    open_fn: Function for opening files. Unused.
 
   Returns:
     A BackendInfoExternal object.

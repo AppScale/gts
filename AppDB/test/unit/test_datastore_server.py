@@ -1,91 +1,93 @@
 #!/usr/bin/env python
-# Programmer: Navraj Chohan
+# Programmer: Navraj Chohan <nlake44@gmail.com>
 
+import os
+import sys
 import unittest
 from flexmock import flexmock
-
-from appscale_datastore_batch import DatastoreFactory
-from datastore_server import DatastoreDistributed
-from datastore_server import _BLOCK_SIZE
-from dbconstants import *
 
 from google.appengine.ext import db
 from google.appengine.datastore import entity_pb
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
+from appscale_datastore_batch import DatastoreFactory
+from datastore_server import DatastoreDistributed
+from datastore_server import BLOCK_SIZE
+from dbconstants import *
 
 class Item(db.Model):
   name = db.StringProperty(required = True)
 
 class TestDatastoreServer(unittest.TestCase):
   """
-  A set of test cases for the datastore server (pbserver v2)
+  A set of test cases for the datastore server (datastore server v2)
   """
-  def testGetEntityKind(self):
+  def test_get_entity_kind(self):
     dd = DatastoreDistributed(None)
     item = Item(name="Bob", _app="hello")
     key = db.model_to_protobuf(item)
-    assert dd.GetEntityKind(key) =="Item"
+    self.assertEquals(dd.get_entity_kind(key), "Item")
 
-  def testKindKey(self):
+  def test_kind_key(self):
     dd = DatastoreDistributed(None)
     item = Item(name="Dyan", _app="hello")
     key = db.model_to_protobuf(item)
-    assert dd.GetKindKey("howdy", key.key().path()) == "howdy/Item:0000000000!"
+    self.assertEquals(dd.get_kind_key("howdy", key.key().path()), "howdy/Item:0000000000!")
 
     item1 = Item(key_name="Bob", name="Bob", _app="hello")
     key = db.model_to_protobuf(item1)
-    assert dd.GetKindKey("howdy", key.key().path()) == "howdy/Item:Bob!"
+    self.assertEquals(dd.get_kind_key("howdy", key.key().path()), "howdy/Item:Bob!")
    
     item2 = Item(key_name="Frank", name="Frank", _app="hello", parent = item1)
     key = db.model_to_protobuf(item2)
-    assert dd.GetKindKey("howdy", key.key().path()) == \
-           "howdy/Item:Frank!Item:Bob!"
+    self.assertEquals(dd.get_kind_key("howdy", key.key().path()),
+           "howdy/Item:Frank!Item:Bob!")
 
-  def testEntityKey(self):
+  def test_get_entity_key(self):
     dd = DatastoreDistributed(None)
     item = Item(key_name="Bob", name="Bob", _app="hello")
     key = db.model_to_protobuf(item)
-    assert dd.GetEntityKey("howdy", key.key().path()) == "howdy/Item:Bob!"
+    self.assertEquals(dd.get_entity_key("howdy", key.key().path()), "howdy/Item:Bob!")
 
-  def testValidateKey(self):
+  def test_validate_key(self):
     dd = DatastoreDistributed(None)
     item = Item(key_name="Bob", name="Bob", _app="hello")
     key = db.model_to_protobuf(item)
-    dd.ValidateKey(key.key()) 
+    dd.validate_key(key.key()) 
 
-  def testGetIndexKey(self):
+  def test_get_index_key(self):
     dd = DatastoreDistributed(None)
-    dd.GetIndexKey("a","b","c","d")  == "a/b/c/d"
+    dd.get_index_key("a","b","c","d")  == "a/b/c/d"
 
-  def testConfigureNameSpsace(self):
+  def test_configure_namespace(self):
     db_batch = flexmock()
     db_batch.should_receive("batch_put_entity").and_return(None)
     dd = DatastoreDistributed(db_batch)
-    assert dd.ConfigureNamespace("howdy", "hello", "ns")  == True
+    self.assertEquals(dd.configure_namespace("howdy", "hello", "ns"), True)
 
-  def testConfigureNameSpsace(self):
+  def test_configure_namespace(self):
     db_batch = flexmock()
     db_batch.should_receive("batch_put_entity").and_return(None)
     dd = DatastoreDistributed(db_batch)
     item = Item(key_name="Bob", name="Bob", _app="hello")
     key = db.model_to_protobuf(item)
-    assert dd.GetTablePrefix(key) == "hello/"
+    self.assertEquals(dd.get_table_prefix(key), "hello/")
 
-  def testGetIndexKeyFromParams(self):
+  def test_get_index_key_from_params(self):
     dd = DatastoreDistributed(None)
     params = ['a','b','c','d','e']
-    assert dd.GetIndexKeyFromParams(params) == "a/b/c/d/e"
+    self.assertEquals(dd.get_index_key_from_params(params), "a/b/c/d/e")
 
-  def testGetIndexKVFromTuple(self):
+  def test_get_index_kv_from_tuple(self):
     dd = DatastoreDistributed(None)
     item1 = Item(key_name="Bob", name="Bob", _app="hello")
     item2 = Item(key_name="Sally", name="Sally", _app="hello")
     key1 = db.model_to_protobuf(item1)
     key2 = db.model_to_protobuf(item2)
     tuples_list = [("a/b",key1),("a/b",key2)]
-    assert dd.GetIndexKVFromTuple(tuples_list) == (['a/b/Item/name/Bob\x00/Item:Bob!', 'a/b/Item:Bob!'], ['a/b/Item/name/Sally\x00/Item:Sally!', 'a/b/Item:Sally!'])
+    self.assertEquals(dd.get_index_kv_from_tuple(tuples_list), (['a/b/Item/name/Bob\x00/Item:Bob!', 'a/b/Item:Bob!'], ['a/b/Item/name/Sally\x00/Item:Sally!', 'a/b/Item:Sally!']))
 
-  def testDeleteIndexEntries(self):
+  def test_delete_index_entries(self):
     db_batch = flexmock()
     db_batch.should_receive("batch_delete").and_return(None)
     db_batch.should_receive("batch_put_entity").and_return(None)
@@ -94,9 +96,9 @@ class TestDatastoreServer(unittest.TestCase):
     item2 = Item(key_name="Sally", name="Sally", _app="hello")
     key1 = db.model_to_protobuf(item1)
     key2 = db.model_to_protobuf(item2)
-    dd.DeleteIndexEntries([key1,key2])
+    dd.delete_index_entries([key1,key2])
  
-  def testInsertEntities(self):
+  def test_insert_entities(self):
     db_batch = flexmock()
     db_batch.should_receive("batch_put_entity").and_return(None)
     dd = DatastoreDistributed(db_batch)
@@ -104,9 +106,9 @@ class TestDatastoreServer(unittest.TestCase):
     item2 = Item(key_name="Sally", name="Sally", _app="hello")
     key1 = db.model_to_protobuf(item1)
     key2 = db.model_to_protobuf(item2)
-    dd.InsertEntities([key1,key2])
+    dd.insert_entities([key1,key2])
 
-  def testInsertIndexEntries(self):
+  def test_insert_index_entries(self):
     db_batch = flexmock()
     db_batch.should_receive("batch_put_entity").and_return(None)
     dd = DatastoreDistributed(db_batch)
@@ -114,46 +116,53 @@ class TestDatastoreServer(unittest.TestCase):
     item2 = Item(key_name="Sally", name="Sally", _app="hello")
     key1 = db.model_to_protobuf(item1)
     key2 = db.model_to_protobuf(item2)
-    dd.InsertIndexEntries([key1,key2])
+    dd.insert_index_entries([key1,key2])
 
-  def testAcquireIdBlockFromDB(self):
+  def test_acquire_next_id_from_db(self):
     PREFIX = "x"
     db_batch = flexmock()
     db_batch.should_receive("batch_get_entity").and_return({PREFIX:{APP_ID_SCHEMA[0]:"1"}})
     dd = DatastoreDistributed(db_batch)
-    assert dd.AcquireIdBlockFromDB(PREFIX) == 1
+    self.assertEquals(dd.acquire_next_id_from_db(PREFIX), 1)
 
     PREFIX = "x"
     db_batch = flexmock()
     db_batch.should_receive("batch_get_entity").and_return({PREFIX:{}})
     dd = DatastoreDistributed(db_batch)
-    assert dd.AcquireIdBlockFromDB(PREFIX) == 0
-
-  def testIncrementIdInDB(self):
-    PREFIX = "x"
-    db_batch = flexmock()
-    db_batch.should_receive("batch_get_entity").and_return({PREFIX:{APP_ID_SCHEMA[0]:"0"}})
-    db_batch.should_receive("batch_put_entity").and_return(None)
-    dd = DatastoreDistributed(db_batch)
-    assert dd.IncrementIdInDB(PREFIX) == _BLOCK_SIZE
+    self.assertEquals(dd.acquire_next_id_from_db(PREFIX), 1)
 
     PREFIX = "x"
     db_batch = flexmock()
-    db_batch.should_receive("batch_get_entity").and_return({PREFIX:{APP_ID_SCHEMA[0]:"1"}})
-    db_batch.should_receive("batch_put_entity").and_return(None)
+    db_batch.should_receive("batch_get_entity").and_return({PREFIX:{APP_ID_SCHEMA[0]:"2"}})
     dd = DatastoreDistributed(db_batch)
-    assert dd.IncrementIdInDB(PREFIX) == 2 * _BLOCK_SIZE
+    self.assertEquals(dd.acquire_next_id_from_db(PREFIX), 2)
 
-  def testAllocateIds(self):
+
+  def test_allocate_ids(self):
     PREFIX = "x"
     BATCH_SIZE = 1000
     db_batch = flexmock()
     db_batch.should_receive("batch_get_entity").and_return({PREFIX:{APP_ID_SCHEMA[0]:"1"}})
     db_batch.should_receive("batch_put_entity").and_return(None)
     dd = DatastoreDistributed(db_batch)
-    assert dd.AllocateIds(PREFIX, BATCH_SIZE) == (20000, 20999) 
+    self.assertEquals(dd.allocate_ids(PREFIX, BATCH_SIZE), (1, 1000))
 
-  def testPutEntities(self):
+    db_batch.should_receive("batch_get_entity").and_return({PREFIX:{APP_ID_SCHEMA[0]:"1"}})
+    db_batch.should_receive("batch_put_entity").and_return(None)
+    dd = DatastoreDistributed(db_batch)
+    self.assertEquals(dd.allocate_ids(PREFIX, None, max_id=10), (1, 10))
+
+    db_batch.should_receive("batch_get_entity").and_return({PREFIX:{APP_ID_SCHEMA[0]:"1"}})
+    db_batch.should_receive("batch_put_entity").and_return(None)
+    dd = DatastoreDistributed(db_batch)
+    try:
+      # Unable to use self.assertRaises because of the optional argrument max_id
+      dd.allocate_ids(PREFIX, BATCH_SIZE, max_id=10)
+      raise "Allocate IDs should not let you set max_id and size"
+    except ValueError:
+      pass 
+
+  def test_put_entities(self):
     item1 = Item(key_name="Bob", name="Bob", _app="hello")
     item2 = Item(key_name="Sally", name="Sally", _app="hello")
     key1 = db.model_to_protobuf(item1)
@@ -164,14 +173,14 @@ class TestDatastoreServer(unittest.TestCase):
     db_batch.should_receive("batch_put_entity").and_return(None)
     db_batch.should_receive("batch_get_entity").and_return({"key1":{},"key2":{}})
     dd = DatastoreDistributed(db_batch)
-    dd.PutEntities([key1, key2]) 
+    dd.put_entities([key1, key2]) 
 
     db_batch = flexmock()
     db_batch.should_receive("batch_delete").and_return(None)
     db_batch.should_receive("batch_put_entity").and_return(None)
     db_batch.should_receive("batch_get_entity").and_return({"key1":{"entity":key1.Encode()},"key2":{"entity":key2.Encode()}})
     dd = DatastoreDistributed(db_batch)
-    dd.PutEntities([key1, key2]) 
+    dd.put_entities([key1, key2]) 
 
   def testFetchKeys(self):
     item1 = Item(key_name="Bob", name="Bob", _app="hello")
@@ -184,7 +193,7 @@ class TestDatastoreServer(unittest.TestCase):
     db_batch.should_receive("batch_put_entity").and_return(None)
     db_batch.should_receive("batch_get_entity").and_return(['aaa'])
     dd = DatastoreDistributed(db_batch)
-    assert dd.FetchKeys([key1.key(), key2.key()]) == (['aaa'], ['hello//Item:Bob!', 'hello//Item:Sally!']) 
+    self.assertEquals(dd.fetch_keys([key1.key(), key2.key()]), (['aaa'], ['hello//Item:Bob!', 'hello//Item:Sally!']))
 
 if __name__ == "__main__":
   unittest.main()    

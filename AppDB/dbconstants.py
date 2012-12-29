@@ -1,4 +1,7 @@
-# Constants
+# Programmer: Navraj Chohan <nlake44@gmail.com>
+"""
+ Datastore Constants
+"""
 
 import os
 APPSCALE_HOME=os.environ.get("APPSCALE_HOME")
@@ -29,7 +32,9 @@ INITIAL_TABLES = [ASC_PROPERTY_TABLE,
                   APP_ENTITY_TABLE,
                   APP_KIND_TABLE]
 
-# DB schema
+###########################################
+# DB schemas for version 1 of the datastore
+###########################################
 JOURNAL_SCHEMA = [
   "Encoded_Entity"]
 
@@ -37,12 +42,16 @@ ENTITY_TABLE_SCHEMA = [
   "Encoded_Entity",
   "Txn_Num"]
 
-# Index and batching support tables
+###########################################
+# DB schema for version 2 of the datastore
+###########################################
+
+# The schema of the table which holds the encoded entities
 APP_ENTITY_SCHEMA = [
   "entity",
   "txnID"]
 
-# Indexes in ascending order, references are to entity table
+# Index tables store references are to entity table
 PROPERTY_SCHEMA = [
   "reference" ]
 APP_INDEX_SCHEMA = [
@@ -109,16 +118,9 @@ CREATE TABLE IF NOT EXISTS IdSeq (
 ) ENGINE=ndbcluster;
 """]
 
+###############################
 # Generic Datastore Exceptions
-class AppScaleNotFoundError(Exception):
-  """ This exception is tossed when looking for a non-existant
-      key
-  """
-  def __init__(self, value):
-    self.value = value
-  def __str__(self):
-    return repr(self.value)
-
+###############################
 class AppScaleDBConnectionError(Exception):
   """ Tossed when there is a bad connection
   """ 
@@ -126,3 +128,21 @@ class AppScaleDBConnectionError(Exception):
     self.value = value
   def __str__(self):
     return repr(self.value)
+
+class AppScaleMisconfiguredQuery(Exception):
+  """ Tossed when a query is misconfigured
+  """
+  def __init__(self, value):
+    self.value = value
+  def __str__(self):
+    return repr(self.value)
+
+class AppScaleBadArg(Exception):
+  """ Bad Argument given for a function
+  """
+  def __init__(self, value):
+    self.value = value
+  def __str__(self):
+    return repr(self.value)
+
+  

@@ -39,7 +39,7 @@ Setting cookies
 ---------------
 Cookies are set in the response object. The methods to handle cookies are:
 
-set_cookie(key, value='', max_age=None, path='/', domain=None, secure=None, httponly=False, version=None, comment=None)
+set_cookie(key, value='', max_age=None, path='/', domain=None, secure=None, httponly=False, comment=None, expires=None, overwrite=False)
   Sets a cookie.
 
 delete_cookie(key, path='/', domain=None)
@@ -67,6 +67,9 @@ key
   Cookie name.
 value
   Cookie value.
+expires
+  An expiration date. Must be a :py:mod:`datetime`.datetime object. Use this
+  instead of max_age since the former is not supported by Internet Explorer.
 max_age
   Cookie max age in seconds.
 path
@@ -77,10 +80,11 @@ secure
   If True, the cookie is only available via HTTPS.
 httponly
   Disallow JavaScript to access the cookie.
-version
-  Defines a cookie version number.
 comment
   Defines a cookie comment.
+overwrite
+  If true, overwrites previously set (and not yet sent to the client) cookies
+  with the same name.
 
 .. seealso::
    :ref:`How to read cookies from the request object <guide.request.cookies>`
