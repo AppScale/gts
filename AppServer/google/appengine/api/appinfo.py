@@ -314,6 +314,12 @@ _SUPPORTED_LIBRARIES = [
         'A XML/HTML/XHTML markup safe string for Python.',
         ['0.15']),
     _VersionedLibrary(
+        'matplotlib',
+        'http://matplotlib.sourceforge.net/',
+        'A 2D plotting library which produces publication-quality figures.',
+        ['1.1.1'],
+        experimental_versions=['1.1.1']),
+    _VersionedLibrary(
         'numpy',
         'http://numpy.scipy.org/',
         'A general-purpose library for array-processing.',

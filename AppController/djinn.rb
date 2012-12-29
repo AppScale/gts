@@ -315,13 +315,13 @@ class Djinn
   # CPU limits that determine when to stop adding AppServers on a node. Because
   # AppServers in different languages consume different amounts of CPU, set
   # different limits per language.
-  MAX_CPU_FOR_APPSERVERS = {'python' => 80.00, 'java' => 75.00, 'go' => 70.00}
+  MAX_CPU_FOR_APPSERVERS = {'python' => 80.00, 'python27' => 90.00, 'java' => 75.00, 'go' => 70.00}
 
 
   # Memory limits that determine when to stop adding AppServers on a node. 
   # Because AppServers in different languages consume different amounts of 
   # memory, set different limits per language.
-  MAX_MEM_FOR_APPSERVERS = {'python' => 90.00, 'java' => 95.00, 'go' => 90.00}
+  MAX_MEM_FOR_APPSERVERS = {'python' => 90.00, 'python27' => 90.00, 'java' => 95.00, 'go' => 90.00}
 
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
@@ -823,7 +823,7 @@ class Djinn
       return
     end
 
-    start_cmd = "python #{APPSCALE_HOME}/InfrastructureManager/infrastructure_manager_service.py"
+    start_cmd = "python2.6 #{APPSCALE_HOME}/InfrastructureManager/infrastructure_manager_service.py"
     stop_cmd = "pkill -9 infrastructure_manager_service"
     port = [InfrastructureManagerClient::SERVER_PORT]
     env = {
@@ -2389,10 +2389,6 @@ class Djinn
     slave_ips_newlined = slave_ips.join("\n")
     HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/slaves", "#{slave_ips_newlined}\n")
 
-    # n = @creds["replication"]
-
-    # setup_hadoop_config(template_loc, hadoop_hbase_loc, master_ip, slave_ips, n)
-
     # Invoke datastore helper function
     setup_db_config_files(master_ip, slave_ips, @creds)
 
@@ -2579,45 +2575,6 @@ HOSTS
       rescue SocketError
       end
     end
-  end
-
-  # TODO: this function should use hadoop_helper
-  def setup_hadoop_config_org(source_dir, dest_dir, master_ip, slave_ips, n)
-    ["source_dir", "dest_dir", "master_ip"].each { |param_name|
-      param = eval(param_name)
-      abort("#{param_name} wasn't a String. It was a/an #{param.class}") if param.class != String
-    }
-
-    source_dir = File.expand_path(source_dir)
-    dest_dir = File.expand_path(dest_dir)
-
-    abort("Source dir [#{source_dir}] didn't exist") unless File.directory?(source_dir)
-    abort("Dest dir [#{dest_dir}] didn't exist") unless File.directory?(dest_dir)
-
-    files_to_config = `ls #{source_dir}`.split
-    files_to_config.each{ |filename|
-      full_path_to_read = source_dir + File::Separator + filename
-      full_path_to_write = dest_dir + File::Separator + filename
-      File.open(full_path_to_read) { |source_file|
-        contents = source_file.read
-        contents.gsub!(/APPSCALE-MASTER/, master_ip)
-        contents.gsub!(/APPSCALE-SLAVES/, slave_ips.join("\n"))
-        contents.gsub!(/REPLICATION/, n)
-  
-        HelperFunctions.write_file(full_path_to_write, contents)
-      }
-    }
-  end
-
-  # TODO: this function should use hadoop_helper
-  def start_hadoop_org()
-    i = my_node
-    return unless i.is_shadow? # change this later to db_master
-    hadoop_home = File.expand_path("#{APPSCALE_HOME}/AppDB/hadoop-0.20.2/")
-    Djinn.log_run("#{hadoop_home}/bin/hadoop namenode -format 2>&1")
-    Djinn.log_run("#{hadoop_home}/bin/start-dfs.sh 2>&1")
-    Djinn.log_run("python #{hadoop_home}/../wait_on_hadoop.py 2>&1")
-    Djinn.log_run("#{hadoop_home}/bin/start-mapred.sh 2>&1")
   end
 
   def stop_load_balancer()
@@ -3318,7 +3275,7 @@ HOSTS
     Djinn.log_debug("Created user [#{xmpp_user}] with password [#{@@secret}] and hashed password [#{xmpp_pass}]")
 
     if Ejabberd.does_app_need_receive?(app, app_language)
-      start_cmd = "python #{APPSCALE_HOME}/AppController/xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
+      start_cmd = "python2.6 #{APPSCALE_HOME}/AppController/xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
       stop_cmd = "ps ax | grep '#{start_cmd}' | grep -v grep | awk '{print $1}' | xargs -d '\n' kill -9"
       GodInterface.start(app, start_cmd, stop_cmd, 9999)
       Djinn.log_debug("App #{app} does need xmpp receive functionality")
