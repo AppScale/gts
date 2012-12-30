@@ -247,6 +247,7 @@ class DatastoreDistributed():
 
   def get_index_key(self, app_id, name_space, kind, index_name):
     """ Returns key string for storing namespaces.
+
     Args:
       app_id: The app ID.
       name_space: The per-app namespace name.
@@ -301,7 +302,8 @@ class DatastoreDistributed():
     return prefix
 
   def get_index_key_from_params(self, params):
-    """Returns the index key from params
+    """Returns the index key from params.
+
     Args:
        params: a list of strings to be concatenated to form the key made of:
               prefix, kind, property name, and path
@@ -321,7 +323,7 @@ class DatastoreDistributed():
     return key
 
   def get_index_kv_from_tuple(self, tuple_list, reverse=False):
-    """ Returns keys/value of indexes for a set of entities
+    """ Returns keys/value of indexes for a set of entities.
  
     Args: 
        tuple_list: A list of tuples of prefix and pb entities
@@ -353,7 +355,7 @@ class DatastoreDistributed():
     return tuple(ii for ii in all_rows)
 
   def delete_index_entries(self, entities):
-    """ Deletes the entities in the DB
+    """ Deletes the entities in the DB.
 
     Args:
        entities: A list of entities for which their 
@@ -380,12 +382,14 @@ class DatastoreDistributed():
     
   def insert_entities(self, entities):
     """Inserts or updates entities in the DB.
+
     Args:      
       entities: A list of entities to store.
     """
 
     def row_generator(entities):
       """ Generates keys and encoded entities for a list of entities. 
+
       Args:
         entities: A list of entity objects
       """
@@ -396,6 +400,7 @@ class DatastoreDistributed():
     def kind_row_generator(entities):
       """ Generates keys for the kind table and a reference key to the entity
           table.
+
       Args:
         entities: A list of entitiy objects
       """
@@ -533,9 +538,10 @@ class DatastoreDistributed():
 
   def put_entities(self, entities):
     """ Updates indexes of existing entities, inserts new entities and 
-        indexes for them
+        indexes for them.
+
     Args:
-       entities: list of entities
+       entities: list of entities.
     """
     sorted_entities = sorted((self.get_table_prefix(x), x) for x in entities)
     for prefix, group in itertools.groupby(sorted_entities, lambda x: x[0]):
@@ -546,6 +552,7 @@ class DatastoreDistributed():
 
   def delete_entities(self, keys):
     """ Deletes the entities and the indexes associated with them.
+
     Args:
        keys: list of keys to be deleted
     """
@@ -600,12 +607,12 @@ class DatastoreDistributed():
     self.delete_index_entries(entities)
 
   def _dynamic_put(self, app_id, put_request, put_response):
-    """ Stores and entity and its indexes in the datastore
+    """ Stores and entity and its indexes in the datastore.
     
     Args:
-      app_id: Application ID
-      put_request: Request with entities to store
-      put_response: The response sent back to the app server
+      app_id: Application ID.
+      put_request: Request with entities to store.
+      put_response: The response sent back to the app server.
     """
 
     entities = put_request.entity_list()
@@ -638,9 +645,9 @@ class DatastoreDistributed():
     """ Given a list of keys fetch the entities.
     
     Args:
-      key_list: A list of keys to fetch
+      key_list: A list of keys to fetch.
     Returns:
-      A tuple of entities from the datastore and key list
+      A tuple of entities from the datastore and key list.
     """
     row_keys = []
     for key in key_list:
@@ -658,8 +665,8 @@ class DatastoreDistributed():
     """ Fetch keys from the datastore.
     
     Args: 
-       get_request: Request with list of keys
-       get_response: Response to application server
+       get_request: Request with list of keys.
+       get_response: Response to application server.
     """ 
 
     keys = get_request.key_list()
@@ -674,8 +681,8 @@ class DatastoreDistributed():
     """ Deletes a set of rows.
     
     Args: 
-      delete_request: Request with a list of keys
-      delete_response: Response to application server
+      delete_request: Request with a list of keys.
+      delete_response: Response to application server.
     """
     keys = delete_request.key_list()
     self.delete_entities(delete_request.key_list())
@@ -725,12 +732,12 @@ class DatastoreDistributed():
     return orders
 
   def __get_start_key(self, prefix, prop_name, order, last_result):
-    """ Builds the start key for cursor query
+    """ Builds the start key for cursor query.
 
     Args: 
-        prop_name: property name of the filter 
-        order: sort order 
-        last_result: last result encoded in cursor
+        prop_name: property name of the filter.
+        order: sort order.
+        last_result: last result encoded in cursor.
     """
     e = last_result
     if not prop_name and not order:
@@ -766,13 +773,13 @@ class DatastoreDistributed():
     return self.get_index_key_from_params(params)
 
   def __fetch_entities(self, refs):
-    """ Given the results from a table scan, get the references
+    """ Given the results from a table scan, get the references.
     
     Args: 
       refs: key/value pairs where the values contain a reference to 
-            the entitiy table
+            the entitiy table.
     Returns:
-      Entities retrieved from entity table
+      Entities retrieved from entity table.
     """
     if len(refs) == 0:
       return []
@@ -797,11 +804,12 @@ class DatastoreDistributed():
 
   def __extract_entities(self, kv):
     """ Given a result from a range query on the Entity table return a 
-        list of encoded entities
+        list of encoded entities.
+
     Args:
-      kv: Key and values from a range query on the entity table
+      kv: Key and values from a range query on the entity table.
     Returns:
-      The extracted entities
+      The extracted entities.
     """
     keys = [item.keys()[0] for item in kv]
     results = []    
@@ -817,11 +825,11 @@ class DatastoreDistributed():
         entities based on a particular root entitiy. 
       
     Args: 
-      query: The query to run
-      filter_info: tuple with filter operators and values
-      order_info: tuple with property name and the sort order
+      query: The query to run.
+      filter_info: Tuple with filter operators and values.
+      order_info: Tuple with property name and the sort order.
     Returns:
-      start and end row keys
+      Start and end row keys.
     """       
     ancestor = query.ancestor()
     prefix = self.get_table_prefix(query)
@@ -882,11 +890,11 @@ class DatastoreDistributed():
         on the entity table and go across kinds.
       
     Args: 
-      query: The query to run
-      filter_info: tuple with filter operators and values
-      order_info: tuple with property name and the sort order
+      query: The query to run.
+      filter_info: Tuple with filter operators and values.
+      order_info: Tuple with property name and the sort order.
     Returns:
-      Entities that match the query
+      Entities that match the query.
     """       
     prefix = self.get_table_prefix(query)
 
@@ -942,14 +950,14 @@ class DatastoreDistributed():
     return self.__extract_entities(result)
 
   def kind_query_range(self, query, filter_info, order_info):
-    """ Gets start and end keys for kind queries
+    """ Gets start and end keys for kind queries.
       
     Args: 
-      query: The query to run
-      filter_info: tuple with filter operators and values
-      order_info: tuple with property name and the sort order
+      query: The query to run.
+      filter_info: Tuple with filter operators and values.
+      order_info: Tuple with property name and the sort order.
     Returns:
-      Entities that match the query
+      Entities that match the query.
     """       
     prefix = self.get_table_prefix(query)
     startrow = prefix + '/' + query.kind() + ':'     
@@ -958,13 +966,14 @@ class DatastoreDistributed():
    
   def __kind_query(self, query, filter_info, order_info):
     """ Performs kind only queries, kind and ancestor, and ancestor queries
-        https://developers.google.com/appengine/docs/python/datastore/queries
+        https://developers.google.com/appengine/docs/python/datastore/queries.
+
     Args:
-      query: The query to run
-      filter_info: tuple with filter operators and values
-      order_info: tuple with property name and the sort order
+      query: The query to run.
+      filter_info: tuple with filter operators and values.
+      order_info: tuple with property name and the sort order.
     Returns:
-      An ordered list of entities matching the query
+      An ordered list of entities matching the query.
     """
 
     # Detect quickly if this is a kind query or not
@@ -1014,13 +1023,14 @@ class DatastoreDistributed():
     return self.__fetch_entities(result)
 
   def __single_property_query(self, query, filter_info, order_info):
-    """Performs queries satisfiable by the Single_Property tables
+    """Performs queries satisfiable by the Single_Property tables.
+
     Args:
-      query: The query to run
-      filter_info: tuple with filter operators and values
-      order_info: tuple with property name and the sort order
+      query: The query to run.
+      filter_info: tuple with filter operators and values.
+      order_info: tuple with property name and the sort order.
     Returns:
-      List of entities retrieved from the given query
+      List of entities retrieved from the given query.
     """
     property_names = set(filter_info.keys())
     property_names.update(x[0] for x in order_info)
@@ -1084,22 +1094,22 @@ class DatastoreDistributed():
                      offset, 
                      startrow,
                      force_start_key_exclusive=False): 
-    """
-    Applies property filters in the query.
+    """ Applies property filters in the query.
+
     Args:
-      filter_ops: Tuple with property filter operator and value
-      order_info: Tuple with property name and sort order
-      kind: Kind of the entity
-      prefix: Prefix for the table
-      limit: Number of results
-      offset: Number of results to skip
-      startrow: Start key for the range scan
-      force_start_key_exclusive: Do not include the start key
+      filter_ops: Tuple with property filter operator and value.
+      order_info: Tuple with property name and sort order.
+      kind: Kind of the entity.
+      prefix: Prefix for the table.
+      limit: Number of results.
+      offset: Number of results to skip.
+      startrow: Start key for the range scan.
+      force_start_key_exclusive: Do not include the start key.
     Results:
-      Returns a list of entity keys 
+      Returns a list of entity keys.
     Raises:
       NotImplementedError: For unsupported queries.
-      AppScaleMisconfiguredQuery: Bad filters or orderings
+      AppScaleMisconfiguredQuery: Bad filters or orderings.
     """ 
     end_inclusive = self._ENABLE_INCLUSIVITY
     start_inclusive = self._ENABLE_INCLUSIVITY
@@ -1303,12 +1313,13 @@ class DatastoreDistributed():
   def __composite_query(self, query, filter_info, order_info):  
     """Performs Composite queries which is a combination of 
        multiple properties to query on.
+
     Args:
-      query: The query to run
-      filter_info: tuple with filter operators and values
-      order_info: tuple with property name and the sort order
+      query: The query to run.
+      filter_info: tuple with filter operators and values.
+      order_info: tuple with property name and the sort order.
     Returns:
-      List of entities retrieved from the given query
+      List of entities retrieved from the given query.
     """
     if order_info and order_info[0][0] == '__key__':
       return None
@@ -1429,11 +1440,12 @@ class DatastoreDistributed():
   def __order_composite_results(self, result, order_info):
     """ Takes results and applies ordering based on properties and 
         whether it should be ascending or decending.
+
       Args: 
-        result: unordered results
-        order_info: given ordering of properties
+        result: unordered results.
+        order_info: given ordering of properties.
       Returns:
-        A list of ordered entities
+        A list of ordered entities.
     """
     # We can not fully filter past one filter without getting
     # the entire table to make sure results are in the correct order. 
@@ -1482,7 +1494,7 @@ class DatastoreDistributed():
     Args:    
       query: A datastore_pb.Query protocol buffer.
     Returns:
-      Result set
+      Result set.
     """
     if query.has_transaction() and not query.has_ancestor():
       raise apiproxy_errors.ApplicationError(
@@ -1517,11 +1529,12 @@ class DatastoreDistributed():
   
   def _dynamic_run_query(self, app_id, query, query_result):
     """Populates the query result and use that query result to 
-       encode a cursor
+       encode a cursor.
+
     Args:
-      app_id: The application ID
-      query: The query to run
-      query_result: The response given to the application server
+      app_id: The application ID.
+      query: The query to run.
+      query_result: The response given to the application server.
     """
     result = self.__get_query_results(query)
     count = 0
@@ -1538,15 +1551,17 @@ class DatastoreDistributed():
 
   def setup_transaction(self, app_id):
     """ Gets a transaction ID for a new transaction.
+
     Args:
       app_id: The application for which we are getting a new transaction ID.
     Returns:
       A long representing a unique transaction ID.
-     """
+    """
     return self.zookeeper.getTransactionID(app_id)
 
   def commit_transaction(self, app_id, http_request_data):
     """ Handles the commit phase of a transaction.
+
     Args:
       app_id: The application ID requesting the transaction commit.
       http_request_data: The encoded request of datastore_pb.Transaction.
@@ -1566,6 +1581,7 @@ class DatastoreDistributed():
 
   def rollback_transaction(self, app_id, http_request_data):
     """ Handles the rollback phase of a transaction.
+
     Args:
       app_id: The application ID requesting the rollback.
       http_request_data: The encoded request, a datstore_pb.Transaction.
@@ -1590,9 +1606,10 @@ class MainHandler(tornado.web.RequestHandler):
   # OTHER TYPE #
   ##############
   def unknown_request(self, app_id, http_request_data, pb_type):
-    """ Function which handles unknown protocol buffers
+    """ Function which handles unknown protocol buffers.
+
     Args:
-      app_id: Name of the application 
+      app_id: Name of the application.
       http_request_data: Stores the protocol buffer request from the AppServer
     Raises:
       Raises exception.
@@ -1651,8 +1668,8 @@ class MainHandler(tornado.web.RequestHandler):
         of a certain type. Each type has a particular response type. 
     
     Args:
-      app_id: The application ID that is sending this request
-      http_request_data: Encoded protocol buffer 
+      app_id: The application ID that is sending this request.
+      http_request_data: Encoded protocol buffer.
     """
     apirequest = remote_api_pb.Request()
     apirequest.ParseFromString(http_request_data)
@@ -1740,10 +1757,10 @@ class MainHandler(tornado.web.RequestHandler):
         a unique identifier to handle this transaction in future requests.
   
     Args:
-      app_id: The application ID requesting the transaction
-      http_request_data: The encoded request
+      app_id: The application ID requesting the transaction.
+      http_request_data: The encoded request.
     Returns:
-      An encoded transaction protocol buffer with a unique handler
+      An encoded transaction protocol buffer with a unique handler.
     """
     global datastore_access
     transaction_pb = datastore_pb.Transaction()
@@ -1753,23 +1770,25 @@ class MainHandler(tornado.web.RequestHandler):
     return (transaction_pb.Encode(), 0, "")
 
   def commit_transaction_request(self, app_id, http_request_data):
-    """ Handles the commit phase of a transaction
+    """ Handles the commit phase of a transaction.
+
     Args:
-      app_id: The application ID requesting the transaction commit
-      http_request_data: The encoded request of datastore_pb.Transaction
+      app_id: The application ID requesting the transaction commit.
+      http_request_data: The encoded request of datastore_pb.Transaction.
     Returns:
-      An encoded protocol buffer commit response
+      An encoded protocol buffer commit response.
     """
     global datastore_access
     return datastore_access.commit_transaction(app_id, http_request_data)
 
   def rollback_transaction_request(self, app_id, http_request_data):
-    """ Handles the rollback phase of a transaction
+    """ Handles the rollback phase of a transaction.
+
     Args:
-      app_id: The application ID requesting the rollback
-      http_request_data: The encoded request
+      app_id: The application ID requesting the rollback.
+      http_request_data: The encoded request.
     Returns:
-      An encoded protocol buffer void response
+      An encoded protocol buffer void response.
     """
     global datastore_access
     try:
@@ -1780,29 +1799,31 @@ class MainHandler(tornado.web.RequestHandler):
              "Unable to rollback for this transaction")
 
   def run_query(self, app_id, http_request_data):
-    """ High level function for running queries
+    """ High level function for running queries.
+
     Args:
-      app_id: Name of the application 
-      http_request_data: Stores the protocol buffer request from the AppServer
+      app_id: Name of the application.
+      http_request_data: Stores the protocol buffer request from the AppServer.
     Returns:
-      Returns an encoded query response
+      Returns an encoded query response.
     """
     global datastore_access
     query = datastore_pb.Query(http_request_data)
-    # Pack Results into a clone of QueryResult #
     clone_qr_pb = datastore_pb.QueryResult()
     datastore_access._dynamic_run_query(app_id, query, clone_qr_pb)
     return (clone_qr_pb.Encode(), 0, "")
 
   def allocate_ids_request(self, app_id, http_request_data):
     """ High level function for getting unique identifiers for entities.
+
     Args:
-       app_id: Name of the application
-       http_request_data: Stores the protocol buffer request from the AppServer
+       app_id: Name of the application.
+       http_request_data: Stores the protocol buffer request from the 
+               AppServer.
     Returns: 
-       Returns an encoded response
+       Returns an encoded response.
     Raises:
-       NotImplementedError: when requesting a max id
+       NotImplementedError: when requesting a max id.
     """
     global datastore_access
     request = datastore_pb.AllocateIdsRequest(http_request_data)
@@ -1819,12 +1840,13 @@ class MainHandler(tornado.web.RequestHandler):
     return (response.Encode(), 0, "")
 
   def put_request(self, app_id, http_request_data):
-    """ High level function for doing puts
+    """ High level function for doing puts.
+
     Args:
-      app_id: Name of the application 
-      http_request_data: Stores the protocol buffer request from the AppServer
+      app_id: Name of the application.
+      http_request_data: Stores the protocol buffer request from the AppServer.
     Returns:
-      Returns an encoded put response
+      Returns an encoded put response.
     """ 
     global datastore_access
     putreq_pb = datastore_pb.PutRequest(http_request_data)
@@ -1833,12 +1855,13 @@ class MainHandler(tornado.web.RequestHandler):
     return (putresp_pb.Encode(), 0, "")
     
   def get_request(self, app_id, http_request_data):
-    """ High level function for doing gets
+    """ High level function for doing gets.
+
     Args:
-      app_id: Name of the application 
-      http_request_data: Stores the protocol buffer request from the AppServer
+      app_id: Name of the application.
+      http_request_data: Stores the protocol buffer request from the AppServer.
     Returns:
-      Returns an encoded get response
+      An encoded get response.
     """ 
     global datastore_access
     getreq_pb = datastore_pb.GetRequest(http_request_data)
@@ -1847,12 +1870,13 @@ class MainHandler(tornado.web.RequestHandler):
     return (getresp_pb.Encode(), 0, "")
 
   def delete_request(self, app_id, http_request_data):
-    """ High level function for doing deletes
+    """ High level function for doing deletes.
+
     Args:
-      app_id: Name of the application 
-      http_request_data: Stores the protocol buffer request from the AppServer
+      app_id: Name of the application.
+      http_request_data: Stores the protocol buffer request from the AppServer.
     Returns:
-      Returns an encoded delete response
+      An encoded delete response.
     """ 
     global datastore_access
     delreq_pb = datastore_pb.DeleteRequest( http_request_data )
@@ -1861,24 +1885,26 @@ class MainHandler(tornado.web.RequestHandler):
     return (delresp_pb.Encode(), 0, "")
 
   def void_proto(self, app_id, http_request_data):
-    """ Function which handles void protocol buffers
+    """ Function which handles void protocol buffers.
+
     Args:
-      app_id: Name of the application 
-      http_request_data: Stores the protocol buffer request from the AppServer
+      app_id: Name of the application.
+      http_request_data: Stores the protocol buffer request from the AppServer.
     Returns:
-      Default message for void protocol buffers 
+      Default message for void protocol buffers.
     """ 
     resp_pb = api_base_pb.VoidProto() 
     return (resp_pb.Encode(), 0, "" )
   
   def str_proto(self, app_id, http_request_data):
     """ Function which handles string protocol buffers
+
     Args:
-      app_id: Name of the application 
-      http_request_data: Stores the protocol buffer request from the AppServer
+      app_id: Name of the application.
+      http_request_data: Stores the protocol buffer request from the AppServer.
     Returns:
-      Default message for string protocol buffers which is a composite 
-      response
+      Default message for string protocol buffers which is a composite
+           response.
     """ 
     str_pb = api_base_pb.StringProto( http_request_data )
     composite_pb = datastore_pb.CompositeIndices()
@@ -1889,10 +1915,10 @@ class MainHandler(tornado.web.RequestHandler):
         server expects a void protocol as an acknowledgement.
 
     Args:
-      app_id: Name of the application 
-      http_request_data: Stores the protocol buffer request from the AppServer
+      app_id: Name of the application.
+      http_request_data: Stores the protocol buffer request from the AppServer.
     Returns:
-      void protocol buffer
+      Void protocol buffer.
     """ 
     int64_pb = api_base_pb.Integer64Proto( http_request_data ) 
     resp_pb = api_base_pb.VoidProto()
@@ -1902,11 +1928,11 @@ class MainHandler(tornado.web.RequestHandler):
     """ Function which handles composite index protocol buffers.
 
     Args:
-      app_id: Name of the application 
-      http_request_data: Stores the protocol buffer request from the AppServer
+      app_id: Name of the application.
+      http_request_data: Stores the protocol buffer request from the AppServer.
     Returns:
-      Default message for string protocol buffers which is a void protocol 
-      buffer
+      Default message for string protocol buffers which is a void protocol
+          buffer.
     """ 
     compindex_pb = entity_pb.CompositeIndex(http_request_data)
     resp_pb = api_base_pb.VoidProto()
@@ -1927,7 +1953,7 @@ pb_application = tornado.web.Application([
 ])
 
 def main(argv):
-  """ Starts a web service for handing datastore requests """
+  """ Starts a web service for handing datastore requests. """
   global datastore_access
   zookeeper_locations = ""
 
