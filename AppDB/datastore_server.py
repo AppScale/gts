@@ -12,7 +12,6 @@ import getopt
 import itertools
 import md5
 import os
-import random
 import sys
 import threading
 
@@ -23,8 +22,10 @@ import tornado.web
 import appscale_datastore_batch
 import dbconstants
 import helper_functions
+
 from zkappscale import zktransaction as zk
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.api import api_base_pb
 from google.appengine.api import datastore_errors
 
@@ -264,6 +265,8 @@ class DatastoreDistributed():
       prefix: The namespace prefix to configure.
       app_id: The app ID.
       name_space: The per-app namespace name.
+    Returns:
+      True on success.
     """
     
     vals = {}
@@ -273,7 +276,7 @@ class DatastoreDistributed():
                           [row_key], 
                           dbconstants.APP_NAMESPACE_SCHEMA, 
                           vals)
-
+    return True
 
   def get_table_prefix(self, data):
     """ Returns the namespace prefix for a query.
@@ -423,7 +426,8 @@ class DatastoreDistributed():
       kind_row_keys += new_kind_keys
 
       for ii in kind_group_rows:
-        kind_row_values[str(ii[0])] = {dbconstants.APP_KIND_SCHEMA[0]:str(ii[1])}
+        kind_row_values[str(ii[0])] = \
+          {dbconstants.APP_KIND_SCHEMA[0]:str(ii[1])}
 
 
     # TODO do these in ||                        
@@ -516,10 +520,10 @@ class DatastoreDistributed():
 
     cell_values = {prefix: {dbconstants.APP_ID_SCHEMA[0]: str(next_id)}} 
 
-    res = self.datastore_batch.batch_put_entity(dbconstants.APP_ID_TABLE, 
-                          [prefix],  
-                          dbconstants.APP_ID_SCHEMA,
-                          cell_values)
+    self.datastore_batch.batch_put_entity(dbconstants.APP_ID_TABLE, 
+                         [prefix],  
+                         dbconstants.APP_ID_SCHEMA,
+                         cell_values)
     self.zookeeper.releaseLock(prefix, 0)
 
     start = current_id
@@ -578,8 +582,8 @@ class DatastoreDistributed():
 
     #TODO do these in ||
     self.datastore_batch.batch_delete(dbconstants.APP_ENTITY_TABLE, 
-                                      row_keys, 
-                                      column_names=dbconstants.APP_ENTITY_SCHEMA)
+                              row_keys, 
+                              column_names=dbconstants.APP_ENTITY_SCHEMA)
 
     self.datastore_batch.batch_delete(dbconstants.APP_KIND_TABLE,
                                       kind_keys, 
@@ -779,9 +783,10 @@ class DatastoreDistributed():
       ent = ent[key]['reference']
       rowkeys.append(ent)
   
-    result = self.datastore_batch.batch_get_entity(dbconstants.APP_ENTITY_TABLE, 
-                                                   rowkeys,
-                                                   dbconstants.APP_ENTITY_SCHEMA)
+    result = self.datastore_batch.batch_get_entity(
+                                  dbconstants.APP_ENTITY_TABLE, 
+                                  rowkeys,
+                                  dbconstants.APP_ENTITY_SCHEMA)
     entities = []
     keys = result.keys()
     for key in rowkeys:
@@ -968,7 +973,8 @@ class DatastoreDistributed():
         return None
 
     if order_info:
-      if len(order_info) > 0: return None
+      if len(order_info) > 0: 
+        return None
     elif query.has_ancestor():
       return self.__AncestorQuery(query, filter_info, order_info)
     elif not query.has_kind():
@@ -1233,7 +1239,8 @@ class DatastoreDistributed():
         if startrow:
           start_inclusive = self._DISABLE_INCLUSIVITY
         elif oper1 == datastore_pb.Query_Filter.GREATER_THAN:
-          params = [prefix, kind, property_name, value1 + '/' + self._TERM_STRING]
+          params = [prefix, kind, property_name, value1 + '/' + \
+                    self._TERM_STRING]
           startrow = self.get_index_key_from_params(params)
         elif oper1 == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
           params = [prefix, kind, property_name, value1 + '/']
@@ -1247,7 +1254,8 @@ class DatastoreDistributed():
           endrow = self.get_index_key_from_params(params)
           end_inclusive = self._DISABLE_INCLUSIVITY
         elif oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
-          params = [prefix, kind, property_name, value2 + '/' + self._TERM_STRING]
+          params = [prefix, kind, property_name, value2 + '/' + \
+                    self._TERM_STRING]
           endrow = self.get_index_key_from_params(params)
           end_inclusive = self._ENABLE_INCLUSIVITY
         else:
@@ -1263,14 +1271,16 @@ class DatastoreDistributed():
           endrow = self.get_index_key_from_params(params)
           end_inclusive = self._DISABLE_INCLUSIVITY
         elif oper1 == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
-          params = [prefix, kind, property_name, value1 + '/' + self._TERM_STRING]
+          params = [prefix, kind, property_name, value1 + '/' + \
+                    self._TERM_STRING]
           endrow = self.get_index_key_from_params(params)
           end_inclusive = self._ENABLE_INCLUSIVITY
 
         if startrow:
           start_inclusive = self._DISABLE_INCLUSIVITY
         elif oper2 == datastore_pb.Query_Filter.LESS_THAN:
-          params = [prefix, kind, property_name, value2 + '/' + self._TERM_STRING]
+          params = [prefix, kind, property_name, value2 + '/' + \
+                    self._TERM_STRING]
           startrow = self.get_index_key_from_params(params)
         elif oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
           params = [prefix, kind, property_name, value2 + '/']
@@ -1404,7 +1414,8 @@ class DatastoreDistributed():
             oper = temp_filt[0][0]
             value = str(temp_filt[0][1])
             if oper == datastore_pb.Query_Filter.EQUAL:
-              if cur_prop and str(self.__encode_index_pb(cur_prop.value())) != value:
+              if cur_prop and \
+                   str(self.__encode_index_pb(cur_prop.value())) != value:
                 if ent in filtered_entities: filtered_entities.remove(ent)   
      
       result += filtered_entities  
@@ -1445,7 +1456,8 @@ class DatastoreDistributed():
         for each in prop_list:
           if each.name() == ord_prop:
             if ord_dir == datastore_pb.Query_Order.DESCENDING:
-              key = str(key+ '/' + helper_functions.reverse_lex(str(each.value())))
+              key = str(key+ '/' + helper_functions.reverse_lex(
+                                   str(each.value())))
             else:
               key = str(key + '/' + str(each.value()))
             break
@@ -1524,10 +1536,48 @@ class DatastoreDistributed():
     cur = cassandra_stub_util.QueryCursor(query, result)
     cur.PopulateQueryResult(count, query.offset(), query_result) 
 
-  def setup_transaction(self, app_id) :
-    """ Gets a transaction ID for a new transaction """
-    _MAX_RAND = 1000000  # arbitary large number
-    return random.randint(1, _MAX_RAND)
+  def setup_transaction(self, app_id):
+    """ Gets a transaction ID for a new transaction.
+    Args:
+      app_id: The application for which we are getting a new transaction ID.
+    Returns:
+      A long representing a unique transaction ID.
+     """
+    return self.zookeeper.getTransactionID(app_id)
+
+  def commit_transaction(self, app_id, http_request_data):
+    """ Handles the commit phase of a transaction.
+    Args:
+      app_id: The application ID requesting the transaction commit.
+      http_request_data: The encoded request of datastore_pb.Transaction.
+    Returns:
+      An encoded protocol buffer commit response.
+    """
+    commitres_pb = datastore_pb.CommitResponse()
+    transaction_pb = datastore_pb.Transaction(http_request_data)
+    txn_id = transaction_pb.handle()
+    try:
+      self.zookeeper.releaseLock(app_id, txn_id)
+      return (commitres_pb.Encode(), 0, "")
+    except ZKTransactionException, zke:
+      return (commitres_pb.Encode(), 
+              datastore_pb.Error.PERMISSION_DENIED, 
+              "Unable to commit for this transaction %s" % str(zke))
+
+  def rollback_transaction(self, app_id, http_request_data):
+    """ Handles the rollback phase of a transaction.
+    Args:
+      app_id: The application ID requesting the rollback.
+      http_request_data: The encoded request, a datstore_pb.Transaction.
+    Returns:
+      An encoded protocol buffer void response.
+    """
+    try:
+      return (api_base_pb.VoidProto().Encode(), 0, "")
+    except:
+      return (api_base_pb.VoidProto().Encode(), 
+              datastore_pb.Error.PERMISSION_DENIED, 
+              "Unable to rollback for this transaction")
 
 
 class MainHandler(tornado.web.RequestHandler):
@@ -1636,16 +1686,20 @@ class MainHandler(tornado.web.RequestHandler):
       response, errcode, errdetail = self.run_query(app_id, 
                                           http_request_data)
     elif method == "BeginTransaction":
-      response, errcode, errdetail = self.begin_transaction_request(app_id,
+      response, errcode, errdetail = self.begin_transaction_request(
+                                                      app_id,
                                                       http_request_data)
     elif method == "Commit":
-      response, errcode, errdetail = self.commit_transaction_request(app_id,
+      response, errcode, errdetail = self.commit_transaction_request(
+                                                      app_id,
                                                       http_request_data)
     elif method == "Rollback":
-      response, errcode, errdetail = self.rollback_transaction_request(app_id,
+      response, errcode, errdetail = self.rollback_transaction_request( 
+                                                        app_id,
                                                         http_request_data)
     elif method == "AllocateIds":
-      response, errcode, errdetail = self.allocate_ids_request(app_id,
+      response, errcode, errdetail = self.allocate_ids_request(
+                                                        app_id,
                                                         http_request_data)
     elif method == "CreateIndex":
       errcode = 0
@@ -1700,48 +1754,30 @@ class MainHandler(tornado.web.RequestHandler):
 
   def commit_transaction_request(self, app_id, http_request_data):
     """ Handles the commit phase of a transaction
-
     Args:
       app_id: The application ID requesting the transaction commit
-      http_request_data: The encoded request
+      http_request_data: The encoded request of datastore_pb.Transaction
     Returns:
       An encoded protocol buffer commit response
     """
-    commitres_pb = datastore_pb.CommitResponse()
-    # TODO implement transactions
-    """
-    transaction_pb = datastore_pb.Transaction(http_request_data)
-    txn_id = transaction_pb.handle()
-    try:
-      self._Dynamic_Commit(app_id, transaction_pb, commitres_pb)
-    except:
-      return (commitres_pb.Encode(), 
-              datastore_pb.Error.PERMISSION_DENIED, 
-              "Unable to commit for this transaction")
-    """
-    return (commitres_pb.Encode(), 0, "")
+    global datastore_access
+    return datastore_access.commit_transaction(app_id, http_request_data)
 
   def rollback_transaction_request(self, app_id, http_request_data):
     """ Handles the rollback phase of a transaction
-
     Args:
       app_id: The application ID requesting the rollback
       http_request_data: The encoded request
     Returns:
       An encoded protocol buffer void response
     """
-    # TODO implement transactions
-    """
-    transaction_pb = datastore_pb.Transaction(http_request_data)
-    handle = transaction_pb.handle()
+    global datastore_access
     try:
-      self.datastore_access._Dynamic_Rollback(app_id, transaction_pb, None)
+      return datastore_access.dynamic_rollback(app_id, transaction_pb)
     except:
       return(api_base_pb.VoidProto().Encode(), 
              datastore_pb.Error.PERMISSION_DENIED, 
              "Unable to rollback for this transaction")
-    """
-    return (api_base_pb.VoidProto().Encode(), 0, "")
 
   def run_query(self, app_id, http_request_data):
     """ High level function for running queries
@@ -1751,7 +1787,6 @@ class MainHandler(tornado.web.RequestHandler):
     Returns:
       Returns an encoded query response
     """
-
     global datastore_access
     query = datastore_pb.Query(http_request_data)
     # Pack Results into a clone of QueryResult #
@@ -1791,7 +1826,6 @@ class MainHandler(tornado.web.RequestHandler):
     Returns:
       Returns an encoded put response
     """ 
-
     global datastore_access
     putreq_pb = datastore_pb.PutRequest(http_request_data)
     putresp_pb = datastore_pb.PutResponse( )
@@ -1806,7 +1840,6 @@ class MainHandler(tornado.web.RequestHandler):
     Returns:
       Returns an encoded get response
     """ 
-
     global datastore_access
     getreq_pb = datastore_pb.GetRequest(http_request_data)
     getresp_pb = datastore_pb.GetResponse()
@@ -1821,7 +1854,6 @@ class MainHandler(tornado.web.RequestHandler):
     Returns:
       Returns an encoded delete response
     """ 
-
     global datastore_access
     delreq_pb = datastore_pb.DeleteRequest( http_request_data )
     delresp_pb = api_base_pb.VoidProto() 
@@ -1836,7 +1868,6 @@ class MainHandler(tornado.web.RequestHandler):
     Returns:
       Default message for void protocol buffers 
     """ 
-
     resp_pb = api_base_pb.VoidProto() 
     return (resp_pb.Encode(), 0, "" )
   
@@ -1849,7 +1880,6 @@ class MainHandler(tornado.web.RequestHandler):
       Default message for string protocol buffers which is a composite 
       response
     """ 
-
     str_pb = api_base_pb.StringProto( http_request_data )
     composite_pb = datastore_pb.CompositeIndices()
     return (composite_pb.Encode(), 0, "" )    
@@ -1864,7 +1894,6 @@ class MainHandler(tornado.web.RequestHandler):
     Returns:
       void protocol buffer
     """ 
-
     int64_pb = api_base_pb.Integer64Proto( http_request_data ) 
     resp_pb = api_base_pb.VoidProto()
     return (resp_pb.Encode(), 0, "")
@@ -1879,8 +1908,7 @@ class MainHandler(tornado.web.RequestHandler):
       Default message for string protocol buffers which is a void protocol 
       buffer
     """ 
-
-    compindex_pb = entity_pb.CompositeIndex( http_request_data)
+    compindex_pb = entity_pb.CompositeIndex(http_request_data)
     resp_pb = api_base_pb.VoidProto()
     return (resp_pb.Encode(), 0, "")
 
@@ -1905,7 +1933,7 @@ def main(argv):
 
   db_type = "cassandra"
   port = DEFAULT_SSL_PORT
-  isEncrypted = True
+  is_encrypted = True
 
   try:
     opts, args = getopt.getopt( argv, "t:p:n:z:",
@@ -1924,7 +1952,7 @@ def main(argv):
     elif opt in ("-p", "--port"):
       port = int(arg)
     elif opt in ("-n", "--no_encryption"):
-      isEncrypted = False
+      is_encrypted = False
     elif opt in ("-z", "--zoo_keeper"):
       zookeeper_locations = arg
 
@@ -1933,10 +1961,12 @@ def main(argv):
           datastore API:" + db_type
     exit(1)
  
-  datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(db_type)
+  datastore_batch = appscale_datastore_batch.DatastoreFactory.\
+                                             getDatastore(db_type)
   zookeeper = zk.ZKTransaction(zookeeper_locations)
-  datastore_access = DatastoreDistributed(datastore_batch, zookeeper=zookeeper)
-  if port == DEFAULT_SSL_PORT and not isEncrypted:
+  datastore_access = DatastoreDistributed(datastore_batch, 
+                                          zookeeper=zookeeper)
+  if port == DEFAULT_SSL_PORT and not is_encrypted:
     port = DEFAULT_PORT
 
   server = tornado.httpserver.HTTPServer(pb_application)
