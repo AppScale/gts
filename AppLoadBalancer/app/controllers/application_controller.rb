@@ -79,6 +79,20 @@ class ApplicationController < ActionController::Base
     }
   end
 
+  # Contacts the UserAppServer to store a 'token' on behalf of a user. The original
+  # idea of the token was to enable users to be automatically logged in on
+  # AppLoadBalancers with different IPs, but who share the same database instance.
+  # Users then would be uniquely identified (by their IP or Rails session ID) and
+  # this identifier would be used to retrieve the previously stored token.
+  # TODO(cgb): Now that we don't use a unique identifier, we should consider
+  # eliminating the use of tokens and just revert back to checking for a valid
+  # cookie.
+  # Args:
+  #   email: A String that uniquely identifies the currently logged-in user.
+  # Returns:
+  #   If the token was created successfully, this returns a String that contains
+  #   user-specific information. If the token was not created successfully (e.g.,
+  #   if the UserAppServer is down), this returns nil.
   def create_token(email)
     conn = DBFrontend.get_instance
     secret = UserTools.get_secret_key
