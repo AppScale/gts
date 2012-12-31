@@ -231,6 +231,30 @@ class AbstractRpcServer(object):
       else:
         raise
 
+  def _GetAppLoadBalancerPublicIP(self):
+    """Returns the AppLoadBalancer's public IP address.
+
+    AppScale uses this method to avoid having to run the AppLoadBalancer
+    on every virtual machine in the deployment. We ask for the public IP
+    (as opposed to the private IP) because we force the user to redirect
+    their web browser to that IP, so it must be accessible from the user's
+    computer.
+
+    Returns:
+      The IP address where the AppLoadBalancer can be contacted.
+    """
+    try:
+      file_handle = open("/etc/appscale/apploadbalancer_public_ip")
+      ip = file_handle.read()
+      file_handle.close()
+    except IOError:
+      logger.info("Saw an IOError when trying to get the AppLoadBalancer's" + \
+        "public IP, returning localhost instead")
+      ip = "localhost"
+
+    logger.info("Returning %s as the public IP to have users log into.")
+    return ip
+
   def _GetAuthCookie(self, auth_token):
     """Fetches authentication cookies for an authentication token.
 
@@ -240,7 +264,7 @@ class AbstractRpcServer(object):
     Raises:
       HTTPError: If there was an error fetching the authentication cookies.
     """
-    continue_location = "http://localhost/"
+    continue_location = "http://%s/" % self._GetAppLoadBalancerPublicIP()
     args = {"continue": continue_location, "auth": auth_token}
     login_path = os.environ.get("APPCFG_LOGIN_PATH", "/_ah")
     req = self._CreateRequest("%s://%s%s/login?%s" %

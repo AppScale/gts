@@ -2092,6 +2092,7 @@ class Djinn
     memcache_contents = memcache_ips.join("\n")
     HelperFunctions.write_file(memcache_file, memcache_contents)
 
+    write_apploadbalancer_location
     find_nearest_rabbitmq
     setup_config_files
     set_uaserver_ips 
@@ -2562,6 +2563,18 @@ class Djinn
       Djinn.log_run("bash #{APPSCALE_HOME}/firewall.conf")
     end
   end
+
+  # Writes a file to the local filesystem that contains the IP address
+  # of a machine that runs the AppLoadBalancer. AppServers use this file
+  # to know where to send users to log in. Because users have to be able
+  # to access this IP address, we use the public IP here instead of the
+  # private IP.
+  def write_apploadbalancer_location()
+    login_file = "#{CONFIG_FILE_LOCATION}/apploadbalancer_public_ip"
+    login_ip = get_login.public_ip()
+    HelperFunctions.write_file(login_file, login_ip)
+  end
+
 
   # Writes a file to the local filesystem that contains the IP
   # address of the 'nearest' machine running the RabbitMQ service.
