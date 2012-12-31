@@ -102,12 +102,24 @@ _TASKQUEUE_KIND = "___TaskQueue___"
 # The maximum length of a random string used for self generated task names
 RAND_LENGTH_SIZE = 32
 
+# The file containing the IP address where a RabbitMQ server is running.
+RABBITMQ_LOCATION_FILE = "/etc/appscale/rabbitmq_ip"
+
 def _GetRabbitMQLocation():
   """Returns the IP address that a RabbitMQ server is running on.
   Returns:
     A string containing the location of a RabbitMQ server.
   """
-  return "localhost"
+  try:
+    file_handle = open(RABBITMQ_LOCATION_FILE)
+    ip = file_handle.read()
+    file_handle.close()
+  except IOError:
+    logger.error("Couldn't open RabbitMQ locations file - using " +
+      "localhost as the RabbitMQ IP for now.")
+    ip = "localhost"
+
+  return ip
 
 def _GetAppId(request):
   """Returns the app id to use for the given request.

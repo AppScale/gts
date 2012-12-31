@@ -1073,6 +1073,7 @@ class Djinn
       "[#{new_nodes_info.join(', ')}]")
 
     add_nodes(new_nodes_info)
+    update_hosts_info()
     # wait for them to finish loading
 
     return new_nodes_info
@@ -1107,6 +1108,7 @@ class Djinn
     }
 
     add_nodes(nodes_info)
+    update_hosts_info()
     # wait for them to finish loading
 
     return nodes_info
@@ -2090,6 +2092,7 @@ class Djinn
     memcache_contents = memcache_ips.join("\n")
     HelperFunctions.write_file(memcache_file, memcache_contents)
 
+    find_nearest_rabbitmq
     setup_config_files
     set_uaserver_ips 
     write_hypersoap
@@ -2549,15 +2552,51 @@ class Djinn
     # Invoke datastore helper function
     setup_db_config_files(master_ip, slave_ips, @creds)
 
+    update_hosts_info()
+
+    # use iptables to lock down outside traffic
+    # nodes can talk to each other on any port
+    # but only the outside world on certain ports
+    #`iptables --flush`
+    if FIREWALL_IS_ON
+      Djinn.log_run("bash #{APPSCALE_HOME}/firewall.conf")
+    end
+  end
+
+  def find_nearest_rabbitmq()
+    rabbitmq_ip = nil
+    if my_node.is_rabbitmq_master? or my_node.is_rabbitmq_slave?
+      rabbitmq_ip = my_node.private_ip
+    end
+
+    if rabbitmq_ip.nil?
+      rabbitmq_ips = []
+      @nodes.each { |node|
+        if node.is_rabbitmq_master? or node.is_rabbitmq_slave?
+          rabbitmq_ips << node.private_ip
+        end
+      }
+      Djinn.log_debug("RabbitMQ servers are at #{rabbitmq_ips.join(', ')}")
+
+      # pick one at random
+      rabbitmq_ip = rabbitmq_ips.sort_by { rand }[0]
+    end
+
+    Djinn.log_debug("AppServers on this node will connect to RabbitMQ " +
+      "at #{rabbitmq_ip}")
+    rabbitmq_file = "#{CONFIG_FILE_LOCATION}/rabbitmq_ip"
+    rabbitmq_contents = rabbitmq_ip
+    HelperFunctions.write_file(rabbitmq_file, rabbitmq_contents)
+  end
+
+  # Updates files on this machine with information about our hostname
+  # and a mapping of where other machines are located.
+  def update_hosts_info()
     all_nodes = ""
     @nodes.each_with_index { |node, index|
       all_nodes << "#{node.private_ip} appscale-image#{index}\n"
     }
     
-    etc_hosts = "/etc/hosts"
-    my_hostname = "appscale-image#{@my_index}"
-    etc_hostname = "/etc/hostname"
-
     new_etc_hosts = <<HOSTS
 127.0.0.1 localhost.localdomain localhost
 127.0.1.1 localhost
@@ -2570,28 +2609,14 @@ ff02::3 ip6-allhosts
 #{all_nodes}
 HOSTS
 
+    etc_hosts = "/etc/hosts"
     File.open(etc_hosts, "w+") { |file| file.write(new_etc_hosts) }    
+
+    etc_hostname = "/etc/hostname"
+    my_hostname = "appscale-image#{@my_index}"
     File.open(etc_hostname, "w+") { |file| file.write(my_hostname) }
 
-    # on ubuntu jaunty, we can change the hostname by running hostname.sh
-    # on karmic, this file doesn't exist - run /bin/hostname instead
-    # TODO: does the fix for karmic hold for lucid?
-
-    jaunty_hostname_file = "/etc/init.d/hostname.sh"
-
-    if File.exists?(jaunty_hostname_file)
-      Djinn.log_run("/etc/init.d/hostname.sh")
-    else
-      Djinn.log_run("/bin/hostname #{my_hostname}")
-    end
-
-    # use iptables to lock down outside traffic
-    # nodes can talk to each other on any port
-    # but only the outside world on certain ports
-    #`iptables --flush`
-    if FIREWALL_IS_ON
-      Djinn.log_run("bash #{APPSCALE_HOME}/firewall.conf")
-    end
+    Djinn.log_run("/bin/hostname #{my_hostname}")
   end
 
   def write_hypersoap()
