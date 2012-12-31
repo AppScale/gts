@@ -2563,6 +2563,10 @@ class Djinn
     end
   end
 
+  # Writes a file to the local filesystem that contains the IP
+  # address of the 'nearest' machine running the RabbitMQ service.
+  # 'Nearest' is defined as being this node's IP if our node runs RabbitMQ,
+  # or a random node that runs RabbitMQ otherwise.
   def find_nearest_rabbitmq()
     rabbitmq_ip = nil
     if my_node.is_rabbitmq_master? or my_node.is_rabbitmq_slave?
