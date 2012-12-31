@@ -30,7 +30,7 @@ end
 module HelperFunctions
 
 
-  VER_NUM = "1.6.4"
+  VER_NUM = "1.6.5"
 
   
   APPSCALE_HOME = ENV['APPSCALE_HOME']
@@ -265,13 +265,17 @@ module HelperFunctions
       break if retval == "0"
       Kernel.puts("\n\n[#{cmd}] returned #{retval} instead of 0 as expected. Will try to copy again momentarily...")
       fails += 1
-      abort("SCP failed") if fails >= 5
+      if fails >= 5:
+        Kernel.puts("****************************")
+        Kernel.puts("*CRITICAL ERROR: SCP failed*")
+        Kernel.puts("****************************")
+        break
+      end
       sleep(2)
       `#{cmd}`
       retval = (File.open(retval_file) { |f| f.read }).chomp
     }
 
-    #Kernel.puts(scp_result)
     `rm -fv #{retval_file}`
   end
 
@@ -545,7 +549,7 @@ module HelperFunctions
       elsif cloud_type == "ec2"
         machine = creds["CLOUD#{cloud_num}_AMI"]
       else
-        abort("cloud type was #{cloud_type}, which is not a supported value.")
+        abort("Cloud type was #{cloud_type}, which is not a supported value.")
       end
 
       num_of_vms = 0
@@ -913,7 +917,6 @@ module HelperFunctions
       return []
     end
 
-    handlers = tree["handlers"]
     default_expiration = expires_duration(tree["default_expiration"])
     
     # Create the destination cache directory
@@ -929,6 +932,12 @@ module HelperFunctions
       # Remove any superfluous spaces since they will break the regex
       input_regex.gsub!(/ /,"")
       skip_files_regex = Regexp.new(input_regex)
+    end
+
+    if tree["handlers"]
+      handlers = tree["handlers"]
+    else
+      return []
     end
 
     handlers.map! do |handler|
@@ -1098,42 +1107,6 @@ module HelperFunctions
       Kernel.puts(fail_msg)
       abort(fail_msg)
     end
-  end
-
-  def self.generate_makefile(code, input_loc)
-    abort("code is nil") if code.nil?
-
-    makefile = "all:\n\t"
-    if code =~ /\.x10\Z/
-      out = code.scan(/\A(.*)\.x10\Z/).flatten.to_s
-      makefile << "/usr/local/x10/x10.dist/bin/x10c++ -x10rt mpi -o #{out} #{code}\n\n"
-    elsif code =~ /\.erl\Z/
-      makefile << "HOME=/root erlc #{code}"
-    elsif code =~ /\.c\Z/
-      out = code.scan(/\A(.*)\.c\Z/).flatten.to_s
-
-      code_path = File.expand_path(input_loc + "/" + code)
-      contents = self.read_file(code_path)
-      if contents =~ /#include .mpi\.h./
-        makefile << "mpicc #{code} -o #{out} -Wall"
-
-      # for upc, there's upc_relaxed, upc_strict, and upc
-      # this should catch them all - just like pokemon
-      elsif contents.include?("#include <upc")
-        makefile << "/usr/local/berkeley_upc-2.12.1/upcc --network=mpi -o #{out} #{code}"
-      else # its plain old c
-        makefile << "gcc -o #{out} #{code} -Wall"
-      end
-    elsif code =~ /\.go\Z/
-        prefix = code.scan(/\A(.*)\.go\Z/).flatten.to_s
-        link = "#{prefix}.6"
-        makefile << "GOROOT=#{GOROOT} #{GOBIN}/6g #{code} && GOROOT=#{GOROOT} #{GOBIN}/6l -o #{prefix} #{link}"
-    else
-      abort("code type not supported for auto-gen makefile")
-    end
-
-    makefile_location = File.expand_path(input_loc + "/Makefile")
-    self.write_file(makefile_location, makefile)
   end
 
   def self.log_obscured_env()

@@ -35,20 +35,6 @@ from google.appengine.runtime import apiproxy_errors
 from google.appengine.datastore import entity_pb
 
 
-
-
-
-_MAXIMUM_RESULTS = 1000
-
-
-
-
-
-_MAX_QUERY_OFFSET = 1000
-
-
-
-
 _CURSOR_CONCAT_STR = '!CURSOR!'
 
 
@@ -630,15 +616,6 @@ class QueryCursor(object):
     self.__results = results
     self.__query = query
     self.app = query.app()
-    #self.__cursor = db_cursor
-    #self.__num_results = 0
-    #if db_cursor:
-    #  self.__num_results = db_cursor.rowcount
-    #self.__seen = set()
-
-    #self.__position = ('', '')
-
-    #self.__next_result = (None, None)
 
     if query.has_limit():
       self.limit = query.limit() + query.offset()
@@ -728,14 +705,7 @@ class QueryCursor(object):
       offset: The number of results to skip.
       result: out: A query_result PB.
     """
-    limited_offset = min(offset, _MAX_QUERY_OFFSET)
-    if limited_offset:
-      result.set_skipped_results(limited_offset)
-
-    if offset == limited_offset:
-      if count > _MAXIMUM_RESULTS:
-        count = _MAXIMUM_RESULTS
-
+    result.set_skipped_results(min(count, offset))
     result_list = result.result_list()
     if self.__results:
       result_list.extend(self.__results)

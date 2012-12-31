@@ -20,7 +20,6 @@ import tornado.httpserver
 import tornado.ioloop
 import tornado.web
 
-import appscale_logger
 import appscale_datastore_batch
 import dbconstants
 import helper_functions
@@ -721,7 +720,6 @@ class DatastoreDistributed():
         last_result: last result encoded in cursor
     """
     e = last_result
-    start_key = None
     if not prop_name and not order:
       return str(prefix + '/' + str(self.__encode_index_pb(e.key().path())))
      
@@ -854,14 +852,13 @@ class DatastoreDistributed():
 
     limit = query.limit() or self._MAXIMUM_RESULTS
 
-    offset = query.offset()
   
     result = self.datastore_batch.range_query(dbconstants.APP_ENTITY_TABLE, 
                                               dbconstants.APP_ENTITY_SCHEMA, 
                                               startrow, 
                                               endrow, 
                                               limit, 
-                                              offset=offset, 
+                                              offset=0, 
                                               start_inclusive=start_inclusive, 
                                               end_inclusive=end_inclusive)
     return self.__extract_entities(result)
@@ -918,14 +915,13 @@ class DatastoreDistributed():
       start_inclusive = self._DISABLE_INCLUSIVITY
 
     limit = query.limit() or self._MAXIMUM_RESULTS
-    offset = query.offset()
   
     result = self.datastore_batch.range_query(dbconstants.APP_ENTITY_TABLE, 
                                               dbconstants.APP_ENTITY_SCHEMA, 
                                               startrow, 
                                               endrow, 
                                               limit, 
-                                              offset=offset, 
+                                              offset=0, 
                                               start_inclusive=start_inclusive, 
                                               end_inclusive=end_inclusive)
 
@@ -960,7 +956,7 @@ class DatastoreDistributed():
     # Detect quickly if this is a kind query or not
     for fi in filter_info:
       if fi != "__key__":
-        return 
+        return None
 
     if order_info:
       if len(order_info) > 0: return None
@@ -991,14 +987,13 @@ class DatastoreDistributed():
 
     limit = query.limit() or self._MAXIMUM_RESULTS
 
-    offset = query.offset()
   
     result = self.datastore_batch.range_query(dbconstants.APP_KIND_TABLE, 
                                               dbconstants.APP_KIND_SCHEMA, 
                                               startrow, 
                                               endrow, 
                                               limit, 
-                                              offset=offset, 
+                                              offset=0, 
                                               start_inclusive=start_inclusive, 
                                               end_inclusive=end_inclusive)
     return self.__fetch_entities(result)
@@ -1041,7 +1036,6 @@ class DatastoreDistributed():
 
     prefix = self.get_table_prefix(query)
  
-    offset = query.offset()
 
     limit = query.limit() or self._MAXIMUM_RESULTS
 
@@ -1060,7 +1054,7 @@ class DatastoreDistributed():
                                query.kind(), 
                                prefix, 
                                limit, 
-                               offset, 
+                               0, 
                                startrow)
     return self.__fetch_entities(references)
 
@@ -1073,7 +1067,8 @@ class DatastoreDistributed():
                      prefix, 
                      limit, 
                      offset, 
-                     startrow): 
+                     startrow,
+                     force_start_key_exclusive=False): 
     """
     Applies property filters in the query.
     Args:
@@ -1084,6 +1079,7 @@ class DatastoreDistributed():
       limit: Number of results
       offset: Number of results to skip
       startrow: Start key for the range scan
+      force_start_key_exclusive: Do not include the start key
     Results:
       Returns a list of entity keys 
     Raises:
@@ -1123,13 +1119,14 @@ class DatastoreDistributed():
 
       params = [prefix, kind, property_name, self._TERM_STRING, None]
       endrow = self.get_index_key_from_params(params)
-
+      if force_start_key_exclusive:
+        start_inclusive = False
       return self.datastore_batch.range_query(table_name, 
                                           column_names, 
                                           startrow, 
                                           endrow, 
                                           limit, 
-                                          offset=offset, 
+                                          offset=0, 
                                           start_inclusive=start_inclusive, 
                                           end_inclusive=end_inclusive)      
 
@@ -1188,12 +1185,15 @@ class DatastoreDistributed():
       params = [prefix, kind, property_name, end_value]
       endrow = self.get_index_key_from_params(params)
 
+      if force_start_key_exclusive:
+        start_inclusive = False
+
       ret = self.datastore_batch.range_query(table_name, 
                                           column_names, 
                                           startrow, 
                                           endrow, 
                                           limit, 
-                                          offset=offset, 
+                                          offset=0, 
                                           start_inclusive=start_inclusive, 
                                           end_inclusive=end_inclusive)      
 
@@ -1267,12 +1267,15 @@ class DatastoreDistributed():
           params = [prefix, kind, property_name, value2 + '/']
           startrow = self.get_index_key_from_params(params)
         
+      if force_start_key_exclusive:
+        start_inclusive = False
+
       return self.datastore_batch.range_query(table_name, 
                                           column_names, 
                                           startrow, 
                                           endrow, 
                                           limit, 
-                                          offset=offset, 
+                                          offset=0, 
                                           start_inclusive=start_inclusive, 
                                           end_inclusive=end_inclusive)      
          
@@ -1354,7 +1357,7 @@ class DatastoreDistributed():
     # direct to the datastore, followed by in memory filters
     # Research is required on figuring out what is the 
     # best filter to apply via range queries. 
-    while len(result) < (limit+offset):
+    while len(result) < (limit + offset):
       temp_res = self.__apply_filters(filter_ops, 
                                    order_ops, 
                                    property_name, 
@@ -1362,8 +1365,10 @@ class DatastoreDistributed():
                                    prefix, 
                                    count, 
                                    0, 
-                                   startrow)
-      if not temp_res: break
+                                   startrow,
+                                   force_start_key_exclusive=True)
+      if not temp_res: 
+        break
 
       ent_res = self.__fetch_entities(temp_res)
 
@@ -1399,7 +1404,6 @@ class DatastoreDistributed():
     if len(order_info) > 1:
       result = self.__order_composite_results(result, order_info) 
 
-    if result: result = result[offset:]
     return result 
 
   def __order_composite_results(self, result, order_info):
@@ -1500,20 +1504,22 @@ class DatastoreDistributed():
     """
     result = self.__get_query_results(query)
     count = 0
+    offset = query.offset()
     if result:
-      for index, ii in enumerate(result):
-        result[index] = entity_pb.EntityProto(ii)
+      query_result.set_skipped_results(len(result) - offset)
       count = len(result)
-     
+      result = result[offset:]
+      for index, ii in enumerate(result):
+        result[index] = entity_pb.EntityProto(ii) 
+
     cur = cassandra_stub_util.QueryCursor(query, result)
     cur.PopulateQueryResult(count, query.offset(), query_result) 
-  
+
   def setup_transaction(self, app_id) :
     """ Gets a transaction ID for a new transaction """
     _MAX_RAND = 1000000  # arbitary large number
     return random.randint(1, _MAX_RAND)
 
-logger = appscale_logger.getLogger("pb_server")
 
 class MainHandler(tornado.web.RequestHandler):
   """
@@ -1663,10 +1669,6 @@ class MainHandler(tornado.web.RequestHandler):
       apperror_pb = apiresponse.mutable_application_error()
       apperror_pb.set_code(errcode)
       apperror_pb.set_detail(errdetail)
-
-    if errcode != 0:
-      logger.debug("Reply: %s\nerrcode: %s\nerror details: %s" %\
-                   (str(method), str(errcode), str(errdetail)))
 
     self.write(apiresponse.Encode() )    
 
@@ -1827,7 +1829,6 @@ class MainHandler(tornado.web.RequestHandler):
     """ 
 
     resp_pb = api_base_pb.VoidProto() 
-    logger.debug("VOID_RESPONSE: %s to void" % resp_pb)
     return (resp_pb.Encode(), 0, "" )
   
   def str_proto(self, app_id, http_request_data):
@@ -1842,8 +1843,6 @@ class MainHandler(tornado.web.RequestHandler):
 
     str_pb = api_base_pb.StringProto( http_request_data )
     composite_pb = datastore_pb.CompositeIndices()
-    logger.debug("String proto received: %s"%str_pb)
-    logger.debug("CompositeIndex response to string: %s" % composite_pb)
     return (composite_pb.Encode(), 0, "" )    
   
   def int64_proto(self, app_id, http_request_data):
@@ -1859,8 +1858,6 @@ class MainHandler(tornado.web.RequestHandler):
 
     int64_pb = api_base_pb.Integer64Proto( http_request_data ) 
     resp_pb = api_base_pb.VoidProto()
-    logger.debug("Int64 proto received: %s"%int64_pb)
-    logger.debug("VOID_RESPONSE to int64: %s" % resp_pb)
     return (resp_pb.Encode(), 0, "")
  
   def compositeindex_proto(self, app_id, http_request_data):
@@ -1876,8 +1873,6 @@ class MainHandler(tornado.web.RequestHandler):
 
     compindex_pb = entity_pb.CompositeIndex( http_request_data)
     resp_pb = api_base_pb.VoidProto()
-    logger.debug("CompositeIndex proto recieved: %s"%str(compindex_pb))
-    logger.debug("VOID_RESPONSE to composite index: %s" % resp_pb)
     return (resp_pb.Encode(), 0, "")
 
 def usage():
