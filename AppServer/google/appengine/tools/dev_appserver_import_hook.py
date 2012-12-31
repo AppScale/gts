@@ -907,6 +907,18 @@ class HardenedModulesHook(object):
     'jinja2': ['_debugsupport', '_speedups'],
     'lxml': ['etree', 'objectify'],
     'markupsafe': ['_speedups'],
+    'matplotlib': [
+      'ft2font',
+      'ttconv',
+      '_png',
+      '_backend_agg',
+      '_path',
+      '_image',
+      '_cntr',
+      'nxutils',
+      '_delaunay',
+      '_tri',
+    ],
     'numpy': [
       '_capi',
       '_compiled_base',

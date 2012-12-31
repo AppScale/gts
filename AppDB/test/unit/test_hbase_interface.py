@@ -11,7 +11,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../../hbase/"))
 import hbase_interface
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
-import helper_functions
+import file_io
 
 class FakeHBaseClient():
   """ Fake hbase client class for mocking """
@@ -36,8 +36,8 @@ class FakeHBaseClient():
  
 class TestHBase(unittest.TestCase):
   def testConstructor(self):
-    flexmock(helper_functions) \
-        .should_receive('read_file') \
+    flexmock(file_io) \
+        .should_receive('read') \
         .and_return('127.0.0.1')
 
     flexmock(hbase_interface.DatastoreProxy).should_receive("create_connection") \
@@ -46,8 +46,8 @@ class TestHBase(unittest.TestCase):
     db = hbase_interface.DatastoreProxy()
 
   def testGet(self):
-    flexmock(helper_functions) \
-        .should_receive('read_file') \
+    flexmock(file_io) \
+        .should_receive('read') \
         .and_return('127.0.0.1')
 
     flexmock(hbase_interface.DatastoreProxy).should_receive("create_connection") \
@@ -59,8 +59,8 @@ class TestHBase(unittest.TestCase):
     assert {} == db.batch_get_entity('table', [], [])
 
   def testPut(self):
-    flexmock(helper_functions) \
-        .should_receive('read_file') \
+    flexmock(file_io) \
+        .should_receive('read') \
         .and_return('127.0.0.1')
 
     flexmock(hbase_interface.DatastoreProxy).should_receive("create_connection") \
@@ -72,8 +72,8 @@ class TestHBase(unittest.TestCase):
     assert None == db.batch_put_entity('table', [], [], {})
 
   def testDeleteTable(self):
-    flexmock(helper_functions) \
-        .should_receive('read_file') \
+    flexmock(file_io) \
+        .should_receive('read') \
         .and_return('127.0.0.1')
 
     flexmock(hbase_interface.DatastoreProxy).should_receive("create_connection") \
@@ -85,8 +85,8 @@ class TestHBase(unittest.TestCase):
     assert None == db.delete_table('table')
 
   def testDelete(self):
-    flexmock(helper_functions) \
-        .should_receive('read_file') \
+    flexmock(file_io) \
+        .should_receive('read') \
         .and_return('127.0.0.1')
 
     flexmock(hbase_interface.DatastoreProxy).should_receive("create_connection") \
@@ -98,8 +98,8 @@ class TestHBase(unittest.TestCase):
     assert None == db.batch_delete('table', [])
 
   def testRangeQuery(self):
-    flexmock(helper_functions) \
-        .should_receive('read_file') \
+    flexmock(file_io) \
+        .should_receive('read') \
         .and_return('127.0.0.1')
 
     flexmock(hbase_interface.DatastoreProxy).should_receive("create_connection") \

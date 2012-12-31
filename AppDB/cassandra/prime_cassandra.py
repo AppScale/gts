@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import pycassa
 import sys
 import time
@@ -11,6 +12,8 @@ import py_cassandra
 from cassandra import cassandra_interface
 
 from pycassa import system_manager
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
+import file_io
 
 def create_keyspaces(replication):
   """ 
@@ -32,7 +35,7 @@ def create_keyspaces(replication):
   _DROP_TABLES = True
 
   # TODO use shared library to get constants
-  host = helper_functions.read_file('/etc/appscale/my_private_ip')
+  host = file_io.read('/etc/appscale/my_private_ip')
 
   sysman = system_manager.SystemManager(host + ":" +\
               str(cassandra_interface.CASS_DEFAULT_PORT))

@@ -1,41 +1,42 @@
-# Author: Navraj Chohan
-#import sys
+# TODO This file requires cleanup
+from dbinterface import *
+
 import os
 import MySQLdb
 import sys
-#import _mysql
-#import sqlalchemy.pool as pool
-from dbinterface import *
-import appscale_logger
 import threading
 import time
-#MySQLdb = pool.manage(MySQLdb)
-TIMEOUT = 30
+
+# If this number of seconds passes then a transcation is cleaned up from 
+# local memory
+GC_TIMEOUT = 30
+
 # Time till next gc of connections
 GC_TIME = 120
+
 ROW_KEY = "mysql__row_key__"
+
 ERROR_MY = "DB_ERROR:"
-#DB_LOCATION = "appscale-image"
+
 USE_DATABASE = "appscale"
+
 DB_LOCATION = "127.0.0.1"
+
 DB_ENGINE = "NDBCLUSTER"
-#DB_ENGINE = "INNODB"
-#DB_ENGINE = "myisam"
-#DB_PORT = 3306
+
 DEBUG = False
+
 transDict = {}
+
 transDict_lock = threading.Lock()
+
 last_gc_time = 0
 
-
 class DatastoreProxy(AppDBInterface):
-
-  def __init__(self, log = appscale_logger.getLogger("datastore-mysql")):
-    self.logger = log
+  def __init__(self)
     self.client = None
     self.transactionsOn = False
     self.tableCache = set()
-
 
   def commit(self, txnid):
     elist = [ERROR_MY]
@@ -46,7 +47,6 @@ class DatastoreProxy(AppDBInterface):
       client.commit()
       self.__close_connection(txnid) 
     except MySQLdb.Error, e:
-      if DEBUG: self.logger.info(str(e.args[0]) + "--" + e.args[1])
       elist[0] = ERROR_MY + str(e.args[0]) + "--" + e.args[1]
     return elist 
 
@@ -83,7 +83,6 @@ class DatastoreProxy(AppDBInterface):
           # take off the first letter "x"
           item = item[1:] 
           elist.append(item)
-      if DEBUG: self.logger.info(elist)
     except MySQLdb.Error, e:
       if DEBUG: print str(e.args[0]) + "--" + e.args[1] 
       elist[0] = ERROR_MY + "Unable to get schema"
@@ -102,12 +101,9 @@ class DatastoreProxy(AppDBInterface):
       client = MySQLdb.connect(host=DB_LOCATION, db=USE_DATABASE, user="root")
       cursor = client.cursor()
       command = "drop table `" + table_name + "`"
-      if DEBUG: self.logger.info(command)
       cursor.execute(command)
     except MySQLdb.Error, e:
       elist[0] += str(e.args[0]) + "--" + e.args[1]
-
-    if DEBUG: self.logger.info(elist)
 
     if client:
       client.commit()
@@ -129,7 +125,6 @@ class DatastoreProxy(AppDBInterface):
       isTrans = True
 
     if not row_key:
-      self.logger.info("Null row key")
       elist[0] += "Null row key"
       return elist
 
@@ -151,7 +146,6 @@ class DatastoreProxy(AppDBInterface):
       command += " from `"+ table_name + "` WHERE " + ROW_KEY +  \
                  " = '" + row_key + "'"
 
-      if DEBUG: self.logger.info(command)
 
       cursor.execute(command)
       result = cursor.fetchone()
@@ -176,7 +170,6 @@ class DatastoreProxy(AppDBInterface):
         return elist
       elist[0] = ERROR_MY + str(e.args[0]) + "--" + e.args[1] 
 
-    if DEBUG: self.logger.info(elist)
     
     if client and not isTrans:
       client.close()
@@ -189,13 +182,9 @@ class DatastoreProxy(AppDBInterface):
     # Adding an x to make sure all columns start with a letter
     # Mysql limitation
     table_name = "x" + table_name
-    if DEBUG: self.logger.info("PUT ENTITY")
-    if DEBUG: self.logger.info(str(cell_values))
-    if DEBUG: self.logger.info("row key: " + row_key)
     client = None
     elist = [ERROR_MY]
     if not row_key:
-      self.logger.info("Null row key")
       elist[0] += "Null row key"
       return elist
 
@@ -214,9 +203,7 @@ class DatastoreProxy(AppDBInterface):
               ' MEDIUMBLOB, '.join(columncopy) + " MEDIUMBLOB) ENGINE="+\
               DB_ENGINE
         tempcursor = tempclient.cursor()
-        if DEBUG: self.logger.info(query)
         result = tempcursor.execute(query)
-        if DEBUG: self.logger.info("DONE CREATING TABLE...%s",str(result))
         sys.stdout.flush()
         self.tableCache.add(table_name)
       except MySQLdb.Error, e:
@@ -269,16 +256,11 @@ class DatastoreProxy(AppDBInterface):
         if ii != len(cell_values) - 1:
           command += ", "
 
-      if DEBUG: self.logger.info(command)
       cursor.execute(command, tuple(cell_values + [MySQLdb.escape_string(row_key)] ))
     except MySQLdb.Error, e:
-      if DEBUG: self.logger.info("ERROR FOR PUT")
       elist[0] = ERROR_MY + str(e.args[0]) + "--" + e.args[1] 
-      if DEBUG: self.logger.info(elist[0])
 
     elist.append("0")
-    if DEBUG: self.logger.info(elist)
-    if DEBUG: self.logger.info("DONE WITH PUT ENTITY")
     if client and not isTrans:  
       cursor.close()
       client.commit()
@@ -294,7 +276,6 @@ class DatastoreProxy(AppDBInterface):
 
   def delete_row(self, table_name, row_key, txnid = 0):
     table_name = "x" + table_name
-    if DEBUG: self.logger.info("DELETE ROW")
     client = None
  
     isTrans = False
@@ -313,14 +294,11 @@ class DatastoreProxy(AppDBInterface):
       query = "delete from `" + table_name + "` WHERE " + ROW_KEY + \
               "= '" + row_key + "'" 
 
-      if DEBUG: self.logger.info(query)
       cursor.execute(query)
 
     except MySQLdb.Error, e:
       elist[0] = ERROR_MY + str(e.args[0]) + "--" + e.args[1] 
 
-    if DEBUG: self.logger.info("DELETING ROW")
-    if DEBUG: self.logger.info(elist)
 
     if client and not isTrans:
       client.commit()
@@ -329,7 +307,6 @@ class DatastoreProxy(AppDBInterface):
 
   def get_row_count(self, table_name):
     table_name = "x" + table_name
-    if DEBUG: self.logger.info("GETTING ROW COUNT")
     client = None
     elist = [ERROR_MY]
 
@@ -344,8 +321,6 @@ class DatastoreProxy(AppDBInterface):
     except MySQLdb.Error, e:
       elist[0] = ERROR_MY + str(e.args[0]) + "--" + e.args[1] 
 
-    if DEBUG: self.logger.info("DONE WITH ROW COUNT")
-    if DEBUG: self.logger.info(elist)
 
     if client:
       cursor.close()
@@ -355,7 +330,6 @@ class DatastoreProxy(AppDBInterface):
 
   def get_table(self, table_name, column_names, txnid = 0):
     table_name = "x" + table_name
-    if DEBUG: self.logger.info("GET TABLE")
     client = None
     elist = [ERROR_MY]
 
@@ -373,7 +347,6 @@ class DatastoreProxy(AppDBInterface):
         columncopy.append("x" + column_names[ii])
 
       command = "select " + ', '.join(columncopy) + " from `" + table_name + "`"
-      if DEBUG: self.logger.info(command)
       cursor.execute(command)
 
       while (1): 
@@ -381,7 +354,6 @@ class DatastoreProxy(AppDBInterface):
         if row == None:
           break
         for ii in range(0, len(row)):
-          if DEBUG: self.logger.info(str(row))
           if row[ii]:
             elist.append(row[ii])
           else:
@@ -393,10 +365,6 @@ class DatastoreProxy(AppDBInterface):
         pass
       else: 
         elist[0] = ERROR_MY + str(e.args[0]) + "--" + e.args[1] 
-        if DEBUG: self.logger.info(str(elist[0]))
-
-    if DEBUG: self.logger.info("DONE GETTING TABLE")
-    if DEBUG: self.logger.info(str(elist))
 
     if client:
       if not self.transactionsOn or txnid == 0:
@@ -455,7 +423,7 @@ class DatastoreProxy(AppDBInterface):
 
     for ii in transDict:
       cu, cl, st = transDict[ii]
-      if st + TIMEOUT < curtime:
+      if st + GC_TIMEOUT < curtime:
         del_list.append(ii)    
 
     # safe deletes
