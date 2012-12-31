@@ -196,6 +196,11 @@ class Djinn
   attr_accessor :last_updated
 
 
+  # A lock that should be used whenever we modify internal state that can be
+  # modified by more than one thread at a time.
+  attr_accessor :state_change_lock
+
+
   # The port that the AppController runs on by default
   SERVER_PORT = 17443
 
@@ -357,6 +362,7 @@ class Djinn
     @api_status = {}
     @queues_to_read = []
     @last_updated = 0
+    @state_change_lock = Monitor.new()
     @app_info_map = {}
 
     @scaling_in_progress = false
@@ -1059,7 +1065,6 @@ class Djinn
   def start_new_roles_on_nodes_in_cloud(ips_to_roles)
     Djinn.log_debug("Starting new roles in cloud with following info: " +
       "#{ips_to_roles.inspect}")
-    # get zk lock?
 
     keyname = @creds['keyname']
     num_of_vms = ips_to_roles.keys.length
@@ -1074,7 +1079,6 @@ class Djinn
 
     add_nodes(new_nodes_info)
     update_hosts_info()
-    # wait for them to finish loading
 
     return new_nodes_info
   end
@@ -1097,7 +1101,6 @@ class Djinn
   def start_new_roles_on_nodes_in_xen(ips_to_roles)
     Djinn.log_debug("Starting new roles in virt with following info: " +
       "#{ips_to_roles.inspect}")
-    # get zk lock?
 
     nodes_info = []
     keyname = @creds['keyname']
@@ -1109,7 +1112,6 @@ class Djinn
 
     add_nodes(nodes_info)
     update_hosts_info()
-    # wait for them to finish loading
 
     return nodes_info
   end
@@ -1204,7 +1206,13 @@ class Djinn
   def add_nodes(node_info)
     keyname = @creds['keyname']
     new_nodes = Djinn.convert_location_array_to_class(node_info, keyname)
-    @nodes.concat(new_nodes)
+
+    # Since an external thread can modify @nodes, let's put a lock around
+    # it to prevent race conditions.
+    @state_change_lock.synchronize {
+      @nodes.concat(new_nodes)
+    }
+
     initialize_nodes_in_parallel(new_nodes)
   end
 
