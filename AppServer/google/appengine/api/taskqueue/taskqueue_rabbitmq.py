@@ -102,6 +102,13 @@ _TASKQUEUE_KIND = "___TaskQueue___"
 # The maximum length of a random string used for self generated task names
 RAND_LENGTH_SIZE = 32
 
+def _GetRabbitMQLocation():
+  """Returns the IP address that a RabbitMQ server is running on.
+  Returns:
+    A string containing the location of a RabbitMQ server.
+  """
+  return "localhost"
+
 def _GetAppId(request):
   """Returns the app id to use for the given request.
   Args:
@@ -429,7 +436,7 @@ class _BackgroundTaskScheduler(object):
 
     try:
       self.connection = pika.BlockingConnection(pika.ConnectionParameters(
-        host='localhost'))
+        host=_GetRabbitMQLocation()))
       self.channel = self.connection.channel()
     except pika.exceptions.AMQPConnectionError, e:
       logging.error("Unable to connect to RabbitMQ: " + str(e))
@@ -525,7 +532,7 @@ class _BackgroundTaskScheduler(object):
         except pika.exceptions.AMQPConnectionError, e:
           ch.basic_reject(delivery_tag = method.delivery_tag, requeue = True)
           self.connection = pika.BlockingConnection(pika.ConnectionParameters(
-                                                    host='localhost'))
+                                                    host=_GetRabbitMQLocation()))
           self.channel = self.connection.channel()
         except pika.exceptions.AMQPConnectionError, e:
           logging.error("Unable to connect to RabbitMQ: " + str(e))
@@ -548,7 +555,7 @@ class _BackgroundTaskScheduler(object):
       try:
         logging.debug("Connecting to RabbitMQ")
         self.connection = pika.BlockingConnection(pika.ConnectionParameters(
-                         host='localhost'))
+                         host=_GetRabbitMQLocation()))
         self.channel = self.connection.channel()
         self.channel.queue_declare(queue=self._queue_name)
         self.channel.basic_qos(prefetch_count=1)
@@ -617,7 +624,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
         retry_seconds=task_retry_seconds)
     try:
       self.connection = pika.BlockingConnection(pika.ConnectionParameters(
-        host='localhost'))
+        host=_GetRabbitMQLocation()))
       self.channel = self.connection.channel()
       self.channel.queue_declare(queue='app_%s' % app_id, durable=False)
     except pika.exceptions.AMQPConnectionError, e:
@@ -837,7 +844,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
         raise NotImplementedError("PULL queues are not implemented")
     except pika.exceptions.AMQPConnectionError:
       self.connection = pika.BlockingConnection(pika.ConnectionParameters(
-                                                   host='localhost'))
+                                                   host=_GetRabbitMQLocation()))
       raise apiproxy_errors.ApplicationError(
                  taskqueue_service_pb.TaskQueueServiceError.TRANSIENT_ERROR)
     except Exception, e:
