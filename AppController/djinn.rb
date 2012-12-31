@@ -983,6 +983,23 @@ class Djinn
   end
 
 
+  # This SOAP-exposed method dynamically scales up a currently running
+  # AppScale deployment. For virtualized clusters, this assumes the
+  # user has given us a list of IP addresses where AppScale has been
+  # installed to, and for cloud deployments, we assume that the user
+  # wants to use the same credentials as for their current deployment.
+  # Args:
+  #   ips_hash: A Hash that maps roles (e.g., appengine, database) to the
+  #     IP address (in virtualized deployments) or unique identifier (in
+  #     cloud deployments) that should run that role.
+  #   secret: A String password that is used to authenticate the request
+  #     to add nodes to the deployment.
+  # Returns:
+  #   BAD_SECRET_MSG: If the secret given does not match the secret for
+  #     this AppScale deployment.
+  #   BAD_INPUT_MSG: If ips_hash was not a Hash.
+  #   Otherwise, returns a Hash that maps IP addresses to the roles that
+  #     will be hosted on them (the inverse of ips_hash).
   def start_roles_on_nodes(ips_hash, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
@@ -1027,16 +1044,23 @@ class Djinn
   end
 
 
+  # This method acquires virtual machines from a cloud IaaS and adds them
+  # to the currently running AppScale deployment. The new machines are then
+  # assigned the roles given to us by the caller.
+  # Args:
+  #   ips_to_roles: A Hash that maps machines to the roles that should be
+  #     started on them. As we have not yet spawned the machines, we do not
+  #     have IP addresses for them, so any unique identifier can be used in
+  #     lieu of IP addresses.
+  # Returns:
+  #   An Array of Strings, where each String contains information about the
+  #     public IP address, private IP address, and roles that the new machines
+  #     have taken on.
   def start_new_roles_on_nodes_in_cloud(ips_to_roles)
     Djinn.log_debug("Starting new roles in cloud with following info: " +
       "#{ips_to_roles.inspect}")
     # get zk lock?
 
-    # Change ips_to_roles to the format that DjinnJobData's constructor
-    # likes to see.
-    # TODO(cgb): Add another constructor to DjinnJobData that takes
-    # data in a more reasonable format so that we don't have to do this
-    # conversion.
     keyname = @creds['keyname']
     num_of_vms = ips_to_roles.keys.length
     roles = ips_to_roles.values
@@ -1055,16 +1079,25 @@ class Djinn
   end
 
 
+  # This method takes a list of IP addresses that correspond to machines
+  # with AppScale installed on them, that have passwordless SSH already
+  # set up (presumably by appscale-add-instances). The machines are added
+  # to the currently running AppScale deployment, and are then assigned
+  # the roles given to us by the caller.
+  # Args:
+  #   ips_to_roles: A Hash that maps machines to the roles that should be
+  #     started on them. Machines are uniquely identified by their IP
+  #     address, which is assumed to be reachable from any node in the
+  #     AppScale deployment.
+  # Returns:
+  #   An Array of Strings, where each String contains information about the
+  #     public IP address, private IP address, and roles that the new machines
+  #     have taken on.
   def start_new_roles_on_nodes_in_xen(ips_to_roles)
     Djinn.log_debug("Starting new roles in virt with following info: " +
       "#{ips_to_roles.inspect}")
     # get zk lock?
 
-    # Change ips_to_roles to the format that DjinnJobData's constructor
-    # likes to see.
-    # TODO(cgb): Add another constructor to DjinnJobData that takes
-    # data in a more reasonable format so that we don't have to do this
-    # conversion.
     nodes_info = []
     keyname = @creds['keyname']
     ips_to_roles.each { |ip, roles|
@@ -1157,6 +1190,15 @@ class Djinn
   end
 
 
+  # Given an Array of Strings containing information about machines with
+  # AppScale installed on them, copies over deployment-specific files
+  # and starts the AppController on them. Each AppController is then
+  # instructed to start a specific set of roles, and join the existing
+  # AppScale deployment.
+  # Args:
+  #   node_info: An Array of Strings, where each String has information
+  #     about a node to add to the current AppScale deployment (e.g.,
+  #     IP addresses, roles to run).
   def add_nodes(node_info)
     keyname = @creds['keyname']
     new_nodes = Djinn.convert_location_array_to_class(node_info, keyname)
