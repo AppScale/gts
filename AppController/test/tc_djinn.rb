@@ -778,8 +778,19 @@ class TestDjinn < Test::Unit::TestCase
         creds_as_array, no_apps).and_return("OK")
     }
 
+    # lastly, the appcontroller will update its local /etc/hosts file
+    # and /etc/hostname file with info about the new node and its own
+    # node
+    flexmock(File).should_receive(:open).with("/etc/hosts", "w+", Proc).
+      and_return()
+    flexmock(File).should_receive(:open).with("/etc/hostname", "w+", Proc).
+      and_return()
+    flexmock(Djinn).should_receive(:log_run).with("/bin/hostname appscale-image0").
+      and_return()
+
     djinn = Djinn.new()
     djinn.nodes = [original_node]
+    djinn.my_index = 0
     djinn.creds = creds
     actual = djinn.start_new_roles_on_nodes_in_xen(ips_to_roles)
     assert_equal(true, actual.include?(node1_info))
@@ -913,8 +924,19 @@ class TestDjinn < Test::Unit::TestCase
         creds_as_array, no_apps).and_return("OK")
     }
 
+    # lastly, the appcontroller will update its local /etc/hosts file
+    # and /etc/hostname file with info about the new node and its own
+    # node
+    flexmock(File).should_receive(:open).with("/etc/hosts", "w+", Proc).
+      and_return()
+    flexmock(File).should_receive(:open).with("/etc/hostname", "w+", Proc).
+      and_return()
+    flexmock(Djinn).should_receive(:log_run).with("/bin/hostname appscale-image0").
+      and_return()
+
     djinn = Djinn.new()
     djinn.nodes = [original_node]
+    djinn.my_index = 0
     djinn.creds = creds
     actual = djinn.start_new_roles_on_nodes_in_cloud(ips_to_roles)
     assert_equal(true, actual.include?(node1_info))
