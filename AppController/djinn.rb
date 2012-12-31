@@ -215,21 +215,26 @@ class Djinn
   FIREWALL_IS_ON = true
 
 
+  # The location on the local filesystem where AppScale-related configuration
+  # files are written to.
+  CONFIG_FILE_LOCATION = "/etc/appscale"
+
+
   # The location on the local filesystem where the AppController writes
   # information about Neptune jobs that have finished. One day this information
   # may be used to more intelligently schedule jobs on the fly.
-  NEPTUNE_INFO = "/etc/appscale/neptune_info.txt"
+  NEPTUNE_INFO = "#{CONFIG_FILE_LOCATION}/neptune_info.txt"
 
 
   # The location on the local filesystem where the AppController writes
   # information about the status of App Engine APIs, which the AppLoadBalancer
   # will read and display to users.
-  HEALTH_FILE = "/etc/appscale/health.json"
+  HEALTH_FILE = "#{CONFIG_FILE_LOCATION}/health.json"
 
 
   # The location on the local filesystem where the AppController periodically
   # writes its state to, and recovers its state from if it crashes.
-  STATE_FILE = "/etc/appscale/appcontroller-state.json"
+  STATE_FILE = "#{CONFIG_FILE_LOCATION}/appcontroller-state.json"
 
 
   APPSCALE_HOME = ENV['APPSCALE_HOME']
@@ -659,7 +664,7 @@ class Djinn
 
       # Contact the soap server and remove the application
       if (@app_names.include?(app_name) and !my_node.is_appengine?) or @nodes.length == 1
-        ip = HelperFunctions.read_file("/etc/appscale/masters")
+        ip = HelperFunctions.read_file("#{CONFIG_FILE_LOCATION}/masters")
         uac = UserAppClient.new(ip, @@secret)
         result = uac.delete_app(app_name)
         Djinn.log_debug("(stop_app) Delete app: #{ip} returned #{result} (#{result.class})")
@@ -667,7 +672,7 @@ class Djinn
      
       # may need to stop XMPP listener
       if my_node.is_login? 
-        pid_files = `ls /etc/appscale/xmpp-#{app_name}.pid`.split
+        pid_files = HelperFunctions.shell("ls #{CONFIG_FILE_LOCATION}/xmpp-#{app_name}.pid").split
         unless pid_files.nil? # not an error here - XMPP is optional
           pid_files.each { |pid_file|
             pid = HelperFunctions.read_file(pid_file)
@@ -876,7 +881,7 @@ class Djinn
       'is_hybrid_cloud?' => is_hybrid_cloud?()
     }
 
-    HelperFunctions.write_json_file("/etc/appscale/cloud_info.json", cloud_info)
+    HelperFunctions.write_json_file("#{CONFIG_FILE_LOCATION}/cloud_info.json", cloud_info)
   end
 
 
@@ -1275,13 +1280,13 @@ class Djinn
   end
 
   def self.get_db_master_ip
-    masters_file = File.expand_path("/etc/appscale/masters")
+    masters_file = File.expand_path("#{CONFIG_FILE_LOCATION}/masters")
     master_ip = HelperFunctions.read_file(masters_file)
     return master_ip
   end
 
   def self.get_db_slave_ips
-    slaves_file = File.expand_path("/etc/appscale/slaves")
+    slaves_file = File.expand_path("#{CONFIG_FILE_LOCATION}/slaves")
     slave_ips = File.open(slaves_file).readlines.map { |f| f.chomp! }
     slave_ips = [] if slave_ips == [""]
     return slave_ips
@@ -1441,7 +1446,7 @@ class Djinn
       return
     end
 
-    status_file = "/etc/appscale/status-#{ip}.json"
+    status_file = "#{CONFIG_FILE_LOCATION}/status-#{ip}.json"
     stats = acc.get_stats()
     json_state = JSON.dump(stats) 
     HelperFunctions.write_file(status_file, json_state)
@@ -1452,10 +1457,10 @@ class Djinn
     end
 
     # copy remote log over - handy for debugging
-    local_log = "/etc/appscale/logs/#{ip}.log"
+    local_log = "#{CONFIG_FILE_LOCATION}/logs/#{ip}.log"
     remote_log = "/tmp/*.log"
 
-    FileUtils.mkdir_p("/etc/appscale/logs/")
+    FileUtils.mkdir_p("#{CONFIG_FILE_LOCATION}/logs/")
     Djinn.log_run("scp -o StrictHostkeyChecking=no -i #{ssh_key} #{ip}:#{remote_log} #{local_log}")
   end
 
@@ -1473,11 +1478,11 @@ class Djinn
     keyname = @creds["keyname"]
     
     tree = { :table => table, :replication => replication, :keyname => keyname }
-    db_info_path = "/etc/appscale/database_info.yaml"
+    db_info_path = "#{CONFIG_FILE_LOCATION}/database_info.yaml"
     File.open(db_info_path, "w") { |file| YAML.dump(tree, file) }
     
     num_of_nodes = @nodes.length
-    HelperFunctions.write_file("/etc/appscale/num_of_nodes", "#{num_of_nodes}\n")
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/num_of_nodes", "#{num_of_nodes}\n")
     
     all_ips = []
     @nodes.each { |node|
@@ -1485,7 +1490,7 @@ class Djinn
       all_ips << node.private_ip
     }
     all_ips << "\n"
-    HelperFunctions.write_file("/etc/appscale/all_ips", all_ips.join("\n"))
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/all_ips", all_ips.join("\n"))
 
     # Re-run the filewall script here since we just wrote the all_ips file
     if FIREWALL_IS_ON
@@ -1876,11 +1881,11 @@ class Djinn
     Djinn.log_debug("Keypath is #{@creds['keypath']}, keyname is #{@creds['keyname']}")
 
     if !@creds["keypath"].empty?
-      my_key_dir = "/etc/appscale/keys/#{my_node.cloud}"
+      my_key_dir = "#{CONFIG_FILE_LOCATION}/keys/#{my_node.cloud}"
       my_key_loc = "#{my_key_dir}/#{@creds['keypath']}"
       Djinn.log_debug("Creating directory #{my_key_dir} for my ssh key #{my_key_loc}")
       FileUtils.mkdir_p(my_key_dir)
-      Djinn.log_run("cp /etc/appscale/ssh.key #{my_key_loc}")
+      Djinn.log_run("cp #{CONFIG_FILE_LOCATION}/ssh.key #{my_key_loc}")
     end
         
     if is_cloud?
@@ -1890,7 +1895,7 @@ class Djinn
       ENV['EC2_URL'] = @creds["ec2_url"]
 
       # for ec2
-      cloud_keys_dir = File.expand_path("/etc/appscale/keys/cloud1")
+      cloud_keys_dir = File.expand_path("#{CONFIG_FILE_LOCATION}/keys/cloud1")
       ENV['EC2_PRIVATE_KEY'] = "#{cloud_keys_dir}/mykey.pem"
       ENV['EC2_CERT'] = "#{cloud_keys_dir}/mycert.pem"
     end
@@ -2039,7 +2044,7 @@ class Djinn
 
     Djinn.log_debug("Memcache servers will be at #{memcache_ips.join(', ')}")
 
-    memcache_file = "/etc/appscale/memcache_ips"
+    memcache_file = "#{CONFIG_FILE_LOCATION}/memcache_ips"
     memcache_contents = memcache_ips.join("\n")
     HelperFunctions.write_file(memcache_file, memcache_contents)
 
@@ -2361,9 +2366,9 @@ class Djinn
       Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 ubuntu@#{ip} '#{enable_root_login}'")
     end
 
-    secret_key_loc = "/etc/appscale/secret.key"
-    cert_loc = "/etc/appscale/certs/mycert.pem"
-    key_loc = "/etc/appscale/certs/mykey.pem"
+    secret_key_loc = "#{CONFIG_FILE_LOCATION}/secret.key"
+    cert_loc = "#{CONFIG_FILE_LOCATION}/certs/mycert.pem"
+    key_loc = "#{CONFIG_FILE_LOCATION}/certs/mykey.pem"
     pub_key = File.expand_path("~/.ssh/id_rsa.pub")
 
     HelperFunctions.scp_file(secret_key_loc, secret_key_loc, ip, ssh_key)
@@ -2377,7 +2382,7 @@ class Djinn
       loop {
         cloud_type = @creds["CLOUD_TYPE"]
         break if cloud_type.nil? or cloud_type == ""
-        cloud_keys_dir = File.expand_path("/etc/appscale/keys/cloud#{cloud_num}")
+        cloud_keys_dir = File.expand_path("#{CONFIG_FILE_LOCATION}/keys/cloud#{cloud_num}")
         make_dir = "mkdir -p #{cloud_keys_dir}"
 
         keyname = @creds["keyname"]
@@ -2392,7 +2397,7 @@ class Djinn
         cloud_num += 1
       }
     else
-      cloud_keys_dir = File.expand_path("/etc/appscale/keys/cloud1")
+      cloud_keys_dir = File.expand_path("#{CONFIG_FILE_LOCATION}/keys/cloud1")
       make_dir = "mkdir -p #{cloud_keys_dir}"
 
       cloud_private_key = "#{cloud_keys_dir}/mykey.pem"
@@ -2476,18 +2481,18 @@ class Djinn
     Djinn.log_debug("Master is at #{master_ip}, slaves are at #{slave_ips.join(', ')}")
 
     my_public = my_node.public_ip
-    HelperFunctions.write_file("/etc/appscale/my_public_ip", "#{my_public}\n")
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/my_public_ip", "#{my_public}\n")
 
     my_private = my_node.private_ip
-    HelperFunctions.write_file("/etc/appscale/my_private_ip", "#{my_private}\n")
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/my_private_ip", "#{my_private}\n")
    
     head_node_ip = get_public_ip(@creds['hostname'])
-    HelperFunctions.write_file("/etc/appscale/head_node_ip", "#{head_node_ip}\n")
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/head_node_ip", "#{head_node_ip}\n")
 
     login_ip = get_login.public_ip
-    HelperFunctions.write_file("/etc/appscale/login_ip", "#{login_ip}\n")
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/login_ip", "#{login_ip}\n")
     
-    masters_file = "/etc/appscale/masters"
+    masters_file = "#{CONFIG_FILE_LOCATION}/masters"
     HelperFunctions.write_file(masters_file, "#{master_ip}\n")
 
     if @total_boxes == 1
@@ -2497,7 +2502,7 @@ class Djinn
     end
     
     slave_ips_newlined = slave_ips.join("\n")
-    HelperFunctions.write_file("/etc/appscale/slaves", "#{slave_ips_newlined}\n")
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/slaves", "#{slave_ips_newlined}\n")
 
     # Invoke datastore helper function
     setup_db_config_files(master_ip, slave_ips, @creds)
@@ -2548,7 +2553,7 @@ HOSTS
   end
 
   def write_hypersoap()
-    HelperFunctions.write_file("/etc/appscale/hypersoap", @userappserver_private_ip)
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/hypersoap", @userappserver_private_ip)
   end
 
   def my_node()
@@ -2596,7 +2601,7 @@ HOSTS
 
     # remove any possible appcontroller state that may not have been
     # properly removed in non-cloud runs
-    remove_state = "rm -rf /etc/appscale/appcontroller-state.json"
+    remove_state = "rm -rf #{CONFIG_FILE_LOCATION}/appcontroller-state.json"
     HelperFunctions.run_remote_command(ip, remove_state, ssh_key, NO_OUTPUT)
 
     GodInterface.start_god(ip, ssh_key)
@@ -2851,7 +2856,7 @@ HOSTS
                   "#{app}. Please check the application logs.") 
             end
 
-            pid_file_name = "/etc/appscale/#{app}-#{@appengine_port}.pid"
+            pid_file_name = "#{CONFIG_FILE_LOCATION}/#{app}-#{@appengine_port}.pid"
             HelperFunctions.write_file(pid_file_name, pid)
 
             @appengine_port += 1
@@ -3219,7 +3224,7 @@ HOSTS
       Djinn.log_debug("ERROR: Unable to start application #{app} on port #{@appengine_port}.") 
       next
     end
-    pid_file_name = "/etc/appscale/#{app}-#{@appengine_port}.pid"
+    pid_file_name = "#{CONFIG_FILE_LOCATION}/#{app}-#{@appengine_port}.pid"
     HelperFunctions.write_file(pid_file_name, pid)
 
     @appengine_port += 1
