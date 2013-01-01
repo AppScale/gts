@@ -223,7 +223,7 @@ installthrift_fromsource()
     tar zxfv thrift-${THRIFT_VER}.tar.gz || exit 1
     rm -v thrift-${THRIFT_VER}.tar.gz
     pushd thrift-${THRIFT_VER}
-    CONFIG_SHELL=/bin/bash /bin/bash ./configure --without-csharp --without-haskell --without-ocaml --without-php --prefix=/usr/local 
+    CONFIG_SHELL=/bin/bash /bin/bash ./configure --without-csharp --without-haskell --without-ocaml --without-php --without-php_extension --prefix=/usr/local
     make || exit 1
 # install native library and include files to DESTDIR.
     make install || exit 1
