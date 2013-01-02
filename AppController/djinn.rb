@@ -584,9 +584,9 @@ class Djinn
       stats['apps'].each { |app_name, is_loaded|
         next if !is_loaded
         next if app_name == "none"
-        if !@app_info_map[app_name][:appengine].nil?
+        if !@app_info_map[app_name]['appengine'].nil?
           stats_str << "    The number of AppServers for app #{app_name} is: " +
-            "#{@app_info_map[app_name][:appengine].length}\n"
+            "#{@app_info_map[app_name]['appengine'].length}\n"
         end
       }
     end
@@ -2718,7 +2718,7 @@ HOSTS
         app_language = app_data.scan(/language:(\w+)/).flatten.to_s
         
         @app_info_map[app] = {}
-        @app_info_map[app][:language] = app_language
+        @app_info_map[app]['language'] = app_language
 
         # TODO: merge these 
         shadow = get_shadow
@@ -2785,11 +2785,11 @@ HOSTS
           # TODO: if the user specifies a warmup route, call it instead of /
           warmup_url = "/"
 
-          @app_info_map[app][:appengine] = []
+          @app_info_map[app]['appengine'] = []
           @num_appengines.times { |index|
             Djinn.log_debug("Starting #{app_language} app #{app} on " +
               "#{HelperFunctions.local_ip}:#{@appengine_port}")
-            @app_info_map[app][:appengine] << @appengine_port
+            @app_info_map[app]['appengine'] << @appengine_port
 
             xmpp_ip = get_login.public_ip
 
@@ -2809,7 +2809,7 @@ HOSTS
           }
 
           HAProxy.update_app_config(app, app_number, 
-            @app_info_map[app][:appengine], my_private)
+            @app_info_map[app]['appengine'], my_private)
           Nginx.reload
           HAProxy.reload
           Collectd.restart
@@ -2831,8 +2831,8 @@ HOSTS
 
           # Update our local information so that we know later what ports
           # we're using to host this app on for nginx and haproxy
-          @app_info_map[app][:nginx] = @nginx_port
-          @app_info_map[app][:haproxy] = @haproxy_port
+          @app_info_map[app]['nginx'] = @nginx_port
+          @app_info_map[app]['haproxy'] = @haproxy_port
 
           login_ip = get_login.public_ip
 
@@ -2906,7 +2906,7 @@ HOSTS
         Djinn.log_debug("Deciding whether to scale AppServers for #{app_name}")
         initialize_scaling_info_for_app(app_name)
 
-        if is_cpu_or_mem_maxed_out?(@app_info_map[app_name][:language])
+        if is_cpu_or_mem_maxed_out?(@app_info_map[app_name]['language'])
           # TODO(cgb): This seems like a good condition to scale down
           Djinn.log_debug("Too much CPU or memory is being used - don't scale")
           return
@@ -2960,6 +2960,7 @@ HOSTS
     stats = get_stats(@@secret)
     Djinn.log_debug("CPU used: #{stats['cpu']}, mem used: #{stats['memory']}")
 
+    Djinn.log_debug("Examining CPU and memory usage for a #{language} application.")
     current_cpu = stats['cpu']
     max_cpu = MAX_CPU_FOR_APPSERVERS[language]
 
@@ -3063,10 +3064,10 @@ HOSTS
   def try_to_scale_up(app_name)
     Djinn.log_debug("Considering whether we should scale up")
     time_since_last_decision = Time.now.to_i - @last_decision[app_name]
-    appservers_running = @app_info_map[app_name][:appengine].length
+    appservers_running = @app_info_map[app_name]['appengine'].length
           
     if time_since_last_decision > SCALEUP_TIME_THRESHOLD and 
-      !@app_info_map[app_name][:appengine].nil? and 
+      !@app_info_map[app_name]['appengine'].nil? and
       appservers_running < MAX_APPSERVERS_ON_THIS_NODE
 
       Djinn.log_debug("Adding a new AppServer on this node for #{app_name}")
@@ -3075,8 +3076,8 @@ HOSTS
     elsif time_since_last_decision <= SCALEUP_TIME_THRESHOLD
       Djinn.log_debug("Not enough time has passed since when the last " +
         "scaling decision was made for #{app_name}")
-    elsif !@app_info_map[app_name][:appengine].nil? and 
-      appservers_running > MAX_APPSERVERS_ON_THIS_NODE 
+    elsif !@app_info_map[app_name]['appengine'].nil? and
+      appservers_running > MAX_APPSERVERS_ON_THIS_NODE
 
       Djinn.log_debug("The maximum number of AppServers for this app " +
         "are already running, so don't add any more")
@@ -3087,16 +3088,16 @@ HOSTS
   def try_to_scale_down(app_name)
     Djinn.log_debug("Considering whether we should scale down")
     time_since_last_decision = Time.now.to_i - @last_decision[app_name]
-    appservers_running = @app_info_map[app_name][:appengine].length
+    appservers_running = @app_info_map[app_name]['appengine'].length
 
     if time_since_last_decision > SCALEDOWN_TIME_THRESHOLD and
-      !@app_info_map[app_name][:appengine].nil? and 
+      !@app_info_map[app_name]['appengine'].nil? and
       appservers_running > MIN_APPSERVERS_ON_THIS_NODE
 
       Djinn.log_debug("Removing an AppServer on this node for #{app_name}")
       remove_appserver_process(app_name)
       @last_decision[app_name] = Time.now.to_i
-    elsif !@app_info_map[app_name][:appengine].nil? and 
+    elsif !@app_info_map[app_name]['appengine'].nil? and
       appservers_running <= MIN_APPSERVERS_ON_THIS_NODE
 
       Djinn.log_debug("Only #{MIN_APPSERVERS_ON_THIS_NODE} AppServer(s) " +
@@ -3147,15 +3148,15 @@ HOSTS
       return  
     end
 
-    nginx_port = @app_info_map[app][:nginx]
-    haproxy_port = @app_info_map[app][:haproxy]
-    @app_info_map[app][:appengine] << @appengine_port
+    nginx_port = @app_info_map[app]['nginx']
+    haproxy_port = @app_info_map[app]['haproxy']
+    @app_info_map[app]['appengine'] << @appengine_port
 
     app_number = nginx_port - Nginx::START_PORT
 
     my_private = my_node.private_ip
-    Djinn.log_debug("port apps error contains - #{@app_info_map[app][:appengine]}")
-    HAProxy.update_app_config(app, app_number, @app_info_map[app][:appengine],
+    Djinn.log_debug("port apps error contains - #{@app_info_map[app]['appengine']}")
+    HAProxy.update_app_config(app, app_number, @app_info_map[app]['appengine'],
       my_private)     
 
     Djinn.log_debug("Adding #{app_language} app #{app} on #{HelperFunctions.local_ip}:#{@appengine_port} ")
@@ -3210,7 +3211,7 @@ HOSTS
 
     my_public = my_node.public_ip
     my_private = my_node.private_ip
-    app_number = @app_info_map[app][:nginx] - Nginx::START_PORT
+    app_number = @app_info_map[app]['nginx'] - Nginx::START_PORT
 
     app_data = uac.get_app_data(app)
 
@@ -3223,7 +3224,7 @@ HOSTS
     end
 
     # Select a random AppServer to kill.
-    ports = @app_info_map[app][:appengine]
+    ports = @app_info_map[app]['appengine']
     port = ports[rand(ports.length)]
 
     if !app_manager.stop_app_instance(app, port)
@@ -3231,9 +3232,9 @@ HOSTS
     end
 
     # Delete the port number from the app_info_map
-    @app_info_map[app][:appengine].delete(port)
+    @app_info_map[app]['appengine'].delete(port)
 
-    HAProxy.update_app_config(app, app_number, @app_info_map[app][:appengine],
+    HAProxy.update_app_config(app, app_number, @app_info_map[app]['appengine'],
       my_private)
     HAProxy.reload
   end 
