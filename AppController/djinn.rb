@@ -764,6 +764,7 @@ class Djinn
     if restore_appcontroller_state 
       parse_creds
     else
+      erase_old_data
       wait_for_data
       parse_creds
       change_job
@@ -1052,6 +1053,24 @@ class Djinn
     wait_for_nodes_to_finish_loading(vms_to_use)
 
     return "OK"
+  end
+
+
+  # Cleans out temporary files that may have been written by a previous
+  # AppScale deployment.
+  def erase_old_data()
+    Djinn.log_run("rm -rf /tmp/h*")
+    Djinn.log_run("rm -f ~/.appscale_cookies")
+    Djinn.log_run("rm -f #{APPSCALE_HOME}/.appscale/status-*")
+    Djinn.log_run("rm -f #{APPSCALE_HOME}/.appscale/database_info")
+    Djinn.log_run("rm -f /tmp/mysql.sock")
+
+
+    Nginx.clear_sites_enabled
+    Collectd.clear_sites_enabled
+    HAProxy.clear_sites_enabled
+    Djinn.log_run("echo '' > /root/.ssh/known_hosts") # empty it out but leave the file there
+    CronHelper.clear_crontab
   end
 
 
