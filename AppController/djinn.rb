@@ -802,7 +802,7 @@ class Djinn
         }
       end
 
-      ensure_all_roles_are_running
+      #ensure_all_roles_are_running
 
       # TODO: consider only calling this if new apps are found
       start_appengine
