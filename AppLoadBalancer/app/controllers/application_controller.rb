@@ -43,14 +43,14 @@ class ApplicationController < ActionController::Base
     if tokens.length != 4
       # guard against user-crafted cookies
       Rails.logger.info "saw a malformed cookie: [#{cookie_val}] - clearing it out"
-      cookies[:dev_appserver_login] = { :value => nil, :domain => UserTools.local_ip, :expires => Time.at(0) }
+      cookies[:dev_appserver_login] = { :value => nil, :domain => UserTools.public_ip, :expires => Time.at(0) }
     end
     email, nick, admin, hash = tokens
 
     my_hash = UserTools.get_appengine_hash(email, nick, admin)
     if my_hash != hash
       reset_session
-      cookies[:dev_appserver_login] = { :value => nil, :domain => UserTools.local_ip, :expires => Time.at(0) }      
+      cookies[:dev_appserver_login] = { :value => nil, :domain => UserTools.public_ip, :expires => Time.at(0) }
     end
   end
 
