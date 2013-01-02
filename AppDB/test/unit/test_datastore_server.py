@@ -243,6 +243,14 @@ class TestDatastoreServer(unittest.TestCase):
     self.assertEquals(dd.rollback_transaction("app_id", http_request),
                       (api_base_pb.VoidProto().Encode(), 0, ""))
    
- 
+
+  def test_dynamic_put(self):
+    db_batch = flexmock()
+    zookeeper = flexmock()
+    zookeeper.should_receive("acquireLock").and_return(True)
+    dd = DatastoreDistributed(db_batch, zookeeper)
+    app_id = "TestAppID"
+    putreq_pb = datastore_pb.PutRequest()
+    dd.dynamic_put(app_id, 
 if __name__ == "__main__":
   unittest.main()    

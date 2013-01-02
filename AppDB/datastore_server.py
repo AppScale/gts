@@ -175,17 +175,15 @@ class DatastoreDistributed():
     
   @staticmethod
   def __encode_index_pb(pb):
-    """ Returns an encoded buffer
+    """ Returns an encoded protocol buffer.
   
     Args:
-        pb: The protocol buffer to encode    
+        pb: The protocol buffer to encode.
     Returns:
-        encoded pb
+        An encoded protocol buffer.
     """
-
     def _encode_path(pb):
       """ Takes a protocol buffer and returns the encoded path """
-
       path = []
       for e in pb.element_list():
         if e.has_name():
@@ -218,9 +216,8 @@ class DatastoreDistributed():
     Args:
       app_id: An application ID.
     Raises:
-      AppScaleBadArg: if name is not set
+      AppScaleBadArg: If the application id is not set.
     """
-
     if not app_id: 
       raise dbconstants.AppScaleBadArg("Application name must be set")
 
@@ -254,9 +251,8 @@ class DatastoreDistributed():
       kind: The per-app kind name.
       index_name: The per-app index name.
     Returns:
-      Key string for storing namespaces
+      Key string for storing namespaces.
     """
-
     return app_id + "/" + name_space + "/" + kind + "/" + index_name
 
   def configure_namespace(self, prefix, app_id, name_space):
@@ -269,7 +265,6 @@ class DatastoreDistributed():
     Returns:
       True on success.
     """
-    
     vals = {}
     row_key = prefix
     vals[row_key] = {"namespaces":name_space}
@@ -285,7 +280,7 @@ class DatastoreDistributed():
     Args:
       data: An Entity, Key or Query PB, or an (app_id, ns) tuple.
     Returns:
-      A valid table prefix
+      A valid table prefix.
     """
     if isinstance(data, entity_pb.EntityProto):
       data = data.key()
@@ -1589,12 +1584,13 @@ class DatastoreDistributed():
       An encoded protocol buffer void response.
     """
     try:
+      txn =  datastore_pb.Transaction(http_request_data)
+      self.zookeeper.notifyFailedTransaction(app_id, txn.handle())
       return (api_base_pb.VoidProto().Encode(), 0, "")
-    except:
+    except ZKTransactionException, zke:
       return (api_base_pb.VoidProto().Encode(), 
               datastore_pb.Error.PERMISSION_DENIED, 
-              "Unable to rollback for this transaction")
-
+              "Unable to rollback for this transaction: %s" % str(e))
 
 class MainHandler(tornado.web.RequestHandler):
   """
@@ -1602,9 +1598,6 @@ class MainHandler(tornado.web.RequestHandler):
   HTTP requests.
   """
 
-  ##############
-  # OTHER TYPE #
-  ##############
   def unknown_request(self, app_id, http_request_data, pb_type):
     """ Function which handles unknown protocol buffers.
 
@@ -1616,10 +1609,6 @@ class MainHandler(tornado.web.RequestHandler):
     """ 
     raise NotImplementedError("Unknown request of operation %s"%pb_type)
   
-  #########################
-  # POST Request Handling #
-  #########################
-
   @tornado.web.asynchronous
   def post( self ):
     """ Function which handles POST requests. Data of the request is 
@@ -1650,10 +1639,6 @@ class MainHandler(tornado.web.RequestHandler):
       self.unknown_request(app_id, http_request_data, pb_type)
     self.finish()
   
-  #########################
-  # GET Request Handling  #
-  #########################
-
   @tornado.web.asynchronous
   def get(self):
     """ Handles get request for the web server. Returns that it is currently
@@ -1792,7 +1777,7 @@ class MainHandler(tornado.web.RequestHandler):
     """
     global datastore_access
     try:
-      return datastore_access.dynamic_rollback(app_id, transaction_pb)
+      return datastore_access.rollback_transaction(app_id, transaction_pb)
     except:
       return(api_base_pb.VoidProto().Encode(), 
              datastore_pb.Error.PERMISSION_DENIED, 
