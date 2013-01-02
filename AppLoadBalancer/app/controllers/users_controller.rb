@@ -105,7 +105,7 @@ class UsersController < ApplicationController
   def logout
     create_token(get_remote_ip, "invalid") # clear the token out
     reset_session
-    cookies[:dev_appserver_login] = { :value => nil, :domain => UserTools.local_ip, :expires => Time.at(0) }
+    cookies[:dev_appserver_login] = { :value => nil, :domain => UserTools.public_ip, :expires => Time.at(0) }
     Rails.logger.info("params is #{params.inspect}, continue URL is #{params[:continue]}")
     if params[:continue]
       Rails.logger.info("about to redirect to #{params[:continue]}")
