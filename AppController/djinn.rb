@@ -1065,7 +1065,6 @@ class Djinn
     Djinn.log_run("rm -f #{APPSCALE_HOME}/.appscale/database_info")
     Djinn.log_run("rm -f /tmp/mysql.sock")
 
-
     Nginx.clear_sites_enabled
     Collectd.clear_sites_enabled
     HAProxy.clear_sites_enabled
