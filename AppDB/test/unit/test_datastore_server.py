@@ -7,10 +7,11 @@ import unittest
 from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))  
-from google.appengine.ext import db
 from google.appengine.datastore import entity_pb
 from google.appengine.datastore import datastore_pb
 from google.appengine.api import api_base_pb
+from google.appengine.api import datastore
+from google.appengine.ext import db
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
 from appscale_datastore_batch import DatastoreFactory
@@ -125,7 +126,7 @@ class TestDatastoreServer(unittest.TestCase):
     item2 = Item(key_name="Sally", name="Sally", _app="hello")
     key1 = db.model_to_protobuf(item1)
     key2 = db.model_to_protobuf(item2)
-    dd.insert_entities([key1,key2])
+    dd.insert_entities("hello", [key1,key2], {"hello//Item:Sally!": 1, "hello//Item:Bob!":1})
 
   def test_insert_index_entries(self):
     db_batch = flexmock()
@@ -174,7 +175,7 @@ class TestDatastoreServer(unittest.TestCase):
     db_batch.should_receive("batch_put_entity").and_return(None)
     try:
       # Unable to use self.assertRaises because of the optional argrument max_id
-      dd = DatastoreDistributed(db_batch, self.get_zookeeper())
+      ed = DatastoreDistributed(db_batch, self.get_zookeeper())
       dd.allocate_ids(PREFIX, BATCH_SIZE, max_id=10)
       raise "Allocate IDs should not let you set max_id and size"
     except ValueError:
@@ -194,14 +195,14 @@ class TestDatastoreServer(unittest.TestCase):
     zookeeper.should_receive("acquireLock").and_return(True)
     zookeeper.should_receive("releaseLock").and_return(True)
     dd = DatastoreDistributed(db_batch, zookeeper)
-    dd.put_entities([key1, key2]) 
+    dd.put_entities("hello", [key1, key2], {}) 
 
     db_batch = flexmock()
     db_batch.should_receive("batch_delete").and_return(None)
     db_batch.should_receive("batch_put_entity").and_return(None)
     db_batch.should_receive("batch_get_entity").and_return({"key1":{"entity":key1.Encode()},"key2":{"entity":key2.Encode()}})
     dd = DatastoreDistributed(db_batch, zookeeper)
-    dd.put_entities([key1, key2]) 
+    dd.put_entities("hello", [key1, key2], {}) 
 
   def testFetchKeys(self):
     item1 = Item(key_name="Bob", name="Bob", _app="hello")
@@ -235,6 +236,7 @@ class TestDatastoreServer(unittest.TestCase):
     db_batch = flexmock()
     zookeeper = flexmock()
     zookeeper.should_receive("releaseLock").and_return(True)
+    zookeeper.should_receive("notifyFailedTransaction").and_return(True)
     dd = DatastoreDistributed(db_batch, zookeeper)
     commit_request = datastore_pb.Transaction()
     commit_request.set_handle(123)
@@ -242,15 +244,159 @@ class TestDatastoreServer(unittest.TestCase):
     http_request = commit_request.Encode()
     self.assertEquals(dd.rollback_transaction("app_id", http_request),
                       (api_base_pb.VoidProto().Encode(), 0, ""))
-   
+
+  def get_new_entity_proto(self, app_id, kind, entity_name, prop_name, prop_value, ns=""):
+    entity_proto = datastore_pb.EntityProto()
+
+    reference = entity_proto.mutable_key()
+    reference.set_app(app_id)
+    reference.set_name_space(ns)
+
+    path = reference.mutable_path()
+    element = path.add_element() 
+    element.set_type(kind)
+    element.set_name(entity_name)
+
+    ent_group = entity_proto.mutable_entity_group()
+    eg_element = ent_group.add_element() 
+    eg_element.set_type(kind)
+    eg_element.set_name(entity_name)
+
+    prop = entity_proto.add_property()
+    prop.set_meaning(datastore_pb.Property.BYTESTRING)
+    prop.set_name(prop_name)
+    prop.set_multiple(1)
+    val = prop.mutable_value()
+    val.set_stringvalue(prop_value)
+    return entity_proto
 
   def test_dynamic_put(self):
+    PREFIX = "x!"
     db_batch = flexmock()
+    db_batch.should_receive("batch_put_entity").and_return(None)
+    db_batch.should_receive("batch_get_entity").and_return({PREFIX:{}})
+    db_batch.should_receive("batch_delete").and_return(None)
+
     zookeeper = flexmock()
     zookeeper.should_receive("acquireLock").and_return(True)
+    zookeeper.should_receive("getTransactionID").and_return(1)
+
+    entity_proto1 = self.get_new_entity_proto("test", "test_kind", "bob", "prop1name", 
+                                              "prop1val", ns="blah")
+    entity_proto2 = self.get_new_entity_proto("test", "test_kind", "nancy", "prop1name", 
+                                              "prop2val", ns="blah")
+
     dd = DatastoreDistributed(db_batch, zookeeper)
-    app_id = "TestAppID"
     putreq_pb = datastore_pb.PutRequest()
-    dd.dynamic_put(app_id, 
+    putreq_pb.add_entity()
+    putreq_pb.mutable_entity(0).MergeFrom(entity_proto1)
+    putreq_pb.add_entity()
+    putreq_pb.mutable_entity(1).MergeFrom(entity_proto2)
+    
+    putresp_pb = datastore_pb.PutResponse()
+    dd.dynamic_put('test', putreq_pb, putresp_pb)
+    self.assertEquals(len(putresp_pb.key_list()), 2)
+
+  def test_put_entities(self):
+    PREFIX = "x!"
+    db_batch = flexmock()
+    db_batch.should_receive("batch_put_entity").and_return(None)
+    db_batch.should_receive("batch_get_entity").and_return({PREFIX:{}})
+    db_batch.should_receive("batch_delete").and_return(None)
+
+    zookeeper = flexmock()
+    zookeeper.should_receive("acquireLock").and_return(True)
+
+    entity_proto1 = self.get_new_entity_proto("test", "test_kind", "bob", "prop1name", 
+                                              "prop1val", ns="blah")
+    entity_proto2 = self.get_new_entity_proto("test", "test_kind", "nancy", "prop1name", 
+                                              "prop2val", ns="blah")
+    entity_list = [entity_proto1, entity_proto2]
+    dd = DatastoreDistributed(db_batch, zookeeper)
+
+    # Make sure it does not throw an exception
+    dd.put_entities("hello", entity_list, {"test/blah/test_kind:bob!":1, "test/blah/test_kind:nancy!":1}) 
+
+  def test_acquire_locks_for_trans_put(self):
+    PREFIX = 'x!'
+    zookeeper = flexmock()
+    zookeeper.should_receive("acquireLock").and_return(True)
+    db_batch = flexmock()
+    db_batch.should_receive("batch_put_entity").and_return(None)
+    db_batch.should_receive("batch_get_entity").and_return({PREFIX:{}})
+    db_batch.should_receive("batch_delete").and_return(None)
+    dd = DatastoreDistributed(db_batch, zookeeper) 
+    entity_proto1 = self.get_new_entity_proto("test", "test_kind", "bob", "prop1name", 
+                                              "prop1val", ns="blah")
+    entity_proto2 = self.get_new_entity_proto("test", "test_kind", "nancy", "prop1name", 
+                                              "prop2val", ns="blah")
+    entity_list = [entity_proto1, entity_proto2]
+    self.assertEquals({'test/blah/test_kind:bob!': 1}, dd.acquire_locks_for_trans_put(entity_list, 1))
+
+  def test_acquire_locks_for_nontrans_put(self):
+    PREFIX = 'x!'
+    zookeeper = flexmock()
+    zookeeper.should_receive("acquireLock").and_return(True)
+    zookeeper.should_receive("getTransactionID").and_return(1).and_return(2)
+    db_batch = flexmock()
+    db_batch.should_receive("batch_put_entity").and_return(None)
+    db_batch.should_receive("batch_get_entity").and_return({PREFIX:{}})
+    db_batch.should_receive("batch_delete").and_return(None)
+    dd = DatastoreDistributed(db_batch, zookeeper) 
+    entity_proto1 = self.get_new_entity_proto("test", "test_kind", "bob", "prop1name", 
+                                              "prop1val", ns="blah")
+    entity_proto2 = self.get_new_entity_proto("test", "test_kind", "nancy", "prop1name", 
+                                              "prop2val", ns="blah")
+    entity_list = [entity_proto1, entity_proto2]
+    self.assertEquals({'test/blah/test_kind:bob!': 1, 'test/blah/test_kind:nancy!': 2}, 
+                      dd.acquire_locks_for_nontrans_put(entity_list))
+
+  def test_register_old_entities(self):
+    zookeeper = flexmock()
+    zookeeper.should_receive("getValidTransactionID").and_return(1)
+    zookeeper.should_receive("registUpdatedKey").and_return(True)
+    db_batch = flexmock()
+    dd = DatastoreDistributed(db_batch, zookeeper) 
+    dd.register_old_entities({'x!x!':{APP_ENTITY_SCHEMA[0]: 'entity_string',
+                                     APP_ENTITY_SCHEMA[1]: '1'}}, 
+                             {'x!': 1}, 'test')
+
+  def test_update_journal(self):
+    PREFIX = 'x!'
+    zookeeper = flexmock()
+    db_batch = flexmock()
+    db_batch.should_receive("batch_put_entity").and_return(None)
+    db_batch.should_receive("batch_get_entity").and_return({PREFIX:{}})
+    db_batch.should_receive("batch_delete").and_return(None)
+
+    dd = DatastoreDistributed(db_batch, zookeeper) 
+    row_keys = ['a!a!']
+    row_values = {'a!a!':{APP_ENTITY_SCHEMA[0]: 'entity_string',
+                         APP_ENTITY_SCHEMA[1]: '1'}}
+    txn_hash = {'a!': 1}
+    dd.update_journal(row_keys, row_values, txn_hash)
+
+  def test_delete_entities(self):
+    entity_proto1 = self.get_new_entity_proto("test", "test_kind", "bob", "prop1name", 
+                                              "prop1val", ns="blah")
+    row_key = "test/blah/test_kind:bob!"
+    row_values = {row_key:{APP_ENTITY_SCHEMA[0]: entity_proto1.Encode(),
+                         APP_ENTITY_SCHEMA[1]: '1'}}
+
+    zookeeper = flexmock()
+    zookeeper.should_receive("getValidTransactionID").and_return(1)
+    zookeeper.should_receive("registUpdatedKey").and_return(1)
+    db_batch = flexmock()
+    db_batch.should_receive("batch_put_entity").and_return(None)
+    db_batch.should_receive("batch_get_entity").and_return(row_values)
+    db_batch.should_receive("batch_delete").and_return(None)
+
+    dd = DatastoreDistributed(db_batch, zookeeper) 
+
+    row_keys = [entity_proto1.key()]
+    txn_hash = {row_key: 2}
+    dd.delete_entities('test', row_keys, txn_hash, soft_delete=True) 
+     
+    
 if __name__ == "__main__":
   unittest.main()    
