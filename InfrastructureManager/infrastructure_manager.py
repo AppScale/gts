@@ -1,8 +1,9 @@
-from agents.base_agent import BaseAgent, AgentConfigurationException
+from agents.base_agent import BaseAgent, AgentConfigurationException, AgentRuntimeException
 from agents.factory import InfrastructureAgentFactory
 import json
 import thread
 from utils import utils
+from utils.persistent_dictionary import PersistentStoreFactory, PersistentDictionary
 
 __author__ = 'hiranya'
 __email__ = 'hiranya@appscale.com'
@@ -41,6 +42,7 @@ class InfrastructureManager:
   # States a particular VM deployment could be in
   STATE_PENDING = 'pending'
   STATE_RUNNING = 'running'
+  STATE_FAILED  = 'failed'
 
   # A list of parameters required to query the InfrastructureManager about
   # the state of a run_instances request.
@@ -50,12 +52,12 @@ class InfrastructureManager:
   RUN_INSTANCES_REQUIRED_PARAMS = (
     PARAM_INFRASTRUCTURE,
     PARAM_NUM_VMS
-    )
+  )
 
   # A list of parameters required to initiate a VM termination process
   TERMINATE_INSTANCES_REQUIRED_PARAMS = ( PARAM_INFRASTRUCTURE, )
 
-  def __init__(self, blocking=False):
+  def __init__(self, params=None, blocking=False):
     """
     Create a new InfrastructureManager instance. This constructor
     accepts an optional boolean parameter which decides whether the
@@ -67,11 +69,22 @@ class InfrastructureManager:
     in the non-blocking mode as run/terminate operations could take
     a rather long time to complete. By default InfrastructureManager
     instances are created in the non-blocking mode.
+
+    Args
+      params    A dictionary of parameters. Optional parameter. If
+                specified it must at least include the 'store_type' parameter.
+      blocking  Whether to operate in blocking mode or not. Optional
+                and defaults to false.
     """
     self.blocking = blocking
     self.secret = utils.get_secret()
-    self.reservations = {}
     self.agent_factory = InfrastructureAgentFactory()
+    if params is not None:
+      store_factory = PersistentStoreFactory()
+      store = store_factory.create_store(params)
+      self.reservations = PersistentDictionary(store)
+    else:
+      self.reservations = PersistentDictionary()
 
   def describe_instances(self, parameters, secret):
     """
@@ -126,7 +139,7 @@ class InfrastructureManager:
 
     reservation_id = parameters[self.PARAM_RESERVATION_ID]
     if self.reservations.has_key(reservation_id):
-      return self.reservations[reservation_id]
+      return self.reservations.get(reservation_id)
     else:
       return self.__generate_response(False, self.REASON_RESERVATION_NOT_FOUND)
 
@@ -187,23 +200,27 @@ class InfrastructureManager:
     agent = self.agent_factory.create_agent(infrastructure)
     try:
       agent.assert_required_parameters(parameters, BaseAgent.OPERATION_RUN)
-    except AgentConfigurationException as e:
-      return self.__generate_response(False, e.message)
+    except AgentConfigurationException as exception:
+      return self.__generate_response(False, exception.message)
 
     reservation_id = utils.get_random_alphanumeric()
-    self.reservations[reservation_id] = {
+    status_info = {
       'success': True,
       'reason': 'received run request',
       'state': self.STATE_PENDING,
       'vm_info': None
     }
-    utils.log('Generated reservation id {0} for this request.'.format(reservation_id))
+    self.reservations.put(reservation_id, status_info)
+    utils.log('Generated reservation id {0} for this request.'.format(
+      reservation_id))
     if self.blocking:
       self.__spawn_vms(agent, num_vms, parameters, reservation_id)
     else:
-      thread.start_new_thread(self.__spawn_vms, (agent, num_vms, parameters, reservation_id))
+      thread.start_new_thread(self.__spawn_vms,
+        (agent, num_vms, parameters, reservation_id))
     utils.log('Successfully started request {0}.'.format(reservation_id))
-    return self.__generate_response(True, self.REASON_NONE, {'reservation_id': reservation_id})
+    return self.__generate_response(True,
+      self.REASON_NONE, {'reservation_id': reservation_id})
 
   def terminate_instances(self, parameters, secret):
     """
@@ -248,9 +265,10 @@ class InfrastructureManager:
     infrastructure = parameters[self.PARAM_INFRASTRUCTURE]
     agent = self.agent_factory.create_agent(infrastructure)
     try:
-      agent.assert_required_parameters(parameters, BaseAgent.OPERATION_TERMINATE)
-    except AgentConfigurationException as e:
-      return self.__generate_response(False, e.message)
+      agent.assert_required_parameters(parameters,
+        BaseAgent.OPERATION_TERMINATE)
+    except AgentConfigurationException as exception:
+      return self.__generate_response(False, exception.message)
 
     if self.blocking:
       self.__kill_vms(agent, parameters)
@@ -268,16 +286,26 @@ class InfrastructureManager:
       parameters      A dictionary of parameters
       reservation_id  Reservation ID of the current run request
     """
-    agent.set_environment_variables(parameters)
-    security_configured = agent.configure_instance_security(parameters)
-    ids, public_ips, private_ips = agent.run_instances(num_vms, parameters, security_configured)
-    self.reservations[reservation_id]['state'] = self.STATE_RUNNING
-    self.reservations[reservation_id]['vm_info'] = {
-      'public_ips': public_ips,
-      'private_ips': private_ips,
-      'instance_ids': ids
-    }
-    utils.log('Successfully finished request {0}.'.format(reservation_id))
+    status_info = self.reservations.get(reservation_id)
+    try:
+      security_configured = agent.configure_instance_security(parameters)
+      instance_info = agent.run_instances(num_vms, parameters,
+        security_configured)
+      ids = instance_info[0]
+      public_ips = instance_info[1]
+      private_ips = instance_info[2]
+      status_info['state'] = self.STATE_RUNNING
+      status_info['vm_info'] = {
+        'public_ips': public_ips,
+        'private_ips': private_ips,
+        'instance_ids': ids
+      }
+      utils.log('Successfully finished request {0}.'.format(reservation_id))
+    except AgentRuntimeException as exception:
+      status_info['state'] = self.STATE_FAILED
+      status_info['reason'] = exception.message
+    self.reservations.put(reservation_id, status_info)
+
 
   def __kill_vms(self, agent, parameters):
     """
@@ -287,7 +315,6 @@ class InfrastructureManager:
       agent       Infrastructure agent in charge of current operation
       parameters  A dictionary of parameters
     """
-    agent.set_environment_variables(parameters)
     agent.terminate_instances(parameters)
 
   def __generate_response(self, status, msg, extra=None):
@@ -323,7 +350,8 @@ class InfrastructureManager:
       TypeError If at least one user argument is not of the current type
     """
     if type(parameters) != type('') and type(parameters) != type({}):
-      raise TypeError('Invalid data type for parameters. Must be a JSON string or a dictionary.')
+      raise TypeError('Invalid data type for parameters. Must be a '
+                      'JSON string or a dictionary.')
     elif type(secret) != type(''):
       raise TypeError('Invalid data type for secret. Must be a string.')
 
