@@ -364,7 +364,8 @@ class DatastoreDistributed():
                  indexes are to be deleted
     """
 
-    if len(entities) == 0: return
+    if len(entities) == 0: 
+      return
 
     entities_tuple = sorted((self.get_table_prefix(x), x) for x in entities)
     asc_index_keys = self.get_index_kv_from_tuple(entities_tuple, 
@@ -382,11 +383,10 @@ class DatastoreDistributed():
                                       desc_index_keys,
                                       column_names=dbconstants.PROPERTY_SCHEMA)
     
-  def insert_entities(self, app_id, entities, txn_hash):
+  def insert_entities(self, entities, txn_hash):
     """Inserts or updates entities in the DB.
 
     Args:      
-      app_id: The application ID.
       entities: A list of entities to store.
       txn_hash: A mapping of root keys to transaction IDs.
     """
@@ -420,10 +420,12 @@ class DatastoreDistributed():
     kind_row_values = {}
 
     entities = sorted((self.get_table_prefix(x), x) for x in entities)
+
     for prefix, group in itertools.groupby(entities, lambda x: x[0]):
       group_rows = tuple(row_generator(group))
       new_row_keys = [str(ii[0]) for ii in group_rows]
       row_keys += new_row_keys
+
       for ii in group_rows:
         txn_id = txn_hash[self.get_root_key_from_entity_key(str(ii[0]))]
         row_values[str(ii[0])] = \
@@ -554,7 +556,7 @@ class DatastoreDistributed():
     for prefix, group in itertools.groupby(sorted_entities, lambda x: x[0]):
       keys = [e.key() for e in entities]
       self.delete_entities(app_id, keys, txn_hash, soft_delete=False)
-      self.insert_entities(app_id, entities, txn_hash)
+      self.insert_entities(entities, txn_hash)
       self.insert_index_entries(entities)
 
   def delete_entities(self, app_id, keys, txn_hash, soft_delete=False):
@@ -638,7 +640,8 @@ class DatastoreDistributed():
       A string representing a journal key.
     """
     row_key+="/"
-    zero_padded_version = ("0" * (ID_KEY_LENGTH - len(str(version)))) + str(version)
+    zero_padded_version = ("0" * (ID_KEY_LENGTH - len(str(version)))) +\
+                           str(version)
     row_key += zero_padded_version
     return row_key
 
@@ -659,7 +662,8 @@ class DatastoreDistributed():
       journal_key = self.get_journal_key(row_key, txn_hash[root_key])
       journal_keys.append(journal_key)
       column = dbconstants.JOURNAL_SCHEMA[0]
-      value = row_values[row_key][dbconstants.APP_ENTITY_SCHEMA[0]] # encoded entity
+      value = row_values[row_key]\
+              [dbconstants.APP_ENTITY_SCHEMA[0]] # encoded entity
       journal_values[journal_key] = {column: value}
 
     self.datastore_batch.batch_put_entity(dbconstants.JOURNAL_TABLE,
@@ -679,11 +683,14 @@ class DatastoreDistributed():
     """
     for row_key in old_entities:
       if dbconstants.APP_ENTITY_SCHEMA[1] in old_entities[row_key]:
-        prev_version = long(old_entities[row_key][dbconstants.APP_ENTITY_SCHEMA[1]])
+        prev_version = long(old_entities[row_key]\
+            [dbconstants.APP_ENTITY_SCHEMA[1]])
         # Validate and get the correct version for each key
-        self.zookeeper.getValidTransactionID(app_id, prev_version, row_key)
+        valid_prev_version = self.zookeeper.getValidTransactionID(
+                                    app_id, prev_version, row_key)
         root_key = self.get_root_key_from_entity_key(row_key)
-        self.zookeeper.registUpdatedKey(app_id, txn_hash[root_key], prev_version, row_key) 
+        self.zookeeper.registUpdatedKey(app_id, txn_hash[root_key], 
+                                        valid_prev_version, row_key) 
 
   def dynamic_put(self, app_id, put_request, put_response):
     """ Stores and entity and its indexes in the datastore.
@@ -692,6 +699,8 @@ class DatastoreDistributed():
       app_id: Application ID.
       put_request: Request with entities to store.
       put_response: The response sent back to the app server.
+    Raises:
+      ZKTransactionException: If we are unable to acquire/release ZooKeeper locks.
     """
     entities = put_request.entity_list()
     keys = [e.key() for e in entities]
@@ -717,18 +726,23 @@ class DatastoreDistributed():
 
     # This has maps transaction IDs to root keys
     txn_hash = {}
+    try:
+      if put_request.has_transaction():
+        txn_hash = self.acquire_locks_for_trans(entities, 
+                        put_request.transaction().handle())
+      else:
+        txn_hash = self.acquire_locks_for_nontrans_put(entities) 
 
-    if put_request.has_transaction():
-      txn_hash = self.acquire_locks_for_trans(entities, put_request.transaction().handle())
-    else:
-      txn_hash = self.acquire_locks_for_nontrans_put(entities) 
+      self.put_entities(app_id, entities, txn_hash)
 
-    self.put_entities(app_id, entities, txn_hash)
+      if put_request.has_transaction():
+        self.release_locks_for_nontrans_put(app_id, entities, txn_hash)
 
-    if put_request.has_transaction():
-      self.release_locks_for_nontrans_put(entities)  
-
-    put_response.key_list().extend([e.key() for e in entities])
+      put_response.key_list().extend([e.key() for e in entities])
+    except ZKTransactionException, zkte:
+      for root_key in txn_hash:
+        self.zookeeper.notifyFailedTransaction(app_id, txn_hash[root_key])
+      raise zkte
 
   def get_root_key_from_entity_key(self, entity_key):
     """ Extract the root key from an entity key. We 
@@ -736,12 +750,23 @@ class DatastoreDistributed():
         the root key.
     
     Args:
-      entity_key: A string representing a row key.
+      entity_key: A string or Key object representing a row key.
     Returns:
       The root key extracted from the row key.
+    Raises:
+      TypeError: If the type is not supported.
     """
-    tokens = entity_key.split('!')
-    return tokens[0] + '!'
+    if isinstance(entity_key, str):
+      tokens = entity_key.split('!')
+      return tokens[0] + '!'
+    elif isinstance(entity_key, entity_pb.Reference):
+      app_id = entity_key.app()
+      path = entity_key.path()
+      element_list = path.element_list()
+      return self.get_root_key(app_id, entity_key.name_space(), element_list)
+    else:
+      raise TypeError("Unable to get root key from given type of %s" % \
+                      entity_key.__class__)  
 
   def get_root_key_for_entity(self, entity):
     """ Given an entity, return it's root/ancestor key.
@@ -786,24 +811,25 @@ class DatastoreDistributed():
     return txn_hash
       
   def get_root_key(self, app_id, ns, ancestor_list):
-   """ Gets the root key string from an ancestor listing.
-  
-   Args:
-     app_id: The app ID of the listing.
-     ns: The namespace of the entity.
-     ancestor_list: The ancestry of a given entity.
-   Returns:
-     A string representing the root key of an entity.
-   """
-   prefix = self.get_table_prefix((app_id, ns))
-   first_ent = ancestor_list[0]
-   if first_ent.has_name():
-     key_id = first_ent.name()
-   elif first_ent.has_id():
-     # make sure ids are ordered lexigraphically by making sure they 
-     # are of set size i.e. 2 > 0003 but 0002 < 0003
-     key_id = str(first_ent.id()).zfill(ID_KEY_LENGTH)
-   return prefix + self._NAMESPACE_SEPARATOR + first_ent.type() + ":" + key_id + "!"
+    """ Gets the root key string from an ancestor listing.
+   
+    Args:
+      app_id: The app ID of the listing.
+      ns: The namespace of the entity.
+      ancestor_list: The ancestry of a given entity.
+    Returns:
+      A string representing the root key of an entity.
+    """
+    prefix = self.get_table_prefix((app_id, ns))
+    first_ent = ancestor_list[0]
+    if first_ent.has_name():
+      key_id = first_ent.name()
+    elif first_ent.has_id():
+      # make sure ids are ordered lexigraphically by making sure they 
+      # are of set size i.e. 2 > 0003 but 0002 < 0003
+      key_id = str(first_ent.id()).zfill(ID_KEY_LENGTH)
+    return prefix + self._NAMESPACE_SEPARATOR + \
+           first_ent.type() + ":" + key_id + "!"
  
   def acquire_locks_for_trans_put(self, entities, txnid):
     """ Acquires locks for entities for one particular entity group. 
@@ -823,17 +849,91 @@ class DatastoreDistributed():
     self.zookeeper.acquireLock(app_id, txnid, root_key)
     return {root_key: txnid}
 
-  def release_put_locks_for_nontrans_put(self, entities):
+  def release_locks_for_nontrans_put(self, app_id, entities, txn_hash):
     """  Releases locks for non-transactional puts.
-
+  
+    Args:
+      entities: The entities for which we are releasing locks.
+      txn_hash: A hash mapping root keys to transaction IDs.
+    Raises:
+      ZKTransactionException: If we are unable to release locks.
     """
-    pass
+    root_keys = []
+    for ent in entities:
+      root_keys.append(self.get_root_key_for_entity(ent))
 
-  def fetch_keys(self, key_list):
+    # Remove all duplicate root keys
+    root_keys = list(set(root_keys))
+    for root_key in root_keys: 
+      txnid = txn_hash[root_key]
+      self.zookeeper.releaseLock(app_id, txnid, root_key)
+
+  def validated_result(self, app_id, db_results, current_ongoing_txn=0):
+    """ Takes database results from the entity table and returns
+        an updated result list if any of the entities were using 
+        blacklisted transaction IDs. 
+   
+    Args:
+      app_id: The application ID whose results we are validating.
+      db_results: Database result from the entity table.
+      current_ongoing_txn: Current transaction ID, 0 if not in a transaction.
+    Returns:
+      A modified copy of db_results whose values have been validated.
+    """
+    journal_result_map = {}
+    journal_keys = []
+    for row_key in db_results:
+      root_key = self.get_root_key_from_entity_key(row_key)
+      current_version = long(db_results[row_key]\
+                             [dbconstants.APP_ENTITY_SCHEMA[1]])
+      trans_id = self.zookeeper.getValidTransactionID(\
+                             app_id, current_version, row_key)
+      if current_ongoing_txn != 0 and \
+           current_version == current_ongoing_txn:
+        # This value has been updated from within an ongoing transaction and
+        # hence can be seen from within this scope for serializability.
+        continue
+      if current_version != trans_id:
+        journal_key = self.get_journal_key(row_key, trans_id)
+        journal_keys.append(journal_key)
+        journal_result_map[journal_key] = (row_key, trans_id)
+
+    journal_entities = self.datastore_batch.batch_get_entity(
+                            dbconstants.JOURNAL_TABLE,
+                            journal_keys,
+                            dbconstants.JOURNAL_SCHEMA)
+    for journal_key in journal_result_map:
+      row_key, trans_id = journal_result_map[journal_key]
+      db_results[row_key] = {
+        dbconstants.APP_ENTITY_SCHEMA[0]: 
+                journal_entities[journal_key]\
+                                [dbconstants.JOURNAL_SCHEMA[0]], 
+        dbconstants.APP_ENTITY_SCHEMA[1]: 
+                trans_id
+      }
+    return db_results
+
+  def remove_tombstoned_entities(self, result):
+    """ Removed any keys which have tombstoned entities.
+    
+    Args:
+      result: A datastore result dictionary.
+    Returns:
+      A datastore result with tombstoned entities purged.
+    """
+    final_result = {}
+    for item in result:
+      if not result[item][dbconstants.APP_ENTITY_SCHEMA[0]].\
+             startswith(TOMBSTONE):
+        final_result[item] = result[item]
+    return final_result
+
+  def fetch_keys(self, key_list, current_txnid=0):
     """ Given a list of keys fetch the entities.
     
     Args:
       key_list: A list of keys to fetch.
+      current_txnid: Handle of current transaction if there is one.
     Returns:
       A tuple of entities from the datastore and key list.
     """
@@ -844,26 +944,41 @@ class DatastoreDistributed():
       prefix = self.get_table_prefix(key)
       row_keys.append(prefix + '/' + index_key)
     result = self.datastore_batch.batch_get_entity(
-                                                 dbconstants.APP_ENTITY_TABLE, 
-                                                 row_keys, 
-                                                 dbconstants.APP_ENTITY_SCHEMA) 
+                       dbconstants.APP_ENTITY_TABLE, 
+                       row_keys, 
+                       dbconstants.APP_ENTITY_SCHEMA) 
+    result = self.validated_result(key.app(), 
+                  result, current_ongoing_txn=current_txnid)
+    result = self.remove_tombstoned_entities(result)
     return (result, row_keys)
 
-  def _dynamic_get(self, get_request, get_response):
+  def dynamic_get(self, app_id, get_request, get_response):
     """ Fetch keys from the datastore.
     
     Args: 
+       app_id: The application ID.
        get_request: Request with list of keys.
        get_response: Response to application server.
+    Raises:
+      ZKTransactionException: If a lock was unable to get acquired.
     """ 
-
     keys = get_request.key_list()
-    results, row_keys = self.fetch_keys(keys) 
+    txnid= 0
+    if get_request.has_transaction():
+      root_key = self.get_root_key_from_entity_key(keys[0])
+      txnid = get_request.transaction().handle()
+      try:
+        self.zookeeper.acquireLock(app_id, txnid, root_key)
+      except ZKTransactionException, zkte:
+        self.zookeeper.notifyFailedTransaction(app_id, txnid)
+        raise zkte
+   
+    results, row_keys = self.fetch_keys(keys, current_txnid=txnid)
     for r in row_keys:
-      if r in results and 'entity' in results[r]:
+      if r in results and dbconstants.APP_ENTITY_SCHEMA[0] in results[r]:
         group = get_response.add_entity() 
         group.mutable_entity().CopyFrom(
-               entity_pb.EntityProto(results[r]['entity']))
+               entity_pb.EntityProto(results[r][dbconstants.APP_ENTITY_SCHEMA[0]]))
 
   def _dynamic_delete(self, app_id, delete_request, delete_response):
     """ Deletes a set of rows.
@@ -2051,7 +2166,7 @@ class MainHandler(tornado.web.RequestHandler):
     global datastore_access
     getreq_pb = datastore_pb.GetRequest(http_request_data)
     getresp_pb = datastore_pb.GetResponse()
-    datastore_access._dynamic_get(getreq_pb, getresp_pb)
+    datastore_access.dynamic_get(app_id, getreq_pb, getresp_pb)
     return (getresp_pb.Encode(), 0, "")
 
   def delete_request(self, app_id, http_request_data):
