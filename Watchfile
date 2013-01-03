@@ -9,3 +9,7 @@ watch('Neptune/(.*).rb') { |md|
 watch('(.*).py') { |md|
   system "rake python:test"
 }
+
+watch('InfrastructureManager/(.*).py') { |md|
+  system "rake infrastructuremanager:test"
+}
