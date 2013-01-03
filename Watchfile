@@ -1,0 +1,11 @@
+watch('AppController/(.*).rb') { |md|
+  system "rake appcontroller:test"
+}
+
+watch('Neptune/(.*).rb') { |md|
+  system "rake neptune:test"
+}
+
+watch('(.*).py') { |md|
+  system "rake python:test"
+}
