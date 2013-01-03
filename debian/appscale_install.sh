@@ -143,22 +143,12 @@ case "$1" in
 	postinstallzookeeper
         installcassandra
 	postinstallcassandra
-	installvoldemort
-	postinstallvoldemort
 	installhbase
 	postinstallhbase
 	installhypertable
 	postinstallhypertable
 	installmysql
 	postinstallmysql
-	installmongodb
-	postinstallmongodb
-        installredisdb
-        postinstallredisdb
-	installmemcachedb
-	postinstallmemcachedb
-	installtimesten
-	postinstalltimesten
         installrabbitmq
         postinstallrabbitmq
 	installservice
