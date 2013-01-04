@@ -875,7 +875,7 @@ module HelperFunctions
     result << "\n\t" << "root $cache_dir;"
     result << "\n\t" << "expires #{handler['expiration']};" if handler['expiration']
 
-    # TODO: return a 404 page if rewritten path doesn't not exist
+    # TODO: return a 404 page if rewritten path doesn't exist
     if handler.key?("static_dir")
       result << "\n\t" << "rewrite #{handler['url']}(.*) /#{handler['static_dir']}/$1 break;"
     elsif handler.key?("static_files")
@@ -887,6 +887,13 @@ module HelperFunctions
     result
   end
 
+  # Generate a Nginx location configuration for the given app-engine
+  # URL handler configuration.
+  # Params:
+  #   handler - A hash containing the metadata related to the handler
+  #   port - Port to which the secured traffic should be redirected
+  # Returns:
+  #   A Nginx location configuration as a string
   def self.generate_secure_location_config(handler, port)
     result = "\n    location #{handler['url']} {"
     if handler["secure"] == "always"
@@ -1015,6 +1022,14 @@ module HelperFunctions
     handlers.compact
   end
 
+  # Parses the app.yaml file for the specified application and returns
+  # any URL handlers with a secure tag. The returns secure tags are
+  # put into a hash where the hash key is the value of the secure
+  # tag (always or never) and value is a list of handlers.
+  # Params:
+  #   app_name Name of the application
+  # Returns:
+  #   A hash containing lists of secure handlers
   def self.get_secure_handlers app_name
     untar_dir = get_untar_dir(app_name)
 
