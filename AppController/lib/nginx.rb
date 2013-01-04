@@ -221,17 +221,6 @@ CONFIG
     ssl_listen_port = listen_port - SSL_PORT_OFFSET
     blob_servers = []
     servers = []
-    secure_handlers = HelperFunctions.get_secure_handlers(app_name)
-    always_secure_locations = ""
-    secure_handlers[:always].each { |handler|
-      always_secure_locations << HelperFunctions.generate_secure_location_config(handler, ssl_listen_port)
-    }
-    Djinn.log_debug("Always secure handlers: " + always_secure_locations.inspect.to_s)
-    never_secure_locations = ""
-    secure_handlers[:never].each { |handler|
-      never_secure_locations << HelperFunctions.generate_secure_location_config(handler, listen_port)
-    }
-    Djinn.log_debug("Never secure handlers: " + never_secure_locations.inspect.to_s)
     appengine_server_ips.each do |ip|
       servers << "server #{ip}:#{listen_port};"
     end
@@ -260,8 +249,6 @@ server {
     rewrite_log off;
     error_page 404 = /404.html;
     set $cache_dir /var/apps/#{app_name}/cache;
-
-    #{always_secure_locations}
 
     location / {
       proxy_set_header  X-Real-IP  $remote_addr;
@@ -326,8 +313,6 @@ server {
     rewrite_log off;
     error_page 404 = /404.html;
     set $cache_dir /var/apps/#{app_name}/cache;
-
-    #{never_secure_locations}
 
     location / {
       proxy_set_header  X-Real-IP  $remote_addr;
