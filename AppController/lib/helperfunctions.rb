@@ -875,13 +875,35 @@ module HelperFunctions
     result << "\n\t" << "root $cache_dir;"
     result << "\n\t" << "expires #{handler['expiration']};" if handler['expiration']
 
-    # TODO: return a 404 page if rewritten path doesn not exist
+    # TODO: return a 404 page if rewritten path doesn't exist
     if handler.key?("static_dir")
       result << "\n\t" << "rewrite #{handler['url']}(.*) /#{handler['static_dir']}/$1 break;"
     elsif handler.key?("static_files")
       result << "\n\t" << "rewrite #{handler['url']} /#{handler['static_files']} break;"
     end
     
+    result << "\n" << "    }" << "\n"
+
+    result
+  end
+
+  # Generate a Nginx location configuration for the given app-engine
+  # URL handler configuration.
+  # Params:
+  #   handler - A hash containing the metadata related to the handler
+  #   port - Port to which the secured traffic should be redirected
+  # Returns:
+  #   A Nginx location configuration as a string
+  def self.generate_secure_location_config(handler, port)
+    result = "\n    location #{handler['url']} {"
+    if handler["secure"] == "always"
+      result << "\n\t" << "rewrite #{handler['url']}(.*) https://$host:#{port}$request_uri? redirect;"
+    elsif handler["secure"] == "never"
+      result << "\n\t" << "rewrite #{handler['url']}(.*) http://$host:#{port}$request_uri redirect;"
+    else
+      return ""
+    end
+
     result << "\n" << "    }" << "\n"
 
     result
@@ -998,6 +1020,47 @@ module HelperFunctions
     end
 
     handlers.compact
+  end
+
+  # Parses the app.yaml file for the specified application and returns
+  # any URL handlers with a secure tag. The returns secure tags are
+  # put into a hash where the hash key is the value of the secure
+  # tag (always or never) and value is a list of handlers.
+  # Params:
+  #   app_name Name of the application
+  # Returns:
+  #   A hash containing lists of secure handlers
+  def self.get_secure_handlers app_name
+    untar_dir = get_untar_dir(app_name)
+
+    secure_handlers = {
+        :always => [],
+        :never => []
+    }
+
+    begin
+      tree = YAML.load_file(File.join(untar_dir,"app.yaml"))
+    rescue Errno::ENOENT => e
+      Kernel.puts("Failed to load YAML file to parse static data")
+      return secure_handlers
+    end
+
+    if tree["handlers"]
+      handlers = tree["handlers"]
+    else
+      return secure_handlers
+    end
+
+    handlers.map! do |handler|
+      next if !handler.key?("secure")
+
+      if handler["secure"] == "always"
+        secure_handlers[:always] << handler
+      elsif handler["secure"] == "never"
+        secure_handlers[:never] << handler
+      end
+    end
+    secure_handlers
   end
 
   # Parses the expiration string provided in the app.yaml and returns its duration in seconds

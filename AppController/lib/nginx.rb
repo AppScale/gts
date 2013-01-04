@@ -81,10 +81,40 @@ module Nginx
 
   # Creates a Nginx config file for the provided app name
   def self.write_app_config(app_name, app_number, my_public_ip, my_private_ip, proxy_port, static_handlers, login_ip)
-    static_locations = static_handlers.map { |handler| HelperFunctions.generate_location_config(handler) }.join
+
     listen_port = Nginx.app_listen_port(app_number)
+    ssl_listen_port = listen_port - SSL_PORT_OFFSET
+    secure_handlers = HelperFunctions.get_secure_handlers(app_name)
+    Djinn.log_debug("Secure handlers: " + secure_handlers.inspect.to_s)
+    always_secure_locations = secure_handlers[:always].map { |handler|
+      HelperFunctions.generate_secure_location_config(handler, ssl_listen_port)
+    }.join
+    never_secure_locations = secure_handlers[:never].map { |handler|
+      HelperFunctions.generate_secure_location_config(handler, listen_port)
+    }.join
+
+    secure_static_handlers = []
+    non_secure_static_handlers = []
+    static_handlers.map { |handler|
+      if handler["secure"] == "always"
+        secure_static_handlers << handler
+      elsif handler["secure"] == "never"
+        non_secure_static_handlers << handler
+      else
+        secure_static_handlers << handler
+        non_secure_static_handlers << handler
+      end
+    }
+
+    secure_static_locations = secure_static_handlers.map { |handler|
+      HelperFunctions.generate_location_config(handler)
+    }.join
+    non_secure_static_locations = non_secure_static_handlers.map { |handler|
+      HelperFunctions.generate_location_config(handler)
+    }.join
+
     config = <<CONFIG
-# Any requests that arent static files get sent to haproxy
+# Any requests that aren't static files get sent to haproxy
 upstream gae_#{app_name} {
     server #{my_private_ip}:#{proxy_port};
 }
@@ -103,7 +133,8 @@ server {
     error_page 404 = /404.html;
     set $cache_dir /var/apps/#{app_name}/cache;
 
-    #{static_locations}
+    #{always_secure_locations}
+    #{non_secure_static_locations}
 
     location / {
       proxy_set_header  X-Real-IP  $remote_addr;
@@ -129,6 +160,48 @@ server {
     }
 
 }
+server {
+    listen #{ssl_listen_port};
+    server_name #{my_public_ip}-#{app_name}-ssl;
+    ssl on;
+    ssl_certificate /etc/nginx/mycert.pem;
+    ssl_certificate_key /etc/nginx/mykey.pem;
+
+    #root /var/apps/#{app_name}/app;
+    # Uncomment these lines to enable logging, and comment out the following two
+    #access_log  /var/log/nginx/#{app_name}.access.log upstream;
+    error_log  /var/log/nginx/#{app_name}.error.log;
+    access_log off;
+    #error_log /dev/null crit;
+
+    rewrite_log off;
+    error_page 404 = /404.html;
+    set $cache_dir /var/apps/#{app_name}/cache;
+
+    #{never_secure_locations}
+    #{secure_static_locations}
+
+    location / {
+      proxy_set_header  X-Real-IP  $remote_addr;
+      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header Host $http_host;
+      proxy_redirect off;
+      proxy_pass http://gae_#{app_name};
+      client_max_body_size 2G;
+      proxy_connect_timeout 60;
+      client_body_timeout 60;
+      proxy_read_timeout 60;
+    }
+
+    location /reserved-channel-appscale-path {
+      proxy_buffering off;
+      tcp_nodelay on;
+      keepalive_timeout 55;
+      proxy_pass http://#{login_ip}:#{CHANNELSERVER_PORT}/http-bind;
+    }
+
+
+}
 CONFIG
 
     config_path = File.join(SITES_ENABLED_PATH, "#{app_name}.#{CONFIG_EXTENSION}")
@@ -142,19 +215,36 @@ CONFIG
     my_private_ip, proxy_port, login_ip, appengine_server_ips)
     listen_port = Nginx.app_listen_port(app_number)
     ssl_listen_port = listen_port - SSL_PORT_OFFSET
+
+    secure_handlers = HelperFunctions.get_secure_handlers(app_name)
+    Djinn.log_debug("Secure handlers: " + secure_handlers.inspect.to_s)
+    always_secure_locations = secure_handlers[:always].map { |handler|
+      HelperFunctions.generate_secure_location_config(handler, ssl_listen_port)
+    }.join
+    never_secure_locations = secure_handlers[:never].map { |handler|
+      HelperFunctions.generate_secure_location_config(handler, listen_port)
+    }.join
+
     blob_servers = []
     servers = []
+    ssl_servers = []
     appengine_server_ips.each do |ip|
       servers << "server #{ip}:#{listen_port};"
+    end
+    appengine_server_ips.each do |ip|
+      ssl_servers << "server #{ip}:#{ssl_listen_port};"
     end
     appengine_server_ips.each do |ip|
       blob_servers << "server #{ip}:#{BLOBSERVER_PORT};"
     end
     servers = servers.join("\n")
     config = <<CONFIG
-# Any requests that arent static files get sent to haproxy
+# Any requests that aren't static files get sent to haproxy
 upstream gae_#{app_name} {
     #{servers}
+}
+upstream gae_ssl_#{app_name} {
+    #{ssl_servers}
 }
 upstream gae_#{app_name}_blobstore {
     #{blob_servers}
@@ -172,6 +262,8 @@ server {
     rewrite_log off;
     error_page 404 = /404.html;
     set $cache_dir /var/apps/#{app_name}/cache;
+
+    #{always_secure_locations}
 
     location / {
       proxy_set_header  X-Real-IP  $remote_addr;
@@ -237,12 +329,14 @@ server {
     error_page 404 = /404.html;
     set $cache_dir /var/apps/#{app_name}/cache;
 
+    #{never_secure_locations}
+
     location / {
       proxy_set_header  X-Real-IP  $remote_addr;
       proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
       proxy_set_header Host $http_host;
       proxy_redirect off;
-      proxy_pass http://gae_#{app_name};
+      proxy_pass https://gae_ssl_#{app_name};
       client_max_body_size 2G;
       proxy_connect_timeout 60;
       client_body_timeout 60;
