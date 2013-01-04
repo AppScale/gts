@@ -233,8 +233,12 @@ CONFIG
 
     blob_servers = []
     servers = []
+    ssl_servers = []
     appengine_server_ips.each do |ip|
       servers << "server #{ip}:#{listen_port};"
+    end
+    appengine_server_ips.each do |ip|
+      ssl_servers << "server #{ip}:#{ssl_listen_port};"
     end
     appengine_server_ips.each do |ip|
       blob_servers << "server #{ip}:#{BLOBSERVER_PORT};"
@@ -244,6 +248,9 @@ CONFIG
 # Any requests that aren't static files get sent to haproxy
 upstream gae_#{app_name} {
     #{servers}
+}
+upstream gae_ssl_#{app_name} {
+    #{ssl_servers}
 }
 upstream gae_#{app_name}_blobstore {
     #{blob_servers}
@@ -335,7 +342,7 @@ server {
       proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
       proxy_set_header Host $http_host;
       proxy_redirect off;
-      proxy_pass http://gae_#{app_name};
+      proxy_pass https://gae_ssl_#{app_name};
       client_max_body_size 2G;
       proxy_connect_timeout 60;
       client_body_timeout 60;
