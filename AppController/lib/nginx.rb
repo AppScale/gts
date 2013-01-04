@@ -219,6 +219,18 @@ CONFIG
     my_private_ip, proxy_port, login_ip, appengine_server_ips)
     listen_port = Nginx.app_listen_port(app_number)
     ssl_listen_port = listen_port - SSL_PORT_OFFSET
+
+    secure_handlers = HelperFunctions.get_secure_handlers(app_name)
+    Djinn.log_debug("Secure handlers: " + secure_handlers.inspect.to_s)
+    always_secure_locations = secure_handlers[:always].map { |handler|
+      HelperFunctions.generate_secure_location_config(handler, ssl_listen_port)
+    }.join
+    Djinn.log_debug("Always secure handlers: " + always_secure_locations.inspect.to_s)
+    never_secure_locations = secure_handlers[:never].map { |handler|
+      HelperFunctions.generate_secure_location_config(handler, listen_port)
+    }.join
+    Djinn.log_debug("Never secure handlers: " + never_secure_locations.inspect.to_s)
+
     blob_servers = []
     servers = []
     appengine_server_ips.each do |ip|
@@ -249,6 +261,8 @@ server {
     rewrite_log off;
     error_page 404 = /404.html;
     set $cache_dir /var/apps/#{app_name}/cache;
+
+    #{always_secure_locations}
 
     location / {
       proxy_set_header  X-Real-IP  $remote_addr;
@@ -313,6 +327,8 @@ server {
     rewrite_log off;
     error_page 404 = /404.html;
     set $cache_dir /var/apps/#{app_name}/cache;
+
+    #{never_secure_locations}
 
     location / {
       proxy_set_header  X-Real-IP  $remote_addr;
