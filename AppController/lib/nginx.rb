@@ -89,11 +89,9 @@ module Nginx
     always_secure_locations = secure_handlers[:always].map { |handler|
       HelperFunctions.generate_secure_location_config(handler, ssl_listen_port)
     }.join
-    Djinn.log_debug("Always secure handlers: " + always_secure_locations.inspect.to_s)
     never_secure_locations = secure_handlers[:never].map { |handler|
       HelperFunctions.generate_secure_location_config(handler, listen_port)
     }.join
-    Djinn.log_debug("Never secure handlers: " + never_secure_locations.inspect.to_s)
 
     secure_static_handlers = []
     non_secure_static_handlers = []
@@ -111,11 +109,9 @@ module Nginx
     secure_static_locations = secure_static_handlers.map { |handler|
       HelperFunctions.generate_location_config(handler)
     }.join
-    Djinn.log_debug("Secure static handlers: " + secure_static_locations.inspect.to_s)
     non_secure_static_locations = non_secure_static_handlers.map { |handler|
       HelperFunctions.generate_location_config(handler)
     }.join
-    Djinn.log_debug("Non-secure static handlers: " + non_secure_static_locations.inspect.to_s)
 
     config = <<CONFIG
 # Any requests that aren't static files get sent to haproxy
@@ -225,11 +221,9 @@ CONFIG
     always_secure_locations = secure_handlers[:always].map { |handler|
       HelperFunctions.generate_secure_location_config(handler, ssl_listen_port)
     }.join
-    Djinn.log_debug("Always secure handlers: " + always_secure_locations.inspect.to_s)
     never_secure_locations = secure_handlers[:never].map { |handler|
       HelperFunctions.generate_secure_location_config(handler, listen_port)
     }.join
-    Djinn.log_debug("Never secure handlers: " + never_secure_locations.inspect.to_s)
 
     blob_servers = []
     servers = []
