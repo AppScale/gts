@@ -870,7 +870,7 @@ class DatastoreDistributed():
 
   def validated_result(self, app_id, db_results, current_ongoing_txn=0):
     """ Takes database results from the entity table and returns
-        an updated result list if any of the entities were using 
+        an updated result if any of the entities were using 
         blacklisted transaction IDs. 
    
     Args:
@@ -879,6 +879,79 @@ class DatastoreDistributed():
       current_ongoing_txn: Current transaction ID, 0 if not in a transaction.
     Returns:
       A modified copy of db_results whose values have been validated.
+    Raises:
+      TypeError: If db_results is not the right type.
+    """
+    if isinstance(db_results, dict): 
+      return self.validated_dict_result(app_id, db_results, current_ongoing_txn=0)
+    elif isinstance(db_results, list):
+      return self.validated_list_result(app_id, db_results, current_ongoing_txn=0)
+    else:
+      raise TypeError("db_results should be either a list or dict")
+
+  def validated_list_result(self, app_id, db_results, current_ongoing_txn=0):
+    """
+        Takes database results from the entity table and returns
+        an updated result list (came from a query) if any of the 
+        entities were using blacklisted transaction IDs. 
+   
+    Args:
+      app_id: The application ID whose results we are validating.
+      db_results: Database result from the entity table.
+      current_ongoing_txn: Current transaction ID, 0 if not in a transaction.
+    Returns:
+      A modified copy of db_results whose values have been validated.
+
+    """
+    journal_result_map = {}
+    journal_keys = []
+    # Get all the valid versions of journal entries if needed.
+    for index, dict_entry in enumerate(db_results):
+      row_key = dict_entry.keys()[0]
+      root_key = self.get_root_key_from_entity_key(row_key)
+      current_version = long(dict_entry[row_key][dbconstants.APP_ENTITY_SCHEMA[1]])
+      trans_id = self.zookeeper.getValidTransactionID(\
+                             app_id, current_version, row_key)
+      if current_ongoing_txn != 0 and \
+           current_version == current_ongoing_txn:
+        # This value has been updated from within an ongoing transaction and
+        # hence can be seen from within this scope for serializability.
+        continue
+      if current_version != trans_id:
+        journal_key = self.get_journal_key(row_key, trans_id)
+        journal_keys.append(journal_key)
+        # Index is used here for lookup when replacing back into db_results.
+        journal_result_map[journal_key] = (index, row_key, trans_id)
+
+    journal_entities = self.datastore_batch.batch_get_entity(
+                            dbconstants.JOURNAL_TABLE,
+                            journal_keys,
+                            dbconstants.JOURNAL_SCHEMA)
+    for journal_key in journal_result_map:
+      index, row_key, trans_id = journal_result_map[journal_key]
+      db_results[index][row_key] = {
+        dbconstants.APP_ENTITY_SCHEMA[0]: 
+                journal_entities[journal_key]\
+                                [dbconstants.JOURNAL_SCHEMA[0]], 
+        dbconstants.APP_ENTITY_SCHEMA[1]: 
+                trans_id
+      }
+    return db_results
+
+
+  def validated_dict_result(self, app_id, db_results, current_ongoing_txn=0):
+    """
+        Takes database results from the entity table and returns
+        an updated result dictionary if any of the entities were using 
+        blacklisted transaction IDs. 
+   
+    Args:
+      app_id: The application ID whose results we are validating.
+      db_results: Database result from the entity table.
+      current_ongoing_txn: Current transaction ID, 0 if not in a transaction.
+    Returns:
+      A modified copy of db_results whose values have been validated.
+
     """
     journal_result_map = {}
     journal_keys = []
@@ -921,12 +994,24 @@ class DatastoreDistributed():
     Returns:
       A datastore result with tombstoned entities purged.
     """
-    final_result = {}
-    for item in result:
-      if not result[item][dbconstants.APP_ENTITY_SCHEMA[0]].\
-             startswith(TOMBSTONE):
-        final_result[item] = result[item]
-    return final_result
+    if isinstance(result, dict):
+      final_result = {}
+      for item in result:
+        if not result[item][dbconstants.APP_ENTITY_SCHEMA[0]].\
+               startswith(TOMBSTONE):
+          final_result[item] = result[item]
+      return final_result
+    elif isinstance(result, list):
+      final_result = []
+      for item in result:
+        key = item.keys()[0]
+        # Skip over any tombstoned items.
+        if not item[key][dbconstants.APP_ENTITY_SCHEMA[0]].\
+               startswith(TOMBSTONE):
+          final_result.append(item)
+      return final_result
+    else: 
+      raise TypeError("Expected a dict or list for result")
 
   def fetch_keys(self, key_list, current_txnid=0):
     """ Given a list of keys fetch the entities.
@@ -1124,7 +1209,7 @@ class DatastoreDistributed():
 
     return results
     
-  def __AncestorQuery(self, query, filter_info, order_info):
+  def ancestor_query(self, query, filter_info, order_info):
     """ Performs ancestor queries which is where you select 
         entities based on a particular root entitiy. 
       
@@ -1134,11 +1219,22 @@ class DatastoreDistributed():
       order_info: Tuple with property name and the sort order.
     Returns:
       Start and end row keys.
+    Raises:
+      ZKTransactionException: If a lock could not be acquired.
     """       
     ancestor = query.ancestor()
     prefix = self.get_table_prefix(query)
     path = buffer(prefix + '/') + self.__encode_index_pb(ancestor.path())
-  
+    txn_id = 0
+    if query.has_transaction(): 
+      txn_id = query.transaction().handle()   
+      root_key = self.get_root_key_from_entity_key(ancestor)
+      try:
+        self.zookeeper.acquireLock(query.app(), txn_id, root_key)
+      except ZKTransactionException, zkte:
+        self.zookeeper.notifyFailedTransaction(query.app(), txn_id)
+        raise zkte
+
     if query.has_kind():
       path += query.kind() + ":"
 
@@ -1177,9 +1273,45 @@ class DatastoreDistributed():
       start_inclusive = self._DISABLE_INCLUSIVITY
 
     limit = query.limit() or self._MAXIMUM_RESULTS
+    return self.fetch_from_entity_table(startrow,
+                                        endrow,
+                                        limit, 
+                                        0, 
+                                        start_inclusive, 
+                                        end_inclusive, 
+                                        query, 
+                                        txn_id)
 
-  
-    result = self.datastore_batch.range_query(dbconstants.APP_ENTITY_TABLE, 
+
+
+  def fetch_from_entity_table(self, 
+                              startrow,
+                              endrow,
+                              limit, 
+                              offset, 
+                              start_inclusive, 
+                              end_inclusive, 
+                              query, 
+                              txn_id):
+    """
+    Fetches entities from the entity table given a query and a set of parameters.
+    It will validate the results and remove tombstoned items. 
+     
+    Args:
+       startrow: The key from which we start a range query.
+       endrow: The end key that terminates a range query.
+       limit: The maximum number of items to return from a query.
+       offset: The number of entities we want removed from the front of the result.
+       start_inclusive: Boolean if we should include the start key in the result.
+       end_inclusive: Boolean if we should include the end key in the result. 
+       query: The query we are currently running.
+       txn_id: The current transaction ID if there is one, it is 0 if there is not.
+    Returns:
+       A validated database result.
+    """
+    final_result = []
+    while 1: 
+      result = self.datastore_batch.range_query(dbconstants.APP_ENTITY_TABLE, 
                                               dbconstants.APP_ENTITY_SCHEMA, 
                                               startrow, 
                                               endrow, 
@@ -1187,9 +1319,32 @@ class DatastoreDistributed():
                                               offset=0, 
                                               start_inclusive=start_inclusive, 
                                               end_inclusive=end_inclusive)
+      prev_len = len(result)
+      last_result = None
+      if result:
+        last_result = result[-1].keys()[0]
+      else: 
+        break
+
+      result = self.validated_result(query.app(), result, 
+                                     current_ongoing_txn=txn_id)
+
+      result = self.remove_tombstoned_entities(result)
+
+      final_result += result
+
+      if len(result) != prev_len:
+        startrow = last_result
+        start_inclusive = self._DISABLE_INCLUSIVITY
+        limit = limit - len(result)
+        continue 
+      else:
+        break
+
     return self.__extract_entities(result)
 
-  def __KindlessQuery(self, query, filter_info, order_info):
+
+  def kindless_query(self, query, filter_info, order_info):
     """ Performs kindless queries where queries are performed 
         on the entity table and go across kinds.
       
@@ -1241,17 +1396,14 @@ class DatastoreDistributed():
       start_inclusive = self._DISABLE_INCLUSIVITY
 
     limit = query.limit() or self._MAXIMUM_RESULTS
-  
-    result = self.datastore_batch.range_query(dbconstants.APP_ENTITY_TABLE, 
-                                              dbconstants.APP_ENTITY_SCHEMA, 
-                                              startrow, 
-                                              endrow, 
-                                              limit, 
-                                              offset=0, 
-                                              start_inclusive=start_inclusive, 
-                                              end_inclusive=end_inclusive)
-
-    return self.__extract_entities(result)
+    return self.fetch_from_entity_table(startrow,
+                                        endrow,
+                                        limit, 
+                                        0, 
+                                        start_inclusive, 
+                                        end_inclusive, 
+                                        query, 
+                                        0)
 
   def kind_query_range(self, query, filter_info, order_info):
     """ Gets start and end keys for kind queries.
@@ -1289,9 +1441,9 @@ class DatastoreDistributed():
       if len(order_info) > 0: 
         return None
     elif query.has_ancestor():
-      return self.__AncestorQuery(query, filter_info, order_info)
+      return self.ancestor_query(query, filter_info, order_info)
     elif not query.has_kind():
-      return self.__KindlessQuery(query, filter_info, order_info)
+      return self.kindless_query(query, filter_info, order_info)
     
     startrow, endrow = self.kind_query_range(query, 
                                              filter_info, 
