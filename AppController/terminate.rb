@@ -96,7 +96,6 @@ end
 `rm -rf /tmp/ec2/*`
 `rm -rf /tmp/*started`
 `rm -rf #{APPSCALE_HOME}/appscale/`
-`rm -rf /var/appscale/memcachedb/*`
 
 `rm -rf /var/appscale/cassandra/commitlog/*`
 `rm -rf /var/appscale/cassandra/data/system/*`
@@ -129,17 +128,8 @@ end
  # Hypertable
  "Hyperspace", "Hypertable.Master", "Hypertable.RangeServer", "ThriftBroker",
  "DfsBroker",
- # Memcachedb
- "memcachedb",
- # MongoDB
- "mongod", "mongo", "mongos",
  # MySQL
  "ndb_mgmd", "ndbd", "mysqld",
- # Scalaris
- "activemq",
- "beam", "epmd",
- # Voldemort
- "VoldemortServer",
  "rabbitmq",
  "thin", "god", "djinn", "xmpp_receiver", 
  "InfrastructureManager", "Neptune"

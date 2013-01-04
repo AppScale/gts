@@ -58,11 +58,6 @@ case "$1" in
 	installcassandra
 	postinstallcassandra
 	;;
-    voldemort)
-	installprotobuf
-	installvoldemort
-        postinstallvoldemort
-	;;
     hbase)
 	installhbase
 	postinstallhbase
@@ -74,24 +69,6 @@ case "$1" in
     mysql)
 	installmysql
 	postinstallmysql
-	;;
-    mongodb)
-	installmongodb
-	postinstallmongodb
-	;;
-    memcachedb)
-	installmemcachedb
-	postinstallmemcachedb
-	;;
-    redisdb)
-	installredisdb
-        postinstallredisdb
-	;;
-    timesten)
-	installtimesten
-	postinstalltimesten
-	;;
-    simpledb)
 	;;
     # for test only. this should be included in core and all.
     zookeeper)
@@ -143,22 +120,12 @@ case "$1" in
 	postinstallzookeeper
         installcassandra
 	postinstallcassandra
-	installvoldemort
-	postinstallvoldemort
 	installhbase
 	postinstallhbase
 	installhypertable
 	postinstallhypertable
 	installmysql
 	postinstallmysql
-	installmongodb
-	postinstallmongodb
-        installredisdb
-        postinstallredisdb
-	installmemcachedb
-	postinstallmemcachedb
-	installtimesten
-	postinstalltimesten
         installrabbitmq
         postinstallrabbitmq
 	installservice
