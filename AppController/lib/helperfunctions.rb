@@ -899,7 +899,7 @@ module HelperFunctions
     if handler["secure"] == "always"
       result << "\n\t" << "rewrite #{handler['url']}(.*) https://$host:#{port}$request_uri? redirect;"
     elsif handler["secure"] == "never"
-      result << "\n\t" << "rewrite #{handler['url']}(.*) http://$host:#{port}$request_uri redirect;"
+      result << "\n\t" << "rewrite #{handler['url']}(.*) http://$host:#{port}$uri? redirect;"
     else
       return ""
     end
