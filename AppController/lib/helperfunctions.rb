@@ -897,7 +897,7 @@ module HelperFunctions
   def self.generate_secure_location_config(handler, port)
     result = "\n    location #{handler['url']} {"
     if handler["secure"] == "always"
-      result << "\n\t" << "rewrite #{handler['url']}(.*) https://$host:#{port}$request_uri? redirect;"
+      result << "\n\t" << "rewrite #{handler['url']}(.*) https://$host:#{port}$uri redirect;"
     elsif handler["secure"] == "never"
       result << "\n\t" << "rewrite #{handler['url']}(.*) http://$host:#{port}$uri? redirect;"
     else
