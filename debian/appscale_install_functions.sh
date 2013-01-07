@@ -95,6 +95,30 @@ installPIL()
     rm -fdr Imaging-1.1.7*
 }
 
+installpycrypto()
+{
+    mkdir -pv ${APPSCALE_HOME}/downloads
+    cd ${APPSCALE_HOME}/downloads
+    wget https://github.com/dlitz/pycrypto/archive/v2.3.tar.gz
+    tar zxvf v2.3.tar.gz
+    cd v2.3
+    /usr/local/Python-2.7.3/python setup.py install
+    cd ..
+    rm -fdr v2.3*
+}
+
+installlxml()
+{
+    mkdir -pv ${APPSCALE_HOME}/downloads
+    cd ${APPSCALE_HOME}/downloads
+    wget http://pypi.python.org/packages/source/l/lxml/lxml-2.3.6.tar.gz
+    tar zxvf lxml-2.3.6.tar.gz
+    cd lxml-2.3.6
+    /usr/local/Python-2.7.3/python setup.py install
+    cd ..
+    rm -fdr lxml-2.3.6*
+}
+
 patchxmpp()
 {
     PYTHON26_XMPP=/usr/lib/python2.6/dist-packages/xmpp/
