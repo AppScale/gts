@@ -79,4 +79,13 @@ namespace :python do
 end
 
 
-task :default => ['appcontroller:test', 'neptunemanager:test', 'python:test']
+namespace :infrastructuremanager do
+
+  task :test do
+    sh "nosetests InfrastructureManager"
+  end
+
+end
+
+
+task :default => ['appcontroller:test', 'neptunemanager:test', 'python:test', 'infrastructuremanager:test']
