@@ -101,10 +101,10 @@ installpycrypto()
     cd ${APPSCALE_HOME}/downloads
     wget https://github.com/dlitz/pycrypto/archive/v2.3.tar.gz
     tar zxvf v2.3.tar.gz
-    cd v2.3
+    cd pycrypto-2.3
     /usr/local/Python-2.7.3/python setup.py install
     cd ..
-    rm -fdr v2.3*
+    rm -fdr v2.3* pycrypto-2.3*
 }
 
 installlxml()
