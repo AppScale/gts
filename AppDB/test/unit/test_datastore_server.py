@@ -36,6 +36,7 @@ class TestDatastoreServer(unittest.TestCase):
     zookeeper = flexmock()
     zookeeper.should_receive("acquireLock").and_return(True)
     zookeeper.should_receive("releaseLock").and_return(True)
+    zookeeper.should_receive("getTransactionID").and_return(1)
     return zookeeper
 
   def test_get_entity_kind(self):
@@ -227,7 +228,7 @@ class TestDatastoreServer(unittest.TestCase):
     dd = DatastoreDistributed(db_batch, zookeeper)
 
     self.assertEquals(({'test/blah/test_kind:bob!': 
-                         {'txnID': 2, 'entity': entity_proto1.Encode()}
+                         {'txnID': "2", 'entity': entity_proto1.Encode()}
                        }, 
                        ['test/blah/test_kind:bob!']), 
                        dd.fetch_keys([entity_proto1.key()]))
@@ -291,6 +292,7 @@ class TestDatastoreServer(unittest.TestCase):
 
     zookeeper = flexmock()
     zookeeper.should_receive("acquireLock").and_return(True)
+    zookeeper.should_receive("releaseLock").and_return(True)
     zookeeper.should_receive("getTransactionID").and_return(1)
 
     entity_proto1 = self.get_new_entity_proto("test", "test_kind", "bob", "prop1name", 
@@ -329,7 +331,7 @@ class TestDatastoreServer(unittest.TestCase):
     # Make sure it does not throw an exception
     dd.put_entities("hello", entity_list, {"test/blah/test_kind:bob!":1, "test/blah/test_kind:nancy!":1}) 
 
-  def test_acquire_locks_for_trans_put(self):
+  def test_acquire_locks_for_trans(self):
     PREFIX = 'x!'
     zookeeper = flexmock()
     zookeeper.should_receive("acquireLock").and_return(True)
@@ -343,9 +345,9 @@ class TestDatastoreServer(unittest.TestCase):
     entity_proto2 = self.get_new_entity_proto("test", "test_kind", "nancy", "prop1name", 
                                               "prop2val", ns="blah")
     entity_list = [entity_proto1, entity_proto2]
-    self.assertEquals({'test/blah/test_kind:bob!': 1}, dd.acquire_locks_for_trans_put(entity_list, 1))
+    self.assertEquals({'test/blah/test_kind:bob!': 1}, dd.acquire_locks_for_trans(entity_list, 1))
 
-  def test_acquire_locks_for_nontrans_put(self):
+  def test_acquire_locks_for_nontrans(self):
     PREFIX = 'x!'
     zookeeper = flexmock()
     zookeeper.should_receive("acquireLock").and_return(True)
@@ -361,7 +363,7 @@ class TestDatastoreServer(unittest.TestCase):
                                               "prop2val", ns="blah")
     entity_list = [entity_proto1, entity_proto2]
     self.assertEquals({'test/blah/test_kind:bob!': 1, 'test/blah/test_kind:nancy!': 2}, 
-                      dd.acquire_locks_for_nontrans_put(entity_list))
+                      dd.acquire_locks_for_nontrans("test", entity_list))
 
   def test_register_old_entities(self):
     zookeeper = flexmock()
@@ -409,7 +411,7 @@ class TestDatastoreServer(unittest.TestCase):
     txn_hash = {row_key: 2}
     dd.delete_entities('test', row_keys, txn_hash, soft_delete=True) 
      
-  def test_release_put_locks_for_nontrans_put(self):
+  def test_release_put_locks_for_nontrans(self):
     zookeeper = flexmock()
     zookeeper.should_receive("getValidTransactionID").and_return(1)
     zookeeper.should_receive("registUpdatedKey").and_return(1)
@@ -425,7 +427,7 @@ class TestDatastoreServer(unittest.TestCase):
     entity_proto2 = self.get_new_entity_proto("test", "test_kind", "nancy", "prop1name", 
                                               "prop2val", ns="blah")
     entities = [entity_proto1, entity_proto2]
-    dd.release_locks_for_nontrans_put("test", entities, 
+    dd.release_locks_for_nontrans("test", entities, 
                   {'test/blah/test_kind:bob!': 1, 'test/blah/test_kind:nancy!': 2})
  
   def test_root_key_from_entity_key(self):
@@ -551,6 +553,41 @@ class TestDatastoreServer(unittest.TestCase):
       '__key__' : [[0, 0]]
     }
     dd.kindless_query(query, filter_info, None)
+
+  def test_dynamic_delete(self):
+    entity_proto1 = self.get_new_entity_proto("test", "test_kind", "nancy", "prop1name", 
+                                              "prop2val", ns="blah")
+    zookeeper = flexmock()
+    zookeeper.should_receive("getTransactionID").and_return(1)
+    zookeeper.should_receive("getValidTransactionID").and_return(1)
+    zookeeper.should_receive("registUpdatedKey").and_return(1)
+    zookeeper.should_receive("acquireLock").and_return(True)
+    zookeeper.should_receive("releaseLock").and_return(True)
+    db_batch = flexmock()
+    db_batch.should_receive("batch_delete").and_return(None)
+    db_batch.should_receive("batch_put_entity").and_return(None)
+    db_batch.should_receive("batch_get_entity").and_return(
+               {"test/blah/test_kind:nancy!": 
+                 {
+                   APP_ENTITY_SCHEMA[0]: entity_proto1.Encode(),
+                   APP_ENTITY_SCHEMA[1]: 1
+                 }
+               })
+
+    dd = DatastoreDistributed(db_batch, zookeeper) 
+
+    entity_key = entity_proto1.key()
+    del_req = datastore_pb.DeleteRequest()
+    key = del_req.add_key() 
+    key.MergeFrom(entity_key)
+    del_resp = datastore_pb.DeleteResponse()
+    
+    dd.dynamic_delete("test", del_req)
+
+    # Now test while in a transaction
+    del_resp = datastore_pb.DeleteResponse()
+    del_req.mutable_transaction().set_handle(1)
+    dd.dynamic_delete("test", del_req)
 
 if __name__ == "__main__":
   unittest.main()    
