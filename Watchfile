@@ -3,7 +3,7 @@ watch('AppController/(.*).rb') { |md|
 }
 
 watch('Neptune/(.*).rb') { |md|
-  system "rake neptune:test"
+  system "rake neptunemanager:test"
 }
 
 watch('(lib|AppManager|AppDB)/(.*).py') { |md|
