@@ -243,15 +243,22 @@ module HelperFunctions
       return remote_cmd
     end
   end
-
+  
+  # Secure copies a given file to a remote location.
+  # Args:
+  #   local_file_loc: The local file to copy over.
+  #   remote_file_loc: The remote location to copy to.
+  #   target_ip: The remote target IP.
+  #   private_key_loc: The private key to use.
+  # Raises:
+  #   AppScaleSCPException: When a scp fails.
   def self.scp_file(local_file_loc, remote_file_loc, target_ip, private_key_loc)
     private_key_loc = File.expand_path(private_key_loc)
-    `chmod 0600 #{private_key_loc}`
+    self.shell("chmod 0600 #{private_key_loc}")
     local_file_loc = File.expand_path(local_file_loc)
     retval_file = "/etc/appscale/retval-#{Kernel.rand()}"
     cmd = "scp -i #{private_key_loc} -o StrictHostkeyChecking=no 2>&1 #{local_file_loc} root@#{target_ip}:#{remote_file_loc}; echo $? > #{retval_file}"
-    #Kernel.puts(cmd)
-    scp_result = `#{cmd}`
+    scp_result = self.shell(cmd)
 
     loop {
       break if File.exists?(retval_file)
@@ -266,17 +273,14 @@ module HelperFunctions
       Kernel.puts("\n\n[#{cmd}] returned #{retval} instead of 0 as expected. Will try to copy again momentarily...")
       fails += 1
       if fails >= 5:
-        Kernel.puts("****************************")
-        Kernel.puts("*CRITICAL ERROR: SCP failed*")
-        Kernel.puts("****************************")
-        break
+        raise AppScaleSCPException.new("Failed to copy over #{local_file_loc} to #{remote_file_loc} to #{target_ip} with private key #{private_key_loc}")
       end
       sleep(2)
-      `#{cmd}`
+      self.shell(cmd)
       retval = (File.open(retval_file) { |f| f.read }).chomp
     }
 
-    `rm -fv #{retval_file}`
+    self.shell("rm -fv #{retval_file}")
   end
 
   def self.get_remote_appscale_home(ip, key)

@@ -38,6 +38,7 @@ def create_app_tables():
   db.create_table(APP_ID_TABLE, APP_ID_SCHEMA)
   db.create_table(APP_ENTITY_TABLE, APP_ENTITY_SCHEMA)
   db.create_table(APP_KIND_TABLE, APP_KIND_SCHEMA)
+  db.create_table(JOURNAL_TABLE, JOURNAL_SCHEMA)
 
 def prime_hbase():
   """ Creates tables required for AppScale
