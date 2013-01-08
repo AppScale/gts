@@ -1467,18 +1467,43 @@ class DatastoreDistributed():
                                         query, 
                                         0)
 
-  def kind_query_range(self, query):
-    """ Gets start and end keys for kind queries.
+  def kind_query_range(self, query, filter_info, order_info):
+    """ Gets start and end keys for kind queries, along with
+        inclusivity of those keys.
       
     Args: 
       query: The query to run.
+      filter_info: __key__ filter.
+      order_info: ordering for __key__. 
     Returns:
-      Entities that match the query.
+      A tuple of the start row, end row, if its start inclusive,
+      and if its end inclusive
     """       
+    end_inclusive = self._ENABLE_INCLUSIVITY
+    start_inclusive = self._ENABLE_INCLUSIVITY
     prefix = self.get_table_prefix(query)
     startrow = prefix + '/' + query.kind() + ':'     
     endrow = prefix + '/' + query.kind() + ':' + self._TERM_STRING
-    return startrow, endrow
+    if '__key__' not in filter_info:
+      return startrow, endrow, start_inclusive, end_inclusive
+
+    for key_filter in filter_info['__key__']:
+      op = key_filter[0]
+      __key__ = str(key_filter[1])
+      if op and op == datastore_pb.Query_Filter.EQUAL:
+        startrow = prefix + '/' + __key__
+        endrow = prefix + '/' + __key__
+      elif op and op == datastore_pb.Query_Filter.GREATER_THAN:
+        start_inclusive = self._DISABLE_INCLUSIVITY
+        startrow = prefix + '/' + __key__ 
+      elif op and op == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
+        startrow = prefix + '/' + __key__
+      elif op and op == datastore_pb.Query_Filter.LESS_THAN:
+        endrow = prefix + '/'  + __key__
+        end_inclusive = self._DISABLE_INCLUSIVITY
+      elif op and op == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
+        endrow = prefix + '/' + __key__ 
+    return startrow, endrow, start_inclusive, end_inclusive
    
   def __kind_query(self, query, filter_info, order_info):
     """ Performs kind only queries, kind and ancestor, and ancestor queries
@@ -1496,24 +1521,25 @@ class DatastoreDistributed():
       if fi != "__key__":
         return None
 
-    if order_info:
-      if len(order_info) > 0: 
-        return None
-    elif query.has_ancestor():
+    # Kind query can not have orders. They only apply for 
+    # single property and composite queries, i.e., those 
+    # queries that use either the ascending or decending tables.
+    if len(order_info) > 0:
+      return None
+
+    order = None
+    prop_name = None
+
+    if query.has_ancestor():
       return self.ancestor_query(query, filter_info, order_info)
     elif not query.has_kind():
       return self.kindless_query(query, filter_info, order_info)
     
-    startrow, endrow = self.kind_query_range(query)
+    startrow, endrow, start_inclusive, end_inclusive = \
+          self.kind_query_range(query, filter_info, order_info)
 
-    if startrow == None:
+    if startrow == None or endrow == None:
       return None
-
-    end_inclusive = self._ENABLE_INCLUSIVITY
-    start_inclusive = self._ENABLE_INCLUSIVITY
-    if not order_info:
-      order = None
-      prop_name = None
     
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
       cursor = cassandra_stub_util.ListCursor(query)
@@ -1586,6 +1612,7 @@ class DatastoreDistributed():
                                     last_result)
     else:
       startrow = None
+
     references = self.__apply_filters(filter_ops, 
                                order_info, 
                                property_name, 

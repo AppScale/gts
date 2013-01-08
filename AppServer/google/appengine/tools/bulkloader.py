@@ -1465,6 +1465,9 @@ class RequestManager(object):
     if retry_parallel:
       self.parallel_download = True
 
+    # disable parallel download for AppScale since we do not have the desc index
+    # for __key__.
+    self.parallel_download = False
     if self.parallel_download:
       query = key_range_item.key_range.make_directed_datastore_query(
           kind, keys_only=keys_only)
