@@ -113,6 +113,28 @@ module Nginx
       HelperFunctions.generate_location_config(handler)
     }.join
 
+    default_location = <<DEFAULT_CONFIG
+    location / {
+      proxy_set_header  X-Real-IP  $remote_addr;
+      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header Host $http_host;
+      proxy_redirect off;
+      proxy_pass http://gae_#{app_name};
+      client_max_body_size 2G;
+      proxy_connect_timeout 60;
+      client_body_timeout 60;
+      proxy_read_timeout 60;
+    }
+DEFAULT_CONFIG
+    secure_default_location = default_location
+    non_secure_default_location = default_location
+    if never_secure_locations.include?('location / {')
+      secure_default_location = ''
+    end
+    if always_secure_locations.include?('location / {')
+      non_secure_default_location = ''
+    end
+
     config = <<CONFIG
 # Any requests that aren't static files get sent to haproxy
 upstream gae_#{app_name} {
@@ -136,17 +158,7 @@ server {
     #{always_secure_locations}
     #{non_secure_static_locations}
 
-    location / {
-      proxy_set_header  X-Real-IP  $remote_addr;
-      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header Host $http_host;
-      proxy_redirect off;
-      proxy_pass http://gae_#{app_name};
-      client_max_body_size 2G;
-      proxy_connect_timeout 60;
-      client_body_timeout 60;
-      proxy_read_timeout 60;
-    }
+    #{non_secure_default_location}
 
     location /404.html {
       root /var/apps/#{app_name};
@@ -181,17 +193,7 @@ server {
     #{never_secure_locations}
     #{secure_static_locations}
 
-    location / {
-      proxy_set_header  X-Real-IP  $remote_addr;
-      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header Host $http_host;
-      proxy_redirect off;
-      proxy_pass http://gae_#{app_name};
-      client_max_body_size 2G;
-      proxy_connect_timeout 60;
-      client_body_timeout 60;
-      proxy_read_timeout 60;
-    }
+    #{secure_default_location}
 
     location /reserved-channel-appscale-path {
       proxy_buffering off;
@@ -238,6 +240,43 @@ CONFIG
       blob_servers << "server #{ip}:#{BLOBSERVER_PORT};"
     end
     servers = servers.join("\n")
+
+    if never_secure_locations.include?('location / {')
+      secure_default_location = ''
+    else
+      secure_default_location = <<DEFAULT_CONFIG
+    location / {
+      proxy_set_header  X-Real-IP  $remote_addr;
+      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header Host $http_host;
+      proxy_redirect off;
+      proxy_pass https://gae_ssl_#{app_name};
+      client_max_body_size 2G;
+      proxy_connect_timeout 60;
+      client_body_timeout 60;
+      proxy_read_timeout 60;
+    }
+DEFAULT_CONFIG
+    end
+
+    if always_secure_locations.include?('location / {')
+      non_secure_default_location = ''
+    else
+      non_secure_default_location = <<DEFAULT_CONFIG
+    location / {
+      proxy_set_header  X-Real-IP  $remote_addr;
+      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header Host $http_host;
+      proxy_redirect off;
+      proxy_pass http://gae_#{app_name};
+      client_max_body_size 2G;
+      proxy_connect_timeout 60;
+      client_body_timeout 60;
+      proxy_read_timeout 60;
+    }
+DEFAULT_CONFIG
+    end
+
     config = <<CONFIG
 # Any requests that aren't static files get sent to haproxy
 upstream gae_#{app_name} {
@@ -265,17 +304,7 @@ server {
 
     #{always_secure_locations}
 
-    location / {
-      proxy_set_header  X-Real-IP  $remote_addr;
-      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header Host $http_host;
-      proxy_redirect off;
-      proxy_pass http://gae_#{app_name};
-      client_max_body_size 2G;
-      proxy_connect_timeout 60;
-      client_body_timeout 60;
-      proxy_read_timeout 60;
-    }
+    #{non_secure_default_location}
 
     location /reserved-channel-appscale-path {
       proxy_buffering off;
@@ -331,17 +360,7 @@ server {
 
     #{never_secure_locations}
 
-    location / {
-      proxy_set_header  X-Real-IP  $remote_addr;
-      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header Host $http_host;
-      proxy_redirect off;
-      proxy_pass https://gae_ssl_#{app_name};
-      client_max_body_size 2G;
-      proxy_connect_timeout 60;
-      client_body_timeout 60;
-      proxy_read_timeout 60;
-    }
+    #{secure_default_location}
 
     location /reserved-channel-appscale-path {
       proxy_buffering off;
