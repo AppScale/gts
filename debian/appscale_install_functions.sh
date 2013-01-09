@@ -550,30 +550,25 @@ postinstallmonitoring()
     :;
 }
 
-installnginx_fromsource()
+installnginx()
 {
-#    apt-get install -y libpcre3 libpcre3-dev
+    NGINX_VERSION=1.3.10
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://appscale.cs.ucsb.edu/appscale_files/nginx-0.6.39.tar.gz || exit 1
-    tar zxvf nginx-0.6.39.tar.gz || exit 1
-    rm -v nginx-0.6.39.tar.gz
-    pushd nginx-0.6.39
-    ./configure --with-http_ssl_module || exit 1
+    wget http://appscale.cs.ucsb.edu/appscale_files/nginx-${NGINX_VERSION}.tar.gz || exit 1
+    tar zxvf nginx-${NGINX_VERSION}.tar.gz || exit 1
+    rm -v nginx-${NGINX_VERSION}.tar.gz
+    pushd nginx-${NGINX_VERSION}
+    wget http://appscale.cs.ucsb.edu/appscale_files/v0.23rc2.tar.gz || exit 1
+    tar zxvf v0.23rc2.tar.gz || exit 1
+    ./configure --add-module=./chunkin-nginx-module-0.23rc2/ --with-http_ssl_module --with-http_gzip_static_module || exit 1
     make || exit 1
     make install || exit 1
     popd
-    rm -rv nginx-0.6.39
-}
-
-installnginx()
-{
-    # we could install using deb package.
-    :;
+    rm -rv nginx-${NGINX_VERSION}
 }
 
 # This function is called from postinst.core, so we don't need to use DESTDIR
-
 postinstallnginx()
 {
     service nginx stop || true

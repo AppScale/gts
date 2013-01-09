@@ -1736,10 +1736,9 @@ class DatastoreDistributed():
         if direction == datastore_pb.Query_Order.DESCENDING:
           start_value = None
           end_value = value + '/' +  self._TERM_STRING
-      elif oper == datastore_pb.Query_Filter.IN:
-        raise NotImplementedError("IN queries are not implemented")
       else:
-        raise NotImplementedError("Unknown query of operation %d"%oper)
+        raise NotImplementedError("Unsupported query of operation %s" % \
+             datastore_pb.Query_Filter.Operator_Name(oper))
 
       if not startrow:
         params = [prefix, kind, property_name, start_value]

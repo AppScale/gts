@@ -20,7 +20,7 @@ require 'pbserver'
 module Nginx
 
 
-  NGINX_PATH = File.join("/", "etc", "nginx")
+  NGINX_PATH = File.join("/", "usr", "local", "nginx", "conf")
 
 
   SITES_ENABLED_PATH = File.join(NGINX_PATH, "sites-enabled")
@@ -43,11 +43,11 @@ module Nginx
   CHANNELSERVER_PORT = 5280
 
   def self.start
-    `/etc/init.d/nginx start`
+    HelperFunctions.shell("/usr/local/nginx/sbin/nginx -c #{MAIN_CONFIG_FILE}")
   end
 
   def self.stop
-    `/etc/init.d/nginx stop`
+    HelperFunctions.shell("/usr/local/nginx/sbin/nginx -s stop")
   end
 
   def self.restart
@@ -56,7 +56,7 @@ module Nginx
   end
 
   def self.reload
-    self.restart
+    HelperFunctions.shell("/usr/local/nginx/sbin/nginx -s reload")
   end
 
   def self.is_running?
@@ -75,13 +75,12 @@ module Nginx
 
   # Return true if the configuration is good, false o.w.
   def self.check_config
-    HelperFunctions.shell("nginx -t -c #{MAIN_CONFIG_FILE}")
+    HelperFunctions.shell("/usr/local/nginx/sbin/nginx -t -c #{MAIN_CONFIG_FILE}")
     return ($?.to_i == 0)
   end
 
   # Creates a Nginx config file for the provided app name
   def self.write_app_config(app_name, app_number, my_public_ip, my_private_ip, proxy_port, static_handlers, login_ip)
-
     listen_port = Nginx.app_listen_port(app_number)
     ssl_listen_port = listen_port - SSL_PORT_OFFSET
     secure_handlers = HelperFunctions.get_secure_handlers(app_name)
@@ -606,7 +605,7 @@ http {
 }
 CONFIG
 
-    `mkdir -p /var/log/nginx/`
+    HelperFunctions.shell("mkdir -p /var/log/nginx/")
     # Create the sites enabled folder
     unless File.exists? SITES_ENABLED_PATH
       FileUtils.mkdir_p SITES_ENABLED_PATH
@@ -614,10 +613,8 @@ CONFIG
 
     # copy over certs for ssl
     # just copy files once to keep certificate as static.
-    #`test ! -e #{NGINX_PATH}/mycert.pem && cp /etc/appscale/certs/mycert.pem #{NGINX_PATH}`
-    #`test ! -e #{NGINX_PATH}/mykey.pem && cp /etc/appscale/certs/mykey.pem #{NGINX_PATH}`
-    `cp /etc/appscale/certs/mykey.pem #{NGINX_PATH}`
-    `cp /etc/appscale/certs/mycert.pem #{NGINX_PATH}`
+    HelperFunctions.shell("cp /etc/appscale/certs/mykey.pem #{NGINX_PATH}")
+    HelperFunctions.shell("cp /etc/appscale/certs/mycert.pem #{NGINX_PATH}")
     # Write the main configuration file which sets default configuration parameters
     File.open(MAIN_CONFIG_FILE, "w+") { |dest_file| dest_file.write(config) }
   end
