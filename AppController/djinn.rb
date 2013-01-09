@@ -1778,7 +1778,7 @@ class Djinn
 
   def parse_creds
     got_data_msg = "Got data from another node! DLoc = " + \
-      "#{@nodes.join(', ')}, #{HelperFunctions.obscure_creds(@creds.inspect)}, AppsToLoad = " + \
+      "#{@nodes.join(', ')}, #{HelperFunctions.obscure_creds(@creds).inspect}, AppsToLoad = " + \
       "#{@app_names.join(', ')}"
     Djinn.log_debug(got_data_msg)
         
@@ -2182,7 +2182,7 @@ class Djinn
     
     creds = @creds.to_a.flatten
     Djinn.log_debug("Djinn locations: #{@nodes.join(', ')}")
-    Djinn.log_debug("DB Credentials: #{@creds.inspect}")
+    Djinn.log_debug("DB Credentials: #{HelperFunctions.obscure_creds(@creds).inspect}")
     Djinn.log_debug("Apps to load: #{@app_names.join(', ')}")
 
     Djinn.log_debug("Appengine info: #{appengine_info}")
