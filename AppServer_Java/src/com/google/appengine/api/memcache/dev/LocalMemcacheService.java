@@ -77,6 +77,16 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
          */
     }
 
+    private <K1, K2, V> Map<K2, V> getOrMakeSubMap(Map<K1, Map<K2, V>> map, K1 key) {
+        Map subMap = (Map)map.get(key);
+        if (subMap == null) 
+        {
+            subMap = new HashMap();
+            map.put(key, subMap);
+        }
+        return subMap;
+    }
+
     /*
      * AppScale - removed getWithExpiration private method
      */
@@ -271,7 +281,10 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
             MemcacheServicePb.MemcacheSetRequest.SetPolicy policy = item.getSetPolicy();
             if (policy != MemcacheServicePb.MemcacheSetRequest.SetPolicy.SET)
             {
-                Long timeout = deleteHold.get(namespace).get(stringToKey(internalKey));
+                /*
+                 * AppScale - using stringToKey method to get key
+                */
+                Long timeout = (Long)getOrMakeSubMap(this.deleteHold, namespace).get(stringToKey(internalKey));
                 if ((timeout != null) && (this.clock.getCurrentTime() < timeout.longValue()))
                 {
                     result.addSetStatus(MemcacheServicePb.MemcacheSetResponse.SetStatusCode.NOT_STORED);
