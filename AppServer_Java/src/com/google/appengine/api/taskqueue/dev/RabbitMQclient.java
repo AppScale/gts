@@ -27,7 +27,7 @@ public class RabbitMQclient
 
     private LocalTaskQueueCallback taskQueueCallback;
     private Channel                publishChannel;
-    private String                 queueName;
+    private static String          queueName;
     private String                 exchangeName      = "rabbitMQExchange";
     private boolean                autoAck           = false;
     private Gson                   deserializer      = new Gson();
@@ -62,9 +62,19 @@ public class RabbitMQclient
                     Type taskParamType = new TypeToken<TaskParams>()
                     {}.getType();
                     TaskParams paramMap = deserializer.fromJson(payload, taskParamType);
-                    executeTask(paramMap);
-                    long deliveryTag = envelope.getDeliveryTag();
-                    publishChannel.basicAck(deliveryTag, false);
+                    if (executeTask(paramMap)){
+                        long deliveryTag = envelope.getDeliveryTag();
+                        publishChannel.basicAck(deliveryTag, false);
+                    }
+                    else{
+                        // Need to update the payload to show that we have retried
+                        paramMap.setRetryCount(paramMap.getRetryCount() + 1);
+                        Gson gson = new Gson();
+                        String new_payload = gson.toJson(paramMap, taskParamType);
+                        enqueueTask(new_payload);
+                        long deliveryTag = envelope.getDeliveryTag();
+                        publishChannel.basicNack(deliveryTag, false, false) ;
+                    }
                 }
             });
         }
@@ -80,11 +90,12 @@ public class RabbitMQclient
         return this.publishChannel;
     }
 
-    public void enqueueTask( String queueName, String payload )
+    public void enqueueTask(String payload )
+    //public void enqueueTask( String queueName, String payload )
     {
         try
         {
-            this.publishChannel.basicPublish(this.exchangeName, queueName, new AMQP.BasicProperties.Builder().deliveryMode(2).build(), payload.getBytes());
+            this.publishChannel.basicPublish(this.exchangeName, RabbitMQclient.queueName, new AMQP.BasicProperties.Builder().deliveryMode(2).build(), payload.getBytes());
         }
         catch (IOException e)
         {
@@ -92,7 +103,7 @@ public class RabbitMQclient
         }
     }
 
-    private void executeTask( TaskParams taskParams )
+    private boolean executeTask( TaskParams taskParams )
     {
         int backOffMss = taskParams.getRetryDelayMs();
         backOff(backOffMss);
@@ -118,11 +129,13 @@ public class RabbitMQclient
         int status = this.taskQueueCallback.execute(fetchReq);
         if (((status < 200) || (status > 299)) && (canRetry(retryParam, firstTryMs, retryCount)))
         {
-            // TODO - add retry logic
+            // retry
+            return false;
         }
         else
         {
-
+            // do not retry
+            return true;
         }
     }
 
