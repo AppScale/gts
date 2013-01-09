@@ -571,12 +571,10 @@ installnginx()
 # This function is called from postinst.core, so we don't need to use DESTDIR
 postinstallnginx()
 {
-    service nginx stop || true
-    update-rc.d -f nginx remove || true
-
     cd ${APPSCALE_HOME}
-    cp -v AppLoadBalancer/config/load-balancer.conf /etc/nginx/sites-enabled/
-    rm -fv /etc/nginx/sites-enabled/default
+    mkdir -p /usr/local/nginx/sites-enabled/
+    cp -v AppLoadBalancer/config/load-balancer.conf /usr/local/nginx/sites-enabled/
+    rm -fv /usr/local/nginx/sites-enabled/default
 }
 
 installhadoop()
