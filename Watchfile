@@ -1,0 +1,15 @@
+watch('AppController/(.*).rb') { |md|
+  system "rake appcontroller:test"
+}
+
+watch('Neptune/(.*).rb') { |md|
+  system "rake neptunemanager:test"
+}
+
+watch('(lib|AppManager|AppDB)/(.*).py') { |md|
+  system "rake python:test"
+}
+
+watch('InfrastructureManager/(.*).py') { |md|
+  system "rake infrastructuremanager:test"
+}

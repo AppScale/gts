@@ -15,20 +15,6 @@ class BaseAgent:
   OPERATION_RUN = 'run'
   OPERATION_TERMINATE = 'terminate'
 
-  def set_environment_variables(self, parameters):
-    """
-    Set any cloud platform specific environment variables
-    in the current process.
-
-    Args:
-      parameters  A dictionary of parameters that may include parameters
-                  that should not be actually set in  in the current process
-                  as environment variables. Agent implementations may decide
-                  which subset of parameters should be set as environment
-                  variables.
-    """
-    raise NotImplementedError
-
   def configure_instance_security(self, parameters):
     """
     Configure and setup security features for the VMs spawned via this
@@ -44,6 +30,9 @@ class BaseAgent:
     Returns:
       True if some action was taken to configure security for the VMs
       and False otherwise.
+
+    Raises:
+      AgentRuntimeException If an error occurs while configuring security
     """
     raise NotImplementedError
 
@@ -80,6 +69,9 @@ class BaseAgent:
       A tuple consisting of information related to the spawned VMs. The
       tuple should contain a list of instance IDs, a list of public IP
       addresses and a list of private IP addresses.
+
+    Raises:
+      AgentRuntimeException If an error occurs while trying to spawn VMs
     """
     raise NotImplementedError
 
@@ -115,6 +107,12 @@ class AgentConfigurationException(Exception):
   given cloud configuration is missing some required parameters or contains
   invalid values.
   """
+
+  def __init__(self, msg):
+    Exception.__init__(self, msg)
+
+
+class AgentRuntimeException(Exception):
 
   def __init__(self, msg):
     Exception.__init__(self, msg)

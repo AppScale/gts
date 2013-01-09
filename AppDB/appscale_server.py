@@ -5,43 +5,48 @@
 # Soo Hwan Park (suwanny@gmail.com)
 # Sydney Pang (pang@cs.ucsb.edu)
 # See LICENSE file
+import datetime
+import getopt
+import md5 
+import os 
+import random
+import SOAPpy
+import socket
+import sys
+import threading
+import time
+import types
+
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
-import sys
-import socket
-import os 
-import types
+
 import appscale_datastore
-#import helper_functions
-import SOAPpy
 from dbconstants import *
-import md5 
-import random
-import datetime
-import getopt
-import threading
+from drop_privileges import *
+from M2Crypto import SSL
+from SocketServer import BaseServer
+
 from google.appengine.api import api_base_pb
 from google.appengine.api import datastore
 from google.appengine.api import datastore_errors
 from google.appengine.api import datastore_types
 from google.appengine.api import users
+
 from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import datastore_index
 from google.appengine.datastore import datastore_stub_util
+from google.appengine.datastore import entity_pb
+
 from google.appengine.runtime import apiproxy_errors
 from google.net.proto import ProtocolBuffer
-from google.appengine.datastore import entity_pb
 from google.appengine.ext.remote_api import remote_api_pb
-from SocketServer import BaseServer
-from M2Crypto import SSL
-from drop_privileges import *
+
 from zkappscale import zktransaction_stub
 from zkappscale import zktransaction
 zk = zktransaction
 zk_stub = zktransaction_stub
 
-import time
 
 DEBUG = False
 PROFILE = False
@@ -1511,8 +1516,8 @@ def usage():
   print "\t--certificate=<path-to-ssl-certificate>"
   print "\t--a=<soap server hostname> "
   print "\t--key for using keys from the soap server"
-  print "\t--type=<hypertable, hbase, cassandra, mysql, mongodb>"
-  print "\t--secret=<secrete to soap server>"
+  print "\t--type=<hypertable, hbase, cassandra, mysql>"
+  print "\t--secret=<secret to soap server>"
   print "\t--blocksize=<key-block-size>"
   print "\t--optimized_query"
   print "\t--no_encryption"

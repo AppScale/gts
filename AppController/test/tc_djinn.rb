@@ -20,6 +20,8 @@ class TestDjinn < Test::Unit::TestCase
     djinn.should_receive(:log_debug).and_return()
     djinn.should_receive(:log_run).with("").and_return()
 
+    flexmock(HelperFunctions).should_receive(:shell).with("").and_return()
+
     @secret = "baz"
     flexmock(HelperFunctions).should_receive(:read_file).
       with("/etc/appscale/secret.key", true).and_return(@secret)
@@ -670,9 +672,22 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(expected, actual)
   end
 
+  def test_start_roles_on_nodes_in_xen_on_one_node
+    # currently there is a bug in appscale where we can't scale up
+    # from a one node deployment - take out this test case once we
+    # fix that bug.
+    ips_hash = {'appengine' => ['node-1', 'node-2']}
+    djinn = Djinn.new()
+    djinn.nodes = [1]
+    expected = Djinn::CANT_SCALE_FROM_ONE_NODE
+    actual = djinn.start_roles_on_nodes(ips_hash, @secret)
+    assert_equal(expected, actual)
+  end
+
   def test_start_roles_on_nodes_in_xen
     ips_hash = {'appengine' => ['node-1', 'node-2']}
     djinn = Djinn.new()
+    djinn.nodes = [1, 2]
     expected = {'node-1' => ['appengine'], 'node-2' => ['appengine']}
     actual = djinn.start_roles_on_nodes(ips_hash, @secret)
     assert_equal(expected, actual)
@@ -756,7 +771,9 @@ class TestDjinn < Test::Unit::TestCase
       with('1.2.3.5', Djinn::SERVER_PORT, HelperFunctions::USE_SSL).
       and_return(true)
 
-    original_node_info = "1.2.3.3:1.2.3.3:shadow:boo:cloud1"
+    # add the login role here to force our node to regenerate its
+    # nginx config files
+    original_node_info = "1.2.3.3:1.2.3.3:shadow:login:boo:cloud1"
     node1_info = "1.2.3.4:1.2.3.4:appengine:boo:cloud1"
     node2_info = "1.2.3.5:1.2.3.5:appengine:boo:cloud1"
 
@@ -788,10 +805,27 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(Djinn).should_receive(:log_run).with("/bin/hostname appscale-image0").
       and_return()
 
+    # since we aren't testing nginx config writing here, mock it out
+    flexmock(Nginx).should_receive(:write_fullproxy_app_config).
+      with("booapp", Integer, "1.2.3.3", "1.2.3.3", Integer, "1.2.3.3",
+      ["1.2.3.5", "1.2.3.4"]).and_return()
+
+    # mock out restarting nginx once the new config file is written
+    flexmock(HelperFunctions).should_receive(:shell).
+      with("/etc/init.d/nginx stop").and_return()
+    flexmock(HelperFunctions).should_receive(:shell).
+      with("/etc/init.d/nginx start").and_return()
+
     djinn = Djinn.new()
     djinn.nodes = [original_node]
     djinn.my_index = 0
     djinn.creds = creds
+    djinn.apps_loaded = ["booapp"]
+    djinn.app_info_map = {
+      'booapp' => {
+        'nginx' => Nginx::START_PORT + 1
+      }
+    }
     actual = djinn.start_new_roles_on_nodes_in_xen(ips_to_roles)
     assert_equal(true, actual.include?(node1_info))
     assert_equal(true, actual.include?(node2_info))

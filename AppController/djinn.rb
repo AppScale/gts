@@ -196,6 +196,13 @@ class Djinn
   attr_accessor :last_updated
 
 
+  # A Hash that contains information about each Google App Engine application
+  # running in this deployment. It includes information about the nginx and
+  # haproxy ports the app uses, as well as the language the app is written
+  # in.
+  attr_accessor :app_info_map
+
+
   # A lock that should be used whenever we modify internal state that can be
   # modified by more than one thread at a time.
   attr_accessor :state_change_lock
@@ -248,6 +255,14 @@ class Djinn
   # The message that we display to the user if they call a SOAP-accessible
   # function with a malformed input (e.g., of the wrong class or format).
   BAD_INPUT_MSG = JSON.dump({'success' => false, 'message' => 'bad input'})
+
+
+  # The message to display to users if they try to add nodes to a one node
+  # deployment, which currently is not supported.
+  CANT_SCALE_FROM_ONE_NODE = JSON.dump({
+    'success' => false, 
+    'message' => "can't scale up from a one node deployment"
+  })
 
 
   # The message that we display to the user if they want to scale up services
@@ -595,9 +610,9 @@ class Djinn
       stats['apps'].each { |app_name, is_loaded|
         next if !is_loaded
         next if app_name == "none"
-        if !@app_info_map[app_name][:appengine].nil?
+        if !@app_info_map[app_name]['appengine'].nil?
           stats_str << "    The number of AppServers for app #{app_name} is: " +
-            "#{@app_info_map[app_name][:appengine].length}\n"
+            "#{@app_info_map[app_name]['appengine'].length}\n"
         end
       }
     end
@@ -775,6 +790,7 @@ class Djinn
     if restore_appcontroller_state 
       parse_creds
     else
+      erase_old_data
       wait_for_data
       parse_creds
       change_job
@@ -812,7 +828,7 @@ class Djinn
         }
       end
 
-      ensure_all_roles_are_running
+      #ensure_all_roles_are_running
 
       # TODO: consider only calling this if new apps are found
       start_appengine
@@ -1016,6 +1032,12 @@ class Djinn
         "a #{ips_hash.class}")
       return BAD_INPUT_MSG
     end
+
+    if @nodes.length == 1
+      Djinn.log_debug("Can't scale up in a one node deployment.")
+      return CANT_SCALE_FROM_ONE_NODE
+    end
+
     Djinn.log_debug("Received a request to start additional roles on " +
       "new machines, with the following placement strategy: " +
       "#{ips_hash.inspect}")
@@ -1080,6 +1102,10 @@ class Djinn
     add_nodes(new_nodes_info)
     update_hosts_info()
 
+    if my_node.is_login?
+      regenerate_nginx_config_files()
+    end
+
     return new_nodes_info
   end
 
@@ -1112,6 +1138,10 @@ class Djinn
 
     add_nodes(nodes_info)
     update_hosts_info()
+
+    if my_node.is_login?
+      regenerate_nginx_config_files()
+    end
 
     return nodes_info
   end
@@ -1211,9 +1241,27 @@ class Djinn
     # it to prevent race conditions.
     @state_change_lock.synchronize {
       @nodes.concat(new_nodes)
+      Djinn.log_debug("Changed nodes to #{@nodes}")
     }
 
     initialize_nodes_in_parallel(new_nodes)
+  end
+
+
+  # Cleans out temporary files that may have been written by a previous
+  # AppScale deployment.
+  def erase_old_data()
+    Djinn.log_run("rm -rf /tmp/h*")
+    Djinn.log_run("rm -f ~/.appscale_cookies")
+    Djinn.log_run("rm -f #{APPSCALE_HOME}/.appscale/status-*")
+    Djinn.log_run("rm -f #{APPSCALE_HOME}/.appscale/database_info")
+    Djinn.log_run("rm -f /tmp/mysql.sock")
+
+    Nginx.clear_sites_enabled
+    Collectd.clear_sites_enabled
+    HAProxy.clear_sites_enabled
+    Djinn.log_run("echo '' > /root/.ssh/known_hosts") # empty it out but leave the file there
+    CronHelper.clear_crontab
   end
 
 
@@ -1635,7 +1683,7 @@ class Djinn
     zookeeper_data['locations'].each { |ip|
       begin
         Djinn.log_debug("Restoring AppController state from ZK at #{ip}")
-        ZKInterface.init_to_ip(my_node.private_ip, ip)
+        ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip)
         json_state = ZKInterface.get_appcontroller_state()
       rescue Exception => e
         Djinn.log_debug("Saw exception of class #{e.class} from #{ip}, " +
@@ -2644,6 +2692,28 @@ HOSTS
     Djinn.log_run("/bin/hostname #{my_hostname}")
   end
 
+
+  # Writes new nginx configuration files for the App Engine applications
+  # hosted in this deployment. Callers should invoke this method whenever
+  # there is a change in the number of machines hosting App Engine apps.
+  def regenerate_nginx_config_files()
+    Djinn.log_debug("Regenerating nginx config files for App Engine apps")
+    my_public = my_node.public_ip
+    my_private = my_node.private_ip
+    login_ip = get_login.private_ip
+
+    @apps_loaded.each { |app|  
+      Djinn.log_debug("Regenerating nginx config for app #{app}")
+      app_number = @app_info_map[app]['nginx'] - Nginx::START_PORT
+      proxy_port = HAProxy.app_listen_port(app_number)
+      Nginx.write_fullproxy_app_config(app, app_number, my_public,
+        my_private, proxy_port, login_ip, get_all_appengine_nodes())
+    }
+    Djinn.log_debug("Done writing new nginx config files!")
+    Nginx.reload()
+  end
+
+
   def write_hypersoap()
     HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/hypersoap", @userappserver_private_ip)
   end
@@ -2864,7 +2934,7 @@ HOSTS
         app_language = app_data.scan(/language:(\w+)/).flatten.to_s
         
         @app_info_map[app] = {}
-        @app_info_map[app][:language] = app_language
+        @app_info_map[app]['language'] = app_language
 
         # TODO: merge these 
         shadow = get_shadow
@@ -2887,7 +2957,8 @@ HOSTS
         app_number = @nginx_port - Nginx::START_PORT
         proxy_port = HAProxy.app_listen_port(app_number)
         login_ip = get_login.private_ip
-        if my_node.is_login? and !my_node.is_appengine?
+
+        if my_node.is_login? #and !my_node.is_appengine?
           success = Nginx.write_fullproxy_app_config(app, app_number, my_public,
             my_private, proxy_port, login_ip, get_all_appengine_nodes())
           if success
@@ -2931,11 +3002,11 @@ HOSTS
           # TODO: if the user specifies a warmup route, call it instead of /
           warmup_url = "/"
 
-          @app_info_map[app][:appengine] = []
+          @app_info_map[app]['appengine'] = []
           @num_appengines.times { |index|
             Djinn.log_debug("Starting #{app_language} app #{app} on " +
               "#{HelperFunctions.local_ip}:#{@appengine_port}")
-            @app_info_map[app][:appengine] << @appengine_port
+            @app_info_map[app]['appengine'] << @appengine_port
 
             xmpp_ip = get_login.public_ip
 
@@ -2955,7 +3026,7 @@ HOSTS
           }
 
           HAProxy.update_app_config(app, app_number, 
-            @app_info_map[app][:appengine], my_private)
+            @app_info_map[app]['appengine'], my_private)
           Nginx.reload
           HAProxy.reload
           Collectd.restart
@@ -2977,8 +3048,8 @@ HOSTS
 
           # Update our local information so that we know later what ports
           # we're using to host this app on for nginx and haproxy
-          @app_info_map[app][:nginx] = @nginx_port
-          @app_info_map[app][:haproxy] = @haproxy_port
+          @app_info_map[app]['nginx'] = @nginx_port
+          @app_info_map[app]['haproxy'] = @haproxy_port
 
           login_ip = get_login.public_ip
 
@@ -3052,7 +3123,7 @@ HOSTS
         Djinn.log_debug("Deciding whether to scale AppServers for #{app_name}")
         initialize_scaling_info_for_app(app_name)
 
-        if is_cpu_or_mem_maxed_out?(@app_info_map[app_name][:language])
+        if is_cpu_or_mem_maxed_out?(@app_info_map[app_name]['language'])
           # TODO(cgb): This seems like a good condition to scale down
           Djinn.log_debug("Too much CPU or memory is being used - don't scale")
           return
@@ -3106,6 +3177,7 @@ HOSTS
     stats = get_stats(@@secret)
     Djinn.log_debug("CPU used: #{stats['cpu']}, mem used: #{stats['memory']}")
 
+    Djinn.log_debug("Examining CPU and memory usage for a #{language} application.")
     current_cpu = stats['cpu']
     max_cpu = MAX_CPU_FOR_APPSERVERS[language]
 
@@ -3209,10 +3281,10 @@ HOSTS
   def try_to_scale_up(app_name)
     Djinn.log_debug("Considering whether we should scale up")
     time_since_last_decision = Time.now.to_i - @last_decision[app_name]
-    appservers_running = @app_info_map[app_name][:appengine].length
+    appservers_running = @app_info_map[app_name]['appengine'].length
           
     if time_since_last_decision > SCALEUP_TIME_THRESHOLD and 
-      !@app_info_map[app_name][:appengine].nil? and 
+      !@app_info_map[app_name]['appengine'].nil? and
       appservers_running < MAX_APPSERVERS_ON_THIS_NODE
 
       Djinn.log_debug("Adding a new AppServer on this node for #{app_name}")
@@ -3221,8 +3293,8 @@ HOSTS
     elsif time_since_last_decision <= SCALEUP_TIME_THRESHOLD
       Djinn.log_debug("Not enough time has passed since when the last " +
         "scaling decision was made for #{app_name}")
-    elsif !@app_info_map[app_name][:appengine].nil? and 
-      appservers_running > MAX_APPSERVERS_ON_THIS_NODE 
+    elsif !@app_info_map[app_name]['appengine'].nil? and
+      appservers_running > MAX_APPSERVERS_ON_THIS_NODE
 
       Djinn.log_debug("The maximum number of AppServers for this app " +
         "are already running, so don't add any more")
@@ -3233,16 +3305,16 @@ HOSTS
   def try_to_scale_down(app_name)
     Djinn.log_debug("Considering whether we should scale down")
     time_since_last_decision = Time.now.to_i - @last_decision[app_name]
-    appservers_running = @app_info_map[app_name][:appengine].length
+    appservers_running = @app_info_map[app_name]['appengine'].length
 
     if time_since_last_decision > SCALEDOWN_TIME_THRESHOLD and
-      !@app_info_map[app_name][:appengine].nil? and 
+      !@app_info_map[app_name]['appengine'].nil? and
       appservers_running > MIN_APPSERVERS_ON_THIS_NODE
 
       Djinn.log_debug("Removing an AppServer on this node for #{app_name}")
       remove_appserver_process(app_name)
       @last_decision[app_name] = Time.now.to_i
-    elsif !@app_info_map[app_name][:appengine].nil? and 
+    elsif !@app_info_map[app_name]['appengine'].nil? and
       appservers_running <= MIN_APPSERVERS_ON_THIS_NODE
 
       Djinn.log_debug("Only #{MIN_APPSERVERS_ON_THIS_NODE} AppServer(s) " +
@@ -3293,15 +3365,15 @@ HOSTS
       return  
     end
 
-    nginx_port = @app_info_map[app][:nginx]
-    haproxy_port = @app_info_map[app][:haproxy]
-    @app_info_map[app][:appengine] << @appengine_port
+    nginx_port = @app_info_map[app]['nginx']
+    haproxy_port = @app_info_map[app]['haproxy']
+    @app_info_map[app]['appengine'] << @appengine_port
 
     app_number = nginx_port - Nginx::START_PORT
 
     my_private = my_node.private_ip
-    Djinn.log_debug("port apps error contains - #{@app_info_map[app][:appengine]}")
-    HAProxy.update_app_config(app, app_number, @app_info_map[app][:appengine],
+    Djinn.log_debug("port apps error contains - #{@app_info_map[app]['appengine']}")
+    HAProxy.update_app_config(app, app_number, @app_info_map[app]['appengine'],
       my_private)     
 
     Djinn.log_debug("Adding #{app_language} app #{app} on #{HelperFunctions.local_ip}:#{@appengine_port} ")
@@ -3356,7 +3428,7 @@ HOSTS
 
     my_public = my_node.public_ip
     my_private = my_node.private_ip
-    app_number = @app_info_map[app][:nginx] - Nginx::START_PORT
+    app_number = @app_info_map[app]['nginx'] - Nginx::START_PORT
 
     app_data = uac.get_app_data(app)
 
@@ -3369,7 +3441,7 @@ HOSTS
     end
 
     # Select a random AppServer to kill.
-    ports = @app_info_map[app][:appengine]
+    ports = @app_info_map[app]['appengine']
     port = ports[rand(ports.length)]
 
     if !app_manager.stop_app_instance(app, port)
@@ -3377,9 +3449,9 @@ HOSTS
     end
 
     # Delete the port number from the app_info_map
-    @app_info_map[app][:appengine].delete(port)
+    @app_info_map[app]['appengine'].delete(port)
 
-    HAProxy.update_app_config(app, app_number, @app_info_map[app][:appengine],
+    HAProxy.update_app_config(app, app_number, @app_info_map[app]['appengine'],
       my_private)
     HAProxy.reload
   end 
