@@ -575,6 +575,7 @@ postinstallnginx()
     mkdir -p /usr/local/nginx/sites-enabled/
     cp -v AppLoadBalancer/config/load-balancer.conf /usr/local/nginx/sites-enabled/
     rm -fv /usr/local/nginx/sites-enabled/default
+    chmod +x /root
 }
 
 installhadoop()

@@ -175,8 +175,8 @@ server {
     listen #{ssl_listen_port};
     server_name #{my_public_ip}-#{app_name}-ssl;
     ssl on;
-    ssl_certificate /etc/nginx/mycert.pem;
-    ssl_certificate_key /etc/nginx/mykey.pem;
+    ssl_certificate /usr/local/nginx/conf/mycert.pem;
+    ssl_certificate_key /usr/local/nginx/conf/mykey.pem;
 
     #root /var/apps/#{app_name}/app;
     # Uncomment these lines to enable logging, and comment out the following two
@@ -343,8 +343,8 @@ server {
     listen #{ssl_listen_port};
     server_name #{my_public_ip}-#{app_name}-ssl;
     ssl on;
-    ssl_certificate /etc/nginx/mycert.pem;
-    ssl_certificate_key /etc/nginx/mykey.pem;
+    ssl_certificate #{NGINX_PATH}/mycert.pem;
+    ssl_certificate_key #{NGINX_PATH}/mykey.pem;
 
     #root /var/apps/#{app_name}/app;
     # Uncomment these lines to enable logging, and comment out the following two
@@ -461,8 +461,8 @@ server {
 server {
     listen #{PbServer::LISTEN_PORT_WITH_SSL};
     ssl on;
-    ssl_certificate /etc/nginx/mycert.pem;
-    ssl_certificate_key /etc/nginx/mykey.pem;
+    ssl_certificate #{NGINX_PATH}/mycert.pem;
+    ssl_certificate_key #{NGINX_PATH}/mykey.pem;
     root /root/appscale/AppDB/public;
     #access_log  /var/log/nginx/pbencrypt.access.log upstream;
     #error_log  /var/log/nginx/pbencrypt.error.log;
@@ -582,7 +582,7 @@ events {
 }
 
 http {
-    include       /etc/nginx/mime.types;
+    include       #{NGINX_PATH}/mime.types;
     default_type  application/octet-stream;
 
     access_log  /var/log/nginx/access.log;
