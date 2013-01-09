@@ -119,8 +119,10 @@ class InfrastructureManagerClient
 
 
   def run_instances(parameters)
+    obscured = parameters.dup
+    obscured['credentials'] = HelperFunctions.obscure_creds(obscured['credentials'])
     Djinn.log_debug("Calling run_instances with parameters " +
-      "#{parameters.inspect}")
+      "#{obscured.inspect}")
 
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, "run_instances") { 
       @conn.run_instances(parameters.to_json, @secret)
