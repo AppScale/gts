@@ -2135,15 +2135,12 @@ class Djinn
     end
 
     initialize_server
-    # start_load_balancer 
 
     memcache_ips = []
     @nodes.each { |node|
       memcache_ips << node.private_ip if node.is_memcache?
     }
-
     Djinn.log_debug("Memcache servers will be at #{memcache_ips.join(', ')}")
-
     memcache_file = "#{CONFIG_FILE_LOCATION}/memcache_ips"
     memcache_contents = memcache_ips.join("\n")
     HelperFunctions.write_file(memcache_file, memcache_contents)
@@ -2153,76 +2150,7 @@ class Djinn
     setup_config_files
     set_uaserver_ips 
     write_hypersoap
-
-    # ejabberd uses uaserver for authentication
-    # so start it after we find out the uaserver's ip
-
-    start_ejabberd if my_node.is_login?
-
-    @done_initializing = true
-
-    # start zookeeper
-    if my_node.is_zookeeper?
-      configure_zookeeper(@nodes, @my_index)
-      init = !(@creds.include?("keep_zookeeper_data"))
-      start_zookeeper(init)
-    end
-
-    ZKInterface.init(my_node, @nodes)
-
-    commands = {
-      "load_balancer" => "start_load_balancer",
-      "memcache" => "start_memcache",
-      "db_master" => "start_db_master",
-      "db_slave" => "start_db_slave"
-    }
-
-    jobs_to_run.each do |job|
-      if commands.include?(job)
-        Djinn.log_debug("About to run [#{commands[job]}]")
-        send(commands[job].to_sym)
-      end
-    end
-
-    # create initial tables
-    if (my_node.is_db_master? || (defined?(is_priming_needed?) && is_priming_needed?(my_node))) && !restore_from_db?
-      table = @creds['table']
-      prime_script = "#{APPSCALE_HOME}/AppDB/#{table}/prime_#{table}.py"
-      retries = 10
-      retval = 0
-      while retries > 0
-        replication = @creds["replication"]
-        Djinn.log_run("APPSCALE_HOME='#{APPSCALE_HOME}' MASTER_IP='localhost' LOCAL_DB_IP='localhost' python2.6 #{prime_script} #{replication}; echo $? > /tmp/retval")
-        retval = `cat /tmp/retval`.to_i
-        break if retval == 0
-        Djinn.log_debug("Fail to create initial table. Retry #{retries} times.")
-        Kernel.sleep(5)
-        retries -= 1
-      end
-      if retval != 0
-        Djinn.log_debug("Fail to create initial table. Could not startup AppScale.")
-        exit(1)
-      end
-    end
-
-    # All nodes have application managers
-    start_app_manager_server
-
-    # start soap server and pb server
-    if has_soap_server?(my_node)
-      @state = "Starting up SOAP Server and PBServer"
-      start_pbserver
-      start_soap_server
-      HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip, UserAppClient::SERVER_PORT)
-    end
-
-    start_blobstore_server if my_node.is_appengine?
-
-    if my_node.is_rabbitmq_master?
-      start_rabbitmq_master
-    elsif my_node.is_rabbitmq_slave?
-      start_rabbitmq_slave
-    end
+    start_api_services()
 
     # for neptune jobs, start a place where they can save output to
     # also, since repo does health checks on the app engine apis, start it up there too
@@ -2239,6 +2167,126 @@ class Djinn
 
     # appengine is started elsewhere
   end
+
+
+  # Starts all of the services that this node has been assigned to run.
+  # Also starts all services that all nodes run in an AppScale deployment.
+  def start_api_services()
+    # ejabberd uses uaserver for authentication
+    # so start it after we find out the uaserver's ip
+
+    threads = []
+    if my_node.is_login?
+      threads << Thread.new {
+        start_ejabberd()
+      }
+    end
+
+    @done_initializing = true
+
+    # start zookeeper
+    threads << Thread.new {
+      if my_node.is_zookeeper?
+        configure_zookeeper(@nodes, @my_index)
+        init = !(@creds.include?("keep_zookeeper_data"))
+        start_zookeeper(init)
+      end
+
+      ZKInterface.init(my_node, @nodes)
+    }
+
+    if my_node.is_load_balancer?
+      threads << Thread.new {
+        start_load_balancer()
+      }
+    end
+
+    if my_node.is_memcache?
+      threads << Thread.new {
+        start_memcache()
+      }
+    end
+
+    if my_node.is_db_master?
+      threads << Thread.new {
+        start_db_master()
+        # create initial tables
+        if (my_node.is_db_master? || (defined?(is_priming_needed?) && is_priming_needed?(my_node))) && !restore_from_db?
+          table = @creds['table']
+          prime_script = "#{APPSCALE_HOME}/AppDB/#{table}/prime_#{table}.py"
+          retries = 10
+          retval = 0
+          while retries > 0
+            replication = @creds["replication"]
+            Djinn.log_run("APPSCALE_HOME='#{APPSCALE_HOME}' MASTER_IP='localhost' LOCAL_DB_IP='localhost' python2.6 #{prime_script} #{replication}; echo $? > /tmp/retval")
+            retval = `cat /tmp/retval`.to_i
+            break if retval == 0
+            Djinn.log_debug("Fail to create initial table. Retry #{retries} times.")
+            Kernel.sleep(5)
+            retries -= 1
+          end
+          if retval != 0
+            Djinn.log_debug("Fail to create initial table. Could not startup AppScale.")
+            exit(1)
+          end
+        end
+
+        # Currently we always run the Datastore Server (PBServer) and SOAP
+        # server on the same nodes.
+        # TODO(cgb): Rename PBServer to Datastore Server throughout.
+        if has_soap_server?(my_node)
+          @state = "Starting up SOAP Server and PBServer"
+          start_pbserver()
+          start_soap_server()
+          HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip, UserAppClient::SERVER_PORT)
+        end
+      }
+    end
+
+    if my_node.is_db_slave?
+      threads << Thread.new {
+        start_db_slave()
+
+        # Currently we always run the Datastore Server (PBServer) and SOAP
+        # server on the same nodes.
+        # TODO(cgb): Rename PBServer to Datastore Server throughout.
+        if has_soap_server?(my_node)
+          @state = "Starting up SOAP Server and PBServer"
+          start_pbserver()
+          start_soap_server()
+          HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip, UserAppClient::SERVER_PORT)
+        end
+      }
+    end
+
+    # All nodes have application managers
+    threads << Thread.new {
+      start_app_manager_server()
+    }
+
+    if my_node.is_appengine?
+      threads << Thread.new {
+        start_blobstore_server()
+      }
+    end
+
+    if my_node.is_rabbitmq_master?
+      threads << Thread.new {
+        start_rabbitmq_master()
+      }
+    elsif my_node.is_rabbitmq_slave?
+      threads << Thread.new {
+        start_rabbitmq_slave()
+      }
+    end
+
+    # App Engine apps rely on the above services to be started, so
+    # join all our threads here
+    Djinn.log_debug("Waiting for all services to finish starting up")
+    threads.each { |t| t.join() }
+    Djinn.log_debug("API services have started on this node")
+  end
+
 
   def start_blobstore_server
     db_local_ip = @userappserver_private_ip
