@@ -14,15 +14,19 @@ class TestDjinn < Test::Unit::TestCase
     kernel.should_receive(:puts).and_return()
     kernel.should_receive(:shell).with("").and_return()
     kernel.should_receive(:sleep).and_return()
+    kernel.should_receive(:system).with("").and_return()
 
-    djinn_class = flexmock(Djinn)
-    djinn_class.should_receive(:log_debug).and_return()
-    djinn_class.should_receive(:log_run).and_return()
+    djinn = flexmock(Djinn)
+    djinn.should_receive(:log_debug).and_return()
+    djinn.should_receive(:log_run).with("").and_return()
+
+    flexmock(HelperFunctions).should_receive(:shell).with("").and_return()
 
     @secret = "baz"
     flexmock(HelperFunctions).should_receive(:read_file).
       with("/etc/appscale/secret.key", true).and_return(@secret)
-
+    flexmock(HelperFunctions).should_receive(:shell).
+      with("").and_return()
     @app = "app"
   end
 
@@ -53,6 +57,7 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(BAD_SECRET_MSG, djinn.is_app_running(@app, @secret))
     assert_equal(BAD_SECRET_MSG, djinn.add_role("baz", @secret))
     assert_equal(BAD_SECRET_MSG, djinn.remove_role("baz", @secret))
+    assert_equal(BAD_SECRET_MSG, djinn.start_roles_on_nodes({}, @secret))
     assert_equal(BAD_SECRET_MSG, djinn.start_new_roles_on_nodes([], '', 
       @secret))
   end
@@ -95,8 +100,8 @@ class TestDjinn < Test::Unit::TestCase
 
 
   def test_set_params_w_bad_params
-    flexmock(HelperFunctions).should_receive(:local_ip).
-      and_return("127.0.0.1")
+    flexmock(HelperFunctions).should_receive(:get_all_local_ips).
+      and_return(["127.0.0.1"])
 
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
@@ -206,6 +211,14 @@ class TestDjinn < Test::Unit::TestCase
     file = flexmock(File)
     file.should_receive(:open).with(RabbitMQ::COOKIE_FILE, "w+", Proc).and_return()
 
+    # mock out when the AppController tries to clean up any old
+    # RabbitMQ config files
+    flexmock(Djinn).should_receive(:log_run).with(/\Arm -rf/).and_return()
+
+    # also mock out when the AppController tries to start rabbitmq
+    flexmock(Djinn).should_receive(:log_run).with(/\Arabbitmq/).
+      and_return()
+
     assert_equal(true, djinn.start_rabbitmq_master())
   end
 
@@ -232,6 +245,14 @@ class TestDjinn < Test::Unit::TestCase
 
     file = flexmock(File)
     file.should_receive(:open).with(RabbitMQ::COOKIE_FILE, "w+", Proc).and_return()
+
+    # mock out when the AppController tries to clean up any old
+    # RabbitMQ config files
+    flexmock(Djinn).should_receive(:log_run).with(/\Arm -rf/).and_return()
+
+    # also mock out when the AppController tries to start rabbitmq
+    flexmock(Djinn).should_receive(:log_run).with(/\Arabbitmq/).
+      and_return()
 
     assert_equal(true, djinn.start_rabbitmq_slave())
   end
@@ -382,8 +403,8 @@ class TestDjinn < Test::Unit::TestCase
     baz.should_receive(:set).with(:path => done_loading,
       :data => JSON.dump(true)).and_return(all_ok)
 
-    flexmock(HelperFunctions).should_receive(:local_ip).
-      and_return("private_ip")
+    flexmock(HelperFunctions).should_receive(:get_all_local_ips).
+      and_return(["private_ip"])
 
     flexmock(GodInterface).should_receive(:start).and_return()
 
@@ -636,6 +657,331 @@ class TestDjinn < Test::Unit::TestCase
     }
 
     assert_equal(2, boo)
+  end
+
+  def test_start_roles_on_nodes_bad_input
+    # Calling start_roles_on_nodes with something other than a Hash
+    # isn't acceptable
+    flexmock(Djinn).new_instances { |instance|
+      instance.should_receive(:valid_secret?).and_return(true)
+    }
+
+    djinn = Djinn.new()
+    expected = Djinn::BAD_INPUT_MSG
+    actual = djinn.start_roles_on_nodes("", @secret)
+    assert_equal(expected, actual)
+  end
+
+  def test_start_roles_on_nodes_in_xen_on_one_node
+    # currently there is a bug in appscale where we can't scale up
+    # from a one node deployment - take out this test case once we
+    # fix that bug.
+    ips_hash = {'appengine' => ['node-1', 'node-2']}
+    djinn = Djinn.new()
+    djinn.nodes = [1]
+    expected = Djinn::CANT_SCALE_FROM_ONE_NODE
+    actual = djinn.start_roles_on_nodes(ips_hash, @secret)
+    assert_equal(expected, actual)
+  end
+
+  def test_start_roles_on_nodes_in_xen
+    ips_hash = {'appengine' => ['node-1', 'node-2']}
+    djinn = Djinn.new()
+    djinn.nodes = [1, 2]
+    expected = {'node-1' => ['appengine'], 'node-2' => ['appengine']}
+    actual = djinn.start_roles_on_nodes(ips_hash, @secret)
+    assert_equal(expected, actual)
+  end
+
+  def test_start_new_roles_on_nodes_in_xen
+    # try adding two new nodes to an appscale deployment, assuming that
+    # the machines are already running and have appscale installed
+    ips_to_roles = {'1.2.3.4' => ['appengine'], '1.2.3.5' => ['appengine']}
+
+    # assume the machines are running and that we can scp and ssh to them
+    flexmock(HelperFunctions).should_receive(:is_port_open?).
+      with('1.2.3.4', Djinn::SSH_PORT, HelperFunctions::DONT_USE_SSL).
+      and_return(true)
+    flexmock(HelperFunctions).should_receive(:is_port_open?).
+      with('1.2.3.5', Djinn::SSH_PORT, HelperFunctions::DONT_USE_SSL).
+      and_return(true)
+
+    key_location = "#{HelperFunctions::APPSCALE_KEYS_DIR}/boo.key"
+    flexmock(FileUtils).should_receive(:chmod).
+      with(HelperFunctions::CHMOD_READ_ONLY, key_location).and_return()
+    flexmock(HelperFunctions).should_receive(:shell).with(/\Ascp/).
+      and_return()
+    flexmock(File).should_receive(:exists?).
+      with(/\A#{HelperFunctions::APPSCALE_CONFIG_DIR}\/retval-/).
+      and_return(true)
+    flexmock(File).should_receive(:open).
+      with(/\A#{HelperFunctions::APPSCALE_CONFIG_DIR}\/retval-/, Proc).
+      and_return("0\n")
+    flexmock(HelperFunctions).should_receive(:shell).with(/\Arm -fv/).
+      and_return()
+
+    # for individual ssh commands, the mock depends on what we're mocking
+    # out - we don't just assume success
+    flexmock(Kernel).should_receive(:system).with(/\Assh.* 'mkdir -p/).
+      and_return('')
+
+    # next, mock out our checks to see if the new boxes are AppScale
+    # VMs and assume they are
+    flexmock(HelperFunctions).should_receive(:shell).
+      with(/\Assh.* root@1.2.3.4 'ls #{HelperFunctions::APPSCALE_CONFIG_DIR}/).and_return("0\n")
+    flexmock(HelperFunctions).should_receive(:shell).
+      with(/\Assh.* root@1.2.3.5 'ls #{HelperFunctions::APPSCALE_CONFIG_DIR}/).and_return("0\n")
+
+    # mock out our attempts to rsync over to the new boxes
+    flexmock(Djinn).should_receive(:log_run).with(/\Arsync.* root@1.2.3.4/).and_return()
+    flexmock(Djinn).should_receive(:log_run).with(/\Arsync.* root@1.2.3.5/).and_return()
+
+    # when the appcontroller asks those boxes where APPSCALE_HOME is,
+    # let's assume they say it's in /usr/appscale
+    flexmock(HelperFunctions).should_receive(:shell).
+      with(/\Assh.* root@1.2.3.4 'cat #{HelperFunctions::APPSCALE_CONFIG_DIR}\/home/).and_return("/usr/appscale\n")
+    flexmock(HelperFunctions).should_receive(:shell).
+      with(/\Assh.* root@1.2.3.5 'cat #{HelperFunctions::APPSCALE_CONFIG_DIR}\/home/).and_return("/usr/appscale\n")
+
+    # next, the appcontroller removes the json service metadata file
+    # off of each of these nodes - assume it succeeds
+    flexmock(Kernel).should_receive(:system).with(/\Assh.* root@1.2.3.4 'rm -rf #{HelperFunctions::APPSCALE_CONFIG_DIR}/).
+      and_return('')
+    flexmock(Kernel).should_receive(:system).with(/\Assh.* root@1.2.3.5 'rm -rf #{HelperFunctions::APPSCALE_CONFIG_DIR}/).
+      and_return('')
+
+    # finally, mock out when the appcontroller starts god and the
+    # remote appcontrollers on the other boxes
+    flexmock(File).should_receive(:open).with(/\A\/tmp\/god/, "w+", Proc).
+      and_return()
+    flexmock(HelperFunctions).should_receive(:shell).with(/\Assh.* root@1.2.3.4 'god/).
+      and_return('')
+    flexmock(HelperFunctions).should_receive(:shell).with(/\Assh.* root@1.2.3.5 'god/).
+      and_return('')
+    flexmock(Kernel).should_receive(:system).
+      with(/\Assh.* root@1.2.3.4 'rm -rf \/tmp\/god/).and_return('')
+    flexmock(Kernel).should_receive(:system).
+      with(/\Assh.* root@1.2.3.5 'rm -rf \/tmp\/god/).and_return('')
+
+    # and assume that the appcontrollers start up fine
+    flexmock(HelperFunctions).should_receive(:is_port_open?).
+      with('1.2.3.4', Djinn::SERVER_PORT, HelperFunctions::USE_SSL).
+      and_return(true)
+    flexmock(HelperFunctions).should_receive(:is_port_open?).
+      with('1.2.3.5', Djinn::SERVER_PORT, HelperFunctions::USE_SSL).
+      and_return(true)
+
+    # add the login role here to force our node to regenerate its
+    # nginx config files
+    original_node_info = "1.2.3.3:1.2.3.3:shadow:login:boo:cloud1"
+    node1_info = "1.2.3.4:1.2.3.4:appengine:boo:cloud1"
+    node2_info = "1.2.3.5:1.2.3.5:appengine:boo:cloud1"
+
+    original_node = DjinnJobData.new(original_node_info, "boo")
+    new_node1 = DjinnJobData.new(node1_info, "boo")
+    new_node2 = DjinnJobData.new(node2_info, "boo")
+    all_nodes_serialized = [original_node.serialize, new_node2.serialize,
+      new_node1.serialize]
+    puts "#{all_nodes_serialized.join(', ')}"
+
+    creds = {'keyname' => 'boo'}
+    creds_as_array = creds.to_a.flatten
+    no_apps = []
+
+    # and that the appcontrollers receive the initial message to start
+    # up from our appcontroller
+    flexmock(AppControllerClient).new_instances { |instance|
+      instance.should_receive(:set_parameters).with(all_nodes_serialized,
+        creds_as_array, no_apps).and_return("OK")
+    }
+
+    # the appcontroller will update its local /etc/hosts file
+    # and /etc/hostname file with info about the new node and its own
+    # node
+    flexmock(File).should_receive(:open).with("/etc/hosts", "w+", Proc).
+      and_return()
+    flexmock(File).should_receive(:open).with("/etc/hostname", "w+", Proc).
+      and_return()
+    flexmock(Djinn).should_receive(:log_run).with("/bin/hostname appscale-image0").
+      and_return()
+
+    # next, nginx will rewrite its config files for the one app we
+    # have running
+    app_dir = "/var/apps/booapp/app"
+    app_yaml = "#{app_dir}/app.yaml"
+    flexmock(YAML).should_receive(:load_file).with(app_yaml).
+      and_return({})
+
+    nginx_conf = "/etc/nginx/sites-enabled/booapp.conf"
+    flexmock(File).should_receive(:open).with(nginx_conf, "w+", Proc).and_return()
+    flexmock(HelperFunctions).should_receive(:shell).
+      with("nginx -t -c /etc/nginx/nginx.conf").and_return()
+
+    # mock out restarting nginx once the new config file is written
+    flexmock(HelperFunctions).should_receive(:shell).
+      with("/etc/init.d/nginx stop").and_return()
+    flexmock(HelperFunctions).should_receive(:shell).
+      with("/etc/init.d/nginx start").and_return()
+
+    djinn = Djinn.new()
+    djinn.nodes = [original_node]
+    djinn.my_index = 0
+    djinn.creds = creds
+    djinn.apps_loaded = ["booapp"]
+    djinn.app_info_map = {
+      'booapp' => {
+        'nginx' => Nginx::START_PORT + 1
+      }
+    }
+    actual = djinn.start_new_roles_on_nodes_in_xen(ips_to_roles)
+    assert_equal(true, actual.include?(node1_info))
+    assert_equal(true, actual.include?(node2_info))
+  end
+
+  def test_start_new_roles_on_nodes_in_cloud
+    # try adding two new nodes to an appscale deployment, assuming that
+    # the machines are already running and have appscale installed
+    ips_to_roles = {'node-1' => ['appengine'], 'node-2' => ['appengine']}
+
+    # mock out spawning the two new machines, assuming they get IPs
+    # 1.2.3.4 and 1.2.3.5
+    flexmock(InfrastructureManagerClient).new_instances { |instance|
+      instance.should_receive(:make_call).
+      with(InfrastructureManagerClient::NO_TIMEOUT,
+        InfrastructureManagerClient::RETRY_ON_FAIL, "run_instances",
+        Proc).
+      and_return({'reservation_id' => '0123456'})
+
+    # let's say that the first time we do 'describe-instances', the
+    # machines aren't initially ready, and that they become ready the
+    # second time
+    new_two_nodes_info = {
+      'public_ips' => ['1.2.3.4', '1.2.3.5'],
+      'private_ips' => ['1.2.3.4', '1.2.3.5'],
+      'instance_ids' => ['i-ABCDEFG', 'i-HIJKLMN'],
+    }
+
+    pending = {'state' => 'pending'}
+    ready = {'state' => 'running', 'vm_info' => new_two_nodes_info}
+      instance.should_receive(:make_call).
+      with(InfrastructureManagerClient::NO_TIMEOUT,
+        InfrastructureManagerClient::RETRY_ON_FAIL, "describe_instances",
+        Proc).
+      and_return(pending, ready)
+    }
+
+    # assume the machines are running and that we can scp and ssh to them
+    flexmock(HelperFunctions).should_receive(:is_port_open?).
+      with('1.2.3.4', Djinn::SSH_PORT, HelperFunctions::DONT_USE_SSL).
+      and_return(true)
+    flexmock(HelperFunctions).should_receive(:is_port_open?).
+      with('1.2.3.5', Djinn::SSH_PORT, HelperFunctions::DONT_USE_SSL).
+      and_return(true)
+
+    key_location = "#{HelperFunctions::APPSCALE_KEYS_DIR}/boo.key"
+    flexmock(FileUtils).should_receive(:chmod).
+      with(HelperFunctions::CHMOD_READ_ONLY, key_location).and_return()
+    flexmock(HelperFunctions).should_receive(:shell).with(/\Ascp/).
+      and_return()
+    flexmock(File).should_receive(:exists?).
+      with(/\A#{HelperFunctions::APPSCALE_CONFIG_DIR}\/retval-/).
+      and_return(true)
+    flexmock(File).should_receive(:open).
+      with(/\A#{HelperFunctions::APPSCALE_CONFIG_DIR}\/retval-/, Proc).
+      and_return("0\n")
+    flexmock(HelperFunctions).should_receive(:shell).with(/\Arm -fv/).
+      and_return()
+
+    # for individual ssh commands, the mock depends on what we're mocking
+    # out - we don't just assume success
+    flexmock(Kernel).should_receive(:system).with(/\Assh.* 'mkdir -p/).
+      and_return('')
+
+    # next, mock out our checks to see if the new boxes are AppScale
+    # VMs and assume they are
+    flexmock(HelperFunctions).should_receive(:shell).
+      with(/\Assh.* root@1.2.3.4 'ls #{HelperFunctions::APPSCALE_CONFIG_DIR}/).and_return("0\n")
+    flexmock(HelperFunctions).should_receive(:shell).
+      with(/\Assh.* root@1.2.3.5 'ls #{HelperFunctions::APPSCALE_CONFIG_DIR}/).and_return("0\n")
+
+    # mock out our attempts to rsync over to the new boxes
+    flexmock(Djinn).should_receive(:log_run).with(/\Arsync.* root@1.2.3.4/).and_return()
+    flexmock(Djinn).should_receive(:log_run).with(/\Arsync.* root@1.2.3.5/).and_return()
+
+    # when the appcontroller asks those boxes where APPSCALE_HOME is,
+    # let's assume they say it's in /usr/appscale
+    flexmock(HelperFunctions).should_receive(:shell).
+      with(/\Assh.* root@1.2.3.4 'cat #{HelperFunctions::APPSCALE_CONFIG_DIR}\/home/).and_return("/usr/appscale\n")
+    flexmock(HelperFunctions).should_receive(:shell).
+      with(/\Assh.* root@1.2.3.5 'cat #{HelperFunctions::APPSCALE_CONFIG_DIR}\/home/).and_return("/usr/appscale\n")
+
+    # next, the appcontroller removes the json service metadata file
+    # off of each of these nodes - assume it succeeds
+    flexmock(Kernel).should_receive(:system).with(/\Assh.* root@1.2.3.4 'rm -rf #{HelperFunctions::APPSCALE_CONFIG_DIR}/).
+      and_return('')
+    flexmock(Kernel).should_receive(:system).with(/\Assh.* root@1.2.3.5 'rm -rf #{HelperFunctions::APPSCALE_CONFIG_DIR}/).
+      and_return('')
+
+    # finally, mock out when the appcontroller starts god and the
+    # remote appcontrollers on the other boxes
+    flexmock(File).should_receive(:open).with(/\A\/tmp\/god/, "w+", Proc).
+      and_return()
+    flexmock(HelperFunctions).should_receive(:shell).with(/\Assh.* root@1.2.3.4 'god/).
+      and_return('')
+    flexmock(HelperFunctions).should_receive(:shell).with(/\Assh.* root@1.2.3.5 'god/).
+      and_return('')
+    flexmock(Kernel).should_receive(:system).
+      with(/\Assh.* root@1.2.3.4 'rm -rf \/tmp\/god/).and_return('')
+    flexmock(Kernel).should_receive(:system).
+      with(/\Assh.* root@1.2.3.5 'rm -rf \/tmp\/god/).and_return('')
+
+    # and assume that the appcontrollers start up fine
+    flexmock(HelperFunctions).should_receive(:is_port_open?).
+      with('1.2.3.4', Djinn::SERVER_PORT, HelperFunctions::USE_SSL).
+      and_return(true)
+    flexmock(HelperFunctions).should_receive(:is_port_open?).
+      with('1.2.3.5', Djinn::SERVER_PORT, HelperFunctions::USE_SSL).
+      and_return(true)
+
+    original_node_info = "1.2.3.3:1.2.3.3:shadow:i-000000:cloud1"
+    node1_info = "1.2.3.4:1.2.3.4:appengine:i-ABCDEFG:cloud1"
+    node2_info = "1.2.3.5:1.2.3.5:appengine:i-HIJKLMN:cloud1"
+
+    original_node = DjinnJobData.new(original_node_info, "boo")
+    new_node1 = DjinnJobData.new(node1_info, "boo")
+    new_node2 = DjinnJobData.new(node2_info, "boo")
+    all_nodes_serialized = [original_node.serialize, new_node1.serialize,
+      new_node2.serialize]
+    puts "#{all_nodes_serialized.join(', ')}"
+
+    creds = {'keyname' => 'boo'}
+    creds_as_array = creds.to_a.flatten
+    no_apps = []
+
+    # and that the appcontrollers receive the initial message to start
+    # up from our appcontroller
+    flexmock(AppControllerClient).new_instances { |instance|
+      instance.should_receive(:set_parameters).with(all_nodes_serialized,
+        creds_as_array, no_apps).and_return("OK")
+    }
+
+    # lastly, the appcontroller will update its local /etc/hosts file
+    # and /etc/hostname file with info about the new node and its own
+    # node
+    flexmock(File).should_receive(:open).with("/etc/hosts", "w+", Proc).
+      and_return()
+    flexmock(File).should_receive(:open).with("/etc/hostname", "w+", Proc).
+      and_return()
+    flexmock(Djinn).should_receive(:log_run).with("/bin/hostname appscale-image0").
+      and_return()
+
+    djinn = Djinn.new()
+    djinn.nodes = [original_node]
+    djinn.my_index = 0
+    djinn.creds = creds
+    actual = djinn.start_new_roles_on_nodes_in_cloud(ips_to_roles)
+    assert_equal(true, actual.include?(node1_info))
+    assert_equal(true, actual.include?(node2_info))
   end
 
 end

@@ -572,7 +572,10 @@ class ZKInterface
   def self.run_zookeeper_operation(&block)
     begin
       yield
-    rescue ZookeeperExceptions::ZookeeperException::ConnectionClosed
+    rescue ZookeeperExceptions::ZookeeperException::ConnectionClosed,
+      ZookeeperExceptions::ZookeeperException::NotConnected,
+      ZookeeperExceptions::ZookeeperException::SessionExpired
+
       Djinn.log_debug("Lost our ZooKeeper connection - making a new " +
         "connection and trying again.")
       self.reinitialize()
