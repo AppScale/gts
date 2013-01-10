@@ -795,7 +795,7 @@ class TestDjinn < Test::Unit::TestCase
         creds_as_array, no_apps).and_return("OK")
     }
 
-    # lastly, the appcontroller will update its local /etc/hosts file
+    # the appcontroller will update its local /etc/hosts file
     # and /etc/hostname file with info about the new node and its own
     # node
     flexmock(File).should_receive(:open).with("/etc/hosts", "w+", Proc).
@@ -805,10 +805,17 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(Djinn).should_receive(:log_run).with("/bin/hostname appscale-image0").
       and_return()
 
-    # since we aren't testing nginx config writing here, mock it out
-    flexmock(Nginx).should_receive(:write_fullproxy_app_config).
-      with("booapp", Integer, "1.2.3.3", "1.2.3.3", Integer, "1.2.3.3",
-      ["1.2.3.5", "1.2.3.4"]).and_return()
+    # next, nginx will rewrite its config files for the one app we
+    # have running
+    app_dir = "/var/apps/booapp/app"
+    app_yaml = "#{app_dir}/app.yaml"
+    flexmock(YAML).should_receive(:load_file).with(app_yaml).
+      and_return({})
+
+    nginx_conf = "/etc/nginx/sites-enabled/booapp.conf"
+    flexmock(File).should_receive(:open).with(nginx_conf, "w+", Proc).and_return()
+    flexmock(HelperFunctions).should_receive(:shell).
+      with("nginx -t -c /etc/nginx/nginx.conf").and_return()
 
     # mock out restarting nginx once the new config file is written
     flexmock(HelperFunctions).should_receive(:shell).

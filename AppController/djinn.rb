@@ -2702,6 +2702,7 @@ HOSTS
     my_private = my_node.private_ip
     login_ip = get_login.private_ip
 
+    Djinn.log_debug("@app_info_map is #{@app_info_map.inspect}")
     @apps_loaded.each { |app|  
       Djinn.log_debug("Regenerating nginx config for app #{app}")
       app_number = @app_info_map[app]['nginx'] - Nginx::START_PORT
@@ -2968,6 +2969,10 @@ HOSTS
                       " for application #{app} full proxy."
             place_error_app(app, err_msg)
           end
+
+          @app_info_map[app]['nginx'] = @nginx_port
+          @app_info_map[app]['haproxy'] = @haproxy_port
+
           @nginx_port += 1
           @haproxy_port += 1
         end

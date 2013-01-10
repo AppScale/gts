@@ -1048,6 +1048,7 @@ module HelperFunctions
   # Returns:
   #   A hash containing lists of secure handlers
   def self.get_secure_handlers app_name
+    Djinn.log_debug("Getting secure handlers for app #{app_name}")
     untar_dir = get_untar_dir(app_name)
 
     secure_handlers = {
