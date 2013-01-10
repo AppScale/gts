@@ -552,7 +552,7 @@ postinstallmonitoring()
 
 installnginx()
 {
-    NGINX_VERSION=1.3.10
+    NGINX_VERSION=1.2.6
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
     wget http://appscale.cs.ucsb.edu/appscale_files/nginx-${NGINX_VERSION}.tar.gz || exit 1
