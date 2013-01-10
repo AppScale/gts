@@ -2150,7 +2150,28 @@ class Djinn
     setup_config_files
     set_uaserver_ips 
     write_hypersoap
+    start_api_services()
 
+    # for neptune jobs, start a place where they can save output to
+    # also, since repo does health checks on the app engine apis, start it up there too
+
+    repo_ip = get_shadow.public_ip
+    repo_private_ip = get_shadow.private_ip
+    repo_ip = my_node.public_ip if my_node.is_appengine?
+    repo_private_ip = my_node.private_ip if my_node.is_appengine?
+    Repo.init(repo_ip, repo_private_ip,  @@secret)
+
+    if my_node.is_shadow? or my_node.is_appengine?
+      Repo.start(get_login.public_ip, @userappserver_private_ip)
+    end
+
+    # appengine is started elsewhere
+  end
+
+
+  # Starts all of the services that this node has been assigned to run.
+  # Also starts all services that all nodes run in an AppScale deployment.
+  def start_api_services()
     # ejabberd uses uaserver for authentication
     # so start it after we find out the uaserver's ip
 
@@ -2189,7 +2210,7 @@ class Djinn
     if my_node.is_db_master?
       threads << Thread.new {
         start_db_master()
-            # create initial tables
+        # create initial tables
         if (my_node.is_db_master? || (defined?(is_priming_needed?) && is_priming_needed?(my_node))) && !restore_from_db?
           table = @creds['table']
           prime_script = "#{APPSCALE_HOME}/AppDB/#{table}/prime_#{table}.py"
@@ -2263,22 +2284,9 @@ class Djinn
     # join all our threads here
     Djinn.log_debug("Waiting for all services to finish starting up")
     threads.each { |t| t.join() }
-
-    # for neptune jobs, start a place where they can save output to
-    # also, since repo does health checks on the app engine apis, start it up there too
-
-    repo_ip = get_shadow.public_ip
-    repo_private_ip = get_shadow.private_ip
-    repo_ip = my_node.public_ip if my_node.is_appengine?
-    repo_private_ip = my_node.private_ip if my_node.is_appengine?
-    Repo.init(repo_ip, repo_private_ip,  @@secret)
-
-    if my_node.is_shadow? or my_node.is_appengine?
-      Repo.start(get_login.public_ip, @userappserver_private_ip)
-    end
-
-    # appengine is started elsewhere
+    Djinn.log_debug("API services have started on this node")
   end
+
 
   def start_blobstore_server
     db_local_ip = @userappserver_private_ip
