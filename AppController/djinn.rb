@@ -2959,7 +2959,7 @@ HOSTS
         proxy_port = HAProxy.app_listen_port(app_number)
         login_ip = get_login.private_ip
 
-        if my_node.is_login? #and !my_node.is_appengine?
+        if my_node.is_login? and !my_node.is_appengine?
           success = Nginx.write_fullproxy_app_config(app, app_number, my_public,
             my_private, proxy_port, login_ip, get_all_appengine_nodes())
           if success
