@@ -8,7 +8,7 @@ from boto.exception import EC2ResponseError
 from flexmock import flexmock
 from infrastructure_manager import InfrastructureManager
 import time
-from unittest.case import TestCase
+from unittest import TestCase
 from utils import utils
 
 __author__ = 'hiranya'
