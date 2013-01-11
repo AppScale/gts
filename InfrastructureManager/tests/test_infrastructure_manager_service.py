@@ -1,5 +1,5 @@
 from time import sleep
-from unittest.case import TestCase
+from unittest import TestCase
 import thread
 from flexmock import flexmock
 from infrastructure_manager import InfrastructureManager

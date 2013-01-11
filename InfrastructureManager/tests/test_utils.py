@@ -1,5 +1,5 @@
 from os import environ
-from unittest.case import TestCase
+from unittest import TestCase
 from flexmock import flexmock
 from utils import utils
 
