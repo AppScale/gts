@@ -29,8 +29,8 @@ Depends: appscale-tools,
  curl, lsof, tcpdump,
  memcached, python-memcache,
  socat,
-# AppLoadBalancer
- nginx,
+# nginx 
+ libpcre++-dev
 # haproxy
  libpcre3,
 # Monitoring
