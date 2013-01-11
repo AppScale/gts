@@ -19,8 +19,7 @@ require 'pbserver'
 # configures and deploys nginx within AppScale.
 module Nginx
 
-
-  NGINX_PATH = File.join("/", "etc", "nginx")
+  NGINX_PATH = "/usr/local/nginx/conf"
 
 
   SITES_ENABLED_PATH = File.join(NGINX_PATH, "sites-enabled")
@@ -43,11 +42,11 @@ module Nginx
   CHANNELSERVER_PORT = 5280
 
   def self.start
-    HelperFunctions.shell("/etc/init.d/nginx start")
+    HelperFunctions.shell("/usr/local/nginx/sbin/nginx -c #{MAIN_CONFIG_FILE}")
   end
 
   def self.stop
-    HelperFunctions.shell("/etc/init.d/nginx stop")
+    HelperFunctions.shell("/usr/local/nginx/sbin/nginx -s stop")
   end
 
   def self.restart
@@ -56,7 +55,7 @@ module Nginx
   end
 
   def self.reload
-    self.restart
+    HelperFunctions.shell("/usr/local/nginx/sbin/nginx -s reload")
   end
 
   def self.is_running?
@@ -75,13 +74,12 @@ module Nginx
 
   # Return true if the configuration is good, false o.w.
   def self.check_config
-    HelperFunctions.shell("nginx -t -c #{MAIN_CONFIG_FILE}")
+    HelperFunctions.shell("/usr/local/nginx/sbin/nginx -t -c #{MAIN_CONFIG_FILE}")
     return ($?.to_i == 0)
   end
 
   # Creates a Nginx config file for the provided app name
   def self.write_app_config(app_name, app_number, my_public_ip, my_private_ip, proxy_port, static_handlers, login_ip)
-
     listen_port = Nginx.app_listen_port(app_number)
     ssl_listen_port = listen_port - SSL_PORT_OFFSET
     secure_handlers = HelperFunctions.get_secure_handlers(app_name)
@@ -142,6 +140,12 @@ upstream gae_#{app_name} {
 }
 
 server {
+    chunkin on;
+ 
+    error_page 411 = @my_411_error;
+    location @my_411_error {
+      chunkin_resume;
+    }
     listen #{listen_port};
     server_name #{my_public_ip};
     root /var/apps/#{app_name}/app;
@@ -173,11 +177,17 @@ server {
 
 }
 server {
+    chunkin on;
+ 
+    error_page 411 = @my_411_error;
+    location @my_411_error {
+        chunkin_resume;
+    }
     listen #{ssl_listen_port};
     server_name #{my_public_ip}-#{app_name}-ssl;
     ssl on;
-    ssl_certificate /etc/nginx/mycert.pem;
-    ssl_certificate_key /etc/nginx/mykey.pem;
+    ssl_certificate /usr/local/nginx/conf/mycert.pem;
+    ssl_certificate_key /usr/local/nginx/conf/mykey.pem;
 
     #root /var/apps/#{app_name}/app;
     # Uncomment these lines to enable logging, and comment out the following two
@@ -289,6 +299,12 @@ upstream gae_#{app_name}_blobstore {
 #{blob_servers}
 }
 server {
+    chunkin on;
+ 
+    error_page 411 = @my_411_error;
+    location @my_411_error {
+      chunkin_resume;
+    }
     listen #{listen_port};
     server_name #{my_public_ip}-#{app_name};
     #root /var/apps/#{app_name}/app;
@@ -315,6 +331,12 @@ server {
 
 }
 server {
+    chunkin on;
+ 
+    error_page 411 = @my_411_error;
+    location @my_411_error {
+      chunkin_resume;
+    }
     listen #{BLOBSERVER_PORT};
     server_name #{my_public_ip}-#{app_name}-blobstore;
     #root /var/apps/#{app_name}/app;
@@ -341,11 +363,17 @@ server {
 }    
 
 server {
+    chunkin on;
+ 
+    error_page 411 = @my_411_error;
+    location @my_411_error {
+      chunkin_resume;
+    }
     listen #{ssl_listen_port};
     server_name #{my_public_ip}-#{app_name}-ssl;
     ssl on;
-    ssl_certificate /etc/nginx/mycert.pem;
-    ssl_certificate_key /etc/nginx/mykey.pem;
+    ssl_certificate #{NGINX_PATH}/mycert.pem;
+    ssl_certificate_key #{NGINX_PATH}/mykey.pem;
 
     #root /var/apps/#{app_name}/app;
     # Uncomment these lines to enable logging, and comment out the following two
@@ -431,6 +459,12 @@ upstream #{PbServer::NAME} {
 }
     
 server {
+    chunkin on;
+ 
+    error_page 411 = @my_411_error;
+    location @my_411_error {
+      chunkin_resume;
+    }
     listen #{PbServer::LISTEN_PORT_NO_SSL};
     server_name #{my_ip};
     root /root/appscale/AppDB/;
@@ -460,10 +494,16 @@ server {
 }
 
 server {
+    chunkin on;
+ 
+    error_page 411 = @my_411_error;
+    location @my_411_error {
+      chunkin_resume;
+    }
     listen #{PbServer::LISTEN_PORT_WITH_SSL};
     ssl on;
-    ssl_certificate /etc/nginx/mycert.pem;
-    ssl_certificate_key /etc/nginx/mykey.pem;
+    ssl_certificate #{NGINX_PATH}/mycert.pem;
+    ssl_certificate_key #{NGINX_PATH}/mykey.pem;
     root /root/appscale/AppDB/public;
     #access_log  /var/log/nginx/pbencrypt.access.log upstream;
     #error_log  /var/log/nginx/pbencrypt.error.log;
@@ -510,11 +550,24 @@ CONFIG
       # redirect all request to ssl port.
       config += <<CONFIG
 server {
+  chunkin on;
+ 
+  error_page 411 = @my_411_error;
+  location @my_411_error {
+      chunkin_resume;
+  }
+
     listen #{listen_port};
     rewrite ^(.*) https://#{my_public_ip}:#{ssl_port}$1 permanent;
 }
 
 server {
+    chunkin on;
+ 
+    error_page 411 = @my_411_error;
+    location @my_411_error {
+      chunkin_resume;
+    }
     listen #{ssl_port};
     ssl on;
     ssl_certificate #{NGINX_PATH}/mycert.pem;
@@ -523,6 +576,12 @@ CONFIG
     else
       config += <<CONFIG
 server {
+    chunkin on;
+ 
+    error_page 411 = @my_411_error;
+    location @my_411_error {
+      chunkin_resume;
+    }
     listen #{listen_port};
 CONFIG
     end
@@ -583,7 +642,7 @@ events {
 }
 
 http {
-    include       /etc/nginx/mime.types;
+    include       #{NGINX_PATH}/mime.types;
     default_type  application/octet-stream;
 
     access_log  /var/log/nginx/access.log;
@@ -606,7 +665,7 @@ http {
 }
 CONFIG
 
-    `mkdir -p /var/log/nginx/`
+    HelperFunctions.shell("mkdir -p /var/log/nginx/")
     # Create the sites enabled folder
     unless File.exists? SITES_ENABLED_PATH
       FileUtils.mkdir_p SITES_ENABLED_PATH
@@ -614,10 +673,8 @@ CONFIG
 
     # copy over certs for ssl
     # just copy files once to keep certificate as static.
-    #`test ! -e #{NGINX_PATH}/mycert.pem && cp /etc/appscale/certs/mycert.pem #{NGINX_PATH}`
-    #`test ! -e #{NGINX_PATH}/mykey.pem && cp /etc/appscale/certs/mykey.pem #{NGINX_PATH}`
-    `cp /etc/appscale/certs/mykey.pem #{NGINX_PATH}`
-    `cp /etc/appscale/certs/mycert.pem #{NGINX_PATH}`
+    HelperFunctions.shell("cp /etc/appscale/certs/mykey.pem #{NGINX_PATH}")
+    HelperFunctions.shell("cp /etc/appscale/certs/mycert.pem #{NGINX_PATH}")
     # Write the main configuration file which sets default configuration parameters
     File.open(MAIN_CONFIG_FILE, "w+") { |dest_file| dest_file.write(config) }
   end

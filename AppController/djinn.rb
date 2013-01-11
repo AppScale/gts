@@ -3530,7 +3530,6 @@ HOSTS
         }
 
         Djinn.log_debug("Finished deleting instances for app #{app}")
-        #Djinn.log_run("rm -fv /etc/nginx/#{app}.conf")
         Nginx.reload
       else
         Djinn.log_debug("App #{app} wasnt enabled, skipping it")
