@@ -36,6 +36,14 @@ module HelperFunctions
   APPSCALE_HOME = ENV['APPSCALE_HOME']
 
 
+  # The location on the filesystem where configuration files about
+  # AppScale are stored.
+  APPSCALE_CONFIG_DIR = "/etc/appscale"
+
+
+  APPSCALE_KEYS_DIR = "#{APPSCALE_CONFIG_DIR}/keys/cloud1"
+
+
   # The maximum amount of time, in seconds, that we are willing to wait for
   # a virtual machine to start up, from the initial run-instances request.
   # Setting this value is a bit of an art, but we choose the value below
@@ -68,7 +76,7 @@ module HelperFunctions
 
   CLOUDY_CREDS = ["ec2_access_key", "ec2_secret_key", "EC2_ACCESS_KEY",
     "EC2_SECRET_KEY", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY",
-    "CLOUD1_EC2_ACCESS_KEY", "CLOUD1_EC2_SECRET_KEY"]
+    "CLOUD_EC2_ACCESS_KEY", "CLOUD_EC2_SECRET_KEY"]
 
 
   # The first port that should be used to host Google App Engine applications
@@ -88,6 +96,11 @@ module HelperFunctions
 
   # The IPv4 address that corresponds to the reserved localhost IP.
   LOCALHOST_IP = "127.0.0.1"
+
+
+  # The file permissions that indicate that only the owner of a file
+  # can read or write to it (necessary for SSH keys).
+  CHMOD_READ_ONLY = 0600
 
 
   # A class variable that is used to locally cache our own IP address, so that
@@ -237,9 +250,9 @@ module HelperFunctions
     Kernel.puts("Running [#{remote_cmd}]")
 
     if want_output
-      return `#{remote_cmd}`
+      return self.shell("#{remote_cmd}")
     else
-      Kernel.system remote_cmd
+      Kernel.system(remote_cmd)
       return remote_cmd
     end
   end
@@ -254,15 +267,15 @@ module HelperFunctions
   #   AppScaleSCPException: When a scp fails.
   def self.scp_file(local_file_loc, remote_file_loc, target_ip, private_key_loc)
     private_key_loc = File.expand_path(private_key_loc)
-    self.shell("chmod 0600 #{private_key_loc}")
+    FileUtils.chmod(CHMOD_READ_ONLY, private_key_loc)
     local_file_loc = File.expand_path(local_file_loc)
-    retval_file = "/etc/appscale/retval-#{Kernel.rand()}"
+    retval_file = "#{APPSCALE_CONFIG_DIR}/retval-#{Kernel.rand()}"
     cmd = "scp -i #{private_key_loc} -o StrictHostkeyChecking=no 2>&1 #{local_file_loc} root@#{target_ip}:#{remote_file_loc}; echo $? > #{retval_file}"
     scp_result = self.shell(cmd)
 
     loop {
       break if File.exists?(retval_file)
-      sleep(5)
+      Kernel.sleep(5)
     }
 
     retval = (File.open(retval_file) { |f| f.read }).chomp
@@ -275,7 +288,7 @@ module HelperFunctions
       if fails >= 5:
         raise AppScaleSCPException.new("Failed to copy over #{local_file_loc} to #{remote_file_loc} to #{target_ip} with private key #{private_key_loc}")
       end
-      sleep(2)
+      Kernel.sleep(2)
       self.shell(cmd)
       retval = (File.open(retval_file) { |f| f.read }).chomp
     }
@@ -286,7 +299,7 @@ module HelperFunctions
   def self.get_remote_appscale_home(ip, key)
     cat = "cat /etc/appscale/home"
     remote_cmd = "ssh -i #{key} -o NumberOfPasswordPrompts=0 -o StrictHostkeyChecking=no 2>&1 root@#{ip} '#{cat}'"
-    possible_home = `#{remote_cmd}`.chomp
+    possible_home = self.shell("#{remote_cmd}").chomp
     if possible_home.nil? or possible_home.empty?
       return "/root/appscale/"
     else
@@ -1035,6 +1048,7 @@ module HelperFunctions
   # Returns:
   #   A hash containing lists of secure handlers
   def self.get_secure_handlers app_name
+    Djinn.log_debug("Getting secure handlers for app #{app_name}")
     untar_dir = get_untar_dir(app_name)
 
     secure_handlers = {
@@ -1131,7 +1145,7 @@ module HelperFunctions
   end
 
   def self.does_image_have_location?(ip, location, key)
-    ret_val = `ssh -i #{key} -o NumberOfPasswordPrompts=0 -o StrictHostkeyChecking=no 2>&1 root@#{ip} 'ls #{location}'; echo $?`.chomp[-1]
+    ret_val = self.shell("ssh -i #{key} -o NumberOfPasswordPrompts=0 -o StrictHostkeyChecking=no 2>&1 root@#{ip} 'ls #{location}'; echo $?").chomp[-1]
     return ret_val.chr == "0"
   end
 

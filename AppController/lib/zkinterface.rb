@@ -572,7 +572,10 @@ class ZKInterface
   def self.run_zookeeper_operation(&block)
     begin
       yield
-    rescue ZookeeperExceptions::ZookeeperException::ConnectionClosed
+    rescue ZookeeperExceptions::ZookeeperException::ConnectionClosed,
+      ZookeeperExceptions::ZookeeperException::NotConnected,
+      ZookeeperExceptions::ZookeeperException::SessionExpired
+
       Djinn.log_debug("Lost our ZooKeeper connection - making a new " +
         "connection and trying again.")
       self.reinitialize()
@@ -625,7 +628,7 @@ class ZKInterface
   def self.set(key, val, ephemeral)
     retries_left = 5
     begin
-      Djinn.log_debug("[ZK] trying to set #{key} to #{HelperFunctions.obscure_creds(val)} with ephemeral = #{ephemeral}")
+      Djinn.log_debug("[ZK] trying to set #{key} with ephemeral = #{ephemeral}")
       info = {}
       if self.exists?(key)
         Djinn.log_debug("[ZK] Key #{key} exists, so setting it")

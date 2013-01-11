@@ -226,6 +226,7 @@ CONFIG
   # Creates a Nginx config file for the provided app name on the load balancer
   def self.write_fullproxy_app_config(app_name, app_number, my_public_ip, 
     my_private_ip, proxy_port, login_ip, appengine_server_ips)
+    Djinn.log_debug("Writing full proxy app config for app #{app_name}")
     listen_port = Nginx.app_listen_port(app_number)
     ssl_listen_port = listen_port - SSL_PORT_OFFSET
 
@@ -242,15 +243,14 @@ CONFIG
     servers = []
     ssl_servers = []
     appengine_server_ips.each do |ip|
-      servers << "server #{ip}:#{listen_port};"
+      servers << "    server #{ip}:#{listen_port};\n"
     end
     appengine_server_ips.each do |ip|
-      ssl_servers << "server #{ip}:#{ssl_listen_port};"
+      ssl_servers << "    server #{ip}:#{ssl_listen_port};\n"
     end
     appengine_server_ips.each do |ip|
-      blob_servers << "server #{ip}:#{BLOBSERVER_PORT};"
+      blob_servers << "    server #{ip}:#{BLOBSERVER_PORT};\n"
     end
-    servers = servers.join("\n")
 
     if never_secure_locations.include?('location / {')
       secure_default_location = ''
@@ -291,13 +291,13 @@ DEFAULT_CONFIG
     config = <<CONFIG
 # Any requests that aren't static files get sent to haproxy
 upstream gae_#{app_name} {
-    #{servers}
+#{servers}
 }
 upstream gae_ssl_#{app_name} {
-    #{ssl_servers}
+#{ssl_servers}
 }
 upstream gae_#{app_name}_blobstore {
-    #{blob_servers}
+#{blob_servers}
 }
 server {
     chunkin on;

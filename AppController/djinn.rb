@@ -196,6 +196,18 @@ class Djinn
   attr_accessor :last_updated
 
 
+  # A Hash that contains information about each Google App Engine application
+  # running in this deployment. It includes information about the nginx and
+  # haproxy ports the app uses, as well as the language the app is written
+  # in.
+  attr_accessor :app_info_map
+
+
+  # A lock that should be used whenever we modify internal state that can be
+  # modified by more than one thread at a time.
+  attr_accessor :state_change_lock
+
+
   # The port that the AppController runs on by default
   SERVER_PORT = 17443
 
@@ -215,21 +227,26 @@ class Djinn
   FIREWALL_IS_ON = true
 
 
+  # The location on the local filesystem where AppScale-related configuration
+  # files are written to.
+  CONFIG_FILE_LOCATION = "/etc/appscale"
+
+
   # The location on the local filesystem where the AppController writes
   # information about Neptune jobs that have finished. One day this information
   # may be used to more intelligently schedule jobs on the fly.
-  NEPTUNE_INFO = "/etc/appscale/neptune_info.txt"
+  NEPTUNE_INFO = "#{CONFIG_FILE_LOCATION}/neptune_info.txt"
 
 
   # The location on the local filesystem where the AppController writes
   # information about the status of App Engine APIs, which the AppLoadBalancer
   # will read and display to users.
-  HEALTH_FILE = "/etc/appscale/health.json"
+  HEALTH_FILE = "#{CONFIG_FILE_LOCATION}/health.json"
 
 
   # The location on the local filesystem where the AppController periodically
   # writes its state to, and recovers its state from if it crashes.
-  STATE_FILE = "/etc/appscale/appcontroller-state.json"
+  STATE_FILE = "#{CONFIG_FILE_LOCATION}/appcontroller-state.json"
 
 
   APPSCALE_HOME = ENV['APPSCALE_HOME']
@@ -238,6 +255,14 @@ class Djinn
   # The message that we display to the user if they call a SOAP-accessible
   # function with a malformed input (e.g., of the wrong class or format).
   BAD_INPUT_MSG = JSON.dump({'success' => false, 'message' => 'bad input'})
+
+
+  # The message to display to users if they try to add nodes to a one node
+  # deployment, which currently is not supported.
+  CANT_SCALE_FROM_ONE_NODE = JSON.dump({
+    'success' => false, 
+    'message' => "can't scale up from a one node deployment"
+  })
 
 
   # The message that we display to the user if they want to scale up services
@@ -352,6 +377,7 @@ class Djinn
     @api_status = {}
     @queues_to_read = []
     @last_updated = 0
+    @state_change_lock = Monitor.new()
     @app_info_map = {}
 
     @scaling_in_progress = false
@@ -659,7 +685,7 @@ class Djinn
 
       # Contact the soap server and remove the application
       if (@app_names.include?(app_name) and !my_node.is_appengine?) or @nodes.length == 1
-        ip = HelperFunctions.read_file("#{APPSCALE_HOME}/.appscale/masters")
+        ip = HelperFunctions.read_file("#{CONFIG_FILE_LOCATION}/masters")
         uac = UserAppClient.new(ip, @@secret)
         result = uac.delete_app(app_name)
         Djinn.log_debug("(stop_app) Delete app: #{ip} returned #{result} (#{result.class})")
@@ -667,7 +693,7 @@ class Djinn
      
       # may need to stop XMPP listener
       if my_node.is_login? 
-        pid_files = `ls #{APPSCALE_HOME}/.appscale/xmpp-#{app_name}.pid`.split
+        pid_files = HelperFunctions.shell("ls #{CONFIG_FILE_LOCATION}/xmpp-#{app_name}.pid").split
         unless pid_files.nil? # not an error here - XMPP is optional
           pid_files.each { |pid_file|
             pid = HelperFunctions.read_file(pid_file)
@@ -877,7 +903,7 @@ class Djinn
       'is_hybrid_cloud?' => is_hybrid_cloud?()
     }
 
-    HelperFunctions.write_json_file("/etc/appscale/cloud_info.json", cloud_info)
+    HelperFunctions.write_json_file("#{CONFIG_FILE_LOCATION}/cloud_info.json", cloud_info)
   end
 
 
@@ -979,6 +1005,148 @@ class Djinn
   end
 
 
+  # This SOAP-exposed method dynamically scales up a currently running
+  # AppScale deployment. For virtualized clusters, this assumes the
+  # user has given us a list of IP addresses where AppScale has been
+  # installed to, and for cloud deployments, we assume that the user
+  # wants to use the same credentials as for their current deployment.
+  # Args:
+  #   ips_hash: A Hash that maps roles (e.g., appengine, database) to the
+  #     IP address (in virtualized deployments) or unique identifier (in
+  #     cloud deployments) that should run that role.
+  #   secret: A String password that is used to authenticate the request
+  #     to add nodes to the deployment.
+  # Returns:
+  #   BAD_SECRET_MSG: If the secret given does not match the secret for
+  #     this AppScale deployment.
+  #   BAD_INPUT_MSG: If ips_hash was not a Hash.
+  #   Otherwise, returns a Hash that maps IP addresses to the roles that
+  #     will be hosted on them (the inverse of ips_hash).
+  def start_roles_on_nodes(ips_hash, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    if ips_hash.class != Hash
+      Djinn.log_debug("Was expecting ips_hash to be a Hash, not " +
+        "a #{ips_hash.class}")
+      return BAD_INPUT_MSG
+    end
+
+    if @nodes.length == 1
+      Djinn.log_debug("Can't scale up in a one node deployment.")
+      return CANT_SCALE_FROM_ONE_NODE
+    end
+
+    Djinn.log_debug("Received a request to start additional roles on " +
+      "new machines, with the following placement strategy: " +
+      "#{ips_hash.inspect}")
+
+    # ips_hash maps roles to IPs, but the internal format here maps
+    # IPs to roles, so convert to the right format
+    ips_to_roles = {}
+    ips_hash.each { |role, ip_or_ips|
+      if ip_or_ips.class == String
+        ips = [ip_or_ips]  # just one IP
+      else
+        ips = ip_or_ips  # a list of IPs
+      end
+
+      ips.each { |ip|
+        if ips_to_roles[ip].nil?
+          ips_to_roles[ip] = []
+        end
+        ips_to_roles[ip] << role
+      }
+    }
+
+    Thread.new {
+      if is_cloud?
+        start_new_roles_on_nodes_in_cloud(ips_to_roles)
+      else
+        start_new_roles_on_nodes_in_xen(ips_to_roles)
+      end
+    }
+
+    return ips_to_roles
+  end
+
+
+  # This method acquires virtual machines from a cloud IaaS and adds them
+  # to the currently running AppScale deployment. The new machines are then
+  # assigned the roles given to us by the caller.
+  # Args:
+  #   ips_to_roles: A Hash that maps machines to the roles that should be
+  #     started on them. As we have not yet spawned the machines, we do not
+  #     have IP addresses for them, so any unique identifier can be used in
+  #     lieu of IP addresses.
+  # Returns:
+  #   An Array of Strings, where each String contains information about the
+  #     public IP address, private IP address, and roles that the new machines
+  #     have taken on.
+  def start_new_roles_on_nodes_in_cloud(ips_to_roles)
+    Djinn.log_debug("Starting new roles in cloud with following info: " +
+      "#{ips_to_roles.inspect}")
+
+    keyname = @creds['keyname']
+    num_of_vms = ips_to_roles.keys.length
+    roles = ips_to_roles.values
+    Djinn.log_debug("Need to spawn up #{num_of_vms} VMs")
+    imc = InfrastructureManagerClient.new(@@secret)
+    new_nodes_info = imc.spawn_vms(num_of_vms, @creds, roles, "cloud1")
+
+    # initialize them and wait for them to start up
+    Djinn.log_debug("info about new nodes is " +
+      "[#{new_nodes_info.join(', ')}]")
+
+    add_nodes(new_nodes_info)
+    update_hosts_info()
+
+    if my_node.is_login?
+      regenerate_nginx_config_files()
+    end
+
+    return new_nodes_info
+  end
+
+
+  # This method takes a list of IP addresses that correspond to machines
+  # with AppScale installed on them, that have passwordless SSH already
+  # set up (presumably by appscale-add-instances). The machines are added
+  # to the currently running AppScale deployment, and are then assigned
+  # the roles given to us by the caller.
+  # Args:
+  #   ips_to_roles: A Hash that maps machines to the roles that should be
+  #     started on them. Machines are uniquely identified by their IP
+  #     address, which is assumed to be reachable from any node in the
+  #     AppScale deployment.
+  # Returns:
+  #   An Array of Strings, where each String contains information about the
+  #     public IP address, private IP address, and roles that the new machines
+  #     have taken on.
+  def start_new_roles_on_nodes_in_xen(ips_to_roles)
+    Djinn.log_debug("Starting new roles in virt with following info: " +
+      "#{ips_to_roles.inspect}")
+
+    nodes_info = []
+    keyname = @creds['keyname']
+    ips_to_roles.each { |ip, roles|
+      Djinn.log_debug("Will add roles #{roles.join(', ')} to new " +
+        "node at IP address #{ip}")
+      nodes_info << "#{ip}:#{ip}:#{roles.join(':')}:#{keyname}:cloud1"
+    }
+
+    add_nodes(nodes_info)
+    update_hosts_info()
+
+    if my_node.is_login?
+      regenerate_nginx_config_files()
+    end
+
+    return nodes_info
+  end
+
+
   # Starts the given roles by using open nodes, spawning new nodes, or some
   # combination of the two. 'nodes_needed' should be an Array, where each 
   # item is an Array of the roles to start on each node.
@@ -1053,6 +1221,30 @@ class Djinn
     wait_for_nodes_to_finish_loading(vms_to_use)
 
     return "OK"
+  end
+
+
+  # Given an Array of Strings containing information about machines with
+  # AppScale installed on them, copies over deployment-specific files
+  # and starts the AppController on them. Each AppController is then
+  # instructed to start a specific set of roles, and join the existing
+  # AppScale deployment.
+  # Args:
+  #   node_info: An Array of Strings, where each String has information
+  #     about a node to add to the current AppScale deployment (e.g.,
+  #     IP addresses, roles to run).
+  def add_nodes(node_info)
+    keyname = @creds['keyname']
+    new_nodes = Djinn.convert_location_array_to_class(node_info, keyname)
+
+    # Since an external thread can modify @nodes, let's put a lock around
+    # it to prevent race conditions.
+    @state_change_lock.synchronize {
+      @nodes.concat(new_nodes)
+      Djinn.log_debug("Changed nodes to #{@nodes}")
+    }
+
+    initialize_nodes_in_parallel(new_nodes)
   end
 
 
@@ -1188,13 +1380,13 @@ class Djinn
   end
 
   def self.get_db_master_ip
-    masters_file = File.expand_path("#{APPSCALE_HOME}/.appscale/masters")
+    masters_file = File.expand_path("#{CONFIG_FILE_LOCATION}/masters")
     master_ip = HelperFunctions.read_file(masters_file)
     return master_ip
   end
 
   def self.get_db_slave_ips
-    slaves_file = File.expand_path("#{APPSCALE_HOME}/.appscale/slaves")
+    slaves_file = File.expand_path("#{CONFIG_FILE_LOCATION}/slaves")
     slave_ips = File.open(slaves_file).readlines.map { |f| f.chomp! }
     slave_ips = [] if slave_ips == [""]
     return slave_ips
@@ -1354,7 +1546,7 @@ class Djinn
       return
     end
 
-    status_file = "/etc/appscale/status-#{ip}.json"
+    status_file = "#{CONFIG_FILE_LOCATION}/status-#{ip}.json"
     stats = acc.get_stats()
     json_state = JSON.dump(stats) 
     HelperFunctions.write_file(status_file, json_state)
@@ -1365,10 +1557,10 @@ class Djinn
     end
 
     # copy remote log over - handy for debugging
-    local_log = "/etc/appscale/logs/#{ip}.log"
+    local_log = "#{CONFIG_FILE_LOCATION}/logs/#{ip}.log"
     remote_log = "/tmp/*.log"
 
-    FileUtils.mkdir_p("/etc/appscale/logs/")
+    FileUtils.mkdir_p("#{CONFIG_FILE_LOCATION}/logs/")
     Djinn.log_run("scp -o StrictHostkeyChecking=no -i #{ssh_key} #{ip}:#{remote_log} #{local_log}")
   end
 
@@ -1386,11 +1578,11 @@ class Djinn
     keyname = @creds["keyname"]
     
     tree = { :table => table, :replication => replication, :keyname => keyname }
-    db_info_path = "#{APPSCALE_HOME}/.appscale/database_info.yaml"
+    db_info_path = "#{CONFIG_FILE_LOCATION}/database_info.yaml"
     File.open(db_info_path, "w") { |file| YAML.dump(tree, file) }
     
     num_of_nodes = @nodes.length
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/num_of_nodes", "#{num_of_nodes}\n")
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/num_of_nodes", "#{num_of_nodes}\n")
     
     all_ips = []
     @nodes.each { |node|
@@ -1398,7 +1590,7 @@ class Djinn
       all_ips << node.private_ip
     }
     all_ips << "\n"
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/all_ips", all_ips.join("\n"))
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/all_ips", all_ips.join("\n"))
 
     # Re-run the filewall script here since we just wrote the all_ips file
     if FIREWALL_IS_ON
@@ -1778,7 +1970,7 @@ class Djinn
 
   def parse_creds
     got_data_msg = "Got data from another node! DLoc = " + \
-      "#{@nodes.join(', ')}, #{HelperFunctions.obscure_creds(@creds.inspect)}, AppsToLoad = " + \
+      "#{@nodes.join(', ')}, #{HelperFunctions.obscure_creds(@creds).inspect}, AppsToLoad = " + \
       "#{@app_names.join(', ')}"
     Djinn.log_debug(got_data_msg)
         
@@ -1789,11 +1981,11 @@ class Djinn
     Djinn.log_debug("Keypath is #{@creds['keypath']}, keyname is #{@creds['keyname']}")
 
     if !@creds["keypath"].empty?
-      my_key_dir = "/etc/appscale/keys/#{my_node.cloud}"
+      my_key_dir = "#{CONFIG_FILE_LOCATION}/keys/#{my_node.cloud}"
       my_key_loc = "#{my_key_dir}/#{@creds['keypath']}"
       Djinn.log_debug("Creating directory #{my_key_dir} for my ssh key #{my_key_loc}")
       FileUtils.mkdir_p(my_key_dir)
-      Djinn.log_run("cp /etc/appscale/ssh.key #{my_key_loc}")
+      Djinn.log_run("cp #{CONFIG_FILE_LOCATION}/ssh.key #{my_key_loc}")
     end
         
     if is_cloud?
@@ -1803,7 +1995,7 @@ class Djinn
       ENV['EC2_URL'] = @creds["ec2_url"]
 
       # for ec2
-      cloud_keys_dir = File.expand_path("/etc/appscale/keys/cloud1")
+      cloud_keys_dir = File.expand_path("#{CONFIG_FILE_LOCATION}/keys/cloud1")
       ENV['EC2_PRIVATE_KEY'] = "#{cloud_keys_dir}/mykey.pem"
       ENV['EC2_CERT'] = "#{cloud_keys_dir}/mycert.pem"
     end
@@ -1914,13 +2106,15 @@ class Djinn
     jobs_to_run = my_data.jobs
     
     if @creds['ips']
-      @total_boxes = @creds['ips'].length + 1
+      @total_boxes = @nodes.length
     elsif @creds['min_images']
       @total_boxes = Integer(@creds['min_images'])
     end
 
     Djinn.log_debug("Pre-loop: #{@nodes.join('\n')}")
-    if @nodes.size == 1 and @total_boxes > 1
+    if my_node.is_shadow?
+      # TODO(cgb): Check to make sure the machines aren't already
+      # initialized before attempting to start up AppScale on them.
       spawn_and_setup_appengine
       loop {
         Djinn.log_debug("Looping: #{@nodes.join('\n')}")
@@ -1941,92 +2135,22 @@ class Djinn
     end
 
     initialize_server
-    # start_load_balancer 
 
     memcache_ips = []
     @nodes.each { |node|
       memcache_ips << node.private_ip if node.is_memcache?
     }
-
     Djinn.log_debug("Memcache servers will be at #{memcache_ips.join(', ')}")
-
-    memcache_file = "/etc/appscale/memcache_ips"
+    memcache_file = "#{CONFIG_FILE_LOCATION}/memcache_ips"
     memcache_contents = memcache_ips.join("\n")
     HelperFunctions.write_file(memcache_file, memcache_contents)
 
+    write_apploadbalancer_location
+    find_nearest_rabbitmq
     setup_config_files
     set_uaserver_ips 
     write_hypersoap
-
-    # ejabberd uses uaserver for authentication
-    # so start it after we find out the uaserver's ip
-
-    start_ejabberd if my_node.is_login?
-
-    @done_initializing = true
-
-    # start zookeeper
-    if my_node.is_zookeeper?
-      configure_zookeeper(@nodes, @my_index)
-      init = !(@creds.include?("keep_zookeeper_data"))
-      start_zookeeper(init)
-    end
-
-    ZKInterface.init(my_node, @nodes)
-
-    commands = {
-      "load_balancer" => "start_load_balancer",
-      "memcache" => "start_memcache",
-      "db_master" => "start_db_master",
-      "db_slave" => "start_db_slave"
-    }
-
-    jobs_to_run.each do |job|
-      if commands.include?(job)
-        Djinn.log_debug("About to run [#{commands[job]}]")
-        send(commands[job].to_sym)
-      end
-    end
-
-    # create initial tables
-    if (my_node.is_db_master? || (defined?(is_priming_needed?) && is_priming_needed?(my_node))) && !restore_from_db?
-      table = @creds['table']
-      prime_script = "#{APPSCALE_HOME}/AppDB/#{table}/prime_#{table}.py"
-      retries = 10
-      retval = 0
-      while retries > 0
-        replication = @creds["replication"]
-        Djinn.log_run("APPSCALE_HOME='#{APPSCALE_HOME}' MASTER_IP='localhost' LOCAL_DB_IP='localhost' python2.6 #{prime_script} #{replication}; echo $? > /tmp/retval")
-        retval = `cat /tmp/retval`.to_i
-        break if retval == 0
-        Djinn.log_debug("Fail to create initial table. Retry #{retries} times.")
-        Kernel.sleep(5)
-        retries -= 1
-      end
-      if retval != 0
-        Djinn.log_debug("Fail to create initial table. Could not startup AppScale.")
-        exit(1)
-      end
-    end
-
-    # All nodes have application managers
-    start_app_manager_server
-
-    # start soap server and pb server
-    if has_soap_server?(my_node)
-      @state = "Starting up SOAP Server and PBServer"
-      start_pbserver
-      start_soap_server
-      HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip, UserAppClient::SERVER_PORT)
-    end
-
-    start_blobstore_server if my_node.is_appengine?
-
-    if my_node.is_rabbitmq_master?
-      start_rabbitmq_master
-    elsif my_node.is_rabbitmq_slave?
-      start_rabbitmq_slave
-    end
+    start_api_services()
 
     # for neptune jobs, start a place where they can save output to
     # also, since repo does health checks on the app engine apis, start it up there too
@@ -2043,6 +2167,126 @@ class Djinn
 
     # appengine is started elsewhere
   end
+
+
+  # Starts all of the services that this node has been assigned to run.
+  # Also starts all services that all nodes run in an AppScale deployment.
+  def start_api_services()
+    # ejabberd uses uaserver for authentication
+    # so start it after we find out the uaserver's ip
+
+    threads = []
+    if my_node.is_login?
+      threads << Thread.new {
+        start_ejabberd()
+      }
+    end
+
+    @done_initializing = true
+
+    # start zookeeper
+    threads << Thread.new {
+      if my_node.is_zookeeper?
+        configure_zookeeper(@nodes, @my_index)
+        init = !(@creds.include?("keep_zookeeper_data"))
+        start_zookeeper(init)
+      end
+
+      ZKInterface.init(my_node, @nodes)
+    }
+
+    if my_node.is_load_balancer?
+      threads << Thread.new {
+        start_load_balancer()
+      }
+    end
+
+    if my_node.is_memcache?
+      threads << Thread.new {
+        start_memcache()
+      }
+    end
+
+    if my_node.is_db_master?
+      threads << Thread.new {
+        start_db_master()
+        # create initial tables
+        if (my_node.is_db_master? || (defined?(is_priming_needed?) && is_priming_needed?(my_node))) && !restore_from_db?
+          table = @creds['table']
+          prime_script = "#{APPSCALE_HOME}/AppDB/#{table}/prime_#{table}.py"
+          retries = 10
+          retval = 0
+          while retries > 0
+            replication = @creds["replication"]
+            Djinn.log_run("APPSCALE_HOME='#{APPSCALE_HOME}' MASTER_IP='localhost' LOCAL_DB_IP='localhost' python2.6 #{prime_script} #{replication}; echo $? > /tmp/retval")
+            retval = `cat /tmp/retval`.to_i
+            break if retval == 0
+            Djinn.log_debug("Fail to create initial table. Retry #{retries} times.")
+            Kernel.sleep(5)
+            retries -= 1
+          end
+          if retval != 0
+            Djinn.log_debug("Fail to create initial table. Could not startup AppScale.")
+            exit(1)
+          end
+        end
+
+        # Currently we always run the Datastore Server (PBServer) and SOAP
+        # server on the same nodes.
+        # TODO(cgb): Rename PBServer to Datastore Server throughout.
+        if has_soap_server?(my_node)
+          @state = "Starting up SOAP Server and PBServer"
+          start_pbserver()
+          start_soap_server()
+          HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip, UserAppClient::SERVER_PORT)
+        end
+      }
+    end
+
+    if my_node.is_db_slave?
+      threads << Thread.new {
+        start_db_slave()
+
+        # Currently we always run the Datastore Server (PBServer) and SOAP
+        # server on the same nodes.
+        # TODO(cgb): Rename PBServer to Datastore Server throughout.
+        if has_soap_server?(my_node)
+          @state = "Starting up SOAP Server and PBServer"
+          start_pbserver()
+          start_soap_server()
+          HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip, UserAppClient::SERVER_PORT)
+        end
+      }
+    end
+
+    # All nodes have application managers
+    threads << Thread.new {
+      start_app_manager_server()
+    }
+
+    if my_node.is_appengine?
+      threads << Thread.new {
+        start_blobstore_server()
+      }
+    end
+
+    if my_node.is_rabbitmq_master?
+      threads << Thread.new {
+        start_rabbitmq_master()
+      }
+    elsif my_node.is_rabbitmq_slave?
+      threads << Thread.new {
+        start_rabbitmq_slave()
+      }
+    end
+
+    # App Engine apps rely on the above services to be started, so
+    # join all our threads here
+    Djinn.log_debug("Waiting for all services to finish starting up")
+    threads.each { |t| t.join() }
+    Djinn.log_debug("API services have started on this node")
+  end
+
 
   def start_blobstore_server
     db_local_ip = @userappserver_private_ip
@@ -2182,7 +2426,7 @@ class Djinn
     
     creds = @creds.to_a.flatten
     Djinn.log_debug("Djinn locations: #{@nodes.join(', ')}")
-    Djinn.log_debug("DB Credentials: #{@creds.inspect}")
+    Djinn.log_debug("DB Credentials: #{HelperFunctions.obscure_creds(@creds).inspect}")
     Djinn.log_debug("Apps to load: #{@app_names.join(', ')}")
 
     Djinn.log_debug("Appengine info: #{appengine_info}")
@@ -2223,7 +2467,7 @@ class Djinn
   def initialize_nodes_in_parallel(node_info)
     threads = []
     node_info.each { |slave|
-      threads << Thread.new { 
+      threads << Thread.new {
         initialize_node(slave)
       }
     }
@@ -2260,6 +2504,7 @@ class Djinn
 
   def copy_encryption_keys(dest_node)
     ip = dest_node.private_ip
+    Djinn.log_debug("Copying SSH keys to node at IP address #{ip}")
     ssh_key = dest_node.ssh_key
 
     HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
@@ -2271,9 +2516,9 @@ class Djinn
       Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 ubuntu@#{ip} '#{enable_root_login}'")
     end
 
-    secret_key_loc = "/etc/appscale/secret.key"
-    cert_loc = "/etc/appscale/certs/mycert.pem"
-    key_loc = "/etc/appscale/certs/mykey.pem"
+    secret_key_loc = "#{CONFIG_FILE_LOCATION}/secret.key"
+    cert_loc = "#{CONFIG_FILE_LOCATION}/certs/mycert.pem"
+    key_loc = "#{CONFIG_FILE_LOCATION}/certs/mykey.pem"
     pub_key = File.expand_path("~/.ssh/id_rsa.pub")
 
     HelperFunctions.scp_file(secret_key_loc, secret_key_loc, ip, ssh_key)
@@ -2287,7 +2532,7 @@ class Djinn
       loop {
         cloud_type = @creds["CLOUD_TYPE"]
         break if cloud_type.nil? or cloud_type == ""
-        cloud_keys_dir = File.expand_path("/etc/appscale/keys/cloud#{cloud_num}")
+        cloud_keys_dir = File.expand_path("#{CONFIG_FILE_LOCATION}/keys/cloud#{cloud_num}")
         make_dir = "mkdir -p #{cloud_keys_dir}"
 
         keyname = @creds["keyname"]
@@ -2302,7 +2547,7 @@ class Djinn
         cloud_num += 1
       }
     else
-      cloud_keys_dir = File.expand_path("/etc/appscale/keys/cloud1")
+      cloud_keys_dir = File.expand_path("#{CONFIG_FILE_LOCATION}/keys/cloud1")
       make_dir = "mkdir -p #{cloud_keys_dir}"
 
       cloud_private_key = "#{cloud_keys_dir}/mykey.pem"
@@ -2386,39 +2631,93 @@ class Djinn
     Djinn.log_debug("Master is at #{master_ip}, slaves are at #{slave_ips.join(', ')}")
 
     my_public = my_node.public_ip
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/my_public_ip", "#{my_public}\n")
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/my_public_ip", "#{my_public}\n")
 
     my_private = my_node.private_ip
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/my_private_ip", "#{my_private}\n")
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/my_private_ip", "#{my_private}\n")
    
     head_node_ip = get_public_ip(@creds['hostname'])
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/head_node_ip", "#{head_node_ip}\n")
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/head_node_ip", "#{head_node_ip}\n")
 
     login_ip = get_login.public_ip
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/login_ip", "#{login_ip}\n")
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/login_ip", "#{login_ip}\n")
     
-    masters_file = "#{APPSCALE_HOME}/.appscale/masters"
+    masters_file = "#{CONFIG_FILE_LOCATION}/masters"
     HelperFunctions.write_file(masters_file, "#{master_ip}\n")
 
     if @total_boxes == 1
+      Djinn.log_debug("Only saw one machine, therefore my node is " +
+        "also a slave node")
       slave_ips = [ my_private ]
     end
     
     slave_ips_newlined = slave_ips.join("\n")
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/slaves", "#{slave_ips_newlined}\n")
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/slaves", "#{slave_ips_newlined}\n")
 
     # Invoke datastore helper function
     setup_db_config_files(master_ip, slave_ips, @creds)
 
+    update_hosts_info()
+
+    # use iptables to lock down outside traffic
+    # nodes can talk to each other on any port
+    # but only the outside world on certain ports
+    #`iptables --flush`
+    if FIREWALL_IS_ON
+      Djinn.log_run("bash #{APPSCALE_HOME}/firewall.conf")
+    end
+  end
+
+  # Writes a file to the local filesystem that contains the IP address
+  # of a machine that runs the AppLoadBalancer. AppServers use this file
+  # to know where to send users to log in. Because users have to be able
+  # to access this IP address, we use the public IP here instead of the
+  # private IP.
+  def write_apploadbalancer_location()
+    login_file = "#{CONFIG_FILE_LOCATION}/apploadbalancer_public_ip"
+    login_ip = get_login.public_ip()
+    HelperFunctions.write_file(login_file, login_ip)
+  end
+
+
+  # Writes a file to the local filesystem that contains the IP
+  # address of the 'nearest' machine running the RabbitMQ service.
+  # 'Nearest' is defined as being this node's IP if our node runs RabbitMQ,
+  # or a random node that runs RabbitMQ otherwise.
+  def find_nearest_rabbitmq()
+    rabbitmq_ip = nil
+    if my_node.is_rabbitmq_master? or my_node.is_rabbitmq_slave?
+      rabbitmq_ip = my_node.private_ip
+    end
+
+    if rabbitmq_ip.nil?
+      rabbitmq_ips = []
+      @nodes.each { |node|
+        if node.is_rabbitmq_master? or node.is_rabbitmq_slave?
+          rabbitmq_ips << node.private_ip
+        end
+      }
+      Djinn.log_debug("RabbitMQ servers are at #{rabbitmq_ips.join(', ')}")
+
+      # pick one at random
+      rabbitmq_ip = rabbitmq_ips.sort_by { rand }[0]
+    end
+
+    Djinn.log_debug("AppServers on this node will connect to RabbitMQ " +
+      "at #{rabbitmq_ip}")
+    rabbitmq_file = "#{CONFIG_FILE_LOCATION}/rabbitmq_ip"
+    rabbitmq_contents = rabbitmq_ip
+    HelperFunctions.write_file(rabbitmq_file, rabbitmq_contents)
+  end
+
+  # Updates files on this machine with information about our hostname
+  # and a mapping of where other machines are located.
+  def update_hosts_info()
     all_nodes = ""
     @nodes.each_with_index { |node, index|
       all_nodes << "#{node.private_ip} appscale-image#{index}\n"
     }
     
-    etc_hosts = "/etc/hosts"
-    my_hostname = "appscale-image#{@my_index}"
-    etc_hostname = "/etc/hostname"
-
     new_etc_hosts = <<HOSTS
 127.0.0.1 localhost.localdomain localhost
 127.0.1.1 localhost
@@ -2431,32 +2730,41 @@ ff02::3 ip6-allhosts
 #{all_nodes}
 HOSTS
 
+    etc_hosts = "/etc/hosts"
     File.open(etc_hosts, "w+") { |file| file.write(new_etc_hosts) }    
+
+    etc_hostname = "/etc/hostname"
+    my_hostname = "appscale-image#{@my_index}"
     File.open(etc_hostname, "w+") { |file| file.write(my_hostname) }
 
-    # on ubuntu jaunty, we can change the hostname by running hostname.sh
-    # on karmic, this file doesn't exist - run /bin/hostname instead
-    # TODO: does the fix for karmic hold for lucid?
-
-    jaunty_hostname_file = "/etc/init.d/hostname.sh"
-
-    if File.exists?(jaunty_hostname_file)
-      Djinn.log_run("/etc/init.d/hostname.sh")
-    else
-      Djinn.log_run("/bin/hostname #{my_hostname}")
-    end
-
-    # use iptables to lock down outside traffic
-    # nodes can talk to each other on any port
-    # but only the outside world on certain ports
-    #`iptables --flush`
-    if FIREWALL_IS_ON
-      Djinn.log_run("bash #{APPSCALE_HOME}/firewall.conf")
-    end
+    Djinn.log_run("/bin/hostname #{my_hostname}")
   end
 
+
+  # Writes new nginx configuration files for the App Engine applications
+  # hosted in this deployment. Callers should invoke this method whenever
+  # there is a change in the number of machines hosting App Engine apps.
+  def regenerate_nginx_config_files()
+    Djinn.log_debug("Regenerating nginx config files for App Engine apps")
+    my_public = my_node.public_ip
+    my_private = my_node.private_ip
+    login_ip = get_login.private_ip
+
+    Djinn.log_debug("@app_info_map is #{@app_info_map.inspect}")
+    @apps_loaded.each { |app|  
+      Djinn.log_debug("Regenerating nginx config for app #{app}")
+      app_number = @app_info_map[app]['nginx'] - Nginx::START_PORT
+      proxy_port = HAProxy.app_listen_port(app_number)
+      Nginx.write_fullproxy_app_config(app, app_number, my_public,
+        my_private, proxy_port, login_ip, get_all_appengine_nodes())
+    }
+    Djinn.log_debug("Done writing new nginx config files!")
+    Nginx.reload()
+  end
+
+
   def write_hypersoap()
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/hypersoap", @userappserver_private_ip)
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/hypersoap", @userappserver_private_ip)
   end
 
   def my_node()
@@ -2504,7 +2812,7 @@ HOSTS
 
     # remove any possible appcontroller state that may not have been
     # properly removed in non-cloud runs
-    remove_state = "rm -rf /etc/appscale/appcontroller-state.json"
+    remove_state = "rm -rf #{CONFIG_FILE_LOCATION}/appcontroller-state.json"
     HelperFunctions.run_remote_command(ip, remove_state, ssh_key, NO_OUTPUT)
 
     GodInterface.start_god(ip, ssh_key)
@@ -2698,6 +3006,7 @@ HOSTS
         app_number = @nginx_port - Nginx::START_PORT
         proxy_port = HAProxy.app_listen_port(app_number)
         login_ip = get_login.private_ip
+
         if my_node.is_login? and !my_node.is_appengine?
           success = Nginx.write_fullproxy_app_config(app, app_number, my_public,
             my_private, proxy_port, login_ip, get_all_appengine_nodes())
@@ -2708,6 +3017,10 @@ HOSTS
                       " for application #{app} full proxy."
             place_error_app(app, err_msg)
           end
+
+          @app_info_map[app]['nginx'] = @nginx_port
+          @app_info_map[app]['haproxy'] = @haproxy_port
+
           @nginx_port += 1
           @haproxy_port += 1
         end
@@ -2759,7 +3072,7 @@ HOSTS
                   "#{app}. Please check the application logs.") 
             end
 
-            pid_file_name = "/etc/appscale/#{app}-#{@appengine_port}.pid"
+            pid_file_name = "#{CONFIG_FILE_LOCATION}/#{app}-#{@appengine_port}.pid"
             HelperFunctions.write_file(pid_file_name, pid)
 
             @appengine_port += 1
@@ -3128,7 +3441,7 @@ HOSTS
       Djinn.log_debug("ERROR: Unable to start application #{app} on port #{@appengine_port}.") 
       next
     end
-    pid_file_name = "#{APPSCALE_HOME}/.appscale/#{app}-#{@appengine_port}.pid"
+    pid_file_name = "#{CONFIG_FILE_LOCATION}/#{app}-#{@appengine_port}.pid"
     HelperFunctions.write_file(pid_file_name, pid)
 
     @appengine_port += 1

@@ -64,6 +64,7 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "backup_appscale", "backup_in_info", "secret")
     add_method(@djinn, "add_role", "new_role", "secret")
     add_method(@djinn, "remove_role", "old_role", "secret")
+    add_method(@djinn, "start_roles_on_nodes", "ips_hash", "secret")
   end
 end
 
