@@ -19,8 +19,7 @@ require 'pbserver'
 # configures and deploys nginx within AppScale.
 module Nginx
 
-
-  NGINX_PATH = File.join("/", "usr", "local", "nginx", "conf")
+  NGINX_PATH = "/usr/local/nginx/conf"
 
 
   SITES_ENABLED_PATH = File.join(NGINX_PATH, "sites-enabled")
