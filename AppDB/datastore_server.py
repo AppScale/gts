@@ -162,8 +162,8 @@ class DatastoreDistributed():
     """ Returns a key for the kind table
     
     Args:
-        prefix: app name and namespace string
-        key_path: key path to build row key with
+        prefix: App name and namespace string
+        key_path: Key path to build row key with
     Returns:
         Row key for kind table
     """
@@ -1545,12 +1545,10 @@ class DatastoreDistributed():
       cursor = cassandra_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
       prefix = self.get_table_prefix(query)
-      startrow = self.__get_start_key(prefix, prop_name, order, last_result)
+      startrow = self.get_kind_key(prefix, last_result.key().path())
       start_inclusive = self._DISABLE_INCLUSIVITY
 
     limit = query.limit() or self._MAXIMUM_RESULTS
-
-  
     result = self.datastore_batch.range_query(dbconstants.APP_KIND_TABLE, 
                                               dbconstants.APP_KIND_SCHEMA, 
                                               startrow, 
