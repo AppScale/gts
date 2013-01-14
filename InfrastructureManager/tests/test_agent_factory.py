@@ -1,7 +1,10 @@
 from agents.ec2_agent import EC2Agent
 from agents.euca_agent import EucalyptusAgent
 from agents.factory import InfrastructureAgentFactory
-from unittest import TestCase
+try:
+  from unittest import TestCase
+except ImportError:
+  from unittest.case import TestCase
 
 __author__ = 'hiranya'
 __email__ = 'hiranya@appscale.com'

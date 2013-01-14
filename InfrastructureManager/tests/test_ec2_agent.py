@@ -8,8 +8,12 @@ from boto.exception import EC2ResponseError
 from flexmock import flexmock
 from infrastructure_manager import InfrastructureManager
 import time
-from unittest import TestCase
 from utils import utils
+try:
+  from unittest import TestCase
+except ImportError:
+  from unittest.case import TestCase
+
 
 __author__ = 'hiranya'
 __email__ = 'hiranya@appscale.com'

@@ -1,11 +1,15 @@
 from time import sleep
-from unittest import TestCase
 import thread
 from flexmock import flexmock
 from infrastructure_manager import InfrastructureManager
 from infrastructure_manager_service import InfrastructureManagerService
 from utils import utils
 import SOAPpy
+try:
+  from unittest import TestCase
+except ImportError:
+  from unittest.case import TestCase
+
 
 __author__ = 'hiranya'
 __email__ = 'hiranya@appscale.com'
