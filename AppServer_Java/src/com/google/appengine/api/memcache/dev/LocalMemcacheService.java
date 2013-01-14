@@ -31,7 +31,6 @@ import com.google.appengine.api.memcache.MemcacheServicePb;
 import com.google.appengine.repackaged.com.google.protobuf.ByteString;
 import com.google.appengine.tools.development.AbstractLocalRpcService;
 import com.google.appengine.tools.development.Clock;
-import com.google.appengine.tools.development.LatencyPercentiles;
 import com.google.appengine.tools.development.LocalRpcService;
 import com.google.appengine.tools.development.LocalServiceContext;
 import com.google.appengine.tools.development.ServiceProvider;
@@ -348,7 +347,6 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
         return result.build();
     }
 
-    @LatencyPercentiles(latency50th = 4)
     public MemcacheServicePb.MemcacheDeleteResponse delete( LocalRpcService.Status status, MemcacheServicePb.MemcacheDeleteRequest req )
     {
         /*
