@@ -125,17 +125,17 @@ else:
   server = SOAPpy.SOAPProxy("http://" + app_location + ":" + str(bindport))
 
 def createUser():
-  username = helper_functions.randomString(10) 
+  username = helper_functions.random_string(10) 
   username += "@"
-  username += helper_functions.randomString(5)
+  username += helper_functions.random_string(5)
   username += "."
-  username += helper_functions.randomString(3)
-  password = helper_functions.randomString(10)
+  username += helper_functions.random_string(3)
+  password = helper_functions.random_string(10)
   return username, password
 
 def createApp():
-  name = helper_functions.randomString(10)
-  tar = helper_functions.randomString(1000)
+  name = helper_functions.random_string(10)
+  tar = helper_functions.random_string(1000)
   return name, tar
 
 def err(test_num, code):
@@ -444,7 +444,7 @@ if "token:notSet" not in ret:
 #################
 # Change password
 #################
-newpw = helper_functions.randomString(10)
+newpw = helper_functions.random_string(10)
 ret = server.change_password(user[0], newpw, super_secret)
 if ret != "true":
   err(helper_functions.lineno(), ret)
@@ -475,8 +475,8 @@ if "Error" not in ret:
 ########################
 # Committing a new token
 ########################
-token = helper_functions.randomString(10)
-token_exp = helper_functions.randomString(10)
+token = helper_functions.random_string(10)
+token_exp = helper_functions.random_string(10)
 ret = server.commit_new_token(user[0], token, token_exp, super_secret)
 if ret != "true":
   err(helper_functions.lineno(), ret)
@@ -525,7 +525,7 @@ if ret != "true":
 #################
 # Commit a new ip
 #################
-ip = helper_functions.randomString(10)
+ip = helper_functions.random_string(10)
 ret = server.commit_ip(ip, user[0], super_secret)
 if ret != "true":
   err(helper_functions.lineno(), ret)
@@ -566,7 +566,7 @@ if "version: 0" not in ret:
 ################################################
 # Commit tar ball for an app that does not exist
 ################################################
-tar = helper_functions.randomString(10000)
+tar = helper_functions.random_string(10000)
 ret = server.commit_tar("xxx", tar, super_secret)
 if ret != "Error: app does not exist":
   err(helper_functions.lineno(), ret)  
@@ -622,13 +622,13 @@ if ret != "true":
 ##################
 # Commit instances
 ##################
-host1 = helper_functions.randomString(10)
-port1 = helper_functions.randomString(4)
+host1 = helper_functions.random_string(10)
+port1 = helper_functions.random_string(4)
 ret =server.add_instance(app[0], host1, port1, super_secret)
 if ret != "true":
   err(helper_functions.lineno(), ret)
-host2 = helper_functions.randomString(10)
-port2 = helper_functions.randomString(4)
+host2 = helper_functions.random_string(10)
+port2 = helper_functions.random_string(4)
 ret = server.add_instance(app[0], host2, port2, super_secret)
 if ret != "true":
   err(helper_functions.lineno(), ret)
@@ -643,14 +643,14 @@ or host2 not in ret or port2 not in ret:
 ####################
 # Add class to app
 ####################
-appclass1 = helper_functions.randomString(10)
+appclass1 = helper_functions.random_string(10)
 ret = server.add_class(app[0], appclass1, "xxx", super_secret)
 if ret != "true":
   err(helper_functions.lineno(), ret)
 ####################
 # Add class to app
 ####################
-appclass2 = helper_functions.randomString(10)
+appclass2 = helper_functions.random_string(10)
 ret = server.add_class(app[0], appclass2, "xxx", super_secret)
 if ret != "true":
   err(helper_functions.lineno(), ret)
@@ -771,7 +771,7 @@ if "enabled:false" not in ret:
 ########################
 # Commit a new tar ball
 #######################
-tar2 = helper_functions.randomString(10000)
+tar2 = helper_functions.random_string(10000)
 ret = server.commit_tar(app[0], tar2, super_secret)
 if ret != "true":
   err(helper_function.lineno(), ret)

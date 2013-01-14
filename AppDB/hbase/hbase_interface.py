@@ -12,7 +12,7 @@ from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
 import file_io
 
 # Thrift port to connect to HBase
