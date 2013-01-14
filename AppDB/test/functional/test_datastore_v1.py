@@ -35,13 +35,13 @@ def err(test_num, code):
 def createRandomList(number_of_columns, column_name_len):
   columns = [] 
   for ii in range(0, number_of_columns):
-    columns += [hf.randomString(column_name_len)]
+    columns += [hf.random_string(column_name_len)]
   return columns
 start = time.time()
 columns = createRandomList(NUM_COLUMNS, 10)
 data = createRandomList(NUM_COLUMNS, 100)
-table_name = hf.randomString(10)
-key = hf.randomString(10)
+table_name = hf.random_string(10)
+key = hf.random_string(10)
 print "key= " + key
 print "table= " + table_name
 app_datastore = appscale_datastore.DatastoreFactory.getDatastore(datastore_type)
@@ -95,7 +95,7 @@ for ii in range(0, NUM_COLUMNS):
 #####################################
 # Get and a delete on invalid row key
 #####################################
-invalid_key = hf.randomString(10)
+invalid_key = hf.random_string(10)
 ret = app_datastore.get_entity(table_name, invalid_key, \
   columns)
 if ret[0] in ERROR_CODES:
@@ -115,7 +115,7 @@ if ret[0] not in ERROR_CODES or ret[1] != data[0]:
 # Put on new row
 ###########################
 data2 = createRandomList(NUM_COLUMNS, 100)
-key2 = hf.randomString(10)
+key2 = hf.random_string(10)
 ret = app_datastore.put_entity(table_name, key2, columns, data2)
 if ret[0] not in ERROR_CODES or ret[1] != "0":
   err(hf.lineno(),ret)
@@ -139,7 +139,7 @@ if ret[0] not in ERROR_CODES:
 #################################################
 # There is too much overhead in checking to see if the table exists
 # for cassandra
-invalid_table = hf.randomString(10)
+invalid_table = hf.random_string(10)
 #ret = app_datastore.delete_row(invalid_table, key)
 #if ret[0] in ERROR_CODES:
 #  err(hf.lineno(), ret)
@@ -184,8 +184,8 @@ if ret[0] not in ERROR_CODES or ret[1:] != data:
 ####################################
 # Do a put on first and last columns
 ####################################
-data1 = hf.randomString(10)
-data2 = hf.randomString(10)
+data1 = hf.random_string(10)
+data2 = hf.random_string(10)
 ret = app_datastore.put_entity(table_name, key, [columns[0], \
 columns[NUM_COLUMNS - 1]], [data1, data2])
 if ret[0] not in ERROR_CODES or ret[1] != "0":

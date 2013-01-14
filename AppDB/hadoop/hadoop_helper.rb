@@ -46,7 +46,7 @@ def setup_hadoop_config(master_ip, replication)
   # By default, the Cloudera Hadoop distribution disallows running Hadoop as
   # root. We hack it to re-enable running Hadoop as root.
   # TODO(cgb): Investigate what it would take to not run Hadoop as root.
-  Djinn.log_run("mv #{source_dir}/hadoop #{HADOOP_LOC}/bin")
+  Djinn.log_run("cp #{source_dir}/hadoop #{HADOOP_LOC}/bin")
 end
 
 def start_hadoop_master
