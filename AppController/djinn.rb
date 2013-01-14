@@ -151,12 +151,6 @@ class Djinn
   attr_accessor :my_index
   
   
-  # The number of nodes that are running in this AppScale deployment.
-  # TODO(cgb): It would seem like we could always calculate this with
-  # @nodes.length, so replace it accordingly.
-  attr_accessor :total_boxes
-  
-  
   # The number of dev_appservers that should run for every App Engine
   # application.
   attr_accessor :num_appengines
@@ -369,7 +363,6 @@ class Djinn
     @userappserver_public_ip = "not-up-yet"
     @userappserver_private_ip = "not-up-yet"
     @state = "AppController just started"
-    @total_boxes = 0
     @num_appengines = 1
     @restored = false
     @neptune_jobs = {}
@@ -2105,12 +2098,6 @@ class Djinn
     my_data = my_node
     jobs_to_run = my_data.jobs
     
-    if @creds['ips']
-      @total_boxes = @nodes.length
-    elsif @creds['min_images']
-      @total_boxes = Integer(@creds['min_images'])
-    end
-
     Djinn.log_debug("Pre-loop: #{@nodes.join('\n')}")
     if my_node.is_shadow?
       # TODO(cgb): Check to make sure the machines aren't already
@@ -2645,7 +2632,7 @@ class Djinn
     masters_file = "#{CONFIG_FILE_LOCATION}/masters"
     HelperFunctions.write_file(masters_file, "#{master_ip}\n")
 
-    if @total_boxes == 1
+    if @nodes.length  == 1
       Djinn.log_debug("Only saw one machine, therefore my node is " +
         "also a slave node")
       slave_ips = [ my_private ]

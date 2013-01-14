@@ -1,7 +1,11 @@
 from os import environ
-from unittest.case import TestCase
 from flexmock import flexmock
 from utils import utils
+try:
+  from unittest import TestCase
+except ImportError:
+  from unittest.case import TestCase
+
 
 __author__ = 'hiranya'
 __email__ = 'hiranya@appscale.com'

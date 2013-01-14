@@ -78,6 +78,13 @@ namespace :python do
 
 end
 
+namespace :appmanager do
+  
+  task :test do
+   sh "nosetests AppManager/test/unit"
+  end
+
+end
 
 namespace :infrastructuremanager do
 
@@ -87,5 +94,22 @@ namespace :infrastructuremanager do
 
 end
 
+namespace :appdb do
 
-task :default => ['appcontroller:test', 'neptunemanager:test', 'python:test', 'infrastructuremanager:test']
+  task :test do
+    sh "nosetests AppDB/test/unit"
+  end
+
+end
+
+namespace :lib do
+
+  task :test do
+    sh "nosetests lib/test/unit"
+  end
+
+end
+
+
+
+task :default => ['appcontroller:test', 'neptunemanager:test', 'infrastructuremanager:test', 'appmanager:test', 'appdb:test', 'lib:test']
