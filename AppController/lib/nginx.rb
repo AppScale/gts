@@ -54,8 +54,13 @@ module Nginx
     self.start
   end
 
+  # Reload nginx if it is already running. If nginx is not running, start it.
   def self.reload
-    HelperFunctions.shell("/usr/local/nginx/sbin/nginx -s reload")
+    if Nginx.is_running?
+      HelperFunctions.shell("/usr/local/nginx/sbin/nginx -s reload")
+    else
+      Nginx.start 
+    end
   end
 
   def self.is_running?
