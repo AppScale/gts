@@ -152,10 +152,6 @@ class MailServiceStub(apiproxy_stub.APIProxyStub):
       mime_message: MimeMessage to send.  Create using ToMIMEMessage.
       popen: popen function to create a new sub-process.
     """
-    if not users.is_current_user_admin():
-      raise mail_errors.InvalidSenderError(
-            "You must log in as the administrator to send mail.")
-
     try:
       tos = [mime_message[to] for to in ['To', 'Cc', 'Bcc'] if mime_message[to]]
       sendmail_command = [sendmail_command] + tos
