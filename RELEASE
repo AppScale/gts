@@ -4,7 +4,32 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
-The current release is 1.6.5, released December 19, 2012.
+The current release is 1.6.6, released on January 21, 2013.
+
+Bugs fixed in this release:
+- Support Python 2.7 App Engine apps
+- Fixed ACID semantics for transactions
+- Add nodes dynamically to a running AppScale deployment
+- SSL support for App Engine apps
+- Upgrade nginx to latest stable version and include HTTP chunking support
+- AppController revives properly after being killed
+- Cookies do not get created in certain deployment types
+- Cookies do not get deleted if > 1 eth device present
+- Turn on HRD flag in Python AppServer
+- Added AppScalefile support, making it easier to run AppScale
+- Add in 'appscale logs' command to automatically collect log files
+- Add in 'appscale tail' command to automatically tail log files
+- Add in 'appscale down' to alias to 'appscale destroy'
+- Add in 'appscale ssh' to ssh to AppScale VMs
+- Added Watchfile for continuous testing support
+- Remove binary from beginning of locations.yaml file
+- Start unrelated API services in parallel to improve startup time
+- Make tools print version number on startup
+- Fix bulkloader to support batching
+- Python and Java API fidelity testing apps (Hawkeye)
+- Obscuring EC2 credentials after a regression exposed them
+
+AppScale version 1.6.5 was released December 19, 2012.
 
 Bugs fixed in this release:
 
