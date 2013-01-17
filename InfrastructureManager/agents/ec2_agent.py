@@ -127,33 +127,6 @@ class EC2Agent(BaseAgent):
       if not utils.has_parameter(param, parameters):
         raise AgentConfigurationException('no ' + param)
 
-  def describe_instances(self, parameters):
-    """
-    Retrieves the list of running instances that have been instantiated using a
-    particular EC2 keyname. The target keyname is read from the input parameter
-    map. (Also see documentation for the BaseAgent class)
-
-    Args:
-      parameters  A dictionary containing the 'keyname' parameter
-
-    Returns:
-      A tuple of the form (public_ips, private_ips, instances) where each
-      member is a list.
-    """
-    instance_ids = []
-    public_ips = []
-    private_ips = []
-
-    conn = self.open_connection(parameters)
-    reservations = conn.get_all_instances()
-    instances = [i for r in reservations for i in r.instances]
-    for i in instances:
-      if i.state == 'running' and i.key_name == parameters[self.PARAM_KEYNAME]:
-        instance_ids.append(i.id)
-        public_ips.append(i.public_dns_name)
-        private_ips.append(i.private_dns_name)
-    return public_ips, private_ips, instance_ids
-
   def run_instances(self, count, parameters, security_configured):
     """
     Spawns the specified number of EC2 instances using the parameters
@@ -190,7 +163,14 @@ class EC2Agent(BaseAgent):
     try:
       attempts = 1
       while True:
-        instance_info = self.describe_instances(parameters)
+        instances = self.__describe_instances(parameters)
+        term_instance_info = self.__get_instance_info(instances,
+          'terminated', keyname)
+        if len(term_instance_info[2]):
+          self.handle_failure('One or more nodes started with key {0} have '\
+                              'been terminated'.format(keyname))
+        instance_info = self.__get_instance_info(instances,
+          'running', keyname)
         active_public_ips = instance_info[0]
         active_private_ips = instance_info[1]
         active_instances = instance_info[2]
@@ -224,7 +204,14 @@ class EC2Agent(BaseAgent):
       while now < end_time:
         time_left = (end_time - now).seconds
         utils.log('[{0}] {1} seconds left...'.format(now, time_left))
-        instance_info = self.describe_instances(parameters)
+        instances = self.__describe_instances(parameters)
+        term_instance_info = self.__get_instance_info(instances,
+          'terminated', keyname)
+        if len(term_instance_info[2]):
+          self.handle_failure('One or more nodes started with key {0} have '\
+                              'been terminated'.format(keyname))
+        instance_info = self.__get_instance_info(instances,
+          'running', keyname)
         public_ips = instance_info[0]
         private_ips = instance_info[1]
         instance_ids = instance_info[2]
@@ -331,3 +318,43 @@ class EC2Agent(BaseAgent):
     utils.log(msg)
     raise AgentRuntimeException(msg)
 
+  def __describe_instances(self, parameters):
+    """
+    Query the back-end EC2 services for instance details and return
+    a list of instances. This is equivalent to running the standard
+    ec2-describe-instances command. The returned list of instances
+    will contain all the running and pending instances and it might
+    also contain some recently terminated instances.
+
+    Args:
+      parameters  A dictionary of parameters
+
+    Returns:
+      A list of instances (element type definition in boto.ec2 package)
+    """
+    conn = self.open_connection(parameters)
+    reservations = conn.get_all_instances()
+    instances = [i for r in reservations for i in r.instances]
+    return instances
+
+  def __get_instance_info(self, instances, status, keyname):
+    """
+    Filter out a list of instances by instance status and keyname.
+
+    Args:
+      instances A list of instances as returned by __describe_instances
+      status  Status of the VMs (eg: running, terminated)
+      keyname Keyname used to spawn instances
+
+     Returns:
+      A tuple of the form (public ips, private ips, instance ids)
+    """
+    instance_ids = []
+    public_ips = []
+    private_ips = []
+    for i in instances:
+      if i.state == status and i.key_name == keyname:
+        instance_ids.append(i.id)
+        public_ips.append(i.public_dns_name)
+        private_ips.append(i.private_dns_name)
+    return public_ips, private_ips, instance_ids
