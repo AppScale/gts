@@ -38,16 +38,16 @@ module UsersHelper
     !get_destination_url.nil? && !cookies[:dev_appserver_login].nil?
   end
 
-  def has_valid_token?(ip)
-    return false if ip.nil? || !cookies[:dev_appserver_login].nil?
+  def has_valid_token?(email)
+    return false if email.nil? || !cookies[:dev_appserver_login].nil?
 
-    token_data = DBFrontend.get_token(ip)
+    token_data = DBFrontend.get_token(email)
 
     return false if token_data.nil? 
     return false if token_data == "Error: user not found"
 
     # next release: enforce exp date here
-    exp_date, server_token = parse_token_data(ip, token_data)
+    exp_date, server_token = parse_token_data(email, token_data)
 
     client_token = session[:appengine_token]
     
@@ -58,7 +58,7 @@ module UsersHelper
     end
   end
 
-  def parse_token_data(ip, token_data)
+  def parse_token_data(email, token_data)
     exp_date = token_data.scan(/token_exp:([0-9]+)/).to_s
     server = token_data.scan(/token:([0-9A-Z]+)/).to_s
     return [exp_date, server]

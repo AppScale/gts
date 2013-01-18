@@ -242,7 +242,11 @@ class ZKTransaction:
       retry = False
       path = None
       try:
-        path = zookeeper.create(self.handle, PATH_SEPARATOR.join([rootpath, APP_TX_PREFIX]), value, ZOO_ACL_OPEN, zookeeper.SEQUENCE)
+        path = zookeeper.create(self.handle, 
+                                PATH_SEPARATOR.join([rootpath, APP_TX_PREFIX]), 
+                                value, 
+                                ZOO_ACL_OPEN, 
+                                zookeeper.SEQUENCE)
         if path:
           id = long(path.split(PATH_SEPARATOR)[-1].lstrip(APP_TX_PREFIX))
           if id == 0:
@@ -264,9 +268,11 @@ class ZKTransaction:
     self.__waitForConnect()
     txpath = self.__getTransactionPath(app_id, txid)
     if self.isBlacklisted(app_id, txid):
-      raise ZKTransactionException(ZKTransactionException.TYPE_EXPIRED, "Transaction %d is timeout." % txid)
+      raise ZKTransactionException(ZKTransactionException.TYPE_EXPIRED, 
+            "zktransaction.checkTransaction: Transaction %d is timeout." % txid)
     if not zookeeper.exists(self.handle, txpath):
-      raise ZKTransactionException(ZKTransactionException.TYPE_INVALID, "TransactionID %d is not valid." % txid)
+      raise ZKTransactionException(ZKTransactionException.TYPE_INVALID, 
+            "zktransaction.checkTransaction: TransactionID %d is not valid." % txid)
     return True
 
   def acquireLock(self, app_id, txid, entity_key = GLOBAL_LOCK_KEY):
@@ -274,7 +280,13 @@ class ZKTransaction:
 
     You must call getTransactionID() first to obtain transaction ID.
     You could call this method anytime if the root entity key is same.
-    If you could not get lock, this returns False.
+    Args:
+      app_id: The application ID to acquire a lock for.
+      txid: The transaction ID you are acquiring a lock for. Built into 
+            the path. 
+       entity_key: Used to get the root path.
+    Raises:
+      ZKTransactionException: If it could not get the lock.
     """
     self.__waitForConnect()
     txpath = self.__getTransactionPath(app_id, txid)
@@ -284,8 +296,9 @@ class ZKTransaction:
       # use current lock
       prelockpath = zookeeper.get(self.handle, PATH_SEPARATOR.join([txpath, TX_LOCK_PATH]), None)[0]
       if not lockrootpath == prelockpath:
-        raise ZKTransactionException(ZKTransactionException.TYPE_DIFFERENT_ROOTKEY, "You can not lock different root entity in same transaction.")
-      print "already has lock: %s" % lockrootpath
+        raise ZKTransactionException(ZKTransactionException.TYPE_DIFFERENT_ROOTKEY, 
+                                     "zktransaction.acquireLock: You can not lock different root entity in same transaction.")
+      print "Already has lock: %s" % lockrootpath
       return True
 
     self.checkTransaction(app_id, txid)
@@ -301,7 +314,8 @@ class ZKTransaction:
         retry = True
       except zookeeper.NodeExistsException:
         # fail to get lock
-        raise ZKTransactionException(ZKTransactionException.TYPE_CONCURRENT, "There is already another transaction using this lock")
+        raise ZKTransactionException(ZKTransactionException.TYPE_CONCURRENT, 
+                                     "zktransaction.acquireLock: There is already another transaction using this lock")
 
     # set lockpath for transaction node
     # TODO: we should think about atomic operation or recovery of
@@ -330,7 +344,8 @@ class ZKTransaction:
           keylist.append(key)
       return keylist
     except zookeeper.NoNodeException:
-      raise ZKTransactionException(ZKTransactionException.TYPE_INVALID, "TransactionID %d is not valid." % txid)
+      raise ZKTransactionException(ZKTransactionException.TYPE_INVALID, 
+                                  "zktransaction.getUpdatedKeyList: TransactionID %d is not valid." % txid)
 
   def releaseLock(self, app_id, txid, key = None):
     """ Release acquired lock.
@@ -339,6 +354,14 @@ class ZKTransaction:
     if the transaction is not valid or it is expired, this raises Exception.
     After the release lock, you could not use transaction ID again.
     If there is no lock, this method returns False.
+    Args:
+      app_id: The application ID we are releasing a lock for.
+      txid: The transaction ID we are releasing a lock for.
+      key: The entity key we use to build the path.
+    Returns:
+      True on success.
+    Raises:
+      ZKTransactionException: When a lock can not be released. 
     """
     self.__waitForConnect()
     self.checkTransaction(app_id, txid)
@@ -350,7 +373,8 @@ class ZKTransaction:
       if key:
         lockroot = self.__getLockRootPath(app_id, key)
         if not lockroot == lockpath:
-          raise ZKTransactionException(ZKTransactionException.TYPE_DIFFERENT_ROOTKEY, "You can not specify different root entity for release.")
+          raise ZKTransactionException(ZKTransactionException.TYPE_DIFFERENT_ROOTKEY, 
+                               "zktransaction.releaseLock: You can not specify different root entity for release.")
       zookeeper.adelete(self.handle, lockpath)
       has_lock = True
     except zookeeper.NoNodeException:
@@ -482,6 +506,7 @@ class ZKTransaction:
 
     return True
 
+     
   def generateIDBlock(self, app_id, entity_key = GLOBAL_ID_KEY):
     """ Generate ID block for specific key.
 

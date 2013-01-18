@@ -6,13 +6,15 @@
 #
 # Written by Yoshi <nomura@pobox.com>
 
+set -e
+
 if [ -z "$APPSCALE_HOME_RUNTIME" ]; then
     export APPSCALE_HOME_RUNTIME=/opt/appscale
 fi
 #if [ -z "$APPSCALE_HOME" ]; then
  #  export APPSCALE_HOME= /root/appscale/
 #fi 
-export APPSCALE_VERSION=1.6.5
+export APPSCALE_VERSION=1.6.6
 
 increaseconnections()
 {
@@ -47,6 +49,52 @@ ff02::2 ip6-allrouters
 ff02::3 ip6-allhosts
 EOF
 }
+
+installpython27()
+{
+    cd /usr/local
+    wget http://appscale.cs.ucsb.edu/appscale_files/Python-2.7.3.tgz
+    tar zxvf Python-2.7.3.tgz
+    rm /usr/local/Python-2.7.3.tgz
+}
+
+installnumpy()
+{
+    mkdir -pv ${APPSCALE_HOME}/downloads
+    cd ${APPSCALE_HOME}/downloads
+    wget http://appscale.cs.ucsb.edu/appscale_files/appscale-numpy.tar.gz
+    tar zxvf appscale-numpy.tar.gz
+    cd numpy
+    /usr/local/Python-2.7.3/python setup.py install
+    cd ..
+    rm appscale-numpy.tar.gz
+    rm -fdr  numpy
+}
+
+installmatplotlib()
+{
+    mkdir -pv ${APPSCALE_HOME}/downloads
+    cd ${APPSCALE_HOME}/downloads
+    wget http://appscale.cs.ucsb.edu/appscale_files/matplotlib-1.2.0.tar.gz
+    tar zxvf matplotlib-1.2.0.tar.gz
+    cd matplotlib-1.2.0
+    /usr/local/Python-2.7.3/python setup.py install
+    cd ..
+    rm -fdr matplotlib-1.2.0*
+}
+
+installPIL()
+{
+    mkdir -pv ${APPSCALE_HOME}/downloads
+    cd ${APPSCALE_HOME}/downloads
+    wget http://appscale.cs.ucsb.edu/appscale_files/Imaging-1.1.7.tar.gz 
+    tar zxvf Imaging-1.1.7.tar.gz
+    cd Imaging-1.1.7
+    /usr/local/Python-2.7.3/python setup.py install
+    cd ..
+    rm -fdr Imaging-1.1.7*
+}
+
 patchxmpp()
 {
     PYTHON26_XMPP=/usr/lib/python2.6/dist-packages/xmpp/
@@ -175,7 +223,7 @@ installthrift_fromsource()
     tar zxfv thrift-${THRIFT_VER}.tar.gz || exit 1
     rm -v thrift-${THRIFT_VER}.tar.gz
     pushd thrift-${THRIFT_VER}
-    CONFIG_SHELL=/bin/bash /bin/bash ./configure --without-csharp --without-haskell --without-ocaml --without-php --prefix=/usr/local 
+    CONFIG_SHELL=/bin/bash /bin/bash ./configure --without-csharp --without-haskell --without-ocaml --without-php --without-php_extension --prefix=/usr/local
     make || exit 1
 # install native library and include files to DESTDIR.
     make install || exit 1
@@ -502,38 +550,32 @@ postinstallmonitoring()
     :;
 }
 
-installnginx_fromsource()
+installnginx()
 {
-#    apt-get install -y libpcre3 libpcre3-dev
+    NGINX_VERSION=1.2.6
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://appscale.cs.ucsb.edu/appscale_files/nginx-0.6.39.tar.gz || exit 1
-    tar zxvf nginx-0.6.39.tar.gz || exit 1
-    rm -v nginx-0.6.39.tar.gz
-    pushd nginx-0.6.39
-    ./configure --with-http_ssl_module || exit 1
+    wget http://appscale.cs.ucsb.edu/appscale_files/nginx-${NGINX_VERSION}.tar.gz || exit 1
+    tar zxvf nginx-${NGINX_VERSION}.tar.gz || exit 1
+    rm -v nginx-${NGINX_VERSION}.tar.gz
+    pushd nginx-${NGINX_VERSION}
+    wget http://appscale.cs.ucsb.edu/appscale_files/v0.23rc2.tar.gz || exit 1
+    tar zxvf v0.23rc2.tar.gz || exit 1
+    ./configure --add-module=./chunkin-nginx-module-0.23rc2/ --with-http_ssl_module --with-http_gzip_static_module || exit 1
     make || exit 1
     make install || exit 1
     popd
-    rm -rv nginx-0.6.39
-}
-
-installnginx()
-{
-    # we could install using deb package.
-    :;
+    rm -rv nginx-${NGINX_VERSION}
 }
 
 # This function is called from postinst.core, so we don't need to use DESTDIR
-
 postinstallnginx()
 {
-    service nginx stop || true
-    update-rc.d -f nginx remove || true
-
     cd ${APPSCALE_HOME}
-    cp -v AppLoadBalancer/config/load-balancer.conf /etc/nginx/sites-enabled/
-    rm -fv /etc/nginx/sites-enabled/default
+    mkdir -p /usr/local/nginx/sites-enabled/
+    cp -v AppLoadBalancer/config/load-balancer.conf /usr/local/nginx/sites-enabled/
+    rm -fv /usr/local/nginx/sites-enabled/default
+    chmod +x /root
 }
 
 installhadoop()
@@ -674,60 +716,7 @@ postinstallcassandra()
     touch ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}/cassandra
 }
 
-installvoldemort()
-{
-    VOLDEMORT_VER=0.80
 
-    mkdir -p ${APPSCALE_HOME}/AppDB/voldemort
-
-    cd ${APPSCALE_HOME}/AppDB/voldemort
-    rm -rfv voldemort
-    wget http://appscale.cs.ucsb.edu/appscale_files/voldemort-${VOLDEMORT_VER}.tar.gz || exit 1
-    tar xzvf voldemort-${VOLDEMORT_VER}.tar.gz || exit 1
-    mv -v voldemort-${VOLDEMORT_VER} voldemort
-    rm -v voldemort-${VOLDEMORT_VER}.tar.gz
-    cd voldemort
-    ant clean || exit 1
-    ant jar || exit 1
-    chmod -v +x bin/voldemort-server.sh
-    if [ -n "${DESTDIR}" ]; then
-	# remove unnecessary files.
-	rm -rfv contrib docs example src test dist/classes dist/resources
-    fi
-
-    mkdir -p ${DESTDIR}/var/voldemort
-    mkdir -p ${APPSCALE_HOME}/AppDB/voldemort/voldemort/config/appscale/config
-}
-
-postinstallvoldemort()
-{
-    mkdir -p ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}
-    touch ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}/voldemort
-}
-
-installredisdb()
-{
-   REDIS_VER=2.2.11
-   mkdir -p /var/appscale/
-   cd /var/appscale/
-   rm -rfv redisdb
-   wget http://appscale.cs.ucsb.edu/appscale_files/redis-${REDIS_VER}.tar.gz || exit 1
-   tar xzvf redis-${REDIS_VER}.tar.gz || exit 1
-   mv -v redis-${REDIS_VER} redisdb
-   rm -v redis-${REDIS_VER}.tar.gz
-   
-   cd redisdb
-   make || exit 1 
-   easy_install redis || exit 1
-}
-
-postinstallredisdb()
-{
-   mkdir -p ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}
-   touch ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}/redisdb
-} 
-
-  
 installprotobuf_fromsource()
 {
     PROTOBUF_VER=2.3.0
@@ -792,142 +781,6 @@ postinstallmysql()
     touch ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}/mysql
 }
 
-installmongodb()
-{
-    # we can install mongodb from deb package now.
-    # previous version is no longer located in the official repository.
-    # should we store it our own server?
-    MONGO_VER=20100326
-
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    ARCH=`uname -m`
-    if [ "$ARCH" = "x86_64" ]; then
-	ARCH="amd64"
-    fi
-    if [ "$ARCH" = "i686" ]; then
-	ARCH="i386"
-    fi
-
-    # only for jaunty and karmic. we don't need this from lucid.
-    # download from official site
-#    if [ "$DIST" = "jaunty" ]; then
-#	wget http://downloads.mongodb.org/distros/ubuntu/dists/9.4/10gen/binary-${ARCH}/mongodb-stable_${MONGO_VER}_${ARCH}.deb -O mongodb-stable.deb || exit 1
-#    elif [ "$DIST" = "karmic" ]; then
-#	wget http://downloads.mongodb.org/distros/ubuntu/dists/9.10/10gen/binary-${ARCH}/mongodb-stable_${MONGO_VER}_${ARCH}.deb -O mongodb-stable.deb || exit 1
-#    fi
-    # download from appscale server
-    if [ "$DIST" = "jaunty" -o "$DIST" = "karmic" ]; then
-	wget http://appscale.cs.ucsb.edu/appscale_packages/pool/mongodb-stable_${MONGO_VER}_${DIST}_${ARCH}.deb -O mongodb-stable.deb || exit 1
-    fi
-
-    if [ -e mongodb-stable.deb ]; then
-        # extract deb package and repackage it.
-	dpkg-deb --vextract mongodb-stable.deb ${DESTDIR}/ || exit 1
-	rm -v mongodb-stable.deb
-    fi
-
-#    mkdir -p ${APPSCALE_HOME}/AppDB/mongodb
-#    cd ${APPSCALE_HOME}/AppDB/mongodb
-#    rm -rf mongodb
-#    wget http://appscale.cs.ucsb.edu/appscale_files/mongodb-linux-x86_64-1.2.2.tgz
-#    if [ $? -ne 0 ]; then echo "FAILURE: UNABLE TO DOWNLOAD." ; exit 1; fi
-#    tar zxvf mongodb-linux-x86_64-1.2.2.tgz
-#    rm mongodb-linux-x86_64-1.2.2.tgz
-#    mv mongodb-linux-x86_64-1.2.2 mongodb
-#    chmod +x mongodb/bin/mongo mongodb/bin/mongod
-# easy_install could not specify prefix, so we must install it in postinst
-    # pymongo
-#    mkdir -p ${DESTDIR}/usr/lib/python2.6/site-packages
-
-    easy_install -U pymongo || exit 1
-    if [ -n "$DESTDIR" ]; then
-	DISTP=/usr/local/lib/python2.6/dist-packages
-	mkdir -pv ${DESTDIR}${DISTP}
-	cp -rv ${DISTP}/pymongo-*.egg ${DESTDIR}${DISTP} || exit 1
-    fi
-}
-
-postinstallmongodb()
-{
-    # just enable pymongo egg
-    #easy_install pymongo
-
-
-    # from mongodb deb package
-    # create a mongodb group and user
-    if ! grep -q mongodb /etc/passwd; then
-	adduser --system --no-create-home mongodb
-	addgroup --system mongodb
-	adduser mongodb mongodb
-    fi
-
-    # create db -- note: this should agree with dbpath in mongodb.conf
-    mkdir -pv /var/lib/mongodb
-    chown -v -R mongodb:mongodb /var/lib/mongodb
-
-    # create logdir -- note: this should agree with logpath in mongodb.conf
-    mkdir -pv /var/log/mongodb
-    chown -v -R mongodb:mongodb /var/log/mongodb
-
-    # we need remove from lucid
-    update-rc.d -f mongodb remove || true
-    killall mongod
-    mkdir -p ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}
-    touch ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}/mongodb
-
-    update-rc.d -f mongodb remove
-}
-
-installmemcachedb()
-{
-    # we can install memcachedb from package.
-    :;
-}
-
-postinstallmemcachedb()
-{
-    # stop memcachedb
-    service memcachedb stop || true
-    # remove service
-    update-rc.d -f memcachedb remove || true
-    killall memcachedb
-    mkdir -p ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}
-    touch ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}/memcachedb
-}
-
-# only for dependencies
-installtimesten()
-{
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    wget http://pyodbc.googlecode.com/files/pyodbc-2.1.6.zip || exit 1
-    unzip pyodbc-2.1.6.zip || exit 1
-    rm -v pyodbc-2.1.6.zip
-    pushd pyodbc-2.1.6
-    python setup.py install --prefix=${DESTDIR}/usr || exit 1
-    popd
-    rm -rfv pyodbc-2.1.6
-    DESTFILE=${DESTDIR}/etc/profile.d/timesten.sh
-    mkdir -pv $(dirname $DESTFILE)
-    echo "Generating $DESTFILE"
-    cat <<EOF | tee $DESTFILE || exit 1
-. /etc/profile.d/appscale.sh
-if [ -e /opt/TimesTen/tt70/bin/ttenv.sh ]; then
-  . /opt/TimesTen/tt70/bin/ttenv.sh
-fi
-export ODBCINI=\$APPSCALE_HOME/AppDB/timesten/.odbc.ini
-EOF
-}
-
-postinstalltimesten()
-{
-    if [ -e /etc/init.d/tt_tt70 ]; then
-        # ignore error
-	service tt_tt70 stop || true
-	update-rc.d -f tt_tt70 remove || true
-    fi
-}
 
 installpig()
 {
@@ -1166,11 +1019,6 @@ keygen()
 #    ssh-copy-id -i /root/.ssh/id_rsa.pub root@localhost
 }
 
-postinstallsimpledb()
-{
-    mkdir -p ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}
-    touch ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}/simpledb
-}
 
 installrabbitmq()
 {

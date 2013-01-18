@@ -1,19 +1,8 @@
-#Navraj Chohan
-#Creates a USERS__ and APPS__ table
-
-#Author: Navraj Chohan
 import sys, time
 import os 
 
-APPSCALE_HOME = os.environ.get("APPSCALE_HOME")
-if APPSCALE_HOME:
-  pass
-else:
-  print "APPSCALE_HOME env var not set"
-  exit(1)
-
-sys.path.append(APPSCALE_HOME + "/AppDB/hbase")
-sys.path.append(APPSCALE_HOME + "/AppDB")
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(os.path.join(os.path.dirname(__file__)))
 
 import Hbase
 import ttypes
@@ -49,6 +38,7 @@ def create_app_tables():
   db.create_table(APP_ID_TABLE, APP_ID_SCHEMA)
   db.create_table(APP_ENTITY_TABLE, APP_ENTITY_SCHEMA)
   db.create_table(APP_KIND_TABLE, APP_KIND_SCHEMA)
+  db.create_table(JOURNAL_TABLE, JOURNAL_SCHEMA)
 
 def prime_hbase():
   """ Creates tables required for AppScale

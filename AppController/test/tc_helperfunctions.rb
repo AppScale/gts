@@ -13,23 +13,23 @@ class TestHelperFunctions < Test::Unit::TestCase
     creds = {
       'ec2_access_key' => 'ABCDEFG',
       'ec2_secret_key' => 'HIJKLMN',
-      'CLOUD1_EC2_ACCESS_KEY' => 'OPQRSTU',
-      'CLOUD1_EC2_SECRET_KEY' => 'VWXYZAB'
+      'CLOUD_EC2_ACCESS_KEY' => 'OPQRSTU',
+      'CLOUD_EC2_SECRET_KEY' => 'VWXYZAB'
     }
 
     expected = {
       'ec2_access_key' => '***DEFG',
       'ec2_secret_key' => '***KLMN',
-      'CLOUD1_EC2_ACCESS_KEY' => '***RSTU',
-      'CLOUD1_EC2_SECRET_KEY' => '***YZAB'
+      'CLOUD_EC2_ACCESS_KEY' => '***RSTU',
+      'CLOUD_EC2_SECRET_KEY' => '***YZAB'
     }
 
     actual = HelperFunctions.obscure_creds(creds)
     assert_equal(expected['ec2_access_key'], actual['ec2_access_key'])
     assert_equal(expected['ec2_secret_key'], actual['ec2_secret_key'])
-    assert_equal(expected['CLOUD1_EC2_ACCESS_KEY'],
-      actual['CLOUD1_EC2_ACCESS_KEY'])
-    assert_equal(expected['CLOUD1_EC2_SECRET_KEY'],
-      actual['CLOUD1_EC2_SECRET_KEY'])
+    assert_equal(expected['CLOUD_EC2_ACCESS_KEY'],
+      actual['CLOUD_EC2_ACCESS_KEY'])
+    assert_equal(expected['CLOUD_EC2_SECRET_KEY'],
+      actual['CLOUD_EC2_SECRET_KEY'])
   end
 end

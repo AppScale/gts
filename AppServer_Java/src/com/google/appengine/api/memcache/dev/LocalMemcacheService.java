@@ -31,7 +31,6 @@ import com.google.appengine.api.memcache.MemcacheServicePb;
 import com.google.appengine.repackaged.com.google.protobuf.ByteString;
 import com.google.appengine.tools.development.AbstractLocalRpcService;
 import com.google.appengine.tools.development.Clock;
-import com.google.appengine.tools.development.LatencyPercentiles;
 import com.google.appengine.tools.development.LocalRpcService;
 import com.google.appengine.tools.development.LocalServiceContext;
 import com.google.appengine.tools.development.ServiceProvider;
@@ -75,6 +74,16 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
         /*
          * AppScale - removed null argument in constructor for LocalStats
          */
+    }
+
+    private <K1, K2, V> Map<K2, V> getOrMakeSubMap(Map<K1, Map<K2, V>> map, K1 key) {
+        Map subMap = (Map)map.get(key);
+        if (subMap == null) 
+        {
+            subMap = new HashMap();
+            map.put(key, subMap);
+        }
+        return subMap;
     }
 
     /*
@@ -271,7 +280,10 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
             MemcacheServicePb.MemcacheSetRequest.SetPolicy policy = item.getSetPolicy();
             if (policy != MemcacheServicePb.MemcacheSetRequest.SetPolicy.SET)
             {
-                Long timeout = deleteHold.get(namespace).get(stringToKey(internalKey));
+                /*
+                 * AppScale - using stringToKey method to get key
+                */
+                Long timeout = (Long)getOrMakeSubMap(this.deleteHold, namespace).get(stringToKey(internalKey));
                 if ((timeout != null) && (this.clock.getCurrentTime() < timeout.longValue()))
                 {
                     result.addSetStatus(MemcacheServicePb.MemcacheSetResponse.SetStatusCode.NOT_STORED);
@@ -335,7 +347,6 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
         return result.build();
     }
 
-    @LatencyPercentiles(latency50th = 4)
     public MemcacheServicePb.MemcacheDeleteResponse delete( LocalRpcService.Status status, MemcacheServicePb.MemcacheDeleteRequest req )
     {
         /*

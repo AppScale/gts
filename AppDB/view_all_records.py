@@ -61,7 +61,10 @@ def main(argv):
 
   entities = get_entities(APP_KIND_TABLE, APP_KIND_SCHEMA, db)
   view_all(entities, APP_KIND_TABLE, db) 
-  
+
+  entities = get_entities(JOURNAL_TABLE, JOURNAL_SCHEMA, db)
+  view_all(entities, JOURNAL_TABLE, db) 
+   
 if __name__ == "__main__":
   try:
     main(sys.argv)

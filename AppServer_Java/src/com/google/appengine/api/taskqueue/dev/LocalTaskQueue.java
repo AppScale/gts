@@ -31,7 +31,6 @@ import com.google.appengine.api.urlfetch.URLFetchServicePb.URLFetchResponse;
 import com.google.appengine.api.urlfetch.dev.LocalURLFetchService;
 import com.google.appengine.tools.development.AbstractLocalRpcService;
 import com.google.appengine.tools.development.Clock;
-import com.google.appengine.tools.development.LatencyPercentiles;
 import com.google.appengine.tools.development.LocalRpcService;
 import com.google.appengine.tools.development.LocalRpcService.Status;
 import com.google.appengine.tools.development.LocalServerEnvironment;
@@ -369,7 +368,6 @@ public final class LocalTaskQueue extends AbstractLocalRpcService
         return QueueConstants.getMaxEtaDeltaMillis() * ONE_SECOND_IN_MILLIS;
     }
 
-    @LatencyPercentiles(latency50th = 4)
     public TaskQueuePb.TaskQueueAddResponse add( LocalRpcService.Status status, TaskQueuePb.TaskQueueAddRequest addRequest )
     {
         TaskQueuePb.TaskQueueBulkAddRequest bulkRequest = new TaskQueuePb.TaskQueueBulkAddRequest();
@@ -394,7 +392,6 @@ public final class LocalTaskQueue extends AbstractLocalRpcService
         return addResponse;
     }
 
-    @LatencyPercentiles(latency50th = 3)
     public TaskQueuePb.TaskQueueFetchQueueStatsResponse fetchQueueStats( LocalRpcService.Status status, TaskQueuePb.TaskQueueFetchQueueStatsRequest fetchQueueStatsRequest )
     {
         TaskQueuePb.TaskQueueFetchQueueStatsResponse fetchQueueStatsResponse = new TaskQueuePb.TaskQueueFetchQueueStatsResponse();
@@ -425,7 +422,6 @@ public final class LocalTaskQueue extends AbstractLocalRpcService
         return fetchQueueStatsResponse;
     }
 
-    @LatencyPercentiles(latency50th = 3)
     public TaskQueuePb.TaskQueuePurgeQueueResponse purgeQueue( LocalRpcService.Status status, TaskQueuePb.TaskQueuePurgeQueueRequest purgeQueueRequest )
     {
         TaskQueuePb.TaskQueuePurgeQueueResponse purgeQueueResponse = new TaskQueuePb.TaskQueuePurgeQueueResponse();
@@ -433,7 +429,6 @@ public final class LocalTaskQueue extends AbstractLocalRpcService
         return purgeQueueResponse;
     }
 
-    @LatencyPercentiles(latency50th = 4)
     public TaskQueuePb.TaskQueueBulkAddResponse bulkAdd( LocalRpcService.Status status, TaskQueuePb.TaskQueueBulkAddRequest bulkAddRequest )
     {
         TaskQueuePb.TaskQueueBulkAddResponse bulkAddResponse = new TaskQueuePb.TaskQueueBulkAddResponse();
@@ -545,7 +540,6 @@ public final class LocalTaskQueue extends AbstractLocalRpcService
         return response;
     }
 
-    @LatencyPercentiles(latency50th = 8)
     public TaskQueuePb.TaskQueueQueryAndOwnTasksResponse queryAndOwnTasks( LocalRpcService.Status status, TaskQueuePb.TaskQueueQueryAndOwnTasksRequest request )
     {
         String queueName = request.getQueueName();
@@ -624,7 +618,6 @@ public final class LocalTaskQueue extends AbstractLocalRpcService
         return queue;
     }
 
-    @LatencyPercentiles(latency50th = 4)
     public void flushQueue( String queueName )
     {
         DevQueue queue = getQueueByName(queueName);

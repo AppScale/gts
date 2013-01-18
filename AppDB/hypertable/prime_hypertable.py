@@ -1,21 +1,13 @@
 #!/usr/bin/python
-# Creates a USERS__ and APPS__ table
-
-# Author: Navraj Chohan
-# Author: Kowshik Prakasam
-
+""" 
+  Creates datastore tables required for AppScale.
+"""
+import hypertable_interface
+import py_hypertable
 import string
 import sys
-import py_hypertable
-import hypertable_interface
-from dbconstants import *
 
-APPSCALE_HOME = os.environ.get("APPSCALE_HOME")
-if APPSCALE_HOME:
-  pass
-else:
-  print "APPSCALE_HOME env var not set"
-  exit(1)
+from dbconstants import *
 
 def create_app_tables():
   db = py_hypertable.DatastoreProxy()
@@ -26,6 +18,7 @@ def create_app_tables():
   db.create_table(APP_ID_TABLE, APP_ID_SCHEMA)
   db.create_table(APP_ENTITY_TABLE, APP_ENTITY_SCHEMA)
   db.create_table(APP_KIND_TABLE, APP_KIND_SCHEMA)
+  db.create_table(JOURNAL_TABLE, JOURNAL_SCHEMA)
 
 def prime_hypertable():
   print "prime hypertable database"

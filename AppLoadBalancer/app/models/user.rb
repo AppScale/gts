@@ -84,8 +84,8 @@ class User
     return successful
   end
 
-  def create_token(ip)
-    return nil if ip.nil?
+  def create_token(email)
+    return nil if email.nil?
 
     conn = DBFrontend.get_instance
     secret = UserTools.get_secret_key
@@ -96,7 +96,7 @@ class User
     token = "#{self.email}"
     token_exp = User.get_token_expiration_date
     begin
-      token_inserted = conn.commit_new_token(ip, token, token_exp, secret)
+      token_inserted = conn.commit_new_token(email, token, token_exp, secret)
     rescue Errno::ECONNREFUSED
       return nil
     end

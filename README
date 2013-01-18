@@ -4,11 +4,14 @@ Eucalyptus as well as Xen and KVM. It has been developed and is maintained
 by the RACELab at UC Santa Barbara. It supports the Python, Java, and Go
 Google App Engine platforms.
 
-The latest stable release is AppScale 1.6.5, released December 18, 2012.
+The latest stable release is AppScale 1.6.6, released January 21, 2013.
 Feature requests and pull requests gladly welcomed.
 
 Join the mailing list for announcements, help, and to discuss 
 cloud research: http://groups.google.com/group/appscale_community
+
+Also, join us on #appscale on freenode if you have questions or just want
+to say hi!
 
 Why Develop AppScale?
 
