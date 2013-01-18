@@ -20,7 +20,9 @@ module GodInterface
   def self.start_god(remote_ip, remote_key)
     self.run_god_command("god", remote_ip, remote_key)
   end
-
+  
+  # Lock prevents a race condition where services do not get started correctly if done 
+  # concurently. 
   def self.start(watch, start_cmd, stop_cmd, ports, env_vars=nil, remote_ip=nil, remote_key=nil)
     if !defined?(@@lock)
       @@lock = Monitor.new
