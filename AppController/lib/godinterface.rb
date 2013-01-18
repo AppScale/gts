@@ -22,14 +22,18 @@ module GodInterface
   end
 
   def self.start(watch, start_cmd, stop_cmd, ports, env_vars=nil, remote_ip=nil, remote_key=nil)
+    if !defined?(@@lock)
+      @@lock = Monitor.new
+    end
 
-    ports = [ports] unless ports.class == Array
+    @@lock.synchronize {
+      ports = [ports] unless ports.class == Array
 
-    prologue = <<BOO
-    WATCH = "#{watch}"
-    START_CMD = "#{start_cmd}"
-    STOP_CMD = "#{stop_cmd}"
-    PORTS = [#{ports.join(', ')}]
+      prologue = <<BOO
+      WATCH = "#{watch}"
+      START_CMD = "#{start_cmd}"
+      STOP_CMD = "#{stop_cmd}"
+      PORTS = [#{ports.join(', ')}]
 
 BOO
 
@@ -80,50 +84,51 @@ BOO
         end
 BAZ
 
-    if !env_vars.nil? and !env_vars.empty?
-      env_vars_str = ""
+      if !env_vars.nil? and !env_vars.empty?
+        env_vars_str = ""
 
-      env_vars.each { |k, v|
-        env_vars_str += "          \"#{k}\" => \"#{v}\",\n"
-      }
+        env_vars.each { |k, v|
+          env_vars_str += "          \"#{k}\" => \"#{v}\",\n"
+        }
 
-      body += <<BOO
+        body += <<BOO
 
         w.env = {
           #{env_vars_str}
         }
 BOO
-    end
+      end
 
-    epilogue = <<BAZ
+      epilogue = <<BAZ
       end
     end
 BAZ
 
-    config_file = prologue + body + epilogue
-    tempfile = "/tmp/god-#{rand(10000)}.god"
+      config_file = prologue + body + epilogue
+      tempfile = "/tmp/god-#{rand(10000)}.god"
 
-    HelperFunctions.write_file(tempfile, config_file)
+      HelperFunctions.write_file(tempfile, config_file)
 
-    if remote_ip
-      HelperFunctions.scp_file(tempfile, tempfile, remote_ip, remote_key)
-    end
+      if remote_ip
+        HelperFunctions.scp_file(tempfile, tempfile, remote_ip, remote_key)
+      end
 
-    self.run_god_command("god load #{tempfile}", remote_ip, remote_key)
-    Kernel.sleep(5)
-    FileUtils.rm_f(tempfile)
+      self.run_god_command("god load #{tempfile}", remote_ip, remote_key)
+      Kernel.sleep(5)
+      FileUtils.rm_f(tempfile)
 
-    ip = remote_ip || HelperFunctions.local_ip
-    if remote_ip
-      remove = "rm -rf #{tempfile}"
-      HelperFunctions.run_remote_command(ip, remove, remote_key, NO_OUTPUT)
-    end
+      ip = remote_ip || HelperFunctions.local_ip
+      if remote_ip
+        remove = "rm -rf #{tempfile}"
+        HelperFunctions.run_remote_command(ip, remove, remote_key, NO_OUTPUT)
+      end
 
-    god_info = "Starting #{watch} on ip #{ip}, port #{ports.join(', ')}" +
-      " with start command [#{start_cmd}] and stop command [#{stop_cmd}]"
-    Djinn.log_debug(god_info)   
+      god_info = "Starting #{watch} on ip #{ip}, port #{ports.join(', ')}" +
+        " with start command [#{start_cmd}] and stop command [#{stop_cmd}]"
+      Djinn.log_debug(god_info)   
 
-    self.run_god_command("god start #{watch}", remote_ip, remote_key)
+      self.run_god_command("god start #{watch}", remote_ip, remote_key)
+    }
   end
 
   def self.stop(watch, remote_ip=nil, remote_key=nil)
