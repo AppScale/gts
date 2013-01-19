@@ -62,7 +62,7 @@ def start_db_master()
 
   start_hadoop_master
   wait_on_hadoop
-
+  Djinn.log_run("cp #{APPSCALE_HOME}/AppDB/hbase/patch/cache_classpath.txt #{HBASE_LOC}/target/")
   Djinn.log_run("#{HBASE_LOC}/bin/hbase-daemon.sh start master")
   until `lsof -i :#{MASTER_SERVER_PORT} -t`.length > 0
     Djinn.log_debug("Waiting for HBase master to come up...")
