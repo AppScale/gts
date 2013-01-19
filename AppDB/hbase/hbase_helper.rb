@@ -62,7 +62,7 @@ def start_db_master()
 
   start_hadoop_master
   wait_on_hadoop
-  Djinn.log_run("cp #{APPSCALE_HOME}/AppDB/hbase/patch/cache_classpath.txt #{HBASE_LOC}/target/")
+  Djinn.log_run("cp #{APPSCALE_HOME}/AppDB/hbase/patch/cached_classpath.txt #{HBASE_LOC}/target/")
   Djinn.log_run("#{HBASE_LOC}/bin/hbase-daemon.sh start master")
   until `lsof -i :#{MASTER_SERVER_PORT} -t`.length > 0
     Djinn.log_debug("Waiting for HBase master to come up...")
@@ -100,6 +100,7 @@ def start_db_slave()
   Djinn.log_debug("Starting HBase as slave")
   Djinn.log_run("rm -rfv #{APPSCALE_HOME}/AppDB/hbase/hbase-0.20.6/logs/*")
   start_hadoop_slave
+  Djinn.log_run("cp #{APPSCALE_HOME}/AppDB/hbase/patch/cached_classpath.txt #{HBASE_LOC}/target/")
   Djinn.log_run("#{HBASE_LOC}/bin/hbase-daemon.sh start regionserver")
   # need to wait for the master's soap server to come up
   # or we won't be able to get the user/apps schemas
