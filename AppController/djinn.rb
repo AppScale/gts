@@ -42,6 +42,11 @@ require 'zkinterface'
 
 NO_OUTPUT = false
 
+# This lock makes it so that global variables related to apps are not updated 
+# concurrently, preventing race conditions. 
+APPS_LOCK = Monitor.new()
+
+
 $:.unshift File.join(File.dirname(__FILE__), "..", "AppDB", "zkappscale")
 require "zookeeper_helper"
 
@@ -146,12 +151,6 @@ class Djinn
   attr_accessor :my_index
   
   
-  # The number of nodes that are running in this AppScale deployment.
-  # TODO(cgb): It would seem like we could always calculate this with
-  # @nodes.length, so replace it accordingly.
-  attr_accessor :total_boxes
-  
-  
   # The number of dev_appservers that should run for every App Engine
   # application.
   attr_accessor :num_appengines
@@ -191,6 +190,18 @@ class Djinn
   attr_accessor :last_updated
 
 
+  # A Hash that contains information about each Google App Engine application
+  # running in this deployment. It includes information about the nginx and
+  # haproxy ports the app uses, as well as the language the app is written
+  # in.
+  attr_accessor :app_info_map
+
+
+  # A lock that should be used whenever we modify internal state that can be
+  # modified by more than one thread at a time.
+  attr_accessor :state_change_lock
+
+
   # The port that the AppController runs on by default
   SERVER_PORT = 17443
 
@@ -210,21 +221,26 @@ class Djinn
   FIREWALL_IS_ON = true
 
 
+  # The location on the local filesystem where AppScale-related configuration
+  # files are written to.
+  CONFIG_FILE_LOCATION = "/etc/appscale"
+
+
   # The location on the local filesystem where the AppController writes
   # information about Neptune jobs that have finished. One day this information
   # may be used to more intelligently schedule jobs on the fly.
-  NEPTUNE_INFO = "/etc/appscale/neptune_info.txt"
+  NEPTUNE_INFO = "#{CONFIG_FILE_LOCATION}/neptune_info.txt"
 
 
   # The location on the local filesystem where the AppController writes
   # information about the status of App Engine APIs, which the AppLoadBalancer
   # will read and display to users.
-  HEALTH_FILE = "/etc/appscale/health.json"
+  HEALTH_FILE = "#{CONFIG_FILE_LOCATION}/health.json"
 
 
   # The location on the local filesystem where the AppController periodically
   # writes its state to, and recovers its state from if it crashes.
-  STATE_FILE = "/etc/appscale/appcontroller-state.json"
+  STATE_FILE = "#{CONFIG_FILE_LOCATION}/appcontroller-state.json"
 
 
   APPSCALE_HOME = ENV['APPSCALE_HOME']
@@ -233,6 +249,14 @@ class Djinn
   # The message that we display to the user if they call a SOAP-accessible
   # function with a malformed input (e.g., of the wrong class or format).
   BAD_INPUT_MSG = JSON.dump({'success' => false, 'message' => 'bad input'})
+
+
+  # The message to display to users if they try to add nodes to a one node
+  # deployment, which currently is not supported.
+  CANT_SCALE_FROM_ONE_NODE = JSON.dump({
+    'success' => false, 
+    'message' => "can't scale up from a one node deployment"
+  })
 
 
   # The message that we display to the user if they want to scale up services
@@ -310,13 +334,13 @@ class Djinn
   # CPU limits that determine when to stop adding AppServers on a node. Because
   # AppServers in different languages consume different amounts of CPU, set
   # different limits per language.
-  MAX_CPU_FOR_APPSERVERS = {'python' => 80.00, 'java' => 75.00, 'go' => 70.00}
+  MAX_CPU_FOR_APPSERVERS = {'python' => 80.00, 'python27' => 90.00, 'java' => 75.00, 'go' => 70.00}
 
 
   # Memory limits that determine when to stop adding AppServers on a node. 
   # Because AppServers in different languages consume different amounts of 
   # memory, set different limits per language.
-  MAX_MEM_FOR_APPSERVERS = {'python' => 90.00, 'java' => 95.00, 'go' => 90.00}
+  MAX_MEM_FOR_APPSERVERS = {'python' => 90.00, 'python27' => 90.00, 'java' => 95.00, 'go' => 90.00}
 
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
@@ -339,7 +363,6 @@ class Djinn
     @userappserver_public_ip = "not-up-yet"
     @userappserver_private_ip = "not-up-yet"
     @state = "AppController just started"
-    @total_boxes = 0
     @num_appengines = 1
     @restored = false
     @neptune_jobs = {}
@@ -347,6 +370,7 @@ class Djinn
     @api_status = {}
     @queues_to_read = []
     @last_updated = 0
+    @state_change_lock = Monitor.new()
     @app_info_map = {}
 
     @scaling_in_progress = false
@@ -579,9 +603,9 @@ class Djinn
       stats['apps'].each { |app_name, is_loaded|
         next if !is_loaded
         next if app_name == "none"
-        if !@app_info_map[app_name][:appengine].nil?
+        if !@app_info_map[app_name]['appengine'].nil?
           stats_str << "    The number of AppServers for app #{app_name} is: " +
-            "#{@app_info_map[app_name][:appengine].length}\n"
+            "#{@app_info_map[app_name]['appengine'].length}\n"
         end
       }
     end
@@ -611,10 +635,11 @@ class Djinn
     }
 
     stats['apps'] = {}
-    @app_names.each { |name|
-      stats['apps'][name] = @apps_loaded.include?(name)
+    APPS_LOCK.synchronize {
+      @app_names.each { |name|
+        stats['apps'][name] = @apps_loaded.include?(name)
+      }
     }
-
     return stats
   end
 
@@ -653,7 +678,7 @@ class Djinn
 
       # Contact the soap server and remove the application
       if (@app_names.include?(app_name) and !my_node.is_appengine?) or @nodes.length == 1
-        ip = HelperFunctions.read_file("#{APPSCALE_HOME}/.appscale/masters")
+        ip = HelperFunctions.read_file("#{CONFIG_FILE_LOCATION}/masters")
         uac = UserAppClient.new(ip, @@secret)
         result = uac.delete_app(app_name)
         Djinn.log_debug("(stop_app) Delete app: #{ip} returned #{result} (#{result.class})")
@@ -661,7 +686,7 @@ class Djinn
      
       # may need to stop XMPP listener
       if my_node.is_login? 
-        pid_files = `ls #{APPSCALE_HOME}/.appscale/xmpp-#{app_name}.pid`.split
+        pid_files = HelperFunctions.shell("ls #{CONFIG_FILE_LOCATION}/xmpp-#{app_name}.pid").split
         unless pid_files.nil? # not an error here - XMPP is optional
           pid_files.each { |pid_file|
             pid = HelperFunctions.read_file(pid_file)
@@ -696,17 +721,18 @@ class Djinn
 
         result = "true"
       end
+      APPS_LOCK.synchronize {
+        @apps_loaded = @apps_loaded - [app_name]    
+        @app_names = @app_names - [app_name]
 
-      @apps_loaded = @apps_loaded - [app_name]    
-      @app_names = @app_names - [app_name]
+        if @apps_loaded.empty?
+          @apps_loaded << "none"
+        end
 
-      if @apps_loaded.empty?
-        @apps_loaded << "none"
-      end
-
-      if @app_names.empty?
-        @app_names << "none"
-      end
+        if @app_names.empty?
+          @app_names << "none"
+        end
+      }
     }
 
     return "true"
@@ -757,6 +783,7 @@ class Djinn
     if restore_appcontroller_state 
       parse_creds
     else
+      erase_old_data
       wait_for_data
       parse_creds
       change_job
@@ -794,7 +821,7 @@ class Djinn
         }
       end
 
-      ensure_all_roles_are_running
+      #ensure_all_roles_are_running
 
       # TODO: consider only calling this if new apps are found
       start_appengine
@@ -816,7 +843,7 @@ class Djinn
       return
     end
 
-    start_cmd = "python #{APPSCALE_HOME}/InfrastructureManager/infrastructure_manager_service.py"
+    start_cmd = "python2.6 #{APPSCALE_HOME}/InfrastructureManager/infrastructure_manager_service.py"
     stop_cmd = "pkill -9 infrastructure_manager_service"
     port = [InfrastructureManagerClient::SERVER_PORT]
     env = {
@@ -869,7 +896,7 @@ class Djinn
       'is_hybrid_cloud?' => is_hybrid_cloud?()
     }
 
-    HelperFunctions.write_json_file("/etc/appscale/cloud_info.json", cloud_info)
+    HelperFunctions.write_json_file("#{CONFIG_FILE_LOCATION}/cloud_info.json", cloud_info)
   end
 
 
@@ -971,6 +998,148 @@ class Djinn
   end
 
 
+  # This SOAP-exposed method dynamically scales up a currently running
+  # AppScale deployment. For virtualized clusters, this assumes the
+  # user has given us a list of IP addresses where AppScale has been
+  # installed to, and for cloud deployments, we assume that the user
+  # wants to use the same credentials as for their current deployment.
+  # Args:
+  #   ips_hash: A Hash that maps roles (e.g., appengine, database) to the
+  #     IP address (in virtualized deployments) or unique identifier (in
+  #     cloud deployments) that should run that role.
+  #   secret: A String password that is used to authenticate the request
+  #     to add nodes to the deployment.
+  # Returns:
+  #   BAD_SECRET_MSG: If the secret given does not match the secret for
+  #     this AppScale deployment.
+  #   BAD_INPUT_MSG: If ips_hash was not a Hash.
+  #   Otherwise, returns a Hash that maps IP addresses to the roles that
+  #     will be hosted on them (the inverse of ips_hash).
+  def start_roles_on_nodes(ips_hash, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    if ips_hash.class != Hash
+      Djinn.log_debug("Was expecting ips_hash to be a Hash, not " +
+        "a #{ips_hash.class}")
+      return BAD_INPUT_MSG
+    end
+
+    if @nodes.length == 1
+      Djinn.log_debug("Can't scale up in a one node deployment.")
+      return CANT_SCALE_FROM_ONE_NODE
+    end
+
+    Djinn.log_debug("Received a request to start additional roles on " +
+      "new machines, with the following placement strategy: " +
+      "#{ips_hash.inspect}")
+
+    # ips_hash maps roles to IPs, but the internal format here maps
+    # IPs to roles, so convert to the right format
+    ips_to_roles = {}
+    ips_hash.each { |role, ip_or_ips|
+      if ip_or_ips.class == String
+        ips = [ip_or_ips]  # just one IP
+      else
+        ips = ip_or_ips  # a list of IPs
+      end
+
+      ips.each { |ip|
+        if ips_to_roles[ip].nil?
+          ips_to_roles[ip] = []
+        end
+        ips_to_roles[ip] << role
+      }
+    }
+
+    Thread.new {
+      if is_cloud?
+        start_new_roles_on_nodes_in_cloud(ips_to_roles)
+      else
+        start_new_roles_on_nodes_in_xen(ips_to_roles)
+      end
+    }
+
+    return ips_to_roles
+  end
+
+
+  # This method acquires virtual machines from a cloud IaaS and adds them
+  # to the currently running AppScale deployment. The new machines are then
+  # assigned the roles given to us by the caller.
+  # Args:
+  #   ips_to_roles: A Hash that maps machines to the roles that should be
+  #     started on them. As we have not yet spawned the machines, we do not
+  #     have IP addresses for them, so any unique identifier can be used in
+  #     lieu of IP addresses.
+  # Returns:
+  #   An Array of Strings, where each String contains information about the
+  #     public IP address, private IP address, and roles that the new machines
+  #     have taken on.
+  def start_new_roles_on_nodes_in_cloud(ips_to_roles)
+    Djinn.log_debug("Starting new roles in cloud with following info: " +
+      "#{ips_to_roles.inspect}")
+
+    keyname = @creds['keyname']
+    num_of_vms = ips_to_roles.keys.length
+    roles = ips_to_roles.values
+    Djinn.log_debug("Need to spawn up #{num_of_vms} VMs")
+    imc = InfrastructureManagerClient.new(@@secret)
+    new_nodes_info = imc.spawn_vms(num_of_vms, @creds, roles, "cloud1")
+
+    # initialize them and wait for them to start up
+    Djinn.log_debug("info about new nodes is " +
+      "[#{new_nodes_info.join(', ')}]")
+
+    add_nodes(new_nodes_info)
+    update_hosts_info()
+
+    if my_node.is_login?
+      regenerate_nginx_config_files()
+    end
+
+    return new_nodes_info
+  end
+
+
+  # This method takes a list of IP addresses that correspond to machines
+  # with AppScale installed on them, that have passwordless SSH already
+  # set up (presumably by appscale-add-instances). The machines are added
+  # to the currently running AppScale deployment, and are then assigned
+  # the roles given to us by the caller.
+  # Args:
+  #   ips_to_roles: A Hash that maps machines to the roles that should be
+  #     started on them. Machines are uniquely identified by their IP
+  #     address, which is assumed to be reachable from any node in the
+  #     AppScale deployment.
+  # Returns:
+  #   An Array of Strings, where each String contains information about the
+  #     public IP address, private IP address, and roles that the new machines
+  #     have taken on.
+  def start_new_roles_on_nodes_in_xen(ips_to_roles)
+    Djinn.log_debug("Starting new roles in virt with following info: " +
+      "#{ips_to_roles.inspect}")
+
+    nodes_info = []
+    keyname = @creds['keyname']
+    ips_to_roles.each { |ip, roles|
+      Djinn.log_debug("Will add roles #{roles.join(', ')} to new " +
+        "node at IP address #{ip}")
+      nodes_info << "#{ip}:#{ip}:#{roles.join(':')}:#{keyname}:cloud1"
+    }
+
+    add_nodes(nodes_info)
+    update_hosts_info()
+
+    if my_node.is_login?
+      regenerate_nginx_config_files()
+    end
+
+    return nodes_info
+  end
+
+
   # Starts the given roles by using open nodes, spawning new nodes, or some
   # combination of the two. 'nodes_needed' should be an Array, where each 
   # item is an Array of the roles to start on each node.
@@ -1045,6 +1214,47 @@ class Djinn
     wait_for_nodes_to_finish_loading(vms_to_use)
 
     return "OK"
+  end
+
+
+  # Given an Array of Strings containing information about machines with
+  # AppScale installed on them, copies over deployment-specific files
+  # and starts the AppController on them. Each AppController is then
+  # instructed to start a specific set of roles, and join the existing
+  # AppScale deployment.
+  # Args:
+  #   node_info: An Array of Strings, where each String has information
+  #     about a node to add to the current AppScale deployment (e.g.,
+  #     IP addresses, roles to run).
+  def add_nodes(node_info)
+    keyname = @creds['keyname']
+    new_nodes = Djinn.convert_location_array_to_class(node_info, keyname)
+
+    # Since an external thread can modify @nodes, let's put a lock around
+    # it to prevent race conditions.
+    @state_change_lock.synchronize {
+      @nodes.concat(new_nodes)
+      Djinn.log_debug("Changed nodes to #{@nodes}")
+    }
+
+    initialize_nodes_in_parallel(new_nodes)
+  end
+
+
+  # Cleans out temporary files that may have been written by a previous
+  # AppScale deployment.
+  def erase_old_data()
+    Djinn.log_run("rm -rf /tmp/h*")
+    Djinn.log_run("rm -f ~/.appscale_cookies")
+    Djinn.log_run("rm -f #{APPSCALE_HOME}/.appscale/status-*")
+    Djinn.log_run("rm -f #{APPSCALE_HOME}/.appscale/database_info")
+    Djinn.log_run("rm -f /tmp/mysql.sock")
+
+    Nginx.clear_sites_enabled
+    Collectd.clear_sites_enabled
+    HAProxy.clear_sites_enabled
+    Djinn.log_run("echo '' > /root/.ssh/known_hosts") # empty it out but leave the file there
+    CronHelper.clear_crontab
   end
 
 
@@ -1163,13 +1373,13 @@ class Djinn
   end
 
   def self.get_db_master_ip
-    masters_file = File.expand_path("#{APPSCALE_HOME}/.appscale/masters")
+    masters_file = File.expand_path("#{CONFIG_FILE_LOCATION}/masters")
     master_ip = HelperFunctions.read_file(masters_file)
     return master_ip
   end
 
   def self.get_db_slave_ips
-    slaves_file = File.expand_path("#{APPSCALE_HOME}/.appscale/slaves")
+    slaves_file = File.expand_path("#{CONFIG_FILE_LOCATION}/slaves")
     slave_ips = File.open(slaves_file).readlines.map { |f| f.chomp! }
     slave_ips = [] if slave_ips == [""]
     return slave_ips
@@ -1329,7 +1539,7 @@ class Djinn
       return
     end
 
-    status_file = "/etc/appscale/status-#{ip}.json"
+    status_file = "#{CONFIG_FILE_LOCATION}/status-#{ip}.json"
     stats = acc.get_stats()
     json_state = JSON.dump(stats) 
     HelperFunctions.write_file(status_file, json_state)
@@ -1340,10 +1550,10 @@ class Djinn
     end
 
     # copy remote log over - handy for debugging
-    local_log = "/etc/appscale/logs/#{ip}.log"
+    local_log = "#{CONFIG_FILE_LOCATION}/logs/#{ip}.log"
     remote_log = "/tmp/*.log"
 
-    FileUtils.mkdir_p("/etc/appscale/logs/")
+    FileUtils.mkdir_p("#{CONFIG_FILE_LOCATION}/logs/")
     Djinn.log_run("scp -o StrictHostkeyChecking=no -i #{ssh_key} #{ip}:#{remote_log} #{local_log}")
   end
 
@@ -1361,11 +1571,11 @@ class Djinn
     keyname = @creds["keyname"]
     
     tree = { :table => table, :replication => replication, :keyname => keyname }
-    db_info_path = "#{APPSCALE_HOME}/.appscale/database_info.yaml"
+    db_info_path = "#{CONFIG_FILE_LOCATION}/database_info.yaml"
     File.open(db_info_path, "w") { |file| YAML.dump(tree, file) }
     
     num_of_nodes = @nodes.length
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/num_of_nodes", "#{num_of_nodes}\n")
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/num_of_nodes", "#{num_of_nodes}\n")
     
     all_ips = []
     @nodes.each { |node|
@@ -1373,7 +1583,7 @@ class Djinn
       all_ips << node.private_ip
     }
     all_ips << "\n"
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/all_ips", all_ips.join("\n"))
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/all_ips", all_ips.join("\n"))
 
     # Re-run the filewall script here since we just wrote the all_ips file
     if FIREWALL_IS_ON
@@ -1466,7 +1676,7 @@ class Djinn
     zookeeper_data['locations'].each { |ip|
       begin
         Djinn.log_debug("Restoring AppController state from ZK at #{ip}")
-        ZKInterface.init_to_ip(my_node.private_ip, ip)
+        ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip)
         json_state = ZKInterface.get_appcontroller_state()
       rescue Exception => e
         Djinn.log_debug("Saw exception of class #{e.class} from #{ip}, " +
@@ -1753,7 +1963,7 @@ class Djinn
 
   def parse_creds
     got_data_msg = "Got data from another node! DLoc = " + \
-      "#{@nodes.join(', ')}, #{HelperFunctions.obscure_creds(@creds.inspect)}, AppsToLoad = " + \
+      "#{@nodes.join(', ')}, #{HelperFunctions.obscure_creds(@creds).inspect}, AppsToLoad = " + \
       "#{@app_names.join(', ')}"
     Djinn.log_debug(got_data_msg)
         
@@ -1764,11 +1974,11 @@ class Djinn
     Djinn.log_debug("Keypath is #{@creds['keypath']}, keyname is #{@creds['keyname']}")
 
     if !@creds["keypath"].empty?
-      my_key_dir = "/etc/appscale/keys/#{my_node.cloud}"
+      my_key_dir = "#{CONFIG_FILE_LOCATION}/keys/#{my_node.cloud}"
       my_key_loc = "#{my_key_dir}/#{@creds['keypath']}"
       Djinn.log_debug("Creating directory #{my_key_dir} for my ssh key #{my_key_loc}")
       FileUtils.mkdir_p(my_key_dir)
-      Djinn.log_run("cp /etc/appscale/ssh.key #{my_key_loc}")
+      Djinn.log_run("cp #{CONFIG_FILE_LOCATION}/ssh.key #{my_key_loc}")
     end
         
     if is_cloud?
@@ -1778,7 +1988,7 @@ class Djinn
       ENV['EC2_URL'] = @creds["ec2_url"]
 
       # for ec2
-      cloud_keys_dir = File.expand_path("/etc/appscale/keys/cloud1")
+      cloud_keys_dir = File.expand_path("#{CONFIG_FILE_LOCATION}/keys/cloud1")
       ENV['EC2_PRIVATE_KEY'] = "#{cloud_keys_dir}/mykey.pem"
       ENV['EC2_CERT'] = "#{cloud_keys_dir}/mycert.pem"
     end
@@ -1888,14 +2098,10 @@ class Djinn
     my_data = my_node
     jobs_to_run = my_data.jobs
     
-    if @creds['ips']
-      @total_boxes = @creds['ips'].length + 1
-    elsif @creds['min_images']
-      @total_boxes = Integer(@creds['min_images'])
-    end
-
     Djinn.log_debug("Pre-loop: #{@nodes.join('\n')}")
-    if @nodes.size == 1 and @total_boxes > 1
+    if my_node.is_shadow?
+      # TODO(cgb): Check to make sure the machines aren't already
+      # initialized before attempting to start up AppScale on them.
       spawn_and_setup_appengine
       loop {
         Djinn.log_debug("Looping: #{@nodes.join('\n')}")
@@ -1916,92 +2122,22 @@ class Djinn
     end
 
     initialize_server
-    # start_load_balancer 
 
     memcache_ips = []
     @nodes.each { |node|
       memcache_ips << node.private_ip if node.is_memcache?
     }
-
     Djinn.log_debug("Memcache servers will be at #{memcache_ips.join(', ')}")
-
-    memcache_file = "/etc/appscale/memcache_ips"
+    memcache_file = "#{CONFIG_FILE_LOCATION}/memcache_ips"
     memcache_contents = memcache_ips.join("\n")
     HelperFunctions.write_file(memcache_file, memcache_contents)
 
+    write_apploadbalancer_location
+    find_nearest_rabbitmq
     setup_config_files
     set_uaserver_ips 
     write_hypersoap
-
-    # ejabberd uses uaserver for authentication
-    # so start it after we find out the uaserver's ip
-
-    start_ejabberd if my_node.is_login?
-
-    @done_initializing = true
-
-    # start zookeeper
-    if my_node.is_zookeeper?
-      configure_zookeeper(@nodes, @my_index)
-      init = !(@creds.include?("keep_zookeeper_data"))
-      start_zookeeper(init)
-    end
-
-    ZKInterface.init(my_node, @nodes)
-
-    commands = {
-      "load_balancer" => "start_load_balancer",
-      "memcache" => "start_memcache",
-      "db_master" => "start_db_master",
-      "db_slave" => "start_db_slave"
-    }
-
-    jobs_to_run.each do |job|
-      if commands.include?(job)
-        Djinn.log_debug("About to run [#{commands[job]}]")
-        send(commands[job].to_sym)
-      end
-    end
-
-    # create initial tables
-    if (my_node.is_db_master? || (defined?(is_priming_needed?) && is_priming_needed?(my_node))) && !restore_from_db?
-      table = @creds['table']
-      prime_script = "#{APPSCALE_HOME}/AppDB/#{table}/prime_#{table}.py"
-      retries = 10
-      retval = 0
-      while retries > 0
-        replication = @creds["replication"]
-        Djinn.log_run("APPSCALE_HOME='#{APPSCALE_HOME}' MASTER_IP='localhost' LOCAL_DB_IP='localhost' python2.6 #{prime_script} #{replication}; echo $? > /tmp/retval")
-        retval = `cat /tmp/retval`.to_i
-        break if retval == 0
-        Djinn.log_debug("Fail to create initial table. Retry #{retries} times.")
-        Kernel.sleep(5)
-        retries -= 1
-      end
-      if retval != 0
-        Djinn.log_debug("Fail to create initial table. Could not startup AppScale.")
-        exit(1)
-      end
-    end
-
-    # All nodes have application managers
-    start_app_manager_server
-
-    # start soap server and pb server
-    if has_soap_server?(my_node)
-      @state = "Starting up SOAP Server and PBServer"
-      start_pbserver
-      start_soap_server
-      HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip, UserAppClient::SERVER_PORT)
-    end
-
-    start_blobstore_server if my_node.is_appengine?
-
-    if my_node.is_rabbitmq_master?
-      start_rabbitmq_master
-    elsif my_node.is_rabbitmq_slave?
-      start_rabbitmq_slave
-    end
+    start_api_services()
 
     # for neptune jobs, start a place where they can save output to
     # also, since repo does health checks on the app engine apis, start it up there too
@@ -2018,6 +2154,126 @@ class Djinn
 
     # appengine is started elsewhere
   end
+
+
+  # Starts all of the services that this node has been assigned to run.
+  # Also starts all services that all nodes run in an AppScale deployment.
+  def start_api_services()
+    # ejabberd uses uaserver for authentication
+    # so start it after we find out the uaserver's ip
+
+    threads = []
+    if my_node.is_login?
+      threads << Thread.new {
+        start_ejabberd()
+      }
+    end
+
+    @done_initializing = true
+
+    # start zookeeper
+    threads << Thread.new {
+      if my_node.is_zookeeper?
+        configure_zookeeper(@nodes, @my_index)
+        init = !(@creds.include?("keep_zookeeper_data"))
+        start_zookeeper(init)
+      end
+
+      ZKInterface.init(my_node, @nodes)
+    }
+
+    if my_node.is_load_balancer?
+      threads << Thread.new {
+        start_load_balancer()
+      }
+    end
+
+    if my_node.is_memcache?
+      threads << Thread.new {
+        start_memcache()
+      }
+    end
+
+    if my_node.is_db_master?
+      threads << Thread.new {
+        start_db_master()
+        # create initial tables
+        if (my_node.is_db_master? || (defined?(is_priming_needed?) && is_priming_needed?(my_node))) && !restore_from_db?
+          table = @creds['table']
+          prime_script = "#{APPSCALE_HOME}/AppDB/#{table}/prime_#{table}.py"
+          retries = 10
+          retval = 0
+          while retries > 0
+            replication = @creds["replication"]
+            Djinn.log_run("APPSCALE_HOME='#{APPSCALE_HOME}' MASTER_IP='localhost' LOCAL_DB_IP='localhost' python2.6 #{prime_script} #{replication}; echo $? > /tmp/retval")
+            retval = `cat /tmp/retval`.to_i
+            break if retval == 0
+            Djinn.log_debug("Fail to create initial table. Retry #{retries} times.")
+            Kernel.sleep(5)
+            retries -= 1
+          end
+          if retval != 0
+            Djinn.log_debug("Fail to create initial table. Could not startup AppScale.")
+            exit(1)
+          end
+        end
+
+        # Currently we always run the Datastore Server (PBServer) and SOAP
+        # server on the same nodes.
+        # TODO(cgb): Rename PBServer to Datastore Server throughout.
+        if has_soap_server?(my_node)
+          @state = "Starting up SOAP Server and PBServer"
+          start_pbserver()
+          start_soap_server()
+          HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip, UserAppClient::SERVER_PORT)
+        end
+      }
+    end
+
+    if my_node.is_db_slave?
+      threads << Thread.new {
+        start_db_slave()
+
+        # Currently we always run the Datastore Server (PBServer) and SOAP
+        # server on the same nodes.
+        # TODO(cgb): Rename PBServer to Datastore Server throughout.
+        if has_soap_server?(my_node)
+          @state = "Starting up SOAP Server and PBServer"
+          start_pbserver()
+          start_soap_server()
+          HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip, UserAppClient::SERVER_PORT)
+        end
+      }
+    end
+
+    # All nodes have application managers
+    threads << Thread.new {
+      start_app_manager_server()
+    }
+
+    if my_node.is_appengine?
+      threads << Thread.new {
+        start_blobstore_server()
+      }
+    end
+
+    if my_node.is_rabbitmq_master?
+      threads << Thread.new {
+        start_rabbitmq_master()
+      }
+    elsif my_node.is_rabbitmq_slave?
+      threads << Thread.new {
+        start_rabbitmq_slave()
+      }
+    end
+
+    # App Engine apps rely on the above services to be started, so
+    # join all our threads here
+    Djinn.log_debug("Waiting for all services to finish starting up")
+    threads.each { |t| t.join() }
+    Djinn.log_debug("API services have started on this node")
+  end
+
 
   def start_blobstore_server
     db_local_ip = @userappserver_private_ip
@@ -2157,7 +2413,7 @@ class Djinn
     
     creds = @creds.to_a.flatten
     Djinn.log_debug("Djinn locations: #{@nodes.join(', ')}")
-    Djinn.log_debug("DB Credentials: #{@creds.inspect}")
+    Djinn.log_debug("DB Credentials: #{HelperFunctions.obscure_creds(@creds).inspect}")
     Djinn.log_debug("Apps to load: #{@app_names.join(', ')}")
 
     Djinn.log_debug("Appengine info: #{appengine_info}")
@@ -2198,7 +2454,7 @@ class Djinn
   def initialize_nodes_in_parallel(node_info)
     threads = []
     node_info.each { |slave|
-      threads << Thread.new { 
+      threads << Thread.new {
         initialize_node(slave)
       }
     }
@@ -2235,6 +2491,7 @@ class Djinn
 
   def copy_encryption_keys(dest_node)
     ip = dest_node.private_ip
+    Djinn.log_debug("Copying SSH keys to node at IP address #{ip}")
     ssh_key = dest_node.ssh_key
 
     HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
@@ -2246,9 +2503,9 @@ class Djinn
       Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 ubuntu@#{ip} '#{enable_root_login}'")
     end
 
-    secret_key_loc = "/etc/appscale/secret.key"
-    cert_loc = "/etc/appscale/certs/mycert.pem"
-    key_loc = "/etc/appscale/certs/mykey.pem"
+    secret_key_loc = "#{CONFIG_FILE_LOCATION}/secret.key"
+    cert_loc = "#{CONFIG_FILE_LOCATION}/certs/mycert.pem"
+    key_loc = "#{CONFIG_FILE_LOCATION}/certs/mykey.pem"
     pub_key = File.expand_path("~/.ssh/id_rsa.pub")
 
     HelperFunctions.scp_file(secret_key_loc, secret_key_loc, ip, ssh_key)
@@ -2262,7 +2519,7 @@ class Djinn
       loop {
         cloud_type = @creds["CLOUD_TYPE"]
         break if cloud_type.nil? or cloud_type == ""
-        cloud_keys_dir = File.expand_path("/etc/appscale/keys/cloud#{cloud_num}")
+        cloud_keys_dir = File.expand_path("#{CONFIG_FILE_LOCATION}/keys/cloud#{cloud_num}")
         make_dir = "mkdir -p #{cloud_keys_dir}"
 
         keyname = @creds["keyname"]
@@ -2277,7 +2534,7 @@ class Djinn
         cloud_num += 1
       }
     else
-      cloud_keys_dir = File.expand_path("/etc/appscale/keys/cloud1")
+      cloud_keys_dir = File.expand_path("#{CONFIG_FILE_LOCATION}/keys/cloud1")
       make_dir = "mkdir -p #{cloud_keys_dir}"
 
       cloud_private_key = "#{cloud_keys_dir}/mykey.pem"
@@ -2361,43 +2618,93 @@ class Djinn
     Djinn.log_debug("Master is at #{master_ip}, slaves are at #{slave_ips.join(', ')}")
 
     my_public = my_node.public_ip
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/my_public_ip", "#{my_public}\n")
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/my_public_ip", "#{my_public}\n")
 
     my_private = my_node.private_ip
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/my_private_ip", "#{my_private}\n")
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/my_private_ip", "#{my_private}\n")
    
     head_node_ip = get_public_ip(@creds['hostname'])
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/head_node_ip", "#{head_node_ip}\n")
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/head_node_ip", "#{head_node_ip}\n")
 
     login_ip = get_login.public_ip
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/login_ip", "#{login_ip}\n")
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/login_ip", "#{login_ip}\n")
     
-    masters_file = "#{APPSCALE_HOME}/.appscale/masters"
+    masters_file = "#{CONFIG_FILE_LOCATION}/masters"
     HelperFunctions.write_file(masters_file, "#{master_ip}\n")
 
-    if @total_boxes == 1
+    if @nodes.length  == 1
+      Djinn.log_debug("Only saw one machine, therefore my node is " +
+        "also a slave node")
       slave_ips = [ my_private ]
     end
     
     slave_ips_newlined = slave_ips.join("\n")
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/slaves", "#{slave_ips_newlined}\n")
-
-    # n = @creds["replication"]
-
-    # setup_hadoop_config(template_loc, hadoop_hbase_loc, master_ip, slave_ips, n)
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/slaves", "#{slave_ips_newlined}\n")
 
     # Invoke datastore helper function
     setup_db_config_files(master_ip, slave_ips, @creds)
 
+    update_hosts_info()
+
+    # use iptables to lock down outside traffic
+    # nodes can talk to each other on any port
+    # but only the outside world on certain ports
+    #`iptables --flush`
+    if FIREWALL_IS_ON
+      Djinn.log_run("bash #{APPSCALE_HOME}/firewall.conf")
+    end
+  end
+
+  # Writes a file to the local filesystem that contains the IP address
+  # of a machine that runs the AppLoadBalancer. AppServers use this file
+  # to know where to send users to log in. Because users have to be able
+  # to access this IP address, we use the public IP here instead of the
+  # private IP.
+  def write_apploadbalancer_location()
+    login_file = "#{CONFIG_FILE_LOCATION}/apploadbalancer_public_ip"
+    login_ip = get_login.public_ip()
+    HelperFunctions.write_file(login_file, login_ip)
+  end
+
+
+  # Writes a file to the local filesystem that contains the IP
+  # address of the 'nearest' machine running the RabbitMQ service.
+  # 'Nearest' is defined as being this node's IP if our node runs RabbitMQ,
+  # or a random node that runs RabbitMQ otherwise.
+  def find_nearest_rabbitmq()
+    rabbitmq_ip = nil
+    if my_node.is_rabbitmq_master? or my_node.is_rabbitmq_slave?
+      rabbitmq_ip = my_node.private_ip
+    end
+
+    if rabbitmq_ip.nil?
+      rabbitmq_ips = []
+      @nodes.each { |node|
+        if node.is_rabbitmq_master? or node.is_rabbitmq_slave?
+          rabbitmq_ips << node.private_ip
+        end
+      }
+      Djinn.log_debug("RabbitMQ servers are at #{rabbitmq_ips.join(', ')}")
+
+      # pick one at random
+      rabbitmq_ip = rabbitmq_ips.sort_by { rand }[0]
+    end
+
+    Djinn.log_debug("AppServers on this node will connect to RabbitMQ " +
+      "at #{rabbitmq_ip}")
+    rabbitmq_file = "#{CONFIG_FILE_LOCATION}/rabbitmq_ip"
+    rabbitmq_contents = rabbitmq_ip
+    HelperFunctions.write_file(rabbitmq_file, rabbitmq_contents)
+  end
+
+  # Updates files on this machine with information about our hostname
+  # and a mapping of where other machines are located.
+  def update_hosts_info()
     all_nodes = ""
     @nodes.each_with_index { |node, index|
       all_nodes << "#{node.private_ip} appscale-image#{index}\n"
     }
     
-    etc_hosts = "/etc/hosts"
-    my_hostname = "appscale-image#{@my_index}"
-    etc_hostname = "/etc/hostname"
-
     new_etc_hosts = <<HOSTS
 127.0.0.1 localhost.localdomain localhost
 127.0.1.1 localhost
@@ -2410,32 +2717,41 @@ ff02::3 ip6-allhosts
 #{all_nodes}
 HOSTS
 
+    etc_hosts = "/etc/hosts"
     File.open(etc_hosts, "w+") { |file| file.write(new_etc_hosts) }    
+
+    etc_hostname = "/etc/hostname"
+    my_hostname = "appscale-image#{@my_index}"
     File.open(etc_hostname, "w+") { |file| file.write(my_hostname) }
 
-    # on ubuntu jaunty, we can change the hostname by running hostname.sh
-    # on karmic, this file doesn't exist - run /bin/hostname instead
-    # TODO: does the fix for karmic hold for lucid?
-
-    jaunty_hostname_file = "/etc/init.d/hostname.sh"
-
-    if File.exists?(jaunty_hostname_file)
-      Djinn.log_run("/etc/init.d/hostname.sh")
-    else
-      Djinn.log_run("/bin/hostname #{my_hostname}")
-    end
-
-    # use iptables to lock down outside traffic
-    # nodes can talk to each other on any port
-    # but only the outside world on certain ports
-    #`iptables --flush`
-    if FIREWALL_IS_ON
-      Djinn.log_run("bash #{APPSCALE_HOME}/firewall.conf")
-    end
+    Djinn.log_run("/bin/hostname #{my_hostname}")
   end
 
+
+  # Writes new nginx configuration files for the App Engine applications
+  # hosted in this deployment. Callers should invoke this method whenever
+  # there is a change in the number of machines hosting App Engine apps.
+  def regenerate_nginx_config_files()
+    Djinn.log_debug("Regenerating nginx config files for App Engine apps")
+    my_public = my_node.public_ip
+    my_private = my_node.private_ip
+    login_ip = get_login.private_ip
+
+    Djinn.log_debug("@app_info_map is #{@app_info_map.inspect}")
+    @apps_loaded.each { |app|  
+      Djinn.log_debug("Regenerating nginx config for app #{app}")
+      app_number = @app_info_map[app]['nginx'] - Nginx::START_PORT
+      proxy_port = HAProxy.app_listen_port(app_number)
+      Nginx.write_fullproxy_app_config(app, app_number, my_public,
+        my_private, proxy_port, login_ip, get_all_appengine_nodes())
+    }
+    Djinn.log_debug("Done writing new nginx config files!")
+    Nginx.reload()
+  end
+
+
   def write_hypersoap()
-    HelperFunctions.write_file("#{APPSCALE_HOME}/.appscale/hypersoap", @userappserver_private_ip)
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/hypersoap", @userappserver_private_ip)
   end
 
   def my_node()
@@ -2483,7 +2799,7 @@ HOSTS
 
     # remove any possible appcontroller state that may not have been
     # properly removed in non-cloud runs
-    remove_state = "rm -rf /etc/appscale/appcontroller-state.json"
+    remove_state = "rm -rf #{CONFIG_FILE_LOCATION}/appcontroller-state.json"
     HelperFunctions.run_remote_command(ip, remove_state, ssh_key, NO_OUTPUT)
 
     GodInterface.start_god(ip, ssh_key)
@@ -2574,45 +2890,6 @@ HOSTS
     end
   end
 
-  # TODO: this function should use hadoop_helper
-  def setup_hadoop_config_org(source_dir, dest_dir, master_ip, slave_ips, n)
-    ["source_dir", "dest_dir", "master_ip"].each { |param_name|
-      param = eval(param_name)
-      abort("#{param_name} wasn't a String. It was a/an #{param.class}") if param.class != String
-    }
-
-    source_dir = File.expand_path(source_dir)
-    dest_dir = File.expand_path(dest_dir)
-
-    abort("Source dir [#{source_dir}] didn't exist") unless File.directory?(source_dir)
-    abort("Dest dir [#{dest_dir}] didn't exist") unless File.directory?(dest_dir)
-
-    files_to_config = `ls #{source_dir}`.split
-    files_to_config.each{ |filename|
-      full_path_to_read = source_dir + File::Separator + filename
-      full_path_to_write = dest_dir + File::Separator + filename
-      File.open(full_path_to_read) { |source_file|
-        contents = source_file.read
-        contents.gsub!(/APPSCALE-MASTER/, master_ip)
-        contents.gsub!(/APPSCALE-SLAVES/, slave_ips.join("\n"))
-        contents.gsub!(/REPLICATION/, n)
-  
-        HelperFunctions.write_file(full_path_to_write, contents)
-      }
-    }
-  end
-
-  # TODO: this function should use hadoop_helper
-  def start_hadoop_org()
-    i = my_node
-    return unless i.is_shadow? # change this later to db_master
-    hadoop_home = File.expand_path("#{APPSCALE_HOME}/AppDB/hadoop-0.20.2/")
-    Djinn.log_run("#{hadoop_home}/bin/hadoop namenode -format 2>&1")
-    Djinn.log_run("#{hadoop_home}/bin/start-dfs.sh 2>&1")
-    Djinn.log_run("python #{hadoop_home}/../wait_on_hadoop.py 2>&1")
-    Djinn.log_run("#{hadoop_home}/bin/start-mapred.sh 2>&1")
-  end
-
   def stop_load_balancer()
     Djinn.log_debug("Shutting down Load Balancer")
     LoadBalancer.stop
@@ -2672,175 +2949,182 @@ HOSTS
     else
       Djinn.log_debug("Don't need to restore")
     end
-
-    apps_to_load = @app_names - @apps_loaded - ["none"]
-    apps_to_load.each { |app|
-      app_data = uac.get_app_data(app)
-      Djinn.log_debug("Get app data for #{app} said [#{app_data}]")
-
-      loop {
-        Djinn.log_debug("Waiting for app data to have instance info for app named #{app}: #{app_data}")
-
+    APPS_LOCK.synchronize {
+      apps_to_load = @app_names - @apps_loaded - ["none"]
+      apps_to_load.each { |app|
         app_data = uac.get_app_data(app)
-        if app_data[0..4] != "Error"
-          break
-        end
-        Kernel.sleep(5)
-      }
-
-      my_public = my_node.public_ip
-      my_private = my_node.private_ip
-      app_language = app_data.scan(/language:(\w+)/).flatten.to_s
-      
-      @app_info_map[app] = {}
-      @app_info_map[app][:language] = app_language
-
-      # TODO: merge these 
-      shadow = get_shadow
-      shadow_ip = shadow.private_ip
-      ssh_key = shadow.ssh_key
-      app_dir = "/var/apps/#{app}/app"
-      app_path = "#{app_dir}/#{app}.tar.gz"
-      FileUtils.mkdir_p(app_dir)
-       
-      if !copy_app_to_local(app)
-        place_error_app(app, "ERROR: Failed to copy app: #{app}")
-      end
-      HelperFunctions.setup_app(app)
-
-       
-      if my_node.is_shadow?
-        CronHelper.update_cron(my_public, app_language, app)
-        start_xmpp_for_app(app, app_language)
-      end
-      app_number = @nginx_port - Nginx::START_PORT
-      proxy_port = HAProxy.app_listen_port(app_number)
-      login_ip = get_login.private_ip
-      if my_node.is_login? and !my_node.is_appengine?
-        success = Nginx.write_fullproxy_app_config(app, app_number, my_public,
-          my_private, proxy_port, login_ip, get_all_appengine_nodes())
-        if success
-          Nginx.reload
-        else
-          err_msg = "ERROR: Failure to create valid nginx config file" + \
-                    " for application #{app} full proxy."
-          place_error_app(app, err_msg)
-        end
-        @nginx_port += 1
-        @haproxy_port += 1
-      end
-
-
-      if my_node.is_appengine?
-        app_number = @nginx_port - Nginx::START_PORT
-        start_port = HelperFunctions::APP_START_PORT
-        begin
-          static_handlers = HelperFunctions.parse_static_data(app)
-        rescue Exception => e
-          # This specific exception may be a json parse error
-          error_msg = "ERROR: Unable to parse app.yaml file for #{app}." + \
-                      " Exception of #{e.class} with message #{e.message}" 
-          place_error_app(app, error_msg)
-          static_handlers = []
-        end
-        proxy_port = HAProxy.app_listen_port(app_number)
-        login_ip = get_login.private_ip
-        success = Nginx.write_app_config(app, app_number, my_public, my_private,
-          proxy_port, static_handlers, login_ip)
-        if !success
-          error_msg = "ERROR: Failure to create valid nginx config file " + \
-                      "for application #{app}."
-          place_error_app(app, error_msg)
-        end
-        Collectd.write_app_config(app)
-
-        # send a warmup request to the app to get it loaded - can shave a
-        # number of seconds off the initial request if it's java or go
-        # go provides a default warmup route
-        # TODO: if the user specifies a warmup route, call it instead of /
-        warmup_url = "/"
-
-        @app_info_map[app][:appengine] = []
-        @num_appengines.times { |index|
-          Djinn.log_debug("Starting #{app_language} app #{app} on " +
-            "#{HelperFunctions.local_ip}:#{@appengine_port}")
-          @app_info_map[app][:appengine] << @appengine_port
-
-          xmpp_ip = get_login.public_ip
-
-          pid = app_manager.start_app(app, @appengine_port, 
-            get_load_balancer_ip(), @nginx_port, app_language, 
-            xmpp_ip, [Djinn.get_nearest_db_ip(false)])
-
-          if pid == -1
-            place_error_app(app, "ERROR: Unable to start application " + \
-                "#{app}. Please check the application logs.") 
-          end
-
-          pid_file_name = "/etc/appscale/#{app}-#{@appengine_port}.pid"
-          HelperFunctions.write_file(pid_file_name, pid)
-
-          @appengine_port += 1
-        }
-
-        HAProxy.update_app_config(app, app_number, 
-          @app_info_map[app][:appengine], my_private)
-        Nginx.reload
-        HAProxy.reload
-        Collectd.restart
+        Djinn.log_debug("Get app data for #{app} said [#{app_data}]")
 
         loop {
-          Kernel.sleep(5)
-          success = uac.add_instance(app, my_public, @nginx_port)
-          Djinn.log_debug("Add instance returned #{success}")
-          if success  
-            # tell ZK that we are hosting the app in case we die, so that
-            # other nodes can update the UserAppServer on its behalf
-            ZKInterface.add_app_instance(app, my_public, @nginx_port)
+          Djinn.log_debug("Waiting for app data to have instance info for app named #{app}: #{app_data}")
+
+          app_data = uac.get_app_data(app)
+          if app_data[0..4] != "Error"
             break
           end
+          Kernel.sleep(5)
         }
 
-        nginx = @nginx_port
-        haproxy = @haproxy_port
-
-        # Update our local information so that we know later what ports
-        # we're using to host this app on for nginx and haproxy
-        @app_info_map[app][:nginx] = @nginx_port
-        @app_info_map[app][:haproxy] = @haproxy_port
-
-        login_ip = get_login.public_ip
-
-        Thread.new {
-          haproxy_location = "http://#{my_private}:#{haproxy}#{warmup_url}"
-          nginx_location = "http://#{my_public}:#{nginx}#{warmup_url}"
-
-          wget_haproxy = "wget #{WGET_OPTIONS} #{haproxy_location}"
-          wget_nginx = "wget #{WGET_OPTIONS} #{nginx_location}"
-
-          Djinn.log_run(wget_haproxy)
-          Djinn.log_run(wget_nginx)
-        }
-
-        @nginx_port += 1
-        @haproxy_port += 1
-
-        # now doing this at the real end so that the tools will
-        # wait for the app to actually be running before returning
-        done_uploading(app, app_path, @@secret)
-      end
-
-      Monitoring.restart if my_node.is_shadow?
-
-      if @app_names.include?("none")
-        @apps_loaded = @apps_loaded - ["none"]
-        @app_names = @app_names - ["none"]
-      end
+        my_public = my_node.public_ip
+        my_private = my_node.private_ip
+        app_language = app_data.scan(/language:(\w+)/).flatten.to_s
         
-      @apps_loaded << app
-    }
+        @app_info_map[app] = {}
+        @app_info_map[app]['language'] = app_language
 
-    Djinn.log_debug("#{apps_to_load.size} apps loaded")  
+        # TODO: merge these 
+        shadow = get_shadow
+        shadow_ip = shadow.private_ip
+        ssh_key = shadow.ssh_key
+        app_dir = "/var/apps/#{app}/app"
+        app_path = "#{app_dir}/#{app}.tar.gz"
+        FileUtils.mkdir_p(app_dir)
+         
+        if !copy_app_to_local(app)
+          place_error_app(app, "ERROR: Failed to copy app: #{app}")
+        end
+        HelperFunctions.setup_app(app)
+
+         
+        if my_node.is_shadow?
+          CronHelper.update_cron(my_public, app_language, app)
+          start_xmpp_for_app(app, app_language)
+        end
+        app_number = @nginx_port - Nginx::START_PORT
+        proxy_port = HAProxy.app_listen_port(app_number)
+        login_ip = get_login.private_ip
+
+        if my_node.is_login? and !my_node.is_appengine?
+          success = Nginx.write_fullproxy_app_config(app, app_number, my_public,
+            my_private, proxy_port, login_ip, get_all_appengine_nodes())
+          if success
+            Nginx.reload
+          else
+            err_msg = "ERROR: Failure to create valid nginx config file" + \
+                      " for application #{app} full proxy."
+            place_error_app(app, err_msg)
+          end
+
+          @app_info_map[app]['nginx'] = @nginx_port
+          @app_info_map[app]['haproxy'] = @haproxy_port
+
+          @nginx_port += 1
+          @haproxy_port += 1
+        end
+
+
+        if my_node.is_appengine?
+          app_number = @nginx_port - Nginx::START_PORT
+          start_port = HelperFunctions::APP_START_PORT
+          begin
+            static_handlers = HelperFunctions.parse_static_data(app)
+          rescue Exception => e
+            # This specific exception may be a json parse error
+            error_msg = "ERROR: Unable to parse app.yaml file for #{app}." + \
+                        " Exception of #{e.class} with message #{e.message}" 
+            place_error_app(app, error_msg)
+            static_handlers = []
+          end
+          proxy_port = HAProxy.app_listen_port(app_number)
+          login_ip = get_login.private_ip
+          success = Nginx.write_app_config(app, app_number, my_public, my_private,
+            proxy_port, static_handlers, login_ip)
+          if !success
+            error_msg = "ERROR: Failure to create valid nginx config file " + \
+                        "for application #{app}."
+            place_error_app(app, error_msg)
+          end
+          Collectd.write_app_config(app)
+
+          # send a warmup request to the app to get it loaded - can shave a
+          # number of seconds off the initial request if it's java or go
+          # go provides a default warmup route
+          # TODO: if the user specifies a warmup route, call it instead of /
+          warmup_url = "/"
+
+          @app_info_map[app]['appengine'] = []
+          @num_appengines.times { |index|
+            Djinn.log_debug("Starting #{app_language} app #{app} on " +
+              "#{HelperFunctions.local_ip}:#{@appengine_port}")
+            @app_info_map[app]['appengine'] << @appengine_port
+
+            xmpp_ip = get_login.public_ip
+
+            pid = app_manager.start_app(app, @appengine_port, 
+              get_load_balancer_ip(), @nginx_port, app_language, 
+              xmpp_ip, [Djinn.get_nearest_db_ip(false)])
+
+            if pid == -1
+              place_error_app(app, "ERROR: Unable to start application " + \
+                  "#{app}. Please check the application logs.") 
+            end
+
+            pid_file_name = "#{CONFIG_FILE_LOCATION}/#{app}-#{@appengine_port}.pid"
+            HelperFunctions.write_file(pid_file_name, pid)
+
+            @appengine_port += 1
+          }
+
+          HAProxy.update_app_config(app, app_number, 
+            @app_info_map[app]['appengine'], my_private)
+          Nginx.reload
+          HAProxy.reload
+          Collectd.restart
+
+          loop {
+            Kernel.sleep(5)
+            success = uac.add_instance(app, my_public, @nginx_port)
+            Djinn.log_debug("Add instance returned #{success}")
+            if success  
+              # tell ZK that we are hosting the app in case we die, so that
+              # other nodes can update the UserAppServer on its behalf
+              ZKInterface.add_app_instance(app, my_public, @nginx_port)
+              break
+            end
+          }
+
+          nginx = @nginx_port
+          haproxy = @haproxy_port
+
+          # Update our local information so that we know later what ports
+          # we're using to host this app on for nginx and haproxy
+          @app_info_map[app]['nginx'] = @nginx_port
+          @app_info_map[app]['haproxy'] = @haproxy_port
+
+          login_ip = get_login.public_ip
+
+          Thread.new {
+            haproxy_location = "http://#{my_private}:#{haproxy}#{warmup_url}"
+            nginx_location = "http://#{my_public}:#{nginx}#{warmup_url}"
+
+            wget_haproxy = "wget #{WGET_OPTIONS} #{haproxy_location}"
+            wget_nginx = "wget #{WGET_OPTIONS} #{nginx_location}"
+
+            Djinn.log_run(wget_haproxy)
+            Djinn.log_run(wget_nginx)
+          }
+
+          @nginx_port += 1
+          @haproxy_port += 1
+
+          # now doing this at the real end so that the tools will
+          # wait for the app to actually be running before returning
+          done_uploading(app, app_path, @@secret)
+        end
+
+        Monitoring.restart if my_node.is_shadow?
+        APPS_LOCK.synchronize {
+          if @app_names.include?("none")
+            @apps_loaded = @apps_loaded - ["none"]
+            @app_names = @app_names - ["none"]
+          end
+          
+          @apps_loaded << app
+        }
+      }
+
+      Djinn.log_debug("#{apps_to_load.size} apps loaded")  
+    } # end of synchronize
   end
 
 
@@ -2872,26 +3156,28 @@ HOSTS
   #   longer valid. 
   #
   def perform_scaling_for_appservers()
-    @apps_loaded.each { |app_name|
+    APPS_LOCK.synchronize {
+      @apps_loaded.each { |app_name|
 
-      next if app_name == "none"  
-      Djinn.log_debug("Deciding whether to scale AppServers for #{app_name}")
-      initialize_scaling_info_for_app(app_name)
+        next if app_name == "none"  
+        Djinn.log_debug("Deciding whether to scale AppServers for #{app_name}")
+        initialize_scaling_info_for_app(app_name)
 
-      if is_cpu_or_mem_maxed_out?(@app_info_map[app_name][:language])
-        # TODO(cgb): This seems like a good condition to scale down
-        Djinn.log_debug("Too much CPU or memory is being used - don't scale")
-        return
-      end
+        if is_cpu_or_mem_maxed_out?(@app_info_map[app_name]['language'])
+          # TODO(cgb): This seems like a good condition to scale down
+          Djinn.log_debug("Too much CPU or memory is being used - don't scale")
+          return
+        end
 
-      case get_scaling_info_for_app(app_name)
-      when :scale_up
-        try_to_scale_up(app_name)
-      when :scale_down
-        try_to_scale_down(app_name)
-      else
-        Djinn.log_debug("No change. Keeping the same number of AppServers")
-      end
+        case get_scaling_info_for_app(app_name)
+        when :scale_up
+          try_to_scale_up(app_name)
+        when :scale_down
+          try_to_scale_down(app_name)
+        else
+          Djinn.log_debug("No change. Keeping the same number of AppServers")
+        end
+      }
     }
   end
 
@@ -2931,6 +3217,7 @@ HOSTS
     stats = get_stats(@@secret)
     Djinn.log_debug("CPU used: #{stats['cpu']}, mem used: #{stats['memory']}")
 
+    Djinn.log_debug("Examining CPU and memory usage for a #{language} application.")
     current_cpu = stats['cpu']
     max_cpu = MAX_CPU_FOR_APPSERVERS[language]
 
@@ -3034,10 +3321,10 @@ HOSTS
   def try_to_scale_up(app_name)
     Djinn.log_debug("Considering whether we should scale up")
     time_since_last_decision = Time.now.to_i - @last_decision[app_name]
-    appservers_running = @app_info_map[app_name][:appengine].length
+    appservers_running = @app_info_map[app_name]['appengine'].length
           
     if time_since_last_decision > SCALEUP_TIME_THRESHOLD and 
-      !@app_info_map[app_name][:appengine].nil? and 
+      !@app_info_map[app_name]['appengine'].nil? and
       appservers_running < MAX_APPSERVERS_ON_THIS_NODE
 
       Djinn.log_debug("Adding a new AppServer on this node for #{app_name}")
@@ -3046,8 +3333,8 @@ HOSTS
     elsif time_since_last_decision <= SCALEUP_TIME_THRESHOLD
       Djinn.log_debug("Not enough time has passed since when the last " +
         "scaling decision was made for #{app_name}")
-    elsif !@app_info_map[app_name][:appengine].nil? and 
-      appservers_running > MAX_APPSERVERS_ON_THIS_NODE 
+    elsif !@app_info_map[app_name]['appengine'].nil? and
+      appservers_running > MAX_APPSERVERS_ON_THIS_NODE
 
       Djinn.log_debug("The maximum number of AppServers for this app " +
         "are already running, so don't add any more")
@@ -3058,16 +3345,16 @@ HOSTS
   def try_to_scale_down(app_name)
     Djinn.log_debug("Considering whether we should scale down")
     time_since_last_decision = Time.now.to_i - @last_decision[app_name]
-    appservers_running = @app_info_map[app_name][:appengine].length
+    appservers_running = @app_info_map[app_name]['appengine'].length
 
     if time_since_last_decision > SCALEDOWN_TIME_THRESHOLD and
-      !@app_info_map[app_name][:appengine].nil? and 
+      !@app_info_map[app_name]['appengine'].nil? and
       appservers_running > MIN_APPSERVERS_ON_THIS_NODE
 
       Djinn.log_debug("Removing an AppServer on this node for #{app_name}")
       remove_appserver_process(app_name)
       @last_decision[app_name] = Time.now.to_i
-    elsif !@app_info_map[app_name][:appengine].nil? and 
+    elsif !@app_info_map[app_name]['appengine'].nil? and
       appservers_running <= MIN_APPSERVERS_ON_THIS_NODE
 
       Djinn.log_debug("Only #{MIN_APPSERVERS_ON_THIS_NODE} AppServer(s) " +
@@ -3118,15 +3405,15 @@ HOSTS
       return  
     end
 
-    nginx_port = @app_info_map[app][:nginx]
-    haproxy_port = @app_info_map[app][:haproxy]
-    @app_info_map[app][:appengine] << @appengine_port
+    nginx_port = @app_info_map[app]['nginx']
+    haproxy_port = @app_info_map[app]['haproxy']
+    @app_info_map[app]['appengine'] << @appengine_port
 
     app_number = nginx_port - Nginx::START_PORT
 
     my_private = my_node.private_ip
-    Djinn.log_debug("port apps error contains - #{@app_info_map[app][:appengine]}")
-    HAProxy.update_app_config(app, app_number, @app_info_map[app][:appengine],
+    Djinn.log_debug("port apps error contains - #{@app_info_map[app]['appengine']}")
+    HAProxy.update_app_config(app, app_number, @app_info_map[app]['appengine'],
       my_private)     
 
     Djinn.log_debug("Adding #{app_language} app #{app} on #{HelperFunctions.local_ip}:#{@appengine_port} ")
@@ -3141,7 +3428,7 @@ HOSTS
       Djinn.log_debug("ERROR: Unable to start application #{app} on port #{@appengine_port}.") 
       next
     end
-    pid_file_name = "#{APPSCALE_HOME}/.appscale/#{app}-#{@appengine_port}.pid"
+    pid_file_name = "#{CONFIG_FILE_LOCATION}/#{app}-#{@appengine_port}.pid"
     HelperFunctions.write_file(pid_file_name, pid)
 
     @appengine_port += 1
@@ -3181,7 +3468,7 @@ HOSTS
 
     my_public = my_node.public_ip
     my_private = my_node.private_ip
-    app_number = @app_info_map[app][:nginx] - Nginx::START_PORT
+    app_number = @app_info_map[app]['nginx'] - Nginx::START_PORT
 
     app_data = uac.get_app_data(app)
 
@@ -3194,7 +3481,7 @@ HOSTS
     end
 
     # Select a random AppServer to kill.
-    ports = @app_info_map[app][:appengine]
+    ports = @app_info_map[app]['appengine']
     port = ports[rand(ports.length)]
 
     if !app_manager.stop_app_instance(app, port)
@@ -3202,9 +3489,9 @@ HOSTS
     end
 
     # Delete the port number from the app_info_map
-    @app_info_map[app][:appengine].delete(port)
+    @app_info_map[app]['appengine'].delete(port)
 
-    HAProxy.update_app_config(app, app_number, @app_info_map[app][:appengine],
+    HAProxy.update_app_config(app, app_number, @app_info_map[app]['appengine'],
       my_private)
     HAProxy.reload
   end 
@@ -3230,16 +3517,17 @@ HOSTS
         }
 
         Djinn.log_debug("Finished deleting instances for app #{app}")
-        #Djinn.log_run("rm -fv /etc/nginx/#{app}.conf")
         Nginx.reload
       else
         Djinn.log_debug("App #{app} wasnt enabled, skipping it")
       end
     }
 
-    @app_names = []
-    @apps_loaded = []
-    @restored = false
+    APPS_LOCK.synchronize { 
+      @app_names = []
+      @apps_loaded = []
+      @restored = false
+    }
   
     Djinn.log_run("pkill -f dev_appserver")
     Djinn.log_run("pkill -f DevAppServerMain")
@@ -3305,7 +3593,7 @@ HOSTS
     Djinn.log_debug("Created user [#{xmpp_user}] with password [#{@@secret}] and hashed password [#{xmpp_pass}]")
 
     if Ejabberd.does_app_need_receive?(app, app_language)
-      start_cmd = "python #{APPSCALE_HOME}/AppController/xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
+      start_cmd = "python2.6 #{APPSCALE_HOME}/AppController/xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
       stop_cmd = "ps ax | grep '#{start_cmd}' | grep -v grep | awk '{print $1}' | xargs -d '\n' kill -9"
       GodInterface.start(app, start_cmd, stop_cmd, 9999)
       Djinn.log_debug("App #{app} does need xmpp receive functionality")

@@ -64,21 +64,9 @@ class DjinnServer < SOAP::RPC::HTTPServer
     add_method(@djinn, "backup_appscale", "backup_in_info", "secret")
     add_method(@djinn, "add_role", "new_role", "secret")
     add_method(@djinn, "remove_role", "old_role", "secret")
+    add_method(@djinn, "start_roles_on_nodes", "ips_hash", "secret")
   end
 end
-
-`rm -rf /tmp/h*`
-`rm -f ~/.appscale_cookies`
-`rm -f #{APPSCALE_HOME}/.appscale/status-*`
-`rm -f #{APPSCALE_HOME}/.appscale/database_info`
-`rm -f /tmp/mysql.sock`
-
-
-Nginx.clear_sites_enabled
-Collectd.clear_sites_enabled
-HAProxy.clear_sites_enabled
-`echo '' > /root/.ssh/known_hosts` # empty it out but leave the file there
-CronHelper.clear_crontab
 
 appscale_dir = "/etc/appscale/"
 

@@ -76,7 +76,7 @@ MAX_REQUEST_SIZE = 32 << 20
 MAX_RETRIES = 10
 
 # Max backoff of a tasks in seconds
-MAX_WAIT = 60 
+MAX_WAIT = 60
 
 # Max for time for exponential backoff for RabbitMQ reconnect
 MAX_RECONNECT_TIME = 1024
@@ -101,6 +101,25 @@ _TASKQUEUE_KIND = "___TaskQueue___"
 
 # The maximum length of a random string used for self generated task names
 RAND_LENGTH_SIZE = 32
+
+# The file containing the IP address where a RabbitMQ server is running.
+RABBITMQ_LOCATION_FILE = "/etc/appscale/rabbitmq_ip"
+
+def _GetRabbitMQLocation():
+  """Returns the IP address that a RabbitMQ server is running on.
+  Returns:
+    A string containing the location of a RabbitMQ server.
+  """
+  try:
+    file_handle = open(RABBITMQ_LOCATION_FILE)
+    ip = file_handle.read()
+    file_handle.close()
+  except IOError:
+    logger.error("Couldn't open RabbitMQ locations file - using " +
+      "localhost as the RabbitMQ IP for now.")
+    ip = "localhost"
+
+  return ip
 
 def _GetAppId(request):
   """Returns the app id to use for the given request.
@@ -268,6 +287,31 @@ def _VerifyTaskQueueAddRequest(request, now):
 
   return taskqueue_service_pb.TaskQueueServiceError.OK
 
+def GetTaskState(task_name):
+  """ Returns the state of a task given a task name.
+  Args: 
+    task_name: A string representing the task name.
+  Returns:
+    The current state of the task.
+  """
+  key = datastore.Key.from_path(_TASKQUEUE_KIND, task_name, namespace='')
+  db_task = None
+  try:
+    db_task = datastore.Get(key)
+  except datastore_errors.EntityNotFoundError:
+    return taskqueue_service_pb.TaskQueueServiceError.UNKNOWN_TASK
+
+  if 'state' not in db_task:
+    return taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR
+  elif db_task['state'] == TaskStates.Running:
+    return taskqueue_service_pb.TaskQueueServiceError.TASK_ALREADY_EXISTS
+  elif db_task['state'] == TaskStates.Tombstoned:
+    return taskqueue_service_pb.TaskQueueServiceError.TOMBSTONED_TASK
+  elif db_task['state'] == TaskStates.Failed:
+    return taskqueue_service_pb.TaskQueueServiceError.TRANSIENT_ERROR
+  else:
+    return taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR
+ 
 class TaskStates:
   """ Defines different states a task can be in. """
   Running = "Running"
@@ -361,16 +405,24 @@ class _TaskExecutor(object):
         connection.send(base64.b64decode(task['body']))
 
       response = connection.getresponse()
-      response.read()
+      payload = response.read()
       response.close()
-
+      if 200 > response.status >= 300:
+        logging.warning('Sending the task "%s" ' + \
+                        '(Url: "%s") in queue "%s" has a HTTP response of %d.' + \
+                        ' with payload %s',
+                        task['name'], task['url'], task['queue_name'],
+                        response.status, payload)
       return 200 <= response.status < 300
     except (httplib.HTTPException, socket.error):
       logging.exception('An error occured while sending the task "%s" '
                         '(Url: "%s") in queue "%s". Treating as a task error.',
                         task['name'], task['url'], task['queue_name'])
       return False
-
+    except Exception, e:
+      logging.error("Received an exception of class %s with message %s" % \
+                    (str(e.__class__), str(e)))
+      return False
 
 class _BackgroundTaskScheduler(object):
   """The task scheduler class.
@@ -396,7 +448,7 @@ class _BackgroundTaskScheduler(object):
 
     try:
       self.connection = pika.BlockingConnection(pika.ConnectionParameters(
-        host='localhost'))
+        host=_GetRabbitMQLocation()))
       self.channel = self.connection.channel()
     except pika.exceptions.AMQPConnectionError, e:
       logging.error("Unable to connect to RabbitMQ: " + str(e))
@@ -408,14 +460,15 @@ class _BackgroundTaskScheduler(object):
       raise TypeError('Unknown parameters: %s' % ', '.join(kwargs))
 
   def _backoff(self, task):
-    """ Backoff time based on how many retries thus far
+    """ Backoff time based on how many retries thus far.
     """
     for index, header in enumerate(task["headers"]):
       if header[0].lower() == "x-appengine-taskretrycount":
         current_attempts = int(task["headers"][index][1])
         sleep_time = pow(current_attempts, 2)
         if sleep_time != 0: 
-          logging.info("Task %s is going to backoff for %d seconds" % \
+          sleep_time = min(MAX_WAIT, sleep_time)
+          logging.debug("Task %s is going to backoff for %d seconds" % \
                        (task['name'],sleep_time))
           time.sleep(sleep_time)
 
@@ -438,10 +491,19 @@ class _BackgroundTaskScheduler(object):
       logging.error("Exception parsing task json %s"%body)
       ch.basic_reject(delivery_tag = method.delivery_tag, requeue = False)
       return
+    
+    # Make sure this task is in the correct state of running
+    task_status = GetTaskState(task['name']) 
+    if task_status != taskqueue_service_pb.TaskQueueServiceError.\
+                                           TASK_ALREADY_EXISTS:
+      logging.warning("Task %s was in a bad state %s" % \
+                     (task['name'], str(task_status)))
+      ch.basic_ack(delivery_tag = method.delivery_tag)
+      return
 
     self._backoff(task)
+
     task_result = self.task_executor.ExecuteTask(task)
- 
     if task_result:
       ch.basic_ack(delivery_tag = method.delivery_tag) 
       entity = datastore.Entity(_TASKQUEUE_KIND,
@@ -450,12 +512,12 @@ class _BackgroundTaskScheduler(object):
       datastore.Put(entity)
     else:
       # Figure out how many attempts have been done thus far
-      current_attemps = 0
+      current_attempts = 0
       for index, header in enumerate(task["headers"]):
         if header[0].lower() == "x-appengine-taskretrycount":
           current_attempts = int(task["headers"][index][1])
           task["headers"][index][1] = str(int(current_attempts) + 1)
-          logging.info("Task %s has tried %d times"%(task['name'], 
+          logging.debug("Task %s has tried %d times"%(task['name'], 
                        int(task["headers"][index][1])))
 
       # Too many retries
@@ -482,7 +544,7 @@ class _BackgroundTaskScheduler(object):
         except pika.exceptions.AMQPConnectionError, e:
           ch.basic_reject(delivery_tag = method.delivery_tag, requeue = True)
           self.connection = pika.BlockingConnection(pika.ConnectionParameters(
-                                                    host='localhost'))
+                                                    host=_GetRabbitMQLocation()))
           self.channel = self.connection.channel()
         except pika.exceptions.AMQPConnectionError, e:
           logging.error("Unable to connect to RabbitMQ: " + str(e))
@@ -494,6 +556,7 @@ class _BackgroundTaskScheduler(object):
         # tasks being enqueued. The API does support transactions see:
         # http://www.rabbitmq.com/amqp-0-9-1-reference.html
         else:
+          # Here we reject the old tasks since it was updated
           ch.basic_reject(delivery_tag = method.delivery_tag, requeue = False)
 
  
@@ -502,20 +565,20 @@ class _BackgroundTaskScheduler(object):
     reconnect_time = 1
     while 1:
       try:
-        logging.info("Connecting to RabbitMQ")
+        logging.debug("Connecting to RabbitMQ")
         self.connection = pika.BlockingConnection(pika.ConnectionParameters(
-                         host='localhost'))
+                         host=_GetRabbitMQLocation()))
         self.channel = self.connection.channel()
         self.channel.queue_declare(queue=self._queue_name)
         self.channel.basic_qos(prefetch_count=1)
         self.channel.basic_consume(self._TaskCallback, queue=self._queue_name)
-        logging.info("Success: connected to RabbitMQ")
+        logging.debug("Success: connected to RabbitMQ")
         self.channel.start_consuming() 
       except pika.exceptions.AMQPConnectionError, e:
         logging.error("RabbitMQ Connection error %s" % str(e))
       except Exception, e:
         logging.error("RabbitMQ Unknown exception %s" % str(e))
-      logging.info("Reconnecting in " + str(reconnect_time) + " seconds")
+      logging.warning("Reconnecting in " + str(reconnect_time) + " seconds")
       time.sleep(reconnect_time) 
 
       if reconnect_time <= MAX_RECONNECT_TIME:
@@ -573,7 +636,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
         retry_seconds=task_retry_seconds)
     try:
       self.connection = pika.BlockingConnection(pika.ConnectionParameters(
-        host='localhost'))
+        host=_GetRabbitMQLocation()))
       self.channel = self.connection.channel()
       self.channel.queue_declare(queue='app_%s' % app_id, durable=False)
     except pika.exceptions.AMQPConnectionError, e:
@@ -736,7 +799,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     """Enqueues the task into rabbitmq
     """ 
     # Make sure the task doesnt  already exist or tombstoned
-    self._LocateTaskByName(request.task_name())
+    self._TaskStatus(request.task_name())
 
     now_sec = calendar.timegm(now.utctimetuple())
     task = taskqueue_service_pb.TaskQueueQueryTasksResponse_Task()
@@ -744,8 +807,9 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     task.set_eta_usec(request.eta_usec())
     task.set_creation_time_usec(_SecToUsec(now_sec))
     task.set_retry_count(0)
-    task.set_method(request.method())
 
+    if request.has_method():
+      task.set_method(request.method())
     if request.has_url():
       task.set_url(request.url())
     for keyvalue in request.header_list():
@@ -777,50 +841,52 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     try:
       entity = datastore.Entity(_TASKQUEUE_KIND,
                                 name=str(task.task_name()), namespace='')
-      entity.update({'state': TaskStates.Running, 'name':task.task_name()})
+      entity.update({'state': TaskStates.Running, 'name':task.task_name(), 
+                     'method': request.method()})
+     
       datastore.Put(entity)
-      self.channel.basic_publish(exchange='',
+      if request.mode() == QUEUE_MODE.PUSH:
+        self.channel.basic_publish(exchange='',
                       routing_key=queue_name,
                       body=task_dict,
                       properties=pika.BasicProperties(
                          delivery_mode = 2, # make message persistent
                       )) 
+      else:
+        raise NotImplementedError("PULL queues are not implemented")
     except pika.exceptions.AMQPConnectionError:
       self.connection = pika.BlockingConnection(pika.ConnectionParameters(
-                                                   host='localhost'))
+                                                   host=_GetRabbitMQLocation()))
       raise apiproxy_errors.ApplicationError(
                  taskqueue_service_pb.TaskQueueServiceError.TRANSIENT_ERROR)
     except Exception, e:
       logging.error("Unknown exception--Unable to connect to RabbitMQ: %s" % \
                    str(e))
 
-  def _LocateTaskByName(self, task_name):
-    """ Makes sure the task does not exist or tombstoned
+  def _TaskStatus(self, task_name):
+    """ Makes sure the task does not exist or tombstoned.
+    Args:
+      task_name: A string representing the task name
+    Raises:
+      taskqueue.TombstonedError: If the task is already tombstoned.
+      taskqueue.TaskAlreadyExistsError: If the task is currently running.
+      taskqueue.TransientError: If there was a transient error.
+    Returns:
+      None is no task was found with the given task name.
     """
-    key = datastore.Key.from_path(_TASKQUEUE_KIND, task_name, namespace='')
-    db_task = None
-    try:
-      db_task = datastore.Get(key)
-    except datastore_errors.EntityNotFoundError, err:
-      logging.error("Unable to locate task in datastore for:")
-      logging.error("%s with key %s with task name %s" % \
-                    (str(err), str(key), str(task_name)))
+    state = GetTaskState(task_name)
+    if state == taskqueue_service_pb.TaskQueueServiceError.UNKNOWN_TASK:
       return None
-    else:
-      if not db_task:
-        return None
-
-      if db_task['state'] == TaskStates.Running:
-        raise apiproxy_errors.ApplicationError(
+    elif state == taskqueue_service_pb.TaskQueueServiceError.TASK_ALREADY_EXISTS:
+      raise apiproxy_errors.ApplicationError(
           taskqueue_service_pb.TaskQueueServiceError.TASK_ALREADY_EXISTS)
-      elif db_task['state'] == TaskStates.Tombstoned:
-        raise apiproxy_errors.ApplicationError(
+    elif state == taskqueue_service_pb.TaskQueueServiceError.TOMBSTONED_TASK:
+      raise apiproxy_errors.ApplicationError(
           taskqueue_service_pb.TaskQueueServiceError.TOMBSTONED_TASK)
-      else: 
+    else: 
         logging.error("Bad state for task %s was set to %s" % \
                      (db_task['name'], db_task['state'])) 
-        return None
-    return None
+        raise apiproxy_errors.ApplicationError(state)
  
   def _Dynamic_PurgeQueue(self, request, response):
     """Local purge implementation of TaskQueueService.PurgeQueue.
@@ -835,4 +901,208 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     queue_name = "app_%s" % self._app_id
     self.channel.queue_purge(queue=queue_name) 
     #TODO purge the datastore of TQ state
+  
+  def _Dynamic_QueryAndOwnTasks(self, request, response):
+    """Implementation of TaskQueueService.QueryAndOwnTasks using the datastore.
+
+    Must adhere to the '_Dynamic_' naming convention for stubbing to work.
+    See taskqueue_service.proto for a full description of the RPC.
+
+    Args:
+      request: A taskqueue_service_pb.TaskQueueQueryAndOwnTasksRequest.
+      response: A taskqueue_service_pb.TaskQueueQueryAndOwnTasksResponse.
+
+    Raises:
+      InvalidQueueModeError: If target queue is not a pull queue.
+    """
+    raise NotImplementedError("Pull tasks are not implemented")
+
+  def _Dynamic_ModifyTaskLease(self, request, response):
+    """Implementation of TaskQueueService.ModifyTaskLease using the datastore.
+
+    Args:
+      request: A taskqueue_service_pb.TaskQueueModifyTaskLeaseRequest.
+      response: A taskqueue_service_pb.TaskQueueModifyTaskLeaseResponse.
+
+    Raises:
+      InvalidQueueModeError: If target queue is not a pull queue.
+    """
+    raise NotImplementedError("Pull tasks are not implemented")
+ 
+  def _Dynamic_UpdateQueue(self, request, unused_response):
+    """Local implementation of the UpdateQueue RPC in TaskQueueService.
+
+    Must adhere to the '_Dynamic_' naming convention for stubbing to work.
+    See taskqueue_service.proto for a full description of the RPC.
+
+    Args:
+      request: A taskqueue_service_pb.TaskQueueUpdateQueueRequest.
+      unused_response: A taskqueue_service_pb.TaskQueueUpdateQueueResponse.
+                       Not used.
+    """
+    raise NotImplementedError()
+
+  def _Dynamic_FetchQueues(self, request, response):
+    """Local implementation of the FetchQueues RPC in TaskQueueService.
+
+    Must adhere to the '_Dynamic_' naming convention for stubbing to work.
+    See taskqueue_service.proto for a full description of the RPC.
+
+    Args:
+      request: A taskqueue_service_pb.TaskQueueFetchQueuesRequest.
+      response: A taskqueue_service_pb.TaskQueueFetchQueuesResponse.
+    """
+    raise NotImplementedError()
+
+  def _Dynamic_FetchQueueStats(self, request, response):
+    """Local 'random' implementation of the TaskQueueService.FetchQueueStats.
+
+    This implementation loads some stats from the task store, the rest with
+    random numbers.
+
+    Must adhere to the '_Dynamic_' naming convention for stubbing to work.
+    See taskqueue_service.proto for a full description of the RPC.
+
+    Args:
+      request: A taskqueue_service_pb.TaskQueueFetchQueueStatsRequest.
+      response: A taskqueue_service_pb.TaskQueueFetchQueueStatsResponse.
+    """
+    for queue_name in request.queue_name_list():
+      stats = response.add_queuestats()
+      if queue_name not in self._queues:
+
+        stats.set_num_tasks(0)
+        stats.set_oldest_eta_usec(-1)
+        continue
+      store = self._queues[queue_name]
+
+      stats.set_num_tasks(store.Count())
+      if stats.num_tasks() == 0:
+        stats.set_oldest_eta_usec(-1)
+      else:
+        stats.set_oldest_eta_usec(store.Oldest())
+
+      if random.randint(0, 9) > 0:
+        scanner_info = stats.mutable_scanner_info()
+        scanner_info.set_executed_last_minute(random.randint(0, 10))
+        scanner_info.set_executed_last_hour(scanner_info.executed_last_minute()
+                                            + random.randint(0, 100))
+        scanner_info.set_sampling_duration_seconds(random.random() * 10000.0)
+        scanner_info.set_requests_in_flight(random.randint(0, 10))
+
+  def _Dynamic_QueryTasks(self, request, response):
+    """Local implementation of the TaskQueueService.QueryTasks RPC.
+
+    Must adhere to the '_Dynamic_' naming convention for stubbing to work.
+    See taskqueue_service.proto for a full description of the RPC.
+
+    Args:
+      request: A taskqueue_service_pb.TaskQueueQueryTasksRequest.
+      response: A taskqueue_service_pb.TaskQueueQueryTasksResponse.
+    """
+    raise NotImplementedError()
+
+  def _Dynamic_FetchTask(self, request, response):
+    """Local implementation of the TaskQueueService.FetchTask RPC.
+
+    Must adhere to the '_Dynamic_' naming convention for stubbing to work.
+    See taskqueue_service.proto for a full description of the RPC.
+
+    Args:
+      request: A taskqueue_service_pb.TaskQueueFetchTaskRequest.
+      response: A taskqueue_service_pb.TaskQueueFetchTaskResponse.
+    """
+    raise NotImplementedError()
+
+  def _Dynamic_Delete(self, request, response):
+    """Local delete implementation of TaskQueueService.Delete.
+
+    Deletes tasks from the task store. 
+
+    Must adhere to the '_Dynamic_' naming convention for stubbing to work.
+    See taskqueue_service.proto for a full description of the RPC.
+
+    Args:
+      request: A taskqueue_service_pb.TaskQueueDeleteRequest.
+      response: A taskqueue_service_pb.TaskQueueDeleteResponse.
+    """
+    for taskname in request.task_name_list():
+      entity = datastore.Entity(_TASKQUEUE_KIND, name=str(task['name']), 
+                                namespace='')
+      try:
+        datastore.Delete(entity)
+        response.add_result(taskqueue_service_pb.TaskQueueServiceError.OK)
+      except datastore_errors.EntityNotFoundError:
+        response.add_result(taskqueue_service_pb.\
+                            TaskQueueServiceError.UNKNOWN_TASK)
+
+  def _Dynamic_ForceRun(self, request, response):
+    """Local force run implementation of TaskQueueService.ForceRun.
+
+    Forces running of a task in a queue. This is a no-op here.
+
+    Must adhere to the '_Dynamic_' naming convention for stubbing to work.
+    See taskqueue_service.proto for a full description of the RPC.
+
+    Args:
+      request: A taskqueue_service_pb.TaskQueueForceRunRequest.
+      response: A taskqueue_service_pb.TaskQueueForceRunResponse.
+    """
+    raise NotImplementedError()
+
+  def _Dynamic_DeleteQueue(self, request, response):
+    """Local delete implementation of TaskQueueService.DeleteQueue.
+
+    Must adhere to the '_Dynamic_' naming convention for stubbing to work.
+    See taskqueue_service.proto for a full description of the RPC.
+
+    Args:
+      request: A taskqueue_service_pb.TaskQueueDeleteQueueRequest.
+      response: A taskqueue_service_pb.TaskQueueDeleteQueueResponse.
+    """
+    raise NotImplementedError()
+
+  def _Dynamic_PauseQueue(self, request, response):
+    """Local pause implementation of TaskQueueService.PauseQueue.
+
+    Must adhere to the '_Dynamic_' naming convention for stubbing to work.
+    See taskqueue_service.proto for a full description of the RPC.
+
+    Args:
+      request: A taskqueue_service_pb.TaskQueuePauseQueueRequest.
+      response: A taskqueue_service_pb.TaskQueuePauseQueueResponse.
+    """
+    raise NotImplementedError()
+
+  def _Dynamic_DeleteGroup(self, request, response):
+    """Local delete implementation of TaskQueueService.DeleteGroup.
+
+    Must adhere to the '_Dynamic_' naming convention for stubbing to work.
+    See taskqueue_service.proto for a full description of the RPC.
+
+    Args:
+      request: A taskqueue_service_pb.TaskQueueDeleteGroupRequest.
+      response: A taskqueue_service_pb.TaskQueueDeleteGroupResponse.
+    """
+    raise NotImplementedError()
+
+  def _Dynamic_UpdateStorageLimit(self, request, response):
+    """Local implementation of TaskQueueService.UpdateStorageLimit.
+
+    Must adhere to the '_Dynamic_' naming convention for stubbing to work.
+    See taskqueue_service.proto for a full description of the RPC.
+
+    Args:
+      request: A taskqueue_service_pb.TaskQueueUpdateStorageLimitRequest.
+      response: A taskqueue_service_pb.TaskQueueUpdateStorageLimitResponse.
+    """
+    if _GetAppId(request) is None:
+      raise apiproxy_errors.ApplicationError(
+         taskqueue_service_pb.TaskQueueServiceError.PERMISSION_DENIED)
+
+    if request.limit() < 0 or request.limit() > 1000 * (1024 ** 4):
+      raise apiproxy_errors.ApplicationError(
+          taskqueue_service_pb.TaskQueueServiceError.INVALID_REQUEST)
+
+    response.set_new_limit(request.limit())
 

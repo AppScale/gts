@@ -2,11 +2,13 @@
 """
  Datastore Constants
 """
-
 import os
-APPSCALE_HOME=os.environ.get("APPSCALE_HOME")
+import sys 
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
+import constants
+
 SECRET_LOCATION = "/etc/appscale/secret.key"
-LOG_DIR = "%s/AppDB/logs" % APPSCALE_HOME
 
 ERROR_DEFAULT = "DB_ERROR:"
 NONEXISTANT_TRANSACTION = "0"
@@ -23,6 +25,7 @@ APP_NAMESPACE_TABLE = "APP_NAMESPACES__"
 APP_ID_TABLE = "APP_IDS__"
 APP_ENTITY_TABLE = "ENTITIES__"
 APP_KIND_TABLE = "KINDS__"
+JOURNAL_TABLE = "JOURNAL__"
 
 INITIAL_TABLES = [ASC_PROPERTY_TABLE,
                   DSC_PROPERTY_TABLE,
@@ -30,7 +33,8 @@ INITIAL_TABLES = [ASC_PROPERTY_TABLE,
                   APP_NAMESPACE_TABLE,
                   APP_ID_TABLE,
                   APP_ENTITY_TABLE,
-                  APP_KIND_TABLE]
+                  APP_KIND_TABLE,
+                  JOURNAL_TABLE]
 
 ###########################################
 # DB schemas for version 1 of the datastore

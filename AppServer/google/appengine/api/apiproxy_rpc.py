@@ -20,38 +20,6 @@
 import sys
 import threading 
 
-class RPCThread(threading.Thread):
-  """ Implements threads for RPC calls. """
-
-  def __init__(self, stub, package, call, request, response):
-    """ Sets up the RPC thread to be run.
-
-    Args:
-      stub: APIProxyStub instance to do real call
-      package: string, the package for the call
-      call: string, the call within the package
-      request: ProtocolMessage instance, appropriate for the arguments
-      response: ProtocolMessage instance, appropriate for the response
-    """
-    threading.Thread.__init__(self)
-    self.success = True
-    self.stub = stub
-    self.package = package
-    self.call = call
-    self.request = request
-    self.response = response
-    self._exception = None
-    self._traceback = None
-
-  def run(self):
-    """ Executes the RPC call. """
-    try:
-      self.stub.MakeSyncCall(self.package, self.call,
-                             self.request, self.response)
-    except Exception:
-      self.success = False
-      _, self._exception, self._traceback = sys.exc_info()
-
 
 class RPC(object):
   """Base class for implementing RPC of API proxy stubs.
@@ -199,8 +167,9 @@ class RealRPC(RPC):
    
   def _MakeCallImpl(self):
     """ Starts the thread which calls upon the service RPC."""
-    self._thread = RPCThread(self.stub, self.package, self.call,
-                             self.request, self.response)
+    self._thread = threading.Thread(target=self.stub.MakeSyncCall,
+                                    args=(self.package, self.call,
+                                    self.request, self.response))
     self._thread.start()
     self._state = RPC.RUNNING
 

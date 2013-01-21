@@ -271,8 +271,17 @@ class LogsBuffer(object):
 
   def _flush(self):
     """Internal version of flush() with no locking."""
+
     logs = self.parse_logs()
     self._clear()
+
+    # AppScale: This currently causes problems when we try to call API requests
+    # via new threads, so since we don't have support for the Logs API at the
+    # moment, this return prevents the Exception that would be thrown from
+    # occurring.
+    # TODO(cgb, nlake44): Revisit this problem when we do decide to implement
+    # the Logs API.
+    return
 
     first_iteration = True
     while logs or first_iteration:

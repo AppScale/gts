@@ -28,7 +28,7 @@ datastore_name = None
 def createRandomList(number_of_columns, column_name_len):
   columns = [] 
   for ii in range(0, number_of_columns):
-    columns += [hf.randomString(column_name_len)]
+    columns += [hf.random_string(column_name_len)]
   return columns
 
 class TestDatastoreFunctions(unittest.TestCase):

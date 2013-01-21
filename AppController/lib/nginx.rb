@@ -19,8 +19,7 @@ require 'pbserver'
 # configures and deploys nginx within AppScale.
 module Nginx
 
-
-  NGINX_PATH = File.join("/", "etc", "nginx")
+  NGINX_PATH = "/usr/local/nginx/conf"
 
 
   SITES_ENABLED_PATH = File.join(NGINX_PATH, "sites-enabled")
@@ -43,11 +42,11 @@ module Nginx
   CHANNELSERVER_PORT = 5280
 
   def self.start
-    `/etc/init.d/nginx start`
+    HelperFunctions.shell("/usr/local/nginx/sbin/nginx -c #{MAIN_CONFIG_FILE}")
   end
 
   def self.stop
-    `/etc/init.d/nginx stop`
+    HelperFunctions.shell("/usr/local/nginx/sbin/nginx -s stop")
   end
 
   def self.restart
@@ -55,8 +54,13 @@ module Nginx
     self.start
   end
 
+  # Reload nginx if it is already running. If nginx is not running, start it.
   def self.reload
-    self.restart
+    if Nginx.is_running?
+      HelperFunctions.shell("/usr/local/nginx/sbin/nginx -s reload")
+    else
+      Nginx.start 
+    end
   end
 
   def self.is_running?
@@ -75,21 +79,78 @@ module Nginx
 
   # Return true if the configuration is good, false o.w.
   def self.check_config
-    HelperFunctions.shell("nginx -t -c #{MAIN_CONFIG_FILE}")
+    HelperFunctions.shell("/usr/local/nginx/sbin/nginx -t -c #{MAIN_CONFIG_FILE}")
     return ($?.to_i == 0)
   end
 
   # Creates a Nginx config file for the provided app name
   def self.write_app_config(app_name, app_number, my_public_ip, my_private_ip, proxy_port, static_handlers, login_ip)
-    static_locations = static_handlers.map { |handler| HelperFunctions.generate_location_config(handler) }.join
     listen_port = Nginx.app_listen_port(app_number)
+    ssl_listen_port = listen_port - SSL_PORT_OFFSET
+    secure_handlers = HelperFunctions.get_secure_handlers(app_name)
+    Djinn.log_debug("Secure handlers: " + secure_handlers.inspect.to_s)
+    always_secure_locations = secure_handlers[:always].map { |handler|
+      HelperFunctions.generate_secure_location_config(handler, ssl_listen_port)
+    }.join
+    never_secure_locations = secure_handlers[:never].map { |handler|
+      HelperFunctions.generate_secure_location_config(handler, listen_port)
+    }.join
+
+    secure_static_handlers = []
+    non_secure_static_handlers = []
+    static_handlers.map { |handler|
+      if handler["secure"] == "always"
+        secure_static_handlers << handler
+      elsif handler["secure"] == "never"
+        non_secure_static_handlers << handler
+      else
+        secure_static_handlers << handler
+        non_secure_static_handlers << handler
+      end
+    }
+
+    secure_static_locations = secure_static_handlers.map { |handler|
+      HelperFunctions.generate_location_config(handler)
+    }.join
+    non_secure_static_locations = non_secure_static_handlers.map { |handler|
+      HelperFunctions.generate_location_config(handler)
+    }.join
+
+    default_location = <<DEFAULT_CONFIG
+    location / {
+      proxy_set_header  X-Real-IP  $remote_addr;
+      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header Host $http_host;
+      proxy_redirect off;
+      proxy_pass http://gae_#{app_name};
+      client_max_body_size 2G;
+      proxy_connect_timeout 60;
+      client_body_timeout 60;
+      proxy_read_timeout 60;
+    }
+DEFAULT_CONFIG
+    secure_default_location = default_location
+    non_secure_default_location = default_location
+    if never_secure_locations.include?('location / {')
+      secure_default_location = ''
+    end
+    if always_secure_locations.include?('location / {')
+      non_secure_default_location = ''
+    end
+
     config = <<CONFIG
-# Any requests that arent static files get sent to haproxy
+# Any requests that aren't static files get sent to haproxy
 upstream gae_#{app_name} {
     server #{my_private_ip}:#{proxy_port};
 }
 
 server {
+    chunkin on;
+ 
+    error_page 411 = @my_411_error;
+    location @my_411_error {
+      chunkin_resume;
+    }
     listen #{listen_port};
     server_name #{my_public_ip};
     root /var/apps/#{app_name}/app;
@@ -103,19 +164,10 @@ server {
     error_page 404 = /404.html;
     set $cache_dir /var/apps/#{app_name}/cache;
 
-    #{static_locations}
+    #{always_secure_locations}
+    #{non_secure_static_locations}
 
-    location / {
-      proxy_set_header  X-Real-IP  $remote_addr;
-      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header Host $http_host;
-      proxy_redirect off;
-      proxy_pass http://gae_#{app_name};
-      client_max_body_size 2G;
-      proxy_connect_timeout 60;
-      client_body_timeout 60;
-      proxy_read_timeout 60;
-    }
+    #{non_secure_default_location}
 
     location /404.html {
       root /var/apps/#{app_name};
@@ -129,6 +181,44 @@ server {
     }
 
 }
+server {
+    chunkin on;
+ 
+    error_page 411 = @my_411_error;
+    location @my_411_error {
+        chunkin_resume;
+    }
+    listen #{ssl_listen_port};
+    server_name #{my_public_ip}-#{app_name}-ssl;
+    ssl on;
+    ssl_certificate /usr/local/nginx/conf/mycert.pem;
+    ssl_certificate_key /usr/local/nginx/conf/mykey.pem;
+
+    #root /var/apps/#{app_name}/app;
+    # Uncomment these lines to enable logging, and comment out the following two
+    #access_log  /var/log/nginx/#{app_name}.access.log upstream;
+    error_log  /var/log/nginx/#{app_name}.error.log;
+    access_log off;
+    #error_log /dev/null crit;
+
+    rewrite_log off;
+    error_page 404 = /404.html;
+    set $cache_dir /var/apps/#{app_name}/cache;
+
+    #{never_secure_locations}
+    #{secure_static_locations}
+
+    #{secure_default_location}
+
+    location /reserved-channel-appscale-path {
+      proxy_buffering off;
+      tcp_nodelay on;
+      keepalive_timeout 55;
+      proxy_pass http://#{login_ip}:#{CHANNELSERVER_PORT}/http-bind;
+    }
+
+
+}
 CONFIG
 
     config_path = File.join(SITES_ENABLED_PATH, "#{app_name}.#{CONFIG_EXTENSION}")
@@ -140,26 +230,86 @@ CONFIG
   # Creates a Nginx config file for the provided app name on the load balancer
   def self.write_fullproxy_app_config(app_name, app_number, my_public_ip, 
     my_private_ip, proxy_port, login_ip, appengine_server_ips)
+    Djinn.log_debug("Writing full proxy app config for app #{app_name}")
     listen_port = Nginx.app_listen_port(app_number)
     ssl_listen_port = listen_port - SSL_PORT_OFFSET
+
+    secure_handlers = HelperFunctions.get_secure_handlers(app_name)
+    Djinn.log_debug("Secure handlers: " + secure_handlers.inspect.to_s)
+    always_secure_locations = secure_handlers[:always].map { |handler|
+      HelperFunctions.generate_secure_location_config(handler, ssl_listen_port)
+    }.join
+    never_secure_locations = secure_handlers[:never].map { |handler|
+      HelperFunctions.generate_secure_location_config(handler, listen_port)
+    }.join
+
     blob_servers = []
     servers = []
+    ssl_servers = []
     appengine_server_ips.each do |ip|
-      servers << "server #{ip}:#{listen_port};"
+      servers << "    server #{ip}:#{listen_port};\n"
     end
     appengine_server_ips.each do |ip|
-      blob_servers << "server #{ip}:#{BLOBSERVER_PORT};"
+      ssl_servers << "    server #{ip}:#{ssl_listen_port};\n"
     end
-    servers = servers.join("\n")
+    appengine_server_ips.each do |ip|
+      blob_servers << "    server #{ip}:#{BLOBSERVER_PORT};\n"
+    end
+
+    if never_secure_locations.include?('location / {')
+      secure_default_location = ''
+    else
+      secure_default_location = <<DEFAULT_CONFIG
+    location / {
+      proxy_set_header  X-Real-IP  $remote_addr;
+      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header Host $http_host;
+      proxy_redirect off;
+      proxy_pass https://gae_ssl_#{app_name};
+      client_max_body_size 2G;
+      proxy_connect_timeout 60;
+      client_body_timeout 60;
+      proxy_read_timeout 60;
+    }
+DEFAULT_CONFIG
+    end
+
+    if always_secure_locations.include?('location / {')
+      non_secure_default_location = ''
+    else
+      non_secure_default_location = <<DEFAULT_CONFIG
+    location / {
+      proxy_set_header  X-Real-IP  $remote_addr;
+      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header Host $http_host;
+      proxy_redirect off;
+      proxy_pass http://gae_#{app_name};
+      client_max_body_size 2G;
+      proxy_connect_timeout 60;
+      client_body_timeout 60;
+      proxy_read_timeout 60;
+    }
+DEFAULT_CONFIG
+    end
+
     config = <<CONFIG
-# Any requests that arent static files get sent to haproxy
+# Any requests that aren't static files get sent to haproxy
 upstream gae_#{app_name} {
-    #{servers}
+#{servers}
+}
+upstream gae_ssl_#{app_name} {
+#{ssl_servers}
 }
 upstream gae_#{app_name}_blobstore {
-    #{blob_servers}
+#{blob_servers}
 }
 server {
+    chunkin on;
+ 
+    error_page 411 = @my_411_error;
+    location @my_411_error {
+      chunkin_resume;
+    }
     listen #{listen_port};
     server_name #{my_public_ip}-#{app_name};
     #root /var/apps/#{app_name}/app;
@@ -173,17 +323,9 @@ server {
     error_page 404 = /404.html;
     set $cache_dir /var/apps/#{app_name}/cache;
 
-    location / {
-      proxy_set_header  X-Real-IP  $remote_addr;
-      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header Host $http_host;
-      proxy_redirect off;
-      proxy_pass http://gae_#{app_name};
-      client_max_body_size 2G;
-      proxy_connect_timeout 60;
-      client_body_timeout 60;
-      proxy_read_timeout 60;
-    }
+    #{always_secure_locations}
+
+    #{non_secure_default_location}
 
     location /reserved-channel-appscale-path {
       proxy_buffering off;
@@ -194,6 +336,12 @@ server {
 
 }
 server {
+    chunkin on;
+ 
+    error_page 411 = @my_411_error;
+    location @my_411_error {
+      chunkin_resume;
+    }
     listen #{BLOBSERVER_PORT};
     server_name #{my_public_ip}-#{app_name}-blobstore;
     #root /var/apps/#{app_name}/app;
@@ -220,11 +368,17 @@ server {
 }    
 
 server {
+    chunkin on;
+ 
+    error_page 411 = @my_411_error;
+    location @my_411_error {
+      chunkin_resume;
+    }
     listen #{ssl_listen_port};
     server_name #{my_public_ip}-#{app_name}-ssl;
     ssl on;
-    ssl_certificate /etc/nginx/mycert.pem;
-    ssl_certificate_key /etc/nginx/mykey.pem;
+    ssl_certificate #{NGINX_PATH}/mycert.pem;
+    ssl_certificate_key #{NGINX_PATH}/mykey.pem;
 
     #root /var/apps/#{app_name}/app;
     # Uncomment these lines to enable logging, and comment out the following two
@@ -237,17 +391,9 @@ server {
     error_page 404 = /404.html;
     set $cache_dir /var/apps/#{app_name}/cache;
 
-    location / {
-      proxy_set_header  X-Real-IP  $remote_addr;
-      proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header Host $http_host;
-      proxy_redirect off;
-      proxy_pass http://gae_#{app_name};
-      client_max_body_size 2G;
-      proxy_connect_timeout 60;
-      client_body_timeout 60;
-      proxy_read_timeout 60;
-    }
+    #{never_secure_locations}
+
+    #{secure_default_location}
 
     location /reserved-channel-appscale-path {
       proxy_buffering off;
@@ -318,6 +464,12 @@ upstream #{PbServer::NAME} {
 }
     
 server {
+    chunkin on;
+ 
+    error_page 411 = @my_411_error;
+    location @my_411_error {
+      chunkin_resume;
+    }
     listen #{PbServer::LISTEN_PORT_NO_SSL};
     server_name #{my_ip};
     root /root/appscale/AppDB/;
@@ -347,10 +499,16 @@ server {
 }
 
 server {
+    chunkin on;
+ 
+    error_page 411 = @my_411_error;
+    location @my_411_error {
+      chunkin_resume;
+    }
     listen #{PbServer::LISTEN_PORT_WITH_SSL};
     ssl on;
-    ssl_certificate /etc/nginx/mycert.pem;
-    ssl_certificate_key /etc/nginx/mykey.pem;
+    ssl_certificate #{NGINX_PATH}/mycert.pem;
+    ssl_certificate_key #{NGINX_PATH}/mykey.pem;
     root /root/appscale/AppDB/public;
     #access_log  /var/log/nginx/pbencrypt.access.log upstream;
     #error_log  /var/log/nginx/pbencrypt.error.log;
@@ -397,11 +555,24 @@ CONFIG
       # redirect all request to ssl port.
       config += <<CONFIG
 server {
+  chunkin on;
+ 
+  error_page 411 = @my_411_error;
+  location @my_411_error {
+      chunkin_resume;
+  }
+
     listen #{listen_port};
     rewrite ^(.*) https://#{my_public_ip}:#{ssl_port}$1 permanent;
 }
 
 server {
+    chunkin on;
+ 
+    error_page 411 = @my_411_error;
+    location @my_411_error {
+      chunkin_resume;
+    }
     listen #{ssl_port};
     ssl on;
     ssl_certificate #{NGINX_PATH}/mycert.pem;
@@ -410,6 +581,12 @@ CONFIG
     else
       config += <<CONFIG
 server {
+    chunkin on;
+ 
+    error_page 411 = @my_411_error;
+    location @my_411_error {
+      chunkin_resume;
+    }
     listen #{listen_port};
 CONFIG
     end
@@ -470,7 +647,7 @@ events {
 }
 
 http {
-    include       /etc/nginx/mime.types;
+    include       #{NGINX_PATH}/mime.types;
     default_type  application/octet-stream;
 
     access_log  /var/log/nginx/access.log;
@@ -493,7 +670,7 @@ http {
 }
 CONFIG
 
-    `mkdir -p /var/log/nginx/`
+    HelperFunctions.shell("mkdir -p /var/log/nginx/")
     # Create the sites enabled folder
     unless File.exists? SITES_ENABLED_PATH
       FileUtils.mkdir_p SITES_ENABLED_PATH
@@ -501,10 +678,8 @@ CONFIG
 
     # copy over certs for ssl
     # just copy files once to keep certificate as static.
-    #`test ! -e #{NGINX_PATH}/mycert.pem && cp /etc/appscale/certs/mycert.pem #{NGINX_PATH}`
-    #`test ! -e #{NGINX_PATH}/mykey.pem && cp /etc/appscale/certs/mykey.pem #{NGINX_PATH}`
-    `cp /etc/appscale/certs/mykey.pem #{NGINX_PATH}`
-    `cp /etc/appscale/certs/mycert.pem #{NGINX_PATH}`
+    HelperFunctions.shell("cp /etc/appscale/certs/mykey.pem #{NGINX_PATH}")
+    HelperFunctions.shell("cp /etc/appscale/certs/mycert.pem #{NGINX_PATH}")
     # Write the main configuration file which sets default configuration parameters
     File.open(MAIN_CONFIG_FILE, "w+") { |dest_file| dest_file.write(config) }
   end

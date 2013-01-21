@@ -192,7 +192,7 @@ class TestAppManager(unittest.TestCase):
 
     # Test with a numerial port instead of a string
     port = 20000    
-    cmd = app_manager_server.create_python_stop_cmd(port)
+    cmd = app_manager_server.create_python_stop_cmd(port, 'python')
     assert str(port) in cmd 
  
   def test_create_python_start_cmd(self): 
@@ -209,7 +209,8 @@ class TestAppManager(unittest.TestCase):
                                              '127.0.0.2',
                                              '8080',
                                              '127.0.0.3',
-                                             db_locations)
+                                             db_locations,
+                                             'python')
     assert fake_secret in cmd
     assert app_id in cmd
 
@@ -218,13 +219,15 @@ class TestAppManager(unittest.TestCase):
     port = "20000"
     flexmock(appscale_info).should_receive('get_secret')\
       .and_return(fake_secret)
-    cmd = app_manager_server.create_python_stop_cmd(port)
+    cmd = app_manager_server.create_python_stop_cmd(port, 
+                                                    'python')
     assert port in cmd 
     assert fake_secret in cmd 
     assert 'kill' in cmd
 
     port = 20000    
-    cmd = app_manager_server.create_python_stop_cmd(port)
+    cmd = app_manager_server.create_python_stop_cmd(port, 
+                                                    'python27')
     assert str(port) in cmd 
  
   def test_stop_app_instance(self):

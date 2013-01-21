@@ -1,7 +1,11 @@
-from unittest import TestCase
 from flexmock import flexmock
 from utils import utils
 from infrastructure_manager import *
+try:
+  from unittest import TestCase
+except ImportError:
+  from unittest.case import TestCase
+
 
 __author__ = 'hiranya'
 __email__ = 'hiranya@appscale.com'
@@ -47,13 +51,14 @@ class TestInfrastructureManager(TestCase):
       'private_ips': ['private-ip'],
       'instance_ids': ['i-id']
     }
-    i.reservations[id] = {
+    status_info = {
       'success': True,
       'reason': 'received run request',
       'state': InfrastructureManager.STATE_RUNNING,
       'vm_info': vm_info
     }
-    result4 = i.reservations[id]
+    i.reservations.put(id, status_info)
+    result4 = i.reservations.get(id)
     self.assertEquals(result4, i.describe_instances(params4, "secret"))
 
     params5 = json.dumps(params4)

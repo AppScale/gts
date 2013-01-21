@@ -824,13 +824,20 @@ class ListCursor(BaseCursor):
     
     position = compiled_cursor.position(0)
     entity_as_pb = datastore_pb.EntityProto()
-    (query_info_encoded, entity_encoded) = \
-               position.start_key().split(_CURSOR_CONCAT_STR, 1)
-    query_info_pb = datastore_pb.Query()
-    query_info_pb.ParseFromString(query_info_encoded)
-    self._ValidateQuery(query, query_info_pb)
+    if position.start_key():
+      (query_info_encoded, entity_encoded) = \
+                 position.start_key().split(_CURSOR_CONCAT_STR, 1)
+      query_info_pb = datastore_pb.Query()
+      query_info_pb.ParseFromString(query_info_encoded)
+      self._ValidateQuery(query, query_info_pb)
     
-    entity_as_pb.ParseFromString(entity_encoded)
+      entity_as_pb.ParseFromString(entity_encoded)
+    else:
+      """Java doesn't include a start_key() so we will create the last entity
+         from the position variable. 
+      """
+      entity_as_pb.key().MergeFrom(position.key_)
+      entity_as_pb.entity_group().MergeFrom(position.key_.path_)
     return (entity_as_pb, position.start_inclusive())
 
 

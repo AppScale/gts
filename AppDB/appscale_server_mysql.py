@@ -27,7 +27,6 @@ from M2Crypto import SSL
 import MySQLdb.constants.CR
 
 import appscale_datastore
-import appscale_logger
 from dbconstants import *
 
 from google.appengine.api import api_base_pb
@@ -1665,7 +1664,6 @@ class DatastoreDistributed():
 
 
 
-logger = appscale_logger.getLogger("pb_server")
 
 class MainHandler(tornado.web.RequestHandler):
   """
@@ -1738,7 +1736,6 @@ class MainHandler(tornado.web.RequestHandler):
     else:
       errcode = datastore_pb.Error.BAD_REQUEST 
       errdetail = "Unknown datastore message" 
-      logger.debug(errdetail)
     
       
     apiresponse.set_response(response)
@@ -1826,7 +1823,6 @@ class MainHandler(tornado.web.RequestHandler):
     # Pack Results into a clone of QueryResult #
     clone_qr_pb = datastore_pb.QueryResult()
     app_datastore._Dynamic_Run_Query(app_id, query, clone_qr_pb)
-    #logger.debug("QUERY_RESULT: %s" % clone_qr_pb)
     return (clone_qr_pb.Encode(), 0, "")
 
 
@@ -1865,7 +1861,6 @@ class MainHandler(tornado.web.RequestHandler):
 
   def allocate_ids_request(self, app_id, http_request_data): # kowshik
     global app_datastore
-    #logger.info("inside allocate_ids_request handler")
     request = datastore_pb.AllocateIdsRequest(http_request_data)
     response = datastore_pb.AllocateIdsResponse()
     app_datastore._Dynamic_AllocateIds(request, response)
@@ -1875,7 +1870,6 @@ class MainHandler(tornado.web.RequestHandler):
     global app_datastore
     start_time = time.time() 
     putreq_pb = datastore_pb.PutRequest(http_request_data)
-    logger.debug("RECEIVED PUT_REQUEST %s" % putreq_pb)
     putresp_pb = datastore_pb.PutResponse( )
     app_datastore._Dynamic_Put(app_id, putreq_pb, putresp_pb)
     return (putresp_pb.Encode(), 0, "")
@@ -1884,16 +1878,13 @@ class MainHandler(tornado.web.RequestHandler):
   def get_request(self, app_id, http_request_data):
     global app_datastore
     getreq_pb = datastore_pb.GetRequest(http_request_data)
-    logger.debug("GET_REQUEST: %s" % getreq_pb)
     getresp_pb = datastore_pb.GetResponse()
     app_datastore._Dynamic_Get(app_id, getreq_pb, getresp_pb)
     return (getresp_pb.Encode(), 0, "")
 
   def delete_request(self, app_id, http_request_data):
     global app_datastore
-    logger.debug("DeleteRequest Received...")
     delreq_pb = datastore_pb.DeleteRequest( http_request_data )
-    logger.debug("DELETE_REQUEST: %s" % delreq_pb)
     delresp_pb = api_base_pb.VoidProto() 
     app_datastore._Dynamic_Delete(app_id, delreq_pb, delresp_pb)
     return (delresp_pb.Encode(), 0, "")
@@ -1901,7 +1892,6 @@ class MainHandler(tornado.web.RequestHandler):
   def void_proto(self, app_id, http_request_data):
     resp_pb = api_base_pb.VoidProto() 
     print "Got void"
-    logger.debug("VOID_RESPONSE: %s to void" % resp_pb)
     return (resp_pb.Encode(), 0, "" )
   
   def str_proto(self, app_id, http_request_data):
@@ -1909,8 +1899,6 @@ class MainHandler(tornado.web.RequestHandler):
     composite_pb = datastore_pb.CompositeIndices()
     print "Got a string proto"
     print str_pb
-    logger.debug("String proto received: %s" % str_pb)
-    logger.debug("CompositeIndex response to string: %s" % composite_pb)
     return (composite_pb.Encode(), 0, "" )    
   
   def int64_proto(self, app_id, http_request_data):
@@ -1918,8 +1906,6 @@ class MainHandler(tornado.web.RequestHandler):
     resp_pb = api_base_pb.VoidProto()
     print "Got a int 64"
     print int64_pb
-    logger.debug("Int64 proto received: %s" % int64_pb)
-    logger.debug("VOID_RESPONSE to int64: %s" % resp_pb)
     return (resp_pb.Encode(), 0, "")
  
   def compositeindex_proto(self, app_id, http_request_data):
@@ -1927,15 +1913,12 @@ class MainHandler(tornado.web.RequestHandler):
     resp_pb = api_base_pb.VoidProto()
     print "Got Composite Index"
     #print compindex_pb
-    logger.debug("CompositeIndex proto recieved: %s" % str(compindex_pb))
-    logger.debug("VOID_RESPONSE to composite index: %s" % resp_pb)
     return (resp_pb.Encode(), 0, "")
 
   ##############
   # OTHER TYPE #
   ##############
   def unknown_request(self, app_id, http_request_data, pb_type):
-    logger.debug("Received Unknown Protocol Buffer %s" % pb_type )
     print "ERROR: Received Unknown Protocol Buffer <" + pb_type +">.",
     print "Nothing has been implemented to handle this Protocol Buffer type."
     print "http request data:"
@@ -1965,7 +1948,6 @@ class MainHandler(tornado.web.RequestHandler):
       app_id = app_data[0]
       os.environ['APPLICATION_ID'] = app_id 
     else:
-      logger.debug("UNABLE TO EXTRACT APPLICATION DATA")
       return
 
     # Default HTTP Response Data #
@@ -1984,8 +1966,8 @@ def usage():
   print "\t--certificate=<path-to-ssl-certificate>"
   print "\t--a=<soap server hostname> "
   print "\t--key for using keys from the soap server"
-  print "\t--type=<hypertable, hbase, cassandra, mysql, mongodb>"
-  print "\t--secret=<secrete to soap server>"
+  print "\t--type=<hypertable, hbase, cassandra, mysql>"
+  print "\t--secret=<secret to soap server>"
   print "\t--blocksize=<key-block-size>"
   print "\t--no_encryption"
 def main(argv):
@@ -2054,7 +2036,7 @@ def main(argv):
       # Start Server #
       tornado.ioloop.IOLoop.instance().start()
     except SSL.SSLError:
-      logger.debug("\n\nUnexcepted input for AppScale-Secure-Server")
+       print "\n\nUnexcepted input for AppScale-Secure-Server"
     except KeyboardInterrupt:
       print "Server interrupted by user, terminating..."
       exit(1)

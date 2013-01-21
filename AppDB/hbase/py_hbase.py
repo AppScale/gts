@@ -11,7 +11,6 @@ from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 from dbinterface import *
 #import sqlalchemy.pool as pool
-import appscale_logger
 import threading
 from socket import gethostname; 
 PROFILING = False
@@ -21,16 +20,11 @@ THRIFT_PORT = 9090
 
 class DatastoreProxy(AppDBInterface):
 
-  def __init__(self, logger = appscale_logger.getLogger("datastore-hbase")):
-    self.logger = logger
+  def __init__(self):
     self.lock = threading.Lock()
     self.connection = self.__createConnection()
     self.tableCache = []
     #self.pool = pool.QueuePool(self.__createConnection)
-
-  def logTiming(self, function, start_time, end_time):
-    if PROFILING:
-      self.logger.debug(function + ": " + str(end_time - start_time) + " s")
 
   def __createConnection(self):
     t = TSocket.TSocket(DB_LOCATION, THRIFT_PORT)
@@ -79,7 +73,6 @@ class DatastoreProxy(AppDBInterface):
     """
     self.__closeConnection(client)
     et = time.time()
-    self.logTiming("HB GET SCHEMA", st, et)
     return elist
 
   def get_row_count(self, table_name):
@@ -108,7 +101,6 @@ class DatastoreProxy(AppDBInterface):
       value = 0
     self.__closeConnection(client)
     et = time.time()
-    self.logTiming("HB ROWCOUNT", st, et)
     return elist
 
   def create_table(self, table_name, column_names):
@@ -165,7 +157,6 @@ class DatastoreProxy(AppDBInterface):
     elist.append("0")
     self.__closeConnection(client)
     et = time.time()
-    self.logTiming("HB PUT", st, et)
     return elist
 
   def get_row(self, table_name, row_key, max_versions = 1):
@@ -189,7 +180,6 @@ class DatastoreProxy(AppDBInterface):
         elist[0] += io.message
     self.__closeConnection(client)
     et = time.time() 
-    self.logTiming("HB GETROW", st, et)
     return elist
 
   def delete_table(self, table_name):
@@ -207,7 +197,6 @@ class DatastoreProxy(AppDBInterface):
       elist[0] += io.message
     self.__closeConnection(client)
     et = time.time() 
-    self.logTiming("HB DELETE", st, et)
     if table_name in self.tableCache:
       self.tableCache.remove(table_name)
     return elist
@@ -238,7 +227,6 @@ class DatastoreProxy(AppDBInterface):
       elist[0] += "IO Error--" + io.message
     self.__closeConnection(client)
     et = time.time() 
-    self.logTiming("HB GETENT", st, et)
     return elist
 
   def delete_row(self, table_name, row_key):
@@ -262,7 +250,6 @@ class DatastoreProxy(AppDBInterface):
   
     self.__closeConnection(client)
     et = time.time() 
-    self.logTiming("HB DELETEROW", st, et)
     return elist
 
   def get_table(self, table_name, column_names = []):
@@ -302,7 +289,6 @@ class DatastoreProxy(AppDBInterface):
         elist[0] += "IllegalArgument"
     self.__closeConnection(client)
     et = time.time() 
-    self.logTiming("HB GETTABLE", st, et)
     return elist  
 
   def run_query(self, table_name, column_names, limit, offset, startrow, endrow, getOnlyKeys, start_inclusive, end_inclusive ):
@@ -359,12 +345,7 @@ class DatastoreProxy(AppDBInterface):
       print "exception type: Illegal Argument " + ia.message
     self.__closeConnection(client)
     et = time.time() 
-    self.logTiming("HB RUN QUERY", st, et)
     return elist
-
-#  def __close_connection(self, transport):
-#    transport.close()
-#    return
 
   def __table_exist(self, table_name, client):
     ret = False

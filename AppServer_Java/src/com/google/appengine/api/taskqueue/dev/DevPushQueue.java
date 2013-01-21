@@ -174,10 +174,9 @@ class DevPushQueue extends DevQueue
         }
 
         Gson gson = new Gson();
-        Type taskParamType = new TypeToken<TaskParams>()
-        {}.getType();
+        Type taskParamType = new TypeToken<TaskParams>(){}.getType();
         String payload = gson.toJson(taskParams, taskParamType);
-        client.enqueueTask(this.rabbitMQQueueName, payload);
+        client.enqueueTask(payload);
         return taskName;
     }
 

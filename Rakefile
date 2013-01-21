@@ -67,8 +67,49 @@ namespace :neptunemanager do
     t.warning = false
   }
 
+end
+
+
+namespace :python do
+
+  task :test do
+    sh "bash ts_python.sh"
+  end
+
+end
+
+namespace :appmanager do
+  
+  task :test do
+   sh "nosetests AppManager/test/unit"
+  end
+
+end
+
+namespace :infrastructuremanager do
+
+  task :test do
+    sh "nosetests InfrastructureManager"
+  end
+
+end
+
+namespace :appdb do
+
+  task :test do
+    sh "nosetests AppDB/test/unit"
+  end
+
+end
+
+namespace :lib do
+
+  task :test do
+    sh "nosetests lib/test/unit"
+  end
 
 end
 
 
-task :default => ['appcontroller:test', 'neptunemanager:test']
+
+task :default => ['appcontroller:test', 'neptunemanager:test', 'infrastructuremanager:test', 'appmanager:test', 'appdb:test', 'lib:test']
