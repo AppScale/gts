@@ -415,17 +415,6 @@ def copy_modified_jars(app_name):
                   "to lib directory of " + app_name)
     return False
   
-  cp_result = subprocess.call("cp " + appscale_home + "/AppServer_Java/" +\
-                              "appengine-java-sdk-repacked/lib/user/orm/" +\
-                              "*.jar /var/apps/" + app_name + "/app/war/" +\
-                              "WEB-INF/lib/", shell=True)
-  if cp_result != 0:
-    logging.error("Failed to copy appengine-java-sdk-repacked/lib/user/orm" +\
-                  " jars to lib directory of " + app_name)
-    return False
-  
-  logging.info("Successfully copied repacked sdk jars into " +\
-               "lib directory of " + app_name)
   return True
 
 def create_java_start_cmd(app_name,
