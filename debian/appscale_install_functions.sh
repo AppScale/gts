@@ -1024,15 +1024,15 @@ installrabbitmq()
 {
    # RabbitMQ is installed via apt-get
    # Install the python client for rabbitmq
-   VERSION=0.9.9p0
+   PIKA_VERSION=0.9.9p0
    mkdir -pv ${APPSCALE_HOME}/downloads
    cd ${APPSCALE_HOME}/downloads
-   wget http://appscale.cs.ucsb.edu/appscale_files/pika-${VERSION}.zip || exit 1
-   unzip pika-${VERSION}.zip
+   wget http://appscale.cs.ucsb.edu/appscale_files/pika-${PIKA_VERSION}.zip || exit 1
+   unzip pika-${PIKA_VERSION}.zip
    cd pika-master
    cp -r pika /usr/share/pyshared
    cd ..
-   rm -fr pika-${VERSION}
+   rm -fr pika-${PIKA_VERSION}
 }
 postinstallrabbitmq()
 {
