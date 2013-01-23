@@ -22,17 +22,27 @@ module RabbitMQ
   # The path to the file that the shared secret should be written to.
   COOKIE_FILE = "/var/lib/rabbitmq/.erlang.cookie"
 
+  
+  # We need some additional logic for the start command hence using 
+  # a script.
+  RABBITMQ_START_SCRIPT = File.dirname(__FILE__) + "/../" + \
+                          "/scripts/start_rabbitmq.sh"
+
   # Starts a service that we refer to as a "rabbitmq_master", a RabbitMQ
   # service that other nodes can rely on to be running RabbitMQ.
   def self.start_master()
     Djinn.log_debug("Starting RabbitMQ Master")
     self.write_cookie()
     self.erase_local_files()
-    start_cmd = "rabbitmq-server -detached -setcookie " +
-     "#{HelperFunctions.get_secret()}"
+    # Because god cannot keep track of RabbitMQ because of it's changing 
+    # PIDs, we put in a guard on the start command to not start it if 
+    # its already running.
+    #start_cmd = "bash -c 'RABBITRUNNING=`ps aux | grep rabbitmq | grep erlang | grep -v grep | wc | awk {\"print $1\"}`; [[ $RABBITRUNNING -eq 0 ]] && rabbitmq-server -detached -setcookie #{HelperFunctions.get_secret()}'"
+    start_cmd = "bash #{RABBITMQ_START_SCRIPT} " +\
+                "#{HelperFunctions.get_secret()}"
     stop_cmd = "rabbitmqctl stop"
     env_vars = {}
-    GodInterface.start(:pbserver, start_cmd, stop_cmd, SERVER_PORT, env_vars)
+    GodInterface.start(:rabbitmq, start_cmd, stop_cmd, SERVER_PORT, env_vars)
     Djinn.log_run("#{start_cmd}")
   end
 
