@@ -15,6 +15,9 @@ require 'helperfunctions'
 module Ejabberd
 
 
+  SERVER_PORT = 4369
+
+
   EJABBERD_PATH = File.join("/", "etc", "ejabberd")
   
   
@@ -26,13 +29,12 @@ module Ejabberd
 
   def self.start
     start_cmd = "/etc/init.d/ejabberd start"
-    stop_cmd = "/etc/init.d/ejabberd stop"
-    port = 4369
-    GodInterface.start(:ejabberd, start_cmd, stop_cmd, port)
+    Djinn.log_run(start_cmd)
   end
 
   def self.stop
-    GodInterface.stop(:ejabberd)
+    stop_cmd = "/etc/init.d/ejabberd stop"
+     Djinn.log_run(stop_cmd)
   end
 
   def self.clear_online_users
