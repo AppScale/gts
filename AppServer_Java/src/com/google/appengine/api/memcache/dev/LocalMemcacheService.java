@@ -20,6 +20,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.xml.bind.DatatypeConverter;
 
 import net.spy.memcached.CASResponse;
 import net.spy.memcached.CASValue;
@@ -756,7 +757,14 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
      */
     private String getInternalKey( String namespace, Key key )
     {
-        return "__" + appName + "__" + namespace + "__" + new String(key.getBytes());
+        /*
+         * AppScale - encoding the key because the sdk allows spaces and 
+         * lots of other special characters and our memcache client does 
+         * not. 
+         */
+        String encodedKey = DatatypeConverter.printBase64Binary(key.getBytes());
+        String internalKey = "__" + appName + "__" + namespace + "__" + encodedKey;
+        return internalKey;
     }
 
     /*
