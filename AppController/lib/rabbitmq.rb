@@ -37,7 +37,6 @@ module RabbitMQ
     # Because god cannot keep track of RabbitMQ because of it's changing 
     # PIDs, we put in a guard on the start command to not start it if 
     # its already running.
-    #start_cmd = "bash -c 'RABBITRUNNING=`ps aux | grep rabbitmq | grep erlang | grep -v grep | wc | awk {\"print $1\"}`; [[ $RABBITRUNNING -eq 0 ]] && rabbitmq-server -detached -setcookie #{HelperFunctions.get_secret()}'"
     start_cmd = "bash #{RABBITMQ_START_SCRIPT} " +\
                 "#{HelperFunctions.get_secret()}"
     stop_cmd = "rabbitmqctl stop"
