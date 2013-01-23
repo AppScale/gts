@@ -21,6 +21,7 @@ Uses the python-memcached library to interface with memcached.
 import memcache
 import time
 import os
+import base64
 
 from google.appengine.api import apiproxy_stub
 from google.appengine.api.memcache import memcache_service_pb
@@ -139,8 +140,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       The corresponding CacheEntry instance, or None if it was not found or
       has already expired.
     """
-    appname = os.environ['APPNAME']
-    internal_key = "__" + appname + "__" + namespace + "__" + key
+    internal_key = self._Get_Internal_Key(namespace, key)
 
     entry = self._memcache.get(internal_key)
     if entry is None:
@@ -186,9 +186,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
         if (old_entry is None or
             set_policy == MemcacheSetRequest.SET
             or not old_entry.CheckLocked()):
-          appname = os.environ['APPNAME']
-          internal_key = "__" + appname + "__" + namespace + "__" + key
-
+          internal_key = self._Get_Internal_Key(namespace, key)
           if self._memcache.set(internal_key, item.value(), item.expiration_time()):
             set_status = MemcacheSetResponse.STORED
 
@@ -210,8 +208,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       if entry is None:
         delete_status = MemcacheDeleteResponse.NOT_FOUND
       else:
-        appname = os.environ['APPNAME']
-        internal_key = "__" + appname + "__" + namespace + "__" + key
+        internal_key = self._Get_Internal_Key(namespace, key)
         self._memcache.delete(internal_key)
 
       response.add_delete_status(delete_status)
@@ -229,9 +226,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
 
     new_value = 0
     try:
-      appname = os.environ['APPNAME']
-      internal_key = "__" + appname + "__" + namespace + "__" + key
-
+      internal_key = self._Get_Internal_Key(namespace, key)
       if request.direction() == MemcacheIncrementRequest.INCREMENT:
         new_value = self._memcache.incr(internal_key, delta)
       elif request.direction() == MemcacheIncrementRequest.DECREMENT:
@@ -291,3 +286,19 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     stats.set_items(total_items)
     stats.set_bytes(bytes)
     stats.set_oldest_item_age(oldest_item_age)
+
+  def _Get_Internal_Key(self, namespace, key):
+    """Used to get the Memcache key. It is encoded because the sdk
+       allows special characters but the Memcache client does not.
+      
+    Args:
+      namespace: The namespace as provided by the application.
+      key: The key as provided by the application.
+    
+    Returns:
+      A string __{appname}__{namespace}__{base64 encoded_key}
+    """
+    appname = os.environ['APPNAME']
+    encoded_key = base64.b64encode(key) 
+    internal_key = "__" + appname + "__" + namespace + "__" + encoded_key
+    return internal_key 
