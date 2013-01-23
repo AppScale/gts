@@ -24,8 +24,13 @@ module Ejabberd
   ONLINE_USERS_FILE = "/etc/appscale/online_xmpp_users"
 
 
+  # We need some additional logic for the start command hence using 
+  # a script.
+  START_EJABBERD_SCRIPT = File.dirname(__FILE__) + "/../" + \
+                          "/scripts/start_ejabberd.sh"
+
   def self.start
-    start_cmd = "/etc/init.d/ejabberd start"
+    start_cmd = "bash #{START_EJABBERD_SCRIPT}"
     stop_cmd = "/etc/init.d/ejabberd stop"
     port = 4369
     GodInterface.start(:ejabberd, start_cmd, stop_cmd, port)
