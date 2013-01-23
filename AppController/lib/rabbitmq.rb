@@ -3,6 +3,7 @@
 
 # Imports for AppController libraries
 $:.unshift File.join(File.dirname(__FILE__))
+require 'godinterface'
 require 'djinn_job_data'
 require 'helperfunctions'
 
@@ -29,6 +30,9 @@ module RabbitMQ
     self.erase_local_files()
     start_cmd = "rabbitmq-server -detached -setcookie " +
      "#{HelperFunctions.get_secret()}"
+    stop_cmd = "rabbitmqctl stop"
+    env_vars = {}
+    GodInterface.start(:pbserver, start_cmd, stop_cmd, SERVER_PORT, env_vars)
     Djinn.log_run("#{start_cmd}")
   end
 
@@ -70,6 +74,7 @@ module RabbitMQ
   # need to do to stop the server.
   def self.stop()
     Djinn.log_debug("Shutting down RabbitMQ")
+    GodInterface.stop(:rabbitmq)
   end
 
 
