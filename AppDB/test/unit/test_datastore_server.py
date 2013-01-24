@@ -589,5 +589,21 @@ class TestDatastoreServer(unittest.TestCase):
     del_req.mutable_transaction().set_handle(1)
     dd.dynamic_delete("test", del_req)
 
+  def test_reverse_path(self):
+    zookeeper = flexmock()
+    zookeeper.should_receive("getTransactionID").and_return(1)
+    zookeeper.should_receive("getValidTransactionID").and_return(1)
+    zookeeper.should_receive("registUpdatedKey").and_return(1)
+    zookeeper.should_receive("acquireLock").and_return(True)
+    zookeeper.should_receive("releaseLock").and_return(True)
+    db_batch = flexmock()
+    db_batch.should_receive("batch_delete").and_return(None)
+    db_batch.should_receive("batch_put_entity").and_return(None)
+    db_batch.should_receive("batch_get_entity").and_return(None)
+
+    dd = DatastoreDistributed(db_batch, zookeeper) 
+    key = "Project:Synapse!Module:Core!"
+    self.assertEquals(dd.reverse_path(key), "Module:Core!Project:Synapse!")
+
 if __name__ == "__main__":
   unittest.main()    
