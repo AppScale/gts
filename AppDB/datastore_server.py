@@ -1466,6 +1466,20 @@ class DatastoreDistributed():
                                         end_inclusive, 
                                         query, 
                                         0)
+  
+  def reverse_path(self, key):
+    """ Use this function for reversing the key ancestry order. 
+        Needed for kind queries.
+   
+    Args:
+      key: A string key which needs reversing.
+    Returns:
+      A string key which can be used on the kind table.
+    """ 
+    tokens = key.split('!')
+    tokens.reverse() 
+    key = '!'.join(tokens)[1:] + '!'
+    return key
 
   def kind_query_range(self, query, filter_info, order_info):
     """ Gets start and end keys for kind queries, along with
@@ -1490,6 +1504,9 @@ class DatastoreDistributed():
     for key_filter in filter_info['__key__']:
       op = key_filter[0]
       __key__ = str(key_filter[1])
+      # The key is built to index the Entity table rather than the 
+      # kind table. We reverse the ordering of the ancestry
+      __key__ = self.reverse_path(__key__)
       if op and op == datastore_pb.Query_Filter.EQUAL:
         startrow = prefix + '/' + __key__
         endrow = prefix + '/' + __key__
@@ -1520,7 +1537,7 @@ class DatastoreDistributed():
     for fi in filter_info:
       if fi != "__key__":
         return None
-
+    
     # Kind query can not have orders. They only apply for 
     # single property and composite queries, i.e., those 
     # queries that use either the ascending or decending tables.
