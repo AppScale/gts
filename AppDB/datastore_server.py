@@ -2172,7 +2172,7 @@ class MainHandler(tornado.web.RequestHandler):
     raise NotImplementedError("Unknown request of operation %s"%pb_type)
   
   @tornado.web.asynchronous
-  def post( self ):
+  def post(self):
     """ Function which handles POST requests. Data of the request is 
         the request from the AppServer in an encoded protocol buffer 
         format.

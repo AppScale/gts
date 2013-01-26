@@ -45,7 +45,6 @@ __all__ = []
 import base64
 import bisect
 import calendar
-import cgi
 import datetime
 import httplib
 import logging
@@ -63,6 +62,7 @@ from google.appengine.api import api_base_pb
 from google.appengine.api import apiproxy_stub
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import queueinfo
+from google.appengine.api.taskqueue import taskqueue
 from google.appengine.runtime import apiproxy_errors
 
 
@@ -96,7 +96,10 @@ MAX_REQUEST_SIZE = 32 << 20
 
 BUILT_IN_HEADERS = set(['x-appengine-queuename',
                         'x-appengine-taskname',
+                        'x-appengine-taskexecutioncount',
+                        'x-appengine-taskpreviousresponse',
                         'x-appengine-taskretrycount',
+                        'x-appengine-tasketa',
                         'x-appengine-development-payload',
                         'content-length'])
 
@@ -183,7 +186,7 @@ def _EtaDelta(eta_usec, now):
   if eta > now:
     return '%s from now' % _TruncDelta(eta - now)
   else:
-    return '%s ago' %  _TruncDelta(now - eta)
+    return '%s ago' % _TruncDelta(now - eta)
 
 
 def QueryTasksResponseToDict(queue_name, task_response, now):
@@ -235,10 +238,17 @@ def QueryTasksResponseToDict(queue_name, task_response, now):
   headers.append(('X-AppEngine-TaskName', task_response.task_name()))
   headers.append(('X-AppEngine-TaskRetryCount',
                   str(task_response.retry_count())))
+  headers.append(('X-AppEngine-TaskETA',
+                  str(_UsecToSec(task_response.eta_usec()))))
   headers.append(('X-AppEngine-Development-Payload', '1'))
   headers.append(('Content-Length', str(len(task['body']))))
   if 'content-type' not in frozenset(key.lower() for key, _ in headers):
     headers.append(('Content-Type', 'application/octet-stream'))
+  headers.append(('X-AppEngine-TaskExecutionCount',
+                  str(task_response.execution_count())))
+  if task_response.has_runlog() and task_response.runlog().has_response_code():
+    headers.append(('X-AppEngine-TaskPreviousResponse',
+                    str(task_response.runlog().response_code())))
   task['headers'] = headers
 
   return task
@@ -328,6 +338,22 @@ class _Group(object):
         queue_dict['eta_delta'] = ''
       queue_dict['tasks_in_queue'] = queue.Count()
 
+      if queue.retry_parameters:
+        retry_proto = queue.retry_parameters
+        retry_dict = {}
+
+        if retry_proto.has_retry_limit():
+          retry_dict['retry_limit'] = retry_proto.retry_limit()
+        if retry_proto.has_age_limit_sec():
+          retry_dict['age_limit_sec'] = retry_proto.age_limit_sec()
+        if retry_proto.has_min_backoff_sec():
+          retry_dict['min_backoff_sec'] = retry_proto.min_backoff_sec()
+        if retry_proto.has_max_backoff_sec():
+          retry_dict['max_backoff_sec'] = retry_proto.max_backoff_sec()
+        if retry_proto.has_max_doublings():
+          retry_dict['max_doublings'] = retry_proto.max_doublings()
+
+        queue_dict['retry_parameters'] = retry_dict
     return queues
 
   def HasQueue(self, queue_name):
@@ -382,7 +408,7 @@ class _Group(object):
 
   def _ConstructQueue(self, queue_name, *args, **kwargs):
     if '_testing_validate_state' in kwargs:
-      raise TypeError, (
+      raise TypeError(
           '_testing_validate_state should not be passed to _ConstructQueue')
     kwargs['_testing_validate_state'] = self._testing_validate_state
     self._queues[queue_name] = _Queue(queue_name, *args, **kwargs)
@@ -421,11 +447,16 @@ class _Group(object):
       queue_name = entry.name
       new_queues.add(queue_name)
 
+      retry_parameters = None
+
 
       if entry.bucket_size:
         bucket_size = entry.bucket_size
       else:
         bucket_size = DEFAULT_BUCKET_SIZE
+      if entry.retry_parameters:
+        retry_parameters = queueinfo.TranslateRetryParameters(
+            entry.retry_parameters)
 
       if entry.mode == 'pull':
         mode = QUEUE_MODE.PULL
@@ -452,7 +483,7 @@ class _Group(object):
 
         self._ConstructQueue(queue_name, bucket_capacity=bucket_size,
                              user_specified_rate=max_rate, queue_mode=mode,
-                             acl=acl)
+                             acl=acl, retry_parameters=retry_parameters)
       else:
 
 
@@ -461,6 +492,7 @@ class _Group(object):
         queue.user_specified_rate = max_rate
         queue.acl = acl
         queue.queue_mode = mode
+        queue.retry_parameters = retry_parameters
         if mode == QUEUE_MODE.PUSH:
           eta = queue.Oldest()
           if eta:
@@ -473,7 +505,7 @@ class _Group(object):
     new_queues.add(DEFAULT_QUEUE_NAME)
     if not self._all_queues_valid:
 
-      for queue_name in old_queues-new_queues:
+      for queue_name in old_queues - new_queues:
 
 
 
@@ -876,9 +908,6 @@ class Retry(object):
 
 
   _default_params = taskqueue_service_pb.TaskQueueRetryParameters()
-  _default_params.set_min_backoff_sec(0.001)
-  _default_params.set_max_backoff_sec(3600)
-  _default_params.set_max_doublings(100000)
 
   def __init__(self, task, queue):
     """Constructor.
@@ -945,6 +974,7 @@ class _Queue(object):
   This class contains all of the properties of a queue and a sorted list of
   tasks.
   """
+
   def __init__(self, queue_name, bucket_refill_per_second=DEFAULT_RATE_FLOAT,
                bucket_capacity=DEFAULT_BUCKET_SIZE,
                user_specified_rate=DEFAULT_RATE, retry_parameters=None,
@@ -1040,6 +1070,7 @@ class _Queue(object):
     Returns:
       The result of f.
     """
+
     def _Inner(self, *args, **kwargs):
       with self._lock:
         ret = f(self, *args, **kwargs)
@@ -1171,7 +1202,7 @@ class _Queue(object):
         response.add_result(self._DeleteNoAcquireLock(taskname))
 
   def _QueryAndOwnTasksGetTaskList(self, max_rows, group_by_tag, now_eta_usec,
-                                    tag=None):
+                                   tag=None):
     assert self._lock.locked()
     if group_by_tag and tag:
 
@@ -1239,7 +1270,7 @@ class _Queue(object):
       if not retry.CanRetry(task.retry_count() + 1, 0):
         logging.warning(
             'Task %s in queue %s cannot be leased again after %d leases.',
-             task.task_name(), self.queue_name, task.retry_count())
+            task.task_name(), self.queue_name, task.retry_count())
         tasks_to_delete.append(task)
         continue
 
@@ -1330,6 +1361,8 @@ class _Queue(object):
     retry_count = task.retry_count()
     task.set_retry_count(retry_count + 1)
 
+    task.set_execution_count(task.execution_count() + 1)
+
 
 
 
@@ -1350,8 +1383,11 @@ class _Queue(object):
           'headers': [('user-header', 'some-value')
                       ('X-AppEngine-QueueName': 'update-queue'),
                       ('X-AppEngine-TaskName': 'task-123'),
-                      ('X-AppEngine-TaskRetryCount': '0'),
+                      ('X-AppEngine-TaskExecutionCount': '1'),
+                      ('X-AppEngine-TaskRetryCount': '1'),
+                      ('X-AppEngine-TaskETA': '1234567890.123456'),
                       ('X-AppEngine-Development-Payload': '1'),
+                      ('X-AppEngine-TaskPreviousResponse': '300'),
                       ('Content-Length': 0),
                       ('Content-Type': 'application/octet-stream')]
 
@@ -1382,8 +1418,11 @@ class _Queue(object):
           'headers': [('user-header', 'some-value')
                       ('X-AppEngine-QueueName': 'update-queue'),
                       ('X-AppEngine-TaskName': 'task-123'),
-                      ('X-AppEngine-TaskRetryCount': '0'),
+                      ('X-AppEngine-TaskExecutionCount': '1'),
+                      ('X-AppEngine-TaskRetryCount': '1'),
+                      ('X-AppEngine-TaskETA': '1234567890.123456'),
                       ('X-AppEngine-Development-Payload': '1'),
+                      ('X-AppEngine-TaskPreviousResponse': '300'),
                       ('Content-Length': 0),
                       ('Content-Type': 'application/octet-stream')]
 
@@ -1708,6 +1747,7 @@ class _Queue(object):
     Args:
       num_tasks: the number of tasks to insert.
     """
+
     def RandomTask():
       """Creates a new task and randomly populates values."""
       assert self._lock.locked()
@@ -1731,14 +1771,16 @@ class _Queue(object):
       else:
         task.set_method(
             taskqueue_service_pb.TaskQueueQueryTasksResponse_Task.GET)
-      task.set_retry_count(max(0, random.randint(-10, 5)))
+      retry_count = max(0, random.randint(-10, 5))
+      task.set_retry_count(retry_count)
+      task.set_execution_count(retry_count)
       if random.random() < 0.3:
         random_headers = [('nexus', 'one'),
                           ('foo', 'bar'),
                           ('content-type', 'text/plain'),
                           ('from', 'user@email.com')]
         for _ in xrange(random.randint(1, 4)):
-          elem = random.randint(0, len(random_headers)-1)
+          elem = random.randint(0, len(random_headers) - 1)
           key, value = random_headers.pop(elem)
           header_proto = task.add_header()
           header_proto.set_key(key)
@@ -1794,10 +1836,17 @@ class _TaskExecutor(object):
     headers.append(('X-AppEngine-QueueName', queue.queue_name))
     headers.append(('X-AppEngine-TaskName', task.task_name()))
     headers.append(('X-AppEngine-TaskRetryCount', str(task.retry_count())))
+    headers.append(('X-AppEngine-TaskETA',
+                    str(_UsecToSec(task.eta_usec()))))
     headers.append(('X-AppEngine-Fake-Is-Admin', '1'))
     headers.append(('Content-Length', str(len(task.body()))))
     if 'content-type' not in header_dict:
       headers.append(('Content-Type', 'application/octet-stream'))
+    headers.append(('X-AppEngine-TaskExecutionCount',
+                    str(task.execution_count())))
+    if task.has_runlog() and task.runlog().has_response_code():
+      headers.append(('X-AppEngine-TaskPreviousResponse',
+                      str(task.runlog().response_code())))
 
     return header_dict, headers
 
@@ -1810,7 +1859,7 @@ class _TaskExecutor(object):
       queue: The queue that this task belongs to. An instance of _Queue.
 
     Returns:
-      If the task was successfully executed.
+      Http Response code from the task's execution, 0 if an exception occurred.
     """
     try:
       method = task.RequestMethod_Name(task.method())
@@ -1843,12 +1892,12 @@ class _TaskExecutor(object):
       response.read()
       response.close()
 
-      return 200 <= response.status < 300
+      return response.status
     except (httplib.HTTPException, socket.error):
       logging.exception('An error occured while sending the task "%s" '
                         '(Url: "%s") in queue "%s". Treating as a task error.',
                         task.task_name(), task.url(), queue.queue_name)
-      return False
+      return 0
 
 
 class _BackgroundTaskScheduler(object):
@@ -1912,13 +1961,15 @@ class _BackgroundTaskScheduler(object):
       if task.retry_count() == 0:
         task.set_first_try_usec(_SecToUsec(now))
 
-      task_result = self.task_executor.ExecuteTask(task, queue)
+      response_code = self.task_executor.ExecuteTask(task, queue)
+      if response_code:
+        task.mutable_runlog().set_response_code(response_code)
 
 
 
 
       now = self._get_time()
-      if task_result:
+      if 200 <= response_code < 300:
         queue.Delete(task.task_name())
       else:
         retry = Retry(task, queue)
@@ -2024,6 +2075,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     self._task_scheduler = _BackgroundTaskScheduler(
         self._queues[None], _TaskExecutor(default_http_server),
         retry_seconds=task_retry_seconds)
+    self._yaml_last_modified = None
 
   def StartBackgroundExecution(self):
     """Start automatic task execution."""
@@ -2055,11 +2107,17 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
       return None
     for queueyaml in ('queue.yaml', 'queue.yml'):
       try:
-        fh = open(os.path.join(self._root_path, queueyaml), 'r')
-      except IOError:
+        path = os.path.join(self._root_path, queueyaml)
+        modified = os.stat(path).st_mtime
+        if self._yaml_last_modified and self._yaml_last_modified == modified:
+          return self._last_queue_info
+        fh = open(path, 'r')
+      except (IOError, OSError):
         continue
       try:
         queue_info = queueinfo.LoadSingleQueue(fh)
+        self._last_queue_info = queue_info
+        self._yaml_last_modified = modified
         return queue_info
       finally:
         fh.close()
@@ -2183,6 +2241,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
                       ('X-AppEngine-QueueName': 'update-queue'),
                       ('X-AppEngine-TaskName': 'task-123'),
                       ('X-AppEngine-TaskRetryCount': '0'),
+                      ('X-AppEngine-TaskETA': '1234567890.123456'),
                       ('X-AppEngine-Development-Payload': '1'),
                       ('Content-Length': 0),
                       ('Content-Type': 'application/octet-stream')]
@@ -2308,7 +2367,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     """
     if _GetAppId(request) is None:
       raise apiproxy_errors.ApplicationError(
-         taskqueue_service_pb.TaskQueueServiceError.PERMISSION_DENIED)
+          taskqueue_service_pb.TaskQueueServiceError.PERMISSION_DENIED)
 
 
     if random.random() <= 0.05:
@@ -2334,7 +2393,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     app_id = _GetAppId(request)
     if app_id is None:
       raise apiproxy_errors.ApplicationError(
-         taskqueue_service_pb.TaskQueueServiceError.PERMISSION_DENIED)
+          taskqueue_service_pb.TaskQueueServiceError.PERMISSION_DENIED)
     self._GetGroup(app_id).DeleteQueue_Rpc(request, response)
 
   def _Dynamic_PauseQueue(self, request, response):
@@ -2350,7 +2409,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     app_id = _GetAppId(request)
     if app_id is None:
       raise apiproxy_errors.ApplicationError(
-         taskqueue_service_pb.TaskQueueServiceError.PERMISSION_DENIED)
+          taskqueue_service_pb.TaskQueueServiceError.PERMISSION_DENIED)
     self._GetGroup(app_id).PauseQueue_Rpc(request, response)
 
   def _Dynamic_PurgeQueue(self, request, response):
@@ -2379,7 +2438,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     app_id = _GetAppId(request)
     if app_id is None:
       raise apiproxy_errors.ApplicationError(
-         taskqueue_service_pb.TaskQueueServiceError.PERMISSION_DENIED)
+          taskqueue_service_pb.TaskQueueServiceError.PERMISSION_DENIED)
 
     if app_id in self._queues:
       del self._queues[app_id]
@@ -2400,7 +2459,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     """
     if _GetAppId(request) is None:
       raise apiproxy_errors.ApplicationError(
-         taskqueue_service_pb.TaskQueueServiceError.PERMISSION_DENIED)
+          taskqueue_service_pb.TaskQueueServiceError.PERMISSION_DENIED)
 
     if request.limit() < 0 or request.limit() > 1000 * (1024 ** 4):
       raise apiproxy_errors.ApplicationError(
@@ -2481,14 +2540,13 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     tasks = []
     for task in task_dicts:
 
-      decoded_body = base64.b64decode(task['body'])
-      if decoded_body:
-        task['params'] = cgi.parse_qs(decoded_body)
+      payload = base64.b64decode(task['body'])
 
-      task['eta'] = datetime.datetime.strptime(task['eta'], '%Y/%m/%d %H:%M:%S')
+      eta = datetime.datetime.strptime(task['eta'], '%Y/%m/%d %H:%M:%S')
+      eta = eta.replace(tzinfo=taskqueue._UTC)
 
       task_object = taskqueue.Task(name=task['name'], method=task['method'],
                                    url=task['url'], headers=task['headers'],
-                                   params=task.get('params'), eta=task['eta'])
+                                   payload=payload, eta=eta)
       tasks.append(task_object)
     return tasks
