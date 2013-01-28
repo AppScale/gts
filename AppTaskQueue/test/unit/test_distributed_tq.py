@@ -20,15 +20,6 @@ class TestDistributedTaskQueue(unittest.TestCase):
   """
   A set of test cases for the distributed taskqueue module
   """
-  def test_get_rabbitmq_location(self):
-    flexmock(file_io) \
-       .should_receive("read").and_return("192.168.0.1")
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-
-    dtq = DistributedTaskQueue()
-    self.assertEquals(dtq.get_rabbitmq_location(), "192.168.0.1")
-
   def test_fetch_queue_stats(self):
     flexmock(file_io) \
        .should_receive("read").and_return("192.168.0.1")

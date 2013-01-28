@@ -149,7 +149,6 @@ class MainHandler(tornado.web.RequestHandler):
                                                  app_id,
                                                  http_request_data)
    
-   
     apiresponse.set_response(response)
     if errcode != 0:
       apperror_pb = apiresponse.mutable_application_error()

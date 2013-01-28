@@ -8,7 +8,7 @@ import unittest
 from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-from distributed_tq import DistributedTaskQueue
+from tq_config import TaskQueueConfig
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
 import file_io

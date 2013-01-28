@@ -6,30 +6,15 @@ It uses RabbitMQ and celery to task handling.
 import os
 import sys
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
-import file_io
-
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.api.taskqueue import taskqueue_service_pb
 
 class DistributedTaskQueue():
   """ AppScale taskqueue layer for the TaskQueue API. """
 
-  # The filepath of the RabbitMQ file which has the nearest 
-  # RabbitMQ server.
-  RABBITMQ_LOCATION_FILE = '/etc/appscale/rabbitmq' 
- 
   def __init__(self):
     """ DistributedTaskQueue Constructor. """
-    self._taskqueue_location = self.get_rabbitmq_location()
-
-  def get_rabbitmq_location(self):
-    """ Reads from the local FS to get the RabbitMQ location to 
-        connect to.
-    Returns:
-      A string representing the location of RabbitMQ.
-    """
-    return file_io.read(self.RABBITMQ_LOCATION_FILE) 
+    pass
 
   def fetch_queue_stats(self, app_id, http_data):
     """ 
@@ -38,7 +23,7 @@ class DistributedTaskQueue():
       app_id: The application ID.
       http_data: The payload containing the protocol buffer request.
     Returns:
-      A tuple of 
+      A tuple of a encoded response, error code, and error detail.
     """
     request = taskqueue_service_pb.TaskQueueFetchQueueStatsRequest(http_data)
     response = taskqueue_service_pb.TaskQueueFetchQueueStatsResponse_QueueStats()
@@ -50,6 +35,8 @@ class DistributedTaskQueue():
     Args:
       app_id: The application ID.
       http_data: The payload containing the protocol buffer request.
+    Returns:
+      A tuple of a encoded response, error code, and error detail.
     """
     request = taskqueue_service_pb.TaskQueuePurgeQueueRequest(http_data)
     response = taskqueue_service_pb.TaskQueuePurgeQueueResponse()
@@ -61,6 +48,8 @@ class DistributedTaskQueue():
     Args:
       app_id: The application ID.
       http_data: The payload containing the protocol buffer request.
+    Returns:
+      A tuple of a encoded response, error code, and error detail.
     """
     request = taskqueue_service_pb.TaskQueueDeleteRequest(http_data)
     response = taskqueue_service_pb.TaskQueueDeleteResponse()
@@ -72,33 +61,67 @@ class DistributedTaskQueue():
     Args:
       app_id: The application ID.
       http_data: The payload containing the protocol buffer request.
+    Returns:
+      A tuple of a encoded response, error code, and error detail.
     """
     request = taskqueue_service_pb.TaskQueueQueryAndOwnTasksRequest(http_data)
     response = taskqueue_service_pb.TaskQueueQueryAndOwnTasksResponse()
     return (response.Encode(), 0, "")
 
   def add(self, app_id, http_data):
-    """ 
+    """ Adds a single task to the task queue.
 
     Args:
       app_id: The application ID.
       http_data: The payload containing the protocol buffer request.
+    Returns:
+      A tuple of a encoded response, error code, and error detail.
     """
     # Just call bulk add with one task.
     request = taskqueue_service_pb.TaskQueueAddRequest(http_data)
     response = taskqueue_service_pb.TaskQueueAddResponse()
+    bulk_request = taskqueue_service_pb.TaskQueueBulkAddRequest()
+    bulk_response = taskqueue_service_pb.TaskQueueBulkAddResponse()
+    bulk_request.add_add_request().CopyFrom(request)
+
+    self.__bulk_add(bulk_request, bulk_response) 
+
+    if bulk_response.taskresult_size() == 1:
+      result = bulk_response.taskresult(0).result()
+    else:
+      err_code = taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR 
+      return (error.Encode(), err_code, "Task did not receive a task response.")
+
+    if result != taskqueue_service_pb.TaskQueueServiceError.OK:
+      return (response.Encode(), result, "Task did not get an OK status.")
+    elif bulk_response.taskresult(0).has_chosen_task_name():
+      response.set_chosen_task_name(bulk_response.taskresult(0).chosen_task_name())
+
     return (response.Encode(), 0, "")
 
   def bulk_add(self, app_id, http_data):
-    """ 
+    """ Adds multiple tasks to the task queue.
 
     Args:
       app_id: The application ID.
       http_data: The payload containing the protocol buffer request.
+    Returns:
+      A tuple of a encoded response, error code, and error detail.
     """
     request = taskqueue_service_pb.TaskQueueBulkAddRequest(http_data)
     response = taskqueue_service_pb.TaskQueueBulkAddResponse()
+    self.__bulk_add(request, response)
     return (response.Encode(), 0, "")
+
+  def __bulk_add(self, request, response):
+    """ Function for bulk adding tasks.
+   
+    Args:
+      request: taskqueue_service_pb.TaskQueueBulkAddRequest
+      response: taskqueue_service_pb.TaskQUeueBulkAddResponse
+    """
+    if request.add_request_size() == 0:
+      return
 
   def modify_task_lease(self, app_id, http_data):
     """ 
@@ -106,6 +129,8 @@ class DistributedTaskQueue():
     Args:
       app_id: The application ID.
       http_data: The payload containing the protocol buffer request.
+    Returns:
+      A tuple of a encoded response, error code, and error detail.
     """
     request = taskqueue_service_pb.TaskQueueModifyTaskLeaseRequest(http_data)
     response = taskqueue_service_pb.TaskQueueModifyTaskLeaseResponse()
@@ -117,6 +142,8 @@ class DistributedTaskQueue():
     Args:
       app_id: The application ID.
       http_data: The payload containing the protocol buffer request.
+    Returns:
+      A tuple of a encoded response, error code, and error detail.
     """
     request = taskqueue_service_pb.TaskQueueUpdateQueueRequest(http_data)
     response = taskqueue_service_pb.TaskQueueUpdateQueueResponse()
@@ -128,6 +155,8 @@ class DistributedTaskQueue():
     Args:
       app_id: The application ID.
       http_data: The payload containing the protocol buffer request.
+    Returns:
+      A tuple of a encoded response, error code, and error detail.
     """
     request = taskqueue_service_pb.TaskQueueFetchQueuesRequest(http_data)
     response = taskqueue_service_pb.TaskQueueFetchQueuesResponse()
@@ -139,6 +168,8 @@ class DistributedTaskQueue():
     Args:
       app_id: The application ID.
       http_data: The payload containing the protocol buffer request.
+    Returns:
+      A tuple of a encoded response, error code, and error detail.
     """
     request = taskqueue_service_pb.TaskQueueQueryTasksRequest(http_data)
     response = taskqueue_service_pb.TaskQueueQueryTasksResponse()
@@ -150,6 +181,8 @@ class DistributedTaskQueue():
     Args:
       app_id: The application ID.
       http_data: The payload containing the protocol buffer request.
+    Returns:
+      A tuple of a encoded response, error code, and error detail.
     """
     request = taskqueue_service_pb.TaskQueueFetchTaskRequest(http_data)
     response = taskqueue_service_pb.TaskQueueFetchTaskResponse()
@@ -161,6 +194,8 @@ class DistributedTaskQueue():
     Args:
       app_id: The application ID.
       http_data: The payload containing the protocol buffer request.
+    Returns:
+      A tuple of a encoded response, error code, and error detail.
     """
     request = taskqueue_service_pb.TaskQueueForceRunRequest(http_data)
     response = taskqueue_service_pb.TaskQueueForceRunResponse()
@@ -172,6 +207,8 @@ class DistributedTaskQueue():
     Args:
       app_id: The application ID.
       http_data: The payload containing the protocol buffer request.
+    Returns:
+      A tuple of a encoded response, error code, and error detail.
     """
     request = taskqueue_service_pb.TaskQueueDeleteQueueRequest(http_data)
     response = taskqueue_service_pb.TaskQueueDeleteQueueResponse()
@@ -183,6 +220,8 @@ class DistributedTaskQueue():
     Args:
       app_id: The application ID.
       http_data: The payload containing the protocol buffer request.
+    Returns:
+      A tuple of a encoded response, error code, and error detail.
     """
     request = taskqueue_service_pb.TaskQueuePauseQueueRequest(http_data)
     response = taskqueue_service_pb.TaskQueuePauseQueueResponse()
@@ -194,6 +233,8 @@ class DistributedTaskQueue():
     Args:
       app_id: The application ID.
       http_data: The payload containing the protocol buffer request.
+    Returns:
+      A tuple of a encoded response, error code, and error detail.
     """
     request = taskqueue_service_pb.TaskQueueDeleteGroupRequest(http_data)
     response = taskqueue_service_pb.TaskQueueDeleteGroupResponse()
@@ -205,6 +246,8 @@ class DistributedTaskQueue():
     Args:
       app_id: The application ID.
       http_data: The payload containing the protocol buffer request.
+    Returns:
+      A tuple of a encoded response, error code, and error detail.
     """
     request = taskqueue_service_pb.TaskQueueUpdateStorageLimitRequest(http_data)
     response = taskqueue_service_pb.TaskQueueUpdateStorageLimitResponse()

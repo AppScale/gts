@@ -70,7 +70,7 @@ CERT_LOCATION = "/etc/appscale/certs/mycert.pem"
 # Where the SSL private key is placed for encrypted communication
 KEY_LOCATION = "/etc/appscale/certs/mykey.pem"
 
-TASKQUEUE_LOCATION_FILE = "/etc/appscale/rabbitmq"
+TASKQUEUE_LOCATION_FILE = "/etc/appscale/rabbitmq_ip"
 TASKQUEUE_SERVER_PORT = 64839
 
 class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
