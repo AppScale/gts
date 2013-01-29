@@ -22,7 +22,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.xml.bind.DatatypeConverter;
 
-
 import net.spy.memcached.CASResponse;
 import net.spy.memcached.CASValue;
 import net.spy.memcached.MemcachedClient;
@@ -169,10 +168,10 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
                 String ip = strLine;
                 if (isIp(ip))
                 { 
-		    logger.info("Memcache client - adding ip: " + ip);
-	 	    ipList.add(new InetSocketAddress(ip, MEMCACHE_PORT));
+                    logger.info("Memcache client - adding ip: " + ip);
+                    ipList.add(new InetSocketAddress(ip, MEMCACHE_PORT));
                 }
-	    }
+            }
             // Close the input stream
             in.close();
         }
@@ -187,7 +186,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
 	     * because keys were being hashed to the incorrect
 	     * server with the default hashing algorithm. 
              */
-	    ConnectionFactory connFactory = new DefaultConnectionFactory(
+            ConnectionFactory connFactory = new DefaultConnectionFactory(
                     DefaultConnectionFactory.DEFAULT_OP_QUEUE_LEN,
                     DefaultConnectionFactory.DEFAULT_READ_BUFFER_SIZE,
                     net.spy.memcached.DefaultHashAlgorithm.FNV1A_64_HASH);
