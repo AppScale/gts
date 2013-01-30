@@ -3,11 +3,16 @@ A service for handling TaskQueue request from application servers.
 It uses RabbitMQ and celery to task handling. 
 """
 
+import json
 import os
 import sys
 
+from tq_config import TaskQueueConfig
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.api.taskqueue import taskqueue_service_pb
+from google.appengine.api import datastore_distributed
+from google.appengine.api import datastore
 
 class DistributedTaskQueue():
   """ AppScale taskqueue layer for the TaskQueue API. """
@@ -15,6 +20,64 @@ class DistributedTaskQueue():
   def __init__(self):
     """ DistributedTaskQueue Constructor. """
     pass
+
+  def __parse_json_setup_queue_request(self, json_request):
+    """ Parses JSON and validates that it contains the 
+        proper tags.
+
+    Args: 
+      json_request: A JSON string.
+    Returns:
+      A dictionary dumped from the JSON string.
+    """
+    try:
+      json_response = json.loads(json_request)
+    except ValueError:
+      json_response = {"error": True, 
+                       "reason": "Badly formed JSON"}
+      return json_response
+
+    if 'queue_yaml' not in json_response:
+      json_response = {'error': True, 
+                       'reason': 'Missing queue_yaml tag'}
+    elif 'app_id' not in json_response:
+      json_response = {'error': True, 
+                       'reason': 'Missing app_id tag'}
+    return json_response
+
+  def setup_queues(self, json_request):
+    """ Creates a configuration file for an application's queues
+
+    Args:
+      json_request: A JSON string containing the app_id and 
+                    the location of the queue.yaml file.
+    Returns:
+      A JSON string of the location of the queue config file, 
+      along with an error status and string if there was an 
+      error. 
+    """
+    request = self.__parse_json_setup_queue_request(json_request)
+    if 'error' in request:
+      return json.dumps(request)
+
+    config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, 
+                             request['app_id'],
+                             request['queue_yaml'])
+    config.create_file() 
+    json_response = "{}"
+    return json_response
+
+  def setup_workers(self, json_request):
+    """ Starts taskqueue workers if they are not already running.
+    
+    Args:
+      json_request: A JSON string with the application id and  
+                    location of queue configurations.
+    Returns:
+      A JSON string with the error status and error reason.
+    """
+    json_response = "{}"
+    return json_response
 
   def fetch_queue_stats(self, app_id, http_data):
     """ 
@@ -137,7 +200,7 @@ class DistributedTaskQueue():
     return (response.Encode(), 0, "")
 
   def update_queue(self, app_id, http_data):
-    """ 
+    """ Creates a queue entry in the database.
 
     Args:
       app_id: The application ID.

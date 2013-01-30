@@ -17,6 +17,45 @@ from google.appengine.ext.remote_api import remote_api_pb
 # Default port this service runs on
 SERVER_PORT = 64839
 
+class SetupQueues(tornado.web.RequestHandler):
+  """ Gets request with a path to a queue.yaml file. 
+      Must only be called on the taskqueue master node.
+  """
+  def initialize(self, task_queue):
+    """ Initializes the request handler. 
+ 
+    Args:
+      task_queue = DistributedTaskQueue object.
+    """
+    self._task_queue = task_queue
+
+  @tornado.web.asynchronous
+  def post(self):
+    """ Function which handles POST requests. Data of the request is 
+        the request from the AppController in an a JSON string. 
+        The JSON string must contain the application name and the 
+        location of the queue.yaml file. Replies with a JSON string
+        of the configuration file to be sent to all workers.
+    """
+    request = self.request
+    http_request_data = request.body
+    self._task_queue.setup_queues(http_request_data)
+    self.finish()
+
+class SetupWorkers(tornado.webRequestHandler):
+  """ Starts task queue workers for an app if they are not running. """
+  @tornado.web.asynchronous
+  def post(self):
+    """ Function which handles POST requests. Data of the request is 
+        the request from the AppController in an a JSON string. The 
+        JSON string must contain the application name and the location
+        of the configuration module for the workers.
+    """
+    request = self.request
+    http_request_data = request.body
+    self._task_queue.setup_workers(app_id, http_request_data)
+    self.finish()
+ 
 class MainHandler(tornado.web.RequestHandler):
   """
   Defines what to do when the webserver receieves different 
@@ -66,7 +105,7 @@ class MainHandler(tornado.web.RequestHandler):
     """ Handles get request for the web server. Returns that it is currently
         up in json.
     """
-    self.write("{'status':'up'}")
+    self.write('{"status":"up"}')
     self.finish()
 
   def remote_request(self, app_id, http_request_data):
@@ -161,6 +200,7 @@ def main():
   """ Main function which initializes and starts the tornado server. """
   task_queue = distributed_tq.DistributedTaskQueue()
   tq_application = tornado.web.Application([
+    (r"/setupqueues", SetupQueues, dict(task_queue=task_queue))
     (r"/*", MainHandler, dict(task_queue=task_queue))
   ])
 
