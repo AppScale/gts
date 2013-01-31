@@ -415,7 +415,7 @@ class Djinn
       all_nodes << node.to_hash()
     }
 
-    return all_nodes
+    return JSON.dump(all_nodes)
   end
 
 
@@ -516,19 +516,19 @@ class Djinn
     # e.g., ['foo', 'bar'] becomes {'foo' => 'bar'}
     # so we need to make sure that the array has an even number of elements
         
-    if database_credentials.length % 2 != 0
-      error_msg = "Error: DB Credentials wasn't of even length: Len = " + \
-        "#{database_credentials.length}"
-      Djinn.log_debug(error_msg)
-      return error_msg
-    end
+    #if database_credentials.length % 2 != 0
+    #  error_msg = "Error: DB Credentials wasn't of even length: Len = " + \
+    #    "#{database_credentials.length}"
+    #  Djinn.log_debug(error_msg)
+    #  return error_msg
+    #end
   
     possible_credentials = Hash[*database_credentials]
-    if !valid_format_for_credentials(possible_credentials)
-      return "Error: Credential format wrong"
-    end
+    #if !valid_format_for_credentials(possible_credentials)
+    #  return "Error: Credential format wrong"
+    #end
 
-    Djinn.log_debug("Parameters were valid")
+    Djinn.log_debug("Parameters were valid: #{possible_credentials.inspect}")
 
     keyname = possible_credentials["keyname"]
     @nodes = Djinn.convert_location_array_to_class(djinn_locations, keyname)
@@ -770,7 +770,7 @@ class Djinn
       public_ips << node.public_ip
     }
     Djinn.log_debug("All public ips are [#{public_ips.join(', ')}]")
-    return public_ips
+    return JSON.dump(public_ips)
   end
 
   def job_start(secret)
@@ -1971,15 +1971,13 @@ class Djinn
       @num_appengines = Integer(@creds["appengine"])
     end
 
-    Djinn.log_debug("Keypath is #{@creds['keypath']}, keyname is #{@creds['keyname']}")
-
-    if !@creds["keypath"].empty?
-      my_key_dir = "#{CONFIG_FILE_LOCATION}/keys/#{my_node.cloud}"
-      my_key_loc = "#{my_key_dir}/#{@creds['keypath']}"
-      Djinn.log_debug("Creating directory #{my_key_dir} for my ssh key #{my_key_loc}")
-      FileUtils.mkdir_p(my_key_dir)
-      Djinn.log_run("cp #{CONFIG_FILE_LOCATION}/ssh.key #{my_key_loc}")
-    end
+    keypath = @creds['keyname'] + ".key"
+    Djinn.log_debug("Keypath is #{keypath}, keyname is #{@creds['keyname']}")
+    my_key_dir = "#{CONFIG_FILE_LOCATION}/keys/#{my_node.cloud}"
+    my_key_loc = "#{my_key_dir}/#{keypath}"
+    Djinn.log_debug("Creating directory #{my_key_dir} for my ssh key #{my_key_loc}")
+    FileUtils.mkdir_p(my_key_dir)
+    Djinn.log_run("cp #{CONFIG_FILE_LOCATION}/ssh.key #{my_key_loc}")
         
     if is_cloud?
       # for euca
@@ -2083,6 +2081,9 @@ class Djinn
   def sanitize_credentials()
     newcreds = {}
     @creds.each { |key, val|
+      Djinn.log_debug("old creds[#{key}] = #{val}")
+      val = val.to_s
+      Djinn.log_debug("new creds[#{key}] = #{val}")
       newkey = key.gsub(/[^\w\d_@-]/, "") unless key.nil?
       if newkey.include? "_key"
         newval = val.gsub(/[^\w\d\.\+:\/_-]/, "") unless val.nil?
@@ -2401,6 +2402,7 @@ class Djinn
 
     table = @creds['table']
 
+    Djinn.log_debug("DB Credentials: #{HelperFunctions.obscure_creds(@creds).inspect}")
     nodes = HelperFunctions.deserialize_info_from_tools(@creds["ips"])
     appengine_info = spawn_appengine(nodes)
 
