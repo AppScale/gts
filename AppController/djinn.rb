@@ -516,17 +516,17 @@ class Djinn
     # e.g., ['foo', 'bar'] becomes {'foo' => 'bar'}
     # so we need to make sure that the array has an even number of elements
         
-    #if database_credentials.length % 2 != 0
-    #  error_msg = "Error: DB Credentials wasn't of even length: Len = " + \
-    #    "#{database_credentials.length}"
-    #  Djinn.log_debug(error_msg)
-    #  return error_msg
-    #end
+    if database_credentials.length % 2 != 0
+      error_msg = "Error: DB Credentials wasn't of even length: Len = " + \
+        "#{database_credentials.length}"
+      Djinn.log_debug(error_msg)
+      return error_msg
+    end
   
     possible_credentials = Hash[*database_credentials]
-    #if !valid_format_for_credentials(possible_credentials)
-    #  return "Error: Credential format wrong"
-    #end
+    if !valid_format_for_credentials(possible_credentials)
+      return "Error: Credential format wrong"
+    end
 
     Djinn.log_debug("Parameters were valid: #{possible_credentials.inspect}")
 
@@ -2081,9 +2081,12 @@ class Djinn
   def sanitize_credentials()
     newcreds = {}
     @creds.each { |key, val|
-      Djinn.log_debug("old creds[#{key}] = #{val}")
-      val = val.to_s
-      Djinn.log_debug("new creds[#{key}] = #{val}")
+      if key == 'ips'
+        newcreds[key] = val
+        next
+      end
+
+      next unless key.class == String
       newkey = key.gsub(/[^\w\d_@-]/, "") unless key.nil?
       if newkey.include? "_key"
         newval = val.gsub(/[^\w\d\.\+:\/_-]/, "") unless val.nil?
@@ -2404,6 +2407,7 @@ class Djinn
 
     Djinn.log_debug("DB Credentials: #{HelperFunctions.obscure_creds(@creds).inspect}")
     nodes = HelperFunctions.deserialize_info_from_tools(@creds["ips"])
+    Djinn.log_debug("nodes info is #{nodes.inspect}")
     appengine_info = spawn_appengine(nodes)
 
     @state = "Copying over needed files and starting the AppController on the other VMs"
@@ -3140,7 +3144,7 @@ HOSTS
       return
     end
 
-    if @creds["autoscale"] == "true"
+    if @creds["autoscale"].downcase == "true"
       Djinn.log_debug("Examining AppServers to autoscale them")
       perform_scaling_for_appservers()
     else
