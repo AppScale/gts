@@ -13,14 +13,14 @@ RABBITMQ_LOCATION_FILE = '/etc/appscale/rabbitmq_ip'
 RABBITMQ_PORT = 5672
 
 def get_connection_string():
-    """ Reads from the local FS to get the RabbitMQ location to 
-        connect to.
+  """ Reads from the local FS to get the RabbitMQ location to 
+      connect to.
 
-    Returns:
-      A string representing the location of RabbitMQ.
-    """
-    from brokers import rabbitmq
-    rabbitmq_ip = file_io.read(RABBITMQ_LOCATION_FILE)
-    return 'amqp://guest:guest@' + rabbitmq_ip + ':' + \
-           str(RABBITMQ_PORT) + '//'
+  Returns:
+    A string representing the location of RabbitMQ.
+  """
+  from brokers import rabbitmq
+  rabbitmq_ip = file_io.read(RABBITMQ_LOCATION_FILE)
+  return 'amqp://guest:guest@' + rabbitmq_ip + ':' + \
+         str(RABBITMQ_PORT) + '//'
 

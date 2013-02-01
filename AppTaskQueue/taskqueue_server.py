@@ -39,10 +39,11 @@ class SetupQueues(tornado.web.RequestHandler):
     """
     request = self.request
     http_request_data = request.body
-    self._task_queue.setup_queues(http_request_data)
+    json_response = self._task_queue.setup_queues(http_request_data)
+    self.write(json_response)
     self.finish()
 
-class SetupWorkers(tornado.webRequestHandler):
+class SetupWorkers(tornado.web.RequestHandler):
   """ Starts task queue workers for an app if they are not running. """
   @tornado.web.asynchronous
   def post(self):
@@ -53,7 +54,8 @@ class SetupWorkers(tornado.webRequestHandler):
     """
     request = self.request
     http_request_data = request.body
-    self._task_queue.setup_workers(app_id, http_request_data)
+    json_response = self._task_queue.setup_workers(http_request_data)
+    self.write(json_response)
     self.finish()
  
 class MainHandler(tornado.web.RequestHandler):
@@ -200,7 +202,7 @@ def main():
   """ Main function which initializes and starts the tornado server. """
   task_queue = distributed_tq.DistributedTaskQueue()
   tq_application = tornado.web.Application([
-    (r"/setupqueues", SetupQueues, dict(task_queue=task_queue))
+    (r"/setupqueues", SetupQueues, dict(task_queue=task_queue)),
     (r"/*", MainHandler, dict(task_queue=task_queue))
   ])
 

@@ -52,6 +52,14 @@ def exists(file_name):
   """
   return os.path.exists(file_name)
 
+def mkdir(dir_path):
+  """ Creates a directory.
+  
+  Args:
+    dir_path: The path to create.
+  """
+  return os.system("mkdir -p " + dir_path)
+
 def set_logging_format():
   """ Sets the logging format to have a unified format.
   """

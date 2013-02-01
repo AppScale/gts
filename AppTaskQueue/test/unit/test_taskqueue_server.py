@@ -16,145 +16,80 @@ import file_io
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))  
 from google.appengine.api import api_base_pb
 
+def mock_file_io():
+  flexmock(file_io).should_receive("mkdir").and_return(None)
+  flexmock(file_io) \
+     .should_receive("read").and_return("192.168.0.1")
+  flexmock(file_io) \
+     .should_receive("write").and_return(None)
+
+
 class TestDistributedTaskQueue(unittest.TestCase):
   """
   A set of test cases for the distributed taskqueue module
   """
-  def test_get_rabbitmq_location(self):
-    flexmock(file_io) \
-       .should_receive("read").and_return("192.168.0.1")
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-
-    dtq = DistributedTaskQueue()
-    self.assertEquals(dtq.get_rabbitmq_location(), "192.168.0.1")
-
   def test_fetch_queue_stats(self):
-    flexmock(file_io) \
-       .should_receive("read").and_return("192.168.0.1")
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-
+    mock_file_io()
     dtq = DistributedTaskQueue()
 
   def test_delete(self):   
-    flexmock(file_io) \
-       .should_receive("read").and_return("192.168.0.1")
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-
+    mock_file_io()
     dtq = DistributedTaskQueue()
 
   def test_purge_queue(self):
-    flexmock(file_io) \
-       .should_receive("read").and_return("192.168.0.1")
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-
+    mock_file_io()
     dtq = DistributedTaskQueue()
 
   def test_query_and_own_tasks(self):
-    flexmock(file_io) \
-       .should_receive("read").and_return("192.168.0.1")
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-
+    mock_file_io()
     dtq = DistributedTaskQueue()
 
   def test_bulk_add(self):
-    flexmock(file_io) \
-       .should_receive("read").and_return("192.168.0.1")
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-
+    mock_file_io()
     dtq = DistributedTaskQueue()
 
   def test_bulk_add(self):
-    flexmock(file_io) \
-       .should_receive("read").and_return("192.168.0.1")
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-
+    mock_file_io()
     dtq = DistributedTaskQueue()
 
   def test_modify_task_lease(self):
-    flexmock(file_io) \
-       .should_receive("read").and_return("192.168.0.1")
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-
+    mock_file_io()
     dtq = DistributedTaskQueue()
 
   def test_update_queue(self):
-    flexmock(file_io) \
-       .should_receive("read").and_return("192.168.0.1")
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-
+    mock_file_io()
     dtq = DistributedTaskQueue()
 
   def test_fetch_queue(self):
-    flexmock(file_io) \
-       .should_receive("read").and_return("192.168.0.1")
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-
+    mock_file_io()
     dtq = DistributedTaskQueue()
 
   def test_query_tasks(self):
-    flexmock(file_io) \
-       .should_receive("read").and_return("192.168.0.1")
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-
+    mock_file_io()
     dtq = DistributedTaskQueue()
 
   def test_fetch_task(self):
-    flexmock(file_io) \
-       .should_receive("read").and_return("192.168.0.1")
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-
+    mock_file_io()
     dtq = DistributedTaskQueue()
 
   def test_force_run(self):
-    flexmock(file_io) \
-       .should_receive("read").and_return("192.168.0.1")
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-
+    mock_file_io()
     dtq = DistributedTaskQueue()
 
   def test_delete_queue(self):
-    flexmock(file_io) \
-       .should_receive("read").and_return("192.168.0.1")
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-
+    mock_file_io()
     dtq = DistributedTaskQueue()
 
   def test_pause_queue(self):
-    flexmock(file_io) \
-       .should_receive("read").and_return("192.168.0.1")
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-
+    mock_file_io()
     dtq = DistributedTaskQueue()
 
   def test_delete_group(self):
-    flexmock(file_io) \
-       .should_receive("read").and_return("192.168.0.1")
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-
+    mock_file_io()
     dtq = DistributedTaskQueue()
 
   def test_update_storage_limit(self):
-    flexmock(file_io) \
-       .should_receive("read").and_return("192.168.0.1")
-    flexmock(file_io) \
-       .should_receive("write").and_return(None)
-
+    mock_file_io()
     dtq = DistributedTaskQueue()
 
 if __name__ == "__main__":

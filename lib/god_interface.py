@@ -24,7 +24,7 @@ def start(config_loc, watch):
     True on success, False otherwise
   """
   if not misc.is_string_secure(config_loc):
-    logging.error("Configuration file location str (%s) is a possible security violation"%config_loc)
+    logging.error("Configuration file location str (%s) is a possible security violation" % config_loc)
     return False
 
   if not misc.is_string_secure(watch):

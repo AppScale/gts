@@ -6,10 +6,8 @@
 
 import json
 import os
+import re
 import sys 
-
-from kombu import Exchange
-from kombu import Queue
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.api import queueinfo
@@ -42,8 +40,34 @@ queue:
   # The property index for which we store the queue info.
   QUEUE_INFO = "queueinfo"
 
-  # The property index for which we store the queue name.
+  # The property index for which we store app name.
   APP_NAME = "appname"
+
+  # Queue info location codes
+  QUEUE_INFO_DB = 0
+  QUEUE_INFO_FILE = 1 
+
+  # Location of all celery configuration files
+  CELERY_CONFIG_DIR = '/etc/appscale/celery/configuration/'
+
+  # Location of all celery workers scripts
+  CELERY_WORKER_DIR = '/etc/appscale/celery/workers/'
+
+  # Directory with the task templates
+  TEMPLATE_DIR = './templates/'
+
+  # The location of a header of a queue worker script
+  HEADER_LOC = TEMPLATE_DIR + 'header.py'
+  
+  # The location of the task template code
+  TASK_LOC = TEMPLATE_DIR + 'task.py'
+
+  MAX_QUEUE_NAME_LENGTH = 100
+
+  QUEUE_NAME_PATTERN = r'^[a-zA-Z0-9_]{1,%s}$' % MAX_QUEUE_NAME_LENGTH
+
+  QUEUE_NAME_RE = re.compile(QUEUE_NAME_PATTERN)
+
 
   def __init__(self, broker, app_id):
     """ Configuration constructor. 
@@ -57,6 +81,8 @@ queue:
     self._app_id = app_id
     self._queue_info_db = None
     self._queue_info_file = None
+    file_io.mkdir(self.CELERY_CONFIG_DIR)
+    file_io.mkdir(self.CELERY_WORKER_DIR)
 
   def load_queues_from_file(self, queue_file):
     """ Parses the queue.yaml file of an application
@@ -103,7 +129,6 @@ queue:
     """
     return self._queue_info_db
 
-
   def __get_queues_from_db(self):
     """ Retrives queue info from the database. 
 
@@ -141,35 +166,91 @@ queue:
     entity.update({self.QUEUE_INFO: datastore_types.Blob(json_queues),
                    self.APP_NAME: datastore_types.ByteString(self._app_id)})
     datastore.Put(entity)
-       
-  def create_celery_file(self):
-    """ Creates the Celery configuration file describing 
-        queues and exchanges for an application.  
 
+  def create_celery_worker_scripts(self, input_type):
+    """ Creates the task worker python script. It uses
+        a configuration file for setup.
+
+    Args:
+      input_type: Whether to use the yaml file or the 
+                  database queue info. Default: yaml file.
+    Returns: 
+      The full path of the worker script.
+    """
+    queue_info = self._queue_info_file
+    if input_type == self.QUEUE_INFO_DB:
+      queue_info = self._queue_info_db 
+
+    header_template = file_io.read(self.HEADER_LOC)
+    task_template = file_io.read(self.TASK_LOC)
+    header_template = header_template.replace("APP_ID", self._app_id)
+    script = header_template.replace("CELERY_CONFIGURATION", 
+                                     self._app_id + "_config") + '\n'
+    for queue in queue_info['queue']:
+      queue_name = queue['name']  
+      # The queue name is used as a function name so replace invalid chars
+      queue_name = queue_name.replace('-', '_')
+      self.validate_queue_name(queue_name)
+      new_task = task_template.replace("QUEUE_NAME", queue_name + "___queue")
+      script += new_task + '\n'
+
+    file_io.write(script, self.CELERY_WORKER_DIR + self._app_id + ".py")
+    return self.CELERY_WORKER_DIR + self._app_id + ".py"
+
+  def create_celery_file(self, input_type):
+    """ Creates the Celery configuration file describing 
+        queues and exchanges for an application. Uses either
+        the queue.yaml input or what was stored in the 
+        datastore to create the celery file. 
+
+    Args:
+      input_type: Whether to use the yaml file or the 
+                  database queue info. Default: yaml file.
     Returns:
       A string representing the full path location of the 
       configuration file.
     """
-    # Parse the queue file
-    # Compare it with the current queues (get from database)
-    # Delete those that don't exist anymore
-    # Always have the default queue 
-    print self._queue_info_file
-    print self._queue_info_db
-    """
-    for ii in self._queue_info:
-      name = self._app_id + "___" + self.DEFAULT_QUEUE_NAME
-      if 'name' in self._queue_info[ii]:
-        name = self._app_id + "___" + self._queue_info[ii]['name']
+    queue_info = self._queue_info_file
+    if input_type == self.QUEUE_INFO_DB:
+      queue_info = self._queue_info_db 
+ 
+    celery_queues = []
+    celery_annotations = []
+    for queue in queue_info['queue']:
+      if 'mode' in queue and queue['mode'] == "pull":
+        continue # celery does not handle pull queues
+      
+      celery_queues.append("Queue('"+ queue['name'] + \
+         "', Exchange('" + self._app_id + \
+         "'), routing_key='" + queue['name'] + "'),")
 
-      mode = DEFAULT_QUEUE_TYPE
-      if 'mode' in self._queue_info[ii]:
-        mode = self._queue_info[ii]['mode']
+      rate_limit = queue['rate']
+      celery_annotations.append("'" + self._app_id + "." +\
+         queue['name'] + "': {'rate_limit': '" + rate_limit + "'},")
 
-      rate = DEFAULT_PROCESS_RATE
-      if 'rate' in self._queue_info[ii]:
-        rate = self._queue_info[ii]['rate'] 
-    """  
+    celery_queues = '\n'.join(celery_queues)
+    celery_annotations = '\n'.join(celery_annotations)
+    config = \
+"""
+from kombu import Exchange
+from kombu import Queue
+CELERY_QUEUES = (
+"""
+    config += celery_queues
+    config += \
+"""
+)
+CELERY_ANNOTATIONS = {
+"""
+    config += celery_annotations
+    config += \
+"""
+}
+"""
+    config_file = self._app_id + ".py" 
+    file_io.write(config, self.CELERY_CONFIG_DIR + config_file)
+    return self.CELERY_CONFIG_DIR + config_file
+
   def __broker_location(self, broker):
     """ Gets the broker location connection string.
     
@@ -194,3 +275,15 @@ queue:
       A string which tells of the location of the configured broker.
     """
     return self._broker_location
+
+  def validate_queue_name(self, queue_name):
+    """ Validates the queue name to make sure it can be used as a function name.
+    
+    Args:
+      queue_name: A string representing a queue name.
+    Raises:
+      NameError if the name is invalid.
+    """
+    if not self.QUEUE_NAME_RE.match(queue_name):
+      raise NameError("Queue name %s did not match the regex %s" %\
+           (queue_name, self.QUEUE_NAME_PATTERN))
