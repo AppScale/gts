@@ -549,6 +549,12 @@ class Djinn
     Djinn.log_debug("(set_parameters) My index = #{@my_index}")
 
     ENV['EC2_URL'] = @creds['ec2_url']
+
+    if @creds['ec2_access_key'].nil?
+      @creds['ec2_access_key'] = @creds['EC2_ACCESS_KEY']
+      @creds['ec2_secret_key'] = @creds['EC2_SECRET_KEY']
+      @creds['ec2_url'] = @creds['EC2_URL']
+    end
     
     return "OK"
   end
