@@ -10,6 +10,11 @@ require 'socket'
 require 'timeout'
 
 
+# Imports for RubyGems
+require 'rubygems'
+require 'json'
+
+
 # Imports for AppController libraries
 $:.unshift File.join(File.dirname(__FILE__))
 require 'custom_exceptions'
@@ -157,16 +162,7 @@ module HelperFunctions
 
 
   def self.deserialize_info_from_tools(ips) 
-    nodes = {}
-    # FIXME: Here we make the string back into a hash using the crappy deserialization
-    # Definitely change this to JSON at some point
-    ips.split("..").each do |node|
-      tokens = node.split("--")
-      next if tokens.length != 2
-      id,roles = tokens
-      nodes[id] = roles
-    end
-    return nodes
+    return JSON.load(ips)
   end
 
 
