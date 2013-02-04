@@ -1026,6 +1026,7 @@ class Djinn
       return BAD_SECRET_MSG
     end
 
+    ips_hash = JSON.load(ips_hash)
     if ips_hash.class != Hash
       Djinn.log_debug("Was expecting ips_hash to be a Hash, not " +
         "a #{ips_hash.class}")
