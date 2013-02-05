@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
-import httplib
 import json
 import os
 import sys
 import unittest
+import urllib2
 
 from flexmock import flexmock
 
@@ -39,14 +39,16 @@ queue:
 
 class FakeResponse():
   def __init__(self):
-    self.status = 200
+    pass
+  def getcode(self):
+    return 200
   def read(self):
     return '{"error":false}'
 
 class FakeConnection():
   def __init__(self, url):
     pass
-  def putheader(self, header, value):
+  def add_header(self, header, value):
     pass
   def putrequest(self, arg1, arg2):
     pass
@@ -54,7 +56,7 @@ class FakeConnection():
     pass
   def send(self, values):
     pass
-  def getresponse(self):
+  def urlopen(self, request, values):
     return FakeResponse()
   
 class TestDistributedTaskQueue(unittest.TestCase):
@@ -94,9 +96,9 @@ class TestDistributedTaskQueue(unittest.TestCase):
 
     response = json.loads(dtq.setup_queues('{"app_id":"hey", "queue_yaml":"/var/log/appscale/guestbook/app/queue.yaml"}'))
     self.assertEquals(response['error'], True)
-    self.assertEquals(response['reason'], 'Missing load_type tag')
+    self.assertEquals(response['reason'], 'Missing command tag')
 
-    response = json.loads(dtq.setup_queues('{"app_id":"hey", "queue_yaml":"/var/log/appscale/guestbook/app/queue.yaml", "load_type":"update"}'))
+    response = json.loads(dtq.setup_queues('{"app_id":"hey", "queue_yaml":"/var/log/appscale/guestbook/app/queue.yaml", "command":"update"}'))
  
   def test_start_workers(self):
     flexmock(file_io).should_receive("mkdir").and_return(None)
@@ -110,12 +112,12 @@ class TestDistributedTaskQueue(unittest.TestCase):
        .should_receive("create_celery_worker_scripts").and_return("/some/file")
  
     dtq = DistributedTaskQueue()
-    dtq.start_workers("hi", {}, "", {}) 
-    flexmock(httplib)\
-       .should_receive("HTTPConnection").and_return(FakeConnection('/some/url'))
+    dtq.start_workers("hi", {})
+    flexmock(urllib2)\
+       .should_receive("Request").and_return(FakeConnection('/some/url'))
     
     results =  {'192.168.0.1':{}, '129.168.0.2':{}, '184.46.65.89':{}}
-    self.assertEqual(dtq.start_workers("hi", {'queue':[{'name':'hello','rate':'5/m'}]}, "/some/path/", results), results)
+    self.assertEqual(dtq.start_workers("hi", results), results)
  
   def test_fetch_queue_stats(self):
     flexmock(file_io).should_receive("mkdir").and_return(None)
@@ -289,12 +291,6 @@ class TestDistributedTaskQueue(unittest.TestCase):
        .and_return(False)
    
     dtq = DistributedTaskQueue() 
-    json_request = {'worker_script':'/some/path',
-                    'app_id':'my-app'}
-    json_request = json.dumps(json_request)
-    self.assertEquals(dtq.setup_workers(json_request), 
-                 json.dumps({'error': True, 'reason': 'Missing queue tag'}))
-
     json_request = {'worker_script':'/some/path', 'queue': [{'name':'queue-name', 'rate': '5/s'}]}
     json_request = json.dumps(json_request)
     self.assertEquals(dtq.setup_workers(json_request), 
@@ -325,6 +321,23 @@ class TestDistributedTaskQueue(unittest.TestCase):
                     'queue': [{'name':'queue-name', 'rate': '5/s'}]}
     json_request = json.dumps(json_request)
     assert 'false' in dtq.setup_workers(json_request)
+
+  def test_stop_workers(self):
+    flexmock(god_interface).should_receive('stop') \
+       .and_return(False)
+    flexmock(file_io).should_receive("delete").and_return(None)
+    flexmock(file_io).should_receive("mkdir").and_return(None)
+    flexmock(file_io) \
+       .should_receive("read").and_return("192.168.0.1\n129.168.0.2\n184.48.65.89")
+    dtq = DistributedTaskQueue() 
+    json_request = {'app_id':'test_app'}
+    self.assertEquals(json.loads(dtq.stop_workers(json.dumps(json_request)))['error'],
+                      True)
+    flexmock(god_interface).should_receive('stop') \
+       .and_return(True)
+    self.assertEquals(json.loads(dtq.stop_workers(json.dumps(json_request)))['error'],
+                      False)
+   
  
 if __name__ == "__main__":
   unittest.main()    

@@ -3,13 +3,18 @@ A service for handling TaskQueue request from application servers.
 It uses RabbitMQ and celery to task handling. 
 """
 
+import celery
 import httplib
 import json
 import logging
+import new
 import os
+import socket
 import sys
+import urllib2
  
 import taskqueue_server
+import tq_lib
 
 from tq_config import TaskQueueConfig
 
@@ -24,6 +29,8 @@ from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.api import datastore_distributed
 from google.appengine.api import datastore
 
+sys.path.append(TaskQueueConfig.CELERY_CONFIG_DIR)
+
 class DistributedTaskQueue():
   """ AppScale taskqueue layer for the TaskQueue API. """
 
@@ -31,10 +38,13 @@ class DistributedTaskQueue():
   TASKQUEUE_NODE_FILE = "/etc/appscale/taskqueue_nodes"
 
   # Required setup queues name tags.
-  SETUP_QUEUE_TAGS = ['queue_yaml', 'app_id', 'load_type']
+  SETUP_QUEUE_TAGS = ['queue_yaml', 'app_id', 'command']
 
   # Required start worker name tags.
-  SETUP_WORKERS_TAGS = ['app_id', 'worker_script', 'queue']
+  SETUP_WORKERS_TAGS = ['app_id']
+
+  # Required stop worker name tags.
+  STOP_WORKERS_TAGS = ['app_id']
 
   # Autoscale argument for max/min amounds of concurrent for a 
   # celery worker.
@@ -53,6 +63,9 @@ class DistributedTaskQueue():
   # The location where celery tasks place their PID file. Prevents
   # the same worker from being started if it is already running.
   PID_FILE_LOC = "/etc/appscale/"
+
+  # A port number given to God for the watch, but not actually used.
+  CELERY_PORT = 9999
 
   def __init__(self):
     """ DistributedTaskQueue Constructor. """
@@ -100,35 +113,36 @@ class DistributedTaskQueue():
     if 'error' in request:
       return json.dumps(request)
 
-    config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, 
-                             request['app_id'])
+    app_id = self.__cleanse(request['app_id'])
+    command = self.__cleanse(request['command'])
+    queue_yaml = request['queue_yaml'] 
+
+    config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, app_id)
 
     # Load the queue info
-    queue_info = None
     config_file = None
-    if 'reload' == request['load_type']:
-      queue_info = config.load_queues_from_db()
+    if 'reload' == command:
+      config.load_queues_from_db()
       config_file = config.create_celery_file(TaskQueueConfig.QUEUE_INFO_FILE) 
-      worker_file = config.create_celery_worker_scripts(TaskQueueConfig.QUEUE_INFO_FILE)
-    elif 'update' == request['load_type']:
-      queue_info = config.load_queues_from_file(request['queue_yaml'])
+      worker_file = config.create_celery_worker_scripts(
+                        TaskQueueConfig.QUEUE_INFO_FILE)
+    elif 'update' == command:
+      config.load_queues_from_file(queue_yaml)
       config_file = config.create_celery_file(TaskQueueConfig.QUEUE_INFO_FILE) 
-      worker_file = config.create_celery_worker_scripts(TaskQueueConfig.QUEUE_INFO_FILE)
+      worker_file = config.create_celery_worker_scripts(
+                        TaskQueueConfig.QUEUE_INFO_FILE)
     else:
-      response = {'error': True, 'reason': 'Unknown load_type %s'%\
-                 request['load_type']}
-      return json.dumps(resposne) 
+      response = {'error': True, 'reason': 'Unknown command %s' % \
+                  command}
+      return json.dumps(response) 
 
     # Copy over files and start the workers  
     result = self.copy_config_files(config_file, worker_file) 
-    json_response = self.start_workers(request['app_id'], queue_info, 
-                                       worker_file, result)
+    json_response = self.start_workers(app_id, result)
     return json.dumps(json_response)
 
   def start_workers(self, 
                     app_id,  
-                    queue_info, 
-                    worker_file,
                     result):
     """ Starts the task workers for each queue on each node. The
         result passed in has status of the previous scps done, 
@@ -137,8 +151,6 @@ class DistributedTaskQueue():
  
     Args:
       app_id: The application ID.
-      config: Queue info dictionary.
-      worker_file: The worker script to run.
       result: A dictionary of nodes to errors, and error reasons.
     Returns:
       A dictionary of status of workers on each node which is 
@@ -147,31 +159,37 @@ class DistributedTaskQueue():
     for node in result:
       if 'error' in result and result[node]['error'] == True:
         continue
-      url = 'http://' + node + ':' + str(taskqueue_server.SERVER_PORT)
-      values = queue_info
+      url = 'http://' + node + ':' + \
+            str(taskqueue_server.SERVER_PORT) + "/startworkers"
+      values = {}
       values['app_id'] = app_id
-      values['worker_script'] = worker_file
+      values = json.dumps(values)
+      if self.__is_localhost(node):
+        result[node] = self.setup_workers(values)
+        continue
       try:
-        connection = httplib.HTTPConnection(url)
-        connection.putrequest("POST", "/setupworkers")
-        values = json.dumps(values)
-        connection.putheader("Content-Length", "%d" % len(values))
-        connection.endheaders()
-        connection.send(values)
-        conn_response = connection.getresponse()
-        if conn_response.status != 200:
+        print "Sending request to %s" % url
+        request = urllib2.Request(url)
+        request.add_header('Content-Type', 'application/json')
+        request.add_header("Content-Length", "%d" % len(values))
+        response = urllib2.urlopen(request, values)
+        if response.getcode()!= 200:
           result[node] = {'error': True,
-                  'reason': "Response code of %d" % conn_response.status,
-                  'stage': 'start_workers'}
-        json_response = conn_response.read()
+                'reason': "Response code of %d" % response.getcode(),
+                'stage': 'start_workers'}
+        print "Getting response"
+        json_response = response.read()
+        print json_response
         json_response = json.loads(json_response)
         if 'error' in json_response and json_response['error']:
           result[node] = {'error': True,
                 'reason': "Reponse code of %d" % json_response['reason'],
                 'stage': 'start_workers'}
+        print "Sent request to %s" % url
       except ValueError:
         result[node] = {'error': True,
-                'reason': str("Badly formed json response %s" % payload),
+                'reason': 
+                str("Badly formed json response from worker: %s" % values),
                 'stage': 'start_workers'}
       except httplib.InvalidURL, http_error:
         result[node] = {'error': True,
@@ -197,6 +215,41 @@ class DistributedTaskQueue():
        
     return result 
 
+  def stop_workers(self, json_request):
+    """ Stops the god watch for queues of an application on the current
+        node.
+   
+    Args:
+      json_request: A JSON string with the queue name for which we're 
+                    stopping its queues.
+    Returns:
+      A JSON string with the result.
+    """
+    request = self.__parse_json_and_validate_tags(json_request,  
+                                         self.STOP_WORKERS_TAGS)
+    if 'error' in request:
+      return json.dumps(request)
+
+    app_id = request['app_id']
+    watch = "celery-" + str(app_id)
+    if god_interface.stop(watch):
+      self.remove_config_files(app_id)
+      result = {'error':False}
+    else:
+      result = {'error':True, 'reason':"Unable to stop watch %s" % watch}
+    return json.dumps(result)
+
+  def remove_config_files(self, app_id):
+    """ Removed celery worker and config files.
+  
+    Args:
+      app_id: The application identifer.
+    """  
+    worker_file = TaskQueueConfig.get_celery_worker_script_path(app_id)
+    config_file = TaskQueueConfig.get_celery_configuration_path(app_id)
+    file_io.delete(worker_file)
+    file_io.delete(config_file)
+    
   def get_taskqueue_nodes(self):
     """ Returns a list of all the taskqueue nodes (including the master). 
         Strips off any empty lines
@@ -247,32 +300,35 @@ class DistributedTaskQueue():
     if 'error' in request:
       return json.dumps(request)
 
-    worker_script = request['worker_script']
-    app_id = request['app_id']
-    queues = request['queue']
+    app_id = self.__cleanse(request['app_id'])
+
+    hostname = socket.gethostbyname(socket.gethostname())
 
     #config_name = app_id + "." + queue_name
-    log_file = self.LOG_DIR + app_id
+    log_file = self.LOG_DIR + app_id + ".log"
     command = ["celery",
                "worker",
-               worker_script,
-               "--app=" + app_id,
+               "--app=app__" + app_id,
                "--autoscale=" + self.MIN_MAX_CONCURRENCY,
-      #        "--config=" + config_name,
+               "--hostname=" + hostname + "." + app_id,
+               "--workdir=" + TaskQueueConfig.CELERY_WORKER_DIR,
                "--logfile=" + log_file,
                "--time-limit=" + str(self.HARD_TIME_LIMIT),
                "--soft-time-limit=" + str(self.TASK_SOFT_TIME_LIMIT),
-               "--pidfile=" + self.PID_FILE_LOC + app_id,
+               "--pidfile=" + self.PID_FILE_LOC + app_id + ".pid",
                "--autoreload"]
-    start_command = ' '.join(command)
-    stop_command = "ps auxww | grep 'celery worker ' | grep '"+ app_id + \
+    start_command = str(' '.join(command))
+    print start_command
+    stop_command = "ps auxww | grep 'celery worker ' | grep '"+ str(app_id) + \
                    "' | awk '{print $2}' | xargs kill -9"
-    watch = "celery-" + app_id
+    watch = "celery-" + str(app_id)
     god_config = god_app_interface.create_config_file(watch,
                                                       start_command, 
                                                       stop_command, 
-                                                      [])
+                                                      [self.CELERY_PORT])
     if god_interface.start(god_config, watch):
+    #ret = os.system("nohup " + start_command + " &")
+    #if ret == 0:
       json_response = {'error': False}
     else:
       json_response = {'error': True, 
@@ -288,8 +344,10 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
-    request = taskqueue_service_pb.TaskQueueFetchQueueStatsRequest(http_data)
-    response = taskqueue_service_pb.TaskQueueFetchQueueStatsResponse_QueueStats()
+    request = taskqueue_service_pb.\
+               TaskQueueFetchQueueStatsRequest(http_data)
+    response = taskqueue_service_pb.\
+               TaskQueueFetchQueueStatsResponse_QueueStats()
     return (response.Encode(), 0, "")
 
   def purge_queue(self, app_id, http_data):
@@ -353,12 +411,14 @@ class DistributedTaskQueue():
       result = bulk_response.taskresult(0).result()
     else:
       err_code = taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR 
-      return (error.Encode(), err_code, "Task did not receive a task response.")
+      return (response.Encode(), err_code, 
+              "Task did not receive a task response.")
 
     if result != taskqueue_service_pb.TaskQueueServiceError.OK:
       return (response.Encode(), result, "Task did not get an OK status.")
     elif bulk_response.taskresult(0).has_chosen_task_name():
-      response.set_chosen_task_name(bulk_response.taskresult(0).chosen_task_name())
+      response.set_chosen_task_name(
+             bulk_response.taskresult(0).chosen_task_name())
 
     return (response.Encode(), 0, "")
 
@@ -382,10 +442,114 @@ class DistributedTaskQueue():
     Args:
       request: taskqueue_service_pb.TaskQueueBulkAddRequest
       response: taskqueue_service_pb.TaskQUeueBulkAddResponse
+    Raises:
+      api_proxy_error.ApplicationError
     """
     if request.add_request_size() == 0:
       return
 
+    now = datetime.datetime.utcfromtimestamp(time.time())
+
+    # Assign names if needed.
+    for add_request in rquest.add_request_list(): 
+      task_result = response.add_taskresult()
+      result = tq_lib.verify_task_queue_add_request(add_request, now)
+      if result == taskqueue_service_pb.TaskQueueServiceError.OK:
+        if not add_request.task_name():
+          chosen_name = tq_lib.choose_task_name()
+          add_request.set_task_name(chosen_name)
+          task_result.set_chosen_task_name(chosen_name)
+      else:
+        error_found = True
+        task_result.set_result(result)
+    if error_found:
+      return
+
+    for add_request, task_result in zip(request.add_request_list(),
+                                        response.taskresult_list()):
+      if add_request.has_transaction():
+        # TODO make sure transactional tasks are handled first at the AppServer
+        # level, and not at the taskqueue server level
+        task_result.set_result(
+            api_proxy_errors.ApplicationError(
+              taskqueue_service_pb.TaskQueueServiceError.PERMISSION_DENIED))
+        continue
+      
+      try:  
+        self.__enqueue_push_task(add_request, now)
+      except apiproxy_error.ApplicationError, e:
+        task_result.set_result(e.application_error)
+      else:
+        task_result.set_result(taskqueue_service_pb.TaskQueueServiceError.OK)
+
+  def __enqueue_push_task(self, request):
+    """ Enqueues a batch of push tasks.
+  
+    Args:
+      request: A taskqueue_service_pb.TaskQueueAddRequest.
+    """
+    self.__validate_push_task(request)
+    queue_name = request.queue_name()
+    method = request.method()
+    app_id = request.app_id()
+    url = request.url()
+    # Load the module for the app/queue 
+    task_module = __import__(TaskQueueConfig.\
+                  get_celery_worker_module_name(app_id))
+    task_func = getattr(task_modele, 
+                 TaskQueueConfig.get_queue_function_name(queue_name))
+  
+    task_func.delay(headers=headers,
+                    args=args,
+                    retry_dict=retry_dict,
+                    name=request.task_name(),
+                    eta=self.__when_to_run(request),
+                    expires=self.__when_to_expire(request))
+
+  def __when_to_run(self, request):
+    """ Returns a datetime object of when a task should 
+        execute.
+    
+    Args:
+      A taskqueue_service_pb.TaskQueueAddRequest
+    """
+    # TODO calculate offsets
+    return datetime.now() 
+
+  def __when_to_expire(self, request):
+    """ Returns a datetime object of when a task should 
+        expire.
+    
+    Args:
+      A taskqueue_service_pb.TaskQueueAddRequest
+    """
+    # TODO calculate offsets
+    return datetime.now() + datetime.timedelta(days=30)
+
+  def __validate_push_task(self, request):
+    """ Checks to make sure the task request is valid.
+    
+    Args:
+      request: A taskqueue_service_pb.TaskQueueAddRequest. 
+    Raises:
+      api_proxy_errors.ApplicationError upon invalid tasks.
+    """ 
+    if not request.has_queue_name():
+      raise api_proxy_errors.ApplicationError(
+              taskqueue_service_pb.TaskQueueServiceError.INVALID_QUEUE_NAME)
+    if not request.has_task_name():
+      raise api_proxy_errors.ApplicationError(
+              taskqueue_service_pb.TaskQueueServiceError.INVALID_TASK_NAME)
+    if not request.has_app_id():
+      raise api_proxy_errors.ApplicationError(
+              taskqueue_service_pb.TaskQueueServiceError.UNKNOWN_QUEUE)
+    if not request.has_url():
+      raise api_proxy_errors.ApplicationError(
+              taskqueue_service_pb.TaskQueueServiceError.INVALID_URL)
+    if request.has_mode() and request.mode() == TaskQueueMode.PULL:
+      raise api_proxy_errors.ApplicationError(
+              taskqueue_service_pb.TaskQueueServiceError.INVALID_QUEUE_MODE)
+     
   def modify_task_lease(self, app_id, http_data):
     """ 
 
@@ -516,3 +680,30 @@ class DistributedTaskQueue():
     response = taskqueue_service_pb.TaskQueueUpdateStorageLimitResponse()
     return (response.Encode(), 0, "")
 
+  def __cleanse(self, str_input):
+    """ Removes any questionable characters which might be apart of 
+        a remote attack.
+   
+    Args:
+      str_input: The string to cleanse.
+    Returns: 
+      A string which has questionable characters replaced.
+    """ 
+    for char in "~./\\!@#$%&*()]\+=|":
+      str_input = str_input.replace(char, "_")
+    return str_input
+
+  def __is_localhost(self, hostname):
+    """ Determines if the hostname is that of the current host.
+ 
+    Args:
+      hostname: A string representing the hostname.
+    Returns:
+      True if its the localhost, false otherwise.
+    """
+    if socket.gethostname() == hostname:
+      return True
+    elif socket.gethostbyname(socket.gethostname()) == hostname:
+      return True
+    else:
+      return False

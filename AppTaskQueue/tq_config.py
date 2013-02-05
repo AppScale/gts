@@ -185,17 +185,65 @@ queue:
     task_template = file_io.read(self.TASK_LOC)
     header_template = header_template.replace("APP_ID", self._app_id)
     script = header_template.replace("CELERY_CONFIGURATION", 
-                                     self._app_id + "_config") + '\n'
+                                     self._app_id) + '\n'
     for queue in queue_info['queue']:
       queue_name = queue['name']  
       # The queue name is used as a function name so replace invalid chars
       queue_name = queue_name.replace('-', '_')
       self.validate_queue_name(queue_name)
-      new_task = task_template.replace("QUEUE_NAME", queue_name + "___queue")
+      new_task = task_template.replace("QUEUE_NAME", 
+                     self.get_queue_function_name(queue_name))
       script += new_task + '\n'
 
-    file_io.write(script, self.CELERY_WORKER_DIR + self._app_id + ".py")
-    return self.CELERY_WORKER_DIR + self._app_id + ".py"
+    worker_file = self.get_celery_worker_script_path(self._app_id)
+    file_io.write(worker_file, script)
+    return worker_file
+
+  @staticmethod
+  def get_queue_function_name(queue_name):
+    """ Returns the function name of a queue which is not the queue name 
+        for namespacing and collision reasons.
+    Args:
+      queue_name: The name of a queue.
+    Returns:
+      The string representing the function name.
+    """
+    return "queue___%s" % queue_name 
+
+  @staticmethod
+  def get_celery_worker_script_path(app_id):
+    """ Returns the full path of the worker script used for celery.
+   
+    Args:
+      app_id: The application identifier.
+    Returns:
+      A string of the full file name of the worker script.
+    """
+    return TaskQueueConfig.CELERY_WORKER_DIR + "app__" + app_id + ".py"
+
+  @staticmethod
+  def get_celery_worker_module_name(app_id):
+    """ Returns the module name of the queue worker script.
+   
+    Args:
+      app_id: The application identifier.
+    Returns:
+      A string of the module name.
+    """
+    return "app__" + app_id 
+
+
+  @staticmethod
+  def get_celery_configuration_path(app_id):
+    """ Returns the full path of the configuration used for celery.
+   
+    Args:
+      app_id: The application identifier.
+    Returns:
+      A string of the full file name of the configuration file.
+    """
+    return TaskQueueConfig.CELERY_CONFIG_DIR + app_id + ".py"
+
 
   def create_celery_file(self, input_type):
     """ Creates the Celery configuration file describing 
@@ -248,7 +296,7 @@ CELERY_ANNOTATIONS = {
 }
 """
     config_file = self._app_id + ".py" 
-    file_io.write(config, self.CELERY_CONFIG_DIR + config_file)
+    file_io.write(self.CELERY_CONFIG_DIR + config_file, config)
     return self.CELERY_CONFIG_DIR + config_file
 
   def __broker_location(self, broker):

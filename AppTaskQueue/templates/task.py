@@ -1,6 +1,6 @@
 
 @celery.task
-def QUEUE_NAME(headers, args, retry_dict):
+def QUEUE_NAME(headers, args, retry_dict, name=""):
   """ Executes a task to a url with the given args. 
     
   Args:
@@ -8,10 +8,11 @@ def QUEUE_NAME(headers, args, retry_dict):
     args: A dictionary of arguments for the request.
           Contains the task body.
     retry_dict: A dictionary with retry parameters.
+    name: The name of the task.
   Raises:
     The current function to retry.
   """
-  logger.info("Running task with %s %s %s %s %s" % \
+  logger.info("Running task with %s %s %s" % \
       (str(headers), str(args), str(retry_dict)))
   connection_host = args['host']
   method = args['method']

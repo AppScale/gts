@@ -17,17 +17,21 @@ from google.appengine.ext.remote_api import remote_api_pb
 # Default port this service runs on
 SERVER_PORT = 64839
 
-class SetupQueues(tornado.web.RequestHandler):
+# Global for Distributed TaskQueue
+task_queue = None
+
+class QueuesHandler(tornado.web.RequestHandler):
   """ Gets request with a path to a queue.yaml file. 
       Must only be called on the taskqueue master node.
   """
-  def initialize(self, task_queue):
-    """ Initializes the request handler. 
- 
-    Args:
-      task_queue = DistributedTaskQueue object.
+  @tornado.web.asynchronous
+  def get(self):
+    """ Handles get request for the web server. Returns the queue status
+        in json.
     """
-    self._task_queue = task_queue
+    global task_queue    
+    self.write('{"status":"up"}')
+    self.finish()
 
   @tornado.web.asynchronous
   def post(self):
@@ -37,13 +41,40 @@ class SetupQueues(tornado.web.RequestHandler):
         location of the queue.yaml file. Replies with a JSON string
         of the configuration file to be sent to all workers.
     """
+    global task_queue    
     request = self.request
     http_request_data = request.body
-    json_response = self._task_queue.setup_queues(http_request_data)
+    json_response = task_queue.setup_queues(http_request_data)
+    self.write(json_response)
+    self.finish()
+class StopWorkersHandler(tornado.web.RequestHandler):
+  """ Stops task queue workers for an app if they are not running. """
+  @tornado.web.asynchronous
+  def post(self):
+    """ Function which handles POST requests. Data of the request is 
+        the request from the AppController in an a JSON string. The 
+        JSON string must contain the application name and the location
+        of the configuration module for the workers.
+    """
+    global task_queue    
+    request = self.request
+    http_request_data = request.body
+    print "STOP WORKER"
+    print http_request_data
+    json_response = task_queue.stop_workers(http_request_data)
     self.write(json_response)
     self.finish()
 
-class SetupWorkers(tornado.web.RequestHandler):
+  @tornado.web.asynchronous
+  def get(self):
+    """ Handles get request for the web server. Returns the worker
+        status in json.
+    """
+    global task_queue    
+    self.write('{"status":"up"}')
+    self.finish()
+ 
+class StartWorkersHandler(tornado.web.RequestHandler):
   """ Starts task queue workers for an app if they are not running. """
   @tornado.web.asynchronous
   def post(self):
@@ -52,10 +83,22 @@ class SetupWorkers(tornado.web.RequestHandler):
         JSON string must contain the application name and the location
         of the configuration module for the workers.
     """
+    global task_queue    
     request = self.request
     http_request_data = request.body
-    json_response = self._task_queue.setup_workers(http_request_data)
+    print "START WORKER"
+    print http_request_data
+    json_response = task_queue.setup_workers(http_request_data)
     self.write(json_response)
+    self.finish()
+
+  @tornado.web.asynchronous
+  def get(self):
+    """ Handles get request for the web server. Returns the worker
+        status in json.
+    """
+    global task_queue    
+    self.write('{"status":"up"}')
     self.finish()
  
 class MainHandler(tornado.web.RequestHandler):
@@ -63,14 +106,6 @@ class MainHandler(tornado.web.RequestHandler):
   Defines what to do when the webserver receieves different 
   types of HTTP requests.
   """
-  def initialize(self, task_queue):
-    """ Initialization of database and celery. 
- 
-    Args:
-      task_queue = DistributedTaskQueue object.
-    """ 
-    self._task_queue = task_queue
-
   def unknown_request(self, app_id, http_request_data, pb_type):
     """ Function which handles unknown protocol buffers.
    
@@ -88,6 +123,7 @@ class MainHandler(tornado.web.RequestHandler):
         the request from the AppServer in an encoded protocol buffer 
         format.
     """
+    global task_queue    
     request = self.request
     http_request_data = request.body
     pb_type = request.headers['protocolbuffertype']
@@ -107,6 +143,7 @@ class MainHandler(tornado.web.RequestHandler):
     """ Handles get request for the web server. Returns that it is currently
         up in json.
     """
+    global task_queue    
     self.write('{"status":"up"}')
     self.finish()
 
@@ -119,6 +156,7 @@ class MainHandler(tornado.web.RequestHandler):
       app_id: The application ID that is sending this request.
       http_request_data: Encoded protocol buffer.
     """
+    global task_queue    
     apirequest = remote_api_pb.Request()
     apirequest.ParseFromString(http_request_data)
     apiresponse = remote_api_pb.Response()
@@ -140,53 +178,53 @@ class MainHandler(tornado.web.RequestHandler):
     http_request_data = apirequest.request()
 
     if method == "FetchQueueStats":
-      response, errcode, errdetail = self._task_queue.fetch_queue_stats(app_id,
+      response, errcode, errdetail = task_queue.fetch_queue_stats(app_id,
                                                  http_request_data)
     elif method == "PurgeQueue":
-      response, errcode, errdetail = self._task_queue.purge_queue(app_id,
+      response, errcode, errdetail = task_queue.purge_queue(app_id,
                                                  http_request_data)
     elif method == "Delete":
-      response, errcode, errdetail = self._task_queue.delete(app_id,
+      response, errcode, errdetail = task_queue.delete(app_id,
                                                  http_request_data)
     elif method == "QueryAndOwnTasks":
-      response, errcode, errdetail = self._task_queue.query_and_own_tasks(
+      response, errcode, errdetail = task_queue.query_and_own_tasks(
                                                  app_id,
                                                  http_request_data)
     elif method == "Add":
-      response, errcode, errdetail = self._task_queue.add(app_id,
+      response, errcode, errdetail = task_queue.add(app_id,
                                                  http_request_data)
     elif method == "BulkAdd":
-      response, errcode, errdetail = self._task_queue.bulk_add(app_id,
+      response, errcode, errdetail = task_queue.bulk_add(app_id,
                                                  http_request_data)
     elif method == "ModifyTaskLease":
-      response, errcode, errdetail = self._task_queue.modify_task_lease(app_id,
+      response, errcode, errdetail = task_queue.modify_task_lease(app_id,
                                                  http_request_data)
     elif method == "UpdateQueue":
-      response, errcode, errdetail = self._task_queue.update_queue(app_id,
+      response, errcode, errdetail = task_queue.update_queue(app_id,
                                                  http_request_data)
     elif method == "FetchQueues":
-      response, errcode, errdetail = self._task_queue.fetch_queue(app_id,
+      response, errcode, errdetail = task_queue.fetch_queue(app_id,
                                                  http_request_data)
     elif method == "QueryTasks":
-      response, errcode, errdetail = self._task_queue.query_tasks(app_id,
+      response, errcode, errdetail = task_queue.query_tasks(app_id,
                                                  http_request_data)
     elif method == "FetchTask":
-      response, errcode, errdetail = self._task_queue.fetch_task(app_id,
+      response, errcode, errdetail = task_queue.fetch_task(app_id,
                                                  http_request_data)
     elif method == "ForceRun":
-      response, errcode, errdetail = self._task_queue.force_run(app_id,
+      response, errcode, errdetail = task_queue.force_run(app_id,
                                                  http_request_data)
     elif method == "DeleteQueue":
-      response, errcode, errdetail = self._task_queue.delete_queue(app_id,
+      response, errcode, errdetail = task_queue.delete_queue(app_id,
                                                  http_request_data)
     elif method == "PauseQueue":
-      response, errcode, errdetail = self._task_queue.pause_queue(app_id,
+      response, errcode, errdetail = task_queue.pause_queue(app_id,
                                                  http_request_data)
     elif method == "DeleteGroup":
-      response, errcode, errdetail = self._task_queue.delete_group(app_id,
+      response, errcode, errdetail = task_queue.delete_group(app_id,
                                                  http_request_data)
     elif method == "UpdateStorageLimit":
-      response, errcode, errdetail = self._task_queue.update_storage_limit(
+      response, errcode, errdetail = task_queue.update_storage_limit(
                                                  app_id,
                                                  http_request_data)
    
@@ -200,10 +238,15 @@ class MainHandler(tornado.web.RequestHandler):
 
 def main():
   """ Main function which initializes and starts the tornado server. """
+  global task_queue
   task_queue = distributed_tq.DistributedTaskQueue()
   tq_application = tornado.web.Application([
-    (r"/setupqueues", SetupQueues, dict(task_queue=task_queue)),
-    (r"/*", MainHandler, dict(task_queue=task_queue))
+    # Takes json from AppController and TaskQueue master
+    (r"/queues", QueuesHandler),
+    (r"/startworkers", StartWorkersHandler),
+    (r"/stopworkers", StopWorkersHandler),
+    # Takes protocol buffers from the AppServers
+    (r"/*", MainHandler)
   ])
 
   server = tornado.httpserver.HTTPServer(tq_application)
@@ -211,6 +254,7 @@ def main():
 
   while 1:
     try:
+      print "Starting TaskQueue server on port %d" % SERVER_PORT
       tornado.ioloop.IOLoop.instance().start()
     except KeyboardInterrupt:
       print "Server interrupted by user, terminating..."

@@ -242,6 +242,11 @@ class Djinn
   # writes its state to, and recovers its state from if it crashes.
   STATE_FILE = "#{CONFIG_FILE_LOCATION}/appcontroller-state.json"
 
+  
+  # The location on the local filesystem where the AppController writes
+  # the location of all the nodes which are taskqueue nodes.
+  TASKQUEUE_FILE = "#{CONFIG_FILE_LOCATION}/taskqueue_nodes"
+
 
   APPSCALE_HOME = ENV['APPSCALE_HOME']
 
@@ -2134,6 +2139,7 @@ class Djinn
 
     write_apploadbalancer_location
     find_nearest_rabbitmq
+    write_taskqueue_nodes_file
     setup_config_files
     set_uaserver_ips 
     write_hypersoap
@@ -2695,6 +2701,18 @@ class Djinn
     rabbitmq_file = "#{CONFIG_FILE_LOCATION}/rabbitmq_ip"
     rabbitmq_contents = rabbitmq_ip
     HelperFunctions.write_file(rabbitmq_file, rabbitmq_contents)
+  end
+ 
+  # Writes a file to the local file system that tells the taskqueue master
+  # all nodes which are taskqueue nodes. 
+  def write_taskqueue_nodes_file
+    taskqueue_ips = []
+    @@nodes.each { |node|
+      taskqueue_ips << node.private_ip if node.is_rabbitmq_master or node.is_rabbitmq_slave?
+    }
+    Djinn.log_debug("Taskqueue servers will be at #{taskqueue_ips.join(', ')}")
+    taskqueue_contents = taskqueue_ips.join("\n")
+    HelperFunctions.write_file(TASKQUEUE_FILE,  taskqueue_contents)
   end
 
   # Updates files on this machine with information about our hostname

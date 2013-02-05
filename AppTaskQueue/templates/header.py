@@ -10,17 +10,27 @@
 import base64
 import httplib
 import sys
+import yaml
 
 # TODO append AppServer directory ../AppServer
-from google.appengine.api import datastore
-from google.appengine.api import datastore_types
+#from google.appengine.api import datastore
+#from google.appengine.api import datastore_types
+def setup_environment():
+  ENVIRONMENT_FILE = "/etc/appscale/environment.yaml"
+  FILE = open(ENVIRONMENT_FILE)
+  env = yaml.load(FILE.read())
+  APPSCALE_HOME = env["APPSCALE_HOME"]
+  sys.path.append(APPSCALE_HOME + "/AppTaskQueue")
+  sys.path.append(APPSCALE_HOME + "/AppServer")
 
+setup_environment()
 from celery import Celery
 from celery.utils.log import get_task_logger
 
 from tq_config import TaskQueueConfig
 
 sys.path.append(TaskQueueConfig.CELERY_CONFIG_DIR)
+sys.path.append(TaskQueueConfig.CELERY_WORKER_DIR)
 
 app_id = 'APP_ID'
 

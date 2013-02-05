@@ -163,17 +163,17 @@ class TestTaskQueueConfig(unittest.TestCase):
                           'myapp')
     queue_info = tqc.load_queues_from_file('/some/path')
     queue_info = tqc.load_queues_from_db()
-    FILE1 = open('../../templates/header.py', 'r')
+    FILE1 = open(os.path.dirname(__file__) + '/../../templates/header.py', 'r')
     file1 = FILE1.read()
     FILE1.close()
-    FILE2 = open('../../templates/task.py', 'r')
+    FILE2 = open(os.path.dirname(__file__) + '/../../templates/task.py', 'r')
     file2 = FILE2.read()
     FILE2.close()
 
     flexmock(file_io).should_receive('write').and_return(None)
     flexmock(file_io).should_receive("read").and_return(file1).and_return(file2)
-    self.assertEquals(tqc.create_celery_worker_scripts(TaskQueueConfig.QUEUE_INFO_DB), TaskQueueConfig.CELERY_WORKER_DIR + 'myapp.py')
-    self.assertEquals(tqc.create_celery_worker_scripts(TaskQueueConfig.QUEUE_INFO_FILE), TaskQueueConfig.CELERY_WORKER_DIR + 'myapp.py')
+    self.assertEquals(tqc.create_celery_worker_scripts(TaskQueueConfig.QUEUE_INFO_DB), TaskQueueConfig.CELERY_WORKER_DIR + 'app__myapp.py')
+    self.assertEquals(tqc.create_celery_worker_scripts(TaskQueueConfig.QUEUE_INFO_FILE), TaskQueueConfig.CELERY_WORKER_DIR + 'app__myapp.py')
 
   def test_validate_queue_name(self):
     flexmock(file_io).should_receive("read").and_return(sample_queue_yaml2)
