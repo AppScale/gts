@@ -912,7 +912,7 @@ module HelperFunctions
   # Returns:
   #   A Nginx location configuration as a string
   def self.generate_secure_location_config(handler, port)
-    result = "\n    location #{handler['url']} {"
+    result = "\n    location ~ #{handler['url']} {"
     if handler["secure"] == "always"
       result << "\n\t" << "rewrite #{handler['url']}(.*) https://$host:#{port}$uri redirect;"
     elsif handler["secure"] == "never"
