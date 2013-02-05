@@ -498,7 +498,10 @@ class DistributedTaskQueue():
                   get_celery_worker_module_name(app_id))
     task_func = getattr(task_modele, 
                  TaskQueueConfig.get_queue_function_name(queue_name))
-  
+    args['url'] = url 
+    args['app_id'] = app_id
+    args['queue_name'] = queue_name
+    args['method'] = method
     task_func.delay(headers=headers,
                     args=args,
                     retry_dict=retry_dict,

@@ -12,8 +12,8 @@ def QUEUE_NAME(headers, args, retry_dict, name=""):
   Raises:
     The current function to retry.
   """
-  logger.info("Running task with %s %s %s" % \
-      (str(headers), str(args), str(retry_dict)))
+  logger.info("Running task with %s %s %s %s" % \
+      (str(headers), str(args), str(retry_dict), name))
   connection_host = args['host']
   method = args['method']
   url = args['url']
