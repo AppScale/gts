@@ -14,7 +14,7 @@ def QUEUE_NAME(headers, args, retry_dict, name=""):
   """
   logger.info("Running task with %s %s %s %s" % \
       (str(headers), str(args), str(retry_dict), name))
-  connection_host = args['host']
+  connection_host = args['url']
   method = args['method']
   url = args['url']
   connection = httplib.HTTPConnection(connection_host)

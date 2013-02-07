@@ -63,7 +63,7 @@ class TestDistributedTaskQueue(unittest.TestCase):
   """
   A set of test cases for the distributed taskqueue module
   """
-  def test_setup_queues(self):
+  def test_run_queue_operation(self):
     flexmock(file_io).should_receive("mkdir").and_return(None)
     flexmock(file_io) \
        .should_receive("read").and_return("").\
@@ -75,32 +75,32 @@ class TestDistributedTaskQueue(unittest.TestCase):
     flexmock(TaskQueueConfig)\
        .should_receive("create_celery_worker_scripts").and_return("/some/file")
     flexmock(DistributedTaskQueue)\
-       .should_receive("start_workers").and_return({})
+       .should_receive("start_all_workers").and_return({})
  
     dtq = DistributedTaskQueue()
-    response = json.loads(dtq.setup_queues('{}'))
+    response = json.loads(dtq.run_queue_operation('{}'))
     self.assertEquals(response['error'], True)
     self.assertEquals(response['reason'], 'Missing queue_yaml tag')
 
-    response = json.loads(dtq.setup_queues('{"app_id":"hey"}'))
+    response = json.loads(dtq.run_queue_operation('{"app_id":"hey"}'))
     self.assertEquals(response['error'], True)
     self.assertEquals(response['reason'], 'Missing queue_yaml tag')
 
-    response = json.loads(dtq.setup_queues('{"queue_yaml":"hey"}'))
+    response = json.loads(dtq.run_queue_operation('{"queue_yaml":"hey"}'))
     self.assertEquals(response['error'], True)
     self.assertEquals(response['reason'], 'Missing app_id tag')
   
-    response = json.loads(dtq.setup_queues('{"app'))
+    response = json.loads(dtq.run_queue_operation('{"app'))
     self.assertEquals(response['error'], True)
     self.assertEquals(response['reason'], 'Badly formed JSON')
 
-    response = json.loads(dtq.setup_queues('{"app_id":"hey", "queue_yaml":"/var/log/appscale/guestbook/app/queue.yaml"}'))
+    response = json.loads(dtq.run_queue_operation('{"app_id":"hey", "queue_yaml":"/var/log/appscale/guestbook/app/queue.yaml"}'))
     self.assertEquals(response['error'], True)
     self.assertEquals(response['reason'], 'Missing command tag')
 
-    response = json.loads(dtq.setup_queues('{"app_id":"hey", "queue_yaml":"/var/log/appscale/guestbook/app/queue.yaml", "command":"update"}'))
+    response = json.loads(dtq.run_queue_operation('{"app_id":"hey", "queue_yaml":"/var/log/appscale/guestbook/app/queue.yaml", "command":"update"}'))
  
-  def test_start_workers(self):
+  def test_start_worker(self):
     flexmock(file_io).should_receive("mkdir").and_return(None)
     flexmock(file_io) \
        .should_receive("read").and_return("192.168.0.1\n129.168.0.2\n184.48.65.89")
@@ -112,12 +112,12 @@ class TestDistributedTaskQueue(unittest.TestCase):
        .should_receive("create_celery_worker_scripts").and_return("/some/file")
  
     dtq = DistributedTaskQueue()
-    dtq.start_workers("hi", {})
+    dtq.start_worker("hi")
     flexmock(urllib2)\
        .should_receive("Request").and_return(FakeConnection('/some/url'))
     
     results =  {'192.168.0.1':{}, '129.168.0.2':{}, '184.46.65.89':{}}
-    self.assertEqual(dtq.start_workers("hi", results), results)
+    self.assertEqual(dtq.start_worker("hi"), results)
  
   def test_fetch_queue_stats(self):
     flexmock(file_io).should_receive("mkdir").and_return(None)
@@ -263,26 +263,7 @@ class TestDistributedTaskQueue(unittest.TestCase):
 
     dtq = DistributedTaskQueue()
 
-  def test_get_taskqueue_nodes(self):
-    flexmock(file_io).should_receive("mkdir").and_return(None)
-    flexmock(file_io) \
-       .should_receive("read").and_return("192.168.0.1\n129.168.0.2\n184.48.65.89")
-    dtq = DistributedTaskQueue() 
-    self.assertEquals(dtq.get_taskqueue_nodes(), 
-                     ["192.168.0.1","129.168.0.2","184.48.65.89"])
-
-    flexmock(file_io) \
-       .should_receive("read").and_return("192.168.0.1\n129.168.0.2\n184.48.65.89\n")
-    dtq = DistributedTaskQueue() 
-    self.assertEquals(dtq.get_taskqueue_nodes(), 
-                     ["192.168.0.1","129.168.0.2","184.48.65.89"])
-
-    flexmock(file_io) \
-       .should_receive("read").and_return("")
-    dtq = DistributedTaskQueue() 
-    self.assertEquals(dtq.get_taskqueue_nodes(), [])
-
-  def test_setup_workers(self):
+  def test_start_worker(self):
     flexmock(file_io).should_receive("mkdir").and_return(None)
     flexmock(file_io) \
        .should_receive("read").and_return("192.168.0.1\n129.168.0.2\n184.48.65.89")
@@ -293,25 +274,25 @@ class TestDistributedTaskQueue(unittest.TestCase):
     dtq = DistributedTaskQueue() 
     json_request = {'worker_script':'/some/path', 'queue': [{'name':'queue-name', 'rate': '5/s'}]}
     json_request = json.dumps(json_request)
-    self.assertEquals(dtq.setup_workers(json_request), 
+    self.assertEquals(dtq.start_worker(json_request), 
                  json.dumps({'error': True, 'reason': 'Missing app_id tag'}))
 
     json_request = {'worker_script':'/some/path',
                     'queue': [{'name':'queue-name', 'rate': '5/s'}]}
     json_request = json.dumps(json_request)
 
-    self.assertEquals(dtq.setup_workers(json_request), 
+    self.assertEquals(dtq.start_worker(json_request), 
                  json.dumps({'error': True, 'reason': 'Missing app_id tag'}))
 
     json_request = "fefwoinfwef=fwf23onr2or3"
-    json_response = dtq.setup_workers(json_request)
+    json_response = dtq.start_worker(json_request)
     self.assertEquals(json_response, json.dumps({'error': True, 'reason': 'Badly formed JSON'}))
 
     json_request = {'worker_script':'/some/path',
                     'app_id':'my-app',
                     'queue': [{'name':'queue-name', 'rate': '5/s'}]}
     json_request = json.dumps(json_request)
-    assert 'true' in dtq.setup_workers(json_request)
+    assert 'true' in dtq.start_worker(json_request)
 
     flexmock(god_interface).should_receive('start') \
        .and_return(True)
@@ -320,9 +301,10 @@ class TestDistributedTaskQueue(unittest.TestCase):
                     'app_id':'my-app',
                     'queue': [{'name':'queue-name', 'rate': '5/s'}]}
     json_request = json.dumps(json_request)
-    assert 'false' in dtq.setup_workers(json_request)
+    assert 'false' in dtq.start_worker(json_request)
 
-  def test_stop_workers(self):
+  def test_stop_worker(self):
+    flexmock(os).should_receive("system").and_return(None)
     flexmock(god_interface).should_receive('stop') \
        .and_return(False)
     flexmock(file_io).should_receive("delete").and_return(None)
@@ -331,11 +313,11 @@ class TestDistributedTaskQueue(unittest.TestCase):
        .should_receive("read").and_return("192.168.0.1\n129.168.0.2\n184.48.65.89")
     dtq = DistributedTaskQueue() 
     json_request = {'app_id':'test_app'}
-    self.assertEquals(json.loads(dtq.stop_workers(json.dumps(json_request)))['error'],
+    self.assertEquals(json.loads(dtq.stop_worker(json.dumps(json_request)))['error'],
                       True)
     flexmock(god_interface).should_receive('stop') \
        .and_return(True)
-    self.assertEquals(json.loads(dtq.stop_workers(json.dumps(json_request)))['error'],
+    self.assertEquals(json.loads(dtq.stop_worker(json.dumps(json_request)))['error'],
                       False)
    
  

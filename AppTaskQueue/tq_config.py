@@ -198,6 +198,18 @@ queue:
     worker_file = self.get_celery_worker_script_path(self._app_id)
     file_io.write(worker_file, script)
     return worker_file
+  
+  @staticmethod
+  def remove_config_files(app_id):
+    """ Removed celery worker and config files.
+   
+    Args:
+      app_id: The application identifer.
+    """
+    worker_file = TaskQueueConfig.get_celery_worker_script_path(app_id)
+    config_file = TaskQueueConfig.get_celery_configuration_path(app_id)
+    file_io.delete(worker_file)
+    file_io.delete(config_file)
 
   @staticmethod
   def get_queue_function_name(queue_name):
@@ -294,6 +306,8 @@ CELERY_ANNOTATIONS = {
     config += \
 """
 }
+# 30 days in seconds
+CELERY_TASK_RESULT_EXPIRES = 29592000
 """
     config_file = self._app_id + ".py" 
     file_io.write(self.CELERY_CONFIG_DIR + config_file, config)
