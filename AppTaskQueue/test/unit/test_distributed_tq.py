@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# Programmer: Navraj Chohan <nlake44@gmail.com>
 
 import json
 import os
@@ -58,7 +57,7 @@ class FakeConnection():
     pass
   def urlopen(self, request, values):
     return FakeResponse()
-  
+
 class TestDistributedTaskQueue(unittest.TestCase):
   """
   A set of test cases for the distributed taskqueue module
@@ -80,11 +79,11 @@ class TestDistributedTaskQueue(unittest.TestCase):
     dtq = DistributedTaskQueue()
     response = json.loads(dtq.run_queue_operation('{}'))
     self.assertEquals(response['error'], True)
-    self.assertEquals(response['reason'], 'Missing queue_yaml tag')
+    self.assertEquals(response['reason'], 'Missing app_id tag')
 
     response = json.loads(dtq.run_queue_operation('{"app_id":"hey"}'))
     self.assertEquals(response['error'], True)
-    self.assertEquals(response['reason'], 'Missing queue_yaml tag')
+    self.assertEquals(response['reason'], 'Missing command tag')
 
     response = json.loads(dtq.run_queue_operation('{"queue_yaml":"hey"}'))
     self.assertEquals(response['error'], True)
@@ -319,7 +318,37 @@ class TestDistributedTaskQueue(unittest.TestCase):
        .and_return(True)
     self.assertEquals(json.loads(dtq.stop_worker(json.dumps(json_request)))['error'],
                       False)
-   
+  
+  def test_stop_queue(self):
+    flexmock(os).should_receive("system").and_return(None)
+    flexmock(god_interface).should_receive('stop') \
+       .and_return(False)
+    flexmock(file_io).should_receive("delete").and_return(None)
+    flexmock(file_io).should_receive("mkdir").and_return(None)
+    flexmock(file_io) \
+       .should_receive("read").and_return("192.168.0.1\n129.168.0.2\n184.48.65.89")
+    dtq = DistributedTaskQueue() 
+    flexmock(dtq).should_receive("stop_worker").and_return("{'error': false}")
+    flexmock(dtq).should_receive("send_remote_command").and_return({'error': False})
+    self.assertEquals(dtq.stop_queue('test_app')['192.168.0.1']['error'],
+                      False)
+    self.assertEquals(dtq.stop_queue('test_app')['129.168.0.2']['error'],
+                      False)
+    self.assertEquals(dtq.stop_queue('test_app')['184.48.65.89']['error'],
+                      False)
+ 
+  def test_send_remote_command(self):
+    flexmock(file_io).should_receive("delete").and_return(None)
+    flexmock(file_io).should_receive("mkdir").and_return(None)
+    flexmock(file_io) \
+       .should_receive("read").and_return("192.168.0.1\n129.168.0.2\n184.48.65.89")
+    flexmock(urllib2)\
+       .should_receive("Request").and_return(FakeConnection('/some/url'))
+    flexmock(urllib2)\
+       .should_receive("urlopen").and_return(FakeResponse())
+    dtq = DistributedTaskQueue() 
+    self.assertEquals(dtq.send_remote_command("http://192.169.0.1/somepath", 
+                                              "payload", "stage"), {'error': False})
  
 if __name__ == "__main__":
   unittest.main()    

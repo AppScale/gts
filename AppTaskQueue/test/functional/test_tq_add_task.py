@@ -38,7 +38,15 @@ class TestTaskAddTask(unittest.TestCase):
     req.add_header('protocolbuffertype', 'Request') 
     req.add_header('appdata', app_id) 
     response = urllib2.urlopen(req, remote_request)
-    print response.read()
+    api_response = response.read()
+    api_response = remote_api_pb.Response(api_response) 
+    bulk_add_response = taskqueue_service_pb.TaskQueueBulkAddResponse(api_response.response())
+    print bulk_add_response
+    #bulk_add_response = taskqueue_service_pb.TaskQueueBulkAddResponse(api_response.request())
+
+    #print bulk_add_response.taskresult_list()
+    #print bulk_add_response.result()
+    #print bulk_add_response.chosen_task_name()
     self.assertEquals(response.getcode(), 200)
              
 if __name__ == "__main__":

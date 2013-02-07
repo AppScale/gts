@@ -111,8 +111,17 @@ module RabbitMQ
   def self.stop()
     Djinn.log_debug("Shutting down RabbitMQ")
     GodInterface.stop(:rabbitmq)
+    self.stop_taskqueue_server()
   end
 
+  # Starts the AppScale TaskQueue server.
+  def self.stop_taskqueue_server()
+    Djinn.log_debug("Stopping taskqueue_server on this node")
+    stop_cmd = "kill -9 `ps aux | grep taskqueue_server.py | awk {'print $2'}`"
+    Djinn.log_run(stop_cmd)
+    GodInterface.stop(:taskqueue)
+    Djinn.log_debug("Done stopping taskqueue_server on this node")
+  end
 
   # Erlang processes use a secret value as a password to authenticate between
   # one another. Since this is pretty much the same thing we do in AppScale

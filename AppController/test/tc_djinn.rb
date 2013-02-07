@@ -810,16 +810,7 @@ class TestDjinn < Test::Unit::TestCase
 
     nginx_conf = "/usr/local/nginx/conf/sites-enabled/booapp.conf"
     flexmock(File).should_receive(:open).with(nginx_conf, "w+", Proc).and_return()
-    flexmock(HelperFunctions).should_receive(:shell).
-      with("/usr/local/nginx/sbin/nginx -t -c /usr/local/nginx/conf/nginx.conf").and_return()
-    flexmock(HelperFunctions).should_receive(:shell).
-      with("/usr/local/nginx/sbin/nginx -s reload").and_return()
-
-    # mock out restarting nginx once the new config file is written
-    flexmock(HelperFunctions).should_receive(:shell).
-      with("/usr/local/nginx/sbin/nginx stop").and_return()
-    flexmock(HelperFunctions).should_receive(:shell).
-      with("/usr/local/nginx/sbin/nginx start -c #{nginx_conf}").and_return()
+    flexmock(HelperFunctions).should_receive(:shell).and_return()
 
     djinn = Djinn.new()
     djinn.nodes = [original_node]

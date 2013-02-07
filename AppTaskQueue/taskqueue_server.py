@@ -227,11 +227,11 @@ class MainHandler(tornado.web.RequestHandler):
                                                  http_request_data)
    
     apiresponse.set_response(response)
+    # If there was an error add it to the response.
     if errcode != 0:
       apperror_pb = apiresponse.mutable_application_error()
       apperror_pb.set_code(errcode)
       apperror_pb.set_detail(errdetail)
-
     self.write(apiresponse.Encode())
 
 def main():

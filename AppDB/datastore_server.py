@@ -2295,7 +2295,7 @@ class MainHandler(tornado.web.RequestHandler):
       apperror_pb.set_code(errcode)
       apperror_pb.set_detail(errdetail)
 
-    self.write(apiresponse.Encode() )    
+    self.write(apiresponse.Encode())
 
   def begin_transaction_request(self, app_id):
     """ Handles the intial request to start a transaction. Replies with 

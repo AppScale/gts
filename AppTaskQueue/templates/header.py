@@ -27,6 +27,8 @@ setup_environment()
 from celery import Celery
 from celery.utils.log import get_task_logger
 
+from urlparse import urlparse
+
 from tq_config import TaskQueueConfig
 
 sys.path.append(TaskQueueConfig.CELERY_CONFIG_DIR)
