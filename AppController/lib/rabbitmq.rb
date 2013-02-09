@@ -13,11 +13,15 @@ require 'helperfunctions'
 # tasks, whose data are stored as items in rabbitmq. This module provides
 # methods that automatically configure and deploy rabbitmq as needed.
 module RabbitMQ
-  
+
+  # AppScale install directory  
+  APPSCALE_HOME = ENV["APPSCALE_HOME"]
 
   # The port that the RabbitMQ server runs on, by default.
   SERVER_PORT = 5672 
-  
+ 
+  # The port where the TaskQueue server runs on, by default. 
+  TASKQUEUE_SERVER_PORT = 64839
 
   # The path to the file that the shared secret should be written to.
   COOKIE_FILE = "/var/lib/rabbitmq/.erlang.cookie"
@@ -27,6 +31,10 @@ module RabbitMQ
   # a script.
   RABBITMQ_START_SCRIPT = File.dirname(__FILE__) + "/../" + \
                           "/scripts/start_rabbitmq.sh"
+
+  TASKQUEUE_SERVER_SCRIPT  = File.dirname(__FILE__) + "/../../AppTaskQueue" + \
+                          "taskqueue_server.py"
+
 
   # Starts a service that we refer to as a "rabbitmq_master", a RabbitMQ
   # service that other nodes can rely on to be running RabbitMQ.
@@ -42,7 +50,11 @@ module RabbitMQ
     stop_cmd = "rabbitmqctl stop"
     env_vars = {}
     GodInterface.start(:rabbitmq, start_cmd, stop_cmd, SERVER_PORT, env_vars)
+    # Why do we run this twice? Once with god and once here.
     Djinn.log_run("#{start_cmd}")
+
+    start_taskqueue_server()
+    HelperFunctions.sleep_until_port_is_open("localhost", TASKQUEUE_SERVER_PORT)
   end
 
 
@@ -63,6 +75,8 @@ module RabbitMQ
     # TODO(cgb): This looks like this assumes that the head node is
     # appscale-image0 - true for default deployments but not necessarily
     # so in advanced placement scenarios. Change accordingly.
+    # TODO start rabbitmq slave with God, but dont have the start command 
+    # do things where it resets everything first.
     start_cmds = ["rabbitmqctl start_app",
                   "rabbitmqctl stop_app",
                   "rabbitmqctl reset",
@@ -74,9 +88,22 @@ module RabbitMQ
     Djinn.log_run("#{full_cmd}")
     Djinn.log_debug("Waiting for RabbitMQ on local node to come up")
     HelperFunctions.sleep_until_port_is_open("localhost", SERVER_PORT)
+    start_taskqueue_server()
+    Djinn.log_debug("Waiting for taskqueue server to come up")
+    HelperFunctions.sleep_until_port_is_open("localhost", TASKQUEUE_SERVER_PORT)
     Djinn.log_debug("Done starting rabbitmq_slave on this node")
   end
 
+  # Starts the AppScale TaskQueue server.
+  def self.start_taskqueue_server()
+    Djinn.log_debug("Starting taskqueue_server on this node")
+    script ="#{APPSCALE_HOME}/AppTaskQueue/taskqueue_server.py"
+    start_cmd = "/usr/bin/python2.6 #{script}"
+    stop_cmd = "kill -9 `ps aux | grep taskqueue_server.py | awk {'print $2'}`"
+    env_vars = {}
+    GodInterface.start(:taskqueue, start_cmd, stop_cmd, TASKQUEUE_SERVER_PORT, env_vars)
+    Djinn.log_debug("Done starting taskqueue_server on this node")
+  end
 
   # Stops the RabbitMQ server on this node.
   # TODO(cgb): It doesn't actually do anything right now - find out what we
@@ -84,8 +111,17 @@ module RabbitMQ
   def self.stop()
     Djinn.log_debug("Shutting down RabbitMQ")
     GodInterface.stop(:rabbitmq)
+    self.stop_taskqueue_server()
   end
 
+  # Starts the AppScale TaskQueue server.
+  def self.stop_taskqueue_server()
+    Djinn.log_debug("Stopping taskqueue_server on this node")
+    stop_cmd = "kill -9 `ps aux | grep taskqueue_server.py | awk {'print $2'}`"
+    Djinn.log_run(stop_cmd)
+    GodInterface.stop(:taskqueue)
+    Djinn.log_debug("Done stopping taskqueue_server on this node")
+  end
 
   # Erlang processes use a secret value as a password to authenticate between
   # one another. Since this is pretty much the same thing we do in AppScale

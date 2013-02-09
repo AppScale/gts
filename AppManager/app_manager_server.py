@@ -14,12 +14,12 @@ import urllib
 
 from M2Crypto import SSL
 
-import god_app_interface
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
 import constants
 import file_io
+import god_app_interface
 import god_interface 
 import misc 
 
