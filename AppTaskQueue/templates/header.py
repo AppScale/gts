@@ -37,8 +37,8 @@ sys.path.append(TaskQueueConfig.CELERY_WORKER_DIR)
 app_id = 'APP_ID'
 
 config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, app_id)
-
-celery = Celery('tasks', broker=config.get_broker_string(), backend='amqp')
+module_name = TaskQueueConfig.get_celery_worker_module_name(app_id)
+celery = Celery(module_name, broker=config.get_broker_string(), backend='amqp')
 
 celery.config_from_object('CELERY_CONFIGURATION')
 

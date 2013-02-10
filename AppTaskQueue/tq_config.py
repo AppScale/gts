@@ -54,7 +54,8 @@ queue:
   CELERY_WORKER_DIR = '/etc/appscale/celery/workers/'
 
   # Directory with the task templates
-  TEMPLATE_DIR = './templates/'
+  TEMPLATE_DIR = os.path.dirname(os.path.realpath(__file__)) + "/templates/"
+
 
   # The location of a header of a queue worker script
   HEADER_LOC = TEMPLATE_DIR + 'header.py'
@@ -215,12 +216,28 @@ queue:
   def get_queue_function_name(queue_name):
     """ Returns the function name of a queue which is not the queue name 
         for namespacing and collision reasons.
+
     Args:
       queue_name: The name of a queue.
     Returns:
       The string representing the function name.
     """
     return "queue___%s" % queue_name 
+
+  @staticmethod
+  def get_celery_annotation_name(app_id, queue_name):
+    """ Returns the annotation name for a celery configuration of 
+        a queue for a given application id.
+    
+    Args:
+      app_id: The application ID.
+      queue_name: The application queue name.
+    Returns:
+      A string for the annotation tag.
+    """ 
+    module_name = TaskQueueConfig.get_celery_worker_module_name(app_id)
+    function_name = TaskQueueConfig.get_queue_function_name(queue_name)
+    return "%s.%s" % (module_name, function_name)
 
   @staticmethod
   def get_celery_worker_script_path(app_id):
@@ -231,18 +248,18 @@ queue:
     Returns:
       A string of the full file name of the worker script.
     """
-    return TaskQueueConfig.CELERY_WORKER_DIR + "app__" + app_id + ".py"
+    return TaskQueueConfig.CELERY_WORKER_DIR + "app___" + app_id + ".py"
 
   @staticmethod
   def get_celery_worker_module_name(app_id):
-    """ Returns the module name of the queue worker script.
+    """ Returns the python module name of the queue worker script.
    
     Args:
       app_id: The application identifier.
     Returns:
       A string of the module name.
     """
-    return "app__" + app_id 
+    return "app___" + app_id 
 
 
   @staticmethod
@@ -279,14 +296,18 @@ queue:
     for queue in queue_info['queue']:
       if 'mode' in queue and queue['mode'] == "pull":
         continue # celery does not handle pull queues
-      
-      celery_queues.append("Queue('"+ queue['name'] + \
+      celery_queue_name = \
+        TaskQueueConfig.get_celery_queue_name(self._app_id, queue['name'])
+      celery_queues.append("Queue('" + celery_queue_name + \
          "', Exchange('" + self._app_id + \
-         "'), routing_key='" + queue['name'] + "'),")
+         "'), routing_key='" + celery_queue_name  + "'),")
 
       rate_limit = queue['rate']
-      celery_annotations.append("'" + self._app_id + "." +\
-         queue['name'] + "': {'rate_limit': '" + rate_limit + "'},")
+      annotation_name = \
+        TaskQueueConfig.get_celery_annotation_name(self._app_id,
+                                                   queue['name'])
+      celery_annotations.append("'" + annotation_name + \
+         "': {'rate_limit': '" + rate_limit + "'},")
 
     celery_queues = '\n'.join(celery_queues)
     celery_annotations = '\n'.join(celery_annotations)
@@ -349,3 +370,17 @@ CELERY_TASK_RESULT_EXPIRES = 29592000
     if not self.QUEUE_NAME_RE.match(queue_name):
       raise NameError("Queue name %s did not match the regex %s" %\
            (queue_name, self.QUEUE_NAME_PATTERN))
+
+  @staticmethod
+  def get_celery_queue_name(app_id, queue_name):
+    """ Gets a usable queue name for celery to prevent
+        collisions where mulitple apps have the same name 
+        for a queue.
+    
+    Args:
+      app_id: The application ID.
+      queue_name: String name of the queue.
+    Returns:
+      A string to reference the queue name in celery.
+    """
+    return app_id + "___" + queue_name

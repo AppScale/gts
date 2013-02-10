@@ -316,8 +316,9 @@ class DistributedTaskQueue():
     taskqueue_nodes = appscale_info.get_taskqueue_nodes()
     for node in taskqueue_nodes:
       try:
-        remote.scp(node, config_file, config_file)
-        remote.scp(node, worker_file, worker_file)
+        if not self.__is_localhost(node):
+          remote.scp(node, config_file, config_file)
+          remote.scp(node, worker_file, worker_file)
         result[node] = {'error': False, 'reason': ""}
       except remote.ShellException, shell_exception:
         result[node] = {'error': True, 'stage': 'copy_config_files',
@@ -361,7 +362,8 @@ class DistributedTaskQueue():
     log_file = self.LOG_DIR + app_id + ".log"
     command = ["celery",
                "worker",
-               "--app=app__" + app_id,
+               "--app=" + \
+                    TaskQueueConfig.get_celery_worker_module_name(app_id),
                "--autoscale=" + self.MIN_MAX_CONCURRENCY,
                "--hostname=" + hostname + "." + app_id,
                "--workdir=" + TaskQueueConfig.CELERY_WORKER_DIR,
@@ -620,11 +622,11 @@ class DistributedTaskQueue():
     #print task_func.delay(headers=headers, args=args) 
     result = task_func.apply_async(kwargs={'headers':headers,
                     'args':args},
-                    name=request.task_name(),
-                    expires=self.__when_to_expire(request),
-                    retry_policy=retry_policy,
-                    acks_late=True,
-                    eta=eta)
+                    name=request.task_name())
+                    #expires=self.__when_to_expire(request))
+        #            retry_policy=retry_policy,
+        #            acks_late=True,
+        #            eta=eta)
     print result
     print result.get()
 
@@ -680,11 +682,9 @@ class DistributedTaskQueue():
     if request.has_retry_parameters() and \
            request.retry_parameters().has_retry_limit():
       limit = request.retry_parameters().retry_limit()
-      return datetime.datetime.now() + \
-             datetime.timedelta(seconds=limit)
+      return datetime.datetime.now() + datetime.timedelta(seconds=limit)
     else:
-      return datetime.datetime.now() + \
-             datetime.timedelta(days=self.DEFAULT_EXPIRATION)
+      return datetime.datetime.now() + datetime.timedelta(days=self.DEFAULT_EXPIRATION)
 
   def __validate_push_task(self, request):
     """ Checks to make sure the task request is valid.

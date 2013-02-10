@@ -9,10 +9,10 @@ require 'helperfunctions'
 
 
 # To implement support for the Google App Engine Task Queue API, we use
-# the open source rabbitmq server. This lets users dispatch background
+# the open source rabbitmq server and celery. This lets users dispatch background
 # tasks, whose data are stored as items in rabbitmq. This module provides
-# methods that automatically configure and deploy rabbitmq as needed.
-module RabbitMQ
+# methods that automatically configure and deploy rabbitmq and celery as needed.
+module TaskQueue
 
   # AppScale install directory  
   APPSCALE_HOME = ENV["APPSCALE_HOME"]
@@ -32,14 +32,17 @@ module RabbitMQ
   RABBITMQ_START_SCRIPT = File.dirname(__FILE__) + "/../" + \
                           "/scripts/start_rabbitmq.sh"
 
+  # The location of the taskqueue server script. This service controls 
+  # and creates celery workers, and receives taskqueue protocol buffers
+  # from AppServers.
   TASKQUEUE_SERVER_SCRIPT  = File.dirname(__FILE__) + "/../../AppTaskQueue" + \
                           "taskqueue_server.py"
 
 
   # Starts a service that we refer to as a "rabbitmq_master", a RabbitMQ
-  # service that other nodes can rely on to be running RabbitMQ.
+  # service that other nodes can rely on to be running the taskqueue server.
   def self.start_master()
-    Djinn.log_debug("Starting RabbitMQ Master")
+    Djinn.log_debug("Starting TaskQueue Master")
     self.write_cookie()
     self.erase_local_files()
     # Because god cannot keep track of RabbitMQ because of it's changing 
@@ -50,7 +53,7 @@ module RabbitMQ
     stop_cmd = "rabbitmqctl stop"
     env_vars = {}
     GodInterface.start(:rabbitmq, start_cmd, stop_cmd, SERVER_PORT, env_vars)
-    # Why do we run this twice? Once with god and once here.
+    # TODO: Investigate why do we run this twice? Once with god and once here.
     Djinn.log_run("#{start_cmd}")
 
     start_taskqueue_server()
@@ -61,9 +64,10 @@ module RabbitMQ
   # Starts a service that we refer to as a "rabbitmq slave". Since all nodes in
   # RabbitMQ are equal, this name isn't exactly fair, so what this role means
   # here is "start a RabbitMQ server and connect it to the server on the machine
-  # playing the 'rabbitmq_master' role."
+  # playing the 'rabbitmq_master' role." We also start taskqueue servers on 
+  # all taskqueue nodes.
   def self.start_slave(master_ip)
-    Djinn.log_debug("Starting RabbitMQ Slave")
+    Djinn.log_debug("Starting TaskQueue Slave")
     self.write_cookie()
     self.erase_local_files()
     
@@ -91,7 +95,7 @@ module RabbitMQ
     start_taskqueue_server()
     Djinn.log_debug("Waiting for taskqueue server to come up")
     HelperFunctions.sleep_until_port_is_open("localhost", TASKQUEUE_SERVER_PORT)
-    Djinn.log_debug("Done starting rabbitmq_slave on this node")
+    Djinn.log_debug("Done starting Taskqueue slave on this node")
   end
 
   # Starts the AppScale TaskQueue server.
@@ -105,10 +109,11 @@ module RabbitMQ
     Djinn.log_debug("Done starting taskqueue_server on this node")
   end
 
-  # Stops the RabbitMQ server on this node.
-  # TODO(cgb): It doesn't actually do anything right now - find out what we
-  # need to do to stop the server.
+  # Stops the RabbitMQ, celery workers, and taskqueue server on this node.
   def self.stop()
+    Djinn.log_run("Shutting down celery workers")
+    stop_cmd = "python -c \"import celery; celery = celery.Celery(); celery.control.broadcast('shutdown')\""
+    Djinn.log_run(stop_cmd)
     Djinn.log_debug("Shutting down RabbitMQ")
     GodInterface.stop(:rabbitmq)
     self.stop_taskqueue_server()
@@ -139,6 +144,7 @@ module RabbitMQ
   def self.erase_local_files()
     Djinn.log_run("rm -rf /var/log/rabbitmq/*")
     Djinn.log_run("rm -rf /var/lib/rabbitmq/mnesia/*")
+    Djinn.log_run("rm -rf /etc/appscale/celery/")
   end
     
 

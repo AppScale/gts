@@ -35,7 +35,7 @@ require 'infrastructure_manager_client'
 require 'neptune_manager_client'
 require 'pbserver'
 require 'nginx'
-require 'rabbitmq'
+require 'taskqueue'
 require 'repo'
 require 'user_app_client'
 require 'zkinterface'
@@ -471,7 +471,10 @@ class Djinn
         stop_soap_server
         stop_pbserver
       end
-     
+
+      TaskQueue.stop if my_node.is_rabbitmq_master?
+      TaskQueue.stop if my_node.is_rabbitmq_slave?
+
       stop_app_manager_server
       stop_neptune_manager
       stop_infrastructure_manager
@@ -2149,7 +2152,7 @@ class Djinn
     HelperFunctions.write_file(memcache_file, memcache_contents)
 
     write_apploadbalancer_location
-    find_nearest_rabbitmq
+    find_nearest_taskqueue
     write_taskqueue_nodes_file
     setup_config_files
     set_uaserver_ips 
@@ -2276,11 +2279,11 @@ class Djinn
 
     if my_node.is_rabbitmq_master?
       threads << Thread.new {
-        start_rabbitmq_master()
+        start_taskqueue_master()
       }
     elsif my_node.is_rabbitmq_slave?
       threads << Thread.new {
-        start_rabbitmq_slave()
+        start_taskqueue_slave()
       }
     end
 
@@ -2301,20 +2304,20 @@ class Djinn
   end
 
 
-  def start_rabbitmq_master
-    RabbitMQ.start_master()      
+  def start_taskqueue_master
+    TaskQueue.start_master()      
     return true
   end
 
 
-  def start_rabbitmq_slave
+  def start_taskqueue_slave
     # All slaves connect to the master to start
     master_ip = nil
     @nodes.each { |node|
       master_ip = node.private_ip if node.is_rabbitmq_master?
     }
 
-    RabbitMQ.start_slave(master_ip)
+    TaskQueue.start_slave(master_ip)
     return true
   end
 
@@ -2687,10 +2690,10 @@ class Djinn
 
 
   # Writes a file to the local filesystem that contains the IP
-  # address of the 'nearest' machine running the RabbitMQ service.
-  # 'Nearest' is defined as being this node's IP if our node runs RabbitMQ,
-  # or a random node that runs RabbitMQ otherwise.
-  def find_nearest_rabbitmq()
+  # address of the 'nearest' machine running the TaskQueue service.
+  # 'Nearest' is defined as being this node's IP if our node runs TQ,
+  # or a random node that runs TQ otherwise.
+  def find_nearest_taskqueue()
     rabbitmq_ip = nil
     if my_node.is_rabbitmq_master? or my_node.is_rabbitmq_slave?
       rabbitmq_ip = my_node.private_ip
@@ -2703,13 +2706,13 @@ class Djinn
           rabbitmq_ips << node.private_ip
         end
       }
-      Djinn.log_debug("RabbitMQ servers are at #{rabbitmq_ips.join(', ')}")
+      Djinn.log_debug("TaskQueue servers are at #{rabbitmq_ips.join(', ')}")
 
       # pick one at random
       rabbitmq_ip = rabbitmq_ips.sort_by { rand }[0]
     end
 
-    Djinn.log_debug("AppServers on this node will connect to RabbitMQ " +
+    Djinn.log_debug("AppServers on this node will connect to TaskQueue " +
       "at #{rabbitmq_ip}")
     rabbitmq_file = "#{CONFIG_FILE_LOCATION}/rabbitmq_ip"
     rabbitmq_contents = rabbitmq_ip
@@ -2720,8 +2723,8 @@ class Djinn
   # all nodes which are taskqueue nodes. 
   def write_taskqueue_nodes_file
     taskqueue_ips = []
-    @@nodes.each { |node|
-      taskqueue_ips << node.private_ip if node.is_rabbitmq_master or node.is_rabbitmq_slave?
+    @nodes.each { |node|
+      taskqueue_ips << node.private_ip if node.is_rabbitmq_master? or node.is_rabbitmq_slave?
     }
     Djinn.log_debug("Taskqueue servers will be at #{taskqueue_ips.join(', ')}")
     taskqueue_contents = taskqueue_ips.join("\n")

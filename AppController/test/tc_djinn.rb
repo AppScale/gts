@@ -210,17 +210,16 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(GodInterface).should_receive(:start).and_return()
 
     file = flexmock(File)
-    #file.should_receive(:open).with(RabbitMQ::COOKIE_FILE, "w+", Proc).and_return()
     file.should_receive(:open).and_return()
     file.should_receive(:log_run).and_return()
     flexmock(Djinn).should_receive(:log_run).and_return()
     flexmock(HelperFunctions).should_receive(:shell).and_return()
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
-    assert_equal(true, djinn.start_rabbitmq_master())
+    assert_equal(true, djinn.start_taskqueue_master())
   end
 
-  def test_rabbitmq_slave
+  def test_taskqueue_slave
     # RabbitMQ slave nodes should wait for RabbitMQ to come up on the master
     # node, and then start RabbitMQ on their own node
     master_role = "public_ip1:private_ip1:rabbitmq_master:instance_id:cloud1"
@@ -235,14 +234,14 @@ class TestDjinn < Test::Unit::TestCase
     helperfunctions = flexmock(HelperFunctions)
     helperfunctions.should_receive(:get_secret).and_return(@secret)
     helperfunctions.should_receive(:is_port_open?).
-      with("private_ip1", RabbitMQ::SERVER_PORT, HelperFunctions::DONT_USE_SSL).
+      with("private_ip1", TaskQueue::SERVER_PORT, HelperFunctions::DONT_USE_SSL).
       and_return(true)
     helperfunctions.should_receive(:is_port_open?).
-      with("localhost", RabbitMQ::SERVER_PORT, HelperFunctions::DONT_USE_SSL).
+      with("localhost", TaskQueue::SERVER_PORT, HelperFunctions::DONT_USE_SSL).
       and_return(true)
 
     file = flexmock(File)
-    file.should_receive(:open).with(RabbitMQ::COOKIE_FILE, "w+", Proc).and_return()
+    file.should_receive(:open).with(TaskQueue::COOKIE_FILE, "w+", Proc).and_return()
 
     # mock out and commands
     flexmock(Djinn).should_receive(:log_run).and_return()
@@ -250,7 +249,7 @@ class TestDjinn < Test::Unit::TestCase
 
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
-    assert_equal(true, djinn.start_rabbitmq_slave())
+    assert_equal(true, djinn.start_taskqueue_slave())
   end
 
 
