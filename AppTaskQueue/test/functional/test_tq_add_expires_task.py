@@ -13,6 +13,7 @@ import file_io
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))
 from google.appengine.api.taskqueue  import taskqueue_service_pb
 from google.appengine.ext.remote_api import remote_api_pb
+
 # AppScale must already be running with RabbitMQ
 class TestTaskAddTask(unittest.TestCase):
   def test_bulkadd(self):
@@ -25,8 +26,10 @@ class TestTaskAddTask(unittest.TestCase):
     item.set_eta_usec(0)
     item.set_method(taskqueue_service_pb.TaskQueueAddRequest.GET)
     item.set_mode(taskqueue_service_pb.TaskQueueMode.PUSH)
+    retry = item.mutable_retry_parameters()
+    retry.set_age_limit_sec(10)
     host = socket.gethostbyname(socket.gethostname())
-    item.set_url('http://' + host + ':64839/queues') 
+    item.set_url('http://' + host + ':64839/doesnotexist_expires') 
     host = socket.gethostbyname(socket.gethostname())
     req = urllib2.Request('http://' + host + ':64839')
     api_request = remote_api_pb.Request()

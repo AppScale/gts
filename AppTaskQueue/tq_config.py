@@ -327,8 +327,13 @@ CELERY_ANNOTATIONS = {
     config += \
 """
 }
-# 30 days in seconds
-CELERY_TASK_RESULT_EXPIRES = 29592000
+# Everytime a task is enqueued a temporary queue is created to store
+# results into rabbitmq. This can be bad in a high enqueue environment
+# We use the following to make sure these temp queues are not created. 
+# See http://stackoverflow.com/questions/7144025/temporary-queue-made-in-celery
+# for more information on this issue.
+CELERY_IGNORE_RESULT = True
+CELERY_STORE_ERRORS_EVEN_IF_IGNORED = True
 """
     config_file = self._app_id + ".py" 
     file_io.write(self.CELERY_CONFIG_DIR + config_file, config)

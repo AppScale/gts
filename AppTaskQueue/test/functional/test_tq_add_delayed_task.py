@@ -22,9 +22,9 @@ class TestTaskAddTask(unittest.TestCase):
     item.set_app_id(app_id)
     item.set_queue_name('default') 
     item.set_task_name('babaganoose')
-    item.set_eta_usec(0)
     item.set_method(taskqueue_service_pb.TaskQueueAddRequest.GET)
     item.set_mode(taskqueue_service_pb.TaskQueueMode.PUSH)
+    item.set_eta_usec(5000000) # 5 seconds
     host = socket.gethostbyname(socket.gethostname())
     item.set_url('http://' + host + ':64839/queues') 
     host = socket.gethostbyname(socket.gethostname())

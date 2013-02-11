@@ -25,7 +25,6 @@ module TaskQueue
 
   # The path to the file that the shared secret should be written to.
   COOKIE_FILE = "/var/lib/rabbitmq/.erlang.cookie"
-
   
   # We need some additional logic for the start command hence using 
   # a script.
@@ -37,7 +36,6 @@ module TaskQueue
   # from AppServers.
   TASKQUEUE_SERVER_SCRIPT  = File.dirname(__FILE__) + "/../../AppTaskQueue" + \
                           "taskqueue_server.py"
-
 
   # Starts a service that we refer to as a "rabbitmq_master", a RabbitMQ
   # service that other nodes can rely on to be running the taskqueue server.

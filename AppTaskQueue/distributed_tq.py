@@ -75,17 +75,16 @@ class DistributedTaskQueue():
   # The longest a task is allowed to run in days.
   DEFAULT_EXPIRATION = 30
 
-  # The extra amount of time in seconds when backing off to rerun a task.
-  # Note: In GAE it does not do steps but exponential backoff.
-  INTERVAL_STEP = 1.0  
-
-  # The default maximum number to retry task, where 0 is unlimited.
+  # The default maximum number to retry task, where 0 or None is unlimited.
   DEFAULT_MAX_RETRIES = 0
 
   # The default amount of minimum/max time we wait before retrying 
   # a task in seconds.
-  DEFAULT_MIN_BACKOFF = 0.1
+  DEFAULT_MIN_BACKOFF = 1
   DEFAULT_MAX_BACKOFF = 3600.0
+
+  # Default number of times we double the backoff value.
+  DEFAULT_MAX_DOUBLINGS = 1000
 
   def __init__(self):
     """ DistributedTaskQueue Constructor. """
@@ -206,7 +205,6 @@ class DistributedTaskQueue():
       A dictionary with the status of the request.
     """ 
     try:
-      print "Sending request to %s" % url
       request = urllib2.Request(url)
       request.add_header('Content-Type', 'application/json')
       request.add_header("Content-Length", "%d" % len(payload))
@@ -217,7 +215,6 @@ class DistributedTaskQueue():
                 'stage': stage}
       json_response = response.read()
       json_response = json.loads(json_response)
-      print json_response
       if 'error' in json_response and json_response['error']:
         return {'error': True,
                 'reason': "Reponse code of %d" % json_response['reason'],
@@ -370,11 +367,10 @@ class DistributedTaskQueue():
                "--logfile=" + log_file,
                "--time-limit=" + str(self.HARD_TIME_LIMIT),
                "--soft-time-limit=" + str(self.TASK_SOFT_TIME_LIMIT),
-               "--pidfile=" + self.PID_FILE_LOC + 'celelery___' + \
+               "--pidfile=" + self.PID_FILE_LOC + 'celery___' + \
                              app_id + ".pid",
                "--autoreload"]
     start_command = str(' '.join(command))
-    print start_command
     stop_command = self.get_worker_stop_command(app_id)
     watch = "celery-" + str(app_id)
     god_config = god_app_interface.create_config_file(watch,
@@ -568,22 +564,57 @@ class DistributedTaskQueue():
   
     Args:
       request: A taskqueue_service_pb.TaskQueueAddRequest.
-    Raises:
-      taskqueue_service_pb.TaskQueueServiceError
     """
     self.__validate_push_task(request)
 
-    # Load the module for the app/queue 
+    args = self.get_task_args(request)
+
+    headers = self.get_task_headers(request)
+
+    task_func = self.__get_task_function(request)
+
+    result = task_func.apply_async(kwargs={'headers':headers,
+                    'args':args},
+                    expires=args['expires'],
+                    acks_late=True,
+                    eta=self.__when_to_run(request),
+                    queue=TaskQueueConfig.get_celery_queue_name(
+                              request.app_id(), request.queue_name()),
+                    routing_key=TaskQueueConfig.get_celery_queue_name(
+                              request.app_id(), request.queue_name()))
+
+  def __get_task_function(self, request):
+    """ Returns a function pointer to a celery task.
+        Load the module for the app/queue.
+    
+    Args:
+      request: A taskqueue_service_pb.TaskQueueAddRequest.
+    Returns:
+      A function pointer to a celery task.
+    Raises:
+      taskqueue_service_pb.TaskQueueServiceError
+    """
     try:
       task_module = __import__(TaskQueueConfig.\
                   get_celery_worker_module_name(request.app_id()))
       task_func = getattr(task_module, 
         TaskQueueConfig.get_queue_function_name(request.queue_name()))
+      return task_func
     except ImportError, import_error:
       raise apiproxy_errors.ApplicationError(
               taskqueue_service_pb.TaskQueueServiceError.UNKNOWN_QUEUE)
+     
 
+  def get_task_args(self, request):
+    """ Gets the task args used when making a task web request.
+  
+    Args:
+      request: A taskqueue_service_pb.TaskQueueAddRequest
+    Returns:
+      A dictionary used by a task worker.
+    """
     args = {}
+    args['task_name'] = request.task_name()
     args['url'] = request.url()
     args['app_id'] = request.app_id()
     args['queue_name'] = request.queue_name()
@@ -592,14 +623,44 @@ class DistributedTaskQueue():
     args['payload'] = request.payload()
     args['description'] = request.description()
 
-    retry_policy = self.__get_task_retry_policy(request)
-   
+    # Set defaults.
+    args['max_retries'] = self.DEFAULT_MAX_RETRIES
+    args['expires'] = self.__when_to_expire(request)
+    args['max_retries'] = self.DEFAULT_MAX_RETRIES
+    args['max_backoff_sec'] = self.DEFAULT_MAX_BACKOFF 
+    args['min_backoff_sec'] = self.DEFAULT_MIN_BACKOFF 
+    args['max_doublings'] = self.DEFAULT_MAX_DOUBLINGS
+
+    # Override defaults.
+    if request.has_retry_parameters():
+      retry_params = request.retry_parameters()
+      if retry_params.has_retry_limit():
+        args['max_retries'] = retry_params.retry_limit()
+      if retry_params.has_min_backoff_sec():
+        args['min_backoff_sec'] = request.\
+                                  retry_parameters().min_backoff_sec()
+      if retry_params.has_max_backoff_sec():
+        args['max_backoff_sec'] = request.\
+                                  retry_parameters().max_backoff_sec()
+      if retry_params.has_max_doublings():
+        args['max_doublings'] = request.\
+                                  retry_parameters().max_doublings()
+    return args
+
+  def get_task_headers(self, request):
+    """ Gets the task headers used for a task web request. 
+
+    Args:
+      request: A taskqueue_service_pb.TaskQueueAddRequest
+    Returns:
+      A dictionary of key/values for a web request.
+    """  
     headers = {}
     for header in request.header_list():
       headers[header.key()] = header.value()
 
     eta = self.__when_to_run(request)
-    print eta 
+
     # This header is how we authenticate that it's an internal request
     secret = appscale_info.get_secret() 
     secret_hash = hashlib.sha1(request.app_id() + '/' + \
@@ -610,52 +671,8 @@ class DistributedTaskQueue():
     headers['X-AppEngine-TaskRetryCount'] = '0'
     headers['X-AppEngine-TaskExecutionCount'] = '0'
     headers['X-AppEngine-TaskETA'] = int(eta.strftime("%s")) * 1000  
+    return headers
 
-
-    print request.task_name()
-    print headers
-    print args
-    print self.__when_to_expire(request)
-    print retry_policy
-    print eta
-    
-    #print task_func.delay(headers=headers, args=args) 
-    result = task_func.apply_async(kwargs={'headers':headers,
-                    'args':args},
-                    name=request.task_name())
-                    #expires=self.__when_to_expire(request))
-        #            retry_policy=retry_policy,
-        #            acks_late=True,
-        #            eta=eta)
-    print result
-    print result.get()
-
-  def __get_task_retry_policy(self, request):
-    """ Maps the task retry parameters to a celery 
-        retry policy. 
-   
-    Args:
-      request: A taskqueue_service_pb.TaskQueueAddRequest
-    Returns:
-      A dictionary with the celery retry policy.
-    """
-    retry_dict = {}
-    retry_dict['interval_step'] = self.INTERVAL_STEP
-
-    if request.has_retry_parameters():
-      retry_dict['max_retries'] = request.\
-                                  retry_parameters().retry_limit()
-      retry_dict['interval_start'] = request.\
-                                  retry_parameters().min_backoff_sec()
-      retry_dict['interval_max'] = request.\
-                                  retry_parameters().max_backoff_sec()
-    else:
-      retry_dict['max_retries'] = self.DEFAULT_MAX_RETRIES
-      retry_dict['interval_start'] = self.DEFAULT_MIN_BACKOFF
-      retry_dict['interval_max'] = self.DEFAULT_MAX_BACKOFF
-
-    return retry_dict
- 
   def __when_to_run(self, request):
     """ Returns a datetime object of when a task should 
         execute.
@@ -668,7 +685,7 @@ class DistributedTaskQueue():
     """
     if request.has_eta_usec():
       eta = request.eta_usec()
-      return datetime.datetime.now() + datetime.timedelta(0, 0, eta)
+      return datetime.datetime.now() + datetime.timedelta(microseconds=eta)
     else:
       return datetime.datetime.now() 
 
@@ -678,13 +695,16 @@ class DistributedTaskQueue():
     
     Args:
       A taskqueue_service_pb.TaskQueueAddRequest
+    Returns:
+      A datetime object of when the task should expire. 
     """
     if request.has_retry_parameters() and \
-           request.retry_parameters().has_retry_limit():
-      limit = request.retry_parameters().retry_limit()
+           request.retry_parameters().has_age_limit_sec():
+      limit = request.retry_parameters().age_limit_sec()
       return datetime.datetime.now() + datetime.timedelta(seconds=limit)
     else:
-      return datetime.datetime.now() + datetime.timedelta(days=self.DEFAULT_EXPIRATION)
+      return datetime.datetime.now() + \
+                   datetime.timedelta(days=self.DEFAULT_EXPIRATION)
 
   def __validate_push_task(self, request):
     """ Checks to make sure the task request is valid.
