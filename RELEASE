@@ -4,7 +4,17 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
-The current release is 1.6.6, released on January 21, 2013.
+The current release is 1.6.7, released on February 13, 2013.
+
+Bugs fixed in this release:
+- Terminate script kills Erlang processes
+- Fixed HTTP -> HTTPS redirection issues
+- Add support for JDO and JPA
+- Properly encoding memcache keys with spaces in it
+- Fixed Java memcache inconsistencies in a distributed environment
+- Changed nginx config file construction to support regexes
+
+AppScale version 1.6.6 was released on January 21, 2013.
 
 Bugs fixed in this release:
 - Support Python 2.7 App Engine apps
