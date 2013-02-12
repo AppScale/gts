@@ -81,7 +81,7 @@ class TestDjinn < Test::Unit::TestCase
     djinn = Djinn.new
     djinn.nodes = [node1, node2]
 
-    role1_to_hash, role2_to_hash = djinn.get_role_info(@secret)
+    role1_to_hash, role2_to_hash = JSON.load(djinn.get_role_info(@secret))
   
     # make sure role1 got hashed fine
     assert_equal("public_ip", role1_to_hash['public_ip'])
