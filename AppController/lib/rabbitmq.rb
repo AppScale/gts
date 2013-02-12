@@ -42,7 +42,6 @@ module RabbitMQ
     stop_cmd = "rabbitmqctl stop"
     env_vars = {}
     GodInterface.start(:rabbitmq, start_cmd, stop_cmd, SERVER_PORT, env_vars)
-    Djinn.log_run("#{start_cmd}")
   end
 
 

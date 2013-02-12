@@ -215,8 +215,15 @@ class TestDjinn < Test::Unit::TestCase
     # RabbitMQ config files
     flexmock(Djinn).should_receive(:log_run).with(/\Arm -rf/).and_return()
 
-    # also mock out when the AppController tries to start rabbitmq
-    flexmock(Djinn).should_receive(:log_run).with(/\Arabbitmq/).
+    # mock out when the god interface tries to get our local ip
+    flexmock(HelperFunctions).should_receive(:get_all_local_ips).
+      and_return(["127.0.0.1"])
+
+    # also mock out when the AppController tries to start rabbitmq via god
+    file.should_receive(:open).with(/\A\/tmp\/god-\d+.god\Z/, "w+", Proc).and_return()
+    flexmock(Djinn).should_receive(:log_run).with(/\Agod load \/tmp\/god-\d+.god/).
+      and_return()
+    flexmock(Djinn).should_receive(:log_run).with(/\Agod start rabbitmq\Z/).
       and_return()
 
     assert_equal(true, djinn.start_rabbitmq_master())
