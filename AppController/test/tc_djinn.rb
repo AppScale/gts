@@ -225,6 +225,8 @@ class TestDjinn < Test::Unit::TestCase
       and_return()
     flexmock(Djinn).should_receive(:log_run).with(/\Agod start rabbitmq\Z/).
       and_return()
+    flexmock(Djinn).should_receive(:log_run).with(/start_rabbitmq.sh baz\Z/).
+      and_return()
 
     assert_equal(true, djinn.start_rabbitmq_master())
   end
