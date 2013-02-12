@@ -683,7 +683,7 @@ class TestDjinn < Test::Unit::TestCase
     # currently there is a bug in appscale where we can't scale up
     # from a one node deployment - take out this test case once we
     # fix that bug.
-    ips_hash = {'appengine' => ['node-1', 'node-2']}
+    ips_hash = JSON.dump({'appengine' => ['node-1', 'node-2']})
     djinn = Djinn.new()
     djinn.nodes = [1]
     expected = Djinn::CANT_SCALE_FROM_ONE_NODE
@@ -692,7 +692,7 @@ class TestDjinn < Test::Unit::TestCase
   end
 
   def test_start_roles_on_nodes_in_xen
-    ips_hash = {'appengine' => ['node-1', 'node-2']}
+    ips_hash = JSON.dump({'appengine' => ['node-1', 'node-2']})
     djinn = Djinn.new()
     djinn.nodes = [1, 2]
     expected = {'node-1' => ['appengine'], 'node-2' => ['appengine']}
