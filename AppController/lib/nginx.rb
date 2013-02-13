@@ -194,6 +194,9 @@ server {
     ssl_certificate /usr/local/nginx/conf/mycert.pem;
     ssl_certificate_key /usr/local/nginx/conf/mykey.pem;
 
+    #If they come here using HTTP, bounce them to the correct scheme
+    error_page 497 https://$host:$server_port$request_uri;
+ 
     #root /var/apps/#{app_name}/app;
     # Uncomment these lines to enable logging, and comment out the following two
     #access_log  /var/log/nginx/#{app_name}.access.log upstream;

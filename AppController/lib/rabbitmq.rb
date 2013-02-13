@@ -3,6 +3,7 @@
 
 # Imports for AppController libraries
 $:.unshift File.join(File.dirname(__FILE__))
+require 'godinterface'
 require 'djinn_job_data'
 require 'helperfunctions'
 
@@ -21,14 +22,27 @@ module RabbitMQ
   # The path to the file that the shared secret should be written to.
   COOKIE_FILE = "/var/lib/rabbitmq/.erlang.cookie"
 
+  
+  # We need some additional logic for the start command hence using 
+  # a script.
+  RABBITMQ_START_SCRIPT = File.dirname(__FILE__) + "/../" + \
+                          "/scripts/start_rabbitmq.sh"
+
   # Starts a service that we refer to as a "rabbitmq_master", a RabbitMQ
   # service that other nodes can rely on to be running RabbitMQ.
   def self.start_master()
     Djinn.log_debug("Starting RabbitMQ Master")
     self.write_cookie()
     self.erase_local_files()
-    start_cmd = "rabbitmq-server -detached -setcookie " +
-     "#{HelperFunctions.get_secret()}"
+    # Because god cannot keep track of RabbitMQ because of it's changing 
+    # PIDs, we put in a guard on the start command to not start it if 
+    # its already running.
+    start_cmd = "bash #{RABBITMQ_START_SCRIPT} " +\
+                "#{HelperFunctions.get_secret()}"
+    stop_cmd = "rabbitmqctl stop"
+    env_vars = {}
+    GodInterface.start(:rabbitmq, start_cmd, stop_cmd, SERVER_PORT, env_vars)
+    # start up rabbitmq manually since god can't do it
     Djinn.log_run("#{start_cmd}")
   end
 
@@ -70,6 +84,7 @@ module RabbitMQ
   # need to do to stop the server.
   def self.stop()
     Djinn.log_debug("Shutting down RabbitMQ")
+    GodInterface.stop(:rabbitmq)
   end
 
 
