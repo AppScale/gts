@@ -81,7 +81,7 @@ class TestDjinn < Test::Unit::TestCase
     djinn = Djinn.new
     djinn.nodes = [node1, node2]
 
-    role1_to_hash, role2_to_hash = djinn.get_role_info(@secret)
+    role1_to_hash, role2_to_hash = JSON.load(djinn.get_role_info(@secret))
   
     # make sure role1 got hashed fine
     assert_equal("public_ip", role1_to_hash['public_ip'])
@@ -215,8 +215,17 @@ class TestDjinn < Test::Unit::TestCase
     # RabbitMQ config files
     flexmock(Djinn).should_receive(:log_run).with(/\Arm -rf/).and_return()
 
-    # also mock out when the AppController tries to start rabbitmq
-    flexmock(Djinn).should_receive(:log_run).with(/\Arabbitmq/).
+    # mock out when the god interface tries to get our local ip
+    flexmock(HelperFunctions).should_receive(:get_all_local_ips).
+      and_return(["127.0.0.1"])
+
+    # also mock out when the AppController tries to start rabbitmq via god
+    file.should_receive(:open).with(/\A\/tmp\/god-\d+.god\Z/, "w+", Proc).and_return()
+    flexmock(Djinn).should_receive(:log_run).with(/\Agod load \/tmp\/god-\d+.god/).
+      and_return()
+    flexmock(Djinn).should_receive(:log_run).with(/\Agod start rabbitmq\Z/).
+      and_return()
+    flexmock(Djinn).should_receive(:log_run).with(/start_rabbitmq.sh baz\Z/).
       and_return()
 
     assert_equal(true, djinn.start_rabbitmq_master())
@@ -676,7 +685,7 @@ class TestDjinn < Test::Unit::TestCase
     # currently there is a bug in appscale where we can't scale up
     # from a one node deployment - take out this test case once we
     # fix that bug.
-    ips_hash = {'appengine' => ['node-1', 'node-2']}
+    ips_hash = JSON.dump({'appengine' => ['node-1', 'node-2']})
     djinn = Djinn.new()
     djinn.nodes = [1]
     expected = Djinn::CANT_SCALE_FROM_ONE_NODE
@@ -685,7 +694,7 @@ class TestDjinn < Test::Unit::TestCase
   end
 
   def test_start_roles_on_nodes_in_xen
-    ips_hash = {'appengine' => ['node-1', 'node-2']}
+    ips_hash = JSON.dump({'appengine' => ['node-1', 'node-2']})
     djinn = Djinn.new()
     djinn.nodes = [1, 2]
     expected = {'node-1' => ['appengine'], 'node-2' => ['appengine']}

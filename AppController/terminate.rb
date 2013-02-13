@@ -132,7 +132,9 @@ end
  "ndb_mgmd", "ndbd", "mysqld",
  "rabbitmq",
  "thin", "god", "djinn", "xmpp_receiver", 
- "InfrastructureManager", "Neptune"
+ "InfrastructureManager", "Neptune",
+ # RabbitMQ, ejabberd
+ "epmd", "beam", "ejabberd_auth.py"
 ].each do |program|
   `ps ax | grep #{program} | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9`
 end

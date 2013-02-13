@@ -10,6 +10,11 @@ require 'socket'
 require 'timeout'
 
 
+# Imports for RubyGems
+require 'rubygems'
+require 'json'
+
+
 # Imports for AppController libraries
 $:.unshift File.join(File.dirname(__FILE__))
 require 'custom_exceptions'
@@ -30,7 +35,7 @@ end
 module HelperFunctions
 
 
-  VER_NUM = "1.6.6"
+  VER_NUM = "1.6.7"
 
   
   APPSCALE_HOME = ENV['APPSCALE_HOME']
@@ -157,16 +162,7 @@ module HelperFunctions
 
 
   def self.deserialize_info_from_tools(ips) 
-    nodes = {}
-    # FIXME: Here we make the string back into a hash using the crappy deserialization
-    # Definitely change this to JSON at some point
-    ips.split("..").each do |node|
-      tokens = node.split("--")
-      next if tokens.length != 2
-      id,roles = tokens
-      nodes[id] = roles
-    end
-    return nodes
+    return JSON.load(ips)
   end
 
 
@@ -912,7 +908,7 @@ module HelperFunctions
   # Returns:
   #   A Nginx location configuration as a string
   def self.generate_secure_location_config(handler, port)
-    result = "\n    location #{handler['url']} {"
+    result = "\n    location ~ #{handler['url']} {"
     if handler["secure"] == "always"
       result << "\n\t" << "rewrite #{handler['url']}(.*) https://$host:#{port}$uri redirect;"
     elsif handler["secure"] == "never"

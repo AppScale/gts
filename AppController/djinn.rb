@@ -415,7 +415,7 @@ class Djinn
       all_nodes << node.to_hash()
     }
 
-    return all_nodes
+    return JSON.dump(all_nodes)
   end
 
 
@@ -528,7 +528,7 @@ class Djinn
       return "Error: Credential format wrong"
     end
 
-    Djinn.log_debug("Parameters were valid")
+    Djinn.log_debug("Parameters were valid: #{possible_credentials.inspect}")
 
     keyname = possible_credentials["keyname"]
     @nodes = Djinn.convert_location_array_to_class(djinn_locations, keyname)
@@ -549,6 +549,12 @@ class Djinn
     Djinn.log_debug("(set_parameters) My index = #{@my_index}")
 
     ENV['EC2_URL'] = @creds['ec2_url']
+
+    if @creds['ec2_access_key'].nil?
+      @creds['ec2_access_key'] = @creds['EC2_ACCESS_KEY']
+      @creds['ec2_secret_key'] = @creds['EC2_SECRET_KEY']
+      @creds['ec2_url'] = @creds['EC2_URL']
+    end
     
     return "OK"
   end
@@ -770,7 +776,7 @@ class Djinn
       public_ips << node.public_ip
     }
     Djinn.log_debug("All public ips are [#{public_ips.join(', ')}]")
-    return public_ips
+    return JSON.dump(public_ips)
   end
 
   def job_start(secret)
@@ -1020,6 +1026,7 @@ class Djinn
       return BAD_SECRET_MSG
     end
 
+    ips_hash = JSON.load(ips_hash)
     if ips_hash.class != Hash
       Djinn.log_debug("Was expecting ips_hash to be a Hash, not " +
         "a #{ips_hash.class}")
@@ -1971,15 +1978,13 @@ class Djinn
       @num_appengines = Integer(@creds["appengine"])
     end
 
-    Djinn.log_debug("Keypath is #{@creds['keypath']}, keyname is #{@creds['keyname']}")
-
-    if !@creds["keypath"].empty?
-      my_key_dir = "#{CONFIG_FILE_LOCATION}/keys/#{my_node.cloud}"
-      my_key_loc = "#{my_key_dir}/#{@creds['keypath']}"
-      Djinn.log_debug("Creating directory #{my_key_dir} for my ssh key #{my_key_loc}")
-      FileUtils.mkdir_p(my_key_dir)
-      Djinn.log_run("cp #{CONFIG_FILE_LOCATION}/ssh.key #{my_key_loc}")
-    end
+    keypath = @creds['keyname'] + ".key"
+    Djinn.log_debug("Keypath is #{keypath}, keyname is #{@creds['keyname']}")
+    my_key_dir = "#{CONFIG_FILE_LOCATION}/keys/#{my_node.cloud}"
+    my_key_loc = "#{my_key_dir}/#{keypath}"
+    Djinn.log_debug("Creating directory #{my_key_dir} for my ssh key #{my_key_loc}")
+    FileUtils.mkdir_p(my_key_dir)
+    Djinn.log_run("cp #{CONFIG_FILE_LOCATION}/ssh.key #{my_key_loc}")
         
     if is_cloud?
       # for euca
@@ -2083,6 +2088,12 @@ class Djinn
   def sanitize_credentials()
     newcreds = {}
     @creds.each { |key, val|
+      if key == 'ips'
+        newcreds[key] = val
+        next
+      end
+
+      next unless key.class == String
       newkey = key.gsub(/[^\w\d_@-]/, "") unless key.nil?
       if newkey.include? "_key"
         newval = val.gsub(/[^\w\d\.\+:\/_-]/, "") unless val.nil?
@@ -2401,7 +2412,9 @@ class Djinn
 
     table = @creds['table']
 
+    Djinn.log_debug("DB Credentials: #{HelperFunctions.obscure_creds(@creds).inspect}")
     nodes = HelperFunctions.deserialize_info_from_tools(@creds["ips"])
+    Djinn.log_debug("nodes info is #{nodes.inspect}")
     appengine_info = spawn_appengine(nodes)
 
     @state = "Copying over needed files and starting the AppController on the other VMs"
@@ -3138,7 +3151,7 @@ HOSTS
       return
     end
 
-    if @creds["autoscale"] == "true"
+    if @creds["autoscale"].downcase == "true"
       Djinn.log_debug("Examining AppServers to autoscale them")
       perform_scaling_for_appservers()
     else

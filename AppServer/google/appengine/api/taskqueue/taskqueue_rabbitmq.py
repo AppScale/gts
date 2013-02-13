@@ -111,12 +111,13 @@ def _GetRabbitMQLocation():
     A string containing the location of a RabbitMQ server.
   """
   try:
+    logging.warning("Setting RabbitMQ location")
     file_handle = open(RABBITMQ_LOCATION_FILE)
     ip = file_handle.read()
     file_handle.close()
-  except IOError:
-    logger.error("Couldn't open RabbitMQ locations file - using " +
-      "localhost as the RabbitMQ IP for now.")
+  except IOError, e:
+    logging.error("Couldn't open RabbitMQ locations file - using " +
+      "localhost as the RabbitMQ IP for now. %s" % e)
     ip = "localhost"
 
   return ip
@@ -409,15 +410,15 @@ class _TaskExecutor(object):
       response.close()
       if 200 > response.status >= 300:
         logging.warning('Sending the task "%s" ' + \
-                        '(Url: "%s") in queue "%s" has a HTTP response of %d.' + \
-                        ' with payload %s',
+                '(Url: "%s") in queue "%s" has a HTTP response of %d.' + \
+                ' with payload %s',
                         task['name'], task['url'], task['queue_name'],
                         response.status, payload)
       return 200 <= response.status < 300
     except (httplib.HTTPException, socket.error):
       logging.exception('An error occured while sending the task "%s" '
-                        '(Url: "%s") in queue "%s". Treating as a task error.',
-                        task['name'], task['url'], task['queue_name'])
+                '(Url: "%s") in queue "%s". Treating as a task error.',
+                task['name'], task['url'], task['queue_name'])
       return False
     except Exception, e:
       logging.error("Received an exception of class %s with message %s" % \
@@ -445,16 +446,20 @@ class _BackgroundTaskScheduler(object):
     self._should_exit = False
     self.task_executor = task_executor
     self.default_retry_seconds = retry_seconds
-
+    self.host = _GetRabbitMQLocation()
     try:
       self.connection = pika.BlockingConnection(pika.ConnectionParameters(
-        host=_GetRabbitMQLocation()))
+        host=self.host))
       self.channel = self.connection.channel()
     except pika.exceptions.AMQPConnectionError, e:
       logging.error("Unable to connect to RabbitMQ: " + str(e))
+    except pika.exceptions.ChannelClosed, channel_closed:
+      logging.error("Closed connection: %s" % str(channel_closed))
+      raise apiproxy_errors.ApplicationError(
+                 taskqueue_service_pb.TaskQueueServiceError.TRANSIENT_ERROR)
     except Exception, e:
       logging.error("Unknown Exception--unable to connect to RabbitMQ: " + \
-                    str(e))
+                    (str(e), str(e.__class__)))
     self._queue_name = "app_%s" % app_name
     if kwargs:
       raise TypeError('Unknown parameters: %s' % ', '.join(kwargs))
@@ -544,13 +549,17 @@ class _BackgroundTaskScheduler(object):
         except pika.exceptions.AMQPConnectionError, e:
           ch.basic_reject(delivery_tag = method.delivery_tag, requeue = True)
           self.connection = pika.BlockingConnection(pika.ConnectionParameters(
-                                                    host=_GetRabbitMQLocation()))
+                                                    host=self.host))
           self.channel = self.connection.channel()
-        except pika.exceptions.AMQPConnectionError, e:
-          logging.error("Unable to connect to RabbitMQ: " + str(e))
+        except pika.exceptions.ChannelClosed, channel_closed:
+          logging.error("Closed connection: %s" % str(channel_closed))
+          ch.basic_reject(delivery_tag = method.delivery_tag, requeue = True)
+          self.connection = pika.BlockingConnection(pika.ConnectionParameters(
+                                                    host=self.host))
+          self.channel = self.connection.channel()
         except Exception, e:
           logging.error("Unknown exception--unable to connect to RabbitMQ: " + \
-                        str(e))
+                        str(e) + str(e.__class))
         # TODO RabbitMQ's basic_publish and reject should be 
         # done transactionally to prevent race conditions and duplicate
         # tasks being enqueued. The API does support transactions see:
@@ -567,17 +576,21 @@ class _BackgroundTaskScheduler(object):
       try:
         logging.debug("Connecting to RabbitMQ")
         self.connection = pika.BlockingConnection(pika.ConnectionParameters(
-                         host=_GetRabbitMQLocation()))
+                         host=self.host))
         self.channel = self.connection.channel()
         self.channel.queue_declare(queue=self._queue_name)
         self.channel.basic_qos(prefetch_count=1)
         self.channel.basic_consume(self._TaskCallback, queue=self._queue_name)
+        reconnect_time = 1
         logging.debug("Success: connected to RabbitMQ")
         self.channel.start_consuming() 
       except pika.exceptions.AMQPConnectionError, e:
         logging.error("RabbitMQ Connection error %s" % str(e))
+      except pika.exceptions.ChannelClosed, channel_closed:
+        logging.error("Closed connection: %s" % str(channel_closed))
       except Exception, e:
-        logging.error("RabbitMQ Unknown exception %s" % str(e))
+        logging.error("RabbitMQ Unknown exception %s %s" % \
+                      (str(e), str(e.__class__)))
       logging.warning("Reconnecting in " + str(reconnect_time) + " seconds")
       time.sleep(reconnect_time) 
 
@@ -631,18 +644,23 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     self._started = False
     self._app_id = app_id
     self._secret_hash = hash_secret
+    self.host = _GetRabbitMQLocation()
     self._task_scheduler = _BackgroundTaskScheduler(
         _TaskExecutor(default_http_server, self._secret_hash), app_id, 
         retry_seconds=task_retry_seconds)
     try:
       self.connection = pika.BlockingConnection(pika.ConnectionParameters(
-        host=_GetRabbitMQLocation()))
+        host=self.host))
       self.channel = self.connection.channel()
       self.channel.queue_declare(queue='app_%s' % app_id, durable=False)
     except pika.exceptions.AMQPConnectionError, e:
       logging.error("RabbitMQ Connection error %s" % str(e))
+    except pika.exceptions.ChannelClosed, channel_closed:
+      logging.error("Closed connection: %s" % str(channel_closed))
     except Exception, e:
-      logging.error("Unknown exception--Unable to connect to to RabbitMQ")
+      logging.error(
+        "Unknown exception--Unable to connect to to RabbitMQ %s %s" % \
+                   (str(e), str(e.__class__)))
 
   def StartBackgroundExecution(self):
     """Start automatic task execution."""
@@ -856,12 +874,23 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
         raise NotImplementedError("PULL queues are not implemented")
     except pika.exceptions.AMQPConnectionError:
       self.connection = pika.BlockingConnection(pika.ConnectionParameters(
-                                                   host=_GetRabbitMQLocation()))
+                                                   host=self.host))
+      self.channel = self.connection.channel()
+      self.channel.queue_declare(queue='app_%s' % self._app_id, durable=False)
+      raise apiproxy_errors.ApplicationError(
+                 taskqueue_service_pb.TaskQueueServiceError.TRANSIENT_ERROR)
+    except pika.exceptions.ChannelClosed, channel_closed:
+      self.connection = pika.BlockingConnection(pika.ConnectionParameters(
+                                                   host=self.host))
+      self.channel = self.connection.channel()
+      self.channel.queue_declare(queue='app_%s' % self._app_id, durable=False)
+      logging.error("Closed connection: %s" % str(channel_closed))
       raise apiproxy_errors.ApplicationError(
                  taskqueue_service_pb.TaskQueueServiceError.TRANSIENT_ERROR)
     except Exception, e:
-      logging.error("Unknown exception--Unable to connect to RabbitMQ: %s" % \
-                   str(e))
+      logging.error(
+            "Unknown exception--Unable to connect to RabbitMQ: %s %s" % \
+                   (str(e), str(e.__class__)))
 
   def _TaskStatus(self, task_name):
     """ Makes sure the task does not exist or tombstoned.
@@ -877,16 +906,18 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     state = GetTaskState(task_name)
     if state == taskqueue_service_pb.TaskQueueServiceError.UNKNOWN_TASK:
       return None
-    elif state == taskqueue_service_pb.TaskQueueServiceError.TASK_ALREADY_EXISTS:
+    elif state == \
+       taskqueue_service_pb.TaskQueueServiceError.TASK_ALREADY_EXISTS:
       raise apiproxy_errors.ApplicationError(
           taskqueue_service_pb.TaskQueueServiceError.TASK_ALREADY_EXISTS)
-    elif state == taskqueue_service_pb.TaskQueueServiceError.TOMBSTONED_TASK:
+    elif state == \
+       taskqueue_service_pb.TaskQueueServiceError.TOMBSTONED_TASK:
       raise apiproxy_errors.ApplicationError(
           taskqueue_service_pb.TaskQueueServiceError.TOMBSTONED_TASK)
     else: 
-        logging.error("Bad state for task %s was set to %s" % \
-                     (db_task['name'], db_task['state'])) 
-        raise apiproxy_errors.ApplicationError(state)
+      logging.error("Bad state for task %s was set to %s" % \
+                   (task_name, state)) 
+      raise apiproxy_errors.ApplicationError(state)
  
   def _Dynamic_PurgeQueue(self, request, response):
     """Local purge implementation of TaskQueueService.PurgeQueue.
@@ -1027,7 +1058,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
       response: A taskqueue_service_pb.TaskQueueDeleteResponse.
     """
     for taskname in request.task_name_list():
-      entity = datastore.Entity(_TASKQUEUE_KIND, name=str(task['name']), 
+      entity = datastore.Entity(_TASKQUEUE_KIND, name=str(taskname),
                                 namespace='')
       try:
         datastore.Delete(entity)

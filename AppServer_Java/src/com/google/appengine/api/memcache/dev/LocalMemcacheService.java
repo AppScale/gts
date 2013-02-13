@@ -20,10 +20,14 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.xml.bind.DatatypeConverter;
 
 import net.spy.memcached.CASResponse;
 import net.spy.memcached.CASValue;
 import net.spy.memcached.MemcachedClient;
+import net.spy.memcached.ConnectionFactory;
+import net.spy.memcached.DefaultConnectionFactory;
+import net.spy.memcached.HashAlgorithm;
 
 import com.google.appengine.api.memcache.MemcacheSerialization;
 import com.google.appengine.api.memcache.MemcacheServiceException;
@@ -97,7 +101,20 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
          */
         logger.fine("Memcache set, key= [" + keyToString(key) + "]");
         int exp = (int)((entry.getExpires() - System.currentTimeMillis()) / 1000 + 1);
-        memcacheClient.set(keyToString(key), exp, entry);
+        Future<Boolean> response = memcacheClient.set(keyToString(key), exp, entry);
+        try
+        {
+            Boolean successful = response.get();
+            logger.fine("Memcache set response for key [" + keyToString(key) + "] was [" + successful.toString() + "]");
+        }
+        catch(InterruptedException e)
+        {
+            logger.warning("InteruptedException getting memcache set response for key [" + keyToString(key) + "]");
+        }
+        catch(ExecutionException e)
+        {
+            logger.warning("ExecutionException getting memcache set response for key [" + keyToString(key) + "]");
+        }
     }
 
     public String getPackage()
@@ -148,10 +165,12 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
             // Read File Line By Line
             while ((strLine = br.readLine()) != null)
             {
-                // Print the content on the console
                 String ip = strLine;
-                logger.info("Memcache adding ip: " + strLine);
-                if (isIp(ip)) ipList.add(new InetSocketAddress(ip, MEMCACHE_PORT));
+                if (isIp(ip))
+                { 
+                    logger.info("Memcache client - adding ip: " + ip);
+                    ipList.add(new InetSocketAddress(ip, MEMCACHE_PORT));
+                }
             }
             // Close the input stream
             in.close();
@@ -162,8 +181,16 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
         }
         try
         {
-            memcacheClient = new MemcachedClient(ipList);
-            memcacheClient.flush();
+	    /*
+	     * AppScale - using FN1A_64_HASH as the hashing algorithm
+	     * because keys were being hashed to the incorrect
+	     * server with the default hashing algorithm. 
+             */
+            ConnectionFactory connFactory = new DefaultConnectionFactory(
+                    DefaultConnectionFactory.DEFAULT_OP_QUEUE_LEN,
+                    DefaultConnectionFactory.DEFAULT_READ_BUFFER_SIZE,
+                    net.spy.memcached.DefaultHashAlgorithm.FNV1A_64_HASH);
+            memcacheClient = new MemcachedClient(connFactory, ipList);
         }
         catch (IOException e)
         {
@@ -711,7 +738,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
      */
     private CacheEntry internalGet( String internalKey )
     {
-        logger.fine("Memcache internalGet(...), key = [" + internalKey + "]");
+        logger.fine("Memcache internalGet(), key = [" + internalKey + "]");
         Object res = memcacheClient.get(internalKey);
         if (res != null)
         {
@@ -756,7 +783,14 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
      */
     private String getInternalKey( String namespace, Key key )
     {
-        return "__" + appName + "__" + namespace + "__" + new String(key.getBytes());
+        /*
+         * AppScale - encoding the key because the sdk allows spaces and 
+         * lots of other special characters and our memcache client does 
+         * not. 
+         */
+        String encodedKey = DatatypeConverter.printBase64Binary(key.getBytes());
+        String internalKey = "__" + appName + "__" + namespace + "__" + encodedKey;
+        return internalKey;
     }
 
     /*
