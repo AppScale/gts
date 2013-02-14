@@ -2837,6 +2837,7 @@ HOSTS
       end
     rescue Timeout::Error
       Djinn.log_debug("Couldn't start the AppController at #{ip}. Retrying.")
+      retry
     end
     
     Djinn.log_debug("Sending data to #{ip}")
