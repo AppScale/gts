@@ -55,3 +55,5 @@ JAVA = "java"
 # Go programs
 GO = "go"
 
+# Location where applications are stored
+APPS_PATH = "/var/apps/"

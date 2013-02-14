@@ -21,8 +21,8 @@ SERVER_PORT = 64839
 task_queue = None
 
 class QueuesHandler(tornado.web.RequestHandler):
-  """ Gets request with a path to a queue.yaml file. 
-      Must only be called on the taskqueue master node.
+  """ Gets request with the application id.
+      Should be called on the taskqueue master node.
   """
   @tornado.web.asynchronous
   def get(self):
@@ -37,9 +37,9 @@ class QueuesHandler(tornado.web.RequestHandler):
   def post(self):
     """ Function which handles POST requests. Data of the request is 
         the request from the AppController in an a JSON string. 
-        The JSON string must contain the application name and the 
-        location of the queue.yaml file. Replies with a JSON string
-        of the configuration file to be sent to all workers.
+        The JSON string must contain the application name. 
+        Replies with a JSON string of the configuration file to be sent 
+        to all workers.
     """
     global task_queue    
     request = self.request

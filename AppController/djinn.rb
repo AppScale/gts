@@ -22,6 +22,7 @@ require 'zookeeper'
 $:.unshift File.join(File.dirname(__FILE__), "lib")
 require 'app_controller_client'
 require 'app_manager_client'
+require 'taskqueue_client'
 require 'blobstore'
 require 'custom_exceptions'
 require 'ejabberd'
@@ -3019,7 +3020,13 @@ HOSTS
         end
         HelperFunctions.setup_app(app)
 
-         
+        # Start up taskqueue workers on this local machine 
+        if my_node.is_rabbitmq_master? or my_node.is_rabbitmq_slave?
+          tqc = TaskQueueClient()
+          result = tqc.start_worker(app) 
+          Djinn.log_debug("Starting TaskQueue workers for app #{app}: #{result}")
+        end   
+
         if my_node.is_shadow?
           CronHelper.update_cron(my_public, app_language, app)
           start_xmpp_for_app(app, app_language)

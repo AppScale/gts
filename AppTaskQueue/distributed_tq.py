@@ -120,8 +120,7 @@ class DistributedTaskQueue():
         queues, reloading them, or shutting them down.
 
     Args:
-      json_request: A JSON string containing the app_id and 
-                    the location of the queue.yaml file.
+      json_request: A JSON string containing the app_id.
     Returns:
       A JSON string of the result which depends on the type
       of command which was issued.
@@ -145,23 +144,9 @@ class DistributedTaskQueue():
     # Load the queue info
     config_file = None
     if 'reload' == command:
-      #TODO correctly reload the new configurations
-      #if 'queue_yaml' not in request:
-      #  return json.dumps({'error': True, 'reason': 'Missing queue_yaml tag'})
-      # queue_yaml = request['queue_yaml'] 
-      #config.load_queues_from_db()
-      #config_file = config.create_celery_file(TaskQueueConfig.QUEUE_INFO_FILE) 
-      #worker_file = config.create_celery_worker_scripts(
-      #                  TaskQueueConfig.QUEUE_INFO_FILE)
-      #result = self.copy_config_files(config_file, worker_file) 
-      #json_response = self.start_all_workers(app_id, result)
-      #return json.dumps(json_response) 
       return json.dumps({'error': True, 'reason': 'Reload not implemented'})
     elif 'update' == command:
-      if 'queue_yaml' not in request:
-        return json.dumps({'error': True, 'reason': 'Missing queue_yaml tag'})
-      queue_yaml = request['queue_yaml'] 
-      config.load_queues_from_file(queue_yaml)
+      config.load_queues_from_file(app_id)
       config_file = config.create_celery_file(TaskQueueConfig.QUEUE_INFO_FILE) 
       worker_file = config.create_celery_worker_scripts(
                         TaskQueueConfig.QUEUE_INFO_FILE)

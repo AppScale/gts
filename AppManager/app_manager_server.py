@@ -57,7 +57,6 @@ def convert_config_from_json(config):
   Returns:
     None if it failed to convert the config and a dictionary if it succeeded
   """
-
   logging.info("Configuration for app:" + str(config))
   try:
     config = json.loads(config)
@@ -91,7 +90,6 @@ def start_app(config):
   Returns:
     PID of process on success, -1 otherwise
   """
-
   config = convert_config_from_json(config)
   if config == None:
     logging.error("Invalid configuration for application")
@@ -120,7 +118,7 @@ def start_app(config):
                             config['xmpp_ip'],
                             config['dblocations'],
                             config['language'])
-    logging.warning(start_cmd)
+    logging.info(start_cmd)
     stop_cmd = create_python_stop_cmd(config['app_port'], config['language'])
     env_vars = create_python_app_env(config['load_balancer_ip'], 
                             config['load_balancer_port'], 
@@ -178,7 +176,6 @@ def stop_app_instance(app_name, port):
   Returns:
     True on success, False otherwise
   """
-
   if not misc.is_app_name_valid(app_name): 
     logging.error("Unable to kill app process %s on port %d because of " +\
                   "invalid name for application"%(app_name, int(port)))
@@ -211,7 +208,6 @@ def stop_app(app_name):
   Returns:
     True on success, False otherwise
   """
-
   if not misc.is_app_name_valid(app_name): 
     logging.error("Unable to kill app process %s on because of " +\
                   "invalid name for application"%(app_name))
@@ -225,8 +221,8 @@ def stop_app(app_name):
     logging.error("Unable to shut down god interface for watch %s"%watch)
     return False
 
-  # hack: God fails to shutdown processes so we do it via a system command
-  # TODO: fix it or find an alternative to god
+  # Hack: God fails to shutdown processes so we do it via a system command.
+  # TODO: Fix it or find an alternative to god.
   cmd = "ps -ef | grep \"dev_appserver\|AppServer_Java\" | grep " + \
         app_name + " | grep -v grep | grep cookie_secret | awk '{print $2}' " +\
         "| xargs kill -9"
@@ -246,9 +242,9 @@ def stop_app(app_name):
 
   return True
 
-######################
-# Private Functions
-######################
+############################################
+# Private Functions (but public for testing)
+############################################
 def get_pid_from_port(port):
   """ Gets the PID of the process bound to the given port.
    
@@ -257,7 +253,6 @@ def get_pid_from_port(port):
   Returns:
     The PID on success, and -1 on failure
   """ 
-  
   if not str(port).isdigit(): return BAD_PID
 
   s = os.popen("lsof -i:" + str(port) + " | grep -v COMMAND | awk {'print $2'}")
@@ -276,7 +271,6 @@ def wait_on_app(port):
   Returns:
     True on success, False otherwise
   """
-
   backoff = INITIAL_BACKOFF_TIME
   retries = MAX_FETCH_ATTEMPTS
   private_ip = appscale_info.get_private_ip()
@@ -309,7 +303,6 @@ def choose_db_location(db_locations):
   Raise:
     ValueError: if there are no locations given in the args.
   """
-
   if len(db_locations) == 0: 
     raise ValueError("DB locations " + \
                      "were not correctly set: " + str(db_locations))
@@ -327,7 +320,6 @@ def create_python_app_env(public_ip, port, app_name):
   Returns:
     A dictionary containing the environment variables
   """
-
   env_vars = {}
   env_vars['MY_IP_ADDRESS'] = public_ip
   env_vars['MY_PORT'] = str(port)
@@ -367,7 +359,6 @@ def create_python_start_cmd(app_name,
   Returns:
     A string of the start command.
   """
-
   db_location = choose_db_location(db_locations)
   python = choose_python_executable(py_version)
   cmd = [python,
@@ -434,7 +425,6 @@ def create_java_start_cmd(app_name,
   Returns:
     A string of the start command.
   """
-
   db_location = choose_db_location(db_locations)
 
   cmd = ["cd " + constants.JAVA_APPSERVER + " &&",
@@ -504,7 +494,6 @@ def create_java_stop_cmd(port):
   Returns:
     A string of the stop command.
   """
-
   cmd = ["appengine-java-sdk-repacked/bin/dev_appserver.sh",
          "--port=" + str(port),
          "--address=" + appscale_info.get_private_ip(),
@@ -524,7 +513,6 @@ def is_config_valid(config):
   Returns:
     True if valid, False otherwise
   """
-
   for ii in REQUIRED_CONFIG_FIELDS:
     try:
       if config[ii]:

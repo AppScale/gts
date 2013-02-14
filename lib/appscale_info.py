@@ -64,3 +64,12 @@ def get_taskqueue_nodes():
     nodes = nodes[:-1]
   return nodes
 
+def get_app_path(app_id):
+  """ Returns the application path.
+  
+  Args:
+    app_id: The application id.
+  Returns:
+    A string of the full path of where the application is.
+  """
+  return constants.APPS_PATH + app_id + '/app/'

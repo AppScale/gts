@@ -49,6 +49,8 @@ def exists(file_name):
   
   Args:
     file_name: The file to check if it exists. 
+  Returns:
+    True if it exists, False otherwise.
   """
   return os.path.exists(file_name)
 

@@ -4,11 +4,13 @@
 import os
 import sys
 import unittest
+import urllib2
 
 from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 from tq_config import TaskQueueConfig
+from tq_config import TaskQueueClient
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
 import file_io
@@ -33,6 +35,74 @@ queue:
   rate: 10/m
 """
 
+sample_queue_xml = \
+"""<?xml version="1.0" encoding="utf-8"?>
+<queue-entries>
+  <total-storage-limit>1000M</total-storage-limit>
+  <queue>
+    <name>default</name>
+    <rate>100/s</rate>
+    <bucket-size>100</bucket-size>
+    <retry-parameters>
+      <task-age-limit>3d</task-age-limit>
+    </retry-parameters>
+    <max-concurrent-requests>
+      300
+    </max-concurrent-requests>
+  </queue>
+  <queue>
+    <name>mapreduce-workers</name>
+    <rate>100/s</rate>
+    <bucket-size>100</bucket-size>
+    <retry-parameters>
+      <task-age-limit>3d</task-age-limit>
+    </retry-parameters>
+    <max-concurrent-requests>
+      100
+    </max-concurrent-requests>
+  </queue>
+</queue-entries>
+"""
+
+class FakeConnection():
+  def __init__(self):
+    pass
+  def add_header(self, arg1, arg2):
+    pass
+class FakeResponse():
+  def __init__(self):
+    pass
+  def read(self):
+    return "{}" 
+
+class TestTaskQueueClient(unittest.TestCase):
+  """ 
+  A set of tests to test the taskqueue client module.
+  """
+  def test_constructor(self):
+    tqc = TaskQueueClient("localhost:8111")
+
+  def test_start_queues(self):
+    tqc = TaskQueueClient("localhost:8111")
+    flexmock(TaskQueueClient) \
+       .should_receive("remote_request").and_return({'localhost':{'error':False}})
+    tqc.start_queues('app_id')
+
+  def test_stop_queues(self):
+    tqc = TaskQueueClient("localhost:8111")
+    flexmock(TaskQueueClient) \
+       .should_receive("remote_request").and_return({'localhost':{'error':False}})
+    tqc.stop_queues('app_id') 
+
+  def test_remote_request(self):
+    flexmock(urllib2) \
+       .should_receive("Request").and_return(FakeConnection())
+    flexmock(urllib2) \
+       .should_receive("urlopen").and_return(FakeResponse())
+    tqc = TaskQueueClient("localhost:8111")
+    payload = {'whatever':'testing'}
+    self.assertEquals(tqc.remote_request(payload), {})
+
 class TestTaskQueueConfig(unittest.TestCase):
   """
   A set of test cases for the taskqueue configuration module.
@@ -51,12 +121,14 @@ class TestTaskQueueConfig(unittest.TestCase):
     flexmock(file_io) \
        .should_receive("read").and_return(sample_queue_yaml)
     flexmock(file_io) \
+       .should_receive("exists").and_return(True)
+    flexmock(file_io) \
        .should_receive("write").and_return(None)
     flexmock(file_io) \
        .should_receive("mkdir").and_return(None)
     tqc = TaskQueueConfig(TaskQueueConfig.RABBITMQ, 
                           'myapp')
-    queue_info = tqc.load_queues_from_file('/some/path')
+    queue_info = tqc.load_queues_from_file('app_id')
     self.assertEquals(queue_info, {'queue':[{'name': 'default',
                                              'rate': '5/s'},
                                             {'name': 'foo',
@@ -66,7 +138,7 @@ class TestTaskQueueConfig(unittest.TestCase):
        .should_receive("read").and_return('blah').and_raise(IOError)
     tqc = TaskQueueConfig(TaskQueueConfig.RABBITMQ, 
                           'myapp')
-    queue_info = tqc.load_queues_from_file('/some/path')
+    queue_info = tqc.load_queues_from_file('app_id')
     self.assertEquals(queue_info, {'queue':[{'name': 'default',
                                              'rate': '5/s'}]})
 
@@ -76,12 +148,26 @@ class TestTaskQueueConfig(unittest.TestCase):
        .should_receive("write").and_return(None)
     tqc = TaskQueueConfig(TaskQueueConfig.RABBITMQ, 
                           'myapp')
-    queue_info = tqc.load_queues_from_file('/some/path')
+    queue_info = tqc.load_queues_from_file('app_id')
     self.assertEquals(queue_info, {'queue':[{'name': 'foo',
                                              'rate': '10/m'},
                                             {'name': 'default',
                                              'rate': '5/s'},
                                             ]})
+
+  def test_load_queues_from_xml_file(self):
+    flexmock(file_io) \
+       .should_receive("read").and_return(sample_queue_xml)
+    flexmock(file_io) \
+       .should_receive("exists").and_return(False).and_return(True)
+    flexmock(file_io) \
+       .should_receive("write").and_return(None)
+    flexmock(file_io) \
+       .should_receive("mkdir").and_return(None)
+    tqc = TaskQueueConfig(TaskQueueConfig.RABBITMQ, 
+                          'myapp')
+    queue_info = tqc.load_queues_from_file('app_id')
+    self.assertEquals(queue_info, {'queue': [{'max_concurrent_requests': '300', 'rate': '100/s', 'bucket_size': '100', 'name': 'default', 'retry_parameters': {'task_age_limit': '3d'}}, {'max_concurrent_requests': '100', 'rate': '100/s', 'bucket_size': '100', 'name': 'mapreduce-workers', 'retry_parameters': {'task_age_limit': '3d'}}]})
 
   def test_load_queues_from_db(self):
     flexmock(file_io) \
@@ -106,6 +192,8 @@ class TestTaskQueueConfig(unittest.TestCase):
        .should_receive("write").and_return(None)
     flexmock(file_io) \
        .should_receive("mkdir").and_return(None)
+    flexmock(file_io) \
+       .should_receive('exists').and_return(True)
     flexmock(datastore).should_receive("Put").\
          and_return()
     tqc = TaskQueueConfig(TaskQueueConfig.RABBITMQ, 
@@ -115,13 +203,15 @@ class TestTaskQueueConfig(unittest.TestCase):
       raise
     except ValueError:
       pass
-    queue_info = tqc.load_queues_from_file('/some/path')
+    queue_info = tqc.load_queues_from_file('app_id')
     queue_info = tqc.save_queues_to_db()
   
   def test_load_queues(self):
     flexmock(file_io) \
        .should_receive("read").and_return(sample_queue_yaml2)
     flexmock(file_io) \
+       .should_receive("exists").and_return(True)
+    flexmock(file_io) \
        .should_receive("write").and_return(None)
     flexmock(file_io) \
        .should_receive("mkdir").and_return(None)
@@ -129,13 +219,15 @@ class TestTaskQueueConfig(unittest.TestCase):
          and_return({TaskQueueConfig.QUEUE_INFO: '{"queue":[{"name": "foo", "rate": "10/m"}]}'})
     tqc = TaskQueueConfig(TaskQueueConfig.RABBITMQ, 
                           'myapp')
-    queue_info = tqc.load_queues_from_file('/some/path')
+    queue_info = tqc.load_queues_from_file('app_id')
     queue_info = tqc.load_queues_from_db()
 
   def test_create_celery_file(self):
     flexmock(file_io) \
        .should_receive("read").and_return(sample_queue_yaml2)
     flexmock(file_io) \
+       .should_receive("exists").and_return(True)
+    flexmock(file_io) \
        .should_receive("write").and_return(None)
     flexmock(file_io) \
        .should_receive("mkdir").and_return(None)
@@ -143,7 +235,8 @@ class TestTaskQueueConfig(unittest.TestCase):
          and_return({TaskQueueConfig.QUEUE_INFO: '{"queue":[{"name": "foo", "rate": "10/m"}]}'})
     tqc = TaskQueueConfig(TaskQueueConfig.RABBITMQ, 
                           'myapp')
-    queue_info = tqc.load_queues_from_file('/some/path')
+    flexmock(file_io).should_receive("read").and_return(sample_queue_yaml2)
+    queue_info = tqc.load_queues_from_file('app_id')
     queue_info = tqc.load_queues_from_db()
 
     # making sure it does not throw an exception
@@ -161,19 +254,21 @@ class TestTaskQueueConfig(unittest.TestCase):
          and_return({TaskQueueConfig.QUEUE_INFO: '{"queue":[{"name": "foo", "rate": "10/m"}]}'})
     tqc = TaskQueueConfig(TaskQueueConfig.RABBITMQ, 
                           'myapp')
-    queue_info = tqc.load_queues_from_file('/some/path')
+    flexmock(file_io) \
+       .should_receive("exists").and_return(True)
+    queue_info = tqc.load_queues_from_file('app_id')
     queue_info = tqc.load_queues_from_db()
-    FILE1 = open(os.path.dirname(__file__) + '/../../templates/header.py', 'r')
+    FILE1 = open(os.path.dirname(os.path.realpath(__file__)) + '/../../templates/header.py', 'r')
     file1 = FILE1.read()
     FILE1.close()
-    FILE2 = open(os.path.dirname(__file__) + '/../../templates/task.py', 'r')
+    FILE2 = open(os.path.dirname(os.path.realpath(__file__)) + '/../../templates/task.py', 'r')
     file2 = FILE2.read()
     FILE2.close()
 
     flexmock(file_io).should_receive('write').and_return(None)
     flexmock(file_io).should_receive("read").and_return(file1).and_return(file2)
-    self.assertEquals(tqc.create_celery_worker_scripts(TaskQueueConfig.QUEUE_INFO_DB), TaskQueueConfig.CELERY_WORKER_DIR + 'app__myapp.py')
-    self.assertEquals(tqc.create_celery_worker_scripts(TaskQueueConfig.QUEUE_INFO_FILE), TaskQueueConfig.CELERY_WORKER_DIR + 'app__myapp.py')
+    self.assertEquals(tqc.create_celery_worker_scripts(TaskQueueConfig.QUEUE_INFO_DB), TaskQueueConfig.CELERY_WORKER_DIR + 'app___myapp.py')
+    self.assertEquals(tqc.create_celery_worker_scripts(TaskQueueConfig.QUEUE_INFO_FILE), TaskQueueConfig.CELERY_WORKER_DIR + 'app___myapp.py')
 
   def test_validate_queue_name(self):
     flexmock(file_io).should_receive("read").and_return(sample_queue_yaml2)

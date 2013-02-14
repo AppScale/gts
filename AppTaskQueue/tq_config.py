@@ -1,13 +1,16 @@
 """ 
     AppScale TaskQueue configuration class. It deals with the configuration
-    file given with an application 'queue.yaml' and also, when a previous
-    version was deployed, the older configuration from the database
+    file given with an application 'queue.yaml' or 'queue.xml'.
+    When a previous version was deployed, the older configuration from the database
 """
 
 import json
 import os
 import re
 import sys 
+import urllib2
+
+import xml.etree.ElementTree as et
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.api import queueinfo
@@ -15,7 +18,9 @@ from google.appengine.api import datastore
 from google.appengine.api import datastore_types
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
+import appscale_info
 import file_io
+import xmltodict
 
 class TaskQueueConfig():
   """ Contains configuration of the TaskQueue system. """
@@ -26,7 +31,7 @@ class TaskQueueConfig():
   # Enum code for broker to use
   RABBITMQ = 0
 
-  # The default YAML used if a queue.yaml is not supplied.
+  # The default YAML used if a queue.yaml or queue.xml is not supplied.
   DEFAULT_QUEUE_YAML = \
 """
 queue:
@@ -69,6 +74,17 @@ queue:
 
   QUEUE_NAME_RE = re.compile(QUEUE_NAME_PATTERN)
 
+  # XML configs use "-" while yaml uses "_". These are the tags which 
+  # need to be converted to match the yaml tags.
+  YAML_TO_XML_TAGS_TO_CONVERT = ['bucket-size', 'max-concurrent-request', 
+                                 'retry-parameters', 'task-age-limit', 
+                                 'total-storage-limit', 'user-email',
+                                 'write-email', 'min-backoff-seconds',
+                                 'max-backoff-seconds', 'max-doublings',
+                                 'task-retry-limit', 'max-concurrent-requests']
+
+  # Tags from queue.xml that are ignored.
+  TAGS_TO_IGNORE = ['#text']
 
   def __init__(self, broker, app_id):
     """ Configuration constructor. 
@@ -85,22 +101,55 @@ queue:
     file_io.mkdir(self.CELERY_CONFIG_DIR)
     file_io.mkdir(self.CELERY_WORKER_DIR)
 
-  def load_queues_from_file(self, queue_file):
-    """ Parses the queue.yaml file of an application
+  def get_queue_file_location(self, app_id):
+    """ Gets the location of the queue.yaml or queue.xml file
+        of a given application.
+    Args:
+      app_id: The application ID.
+    Returns:
+      The location of the queue.yaml or queue.xml file, and 
+      an empty string if it could not be found.
+    """
+    queue_yaml = appscale_info.get_app_path(app_id) + 'queue.yaml'
+    queue_xml = appscale_info.get_app_path(app_id) + '/war/queue.xml' 
+    if file_io.exists(queue_yaml):
+      return queue_yaml
+    elif file_io.exists(queue_xml):
+      return queue_xml
+    else:
+      return ""
+
+  def load_queues_from_file(self, app_id):
+    """ Parses the queue.yaml or queue.xml file of an application
         and loads it into the class.
    
     Args:
-      queue_file: Full path of a queue file.
+      app_id: The application ID.
     Returns:
       A dictionary of the queue settings.
+    Raises:
+      ValueError: If queue_file is unable to get loaded.
     """
+    queue_file = self.get_queue_file_location(app_id)
     info = ""
+    using_default = False
     try:
       info = file_io.read(queue_file)
     except IOError:
       info = self.DEFAULT_QUEUE_YAML
+      using_default = True
+    queue_info = ""
 
-    queue_info = queueinfo.LoadSingleQueue(info).ToDict()
+    #TODO handle bad xml/yaml files.
+    if queue_file.endswith('yaml') or using_default:
+      queue_info = queueinfo.LoadSingleQueue(info).ToDict()
+    elif queue_file.endswith('xml'):
+      queue_info = self.parse_queue_xml(info)
+    else:
+      raise ValueError("Unable to load queue information with %s" % queue_file)
+
+    if not queue_info:
+      raise ValueError("Queue information with %s not set" % queue_file)
 
     # We add in the default queue if its not already in there.
     has_default = False
@@ -113,8 +162,41 @@ queue:
     self._queue_info_file = queue_info
     return queue_info 
 
+  def parse_queue_xml(self, xml_string):
+    """ Turns an xml string into a dictionary tree using the 
+        same format at the yaml conversion.
+
+    Args:
+      xml: A string contents in XML format.
+    Returns:
+      A dictionary tree of the xml.
+    """
+    xml_dict = xmltodict.parse(xml_string)
+    # Now we convert it to look the same as the yaml dictionary
+    converted = {'queue':[]}
+    for queue in xml_dict['queue-entries']['queue']:
+      single_queue = {}
+      for tag in queue:
+        value = queue[tag]
+        if tag in self.YAML_TO_XML_TAGS_TO_CONVERT:
+          tag = tag.replace('-','_')
+        if tag == "retry_parameters":
+          retry_dict = {}
+          for retry_tag in queue['retry-parameters']:
+            value = queue['retry-parameters'][retry_tag]
+            if retry_tag in self.YAML_TO_XML_TAGS_TO_CONVERT:
+              retry_tag = retry_tag.replace('-','_')
+            if retry_tag not in self.TAGS_TO_IGNORE:
+              retry_dict[str(retry_tag)] = str(value).strip('\n ')
+          single_queue['retry_parameters'] = retry_dict
+        elif tag not in self.TAGS_TO_IGNORE:
+          single_queue[str(tag)] = str(value).strip('\n ')
+
+      converted['queue'].append(single_queue)
+    return converted
+
   def get_file_queue_info(self):
-    """ Retrives the queues declared in the queue.yaml 
+    """ Retrives the queues declared in the queue.yaml or queue.xml
         configuration. 
    
     Returns:
@@ -173,8 +255,8 @@ queue:
         a configuration file for setup.
 
     Args:
-      input_type: Whether to use the yaml file or the 
-                  database queue info. Default: yaml file.
+      input_type: Whether to use the config file or the 
+                  database queue info. Default: config file.
     Returns: 
       The full path of the worker script.
     """
@@ -277,12 +359,12 @@ queue:
   def create_celery_file(self, input_type):
     """ Creates the Celery configuration file describing 
         queues and exchanges for an application. Uses either
-        the queue.yaml input or what was stored in the 
+        the queue.yaml/queue.xml input or what was stored in the 
         datastore to create the celery file. 
 
     Args:
-      input_type: Whether to use the yaml file or the 
-                  database queue info. Default: yaml file.
+      input_type: Whether to use the config file or the 
+                  database queue info. Default: config file.
     Returns:
       A string representing the full path location of the 
       configuration file.
@@ -389,3 +471,69 @@ CELERY_STORE_ERRORS_EVEN_IF_IGNORED = True
       A string to reference the queue name in celery.
     """
     return app_id + "___" + queue_name
+
+class TaskQueueClient():
+  """ A client to connect to the taskqueue server. """
+  def __init__(self, tq_server_location):
+    """ Constructor. """
+    self.__tq_server_location = tq_server_location
+
+  def start_queues(self, app_id):
+    """ Starts the queues of a given app.
+    
+    Args:
+      app_id: The application ID.
+    Returns:
+      Dictionary result of starting process.
+    """
+    request_payload = {'app_id': app_id,
+                       'command': 'update'}
+    response = self.remote_request(request_payload)
+    return response
+
+  def stop_queues(self, app_id):
+    """ Stops the queues of a given app.
+    
+    Args:
+      app_id: The application ID.
+    Returns:
+      Dictionary result of stoping process.
+    """
+    request_payload = {'app_id': app_id,
+                       'command': 'stop'}
+    response = self.remote_request(request_payload)
+    return response
+
+  def remote_request(self, payload):
+    """ Send a remote request.
+   
+    Args:
+      payload: JSON to send.
+    Returns:
+      JSON reponse from server.
+    """
+    req = urllib2.Request('http://' + self.__tq_server_location  + \
+                          ':64839/queues')
+    payload = json.dumps(payload)
+    req.add_header('Content-Type', 'application/json')
+    req.add_header('Content-Length', "%d" % len(payload))
+    response = urllib2.urlopen(req, payload)
+    response_payload = response.read()
+    try:
+      response_payload = json.loads(response_payload)
+      return response_payload
+    except ValueError, value_error:
+      return {'error': True,
+              'reason':
+              str("Badly formed json response from worker: %s" % \
+                                         str(value_error))}
+    except urllib2.URLError, url_error:
+      return {'error': True,
+              'reason': str("URLError: %s" % str(url_error))}
+    except IOError, io_error:
+      return {'error': True,
+              'reason': str(io_error)}
+    except Exception, exception:
+      return {'error': True,
+              'reason': str(exception.__class__) + "  " + str(exception)}
+

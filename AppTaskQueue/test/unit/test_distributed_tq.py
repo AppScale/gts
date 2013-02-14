@@ -73,10 +73,14 @@ class TestDistributedTaskQueue(unittest.TestCase):
        .should_receive("create_celery_file").and_return("/some/file")
     flexmock(TaskQueueConfig)\
        .should_receive("create_celery_worker_scripts").and_return("/some/file")
+    flexmock(TaskQueueConfig)\
+       .should_receive("load_queues_from_file").and_return()
+    flexmock(DistributedTaskQueue)\
+       .should_receive("copy_config_files").and_return({})
     flexmock(DistributedTaskQueue)\
        .should_receive("start_all_workers").and_return({})
- 
     dtq = DistributedTaskQueue()
+   
     response = json.loads(dtq.run_queue_operation('{}'))
     self.assertEquals(response['error'], True)
     self.assertEquals(response['reason'], 'Missing app_id tag')
@@ -85,7 +89,7 @@ class TestDistributedTaskQueue(unittest.TestCase):
     self.assertEquals(response['error'], True)
     self.assertEquals(response['reason'], 'Missing command tag')
 
-    response = json.loads(dtq.run_queue_operation('{"queue_yaml":"hey"}'))
+    response = json.loads(dtq.run_queue_operation('{"queue_yaml":"hey.yaml"}'))
     self.assertEquals(response['error'], True)
     self.assertEquals(response['reason'], 'Missing app_id tag')
   
@@ -93,11 +97,11 @@ class TestDistributedTaskQueue(unittest.TestCase):
     self.assertEquals(response['error'], True)
     self.assertEquals(response['reason'], 'Badly formed JSON')
 
-    response = json.loads(dtq.run_queue_operation('{"app_id":"hey", "queue_yaml":"/var/log/appscale/guestbook/app/queue.yaml"}'))
+    response = json.loads(dtq.run_queue_operation('{"app_id":"hey"}'))
     self.assertEquals(response['error'], True)
     self.assertEquals(response['reason'], 'Missing command tag')
 
-    response = json.loads(dtq.run_queue_operation('{"app_id":"hey", "queue_yaml":"/var/log/appscale/guestbook/app/queue.yaml", "command":"update"}'))
+    response = json.loads(dtq.run_queue_operation('{"app_id":"hey", "command":"update"}'))
  
   def test_start_worker(self):
     flexmock(file_io).should_receive("mkdir").and_return(None)
