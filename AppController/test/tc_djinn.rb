@@ -833,6 +833,8 @@ class TestDjinn < Test::Unit::TestCase
       with("/usr/local/nginx/sbin/nginx stop").and_return()
     flexmock(HelperFunctions).should_receive(:shell).
       with("/usr/local/nginx/sbin/nginx start -c #{nginx_conf}").and_return()
+    flexmock(HelperFunctions).should_receive(:shell).
+      with("/usr/local/nginx/sbin/nginx -c /usr/local/nginx/conf/nginx.conf").and_return()
 
     djinn = Djinn.new()
     djinn.nodes = [original_node]
