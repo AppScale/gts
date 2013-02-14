@@ -47,6 +47,7 @@ case "$1" in
 	postinstallzookeeper
         installrabbitmq
         postinstallrabbitmq
+        installcelery
 	installservice
 	postinstallservice
 	updatealternatives
@@ -87,6 +88,9 @@ case "$1" in
         installrabbitmq
         postinstallrabbitmq
         ;; 
+    celery)
+        installcelery
+        ;;
     all)
 	# scratch install of appscale including post script.
 	installappscaleprofile
@@ -128,6 +132,7 @@ case "$1" in
 	postinstallmysql
         installrabbitmq
         postinstallrabbitmq
+        install celery
 	installservice
 	postinstallservice
 	updatealternatives
