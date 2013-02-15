@@ -1468,7 +1468,7 @@ class Djinn
         # unresolvable private ip)
         Djinn.log_debug("Setting uaserver public ip to #{node_public_ip}")
         Djinn.log_debug("Setting uaserver private ip to #{node_private_ip}")
-        @userappserver_public_ip = node_public_ip
+        @userappserver_public_ip = node.public_ip
         @userappserver_private_ip = node_private_ip
         return
       end
