@@ -1,6 +1,10 @@
 #!/usr/bin/ruby -w
 
 
+# First-party Ruby libraries
+require 'timeout'
+
+
 # Imports for AppController libraries
 $:.unshift File.join(File.dirname(__FILE__))
 require 'godinterface'
@@ -76,7 +80,7 @@ module RabbitMQ
     Djinn.log_debug("Waiting for RabbitMQ on local node to come up")
 
     begin
-      Timeout::timeout(300) do
+      Timeout::timeout(60) do
         HelperFunctions.sleep_until_port_is_open("localhost", SERVER_PORT)
         Djinn.log_debug("Done starting rabbitmq_slave on this node")
       end
