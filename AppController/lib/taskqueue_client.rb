@@ -126,7 +126,7 @@ class TaskQueueClient
    #   True on success, False otherwise.
    def stop_worker(app_name)
     config = {'app_name' => app_name, 
-              'command' => 'update')
+              'command' => 'update'}
     json_config = JSON.dump(config)
     result = ""
     make_call(MAX_TIME_OUT, false, "stop_worker"){

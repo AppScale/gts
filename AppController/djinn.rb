@@ -712,6 +712,13 @@ class Djinn
         end
       end    
 
+      # Stop taskqueue on this local machine.
+      if my_node.is_rabbitmq_master? or my_node.is_rabbitmq_slave?
+        tqc = TaskQueueClient()
+        result = tqc.stop_worker(app) 
+        Djinn.log_debug("Stopping TaskQueue workers for app #{app}: #{result}")
+      end
+
       if my_node.is_appengine?
         app_manager = AppManagerClient.new()
         Djinn.log_debug("(stop_app) Calling AppManager for app #{app_name}")
