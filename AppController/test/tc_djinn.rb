@@ -81,7 +81,7 @@ class TestDjinn < Test::Unit::TestCase
     djinn = Djinn.new
     djinn.nodes = [node1, node2]
 
-    role1_to_hash, role2_to_hash = djinn.get_role_info(@secret)
+    role1_to_hash, role2_to_hash = JSON.load(djinn.get_role_info(@secret))
   
     # make sure role1 got hashed fine
     assert_equal("public_ip", role1_to_hash['public_ip'])
@@ -671,7 +671,7 @@ class TestDjinn < Test::Unit::TestCase
     # currently there is a bug in appscale where we can't scale up
     # from a one node deployment - take out this test case once we
     # fix that bug.
-    ips_hash = {'appengine' => ['node-1', 'node-2']}
+    ips_hash = JSON.dump({'appengine' => ['node-1', 'node-2']})
     djinn = Djinn.new()
     djinn.nodes = [1]
     expected = Djinn::CANT_SCALE_FROM_ONE_NODE
@@ -680,7 +680,7 @@ class TestDjinn < Test::Unit::TestCase
   end
 
   def test_start_roles_on_nodes_in_xen
-    ips_hash = {'appengine' => ['node-1', 'node-2']}
+    ips_hash = JSON.dump({'appengine' => ['node-1', 'node-2']})
     djinn = Djinn.new()
     djinn.nodes = [1, 2]
     expected = {'node-1' => ['appengine'], 'node-2' => ['appengine']}
@@ -810,7 +810,6 @@ class TestDjinn < Test::Unit::TestCase
     nginx_conf = "/usr/local/nginx/conf/sites-enabled/booapp.conf"
     flexmock(File).should_receive(:open).with(nginx_conf, "w+", Proc).and_return()
     flexmock(HelperFunctions).should_receive(:shell).and_return()
-
     djinn = Djinn.new()
     djinn.nodes = [original_node]
     djinn.my_index = 0
