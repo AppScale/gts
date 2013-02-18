@@ -2,9 +2,9 @@
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
 require 'base64'
+require 'helperfunctions'
 require 'json'
 require 'timeout'
-require 'helperfunctions'
 
 # Number of seconds to wait before timing out when doing a remote call.
 # This number should be higher than the maximum time required for remote calls
@@ -23,7 +23,6 @@ class TaskQueueClient
   SERVER_PORT = 64839
 
   # Initialization function for TaskQueueClient
-  #
   def initialize(host)
     self.host = "localhost"
   end

@@ -117,7 +117,7 @@ module TaskQueue
     self.stop_taskqueue_server()
   end
 
-  # Starts the AppScale TaskQueue server.
+  # Stops the AppScale TaskQueue server.
   def self.stop_taskqueue_server()
     Djinn.log_debug("Stopping taskqueue_server on this node")
     stop_cmd = "kill -9 `ps aux | grep taskqueue_server.py | awk {'print $2'}`"
