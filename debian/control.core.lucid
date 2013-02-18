@@ -49,7 +49,7 @@ Depends: appscale-tools,
  rabbitmq-server,
  python-pip,
 # lxml
- libxslt-dev
+ libxslt-dev, libxml2-dev
 Conflicts: haproxy, zookeeper, zookeeper-bin, zookeeperd, libzookeeper-java, python-zookeeper
 Description: An open-source framework for execution of GAE applications
  An open-source research framework for execution of
