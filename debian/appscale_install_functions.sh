@@ -109,14 +109,7 @@ installpycrypto()
 
 installlxml()
 {
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    wget http://pypi.python.org/packages/source/l/lxml/lxml-2.3.6.tar.gz
-    tar zxvf lxml-2.3.6.tar.gz
-    cd lxml-2.3.6
-    /usr/local/Python-2.7.3/python setup.py install
-    cd ..
-    rm -fdr lxml-2.3.6*
+    easy_install lxml
 }
 
 patchxmpp()
