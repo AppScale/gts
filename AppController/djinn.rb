@@ -7,6 +7,7 @@ require 'openssl'
 require 'socket'
 require 'soap/rpc/driver'
 require 'syslog'
+require 'timeout'
 require 'yaml'
 
 
@@ -2819,13 +2820,23 @@ HOSTS
     Kernel.sleep(1)
 
     begin
-      GodInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key)
-      HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, USE_SSL)
-    rescue Exception => except
-      backtrace = except.backtrace.join("\n")
-      remote_start_msg = "[remote_start] Unforeseen exception when " + \
-        "talking to #{ip}: #{except}\nBacktrace: #{backtrace}"
-      Djinn.log_debug(remote_start_msg)
+      Timeout::timeout(60) do
+        begin
+          GodInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key)
+          HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, USE_SSL)
+        # raise the timeout error so that the next rescue doesn't catch it
+        rescue Timeout::Error
+          raise Timeout::Error
+        rescue Exception => except
+          backtrace = except.backtrace.join("\n")
+          remote_start_msg = "[remote_start] Unforeseen exception when " + \
+            "talking to #{ip}: #{except}\nBacktrace: #{backtrace}"
+          Djinn.log_debug(remote_start_msg)
+          retry
+        end
+      end
+    rescue Timeout::Error
+      Djinn.log_debug("Couldn't start the AppController at #{ip}. Retrying.")
       retry
     end
     
