@@ -1462,11 +1462,14 @@ class Djinn
       node_public_ip = HelperFunctions.convert_fqdn_to_ip(node.public_ip)
       node_private_ip = HelperFunctions.convert_fqdn_to_ip(node.private_ip)
 
+      Djinn.log_debug("node with public FQDN #{node.public_ip} has public IP #{node_public_ip}")
+      Djinn.log_debug("node with private FQDN #{node.private_ip} has private IP #{node_private_ip}")
+
       if node_public_ip == ip_addr or node_private_ip == ip_addr
         # don't set the uaserver_public_ip to node_public_ip, as then the tools
         # won't be able to resolve that ip (it may be the same as the 
         # unresolvable private ip)
-        Djinn.log_debug("Setting uaserver public ip to #{node_public_ip}")
+        Djinn.log_debug("Setting uaserver public ip to #{node.public_ip}")
         Djinn.log_debug("Setting uaserver private ip to #{node_private_ip}")
         @userappserver_public_ip = node.public_ip
         @userappserver_private_ip = node_private_ip
