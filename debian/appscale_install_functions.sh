@@ -95,6 +95,16 @@ installPIL()
     rm -fdr Imaging-1.1.7*
 }
 
+installpycrypto()
+{
+    easy_install pycrypto
+}
+
+installlxml()
+{
+    easy_install lxml
+}
+
 patchxmpp()
 {
     PYTHON26_XMPP=/usr/lib/python2.6/dist-packages/xmpp/
