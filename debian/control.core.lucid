@@ -44,10 +44,12 @@ Depends: appscale-tools,
 # ZooKeeper
  liblog4j1.2-java, libjline-java,
 # unknown
- make
+ make,
 # TaskQueue
- rabbitmq-server
- python-pip
+ rabbitmq-server,
+ python-pip,
+# lxml
+ libxslt-dev, libxml2-dev
 Conflicts: haproxy, zookeeper, zookeeper-bin, zookeeperd, libzookeeper-java, python-zookeeper
 Description: An open-source framework for execution of GAE applications
  An open-source research framework for execution of
