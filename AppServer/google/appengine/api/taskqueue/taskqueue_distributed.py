@@ -110,6 +110,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
       response: The taskqueue_service_pb.TaskQueueAddResponse. See
           taskqueue_service.proto.
     """
+    request.set_app_id(self.__app_id)
     self._RemoteSend(request, response, "Add")
     return response
 
@@ -126,6 +127,10 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
           taskqueue_service.proto.
     """
     assert request.add_request_size(), 'taskqueue should prevent empty requests'
+
+    for add_request in request.add_request_list():
+      add_request.set_app_id(self.__app_id)
+
     self._RemoteSend(request, response, "BulkAdd")
     return response
 

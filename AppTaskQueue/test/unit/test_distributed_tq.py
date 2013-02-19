@@ -113,6 +113,8 @@ class TestDistributedTaskQueue(unittest.TestCase):
        .should_receive("create_celery_file").and_return("/some/file")
     flexmock(TaskQueueConfig)\
        .should_receive("create_celery_worker_scripts").and_return("/some/file")
+    flexmock(TaskQueueConfig)\
+       .should_receive("load_queues_from_file").and_return()
  
     dtq = DistributedTaskQueue()
     dtq.start_worker("hi")
@@ -273,17 +275,16 @@ class TestDistributedTaskQueue(unittest.TestCase):
     flexmock(god_app_interface).should_receive('create_config_file').and_return('')
     flexmock(god_interface).should_receive('start') \
        .and_return(False)
+    flexmock(TaskQueueConfig)\
+       .should_receive("load_queues_from_file").and_return()
+    flexmock(TaskQueueConfig)\
+       .should_receive("create_celery_worker_scripts").and_return()
+    flexmock(TaskQueueConfig)\
+       .should_receive("create_celery_file").and_return()
    
     dtq = DistributedTaskQueue() 
-    json_request = {'worker_script':'/some/path', 'queue': [{'name':'queue-name', 'rate': '5/s'}]}
+    json_request = {}
     json_request = json.dumps(json_request)
-    self.assertEquals(dtq.start_worker(json_request), 
-                 json.dumps({'error': True, 'reason': 'Missing app_id tag'}))
-
-    json_request = {'worker_script':'/some/path',
-                    'queue': [{'name':'queue-name', 'rate': '5/s'}]}
-    json_request = json.dumps(json_request)
-
     self.assertEquals(dtq.start_worker(json_request), 
                  json.dumps({'error': True, 'reason': 'Missing app_id tag'}))
 
@@ -291,18 +292,14 @@ class TestDistributedTaskQueue(unittest.TestCase):
     json_response = dtq.start_worker(json_request)
     self.assertEquals(json_response, json.dumps({'error': True, 'reason': 'Badly formed JSON'}))
 
-    json_request = {'worker_script':'/some/path',
-                    'app_id':'my-app',
-                    'queue': [{'name':'queue-name', 'rate': '5/s'}]}
+    json_request = {'app_id':'my-app'}
     json_request = json.dumps(json_request)
     assert 'true' in dtq.start_worker(json_request)
 
     flexmock(god_interface).should_receive('start') \
        .and_return(True)
   
-    json_request = {'worker_script':'/some/path',
-                    'app_id':'my-app',
-                    'queue': [{'name':'queue-name', 'rate': '5/s'}]}
+    json_request = {'app_id':'my-app'}
     json_request = json.dumps(json_request)
     assert 'false' in dtq.start_worker(json_request)
 

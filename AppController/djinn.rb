@@ -37,7 +37,7 @@ require 'neptune_manager_client'
 require 'pbserver'
 require 'nginx'
 require 'taskqueue'
-require 'repo'
+require 'apichecker'
 require 'user_app_client'
 require 'zkinterface'
 
@@ -448,7 +448,15 @@ class Djinn
       # turned on since that was the state they started in
 
       stop_ejabberd if my_node.is_login?
-      Repo.stop if my_node.is_shadow? or my_node.is_appengine?
+      ApiChecker.stop if my_node.is_shadow? or my_node.is_appengine?
+
+      # Stop apichecker taskqueue on this local machine.
+      if my_node.is_rabbitmq_master? or my_node.is_rabbitmq_slave?
+        tqc = TaskQueueClient.new()
+        result = tqc.stop_worker("apichecker")
+        Djinn.log_debug("Stopping TaskQueue workers for apichecker: #{result}")
+      end
+
 
       jobs_to_run = my_node.jobs
       commands = {
@@ -714,7 +722,7 @@ class Djinn
 
       # Stop taskqueue on this local machine.
       if my_node.is_rabbitmq_master? or my_node.is_rabbitmq_slave?
-        tqc = TaskQueueClient()
+        tqc = TaskQueueClient.new()
         result = tqc.stop_worker(app) 
         Djinn.log_debug("Stopping TaskQueue workers for app #{app}: #{result}")
       end
@@ -1760,20 +1768,20 @@ class Djinn
  
   def update_api_status()
     if my_node.is_appengine?
-      repo_host = my_node.private_ip
+      apichecker_host = my_node.private_ip
     else
-      repo_host = get_shadow.private_ip
+      apichecker_host = get_shadow.private_ip
     end
 
-    repo_url = "http://#{repo_host}:#{Repo::SERVER_PORT}/health/all"
+    apichecker_url = "http://#{apichecker_host}:#{ApiChecker::SERVER_PORT}/health/all"
 
     retries_left = 3
     begin
-      response = Net::HTTP.get_response(URI.parse(repo_url))
+      response = Net::HTTP.get_response(URI.parse(apichecker_url))
       data = JSON.load(response.body)
       Djinn.log_debug("Update API was successful")
     rescue Exception => e
-      Djinn.log_debug("Update API status on host #{repo_host} saw exception #{e.class}")
+      Djinn.log_debug("Update API status on host #{apichecker_host} saw exception #{e.class}")
       data = {}
 
       if retries_left > 0
@@ -1781,7 +1789,7 @@ class Djinn
         retries_left -= 1
         retry
       else
-        Djinn.log_debug("Repo at #{repo_host} appears to be down - will " +
+        Djinn.log_debug("ApiChecker  at #{apichecker_host} appears to be down - will " +
           "try again later.")
         return
       end
@@ -2168,17 +2176,25 @@ class Djinn
     start_api_services()
 
     # for neptune jobs, start a place where they can save output to
-    # also, since repo does health checks on the app engine apis, start it up there too
+    # also, since apichecker does health checks on the app engine apis, 
+    # start it up there too.
 
-    repo_ip = get_shadow.public_ip
-    repo_private_ip = get_shadow.private_ip
-    repo_ip = my_node.public_ip if my_node.is_appengine?
-    repo_private_ip = my_node.private_ip if my_node.is_appengine?
-    Repo.init(repo_ip, repo_private_ip,  @@secret)
+    apichecker_ip = get_shadow.public_ip
+    apichecker_private_ip = get_shadow.private_ip
+    apichecker_ip = my_node.public_ip if my_node.is_appengine?
+    apichecker_private_ip = my_node.private_ip if my_node.is_appengine?
+    ApiChecker.init(apichecker_ip, apichecker_private_ip,  @@secret)
 
     if my_node.is_shadow? or my_node.is_appengine?
-      Repo.start(get_login.public_ip, @userappserver_private_ip)
+      ApiChecker.start(get_login.public_ip, @userappserver_private_ip)
     end
+
+    # Start up API checker taskqueue workers on this local machine 
+    if my_node.is_rabbitmq_master? or my_node.is_rabbitmq_slave?
+      tqc = TaskQueueClient.new()
+      result = tqc.start_worker("apichecker") 
+      Djinn.log_debug("Starting TaskQueue workers for apichecker: #{result}")
+    end   
 
     # appengine is started elsewhere
   end
@@ -3029,7 +3045,7 @@ HOSTS
 
         # Start up taskqueue workers on this local machine 
         if my_node.is_rabbitmq_master? or my_node.is_rabbitmq_slave?
-          tqc = TaskQueueClient()
+          tqc = TaskQueueClient.new()
           result = tqc.start_worker(app) 
           Djinn.log_debug("Starting TaskQueue workers for app #{app}: #{result}")
         end   

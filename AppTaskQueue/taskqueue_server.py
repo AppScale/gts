@@ -130,6 +130,7 @@ class MainHandler(tornado.web.RequestHandler):
     app_id = app_data[0]
  
     if pb_type == "Request":
+      print http_request_data
       self.remote_request(app_id, http_request_data)
     else:
       self.unknown_request(app_id, http_request_data, pb_type)

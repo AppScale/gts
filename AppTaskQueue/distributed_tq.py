@@ -90,6 +90,8 @@ class DistributedTaskQueue():
     """ DistributedTaskQueue Constructor. """
     file_io.set_logging_format()
     file_io.mkdir(self.LOG_DIR)
+    file_io.mkdir(TaskQueueConfig.CELERY_WORKER_DIR)
+    file_io.mkdir(TaskQueueConfig.CELERY_CONFIG_DIR)
 
   def __parse_json_and_validate_tags(self, json_request, tags):
     """ Parses JSON and validates that it contains the 
@@ -327,8 +329,7 @@ class DistributedTaskQueue():
         A worker can be started on both a master and slave node.
  
     Args:
-      json_request: A JSON string with the application id and  
-                    location of queue configurations.
+      json_request: A JSON string with the application id.
     Returns:
       A JSON string with the error status and error reason.
     """
@@ -341,6 +342,13 @@ class DistributedTaskQueue():
 
     hostname = socket.gethostbyname(socket.gethostname())
 
+    config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, app_id)
+
+    # Load the queue info
+    config.load_queues_from_file(app_id)
+    config.create_celery_file(TaskQueueConfig.QUEUE_INFO_FILE) 
+    config.create_celery_worker_scripts(TaskQueueConfig.QUEUE_INFO_FILE)
+ 
     log_file = self.LOG_DIR + app_id + ".log"
     command = ["celery",
                "worker",
@@ -434,6 +442,7 @@ class DistributedTaskQueue():
     """
     # Just call bulk add with one task.
     request = taskqueue_service_pb.TaskQueueAddRequest(http_data)
+    request.set_app_id(app_id)
     response = taskqueue_service_pb.TaskQueueAddResponse()
     bulk_request = taskqueue_service_pb.TaskQueueBulkAddRequest()
     bulk_response = taskqueue_service_pb.TaskQueueBulkAddResponse()
@@ -519,6 +528,7 @@ class DistributedTaskQueue():
         continue
       
       try:  
+        print add_request
         self.__enqueue_push_task(add_request)
       except apiproxy_errors.ApplicationError, e:
         task_result.set_result(e.application_error)
@@ -567,6 +577,7 @@ class DistributedTaskQueue():
                               request.app_id(), request.queue_name()),
                     routing_key=TaskQueueConfig.get_celery_queue_name(
                               request.app_id(), request.queue_name()))
+    print result
 
   def __get_task_function(self, request):
     """ Returns a function pointer to a celery task.
@@ -579,6 +590,7 @@ class DistributedTaskQueue():
     Raises:
       taskqueue_service_pb.TaskQueueServiceError
     """
+    print "Getting task function"
     try:
       task_module = __import__(TaskQueueConfig.\
                   get_celery_worker_module_name(request.app_id()))
@@ -586,6 +598,8 @@ class DistributedTaskQueue():
         TaskQueueConfig.get_queue_function_name(request.queue_name()))
       return task_func
     except ImportError, import_error:
+      print "IMPORT ERROR:"
+      print import_error
       raise apiproxy_errors.ApplicationError(
               taskqueue_service_pb.TaskQueueServiceError.UNKNOWN_QUEUE)
      
@@ -706,6 +720,7 @@ class DistributedTaskQueue():
       raise apiproxy_errors.ApplicationError(
               taskqueue_service_pb.TaskQueueServiceError.INVALID_TASK_NAME)
     if not request.has_app_id():
+      print "NO APP ID???"
       raise apiproxy_errors.ApplicationError(
               taskqueue_service_pb.TaskQueueServiceError.UNKNOWN_QUEUE)
     if not request.has_url():

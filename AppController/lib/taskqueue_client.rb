@@ -4,6 +4,7 @@
 require 'base64'
 require 'helperfunctions'
 require 'json'
+require 'net/http'
 require 'timeout'
 
 # Number of seconds to wait before timing out when doing a remote call.
@@ -20,11 +21,14 @@ class TaskQueueClient
   attr_reader :conn, :ip
 
   # The port that the TaskQueue Server binds to.
-  SERVER_PORT = 64839
+ SERVER_PORT = 64839
+
+  # Location of where the nearest taskqueue server is.
+  NEAREST_TQ_LOCATION = '/etc/appscale/rabbitmq_ip'
 
   # Initialization function for TaskQueueClient
-  def initialize(host)
-    self.host = "localhost"
+  def initialize()
+    @host = HelperFunctions.read_file(NEAREST_TQ_LOCATION)
   end
 
   # Make a REST call out to the TaskQueue Server. 
@@ -72,13 +76,15 @@ class TaskQueueClient
    # Returns:
    #   True on success, False otherwise.
    def start_queues(app_name)
-    config = {'app_name' => app_name, 'command' => 'update'}
+    config = {'app_id' => app_name, 'command' => 'update'}
     json_config = JSON.dump(config)
-    result = ""
+    response = nil
     make_call(MAX_TIME_OUT, false, "start_queues"){
-      result = Net::HTTP.post_form(URL.parse('http://' + self.host + ":#{SERVER_PORT}/queues"), config)
+      url = URI.parse('http://' + @host + ":#{SERVER_PORT}/queues")
+      http = Net::HTTP.new(url.host, url.port)
+      response = http.post(url.path, json_config, {'Content-Type'=>'application/json'})
     }
-    return json.loads(result)
+    return JSON.load(response.body)
   end
 
    # Wrapper for REST calls to the TaskQueue Server to stop all
@@ -89,13 +95,15 @@ class TaskQueueClient
    # Returns:
    #   True on success, False otherwise.
    def stop_queues(app_name)
-    config = {'app_name' => app_name, 'command' => 'stop'}
+    config = {'app_id' => app_name, 'command' => 'stop'}
     json_config = JSON.dump(config)
-    result = ""
+    response = nil
     make_call(MAX_TIME_OUT, false, "start_queues"){
-      result = Net::HTTP.post_form(URL.parse('http://' + self.host + ":#{SERVER_PORT}/queues"), config)
+      url = URI.parse('http://' + @host + ":#{SERVER_PORT}/queues")
+      http = Net::HTTP.new(url.host, url.port)
+      response = http.post(url.path, json_config, {'Content-Type'=>'application/json'})
     }
-    return json.loads(result)
+    return JSON.load(response.body)
   end
 
    # Wrapper for REST calls to the TaskQueue Server to start a
@@ -106,13 +114,15 @@ class TaskQueueClient
    # Returns:
    #   True on success, False otherwise.
    def start_worker(app_name)
-    config = {'app_name' => app_name, 'command' => 'update'}
+    config = {'app_id' => app_name, 'command' => 'update'}
     json_config = JSON.dump(config)
-    result = ""
+    response = nil
     make_call(MAX_TIME_OUT, false, "start_worker"){
-      result = Net::HTTP.post_form(URL.parse('http://' + self.host + ":#{SERVER_PORT}/startworker"), config)
+      url = URI.parse('http://' + @host + ":#{SERVER_PORT}/startworker")
+      http = Net::HTTP.new(url.host, url.port)
+      response = http.post(url.path, json_config, {'Content-Type'=>'application/json'})
     }
-    return json.loads(result)
+    return JSON.load(response.body)
   end
 
    # Wrapper for REST calls to the TaskQueue Server to stop a
@@ -124,14 +134,16 @@ class TaskQueueClient
    # Returns:
    #   True on success, False otherwise.
    def stop_worker(app_name)
-    config = {'app_name' => app_name, 
+    config = {'app_id' => app_name, 
               'command' => 'update'}
     json_config = JSON.dump(config)
-    result = ""
+    response = nil
     make_call(MAX_TIME_OUT, false, "stop_worker"){
-      result = Net::HTTP.post_form(URL.parse('http://' + self.host + ":#{SERVER_PORT}/stopworker"), config)
+      url = URI.parse('http://' + @host + ":#{SERVER_PORT}/stopworker")
+      http = Net::HTTP.new(url.host, url.port)
+      response = http.post(url.path, json_config, {'Content-Type'=>'application/json'})
     }
-    return json.loads(result)
+    return JSON.load(response.body)
   end
 
 end
