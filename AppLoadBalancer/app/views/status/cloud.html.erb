@@ -1,73 +1,524 @@
-<div id="getting-started">
-  <%= display_flash_messages %>
-  <h3>API Status:</h3>
-  <table class="zebra-striped" border="1">
-    <tr>
-      <td align="center">Service Name</td>
-      <td align="center">Health</td>
-    </tr>
-    <% service_info = get_service_info %>
-    <% SERVICE_NAMES.each do |service| %>
-      <tr>
-        <td align="center"><%= h(service) %></td>
-        <% if service_info[service] == 'running' %> 
-          <td align="center"><img src="images/status_running.png"></td>
-        <% elsif service_info[service] == 'failed' %>
-          <td align="center"><img src="images/status_failed.gif"></td>
-        <% else %>
-          <td align="center"><img src="images/status_unknown.gif"></td>
-        <% end %>
-      </tr>
-    <% end %>
-  </table>
-  <% if is_user_cloud_admin %>
-    <h3>CPU / Memory Usage:</h3>
-    <table class="zebra-striped" border="1">
-      <tr>
-        <td align="center">IP Address</td>
-        <td align="center">CPU Usage</td>
-        <td align="center">Mem Usage</td>
-        <td align="center">Hard Disk Usage</td>
-        <td align="center">Cloud</td>
-        <td align="center">Role(s)</td>
-      </tr>
-      <% servers = get_status_information %>
-      <% servers.each do |server| %>
-        <tr>
-          <td align="center"><%= h(server[:ip]) %></td>
-          <td align="center"><%= h(server[:cpu]) %>%</td>
-          <td align="center"><%= h(server[:memory]) %>%</td>
-          <td align="center"><%= h(server[:disk]) %>%</td>
-        <td align="center"><%= h(server[:cloud]) %></td>
-         <td align="center"><%= h(server[:roles]) %></td>
-        </tr>
-      <% end %>
-    </table>
-  <br/><%= link_to "View More Monitoring Data", monitoring_url %>
-  <% end %>
-  <h3>Database Information:</h3>
-  <ul>
-    <% db = get_database_information %>
-    <li>Powered by <%= db[:database] %></li>
-    <li>Data is replicated <%= db[:replication] %> times</li>
-  </ul>
-  <h3>Applications Hosted in This Cloud:</h3>
-  <ul>
-    <% apps = get_application_information %>
-    <% if apps.empty? %>
-      <li>none</li>
-    <% else %>
-      <% apps.sort.each do |app_info| %>
-      <% app = app_info[0] %>
-      <% is_running = app_info[1] %>
-        <li>
-          <% if is_running %>
-            <a href="/apps/<%= h(app) %>" target="_blank"><%= h(app) %></a>
-          <% else %>
-            <%= h(app) %> (loading)
-          <% end %>
-        </li>
-      <% end %>
-    <% end %>
-  </ul>
-</div>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>AppScale Cloud Administration</title>
+    <meta name="author" content="AppScale Systems, Inc" />
+    <meta name="description" content="AppScale Private Cloud Monitoring" />
+    <meta name="keywords" content="AppScale, AppScale PaaS, AppScale Systems, Inc" />
+    <meta name="application-name" content="AppScale Cloud Administration" />
+
+    <!-- Mobile Specific Metas -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Le styles -->
+    <!-- Use new way for google web fonts 
+    http://www.smashingmagazine.com/2012/07/11/avoiding-faux-weights-styles-google-web-fonts -->
+    <!-- Headings -->
+    <!-- <link href='http://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css' />  -->
+    <!-- Text -->
+    <!-- <link href='http://fonts.googleapis.com/css?family=Droid+Sans:400,700' rel='stylesheet' type='text/css' /> --> 
+    <!--[if lt IE 9]>
+    <link href="http://fonts.googleapis.com/css?family=Open+Sans:400" rel="stylesheet" type="text/css" />
+    <link href="http://fonts.googleapis.com/css?family=Open+Sans:700" rel="stylesheet" type="text/css" />
+    <link href="http://fonts.googleapis.com/css?family=Droid+Sans:400" rel="stylesheet" type="text/css" />
+    <link href="http://fonts.googleapis.com/css?family=Droid+Sans:700" rel="stylesheet" type="text/css" />
+    <![endif]-->
+
+    <!-- Core stylesheets do not remove -->
+    <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet" type="text/css" />
+    <link href="css/bootstrap/bootstrap-responsive.min.css" rel="stylesheet" type="text/css" />
+    <link href="css/supr-theme/jquery.ui.supr.css" rel="stylesheet" type="text/css"/>
+    <link href="css/icons.css" rel="stylesheet" type="text/css" />
+
+    <!-- Plugins stylesheets -->
+    <link href="plugins/misc/qtip/jquery.qtip.css" rel="stylesheet" type="text/css" />
+    <link href="plugins/misc/fullcalendar/fullcalendar.css" rel="stylesheet" type="text/css" />
+    <link href="plugins/misc/search/tipuesearch.css" type="text/css" rel="stylesheet" />
+
+    <link href="plugins/forms/uniform/uniform.default.css" type="text/css" rel="stylesheet" />
+
+    <!-- Main stylesheets -->
+    <link href="css/main.css" rel="stylesheet" type="text/css" /> 
+
+    <!-- Custom stylesheets ( Put your own changes here ) -->
+    <link href="css/custom.css" rel="stylesheet" type="text/css" /> 
+    
+    <!-- Le HTML5 shim, for IE6-8 support of HTML5 elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le fav and touch icons -->
+    <link rel="shortcut icon" href="images/favicon.ico" />
+    <link rel="apple-touch-icon-precomposed" sizes="144x144" href="images/apple-touch-icon-144-precomposed.png" />
+    <link rel="apple-touch-icon-precomposed" sizes="114x114" href="images/apple-touch-icon-114-precomposed.png" />
+    <link rel="apple-touch-icon-precomposed" sizes="72x72" href="images/apple-touch-icon-72-precomposed.png" />
+    <link rel="apple-touch-icon-precomposed" href="images/apple-touch-icon-57-precomposed.png" />
+    
+    <script type="text/javascript">
+        //adding load class to body and hide page
+        document.documentElement.className += 'loadstate';
+    </script>
+
+    </head>
+      
+    <body>
+    <!-- loading animation -->
+    <div id="qLoverlay"></div>
+    <div id="qLbar"></div>
+        
+    <div id="header">
+
+        <div class="navbar">
+            <div class="navbar-inner">
+              <div class="container-fluid">
+                <a class="brand" href="dashboard.html">AppScale.<span class="slogan">PaaS</span></a>
+                <div class="nav-no-collapse">
+                    <ul class="nav">
+                        <li class="active"><a href="dashboard.html"><span class="icon16 icomoon-icon-screen-2"></span> Dashboard</a></li>
+<!--                        <li class="dropdown">
+                            <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                                <span class="icon16 icomoon-icon-cog"></span> Settings
+                                <b class="caret"></b>
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li class="menu">
+                                    <ul>
+                                        <li>                                                    
+                                            <a href="#"><span class="icon16 icomoon-icon-equalizer"></span>Users</a>
+                                        </li>
+                                        <li>                                                    
+                                            <a href="#"><span class="icon16 icomoon-icon-wrench"></span>Permissions</a>
+                                        </li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </li>-->
+                      </ul>
+                  
+                    <ul class="nav pull-right usernav">
+                        <li class="dropdown">
+                            <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                                <span class="icon16 icomoon-icon-bell-2"></span><span class="notification">1</span>
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li class="menu">
+                                    <ul class="notif">
+                                        <li class="header"><strong>Notifications</strong> (1) items</li>
+                                        <li>
+                                            <a href="#">
+                                                <span class="icon"><span class="icon16 icomoon-icon-new-2"></span></span>
+                                                <span class="event">Datastore API failed and restarted</span>
+                                            </a>
+                                        </li>
+                                        <li class="view-all"><a href="#">View all notifications <span class="icon16 icomoon-icon-arrow-right-8"></span></a></li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </li>
+                        <li class="dropdown">
+                            <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                                <span class="txt">Admin</span>
+                                <b class="caret"></b>
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li class="menu">
+                                    <ul>
+                                        <li>
+                                            <a href="#"><span class="icon16 icomoon-icon-user-3"></span>Edit profile</a>
+                                        </li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </li>
+                        <li><a href="index.html"><span class="icon16 icomoon-icon-exit"></span> Logout</a></li>
+                    </ul>
+                </div><!-- /.nav-collapse -->
+              </div>
+            </div><!-- /navbar-inner -->
+          </div><!-- /navbar --> 
+
+    </div><!-- End #header -->
+
+    <div id="wrapper">
+
+        <!--Responsive navigation button-->  
+        <div class="resBtn">
+            <a href="#"><span class="icon16 minia-icon-list-3"></span></a>
+        </div>
+        
+        <!--Left Sidebar collapse button-->  
+        <div class="collapseBtn leftbar">
+             <a href="#" class="tipR" title="Hide Left Sidebar"><span class="icon12 minia-icon-layout"></span></a>
+        </div>
+
+        <!--Sidebar background-->
+        <div id="sidebarbg"></div>
+        <!--Sidebar content-->
+        <div id="sidebar">
+
+            <div class="shortcuts">
+                <ul>
+                    <li><a href="http://appscale.com" title="Support" class="tip"><span class="icon24 icomoon-icon-support"></span></a></li>
+<!--                    <li><a href="#" title="Database backup" class="tip"><span class="icon24 icomoon-icon-database"></span></a></li>
+                    <li><a href="charts.html" title="Sales statistics" class="tip"><span class="icon24 icomoon-icon-pie-2"></span></a></li>
+                    <li><a href="#" title="Write post" class="tip"><span class="icon24 icomoon-icon-pencil"></span></a></li>-->
+                </ul>
+            </div><!-- End search -->            
+
+            <div class="sidenav">
+
+                <div class="sidebar-widget" style="margin: -1px 0 0 0;">
+                    <h5 class="title" style="margin-bottom:0">Navigation</h5>
+                </div><!-- End .sidenav-widget -->
+
+                <div class="mainnav">
+                    <ul>
+                        <li><a href="dashboard2.html"><span class="icon16 icomoon-icon-stats-up"></span>API Status</a></li>
+                        <li><a href="profile.html"><span class="icon16 icomoon-icon-list-view-2"></span>User Management</a></li>
+                        <li><a href="file.html"><span class="icon16 icomoon-icon-upload"></span>Application Manager</a></li>
+                    </ul>
+                </div>
+            </div><!-- End sidenav -->
+
+        </div><!-- End #sidebar -->
+
+        <!--Body content-->
+        <div id="content" class="clearfix">
+            <div class="contentwrapper"><!--Content wrapper-->
+
+                <div class="heading">
+
+                    <h3>AppScale Dashboard</h3>                    
+
+                    <div class="resBtnSearch">
+                        <a href="#"><span class="icon16 icomoon-icon-search-3"></span></a>
+                    </div>
+
+                    
+                    
+                    <ul class="breadcrumb">
+                        <li>You are here:</li>
+                        <li>
+                            <a href="#" class="tip" title="back to dashboard">
+                                <span class="icon16 icomoon-icon-screen-2"></span>
+                            </a> 
+                            <span class="divider">
+                                <span class="icon16 icomoon-icon-arrow-right-2"></span>
+                            </span>
+                        </li>
+                        <li class="active">Dashboard</li>
+                    </ul>
+
+                </div><!-- End .heading-->
+
+                <!-- Build page from here: -->
+                <div class="row-fluid">
+
+
+                </div><!-- End .row-fluid -->
+        <div class="row-fluid">
+        <div class="hero-unit">
+            <h1 align="center">Welcome to AppScale!</h1>
+            <p align="center">This UI provides basic management functionality of your AppScale cloud deployment.<br />To learn more about how to uses this management console and the command line tools visit our support site.</p>
+            <p align="center"><a class="btn btn-primary btn-large">Get Support</a> &nbsp; <a href="#myModal" data-toggle="modal" class="btn btn-info btn-large">Send Feedback</a></p>
+                                    </div>
+        </div><!-- End .row-fluid -->
+
+
+                <div class="row-fluid">
+
+                    <div class="span6">
+
+                        <div class="box chart gradient">
+
+                            <div class="title">
+
+                                <h4>
+                                    <span class="icon16 icomoon-icon-bars"></span>
+                                    <span>AppScale API Status</span>
+                                </h4>
+                                <a href="#" class="minimize">Minimize</a>
+                            </div>
+                                <div class="content noPad">
+                                    <table class="table">
+                                      <thead>
+                                        <tr>
+                                          <th>API Service</th>
+                                          <th>Status</th>
+                                        </tr>
+                                      </thead>
+                                          <% service_info = get_service_info %>
+                                            <% SERVICE_NAMES.each do |service| %>
+<!--API Status Hooks -->                                      
+                                      <tbody>
+                                        <tr>
+                                        <td align="center"><%= h(service) %></td>
+                                        <% if service_info[service] == 'running' %> 
+                                          <td align="center"><img src="images/status_running.png"></td>
+                                        <% elsif service_info[service] == 'failed' %>
+                                          <td align="center"><img src="images/status_failed.gif"></td>
+                                        <% else %>
+                                          <td align="center"><img src="images/status_unknown.gif"></td>
+                                        <% end %>
+                                      </tr>
+                                    <% end %>
+
+
+
+ <!-- Demo                                       <tr class="success">
+                                          <td>Blobstore</td>
+                                          <td><span class="label label-success">Active</span></td>
+                                        </tr>
+                                        <tr class="success">
+                                          <td>Datastore</td>
+                                          <td><span class="label label-success">Active</span></td>
+                                        </tr>
+                                        <tr class="success">
+                                          <td>Images</td>
+                                          <td><span class="label label-success">Active</span></td>
+                                        </tr>
+                                        <tr class="success">
+                                          <td>Memcache</td>
+                                          <td><span class="label label-success">Active</span></td>
+                                        </tr>
+                                        <tr class="success">
+                                          <td>Taskqueue</td>
+                                          <td><span class="label label-success">Active</span></td>
+                                        </tr>
+                                        <tr class="success">
+                                          <td>URL Fetch</td>
+                                          <td><span class="label label-success">Active</span></td>
+                                        </tr>
+                                        <tr class="error">
+                                          <td>Users</td>
+                                          <td><span class="label label-important">Halted</span></td>
+                                        </tr>
+                                        <tr class="warning">
+                                          <td>XMPP</td>
+                                          <td><span class="label label-warning">Unstable</span></td>
+                                        </tr>-->
+                                      </tbody>
+                                    </table>
+                                </div>
+
+                            </div><!-- End .box -->
+
+                        </div><!-- End .span6 -->
+
+            <div class="span6">
+
+                            <div class="box gradient">
+
+                                <div class="title">
+
+                                    <h4>
+                                        <span class="icon16 icomoon-icon-search-3"></span>
+                                        <span>Database & Application Information</span>
+                                    </h4>
+                                    <a href="#" class="minimize">Minimize</a>
+                                </div>
+                                <div class="content">
+                  <h5><span class="icon12 icomoon-icon-database"></span>Current Database Deployed:</h5>
+<!-- DB Hook -->                                    
+                                      <ul class="unstyled">
+                                        <% db = get_database_information %>
+                                        <li>h5><span class="icon16 icomoon-icon-arrow-right-2"></span>Powered by <%= db[:database] %></h5></li>
+                                      </ul>
+                  <hr/>
+                  <h5><span class="icon12 icomoon-icon-database"></span>Data Replication:</h5>
+                  <ul class="unstyled">
+                  <li><h5><span class="icon16 icomoon-icon-arrow-right-2"></span>Data is replicated <%= db[:replication] %> times</h5></li>
+                  </ul>
+                                    <hr/>
+                                    <h5><span class="icon12 icomoon-icon-database"></span>Current Applications Deployed:</h5>
+<!-- App Info Hook -->
+                                    <ul class="unstyled">
+                                        <% apps = get_application_information %>
+                                        <% if apps.empty? %>
+                                          <li><h5><span class="icon16 icomoon-icon-arrow-right-2"></span>none</h5></li>
+                                        <% else %>
+                                          <% apps.sort.each do |app_info| %>
+                                          <% app = app_info[0] %>
+                                          <% is_running = app_info[1] %>
+                                            <li><h5><span class="icon16 icomoon-icon-arrow-right-2"></span>
+                                              <% if is_running %>
+                                                <a href="/apps/<%= h(app) %>" target="_blank"><%= h(app) %></a>
+                                              <% else %>
+                                                <%= h(app) %> (loading)
+                                              <% end %>
+                                            </h5></li>
+                                          <% end %>
+                                        <% end %>
+                                      </ul>
+                                </div>
+
+                            </div><!-- End .box -->
+
+                        </div><!-- End .span3 -->
+ <div class="row-fluid">
+
+                        <div class="span12">
+                            <div class="page-header">
+                                <h3>CPU / Memory Usage <a style="margin-left: 20px;"class="btn btn-info"href="<% monitoring_url %>">View Detailed Monitoring Data</a></h3>
+                            </div>
+                            <table class="responsive table table-bordered">
+                                <thead>
+                                  <tr>
+                                    <th>IP Address</th>
+                                    <th>CPU Usage</th>
+                                    <th>Memory Usage</th>
+                                    <th>Hard Disk Usage</th>
+                                    <th>Role(s)</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  <% servers = get_status_information %>
+                                  <% servers.each do |server| %>
+                                    <tr>
+                                      <td align="center"><%= h(server[:ip]) %></td>
+                                      <td align="center"><%= h(server[:cpu]) %>%</td>
+                                      <td align="center"><%= h(server[:memory]) %>%</td>
+                                      <td align="center"><%= h(server[:disk]) %>%</td>
+                                    <td align="center"><%= h(server[:cloud]) %></td>
+                                     <td align="center"><%= h(server[:roles]) %></td>
+                                    </tr>
+
+
+
+<!-- Demo                                  <tr>
+                                    <td>{%IP-ADDRESS%}</td>
+                                    <td>{%CPU%%}</td>
+                                    <td>{%MEM%}</td>
+                                    <td>{%HD%}</td>
+                                    <td><i class="icon12 brocco-icon-cloud"></i>{%CLOUD%}</td>
+                                    <td>{%ROLE%}</td>
+                                  </tr>
+                                  <tr>
+                                    <td>{%IP-ADDRESS%}</td>
+                                    <td>{%CPU%%}</td>
+                                    <td>{%MEM%}</td>
+                                    <td>{%HD%}</td>
+                                    <td><i class="icon12 brocco-icon-cloud"></i>{%CLOUD%}</td>
+                                    <td>{%ROLE%}</td>
+                                  </tr>
+                                  <tr>
+                                    <td>{%IP-ADDRESS%}</td>
+                  <td id="progress3">
+                                         <div class="pbar ui-progressbar ui-widget ui-widget-content ui-corner-all" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="ui-progressbar-value ui-widget-header ui-corner-left" style="display: none; width: 70.9017%;"></div></div>
+                                         <span align="center" class="percent1"><b>{%CPU PERCENTAGE%}</b></span>
+                                         <div class="clear"></div>
+                                     </td>
+                                    <td id="progress3">
+                                        <div class="pbar ui-progressbar ui-widget ui-widget-content ui-corner-all" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="ui-progressbar-value ui-widget-header ui-corner-left" style="display: none; width: 70.9017%;"></div></div>
+                                        <span align="center" class="percent1"><b>{%MEM PERCENTAGE%}</b></span>
+                                        <div class="clear"></div>
+                                    </td>
+                                    <td id="progress3">
+                                        <div class="pbar ui-progressbar ui-widget ui-widget-content ui-corner-all" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="ui-progressbar-value ui-widget-header ui-corner-left" style="display: none; width: 70.9017%;"></div></div>
+                                        <span align="center" class="percent1"><b>{%HD PERCENTAGE%}</b></span>
+                                        <div class="clear"></div>
+                                    </td>
+                                    <td><i class="icon12 brocco-icon-cloud"></i>{%CLOUD%}</td>
+                                    <td>{%ROLE%}</td>
+                                  </tr>-->
+                                </tbody>
+                            </table>
+
+                        </div><!-- End .span6 -->
+                        </div><!-- End .row-fluid -->
+                                    
+                </div><!-- End .row-fluid -->
+
+                
+            </div><!-- End contentwrapper -->
+        </div><!-- End #content -->
+    
+    </div><!-- End #wrapper -->
+    
+    
+<!-- Boostrap modal dialog -->
+    <div id="myModal" class="modal hide fade" style="display: none; ">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal"><span class="icon12 minia-icon-close"></span></button>
+          <h2>Feedback</h2>
+        </div>
+        <div class="modal-body">
+            <div class="paddingT15 paddingB15">    
+              <h4 align="center">Whether good or bad we want to hear your thoughts. Please use the appropriate channels for issue tracking and support. Thanks for choosing AppScale!</h4>
+              <form class="form-horizontal" id="form-validate" action="forms-validation.html" >
+              <div class="form-row row-fluid">
+                  <div class="span12">
+                      <div class="row-fluid">
+                          <label class="form-label span3" for="email">Email</label>
+                          <input class="span8" id="email" name="email" type="text" />
+                      </div>
+                  </div>
+              </div>
+           </form>
+              
+              <div class="form-row row-fluid">
+                  <div class="span12">
+                      <div class="row-fluid">
+                          <label class="form-label span3" for="textarea">Feedback</label>
+                          <textarea class="span8" id="textarea" rows="3"></textarea>
+                      </div>
+                  </div>
+              </div>
+
+              
+            </div>
+    
+        </div>
+        <div class="modal-footer">
+          <a href="#" class="btn" data-dismiss="modal">Close</a>
+          <a href="#" class="btn btn-primary">Submit</a>
+        </div>
+      </div>
+    
+    
+    <!-- Le javascript
+    ================================================== -->
+    <!-- Important plugins put in all pages -->
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+    <script type="text/javascript" src="js/bootstrap/bootstrap.js"></script>  
+    <script type="text/javascript" src="js/jquery.cookie.js"></script>
+    <script type="text/javascript" src="js/jquery.mousewheel.js"></script>
+
+    <!-- Charts plugins -->
+    <script type="text/javascript" src="plugins/charts/flot/jquery.flot.js"></script>
+    <script type="text/javascript" src="plugins/charts/flot/jquery.flot.grow.js"></script>
+    <script type="text/javascript" src="plugins/charts/flot/jquery.flot.pie.js"></script>
+    <script type="text/javascript" src="plugins/charts/flot/jquery.flot.resize.js"></script>
+    <script type="text/javascript" src="plugins/charts/flot/jquery.flot.tooltip_0.4.4.js"></script>
+    <script type="text/javascript" src="plugins/charts/flot/jquery.flot.orderBars.js"></script>
+    <script type="text/javascript" src="plugins/charts/sparkline/jquery.sparkline.min.js"></script><!-- Sparkline plugin -->
+    <script type="text/javascript" src="plugins/charts/knob/jquery.knob.js"></script><!-- Circular sliders and stats -->
+
+    <!-- Misc plugins -->
+    <script type="text/javascript" src="plugins/misc/fullcalendar/fullcalendar.min.js"></script><!-- Calendar plugin -->
+    <script type="text/javascript" src="plugins/misc/qtip/jquery.qtip.min.js"></script><!-- Custom tooltip plugin -->
+    <script type="text/javascript" src="plugins/misc/totop/jquery.ui.totop.min.js"></script> <!-- Back to top plugin -->
+    <!-- Search plugin -->
+    <script type="text/javascript" src="plugins/misc/search/tipuesearch_set.js"></script>
+    <script type="text/javascript" src="plugins/misc/search/tipuesearch_data.js"></script><!-- JSON for searched results -->
+    <script type="text/javascript" src="plugins/misc/search/tipuesearch.js"></script>
+
+    <!-- Form plugins -->
+    <script type="text/javascript" src="plugins/forms/watermark/jquery.watermark.min.js"></script>
+    <script type="text/javascript" src="plugins/forms/uniform/jquery.uniform.min.js"></script>
+    
+    <!-- Fix plugins -->
+    <script type="text/javascript" src="plugins/fix/ios-fix/ios-orientationchange-fix.js"></script>
+
+    <!-- Important Place before main.js  -->
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.21/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="plugins/fix/touch-punch/jquery.ui.touch-punch.min.js"></script><!-- Unable touch for JQueryUI -->
+
+    <!-- Init plugins -->
+    <script type="text/javascript" src="js/main.js"></script><!-- Core js functions -->
+    <script type="text/javascript" src="js/dashboard.js"></script><!-- Init plugins only for page -->
+
+    </body>
+</html>
