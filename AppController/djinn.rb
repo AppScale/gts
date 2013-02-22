@@ -7,6 +7,7 @@ require 'openssl'
 require 'socket'
 require 'soap/rpc/driver'
 require 'syslog'
+require 'timeout'
 require 'yaml'
 
 
@@ -1476,37 +1477,33 @@ class Djinn
  
     if is_hybrid_cloud?
       Djinn.log_debug("Getting hybrid ips with creds #{@creds.inspect}")
-      public_ips, private_ips = HelperFunctions.get_hybrid_ips(@creds)
     else
       Djinn.log_debug("Getting cloud ips for #{infrastructure} with keyname " +
         "#{keyname}")
-      public_ips, private_ips = HelperFunctions.get_cloud_ips(infrastructure, 
-        keyname)
     end
  
-    Djinn.log_debug("Public ips are #{public_ips.join(', ')}")
-    Djinn.log_debug("Private ips are #{private_ips.join(', ')}")
     Djinn.log_debug("Looking for #{ip_addr}")
+    nodes.each { |node|
+      node_public_ip = HelperFunctions.convert_fqdn_to_ip(node.public_ip)
+      node_private_ip = HelperFunctions.convert_fqdn_to_ip(node.private_ip)
 
-    public_ips.each_index { |index|
-      node_public_ip = HelperFunctions.convert_fqdn_to_ip(public_ips[index])
-      node_private_ip = HelperFunctions.convert_fqdn_to_ip(private_ips[index])
+      Djinn.log_debug("node with public FQDN #{node.public_ip} has public IP #{node_public_ip}")
+      Djinn.log_debug("node with private FQDN #{node.private_ip} has private IP #{node_private_ip}")
 
       if node_public_ip == ip_addr or node_private_ip == ip_addr
         # don't set the uaserver_public_ip to node_public_ip, as then the tools
         # won't be able to resolve that ip (it may be the same as the 
         # unresolvable private ip)
-        Djinn.log_debug("Setting uaserver public ip to #{public_ips[index]}")
+        Djinn.log_debug("Setting uaserver public ip to #{node.public_ip}")
         Djinn.log_debug("Setting uaserver private ip to #{node_private_ip}")
-        @userappserver_public_ip = public_ips[index]
+        @userappserver_public_ip = node.public_ip
         @userappserver_private_ip = node_private_ip
         return
       end
     }
 
     unable_to_convert_msg = "[get uaserver ip] Couldn't find out whether " +
-      "#{ip_addr} was a public or private IP address. Public IPs are " +
-      "[#{public_ips.join(', ')}], private IPs are [#{private_ips.join(', ')}]"
+      "#{ip_addr} was a public or private IP address."
 
     Djinn.log_debug(unable_to_convert_msg)
     abort(unable_to_convert_msg)
@@ -1520,32 +1517,25 @@ class Djinn
 
     if is_hybrid_cloud?
       Djinn.log_debug("Getting hybrid ips with creds #{@creds.inspect}")
-      public_ips, private_ips = HelperFunctions.get_hybrid_ips(@creds)
     else
       Djinn.log_debug("Getting cloud ips for #{infrastructure} with keyname " +
         "#{keyname}")
-      public_ips, private_ips = HelperFunctions.get_cloud_ips(infrastructure, 
-        keyname)
     end
 
-    Djinn.log_debug("Public ips are #{public_ips.join(', ')}")
-    Djinn.log_debug("Private ips are #{private_ips.join(', ')}")
     Djinn.log_debug("Looking for #{private_ip}")
-
-    public_ips.each_index { |index|
-      node_private_ip = HelperFunctions.convert_fqdn_to_ip(private_ips[index])
-      node_public_ip = HelperFunctions.convert_fqdn_to_ip(public_ips[index])
+    nodes.each { |node|
+      node_private_ip = HelperFunctions.convert_fqdn_to_ip(node.private_ip)
+      node_public_ip = HelperFunctions.convert_fqdn_to_ip(node.public_ip)
 
       if node_private_ip == private_ip or node_public_ip == private_ip
         Djinn.log_debug("Mapped private ip #{private_ip} to public ip " +
-          "#{public_ips[index]}")
-        return public_ips[index]
+          "#{node_public_ip}")
+        return node_public_ip
       end
     }
 
     unable_to_convert_msg = "[get public ip] Couldn't convert private IP " +
-      "#{private_ip} to a public address. Public IPs are " +
-      "[#{public_ips.join(', ')}], private IPs are [#{private_ips.join(', ')}]"
+      "#{private_ip} to a public address."
 
     Djinn.log_debug(unable_to_convert_msg)
     abort(unable_to_convert_msg)  
@@ -2760,7 +2750,7 @@ class Djinn
   def update_hosts_info()
     all_nodes = ""
     @nodes.each_with_index { |node, index|
-      all_nodes << "#{node.private_ip} appscale-image#{index}\n"
+      all_nodes << "#{HelperFunctions.convert_fqdn_to_ip(node.private_ip)} appscale-image#{index}\n"
     }
     
     new_etc_hosts = <<HOSTS
@@ -2864,13 +2854,23 @@ HOSTS
     Kernel.sleep(1)
 
     begin
-      GodInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key)
-      HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, USE_SSL)
-    rescue Exception => except
-      backtrace = except.backtrace.join("\n")
-      remote_start_msg = "[remote_start] Unforeseen exception when " + \
-        "talking to #{ip}: #{except}\nBacktrace: #{backtrace}"
-      Djinn.log_debug(remote_start_msg)
+      Timeout::timeout(60) do
+        begin
+          GodInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key)
+          HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, USE_SSL)
+        # raise the timeout error so that the next rescue doesn't catch it
+        rescue Timeout::Error
+          raise Timeout::Error
+        rescue Exception => except
+          backtrace = except.backtrace.join("\n")
+          remote_start_msg = "[remote_start] Unforeseen exception when " + \
+            "talking to #{ip}: #{except}\nBacktrace: #{backtrace}"
+          Djinn.log_debug(remote_start_msg)
+          retry
+        end
+      end
+    rescue Timeout::Error
+      Djinn.log_debug("Couldn't start the AppController at #{ip}. Retrying.")
       retry
     end
     

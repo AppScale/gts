@@ -807,52 +807,7 @@ module HelperFunctions
     self.shell(`#{infrastructure}-terminate-instances #{instances.join(' ')}`)
   end
 
-  def self.get_hybrid_ips(creds)
-    Kernel.puts("creds are #{self.obscure_creds(creds).inspect}")
 
-    public_ips = []
-    private_ips = []
-
-    keyname = creds["keyname"]
-
-    cloud_num = 1
-    loop {
-      key = "CLOUD#{cloud_num}_TYPE"
-      cloud_type = creds[key]
-      break if cloud_type.nil?
-
-      self.set_creds_in_env(creds, cloud_num)
-
-      this_pub, this_priv = self.get_cloud_ips(cloud_type, keyname)
-      Kernel.puts("CLOUD#{cloud_num} reports public ips [#{this_pub.join(', ')}] and private ips [#{this_priv.join(', ')}]")
-      public_ips = public_ips + this_pub
-      private_ips = private_ips + this_priv
-
-      cloud_num += 1
-    }
-
-    Kernel.puts("all public ips are [#{public_ips.join(', ')}] and private ips [#{private_ips.join(', ')}]")
-    return public_ips, private_ips
-  end
-
-  def self.get_cloud_ips(infrastructure, keyname)
-    self.log_obscured_env
-
-    describe_instances = ""
-    loop {
-      describe_instances = `#{infrastructure}-describe-instances 2>&1`
-      Kernel.puts("[oi!] #{describe_instances}")
-      break unless describe_instances =~ /Message replay detected./
-      sleep(10)
-    }
-
-    running_machine_regex = /\s+(#{IP_OR_FQDN})\s+(#{IP_OR_FQDN})\s+running\s+#{keyname}\s/
-    all_ip_addrs = describe_instances.scan(running_machine_regex).flatten
-    Kernel.puts("[oi!] all ips are [#{all_ip_addrs.join(', ')}]")
-    public_ips, private_ips = HelperFunctions.get_ips(all_ip_addrs)
-    return public_ips, private_ips
-  end
-    
   def self.get_usage
     top_results = `top -n1 -d0 -b`
     usage = {}

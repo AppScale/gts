@@ -1,6 +1,10 @@
 #!/usr/bin/ruby -w
 
 
+# First-party Ruby libraries
+require 'timeout'
+
+
 # Imports for AppController libraries
 $:.unshift File.join(File.dirname(__FILE__))
 require 'godinterface'
@@ -89,11 +93,15 @@ module TaskQueue
 
     Djinn.log_run("#{full_cmd}")
     Djinn.log_debug("Waiting for RabbitMQ on local node to come up")
-    HelperFunctions.sleep_until_port_is_open("localhost", SERVER_PORT)
-    start_taskqueue_server()
-    Djinn.log_debug("Waiting for taskqueue server to come up")
-    HelperFunctions.sleep_until_port_is_open("localhost", TASKQUEUE_SERVER_PORT)
-    Djinn.log_debug("Done starting Taskqueue slave on this node")
+    begin
+      Timeout::timeout(60) do
+        HelperFunctions.sleep_until_port_is_open("localhost", SERVER_PORT)
+        Djinn.log_debug("Done starting rabbitmq_slave on this node")
+      end
+    rescue Timeout::Error
+      Djinn.log_debug("Waited for RabbitMQ to start, but timed out. " +
+        "Proceeding anyways.")
+    end
   end
 
   # Starts the AppScale TaskQueue server.
