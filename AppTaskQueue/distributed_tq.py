@@ -2,7 +2,7 @@
 
 """ 
 A service for handling TaskQueue request from application servers.
-It uses RabbitMQ and celery to task handling. 
+It uses RabbitMQ and celery to handle tasks.
 """
 
 import datetime
@@ -534,7 +534,6 @@ class DistributedTaskQueue():
       A datetime object for when the nearest time to run the 
      task is.
     """
-    #return datetime.datetime.now()
     if request.has_eta_usec():
       eta = request.eta_usec()
       return datetime.datetime.fromtimestamp(eta/1000000)
