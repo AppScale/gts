@@ -117,4 +117,41 @@ def shell(command):
     time.sleep(1)
   raise ShellException('Could not execute command: {0}'.format(command))
 
+def send_payload(url, payload):
+  """ Sends a payload to a given URL.
+ 
+  Args:
+    url: A URL destination where a taskqueue server is.
+    payload: A payload JSON string.
+  Returns:
+    A dictionary with the status of the request.
+  """
+  try:
+    request = urllib2.Request(url)
+    request.add_header('Content-Type', 'application/json')
+    request.add_header("Content-Length", "%d" % len(payload))
+    response = urllib2.urlopen(request, payload)
+    if response.getcode()!= 200:
+      return {'error': True,
+              'reason': "Response code of %d" % response.getcode()}
+    json_response = response.read()
+    json_response = json.loads(json_response)
+    if 'error' in json_response and json_response['error']:
+      return {'error': True,
+              'reason': "Reponse code of %d" % json_response['reason']}
+  except ValueError, value_error:
+    return {'error': True,
+            'reason':
+            str("Badly formed json response from worker: %s" % \
+                                       str(value_error))}
+  except urllib2.URLError, url_error:
+    return {'error': True,
+            'reason': str("URLError: %s" % str(url_error))}
+  except IOError, io_error:
+    return {'error': True,
+            'reason': str(io_error)}
+  except Exception, exception:
+    return {'error': True,
+            'reason': str(exception.__class__) + "  " + str(exception)}
+  return {'error': False}
 

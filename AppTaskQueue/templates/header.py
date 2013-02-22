@@ -7,7 +7,6 @@
     CELERY_CONFIGURATION: The name of the celery configuration file.
 """
 
-import base64
 import httplib
 import sys
 import yaml

@@ -79,16 +79,20 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
   This stub executes tasks when enabled by using the dev_appserver's AddEvent
   capability. 
   """
-  def __init__(self, app_id, service_name='taskqueue'):
+  def __init__(self, app_id, host, port, service_name='taskqueue'):
     """Constructor.
 
     Args:
       app_id: The application ID.
+      host: The nginx host.
+      port: The nginx port.
       service_name: Service name expected for all calls.
     """
     super(TaskQueueServiceStub, self).__init__(
         service_name, max_request_size=MAX_REQUEST_SIZE)
     self.__app_id = app_id
+    self.__nginx_host = host
+    self.__nginx_port = port
     self.__tq_location = self.__GetTQLocation()
 
   def __GetTQLocation(self):
@@ -111,6 +115,9 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
           taskqueue_service.proto.
     """
     request.set_app_id(self.__app_id)
+    url = request.url()
+    url = "http://" + self.__nginx_host + ":" + str(self.__nginx_port) + url
+    request.set_url(url)
     self._RemoteSend(request, response, "Add")
     return response
 
@@ -130,6 +137,9 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
 
     for add_request in request.add_request_list():
       add_request.set_app_id(self.__app_id)
+      url = add_request.url()
+      url = "http://" + self.__nginx_host + ":" + str(self.__nginx_port) + url
+      add_request.set_url(url)
 
     self._RemoteSend(request, response, "BulkAdd")
     return response

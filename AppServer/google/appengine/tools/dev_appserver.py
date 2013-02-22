@@ -3587,7 +3587,7 @@ def SetupStubs(app_id, **config):
   hash_secret = hashlib.sha1(app_id + '/'+ cookie_secret).hexdigest()
   apiproxy_stub_map.apiproxy.RegisterStub(
       'taskqueue',
-      taskqueue_distributed.TaskQueueServiceStub(app_id))
+      taskqueue_distributed.TaskQueueServiceStub(app_id, serve_address, serve_port))
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'urlfetch',

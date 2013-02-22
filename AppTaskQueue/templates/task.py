@@ -15,6 +15,10 @@ def QUEUE_NAME(headers, args):
   logger.info("Running task with %s %s %s" % \
       (str(headers), str(args), args['task_name']))
   url = urlparse(args['url'])
+  urlpath = url.path
+  if url.query:
+    urlpath += "?" + url.query
+
   method = args['method']
   if args['expires'] <= datetime.datetime.now():
     # We do this check because the expires attribute in 
@@ -33,10 +37,17 @@ def QUEUE_NAME(headers, args):
     return
  
   connection = httplib.HTTPConnection(url.hostname, url.port)
+
+  skip_host = False
+  if 'host' in headers or 'Host' in headers:
+    skip_host = True
+  skip_accept_encoding = False
+  if 'accept-encoding' in headers or 'Accept-Encoding' in headers:
+    skip_accept_encoding = True
   connection.putrequest(method, 
-                        url.path,
-                        skip_host='host' in headers,
-                        skip_accept_encoding='accept-encoding' in headers) 
+                        urlpath,
+                        skip_host=skip_host,
+                        skip_accept_encoding=skip_accept_encoding)
 
   # Update the task headers
   headers['X-AppEngine-TaskRetryCount'] = str(QUEUE_NAME.request.retries)
@@ -44,12 +55,24 @@ def QUEUE_NAME(headers, args):
 
   for header in headers:
     connection.putheader(header, headers[header]) 
+
+  content_length = "0"
+  if args["body"]:
+    content_length = str(len(args['body']))
+
+  if 'content-type' not in headers or 'Content-Type' not in headers:
+    if method == "POST":
+      connection.putheader('content-type', 'application/x-www-form-urlencoded')
+    else:
+      connection.putheader('content-type', 'application/octet-stream')
+
+  connection.putheader("Content-Length", content_length)
   connection.endheaders()
   if args["body"]:
-    connection.send(base64.b64decode(args['body']))
+    connection.send(args['body'])
   response = connection.getresponse()
+  payload = response.read()
   response.close()
-  logger.info("Response status %d: % response.status")
   if 200 <= response.status < 300:
     return response.status
     # Success
@@ -68,6 +91,6 @@ def QUEUE_NAME(headers, args):
     max_doublings = min(max_doublings, retries)
     wait_time = 2**(max_doublings - 1) * min_backoff_seconds
     wait_time = min(wait_time, max_backoff_seconds)
-    logger.warning("Task %s will retry in %d seconds" % \
-                    (args['task_name'], wait_time))
+    logger.warning("Task %s will retry in %d seconds. Got response of %d when going to %s" % \
+                    (args['task_name'], wait_time, response.status, args['url']))
     raise QUEUE_NAME.retry(countdown=wait_time)

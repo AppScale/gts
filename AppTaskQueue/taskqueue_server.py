@@ -20,34 +20,6 @@ SERVER_PORT = 64839
 # Global for Distributed TaskQueue
 task_queue = None
 
-class QueuesHandler(tornado.web.RequestHandler):
-  """ Gets request with the application id.
-      Should be called on the taskqueue master node.
-  """
-  @tornado.web.asynchronous
-  def get(self):
-    """ Handles get request for the web server. Returns the queue status
-        in json.
-    """
-    global task_queue    
-    self.write('{"status":"up"}')
-    self.finish()
-
-  @tornado.web.asynchronous
-  def post(self):
-    """ Function which handles POST requests. Data of the request is 
-        the request from the AppController in an a JSON string. 
-        The JSON string must contain the application name. 
-        Replies with a JSON string of the configuration file to be sent 
-        to all workers.
-    """
-    global task_queue    
-    request = self.request
-    http_request_data = request.body
-    json_response = task_queue.run_queue_operation(http_request_data)
-    self.write(json_response)
-    self.finish()
-
 class StopWorkerHandler(tornado.web.RequestHandler):
   """ Stops task queue workers for an app if they are running. """
   @tornado.web.asynchronous
@@ -58,8 +30,6 @@ class StopWorkerHandler(tornado.web.RequestHandler):
     global task_queue    
     request = self.request
     http_request_data = request.body
-    print "STOP WORKER"
-    print http_request_data
     json_response = task_queue.stop_worker(http_request_data)
     self.write(json_response)
     self.finish()
@@ -69,7 +39,6 @@ class StopWorkerHandler(tornado.web.RequestHandler):
     """ Handles get request for the web server. Returns the worker
         status in json.
     """
-    #TODO
     global task_queue    
     self.write('{"status":"up"}')
     self.finish()
@@ -84,8 +53,6 @@ class StartWorkerHandler(tornado.web.RequestHandler):
     global task_queue    
     request = self.request
     http_request_data = request.body
-    print "START WORKER"
-    print http_request_data
     json_response = task_queue.start_worker(http_request_data)
     self.write(json_response)
     self.finish()
@@ -240,8 +207,7 @@ def main():
   global task_queue
   task_queue = distributed_tq.DistributedTaskQueue()
   tq_application = tornado.web.Application([
-    # Takes json from AppController and TaskQueue master
-    (r"/queues", QueuesHandler),
+    # Takes json from AppController 
     (r"/startworker", StartWorkerHandler),
     (r"/stopworker", StopWorkerHandler),
     # Takes protocol buffers from the AppServers
