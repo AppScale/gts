@@ -61,10 +61,10 @@ def QUEUE_NAME(headers, args):
     content_length = str(len(args['body']))
 
   if 'content-type' not in headers or 'Content-Type' not in headers:
-    if method == "POST":
-      connection.putheader('content-type', 'application/x-www-form-urlencoded')
-    else:
+    if url.query:
       connection.putheader('content-type', 'application/octet-stream')
+    else:
+      connection.putheader('content-type', 'application/x-www-form-urlencoded')
 
   connection.putheader("Content-Length", content_length)
   connection.endheaders()

@@ -136,7 +136,7 @@ case "$1" in
 	postinstallmysql
         installrabbitmq
         postinstallrabbitmq
-        install celery
+        installcelery
 	installservice
 	postinstallservice
 	updatealternatives

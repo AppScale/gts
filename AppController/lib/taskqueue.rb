@@ -41,6 +41,12 @@ module TaskQueue
   TASKQUEUE_SERVER_SCRIPT  = File.dirname(__FILE__) + "/../../AppTaskQueue" + \
                           "taskqueue_server.py"
 
+  # The longest we'll wait for RabbitMQ to come up in seconds.
+  MAX_WAIT_FOR_RABBITMQ = 30
+
+  # How many times to retry starting rabbitmq on a slave.
+  RABBIT_START_RETRY = 3
+
   # Starts a service that we refer to as a "rabbitmq_master", a RabbitMQ
   # service that other nodes can rely on to be running the taskqueue server.
   def self.start_master()
@@ -91,16 +97,33 @@ module TaskQueue
                   "rabbitmqctl start_app"]
     full_cmd = "#{start_cmds.join('; ')}"
 
-    Djinn.log_run("#{full_cmd}")
-    Djinn.log_debug("Waiting for RabbitMQ on local node to come up")
-    begin
-      Timeout::timeout(60) do
-        HelperFunctions.sleep_until_port_is_open("localhost", SERVER_PORT)
-        Djinn.log_debug("Done starting rabbitmq_slave on this node")
+    tries_left = RABBIT_START_RETRY
+    while 1
+      Djinn.log_run("#{full_cmd}")
+      Djinn.log_debug("Waiting for RabbitMQ on local node to come up")
+      begin
+        Timeout::timeout(MAX_WAIT_FOR_RABBITMQ) do
+          HelperFunctions.sleep_until_port_is_open("localhost", SERVER_PORT)
+          Djinn.log_debug("Done starting rabbitmq_slave on this node")
+
+          Djinn.log_debug("Starting TaskQueue server on slave node")
+          start_taskqueue_server()
+          Djinn.log_debug("Waiting for TaskQueue server on slave node to come up")
+          HelperFunctions.sleep_until_port_is_open("localhost", 
+                                                   TASKQUEUE_SERVER_PORT)
+          Djinn.log_debug("Done waiting for TaskQueue server")
+          return
+        end
+      rescue Timeout::Error
+        tries_left -= 1
+        Djinn.log_debug("Waited for RabbitMQ to start, but timed out. " +
+          "Retries left #{tries_left}.")
+        self.erase_local_files()
       end
-    rescue Timeout::Error
-      Djinn.log_debug("Waited for RabbitMQ to start, but timed out. " +
-        "Proceeding anyways.")
+      if tries_left == 0
+        Djinn.log_debug("CRITICAL ERROR: RabbitMQ slave failed to come up") 
+        return
+      end
     end
   end
 
