@@ -471,7 +471,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
         }        
         if (res == null)
         {
-            logger.info("Memcache key [" + internalKey + "] not found, returning null");
+            logger.fine("Memcache key [" + internalKey + "] not found, returning null");
             return null;
         }
 
