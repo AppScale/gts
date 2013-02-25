@@ -15,19 +15,19 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Collections;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.concurrent.TimeoutException;
+import java.lang.InterruptedException;
 import javax.xml.bind.DatatypeConverter;
 
-import net.spy.memcached.CASResponse;
-import net.spy.memcached.CASValue;
-import net.spy.memcached.MemcachedClient;
-import net.spy.memcached.ConnectionFactory;
-import net.spy.memcached.DefaultConnectionFactory;
-import net.spy.memcached.HashAlgorithm;
+import net.rubyeye.xmemcached.*;
+import net.rubyeye.xmemcached.utils.*;
+import net.rubyeye.xmemcached.exception.MemcachedException;
 
 import com.google.appengine.api.memcache.MemcacheSerialization;
 import com.google.appengine.api.memcache.MemcacheServiceException;
@@ -101,19 +101,26 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
          */
         logger.fine("Memcache set, key= [" + keyToString(key) + "]");
         int exp = (int)((entry.getExpires() - System.currentTimeMillis()) / 1000 + 1);
-        Future<Boolean> response = memcacheClient.set(keyToString(key), exp, entry);
+        if(exp < 0)
+        {
+            exp = 0;
+        }
         try
         {
-            Boolean successful = response.get();
-            logger.fine("Memcache set response for key [" + keyToString(key) + "] was [" + successful.toString() + "]");
+            Object response = memcacheClient.set(keyToString(key), exp, entry);
+            logger.fine("Memcache set response for key [" + keyToString(key) + "] was [" + response + "]");
+        }
+        catch(TimeoutException e)
+        {
+            logger.warning("TimeoutException doing set for key [" + key + "]"); 
         }
         catch(InterruptedException e)
         {
-            logger.warning("InteruptedException getting memcache set response for key [" + keyToString(key) + "]");
+            logger.warning("InterruptedException doing set for key [" + key + "]");
         }
-        catch(ExecutionException e)
+        catch(MemcachedException e)
         {
-            logger.warning("ExecutionException getting memcache set response for key [" + keyToString(key) + "]");
+            logger.warning("MemcachedException doing set for key [" + key + "], message [" + e.getMessage() + "]");
         }
     }
 
@@ -152,8 +159,9 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
          * AppScale - start of added code below to establish connection to
          * memcached
          */
-        final List<InetSocketAddress> ipList = new ArrayList<InetSocketAddress>();
-
+        List<String> ipList = new ArrayList<String>();
+        String ipListString = new String("");
+	
         try
         {
             ResourceLoader res = ResourceLoader.getResourceLoader();
@@ -162,41 +170,40 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
             DataInputStream in = new DataInputStream(fstream);
             BufferedReader br = new BufferedReader(new InputStreamReader(in));
             String strLine;
-            // Read File Line By Line
+            // Read file line by line and populate ip list
             while ((strLine = br.readLine()) != null)
             {
                 String ip = strLine;
                 if (isIp(ip))
                 { 
-                    logger.info("Memcache client - adding ip: " + ip);
-                    ipList.add(new InetSocketAddress(ip, MEMCACHE_PORT));
+                    ipList.add(ip);
                 }
             }
             // Close the input stream
             in.close();
+            //ip list needs to be sorted to be consistent accross all memcache clients
+            Collections.sort(ipList);
+            for(String ipStr : ipList)
+            {
+                logger.info("Memcache client - adding ip: " + ipStr);
+                ipListString = ipListString + ipStr + ":" + MEMCACHE_PORT + " ";
+            }
         }
         catch (Exception e)
         {
-            logger.log(Level.SEVERE, "Error: " + e.getMessage());
-        }
-        try
-        {
-	    /*
-	     * AppScale - using FN1A_64_HASH as the hashing algorithm
-	     * because keys were being hashed to the incorrect
-	     * server with the default hashing algorithm. 
-             */
-            ConnectionFactory connFactory = new DefaultConnectionFactory(
-                    DefaultConnectionFactory.DEFAULT_OP_QUEUE_LEN,
-                    DefaultConnectionFactory.DEFAULT_READ_BUFFER_SIZE,
-                    net.spy.memcached.DefaultHashAlgorithm.FNV1A_64_HASH);
-            memcacheClient = new MemcachedClient(connFactory, ipList);
-        }
-        catch (IOException e)
-        {
-            e.printStackTrace();
+            logger.log(Level.SEVERE, "Error reading in memcache ips: " + e.getMessage());
         }
 
+        XMemcachedClientBuilder builder = new XMemcachedClientBuilder(AddrUtil.getAddresses(ipListString));
+        try
+        {
+            memcacheClient = builder.build();
+        }
+        catch(IOException e)
+        {
+            logger.severe("Failed to create Java Memcached client!");
+            throw new MemcacheServiceException("Failed to create Java Memcached client", e);
+        }
         logger.info("Connection to memcache server is established!");
         /*
          * AppScale - end added code for memcache connection
@@ -262,9 +269,25 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
             // handle cas
             if ((req.hasForCas()) && (req.getForCas()))
             {
-                CASValue<Object> res = memcacheClient.gets(internalKey);
-                item.setCasId(res.getCas());
-                entry = (CacheEntry)res.getValue();
+                GetsResponse<Object> res;
+                try
+                {
+                    res = memcacheClient.gets(internalKey);
+                    item.setCasId(res.getCas());
+                    entry = (CacheEntry)res.getValue();
+                }
+                catch(TimeoutException e)
+                {
+                    logger.warning("TimeoutException doing gets for key [" + internalKey + "]");
+                }
+                catch(InterruptedException e)
+                {
+                    logger.warning("InterruptedException doing gets for key [" + internalKey + "]");
+                }
+                catch(MemcachedException e)
+                {
+                    logger.warning("MemcachedException doing gets for key [" + internalKey + "], message [" + e.getMessage() + "]");
+                }  
             }
             else
             {
@@ -341,25 +364,33 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
                     }
                     else
                     {
-                        // get cas id for key
-                        CASValue<Object> obj = memcacheClient.gets(internalKey);
-                        // do cas operation for key:ce
-                        CASResponse res = memcacheClient.cas(internalKey, obj.getCas(), ce);
-                        if (res.equals(CASResponse.EXISTS))
+                        boolean res = false;
+                        try
                         {
-                            result.addSetStatus(MemcacheServicePb.MemcacheSetResponse.SetStatusCode.EXISTS);
+                            //get cas id for key
+                            GetsResponse<Object> getsResp = memcacheClient.gets(internalKey);
+                            //do cas operation for key:ce
+                            res = memcacheClient.cas(internalKey, (int)expiry, ce, getsResp.getCas());
                         }
-                        else if (res.equals(CASResponse.NOT_FOUND))
+                        catch(TimeoutException e)
+                        {
+                            logger.warning("TimeoutException doing gets/cas for key [" + internalKey + "]");
+                        }
+                        catch(InterruptedException e)
+                        {
+                            logger.warning("InterruptedException doing gets/cas for key [" + internalKey + "]");
+                        }
+                        catch(MemcachedException e)
+                        {
+                            logger.warning("MemcachedException doing gets/cas for key [" + internalKey + "], message [" + e.getMessage() + "]");
+                        } 
+                        if (res == false)
                         {
                             result.addSetStatus(MemcacheServicePb.MemcacheSetResponse.SetStatusCode.NOT_STORED);
                         }
-                        else if (res.equals(CASResponse.OK))
+                        else if (res == true)
                         {
                             result.addSetStatus(MemcacheServicePb.MemcacheSetResponse.SetStatusCode.STORED);
-                        }
-                        else
-                        {
-                            logger.log(Level.SEVERE, "unknown response for cas operation: " + res.toString());
                         }
                     }
                 }
@@ -421,28 +452,48 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
          * otherwise we do a delete and make sure the asynchronous delete
          * returns true. Otherwise we throw an exception.
          */
-        Object res = memcacheClient.get(internalKey);
+        Object res = null;
+        try
+        {
+            res = memcacheClient.get(internalKey);
+        }
+        catch(TimeoutException e)
+        {
+            logger.warning("TimeoutException doing get for key [" + internalKey + "]");
+        }
+        catch(InterruptedException e)
+        {
+            logger.warning("InterruptedException doing get for key [" + internalKey + "]");
+        }
+        catch(MemcachedException e)
+        {
+            logger.warning("MemcachedException doing get for key [" + internalKey + "], message [" + e.getMessage() + "]");
+        }        
         if (res == null)
         {
-            logger.fine("Memcache key [" + internalKey + "] not found, returning null");
+            logger.info("Memcache key [" + internalKey + "] not found, returning null");
             return null;
         }
 
-        Future<Boolean> asyncDeleteResult = memcacheClient.delete(internalKey);
         boolean deleted = false;
         try
         {
-            deleted = asyncDeleteResult.get().booleanValue();
-            logger.fine("Memcache returned [" + deleted + "] as delete result for key [" + internalKey + "]");
+            deleted = memcacheClient.delete(internalKey);;
         }
-        catch (InterruptedException e)
+        catch(TimeoutException e)
         {
-            throw new MemcacheServiceException("Failed to get memcached delete result for internalKey [" + internalKey + "]");
+            logger.warning("TimeoutException doing delete for key [" + internalKey + "]");
         }
-        catch (ExecutionException e)
+        catch(InterruptedException e)
         {
-            throw new MemcacheServiceException("Failed to get memcached delete result for internalKey [" + internalKey + "]");
+            logger.warning("InterruptedException doing delete for key [" + internalKey + "]");
         }
+        catch(MemcachedException e)
+        {
+            logger.warning("MemcachedException doing delete for key [" + internalKey + "], message [" + e.getMessage() + "]");
+        }
+        logger.info("Memcache returned [" + deleted + "] as delete result for key [" + internalKey + "]");
+        
         if (deleted == false)
         {
             throw new MemcacheServiceException("Failed to delete cache entry with internalKey [" + internalKey + "]");
@@ -520,14 +571,44 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
             throw new ApiProxy.UnknownException("UTF-8 encoding was not found.");
         }
 
-        long res;
+        long res = -1;
         if (req.getDirection() == MemcacheServicePb.MemcacheIncrementRequest.Direction.DECREMENT)
         {
-            res = memcacheClient.decr(internalKey, (int)delta);
+            try
+            {
+                res = memcacheClient.decr(internalKey, (int)delta);
+            }
+            catch(TimeoutException e)
+            {   
+                logger.warning("TimeoutException doing decr for key [" + internalKey + "]");
+            }
+            catch(InterruptedException e)
+            {
+                logger.warning("InterruptedException doing decr for key [" + internalKey + "]");
+            }
+            catch(MemcachedException e)
+            {
+                logger.warning("MemcachedException doing decr for key [" + internalKey + "], message [" + e.getMessage() + "]");
+            }
         }
         else
         {
-            res = memcacheClient.incr(internalKey, (int)delta);
+            try
+            {
+                res = memcacheClient.incr(internalKey, (int)delta);
+            }
+            catch(TimeoutException e)
+            {
+                logger.warning("TimeoutException doing incr for key [" + internalKey + "]");
+            }
+            catch(InterruptedException e)
+            {
+                logger.warning("InterruptedException doing incr for key [" + internalKey + "]");
+            }
+            catch(MemcachedException e)
+            {
+                logger.warning("MemcachedException doing incr for key [" + internalKey + "], message [" + e.getMessage() + "]");
+            }
         }
         if (res == -1)
         {
@@ -549,7 +630,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
          * AppScale - changed a lot of this method body to use our memcached
          * client
          */
-        logger.fine("Memcache - batchIncrement called");
+        logger.info("Memcache - batchIncrement called");
         MemcacheServicePb.MemcacheBatchIncrementResponse.Builder result = MemcacheServicePb.MemcacheBatchIncrementResponse.newBuilder();
         String namespace = batchReq.getNameSpace();
 
@@ -634,14 +715,44 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
                 throw new ApiProxy.UnknownException("UTF-8 encoding was not found.");
             }
 
-            long res;
+            long res = -1;
             if (req.getDirection() == MemcacheServicePb.MemcacheIncrementRequest.Direction.DECREMENT)
             {
-                res = memcacheClient.decr(internalKey, (int)delta);
+                try
+                {
+                    res = memcacheClient.decr(internalKey, (int)delta);
+                }
+                catch(TimeoutException e)
+                {
+                    logger.warning("TimeoutException doing decr for key [" + internalKey + "]");
+                }
+                catch(InterruptedException e)
+                {
+                    logger.warning("InterruptedException doing decr for key [" + internalKey + "]");
+                }
+                catch(MemcachedException e)
+                {
+                    logger.warning("MemcachedException doing decr for key [" + internalKey + "], message [" + e.getMessage() + "]");
+                }
             }
             else
             {
-                res = memcacheClient.incr(internalKey, (int)delta);
+		try
+                {
+                    res = memcacheClient.incr(internalKey, (int)delta);
+                }
+                catch(TimeoutException e)
+                {
+                    logger.warning("TimeoutException doing incr for key [" + internalKey + "]");
+                }
+                catch(InterruptedException e)
+                {
+                    logger.warning("InterruptedException doing incr for key [" + internalKey + "]");
+                }
+                catch(MemcachedException e)
+                {
+                    logger.warning("MemcachedException doing incr for key [" + internalKey + "], message [" + e.getMessage() + "]");
+                }
             }
             if (res == -1)
             {
@@ -669,7 +780,28 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
          * AppScale - replaced entire method body to use memcached client
          */
         MemcacheServicePb.MemcacheFlushResponse.Builder result = MemcacheServicePb.MemcacheFlushResponse.newBuilder();
-        memcacheClient.flush();
+        try
+        {
+            memcacheClient.flushAll();
+        }
+        catch(TimeoutException e)
+        {
+            logger.warning("TimeoutException doing flushAll");
+            status.setSuccessful(false);
+            return result.build();
+        }
+        catch(InterruptedException e)
+        {
+            logger.warning("InterruptedException doing flushAll");
+            status.setSuccessful(false);
+            return result.build();
+        }
+        catch(MemcachedException e)
+        {
+            logger.warning("MemcachedException doing flushAll, message [" + e.getMessage() + "]");
+            status.setSuccessful(false);
+            return result.build();
+        }
         status.setSuccessful(true);
         return result.build();
     }
@@ -696,8 +828,27 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
      */
     public MemcacheServicePb.MergedNamespaceStats getAsMergedNamespaceStats()
     {
-        Map<SocketAddress, Map<String, String>> statusMap = memcacheClient.getStats();
-        Iterator<SocketAddress> iter = statusMap.keySet().iterator();
+        Map<InetSocketAddress, Map<String, String>> statusMap;
+        try
+        {
+            statusMap = memcacheClient.getStats();
+        }
+        catch(MemcachedException e)
+        {
+            logger.severe("Failed to get stats for memcache");
+            throw new MemcacheServiceException("Failed to get stats for memcache", e);
+        }
+        catch(InterruptedException e)
+        {
+            logger.severe("Failed to get stats for memcache");
+            throw new MemcacheServiceException("Failed to get stats for memcache", e);
+        }
+        catch(TimeoutException e)
+        {
+            logger.severe("Failed to get stats for memcache");
+            throw new MemcacheServiceException("Failed to get stats for memcache", e);
+        } 
+        Iterator<InetSocketAddress> iter = statusMap.keySet().iterator();
         int hits = 0;
         int misses = 0;
         int totalBytes = 0;
@@ -705,7 +856,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
         int itemCount = 0;
         while (iter.hasNext())
         {
-            SocketAddress host = iter.next();
+            InetSocketAddress host = iter.next();
             Map<String, String> status = statusMap.get(host);
             hits += Integer.parseInt(status.get("get_hits"));
             misses += Integer.parseInt(status.get("get_misses"));
@@ -739,7 +890,23 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
     private CacheEntry internalGet( String internalKey )
     {
         logger.fine("Memcache internalGet(), key = [" + internalKey + "]");
-        Object res = memcacheClient.get(internalKey);
+        Object res = null;
+        try
+        {
+            res = memcacheClient.get(internalKey);
+        }
+        catch(TimeoutException e)
+        {
+            logger.warning("TimeoutException doing get for key [" + internalKey + "]");
+        }
+        catch(InterruptedException e)
+        {
+            logger.warning("InterruptedException doing get for key [" + internalKey + "]");
+        }
+        catch(MemcachedException e)
+        {
+            logger.warning("MemcachedException doing get for key [" + internalKey + "], message [" + e.getMessage() + "]");
+        }
         if (res != null)
         {
             logger.fine("Memcache internalGet() returning cache entry [" + res + "]");
