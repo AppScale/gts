@@ -3920,7 +3920,8 @@ def CreateServer(root_path,
                                        static_caching,
                                        default_partition,
                                        persist_logs,
-                                       interactive_console)
+                                       interactive_console,
+                                       secret_hash)
 
 
   if absolute_root_path not in python_path_list:
