@@ -492,7 +492,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
         {
             logger.warning("MemcachedException doing delete for key [" + internalKey + "], message [" + e.getMessage() + "]");
         }
-        logger.info("Memcache returned [" + deleted + "] as delete result for key [" + internalKey + "]");
+        logger.fine("Memcache returned [" + deleted + "] as delete result for key [" + internalKey + "]");
         
         if (deleted == false)
         {
@@ -630,7 +630,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
          * AppScale - changed a lot of this method body to use our memcached
          * client
          */
-        logger.info("Memcache - batchIncrement called");
+        logger.fine("Memcache - batchIncrement called");
         MemcacheServicePb.MemcacheBatchIncrementResponse.Builder result = MemcacheServicePb.MemcacheBatchIncrementResponse.newBuilder();
         String namespace = batchReq.getNameSpace();
 
