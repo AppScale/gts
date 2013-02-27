@@ -1096,8 +1096,19 @@ module HelperFunctions
   end
 
   def self.does_image_have_location?(ip, location, key)
-    ret_val = self.shell("ssh -i #{key} -o NumberOfPasswordPrompts=0 -o StrictHostkeyChecking=no 2>&1 root@#{ip} 'ls #{location}'; echo $?").chomp[-1]
-    return ret_val.chr == "0"
+    retries_left = 10
+    begin
+      ret_val = self.shell("ssh -i #{key} -o NumberOfPasswordPrompts=0 -o StrictHostkeyChecking=no 2>&1 root@#{ip} 'ls #{location}'; echo $?").chomp[-1]
+      if ret_val.chr == "0"
+        return true
+      end
+      retries_left -= 1
+      if retries_left > 0
+        retry
+      else
+        return false
+      end
+    end
   end
 
   def self.ensure_image_is_appscale(ip, key)
