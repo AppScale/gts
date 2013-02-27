@@ -1104,10 +1104,12 @@ module HelperFunctions
       end
       retries_left -= 1
       if retries_left > 0
-        retry
+        raise Exception
       else
         return false
       end
+    rescue Exception
+      retry
     end
   end
 
