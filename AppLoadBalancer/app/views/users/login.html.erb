@@ -1,7 +1,10 @@
-<div id="getting-started">
-  <h1>Login</h1>
-  <%= content_tag :h3, display_flash_messages %>
-  <% form_for :user, @user, :url => { :action => :authenticate } do |f| %>
+       <div class="container-fluid">
+
+        <div class="loginContainer">
+            <span class="form-horizontal"id="loginForm" >
+                <div class="form-row row-fluid">
+                  <%= content_tag :h3, display_flash_messages %>
+                    <% form_for :user, @user, :url => { :action => :authenticate } do |f| %>
     <p>
       <%= f.label :email, "Email:" %>
       <%= f.text_field :email, :size => 40 %>
@@ -16,8 +19,13 @@
       <%= submit_tag "Login" %>
     </p>
   <% end %>
+     <br />Don't have an account? <%= link_to "Create one.", :controller => :users, :action => :new %>                              
+                  
+                </div>
 
-  <br />Don't have an account? <%= link_to "Create one.", :controller => :users, :action => :new %>
-</div>
+            </span>
+        </div>
 
+    </div><!-- End .container-fluid -->
 
+  
