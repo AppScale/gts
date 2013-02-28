@@ -2942,9 +2942,28 @@ HOSTS
 
   def start_appengine()
     @state = "Preparing to run AppEngine apps if needed"
-    Djinn.log_debug("Starting appengine - pbserver is at [#{@userappserver_private_ip}]")
+    db_private_ip = nil
+    @nodes.each { |node|
+      if node.is_db_master? or node.is_db_slave?
+        if HelperFunctions.is_port_open?(node.private_ip, 4343,
+          HelperFunctions::USE_SSL)
+          Djinn.log_debug("UAServer port open on #{node.private_ip} - using it!")
+          db_private_ip = node.private_ip
+          break
+        else
+          Djinn.log_debug("UAServer port not open on #{node.private_ip} - skipping!")
+          next
+        end
+      end
+    }
+    if db_private_ip.nil?
+      Djinn.log_debug("Couldn't find a live db node - falling back to UAServer IP")
+      db_private_ip = @userappserver_private_ip
+    end
 
-    uac = UserAppClient.new(@userappserver_private_ip, @@secret)
+    Djinn.log_debug("Starting appengine - pbserver is at [#{db_private_ip}]")
+
+    uac = UserAppClient.new(db_private_ip, @@secret)
     app_manager = AppManagerClient.new()
 
     if @restored == false #and restore_from_db?
