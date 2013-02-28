@@ -1440,49 +1440,31 @@ class Djinn
   end
 
   def set_uaserver_ips()
-    ip_addr = get_uaserver_ip()
-    if !is_cloud?
-      @userappserver_public_ip = ip_addr
-      @userappserver_private_ip = ip_addr
-      Djinn.log_debug("\n\nUAServer is at [#{@userappserver_public_ip}]\n\n")
+    Djinn.log_debug("Setting uaserver public/private ips")
+
+    Djinn.log_debug("My node is #{my_node}")
+    # set it to this node if we run the uaserver
+    if my_node.is_db_master? or my_node.is_db_slave?
+      Djinn.log_debug("Running the UserAppServer locally - setting uaserver" +
+        " IPs to (pub)#{my_node.public_ip}, (pri)#{my_node.private_ip}")
+      @userappserver_public_ip = my_node.public_ip
+      @userappserver_private_ip = my_node.private_ip
       return
     end
-    
-    keyname = @creds["keyname"]
-    infrastructure = @creds["infrastructure"]    
- 
-    if is_hybrid_cloud?
-      Djinn.log_debug("Getting hybrid ips with creds #{@creds.inspect}")
-    else
-      Djinn.log_debug("Getting cloud ips for #{infrastructure} with keyname " +
-        "#{keyname}")
-    end
- 
-    Djinn.log_debug("Looking for #{ip_addr}")
-    ip_addr = HelperFunctions.convert_fqdn_to_ip(ip_addr)
-    Djinn.log_debug("[converted] Looking for #{ip_addr}")
+
+    # otherwise just set it to an arbitrary db node's ips
     @nodes.each { |node|
-      node_public_ip = HelperFunctions.convert_fqdn_to_ip(node.public_ip)
-      node_private_ip = HelperFunctions.convert_fqdn_to_ip(node.private_ip)
-
-      Djinn.log_debug("node with public FQDN #{node.public_ip} has public IP #{node_public_ip}")
-      Djinn.log_debug("node with private FQDN #{node.private_ip} has private IP #{node_private_ip}")
-
-      if node_public_ip == ip_addr or node_private_ip == ip_addr
-        # don't set the uaserver_public_ip to node_public_ip, as then the tools
-        # won't be able to resolve that ip (it may be the same as the 
-        # unresolvable private ip)
-        Djinn.log_debug("Setting uaserver public ip to #{node.public_ip}")
-        Djinn.log_debug("Setting uaserver private ip to #{node_private_ip}")
+      Djinn.log_debug("looking at node #{node} as a possible uaserver")
+      if node.is_db_master? or node.is_db_slave?
+        Djinn.log_debug("Found a UserAppServer at (pub) #{node.public_ip}, " +
+          "(pri) #{node.private_ip}")
         @userappserver_public_ip = node.public_ip
-        @userappserver_private_ip = node_private_ip
+        @userappserver_private_ip = node.private_ip
         return
       end
     }
 
-    unable_to_convert_msg = "[get uaserver ip] Couldn't find out whether " +
-      "#{ip_addr} was a public or private IP address."
-
+    unable_to_convert_msg = "[get uaserver ip] Couldn't find a UAServer."
     Djinn.log_debug(unable_to_convert_msg)
     abort(unable_to_convert_msg)
   end
@@ -2416,6 +2398,7 @@ class Djinn
     keyname = @creds["keyname"] 
     appengine_info = Djinn.convert_location_array_to_class(appengine_info, keyname)
     @nodes.concat(appengine_info)
+    find_me_in_locations
     write_database_info
     
     creds = @creds.to_a.flatten
@@ -2442,6 +2425,7 @@ class Djinn
         # to use the first ssh key (the only key)
         imc = InfrastructureManagerClient.new(@@secret)
         appengine_info = imc.spawn_vms(nodes.length, @creds, roles, "cloud1")
+        Djinn.log_debug("Received appengine info: #{appengine_info}")
       else
         nodes.each_pair do |ip,roles|
           # for xen the public and private ips are the same
