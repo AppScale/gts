@@ -1459,7 +1459,9 @@ class Djinn
     end
  
     Djinn.log_debug("Looking for #{ip_addr}")
-    nodes.each { |node|
+    ip_addr = HelperFunctions.convert_fqdn_to_ip(ip_addr)
+    Djinn.log_debug("[converted] Looking for #{ip_addr}")
+    @nodes.each { |node|
       node_public_ip = HelperFunctions.convert_fqdn_to_ip(node.public_ip)
       node_private_ip = HelperFunctions.convert_fqdn_to_ip(node.private_ip)
 
@@ -1499,7 +1501,9 @@ class Djinn
     end
 
     Djinn.log_debug("Looking for #{private_ip}")
-    nodes.each { |node|
+    private_ip = HelperFunctions.convert_fqdn_to_ip(private_ip)
+    Djinn.log_debug("[converted] Looking for #{private_ip}")
+    @nodes.each { |node|
       node_private_ip = HelperFunctions.convert_fqdn_to_ip(node.private_ip)
       node_public_ip = HelperFunctions.convert_fqdn_to_ip(node.public_ip)
 
