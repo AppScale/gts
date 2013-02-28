@@ -147,7 +147,11 @@ def diff(list1, list2):
   Returns:
     A list of elements unique to list1
   """
-  return sorted(set(list1) - set(list2))
+  diffed_list = []
+  for item in list1:
+    if item not in list2:
+      diffed_list.append(item)
+  return diffed_list
 
 
 def obscure_string(input_string):
