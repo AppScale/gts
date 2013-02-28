@@ -171,15 +171,21 @@ module HelperFunctions
   end
 
 
-  def self.sleep_until_port_is_open(ip, port, use_ssl=DONT_USE_SSL)
+  def self.sleep_until_port_is_open(ip, port, use_ssl=DONT_USE_SSL, timeout=nil)
+    total_time_slept = 0
     sleep_time = 1
 
     loop {
       return if HelperFunctions.is_port_open?(ip, port, use_ssl)
 
       Kernel.sleep(sleep_time)
+      total_time_slept += sleep_time
       if sleep_time < 30
         sleep_time *= 2
+      end
+
+      if !timeout.nil? and total_time_slept > timeout
+        raise Exception.new("Waited too long for #{ip}#{port} to open!")
       end
 
       Kernel.puts("Waiting on #{ip}:#{port} to be open (currently closed).")

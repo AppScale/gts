@@ -2797,26 +2797,16 @@ HOSTS
     Kernel.sleep(1)
 
     begin
-      Timeout::timeout(60) do
-        begin
-          GodInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key)
-          HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, USE_SSL)
-        # raise the timeout error so that the next rescue doesn't catch it
-        rescue Timeout::Error
-          raise Timeout::Error
-        rescue Exception => except
-          backtrace = except.backtrace.join("\n")
-          remote_start_msg = "[remote_start] Unforeseen exception when " + \
-            "talking to #{ip}: #{except}\nBacktrace: #{backtrace}"
-          Djinn.log_debug(remote_start_msg)
-          retry
-        end
-      end
-    rescue Timeout::Error
-      Djinn.log_debug("Couldn't start the AppController at #{ip}. Retrying.")
+      GodInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key)
+      HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, USE_SSL, 60)
+    rescue Exception => except
+      backtrace = except.backtrace.join("\n")
+      remote_start_msg = "[remote_start] Unforeseen exception when " + \
+        "talking to #{ip}: #{except}\nBacktrace: #{backtrace}"
+      Djinn.log_debug(remote_start_msg)
       retry
     end
-    
+
     Djinn.log_debug("Sending data to #{ip}")
     acc = AppControllerClient.new(ip, @@secret)
 
