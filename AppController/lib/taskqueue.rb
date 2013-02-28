@@ -26,6 +26,9 @@ module TaskQueue
  
   # The port where the TaskQueue server runs on, by default. 
   TASKQUEUE_SERVER_PORT = 64839
+  
+  # The python executable path.
+  PYTHON_EXEC = "/usr/bin/python2.6"
 
   # The path to the file that the shared secret should be written to.
   COOKIE_FILE = "/var/lib/rabbitmq/.erlang.cookie"
@@ -47,7 +50,10 @@ module TaskQueue
   # How many times to retry starting rabbitmq on a slave.
   RABBIT_START_RETRY = 3
 
-  # Starts a service that we refer to as a "rabbitmq_master", a RabbitMQ
+  # Stop command for taskqueue server.
+  TASKQUEUE_STOP_CMD = "kill -9 `ps aux | grep taskqueue_server.py | awk {'print $2'}`"
+
+  # Starts a service that we refer to as a "taskqueue_master", a RabbitMQ
   # service that other nodes can rely on to be running the taskqueue server.
   def self.start_master()
     Djinn.log_debug("Starting TaskQueue Master")
@@ -84,16 +90,12 @@ module TaskQueue
     HelperFunctions.sleep_until_port_is_open(master_ip, SERVER_PORT)
 
     # start the server, reset it to join the head node
-    # TODO(cgb): This looks like this assumes that the head node is
-    # appscale-image0 - true for default deployments but not necessarily
-    # so in advanced placement scenarios. Change accordingly.
-    # TODO start rabbitmq slave with God, but dont have the start command 
-    # do things where it resets everything first.
+    hostname = `hostname`.chomp()
     start_cmds = ["rabbitmqctl start_app",
                   "rabbitmqctl stop_app",
                   "rabbitmqctl reset",
                   "rabbitmq-server -detached -setcookie #{HelperFunctions.get_secret()}",
-                  "rabbitmqctl cluster rabbit@appscale-image0",
+                  "rabbitmqctl cluster rabbit@#{hostname}",
                   "rabbitmqctl start_app"]
     full_cmd = "#{start_cmds.join('; ')}"
 
@@ -131,8 +133,8 @@ module TaskQueue
   def self.start_taskqueue_server()
     Djinn.log_debug("Starting taskqueue_server on this node")
     script ="#{APPSCALE_HOME}/AppTaskQueue/taskqueue_server.py"
-    start_cmd = "/usr/bin/python2.6 #{script}"
-    stop_cmd = "kill -9 `ps aux | grep taskqueue_server.py | awk {'print $2'}`"
+    start_cmd = "#{PYTHON_EXEC} #{script}"
+    stop_cmd = TASKQUEUE_STOP_CMD
     env_vars = {}
     GodInterface.start(:taskqueue, start_cmd, stop_cmd, TASKQUEUE_SERVER_PORT, env_vars)
     Djinn.log_debug("Done starting taskqueue_server on this node")
@@ -151,7 +153,7 @@ module TaskQueue
   # Stops the AppScale TaskQueue server.
   def self.stop_taskqueue_server()
     Djinn.log_debug("Stopping taskqueue_server on this node")
-    stop_cmd = "kill -9 `ps aux | grep taskqueue_server.py | awk {'print $2'}`"
+    stop_cmd = TASKQUEUE_STOP_CMD
     Djinn.log_run(stop_cmd)
     GodInterface.stop(:taskqueue)
     Djinn.log_debug("Done stopping taskqueue_server on this node")

@@ -23,6 +23,9 @@ class ApiChecker
   # app on, by default.
   SERVER_PORT = 8079
 
+  # AppScale home path.
+  APPSCALE_HOME = ENV['APPSCALE_HOME']
+
 
   def self.init(public_ip, private_ip, secret)
     @@ip = public_ip
@@ -48,7 +51,8 @@ class ApiChecker
   # Args: 
   #   login_ip: The IP of the load balancer
   #   uaserver_ip: The IP of a UserAppServer
-  # 
+  # Returns:
+  #   return true on success, false otherwise
   def self.start(login_ip, uaserver_ip)
     # its just another app engine app - but since numbering starts
     # at zero, this app has to be app neg one
@@ -86,6 +90,7 @@ class ApiChecker
                                   [uaserver_ip])
       if pid == -1
         Djinn.log_debug("Failed to start app #{app} on #{HelperFunctions.local_ip}:#{port}")
+        return false
       else
         pid_file_name = "#{APPSCALE_HOME}/.appscale/#{app}-#{port}.pid"
         HelperFunctions.write_file(pid_file_name, pid)
@@ -94,6 +99,7 @@ class ApiChecker
 
     Nginx.reload
     Collectd.restart
+    return true
   end
 
 

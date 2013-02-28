@@ -2,13 +2,69 @@
 
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 require 'apichecker'
+require 'app_manager_client'
+require 'collectd'
+require 'haproxy'
+require 'helperfunctions'
+require 'nginx'
 
-
-require 'rubygems'
 require 'flexmock/test_unit'
+require 'rubygems'
 
 
 class TestAPIChecker < Test::Unit::TestCase
-  def test_nothing
+  def test_start_app_failure
+    flexmock(AppManagerClient).new_instances { |instance|
+      instance.should_receive(:start_app).and_return(-1)
+    }
+
+    collectd = flexmock(Collectd)
+    djinn = flexmock(Djinn)
+    haproxy = flexmock(HAProxy)
+    helper_functions = flexmock(HelperFunctions)
+    nginx = flexmock(Nginx)
+ 
+    djinn.should_receive(:log_run).and_return()
+    helper_functions.should_receive(:parse_static_data).and_return([])
+    helper_functions.should_receive(:setup_app).and_return()
+    helper_functions.should_receive(:read_file).and_return("fake contents")
+    helper_functions.should_receive(:write_file).and_return()
+    nginx.should_receive(:write_app_config).and_return()
+    nginx.should_receive(:reload).and_return()
+    haproxy.should_receive(:app_list_port).and_return(20000)
+    haproxy.should_receive(:write_app_config).and_return()
+    collectd.should_receive(:write_app_config).and_return()
+    collectd.should_receive(:restart).and_return()
+    
+    apichecker = ApiChecker.init('123.123.123.123', '123.123.123.123', 'secret')
+
+    assert_equal(false, ApiChecker.start("123.123.123.123", "123.123.123.123"))
+  end
+  def test_start_app_success
+    flexmock(AppManagerClient).new_instances { |instance|
+      instance.should_receive(:start_app).and_return(1)
+    }
+
+    collectd = flexmock(Collectd)
+    djinn = flexmock(Djinn)
+    haproxy = flexmock(HAProxy)
+    helper_functions = flexmock(HelperFunctions)
+    nginx = flexmock(Nginx)
+ 
+    djinn.should_receive(:log_run).and_return()
+    helper_functions.should_receive(:parse_static_data).and_return([])
+    helper_functions.should_receive(:setup_app).and_return()
+    helper_functions.should_receive(:read_file).and_return("fake contents")
+    helper_functions.should_receive(:write_file).and_return()
+    nginx.should_receive(:write_app_config).and_return()
+    nginx.should_receive(:reload).and_return()
+    haproxy.should_receive(:app_list_port).and_return(20000)
+    haproxy.should_receive(:write_app_config).and_return()
+    collectd.should_receive(:write_app_config).and_return()
+    collectd.should_receive(:restart).and_return()
+    
+    apichecker = ApiChecker.init('123.123.123.123', '123.123.123.123', 'secret')
+
+    assert_equal(true, ApiChecker.start("123.123.123.123", "123.123.123.123"))
   end
 end

@@ -730,16 +730,16 @@ def main(argv):
   #if dev_process.IsSubprocess():
   #  logging.getLogger().setLevel(logging.WARNING)
 
-  #try:
-  dev_appserver.SetupStubs(appinfo.application,
+  try:
+    dev_appserver.SetupStubs(appinfo.application,
                              _use_atexit_for_datastore_stub=True,
                              **option_dict)
-  #except:
-  #  exc_type, exc_value, exc_traceback = sys.exc_info()
-  #  logging.error(str(exc_type) + ': ' + str(exc_value))
-  #  logging.debug(''.join(traceback.format_exception(
-  #        exc_type, exc_value, exc_traceback)))
-  #  return 1
+  except:
+    exc_type, exc_value, exc_traceback = sys.exc_info()
+    logging.error(str(exc_type) + ': ' + str(exc_value))
+    logging.debug(''.join(traceback.format_exception(
+          exc_type, exc_value, exc_traceback)))
+    return 1
 
   #frontend_port = option_dict.get(ARG_MULTIPROCESS_FRONTEND_PORT, None)
   #if frontend_port is not None:

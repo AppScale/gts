@@ -192,12 +192,12 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(expected_good_result, djinn.set_apps(good_app_list, @secret))
   end
 
-  def test_rabbitmq_master
-    # RabbitMQ master nodes should configure and deploy RabbitMQ on their node
+  def test_taskqueue_master
+    # TaskQueue master nodes should configure and deploy RabbitMQ/celery on their node
 
     # Set up some dummy data that points to our master role as the
-    # rabbitmq_master
-    master_role = "public_ip:private_ip:rabbitmq_master:instance_id:cloud1"
+    # taskqueue_master
+    master_role = "public_ip:private_ip:taskqueue_master:instance_id:cloud1"
     djinn = Djinn.new
     djinn.my_index = 0
     djinn.nodes = [DjinnJobData.new(master_role, "appscale")]
@@ -220,10 +220,10 @@ class TestDjinn < Test::Unit::TestCase
   end
 
   def test_taskqueue_slave
-    # RabbitMQ slave nodes should wait for RabbitMQ to come up on the master
+    # Taskqueue slave nodes should wait for RabbitMQ/celery to come up on the master
     # node, and then start RabbitMQ on their own node
-    master_role = "public_ip1:private_ip1:rabbitmq_master:instance_id:cloud1"
-    slave_role = "public_ip2:private_ip2:rabbitmq_slave:instance_id:cloud1"
+    master_role = "public_ip1:private_ip1:taskqueue_master:instance_id:cloud1"
+    slave_role = "public_ip2:private_ip2:taskqueue_slave:instance_id:cloud1"
     djinn = Djinn.new
     djinn.my_index = 1
     djinn.nodes = [DjinnJobData.new(master_role, "appscale"), DjinnJobData.new(slave_role, "appscale")]

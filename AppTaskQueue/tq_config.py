@@ -28,7 +28,7 @@ class TaskQueueConfig():
   # The kind name for storing Queue info.
   QUEUE_KIND = "__queue__"
 
-  # Enum code for broker to use
+  # Enum code for broker to use.
   RABBITMQ = 0
 
   # The default YAML used if a queue.yaml or queue.xml is not supplied.
@@ -48,24 +48,24 @@ queue:
   # The property index for which we store app name.
   APP_NAME = "appname"
 
-  # Queue info location codes
+  # Queue info location codes.
   QUEUE_INFO_DB = 0
   QUEUE_INFO_FILE = 1 
 
-  # Location of all celery configuration files
+  # Location of all celery configuration files.
   CELERY_CONFIG_DIR = '/etc/appscale/celery/configuration/'
 
-  # Location of all celery workers scripts
+  # Location of all celery workers scripts.
   CELERY_WORKER_DIR = '/etc/appscale/celery/workers/'
 
-  # Directory with the task templates
+  # Directory with the task templates.
   TEMPLATE_DIR = os.path.dirname(os.path.realpath(__file__)) + "/templates/"
 
 
-  # The location of a header of a queue worker script
+  # The location of a header of a queue worker script.
   HEADER_LOC = TEMPLATE_DIR + 'header.py'
   
-  # The location of the task template code
+  # The location of the task template code.
   TASK_LOC = TEMPLATE_DIR + 'task.py'
 
   MAX_QUEUE_NAME_LENGTH = 100
@@ -471,69 +471,4 @@ CELERY_STORE_ERRORS_EVEN_IF_IGNORED = True
       A string to reference the queue name in celery.
     """
     return app_id + "___" + queue_name
-
-class TaskQueueClient():
-  """ A client to connect to the taskqueue server. """
-  def __init__(self, tq_server_location):
-    """ Constructor. """
-    self.__tq_server_location = tq_server_location
-
-  def start_queues(self, app_id):
-    """ Starts the queues of a given app.
-    
-    Args:
-      app_id: The application ID.
-    Returns:
-      Dictionary result of starting process.
-    """
-    request_payload = {'app_id': app_id,
-                       'command': 'update'}
-    response = self.remote_request(request_payload)
-    return response
-
-  def stop_queues(self, app_id):
-    """ Stops the queues of a given app.
-    
-    Args:
-      app_id: The application ID.
-    Returns:
-      Dictionary result of stoping process.
-    """
-    request_payload = {'app_id': app_id,
-                       'command': 'stop'}
-    response = self.remote_request(request_payload)
-    return response
-
-  def remote_request(self, payload):
-    """ Send a remote request.
-   
-    Args:
-      payload: JSON to send.
-    Returns:
-      JSON reponse from server.
-    """
-    req = urllib2.Request('http://' + self.__tq_server_location  + \
-                          ':64839/queues')
-    payload = json.dumps(payload)
-    req.add_header('Content-Type', 'application/json')
-    req.add_header('Content-Length', "%d" % len(payload))
-    response = urllib2.urlopen(req, payload)
-    response_payload = response.read()
-    try:
-      response_payload = json.loads(response_payload)
-      return response_payload
-    except ValueError, value_error:
-      return {'error': True,
-              'reason':
-              str("Badly formed json response from worker: %s" % \
-                                         str(value_error))}
-    except urllib2.URLError, url_error:
-      return {'error': True,
-              'reason': str("URLError: %s" % str(url_error))}
-    except IOError, io_error:
-      return {'error': True,
-              'reason': str(io_error)}
-    except Exception, exception:
-      return {'error': True,
-              'reason': str(exception.__class__) + "  " + str(exception)}
 

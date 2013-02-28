@@ -23,7 +23,7 @@ from tq_config import TaskQueueConfig
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
 import appscale_info
 import file_io
-import god_app_interface
+import god_app_configuration
 import god_interface
 import remote
 
@@ -141,29 +141,6 @@ class DistributedTaskQueue():
 
     return json.dumps(result)
     
-  def copy_config_files(self, config_file, worker_file):
-    """ Copies the configuration and worker scripts to all other
-        task queue nodes.
-   
-    Args:
-      config_file:
-      worker_file:
-    Returns:
-      Dictionary of status of copying to each node.
-    """
-    result = {}
-    taskqueue_nodes = appscale_info.get_taskqueue_nodes()
-    for node in taskqueue_nodes:
-      try:
-        if not self.__is_localhost(node):
-          remote.scp(node, config_file, config_file)
-          remote.scp(node, worker_file, worker_file)
-        result[node] = {'error': False, 'reason': ""}
-      except remote.ShellException, shell_exception:
-        result[node] = {'error': True, 'stage': 'copy_config_files',
-                        'reason': str(shell_exception)}
-    return result 
-
   def get_worker_stop_command(self, app_id):
     """ Returns the command to run to stop celery workers for
         a given application.
@@ -200,9 +177,14 @@ class DistributedTaskQueue():
     config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, app_id)
 
     # Load the queue info
-    config.load_queues_from_file(app_id)
-    config.create_celery_file(TaskQueueConfig.QUEUE_INFO_FILE) 
-    config.create_celery_worker_scripts(TaskQueueConfig.QUEUE_INFO_FILE)
+    try:
+      config.load_queues_from_file(app_id)
+      config.create_celery_file(TaskQueueConfig.QUEUE_INFO_FILE) 
+      config.create_celery_worker_scripts(TaskQueueConfig.QUEUE_INFO_FILE)
+    except ValueError, value_error:
+      return json.dumps({"error": True, "reason": str(value_error)}) 
+    except NameError, name_error:
+      return json.dumps({"error": True, "reason": str(name_error)}) 
  
     log_file = self.LOG_DIR + app_id + ".log"
     command = ["celery",
@@ -221,7 +203,7 @@ class DistributedTaskQueue():
     start_command = str(' '.join(command))
     stop_command = self.get_worker_stop_command(app_id)
     watch = "celery-" + str(app_id)
-    god_config = god_app_interface.create_config_file(watch,
+    god_config = god_app_configuration.create_config_file(watch,
                                                       start_command, 
                                                       stop_command, 
                                                       [self.CELERY_PORT])
@@ -241,6 +223,7 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
+    # TODO implement.
     request = taskqueue_service_pb.\
                TaskQueueFetchQueueStatsRequest(http_data)
     response = taskqueue_service_pb.\
@@ -258,6 +241,7 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
+    # TODO implement.
     request = taskqueue_service_pb.TaskQueuePurgeQueueRequest(http_data)
     response = taskqueue_service_pb.TaskQueuePurgeQueueResponse()
     return (response.Encode(), 0, "")
@@ -271,6 +255,7 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
+    # TODO implement.
     request = taskqueue_service_pb.TaskQueueDeleteRequest(http_data)
     response = taskqueue_service_pb.TaskQueueDeleteResponse()
     return (response.Encode(), 0, "")
@@ -284,6 +269,7 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
+    # TODO implement.
     request = taskqueue_service_pb.TaskQueueQueryAndOwnTasksRequest(http_data)
     response = taskqueue_service_pb.TaskQueueQueryAndOwnTasksResponse()
     return (response.Encode(), 0, "")
@@ -361,13 +347,13 @@ class DistributedTaskQueue():
       # back as skipped.
       if result == taskqueue_service_pb.TaskQueueServiceError.SKIPPED:
         task_name = None       
-        if not add_request.has_task_name():
+        if add_request.has_task_name():
           task_name = add_request.task_name()
-        chosen_name = tq_lib.choose_task_name(add_request.app_id(),
+        namespaced_name = tq_lib.choose_task_name(add_request.app_id(),
                                               add_request.queue_name(),
                                               user_chosen=task_name)
-        add_request.set_task_name(chosen_name)
-        task_result.set_chosen_task_name(chosen_name)
+        add_request.set_task_name(namespaced_name)
+        task_result.set_chosen_task_name(namespaced_name)
       else:
         error_found = True
         task_result.set_result(result)
@@ -591,6 +577,7 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
+    # TODO implement.
     request = taskqueue_service_pb.TaskQueueModifyTaskLeaseRequest(http_data)
     response = taskqueue_service_pb.TaskQueueModifyTaskLeaseResponse()
     return (response.Encode(), 0, "")
@@ -604,6 +591,7 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
+    # TODO implement.
     request = taskqueue_service_pb.TaskQueueUpdateQueueRequest(http_data)
     response = taskqueue_service_pb.TaskQueueUpdateQueueResponse()
     return (response.Encode(), 0, "")
@@ -617,6 +605,7 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
+    # TODO implement.
     request = taskqueue_service_pb.TaskQueueFetchQueuesRequest(http_data)
     response = taskqueue_service_pb.TaskQueueFetchQueuesResponse()
     return (response.Encode(), 0, "")
@@ -630,6 +619,7 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
+    # TODO implement.
     request = taskqueue_service_pb.TaskQueueQueryTasksRequest(http_data)
     response = taskqueue_service_pb.TaskQueueQueryTasksResponse()
     return (response.Encode(), 0, "")
@@ -643,6 +633,7 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
+    # TODO implement.
     request = taskqueue_service_pb.TaskQueueFetchTaskRequest(http_data)
     response = taskqueue_service_pb.TaskQueueFetchTaskResponse()
     return (response.Encode(), 0, "")
@@ -656,6 +647,7 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
+    # TODO implement.
     request = taskqueue_service_pb.TaskQueueForceRunRequest(http_data)
     response = taskqueue_service_pb.TaskQueueForceRunResponse()
     return (response.Encode(), 0, "")
@@ -669,6 +661,7 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
+    # TODO implement.
     request = taskqueue_service_pb.TaskQueueDeleteQueueRequest(http_data)
     response = taskqueue_service_pb.TaskQueueDeleteQueueResponse()
     return (response.Encode(), 0, "")
@@ -682,6 +675,7 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
+    # TODO implement.
     request = taskqueue_service_pb.TaskQueuePauseQueueRequest(http_data)
     response = taskqueue_service_pb.TaskQueuePauseQueueResponse()
     return (response.Encode(), 0, "")
@@ -695,6 +689,7 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
+    # TODO implement.
     request = taskqueue_service_pb.TaskQueueDeleteGroupRequest(http_data)
     response = taskqueue_service_pb.TaskQueueDeleteGroupResponse()
     return (response.Encode(), 0, "")
@@ -708,6 +703,7 @@ class DistributedTaskQueue():
     Returns:
       A tuple of a encoded response, error code, and error detail.
     """
+    # TODO implement.
     request = taskqueue_service_pb.TaskQueueUpdateStorageLimitRequest(http_data)
     response = taskqueue_service_pb.TaskQueueUpdateStorageLimitResponse()
     return (response.Encode(), 0, "")

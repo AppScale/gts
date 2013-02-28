@@ -329,7 +329,7 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     self._RemoteSend(request, response, "ModifyTaskLease")
 
   def _RemoteSend(self, request, response, method):
-    """Sends a request remotely to the datstore server. 
+    """Sends a request remotely to the taskqueue server. 
  
     Args:
       request: A protocol buffer request.

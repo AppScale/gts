@@ -14,10 +14,10 @@ from google.appengine.api.taskqueue import taskqueue_service_pb
 
 from google.appengine.ext.remote_api import remote_api_pb
 
-# Default port this service runs on
+# Default port this service runs on.
 SERVER_PORT = 64839
 
-# Global for Distributed TaskQueue
+# Global for Distributed TaskQueue.
 task_queue = None
 
 class StopWorkerHandler(tornado.web.RequestHandler):
@@ -97,7 +97,6 @@ class MainHandler(tornado.web.RequestHandler):
     app_id = app_data[0]
  
     if pb_type == "Request":
-      print http_request_data
       self.remote_request(app_id, http_request_data)
     else:
       self.unknown_request(app_id, http_request_data, pb_type)
@@ -130,18 +129,23 @@ class MainHandler(tornado.web.RequestHandler):
     errcode = 0
     errdetail = ""
     apperror_pb = None
+    method = ""
+    http_request_data = ""
+
     if not apirequest.has_method():
       errcode = taskqueue_service_pb.TaskQueueServiceError.INVALID_REQUEST
       errdetail = "Method was not set in request"
       apirequest.set_method("NOT_FOUND")
+    else:
+      method = apirequest.method()
+
     if not apirequest.has_request():
       errcode = taskqueue_service_pb.TaskQueueServiceError.INVALID_REQUEST
       errdetail = "Request missing in call"
       apirequest.set_method("NOT_FOUND")
       apirequest.clear_request()
-
-    method = apirequest.method()
-    http_request_data = apirequest.request()
+    else:
+      http_request_data = apirequest.request()
 
     if method == "FetchQueueStats":
       response, errcode, errdetail = task_queue.fetch_queue_stats(app_id,
@@ -194,12 +198,15 @@ class MainHandler(tornado.web.RequestHandler):
                                                  app_id,
                                                  http_request_data)
    
-    apiresponse.set_response(response)
+    if response:
+      apiresponse.set_response(response)
+
     # If there was an error add it to the response.
     if errcode != 0:
       apperror_pb = apiresponse.mutable_application_error()
       apperror_pb.set_code(errcode)
       apperror_pb.set_detail(errdetail)
+
     self.write(apiresponse.Encode())
 
 def main():

@@ -19,7 +19,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
 import constants
 import file_io
-import god_app_interface
+import god_app_configuration
 import god_interface 
 import misc 
 
@@ -143,7 +143,7 @@ def start_app(config):
   logging.info("Stop command: " + str(stop_cmd))
   logging.info("Environment variables: " +str(env_vars))
 
-  config_file_loc = god_app_interface.create_config_file(str(watch),
+  config_file_loc = god_app_configuration.create_config_file(str(watch),
                                                      str(start_cmd), 
                                                      str(stop_cmd), 
                                                      [config['app_port']],

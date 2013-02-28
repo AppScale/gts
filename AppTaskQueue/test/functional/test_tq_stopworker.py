@@ -27,7 +27,7 @@ queue:
 # AppScale must already be running with RabbitMQ
 class TestTaskQueueServer(unittest.TestCase):
   def test_slave(self):
-    values = {'app_id':'test_app'}
+    values = {'app_id':'hawkeyepythonapp'}
     host = socket.gethostbyname(socket.gethostname())
     req = urllib2.Request('http://' + host + ':64839/stopworker')
     req.add_header('Content-Type', 'application/json')

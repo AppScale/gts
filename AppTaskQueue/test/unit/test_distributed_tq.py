@@ -14,7 +14,7 @@ from tq_config import TaskQueueConfig
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
 import file_io
-import god_app_interface
+import god_app_configuration
 import god_interface
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))  
@@ -229,7 +229,7 @@ class TestDistributedTaskQueue(unittest.TestCase):
     flexmock(file_io).should_receive("mkdir").and_return(None)
     flexmock(file_io) \
        .should_receive("read").and_return("192.168.0.1\n129.168.0.2\n184.48.65.89")
-    flexmock(god_app_interface).should_receive('create_config_file').and_return('')
+    flexmock(god_app_configuration).should_receive('create_config_file').and_return('')
     flexmock(god_interface).should_receive('start') \
        .and_return(False)
     flexmock(TaskQueueConfig)\

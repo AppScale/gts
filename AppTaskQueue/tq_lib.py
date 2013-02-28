@@ -98,4 +98,4 @@ def choose_task_name(app_name, queue_name, user_chosen=None):
   """
   if not user_chosen:
     user_chosen = _get_random_string() 
-  return 'task_%s_%s_%s' % (app_name, queue_name, _get_random_string())
+  return 'task_%s_%s_%s' % (app_name, queue_name, user_chosen)

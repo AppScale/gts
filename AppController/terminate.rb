@@ -134,7 +134,9 @@ end
  "thin", "god", "djinn", "xmpp_receiver", 
  "InfrastructureManager", "Neptune",
  # RabbitMQ, ejabberd
- "epmd", "beam", "ejabberd_auth.py"
+ "epmd", "beam", "ejabberd_auth.py", "celery",
+ # Last resort
+ "ruby", "python", "java", "/usr/bin/python"
 ].each do |program|
   `ps ax | grep #{program} | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9`
 end

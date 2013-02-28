@@ -10,7 +10,6 @@ from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 from tq_config import TaskQueueConfig
-from tq_config import TaskQueueClient
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
 import file_io
@@ -74,34 +73,6 @@ class FakeResponse():
     pass
   def read(self):
     return "{}" 
-
-class TestTaskQueueClient(unittest.TestCase):
-  """ 
-  A set of tests to test the taskqueue client module.
-  """
-  def test_constructor(self):
-    tqc = TaskQueueClient("localhost:8111")
-
-  def test_start_queues(self):
-    tqc = TaskQueueClient("localhost:8111")
-    flexmock(TaskQueueClient) \
-       .should_receive("remote_request").and_return({'localhost':{'error':False}})
-    tqc.start_queues('app_id')
-
-  def test_stop_queues(self):
-    tqc = TaskQueueClient("localhost:8111")
-    flexmock(TaskQueueClient) \
-       .should_receive("remote_request").and_return({'localhost':{'error':False}})
-    tqc.stop_queues('app_id') 
-
-  def test_remote_request(self):
-    flexmock(urllib2) \
-       .should_receive("Request").and_return(FakeConnection())
-    flexmock(urllib2) \
-       .should_receive("urlopen").and_return(FakeResponse())
-    tqc = TaskQueueClient("localhost:8111")
-    payload = {'whatever':'testing'}
-    self.assertEquals(tqc.remote_request(payload), {})
 
 class TestTaskQueueConfig(unittest.TestCase):
   """

@@ -21,7 +21,7 @@ class TaskQueueClient
   attr_reader :conn, :ip
 
   # The port that the TaskQueue Server binds to.
- SERVER_PORT = 64839
+  SERVER_PORT = 64839
 
   # Location of where the nearest taskqueue server is.
   NEAREST_TQ_LOCATION = '/etc/appscale/rabbitmq_ip'
@@ -56,7 +56,7 @@ class TaskQueueClient
         retry
       else
         trace = except.backtrace.join("\n")
-        abort("We saw an unexpected error of the type #{except.class} with the following message:\n#{except}, with trace: #{trace}")
+        Djinn.log_debug("We saw an unexpected error of the type #{except.class} with the following message:\n#{except}, with trace: #{trace}")
       end 
    rescue Exception => except
       if except.class == Interrupt
@@ -68,60 +68,26 @@ class TaskQueueClient
     end
   end
  
-   # Wrapper for REST calls to the TaskQueue Server to start all
-   # taskqueue workers.
-   #
-   # Args:
-   #   app_name: Name of the application.
-   # Returns:
-   #   True on success, False otherwise.
-   def start_queues(app_name)
-    config = {'app_id' => app_name, 'command' => 'update'}
-    json_config = JSON.dump(config)
-    response = nil
-    make_call(MAX_TIME_OUT, false, "start_queues"){
-      url = URI.parse('http://' + @host + ":#{SERVER_PORT}/queues")
-      http = Net::HTTP.new(url.host, url.port)
-      response = http.post(url.path, json_config, {'Content-Type'=>'application/json'})
-    }
-    return JSON.load(response.body)
-  end
-
-   # Wrapper for REST calls to the TaskQueue Server to stop all
-   # taskqueue workers.
-   #
-   # Args:
-   #   app_name: Name of the application.
-   # Returns:
-   #   True on success, False otherwise.
-   def stop_queues(app_name)
-    config = {'app_id' => app_name, 'command' => 'stop'}
-    json_config = JSON.dump(config)
-    response = nil
-    make_call(MAX_TIME_OUT, false, "start_queues"){
-      url = URI.parse('http://' + @host + ":#{SERVER_PORT}/queues")
-      http = Net::HTTP.new(url.host, url.port)
-      response = http.post(url.path, json_config, {'Content-Type'=>'application/json'})
-    }
-    return JSON.load(response.body)
-  end
-
    # Wrapper for REST calls to the TaskQueue Server to start a
    # taskqueue worker on a taskqueue node.
    #
    # Args:
    #   app_name: Name of the application.
    # Returns:
-   #   True on success, False otherwise.
+   #   JSON response.
    def start_worker(app_name)
     config = {'app_id' => app_name, 'command' => 'update'}
     json_config = JSON.dump(config)
     response = nil
+     
     make_call(MAX_TIME_OUT, false, "start_worker"){
       url = URI.parse('http://' + @host + ":#{SERVER_PORT}/startworker")
       http = Net::HTTP.new(url.host, url.port)
       response = http.post(url.path, json_config, {'Content-Type'=>'application/json'})
     }
+    if response == nil:
+      return {"error" => true, "reason" => "Unable to get a response"}
+    end
     return JSON.load(response.body)
   end
 
@@ -130,9 +96,8 @@ class TaskQueueClient
    #
    # Args:
    #   app_name: Name of the application.
-   #   queue_config_loc: The location of the queue.yaml or queue.xml file.
    # Returns:
-   #   True on success, False otherwise.
+   #   JSON response.
    def stop_worker(app_name)
     config = {'app_id' => app_name, 
               'command' => 'update'}
@@ -143,6 +108,9 @@ class TaskQueueClient
       http = Net::HTTP.new(url.host, url.port)
       response = http.post(url.path, json_config, {'Content-Type'=>'application/json'})
     }
+    if response == nil:
+      return {"error" => true, "reason" => "Unable to get a response"}
+    end
     return JSON.load(response.body)
   end
 
