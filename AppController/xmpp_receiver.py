@@ -42,7 +42,7 @@ def xmpp_message(con, event):
   cmd = "curl -L -i -k -X GET " + lb_url
   lb_result = os.popen(cmd).read()
 
-  appserver_ip = re.findall('(\d+\.\d+\.\d+\.\d+:\d+)', lb_result)[-1]
+  appserver_ip = re.findall('Location: http://(.*)', lb_result)[-1]
   xmpp_url = "http://" + appserver_ip + "/_ah/xmpp/message/chat/"
   urllib.urlopen(xmpp_url, encoded_params)
 
