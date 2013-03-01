@@ -406,13 +406,14 @@ class DistributedTaskQueue():
     args = self.get_task_args(request)
 
     headers = self.get_task_headers(request)
-
+    countdown = int(headers['X-AppEngine-TaskETA']) - \
+          int(datetime.datetime.now().strftime("%s"))
     task_func = self.__get_task_function(request)
     result = task_func.apply_async(kwargs={'headers':headers,
                     'args':args},
                     expires=args['expires'],
                     acks_late=True,
-                    eta=self.__when_to_run(request),
+                    countdown=countdown,
                     queue=TaskQueueConfig.get_celery_queue_name(
                               request.app_id(), request.queue_name()),
                     routing_key=TaskQueueConfig.get_celery_queue_name(
@@ -495,7 +496,7 @@ class DistributedTaskQueue():
       headers[header.key()] = header.value()
 
     eta = self.__when_to_run(request)
-
+    
     # This header is how we authenticate that it's an internal request
     secret = appscale_info.get_secret() 
     secret_hash = hashlib.sha1(request.app_id() + '/' + \
