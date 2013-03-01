@@ -25,7 +25,6 @@ import appscale_info
 import file_io
 import god_app_configuration
 import god_interface
-import remote
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.runtime import apiproxy_errors
