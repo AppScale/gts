@@ -2857,11 +2857,11 @@ HOSTS
 
   def start_ejabberd()
     @state = "Starting up XMPP server"
-    my_private = my_node.private_ip
+    my_public = my_node.public_ip
     Ejabberd.stop
     Djinn.log_run("rm -f /var/lib/ejabberd/*")
-    Ejabberd.write_auth_script(my_private, @@secret)
-    Ejabberd.write_config_file(my_private)
+    Ejabberd.write_auth_script(my_public, @@secret)
+    Ejabberd.write_config_file(my_public)
     Ejabberd.start
   end
 
