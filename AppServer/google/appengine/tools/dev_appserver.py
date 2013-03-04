@@ -3918,7 +3918,6 @@ def CreateServer(root_path,
                                        interactive_console,
                                        secret_hash=secret_hash)
 
-
   if absolute_root_path not in python_path_list:
 
 
