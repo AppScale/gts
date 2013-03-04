@@ -1,0 +1,4 @@
+The results of adding a task are async to the actually enqueuing. 
+Tail to see it in action:
+root@appscale-image0:/var/log/appscale/celery_workers# tail -f test_app.log 
+

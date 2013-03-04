@@ -1029,6 +1029,10 @@ keygen()
 #    ssh-copy-id -i /root/.ssh/id_rsa.pub root@localhost
 }
 
+installcelery()
+{
+  easy_install -U Celery
+}
 
 installrabbitmq()
 {

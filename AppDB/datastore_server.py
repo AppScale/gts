@@ -2172,7 +2172,7 @@ class MainHandler(tornado.web.RequestHandler):
     raise NotImplementedError("Unknown request of operation %s"%pb_type)
   
   @tornado.web.asynchronous
-  def post( self ):
+  def post(self):
     """ Function which handles POST requests. Data of the request is 
         the request from the AppServer in an encoded protocol buffer 
         format.
@@ -2206,7 +2206,7 @@ class MainHandler(tornado.web.RequestHandler):
     """ Handles get request for the web server. Returns that it is currently
         up in json.
     """
-    self.write("{'status':'up'}")
+    self.write('{"status":"up"}')
     self.finish() 
 
   def remote_request(self, app_id, http_request_data):
@@ -2295,7 +2295,7 @@ class MainHandler(tornado.web.RequestHandler):
       apperror_pb.set_code(errcode)
       apperror_pb.set_detail(errdetail)
 
-    self.write(apiresponse.Encode() )    
+    self.write(apiresponse.Encode())
 
   def begin_transaction_request(self, app_id):
     """ Handles the intial request to start a transaction. Replies with 

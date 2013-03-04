@@ -23,6 +23,7 @@ require 'zookeeper'
 $:.unshift File.join(File.dirname(__FILE__), "lib")
 require 'app_controller_client'
 require 'app_manager_client'
+require 'taskqueue_client'
 require 'blobstore'
 require 'custom_exceptions'
 require 'ejabberd'
@@ -36,8 +37,8 @@ require 'infrastructure_manager_client'
 require 'neptune_manager_client'
 require 'pbserver'
 require 'nginx'
-require 'rabbitmq'
-require 'repo'
+require 'taskqueue'
+require 'apichecker'
 require 'user_app_client'
 require 'zkinterface'
 
@@ -243,6 +244,11 @@ class Djinn
   # writes its state to, and recovers its state from if it crashes.
   STATE_FILE = "#{CONFIG_FILE_LOCATION}/appcontroller-state.json"
 
+  
+  # The location on the local filesystem where the AppController writes
+  # the location of all the nodes which are taskqueue nodes.
+  TASKQUEUE_FILE = "#{CONFIG_FILE_LOCATION}/taskqueue_nodes"
+
 
   APPSCALE_HOME = ENV['APPSCALE_HOME']
 
@@ -443,7 +449,15 @@ class Djinn
       # turned on since that was the state they started in
 
       stop_ejabberd if my_node.is_login?
-      Repo.stop if my_node.is_shadow? or my_node.is_appengine?
+      ApiChecker.stop if my_node.is_shadow? or my_node.is_appengine?
+
+      # Stop apichecker taskqueue on this local machine.
+      if my_node.is_rabbitmq_master? or my_node.is_rabbitmq_slave?
+        tqc = TaskQueueClient.new()
+        result = tqc.stop_worker("apichecker")
+        Djinn.log_debug("Stopping TaskQueue workers for apichecker: #{result}")
+      end
+
 
       jobs_to_run = my_node.jobs
       commands = {
@@ -467,7 +481,10 @@ class Djinn
         stop_soap_server
         stop_pbserver
       end
-     
+
+      TaskQueue.stop if my_node.is_rabbitmq_master?
+      TaskQueue.stop if my_node.is_rabbitmq_slave?
+
       stop_app_manager_server
       stop_neptune_manager
       stop_infrastructure_manager
@@ -703,6 +720,13 @@ class Djinn
           result = "true"
         end
       end    
+
+      # Stop taskqueue on this local machine.
+      if my_node.is_rabbitmq_master? or my_node.is_rabbitmq_slave?
+        tqc = TaskQueueClient.new()
+        result = tqc.stop_worker(app) 
+        Djinn.log_debug("Stopping TaskQueue workers for app #{app}: #{result}")
+      end
 
       if my_node.is_appengine?
         app_manager = AppManagerClient.new()
@@ -1734,20 +1758,20 @@ class Djinn
  
   def update_api_status()
     if my_node.is_appengine?
-      repo_host = my_node.private_ip
+      apichecker_host = my_node.private_ip
     else
-      repo_host = get_shadow.private_ip
+      apichecker_host = get_shadow.private_ip
     end
 
-    repo_url = "http://#{repo_host}:#{Repo::SERVER_PORT}/health/all"
+    apichecker_url = "http://#{apichecker_host}:#{ApiChecker::SERVER_PORT}/health/all"
 
     retries_left = 3
     begin
-      response = Net::HTTP.get_response(URI.parse(repo_url))
+      response = Net::HTTP.get_response(URI.parse(apichecker_url))
       data = JSON.load(response.body)
       Djinn.log_debug("Update API was successful")
     rescue Exception => e
-      Djinn.log_debug("Update API status on host #{repo_host} saw exception #{e.class}")
+      Djinn.log_debug("Update API status on host #{apichecker_host} saw exception #{e.class}")
       data = {}
 
       if retries_left > 0
@@ -1755,7 +1779,7 @@ class Djinn
         retries_left -= 1
         retry
       else
-        Djinn.log_debug("Repo at #{repo_host} appears to be down - will " +
+        Djinn.log_debug("ApiChecker  at #{apichecker_host} appears to be down - will " +
           "try again later.")
         return
       end
@@ -2134,24 +2158,33 @@ class Djinn
     HelperFunctions.write_file(memcache_file, memcache_contents)
 
     write_apploadbalancer_location
-    find_nearest_rabbitmq
+    find_nearest_taskqueue
+    write_taskqueue_nodes_file
     setup_config_files
     set_uaserver_ips 
     write_hypersoap
     start_api_services()
 
     # for neptune jobs, start a place where they can save output to
-    # also, since repo does health checks on the app engine apis, start it up there too
+    # also, since apichecker does health checks on the app engine apis, 
+    # start it up there too.
 
-    repo_ip = get_shadow.public_ip
-    repo_private_ip = get_shadow.private_ip
-    repo_ip = my_node.public_ip if my_node.is_appengine?
-    repo_private_ip = my_node.private_ip if my_node.is_appengine?
-    Repo.init(repo_ip, repo_private_ip,  @@secret)
+    apichecker_ip = get_shadow.public_ip
+    apichecker_private_ip = get_shadow.private_ip
+    apichecker_ip = my_node.public_ip if my_node.is_appengine?
+    apichecker_private_ip = my_node.private_ip if my_node.is_appengine?
+    ApiChecker.init(apichecker_ip, apichecker_private_ip,  @@secret)
 
     if my_node.is_shadow? or my_node.is_appengine?
-      Repo.start(get_login.public_ip, @userappserver_private_ip)
+      ApiChecker.start(get_login.public_ip, @userappserver_private_ip)
     end
+
+    # Start up API checker taskqueue workers on this local machine 
+    if my_node.is_rabbitmq_master? or my_node.is_rabbitmq_slave?
+      tqc = TaskQueueClient.new()
+      result = tqc.start_worker("apichecker") 
+      Djinn.log_debug("Starting TaskQueue workers for apichecker: #{result}")
+    end   
 
     # appengine is started elsewhere
   end
@@ -2260,11 +2293,11 @@ class Djinn
 
     if my_node.is_rabbitmq_master?
       threads << Thread.new {
-        start_rabbitmq_master()
+        start_taskqueue_master()
       }
     elsif my_node.is_rabbitmq_slave?
       threads << Thread.new {
-        start_rabbitmq_slave()
+        start_taskqueue_slave()
       }
     end
 
@@ -2285,20 +2318,20 @@ class Djinn
   end
 
 
-  def start_rabbitmq_master
-    RabbitMQ.start_master()      
+  def start_taskqueue_master
+    TaskQueue.start_master()      
     return true
   end
 
 
-  def start_rabbitmq_slave
+  def start_taskqueue_slave
     # All slaves connect to the master to start
     master_ip = nil
     @nodes.each { |node|
       master_ip = node.private_ip if node.is_rabbitmq_master?
     }
 
-    RabbitMQ.start_slave(master_ip)
+    TaskQueue.start_slave(master_ip)
     return true
   end
 
@@ -2671,10 +2704,10 @@ class Djinn
 
 
   # Writes a file to the local filesystem that contains the IP
-  # address of the 'nearest' machine running the RabbitMQ service.
-  # 'Nearest' is defined as being this node's IP if our node runs RabbitMQ,
-  # or a random node that runs RabbitMQ otherwise.
-  def find_nearest_rabbitmq()
+  # address of the 'nearest' machine running the TaskQueue service.
+  # 'Nearest' is defined as being this node's IP if our node runs TQ,
+  # or a random node that runs TQ otherwise.
+  def find_nearest_taskqueue()
     rabbitmq_ip = nil
     if my_node.is_rabbitmq_master? or my_node.is_rabbitmq_slave?
       rabbitmq_ip = my_node.private_ip
@@ -2687,17 +2720,29 @@ class Djinn
           rabbitmq_ips << node.private_ip
         end
       }
-      Djinn.log_debug("RabbitMQ servers are at #{rabbitmq_ips.join(', ')}")
+      Djinn.log_debug("TaskQueue servers are at #{rabbitmq_ips.join(', ')}")
 
       # pick one at random
       rabbitmq_ip = rabbitmq_ips.sort_by { rand }[0]
     end
 
-    Djinn.log_debug("AppServers on this node will connect to RabbitMQ " +
+    Djinn.log_debug("AppServers on this node will connect to TaskQueue " +
       "at #{rabbitmq_ip}")
     rabbitmq_file = "#{CONFIG_FILE_LOCATION}/rabbitmq_ip"
     rabbitmq_contents = rabbitmq_ip
     HelperFunctions.write_file(rabbitmq_file, rabbitmq_contents)
+  end
+ 
+  # Writes a file to the local file system that tells the taskqueue master
+  # all nodes which are taskqueue nodes. 
+  def write_taskqueue_nodes_file
+    taskqueue_ips = []
+    @nodes.each { |node|
+      taskqueue_ips << node.private_ip if node.is_rabbitmq_master? or node.is_rabbitmq_slave?
+    }
+    Djinn.log_debug("Taskqueue servers will be at #{taskqueue_ips.join(', ')}")
+    taskqueue_contents = taskqueue_ips.join("\n")
+    HelperFunctions.write_file(TASKQUEUE_FILE,  taskqueue_contents)
   end
 
   # Updates files on this machine with information about our hostname
@@ -2998,7 +3043,13 @@ HOSTS
         end
         HelperFunctions.setup_app(app)
 
-         
+        # Start up taskqueue workers on this local machine 
+        if my_node.is_rabbitmq_master? or my_node.is_rabbitmq_slave?
+          tqc = TaskQueueClient.new()
+          result = tqc.start_worker(app) 
+          Djinn.log_debug("Starting TaskQueue workers for app #{app}: #{result}")
+        end   
+
         if my_node.is_shadow?
           CronHelper.update_cron(my_public, app_language, app)
           start_xmpp_for_app(app, app_language)

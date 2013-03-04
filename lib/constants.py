@@ -31,6 +31,9 @@ SECRET_LOC = '/etc/appscale/secret.key'
 # The location of the file which contains information on the current DB
 DB_INFO_LOC = '/etc/appscale/database_info.yaml'
 
+# The file location which has all taskqueue nodes listed.
+TASKQUEUE_NODE_FILE = "/etc/appscale/taskqueue_nodes"
+
 # The port of the datastore server
 DB_SERVER_PORT = 8888
 
@@ -52,3 +55,5 @@ JAVA = "java"
 # Go programs
 GO = "go"
 
+# Location where applications are stored
+APPS_PATH = "/var/apps/"
