@@ -887,7 +887,11 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
             for (OnestoreEntity.Index index : LocalCompositeIndexManager.getInstance().queryIndexList(query))
             {
                 result.addIndex(wrapIndexInCompositeIndex(app, index));
-            }
+            } 
+            /*
+             * AppScale - adding skipped results to the result, otherwise query counts are wrong	
+             */	
+            result.setSkippedResults(queryResult.getSkippedResults());
             return result;
         }
     }
