@@ -1,0 +1,20 @@
+.limiterBox {
+	margin-top:5px;
+	padding: 3px 6px;
+	font-size: 11px;
+	background: #efefef;
+	border-radius: 2px;
+	-moz-border-radius: 2px;
+	-webkit-border-radius: 2px;
+	border: 1px solid #c4c4c4;
+	float: left;
+}
+.limiterBox:before{
+	content:"";
+	position: absolute;
+	left:30px;
+	top:-13px;
+	width:100%;
+	height: 15px;
+	background: url(../../../images/arrowup.png) no-repeat;
+}

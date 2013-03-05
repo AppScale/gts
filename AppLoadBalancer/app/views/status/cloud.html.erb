@@ -1,73 +1,255 @@
-<div id="getting-started">
-  <%= display_flash_messages %>
-  <h3>API Status:</h3>
-  <table class="zebra-striped" border="1">
-    <tr>
-      <td align="center">Service Name</td>
-      <td align="center">Health</td>
-    </tr>
-    <% service_info = get_service_info %>
-    <% SERVICE_NAMES.each do |service| %>
-      <tr>
-        <td align="center"><%= h(service) %></td>
-        <% if service_info[service] == 'running' %> 
-          <td align="center"><img src="images/status_running.png"></td>
-        <% elsif service_info[service] == 'failed' %>
-          <td align="center"><img src="images/status_failed.gif"></td>
-        <% else %>
-          <td align="center"><img src="images/status_unknown.gif"></td>
-        <% end %>
-      </tr>
-    <% end %>
-  </table>
-  <% if is_user_cloud_admin %>
-    <h3>CPU / Memory Usage:</h3>
-    <table class="zebra-striped" border="1">
-      <tr>
-        <td align="center">IP Address</td>
-        <td align="center">CPU Usage</td>
-        <td align="center">Mem Usage</td>
-        <td align="center">Hard Disk Usage</td>
-        <td align="center">Cloud</td>
-        <td align="center">Role(s)</td>
-      </tr>
-      <% servers = get_status_information %>
-      <% servers.each do |server| %>
-        <tr>
-          <td align="center"><%= h(server[:ip]) %></td>
-          <td align="center"><%= h(server[:cpu]) %>%</td>
-          <td align="center"><%= h(server[:memory]) %>%</td>
-          <td align="center"><%= h(server[:disk]) %>%</td>
-        <td align="center"><%= h(server[:cloud]) %></td>
-         <td align="center"><%= h(server[:roles]) %></td>
-        </tr>
-      <% end %>
-    </table>
-  <br/><%= link_to "View More Monitoring Data", monitoring_url %>
-  <% end %>
-  <h3>Database Information:</h3>
-  <ul>
-    <% db = get_database_information %>
-    <li>Powered by <%= db[:database] %></li>
-    <li>Data is replicated <%= db[:replication] %> times</li>
-  </ul>
-  <h3>Applications Hosted in This Cloud:</h3>
-  <ul>
-    <% apps = get_application_information %>
-    <% if apps.empty? %>
-      <li>none</li>
-    <% else %>
-      <% apps.sort.each do |app_info| %>
-      <% app = app_info[0] %>
-      <% is_running = app_info[1] %>
-        <li>
-          <% if is_running %>
-            <a href="/apps/<%= h(app) %>" target="_blank"><%= h(app) %></a>
-          <% else %>
-            <%= h(app) %> (loading)
-          <% end %>
-        </li>
-      <% end %>
-    <% end %>
-  </ul>
-</div>
+        <!--Body content-->
+        <div id="content" class="clearfix">
+            <div class="contentwrapper"><!--Content wrapper-->
+
+                <div class="heading">
+
+                    <h3>AppScale Dashboard</h3>                    
+
+                    <div class="resBtnSearch">
+                        <a href="#"><span class="icon16 icomoon-icon-search-3"></span></a>
+                    </div>
+
+                </div><!-- End .heading-->
+
+                <!-- Build page from here: -->
+                <div class="row-fluid">
+
+
+                </div><!-- End .row-fluid -->
+				<div class="row-fluid">
+				<div class="hero-unit">
+				    <h1 align="center">Welcome to AppScale!</h1>
+				    <p align="center">The Open Source App Engine</p>
+            <%= display_flash_messages %>
+				    <p align="center"><a href="mailto:support@appscale.com" class="btn btn-primary btn-large">Send Feedback</a> &nbsp; <a href="https://github.com/AppScale/appscale/issues/new" data-toggle="modal" class="btn btn-info btn-large">Submit Issue</a></p>
+				                            </div>
+				</div><!-- End .row-fluid -->
+
+
+                <div class="row-fluid">
+
+                    <div class="span6">
+
+                        <div class="box chart gradient">
+
+                            <div class="title">
+
+                                <h4>
+                                    <span class="icon16 icomoon-icon-bars"></span>
+                                    <span>AppScale API Status</span>
+                                </h4>
+                                <a href="#" class="minimize">Minimize</a>
+                            </div>
+                                <div class="content noPad">
+                                    <table class="table">
+                                      <thead>
+                                        <tr>
+                                          <th>API Service</th>
+                                          <th>Status</th>
+                                        </tr>
+                                      </thead>
+                                          <% service_info = get_service_info %>
+                                            <% SERVICE_NAMES.each do |service| %>
+<!--API Status Hooks -->                                      
+                                      <tbody>
+                                        <tr>
+                                        <td align="center"><%= h(service) %></td>
+                                        <% if service_info[service] == 'running' %> 
+                                          <td align="center"><img src="images/status_running.png"></td>
+                                        <% elsif service_info[service] == 'failed' %>
+                                          <td align="center"><img src="images/status_failed.gif"></td>
+                                        <% else %>
+                                          <td align="center"><img src="images/status_unknown.gif"></td>
+                                        <% end %>
+                                      </tr>
+                                    <% end %>
+
+                                      </tbody>
+                                    </table>
+                                </div>
+
+                            </div><!-- End .box -->
+
+                        </div><!-- End .span6 -->
+
+						<div class="span6">
+
+                            <div class="box gradient">
+
+                                <div class="title">
+
+                                    <h4>
+                                        <span class="icon16 icomoon-icon-search-3"></span>
+                                        <span>Database & Application Information</span>
+                                    </h4>
+                                    <a href="#" class="minimize">Minimize</a>
+                                </div>
+                                <div class="content">
+									<h4><span class="icon12 icomoon-icon-database"></span>Current Database Deployed:</h4>
+<!-- DB Hook -->                                    
+                                      <ul class="unstyled">
+                                        <% db = get_database_information %>
+                                        <li><span class="icon16 icomoon-icon-arrow-right-2"></span>Powered by <%= db[:database] %></li>
+                                      </ul>
+									<hr/>
+									<h4><span class="icon12 icomoon-icon-database"></span>Data Replication:</h4>
+									<ul class="unstyled">
+									<li><span class="icon16 icomoon-icon-arrow-right-2"></span>Data is replicated <%= db[:replication] %> times</li>
+									</ul>
+                                    <hr/>
+                                    <h4><span class="icon12 icomoon-icon-database"></span>Current Applications Deployed:</h4>
+<!-- App Info Hook -->
+                                    <ul class="unstyled">
+                                        <% apps = get_application_information %>
+                                        <% if apps.empty? %>
+                                          <li><span class="icon16 icomoon-icon-arrow-right-2"></span>none</li>
+                                        <% else %>
+                                          <% apps.sort.each do |app_info| %>
+                                          <% app = app_info[0] %>
+                                          <% is_running = app_info[1] %>
+                                            <li><span class="icon16 icomoon-icon-arrow-right-2"></span>
+                                              <% if is_running %>
+                                                <a href="/apps/<%= h(app) %>" target="_blank"><%= h(app) %></a>
+                                              <% else %>
+                                                <%= h(app) %> (loading)
+                                              <% end %>
+                                            </li>
+                                          <% end %>
+                                        <% end %>
+                                      </ul>
+                                </div>
+
+                            </div><!-- End .box -->
+             <% if is_user_cloud_admin %><!--Start Cloud Admin View-->
+                        </div><!-- End .span3 -->
+ <div class="row-fluid">
+
+                        <div class="span12">
+                            <div class="page-header">
+                                <h3>CPU / Memory Usage <%= link_to "Machine Monitoring.", monitoring_url %></h3>
+                            </div>
+                            <table class="responsive table table-bordered">
+                                <thead>
+                                  <tr>
+                                    <th>IP Address</th>
+                                    <th>CPU Usage</th>
+                                    <th>Memory Usage</th>
+                                    <th>Hard Disk Usage</th>
+                                    <th>Cloud</th>
+                                    <th>Role(s)</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  <% servers = get_status_information %>
+                                  <% servers.each do |server| %>
+                                    <tr>
+                                      <td align="center"><%= h(server[:ip]) %></td>
+                                      <td align="center"><%= h(server[:cpu]) %>%</td>
+                                      <td align="center"><%= h(server[:memory]) %>%</td>
+                                      <td align="center"><%= h(server[:disk]) %>%</td>
+                                    <td align="center"><%= h(server[:cloud]) %></td>
+                                     <td align="center"><%= h(server[:roles]) %></td>
+                                    </tr>
+                                <% end %>
+
+
+                                </tbody>
+                            </table>
+
+                        </div><!-- End .span6 -->
+                        </div><!-- End .row-fluid -->
+                        						
+                </div><!-- End .row-fluid -->
+                <% end %> <!-- end of admin only boxes -->
+                
+            </div><!-- End contentwrapper -->
+        </div><!-- End #content -->
+    
+    </div><!-- End #wrapper -->
+    
+    
+<!-- Boostrap modal dialog -->
+    <div id="myModal" class="modal hide fade" style="display: none; ">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal"><span class="icon12 minia-icon-close"></span></button>
+          <h2>Feedback</h2>
+        </div>
+        <div class="modal-body">
+            <div class="paddingT15 paddingB15">    
+              <h4 align="center">Whether good or bad we want to hear your thoughts. Please use the appropriate channels for issue tracking and support. Thanks for choosing AppScale!</h4>
+              <form class="form-horizontal" id="form-validate" action="forms-validation.html" >
+              <div class="form-row row-fluid">
+                  <div class="span12">
+                      <div class="row-fluid">
+                          <label class="form-label span3" for="email">Email</label>
+                          <input class="span8" id="email" name="email" type="text" />
+                      </div>
+                  </div>
+              </div>
+           </form>
+              
+              <div class="form-row row-fluid">
+                  <div class="span12">
+                      <div class="row-fluid">
+                          <label class="form-label span3" for="textarea">Feedback</label>
+                          <textarea class="span8" id="textarea" rows="3"></textarea>
+                      </div>
+                  </div>
+              </div>
+
+              
+            </div>
+    
+        </div>
+        <div class="modal-footer">
+          <a href="#" class="btn" data-dismiss="modal">Close</a>
+          <a href="#" class="btn btn-primary">Submit</a>
+        </div>
+      </div>
+    
+    
+    <!-- Le javascript
+    ================================================== -->
+    <!-- Important plugins put in all pages -->
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+    <script type="text/javascript" src="js/bootstrap/bootstrap.js"></script>  
+    <script type="text/javascript" src="js/jquery.cookie.js"></script>
+    <script type="text/javascript" src="js/jquery.mousewheel.js"></script>
+
+    <!-- Charts plugins -->
+    <script type="text/javascript" src="plugins/charts/flot/jquery.flot.js"></script>
+    <script type="text/javascript" src="plugins/charts/flot/jquery.flot.grow.js"></script>
+    <script type="text/javascript" src="plugins/charts/flot/jquery.flot.pie.js"></script>
+    <script type="text/javascript" src="plugins/charts/flot/jquery.flot.resize.js"></script>
+    <script type="text/javascript" src="plugins/charts/flot/jquery.flot.tooltip_0.4.4.js"></script>
+    <script type="text/javascript" src="plugins/charts/flot/jquery.flot.orderBars.js"></script>
+    <script type="text/javascript" src="plugins/charts/sparkline/jquery.sparkline.min.js"></script><!-- Sparkline plugin -->
+    <script type="text/javascript" src="plugins/charts/knob/jquery.knob.js"></script><!-- Circular sliders and stats -->
+
+    <!-- Misc plugins -->
+    <script type="text/javascript" src="plugins/misc/fullcalendar/fullcalendar.min.js"></script><!-- Calendar plugin -->
+    <script type="text/javascript" src="plugins/misc/qtip/jquery.qtip.min.js"></script><!-- Custom tooltip plugin -->
+    <script type="text/javascript" src="plugins/misc/totop/jquery.ui.totop.min.js"></script> <!-- Back to top plugin -->
+    <!-- Search plugin -->
+    <script type="text/javascript" src="plugins/misc/search/tipuesearch_set.js"></script>
+    <script type="text/javascript" src="plugins/misc/search/tipuesearch_data.js"></script><!-- JSON for searched results -->
+    <script type="text/javascript" src="plugins/misc/search/tipuesearch.js"></script>
+
+    <!-- Form plugins -->
+    <script type="text/javascript" src="plugins/forms/watermark/jquery.watermark.min.js"></script>
+    <script type="text/javascript" src="plugins/forms/uniform/jquery.uniform.min.js"></script>
+    
+    <!-- Fix plugins -->
+    <script type="text/javascript" src="plugins/fix/ios-fix/ios-orientationchange-fix.js"></script>
+
+    <!-- Important Place before main.js  -->
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.21/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="plugins/fix/touch-punch/jquery.ui.touch-punch.min.js"></script><!-- Unable touch for JQueryUI -->
+
+    <!-- Init plugins -->
+    <script type="text/javascript" src="js/main.js"></script><!-- Core js functions -->
+    <script type="text/javascript" src="js/dashboard.js"></script><!-- Init plugins only for page -->
+
+    </body>
+</html>
