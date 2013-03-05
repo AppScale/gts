@@ -7,24 +7,24 @@ require 'fileutils'
 
 
 $:.unshift File.join(File.dirname(__FILE__))
-require 'helperfunctions'
 require 'app_manager_client'
-
+require 'helperfunctions'
 
 $:.unshift File.join(File.dirname(__FILE__), "..")
 require 'djinn'
 
 
-# Neptune jobs need to store and retrieve data within AppScale, so we have
-# a special Google App Engine application that always runs that acts as
-# a repository (here, shortened to "the Repo") for this data. This class
-# provides methods that automatically start the Repo and configure it
-# as needed.
-class Repo
+# Google App Engine application that always runs, checking the API
+# stats.
+class ApiChecker
 
 
-  # The port that nginx should provide access to the Repo app on, by default.
+  # The port that nginx should provide access to the API checker 
+  # app on, by default.
   SERVER_PORT = 8079
+
+  # AppScale home path.
+  APPSCALE_HOME = ENV['APPSCALE_HOME']
 
 
   def self.init(public_ip, private_ip, secret)
@@ -35,45 +35,47 @@ class Repo
 
 
   # So since we can't expose reading class variables directly, this method
-  # exposes just what we need - where the Repo app is hosted.
+  # exposes just what we need - where the API checker app is hosted.
   def self.get_public_ip()
     return @@ip
   end
 
-  # Starts the Repo application. Since it's a Google App Engine app, we throw
-  # up all the usual services for it (nginx/haproxy/AppServers), and wait for
+  # Starts the API checker application. Since it's a Google App Engine 
+  # app, we throw up all the usual services for it 
+  # (nginx/haproxy/AppServers), and wait for
   # them to start up. We don't register the app with the UAServer right now
   # since we don't necessarily want users accessing it.
-  # TODO(cgb): Let it register with the UAServer but change the Repo app to
-  # prevent unauthorized access.
+  # TODO(cgb): Let it register with the UAServer but change the apichecker 
+  # app to prevent unauthorized access.
   # 
   # Args: 
   #   login_ip: The IP of the load balancer
   #   uaserver_ip: The IP of a UserAppServer
-  # 
+  # Returns:
+  #   return true on success, false otherwise
   def self.start(login_ip, uaserver_ip)
     # its just another app engine app - but since numbering starts
     # at zero, this app has to be app neg one
 
-    # TODO: tell the tools to disallow uploading apps called 'therepo'
+    # TODO: tell the tools to disallow uploading apps called 'apichecker'
     # and start_appengine to do the same
 
     num_servers = 3
     app_number = -1
-    app = "therepo"
+    app = "apichecker"
     app_language = "python"
 
     app_manager = AppManagerClient.new()
 
     app_location = "/var/apps/#{app}/app"
     Djinn.log_run("mkdir -p #{app_location}")
-    Djinn.log_run("cp -r #{APPSCALE_HOME}/AppServer/demos/therepo/* #{app_location}")
+    Djinn.log_run("cp -r #{APPSCALE_HOME}/AppServer/demos/apichecker/* #{app_location}")
     HelperFunctions.setup_app(app, untar=false)
 
-    repo_main_code = "#{app_location}/repo.py"
-    file_w_o_secret = HelperFunctions.read_file(repo_main_code)
+    apichecker_main_code = "#{app_location}/apichecker.py"
+    file_w_o_secret = HelperFunctions.read_file(apichecker_main_code)
     file_w_secret = file_w_o_secret.gsub("PLACE SECRET HERE", @@secret)
-    HelperFunctions.write_file(repo_main_code, file_w_secret)
+    HelperFunctions.write_file(apichecker_main_code, file_w_secret)
 
     static_handlers = HelperFunctions.parse_static_data(app)
     proxy_port = HAProxy.app_listen_port(app_number)
@@ -88,6 +90,7 @@ class Repo
                                   [uaserver_ip])
       if pid == -1
         Djinn.log_debug("Failed to start app #{app} on #{HelperFunctions.local_ip}:#{port}")
+        return false
       else
         pid_file_name = "#{APPSCALE_HOME}/.appscale/#{app}-#{port}.pid"
         HelperFunctions.write_file(pid_file_name, pid)
@@ -96,13 +99,14 @@ class Repo
 
     Nginx.reload
     Collectd.restart
+    return true
   end
 
 
-  # Stops the Repo app.
+  # Stops the API checker app.
   #
   def self.stop
-    app = "therepo"
+    app = "apichecker"
     Djinn.log_debug("Stopping app #{app} on #{HelperFunctions.local_ip}")
     app_manager = AppManagerClient.new()
     if app_manager.stop_app(app) 
@@ -110,6 +114,4 @@ class Repo
     end
   end
 
-
 end
-
