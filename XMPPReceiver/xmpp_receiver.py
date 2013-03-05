@@ -1,12 +1,12 @@
 #!/usr/bin/python
 # Programmer: Chris Bunch (chris@appscale.com)
+# pylint: disable-msg=E1101
 
 # a script that receives xmpp messages for an app engine app
 # and forwards them to the app, which must have a route
 # exposed at /_ah/xmpp/message/chat/ to receive them
 
 # usage is ./xmpp_receiver.py appname login_ip app-password
-# TODO: refactor this to not leave the password in the clear 
 
 
 # General-purpose Python libraries
@@ -15,7 +15,6 @@ import os
 import re
 import select
 import sys
-import time
 import urllib
 
 
@@ -26,14 +25,32 @@ import urllib
 try:
   import xmpp
 except ImportError:
-  sys.path.append('/usr/local/lib/python2.6/dist-packages/xmpppy-0.5.0rc1-py2.6.egg')
+  PYTHON_PACKAGES = '/usr/local/lib/python2.6/dist-packages/'
+  sys.path.append(PYTHON_PACKAGES + 'xmpppy-0.5.0rc1-py2.6.egg')
   import xmpp
 
 
 class XMPPReceiver():
+  """XMPPReceiver provides callers with a way to receive XMPP messages on
+  behalf of Google App Engine applications. The receiver will POST any
+  received message to an App Server that runs the app, and will respond
+  to presence notifications that users may send to it.
+  """
 
 
   def __init__(self, appid, login_ip, app_password):
+    """Creates a new XMPPReceiver, which will listen for XMPP messages for
+    an App Engine app.
+
+    Args:
+      appid: A str representing the application ID that this XMPPReceiver
+        should poll on behalf of.
+      login_ip: A str representing the IP or FQDN where an AppLoadBalancer
+        runs, so that we can find an App Server to POST messages to.
+      app_password: A str representing the password associated with the
+        XMPP user account for the Google App Engine app that the receiver
+        will log in on behalf of.
+    """
     self.appid = appid
     self.login_ip = login_ip
     self.app_password = app_password
@@ -48,10 +65,16 @@ class XMPPReceiver():
 
 
   def xmpp_message(self, _, event):
+    """Responds to the receipt of an XMPP message, by finding an App Server that
+    hosts the given application and POSTing the message's payload to it.
+
+    Args:
+      _: The connection that the message was received on (not used).
+      event: The actual message that was received.
+    """
     logging.info("received a message from {0}, with body {1}" \
       .format(event.getFrom().getStripped(), event.getBody()))
-    type = event.getType()
-    logging.info("message type is %s" % (type))
+    logging.info("message type is {0}".format(event.getType))
     from_jid = event.getFrom().getStripped()
     params = {}
     params['from'] = from_jid
@@ -69,10 +92,17 @@ class XMPPReceiver():
 
 
   def xmpp_presence(self, conn, event):
+    """Responds to the receipt of a presence message, by telling the sender
+    that we are subscribing to their presence and that they should do the same.
+
+    Args:
+      conn: The connection that the message was received on.
+      event: The actual message that was received.
+    """
     logging.info("received a presence from {0}, with payload {1}" \
       .format(event.getFrom().getStripped(), event.getPayload()))
     prs_type = event.getType()
-    logging.info("presence type is %s" % (prs_type))
+    logging.info("presence type is {0}".format(prs_type))
     who = event.getFrom()
     if prs_type == "subscribe":
       conn.send(xmpp.Presence(to=who, typ='subscribed'))
@@ -80,6 +110,15 @@ class XMPPReceiver():
 
 
   def listen_for_messages(self, messages_to_listen_for=-1):
+    """Polls the XMPP server for messages, responding to any that are seen.
+
+    Args:
+      messages_to_listen_for: An int that represents how many messages we
+        should listen for. If set to the default value (-1), then we listen
+        for an infinite number of messages.
+    Returns:
+      An int that indicates how many messages were processed.
+    """
     jid = xmpp.protocol.JID(self.my_jid)
     client = xmpp.Client(jid.getDomain(), debug=[])
 
@@ -106,7 +145,7 @@ class XMPPReceiver():
 
     messages_processed = 0
     while messages_processed != messages_to_listen_for:
-      (input_data, output_data, error_data) = select.select(socketlist.keys(),[],[],1)
+      (input_data, _, __) = select.select(socketlist.keys(), [], [], 1)
       for each in input_data:
         if socketlist[each] == 'xmpp':
           client.Process(1)
@@ -118,5 +157,5 @@ class XMPPReceiver():
 
 
 if __name__ == "__main__":
-  receiver = XMPPReceiver(sys.argv[1], sys.argv[2], sys.argv[3])
-  receiver.listen_for_messages()
+  RECEIVER = XMPPReceiver(sys.argv[1], sys.argv[2], sys.argv[3])
+  RECEIVER.listen_for_messages()
