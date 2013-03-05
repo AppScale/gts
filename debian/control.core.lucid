@@ -20,7 +20,7 @@ Depends: appscale-tools,
  python,
  python-django, 
  sendmail,
- ejabberd, python-xmpp,
+ ejabberd,
 # AppController
  ssh,
  ruby1.8, ruby, rdoc1.8, libzlib-ruby, libzip-ruby1.8,
