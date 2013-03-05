@@ -63,29 +63,30 @@ class XMPPReceiver():
 
 
   @classmethod
-  def listen_for_messages(cls, appid, login_ip, app_password):
-    my_jid = my_app_name + "@" + login_ip
-    log_file = "/var/log/ejabberd/receiver-" + my_jid + ".log"
-    sys.stderr = open(log_file, 'a')
+  def listen_for_messages(cls, appid, login_ip, app_password,
+    messages_to_listen_for=-1):
+
+    my_jid = appid + "@" + login_ip
+    log_file = "/var/log/appscale/xmppreceiver-{0}.log".format(my_jid)
+    #sys.stderr = open(log_file, 'a')
     logging.basicConfig(level=logging.INFO,
       format='%(asctime)s %(levelname)s %(message)s',
       filename=log_file,
       filemode='a')
 
-    logging.info("receiver script for %s started, waiting for incoming messages" % (my_jid))
+    logging.info("Receiver script for XMPP user {0} started".format(my_jid))
 
     jid = xmpp.protocol.JID(my_jid)
     client = xmpp.Client(jid.getDomain(), debug=[])
 
     if not client.connect():
-      print "Could not connect"
       logging.info("Could not connect")
-      exit(1)
+      raise SystemExit("Could not connect to XMPP server at {0}" \
+        .format(login_ip))
 
     if not client.auth(jid.getNode(), my_password, resource=jid.getResource()):
-      print "Could not authenticate"
       logging.info("Could not authenticate")
-      exit(1)
+      sys.exit(1)
 
     client.RegisterHandler('message', cls.xmpp_message)
     client.RegisterHandler('presence', cls.xmpp_presence)
