@@ -64,10 +64,10 @@ AUTOMATIC_QUEUES = {
     DEFAULT_QUEUE_NAME: (0.2, DEFAULT_BUCKET_SIZE, DEFAULT_RATE),
     '__cron': (1, 1, '1/s')}
 
-# Where the SSL certificate is placed for encrypted communication
+# The location the SSL certificate is placed for encrypted communication.
 CERT_LOCATION = "/etc/appscale/certs/mycert.pem"
 
-# Where the SSL private key is placed for encrypted communication
+# The location the SSL private key is placed for encrypted communication.
 KEY_LOCATION = "/etc/appscale/certs/mykey.pem"
 
 TASKQUEUE_LOCATION_FILE = "/etc/appscale/rabbitmq_ip"
