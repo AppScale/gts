@@ -5,10 +5,12 @@
 # General-purpose Python library imports
 import logging
 import os
+import re
 import select
 import sys
 import types
 import unittest
+import urllib
 
 
 # Third party libraries
@@ -47,8 +49,8 @@ class TestXMPPReceiver(unittest.TestCase):
     xmpp.should_receive('Client').with_args(self.login_ip, debug=[]) \
       .and_return(fake_client)
 
-    self.assertRaises(SystemExit, XMPPReceiver.listen_for_messages, self.appid,
-      self.login_ip, self.password, messages_to_listen_for=1)
+    receiver = XMPPReceiver(self.appid, self.login_ip, self.password)
+    self.assertRaises(SystemExit, receiver.listen_for_messages, messages_to_listen_for=1)
 
 
   def test_connect_to_xmpp_but_cannot_auth(self):
@@ -62,8 +64,9 @@ class TestXMPPReceiver(unittest.TestCase):
     xmpp.should_receive('Client').with_args(self.login_ip, debug=[]) \
       .and_return(fake_client)
 
-    self.assertRaises(SystemExit, XMPPReceiver.listen_for_messages, self.appid,
-      self.login_ip, self.password, messages_to_listen_for=1)
+    receiver = XMPPReceiver(self.appid, self.login_ip, self.password)
+    self.assertRaises(SystemExit, receiver.listen_for_messages,
+      messages_to_listen_for=1)
 
   
   def test_receive_one_message(self):
@@ -94,6 +97,37 @@ class TestXMPPReceiver(unittest.TestCase):
     select.should_receive('select').with_args(['the socket'], [], [], 1) \
       .and_return(message, None, None)
 
-    actual_messages_sent = XMPPReceiver.listen_for_messages(self.appid,
-      self.login_ip, self.password, messages_to_listen_for=1)
+    receiver = XMPPReceiver(self.appid, self.login_ip, self.password)
+    actual_messages_sent = receiver.listen_for_messages(
+      messages_to_listen_for=1)
     self.assertEquals(1, actual_messages_sent)
+
+
+  def test_message_results_in_post(self):
+    # since we mock out the xmpp client in previous tests, we can't rely on it
+    # to call the xmpp_message method. therefore, let's test it separately.
+    fake_conn = flexmock(name='fake_conn')
+
+    fake_from = flexmock(name='fake_from')
+    fake_from.should_receive('getStripped').and_return('me@public1')
+
+    fake_event = flexmock(name='fake_event')
+    fake_event.should_receive('getFrom').and_return(fake_from)
+    fake_event.should_receive('getBody').and_return('doesnt matter')
+    fake_event.should_receive('getType').and_return('chat')
+
+    # mock out the curl call to the AppLoadBalancer, and slip in our own
+    # ip to send the XMPP message to
+    fake_curl = flexmock(name='curl_result')
+    fake_curl.should_receive('read').and_return('Location: http://public2')
+
+    flexmock(os)
+    os.should_receive('popen').with_args(re.compile('curl')).and_return(fake_curl)
+
+    # and finally mock out the urllib call
+    flexmock(urllib)
+    urllib.should_receive('urlopen').with_args(
+      "http://public2/_ah/xmpp/message/chat/", str).and_return()
+
+    receiver = XMPPReceiver(self.appid, self.login_ip, self.password)
+    receiver.xmpp_message(fake_conn, fake_event)

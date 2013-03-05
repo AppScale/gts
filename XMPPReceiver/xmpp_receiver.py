@@ -20,77 +20,83 @@ import urllib
 
 
 # Third-party libraries
-import xmpp
+# On AppScale VMs, we use Python 2.7 to run the XMPPReceiver, but because we
+# install the xmpp library for the default Python (Python 2.6), we have to add
+# it to our path.
+try:
+  import xmpp
+except ImportError:
+  sys.path.append('/usr/local/lib/python2.6/dist-packages/xmpppy-0.5.0rc1-py2.6.egg')
+  import xmpp
 
 
 class XMPPReceiver():
 
 
-  @classmethod
-  def xmpp_message(cls, con, event):
-    logging.info("received a message!")
-    logging.info(event)
+  def __init__(self, appid, login_ip, app_password):
+    self.appid = appid
+    self.login_ip = login_ip
+    self.app_password = app_password
+
+    self.my_jid = self.appid + "@" + self.login_ip
+    log_file = "/var/log/appscale/xmppreceiver-{0}.log".format(self.my_jid)
+    logging.basicConfig(level=logging.INFO,
+      format='%(asctime)s %(levelname)s %(message)s',
+      filename=log_file,
+      filemode='a')
+    logging.info("Started receiver script for {0}".format(self.my_jid))
+
+
+  def xmpp_message(self, _, event):
+    logging.info("received a message from {0}, with body {1}" \
+      .format(event.getFrom().getStripped(), event.getBody()))
     type = event.getType()
     logging.info("message type is %s" % (type))
     from_jid = event.getFrom().getStripped()
     params = {}
     params['from'] = from_jid
-    params['to'] = my_jid
+    params['to'] = self.my_jid
     params['body'] = event.getBody()
     encoded_params = urllib.urlencode(params)
 
-    lb_url = "http://" + login_ip + "/apps/" + my_app_name + "/"
-
+    lb_url = "http://{0}/apps/{1}/".format(self.login_ip, self.appid)
     cmd = "curl -L -i -k -X GET " + lb_url
     lb_result = os.popen(cmd).read()
 
     appserver_ip = re.findall('Location: http://(.*)', lb_result)[-1]
-    xmpp_url = "http://" + appserver_ip + "/_ah/xmpp/message/chat/"
+    xmpp_url = "http://{0}/_ah/xmpp/message/chat/".format(appserver_ip)
     urllib.urlopen(xmpp_url, encoded_params)
 
 
-  @classmethod
-  def xmpp_presence(cls, con, event):
-    print str(event)
-    logging.info("presence message!")
-    logging.info(event)
+  def xmpp_presence(self, conn, event):
+    logging.info("received a presence from {0}, with payload {1}" \
+      .format(event.getFrom().getStripped(), event.getPayload()))
     prs_type = event.getType()
     logging.info("presence type is %s" % (prs_type))
     who = event.getFrom()
     if prs_type == "subscribe":
-      con.send(xmpp.Presence(to=who, typ='subscribed'))
-      con.send(xmpp.Presence(to=who, typ='subscribe'))
+      conn.send(xmpp.Presence(to=who, typ='subscribed'))
+      conn.send(xmpp.Presence(to=who, typ='subscribe'))
 
 
-  @classmethod
-  def listen_for_messages(cls, appid, login_ip, app_password,
-    messages_to_listen_for=-1):
-
-    my_jid = appid + "@" + login_ip
-    log_file = "/var/log/appscale/xmppreceiver-{0}.log".format(my_jid)
-    logging.basicConfig(level=logging.INFO,
-      format='%(asctime)s %(levelname)s %(message)s',
-      filename=log_file,
-      filemode='a')
-
-    logging.info("Receiver script for XMPP user {0} started".format(my_jid))
-
-    jid = xmpp.protocol.JID(my_jid)
+  def listen_for_messages(self, messages_to_listen_for=-1):
+    jid = xmpp.protocol.JID(self.my_jid)
     client = xmpp.Client(jid.getDomain(), debug=[])
 
     if not client.connect():
       logging.info("Could not connect")
       raise SystemExit("Could not connect to XMPP server at {0}" \
-        .format(login_ip))
+        .format(self.login_ip))
 
-    if not client.auth(jid.getNode(), app_password, resource=jid.getResource()):
+    if not client.auth(jid.getNode(), self.app_password,
+      resource=jid.getResource()):
       logging.info("Could not authenticate with username {0}, password {1}" \
-        .format(jid.getNode(), app_password))
+        .format(jid.getNode(), self.app_password))
       raise SystemExit("Could not authenticate to XMPP server at {0}" \
-        .format(login_ip))
+        .format(self.login_ip))
 
-    client.RegisterHandler('message', cls.xmpp_message)
-    client.RegisterHandler('presence', cls.xmpp_presence)
+    client.RegisterHandler('message', self.xmpp_message)
+    client.RegisterHandler('presence', self.xmpp_presence)
 
     client.sendInitPresence(requestRoster=0)
 
@@ -112,4 +118,5 @@ class XMPPReceiver():
 
 
 if __name__ == "__main__":
-  XMPPReceiver.listen_for_messages(sys.argv[1], sys.argv[2], sys.argv[3])
+  receiver = XMPPReceiver(sys.argv[1], sys.argv[2], sys.argv[3])
+  receiver.listen_for_messages()
