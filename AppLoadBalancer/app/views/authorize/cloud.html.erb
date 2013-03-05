@@ -1,20 +1,48 @@
-<div id="getting-started">
-  <%= display_flash_messages %>
-  <h3>Authorization Info:</h3>
-  <% form_tag :action => "update" do %>
-    <table border="1">
-      <tr>
-        <td align="center">Username</td>
-        <td align="center">Upload / Remove App</td>
-      </tr>
-      <% info = get_authorization_info %>
-      <% info.each do |user, caps| %>
-        <tr>
-          <td align="center"><%= user %></td>
-          <td align="center"><%= check_box_tag "#{user}-upload_app", "#{user}-upload_app", user_has_ability?("upload_app", caps) %></td>
-        </tr>
-      <% end %>
-    </table>
-    <div align="center"><%= submit_tag "Update" %></div>
-  <% end %>
-</div>
+<!--Body content-->
+        <div id="content" class="clearfix">
+            <div class="contentwrapper"><!--Content wrapper-->
+
+                <div class="heading">
+
+                    <h3>AppScale Dashboard</h3>                    
+
+                    <div class="resBtnSearch">
+                        <a href="#"><span class="icon16 icomoon-icon-search-3"></span></a>
+                    </div>
+
+                </div><!-- End .heading-->
+
+                <!-- Build page from here: -->
+                <div class="row-fluid">
+                  <div class="span4"></div>
+                  <div class="span4">
+
+                            <div class="well boxMargin">
+
+                                <div class="title page-header">
+                      <%= display_flash_messages %>
+                      <h3>Authorization Info:</h3></div>
+                      <% form_tag :action => "update" do %>
+                        <table align="center" border="1px">
+                          <tr>
+                            <td style="padding: 0 6px 0 6px;" align="center">Username</td>
+                            <td style="padding: 0 6px 0 6px;" align="center">Upload / Remove App</td>
+                          </tr>
+                          <% info = get_authorization_info %>
+                          <% info.each do |user, caps| %>
+                            <tr>
+                              <td style="padding: 0 6px 0 6px;" align="center"><%= user %></td>
+                              <td style="padding: 0 6px 0 6px;" align="center"><%= check_box_tag "#{user}-upload_app", "#{user}-upload_app", user_has_ability?("upload_app", caps) %></td>
+                            </tr>
+                          <% end %>
+                        </table>
+                        <div align="center" style="margin-top: 15px;"><%= submit_tag "Update", { :class => "btn btn-primary",} %></div>
+                      <% end %>
+
+
+                </div><!--close well-->
+                </div><!--close span6 -->
+                <div class="span4"></div> 
+                </div> <!-- end row fluid -->
+            </div> <!-- end content wrapper -->
+        </div> <!--end content-->
