@@ -1115,6 +1115,7 @@ module HelperFunctions
         return false
       end
     rescue Exception
+      Kernel.sleep(1)
       retry
     end
   end
