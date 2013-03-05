@@ -29,7 +29,6 @@ def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={}):
   Raises: 
     TypeError with bad argument types
   """
-
   if not isinstance(watch, str): raise TypeError("Expected str")
   if not isinstance(start_cmd, str): raise TypeError("Expected str")
   if not isinstance(stop_cmd, str): raise TypeError("Expected str")

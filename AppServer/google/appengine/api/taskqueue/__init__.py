@@ -30,12 +30,14 @@ __all__ = [
     'InvalidTaskNameError', 'InvalidUrlError', 'PermissionDeniedError',
     'TaskAlreadyExistsError', 'TaskTooLargeError', 'TombstonedTaskError',
     'TooManyTasksError', 'TransientError', 'UnknownQueueError',
-    'InvalidLeaseTimeError', 'InvalidMaxTasksError',
+    'InvalidLeaseTimeError', 'InvalidMaxTasksError', 'InvalidDeadlineError',
     'InvalidQueueModeError', 'TransactionalRequestTooLargeError',
-    'TaskLeaseExpiredError', 'QueuePausedError',
+    'TaskLeaseExpiredError', 'QueuePausedError', 'InvalidEtaError',
 
     'MAX_QUEUE_NAME_LENGTH', 'MAX_TASK_NAME_LENGTH', 'MAX_TASK_SIZE_BYTES',
     'MAX_PULL_TASK_SIZE_BYTES', 'MAX_PUSH_TASK_SIZE_BYTES',
+    'MAX_LEASE_SECONDS', 'MAX_TASKS_PER_ADD',
+    'MAX_TASKS_PER_LEASE',
     'MAX_URL_LENGTH',
 
     'DEFAULT_APP_VERSION',

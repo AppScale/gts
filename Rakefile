@@ -102,6 +102,23 @@ namespace :appdb do
 
 end
 
+namespace :apptaskqueue do
+
+  task :test do
+    sh "nosetests AppTaskQueue/test/unit"
+  end
+
+end
+
+namespace :appserver do
+
+  task :test do
+    sh "nosetests AppServer/google/appengine/api/taskqueue/test"
+  end
+
+end
+
+
 namespace :lib do
 
   task :test do
@@ -127,4 +144,4 @@ namespace :xmppreceiver do
 
 end
 
-task :default => ['appcontroller:test', 'neptunemanager:test', 'infrastructuremanager:test', 'appmanager:test', 'appdb:test', 'lib:test', 'xmppreceiver:test']
+task :default => ['appcontroller:test', 'neptunemanager:test', 'infrastructuremanager:test', 'appmanager:test', 'appdb:test', 'apptaskqueue:test', 'lib:test', 'appserver:test', 'xmppreceiver:test']

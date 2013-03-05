@@ -50,3 +50,26 @@ def get_db_info():
   """
   info = file_io.read(constants.DB_INFO_LOC) 
   return yaml.load(info) 
+
+def get_taskqueue_nodes():
+  """ Returns a list of all the taskqueue nodes (including the master). 
+      Strips off any empty lines
+
+  Returns:
+    A list of taskqueue nodes.
+  """
+  nodes = file_io.read(constants.TASKQUEUE_NODE_FILE)
+  nodes = nodes.split('\n')
+  if nodes[-1] == '':
+    nodes = nodes[:-1]
+  return nodes
+
+def get_app_path(app_id):
+  """ Returns the application path.
+  
+  Args:
+    app_id: The application id.
+  Returns:
+    A string of the full path of where the application is.
+  """
+  return constants.APPS_PATH + app_id + '/app/'

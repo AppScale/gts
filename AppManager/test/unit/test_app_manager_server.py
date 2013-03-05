@@ -12,7 +12,7 @@ from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 import app_manager_server
-import god_app_interface
+import god_app_configuration
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../lib"))
 import file_io
@@ -73,7 +73,7 @@ class TestAppManager(unittest.TestCase):
       .and_return('<private_ip>')
     flexmock(appscale_info).should_receive('get_secret')\
                            .and_return(fake_secret)
-    flexmock(god_app_interface).should_receive('create_config_file')\
+    flexmock(god_app_configuration).should_receive('create_config_file')\
                                .and_return('fakeconfig')
     flexmock(god_interface).should_receive('start')\
                            .and_return(True)
@@ -100,7 +100,7 @@ class TestAppManager(unittest.TestCase):
       .and_return('<private_ip>')
     flexmock(appscale_info).should_receive('get_secret')\
                            .and_return(fake_secret)
-    flexmock(god_app_interface).should_receive('create_config_file')\
+    flexmock(god_app_configuration).should_receive('create_config_file')\
                                .and_return('fakeconfig')
     flexmock(god_interface).should_receive('start')\
                            .and_return(True)
@@ -129,7 +129,7 @@ class TestAppManager(unittest.TestCase):
       .and_return('<private_ip>')
     flexmock(appscale_info).should_receive('get_secret')\
                            .and_return(fake_secret)
-    flexmock(god_app_interface).should_receive('create_config_file')\
+    flexmock(god_app_configuration).should_receive('create_config_file')\
                                .and_return('fakeconfig')
     flexmock(god_interface).should_receive('start')\
                            .and_return(True)
