@@ -247,6 +247,11 @@ class Djinn
   APPSCALE_HOME = ENV['APPSCALE_HOME']
 
 
+  # The location where we can find the Python 2.7 executable, included because
+  # it is not the default version of Python installed on AppScale VMs.
+  PYTHON27 = "/usr/local/Python-2.7.3/python"
+
+
   # The message that we display to the user if they call a SOAP-accessible
   # function with a malformed input (e.g., of the wrong class or format).
   BAD_INPUT_MSG = JSON.dump({'success' => false, 'message' => 'bad input'})
@@ -3606,7 +3611,7 @@ HOSTS
     Djinn.log_debug("Created user [#{xmpp_user}] with password [#{@@secret}] and hashed password [#{xmpp_pass}]")
 
     if Ejabberd.does_app_need_receive?(app, app_language)
-      start_cmd = "python2.6 #{APPSCALE_HOME}/AppController/xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
+      start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
       stop_cmd = "ps ax | grep '#{start_cmd}' | grep -v grep | awk '{print $1}' | xargs -d '\n' kill -9"
       GodInterface.start(app, start_cmd, stop_cmd, 9999)
       Djinn.log_debug("App #{app} does need xmpp receive functionality")

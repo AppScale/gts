@@ -110,6 +110,12 @@ namespace :lib do
 
 end
 
+namespace :xmppreceiver do
 
+  task :test do
+    sh "nosetests XMPPReceiver"
+  end
 
-task :default => ['appcontroller:test', 'neptunemanager:test', 'infrastructuremanager:test', 'appmanager:test', 'appdb:test', 'lib:test']
+end
+
+task :default => ['appcontroller:test', 'neptunemanager:test', 'infrastructuremanager:test', 'appmanager:test', 'appdb:test', 'lib:test', 'xmppreceiver:test']
