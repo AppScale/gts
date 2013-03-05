@@ -3,10 +3,9 @@ A collection of common utility functions which can be used by any
 module within the AppScale Infrastructure Manager implementation.
 """
 import os
-import random
-import string
 import sys
 import time
+import uuid
 
 __author__ = 'hiranya'
 __email__ = 'hiranya@appscale.com'
@@ -95,24 +94,23 @@ def get_random_alphanumeric(length=10):
   Returns:
     A random alphanumeric string of the specified length.
   """
-  alphabet = string.digits + string.letters
-  return ''.join(random.choice(alphabet) for i in range(length))
+  return str(uuid.uuid4()).replace('-', '')[:length]
 
 
-def flatten(list):
+def flatten(the_list):
   """
   Flatten all the elements in the given list into a single list.
   For an example if the input list is [1, [2,3], [4,5,[6,7]]],
   the resulting list will be [1,2,3,4,5,6,7].
 
   Args:
-    list  A list of items where each member item could be a list
+    the_list  A list of items where each member item could be a list
 
   Returns:
     A single list with no lists as its elements
   """
   result = []
-  for entry in list:
+  for entry in the_list:
     if hasattr(entry, '__iter__'):
       result.extend(flatten(entry))
     else:
@@ -120,19 +118,19 @@ def flatten(list):
   return result
 
 
-def has_parameter(p, params):
+def has_parameter(param, params):
   """
-  Checks whether the parameter p is present in the params map.
+  Checks whether the parameter param is present in the params map.
 
   Args:
-    p       A parameter name
+    param       A parameter name
     params  A dictionary of parameters
 
   Returns:
-    True if params contains p and the value of p is not None.
+    True if params contains param and the value of param is not None.
     Returns False otherwise.
   """
-  return params.has_key(p) and params[p] is not None
+  return params.has_key(param) and params[param] is not None
 
 
 def diff(list1, list2):
