@@ -147,7 +147,7 @@ class XMPPReceiver():
     messages_processed = 0
     while messages_processed != messages_to_listen_for:
       (input_data, _, __) = select.select(socketlist.keys(), [], [], 1)
-      for each in input_data:
+      for _ in input_data:
         client.Process(1)
         messages_processed += 1
 
