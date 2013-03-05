@@ -147,10 +147,7 @@ class XMPPReceiver():
     while messages_processed != messages_to_listen_for:
       (input_data, _, __) = select.select(socketlist.keys(), [], [], 1)
       for each in input_data:
-        if socketlist[each] == 'xmpp':
-          client.Process(1)
-        else:
-          raise Exception("Unknown socket type: %s" % repr(socketlist[each]))
+        client.Process(1)
         messages_processed += 1
 
     return messages_processed
