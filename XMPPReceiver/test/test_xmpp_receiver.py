@@ -5,7 +5,9 @@
 # General-purpose Python library imports
 import logging
 import os
+import select
 import sys
+import types
 import unittest
 
 
@@ -62,3 +64,36 @@ class TestXMPPReceiver(unittest.TestCase):
 
     self.assertRaises(SystemExit, XMPPReceiver.listen_for_messages, self.appid,
       self.login_ip, self.password, messages_to_listen_for=1)
+
+  
+  def test_receive_one_message(self):
+    # mock out the xmpp connection and have it connect and authenticate
+    fake_connection = flexmock(name='fake_connection', _sock="the socket")
+    fake_client = flexmock(name='fake_client', Connection=fake_connection)
+    fake_client.should_receive('connect').and_return(True)
+    fake_client.should_receive('auth').with_args(self.appid, self.password,
+      resource='').and_return(True)
+
+    # also add in mocks for when messages are received or when we see
+    # presence notifications
+    fake_client.should_receive('RegisterHandler').and_return()
+
+    # add in a mock for when we send our presence message to the XMPP server
+    fake_client.should_receive('sendInitPresence').and_return()
+
+    # and make sure that we only process one message
+    fake_client.should_receive('Process').with_args(1).once()
+
+    flexmock(xmpp)
+    xmpp.should_receive('Client').with_args(self.login_ip, debug=[]) \
+      .and_return(fake_client)
+
+    # finally, mock out 'select', and have it put in a message
+    flexmock(select)
+    message = {"the socket" : "xmpp"}
+    select.should_receive('select').with_args(['the socket'], [], [], 1) \
+      .and_return(message, None, None)
+
+    actual_messages_sent = XMPPReceiver.listen_for_messages(self.appid,
+      self.login_ip, self.password, messages_to_listen_for=1)
+    self.assertEquals(1, actual_messages_sent)

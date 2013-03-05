@@ -68,7 +68,6 @@ class XMPPReceiver():
 
     my_jid = appid + "@" + login_ip
     log_file = "/var/log/appscale/xmppreceiver-{0}.log".format(my_jid)
-    #sys.stderr = open(log_file, 'a')
     logging.basicConfig(level=logging.INFO,
       format='%(asctime)s %(levelname)s %(message)s',
       filename=log_file,
@@ -85,8 +84,10 @@ class XMPPReceiver():
         .format(login_ip))
 
     if not client.auth(jid.getNode(), app_password, resource=jid.getResource()):
-      logging.info("Could not authenticate")
-      sys.exit(1)
+      logging.info("Could not authenticate with username {0}, password {1}" \
+        .format(jid.getNode(), app_password))
+      raise SystemExit("Could not authenticate to XMPP server at {0}" \
+        .format(login_ip))
 
     client.RegisterHandler('message', cls.xmpp_message)
     client.RegisterHandler('presence', cls.xmpp_presence)
@@ -97,13 +98,17 @@ class XMPPReceiver():
 
     logging.info("About to begin processing requests")
 
-    while True:
-      (i , o, e) = select.select(socketlist.keys(),[],[],1)
-      for each in i:
+    messages_processed = 0
+    while messages_processed != messages_to_listen_for:
+      (input_data, output_data, error_data) = select.select(socketlist.keys(),[],[],1)
+      for each in input_data:
         if socketlist[each] == 'xmpp':
           client.Process(1)
         else:
           raise Exception("Unknown socket type: %s" % repr(socketlist[each]))
+        messages_processed += 1
+
+    return messages_processed
 
 
 if __name__ == "__main__":
