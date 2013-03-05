@@ -57,6 +57,7 @@ class XMPPReceiver():
 
     self.my_jid = self.appid + "@" + self.login_ip
     log_file = "/var/log/appscale/xmppreceiver-{0}.log".format(self.my_jid)
+    sys.stderr = open(log_file, 'a')
     logging.basicConfig(level=logging.INFO,
       format='%(asctime)s %(levelname)s %(message)s',
       filename=log_file,

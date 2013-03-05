@@ -39,6 +39,12 @@ class TestXMPPReceiver(unittest.TestCase):
     logging.should_receive('basicConfig').and_return()
     logging.should_receive('info').with_args(str).and_return()
 
+    # and mock out all calls to try to make stderr write to the logger
+    fake_open = flexmock(sys.modules['__builtin__'])
+    fake_open.should_call('open')  # set the fall-through
+    fake_open.should_receive('open').with_args(
+      '/var/log/appscale/xmppreceiver-bazapp@publicip1.log', 'a')
+
 
   def test_connect_to_xmpp_but_it_is_down(self):
     # mock out the xmpp connection and have it not connect
