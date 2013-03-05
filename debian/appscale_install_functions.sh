@@ -105,16 +105,11 @@ installlxml()
     easy_install lxml
 }
 
-patchxmpp()
+installxmpppy()
 {
-    PYTHON26_XMPP=/usr/lib/python2.6/dist-packages/xmpp/
-    PYTHON25_XMPP=/usr/lib/python2.5/site-packages/xmpp/
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    wget http://appscale.cs.ucsb.edu/appscale_files/xmpp/transports.py || exit 1
-    cp transports.py ${PYTHON25_XMPP}/
-    mv transports.py ${PYTHON26_XMPP}/
+    easy_install xmpppy
 }
+
 setulimits()
 {
     cat <<EOF | tee /etc/security/limits.conf || exit 1

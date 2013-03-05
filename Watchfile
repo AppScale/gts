@@ -13,3 +13,7 @@ watch('(lib|AppManager|AppDB)/(.*).py') { |md|
 watch('InfrastructureManager/(.*).py') { |md|
   system "rake infrastructuremanager:test"
 }
+
+watch('XMPPReceiver/(.*).py') { |md|
+  system "rake xmppreceiver:test"
+}
