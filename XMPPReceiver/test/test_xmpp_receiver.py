@@ -131,3 +131,31 @@ class TestXMPPReceiver(unittest.TestCase):
 
     receiver = XMPPReceiver(self.appid, self.login_ip, self.password)
     receiver.xmpp_message(fake_conn, fake_event)
+
+
+  def test_presence_message(self):
+    # since we mock out the xmpp client in previous tests, we can't rely on it
+    # to call the xmpp_presence method. therefore, let's test it separately.
+    fake_subscribed_presence = flexmock(name='subscribed')
+    fake_subscribe_presence = flexmock(name='subscribe')
+
+    fake_from = flexmock(name='fake_from')
+    fake_from.should_receive('getStripped').and_return('me@public1')
+
+    flexmock(xmpp)
+    xmpp.should_receive('Presence').with_args(to=fake_from,
+      typ='subscribed').and_return(fake_subscribed_presence)
+    xmpp.should_receive('Presence').with_args(to=fake_from,
+      typ='subscribe').and_return(fake_subscribe_presence)
+
+    fake_conn = flexmock(name='fake_conn')
+    fake_conn.should_receive('send').with_args(fake_subscribed_presence)
+    fake_conn.should_receive('send').with_args(fake_subscribe_presence)
+
+    fake_event = flexmock(name='fake_event')
+    fake_event.should_receive('getFrom').and_return(fake_from)
+    fake_event.should_receive('getPayload').and_return('doesnt matter')
+    fake_event.should_receive('getType').and_return('subscribe')
+
+    receiver = XMPPReceiver(self.appid, self.login_ip, self.password)
+    receiver.xmpp_presence(fake_conn, fake_event)
