@@ -2583,6 +2583,7 @@ class Djinn
     neptune = "#{APPSCALE_HOME}/Neptune"
     loki = "#{APPSCALE_HOME}/Loki"
     iaas_manager = "#{APPSCALE_HOME}/InfrastructureManager"
+    xmpp_receiver = "#{APPSCALE_HOME}/XMPPReceiver"
 
     ssh_key = dest_node.ssh_key
     ip = dest_node.private_ip
@@ -2595,6 +2596,7 @@ class Djinn
     Djinn.log_run("rsync #{options} #{neptune}/* root@#{ip}:#{neptune}")
     Djinn.log_run("rsync #{options} #{loki}/* root@#{ip}:#{loki}")
     Djinn.log_run("rsync #{options} #{iaas_manager}/* root@#{ip}:#{iaas_manager}")
+    Djinn.log_run("rsync #{options} #{xmpp_receiver}/* root@#{ip}:#{xmpp_receiver}")
   end
 
   def setup_config_files()
