@@ -113,7 +113,7 @@ end
 ["memcached",
  "nginx", "haproxy", "collectd", "collectdmon",
  "soap_server", "appscale_server", "app_manager_server", "datastore_server",
- "AppLoadBalancer", "AppMonitoring",
+ "taskqueue_server", "AppLoadBalancer", "AppMonitoring",
  # AppServer
  "dev_appserver", "DevAppServerMain",
  #Blobstore
@@ -134,7 +134,9 @@ end
  "thin", "god", "djinn", "xmpp_receiver", 
  "InfrastructureManager", "Neptune",
  # RabbitMQ, ejabberd
- "epmd", "beam", "ejabberd_auth.py"
+ "epmd", "beam", "ejabberd_auth.py", "celery",
+ # Last resort
+ "ruby", "python", "java", "/usr/bin/python"
 ].each do |program|
   `ps ax | grep #{program} | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9`
 end

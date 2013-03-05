@@ -1,4 +1,3 @@
-
 cd `dirname $0`/..
 if [ -z "$APPSCALE_HOME_RUNTIME" ]; then
     export APPSCALE_HOME_RUNTIME=`pwd`
@@ -50,6 +49,7 @@ case "$1" in
 	postinstallzookeeper
         installrabbitmq
         postinstallrabbitmq
+        installcelery
 	installservice
 	postinstallservice
 	updatealternatives
@@ -89,6 +89,9 @@ case "$1" in
         installrabbitmq
         postinstallrabbitmq
         ;; 
+    celery)
+        installcelery
+        ;;
     all)
 	# scratch install of appscale including post script.
 	installappscaleprofile
@@ -133,6 +136,7 @@ case "$1" in
 	postinstallmysql
         installrabbitmq
         postinstallrabbitmq
+        installcelery
 	installservice
 	postinstallservice
 	updatealternatives

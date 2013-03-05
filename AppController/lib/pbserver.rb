@@ -79,7 +79,7 @@ module PbServer
     else
       ports.each { |port|
         start_cmd = "/usr/bin/python2.6 #{pbserver} -p #{port} " +
-            "--no_encryption --type #{table} -z \'#{zklocations}\' "
+            "--no_encryption --type #{table} -z \'#{zklocations}\' " +
           "--no_encryption --type #{table} -z \'#{zklocations}\' " +
           "-s #{HelperFunctions.get_secret()} -a #{my_ip} --key"
         # stop command doesn work, relies on terminate.rb
