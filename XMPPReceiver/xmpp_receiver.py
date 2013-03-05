@@ -84,7 +84,7 @@ class XMPPReceiver():
       raise SystemExit("Could not connect to XMPP server at {0}" \
         .format(login_ip))
 
-    if not client.auth(jid.getNode(), my_password, resource=jid.getResource()):
+    if not client.auth(jid.getNode(), app_password, resource=jid.getResource()):
       logging.info("Could not authenticate")
       sys.exit(1)
 

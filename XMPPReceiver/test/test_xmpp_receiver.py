@@ -28,6 +28,7 @@ class TestXMPPReceiver(unittest.TestCase):
     self.appid = 'bazapp'
     self.login_ip = 'publicip1'
     self.password = 'bazpassword'
+    self.jid = self.appid + '@' + self.login_ip
 
     # mock out all calls to the logging library
     flexmock(logging)
@@ -39,6 +40,21 @@ class TestXMPPReceiver(unittest.TestCase):
     # mock out the xmpp connection and have it not connect
     fake_client = flexmock(name='fake_client')
     fake_client.should_receive('connect').and_return(None)
+
+    flexmock(xmpp)
+    xmpp.should_receive('Client').with_args(self.login_ip, debug=[]) \
+      .and_return(fake_client)
+
+    self.assertRaises(SystemExit, XMPPReceiver.listen_for_messages, self.appid,
+      self.login_ip, self.password, messages_to_listen_for=1)
+
+
+  def test_connect_to_xmpp_but_cannot_auth(self):
+    # mock out the xmpp connection and have it connect, but not authenticate
+    fake_client = flexmock(name='fake_client')
+    fake_client.should_receive('connect').and_return(True)
+    fake_client.should_receive('auth').with_args(self.appid, self.password,
+      resource='').and_return(None)
 
     flexmock(xmpp)
     xmpp.should_receive('Client').with_args(self.login_ip, debug=[]) \
