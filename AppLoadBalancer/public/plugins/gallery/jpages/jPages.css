@@ -1,0 +1,76 @@
+.holder {
+	margin: 15px 0 25px 0;
+	height: 28px;
+}
+
+.holder a {
+	/*float: left;*/
+	display: inline-block;
+	padding: 0 14px;
+	line-height: 28px;
+	text-decoration: none;
+	border: 1px solid #c4c4c4;
+	border-left-width: 1px;
+	background: rgb(255,255,255);
+	background: url(data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiA/Pgo8c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgdmlld0JveD0iMCAwIDEgMSIgcHJlc2VydmVBc3BlY3RSYXRpbz0ibm9uZSI+CiAgPGxpbmVhckdyYWRpZW50IGlkPSJncmFkLXVjZ2ctZ2VuZXJhdGVkIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgeDE9IjAlIiB5MT0iMCUiIHgyPSIwJSIgeTI9IjEwMCUiPgogICAgPHN0b3Agb2Zmc2V0PSIxJSIgc3RvcC1jb2xvcj0iI2ZmZmZmZiIgc3RvcC1vcGFjaXR5PSIxIi8+CiAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiNmM2YzZjMiIHN0b3Atb3BhY2l0eT0iMSIvPgogIDwvbGluZWFyR3JhZGllbnQ+CiAgPHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9IjEiIGhlaWdodD0iMSIgZmlsbD0idXJsKCNncmFkLXVjZ2ctZ2VuZXJhdGVkKSIgLz4KPC9zdmc+);
+	background: -moz-linear-gradient(top,  rgba(255,255,255,1) 1%, rgba(243,243,243,1) 100%);
+	background: -webkit-gradient(linear, left top, left bottom, color-stop(1%,rgba(255,255,255,1)), color-stop(100%,rgba(243,243,243,1)));
+	background: -webkit-linear-gradient(top,  rgba(255,255,255,1) 1%,rgba(243,243,243,1) 100%);
+	background: -o-linear-gradient(top,  rgba(255,255,255,1) 1%,rgba(243,243,243,1) 100%);
+	background: -ms-linear-gradient(top,  rgba(255,255,255,1) 1%,rgba(243,243,243,1) 100%);
+	background: linear-gradient(top,  rgba(255,255,255,1) 1%,rgba(243,243,243,1) 100%);
+	filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#ffffff', endColorstr='#f3f3f3',GradientType=0 );
+	min-height: 28px;
+	color: #717171;
+	box-shadow:0 1px 0 #eaeaea ,0 1px 0 #fff inset;
+	margin-right: 4px;
+	-webkit-border-radius: 2px 2px 2px 2px;
+	-moz-border-radius: 2px 2px 2px 2px;
+	border-radius: 2px 2px 2px 2px;
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.holder a:hover {
+	border: 1px solid #a3a3a3;
+	background: #e8e6e6;
+	text-decoration: none;
+}
+
+.holder a.jp-previous { margin-right: 15px; }
+.holder a.jp-next { margin-left: 15px; }
+
+.holder a.jp-current, a.jp-current:hover { 
+	color: #f2f2f2;
+	box-shadow:0 1px 0 #eaeaea ,0 1px 0 #67c3da inset;
+	border-color: #5098aa;
+	background: #88BBC8;
+	filter: progid:DXImageTransform.Microsoft.gradient(enabled='false');
+}
+
+.holder a.jp-disabled, a.jp-disabled:hover {
+	color: #bbb;
+	text-decoration: none;
+}
+
+.holder a.jp-current, a.jp-current:hover,
+.holder a.jp-disabled, a.jp-disabled:hover {
+	cursor: default; 
+	/*background: none;*/
+	text-decoration: none;
+}
+
+.holder span { margin: 7px 10px 0 5px; display: inline-block; }
+
+ul#itemContainer {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+
+ul#itemContainer li {
+	display: inline-block;
+	margin: 5px;
+	zoom: 1;
+	position: relative;
+}

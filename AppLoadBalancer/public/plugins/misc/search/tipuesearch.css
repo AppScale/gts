@@ -1,0 +1,159 @@
+
+/*
+Tipue Search 1.1.1
+Tipue Search Copyright (c) 2012 Tri-State Consultants
+Tipue Search is free for both both commercial and non-commercial use and released under the MIT License.
+For the latest release, documentation and licence see http://www.tipue.com/search
+*/
+
+#tipue_search_content
+{
+    display: none;
+    width: auto;
+	padding: 0;
+	margin: 0;
+}
+
+#tipue_search_warning_head
+{
+	font-family: 'Open Sans', Verdana, Helvetica, sans-serif;
+	font-size: 16px;
+}
+#tipue_search_warning
+{
+    font-family: 'Open Sans', Verdana, Helvetica, sans-serif;
+	font-size: 12px;
+	color: #555;
+	margin: 13px 0;
+}
+#tipue_search_warning a
+{
+     color: #36c;
+     text-decoration: none;
+}
+#tipue_search_warning a:hover
+{
+	padding-bottom: 1px;
+	border-bottom: 1px solid #ccc;     
+}
+
+#tipue_search_results_count
+{
+     font-family: 'Open Sans', Verdana, Helvetica, sans-serif;
+	font-size: 12px;
+	color: #555;
+}
+
+.tipue_search_content_title
+{
+    font-family: 'Open Sans', Verdana, Helvetica, sans-serif;
+	font-size: 18px;
+	color: #333;
+	margin-top: 27px;
+}
+.tipue_search_content_title a
+{
+     color: #36c;
+     text-decoration: none;
+}
+.tipue_search_content_title a:hover
+{
+	padding-bottom: 1px;  
+}
+.tipue_search_content_text
+{
+     font-family: 'Droid Sans', Verdana, Helvetica, sans-serif;
+	font-size: 13px;
+	color: #555;
+	line-height: 21px;
+	padding: 9px 0;
+}
+.tipue_search_content_loc
+{
+     font-family: 'Droid Sans', Verdana, Helvetica, sans-serif;
+	font-size: 13px;
+}
+.tipue_search_content_loc a
+{
+     color: #777;
+     text-decoration: none;
+}
+.tipue_search_content_loc a:hover
+{
+	padding-bottom: 1px;   
+}
+
+#tipue_search_foot
+{
+     margin: 43px 0 31px 0;
+}
+#tipue_search_foot_boxes
+{
+	padding: 0;
+	margin: 0;
+	font-size: 13px;
+}
+#tipue_search_foot_boxes li
+{
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: inline;
+}
+#tipue_search_foot_boxes li a
+{
+	display: inline-block;
+	float: left;
+	padding: 0 14px;
+	line-height: 28px;
+	text-decoration: none;
+	border: 1px solid #c4c4c4;
+	border-left-width: 1px;
+	background-color: #f3f3f3;
+	background: rgb(255,255,255);
+	background: url(data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiA/Pgo8c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgdmlld0JveD0iMCAwIDEgMSIgcHJlc2VydmVBc3BlY3RSYXRpbz0ibm9uZSI+CiAgPGxpbmVhckdyYWRpZW50IGlkPSJncmFkLXVjZ2ctZ2VuZXJhdGVkIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgeDE9IjAlIiB5MT0iMCUiIHgyPSIwJSIgeTI9IjEwMCUiPgogICAgPHN0b3Agb2Zmc2V0PSIxJSIgc3RvcC1jb2xvcj0iI2ZmZmZmZiIgc3RvcC1vcGFjaXR5PSIxIi8+CiAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiNmM2YzZjMiIHN0b3Atb3BhY2l0eT0iMSIvPgogIDwvbGluZWFyR3JhZGllbnQ+CiAgPHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9IjEiIGhlaWdodD0iMSIgZmlsbD0idXJsKCNncmFkLXVjZ2ctZ2VuZXJhdGVkKSIgLz4KPC9zdmc+);
+	background: -moz-linear-gradient(top,  rgba(255,255,255,1) 1%, rgba(243,243,243,1) 100%);
+	background: -webkit-gradient(linear, left top, left bottom, color-stop(1%,rgba(255,255,255,1)), color-stop(100%,rgba(243,243,243,1)));
+	background: -webkit-linear-gradient(top,  rgba(255,255,255,1) 1%,rgba(243,243,243,1) 100%);
+	background: -o-linear-gradient(top,  rgba(255,255,255,1) 1%,rgba(243,243,243,1) 100%);
+	background: -ms-linear-gradient(top,  rgba(255,255,255,1) 1%,rgba(243,243,243,1) 100%);
+	background: linear-gradient(top,  rgba(255,255,255,1) 1%,rgba(243,243,243,1) 100%);
+	filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#ffffff', endColorstr='#f3f3f3',GradientType=0 );
+	min-height: 28px;
+	color: #717171;
+	box-shadow:0 1px 0 #eaeaea ,0 1px 0 #fff inset;
+	margin-right: 4px;
+	-webkit-border-radius: 2px 2px 2px 2px;
+	-moz-border-radius: 2px 2px 2px 2px;
+	border-radius: 2px 2px 2px 2px;
+	font-weight: 700;
+	margin-bottom: 10px;
+}
+#tipue_search_foot_boxes li.current
+{
+	display: inline-block;
+	margin-right: 4px;
+	-webkit-border-radius: 2px 2px 2px 2px;
+	-moz-border-radius: 2px 2px 2px 2px;
+	border-radius: 2px 2px 2px 2px;
+	font-weight: 700;
+	margin-bottom: 10px;
+	min-height: 28px;
+	float: left;
+	padding: 0 14px;
+	line-height: 28px;
+	text-decoration: none;
+	border: 1px solid #c4c4c4;
+	color: #f2f2f2;
+	box-shadow:0 1px 0 #eaeaea ,0 1px 0 #67c3da inset;
+	border-color: #5098aa;
+	background: #88BBC8;
+	filter: progid:DXImageTransform.Microsoft.gradient(enabled='false');
+}
+#tipue_search_foot_boxes li a:hover
+{
+	border: 1px solid #c3c3c3;
+	-moz-box-shadow: 1px 1px 2px #e3e3e3;
+	-webkit-box-shadow: 1px 1px 2px #e3e3e3;
+	box-shadow: 1px 1px 2px #e3e3e3;
+}

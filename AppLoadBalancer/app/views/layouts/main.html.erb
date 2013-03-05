@@ -1,35 +1,58 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
-  <head>
+    <head>
     <meta http-equiv="content-type" content="application/xhtml+xml; charset=UTF-8" />
-    <title>AppScale</title> 
+    <title>AppScale Cloud Administration</title>
+    <meta name="author" content="AppScale Systems, Inc" />
+    <meta name="description" content="AppScale Private Cloud Monitoring" />
+    <meta name="keywords" content="AppScale, AppScale PaaS, AppScale Systems, Inc" />
+    <meta name="application-name" content="AppScale Cloud Administration" />
+
+    <!-- Mobile Specific Metas -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
     <%= stylesheet_link_tag 'main', 'scaffold', :cache => "all" %>
     <%= javascript_include_tag 'upload' if controller_name == 'apps' %>
     <%= javascript_include_tag 'form' if controller_name == 'users' %>
-    <link rel="stylesheet" href="/stylesheets/bootstrap.min.css"> 
-    <link rel="shortcut icon" href="/favicon.ico" />
-  </head> 
-  <body <%= set_onload %>>
-    <div id="page">
-      <div id="content">
-	  <div id="login-status">
-	    <% if logged_in? %>
-	      <%=h user_email %> |
-	      <%= link_to "Logout", :controller => :users, :action => :logout %>
-	    <% else %>
-	      <%= link_to "Login", :controller => :users, :action => :login %> |     
-	      <%= link_to "Create Account", :controller => :users, :action => :new %>
-	    <% end %>
-	  </div>
-	<div id="header">
-	    <h1><a href="/" title="AppScale">AppScale</a></h1>
-	    <h2><a href="/" title="AppScale">The Open App Engine Cloud.</a></h2>
-	</div>
-	<%= render :partial => "shared/navigation" %>
+
+    <!-- Core stylesheets do not remove -->
+    <link href="/css/bootstrap/bootstrap.css" rel="stylesheet" type="text/css" />
+    <link href="/css/bootstrap/bootstrap-responsive.min.css" rel="stylesheet" type="text/css" />
+    <link href="/css/supr-theme/jquery.ui.supr.css" rel="stylesheet" type="text/css"/>
+    <link href="/css/icons.css" rel="stylesheet" type="text/css" />
+
+    <!-- Plugins stylesheets -->
+    <link href="/plugins/misc/qtip/jquery.qtip.css" rel="stylesheet" type="text/css" />
+    <link href="/plugins/misc/fullcalendar/fullcalendar.css" rel="stylesheet" type="text/css" />
+    <link href="/plugins/misc/search/tipuesearch.css" type="text/css" rel="stylesheet" />
+
+    <link href="/plugins/forms/uniform/uniform.default.css" type="text/css" rel="stylesheet" />
+
+    <!-- Main stylesheets -->
+    <link href="/css/main.css" rel="stylesheet" type="text/css" /> 
+
+    <!-- Custom stylesheets ( Put your own changes here ) -->
+    <link href="/css/custom.css" rel="stylesheet" type="text/css" /> 
+    
+    <!-- Le HTML5 shim, for IE6-8 support of HTML5 elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le fav and touch icons -->
+    <link rel="shortcut icon" href="images/favicon.ico" />
+    <link rel="apple-touch-icon-precomposed" sizes="144x144" href="images/apple-touch-icon-144-precomposed.png" />
+    <link rel="apple-touch-icon-precomposed" sizes="114x114" href="images/apple-touch-icon-114-precomposed.png" />
+    <link rel="apple-touch-icon-precomposed" sizes="72x72" href="images/apple-touch-icon-72-precomposed.png" />
+    <link rel="apple-touch-icon-precomposed" href="images/apple-touch-icon-57-precomposed.png" />
+
+
+    </head>
+  <body>
+    <% if controller_name != 'users' %>
+	  <%= render :partial => "shared/navigation" %>
+    <% end %>
 	<%= yield -%>
-      </div>    
-      <div id="footer">&nbsp;</div>
-    </div>
   </body>
 </html> 

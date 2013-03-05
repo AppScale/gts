@@ -1,27 +1,76 @@
-<div id="getting-started">
-  <h1>Create Account</h1>
-  <%= display_flash_messages %>
-  <% form_for :user, @user, :url => { :action => :create }  do |f| %>
-    <p>
-      <%= f.label :email, "Email:" %>
-      <%= f.text_field :email, :size => 40 %>
-      <%= display_error_messages(@user, :email) %>
-    </p>
-    <p>
-      <%= f.label :password, "Password:" %>
-      <%= f.password_field :password, :size => 40 %>
-      <%= display_error_messages(@user, :password) %>
-    </p>
-    <p>
-      <%= f.label :password_confirmation, "Password Confirmation:" %><br />
-      <%= f.password_field :password_confirmation, :size => 40 %>
-      <%= display_error_messages(@user, :password_confirmation) %>
-    </p>
-    <p>
-      <%= submit_tag "Create" %>
-    </p>
-  <% end %>
+              <div class="container-fluid">
 
-  <br />Already have an account? <%= link_to "Login.", :action => :login %>
-</div>
+        <div id="header">
 
+            <div class="row-fluid">
+
+                <div class="navbar">
+                    <div class="navbar-inner">
+                      <div class="container">
+                            <a class="brand" href="#">AppScale <span class="slogan">Cloud Administration</span></a>
+                      </div>
+                    </div><!-- /navbar-inner -->
+                  </div><!-- /navbar -->
+                
+
+            </div><!-- End .row-fluid -->
+
+        </div><!-- End #header -->
+
+    </div><!-- End .container-fluid --> 
+
+   <div class="container-fluid">
+
+        <div class="loginContainer">
+            <span class="form-horizontal"  id="loginForm" >
+                <% form_for :user, @user, :url => { :action => :create }  do |f| %>
+                <div class="form-row row-fluid">
+                    <div class="span12">
+                        <div class="form-label">
+                        <%= f.label :email, "Email:" %>
+                        <%= f.text_field :email, :size => 40 %>
+                        <%= display_error_messages(@user, :email) %>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row row-fluid">
+                    <div class="span12">
+                        <div class="form-label">
+                          <%= f.label :password, "Password:" %>
+                          <%= f.password_field :password, :size => 40 %>
+                          <%= display_error_messages(@user, :password) %>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row row-fluid">
+                    <div class="span12">
+                        <div class="form-label">
+                          <%= f.label :password_confirmation, "Password Confirmation:" %>
+                          <%= f.password_field :password_confirmation, :size => 40 %>
+                          <%= display_error_messages(@user, :password_confirmation) %>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row row-fluid">                       
+                    <div class="span12">
+                        <div class="row-fluid">
+                            <div class="form-actions">
+                            <div class="span12 controls">
+                              <span class="pull-left">
+                                <%= submit_tag "Create", { :class => "btn btn-primary"} %></span>
+                                  <% end %>
+                                  <div style="margin-top: -25px;" class="span12 pull-left">
+                                  <br />Already have an account? <%= link_to "Login.", :action => :login %><br />
+                                  View the current <%= link_to "Cloud Status.", :controller => :status, :action => :cloud %>
+                                </div>
+                            </div>
+                            </div>
+                        </div>
+                    </div> 
+                </div>
+
+            </span>
+        </div>
+
+    </div><!-- End .container-fluid -->

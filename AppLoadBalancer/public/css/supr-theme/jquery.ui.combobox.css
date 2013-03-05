@@ -1,0 +1,33 @@
+.ui-combobox {
+	position: relative;
+	display: inline-block;
+	margin-bottom: 20px;
+}
+.ui-combobox-toggle {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	padding: 0;
+	right:-8px;
+	padding-left: 5px;
+	padding-right: 6px;
+	/* adjust styles for IE 6/7 */
+	*height: 1.7em;
+	*top: 0.1em;
+}
+.ui-combobox-input {
+	margin: 0;
+	padding: 3px;
+	outline: none;
+	width: 100%;
+}
+.ui-combobox .ui-button {
+	cursor: pointer;
+}
+.ui-combobox .ui-icon {
+	margin-top: 5px;
+}
+
+.form-row .controls .ui-combobox-input, .ui-combobox-input {
+	margin-bottom: 0;
+}
