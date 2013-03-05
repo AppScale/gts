@@ -95,6 +95,7 @@ EXTRA_PATHS = [
   os.path.join(DIR_PATH, 'lib', 'google.appengine._internal.graphy'),
   '/usr/share/pyshared',
   '/usr/local/lib/python2.7/site-packages',
+  '/usr/local/lib/python2.6/dist-packages/xmpppy-0.5.0rc1-py2.6.egg',
 ]
 
 API_SERVER_EXTRA_PATHS = [
