@@ -171,15 +171,21 @@ module HelperFunctions
   end
 
 
-  def self.sleep_until_port_is_open(ip, port, use_ssl=DONT_USE_SSL)
+  def self.sleep_until_port_is_open(ip, port, use_ssl=DONT_USE_SSL, timeout=nil)
+    total_time_slept = 0
     sleep_time = 1
 
     loop {
       return if HelperFunctions.is_port_open?(ip, port, use_ssl)
 
       Kernel.sleep(sleep_time)
+      total_time_slept += sleep_time
       if sleep_time < 30
         sleep_time *= 2
+      end
+
+      if !timeout.nil? and total_time_slept > timeout
+        raise Exception.new("Waited too long for #{ip}#{port} to open!")
       end
 
       Kernel.puts("Waiting on #{ip}:#{port} to be open (currently closed).")
@@ -1096,8 +1102,22 @@ module HelperFunctions
   end
 
   def self.does_image_have_location?(ip, location, key)
-    ret_val = self.shell("ssh -i #{key} -o NumberOfPasswordPrompts=0 -o StrictHostkeyChecking=no 2>&1 root@#{ip} 'ls #{location}'; echo $?").chomp[-1]
-    return ret_val.chr == "0"
+    retries_left = 10
+    begin
+      ret_val = self.shell("ssh -i #{key} -o NumberOfPasswordPrompts=0 -o StrictHostkeyChecking=no 2>&1 root@#{ip} 'ls #{location}'; echo $?").chomp[-1]
+      if ret_val.chr == "0"
+        return true
+      end
+      retries_left -= 1
+      if retries_left > 0
+        raise Exception
+      else
+        return false
+      end
+    rescue Exception
+      Kernel.sleep(1)
+      retry
+    end
   end
 
   def self.ensure_image_is_appscale(ip, key)

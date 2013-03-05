@@ -1440,47 +1440,31 @@ class Djinn
   end
 
   def set_uaserver_ips()
-    ip_addr = get_uaserver_ip()
-    if !is_cloud?
-      @userappserver_public_ip = ip_addr
-      @userappserver_private_ip = ip_addr
-      Djinn.log_debug("\n\nUAServer is at [#{@userappserver_public_ip}]\n\n")
+    Djinn.log_debug("Setting uaserver public/private ips")
+
+    Djinn.log_debug("My node is #{my_node}")
+    # set it to this node if we run the uaserver
+    if my_node.is_db_master? or my_node.is_db_slave?
+      Djinn.log_debug("Running the UserAppServer locally - setting uaserver" +
+        " IPs to (pub)#{my_node.public_ip}, (pri)#{my_node.private_ip}")
+      @userappserver_public_ip = my_node.public_ip
+      @userappserver_private_ip = my_node.private_ip
       return
     end
-    
-    keyname = @creds["keyname"]
-    infrastructure = @creds["infrastructure"]    
- 
-    if is_hybrid_cloud?
-      Djinn.log_debug("Getting hybrid ips with creds #{@creds.inspect}")
-    else
-      Djinn.log_debug("Getting cloud ips for #{infrastructure} with keyname " +
-        "#{keyname}")
-    end
- 
-    Djinn.log_debug("Looking for #{ip_addr}")
-    nodes.each { |node|
-      node_public_ip = HelperFunctions.convert_fqdn_to_ip(node.public_ip)
-      node_private_ip = HelperFunctions.convert_fqdn_to_ip(node.private_ip)
 
-      Djinn.log_debug("node with public FQDN #{node.public_ip} has public IP #{node_public_ip}")
-      Djinn.log_debug("node with private FQDN #{node.private_ip} has private IP #{node_private_ip}")
-
-      if node_public_ip == ip_addr or node_private_ip == ip_addr
-        # don't set the uaserver_public_ip to node_public_ip, as then the tools
-        # won't be able to resolve that ip (it may be the same as the 
-        # unresolvable private ip)
-        Djinn.log_debug("Setting uaserver public ip to #{node.public_ip}")
-        Djinn.log_debug("Setting uaserver private ip to #{node_private_ip}")
+    # otherwise just set it to an arbitrary db node's ips
+    @nodes.each { |node|
+      Djinn.log_debug("looking at node #{node} as a possible uaserver")
+      if node.is_db_master? or node.is_db_slave?
+        Djinn.log_debug("Found a UserAppServer at (pub) #{node.public_ip}, " +
+          "(pri) #{node.private_ip}")
         @userappserver_public_ip = node.public_ip
-        @userappserver_private_ip = node_private_ip
+        @userappserver_private_ip = node.private_ip
         return
       end
     }
 
-    unable_to_convert_msg = "[get uaserver ip] Couldn't find out whether " +
-      "#{ip_addr} was a public or private IP address."
-
+    unable_to_convert_msg = "[get uaserver ip] Couldn't find a UAServer."
     Djinn.log_debug(unable_to_convert_msg)
     abort(unable_to_convert_msg)
   end
@@ -1499,7 +1483,9 @@ class Djinn
     end
 
     Djinn.log_debug("Looking for #{private_ip}")
-    nodes.each { |node|
+    private_ip = HelperFunctions.convert_fqdn_to_ip(private_ip)
+    Djinn.log_debug("[converted] Looking for #{private_ip}")
+    @nodes.each { |node|
       node_private_ip = HelperFunctions.convert_fqdn_to_ip(node.private_ip)
       node_public_ip = HelperFunctions.convert_fqdn_to_ip(node.public_ip)
 
@@ -2412,6 +2398,7 @@ class Djinn
     keyname = @creds["keyname"] 
     appengine_info = Djinn.convert_location_array_to_class(appengine_info, keyname)
     @nodes.concat(appengine_info)
+    find_me_in_locations
     write_database_info
     
     creds = @creds.to_a.flatten
@@ -2438,6 +2425,7 @@ class Djinn
         # to use the first ssh key (the only key)
         imc = InfrastructureManagerClient.new(@@secret)
         appengine_info = imc.spawn_vms(nodes.length, @creds, roles, "cloud1")
+        Djinn.log_debug("Received appengine info: #{appengine_info}")
       else
         nodes.each_pair do |ip,roles|
           # for xen the public and private ips are the same
@@ -2809,26 +2797,16 @@ HOSTS
     Kernel.sleep(1)
 
     begin
-      Timeout::timeout(60) do
-        begin
-          GodInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key)
-          HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, USE_SSL)
-        # raise the timeout error so that the next rescue doesn't catch it
-        rescue Timeout::Error
-          raise Timeout::Error
-        rescue Exception => except
-          backtrace = except.backtrace.join("\n")
-          remote_start_msg = "[remote_start] Unforeseen exception when " + \
-            "talking to #{ip}: #{except}\nBacktrace: #{backtrace}"
-          Djinn.log_debug(remote_start_msg)
-          retry
-        end
-      end
-    rescue Timeout::Error
-      Djinn.log_debug("Couldn't start the AppController at #{ip}. Retrying.")
+      GodInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key)
+      HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, USE_SSL, 60)
+    rescue Exception => except
+      backtrace = except.backtrace.join("\n")
+      remote_start_msg = "[remote_start] Unforeseen exception when " + \
+        "talking to #{ip}: #{except}\nBacktrace: #{backtrace}"
+      Djinn.log_debug(remote_start_msg)
       retry
     end
-    
+
     Djinn.log_debug("Sending data to #{ip}")
     acc = AppControllerClient.new(ip, @@secret)
 
@@ -2938,9 +2916,28 @@ HOSTS
 
   def start_appengine()
     @state = "Preparing to run AppEngine apps if needed"
-    Djinn.log_debug("Starting appengine - pbserver is at [#{@userappserver_private_ip}]")
+    db_private_ip = nil
+    @nodes.each { |node|
+      if node.is_db_master? or node.is_db_slave?
+        if HelperFunctions.is_port_open?(node.private_ip, 4343,
+          HelperFunctions::USE_SSL)
+          Djinn.log_debug("UAServer port open on #{node.private_ip} - using it!")
+          db_private_ip = node.private_ip
+          break
+        else
+          Djinn.log_debug("UAServer port not open on #{node.private_ip} - skipping!")
+          next
+        end
+      end
+    }
+    if db_private_ip.nil?
+      Djinn.log_debug("Couldn't find a live db node - falling back to UAServer IP")
+      db_private_ip = @userappserver_private_ip
+    end
 
-    uac = UserAppClient.new(@userappserver_private_ip, @@secret)
+    Djinn.log_debug("Starting appengine - pbserver is at [#{db_private_ip}]")
+
+    uac = UserAppClient.new(db_private_ip, @@secret)
     app_manager = AppManagerClient.new()
 
     if @restored == false #and restore_from_db?
