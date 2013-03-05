@@ -115,7 +115,7 @@ namespace :xmppreceiver do
   task :coverage do
     sh "rm -rf XMPPReceiver/coverage"
     sh "cd XMPPReceiver && coverage -e"
-    sh "cd XMPPReceiver && coverage run --include='*lib*' --omit='*tests*' --omit='*Python*' test/test_suite.py"
+    sh "cd XMPPReceiver && coverage run --include='xmpp_receiver.py' --omit='*tests*' --omit='*Python*' test/test_suite.py"
     sh "cd XMPPReceiver && coverage report -m"
     sh "cd XMPPReceiver && coverage html"
     sh "cd XMPPReceiver && mv htmlcov coverage"

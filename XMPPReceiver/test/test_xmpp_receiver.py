@@ -26,4 +26,4 @@ class TestXMPPReceiver(unittest.TestCase):
 
 
   def test_nothing_right_now(self):
-    pass
+    XMPPReceiver()
