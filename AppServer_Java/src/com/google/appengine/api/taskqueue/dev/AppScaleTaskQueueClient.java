@@ -67,13 +67,11 @@ public class AppScaleTaskQueueClient
 
     public TaskQueuePb.TaskQueueAddResponse add(TaskQueuePb.TaskQueueAddRequest addRequest)
     {
-        System.out.println("Add called, url: " + url + " , appId: " + appId);
         //update some of the AddRequest params
         addRequest.setAppId(appId);
         String taskPath = addRequest.getUrl();
         String appScaleTaskPath = "http://" + getNginxHost() + ":" + getNginxPort() + taskPath;
         addRequest.setUrl(appScaleTaskPath);
-        System.out.println("Modified request: " + addRequest);
         //Create a PB request
         Request request = new Request();
         request.setMethod("Add");
@@ -82,13 +80,11 @@ public class AppScaleTaskQueueClient
         Response response = sendRequest(request);
         TaskQueuePb.TaskQueueAddResponse addResponse = new TaskQueuePb.TaskQueueAddResponse();
         addResponse.parseFrom(response.getResponseAsBytes());
-        System.out.println("TQ Add got response: " + addResponse);
         return addResponse;         
     }
    
     private Response sendRequest(Request request)
     {
-        System.out.println("In SendRequest");
         HttpPost post = new HttpPost(url);
         post.addHeader(PROTOCOL_BUFFER_HEADER, PROTOCOL_BUFFER_VALUE);
         String tag = appId;
@@ -103,7 +99,6 @@ public class AppScaleTaskQueueClient
         }
         catch (IOException e)
         {
-	    System.out.println("caught ioexception");
             logger.severe("Failed to create TaskQueue request due to IOException: " + e.getMessage());
             return null;
         }
@@ -117,15 +112,12 @@ public class AppScaleTaskQueueClient
         }
         catch (ClientProtocolException e)
         {
-            System.out.println("caught cpe exception");
             logger.severe("Failed to send TaskQueue request due to ClientProtocolException: " + e.getMessage());
         }
         catch (IOException e)
         {
-            System.out.println("caught ioexception");
             logger.severe("Failed to send TaskQueue request due to IOException: " + e.getMessage());
         }
-        System.out.println("returning remoteresponse: " + remoteResponse);
         return remoteResponse;
     }
     
@@ -144,7 +136,6 @@ public class AppScaleTaskQueueClient
     private String getAppId()
     {
         String appId = System.getProperty("APPLICATION_ID");
-        System.out.println("ApplicationId is: " + appId);
         return appId;
     }
 
@@ -182,7 +173,6 @@ public class AppScaleTaskQueueClient
                     entity.getContent().close();
                 }
             }
-            System.out.println("entity was null");
             return new byte[] {};
         }
     }

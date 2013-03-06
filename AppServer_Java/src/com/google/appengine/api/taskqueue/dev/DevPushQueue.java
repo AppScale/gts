@@ -138,9 +138,7 @@ class DevPushQueue extends DevQueue
          * method
          */
         logger.fine("PushQueue: sending addRequest to TaskQueue server");
-        System.out.println("TASK QUEUE ADD REQUEST: " + addRequest);
         TaskQueuePb.TaskQueueAddResponse addResponse = client.add(addRequest);
-        System.out.println("TASK QUEUE ADD RESPONSE: " + addResponse);
         return addResponse;
     }
 
