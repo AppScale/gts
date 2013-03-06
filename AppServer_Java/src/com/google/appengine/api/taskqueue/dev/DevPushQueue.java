@@ -42,21 +42,19 @@ class DevPushQueue extends DevQueue
     private final Clock                  clock;
     private final LocalTaskQueueCallback callback;
     /*
-     * AppScale - added RabbitMQclient and name
+     * AppScale - added AppScaleTaskQueueClient
      */
-    private String                       rabbitMQQueueName;
-    private RabbitMQclient               client;
+    private AppScaleTaskQueueClient               client;
 
     TaskQueuePb.TaskQueueMode.Mode getMode()
     {
         return TaskQueuePb.TaskQueueMode.Mode.PUSH;
     }
 
-    DevPushQueue( QueueXml.Entry queueXmlEntry, Scheduler scheduler, String baseUrl, Clock clock, LocalTaskQueueCallback callback, RabbitMQclient client )
+    DevPushQueue( QueueXml.Entry queueXmlEntry, Scheduler scheduler, String baseUrl, Clock clock, LocalTaskQueueCallback callback, AppScaleTaskQueueClient client )
     {
         /*
-         * AppScale - added RabbitMQclient to constructor args and setting queue
-         * name and client
+         * AppScale - added AppScaleTaskQueueClient to constructor args
          */
         super(queueXmlEntry);
         this.client = client;
@@ -64,7 +62,6 @@ class DevPushQueue extends DevQueue
         this.baseUrl = baseUrl;
         this.clock = clock;
         this.callback = callback;
-        this.rabbitMQQueueName = "app_" + System.getProperty("APPLICATION_ID");
 
         if (queueXmlEntry.getRate() != null)
         {
@@ -140,44 +137,11 @@ class DevPushQueue extends DevQueue
          * AppScale - sending task to RabbitMQ instead of calling scheduleTask
          * method
          */
-        logger.fine("PushQueue: sending addTaskRequest to rabbiMQ");
-        String taskName = sendTaskToRabbitMQ(addRequest);
-
-        TaskQueuePb.TaskQueueAddResponse addResponse = new TaskQueuePb.TaskQueueAddResponse();
-        if ((!addRequest.hasTaskName()) || (addRequest.getTaskName().equals("")))
-        {
-            addRequest.setTaskName(taskName);
-            addResponse.setChosenTaskName(taskName);
-        }
-
+        logger.fine("PushQueue: sending addRequest to TaskQueue server");
+        System.out.println("TASK QUEUE ADD REQUEST: " + addRequest);
+        TaskQueuePb.TaskQueueAddResponse addResponse = client.add(addRequest);
+        System.out.println("TASK QUEUE ADD RESPONSE: " + addResponse);
         return addResponse;
-    }
-
-    private String sendTaskToRabbitMQ( TaskQueueAddRequest addRequest )
-    {
-        /*
-         * AppScale - added this method
-         */
-        logger.fine("TaskQueueAddRequest being sent to RabbitMQ: [" + addRequest + "]");
-        String taskName = getTaskName(addRequest);
-        TaskParams taskParams = new TaskParams();
-        taskParams.setFirstTryMs(0l);
-        taskParams.setRetryCount(0);
-        taskParams.setRetryDelayMs(0);
-        taskParams.setServerUrl(this.baseUrl);
-        taskParams.setTarget(this.queueXmlEntry.getTarget());
-        taskParams.setTaskQueueAddRequestBuf(addRequest.toByteArray());
-        TaskQueueRetryParameters retryParams = getRetryParameters(addRequest);
-        if (retryParams != null)
-        {
-            taskParams.setTaskQueueRetryParametersBuf(retryParams.toByteArray());
-        }
-
-        Gson gson = new Gson();
-        Type taskParamType = new TypeToken<TaskParams>(){}.getType();
-        String payload = gson.toJson(taskParams, taskParamType);
-        client.enqueueTask(payload);
-        return taskName;
     }
 
     private String getTaskName( TaskQueueAddRequest addRequest )
