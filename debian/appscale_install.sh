@@ -30,6 +30,7 @@ case "$1" in
         installPIL
         installpycrypto
         installlxml
+        installxmpppy
 	installappserverjava
 	postinstallappserverjava
 	installmonitoring
@@ -52,7 +53,6 @@ case "$1" in
 	installservice
 	postinstallservice
 	updatealternatives
-        patchxmpp
 	sethosts
         setulimits
 	;;
@@ -109,6 +109,7 @@ case "$1" in
         installPIL
         installpycrypto
         installlxml
+        installxmpppy
 	installappserverjava
 	postinstallappserverjava
 	installmonitoring
@@ -139,7 +140,6 @@ case "$1" in
 	installservice
 	postinstallservice
 	updatealternatives
-        patchxmpp
 	sethosts
         setulimits
 	;;
