@@ -1184,9 +1184,10 @@ class DatastoreDistributed():
     """ Builds the start key for cursor query.
 
     Args: 
-        prop_name: property name of the filter.
-        order: sort order.
-        last_result: last result encoded in cursor.
+       prefix: The start key prefix (app id and namespace).
+       prop_name: property name of the filter.
+       order: sort order.
+       last_result: last result encoded in cursor.
     """
     e = last_result
     if not prop_name and not order:
@@ -1272,7 +1273,58 @@ class DatastoreDistributed():
       results.append(entity)
 
     return results
+
+  def ordered_ancestor_query(self, query, filter_info, order_info):
+    """ Performs an ordered ancestor query. It grabs all entities of a 
+        given ancestor and then orders in memory.
     
+    Args:
+      query: The query to run.
+      filter_info: Tuple with filter operators and values
+      order_info: Tuple with property name and the sort order.
+    Returns:
+      A list of entities.
+    Raises:
+      ZKTransactionException: If a lock could not be acquired.
+    """ 
+    ancestor = query.ancestor()
+    prefix = self.get_table_prefix(query)
+    path = buffer(prefix + '/') + self.__encode_index_pb(ancestor.path())
+    txn_id = 0
+    if query.has_transaction(): 
+      txn_id = query.transaction().handle()   
+      root_key = self.get_root_key_from_entity_key(ancestor)
+      try:
+        self.zookeeper.acquireLock(query.app(), txn_id, root_key)
+      except ZKTransactionException, zkte:
+        print "Concurrent transaction exception %s" % zkte
+        self.zookeeper.notifyFailedTransaction(query.app(), txn_id)
+        raise zkte
+
+    startrow = path
+    endrow = path + self._TERM_STRING
+
+    end_inclusive = self._ENABLE_INCLUSIVITY
+    start_inclusive = self._ENABLE_INCLUSIVITY
+
+    limit = self._MAXIMUM_RESULTS
+    unordered = self.fetch_from_entity_table(startrow,
+                                             endrow,
+                                             limit, 
+                                             0, 
+                                             start_inclusive, 
+                                             end_inclusive, 
+                                             query, 
+                                             txn_id)
+    # TODO apply __key__ from filter info 
+    # TODO apply compiled cursor if given
+    kind = None
+    if query.has_kind():
+      kind = query.kind()
+    if query.has_limit():
+      limit = min(query.limit(), self._MAXIMUM_RESULTS)
+    return self.__multiorder_results(unordered, order_info, kind)[:limit]
+ 
   def ancestor_query(self, query, filter_info, order_info):
     """ Performs ancestor queries which is where you select 
         entities based on a particular root entitiy. 
@@ -1282,7 +1334,7 @@ class DatastoreDistributed():
       filter_info: Tuple with filter operators and values.
       order_info: Tuple with property name and the sort order.
     Returns:
-      Start and end row keys.
+      A list of entities.
     Raises:
       ZKTransactionException: If a lock could not be acquired.
     """       
@@ -1299,9 +1351,6 @@ class DatastoreDistributed():
         print "Concurrent transaction exception %s" % zkte
         self.zookeeper.notifyFailedTransaction(query.app(), txn_id)
         raise zkte
-
-    if query.has_kind():
-      path += query.kind() + ":"
 
     startrow = path
     endrow = path + self._TERM_STRING
@@ -1326,18 +1375,14 @@ class DatastoreDistributed():
       elif op and op == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
         endrow = prefix + '/' + __key__ 
 
-    if not order_info:
-      order = None
-      prop_name = None
-    
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
       cursor = cassandra_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
-      startrow = self.__get_start_key(prefix, prop_name, order, last_result)
+      startrow = self.__get_start_key(prefix, None, None, last_result)
       start_inclusive = self._DISABLE_INCLUSIVITY
 
     limit = query.limit() or self._MAXIMUM_RESULTS
-    return self.fetch_from_entity_table(startrow,
+    results = self.fetch_from_entity_table(startrow,
                                         endrow,
                                         limit, 
                                         0, 
@@ -1345,6 +1390,11 @@ class DatastoreDistributed():
                                         end_inclusive, 
                                         query, 
                                         txn_id)
+    kind = None
+    if query.kind():
+      kind = query.kind()
+
+    return self.__multiorder_results(results, order_info, kind)
 
   def fetch_from_entity_table(self, 
                               startrow,
@@ -1538,15 +1588,11 @@ class DatastoreDistributed():
       if fi != "__key__":
         return None
     
-    # Kind query can not have orders. They only apply for 
-    # single property and composite queries, i.e., those 
-    # queries that use either the ascending or decending tables.
-    if len(order_info) > 0:
-      return None
-
     order = None
     prop_name = None
 
+    if query.has_ancestor() and len(order_info) > 0:
+      return self.ordered_ancestor_query(query, filter_info, order_info)
     if query.has_ancestor():
       return self.ancestor_query(query, filter_info, order_info)
     elif not query.has_kind():
@@ -1987,20 +2033,23 @@ class DatastoreDistributed():
       startrow = temp_res[-1].keys()[0]
 
     if len(order_info) > 1:
-      result = self.__order_composite_results(result, order_info) 
+      result = self.__multiorder_results(result, order_info, None) 
 
     return result 
 
-  def __order_composite_results(self, result, order_info):
+  def __multiorder_results(self, result, order_info, kind):
     """ Takes results and applies ordering based on properties and 
-        whether it should be ascending or decending.
+        whether it should be ascending or decending. Filters out 
+        any entities which do not match the given kind, if given.
 
       Args: 
         result: unordered results.
         order_info: given ordering of properties.
+        kind: The kind to filter on if given.
       Returns:
         A list of ordered entities.
     """
+    # TODO:
     # We can not fully filter past one filter without getting
     # the entire table to make sure results are in the correct order. 
     # Composites must be implemented the correct way with specialized 
@@ -2010,13 +2059,22 @@ class DatastoreDistributed():
 
     # Put all the values appended based on order info into a dictionary,
     # The key being the values appended and the value being the index
-    if not result: return []
+    if not result:
+      return []
+    if len(order_info) == 0 and not kind:
+      return result
+
     vals = {}
     for e in result:
       key = "/"
       e = entity_pb.EntityProto(e)
+      # Skip this entitiy if it does not match the given kind.
+      last_path = e.key().path().element_list()[-1]
+      if kind and last_path.type() != kind:
+        continue
+     
       prop_list = e.property_list()
-      for ii in order_info:    
+      for ii in order_info:
         ord_prop = ii[0]
         ord_dir = ii[1]
         for each in prop_list:
@@ -2027,6 +2085,8 @@ class DatastoreDistributed():
             else:
               key = str(key + '/' + str(each.value()))
             break
+      # Add a unique identifier at the end because indexes can be the same.
+      key = key + str(e)
       vals[key] = e
     keys = sorted(vals.keys())
     sorted_vals = [vals[ii] for ii in keys]
@@ -2034,7 +2094,8 @@ class DatastoreDistributed():
     return result
 
   # These are the three different types of queries attempted. Queries 
-  # can be identified by their filters and orderings
+  # can be identified by their filters and orderings.
+  # TODO: Queries have hints which help in picking which strategy to do first.
   _QUERY_STRATEGIES = [
       __single_property_query,   
       __kind_query,

@@ -35,7 +35,7 @@ require 'haproxy'
 require 'helperfunctions'
 require 'infrastructure_manager_client'
 require 'neptune_manager_client'
-require 'pbserver'
+require 'datastore_server'
 require 'nginx'
 require 'taskqueue'
 require 'apichecker'
@@ -483,7 +483,7 @@ class Djinn
 
       if has_soap_server?(my_node)
         stop_soap_server
-        stop_pbserver
+        stop_datastore_server
       end
 
       TaskQueue.stop if my_node.is_taskqueue_master?
@@ -2193,12 +2193,11 @@ class Djinn
           end
         end
 
-        # Currently we always run the Datastore Server (PBServer) and SOAP
+        # Currently we always run the Datastore Server (DatastoreServer) and SOAP
         # server on the same nodes.
-        # TODO(cgb): Rename PBServer to Datastore Server throughout.
         if has_soap_server?(my_node)
-          @state = "Starting up SOAP Server and PBServer"
-          start_pbserver()
+          @state = "Starting up SOAP Server and Datastore Server"
+          start_datastore_server()
           start_soap_server()
           HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip, UserAppClient::SERVER_PORT)
         end
@@ -2209,12 +2208,11 @@ class Djinn
       threads << Thread.new {
         start_db_slave()
 
-        # Currently we always run the Datastore Server (PBServer) and SOAP
+        # Currently we always run the Datastore Server and SOAP
         # server on the same nodes.
-        # TODO(cgb): Rename PBServer to Datastore Server throughout.
         if has_soap_server?(my_node)
-          @state = "Starting up SOAP Server and PBServer"
-          start_pbserver()
+          @state = "Starting up SOAP Server and Datastore Server"
+          start_datastore_server()
           start_soap_server()
           HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip, UserAppClient::SERVER_PORT)
         end
@@ -2252,7 +2250,7 @@ class Djinn
 
   def start_blobstore_server
     db_local_ip = @userappserver_private_ip
-    BlobServer.start(db_local_ip, PbServer::LISTEN_PORT_NO_SSL)
+    BlobServer.start(db_local_ip, DatastoreServer::LISTEN_PORT_NO_SSL)
     BlobServer.is_running(db_local_ip)
 
     return true
@@ -2317,7 +2315,7 @@ class Djinn
     GodInterface.start(:uaserver, start_cmd, stop_cmd, port, env_vars)
   end 
 
-  def start_pbserver
+  def start_datastore_server
     db_master_ip = nil
     my_ip = my_node.public_ip
     @nodes.each { |node|
@@ -2327,13 +2325,13 @@ class Djinn
 
     table = @creds['table']
     zoo_connection = get_zk_connection_string(@nodes)
-    PbServer.start(db_master_ip, @userappserver_private_ip, my_ip, table, zoo_connection)
-    HAProxy.create_pbserver_config(my_node.private_ip, PbServer::PROXY_PORT, table)
-    Nginx.create_pbserver_config(my_node.private_ip, PbServer::PROXY_PORT)
+    DatastoreServer.start(db_master_ip, @userappserver_private_ip, my_ip, table, zoo_connection)
+    HAProxy.create_datastore_server_config(my_node.private_ip, DatastoreServer::PROXY_PORT, table)
+    Nginx.create_datastore_server_config(my_node.private_ip, DatastoreServer::PROXY_PORT)
     Nginx.restart()
 
     # TODO check the return value
-    PbServer.is_running(my_ip)
+    DatastoreServer.is_running(my_ip)
   end
 
   def stop_blob_server
@@ -2351,8 +2349,8 @@ class Djinn
     GodInterface.stop(:appmanagerserver)
   end 
 
-  def stop_pbserver
-    PbServer.stop(@creds['table']) 
+  def stop_datastore_server
+    DatastoreServer.stop(@creds['table']) 
   end
   
   def is_hybrid_cloud?

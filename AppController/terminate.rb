@@ -56,11 +56,11 @@ end
 APPSCALE_HOME = ENV['APPSCALE_HOME']
 
 begin
-  require 'pbserver'
+  require 'datastore_server'
   tree = YAML.load_file("#{APPSCALE_HOME}/.appscale/database_info.yaml")
-  PbServer.stop(tree[:table])
+  DatastoreServer.stop(tree[:table])
 rescue Exception
-  puts "Problem with pbserver, moving on"
+  puts "Problem with datastore server, moving on"
 end
 
 `bash #{APPSCALE_HOME}/AppController/killDjinn.sh`
