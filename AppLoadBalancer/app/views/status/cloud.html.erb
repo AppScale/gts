@@ -90,15 +90,11 @@
 <!-- DB Hook -->                                    
                                       <ul class="unstyled">
                                         <% db = get_database_information %>
-                                        <li><span class="icon16 icomoon-icon-arrow-right-2"></span>Powered by <%= db[:database] %></li>
+                                        <li><span class="icon16 icomoon-icon-arrow-right-2"></span>Powered by <strong><%= db[:database] %></strong></li>
+                                        <li><span class="icon16 icomoon-icon-arrow-right-2"></span>Data is replicated <strong><%= db[:replication] %></strong> times</li>
                                       </ul>
-									<hr/>
-									<h4><span class="icon12 icomoon-icon-database"></span>Data Replication:</h4>
-									<ul class="unstyled">
-									<li><span class="icon16 icomoon-icon-arrow-right-2"></span>Data is replicated <%= db[:replication] %> times</li>
-									</ul>
                                     <hr/>
-                                    <h4><span class="icon12 icomoon-icon-database"></span>Current Applications Deployed:</h4>
+                                    <h4><span class="icon12 icomoon-icon-cube"></span>Current Applications Deployed:</h4>
 <!-- App Info Hook -->
                                     <ul class="unstyled">
                                         <% apps = get_application_information %>
