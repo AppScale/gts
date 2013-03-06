@@ -35,7 +35,7 @@ require 'haproxy'
 require 'helperfunctions'
 require 'infrastructure_manager_client'
 require 'neptune_manager_client'
-require 'pbserver'
+require 'datastore_server'
 require 'nginx'
 require 'taskqueue'
 require 'apichecker'
@@ -251,6 +251,11 @@ class Djinn
 
 
   APPSCALE_HOME = ENV['APPSCALE_HOME']
+
+
+  # The location where we can find the Python 2.7 executable, included because
+  # it is not the default version of Python installed on AppScale VMs.
+  PYTHON27 = "/usr/local/Python-2.7.3/python"
 
 
   # The message that we display to the user if they call a SOAP-accessible
@@ -478,7 +483,7 @@ class Djinn
 
       if has_soap_server?(my_node)
         stop_soap_server
-        stop_pbserver
+        stop_datastore_server
       end
 
       TaskQueue.stop if my_node.is_taskqueue_master?
@@ -1471,47 +1476,31 @@ class Djinn
   end
 
   def set_uaserver_ips()
-    ip_addr = get_uaserver_ip()
-    if !is_cloud?
-      @userappserver_public_ip = ip_addr
-      @userappserver_private_ip = ip_addr
-      Djinn.log_debug("\n\nUAServer is at [#{@userappserver_public_ip}]\n\n")
+    Djinn.log_debug("Setting uaserver public/private ips")
+
+    Djinn.log_debug("My node is #{my_node}")
+    # set it to this node if we run the uaserver
+    if my_node.is_db_master? or my_node.is_db_slave?
+      Djinn.log_debug("Running the UserAppServer locally - setting uaserver" +
+        " IPs to (pub)#{my_node.public_ip}, (pri)#{my_node.private_ip}")
+      @userappserver_public_ip = my_node.public_ip
+      @userappserver_private_ip = my_node.private_ip
       return
     end
-    
-    keyname = @creds["keyname"]
-    infrastructure = @creds["infrastructure"]    
- 
-    if is_hybrid_cloud?
-      Djinn.log_debug("Getting hybrid ips with creds #{@creds.inspect}")
-    else
-      Djinn.log_debug("Getting cloud ips for #{infrastructure} with keyname " +
-        "#{keyname}")
-    end
- 
-    Djinn.log_debug("Looking for #{ip_addr}")
-    nodes.each { |node|
-      node_public_ip = HelperFunctions.convert_fqdn_to_ip(node.public_ip)
-      node_private_ip = HelperFunctions.convert_fqdn_to_ip(node.private_ip)
 
-      Djinn.log_debug("node with public FQDN #{node.public_ip} has public IP #{node_public_ip}")
-      Djinn.log_debug("node with private FQDN #{node.private_ip} has private IP #{node_private_ip}")
-
-      if node_public_ip == ip_addr or node_private_ip == ip_addr
-        # don't set the uaserver_public_ip to node_public_ip, as then the tools
-        # won't be able to resolve that ip (it may be the same as the 
-        # unresolvable private ip)
-        Djinn.log_debug("Setting uaserver public ip to #{node.public_ip}")
-        Djinn.log_debug("Setting uaserver private ip to #{node_private_ip}")
+    # otherwise just set it to an arbitrary db node's ips
+    @nodes.each { |node|
+      Djinn.log_debug("looking at node #{node} as a possible uaserver")
+      if node.is_db_master? or node.is_db_slave?
+        Djinn.log_debug("Found a UserAppServer at (pub) #{node.public_ip}, " +
+          "(pri) #{node.private_ip}")
         @userappserver_public_ip = node.public_ip
-        @userappserver_private_ip = node_private_ip
+        @userappserver_private_ip = node.private_ip
         return
       end
     }
 
-    unable_to_convert_msg = "[get uaserver ip] Couldn't find out whether " +
-      "#{ip_addr} was a public or private IP address."
-
+    unable_to_convert_msg = "[get uaserver ip] Couldn't find a UAServer."
     Djinn.log_debug(unable_to_convert_msg)
     abort(unable_to_convert_msg)
   end
@@ -1522,7 +1511,10 @@ class Djinn
     keyname = @creds["keyname"]
     infrastructure = @creds["infrastructure"]    
 
-    nodes.each { |node|
+    Djinn.log_debug("Looking for #{private_ip}")
+    private_ip = HelperFunctions.convert_fqdn_to_ip(private_ip)
+    Djinn.log_debug("[converted] Looking for #{private_ip}")
+    @nodes.each { |node|
       node_private_ip = HelperFunctions.convert_fqdn_to_ip(node.private_ip)
       node_public_ip = HelperFunctions.convert_fqdn_to_ip(node.public_ip)
 
@@ -2201,12 +2193,11 @@ class Djinn
           end
         end
 
-        # Currently we always run the Datastore Server (PBServer) and SOAP
+        # Currently we always run the Datastore Server (DatastoreServer) and SOAP
         # server on the same nodes.
-        # TODO(cgb): Rename PBServer to Datastore Server throughout.
         if has_soap_server?(my_node)
-          @state = "Starting up SOAP Server and PBServer"
-          start_pbserver()
+          @state = "Starting up SOAP Server and Datastore Server"
+          start_datastore_server()
           start_soap_server()
           HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip, UserAppClient::SERVER_PORT)
         end
@@ -2217,12 +2208,11 @@ class Djinn
       threads << Thread.new {
         start_db_slave()
 
-        # Currently we always run the Datastore Server (PBServer) and SOAP
+        # Currently we always run the Datastore Server and SOAP
         # server on the same nodes.
-        # TODO(cgb): Rename PBServer to Datastore Server throughout.
         if has_soap_server?(my_node)
-          @state = "Starting up SOAP Server and PBServer"
-          start_pbserver()
+          @state = "Starting up SOAP Server and Datastore Server"
+          start_datastore_server()
           start_soap_server()
           HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip, UserAppClient::SERVER_PORT)
         end
@@ -2260,7 +2250,7 @@ class Djinn
 
   def start_blobstore_server
     db_local_ip = @userappserver_private_ip
-    BlobServer.start(db_local_ip, PbServer::LISTEN_PORT_NO_SSL)
+    BlobServer.start(db_local_ip, DatastoreServer::LISTEN_PORT_NO_SSL)
     BlobServer.is_running(db_local_ip)
 
     return true
@@ -2325,7 +2315,7 @@ class Djinn
     GodInterface.start(:uaserver, start_cmd, stop_cmd, port, env_vars)
   end 
 
-  def start_pbserver
+  def start_datastore_server
     db_master_ip = nil
     my_ip = my_node.public_ip
     @nodes.each { |node|
@@ -2335,13 +2325,13 @@ class Djinn
 
     table = @creds['table']
     zoo_connection = get_zk_connection_string(@nodes)
-    PbServer.start(db_master_ip, @userappserver_private_ip, my_ip, table, zoo_connection)
-    HAProxy.create_pbserver_config(my_node.private_ip, PbServer::PROXY_PORT, table)
-    Nginx.create_pbserver_config(my_node.private_ip, PbServer::PROXY_PORT)
+    DatastoreServer.start(db_master_ip, @userappserver_private_ip, my_ip, table, zoo_connection)
+    HAProxy.create_datastore_server_config(my_node.private_ip, DatastoreServer::PROXY_PORT, table)
+    Nginx.create_datastore_server_config(my_node.private_ip, DatastoreServer::PROXY_PORT)
     Nginx.restart()
 
     # TODO check the return value
-    PbServer.is_running(my_ip)
+    DatastoreServer.is_running(my_ip)
   end
 
   def stop_blob_server
@@ -2359,8 +2349,8 @@ class Djinn
     GodInterface.stop(:appmanagerserver)
   end 
 
-  def stop_pbserver
-    PbServer.stop(@creds['table']) 
+  def stop_datastore_server
+    DatastoreServer.stop(@creds['table']) 
   end
   
   def is_hybrid_cloud?
@@ -2392,6 +2382,7 @@ class Djinn
     keyname = @creds["keyname"] 
     appengine_info = Djinn.convert_location_array_to_class(appengine_info, keyname)
     @nodes.concat(appengine_info)
+    find_me_in_locations
     write_database_info
     
     creds = @creds.to_a.flatten
@@ -2413,6 +2404,7 @@ class Djinn
         # to use the first ssh key (the only key)
         imc = InfrastructureManagerClient.new(@@secret)
         appengine_info = imc.spawn_vms(nodes.length, @creds, roles, "cloud1")
+        Djinn.log_debug("Received appengine info: #{appengine_info}")
       else
         nodes.each_pair do |ip,roles|
           # for xen the public and private ips are the same
@@ -2552,6 +2544,7 @@ class Djinn
     neptune = "#{APPSCALE_HOME}/Neptune"
     loki = "#{APPSCALE_HOME}/Loki"
     iaas_manager = "#{APPSCALE_HOME}/InfrastructureManager"
+    xmpp_receiver = "#{APPSCALE_HOME}/XMPPReceiver"
 
     ssh_key = dest_node.ssh_key
     ip = dest_node.private_ip
@@ -2564,6 +2557,7 @@ class Djinn
     Djinn.log_run("rsync #{options} #{neptune}/* root@#{ip}:#{neptune}")
     Djinn.log_run("rsync #{options} #{loki}/* root@#{ip}:#{loki}")
     Djinn.log_run("rsync #{options} #{iaas_manager}/* root@#{ip}:#{iaas_manager}")
+    Djinn.log_run("rsync #{options} #{xmpp_receiver}/* root@#{ip}:#{xmpp_receiver}")
   end
 
   def setup_config_files()
@@ -2794,26 +2788,16 @@ HOSTS
     Kernel.sleep(1)
 
     begin
-      Timeout::timeout(60) do
-        begin
-          GodInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key)
-          HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, USE_SSL)
-        # raise the timeout error so that the next rescue doesn't catch it
-        rescue Timeout::Error
-          raise Timeout::Error
-        rescue Exception => except
-          backtrace = except.backtrace.join("\n")
-          remote_start_msg = "[remote_start] Unforeseen exception when " + \
-            "talking to #{ip}: #{except}\nBacktrace: #{backtrace}"
-          Djinn.log_debug(remote_start_msg)
-          retry
-        end
-      end
-    rescue Timeout::Error
-      Djinn.log_debug("Couldn't start the AppController at #{ip}. Retrying.")
+      GodInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key)
+      HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, USE_SSL, 60)
+    rescue Exception => except
+      backtrace = except.backtrace.join("\n")
+      remote_start_msg = "[remote_start] Unforeseen exception when " + \
+        "talking to #{ip}: #{except}\nBacktrace: #{backtrace}"
+      Djinn.log_debug(remote_start_msg)
       retry
     end
-    
+
     Djinn.log_debug("Sending data to #{ip}")
     acc = AppControllerClient.new(ip, @@secret)
 
@@ -2842,11 +2826,11 @@ HOSTS
 
   def start_ejabberd()
     @state = "Starting up XMPP server"
-    my_private = my_node.private_ip
+    my_public = my_node.public_ip
     Ejabberd.stop
     Djinn.log_run("rm -f /var/lib/ejabberd/*")
-    Ejabberd.write_auth_script(my_private, @@secret)
-    Ejabberd.write_config_file(my_private)
+    Ejabberd.write_auth_script(my_public, @@secret)
+    Ejabberd.write_config_file(my_public)
     Ejabberd.start
   end
 
@@ -2923,8 +2907,28 @@ HOSTS
 
   def start_appengine()
     @state = "Preparing to run AppEngine apps if needed"
+    db_private_ip = nil
+    @nodes.each { |node|
+      if node.is_db_master? or node.is_db_slave?
+        if HelperFunctions.is_port_open?(node.private_ip, 4343,
+          HelperFunctions::USE_SSL)
+          Djinn.log_debug("UAServer port open on #{node.private_ip} - using it!")
+          db_private_ip = node.private_ip
+          break
+        else
+          Djinn.log_debug("UAServer port not open on #{node.private_ip} - skipping!")
+          next
+        end
+      end
+    }
+    if db_private_ip.nil?
+      Djinn.log_debug("Couldn't find a live db node - falling back to UAServer IP")
+      db_private_ip = @userappserver_private_ip
+    end
 
-    uac = UserAppClient.new(@userappserver_private_ip, @@secret)
+    Djinn.log_debug("Starting appengine - pbserver is at [#{db_private_ip}]")
+
+    uac = UserAppClient.new(db_private_ip, @@secret)
     app_manager = AppManagerClient.new()
 
     if @restored == false #and restore_from_db?
@@ -3567,7 +3571,7 @@ HOSTS
     Djinn.log_debug("Created user [#{xmpp_user}] with password [#{@@secret}] and hashed password [#{xmpp_pass}]")
 
     if Ejabberd.does_app_need_receive?(app, app_language)
-      start_cmd = "python2.6 #{APPSCALE_HOME}/AppController/xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
+      start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
       stop_cmd = "ps ax | grep '#{start_cmd}' | grep -v grep | awk '{print $1}' | xargs -d '\n' kill -9"
       GodInterface.start(app, start_cmd, stop_cmd, 9999)
       Djinn.log_debug("App #{app} does need xmpp receive functionality")
