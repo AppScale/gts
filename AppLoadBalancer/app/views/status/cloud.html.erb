@@ -21,8 +21,8 @@
 				<div class="hero-unit">
 				    <h1 align="center">Welcome to AppScale!</h1>
 				    <p align="center">The Open Source App Engine</p>
-            <%= display_flash_messages %>
 				    <p align="center"><a href="mailto:support@appscale.com" class="btn btn-primary btn-large">Send Feedback</a> &nbsp; <a href="https://github.com/AppScale/appscale/issues/new" data-toggle="modal" class="btn btn-info btn-large">Submit Issue</a></p>
+            <div class="span6" align="center"> <%= display_flash_messages %> </div>
 				                            </div>
 				</div><!-- End .row-fluid -->
 
@@ -123,7 +123,7 @@
 
                         <div class="span12">
                             <div class="page-header">
-                                <h3>CPU / Memory Usage <%= link_to "Machine Monitoring.", monitoring_url, { :class=> "btn btn-info"} %></h3>
+                                <h3>CPU / Memory Usage <%= link_to "Detailed Machine Monitoring", monitoring_url, { :class=> "btn btn-info"} %></h3>
                             </div>
                             <table class="responsive table table-bordered">
                                 <thead>
