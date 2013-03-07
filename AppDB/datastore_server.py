@@ -2061,7 +2061,8 @@ class DatastoreDistributed():
     # The key being the values appended and the value being the index
     if not result:
       return []
-    if len(order_info) == 0 and not kind:
+
+    if not order_info and not kind:
       return result
 
     vals = {}
