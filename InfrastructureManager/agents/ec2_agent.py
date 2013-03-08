@@ -34,13 +34,16 @@ class EC2Agent(BaseAgent):
   PARAM_INSTANCE_TYPE = 'instance_type'
   PARAM_KEYNAME = 'keyname'
   PARAM_INSTANCE_IDS = 'instance_ids'
+  PARAM_SPOT = 'use_spot_instances'
+  PARAM_SPOT_PRICE = 'max_spot_price'
 
   REQUIRED_EC2_RUN_INSTANCES_PARAMS = (
     PARAM_CREDENTIALS,
     PARAM_GROUP,
     PARAM_IMAGE_ID,
     PARAM_INSTANCE_TYPE,
-    PARAM_KEYNAME
+    PARAM_KEYNAME,
+    PARAM_SPOT
   )
 
   REQUIRED_EC2_TERMINATE_INSTANCES_PARAMS = (
@@ -177,7 +180,7 @@ class EC2Agent(BaseAgent):
     instance_type = parameters[self.PARAM_INSTANCE_TYPE]
     keyname = parameters[self.PARAM_KEYNAME]
     group = parameters[self.PARAM_GROUP]
-    spot = False
+    spot = parameters[self.PARAM_SPOT]
 
     utils.log('[{0}] [{1}] [{2}] [{3}] [ec2] [{4}] [{5}]'.format(count,
       image_id, instance_type, keyname, group, spot))
@@ -206,7 +209,7 @@ class EC2Agent(BaseAgent):
 
       conn = self.open_connection(parameters)
       if spot:
-        price = self.get_optimal_spot_price(conn, instance_type)
+        price = parameters[self.PARAM_SPOT_PRICE]
         conn.request_spot_instances(str(price), image_id, key_name=keyname,
           security_groups=[group], instance_type=instance_type, count=count)
       else:

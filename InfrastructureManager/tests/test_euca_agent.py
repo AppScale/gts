@@ -31,7 +31,7 @@ class TestEucaAgent(TestCase):
       'instance_type': 'booinstance_type',
       'keyname': 'bookeyname',
       'num_vms': '2',
-      'spot': 'False',
+      'use_spot_instances': False,
     }
 
     id = '0000000000'  # no longer randomly generated
