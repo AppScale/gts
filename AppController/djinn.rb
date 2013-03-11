@@ -546,8 +546,6 @@ class Djinn
       return "Error: Credential format wrong"
     end
 
-    Djinn.log_debug("Parameters were valid: #{possible_credentials.inspect}")
-
     keyname = possible_credentials["keyname"]
     @nodes = Djinn.convert_location_array_to_class(djinn_locations, keyname)
     @creds = possible_credentials
