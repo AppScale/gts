@@ -44,6 +44,7 @@ class ApplicationController < ActionController::Base
       # guard against user-crafted cookies
       Rails.logger.info "saw a malformed cookie: [#{cookie_val}] - clearing it out"
       cookies[:dev_appserver_login] = { :value => nil, :domain => UserTools.public_ip, :expires => Time.at(0) }
+      return
     end
     email, nick, admin, hash = tokens
 
@@ -51,6 +52,7 @@ class ApplicationController < ActionController::Base
     if my_hash != hash
       reset_session
       cookies[:dev_appserver_login] = { :value => nil, :domain => UserTools.public_ip, :expires => Time.at(0) }
+      return
     end
   end
 
