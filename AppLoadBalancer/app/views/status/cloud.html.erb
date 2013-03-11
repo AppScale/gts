@@ -22,7 +22,7 @@
 				    <h1 align="center">Welcome to AppScale!</h1>
 				    <p align="center">The Open Source App Engine</p>
 				    <p align="center"><a href="mailto:support@appscale.com" class="btn btn-primary btn-large">Send Feedback</a> &nbsp; <a href="https://github.com/AppScale/appscale/issues" data-toggle="modal" class="btn btn-info btn-large">Submit Issue</a></p>
-            <div class="span6" align="center"> <%= display_flash_messages %> </div>
+            <span align="center" style="width: 50%" > <%= display_flash_messages %> </span>
 				                            </div>
 				</div><!-- End .row-fluid -->
 
@@ -86,7 +86,7 @@
                                     <a href="#" class="minimize">Minimize</a>
                                 </div>
                                 <div class="content">
-									<h4><span class="icon12 icomoon-icon-database"></span>Current Database Deployed:</h4>
+									<h4><span class="icon12 icomoon-icon-database"></span>Current Database:</h4>
 <!-- DB Hook -->                                    
                                       <ul class="unstyled">
                                         <% db = get_database_information %>
@@ -122,9 +122,15 @@
  <div class="row-fluid">
 
                         <div class="span12">
-                            <div class="page-header">
-                                <h3>CPU / Memory Usage <%= link_to "Detailed Machine Monitoring", monitoring_url, { :class=> "btn btn-info"} %></h3>
-                            </div>
+                            <div class="box gradient">
+                              <div class="title">
+                                <h4>
+                                    <span class="icon16 icomoon-icon-screen-2"></span> 
+                                    <span>CPU / Memory Usage &nbsp; &nbsp;  <%= link_to "Machine Monitoring", monitoring_url, { :class=> "btn btn-info tipR", :title=> "Current detailed hardware status"} %></span>
+                                </h4>
+                                <a href="#" class="minimize">Minimize</a>
+                              </div>
+                              <div class="content noPad">
                             <table class="responsive table table-bordered">
                                 <thead>
                                   <tr>
@@ -152,7 +158,8 @@
 
                                 </tbody>
                             </table>
-
+                          </div>
+                          </div>
                         </div><!-- End .span6 -->
                         </div><!-- End .row-fluid -->
                         						
@@ -165,50 +172,12 @@
     </div><!-- End #wrapper -->
     
     
-<!-- Boostrap modal dialog -->
-    <div id="myModal" class="modal hide fade" style="display: none; ">
-        <div class="modal-header">
-          <button type="button" class="close" data-dismiss="modal"><span class="icon12 minia-icon-close"></span></button>
-          <h2>Feedback</h2>
-        </div>
-        <div class="modal-body">
-            <div class="paddingT15 paddingB15">    
-              <h4 align="center">Whether good or bad we want to hear your thoughts. Please use the appropriate channels for issue tracking and support. Thanks for choosing AppScale!</h4>
-              <form class="form-horizontal" id="form-validate" action="forms-validation.html" >
-              <div class="form-row row-fluid">
-                  <div class="span12">
-                      <div class="row-fluid">
-                          <label class="form-label span3" for="email">Email</label>
-                          <input class="span8" id="email" name="email" type="text" />
-                      </div>
-                  </div>
-              </div>
-           </form>
-              
-              <div class="form-row row-fluid">
-                  <div class="span12">
-                      <div class="row-fluid">
-                          <label class="form-label span3" for="textarea">Feedback</label>
-                          <textarea class="span8" id="textarea" rows="3"></textarea>
-                      </div>
-                  </div>
-              </div>
-
-              
-            </div>
-    
-        </div>
-        <div class="modal-footer">
-          <a href="#" class="btn" data-dismiss="modal">Close</a>
-          <a href="#" class="btn btn-primary">Submit</a>
-        </div>
-      </div>
     
     
     <!-- Le javascript
     ================================================== -->
     <!-- Important plugins put in all pages -->
-    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+    <script type="text/javascript" src="js/jquery.1.7.2.min.js"></script>
     <script type="text/javascript" src="js/bootstrap/bootstrap.js"></script>  
     <script type="text/javascript" src="js/jquery.cookie.js"></script>
     <script type="text/javascript" src="js/jquery.mousewheel.js"></script>
@@ -240,7 +209,7 @@
     <script type="text/javascript" src="plugins/fix/ios-fix/ios-orientationchange-fix.js"></script>
 
     <!-- Important Place before main.js  -->
-    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.21/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="js/jquery-ui.1.8.2.min.js"></script>
     <script type="text/javascript" src="plugins/fix/touch-punch/jquery.ui.touch-punch.min.js"></script><!-- Unable touch for JQueryUI -->
 
     <!-- Init plugins -->

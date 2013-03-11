@@ -14,19 +14,19 @@
 
         <!-- Build page from here: -->
         <div class="row-fluid">
-          <div class="span4"></div><!--spacing div-->
-          <div class="span4">
+          <div class="span3"></div><!--spacing div-->
+          <div class="span6">
             <div class="page-header">
                 <h1>Upload an application</h1></div><!--close header-->
                   <div class="well">
-                    <%= content_tag :h3, display_flash_messages %>
                     <% form_for @app, :url => { :controller => :apps, :action => :upload }, :html => { :multipart => true } do |f| %>
-                      <p class="alert">
-                        <%= f.label :file_data, "New Applications" %>&nbsp;-&nbsp;
-                        Must be a .tar.gz file.&nbsp;<%= link_to "<strong>Help</strong>","#", :onclick => "showHelp();" %>
+                        <%= content_tag :h3, display_flash_messages %>
+                      <p>
+                        <%= f.label :file_data, "<h3>New Applications &nbsp; - &nbsp;
+                        Must be a .tar.gz file.&nbsp;</h3>" %><%= link_to "<strong>Help</strong>","#", :onclick => "showHelp();" %>
                       </p>
                       <p>
-                        <%= f.file_field :file_data, :accept => GZIP_MIME_TYPES.join(", ") %>
+                        <%= f.file_field :file_data, :accept => "tar.gz, tgz" %>
                         <%= image_tag "spinner.gif", { :id => "spinner", :style => "display:none;" } %>
                         <%= display_error_messages(@app, :file_data) %>
                       </p>
@@ -40,7 +40,7 @@
 
               </div><!--close well-->
         </div><!--close span6 -->
-        <div class="span4"></div> <!--spacing div-->
+        <div class="span3"></div> <!--spacing div-->
         </div> <!-- end row fluid -->
     </div> <!-- end content wrapper -->
 </div> <!--end content-->
