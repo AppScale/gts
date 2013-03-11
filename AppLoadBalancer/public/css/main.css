@@ -1739,7 +1739,6 @@ select {width: 150px;}
 			width:16px;
 			height:16px;
 			padding:0px 2px 3px 2px;
-			display: block;
 		}
 		.box .spark {
 			margin-right: 40px;
@@ -1772,14 +1771,11 @@ select {width: 150px;}
 			cursor:pointer;
 			background: url(../images/icons/minus.png) no-repeat center 3px #f3f3f3;
 			display: block;
-
 		}
-		.box .title .minimize a:hover { display: block;}
 		.box .title .maximize {
 			background: url(../images/icons/plus.png) no-repeat center 3px #f3f3f3;
 			display: block;
 		}
-		.box .title .maximize a:hover { display: block;}
 	.box .content {
 		padding:10px;
 		border:1px solid #c4c4c4;
@@ -3138,10 +3134,4 @@ form input.valid {border: 1px solid #9FC569 !important;}
 #statusNotice {
 	width: 50%;
 	margin: 0px auto;
-}
-
-
-#minmax a {
-  color: #3399cc;
-  text-decoration: none;
 }
