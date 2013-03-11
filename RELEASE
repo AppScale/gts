@@ -4,9 +4,13 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
-The current release is 1.6.8, released on March 8, 2013.
+The current release is 1.6.8, released on March 13, 2013.
 
 Bugs fixed in this release:
+- Ordered ancestor queries
+- Complex query fix for indexes with same name
+- Obscured EC2 credentials in AppController log
+- Turn off firewall when we turn off AppScale
 - New TaskQueue client for Java
 - Fixed XMPP API when running on EC2, Eucalyptus
 - Fixed XMPP API for Python 2.7 App Engine
