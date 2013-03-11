@@ -305,10 +305,7 @@ $(document).ready(function() {
 	//show minimize and maximize icons
 	widget.hover(function() {
 		    $(this).find('.title>a').show(50);	
-		}
-		, function(){
-			$(this).find('.title>a').hide();	
-	});
+		});
 
 	//add shadow if hover box
 	widget.hover(function() {

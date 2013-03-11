@@ -2,7 +2,7 @@
         <div class="navbar">
             <div class="navbar-inner">
               <div class="container-fluid">
-                <span class="brand">AppScale.<span class="slogan">PaaS</span></span>
+                <span style="a {color: black;}" class="brand"><%= link_to "AppScale", :controller => :landing, :action => :index %><span class="slogan icon32 icomoon-icon-cloud"></span></span>
                 <div class="nav-no-collapse">
                     <ul style="padding-right: 2.5%;" class="nav pull-right usernav">
                         <% if logged_in? %>

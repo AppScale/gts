@@ -20,7 +20,7 @@ module AppsHelper
       return not_exists(APP_NOT_FOUND_MSG) 
     end
 
-    if app_data.include?("DB_ERROR")
+    if app_data.include?("Datastore ERROR - Application/Data not found")
       return not_exists(app_data)
     end
 

@@ -26,7 +26,7 @@
                         <%= select_tag "appname", options_for_select(@apps)  %>
                       </p>
                       <p>
-                        <%= submit_tag "Delete", :confirm => "Are you sure you want to delete this app?" %>
+                        <%= submit_tag "Delete", { :class => "btn btn-danger", :confirm => "Are you sure you want to delete this app?"} %>
                       </p>
                     <% end %>
                   <% else %>
