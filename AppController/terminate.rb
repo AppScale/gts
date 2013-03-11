@@ -108,6 +108,8 @@ end
 
 `echo "" > /root/.ssh/known_hosts` # empty it out but leave the file there
 
+`iptables -F`  # turn off the firewall
+
 # force kill processes
 
 ["memcached",
