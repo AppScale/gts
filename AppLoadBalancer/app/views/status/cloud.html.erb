@@ -22,7 +22,7 @@
 				    <h1 align="center">Welcome to AppScale!</h1>
 				    <p align="center">The Open Source App Engine</p>
 				    <p align="center"><a href="mailto:support@appscale.com" class="btn btn-primary btn-large">Send Feedback</a> &nbsp; <a href="https://github.com/AppScale/appscale/issues" data-toggle="modal" class="btn btn-info btn-large">Submit Issue</a></p>
-            <div class="span6" align="center"> <%= display_flash_messages %> </div>
+            <span align="center" style="width: 50%" > <%= display_flash_messages %> </span>
 				                            </div>
 				</div><!-- End .row-fluid -->
 
@@ -86,7 +86,7 @@
                                     <a href="#" class="minimize">Minimize</a>
                                 </div>
                                 <div class="content">
-									<h4><span class="icon12 icomoon-icon-database"></span>Current Database Deployed:</h4>
+									<h4><span class="icon12 icomoon-icon-database"></span>Current Database:</h4>
 <!-- DB Hook -->                                    
                                       <ul class="unstyled">
                                         <% db = get_database_information %>
@@ -122,9 +122,15 @@
  <div class="row-fluid">
 
                         <div class="span12">
-                            <div class="page-header">
-                                <h3>CPU / Memory Usage <%= link_to "Detailed Machine Monitoring", monitoring_url, { :class=> "btn btn-info"} %></h3>
-                            </div>
+                            <div class="box gradient">
+                              <div class="title">
+                                <h4>
+                                    <span class="icon16 icomoon-icon-screen-2"></span> 
+                                    <span>CPU / Memory Usage &nbsp; &nbsp;  <%= link_to "Machine Monitoring", monitoring_url, { :class=> "btn btn-info tipR", :title=> "Current detailed hardware status"} %></span>
+                                </h4>
+                                <a href="#" class="minimize">Minimize</a>
+                              </div>
+                              <div class="content noPad">
                             <table class="responsive table table-bordered">
                                 <thead>
                                   <tr>
@@ -152,7 +158,8 @@
 
                                 </tbody>
                             </table>
-
+                          </div>
+                          </div>
                         </div><!-- End .span6 -->
                         </div><!-- End .row-fluid -->
                         						
