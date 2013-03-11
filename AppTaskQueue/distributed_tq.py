@@ -361,13 +361,9 @@ class DistributedTaskQueue():
 
     for add_request, task_result in zip(request.add_request_list(),
                                         response.taskresult_list()):
-      if add_request.has_transaction():
-        # TODO make sure transactional tasks are handled first at the AppServer
-        # level, and not at the taskqueue server level
-        task_result.set_result(
-            apiproxy_errors.ApplicationError(
-              taskqueue_service_pb.TaskQueueServiceError.PERMISSION_DENIED))
-        continue
+      # TODO make sure transactional tasks are handled first at the AppServer
+      # level, and not at the taskqueue server level
+      # if add_request.has_transaction() is true.
       
       try:  
         self.__enqueue_push_task(add_request)
