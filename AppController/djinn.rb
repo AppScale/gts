@@ -2827,7 +2827,7 @@ HOSTS
     my_public = my_node.public_ip
     Ejabberd.stop
     Djinn.log_run("rm -f /var/lib/ejabberd/*")
-    Ejabberd.write_auth_script(my_public, @@secret)
+    Ejabberd.write_auth_script(my_public, get_db_master.private_ip, @@secret)
     Ejabberd.write_config_file(my_public)
     Ejabberd.start
   end
