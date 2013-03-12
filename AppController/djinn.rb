@@ -3324,6 +3324,12 @@ HOSTS
 
   def try_to_scale_down(app_name)
     time_since_last_decision = Time.now.to_i - @last_decision[app_name]
+    if @app_info_map[app_name].nil?
+      Djinn.log_debug("Not scaling down app #{app_name}, since we aren't " +
+        "hosting it anymore.")
+      return
+    end
+
     appservers_running = @app_info_map[app_name]['appengine'].length
 
     if time_since_last_decision > SCALEDOWN_TIME_THRESHOLD and
