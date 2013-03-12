@@ -720,31 +720,32 @@ class Djinn
       Djinn.log_debug("(stop_app) Done maybe stopping taskqueue worker")
 
       Djinn.log_debug("(stop_app) If we're appengine stop the app")
-      if my_node.is_appengine?
-        Djinn.log_debug("(stop_app) Calling AppManager for app #{app_name}")
-        app_manager = AppManagerClient.new()
-        if !app_manager.stop_app(app_name)
-          Djinn.log_debug("(stop_app) ERROR: Unable to stop app #{app_name}") 
-        else
-          Djinn.log_debug("(stop_app) AppManager shut down app #{app_name}")
-        end
-
-        Nginx.remove_app(app_name)
-        Collectd.remove_app(app_name)
-        HAProxy.remove_app(app_name)
-        Nginx.reload
-        Collectd.restart
-        ZKInterface.remove_app_entry(app_name, my_node.serialize)
-
-        # If this node has any information about AppServers for this app,
-        # clear that information out.
-        if !@app_info_map[app_name].nil?
-          @app_info_map.delete(app_name)
-        end
-
-        result = "true"
-      end
       APPS_LOCK.synchronize {
+        if my_node.is_appengine?
+          Djinn.log_debug("(stop_app) Calling AppManager for app #{app_name}")
+          app_manager = AppManagerClient.new()
+          if !app_manager.stop_app(app_name)
+            Djinn.log_debug("(stop_app) ERROR: Unable to stop app #{app_name}")
+          else
+            Djinn.log_debug("(stop_app) AppManager shut down app #{app_name}")
+          end
+
+          Nginx.remove_app(app_name)
+          Collectd.remove_app(app_name)
+          HAProxy.remove_app(app_name)
+          Nginx.reload
+          Collectd.restart
+          ZKInterface.remove_app_entry(app_name, my_node.serialize)
+
+          # If this node has any information about AppServers for this app,
+          # clear that information out.
+          if !@app_info_map[app_name].nil?
+            @app_info_map.delete(app_name)
+          end
+
+          result = "true"
+        end
+
         @apps_loaded = @apps_loaded - [app_name]    
         @app_names = @app_names - [app_name]
 
@@ -755,7 +756,7 @@ class Djinn
         if @app_names.empty?
           @app_names << "none"
         end
-      }
+      } # end of lock
     } # end of thread
 
     return "true"
@@ -3302,6 +3303,12 @@ HOSTS
 
   def try_to_scale_up(app_name)
     time_since_last_decision = Time.now.to_i - @last_decision[app_name]
+    if @app_info_map[app_name].nil?
+      Djinn.log_debug("Not scaling up app #{app_name}, since we aren't " +
+        "hosting it anymore.")
+      return
+    end
+
     appservers_running = @app_info_map[app_name]['appengine'].length
           
     if time_since_last_decision > SCALEUP_TIME_THRESHOLD and 
@@ -3324,6 +3331,12 @@ HOSTS
 
   def try_to_scale_down(app_name)
     time_since_last_decision = Time.now.to_i - @last_decision[app_name]
+    if @app_info_map[app_name].nil?
+      Djinn.log_debug("Not scaling down app #{app_name}, since we aren't " +
+        "hosting it anymore.")
+      return
+    end
+
     appservers_running = @app_info_map[app_name]['appengine'].length
 
     if time_since_last_decision > SCALEDOWN_TIME_THRESHOLD and
