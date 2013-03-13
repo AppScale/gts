@@ -285,8 +285,6 @@ class TaskHandler(webapp.RequestHandler):
 
     headers = ["%s:%s" % (k, v) for k, v in self.request.headers.items()
                if k.lower().startswith("x-appengine-")]
-    logging.info(", ".join(headers))
-
     try:
       run(self.request.body)
     except PermanentTaskFailure, e:

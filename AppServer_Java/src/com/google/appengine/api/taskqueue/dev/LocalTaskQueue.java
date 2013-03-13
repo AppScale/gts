@@ -235,8 +235,7 @@ public final class LocalTaskQueue extends AbstractLocalRpcService
 
         this.scheduler = startScheduler(this.disableAutoTaskExecution);
         String baseUrl = getBaseUrl(this.localServerEnvironment);
-        String rabbitMQQueueName = "app_" + System.getProperty("APPLICATION_ID");
-        RabbitMQclient client = new RabbitMQclient(rabbitMQQueueName, this.callback);
+        AppScaleTaskQueueClient client = new AppScaleTaskQueueClient();
 
         if (this.queueXml != null)
         {

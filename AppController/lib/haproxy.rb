@@ -84,10 +84,10 @@ module HAProxy
       Monitoring.server_ports, Monitoring.name)
   end
 
-  # Create the config file for PBServer applications
-  def self.create_pbserver_config(my_ip, listen_port, table)
+  # Create the config file for Datastore Server applications
+  def self.create_datastore_server_config(my_ip, listen_port, table)
     self.create_app_config(my_ip, my_ip, listen_port, 
-      PbServer.get_server_ports(table), PbServer::NAME)
+      DatastoreServer.get_server_ports(table), DatastoreServer::NAME)
   end
 
   # A generic function for creating haproxy config files used by appscale services

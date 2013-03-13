@@ -99,7 +99,7 @@ class XmppService(apiproxy_stub.APIProxyStub):
 
     my_jid = xmpppy.protocol.JID(xmpp_username)
     client = xmpppy.Client(my_jid.getDomain(), debug=[])
-    client.connect()
+    client.connect(secure=False)
     client.auth(my_jid.getNode(), self.uasecret, resource=my_jid.getResource())
 
     for jid in request.jid_list():

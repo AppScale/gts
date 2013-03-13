@@ -75,7 +75,7 @@ module Ejabberd
     }
   end
 
-  def self.write_auth_script(login_ip, secret)
+  def self.write_auth_script(login_ip, uaserver_ip, secret)
     auth_script = <<SCRIPT
 #!/usr/bin/python
 
@@ -95,10 +95,11 @@ logging.info("extauth script started, waiting for ejabberd requests")
 # db initialization
 
 login_ip = "#{login_ip}"
+uaserver_ip = "#{uaserver_ip}"
 secret = "#{secret}"
 
-login_address = "https://" + login_ip + ":4343"
-server = SOAPpy.SOAPProxy(login_address)
+uaserver_address = "https://" + uaserver_ip + ":4343"
+server = SOAPpy.SOAPProxy(uaserver_address)
 
 # helper functions
 

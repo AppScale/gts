@@ -11,3 +11,6 @@ rm -f /tmp/*.log
 rm -f ./.appscale/*log
 rm -f ./.appscale/certs/*
 rm -rf ./downloads
+rm -f /var/log/appscale/celery_workers/*
+rm -f /var/log/appscale/*
+

@@ -92,7 +92,6 @@ class AppControllerClient
     refused_count = 0
     max = 5
 
-    Djinn.log_debug("Calling #{callr} on an AppController")
     begin
       Timeout::timeout(time) {
         yield if block_given?

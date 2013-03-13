@@ -1,0 +1,50 @@
+/*
+ * Numeric Stepper Skin
+ */
+.ui-stepper {
+	height: 26px;
+	width: 100px;
+	display: block;
+	position: relative;
+	overflow: hidden;
+	border: 1px solid #c4c4c4;
+	border-radius: 2px;
+	-webkit-border-radius:2px;
+	-moz-border-radius:2px;
+}
+
+.ui-stepper .ui-stepper-textbox {
+	width: 75px;
+	height: 100%;
+	float: left;
+	text-align: center;
+	vertical-align: middle;
+	font-size: 125%;
+	border: none;
+	background: none;
+	padding: 0;
+}
+
+.ui-stepper .ui-stepper-plus,
+.ui-stepper .ui-stepper-minus  {
+	width: 25px;
+	height: 13px;
+	font-size: 10px;
+	padding: 0;
+	margin: 0;
+	/*z-index: 3;*/
+	text-align: center;
+	position: absolute;
+	right: 0;
+	font-family: "Courier New", Courier, monospace;
+	line-height: 0;
+	border-radius: 0;
+	/*border-radius: 2px;
+	-webkit-border-radius:2px;
+	-moz-border-radius:2px;
+	border:1px solid*/
+
+}
+.ui-stepper .ui-stepper-minus {
+	bottom: 0;
+}

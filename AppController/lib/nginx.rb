@@ -8,7 +8,7 @@ $:.unshift File.join(File.dirname(__FILE__))
 require 'helperfunctions'
 require 'load_balancer'
 require 'monitoring'
-require 'pbserver'
+require 'datastore_server'
 
 
 # A module to wrap all the interactions with the nginx web server
@@ -459,10 +459,10 @@ CONFIG
       Monitoring.listen_port, Monitoring.name, Monitoring.public_directory)
   end
 
-  # Create the configuration file for the pbserver
-  def self.create_pbserver_config(my_ip, proxy_port)
+  # Create the configuration file for the datastore_server
+  def self.create_datastore_server_config(my_ip, proxy_port)
     config = <<CONFIG
-upstream #{PbServer::NAME} {
+upstream #{DatastoreServer::NAME} {
     server #{my_ip}:#{proxy_port};
 }
     
@@ -473,12 +473,12 @@ server {
     location @my_411_error {
       chunkin_resume;
     }
-    listen #{PbServer::LISTEN_PORT_NO_SSL};
+    listen #{DatastoreServer::LISTEN_PORT_NO_SSL};
     server_name #{my_ip};
     root /root/appscale/AppDB/;
     # Uncomment these lines to enable logging, and comment out the following two
-    #access_log  /var/log/nginx/pbserver.access.log upstream;
-    #error_log  /var/log/nginx/pbserver.error.log;
+    #access_log  /var/log/nginx/datastore_server.access.log upstream;
+    #error_log  /var/log/nginx/datastore_server.error.log;
     access_log off;
     error_log /dev/null crit;
 
@@ -492,7 +492,7 @@ server {
       proxy_set_header  X-Forwarded-For $proxy_add_x_forwarded_for;
       proxy_set_header Host $http_host;
       proxy_redirect off;
-      proxy_pass http://#{PbServer::NAME};
+      proxy_pass http://#{DatastoreServer::NAME};
       client_max_body_size 30M;
       proxy_connect_timeout 60;
       client_body_timeout 60;
@@ -508,13 +508,13 @@ server {
     location @my_411_error {
       chunkin_resume;
     }
-    listen #{PbServer::LISTEN_PORT_WITH_SSL};
+    listen #{DatastoreServer::LISTEN_PORT_WITH_SSL};
     ssl on;
     ssl_certificate #{NGINX_PATH}/mycert.pem;
     ssl_certificate_key #{NGINX_PATH}/mykey.pem;
     root /root/appscale/AppDB/public;
-    #access_log  /var/log/nginx/pbencrypt.access.log upstream;
-    #error_log  /var/log/nginx/pbencrypt.error.log;
+    #access_log  /var/log/nginx/datastore_server_encrypt.access.log upstream;
+    #error_log  /var/log/nginx/datastore_server_encrypt.error.log;
     access_log off;
     error_log  /dev/null crit;
 
@@ -532,11 +532,11 @@ server {
       #Increase file size so larger applications can be uploaded
       client_max_body_size 30M;
       # go to proxy
-      proxy_pass http://#{PbServer::NAME};
+      proxy_pass http://#{DatastoreServer::NAME};
     }
 }
 CONFIG
-    config_path = File.join(SITES_ENABLED_PATH, "#{PbServer::NAME}.#{CONFIG_EXTENSION}")
+    config_path = File.join(SITES_ENABLED_PATH, "#{DatastoreServer::NAME}.#{CONFIG_EXTENSION}")
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
 
     HAProxy.regenerate_config

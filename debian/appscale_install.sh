@@ -1,4 +1,3 @@
-
 cd `dirname $0`/..
 if [ -z "$APPSCALE_HOME_RUNTIME" ]; then
     export APPSCALE_HOME_RUNTIME=`pwd`
@@ -29,6 +28,9 @@ case "$1" in
         installnumpy
         installmatplotlib
         installPIL
+        installpycrypto
+        installlxml
+        installxmpppy
 	installappserverjava
 	postinstallappserverjava
 	installmonitoring
@@ -47,10 +49,10 @@ case "$1" in
 	postinstallzookeeper
         installrabbitmq
         postinstallrabbitmq
+        installcelery
 	installservice
 	postinstallservice
 	updatealternatives
-        patchxmpp
 	sethosts
         setulimits
 	;;
@@ -87,6 +89,9 @@ case "$1" in
         installrabbitmq
         postinstallrabbitmq
         ;; 
+    celery)
+        installcelery
+        ;;
     all)
 	# scratch install of appscale including post script.
 	installappscaleprofile
@@ -102,6 +107,9 @@ case "$1" in
         installnumpy
         installmatplotlib
         installPIL
+        installpycrypto
+        installlxml
+        installxmpppy
 	installappserverjava
 	postinstallappserverjava
 	installmonitoring
@@ -128,10 +136,10 @@ case "$1" in
 	postinstallmysql
         installrabbitmq
         postinstallrabbitmq
+        installcelery
 	installservice
 	postinstallservice
 	updatealternatives
-        patchxmpp
 	sethosts
         setulimits
 	;;

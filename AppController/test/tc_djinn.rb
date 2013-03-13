@@ -192,12 +192,12 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(expected_good_result, djinn.set_apps(good_app_list, @secret))
   end
 
-  def test_rabbitmq_master
-    # RabbitMQ master nodes should configure and deploy RabbitMQ on their node
+  def test_taskqueue_master
+    # TaskQueue master nodes should configure and deploy RabbitMQ/celery on their node
 
     # Set up some dummy data that points to our master role as the
-    # rabbitmq_master
-    master_role = "public_ip:private_ip:rabbitmq_master:instance_id:cloud1"
+    # taskqueue_master
+    master_role = "public_ip:private_ip:taskqueue_master:instance_id:cloud1"
     djinn = Djinn.new
     djinn.my_index = 0
     djinn.nodes = [DjinnJobData.new(master_role, "appscale")]
@@ -207,35 +207,23 @@ class TestDjinn < Test::Unit::TestCase
     # the block actually contains
     helperfunctions = flexmock(HelperFunctions)
     helperfunctions.should_receive(:get_secret).and_return(@secret)
+    flexmock(GodInterface).should_receive(:start).and_return()
 
     file = flexmock(File)
-    file.should_receive(:open).with(RabbitMQ::COOKIE_FILE, "w+", Proc).and_return()
-
-    # mock out when the AppController tries to clean up any old
-    # RabbitMQ config files
-    flexmock(Djinn).should_receive(:log_run).with(/\Arm -rf/).and_return()
-
-    # mock out when the god interface tries to get our local ip
-    flexmock(HelperFunctions).should_receive(:get_all_local_ips).
-      and_return(["127.0.0.1"])
-
-    # also mock out when the AppController tries to start rabbitmq via god
-    file.should_receive(:open).with(/\A\/tmp\/god-\d+.god\Z/, "w+", Proc).and_return()
-    flexmock(Djinn).should_receive(:log_run).with(/\Agod load \/tmp\/god-\d+.god/).
+    file.should_receive(:open).and_return()
+    file.should_receive(:log_run).and_return()
+    flexmock(Djinn).should_receive(:log_run).and_return()
+    flexmock(HelperFunctions).should_receive(:shell).and_return()
+    flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
-    flexmock(Djinn).should_receive(:log_run).with(/\Agod start rabbitmq\Z/).
-      and_return()
-    flexmock(Djinn).should_receive(:log_run).with(/start_rabbitmq.sh baz\Z/).
-      and_return()
-
-    assert_equal(true, djinn.start_rabbitmq_master())
+    assert_equal(true, djinn.start_taskqueue_master())
   end
 
-  def test_rabbitmq_slave
-    # RabbitMQ slave nodes should wait for RabbitMQ to come up on the master
+  def test_taskqueue_slave
+    # Taskqueue slave nodes should wait for RabbitMQ/celery to come up on the master
     # node, and then start RabbitMQ on their own node
-    master_role = "public_ip1:private_ip1:rabbitmq_master:instance_id:cloud1"
-    slave_role = "public_ip2:private_ip2:rabbitmq_slave:instance_id:cloud1"
+    master_role = "public_ip1:private_ip1:taskqueue_master:instance_id:cloud1"
+    slave_role = "public_ip2:private_ip2:taskqueue_slave:instance_id:cloud1"
     djinn = Djinn.new
     djinn.my_index = 1
     djinn.nodes = [DjinnJobData.new(master_role, "appscale"), DjinnJobData.new(slave_role, "appscale")]
@@ -246,24 +234,22 @@ class TestDjinn < Test::Unit::TestCase
     helperfunctions = flexmock(HelperFunctions)
     helperfunctions.should_receive(:get_secret).and_return(@secret)
     helperfunctions.should_receive(:is_port_open?).
-      with("private_ip1", RabbitMQ::SERVER_PORT, HelperFunctions::DONT_USE_SSL).
+      with("private_ip1", TaskQueue::SERVER_PORT, HelperFunctions::DONT_USE_SSL).
       and_return(true)
     helperfunctions.should_receive(:is_port_open?).
-      with("localhost", RabbitMQ::SERVER_PORT, HelperFunctions::DONT_USE_SSL).
+      with("localhost", TaskQueue::SERVER_PORT, HelperFunctions::DONT_USE_SSL).
       and_return(true)
 
     file = flexmock(File)
-    file.should_receive(:open).with(RabbitMQ::COOKIE_FILE, "w+", Proc).and_return()
+    file.should_receive(:open).with(TaskQueue::COOKIE_FILE, "w+", Proc).and_return()
 
-    # mock out when the AppController tries to clean up any old
-    # RabbitMQ config files
-    flexmock(Djinn).should_receive(:log_run).with(/\Arm -rf/).and_return()
+    # mock out and commands
+    flexmock(Djinn).should_receive(:log_run).and_return()
+    flexmock(GodInterface).should_receive(:start).and_return()
 
-    # also mock out when the AppController tries to start rabbitmq
-    flexmock(Djinn).should_receive(:log_run).with(/\Arabbitmq/).
+    flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
-
-    assert_equal(true, djinn.start_rabbitmq_slave())
+    assert_equal(true, djinn.start_taskqueue_slave())
   end
 
 
@@ -823,17 +809,7 @@ class TestDjinn < Test::Unit::TestCase
 
     nginx_conf = "/usr/local/nginx/conf/sites-enabled/booapp.conf"
     flexmock(File).should_receive(:open).with(nginx_conf, "w+", Proc).and_return()
-    flexmock(HelperFunctions).should_receive(:shell).
-      with("/usr/local/nginx/sbin/nginx -t -c /usr/local/nginx/conf/nginx.conf").and_return()
-    flexmock(HelperFunctions).should_receive(:shell).
-      with("/usr/local/nginx/sbin/nginx -s reload").and_return()
-
-    # mock out restarting nginx once the new config file is written
-    flexmock(HelperFunctions).should_receive(:shell).
-      with("/usr/local/nginx/sbin/nginx stop").and_return()
-    flexmock(HelperFunctions).should_receive(:shell).
-      with("/usr/local/nginx/sbin/nginx start -c #{nginx_conf}").and_return()
-
+    flexmock(HelperFunctions).should_receive(:shell).and_return()
     djinn = Djinn.new()
     djinn.nodes = [original_node]
     djinn.my_index = 0

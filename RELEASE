@@ -4,7 +4,27 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
-The current release is 1.6.7, released on February 13, 2013.
+The current release is 1.6.8, released on March 13, 2013.
+
+Bugs fixed in this release:
+- Ordered ancestor queries
+- Complex query fix for indexes with same name
+- Obscured EC2 credentials in AppController log
+- Turn off firewall when we turn off AppScale
+- New TaskQueue client for Java
+- Fixed XMPP API when running on EC2, Eucalyptus
+- Fixed XMPP API for Python 2.7 App Engine
+- Fixed errors using AppScale on complex deployments
+- Rebranded AppLoadBalancer
+- Fixes for distributed Task Queue system
+- Restarting RabbitMQ if it fails to start up
+- Restarting AppControllers on remote nodes if they fail to start
+- Added pycrypto and lxml for use by App Engine apps
+- Fixed timeout for RabbitMQ starting up to not be infinite
+- Added deferred Task Queue support
+- Replaced spymemcached with xmemcached for Java App Engine
+
+AppScale version 1.6.7 was released on February 13, 2013.
 
 Bugs fixed in this release:
 - Terminate script kills Erlang processes

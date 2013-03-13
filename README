@@ -1,10 +1,10 @@
 AppScale is a platform that allows users to deploy and host their own Google 
 App Engine applications. It executes automatically over Amazon EC2 and 
 Eucalyptus as well as Xen and KVM. It has been developed and is maintained 
-by the RACELab at UC Santa Barbara. It supports the Python, Java, and Go
+by AppScale Systems, Inc., in Santa Barbara. It supports the Python, Java, and Go
 Google App Engine platforms.
 
-The latest stable release is AppScale 1.6.7, released February 13, 2013.
+The latest stable release is AppScale 1.6.8, released March 8, 2013.
 Feature requests and pull requests gladly welcomed.
 
 Join the mailing list for announcements, help, and to discuss 
@@ -23,8 +23,8 @@ How can I help?
 
 Unit tests help us a lot, so if you'd like to write unit tests for us, we would
 appreciate it a lot! We're using flexmock/rcov for mocking and code coverage
-information, so Rubyistas should dive in to the AppController, Neptune, or
-InfrastructureManager folders and see what could benefit from unit tests there.
+information, so Rubyistas should dive in to the AppController, or Neptune
+folders and see what could benefit from unit tests there.
 Alternatively, adding rdoc to those same projects to get us closer to 100%
 documentation would also be great!
 

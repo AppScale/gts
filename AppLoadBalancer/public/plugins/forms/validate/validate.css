@@ -1,0 +1,23 @@
+/* Form Validation */
+label.error {
+	padding: 3px 4px 3px 4px;
+	color: #c93605;
+	font-weight: bold;
+	text-shadow: 0px 1px 1px rgba(164, 44, 4, 0.20);
+    -moz-text-shadow: 0px 1px 1px rgba(164, 44, 4, 0.20);
+    -webkit-text-shadow: 0px 1px 1px rgba(164, 44, 4, 0.20);
+    font-size:11px;
+ }
+
+form input.error {border: 1px solid #ED7A53 !important;}
+form input.valid {border: 1px solid #9FC569 !important;}
+
+.controls label.error {
+	margin-top:-20px;
+}
+.controls .selector label.error {
+	position: absolute;
+	top: 5px;
+	right: 0;
+	margin:0;
+}
