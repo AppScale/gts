@@ -56,11 +56,11 @@ end
 APPSCALE_HOME = ENV['APPSCALE_HOME']
 
 begin
-  require 'pbserver'
+  require 'datastore_server'
   tree = YAML.load_file("#{APPSCALE_HOME}/.appscale/database_info.yaml")
-  PbServer.stop(tree[:table])
+  DatastoreServer.stop(tree[:table])
 rescue Exception
-  puts "Problem with pbserver, moving on"
+  puts "Problem with datastore server, moving on"
 end
 
 `bash #{APPSCALE_HOME}/AppController/killDjinn.sh`
@@ -108,12 +108,14 @@ end
 
 `echo "" > /root/.ssh/known_hosts` # empty it out but leave the file there
 
+`iptables -F`  # turn off the firewall
+
 # force kill processes
 
 ["memcached",
  "nginx", "haproxy", "collectd", "collectdmon",
  "soap_server", "appscale_server", "app_manager_server", "datastore_server",
- "AppLoadBalancer", "AppMonitoring",
+ "taskqueue_server", "AppLoadBalancer", "AppMonitoring",
  # AppServer
  "dev_appserver", "DevAppServerMain",
  #Blobstore
@@ -134,7 +136,9 @@ end
  "thin", "god", "djinn", "xmpp_receiver", 
  "InfrastructureManager", "Neptune",
  # RabbitMQ, ejabberd
- "epmd", "beam", "ejabberd_auth.py"
+ "epmd", "beam", "ejabberd_auth.py", "celery",
+ # Last resort
+ "ruby", "python", "java", "/usr/bin/python"
 ].each do |program|
   `ps ax | grep #{program} | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9`
 end

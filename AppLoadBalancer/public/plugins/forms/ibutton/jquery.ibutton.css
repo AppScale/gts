@@ -1,0 +1,96 @@
+.checkbox .ibutton-container {padding-left:0;}
+.ibutton-container { 
+	position: relative; 
+	height: 26px; cursor: 
+	pointer; overflow: hidden; 
+	max-width: 400px; 
+	-khtml-user-select: none; 
+	-o-user-select: none; 
+	-moz-user-select: none; 
+	-moz-user-focus: ignore;  
+	-moz-user-input: disabled; 
+	width: 89px; 
+}
+.ibutton-container input { 
+
+	margin-left: 0!important;
+	float:none !important;
+	position: absolute; 
+	top: 0; 
+	left: 0; 
+	filter:alpha(opacity=0); 
+	-moz-opacity: 0.0;  
+	opacity: 0.0; 
+	-moz-user-input: enabled  !important; 
+}
+.ibutton-handle { 
+	display: block; 
+	height: 26px; 
+	cursor: inherit; 
+	position: absolute; 
+	top: 0; 
+	left: 0; 
+	width: 0; 
+	background: transparent url(ibutton-slider-default.png) no-repeat scroll 0 -26px; 
+	z-index: 3; 
+	padding-left: 3px; 
+	width: 33px; 
+}
+.ibutton-handle-right { 
+	height: 100%; 
+	width: 100%; 
+	padding-right: 3px; 
+	background: transparent url(ibutton-slider-default.png) no-repeat scroll 100% -26px; 
+	z-index: 3;  
+}
+.ibutton-handle-middle { 
+	height: 100%; 
+	width: 100%; 
+	background: transparent url(ibutton-slider-default.png) no-repeat scroll 50% -26px; 
+	z-index: 3;  
+}
+div.ibutton-label-on, div.ibutton-label-off { 
+	white-space: nowrap; 
+	font-size: 11px; 
+	line-height: 18px; 
+	font-weight: bold; 
+	text-transform: uppercase; 
+	cursor: inherit; 
+	display: block; 
+	height: 26px; 
+	position: absolute; 
+	width: auto; top: 0; 
+	padding-top: 4px; 
+	overflow: hidden;  
+	text-align: center; 
+	background: transparent url(ibutton-slider-default.png) no-repeat scroll 0 0; 
+}
+div.ibutton-label-on { color: #fff; text-shadow: 0 1px #808080; left: 0; z-index: 1; }
+div.ibutton-label-on span { padding-left: 0px; margin-top: 1px; }
+div.ibutton-label-on span label {line-height: 16px;}
+div.ibutton-label-off span { margin-top: 1px; }
+div.ibutton-label-off { 
+	color: #fff; 
+	background-position: 100% 0; 
+	text-shadow: 0 1px #808080; 
+	text-align: right; 
+	right: 0; 
+	width: 95%; 
+}
+div.ibutton-label-off span label { 
+	padding-right: 10px;  
+	margin-left: -2px;
+	line-height: 16px;
+}
+.ibutton-padding-left { left: 0; }
+.ibutton-padding-right { right: 0; }
+.ibutton-disabled { 
+	cursor: not-allowed !important; 
+	opacity: 0.6; 
+	filter:alpha(opacity=60); 
+}
+
+/*fix position for custom icons*/
+.ibutton-container [class^="icon1-"], .ibutton-container [class*=" icon1-"], .ibutton-container [class^="icon2-"],.ibutton-container [class*=" icon2-"],.ibutton-container [class^="icon3-"],.ibutton-container [class*=" icon3-"],.ibutton-container [class^="icon4-"],.ibutton-container [class*=" icon4-"],.ibutton-container [class^="icon5-"],.ibutton-container [class*=" icon5-"],.ibutton-container [class^="icon6-"],.ibutton-container [class*=" icon6-"],.ibutton-container [class^="icon7-"],.ibutton-container [class*=" icon7-"],.ibutton-container [class^="icon8-"],.ibutton-container [class*=" icon8-"],.ibutton-container [class^="icon9-"],.ibutton-container [class*=" icon9-"] {
+	margin-top:2px;
+}

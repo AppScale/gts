@@ -14,7 +14,7 @@ fi
 #if [ -z "$APPSCALE_HOME" ]; then
  #  export APPSCALE_HOME= /root/appscale/
 #fi 
-export APPSCALE_VERSION=1.6.7
+export APPSCALE_VERSION=1.6.8
 
 increaseconnections()
 {
@@ -95,16 +95,21 @@ installPIL()
     rm -fdr Imaging-1.1.7*
 }
 
-patchxmpp()
+installpycrypto()
 {
-    PYTHON26_XMPP=/usr/lib/python2.6/dist-packages/xmpp/
-    PYTHON25_XMPP=/usr/lib/python2.5/site-packages/xmpp/
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    wget http://appscale.cs.ucsb.edu/appscale_files/xmpp/transports.py || exit 1
-    cp transports.py ${PYTHON25_XMPP}/
-    mv transports.py ${PYTHON26_XMPP}/
+    easy_install pycrypto
 }
+
+installlxml()
+{
+    easy_install lxml
+}
+
+installxmpppy()
+{
+    easy_install xmpppy
+}
+
 setulimits()
 {
     cat <<EOF | tee /etc/security/limits.conf || exit 1
@@ -1019,6 +1024,10 @@ keygen()
 #    ssh-copy-id -i /root/.ssh/id_rsa.pub root@localhost
 }
 
+installcelery()
+{
+  easy_install -U Celery
+}
 
 installrabbitmq()
 {
