@@ -55,8 +55,6 @@ class TestXMPP(unittest.TestCase):
       .and_return(fake_xmpp_message)
 
     # set up a fake xmpp client
-    # TODO(cgb): what should connect return?
-    # TODO(cgb): what should auth return?
     fake_xmpp_client = flexmock(name='xmpp')
     fake_xmpp_client.should_receive('connect').with_args(secure=False) \
       .and_return()
@@ -106,8 +104,6 @@ class TestXMPP(unittest.TestCase):
       typ=self.message_type).and_return(fake_xmpp_message)
 
     # set up a fake xmpp client
-    # TODO(cgb): what should connect return?
-    # TODO(cgb): what should auth return?
     fake_xmpp_client = flexmock(name='xmpp')
     fake_xmpp_client.should_receive('connect').with_args(secure=False) \
       .and_return()
