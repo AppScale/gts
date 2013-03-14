@@ -284,28 +284,6 @@ class EC2Agent(BaseAgent):
     for instance in terminated_instances:
       utils.log('Instance {0} was terminated'.format(instance.id))
 
-  def get_optimal_spot_price(self, conn, instance_type):
-    """
-    Returns the spot price for an EC2 instance of the specified instance type.
-    The returned value is computed by averaging all the spot price history values
-    returned by the back-end EC2 APIs and incrementing the average by extra 20%.
-
-    Args:
-      instance_type An EC2 instance type
-
-    Returns:
-      The estimated spot price for the specified instance type
-    """
-    history = conn.get_spot_price_history(product_description='Linux/UNIX',
-      instance_type=instance_type)
-    sum = 0.0
-    for entry in history:
-      sum += entry.price
-    average = sum / len(history)
-    plus_twenty = average * 1.20
-    utils.log('The average spot instance price for a {0} machine is {1}, '\
-              'and 20% more is {2}'.format(instance_type, average, plus_twenty))
-    return plus_twenty
 
   def open_connection(self, parameters):
     """

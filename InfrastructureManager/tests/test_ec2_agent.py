@@ -41,17 +41,6 @@ class TestEC2Agent(TestCase):
   def test_euca_terminate_instances(self):
     self.terminate_instances('euca', False)
 
-  def test_spot_price_estimation(self):
-    (flexmock(EC2Connection)
-      .should_receive('get_spot_price_history')
-      .and_return([self.spot_price(0.1, '100'),self.spot_price(0.1, '100'),
-                   self.spot_price(0.2, '100'), self.spot_price(0.3, '100'),
-                   self.spot_price(0.2, '100'),self.spot_price(0.3, '100')]))
-    factory = InfrastructureAgentFactory()
-    agent = factory.create_agent('ec2')
-    self.assertEqual('{0:.2f}'.format(0.2 * 1.2),
-      '{0:.2f}'.format(agent.get_optimal_spot_price(EC2Connection('',''), 'm1.large')))
-
   def spot_price(self, price, ts):
     spot_price = SpotPriceHistory()
     spot_price.price = price
