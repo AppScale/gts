@@ -118,7 +118,7 @@ from google.appengine.datastore import datastore_stub_util
 from google.appengine import dist
 
 # Modified for AppScale
-from google.appengine.api.taskqueue import taskqueue_rabbitmq
+from google.appengine.api.taskqueue import taskqueue_distributed
 from google.appengine.api import mail_stub
 from google.appengine.api.blobstore import blobstore_stub
 # AppScale files
@@ -3587,12 +3587,7 @@ def SetupStubs(app_id, **config):
   hash_secret = hashlib.sha1(app_id + '/'+ cookie_secret).hexdigest()
   apiproxy_stub_map.apiproxy.RegisterStub(
       'taskqueue',
-      taskqueue_rabbitmq.TaskQueueServiceStub(
-          root_path=root_path,
-          auto_task_running=(not disable_task_running),
-          task_retry_seconds=task_retry_seconds,
-          default_http_server='%s:%s' % (serve_address, serve_port), 
-                               app_id=app_id, hash_secret=hash_secret))
+      taskqueue_distributed.TaskQueueServiceStub(app_id, serve_address, serve_port))
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'urlfetch',
@@ -3920,8 +3915,8 @@ def CreateServer(root_path,
                                        static_caching,
                                        default_partition,
                                        persist_logs,
-                                       interactive_console)
-
+                                       interactive_console,
+                                       secret_hash=secret_hash)
 
   if absolute_root_path not in python_path_list:
 

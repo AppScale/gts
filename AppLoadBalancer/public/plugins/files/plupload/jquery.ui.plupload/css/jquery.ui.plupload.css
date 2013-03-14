@@ -1,0 +1,193 @@
+/* 
+   Plupload
+------------------------------------------------------------------- */
+.plupload_buttons{margin-top:-3px;}
+.plupload_button {
+	display: -moz-inline-box; /* FF < 3*/
+	display: inline-block;
+	text-decoration: none;
+    color: #42454a;
+    border: 1px solid #c4c4c4;
+    padding: 4px 8px 4px 25px;
+	margin-right: 4px;
+    background: #fff;
+	outline: 0;
+	background: url(../../images/arrowr.png) no-repeat 5px 5px;;
+    /* Optional rounded corners for browsers that support it */
+    -moz-border-radius: 2px;
+    -khtml-border-radius: 2px;
+    -webkit-border-radius: 2px;
+    border-radius: 2px;
+}
+
+.plupload_button:hover {
+	color: #000;
+	text-decoration: none;
+}
+
+.plupload_disabled, a.plupload_disabled:hover {
+    color: #737373;
+    border-color: #c5c5c5;
+    background: #ededed url(../../images/arrowr.png) no-repeat 5px 5px;
+	cursor: default;
+}
+
+.plupload_add {
+	background: url(../../images/plus.png) no-repeat 5px 5px;
+}
+
+.plupload_wrapper {
+	width: 100%;
+}
+
+.plupload_container {
+	padding:0px;
+	background: transparent;
+	/*-moz-border-radius: 5px;*/
+}
+
+.plupload_container input {
+	border: 1px solid #dadee2;
+	font-size: 11px;
+	width: 98%;
+}
+
+.plupload_header {
+ background: url(../../../../images/patterns/2.png) repeat;
+  
+}
+.plupload_header_content {
+	background: url(../../images/cloud-upload.png) no-repeat 16px center;
+	min-height: 56px;
+	padding-left: 60px;
+	text-align:left;
+	border: none;
+	border-bottom:none;
+}
+.plupload_header_title {
+	font-size:18px;
+	padding: 6px 0 3px;
+}
+.plupload_header_text {
+	font-size:12px;
+}
+
+.plupload_filelist {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	background: #f8f8f8;
+ 
+}
+
+.plupload_scroll .plupload_filelist {
+	height: 185px;
+	background: #F5F5F5;
+	overflow-y: scroll;
+}
+
+.plupload_filelist li {
+	padding: 10px 8px;
+	border-bottom: 1px solid #dddddd;
+}
+
+.plupload_filelist_header, .plupload_filelist_footer {
+	padding: 8px 8px;
+	color: #42454A;
+	background: rgb(255,255,255);
+	background: url(data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiA/Pgo8c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgdmlld0JveD0iMCAwIDEgMSIgcHJlc2VydmVBc3BlY3RSYXRpbz0ibm9uZSI+CiAgPGxpbmVhckdyYWRpZW50IGlkPSJncmFkLXVjZ2ctZ2VuZXJhdGVkIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgeDE9IjAlIiB5MT0iMCUiIHgyPSIwJSIgeTI9IjEwMCUiPgogICAgPHN0b3Agb2Zmc2V0PSIxJSIgc3RvcC1jb2xvcj0iI2ZmZmZmZiIgc3RvcC1vcGFjaXR5PSIxIi8+CiAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiNmM2YzZjMiIHN0b3Atb3BhY2l0eT0iMSIvPgogIDwvbGluZWFyR3JhZGllbnQ+CiAgPHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9IjEiIGhlaWdodD0iMSIgZmlsbD0idXJsKCNncmFkLXVjZ2ctZ2VuZXJhdGVkKSIgLz4KPC9zdmc+);
+	background: -moz-linear-gradient(top,  rgba(255,255,255,1) 1%, rgba(243,243,243,1) 100%);
+	background: -webkit-gradient(linear, left top, left bottom, color-stop(1%,rgba(255,255,255,1)), color-stop(100%,rgba(243,243,243,1)));
+	background: -webkit-linear-gradient(top,  rgba(255,255,255,1) 1%,rgba(243,243,243,1) 100%);
+	background: -o-linear-gradient(top,  rgba(255,255,255,1) 1%,rgba(243,243,243,1) 100%);
+	background: -ms-linear-gradient(top,  rgba(255,255,255,1) 1%,rgba(243,243,243,1) 100%);
+	background: linear-gradient(top,  rgba(255,255,255,1) 1%,rgba(243,243,243,1) 100%);
+	filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#ffffff', endColorstr='#f3f3f3',GradientType=0 );
+}
+.plupload_filelist_header {	
+	border-top: 1px solid #c4c4c4;
+	border-bottom: 1px solid #c4c4c4;
+}
+
+.plupload_filelist_footer {
+	border-top: 1px solid #c4c4c4;
+	height: 25px; 
+	vertical-align: middle;
+}
+.plupload_file_name {float: left; /*overflow: hidden;*/ padding:2px;}
+.plupload_file_status {color: #777;}
+.plupload_file_status span {color: #42454A;}
+.plupload_file_size, .plupload_file_status, .plupload_progress {
+	float: right;
+	width: 80px;
+}
+.plupload_file_size, .plupload_file_status, .plupload_file_action {text-align: right;}
+
+.plupload_filelist .plupload_file_name {width: 205px}
+
+.plupload_file_action {
+	float: right;
+	width: 16px;
+	height: 16px;
+	margin-left: 15px;
+}
+
+.plupload_file_action * {
+	display: none;
+	width: 16px;
+	height: 16px;
+}
+
+li.plupload_uploading {background: #ECF3DC;}
+li.plupload_done {color:#AAA}
+
+li.plupload_delete a {
+	background: url(../../images/cancel3.png) no-repeat;
+}
+
+li.plupload_failed a {
+	background: url(../../images/info.png) no-repeat;
+	cursor: default;
+}
+
+li.plupload_done a {
+	background: url(../../images/check.png) no-repeat;
+	cursor: default;
+}
+
+.plupload_progress, .plupload_upload_status {
+	display: none;
+}
+
+.plupload_progress_container {
+	margin-top: 6px;
+	border: 1px solid #dadee2;
+	background: #FFF;
+	padding: 1px;
+}
+.plupload_progress_bar {
+	width: 0px;
+	height: 10px;
+	background: #CDEB8B;
+}
+
+.plupload_scroll .plupload_filelist_header .plupload_file_action, .plupload_scroll .plupload_filelist_footer .plupload_file_action {
+	margin-right: 17px;
+}
+
+/* Floats */
+
+.plupload_clear,.plupload_clearer {clear: both;}
+.plupload_clearer, .plupload_progress_bar {
+	display: block;
+	font-size: 0;
+	line-height: 0;	
+}
+
+li.plupload_droptext {
+	background: transparent;
+	text-align: center;
+	vertical-align: middle;
+	border: 0;
+	line-height: 165px;
+}

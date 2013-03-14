@@ -50,7 +50,7 @@ class DjinnJobData
     appscale_jobs += ["login"]
     appscale_jobs += ["memcache"]
     appscale_jobs += ["open"]
-    appscale_jobs += ["rabbitmq_master", "rabbitmq_slave"]
+    appscale_jobs += ["taskqueue_master", "taskqueue_slave"]
     appscale_jobs += ["babel_master", "babel_slave"]
     appscale_jobs += ["appengine"] # appengine must go last
     
@@ -84,17 +84,14 @@ class DjinnJobData
   def serialize
     keyname = @ssh_key.split("/")[-1]
     serialized = "#{@public_ip}:#{@private_ip}:#{@jobs.join(':')}:#{@instance_id}:#{@cloud}:#{keyname}"
-    Djinn.log_debug("Serialized current node to #{serialized}")
     return serialized
   end
 
 
   def self.deserialize(serialized)
-    Djinn.log_debug("serialized is [#{serialized}]")
     split_data = serialized.split(":")
     roles = split_data[0..-2].join(":")
     keyname = split_data[-1].split(".")[0]
-    Djinn.log_debug("Current roles are [#{roles}] and keyname is [#{keyname}]")
     return DjinnJobData.new(roles, keyname)
   end
 

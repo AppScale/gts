@@ -1,17 +1,70 @@
-<div id="nav">
-  <ul>
-    <li class="tab <%= highlight_active 'home' %>"><%= link_to "Home", :controller => :landing, :action => :index %></li>
+   <div id="header">
+        <div class="navbar">
+            <div class="navbar-inner">
+              <div class="container-fluid">
+                <span style="a {color: black;}" class="brand"><%= link_to "AppScale", :controller => :landing, :action => :index %><span class="slogan icon32 icomoon-icon-cloud"></span></span>
+                <div class="nav-no-collapse">
+                    <ul style="padding-right: 2.5%;" class="nav pull-right usernav">
+                        <% if logged_in? %>
+                          <h3>User: <%=h user_email %> |
+                          <%= link_to "Logout", :controller => :users, :action => :logout %></h3><br />
+                        <% else %>
+                          <h3><%= link_to "Login", :controller => :users, :action => :login %> |     
+                          <%= link_to "Create Account", :controller => :users, :action => :new %></h3>
+                        <% end %>
+                    </ul><!--close drop down-->
 
-    <% if i_can_has_upload? %>
-      <li class="tab <%= highlight_active 'upload' %>"><%= link_to "Upload App", :controller => :apps, :action => :new %></li>
-      <li class="tab <%= highlight_active 'delete' %>"><%= link_to "Delete App", :controller => :apps, :action => :delete %></li>
-    <% end %>
+                </div><!-- /.nav-collapse -->
+              </div>
+            </div><!-- /navbar-inner -->
+          </div><!-- /navbar --> 
 
-    <li class="tab <%= highlight_active 'status' %>"><%= link_to "Status", :controller => :status, :action => :cloud %></li>
+    </div><!-- End #header -->
 
-    <% if is_user_cloud_admin %>
-      <li class="tab <%= highlight_active 'authorize' %>"><%= link_to "Authorize", :controller => :authorize, :action => :cloud %></li>
-    <% end %>
+    <div id="wrapper">
 
-  </ul>
-</div>
+        <!--Responsive navigation button-->  
+        <div class="resBtn">
+            <a href="#"><span class="icon16 minia-icon-list-3"></span></a>
+        </div>
+
+        <!--Sidebar background-->
+        <div id="sidebarbg"></div>
+        <!--Sidebar content-->
+        <div id="sidebar">
+
+            <div class="shortcuts">
+                <ul>
+                    <li><a href="http://appscale.com" title="Support" class="tip"><span class="icon24 icomoon-icon-support"></span></a></li>
+                </ul>
+            </div><!-- End search -->            
+
+            <div class="sidenav">
+
+                <div class="sidebar-widget" style="width: 210px; margin: -1px 0 0 0;">
+                    <h5 class="title" align="center" style="margin-bottom:0">Navigation</h5>
+                </div><!-- End .sidenav-widget -->
+
+                <div align="center" class="mainnav">
+                    <ul>
+                            <li align="center" class="tab <%= highlight_active 'status' %>"><%= link_to "Cloud Status", :controller => :status, :action => :cloud %></li>
+
+                            <% if is_user_cloud_admin %>
+                              <li align="center" class="tab <%= highlight_active 'authorize' %>"><%= link_to "Authorize User", :controller => :authorize, :action => :cloud %></li>
+                            <% end %>
+                            <% if i_can_has_upload? %>
+                              <li align="center" class="tab <%= highlight_active 'upload' %>"><%= link_to "Upload App", :controller => :apps, :action => :new %></li>
+                              <li align="center" class="tab <%= highlight_active 'delete' %>"><%= link_to "Delete App", :controller => :apps, :action => :delete %></li>
+                            <% end %>
+
+                            
+
+                    </ul>
+                </div>
+            </div><!-- End sidenav -->
+
+        </div><!-- End #sidebar -->
+</div> <!--close wwrapper-->
+<!--Testing SFTP -->
+
+

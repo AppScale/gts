@@ -6,7 +6,6 @@ import java.io.File;
 import com.google.appengine.api.blobstore.dev.BlobInfoStorage;
 import com.google.appengine.api.blobstore.dev.BlobStorage;
 
-
 public class BlobStorageFactory
 {
     private static final BlobInfoStorage blobInfoStorage = new BlobInfoStorage();
