@@ -3,7 +3,8 @@ import sys
 import unittest
 from flexmock import flexmock
 
-sys.path.append("../../../../..")
+taskqueue = "{0}/../../../../..".format(os.path.dirname(__file__))
+sys.path.append(taskqueue)
 from google.appengine.api.taskqueue import taskqueue_distributed
 
 class FakeAddRequest():
