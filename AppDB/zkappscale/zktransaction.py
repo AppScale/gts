@@ -60,6 +60,9 @@ class ZKTransaction:
   STATE_FAILED = 2
   STATE_DONE = 3
 
+  # The number of times we should retry ZooKeeper operations, by default.
+  DEFAULT_NUM_RETRIES = 5
+
   def __init__(self, host = DEFAULT_HOST, startgc = True):
     # for the connection
     self.connectcv = threading.Condition()
@@ -226,6 +229,78 @@ class ZKTransaction:
   def __getIDRootPath(self, app_id, key):
     return PATH_SEPARATOR.join([self.__getAppRootPath(app_id), APP_ID_PATH, urllib.quote_plus(key)])
 
+
+  def create_node(self, path, value):
+    """ Creates a new node in ZooKeeper, with the given value.
+
+    Args:
+      path: The path to create the node at.
+      value: The value that we should store in the node.
+    Returns:
+      A str that ??    
+    Raises:
+      ZKTransactionException: If the sequence node couldn't be created.
+    """
+    retries_left = self.DEFAULT_NUM_RETRIES
+    while retries_left > 0:
+      try:
+        path = zookeeper.create(self.handle, 
+                                path,
+                                value, 
+                                ZOO_ACL_OPEN)
+        if path:
+          txn_id = long(path.split(PATH_SEPARATOR)[-1].lstrip(APP_TX_PREFIX))
+          if txn_id == 0:
+            # ID 0 is reserved for callers without IDs pre-set, so don't use that
+            # sentinel value for our IDs.
+            zookeeper.adelete(self.handle, path)
+          else:
+            return txn_id
+      except zookeeper.NoNodeException:
+        self.__forceCreatePath(rootpath)
+      finally:
+        retries_left -= 1
+    
+    raise ZKTransactionException("Unable to create sequence node with path" \
+      " {0}, value {1}".format(path, value))
+
+
+  def create_sequence_node(self, path, value):
+    """ Creates a new sequence node in ZooKeeper, with a non-zero initial ID.
+
+    Args:
+      path: The path to create the sequence node at.
+      value: The value that we should store in the sequence node.
+    Returns:
+      A long that represents the sequence ID.    
+    Raises:
+      ZKTransactionException: If the sequence node couldn't be created.
+    """
+    retries_left = self.DEFAULT_NUM_RETRIES
+    while retries_left > 0:
+      try:
+        txn_id_path = zookeeper.create(self.handle, 
+                                path,
+                                value, 
+                                ZOO_ACL_OPEN, 
+                                zookeeper.SEQUENCE)
+        if txn_id_path:
+          txn_id = long(txn_id_path.split(PATH_SEPARATOR)[-1].lstrip(APP_TX_PREFIX))
+          if txn_id == 0:
+            # ID 0 is reserved for callers without IDs pre-set, so don't use that
+            # sentinel value for our IDs.
+            zookeeper.adelete(self.handle, txn_id_path)
+          else:
+            return txn_id
+      except zookeeper.NoNodeException:
+        self.__forceCreatePath(rootpath)
+      finally:
+        retries_left -= 1
+    
+    raise ZKTransactionException("Unable to create sequence node with path" \
+      " {0}, value {1}".format(path, value))
+
+
   def get_transaction_id(self, app_id, is_xg):
     """Acquires a new id for an upcoming transaction.
 
@@ -244,44 +319,18 @@ class ZKTransaction:
     self.wait_for_connect()
     rootpath = self.get_transaction_root_path(app_id)
     value = str(time.time())
-    id = -1
+    txn_id = -1
     retry = True
     # First, make the ZK node for the actual transaction id.
-    while retry:
-      retry = False
-      path = None
-      try:
-        path = zookeeper.create(self.handle, 
-                                PATH_SEPARATOR.join([rootpath, APP_TX_PREFIX]), 
-                                value, 
-                                ZOO_ACL_OPEN, 
-                                zookeeper.SEQUENCE)
-        if path:
-          id = long(path.split(PATH_SEPARATOR)[-1].lstrip(APP_TX_PREFIX))
-          if id == 0:
-            # avoid id 0
-            zookeeper.adelete(self.handle, path)
-            retry = True
-      except zookeeper.NoNodeException:
-        self.__forceCreatePath(rootpath)
-        retry = True
+    # TODO(cgb): Make functions to generate the paths.
+    app_path = PATH_SEPARATOR.join([rootpath, APP_TX_PREFIX])
+    txn_id = self.create_sequence_node(app_path, value)
 
     # Next, make the ZK node that indicates if this a XG transaction.
     if is_xg:
-      retry = True
-      # First, make the ZK node for the actual transaction id.
-      while retry:
-        retry = False
-        path = None
-        try:
-          path = zookeeper.create(self.handle, 
-                                  PATH_SEPARATOR.join([rootpath, APP_TX_PREFIX, XG_PREFIX]), 
-                                  value, 
-                                  ZOO_ACL_OPEN)
-        except zookeeper.NoNodeException:
-          retry = True
+      self.create_node(PATH_SEPARATOR.join([app_path, str(txn_id), XG_PREFIX]), value)
 
-    return id
+    return txn_id
 
   def checkTransaction(self, app_id, txid):
     """ Get status of specified transaction.
