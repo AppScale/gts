@@ -34,13 +34,16 @@ class EC2Agent(BaseAgent):
   PARAM_INSTANCE_TYPE = 'instance_type'
   PARAM_KEYNAME = 'keyname'
   PARAM_INSTANCE_IDS = 'instance_ids'
+  PARAM_SPOT = 'use_spot_instances'
+  PARAM_SPOT_PRICE = 'max_spot_price'
 
   REQUIRED_EC2_RUN_INSTANCES_PARAMS = (
     PARAM_CREDENTIALS,
     PARAM_GROUP,
     PARAM_IMAGE_ID,
     PARAM_INSTANCE_TYPE,
-    PARAM_KEYNAME
+    PARAM_KEYNAME,
+    PARAM_SPOT
   )
 
   REQUIRED_EC2_TERMINATE_INSTANCES_PARAMS = (
@@ -177,7 +180,7 @@ class EC2Agent(BaseAgent):
     instance_type = parameters[self.PARAM_INSTANCE_TYPE]
     keyname = parameters[self.PARAM_KEYNAME]
     group = parameters[self.PARAM_GROUP]
-    spot = False
+    spot = parameters[self.PARAM_SPOT]
 
     utils.log('[{0}] [{1}] [{2}] [{3}] [ec2] [{4}] [{5}]'.format(count,
       image_id, instance_type, keyname, group, spot))
@@ -205,8 +208,8 @@ class EC2Agent(BaseAgent):
         attempts += 1
 
       conn = self.open_connection(parameters)
-      if spot:
-        price = self.get_optimal_spot_price(conn, instance_type)
+      if spot == 'True':
+        price = parameters[self.PARAM_SPOT_PRICE]
         conn.request_spot_instances(str(price), image_id, key_name=keyname,
           security_groups=[group], instance_type=instance_type, count=count)
       else:
@@ -281,28 +284,6 @@ class EC2Agent(BaseAgent):
     for instance in terminated_instances:
       utils.log('Instance {0} was terminated'.format(instance.id))
 
-  def get_optimal_spot_price(self, conn, instance_type):
-    """
-    Returns the spot price for an EC2 instance of the specified instance type.
-    The returned value is computed by averaging all the spot price history values
-    returned by the back-end EC2 APIs and incrementing the average by extra 20%.
-
-    Args:
-      instance_type An EC2 instance type
-
-    Returns:
-      The estimated spot price for the specified instance type
-    """
-    history = conn.get_spot_price_history(product_description='Linux/UNIX',
-      instance_type=instance_type)
-    sum = 0.0
-    for entry in history:
-      sum += entry.price
-    average = sum / len(history)
-    plus_twenty = average * 1.20
-    utils.log('The average spot instance price for a {0} machine is {1}, '\
-              'and 20% more is {2}'.format(instance_type, average, plus_twenty))
-    return plus_twenty
 
   def open_connection(self, parameters):
     """
