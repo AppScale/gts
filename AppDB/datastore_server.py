@@ -526,7 +526,7 @@ class DatastoreDistributed():
     """
     if size and max_id:
       raise ValueError("Both size and max cannot be set.")
-    txnid = self.zookeeper.getTransactionID(prefix)
+    txnid = self.zookeeper.get_transaction_id(prefix)
     try:
       self.zookeeper.acquireLock(prefix, txnid, self._ALLOCATE_ROOT_KEY)
       current_id = self.acquire_next_id_from_db(prefix)
@@ -2174,7 +2174,7 @@ class DatastoreDistributed():
     Returns:
       A long representing a unique transaction ID.
     """
-    return self.zookeeper.getTransactionID(app_id, is_xg)
+    return self.zookeeper.get_transaction_id(app_id, is_xg)
 
   def commit_transaction(self, app_id, http_request_data):
     """ Handles the commit phase of a transaction.

@@ -12,13 +12,13 @@ class TestZKTransaction(unittest.TestCase):
 
   def test_getTransactionId(self):
     app = "testapp"
-    id = self.zk.getTransactionID(app)
+    id = self.zk.get_transaction_id(app)
     self.assertTrue(id > 0)
 
   def test_locksimple(self):
     app = "testapp"
     key = "root"
-    txid = self.zk.getTransactionID(app)
+    txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
     ret = self.zk.acquireLock(app, txid, key)
     self.assertTrue(ret)
@@ -28,7 +28,7 @@ class TestZKTransaction(unittest.TestCase):
   def test_lockpathkey(self):
     app = "testapp"
     key = "/root/child"
-    txid = self.zk.getTransactionID(app)
+    txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
     ret = self.zk.acquireLock(app, txid, key)
     self.assertTrue(ret)
@@ -38,7 +38,7 @@ class TestZKTransaction(unittest.TestCase):
   def test_lockspecialcharapp(self):
     app = "!@#$%^&*()-=_+[]{}\\|~`;:\"',.<>/?"
     key = "!@#$%^&*()-=_+[]{}\\|~`;:\"',.<>/?"
-    txid = self.zk.getTransactionID(app)
+    txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
     ret = self.zk.acquireLock(app, txid, key)
     self.assertTrue(ret)
@@ -48,7 +48,7 @@ class TestZKTransaction(unittest.TestCase):
   def test_locklongkey(self):
     app = "testapp"
     key = "/root/child/looooooooooooooooooooooooooooooooooooooong"
-    txid = self.zk.getTransactionID(app)
+    txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
     ret = self.zk.acquireLock(app, txid, key)
     self.assertTrue(ret)
@@ -58,7 +58,7 @@ class TestZKTransaction(unittest.TestCase):
   def test_locktwice(self):
     app = "testapp"
     key = "root"
-    txid = self.zk.getTransactionID(app)
+    txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
     ret = self.zk.acquireLock(app, txid, key)
     self.assertTrue(ret)
@@ -71,7 +71,7 @@ class TestZKTransaction(unittest.TestCase):
     app = "testapp"
     key = "root"
     key2 = "root2"
-    txid = self.zk.getTransactionID(app)
+    txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
     ret = self.zk.acquireLock(app, txid, key)
     self.assertTrue(ret)
@@ -87,7 +87,7 @@ class TestZKTransaction(unittest.TestCase):
   def test_lockafterrelease(self):
     app = "testapp"
     key = "root"
-    txid = self.zk.getTransactionID(app)
+    txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
     ret = self.zk.acquireLock(app, txid, key)
     self.assertTrue(ret)
@@ -115,7 +115,7 @@ class TestZKTransaction(unittest.TestCase):
     app = "testapp"
     key = "root"
     for ii in range(1,1000):
-      txid = self.zk.getTransactionID(app)
+      txid = self.zk.get_transaction_id(app)
       self.assertTrue(txid > 0)
       ret = self.zk.acquireLock(app, txid, key)
       self.assertTrue(ret)
@@ -135,7 +135,7 @@ class TestZKTransaction(unittest.TestCase):
 
   def test_releasewithoutlock(self):
     app = "testapp"
-    txid = self.zk.getTransactionID(app)
+    txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
     ret = self.zk.releaseLock(app, txid)
     self.assertFalse(ret)
@@ -144,7 +144,7 @@ class TestZKTransaction(unittest.TestCase):
     app = "testapp"
     key = "root"
     key2 = "root2"
-    txid = self.zk.getTransactionID(app)
+    txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
     ret = self.zk.acquireLock(app, txid, key)
     self.assertTrue(ret)
@@ -239,7 +239,7 @@ class TestZKTransaction(unittest.TestCase):
   def __increaseA(self):
     app = "testapp"
     key = "roota"
-    txid = self.zk.getTransactionID(app)
+    txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
     while not self.zk.acquireLock(app, txid, key):
       time.sleep(0.1)
@@ -254,7 +254,7 @@ class TestZKTransaction(unittest.TestCase):
   def __increaseB(self):
     app = "testapp"
     key = "rootb"
-    txid = self.zk.getTransactionID(app)
+    txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
     while not self.zk.acquireLock(app, txid, key):
       time.sleep(0.1)
@@ -269,7 +269,7 @@ class TestZKTransaction(unittest.TestCase):
   def __decreaseA(self):
     app = "testapp"
     key = "roota"
-    txid = self.zk.getTransactionID(app)
+    txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
     while not self.zk.acquireLock(app, txid, key):
       time.sleep(0.1)
@@ -284,7 +284,7 @@ class TestZKTransaction(unittest.TestCase):
   def __decreaseB(self):
     app = "testapp"
     key = "rootb"
-    txid = self.zk.getTransactionID(app)
+    txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
     while not self.zk.acquireLock(app, txid, key):
       time.sleep(0.1)
@@ -299,7 +299,7 @@ class TestZKTransaction(unittest.TestCase):
   def __lockonlyB(self):
     app = "testapp"
     key = "rootb"
-    txid = self.zk.getTransactionID(app)
+    txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
     while not self.zk.acquireLock(app, txid, key):
       time.sleep(0.1)
@@ -316,7 +316,7 @@ class TestZKTransaction(unittest.TestCase):
 
     app = "testapp"
     key = "gctestkey"
-    txid = self.zk.getTransactionID(app)
+    txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
     ret = self.zk.acquireLock(app, txid, key)
     self.assertTrue(ret)
@@ -359,7 +359,7 @@ class TestZKTransaction(unittest.TestCase):
 
     app = "testapp"
     key = "gctestkey"
-    txid = self.zk.getTransactionID(app)
+    txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
     ret = self.zk.acquireLock(app, txid, key)
     self.assertTrue(ret)
@@ -436,7 +436,7 @@ class TestZKTransaction(unittest.TestCase):
   def test_rollback(self):
     app = "testapp"
     key = "root"
-    txid = self.zk.getTransactionID(app)
+    txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
     ret = self.zk.acquireLock(app, txid, key)
     self.assertTrue(ret)
@@ -453,7 +453,7 @@ class TestZKTransaction(unittest.TestCase):
   def test_updateafterrollback(self):
     app = "testapp"
     key = "root"
-    txid = self.zk.getTransactionID(app)
+    txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
     ret = self.zk.acquireLock(app, txid, key)
     self.assertTrue(ret)
@@ -464,7 +464,7 @@ class TestZKTransaction(unittest.TestCase):
     self.assertTrue(self.zk.isBlacklisted(app, txid))
 
     # update value after rollback
-    txid2 = self.zk.getTransactionID(app)
+    txid2 = self.zk.get_transaction_id(app)
     self.assertTrue(txid2 > 0)
     ret = self.zk.acquireLock(app, txid2, key)
     self.assertTrue(ret)

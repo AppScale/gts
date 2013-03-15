@@ -36,7 +36,7 @@ class TestDatastoreServer(unittest.TestCase):
     zookeeper = flexmock()
     zookeeper.should_receive("acquireLock").and_return(True)
     zookeeper.should_receive("releaseLock").and_return(True)
-    zookeeper.should_receive("getTransactionID").and_return(1)
+    zookeeper.should_receive("get_transaction_id").and_return(1)
     return zookeeper
 
   def test_get_entity_kind(self):
@@ -293,7 +293,7 @@ class TestDatastoreServer(unittest.TestCase):
     zookeeper = flexmock()
     zookeeper.should_receive("acquireLock").and_return(True)
     zookeeper.should_receive("releaseLock").and_return(True)
-    zookeeper.should_receive("getTransactionID").and_return(1)
+    zookeeper.should_receive("get_transaction_id").and_return(1)
 
     entity_proto1 = self.get_new_entity_proto("test", "test_kind", "bob", "prop1name", 
                                               "prop1val", ns="blah")
@@ -351,7 +351,7 @@ class TestDatastoreServer(unittest.TestCase):
     PREFIX = 'x!'
     zookeeper = flexmock()
     zookeeper.should_receive("acquireLock").and_return(True)
-    zookeeper.should_receive("getTransactionID").and_return(1).and_return(2)
+    zookeeper.should_receive("get_transaction_id").and_return(1).and_return(2)
     db_batch = flexmock()
     db_batch.should_receive("batch_put_entity").and_return(None)
     db_batch.should_receive("batch_get_entity").and_return({PREFIX:{}})
@@ -558,7 +558,7 @@ class TestDatastoreServer(unittest.TestCase):
     entity_proto1 = self.get_new_entity_proto("test", "test_kind", "nancy", "prop1name", 
                                               "prop2val", ns="blah")
     zookeeper = flexmock()
-    zookeeper.should_receive("getTransactionID").and_return(1)
+    zookeeper.should_receive("get_transaction_id").and_return(1)
     zookeeper.should_receive("getValidTransactionID").and_return(1)
     zookeeper.should_receive("registUpdatedKey").and_return(1)
     zookeeper.should_receive("acquireLock").and_return(True)
@@ -591,7 +591,7 @@ class TestDatastoreServer(unittest.TestCase):
 
   def test_reverse_path(self):
     zookeeper = flexmock()
-    zookeeper.should_receive("getTransactionID").and_return(1)
+    zookeeper.should_receive("get_transaction_id").and_return(1)
     zookeeper.should_receive("getValidTransactionID").and_return(1)
     zookeeper.should_receive("registUpdatedKey").and_return(1)
     zookeeper.should_receive("acquireLock").and_return(True)
