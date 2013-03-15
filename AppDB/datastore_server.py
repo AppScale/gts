@@ -637,7 +637,8 @@ class DatastoreDistributed():
     for row_key in ret:
       # Entities may not exist if this is the first put
       if dbconstants.APP_ENTITY_SCHEMA[0] in ret[row_key] and\
-              not ret[row_key][dbconstants.APP_ENTITY_SCHEMA[0]].startswith(TOMBSTONE):
+           not ret[row_key][dbconstants.APP_ENTITY_SCHEMA[0]].\
+           startswith(TOMBSTONE):
         ent = entity_pb.EntityProto()
         ent.ParseFromString(ret[row_key][dbconstants.APP_ENTITY_SCHEMA[0]])
         entities.append(ent)
@@ -704,8 +705,8 @@ class DatastoreDistributed():
         root_key = self.get_root_key_from_entity_key(row_key)
         valid_prev_version = self.zookeeper.getValidTransactionID(
                                     app_id, prev_version, row_key)
-        # Guard against re-registering the rollback version if we're updating the 
-        # same key repeatedly in a transaction.
+        # Guard against re-registering the rollback version if 
+        # we're updating the same key repeatedly in a transaction.
         if txn_hash[root_key] != valid_prev_version:
           self.zookeeper.registUpdatedKey(app_id, txn_hash[root_key], 
                                         valid_prev_version, row_key) 
@@ -1079,7 +1080,8 @@ class DatastoreDistributed():
                        dbconstants.APP_ENTITY_TABLE, 
                        row_keys, 
                        dbconstants.APP_ENTITY_SCHEMA) 
-    result = self.validated_result(key.app(), 
+    if len(key_list) != 0:
+      result = self.validated_result(key_list[0].app(), 
                   result, current_ongoing_txn=current_txnid)
     result = self.remove_tombstoned_entities(result)
     return (result, row_keys)
