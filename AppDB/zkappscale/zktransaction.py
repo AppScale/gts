@@ -236,28 +236,16 @@ class ZKTransaction:
     Args:
       path: The path to create the node at.
       value: The value that we should store in the node.
-    Returns:
-      A str that ??    
     Raises:
       ZKTransactionException: If the sequence node couldn't be created.
     """
     retries_left = self.DEFAULT_NUM_RETRIES
     while retries_left > 0:
       try:
-        path = zookeeper.create(self.handle, 
-                                path,
-                                value, 
-                                ZOO_ACL_OPEN)
-        if path:
-          txn_id = long(path.split(PATH_SEPARATOR)[-1].lstrip(APP_TX_PREFIX))
-          if txn_id == 0:
-            # ID 0 is reserved for callers without IDs pre-set, so don't use that
-            # sentinel value for our IDs.
-            zookeeper.adelete(self.handle, path)
-          else:
-            return txn_id
+        zookeeper.create(self.handle, path, value, ZOO_ACL_OPEN)
+        return
       except zookeeper.NoNodeException:
-        self.__forceCreatePath(rootpath)
+        self.__forceCreatePath(path)
       finally:
         retries_left -= 1
     
