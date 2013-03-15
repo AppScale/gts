@@ -818,7 +818,7 @@ class DatastoreDistributed():
     root_keys = list(set(root_keys))
     try:
       for root_key in root_keys: 
-        txnid = self.setup_transaction(app_id)
+        txnid = self.setup_transaction(app_id, is_xg=False)
         txn_hash[root_key] = txnid
         self.zookeeper.acquireLock(app_id, txnid, root_key)
     except ZKTransactionException, zkte:
@@ -2164,15 +2164,17 @@ class DatastoreDistributed():
     cur = cassandra_stub_util.QueryCursor(query, result)
     cur.PopulateQueryResult(count, query.offset(), query_result) 
 
-  def setup_transaction(self, app_id):
+  def setup_transaction(self, app_id, is_xg):
     """ Gets a transaction ID for a new transaction.
 
     Args:
       app_id: The application for which we are getting a new transaction ID.
+      is_xg: A bool that indicates if this transaction operates over multiple
+        entity groups.
     Returns:
       A long representing a unique transaction ID.
     """
-    return self.zookeeper.getTransactionID(app_id)
+    return self.zookeeper.getTransactionID(app_id, is_xg)
 
   def commit_transaction(self, app_id, http_request_data):
     """ Handles the commit phase of a transaction.
@@ -2312,7 +2314,7 @@ class MainHandler(tornado.web.RequestHandler):
       response, errcode, errdetail = self.run_query(http_request_data)
     elif method == "BeginTransaction":
       response, errcode, errdetail = self.begin_transaction_request(
-                                                      app_id)
+                                                      app_id, http_request_data)
     elif method == "Commit":
       response, errcode, errdetail = self.commit_transaction_request(
                                                       app_id,
@@ -2359,7 +2361,7 @@ class MainHandler(tornado.web.RequestHandler):
 
     self.write(apiresponse.Encode())
 
-  def begin_transaction_request(self, app_id):
+  def begin_transaction_request(self, app_id, http_request_data):
     """ Handles the intial request to start a transaction. Replies with 
         a unique identifier to handle this transaction in future requests.
   
@@ -2370,8 +2372,13 @@ class MainHandler(tornado.web.RequestHandler):
       An encoded transaction protocol buffer with a unique handler.
     """
     global datastore_access
+    begin_transaction_req_pb = datastore_pb.BeginTransactionRequest(http_request_data)
+    multiple_eg = False
+    if begin_transaction_request_pb.has_allow_multiple_eg():
+      multiple_eg = begin_transaction_request_pb.allow_multiple_eg()
+
     transaction_pb = datastore_pb.Transaction()
-    handle = datastore_access.setup_transaction(app_id)
+    handle = datastore_access.setup_transaction(app_id, multiple_eg)
     transaction_pb.set_app(app_id)
     transaction_pb.set_handle(handle)
     return (transaction_pb.Encode(), 0, "")

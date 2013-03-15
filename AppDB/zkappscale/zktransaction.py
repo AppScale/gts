@@ -147,7 +147,7 @@ class ZKTransaction:
       while not self.connected:
         self.connectcv.wait(10.0)
 
-  def __forceCreatePath(self, path, value = "default"):
+  def __forceCreatePath(self, path, value="default"):
     """ Try to create path first.
 
     If the parent doesn't exists, this method will try to create it.
@@ -157,7 +157,7 @@ class ZKTransaction:
     while retry:
       retry = False
       try:
-        zookeeper.create(self.handle, path, str(value), ZOO_ACL_OPEN)
+        zookeeper.create(self.handle, path, str(value), ZOO_ACL_OPEN, NODE_TYPE)
       except zookeeper.NoNodeException:
         retry = self.__forceCreatePath(PATH_SEPARATOR.join(path.split(PATH_SEPARATOR)[:-1]), value)
       except zookeeper.NodeExistsException:
@@ -225,19 +225,27 @@ class ZKTransaction:
   def __getIDRootPath(self, app_id, key):
     return PATH_SEPARATOR.join([self.__getAppRootPath(app_id), APP_ID_PATH, urllib.quote_plus(key)])
 
-  def getTransactionID(self, app_id):
-    """ Get new transaction ID for transaction.
+  def getTransactionID(self, app_id, is_xg):
+    """Acquires a new id for an upcoming transaction.
 
-    This function only create transaction ID, and you must lock
-    particular root entity using acquireLock().
-    The ID is long number.
-    The transaction will expire in 30 seconds.
+    Note that the caller must lock particular root entities using acquireLock,
+    and that the transaction ID expires after a constant amount of time.
+
+    Args:
+      app_id: A str representing the application we want to perform a
+        transaction on.
+      is_xg: A bool that indicates if this transaction operates across multiple
+        entity groups.
+
+    Returns:
+      A long that represents the new transaction ID.
     """
     self.__waitForConnect()
     rootpath = self.__getTransactionRootPath(app_id)
     value = str(time.time())
     id = -1
     retry = True
+    # First, make the ZK node for the actual transaction id.
     while retry:
       retry = False
       path = None
@@ -256,6 +264,10 @@ class ZKTransaction:
       except zookeeper.NoNodeException:
         self.__forceCreatePath(rootpath)
         retry = True
+
+    # Next, make the ZK node that indicates if this a XG transaction.
+    if is_xg:
+      self.__forceCreatePath(self, path, value=is_xg)
 
     return id
 

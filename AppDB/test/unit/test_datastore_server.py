@@ -605,5 +605,10 @@ class TestDatastoreServer(unittest.TestCase):
     key = "Project:Synapse!Module:Core!"
     self.assertEquals(dd.reverse_path(key), "Module:Core!Project:Synapse!")
 
+
+  def test_xg_transaction(self):
+    pass
+
+
 if __name__ == "__main__":
   unittest.main()    
