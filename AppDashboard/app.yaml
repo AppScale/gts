@@ -1,0 +1,34 @@
+application: dashboard
+version: 1
+runtime: python27
+api_version: 1
+threadsafe: true
+
+handlers:
+- url: /css
+  static_dir: static/css
+
+- url: /images
+  static_dir: static/images
+
+- url: /javascripts
+  static_dir: static/javascripts
+
+- url: /js
+  static_dir: static/js
+
+- url: /plugins
+  static_dir: static/plugins
+
+- url: /stylesheets
+  static_dir: static/stylesheets
+
+- url: /robots.txt
+  static_dir: static/robots.txt
+
+- url: /.*
+  script: dashboard.app
+
+libraries:
+- name: jinja2
+  version: latest
