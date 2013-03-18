@@ -117,8 +117,6 @@ class ZKTransaction:
         for timed out transactions.
     """
     # Connection instance variables.
-    # TODO can we have a pool for connections to prevent this from being a 
-    # single thread.
     self.connect_cv = threading.Condition()
     self.connected = False
     self.handle = zookeeper.init(host, self.receive_and_notify)
