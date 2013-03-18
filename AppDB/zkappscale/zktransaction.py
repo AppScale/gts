@@ -425,10 +425,12 @@ class ZKTransaction:
     return True
 
   def is_in_transaction(self, app_id, txid):
-    """ Get status of specified transaction.
+    """ Checks to see if the named transaction is currently running.
 
-    Returns: True - If transaction is alive.
-    Raises: ZKTransactionException - If transaction is timeout or not exist.
+    Returns:
+      True if the transaction is in progress, and False otherwise.
+    Raises:
+      ZKTransactionException: If the transaction is blacklisted.
     """
     self.wait_for_connect()
     txpath = self.get_transaction_path(app_id, txid)

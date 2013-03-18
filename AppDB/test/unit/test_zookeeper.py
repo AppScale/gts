@@ -137,8 +137,32 @@ class TestZookeeperTransaction(unittest.TestCase):
     self.assertEquals(expected, transaction.get_xg_path("xxx", 100))
 
   def test_is_in_transaction(self):
-    # TODO: write me!
-    pass
+    # shared mocks
+    flexmock(zk.ZKTransaction)
+    zk.ZKTransaction.should_receive('wait_for_connect')
+    zk.ZKTransaction.should_receive('get_transaction_path') \
+      .and_return('/transaction/path')
+
+    flexmock(zookeeper)
+    zookeeper.should_receive('init').and_return(self.handle)
+
+    # test when the transaction is running
+    zk.ZKTransaction.should_receive('is_blacklisted').and_return(False)
+    zookeeper.should_receive('exists').and_return(True)
+    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    self.assertEquals(True, transaction.is_in_transaction(self.appid, 1))
+
+    # and when it's not
+    zk.ZKTransaction.should_receive('is_blacklisted').and_return(False)
+    zookeeper.should_receive('exists').and_return(False)
+    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    self.assertEquals(False, transaction.is_in_transaction(self.appid, 1))
+
+    # and when it's blacklisted
+    zk.ZKTransaction.should_receive('is_blacklisted').and_return(True)
+    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    self.assertRaises(zk.ZKTransactionException, transaction.is_in_transaction,
+      self.appid, 1)
 
   def test_acquire_lock(self):
     # mock out waitForConnect
