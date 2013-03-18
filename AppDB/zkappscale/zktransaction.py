@@ -571,59 +571,41 @@ class ZKTransaction:
         "get_updated_key_list: Transaction ID %d is not valid." % txid)
 
   def release_lock(self, app_id, txid, entity_key=None):
-    """ Release acquired lock.
+    """ Releases acquired lock(s).
 
-    You must call acquire_lock() first.
-    if the transaction is not valid or it is expired, this raises Exception.
-    After the release lock, you could not use transaction ID again.
+    You must call acquire_lock() first. If the transaction is not 
+    valid or it is expired, then this raises an Exception.  After the 
+    lock is released, you can no longer use transaction ID again.
     If there is no lock, this method returns False.
     Args:
       app_id: The application ID we are releasing a lock for.
       txid: The transaction ID we are releasing a lock for.
       entity_key: The entity key we use to build the path.
     Returns:
-      True on success.
+      True on success, false otherwise.
     Raises:
       ZKTransactionException: When a lock can not be released. 
     """
     self.wait_for_connect()
     self.check_transaction(app_id, txid)
     txpath = self.get_transaction_path(app_id, txid)
+     
+    transaction_lock_path = self.get_transaction_lock_path(app_id, txid)
+    lock_list_str = zookeeper.get(self.handle, transaction_lock_path, None)[0]
+    lock_list = lock_list_str.split(LOCK_LIST_SEPARATOR)
+    for lock_path in lock_list:
+      zookeeper.adelete(self.handle, lock_path)
+    zookeeper.delete(self.handle, transaction_lock_path)
 
-    has_lock = False
-    try:
-      transaction_lock_path = get_transaction_lock_path(app_id, txid)
-      lockpath = zookeeper.get(self.handle, transaction_lock_path, None)[0]
-      if key:
-        lockroot = self.get_lock_root_path(app_id, entity_key)
-        if not lockroot == lockpath:
-          # If we're in a XG transaction, there could be more than one lock. In
-          # that case, release all of them.
-          if self.is_xg(app_id, txid):
-            zookeeper.adelete(self.handle, lockroot)
-          else:
-            raise ZKTransactionException(
-              ZKTransactionException.TYPE_DIFFERENT_ROOTKEY, 
-              "release_lock: You can't specify different root entity to " + \
-                "release in a non-XG transaction.")
-      zookeeper.adelete(self.handle, lockpath)
-      has_lock = True
-    except zookeeper.NoNodeException:
-      # there is no lock.
-      pass
-    # If the transaction doesn't have active lock or not, we should delete it.
-    # delete transaction node
+    if self.is_xg(app_id, txid):
+      xg_path = self.get_xg_path(app_id, txid)
+      zookeeper.adelete(self.handle, xg_path)
+
     for child in zookeeper.get_children(self.handle, txpath):
       zookeeper.adelete(self.handle, PATH_SEPARATOR.join([txpath, child]))
 
-    # Finally, if we're in a XG transaction, clean up the XG node.
-    xg_path = PATH_SEPARATOR.join([txpath, XG_PREFIX])
-    if zookeeper.exists(self.handle, xg_path):
-      zookeeper.adelete(self.handle, xg_path)
-
+    # This delets the transaction root path.
     zookeeper.adelete(self.handle, txpath)
-
-    return has_lock
 
   def is_blacklisted(self, app_id, txid):
     """ This validate transaction id with black list.

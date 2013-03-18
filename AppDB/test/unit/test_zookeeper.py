@@ -24,7 +24,6 @@ class TestZookeeperTransaction(unittest.TestCase):
     self.appid = 'appid'
     self.handle = None
 
-
   def test_create_sequence_node(self):
     # mock out getTransactionRootPath
     flexmock(zk.ZKTransaction)
@@ -291,6 +290,10 @@ class TestZookeeperTransaction(unittest.TestCase):
     zookeeper.should_receive('exists').and_return(True)
     transaction = zk.ZKTransaction(host="something", start_gc=False)
     self.assertEquals(True, transaction.is_xg(self.appid, 1))
+
+  def test_release_lock(self):
+    #TODO 
+    pass
  
 if __name__ == "__main__":
   unittest.main()    
