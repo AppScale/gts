@@ -570,7 +570,7 @@ class ZKTransaction:
       raise ZKTransactionException(ZKTransactionException.TYPE_INVALID, 
         "get_updated_key_list: Transaction ID %d is not valid." % txid)
 
-  def release_lock(self, app_id, txid, key=None):
+  def release_lock(self, app_id, txid, entity_key=None):
     """ Release acquired lock.
 
     You must call acquire_lock() first.
@@ -580,7 +580,7 @@ class ZKTransaction:
     Args:
       app_id: The application ID we are releasing a lock for.
       txid: The transaction ID we are releasing a lock for.
-      key: The entity key we use to build the path.
+      entity_key: The entity key we use to build the path.
     Returns:
       True on success.
     Raises:
@@ -592,17 +592,14 @@ class ZKTransaction:
 
     has_lock = False
     try:
-      lockpath = zookeeper.get(self.handle, PATH_SEPARATOR.join([txpath,
-        TX_LOCK_PATH]), None)[0]
+      transaction_lock_path = get_transaction_lock_path(app_id, txid)
+      lockpath = zookeeper.get(self.handle, transaction_lock_path, None)[0]
       if key:
-        lockroot = self.get_lock_root_path(app_id, key)
+        lockroot = self.get_lock_root_path(app_id, entity_key)
         if not lockroot == lockpath:
           # If we're in a XG transaction, there could be more than one lock. In
           # that case, release all of them.
-          # TODO(cgb): This would seem to work fine for two locks, but not more
-          # than two. Fix accordingly.
-          xg_path = PATH_SEPARATOR.join([txpath, XG_PREFIX])
-          if zookeeper.exists(self.handle, xg_path):
+          if self.is_xg(app_id, txid):
             zookeeper.adelete(self.handle, lockroot)
           else:
             raise ZKTransactionException(
