@@ -299,10 +299,10 @@ class ZKTransaction:
     """ Gets the XG path for a transaction.
   
     Args:
-      app_id: The application ID to acquire a lock for.
-      txid: The transaction ID you are acquiring a lock for. Built into 
+      app_id: The application ID whose XG path we want.
+      tx_id: The transaction ID whose XG path we want.
     Returns:
-      A str representing the XG path of a transaction.
+      A str representing the XG path for the given transaction.
     """ 
     txstr = APP_TX_PREFIX + "%010d" % tx_id
     return PATH_SEPARATOR.join([self.get_app_root_path(app_id), APP_TX_PATH, 
@@ -465,18 +465,20 @@ class ZKTransaction:
     return True
 
 
-
   def is_xg(self, app_id, tx_id):
-    """ Checks to see if the transaction is XG.
+    """ Checks to see if the transaction can operate over multiple entity
+      groups.
 
     Args:
-      app_id: The application ID to acquire a lock for.
-      txid: The transaction ID you are acquiring a lock for. Built into 
-    Return:
-      True if the transaction is XG, false otherwise.
+      app_id: The application ID that the transaction operates over.
+      tx_id: The transaction ID that may or may not be XG.
+    Returns:
+      True if the transaction is XG, False otherwise.
     """
-    return zookeeper.exists(self.handle, PATH_SEPARATOR.join([app_path, str(txn_id), XG_PREFIX]))
- 
+    return zookeeper.exists(self.handle, PATH_SEPARATOR.join([app_path,
+      str(tx_id), XG_PREFIX]))
+
+
   def acquire_lock(self, app_id, txid, entity_key=GLOBAL_LOCK_KEY):
     """ Acquire lock for transaction. It will acquire additional locks
     if the transactions is XG.
@@ -488,7 +490,7 @@ class ZKTransaction:
     Args:
       app_id: The application ID to acquire a lock for.
       txid: The transaction ID you are acquiring a lock for. Built into 
-            the path. 
+        the path. 
        entity_key: Used to get the root path.
     Raises:
       ZKTransactionException: If it could not get the lock.
