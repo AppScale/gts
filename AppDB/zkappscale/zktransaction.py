@@ -117,7 +117,7 @@ class ZKTransaction:
     self.connected = False
     self.handle = zookeeper.init(host, self.receive_and_notify)
     # for blacklist cache
-    self.blacklistcv = threading.Condition()
+    self.blacklist_cv = threading.Condition()
     self.blacklistcache = {}
     # for gc
     self.gc_running = False
@@ -176,11 +176,11 @@ class ZKTransaction:
         try:
           blist = zookeeper.get_children(self.handle, path,
             self.receive_and_notify)
-          with self.blacklistcv:
+          with self.blacklist_cv:
             self.blacklistcache[appid] = set(blist)
         except zookeeper.NoNodeException:
           if appid in self.blacklistcache:
-            with self.blacklistcv:
+            with self.blacklist_cv:
               del self.blacklistcache[appid]
 
 
@@ -516,7 +516,7 @@ class ZKTransaction:
     """
     self.wait_for_connect()
     if app_id in self.blacklistcache:
-      with self.blacklistcv:
+      with self.blacklist_cv:
         return str(txid) in self.blacklistcache[app_id]
     else:
       broot = self.get_blacklist_root_path(app_id)
@@ -525,7 +525,7 @@ class ZKTransaction:
       try:
         blist = zookeeper.get_children(self.handle, broot,
           self.receive_and_notify)
-        with self.blacklistcv:
+        with self.blacklist_cv:
           self.blacklistcache[app_id] = set(blist)
           return str(txid) in self.blacklistcache[app_id]
       except zookeeper.NoNodeException:
@@ -601,7 +601,7 @@ class ZKTransaction:
         now, ZOO_ACL_OPEN)
       # update local cache before notification
       if app_id in self.blacklistcache:
-        with self.blacklistcv:
+        with self.blacklist_cv:
           self.blacklistcache[app_id].add(str(txid))
       # copy valid transaction id for each updated key into valid list.
       for child in zookeeper.get_children(self.handle, txpath):
