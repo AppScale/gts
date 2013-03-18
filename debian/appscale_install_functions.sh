@@ -53,7 +53,7 @@ EOF
 installpython27()
 {
     cd /usr/local
-    wget http://appscale.cs.ucsb.edu/appscale_files/Python-2.7.3.tgz
+    wget http://build.appscale.com/appscale_files/Python-2.7.3.tgz
     tar zxvf Python-2.7.3.tgz
     rm /usr/local/Python-2.7.3.tgz
 }
@@ -62,7 +62,7 @@ installnumpy()
 {
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://appscale.cs.ucsb.edu/appscale_files/appscale-numpy.tar.gz
+    wget http://build.appscale.com/appscale_files/appscale-numpy.tar.gz
     tar zxvf appscale-numpy.tar.gz
     cd numpy
     /usr/local/Python-2.7.3/python setup.py install
@@ -75,7 +75,7 @@ installmatplotlib()
 {
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://appscale.cs.ucsb.edu/appscale_files/matplotlib-1.2.0.tar.gz
+    wget http://build.appscale.com/appscale_files/matplotlib-1.2.0.tar.gz
     tar zxvf matplotlib-1.2.0.tar.gz
     cd matplotlib-1.2.0
     /usr/local/Python-2.7.3/python setup.py install
@@ -87,7 +87,7 @@ installPIL()
 {
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://appscale.cs.ucsb.edu/appscale_files/Imaging-1.1.7.tar.gz 
+    wget http://build.appscale.com/appscale_files/Imaging-1.1.7.tar.gz
     tar zxvf Imaging-1.1.7.tar.gz
     cd Imaging-1.1.7
     /usr/local/Python-2.7.3/python setup.py install
@@ -219,11 +219,11 @@ installthrift_fromsource()
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
     # facebook version 1.0.
-#    wget http://appscale.cs.ucsb.edu/appscale_files/thrift.tgz -O ${APPSCALE_HOME}/downloads/thrift.tgz
+#    wget http://build.appscale.com/appscale_files/thrift.tgz -O ${APPSCALE_HOME}/downloads/thrift.tgz
     # apache 0.1.0
-#    wget http://appscale.cs.ucsb.edu/appscale_files/thrift-hypertable.tar.gz -O ${APPSCALE_HOME}/downloads/thrift-hypertable.tar.gz
+#    wget http://build.appscale.com/appscale_files/thrift-hypertable.tar.gz -O ${APPSCALE_HOME}/downloads/thrift-hypertable.tar.gz
     # apache 0.2.0
-    wget http://appscale.cs.ucsb.edu/appscale_files/thrift-${THRIFT_VER}.tar.gz || exit 1
+    wget http://build.appscale.com/appscale_files/thrift-${THRIFT_VER}.tar.gz || exit 1
     #wget http://www.apache.org/dist/incubator/thrift/${THRIFT_VER}-incubating/thrift-${THRIFT_VER}.tar.gz || exit 1
     tar zxfv thrift-${THRIFT_VER}.tar.gz || exit 1
     rm -v thrift-${THRIFT_VER}.tar.gz
@@ -294,7 +294,7 @@ installtornado_fromsource()
     # download from official site
     # wget http://www.tornadoweb.org/static/tornado-0.2.tar.gz
     # download from appscale site
-    wget http://appscale.cs.ucsb.edu/appscale_files/tornado-0.2.tar.gz || exit 1
+    wget http://build.appscale.com/appscale_files/tornado-0.2.tar.gz || exit 1
     tar xvzf tornado-0.2.tar.gz || exit 1
     pushd tornado-0.2
     python setup.py build || exit 1
@@ -348,7 +348,7 @@ installhaproxy()
 # download from official site
 #    wget http://haproxy.1wt.eu/download/1.4/src/haproxy-${HAPROXY_VER}.tar.gz || exit 1
 # download from appscale site
-    wget http://appscale.cs.ucsb.edu/appscale_packages/pool/haproxy-${HAPROXY_VER}.tar.gz || exit 1
+    wget http://build.appscale.com/appscale_packages/pool/haproxy-${HAPROXY_VER}.tar.gz || exit 1
     tar zxvf haproxy-${HAPROXY_VER}.tar.gz || exit 1
     rm -v haproxy-${HAPROXY_VER}.tar.gz
 
@@ -383,7 +383,7 @@ installtmux()
 {
     # First, install tmux (do it from source to get the newest features)
     cd ${APPSCALE_HOME}
-    wget http://appscale.cs.ucsb.edu/appscale_files/tmux-1.6.tar.gz
+    wget http://build.appscale.com/appscale_files/tmux-1.6.tar.gz
     tar zxvf tmux-1.6.tar.gz
     cd tmux-1.6
     ./configure
@@ -394,7 +394,7 @@ installtmux()
     
     # Finally, grab our tmux config file and put it in the right place
     cd
-    wget http://appscale.cs.ucsb.edu/appscale_files/tmux.conf -O .tmux.conf
+    wget http://build.appscale.com/appscale_files/tmux.conf -O .tmux.conf
 }
 
 postinstalltmux()
@@ -416,7 +416,7 @@ installhypertable()
     # extract binary files and repackage it when making deb
     #wget http://www.hypertable.com/download/packages/${HT_VER}/hypertable-${HT_VER}-linux-${ARCH}.deb -O hypertable-${HT_VER}.deb || exit 1
     #wget http://cdn.hypertable.com/packages/${HT_VER}/hypertable-${HT_VER}-linux-${ARCH}.deb -O hypertable-${HT_VER}.deb || exit 1
-    wget http://appscale.cs.ucsb.edu/appscale_files/hypertable-${HT_VER}-linux-${ARCH}.deb -O hypertable-${HT_VER}.deb || exit 1
+    wget http://build.appscale.com/appscale_files/hypertable-${HT_VER}-linux-${ARCH}.deb -O hypertable-${HT_VER}.deb || exit 1
     dpkg-deb --vextract hypertable-${HT_VER}.deb ${DESTDIR}/ || exit 1
     rm hypertable-${HT_VER}.deb
 
@@ -453,7 +453,7 @@ installhypertablemonitoring()
     # For hypertable monitoring
     gem install sinatra rack thin json ${GEMOPT} || exit 1
     cd ${APPSCALE_HOME}/downloads
-    wget http://appscale.cs.ucsb.edu/appscale_files/rrdtool-1.4.4.tar.gz || exit 1
+    wget http://build.appscale.com/appscale_files/rrdtool-1.4.4.tar.gz || exit 1
     tar zxvf rrdtool-1.4.4.tar.gz
     cd rrdtool-1.4.4/
     ./configure 
@@ -475,7 +475,7 @@ installgems()
 {
     # install gem here
     cd
-    wget http://appscale.cs.ucsb.edu/appscale_files/rubygems-1.3.7.tgz || exit 1
+    wget http://build.appscale.com/appscale_files/rubygems-1.3.7.tgz || exit 1
     tar zxvf rubygems-1.3.7.tgz
     cd rubygems-1.3.7
     ruby setup.rb
@@ -560,11 +560,11 @@ installnginx()
     NGINX_VERSION=1.2.6
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://appscale.cs.ucsb.edu/appscale_files/nginx-${NGINX_VERSION}.tar.gz || exit 1
+    wget http://build.appscale.com/appscale_files/nginx-${NGINX_VERSION}.tar.gz || exit 1
     tar zxvf nginx-${NGINX_VERSION}.tar.gz || exit 1
     rm -v nginx-${NGINX_VERSION}.tar.gz
     pushd nginx-${NGINX_VERSION}
-    wget http://appscale.cs.ucsb.edu/appscale_files/v0.23rc2.tar.gz || exit 1
+    wget http://build.appscale.com/appscale_files/v0.23rc2.tar.gz || exit 1
     tar zxvf v0.23rc2.tar.gz || exit 1
     ./configure --add-module=./chunkin-nginx-module-0.23rc2/ --with-http_ssl_module --with-http_gzip_static_module || exit 1
     make || exit 1
@@ -590,7 +590,7 @@ installhadoop()
     mkdir -pv ${APPSCALE_HOME}/AppDB
     cd ${APPSCALE_HOME}/AppDB
     rm -rfv hadoop-${HADOOP_VER}
-    wget http://appscale.cs.ucsb.edu/appscale_files/hadoop-${HADOOP_VER}.tar.gz -O hadoop-${HADOOP_VER}.tar.gz || exit 1
+    wget http://build.appscale.com/appscale_files/hadoop-${HADOOP_VER}.tar.gz -O hadoop-${HADOOP_VER}.tar.gz || exit 1
     tar xvzf hadoop-${HADOOP_VER}.tar.gz || exit 1
     rm -v hadoop-${HADOOP_VER}.tar.gz
     cd hadoop-${HADOOP_VER}
@@ -647,14 +647,14 @@ installhbase()
     mkdir -pv ${APPSCALE_HOME}/AppDB/hbase
     cd ${APPSCALE_HOME}/AppDB/hbase
     rm -rfv hbase-${HBASE_VER}
-    wget http://appscale.cs.ucsb.edu/appscale_files/hbase-${HBASE_VER}-rebuilt.tar.gz -O hbase-${HBASE_VER}.tar.gz || exit 1
+    wget http://build.appscale.com/appscale_files/hbase-${HBASE_VER}-rebuilt.tar.gz -O hbase-${HBASE_VER}.tar.gz || exit 1
 
     tar zxvf hbase-${HBASE_VER}.tar.gz || exit 1
     rm -v hbase-${HBASE_VER}.tar.gz
     # Clean out the maven repository
     rm -rfd ~/.m2/
     cd
-    wget http://appscale.cs.ucsb.edu/appscale_files/maven_repos.tar.gz || exit 1
+    wget http://build.appscale.com/appscale_files/maven_repos.tar.gz || exit 1
     tar zxvf maven_repos.tar.gz  || exit 1
     rm -rv maven_repos.tar.gz 
     ######
@@ -674,12 +674,12 @@ installcassandra()
     CASSANDRA_VER=1.0.7
     PYCASSA_VER=1.3.0
     cd /lib 
-    wget http://appscale.cs.ucsb.edu/appscale_files/jamm-0.2.2.jar || exit 1
+    wget http://build.appscale.com/appscale_files/jamm-0.2.2.jar || exit 1
     
     mkdir -p ${APPSCALE_HOME}/AppDB/cassandra
     cd ${APPSCALE_HOME}/AppDB/cassandra
     rm -rfv cassandra
-    wget http://appscale.cs.ucsb.edu/appscale_files/apache-cassandra-${CASSANDRA_VER}-bin.tar.gz || exit 1
+    wget http://build.appscale.com/appscale_files/apache-cassandra-${CASSANDRA_VER}-bin.tar.gz || exit 1
     tar xzvf apache-cassandra-${CASSANDRA_VER}-bin.tar.gz || exit 1
     mv -v apache-cassandra-${CASSANDRA_VER} cassandra
     rm -fv apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
@@ -706,7 +706,7 @@ installcassandra()
 
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://appscale.cs.ucsb.edu/appscale_files/pycassa-${PYCASSA_VER}.tar.gz || exit 1
+    wget http://build.appscale.com/appscale_files/pycassa-${PYCASSA_VER}.tar.gz || exit 1
     tar zxvf pycassa-${PYCASSA_VER}.tar.gz  
     cd pycassa-${PYCASSA_VER}
     python setup.py install || exit 1
@@ -728,7 +728,7 @@ installprotobuf_fromsource()
     # install protobuf 2.3.0. we need egg version for python.
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://appscale.cs.ucsb.edu/appscale_files/protobuf-${PROTOBUF_VER}.tar.gz || exit 1
+    wget http://build.appscale.com/appscale_files/protobuf-${PROTOBUF_VER}.tar.gz || exit 1
     tar zxvf protobuf-${PROTOBUF_VER}.tar.gz || exit 1
     rm -v protobuf-${PROTOBUF_VER}.tar.gz
     pushd protobuf-${PROTOBUF_VER}
@@ -803,7 +803,7 @@ installpig()
     /bin/cp -fv ~/appscale/AppDB/hadoop-0.20.2/build/classes/org/apache/hadoop/hdfs/* ${APPSCALE_HOME}/downloads/pig-0.5.0/tmp/org/apache/hadoop/hdfs/
     jar cvf ../pig-0.5.0-core.jar ./*
     rm -rfv ./*
-    wget http://appscale.cs.ucsb.edu/appscale_files/pigtutorial.tar.gz || exit 1
+    wget http://build.appscale.com/appscale_files/pigtutorial.tar.gz || exit 1
     tar zxvf pigtutorial.tar.gz || exit 1
     DESTFILE=${DESTDIR}/etc/profile.d/pig.sh
     mkdir -pv $(dirname $DESTFILE)
@@ -863,7 +863,7 @@ installzookeeper()
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
 
-    wget http://appscale.cs.ucsb.edu/appscale_files/zookeeper-${ZK_VER}.tar.gz || exit 1
+    wget http://build.appscale.com/appscale_files/zookeeper-${ZK_VER}.tar.gz || exit 1
     tar zxvf zookeeper-${ZK_VER}.tar.gz
 
     cd zookeeper-${ZK_VER}
@@ -912,7 +912,7 @@ installzookeeper()
     ln -sfv zookeeper-${ZK_VER2}.jar ${DESTDIR}/usr/share/java/zookeeper.jar || exit 1
 
     # install config files and service.
-    BASEURL=http://appscale.cs.ucsb.edu/appscale_packages/pool/zookeeper
+    BASEURL=http://build.appscale.com/appscale_packages/pool/zookeeper
     wget ${BASEURL}/zookeeper_3.2.2+dfsg3-3_all.deb -O zookeeper.deb || exit 1
     dpkg-deb --vextract zookeeper.deb ${DESTDIR}/ || exit 1
     rm -v zookeeper.deb
@@ -945,7 +945,7 @@ installzookeeper_deb()
     fi
 
     # repackage ZooKeeper binary
-    BASEURL=http://appscale.cs.ucsb.edu/appscale_packages/pool/zookeeper
+    BASEURL=http://build.appscale.com/appscale_packages/pool/zookeeper
     wget ${BASEURL}/liblog4j1.2-java_1.2.15-11_all.deb -O liblog4j.deb || exit 1
     dpkg-deb --vextract liblog4j.deb ${DESTDIR}/ || exit 1
     rm -v liblog4j.deb
@@ -1002,7 +1002,7 @@ installsetuptools()
 {
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://appscale.cs.ucsb.edu/appscale_files/setuptools-0.6c11.tar.gz || exit 1
+    wget http://build.appscale.com/appscale_files/setuptools-0.6c11.tar.gz || exit 1
     tar zxvf setuptools-0.6c11.tar.gz
     pushd setuptools-0.6c11
     python setup.py install  || exit 1
@@ -1036,7 +1036,7 @@ installrabbitmq()
    PIKA_VERSION=0.9.9p0
    mkdir -pv ${APPSCALE_HOME}/downloads
    cd ${APPSCALE_HOME}/downloads
-   wget http://appscale.cs.ucsb.edu/appscale_files/pika-${PIKA_VERSION}.zip || exit 1
+   wget http://build.appscale.com/appscale_files/pika-${PIKA_VERSION}.zip || exit 1
    unzip pika-${PIKA_VERSION}.zip
    cd pika-master
    cp -r pika /usr/share/pyshared
