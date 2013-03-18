@@ -270,10 +270,17 @@ class ZKTransaction:
   def get_transaction_root_path(self, app_id):
     return PATH_SEPARATOR.join([self.get_app_root_path(app_id), APP_TX_PATH])
 
+  def get_transaction_path_before_getting_id(self, app_id):
+    return PATH_SEPARATOR.join([self.get_app_root_path(app_id), APP_TX_PREFIX])
+
   def get_transaction_path(self, app_id, txid):
     txstr = APP_TX_PREFIX + "%010d" % txid
     return PATH_SEPARATOR.join([self.get_app_root_path(app_id), APP_TX_PATH,
       txstr])
+
+  def get_transaction_lock_path(self, app_id, txid):
+    return PATH_SEPARATOR.join([self.get_transaction_path(app_id, txid),
+      TX_LOCK_PATH])
 
   def get_blacklist_root_path(self, app_id):
     return PATH_SEPARATOR.join([self.get_transaction_root_path(app_id),
@@ -294,6 +301,7 @@ class ZKTransaction:
   def get_id_root_path(self, app_id, key):
     return PATH_SEPARATOR.join([self.get_app_root_path(app_id), APP_ID_PATH,
       urllib.quote_plus(key)])
+
 
   def get_xg_path(self, app_id, tx_id):
     """ Gets the XG path for a transaction.
@@ -390,8 +398,7 @@ class ZKTransaction:
     value = str(time.time())
     txn_id = -1
     # First, make the ZK node for the actual transaction id.
-    # TODO(cgb): Make functions to generate the paths.
-    app_path = PATH_SEPARATOR.join([rootpath, APP_TX_PREFIX])
+    app_path = self.get_transaction_path_before_getting_id(app_id)
     txn_id = self.create_sequence_node(app_path, value)
 
     # Next, make the ZK node that indicates if this a XG transaction.
@@ -417,7 +424,22 @@ class ZKTransaction:
             txid)
     return True
 
-  def acquire_additional_lock(self, app_id, txid, entity_key):
+  def is_in_transaction(self, app_id, txid):
+    """ Get status of specified transaction.
+
+    Returns: True - If transaction is alive.
+    Raises: ZKTransactionException - If transaction is timeout or not exist.
+    """
+    self.wait_for_connect()
+    txpath = self.get_transaction_path(app_id, txid)
+    if self.is_blacklisted(app_id, txid):
+      raise ZKTransactionException(ZKTransactionException.TYPE_EXPIRED, 
+            "zktransaction.check_transaction: Transaction %d is timeout." % txid)
+    if not zookeeper.exists(self.handle, txpath):
+      return False
+    return True
+
+  def acquire_additional_lock(self, app_id, txid, entity_key, create):
     """ Acquire an additional lock for a cross group transaction.
 
     Args:
@@ -425,6 +447,8 @@ class ZKTransaction:
       txid: The transaction ID you are acquiring a lock for. Built into
             the path.
       entity_key: Used to get the root path.
+      create: A bool that indicates if we should create a new Zookeeper node
+        to store the lock information in.
     Returns:
       Boolean, of true on success, false if lock can not be acquired.
     """
@@ -460,7 +484,12 @@ class ZKTransaction:
 
     lock_list.append(txpath)
     lock_list_str = LOCK_LIST_SEPARATOR.join(lock_list)
-    zookeeper.aset(self.handle, tx_lockpath, lock_list_str)
+
+    if create:
+      zookeeper.acreate(self.handle, PATH_SEPARATOR.join([txpath, TX_LOCK_PATH]),
+        lockpath, ZOO_ACL_OPEN)
+    else:
+      zookeeper.aset(self.handle, tx_lockpath, lock_list_str)
 
     return True
 
@@ -493,54 +522,27 @@ class ZKTransaction:
     Raises:
       ZKTransactionException: If it could not get the lock.
     """
-    self.wait_for_connect()
-    txpath = self.get_transaction_path(app_id, txid)
     lockrootpath = self.get_lock_root_path(app_id, entity_key)
-    lockpath = None
-    if zookeeper.exists(self.handle, PATH_SEPARATOR.join([txpath,
-                        TX_LOCK_PATH])):
+
+    if self.is_in_transaction(app_id, txid):
       # use current lock
-      prelockpath = zookeeper.get(self.handle, PATH_SEPARATOR.join([txpath,
-        TX_LOCK_PATH]), None)[0]
+      transaction_lock_path = self.get_transaction_lock_path(app_id, txid)
+      prelockpath = zookeeper.get(self.handle, transaction_lock_path, None)[0]
       lock_list = prelockpath.split(LOCK_LIST_SEPARATOR)
-      if lockrootpath not in lock_list:
-        xg_path = self.get_xg_path(app_id, txid)
-        if zookeeper.exists(self.handle, xg_path):
-          return self.acquire_additional_lock(app_id, txid, entity_key)
+      if lockrootpath in lock_list:
+        print "Already has lock: %s" % lockrootpath
+        return True
+      else:
+        if self.is_xg(app_id, txid):
+          return self.acquire_additional_lock(app_id, txid, entity_key,
+            create=False)
         else:
           raise ZKTransactionException(
             ZKTransactionException.TYPE_DIFFERENT_ROOTKEY, "acquire_lock: " + \
               "You can not lock different root entity in " + \
               "non-cross-group transaction.")
 
-      print "Already has lock: %s" % lockrootpath
-      return True
-
-    self.check_transaction(app_id, txid)
-
-    # create new lock
-    retry = True
-    while retry:
-      retry = False
-      try:
-        lockpath = zookeeper.create(self.handle, lockrootpath, txpath,
-          ZOO_ACL_OPEN)
-      except zookeeper.NoNodeException:
-        self.force_create_path(PATH_SEPARATOR.join(lockrootpath.split(
-          PATH_SEPARATOR)[:-1]))
-        retry = True
-      except zookeeper.NodeExistsException:
-        # fail to get lock
-        raise ZKTransactionException(ZKTransactionException.TYPE_CONCURRENT,
-          "acquire_lock: There is already another transaction using this lock")
-
-    # set lockpath for transaction node
-    # TODO: we should think about atomic operation or recovery of
-    #       inconsistent lockpath node.
-    zookeeper.acreate(self.handle, PATH_SEPARATOR.join([txpath, TX_LOCK_PATH]),
-      lockpath, ZOO_ACL_OPEN)
-
-    return True
+    return self.acquire_additional_lock(app_id, txid, entity_key, create=True)
 
   def get_updated_key_list(self, app_id, txid):
     """ Get the list of updated key.

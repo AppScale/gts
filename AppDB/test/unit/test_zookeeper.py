@@ -80,6 +80,9 @@ class TestZookeeperTransaction(unittest.TestCase):
     # mock out getTransactionRootPath
     zk.ZKTransaction.should_receive('get_transaction_root_path').with_args(
       self.appid).and_return('/rootpath/' + self.appid)
+    path_to_create = "/rootpath/" + self.appid + "/" + zk.APP_TX_PREFIX
+    zk.ZKTransaction.should_receive('get_transaction_path_before_getting_id') \
+      .with_args(self.appid).and_return(path_to_create)
     
     # mock out time.time
     flexmock(time)
@@ -90,10 +93,8 @@ class TestZookeeperTransaction(unittest.TestCase):
     zookeeper.should_receive('init').and_return(self.handle)
 
     # mock out making the txn id
-    path_to_create = "/rootpath/" + self.appid + "/" + zk.APP_TX_PREFIX
     zk.ZKTransaction.should_receive('create_sequence_node').with_args(
       path_to_create, 'now').and_return(1)
-
 
     # mock out zookeeper.create for is_xg
     xg_path = path_to_create + "/1/" + zk.XG_PREFIX
@@ -103,6 +104,20 @@ class TestZookeeperTransaction(unittest.TestCase):
     # assert, make sure we got back our id
     transaction = zk.ZKTransaction(host="something", start_gc=False)
     self.assertEquals(1, transaction.get_transaction_id(self.appid, is_xg=True))
+
+  def test_get_transaction_path_before_getting_id(self):
+    # mock out initializing a ZK connection
+    flexmock(zookeeper)
+    flexmock(zk.ZKTransaction)
+
+    zookeeper.should_receive('init').and_return(self.handle)
+    
+    zk.ZKTransaction.should_receive('get_app_root_path').and_return("app_root_path")
+
+    expected = zk.PATH_SEPARATOR.join(["app_root_path", zk.APP_TX_PREFIX])
+    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    self.assertEquals(expected,
+      transaction.get_transaction_path_before_getting_id(self.appid))
 
   def test_get_xg_path(self):
     # mock out initializing a ZK connection
@@ -121,9 +136,60 @@ class TestZookeeperTransaction(unittest.TestCase):
     transaction = zk.ZKTransaction(host="something", start_gc=False)
     self.assertEquals(expected, transaction.get_xg_path("xxx", 100))
 
+  def test_is_in_transaction(self):
+    # TODO: write me!
+    pass
+
   def test_acquire_lock(self):
-    #TODO
-    pass 
+    # mock out waitForConnect
+    flexmock(zk.ZKTransaction)
+    zk.ZKTransaction.should_receive('get_lock_root_path').\
+       and_return('/lock/root/path')
+    zk.ZKTransaction.should_receive('get_transaction_root_path').\
+       and_return('/rootpath/' + self.appid)
+    flexmock(zookeeper)
+    zookeeper.should_receive('init').and_return(self.handle)
+
+    # first, test out getting a lock for a regular transaction, that we don't
+    # already have the lock for
+    zk.ZKTransaction.should_receive('is_in_transaction').and_return(False)
+    zk.ZKTransaction.should_receive('acquire_additional_lock').and_return(True)
+
+    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    self.assertEquals(True, transaction.acquire_lock(self.appid, "txid", "somekey"))
+
+    # next, test when we're in a transaction and we already have the lock
+    zk.ZKTransaction.should_receive('is_in_transaction').and_return(True)
+    zk.ZKTransaction.should_receive('get_transaction_lock_path').\
+       and_return('/rootpath/' + self.appid + "/tx1")
+    zookeeper.should_receive('get').and_return(['/lock/root/path'])
+
+    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    self.assertEquals(True, transaction.acquire_lock(self.appid, "txid", "somekey"))
+
+    # next, test when we're in a non-XG transaction and we're not in the lock
+    # root path
+    zk.ZKTransaction.should_receive('is_in_transaction').and_return(True)
+    zk.ZKTransaction.should_receive('get_transaction_lock_path').\
+       and_return('/rootpath/' + self.appid + "/tx1")
+    zookeeper.should_receive('get').and_return(['/lock/root/path2'])
+    zk.ZKTransaction.should_receive('is_xg').and_return(False)
+
+    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    self.assertRaises(zk.ZKTransactionException, transaction.acquire_lock, 
+      self.appid, "txid", "somekey")
+
+    # next, test when we're in a XG transaction and we're not in the lock
+    # root path
+    zk.ZKTransaction.should_receive('is_in_transaction').and_return(True)
+    zk.ZKTransaction.should_receive('get_transaction_lock_path').\
+       and_return('/rootpath/' + self.appid + "/tx1")
+    zookeeper.should_receive('get').and_return(['/lock/root/path2'])
+    zk.ZKTransaction.should_receive('is_xg').and_return(True)
+
+    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    self.assertEquals(True, transaction.acquire_lock(self.appid, "txid", "somekey"))
+
 
   def test_acquire_additional_lock(self):
     # mock out waitForConnect
@@ -139,6 +205,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     flexmock(zookeeper)
     zookeeper.should_receive('init').and_return(self.handle)
     zookeeper.should_receive('create').and_return("/some/lock/path")
+    zookeeper.should_receive('acreate')
     lock_list = ['path1', 'path2', 'path3'] 
     lock_list_str = zk.LOCK_LIST_SEPARATOR.join(lock_list)
     zookeeper.should_receive('get').and_return([lock_list_str])
@@ -146,8 +213,12 @@ class TestZookeeperTransaction(unittest.TestCase):
 
     transaction = zk.ZKTransaction(host="something", start_gc=False)
     self.assertEquals(True, transaction.acquire_additional_lock(self.appid, "txid", 
-           "somekey"))
+           "somekey", False))
   
+    # Test for when we want to create a new ZK node for the lock path
+    self.assertEquals(True, transaction.acquire_additional_lock(self.appid,
+      "txid", "somekey", True))
+
     # Test for existing max groups 
     lock_list = ['path1', 'path2', 'path3', 'path4', 'path5'] 
     lock_list_str = zk.LOCK_LIST_SEPARATOR.join(lock_list)
@@ -156,13 +227,14 @@ class TestZookeeperTransaction(unittest.TestCase):
 
     transaction = zk.ZKTransaction(host="something", start_gc=False)
     self.assertRaises(zk.ZKTransactionException, transaction.acquire_additional_lock, 
-        self.appid, "txid", "somekey")
+        self.appid, "txid", "somekey", False)
 
     # Test for when there is a node which already exists.
     zookeeper.should_receive('create').and_raise(zookeeper.NodeExistsException)
     transaction = zk.ZKTransaction(host="something", start_gc=False)
     self.assertRaises(zk.ZKTransactionException, transaction.acquire_additional_lock, 
-        self.appid, "txid", "somekey")
+        self.appid, "txid", "somekey", False)
+
 
   def test_check_transaction(self):
     # mock out getTransactionRootPath
