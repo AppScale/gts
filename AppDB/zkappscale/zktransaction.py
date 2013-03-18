@@ -387,7 +387,7 @@ class ZKTransaction:
             txid)
     return True
 
-  def acquire_lock(self, app_id, txid, entity_key = GLOBAL_LOCK_KEY):
+  def acquire_lock(self, app_id, txid, entity_key=GLOBAL_LOCK_KEY):
     """ Acquire lock for transaction.
 
     You must call get_transaction_id() first to obtain transaction ID.
@@ -410,9 +410,16 @@ class ZKTransaction:
       prelockpath = zookeeper.get(self.handle, PATH_SEPARATOR.join([txpath,
         TX_LOCK_PATH]), None)[0]
       if not lockrootpath == prelockpath:
-        raise ZKTransactionException(
-          ZKTransactionException.TYPE_DIFFERENT_ROOTKEY, "acquire_lock: You" + \
-            " can not lock different root entity in same transaction.")
+        # see if we're in an XG transaction - if so, this is ok.
+        # TODO(cgb): This would let users use an unlimited number of entity
+        # groups within a transaction - need to limit it to 5.
+        if zookeeper.exists(self.handle, PATH_SEPARATOR.join([app_path,
+          str(txn_id), XG_PREFIX])):
+          return True
+        else:
+          raise ZKTransactionException(
+            ZKTransactionException.TYPE_DIFFERENT_ROOTKEY, "acquire_lock: " + \
+              "You can not lock different root entity in non-XG transaction.")
       print "Already has lock: %s" % lockrootpath
       return True
 
@@ -493,9 +500,18 @@ class ZKTransaction:
       if key:
         lockroot = self.get_lock_root_path(app_id, key)
         if not lockroot == lockpath:
-          raise ZKTransactionException(
-            ZKTransactionException.TYPE_DIFFERENT_ROOTKEY, 
-            "release_lock: You can't specify different root entity to release.")
+          # If we're in a XG transaction, there could be more than one lock. In
+          # that case, release all of them.
+          # TODO(cgb): This would seem to work fine for two locks, but not more
+          # than two. Fix accordingly.
+          xg_path = PATH_SEPARATOR.join([txpath, XG_PREFIX])
+          if zookeeper.exists(self.handle, xg_path):
+            zookeeper.adelete(self.handle, lockroot)
+          else:
+            raise ZKTransactionException(
+              ZKTransactionException.TYPE_DIFFERENT_ROOTKEY, 
+              "release_lock: You can't specify different root entity to " + \
+                "release in a non-XG transaction.")
       zookeeper.adelete(self.handle, lockpath)
       has_lock = True
     except zookeeper.NoNodeException:
@@ -505,6 +521,12 @@ class ZKTransaction:
     # delete transaction node
     for child in zookeeper.get_children(self.handle, txpath):
       zookeeper.adelete(self.handle, PATH_SEPARATOR.join([txpath, child]))
+
+    # Finally, if we're in a XG transaction, clean up the XG node.
+    xg_path = PATH_SEPARATOR.join([txpath, XG_PREFIX])
+    if zookeeper.exists(self.handle, xg_path):
+      zookeeper.adelete(self.handle, xg_path)
+
     zookeeper.adelete(self.handle, txpath)
 
     return has_lock
