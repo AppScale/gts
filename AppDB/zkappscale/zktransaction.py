@@ -10,11 +10,8 @@ import time
 import traceback
 import urllib
 
-
-import zookeeper
-
-
 import dbconstants
+import zookeeper
 
 
 # A list that indicates that the Zookeeper node to create should be readable
@@ -58,6 +55,7 @@ TX_UPDATEDKEY_PREFIX = "ukey"
 
 TX_LOCK_PATH = "lockpath"
 
+# The path for blacklisted transactions.
 TX_BLACKLIST_PATH = "blacklist"
 
 TX_VALIDLIST_PATH = "validlist"
@@ -66,6 +64,7 @@ GC_LOCK_PATH = "gclock"
 
 GC_TIME_PATH = "gclasttime"
 
+# A unique prefix for cross group transactions.
 XG_PREFIX = "xg"
 
 
@@ -112,13 +111,15 @@ class ZKTransaction:
       start_gc: A bool that indicates if we should start the garbage collector
         for timed out transactions.
     """
-    # for the connection
+    # Connection instance variables.
     self.connect_cv = threading.Condition()
     self.connected = False
     self.handle = zookeeper.init(host, self.receive_and_notify)
+
     # for blacklist cache
     self.blacklist_cv = threading.Condition()
     self.blacklist_cache = {}
+
     # for gc
     self.gc_running = False
     self.gc_cv = threading.Condition()
@@ -133,10 +134,8 @@ class ZKTransaction:
     """
     with self.gc_cv:
       if self.gc_running:
-        # just notify
         self.gc_cv.notifyAll()
       else:
-        # start gc thread
         self.gc_running = True
         self.gcthread = threading.Thread(target=self.gc_runner)
         self.gcthread.start()
@@ -158,6 +157,15 @@ class ZKTransaction:
     zookeeper.close(self.handle)
 
   def receive_and_notify(self, handle, event_type, state, path):
+    """ Receives events and notifies other threads if ZooKeeper
+    state has changed.
+ 
+    Args:
+      handle: A ZooKeeper connection.
+      event_type: An int representing a ZooKeeper event.
+      state: An int representing a ZooKeeper connection state.
+      path: A str representing the path that changed.
+    """
     if event_type == zookeeper.SESSION_EVENT:
       if state == zookeeper.CONNECTED_STATE:
         with self.connect_cv:
@@ -167,23 +175,29 @@ class ZKTransaction:
         with self.connect_cv:
           self.connected = False
           self.connect_cv.notifyAll()
-
     elif event_type == zookeeper.CHILD_EVENT:
-      pathlist = path.split(PATH_SEPARATOR)
-      if pathlist[-1] == TX_BLACKLIST_PATH:
-        # update blacklist cache
-        appid = urllib.unquote_plus(pathlist[-3])
-        try:
-          blist = zookeeper.get_children(self.handle, path,
-            self.receive_and_notify)
-          with self.blacklist_cv:
-            self.blacklist_cache[appid] = set(blist)
-        except zookeeper.NoNodeException:
-          if appid in self.blacklist_cache:
-            with self.blacklist_cv:
-              del self.blacklist_cache[appid]
+      path_list = path.split(PATH_SEPARATOR)
+      if path_list[-1] == TX_BLACKLIST_PATH:
+        appid = urllib.unquote_plus(path_list[-3])
+        self.update_blacklist_cache(appid)
 
-
+  def update_blacklist_cache(self, path, app_id):
+    """ Updates the blacklist cache.  
+ 
+    Args: 
+      path: The path for the blacklist.
+      app_id: The application identifier.
+    """
+    try:
+      black_list = zookeeper.get_children(self.handle, path,
+        self.receive_and_notify)
+      with self.blacklistcv:
+        self.blacklist_cache[app_id] = set(black_list)
+    except zookeeper.NoNodeException:
+      if app_id in self.blacklist_cache:
+        with self.blacklistcv:
+          del self.blacklist_cache[app_id]
+    
   def wait_for_connect(self):
     if self.connected:
       return
