@@ -370,7 +370,7 @@ class ZKTransaction:
       .format(path, value))
 
 
-  def get_transaction_id(self, app_id, is_xg):
+  def get_transaction_id(self, app_id, is_xg=False):
     """Acquires a new id for an upcoming transaction.
 
     Note that the caller must lock particular root entities using acquire_lock,
@@ -396,9 +396,8 @@ class ZKTransaction:
 
     # Next, make the ZK node that indicates if this a XG transaction.
     if is_xg:
-      self.create_node(PATH_SEPARATOR.join([app_path, str(txn_id), XG_PREFIX]),
-        value)
-
+      xg_path = self.get_xg_path(app_id, txn_id)
+      self.create_node(xg_path, value)
     return txn_id
 
   def check_transaction(self, app_id, txid):
@@ -440,6 +439,7 @@ class ZKTransaction:
         lockpath = zookeeper.create(self.handle, lockrootpath, txpath,
           ZOO_ACL_OPEN)
       except zookeeper.NoNodeException:
+        # This is for recursively creating a path.
         self.force_create_path(PATH_SEPARATOR.join(lockrootpath.split(
           PATH_SEPARATOR)[:-1]))
         retry = True
@@ -475,9 +475,7 @@ class ZKTransaction:
     Returns:
       True if the transaction is XG, False otherwise.
     """
-    return zookeeper.exists(self.handle, PATH_SEPARATOR.join([app_path,
-      str(tx_id), XG_PREFIX]))
-
+    return zookeeper.exists(self.handle, self.get_xg_path(app_id, tx_id))
 
   def acquire_lock(self, app_id, txid, entity_key=GLOBAL_LOCK_KEY):
     """ Acquire lock for transaction. It will acquire additional locks
@@ -506,9 +504,8 @@ class ZKTransaction:
         TX_LOCK_PATH]), None)[0]
       lock_list = prelockpath.split(LOCK_LIST_SEPARATOR)
       if lockrootpath not in lock_list:
-        # TODO get XG path
-        if zookeeper.exists(self.handle, PATH_SEPARATOR.join([app_path,
-          str(txn_id), XG_PREFIX])):
+        xg_path = self.get_xg_path(app_id, txid)
+        if zookeeper.exists(self.handle, xg_path):
           return self.acquire_additional_lock(app_id, txid, entity_key)
         else:
           raise ZKTransactionException(
