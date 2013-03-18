@@ -10,11 +10,8 @@ import time
 import traceback
 import urllib
 
-
-import zookeeper
-
-
 import dbconstants
+import zookeeper
 
 
 # A list that indicates that the Zookeeper node to create should be readable
@@ -58,6 +55,7 @@ TX_UPDATEDKEY_PREFIX = "ukey"
 
 TX_LOCK_PATH = "lockpath"
 
+# The path for blacklisted transactions.
 TX_BLACKLIST_PATH = "blacklist"
 
 TX_VALIDLIST_PATH = "validlist"
@@ -66,8 +64,14 @@ GC_LOCK_PATH = "gclock"
 
 GC_TIME_PATH = "gclasttime"
 
+# A unique prefix for cross group transactions.
 XG_PREFIX = "xg"
 
+# Maximum number of groups allowed in cross group transactions.
+MAX_GROUPS_FOR_XG = 5
+
+# The separator value for the lock list when using XG transactions.
+LOCK_LIST_SEPARATOR = "!XG_LIST!"
 
 class ZKTransactionException(Exception):
   """ ZKTransactionException defines a custom exception class that should be
@@ -112,13 +116,17 @@ class ZKTransaction:
       start_gc: A bool that indicates if we should start the garbage collector
         for timed out transactions.
     """
-    # for the connection
+    # Connection instance variables.
+    # TODO can we have a pool for connections to prevent this from being a 
+    # single thread.
     self.connect_cv = threading.Condition()
     self.connected = False
     self.handle = zookeeper.init(host, self.receive_and_notify)
+
     # for blacklist cache
     self.blacklist_cv = threading.Condition()
     self.blacklist_cache = {}
+
     # for gc
     self.gc_running = False
     self.gc_cv = threading.Condition()
@@ -133,10 +141,8 @@ class ZKTransaction:
     """
     with self.gc_cv:
       if self.gc_running:
-        # just notify
         self.gc_cv.notifyAll()
       else:
-        # start gc thread
         self.gc_running = True
         self.gcthread = threading.Thread(target=self.gc_runner)
         self.gcthread.start()
@@ -158,6 +164,15 @@ class ZKTransaction:
     zookeeper.close(self.handle)
 
   def receive_and_notify(self, handle, event_type, state, path):
+    """ Receives events and notifies other threads if ZooKeeper
+    state has changed.
+ 
+    Args:
+      handle: A ZooKeeper connection.
+      event_type: An int representing a ZooKeeper event.
+      state: An int representing a ZooKeeper connection state.
+      path: A str representing the path that changed.
+    """
     if event_type == zookeeper.SESSION_EVENT:
       if state == zookeeper.CONNECTED_STATE:
         with self.connect_cv:
@@ -167,23 +182,29 @@ class ZKTransaction:
         with self.connect_cv:
           self.connected = False
           self.connect_cv.notifyAll()
-
     elif event_type == zookeeper.CHILD_EVENT:
-      pathlist = path.split(PATH_SEPARATOR)
-      if pathlist[-1] == TX_BLACKLIST_PATH:
-        # update blacklist cache
-        appid = urllib.unquote_plus(pathlist[-3])
-        try:
-          blist = zookeeper.get_children(self.handle, path,
-            self.receive_and_notify)
-          with self.blacklist_cv:
-            self.blacklist_cache[appid] = set(blist)
-        except zookeeper.NoNodeException:
-          if appid in self.blacklist_cache:
-            with self.blacklist_cv:
-              del self.blacklist_cache[appid]
+      path_list = path.split(PATH_SEPARATOR)
+      if path_list[-1] == TX_BLACKLIST_PATH:
+        appid = urllib.unquote_plus(path_list[-3])
+        self.update_blacklist_cache(appid)
 
-
+  def update_blacklist_cache(self, path, app_id):
+    """ Updates the blacklist cache.  
+ 
+    Args: 
+      path: The path for the blacklist.
+      app_id: The application identifier.
+    """
+    try:
+      black_list = zookeeper.get_children(self.handle, path,
+        self.receive_and_notify)
+      with self.blacklistcv:
+        self.blacklist_cache[app_id] = set(black_list)
+    except zookeeper.NoNodeException:
+      if app_id in self.blacklist_cache:
+        with self.blacklistcv:
+          del self.blacklist_cache[app_id]
+    
   def wait_for_connect(self):
     if self.connected:
       return
@@ -276,7 +297,19 @@ class ZKTransaction:
     return PATH_SEPARATOR.join([self.get_app_root_path(app_id), APP_ID_PATH,
       urllib.quote_plus(key)])
 
-
+  def get_xg_path(self, app_id, tx_id):
+    """ Gets the XG path for a transaction.
+  
+    Args:
+      app_id: The application ID to acquire a lock for.
+      txid: The transaction ID you are acquiring a lock for. Built into 
+    Returns:
+      A str representing the XG path of a transaction.
+    """ 
+    txstr = APP_TX_PREFIX + "%010d" % tx_id
+    return PATH_SEPARATOR.join([self.get_app_root_path(app_id), APP_TX_PATH, 
+      txstr, XG_PREFIX])
+ 
   def create_node(self, path, value):
     """ Creates a new node in ZooKeeper, with the given value.
 
@@ -387,11 +420,73 @@ class ZKTransaction:
             txid)
     return True
 
+  def acquire_additional_lock(self, app_id, txid, entity_key):
+    """ Acquire an additional lock for a cross group transaction.
+
+    Args:
+      app_id: A str representing the application ID.
+      txid: The transaction ID you are acquiring a lock for. Built into
+            the path.
+      entity_key: Used to get the root path.
+    Returns:
+      Boolean, of true on success, false if lock can not be acquired.
+    """
+    self.check_transaction(app_id, txid)
+    txpath = self.get_transaction_path(app_id, txid)
+    lockrootpath = self.get_lock_root_path(app_id, entity_key)
+    lockpath = None
+    retry = True
+    while retry:
+      retry = False
+      try:
+        lockpath = zookeeper.create(self.handle, lockrootpath, txpath,
+          ZOO_ACL_OPEN)
+      except zookeeper.NoNodeException:
+        self.force_create_path(PATH_SEPARATOR.join(lockrootpath.split(
+          PATH_SEPARATOR)[:-1]))
+        retry = True
+      except zookeeper.NodeExistsException:
+        # fail to get lock
+        raise ZKTransactionException(ZKTransactionException.TYPE_CONCURRENT,
+          "acquire_additional_lock: There is already another transaction using this lock")
+
+    # set lockpath for transaction node
+    # TODO: we should think about atomic operation or recovery of
+    #       inconsistent lockpath node.
+    tx_lockpath = zookeeper.get(self.handle, PATH_SEPARATOR.join([txpath,
+        TX_LOCK_PATH]), None)[0]
+    lock_list = tx_lockpath.split(LOCK_LIST_SEPARATOR)
+    if len(lock_list) >= MAX_GROUPS_FOR_XG:
+      raise ZKTransactionException(ZKTransactionException.TYPE_CONCURRENT,
+        "acquire_additional_lock: Too many groups for this XG transaction.")
+
+    lock_list.append(txpath)
+    lock_list_str = LOCK_LIST_SEPARATOR.join(lock_list)
+    zookeeper.aset(self.handle, tx_lockpath, lock_list_str)
+
+    return True
+
+
+
+  def is_xg(self, app_id, tx_id):
+    """ Checks to see if the transaction is XG.
+
+    Args:
+      app_id: The application ID to acquire a lock for.
+      txid: The transaction ID you are acquiring a lock for. Built into 
+    Return:
+      True if the transaction is XG, false otherwise.
+    """
+    return zookeeper.exists(self.handle, PATH_SEPARATOR.join([app_path, str(txn_id), XG_PREFIX]))
+ 
   def acquire_lock(self, app_id, txid, entity_key=GLOBAL_LOCK_KEY):
-    """ Acquire lock for transaction.
+    """ Acquire lock for transaction. It will acquire additional locks
+    if the transactions is XG.
 
     You must call get_transaction_id() first to obtain transaction ID.
-    You could call this method anytime if the root entity key is same.
+    You could call this method anytime if the root entity key is same, 
+    or different in the case of it being XG.
+
     Args:
       app_id: The application ID to acquire a lock for.
       txid: The transaction ID you are acquiring a lock for. Built into 
@@ -409,17 +504,18 @@ class ZKTransaction:
       # use current lock
       prelockpath = zookeeper.get(self.handle, PATH_SEPARATOR.join([txpath,
         TX_LOCK_PATH]), None)[0]
-      if not lockrootpath == prelockpath:
-        # see if we're in an XG transaction - if so, this is ok.
-        # TODO(cgb): This would let users use an unlimited number of entity
-        # groups within a transaction - need to limit it to 5.
+      lock_list = prelockpath.split(LOCK_LIST_SEPARATOR)
+      if lockrootpath not in lock_list:
+        # TODO get XG path
         if zookeeper.exists(self.handle, PATH_SEPARATOR.join([app_path,
           str(txn_id), XG_PREFIX])):
-          return True
+          return self.acquire_additional_lock(app_id, txid, entity_key)
         else:
           raise ZKTransactionException(
             ZKTransactionException.TYPE_DIFFERENT_ROOTKEY, "acquire_lock: " + \
-              "You can not lock different root entity in non-XG transaction.")
+              "You can not lock different root entity in " + \
+              "non-cross-group transaction.")
+
       print "Already has lock: %s" % lockrootpath
       return True
 
