@@ -47,7 +47,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     zookeeper.should_receive('adelete').with_args(self.handle, zero_path)
 
     # assert, make sure we got back our id
-    transaction = zk.ZKTransaction(host="something", startgc=False)
+    transaction = zk.ZKTransaction(host="something", start_gc=False)
     self.assertEquals(1, transaction.create_sequence_node('/rootpath/' + self.appid, 'now'))
 
 
@@ -66,7 +66,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     zookeeper.should_receive('create').with_args(self.handle, path_to_create,
       "now", zk.ZOO_ACL_OPEN)
 
-    transaction = zk.ZKTransaction(host="something", startgc=False)
+    transaction = zk.ZKTransaction(host="something", start_gc=False)
     self.assertEquals(None, transaction.create_node('/rootpath/' + self.appid, 'now'))
 
 
@@ -96,7 +96,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     zk.ZKTransaction.should_receive('create_node').with_args(xg_path, 'now')
 
     # assert, make sure we got back our id
-    transaction = zk.ZKTransaction(host="something", startgc=False)
+    transaction = zk.ZKTransaction(host="something", start_gc=False)
     self.assertEquals(1, transaction.get_transaction_id(self.appid, is_xg=True))
 
 
