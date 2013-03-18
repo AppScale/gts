@@ -28,8 +28,8 @@ class TestZookeeperTransaction(unittest.TestCase):
   def test_create_sequence_node(self):
     # mock out getTransactionRootPath
     flexmock(zk.ZKTransaction)
-    zk.ZKTransaction.should_receive('get_transaction_root_path').with_args(self.appid) \
-      .and_return('/rootpath')
+    zk.ZKTransaction.should_receive('get_transaction_root_path').with_args(
+      self.appid).and_return('/rootpath')
     
     # mock out initializing a ZK connection
     flexmock(zookeeper)
@@ -48,14 +48,15 @@ class TestZookeeperTransaction(unittest.TestCase):
 
     # assert, make sure we got back our id
     transaction = zk.ZKTransaction(host="something", start_gc=False)
-    self.assertEquals(1, transaction.create_sequence_node('/rootpath/' + self.appid, 'now'))
+    self.assertEquals(1, transaction.create_sequence_node('/rootpath/' + \
+      self.appid, 'now'))
 
 
   def test_create_node(self):
     # mock out getTransactionRootPath
     flexmock(zk.ZKTransaction)
-    zk.ZKTransaction.should_receive('get_transaction_root_path').with_args(self.appid) \
-      .and_return('/rootpath')
+    zk.ZKTransaction.should_receive('get_transaction_root_path').with_args(
+      self.appid).and_return('/rootpath')
     
     # mock out initializing a ZK connection
     flexmock(zookeeper)
@@ -67,7 +68,8 @@ class TestZookeeperTransaction(unittest.TestCase):
       "now", zk.ZOO_ACL_OPEN)
 
     transaction = zk.ZKTransaction(host="something", start_gc=False)
-    self.assertEquals(None, transaction.create_node('/rootpath/' + self.appid, 'now'))
+    self.assertEquals(None, transaction.create_node('/rootpath/' + self.appid,
+      'now'))
 
 
   def test_get_transaction_id(self):
@@ -76,8 +78,8 @@ class TestZookeeperTransaction(unittest.TestCase):
     zk.ZKTransaction.should_receive('wait_for_connect')
     
     # mock out getTransactionRootPath
-    zk.ZKTransaction.should_receive('get_transaction_root_path').with_args(self.appid) \
-      .and_return('/rootpath/' + self.appid)
+    zk.ZKTransaction.should_receive('get_transaction_root_path').with_args(
+      self.appid).and_return('/rootpath/' + self.appid)
     
     # mock out time.time
     flexmock(time)
@@ -89,7 +91,8 @@ class TestZookeeperTransaction(unittest.TestCase):
 
     # mock out making the txn id
     path_to_create = "/rootpath/" + self.appid + "/" + zk.APP_TX_PREFIX
-    zk.ZKTransaction.should_receive('create_sequence_node').with_args(path_to_create, 'now').and_return(1)
+    zk.ZKTransaction.should_receive('create_sequence_node').with_args(
+      path_to_create, 'now').and_return(1)
 
     # mock out zookeeper.create for is_xg
     xg_path = path_to_create + "/1/" + zk.XG_PREFIX
