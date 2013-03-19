@@ -158,8 +158,7 @@ class ZKTransaction:
     zookeeper.close(self.handle)
 
   def receive_and_notify(self, handle, event_type, state, path):
-    """ Receives events and notifies other threads if ZooKeeper
-    state has changed.
+    """ Receives events and notifies other threads if ZooKeeper state changes.
  
     Args:
       handle: A ZooKeeper connection.
@@ -192,11 +191,11 @@ class ZKTransaction:
     try:
       black_list = zookeeper.get_children(self.handle, path,
         self.receive_and_notify)
-      with self.blacklistcv:
+      with self.blacklist_cv:
         self.blacklist_cache[app_id] = set(black_list)
     except zookeeper.NoNodeException:
       if app_id in self.blacklist_cache:
-        with self.blacklistcv:
+        with self.blacklist_cv:
           del self.blacklist_cache[app_id]
     
   def wait_for_connect(self):
@@ -207,31 +206,44 @@ class ZKTransaction:
         self.connect_cv.wait(10.0)
 
   def force_create_path(self, path, value="default"):
-    """ Try to create path first.
-
-    If the parent doesn't exists, this method will try to create it.
+    """ Creates a new ZooKeeper node at the given path, recursively creating its
+      parent nodes if necessary.
+    
+    Args:
+      path: A PATH_SEPARATOR-separated str that represents the path to create.
+      value: A str representing the value that should be associated with the
+        new node, created at path.
+    Returns:
+      True if the new ZooKeeper node at path was created successfully, and False
+        otherwise.
     """
     self.wait_for_connect()
-    retry = True
-    while retry:
-      retry = False
+    while True:
       try:
         zookeeper.create(self.handle, path, str(value), ZOO_ACL_OPEN)
+        return True
       except zookeeper.NoNodeException:
-        retry = self.force_create_path(PATH_SEPARATOR.join(
+        # Recursively create this node's parents, but don't return - the next
+        # iteration of this loop will create this node once the parents are
+        # created.
+        self.force_create_path(PATH_SEPARATOR.join(
           path.split(PATH_SEPARATOR)[:-1]), value)
-      except zookeeper.NodeExistsException:
-        # just update value
+      except zookeeper.NodeExistsException:  # just update value
         zookeeper.aset(self.handle, path, str(value))
+        return True
       except Exception as e:
         print "warning: create error %s" % e
         return False
-    return True
 
   def update_node(self, path, value):
-    """ Try to update path first.
+    """ Sets the ZooKeeper node at path to value, creating the node if it
+      doesn't exist.
 
-    If the path doesn't exists, this method will try to create it.
+    Args:
+      path: A PATH_SEPARATOR-separated str that represents the node whose value
+        should be updated.
+      value: A str representing the value that should be associated with the
+        updated node.
     """
     self.wait_for_connect()
     try:
@@ -240,6 +252,11 @@ class ZKTransaction:
       self.force_create_path(path, value)
 
   def delete_recursive(self, path):
+    """ Deletes the ZooKeeper node at path, and any child nodes it may have.
+
+    Args:
+      path: A PATH_SEPARATOR-separated str that represents the node to delete.
+    """
     self.wait_for_connect()
     try:
       children = zookeeper.get_children(self.handle, path)
@@ -250,6 +267,12 @@ class ZKTransaction:
       pass
 
   def dump_tree(self, path):
+    """ Prints information about the given ZooKeeper node and its children.
+
+    Args:
+      path: A PATH_SEPARATOR-separated str that represents the node to print
+        info about.
+    """
     self.wait_for_connect()
     try:
       value = zookeeper.get(self.handle, path, None)[0]
@@ -258,33 +281,103 @@ class ZKTransaction:
       for child in children:
         self.dump_tree(PATH_SEPARATOR.join([path, child]))
     except zookeeper.NoNodeException:
-      print "%s is not exist." % path
+      print "%s does not exist." % path
 
   def get_app_root_path(self, app_id):
+    """ Returns the ZooKeeper path that holds all information for the given
+      application.
+
+    Args:
+      app_id: A str that represents the application we wish to get the root
+        path for.
+    Returns:
+      A str that represents a ZooKeeper node, whose immediate children are
+      the transaction prefix path and the locks prefix path.
+    """
     return PATH_SEPARATOR.join([APPS_PATH, urllib.quote_plus(app_id)])
 
-  def get_transaction_root_path(self, app_id):
+  def get_transaction_prefix_path(self, app_id):
+    """ Returns the location of the ZooKeeper node who contains all transactions
+    in progress for the given application.
+
+    Args:
+      app_id: A str that represents the application we wish to get all
+        transaction information for.
+    Returns:
+      A str that represents a ZooKeeper node, whose immediate children are all
+      of the transactions currently in progress.
+    """
     return PATH_SEPARATOR.join([self.get_app_root_path(app_id), APP_TX_PATH])
 
   def get_transaction_path_before_getting_id(self, app_id):
+    """ Returns a path that callers can use to get new transaction IDs from
+    ZooKeeper, which are given as sequence nodes.
+
+    Args:
+      app_id: A str that represents the application we wish to build a new
+        transaction path for.
+    Returns: A str that can be used to create new transactions.
+    """
     return PATH_SEPARATOR.join([self.get_app_root_path(app_id), APP_TX_PREFIX])
 
   def get_transaction_path(self, app_id, txid):
-    """ This is for a transaction id sequence node. """
+    """ Returns the location of the ZooKeeper node who contains all information
+      for a transaction, and is the parent of the transaction lock list and
+      registered keys for the transaction.
+
+    Args:
+      app_id: A str that represents the application we wish to get the prefix
+        path for.
+      txid: An int that represents the transaction ID whose path we wish to
+        acquire.
+    """
     txstr = APP_TX_PREFIX + "%010d" % txid
     return PATH_SEPARATOR.join([self.get_app_root_path(app_id), APP_TX_PATH,
       txstr])
 
-  def get_transaction_lock_path(self, app_id, txid):
+  def get_transaction_lock_list_path(self, app_id, txid):
+    """ Returns the location of the ZooKeeper node whose value is a
+    XG_LIST-separated str, representing all of the locks that have been acquired
+    for the given transaction ID.
+
+    Args:
+      app_id: A str that represents the application we wish to get the
+        transaction information about.
+      txid: A str that represents the transaction ID we wish to get the lock
+        list location for.
+    Returns:
+      A PATH_SEPARATOR-delimited str corresponding to the ZooKeeper node that
+      contains the list of locks that have been taken for the given transaction.
+    """
     return PATH_SEPARATOR.join([self.get_transaction_path(app_id, txid),
       TX_LOCK_PATH])
 
   def get_blacklist_root_path(self, app_id):
-    return PATH_SEPARATOR.join([self.get_transaction_root_path(app_id),
+    """ Returns the location of the ZooKeeper node whose children are
+      all of the blacklisted transaction IDs for the given application ID.
+
+    Args:
+      app_id: A str corresponding to the application who we want to get
+        blacklisted transaction IDs for.
+    Returns:
+      A str corresponding to the ZooKeeper node whose children are blacklisted
+      transaction IDs.
+    """
+    return PATH_SEPARATOR.join([self.get_transaction_prefix_path(app_id),
       TX_BLACKLIST_PATH])
 
   def get_valid_transaction_root_path(self, app_id):
-    return PATH_SEPARATOR.join([self.get_transaction_root_path(app_id),
+    """ Returns the location of the ZooKeeper node whose children are
+      all of the valid transaction IDs for the given application ID.
+
+    Args:
+      app_id: A str corresponding to the application who we want to get
+        valid transaction IDs for.
+    Returns:
+      A str corresponding to the ZooKeeper node whose children are valid
+      transaction IDs.
+    """
+    return PATH_SEPARATOR.join([self.get_transaction_prefix_path(app_id),
       TX_VALIDLIST_PATH])
 
   def get_valid_transaction_path(self, app_id, entity_key):
@@ -298,7 +391,6 @@ class ZKTransaction:
   def get_id_root_path(self, app_id, key):
     return PATH_SEPARATOR.join([self.get_app_root_path(app_id), APP_ID_PATH,
       urllib.quote_plus(key)])
-
 
   def get_xg_path(self, app_id, tx_id):
     """ Gets the XG path for a transaction.
@@ -340,8 +432,13 @@ class ZKTransaction:
   def create_sequence_node(self, path, value):
     """ Creates a new sequence node in ZooKeeper, with a non-zero initial ID.
 
+    We avoid using zero as the initial ID because Google App Engine apps can
+    use a zero ID as a sentinel value, to indicate that an ID should be
+    allocated for them.
+
     Args:
-      path: The path to create the sequence node at.
+      path: The prefix to create the sequence node at. For example, a prefix
+        of '/abc' would result in a sequence node of '/abc1' being created.
       value: The value that we should store in the sequence node.
     Returns:
       A long that represents the sequence ID.    
@@ -360,8 +457,6 @@ class ZKTransaction:
           txn_id = long(txn_id_path.split(PATH_SEPARATOR)[-1].lstrip(
             APP_TX_PREFIX))
           if txn_id == 0:
-            # ID 0 is reserved for callers without IDs pre-set, so don't use the
-            # sentinel value for our IDs.
             zookeeper.adelete(self.handle, txn_id_path)
           else:
             return txn_id
@@ -386,14 +481,14 @@ class ZKTransaction:
         transaction on.
       is_xg: A bool that indicates if this transaction operates across multiple
         entity groups.
-
     Returns:
       A long that represents the new transaction ID.
     """
     self.wait_for_connect()
-    rootpath = self.get_transaction_root_path(app_id)
+    rootpath = self.get_transaction_prefix_path(app_id)
     timestamp = str(time.time())
     txn_id = -1
+
     # First, make the ZK node for the actual transaction id.
     app_path = self.get_transaction_path_before_getting_id(app_id)
     txn_id = self.create_sequence_node(app_path, timestamp)
@@ -405,35 +500,46 @@ class ZKTransaction:
     return txn_id
 
   def check_transaction(self, app_id, txid):
-    """ Get status of specified transaction.
+    """ Gets the status of the given transaction.
 
-    Returns: True - If transaction is alive.
-    Raises: ZKTransactionException - If transaction is timeout or not exist.
+    Args:
+      app_id: A str representing the application whose transaction we wish to
+        query.
+      txid: An int that indicates the transaction ID we should query.
+    Returns:
+      True if the transaction is in progress.
+    Raises:
+      ZKTransactionException: If the transaction is not in progress, or it
+        has timed out.
     """
     self.wait_for_connect()
     txpath = self.get_transaction_path(app_id, txid)
     if self.is_blacklisted(app_id, txid):
       raise ZKTransactionException(ZKTransactionException.TYPE_EXPIRED, 
-            "zktransaction.check_transaction: Transaction %d is timeout." % txid)
+            "zktransaction.check_transaction: Transaction %d timed out." % txid)
     if not zookeeper.exists(self.handle, txpath):
       raise ZKTransactionException(ZKTransactionException.TYPE_INVALID, 
-            "zktransaction.check_transaction: TransactionID %d is not valid." %
+            "zktransaction.check_transaction: Transaction %d is not valid." %
             txid)
     return True
 
   def is_in_transaction(self, app_id, txid):
     """ Checks to see if the named transaction is currently running.
 
+    Args:
+      app_id: A str representing the application whose transaction we wish to
+        query.
+      txid: An int that indicates the transaction ID we should query.
     Returns:
       True if the transaction is in progress, and False otherwise.
     Raises:
       ZKTransactionException: If the transaction is blacklisted.
     """
     self.wait_for_connect()
-    tx_lock_path = self.get_transaction_lock_path(app_id, txid)
+    tx_lock_path = self.get_transaction_lock_list_path(app_id, txid)
     if self.is_blacklisted(app_id, txid):
       raise ZKTransactionException(ZKTransactionException.TYPE_EXPIRED, 
-            "zktransaction.is_in_transaction: Transaction %d is timeout." % txid)
+            "zktransaction.is_in_transaction: Transaction %d timed out." % txid)
     if not zookeeper.exists(self.handle, tx_lock_path):
       return False
     return True
@@ -450,6 +556,9 @@ class ZKTransaction:
         to store the lock information in.
     Returns:
       Boolean, of true on success, false if lock can not be acquired.
+    Raises:
+      ZKTransactionException: If we can't acquire the lock for the given
+        entity group, because a different transaction already has it.
     """
     self.check_transaction(app_id, txid)
     txpath = self.get_transaction_path(app_id, txid)
@@ -469,30 +578,27 @@ class ZKTransaction:
       except zookeeper.NodeExistsException:
         # fail to get lock
         raise ZKTransactionException(ZKTransactionException.TYPE_CONCURRENT,
-          "acquire_additional_lock: There is already another transaction using this lock")
+          "acquire_additional_lock: There is already another transaction " + \
+          "using this lock")
 
     # set lockpath for transaction node
     # TODO: we should think about atomic operation or recovery of
     #       inconsistent lockpath node.
-    transaction_lock_path = self.get_transaction_lock_path(app_id, txid)
+    transaction_lock_path = self.get_transaction_lock_list_path(app_id, txid)
     if create:
       zookeeper.acreate(self.handle, transaction_lock_path, lockpath, 
         ZOO_ACL_OPEN)
     else:
       tx_lockpath = zookeeper.get(self.handle, transaction_lock_path, None)[0]
-        
       lock_list = tx_lockpath.split(LOCK_LIST_SEPARATOR)
       if len(lock_list) >= MAX_GROUPS_FOR_XG:
         raise ZKTransactionException(ZKTransactionException.TYPE_CONCURRENT,
           "acquire_additional_lock: Too many groups for this XG transaction.")
-
       lock_list.append(txpath)
       lock_list_str = LOCK_LIST_SEPARATOR.join(lock_list)
-
       zookeeper.aset(self.handle, tx_lockpath, lock_list_str)
 
     return True
-
 
   def is_xg(self, app_id, tx_id):
     """ Checks to see if the transaction can operate over multiple entity
@@ -524,9 +630,8 @@ class ZKTransaction:
     """
     lockrootpath = self.get_lock_root_path(app_id, entity_key)
 
-    if self.is_in_transaction(app_id, txid):
-      # use current lock
-      transaction_lock_path = self.get_transaction_lock_path(app_id, txid)
+    if self.is_in_transaction(app_id, txid):  # use current lock
+      transaction_lock_path = self.get_transaction_lock_list_path(app_id, txid)
       prelockpath = zookeeper.get(self.handle, transaction_lock_path, None)[0]
       lock_list = prelockpath.split(LOCK_LIST_SEPARATOR)
       if lockrootpath in lock_list:
@@ -545,12 +650,17 @@ class ZKTransaction:
     return self.acquire_additional_lock(app_id, txid, entity_key, create=True)
 
   def get_updated_key_list(self, app_id, txid):
-    """ Get the list of updated key.
+    """ Gets a list of keys updated in this transaction.
 
-    This method just return updated key list which is registered using
-    register_updated_key().
-    This method doesn't check transaction state, so
-    you can use this method for rollback.
+    Args:
+      app_id: A str corresponding to the application ID whose transaction we
+        wish to query.
+      txid: The transaction ID that we want to get a list of updated keys for.
+    Returns:
+      A list of keys that have been updated in this transaction.
+    Raises:
+      ZKTransactionException: If the given transaction ID does not correspond
+        to a transaction that is currently in progress.
     """
     self.wait_for_connect()
     txpath = self.get_transaction_path(app_id, txid)
@@ -569,26 +679,26 @@ class ZKTransaction:
         "get_updated_key_list: Transaction ID %d is not valid." % txid)
 
   def release_lock(self, app_id, txid, entity_key=None):
-    """ Releases acquired lock(s).
+    """ Releases all locks acquired during this transaction.
 
-    You must call acquire_lock() first. If the transaction is not 
-    valid or it is expired, then this raises an Exception.  After the 
-    lock is released, you can no longer use transaction ID again.
-    If there is no lock, this method returns False.
+    Callers must call acquire_lock before calling release_lock. Upon calling
+    release_lock, the given transaction ID is no longer valid.
+
     Args:
       app_id: The application ID we are releasing a lock for.
       txid: The transaction ID we are releasing a lock for.
       entity_key: The entity key we use to build the path.
     Returns:
-      True on success, false otherwise.
+      True if the locks were released, and False otherwise.
     Raises:
-      ZKTransactionException: When a lock can not be released. 
+      ZKTransactionException: If any locks acquired during this transaction
+        could not be released.
     """
     self.wait_for_connect()
     self.check_transaction(app_id, txid)
     txpath = self.get_transaction_path(app_id, txid)
      
-    transaction_lock_path = self.get_transaction_lock_path(app_id, txid)
+    transaction_lock_path = self.get_transaction_lock_list_path(app_id, txid)
     try:
       lock_list_str = zookeeper.get(self.handle, transaction_lock_path, None)[0]
       lock_list = lock_list_str.split(LOCK_LIST_SEPARATOR)
@@ -609,26 +719,30 @@ class ZKTransaction:
     zookeeper.adelete(self.handle, txpath)
 
   def is_blacklisted(self, app_id, txid):
-    """ This validate transaction id with black list.
+    """ Checks to see if the given transaction ID has been blacklisted (that is,
+    if it is no longer considered to be a valid transaction).
 
-    The PB server logic should use get_valid_transaction_id().
+    Args:
+      app_id: The application ID whose transaction ID we want to validate.
+      txid: The transaction ID that we want to validate.
+    Returns:
+      True if the transaction is blacklisted, False otherwise.
     """
     self.wait_for_connect()
     if app_id in self.blacklist_cache:
       with self.blacklist_cv:
         return str(txid) in self.blacklist_cache[app_id]
     else:
-      broot = self.get_blacklist_root_path(app_id)
-      if not zookeeper.exists(self.handle, broot):
-        self.force_create_path(broot)
+      blacklist_root = self.get_blacklist_root_path(app_id)
+      if not zookeeper.exists(self.handle, blacklist_root):
+        self.force_create_path(blacklist_root)
       try:
-        blist = zookeeper.get_children(self.handle, broot,
+        blacklist = zookeeper.get_children(self.handle, blacklist_root,
           self.receive_and_notify)
         with self.blacklist_cv:
-          self.blacklist_cache[app_id] = set(blist)
+          self.blacklist_cache[app_id] = set(blacklist)
           return str(txid) in self.blacklist_cache[app_id]
-      except zookeeper.NoNodeException:
-        # there is no blacklist
+      except zookeeper.NoNodeException:  # there is no blacklist
         return False
 
   def get_valid_transaction_id(self, app_id, target_txid, entity_key):
@@ -673,10 +787,14 @@ class ZKTransaction:
           "Transaction %d is not valid." % current_txid)
 
   def notify_failed_transaction(self, app_id, txid):
-    """ Notify failed transaction id.
+    """ Marks the given transaction as failed, invalidating its use by future
+    callers.
 
-    This method will add the transaction id into black list.
-    After this call, the transaction becomes invalid.
+    Args:
+      app_id: The application ID whose transaction we wish to invalidate.
+      txid: An int representing the transaction ID we wish to invalidate.
+    Returns:
+      True if the transaction was invalidated, False otherwise.
     """
     self.wait_for_connect()
     self.check_transaction(app_id, txid)
@@ -691,7 +809,7 @@ class ZKTransaction:
       pass
 
     if lockpath:
-      # add transacion id to black list.
+      # add transaction id to black list.
       now = str(time.time())
       broot = self.get_blacklist_root_path(app_id)
       if not zookeeper.exists(self.handle, broot):
@@ -727,45 +845,47 @@ class ZKTransaction:
       for item in zookeeper.get_children(self.handle, txpath):
         zookeeper.adelete(self.handle, PATH_SEPARATOR.join([txpath, item]))
       zookeeper.adelete(self.handle, txpath)
+      return True
     except zookeeper.NoNodeException:
-      # something wrong. next GC will take care of it.
+      # something went wrong. next GC will take care of it.
       return False
 
-    return True
-
-     
   def generate_id_block(self, app_id, entity_key):
-    """ Generate ID block for specific key.
+    """ Allocates a range of IDs that can be used for an entity group.
 
-    This generates ID block that is unique in specified key.
-    If the key doesn't specify, this generates global ID.
-    This method returns long start ID and block length tuple.
+    Google App Engine reserves ID 0 for callers to indicate that we should
+    pick out an ID for them, so this method makes sure that we don't return
+    ID 0 to the caller.
+
+    Args:
+      app_id: A str corresponding to the application whose key we want to
+        allocate IDs for.
+      entity_key: The entity that we want to generate a block of IDs for.
+    Returns:
+      A tuple, whose first value is a long corresponding to the first ID that
+      can be used by callers, and whose second value corresponds to the number
+      of IDs that have been allocated.
     """
     self.wait_for_connect()
-    idrootpath = self.get_id_root_path(app_id, entity_key)
-    path = PATH_SEPARATOR.join([idrootpath, APP_ID_PREFIX])
+    id_root_path = self.get_id_root_path(app_id, entity_key)
+    path = PATH_SEPARATOR.join([id_root_path, APP_ID_PREFIX])
     value = entity_key
     start = -1
-    retry = True
-    while retry:
-      retry = False
+    while True:
       try:
-        idpath = zookeeper.create(self.handle, path, value, ZOO_ACL_OPEN,
+        id_path = zookeeper.create(self.handle, path, value, ZOO_ACL_OPEN,
           zookeeper.SEQUENCE)
-        zookeeper.adelete(self.handle, idpath)
-        idbase = long(idpath.split(PATH_SEPARATOR)[-1].lstrip(APP_ID_PREFIX))
-        start = idbase * ID_BLOCK
-        if start == 0:
-          retry = True
+        zookeeper.adelete(self.handle, id_path)
+        id_base = long(id_path.split(PATH_SEPARATOR)[-1].lstrip(APP_ID_PREFIX))
+        start = id_base * ID_BLOCK
+        if start != 0:
+          return (start, ID_BLOCK)
       except zookeeper.NoNodeException:
-        self.force_create_path(idrootpath)
-        retry = True
+        self.force_create_path(id_root_path)
       except Exception, e:
         print e
         raise ZKTransactionException(ZKTransactionException.TYPE_UNKNOWN,
-          "Fail to generate ID: %s" % e)
-
-    return (start, ID_BLOCK)
+          "Failed to generate ID block: %s" % e)
 
   def gc_runner(self):
     """ Transaction ID garbage collection runner.

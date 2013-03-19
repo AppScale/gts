@@ -27,7 +27,7 @@ class TestZookeeperTransaction(unittest.TestCase):
   def test_create_sequence_node(self):
     # mock out getTransactionRootPath
     flexmock(zk.ZKTransaction)
-    zk.ZKTransaction.should_receive('get_transaction_root_path').with_args(
+    zk.ZKTransaction.should_receive('get_transaction_prefix_path').with_args(
       self.appid).and_return('/rootpath')
     
     # mock out initializing a ZK connection
@@ -54,7 +54,7 @@ class TestZookeeperTransaction(unittest.TestCase):
   def test_create_node(self):
     # mock out getTransactionRootPath
     flexmock(zk.ZKTransaction)
-    zk.ZKTransaction.should_receive('get_transaction_root_path').with_args(
+    zk.ZKTransaction.should_receive('get_transaction_prefix_path').with_args(
       self.appid).and_return('/rootpath')
     
     # mock out initializing a ZK connection
@@ -77,7 +77,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     zk.ZKTransaction.should_receive('wait_for_connect')
     
     # mock out getTransactionRootPath
-    zk.ZKTransaction.should_receive('get_transaction_root_path').with_args(
+    zk.ZKTransaction.should_receive('get_transaction_prefix_path').with_args(
       self.appid).and_return('/rootpath/' + self.appid)
     path_to_create = "/rootpath/" + self.appid + "/" + zk.APP_TX_PREFIX
     zk.ZKTransaction.should_receive('get_transaction_path_before_getting_id') \
@@ -168,7 +168,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     flexmock(zk.ZKTransaction)
     zk.ZKTransaction.should_receive('get_lock_root_path').\
        and_return('/lock/root/path')
-    zk.ZKTransaction.should_receive('get_transaction_root_path').\
+    zk.ZKTransaction.should_receive('get_transaction_prefix_path').\
        and_return('/rootpath/' + self.appid)
     flexmock(zookeeper)
     zookeeper.should_receive('init').and_return(self.handle)
@@ -183,7 +183,7 @@ class TestZookeeperTransaction(unittest.TestCase):
 
     # next, test when we're in a transaction and we already have the lock
     zk.ZKTransaction.should_receive('is_in_transaction').and_return(True)
-    zk.ZKTransaction.should_receive('get_transaction_lock_path').\
+    zk.ZKTransaction.should_receive('get_transaction_lock_list_path').\
        and_return('/rootpath/' + self.appid + "/tx1")
     zookeeper.should_receive('get').and_return(['/lock/root/path'])
 
@@ -193,7 +193,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     # next, test when we're in a non-XG transaction and we're not in the lock
     # root path
     zk.ZKTransaction.should_receive('is_in_transaction').and_return(True)
-    zk.ZKTransaction.should_receive('get_transaction_lock_path').\
+    zk.ZKTransaction.should_receive('get_transaction_lock_list_path').\
        and_return('/rootpath/' + self.appid + "/tx1")
     zookeeper.should_receive('get').and_return(['/lock/root/path2'])
     zk.ZKTransaction.should_receive('is_xg').and_return(False)
@@ -205,7 +205,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     # next, test when we're in a XG transaction and we're not in the lock
     # root path
     zk.ZKTransaction.should_receive('is_in_transaction').and_return(True)
-    zk.ZKTransaction.should_receive('get_transaction_lock_path').\
+    zk.ZKTransaction.should_receive('get_transaction_lock_list_path').\
        and_return('/rootpath/' + self.appid + "/tx1")
     zookeeper.should_receive('get').and_return(['/lock/root/path2'])
     zk.ZKTransaction.should_receive('is_xg').and_return(True)
@@ -223,7 +223,7 @@ class TestZookeeperTransaction(unittest.TestCase):
        and_return('/txn/path')
     zk.ZKTransaction.should_receive('get_lock_root_path').\
        and_return('/lock/root/path')
-    zk.ZKTransaction.should_receive('get_transaction_root_path').\
+    zk.ZKTransaction.should_receive('get_transaction_prefix_path').\
        and_return('/rootpath/' + self.appid)
     flexmock(zookeeper)
     zookeeper.should_receive('init').and_return(self.handle)
@@ -263,7 +263,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     # mock out getTransactionRootPath
     flexmock(zk.ZKTransaction)
     zk.ZKTransaction.should_receive('wait_for_connect')
-    zk.ZKTransaction.should_receive('get_transaction_root_path').with_args(
+    zk.ZKTransaction.should_receive('get_transaction_prefix_path').with_args(
       self.appid).and_return('/rootpath')
     zk.ZKTransaction.should_receive('is_blacklisted').and_return(False)
     
