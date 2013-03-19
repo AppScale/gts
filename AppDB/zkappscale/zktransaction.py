@@ -650,6 +650,8 @@ class ZKTransaction:
       txid: The transaction ID you are acquiring a lock for. Built into 
         the path. 
        entity_key: Used to get the root path.
+    Returns:
+      True on success, False otherwise.
     Raises:
       ZKTransactionException: If it could not get the lock.
     """
