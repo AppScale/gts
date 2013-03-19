@@ -157,11 +157,11 @@ class ZKTransaction:
     self.stop_gc()
     zookeeper.close(self.handle)
 
-  def receive_and_notify(self, handle, event_type, state, path):
+  def receive_and_notify(self, _, event_type, state, path):
     """ Receives events and notifies other threads if ZooKeeper state changes.
  
     Args:
-      handle: A ZooKeeper connection.
+      _: A ZooKeeper connection (unused).
       event_type: An int representing a ZooKeeper event.
       state: An int representing a ZooKeeper connection state.
       path: A str representing the path that changed.
@@ -179,7 +179,7 @@ class ZKTransaction:
       path_list = path.split(PATH_SEPARATOR)
       if path_list[-1] == TX_BLACKLIST_PATH:
         appid = urllib.unquote_plus(path_list[-3])
-        self.update_blacklist_cache(appid)
+        self.update_blacklist_cache(path, appid)
 
   def update_blacklist_cache(self, path, app_id):
     """ Updates the blacklist cache.  
@@ -231,8 +231,8 @@ class ZKTransaction:
       except zookeeper.NodeExistsException:  # just update value
         zookeeper.aset(self.handle, path, str(value))
         return True
-      except Exception as e:
-        print "warning: create error %s" % e
+      except Exception as exception:
+        print "warning: create error %s" % exception
         return False
 
   def update_node(self, path, value):
