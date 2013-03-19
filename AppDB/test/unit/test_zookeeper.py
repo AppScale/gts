@@ -421,7 +421,19 @@ class TestZookeeperTransaction(unittest.TestCase):
      
 
   def test_execute_garbage_collection(self):
-    pass
+    # mock out getTransactionRootPath
+    flexmock(zk.ZKTransaction)
+    zk.ZKTransaction.should_receive('notify_failed_transaction')
+
+    # mock out initializing a ZK connection
+    flexmock(zookeeper)
+    zookeeper.should_receive('init').and_return(self.handle)
+    zookeeper.should_receive('exists').and_return(True)
+    zookeeper.should_receive('get').and_return([str(time.time() + 10000)])
+    zookeeper.should_receive('get_children').and_return(['1','2','3'])
+
+    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    transaction.execute_garbage_collection(self.appid, "some/path")
 
 if __name__ == "__main__":
   unittest.main()    
