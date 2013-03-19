@@ -617,11 +617,11 @@ class ZKTransaction:
       if len(lock_list) >= MAX_GROUPS_FOR_XG:
         raise ZKTransactionException("acquire_additional_lock: Too many " \
           "groups for this XG transaction.")
-      lock_list.append(txpath)
+      lock_list.append(lockpath)
       lock_list_str = LOCK_LIST_SEPARATOR.join(lock_list)
-      zookeeper.aset(self.handle, tx_lockpath, lock_list_str)
-      logging.debug("Set lock list path {0} to value {1}".format(tx_lockpath,
-        lock_list_str))
+      zookeeper.aset(self.handle, transaction_lock_path, lock_list_str)
+      logging.debug("Set lock list path {0} to value {1}".format(
+        transaction_lock_path, lock_list_str))
 
     return True
 
