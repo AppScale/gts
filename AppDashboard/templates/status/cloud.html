@@ -144,7 +144,7 @@
                                   </tr>
                                 </thead>
                                 <tbody>
-                                {% for server in servers %}
+                                {% for server in server_info %}
                                     <tr>
                                       <td align="center">{{server['ip'] }}</td>
                                       <td align="center">{{server['cpu'] }}%</td>
@@ -154,8 +154,6 @@
                                      <td align="center">{{server['roles']|join(', ') }}</td>
                                     </tr>
                                 {% endfor %}
-
-
                                 </tbody>
                             </table>
                           </div>

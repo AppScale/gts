@@ -19,7 +19,7 @@
             <div class="page-header">
                 <h1>Upload an application</h1></div><!--close header-->
                   <div class="well">
-                    <form action="/apps/upload" class="edit_app" enctype="multipart/form-data" id="edit_app" method="post">
+                    <form action="/apps/new" class="edit_app" enctype="multipart/form-data" id="edit_app" method="post">
                        <h3>
                          {% if flash_message %}
                          <ul id="noticeExplanation"><li class="flash notice">{{ flash_message }}</li></ul>
@@ -31,7 +31,7 @@
                         </label><a href="#" onclick="showHelp();"><strong>Help</strong></a>
                       </p>
                       <p>
-                        <input accept="tar.gz, tgz" id="app_file_data" name="app[file_data]" size="30" type="file" />
+                        <input accept="tar.gz, tgz" id="app_file_data" name="app_file_data" size="30" type="file" />
                         <img alt="Spinner" id="spinner" src="/images/spinner.gif?1363364452" style="display:none;" />
                         {{ display_error_messages }}
                       </p>
