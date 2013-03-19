@@ -384,5 +384,44 @@ class TestZookeeperTransaction(unittest.TestCase):
     self.assertRaises(ZKTransactionException, 
       transaction.register_updated_key, self.appid, "1", "2", "somekey")
 
+  def test_try_garbage_collection(self):
+    # mock out getTransactionRootPath
+    flexmock(zk.ZKTransaction)
+    zk.ZKTransaction.should_receive('wait_for_connect')
+    zk.ZKTransaction.should_receive('update_node')
+
+    # mock out initializing a ZK connection
+    flexmock(zookeeper)
+    zookeeper.should_receive('init').and_return(self.handle)
+    zookeeper.should_receive('exists').and_return(True)
+    zookeeper.should_receive('get').and_return([str(time.time() + 10000)])
+    zookeeper.should_receive('get_children').and_return(['1','2','3'])
+    zookeeper.should_receive('create')
+    zookeeper.should_receive('delete')
+
+    # Put the last time we ran GC way into the future.
+    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    self.assertEquals(False, transaction.try_garbage_collection(self.appid, 
+      "/some/path"))
+
+    # Make it so we recently ran the GC
+    zookeeper.should_receive('get').and_return([str(time.time())])
+    self.assertEquals(False, transaction.try_garbage_collection(self.appid, 
+      "/some/path"))
+
+    # Make it so we ran the GC a long time ago.
+    zookeeper.should_receive('get').and_return([str(time.time() - 1000)])
+    self.assertEquals(True, transaction.try_garbage_collection(self.appid, 
+      "/some/path"))
+
+    # No node means we have not run the GC before, so run it.
+    zookeeper.should_receive('get').and_raise(zookeeper.NoNodeException)
+    self.assertEquals(True, transaction.try_garbage_collection(self.appid, 
+      "/some/path"))
+     
+
+  def test_execute_garbage_collection(self):
+    pass
+
 if __name__ == "__main__":
   unittest.main()    

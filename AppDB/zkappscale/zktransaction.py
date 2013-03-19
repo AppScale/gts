@@ -58,7 +58,7 @@ TX_VALIDLIST_PATH = "validlist"
 
 GC_LOCK_PATH = "gclock"
 
-GC_TIME_PATH = "gclasttime"
+GC_TIME_PATH = "gclast_time"
 
 # A unique prefix for cross group transactions.
 XG_PREFIX = "xg"
@@ -812,6 +812,7 @@ class ZKTransaction:
     """
     self.wait_for_connect()
     vtxpath = self.get_valid_transaction_path(app_id, entity_key)
+
     if zookeeper.exists(self.handle, vtxpath):
       # Update the transaction ID for entity if there is valid transaction.
       zookeeper.aset(self.handle, vtxpath, str(target_txid))
@@ -820,12 +821,14 @@ class ZKTransaction:
       value = PATH_SEPARATOR.join([urllib.quote_plus(entity_key),
         str(target_txid)])
       txpath = self.get_transaction_path(app_id, current_txid)
+
       if zookeeper.exists(self.handle, txpath):
         zookeeper.acreate(self.handle, PATH_SEPARATOR.join([txpath,
           TX_UPDATEDKEY_PREFIX]), value, ZOO_ACL_OPEN, zookeeper.SEQUENCE)
       else:
         raise ZKTransactionException("Transaction {0} is not valid.".format(
           current_txid))
+
     return True
 
   def notify_failed_transaction(self, app_id, txid):
@@ -838,23 +841,24 @@ class ZKTransaction:
     Returns:
       True if the transaction was invalidated, False otherwise.
     """
+    logging.debug("Notify failed transaction app: %s, txid: %d" % (app_id, txid))
+
     self.wait_for_connect()
-    #self.check_transaction(app_id, txid)
-    logging.debug("notify failed transaction app:%s, txid:%d" % (app_id, txid))
-    txpath = self.get_transaction_path(app_id, txid)
     lockpath = None
     lock_list = []
+
+    txpath = self.get_transaction_path(app_id, txid)
+
     try:
       lockpath = zookeeper.get(self.handle, PATH_SEPARATOR.join([txpath,
         TX_LOCK_PATH]), None)[0]
       lock_list = lockpath.split(PATH_SEPARATOR)
     except zookeeper.NoNodeException:
-      # there is no lock. it means there is no need to rollback.
+      # There is no need to rollback because there is no lock.
       pass
 
-
     if lock_list:
-      # add transaction id to black list.
+      # Add the transaction ID to the blacklist.
       now = str(time.time())
       broot = self.get_blacklist_root_path(app_id)
 
@@ -864,12 +868,12 @@ class ZKTransaction:
       zookeeper.acreate(self.handle, PATH_SEPARATOR.join([broot, str(txid)]),
         now, ZOO_ACL_OPEN)
 
-      # update local cache before notification
+      # Update local cache before notification.
       if app_id in self.blacklist_cache:
         with self.blacklist_cv:
           self.blacklist_cache[app_id].add(str(txid))
 
-      # copy valid transaction id for each updated key into valid list.
+      # Copy valid transaction ID for each updated key into valid list.
       for child in zookeeper.get_children(self.handle, txpath):
         if re.match("^" + TX_UPDATEDKEY_PREFIX, child):
           value = zookeeper.get(self.handle, PATH_SEPARATOR.join([txpath,
@@ -899,47 +903,61 @@ class ZKTransaction:
     return True
 
   def gc_runner(self):
-    """ Transaction ID garbage collection runner.
+    """ Transaction ID garbage collection (GC) runner.
 
-    This must be running as separate thread.
+    Note: This must be running as separate thread.
     """
     logging.info("Starting GC thread.")
+
     while self.gc_running:
       if self.connected:
-        # scan each application's last gc time
+        # Scan each application's last GC time.
         try:
           app_list = zookeeper.get_children(self.handle, APPS_PATH)
+
           for app in app_list:
             app_id = urllib.unquote_plus(app)
-            # app is already encoded, so we shouldn't use self.get_app_root_path
+            # App is already encoded, so we should not use 
+            # self.get_app_root_path.
             app_path = PATH_SEPARATOR.join([APPS_PATH, app])
-            self.try_gc(app_id, app_path)
+            self.try_garbage_collection(app_id, app_path)
         except zookeeper.NoNodeException:
-          # no apps node.
+          # There were no nodes for this application.
           pass
       with self.gc_cv:
         self.gc_cv.wait(GC_INTERVAL)
     logging.info("Stopping GC thread.")
 
-  def try_gc(self, app_id, app_path):
+  def try_garbage_collection(self, app_id, app_path):
+    """ Try to garbage collect timed out transactions.
+  
+    Args:
+      app_id: The application ID.
+      app_path: The application path for which we're garbage collecting.
+    Returns:
+      True if the garbage collector ran, False otherwise.
+    """
+    last_time = 0
     try:
       val = zookeeper.get(self.handle, PATH_SEPARATOR.join([app_path,
         GC_TIME_PATH]), None)[0]
-      lasttime = float(val)
+      last_time = float(val)
     except zookeeper.NoNodeException:
-      lasttime = 0
-    if lasttime + GC_INTERVAL < time.time():
-      # try to gc this app.
+      last_time = 0
+
+    # If the last time plus our GC interval is less than the current time,
+    # that means its time to run the GC again.
+    logging.debug("Last time GC ran: {0}, next timeout: {1}, current time: {2}"\
+      .format(last_time, last_time + GC_INTERVAL, time.time()))
+    if last_time + GC_INTERVAL < time.time():
       gc_path = PATH_SEPARATOR.join([app_path, GC_LOCK_PATH])
       try:
         now = str(time.time())
         zookeeper.create(self.handle, gc_path, now, ZOO_ACL_OPEN,
           zookeeper.EPHEMERAL)
-        # succeed to obtain lock.
-        # TODO: should we handle the timeout of gc also?
         try:
-          self.execute_gc(app_id, app_path)
-          # update lasttime when gc was succeeded.
+          self.execute_garbage_collection(app_id, app_path)
+          # Update the last time when the GC was successful.
           now = str(time.time())
           self.update_node(PATH_SEPARATOR.join([app_path, GC_TIME_PATH]), now)
         except Exception as exception:
@@ -947,11 +965,20 @@ class ZKTransaction:
           traceback.print_exc()
         zookeeper.delete(self.handle, gc_path, -1)
       except zookeeper.NodeExistsException:
-        # fail to obtain lock. try next time.
+        # Failed to obtain the GC lock. Try again later.
         pass
 
-  def execute_gc(self, app_id, app_path):
-    # get transaction id list
+      return True
+    return False
+
+  def execute_garbage_collection(self, app_id, app_path):
+    """ Execute garbage collection for an application.
+    
+    Args:
+      app_id: The application ID.
+      app_path: The application path. 
+    """
+    # Get the transaction ID list.
     txrootpath = PATH_SEPARATOR.join([app_path, APP_TX_PATH])
     try:
       txlist = zookeeper.get_children(self.handle, txrootpath)
@@ -959,22 +986,27 @@ class ZKTransaction:
       # there is no transaction yet.
       return
 
+    # Verify the time stamp of each transaction.
     for txid in txlist:
       logging.debug("Checking to see if transaction {0} is valid.".format(txid))
+
       if not re.match("^" + APP_TX_PREFIX + '\d', txid):
         logging.debug("Skipping {0} because it is not a transaction.".format(
           txid))
         continue
+
       txpath = PATH_SEPARATOR.join([txrootpath, txid])
+
       try:
         logging.debug("Getting timestamp from transaction ID {0} at path {1}" \
           .format(txid, txpath))
         txtime = float(zookeeper.get(self.handle, txpath, None)[0])
-        # TODO verify that this check is correct.
-        if txtime + TX_TIMEOUT > time.time():
+        # If the timeout plus our current time is in the future, then
+        # we have not timed out yet.
+        if txtime + TX_TIMEOUT < time.time():
           self.notify_failed_transaction(app_id, long(txid.lstrip(
             APP_TX_PREFIX)))
       except zookeeper.NoNodeException:
-        # Transaction id was dissappeared during gc.
-        # The transaction may finished correctly.
+        # Transaction id dissappeared during garbage collection.
+        # The transaction may have finished successfully.
         pass
