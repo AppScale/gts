@@ -1144,6 +1144,26 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
                        logger.warning("MemcachedException doing type set for key [" + internalKey + "], message [" + e.getMessage() + "]");
                  }
              }
+             else
+             {
+                 //if the new value isn't incrementable, make sure to delete the old type value
+                 try
+                 {
+                      memcacheClient.delete(getTypeKey(internalKey));
+                 }
+                 catch(TimeoutException e)
+                 {
+                      logger.warning("TimeoutException doing type delete for key [" + internalKey + "]");
+                 }
+                 catch(InterruptedException e)
+                 {
+                       logger.warning("InterruptedException doing type delete for key [" + internalKey + "]");
+                 }
+                 catch(MemcachedException e)
+                 {
+                       logger.warning("MemcachedException doing type delete for key [" + internalKey + "], message [" + e.getMessage() + "]");
+                 }
+             }
          }
          return res;
     }
