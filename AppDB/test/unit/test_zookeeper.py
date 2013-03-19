@@ -85,7 +85,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     
     # mock out time.time
     flexmock(time)
-    time.should_receive('time').and_return('now')
+    time.should_receive('time').and_return(1000)
     
     # mock out initializing a ZK connection
     flexmock(zookeeper)
@@ -93,12 +93,12 @@ class TestZookeeperTransaction(unittest.TestCase):
 
     # mock out making the txn id
     zk.ZKTransaction.should_receive('create_sequence_node').with_args(
-      path_to_create, 'now').and_return(1)
+      path_to_create, '1000').and_return(1)
 
     # mock out zookeeper.create for is_xg
     xg_path = path_to_create + "/1/" + zk.XG_PREFIX
     zk.ZKTransaction.should_receive('get_xg_path').and_return(xg_path)
-    zk.ZKTransaction.should_receive('create_node').with_args(xg_path, 'now')
+    zk.ZKTransaction.should_receive('create_node').with_args(xg_path, '1000')
 
     # assert, make sure we got back our id
     transaction = zk.ZKTransaction(host="something", start_gc=False)
