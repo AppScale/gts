@@ -385,7 +385,7 @@ class ZKTransaction:
       TX_VALIDLIST_PATH])
 
   def get_valid_transaction_path(self, app_id, entity_key):
-    """ Gets the valid transaction path.
+    """ Gets the valid transaction path with the entity key.
     Args:
       app_id: The application ID.
       entity_key: The entity within the path.
@@ -796,17 +796,27 @@ class ZKTransaction:
       return long(0)
 
   def register_updated_key(self, app_id, current_txid, target_txid, entity_key):
-    """ Regist valid transaction id for entity.
+    """ Registers a key which is a part of a transaction. This is to know
+    what journal version we must rollback to upon failure.
 
-    target_txid must be the latest valid transaction id for the entity.
+    Args:
+      app_id: A str representing the application ID.
+      current_txid: The current transaction ID for which we'll rollback to upon 
+        failure.
+      target_txid: A long transaction ID we are rolling forward to.
+      entity_key: A str key we are registering.
+    Returns:
+      True on success.
+    Raises:
+      A ZKTransactionException if the transaction is not valid. 
     """
     self.wait_for_connect()
     vtxpath = self.get_valid_transaction_path(app_id, entity_key)
     if zookeeper.exists(self.handle, vtxpath):
-      # just update transaction id for entity if there is valid transaction.
+      # Update the transaction ID for entity if there is valid transaction.
       zookeeper.aset(self.handle, vtxpath, str(target_txid))
     else:
-      # store the updated key info into current transaction node.
+      # Store the updated key info into the current transaction node.
       value = PATH_SEPARATOR.join([urllib.quote_plus(entity_key),
         str(target_txid)])
       txpath = self.get_transaction_path(app_id, current_txid)
@@ -816,6 +826,7 @@ class ZKTransaction:
       else:
         raise ZKTransactionException("Transaction {0} is not valid.".format(
           current_txid))
+    return True
 
   def notify_failed_transaction(self, app_id, txid):
     """ Marks the given transaction as failed, invalidating its use by future

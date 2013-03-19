@@ -331,5 +331,58 @@ class TestZookeeperTransaction(unittest.TestCase):
       self.appid, 1)
 
 
+  def test_is_blacklisted(self):
+    # mock out getTransactionRootPath
+    flexmock(zk.ZKTransaction)
+    zk.ZKTransaction.should_receive('wait_for_connect')
+    zk.ZKTransaction.should_receive('force_create_path')
+    zk.ZKTransaction.should_receive('get_blacklist_root_path').\
+      and_return("bl_root_path")
+
+    # mock out initializing a ZK connection
+    flexmock(zookeeper)
+    zookeeper.should_receive('init').and_return(self.handle)
+    zookeeper.should_receive('exists').and_return(True)
+    zookeeper.should_receive('get_children').and_return(['1','2'])
+
+    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    transaction.blacklist_cache[self.appid] = str(1)
+    self.assertEquals(True, transaction.is_blacklisted(self.appid, 1))
+
+    del transaction.blacklist_cache[self.appid]
+    self.assertEquals(True, transaction.is_blacklisted(self.appid, 1))
+
+    del transaction.blacklist_cache[self.appid]
+    zookeeper.should_receive('get_children').\
+      and_raise(zookeeper.NoNodeException)
+    self.assertEquals(False, transaction.is_blacklisted(self.appid, 1))
+
+  def test_register_updated_key(self):
+    # mock out getTransactionRootPath
+    flexmock(zk.ZKTransaction)
+    zk.ZKTransaction.should_receive('wait_for_connect')
+    zk.ZKTransaction.should_receive('get_valid_transaction_path').\
+      and_return('/txn/path')
+    zk.ZKTransaction.should_receive('get_transaction_path').\
+      and_return('/txn/path')
+
+    zk.ZKTransaction.should_receive('get_blacklist_root_path').\
+      and_return("bl_root_path")
+
+    # mock out initializing a ZK connection
+    flexmock(zookeeper)
+    zookeeper.should_receive('init').and_return(self.handle)
+    zookeeper.should_receive('exists').and_return(True)
+    zookeeper.should_receive('acreate')
+    zookeeper.should_receive('aset')
+
+    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    self.assertEquals(True, transaction.register_updated_key(self.appid, 
+      "1", "2", "somekey"))
+
+    zookeeper.should_receive('exists').and_return(False)
+    self.assertRaises(ZKTransactionException, 
+      transaction.register_updated_key, self.appid, "1", "2", "somekey")
+
 if __name__ == "__main__":
   unittest.main()    
