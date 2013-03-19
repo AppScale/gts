@@ -478,11 +478,8 @@ class ZKTransaction:
     retries_left = self.DEFAULT_NUM_RETRIES
     while retries_left > 0:
       try:
-        txn_id_path = zookeeper.create(self.handle, 
-                                path,
-                                value, 
-                                ZOO_ACL_OPEN, 
-                                zookeeper.SEQUENCE)
+        txn_id_path = zookeeper.create(self.handle, path, value, ZOO_ACL_OPEN, 
+          zookeeper.SEQUENCE)
         if txn_id_path:
           txn_id = long(txn_id_path.split(PATH_SEPARATOR)[-1].lstrip(
             APP_TX_PREFIX))
@@ -983,8 +980,8 @@ class ZKTransaction:
           # update lasttime when gc was succeeded.
           now = str(time.time())
           self.update_node(PATH_SEPARATOR.join([app_path, GC_TIME_PATH]), now)
-        except Exception, e:
-          logging.error("warning: gc error %s" % e)
+        except Exception as exception:
+          logging.error("Warning: GC error {0}".format(str(exception)))
           traceback.print_exc()
         zookeeper.delete(self.handle, gc_path, -1)
       except zookeeper.NodeExistsException:
@@ -1001,10 +998,15 @@ class ZKTransaction:
       return
 
     for txid in txlist:
-      if not re.match("^" + APP_TX_PREFIX, txid):
+      logging.debug("Checking to see if transaction {0} is valid.".format(txid))
+      if not re.match("^" + APP_TX_PREFIX + '\d', txid):
+        logging.debug("Skipping {0} because it is not a transaction.".format(
+          txid))
         continue
       txpath = PATH_SEPARATOR.join([txrootpath, txid])
       try:
+        logging.debug("Getting timestamp from transaction ID {0} at path {1}" \
+          .format(txid, txpath))
         txtime = float(zookeeper.get(self.handle, txpath, None)[0])
         if txtime + TX_TIMEOUT < time.time():
           self.notify_failed_transaction(app_id, long(txid.lstrip(

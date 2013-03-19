@@ -2374,8 +2374,8 @@ class MainHandler(tornado.web.RequestHandler):
     global datastore_access
     begin_transaction_req_pb = datastore_pb.BeginTransactionRequest(http_request_data)
     multiple_eg = False
-    if begin_transaction_request_pb.has_allow_multiple_eg():
-      multiple_eg = begin_transaction_request_pb.allow_multiple_eg()
+    if begin_transaction_req_pb.has_allow_multiple_eg():
+      multiple_eg = begin_transaction_req_pb.allow_multiple_eg()
 
     transaction_pb = datastore_pb.Transaction()
     handle = datastore_access.setup_transaction(app_id, multiple_eg)
