@@ -74,24 +74,25 @@ class ZKTransactionException(Exception):
   thrown whenever there was a problem involving a transaction (e.g., the
   transaction failed, we couldn't get a transaction ID).
   """
+  pass
 
-  TYPE_UNKNOWN = 0
-  TYPE_NO_CONNECTION = 1
-  TYPE_INVALID = 2
-  TYPE_EXPIRED = 3
-  TYPE_DIFFERENT_ROOTKEY = 4
-  TYPE_CONCURRENT = 5
+  #TYPE_UNKNOWN = 0
+  #TYPE_NO_CONNECTION = 1
+  #TYPE_INVALID = 2
+  #TYPE_EXPIRED = 3
+  #TYPE_DIFFERENT_ROOTKEY = 4
+  #TYPE_CONCURRENT = 5
 
-  def __init__(self, exception_type, message):
-    """ Creates a new ZKTransactionException.
-
-    Args:
-      exception_type: An int (from the above constants) that indicates why the
-        transaction failed.
-      message: A str representing the reason why the transaction failed.
-    """
-    Exception.__init__(self, message)
-    self.exception_type = exception_type
+  #def __init__(self, exception_type, message):
+  #  """ Creates a new ZKTransactionException.
+  #
+  #  Args:
+  #    exception_type: An int (from the above constants) that indicates why the
+  #      transaction failed.
+  #    message: A str representing the reason why the transaction failed.
+  #  """
+  #  Exception.__init__(self, message)
+  #  self.exception_type = exception_type
 
 
 class ZKTransaction:
@@ -112,6 +113,17 @@ class ZKTransaction:
       start_gc: A bool that indicates if we should start the garbage collector
         for timed out transactions.
     """
+    #logging = logging.getLogger()
+    #console_handler = logging.StreamHandler()
+    #formatter = logging.Formatter('%(asctime)s %(levelname)s %(filename)s:'\
+    #                            '%(lineno)s %(message)s ')
+    #console_handler.setFormatter(formatter)
+    #console_handler.setLevel(logging.DEBUG)
+    #logging.addHandler(console_handler)
+    logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
+      '%(lineno)s %(message)s ', level=logging.DEBUG)
+    logging.debug("Started logging")
+
     # Connection instance variables.
     self.connect_cv = threading.Condition()
     self.connected = False
@@ -126,15 +138,6 @@ class ZKTransaction:
     self.gc_cv = threading.Condition()
     if start_gc:
       self.start_gc()
-
-    self.logger = logging.getLogger()
-    console_handler = logging.StreamHandler()
-    formatter = logging.Formatter('%(asctime)s %(levelname)s %(filename)s:'\
-                                '%(lineno)s %(message)s ')
-    console_handler.setFormatter(formatter)
-    console_handler.setLevel(logging.DEBUG)
-    self.logger.addHandler(console_handler)
-    self.logger.debug("Started logging")
 
 
   def start_gc(self):
@@ -242,7 +245,7 @@ class ZKTransaction:
         zookeeper.aset(self.handle, path, str(value))
         return True
       except Exception as exception:
-        self.logger.error("warning: create error %s" % exception)
+        logging.error("warning: create error %s" % exception)
         return False
 
   def update_node(self, path, value):
@@ -286,12 +289,12 @@ class ZKTransaction:
     self.wait_for_connect()
     try:
       value = zookeeper.get(self.handle, path, None)[0]
-      self.logger.info("%s = \"%s\"" % (path, value))
+      logging.info("%s = \"%s\"" % (path, value))
       children = zookeeper.get_children(self.handle, path)
       for child in children:
         self.dump_tree(PATH_SEPARATOR.join([path, child]))
     except zookeeper.NoNodeException:
-      self.logger.info("%s does not exist." % path)
+      logging.info("%s does not exist." % path)
 
   def get_app_root_path(self, app_id):
     """ Returns the ZooKeeper path that holds all information for the given
@@ -328,7 +331,8 @@ class ZKTransaction:
         transaction path for.
     Returns: A str that can be used to create new transactions.
     """
-    return PATH_SEPARATOR.join([self.get_app_root_path(app_id), APP_TX_PREFIX])
+    return PATH_SEPARATOR.join([self.get_transaction_prefix_path(app_id),
+      APP_TX_PREFIX])
 
   def get_transaction_path(self, app_id, txid):
     """ Returns the location of the ZooKeeper node who contains all information
@@ -428,18 +432,22 @@ class ZKTransaction:
     while retries_left > 0:
       try:
         zookeeper.create(self.handle, path, value, ZOO_ACL_OPEN)
-        self.logger.debug("Created path {0} with value {1}".format(path, value))
+        logging.debug("Created path {0} with value {1}".format(path, value))
         return
       except zookeeper.NoNodeException:
-        self.logger.debug("Couldn't create path {0} - recursively creating it." \
+        logging.debug("Couldn't create path {0} - recursively creating it." \
           .format(path))
         self.force_create_path(path)
       finally:
         retries_left -= 1
     
-    raise ZKTransactionException(ZKTransactionException.TYPE_UNKNOWN, 
+    raise ZKTransactionException(
       "Unable to create sequence node with path {0}, value {1}" \
       .format(path, value))
+
+    #raise ZKTransactionException(ZKTransactionException.TYPE_UNKNOWN, 
+    #  "Unable to create sequence node with path {0}, value {1}" \
+    #  .format(path, value))
 
 
   def create_sequence_node(self, path, value):
@@ -470,10 +478,10 @@ class ZKTransaction:
           txn_id = long(txn_id_path.split(PATH_SEPARATOR)[-1].lstrip(
             APP_TX_PREFIX))
           if txn_id == 0:
-            self.logger.debug("Created sequence ID 0 - deleting it.")
+            logging.debug("Created sequence ID 0 - deleting it.")
             zookeeper.adelete(self.handle, txn_id_path)
           else:
-            self.logger.debug("Created sequence ID {0} at path {1}".format(txn_id, 
+            logging.debug("Created sequence ID {0} at path {1}".format(txn_id, 
               txn_id_path))
             return txn_id
       except zookeeper.NoNodeException:
@@ -481,11 +489,15 @@ class ZKTransaction:
       finally:
         retries_left -= 1
     
-    self.logger.error("Unable to create sequence node with path {0}, value {1}" \
+    logging.error("Unable to create sequence node with path {0}, value {1}" \
       .format(path, value))
-    raise ZKTransactionException(ZKTransactionException.TYPE_UNKNOWN,
+    raise ZKTransactionException(
       "Unable to create sequence node with path {0}, value {1}" \
       .format(path, value))
+
+    #raise ZKTransactionException(ZKTransactionException.TYPE_UNKNOWN,
+    #  "Unable to create sequence node with path {0}, value {1}" \
+    #  .format(path, value))
 
 
   def get_transaction_id(self, app_id, is_xg=False):
@@ -502,6 +514,8 @@ class ZKTransaction:
     Returns:
       A long that represents the new transaction ID.
     """
+    logging.debug("Getting new transaction id for app {0}, with is_xg set " \
+      "to {1}".format(app_id, is_xg))
     self.wait_for_connect()
     timestamp = str(time.time())
 
@@ -513,7 +527,7 @@ class ZKTransaction:
     if is_xg:
       xg_path = self.get_xg_path(app_id, txn_id)
       self.create_node(xg_path, timestamp)
-    self.logger.debug("Returning transaction ID {0} with timestamp {1} for " \
+    logging.debug("Returning transaction ID {0} with timestamp {1} for " \
       "app_id {2}, with is_xg set to {3}".format(txn_id, timestamp, app_id,
       is_xg))
     return txn_id
@@ -531,15 +545,23 @@ class ZKTransaction:
       ZKTransactionException: If the transaction is not in progress, or it
         has timed out.
     """
+    logging.debug("Checking transaction for app {0}, transaction id {1}".format(
+      app_id, txid))
     self.wait_for_connect()
     txpath = self.get_transaction_path(app_id, txid)
     if self.is_blacklisted(app_id, txid):
-      raise ZKTransactionException(ZKTransactionException.TYPE_EXPIRED, 
+      raise ZKTransactionException(
             "zktransaction.check_transaction: Transaction %d timed out." % txid)
+      #raise ZKTransactionException(ZKTransactionException.TYPE_EXPIRED, 
+      #      "zktransaction.check_transaction: Transaction %d timed out." % txid)
     if not zookeeper.exists(self.handle, txpath):
-      raise ZKTransactionException(ZKTransactionException.TYPE_INVALID, 
+      logging.debug("[check_transaction] {0} does not exist".format(txpath))
+      raise ZKTransactionException(
             "zktransaction.check_transaction: Transaction %d is not valid." %
             txid)
+      #raise ZKTransactionException(ZKTransactionException.TYPE_INVALID, 
+      #      "zktransaction.check_transaction: Transaction %d is not valid." %
+      #      txid)
     return True
 
   def is_in_transaction(self, app_id, txid):
@@ -557,12 +579,15 @@ class ZKTransaction:
     self.wait_for_connect()
     tx_lock_path = self.get_transaction_lock_list_path(app_id, txid)
     if self.is_blacklisted(app_id, txid):
-      raise ZKTransactionException(ZKTransactionException.TYPE_EXPIRED, 
+      raise ZKTransactionException(
             "zktransaction.is_in_transaction: Transaction %d timed out." % txid)
+      #raise ZKTransactionException(ZKTransactionException.TYPE_EXPIRED, 
+      #      "zktransaction.is_in_transaction: Transaction %d timed out." % txid)
     if not zookeeper.exists(self.handle, tx_lock_path):
-      self.logger.debug("{0} does not exist".format(tx_lock_path))
+      logging.debug("[is_in_transaction] {0} does not exist".format(
+        tx_lock_path))
       return False
-    self.logger.debug("{0} does exist and is not blacklisted".format(tx_lock_path))
+    logging.debug("{0} does exist and is not blacklisted".format(tx_lock_path))
     return True
 
   def acquire_additional_lock(self, app_id, txid, entity_key, create):
@@ -581,7 +606,9 @@ class ZKTransaction:
       ZKTransactionException: If we can't acquire the lock for the given
         entity group, because a different transaction already has it.
     """
-    self.check_transaction(app_id, txid)
+    logging.debug("Acquiring additional lock for appid {0}, transaction id " \
+      "{1}, entity key {2}, with create {3}".format(app_id, txid, entity_key,
+      create))
     txpath = self.get_transaction_path(app_id, txid)
     lockrootpath = self.get_lock_root_path(app_id, entity_key)
     lockpath = None
@@ -589,6 +616,8 @@ class ZKTransaction:
     while retry:
       retry = False
       try:
+        logging.debug("Trying to create path {0} with value {1}".format(
+          lockrootpath, txpath))
         lockpath = zookeeper.create(self.handle, lockrootpath, txpath,
           ZOO_ACL_OPEN)
       except zookeeper.NoNodeException:
@@ -598,9 +627,14 @@ class ZKTransaction:
         retry = True
       except zookeeper.NodeExistsException:
         # fail to get lock
-        raise ZKTransactionException(ZKTransactionException.TYPE_CONCURRENT,
+        raise ZKTransactionException(
           "acquire_additional_lock: There is already another transaction " + \
           "using this lock")
+        #raise ZKTransactionException(ZKTransactionException.TYPE_CONCURRENT,
+        #  "acquire_additional_lock: There is already another transaction " + \
+        #  "using this lock")
+    logging.debug("Created new lock root path {0} with value {1}".format(
+      lockrootpath, txpath))
 
     # set lockpath for transaction node
     # TODO: we should think about atomic operation or recovery of
@@ -609,15 +643,21 @@ class ZKTransaction:
     if create:
       zookeeper.acreate(self.handle, transaction_lock_path, lockpath, 
         ZOO_ACL_OPEN)
+      logging.debug("Created lock list path {0} with value {1}".format(
+        transaction_lock_path, lockpath))
     else:
       tx_lockpath = zookeeper.get(self.handle, transaction_lock_path, None)[0]
       lock_list = tx_lockpath.split(LOCK_LIST_SEPARATOR)
       if len(lock_list) >= MAX_GROUPS_FOR_XG:
-        raise ZKTransactionException(ZKTransactionException.TYPE_CONCURRENT,
+        raise ZKTransactionException(
           "acquire_additional_lock: Too many groups for this XG transaction.")
+        #raise ZKTransactionException(ZKTransactionException.TYPE_CONCURRENT,
+        #  "acquire_additional_lock: Too many groups for this XG transaction.")
       lock_list.append(txpath)
       lock_list_str = LOCK_LIST_SEPARATOR.join(lock_list)
       zookeeper.aset(self.handle, tx_lockpath, lock_list_str)
+      logging.debug("Set lock list path {0} to value {1}".format(tx_lockpath,
+        lock_list_str))
 
     return True
 
@@ -649,7 +689,7 @@ class ZKTransaction:
     Raises:
       ZKTransactionException: If it could not get the lock.
     """
-    self.logger.debug("Acquiring lock for appid {0}, transaction id {1}, " \
+    logging.debug("Acquiring lock for appid {0}, transaction id {1}, " \
       "entity key {2}".format(app_id, txid, entity_key))
     lockrootpath = self.get_lock_root_path(app_id, entity_key)
 
@@ -658,17 +698,21 @@ class ZKTransaction:
       prelockpath = zookeeper.get(self.handle, transaction_lock_path, None)[0]
       lock_list = prelockpath.split(LOCK_LIST_SEPARATOR)
       if lockrootpath in lock_list:
-        self.logger.debug("Already has lock: %s" % lockrootpath)
+        logging.debug("Already has lock: %s" % lockrootpath)
         return True
       else:
         if self.is_xg(app_id, txid):
           return self.acquire_additional_lock(app_id, txid, entity_key,
             create=False)
         else:
-          raise ZKTransactionException(
-            ZKTransactionException.TYPE_DIFFERENT_ROOTKEY, "acquire_lock: " + \
+          raise ZKTransactionException("acquire_lock: " + \
               "You can not lock different root entity in " + \
               "non-cross-group transaction.")
+
+          #raise ZKTransactionException(
+          #  ZKTransactionException.TYPE_DIFFERENT_ROOTKEY, "acquire_lock: " + \
+          #    "You can not lock different root entity in " + \
+          #    "non-cross-group transaction.")
 
     return self.acquire_additional_lock(app_id, txid, entity_key, create=True)
 
@@ -698,8 +742,10 @@ class ZKTransaction:
           keylist.append(key)
       return keylist
     except zookeeper.NoNodeException:
-      raise ZKTransactionException(ZKTransactionException.TYPE_INVALID, 
+      raise ZKTransactionException(
         "get_updated_key_list: Transaction ID %d is not valid." % txid)
+      #raise ZKTransactionException(ZKTransactionException.TYPE_INVALID, 
+      #  "get_updated_key_list: Transaction ID %d is not valid." % txid)
 
   def release_lock(self, app_id, txid, entity_key=None):
     """ Releases all locks acquired during this transaction.
@@ -717,6 +763,8 @@ class ZKTransaction:
       ZKTransactionException: If any locks acquired during this transaction
         could not be released.
     """
+    logging.debug("Releasing locks for app {0}, with transaction id {1} and " \
+      "entity key {2}".format(app_id, txid, str(entity_key)))
     # TODO(cgb): Do we need entity_key?
     self.wait_for_connect()
     self.check_transaction(app_id, txid)
@@ -807,8 +855,10 @@ class ZKTransaction:
         zookeeper.acreate(self.handle, PATH_SEPARATOR.join([txpath,
           TX_UPDATEDKEY_PREFIX]), value, ZOO_ACL_OPEN, zookeeper.SEQUENCE)
       else:
-        raise ZKTransactionException(ZKTransactionException.TYPE_INVALID,
+        raise ZKTransactionException(
           "Transaction %d is not valid." % current_txid)
+        #raise ZKTransactionException(ZKTransactionException.TYPE_INVALID,
+        #  "Transaction %d is not valid." % current_txid)
 
   def notify_failed_transaction(self, app_id, txid):
     """ Marks the given transaction as failed, invalidating its use by future
@@ -822,7 +872,7 @@ class ZKTransaction:
     """
     self.wait_for_connect()
     self.check_transaction(app_id, txid)
-    self.logger.debug("notify failed transaction app:%s, txid:%d" % (app_id, txid))
+    logging.debug("notify failed transaction app:%s, txid:%d" % (app_id, txid))
     txpath = self.get_transaction_path(app_id, txid)
     lockpath = None
     try:
@@ -907,16 +957,18 @@ class ZKTransaction:
       except zookeeper.NoNodeException:
         self.force_create_path(id_root_path)
       except Exception, e:
-        self.logger.error(str(e))
-        raise ZKTransactionException(ZKTransactionException.TYPE_UNKNOWN,
+        logging.error(str(e))
+        raise ZKTransactionException(
           "Failed to generate ID block: %s" % e)
+        #raise ZKTransactionException(ZKTransactionException.TYPE_UNKNOWN,
+        #  "Failed to generate ID block: %s" % e)
 
   def gc_runner(self):
     """ Transaction ID garbage collection runner.
 
     This must be running as separate thread.
     """
-    self.logger.info("Starting GC thread.")
+    logging.info("Starting GC thread.")
     while self.gc_running:
       if self.connected:
         # scan each application's last gc time
@@ -932,7 +984,7 @@ class ZKTransaction:
           pass
       with self.gc_cv:
         self.gc_cv.wait(GC_INTERVAL)
-    self.logger.info("Stopping GC thread.")
+    logging.info("Stopping GC thread.")
 
   def try_gc(self, app_id, app_path):
     try:
@@ -956,7 +1008,7 @@ class ZKTransaction:
           now = str(time.time())
           self.update_node(PATH_SEPARATOR.join([app_path, GC_TIME_PATH]), now)
         except Exception, e:
-          self.logger.error("warning: gc error %s" % e)
+          logging.error("warning: gc error %s" % e)
           traceback.print_exc()
         zookeeper.delete(self.handle, gc_path, -1)
       except zookeeper.NodeExistsException:
