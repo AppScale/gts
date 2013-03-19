@@ -114,7 +114,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     zk.ZKTransaction.should_receive('get_app_root_path') \
       .and_return("app_root_path")
 
-    expected = zk.PATH_SEPARATOR.join(["app_root_path", zk.APP_TX_PREFIX])
+    expected = zk.PATH_SEPARATOR.join(["app_root_path", zk.APP_TX_PATH, zk.APP_TX_PREFIX])
     transaction = zk.ZKTransaction(host="something", start_gc=False)
     self.assertEquals(expected,
       transaction.get_transaction_path_before_getting_id(self.appid))
