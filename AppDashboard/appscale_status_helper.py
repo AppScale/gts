@@ -5,16 +5,16 @@ class AppScaleStatusHelper:
   @classmethod
   def get_status_information(cls):
     #TODO get this data with SOAP
-    return {"apps":["guestbook", True],
-            "ip":"192.168.33.168",
-            "cpu":5.7,
-            "memory":"92.07",
-            "disk":8,
-            "roles":["load_balancer","shadow","db_master","zookeeper",
-                     "login","memcache","taskqueue_master","appengine"],
-            "db_location":"192.168.33.168",
-            "cloud":"cloud1",
-            "state":"Done starting up AppScale, now in heartbeat mode"}
+    return [{"ip":"192.168.33.168",
+             "cpu":5.7,
+             "memory":"92.07",
+             "disk":8,
+             "roles":["load_balancer","shadow","db_master","zookeeper",
+                      "login","memcache","taskqueue_master","appengine"],
+             "db_location":"192.168.33.168",
+             "cloud":"cloud1",
+             "state":"Done starting up AppScale, now in heartbeat mode"}
+           ]
 
 
   @classmethod
@@ -29,13 +29,12 @@ class AppScaleStatusHelper:
   @classmethod
   def get_application_information(cls):
     #TODO get this data with SOAP
-    stat_info = cls.get_status_information()
-    return [ stat_info['apps'] ]
+    return [["guestbook", True]]
  
   @classmethod
   def get_database_information(cls):
     #TODO get this data with SOAP
-    return {'table': 'cassandra',
+    return {'database': 'cassandra',
             'replication': "1",
             'keyname':'appscale'}
 

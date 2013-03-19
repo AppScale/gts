@@ -29,7 +29,7 @@ class AppDashboard(webapp2.RequestHandler):
       'i_can_upload' : AppScaleUserTools.i_can_upload(),
       'user_perm_list' : AppScaleUserTools.list_all_users_permisions(),
       'service_info' : AppScaleStatusHelper.get_service_info(),
-      'db' : AppScaleStatusHelper.get_database_information(),
+      'dbinfo' : AppScaleStatusHelper.get_database_information(),
       'apps' : AppScaleStatusHelper.get_application_information(),
       'monitoring_url' : AppScaleStatusHelper.get_monitoring_url(),
       'servers' : AppScaleStatusHelper.get_status_information()

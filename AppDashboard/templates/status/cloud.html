@@ -92,8 +92,8 @@
 									<h4><span class="icon12 icomoon-icon-database"></span>Current Database:</h4>
 <!-- DB Hook -->                                    
                                       <ul class="unstyled">
-                                        <li><span class="icon16 icomoon-icon-arrow-right-2"></span>Powered by <strong>{{ db['database'] }}</strong></li>
-                                        <li><span class="icon16 icomoon-icon-arrow-right-2"></span>Data is replicated <strong>{{ db['replication'] }}</strong> times</li>
+                                        <li><span class="icon16 icomoon-icon-arrow-right-2"></span>Powered by <strong>{{ dbinfo['database'] }}</strong></li>
+                                        <li><span class="icon16 icomoon-icon-arrow-right-2"></span>Data is replicated <strong>{{ dbinfo['replication'] }}</strong> times</li>
                                       </ul>
                                     <hr/>
                                     <h4><span class="icon12 icomoon-icon-cube"></span>Current Applications Deployed:</h4>
@@ -151,7 +151,7 @@
                                       <td align="center">{{server['memory'] }}%</td>
                                       <td align="center">{{server['disk'] }}%</td>
                                     <td align="center">{{server['cloud'] }}</td>
-                                     <td align="center">{{server['roles'] }}</td>
+                                     <td align="center">{{server['roles']|join(', ') }}</td>
                                     </tr>
                                 {% endfor %}
 
