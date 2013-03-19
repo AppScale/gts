@@ -1,0 +1,64 @@
+   <div id="header">
+        <div class="navbar">
+            <div class="navbar-inner">
+              <div class="container-fluid">
+                <span style="a {color: black;}" class="brand"><a href="/">AppScale</a><span class="slogan icon32 icomoon-icon-cloud"></span></span>
+                <div class="nav-no-collapse">
+                    <ul style="padding-right: 2.5%;" class="nav pull-right usernav">
+                        {% if logged_in %}
+                          <h3>User: {{ user_email }} | <a href="/users/logout">Logout</a></h3><br />
+                        {% else %}
+                          <h3><a href="/users/login">Login</a> | <a href="/users/new">Create Account</a></h3>
+                        {% endif %}
+                    </ul><!--close drop down-->
+
+                </div><!-- /.nav-collapse -->
+              </div>
+            </div><!-- /navbar-inner -->
+          </div><!-- /navbar --> 
+
+    </div><!-- End #header -->
+
+    <div id="wrapper">
+
+        <!--Responsive navigation button-->  
+        <div class="resBtn">
+            <a href="#"><span class="icon16 minia-icon-list-3"></span></a>
+        </div>
+
+        <!--Sidebar background-->
+        <div id="sidebarbg"></div>
+        <!--Sidebar content-->
+        <div id="sidebar">
+
+            <div class="shortcuts">
+                <ul>
+                    <li><a href="http://appscale.com" title="Support" class="tip"><span class="icon24 icomoon-icon-support"></span></a></li>
+                </ul>
+            </div><!-- End search -->            
+
+            <div class="sidenav">
+
+                <div class="sidebar-widget" style="width: 210px; margin: -1px 0 0 0;">
+                    <h5 class="title" align="center" style="margin-bottom:0">Navigation</h5>
+                </div><!-- End .sidenav-widget -->
+
+                <div align="center" class="mainnav">
+                    <ul>
+                        <li align="center" class="tab"><a href="/status">Cloud Status</a> </li>
+                            {% if is_user_cloud_admin %}
+                              <li align="center" class="tab"><a href="/authorize">Authorize User</a></li>
+                            {% endif %}
+                            {% if i_can_upload %}
+                              <li align="center" class="tab"><a href="/apps/new">Upload App</a></li>
+                              <li align="center" class="tab"><a href="/apps/delete">Delete App</a></li>
+                            {% endif %}
+                    </ul>
+                </div>
+            </div><!-- End sidenav -->
+
+        </div><!-- End #sidebar -->
+</div> <!--close wwrapper-->
+<!--Testing SFTP -->
+
+

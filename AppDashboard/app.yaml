@@ -24,7 +24,13 @@ handlers:
   static_dir: static/stylesheets
 
 - url: /robots.txt
-  static_dir: static/robots.txt
+  static_files: static/robots.txt
+  upload: static/robots.txt
+
+- url: /favicon.ico
+  static_files: static/images/favicon.ico
+  upload: img/favicon.ico
+  mime_type: image/x-icon
 
 - url: /.*
   script: dashboard.app

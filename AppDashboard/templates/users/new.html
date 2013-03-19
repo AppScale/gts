@@ -1,0 +1,94 @@
+              <div class="container-fluid">
+
+        <div id="header">
+
+            <div class="row-fluid">
+
+                <div class="navbar">
+                    <div class="navbar-inner">
+                      <div class="container">
+                            <a class="brand" href="#">AppScale <span class="slogan">Cloud Administration</span></a>
+                      </div>
+                    </div><!-- /navbar-inner -->
+                  </div><!-- /navbar -->
+                
+
+            </div><!-- End .row-fluid -->
+
+        </div><!-- End #header -->
+
+    </div><!-- End .container-fluid --> 
+
+   <div class="container-fluid">
+
+        <div class="loginContainer">
+            <span class="form-horizontal"  id="loginForm" >
+                <form action="/users/create" method="post">
+                <div class="form-row row-fluid">
+                    <div class="span12">
+                        <div class="form-label">
+                        {%  if display_error_messages.email %}
+                        <div class="fieldWithErrors"><label for="user_email">Email:</label></div>
+                        {% else %}
+                        <label for="user_email">Email:</label>
+                        {% endif %}
+                        <input id="user_email" name="user_email" size="40" type="text" value="{{ user.email|default }}" />
+                        {% if display_error_messages.email  %}
+                        <div class="red">Format must be foo@boo.goo. </div>
+                        {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row row-fluid">
+                    <div class="span12">
+                        <div class="form-label">
+                        {%  if display_error_messages.password %}
+                        <div class="fieldWithErrors"><label for="user_password">Password:</label></div>
+                        {% else %}
+                        <label for="user_password">Password:</label>
+                        {% endif %}
+                        <input id="user_password" name="user_password" size="40" type="password" value="{{ user.password|default }}">
+                        {%  if display_error_messages.password %}
+                        <div class="red">Password must be at least 6 characters long.</div>
+                        {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row row-fluid">
+                    <div class="span12">
+                        <div class="form-label">
+                        {%  if display_error_messages.password_confirmation %}
+                        <div class="fieldWithErrors"><label for="user_password_confirmation">Password Confirmation:</label></div>
+                        {% else %}
+                        <label for="user_password_confirmation">Password Confirmation:</label>
+                        {% endif %}
+                          <input id="user_password_confirmation" name="user_password_confirmation" size="40" type="password" value="{{ user.password_confirmation|default }}">
+                        {%  if display_error_messages.password_confirmation %}
+                          <div class="red">Passwords do not match. </div>
+                        {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row row-fluid">                       
+                    <div class="span12">
+                        <div class="row-fluid">
+                            <div class="form-actions">
+                            <div class="span12 controls">
+                              <span class="pull-left">
+                              <input class="btn btn-primary" name="commit" type="submit" value="Create">
+                              </span>
+                                  <div style="margin-top: -25px;" class="span12 pull-left">
+                                  <br />Already have an account? <a href="/users/login">Login.</a><br />
+                                  View the current <a href="/status">Cloud Status.</a>
+                                </div>
+                            </div>
+                            </div>
+                        </div>
+                    </div> 
+                </div>
+                </form>
+            </span>
+        </div>
+
+    </div><!-- End .container-fluid -->

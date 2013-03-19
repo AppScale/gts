@@ -5,7 +5,7 @@ class AppScaleStatusHelper:
   @classmethod
   def get_status_information(cls):
     #TODO get this data with SOAP
-    return {"apps":{"guestbook":True},
+    return {"apps":["guestbook", True],
             "ip":"192.168.33.168",
             "cpu":5.7,
             "memory":"92.07",

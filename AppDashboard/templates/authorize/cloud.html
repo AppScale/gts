@@ -1,0 +1,60 @@
+<!--Body content-->
+        <div id="content" class="clearfix">
+            <div class="contentwrapper"><!--Content wrapper-->
+
+                <div class="heading">
+
+                    <h3>AppScale Dashboard</h3>                    
+
+                    <div class="resBtnSearch">
+                        <a href="#"><span class="icon16 icomoon-icon-search-3"></span></a>
+                    </div>
+
+                </div><!-- End .heading-->
+
+                <!-- Build page from here: -->
+                <div class="row-fluid">
+                  <div class="span4"></div>
+                  <div class="span4">
+
+                            <div class="well boxMargin">
+
+                                <div class="title page-header">
+                      <span class="well" style="color: red;">
+                        {% if flash_message %}
+                        <ul id="noticeExplanation"><li class="flash notice">{{ flash_message }}</li></ul>
+                        {% endif %}
+                      </span>
+                      <h3>Authorization Info:</h3></div>
+                      <form action="/authorize" method="post"><div style="margin:0;padding:0;display:inline">
+                        <table align="center" border="1px">
+                          <tr>
+                            <td style="padding: 0 6px 0 6px;" align="center">Username</td>
+                            <td style="padding: 0 6px 0 6px;" align="center">Upload / Remove App</td>
+                          </tr>
+                          {% for user in user_perm_list %}
+                            <tr>
+                              <td style="padding: 0 6px 0 6px;" align="center">{{ user.email }}</td>
+                              <input type="hidden" name="user_permission_{{ loop.counter }}" value="{{ user.email }}">
+                              <td style="padding: 0 6px 0 6px;" align="center">
+                              <input type="checkbox" id="{{ user }}-upload_app" name="{{ user.email }}-upload_app"
+                                {% if user.upload_app %}
+                                checked="checked" 
+                                {% endif %}
+                                value="{{ user }}-upload_app" />
+                              </td>
+                            </tr>
+                          {% endfor %}
+                        </table>
+                        <div align="center" style="margin-top: 15px;">
+                        <input class="btn btn-primary" name="commit" type="submit" value="Update" />
+                        </div>
+                      </form>
+
+
+                </div><!--close well-->
+                </div><!--close span6 -->
+                <div class="span4"></div> 
+                </div> <!-- end row fluid -->
+            </div> <!-- end content wrapper -->
+        </div> <!--end content-->
