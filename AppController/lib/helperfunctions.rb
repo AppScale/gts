@@ -10,6 +10,11 @@ require 'socket'
 require 'timeout'
 
 
+# Imports for RubyGems
+require 'rubygems'
+require 'json'
+
+
 # Imports for AppController libraries
 $:.unshift File.join(File.dirname(__FILE__))
 require 'custom_exceptions'
@@ -30,10 +35,18 @@ end
 module HelperFunctions
 
 
-  VER_NUM = "1.6.5"
+  VER_NUM = "1.6.8"
 
   
   APPSCALE_HOME = ENV['APPSCALE_HOME']
+
+
+  # The location on the filesystem where configuration files about
+  # AppScale are stored.
+  APPSCALE_CONFIG_DIR = "/etc/appscale"
+
+
+  APPSCALE_KEYS_DIR = "#{APPSCALE_CONFIG_DIR}/keys/cloud1"
 
 
   # The maximum amount of time, in seconds, that we are willing to wait for
@@ -68,7 +81,7 @@ module HelperFunctions
 
   CLOUDY_CREDS = ["ec2_access_key", "ec2_secret_key", "EC2_ACCESS_KEY",
     "EC2_SECRET_KEY", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY",
-    "CLOUD1_EC2_ACCESS_KEY", "CLOUD1_EC2_SECRET_KEY"]
+    "CLOUD_EC2_ACCESS_KEY", "CLOUD_EC2_SECRET_KEY"]
 
 
   # The first port that should be used to host Google App Engine applications
@@ -88,6 +101,11 @@ module HelperFunctions
 
   # The IPv4 address that corresponds to the reserved localhost IP.
   LOCALHOST_IP = "127.0.0.1"
+
+
+  # The file permissions that indicate that only the owner of a file
+  # can read or write to it (necessary for SSH keys).
+  CHMOD_READ_ONLY = 0600
 
 
   # A class variable that is used to locally cache our own IP address, so that
@@ -144,16 +162,7 @@ module HelperFunctions
 
 
   def self.deserialize_info_from_tools(ips) 
-    nodes = {}
-    # FIXME: Here we make the string back into a hash using the crappy deserialization
-    # Definitely change this to JSON at some point
-    ips.split("..").each do |node|
-      tokens = node.split("--")
-      next if tokens.length != 2
-      id,roles = tokens
-      nodes[id] = roles
-    end
-    return nodes
+    return JSON.load(ips)
   end
 
 
@@ -162,15 +171,21 @@ module HelperFunctions
   end
 
 
-  def self.sleep_until_port_is_open(ip, port, use_ssl=DONT_USE_SSL)
+  def self.sleep_until_port_is_open(ip, port, use_ssl=DONT_USE_SSL, timeout=nil)
+    total_time_slept = 0
     sleep_time = 1
 
     loop {
       return if HelperFunctions.is_port_open?(ip, port, use_ssl)
 
       Kernel.sleep(sleep_time)
+      total_time_slept += sleep_time
       if sleep_time < 30
         sleep_time *= 2
+      end
+
+      if !timeout.nil? and total_time_slept > timeout
+        raise Exception.new("Waited too long for #{ip}#{port} to open!")
       end
 
       Kernel.puts("Waiting on #{ip}:#{port} to be open (currently closed).")
@@ -237,25 +252,32 @@ module HelperFunctions
     Kernel.puts("Running [#{remote_cmd}]")
 
     if want_output
-      return `#{remote_cmd}`
+      return self.shell("#{remote_cmd}")
     else
-      Kernel.system remote_cmd
+      Kernel.system(remote_cmd)
       return remote_cmd
     end
   end
-
+  
+  # Secure copies a given file to a remote location.
+  # Args:
+  #   local_file_loc: The local file to copy over.
+  #   remote_file_loc: The remote location to copy to.
+  #   target_ip: The remote target IP.
+  #   private_key_loc: The private key to use.
+  # Raises:
+  #   AppScaleSCPException: When a scp fails.
   def self.scp_file(local_file_loc, remote_file_loc, target_ip, private_key_loc)
     private_key_loc = File.expand_path(private_key_loc)
-    `chmod 0600 #{private_key_loc}`
+    FileUtils.chmod(CHMOD_READ_ONLY, private_key_loc)
     local_file_loc = File.expand_path(local_file_loc)
-    retval_file = "/etc/appscale/retval-#{Kernel.rand()}"
+    retval_file = "#{APPSCALE_CONFIG_DIR}/retval-#{Kernel.rand()}"
     cmd = "scp -i #{private_key_loc} -o StrictHostkeyChecking=no 2>&1 #{local_file_loc} root@#{target_ip}:#{remote_file_loc}; echo $? > #{retval_file}"
-    #Kernel.puts(cmd)
-    scp_result = `#{cmd}`
+    scp_result = self.shell(cmd)
 
     loop {
       break if File.exists?(retval_file)
-      sleep(5)
+      Kernel.sleep(5)
     }
 
     retval = (File.open(retval_file) { |f| f.read }).chomp
@@ -266,23 +288,20 @@ module HelperFunctions
       Kernel.puts("\n\n[#{cmd}] returned #{retval} instead of 0 as expected. Will try to copy again momentarily...")
       fails += 1
       if fails >= 5:
-        Kernel.puts("****************************")
-        Kernel.puts("*CRITICAL ERROR: SCP failed*")
-        Kernel.puts("****************************")
-        break
+        raise AppScaleSCPException.new("Failed to copy over #{local_file_loc} to #{remote_file_loc} to #{target_ip} with private key #{private_key_loc}")
       end
-      sleep(2)
-      `#{cmd}`
+      Kernel.sleep(2)
+      self.shell(cmd)
       retval = (File.open(retval_file) { |f| f.read }).chomp
     }
 
-    `rm -fv #{retval_file}`
+    self.shell("rm -fv #{retval_file}")
   end
 
   def self.get_remote_appscale_home(ip, key)
     cat = "cat /etc/appscale/home"
     remote_cmd = "ssh -i #{key} -o NumberOfPasswordPrompts=0 -o StrictHostkeyChecking=no 2>&1 root@#{ip} '#{cat}'"
-    possible_home = `#{remote_cmd}`.chomp
+    possible_home = self.shell("#{remote_cmd}").chomp
     if possible_home.nil? or possible_home.empty?
       return "/root/appscale/"
     else
@@ -794,52 +813,7 @@ module HelperFunctions
     self.shell(`#{infrastructure}-terminate-instances #{instances.join(' ')}`)
   end
 
-  def self.get_hybrid_ips(creds)
-    Kernel.puts("creds are #{self.obscure_creds(creds).inspect}")
 
-    public_ips = []
-    private_ips = []
-
-    keyname = creds["keyname"]
-
-    cloud_num = 1
-    loop {
-      key = "CLOUD#{cloud_num}_TYPE"
-      cloud_type = creds[key]
-      break if cloud_type.nil?
-
-      self.set_creds_in_env(creds, cloud_num)
-
-      this_pub, this_priv = self.get_cloud_ips(cloud_type, keyname)
-      Kernel.puts("CLOUD#{cloud_num} reports public ips [#{this_pub.join(', ')}] and private ips [#{this_priv.join(', ')}]")
-      public_ips = public_ips + this_pub
-      private_ips = private_ips + this_priv
-
-      cloud_num += 1
-    }
-
-    Kernel.puts("all public ips are [#{public_ips.join(', ')}] and private ips [#{private_ips.join(', ')}]")
-    return public_ips, private_ips
-  end
-
-  def self.get_cloud_ips(infrastructure, keyname)
-    self.log_obscured_env
-
-    describe_instances = ""
-    loop {
-      describe_instances = `#{infrastructure}-describe-instances 2>&1`
-      Kernel.puts("[oi!] #{describe_instances}")
-      break unless describe_instances =~ /Message replay detected./
-      sleep(10)
-    }
-
-    running_machine_regex = /\s+(#{IP_OR_FQDN})\s+(#{IP_OR_FQDN})\s+running\s+#{keyname}\s/
-    all_ip_addrs = describe_instances.scan(running_machine_regex).flatten
-    Kernel.puts("[oi!] all ips are [#{all_ip_addrs.join(', ')}]")
-    public_ips, private_ips = HelperFunctions.get_ips(all_ip_addrs)
-    return public_ips, private_ips
-  end
-    
   def self.get_usage
     top_results = `top -n1 -d0 -b`
     usage = {}
@@ -875,13 +849,35 @@ module HelperFunctions
     result << "\n\t" << "root $cache_dir;"
     result << "\n\t" << "expires #{handler['expiration']};" if handler['expiration']
 
-    # TODO: return a 404 page if rewritten path doesn not exist
+    # TODO: return a 404 page if rewritten path doesn't exist
     if handler.key?("static_dir")
       result << "\n\t" << "rewrite #{handler['url']}(.*) /#{handler['static_dir']}/$1 break;"
     elsif handler.key?("static_files")
       result << "\n\t" << "rewrite #{handler['url']} /#{handler['static_files']} break;"
     end
     
+    result << "\n" << "    }" << "\n"
+
+    result
+  end
+
+  # Generate a Nginx location configuration for the given app-engine
+  # URL handler configuration.
+  # Params:
+  #   handler - A hash containing the metadata related to the handler
+  #   port - Port to which the secured traffic should be redirected
+  # Returns:
+  #   A Nginx location configuration as a string
+  def self.generate_secure_location_config(handler, port)
+    result = "\n    location ~ #{handler['url']} {"
+    if handler["secure"] == "always"
+      result << "\n\t" << "rewrite #{handler['url']}(.*) https://$host:#{port}$uri redirect;"
+    elsif handler["secure"] == "never"
+      result << "\n\t" << "rewrite #{handler['url']}(.*) http://$host:#{port}$uri? redirect;"
+    else
+      return ""
+    end
+
     result << "\n" << "    }" << "\n"
 
     result
@@ -1000,6 +996,48 @@ module HelperFunctions
     handlers.compact
   end
 
+  # Parses the app.yaml file for the specified application and returns
+  # any URL handlers with a secure tag. The returns secure tags are
+  # put into a hash where the hash key is the value of the secure
+  # tag (always or never) and value is a list of handlers.
+  # Params:
+  #   app_name Name of the application
+  # Returns:
+  #   A hash containing lists of secure handlers
+  def self.get_secure_handlers app_name
+    Djinn.log_debug("Getting secure handlers for app #{app_name}")
+    untar_dir = get_untar_dir(app_name)
+
+    secure_handlers = {
+        :always => [],
+        :never => []
+    }
+
+    begin
+      tree = YAML.load_file(File.join(untar_dir,"app.yaml"))
+    rescue Errno::ENOENT => e
+      Kernel.puts("Failed to load YAML file to parse static data")
+      return secure_handlers
+    end
+
+    if tree["handlers"]
+      handlers = tree["handlers"]
+    else
+      return secure_handlers
+    end
+
+    handlers.map! do |handler|
+      next if !handler.key?("secure")
+
+      if handler["secure"] == "always"
+        secure_handlers[:always] << handler
+      elsif handler["secure"] == "never"
+        secure_handlers[:never] << handler
+      end
+    end
+    secure_handlers
+  end
+
   # Parses the expiration string provided in the app.yaml and returns its duration in seconds
   def self.expires_duration input_string
     return nil if input_string.nil? || input_string.empty?
@@ -1064,8 +1102,22 @@ module HelperFunctions
   end
 
   def self.does_image_have_location?(ip, location, key)
-    ret_val = `ssh -i #{key} -o NumberOfPasswordPrompts=0 -o StrictHostkeyChecking=no 2>&1 root@#{ip} 'ls #{location}'; echo $?`.chomp[-1]
-    return ret_val.chr == "0"
+    retries_left = 10
+    begin
+      ret_val = self.shell("ssh -i #{key} -o NumberOfPasswordPrompts=0 -o StrictHostkeyChecking=no 2>&1 root@#{ip} 'ls #{location}'; echo $?").chomp[-1]
+      if ret_val.chr == "0"
+        return true
+      end
+      retries_left -= 1
+      if retries_left > 0
+        raise Exception
+      else
+        return false
+      end
+    rescue Exception
+      Kernel.sleep(1)
+      retry
+    end
   end
 
   def self.ensure_image_is_appscale(ip, key)

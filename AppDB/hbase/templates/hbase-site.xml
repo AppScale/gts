@@ -65,7 +65,7 @@
   </property>
   <property>
     <name>hbase.regionserver.handler.count</name>
-    <value>100</value>
+    <value>10</value>
   </property>
 <!--  <property>
     <name>hfile.block.cache.size</name>

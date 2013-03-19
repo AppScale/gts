@@ -24,8 +24,13 @@ module Ejabberd
   ONLINE_USERS_FILE = "/etc/appscale/online_xmpp_users"
 
 
+  # We need some additional logic for the start command hence using 
+  # a script.
+  START_EJABBERD_SCRIPT = File.dirname(__FILE__) + "/../" + \
+                          "/scripts/start_ejabberd.sh"
+
   def self.start
-    start_cmd = "/etc/init.d/ejabberd start"
+    start_cmd = "bash #{START_EJABBERD_SCRIPT}"
     stop_cmd = "/etc/init.d/ejabberd stop"
     port = 4369
     GodInterface.start(:ejabberd, start_cmd, stop_cmd, port)
@@ -70,7 +75,7 @@ module Ejabberd
     }
   end
 
-  def self.write_auth_script(login_ip, secret)
+  def self.write_auth_script(login_ip, uaserver_ip, secret)
     auth_script = <<SCRIPT
 #!/usr/bin/python
 
@@ -90,10 +95,11 @@ logging.info("extauth script started, waiting for ejabberd requests")
 # db initialization
 
 login_ip = "#{login_ip}"
+uaserver_ip = "#{uaserver_ip}"
 secret = "#{secret}"
 
-login_address = "https://" + login_ip + ":4343"
-server = SOAPpy.SOAPProxy(login_address)
+uaserver_address = "https://" + uaserver_ip + ":4343"
+server = SOAPpy.SOAPProxy(uaserver_address)
 
 # helper functions
 

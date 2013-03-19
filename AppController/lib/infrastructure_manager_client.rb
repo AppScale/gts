@@ -119,8 +119,10 @@ class InfrastructureManagerClient
 
 
   def run_instances(parameters)
+    obscured = parameters.dup
+    obscured['credentials'] = HelperFunctions.obscure_creds(obscured['credentials'])
     Djinn.log_debug("Calling run_instances with parameters " +
-      "#{parameters.inspect}")
+      "#{obscured.inspect}")
 
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, "run_instances") { 
       @conn.run_instances(parameters.to_json, @secret)
@@ -162,7 +164,9 @@ class InfrastructureManagerClient
       "instance_type" => creds['instance_type'],
       "keyname" => creds['keyname'],
       "num_vms" => "#{num_vms}",
-      "cloud" => cloud)
+      "cloud" => cloud,
+      "use_spot_instances" => creds['use_spot_instances'],
+      "max_spot_price" => creds['max_spot_price'])
     Djinn.log_debug("[IM] Run instances info says [#{run_result}]")
     reservation_id = run_result['reservation_id']
 
@@ -174,8 +178,9 @@ class InfrastructureManagerClient
       if describe_result["state"] == "running"
         vm_info = describe_result["vm_info"]
         break
+      elsif describe_result["failed"] == "failed"
+	raise AppScaleException.new(describe_result["reason"]) 
       end
-
       Kernel.sleep(10)
     }
 

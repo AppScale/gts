@@ -43,14 +43,16 @@ class ApplicationController < ActionController::Base
     if tokens.length != 4
       # guard against user-crafted cookies
       Rails.logger.info "saw a malformed cookie: [#{cookie_val}] - clearing it out"
-      cookies[:dev_appserver_login] = { :value => nil, :domain => UserTools.local_ip, :expires => Time.at(0) }
+      cookies[:dev_appserver_login] = { :value => nil, :domain => UserTools.public_ip, :expires => Time.at(0) }
+      return
     end
     email, nick, admin, hash = tokens
 
     my_hash = UserTools.get_appengine_hash(email, nick, admin)
     if my_hash != hash
       reset_session
-      cookies[:dev_appserver_login] = { :value => nil, :domain => UserTools.local_ip, :expires => Time.at(0) }      
+      cookies[:dev_appserver_login] = { :value => nil, :domain => UserTools.public_ip, :expires => Time.at(0) }
+      return
     end
   end
 
@@ -79,7 +81,21 @@ class ApplicationController < ActionController::Base
     }
   end
 
-  def create_token(ip, email)
+  # Contacts the UserAppServer to store a 'token' on behalf of a user. The original
+  # idea of the token was to enable users to be automatically logged in on
+  # AppLoadBalancers with different IPs, but who share the same database instance.
+  # Users then would be uniquely identified (by their IP or Rails session ID) and
+  # this identifier would be used to retrieve the previously stored token.
+  # TODO(cgb): Now that we don't use a unique identifier, we should consider
+  # eliminating the use of tokens and just revert back to checking for a valid
+  # cookie.
+  # Args:
+  #   email: A String that uniquely identifies the currently logged-in user.
+  # Returns:
+  #   If the token was created successfully, this returns a String that contains
+  #   user-specific information. If the token was not created successfully (e.g.,
+  #   if the UserAppServer is down), this returns nil.
+  def create_token(email)
     conn = DBFrontend.get_instance
     secret = UserTools.get_secret_key
 
@@ -89,8 +105,8 @@ class ApplicationController < ActionController::Base
     token = "#{email}"
     #token_exp = User.get_token_expiration_date
     begin
-      token_inserted = conn.commit_ip(ip, token, secret)
-      logger.info "just created token for ip [#{ip}] with contents [#{token}], returning [#{token_inserted}]"
+      token_inserted = conn.commit_ip(email, token, secret)
+      logger.info "just created token for email [#{email}] with contents [#{token}], returning [#{token_inserted}]"
     rescue Errno::ECONNREFUSED
       return nil
     end
@@ -101,17 +117,18 @@ class ApplicationController < ActionController::Base
   end
 
   # TODO: There is a similar method in UserTools, should probably merge the two
-  def get_token(ip)
-    logger.info "ip is [#{ip}], which is of class [#{ip.class}]"
+  def get_token(email)
+    logger.info "email is [#{email}], which is of class [#{email.class}]"
     conn = DBFrontend.get_instance
     secret = UserTools.get_secret_key
 
     begin
-      if ip.nil?
-        logger.info "not trying to get token, ip is nil"
+      if email.nil?
+        logger.info "not trying to get token, email is nil"
+	return nil
       else
-        token_data = conn.get_ip(ip, secret)
-        logger.info "get token for ip [#{ip}] returned [#{token_data}]"
+        token_data = conn.get_ip(email, secret)
+        logger.info "get token for email [#{email}] returned [#{token_data}]"
       end
     rescue Errno::ECONNREFUSED
       return nil
@@ -128,9 +145,14 @@ class ApplicationController < ActionController::Base
   end
 
   def check_for_remote_session
-    ip = get_remote_ip
-    token = get_token(ip)
-    logger.info "token for ip [#{ip}] is [#{token}]"
+    email = session[:appengine_user]
+    if email.nil? || email.empty?
+      session[:logged_in] = false
+      return
+    end
+
+    token = get_token(email)
+    logger.info "token for email [#{email}] is [#{token}]"
     if token.nil? || token.empty?
       session[:logged_in] = false
       return

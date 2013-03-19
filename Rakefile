@@ -78,5 +78,71 @@ namespace :python do
 
 end
 
+namespace :appmanager do
+  
+  task :test do
+   sh "nosetests AppManager/test/unit"
+  end
 
-task :default => ['appcontroller:test', 'neptunemanager:test', 'python:test']
+end
+
+namespace :infrastructuremanager do
+
+  task :test do
+    sh "nosetests InfrastructureManager"
+  end
+
+end
+
+namespace :appdb do
+
+  task :test do
+    sh "nosetests AppDB/test/unit"
+  end
+
+end
+
+namespace :apptaskqueue do
+
+  task :test do
+    sh "nosetests AppTaskQueue/test/unit"
+  end
+
+end
+
+namespace :appserver do
+
+  task :test do
+    sh "nosetests AppServer/google/appengine/api/taskqueue/test " +
+      "AppServer/google/appengine/api/xmpp/test"
+  end
+
+end
+
+
+namespace :lib do
+
+  task :test do
+    sh "nosetests lib/test/unit"
+  end
+
+end
+
+namespace :xmppreceiver do
+
+  task :coverage do
+    sh "rm -rf XMPPReceiver/coverage"
+    sh "cd XMPPReceiver && coverage -e"
+    sh "cd XMPPReceiver && coverage run --include='xmpp_receiver.py' --omit='*tests*' --omit='*Python*' test/test_suite.py"
+    sh "cd XMPPReceiver && coverage report -m"
+    sh "cd XMPPReceiver && coverage html"
+    sh "cd XMPPReceiver && mv htmlcov coverage"
+  end
+
+  task :test do
+    sh "nosetests XMPPReceiver"
+  end
+
+end
+
+task :default => ['appcontroller:test', 'neptunemanager:test', 'infrastructuremanager:test', 'appmanager:test', 'appdb:test', 'apptaskqueue:test', 'lib:test', 'appserver:test', 'xmppreceiver:test']

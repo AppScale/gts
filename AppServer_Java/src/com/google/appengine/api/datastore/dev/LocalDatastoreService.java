@@ -22,7 +22,6 @@ import com.google.appengine.repackaged.com.google.common.collect.Sets;
 import com.google.appengine.repackaged.com.google.io.protocol.ProtocolMessage;
 import com.google.appengine.tools.development.AbstractLocalRpcService;
 import com.google.appengine.tools.development.Clock;
-import com.google.appengine.tools.development.LatencyPercentiles;
 import com.google.appengine.tools.development.LocalRpcService;
 import com.google.appengine.tools.development.LocalRpcService.Status;
 import com.google.appengine.tools.development.LocalServerEnvironment;
@@ -452,7 +451,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     /*
      * AppScale replacement of method body
      */
-    @LatencyPercentiles(latency50th = 10)
     public DatastorePb.GetResponse get( LocalRpcService.Status status, DatastorePb.GetRequest request )
     {
         DatastorePb.GetResponse response = new DatastorePb.GetResponse();
@@ -464,7 +462,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         return response;
     }
 
-    @LatencyPercentiles(latency50th = 30, dynamicAdjuster = WriteLatencyAdjuster.class)
     public DatastorePb.PutResponse put( LocalRpcService.Status status, DatastorePb.PutRequest request )
     {
         try
@@ -615,7 +612,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         else if (value.getStringValue().length() > 500) throw Utils.newError(DatastorePb.Error.ErrorCode.BAD_REQUEST, "string property " + name + " is too long.  It cannot exceed " + 500 + " characters.");
     }
 
-    @LatencyPercentiles(latency50th = 40, dynamicAdjuster = WriteLatencyAdjuster.class)
     public DatastorePb.DeleteResponse delete( LocalRpcService.Status status, DatastorePb.DeleteRequest request )
     {
         try
@@ -629,7 +625,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         }
     }
 
-    @LatencyPercentiles(latency50th = 1)
     public ApiBasePb.VoidProto addActions( LocalRpcService.Status status, TaskQueuePb.TaskQueueBulkAddRequest request )
     {
         try
@@ -689,7 +684,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         liveTxn.addActions(addRequests);
     }
 
-    @LatencyPercentiles(latency50th = 20)
     public DatastorePb.QueryResult runQuery( LocalRpcService.Status status, DatastorePb.Query query )
     {
         final LocalCompositeIndexManager.ValidatedQuery validatedQuery = new LocalCompositeIndexManager.ValidatedQuery(query);
@@ -893,7 +887,11 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
             for (OnestoreEntity.Index index : LocalCompositeIndexManager.getInstance().queryIndexList(query))
             {
                 result.addIndex(wrapIndexInCompositeIndex(app, index));
-            }
+            } 
+            /*
+             * AppScale - adding skipped results to the result, otherwise query counts are wrong	
+             */	
+            result.setSkippedResults(queryResult.getSkippedResults());
             return result;
         }
     }
@@ -997,7 +995,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         return value;
     }
 
-    @LatencyPercentiles(latency50th = 50)
     public DatastorePb.QueryResult next( LocalRpcService.Status status, DatastorePb.NextRequest request )
     {
         Profile profile = (Profile)this.profiles.get(request.getCursor().getApp());
@@ -1045,7 +1042,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         return new ApiBasePb.VoidProto();
     }
 
-    @LatencyPercentiles(latency50th = 1)
     public DatastorePb.Transaction beginTransaction( LocalRpcService.Status status, DatastorePb.BeginTransactionRequest req )
     {
         Profile profile = getOrCreateProfile(req.getApp());
@@ -1063,7 +1059,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         return txn;
     }
 
-    @LatencyPercentiles(latency50th = 20, dynamicAdjuster = WriteLatencyAdjuster.class)
     public DatastorePb.CommitResponse commit( LocalRpcService.Status status, DatastorePb.Transaction req )
     {
         Profile profile = (Profile)this.profiles.get(req.getApp());
@@ -1150,7 +1145,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
      * AppScale body replaced CJK: Keeping removeTxn in this method b/c
      * removeTxn in commit(..) above is kept
      */
-    @LatencyPercentiles(latency50th = 1)
     public ApiBasePb.VoidProto rollback( LocalRpcService.Status status, DatastorePb.Transaction req )
     {
         ((Profile)this.profiles.get(req.getApp())).removeTxn(req.getHandle());
@@ -1214,7 +1208,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         return response;
     }
 
-    @LatencyPercentiles(latency50th = 1)
     public DatastorePb.AllocateIdsResponse allocateIds( LocalRpcService.Status status, DatastorePb.AllocateIdsRequest req )
     {
         try

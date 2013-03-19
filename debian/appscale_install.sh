@@ -1,4 +1,3 @@
-
 cd `dirname $0`/..
 if [ -z "$APPSCALE_HOME_RUNTIME" ]; then
     export APPSCALE_HOME_RUNTIME=`pwd`
@@ -29,6 +28,9 @@ case "$1" in
         installnumpy
         installmatplotlib
         installPIL
+        installpycrypto
+        installlxml
+        installxmpppy
 	installappserverjava
 	postinstallappserverjava
 	installmonitoring
@@ -47,21 +49,16 @@ case "$1" in
 	postinstallzookeeper
         installrabbitmq
         postinstallrabbitmq
+        installcelery
 	installservice
 	postinstallservice
 	updatealternatives
-        patchxmpp
 	sethosts
         setulimits
 	;;
     cassandra)
 	installcassandra
 	postinstallcassandra
-	;;
-    voldemort)
-	installprotobuf
-	installvoldemort
-        postinstallvoldemort
 	;;
     hbase)
 	installhbase
@@ -74,24 +71,6 @@ case "$1" in
     mysql)
 	installmysql
 	postinstallmysql
-	;;
-    mongodb)
-	installmongodb
-	postinstallmongodb
-	;;
-    memcachedb)
-	installmemcachedb
-	postinstallmemcachedb
-	;;
-    redisdb)
-	installredisdb
-        postinstallredisdb
-	;;
-    timesten)
-	installtimesten
-	postinstalltimesten
-	;;
-    simpledb)
 	;;
     # for test only. this should be included in core and all.
     zookeeper)
@@ -110,6 +89,9 @@ case "$1" in
         installrabbitmq
         postinstallrabbitmq
         ;; 
+    celery)
+        installcelery
+        ;;
     all)
 	# scratch install of appscale including post script.
 	installappscaleprofile
@@ -125,6 +107,9 @@ case "$1" in
         installnumpy
         installmatplotlib
         installPIL
+        installpycrypto
+        installlxml
+        installxmpppy
 	installappserverjava
 	postinstallappserverjava
 	installmonitoring
@@ -143,28 +128,18 @@ case "$1" in
 	postinstallzookeeper
         installcassandra
 	postinstallcassandra
-	installvoldemort
-	postinstallvoldemort
 	installhbase
 	postinstallhbase
 	installhypertable
 	postinstallhypertable
 	installmysql
 	postinstallmysql
-	installmongodb
-	postinstallmongodb
-        installredisdb
-        postinstallredisdb
-	installmemcachedb
-	postinstallmemcachedb
-	installtimesten
-	postinstalltimesten
         installrabbitmq
         postinstallrabbitmq
+        installcelery
 	installservice
 	postinstallservice
 	updatealternatives
-        patchxmpp
 	sethosts
         setulimits
 	;;

@@ -13,7 +13,7 @@ if [ ! -e VERSION ]; then
     exit 1
 fi
 
-supported_dbs=(hbase hypertable mysql cassandra voldemort mongodb memcachedb redisdb)
+supported_dbs=(hbase hypertable mysql cassandra)
 if [ $1 ]; then
     found=false
     for i in "${supported_dbs[@]}"

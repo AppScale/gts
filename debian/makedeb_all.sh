@@ -10,9 +10,8 @@ fi
 for comp in\
  core all\
  cassandra hbase hypertable\
- memcachedb mongodb mysql\
- timesten voldemort simpledb\
- redisdb
+ mysql
+
 do
     ./debian/makedeb.sh $comp $RELEASE
     if [ $? -ne 0 ]; then

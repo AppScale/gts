@@ -200,7 +200,6 @@ class ZKInterface
         :ephemeral => EPHEMERAL, :data => JSON.dump(@@client_ip))
     }
     if info[:rc].zero? 
-      Djinn.log_debug("Got the AppController lock")
       return true
     else # we couldn't get the lock for some reason
       Djinn.log_debug("Couldn't get the AppController lock, saw info " +
@@ -241,8 +240,6 @@ class ZKInterface
         }
         owner = JSON.load(info[:data])
         if @@client_ip == owner
-          Djinn.log_debug("Tried to get the lock, but we already have it. " +
-            "Not grabbing/releasing lock again.")
           got_lock = false
         else 
           Djinn.log_debug("Tried to get the lock, but it's currently owned " +
@@ -264,11 +261,7 @@ class ZKInterface
       raise except
     ensure
       if got_lock
-        Djinn.log_debug("Grabbed lock, so now releasing it.")
         self.release_appcontroller_lock()
-        Djinn.log_debug("Released lock successfully")
-      else
-        Djinn.log_debug("Didn't grab lock, so not releasing it.")
       end
     end
   end
@@ -572,7 +565,10 @@ class ZKInterface
   def self.run_zookeeper_operation(&block)
     begin
       yield
-    rescue ZookeeperExceptions::ZookeeperException::ConnectionClosed
+    rescue ZookeeperExceptions::ZookeeperException::ConnectionClosed,
+      ZookeeperExceptions::ZookeeperException::NotConnected,
+      ZookeeperExceptions::ZookeeperException::SessionExpired
+
       Djinn.log_debug("Lost our ZooKeeper connection - making a new " +
         "connection and trying again.")
       self.reinitialize()
@@ -595,7 +591,6 @@ class ZKInterface
 
 
   def self.get(key)
-    Djinn.log_debug("[ZK] trying to get #{key}")
     info = self.run_zookeeper_operation {
       @@zk.get(:path => key)
     }
@@ -609,7 +604,6 @@ class ZKInterface
 
 
   def self.get_children(key)
-    Djinn.log_debug("[ZK] trying to get children of #{key}")
     children = self.run_zookeeper_operation {
       @@zk.get_children(:path => key)[:children]
     }
@@ -625,15 +619,12 @@ class ZKInterface
   def self.set(key, val, ephemeral)
     retries_left = 5
     begin
-      Djinn.log_debug("[ZK] trying to set #{key} to #{HelperFunctions.obscure_creds(val)} with ephemeral = #{ephemeral}")
       info = {}
       if self.exists?(key)
-        Djinn.log_debug("[ZK] Key #{key} exists, so setting it")
         info = self.run_zookeeper_operation {
           @@zk.set(:path => key, :data => val)
         }
       else
-        Djinn.log_debug("[ZK] Key #{key} does not exist, so creating it")
         info = self.run_zookeeper_operation {
           @@zk.create(:path => key, :ephemeral => ephemeral, :data => val)
         }
@@ -662,8 +653,6 @@ class ZKInterface
 
 
   def self.recursive_delete(key)
-    Djinn.log_debug("[ZK] trying to recursive delete #{key}")
-
     child_info = self.get_children(key)
     if child_info.empty?
       return
@@ -682,7 +671,6 @@ class ZKInterface
 
 
   def self.delete(key)
-    Djinn.log_debug("[ZK] trying to delete #{key}")
     info = self.run_zookeeper_operation {
       @@zk.delete(:path => key)
     }
@@ -691,8 +679,6 @@ class ZKInterface
       raise FailedZooKeeperOperationException.new("Failed to delete " +
         " path #{key}, saw info #{info.inspect}")
     end
-
-    Djinn.log_debug("Delete succeeded!")
   end
 
 

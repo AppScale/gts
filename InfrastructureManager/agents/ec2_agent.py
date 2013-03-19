@@ -1,8 +1,8 @@
-from agents.base_agent import BaseAgent, AgentConfigurationException
+from agents.base_agent import BaseAgent, AgentConfigurationException, AgentRuntimeException
+import boto
+from boto.exception import EC2ResponseError
 import datetime
 import os
-import re
-import sys
 import time
 from utils import utils
 
@@ -14,11 +14,6 @@ class EC2Agent(BaseAgent):
   EC2 infrastructure agent class which can be used to spawn and terminate
   VMs in an EC2 based environment.
   """
-
-  # A regular expression that matches fully qualified domain names, used to
-  # parse output from describe-instances to see the FQDNs for machines
-  # currently running.
-  FQDN_REGEX = '[\w\d\.\-]+'
 
   # The maximum amount of time, in seconds, that we are willing to wait for
   # a virtual machine to start up, from the initial run-instances request.
@@ -39,53 +34,24 @@ class EC2Agent(BaseAgent):
   PARAM_INSTANCE_TYPE = 'instance_type'
   PARAM_KEYNAME = 'keyname'
   PARAM_INSTANCE_IDS = 'instance_ids'
+  PARAM_SPOT = 'use_spot_instances'
+  PARAM_SPOT_PRICE = 'max_spot_price'
 
   REQUIRED_EC2_RUN_INSTANCES_PARAMS = (
     PARAM_CREDENTIALS,
     PARAM_GROUP,
     PARAM_IMAGE_ID,
     PARAM_INSTANCE_TYPE,
-    PARAM_KEYNAME
-    )
+    PARAM_KEYNAME,
+    PARAM_SPOT
+  )
 
   REQUIRED_EC2_TERMINATE_INSTANCES_PARAMS = (
     PARAM_CREDENTIALS,
     PARAM_INSTANCE_IDS
   )
 
-  def __init__(self):
-    self.prefix = 'ec2'
-
-  def set_environment_variables(self, parameters):
-    """
-    Set the EC2 specific environment variables. Required values for the
-    environment variables are read from the 'credentials' parameter of
-    the parameters map. (Also see documentation for the BaseAgent class)
-
-    Args:
-      parameters  A dictionary containing the 'credentials' key
-    """
-    if os.environ.has_key('EC2_JVM_ARGS'):
-      del(os.environ['EC2_JVM_ARGS'])
-
-    variables = parameters[self.PARAM_CREDENTIALS]
-    for key, value in variables.items():
-      if value is None:
-        utils.log('None value detected for the credential: {0}.'.format(key))
-        continue
-
-      if key.find('KEY') != -1:
-        utils.log('Setting {0} to {1} in our environment.'.format(
-          key, utils.obscure_string(value)))
-      else:
-        utils.log('Setting {0} to {1} in our environment.'.format(key, value))
-      os.environ[key] = value
-
-    ec2_keys_dir = os.path.abspath('/etc/appscale/keys/cloud1')
-    os.environ['EC2_PRIVATE_KEY'] = ec2_keys_dir + '/mykey.pem'
-    os.environ['EC2_CERT'] = ec2_keys_dir + '/mycert.pem'
-    utils.log('Setting private key to: {0} and certificate to: {1}'.format(
-      os.environ['EC2_PRIVATE_KEY'], os.environ['EC2_CERT']))
+  DESCRIBE_INSTANCES_RETRY_COUNT = 3
 
   def configure_instance_security(self, parameters):
     """
@@ -102,28 +68,48 @@ class EC2Agent(BaseAgent):
     """
     keyname = parameters[self.PARAM_KEYNAME]
     group = parameters[self.PARAM_GROUP]
-    ssh_key = os.path.abspath('/etc/appscale/keys/cloud1/{0}.key'.format(keyname))
-    utils.log('About to spawn EC2 instances - Expecting to find a key at {0}'.format(ssh_key))
-    utils.log(utils.get_obscured_env(['EC2_ACCESS_KEY', 'EC2_SECRET_KEY']))
-    if not os.path.exists(ssh_key):
-      utils.log('Creating keys/security group')
-      ec2_output = ''
-      while True:
-        ec2_output = utils.shell('{0}-add-keypair {1} 2>&1'.format(self.prefix, keyname))
-        if ec2_output.find('BEGIN RSA PRIVATE KEY') != -1:
-          break
-        utils.log('Trying again. Saw this from {0}-add-keypair: {1}'.format(
-          self.prefix, ec2_output))
-        utils.shell('{0}-delete-keypair {1} 2>&1'.format(self.prefix, keyname))
-      utils.write_key_file(ssh_key, ec2_output)
-      utils.shell('{0}-add-group {1} -d appscale 2>&1'.format(self.prefix, group))
-      utils.shell('{0}-authorize {1} -p 1-65535 -P udp 2>&1'.format(self.prefix, group))
-      utils.shell('{0}-authorize {1} -p 1-65535 -P tcp 2>&1'.format(self.prefix, group))
-      utils.shell('{0}-authorize {1} -s 0.0.0.0/0 -P icmp -t -1:-1 2>&1'.format(self.prefix, group))
-      return True
-    else:
-      utils.log('Not creating keys/security group')
+
+    key_path = '/etc/appscale/keys/cloud1/{0}.key'.format(keyname)
+    ssh_key = os.path.abspath(key_path)
+    utils.log('About to spawn EC2 instances - ' \
+              'Expecting to find a key at {0}'.format(ssh_key))
+    if os.path.exists(ssh_key):
+      utils.log('SSH keys found in the local system - '
+                'Not initializing EC2 security')
       return False
+
+    try:
+      conn = self.open_connection(parameters)
+      key_pair = conn.get_key_pair(keyname)
+      if key_pair is None:
+        utils.log('Creating key pair: ' + keyname)
+        key_pair = conn.create_key_pair(keyname)
+      utils.write_key_file(ssh_key, key_pair.material)
+
+      security_groups = conn.get_all_security_groups()
+      group_exists = False
+      for security_group in security_groups:
+        if security_group.name == group:
+          group_exists = True
+          break
+
+      if not group_exists:
+        utils.log('Creating security group: ' + group)
+        conn.create_security_group(group, 'AppScale security group')
+        conn.authorize_security_group(group, from_port=1,
+          to_port=65535, ip_protocol='udp')
+        conn.authorize_security_group(group, from_port=1,
+          to_port=65535, ip_protocol='tcp')
+        conn.authorize_security_group(group, ip_protocol='icmp',
+          cidr_ip='0.0.0.0/0')
+
+      return True
+    except EC2ResponseError as exception:
+      self.handle_failure('EC2 response error while initializing '
+                          'security: ' + exception.error_message)
+    except Exception as exception:
+      self.handle_failure('Error while initializing EC2 '
+                          'security: ' + exception.message)
 
   def assert_required_parameters(self, parameters, operation):
     """
@@ -146,9 +132,9 @@ class EC2Agent(BaseAgent):
 
   def describe_instances(self, parameters):
     """
-    Execute the ec2-describe-instances command and returns a summary of the
-    already running EC2 instances. (Also see documentation for the BaseAgent
-    class)
+    Retrieves the list of running instances that have been instantiated using a
+    particular EC2 keyname. The target keyname is read from the input parameter
+    map. (Also see documentation for the BaseAgent class)
 
     Args:
       parameters  A dictionary containing the 'keyname' parameter
@@ -157,25 +143,28 @@ class EC2Agent(BaseAgent):
       A tuple of the form (public_ips, private_ips, instances) where each
       member is a list.
     """
-    keyname = parameters[self.PARAM_KEYNAME]
-    describe_instances = utils.shell(self.prefix + '-describe-instances 2>&1')
-    utils.log('describe-instances says {0}'.format(describe_instances))
-    fqdn_regex = re.compile('\s+({0})\s+({0})\s+running\s+{1}\s'.format(self.FQDN_REGEX, keyname))
-    instance_regex = re.compile('INSTANCE\s+(i-\w+)')
-    all_ip_addresses = utils.flatten(fqdn_regex.findall(describe_instances))
-    instances = utils.flatten(instance_regex.findall(describe_instances))
-    public_ips, private_ips = self.get_ip_addresses(all_ip_addresses)
-    return public_ips, private_ips, instances
+    instance_ids = []
+    public_ips = []
+    private_ips = []
+
+    conn = self.open_connection(parameters)
+    reservations = conn.get_all_instances()
+    instances = [i for r in reservations for i in r.instances]
+    for i in instances:
+      if i.state == 'running' and i.key_name == parameters[self.PARAM_KEYNAME]:
+        instance_ids.append(i.id)
+        public_ips.append(i.public_dns_name)
+        private_ips.append(i.private_dns_name)
+    return public_ips, private_ips, instance_ids
 
   def run_instances(self, count, parameters, security_configured):
     """
-    Spawn the specified number of EC2 instances using the parameters
-    provided. This method relies on the ec2-run-instances command to
-    spawn the actual VMs in the cloud. This method is blocking in that
-    it waits until the requested VMs are properly booted up. However
-    if the requested VMs cannot be procured within 1800 seconds, this
-    method will treat it as an error and return. (Also see documentation
-    for the BaseAgent class)
+    Spawns the specified number of EC2 instances using the parameters
+    provided. This method is blocking in that it waits until the
+    requested VMs are properly booted up. However if the requested
+    VMs cannot be procured within 1800 seconds, this method will treat
+    it as an error and return. (Also see documentation for the BaseAgent
+    class)
 
     Args:
       count               No. of VMs to spawned
@@ -191,7 +180,7 @@ class EC2Agent(BaseAgent):
     instance_type = parameters[self.PARAM_INSTANCE_TYPE]
     keyname = parameters[self.PARAM_KEYNAME]
     group = parameters[self.PARAM_GROUP]
-    spot = False
+    spot = parameters[self.PARAM_SPOT]
 
     utils.log('[{0}] [{1}] [{2}] [{3}] [ec2] [{4}] [{5}]'.format(count,
       image_id, instance_type, keyname, group, spot))
@@ -200,186 +189,126 @@ class EC2Agent(BaseAgent):
     active_public_ips = []
     active_private_ips = []
     active_instances = []
-    if os.environ.has_key('EC2_URL'):
-      utils.log('EC2_URL = [{0}]'.format(os.environ['EC2_URL']))
-    else:
-      utils.log('Warning: EC2_URL environment not found in the process runtime!')
-    while True:
-      active_public_ips, active_private_ips, active_instances =\
-      self.describe_instances(parameters)
-      # If security has been configured on this agent just now,
-      # that's an indication that this is a fresh cloud deployment.
-      # As such it's not expected to have any running VMs.
-      if len(active_instances) > 0 or security_configured:
-        break
 
-    args = '-k {0} -n {1} --instance-type {2} --group {3} {4}'.format(keyname,
-      count, instance_type, group, image_id)
-    if spot:
-      price = self.get_optimal_spot_price(instance_type)
-      command_to_run = '{0}-request-spot-instances -p {1} {2}'.format(self.prefix, price, args)
-    else:
-      command_to_run = '{0}-run-instances {1}'.format(self.prefix, args)
+    try:
+      attempts = 1
+      while True:
+        instance_info = self.describe_instances(parameters)
+        active_public_ips = instance_info[0]
+        active_private_ips = instance_info[1]
+        active_instances = instance_info[2]
 
-    while True:
-      run_instances = utils.shell(command_to_run)
-      utils.log('Run instances says {0}'.format(run_instances))
-      status, command_to_run = self.run_instances_response(command_to_run, run_instances)
-      if status:
-        break
-      utils.log('sleepy time')
-      utils.sleep(5)
+        # If security has been configured on this agent just now,
+        # that's an indication that this is a fresh cloud deployment.
+        # As such it's not expected to have any running VMs.
+        if len(active_instances) > 0 or security_configured:
+          break
+        elif attempts == self.DESCRIBE_INSTANCES_RETRY_COUNT:
+          self.handle_failure('Failed to invoke describe_instances')
+        attempts += 1
 
-    instances = []
-    public_ips = []
-    private_ips = []
-    utils.sleep(10)
+      conn = self.open_connection(parameters)
+      if spot == 'True':
+        price = parameters[self.PARAM_SPOT_PRICE]
+        conn.request_spot_instances(str(price), image_id, key_name=keyname,
+          security_groups=[group], instance_type=instance_type, count=count)
+      else:
+        conn.run_instances(image_id, count, count, key_name=keyname,
+          security_groups=[group], instance_type=instance_type)
 
-    end_time = datetime.datetime.now() + datetime.timedelta(0, self.MAX_VM_CREATION_TIME)
-    now = datetime.datetime.now()
-    while now < end_time:
-      describe_instances = utils.shell(self.prefix + '-describe-instances 2>&1')
-      utils.log('[{0}] {1} seconds left...'.format(now, (end_time - now).seconds))
-      utils.log(describe_instances)
-      fqdn_regex = re.compile('\s+({0})\s+({0})\s+running\s+{1}\s'.format(self.FQDN_REGEX, keyname))
-      instance_regex = re.compile('INSTANCE\s+(i-\w+)')
-      all_ip_addresses = utils.flatten(fqdn_regex.findall(describe_instances))
-      instances = utils.flatten(instance_regex.findall(describe_instances))
-      public_ips, private_ips = self.get_ip_addresses(all_ip_addresses)
-      public_ips = utils.diff(public_ips, active_public_ips)
-      private_ips = utils.diff(private_ips, active_private_ips)
-      instances = utils.diff(instances, active_instances)
-      if count == len(public_ips):
-        break
-      time.sleep(self.SLEEP_TIME)
+      instance_ids = []
+      public_ips = []
+      private_ips = []
+      utils.sleep(10)
+      end_time = datetime.datetime.now() + datetime.timedelta(0,
+        self.MAX_VM_CREATION_TIME)
       now = datetime.datetime.now()
 
-    if not public_ips:
-      sys.exit('No public IPs were able to be procured within the time limit')
+      while now < end_time:
+        time_left = (end_time - now).seconds
+        utils.log('[{0}] {1} seconds left...'.format(now, time_left))
+        instance_info = self.describe_instances(parameters)
+        public_ips = instance_info[0]
+        private_ips = instance_info[1]
+        instance_ids = instance_info[2]
+        public_ips = utils.diff(public_ips, active_public_ips)
+        private_ips = utils.diff(private_ips, active_private_ips)
+        instance_ids = utils.diff(instance_ids, active_instances)
+        if count == len(public_ips):
+          break
+        time.sleep(self.SLEEP_TIME)
+        now = datetime.datetime.now()
 
-    if len(public_ips) != count:
-      for index in range(0, len(public_ips)):
-        if public_ips[index] == '0.0.0.0':
-          instance_to_term = instances[index]
-          utils.log('Instance {0} failed to get a public IP address and is being terminated'.\
-          format(instance_to_term))
-          utils.shell(self.prefix + '-terminate-instances ' + instance_to_term)
-      pass
+      if not public_ips:
+        self.handle_failure('No public IPs were able to be procured '
+                            'within the time limit')
 
-    end_time = datetime.datetime.now()
-    total_time = end_time - start_time
-    if spot:
-      utils.log('TIMING: It took {0} seconds to spawn {1} spot instances'.format(
-        total_time.seconds, count))
-    else:
-      utils.log('TIMING: It took {0} seconds to spawn {1} regular instances'.format(
-        total_time.seconds, count))
-    return instances, public_ips, private_ips
+      if len(public_ips) != count:
+        for index in range(0, len(public_ips)):
+          if public_ips[index] == '0.0.0.0':
+            instance_to_term = instance_ids[index]
+            utils.log('Instance {0} failed to get a public IP address and' \
+                      ' is being terminated'.format(instance_to_term))
+            conn.terminate_instances([instance_to_term])
+
+      end_time = datetime.datetime.now()
+      total_time = end_time - start_time
+      if spot:
+        utils.log('TIMING: It took {0} seconds to spawn {1} spot ' \
+                  'instances'.format(total_time.seconds, count))
+      else:
+        utils.log('TIMING: It took {0} seconds to spawn {1} ' \
+                  'regular instances'.format(total_time.seconds, count))
+      return instance_ids, public_ips, private_ips
+    except EC2ResponseError as exception:
+      self.handle_failure('EC2 response error while starting VMs: ' +
+                          exception.error_message)
+    except Exception as exception:
+      if isinstance(exception, AgentRuntimeException):
+        raise exception
+      else:
+        self.handle_failure('Error while starting VMs: ' + exception.message)
 
   def terminate_instances(self, parameters):
     """
-    Stop one of more EC2 instances using the ec2-terminate-instance command.
-    The input instance IDs are fetched from the 'instance_ids' parameters
-    in the input map. (Also see documentation for the BaseAgent class)
+    Stop one of more EC2 instances using. The input instance IDs are
+    fetched from the 'instance_ids' parameters in the input map. (Also
+    see documentation for the BaseAgent class)
 
     Args:
       parameters  A dictionary of parameters
     """
     instance_ids = parameters[self.PARAM_INSTANCE_IDS]
-    arg = ' '.join(instance_ids)
-    utils.shell('{0}-terminate-instances {1} 2>&1'.format(self.prefix, arg))
+    conn = self.open_connection(parameters)
+    terminated_instances = conn.terminate_instances(instance_ids)
+    for instance in terminated_instances:
+      utils.log('Instance {0} was terminated'.format(instance.id))
 
-  def run_instances_response(self, command, output):
+
+  def open_connection(self, parameters):
     """
-    Local utility method to parse the validate the output of ec2-run-instances
-    command.
+    Initialize a connection to the back-end EC2 APIs.
 
     Args:
-      command Exact command executed
-      output Output of the command
+      parameters  A dictionary containing the 'credentials' parameter.
 
     Returns:
-      A tuple of the form (status,command) where status is a boolean value
-      indicating the success/failure status of the output and command is
-      the modified command to be retried in case the previous attempt had
-      failed.
+      An instance of Boto EC2Connection
     """
-    if output.find('Please try again later') != -1:
-      utils.log('Error with run instances: {0}. Will try again in a moment.'.format(output))
-      return False, command
-    elif output.find('try --addressing private') != -1:
-      utils.log('Need to retry with addressing private. Will try again in a moment.')
-      return False, command + ' --addressing private'
-    elif output.find('PROBLEM') != -1:
-      utils.log('Error: {0}'.format(output))
-      sys.exit('Saw the following error from EC2 tools: {0}'.format(output))
-    else:
-      utils.log('Run instances message sent successfully. Waiting for the image to start up.')
-      return True, command
+    credentials = parameters[self.PARAM_CREDENTIALS]
+    return boto.connect_ec2(str(credentials['EC2_ACCESS_KEY']),
+      str(credentials['EC2_SECRET_KEY']))
 
-  def get_optimal_spot_price(self, instance_type):
+  def handle_failure(self, msg):
     """
-    Returns the spot price for an EC2 instance of the specified instance type.
-    ec2-describe-spot-price-history command is used to obtain a set of spot
-    prices from EC2 and the returned value is computed by averaging all the
-    returned values and incrementing it by extra 20%.
+    Log the specified error message and raise an AgentRuntimeException
 
     Args:
-      instance_type An EC2 instance type
+      msg An error message to be logged and included in the raised exception
 
-    Returns:
-      The estimated spot price for the specified instance type
+    Raises:
+      AgentRuntimeException Contains the input error message
     """
-    command = 'ec2-describe-spot-price-history -t {0} | grep \'Linux/UNIX\' | '\
-              'awk \'{{print $2}}\''.format(instance_type)
-    prices = utils.shell(command).split('\n')
-    sum = 0.0
-    for price in prices:
-      sum += float(price)
-    average = sum / len(prices)
-    plus_twenty = average * 1.20
-    utils.log('The average spot instance price for a {0} machine is {1}, '\
-              'and 20% more is {2}'.format(instance_type, average, plus_twenty))
-    return plus_twenty
+    utils.log(msg)
+    raise AgentRuntimeException(msg)
 
-  def get_ip_addresses(self, all_addresses):
-    """
-    Extract public IPs and private IPs from a list of IP addresses.
-    This method is used to extract the IP addresses from the EC2
-    command outputs.
-
-    Args:
-      all_addresses A list of IP addresses
-
-    Returns:
-      A tuple of the form (public_ips, private_ips)
-    """
-    if len(all_addresses) % 2 != 0:
-      sys.exit('IP address list is not of even length')
-    reported_public = []
-    reported_private = []
-    for index in range(0, len(all_addresses)):
-      if index % 2 == 0:
-        reported_public.append(all_addresses[index])
-      else:
-        reported_private.append(all_addresses[index])
-    utils.log('Reported public IPs: {0}'.format(reported_public))
-    utils.log('Reported private IPs: {0}'.format(reported_private))
-
-    actual_public = []
-    actual_private = []
-    for index in range(0, len(reported_public)):
-      public = reported_public[index]
-      private = reported_private[index]
-      if public != '0.0.0.0' and private != '0.0.0.0':
-        actual_public.append(public)
-        actual_private.append(private)
-
-    for index in range(0, len(actual_private)):
-      ip = utils.convert_fqdn_to_ip(actual_private[index])
-      if ip is not None:
-        actual_private[index] = ip
-      else:
-        utils.log('Failed to convert {0} into an IP'.format(actual_private[index]))
-
-    return actual_public, actual_private

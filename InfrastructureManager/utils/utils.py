@@ -2,13 +2,10 @@
 A collection of common utility functions which can be used by any
 module within the AppScale Infrastructure Manager implementation.
 """
-import commands
 import os
-import random
-import re
-import string
-import time
 import sys
+import time
+import uuid
 
 __author__ = 'hiranya'
 __email__ = 'hiranya@appscale.com'
@@ -67,8 +64,8 @@ def write_key_file(location, content):
   """
   if type(location) == type(''):
     location = [location]
-  for l in location:
-    path = os.path.abspath(l)
+  for entry in location:
+    path = os.path.abspath(entry)
     file_handle = open(path, 'w')
     file_handle.write(content)
     file_handle.close()
@@ -97,58 +94,43 @@ def get_random_alphanumeric(length=10):
   Returns:
     A random alphanumeric string of the specified length.
   """
-  alphabet = string.digits + string.letters
-  return ''.join(random.choice(alphabet) for i in range(length))
+  return str(uuid.uuid4()).replace('-', '')[:length]
 
 
-def shell(cmd):
-  """
-  Log and execute the given shell command.
-
-  Args:
-    cmd A Unix/Linux shell command to be executed
-
-  Returns:
-    Output of the shell command as a string.
-  """
-  log(cmd)
-  return commands.getoutput(cmd)
-
-
-def flatten(list):
+def flatten(the_list):
   """
   Flatten all the elements in the given list into a single list.
   For an example if the input list is [1, [2,3], [4,5,[6,7]]],
   the resulting list will be [1,2,3,4,5,6,7].
 
   Args:
-    list  A list of items where each member item could be a list
+    the_list  A list of items where each member item could be a list
 
   Returns:
     A single list with no lists as its elements
   """
   result = []
-  for l in list:
-    if hasattr(l, '__iter__'):
-      result.extend(flatten(l))
+  for entry in the_list:
+    if hasattr(entry, '__iter__'):
+      result.extend(flatten(entry))
     else:
-      result.append(l)
+      result.append(entry)
   return result
 
 
-def has_parameter(p, params):
+def has_parameter(param, params):
   """
-  Checks whether the parameter p is present in the params map.
+  Checks whether the parameter param is present in the params map.
 
   Args:
-    p       A parameter name
+    param       A parameter name
     params  A dictionary of parameters
 
   Returns:
-    True if params contains p and the value of p is not None.
+    True if params contains param and the value of param is not None.
     Returns False otherwise.
   """
-  return params.has_key(p) and params[p] is not None
+  return params.has_key(param) and params[param] is not None
 
 
 def diff(list1, list2):
@@ -163,79 +145,31 @@ def diff(list1, list2):
   Returns:
     A list of elements unique to list1
   """
-  return sorted(set(list1) - set(list2))
+  diffed_list = []
+  for item in list1:
+    if item not in list2:
+      diffed_list.append(item)
+  return diffed_list
 
 
-def obscure_string(string):
+def obscure_string(input_string):
   """
   Obscures the input string by replacing all but the last 4 characters
   in the string with the character '*'. Useful for obscuring, security
   credentials, credit card numbers etc.
 
   Args:
-    string  A string of characters
+    input_string  A string of characters
 
   Returns:
     A new string where all but the last 4 characters of the input
     string has been replaced by '*'.
   """
-  if string is None or len(string) < 4:
-    return string
-  last_four = string[-4:]
-  obscured = '*' * (len(string) - 4)
+  if input_string is None or len(input_string) < 4:
+    return input_string
+  last_four = input_string[-4:]
+  obscured = '*' * (len(input_string) - 4)
   return obscured + last_four
-
-
-def get_obscured_env(list=None):
-  """
-  Returns the set of environment variables currently set in this process'
-  runtime along with their values. Any environment variables specified
-  in the input 'list' will be obscured for privacy and security reasons.
-
-  Args:
-    list  A list of environment variable names that needs to be
-          obscured (Optional). If not provided, all the environment
-          variables will be listed in plain text.
-
-  Returns:
-    A string consisting of environment variable names and values.
-  """
-  if not list: list = []
-  env = shell('env')
-  for item in list:
-    index = env.find(item)
-    if index != -1:
-      old = env[env.find('=', index) + 1:env.find('\n', index)]
-      env = env.replace(old, obscure_string(old))
-  return env
-
-
-def convert_fqdn_to_ip(fqdn):
-  """
-  Resolves the given full qualified domain name to an IP address. This
-  method relies on the 'dig' tool being available in the underlying
-  OS.
-
-  Args:
-    fgdn  A full qualified domain name
-
-  Returns:
-    An IP address or None if the fqdn could not be resolved.
-  """
-  ip_regex = re.compile('\d+\.\d+\.\d+\.\d+')
-  if ip_regex.match(fqdn) is not None:
-    return fqdn
-
-  ip = shell('dig {0} +short'.format(fqdn)).rstrip()
-  if not len(ip):
-    return None
-  else:
-    list = ip.split('\n')
-    if len(list) > 1:
-      log('Warning: Host name {0} resolved to multiple IPs: {1}'.format(fqdn, ip))
-      log('Using the first address in the list')
-    return list[0]
-
 
 def sleep(seconds):
   """
