@@ -299,8 +299,37 @@ class TestZookeeperTransaction(unittest.TestCase):
     self.assertEquals(True, transaction.is_xg(self.appid, 1))
 
   def test_release_lock(self):
-    #TODO 
-    pass
- 
+    # mock out getTransactionRootPath
+    flexmock(zk.ZKTransaction)
+    zk.ZKTransaction.should_receive('wait_for_connect')
+    zk.ZKTransaction.should_receive('check_transaction')
+    zk.ZKTransaction.should_receive('get_transaction_path').\
+      and_return('/rootpath')
+    zk.ZKTransaction.should_receive('get_transaction_lock_list_path').\
+      and_return('/rootpath')
+    zk.ZKTransaction.should_receive('is_xg').and_return(False)
+
+    # mock out initializing a ZK connection
+    flexmock(zookeeper)
+    zookeeper.should_receive('init').and_return(self.handle)
+    zookeeper.should_receive('exists').and_return(True)
+    zookeeper.should_receive('get').and_return(['/1/2/3'])
+    zookeeper.should_receive('adelete')
+    zookeeper.should_receive('delete')
+    zookeeper.should_receive('get_children').and_return(['1','2'])
+
+    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    self.assertEquals(True, transaction.release_lock(self.appid, 1))
+
+    zk.ZKTransaction.should_receive('is_xg').and_return(True)
+    self.assertEquals(True, transaction.release_lock(self.appid, 1))
+
+    # Check to make sure it raises exception for blacklisted transactions.
+    zk.ZKTransaction.should_receive('is_xg').and_return(False)
+    zookeeper.should_receive('get').and_raise(zookeeper.NoNodeException)
+    self.assertRaises(zk.ZKTransactionException, transaction.release_lock,
+      self.appid, 1)
+
+
 if __name__ == "__main__":
   unittest.main()    
