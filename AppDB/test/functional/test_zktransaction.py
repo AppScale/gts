@@ -20,9 +20,9 @@ class TestZKTransaction(unittest.TestCase):
     key = "root"
     txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
-    ret = self.zk.acquireLock(app, txid, key)
+    ret = self.zk.acquire_lock(app, txid, key)
     self.assertTrue(ret)
-    ret = self.zk.releaseLock(app, txid)
+    ret = self.zk.release_lock(app, txid)
     self.assertTrue(ret)
 
   def test_lockpathkey(self):
@@ -30,9 +30,9 @@ class TestZKTransaction(unittest.TestCase):
     key = "/root/child"
     txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
-    ret = self.zk.acquireLock(app, txid, key)
+    ret = self.zk.acquire_lock(app, txid, key)
     self.assertTrue(ret)
-    ret = self.zk.releaseLock(app, txid)
+    ret = self.zk.release_lock(app, txid)
     self.assertTrue(ret)
 
   def test_lockspecialcharapp(self):
@@ -40,9 +40,9 @@ class TestZKTransaction(unittest.TestCase):
     key = "!@#$%^&*()-=_+[]{}\\|~`;:\"',.<>/?"
     txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
-    ret = self.zk.acquireLock(app, txid, key)
+    ret = self.zk.acquire_lock(app, txid, key)
     self.assertTrue(ret)
-    ret = self.zk.releaseLock(app, txid)
+    ret = self.zk.release_lock(app, txid)
     self.assertTrue(ret)
 
   def test_locklongkey(self):
@@ -50,9 +50,9 @@ class TestZKTransaction(unittest.TestCase):
     key = "/root/child/looooooooooooooooooooooooooooooooooooooong"
     txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
-    ret = self.zk.acquireLock(app, txid, key)
+    ret = self.zk.acquire_lock(app, txid, key)
     self.assertTrue(ret)
-    ret = self.zk.releaseLock(app, txid)
+    ret = self.zk.release_lock(app, txid)
     self.assertTrue(ret)
 
   def test_locktwice(self):
@@ -60,11 +60,11 @@ class TestZKTransaction(unittest.TestCase):
     key = "root"
     txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
-    ret = self.zk.acquireLock(app, txid, key)
+    ret = self.zk.acquire_lock(app, txid, key)
     self.assertTrue(ret)
-    ret = self.zk.acquireLock(app, txid, key)
+    ret = self.zk.acquire_lock(app, txid, key)
     self.assertTrue(ret)
-    ret = self.zk.releaseLock(app, txid)
+    ret = self.zk.release_lock(app, txid)
     self.assertTrue(ret)
 
   def test_lockdifferentkey(self):
@@ -73,15 +73,15 @@ class TestZKTransaction(unittest.TestCase):
     key2 = "root2"
     txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
-    ret = self.zk.acquireLock(app, txid, key)
+    ret = self.zk.acquire_lock(app, txid, key)
     self.assertTrue(ret)
     try:
-      ret = self.zk.acquireLock(app, txid, key2)
+      ret = self.zk.acquire_lock(app, txid, key2)
       self.fail()
     except zkappscale.zktransaction.ZKTransactionException as e:
       print e
       self.assertEqual(zkappscale.zktransaction.ZKTransactionException.TYPE_DIFFERENT_ROOTKEY, e.getType())
-    ret = self.zk.releaseLock(app, txid)
+    ret = self.zk.release_lock(app, txid)
     self.assertTrue(ret)
 
   def test_lockafterrelease(self):
@@ -89,12 +89,12 @@ class TestZKTransaction(unittest.TestCase):
     key = "root"
     txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
-    ret = self.zk.acquireLock(app, txid, key)
+    ret = self.zk.acquire_lock(app, txid, key)
     self.assertTrue(ret)
-    ret = self.zk.releaseLock(app, txid)
+    ret = self.zk.release_lock(app, txid)
     self.assertTrue(ret)
     try:
-      ret = self.zk.acquireLock(app, txid, key)
+      ret = self.zk.acquire_lock(app, txid, key)
       self.fail()
     except zkappscale.zktransaction.ZKTransactionException as e:
       print e
@@ -105,7 +105,7 @@ class TestZKTransaction(unittest.TestCase):
     key = "root"
     txid = 99999L
     try:
-      self.zk.acquireLock(app, txid, key)
+      self.zk.acquire_lock(app, txid, key)
       self.fail()
     except zkappscale.zktransaction.ZKTransactionException as e:
       print e
@@ -117,9 +117,9 @@ class TestZKTransaction(unittest.TestCase):
     for ii in range(1,1000):
       txid = self.zk.get_transaction_id(app)
       self.assertTrue(txid > 0)
-      ret = self.zk.acquireLock(app, txid, key)
+      ret = self.zk.acquire_lock(app, txid, key)
       self.assertTrue(ret)
-      ret = self.zk.releaseLock(app, txid)
+      ret = self.zk.release_lock(app, txid)
       self.assertTrue(ret)
 
   def test_releaseinvalidid(self):
@@ -127,7 +127,7 @@ class TestZKTransaction(unittest.TestCase):
     key = "root"
     txid = 99999L
     try:
-      self.zk.releaseLock(app, txid)
+      self.zk.release_lock(app, txid)
       self.fail()
     except zkappscale.zktransaction.ZKTransactionException as e:
       print e
@@ -137,7 +137,7 @@ class TestZKTransaction(unittest.TestCase):
     app = "testapp"
     txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
-    ret = self.zk.releaseLock(app, txid)
+    ret = self.zk.release_lock(app, txid)
     self.assertFalse(ret)
 
   def test_releasedifferentkey(self):
@@ -146,15 +146,15 @@ class TestZKTransaction(unittest.TestCase):
     key2 = "root2"
     txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
-    ret = self.zk.acquireLock(app, txid, key)
+    ret = self.zk.acquire_lock(app, txid, key)
     self.assertTrue(ret)
     try:
-      ret = self.zk.releaseLock(app, txid, key2)
+      ret = self.zk.release_lock(app, txid, key2)
       self.fail()
     except zkappscale.zktransaction.ZKTransactionException as e:
       print e
       self.assertEqual(zkappscale.zktransaction.ZKTransactionException.TYPE_DIFFERENT_ROOTKEY, e.getType())
-    ret = self.zk.releaseLock(app, txid, key)
+    ret = self.zk.release_lock(app, txid, key)
     self.assertTrue(ret)
 
   def test_generateid(self):
@@ -241,14 +241,14 @@ class TestZKTransaction(unittest.TestCase):
     key = "roota"
     txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
-    while not self.zk.acquireLock(app, txid, key):
+    while not self.zk.acquire_lock(app, txid, key):
       time.sleep(0.1)
     print "start increaseA %s" % threading.currentThread()
     tmp = self.valueA
     # make conflict between threads.
     time.sleep(0.5)
     self.valueA = tmp + 1
-    ret = self.zk.releaseLock(app, txid)
+    ret = self.zk.release_lock(app, txid)
     self.assertTrue(ret)
 
   def __increaseB(self):
@@ -256,14 +256,14 @@ class TestZKTransaction(unittest.TestCase):
     key = "rootb"
     txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
-    while not self.zk.acquireLock(app, txid, key):
+    while not self.zk.acquire_lock(app, txid, key):
       time.sleep(0.1)
     print "start increaseB %s" % threading.currentThread()
     tmp = self.valueB
     # make conflict between threads.
 #        time.sleep(0.5)
     self.valueB = tmp + 1
-    ret = self.zk.releaseLock(app, txid)
+    ret = self.zk.release_lock(app, txid)
     self.assertTrue(ret)
 
   def __decreaseA(self):
@@ -271,14 +271,14 @@ class TestZKTransaction(unittest.TestCase):
     key = "roota"
     txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
-    while not self.zk.acquireLock(app, txid, key):
+    while not self.zk.acquire_lock(app, txid, key):
       time.sleep(0.1)
     print "start decreaseA %s" % threading.currentThread()
     tmp = self.valueA
     # make conflict between threads.
     time.sleep(0.5)
     self.valueA = tmp - 1
-    ret = self.zk.releaseLock(app, txid)
+    ret = self.zk.release_lock(app, txid)
     self.assertTrue(ret)
 
   def __decreaseB(self):
@@ -286,14 +286,14 @@ class TestZKTransaction(unittest.TestCase):
     key = "rootb"
     txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
-    while not self.zk.acquireLock(app, txid, key):
+    while not self.zk.acquire_lock(app, txid, key):
       time.sleep(0.1)
     print "start decreaseB %s" % threading.currentThread()
     tmp = self.valueB
     # make conflict between threads.
 #        time.sleep(0.5)
     self.valueB = tmp - 1
-    ret = self.zk.releaseLock(app, txid)
+    ret = self.zk.release_lock(app, txid)
     self.assertTrue(ret)
 
   def __lockonlyB(self):
@@ -301,7 +301,7 @@ class TestZKTransaction(unittest.TestCase):
     key = "rootb"
     txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
-    while not self.zk.acquireLock(app, txid, key):
+    while not self.zk.acquire_lock(app, txid, key):
       time.sleep(0.1)
 
   def test_gcsimple(self):
@@ -318,19 +318,19 @@ class TestZKTransaction(unittest.TestCase):
     key = "gctestkey"
     txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
-    ret = self.zk.acquireLock(app, txid, key)
+    ret = self.zk.acquire_lock(app, txid, key)
     self.assertTrue(ret)
     # wait for gc
     time.sleep(5)
-    self.assertTrue(self.zk.isBlacklisted(app, txid))
+    self.assertTrue(self.zk.is_blacklisted(app, txid))
     try:
-      self.zk.releaseLock(app, txid, key)
+      self.zk.release_lock(app, txid, key)
       self.fail()
     except zkappscale.zktransaction.ZKTransactionException as e:
       print e
       self.assertEqual(zkappscale.zktransaction.ZKTransactionException.TYPE_EXPIRED, e.getType())
     try:
-      self.zk.acquireLock(app, txid, key)
+      self.zk.acquire_lock(app, txid, key)
       self.fail()
     except zkappscale.zktransaction.ZKTransactionException as e:
       print e
@@ -361,21 +361,21 @@ class TestZKTransaction(unittest.TestCase):
     key = "gctestkey"
     txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
-    ret = self.zk.acquireLock(app, txid, key)
+    ret = self.zk.acquire_lock(app, txid, key)
     self.assertTrue(ret)
     vid = 100L
-    self.zk.registUpdatedKey(app, txid, vid, key + "/a")
+    self.zk.register_updated_key(app, txid, vid, key + "/a")
     # wait for gc
     time.sleep(5)
-    self.assertTrue(self.zk.isBlacklisted(app, txid))
+    self.assertTrue(self.zk.is_blacklisted(app, txid))
     try:
-      self.zk.releaseLock(app, txid, key)
+      self.zk.release_lock(app, txid, key)
       self.fail()
     except zkappscale.zktransaction.ZKTransactionException as e:
       print e
       self.assertEqual(zkappscale.zktransaction.ZKTransactionException.TYPE_EXPIRED, e.getType())
     try:
-      self.zk.acquireLock(app, txid, key)
+      self.zk.acquire_lock(app, txid, key)
       self.fail()
     except zkappscale.zktransaction.ZKTransactionException as e:
       print e
@@ -438,13 +438,13 @@ class TestZKTransaction(unittest.TestCase):
     key = "root"
     txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
-    ret = self.zk.acquireLock(app, txid, key)
+    ret = self.zk.acquire_lock(app, txid, key)
     self.assertTrue(ret)
-    ret = self.zk.notifyFailedTransaction(app, txid)
+    ret = self.zk.notify_failed_transaction(app, txid)
     self.assertTrue(ret)
-    self.assertTrue(self.zk.isBlacklisted(app, txid))
+    self.assertTrue(self.zk.is_blacklisted(app, txid))
     try:
-      ret = self.zk.releaseLock(app, txid)
+      ret = self.zk.release_lock(app, txid)
       self.fail
     except zkappscale.zktransaction.ZKTransactionException as e:
       print e
@@ -455,29 +455,29 @@ class TestZKTransaction(unittest.TestCase):
     key = "root"
     txid = self.zk.get_transaction_id(app)
     self.assertTrue(txid > 0)
-    ret = self.zk.acquireLock(app, txid, key)
+    ret = self.zk.acquire_lock(app, txid, key)
     self.assertTrue(ret)
     vid = 0L
-    self.zk.registUpdatedKey(app, txid, vid, key + "/a")
-    ret = self.zk.notifyFailedTransaction(app, txid)
+    self.zk.register_updated_key(app, txid, vid, key + "/a")
+    ret = self.zk.notify_failed_transaction(app, txid)
     self.assertTrue(ret)
-    self.assertTrue(self.zk.isBlacklisted(app, txid))
+    self.assertTrue(self.zk.is_blacklisted(app, txid))
 
     # update value after rollback
     txid2 = self.zk.get_transaction_id(app)
     self.assertTrue(txid2 > 0)
-    ret = self.zk.acquireLock(app, txid2, key)
+    ret = self.zk.acquire_lock(app, txid2, key)
     self.assertTrue(ret)
     # get previous valid id
-    ret = self.zk.getValidTransactionID(app, txid, key + "/a")
+    ret = self.zk.get_valid_transaction_id(app, txid, key + "/a")
     self.assertEqual(vid, ret)
     # update previous valid id
     vid = 100L
-    self.zk.registUpdatedKey(app, txid2, vid, key + "/a")
+    self.zk.register_updated_key(app, txid2, vid, key + "/a")
     # try to get updated previous valid id
-    ret = self.zk.getValidTransactionID(app, txid, key + "/a")
+    ret = self.zk.get_valid_transaction_id(app, txid, key + "/a")
     self.assertEqual(vid, ret)
-    self.assertTrue(self.zk.releaseLock(app, txid2))
+    self.assertTrue(self.zk.release_lock(app, txid2))
 
   def setUp(self):
     global zkconnection
@@ -485,13 +485,13 @@ class TestZKTransaction(unittest.TestCase):
 
   def tearDown(self):
     # for debug
-    self.zk.dumpTree("/appscale/apps")
+    self.zk.dump_tree("/appscale/apps")
 
 if __name__ == "__main__":
   global zkconnection
   zkconnection = zkappscale.zktransaction.ZKTransaction()
   if len(sys.argv) > 1 and sys.argv[1] == "dump":
-    zkconnection.dumpTree("/appscale")
+    zkconnection.dump_tree("/appscale")
   else:
     zkconnection.deleteRecursive("/appscale/apps")
     test_support.run_unittest(TestZKTransaction)
