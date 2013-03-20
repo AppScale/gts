@@ -294,9 +294,10 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
                     Object getsVal = res.getValue();
                     if(getsVal != null)
                     {
-                        if(type != null)
+                        if(type != null || getsVal instanceof String)
                         {
                             //if type isn't null, we know it was stored as a String so it could be incrementable
+                            if(getsVal instanceof String) type = 1;
                             getsVal = convertToReturnType((String)getsVal, type);
                             entry = getCacheEntryFromObject(getsVal, internalKey);
                         } //if type was null, it was stored as a CacheEntry object
