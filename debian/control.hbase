@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: AppScale Developer <appscale_developer@googlegroups.com>
 Build-Depends: debhelper (>= 7)
 Standards-Version: 3.8.0
-Homepage: http://appscale.cs.ucsb.edu/
+Homepage: http://community.appscale.com/
 
 Package: appscale-hbase
 Architecture: any
