@@ -52,7 +52,8 @@ case "$1" in
         installcelery
 	installservice
 	postinstallservice
-	updatealternatives
+	setupntpcron
+        updatealternatives
 	sethosts
         setulimits
 	;;
@@ -140,7 +141,8 @@ case "$1" in
 	installservice
 	postinstallservice
 	updatealternatives
-	sethosts
+	setupntpcron
+        sethosts
         setulimits
 	;;
 esac
