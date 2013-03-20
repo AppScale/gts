@@ -418,7 +418,10 @@ class TestZookeeperTransaction(unittest.TestCase):
     zookeeper.should_receive('get').and_raise(zookeeper.NoNodeException)
     self.assertEquals(True, transaction.try_garbage_collection(self.appid, 
       "/some/path"))
-     
+    
+  def test_notify_failed_transaction(self):
+    pass
+    #TODO  
 
   def test_execute_garbage_collection(self):
     # mock out getTransactionRootPath

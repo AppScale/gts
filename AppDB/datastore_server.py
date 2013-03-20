@@ -544,7 +544,7 @@ class DatastoreDistributed():
                            dbconstants.APP_ID_SCHEMA,
                            cell_values)
     finally:
-      self.zookeeper.release_lock(prefix, txnid, self._ALLOCATE_ROOT_KEY)
+      self.zookeeper.release_lock(prefix, txnid)
 
     start = current_id
     end = next_id - 1
@@ -891,7 +891,7 @@ class DatastoreDistributed():
     root_keys = list(set(root_keys))
     for root_key in root_keys: 
       txnid = txn_hash[root_key]
-      self.zookeeper.release_lock(app_id, txnid, root_key)
+      self.zookeeper.release_lock(app_id, txnid)
 
   def validated_result(self, app_id, db_results, current_ongoing_txn=0):
     """ Takes database results from the entity table and returns
