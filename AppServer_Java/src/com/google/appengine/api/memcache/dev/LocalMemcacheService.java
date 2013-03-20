@@ -106,7 +106,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
         logger.fine("Memcache set, key= [" + keyToString(key) + "]");
         int exp = (int)((entry.getExpires() - System.currentTimeMillis()) / 1000 + 1);
         
-        Object valueObj = getObjectFromCacheEntry(entry);
+        Object valueObj = getIncrObjectFromCacheEntry(entry);
         if(exp < 0)
         {
             exp = 0;
@@ -292,15 +292,15 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
                     //now get the type so we can return the correct object
                     Integer type = (Integer)(memcacheClient.get(getTypeKey(internalKey)));
                     Object getsVal = res.getValue();
-                    Object returnObj;
                     if(getsVal != null)
                     {
                         if(type != null)
                         {
                             //if type isn't null, we know it was stored as a String so it could be incrementable
                             getsVal = convertToReturnType((String)getsVal, type);
-                        }
-                        entry = getCacheEntryFromObject(getsVal, internalKey);
+                            entry = getCacheEntryFromObject(getsVal, internalKey);
+                        } //if type was null, it was stored as a CacheEntry object
+                        else entry = (CacheEntry)getsVal;
                         item.setKey(ByteString.copyFrom(key.getBytes())).setFlags(entry.getFlags()).setValue(ByteString.copyFrom(entry.getValue()));
                         result.addItem(item.build()); 
                     }   
@@ -889,13 +889,14 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
         }
         if (res != null)
         {
-            if(type != null)
+            if(type != null || res instanceof String)
             {
+                if(res instanceof String) type = 1;
                 res = convertToReturnType((String)res, type);
-            }
-            logger.fine("Memcache internalGet() returning cache entry [" + res + "]");
-            CacheEntry ce = getCacheEntryFromObject(res, internalKey);
-            return ce;
+                CacheEntry ce = getCacheEntryFromObject(res, internalKey);
+                return ce;
+            }//if type is null we know it's a CacheEntry object
+            else return (CacheEntry)res;
         }
         else
         {
@@ -1002,7 +1003,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
      */    
     private boolean isIncrementableType(int type)
     {
-        if(type == 3 || type == 4 || type == 6 || type == 7) return true;
+        if(type == 1 || type == 3 || type == 4 || type == 6 || type == 7) return true;
         else return false; 
     }
 
@@ -1017,7 +1018,7 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
         else if(type == 4) returnObj = Long.parseLong(obj);
         else if(type == 6) returnObj = Byte.parseByte(obj);
         else if(type == 7) returnObj = Short.parseShort(obj);
-    
+        else if(type == 1) returnObj = obj;
         return returnObj;
     }
 
@@ -1063,35 +1064,35 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
     }
 
     /*
-     * AppScale - This method takes in a CacheEntry object and returns a regular object. 
+     * AppScale - This method takes in a CacheEntry object and returns a regular object if it's incrementable. 
      * The objects are stored in the CacheEntry as a byte array so this method handles the
      * deserialization. Also, if the object is an incrementable type, it will return it as
      * a String because xmemcached can only do increments on String objects. 
      */ 
-    private Object getObjectFromCacheEntry(CacheEntry entry)
+    private Object getIncrObjectFromCacheEntry(CacheEntry entry)
     {
         byte[] value = entry.getValue();
-        Object valueObj;
-        try
-        {
-            valueObj = MemcacheSerialization.deserialize(value, entry.getFlags());
-        }
-        catch(IOException e)
-        {
-            logger.warning("Failed to deserialize CacheEntry byte array value, error:" + e.getMessage());
-            e.printStackTrace();
-            valueObj = entry;
-        }
-        catch(ClassNotFoundException e)
-        {
-            logger.warning("Failed to deserialize CacheEntry byte array value, error:" + e.getMessage());
-            e.printStackTrace();
-            valueObj = entry;
-        }
         boolean incrementable = isIncrementableType(entry.getFlags());
+        Object valueObj = entry;
         if(incrementable)
         {
-            valueObj = valueObj.toString();
+            try
+            {
+                valueObj = MemcacheSerialization.deserialize(value, entry.getFlags());
+                valueObj = valueObj.toString();
+            }
+            catch(IOException e)
+            {
+                logger.warning("Failed to deserialize CacheEntry byte array value, error:" + e.getMessage());
+                e.printStackTrace();
+                valueObj = entry;
+            }
+            catch(ClassNotFoundException e)
+            {
+                logger.warning("Failed to deserialize CacheEntry byte array value, error:" + e.getMessage());
+                e.printStackTrace();
+                valueObj = entry;
+            }
         }
         return valueObj;            
     }
@@ -1099,14 +1100,14 @@ public final class LocalMemcacheService extends AbstractLocalRpcService
     /*
      * AppScale - This method will use the casId passed in from the application
      * and do a cas using xmemcached. If the entry is an incrementable type, xmemcached
-     * requires it to be a String so it is converted to a String and tht original type
-     * is stored as a separate cache entry. 
+     * requires it to be a String so it is converted to a String and the original type
+     * is stored as a separate entry. 
      */
     private boolean internalCheckAndSet(String internalKey, CacheEntry ce, MemcacheServicePb.MemcacheSetRequest.Item item)
     {
         long expiry = item.hasExpirationTime() ? item.getExpirationTime() : 0L;
         boolean res = false;
-        Object valueObj = getObjectFromCacheEntry(ce);
+        Object valueObj = getIncrObjectFromCacheEntry(ce);
         try
         {
             res = memcacheClient.cas(internalKey, (int)expiry, valueObj, item.getCasId());
