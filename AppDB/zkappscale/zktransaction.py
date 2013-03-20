@@ -852,7 +852,7 @@ class ZKTransaction:
     try:
       lockpath = zookeeper.get(self.handle, PATH_SEPARATOR.join([txpath,
         TX_LOCK_PATH]), None)[0]
-      lock_list = lockpath.split(PATH_SEPARATOR)
+      lock_list = lockpath.split(LOCK_LIST_SEPARATOR)
     except zookeeper.NoNodeException:
       # There is no need to rollback because there is no lock.
       pass
