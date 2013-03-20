@@ -53,7 +53,7 @@ EOF
 setupntpcron()
 {
     echo "MAILTO=\"\"" >> crontab.tmp
-    echo "*/5 * * * * /root/appscale/ntp.sh"
+    echo "*/5 * * * * /root/appscale/ntp.sh" >> crontab.tmp
     crontab crontab.tmp
 }
 
