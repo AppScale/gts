@@ -45,8 +45,20 @@ module HAProxy
   START_PORT = 10000
 
 
+  # The location of the script that god uses to see if haproxy is running,
+  # restarting it if necessary.
+  START_HAPROXY_SCRIPT = File.dirname(__FILE__) + "/../" + \
+                          "/scripts/start_haproxy.sh"
+
+  def self.start
+    start_cmd = "bash #{START_HAPROXY_SCRIPT}"
+    stop_cmd = "service haproxy stop"
+    port = 9999
+    GodInterface.start(:haproxy, start_cmd, stop_cmd, port)
+  end
+
   def self.stop
-    `service haproxy stop`
+    GodInterface.stop(:haproxy)
   end
 
   def self.restart
