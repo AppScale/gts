@@ -2,6 +2,10 @@
 
 from google.appengine.api import users
 
+#UserAppClient = imp.load_source('UserAppClient','/usr/local/appscale-tools/lib/user_app_client.py')
+from user_app_client import UserAppClient
+from secret_key import GLOBAL_SECRET_KEY
+
 class AppScaleUserTools:
   """ Tools to help AppDashboard interact with users."""
 
@@ -56,7 +60,24 @@ class AppScaleUserTools:
       password: password for the new user.
     Returns: True if the user was create, otherwise false.
     """
-    #TODO Fix to use SOAP and UserAppServer
+    try:
+      acc = AppControllerClient('127.0.0.1', GLOBAL_SECRET_KEY)
+      uaserver_host = acc.get_uaserver_host(False)
+      uaserver = UserAppClient(uaserver_host, GLOBAL_SECRET_KEY )
+      # first, create the standard account
+      encrypted_pass = LocalState.encrypt_password(email, password)
+      uaserver.create_user(email, encrypted_pass)
+      # next, create the XMPP account. if the user's e-mail is a@a.a, then that
+      # means their XMPP account name is a@login_ip
+      username_regex = re.compile('\A(.*)@')
+      username = username_regex.match(email).groups()[0]
+      xmpp_user = "{0}@{1}".format(username,
+        AppScaleStatusHelper.get_login_host() )
+      xmpp_pass = LocalState.encrypt_password(xmpp_user, password)
+      uaserver.create_user(xmpp_user, xmpp_pass)
+    except Exception as e:
+      #TODO:  Log this error
+      return False
     return True
 
   @classmethod

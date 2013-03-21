@@ -630,6 +630,29 @@ class Djinn
     return stats_str
   end
 
+  def get_stats_json(secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    result= []
+    @nodes.each { |node|
+      ip = node.private_ip
+      acc = AppControllerClient.new(ip, secret)
+      result << acc.get_stats(secret)
+    }
+    return JSON.dump(result)
+  end 
+
+
+  def get_database_information(secret)
+    table = @creds["table"]
+    replication = @creds["replication"]
+    keyname = @creds["keyname"]
+    tree = { :table => table, :replication => replication, :keyname => keyname }
+    return JSON.dump(tree)
+  end
+
   def get_stats(secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
@@ -1573,6 +1596,7 @@ class Djinn
     return false
   end
 
+
   def write_database_info()
     table = @creds["table"]
     replication = @creds["replication"]
@@ -1740,7 +1764,11 @@ class Djinn
   end
 
  
-  def update_api_status()
+  def get_api_status(secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
     if my_node.is_appengine?
       apichecker_host = my_node.private_ip
     else
@@ -1777,7 +1805,11 @@ class Djinn
     }
 
     json_state = JSON.dump(majorities)
-    HelperFunctions.write_file(HEALTH_FILE, json_state)
+    return json_state
+  end
+
+  def update_api_status()
+    HelperFunctions.write_file(HEALTH_FILE, get_api_status(@@secret) )
   end
 
   # Backs up information about what this node is doing (roles, apps it is

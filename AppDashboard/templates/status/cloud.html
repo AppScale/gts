@@ -92,26 +92,26 @@
 									<h4><span class="icon12 icomoon-icon-database"></span>Current Database:</h4>
 <!-- DB Hook -->                                    
                                       <ul class="unstyled">
-                                        <li><span class="icon16 icomoon-icon-arrow-right-2"></span>Powered by <strong>{{ dbinfo['database'] }}</strong></li>
+                                        <li><span class="icon16 icomoon-icon-arrow-right-2"></span>Powered by <strong>{{ dbinfo['table'] }}</strong></li>
                                         <li><span class="icon16 icomoon-icon-arrow-right-2"></span>Data is replicated <strong>{{ dbinfo['replication'] }}</strong> times</li>
                                       </ul>
                                     <hr/>
                                     <h4><span class="icon12 icomoon-icon-cube"></span>Current Applications Deployed:</h4>
 <!-- App Info Hook -->
                                     <ul class="unstyled">
-                                        {% for app_info in apps|sort %}
-                                          {% if loop.length == 0 %}
-                                            <li><span class="icon16 icomoon-icon-arrow-right-2"></span>none</li>
-                                          {% else %}
+                                      {% if apps|length == 0 %}
+                                        <li><span class="icon16 icomoon-icon-arrow-right-2"></span>none</li>
+                                      {% else %}
+                                        {% for app_name in apps.keys()|sort %}
                                             <li><span class="icon16 icomoon-icon-arrow-right-2"></span>
-                                              {% if app_info[1] %}
-                                                <a href="/apps/{{ app_info[0] }}" target="_blank">{{ app_info[0] }}</a>
+                                              {% if apps[app_name] %}
+                                                <a href="{{ apps[app_name] }}" target="_blank">{{ app_name }}</a>
                                               {% else %}
-                                                {{ app_info[0]}} (loading)
+                                                {{ app_name }} (loading)
                                               {% endif %}
                                             </li>
-                                          {% endif %}
                                         {% endfor %}
+                                      {% endif %}
                                       </ul>
                                 </div>
 

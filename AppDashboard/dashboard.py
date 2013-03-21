@@ -20,10 +20,12 @@ class AppDashboard(webapp2.RequestHandler):
   """ Class that all pages in the Dashboard must inherit from. """
 
   @classmethod
-  def render_template(cls, template_file, values={}):
+  def render_template(cls, ash, template_file, values={}):
     """ Renders a template file with all variables loaded.
-    Args: template_file: relative path to tempate file.
-          values: dict with key/value pairs used by the template file.
+    Args: 
+      ash: AppScaleStatusHelper object.
+      template_file: relative path to tempate file.
+      values: dict with key/value pairs used by the template file.
     Returns: str with the rendered template.
     """
     template = jinja_environment.get_template(template_file)
@@ -33,30 +35,31 @@ class AppDashboard(webapp2.RequestHandler):
       'is_user_cloud_admin' : AppScaleUserTools.is_user_cloud_admin(),
       'i_can_upload' : AppScaleUserTools.i_can_upload(),
       'user_perm_list' : AppScaleUserTools.list_all_users_permisions(),
-      'service_info' : AppScaleStatusHelper.get_service_info(),
-      'dbinfo' : AppScaleStatusHelper.get_database_information(),
-      'apps' : AppScaleStatusHelper.get_application_information(),
-      'monitoring_url' : AppScaleStatusHelper.get_monitoring_url(),
-      'server_info' : AppScaleStatusHelper.get_status_information()
+      'service_info' : ash.get_service_info(),
+      'dbinfo' : ash.get_database_information(),
+      'apps' : ash.get_application_information(),
+      'monitoring_url' : ash.get_monitoring_url(),
+      'server_info' : ash.get_status_information()
     }
     for key in values.keys():
       sub_vars[key] = values[key]
     return template.render(sub_vars)
     
-  def get_shared_navigation(self):
+  def get_shared_navigation(self, ash):
     """ Renders the shared navigation.
     Returns: str with the navigation bar rendered.
     """
-    return self.render_template(template_file = 'shared/navigation.html')
+    return self.render_template(ash, template_file = 'shared/navigation.html')
 
   def render_page(self, page, template_file, values = {} ):
     """ Renders a template with the main layout and nav bar. """
     self.response.headers['Content-Type'] = 'text/html'
     template = jinja_environment.get_template('layouts/main.html')
+    ash = AppScaleStatusHelper()
     self.response.out.write(template.render(
         page_name = page,
-        page_body = self.render_template(template_file,values),
-        shared_navigation = self.get_shared_navigation()
+        page_body = self.render_template(ash,template_file,values),
+        shared_navigation = self.get_shared_navigation(ash)
         ))
     
 
