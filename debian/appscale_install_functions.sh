@@ -50,6 +50,14 @@ ff02::3 ip6-allhosts
 EOF
 }
 
+setupntpcron()
+{
+    echo "MAILTO=\"\"" >> crontab.tmp
+    echo "*/5 * * * * /root/appscale/ntp.sh" >> crontab.tmp
+    crontab crontab.tmp
+    rm crontab.tmp
+}
+
 installpython27()
 {
     cd /usr/local
