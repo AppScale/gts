@@ -2848,6 +2848,7 @@ HOSTS
     Nginx.create_app_load_balancer_config(my_public, my_private, 
       LoadBalancer.proxy_port)
     LoadBalancer.start
+    HAProxy.start
     Nginx.restart
     Collectd.restart
 
