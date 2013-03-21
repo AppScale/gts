@@ -31,12 +31,16 @@ ID_BLOCK = 10
 # The host and port that the Zookeeper service runs on, if none is provided.
 DEFAULT_HOST = "localhost:2181"
 
+# Paths are separated by this for the tree structure in zookeeper.
 PATH_SEPARATOR = "/"
 
+# This is the path which contains the different application's lock meta-data.
 APPS_PATH = "/appscale/apps"
 
+# This path contains different transaction IDs.
 APP_TX_PATH = "txids"
 
+# This is the node which holds all the locks of an application.
 APP_LOCK_PATH = "locks"
 
 APP_ID_PATH = "ids"
@@ -47,13 +51,16 @@ APP_LOCK_PREFIX = "lk"
 
 APP_ID_PREFIX = "id"
 
+# This is the prefix of all keys which have been updated within a transaction.
 TX_UPDATEDKEY_PREFIX = "ukey"
 
+# This is the name of the leaf. It holds a list of locks as a string.
 TX_LOCK_PATH = "lockpath"
 
 # The path for blacklisted transactions.
 TX_BLACKLIST_PATH = "blacklist"
 
+# This is the path name for valid versions of entities used in a transaction.
 TX_VALIDLIST_PATH = "validlist"
 
 GC_LOCK_PATH = "gclock"
@@ -120,7 +127,7 @@ class ZKTransaction:
     If called when the GC thread is already started, this causes the GC thread
     to reload its GC settings.
     """
-    logging.debug("Starting GC thread")
+    logging.info("Starting GC thread")
     with self.gc_cv:
       if self.gc_running:
         self.gc_cv.notifyAll()
@@ -132,7 +139,7 @@ class ZKTransaction:
   def stop_gc(self):
     """ Stops the thread that cleans up failed transactions.
     """
-    logging.debug("Stopping GC thread")
+    logging.info("Stopping GC thread")
     if self.gc_running:
       with self.gc_cv:
         self.gc_running = False
@@ -143,7 +150,7 @@ class ZKTransaction:
     """ Stops the thread that cleans up failed transactions and closes its
     connection to Zookeeper.
     """
-    logging.debug("Closing ZK connection")
+    logging.info("Closing ZK connection")
     self.stop_gc()
     zookeeper.close(self.handle)
 
@@ -178,7 +185,7 @@ class ZKTransaction:
       path: The path for the blacklist.
       app_id: The application identifier.
     """
-    logging.info("Updating blacklist cache for app {0}".format(app_id))
+    logging.debug("Updating blacklist cache for app {0}".format(app_id))
     try:
       black_list = zookeeper.get_children(self.handle, path,
         self.receive_and_notify)
@@ -463,7 +470,7 @@ class ZKTransaction:
           txn_id = long(txn_id_path.split(PATH_SEPARATOR)[-1].lstrip(
             APP_TX_PREFIX))
           if txn_id == 0:
-            logging.debug("Created sequence ID 0 - deleting it.")
+            logging.warning("Created sequence ID 0 - deleting it.")
             zookeeper.adelete(self.handle, txn_id_path)
           else:
             logging.debug("Created sequence ID {0} at path {1}".format(txn_id, 
@@ -583,6 +590,7 @@ class ZKTransaction:
     lockrootpath = self.get_lock_root_path(app_id, entity_key)
     lockpath = None
     retry = True
+
     while retry:
       retry = False
       try:
@@ -599,13 +607,12 @@ class ZKTransaction:
         # fail to get lock
         raise ZKTransactionException("acquire_additional_lock: There is " \
           "already another transaction using this lock")
+
     logging.debug("Created new lock root path {0} with value {1}".format(
       lockrootpath, txpath))
 
-    # set lockpath for transaction node
-    # TODO: we should think about atomic operation or recovery of
-    #       inconsistent lockpath node.
     transaction_lock_path = self.get_transaction_lock_list_path(app_id, txid)
+
     if create:
       zookeeper.acreate(self.handle, transaction_lock_path, lockpath, 
         ZOO_ACL_OPEN)
@@ -617,6 +624,7 @@ class ZKTransaction:
       if len(lock_list) >= MAX_GROUPS_FOR_XG:
         raise ZKTransactionException("acquire_additional_lock: Too many " \
           "groups for this XG transaction.")
+
       lock_list.append(lockpath)
       lock_list_str = LOCK_LIST_SEPARATOR.join(lock_list)
       zookeeper.aset(self.handle, transaction_lock_path, lock_list_str)
@@ -844,7 +852,7 @@ class ZKTransaction:
     Returns:
       True if the transaction was invalidated, False otherwise.
     """
-    logging.debug("Notify failed transaction app: %s, txid: %d" % (app_id, txid))
+    logging.warning("Notify failed transaction app: %s, txid: %d" % (app_id, txid))
 
     self.wait_for_connect()
     lockpath = None
