@@ -56,7 +56,7 @@ module Ejabberd
     elsif runtime == "java"
       appengine_web_xml_file = "/var/apps/#{app}/app/war/WEB-INF/appengine-web.xml"
       xml_contents = HelperFunctions.read_file(appengine_web_xml_file)
-      if xml_contents =~ /<inbound-services>.*<service>xmpp.*<\/inbound-services>/
+      if xml_contents =~ /<inbound-services>.*<service>xmpp.*<\/inbound-services>/m
         return true
       else
         return false
