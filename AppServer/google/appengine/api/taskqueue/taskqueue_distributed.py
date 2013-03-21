@@ -27,7 +27,9 @@ import string
 
 import taskqueue_service_pb
 
+from google.appengine.api import api_base_pb
 from google.appengine.api import apiproxy_stub
+from google.appengine.api import apiproxy_stub_map
 from google.appengine.runtime import apiproxy_errors
 from google.appengine.ext.remote_api import remote_api_pb
 
@@ -145,7 +147,17 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     for add_request, task_result in zip(request.add_request_list(),
                                         response.taskresult_list()):
       task_result.set_result(taskqueue_service_pb.TaskQueueServiceError.OK)
-    
+ 
+    # All task should have been validated and assigned a unique name by this point.
+    try:
+      apiproxy_stub_map.MakeSyncCall(
+          'datastore_v3', 'AddActions', request, api_base_pb.VoidProto())
+    except apiproxy_errors.ApplicationError, e:
+      raise apiproxy_errors.ApplicationError(
+          e.application_error +
+          taskqueue_service_pb.TaskQueueServiceError.DATASTORE_ERROR,
+          e.error_detail)
+ 
     return response
 
   def _Dynamic_Add(self, request, response):
