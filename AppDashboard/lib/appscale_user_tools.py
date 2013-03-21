@@ -1,13 +1,25 @@
 """ Tools to help AppDashboard interact with users. """
-
+import sys
+import re
+import SOAPpy
 from google.appengine.api import users
 
-#UserAppClient = imp.load_source('UserAppClient','/usr/local/appscale-tools/lib/user_app_client.py')
 from user_app_client import UserAppClient
+from appcontroller_client import AppControllerClient
+from local_state import LocalState
+
+
 from secret_key import GLOBAL_SECRET_KEY
 
 class AppScaleUserTools:
   """ Tools to help AppDashboard interact with users."""
+
+  @classmethod
+  def get_uaserver(cls):
+    acc = AppControllerClient('127.0.0.1', GLOBAL_SECRET_KEY)
+    uas_host = acc.get_uaserver_host(False)
+    uaserver = SOAPpy.SOAPProxy('https://%s:%s' % (uas_host, 4343))
+    return uaserver
 
   @classmethod
   def is_user_logged_in(cls):
@@ -82,7 +94,37 @@ class AppScaleUserTools:
 
   @classmethod
   def logout_user(cls):
-    pass
+    user = users.get_current_user()
+    if not user:
+      return True
+    email = user.nickname()
+    uaserver = cls.get_uaserver()
+    exp_date = "20121231120000" #exactly what it was before
+    uaserver.commit_new_token('invalid', email, exp_date, GLOBAL_SECRET_KEY)
+
+  @classmethod
+  def login_user(cls,email,password):
+    sys.stderr.write('login_user() BLAH BLERG')
+    uaserver = cls.get_uaserver()
+    try:
+      user_data =  uaserver.get_user_data(email, GLOBAL_SECRET_KEY)
+    except Exception as e:
+      sys.stderr.write("uaserver.get_user_data() raised exception: "+str(e))
+      return False
+
+    if user_data is None:
+      sys.stderr.write("uaserver.get_user_data() return none")
+      
+    sys.stderr.write("user_data = "+str(user_data))
+    server_pwd = re.search('password:([0-9a-f]+)',user_data).group(1)
+    encrypted_pass = LocalState.encrypt_password(email, password)
+    
+    if server_pwd != encrypted_pass:
+      return False
+    
+    exp_date = "20121231120000" #exactly what it was before
+    uaserver.commit_new_token(email, email, exp_date, GLOBAL_SECRET_KEY)
+    return True
 
   @classmethod
   def list_all_users_permisions(cls):

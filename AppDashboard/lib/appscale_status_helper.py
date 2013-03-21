@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 if 'TOOLS_PATH' in os.environ:
   sys.path.append(os.environ['TOOLS_PATH']+'/lib')
 else:

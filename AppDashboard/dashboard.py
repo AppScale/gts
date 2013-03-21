@@ -156,6 +156,29 @@ class LogoutPage(AppDashboard):
       })
 
 
+class LoginPage(AppDashboard):
+  """ Class to handle request to the /users/login page. """
+
+  TEMPLATE = 'users/login.html'
+
+  def post(self):
+    """ Handler for post requests. """
+    if AppScaleUserTools.login_user( self.request.POST.get('user_email'),
+       self.request.POST.get('user_password') ):
+      self.render_page(page = 'landing', template_file = IndexPage.TEMPLATE )
+    else:
+      self.render_page(page = 'users', template_file = self.TEMPLATE,
+        values = {
+          'user_email' : self.request.POST.get('user_email'),
+          'flash_message': 
+          "Incorrect username / password combination. Please try again."
+        })
+
+  def get(self):
+    """ Handler for GET requests. """
+    self.render_page(page = 'users', template_file = self.TEMPLATE )
+
+
 class AuthorizePage(AppDashboard):
   """ Class to handle request to the /authorize page. """
 
@@ -238,6 +261,7 @@ app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/users/new', NewUserPage),
                                 ('/users/create', NewUserPage),
                                 ('/users/logout', LogoutPage),
+                                ('/users/login', LoginPage),
                                 ('/authorize', AuthorizePage),
                                 ('/apps/new', AppUploadPage),
                                 ('/apps/upload', AppUploadPage),
