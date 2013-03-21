@@ -54,9 +54,13 @@ module Ejabberd
         return false
       end
     elsif runtime == "java"
-      # always assume they need receive for now
-      # TODO: write this the right way later
-      return true
+      appengine_web_xml_file = "/var/apps/#{app}/app/war/WEB-INF/appengine-web.xml"
+      xml_contents = HelperFunctions.read_file(appengine_web_xml_file)
+      if xml_contents =~ /<inbound-services>.*<service>xmpp.*<\/inbound-services>/
+        return true
+      else
+        return false
+      end
     else
       abort("xmpp: runtime was neither python, python27, go, java but was [#{runtime}]")
     end
