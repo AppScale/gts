@@ -734,8 +734,11 @@ class ZKTransaction:
         zookeeper.adelete(self.handle, lock_path)
       zookeeper.delete(self.handle, transaction_lock_path)
     except zookeeper.NoNodeException:
-      raise ZKTransactionException("Unable to release lock {0} for app id {1}"
-       .format(transaction_lock_path, app_id))
+      if self.is_blacklisted(app_id, txid):
+        raise ZKTransactionException("Unable to release lock {0} for app id {1}"
+          .format(transaction_lock_path, app_id))
+      else:
+        return True
 
     if self.is_xg(app_id, txid):
       xg_path = self.get_xg_path(app_id, txid)
