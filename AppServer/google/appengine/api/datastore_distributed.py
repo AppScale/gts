@@ -486,7 +486,6 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
             'Cursor %d not found' % cursor_handle)
 
     assert cursor.app == next_request.cursor().app()
-    logging.info(str(cursor))
     count = _BATCH_SIZE
     if next_request.has_count():
       count = next_request.count()
