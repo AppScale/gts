@@ -995,6 +995,7 @@ class DatastoreDistributed():
     """
     journal_result_map = {}
     journal_keys = []
+    delete_keys = []
     for row_key in db_results:
       if dbconstants.APP_ENTITY_SCHEMA[1] not in db_results[row_key]:
         continue
@@ -1007,11 +1008,13 @@ class DatastoreDistributed():
         # This value has been updated from within an ongoing transaction and
         # hence can be seen from within this scope for serializability.
         continue
-      if current_version != trans_id:
+      elif current_version != trans_id:
         journal_key = self.get_journal_key(row_key, trans_id)
         journal_keys.append(journal_key)
         journal_result_map[journal_key] = (row_key, trans_id)
-   
+        if trans_id == 0:
+          delete_keys.append(row_key)
+
     if not journal_result_map: 
       return db_results
 
@@ -1021,13 +1024,17 @@ class DatastoreDistributed():
                             dbconstants.JOURNAL_SCHEMA)
     for journal_key in journal_result_map:
       row_key, trans_id = journal_result_map[journal_key]
-      db_results[row_key] = {
-        dbconstants.APP_ENTITY_SCHEMA[0]: 
-                journal_entities[journal_key]\
-                                [dbconstants.JOURNAL_SCHEMA[0]], 
-        dbconstants.APP_ENTITY_SCHEMA[1]: 
-                str(trans_id)
-      }
+      if trans_id == 0:
+        # Zero id's are entities which do not yet exist.
+        del db_results[row_key]
+      else:
+        db_results[row_key] = {
+          dbconstants.APP_ENTITY_SCHEMA[0]: 
+                  journal_entities[journal_key]\
+                                  [dbconstants.JOURNAL_SCHEMA[0]], 
+          dbconstants.APP_ENTITY_SCHEMA[1]: 
+                  str(trans_id)
+        }
     return db_results
 
   def remove_tombstoned_entities(self, result):

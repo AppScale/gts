@@ -22,10 +22,14 @@ __all__ = []
 
 import datetime
 import logging
+import random
+import string
 
 import taskqueue_service_pb
 
+from google.appengine.api import api_base_pb
 from google.appengine.api import apiproxy_stub
+from google.appengine.api import apiproxy_stub_map
 from google.appengine.runtime import apiproxy_errors
 from google.appengine.ext.remote_api import remote_api_pb
 
@@ -96,11 +100,65 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     self.__tq_location = self.__GetTQLocation()
 
   def __GetTQLocation(self):
-    """ Gets the nearest AppScale TaskQueue server."""
+    """ Gets the nearest AppScale TaskQueue server. """
     tq_file = open(TASKQUEUE_LOCATION_FILE)
     location = tq_file.read() 
     location += ":" + str(TASKQUEUE_SERVER_PORT)
     return location
+
+  def _ChooseTaskName(self, app_name, queue_name, user_chosen=None):
+    """ Creates a task name that the system can use to address
+        tasks from different apps and queues.
+ 
+    Args:
+      app_name: The application name.
+      queue_name: A str representing the queue name that the task goes in.
+      user_chosen: A string name the user selected for their application.
+    Returns:
+      A randomized string representing a task name.
+    """
+    RAND_LENGTH_SIZE = 32
+    if not user_chosen:
+      user_chosen = ''.join(random.choice(string.ascii_uppercase + \
+        string.digits) for x in range(RAND_LENGTH_SIZE))
+    return 'task_%s_%s_%s' % (app_name, queue_name, user_chosen)
+
+
+  def _AddTransactionalBulkTask(self, request, response):
+    """ Add a transactional task.
+  
+    Args:
+      request: A taskqueue_service_pb.TaskQueueAddRequest.
+      response: A taskqueue_service_pb.TaskQueueAddResponse.
+    Returns:
+      The taskqueue response.
+    """
+    for add_request in request.add_request_list():
+      task_result = response.add_taskresult()
+      task_name = None
+      if add_request.has_task_name():
+        task_name = add_request.task_name()
+      namespaced_name = self._ChooseTaskName(add_request.app_id(),
+                                            add_request.queue_name(),
+                                            user_chosen=task_name)
+      add_request.set_task_name(namespaced_name)
+      task_result.set_chosen_task_name(namespaced_name)
+
+    for add_request, task_result in zip(request.add_request_list(),
+                                        response.taskresult_list()):
+      task_result.set_result(taskqueue_service_pb.TaskQueueServiceError.OK)
+ 
+    # All task should have been validated and assigned a unique name by this point.
+    try:
+      apiproxy_stub_map.MakeSyncCall(
+          'datastore_v3', 'AddActions', request, api_base_pb.VoidProto())
+    except apiproxy_errors.ApplicationError, e:
+      raise apiproxy_errors.ApplicationError(
+          e.application_error +
+          taskqueue_service_pb.TaskQueueServiceError.DATASTORE_ERROR,
+          e.error_detail)
+ 
+    return response
 
   def _Dynamic_Add(self, request, response):
     """Add a single task to a queue.
@@ -114,12 +172,20 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
       response: The taskqueue_service_pb.TaskQueueAddResponse. See
           taskqueue_service.proto.
     """
-    request.set_app_id(self.__app_id)
-    url = request.url()
-    url = "http://" + self.__nginx_host + ":" + str(self.__nginx_port) + url
-    request.set_url(url)
-    self._RemoteSend(request, response, "Add")
-    return response
+    bulk_request = taskqueue_service_pb.TaskQueueBulkAddRequest()
+    bulk_response = taskqueue_service_pb.TaskQueueBulkAddResponse()
+
+    bulk_request.add_add_request().CopyFrom(request)
+    self._Dynamic_BulkAdd(bulk_request, bulk_response)
+
+    assert bulk_response.taskresult_size() == 1
+    result = bulk_response.taskresult(0).result()
+
+    if result != taskqueue_service_pb.TaskQueueServiceError.OK:
+      raise apiproxy_errors.ApplicationError(result)
+    elif bulk_response.taskresult(0).has_chosen_task_name():
+      response.set_chosen_task_name(
+          bulk_response.taskresult(0).chosen_task_name())
 
   def _Dynamic_BulkAdd(self, request, response):
     """Add many tasks to a queue using a single request.
@@ -132,8 +198,14 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
           taskqueue_service.proto.
       response: The taskqueue_service_pb.TaskQueueBulkAddResponse. See
           taskqueue_service.proto.
+    Returns:
+      The response object.
     """
     assert request.add_request_size(), 'taskqueue should prevent empty requests'
+
+    if request.add_request(0).has_transaction():
+      self._AddTransactionalBulkTask(request, response)
+      return response
 
     for add_request in request.add_request_list():
       add_request.set_app_id(self.__app_id)
