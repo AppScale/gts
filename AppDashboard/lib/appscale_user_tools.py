@@ -1,6 +1,8 @@
 """ Tools to help AppDashboard interact with users. """
+import datetime
 import sys
 import re
+import hashlib
 import SOAPpy
 from google.appengine.api import users
 
@@ -26,7 +28,6 @@ class AppScaleUserTools:
     """ Check if the user is logged in.
     Returns:  True or False.
     """
-    #TODO Fix to use SOAP and UserAppServer
     user = users.get_current_user()
     if user:
       return True
@@ -37,7 +38,6 @@ class AppScaleUserTools:
     """ Get the logged in user's email.
     Returns: A str with the user's email, or '' if not found.
     """
-    #TODO Fix to use SOAP and UserAppServer
     user = users.get_current_user()
     if user:
       return user.nickname()
@@ -66,7 +66,7 @@ class AppScaleUserTools:
     return False
 
   @classmethod
-  def create_new_user(cls,email,password):
+  def create_new_user(cls,email,password,response):
     """ Create new user in the system. 
     Args: email: email address of the new user.
       password: password for the new user.
@@ -87,24 +87,58 @@ class AppScaleUserTools:
         AppScaleStatusHelper.get_login_host() )
       xmpp_pass = LocalState.encrypt_password(xmpp_user, password)
       uaserver.create_user(xmpp_user, xmpp_pass)
+
+      cls.create_token(email, email)
+      cls.set_appserver_cookie(email, response)
     except Exception as e:
-      #TODO:  Log this error
+      sys.stderr.write("create_new_user("+email+") caught exception: "+str(e))
       return False
     return True
 
   @classmethod
-  def logout_user(cls):
+  def remove_appserver_cookie(cls, email, response):
+    response.delete_cookie('dev_appserver_login')
+
+  @classmethod
+  def set_appserver_cookie(cls, email, response):
+    uaserver = cls.get_uaserver()
+    user_data =  uaserver.get_user_data(email, GLOBAL_SECRET_KEY)
+    sys.stderr.write("user_data = "+str(user_data))
+    apps_list = re.search("\napplications:(.*)\n",user_data).group(1).split(":")
+    apps =  ",".join(apps_list)
+    sys.stderr.write("apps = "+str(apps));
+    response.set_cookie('dev_appserver_login',
+      value = cls.get_cookie_value(email, apps),
+      expires = datetime.datetime.now() + datetime.timedelta(days=1) )
+
+  @classmethod
+  def get_cookie_value(cls, email, apps):
+    nick = re.search('^(.*)@',email).group(1)
+    admin = '' #this is always the current behavior
+    hsh = cls.get_appengine_hash(email, nick, admin)
+    return email+':'+nick+':'+admin+':'+hsh
+
+  @classmethod
+  def get_appengine_hash(cls, email, nick, admin):
+    return hashlib.sha1(email + nick + admin + GLOBAL_SECRET_KEY).hexdigest()
+
+  @classmethod 
+  def create_token(cls, token, email):
+    exp_date = "20121231120000" #exactly what it was before
+    uaserver = cls.get_uaserver()
+    uaserver.commit_new_token('invalid', email, exp_date, GLOBAL_SECRET_KEY)
+
+  @classmethod
+  def logout_user(cls, response):
     user = users.get_current_user()
     if not user:
       return True
     email = user.nickname()
-    uaserver = cls.get_uaserver()
-    exp_date = "20121231120000" #exactly what it was before
-    uaserver.commit_new_token('invalid', email, exp_date, GLOBAL_SECRET_KEY)
+    cls.create_token('invalid',email)
+    cls.remove_appserver_cookie(email, response)
 
   @classmethod
-  def login_user(cls,email,password):
-    sys.stderr.write('login_user() BLAH BLERG')
+  def login_user(cls, email, password, response):
     uaserver = cls.get_uaserver()
     try:
       user_data =  uaserver.get_user_data(email, GLOBAL_SECRET_KEY)
@@ -122,14 +156,23 @@ class AppScaleUserTools:
     if server_pwd != encrypted_pass:
       return False
     
-    exp_date = "20121231120000" #exactly what it was before
-    uaserver.commit_new_token(email, email, exp_date, GLOBAL_SECRET_KEY)
+    cls.create_token(email, email)
+    cls.set_appserver_cookie(email, response)
     return True
 
   @classmethod
   def list_all_users_permisions(cls):
     """ Returns a list of all the users and the permission they have
       in the system. """
+    uas = cls.get_uaserver()
+    all_users = uas.get_all_users( GLOBAL_SECRET_KEY )
+    all_users_list = all_users.split(':')
+    user_list = []
+    ip = 
+    for usr in all_users_list:
+      if(
+
+    sys.stderr.write('uas.get_all_users = '+all_users)
     #TODO Fix to use SOAP and UserAppServer
     user = users.get_current_user()
     if user:
