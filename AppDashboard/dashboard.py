@@ -37,7 +37,6 @@ class AppDashboard(webapp2.RequestHandler):
       'user_email' : self.helper.get_user_email(),
       'is_user_cloud_admin' : self.helper.is_user_cloud_admin(),
       'i_can_upload' : self.helper.i_can_upload(),
-      'user_perm_list' : self.helper.list_all_users_permisions(),
       'service_info' : self.helper.get_service_info(),
       'dbinfo' : self.helper.get_database_information(),
       'apps' : self.helper.get_application_information(),
@@ -154,7 +153,7 @@ class LogoutPage(AppDashboard):
 
   def get(self):
     """ Handler for GET requests. """
-    self.helper.logout_user(self.response)
+    self.helper.logout_user()
     self.redirect('/',self.response)
 #    self.render_page(page='landing', template_file=IndexPage.TEMPLATE,
 #      values = {'flash_message':"You have been logged out."
@@ -169,8 +168,7 @@ class LoginPage(AppDashboard):
   def post(self):
     """ Handler for post requests. """
     if self.helper.login_user( self.request.POST.get('user_email'),
-       self.request.POST.get('user_password'),
-       self.response):
+       self.request.POST.get('user_password') ):
 #      self.render_page(page = 'landing', template_file = IndexPage.TEMPLATE )
       self.redirect('/',self.response)
     else:
@@ -217,12 +215,16 @@ class AuthorizePage(AppDashboard):
   def post(self):
     """ Handler for POST requests. """
     self.render_page(page='authorize', template_file=self.TEMPLATE,
-      values = {'flash_message' : self.parse_update_user_permissions()
+      values = {
+      'flash_message' : self.parse_update_user_permissions(),
+      'user_perm_list' : self.helper.list_all_users_permisions(),
       })
 
   def get(self):
     """ Handler for GET requests. """
-    self.render_page(page='authorize', template_file=self.TEMPLATE)
+    self.render_page(page='authorize', template_file=self.TEMPLATE, values = {
+      'user_perm_list' : self.helper.list_all_users_permisions(),
+    })
 
 
 class AppUploadPage(AppDashboard):

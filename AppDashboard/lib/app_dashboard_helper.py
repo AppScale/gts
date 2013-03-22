@@ -10,7 +10,6 @@ if 'TOOLS_PATH' in os.environ:
 else:
   sys.path.append('/usr/local/appscale-tools/lib')
 from appcontroller_client import AppControllerClient
-from user_app_client import UserAppClient #TODO: remove
 from local_state import LocalState
 
 from google.appengine.api import users
@@ -24,7 +23,7 @@ class AppDashboardHelper:
     self.server = None
     self.uaserver = None
     self.response = response
-    sys.stderr.write("\nAppDashboardHelper.__init__()\n\n");
+    self.cache = {}
 
   def get_server(self):
     """ Get AppControler handle. """
@@ -47,7 +46,10 @@ class AppDashboardHelper:
 
   def get_host_with_role(self, role):
     acc = self.get_server()
-    nodes = acc.get_role_info()
+    if 'get_role_info' in self.cache:
+      node = self.cache['get_role_info']
+    else:
+      nodes = acc.get_role_info()
     for node in nodes:
       if role in node['jobs']:
         return node['public_ip']
@@ -121,15 +123,36 @@ class AppDashboardHelper:
       return user.nickname()
     return ''
 
+  def query_user_data(self, email):
+    if 'query_user_data' in self.cache:
+      if email in self.cache['query_user_data']:
+        return self.cache['query_user_data'][email]
+      else:
+        uaserver = self.get_uaserver()
+        sys.stderr.write("uaserver.get_user_data()\n")
+        user_data =  uaserver.get_user_data(email, GLOBAL_SECRET_KEY)
+    else:
+      self.cache['query_user_data'] = {}
+      uaserver = self.get_uaserver()
+      sys.stderr.write("uaserver.get_user_data()\n")
+      user_data =  uaserver.get_user_data(email, GLOBAL_SECRET_KEY)
+    self.cache['query_user_data'][email] = user_data
+    return user_data
+
   def is_user_cloud_admin(self):
     """ Check if the logged in user is a cloud admin.
     Returns: True or False.
     """
-    #TODO Fix to use SOAP and UserAppServer
     user = users.get_current_user()
-    if user:
+    if not user:
+      return False
+    email =  user.nickname()
+    user_data = self.query_user_data(email)
+    sys.stderr.write("user_data = "+str(user_data))
+    if re.search("is_cloud_admin:true",user_data):
       return True
-    return False
+    else:
+      return False
 
   def i_can_upload(self):
     """ Check if the logged in user can upload apps.
@@ -151,6 +174,7 @@ class AppDashboardHelper:
       uaserver = self.get_uaserver()
       # first, create the standard account
       encrypted_pass = LocalState.encrypt_password(email, password)
+      sys.stderr.write("uaserver.commit_new_user()\n")
       result = uaserver.commit_new_user(email, password, account_type,
         GLOBAL_SECRET_KEY)
       if result != 'true':
@@ -182,12 +206,11 @@ class AppDashboardHelper:
     self.response.delete_cookie('dev_appserver_login')
 
   def set_appserver_cookie(self, email):
-    uaserver = self.get_uaserver()
-    user_data =  uaserver.get_user_data(email, GLOBAL_SECRET_KEY)
+    user_data =  self.query_user_data(email)
     sys.stderr.write("user_data = "+str(user_data))
     apps_list = re.search("\napplications:(.*)\n",user_data).group(1).split(":")
     apps =  ",".join(apps_list)
-    sys.stderr.write("apps = "+str(apps));
+    sys.stderr.write("apps = "+str(apps))
     self.response.set_cookie('dev_appserver_login',
       value = self.get_cookie_value(email, apps),
       expires = datetime.datetime.now() + datetime.timedelta(days=1) )
@@ -204,6 +227,7 @@ class AppDashboardHelper:
   def create_token(self, token, email):
     exp_date = "20121231120000" #exactly what it was before
     uaserver = self.get_uaserver()
+    sys.stderr.write("uaserver.commit_new_token()\n")
     uaserver.commit_new_token('invalid', email, exp_date, GLOBAL_SECRET_KEY)
 
   def logout_user(self):
@@ -215,16 +239,8 @@ class AppDashboardHelper:
     self.remove_appserver_cookie(email)
 
   def login_user(self, email, password):
-    uaserver = self.get_uaserver()
-    try:
-      user_data =  uaserver.get_user_data(email, GLOBAL_SECRET_KEY)
-    except Exception as e:
-      sys.stderr.write("uaserver.get_user_data() raised exception: "+str(e))
-      return False
+    user_data =  self.query_user_data(email) 
 
-    if user_data is None:
-      sys.stderr.write("uaserver.get_user_data() return none")
-      
     sys.stderr.write("user_data = "+str(user_data))
     server_pwd = re.search('password:([0-9a-f]+)',user_data).group(1)
     encrypted_pass = LocalState.encrypt_password(email, password)
@@ -240,6 +256,7 @@ class AppDashboardHelper:
     """ Returns a list of all the users and the permission they have
       in the system. """
     uas = self.get_uaserver()
+    sys.stderr.write("uaserver.get_all_users()\n")
     all_users = uas.get_all_users( GLOBAL_SECRET_KEY )
     sys.stderr.write('uas.get_all_users = '+all_users)
     all_users_list = all_users.split(':')
@@ -253,6 +270,7 @@ class AppDashboardHelper:
       if re.search('^[_]+$',usr): #skip non users
         continue
       usr_cap = {'email' : usr }
+      sys.stderr.write("uaserver.get_capabilities()\n")
       caps_list = uas.get_capabilities(usr, GLOBAL_SECRET_KEY).split(':')
       for perm in perm_items:
         if perm in caps_list:
