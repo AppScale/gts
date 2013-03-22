@@ -1023,9 +1023,9 @@ class DatastoreDistributed():
                             journal_keys,
                             dbconstants.JOURNAL_SCHEMA)
     for journal_key in journal_result_map:
-        # The previous version does not exist because it was non-existant.
       row_key, trans_id = journal_result_map[journal_key]
       if trans_id == 0:
+        # Zero id's are entities which do not yet exist.
         del db_results[row_key]
       else:
         db_results[row_key] = {

@@ -112,8 +112,8 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
  
     Args:
       app_name: The application name.
-      queue_name: The queue 
-      user_chosen: A string name the user selected for their applicaiton.
+      queue_name: A str representing the queue name that the task goes in.
+      user_chosen: A string name the user selected for their application.
     Returns:
       A randomized string representing a task name.
     """
