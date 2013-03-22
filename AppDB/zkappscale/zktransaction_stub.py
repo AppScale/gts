@@ -16,7 +16,6 @@ ZOO_ACL_OPEN = [{"perms":0x1f, "scheme":"world", "id" :"anyone"}]
 LOCK_TIMEOUT = 30 # seconds
 TX_TIMEOUT = 30 # seconds
 GC_INTERVAL = 30 # seconds
-ID_BLOCK = 1000
 DEFAULT_HOST = "localhost:2181"
 GLOBAL_LOCK_KEY = "__global__"
 GLOBAL_ID_KEY = "__global__"
@@ -162,14 +161,5 @@ class ZKTransaction:
     You should raise any Exception if rollback is failed.
     """
     self.__rollbackFunc = func
-
-  def generateIDBlock(self, app_id, entity_key = GLOBAL_ID_KEY):
-    """ Generate ID block for specific key.
-
-    This generates ID block that is unique in specified key.
-    If the key doesn't specify, this generates global ID.
-    This method returns long start ID and block length tuple.
-    """
-    return (random.randint(0,10000000000), ID_BLOCK)
     
 

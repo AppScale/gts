@@ -25,9 +25,6 @@ TX_TIMEOUT = 30
 # garbage collector.
 GC_INTERVAL = 30
 
-# The number of IDs that should be assigned in batch to callers.
-ID_BLOCK = 10
-
 # The host and port that the Zookeeper service runs on, if none is provided.
 DEFAULT_HOST = "localhost:2181"
 
@@ -102,7 +99,7 @@ class ZKTransaction:
         for timed out transactions.
     """
     logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
-      '%(lineno)s %(message)s ', level=logging.DEBUG)
+      '%(lineno)s %(message)s ', level=logging.INFO)
     logging.debug("Started logging")
 
     # Connection instance variables.
@@ -755,7 +752,7 @@ class ZKTransaction:
     for child in zookeeper.get_children(self.handle, txpath):
       zookeeper.adelete(self.handle, PATH_SEPARATOR.join([txpath, child]))
 
-    # This delets the transaction root path.
+    # This deletes the transaction root path.
     zookeeper.adelete(self.handle, txpath)
 
     return True
@@ -871,12 +868,12 @@ class ZKTransaction:
     if lock_list:
       # Add the transaction ID to the blacklist.
       now = str(time.time())
-      broot = self.get_blacklist_root_path(app_id)
+      blacklist_root = self.get_blacklist_root_path(app_id)
 
-      if not zookeeper.exists(self.handle, broot):
-        self.force_create_path(broot)
+      if not zookeeper.exists(self.handle, blacklist_root):
+        self.force_create_path(blacklist_root)
 
-      zookeeper.acreate(self.handle, PATH_SEPARATOR.join([broot, str(txid)]),
+      zookeeper.acreate(self.handle, PATH_SEPARATOR.join([blacklist_root, str(txid)]),
         now, ZOO_ACL_OPEN)
 
       # Update local cache before notification.
