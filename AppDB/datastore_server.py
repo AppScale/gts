@@ -1003,18 +1003,17 @@ class DatastoreDistributed():
                              [dbconstants.APP_ENTITY_SCHEMA[1]])
       trans_id = self.zookeeper.get_valid_transaction_id(\
                              app_id, current_version, row_key)
-      print "THE TRANS ID IS: " + str(trans_id)
       if current_ongoing_txn != 0 and \
            current_version == current_ongoing_txn:
         # This value has been updated from within an ongoing transaction and
         # hence can be seen from within this scope for serializability.
         continue
-      if trans_id == 0:
-        delete_keys.append(row_key)
       elif current_version != trans_id:
         journal_key = self.get_journal_key(row_key, trans_id)
         journal_keys.append(journal_key)
         journal_result_map[journal_key] = (row_key, trans_id)
+        if trans_id == 0:
+          delete_keys.append(row_key)
 
     if not journal_result_map: 
       return db_results
