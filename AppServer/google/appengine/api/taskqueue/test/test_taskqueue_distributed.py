@@ -5,6 +5,7 @@ from flexmock import flexmock
 
 taskqueue = "{0}/../../../../..".format(os.path.dirname(__file__))
 sys.path.append(taskqueue)
+from google.appengine.api import apiproxy_stub_map
 from google.appengine.api.taskqueue import taskqueue_distributed
 from google.appengine.api.taskqueue import taskqueue_service_pb
 
@@ -129,6 +130,8 @@ class TestTaskqueueDistributed(unittest.TestCase):
     tqd = flexmock(taskqueue_distributed.TaskQueueServiceStub)
     tqd.should_receive("__GetTQLocation").and_return("some_location")
     tqd.should_receive("_RemoteSend").and_return()
+    flexmock(apiproxy_stub_map)
+    apiproxy_stub_map.should_receive("MakeSyncCall")
     tqd = taskqueue_distributed.TaskQueueServiceStub("app_id", "hostname", 12345)
     response = FakeBulkAddResponse() 
     self.assertEquals(response, tqd._AddTransactionalBulkTask(FakeBulkAddRequest(),
