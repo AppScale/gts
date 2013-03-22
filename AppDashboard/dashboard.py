@@ -7,9 +7,7 @@ import logging
 import os
 import re
 import webapp2
-from lib.appscale_status_helper import AppScaleStatusHelper
-from lib.appscale_user_tools import AppScaleUserTools
-from lib.appscale_app_tools import AppScaleAppTools
+from lib.app_dashboard_helper import AppDashboardHelper
 
 jinja_environment = jinja2.Environment(
     loader=jinja2.FileSystemLoader(os.path.dirname(__file__) + \
@@ -19,47 +17,51 @@ jinja_environment = jinja2.Environment(
 class AppDashboard(webapp2.RequestHandler):
   """ Class that all pages in the Dashboard must inherit from. """
 
-  @classmethod
-  def render_template(cls, ash, template_file, values={}):
+  def __init__(self, request, response):
+    """ Constructor """
+    # Set self.request, self.response and self.app.
+    self.initialize(request, response)
+    # initialize helper
+    self.helper = AppDashboardHelper(self.response)
+
+  def render_template(self, template_file, values={}):
     """ Renders a template file with all variables loaded.
     Args: 
-      ash: AppScaleStatusHelper object.
       template_file: relative path to tempate file.
       values: dict with key/value pairs used by the template file.
     Returns: str with the rendered template.
     """
     template = jinja_environment.get_template(template_file)
     sub_vars = {
-      'logged_in' : AppScaleUserTools.is_user_logged_in(),
-      'user_email' : AppScaleUserTools.get_user_email(),
-      'is_user_cloud_admin' : AppScaleUserTools.is_user_cloud_admin(),
-      'i_can_upload' : AppScaleUserTools.i_can_upload(),
-      'user_perm_list' : AppScaleUserTools.list_all_users_permisions(),
-      'service_info' : ash.get_service_info(),
-      'dbinfo' : ash.get_database_information(),
-      'apps' : ash.get_application_information(),
-      'monitoring_url' : ash.get_monitoring_url(),
-      'server_info' : ash.get_status_information()
+      'logged_in' : self.helper.is_user_logged_in(),
+      'user_email' : self.helper.get_user_email(),
+      'is_user_cloud_admin' : self.helper.is_user_cloud_admin(),
+      'i_can_upload' : self.helper.i_can_upload(),
+      'user_perm_list' : self.helper.list_all_users_permisions(),
+      'service_info' : self.helper.get_service_info(),
+      'dbinfo' : self.helper.get_database_information(),
+      'apps' : self.helper.get_application_information(),
+      'monitoring_url' : self.helper.get_monitoring_url(),
+      'server_info' : self.helper.get_status_information()
     }
     for key in values.keys():
       sub_vars[key] = values[key]
     return template.render(sub_vars)
     
-  def get_shared_navigation(self, ash):
+  def get_shared_navigation(self):
     """ Renders the shared navigation.
     Returns: str with the navigation bar rendered.
     """
-    return self.render_template(ash, template_file = 'shared/navigation.html')
+    return self.render_template(template_file = 'shared/navigation.html')
 
   def render_page(self, page, template_file, values = {} ):
     """ Renders a template with the main layout and nav bar. """
     self.response.headers['Content-Type'] = 'text/html'
     template = jinja_environment.get_template('layouts/main.html')
-    ash = AppScaleStatusHelper()
     self.response.out.write(template.render(
         page_name = page,
-        page_body = self.render_template(ash,template_file,values),
-        shared_navigation = self.get_shared_navigation(ash)
+        page_body = self.render_template(template_file, values),
+        shared_navigation = self.get_shared_navigation()
         ))
     
 
@@ -113,8 +115,7 @@ class NewUserPage(AppDashboard):
       errors['password_confirmation'] = True
     return users, errors
 
-  @classmethod
-  def process_new_user_post(cls, users, errors):
+  def process_new_user_post(self, users, errors):
     """ Creates new user if parse was successful.
     Args 2 dicts, 1st with the form data, 
       2nd with True/False values for errors in each field.
@@ -123,26 +124,29 @@ class NewUserPage(AppDashboard):
     if errors['email'] or errors['password'] or errors['password_confirmation']:
       return False
     else:
-      if AppScaleUserTools.create_new_user(users['email'], users['password']):
-        return True
-    return False
+      return self.helper.create_new_user(cgi.escape(users['email']),
+           cgi.escape(users['password']) )
 
   def post(self):
     """ Handler for POST requests. """
     users, errors = self.parse_new_user_post()
     if self.process_new_user_post(users, errors):
-      self.render_page(page='landing', template_file=IndexPage.TEMPLATE,
-        values = {'flash_message':"Your account has been successfully created."
-        })
+      self.redirect('/',self.response)
+#      self.render_page(page = 'landing', template_file = IndexPage.TEMPLATE,
+#        values = {'flash_message':"Your account has been successfully created."
+#        })
     else:
-      self.render_page(page='users', template_file=self.TEMPLATE, values={
+      self.render_page(page = 'users', template_file = self.TEMPLATE, values = {
         'display_error_messages': errors,
         'user' : users
         })
 
   def get(self):
     """ Handler for GET requests. """
-    self.render_page(page='users', template_file=self.TEMPLATE )
+    self.render_page(page = 'users', template_file = self.TEMPLATE, values = {
+      'display_error_messages' : {},
+      'user' : {}
+    })
 
 
 class LogoutPage(AppDashboard):
@@ -150,10 +154,11 @@ class LogoutPage(AppDashboard):
 
   def get(self):
     """ Handler for GET requests. """
-    AppScaleUserTools.logout_user()
-    self.render_page(page='landing', template_file=IndexPage.TEMPLATE,
-      values = {'flash_message':"You have been logged out."
-      })
+    self.helper.logout_user(self.response)
+    self.redirect('/',self.response)
+#    self.render_page(page='landing', template_file=IndexPage.TEMPLATE,
+#      values = {'flash_message':"You have been logged out."
+#      })
 
 
 class LoginPage(AppDashboard):
@@ -163,9 +168,11 @@ class LoginPage(AppDashboard):
 
   def post(self):
     """ Handler for post requests. """
-    if AppScaleUserTools.login_user( self.request.POST.get('user_email'),
-       self.request.POST.get('user_password') ):
-      self.render_page(page = 'landing', template_file = IndexPage.TEMPLATE )
+    if self.helper.login_user( self.request.POST.get('user_email'),
+       self.request.POST.get('user_password'),
+       self.response):
+#      self.render_page(page = 'landing', template_file = IndexPage.TEMPLATE )
+      self.redirect('/',self.response)
     else:
       self.render_page(page = 'users', template_file = self.TEMPLATE,
         values = {
@@ -188,7 +195,7 @@ class AuthorizePage(AppDashboard):
     """ Update authorization matrix from form submission.
     Returns: str with message to be displayed to the user.
     """
-    perms = AppScaleUserTools.get_all_permission_items()
+    perms = self.helper.get_all_permission_items()
     req_keys = self.request.POST.keys()
     response = ''
     for itm in self.request.POST.items():
@@ -196,12 +203,12 @@ class AuthorizePage(AppDashboard):
         email = itm[1]
         for perm in perms:
           if email+'-'+perm in req_keys:
-            if AppScaleUserTools.add_user_permissions(email, perm):
+            if self.helper.add_user_permissions(email, perm):
               response += 'Enabling '+perm+' for '+email+'. '
             else:
               response += 'Error enabling '+perm+' for '+email+'. '
           else:
-            if AppScaleUserTools.remove_user_permissions(email, perm):
+            if self.helper.remove_user_permissions(email, perm):
               response += 'Disabling '+perm+' for '+email+'. '
             else:
               response += 'Error disabling '+perm+' for '+email+'. '
