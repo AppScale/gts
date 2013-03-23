@@ -3050,7 +3050,7 @@ HOSTS
 
             pid = app_manager.start_app(app, @appengine_port, 
               get_load_balancer_ip(), @nginx_port, app_language, 
-              xmpp_ip, [Djinn.get_nearest_db_ip(false)])
+              xmpp_ip, [Djinn.get_nearest_db_ip(false)], {})
 
             if pid == -1
               place_error_app(app, "ERROR: Unable to start application " + \
@@ -3412,7 +3412,7 @@ HOSTS
 
     pid = app_manager.start_app(app, @appengine_port, 
             get_load_balancer_ip(), nginx_port, app_language, 
-            xmpp_ip, [Djinn.get_nearest_db_ip(false)])
+            xmpp_ip, [Djinn.get_nearest_db_ip(false)], {})
 
     if pid == -1
       Djinn.log_debug("ERROR: Unable to start application #{app} on port #{@appengine_port}.") 
