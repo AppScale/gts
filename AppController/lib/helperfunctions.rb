@@ -1205,5 +1205,16 @@ module HelperFunctions
     return max_k
   end
 
-
+  # Finds the configuration file for the given Google App Engine application to
+  # see if any environment variables should be set for it.
+  #
+  # Args:
+  # - app: A String that represents the application ID of the app whose config
+  #   file we should read.
+  # Returns:
+  #   A Hash whose keys are the environment variables to set, and whose values
+  #   correspond to the values of each environment variable found.
+  def self.get_app_env_vars(app)
+    return {}
+  end
 end

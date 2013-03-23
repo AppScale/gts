@@ -87,7 +87,7 @@ class ApiChecker
       Djinn.log_debug("Starting #{app_language} app #{app} on #{HelperFunctions.local_ip}:#{port}")
       pid = app_manager.start_app(app, port, uaserver_ip, 
                                   SERVER_PORT, app_language, login_ip,
-                                  [uaserver_ip])
+                                  [uaserver_ip], {})
       if pid == -1
         Djinn.log_debug("Failed to start app #{app} on #{HelperFunctions.local_ip}:#{port}")
         return false
