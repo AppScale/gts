@@ -64,6 +64,9 @@ GC_LOCK_PATH = "gclock"
 
 GC_TIME_PATH = "gclast_time"
 
+# Lock path for the datastore groomer.
+DS_GROOM_LOCK_PATH = "/appscale/datastore_groomer"
+
 # A unique prefix for cross group transactions.
 XG_PREFIX = "xg"
 
@@ -316,7 +319,7 @@ class ZKTransaction:
     """
     return PATH_SEPARATOR.join([self.get_app_root_path(app_id), APP_TX_PATH])
 
-  def get_transaction_path_before_getting_id(self, app_id):
+  def get_txn_path_before_getting_id(self, app_id):
     """ Returns a path that callers can use to get new transaction IDs from
     ZooKeeper, which are given as sequence nodes.
 
@@ -400,6 +403,14 @@ class ZKTransaction:
       urllib.quote_plus(entity_key)])
 
   def get_lock_root_path(self, app_id, key):
+    """ Gets the root path of the lock for a particular app. 
+    
+    Args:
+      app_id: The application ID.
+      key: The key for which we're getting the root path lock.
+    Returns: 
+      A str of the root lock path.
+    """
     return PATH_SEPARATOR.join([self.get_app_root_path(app_id), APP_LOCK_PATH,
       urllib.quote_plus(key)])
 
@@ -503,7 +514,7 @@ class ZKTransaction:
     timestamp = str(time.time())
 
     # First, make the ZK node for the actual transaction id.
-    app_path = self.get_transaction_path_before_getting_id(app_id)
+    app_path = self.get_txn_path_before_getting_id(app_id)
     txn_id = self.create_sequence_node(app_path, timestamp)
 
     # Next, make the ZK node that indicates if this a XG transaction.
@@ -849,7 +860,8 @@ class ZKTransaction:
     Returns:
       True if the transaction was invalidated, False otherwise.
     """
-    logging.warning("Notify failed transaction app: %s, txid: %d" % (app_id, txid))
+    logging.warning("Notify failed transaction app: %s, txid: %d" % \
+      (app_id, txid))
 
     self.wait_for_connect()
     lockpath = None
@@ -873,8 +885,8 @@ class ZKTransaction:
       if not zookeeper.exists(self.handle, blacklist_root):
         self.force_create_path(blacklist_root)
 
-      zookeeper.acreate(self.handle, PATH_SEPARATOR.join([blacklist_root, str(txid)]),
-        now, ZOO_ACL_OPEN)
+      zookeeper.acreate(self.handle, 
+        PATH_SEPARATOR.join([blacklist_root, str(txid)]), now, ZOO_ACL_OPEN)
 
       # Update local cache before notification.
       if app_id in self.blacklist_cache:
@@ -978,6 +990,34 @@ class ZKTransaction:
 
       return True
     return False
+
+  def get_datastore_groomer_lock(self):
+    """ Tries to get the lock for the datastore groomer. 
+
+    Returns:
+      True if the lock was attained, False otherwise.
+    """
+    try:
+      now = str(time.time())
+      zookeeper.create(self.handle, DS_GROOM_LOCK_PATH, now, ZOO_ACL_OPEN, 
+        zookeeper.EPHEMERAL)
+    except zookeeper.NodeExistsException:
+      return False
+    return True
+
+  def release_datastore_groomer_lock(self):
+    """ Releases the datastore groomer lock. 
+   
+    Returns:
+      True on success. 
+    Raises:
+      ZKTransactionException: If the lock could not be released.
+    """
+    try:
+      zookeeper.delete(self.handle, DS_GROOM_LOCK_PATH, -1)
+    except zookeeper.NoNodeException:
+      raise ZKTransactionException("Unable to delete datastore groomer lock.")
+    return True
 
   def execute_garbage_collection(self, app_id, app_path):
     """ Execute garbage collection for an application.
