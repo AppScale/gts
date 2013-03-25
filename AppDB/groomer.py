@@ -3,13 +3,10 @@ calculates datastore statistics.
 """
 
 import threading
+import time
 
-import tornado.httpserver
-import tornado.ioloop
-import tornado.web
-
-from google.appengine.ext import db
-from google.appengine.ext.db import stats
+#from google.appengine.ext import db
+#from google.appengine.ext.db import stats
 
 class DatastoreGroomer(threading.Thread):
   """ Scans the entire database for each application. """
@@ -17,7 +14,7 @@ class DatastoreGroomer(threading.Thread):
   # The amount of seconds between polling to get the groomer lock.
   LOCK_POLL_PERIOD = 3600
  
-  def __init__(self, zk, datastore):
+  def __init__(self, zoo_keeper, datastore):
     """ Constructor. 
 
     Args:
@@ -25,13 +22,13 @@ class DatastoreGroomer(threading.Thread):
       datastore: The datastore client.
     """
     threading.Thread.__init__(self)
-    self.zk = zk
+    self.zoo_keeper = zoo_keeper
     self.datastore = datastore
 
   def run(self):
     """ Starts the main loop of the groomer thread. """
     while True:
-      sleep(self.LOCK_POLL_PERIOD)
+      time.sleep(self.LOCK_POLL_PERIOD)
       if self.get_groomer_lock():
         self.run_groomer()
 
@@ -41,7 +38,7 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       True on success, False otherwise.
     """
-    return self.zk.get_datastore_groomer_lock()
+    return self.zoo_keeper.get_datastore_groomer_lock()
  
   def run_groomer(self):
     """ Runs the grooming process.
