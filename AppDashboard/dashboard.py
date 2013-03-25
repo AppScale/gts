@@ -42,7 +42,8 @@ class AppDashboard(webapp2.RequestHandler):
       'dbinfo' : self.helper.get_database_information(),
       'apps' : self.helper.get_application_information(),
       'monitoring_url' : self.helper.get_monitoring_url(),
-      'server_info' : self.helper.get_status_information()
+      'server_info' : self.helper.get_status_information(),
+      'app_admin_list' : self.helper.get_user_app_list()
     }
     sys.stderr.write("i_can_upload = "+str(sub_vars['i_can_upload'])+"\n\n")
     for key in values.keys():
@@ -199,7 +200,7 @@ class AuthorizePage(AppDashboard):
     req_keys = self.request.POST.keys()
     sys.stderr.write("req_keys: "+str(req_keys))
     response = ''
-    for fldname,email in self.request.POST.iteritems():
+    for fldname, email in self.request.POST.iteritems():
       if re.match('^user_permission_', fldname):
         for perm in perms:
           if email+'-'+perm in req_keys and\
@@ -218,17 +219,31 @@ class AuthorizePage(AppDashboard):
 
   def post(self):
     """ Handler for POST requests. """
-    self.render_page(page='authorize', template_file=self.TEMPLATE,
-      values = {
-      'flash_message' : self.parse_update_user_permissions(),
-      'user_perm_list' : self.helper.list_all_users_permisions(),
-      })
+    if self.helper.is_user_cloud_admin():
+      self.render_page(page='authorize', template_file=self.TEMPLATE,
+        values = {
+        'flash_message' : self.parse_update_user_permissions(),
+        'user_perm_list' : self.helper.list_all_users_permisions(),
+        })
+    else:
+      self.render_page(page='authorize', template_file=self.TEMPLATE,
+        values = {
+        'flash_message':"Only the cloud administrator can change permissions.",
+        'user_perm_list':{},
+        })
 
   def get(self):
     """ Handler for GET requests. """
-    self.render_page(page='authorize', template_file=self.TEMPLATE, values = {
-      'user_perm_list' : self.helper.list_all_users_permisions(),
-    })
+    if self.helper.is_user_cloud_admin():
+      self.render_page(page='authorize', template_file=self.TEMPLATE, values = {
+        'user_perm_list' : self.helper.list_all_users_permisions(),
+      })
+    else:
+      self.render_page(page='authorize', template_file=self.TEMPLATE,
+        values = {
+        'flash_message':"Only the cloud administrator can change permissions.",
+        'user_perm_list':{},
+        })
 
 
 class AppUploadPage(AppDashboard):
@@ -238,6 +253,7 @@ class AppUploadPage(AppDashboard):
 
   def post(self):
     """ Handler for POST requests. """
+    #TODO: check that this user can upload
     message = self.helper.upload_app(
         self.request.POST.multi['app_file_data'].file
         )
@@ -256,9 +272,12 @@ class AppDeletePage(AppDashboard):
 
   def post(self):
     """ Handler for POST requests. """
-    message = self.helper.delete_app(
-        self.request.POST.get('appname')
-        )
+    #TODO: check that this user can delete this app
+    appname = self.request.POST.get('appname')
+    if appname in self.helper.get_user_app_list():
+      message = self.helper.delete_app(appname)
+    else:
+      message = "You do not have permission to delete the application: "+appname
     self.render_page(page='authorize', template_file=self.TEMPLATE,
       values = {'flash_message' : message
       })

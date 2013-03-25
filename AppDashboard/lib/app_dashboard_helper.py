@@ -82,7 +82,7 @@ class AppDashboardHelper:
         if app == 'none':
           break
         if status[0]['apps'][app]:
-          ret[app] = "http://"+login_node+":"+str(self.get_app_port(app))
+          ret[app] = "http://"+self.get_login_host()+":"+str(self.get_app_port(app))
         else:
           ret[app] = None
     return ret
@@ -97,14 +97,17 @@ class AppDashboardHelper:
 
   def get_app_port(self, appname): 
     uas = self.get_uaserver()
-    app_data = uas.get_app_data(app_id, self.secret)
+    app_data = uas.get_app_data(appname, GLOBAL_SECRET_KEY )
     port = int(re.search(".*\sports: (\d+)[\s|:]", app_data).group(1))
     return port
 
   def upload_app(self, upload_file):
     """ Uploads and App into AppScale.
-    Args:  tgz_file: a 'StringIO' object containing the uploaded file data.
-    Returns: a message reporting the success or failure of the upload.
+
+    Args:
+      upload_file: a file object containing the uploaded file data.
+    Returns:
+      A message reporting the success or failure of the upload.
     """
     #TODO
     tgz_file = tempfile.NamedTemporaryFile()
@@ -113,9 +116,47 @@ class AppDashboardHelper:
     tgz_file.close()
     return "AppScaleAppTools.upload_app("+name+")"
 
-  def delete_app(self, app_name):
+  def delete_app(self, appname):
+    """Instructs AppScale to no longer host the named application.
+
+    Args:
+      appname: name of the app to be removed.
+    Returns:
+      A str containing a message to be displayed to the user.
+    """
+
     #TODO
-    return "AppScaleAppTools.delete_app("+app_name+")"
+    try:
+      sys.stderr.write("AppScaleAppTools.delete_app("+appname+")\n\n");
+      if not self.does_app_exist(appname):
+        return "The given application is not currently running."
+      acc = self.get_server()
+      ret = acc.stop_app(appname)
+      if ret != "true":
+        sys.stderr.write("delete_app() AppControler returned: "+ret)
+        return "There was an error attempting to remove the application."
+    except Exception as e:
+      sys.stderr.write("delete_app() caught exception: "+str(e))
+      return "There was an error attempting to remove the application."
+    return "Application removed successfully. Please wait for your app to shut"\
+           " down."
+
+  def does_app_exist(self, appname):
+    """Queries the UserAppServer to see if the named application exists.
+
+    Args:
+      appname: The name of the app that we should check for existence.
+    Returns:
+      True if the app does exist, False otherwise.
+    """
+    uas = self.get_uaserver()
+    app_data = uas.get_app_data(appname, GLOBAL_SECRET_KEY)
+    search_data = re.search(".*num_ports:(\d+)", app_data)
+    if search_data:
+     num_ports = int(search_data.group(1))
+     if num_ports > 0:
+       return True
+    return False
 
   def is_user_logged_in(self):
     """ Check if the user is logged in.
@@ -134,6 +175,18 @@ class AppDashboardHelper:
     if user:
       return user.nickname()
     return ''
+
+  def get_user_app_list(self):
+    """ Get a list of apps that the current logged in user is an 
+        admin of.
+    Returns: a list of str, each is the name of an app. 
+    """
+    user = users.get_current_user()
+    if not user:
+      return []
+    user_data = self.query_user_data( user.nickname() )
+    apps_list = re.search("\napplications:(.*)\n",user_data).group(1).split(":")
+    return apps_list
 
   def query_user_data(self, email):
     if 'query_user_data' in self.cache:
