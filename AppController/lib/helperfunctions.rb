@@ -1214,7 +1214,29 @@ module HelperFunctions
   # Returns:
   #   A Hash whose keys are the environment variables to set, and whose values
   #   correspond to the values of each environment variable found.
+  # Raises:
+  #   AppScaleException: If the given application doesn't have a configuration
+  #   file.
   def self.get_app_env_vars(app)
-    return {}
+    app_yaml_file = "/var/apps/#{app}/app/app.yaml"
+    appengine_web_xml_file = "/var/apps/#{app}/app/war/WEB-INF/appengine-web.xml"
+
+    if File.exists?(app_yaml_file)
+      tree = YAML.load_file(app_yaml_file)
+      return tree['env_variables'] || {}
+    elsif File.exists?(appengine_web_xml_file)
+      env_vars = {}
+      xml = HelperFunctions.read_file(appengine_web_xml_file)
+      match_data = xml.scan(/<env-var name="(.*)" value="(.*)" \/>/)
+      match_data.each { |key_and_val|
+        if key_and_val.length == 2
+          env_vars[key_and_val[0]] = key_and_val[1]
+        end
+      }
+      return env_vars
+    else
+      raise AppScaleException.new("Couldn't find an app.yaml or " +
+        "appengine-web.xml file in the #{app} application.")
+    end
   end
 end
