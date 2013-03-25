@@ -6,8 +6,12 @@ watch('Neptune/(.*).rb') { |md|
   system "rake neptunemanager:test"
 }
 
-watch('(lib|AppManager|AppDB)/(.*).py') { |md|
-  system "rake python:test"
+watch('(lib)/(.*).py') { |md|
+  system "rake lib:test"
+}
+
+watch('(AppManager)/(.*).py') { |md|
+  system "rake appmanager:test"
 }
 
 watch('(AppDB)/(.*).py') { |md|

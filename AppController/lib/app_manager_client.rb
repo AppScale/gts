@@ -93,7 +93,9 @@ class AppManagerClient
    #   load_balancer_port: The port of the load balancer
    #   language: The language the application is written in
    #   xmpp_ip: The IP for XMPP
-   #   db_locations: A list of datastore server IPs
+   #   db_locations: An Array of datastore server IPs
+   #   env_vars: A Hash of environemnt variables that should be passed to the
+   #     application to start.
    # Returns:
    #   The PID of the process started
    # Note:
@@ -107,14 +109,16 @@ class AppManagerClient
                  load_balancer_port, 
                  language, 
                  xmpp_ip,
-                 db_locations)
+                 db_locations,
+                 env_vars)
     config = {'app_name' => app_name,
               'app_port' => app_port,
               'load_balancer_ip' => load_balancer_ip,
               'load_balancer_port' => load_balancer_port,
               'language' => language,
               'xmpp_ip' => xmpp_ip,
-              'dblocations' => db_locations}
+              'dblocations' => db_locations,
+              'env_vars' => env_vars}
     json_config = JSON.dump(config)
     result = ""
     make_call(MAX_TIME_OUT, false, "start_app") {
