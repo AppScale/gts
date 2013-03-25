@@ -234,7 +234,7 @@ class AppUploadPage(AppDashboard):
 
   def post(self):
     """ Handler for POST requests. """
-    message = AppScaleAppTools.upload_app(
+    message = self.helper.upload_app(
         self.request.POST.multi['app_file_data'].file
         )
     self.render_page(page='authorize', template_file=self.TEMPLATE,
@@ -252,7 +252,7 @@ class AppDeletePage(AppDashboard):
 
   def post(self):
     """ Handler for POST requests. """
-    message = AppScaleAppTools.delete_app(
+    message = self.helper.delete_app(
         self.request.POST.get('appname')
         )
     self.render_page(page='authorize', template_file=self.TEMPLATE,

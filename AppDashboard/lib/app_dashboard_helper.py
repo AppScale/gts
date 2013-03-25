@@ -95,11 +95,11 @@ class AppDashboardHelper:
     Returns: a message reporting the success or failure of the upload.
     """
     #TODO
-#    tgz_file = tempfile.NamedTemporaryFile()
-#    tgz_file.write( upload_file.read() )
-#    name = tgz_file.name
-#    tgz_file.close()
-    return "AppScaleAppTools.upload_app()"
+    tgz_file = tempfile.NamedTemporaryFile()
+    tgz_file.write( upload_file.read() )
+    name = tgz_file.name
+    tgz_file.close()
+    return "AppScaleAppTools.upload_app("+name+")"
 
   def delete_app(self, app_name):
     #TODO
