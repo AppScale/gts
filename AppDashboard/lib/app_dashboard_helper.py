@@ -39,6 +39,18 @@ class AppDashboardHelper:
       self.uaserver = SOAPpy.SOAPProxy('https://%s:%s' % (uas_host, 4343))
     return self.uaserver
 
+  def get_user_capabilities(self, email):
+    if 'user_caps' in self.cache:
+      if email in self.cache['user_caps']:
+        return self.cache['user_caps'][email]
+    else:
+      self.cache['user_caps'] = {}
+    uas = self.get_uaserver()
+    caps_list = uas.get_capabilities(email, GLOBAL_SECRET_KEY).split(':')
+    sys.stderr.write("uaserver.get_capabilities("+email+")="+",".join(caps_list)+"\n")
+    self.cache['user_caps'][email] = caps_list
+    return caps_list
+
   def get_status_information(self):
     acc = self.get_server()
     node = acc.get_stats()
@@ -158,10 +170,10 @@ class AppDashboardHelper:
     """ Check if the logged in user can upload apps.
     Returns: True or False.
     """
-    #TODO Fix to use SOAP and UserAppServer
     user = users.get_current_user()
     if user:
-      return True
+      if 'upload_app' in self.get_user_capabilities(user.nickname()):
+        return True
     return False
 
   def create_new_user(self, email, password, account_type='xmpp_user'):
@@ -240,14 +252,11 @@ class AppDashboardHelper:
 
   def login_user(self, email, password):
     user_data =  self.query_user_data(email) 
-
     sys.stderr.write("user_data = "+str(user_data))
     server_pwd = re.search('password:([0-9a-f]+)',user_data).group(1)
     encrypted_pass = LocalState.encrypt_password(email, password)
-    
     if server_pwd != encrypted_pass:
       return False
-    
     self.create_token(email, email)
     self.set_appserver_cookie(email)
     return True
@@ -270,8 +279,7 @@ class AppDashboardHelper:
       if re.search('^[_]+$',usr): #skip non users
         continue
       usr_cap = {'email' : usr }
-      sys.stderr.write("uaserver.get_capabilities()\n")
-      caps_list = uas.get_capabilities(usr, GLOBAL_SECRET_KEY).split(':')
+      caps_list = self.get_user_capabilities(usr)
       for perm in perm_items:
         if perm in caps_list:
           usr_cap[perm]=True
@@ -287,7 +295,6 @@ class AppDashboardHelper:
 
   def get_all_permission_items(self):
     """ Returns a list of all permission items in the system. """
-    #TODO Fix to use SOAP and UserAppServer
     return ['upload_app']
 
   def add_user_permissions(self, email, perm):
@@ -298,7 +305,24 @@ class AppDashboardHelper:
     Returns: True if the permission was given to the user,
       else False.
     """
-    #TODO Fix to use SOAP and UserAppServer
+    try:
+      caps_list = self.get_user_capabilities(email)
+      uas = self.get_uaserver()
+      new_caps = caps_list
+      if perm not in new_caps:
+        new_caps.append(perm)
+      else:
+        return True  #already there, shortcut out
+      ret = uas.set_capabilities(email, ':'.join(new_caps),  GLOBAL_SECRET_KEY)
+      if ret == 'true':
+        return True
+        self.cache['user_caps'][email] = new_caps
+      else:
+        sys.stderr.write("uas.set_capabilities returned: "+ret)
+        return False
+    except Exception as e:
+      sys.stderr.write("add_user_permissions() caught Exception: "+str(e))
+      return False
     return True
 
   def remove_user_permissions(self, email, perm):
@@ -309,6 +333,25 @@ class AppDashboardHelper:
     Returns: True if the permission was remove from the user,
       else False.
     """
-    #TODO Fix to use SOAP and UserAppServer
+    try:
+      caps_list = self.get_user_capabilities(email)
+      uas = self.get_uaserver()
+      new_caps = []
+      if perm in caps_list:
+        for pitem in caps_list:
+          if pitem != perm:
+            new_caps.append(pitem)
+      else:
+        return True  #not there, shortcut out
+      ret = uas.set_capabilities(email, ':'.join(new_caps),  GLOBAL_SECRET_KEY)
+      if ret == 'true':
+        self.cache['user_caps'][email] = new_caps
+        return True
+      else:
+        sys.stderr.write("uas.set_capabilities returned: "+ret)
+        return False
+    except Exception as e:
+      sys.stderr.write("remove_user_permissions() caught Exception: "+str(e))
+      return False
     return True
 

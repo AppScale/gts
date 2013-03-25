@@ -7,6 +7,7 @@ import logging
 import os
 import re
 import webapp2
+import sys
 from lib.app_dashboard_helper import AppDashboardHelper
 
 jinja_environment = jinja2.Environment(
@@ -43,6 +44,7 @@ class AppDashboard(webapp2.RequestHandler):
       'monitoring_url' : self.helper.get_monitoring_url(),
       'server_info' : self.helper.get_status_information()
     }
+    sys.stderr.write("i_can_upload = "+str(sub_vars['i_can_upload'])+"\n\n")
     for key in values.keys():
       sub_vars[key] = values[key]
     return template.render(sub_vars)
@@ -195,17 +197,19 @@ class AuthorizePage(AppDashboard):
     """
     perms = self.helper.get_all_permission_items()
     req_keys = self.request.POST.keys()
+    sys.stderr.write("req_keys: "+str(req_keys))
     response = ''
-    for itm in self.request.POST.items():
-      if re.match('^user_permission_', itm[0]):
-        email = itm[1]
+    for fldname,email in self.request.POST.iteritems():
+      if re.match('^user_permission_', fldname):
         for perm in perms:
-          if email+'-'+perm in req_keys:
+          if email+'-'+perm in req_keys and\
+            self.request.get('CURRENT-'+email+'-'+perm) == 'False':
             if self.helper.add_user_permissions(email, perm):
               response += 'Enabling '+perm+' for '+email+'. '
             else:
               response += 'Error enabling '+perm+' for '+email+'. '
-          else:
+          elif email+'-'+perm not in req_keys and\
+            self.request.get('CURRENT-'+email+'-'+perm) == 'True':
             if self.helper.remove_user_permissions(email, perm):
               response += 'Disabling '+perm+' for '+email+'. '
             else:

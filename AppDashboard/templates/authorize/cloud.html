@@ -37,11 +37,18 @@
                               <td style="padding: 0 6px 0 6px;" align="center">{{ user.email }}</td>
                               <input type="hidden" name="user_permission_{{ loop.counter }}" value="{{ user.email }}">
                               <td style="padding: 0 6px 0 6px;" align="center">
-                              <input type="checkbox" id="{{ user }}-upload_app" name="{{ user.email }}-upload_app"
+                              <input type="hidden" name="CURRENT-{{ user.email }}-upload_app"
+                                {% if user.upload_app %}
+                                value="True"
+                                {% else %}
+                                value="False"
+                                {% endif %}
+                              >
+                              <input type="checkbox" id="{{ user.email }}-upload_app" name="{{ user.email }}-upload_app"
                                 {% if user.upload_app %}
                                 checked="checked" 
                                 {% endif %}
-                                value="{{ user }}-upload_app" />
+                                value="{{ user.email }}-upload_app" />
                               </td>
                             </tr>
                           {% endfor %}
