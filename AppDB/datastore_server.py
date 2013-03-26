@@ -889,7 +889,14 @@ class DatastoreDistributed():
                         ent.__class__)
 
     # Remove all duplicate root keys
-    app_id = entities[0].key().app()
+    if entities is None:
+      return {}
+
+    if isinstance(entities[0], entity_pb.Reference):
+      app_id = entities[0].app()
+    else:
+      app_id = entities[0].key().app()
+
     root_keys = list(set(root_keys))
     try:
       for root_key in root_keys:
@@ -2510,13 +2517,13 @@ class MainHandler(tornado.web.RequestHandler):
     """ 
     global datastore_access
     putreq_pb = datastore_pb.PutRequest(http_request_data)
-    putresp_pb = datastore_pb.PutResponse( )
+    putresp_pb = datastore_pb.PutResponse()
  
     try:
       datastore_access.dynamic_put(app_id, putreq_pb, putresp_pb)
     except ZKTransactionException, zkte:
       logging.info("Concurrent transaction exception for app id {0}, " \
-        "transaction id {1}, info {2}".format(app_id, txn_id, str(zkte)))
+        "info {1}".format(app_id, str(zkte)))
       return (putresp_pb.Encode(), 
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
               "Concurrent transaction exception.")
