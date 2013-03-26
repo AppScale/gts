@@ -113,7 +113,7 @@ class DatastoreDistributed():
        zookeeper: a reference to the zookeeper interface.
     """
     logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
-      '%(lineno)s %(message)s ', level=logging.DEBUG)
+      '%(lineno)s %(message)s ', level=logging.INFO)
     logging.debug("Started logging")
 
     # Each entry contains a tuple (last_accessed_timestamp, namespace)
@@ -812,7 +812,7 @@ class DatastoreDistributed():
     Returns:
       A hash of root keys mapping to transaction IDs.
     Raises:
-     TyperError: If args are the wrong type.
+     TypeError: If args are the wrong type.
     """
     root_keys = []
     txn_hash = {}
@@ -873,17 +873,35 @@ class DatastoreDistributed():
     Returns:
       A hash mapping root keys to transaction IDs.
     Raises:
-      ZKTransactionException: If lock is not attainable.
+      ZKTransactionException: If lock is not obtainable.
     """
-    first_ent = entities[0]
-    if isinstance(first_ent, entity_pb.Reference):
-      key = entities[0]
-    elif isinstance(first_ent, entity_pb.EntityProto):
-      key = entities[0].key()
-    app_id = key.app()
-    root_key = self.get_root_key_from_entity_key(key)
-    self.zookeeper.acquire_lock(app_id, txnid, root_key)
-    return {root_key: txnid}
+    root_keys = []
+    txn_hash = {}
+    if not isinstance(entities, list):
+      raise TypeError("Expected a list and got %s" % entities.__class__)
+    for ent in entities:
+      if isinstance(ent, entity_pb.Reference):
+        root_keys.append(self.get_root_key_from_entity_key(ent))
+      elif isinstance(ent, entity_pb.EntityProto):
+        root_keys.append(self.get_root_key_from_entity_key(ent.key()))
+      else:
+        raise TypeError("Excepted either a reference or an EntityProto, got %s" % \
+                        ent.__class__)
+
+    # Remove all duplicate root keys
+    app_id = entities[0].key().app()
+    root_keys = list(set(root_keys))
+    try:
+      for root_key in root_keys:
+        txn_hash[root_key] = txnid
+        self.zookeeper.acquire_lock(app_id, txnid, root_key)
+    except ZKTransactionException, zkte:
+      logging.info("Concurrent transaction exception for app id {0} with " \
+        "info {1}".format(app_id, str(zkte)))
+      for root_key in txn_hash:
+        self.zookeeper.notify_failed_transaction(app_id, txn_hash[root_key])
+      raise zkte
+    return txn_hash
 
   def release_locks_for_nontrans(self, app_id, entities, txn_hash):
     """  Releases locks for non-transactional puts.
