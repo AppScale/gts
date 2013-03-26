@@ -630,6 +630,39 @@ class Djinn
     return stats_str
   end
 
+  def upload_tgz_file(tgz_file, email, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    if !tgz_file.match(/tar.gz$/)
+      tgz_file_old = tgz_file
+      tgz_file = "#{tgz_file_old}.tar.gz"
+      File.rename(tgz_file_old,tgz_file)
+    end
+
+    begin
+      tools = "/usr/local/appscale-tools/"
+      keyname = @creds['keyname']
+      Timeout.timeout(180) do
+        command = "#{tools}/bin/appscale-upload-app --file #{tgz_file} --email #{email} --keyname #{keyname} 2>&1;"
+        Djinn.log_debug("upload_tgz_file() running command = #{command}")
+        output = `#{command}`
+        output.chomp!
+        Djinn.log_debug("upload_tgz_file() output: #{output}")
+        if output.include?("uploaded successfully")
+          result = "true"
+        else
+          result = output
+        end
+      end
+    rescue Timeout::Error
+      Djinn.log_debug("upload_tgz_file() got Timeout: #{output}")
+      result = "The request has timed out. Large applications should be uploaded using the appscale tools"
+    end
+    return result
+  end    
+
   def get_stats_json(secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG

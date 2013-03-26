@@ -45,7 +45,6 @@ class AppDashboard(webapp2.RequestHandler):
       'server_info' : self.helper.get_status_information(),
       'app_admin_list' : self.helper.get_user_app_list()
     }
-    sys.stderr.write("i_can_upload = "+str(sub_vars['i_can_upload'])+"\n\n")
     for key in values.keys():
       sub_vars[key] = values[key]
     return template.render(sub_vars)
@@ -253,10 +252,12 @@ class AppUploadPage(AppDashboard):
 
   def post(self):
     """ Handler for POST requests. """
-    #TODO: check that this user can upload
-    message = self.helper.upload_app(
-        self.request.POST.multi['app_file_data'].file
-        )
+    if self.helper.i_can_upload():
+      message = self.helper.upload_app(
+          self.request.POST.multi['app_file_data'].file
+          )
+    else:
+      message = "You are not authorized to upload apps."
     self.render_page(page='authorize', template_file=self.TEMPLATE,
       values = {'flash_message' : message
       })
@@ -274,7 +275,8 @@ class AppDeletePage(AppDashboard):
     """ Handler for POST requests. """
     #TODO: check that this user can delete this app
     appname = self.request.POST.get('appname')
-    if appname in self.helper.get_user_app_list():
+    if self.helper.is_user_cloud_admin() or\
+       appname in self.helper.get_user_app_list():
       message = self.helper.delete_app(appname)
     else:
       message = "You do not have permission to delete the application: "+appname

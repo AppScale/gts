@@ -109,12 +109,24 @@ class AppDashboardHelper:
     Returns:
       A message reporting the success or failure of the upload.
     """
-    #TODO
-    tgz_file = tempfile.NamedTemporaryFile()
-    tgz_file.write( upload_file.read() )
-    name = tgz_file.name
-    tgz_file.close()
-    return "AppScaleAppTools.upload_app("+name+")"
+    user = users.get_current_user()
+    if not user:
+      return "There was an error uploading your application.  "\
+             "You must be logged in."
+    try:
+      tgz_file = tempfile.NamedTemporaryFile()
+      tgz_file.write( upload_file.read() )
+      acc = self.get_server()
+      ret = acc.upload_tgz(tgz_file.name, user.nickname() )
+      if ret == "true":
+        return "Application uploaded successfully.  Please wait for the "\
+               "application to start running."
+      else:
+        sys.stderr.write("AppController.upload_tgz_file() returned: "+ret)
+        return "There was an error uploading your application."
+    except Exception as e:
+      sys.stderr.write("upload_app() caught Exception: "+str(e))
+      return "There was an error uploading your application."
 
   def delete_app(self, appname):
     """Instructs AppScale to no longer host the named application.
@@ -125,7 +137,6 @@ class AppDashboardHelper:
       A str containing a message to be displayed to the user.
     """
 
-    #TODO
     try:
       sys.stderr.write("AppScaleAppTools.delete_app("+appname+")\n\n");
       if not self.does_app_exist(appname):
