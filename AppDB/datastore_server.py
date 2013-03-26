@@ -113,7 +113,7 @@ class DatastoreDistributed():
        zookeeper: a reference to the zookeeper interface.
     """
     logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
-      '%(lineno)s %(message)s ', level=logging.DEBUG)
+      '%(lineno)s %(message)s ', level=logging.INFO)
     logging.debug("Started logging")
 
     # Each entry contains a tuple (last_accessed_timestamp, namespace)

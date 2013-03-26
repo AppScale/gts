@@ -99,7 +99,7 @@ class ZKTransaction:
         for timed out transactions.
     """
     logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
-      '%(lineno)s %(message)s ', level=logging.DEBUG)
+      '%(lineno)s %(message)s ', level=logging.INFO)
     logging.debug("Started logging")
 
     # Connection instance variables.
