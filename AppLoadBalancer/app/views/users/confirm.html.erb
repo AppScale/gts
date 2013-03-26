@@ -1,12 +1,36 @@
-<div id="getting-started">
-  <h1>Confirmation</h1>
-  <div id="confirm">
-    <% form_for :user, :url => { :action => :verify } do |form| %> 
-      <p>Everything looks good. Continue?</p>
-      <%= submit_tag "Yes", :class => "submit" %>  
-      <%= submit_tag "No", :class => "submit" %>  
-    <% end %>
+ <div class="container-fluid">
+
+        <div id="header">
+
+            <div class="row-fluid">
+
+                <div class="navbar">
+                    <div class="navbar-inner">
+                      <div class="container">
+                            <a class="brand" href="#">AppScale <span class="slogan">Cloud Administration</span></a>
+                      </div>
+                    </div><!-- /navbar-inner -->
+                  </div><!-- /navbar -->
+                
+
+            </div><!-- End .row-fluid -->
+
+        </div><!-- End #header -->
+
+    </div><!-- End .container-fluid --> 
+
+<div class="container-fluid">
+ 	<div class="row-fluid span12">
+    <div id="appConfirm" class="span4 well">
+      <h1>Confirmation</h1>
+   	<div>
+   		<% form_for :user, :url => { :action => :verify } do |form| %> 
+        <p>Everything looks good. Continue?</p>
+        <%= submit_tag "Yes", :class => "submit btn btn-success" %>  
+        <%= submit_tag "No", :class => "submit btn btn-danger" %> 
+      <% end %>
+   	</div>
+    </div>
   </div>
 </div>
-
 
