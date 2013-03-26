@@ -345,7 +345,12 @@ class TestDatastoreServer(unittest.TestCase):
     entity_proto2 = self.get_new_entity_proto("test", "test_kind", "nancy", "prop1name", 
                                               "prop2val", ns="blah")
     entity_list = [entity_proto1, entity_proto2]
-    self.assertEquals({'test/blah/test_kind:bob!': 1}, dd.acquire_locks_for_trans(entity_list, 1))
+
+    expected = {
+      'test/blah/test_kind:bob!': 1,
+      'test/blah/test_kind:nancy!': 1
+    }
+    self.assertEquals(expected, dd.acquire_locks_for_trans(entity_list, 1))
 
   def test_acquire_locks_for_nontrans(self):
     PREFIX = 'x!'
