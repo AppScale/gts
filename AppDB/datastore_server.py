@@ -1156,8 +1156,8 @@ class DatastoreDistributed():
    
     results, row_keys = self.fetch_keys(keys, current_txnid=txnid)
     for r in row_keys:
+      group = get_response.add_entity() 
       if r in results and dbconstants.APP_ENTITY_SCHEMA[0] in results[r]:
-        group = get_response.add_entity() 
         group.mutable_entity().CopyFrom(
           entity_pb.EntityProto(results[r][dbconstants.APP_ENTITY_SCHEMA[0]]))
 
@@ -1168,8 +1168,11 @@ class DatastoreDistributed():
       app_id: The application ID.
       delete_request: Request with a list of keys.
     """
-    keys = delete_request.key_list()
     txn_hash = {}
+    keys = delete_request.key_list()
+    if not keys:
+      return
+
     if delete_request.has_transaction():
       txn_hash = self.acquire_locks_for_trans(keys, 
                       delete_request.transaction().handle())
