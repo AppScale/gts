@@ -2,13 +2,20 @@
 calculates datastore statistics. Removed tombstoned items for garbage 
 collection.
 """
-
-import dbconstants
+import os
+import sys
 import threading
 import time
+
 #from google.appengine.ext import db
 #from google.appengine.ext.db import stats
 import appscale_datastore_batch
+import dbconstants
+
+from zkappscale import zktransaction as zk
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
+import appscale_info
 
 class DatastoreGroomer(threading.Thread):
   """ Scans the entire database for each application. """
@@ -71,8 +78,10 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       True on success, False otherwise.
     """
-    return True
- 
+    #ent = datastore_pb.EntityProto().ParseFromString(entity)
+    #self.stats[ent.app
+    print entity
+
   def run_groomer(self):
     """ Runs the grooming process. Loops on the entire dataset sequentially
         and updates stats, indexes, and transactions.
@@ -90,4 +99,13 @@ class DatastoreGroomer(threading.Thread):
       for entity in entities:
         self.process_entity(entity)
     return True
+
+
+def main():
+  """ This main function allows you to run the groomer manually. """
+  zookeeper = zk.ZKTransaction(host="localhost:2181")
+  db_info = appscale_info.get_db_info()
+  table = db_info[':table']
+  ds_groomer = DatastoreGroomer(zookeeper, table)
+  ds_groomer.run_groomer()
 

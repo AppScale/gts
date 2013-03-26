@@ -26,6 +26,9 @@ import helper_functions
 from zkappscale import zktransaction as zk
 from zkappscale.zktransaction import ZKTransactionException
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
+import appscale_info
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.api import api_base_pb
 from google.appengine.api import datastore_errors
@@ -2534,7 +2537,8 @@ def main(argv):
   global datastore_access
   zookeeper_locations = ""
 
-  db_type = "cassandra"
+  db_info = appscale_info.get_db_info()
+  db_type = db_info[':table']
   port = DEFAULT_SSL_PORT
   is_encrypted = True
 
