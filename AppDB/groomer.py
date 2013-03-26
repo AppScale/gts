@@ -55,7 +55,7 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       A list of entities.
     """ 
-    return db.range_query(dbconstants.APP_ENTITY_TABLE, 
+    return db_access.range_query(dbconstants.APP_ENTITY_TABLE, 
       dbconstants.APP_ENTITY_SCHEMA, last_key, "", self.BATCH_SIZE)
 
   def reset_statistics(self):
@@ -88,6 +88,6 @@ class DatastoreGroomer(threading.Thread):
       if not entities:
         break
       for entity in entities:
-        self.process_entities(entity)
+        self.process_entity(entity)
     return True
 
