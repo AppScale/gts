@@ -2,6 +2,7 @@
 calculates datastore statistics. Removed tombstoned items for garbage 
 collection.
 """
+import logging
 import os
 import sys
 import threading
@@ -33,6 +34,10 @@ class DatastoreGroomer(threading.Thread):
       zk: ZooKeeper client.
       table_name: The table used (cassandra, hypertable, etc).
     """
+    logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
+      '%(lineno)s %(message)s ', level=logging.INFO)
+    logging.info("Logging started")
+
     threading.Thread.__init__(self)
     self.zoo_keeper = zoo_keeper
     self.table_name = table_name
@@ -81,13 +86,14 @@ class DatastoreGroomer(threading.Thread):
     #ent = datastore_pb.EntityProto().ParseFromString(entity)
     #self.stats[ent.app
     print entity
-
+    return True
   def run_groomer(self):
     """ Runs the grooming process. Loops on the entire dataset sequentially
         and updates stats, indexes, and transactions.
     Returns:
       True on success, False otherwise.
     """
+    logging.debug("Groomer started")
     last_key = ""
     self.reset_statistics()
     while True:
@@ -97,7 +103,9 @@ class DatastoreGroomer(threading.Thread):
       if not entities:
         break
       for entity in entities:
+        print entity
         self.process_entity(entity)
+    logging.debug("Groomer stopped")
     return True
 
 
@@ -108,4 +116,7 @@ def main():
   table = db_info[':table']
   ds_groomer = DatastoreGroomer(zookeeper, table)
   ds_groomer.run_groomer()
+
+if __name__ == "__main__":
+  main()
 

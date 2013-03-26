@@ -41,6 +41,7 @@ from google.appengine.datastore import entity_pb
 from google.appengine.datastore import sortable_pb_encoder
 
 from google.appengine.runtime import apiproxy_errors
+
 from google.appengine.ext.remote_api import remote_api_pb
 
 from M2Crypto import SSL
@@ -1171,8 +1172,11 @@ class DatastoreDistributed():
       app_id: The application ID.
       delete_request: Request with a list of keys.
     """
-    keys = delete_request.key_list()
     txn_hash = {}
+    keys = delete_request.key_list()
+    if not keys:
+      return
+
     if delete_request.has_transaction():
       txn_hash = self.acquire_locks_for_trans(keys, 
                       delete_request.transaction().handle())
