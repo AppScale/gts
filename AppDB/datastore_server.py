@@ -889,6 +889,9 @@ class DatastoreDistributed():
                         ent.__class__)
 
     # Remove all duplicate root keys
+    if entities is None:
+      return {}
+
     app_id = entities[0].key().app()
     root_keys = list(set(root_keys))
     try:
