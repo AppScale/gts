@@ -892,7 +892,11 @@ class DatastoreDistributed():
     if entities is None:
       return {}
 
-    app_id = entities[0].key().app()
+    if isinstance(entities[0], entity_pb.Reference):
+      app_id = entities[0].app()
+    else:
+      app_id = entities[0].key().app()
+
     root_keys = list(set(root_keys))
     try:
       for root_key in root_keys:
