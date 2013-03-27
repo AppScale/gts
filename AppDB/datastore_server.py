@@ -2529,7 +2529,7 @@ class MainHandler(tornado.web.RequestHandler):
         "info {1}".format(app_id, str(zkte)))
       return (putresp_pb.Encode(), 
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
-              "Concurrent transaction exception.")
+              "Concurrent transaction exception on put.")
       
     return (putresp_pb.Encode(), 0, "")
     
@@ -2560,7 +2560,14 @@ class MainHandler(tornado.web.RequestHandler):
     global datastore_access
     delreq_pb = datastore_pb.DeleteRequest( http_request_data )
     delresp_pb = api_base_pb.VoidProto() 
-    datastore_access.dynamic_delete(app_id, delreq_pb)
+    try:
+      datastore_access.dynamic_delete(app_id, delreq_pb)
+    except ZKTransactionException, zkte:
+      logging.info("Concurrent transaction exception for app id {0}, " \
+        "info {1}".format(app_id, str(zkte)))
+      return (delresp_pb.Encode(), 
+              datastore_pb.Error.CONCURRENT_TRANSACTION, 
+              "Concurrent transaction exception on delete.")
     return (delresp_pb.Encode(), 0, "")
 
 def usage():
