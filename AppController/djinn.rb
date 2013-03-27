@@ -44,6 +44,9 @@ require 'zkinterface'
 
 NO_OUTPUT = false
 
+# Path to the appscale-tools installation.
+APPSCALE_TOOLS_HOME = "/usr/local/appscale-tools/"
+
 # This lock makes it so that global variables related to apps are not updated 
 # concurrently, preventing race conditions. 
 APPS_LOCK = Monitor.new()
@@ -220,7 +223,8 @@ class Djinn
   # A boolean that indicates whether or not we should turn the firewall on,
   # and continuously keep it on. Should definitely be on for releases, and
   # on whenever possible.
-  FIREWALL_IS_ON = true
+  #FIREWALL_IS_ON = true
+  FIREWALL_IS_ON = false
 
 
   # The location on the local filesystem where AppScale-related configuration
@@ -630,6 +634,15 @@ class Djinn
     return stats_str
   end
 
+  # Upload a app into the AppScale deployment.
+  # 
+  # Args:
+  #   tgz_file: path to the tar.gz file containing the app.
+  #   email: email address of the app owner
+  #   secret: The shared key for authentication.
+  # Returns:
+  #   A string containing the response.
+  # 
   def upload_tgz_file(tgz_file, email, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
@@ -642,15 +655,16 @@ class Djinn
     end
 
     begin
-      tools = "/usr/local/appscale-tools/"
       keyname = @creds['keyname']
       Timeout.timeout(180) do
-        command = "#{tools}/bin/appscale-upload-app --file #{tgz_file} --email #{email} --keyname #{keyname} 2>&1;"
-        Djinn.log_debug("upload_tgz_file() running command = #{command}")
+        command = "#{APPSCALE_TOOLS_HOME}/bin/appscale-upload-app --file " +
+                  "#{tgz_file} --email #{email} --keyname #{keyname} 2>&1;"
+        Djinn.log_debug("upload_tgz_file() running command: #{command}")
         output = `#{command}`
         output.chomp!
         Djinn.log_debug("upload_tgz_file() output: #{output}")
         if output.include?("uploaded successfully")
+          File.delete(tgz_file)
           result = "true"
         else
           result = output
@@ -663,6 +677,13 @@ class Djinn
     return result
   end    
 
+  # Gets the status of all the nodes in the AppScale deployment.
+  # 
+  # Args:
+  #   secret: The shared key for authentication.
+  # Returns:
+  #   A JSON string with the status of the nodes.
+  # 
   def get_stats_json(secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
@@ -677,7 +698,13 @@ class Djinn
     return JSON.dump(result)
   end 
 
-
+  # Gets the database information of the AppScale deployment.
+  # 
+  # Args:
+  #   secret: The shared key for authentication.
+  # Returns:
+  #   A JSON string with the database information.
+  # 
   def get_database_information(secret)
     table = @creds["table"]
     replication = @creds["replication"]
@@ -1796,11 +1823,18 @@ class Djinn
     HelperFunctions.write_json_file(ZK_LOCATIONS_FILE, zookeeper_data)
   end
 
- 
+  # Gets the status of the APIs of the AppScale deployment.
+  # 
+  # Args:
+  #   secret: The shared key for authentication.
+  # Returns:
+  #   A JSON string with the status of the APIs.
+  # 
   def get_api_status(secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
+    Djinn.log_debug("get_api_status() got called()\n")
 
     if my_node.is_appengine?
       apichecker_host = my_node.private_ip
@@ -2189,6 +2223,10 @@ class Djinn
       ApiChecker.start(get_login.public_ip, @userappserver_private_ip)
     end
 
+    if my_node.is_load_balancer?
+      start_load_balancer(get_login.public_ip, @userappserver_private_ip)
+    end
+
     maybe_start_taskqueue_worker("apichecker")
     
     # appengine is started elsewhere
@@ -2221,11 +2259,11 @@ class Djinn
       ZKInterface.init(my_node, @nodes)
     }
 
-    if my_node.is_load_balancer?
-      threads << Thread.new {
-        start_load_balancer()
-      }
-    end
+#    if my_node.is_load_balancer?
+#      threads << Thread.new {
+#        start_load_balancer()
+#      }
+#    end
 
     if my_node.is_memcache?
       threads << Thread.new {
@@ -2309,6 +2347,7 @@ class Djinn
     Djinn.log_debug("Waiting for all services to finish starting up")
     threads.each { |t| t.join() }
     Djinn.log_debug("API services have started on this node")
+
   end
 
 
@@ -2603,7 +2642,7 @@ class Djinn
   def rsync_files(dest_node)
     controller = "#{APPSCALE_HOME}/AppController"
     server = "#{APPSCALE_HOME}/AppServer"
-    loadbalancer = "#{APPSCALE_HOME}/AppLoadBalancer"
+    loadbalancer = "#{APPSCALE_HOME}/AppDashboard"
     appdb = "#{APPSCALE_HOME}/AppDB"
     neptune = "#{APPSCALE_HOME}/Neptune"
     loki = "#{APPSCALE_HOME}/Loki"
@@ -2902,7 +2941,7 @@ HOSTS
     Ejabberd.stop
   end
 
-  def start_load_balancer()
+  def start_load_balancer(login_ip, uaserver_ip)
     @state = "Starting up Load Balancer"
     Djinn.log_debug("Starting up Load Balancer")
 
@@ -2912,8 +2951,11 @@ HOSTS
       LoadBalancer.proxy_port)
     Nginx.create_app_load_balancer_config(my_public, my_private, 
       LoadBalancer.proxy_port)
-    LoadBalancer.start
+    Djinn.log_debug("Calling LoadBalancer.start")
+    LoadBalancer.start(login_ip, uaserver_ip, my_public, my_private, @@secret)
+    Djinn.log_debug("Restarting Nginx")
     Nginx.restart
+    Djinn.log_debug("Restarting collectd")
     Collectd.restart
 
     head_node_ip = get_public_ip(@creds['hostname'])
@@ -2923,14 +2965,19 @@ HOSTS
         Monitoring.proxy_port)
       Nginx.create_app_monitoring_config(my_public, my_private, 
         Monitoring.proxy_port)
+      Djinn.log_debug("Restarting Nginx")
       Nginx.restart
+      Djinn.log_debug("Starting App Monitoring")
       Monitoring.start
     end
 
     LoadBalancer.server_ports.each do |port|
+      Djinn.log_debug("Waiting for LoadBalancer to open port #{port}")
       HelperFunctions.sleep_until_port_is_open("localhost", port)
       begin
+        Djinn.log_debug("Asking for response from LoadBalancer on port #{port}")
         Net::HTTP.get_response("localhost:#{port}", '/')
+        Djinn.log_debug("Got for response from LoadBalancer on port #{port}")
       rescue SocketError
       end
     end

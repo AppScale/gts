@@ -26,27 +26,76 @@ module LoadBalancer
   APPSCALE_HOME = ENV['APPSCALE_HOME']
 
   
-  RAILS_ROOT = File.expand_path("#{APPSCALE_HOME}/AppLoadBalancer")
+#  def self.start
+#    env_vars = { "APPSCALE_HOME" => APPSCALE_HOME }
+#
+#    SERVER_PORTS.each { |port|
+#      start_cmd = "/usr/bin/mongrel_rails start -c #{RAILS_ROOT} -e production -p #{port} " +
+#        "-P #{RAILS_ROOT}/log/mongrel.#{port}.pid"
+#      stop_cmd = "/usr/bin/mongrel_rails stop -P #{RAILS_ROOT}/log/mongrel.#{port}.pid"
+#
+#      GodInterface.start(:loadbalancer, start_cmd, stop_cmd, port, env_vars)
+#    }
+#
+#    #`service appscale-loadbalancer start`
+#  end
+  def self.start(login_ip, uaserver_ip, public_ip, private_ip, secret)
+    # its just another app engine app - but since numbering starts
+    # at zero, this app has to be app neg one
 
+    # TODO: tell the tools to disallow uploading apps called 'apichecker'
+    # and start_appengine to do the same
 
-  def self.start
-    env_vars = { "RAILS_ENV" => "production", "APPSCALE_HOME" => APPSCALE_HOME }
+    num_servers = 3
+    app_number = -2
+    app = "dashboard"
+    app_language = "python27"
+
+    app_manager = AppManagerClient.new()
+
+    app_location = "/var/apps/#{app}/app"
+    Djinn.log_run("mkdir -p #{app_location}")
+    Djinn.log_run("cp -r #{APPSCALE_HOME}/AppDashboard/* #{app_location}")
+    Djinn.log_run("mkdir -p /var/apps/#{app}/log")
+    Djinn.log_run("touch /var/apps/#{app}/log/server.log")
+
+    #pass the secret key to the app
+    Djinn.log_run("echo \"GLOBAL_SECRET_KEY = '#{secret}'\" > #{app_location}/lib/secret_key.py")
+
+    #static_handlers = HelperFunctions.parse_static_data(app)
+    #proxy_port = HAProxy.app_listen_port(app_number)
+    #Nginx.write_app_config(app, app_number, public_ip, private_ip, proxy_port, static_handlers, login_ip)
+    #HAProxy.write_app_config(app, app_number, num_servers, private_ip)
+    Collectd.write_app_config(app)
 
     SERVER_PORTS.each { |port|
-      start_cmd = "/usr/bin/mongrel_rails start -c #{RAILS_ROOT} -e production -p #{port} " +
-        "-P #{RAILS_ROOT}/log/mongrel.#{port}.pid"
-      stop_cmd = "/usr/bin/mongrel_rails stop -P #{RAILS_ROOT}/log/mongrel.#{port}.pid"
-
-      GodInterface.start(:loadbalancer, start_cmd, stop_cmd, port, env_vars)
+      Djinn.log_debug("Starting #{app_language} app #{app} on #{HelperFunctions.local_ip}:#{port}")
+      pid = app_manager.start_app(app, port, uaserver_ip,
+                                  PROXY_PORT, app_language, login_ip,
+                                  [uaserver_ip])
+      if pid == -1
+        Djinn.log_debug("Failed to start app #{app} on #{HelperFunctions.local_ip}:#{port}")
+        return false
+      else
+        pid_file_name = "#{APPSCALE_HOME}/.appscale/#{app}-#{port}.pid"
+        HelperFunctions.write_file(pid_file_name, pid)
+      end
     }
 
-    #`service appscale-loadbalancer start`
+    Nginx.reload
+    Collectd.restart
+    return true
   end
 
   def self.stop
-    GodInterface.stop(:loadbalancer)
-    #`service appscale-loadbalancer stop`
+    app = "dashboard"
+    Djinn.log_debug("Stopping app #{app} on #{HelperFunctions.local_ip}")
+    app_manager = AppManagerClient.new()
+    if app_manager.stop_app(app)
+      Djinn.log_debug("Failed to start app #{app} on #{HelperFunctions.local_ip}")
+    end
   end
+
 
   def self.restart
     self.stop
@@ -58,7 +107,7 @@ module LoadBalancer
   end
 
   def self.public_directory
-    "/root/appscale/AppLoadBalancer/public"
+    "/root/appscale/AppDashboard/static"
   end
 
   def self.listen_port

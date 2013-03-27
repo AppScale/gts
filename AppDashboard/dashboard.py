@@ -21,17 +21,18 @@ class AppDashboard(webapp2.RequestHandler):
 
   def __init__(self, request, response):
     """ Constructor """
-    # Set self.request, self.response and self.app.
     self.initialize(request, response)
     # initialize helper
     self.helper = AppDashboardHelper(self.response)
 
   def render_template(self, template_file, values={}):
     """ Renders a template file with all variables loaded.
+
     Args: 
       template_file: relative path to tempate file.
       values: dict with key/value pairs used by the template file.
-    Returns: str with the rendered template.
+    Returns:
+      str with the rendered template.
     """
     template = jinja_environment.get_template(template_file)
     sub_vars = {
@@ -52,7 +53,9 @@ class AppDashboard(webapp2.RequestHandler):
     
   def get_shared_navigation(self):
     """ Renders the shared navigation.
-    Returns: str with the navigation bar rendered.
+
+    Returns:
+      A str with the navigation bar rendered.
     """
     return self.render_template(template_file = 'shared/navigation.html')
 
@@ -94,8 +97,10 @@ class NewUserPage(AppDashboard):
 
   def parse_new_user_post(self):
     """ Parse the input from the create user form.
-    Returns: 2 dicts, 1st with the form data, 
-      2nd with True/False values for errors in each field.
+
+    Returns:
+      Two dicts, the first with the form data, and the second with True/False
+      values for errors in each field.
     """
     users = {}
     errors = {}
@@ -104,24 +109,31 @@ class NewUserPage(AppDashboard):
       errors['email'] = False
     else:
       errors['email'] = True
+
     users['password'] = cgi.escape(self.request.get('user_password'))
     if len(users['password']) >= 6:
       errors['password'] = False
     else:
       errors['password'] = True
+
     users['password_confirmation'] = cgi.escape(
       self.request.get('user_password_confirmation'))
     if users['password_confirmation'] == users['password']:
       errors['password_confirmation'] = False
     else:
       errors['password_confirmation'] = True
+
     return users, errors
 
   def process_new_user_post(self, users, errors):
     """ Creates new user if parse was successful.
-    Args 2 dicts, 1st with the form data, 
-      2nd with True/False values for errors in each field.
-    Returns: True if user was create, else False.
+
+    Args:
+      users: A dict with the form data.
+      errors: A dict with True/False values for errors in each of the users
+              fields.
+    Returns:
+      True if user was create, else False.
     """
     if errors['email'] or errors['password'] or errors['password_confirmation']:
       return False
