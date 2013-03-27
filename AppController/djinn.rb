@@ -3600,6 +3600,7 @@ HOSTS
   #   app: The application ID.
   def stop_xmpp_for_app(app)
     Djinn.log_debug("Shutting down xmpp receiver for app: #{app}")
+    GodInterface.remove(app)
     stop_cmd = "ps ax | grep 'xmpp_receiver.py #{app}' | grep -v grep | awk '{print $1}' | xargs -d '\n' kill -9"
     Djinn.log_run(stop_cmd)
     Djinn.log_debug("Done shutting down xmpp receiver for app: #{app}") 
