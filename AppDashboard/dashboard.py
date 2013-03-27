@@ -6,6 +6,7 @@ import jinja2
 import logging
 import os
 import re
+import urllib
 import webapp2
 import sys
 from lib.app_dashboard_helper import AppDashboardHelper
@@ -132,10 +133,7 @@ class NewUserPage(AppDashboard):
     """ Handler for POST requests. """
     users, errors = self.parse_new_user_post()
     if self.process_new_user_post(users, errors):
-      self.redirect('/',self.response)
-#      self.render_page(page = 'landing', template_file = IndexPage.TEMPLATE,
-#        values = {'flash_message':"Your account has been successfully created."
-#        })
+      self.redirect('/', self.response)
     else:
       self.render_page(page = 'users', template_file = self.TEMPLATE, values = {
         'display_error_messages': errors,
@@ -149,6 +147,28 @@ class NewUserPage(AppDashboard):
       'user' : {}
     })
 
+class LoginVerify(AppDashboard):
+  """ Class to handle request to /users/confirm and /users/verify pages. """
+
+  TEMPLATE = 'users/confirm.html'
+  
+  def post(self):
+    """ Handler for POST requests. """
+    if self.request.get('continue') != '' and\
+       self.request.get('commit') == 'Yes':
+      self.redirect(self.request.get('continue').encode('ascii','ignore'), 
+        self.response)
+    else:
+      self.redirect('/', self.response)
+
+
+  def get(self):
+    """ Handler for GET requests. """
+    self.render_page(page = 'users', template_file = self.TEMPLATE, values = {
+      'continue' : self.request.get('continue')
+    })
+   
+
 
 class LogoutPage(AppDashboard):
   """ Class to handle request to the /users/logout page. """
@@ -156,10 +176,7 @@ class LogoutPage(AppDashboard):
   def get(self):
     """ Handler for GET requests. """
     self.helper.logout_user()
-    self.redirect('/',self.response)
-#    self.render_page(page='landing', template_file=IndexPage.TEMPLATE,
-#      values = {'flash_message':"You have been logged out."
-#      })
+    self.redirect('/', self.response)
 
 
 class LoginPage(AppDashboard):
@@ -171,11 +188,17 @@ class LoginPage(AppDashboard):
     """ Handler for post requests. """
     if self.helper.login_user( self.request.POST.get('user_email'),
        self.request.POST.get('user_password') ):
-#      self.render_page(page = 'landing', template_file = IndexPage.TEMPLATE )
-      self.redirect('/',self.response)
+    
+      if self.request.get('continue') != '':
+        self.redirect('/users/confirm?continue=' +
+          urllib.quote( str(self.request.get('continue'))
+          ).encode('ascii','ignore'), self.response)
+      else:
+        self.redirect('/', self.response)
     else:
       self.render_page(page = 'users', template_file = self.TEMPLATE,
         values = {
+          'continue' : self.request.POST.get('continue'),
           'user_email' : self.request.POST.get('user_email'),
           'flash_message': 
           "Incorrect username / password combination. Please try again."
@@ -183,7 +206,9 @@ class LoginPage(AppDashboard):
 
   def get(self):
     """ Handler for GET requests. """
-    self.render_page(page = 'users', template_file = self.TEMPLATE )
+    self.render_page(page = 'users', template_file = self.TEMPLATE, values = {
+      'continue' : self.request.get('continue')
+    })
 
 
 class AuthorizePage(AppDashboard):
@@ -273,7 +298,6 @@ class AppDeletePage(AppDashboard):
 
   def post(self):
     """ Handler for POST requests. """
-    #TODO: check that this user can delete this app
     appname = self.request.POST.get('appname')
     if self.helper.is_user_cloud_admin() or\
        appname in self.helper.get_user_app_list():
@@ -294,8 +318,12 @@ app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/status', StatusPage),
                                 ('/users/new', NewUserPage),
                                 ('/users/create', NewUserPage),
+                                ('/logout', LogoutPage),
                                 ('/users/logout', LogoutPage),
                                 ('/users/login', LoginPage),
+                                ('/users/verify',LoginVerify),
+                                ('/users/confirm',LoginVerify),
+                                ('/login', LoginPage),
                                 ('/authorize', AuthorizePage),
                                 ('/apps/new', AppUploadPage),
                                 ('/apps/upload', AppUploadPage),
