@@ -944,6 +944,10 @@ class ZKTransaction:
         except zookeeper.NoNodeException:
           # There were no nodes for this application.
           pass
+        except zookeeper.OperationTimeoutException, ote:
+          logging.warning("GC operation timed out while trying to get {0}"\
+            .format(APPS_PATH))
+
       with self.gc_cv:
         self.gc_cv.wait(GC_INTERVAL)
     logging.info("Stopping GC thread.")
@@ -1026,6 +1030,7 @@ class ZKTransaction:
       app_id: The application ID.
       app_path: The application path. 
     """
+    start = time.time()
     # Get the transaction ID list.
     txrootpath = PATH_SEPARATOR.join([app_path, APP_TX_PATH])
     try:
@@ -1058,3 +1063,4 @@ class ZKTransaction:
         # Transaction id dissappeared during garbage collection.
         # The transaction may have finished successfully.
         pass
+    logging.info("Lock GC took {0} seconds.".format(str(time.time() - start)))
