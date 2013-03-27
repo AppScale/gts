@@ -3597,13 +3597,14 @@ HOSTS
   # Stop the xmpp receiver for an applicaiton.
   # 
   # Args:
-  #   app: The application ID.
-  def stop_xmpp_for_app(app)
-    Djinn.log_debug("Shutting down xmpp receiver for app: #{app}")
-    GodInterface.remove(app)
-    stop_cmd = "ps ax | grep 'xmpp_receiver.py #{app}' | grep -v grep | awk '{print $1}' | xargs -d '\n' kill -9"
+  #   xmpp_watch_name: The application ID, which is what we set the god watch
+  #     name as for the XMPP receiver.
+  def stop_xmpp_for_app(xmpp_watch_name)
+    Djinn.log_debug("Shutting down xmpp receiver with watch name: #{xmpp_watch_name}")
+    GodInterface.remove(xmpp_watch_name)
+    stop_cmd = "ps ax | grep 'xmpp_receiver.py #{xmpp_watch_name}' | grep -v grep | awk '{print $1}' | xargs -d '\n' kill -9"
     Djinn.log_run(stop_cmd)
-    Djinn.log_debug("Done shutting down xmpp receiver for app: #{app}") 
+    Djinn.log_debug("Done shutting down xmpp receiver with watch name: #{xmpp_watch_name}")
   end
 
   def self.neptune_parse_creds(storage, job_data)
