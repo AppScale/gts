@@ -40,12 +40,6 @@ class AppDashboard(webapp2.RequestHandler):
       'user_email' : self.helper.get_user_email(),
       'is_user_cloud_admin' : self.helper.is_user_cloud_admin(),
       'i_can_upload' : self.helper.i_can_upload(),
-      'service_info' : self.helper.get_service_info(),
-      'dbinfo' : self.helper.get_database_information(),
-      'apps' : self.helper.get_application_information(),
-      'monitoring_url' : self.helper.get_monitoring_url(),
-      'server_info' : self.helper.get_status_information(),
-      'app_admin_list' : self.helper.get_user_app_list()
     }
     for key in values.keys():
       sub_vars[key] = values[key]
@@ -77,7 +71,9 @@ class IndexPage(AppDashboard):
 
   def get(self):
     """ Handler for GET requests. """
-    self.render_page(page='landing', template_file=self.TEMPLATE)
+    self.render_page(page='landing', template_file=self.TEMPLATE, values = {
+      'monitoring_url' : self.helper.get_monitoring_url(),
+    })
 
 
 class StatusPage(AppDashboard):
@@ -87,7 +83,13 @@ class StatusPage(AppDashboard):
 
   def get(self):
     """ Handler for GET requests. """
-    self.render_page(page='status', template_file=self.TEMPLATE)
+    self.render_page(page='status', template_file=self.TEMPLATE, values = {
+      'server_info' : self.helper.get_status_information(),
+      'dbinfo' : self.helper.get_database_information(),
+      'service_info' : self.helper.get_service_info(),
+      'apps' : self.helper.get_application_information(),
+      'monitoring_url' : self.helper.get_monitoring_url(),
+    })
 
 
 class NewUserPage(AppDashboard):
@@ -316,13 +318,18 @@ class AppDeletePage(AppDashboard):
       message = self.helper.delete_app(appname)
     else:
       message = "You do not have permission to delete the application: "+appname
-    self.render_page(page='authorize', template_file=self.TEMPLATE,
-      values = {'flash_message' : message
+    self.render_page(page='apps', template_file=self.TEMPLATE,
+      values = {'flash_message' : message,
+      'apps' : self.helper.get_application_information(),
+      'app_admin_list' : self.helper.get_user_app_list()
       })
 
   def get(self):
     """ Handler for GET requests. """
-    self.render_page(page='authorize', template_file=self.TEMPLATE)
+    self.render_page(page='apps', template_file=self.TEMPLATE, values = {
+      'apps' : self.helper.get_application_information(),
+      'app_admin_list' : self.helper.get_user_app_list()
+    })
 
 
 # Main Dispatcher
