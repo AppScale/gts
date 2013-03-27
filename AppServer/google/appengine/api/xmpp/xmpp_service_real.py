@@ -23,6 +23,7 @@ import hashlib
 import logging
 import os
 import SOAPpy
+import urllib
 import xmpp as xmpppy
 
 from google.appengine.api import xmpp
@@ -178,6 +179,7 @@ class XmppService(apiproxy_stub.APIProxyStub):
     if not application_key:
       raise apiproxy_errors.ApplicationError(
           channel_service_pb.ChannelServiceError.INVALID_CHANNEL_KEY)
+    application_key = urllib.quote(application_key)
     if '@' in application_key:
       raise apiproxy_errors.ApplicationError(
           channel_service_pb.ChannelServiceError.INVALID_CHANNEL_KEY)
@@ -215,7 +217,7 @@ class XmppService(apiproxy_stub.APIProxyStub):
       request: A SendMessageRequest.
       response: A VoidProto.
     """
-    application_key = request.application_key()
+    application_key = urllib.quote(request.application_key())
 
     if not request.message():
       raise apiproxy_errors.ApplicationError(
