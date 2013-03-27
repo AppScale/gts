@@ -76,6 +76,7 @@ end
 `rm -f /tmp/uploaded-apps`
 `rm -f ~/.appscale_cookies`
 `rm -f /var/log/appscale/*.log`
+`rm -rdf /var/log/appscale/celery_workers`
 `rm -f /var/appscale/*.pid`
 `rm -f /etc/appscale/appcontroller-state.json`
 

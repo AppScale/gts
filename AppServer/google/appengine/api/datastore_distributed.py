@@ -486,7 +486,6 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
             'Cursor %d not found' % cursor_handle)
 
     assert cursor.app == next_request.cursor().app()
-    logging.info(str(cursor))
     count = _BATCH_SIZE
     if next_request.has_count():
       count = next_request.count()
@@ -539,12 +538,12 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     self._RemoteSend(transaction, transaction_response, "Commit")
 
     handle = transaction.handle()
-    
+    response = taskqueue_service_pb.TaskQueueAddResponse()
     try:
       for action in self.__tx_actions:
         try:
           apiproxy_stub_map.MakeSyncCall(
-              'taskqueue', 'Add', action, api_base_pb.VoidProto())
+              'taskqueue', 'Add', action, response)
         except apiproxy_errors.ApplicationError, e:
           logging.warning('Transactional task %s has been dropped, %s',
                           action, e)
