@@ -1846,9 +1846,12 @@ class Djinn
 
     retries_left = 3
     begin
+      Djinn.log_debug("get_api_status() starting Net::HTTP.get(#{apichecker_url}\n")
       response = Net::HTTP.get_response(URI.parse(apichecker_url))
+      Djinn.log_debug("get_api_status() done Net::HTTP.get(#{apichecker_url}\n")
       data = JSON.load(response.body)
     rescue Exception => e
+      Djinn.log_debug("get_api_status() got exception Net::HTTP.get(#{apichecker_url}\n")
       data = {}
 
       if retries_left > 0
@@ -2223,8 +2226,11 @@ class Djinn
       ApiChecker.start(get_login.public_ip, @userappserver_private_ip)
     end
 
+     # new location to start load_balancer
     if my_node.is_load_balancer?
-      start_load_balancer(get_login.public_ip, @userappserver_private_ip)
+        Djinn.log_debug("change_job(): start_load_balancer(" +
+          "#{get_login.public_ip}, #{@userappserver_private_ip})")
+        start_load_balancer(get_login.public_ip, @userappserver_private_ip)
     end
 
     maybe_start_taskqueue_worker("apichecker")
@@ -2238,6 +2244,7 @@ class Djinn
   def start_api_services()
     # ejabberd uses uaserver for authentication
     # so start it after we find out the uaserver's ip
+    Djinn.log_debug("start_api_services()")
 
     threads = []
     if my_node.is_login?
@@ -2258,12 +2265,6 @@ class Djinn
 
       ZKInterface.init(my_node, @nodes)
     }
-
-#    if my_node.is_load_balancer?
-#      threads << Thread.new {
-#        start_load_balancer()
-#      }
-#    end
 
     if my_node.is_memcache?
       threads << Thread.new {
