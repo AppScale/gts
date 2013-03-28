@@ -4,7 +4,7 @@ import os
 import re
 import sys
 import tempfile
-from urllib2 import HTTPError
+import urllib
 import SOAPpy
 if 'TOOLS_PATH' in os.environ:
   sys.path.append(os.environ['TOOLS_PATH']+'/lib')
@@ -219,11 +219,12 @@ class AppDashboardHelper:
                "application to start running."
       else:
         return "There was an error uploading your application."
-    except HTTPError as e:  #For unknown reasons, on success HTTPError is thrown
+    except SOAPpy.Errors.HTTPError as e:  #on success HTTPError is thrown
       return "Application uploaded successfully.  Please wait for the "\
              "application to start running."
     except Exception as e:
-      sys.stderr.write("upload_app() caught Exception: " + str(e))
+      sys.stderr.write("upload_app() caught Exception " + str(type(e)) + ':'\
+        + str(e))
       return "There was an error uploading your application."
 
   def delete_app(self, appname):
@@ -411,21 +412,20 @@ class AppDashboardHelper:
       A str that is the value of the login cookie.
     """
     nick = re.search('^(.*)@', email).group(1)
-    admin = '' #this is always the current behavior
-    hsh = self.get_appengine_hash(email, nick, admin)
-    return email+':'+nick+':'+admin+':'+hsh
+    hsh = self.get_appengine_hash(email, nick, apps)
+    return urllib.quote(email+':'+nick+':'+apps+':'+hsh)
 
-  def get_appengine_hash(self, email, nick, admin):
+  def get_appengine_hash(self, email, nick, apps):
     """ Encrypt the values and return the hash.
 
     Args:
       email: email of the user to login.
       nick: email of the user to login.
-      admin: is the user a cloud admin.
+      apps: str with a comma seperate list of apps the user is an admin of.
     Returns:
       A str that is the hex hash of the input values.
     """
-    return hashlib.sha1(email + nick + admin + GLOBAL_SECRET_KEY).hexdigest()
+    return hashlib.sha1(email + nick + apps + GLOBAL_SECRET_KEY).hexdigest()
 
   def create_token(self, token, email):
     """ Create a login token and commit it to the UserAppServer.
@@ -475,7 +475,6 @@ class AppDashboardHelper:
     uas = self.get_uaserver()
     all_users = uas.get_all_users( GLOBAL_SECRET_KEY )
     all_users_list = all_users.split(':')
-    user_list = []
     ip = self.get_head_node_ip()
     perm_items = self.get_all_permission_items()
     ret_list = []

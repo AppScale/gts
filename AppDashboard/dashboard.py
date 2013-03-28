@@ -170,6 +170,8 @@ class LoginVerify(AppDashboard):
     """ Handler for POST requests. """
     if self.request.get('continue') != '' and\
        self.request.get('commit') == 'Yes':
+      sys.stderr.write("\n\ncontinue URL: " + \
+        self.request.get('continue').encode('ascii','ignore') + "\n\n")
       self.redirect(self.request.get('continue').encode('ascii','ignore'), 
         self.response)
     else:
@@ -178,8 +180,13 @@ class LoginVerify(AppDashboard):
 
   def get(self):
     """ Handler for GET requests. """
+    continue_url = urllib.unquote(self.request.get('continue'))
+    url_match = re.search('continue=(.*)$', continue_url)
+    if url_match:
+      continue_url = url_match.group(1)
+
     self.render_page(page = 'users', template_file = self.TEMPLATE, values = {
-      'continue' : self.request.get('continue')
+      'continue' : continue_url
     })
    
 
@@ -340,9 +347,10 @@ app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/logout', LogoutPage),
                                 ('/users/logout', LogoutPage),
                                 ('/users/login', LoginPage),
+                                ('/users/authenticate', LoginPage),
+                                ('/login', LoginPage),
                                 ('/users/verify',LoginVerify),
                                 ('/users/confirm',LoginVerify),
-                                ('/login', LoginPage),
                                 ('/authorize', AuthorizePage),
                                 ('/apps/new', AppUploadPage),
                                 ('/apps/upload', AppUploadPage),

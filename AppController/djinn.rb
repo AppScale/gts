@@ -1834,7 +1834,22 @@ class Djinn
       return BAD_SECRET_MSG
     end
     Djinn.log_debug("get_api_status() got called()\n")
+    #return generate_api_status
+    begin
+      return HelperFunctions.read_file(HEALTH_FILE)
+    rescue Errno::ENOENT
+      update_api_status()
+      return HelperFunctions.read_file(HEALTH_FILE)
+    end
+  end
 
+  # Request the current API status from the API checker.
+  # 
+  # Returns:
+  #   A JSON string with the status of the APIs.
+  # 
+  def generate_api_status()
+    Djinn.log_debug("generate_api_status() got called()\n")
     if my_node.is_appengine?
       apichecker_host = my_node.private_ip
     else
@@ -1878,7 +1893,8 @@ class Djinn
   end
 
   def update_api_status()
-    HelperFunctions.write_file(HEALTH_FILE, get_api_status(@@secret) )
+    #HelperFunctions.write_file(HEALTH_FILE, get_api_status(@@secret) )
+    HelperFunctions.write_file(HEALTH_FILE, generate_api_status )
   end
 
   # Backs up information about what this node is doing (roles, apps it is
@@ -2975,10 +2991,10 @@ HOSTS
 
     LoadBalancer.server_ports.each do |port|
       Djinn.log_debug("Waiting for LoadBalancer to open port #{port}")
-      HelperFunctions.sleep_until_port_is_open("localhost", port)
+      HelperFunctions.sleep_until_port_is_open(my_public, port)
       begin
         Djinn.log_debug("Asking for response from LoadBalancer on port #{port}")
-        Net::HTTP.get_response("localhost:#{port}", '/')
+        Net::HTTP.get_response("#{my_public}:#{port}", '/')
         Djinn.log_debug("Got for response from LoadBalancer on port #{port}")
       rescue SocketError
       end
