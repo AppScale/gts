@@ -2976,17 +2976,18 @@ HOSTS
     Djinn.log_debug("Restarting collectd")
     Collectd.restart
 
-    head_node_ip = get_public_ip(@creds['hostname'])
-    if my_public == head_node_ip
-      # Only start monitoring on the head node
+    if my_node.is_login?
+      Djinn.log_debug("Starting AppMonitoring on this machine")
       HAProxy.create_app_monitoring_config(my_public, my_private, 
         Monitoring.proxy_port)
       Nginx.create_app_monitoring_config(my_public, my_private, 
         Monitoring.proxy_port)
-      Djinn.log_debug("Restarting Nginx")
-      Nginx.restart
-      Djinn.log_debug("Starting App Monitoring")
       Monitoring.start
+      HAProxy.reload
+      Nginx.restart
+      Collectd.restart
+    else
+      Djinn.log_debug("Not starting AppMonitoring on this machine")
     end
 
     LoadBalancer.server_ports.each do |port|
@@ -3716,7 +3717,8 @@ HOSTS
     if Ejabberd.does_app_need_receive?(app, app_language)
       start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
       stop_cmd = "ps ax | grep '#{start_cmd}' | grep -v grep | awk '{print $1}' | xargs -d '\n' kill -9"
-      GodInterface.start(app, start_cmd, stop_cmd, 9999)
+      watch_name = "xmpp-#{app}"
+      GodInterface.start(watch_name, start_cmd, stop_cmd, 9999)
       Djinn.log_debug("App #{app} does need xmpp receive functionality")
     else
       Djinn.log_debug("App #{app} does not need xmpp receive functionality")
@@ -3726,12 +3728,14 @@ HOSTS
   # Stop the xmpp receiver for an applicaiton.
   # 
   # Args:
-  #   app: The application ID.
+  #   app: The application ID whose XMPPReceiver we should shut down.
   def stop_xmpp_for_app(app)
     Djinn.log_debug("Shutting down xmpp receiver for app: #{app}")
+    watch_name = "xmpp-#{app}"
+    GodInterface.remove(watch_name)
     stop_cmd = "ps ax | grep 'xmpp_receiver.py #{app}' | grep -v grep | awk '{print $1}' | xargs -d '\n' kill -9"
     Djinn.log_run(stop_cmd)
-    Djinn.log_debug("Done shutting down xmpp receiver for app: #{app}") 
+    Djinn.log_debug("Done shutting down xmpp receiver for app: #{app}")
   end
 
   def self.neptune_parse_creds(storage, job_data)
