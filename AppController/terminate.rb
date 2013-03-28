@@ -139,7 +139,10 @@ end
  # RabbitMQ, ejabberd
  "epmd", "beam", "ejabberd_auth.py", "celery",
  # Last resort
- "ruby", "python", "java", "/usr/bin/python"
+ "python", "java", "/usr/bin/python"
 ].each do |program|
   `ps ax | grep #{program} | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9`
 end
+
+# Kill ruby separately, so that we don't accidentally kill ourselves
+`ps ax | grep ruby | grep -v terminate | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9`
