@@ -2852,15 +2852,18 @@ HOSTS
     Nginx.restart
     Collectd.restart
 
-    head_node_ip = get_public_ip(@creds['hostname'])
-    if my_public == head_node_ip
-      # Only start monitoring on the head node
+    if my_node.is_login?
+      Djinn.log_debug("Starting AppMonitoring on this machine")
       HAProxy.create_app_monitoring_config(my_public, my_private, 
         Monitoring.proxy_port)
       Nginx.create_app_monitoring_config(my_public, my_private, 
         Monitoring.proxy_port)
-      Nginx.restart
       Monitoring.start
+      HAProxy.reload
+      Nginx.restart
+      Collectd.restart
+    else
+      Djinn.log_debug("Not starting AppMonitoring on this machine")
     end
 
     LoadBalancer.server_ports.each do |port|
