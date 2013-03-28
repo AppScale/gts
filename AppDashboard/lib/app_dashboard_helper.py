@@ -355,33 +355,32 @@ class AppDashboardHelper:
       email: email address of the new user.
       password: password for the new user.
     Returns:
-      True if the user was create, otherwise false.
+      True if the user was created.
+    Raises:
+      AppHelperException on error.
     """
-    try:
-      uaserver = self.get_uaserver()
-      # first, create the standard account
-      encrypted_pass = LocalState.encrypt_password(email, password)
-      result = uaserver.commit_new_user(email, encrypted_pass, account_type,
-        GLOBAL_SECRET_KEY)
-      if result != 'true':
-        raise Exception(result)
-      # next, create the XMPP account. if the user's e-mail is a@a.a, then that
-      # means their XMPP account name is a@login_ip
-      username_regex = re.compile('\A(.*)@')
-      username = username_regex.match(email).groups()[0]
-      xmpp_user = "{0}@{1}".format(username,
-        self.get_login_host() )
-      xmpp_pass = LocalState.encrypt_password(xmpp_user, password)
-      result = uaserver.commit_new_user(xmpp_user, xmpp_pass, account_type,
-        GLOBAL_SECRET_KEY)
-      if result != 'true':
-        raise Exception(result)
+    uaserver = self.get_uaserver()
+    # first, create the standard account
+    encrypted_pass = LocalState.encrypt_password(email, password)
+    result = uaserver.commit_new_user(email, encrypted_pass, account_type,
+      GLOBAL_SECRET_KEY)
+    if result != 'true':
+      raise AppHelperException(result)
 
-      self.create_token(email, email)
-      self.set_appserver_cookie(email)
-    except Exception as e:
-      sys.stderr.write("create_new_user("+email+") caught exception: "+str(e))
-      return False
+    # next, create the XMPP account. if the user's e-mail is a@a.a, then that
+    # means their XMPP account name is a@login_ip
+    username_regex = re.compile('\A(.*)@')
+    username = username_regex.match(email).groups()[0]
+    xmpp_user = "{0}@{1}".format(username,
+      self.get_login_host() )
+    xmpp_pass = LocalState.encrypt_password(xmpp_user, password)
+    result = uaserver.commit_new_user(xmpp_user, xmpp_pass, account_type,
+      GLOBAL_SECRET_KEY)
+    if result != 'true':
+      raise AppHelperException(result)
+
+    self.create_token(email, email)
+    self.set_appserver_cookie(email)
     return True
 
   def remove_appserver_cookie(self):

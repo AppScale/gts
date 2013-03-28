@@ -101,21 +101,24 @@ class NewUserPage(AppDashboard):
     """ Parse the input from the create user form.
 
     Returns:
-      Two dicts, the first with the form data, and the second with True/False
-      values for errors in each field.
+      Three dicts, the first with the form data, and the second with True/False
+      values for errors in each field, the third with specific error messages.
     """
     users = {}
     errors = {}
+    error_msgs = {}
     users['email'] = cgi.escape(self.request.get('user_email'))
     if re.match('^\w[^@\s]*@[^@\s]{2,}$', users['email']):
       errors['email'] = False
     else:
+      error_msgs['email'] = 'Format must be foo@boo.goo.' 
       errors['email'] = True
 
     users['password'] = cgi.escape(self.request.get('user_password'))
     if len(users['password']) >= 6:
       errors['password'] = False
     else:
+      error_msgs['password'] = 'Password must be at least 6 characters long.'
       errors['password'] = True
 
     users['password_confirmation'] = cgi.escape(
@@ -123,9 +126,10 @@ class NewUserPage(AppDashboard):
     if users['password_confirmation'] == users['password']:
       errors['password_confirmation'] = False
     else:
+      error_msgs['password_confirmation'] = 'Passwords do not match.'
       errors['password_confirmation'] = True
 
-    return users, errors
+    return users, errors, error_msgs
 
   def process_new_user_post(self, users, errors):
     """ Creates new user if parse was successful.
@@ -145,13 +149,20 @@ class NewUserPage(AppDashboard):
 
   def post(self):
     """ Handler for POST requests. """
-    users, errors = self.parse_new_user_post()
-    if self.process_new_user_post(users, errors):
-      self.redirect('/', self.response)
-    else:
-      self.render_page(page = 'users', template_file = self.TEMPLATE, values = {
+    users, errors, err_msgs = self.parse_new_user_post()
+    try:
+      if self.process_new_user_post(users, errors):
+        self.redirect('/', self.response)
+        return
+    except Exception as e:
+      sys.stderr.write("NewUserPage.POST() exception: "+str(e))
+      err_msgs['email'] = str(e)
+      errors['email'] = True
+    
+    self.render_page(page = 'users', template_file = self.TEMPLATE, values = {
         'display_error_messages': errors,
-        'user' : users
+        'user' : users,
+        'error_message_content' : err_msgs,
         })
 
   def get(self):

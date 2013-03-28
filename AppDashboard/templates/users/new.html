@@ -34,7 +34,7 @@
                         {% endif %}
                         <input id="user_email" name="user_email" size="40" type="text" value="{{ user.email|default }}" />
                         {% if display_error_messages.email|default  %}
-                        <div class="red">Format must be foo@boo.goo. </div>
+                        <div class="red">{{ error_message_content.email }} </div>
                         {% endif %}
                         </div>
                     </div>
@@ -50,7 +50,7 @@
                         {% endif %}
                         <input id="user_password" name="user_password" size="40" type="password" value="{{ user.password|default }}">
                         {%  if display_error_messages.password|default %}
-                        <div class="red">Password must be at least 6 characters long.</div>
+                        <div class="red">{{ error_message_content.password }}</div>
                         {% endif %}
                         </div>
                     </div>
@@ -65,7 +65,7 @@
                         {% endif %}
                           <input id="user_password_confirmation" name="user_password_confirmation" size="40" type="password" value="{{ user.password_confirmation|default }}">
                         {%  if display_error_messages.password_confirmation|default %}
-                          <div class="red">Passwords do not match. </div>
+                          <div class="red">{{ error_message_content.password_confirmation }}</div>
                         {% endif %}
                         </div>
                     </div>
