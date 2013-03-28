@@ -223,8 +223,7 @@ class Djinn
   # A boolean that indicates whether or not we should turn the firewall on,
   # and continuously keep it on. Should definitely be on for releases, and
   # on whenever possible.
-  #FIREWALL_IS_ON = true
-  FIREWALL_IS_ON = false
+  FIREWALL_IS_ON = true
 
 
   # The location on the local filesystem where AppScale-related configuration
@@ -239,7 +238,7 @@ class Djinn
 
 
   # The location on the local filesystem where the AppController writes
-  # information about the status of App Engine APIs, which the AppLoadBalancer
+  # information about the status of App Engine APIs, which the AppDashboard
   # will read and display to users.
   HEALTH_FILE = "#{CONFIG_FILE_LOCATION}/health.json"
 
@@ -942,7 +941,7 @@ class Djinn
         backup_appcontroller_state
       end
 
-      # Login nodes host the AppLoadBalancer app, which has links to each
+      # Login nodes host the AppDashboard app, which has links to each
       # of the apps running in AppScale. Update the files it reads to
       # reflect the most up-to-date info.
       if my_node.is_login?
@@ -2731,12 +2730,12 @@ class Djinn
   end
 
   # Writes a file to the local filesystem that contains the IP address
-  # of a machine that runs the AppLoadBalancer. AppServers use this file
+  # of a machine that runs the AppDashboard. AppServers use this file
   # to know where to send users to log in. Because users have to be able
   # to access this IP address, we use the public IP here instead of the
   # private IP.
   def write_apploadbalancer_location()
-    login_file = "#{CONFIG_FILE_LOCATION}/apploadbalancer_public_ip"
+    login_file = "#{CONFIG_FILE_LOCATION}/appdashboard_public_ip"
     login_ip = get_login.public_ip()
     HelperFunctions.write_file(login_file, login_ip)
   end

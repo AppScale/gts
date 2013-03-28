@@ -2,7 +2,7 @@
 
 
 # As we can't rely on DNS in AppScale, we have a Rails app, called the
-# AppLoadBalancer, that provides a single place to route users to their
+# AppDashboard, that provides a single place to route users to their
 # applications. It also provides authentication for users as an
 # implementation of the Google App Engine Users API. This module provides
 # methods that abstract away its configuration and deployment.

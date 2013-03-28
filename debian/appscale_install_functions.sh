@@ -364,10 +364,10 @@ installhaproxy()
 
     # install service script
     mkdir -pv ${DESTDIR}/etc/init.d
-    cp -v ${APPSCALE_HOME}/AppLoadBalancer/config/haproxy-init.sh ${DESTDIR}/etc/init.d/haproxy || exit 1
+    cp -v ${APPSCALE_HOME}/AppDashboard/setup/haproxy-init.sh ${DESTDIR}/etc/init.d/haproxy || exit 1
     chmod -v a+x ${DESTDIR}/etc/init.d/haproxy || exit 1
     mkdir -pv ${DESTDIR}/etc/haproxy
-    cp -v ${APPSCALE_HOME}/AppLoadBalancer/config/haproxy.cfg ${DESTDIR}/etc/haproxy/ || exit 1
+    cp -v ${APPSCALE_HOME}/AppDashboard/setup/haproxy.cfg ${DESTDIR}/etc/haproxy/ || exit 1
     mkdir -pv ${DESTDIR}/etc/default
     echo "ENABLED=1" > ${DESTDIR}/etc/default/haproxy
 }
@@ -575,7 +575,7 @@ postinstallnginx()
 {
     cd ${APPSCALE_HOME}
     mkdir -p /usr/local/nginx/sites-enabled/
-    cp -v AppLoadBalancer/config/load-balancer.conf /usr/local/nginx/sites-enabled/
+    cp -v AppDashboard/setup/load-balancer.conf /usr/local/nginx/sites-enabled/
     rm -fv /usr/local/nginx/sites-enabled/default
     chmod +x /root
 }

@@ -445,7 +445,7 @@ CONFIG
     end
   end
 
-  # Create the configuration file for the AppLoadBalancer Rails application
+  # Create the configuration file for the AppDashboard application
   def self.create_app_load_balancer_config(my_public_ip, my_private_ip, 
     proxy_port)
     self.create_app_config(my_public_ip, my_private_ip, proxy_port, 
@@ -624,7 +624,7 @@ CONFIG
     }
 
     location /502.html {
-      root #{APPSCALE_HOME}/AppLoadBalancer/public;
+      root #{APPSCALE_HOME}/AppDashboard/static;
     }
 }
 CONFIG
