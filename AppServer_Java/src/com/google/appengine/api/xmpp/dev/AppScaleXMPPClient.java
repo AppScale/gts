@@ -22,12 +22,15 @@ public class AppScaleXMPPClient implements MessageListener
     private static final Logger logger = Logger.getLogger(AppScaleXMPPClient.class.getName());
     private XMPPConnection connection;
     private String defaultUserName = null;
-
+    private String userName;
+    private String password;
+    private String url;
+    private int port;
 
     /*
      * AppScale - This method logs in and creates a connection to the AppScale ejabberd server. 
      */
-    public void login(String userName, String password, String url, int port) throws XMPPException
+    private void connectAndLogin() throws XMPPException
     {
         logger.info("Logging into xmpp server: username: " + userName + ", url: " + url + "port: " + port);
         ConnectionConfiguration config = new ConnectionConfiguration(url, port);
@@ -35,6 +38,13 @@ public class AppScaleXMPPClient implements MessageListener
         connection.connect();
         defaultUserName = userName + "@" + url;
         connection.login(userName, password);
+    }
+
+    private void logoutAndDisconnect() throws XMPPException
+    {
+        Presence presence = new Presence(Presence.Type.unavailable);
+        presence.setFrom(userName);
+        connection.disconnect(presence);
     }
 
     /*
@@ -45,6 +55,16 @@ public class AppScaleXMPPClient implements MessageListener
     public void sendMessage(String to, String from, String body, String type) throws XMPPException
     {
         logger.fine("Xmpp sendMessage called: to: " + to + ", from: " + from + ", body: " + body + ", type: " + type);
+        try
+        {
+            connectAndLogin();
+        }
+        catch(XMPPException e)
+        {
+            logger.severe("Caught XMPPException while trying to login, message: " + e.getMessage());
+            e.printStackTrace();
+            return;
+        }
         Chat chat = connection.getChatManager().createChat(to, null);
         Message msg;
         if(type.equals("chat"))
@@ -66,6 +86,15 @@ public class AppScaleXMPPClient implements MessageListener
         }
         msg.setBody(body);
         chat.sendMessage(msg);
+        try
+        {
+            logoutAndDisconnect();
+        }
+        catch(XMPPException e)
+        {
+            logger.severe("Failed to disconnect and logout of ejabberd, message: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     /*
@@ -198,5 +227,25 @@ public class AppScaleXMPPClient implements MessageListener
     public void processMessage(Chat chat, Message msg)
     { 
         logger.info("MSG RECEIVED - body: " + msg.getBody() + ", subj: " + msg.getSubject());
+    }
+
+    public void setUserName(String _userName)
+    {
+        userName = _userName;
+    }
+
+    public void setPassword(String _password)
+    {
+        password = _password;
+    }
+
+    public void setUrl(String _url)
+    {
+        url = _url;
+    }
+
+    public void setPort(int _port)
+    {
+         port = _port;
     }
 }
