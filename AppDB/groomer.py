@@ -87,6 +87,7 @@ class DatastoreGroomer(threading.Thread):
     #self.stats[ent.app
     print entity
     return True
+
   def run_groomer(self):
     """ Runs the grooming process. Loops on the entire dataset sequentially
         and updates stats, indexes, and transactions.
@@ -105,6 +106,7 @@ class DatastoreGroomer(threading.Thread):
       for entity in entities:
         print entity
         self.process_entity(entity)
+      # TODO update last_key
     logging.debug("Groomer stopped")
     return True
 

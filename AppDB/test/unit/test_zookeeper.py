@@ -465,6 +465,28 @@ class TestZookeeperTransaction(unittest.TestCase):
 
     zookeeper.should_receive('delete').and_raise(zookeeper.NoNodeException)
     self.assertRaises(ZKTransactionException, transaction.release_datastore_groomer_lock)
-
+  def test_run_with_timeout(self):
+    def my_function(arg1, arg2):
+      return True
+    flexmock(zookeeper)
+    zookeeper.should_receive('init').and_return(self.handle)
+    zookeeper.should_receive('delete')
+    zookeeper.should_receive('close')
+    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    self.assertRaises(ZKTransactionException, transaction.run_with_timeout,
+      1, True, 0, my_function, "1", "2")
+    self.assertRaises(ZKTransactionException, transaction.run_with_timeout,
+      1, False, 0, my_function, "1", "2")
+    self.assertEquals(True, transaction.run_with_timeout(
+      1, False, 1, my_function, "1", "2"))
+    def my_exception_function(arg1):
+      raise zookeeper.ConnectionLossException()  
+    self.assertRaises(ZKTransactionException, transaction.run_with_timeout,
+      1, False, 1, my_exception_function, "1")
+    def my_zk_exception_function(arg1):
+      raise zookeeper.NoNodeException()  
+    self.assertRaises(zookeeper.NoNodeException, transaction.run_with_timeout,
+      1, False, 1, my_zk_exception_function, "1")
+     
 if __name__ == "__main__":
   unittest.main()    
