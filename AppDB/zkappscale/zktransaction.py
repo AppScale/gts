@@ -209,14 +209,14 @@ class ZKTransaction:
     
   def wait_for_connect(self):
     """ Blocks on a connection. Waits for a signal from the notify function """
-    #logging.debug("Waiting for ZooKeeper connection")
+    logging.debug("Waiting for ZooKeeper connection")
     if self.connected:
       return
     with self.connect_cv:
       while not self.connected:
         self.connect_cv.wait(10.0)
-    #    logging.debug("Still waiting...")
-    #logging.debug("Done waiting")
+        logging.debug("Still waiting...")
+    logging.debug("Done waiting")
 
   def force_create_path(self, path, value="default"):
     """ Creates a new ZooKeeper node at the given path, recursively creating its
