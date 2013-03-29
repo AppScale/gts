@@ -84,10 +84,10 @@ class StatusPage(AppDashboard):
   def get(self):
     """ Handler for GET requests. """
     self.render_page(page='status', template_file=self.TEMPLATE, values = {
-      'server_info' : self.helper.get_status_information(),
-      'dbinfo' : self.helper.get_database_information(),
+      'server_info' : self.helper.get_status_info(),
+      'dbinfo' : self.helper.get_database_info(),
       'service_info' : self.helper.get_service_info(),
-      'apps' : self.helper.get_application_information(),
+      'apps' : self.helper.get_application_info(),
       'monitoring_url' : self.helper.get_monitoring_url(),
     })
 
@@ -338,14 +338,14 @@ class AppDeletePage(AppDashboard):
       message = "You do not have permission to delete the application: "+appname
     self.render_page(page='apps', template_file=self.TEMPLATE,
       values = {'flash_message' : message,
-      'apps' : self.helper.get_application_information(),
+      'apps' : self.helper.get_application_info(),
       'app_admin_list' : self.helper.get_user_app_list()
       })
 
   def get(self):
     """ Handler for GET requests. """
     self.render_page(page='apps', template_file=self.TEMPLATE, values = {
-      'apps' : self.helper.get_application_information(),
+      'apps' : self.helper.get_application_info(),
       'app_admin_list' : self.helper.get_user_app_list()
     })
 
