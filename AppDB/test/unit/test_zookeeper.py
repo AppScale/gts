@@ -80,7 +80,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     zk.ZKTransaction.should_receive('get_transaction_prefix_path').with_args(
       self.appid).and_return('/rootpath/' + self.appid)
     path_to_create = "/rootpath/" + self.appid + "/" + zk.APP_TX_PREFIX
-    zk.ZKTransaction.should_receive('get_transaction_path_before_getting_id') \
+    zk.ZKTransaction.should_receive('get_txn_path_before_getting_id') \
       .with_args(self.appid).and_return(path_to_create)
     
     # mock out time.time
@@ -104,7 +104,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     transaction = zk.ZKTransaction(host="something", start_gc=False)
     self.assertEquals(1, transaction.get_transaction_id(self.appid, is_xg=True))
 
-  def test_get_transaction_path_before_getting_id(self):
+  def test_get_txn_path_before_getting_id(self):
     # mock out initializing a ZK connection
     flexmock(zookeeper)
     flexmock(zk.ZKTransaction)
@@ -117,7 +117,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     expected = zk.PATH_SEPARATOR.join(["app_root_path", zk.APP_TX_PATH, zk.APP_TX_PREFIX])
     transaction = zk.ZKTransaction(host="something", start_gc=False)
     self.assertEquals(expected,
-      transaction.get_transaction_path_before_getting_id(self.appid))
+      transaction.get_txn_path_before_getting_id(self.appid))
 
   def test_get_xg_path(self):
     # mock out initializing a ZK connection
@@ -438,5 +438,26 @@ class TestZookeeperTransaction(unittest.TestCase):
     transaction = zk.ZKTransaction(host="something", start_gc=False)
     transaction.execute_garbage_collection(self.appid, "some/path")
 
+  def test_run_with_timeout(self):
+    def my_function(arg1, arg2):
+      return True
+    flexmock(zookeeper)
+    zookeeper.should_receive('init').and_return(self.handle)
+    zookeeper.should_receive('delete')
+    zookeeper.should_receive('close')
+    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    self.assertRaises(ZKTransactionException, transaction.run_with_timeout,
+      1, 0, my_function, "1", "2")
+    self.assertEquals(True, transaction.run_with_timeout(
+      1, 1, my_function, "1", "2"))
+    def my_exception_function(arg1):
+      raise zookeeper.ConnectionLossException()  
+    self.assertRaises(ZKTransactionException, transaction.run_with_timeout,
+      1, 1, my_exception_function, "1")
+    def my_zk_exception_function(arg1):
+      raise zookeeper.NoNodeException()  
+    self.assertRaises(zookeeper.NoNodeException, transaction.run_with_timeout,
+      1, 1, my_zk_exception_function, "1")
+     
 if __name__ == "__main__":
   unittest.main()    
