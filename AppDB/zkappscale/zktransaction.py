@@ -1057,7 +1057,7 @@ class ZKTransaction:
       retval = function(*args)
       signal.alarm(0)
     except ZKTimeoutException:
-      logging.warning("Call timedout to function {0} with args {1}".\
+      logging.warning("Call timed out to function {0} with args {1}".\
         format(str(function), str(args)))
       raise ZKTransactionException("Failed to run {0}, timed out"\
         .format(str(function)))
