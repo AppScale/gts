@@ -1167,7 +1167,7 @@ class ZKTransaction:
     """
     last_time = 0
     try:
-      val = zookeeper.get(self.handle, PATH_SEPARATOR.join([app_path, 
+      val = zookeeper.get(self.handle, PATH_SEPARATOR.join([app_path,
         GC_TIME_PATH]), None)[0]
       last_time = float(val)
     except zookeeper.NoNodeException:
@@ -1217,7 +1217,7 @@ class ZKTransaction:
     # Get the transaction ID list.
     txrootpath = PATH_SEPARATOR.join([app_path, APP_TX_PATH])
     try:
-      txlist = zookeeper.get_children( self.handle, txrootpath)
+      txlist = zookeeper.get_children(self.handle, txrootpath)
     except zookeeper.NoNodeException:
       # there is no transaction yet.
       return
