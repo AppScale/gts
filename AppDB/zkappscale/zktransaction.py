@@ -1217,7 +1217,7 @@ class ZKTransaction:
     """
     try:
       now = str(time.time())
-      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, 
          self.DEFAULT_NUM_RETRIES, zookeeper.create, self.handle, 
          DS_GROOM_LOCK_PATH, now, ZOO_ACL_OPEN, zookeeper.EPHEMERAL)
     except zookeeper.NodeExistsException:
@@ -1237,7 +1237,7 @@ class ZKTransaction:
       ZKTransactionException: If the lock could not be released.
     """
     try:
-      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
          self.DEFAULT_NUM_RETRIES, zookeeper.delete, self.handle, 
          DS_GROOM_LOCK_PATH, -1)
     except zookeeper.NoNodeException:

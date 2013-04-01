@@ -438,7 +438,6 @@ class TestZookeeperTransaction(unittest.TestCase):
     transaction = zk.ZKTransaction(host="something", start_gc=False)
     transaction.execute_garbage_collection(self.appid, "some/path")
 
-<<<<<<< HEAD
   def test_get_datastore_groomer_lock(self):
     flexmock(zk.ZKTransaction)
 
