@@ -100,9 +100,6 @@ class ZKTransaction:
   # The number of seconds to wait before we consider a zk call a failure.
   DEFAULT_ZK_TIMEOUT = 3
 
-  # Default value to return if a ZK call failed.
-  ZK_FAIL = None
- 
   def __init__(self, host=DEFAULT_HOST, start_gc=True):
     """ Creates a new ZKTransaction, which will communicate with Zookeeper
     on the given host.
@@ -240,7 +237,7 @@ class ZKTransaction:
     self.wait_for_connect()
     while True:
       try:
-        self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+        self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, 
           self.DEFAULT_NUM_RETRIES, zookeeper.create, self.handle, 
           path, str(value), ZOO_ACL_OPEN)
         return True
@@ -255,7 +252,7 @@ class ZKTransaction:
       except zookeeper.NodeExistsException:  # just update value
         logging.debug("Path {0} already exists, so setting its value.".format(
           path))
-        self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+        self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
            self.DEFAULT_NUM_RETRIES, zookeeper.aset, self.handle, path, 
            str(value))
         return True
@@ -278,7 +275,7 @@ class ZKTransaction:
       value))
     self.wait_for_connect()
     try:
-      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
         self.DEFAULT_NUM_RETRIES, zookeeper.set, self.handle, path, value)
     except zookeeper.NoNodeException:
       self.force_create_path(path, value)
@@ -291,11 +288,11 @@ class ZKTransaction:
     """
     self.wait_for_connect()
     try:
-      children = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+      children = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
         self.DEFAULT_NUM_RETRIES, zookeeper.get_children, self.handle, path)
       for child in children:
         self.delete_recursive(PATH_SEPARATOR.join([path, child]))
-      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
         self.DEFAULT_NUM_RETRIES, zookeeper.delete, self.handle, path, -1)
     except zookeeper.NoNodeException:
       pass
@@ -311,7 +308,7 @@ class ZKTransaction:
     try:
       value = zookeeper.get(self.handle, path, None)[0]
       logging.info("{0} = \"{1}\"".format(path, value))
-      children = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+      children = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
         self.DEFAULT_NUM_RETRIES, zookeeper.get_children, self.handle, path)
       for child in children:
         self.dump_tree(PATH_SEPARATOR.join([path, child]))
@@ -464,7 +461,7 @@ class ZKTransaction:
     retries_left = self.DEFAULT_NUM_RETRIES
     while retries_left > 0:
       try:
-        self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+        self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
           self.DEFAULT_NUM_RETRIES, zookeeper.create, self.handle, path, 
           value, ZOO_ACL_OPEN)
         logging.debug("Created path {0} with value {1}".format(path, value))
@@ -500,7 +497,7 @@ class ZKTransaction:
     while retries_left > 0:
       try:
         txn_id_path = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, 
-          self.ZK_FAIL, self.DEFAULT_NUM_RETRIES, zookeeper.create, 
+          self.DEFAULT_NUM_RETRIES, zookeeper.create, 
           self.handle, path, value, ZOO_ACL_OPEN, zookeeper.SEQUENCE)
         if txn_id_path:
           txn_id = long(txn_id_path.split(PATH_SEPARATOR)[-1].lstrip(
@@ -574,7 +571,7 @@ class ZKTransaction:
     if self.is_blacklisted(app_id, txid):
       raise ZKTransactionException("[check_transaction] Transaction %d timed " \
         "out." % txid)
-    if not self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+    if not self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
           self.DEFAULT_NUM_RETRIES, zookeeper.exists, self.handle, txpath):
       logging.debug("[check_transaction] {0} does not exist".format(txpath))
       raise ZKTransactionException("Transaction %d is not valid." % txid)
@@ -597,7 +594,7 @@ class ZKTransaction:
     if self.is_blacklisted(app_id, txid):
       raise ZKTransactionException("[is_in_transaction]: Transaction %d timed" \
         " out." % txid)
-    if not self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+    if not self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
           self.DEFAULT_NUM_RETRIES, zookeeper.exists, self.handle, 
           tx_lock_path):
       logging.debug("[is_in_transaction] {0} does not exist".format(
@@ -635,7 +632,7 @@ class ZKTransaction:
       try:
         logging.debug("Trying to create path {0} with value {1}".format(
           lockrootpath, txpath))
-        lockpath = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+        lockpath = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
           self.DEFAULT_NUM_RETRIES, zookeeper.create, self.handle, 
           lockrootpath, txpath, ZOO_ACL_OPEN)
       except zookeeper.NoNodeException:
@@ -646,7 +643,7 @@ class ZKTransaction:
       except zookeeper.NodeExistsException:
         # fail to get lock
         tx_lockpath = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, 
-          self.ZK_FAIL, self.DEFAULT_NUM_RETRIES, zookeeper.get, self.handle, 
+          self.DEFAULT_NUM_RETRIES, zookeeper.get, self.handle, 
           lockrootpath, None)[0]
         logging.debug("Lock {0} in use by {1}".format(lockrootpath, 
           tx_lockpath))
@@ -659,13 +656,13 @@ class ZKTransaction:
     transaction_lock_path = self.get_transaction_lock_list_path(app_id, txid)
 
     if create:
-      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
         self.DEFAULT_NUM_RETRIES, zookeeper.acreate, self.handle, 
         transaction_lock_path, lockpath, ZOO_ACL_OPEN)
       logging.debug("Created lock list path {0} with value {1}".format(
         transaction_lock_path, lockpath))
     else:
-      tx_lockpath = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+      tx_lockpath = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
         self.DEFAULT_NUM_RETRIES, zookeeper.get, self.handle, 
         transaction_lock_path, None)[0]
       lock_list = tx_lockpath.split(LOCK_LIST_SEPARATOR)
@@ -675,7 +672,7 @@ class ZKTransaction:
 
       lock_list.append(lockpath)
       lock_list_str = LOCK_LIST_SEPARATOR.join(lock_list)
-      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
         self.DEFAULT_NUM_RETRIES, zookeeper.aset, self.handle, 
         transaction_lock_path, lock_list_str)
       logging.debug("Set lock list path {0} to value {1}".format(
@@ -693,7 +690,7 @@ class ZKTransaction:
     Returns:
       True if the transaction is XG, False otherwise.
     """
-    return self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+    return self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
           self.DEFAULT_NUM_RETRIES, zookeeper.exists, self.handle, 
           self.get_xg_path(app_id, tx_id))
 
@@ -721,7 +718,7 @@ class ZKTransaction:
 
     if self.is_in_transaction(app_id, txid):  # use current lock
       transaction_lock_path = self.get_transaction_lock_list_path(app_id, txid)
-      prelockpath = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+      prelockpath = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
         self.DEFAULT_NUM_RETRIES, zookeeper.get, self.handle, 
         transaction_lock_path, None)[0]
       lock_list = prelockpath.split(LOCK_LIST_SEPARATOR)
@@ -755,13 +752,13 @@ class ZKTransaction:
     self.wait_for_connect()
     txpath = self.get_transaction_path(app_id, txid)
     try:
-      child_list = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+      child_list = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
           self.DEFAULT_NUM_RETRIES, zookeeper.get_children, self.handle, txpath)
       keylist = []
       for item in child_list:
         if re.match("^" + TX_UPDATEDKEY_PREFIX, item):
           keyandtx = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, 
-            self.ZK_FAIL, self.DEFAULT_NUM_RETRIES, zookeeper.get, self.handle,
+            self.DEFAULT_NUM_RETRIES, zookeeper.get, self.handle,
             PATH_SEPARATOR.join([txpath, item]), None)[0]
           key = urllib.unquote_plus(keyandtx.split(PATH_SEPARATOR)[0])
           keylist.append(key)
@@ -794,13 +791,13 @@ class ZKTransaction:
     transaction_lock_path = self.get_transaction_lock_list_path(app_id, txid)
     try:
       lock_list_str = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, 
-          self.ZK_FAIL, self.DEFAULT_NUM_RETRIES, zookeeper.get, self.handle,
+          self.DEFAULT_NUM_RETRIES, zookeeper.get, self.handle,
           transaction_lock_path, None)[0]
       lock_list = lock_list_str.split(LOCK_LIST_SEPARATOR)
       for lock_path in lock_list:
-        self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+        self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
           self.DEFAULT_NUM_RETRIES, zookeeper.adelete, self.handle, lock_path)
-      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL, 
+      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
         self.DEFAULT_NUM_RETRIES, zookeeper.delete, self.handle, 
         transaction_lock_path)
     except zookeeper.NoNodeException:
@@ -812,17 +809,17 @@ class ZKTransaction:
 
     if self.is_xg(app_id, txid):
       xg_path = self.get_xg_path(app_id, txid)
-      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
           self.DEFAULT_NUM_RETRIES, zookeeper.adelete, self.handle, xg_path)
 
-    for child in self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+    for child in self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
         self.DEFAULT_NUM_RETRIES, zookeeper.get_children, self.handle, txpath):
-      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
         self.DEFAULT_NUM_RETRIES, zookeeper.adelete, self.handle, 
         PATH_SEPARATOR.join([txpath, child]))
 
     # This deletes the transaction root path.
-    self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+    self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
       self.DEFAULT_NUM_RETRIES, zookeeper.adelete, self.handle, txpath)
 
     return True
@@ -843,12 +840,12 @@ class ZKTransaction:
         return str(txid) in self.blacklist_cache[app_id]
     else:
       blacklist_root = self.get_blacklist_root_path(app_id)
-      if not self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+      if not self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
           self.DEFAULT_NUM_RETRIES, zookeeper.exists, self.handle, 
           blacklist_root):
         self.force_create_path(blacklist_root)
       try:
-        blacklist = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+        blacklist = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
           self.DEFAULT_NUM_RETRIES, zookeeper.get_children, self.handle, 
           blacklist_root, self.receive_and_notify)
         with self.blacklist_cv:
@@ -870,7 +867,7 @@ class ZKTransaction:
     # get the valid id
     vtxpath = self.get_valid_transaction_path(app_id, entity_key)
     try:
-      vid = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+      vid = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
           self.DEFAULT_NUM_RETRIES, zookeeper.get, self.handle, vtxpath, 
           None)[0]
       return long(vid)
@@ -896,10 +893,10 @@ class ZKTransaction:
     self.wait_for_connect()
     vtxpath = self.get_valid_transaction_path(app_id, entity_key)
 
-    if self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+    if self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
           self.DEFAULT_NUM_RETRIES, zookeeper.exists, self.handle, vtxpath):
       # Update the transaction ID for entity if there is valid transaction.
-      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
           self.DEFAULT_NUM_RETRIES, zookeeper.aset, self.handle, 
           vtxpath, str(target_txid))
     else:
@@ -908,9 +905,9 @@ class ZKTransaction:
         str(target_txid)])
       txpath = self.get_transaction_path(app_id, current_txid)
 
-      if self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+      if self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
           self.DEFAULT_NUM_RETRIES, zookeeper.exists, self.handle, txpath):
-        self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+        self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
             self.DEFAULT_NUM_RETRIES, zookeeper.acreate, self.handle, 
             PATH_SEPARATOR.join([txpath,
           TX_UPDATEDKEY_PREFIX]), value, ZOO_ACL_OPEN, zookeeper.SEQUENCE)
@@ -940,7 +937,7 @@ class ZKTransaction:
     txpath = self.get_transaction_path(app_id, txid)
 
     try:
-      lockpath = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+      lockpath = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
           self.DEFAULT_NUM_RETRIES, zookeeper.get, self.handle, 
           PATH_SEPARATOR.join([txpath, TX_LOCK_PATH]), None)[0]
       lock_list = lockpath.split(LOCK_LIST_SEPARATOR)
@@ -953,12 +950,12 @@ class ZKTransaction:
       now = str(time.time())
       blacklist_root = self.get_blacklist_root_path(app_id)
 
-      if not self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+      if not self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
           self.DEFAULT_NUM_RETRIES, zookeeper.exists, self.handle, 
           blacklist_root):
         self.force_create_path(blacklist_root)
 
-      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
           self.DEFAULT_NUM_RETRIES, zookeeper.acreate, self.handle, 
           PATH_SEPARATOR.join([blacklist_root, str(txid)]), now, ZOO_ACL_OPEN)
 
@@ -968,11 +965,11 @@ class ZKTransaction:
           self.blacklist_cache[app_id].add(str(txid))
 
       # Copy valid transaction ID for each updated key into valid list.
-      for child in self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+      for child in self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
           self.DEFAULT_NUM_RETRIES, zookeeper.get_children, self.handle, 
           txpath):
         if re.match("^" + TX_UPDATEDKEY_PREFIX, child):
-          value = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+          value = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
             self.DEFAULT_NUM_RETRIES, zookeeper.get, self.handle, 
             PATH_SEPARATOR.join([txpath, child]), None)[0]
           valuelist = value.split(PATH_SEPARATOR)
@@ -980,32 +977,32 @@ class ZKTransaction:
           vid = valuelist[1]
           vtxroot = self.get_valid_transaction_root_path(app_id)
 
-          if not self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+          if not self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
               self.DEFAULT_NUM_RETRIES, zookeeper.exists, self.handle, vtxroot):
             self.force_create_path(vtxroot)
           vtxpath = self.get_valid_transaction_path(app_id, key)
-          self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+          self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
             self.DEFAULT_NUM_RETRIES, zookeeper.acreate, self.handle, 
             vtxpath, vid, ZOO_ACL_OPEN)
 
     # Release the locks.
     for lock in lock_list:
-      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
           self.DEFAULT_NUM_RETRIES, zookeeper.adelete, self.handle, lock)
 
     if self.is_xg(app_id, txid):
-      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
           self.DEFAULT_NUM_RETRIES, zookeeper.adelete, self.handle, 
           self.get_xg_path(app_id, txid))
       
     # Remove the transaction paths.
-    for item in self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+    for item in self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
           self.DEFAULT_NUM_RETRIES, zookeeper.get_children, self.handle, 
           txpath):
-      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
           self.DEFAULT_NUM_RETRIES, zookeeper.adelete, self.handle, 
           PATH_SEPARATOR.join([txpath, item]))
-    self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+    self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
       self.DEFAULT_NUM_RETRIES, zookeeper.adelete, self.handle, txpath)
 
     return True
@@ -1015,12 +1012,12 @@ class ZKTransaction:
     try:
       zookeeper.close(self.handle)
     except zookeeper.ZooKeeperException, close_exception:
-      logging.info("Exception when closing ZK connection {0}".\
+      logging.error("Exception when closing ZK connection {0}".\
         format(close_exception))
 
     self.handle = zookeeper.init(self.host, self.receive_and_notify)
 
-  def run_with_timeout(self, timeout_time, default, num_retries, function,
+  def run_with_timeout(self, timeout_time, num_retries, function,
     *args):
     """Runs the given function, aborting it if it runs too long. Make sure
        the function does not have side effects.
@@ -1028,7 +1025,6 @@ class ZKTransaction:
     Args:
       timeout_time: The number of seconds that we should allow function to
         execute for.
-      default: The value that should be returned if the timeout is exceeded.
       num_retries: The number of times we should retry the call if we see
         an unexpected exception.
       function: The function that should be executed.
@@ -1064,9 +1060,11 @@ class ZKTransaction:
       retval = function(*args)
       signal.alarm(0)
     except ZKTimeoutException:
-      logging.warning("Call timedout to function {0} with args {1}".\
+      logging.warning("Call timed out to function {0} with args {1}".\
         format(str(function), str(args)))
-      return default
+      raise ZKTransactionException("Failed to run {0}, timed out"\
+        .format(str(function)))
+      
     # ZK expected exceptions:
     except zookeeper.NoNodeException, no_node:
       signal.alarm(0)  # turn off the alarm
@@ -1078,28 +1076,28 @@ class ZKTransaction:
     except zookeeper.ConnectionLossException, conn_loss:
       logging.warning("ZK connection was lost: {0}".format(str((conn_loss))))
       reset_timer_and_connection()
-      return self.run_with_timeout(timeout_time, default, num_retries - 1, 
+      return self.run_with_timeout(timeout_time, num_retries - 1, 
         function, *args)
     except zookeeper.ClosingException, conn_loss:
       logging.warning("ZK connection was closed: {0}".format(str((conn_loss))))
       reset_timer_and_connection()
-      return self.run_with_timeout(timeout_time, default, num_retries - 1, 
+      return self.run_with_timeout(timeout_time, num_retries - 1, 
         function, *args)
     except zookeeper.InvalidStateException, invalid_state:
       logging.warning("ZK had invalid state: {0}".format(str((invalid_state))))
       reset_timer_and_connection()
-      return self.run_with_timeout(timeout_time, default, num_retries - 1, 
+      return self.run_with_timeout(timeout_time, num_retries - 1, 
         function, *args)
     except zookeeper.OperationTimeoutException, op_timeout:
       logging.warning("ZK had an operation timeout: {0}".\
         format(str((op_timeout))))
       reset_timer_and_connection()
-      return self.run_with_timeout(timeout_time, default, num_retries - 1, 
+      return self.run_with_timeout(timeout_time, num_retries - 1, 
         function)
     except zookeeper.SessionExpiredException, ses_expired:
       logging.warning("System exception: {0}".format(ses_expired))
       reset_timer_and_connection()
-      return self.run_with_timeout(timeout_time, default, num_retries - 1, 
+      return self.run_with_timeout(timeout_time, num_retries - 1, 
         function, *args)
     # Serious exception we raise:
     except zookeeper.DataInconsistencyException, data_exception:
@@ -1117,12 +1115,12 @@ class ZKTransaction:
     except zookeeper.ZooKeeperException, zk_exception:
       logging.error("ZK Exception: {0}".format(zk_exception))
       signal.alarm(0)  # turn off the alarm before we retry
-      return self.run_with_timeout(timeout_time, default, num_retries - 1, 
+      return self.run_with_timeout(timeout_time, num_retries - 1, 
         function, *args)
     except Exception, general_exception:
       logging.warning("General exception: {0}".format(general_exception))
       signal.alarm(0)  # turn off the alarm before we retry
-      return self.run_with_timeout(timeout_time, default, num_retries - 1, 
+      return self.run_with_timeout(timeout_time, num_retries - 1, 
         function, *args)
 
     return retval
@@ -1182,7 +1180,6 @@ class ZKTransaction:
       self.reestablish_connection()
       return
 
-
     # If the last time plus our GC interval is less than the current time,
     # that means its time to run the GC again.
     if last_time + GC_INTERVAL < time.time():
@@ -1199,7 +1196,7 @@ class ZKTransaction:
         except Exception as exception:
           logging.error("Warning: GC error {0}".format(str(exception)))
           traceback.print_exc()
-        self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.ZK_FAIL,
+        self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
           self.DEFAULT_NUM_RETRIES, zookeeper.delete, self.handle, gc_path, -1)
       except zookeeper.NodeExistsException:
         # Failed to obtain the GC lock. Try again later.
