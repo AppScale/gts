@@ -688,10 +688,15 @@ class ZKTransaction:
       tx_id: The transaction ID that may or may not be XG.
     Returns:
       True if the transaction is XG, False otherwise.
+    Raises:
+      ZKTransactionException: on ZooKeeper exceptions.
     """
-    return self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
-          self.DEFAULT_NUM_RETRIES, zookeeper.exists, self.handle, 
+    try:
+      return zookeeper.exists(self.handle, 
           self.get_xg_path(app_id, tx_id))
+    except zookeeper.ZooKeeperException, zk_exception:
+      raise ZKTransactionException("ZooKeeper exception:{0}"\
+        .format(zk_exception)) 
 
   def acquire_lock(self, app_id, txid, entity_key):
     """ Acquire lock for transaction. It will acquire additional locks
