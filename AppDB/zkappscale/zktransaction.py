@@ -234,9 +234,7 @@ class ZKTransaction:
     self.wait_for_connect()
     while True:
       try:
-        self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, 
-          self.DEFAULT_NUM_RETRIES, zookeeper.create, self.handle, 
-          path, str(value), ZOO_ACL_OPEN)
+        zookeeper.create(self.handle, path, str(value), ZOO_ACL_OPEN)
         return True
       except zookeeper.NoNodeException:
         # Recursively create this node's parents, but don't return - the next
@@ -249,10 +247,12 @@ class ZKTransaction:
       except zookeeper.NodeExistsException:  # just update value
         logging.debug("Path {0} already exists, so setting its value.".format(
           path))
-        self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
-           self.DEFAULT_NUM_RETRIES, zookeeper.aset, self.handle, path, 
-           str(value))
+        zookeeper.aset(self.handle, path, str(value))
         return True
+      except zookeeper.ZooKeeperException, zoo_exception:
+        logging.error("Couldn't create path {0} because of ZK exception {1}".\
+          format(path, str(zoo_exception)))
+        return False
       except Exception as exception:
         logging.error("Couldn't create path {0} because of {1}".format(path,
           str(exception)))
