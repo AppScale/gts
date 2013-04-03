@@ -1047,10 +1047,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         Profile profile = getOrCreateProfile(req.getApp());
         DatastorePb.Transaction txn = new DatastorePb.Transaction().setApp(req.getApp()).setHandle(this.transactionHandleProvider.getAndIncrement());
 
-        if ((req.isAllowMultipleEg()) && (!isHighRep()))
-        {
-            throw Utils.newError(DatastorePb.Error.ErrorCode.BAD_REQUEST, "transactions on multiple entity groups only allowed in High Replication applications");
-        }
         /*
          * AppScale line replacement
          */

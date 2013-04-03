@@ -73,12 +73,14 @@
     <jar destfile="${gae_dist}/lib/impl/appengine-api.jar" basedir="${build}" update="true">
       <!--include name="com/google/appengine/api/labs/mapreduce/MapReduceApiHelper*" /-->
       <include name="com/google/appengine/api/blobstore/BlobstoreServiceImpl.class" />
+      <include name="com/google/appengine/api/xmpp/InboundMessageParser.class" />
     </jar>
   </target>
 
   <target name="update-api-jar-user" depends="compile, repack-sdk">
     <jar destfile="${gae_dist}/lib/user/appengine-api-1.0-sdk-${gae_version}.jar" basedir="${build}" update="true">
       <include name="com/google/appengine/api/blobstore/BlobstoreServiceImpl.class" />
+      <include name="com/google/appengine/api/xmpp/InboundMessageParser.class" />
     </jar>
   </target>
 
@@ -104,6 +106,7 @@
       <include name="com/google/appengine/api/taskqueue/dev/*" />
       <!--include name="com/google/appengine/api/labs/mapreduce/dev/*" /-->
       <include name="com/google/appengine/api/blobstore/dev/*" />
+      <include name="com/google/appengine/api/xmpp/dev/*" />
       <!--include name="META-INF/services/*" /-->
     </jar>
   </target>

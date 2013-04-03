@@ -10,6 +10,7 @@ given (Put, Get, Delete, Query, etc).
 import __builtin__
 import getopt
 import itertools
+import logging
 import md5
 import os
 import sys
@@ -111,6 +112,10 @@ class DatastoreDistributed():
        datastore_batch: a reference to the batch datastore interface .
        zookeeper: a reference to the zookeeper interface.
     """
+    logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
+      '%(lineno)s %(message)s ', level=logging.INFO)
+    logging.debug("Started logging")
+
     # Each entry contains a tuple (last_accessed_timestamp, namespace)
     # The key is the <app_id>/<namespace>
     self.__namespaces = []
@@ -416,6 +421,8 @@ class DatastoreDistributed():
         yield (self.get_kind_key(prefix, e.key().path()),
                self.get_entity_key(prefix, e.key().path()))
 
+    logging.debug("Inserting entities {0} in DB with transaction hash {1}"
+      .format(str(entities), str(txn_hash)))
     row_values = {}
     row_keys = []
 
@@ -423,6 +430,7 @@ class DatastoreDistributed():
     kind_row_values = {}
 
     entities = sorted((self.get_table_prefix(x), x) for x in entities)
+    logging.debug("Entities with table prefix are: {0}".format(str(entities)))
 
     for prefix, group in itertools.groupby(entities, lambda x: x[0]):
       group_rows = tuple(row_generator(group))
@@ -430,6 +438,9 @@ class DatastoreDistributed():
       row_keys += new_row_keys
 
       for ii in group_rows:
+        logging.debug("Trying to get root entity from entity key: {0}".format(str(ii[0])))
+        logging.debug("Root entity is: {0}".format(self.get_root_key_from_entity_key(str(ii[0]))))
+        logging.debug("Transaction hash is: {0}".format(str(txn_hash)))
         txn_id = txn_hash[self.get_root_key_from_entity_key(str(ii[0]))]
         row_values[str(ii[0])] = \
                            {dbconstants.APP_ENTITY_SCHEMA[0]:str(ii[1]), #ent
@@ -526,9 +537,9 @@ class DatastoreDistributed():
     """
     if size and max_id:
       raise ValueError("Both size and max cannot be set.")
-    txnid = self.zookeeper.getTransactionID(prefix)
+    txnid = self.zookeeper.get_transaction_id(prefix)
     try:
-      self.zookeeper.acquireLock(prefix, txnid, self._ALLOCATE_ROOT_KEY)
+      self.zookeeper.acquire_lock(prefix, txnid, self._ALLOCATE_ROOT_KEY)
       current_id = self.acquire_next_id_from_db(prefix)
 
       if size:
@@ -544,7 +555,7 @@ class DatastoreDistributed():
                            dbconstants.APP_ID_SCHEMA,
                            cell_values)
     finally:
-      self.zookeeper.releaseLock(prefix, txnid, self._ALLOCATE_ROOT_KEY)
+      self.zookeeper.release_lock(prefix, txnid)
 
     start = current_id
     end = next_id - 1
@@ -637,7 +648,8 @@ class DatastoreDistributed():
     for row_key in ret:
       # Entities may not exist if this is the first put
       if dbconstants.APP_ENTITY_SCHEMA[0] in ret[row_key] and\
-              not ret[row_key][dbconstants.APP_ENTITY_SCHEMA[0]].startswith(TOMBSTONE):
+           not ret[row_key][dbconstants.APP_ENTITY_SCHEMA[0]].\
+           startswith(TOMBSTONE):
         ent = entity_pb.EntityProto()
         ent.ParseFromString(ret[row_key][dbconstants.APP_ENTITY_SCHEMA[0]])
         entities.append(ent)
@@ -702,12 +714,12 @@ class DatastoreDistributed():
             [dbconstants.APP_ENTITY_SCHEMA[1]])
         # Validate and get the correct version for each key
         root_key = self.get_root_key_from_entity_key(row_key)
-        valid_prev_version = self.zookeeper.getValidTransactionID(
+        valid_prev_version = self.zookeeper.get_valid_transaction_id(
                                     app_id, prev_version, row_key)
-        # Guard against re-registering the rollback version if we're updating the 
-        # same key repeatedly in a transaction.
+        # Guard against re-registering the rollback version if 
+        # we're updating the same key repeatedly in a transaction.
         if txn_hash[root_key] != valid_prev_version:
-          self.zookeeper.registUpdatedKey(app_id, txn_hash[root_key], 
+          self.zookeeper.register_updated_key(app_id, txn_hash[root_key], 
                                         valid_prev_version, row_key) 
 
   def dynamic_put(self, app_id, put_request, put_response):
@@ -755,9 +767,10 @@ class DatastoreDistributed():
         self.release_locks_for_nontrans(app_id, entities, txn_hash)
       put_response.key_list().extend([e.key() for e in entities])
     except ZKTransactionException, zkte:
-      print "Concurrent transaction exception %s" % zkte
+      logging.info("Concurrent transaction exception for app id {0} with " \
+        "info {1}".format(app_id, str(zkte)))
       for root_key in txn_hash:
-        self.zookeeper.notifyFailedTransaction(app_id, txn_hash[root_key])
+        self.zookeeper.notify_failed_transaction(app_id, txn_hash[root_key])
       raise zkte
 
   def get_root_key_from_entity_key(self, entity_key):
@@ -799,7 +812,7 @@ class DatastoreDistributed():
     Returns:
       A hash of root keys mapping to transaction IDs.
     Raises:
-     TyperError: If args are the wrong type.
+     TypeError: If args are the wrong type.
     """
     root_keys = []
     txn_hash = {}
@@ -818,13 +831,14 @@ class DatastoreDistributed():
     root_keys = list(set(root_keys))
     try:
       for root_key in root_keys: 
-        txnid = self.setup_transaction(app_id)
+        txnid = self.setup_transaction(app_id, is_xg=False)
         txn_hash[root_key] = txnid
-        self.zookeeper.acquireLock(app_id, txnid, root_key)
+        self.zookeeper.acquire_lock(app_id, txnid, root_key)
     except ZKTransactionException, zkte:
-      print "Concurrent transaction exception %s" % zkte
+      logging.info("Concurrent transaction exception for app id {0} with " \
+        "info {1}".format(app_id, str(zkte)))
       for root_key in txn_hash:
-        self.zookeeper.notifyFailedTransaction(app_id, txn_hash[root_key])
+        self.zookeeper.notify_failed_transaction(app_id, txn_hash[root_key])
       raise zkte
     return txn_hash
       
@@ -859,17 +873,42 @@ class DatastoreDistributed():
     Returns:
       A hash mapping root keys to transaction IDs.
     Raises:
-      ZKTransactionException: If lock is not attainable.
+      ZKTransactionException: If lock is not obtainable.
     """
-    first_ent = entities[0]
-    if isinstance(first_ent, entity_pb.Reference):
-      key = entities[0]
-    elif isinstance(first_ent, entity_pb.EntityProto):
-      key = entities[0].key()
-    app_id = key.app()
-    root_key = self.get_root_key_from_entity_key(key)
-    self.zookeeper.acquireLock(app_id, txnid, root_key)
-    return {root_key: txnid}
+    root_keys = []
+    txn_hash = {}
+    if not isinstance(entities, list):
+      raise TypeError("Expected a list and got %s" % entities.__class__)
+    for ent in entities:
+      if isinstance(ent, entity_pb.Reference):
+        root_keys.append(self.get_root_key_from_entity_key(ent))
+      elif isinstance(ent, entity_pb.EntityProto):
+        root_keys.append(self.get_root_key_from_entity_key(ent.key()))
+      else:
+        raise TypeError("Excepted either a reference or an EntityProto, got %s" % \
+                        ent.__class__)
+
+    # Remove all duplicate root keys
+    if entities is None:
+      return {}
+
+    if isinstance(entities[0], entity_pb.Reference):
+      app_id = entities[0].app()
+    else:
+      app_id = entities[0].key().app()
+
+    root_keys = list(set(root_keys))
+    try:
+      for root_key in root_keys:
+        txn_hash[root_key] = txnid
+        self.zookeeper.acquire_lock(app_id, txnid, root_key)
+    except ZKTransactionException, zkte:
+      logging.info("Concurrent transaction exception for app id {0} with " \
+        "info {1}".format(app_id, str(zkte)))
+      for root_key in txn_hash:
+        self.zookeeper.notify_failed_transaction(app_id, txn_hash[root_key])
+      raise zkte
+    return txn_hash
 
   def release_locks_for_nontrans(self, app_id, entities, txn_hash):
     """  Releases locks for non-transactional puts.
@@ -891,7 +930,7 @@ class DatastoreDistributed():
     root_keys = list(set(root_keys))
     for root_key in root_keys: 
       txnid = txn_hash[root_key]
-      self.zookeeper.releaseLock(app_id, txnid, root_key)
+      self.zookeeper.release_lock(app_id, txnid)
 
   def validated_result(self, app_id, db_results, current_ongoing_txn=0):
     """ Takes database results from the entity table and returns
@@ -939,7 +978,7 @@ class DatastoreDistributed():
       row_key = dict_entry.keys()[0]
       current_version = \
           long(dict_entry[row_key][dbconstants.APP_ENTITY_SCHEMA[1]])
-      trans_id = self.zookeeper.getValidTransactionID(\
+      trans_id = self.zookeeper.get_valid_transaction_id(\
                              app_id, current_version, row_key)
       if current_ongoing_txn != 0 and \
            current_version == current_ongoing_txn:
@@ -994,23 +1033,26 @@ class DatastoreDistributed():
     """
     journal_result_map = {}
     journal_keys = []
+    delete_keys = []
     for row_key in db_results:
       if dbconstants.APP_ENTITY_SCHEMA[1] not in db_results[row_key]:
         continue
       current_version = long(db_results[row_key]\
                              [dbconstants.APP_ENTITY_SCHEMA[1]])
-      trans_id = self.zookeeper.getValidTransactionID(\
+      trans_id = self.zookeeper.get_valid_transaction_id(\
                              app_id, current_version, row_key)
       if current_ongoing_txn != 0 and \
            current_version == current_ongoing_txn:
         # This value has been updated from within an ongoing transaction and
         # hence can be seen from within this scope for serializability.
         continue
-      if current_version != trans_id:
+      elif current_version != trans_id:
         journal_key = self.get_journal_key(row_key, trans_id)
         journal_keys.append(journal_key)
         journal_result_map[journal_key] = (row_key, trans_id)
-   
+        if trans_id == 0:
+          delete_keys.append(row_key)
+
     if not journal_result_map: 
       return db_results
 
@@ -1020,13 +1062,17 @@ class DatastoreDistributed():
                             dbconstants.JOURNAL_SCHEMA)
     for journal_key in journal_result_map:
       row_key, trans_id = journal_result_map[journal_key]
-      db_results[row_key] = {
-        dbconstants.APP_ENTITY_SCHEMA[0]: 
-                journal_entities[journal_key]\
-                                [dbconstants.JOURNAL_SCHEMA[0]], 
-        dbconstants.APP_ENTITY_SCHEMA[1]: 
-                str(trans_id)
-      }
+      if trans_id == 0:
+        # Zero id's are entities which do not yet exist.
+        del db_results[row_key]
+      else:
+        db_results[row_key] = {
+          dbconstants.APP_ENTITY_SCHEMA[0]: 
+                  journal_entities[journal_key]\
+                                  [dbconstants.JOURNAL_SCHEMA[0]], 
+          dbconstants.APP_ENTITY_SCHEMA[1]: 
+                  str(trans_id)
+        }
     return db_results
 
   def remove_tombstoned_entities(self, result):
@@ -1079,7 +1125,8 @@ class DatastoreDistributed():
                        dbconstants.APP_ENTITY_TABLE, 
                        row_keys, 
                        dbconstants.APP_ENTITY_SCHEMA) 
-    result = self.validated_result(key.app(), 
+    if len(key_list) != 0:
+      result = self.validated_result(key_list[0].app(), 
                   result, current_ongoing_txn=current_txnid)
     result = self.remove_tombstoned_entities(result)
     return (result, row_keys)
@@ -1100,17 +1147,17 @@ class DatastoreDistributed():
       root_key = self.get_root_key_from_entity_key(keys[0])
       txnid = get_request.transaction().handle()
       try:
-        self.zookeeper.acquireLock(app_id, txnid, root_key)
+        self.zookeeper.acquire_lock(app_id, txnid, root_key)
       except ZKTransactionException, zkte:
-        print "Concurrent transaction exception %s" % zkte
-        print "App ID %s Txn %d" % (app_id, txnid)
-        self.zookeeper.notifyFailedTransaction(app_id, txnid)
+        logging.info("Concurrent transaction exception for app id {0} with " \
+          "transaction id {1}, and info {2}".format(app_id, txnid, str(zkte)))
+        self.zookeeper.notify_failed_transaction(app_id, txnid)
         raise zkte
    
     results, row_keys = self.fetch_keys(keys, current_txnid=txnid)
     for r in row_keys:
+      group = get_response.add_entity() 
       if r in results and dbconstants.APP_ENTITY_SCHEMA[0] in results[r]:
-        group = get_response.add_entity() 
         group.mutable_entity().CopyFrom(
           entity_pb.EntityProto(results[r][dbconstants.APP_ENTITY_SCHEMA[0]]))
 
@@ -1121,8 +1168,11 @@ class DatastoreDistributed():
       app_id: The application ID.
       delete_request: Request with a list of keys.
     """
-    keys = delete_request.key_list()
     txn_hash = {}
+    keys = delete_request.key_list()
+    if not keys:
+      return
+
     if delete_request.has_transaction():
       txn_hash = self.acquire_locks_for_trans(keys, 
                       delete_request.transaction().handle())
@@ -1295,10 +1345,11 @@ class DatastoreDistributed():
       txn_id = query.transaction().handle()   
       root_key = self.get_root_key_from_entity_key(ancestor)
       try:
-        self.zookeeper.acquireLock(query.app(), txn_id, root_key)
+        self.zookeeper.acquire_lock(query.app(), txn_id, root_key)
       except ZKTransactionException, zkte:
-        print "Concurrent transaction exception %s" % zkte
-        self.zookeeper.notifyFailedTransaction(query.app(), txn_id)
+        logging.info("Concurrent transaction exception for app id {0}, " \
+          "transaction id {1}, info {2}".format(query.app(), txn_id, str(zkte)))
+        self.zookeeper.notify_failed_transaction(query.app(), txn_id)
         raise zkte
 
     startrow = path
@@ -1346,10 +1397,11 @@ class DatastoreDistributed():
       txn_id = query.transaction().handle()   
       root_key = self.get_root_key_from_entity_key(ancestor)
       try:
-        self.zookeeper.acquireLock(query.app(), txn_id, root_key)
+        self.zookeeper.acquire_lock(query.app(), txn_id, root_key)
       except ZKTransactionException, zkte:
-        print "Concurrent transaction exception %s" % zkte
-        self.zookeeper.notifyFailedTransaction(query.app(), txn_id)
+        logging.info("Concurrent transaction exception for app id {0}, " \
+          "transaction id {1}, info {2}".format(query.app(), txn_id, str(zkte)))
+        self.zookeeper.notify_failed_transaction(query.app(), txn_id)
         raise zkte
 
     startrow = path
@@ -2164,15 +2216,17 @@ class DatastoreDistributed():
     cur = cassandra_stub_util.QueryCursor(query, result)
     cur.PopulateQueryResult(count, query.offset(), query_result) 
 
-  def setup_transaction(self, app_id):
+  def setup_transaction(self, app_id, is_xg):
     """ Gets a transaction ID for a new transaction.
 
     Args:
       app_id: The application for which we are getting a new transaction ID.
+      is_xg: A bool that indicates if this transaction operates over multiple
+        entity groups.
     Returns:
       A long representing a unique transaction ID.
     """
-    return self.zookeeper.getTransactionID(app_id)
+    return self.zookeeper.get_transaction_id(app_id, is_xg)
 
   def commit_transaction(self, app_id, http_request_data):
     """ Handles the commit phase of a transaction.
@@ -2187,11 +2241,12 @@ class DatastoreDistributed():
     transaction_pb = datastore_pb.Transaction(http_request_data)
     txn_id = transaction_pb.handle()
     try:
-      self.zookeeper.releaseLock(app_id, txn_id)
+      self.zookeeper.release_lock(app_id, txn_id)
       return (commitres_pb.Encode(), 0, "")
     except ZKTransactionException, zkte:
-      print "Concurrent transaction exception %s" % zkte
-      self.zookeeper.notifyFailedTransaction(app_id, txn_id)
+      logging.info("Concurrent transaction exception for app id {0}, " \
+        "transaction id {1}, info {2}".format(app_id, txn_id, str(zkte)))
+      self.zookeeper.notify_failed_transaction(app_id, txn_id)
       return (commitres_pb.Encode(), 
               datastore_pb.Error.PERMISSION_DENIED, 
               "Unable to commit for this transaction %s" % str(zkte))
@@ -2206,12 +2261,14 @@ class DatastoreDistributed():
       An encoded protocol buffer void response.
     """
     txn = datastore_pb.Transaction(http_request_data)
-    print "rollback_transaction: Doing a rollback on txn id: %d" % txn.handle()
+    logging.info("Doing a rollback on transaction id {0} for app id {1}"
+      .format(txn.handle(), app_id))
     try:
-      self.zookeeper.notifyFailedTransaction(app_id, txn.handle())
+      self.zookeeper.notify_failed_transaction(app_id, txn.handle())
       return (api_base_pb.VoidProto().Encode(), 0, "")
     except ZKTransactionException, zkte:
-      print "Concurrent transaction exception %s" % zkte
+      logging.info("Concurrent transaction exception for app id {0}, " \
+        "transaction id {1}, info {2}".format(app_id, txn_id, str(zkte)))
       return (api_base_pb.VoidProto().Encode(), 
               datastore_pb.Error.PERMISSION_DENIED, 
               "Unable to rollback for this transaction: %s" % str(zkte))
@@ -2312,7 +2369,7 @@ class MainHandler(tornado.web.RequestHandler):
       response, errcode, errdetail = self.run_query(http_request_data)
     elif method == "BeginTransaction":
       response, errcode, errdetail = self.begin_transaction_request(
-                                                      app_id)
+                                                      app_id, http_request_data)
     elif method == "Commit":
       response, errcode, errdetail = self.commit_transaction_request(
                                                       app_id,
@@ -2359,7 +2416,7 @@ class MainHandler(tornado.web.RequestHandler):
 
     self.write(apiresponse.Encode())
 
-  def begin_transaction_request(self, app_id):
+  def begin_transaction_request(self, app_id, http_request_data):
     """ Handles the intial request to start a transaction. Replies with 
         a unique identifier to handle this transaction in future requests.
   
@@ -2370,8 +2427,13 @@ class MainHandler(tornado.web.RequestHandler):
       An encoded transaction protocol buffer with a unique handler.
     """
     global datastore_access
+    begin_transaction_req_pb = datastore_pb.BeginTransactionRequest(http_request_data)
+    multiple_eg = False
+    if begin_transaction_req_pb.has_allow_multiple_eg():
+      multiple_eg = begin_transaction_req_pb.allow_multiple_eg()
+
     transaction_pb = datastore_pb.Transaction()
-    handle = datastore_access.setup_transaction(app_id)
+    handle = datastore_access.setup_transaction(app_id, multiple_eg)
     transaction_pb.set_app(app_id)
     transaction_pb.set_handle(handle)
     return (transaction_pb.Encode(), 0, "")
@@ -2401,7 +2463,8 @@ class MainHandler(tornado.web.RequestHandler):
     try:
       return datastore_access.rollback_transaction(app_id, http_request_data)
     except Exception, exception:
-      print "Error trying to rollback with exception: %s" % exception
+      logging.info("Error trying to rollback with exception {0}".format(
+        str(exception)))
       return(api_base_pb.VoidProto().Encode(), 
              datastore_pb.Error.PERMISSION_DENIED, 
              "Unable to rollback for this transaction")
@@ -2457,15 +2520,16 @@ class MainHandler(tornado.web.RequestHandler):
     """ 
     global datastore_access
     putreq_pb = datastore_pb.PutRequest(http_request_data)
-    putresp_pb = datastore_pb.PutResponse( )
+    putresp_pb = datastore_pb.PutResponse()
  
     try:
       datastore_access.dynamic_put(app_id, putreq_pb, putresp_pb)
     except ZKTransactionException, zkte:
-      print "Concurrent transaction exception %s" % zkte
+      logging.info("Concurrent transaction exception for app id {0}, " \
+        "info {1}".format(app_id, str(zkte)))
       return (putresp_pb.Encode(), 
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
-              "Concurrent transaction exception.")
+              "Concurrent transaction exception on put.")
       
     return (putresp_pb.Encode(), 0, "")
     
@@ -2496,7 +2560,14 @@ class MainHandler(tornado.web.RequestHandler):
     global datastore_access
     delreq_pb = datastore_pb.DeleteRequest( http_request_data )
     delresp_pb = api_base_pb.VoidProto() 
-    datastore_access.dynamic_delete(app_id, delreq_pb)
+    try:
+      datastore_access.dynamic_delete(app_id, delreq_pb)
+    except ZKTransactionException, zkte:
+      logging.info("Concurrent transaction exception for app id {0}, " \
+        "info {1}".format(app_id, str(zkte)))
+      return (delresp_pb.Encode(), 
+              datastore_pb.Error.CONCURRENT_TRANSACTION, 
+              "Concurrent transaction exception on delete.")
     return (delresp_pb.Encode(), 0, "")
 
 def usage():

@@ -1,4 +1,3 @@
-from boto.ec2.spotpricehistory import SpotPriceHistory
 from agents.factory import InfrastructureAgentFactory
 from boto.ec2.connection import EC2Connection
 from boto.ec2.instance import Reservation, Instance
@@ -15,9 +14,12 @@ except ImportError:
   from unittest.case import TestCase
 
 
-class TestEucaAgent(TestCase):
+__author__ = 'hiranya'
+__email__ = 'hiranya@appscale.com'
 
-  def test_euca_run_instances(self):
+class TestEC2Agent(TestCase):
+
+  def test_ec2_run_instances(self):
     i = InfrastructureManager(blocking=True)
 
     # first, validate that the run_instances call goes through successfully
@@ -27,11 +29,12 @@ class TestEucaAgent(TestCase):
                       'EC2_ACCESS_KEY': 'access_key', 'EC2_SECRET_KEY': 'secret_key'},
       'group': 'boogroup',
       'image_id': 'booid',
-      'infrastructure': 'euca',
+      'infrastructure': 'ec2',
       'instance_type': 'booinstance_type',
       'keyname': 'bookeyname',
-      'num_vms': '2',
-      'use_spot_instances': False,
+      'num_vms': '1',
+      'use_spot_instances': 'True',
+      'max_spot_price' : '1.23'
     }
 
     id = '0000000000'  # no longer randomly generated
@@ -46,10 +49,9 @@ class TestEucaAgent(TestCase):
     # updating its reservation info
     self.assertEquals(InfrastructureManager.STATE_RUNNING, i.reservations.get(id)['state'])
     vm_info = i.reservations.get(id)['vm_info']
-    self.assertEquals(['ABC-public-ip1', 'DEF-public-ip2'], vm_info['public_ips'])
-    self.assertEquals(['DEF-private-ip1', 'ABC-private-ip2'], vm_info['private_ips'])
-    self.assertEquals(['i-id1', 'i-id2'], vm_info['instance_ids'])
-
+    self.assertEquals(['public-ip'], vm_info['public_ips'])
+    self.assertEquals(['private-ip'], vm_info['private_ips'])
+    self.assertEquals(['i-id'], vm_info['instance_ids'])
 
   def setUp(self):
     (flexmock(EC2Connection)
@@ -70,32 +72,22 @@ class TestEucaAgent(TestCase):
       .should_receive('authorize_security_group')
       .and_return())
     reservation = Reservation()
-
-    # the old implementation had a regression where public and private IPs
-    # were getting sorted, and thus public ip1 would point to private ip 2.
-    # to prevent this regression from resurfacing, set up the dns names so
-    # that a sort would mess them up again.
-    instance1 = Instance()
-    instance1.public_dns_name = 'ABC-public-ip1'
-    instance1.private_dns_name = 'DEF-private-ip1'
-    instance1.id = 'i-id1'
-    instance1._state.name = 'running'
-    instance1.key_name = 'bookeyname'
-
-    instance2 = Instance()
-    instance2.public_dns_name = 'DEF-public-ip2'
-    instance2.private_dns_name = 'ABC-private-ip2'
-    instance2.id = 'i-id2'
-    instance2._state.name = 'running'
-    instance2.key_name = 'bookeyname'
-
-    reservation.instances = [instance1, instance2]
+    instance = Instance()
+    instance.private_dns_name = 'private-ip'
+    instance.public_dns_name = 'public-ip'
+    instance.id = 'i-id'
+    instance._state.name = 'running'
+    instance.key_name = 'bookeyname'
+    reservation.instances = [instance]
     (flexmock(EC2Connection)
       .should_receive('get_all_instances')
       .and_return([])
       .and_return([reservation]))
     (flexmock(EC2Connection)
-     .should_receive('run_instances')
+      .should_receive('terminate_instances')
+      .and_return([instance]))
+    (flexmock(EC2Connection)
+     .should_receive('request_spot_instances')
      .and_return())
 
     (flexmock(utils)
