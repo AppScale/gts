@@ -113,7 +113,8 @@ end
 namespace :appserver do
 
   task :test do
-    sh "nosetests AppServer/google/appengine/api/taskqueue/test"
+    sh "nosetests AppServer/google/appengine/api/taskqueue/test " +
+      "AppServer/google/appengine/api/xmpp/test"
   end
 
 end

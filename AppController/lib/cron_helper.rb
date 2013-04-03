@@ -8,7 +8,9 @@ include REXML
 # standard cron jobs.
 module CronHelper
 
-
+  NTP_SYNC_CRON = "*/5 * * * * /root/appscale/ntp.sh"
+  NO_EMAIL_CRON = 'MAILTO=\"\"'
+  
   def self.update_cron(ip, lang, app)
     Djinn.log_debug("saw a cron request with args [#{ip}][#{lang}][#{app}]") 
 
@@ -70,13 +72,20 @@ module CronHelper
   end
 
   def self.clear_crontab
-    `crontab -r`  
+    `crontab -r`
+    #After clearing, make sure we still have our time sync job
+    self.add_line_to_crontab(NO_EMAIL_CRON)
+    self.add_line_to_crontab(NTP_SYNC_CRON)  
   end
 
   private
 
   def self.add_line_to_crontab(line)
-    `(crontab -l ; echo "#{line}") | crontab -`
+    `rm crontab.tmp`
+    `crontab -l >> crontab.tmp`
+    `echo "#{line}" >> crontab.tmp`
+    `crontab crontab.tmp`
+    `rm crontab.tmp`
   end
 
   def self.fix_ords(ords)

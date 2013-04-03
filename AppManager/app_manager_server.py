@@ -43,7 +43,8 @@ REQUIRED_CONFIG_FIELDS = ['app_name',
                           'load_balancer_ip', 
                           'load_balancer_port', 
                           'xmpp_ip',
-                          'dblocations']
+                          'dblocations',
+                          'env_vars']
 
 # The web path to fetch to see if the application is up
 FETCH_PATH = '/_ah/health_check'
@@ -87,6 +88,8 @@ def start_app(config):
        load_balancer_port: Port of load balancer
        xmpp_ip: IP of XMPP service 
        dblocations: List of database locations 
+       env_vars: A dict of environment variables that should be passed to the
+        app.
   Returns:
     PID of process on success, -1 otherwise
   """
@@ -104,7 +107,7 @@ def start_app(config):
 
   start_cmd = ""
   stop_cmd = ""
-  env_vars = {}
+  env_vars = config['env_vars']
   watch = "app___" + config['app_name']
  
   if config['language'] == constants.PYTHON or \
@@ -120,9 +123,9 @@ def start_app(config):
                             config['language'])
     logging.info(start_cmd)
     stop_cmd = create_python_stop_cmd(config['app_port'], config['language'])
-    env_vars = create_python_app_env(config['load_balancer_ip'], 
+    env_vars.update(create_python_app_env(config['load_balancer_ip'],
                             config['load_balancer_port'], 
-                            config['app_name'])
+                            config['app_name']))
   elif config['language'] == constants.JAVA:
     copy_successful = copy_modified_jars(config['app_name'])
     if not copy_successful:
@@ -133,7 +136,7 @@ def start_app(config):
                             config['load_balancer_port'],
                             config['dblocations'])
     stop_cmd = create_java_stop_cmd(config['app_port'])
-    env_vars = create_java_app_env()
+    env_vars.update(create_java_app_env())
   else:
     logging.error("Unknown application language %s for appname %s"\
                   %(config['language'], config['app_name'])) 

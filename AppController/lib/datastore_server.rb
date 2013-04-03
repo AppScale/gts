@@ -12,12 +12,6 @@ require 'helperfunctions'
 module DatastoreServer
 
 
-  # As DatastoreServers are single-threaded, we run more than one and put
-  # nginx in front of it to load balance requests. This constant
-  # indicates how many DatastoreServers should be run on each node.
-  NUM_DATASTORESERVERS = 1
-
-
   # The first port that should be used to host DatastoreServers.
   STARTING_PORT = 4000
 
@@ -41,6 +35,9 @@ module DatastoreServer
   # we write its configuration files.
   NAME = "as_datastore_server"
 
+  # If we fail to get the number of processors we set our default number of 
+  # datastore servers to this value.
+  DEFAULT_NUM_SERVERS = 3
 
   # Starts a Datastore Server on this machine. We don't want to monitor
   # it ourselves, so just tell god to start it and watch it.
@@ -79,9 +76,21 @@ module DatastoreServer
   end
 
 
+  # Number of servers is based on the number of CPUs.
+  def self.number_of_servers()
+    # If this is NaN then it returns 0
+    num_procs = `cat /proc/cpuinfo | grep processor | wc -l`.to_i
+    if num_procs == 0
+      return DEFAULT_NUM_SERVERS
+    else 
+      return num_procs
+    end
+  end
+
+
   # Returns a list of ports that should be used to host DatastoreServers.
   def self.get_server_ports(table)
-    num_datastore_servers = NUM_DATASTORESERVERS
+    num_datastore_servers = self.number_of_servers()
 
     server_ports = []
     num_datastore_servers.times { |i|

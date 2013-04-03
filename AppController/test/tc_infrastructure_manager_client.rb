@@ -37,7 +37,9 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'instance_type' => 'booinstancetype',
         'keyname' => 'bookeyname',
         'num_vms' => '1',
-        'cloud' => 'cloud1'
+        'cloud' => 'cloud1',
+        'use_spot_instances' => true,
+        'max_spot_price' => 1.23
       }).and_return({
         'success' => true,
         'reservation_id' => "0000000000",
@@ -81,7 +83,9 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'keyname' => 'bookeyname',
       'ec2_access_key' => 'booaccess',
       'ec2_secret_key' => 'boosecret',
-      'ec2_url' => 'booec2url'
+      'ec2_url' => 'booec2url',
+      'use_spot_instances' => true,
+      'max_spot_price' => 1.23
     }
   
     expected = ["public-ip:private-ip:open:i-id:cloud1"]
@@ -106,7 +110,9 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'instance_type' => 'booinstancetype',
         'keyname' => 'bookeyname',
         'num_vms' => '3',
-        'cloud' => 'cloud1'
+        'cloud' => 'cloud1',
+        'use_spot_instances' => false,
+        'max_spot_price' => nil
       }).and_return({
         'success' => true,
         'reservation_id' => "0000000000",
@@ -150,7 +156,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'keyname' => 'bookeyname',
       'ec2_access_key' => 'booaccess',
       'ec2_secret_key' => 'boosecret',
-      'ec2_url' => 'booec2url'
+      'ec2_url' => 'booec2url',
+      'use_spot_instances' => false
     }
   
     expected = [

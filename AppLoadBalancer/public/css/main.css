@@ -3135,3 +3135,10 @@ form input.valid {border: 1px solid #9FC569 !important;}
 	width: 50%;
 	margin: 0px auto;
 }
+
+#appConfirm {
+	margin-top: 180px;
+	width: 100%;
+	margin-right: 50%;
+	margin-left: auto;
+}
