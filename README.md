@@ -28,9 +28,11 @@ can use to deploy your Google App Engines to and to perform research on cloud
 platforms. 
 
 
-## Sponsers ##
+## Sponsors ##
 Google
 
-IBM Research (via OCR and X10 Innovation Awards)
+IBM Research
 
-The National Science Foundation
+National Science Foundation
+
+NIH
