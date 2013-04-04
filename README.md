@@ -1,10 +1,10 @@
 ![AppScale Logo](http://www.appscale.com/img/appscale-logo.png)
 
-AppScale is a platform that allows users to deploy and host their own Google 
-App Engine applications. It executes automatically over Amazon EC2, Rackspace,  
-Eucalyptus, CloudStack, OpenStack, as well as Xen, VirtualBox, VMWare, and KVM. 
-It has been developed and is maintained by AppScale Systems, Inc., in 
-Santa Barbara, CA. 
+AppScale is a platform that allows users to deploy and host their 
+own Google App Engine applications. It executes automatically over 
+Amazon EC2, Rackspace, Eucalyptus, CloudStack, OpenStack, as well
+as Xen, VirtualBox, VMWare, and KVM. It has been developed and 
+is maintained by AppScale Systems, Inc., in Santa Barbara, CA. 
 
 It supports the Python, Java, and Go
 Google App Engine platforms.
