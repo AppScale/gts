@@ -1,4 +1,3 @@
-# AppScale #
 ![AppScale Logo](http://www.appscale.com/img/appscale-logo.png)
 
 AppScale is a platform that allows users to deploy and host their own Google 
@@ -29,5 +28,7 @@ platforms.
 
 # Sponsers #
 Google
+
 IBM Research (via OCR and X10 Innovation Awards)
+
 The National Science Foundation
