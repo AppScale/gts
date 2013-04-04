@@ -5,6 +5,8 @@ App Engine applications. It executes automatically over Amazon EC2 and
 Eucalyptus as well as Xen and KVM. It has been developed and is maintained 
 by AppScale Systems, Inc., in Santa Barbara. 
 
+To find out more visit http://appscale.com
+
 It supports the Python, Java, and Go
 Google App Engine platforms.
 
@@ -20,13 +22,13 @@ cloud research: http://groups.google.com/group/appscale_community
 Also, join us on #appscale on freenode if you have questions or just want
 to say hi!
 
-# Why Develop AppScale? #
+## Why Develop AppScale? ##
 Our goal with AppScale is to provide a open-source cloud platform that anyone 
 can use to deploy your Google App Engines to and to perform research on cloud 
 platforms. 
 
 
-# Sponsers #
+## Sponsers ##
 Google
 
 IBM Research (via OCR and X10 Innovation Awards)
