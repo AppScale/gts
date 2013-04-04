@@ -1,5 +1,6 @@
 # AppScale #
 ![AppScale Logo](http://www.appscale.com/img/appscale-logo.png)
+
 AppScale is a platform that allows users to deploy and host their own Google 
 App Engine applications. It executes automatically over Amazon EC2 and 
 Eucalyptus as well as Xen and KVM. It has been developed and is maintained 
