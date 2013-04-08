@@ -54,6 +54,22 @@ class TestGroomer(unittest.TestCase):
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra")
     dsg = flexmock(dsg)
     self.assertEquals(True, dsg.process_entity(FakeEntity()))
+ 
+  def test_process_statics(self):
+    pass
   
+  def test_txn_blacklist_cleanup(self):
+    pass
+  
+  def test_process_tombstone(self):
+    pass
+
+  def test_stop(self):
+    pass
+
+  def test_reset_statistics(self):
+    pass
+
+ 
 if __name__ == "__main__":
   unittest.main()    

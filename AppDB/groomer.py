@@ -1,5 +1,5 @@
 """ This process grooms the datastore cleaning up old state and 
-calculates datastore statistics. Removed tombstoned items for garbage 
+calculates datastore statistics. Removes tombstoned items for garbage 
 collection.
 """
 import logging
@@ -35,13 +35,17 @@ class DatastoreGroomer(threading.Thread):
       table_name: The table used (cassandra, hypertable, etc).
     """
     logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
-      '%(lineno)s %(message)s ', level=logging.INFO)
+      '%(lineno)s %(message)s ', level=logging.DEBUG)
     logging.info("Logging started")
 
     threading.Thread.__init__(self)
     self.zoo_keeper = zoo_keeper
     self.table_name = table_name
     self.stats = {}
+
+  def stop(self):
+    """ Stops the groomer thread. """
+    self.zoo_keeper.close()
 
   def run(self):
     """ Starts the main loop of the groomer thread. """
@@ -68,11 +72,44 @@ class DatastoreGroomer(threading.Thread):
       A list of entities.
     """ 
     return db_access.range_query(dbconstants.APP_ENTITY_TABLE, 
-      dbconstants.APP_ENTITY_SCHEMA, last_key, "", self.BATCH_SIZE)
+      dbconstants.APP_ENTITY_SCHEMA, last_key, "", self.BATCH_SIZE,
+      start_inclusive=False)
 
   def reset_statistics(self):
     """ Reinitializes statistics. """
     self.stats = {}
+
+  def process_tombstone(self, key, entity, version):
+    """ Processes any entities which have been soft deleted. 
+        Does an actual delete to reclaim disk space.
+    Args: 
+      key: The key to the entity table.
+      entity: The entity in string serialized form.
+      version: The version of the entity in the datastore.
+    Returns:
+      True if a hard delete occurred, false otherwise.
+    """
+    return False
+
+  def process_statistics(self, key, entity, version):
+    """ Processes an entity and adds to the global statistics.
+    Args: 
+      key: The key to the entity table.
+      entity: The entity in string serialized form.
+      version: The version of the entity in the datastore.
+    Returns:
+      True on success, False otherwise. 
+    """
+    return True
+
+  def txn_blacklist_cleanup():
+    """ Clean up old transactions and removed unused references
+        to reap storage.
+
+    Returns:
+      True on success, False otherwise.
+    """
+    return True
 
   def process_entity(self, entity):
     """ Processes an entity by updating statistics, indexes, and removes 
@@ -83,9 +120,16 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       True on success, False otherwise.
     """
-    #ent = datastore_pb.EntityProto().ParseFromString(entity)
-    #self.stats[ent.app
-    print entity
+    logging.debug("Process entity {0}".format(str(entity)))
+    key = entity.keys()[0] 
+    entitiy = entity[key][dbconstants.APP_ENTITY_SCHEMA[0]]
+    version = entity[key][dbconstants.APP_ENTITY_SCHEMA[1]]
+
+    if entity == datastore_server.TOMBSTONE:
+      return process_tombstone(key, entity, version)
+       
+    process_statistics(key, entity, version)
+
     return True
 
   def run_groomer(self):
@@ -101,12 +145,15 @@ class DatastoreGroomer(threading.Thread):
       db_access = appscale_datastore_batch.DatastoreFactory.getDatastore(
         self.table_name)
       entities = self.get_entity_batch(db_access, last_key=last_key)
+
       if not entities:
         break
+
       for entity in entities:
-        print entity
         self.process_entity(entity)
-      # TODO update last_key
+
+      last_key = entities[-1].keys()[0]
+
     logging.debug("Groomer stopped")
     return True
 
@@ -117,8 +164,10 @@ def main():
   db_info = appscale_info.get_db_info()
   table = db_info[':table']
   ds_groomer = DatastoreGroomer(zookeeper, table)
-  ds_groomer.run_groomer()
+  try:
+    ds_groomer.run_groomer()
+  finally:
+    zookeeper.close()
 
 if __name__ == "__main__":
   main()
-
