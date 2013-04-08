@@ -79,7 +79,8 @@ installnumpy()
     cd numpy-1.7.0
     /usr/local/Python-2.7.3/python setup.py install
     cd ..
-    rm appscale-numpy.tar.gz
+    #rm appscale-numpy.tar.gz
+    rm numpy-1.7.0.tar.gz
     #rm -fdr  numpy
     rm -fdr numpy-1.7.0
 }
