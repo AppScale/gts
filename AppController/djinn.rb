@@ -2988,7 +2988,7 @@ HOSTS
         maybe_start_taskqueue_worker(app)
 
         if my_node.is_shadow?
-          CronHelper.update_cron(my_public, app_language, app)
+          CronHelper.update_cron(my_public, @nginx_port, app_language, app)
           start_xmpp_for_app(app, app_language)
         end
         app_number = @nginx_port - Nginx::START_PORT
