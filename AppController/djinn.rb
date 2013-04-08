@@ -810,7 +810,7 @@ class Djinn
     return "OK"
   end
 
-  def restart_apps(apps_to_restart, secret)
+  def restart_apps_on_all_nodes(apps_to_restart, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
