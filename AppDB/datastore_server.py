@@ -2645,6 +2645,7 @@ def main(argv):
       pass
     except KeyboardInterrupt:
       print "Server interrupted by user, terminating..."
+      zookeeper.close()
       exit(1)
 
 if __name__ == '__main__':
