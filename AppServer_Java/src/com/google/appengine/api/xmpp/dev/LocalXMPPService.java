@@ -38,7 +38,6 @@ public final class LocalXMPPService extends AbstractLocalRpcService
   public static String UASERVER;
   public static String UASECRET;
   public static String USERNAME;
-  private AppScaleXMPPClient xmppClient;
   
 
   public void start()
@@ -56,16 +55,6 @@ public final class LocalXMPPService extends AbstractLocalRpcService
       DOMAIN = properties.get("LOGIN_SERVER");
       UASERVER = "https://" + properties.get("DB_LOCATION");
       USERNAME = APPID;
-      xmppClient = new AppScaleXMPPClient();
-      try
-      { 
-          xmppClient.login(USERNAME, UASECRET, DOMAIN, XMPP_PORT);
-      }
-      catch(XMPPException e)
-      {
-          logger.severe("Failed to login to ejabberd, exception: " + e.getMessage());
-          e.printStackTrace();
-      }
   }
 
   public String getPackage()
@@ -75,7 +64,11 @@ public final class LocalXMPPService extends AbstractLocalRpcService
 
   @LatencyPercentiles(latency50th=50)
   public XMPPServicePb.PresenceResponse getPresence(LocalRpcService.Status status, XMPPServicePb.PresenceRequest request) {
-    
+    AppScaleXMPPClient xmppClient = new AppScaleXMPPClient();
+    xmppClient.setUserName(USERNAME);
+    xmppClient.setPassword(UASECRET);
+    xmppClient.setUrl(DOMAIN);
+    xmppClient.setPort(XMPP_PORT); 
     XMPPServicePb.PresenceResponse response = new XMPPServicePb.PresenceResponse();
     String requestedUser = request.getJid();
     boolean available =  xmppClient.getPresence(requestedUser, DOMAIN);
@@ -86,6 +79,11 @@ public final class LocalXMPPService extends AbstractLocalRpcService
 
   @LatencyPercentiles(latency50th=40)
   public XMPPServicePb.XmppMessageResponse sendMessage(LocalRpcService.Status status, XMPPServicePb.XmppMessageRequest request) {
+    AppScaleXMPPClient xmppClient = new AppScaleXMPPClient();
+    xmppClient.setUserName(USERNAME);
+    xmppClient.setPassword(UASECRET);
+    xmppClient.setUrl(DOMAIN);
+    xmppClient.setPort(XMPP_PORT);
     XMPPServicePb.XmppMessageResponse response = new XMPPServicePb.XmppMessageResponse();
     for (String jid : request.jids()) 
     {
@@ -114,6 +112,11 @@ public final class LocalXMPPService extends AbstractLocalRpcService
 
   @LatencyPercentiles(latency50th=4)
   public XMPPServicePb.XmppSendPresenceResponse sendPresence(LocalRpcService.Status status, XMPPServicePb.XmppSendPresenceRequest request) {
+    AppScaleXMPPClient xmppClient = new AppScaleXMPPClient();
+    xmppClient.setUserName(USERNAME);
+    xmppClient.setPassword(UASECRET);
+    xmppClient.setUrl(DOMAIN);
+    xmppClient.setPort(XMPP_PORT);
     try
     {
         xmppClient.sendPresence(request.getJid(), request.getFromJid(), request.getStatus(), request.getType(), request.getShow());

@@ -101,6 +101,8 @@ EXTRA_PATHS = [
   '/usr/local/lib/python2.6/dist-packages/SOAPpy-0.12.5-py2.6.egg',
   '/root/appscale/AppServer/google/appengine/api/SOAPpy/',
   '/usr/local/lib/python2.6/dist-packages/termcolor-1.1.0-py2.6.egg'
+  '/usr/local/lib/python2.6/dist-packages/lxml-3.1.1-py2.6-linux-x86_64.egg',
+  '/usr/lib/python2.6/dist-packages/',
 ]
 
 API_SERVER_EXTRA_PATHS = [
