@@ -154,11 +154,11 @@ apt-get -y remove consolekit
 
 if [ $1 ]; then
     echo "Installing AppScale with $1 as the only supported database."
-    bash debian/appscale_install.sh core
-    bash debian/appscale_install.sh $1
+    bash debian/appscale_install.sh core || exit 1
+    bash debian/appscale_install.sh $1 || exit 1
 else
     echo "Installing full AppScale image"
-    bash debian/appscale_install.sh all
+    bash debian/appscale_install.sh all || exit 1
 fi
 
 mkdir -p $APPSCALE_HOME_RUNTIME/.appscale/certs
