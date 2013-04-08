@@ -106,6 +106,11 @@ class Djinn
   attr_accessor :apps_loaded
 
 
+  # An Array of Strings, each of which corresponding to the name of an App
+  # Engine app that should be restarted on this node.
+  attr_accessor :apps_to_restart
+
+
   # A boolean that is used to let remote callers know when this AppController
   # is done initializing itself, but not necessarily done starting or 
   # stopping roles.
@@ -366,6 +371,7 @@ class Djinn
     @creds = {}
     @app_names = []
     @apps_loaded = []
+    @apps_to_restart = []
     @kill_sig_received = false
     @done_initializing = false
     @done_loading = false
@@ -793,16 +799,36 @@ class Djinn
       return BAD_SECRET_MSG
     end
     
+    Djinn.log_debug("Received request to update with apps: [#{app_names.join(', ')}]")
+    current_apps_uploaded = @apps_loaded
     apps = @app_names - app_names + app_names
+    apps.uniq!
+    Djinn.log_debug("Will set apps to: [#{apps.join(', ')}]")
     
+    # first, start any new apps
     @nodes.each_index { |index|
       ip = @nodes[index].private_ip
       acc = AppControllerClient.new(ip, @@secret)
       result = acc.set_apps(apps)
-      Djinn.log_debug("Update #{ip} returned #{result} (#{result.class})")
+      Djinn.log_debug("Load apps at #{ip} returned #{result} (#{result.class})")
       @everyone_else_is_done = false if !result
     }
 
+    # next, restart any apps that have a new app uploaded
+    apps_to_restart = current_apps_uploaded & app_names
+    Djinn.log_debug("apps to restart is #{apps_to_restart}, of class #{apps_to_restart.class}")
+    if !apps_to_restart.empty?
+      @nodes.each_index { |index|
+        ip = @nodes[index].private_ip
+        Djinn.log_debug("Making SOAP call to #{ip}")
+        acc = AppControllerClient.new(ip, @@secret)
+        result = acc.set_apps_to_restart(apps_to_restart)
+        Djinn.log_debug("Restart apps at #{ip} returned #{result} (#{result.class})")
+        @everyone_else_is_done = false if !result
+      }
+    end
+
+    Djinn.log_debug("Done updating apps!")
     # now that another app is running we can take out 'none' from the list
     # if it was there (e.g., run-instances with no app given)
     @app_names = @app_names - ["none"]
@@ -810,10 +836,15 @@ class Djinn
     return "OK"
   end
 
-  def restart_apps_on_all_nodes(apps_to_restart, secret)
+  def set_apps_to_restart(apps_to_restart, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
+
+    @apps_to_restart += apps_to_restart
+    Djinn.log_debug("apps to restart is now [#{@apps_to_restart.join(', ')}]")
+
+    return "OK"
   end
 
   def get_all_public_ips(secret)
@@ -878,9 +909,27 @@ class Djinn
 
       # TODO: consider only calling this if new apps are found
       start_appengine
+      restart_appengine_apps
       scale_appservers
       Kernel.sleep(20)
     end
+  end
+
+
+  def restart_appengine_apps
+    # call the app manager here
+    app_manager = AppManagerClient.new()
+    apps = @apps_to_restart
+    Djinn.log_debug("Restarting these apps: [#{@apps_to_restart.join(', ')}]")
+    apps.each { |app_name|
+      # TODO(cgb): Get the new version of the app and start it up
+
+      Djinn.log_debug("Killing all apps hosting application #{app_name}")
+      result = app_manager.kill_app_instances_for_app(app_name)
+      @apps_to_restart.delete(app_name)
+    }
+
+    Djinn.log_debug("@apps to restart are now #{@apps_to_restart.join(', ')}")
   end
 
 

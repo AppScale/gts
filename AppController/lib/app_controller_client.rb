@@ -62,6 +62,7 @@ class AppControllerClient
     @conn = SOAP::RPC::Driver.new("https://#{@ip}:17443")
     @conn.add_method("set_parameters", "djinn_locations", "database_credentials", "app_names", "secret")
     @conn.add_method("set_apps", "app_names", "secret")
+    @conn.add_method("set_apps_to_restart", "apps_to_restart", "secret")
     @conn.add_method("status", "secret")
     @conn.add_method("get_stats", "secret")
     @conn.add_method("update", "app_names", "secret")
@@ -271,5 +272,10 @@ class AppControllerClient
       @conn.get_queues_in_use(@secret)
     }
   end
-end
 
+  def set_apps_to_restart(app_names)
+    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "restart_apps") { 
+      @conn.set_apps_to_restart(app_names, @secret)
+    }
+  end
+end

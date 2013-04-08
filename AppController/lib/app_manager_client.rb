@@ -35,6 +35,7 @@ class AppManagerClient
     @conn.add_method("start_app", "config")
     @conn.add_method("stop_app", "app_name")
     @conn.add_method("stop_app_instance", "app_name", "port")
+    @conn.add_method("kill_app_instances_for_app", "app_name")
   end
 
   # Make a SOAP call out to the AppManager. 
@@ -156,6 +157,14 @@ class AppManagerClient
     result = ""
     make_call(MAX_TIME_OUT, false, "stop_app") {
       result = @conn.stop_app(app_name)
+    }
+    return result
+  end
+
+  def kill_app_instances_for_app(app_name)
+    result = ""
+    make_call(MAX_TIME_OUT, false, "kill_app_instances_for_app") {
+      result = @conn.kill_app_instances_for_app(app_name)
     }
     return result
   end
