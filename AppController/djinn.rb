@@ -810,6 +810,12 @@ class Djinn
     return "OK"
   end
 
+  def restart_apps(apps_to_restart, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+  end
+
   def get_all_public_ips(secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
