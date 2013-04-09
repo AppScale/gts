@@ -38,7 +38,7 @@ sethosts()
     cp -v /etc/hosts /etc/hosts.orig
     HOSTNAME=`hostname`
     echo "Generating /etc/hosts"
-    cat <<EOF | tee /etc/hosts || exit 1
+    cat <<EOF | tee /etc/hosts
 127.0.0.1       localhost localhost.localdomain
 127.0.1.1 $HOSTNAME
 ::1     ip6-localhost ip6-loopback
@@ -61,7 +61,7 @@ setupntpcron()
 installpython27()
 {
     cd /usr/local
-    wget http://appscale-build.s3-website-us-east-1.amazonaws.com/Python-2.7.3.tgz
+    wget http://s3.amazonaws.com/appscale-build/Python-2.7.3.tgz
     tar zxvf Python-2.7.3.tgz
     rm /usr/local/Python-2.7.3.tgz
 }
@@ -70,20 +70,20 @@ installnumpy()
 {
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://appscale-build.s3-website-us-east-1.amazonaws.com/appscale-numpy.tar.gz
-    tar zxvf appscale-numpy.tar.gz
-    cd numpy
+    wget http://s3.amazonaws.com/appscale-build/appscale-numpy-1.7.0.tar.gz
+    tar zxvf appscale-numpy-1.7.0.tar.gz
+    cd numpy-1.7.0
     /usr/local/Python-2.7.3/python setup.py install
     cd ..
-    rm appscale-numpy.tar.gz
-    rm -fdr  numpy
+    rm appscale-numpy-1.7.0.tar.gz
+    rm -fdr numpy-1.7.0
 }
 
 installmatplotlib()
 {
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://appscale-build.s3-website-us-east-1.amazonaws.com/matplotlib-1.2.0.tar.gz
+    wget http://s3.amazonaws.com/appscale-build/matplotlib-1.2.0.tar.gz
     tar zxvf matplotlib-1.2.0.tar.gz
     cd matplotlib-1.2.0
     /usr/local/Python-2.7.3/python setup.py install
@@ -95,7 +95,7 @@ installPIL()
 {
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://appscale-build.s3-website-us-east-1.amazonaws.com/Imaging-1.1.7.tar.gz
+    wget http://s3.amazonaws.com/appscale-build/Imaging-1.1.7.tar.gz
     tar zxvf Imaging-1.1.7.tar.gz
     cd Imaging-1.1.7
     /usr/local/Python-2.7.3/python setup.py install
@@ -120,7 +120,7 @@ installxmpppy()
 
 setulimits()
 {
-    cat <<EOF | tee /etc/security/limits.conf || exit 1
+    cat <<EOF | tee /etc/security/limits.conf
 root            hard    nofile           200000
 root            soft    nofile           200000
 *               hard    nofile           200000
@@ -147,7 +147,7 @@ installappscaleprofile()
     DESTFILE=${DESTDIR}/etc/profile.d/appscale.sh
     mkdir -pv $(dirname $DESTFILE)
     echo "Generating $DESTFILE"
-    cat <<EOF | tee $DESTFILE || exit 1
+    cat <<EOF | tee $DESTFILE
 export APPSCALE_HOME=${APPSCALE_HOME_RUNTIME}
 for jpath in\
  /usr/lib/jvm/java-6-openjdk\
@@ -166,7 +166,7 @@ EOF
     DESTFILE=${DESTDIR}/usr/lib/python2.6/dist-packages/appscale_appserver.pth
     mkdir -pv $(dirname $DESTFILE)
     echo "Generating $DESTFILE"
-    cat <<EOF | tee $DESTFILE || exit 1
+    cat <<EOF | tee $DESTFILE
 ${APPSCALE_HOME_RUNTIME}/AppDB
 ${APPSCALE_HOME_RUNTIME}/AppServer
 EOF
@@ -174,7 +174,7 @@ EOF
     DESTFILE=${DESTDIR}/usr/local/lib/python2.6/dist-packages/site_packages.pth
     mkdir -pv $(dirname $DESTFILE)
     echo "Generating $DESTFILE"
-    cat <<EOF | tee $DESTFILE || exit 1
+    cat <<EOF | tee $DESTFILE
 /usr/lib/python2.6/site-packages
 EOF
 
@@ -185,17 +185,17 @@ EOF
 	mkdir -pv ${SITE_DIR}
 	DESTFILE=${SITE_DIR}/pyshared.pth
 	echo "Generating $DESTFILE"
-	cat <<EOF | tee $DESTFILE || exit 1
+	cat <<EOF | tee $DESTFILE
 /usr/share/pyshared
 EOF
 	# enable python imaging native library
 	DESTFILE=${SITE_DIR}/PIL-lib.pth
 	echo "Generating $DESTFILE"
-	cat <<EOF | tee $DESTFILE || exit 1
+	cat <<EOF | tee $DESTFILE
 /usr/lib/python2.6/dist-packages/PIL
 EOF
        # Add fpconst into python2.5
-       cp /usr/lib/pymodules/python2.6/fpconst.py /usr/lib/python2.5/ || exit 1
+       cp /usr/lib/pymodules/python2.6/fpconst.py /usr/lib/python2.5/
     fi
 
     # create link to appscale settings
@@ -211,7 +211,7 @@ EOF
     DESTFILE=${DESTDIR}/etc/appscale/environment.yaml
     mkdir -pv $(dirname $DESTFILE)
     echo "Generating $DESTFILE"
-    cat <<EOF | tee $DESTFILE || exit 1
+    cat <<EOF | tee $DESTFILE
 APPSCALE_HOME: ${APPSCALE_HOME_RUNTIME}
 EC2_HOME: /usr/local/ec2-api-tools
 JAVA_HOME: /usr/lib/jvm/java-6-openjdk
@@ -227,17 +227,17 @@ installthrift_fromsource()
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
     # apache 0.2.0
-    wget http://appscale-build.s3-website-us-east-1.amazonaws.com/thrift-${THRIFT_VER}.tar.gz || exit 1
-    tar zxfv thrift-${THRIFT_VER}.tar.gz || exit 1
+    wget http://s3.amazonaws.com/appscale-build/thrift-${THRIFT_VER}.tar.gz
+    tar zxfv thrift-${THRIFT_VER}.tar.gz
     rm -v thrift-${THRIFT_VER}.tar.gz
     pushd thrift-${THRIFT_VER}
     CONFIG_SHELL=/bin/bash /bin/bash ./configure --without-csharp --without-haskell --without-ocaml --without-php --without-php_extension --prefix=/usr/local
-    make || exit 1
+    make
 # install native library and include files to DESTDIR.
-    make install || exit 1
+    make install
 # python library
     pushd lib/py
-    python setup.py install --prefix=${DESTDIR}/usr || exit 1
+    python setup.py install --prefix=${DESTDIR}/usr
     popd
 
     popd
@@ -253,7 +253,7 @@ postinstallthrift_fromsource()
 
 installthrift()
 {
-    easy_install -U thrift || exit 1
+    easy_install -U thrift
     DISTP=/usr/local/lib/python2.6/dist-packages
     if [ -z "$(find ${DISTP} -name Thrift-*.egg)" ]; then
 	echo "Fail to install python thrift client. Please retry."
@@ -261,7 +261,7 @@ installthrift()
     fi
     if [ -n "$DESTDIR" ]; then
 	mkdir -pv ${DESTDIR}${DISTP}
-	cp -rv ${DISTP}/Thrift-*.egg ${DESTDIR}${DISTP} || exit 1
+	cp -rv ${DISTP}/Thrift-*.egg ${DESTDIR}${DISTP}
     fi
 }
 
@@ -275,8 +275,8 @@ installappserverjava()
 {
     # compile source file.
     cd ${APPSCALE_HOME}/AppServer_Java
-    ant install || exit 1
-    ant clean-build || exit 1
+    ant install
+    ant clean-build
 
     if [ -n "$DESTDIR" ]; then
         # delete unnecessary files.
@@ -295,11 +295,11 @@ installtornado_fromsource()
     cd ${APPSCALE_HOME}/downloads
     rm -rfv tornado
     # download from appscale site
-    wget http://appscale-build.s3-website-us-east-1.amazonaws.com/tornado-0.2.tar.gz || exit 1
-    tar xvzf tornado-0.2.tar.gz || exit 1
+    wget http://s3.amazonaws.com/appscale-build/tornado-0.2.tar.gz
+    tar xvzf tornado-0.2.tar.gz
     pushd tornado-0.2
-    python setup.py build || exit 1
-    python setup.py install --prefix=${DESTDIR}/usr || exit 1
+    python setup.py build
+    python setup.py install --prefix=${DESTDIR}/usr
     popd
     rm -rfv tornado-0.2
     rm -rfv tornado-0.2.tar.gz
@@ -309,7 +309,7 @@ installtornado_fromsource()
 
 installtornado()
 {
-    easy_install -U tornado || exit 1
+    easy_install -U tornado
     DISTP=/usr/local/lib/python2.6/dist-packages
     if [ -z "$(find ${DISTP} -name tornado-*.egg)" ]; then
 	echo "Fail to install python tornado. Please retry."
@@ -317,18 +317,18 @@ installtornado()
     fi
     if [ -n "$DESTDIR" ]; then
 	mkdir -pv ${DESTDIR}${DISTP}
-	cp -rv ${DISTP}/tornado-*.egg ${DESTDIR}${DISTP} || exit 1
+	cp -rv ${DISTP}/tornado-*.egg ${DESTDIR}${DISTP}
     fi
 }
 
 installnose()
 {
-  easy_install nose || exit 1
+  easy_install nose
 }
 
 installflexmock()
 {
-    easy_install flexmock || exit 1
+    easy_install flexmock
 }
 
 postinstalltornado()
@@ -347,27 +347,27 @@ installhaproxy()
     cd ${APPSCALE_HOME}/downloads
     rm -rfv haproxy*
 # download from appscale site
-    wget http://appscale-build.s3-website-us-east-1.amazonaws.com/haproxy-${HAPROXY_VER}.tar.gz || exit 1
-    tar zxvf haproxy-${HAPROXY_VER}.tar.gz || exit 1
+    wget http://s3.amazonaws.com/appscale-build/haproxy-${HAPROXY_VER}.tar.gz
+    tar zxvf haproxy-${HAPROXY_VER}.tar.gz
     rm -v haproxy-${HAPROXY_VER}.tar.gz
 
     pushd haproxy-${HAPROXY_VER}
     # All Ubuntu is linux26 now
-    make TARGET=linux26 || exit 1
-    make install-bin PREFIX=/usr || exit 1
+    make TARGET=linux26
+    make install-bin PREFIX=/usr
     if [ ! -e ${DESTDIR}/usr/sbin/haproxy ]; then
 	echo "Fail to install haproxy. Please retry."
 	exit 1
     fi
     popd
-    rm -rv haproxy-${HAPROXY_VER} || exit 1
+    rm -rv haproxy-${HAPROXY_VER}
 
     # install service script
     mkdir -pv ${DESTDIR}/etc/init.d
-    cp -v ${APPSCALE_HOME}/AppLoadBalancer/config/haproxy-init.sh ${DESTDIR}/etc/init.d/haproxy || exit 1
-    chmod -v a+x ${DESTDIR}/etc/init.d/haproxy || exit 1
+    cp -v ${APPSCALE_HOME}/AppLoadBalancer/config/haproxy-init.sh ${DESTDIR}/etc/init.d/haproxy
+    chmod -v a+x ${DESTDIR}/etc/init.d/haproxy
     mkdir -pv ${DESTDIR}/etc/haproxy
-    cp -v ${APPSCALE_HOME}/AppLoadBalancer/config/haproxy.cfg ${DESTDIR}/etc/haproxy/ || exit 1
+    cp -v ${APPSCALE_HOME}/AppLoadBalancer/config/haproxy.cfg ${DESTDIR}/etc/haproxy/
     mkdir -pv ${DESTDIR}/etc/default
     echo "ENABLED=1" > ${DESTDIR}/etc/default/haproxy
 }
@@ -382,7 +382,7 @@ installtmux()
 {
     # First, install tmux (do it from source to get the newest features)
     cd ${APPSCALE_HOME}
-    wget http://appscale-build.s3-website-us-east-1.amazonaws.com/tmux-1.6.tar.gz
+    wget http://s3.amazonaws.com/appscale-build/tmux-1.6.tar.gz
     tar zxvf tmux-1.6.tar.gz
     cd tmux-1.6
     ./configure
@@ -393,7 +393,7 @@ installtmux()
     
     # Finally, grab our tmux config file and put it in the right place
     cd
-    wget http://appscale-build.s3-website-us-east-1.amazonaws.com/tmux.conf -O .tmux.conf
+    wget http://s3.amazonaws.com/appscale-build/tmux.conf -O .tmux.conf
 }
 
 postinstalltmux()
@@ -413,15 +413,15 @@ installhypertable()
     fi
     gem install titleize
     # extract binary files and repackage it when making deb
-    wget http://appscale-build.s3-website-us-east-1.amazonaws.com/hypertable-${HT_VER}-linux-${ARCH}.deb -O hypertable-${HT_VER}.deb || exit 1
-    dpkg-deb --vextract hypertable-${HT_VER}.deb ${DESTDIR}/ || exit 1
+    wget http://s3.amazonaws.com/appscale-build/hypertable-${HT_VER}-linux-${ARCH}.deb -O hypertable-${HT_VER}.deb
+    dpkg-deb --vextract hypertable-${HT_VER}.deb ${DESTDIR}/
     rm hypertable-${HT_VER}.deb
 
     # enable to load hypertable client of python
     DESTFILE=${DESTDIR}/usr/local/lib/python2.6/dist-packages/hypertable_client.pth
     mkdir -pv $(dirname $DESTFILE)
     echo "Generating $DESTFILE"
-    cat <<EOF | tee $DESTFILE || exit 1
+    cat <<EOF | tee $DESTFILE
 /opt/hypertable/${HT_VER}/lib/py
 /opt/hypertable/${HT_VER}/lib/py/gen-py
 EOF
@@ -448,9 +448,9 @@ installhypertablemonitoring()
     GEMDEST=${DESTDIR}/var/lib/gems/1.8
     GEMOPT="--no-rdoc --no-ri --bindir ${DESTDIR}/usr/bin --install-dir ${GEMDEST}"
     # For hypertable monitoring
-    gem install sinatra rack thin json ${GEMOPT} || exit 1
+    gem install sinatra rack thin json ${GEMOPT}
     cd ${APPSCALE_HOME}/downloads
-    wget http://appscale-build.s3-website-us-east-1.amazonaws.com/rrdtool-1.4.4.tar.gz || exit 1
+    wget http://s3.amazonaws.com/appscale-build/rrdtool-1.4.4.tar.gz
     tar zxvf rrdtool-1.4.4.tar.gz
     cd rrdtool-1.4.4/
     ./configure 
@@ -472,7 +472,7 @@ installgems()
 {
     # install gem here
     cd
-    wget http://appscale-build.s3-website-us-east-1.amazonaws.com/rubygems-1.3.7.tgz || exit 1
+    wget http://s3.amazonaws.com/appscale-build/rubygems-1.3.7.tgz
     tar zxvf rubygems-1.3.7.tgz
     cd rubygems-1.3.7
     ruby setup.rb
@@ -489,28 +489,28 @@ installgems()
     # ZK 1.0 breaks our existing code - upgrade later
     gem install -v=0.9.3 zookeeper
     sleep 1
-    gem install neptune right_aws ${GEMOPT} || exit 1
+    gem install neptune right_aws ${GEMOPT}
     sleep 1
-    gem install god redgreen Ruby-MemCache ${GEMOPT} || exit 1
+    gem install god redgreen Ruby-MemCache ${GEMOPT}
     sleep 1
     #if [ ! -e ${DESTDIR}/usr/bin/god ]; then
     #	echo "Fail to install god. Please Retry."
     #	exit 1
     #fi
-    gem install -v=2.3.4 rails ${GEMOPT} || exit 1
+    gem install -v=2.3.4 rails ${GEMOPT}
     sleep 1
-    gem install gem_plugin mongrel ${GEMOPT} || exit 1
+    gem install gem_plugin mongrel ${GEMOPT}
     sleep 1
-    gem install mongrel_cluster ${GEMOPT} || exit 1
+    gem install mongrel_cluster ${GEMOPT}
     #sleep 1
     #if [ ! -e ${DESTDIR}/usr/bin/mongrel_rails ]; then
     #	echo "Fail to install mongrel rails. Please Retry."
     #	exit 1
     #fi
     # This is for the Hypertable.
-    gem install capistrano ${GEMOPT} || exit 1
+    gem install capistrano ${GEMOPT}
     sleep 1
-    gem install json ${GEMOPT} || exit 1
+    gem install json ${GEMOPT}
     sleep 1
     #if [ ! -e ${DESTDIR}/usr/bin/cap ]; then
     #	echo "Fail to install capistrano. Please Retry."
@@ -520,11 +520,11 @@ installgems()
     # This is for Neptune's Babel App Engine pull queue interface
     # which is just REST, but httparty does such a nice job compared
     # to previously used things
-    gem install -v=0.8.3 httparty ${GEMOPT} || exit 1
+    gem install -v=0.8.3 httparty ${GEMOPT}
 
     # This is for the unit testing framework
-    gem install -v=1.0.4 flexmock ${GEMOPT} || exit 1
-    gem install -v=1.0.0 rcov ${GEMOPT} || exit 1
+    gem install -v=1.0.4 flexmock ${GEMOPT}
+    gem install -v=1.0.0 rcov ${GEMOPT}
 
 }
 
@@ -543,8 +543,8 @@ postinstallgems()
 installmonitoring()
 {
     cd ${APPSCALE_HOME}/AppMonitoring
-    RAILS_ENV=production rake gems:build:force || exit 1
-    RAILS_ENV=production rake db:migrate || exit 1
+    RAILS_ENV=production rake gems:build:force
+    RAILS_ENV=production rake db:migrate
 }
 
 postinstallmonitoring()
@@ -557,15 +557,15 @@ installnginx()
     NGINX_VERSION=1.2.6
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://appscale-build.s3-website-us-east-1.amazonaws.com/nginx-${NGINX_VERSION}.tar.gz || exit 1
-    tar zxvf nginx-${NGINX_VERSION}.tar.gz || exit 1
+    wget http://s3.amazonaws.com/appscale-build/nginx-${NGINX_VERSION}.tar.gz
+    tar zxvf nginx-${NGINX_VERSION}.tar.gz
     rm -v nginx-${NGINX_VERSION}.tar.gz
     pushd nginx-${NGINX_VERSION}
-    wget http://appscale-build.s3-website-us-east-1.amazonaws.com/v0.23rc2.tar.gz || exit 1
-    tar zxvf v0.23rc2.tar.gz || exit 1
-    ./configure --add-module=./chunkin-nginx-module-0.23rc2/ --with-http_ssl_module --with-http_gzip_static_module || exit 1
-    make || exit 1
-    make install || exit 1
+    wget http://s3.amazonaws.com/appscale-build/v0.23rc2.tar.gz
+    tar zxvf v0.23rc2.tar.gz
+    ./configure --add-module=./chunkin-nginx-module-0.23rc2/ --with-http_ssl_module --with-http_gzip_static_module
+    make
+    make install
     popd
     rm -rv nginx-${NGINX_VERSION}
 }
@@ -587,13 +587,13 @@ installhadoop()
     mkdir -pv ${APPSCALE_HOME}/AppDB
     cd ${APPSCALE_HOME}/AppDB
     rm -rfv hadoop-${HADOOP_VER}
-    wget http://appscale-build.s3-website-us-east-1.amazonaws.com/hadoop-${HADOOP_VER}.tar.gz -O hadoop-${HADOOP_VER}.tar.gz || exit 1
-    tar xvzf hadoop-${HADOOP_VER}.tar.gz || exit 1
+    wget http://s3.amazonaws.com/appscale-build/hadoop-${HADOOP_VER}.tar.gz -O hadoop-${HADOOP_VER}.tar.gz
+    tar xvzf hadoop-${HADOOP_VER}.tar.gz
     rm -v hadoop-${HADOOP_VER}.tar.gz
     cd hadoop-${HADOOP_VER}
     DESTFILE=./conf/hadoop-env.sh
     echo "Appending $DESTFILE"
-    cat <<EOF | tee -a $DESTFILE || exit 1
+    cat <<EOF | tee -a $DESTFILE
 . /etc/profile.d/appscale.sh
 export HADOOP_HOME=\${APPSCALE_HOME}/AppDB/hadoop-${HADOOP_VER}
 export HADOOP_HEAPSIZE=2000
@@ -601,17 +601,17 @@ export HADOOP_NAMENODE_USER=root
 EOF
 
     # This patch fixes WrongFS issue
-    patch -p0 -i ../hadoop/patch/hadoop-hbase.patch || exit 1
+    patch -p0 -i ../hadoop/patch/hadoop-hbase.patch
 
     # build new jar
-    ant clean || exit 1
-    ant jar || exit 1
+    ant clean
+    ant jar
     # Use the new jar 
-    cp -v build/hadoop-core-${HADOOP_VER}.jar ./hadoop-core-${HADOOP_VER}.jar || exit 1
+    cp -v build/hadoop-core-${HADOOP_VER}.jar ./hadoop-core-${HADOOP_VER}.jar
     rm -rfv build
 
     # Replace the main script with one that allows hadoop to be run as root
-    cp ../hadoop/templates/hadoop ./bin/ || exit 1
+    cp ../hadoop/templates/hadoop ./bin/
 
     # use precompiled binary
     ARCH=`uname -m`
@@ -644,15 +644,15 @@ installhbase()
     mkdir -pv ${APPSCALE_HOME}/AppDB/hbase
     cd ${APPSCALE_HOME}/AppDB/hbase
     rm -rfv hbase-${HBASE_VER}
-    wget http://appscale-build.s3-website-us-east-1.amazonaws.com/hbase-${HBASE_VER}-rebuilt.tar.gz -O hbase-${HBASE_VER}.tar.gz || exit 1
+    wget http://s3.amazonaws.com/appscale-build/hbase-${HBASE_VER}-rebuilt.tar.gz -O hbase-${HBASE_VER}.tar.gz
 
-    tar zxvf hbase-${HBASE_VER}.tar.gz || exit 1
+    tar zxvf hbase-${HBASE_VER}.tar.gz
     rm -v hbase-${HBASE_VER}.tar.gz
     # Clean out the maven repository
     rm -rfd ~/.m2/
     cd
-    wget http://appscale-build.s3-website-us-east-1.amazonaws.com/maven_repos.tar.gz || exit 1
-    tar zxvf maven_repos.tar.gz  || exit 1
+    wget http://s3.amazonaws.com/appscale-build/maven_repos.tar.gz
+    tar zxvf maven_repos.tar.gz
     rm -rv maven_repos.tar.gz 
     ######
     # What we did to create the tar'ed version of HBase: See AppScale 1.5 
@@ -671,18 +671,18 @@ installcassandra()
     CASSANDRA_VER=1.0.7
     PYCASSA_VER=1.3.0
     cd /lib 
-    wget http://appscale-build.s3-website-us-east-1.amazonaws.com/jamm-0.2.2.jar || exit 1
+    wget http://s3.amazonaws.com/appscale-build/jamm-0.2.2.jar
     
     mkdir -p ${APPSCALE_HOME}/AppDB/cassandra
     cd ${APPSCALE_HOME}/AppDB/cassandra
     rm -rfv cassandra
-    wget http://appscale-build.s3-website-us-east-1.amazonaws.com/apache-cassandra-${CASSANDRA_VER}-bin.tar.gz || exit 1
-    tar xzvf apache-cassandra-${CASSANDRA_VER}-bin.tar.gz || exit 1
+    wget http://s3.amazonaws.com/appscale-build/apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
+    tar xzvf apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
     mv -v apache-cassandra-${CASSANDRA_VER} cassandra
     rm -fv apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
     cd cassandra
     chmod -v +x bin/cassandra
-    cp -v ${APPSCALE_HOME}/AppDB/cassandra/templates/cassandra.in.sh ${APPSCALE_HOME}/AppDB/cassandra/cassandra/bin || exit 1
+    cp -v ${APPSCALE_HOME}/AppDB/cassandra/templates/cassandra.in.sh ${APPSCALE_HOME}/AppDB/cassandra/cassandra/bin
     mkdir -p /var/lib/cassandra
     # TODO only grant the cassandra user access
     chmod 777 /var/lib/cassandra
@@ -703,10 +703,10 @@ installcassandra()
 
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://appscale-build.s3-website-us-east-1.amazonaws.com/pycassa-${PYCASSA_VER}.tar.gz || exit 1
+    wget http://s3.amazonaws.com/appscale-build/pycassa-${PYCASSA_VER}.tar.gz
     tar zxvf pycassa-${PYCASSA_VER}.tar.gz  
     cd pycassa-${PYCASSA_VER}
-    python setup.py install || exit 1
+    python setup.py install
     cd ..
     rm -fdr pycassa-${PYCASSA_VER}
     rm -fdr pycassa-${PYCASSA_VER}.tar.gz 
@@ -725,22 +725,22 @@ installprotobuf_fromsource()
     # install protobuf 2.3.0. we need egg version for python.
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://appscale-build.s3-website-us-east-1.amazonaws.com/protobuf-${PROTOBUF_VER}.tar.gz || exit 1
-    tar zxvf protobuf-${PROTOBUF_VER}.tar.gz || exit 1
+    wget http://s3.amazonaws.com/appscale-build/protobuf-${PROTOBUF_VER}.tar.gz
+    tar zxvf protobuf-${PROTOBUF_VER}.tar.gz
     rm -v protobuf-${PROTOBUF_VER}.tar.gz
     pushd protobuf-${PROTOBUF_VER}
-    ./configure --prefix=/usr || exit 1
-    make || exit 1
-    make check || exit 1
-    make install || exit 1
+    ./configure --prefix=/usr
+    make
+    make check
+    make install
     pushd python
 # protobuf could not be installed in the different root
 #    python setup.py install --prefix=${DESTDIR}/usr
-    python setup.py bdist_egg || exit 1
+    python setup.py bdist_egg
 # copy the egg file
     DISTP=${DESTDIR}/usr/local/lib/python2.6/dist-packages
     mkdir -pv ${DISTP}
-    cp -v dist/protobuf-*.egg ${DISTP} || exit 1
+    cp -v dist/protobuf-*.egg ${DISTP}
     popd
     popd
     rm -rv protobuf-${PROTOBUF_VER}
@@ -788,24 +788,24 @@ installpig()
 {
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://apache.deathculture.net/hadoop/pig/pig-0.5.0/pig-0.5.0.tar.gz || exit 1
-    tar zxvf pig-0.5.0.tar.gz || exit 1
+    wget http://apache.deathculture.net/hadoop/pig/pig-0.5.0/pig-0.5.0.tar.gz
+    tar zxvf pig-0.5.0.tar.gz
     rm -v pig-0.5.0.tar.gz
     cd pig-0.5.0
     mkdir tmp
     cp -v pig-0.5.0-core.jar tmp/
     cd tmp
-    jar xvf pig-0.5.0-core.jar || exit 1
+    jar xvf pig-0.5.0-core.jar
     rm -rfv pig-0.5.0-core.jar
     /bin/cp -fv ~/appscale/AppDB/hadoop-0.20.2/build/classes/org/apache/hadoop/hdfs/* ${APPSCALE_HOME}/downloads/pig-0.5.0/tmp/org/apache/hadoop/hdfs/
     jar cvf ../pig-0.5.0-core.jar ./*
     rm -rfv ./*
-    wget http://appscale-build.s3-website-us-east-1.amazonaws.com/pigtutorial.tar.gz || exit 1
-    tar zxvf pigtutorial.tar.gz || exit 1
+    wget http://s3.amazonaws.com/appscale-build/pigtutorial.tar.gz
+    tar zxvf pigtutorial.tar.gz
     DESTFILE=${DESTDIR}/etc/profile.d/pig.sh
     mkdir -pv $(dirname $DESTFILE)
     echo "Generating $DESTFILE"
-    cat <<EOF | tee $DESTFILE || exit 1
+    cat <<EOF | tee $DESTFILE
 . /etc/profile.d/appscale.sh
 export PIG_CLASSPATH=\$APPSCALE_HOME/downloads/pig-0.5.0/pig-0.5.0-core.jar:\$APPSCALE_HOME/AppDB/hadoop-0.20.2/conf
 EOF
@@ -860,13 +860,13 @@ installzookeeper()
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
 
-    wget http://appscale-build.s3-website-us-east-1.amazonaws.com/zookeeper-${ZK_VER}.tar.gz || exit 1
+    wget http://s3.amazonaws.com/appscale-build/zookeeper-${ZK_VER}.tar.gz
     tar zxvf zookeeper-${ZK_VER}.tar.gz
 
     cd zookeeper-${ZK_VER}
     # build java library
-    ant || exit 1
-    ant compile_jute || exit 1
+    ant
+    ant compile_jute
     #if [ ! -e build/zookeeper-${ZK_VER}.jar ]; then
     #   echo "Fail to make zookeeper java jar. Please retry."
     #   exit 1
@@ -875,11 +875,11 @@ installzookeeper()
     # build c library
     #pushd src/c
     cd src/c
-#    sed -i 's/AM_PATH_CPPUNIT/:;#AM_PATH_CPPUNIT/g' configure.ac || exit 1
-    autoreconf -if || exit 1
-    ./configure --prefix=/usr || exit 1
-    make || exit 1
-    make install || exit 1
+#    sed -i 's/AM_PATH_CPPUNIT/:;#AM_PATH_CPPUNIT/g' configure.ac
+    autoreconf -if
+    ./configure --prefix=/usr
+    make
+    make install
     if [ ! -e ${DESTDIR}/usr/lib/libzookeeper_mt.a ]; then
         echo "Fail to install libzookeeper. Please retry."
         exit 1
@@ -887,39 +887,39 @@ installzookeeper()
     cd ../..
 
     # apply memory leak patch of zkpython TODO check if 3.3.4-cdh3u3 needs it
-    #patch -p0 -i ${APPSCALE_HOME}/AppDB/zkappscale/patch/zkpython-memory.patch || exit 1
+    #patch -p0 -i ${APPSCALE_HOME}/AppDB/zkappscale/patch/zkpython-memory.patch
 
     # python library
     cd src/contrib/zkpython
-    ant install || exit 1
+    ant install
     if [ ! -e /usr/local/lib/python2.6/dist-packages/zookeeper.so ]; then
         echo "Fail to install libzookeeper. Please retry."
         exit 1
     fi
     if [ -n "${DESTDIR}" ]; then
         mkdir -pv ${DESTDIR}/usr/local/lib/python2.6/dist-packages
-        cp -v /usr/local/lib/python2.6/dist-packages/zookeeper.so ${DESTDIR}/usr/local/lib/python2.6/dist-packages/ || exit 1
-        cp -v /usr/local/lib/python2.6/dist-packages/ZooKeeper-* ${DESTDIR}/usr/local/lib/python2.6/dist-packages/ || exit 1
+        cp -v /usr/local/lib/python2.6/dist-packages/zookeeper.so ${DESTDIR}/usr/local/lib/python2.6/dist-packages/
+        cp -v /usr/local/lib/python2.6/dist-packages/ZooKeeper-* ${DESTDIR}/usr/local/lib/python2.6/dist-packages/
     fi
     cd ../../..
 
     # install java library
     mkdir -pv ${DESTDIR}/usr/share/java
-    cp -v build/zookeeper-${ZK_VER2}.jar ${DESTDIR}/usr/share/java || exit 1
-    ln -sfv zookeeper-${ZK_VER2}.jar ${DESTDIR}/usr/share/java/zookeeper.jar || exit 1
+    cp -v build/zookeeper-${ZK_VER2}.jar ${DESTDIR}/usr/share/java
+    ln -sfv zookeeper-${ZK_VER2}.jar ${DESTDIR}/usr/share/java/zookeeper.jar
 
     # install config files and service.
     BASEURL=http://appscale-build.s3-website-us-east-1.amazonaws.com
-    wget ${BASEURL}/zookeeper_3.2.2+dfsg3-3_all.deb -O zookeeper.deb || exit 1
-    dpkg-deb --vextract zookeeper.deb ${DESTDIR}/ || exit 1
+    wget ${BASEURL}/zookeeper_3.2.2+dfsg3-3_all.deb -O zookeeper.deb
+    dpkg-deb --vextract zookeeper.deb ${DESTDIR}/
     rm -v zookeeper.deb
-    wget ${BASEURL}/zookeeperd_3.2.2+dfsg3-3_all.deb -O zookeeperd.deb || exit 1
-    dpkg-deb --vextract zookeeperd.deb ${DESTDIR}/ || exit 1
+    wget ${BASEURL}/zookeeperd_3.2.2+dfsg3-3_all.deb -O zookeeperd.deb
+    dpkg-deb --vextract zookeeperd.deb ${DESTDIR}/
     rm -v zookeeperd.deb
 
     cd ${APPSCALE_HOME}/downloads
-    rm -rv zookeeper-${ZK_VER} || exit 1
-    rm -fdr zookeeper-${ZK_VER}.tar.gz || exit 1
+    rm -rv zookeeper-${ZK_VER}
+    rm -fdr zookeeper-${ZK_VER}.tar.gz
 
     mkdir -pv ${DESTDIR}/var/run/zookeeper
     mkdir -pv ${DESTDIR}/var/lib/zookeeper
@@ -943,27 +943,27 @@ installzookeeper_deb()
 
     # repackage ZooKeeper binary
     BASEURL=http://appscale-build.s3-website-us-east-1.amazonaws.com
-    wget ${BASEURL}/liblog4j1.2-java_1.2.15-11_all.deb -O liblog4j.deb || exit 1
-    dpkg-deb --vextract liblog4j.deb ${DESTDIR}/ || exit 1
+    wget ${BASEURL}/liblog4j1.2-java_1.2.15-11_all.deb -O liblog4j.deb
+    dpkg-deb --vextract liblog4j.deb ${DESTDIR}/
     rm -v liblog4j.deb
-    wget ${BASEURL}/libzookeeper-java_3.2.2+dfsg3-3_all.deb -O libzookeeper-java.deb || exit 1
-    dpkg-deb --vextract libzookeeper-java.deb ${DESTDIR}/ || exit 1
+    wget ${BASEURL}/libzookeeper-java_3.2.2+dfsg3-3_all.deb -O libzookeeper-java.deb
+    dpkg-deb --vextract libzookeeper-java.deb ${DESTDIR}/
     rm -v libzookeeper-java.deb
-    wget ${BASEURL}/libzookeeper2_3.2.2+dfsg3-3_${ARCH}.deb -O libzookeeper2.deb || exit 1
-    dpkg-deb --vextract libzookeeper2.deb ${DESTDIR}/ || exit 1
+    wget ${BASEURL}/libzookeeper2_3.2.2+dfsg3-3_${ARCH}.deb -O libzookeeper2.deb
+    dpkg-deb --vextract libzookeeper2.deb ${DESTDIR}/
     rm -v libzookeeper2.deb
-    wget ${BASEURL}/python-zookeeper_3.2.2+dfsg3-3_${ARCH}.deb -O python-zookeeper.deb || exit 1
-    dpkg-deb --vextract python-zookeeper.deb ${DESTDIR}/ || exit 1
+    wget ${BASEURL}/python-zookeeper_3.2.2+dfsg3-3_${ARCH}.deb -O python-zookeeper.deb
+    dpkg-deb --vextract python-zookeeper.deb ${DESTDIR}/
     rm -v python-zookeeper.deb
 
-    wget ${BASEURL}/zookeeper-bin_3.2.2+dfsg3-3_${ARCH}.deb -O zookeeper-bin.deb || exit 1
-    dpkg-deb --vextract zookeeper-bin.deb ${DESTDIR}/ || exit 1
+    wget ${BASEURL}/zookeeper-bin_3.2.2+dfsg3-3_${ARCH}.deb -O zookeeper-bin.deb
+    dpkg-deb --vextract zookeeper-bin.deb ${DESTDIR}/
     rm -v zookeeper-bin.deb
-    wget ${BASEURL}/zookeeper_3.2.2+dfsg3-3_all.deb -O zookeeper.deb || exit 1
-    dpkg-deb --vextract zookeeper.deb ${DESTDIR}/ || exit 1
+    wget ${BASEURL}/zookeeper_3.2.2+dfsg3-3_all.deb -O zookeeper.deb
+    dpkg-deb --vextract zookeeper.deb ${DESTDIR}/
     rm -v zookeeper.deb
-    wget ${BASEURL}/zookeeperd_3.2.2+dfsg3-3_all.deb -O zookeeperd.deb || exit 1
-    dpkg-deb --vextract zookeeperd.deb ${DESTDIR}/ || exit 1
+    wget ${BASEURL}/zookeeperd_3.2.2+dfsg3-3_all.deb -O zookeeperd.deb
+    dpkg-deb --vextract zookeeperd.deb ${DESTDIR}/
     rm -v zookeeperd.deb
 
     mkdir -pv ${DESTDIR}/var/run/zookeeper
@@ -973,7 +973,7 @@ installzookeeper_deb()
     DESTFILE=${DESTDIR}/usr/local/lib/python2.6/dist-packages/pyshared2.6.pth
     mkdir -pv $(dirname $DESTFILE)
     echo "Generating $DESTFILE"
-    cat <<EOF | tee $DESTFILE || exit 1
+    cat <<EOF | tee $DESTFILE
 /usr/lib/pyshared/python2.6
 EOF
 }
@@ -999,10 +999,10 @@ installsetuptools()
 {
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://appscale-build.s3-website-us-east-1.amazonaws.com/setuptools-0.6c11.tar.gz || exit 1
+    wget http://s3.amazonaws.com/appscale-build/setuptools-0.6c11.tar.gz
     tar zxvf setuptools-0.6c11.tar.gz
     pushd setuptools-0.6c11
-    python setup.py install  || exit 1
+    python setup.py install
     popd
     rm -fdr  setuptools-0.6c11*
 }
@@ -1033,12 +1033,13 @@ installrabbitmq()
    PIKA_VERSION=0.9.9p0
    mkdir -pv ${APPSCALE_HOME}/downloads
    cd ${APPSCALE_HOME}/downloads
-   wget http://appscale-build.s3-website-us-east-1.amazonaws.com/pika-${PIKA_VERSION}.zip || exit 1
+   wget http://s3.amazonaws.com/appscale-build/pika-${PIKA_VERSION}.zip
    unzip pika-${PIKA_VERSION}.zip
    cd pika-master
    cp -r pika /usr/share/pyshared
    cd ..
-   rm -fr pika-${PIKA_VERSION}
+   rm pika-${PIKA_VERSION}.zip
+   rm -fr pika-master
 }
 postinstallrabbitmq()
 {

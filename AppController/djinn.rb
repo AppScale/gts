@@ -3054,7 +3054,6 @@ HOSTS
 
     my_public = my_node.public_ip
     my_private = my_node.private_ip
-
     app_language = app_data.scan(/language:(\w+)/).flatten.to_s
     
     if is_new_app
