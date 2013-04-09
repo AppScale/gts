@@ -909,7 +909,7 @@ installzookeeper()
     ln -sfv zookeeper-${ZK_VER2}.jar ${DESTDIR}/usr/share/java/zookeeper.jar
 
     # install config files and service.
-    BASEURL=http://s3.amazonaws.com/appscale-build
+    BASEURL=http://appscale-build.s3-website-us-east-1.amazonaws.com
     wget ${BASEURL}/zookeeper_3.2.2+dfsg3-3_all.deb -O zookeeper.deb
     dpkg-deb --vextract zookeeper.deb ${DESTDIR}/
     rm -v zookeeper.deb
@@ -942,7 +942,7 @@ installzookeeper_deb()
     fi
 
     # repackage ZooKeeper binary
-    BASEURL=http://s3.amazonaws.com/appscale-build
+    BASEURL=http://appscale-build.s3-website-us-east-1.amazonaws.com
     wget ${BASEURL}/liblog4j1.2-java_1.2.15-11_all.deb -O liblog4j.deb
     dpkg-deb --vextract liblog4j.deb ${DESTDIR}/
     rm -v liblog4j.deb
