@@ -3041,10 +3041,6 @@ HOSTS
     my_public = my_node.public_ip
     my_private = my_node.private_ip
 
-    # TODO(cgb): This is a bug. If the user gives us a python2.7 app but the
-    # userappserver thinks it's python2.5 (e.g., because the last version of
-    # the app was a python2.5 app), then this line causes us to use the wrong
-    # executable to exec the app.
     app_language = app_data.scan(/language:(\w+)/).flatten.to_s
     
     if is_new_app
