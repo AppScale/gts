@@ -128,6 +128,14 @@ namespace :lib do
 
 end
 
+namespace :appdashboard do
+
+  task :test do
+    sh "nosetests AppDashboard/test"
+  end
+
+end
+
 namespace :xmppreceiver do
 
   task :coverage do
@@ -145,4 +153,4 @@ namespace :xmppreceiver do
 
 end
 
-task :default => ['appcontroller:test', 'neptunemanager:test', 'infrastructuremanager:test', 'appmanager:test', 'appdb:test', 'apptaskqueue:test', 'lib:test', 'appserver:test', 'xmppreceiver:test']
+task :default => ['appcontroller:test', 'neptunemanager:test', 'infrastructuremanager:test', 'appmanager:test', 'appdb:test', 'apptaskqueue:test', 'lib:test', 'appserver:test', 'xmppreceiver:test', 'appdashboard:test']
