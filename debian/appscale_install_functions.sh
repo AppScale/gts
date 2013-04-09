@@ -70,7 +70,7 @@ installnumpy()
 {
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget https://s3.amazonaws.com/appscale-build/appscale-numpy-1.7.0.tar.gz
+    wget http://appscale-build.s3-website-us-east-1.amazonaws.com/appscale-numpy-1.7.0.tar.gz
     tar zxvf appscale-numpy-1.7.0.tar.gz
     cd numpy-1.7.0
     /usr/local/Python-2.7.3/python setup.py install
