@@ -4,7 +4,29 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
-The current release is 1.6.8, released on March 13, 2013.
+The current release is 1.6.9, released on April 5, 2013.
+
+Bugs fixed in this release:
+- Cross group (XG) transactions for Python 2.5, Java, and Python 2.7 App Engine apps
+- Java XMPP support
+- Spot instance support when running over Amazon EC2
+- Automatic price estimation algorithm for spot instance support
+- Robustness fixes for ZooKeeper interface
+- Transactional task support for Python App Engine apps
+- Memcache increment / decrement in Java App Engine
+- Fixes for Python App Engine Channel API
+- Have god monitor HAProxy
+- NTP sync for VMs in AppScale deployments
+- 'appscale deploy' now works for relative app paths
+- Deferred task support
+- Increased validation on AppScalefile
+- Rebranded continue URL page
+- "appscale clean" command, to terminate AppScale on all nodes
+- Fixed "submit issue" button on dashboard
+- Added support for environment variables in app.yaml files
+- Starting AppMonitoring service in EC2 correctly
+
+AppScale version 1.6.8 was released on March 13, 2013.
 
 Bugs fixed in this release:
 - Ordered ancestor queries

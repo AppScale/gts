@@ -112,7 +112,7 @@ def txn_store(key, values):
   while tries < MAX_TRIES:
     try:
       root_key, table, appid = get_root_key_table_appid(key)
-      handle = zoo_keeper.getTransactionID(appid)
+      handle = zoo_keeper.get_transaction_id(appid)
       gotLock = zoo_keeper.acquireLock(appid, handle, root_key)
       # Make sure there is no other entity already there
       get_res = db.get_entity(table, key, ENTITY_TABLE_SCHEMA[0])

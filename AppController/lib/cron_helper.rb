@@ -8,8 +8,10 @@ include REXML
 # standard cron jobs.
 module CronHelper
 
-
-  def self.update_cron(ip, lang, app)
+  NTP_SYNC_CRON = "*/5 * * * * /root/appscale/ntp.sh"
+  NO_EMAIL_CRON = 'MAILTO=\"\"'
+  
+  def self.update_cron(ip, port, lang, app)
     Djinn.log_debug("saw a cron request with args [#{ip}][#{lang}][#{app}]") 
 
     if lang == "python" or lang == "python27" or lang == "go"
@@ -24,7 +26,7 @@ module CronHelper
         url = item["url"].scan(/\A(\/[\/\d\w]+)/).flatten.to_s
         schedule = item["schedule"]
         timezone = item["timezone"] # will add support later for this
-        cron_scheds = convert_schedule_to_cron(schedule, url, ip, app)
+        cron_scheds = convert_schedule_to_cron(schedule, url, ip, port, app)
         cron_scheds.each { |line|
         #  cron_info = <<CRON
         #  Description: #{description}
@@ -50,7 +52,7 @@ module CronHelper
         url = get_from_xml(item, "url").scan(/\A(\/[\/\d\w]+)/).flatten.to_s
         schedule = get_from_xml(item, "schedule")
         timezone = get_from_xml(item, "timezone") # will add support later for this
-        cron_scheds = convert_schedule_to_cron(schedule, url, ip, app)
+        cron_scheds = convert_schedule_to_cron(schedule, url, ip, port, app)
         cron_scheds.each { |line|
         #  cron_info = <<CRON
         #  Description: #{description}
@@ -70,13 +72,20 @@ module CronHelper
   end
 
   def self.clear_crontab
-    `crontab -r`  
+    `crontab -r`
+    #After clearing, make sure we still have our time sync job
+    self.add_line_to_crontab(NO_EMAIL_CRON)
+    self.add_line_to_crontab(NTP_SYNC_CRON)  
   end
 
   private
 
   def self.add_line_to_crontab(line)
-    `(crontab -l ; echo "#{line}") | crontab -`
+    `rm crontab.tmp`
+    `crontab -l >> crontab.tmp`
+    `echo "#{line}" >> crontab.tmp`
+    `crontab crontab.tmp`
+    `rm crontab.tmp`
   end
 
   def self.fix_ords(ords)
@@ -147,7 +156,7 @@ module CronHelper
     return cron_lines
   end
 
-  def self.convert_schedule_to_cron(schedule, url, ip, app)
+  def self.convert_schedule_to_cron(schedule, url, ip, port, app)
     cron_lines = []
     simple_format = schedule.scan(/\Aevery (\d+) (hours|mins|minutes)\Z/)
 
@@ -164,8 +173,9 @@ module CronHelper
       end
     end
 
+    secret_hash = Digest::SHA1.hexdigest("#{app}/#{HelperFunctions.get_secret}")
     cron_lines.each { |cron|
-      cron << " curl -k -L http://#{ip}/apps/#{app}#{url} 2>&1 >> /var/apps/#{app}/log/cron.log"
+      cron << " curl -H \"X-Appengine-Cron:true\" -H \"X-AppEngine-Fake-Is-Admin:#{secret_hash}\" -k -L http://#{ip}:#{port}#{url} 2>&1 >> /var/apps/#{app}/log/cron.log"
     }
   end
 
