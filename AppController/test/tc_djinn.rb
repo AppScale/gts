@@ -49,7 +49,7 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(BAD_SECRET_MSG, djinn.get_stats(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.stop_app(@app, @secret))
     assert_equal(BAD_SECRET_MSG, djinn.update([@app], @secret))
-    assert_equal(BAD_SECRET_MSG, djinn.restart_apps_on_all_nodes([@app], @secret))
+    assert_equal(BAD_SECRET_MSG, djinn.set_apps_to_restart([@app], @secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_all_public_ips(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.job_start(@secret))
     assert_equal(BAD_SECRET_MSG, djinn.get_online_users_list(@secret))

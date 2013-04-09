@@ -922,14 +922,9 @@ class Djinn
     apps = @apps_to_restart
     Djinn.log_debug("Restarting these apps: [#{@apps_to_restart.join(', ')}]")
     apps.each { |app_name|
-      # TODO(cgb): Get the new version of the app and start it up
-
-      Djinn.log_debug("Killing all apps hosting application #{app_name}")
-      result = app_manager.kill_app_instances_for_app(app_name)
-      @apps_to_restart.delete(app_name)
+      setup_appengine_application(app, is_new_app=false)
     }
-
-    Djinn.log_debug("@apps to restart are now #{@apps_to_restart.join(', ')}")
+    Djinn.log_debug("@apps_to_restart are now #{@apps_to_restart.join(', ')}")
   end
 
 
@@ -3009,178 +3004,212 @@ HOSTS
     APPS_LOCK.synchronize {
       apps_to_load = @app_names - @apps_loaded - ["none"]
       apps_to_load.each { |app|
-        app_data = uac.get_app_data(app)
-        loop {
-          Djinn.log_debug("Waiting for app data to have instance info for app named #{app}: #{app_data}")
+        setup_appengine_application(app, is_new_app=true)
+      }
+    } # end of synchronize
+  end
 
-          app_data = uac.get_app_data(app)
-          if app_data[0..4] != "Error"
+
+  def setup_appengine_application(app, is_new_app)
+    app_data = uac.get_app_data(app)
+    loop {
+      Djinn.log_debug("Waiting for app data to have instance info for app named #{app}: #{app_data}")
+
+      app_data = uac.get_app_data(app)
+      if app_data[0..4] != "Error"
+        break
+      end
+      Kernel.sleep(5)
+    }
+
+    my_public = my_node.public_ip
+    my_private = my_node.private_ip
+
+    # TODO(cgb): This is a bug. If the user gives us a python2.7 app but the
+    # userappserver thinks it's python2.5 (e.g., because the last version of
+    # the app was a python2.5 app), then this line causes us to use the wrong
+    # executable to exec the app.
+    app_language = app_data.scan(/language:(\w+)/).flatten.to_s
+    
+    if is_new_app
+      @app_info_map[app] = {}
+      @app_info_map[app]['language'] = app_language
+    end
+
+    # TODO: merge these 
+    shadow = get_shadow
+    shadow_ip = shadow.private_ip
+    ssh_key = shadow.ssh_key
+    app_dir = "/var/apps/#{app}/app"
+    app_path = "#{app_dir}/#{app}.tar.gz"
+    FileUtils.mkdir_p(app_dir)
+     
+    if !copy_app_to_local(app)
+      place_error_app(app, "ERROR: Failed to copy app: #{app}")
+    end
+    HelperFunctions.setup_app(app)
+
+    # TODO(cgb): Augment this method to only start tq if is_new_app
+    maybe_start_taskqueue_worker(app)
+
+    # TODO(cgb): Make sure we don't add the same cron lines in twice for the same
+    # app, and only start xmpp if it isn't already started
+    if my_node.is_shadow?
+      CronHelper.update_cron(my_public, app_language, app)
+      start_xmpp_for_app(app, app_language)
+    end
+
+    if is_new_app
+      # TODO(cgb): Extract to a method
+      app_number = @nginx_port - Nginx::START_PORT
+      proxy_port = HAProxy.app_listen_port(app_number)
+      login_ip = get_login.private_ip
+
+      if my_node.is_login? and !my_node.is_appengine?
+        success = Nginx.write_fullproxy_app_config(app, app_number, my_public,
+          my_private, proxy_port, login_ip, get_all_appengine_nodes())
+        if success
+          Nginx.reload
+        else
+          err_msg = "ERROR: Failure to create valid nginx config file" + \
+                    " for application #{app} full proxy."
+          place_error_app(app, err_msg)
+        end
+
+        @app_info_map[app]['nginx'] = @nginx_port
+        @app_info_map[app]['haproxy'] = @haproxy_port
+
+        @nginx_port += 1
+        @haproxy_port += 1
+      end
+    end
+
+
+    if my_node.is_appengine?
+      begin
+        static_handlers = HelperFunctions.parse_static_data(app)
+      rescue Exception => e
+        # This specific exception may be a json parse error
+        error_msg = "ERROR: Unable to parse app.yaml file for #{app}." + \
+                    " Exception of #{e.class} with message #{e.message}" 
+        place_error_app(app, error_msg)
+        static_handlers = []
+      end
+
+      if is_new_app
+        app_number = @nginx_port - Nginx::START_PORT
+      else
+        app_number = @app_info_map[app]['nginx'] - Nginx::START_PORT
+      end
+
+      proxy_port = HAProxy.app_listen_port(app_number)
+      login_ip = get_login.private_ip
+      success = Nginx.write_app_config(app, app_number, my_public, my_private,
+        proxy_port, static_handlers, login_ip)
+      if !success
+        error_msg = "ERROR: Failure to create valid nginx config file " + \
+                    "for application #{app}."
+        place_error_app(app, error_msg)
+      end
+      Collectd.write_app_config(app)
+
+      # send a warmup request to the app to get it loaded - can shave a
+      # number of seconds off the initial request if it's java or go
+      # go provides a default warmup route
+      # TODO: if the user specifies a warmup route, call it instead of /
+      warmup_url = "/"
+
+      if is_new_app
+        @app_info_map[app]['appengine'] = []
+        @num_appengines.times { |index|
+          Djinn.log_debug("Starting #{app_language} app #{app} on " +
+            "#{HelperFunctions.local_ip}:#{@appengine_port}")
+          @app_info_map[app]['appengine'] << @appengine_port
+
+          xmpp_ip = get_login.public_ip
+
+          pid = app_manager.start_app(app, @appengine_port, 
+            get_load_balancer_ip(), @nginx_port, app_language, 
+            xmpp_ip, [Djinn.get_nearest_db_ip(false)],
+            HelperFunctions.get_app_env_vars(app))
+
+          if pid == -1
+            place_error_app(app, "ERROR: Unable to start application " + \
+                "#{app}. Please check the application logs.")
+          end
+
+          pid_file_name = "#{CONFIG_FILE_LOCATION}/#{app}-#{@appengine_port}.pid"
+          HelperFunctions.write_file(pid_file_name, pid)
+
+          @appengine_port += 1
+        }
+      else
+        Djinn.log_debug("Killing all AppServers hosting old version of application #{app}")
+        result = app_manager.kill_app_instances_for_app(app)
+      end
+
+      HAProxy.update_app_config(app, app_number,
+        @app_info_map[app]['appengine'], my_private)
+      Nginx.reload
+      HAProxy.reload
+      Collectd.restart
+
+      if is_new_app
+        loop {
+          Kernel.sleep(5)
+          success = uac.add_instance(app, my_public, @nginx_port)
+          Djinn.log_debug("Add instance returned #{success}")
+          if success
+            # tell ZK that we are hosting the app in case we die, so that
+            # other nodes can update the UserAppServer on its behalf
+            ZKInterface.add_app_instance(app, my_public, @nginx_port)
             break
           end
-          Kernel.sleep(5)
         }
 
-        my_public = my_node.public_ip
-        my_private = my_node.private_ip
-        app_language = app_data.scan(/language:(\w+)/).flatten.to_s
-        
-        @app_info_map[app] = {}
-        @app_info_map[app]['language'] = app_language
+        nginx = @nginx_port
+        haproxy = @haproxy_port
 
-        # TODO: merge these 
-        shadow = get_shadow
-        shadow_ip = shadow.private_ip
-        ssh_key = shadow.ssh_key
-        app_dir = "/var/apps/#{app}/app"
-        app_path = "#{app_dir}/#{app}.tar.gz"
-        FileUtils.mkdir_p(app_dir)
-         
-        if !copy_app_to_local(app)
-          place_error_app(app, "ERROR: Failed to copy app: #{app}")
-        end
-        HelperFunctions.setup_app(app)
+        # Update our local information so that we know later what ports
+        # we're using to host this app on for nginx and haproxy
+        @app_info_map[app]['nginx'] = @nginx_port
+        @app_info_map[app]['haproxy'] = @haproxy_port
 
-        maybe_start_taskqueue_worker(app)
+        login_ip = get_login.public_ip
 
-        if my_node.is_shadow?
-          CronHelper.update_cron(my_public, app_language, app)
-          start_xmpp_for_app(app, app_language)
-        end
-        app_number = @nginx_port - Nginx::START_PORT
-        proxy_port = HAProxy.app_listen_port(app_number)
-        login_ip = get_login.private_ip
+        Thread.new {
+          haproxy_location = "http://#{my_private}:#{haproxy}#{warmup_url}"
+          nginx_location = "http://#{my_public}:#{nginx}#{warmup_url}"
 
-        if my_node.is_login? and !my_node.is_appengine?
-          success = Nginx.write_fullproxy_app_config(app, app_number, my_public,
-            my_private, proxy_port, login_ip, get_all_appengine_nodes())
-          if success
-            Nginx.reload
-          else
-            err_msg = "ERROR: Failure to create valid nginx config file" + \
-                      " for application #{app} full proxy."
-            place_error_app(app, err_msg)
-          end
+          wget_haproxy = "wget #{WGET_OPTIONS} #{haproxy_location}"
+          wget_nginx = "wget #{WGET_OPTIONS} #{nginx_location}"
 
-          @app_info_map[app]['nginx'] = @nginx_port
-          @app_info_map[app]['haproxy'] = @haproxy_port
-
-          @nginx_port += 1
-          @haproxy_port += 1
-        end
-
-
-        if my_node.is_appengine?
-          app_number = @nginx_port - Nginx::START_PORT
-          start_port = HelperFunctions::APP_START_PORT
-          begin
-            static_handlers = HelperFunctions.parse_static_data(app)
-          rescue Exception => e
-            # This specific exception may be a json parse error
-            error_msg = "ERROR: Unable to parse app.yaml file for #{app}." + \
-                        " Exception of #{e.class} with message #{e.message}" 
-            place_error_app(app, error_msg)
-            static_handlers = []
-          end
-          proxy_port = HAProxy.app_listen_port(app_number)
-          login_ip = get_login.private_ip
-          success = Nginx.write_app_config(app, app_number, my_public, my_private,
-            proxy_port, static_handlers, login_ip)
-          if !success
-            error_msg = "ERROR: Failure to create valid nginx config file " + \
-                        "for application #{app}."
-            place_error_app(app, error_msg)
-          end
-          Collectd.write_app_config(app)
-
-          # send a warmup request to the app to get it loaded - can shave a
-          # number of seconds off the initial request if it's java or go
-          # go provides a default warmup route
-          # TODO: if the user specifies a warmup route, call it instead of /
-          warmup_url = "/"
-
-          @app_info_map[app]['appengine'] = []
-          @num_appengines.times { |index|
-            Djinn.log_debug("Starting #{app_language} app #{app} on " +
-              "#{HelperFunctions.local_ip}:#{@appengine_port}")
-            @app_info_map[app]['appengine'] << @appengine_port
-
-            xmpp_ip = get_login.public_ip
-
-            pid = app_manager.start_app(app, @appengine_port, 
-              get_load_balancer_ip(), @nginx_port, app_language, 
-              xmpp_ip, [Djinn.get_nearest_db_ip(false)],
-              HelperFunctions.get_app_env_vars(app))
-
-            if pid == -1
-              place_error_app(app, "ERROR: Unable to start application " + \
-                  "#{app}. Please check the application logs.") 
-            end
-
-            pid_file_name = "#{CONFIG_FILE_LOCATION}/#{app}-#{@appengine_port}.pid"
-            HelperFunctions.write_file(pid_file_name, pid)
-
-            @appengine_port += 1
-          }
-
-          HAProxy.update_app_config(app, app_number, 
-            @app_info_map[app]['appengine'], my_private)
-          Nginx.reload
-          HAProxy.reload
-          Collectd.restart
-
-          loop {
-            Kernel.sleep(5)
-            success = uac.add_instance(app, my_public, @nginx_port)
-            Djinn.log_debug("Add instance returned #{success}")
-            if success  
-              # tell ZK that we are hosting the app in case we die, so that
-              # other nodes can update the UserAppServer on its behalf
-              ZKInterface.add_app_instance(app, my_public, @nginx_port)
-              break
-            end
-          }
-
-          nginx = @nginx_port
-          haproxy = @haproxy_port
-
-          # Update our local information so that we know later what ports
-          # we're using to host this app on for nginx and haproxy
-          @app_info_map[app]['nginx'] = @nginx_port
-          @app_info_map[app]['haproxy'] = @haproxy_port
-
-          login_ip = get_login.public_ip
-
-          Thread.new {
-            haproxy_location = "http://#{my_private}:#{haproxy}#{warmup_url}"
-            nginx_location = "http://#{my_public}:#{nginx}#{warmup_url}"
-
-            wget_haproxy = "wget #{WGET_OPTIONS} #{haproxy_location}"
-            wget_nginx = "wget #{WGET_OPTIONS} #{nginx_location}"
-
-            Djinn.log_run(wget_haproxy)
-            Djinn.log_run(wget_nginx)
-          }
-
-          @nginx_port += 1
-          @haproxy_port += 1
-
-          # now doing this at the real end so that the tools will
-          # wait for the app to actually be running before returning
-          done_uploading(app, app_path, @@secret)
-        end
-
-        Monitoring.restart if my_node.is_shadow?
-        APPS_LOCK.synchronize {
-          if @app_names.include?("none")
-            @apps_loaded = @apps_loaded - ["none"]
-            @app_names = @app_names - ["none"]
-          end
-          
-          @apps_loaded << app
+          Djinn.log_run(wget_haproxy)
+          Djinn.log_run(wget_nginx)
         }
-      }
 
-    } # end of synchronize
+        @nginx_port += 1
+        @haproxy_port += 1
+
+        # now doing this at the real end so that the tools will
+        # wait for the app to actually be running before returning
+        done_uploading(app, app_path, @@secret)
+      end
+    end
+
+    Monitoring.restart if my_node.is_shadow?
+    APPS_LOCK.synchronize {
+      if @app_names.include?("none")
+        @apps_loaded = @apps_loaded - ["none"]
+        @app_names = @app_names - ["none"]
+      end
+
+      if is_new_app
+        @apps_loaded << app
+      else
+        @apps_to_restart.delete(app)
+      end
+    }
   end
 
 
