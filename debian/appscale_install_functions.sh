@@ -70,13 +70,13 @@ installnumpy()
 {
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://s3.amazonaws.com/appscale-build/appscale-numpy.tar.gz
-    tar zxvf appscale-numpy.tar.gz
-    cd numpy
+    wget http://s3.amazonaws.com/appscale-build/appscale-numpy-1.7.0.tar.gz
+    tar zxvf appscale-numpy-1.7.0.tar.gz
+    cd numpy-1.7.0
     /usr/local/Python-2.7.3/python setup.py install
     cd ..
-    rm appscale-numpy.tar.gz
-    rm -fdr  numpy
+    rm appscale-numpy-1.7.0.tar.gz
+    rm -fdr numpy-1.7.0
 }
 
 installmatplotlib()
@@ -1038,7 +1038,8 @@ installrabbitmq()
    cd pika-master
    cp -r pika /usr/share/pyshared
    cd ..
-   rm -fr pika-${PIKA_VERSION}
+   rm pika-${PIKA_VERSION}.zip
+   rm -fr pika-master
 }
 postinstallrabbitmq()
 {
