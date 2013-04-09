@@ -641,11 +641,17 @@ class ZKTransaction:
         retry = True
       except zookeeper.NodeExistsException:
         # fail to get lock
-        tx_lockpath = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, 
-          self.DEFAULT_NUM_RETRIES, zookeeper.get, self.handle, 
-          lockrootpath, None)[0]
-        logging.debug("Lock {0} in use by {1}".format(lockrootpath, 
-          tx_lockpath))
+        try:
+          tx_lockpath = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, 
+            self.DEFAULT_NUM_RETRIES, zookeeper.get, self.handle, 
+            lockrootpath, None)[0]
+          logging.debug("Lock {0} in use by {1}".format(lockrootpath, 
+            tx_lockpath))
+        except zookeeper.NoNodeException, no_node:
+          # If the lock is released by another thread this can get tossed.
+          # A rare race condition.
+          logging.warning("Lock {0} was in use but was released"\
+            .format(lockrootpath))
         raise ZKTransactionException("acquire_additional_lock: There is " \
           "already another transaction using this lock")
 
