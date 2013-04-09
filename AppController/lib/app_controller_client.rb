@@ -274,7 +274,7 @@ class AppControllerClient
   end
 
   def set_apps_to_restart(app_names)
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "restart_apps") { 
+    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "set_apps_to_restart") {
       @conn.set_apps_to_restart(app_names, @secret)
     }
   end

@@ -810,13 +810,13 @@ class Djinn
       ip = @nodes[index].private_ip
       acc = AppControllerClient.new(ip, @@secret)
       result = acc.set_apps(apps)
-      Djinn.log_debug("Load apps at #{ip} returned #{result} (#{result.class})")
+      Djinn.log_debug("Set apps at #{ip} returned #{result} (#{result.class})")
       @everyone_else_is_done = false if !result
     }
 
     # next, restart any apps that have a new app uploaded
     apps_to_restart = current_apps_uploaded & app_names
-    Djinn.log_debug("apps to restart is #{apps_to_restart}, of class #{apps_to_restart.class}")
+    Djinn.log_debug("Apps to restart is #{apps_to_restart}")
     if !apps_to_restart.empty?
       apps_to_restart.each { |appid|
         ZKInterface.clear_app_hosters(appid)
@@ -826,10 +826,9 @@ class Djinn
 
       @nodes.each_index { |index|
         ip = @nodes[index].private_ip
-        Djinn.log_debug("Making SOAP call to #{ip}")
         acc = AppControllerClient.new(ip, @@secret)
         result = acc.set_apps_to_restart(apps_to_restart)
-        Djinn.log_debug("Restart apps at #{ip} returned #{result} (#{result.class})")
+        Djinn.log_debug("Set apps to restart at #{ip} returned #{result} (#{result.class})")
         @everyone_else_is_done = false if !result
       }
     end
@@ -842,13 +841,24 @@ class Djinn
     return "OK"
   end
 
+  # Adds the list of apps that should be restarted to this node's list of apps
+  # that should be restarted.
+  #
+  # Args:
+  #   apps_to_restart: An Array of Strings, where each String is an appid
+  #     corresponding to an application that should be restarted.
+  #   secret: The String that authenticates the caller.
+  # Returns:
+  #   A String indicating that the SOAP call succeeded, or the reason why it
+  #   did not.
   def set_apps_to_restart(apps_to_restart, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
 
     @apps_to_restart += apps_to_restart
-    Djinn.log_debug("apps to restart is now [#{@apps_to_restart.join(', ')}]")
+    @apps_to_restart.uniq!
+    Djinn.log_debug("Apps to restart is now [#{@apps_to_restart.join(', ')}]")
 
     return "OK"
   end
@@ -922,17 +932,21 @@ class Djinn
   end
 
 
+  # Examines the list of applications that need to be updated, and restarts them
+  # on the same ports that they were previously running on.
   def restart_appengine_apps
-    apps = @apps_to_restart  # use a copy here since we delete from @apps_to_restart
-    Djinn.log_debug("Restarting these apps: [#{@apps_to_restart.join(', ')}]")
+    # use a copy of @apps_to_restart here since we delete from it in
+    # setup_appengine_application
+    apps = @apps_to_restart
+    Djinn.log_debug("Restarting these apps: [#{apps.join(', ')}]")
     apps.each { |app_name|
-      if !my_node.is_login?
+      if !my_node.is_login?  # this node has the new app - don't erase it here
         Djinn.log_debug("Removing old version of app #{app_name}")
         Djinn.log_run("rm -fv /var/apps/#{app_name}/app/#{app_name}.tar.gz")
       end
+      Djinn.log_debug("About to restart app #{app_name}")
       setup_appengine_application(app_name, is_new_app=false)
     }
-    Djinn.log_debug("@apps_to_restart are now #{@apps_to_restart.join(', ')}")
   end
 
 
