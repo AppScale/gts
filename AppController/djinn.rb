@@ -818,6 +818,12 @@ class Djinn
     apps_to_restart = current_apps_uploaded & app_names
     Djinn.log_debug("apps to restart is #{apps_to_restart}, of class #{apps_to_restart.class}")
     if !apps_to_restart.empty?
+      apps_to_restart.each { |appid|
+        ZKInterface.clear_app_hosters(appid)
+        location = "/var/apps/#{appid}/app/#{appid}.tar.gz"
+        ZKInterface.add_app_entry(appid, my_node.serialize, location)
+      }
+
       @nodes.each_index { |index|
         ip = @nodes[index].private_ip
         Djinn.log_debug("Making SOAP call to #{ip}")
@@ -917,11 +923,13 @@ class Djinn
 
 
   def restart_appengine_apps
-    # call the app manager here
-    app_manager = AppManagerClient.new()
-    apps = @apps_to_restart
+    apps = @apps_to_restart  # use a copy here since we delete from @apps_to_restart
     Djinn.log_debug("Restarting these apps: [#{@apps_to_restart.join(', ')}]")
     apps.each { |app_name|
+      if !my_node.is_login?
+        Djinn.log_debug("Removing old version of app #{app_name}")
+        Djinn.log_run("rm -fv /var/apps/#{app_name}/app/#{app_name}.tar.gz")
+      end
       setup_appengine_application(app_name, is_new_app=false)
     }
     Djinn.log_debug("@apps_to_restart are now #{@apps_to_restart.join(', ')}")
@@ -2592,6 +2600,7 @@ class Djinn
     appdb = "#{APPSCALE_HOME}/AppDB"
     neptune = "#{APPSCALE_HOME}/Neptune"
     loki = "#{APPSCALE_HOME}/Loki"
+    app_manager = "#{APPSCALE_HOME}/AppManager"
     iaas_manager = "#{APPSCALE_HOME}/InfrastructureManager"
     xmpp_receiver = "#{APPSCALE_HOME}/XMPPReceiver"
 
@@ -2605,6 +2614,7 @@ class Djinn
     Djinn.log_run("rsync #{options} --exclude='logs/*' --exclude='hadoop-*' --exclude='hbase/hbase-*' --exclude='voldemort/voldemort/*' --exclude='cassandra/cassandra/*' #{appdb}/* root@#{ip}:#{appdb}")
     Djinn.log_run("rsync #{options} #{neptune}/* root@#{ip}:#{neptune}")
     Djinn.log_run("rsync #{options} #{loki}/* root@#{ip}:#{loki}")
+    Djinn.log_run("rsync #{options} #{app_manager}/* root@#{ip}:#{app_manager}")
     Djinn.log_run("rsync #{options} #{iaas_manager}/* root@#{ip}:#{iaas_manager}")
     Djinn.log_run("rsync #{options} #{xmpp_receiver}/* root@#{ip}:#{xmpp_receiver}")
   end
@@ -3008,6 +3018,13 @@ HOSTS
   end
 
 
+  # Performs all of the preprocessing needed to start an App Engine application
+  # on this node. This method then starts the actual app by calling the AppManager.
+  #
+  # Args:
+  #   app: A String containing the appid for the app to start.
+  #   is_new_app: true if the application to start has never run on this node
+  #     before, and false if it has (e.g., we're loading new code for this app).
   def setup_appengine_application(app, is_new_app)
     uac = UserAppClient.new(@userappserver_private_ip, @@secret)
     app_data = uac.get_app_data(app)
@@ -3058,31 +3075,12 @@ HOSTS
       start_xmpp_for_app(app, app_language)
     end
 
-    if is_new_app
-      # TODO(cgb): Extract to a method
-      app_number = @nginx_port - Nginx::START_PORT
-      proxy_port = HAProxy.app_listen_port(app_number)
-      login_ip = get_login.private_ip
-
-      if my_node.is_login? and !my_node.is_appengine?
-        success = Nginx.write_fullproxy_app_config(app, app_number, my_public,
-          my_private, proxy_port, login_ip, get_all_appengine_nodes())
-        if success
-          Nginx.reload
-        else
-          err_msg = "ERROR: Failure to create valid nginx config file" + \
-                    " for application #{app} full proxy."
-          place_error_app(app, err_msg)
-        end
-
-        @app_info_map[app]['nginx'] = @nginx_port
-        @app_info_map[app]['haproxy'] = @haproxy_port
-
-        @nginx_port += 1
-        @haproxy_port += 1
-      end
+    # We only need a new full proxy config file for new apps, on the machine
+    # that runs the login service (but not in a one node deploy, where we don't
+    # do a full proxy config).
+    if is_new_app and my_node.is_login? and !my_node.is_appengine?
+      write_full_proxy_nginx_file(app)
     end
-
 
     if my_node.is_appengine?
       begin
@@ -3212,6 +3210,29 @@ HOSTS
         @apps_to_restart.delete(app)
       end
     }
+  end
+
+
+  def write_full_proxy_nginx_file(app)
+    app_number = @nginx_port - Nginx::START_PORT
+    proxy_port = HAProxy.app_listen_port(app_number)
+    login_ip = get_login.private_ip
+
+    success = Nginx.write_fullproxy_app_config(app, app_number, my_node.public_ip,
+      my_node.private_ip, proxy_port, login_ip, get_all_appengine_nodes())
+    if success
+      Nginx.reload
+    else
+      err_msg = "ERROR: Failure to create valid nginx config file" + \
+                " for application #{app} full proxy."
+      place_error_app(app, err_msg)
+    end
+
+    @app_info_map[app]['nginx'] = @nginx_port
+    @app_info_map[app]['haproxy'] = @haproxy_port
+
+    @nginx_port += 1
+    @haproxy_port += 1
   end
 
 

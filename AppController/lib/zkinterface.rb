@@ -173,6 +173,21 @@ class ZKInterface
   end
 
 
+  def self.clear_app_hosters(appname)
+    if !defined?(@@zk)
+      return
+    end
+
+    appname_path = ROOT_APP_PATH + "/#{appname}"
+    app_hosters = self.get_children(appname_path)
+    converted = []
+    app_hosters.each { |host_info|
+      self.delete(appname_path + "/#{host_info}")
+    }
+    return converted
+  end
+
+
   def self.get_appcontroller_state()
     return JSON.load(self.get(APPCONTROLLER_STATE_PATH))
   end
