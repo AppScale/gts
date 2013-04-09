@@ -17,10 +17,6 @@ import SOAPpy
 from google.appengine.ext import testbed
 from google.appengine.api import users
 
-import datastore_stub_util
-from google.appengine.datastore import datastore_stub_util
-
-
 # from the app main.py
 import dashboard
 
@@ -30,8 +26,8 @@ class TestAppDashboard(unittest.TestCase):
     self.testbed = testbed.Testbed()
     self.testbed.activate()
     self.testbed.init_user_stub()
-    self.testbed.init_datastore_v3_stub()
-    self.testbed.init_taskqueue_stub()
+    #self.testbed.init_datastore_v3_stub()
+    #self.testbed.init_taskqueue_stub()
 
     acc = flexmock(AppControllerClient)
     acc.should_receive('get_uaserver_host').and_return('public1')

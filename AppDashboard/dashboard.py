@@ -315,13 +315,13 @@ class AppUploadPage(AppDashboard):
           )
     else:
       message = "You are not authorized to upload apps."
-    self.render_page(page='authorize', template_file=self.TEMPLATE,
+    self.render_page(page='apps', template_file=self.TEMPLATE,
       values = {'flash_message' : message
       })
 
   def get(self):
     """ Handler for GET requests. """
-    self.render_page(page='authorize', template_file=self.TEMPLATE)
+    self.render_page(page='apps', template_file=self.TEMPLATE)
 
 class AppDeletePage(AppDashboard):
   """ Class to handle request to the /apps/delete page. """
