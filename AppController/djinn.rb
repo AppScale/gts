@@ -922,7 +922,7 @@ class Djinn
     apps = @apps_to_restart
     Djinn.log_debug("Restarting these apps: [#{@apps_to_restart.join(', ')}]")
     apps.each { |app_name|
-      setup_appengine_application(app, is_new_app=false)
+      setup_appengine_application(app_name, is_new_app=false)
     }
     Djinn.log_debug("@apps_to_restart are now #{@apps_to_restart.join(', ')}")
   end
@@ -2982,8 +2982,6 @@ HOSTS
     Djinn.log_debug("Starting appengine - pbserver is at [#{db_private_ip}]")
 
     uac = UserAppClient.new(db_private_ip, @@secret)
-    app_manager = AppManagerClient.new()
-
     if @restored == false #and restore_from_db?
       Djinn.log_debug("Need to restore")
       app_list = uac.get_all_apps()
@@ -3011,6 +3009,7 @@ HOSTS
 
 
   def setup_appengine_application(app, is_new_app)
+    uac = UserAppClient.new(@userappserver_private_ip, @@secret)
     app_data = uac.get_app_data(app)
     loop {
       Djinn.log_debug("Waiting for app data to have instance info for app named #{app}: #{app_data}")
@@ -3119,6 +3118,9 @@ HOSTS
       # TODO: if the user specifies a warmup route, call it instead of /
       warmup_url = "/"
 
+      app_manager = AppManagerClient.new()
+      # TODO(cgb): What happens if the user updates their env vars between app
+      # deploys?
       if is_new_app
         @app_info_map[app]['appengine'] = []
         @num_appengines.times { |index|
