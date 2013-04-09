@@ -820,8 +820,6 @@ installservice()
 {
     # this must be absolete path of runtime
     mkdir -pv ${DESTDIR}/etc/init.d/
-    ln -sfv ${APPSCALE_HOME_RUNTIME}/appscale-loadbalancer.sh ${DESTDIR}/etc/init.d/appscale-loadbalancer
-    chmod -v a+x ${APPSCALE_HOME}/appscale-loadbalancer.sh
     ln -sfv ${APPSCALE_HOME_RUNTIME}/appscale-controller.sh ${DESTDIR}/etc/init.d/appscale-controller
     chmod -v a+x ${APPSCALE_HOME}/appscale-controller.sh
     ln -sfv ${APPSCALE_HOME_RUNTIME}/appscale-monitoring.sh ${DESTDIR}/etc/init.d/appscale-monitoring
@@ -830,8 +828,6 @@ installservice()
 
 postinstallservice()
 {
-# we don't need to start load balancer as daemon
-#    update-rc.d appscale-loadbalancer defaults
 
     # stop unnecessary services
 #    service nginx stop || true
