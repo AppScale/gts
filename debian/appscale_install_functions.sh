@@ -1041,7 +1041,8 @@ installrabbitmq()
    cd pika-master
    cp -r pika /usr/share/pyshared
    cd ..
-   rm -fr pika-${PIKA_VERSION}
+   rm pika-${PIKA_VERSION}.zip
+   rm -fr pika-master
 }
 postinstallrabbitmq()
 {
