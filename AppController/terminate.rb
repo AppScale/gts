@@ -116,7 +116,7 @@ end
 ["memcached",
  "nginx", "haproxy", "collectd", "collectdmon",
  "soap_server", "appscale_server", "app_manager_server", "datastore_server",
- "taskqueue_server", "AppDashboard", "AppMonitoring",
+ "taskqueue_server", "AppLoadBalancer", "AppMonitoring",
  # AppServer
  "dev_appserver", "DevAppServerMain",
  #Blobstore
