@@ -161,6 +161,13 @@ class AppManagerClient
     return result
   end
 
+  # Wrapper for SOAP call to the AppManager to kill all the processes running
+  # the named application.
+  #
+  # Args:
+  #   app_name: A String representing the name of the application.
+  # Returns:
+  #   An Array of process IDs that were killed, that had been hosting the app.
   def kill_app_instances_for_app(app_name)
     result = ""
     make_call(MAX_TIME_OUT, false, "kill_app_instances_for_app") {

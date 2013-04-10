@@ -273,6 +273,12 @@ class AppControllerClient
     }
   end
 
+  # Tells an AppController that it needs to restart one or more Google App
+  # Engine applications.
+  #
+  # Args:
+  #   app_names: An Array of Strings, where each String is an appid
+  #     corresponding to an application that needs to be restarted.
   def set_apps_to_restart(app_names)
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, "set_apps_to_restart") {
       @conn.set_apps_to_restart(app_names, @secret)

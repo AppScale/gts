@@ -805,18 +805,18 @@ class Djinn
     apps.uniq!
     Djinn.log_debug("Will set apps to: [#{apps.join(', ')}]")
     
-    # first, start any new apps
+    # Begin by starting any new App Engine apps.
     @nodes.each_index { |index|
       ip = @nodes[index].private_ip
       acc = AppControllerClient.new(ip, @@secret)
       result = acc.set_apps(apps)
-      Djinn.log_debug("Set apps at #{ip} returned #{result} (#{result.class})")
+      Djinn.log_debug("Set apps at #{ip} returned #{result} as class #{result.class}")
       @everyone_else_is_done = false if !result
     }
 
-    # next, restart any apps that have a new app uploaded
+    # Next, restart any apps that have new code uploaded.
     apps_to_restart = current_apps_uploaded & app_names
-    Djinn.log_debug("Apps to restart is #{apps_to_restart}")
+    Djinn.log_debug("Apps to restart are #{apps_to_restart}")
     if !apps_to_restart.empty?
       apps_to_restart.each { |appid|
         ZKInterface.clear_app_hosters(appid)
@@ -828,7 +828,7 @@ class Djinn
         ip = @nodes[index].private_ip
         acc = AppControllerClient.new(ip, @@secret)
         result = acc.set_apps_to_restart(apps_to_restart)
-        Djinn.log_debug("Set apps to restart at #{ip} returned #{result} (#{result.class})")
+        Djinn.log_debug("Set apps to restart at #{ip} returned #{result} as class #{result.class}")
         @everyone_else_is_done = false if !result
       }
     end
@@ -856,8 +856,10 @@ class Djinn
       return BAD_SECRET_MSG
     end
 
-    @apps_to_restart += apps_to_restart
-    @apps_to_restart.uniq!
+    APPS_LOCK.synchronize {
+      @apps_to_restart += apps_to_restart
+      @apps_to_restart.uniq!
+    }
     Djinn.log_debug("Apps to restart is now [#{@apps_to_restart.join(', ')}]")
 
     return "OK"
@@ -945,7 +947,9 @@ class Djinn
         Djinn.log_run("rm -fv /var/apps/#{app_name}/app/#{app_name}.tar.gz")
       end
       Djinn.log_debug("About to restart app #{app_name}")
-      setup_appengine_application(app_name, is_new_app=false)
+      APPS_LOCK.synchronize {
+        setup_appengine_application(app_name, is_new_app=false)
+      }
     }
   end
 
@@ -3061,7 +3065,6 @@ HOSTS
       @app_info_map[app]['language'] = app_language
     end
 
-    # TODO: merge these 
     shadow = get_shadow
     shadow_ip = shadow.private_ip
     ssh_key = shadow.ssh_key
@@ -3077,10 +3080,17 @@ HOSTS
     # TODO(cgb): Augment this method to only start tq if is_new_app
     maybe_start_taskqueue_worker(app)
 
+    if is_new_app
+      nginx_port = @nginx_port
+    else
+      nginx_port = @app_info_map[app]['nginx']
+    end
+    app_number = nginx_port - Nginx::START_PORT
+
     # TODO(cgb): Make sure we don't add the same cron lines in twice for the same
     # app, and only start xmpp if it isn't already started
     if my_node.is_shadow?
-      CronHelper.update_cron(my_public, app_language, app)
+      CronHelper.update_cron(my_public, nginx_port, app_language, app)
       start_xmpp_for_app(app, app_language)
     end
 
@@ -3100,12 +3110,6 @@ HOSTS
                     " Exception of #{e.class} with message #{e.message}" 
         place_error_app(app, error_msg)
         static_handlers = []
-      end
-
-      if is_new_app
-        app_number = @nginx_port - Nginx::START_PORT
-      else
-        app_number = @app_info_map[app]['nginx'] - Nginx::START_PORT
       end
 
       proxy_port = HAProxy.app_listen_port(app_number)
@@ -3222,6 +3226,12 @@ HOSTS
   end
 
 
+  # Writes a nginx configuration file that tells nginx to act as a full proxy,
+  # to one or more machines that host app servers.
+  #
+  # Args:
+  #   app: A String representing the appid of the app to write an nginx config
+  #     file for.
   def write_full_proxy_nginx_file(app)
     app_number = @nginx_port - Nginx::START_PORT
     proxy_port = HAProxy.app_listen_port(app_number)
