@@ -3077,8 +3077,9 @@ HOSTS
     end
     HelperFunctions.setup_app(app)
 
-    # TODO(cgb): Augment this method to only start tq if is_new_app
-    maybe_start_taskqueue_worker(app)
+    if is_new_app
+      maybe_start_taskqueue_worker(app)
+    end
 
     if is_new_app
       nginx_port = @nginx_port
