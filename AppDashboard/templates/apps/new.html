@@ -22,8 +22,11 @@
                   {% if i_can_upload %}
                     <form action="/apps/new" class="edit_app" enctype="multipart/form-data" id="edit_app" method="post">
                        <h3>
-                         {% if flash_message %}
-                         <ul id="noticeExplanation"><li class="flash notice">{{ flash_message }}</li></ul>
+                         {% if success_message %}
+                         <ul id="noticeExplanation"><li class="flash notice">{{ success_message }}</li></ul>
+                         {% endif %}
+                         {% if error_message %}
+                         <ul id="noticeExplanation"><li class="flash error">{{ error_message }}</li></ul>
                          {% endif %}
                        </h3>
                       <p>
@@ -34,7 +37,6 @@
                       <p>
                         <input accept="tar.gz, tgz" id="app_file_data" name="app_file_data" size="30" type="file" />
                         <img alt="Spinner" id="spinner" src="/images/spinner.gif?1363364452" style="display:none;" />
-                        {{ display_error_messages }}
                       </p>
                       <p>
                         <input class="btn btn-primary" id="upload-button" name="commit" onclick="uploading();" type="submit" value="Upload" />

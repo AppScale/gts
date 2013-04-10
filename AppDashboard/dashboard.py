@@ -10,6 +10,7 @@ import urllib
 import webapp2
 import sys
 from lib.app_dashboard_helper import AppDashboardHelper
+from lib.app_dashboard_helper import AppHelperException
 
 jinja_environment = jinja2.Environment(
     loader=jinja2.FileSystemLoader(os.path.dirname(__file__) + \
@@ -309,14 +310,20 @@ class AppUploadPage(AppDashboard):
 
   def post(self):
     """ Handler for POST requests. """
+    sucess_msg = ''
+    err_msg = ''
     if self.helper.i_can_upload():
-      message = self.helper.upload_app(
+      try: 
+        success_msg = self.helper.upload_app(
           self.request.POST.multi['app_file_data'].file
           )
+      except AppHelperException as e:
+        err_msg = str(e)
     else:
-      message = "You are not authorized to upload apps."
+      err_msg = "You are not authorized to upload apps."
     self.render_page(page='apps', template_file=self.TEMPLATE,
-      values = {'flash_message' : message
+      values = {'error_message' : err_msg,
+        'success_message' : success_msg
       })
 
   def get(self):

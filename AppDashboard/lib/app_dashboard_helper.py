@@ -225,12 +225,14 @@ class AppDashboardHelper:
     Args:
       upload_file: a file object containing the uploaded file data.
     Returns:
-      A message reporting the success or failure of the upload.
+      A message reporting the success of the upload.
+    Raises:
+      AppHelperException reporting the failure of the upload.
     """
     user = users.get_current_user()
     if not user:
-      return "There was an error uploading your application.  "\
-             "You must be logged in."
+      raise AppHelperException("There was an error uploading your application."\
+             "  You must be logged in.")
     try:
       tgz_file = tempfile.NamedTemporaryFile()
       tgz_file.write( upload_file.read() )
@@ -242,14 +244,14 @@ class AppDashboardHelper:
         return "Application uploaded successfully.  Please wait for the "\
                "application to start running."
       else:
-        return "There was an error uploading your application."
+        raise AppHelperException()
     except SOAPpy.Errors.HTTPError as e:  #on success HTTPError is thrown
       return "Application uploaded successfully.  Please wait for the "\
              "application to start running."
     except Exception as e:
       sys.stderr.write("upload_app() caught Exception " + str(type(e)) + ':'\
         + str(e))
-      return "There was an error uploading your application."
+      raise AppHelperException("There was an error uploading your application.")
 
   def delete_app(self, appname):
     """Instructs AppScale to no longer host the named application.
