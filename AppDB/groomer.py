@@ -9,8 +9,6 @@ import sys
 import threading
 import time
 
-#from google.appengine.ext import db
-#from google.appengine.ext.db import stats
 import appscale_datastore_batch
 import dbconstants
 import datastore_server
@@ -20,6 +18,8 @@ from zkappscale import zktransaction as zk
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore_distributed
 from google.appengine.datastore import entity_pb
+from google.appengine.ext import db
+from google.appengine.ext.db import stats
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
@@ -36,8 +36,6 @@ class DatastoreGroomer(threading.Thread):
   # Any kind that is of __*__ is protected and should not have 
   # stats.
   PROTECTED_KINDS = '__(.*)__'
-
-  META_KIND = "__kind__"
 
   def __init__(self, zoo_keeper, table_name, ds_path):
     """ Constructor. 
@@ -182,7 +180,7 @@ class DatastoreGroomer(threading.Thread):
 
     return True
 
-  def create_kind_ds_entry(self, app_id, kind, size, number):
+  def create_kind_stat_entry(self, app_id, kind, size, number):
     """ Puts a kind statistic into the datastore.
  
     Args:
@@ -191,7 +189,14 @@ class DatastoreGroomer(threading.Thread):
       size: An int on the number of bytes taken by the given kind.
       number: The total number of entities.
     """
-    pass
+    kind_stat = KindStat(kind_name=kind, 
+                         bytes=size,
+                         count=number,
+                         timestamp=datetime.datetime.now())
+    kind_stat.put()
+
+  # TODO
+  #def create_global_stat_entry(self, app_id, size)
 
   def get_db_accessor(self, app_id):
     """ Gets a distributed datastore object to interact with
@@ -214,7 +219,7 @@ class DatastoreGroomer(threading.Thread):
     """
     for app_id in self.stats.keys():
       db = self.get_db_accessor(app_id) 
-      query = db.Query(model_class=self.META_KIND, namespace="")
+      query = db.stats.KindStat.all()
       entities = query.run()
       for entity in entities:
         logging.debug("Removing kind {0}".format(entity))
@@ -230,7 +235,7 @@ class DatastoreGroomer(threading.Thread):
       for kind in kinds:
         size = kinds[kind]['size']
         number = kinds[kind]['number']
-        create_kind_ds_entry(app_id, kind, size, number)
+        create_kind_stat_entry(app_id, kind, size, number)
 
   def run_groomer(self):
     """ Runs the grooming process. Loops on the entire dataset sequentially

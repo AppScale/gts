@@ -135,7 +135,7 @@ class TestGroomer(unittest.TestCase):
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
     dsg = flexmock(dsg)
     dsg.should_receive("remove_old_statistics")
-    dsg.should_receive("create_kind_ds_entry").and_return().and_raise(Exception)
+    dsg.should_receive("create_kind_stat_entry").and_return().and_raise(Exception)
     dsg.stats['app_id'] = {'kind': {'size': 0, 'number': 0}}
     dsg.stats['app_id1'] = {'kind': {'size': 0, 'number': 0}}
     # Should loop twice and on the second raise an exception.
@@ -148,7 +148,7 @@ class TestGroomer(unittest.TestCase):
     dsg.reset_statistics()
     self.assertEquals(dsg.stats, {})
 
-  def get_db_accessor(self):
+  def test_get_db_accessor(self):
     zookeeper = flexmock()
     fake_ds = FakeDatastore()
     flexmock(datatore_distributed).should_receive('DatastoreDistributed').\
@@ -157,5 +157,8 @@ class TestGroomer(unittest.TestCase):
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
     self.assertEquals(fake_ds, dsg.get_db_accessor("app_id"))
 
+  def test_create_kind_stat_entry(self):
+    pass
+  
 if __name__ == "__main__":
   unittest.main()    
