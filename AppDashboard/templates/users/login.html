@@ -26,37 +26,36 @@
             <span class="form-horizontal"id="loginForm" >
                 <div class="form-row row-fluid">
                   <div style="margin-top: 15px;">
-                  <h3>
                   {% if flash_message %}
+                  <h3>
                   <ul id="errorExplanation"><li class="flash error">
                   {{ flash_message }}
                   </li></ul>
-                  {% endif %}
                   </h3>
+                  {% endif %}
                   </div>
                   <form action="/users/login" method="post">
-              {% if continue %}
-              <input type="hidden" name="continue" value="{{ continue }}">
-              {% endif %}
-    <p class="form-label span12">
-      <label for="user_email">Email:</label>
-      <input id="user_email" name="user_email" size="40" type="text" value="{{ user_email|default }}" />
-    </p>
-    <p class="form-label span12">
-      <label for="user_password">Password:</label>
-      <input id="user_password" name="user_password" size="40" type="password" />
-    </p>
-    <div style="margin: 5px 0 0 9px;" class="pull-left">
-      <input class="btn btn-primary" name="commit" type="submit" value="Login" />
-    </div>
-  </form>
-     <br />&nbsp;<br /> <div style="margin: 20px 0 6px 9px;">Don't have an account? <a href="/users/new">Create one.</a>
-     <br /> View the current <a href="/status">Cloud Status.</a>&nbsp;<br /></div>                       
-
-     
-                  
+                  <div style="margin:0;padding:0;display:inline">
+                  {% if continue %}
+                  <input type="hidden" name="continue" value="{{ continue }}">
+                  {% endif %}
+                  </div>
+                  <p class="form-label span12">
+                    <label for="user_email">Email:</label>
+                    <input id="user_email" name="user_email" size="40" type="text" value="{{ user_email|default }}" />
+                  </p>
+                  <p class="form-label span12">
+                    <label for="user_password">Password:</label>
+                    <input id="user_password" name="user_password" size="40" type="password" />
+                  </p>
+                  <div style="margin: 5px 0 0 9px;" class="pull-left">
+                    <input class="btn btn-primary" name="commit" type="submit" value="Login" />
+                  </div>
+                  </form>
+                  <br />&nbsp;<br /> <div style="margin: 20px 0 6px 9px;">Don't have an account? <a href="/users/new">Create one.</a>
+                  <br /> View the current <a href="/status">Cloud Status.</a>&nbsp;<br /></div>                       
                 </div>
-
+              </div>
             </span>
         </div>
 

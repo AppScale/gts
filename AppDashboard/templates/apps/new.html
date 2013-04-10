@@ -21,14 +21,16 @@
                   <div class="well">
                   {% if i_can_upload %}
                     <form action="/apps/new" class="edit_app" enctype="multipart/form-data" id="edit_app" method="post">
-                       <h3>
-                         {% if success_message %}
-                         <ul id="noticeExplanation"><li class="flash notice">{{ success_message }}</li></ul>
-                         {% endif %}
-                         {% if error_message %}
-                         <ul id="noticeExplanation"><li class="flash error">{{ error_message }}</li></ul>
-                         {% endif %}
-                       </h3>
+                      {% if success_message %}
+                      <h3>
+                        <ul id="noticeExplanation"><li class="flash notice">{{ success_message }}</li></ul>
+                      </h3>
+                      {% endif %}
+                      {% if error_message %}
+                      <h3>
+                        <ul id="errorExplanation"><li class="flash error">{{ error_message }}</li></ul>
+                      </h3>
+                      {% endif %}
                       <p>
                         <label for="app_file_data"><h3>New Applications &nbsp; - &nbsp;
                         Must be a .tar.gz file.&nbsp;</h3>

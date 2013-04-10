@@ -310,7 +310,7 @@ class AppUploadPage(AppDashboard):
 
   def post(self):
     """ Handler for POST requests. """
-    sucess_msg = ''
+    success_msg = ''
     err_msg = ''
     if self.helper.i_can_upload():
       try: 
