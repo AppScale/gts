@@ -141,7 +141,7 @@ end
  # Last resort
  "python", "java", "/usr/bin/python"
 ].each do |program|
-  `ps ax | grep #{program} | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9`
+  `ps ax | grep #{program} | grep -v grep | grep -v 'appscale-tools/bin/appscale' | awk '{ print $1 }' | xargs -d '\n' kill -9`
 end
 
 # Kill ruby separately, so that we don't accidentally kill ourselves
