@@ -7,6 +7,8 @@ import unittest
 from flexmock import flexmock
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../AppServer"))  
+from google.appengine.api import apiproxy_stub_map
+from google.appengine.api import datastore_distributed
 from google.appengine.ext import db
 from google.appengine.datastore import entity_pb
 
@@ -18,6 +20,7 @@ import groomer
 
 from zkappscale import zktransaction as zk
 from zkappscale.zktransaction import ZKTransactionException
+
 
 class FakeQuery():
   def __init__(self):
@@ -51,6 +54,8 @@ class FakeEntity():
   def key(self):
     return FakeReference()
   def delete(self):
+    raise Exception()
+  def put(self):
     raise Exception()
 
 class TestGroomer(unittest.TestCase):
@@ -125,7 +130,7 @@ class TestGroomer(unittest.TestCase):
     zookeeper = flexmock()
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
     dsg = flexmock(dsg)
-    dsg.should_receive("get_db_accessor").and_return(FakeDistributedDB())
+    dsg.should_receive("register_db_accessor").and_return(FakeDistributedDB())
     dsg.stats['app_id'] = {'kind': {'size': 0, 'number': 0}}
     dsg.stats['app_id1'] = {'kind': {'size': 0, 'number': 0}}
     self.assertRaises(Exception, dsg.remove_old_statistics)
@@ -134,6 +139,7 @@ class TestGroomer(unittest.TestCase):
     zookeeper = flexmock()
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
     dsg = flexmock(dsg)
+    dsg.should_receive("register_db_accessor").and_return(FakeDistributedDB())
     dsg.should_receive("remove_old_statistics")
     dsg.should_receive("create_kind_stat_entry").and_return().and_raise(Exception)
     dsg.stats['app_id'] = {'kind': {'size': 0, 'number': 0}}
@@ -148,17 +154,28 @@ class TestGroomer(unittest.TestCase):
     dsg.reset_statistics()
     self.assertEquals(dsg.stats, {})
 
-  def test_get_db_accessor(self):
+  def test_register_db_accessor(self):
     zookeeper = flexmock()
     fake_ds = FakeDatastore()
-    flexmock(datatore_distributed).should_receive('DatastoreDistributed').\
+    flexmock(datastore_distributed).should_receive('DatastoreDistributed').\
       and_return(fake_ds)
     flexmock(apiproxy_stub_map.apiproxy).should_receive('RegisterStub')
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
-    self.assertEquals(fake_ds, dsg.get_db_accessor("app_id"))
+    self.assertEquals(fake_ds, dsg.register_db_accessor("app_id"))
 
   def test_create_kind_stat_entry(self):
-    pass
-  
+    zookeeper = flexmock()
+    stats = flexmock(db.stats)    
+    stats.should_receive("GlobalStat").and_return(FakeEntity())
+    dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
+    self.assertRaises(Exception, dsg.create_kind_stat_entry)
+     
+  def test_create_global_stat_entry(self):
+    zookeeper = flexmock()
+    stats = flexmock(db.stats)
+    stats.should_receive("KindStat").and_return(FakeEntity())
+    dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
+    self.assertRaises(Exception, dsg.create_kind_stat_entry)
+     
 if __name__ == "__main__":
   unittest.main()    

@@ -2,6 +2,7 @@
 calculates datastore statistics. Removes tombstoned items for garbage 
 collection.
 """
+import datetime
 import logging
 import os
 import re
@@ -189,16 +190,28 @@ class DatastoreGroomer(threading.Thread):
       size: An int on the number of bytes taken by the given kind.
       number: The total number of entities.
     """
-    kind_stat = KindStat(kind_name=kind, 
-                         bytes=size,
-                         count=number,
-                         timestamp=datetime.datetime.now())
-    kind_stat.put()
+    kind_stat = stats.KindStat(kind_name=kind, 
+                               bytes=size,
+                               count=number,
+                               timestamp=datetime.datetime.now())
+    logging.debug("Creating {0}".format(str(kind_stat)))
+    db.put(kind_stat)
 
-  # TODO
-  #def create_global_stat_entry(self, app_id, size)
-
-  def get_db_accessor(self, app_id):
+  def create_global_stat_entry(self, app_id, size, number):
+    """ Puts a global statistic into the datastore.
+    
+    Args:
+      app_id: The application ID.
+      size: The number of bytes of all entities.
+      number: The total number of entities of an application.
+    """
+    global_stat = stats.GlobalStat(bytes=size,
+                                   count=number,
+                                   timestamp=datetime.datetime.now())
+    logging.debug("Creating {0}".format(str(global_stat)))
+    global_stat.put()
+ 
+  def register_db_accessor(self, app_id):
     """ Gets a distributed datastore object to interact with
         the datastore for a certain application.
 
@@ -207,23 +220,26 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       A distributed_datastore.DatastoreDistributed object.
     """
-    db = datastore_distributed.DatastoreDistributed(app_id, 
+    ds_distributed = datastore_distributed.DatastoreDistributed(app_id, 
       self.datastore_path, False, False)
-    apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', db)
+    apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', ds_distributed)
     os.environ['APPLICATION_ID'] = app_id
-    return db
+    os.environ['AUTH_DOMAIN'] = "appscale.com"
+    return ds_distributed
 
   def remove_old_statistics(self):
     """ Does a range query on the current batch of statistics and 
         deletes them.
     """
     for app_id in self.stats.keys():
-      db = self.get_db_accessor(app_id) 
-      query = db.stats.KindStat.all()
+      self.register_db_accessor(app_id) 
+      query = stats.KindStat.all()
       entities = query.run()
+      logging.debug("Result from kind stat query: {0}".format(str(entities)))
       for entity in entities:
         logging.debug("Removing kind {0}".format(entity))
         entity.delete()
+      logging.debug("Done removing old stats for app {0}".format(app_id))
 
   def update_statistics(self):
     """ Puts the statistics into the datastore for applications
@@ -231,11 +247,17 @@ class DatastoreGroomer(threading.Thread):
     """
     self.remove_old_statistics()
     for app_id in self.stats.keys():
-      kinds = app_id.keys()
+      self.register_db_accessor(app_id) 
+      total_size = 0
+      total_number = 0
+      kinds = self.stats[app_id].keys()
       for kind in kinds:
-        size = kinds[kind]['size']
-        number = kinds[kind]['number']
-        create_kind_stat_entry(app_id, kind, size, number)
+        size = self.stats[app_id][kind]['size']
+        number = self.stats[app_id][kind]['number']
+        total_size += size
+        total_number += number 
+        self.create_kind_stat_entry(app_id, kind, size, number)
+      self.create_global_stat_entry(app_id, size, number)
 
   def run_groomer(self):
     """ Runs the grooming process. Loops on the entire dataset sequentially
@@ -243,7 +265,8 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       True on success, False otherwise.
     """
-    logging.debug("Groomer started")
+    start = time.time()
+    logging.info("Groomer started")
     last_key = ""
     self.reset_statistics()
     while True:
@@ -259,13 +282,9 @@ class DatastoreGroomer(threading.Thread):
 
       last_key = entities[-1].keys()[0]
   
-    try: 
-      self.update_statistics()
-    except Exception, exception:
-      #TODO do not do a catch all
-      logging.info("Error updating statistics {0}".format(str(exception)))
-
-    logging.debug("Groomer stopped")
+    self.update_statistics()
+    time_taken = time.time() - start
+    logging.info("Groomer stopped (Took {0} seconds)".format(str(time_taken)))
     return True
 
 def main():
