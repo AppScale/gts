@@ -91,9 +91,14 @@ class AppDashboardHelper:
     Returns:
       A list of dicts containing the status information on each server.
     """
-    acc = self.get_server()
-    node = acc.get_stats()
-    return node
+    try:
+      acc = self.get_server()
+      node = acc.get_stats()
+      return node
+    except Exception as e:
+      sys.stderr.write("AppDashboardHelper.get_status_info() caught "\
+        "Exception " + str(type(e)) + ":" + str(e))
+      return []
 
   def get_host_with_role(self, role):
     """Searches through the local metadata to see which virtual machine runs the
@@ -246,6 +251,9 @@ class AppDashboardHelper:
                "application to start running."
       else:
         raise AppHelperException(ret)
+    except SOAPpy.Types.faultType as e:  #on success Exception is thrown
+      return "Application uploaded successfully.  Please wait for the "\
+             "application to start running."
     except SOAPpy.Errors.HTTPError as e:  #on success HTTPError is thrown
       return "Application uploaded successfully.  Please wait for the "\
              "application to start running."
