@@ -173,6 +173,12 @@ class ZKInterface
   end
 
 
+  # Erases all of the ZooKeeper entries that correspond to where an app's tar
+  # file can be found.
+  #
+  # Args:
+  #   appname: A String corresponding to the appid of the app whose hosting
+  #     data we want to erase.
   def self.clear_app_hosters(appname)
     if !defined?(@@zk)
       return
@@ -180,11 +186,10 @@ class ZKInterface
 
     appname_path = ROOT_APP_PATH + "/#{appname}"
     app_hosters = self.get_children(appname_path)
-    converted = []
     app_hosters.each { |host_info|
       self.delete(appname_path + "/#{host_info}")
     }
-    return converted
+    return
   end
 
 
