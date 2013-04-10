@@ -22,6 +22,7 @@ import tornado.web
 
 import appscale_datastore_batch
 import dbconstants
+import groomer
 import helper_functions
 
 from zkappscale import zktransaction as zk
@@ -2633,6 +2634,12 @@ def main(argv):
 
   server = tornado.httpserver.HTTPServer(pb_application)
   server.listen(port)
+
+  groomer_zookeeper = zk.ZKTransaction(host="localhost:2181")
+  datastore_path = "localhost:8888"
+  self.ds_groomer = DatastoreGroomer(groomer_zookeeper, 
+    db_type, datastore_path)
+  self.ds_groomer.run()
 
   while 1:
     try:
