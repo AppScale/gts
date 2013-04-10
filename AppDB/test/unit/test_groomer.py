@@ -20,12 +20,10 @@ from zkappscale import zktransaction as zk
 from zkappscale.zktransaction import ZKTransactionException
 
 class FakeQuery():
-  def __init__():
+  def __init__(self):
     pass
-  def run():
-    return []
-
-
+  def run(self):
+    return [FakeEntity()]
 
 class FakeDatastore():
   def __init__(self):
@@ -34,7 +32,7 @@ class FakeDatastore():
 class FakeDistributedDB():
   def __init__(self):
     pass
-  def Query(model_class="kind", namespace=''):
+  def Query(self, model_class="kind", namespace=''):
     return FakeQuery()
 
 class FakeReference():
@@ -52,6 +50,8 @@ class FakeEntity():
     return 'kind'
   def key(self):
     return FakeReference()
+  def delete(self):
+    raise Exception()
 
 class TestGroomer(unittest.TestCase):
   """
@@ -125,10 +125,10 @@ class TestGroomer(unittest.TestCase):
     zookeeper = flexmock()
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
     dsg = flexmock(dsg)
-    dsg.should_receive("get_db_accessor").and_return(FakeDatastore())
+    dsg.should_receive("get_db_accessor").and_return(FakeDistributedDB())
     dsg.stats['app_id'] = {'kind': {'size': 0, 'number': 0}}
     dsg.stats['app_id1'] = {'kind': {'size': 0, 'number': 0}}
-    dsg.remove_old_statistics()
+    self.assertRaises(Exception, dsg.remove_old_statistics)
 
   def test_update_statistics(self):
     zookeeper = flexmock()
