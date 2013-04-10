@@ -160,7 +160,7 @@ class DatastoreDistributed():
     Args:
         prefix: app name and namespace string
                 example-- 'guestbook/mynamespace'
-        pb: protocol buffer for which we will encode the index name
+        pb: protocol buffer that we will encode the index name
     Returns:
         Key for entity table
     """
@@ -2637,7 +2637,7 @@ def main(argv):
 
   groomer_zookeeper = zk.ZKTransaction(host="localhost:2181")
   datastore_path = "localhost:8888"
-  self.ds_groomer = DatastoreGroomer(groomer_zookeeper, 
+  self.ds_groomer = groomer.DatastoreGroomer(groomer_zookeeper, 
     db_type, datastore_path)
   self.ds_groomer.run()
 

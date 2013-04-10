@@ -168,14 +168,14 @@ class TestGroomer(unittest.TestCase):
     stats = flexmock(db.stats)    
     stats.should_receive("GlobalStat").and_return(FakeEntity())
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
-    self.assertRaises(Exception, dsg.create_kind_stat_entry)
+    self.assertRaises(Exception, dsg.create_kind_stat_entry, "kind", 0, 0)
      
   def test_create_global_stat_entry(self):
     zookeeper = flexmock()
     stats = flexmock(db.stats)
     stats.should_receive("KindStat").and_return(FakeEntity())
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
-    self.assertRaises(Exception, dsg.create_kind_stat_entry)
+    self.assertRaises(Exception, dsg.create_kind_stat_entry, 0, 0)
      
 if __name__ == "__main__":
   unittest.main()    

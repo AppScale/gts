@@ -43,11 +43,11 @@ class DatastoreGroomer(threading.Thread):
 
     Args:
       zk: ZooKeeper client.
-      table_name: The table used (cassandra, hypertable, etc).
-      ds_path: The connection string to the datastore.
+      table_name: The database used (cassandra, hypertable, etc).
+      ds_path: The connection path to the datastore_server.
     """
     logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
-      '%(lineno)s %(message)s ', level=logging.DEBUG)
+      '%(lineno)s %(message)s ', level=logging.INFO)
     logging.info("Logging started")
 
     threading.Thread.__init__(self)
@@ -80,7 +80,7 @@ class DatastoreGroomer(threading.Thread):
 
     Args:
       db_access: A DatastoreFactory object.
-      last_key: The last key to continue from.
+      last_key: The last key from a previous query.
     Returns:
       A list of entities.
     """ 
@@ -102,6 +102,7 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       True if a hard delete occurred, false otherwise.
     """
+    #TODO implement
     return False
 
   def initialize_kind(self, app_id, kind):
@@ -146,18 +147,18 @@ class DatastoreGroomer(threading.Thread):
 
     self.initialize_kind(app_id, kind) 
 
-    all_kinds = self.stats[app_id] 
     self.stats[app_id][kind]['size'] += len(entity)
     self.stats[app_id][kind]['number'] += 1
     return True
 
-  def txn_blacklist_cleanup():
+  def txn_blacklist_cleanup(self):
     """ Clean up old transactions and removed unused references
         to reap storage.
 
     Returns:
       True on success, False otherwise.
     """
+    #TODO implement
     return True
 
   def process_entity(self, entity):
@@ -181,13 +182,12 @@ class DatastoreGroomer(threading.Thread):
 
     return True
 
-  def create_kind_stat_entry(self, app_id, kind, size, number):
+  def create_kind_stat_entry(self, kind, size, number):
     """ Puts a kind statistic into the datastore.
  
     Args:
-      app_id: The application ID.
       kind: The entity kind.
-      size: An int on the number of bytes taken by the given kind.
+      size: An int representing the number of bytes taken by entity kind.
       number: The total number of entities.
     """
     kind_stat = stats.KindStat(kind_name=kind, 
@@ -197,11 +197,10 @@ class DatastoreGroomer(threading.Thread):
     logging.debug("Creating {0}".format(str(kind_stat)))
     db.put(kind_stat)
 
-  def create_global_stat_entry(self, app_id, size, number):
+  def create_global_stat_entry(self, size, number):
     """ Puts a global statistic into the datastore.
     
     Args:
-      app_id: The application ID.
       size: The number of bytes of all entities.
       number: The total number of entities of an application.
     """
@@ -256,14 +255,12 @@ class DatastoreGroomer(threading.Thread):
         number = self.stats[app_id][kind]['number']
         total_size += size
         total_number += number 
-        self.create_kind_stat_entry(app_id, kind, size, number)
-      self.create_global_stat_entry(app_id, size, number)
+        self.create_kind_stat_entry(kind, size, number)
+      self.create_global_stat_entry(size, number)
 
   def run_groomer(self):
     """ Runs the grooming process. Loops on the entire dataset sequentially
         and updates stats, indexes, and transactions.
-    Returns:
-      True on success, False otherwise.
     """
     start = time.time()
     logging.info("Groomer started")
@@ -285,7 +282,6 @@ class DatastoreGroomer(threading.Thread):
     self.update_statistics()
     time_taken = time.time() - start
     logging.info("Groomer stopped (Took {0} seconds)".format(str(time_taken)))
-    return True
 
 def main():
   """ This main function allows you to run the groomer manually. """

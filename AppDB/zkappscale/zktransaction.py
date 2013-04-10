@@ -110,7 +110,7 @@ class ZKTransaction:
         for timed out transactions.
     """
     logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
-      '%(lineno)s %(message)s ', level=logging.DEBUG)
+      '%(lineno)s %(message)s ', level=logging.INFO)
     logging.debug("Started logging")
 
     # Connection instance variables.
@@ -212,14 +212,11 @@ class ZKTransaction:
     
   def wait_for_connect(self):
     """ Blocks on a connection. Waits for a signal from the notify function """
-    #logging.debug("Waiting for ZooKeeper connection")
     if self.connected:
       return
     with self.connect_cv:
       while not self.connected:
         self.connect_cv.wait(10.0)
-    #    logging.debug("Still waiting...")
-    #logging.debug("Done waiting")
 
   def force_create_path(self, path, value="default"):
     """ Creates a new ZooKeeper node at the given path, recursively creating its
@@ -1208,7 +1205,7 @@ class ZKTransaction:
     """ Tries to get the lock for the datastore groomer. 
 
     Returns:
-      True if the lock was attained, False otherwise.
+      True if the lock was obtained, False otherwise.
     """
     try:
       now = str(time.time())
@@ -1220,7 +1217,7 @@ class ZKTransaction:
     except zookeeper.ZooKeeperException, zk_exception:
       logging.error("ZK Exception: {0}".format(zk_exception))
       self.reestablish_connection()
-      return
+      return False
     return True
 
   def release_datastore_groomer_lock(self):
