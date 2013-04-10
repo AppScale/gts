@@ -116,7 +116,7 @@ end
 ["memcached",
  "nginx", "haproxy", "collectd", "collectdmon",
  "soap_server", "appscale_server", "app_manager_server", "datastore_server",
- "taskqueue_server", "AppLoadBalancer", "AppMonitoring",
+ "taskqueue_server", "AppDashboard", "AppMonitoring",
  # AppServer
  "dev_appserver", "DevAppServerMain",
  #Blobstore
@@ -141,7 +141,7 @@ end
  # Last resort
  "python", "java", "/usr/bin/python"
 ].each do |program|
-  `ps ax | grep #{program} | grep -v grep | awk '{ print $1 }' | xargs -d '\n' kill -9`
+  `ps ax | grep #{program} | grep -v grep | grep -v 'appscale-tools/bin/appscale' | awk '{ print $1 }' | xargs -d '\n' kill -9`
 end
 
 # Kill ruby separately, so that we don't accidentally kill ourselves
