@@ -185,7 +185,7 @@ class ApplicationController < ActionController::Base
       return false 
     end
 
-    readme = File.join(TOOLS_PATH,"README")
+    readme = File.join(TOOLS_PATH,"README.md")
     return false if !File.exist?(readme)
 
     # Tools must be version 1.3 or greater
