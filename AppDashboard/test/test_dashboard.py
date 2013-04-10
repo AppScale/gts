@@ -4,18 +4,39 @@ sys.path.append('/root/appscale/AppServer/lib/webob_1_1_1')
 sys.path.append('..')
 sys.path.append('/root/appscale/AppServer/lib/jinja2/')
 sys.path.append('/root/appscale-tools/lib/')
+sys.path.append('/usr/local/lib/python2.6/dist-packages/flexmock-0.9.7-py2.6.egg/')
+sys.path.append('/root/appscale/AppServer/')
+#from /root/appscale/AppServer/dev_appserver.py
+sys.path.extend(['/usr/share/pyshared',
+  '/usr/local/lib/python2.7/site-packages',
+  '/usr/local/lib/python2.6/dist-packages/xmpppy-0.5.0rc1-py2.6.egg',
+  '/usr/lib/pymodules/python2.6/',
+  '/usr/share/python-support/python-soappy/SOAPpy',
+  '/usr/local/lib/python2.6/dist-packages/SOAPpy-0.12.5-py2.6.egg',
+  '/root/appscale/AppServer/google/appengine/api/SOAPpy/',
+  '/usr/local/lib/python2.6/dist-packages/termcolor-1.1.0-py2.6.egg',
+  '/usr/local/lib/python2.6/dist-packages/lxml-3.1.1-py2.6-linux-x86_64.egg',
+  '/usr/lib/python2.6/dist-packages/',
+])
+
+print "\n".join( sys.path )
+
 
 import unittest
 import webapp2
 import re
 from flexmock import flexmock
+import SOAPpy
 
 from appcontroller_client import AppControllerClient
 from local_state import LocalState
-import SOAPpy
 
+from google.appengine.api import memcache
+from google.appengine.ext import db
 from google.appengine.ext import testbed
-from google.appengine.api import users
+from google.appengine.datastore import datastore_stub_util
+
+#from google.appengine.api import users
 
 # from the app main.py
 import dashboard
@@ -25,9 +46,10 @@ class TestAppDashboard(unittest.TestCase):
   def setUp(self):
     self.testbed = testbed.Testbed()
     self.testbed.activate()
-    self.testbed.init_user_stub()
+    #self.testbed.init_user_stub()
     #self.testbed.init_datastore_v3_stub()
     #self.testbed.init_taskqueue_stub()
+    #self.testbed.init_memcache_stub()
 
     acc = flexmock(AppControllerClient)
     acc.should_receive('get_uaserver_host').and_return('public1')
