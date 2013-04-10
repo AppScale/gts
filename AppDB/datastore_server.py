@@ -149,7 +149,6 @@ class DatastoreDistributed():
     Returns:
         kind of the entity
     """
-
     if isinstance(key_path, entity_pb.EntityProto):
       key_path = key_path.key()
     return key_path.path().element_list()[-1].type()
@@ -811,8 +810,8 @@ class DatastoreDistributed():
     existing transactions that are on-going. It maintains ACID semantics.
     Args:
       app_id: The application ID.
-      entities: A list of entities (either entity_pb.EntityProto or a entity_pb.Reference)
-                for which we want to acquire locks for.
+      entities: A list of entities (either entity_pb.EntityProto or a 
+                entity_pb.Reference) for which we want to acquire locks for.
     Returns:
       A hash of root keys mapping to transaction IDs.
     Raises:
