@@ -2,6 +2,7 @@ import sys
 sys.path.append('/root/appscale/AppServer/lib/webapp2')
 sys.path.append('/root/appscale/AppServer/lib/webob_1_1_1')
 sys.path.append('..')
+sys.path.append('../lib')
 sys.path.append('/root/appscale/AppServer/lib/jinja2/')
 sys.path.append('/root/appscale-tools/lib/')
 sys.path.append('/usr/local/lib/python2.6/dist-packages/flexmock-0.9.7-py2.6.egg/')
@@ -19,38 +20,29 @@ sys.path.extend(['/usr/share/pyshared',
   '/usr/lib/python2.6/dist-packages/',
 ])
 
-print "\n".join( sys.path )
-
 
 import unittest
 import webapp2
 import re
 from flexmock import flexmock
 import SOAPpy
+import StringIO
 
 from appcontroller_client import AppControllerClient
 from local_state import LocalState
 
-from google.appengine.api import memcache
-from google.appengine.ext import db
-from google.appengine.ext import testbed
-from google.appengine.datastore import datastore_stub_util
+#from google.appengine.api import memcache
+#from google.appengine.ext import db
 
-#from google.appengine.api import users
+from google.appengine.api import users
 
 # from the app main.py
 import dashboard
+from secret_key import GLOBAL_SECRET_KEY
 
 class TestAppDashboard(unittest.TestCase):
 
   def setUp(self):
-    self.testbed = testbed.Testbed()
-    self.testbed.activate()
-    #self.testbed.init_user_stub()
-    #self.testbed.init_datastore_v3_stub()
-    #self.testbed.init_taskqueue_stub()
-    #self.testbed.init_memcache_stub()
-
     acc = flexmock(AppControllerClient)
     acc.should_receive('get_uaserver_host').and_return('public1')
     acc.should_receive('get_stats').and_return(
@@ -74,26 +66,116 @@ class TestAppDashboard(unittest.TestCase):
     fake_soap.should_receive('get_app_data').and_return(
       "\n\n ports: 8080\n num_ports:1\n"
       )
-    fake_soap.should_receive('get_capabilities').and_return(['upload_app'])
-    fake_soap.should_receive('get_user_data').and_return(
+    fake_soap.should_receive('get_capabilities').and_return('upload_app')
+
+    fake_soap.should_receive('get_user_data')\
+      .with_args('a@a.com', GLOBAL_SECRET_KEY)\
+      .and_return(
       "is_cloud_admin:true\napplications:app1:app2\npassword:XXXXXX\n"
       )
+    fake_soap.should_receive('get_user_data')\
+      .with_args('b@a.com', GLOBAL_SECRET_KEY)\
+      .and_return(
+      "is_cloud_admin:false\napplications:app1:app2\npassword:XXXXXX\n"
+      )
+
     fake_soap.should_receive('commit_new_user').and_return('true')
     fake_soap.should_receive('commit_new_token').and_return()
     fake_soap.should_receive('get_all_users').and_return("a@a.com:b@a.com")
     fake_soap.should_receive('set_capabilities').and_return('true')
 
-
     local = flexmock(LocalState)
     local.should_receive('encrypt_password').and_return('XXXXXX')
 
+    self.request = self.fakeRequest()
+    self.response = self.fakeResponse()
+    self.set_user()  
 
-  def test_landing(self):
-    request = webapp2.Request.blank('/')
-    request.method = 'GET'
-    response = request.get_response(dashboard.app)
+  def set_user(self, email=None):
+    self.usrs = flexmock(users)
+    if email is not None:
+      user_obj = flexmock(name='users')
+      user_obj.should_receive('nickname').and_return(email)
+      self.usrs.should_receive('get_current_user').and_return(user_obj)
+    else:
+      self.usrs.should_receive('get_current_user').and_return(None)
 
-    assert response.status_int == 200
-    assert re.match('FILE:templates/landing/index.html',response)
-    
- 
+  def fakeRequest(self):
+    req = flexmock(name='request')
+    return req
+
+  def fakeResponse(self):
+    res = flexmock(name='response')
+    res.headers = {}
+    res.out = StringIO.StringIO()
+    return res
+
+  def test_landing_notloggedin(self):
+    from dashboard import IndexPage
+    IndexPage(self.request, self.response).get()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
+    assert re.search('<!-- FILE:templates/landing/index.html -->', html)
+    assert re.search('<a href="/users/login">Login to this cloud.</a>', html)
+    assert not re.search('<a href="/authorize">Manage users.</a>', html)
+
+  def test_landing_loggedin_notAdmin(self):
+    self.set_user('b@a.com')
+    from dashboard import IndexPage
+    IndexPage(self.request, self.response).get()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
+    assert re.search('<!-- FILE:templates/landing/index.html -->', html)
+    assert re.search('<a href="/users/logout">Logout now.</a>', html)
+    assert not re.search('<a href="/authorize">Manage users.</a>', html)
+
+  def test_landing_loggedin_isAdmin(self):
+    self.set_user('a@a.com')
+    from dashboard import IndexPage
+    IndexPage(self.request, self.response).get()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
+    assert re.search('<!-- FILE:templates/landing/index.html -->', html)
+    assert re.search('<a href="/users/logout">Logout now.</a>', html)
+    assert re.search('<a href="/authorize">Manage users.</a>', html)
+
+  def test_status_notloggedin(self):
+    from dashboard import StatusPage
+    StatusPage(self.request, self.response).get()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
+    assert re.search('<!-- FILE:templates/status/cloud.html -->', html)
+    assert re.search('<a href="/users/login">Login</a>', html)
+
+  def test_status_loggedin_notAdmin(self):
+    self.set_user('b@a.com')
+    from dashboard import StatusPage
+    StatusPage(self.request, self.response).get()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
+    assert re.search('<!-- FILE:templates/status/cloud.html -->', html)
+    assert re.search('<a href="/users/logout">Logout</a>', html)
+    assert not re.search('<span>CPU / Memory Usage', html)
+
+  def test_status_loggedin_isAdmin(self):
+    self.set_user('a@a.com')
+    from dashboard import StatusPage
+    StatusPage(self.request, self.response).get()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
+    assert re.search('<!-- FILE:templates/status/cloud.html -->', html)
+    assert re.search('<a href="/users/logout">Logout</a>', html)
+    assert re.search('<span>CPU / Memory Usage', html)
+
+  def test_newuser_page(self):
+    from dashboard import NewUserPage
+    NewUserPage(self.request, self.response).get()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/users/new.html -->', html)
