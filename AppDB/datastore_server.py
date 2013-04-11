@@ -2635,7 +2635,7 @@ def main(argv):
   server = tornado.httpserver.HTTPServer(pb_application)
   server.listen(port)
 
-  groomer_zookeeper = zk.ZKTransaction(host="localhost:2181")
+  groomer_zookeeper = zk.ZKTransaction(host=zookeeper_locations)
   datastore_path = "localhost:8888"
   ds_groomer = groomer.DatastoreGroomer(groomer_zookeeper, 
     db_type, datastore_path)

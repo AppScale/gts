@@ -250,6 +250,8 @@ class DatastoreGroomer(threading.Thread):
     """ Does a range query on the current batch of statistics and 
         deletes them.
     """
+    #TODO only remove statistics older than 30 days.
+    return
     for app_id in self.stats.keys():
       self.register_db_accessor(app_id) 
       query = stats.KindStat.all()
