@@ -11,6 +11,8 @@ import webapp2
 import sys
 from lib.app_dashboard_helper import AppDashboardHelper
 from lib.app_dashboard_helper import AppHelperException
+import traceback #TODO remove
+
 
 jinja_environment = jinja2.Environment(
     loader=jinja2.FileSystemLoader(os.path.dirname(__file__) + \
@@ -156,6 +158,7 @@ class NewUserPage(AppDashboard):
         self.redirect('/', self.response)
         return
     except Exception as e:
+      traceback.print_exc()
       sys.stderr.write("NewUserPage.POST() exception: "+str(e))
       err_msgs['email'] = str(e)
       errors['email'] = True
@@ -219,8 +222,8 @@ class LoginPage(AppDashboard):
 
   def post(self):
     """ Handler for post requests. """
-    if self.helper.login_user( self.request.POST.get('user_email'),
-       self.request.POST.get('user_password') ):
+    if self.helper.login_user( self.request.get('user_email'),
+       self.request.get('user_password') ):
     
       if self.request.get('continue') != '':
         self.redirect('/users/confirm?continue=' +
@@ -231,8 +234,8 @@ class LoginPage(AppDashboard):
     else:
       self.render_page(page = 'users', template_file = self.TEMPLATE,
         values = {
-          'continue' : self.request.POST.get('continue'),
-          'user_email' : self.request.POST.get('user_email'),
+          'continue' : self.request.get('continue'),
+          'user_email' : self.request.get('user_email'),
           'flash_message': 
           "Incorrect username / password combination. Please try again."
         })
