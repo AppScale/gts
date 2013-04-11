@@ -157,17 +157,18 @@ class AppDashboardHelper:
     """
     status = self.get_status_info()
     ret = {}
-    for app in status[0]['apps'].keys():
-      if app == 'none':
-        break
-      if status[0]['apps'][app]:
-        try:
-          ret[app] = "http://" + self.get_login_host() + ":"\
-              + str(self.get_app_port(app))
-        except AppHelperException:
+    if len(status) > 0:
+      for app in status[0]['apps'].keys():
+        if app == 'none':
+          break
+        if status[0]['apps'][app]:
+          try:
+            ret[app] = "http://" + self.get_login_host() + ":"\
+                + str(self.get_app_port(app))
+          except AppHelperException:
+            ret[app] = None
+        else:
           ret[app] = None
-      else:
-        ret[app] = None
     return ret
  
   def get_database_info(self):
