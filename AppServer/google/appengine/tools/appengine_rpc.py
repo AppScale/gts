@@ -351,12 +351,12 @@ class AbstractRpcServer(object):
     """
     
     loginUrl = self._GetLoadBalancerLoginUrl()
-    curlCommand = "curl -v -k -X GET " + loginUrl + \
-            " 2>&1 | grep \"authenticity_token\|_load-balancer_session\""    
-    _, cmdOutput = self._RunCommand(curlCommand)
+    #curlCommand = "curl -v -k -X GET " + loginUrl + \
+    #        " 2>&1 | grep \"authenticity_token\|_load-balancer_session\""    
+    #_, cmdOutput = self._RunCommand(curlCommand)
 
-    lbaCookie = self._GetLbaSessionCookie(cmdOutput)
-    authToken = self._GetAppScaleAuthToken(cmdOutput)
+    #lbaCookie = self._GetLbaSessionCookie(cmdOutput)
+    #authToken = self._GetAppScaleAuthToken(cmdOutput)
 
     if not self.read_credentials:
       credentials = self.auth_function()
@@ -366,11 +366,11 @@ class AbstractRpcServer(object):
 
     curlCommand = "curl -k "
     curlCommand += "-c %s " % self._GetAppScaleCookiePath()
-    curlCommand += "--data-urlencode authenticity_token=%s " % authToken
-    curlCommand += "--data-urlencode user[email]=%s " % self.username
-    curlCommand += "--data-urlencode user[password]=%s " % self.password
+    #curlCommand += "--data-urlencode authenticity_token=%s " % authToken
+    curlCommand += "--data-urlencode user_email=%s " % self.username
+    curlCommand += "--data-urlencode user_password=%s " % self.password
     curlCommand += "--data-urlencode commit=login "
-    curlCommand += "-b \"%s\" " % lbaCookie
+    #curlCommand += "-b \"%s\" " % lbaCookie
     curlCommand += "-X POST "
     curlCommand += "%s" % self._GetLoadBalancerAuthUrl()
                    
