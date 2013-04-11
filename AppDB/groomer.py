@@ -21,6 +21,7 @@ from google.appengine.api import datastore_distributed
 from google.appengine.datastore import entity_pb
 from google.appengine.ext import db
 from google.appengine.ext.db import stats
+from google.appengine.api import datastore_errors
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
@@ -64,8 +65,17 @@ class DatastoreGroomer(threading.Thread):
     """ Starts the main loop of the groomer thread. """
     while True:
       time.sleep(self.LOCK_POLL_PERIOD)
+      logging.info("Trying to get groomer lock.")
       if self.get_groomer_lock():
+        logging.info("Got the groomer lock.")
         self.run_groomer()
+        try:
+          self.zoo_keeper.release_datastore_groomer_lock()
+        except zk.ZKTransactionException, zk_exception:
+          logging.error("Unable to release zk lock {0}.".\
+            format(str(zk_exception)))
+      else:
+        logging.info("Did not get the groomer lock.")
 
   def get_groomer_lock(self):
     """ Tries to acquire the lock to the datastore groomer. 
@@ -182,34 +192,44 @@ class DatastoreGroomer(threading.Thread):
 
     return True
 
-  def create_kind_stat_entry(self, kind, size, number):
+  def create_kind_stat_entry(self, kind, size, number, timestamp):
     """ Puts a kind statistic into the datastore.
  
     Args:
       kind: The entity kind.
       size: An int representing the number of bytes taken by entity kind.
       number: The total number of entities.
+      timestamp: A datetime.datetime object.
     """
     kind_stat = stats.KindStat(kind_name=kind, 
                                bytes=size,
                                count=number,
-                               timestamp=datetime.datetime.now())
-    logging.debug("Creating {0}".format(str(kind_stat)))
-    db.put(kind_stat)
+                               timestamp=timestamp)
+    logging.info("Creating kind stat: {0}".format(str(kind_stat)))
+    try:
+      db.put(kind_stat)
+    except datastore_errors.InternalError, internal_error:
+      logging.error("Error inserting kind stat: {0}.".format(internal_error))
+    logging.debug("Done creating kind stat") 
 
-  def create_global_stat_entry(self, size, number):
+  def create_global_stat_entry(self, size, number, timestamp):
     """ Puts a global statistic into the datastore.
     
     Args:
       size: The number of bytes of all entities.
       number: The total number of entities of an application.
+      timestamp: A datetime.datetime object.
     """
     global_stat = stats.GlobalStat(bytes=size,
                                    count=number,
-                                   timestamp=datetime.datetime.now())
-    logging.debug("Creating {0}".format(str(global_stat)))
-    global_stat.put()
- 
+                                   timestamp=timestamp)
+    logging.info("Creating global stat: {0}".format(str(global_stat)))
+    try:
+      db.put(global_stat)
+    except datastore_errors.InternalError, internal_error:
+      logging.error("Error inserting global stat: {0}.".format(internal_error))
+    logging.debug("Done creating global stat") 
+
   def register_db_accessor(self, app_id):
     """ Gets a distributed datastore object to interact with
         the datastore for a certain application.
@@ -238,13 +258,22 @@ class DatastoreGroomer(threading.Thread):
       for entity in entities:
         logging.debug("Removing kind {0}".format(entity))
         entity.delete()
+
+      query = stats.GlobalStat.all()
+      entities = query.run()
+      logging.debug("Result from global stat query: {0}".format(str(entities)))
+      for entity in entities:
+        logging.debug("Removing global {0}".format(entity))
+        entity.delete()
       logging.debug("Done removing old stats for app {0}".format(app_id))
+
 
   def update_statistics(self):
     """ Puts the statistics into the datastore for applications
         to access.
     """
     self.remove_old_statistics()
+    timestamp = datetime.datetime.now()
     for app_id in self.stats.keys():
       self.register_db_accessor(app_id) 
       total_size = 0
@@ -255,8 +284,8 @@ class DatastoreGroomer(threading.Thread):
         number = self.stats[app_id][kind]['number']
         total_size += size
         total_number += number 
-        self.create_kind_stat_entry(kind, size, number)
-      self.create_global_stat_entry(size, number)
+        self.create_kind_stat_entry(kind, size, number, timestamp)
+      self.create_global_stat_entry(total_size, total_number, timestamp)
 
   def run_groomer(self):
     """ Runs the grooming process. Loops on the entire dataset sequentially

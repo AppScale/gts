@@ -78,9 +78,10 @@ class TestGroomer(unittest.TestCase):
     dsg = flexmock(dsg)
     dsg.should_receive("get_entity_batch").and_return([])
     dsg.should_receive("process_entity")
+    dsg.should_receive("update_statistics").and_raise(Exception)
     ds_factory = flexmock(appscale_datastore_batch.DatastoreFactory)
     ds_factory.should_receive("getDatastore").and_return(FakeDatastore())
-    self.assertEquals(True, dsg.run_groomer())
+    self.assertRaises(Exception, dsg.run_groomer)
 
   def test_process_entity(self):
     zookeeper = flexmock()
@@ -168,14 +169,14 @@ class TestGroomer(unittest.TestCase):
     stats = flexmock(db.stats)    
     stats.should_receive("GlobalStat").and_return(FakeEntity())
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
-    self.assertRaises(Exception, dsg.create_kind_stat_entry, "kind", 0, 0)
+    self.assertRaises(Exception, dsg.create_kind_stat_entry, "kind", 0, 0, 0)
      
   def test_create_global_stat_entry(self):
     zookeeper = flexmock()
     stats = flexmock(db.stats)
     stats.should_receive("KindStat").and_return(FakeEntity())
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
-    self.assertRaises(Exception, dsg.create_kind_stat_entry, 0, 0)
+    self.assertRaises(Exception, dsg.create_kind_stat_entry, 0, 0, 0)
      
 if __name__ == "__main__":
   unittest.main()    

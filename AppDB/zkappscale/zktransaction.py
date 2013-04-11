@@ -1215,9 +1215,8 @@ class ZKTransaction:
     """
     try:
       now = str(time.time())
-      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, 
-         self.DEFAULT_NUM_RETRIES, zookeeper.create, self.handle, 
-         DS_GROOM_LOCK_PATH, now, ZOO_ACL_OPEN, zookeeper.EPHEMERAL)
+      zookeeper.create(self.handle, DS_GROOM_LOCK_PATH, now, ZOO_ACL_OPEN, 
+        zookeeper.EPHEMERAL)
     except zookeeper.NodeExistsException:
       return False
     except zookeeper.ZooKeeperException, zk_exception:
@@ -1235,9 +1234,7 @@ class ZKTransaction:
       ZKTransactionException: If the lock could not be released.
     """
     try:
-      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
-         self.DEFAULT_NUM_RETRIES, zookeeper.delete, self.handle, 
-         DS_GROOM_LOCK_PATH, -1)
+      zookeeper.delete(self.handle, DS_GROOM_LOCK_PATH, -1)
     except zookeeper.NoNodeException:
       raise ZKTransactionException("Unable to delete datastore groomer lock.")
     return True

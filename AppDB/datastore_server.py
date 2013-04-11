@@ -2637,9 +2637,9 @@ def main(argv):
 
   groomer_zookeeper = zk.ZKTransaction(host="localhost:2181")
   datastore_path = "localhost:8888"
-  self.ds_groomer = groomer.DatastoreGroomer(groomer_zookeeper, 
+  ds_groomer = groomer.DatastoreGroomer(groomer_zookeeper, 
     db_type, datastore_path)
-  self.ds_groomer.run()
+  ds_groomer.start()
 
   while 1:
     try:
