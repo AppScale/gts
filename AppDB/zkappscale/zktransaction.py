@@ -649,11 +649,11 @@ class ZKTransaction:
             tx_lockpath))
         except zookeeper.NoNodeException, no_node:
           # If the lock is released by another thread this can get tossed.
-          # A rare race condition.
+          # A race condition.
           logging.warning("Lock {0} was in use but was released"\
             .format(lockrootpath))
         raise ZKTransactionException("acquire_additional_lock: There is " \
-          "already another transaction using this lock")
+          "already another transaction using {0} lock".format(lockrootpath))
 
     logging.debug("Created new lock root path {0} with value {1}".format(
       lockrootpath, txpath))

@@ -141,12 +141,14 @@ class TestGroomer(unittest.TestCase):
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
     dsg = flexmock(dsg)
     dsg.should_receive("register_db_accessor").and_return(FakeDistributedDB())
-    dsg.should_receive("remove_old_statistics")
-    dsg.should_receive("create_kind_stat_entry").and_return().and_raise(Exception)
+    dsg.should_receive("create_global_stat_entry").and_return(True)
+    dsg.should_receive("create_kind_stat_entry").and_return(True)
     dsg.stats['app_id'] = {'kind': {'size': 0, 'number': 0}}
     dsg.stats['app_id1'] = {'kind': {'size': 0, 'number': 0}}
     # Should loop twice and on the second raise an exception.
-    self.assertRaises(Exception, dsg.update_statistics)
+    self.assertEquals(True, dsg.update_statistics())
+    dsg.should_receive("create_kind_stat_entry").and_return(False)
+    self.assertEquals(False, dsg.update_statistics())
 
   def test_reset_statistics(self):
     zookeeper = flexmock()

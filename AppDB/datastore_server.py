@@ -76,6 +76,10 @@ ID_KEY_LENGTH = 10
 
 # Tombstone value for soft deletes
 TOMBSTONE = "APPSCALE_SOFT_DELETE"
+
+# Local datastore location through nginx.
+LOCAL_DATASTORE = "localhost:8888"
+
  
 class DatastoreDistributed():
   """ AppScale persistent layer for the datastore API. It is the 
@@ -442,8 +446,10 @@ class DatastoreDistributed():
       row_keys += new_row_keys
 
       for ii in group_rows:
-        logging.debug("Trying to get root entity from entity key: {0}".format(str(ii[0])))
-        logging.debug("Root entity is: {0}".format(self.get_root_key_from_entity_key(str(ii[0]))))
+        logging.debug("Trying to get root entity from entity key: {0}".\
+          format(str(ii[0])))
+        logging.debug("Root entity is: {0}".\
+          format(self.get_root_key_from_entity_key(str(ii[0]))))
         logging.debug("Transaction hash is: {0}".format(str(txn_hash)))
         txn_id = txn_hash[self.get_root_key_from_entity_key(str(ii[0]))]
         row_values[str(ii[0])] = \
@@ -527,13 +533,14 @@ class DatastoreDistributed():
       return int(res[prefix][dbconstants.APP_ID_SCHEMA[0]])
     return self._FIRST_VALID_ALLOCATED_ID
 
-  def allocate_ids(self, prefix, size, max_id=None):
+  def allocate_ids(self, prefix, size, max_id=None, num_retries=0):
     """ Allocates IDs from either a local cache or the datastore. 
 
     Args:
       prefix: A table namespace prefix.
       size: Number of IDs to allocate.
       max_id: If given increase the next IDs to be greater than this value
+      num_retries: The number of retries left to get an ID.
     Returns:
       tuple of start and end ids
     Raises: 
@@ -558,6 +565,12 @@ class DatastoreDistributed():
                            [prefix],  
                            dbconstants.APP_ID_SCHEMA,
                            cell_values)
+    except ZKTransactionException, zk_exception:
+      if num_retries > 0:
+        return self.allocate_ids(prefix, size, max_id=max_id, 
+          num_retries=num_retries - 1)
+      else:
+        raise zk_exception
     finally:
       self.zookeeper.release_lock(prefix, txnid)
 
@@ -749,8 +762,14 @@ class DatastoreDistributed():
 
       last_path = entity.key().path().element_list()[-1]
       if last_path.id() == 0 and not last_path.has_name():
- 
-        id_, _ = self.allocate_ids(self.get_table_prefix(entity.key()), 1)
+        try: 
+          id_, _ = self.allocate_ids(self.get_table_prefix(entity.key()), 1,
+            num_retries=3)
+        except ZKTransactionException, zk_exception:
+          logging.error("Unable to attain a new ID for {0}"\
+            .format(str(entity.key())))
+          raise zk_exception
+
         last_path.set_id(id_)
 
         group = entity.mutable_entity_group()
@@ -828,8 +847,8 @@ class DatastoreDistributed():
       elif isinstance(ent, entity_pb.EntityProto):
         root_keys.append(self.get_root_key_from_entity_key(ent.key()))
       else:
-        raise TypeError("Excepted either a reference or an EntityProto, got %s" % \
-                        ent.__class__)
+        raise TypeError("Excepted either a reference or an EntityProto, "\
+          "got {0}".format(ent.__class__))
 
     # Remove all duplicate root keys
     root_keys = list(set(root_keys))
@@ -889,8 +908,8 @@ class DatastoreDistributed():
       elif isinstance(ent, entity_pb.EntityProto):
         root_keys.append(self.get_root_key_from_entity_key(ent.key()))
       else:
-        raise TypeError("Excepted either a reference or an EntityProto, got %s" % \
-                        ent.__class__)
+        raise TypeError("Excepted either a reference or an EntityProto"
+           "got {0}".format(ent.__class__))
 
     # Remove all duplicate root keys
     if entities is None:
@@ -2272,7 +2291,7 @@ class DatastoreDistributed():
       return (api_base_pb.VoidProto().Encode(), 0, "")
     except ZKTransactionException, zkte:
       logging.info("Concurrent transaction exception for app id {0}, " \
-        "transaction id {1}, info {2}".format(app_id, txn_id, str(zkte)))
+        "transaction id {1}, info {2}".format(app_id, txn.handle(), str(zkte)))
       return (api_base_pb.VoidProto().Encode(), 
               datastore_pb.Error.PERMISSION_DENIED, 
               "Unable to rollback for this transaction: %s" % str(zkte))
@@ -2431,7 +2450,8 @@ class MainHandler(tornado.web.RequestHandler):
       An encoded transaction protocol buffer with a unique handler.
     """
     global datastore_access
-    begin_transaction_req_pb = datastore_pb.BeginTransactionRequest(http_request_data)
+    begin_transaction_req_pb = datastore_pb.BeginTransactionRequest(
+      http_request_data)
     multiple_eg = False
     if begin_transaction_req_pb.has_allow_multiple_eg():
       multiple_eg = begin_transaction_req_pb.allow_multiple_eg()
@@ -2635,10 +2655,7 @@ def main(argv):
   server = tornado.httpserver.HTTPServer(pb_application)
   server.listen(port)
 
-  groomer_zookeeper = zk.ZKTransaction(host=zookeeper_locations)
-  datastore_path = "localhost:8888"
-  ds_groomer = groomer.DatastoreGroomer(groomer_zookeeper, 
-    db_type, datastore_path)
+  ds_groomer = groomer.DatastoreGroomer(zookeeper, db_type, LOCAL_DATASTORE)
   ds_groomer.start()
 
   while 1:

@@ -5,6 +5,7 @@ collection.
 import datetime
 import logging
 import os
+import random
 import re
 import sys
 import threading
@@ -30,14 +31,16 @@ class DatastoreGroomer(threading.Thread):
   """ Scans the entire database for each application. """
  
   # The amount of seconds between polling to get the groomer lock.
-  LOCK_POLL_PERIOD = 3600
+  LOCK_POLL_PERIOD = 86400
 
   # The number of entities retrieved in a datastore request.
   BATCH_SIZE = 100 
 
-  # Any kind that is of __*__ is protected and should not have 
-  # stats.
-  PROTECTED_KINDS = '__(.*)__'
+  # Any kind that is of __*__ is private and should not have stats.
+  PRIVATE_KINDS = '__(.*)__'
+
+  # Any kind that is of _*_ is protected and should not have stats.
+  PROTECTED_KINDS = '_(.*)_'
 
   def __init__(self, zoo_keeper, table_name, ds_path):
     """ Constructor. 
@@ -48,7 +51,7 @@ class DatastoreGroomer(threading.Thread):
       ds_path: The connection path to the datastore_server.
     """
     logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
-      '%(lineno)s %(message)s ', level=logging.INFO)
+      '%(lineno)s %(message)s ', level=logging.DEBUG)
     logging.info("Logging started")
 
     threading.Thread.__init__(self)
@@ -64,7 +67,7 @@ class DatastoreGroomer(threading.Thread):
   def run(self):
     """ Starts the main loop of the groomer thread. """
     while True:
-      time.sleep(self.LOCK_POLL_PERIOD)
+      time.sleep(random.randint(1, self.LOCK_POLL_PERIOD))
       logging.info("Trying to get groomer lock.")
       if self.get_groomer_lock():
         logging.info("Got the groomer lock.")
@@ -149,6 +152,9 @@ class DatastoreGroomer(threading.Thread):
     if re.match(self.PROTECTED_KINDS, kind):
       return True
 
+    if re.match(self.PRIVATE_KINDS, kind):
+      return True
+
     app_id = ent_proto.key().app()
     if not app_id:
       logging.warning("Entity of kind {0} did not have an app id"\
@@ -200,17 +206,20 @@ class DatastoreGroomer(threading.Thread):
       size: An int representing the number of bytes taken by entity kind.
       number: The total number of entities.
       timestamp: A datetime.datetime object.
+    Returns: 
+      True on success, False otherwise.
     """
     kind_stat = stats.KindStat(kind_name=kind, 
                                bytes=size,
                                count=number,
                                timestamp=timestamp)
-    logging.info("Creating kind stat: {0}".format(str(kind_stat)))
     try:
       db.put(kind_stat)
     except datastore_errors.InternalError, internal_error:
       logging.error("Error inserting kind stat: {0}.".format(internal_error))
+      return False
     logging.debug("Done creating kind stat") 
+    return True
 
   def create_global_stat_entry(self, size, number, timestamp):
     """ Puts a global statistic into the datastore.
@@ -219,16 +228,19 @@ class DatastoreGroomer(threading.Thread):
       size: The number of bytes of all entities.
       number: The total number of entities of an application.
       timestamp: A datetime.datetime object.
+    Returns: 
+      True on success, False otherwise.
     """
     global_stat = stats.GlobalStat(bytes=size,
                                    count=number,
                                    timestamp=timestamp)
-    logging.info("Creating global stat: {0}".format(str(global_stat)))
     try:
       db.put(global_stat)
     except datastore_errors.InternalError, internal_error:
       logging.error("Error inserting global stat: {0}.".format(internal_error))
+      return False
     logging.debug("Done creating global stat") 
+    return True
 
   def register_db_accessor(self, app_id):
     """ Gets a distributed datastore object to interact with
@@ -251,7 +263,6 @@ class DatastoreGroomer(threading.Thread):
         deletes them.
     """
     #TODO only remove statistics older than 30 days.
-    return
     for app_id in self.stats.keys():
       self.register_db_accessor(app_id) 
       query = stats.KindStat.all()
@@ -273,11 +284,13 @@ class DatastoreGroomer(threading.Thread):
   def update_statistics(self):
     """ Puts the statistics into the datastore for applications
         to access.
+
+    Returns:
+      True if there were no errors, False otherwise.
     """
-    self.remove_old_statistics()
     timestamp = datetime.datetime.now()
     for app_id in self.stats.keys():
-      self.register_db_accessor(app_id) 
+      ds_distributed = self.register_db_accessor(app_id) 
       total_size = 0
       total_number = 0
       kinds = self.stats[app_id].keys()
@@ -286,20 +299,34 @@ class DatastoreGroomer(threading.Thread):
         number = self.stats[app_id][kind]['number']
         total_size += size
         total_number += number 
-        self.create_kind_stat_entry(kind, size, number, timestamp)
-      self.create_global_stat_entry(total_size, total_number, timestamp)
+        if not self.create_kind_stat_entry(kind, size, number, timestamp):
+          return False
+
+      if not self.create_global_stat_entry(total_size, total_number, 
+                                           timestamp):
+        return False
+
+      logging.info("Kind stats for {0} are {1}"\
+        .format(app_id, self.stats[app_id]))
+      logging.info("Global stats for {0} are total size of {1} with " \
+        "{2} entities".format(app_id, total_size, total_number))
+      del ds_distributed
+
+    return True
 
   def run_groomer(self):
     """ Runs the grooming process. Loops on the entire dataset sequentially
         and updates stats, indexes, and transactions.
     """
-    start = time.time()
     logging.info("Groomer started")
+    start = time.time()
     last_key = ""
     self.reset_statistics()
+
+    db_access = appscale_datastore_batch.DatastoreFactory.getDatastore(
+      self.table_name)
+
     while True:
-      db_access = appscale_datastore_batch.DatastoreFactory.getDatastore(
-        self.table_name)
       entities = self.get_entity_batch(db_access, last_key=last_key)
 
       if not entities:
@@ -310,7 +337,11 @@ class DatastoreGroomer(threading.Thread):
 
       last_key = entities[-1].keys()[0]
   
-    self.update_statistics()
+    if not self.update_statistics():
+      logging.error("There was an error updating the statistics")
+
+    del db_access
+
     time_taken = time.time() - start
     logging.info("Groomer stopped (Took {0} seconds)".format(str(time_taken)))
 
