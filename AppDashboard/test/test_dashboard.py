@@ -22,7 +22,6 @@ sys.path.extend(['/usr/share/pyshared',
   '/usr/lib/python2.6/dist-packages/',
 ])
 
-
 import unittest
 import webapp2
 import re
@@ -31,10 +30,6 @@ import SOAPpy
 import StringIO
 
 from appcontroller_client import AppControllerClient
-#from local_state import LocalState
-
-#from google.appengine.api import memcache
-#from google.appengine.ext import db
 
 from google.appengine.api import users
 
@@ -42,9 +37,6 @@ from google.appengine.api import users
 import dashboard
 from app_dashboard_helper import AppDashboardHelper
 from secret_key import GLOBAL_SECRET_KEY
-
-class TestAppDashboardSuccess(Exception):
-  pass
 
 class TestAppDashboard(unittest.TestCase):
 
@@ -63,7 +55,7 @@ class TestAppDashboard(unittest.TestCase):
     acc.should_receive('get_api_status').and_return(
       {'api1':'running', 'api2':'failed', 'api3':'unknown'}
       )
-    acc.should_receive('upload_tgz').and_raise(SOAPpy.Errors.HTTPError)
+    acc.should_receive('upload_tgz').and_return('true')
     acc.should_receive('stop_app').and_return('true')
    
     fake_soap = flexmock(name='fake_soap')
@@ -82,12 +74,12 @@ class TestAppDashboard(unittest.TestCase):
     fake_soap.should_receive('get_user_data')\
       .with_args('b@a.com', GLOBAL_SECRET_KEY)\
       .and_return(
-      "is_cloud_admin:false\napplications:app1:app2\npassword:79951d98d43c1830c5e5e4de58244a621595dfaa\n"
+      "is_cloud_admin:false\napplications:app2\npassword:79951d98d43c1830c5e5e4de58244a621595dfaa\n"
       )
     fake_soap.should_receive('get_user_data')\
       .with_args('c@a.com', GLOBAL_SECRET_KEY)\
       .and_return(
-      "is_cloud_admin:false\napplications:app1:app2\npassword:79951d98d43c1830c5e5e4de58244a621595dfaa\n"
+      "is_cloud_admin:false\napplications:app2\npassword:79951d98d43c1830c5e5e4de58244a621595dfaa\n"
       )
 
     fake_soap.should_receive('commit_new_user').and_return('true')
@@ -116,6 +108,12 @@ class TestAppDashboard(unittest.TestCase):
     for key in post_dict.keys():
       self.request.should_receive('get').with_args(key)\
         .and_return(post_dict[key])
+
+  def set_fileupload(self, fieldname):
+    self.request.POST = flexmock(name='POST')
+    self.request.POST.multi = {}
+    self.request.POST.multi[fieldname] = flexmock(name='file')
+    self.request.POST.multi[fieldname].file = StringIO.StringIO("FILE CONTENTS")
 
   def set_get(self, post_dict):
     self.request.GET = post_dict
@@ -367,3 +365,156 @@ class TestAppDashboard(unittest.TestCase):
     assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
     assert re.search('<!-- FILE:templates/users/login.html -->', html)
     assert re.search('Incorrect username / password combination. Please try again', html)
+
+  def test_authorize_page_notloggedin(self):
+    from dashboard import AuthorizePage
+    AuthorizePage(self.request, self.response).get()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
+    assert re.search('<!-- FILE:templates/authorize/cloud.html -->', html)
+    assert re.search('Only the cloud administrator can change permissions.', html)
+
+  def test_authorize_page_loggedin_notadmin(self):
+    from dashboard import AuthorizePage
+    self.set_user('b@a.com')
+    AuthorizePage(self.request, self.response).get()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
+    assert re.search('<!-- FILE:templates/authorize/cloud.html -->', html)
+    assert re.search('Only the cloud administrator can change permissions.', html)
+
+  def test_authorize_page_loggedin_admin(self):
+    from dashboard import AuthorizePage
+    self.set_user('a@a.com')
+    AuthorizePage(self.request, self.response).get()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
+    assert re.search('<!-- FILE:templates/authorize/cloud.html -->', html)
+    assert re.search('a@a.com-upload_app', html)
+    assert re.search('b@a.com-upload_app', html)
+
+  def test_authorize_submit_notloggedin(self):
+    from dashboard import AuthorizePage
+    self.set_post({
+      'user_permission_1' : 'a@a.com',
+      'CURRENT-a@a.com-upload_app' : 'True',
+      'a@a.com-upload_app' : 'a@a.com-upload_app', #this box is checked
+      'user_permission_1' : 'b@a.com',
+      'CURRENT-b@a.com-upload_app' : 'True', #this box is unchecked
+    })
+    AuthorizePage(self.request, self.response).post()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
+    assert re.search('<!-- FILE:templates/authorize/cloud.html -->', html)
+    assert re.search('Only the cloud administrator can change permissions.', html)
+
+  def test_authorize_submit_notadmin(self):
+    from dashboard import AuthorizePage
+    self.set_user('b@a.com')
+    self.set_post({
+      'user_permission_1' : 'a@a.com',
+      'CURRENT-a@a.com-upload_app' : 'True',
+      'a@a.com-upload_app' : 'a@a.com-upload_app', #this box is checked
+      'user_permission_1' : 'b@a.com',
+      'CURRENT-b@a.com-upload_app' : 'True', #this box is unchecked
+    })
+    AuthorizePage(self.request, self.response).post()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
+    assert re.search('<!-- FILE:templates/authorize/cloud.html -->', html)
+    assert re.search('Only the cloud administrator can change permissions.', html)
+
+  def test_authorize_submit(self):
+    from dashboard import AuthorizePage
+    self.set_user('a@a.com')
+    self.set_post({
+      'user_permission_1' : 'a@a.com',
+      'CURRENT-a@a.com-upload_app' : 'True',
+      'a@a.com-upload_app' : 'a@a.com-upload_app', #this box is checked
+      'user_permission_1' : 'b@a.com',
+      'CURRENT-b@a.com-upload_app' : 'True', #this box is unchecked
+    })
+    AuthorizePage(self.request, self.response).post()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
+    assert re.search('<!-- FILE:templates/authorize/cloud.html -->', html)
+    assert re.search('Disabling upload_app for b@a.com', html)
+
+  def test_upload_page_notloggedin(self):
+    from dashboard import AppUploadPage
+    AppUploadPage(self.request, self.response).get()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
+    assert re.search('<!-- FILE:templates/apps/new.html -->', html)
+    assert re.search('You do not have permission to upload application.  Please contact your cloud administrator', html)
+
+  def test_upload_page_loggedin(self):
+    from dashboard import AppUploadPage
+    self.set_user('a@a.com')
+    AppUploadPage(self.request, self.response).get()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
+    assert re.search('<!-- FILE:templates/apps/new.html -->', html)
+    assert re.search('<input accept="tar.gz, tgz" id="app_file_data" name="app_file_data" size="30" type="file" />', html)
+
+
+  def test_upload_submit_notloggedin(self):
+    from dashboard import AppUploadPage
+    self.set_fileupload('app_file_data')
+    AppUploadPage(self.request, self.response).post()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
+    assert re.search('<!-- FILE:templates/apps/new.html -->', html)
+    assert re.search('You do not have permission to upload application.  Please contact your cloud administrator', html)
+
+  def test_upload_submit_loggedin(self):
+    from dashboard import AppUploadPage
+    self.set_user('a@a.com')
+    self.set_fileupload('app_file_data')
+    AppUploadPage(self.request, self.response).post()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
+    assert re.search('<!-- FILE:templates/apps/new.html -->', html)
+    assert re.search('Application uploaded successfully.  Please wait for the application to start running.', html)
+
+  def test_appdelete_page_nologgedin(self):
+    from dashboard import AppDeletePage
+    AppDeletePage(self.request, self.response).get()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
+    assert re.search('<!-- FILE:templates/apps/delete.html -->', html)
+    assert not re.search('<option ', html)
+
+  def test_appdelete_page_loggedin_twoapps(self):
+    from dashboard import AppDeletePage
+    self.set_user('a@a.com')
+    AppDeletePage(self.request, self.response).get()
+    html =  self.response.out.getvalue()
+    print html
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
+    assert re.search('<!-- FILE:templates/apps/delete.html -->', html)
+    assert re.search('<option value="app1">app1</option>', html)
+    assert re.search('<option value="app2">app2</option>', html)
+
+  def test_appdelete_page_loggedin_oneapp(self):
+    from dashboard import AppDeletePage
+    self.set_user('b@a.com')
+    AppDeletePage(self.request, self.response).get()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
+    assert re.search('<!-- FILE:templates/apps/delete.html -->', html)
+    assert not re.search('<option value="app1">app1</option>', html)
+    assert re.search('<option value="app2">app2</option>', html)

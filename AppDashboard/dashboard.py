@@ -256,7 +256,6 @@ class AuthorizePage(AppDashboard):
     """
     perms = self.helper.get_all_permission_items()
     req_keys = self.request.POST.keys()
-    sys.stderr.write("req_keys: "+str(req_keys))
     response = ''
     for fldname, email in self.request.POST.iteritems():
       if re.match('^user_permission_', fldname):

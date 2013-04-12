@@ -245,7 +245,6 @@ class AppDashboardHelper:
       tgz_file.close()
       name = tgz_file.name
       acc = self.get_server()
-      sys.stderr.write('acc.upload_tgz(name='+name+', user='+user.nickname()+')')
       ret = acc.upload_tgz(name, user.nickname() )
       if ret == "true":
         return "Application uploaded successfully.  Please wait for the "\
