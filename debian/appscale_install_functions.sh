@@ -890,18 +890,7 @@ installzookeeper()
     #patch -p0 -i ${APPSCALE_HOME}/AppDB/zkappscale/patch/zkpython-memory.patch
 
     # python library
-    cd src/contrib/zkpython
-    ant install
-    if [ ! -e /usr/local/lib/python2.6/dist-packages/zookeeper.so ]; then
-        echo "Fail to install libzookeeper. Please retry."
-        exit 1
-    fi
-    if [ -n "${DESTDIR}" ]; then
-        mkdir -pv ${DESTDIR}/usr/local/lib/python2.6/dist-packages
-        cp -v /usr/local/lib/python2.6/dist-packages/zookeeper.so ${DESTDIR}/usr/local/lib/python2.6/dist-packages/
-        cp -v /usr/local/lib/python2.6/dist-packages/ZooKeeper-* ${DESTDIR}/usr/local/lib/python2.6/dist-packages/
-    fi
-    cd ../../..
+    easy_install kazoo
 
     # install java library
     mkdir -pv ${DESTDIR}/usr/share/java
