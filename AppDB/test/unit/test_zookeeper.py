@@ -79,11 +79,8 @@ class TestZookeeperTransaction(unittest.TestCase):
 
 
   def test_get_transaction_id(self):
-    # mock out waitForConnect
-    flexmock(zk.ZKTransaction)
-    zk.ZKTransaction.should_receive('wait_for_connect')
-    
     # mock out getTransactionRootPath
+    flexmock(zk.ZKTransaction)
     zk.ZKTransaction.should_receive('get_transaction_prefix_path').with_args(
       self.appid).and_return('/rootpath/' + self.appid)
     path_to_create = "/rootpath/" + self.appid + "/" + zk.APP_TX_PREFIX
@@ -156,7 +153,6 @@ class TestZookeeperTransaction(unittest.TestCase):
   def test_is_in_transaction(self):
     # shared mocks
     flexmock(zk.ZKTransaction)
-    zk.ZKTransaction.should_receive('wait_for_connect')
     zk.ZKTransaction.should_receive('get_transaction_path') \
       .and_return('/transaction/path')
 
@@ -244,7 +240,6 @@ class TestZookeeperTransaction(unittest.TestCase):
   def test_acquire_additional_lock(self):
     # mock out waitForConnect
     flexmock(zk.ZKTransaction)
-    zk.ZKTransaction.should_receive('wait_for_connect')
     zk.ZKTransaction.should_receive('check_transaction')
     zk.ZKTransaction.should_receive('get_transaction_path').\
        and_return('/txn/path')
@@ -294,7 +289,6 @@ class TestZookeeperTransaction(unittest.TestCase):
   def test_check_transaction(self):
     # mock out getTransactionRootPath
     flexmock(zk.ZKTransaction)
-    zk.ZKTransaction.should_receive('wait_for_connect')
     zk.ZKTransaction.should_receive('get_transaction_prefix_path').with_args(
       self.appid).and_return('/rootpath')
     zk.ZKTransaction.should_receive('is_blacklisted').and_return(False)
@@ -335,7 +329,6 @@ class TestZookeeperTransaction(unittest.TestCase):
   def test_release_lock(self):
     # mock out getTransactionRootPath
     flexmock(zk.ZKTransaction)
-    zk.ZKTransaction.should_receive('wait_for_connect')
     zk.ZKTransaction.should_receive('check_transaction')
     zk.ZKTransaction.should_receive('get_transaction_path').\
       and_return('/rootpath')
@@ -371,7 +364,6 @@ class TestZookeeperTransaction(unittest.TestCase):
   def test_is_blacklisted(self):
     # mock out getTransactionRootPath
     flexmock(zk.ZKTransaction)
-    zk.ZKTransaction.should_receive('wait_for_connect')
     zk.ZKTransaction.should_receive('get_blacklist_root_path').\
       and_return("bl_root_path")
 
@@ -386,7 +378,6 @@ class TestZookeeperTransaction(unittest.TestCase):
     kazoo.client.should_receive('KazooClient').and_return(fake_zookeeper)
 
     transaction = zk.ZKTransaction(host="something", start_gc=False)
-    transaction.blacklist_cache[self.appid] = str(1)
     self.assertEquals(True, transaction.is_blacklisted(self.appid, 1))
 
     del transaction.blacklist_cache[self.appid]
@@ -400,7 +391,6 @@ class TestZookeeperTransaction(unittest.TestCase):
   def test_register_updated_key(self):
     # mock out getTransactionRootPath
     flexmock(zk.ZKTransaction)
-    zk.ZKTransaction.should_receive('wait_for_connect')
     zk.ZKTransaction.should_receive('get_valid_transaction_path').\
       and_return('/txn/path')
     zk.ZKTransaction.should_receive('get_transaction_path').\
@@ -430,7 +420,6 @@ class TestZookeeperTransaction(unittest.TestCase):
   def test_try_garbage_collection(self):
     # mock out getTransactionRootPath
     flexmock(zk.ZKTransaction)
-    zk.ZKTransaction.should_receive('wait_for_connect')
     zk.ZKTransaction.should_receive('update_node')
 
     # mock out initializing a ZK connection
