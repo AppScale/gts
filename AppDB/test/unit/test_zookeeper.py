@@ -486,6 +486,40 @@ class TestZookeeperTransaction(unittest.TestCase):
     transaction = zk.ZKTransaction(host="something", start_gc=False)
     transaction.execute_garbage_collection(self.appid, "some/path")
 
+  def test_get_datastore_groomer_lock(self):
+    flexmock(zk.ZKTransaction)
+
+    # mock out initializing a ZK connection
+    fake_zookeeper = flexmock(name='fake_zoo')
+    fake_zookeeper.should_receive('start')
+    fake_zookeeper.should_receive('create').and_return(True)
+
+    flexmock(kazoo.client)
+    kazoo.client.should_receive('KazooClient').and_return(fake_zookeeper)
+
+    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    self.assertEquals(True, transaction.get_datastore_groomer_lock())
+
+    fake_zookeeper.should_receive('create').and_raise(fake_zookeeper.NodeExistsError)
+    self.assertEquals(False, transaction.get_datastore_groomer_lock())
+  
+  def test_release_datastore_groomer_lock(self):
+    flexmock(zk.ZKTransaction)
+
+    # mock out initializing a ZK connection
+    fake_zookeeper = flexmock(name='fake_zoo')
+    fake_zookeeper.should_receive('start')
+    fake_zookeeper.should_receive('delete')
+
+    flexmock(kazoo.client)
+    kazoo.client.should_receive('KazooClient').and_return(fake_zookeeper)
+
+    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    self.assertEquals(True, transaction.release_datastore_groomer_lock())
+
+    fake_zookeeper.should_receive('delete').and_raise(kazoo.exceptions.NoNodeError)
+    self.assertRaises(ZKTransactionException, transaction.release_datastore_groomer_lock)
+
   def test_run_with_timeout(self):
     def my_function(arg1, arg2):
       return True
