@@ -5,7 +5,11 @@
 import os
 import sys
 import unittest
-import zookeeper
+
+import kazoo.client
+import kazoo.exceptions
+import kazoo.protocol
+import kazoo.protocol.states
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))  
 from zkappscale import zktransaction as zk
@@ -111,18 +115,16 @@ class TestZookeeperTransaction(unittest.TestCase):
     self.assertRaises(zk.ZKTransactionException, zoo.release_lock, self.appid, txid)
 
   def tearDown(self):
-    def receive_and_notify(_, event_type, state, path):
-      pass
     def delete_recursive(handle, path):
       try:
-        children = zookeeper.get_children(handle, path)
+        children = handle.get_children(path)
         for child in children:
           delete_recursive(handle, PATH_SEPARATOR.join([path, child]))
-        zookeeper.delete(handle, path, -1)
-      except zookeeper.NoNodeException:
+        handle.delete(path)
+      except kazoo.exceptions.NoNodeError:
         pass
 
-    handle = zookeeper.init("localhost:2181", receive_and_notify)
+    handle = kazoo.client.KazooClient(hosts="localhost:2181")
     delete_recursive(handle, TOP_LEVEL)
  
 if __name__ == "__main__":
