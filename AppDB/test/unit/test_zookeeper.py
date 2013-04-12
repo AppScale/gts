@@ -438,6 +438,34 @@ class TestZookeeperTransaction(unittest.TestCase):
     transaction = zk.ZKTransaction(host="something", start_gc=False)
     transaction.execute_garbage_collection(self.appid, "some/path")
 
+  def test_get_datastore_groomer_lock(self):
+    flexmock(zk.ZKTransaction)
+
+    # mock out initializing a ZK connection
+    flexmock(zookeeper)
+    zookeeper.should_receive('init').and_return(self.handle)
+    zookeeper.should_receive('create').and_return(True)
+
+    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    self.assertEquals(True, transaction.get_datastore_groomer_lock())
+
+    zookeeper.should_receive('create').and_raise(zookeeper.NodeExistsException)
+    self.assertEquals(False, transaction.get_datastore_groomer_lock())
+  
+  def test_release_datastore_groomer_lock(self):
+    flexmock(zk.ZKTransaction)
+
+    # mock out initializing a ZK connection
+    flexmock(zookeeper)
+    zookeeper.should_receive('init').and_return(self.handle)
+    zookeeper.should_receive('delete')
+
+    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    self.assertEquals(True, transaction.release_datastore_groomer_lock())
+
+    zookeeper.should_receive('delete').and_raise(zookeeper.NoNodeException)
+    self.assertRaises(ZKTransactionException, transaction.release_datastore_groomer_lock)
+
   def test_run_with_timeout(self):
     def my_function(arg1, arg2):
       return True

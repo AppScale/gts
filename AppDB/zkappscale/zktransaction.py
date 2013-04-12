@@ -69,6 +69,9 @@ GC_LOCK_PATH = "gclock"
 
 GC_TIME_PATH = "gclast_time"
 
+# Lock path for the datastore groomer.
+DS_GROOM_LOCK_PATH = "/appscale_datastore_groomer"
+
 # A unique prefix for cross group transactions.
 XG_PREFIX = "xg"
 
@@ -209,14 +212,11 @@ class ZKTransaction:
     
   def wait_for_connect(self):
     """ Blocks on a connection. Waits for a signal from the notify function """
-    logging.debug("Waiting for ZooKeeper connection")
     if self.connected:
       return
     with self.connect_cv:
       while not self.connected:
         self.connect_cv.wait(10.0)
-        logging.debug("Still waiting...")
-    logging.debug("Done waiting")
 
   def force_create_path(self, path, value="default"):
     """ Creates a new ZooKeeper node at the given path, recursively creating its
@@ -649,11 +649,11 @@ class ZKTransaction:
             tx_lockpath))
         except zookeeper.NoNodeException, no_node:
           # If the lock is released by another thread this can get tossed.
-          # A rare race condition.
+          # A race condition.
           logging.warning("Lock {0} was in use but was released"\
             .format(lockrootpath))
         raise ZKTransactionException("acquire_additional_lock: There is " \
-          "already another transaction using this lock")
+          "already another transaction using {0} lock".format(lockrootpath))
 
     logging.debug("Created new lock root path {0} with value {1}".format(
       lockrootpath, txpath))
@@ -1169,7 +1169,7 @@ class ZKTransaction:
     """
     last_time = 0
     try:
-      val = zookeeper.get(self.handle, PATH_SEPARATOR.join([app_path,
+      val = zookeeper.get(self.handle, PATH_SEPARATOR.join([app_path, 
         GC_TIME_PATH]), None)[0]
       last_time = float(val)
     except zookeeper.NoNodeException:
@@ -1207,6 +1207,66 @@ class ZKTransaction:
       return True
     return False
 
+  def get_datastore_groomer_lock(self):
+    """ Tries to get the lock for the datastore groomer. 
+
+    Returns:
+      True if the lock was obtained, False otherwise.
+    """
+    try:
+      now = str(time.time())
+      zookeeper.create(self.handle, DS_GROOM_LOCK_PATH, now, ZOO_ACL_OPEN, 
+        zookeeper.EPHEMERAL)
+    except zookeeper.NoNodeException:
+      logging.debug("Couldn't create path {0}".format(DS_GROOM_LOCK_PATH))
+      return False
+    except zookeeper.NodeExistsException:
+      return False
+    except zookeeper.ZooKeeperException, zk_exception:
+      logging.error("ZK Exception: {0}".format(zk_exception))
+      self.reestablish_connection()
+      return False
+    except zookeeper.SystemErrorException, sys_exception:
+      logging.error("System exception: {0}".format(sys_exception))
+      self.reestablish_connection()
+      return False
+    except SystemError, sys_exception:
+      logging.error("System error {0}".format(sys_exception))
+      self.reestablish_connection()
+      return False
+    except Exception, exception:
+      logging.error("General exception {0}".format(exception))
+      self.reestablish_connection()
+      return False
+      
+    return True
+
+  def release_datastore_groomer_lock(self):
+    """ Releases the datastore groomer lock. 
+   
+    Returns:
+      True on success, False on system failures.
+    Raises:
+      ZKTransactionException: If the lock could not be released.
+    """
+    try:
+      zookeeper.delete(self.handle, DS_GROOM_LOCK_PATH, -1)
+    except zookeeper.NoNodeException:
+      raise ZKTransactionException("Unable to delete datastore groomer lock.")
+    except zookeeper.SystemErrorException, sys_exception:
+      logging.error("System exception: {0}".format(sys_exception))
+      self.reestablish_connection()
+      return False
+    except SystemError, sys_exception:
+      logging.error("System error {0}".format(sys_exception))
+      self.reestablish_connection()
+      return False
+    except Exception, exception:
+      logging.error("General exception {0}".format(exception))
+      self.reestablish_connection()
+      return False
+    return True
+
   def execute_garbage_collection(self, app_id, app_path):
     """ Execute garbage collection for an application.
     
@@ -1218,7 +1278,7 @@ class ZKTransaction:
     # Get the transaction ID list.
     txrootpath = PATH_SEPARATOR.join([app_path, APP_TX_PATH])
     try:
-      txlist = zookeeper.get_children(self.handle, txrootpath)
+      txlist = zookeeper.get_children( self.handle, txrootpath)
     except zookeeper.NoNodeException:
       # there is no transaction yet.
       return
