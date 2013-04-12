@@ -11,7 +11,6 @@ import webapp2
 import sys
 from lib.app_dashboard_helper import AppDashboardHelper
 from lib.app_dashboard_helper import AppHelperException
-import traceback #TODO remove
 
 
 jinja_environment = jinja2.Environment(
@@ -158,7 +157,6 @@ class NewUserPage(AppDashboard):
         self.redirect('/', self.response)
         return
     except Exception as e:
-      traceback.print_exc()
       sys.stderr.write("NewUserPage.POST() exception: "+str(e))
       err_msgs['email'] = str(e)
       errors['email'] = True

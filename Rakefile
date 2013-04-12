@@ -131,7 +131,15 @@ end
 namespace :appdashboard do
 
   task :test do
-    sh "nosetests AppDashboard/test"
+    sh "python AppDashboard/test/test_suite.py"
+  end
+
+  task :coverage do |test|
+    sh "rm -rf AppDashboard/coverage"
+    sh "coverage erase"
+    sh "coverage run --include='AppDashboard/lib/*,AppDashboard/dashboard.py' --omit='*tests*' AppDashboard/test/test_suite.py"
+    sh "coverage report -m"
+    sh "coverage html --directory=AppDashboard/coverage"
   end
 
 end

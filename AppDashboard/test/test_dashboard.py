@@ -64,7 +64,16 @@ class TestAppDashboard(unittest.TestCase):
     fake_soap.should_receive('get_app_data').and_return(
       "\n\n ports: 8080\n num_ports:1\n"
       )
-    fake_soap.should_receive('get_capabilities').and_return('upload_app')
+
+    fake_soap.should_receive('get_capabilities')\
+      .with_args('a@a.com', GLOBAL_SECRET_KEY)\
+      .and_return('upload_app')
+    fake_soap.should_receive('get_capabilities')\
+      .with_args('b@a.com', GLOBAL_SECRET_KEY)\
+      .and_return('upload_app')
+    fake_soap.should_receive('get_capabilities')\
+      .with_args('c@a.com', GLOBAL_SECRET_KEY)\
+      .and_return('')
 
     fake_soap.should_receive('get_user_data')\
       .with_args('a@a.com', GLOBAL_SECRET_KEY)\
@@ -429,7 +438,7 @@ class TestAppDashboard(unittest.TestCase):
     assert re.search('<!-- FILE:templates/authorize/cloud.html -->', html)
     assert re.search('Only the cloud administrator can change permissions.', html)
 
-  def test_authorize_submit(self):
+  def test_authorize_submit_remove(self):
     from dashboard import AuthorizePage
     self.set_user('a@a.com')
     self.set_post({
@@ -445,6 +454,24 @@ class TestAppDashboard(unittest.TestCase):
     assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
     assert re.search('<!-- FILE:templates/authorize/cloud.html -->', html)
     assert re.search('Disabling upload_app for b@a.com', html)
+
+  def test_authorize_submit_add(self):
+    from dashboard import AuthorizePage
+    self.set_user('a@a.com')
+    self.set_post({
+      'user_permission_1' : 'a@a.com',
+      'CURRENT-a@a.com-upload_app' : 'True',
+      'a@a.com-upload_app' : 'a@a.com-upload_app', #this box is checked
+      'user_permission_1' : 'c@a.com',
+      'CURRENT-c@a.com-upload_app' : 'False', #this box is unchecked
+      'c@a.com-upload_app' : 'c@a.com-upload_app', #this box is checked
+    })
+    AuthorizePage(self.request, self.response).post()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
+    assert re.search('<!-- FILE:templates/authorize/cloud.html -->', html)
+    assert re.search('Enabling upload_app for c@a.com', html)
 
   def test_upload_page_notloggedin(self):
     from dashboard import AppUploadPage
@@ -501,7 +528,6 @@ class TestAppDashboard(unittest.TestCase):
     self.set_user('a@a.com')
     AppDeletePage(self.request, self.response).get()
     html =  self.response.out.getvalue()
-    print html
     assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
     assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
     assert re.search('<!-- FILE:templates/apps/delete.html -->', html)
@@ -518,3 +544,41 @@ class TestAppDashboard(unittest.TestCase):
     assert re.search('<!-- FILE:templates/apps/delete.html -->', html)
     assert not re.search('<option value="app1">app1</option>', html)
     assert re.search('<option value="app2">app2</option>', html)
+
+  def test_appdelete_submit_notloggedin(self):
+    from dashboard import AppDeletePage
+    self.set_post({
+      'appname' : 'app1'
+    })
+    AppDeletePage(self.request, self.response).post()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
+    assert re.search('<!-- FILE:templates/apps/delete.html -->', html)
+    assert re.search('You do not have permission to delete the application: app1', html)
+
+  def test_appdelete_submit_notappadmin(self):
+    from dashboard import AppDeletePage
+    self.set_user('b@a.com')
+    self.set_post({
+      'appname' : 'app1'
+    })
+    AppDeletePage(self.request, self.response).post()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
+    assert re.search('<!-- FILE:templates/apps/delete.html -->', html)
+    assert re.search('You do not have permission to delete the application: app1', html)
+
+  def test_appdelete_submit_success(self):
+    from dashboard import AppDeletePage
+    self.set_user('a@a.com')
+    self.set_post({
+      'appname' : 'app1'
+    })
+    AppDeletePage(self.request, self.response).post()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
+    assert re.search('<!-- FILE:templates/apps/delete.html -->', html)
+    assert re.search('Application removed successfully. Please wait for your app to shut', html)

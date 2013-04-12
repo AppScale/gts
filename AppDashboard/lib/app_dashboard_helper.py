@@ -582,10 +582,10 @@ class AppDashboardHelper:
         return True  #already there, shortcut out
       ret = uas.set_capabilities(email, ':'.join(new_caps),  GLOBAL_SECRET_KEY)
       if ret == 'true':
-        return True
         self.cache['user_caps'][email] = new_caps
+        return True
       else:
-        sys.stderr.write("uas.set_capabilities returned: "+ret)
+        sys.stderr.write("ERROR: UserAppServer.set_capabilities returned: "+ret)
         return False
     except Exception as e:
       sys.stderr.write("add_user_permissions() caught Exception: "+str(e))
