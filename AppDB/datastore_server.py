@@ -831,7 +831,7 @@ class DatastoreDistributed():
     Args:
       app_id: The application ID.
       entities: A list of entities (either entity_pb.EntityProto or a 
-                entity_pb.Reference) for which we want to acquire locks for.
+                entity_pb.Reference) that we want to acquire locks for.
     Returns:
       A hash of root keys mapping to transaction IDs.
     Raises:
