@@ -380,14 +380,6 @@ class TestZookeeperTransaction(unittest.TestCase):
     transaction = zk.ZKTransaction(host="something", start_gc=False)
     self.assertEquals(True, transaction.is_blacklisted(self.appid, 1))
 
-    del transaction.blacklist_cache[self.appid]
-    self.assertEquals(True, transaction.is_blacklisted(self.appid, 1))
-
-    del transaction.blacklist_cache[self.appid]
-    fake_zookeeper.should_receive('get_children').\
-      and_raise(kazoo.exceptions.NoNodeError)
-    self.assertEquals(False, transaction.is_blacklisted(self.appid, 1))
-
   def test_register_updated_key(self):
     # mock out getTransactionRootPath
     flexmock(zk.ZKTransaction)
