@@ -175,8 +175,6 @@ class ZKTransaction:
     """
     event_type = watched_event.type
     path = watched_event.path
-    logging.info("Event type is {0}".format(str(event_type)))
-    logging.info("Path is {0}".format(str(path)))
 
     if event_type == kazoo.protocol.states.EventType.CHILD:
       path_list = path.split(PATH_SEPARATOR)
@@ -833,16 +831,13 @@ class ZKTransaction:
         self.DEFAULT_NUM_RETRIES, self.handle.exists, blacklist_root):
       self.force_create_path(blacklist_root)
     try:
-      logging.info("Trying to add watch")
       blacklist = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
         self.DEFAULT_NUM_RETRIES, self.handle.get_children, blacklist_root,
         self.receive_and_notify)
-      logging.info("Added watch!")
       #with self.blacklist_cv:
       self.blacklist_cache[app_id] = set(blacklist)
       return str(txid) in self.blacklist_cache[app_id]
     except kazoo.exceptions.NoNodeError:  # there is no blacklist
-      logging.info("failed to add watch")
       return False
 
   def get_valid_transaction_id(self, app_id, target_txid, entity_key):
@@ -925,7 +920,6 @@ class ZKTransaction:
     lock_list = []
 
     txpath = self.get_transaction_path(app_id, txid)
-    logging.info('getting lock list')
     try:
       lockpath = self.handle.get(PATH_SEPARATOR.join([txpath, TX_LOCK_PATH]))[0]
       lock_list = lockpath.split(LOCK_LIST_SEPARATOR)
@@ -937,8 +931,6 @@ class ZKTransaction:
         .format(str(zoo_exception)))
       return
 
-    logging.info("About to add transaction id to blacklist")
-    logging.info("lock list is {0}".format(str(lock_list)))
     try:
       if lock_list:
         # Add the transaction ID to the blacklist.
@@ -948,7 +940,6 @@ class ZKTransaction:
         if not self.handle.exists(blacklist_root):
           self.force_create_path(blacklist_root)
 
-        logging.info("creating blacklist root for txid {0}".format(str(txid)))
         self.handle.create_async(PATH_SEPARATOR.join([blacklist_root,
           str(txid)]), now, ZOO_ACL_OPEN)
 
@@ -960,7 +951,6 @@ class ZKTransaction:
         # Copy valid transaction ID for each updated key into valid list.
         for child in self.handle.get_children(txpath):
           if re.match("^" + TX_UPDATEDKEY_PREFIX, child):
-            logging.info("updating list with into about {0}".format(PATH_SEPARATOR.join([txpath, child])))
             value = self.handle.get(PATH_SEPARATOR.join([txpath, child]))[0]
             valuelist = value.split(PATH_SEPARATOR)
             key = urllib.unquote_plus(valuelist[0])
@@ -970,19 +960,16 @@ class ZKTransaction:
             if not self.handle.exists(vtxroot):
               self.force_create_path(vtxroot)
             vtxpath = self.get_valid_transaction_path(app_id, key)
-            logging.info("creating path {0} with val {1}".format(vtxpath, str(vid)))
             self.handle.create_async(vtxpath, str(vid), ZOO_ACL_OPEN)
 
       # Release the locks.
       for lock in lock_list:
-        logging.info('releasing locks')
         self.handle.delete_async(lock)
 
       if self.is_xg(app_id, txid):
         self.handle.delete_async(self.get_xg_path(app_id, txid))
       
       # Remove the transaction paths.
-      logging.info('removing transaction paths')
       for item in self.handle.get_children(txpath):
         self.handle.delete_async(PATH_SEPARATOR.join([txpath, item]))
         self.handle.delete_async(txpath)
@@ -990,7 +977,6 @@ class ZKTransaction:
       logging.error("There was a ZooKeeper exception {0}".format(str( 
         zk_exception)))
 
-    logging.info('done!')
     return True
 
   def reestablish_connection(self):
@@ -1218,13 +1204,9 @@ class ZKTransaction:
       txpath = PATH_SEPARATOR.join([txrootpath, txid])
 
       try:
-        #logging.debug("Getting timestamp from transaction ID {0} at path {1}" \
-        #  .format(txid, txpath))
         txtime = float(self.handle.get(txpath)[0])
         # If the timeout plus our current time is in the future, then
         # we have not timed out yet.
-        logging.info("Time transaction started is {0}, timeout length is {1}, "\
-          "and time now is {2}".format(txtime, TX_TIMEOUT, time.time()))
         if txtime + TX_TIMEOUT < time.time():
           self.notify_failed_transaction(app_id, long(txid.lstrip(
             APP_TX_PREFIX)))
