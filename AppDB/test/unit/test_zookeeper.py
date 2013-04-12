@@ -372,13 +372,13 @@ class TestZookeeperTransaction(unittest.TestCase):
     # mock out getTransactionRootPath
     flexmock(zk.ZKTransaction)
     zk.ZKTransaction.should_receive('wait_for_connect')
-    zk.ZKTransaction.should_receive('force_create_path')
     zk.ZKTransaction.should_receive('get_blacklist_root_path').\
       and_return("bl_root_path")
 
     # mock out initializing a ZK connection
     fake_zookeeper = flexmock(name='fake_zoo')
     fake_zookeeper.should_receive('start')
+    fake_zookeeper.should_receive('create').and_return()
     fake_zookeeper.should_receive('exists').and_return(True)
     fake_zookeeper.should_receive('get_children').and_return(['1','2'])
 
@@ -500,7 +500,7 @@ class TestZookeeperTransaction(unittest.TestCase):
     transaction = zk.ZKTransaction(host="something", start_gc=False)
     self.assertEquals(True, transaction.get_datastore_groomer_lock())
 
-    fake_zookeeper.should_receive('create').and_raise(fake_zookeeper.NodeExistsError)
+    fake_zookeeper.should_receive('create').and_raise(kazoo.exceptions.NodeExistsError)
     self.assertEquals(False, transaction.get_datastore_groomer_lock())
   
   def test_release_datastore_groomer_lock(self):

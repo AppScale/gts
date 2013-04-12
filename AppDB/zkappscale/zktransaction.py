@@ -36,6 +36,9 @@ GC_INTERVAL = 30
 # The host and port that the Zookeeper service runs on, if none is provided.
 DEFAULT_HOST = "localhost:2181"
 
+# The value that we should set for paths whose value we don't care about.
+DEFAULT_VAL = "default"
+
 # Paths are separated by this for the tree structure in zookeeper.
 PATH_SEPARATOR = "/"
 
@@ -211,38 +214,6 @@ class ZKTransaction:
     with self.connect_cv:
       while not self.connected:
         self.connect_cv.wait(10.0)
-
-  def force_create_path(self, path, value="default"):
-    """ Creates a new ZooKeeper node at the given path, recursively creating its
-      parent nodes if necessary.
-    
-    Args:
-      path: A PATH_SEPARATOR-separated str that represents the path to create.
-      value: A str representing the value that should be associated with the
-        new node, created at path.
-    Returns:
-      True if the new ZooKeeper node at path was created successfully, and False
-        otherwise.
-    """
-    logging.debug("Force creating path {0}, with value {1}".format(path, value))
-    self.wait_for_connect()
-    while True:
-      try:
-        self.handle.create(path, str(value), ZOO_ACL_OPEN, makepath=True)
-        return True
-      except kazoo.exceptions.NodeExistsError:  # just update value
-        logging.debug("Path {0} already exists, so setting its value.".format(
-          path))
-        self.handle.set_async(path, str(value))
-        return True
-      except kazoo.exceptions.ZookeeperError as zoo_exception:
-        logging.error("Couldn't create path {0} because of ZK exception {1}".\
-          format(path, str(zoo_exception)))
-        return False
-      except Exception as exception:
-        logging.error("Couldn't create path {0} because of {1}".format(path,
-          str(exception)))
-        return False
 
   def update_node(self, path, value):
     """ Sets the ZooKeeper node at path to value, creating the node if it
@@ -826,7 +797,8 @@ class ZKTransaction:
     blacklist_root = self.get_blacklist_root_path(app_id)
     if not self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
         self.DEFAULT_NUM_RETRIES, self.handle.exists, blacklist_root):
-      self.force_create_path(blacklist_root)
+      self.handle.create(blacklist_root, DEFAULT_VAL, ZOO_ACL_OPEN,
+        ephemeral=False, sequence=False, makepath=True)
     try:
       blacklist = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
         self.DEFAULT_NUM_RETRIES, self.handle.get_children, blacklist_root,
@@ -935,7 +907,8 @@ class ZKTransaction:
         blacklist_root = self.get_blacklist_root_path(app_id)
 
         if not self.handle.exists(blacklist_root):
-          self.force_create_path(blacklist_root)
+          self.handle.create(blacklist_root, DEFAULT_VAL, ZOO_ACL_OPEN,
+            ephemeral=False, sequence=False, makepath=True)
 
         self.handle.create_async(PATH_SEPARATOR.join([blacklist_root,
           str(txid)]), now, ZOO_ACL_OPEN)
@@ -955,7 +928,8 @@ class ZKTransaction:
             vtxroot = self.get_valid_transaction_root_path(app_id)
 
             if not self.handle.exists(vtxroot):
-              self.force_create_path(vtxroot)
+              self.handle.create(vtxroot, DEFAULT_VAL, ZOO_ACL_OPEN,
+                ephemeral=False, sequence=False, makepath=True)
             vtxpath = self.get_valid_transaction_path(app_id, key)
             self.handle.create_async(vtxpath, str(vid), ZOO_ACL_OPEN)
 
