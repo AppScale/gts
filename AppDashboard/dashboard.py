@@ -185,8 +185,6 @@ class LoginVerify(AppDashboard):
     """ Handler for POST requests. """
     if self.request.get('continue') != '' and\
        self.request.get('commit') == 'Yes':
-      sys.stderr.write("\n\ncontinue URL: " + \
-        self.request.get('continue').encode('ascii','ignore') + "\n\n")
       self.redirect(self.request.get('continue').encode('ascii','ignore'), 
         self.response)
     else:

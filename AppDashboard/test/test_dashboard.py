@@ -31,7 +31,7 @@ import SOAPpy
 import StringIO
 
 from appcontroller_client import AppControllerClient
-from local_state import LocalState
+#from local_state import LocalState
 
 #from google.appengine.api import memcache
 #from google.appengine.ext import db
@@ -77,17 +77,17 @@ class TestAppDashboard(unittest.TestCase):
     fake_soap.should_receive('get_user_data')\
       .with_args('a@a.com', GLOBAL_SECRET_KEY)\
       .and_return(
-      "is_cloud_admin:true\napplications:app1:app2\npassword:XXXXXX\n"
+      "is_cloud_admin:true\napplications:app1:app2\npassword:79951d98d43c1830c5e5e4de58244a621595dfaa\n"
       )
     fake_soap.should_receive('get_user_data')\
       .with_args('b@a.com', GLOBAL_SECRET_KEY)\
       .and_return(
-      "is_cloud_admin:false\napplications:app1:app2\npassword:XXXXXX\n"
+      "is_cloud_admin:false\napplications:app1:app2\npassword:79951d98d43c1830c5e5e4de58244a621595dfaa\n"
       )
     fake_soap.should_receive('get_user_data')\
       .with_args('c@a.com', GLOBAL_SECRET_KEY)\
       .and_return(
-      "is_cloud_admin:false\napplications:app1:app2\npassword:XXXXXX\n"
+      "is_cloud_admin:false\napplications:app1:app2\npassword:79951d98d43c1830c5e5e4de58244a621595dfaa\n"
       )
 
     fake_soap.should_receive('commit_new_user').and_return('true')
@@ -95,8 +95,8 @@ class TestAppDashboard(unittest.TestCase):
     fake_soap.should_receive('get_all_users').and_return("a@a.com:b@a.com")
     fake_soap.should_receive('set_capabilities').and_return('true')
 
-    local = flexmock(LocalState)
-    local.should_receive('encrypt_password').and_return('XXXXXX')
+    #local = flexmock(LocalState)
+    #local.should_receive('encrypt_password').and_return('79951d98d43c1830c5e5e4de58244a621595dfaa')
 
     self.request = self.fakeRequest()
     self.response = self.fakeResponse()
@@ -125,6 +125,7 @@ class TestAppDashboard(unittest.TestCase):
 
   def fakeRequest(self):
     req = flexmock(name='request')
+    req.should_receive('get').and_return('')
     req.url = '/'
     return req
 
@@ -271,3 +272,98 @@ class TestAppDashboard(unittest.TestCase):
     assert AppDashboardHelper.DEV_APPSERVER_LOGIN_COOKIE in self.response.cookies
     assert self.response.redirect_location == '/'
 
+  def test_loginverify_page(self):
+    from dashboard import LoginVerify
+    self.set_get({
+      'continue' : 'http%3A//192.168.33.168%3A8080/_ah/login%3Fcontinue%3Dhttp%3A//192.168.33.168%3A8080/'
+    })
+    LoginVerify(self.request, self.response).get()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/users/confirm.html -->', html)
+    assert re.search('http://192.168.33.168:8080/', html)
+
+  def test_loginverify_submitcontinue(self):
+    from dashboard import LoginVerify
+    self.set_post({
+      'commit' : 'Yes',
+      'continue' : 'http://192.168.33.168:8080/'
+    })
+    page = LoginVerify(self.request, self.response)
+    page.redirect = self.response.redirect
+    page.post()
+    assert self.response.redirect_location == 'http://192.168.33.168:8080/'
+
+  def test_loginverify_submitnocontinue(self):
+    from dashboard import LoginVerify
+    self.set_post({
+      'commit' : 'No',
+      'continue' : 'http://192.168.33.168:8080/'
+    })
+    page = LoginVerify(self.request, self.response)
+    page.redirect = self.response.redirect
+    page.post()
+    assert self.response.redirect_location == '/'
+
+  def test_logout_page(self):
+    self.set_user('a@a.com')
+    from dashboard import LogoutPage
+    page = LogoutPage(self.request, self.response)
+    page.redirect = self.response.redirect
+    page.get()
+    assert self.response.redirect_location == '/'
+    assert AppDashboardHelper.DEV_APPSERVER_LOGIN_COOKIE in self.response.deleted_cookies
+
+  def test_login_page(self):
+    from dashboard import LoginPage
+    continue_url = 'http%3A//192.168.33.168%3A8080/_ah/login%3Fcontinue%3Dhttp%3A//192.168.33.168%3A8080/' 
+    self.set_get({
+      'continue' : continue_url
+    })
+    LoginPage(self.request, self.response).get()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/users/login.html -->', html)
+    assert re.search(continue_url, html)
+
+  def test_login_success(self):
+    from dashboard import LoginPage
+    self.set_post({
+      'user_email' : 'a@a.com',
+      'user_password' : 'aaaaaa'
+    })
+    page = LoginPage(self.request, self.response)
+    page.redirect = self.response.redirect
+    page.post()
+    html =  self.response.out.getvalue()
+    assert self.response.redirect_location == '/'
+    assert AppDashboardHelper.DEV_APPSERVER_LOGIN_COOKIE in self.response.cookies
+
+  def test_login_success_redir(self):
+    from dashboard import LoginPage
+    continue_url = 'http%3A//192.168.33.168%3A8080/_ah/login%3Fcontinue%3Dhttp%3A//192.168.33.168%3A8080/' 
+    self.set_post({
+      'continue' : continue_url,
+      'user_email' : 'a@a.com',
+      'user_password' : 'aaaaaa'
+    })
+    page = LoginPage(self.request, self.response)
+    page.redirect = self.response.redirect
+    page.post()
+    html =  self.response.out.getvalue()
+    assert re.search('/users/confirm\?continue=',self.response.redirect_location)
+    assert AppDashboardHelper.DEV_APPSERVER_LOGIN_COOKIE in self.response.cookies
+
+  def test_login_fail(self):
+    from dashboard import LoginPage
+    self.set_post({
+      'user_email' : 'a@a.com',
+      'user_password' : 'bbbbbb'
+    })
+    page = LoginPage(self.request, self.response)
+    page.redirect = self.response.redirect
+    page.post()
+    html =  self.response.out.getvalue()
+    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
+    assert re.search('<!-- FILE:templates/users/login.html -->', html)
+    assert re.search('Incorrect username / password combination. Please try again', html)

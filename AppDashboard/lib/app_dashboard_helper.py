@@ -513,7 +513,7 @@ class AppDashboardHelper:
       True or False if the login succeeded.
     """
     user_data =  self.query_user_data(email) 
-    server_re = re.search('password:([0-9a-f]+)', user_data)
+    server_re = re.search('password:([0-9a-fA-F]+)', user_data)
     if not server_re:
       return False
     server_pwd = server_re.group(1)
