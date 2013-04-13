@@ -13,6 +13,8 @@ else:
 from appcontroller_client import AppControllerClient
 from local_state import LocalState
 
+from app_dashboard_data import AppDashboardData
+
 from google.appengine.api import users
 
 from secret_key import GLOBAL_SECRET_KEY
@@ -37,6 +39,7 @@ class AppDashboardHelper:
     self.server = None
     self.uaserver = None
     self.response = response
+    self.dstore = AppDashboardData(self)
     self.cache = {}
 
   def get_server(self):
@@ -92,9 +95,10 @@ class AppDashboardHelper:
       A list of dicts containing the status information on each server.
     """
     try:
-      acc = self.get_server()
-      node = acc.get_stats()
-      return node
+      #acc = self.get_server()
+      #node = acc.get_stats()
+      #return node
+      return self.dstore.get_status_info()
     except Exception as e:
       sys.stderr.write("AppDashboardHelper.get_status_info() caught "\
         "Exception " + str(type(e)) + ":" + str(e))
@@ -124,12 +128,12 @@ class AppDashboardHelper:
         return node['public_ip']
 
   def get_head_node_ip(self):
-    """ Query the AppController and return the ip of the head node. 
+    """ Return the ip of the head node. 
 
     Returns:
       A str containing the ip of the head node.
     """
-    return self.get_host_with_role('shadow')
+    return self.dstore.get_head_node_ip()
 
   def get_login_host(self):
     """ Querys the AppController and returns the ip of the login host. 
@@ -170,21 +174,15 @@ class AppDashboardHelper:
         else:
           ret[app] = None
     return ret
- 
+
+  #TODO: fetch from datastore
   def get_database_info(self):
-    """ Querys the AppController and returns the database information of this
-        cloud.
+    """ Returns the database information of this cloud.
 
     Return:
       A dict containing the database information.
     """
-    try:
-      acc = self.get_server()
-      return acc.get_database_information()
-    except Exception as e:
-      sys.stderr.write("AppDashboardHelper.get_database_info() caught "
-        "Exception " + str(type(e)) + ":" + str(e))
-      return {}
+    return self.dstore.get_database_info()
 
   def get_service_info(self):
     """ Querys the AppController and returns a list of API services running on
@@ -195,8 +193,9 @@ class AppDashboardHelper:
       status of that service.
     """
     try:
-      acc = self.get_server()
-      return acc.get_api_status()
+      #acc = self.get_server()
+      #return acc.get_api_status()
+      return self.dstore.get_apistatus()
     except Exception as e:
       sys.stderr.write("AppDashboardHelper.get_service_info() caught Exception"\
         + str(type(e)) + ":" + str(e))
