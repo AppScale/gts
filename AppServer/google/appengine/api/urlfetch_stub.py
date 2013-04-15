@@ -299,6 +299,6 @@ class URLFetchServiceStub(apiproxy_stub.APIProxyStub):
     prohibited_headers = [h.key() for h in headers
                           if h.key().lower() in untrusted_headers]
     if prohibited_headers:
-      logging.warn('Stripped prohibited headers from URLFetch request: %s',
+      logging.debug('Stripped prohibited headers from URLFetch request: %s',
                    prohibited_headers)
     return (h for h in headers if h.key().lower() not in untrusted_headers)

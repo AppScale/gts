@@ -93,6 +93,7 @@ EXTRA_PATHS = [
   os.path.join(DIR_PATH, 'lib', 'yaml', 'lib'),
   os.path.join(DIR_PATH, 'lib', 'simplejson'),
   os.path.join(DIR_PATH, 'lib', 'google.appengine._internal.graphy'),
+  '/usr/lib/python2.6/dist-packages/',
   '/usr/share/pyshared',
   '/usr/local/lib/python2.7/site-packages',
   '/usr/local/lib/python2.6/dist-packages/xmpppy-0.5.0rc1-py2.6.egg',
@@ -102,7 +103,6 @@ EXTRA_PATHS = [
   '/root/appscale/AppServer/google/appengine/api/SOAPpy/',
   '/usr/local/lib/python2.6/dist-packages/termcolor-1.1.0-py2.6.egg',
   '/usr/local/lib/python2.6/dist-packages/lxml-3.1.1-py2.6-linux-x86_64.egg',
-  '/usr/lib/python2.6/dist-packages/',
 ]
 
 API_SERVER_EXTRA_PATHS = [
