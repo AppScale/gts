@@ -81,6 +81,21 @@ class TestGroomer(unittest.TestCase):
     dsg.db_access = FakeDatastore()    
     self.assertEquals(False, dsg.hard_delete_row("some_key"))
 
+  def test_get_root_key_from_entity_key(self):
+    self.assertEquals("hi/bye!", groomer.DatastoreGroomer.\
+      get_root_key_from_entity_key("hi/bye!otherstuff!moar"))
+
+    self.assertEquals("hi/!", groomer.DatastoreGroomer.\
+      get_root_key_from_entity_key("hi/!otherstuff!moar"))
+
+  def test_get_prefix_from_entity(self):
+    self.assertEquals("hi/bye", groomer.DatastoreGroomer.\
+      get_prefix_from_entity_key("hi/bye/some/other/stuff"))
+
+    # Test empty namespace (very common).
+    self.assertEquals("hi/", groomer.DatastoreGroomer.\
+      get_prefix_from_entity_key("hi//some/other/stuff"))
+
   def test_run_groomer(self):
     zookeeper = flexmock()
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
@@ -137,10 +152,6 @@ class TestGroomer(unittest.TestCase):
     zookeeper.should_receive("acquire_lock").and_return(True)
     zookeeper.should_receive("release_lock").and_return(True)
 
-    flexmock(datastore_server.DatastoreDistributed).should_receive(
-      "get_root_key_from_entity_key").and_return("key")
-    flexmock(datastore_server.DatastoreDistributed).should_receive(
-      "get_prefix_from_entity_key").and_return("app/ns")
 
     flexmock(FakeDatastore)
     FakeDatastore.should_receive("batch_delete")
@@ -148,6 +159,10 @@ class TestGroomer(unittest.TestCase):
     dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
     dsg = flexmock(dsg)
     dsg.should_receive("hard_delete_row").and_return(True)
+    flexmock(groomer.DatastoreGroomer).should_receive(
+      "get_root_key_from_entity_key").and_return("key")
+    flexmock(groomer.DatastoreGroomer).should_receive(
+      "get_prefix_from_entity_key").and_return("app/ns")
     dsg.db_access = FakeDatastore()
 
     # Successful operation.

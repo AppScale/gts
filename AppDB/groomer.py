@@ -51,7 +51,7 @@ class DatastoreGroomer(threading.Thread):
       ds_path: The connection path to the datastore_server.
     """
     logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
-      '%(lineno)s %(message)s ', level=logging.DEBUG)
+      '%(lineno)s %(message)s ', level=logging.INFO)
     logging.info("Logging started")
 
     threading.Thread.__init__(self)
@@ -59,6 +59,7 @@ class DatastoreGroomer(threading.Thread):
     self.table_name = table_name
     self.datastore_path = ds_path
     self.stats = {}
+    self.num_deletes = 0
 
   def stop(self):
     """ Stops the groomer thread. """
@@ -88,7 +89,7 @@ class DatastoreGroomer(threading.Thread):
     """
     return self.zoo_keeper.get_datastore_groomer_lock()
 
-  def get_entity_batch(self, last_key=""):
+  def get_entity_batch(self, last_key):
     """ Gets a batch of entites to operate on.
 
     Args:
@@ -103,6 +104,7 @@ class DatastoreGroomer(threading.Thread):
   def reset_statistics(self):
     """ Reinitializes statistics. """
     self.stats = {}
+    self.num_deletes = 0
 
   def hard_delete_row(self, row_key):
     """ Does a hard delete on a given row key to the entity
@@ -124,6 +126,32 @@ class DatastoreGroomer(threading.Thread):
     
     return True
 
+  @staticmethod
+  def get_root_key_from_entity_key(key):
+    """ Extract the root key from an entity key. We 
+        remove any excess children from a string to get to
+        the root key.
+    
+    Args:
+      entity_key: A string representing a row key.
+    Returns:
+      The root key extracted from the row key.
+    """
+    tokens = key.split('!')
+    return tokens[0] + '!'
+
+  @staticmethod
+  def get_prefix_from_entity_key(entity_key):
+    """ Extracts the prefix from a key to the entity table.
+
+    Args:
+      entity_key: A str representing a row key to the entity table.
+    Returns:
+      A str representing the app prefix (app_id and namespace).
+    """
+    tokens = entity_key.split('/')
+    return tokens[0] + '/' + tokens[1]
+
   def process_tombstone(self, key, entity, version):
     """ Processes any entities which have been soft deleted. 
         Does an actual delete to reclaim disk space.
@@ -135,13 +163,8 @@ class DatastoreGroomer(threading.Thread):
       True if a hard delete occurred, false otherwise.
     """
     success = False
-
-    # The app prefix is the application ID and the namespace.
-    app_prefix = datastore_server.DatastoreDistributed.\
-      get_prefix_from_entity_key(key)
-
-    root_key = datastore_server.DatastoreDistributed.\
-      get_root_key_from_entity_key(key)
+    app_prefix = DatastoreGroomer.get_prefix_from_entity_key(key)
+    root_key = DatastoreGroomer.get_root_key_from_entity_key(key)
 
     txn_id = self.zoo_keeper.get_transaction_id(app_prefix)
     try:
@@ -158,6 +181,11 @@ class DatastoreGroomer(threading.Thread):
         # There was an exception releasing the lock, but 
         # the hard delete has already happened.
         pass
+
+    if success:
+      self.num_deletes += 1
+
+    logging.debug("Deleting tombstone for key {0}: {1}".format(key, success))
     return success
 
   def initialize_kind(self, app_id, kind):
@@ -233,6 +261,7 @@ class DatastoreGroomer(threading.Thread):
     one_entity = entity[key][dbconstants.APP_ENTITY_SCHEMA[0]]
     version = entity[key][dbconstants.APP_ENTITY_SCHEMA[1]]
 
+    logging.debug("Entity value: {0}".format(entity))
     if one_entity == datastore_server.TOMBSTONE:
       return self.process_tombstone(key, one_entity, version)
        
@@ -352,6 +381,7 @@ class DatastoreGroomer(threading.Thread):
         .format(app_id, self.stats[app_id]))
       logging.info("Global stats for {0} are total size of {1} with " \
         "{2} entities".format(app_id, total_size, total_number))
+      logging.info("Number of hard deletes: {0}".format(self.num_deletes))
       del ds_distributed
 
     return True
@@ -369,7 +399,7 @@ class DatastoreGroomer(threading.Thread):
       self.table_name)
 
     while True:
-      entities = self.get_entity_batch(self.db_access, last_key=last_key)
+      entities = self.get_entity_batch(last_key)
 
       if not entities:
         break
@@ -378,7 +408,6 @@ class DatastoreGroomer(threading.Thread):
         self.process_entity(entity)
 
       last_key = entities[-1].keys()[0]
-  
     if not self.update_statistics():
       logging.error("There was an error updating the statistics")
 

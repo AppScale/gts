@@ -796,17 +796,6 @@ class DatastoreDistributed():
         self.zookeeper.notify_failed_transaction(app_id, txn_hash[root_key])
       raise zkte
 
-  def get_prefix_from_entity_key(self, entity_key):
-    """ Extracts the prefix from a key to the entity table.
-
-    Args:
-      entity_key: A str representing a row key to the entity table.
-    Returns:
-      A str representing the app prefix (app_id and namespace).
-    """ 
-    tokens = entity_key.split('/')
-    return tokens[0] + '/' + tokens[1]
-
   def get_root_key_from_entity_key(self, entity_key):
     """ Extract the root key from an entity key. We 
         remove any excess children from a string to get to

@@ -39,15 +39,6 @@ class TestDatastoreServer(unittest.TestCase):
     zookeeper.should_receive("get_transaction_id").and_return(1)
     return zookeeper
 
-  def test_get_prefix_from_entity(self):
-    dd = DatastoreDistributed(None, None)
-    self.assertEquals("hi/bye", dd.get_prefix_from_entity_key(
-      "hi/bye/some/other/stuff"))
-
-    # Test empty namespace (very common).
-    self.assertEquals("hi/", dd.get_prefix_from_entity_key(
-      "hi//some/other/stuff"))
-
   def test_get_entity_kind(self):
     dd = DatastoreDistributed(None, None)
     item = Item(name="Bob", _app="hello")
