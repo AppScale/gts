@@ -175,6 +175,10 @@ class DatastoreGroomer(threading.Thread):
     except zk.ZKTransactionException, zk_exception:
       success = False
     finally:
+      if not success:
+        if not self.zoo_keeper.notify_failed_transaction(app_prefix, txn_id):
+          logging.error("Unable to invalidate txn for {0} with txnid: {1}"\
+            .format(app_prefix, txn_id))
       try:
         self.zoo_keeper.release_lock(app_prefix, txn_id)
       except zk.ZKTransactionException, zk_exception:
