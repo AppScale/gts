@@ -88,22 +88,41 @@ class DatastoreGroomer(threading.Thread):
     """
     return self.zoo_keeper.get_datastore_groomer_lock()
 
-  def get_entity_batch(self, db_access, last_key=""):
+  def get_entity_batch(self, last_key=""):
     """ Gets a batch of entites to operate on.
 
     Args:
-      db_access: A DatastoreFactory object.
       last_key: The last key from a previous query.
     Returns:
       A list of entities.
     """ 
-    return db_access.range_query(dbconstants.APP_ENTITY_TABLE, 
+    return self.db_access.range_query(dbconstants.APP_ENTITY_TABLE, 
       dbconstants.APP_ENTITY_SCHEMA, last_key, "", self.BATCH_SIZE,
       start_inclusive=False)
 
   def reset_statistics(self):
     """ Reinitializes statistics. """
     self.stats = {}
+
+  def hard_delete_row(self, row_key):
+    """ Does a hard delete on a given row key to the entity
+        table.
+   
+    Args:
+      row_key: A str representing the row key to delete.
+    Returns:
+      True on sucess, False otherwise.
+    """
+    try:
+      self.db_access.batch_delete(dbconstants.APP_ENTITY_TABLE,
+        [row_key])
+    except dbconstants.AppScaleDBConnectionError, db_error:
+      logging.error("Error hard deleting key {0}".format(row_key))
+      return False 
+    except Exception, exception:
+      logging.error("Caught unexcepted exception {0}".format(exception))
+    
+    return True
 
   def process_tombstone(self, key, entity, version):
     """ Processes any entities which have been soft deleted. 
@@ -115,8 +134,31 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       True if a hard delete occurred, false otherwise.
     """
-    #TODO implement
-    return False
+    success = False
+
+    # The app prefix is the application ID and the namespace.
+    app_prefix = datastore_server.DatastoreDistributed.\
+      get_prefix_from_entity_key(key)
+
+    root_key = datastore_server.DatastoreDistributed.\
+      get_root_key_from_entity_key(key)
+
+    txn_id = self.zoo_keeper.get_transaction_id(app_prefix)
+    try:
+      if self.zoo_keeper.acquire_lock(app_prefix, txn_id, root_key):
+        success = self.hard_delete_row(key)
+      else:
+        success = False
+    except zk.ZKTransactionException, zk_exception:
+      success = False
+    finally:
+      try:
+        self.zoo_keeper.release_lock(app_prefix, txn_id)
+      except zk.ZKTransactionException, zk_exception:
+        # There was an exception releasing the lock, but 
+        # the hard delete has already happened.
+        pass
+    return success
 
   def initialize_kind(self, app_id, kind):
     """ Puts a kind into the statistics object if 
@@ -323,11 +365,11 @@ class DatastoreGroomer(threading.Thread):
     last_key = ""
     self.reset_statistics()
 
-    db_access = appscale_datastore_batch.DatastoreFactory.getDatastore(
+    self.db_access = appscale_datastore_batch.DatastoreFactory.getDatastore(
       self.table_name)
 
     while True:
-      entities = self.get_entity_batch(db_access, last_key=last_key)
+      entities = self.get_entity_batch(self.db_access, last_key=last_key)
 
       if not entities:
         break
@@ -340,7 +382,7 @@ class DatastoreGroomer(threading.Thread):
     if not self.update_statistics():
       logging.error("There was an error updating the statistics")
 
-    del db_access
+    del self.db_access
 
     time_taken = time.time() - start
     logging.info("Groomer stopped (Took {0} seconds)".format(str(time_taken)))
