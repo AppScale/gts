@@ -26,19 +26,6 @@ module LoadBalancer
   APPSCALE_HOME = ENV['APPSCALE_HOME']
 
   
-#  def self.start
-#    env_vars = { "APPSCALE_HOME" => APPSCALE_HOME }
-#
-#    SERVER_PORTS.each { |port|
-#      start_cmd = "/usr/bin/mongrel_rails start -c #{RAILS_ROOT} -e production -p #{port} " +
-#        "-P #{RAILS_ROOT}/log/mongrel.#{port}.pid"
-#      stop_cmd = "/usr/bin/mongrel_rails stop -P #{RAILS_ROOT}/log/mongrel.#{port}.pid"
-#
-#      GodInterface.start(:loadbalancer, start_cmd, stop_cmd, port, env_vars)
-#    }
-#
-#    #`service appscale-loadbalancer start`
-#  end
   def self.start(login_ip, uaserver_ip, public_ip, private_ip, secret)
     # its just another app engine app - but since numbering starts
     # at zero, this app has to be app neg one
@@ -61,11 +48,6 @@ module LoadBalancer
 
     #pass the secret key to the app
     Djinn.log_run("echo \"GLOBAL_SECRET_KEY = '#{secret}'\" > #{app_location}/lib/secret_key.py")
-
-    #static_handlers = HelperFunctions.parse_static_data(app)
-    #proxy_port = HAProxy.app_listen_port(app_number)
-    #Nginx.write_app_config(app, app_number, public_ip, private_ip, proxy_port, static_handlers, login_ip)
-    #HAProxy.write_app_config(app, app_number, num_servers, private_ip)
     Collectd.write_app_config(app)
 
     SERVER_PORTS.each { |port|
