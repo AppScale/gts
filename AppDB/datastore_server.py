@@ -22,10 +22,14 @@ import tornado.web
 
 import appscale_datastore_batch
 import dbconstants
+import groomer
 import helper_functions
 
 from zkappscale import zktransaction as zk
 from zkappscale.zktransaction import ZKTransactionException
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
+import appscale_info
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.api import api_base_pb
@@ -38,6 +42,7 @@ from google.appengine.datastore import entity_pb
 from google.appengine.datastore import sortable_pb_encoder
 
 from google.appengine.runtime import apiproxy_errors
+
 from google.appengine.ext.remote_api import remote_api_pb
 
 from M2Crypto import SSL
@@ -71,6 +76,10 @@ ID_KEY_LENGTH = 10
 
 # Tombstone value for soft deletes
 TOMBSTONE = "APPSCALE_SOFT_DELETE"
+
+# Local datastore location through nginx.
+LOCAL_DATASTORE = "localhost:8888"
+
  
 class DatastoreDistributed():
   """ AppScale persistent layer for the datastore API. It is the 
@@ -145,7 +154,6 @@ class DatastoreDistributed():
     Returns:
         kind of the entity
     """
-
     if isinstance(key_path, entity_pb.EntityProto):
       key_path = key_path.key()
     return key_path.path().element_list()[-1].type()
@@ -156,7 +164,7 @@ class DatastoreDistributed():
     Args:
         prefix: app name and namespace string
                 example-- 'guestbook/mynamespace'
-        pb: protocol buffer for which we will encode the index name
+        pb: protocol buffer that we will encode the index name
     Returns:
         Key for entity table
     """
@@ -438,8 +446,10 @@ class DatastoreDistributed():
       row_keys += new_row_keys
 
       for ii in group_rows:
-        logging.debug("Trying to get root entity from entity key: {0}".format(str(ii[0])))
-        logging.debug("Root entity is: {0}".format(self.get_root_key_from_entity_key(str(ii[0]))))
+        logging.debug("Trying to get root entity from entity key: {0}".\
+          format(str(ii[0])))
+        logging.debug("Root entity is: {0}".\
+          format(self.get_root_key_from_entity_key(str(ii[0]))))
         logging.debug("Transaction hash is: {0}".format(str(txn_hash)))
         txn_id = txn_hash[self.get_root_key_from_entity_key(str(ii[0]))]
         row_values[str(ii[0])] = \
@@ -523,13 +533,14 @@ class DatastoreDistributed():
       return int(res[prefix][dbconstants.APP_ID_SCHEMA[0]])
     return self._FIRST_VALID_ALLOCATED_ID
 
-  def allocate_ids(self, prefix, size, max_id=None):
+  def allocate_ids(self, prefix, size, max_id=None, num_retries=0):
     """ Allocates IDs from either a local cache or the datastore. 
 
     Args:
       prefix: A table namespace prefix.
       size: Number of IDs to allocate.
       max_id: If given increase the next IDs to be greater than this value
+      num_retries: The number of retries left to get an ID.
     Returns:
       tuple of start and end ids
     Raises: 
@@ -554,6 +565,12 @@ class DatastoreDistributed():
                            [prefix],  
                            dbconstants.APP_ID_SCHEMA,
                            cell_values)
+    except ZKTransactionException, zk_exception:
+      if num_retries > 0:
+        return self.allocate_ids(prefix, size, max_id=max_id, 
+          num_retries=num_retries - 1)
+      else:
+        raise zk_exception
     finally:
       self.zookeeper.release_lock(prefix, txnid)
 
@@ -745,8 +762,14 @@ class DatastoreDistributed():
 
       last_path = entity.key().path().element_list()[-1]
       if last_path.id() == 0 and not last_path.has_name():
- 
-        id_, _ = self.allocate_ids(self.get_table_prefix(entity.key()), 1)
+        try: 
+          id_, _ = self.allocate_ids(self.get_table_prefix(entity.key()), 1,
+            num_retries=3)
+        except ZKTransactionException, zk_exception:
+          logging.error("Unable to attain a new ID for {0}"\
+            .format(str(entity.key())))
+          raise zk_exception
+
         last_path.set_id(id_)
 
         group = entity.mutable_entity_group()
@@ -807,8 +830,8 @@ class DatastoreDistributed():
     existing transactions that are on-going. It maintains ACID semantics.
     Args:
       app_id: The application ID.
-      entities: A list of entities (either entity_pb.EntityProto or a entity_pb.Reference)
-                for which we want to acquire locks for.
+      entities: A list of entities (either entity_pb.EntityProto or a 
+                entity_pb.Reference) that we want to acquire locks for.
     Returns:
       A hash of root keys mapping to transaction IDs.
     Raises:
@@ -824,8 +847,8 @@ class DatastoreDistributed():
       elif isinstance(ent, entity_pb.EntityProto):
         root_keys.append(self.get_root_key_from_entity_key(ent.key()))
       else:
-        raise TypeError("Excepted either a reference or an EntityProto, got %s" % \
-                        ent.__class__)
+        raise TypeError("Excepted either a reference or an EntityProto, "\
+          "got {0}".format(ent.__class__))
 
     # Remove all duplicate root keys
     root_keys = list(set(root_keys))
@@ -885,8 +908,8 @@ class DatastoreDistributed():
       elif isinstance(ent, entity_pb.EntityProto):
         root_keys.append(self.get_root_key_from_entity_key(ent.key()))
       else:
-        raise TypeError("Excepted either a reference or an EntityProto, got %s" % \
-                        ent.__class__)
+        raise TypeError("Excepted either a reference or an EntityProto"
+           "got {0}".format(ent.__class__))
 
     # Remove all duplicate root keys
     if entities is None:
@@ -2268,7 +2291,7 @@ class DatastoreDistributed():
       return (api_base_pb.VoidProto().Encode(), 0, "")
     except ZKTransactionException, zkte:
       logging.info("Concurrent transaction exception for app id {0}, " \
-        "transaction id {1}, info {2}".format(app_id, txn_id, str(zkte)))
+        "transaction id {1}, info {2}".format(app_id, txn.handle(), str(zkte)))
       return (api_base_pb.VoidProto().Encode(), 
               datastore_pb.Error.PERMISSION_DENIED, 
               "Unable to rollback for this transaction: %s" % str(zkte))
@@ -2427,7 +2450,8 @@ class MainHandler(tornado.web.RequestHandler):
       An encoded transaction protocol buffer with a unique handler.
     """
     global datastore_access
-    begin_transaction_req_pb = datastore_pb.BeginTransactionRequest(http_request_data)
+    begin_transaction_req_pb = datastore_pb.BeginTransactionRequest(
+      http_request_data)
     multiple_eg = False
     if begin_transaction_req_pb.has_allow_multiple_eg():
       multiple_eg = begin_transaction_req_pb.allow_multiple_eg()
@@ -2589,7 +2613,8 @@ def main(argv):
   global datastore_access
   zookeeper_locations = ""
 
-  db_type = "cassandra"
+  db_info = appscale_info.get_db_info()
+  db_type = db_info[':table']
   port = DEFAULT_SSL_PORT
   is_encrypted = True
 
@@ -2630,6 +2655,9 @@ def main(argv):
   server = tornado.httpserver.HTTPServer(pb_application)
   server.listen(port)
 
+  ds_groomer = groomer.DatastoreGroomer(zookeeper, db_type, LOCAL_DATASTORE)
+  ds_groomer.start()
+
   while 1:
     try:
       # Start Server #
@@ -2640,6 +2668,7 @@ def main(argv):
       pass
     except KeyboardInterrupt:
       print "Server interrupted by user, terminating..."
+      zookeeper.close()
       exit(1)
 
 if __name__ == '__main__':

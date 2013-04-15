@@ -48,7 +48,7 @@ module TaskQueue
   MAX_WAIT_FOR_RABBITMQ = 30
 
   # How many times to retry starting rabbitmq on a slave.
-  RABBIT_START_RETRY = 3
+  RABBIT_START_RETRY = 1000
 
   # Stop command for taskqueue server.
   TASKQUEUE_STOP_CMD = "kill -9 `ps aux | grep taskqueue_server.py | awk {'print $2'}`"

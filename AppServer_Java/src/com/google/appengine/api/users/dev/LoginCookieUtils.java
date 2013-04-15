@@ -172,9 +172,9 @@ public final class LoginCookieUtils
                 if (!vhsh.equals(hsh))
                 {
                     valid_cookie = false;
-                }
-                else
-                {
+                    email = "";
+                    admin = false;
+                    nickname = "";
                 }
             }
             catch (NoSuchAlgorithmException e)

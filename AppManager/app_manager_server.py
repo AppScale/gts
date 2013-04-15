@@ -2,6 +2,7 @@
 """
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
+import glob
 import json
 import logging
 import os
@@ -201,6 +202,26 @@ def stop_app_instance(app_name, port):
   file_io.delete(pid_file)
 
   return god_result
+
+def kill_app_instances_for_app(app_name):
+  """ Kills all instances of a Google App Engine application on this machine.
+
+  Args:
+    app_name: The application ID corresponding to the app to kill.
+
+  Returns:
+    A list of the process IDs whose instances were terminated.
+  """
+  pid_files = glob.glob(constants.APP_PID_DIR + app_name + '-*')
+  pids_killed = []
+  for pid_file in pid_files:
+    pid = file_io.read(pid_file)
+    if subprocess.call(['kill', '-9', pid]) == 0:
+      pids_killed.append(pid)
+    else:
+      logging.error("Unable to kill app process %s with pid %s" % \
+                    (app_name, str(pid)))
+  return pids_killed
 
 def stop_app(app_name):
   """ Stops all process instances of a Google App Engine application on this 
@@ -543,6 +564,7 @@ if __name__ == "__main__":
   server.registerFunction(start_app)
   server.registerFunction(stop_app)
   server.registerFunction(stop_app_instance)
+  server.registerFunction(kill_app_instances_for_app)
 
   file_io.set_logging_format()
   
