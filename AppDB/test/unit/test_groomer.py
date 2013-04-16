@@ -151,6 +151,8 @@ class TestGroomer(unittest.TestCase):
     zookeeper.should_receive("get_transaction_id").and_return(1)
     zookeeper.should_receive("acquire_lock").and_return(True)
     zookeeper.should_receive("release_lock").and_return(True)
+    zookeeper.should_receive("is_blacklisted").and_return(False)
+    zookeeper.should_receive("notify_failed_transaction").and_return(True)
 
 
     flexmock(FakeDatastore)

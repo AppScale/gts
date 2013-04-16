@@ -113,7 +113,7 @@ class DatastoreGroomer(threading.Thread):
     Args:
       row_key: A str representing the row key to delete.
     Returns:
-      True on sucess, False otherwise.
+      True on success, False otherwise.
     """
     try:
       self.db_access.batch_delete(dbconstants.APP_ENTITY_TABLE,
@@ -123,7 +123,8 @@ class DatastoreGroomer(threading.Thread):
       return False 
     except Exception, exception:
       logging.error("Caught unexcepted exception {0}".format(exception))
-    
+      return False
+ 
     return True
 
   @staticmethod
@@ -160,12 +161,15 @@ class DatastoreGroomer(threading.Thread):
       entity: The entity in string serialized form.
       version: The version of the entity in the datastore.
     Returns:
-      True if a hard delete occurred, false otherwise.
+      True if a hard delete occurred, False otherwise.
     """
     success = False
     app_prefix = DatastoreGroomer.get_prefix_from_entity_key(key)
     root_key = DatastoreGroomer.get_root_key_from_entity_key(key)
-
+    
+    if self.zoo_keeper.is_blacklisted(app_prefix, version):
+      return False
+ 
     txn_id = self.zoo_keeper.get_transaction_id(app_prefix)
     try:
       if self.zoo_keeper.acquire_lock(app_prefix, txn_id, root_key):
