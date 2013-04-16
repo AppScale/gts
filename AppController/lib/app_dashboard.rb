@@ -32,11 +32,8 @@ module AppDashboard
   APP_LANGUAGE = "python27"
   
   def self.start(login_ip, uaserver_ip, public_ip, private_ip, secret)
-    # It's just another app engine app - but since numbering starts
-    # at zero, this app has to be app neg one
-
     # TODO: tell the tools to disallow uploading apps called 'apichecker'
-    # and start_appengine to do the same
+    # or APP_NAME, and have start_appengine to do the same.   
 
 
     app_manager = AppManagerClient.new()
