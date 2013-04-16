@@ -1921,6 +1921,7 @@ class Djinn
         return HelperFunctions.read_file(HEALTH_FILE)
       rescue Errno::ENOENT
         return ''
+      end
     end
   end
 
