@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+    <!-- FILE:templates/layouts/main.html --> 
+    <head>
+    <meta http-equiv="content-type" content="application/xhtml+xml; charset=UTF-8" />
+    <title>AppScale Cloud Administration</title>
+    <meta name="author" content="AppScale Systems, Inc" />
+    <meta name="description" content="AppScale Private Cloud Monitoring" />
+    <meta name="keywords" content="AppScale, AppScale PaaS, AppScale Systems, Inc" />
+    <meta name="application-name" content="AppScale Cloud Administration" />
+
+    <!-- Mobile Specific Metas -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    {% if page_name == 'apps' %}
+       <script src="/javascripts/upload.js" type="text/javascript"></script>
+    {% endif %}
+    {% if page_name == 'users' %}
+       <script src="/javascripts/form.js" type="text/javascript"></script>
+    {% endif %}
+
+    <!-- Core stylesheets do not remove -->
+    <link href="/css/bootstrap/bootstrap.css" rel="stylesheet" type="text/css" />
+    <link href="/css/bootstrap/bootstrap-responsive.min.css" rel="stylesheet" type="text/css" />
+    <link href="/css/supr-theme/jquery.ui.supr.css" rel="stylesheet" type="text/css"/>
+    <link href="/css/icons.css" rel="stylesheet" type="text/css" />
+
+    <!-- Plugins stylesheets -->
+    <link href="/plugins/misc/qtip/jquery.qtip.css" rel="stylesheet" type="text/css" />
+    <link href="/plugins/misc/fullcalendar/fullcalendar.css" rel="stylesheet" type="text/css" />
+    <link href="/plugins/misc/search/tipuesearch.css" type="text/css" rel="stylesheet" />
+
+    <link href="/plugins/forms/uniform/uniform.default.css" type="text/css" rel="stylesheet" />
+
+    <!-- Main stylesheets -->
+    <link href="/css/main.css" rel="stylesheet" type="text/css" /> 
+
+    <!-- Custom stylesheets ( Put your own changes here ) -->
+    <link href="/css/custom.css" rel="stylesheet" type="text/css" /> 
+    
+    <!-- Le HTML5 shim, for IE6-8 support of HTML5 elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le fav and touch icons -->
+    <link rel="shortcut icon" href="/images/favicon.ico" />
+    <link rel="apple-touch-icon-precomposed" sizes="144x144" href="images/apple-touch-icon-144-precomposed.png" />
+    <link rel="apple-touch-icon-precomposed" sizes="114x114" href="images/apple-touch-icon-114-precomposed.png" />
+    <link rel="apple-touch-icon-precomposed" sizes="72x72" href="images/apple-touch-icon-72-precomposed.png" />
+    <link rel="apple-touch-icon-precomposed" href="images/apple-touch-icon-57-precomposed.png" />
+
+
+    </head>
+  <body>
+    {% if page_name != 'users' %}
+	  {{ shared_navigation }}
+    {% endif %}
+	{{page_body}}
+  </body>
+</html> 

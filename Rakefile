@@ -128,6 +128,22 @@ namespace :lib do
 
 end
 
+namespace :appdashboard do
+
+  task :test do
+    sh "python AppDashboard/test/test_suite.py"
+  end
+
+  task :coverage do |test|
+    sh "rm -rf AppDashboard/coverage"
+    sh "coverage erase"
+    sh "coverage run --include='AppDashboard/lib/*,AppDashboard/dashboard.py' --omit='*tests*' AppDashboard/test/test_suite.py"
+    sh "coverage report -m"
+    sh "coverage html --directory=AppDashboard/coverage"
+  end
+
+end
+
 namespace :xmppreceiver do
 
   task :coverage do
@@ -145,4 +161,4 @@ namespace :xmppreceiver do
 
 end
 
-task :default => ['appcontroller:test', 'neptunemanager:test', 'infrastructuremanager:test', 'appmanager:test', 'appdb:test', 'apptaskqueue:test', 'lib:test', 'appserver:test', 'xmppreceiver:test']
+task :default => ['appcontroller:test', 'neptunemanager:test', 'infrastructuremanager:test', 'appmanager:test', 'appdb:test', 'apptaskqueue:test', 'lib:test', 'appserver:test', 'xmppreceiver:test', 'appdashboard:test']

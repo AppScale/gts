@@ -6,7 +6,7 @@ require 'fileutils'
 
 $:.unshift File.join(File.dirname(__FILE__))
 require 'helperfunctions'
-require 'load_balancer'
+require 'app_dashboard'
 require 'monitoring'
 
 
@@ -83,11 +83,11 @@ module HAProxy
     START_PORT + app_number
   end
 
-  # Create the configuration file for the AppLoadBalancer Rails application
+  # Create the configuration file for the AppDashboard application
   def self.create_app_load_balancer_config(my_public_ip, my_private_ip, 
     listen_port)
     self.create_app_config(my_public_ip, my_private_ip, listen_port, 
-      LoadBalancer.server_ports, LoadBalancer.name)
+      AppDashboard.server_ports, AppDashboard.name)
   end
 
   # Create the configuration file for the AppMonitoring Rails application

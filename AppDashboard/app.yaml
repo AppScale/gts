@@ -1,0 +1,40 @@
+application: dashboard
+version: 1
+runtime: python27
+api_version: 1
+threadsafe: true
+
+handlers:
+- url: /css
+  static_dir: static/css
+
+- url: /images
+  static_dir: static/images
+
+- url: /javascripts
+  static_dir: static/javascripts
+
+- url: /js
+  static_dir: static/js
+
+- url: /plugins
+  static_dir: static/plugins
+
+- url: /stylesheets
+  static_dir: static/stylesheets
+
+- url: /robots.txt
+  static_files: static/robots.txt
+  upload: static/robots.txt
+
+- url: /favicon.ico
+  static_files: static/images/favicon.ico
+  upload: img/favicon.ico
+  mime_type: image/x-icon
+
+- url: /.*
+  script: dashboard.app
+
+libraries:
+- name: jinja2
+  version: latest

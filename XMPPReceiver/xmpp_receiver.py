@@ -45,7 +45,7 @@ class XMPPReceiver():
     Args:
       appid: A str representing the application ID that this XMPPReceiver
         should poll on behalf of.
-      login_ip: A str representing the IP or FQDN where an AppLoadBalancer
+      login_ip: A str representing the IP or FQDN where an AppDashboard
         runs, so that we can find an App Server to POST messages to.
       app_password: A str representing the password associated with the
         XMPP user account for the Google App Engine app that the receiver

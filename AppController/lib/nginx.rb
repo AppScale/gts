@@ -6,7 +6,7 @@ require 'fileutils'
 
 $:.unshift File.join(File.dirname(__FILE__))
 require 'helperfunctions'
-require 'load_balancer'
+require 'app_dashboard'
 require 'monitoring'
 require 'datastore_server'
 
@@ -445,12 +445,12 @@ CONFIG
     end
   end
 
-  # Create the configuration file for the AppLoadBalancer Rails application
+  # Create the configuration file for the AppDashboard application
   def self.create_app_load_balancer_config(my_public_ip, my_private_ip, 
     proxy_port)
     self.create_app_config(my_public_ip, my_private_ip, proxy_port, 
-      LoadBalancer.listen_port, LoadBalancer.name, 
-      LoadBalancer.public_directory, LoadBalancer.listen_ssl_port)
+      AppDashboard.listen_port, AppDashboard.name, 
+      AppDashboard.public_directory, AppDashboard.listen_ssl_port)
   end
 
   # Create the configuration file for the AppMonitoring Rails application
@@ -624,7 +624,7 @@ CONFIG
     }
 
     location /502.html {
-      root #{APPSCALE_HOME}/AppLoadBalancer/public;
+      root #{APPSCALE_HOME}/AppDashboard/static;
     }
 }
 CONFIG

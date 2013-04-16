@@ -527,7 +527,7 @@ class ZKInterface
 
   # Adds an entry to ZooKeeper for the given IP, storing information about the
   # Google App engine application it is hosting that can be used to update the
-  # AppLoadBalancer should that node fail.
+  # AppDashboard should that node fail.
   def self.add_app_instance(app_name, ip, port)
     app_instance_file = "#{APPCONTROLLER_NODE_PATH}/#{ip}/#{APP_INSTANCE}"
     if self.exists?(app_instance_file)
