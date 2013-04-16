@@ -50,7 +50,7 @@ module AppDashboard
 
     SERVER_PORTS.each { |port|
       Djinn.log_debug("Starting #{APP_LANGUAGE} app #{APP_NAME} on #{HelperFunctions.local_ip}:#{port}")
-      pid = app_manager.start_app(app, port, uaserver_ip,
+      pid = app_manager.start_app(APP_NAME, port, uaserver_ip,
                                   PROXY_PORT, APP_LANGUAGE, login_ip,
                                   [uaserver_ip], {})
       if pid == -1
