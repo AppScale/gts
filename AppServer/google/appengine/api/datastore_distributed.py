@@ -19,7 +19,7 @@ AppScale modifications
 
 Distributed Method:
 All calls are made to a datastore server for queries, gets, puts, and deletes,
-Index functions, transaction functions.
+index functions, transaction functions.
 """
 
 import datetime
@@ -310,7 +310,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
     if not api_response or not api_response.has_response():
       raise datastore_errors.InternalError(
-          'No response from db server on %s requests.'%method)
+          'No response from db server on %s requests.' % method)
     
     if api_response.has_application_error():
       error_pb = api_response.application_error()

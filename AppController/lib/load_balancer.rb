@@ -47,7 +47,6 @@ module LoadBalancer
     # and start_appengine to do the same
 
     num_servers = 3
-    app_number = -2
     app = "dashboard"
     app_language = "python27"
 
@@ -59,13 +58,9 @@ module LoadBalancer
     Djinn.log_run("mkdir -p /var/apps/#{app}/log")
     Djinn.log_run("touch /var/apps/#{app}/log/server.log")
 
-    #pass the secret key to the app
+    # Pass the secret key to the app.
     Djinn.log_run("echo \"GLOBAL_SECRET_KEY = '#{secret}'\" > #{app_location}/lib/secret_key.py")
 
-    #static_handlers = HelperFunctions.parse_static_data(app)
-    #proxy_port = HAProxy.app_listen_port(app_number)
-    #Nginx.write_app_config(app, app_number, public_ip, private_ip, proxy_port, static_handlers, login_ip)
-    #HAProxy.write_app_config(app, app_number, num_servers, private_ip)
     Collectd.write_app_config(app)
 
     SERVER_PORTS.each { |port|
