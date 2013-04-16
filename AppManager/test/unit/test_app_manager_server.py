@@ -1,5 +1,6 @@
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
+import glob
 import json
 import os
 import subprocess
@@ -242,6 +243,17 @@ class TestAppManager(unittest.TestCase):
     flexmock(os).should_receive('system')\
                         .and_return(0)
     app_manager_server.stop_app('test')
+
+  def test_kill_app_instances_for_app(self):
+    flexmock(glob).should_receive('glob') \
+                        .and_return(['a', 'b'])
+    flexmock(subprocess).should_receive('call')\
+                        .and_return(0)
+    flexmock(file_io).should_receive('read')\
+                        .and_return('0')
+    expected = ['0', '0']
+    actual = app_manager_server.kill_app_instances_for_app('test')
+    self.assertEquals(expected, actual)
 
   def test_stop_app(self):
     flexmock(god_interface).should_receive('stop')\
