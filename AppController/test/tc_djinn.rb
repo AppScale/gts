@@ -17,7 +17,6 @@ class TestDjinn < Test::Unit::TestCase
     kernel.should_receive(:system).with("").and_return()
 
     djinn = flexmock(Djinn)
-    djinn.should_receive(:log_debug).and_return()
     djinn.should_receive(:log_run).with("").and_return()
 
     flexmock(HelperFunctions).should_receive(:shell).with("").and_return()
@@ -972,4 +971,24 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(true, actual.include?(node2_info))
   end
 
+  def test_log_sending
+    djinn = Djinn.new()
+
+    # test that the buffer is initially empty
+    assert_equal([], Djinn.get_logs_buffer())
+
+    # do a couple log statements to populate the buffer
+    Djinn.log_debug("one")
+    Djinn.log_debug("two")
+    Djinn.log_debug("three")
+
+    # and make sure they're in there
+    assert_equal(3, Djinn.get_logs_buffer().length)
+
+    # flush the buffer
+    djinn.flush_log_buffer()
+
+    # make sure our buffer is empty again
+    assert_equal([], Djinn.get_logs_buffer())
+  end
 end

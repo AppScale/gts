@@ -366,6 +366,10 @@ class Djinn
     # methods exposed via SOAP.
     @@secret = HelperFunctions.get_secret()
 
+    # An Array of Hashes, where each Hash contains a log message and the time
+    # it was logged.
+    @@logs_buffer = []
+
     @nodes = []
     @my_index = nil
     @creds = {}
@@ -905,6 +909,7 @@ class Djinn
       write_zookeeper_locations
       write_neptune_info 
       update_api_status
+      flush_log_buffer
 
       update_local_nodes
 
@@ -1410,6 +1415,7 @@ class Djinn
   def self.log_debug(msg)
     time = Time.now
     self.log_to_stdout(time, msg)
+    self.log_to_buffer(time, msg)
   end
 
 
@@ -1419,6 +1425,16 @@ class Djinn
   def self.log_to_stdout(time, msg)
     Kernel.puts "[#{time}] #{msg}"
     STDOUT.flush
+  end
+
+
+  # Appends this log message to a buffer, which will be periodically sent to
+  # our Admin Console.
+  def self.log_to_buffer(time, msg)
+    @@logs_buffer << {
+      'time' => time,
+      'msg' => msg
+    }
   end
 
   
@@ -1867,6 +1883,26 @@ class Djinn
     }
 
     return
+  end
+
+
+  # Returns the buffer that contains all logs yet to be sent to the Admin
+  # Console for viewing.
+  #
+  # Returns:
+  #   An Array of Hashes, where each Hash has information about a single log
+  #     line.
+  def self.get_logs_buffer()
+    return @@logs_buffer
+  end
+
+
+  # Sends all of the logs that have been buffered up to the Admin Console for
+  # viewing in a web UI.
+  def flush_log_buffer()
+    # TODO(cgb): Send the logs to the Admin Console
+
+    @@logs_buffer = []
   end
 
 
