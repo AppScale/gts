@@ -4,6 +4,7 @@ import os
 import re
 import sys
 import tempfile
+import traceback
 import urllib
 import SOAPpy
 if 'TOOLS_PATH' in os.environ:
@@ -13,7 +14,6 @@ else:
 from appcontroller_client import AppControllerClient
 from local_state import LocalState
 
-from app_dashboard_data import AppDashboardData
 
 from google.appengine.api import users
 
@@ -39,7 +39,6 @@ class AppDashboardHelper:
     self.server = None
     self.uaserver = None
     self.response = response
-    self.dstore = AppDashboardData(self)
     self.cache = {}
 
   def get_server(self):
@@ -82,9 +81,9 @@ class AppDashboardHelper:
       caps_list = uas.get_capabilities(email, GLOBAL_SECRET_KEY).split(':')
       self.cache['user_caps'][email] = caps_list
       return caps_list
-    except Exception as e:
+    except Exception as err:
       sys.stderr.write("AppDashboardHelper.get_user_capabilities() caught "\
-        "Exception " + str(type(e)) + ":" + str(e))
+        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
 
 
   def get_status_info(self):
@@ -95,13 +94,12 @@ class AppDashboardHelper:
       A list of dicts containing the status information on each server.
     """
     try:
-      #acc = self.get_server()
-      #node = acc.get_stats()
-      #return node
-      return self.dstore.get_status_info()
-    except Exception as e:
+      acc = self.get_server()
+      node = acc.get_stats()
+      return node
+    except Exception as err:
       sys.stderr.write("AppDashboardHelper.get_status_info() caught "\
-        "Exception " + str(type(e)) + ":" + str(e))
+        "Exception " + str(type(err)) + ":" + str(err))
       return []
 
   def get_host_with_role(self, role):
@@ -119,9 +117,9 @@ class AppDashboardHelper:
     else:
       try:
         nodes = acc.get_role_info()
-      except Exception as e:
+      except Exception as err:
         sys.stderr.write("AppDashboardHelper.get_host_with_role() caught "\
-          "Exception " + str(type(e)) + ":" + str(e))
+          "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
         return ''
     for node in nodes:
       if role in node['jobs']:
@@ -133,7 +131,7 @@ class AppDashboardHelper:
     Returns:
       A str containing the ip of the head node.
     """
-    return self.dstore.get_head_node_ip()
+    return self.get_host_with_role('shadow')
 
   def get_login_host(self):
     """ Querys the AppController and returns the ip of the login host. 
@@ -143,63 +141,53 @@ class AppDashboardHelper:
     """
     return self.get_host_with_role('login')
 
-  def get_monitoring_url(self):
-    """ Querys the AppController and returns the url of the monitoring service. 
+#  def get_monitoring_url(self):
+#    """ Querys the AppController and returns the url of the monitoring service. 
+#
+#    Returns:
+#      A str containing the url of the monitoring service.
+#    """
+#    try:
+#      url = self.get_head_node_ip()
+#      if url:
+#        return "http://"+url+":8050"
+#    except Exception as err:
+#      sys.stderr.write("AppDashboardHelper.get_monitoring_url() caught "\
+#        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
+#      return ''
 
-    Returns:
-      A str containing the url of the monitoring service.
-    """
-    return "http://"+self.get_head_node_ip()+":8050"
+#  def get_application_info(self):
+#    """ Querys the AppController and returns the list of applications running on
+#        this cloud.
+#    
+#    Returns:
+#      A dict where the key is the app name, and the value is
+#      the url of the app (if running) or None (if loading).
+#    """
+#    return self.dstore.get_application_info()
 
-  def get_application_info(self):
-    """ Querys the AppController and returns the list of applications running on
-        this cloud.
-    
-    Returns:
-      A list of tupels, the first element is the app name, the second element is
-      the url of the app (if running) or None (if loading).
-    """
-    status = self.get_status_info()
-    ret = {}
-    if len(status) > 0:
-      for app in status[0]['apps'].keys():
-        if app == 'none':
-          break
-        if status[0]['apps'][app]:
-          try:
-            ret[app] = "http://" + self.get_login_host() + ":"\
-                + str(self.get_app_port(app))
-          except AppHelperException:
-            ret[app] = None
-        else:
-          ret[app] = None
-    return ret
+#  def get_database_info(self):
+#    """ Returns the database information of this cloud.
+#
+#    Return:
+#      A dict containing the database information.
+#    """
+#    return self.dstore.get_database_info()
 
-  #TODO: fetch from datastore
-  def get_database_info(self):
-    """ Returns the database information of this cloud.
-
-    Return:
-      A dict containing the database information.
-    """
-    return self.dstore.get_database_info()
-
-  def get_service_info(self):
-    """ Querys the AppController and returns a list of API services running on
-        this cloud.
-
-    Returns:
-      A dict where the keys are the names of the services, and the values or the
-      status of that service.
-    """
-    try:
-      #acc = self.get_server()
-      #return acc.get_api_status()
-      return self.dstore.get_apistatus()
-    except Exception as e:
-      sys.stderr.write("AppDashboardHelper.get_service_info() caught Exception"\
-        + str(type(e)) + ":" + str(e))
-      return {}
+#  def get_service_info(self):
+#    """ Querys the AppController and returns a list of API services running on
+#        this cloud.
+#
+#    Returns:
+#      A dict where the keys are the names of the services, and the values or the
+#      status of that service.
+#    """
+#    try:
+#      return self.dstore.get_apistatus()
+#    except Exception as err:
+#      sys.stderr.write("AppDashboardHelper.get_service_info() caught Exception"\
+#        + str(type(err)) + ":" + str(err) + traceback.format_exc())
+#      return {}
 
   def get_app_port(self, appname): 
     """ Querys the UserAppServer and returns the port that the app is running
@@ -219,9 +207,9 @@ class AppDashboardHelper:
       if result:
         port = int(result.group(1))
         return port
-    except Exception as e:
+    except Exception as err:
       sys.stderr.write("AppDashboardHelper.get_app_port() caught "\
-        "Exception " + str(type(e)) + ":" + str(e))
+        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
     raise AppHelperException("app has no port")
 
   def upload_app(self, upload_file):
@@ -250,15 +238,15 @@ class AppDashboardHelper:
                "application to start running."
       else:
         raise AppHelperException(ret)
-    except SOAPpy.Types.faultType as e:  #on success Exception is thrown
+    except SOAPpy.Types.faultType as err:  #on success Exception is thrown
       return "Application uploaded successfully.  Please wait for the "\
              "application to start running."
-    except SOAPpy.Errors.HTTPError as e:  #on success HTTPError is thrown
+    except SOAPpy.Errors.HTTPError as err:  #on success HTTPError is thrown
       return "Application uploaded successfully.  Please wait for the "\
              "application to start running."
-    except Exception as e:
-      sys.stderr.write("upload_app() caught Exception " + str(type(e)) + ':'\
-        + str(e))
+    except Exception as err:
+      sys.stderr.write("upload_app() caught Exception " + str(type(err)) + ':'\
+        + str(err) + traceback.format_exc())
       raise AppHelperException("There was an error uploading your application.")
 
   def delete_app(self, appname):
@@ -278,8 +266,9 @@ class AppDashboardHelper:
       if ret != "true":
         sys.stderr.write("delete_app() AppControler returned: "+ret)
         return "There was an error attempting to remove the application."
-    except Exception as e:
-      sys.stderr.write("delete_app() caught exception: "+str(e))
+    except Exception as err:
+      sys.stderr.write("delete_app() caught exception: " + str(type(err)) + ':'\
+              + str(err) + traceback.format_exc())
       return "There was an error attempting to remove the application."
     return "Application removed successfully. Please wait for your app to shut"\
            " down."
@@ -300,9 +289,9 @@ class AppDashboardHelper:
         num_ports = int(search_data.group(1))
         if num_ports > 0:
           return True
-    except Exception as e:
+    except Exception as err:
       sys.stderr.write("AppDashboardHelper.does_app_exist() caught "\
-        "Exception " + str(type(e)) + ":" + str(e))
+        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
     return False
 
   def is_user_logged_in(self):
@@ -359,9 +348,9 @@ class AppDashboardHelper:
       user_data =  uaserver.get_user_data(email, GLOBAL_SECRET_KEY)
       self.cache['query_user_data'][email] = user_data
       return user_data
-    except Exception as e:
+    except Exception as err:
       sys.stderr.write("AppDashboardHelper.query_user_data() caught "\
-        "Exception " + str(type(e)) + ":" + str(e))
+        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
       return ''
 
 
@@ -424,12 +413,12 @@ class AppDashboardHelper:
   
       self.create_token(email, email)
       self.set_appserver_cookie(email)
-    except AppHelperException as e:
-      raise AppHelperException(str(e))
-    except Exception as e:
+    except AppHelperException as err:
+      raise AppHelperException(str(err))
+    except Exception as err:
       sys.stderr.write("AppDashboardHelper.create_new_user() caught "\
-        "Exception " + str(type(e)) + ":" + str(e))
-      raise AppHelperException(str(e))
+        "Exception " + str(type(err)) + ":" + str(err))
+      raise AppHelperException(str(err))
     return True
 
   def remove_appserver_cookie(self):
@@ -488,9 +477,9 @@ class AppDashboardHelper:
       exp_date = "20121231120000" #exactly what it was before
       uaserver = self.get_uaserver()
       uaserver.commit_new_token(token, email, exp_date, GLOBAL_SECRET_KEY)
-    except Exception as e:
+    except Exception as err:
       sys.stderr.write("AppDashboardHelper.create_token() caught "\
-        "Exception " + str(type(e)) + ":" + str(e))
+        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
 
   def logout_user(self):
     """ Logout the current user. """
@@ -549,9 +538,9 @@ class AppDashboardHelper:
           else:
             usr_cap[perm] = False
         ret_list.append(usr_cap)
-    except Exception as e:
+    except Exception as err:
       sys.stderr.write("AppDashboardHelper.list_all_users_permisions() caught "\
-        "Exception " + str(type(e)) + ":" + str(e))
+        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
     return ret_list
 
   def get_all_permission_items(self):
@@ -586,8 +575,9 @@ class AppDashboardHelper:
       else:
         sys.stderr.write("ERROR: UserAppServer.set_capabilities returned: "+ret)
         return False
-    except Exception as e:
-      sys.stderr.write("add_user_permissions() caught Exception: "+str(e))
+    except Exception as err:
+      sys.stderr.write("add_user_permissions() caught Exception: " + \
+        str(type(err)) + ":" + str(err) + traceback.format_exc())
       return False
     return True
 
@@ -617,8 +607,9 @@ class AppDashboardHelper:
       else:
         sys.stderr.write("uas.set_capabilities returned: "+ret)
         return False
-    except Exception as e:
-      sys.stderr.write("remove_user_permissions() caught Exception: "+str(e))
+    except Exception as err:
+      sys.stderr.write("remove_user_permissions() caught Exception: " + \
+        str(type(err)) + ":" + str(err) + traceback.format_exc())
       return False
     return True
 

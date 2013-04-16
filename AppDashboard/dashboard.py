@@ -11,6 +11,8 @@ import webapp2
 import sys
 from lib.app_dashboard_helper import AppDashboardHelper
 from lib.app_dashboard_helper import AppHelperException
+from lib.app_dashboard_data import AppDashboardData
+
 
 
 jinja_environment = jinja2.Environment(
@@ -26,6 +28,7 @@ class AppDashboard(webapp2.RequestHandler):
     self.initialize(request, response)
     # initialize helper
     self.helper = AppDashboardHelper(self.response)
+    self.dstore = AppDashboardData(self.helper)
 
   def render_template(self, template_file, values={}):
     """ Renders a template file with all variables loaded.
@@ -74,7 +77,7 @@ class IndexPage(AppDashboard):
   def get(self):
     """ Handler for GET requests. """
     self.render_page(page='landing', template_file=self.TEMPLATE, values = {
-      'monitoring_url' : self.helper.get_monitoring_url(),
+      'monitoring_url' : self.dstore.get_monitoring_url(),
     })
 
 
@@ -85,12 +88,15 @@ class StatusPage(AppDashboard):
 
   def get(self):
     """ Handler for GET requests. """
+    if self.request.get('forcerefresh'):
+      self.dstore.update_all()
+
     self.render_page(page='status', template_file=self.TEMPLATE, values = {
-      'server_info' : self.helper.get_status_info(),
-      'dbinfo' : self.helper.get_database_info(),
-      'service_info' : self.helper.get_service_info(),
-      'apps' : self.helper.get_application_info(),
-      'monitoring_url' : self.helper.get_monitoring_url(),
+      'server_info' : self.dstore.get_status_info(),
+      'dbinfo' : self.dstore.get_database_info(),
+      'service_info' : self.dstore.get_apistatus(),
+      'apps' : self.dstore.get_application_info(),
+      'monitoring_url' : self.dstore.get_monitoring_url(),
     })
 
 
@@ -343,7 +349,7 @@ class AppDeletePage(AppDashboard):
       message = "You do not have permission to delete the application: "+appname
     self.render_page(page='apps', template_file=self.TEMPLATE,
       values = {'flash_message' : message,
-      'apps' : self.helper.get_application_info(),
+      'apps' : self.dstore.get_application_info(),
       'app_admin_list' : self.helper.get_user_app_list()
       })
 
