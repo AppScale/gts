@@ -1,12 +1,12 @@
 #!/usr/bin/ruby -w
 
 
-# As we can't rely on DNS in AppScale, we have a Rails app, called the
+# As we can't rely on DNS in AppScale, we have a app, called the
 # AppDashboard, that provides a single place to route users to their
 # applications. It also provides authentication for users as an
 # implementation of the Google App Engine Users API. This module provides
 # methods that abstract away its configuration and deployment.
-module LoadBalancer
+module AppDashboard
 
 
   SERVER_PORTS = [8000, 8001, 8002]
@@ -25,41 +25,42 @@ module LoadBalancer
 
   APPSCALE_HOME = ENV['APPSCALE_HOME']
 
+  # Name for the AppDashboard app.
+  APP_NAME = "appscaledashboard"
+
+  # Language the AppDashboard is written in.
+  APP_LANGUAGE = "python27"
   
   def self.start(login_ip, uaserver_ip, public_ip, private_ip, secret)
-    # its just another app engine app - but since numbering starts
+    # It's just another app engine app - but since numbering starts
     # at zero, this app has to be app neg one
 
     # TODO: tell the tools to disallow uploading apps called 'apichecker'
     # and start_appengine to do the same
 
-    num_servers = 3
-    app_number = -2
-    app = "dashboard"
-    app_language = "python27"
 
     app_manager = AppManagerClient.new()
 
-    app_location = "/var/apps/#{app}/app"
+    app_location = "/var/apps/#{APP_NAME}/app"
     Djinn.log_run("mkdir -p #{app_location}")
     Djinn.log_run("cp -r #{APPSCALE_HOME}/AppDashboard/* #{app_location}")
-    Djinn.log_run("mkdir -p /var/apps/#{app}/log")
-    Djinn.log_run("touch /var/apps/#{app}/log/server.log")
+    Djinn.log_run("mkdir -p /var/apps/#{APP_NAME}/log")
+    Djinn.log_run("touch /var/apps/#{APP_NAME}/log/server.log")
 
     #pass the secret key to the app
     Djinn.log_run("echo \"GLOBAL_SECRET_KEY = '#{secret}'\" > #{app_location}/lib/secret_key.py")
-    Collectd.write_app_config(app)
+    Collectd.write_app_config(APP_NAME)
 
     SERVER_PORTS.each { |port|
-      Djinn.log_debug("Starting #{app_language} app #{app} on #{HelperFunctions.local_ip}:#{port}")
+      Djinn.log_debug("Starting #{APP_LANGUAGE} app #{APP_NAME} on #{HelperFunctions.local_ip}:#{port}")
       pid = app_manager.start_app(app, port, uaserver_ip,
-                                  PROXY_PORT, app_language, login_ip,
+                                  PROXY_PORT, APP_LANGUAGE, login_ip,
                                   [uaserver_ip], {})
       if pid == -1
-        Djinn.log_debug("Failed to start app #{app} on #{HelperFunctions.local_ip}:#{port}")
+        Djinn.log_debug("Failed to start app #{APP_NAME} on #{HelperFunctions.local_ip}:#{port}")
         return false
       else
-        pid_file_name = "#{APPSCALE_HOME}/.appscale/#{app}-#{port}.pid"
+        pid_file_name = "#{APPSCALE_HOME}/.appscale/#{APP_NAME}-#{port}.pid"
         HelperFunctions.write_file(pid_file_name, pid)
       end
     }
@@ -70,11 +71,10 @@ module LoadBalancer
   end
 
   def self.stop
-    app = "dashboard"
-    Djinn.log_debug("Stopping app #{app} on #{HelperFunctions.local_ip}")
+    Djinn.log_debug("Stopping app #{APP_NAME} on #{HelperFunctions.local_ip}")
     app_manager = AppManagerClient.new()
-    if app_manager.stop_app(app)
-      Djinn.log_debug("Failed to start app #{app} on #{HelperFunctions.local_ip}")
+    if app_manager.stop_app(APP_NAME)
+      Djinn.log_debug("Failed to start app #{APP_NAME} on #{HelperFunctions.local_ip}")
     end
   end
 
