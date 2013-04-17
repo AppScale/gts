@@ -125,7 +125,8 @@ class AppDashboardData:
     if run_now:
       sys.stderr.write('AppDashboardData.refresh_datastore(): taskqueue.add()')
       try:
-        taskqueue.add(url='/status?refresh=1', method='GET')
+        taskqueue.add(url='/status?refresh=1', method='GET', 
+          countdown=self.REFRESH_FREQUENCY)
       except Exception as err:
         sys.stderr.write("AppDashboardData.refresh_datastore() caught "\
           "Exception " + str(type(err)) + ":" + str(err) +\
