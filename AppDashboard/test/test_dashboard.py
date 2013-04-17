@@ -107,7 +107,7 @@ class TestAppDashboard(unittest.TestCase):
     self.usrs = flexmock(users)
     if email is not None:
       user_obj = flexmock(name='users')
-      user_obj.should_receive('nickname').and_return(email)
+      user_obj.should_receive('email').and_return(email)
       self.usrs.should_receive('get_current_user').and_return(user_obj)
     else:
       self.usrs.should_receive('get_current_user').and_return(None)

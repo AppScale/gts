@@ -6,10 +6,12 @@ import sys
 import tempfile
 import urllib
 import SOAPpy
+
 if 'TOOLS_PATH' in os.environ:
   sys.path.append(os.environ['TOOLS_PATH']+'/lib')
 else:
   sys.path.append('/usr/local/appscale-tools/lib')
+
 from appcontroller_client import AppControllerClient
 from local_state import LocalState
 
@@ -27,11 +29,53 @@ class AppDashboardHelper:
   # Name of the cookie used for login.
   DEV_APPSERVER_LOGIN_COOKIE = 'dev_appserver_login'
 
+  # IP address of the AppController
+  APP_CONTROLLER_IP = '127.0.0.1'
+
+  # Port number of the UserAppServer.
+  UA_SERVER_PORT = 4343
+
+  # Port number of the Monitoring service.
+  MONITOR_PORT = 8050
+
+  # Regular expression to parse the port from number.
+  GET_APP_PORTS_REGEX = ".*\sports: (\d+)[\s|:]"
+
+  # Regular expression to parse the number of ports.
+  NUM_PORT_APP_REGEX = ".*num_ports:(\d+)"
+
+  # The charcter that seperates apps.
+  APP_DELIMITER = ":"
+
+  # The charcter that seperates users.
+  USER_DELIMITER = ":"
+
+  # Regular expression to capture the apps a user is admin of.
+  USER_APP_LIST_REGEX = "\napplications:(.*)\n"
+
+  # Regular expression to determine if a user is an admin.
+  CLOUD_ADMIN_REGEX = "is_cloud_admin:true"
+
+  # Regular expression to get username from full email.
+  USERNAME_FROM_EMAIL_REGEX = '\A(.*)@'
+
+  # Expiration date of the user token.
+  TOKEN_EXPIRATION = "20121231120000"
+
+  # Regular expression to get the hashed password from the user data.
+  USER_DATA_PASSWORD_REGEX = 'password:([0-9a-fA-F]+)'
+
+  # Regular expression to skip 
+  ALL_USERS_NON_USER_REGEX = '^[_]+$'
+
+  # Delimiter to seperate user capabilites.
+  USER_CAPABILITIES_DELIMITER = ':'
+
   def __init__(self, response):
     """ Constructor. 
 
     Args:
-      response: the webapp2 response object of the parent of ths AppDashboard
+      response: The webapp2 response object of the parent of ths AppDashboard
                 object.
     """
     self.server = None
@@ -46,26 +90,28 @@ class AppDashboardHelper:
       An AppControllerClient object.
     """
     if self.server is None:
-      self.server = AppControllerClient('127.0.0.1', GLOBAL_SECRET_KEY)
+      self.server = AppControllerClient(self.APP_CONTROLLER_IP,\
+        GLOBAL_SECRET_KEY)
     return self.server
 
   def get_uaserver(self):
     """ Connects to the UserAppServer and returns the connection handle
 
     Returns:
-      An SOAPpy object that is connected to the UserAppServer.
+      A SOAPpy object that is connected to the UserAppServer.
     """
     if self.uaserver is None:
       acc = self.get_server()
       uas_host = acc.get_uaserver_host(False)
-      self.uaserver = SOAPpy.SOAPProxy('https://%s:%s' % (uas_host, 4343))
+      self.uaserver = SOAPpy.SOAPProxy('https://%s:%s' % (uas_host,\
+        self.UA_SERVER_PORT))
     return self.uaserver
 
   def get_user_capabilities(self, email):
     """ Query the AppController and return the capabilites of the user.
 
     Args:
-      email: a str containing the email of the user being queried.
+      email: A str containing the email of the user being queried.
     Returns:
       A list of strs containing the capabilities of the user being queried.
     """
@@ -74,6 +120,7 @@ class AppDashboardHelper:
         return self.cache['user_caps'][email]
     else:
       self.cache['user_caps'] = {}
+
     try:
       uas = self.get_uaserver()
       caps_list = uas.get_capabilities(email, GLOBAL_SECRET_KEY).split(':')
@@ -132,7 +179,7 @@ class AppDashboardHelper:
     return self.get_host_with_role('shadow')
 
   def get_login_host(self):
-    """ Querys the AppController and returns the ip of the login host. 
+    """ Queries the AppController and returns the ip of the login host. 
 
     Returns:
       A str containing the host that runs the login service.
@@ -140,20 +187,21 @@ class AppDashboardHelper:
     return self.get_host_with_role('login')
 
   def get_monitoring_url(self):
-    """ Querys the AppController and returns the url of the monitoring service. 
+    """ Queries the AppController and returns the url of the monitoring service.
 
     Returns:
       A str containing the url of the monitoring service.
     """
-    return "http://"+self.get_head_node_ip()+":8050"
+    return "http://{0}:{1}".format(self.get_head_node_ip(),  self.MONITOR_PORT)
+
 
   def get_application_info(self):
-    """ Querys the AppController and returns the list of applications running on
-        this cloud.
+    """ Queries the AppController and returns the list of applications running 
+        on this cloud.
     
     Returns:
-      A list of tupels, the first element is the app name, the second element is
-      the url of the app (if running) or None (if loading).
+       A dict where the key is the app name, and the value is
+       the url of the app (if running) or None (if loading).
     """
     status = self.get_status_info()
     ret = {}
@@ -172,7 +220,7 @@ class AppDashboardHelper:
     return ret
  
   def get_database_info(self):
-    """ Querys the AppController and returns the database information of this
+    """ Queries the AppController and returns the database information of this
         cloud.
 
     Return:
@@ -187,7 +235,7 @@ class AppDashboardHelper:
       return {}
 
   def get_service_info(self):
-    """ Querys the AppController and returns a list of API services running on
+    """ Queries the AppController and returns a list of API services running on
         this cloud.
 
     Returns:
@@ -203,11 +251,12 @@ class AppDashboardHelper:
       return {}
 
   def get_app_port(self, appname): 
-    """ Querys the UserAppServer and returns the port that the app is running
+    """ Queries the UserAppServer and returns the port that the app is running
         on.
     
     Args:
-      appname: name of the app being queried.
+      appname: 
+        Name of the app being queried.
     Returns:
       An int: the port number.
     Raises:
@@ -216,8 +265,9 @@ class AppDashboardHelper:
     try:
       uas = self.get_uaserver()
       app_data = uas.get_app_data(appname, GLOBAL_SECRET_KEY )
-      result = re.search(".*\sports: (\d+)[\s|:]", app_data)
+      result = re.search(self.GET_APP_PORTS_REGEX, app_data)
       if result:
+        # GET_APP_PORTS_REGEX define a capture group, which we use here.
         port = int(result.group(1))
         return port
     except Exception as e:
@@ -226,7 +276,7 @@ class AppDashboardHelper:
     raise AppHelperException("app has no port")
 
   def upload_app(self, upload_file):
-    """ Uploads and App into AppScale.
+    """ Uploads an App into AppScale.
 
     Args:
       upload_file: a file object containing the uploaded file data.
@@ -245,7 +295,7 @@ class AppDashboardHelper:
       tgz_file.close()
       name = tgz_file.name
       acc = self.get_server()
-      ret = acc.upload_tgz(name, user.nickname() )
+      ret = acc.upload_tgz(name, user.email() )
       if ret == "true":
         return "Application uploaded successfully.  Please wait for the "\
                "application to start running."
@@ -266,7 +316,7 @@ class AppDashboardHelper:
     """Instructs AppScale to no longer host the named application.
 
     Args:
-      appname: name of the app to be removed.
+      appname: Name of the app to be removed.
     Returns:
       A str containing a message to be displayed to the user.
     """
@@ -277,7 +327,7 @@ class AppDashboardHelper:
       acc = self.get_server()
       ret = acc.stop_app(appname)
       if ret != "true":
-        sys.stderr.write("delete_app() AppControler returned: "+ret)
+        sys.stderr.write("delete_app() AppControler returned: " + ret)
         return "There was an error attempting to remove the application."
     except Exception as e:
       sys.stderr.write("delete_app() caught exception: "+str(e))
@@ -296,7 +346,7 @@ class AppDashboardHelper:
     try:
       uas = self.get_uaserver()
       app_data = uas.get_app_data(appname, GLOBAL_SECRET_KEY)
-      search_data = re.search(".*num_ports:(\d+)", app_data)
+      search_data = re.search(self.GET_APP_PORTS_REGEX, app_data)
       if search_data:
         num_ports = int(search_data.group(1))
         if num_ports > 0:
@@ -320,41 +370,43 @@ class AppDashboardHelper:
   def get_user_email(self):
     """ Get the logged in user's email.
 
-    Returns: A str with the user's email, or '' if not found.
+    Returns:
+      A str with the user's email, or '' if not found.
     """
     user = users.get_current_user()
     if user:
-      return user.nickname()
+      return user.email()
     return ''
 
   def get_user_app_list(self):
     """ Get a list of apps that the current logged in user is an 
         admin of.
 
-    Returns: a list of str, each is the name of an app. 
+    Returns:
+      A list of strs, each is the name of an app. 
     """
     user = users.get_current_user()
     if not user:
       return []
-    user_data = self.query_user_data( user.nickname() )
-    app_resp = re.search("\napplications:(.*)\n", user_data)
+    user_data = self.query_user_data(user.email())
+    app_resp = re.search(self.USER_APP_LIST_REGEX, user_data)
     if app_resp:
-      apps_list = app_resp.group(1).split(":")
+      apps_list = app_resp.group(1).split(self.APP_DELIMITER)
     return apps_list
-
   def query_user_data(self, email):
-    """ Querys the UserAppServer and returns the data on a user.
+    """ Queries the UserAppServer and returns the data on a user.
 
     Args:
-      email: email address of the user being queried.
+      email: Email address of the user being queried.
     Returns:
-      A str contain the the user data.
+      A str contain the the user data, or empty string on error.
     """
     if 'query_user_data' in self.cache:
       if email in self.cache['query_user_data']:
         return self.cache['query_user_data'][email]
     else:
       self.cache['query_user_data'] = {}
+
     try:
       uaserver = self.get_uaserver()
       user_data =  uaserver.get_user_data(email, GLOBAL_SECRET_KEY)
@@ -365,29 +417,31 @@ class AppDashboardHelper:
         "Exception " + str(type(e)) + ":" + str(e))
       return ''
 
-
   def is_user_cloud_admin(self):
     """ Check if the logged in user is a cloud admin.
 
-    Returns: True or False.
+    Returns:
+      True or False.
     """
     user = users.get_current_user()
     if not user:
       return False
-    email =  user.nickname()
+    email =  user.email()
     user_data = self.query_user_data(email)
-    if re.search("is_cloud_admin:true", user_data):
+    if re.search(self.CLOUD_ADMIN_REGEX, user_data):
       return True
     else:
       return False
 
   def i_can_upload(self):
     """ Check if the logged in user can upload apps.
-    Returns: True or False.
+
+    Returns:
+      True or False.
     """
     user = users.get_current_user()
     if user:
-      if 'upload_app' in self.get_user_capabilities(user.nickname()):
+      if 'upload_app' in self.get_user_capabilities(user.email()):
         return True
     return False
 
@@ -395,8 +449,8 @@ class AppDashboardHelper:
     """ Create new user in the system. 
 
     Args:
-      email: email address of the new user.
-      password: password for the new user.
+      email: Email address of the new user.
+      password: Password for the new user.
     Returns:
       True if the user was created.
     Raises:
@@ -404,19 +458,19 @@ class AppDashboardHelper:
     """
     try:
       uaserver = self.get_uaserver()
-      # first, create the standard account
+      # First, create the standard account.
       encrypted_pass = LocalState.encrypt_password(email, password)
       result = uaserver.commit_new_user(email, encrypted_pass, account_type,
         GLOBAL_SECRET_KEY)
       if result != 'true':
         raise AppHelperException(result)
   
-      # next, create the XMPP account. if the user's e-mail is a@a.a, then that
-      # means their XMPP account name is a@login_ip
-      username_regex = re.compile('\A(.*)@')
+      # Next, create the XMPP account. if the user's e-mail is a@a.a, then that
+      # means their XMPP account name is a@login_ip.
+      username_regex = re.compile(self.USERNAME_FROM_EMAIL_REGEX)
       username = username_regex.match(email).groups()[0]
       xmpp_user = "{0}@{1}".format(username,
-        self.get_login_host() )
+        self.get_login_host())
       xmpp_pass = LocalState.encrypt_password(xmpp_user, password)
       result = uaserver.commit_new_user(xmpp_user, xmpp_pass, account_type,
         GLOBAL_SECRET_KEY)
@@ -435,44 +489,44 @@ class AppDashboardHelper:
 
   def remove_appserver_cookie(self):
     """ Removes the login cookie. """
-    self.response.delete_cookie( self.DEV_APPSERVER_LOGIN_COOKIE )
+    self.response.delete_cookie(self.DEV_APPSERVER_LOGIN_COOKIE)
 
   def set_appserver_cookie(self, email):
     """ Sets the login cookie.
 
     Args:
-      email: email of the user to login.
+      email: Email of the user to login.
     """
     apps = ''
     user_data =  self.query_user_data(email)
-    app_re = re.search("\napplications:(.*)\n", user_data)
+    app_re = re.search(self.USER_APP_LIST_REGEX, user_data)
     if app_re:
-      apps_list = app_re.group(1).split(":")
+      apps_list = app_re.group(1).split(self.APP_DELIMITER)
       apps =  ",".join(apps_list)
     self.response.set_cookie( self.DEV_APPSERVER_LOGIN_COOKIE,
-      value = self.get_cookie_value(email, apps),
-      expires = datetime.datetime.now() + datetime.timedelta(days=1) )
+      value=self.get_cookie_value(email, apps),
+      expires=datetime.datetime.now() + datetime.timedelta(days=1))
 
   def get_cookie_value(self, email, apps):
     """ Get the value of the login cookie.
     
     Args:
-      email: email of the user to login.
-      apps: list of applications the user is admin of.
+      email: Email of the user to login.
+      apps: List of applications the user is admin of.
     Retuns:
       A str that is the value of the login cookie.
     """
     nick = re.search('^(.*)@', email).group(1)
     hsh = self.get_appengine_hash(email, nick, apps)
-    return urllib.quote(email+':'+nick+':'+apps+':'+hsh)
+    return urllib.quote("{0}:{1}:{2}:{3}".format(email, nick, apps, hsh))
 
   def get_appengine_hash(self, email, nick, apps):
     """ Encrypt the values and return the hash.
 
     Args:
-      email: email of the user to login.
-      nick: email of the user to login.
-      apps: str with a comma seperate list of apps the user is an admin of.
+      email: Email of the user to login.
+      nick: Email of the user to login.
+      apps: A str with a comma seperate list of apps the user is an admin of.
     Returns:
       A str that is the hex hash of the input values.
     """
@@ -482,13 +536,13 @@ class AppDashboardHelper:
     """ Create a login token and commit it to the UserAppServer.
     
     Args:
-      token: name of the token to create (usually the email address).
-      email: email of the user to create the login token for.
+      token: Name of the token to create (usually the email address).
+      email: Email of the user to create the login token for.
     """
     try:
-      exp_date = "20121231120000" #exactly what it was before
       uaserver = self.get_uaserver()
-      uaserver.commit_new_token(token, email, exp_date, GLOBAL_SECRET_KEY)
+      uaserver.commit_new_token(token, email, self.TOKEN_EXPIRATION, \
+        GLOBAL_SECRET_KEY)
     except Exception as e:
       sys.stderr.write("AppDashboardHelper.create_token() caught "\
         "Exception " + str(type(e)) + ":" + str(e))
@@ -498,7 +552,7 @@ class AppDashboardHelper:
     user = users.get_current_user()
     if not user:
       return True
-    email = user.nickname()
+    email = user.email()
     self.create_token('invalid', email)
     self.remove_appserver_cookie()
 
@@ -506,25 +560,27 @@ class AppDashboardHelper:
     """ Attempt to login the user.
 
     Args:
-      email: email of the user to login.
-      password: password of the user to login.
+      email: Email of the user to login.
+      password: Password of the user to login.
     Return:
       True or False if the login succeeded.
     """
     user_data =  self.query_user_data(email) 
-    server_re = re.search('password:([0-9a-fA-F]+)', user_data)
+    server_re = re.search(self.USER_DATA_PASSWORD_REGEX, user_data)
     if not server_re:
+      sys.stderr.write("Failed Login: {0} regex failed".format(email))
       return False
     server_pwd = server_re.group(1)
     encrypted_pass = LocalState.encrypt_password(email, password)
     if server_pwd != encrypted_pass:
+      sys.stderr.write("Failed Login: {0} password mismatch".format(email))
       return False
     self.create_token(email, email)
     self.set_appserver_cookie(email)
     return True
 
   def list_all_users_permisions(self):
-    """ Querys the UserAppServer and returns a list of all the users and the 
+    """ Queries the UserAppServer and returns a list of all the users and the 
         permission they have in the system.
 
     Returns:
@@ -534,13 +590,13 @@ class AppDashboardHelper:
     try:
       uas = self.get_uaserver()
       all_users = uas.get_all_users( GLOBAL_SECRET_KEY )
-      all_users_list = all_users.split(':')
+      all_users_list = all_users.split(self.USER_DELIMITER)
       ip = self.get_head_node_ip()
       perm_items = self.get_all_permission_items()
       for usr in all_users_list:
         if re.search('@'+ip+'$', usr): #{ip}\Z/ # skip the XMPP user accounts
           continue 
-        if re.search('^[_]+$', usr): #skip non users
+        if re.search(self.ALL_USERS_NON_USER_REGEX, usr): #skip non users
           continue
         usr_cap = {'email' : usr }
         caps_list = self.get_user_capabilities(usr)
@@ -567,8 +623,8 @@ class AppDashboardHelper:
     """ Add a permission to a user.
 
     Args: 
-      email: email addres of the user.
-      perm: name of the permission to give to the user.
+      email: Email addres of the user.
+      perm: Name of the permission to give to the user.
     Returns: True if the permission was given to the user,
       else False.
     """
@@ -579,16 +635,19 @@ class AppDashboardHelper:
       if perm not in new_caps:
         new_caps.append(perm)
       else:
-        return True  #already there, shortcut out
-      ret = uas.set_capabilities(email, ':'.join(new_caps),  GLOBAL_SECRET_KEY)
+        return True
+
+      ret = uas.set_capabilities(email, \
+        self.USER_CAPABILITIES_DELIMITER.join(new_caps),  GLOBAL_SECRET_KEY)
       if ret == 'true':
         self.cache['user_caps'][email] = new_caps
         return True
       else:
-        sys.stderr.write("ERROR: UserAppServer.set_capabilities returned: "+ret)
+        sys.stderr.write("ERROR: UserAppServer.set_capabilities returned: " + \
+          ret)
         return False
     except Exception as e:
-      sys.stderr.write("add_user_permissions() caught Exception: "+str(e))
+      sys.stderr.write("add_user_permissions() caught Exception: " + str(e))
       return False
     return True
 
@@ -596,10 +655,10 @@ class AppDashboardHelper:
     """ Remove a permission from a user.
 
     Args: 
-      email: email addres of the user.
-      perm: name of the permission to remove from the user.
-    Returns: True if the permission was remove from the user,
-      else False.
+      email: Email addres of the user.
+      perm: Name of the permission to remove from the user.
+    Returns: 
+      True if the permission was remove from the user, else False.
     """
     try:
       caps_list = self.get_user_capabilities(email)
@@ -610,16 +669,18 @@ class AppDashboardHelper:
           if pitem != perm:
             new_caps.append(pitem)
       else:
-        return True  #not there, shortcut out
-      ret = uas.set_capabilities(email, ':'.join(new_caps),  GLOBAL_SECRET_KEY)
+        return True 
+
+      ret = uas.set_capabilities(email, \
+        self.USER_CAPABILITIES_DELIMITER.join(new_caps),  GLOBAL_SECRET_KEY)
       if ret == 'true':
         self.cache['user_caps'][email] = new_caps
         return True
       else:
-        sys.stderr.write("uas.set_capabilities returned: "+ret)
+        sys.stderr.write("uas.set_capabilities returned: " + ret)
         return False
     except Exception as e:
-      sys.stderr.write("remove_user_permissions() caught Exception: "+str(e))
+      sys.stderr.write("remove_user_permissions() caught Exception: " + str(e))
       return False
     return True
 
