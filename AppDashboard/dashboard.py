@@ -91,7 +91,7 @@ class StatusPage(AppDashboard):
     # Called from taskqueue. Refresh data and display status message.
     if self.request.get('refresh'):
       self.dstore.update_all()
-      self.dstore.refresh_datastore(self.request.get('count'))
+      self.dstore.refresh_datastore()
       self.response.out.write('datastore updated')
       return
 
@@ -100,7 +100,7 @@ class StatusPage(AppDashboard):
       self.dstore.update_all()
     else:
       # Start a refresh task if one is not already running.
-      self.dstore.refresh_datastore(1)
+      self.dstore.refresh_datastore()
 
     self.render_page(page='status', template_file=self.TEMPLATE, values={
       'server_info' : self.dstore.get_status_info(),
@@ -329,7 +329,7 @@ class AppUploadPage(AppDashboard):
         success_msg = self.helper.upload_app(
           self.request.POST.multi['app_file_data'].file
           )
-        self.dstore.refresh_datastore(5)
+        self.dstore.refresh_datastore()
       except AppHelperException as e:
         err_msg = str(e)
     else:
@@ -354,7 +354,7 @@ class AppDeletePage(AppDashboard):
     if self.helper.is_user_cloud_admin() or\
        appname in self.helper.get_user_app_list():
       message = self.helper.delete_app(appname)
-      self.dstore.refresh_datastore(5)
+      self.dstore.refresh_datastore()
     else:
       message = "You do not have permission to delete the application: "+appname
     self.render_page(page='apps', template_file=self.TEMPLATE,

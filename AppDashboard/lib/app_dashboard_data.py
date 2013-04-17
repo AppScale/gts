@@ -1,14 +1,15 @@
+import datetime
 import sys
 import traceback
-from google.appengine.ext import db
 from google.appengine.api import taskqueue
+from google.appengine.ext import db
 from app_dashboard_helper import AppDashboardHelper
 from app_dashboard_helper import AppHelperException
 
 
 class DashboardDataRoot(db.Model):
   """ Root entity for datastore. """
-  initialized_time = db.DateTimeProperty(auto_now = True)
+  initialized_time = db.DateTimeProperty(auto_now=True)
   head_node_ip = db.StringProperty()
   table = db.StringProperty()
   replication = db.StringProperty()
@@ -17,7 +18,7 @@ class APIstatus(db.Model):
   """ Status of each API in AppScale. """
   name = db.StringProperty()
   value = db.StringProperty()
-  last_update = db.DateTimeProperty(auto_now = True)
+  last_update = db.DateTimeProperty(auto_now=True)
 
 class ServerStatus(db.Model):
   """ Stats of each server in the AppScale deployment. """
@@ -32,13 +33,11 @@ class AppStatus(db.Model):
   """ Status of each app running in AppScale. """
   name = db.StringProperty()
   url = db.StringProperty()
-  last_update = db.DateTimeProperty(auto_now = True)
+  last_update = db.DateTimeProperty(auto_now=True)
 
 class TQrefresh(db.Model):
   """ Data for the taskqueue refresh process. """
-  last_run = db.IntegerProperty()
-  run_count = db.IntegerProperty()
-
+  last_run = db.DateTimeProperty()
  
 
 class AppDashboardData:
@@ -76,52 +75,39 @@ class AppDashboardData:
         "Exception " + str(type(err)) + ":" + str(err) +\
         traceback.format_exc())
 
-  def refresh_datastore(self, in_count=0):
-    """ Start a taskqueue process to refresh the data store periodically.
+  def refresh_datastore(self):
+    """ Start a taskqueue process to refresh the data store periodically.  """
 
-    Args:
-      in_count: A int, the number of times that the refresh function should be
-                run.
-    """
-
-    def refresh_datastore_tx(key, min_count, frequency, root):
+    def refresh_datastore_tx(key, frequency, root):
       """ Trasaction function for refresh_datastore().
       
       Args:
-        key: The keyname for the root entity
-        max_count: The minimum value for the count property.
-        frequency: The number of seconds between runs of the refresh tasks.
-        root: The root entity.
+        key: A string with the keyname for this refresh task.
+        frequency: An int, the number of seconds between runs of the refresh
+                   tasks.
+        root: A DashboardDataRoot, the root entity.
 
       Returns:
         True if a task should be enqueued, otherwise false.
       """
-      tqrefresh = TQrefresh.get_by_key_name(key)
-      if not tqrefresh:
-        tqrefresh = TQrefresh(key_name=key, parent=root)
-        tqrefresh.last_run = 0
-        tqrefresh.run_count = 0
+      tq_refresh = TQrefresh.get_by_key_name(key)
+      if not tq_refresh:
+        tq_refresh = TQrefresh(key_name=key, parent=root)
+        tq_refresh.last_run = datetime.datetime(1970,1,1)
 
-      if min_count > tqrefresh.run_count:
-        tqrefresh.run_count = min_count
-
-      time_next = tqrefresh.last_run + frequency
-      time_now = time.time()
+      time_next = tq_refresh.last_run + datetime.timedelta(0, frequency)
+      time_now = datetime.datetime.now()
       return_val = False
 
-      if time_next < time_now and tqrefresh.run_count > 0:
+      if time_next < time_now:
         return_val = True
-        tqrefresh.last_run = time_now
-        if tqrefresh.run_count > 0:
-          tqrefresh.run_count -= 1
-        else:
-          tqrefresh.run_count = 0
+        tq_refresh.last_run = time_now
 
-      tqrefresh.put()
+      tq_refresh.put()
       return return_val
       
     run_now = db.run_in_transaction(refresh_datastore_tx,
-      self.ROOT_KEYNAME, in_count, self.REFRESH_FREQUENCY, self.root)
+      self.ROOT_KEYNAME, refresh_count, self.REFRESH_FREQUENCY, self.root)
     if run_now:
       sys.stderr.write('AppDashboardData.refresh_datastore(): taskqueue.add()')
       try:
