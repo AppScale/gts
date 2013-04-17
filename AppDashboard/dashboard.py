@@ -76,7 +76,7 @@ class IndexPage(AppDashboard):
 
   def get(self):
     """ Handler for GET requests. """
-    self.render_page(page='landing', template_file=self.TEMPLATE, values = {
+    self.render_page(page='landing', template_file=self.TEMPLATE, values={
       'monitoring_url' : self.dstore.get_monitoring_url(),
     })
 
@@ -88,10 +88,21 @@ class StatusPage(AppDashboard):
 
   def get(self):
     """ Handler for GET requests. """
+    # Called from taskqueue. Refresh data and display status message.
+    if self.request.get('refresh'):
+      self.dstore.update_all()
+      self.dstore.refresh_datastore(self.request.get('count'))
+      self.response.out.write('datastore updated')
+      return
+
+    # Called from the web.  Refresh data then display page.
     if self.request.get('forcerefresh'):
       self.dstore.update_all()
+    else:
+      # Start a refresh task if one is not already running.
+      self.dstore.refresh_datastore(1)
 
-    self.render_page(page='status', template_file=self.TEMPLATE, values = {
+    self.render_page(page='status', template_file=self.TEMPLATE, values={
       'server_info' : self.dstore.get_status_info(),
       'dbinfo' : self.dstore.get_database_info(),
       'service_info' : self.dstore.get_apistatus(),
@@ -163,7 +174,7 @@ class NewUserPage(AppDashboard):
         self.redirect('/', self.response)
         return
     except Exception as e:
-      sys.stderr.write("NewUserPage.POST() exception: "+str(e))
+      sys.stderr.write("NewUserPage.POST() exception: {0}".format(str(e)))
       err_msgs['email'] = str(e)
       errors['email'] = True
     
@@ -228,9 +239,9 @@ class LoginPage(AppDashboard):
        self.request.get('user_password') ):
     
       if self.request.get('continue') != '':
-        self.redirect('/users/confirm?continue=' +
-          urllib.quote( str(self.request.get('continue'))
-          ).encode('ascii','ignore'), self.response)
+        self.redirect('/users/confirm?continue={0}'.format(
+          urllib.quote( str(self.request.get('continue')))\
+          .encode('ascii','ignore')), self.response)
       else:
         self.redirect('/', self.response)
     else:
@@ -264,31 +275,29 @@ class AuthorizePage(AppDashboard):
     for fldname, email in self.request.POST.iteritems():
       if re.match('^user_permission_', fldname):
         for perm in perms:
-          if email+'-'+perm in req_keys and\
-            self.request.get('CURRENT-'+email+'-'+perm) == 'False':
+          if email + '-' + perm in req_keys and\
+            self.request.get('CURRENT-' + email + '-' + perm) == 'False':
             if self.helper.add_user_permissions(email, perm):
-              response += 'Enabling '+perm+' for '+email+'. '
+              response += 'Enabling {0} for {1}. '.format(perm, email)
             else:
-              response += 'Error enabling '+perm+' for '+email+'. '
+              response += 'Error enabling {0} for {1}. '.format(perm, email)
           elif email+'-'+perm not in req_keys and\
             self.request.get('CURRENT-'+email+'-'+perm) == 'True':
             if self.helper.remove_user_permissions(email, perm):
-              response += 'Disabling '+perm+' for '+email+'. '
+              response += 'Disabling {0} for {1}. '.format(perm, email)
             else:
-              response += 'Error disabling '+perm+' for '+email+'. '
+              response += 'Error disabling {0} for {1}. '.format(perm, email)
     return response
 
   def post(self):
     """ Handler for POST requests. """
     if self.helper.is_user_cloud_admin():
-      self.render_page(page='authorize', template_file=self.TEMPLATE,
-        values = {
+      self.render_page(page='authorize', template_file=self.TEMPLATE, values={
         'flash_message' : self.parse_update_user_permissions(),
         'user_perm_list' : self.helper.list_all_users_permisions(),
         })
     else:
-      self.render_page(page='authorize', template_file=self.TEMPLATE,
-        values = {
+      self.render_page(page='authorize', template_file=self.TEMPLATE, values={
         'flash_message':"Only the cloud administrator can change permissions.",
         'user_perm_list':{},
         })
@@ -296,12 +305,11 @@ class AuthorizePage(AppDashboard):
   def get(self):
     """ Handler for GET requests. """
     if self.helper.is_user_cloud_admin():
-      self.render_page(page='authorize', template_file=self.TEMPLATE, values = {
+      self.render_page(page='authorize', template_file=self.TEMPLATE, values={
         'user_perm_list' : self.helper.list_all_users_permisions(),
       })
     else:
-      self.render_page(page='authorize', template_file=self.TEMPLATE,
-        values = {
+      self.render_page(page='authorize', template_file=self.TEMPLATE, values={
         'flash_message':"Only the cloud administrator can change permissions.",
         'user_perm_list':{},
         })
@@ -321,12 +329,13 @@ class AppUploadPage(AppDashboard):
         success_msg = self.helper.upload_app(
           self.request.POST.multi['app_file_data'].file
           )
+        self.dstore.refresh_datastore(5)
       except AppHelperException as e:
         err_msg = str(e)
     else:
       err_msg = "You are not authorized to upload apps."
-    self.render_page(page='apps', template_file=self.TEMPLATE,
-      values = {'error_message' : err_msg,
+    self.render_page(page='apps', template_file=self.TEMPLATE, values={
+        'error_message' : err_msg,
         'success_message' : success_msg
       })
 
@@ -345,6 +354,7 @@ class AppDeletePage(AppDashboard):
     if self.helper.is_user_cloud_admin() or\
        appname in self.helper.get_user_app_list():
       message = self.helper.delete_app(appname)
+      self.dstore.refresh_datastore(5)
     else:
       message = "You do not have permission to delete the application: "+appname
     self.render_page(page='apps', template_file=self.TEMPLATE,
@@ -356,7 +366,7 @@ class AppDeletePage(AppDashboard):
   def get(self):
     """ Handler for GET requests. """
     self.render_page(page='apps', template_file=self.TEMPLATE, values = {
-      'apps' : self.helper.get_application_info(),
+      'apps' : self.dstore.get_application_info(),
       'app_admin_list' : self.helper.get_user_app_list()
     })
 
