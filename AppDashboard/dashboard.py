@@ -12,11 +12,22 @@ import sys
 from lib.app_dashboard_helper import AppDashboardHelper
 from lib.app_dashboard_helper import AppHelperException
 
+from google.appengine.ext import ndb
 
 jinja_environment = jinja2.Environment(
     loader=jinja2.FileSystemLoader(os.path.dirname(__file__) + \
       os.sep + 'templates'))
 
+
+class LoggedService(ndb.Model):
+  service_name = ndb.StringProperty()
+
+class LogLine(ndb.Model):
+  service_name = ndb.StringProperty()
+  host = ndb.StringProperty()
+  message = ndb.TextProperty()
+  timestamp = ndb.DateTimeProperty()
+  severity = ndb.IntegerProperty()
 
 class AppDashboard(webapp2.RequestHandler):
   """ Class that all pages in the Dashboard must inherit from. """
@@ -354,6 +365,23 @@ class AppDeletePage(AppDashboard):
       'app_admin_list' : self.helper.get_user_app_list()
     })
 
+class LogMainPage(AppDashboard):
+  """ Class to handle requests to the /logs page. """
+
+  TEMPLATE = 'logs/main.html'
+
+  def get(self):
+    """ Handler for GET requests. """
+    query = ndb.gql('SELECT * FROM LoggedService')
+    services = []
+    for entity in query:
+      if entity.service_name not in services:
+        services.append(entity.service_name)
+
+    self.render_page(page='logs', template_file=self.TEMPLATE, values = {
+      'services' : services
+    })
+
 
 # Main Dispatcher
 app = webapp2.WSGIApplication([ ('/', IndexPage),
@@ -371,6 +399,7 @@ app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/apps/new', AppUploadPage),
                                 ('/apps/upload', AppUploadPage),
                                 ('/apps/delete', AppDeletePage),
+                                ('/logs', LogMainPage),
                               ], debug=True)
 # Handle errors
 def handle_404(request, response, exception):
