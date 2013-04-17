@@ -20,9 +20,13 @@
             <div class="page-header">
               <h1>View logs for a service:</h1>
             </div><!--close header-->
-            {% for service in services %}
-              <li /><a href="/logs/{{ service }}">{{ service }}</a>
-            {% endfor %}
+            {% if services %}
+              {% for service in services %}
+                <li /><a href="/logs/{{ service }}">{{ service }}</a>
+              {% endfor %}
+            {% else %}
+              <p>No logs are available at this time. Please check back later.</p>
+            {% endif %}
           </div><!--close span6 -->
         <div class="span3"></div> <!--spacing div-->
         </div> <!-- end row fluid -->
