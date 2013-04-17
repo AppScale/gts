@@ -32,12 +32,18 @@ programmatically access their request and application logs.
 
 import base64
 import cStringIO
+import httplib
 import os
 import re
 import sys
 import threading
 import time
 import warnings
+
+try:
+  import json
+except ImportError:
+  import simplejson as json
 
 from google.net.proto import ProtocolBuffer
 from google.appengine.api import api_base_pb
@@ -269,10 +275,49 @@ class LogsBuffer(object):
     """
     self._lock_and_call(self._flush)
 
+  def is_port_open(self, ip, port):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+      s.connect(ip, int(port))
+      s.shutdown(2)
+      return True
+    except:
+      return False
+
   def _flush(self):
     """Internal version of flush() with no locking."""
 
     logs = self.parse_logs()
+
+    appid = os.environ['APPLICATION_ID']
+    if appid in ['apichecker', 'dashboard']:
+      return
+
+    #if not self.is_port_open('192.168.10.2', 443):
+    #  return
+    #formatted_logs = [{'timestamp' : log[0] / 1e6, 'level' : log[1], 'message' : log[2]} for log in logs]
+    formatted_logs = []
+    for log in logs:
+      this_log = {
+        'timestamp' : log[0] / 1e6,
+        'level' : log[1],
+        'message' : log[2]
+      }
+
+      if not log[2]:
+        this_log['message'] = 'nothing to see here!'
+      formatted_logs.append(this_log)
+
+    payload = json.dumps({
+      'service_name' : appid,
+      'host' : '192.168.10.2',
+      'logs' : formatted_logs
+    })
+
+    conn = httplib.HTTPSConnection('192.168.10.2:443')
+    headers = {'Content-Type' : 'application/json'}
+    conn.request('POST', '/logs/upload', payload, headers)
+    response = conn.getresponse()
     self._clear()
 
     # AppScale: This currently causes problems when we try to call API requests
