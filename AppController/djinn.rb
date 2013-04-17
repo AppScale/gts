@@ -3,6 +3,7 @@
 # Imports within Ruby's standard libraries
 require 'monitor'
 require 'net/http'
+require 'net/https'
 require 'openssl'
 require 'socket'
 require 'soap/rpc/driver'
@@ -1515,9 +1516,11 @@ class Djinn
   # Appends this log message to a buffer, which will be periodically sent to
   # our Admin Console.
   def self.log_to_buffer(time, msg)
-    @@logs_buffer << {
-      'time' => time,
-      'msg' => msg
+    APPS_LOCK.synchronize {
+      @@logs_buffer << {
+        'timestamp' => time.to_i,
+        'message' => msg
+      }
     }
   end
 
@@ -2019,9 +2022,23 @@ class Djinn
   # Sends all of the logs that have been buffered up to the Admin Console for
   # viewing in a web UI.
   def flush_log_buffer()
-    # TODO(cgb): Send the logs to the Admin Console
+    Djinn.log_debug("Flushing logs buffer")
 
-    @@logs_buffer = []
+    encoded_logs = JSON.dump({
+      'service_name' => 'appcontroller',
+      'host' => my_node.public_ip,
+      'logs' => @@logs_buffer,
+    })
+
+    url = URI.parse("https://#{my_node.public_ip}/logs/upload")
+    http = Net::HTTP.new(url.host, url.port)
+    http.use_ssl = true
+    response = http.post(url.path, encoded_logs, {'Content-Type'=>'application/json'})
+
+    Djinn.log_debug("Wrote #{@@logs_buffer.length} logs!")
+    APPS_LOCK.synchronize {
+      @@logs_buffer = []
+    }
   end
 
 

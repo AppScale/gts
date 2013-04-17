@@ -12,6 +12,11 @@ import sys
 from lib.app_dashboard_helper import AppDashboardHelper
 from lib.app_dashboard_helper import AppHelperException
 
+try:
+  import json
+except ImportError:
+  import simplejson as json
+
 from google.appengine.ext import ndb
 
 jinja_environment = jinja2.Environment(
@@ -20,14 +25,17 @@ jinja_environment = jinja2.Environment(
 
 
 class LoggedService(ndb.Model):
-  service_name = ndb.StringProperty()
+  hosts = ndb.StringProperty(repeated=True)
 
-class LogLine(ndb.Model):
-  service_name = ndb.StringProperty()
-  host = ndb.StringProperty()
+class AppLogLine(ndb.Model):
   message = ndb.TextProperty()
   timestamp = ndb.DateTimeProperty()
-  severity = ndb.IntegerProperty()
+
+class RequestLogLine(ndb.Model):
+  service_name = ndb.StringProperty()
+  host = ndb.StringProperty()
+  app_logs = ndb.StructuredProperty(AppLogLine, repeated=True)
+
 
 class AppDashboard(webapp2.RequestHandler):
   """ Class that all pages in the Dashboard must inherit from. """
@@ -375,12 +383,92 @@ class LogMainPage(AppDashboard):
     query = ndb.gql('SELECT * FROM LoggedService')
     services = []
     for entity in query:
-      if entity.service_name not in services:
-        services.append(entity.service_name)
+      if entity.key.id() not in services:
+        services.append(entity.key.id())
 
     self.render_page(page='logs', template_file=self.TEMPLATE, values = {
       'services' : services
     })
+
+class LogServicePage(AppDashboard):
+  """ Class to handle requests to the /logs/service_name page. """
+
+  TEMPLATE = 'logs/service.html'
+
+  def get(self, service_name):
+    """ Displays a list of hosts that have logs for the given service. """
+    service = LoggedService.get_by_id(service_name)
+    if service:
+      exists = True
+      hosts = service.hosts
+    else:
+      exists = False
+      hosts = []
+
+    self.render_page(page='logs', template_file=self.TEMPLATE, values = {
+      'exists' : exists,
+      'service_name' : service_name,
+      'hosts' : hosts
+    })
+
+class LogServiceHostPage(AppDashboard):
+  """ Class to handle requests to the /logs/service_name/host page. """
+
+  TEMPLATE = 'logs/viewer.html'
+
+  def get(self, service_name, host):
+    """ Displays all logs accumulated for the given service, on the named host.
+
+    Specifying 'all' as the host indicates that we shouldn't restrict ourselves
+    to a single machine.
+    """
+    if host == "all":
+      query = RequestLogLine.query()
+    else:
+      query = RequestLogLine.query(RequestLogLine.host == host)
+
+    self.render_page(page='logs', template_file=self.TEMPLATE, values = {
+      'service_name' : service_name,
+      'host' : host,
+      'query' : query
+    })
+
+class LogUploadPage(webapp2.RequestHandler):
+  """ Class to handle requests to the /logs/upload page. """
+
+  def post(self):
+    """ Saves logs records to the Datastore for later viewing. """
+    encoded_data = self.request.body
+    data = json.loads(encoded_data)
+    service_name = data['service_name']
+    host = data['host']
+    log_lines = data['logs']
+
+    # see if this service has been registered
+    service = LoggedService.get_by_id(service_name)
+    if service is None:
+      service = LoggedService(id = service_name)
+      service.hosts = [host]
+      service.put()
+    else:
+      if host not in service.hosts:
+        service.hosts.append(host)
+        service.put()
+
+    # add in each log line as a LogLine model
+    for log_line_dict in log_lines:
+      the_time = int(log_line_dict['timestamp'])
+      reversed_time = (2**34 - the_time) * 1000000
+      log_line = RequestLogLine.get_by_id(id = reversed_time)
+      if not log_line:
+        log_line = RequestLogLine(id = reversed_time)
+        log_line.service_name = service_name
+        log_line.host = host
+      app_log_line = AppLogLine()
+      app_log_line.message = log_line_dict['message']
+      app_log_line.timestamp = datetime.datetime.fromtimestamp(the_time)
+      log_line.app_logs.append(app_log_line)
+      log_line.put()
 
 
 # Main Dispatcher
@@ -400,6 +488,9 @@ app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/apps/upload', AppUploadPage),
                                 ('/apps/delete', AppDeletePage),
                                 ('/logs', LogMainPage),
+                                ('/logs/upload', LogUploadPage),
+                                ('/logs/(.+)/(.+)', LogServiceHostPage),
+                                ('/logs/(.+)', LogServicePage)
                               ], debug=True)
 # Handle errors
 def handle_404(request, response, exception):
