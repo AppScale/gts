@@ -1,7 +1,6 @@
 import datetime
 import sys
 import traceback
-from google.appengine.api import taskqueue
 from google.appengine.ext import db
 from app_dashboard_helper import AppDashboardHelper
 from app_dashboard_helper import AppHelperException
@@ -39,10 +38,6 @@ class AppStatus(db.Model):
   url = db.StringProperty()
   last_update = db.DateTimeProperty(auto_now=True)
 
-class TQrefresh(db.Model):
-  """ Data for the taskqueue refresh process. """
-  last_run = db.DateTimeProperty()
- 
 
 class AppDashboardData:
   """ Helper class to interact with the datastore. """
@@ -57,7 +52,10 @@ class AppDashboardData:
   MONITOR_PORT = 8050
 
   # Data refresh URL.
-  DATASTORE_REFRESH_URL = '/status?refresh=1'
+  DATASTORE_REFRESH_URL = '/status/refresh'
+
+  # Delimiter for status roles
+  STATUS_ROLES_DELIMITER = ','
 
   def __init__(self, helper = None):
     """ Constructor. 
@@ -77,73 +75,10 @@ class AppDashboardData:
 
   def initialize_datastore(self):
     """ Initialze datastore. Run once per appscale deployment. """
-    sys.stderr.write('AppDashboardData.initialize_datastore(): taskqueue.add()')
-    try:
-      taskqueue.add(url=self.DATASTORE_REFRESH_URL, method='GET')
-    except Exception as err:
-      sys.stderr.write("AppDashboardData.initialize_datastore() caught "\
-        "Exception " + str(type(err)) + ":" + str(err) +\
-        traceback.format_exc())
-
-  def refresh_datastore(self):
-    """ Start a taskqueue process to refresh the data store periodically.  """
-
-    def refresh_datastore_tx(key, frequency, root):
-      """ Trasaction function for refresh_datastore(). Enqueues a task if the
-          transaction is successful.
-      
-      Args:
-        key: A string with the keyname for this refresh task.
-        frequency: An int, the number of seconds between runs of the refresh
-                   tasks.
-        root: A DashboardDataRoot, the root entity.
-      """
-      tq_refresh = TQrefresh.get_by_key_name(key)
-      if not tq_refresh:
-        tq_refresh = TQrefresh(key_name=key, parent=root)
-        tq_refresh.last_run = datetime.datetime(1970, 1, 1)
-
-      time_next = tq_refresh.last_run + datetime.timedelta(0, frequency)
-      time_now = datetime.datetime.now()
-      run_tq = False
-
-      if time_next < time_now:
-        run_tq = True
-        tq_refresh.last_run = time_now
-
-      tq_refresh.put()
-      if run_tq:
-        sys.stderr.write('AppDashboardData.refresh_datastore(): '\
-          'taskqueue.add()')
-        #taskqueue.add(url=self.DATASTORE_REFRESH_URL, method='GET', 
-        #  countdown=self.REFRESH_FREQUENCY, transactional=True)
-        taskqueue.add(url=self.DATASTORE_REFRESH_URL, method='GET', 
-          countdown=self.REFRESH_FREQUENCY)
-      
-    try:
-      #db.run_in_transaction(refresh_datastore_tx,
-      #  self.ROOT_KEYNAME, self.REFRESH_FREQUENCY, self.root)
-      refresh_datastore_tx(self.ROOT_KEYNAME, self.REFRESH_FREQUENCY, self.root)
-    except InternalError as err: 
-      sys.stderr.write("AppDashboardData.refresh_datastore() caught "\
-        "Exception " + str(type(err)) + ":" + str(err) +\
-        traceback.format_exc())
-    except Timeout as err:
-      sys.stderr.write("AppDashboardData.refresh_datastore() caught "\
-        "Exception " + str(type(err)) + ":" + str(err) +\
-        traceback.format_exc())
-    except TransactionFailedError as err:
-      sys.stderr.write("AppDashboardData.refresh_datastore() caught "\
-        "Exception " + str(type(err)) + ":" + str(err) +\
-        traceback.format_exc())
-    except Exception as err:
-      sys.stderr.write("AppDashboardData.refresh_datastore() caught "\
-        "Exception " + str(type(err)) + ":" + str(err) +\
-        traceback.format_exc())
+    self.update_all()
 
   def update_all(self):
     """ Update all stored data. """
-    sys.stderr.write("AppDashboardData.update_all(): refreshing datastore data.")
     self.update_head_node_ip()
     self.update_database_info()
     self.update_apistatus()
@@ -230,7 +165,7 @@ class AppDashboardData:
       server['memory'] = status.memory
       server['disk'] = status.disk
       server['cloud'] = status.cloud
-      server['roles'] = status.roles.split(',')
+      server['roles'] = status.roles.split(self.STATUS_ROLES_DELIMITER)
       ret.append(server)
     return ret
 
@@ -249,7 +184,7 @@ class AppDashboardData:
         status.memory = str(node['memory'])
         status.disk   = str(node['disk'])
         status.cloud  = node['cloud']
-        status.roles  = ",".join(node['roles'])
+        status.roles  = self.STATUS_ROLES_DELIMITER.join(node['roles'])
         status.put()
     except Exception as err:
       sys.stderr.write("AppDashboardData.update_status_info() caught Exception"\

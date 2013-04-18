@@ -36,8 +36,16 @@ from google.appengine.api import users
 # from the app main.py
 import dashboard
 from app_dashboard_helper import AppDashboardHelper
-#from app_dashboard_data import AppDashboardData
-import app_dashboard_data
+from app_dashboard_data import AppDashboardData
+
+from app_dashboard_data import DashboardDataRoot
+from app_dashboard_data import APIstatus
+from app_dashboard_data import ServerStatus
+from app_dashboard_data import AppStatus
+
+
+#import lib
+#import lib.app_dashboard_data
 from secret_key import GLOBAL_SECRET_KEY
 
 class TestAppDashboard(unittest.TestCase):
@@ -102,20 +110,56 @@ class TestAppDashboard(unittest.TestCase):
     self.response = self.fakeResponse()
     self.set_user()  
 
-    fake_dstore = flexmock(name='AppDashboardData')
-    flexmock(app_dashboard_data).should_receive('AppDashboardData')\
-      .and_return(fake_dstore)
-    fake_dstore.should_receive('get_monitoring_url')\
-      .and_return('http://1.1.1.1:8050')
-    fake_dstore.should_receive('update_all').and_return()
-    fake_dstore.should_receive('refresh_datastore').and_return()
-    fake_dstore.should_receive('__init__').and_return()
-    #TODO
-    fake_dstore.should_receive('get_status_info').and_return()
-    fake_dstore.should_receive('get_database_info').and_return()
-    fake_dstore.should_receive('get_apistatus').and_return()
-    fake_dstore.should_receive('get_application_info').and_return()
+#    fake_dstore = flexmock(name='AppDashboardData')
+#    flexmock(lib.app_dashboard_data).should_receive('AppDashboardData')\
+#      .and_return(fake_dstore)
+#    fake_dstore.should_receive('get_monitoring_url')\
+#      .and_return('http://1.1.1.1:8050')
+#    fake_dstore.should_receive('update_all').and_return()
+#    fake_dstore.should_receive('refresh_datastore').and_return()
+#    #not done below
+#    fake_dstore.should_receive('get_status_info').and_return()
+#    fake_dstore.should_receive('get_database_info').and_return()
+#    fake_dstore.should_receive('get_apistatus').and_return()
+#    fake_dstore.should_receive('get_application_info').and_return()
 
+    fake_dataroot = flexmock(name='DashboardDataRoot')
+    fake_root = flexmock(DashboardDataRoot).new_instances(fake_dataroot)
+    fake_root.should_receive('get_by_key_name').and_return(None)\
+      .and_return(rake_dataroot)
+    fake_dataroot.should_receive('put').and_return()
+    fake_dataroot.head_node_ip = ''
+    fake_dataroot.table = ''
+    fake_dataroot.replication = ''
+
+    fake_api1 = flexmock(name='APIstatus')
+    fake_api1.name = 'api1'
+    fake_api1.value = 'running'
+    fake_api1.should_receive('put').and_return()
+    fake_api2 = flexmock(name='APIstatus')
+    fake_api2.name = 'api1'
+    fake_api2.value = 'failed'
+    fake_api1.should_receive('put').and_return()
+    fake_api3 = flexmock(name='APIstatus')
+    fake_api3.name = 'api1'
+    fake_api3.value = 'unknown'
+    fake_api1.should_receive('put').and_return()
+    fake_query = flexmock(name='APIstatus_query')
+    fake_query.should_receive('ancestor').and_return()
+    fake_query.should_receive('run')\
+      .and_return(fake_api1)\
+      .and_return(fake_api2)\
+      .and_return(fake_api3)
+    fake_apistatus = flexmock(APIstatus)
+    fake_apistatus.new_instances(fake_api1)
+    fake_apistatus.should_receive('all').and_return(fake_query)
+    fake_apistatus.should_receive('get_by_key_name')
+      .and_return(fake_api1)\
+      .and_return(fake_api2)\
+      .and_return(fake_api3)
+
+    fake_serverstatus = flexmock(ServerStatus)
+    fake_appstatus = flexmock(AppStatus)
 
 
   def set_user(self, email=None):

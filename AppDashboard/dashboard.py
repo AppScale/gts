@@ -1,6 +1,11 @@
 """
 AppScale AppDashboard, a Python 2.7 webapp for interacting with AppScale.
 """
+# pylint: disable-msg=F0401
+# pylint: disable-msg=C0103
+# pylint: disable-msg=E1101
+# pylint: disable-msg=W0613
+
 import cgi
 import jinja2
 import logging
@@ -8,7 +13,6 @@ import os
 import re
 import urllib
 import webapp2
-import sys
 from lib.app_dashboard_helper import AppDashboardHelper
 from lib.app_dashboard_helper import AppHelperException
 from lib.app_dashboard_data import AppDashboardData
@@ -38,7 +42,7 @@ class AppDashboard(webapp2.RequestHandler):
     self.helper = AppDashboardHelper(self.response)
     self.dstore = AppDashboardData(self.helper)
 
-  def render_template(self, template_file, values={}):
+  def render_template(self, template_file, values=None):
     """ Renders a template file with all variables loaded.
 
     Args: 
@@ -47,6 +51,8 @@ class AppDashboard(webapp2.RequestHandler):
     Returns:
       A str with the rendered template.
     """
+    if values is None:
+      values = {}
     template = jinja_environment.get_template(template_file)
     sub_vars = {
       'logged_in' : self.helper.is_user_logged_in(),
@@ -66,8 +72,10 @@ class AppDashboard(webapp2.RequestHandler):
     """
     return self.render_template(template_file='shared/navigation.html')
 
-  def render_page(self, page, template_file, values={} ):
+  def render_page(self, page, template_file, values=None ):
     """ Renders a template with the main layout and nav bar. """
+    if values is None:
+      values = {}
     self.response.headers['Content-Type'] = 'text/html'
     template = jinja_environment.get_template('layouts/main.html')
     self.response.out.write(template.render(
@@ -94,13 +102,8 @@ class StatusRefreshPage(AppDashboard):
   def get(self):
     """ Handler for GET requests. """
     # Called from taskqueue. Refresh data and display status message.
-    if self.request.get('refresh'):
-      sys.stderr.write("called StatusRefresh")
-      self.dstore.update_all()
-      sys.stderr.write("StatusRefresh() update_all() done")
-      self.dstore.refresh_datastore()
-      sys.stderr.write("StatusRefresh() refresh_datastore() done")
-      self.response.out.write('datastore updated')
+    self.dstore.update_all()
+    self.response.out.write('datastore updated')
 
 class StatusPage(AppDashboard):
   """ Class to handle request to the /status page. """
@@ -109,19 +112,9 @@ class StatusPage(AppDashboard):
 
   def get(self):
     """ Handler for GET requests. """
-    # Called from taskqueue. Refresh data and display status message.
-    if self.request.get('refresh'):
-      self.dstore.update_all()
-      self.dstore.refresh_datastore()
-      self.response.out.write('datastore updated')
-      return
-
-    # Called from the web.  Refresh data then display page.
+    # Called from the web.  Refresh data then display page (may be slow).
     if self.request.get('forcerefresh'):
       self.dstore.update_all()
-    else:
-      # Start a refresh task if one is not already running.
-      self.dstore.refresh_datastore()
 
     self.render_page(page='status', template_file=self.TEMPLATE, values={
       'server_info' : self.dstore.get_status_info(),
@@ -194,9 +187,8 @@ class NewUserPage(AppDashboard):
       if self.process_new_user_post(users, errors):
         self.redirect('/', self.response)
         return
-    except Exception as err:
-      sys.stderr.write("NewUserPage.POST() exception: {0}".format(str(err)))
-      err_msgs['email'] = str(e)
+    except AppHelperException as err:
+      err_msgs['email'] = str(err)
       errors['email'] = True
     
     self.render_page(page='users', template_file=self.TEMPLATE, values={
@@ -350,7 +342,6 @@ class AppUploadPage(AppDashboard):
         success_msg = self.helper.upload_app(
           self.request.POST.multi['app_file_data'].file
           )
-        self.dstore.refresh_datastore()
       except AppHelperException as err:
         err_msg = str(err)
     else:
@@ -375,7 +366,6 @@ class AppDeletePage(AppDashboard):
     if self.helper.is_user_cloud_admin() or\
        appname in self.helper.get_user_app_list():
       message = self.helper.delete_app(appname)
-      self.dstore.refresh_datastore()
     else:
       message = "You do not have permission to delete the application: " + \
         appname
@@ -412,13 +402,13 @@ app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/apps/delete', AppDeletePage),
                               ], debug=True)
 # Handle errors
-def handle_404(request, response, exception):
+def handle_404(_, response, exception):
   """ Handles 404, page not found exceptions. """
   logging.exception(exception)
   response.set_status(404)
   response.write(jinja_environment.get_template('404.html').render())
 
-def handle_500(request, response, exception):
+def handle_500(_, response, exception):
   """ Handles 500, error processing page exceptions. """
   logging.exception(exception)
   response.set_status(500)
