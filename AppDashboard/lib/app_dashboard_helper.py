@@ -129,6 +129,7 @@ class AppDashboardHelper:
     except Exception as e:
       sys.stderr.write("AppDashboardHelper.get_user_capabilities() caught "\
         "Exception " + str(type(e)) + ":" + str(e))
+      return []
 
 
   def get_status_info(self):
