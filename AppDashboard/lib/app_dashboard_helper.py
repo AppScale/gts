@@ -129,6 +129,7 @@ class AppDashboardHelper:
     except Exception as err:
       sys.stderr.write("AppDashboardHelper.get_user_capabilities() caught "\
         "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
+      return []
 
 
   def get_status_info(self):
@@ -185,54 +186,6 @@ class AppDashboardHelper:
       A str containing the host that runs the login service.
     """
     return self.get_host_with_role('login')
-
-#  def get_monitoring_url(self):
-#    """ Querys the AppController and returns the url of the monitoring service. 
-#
-#    Returns:
-#      A str containing the url of the monitoring service.
-#    """
-#    try:
-#      url = self.get_head_node_ip()
-#      if url:
-#        return "http://"+url+":8050"
-#    except Exception as err:
-#      sys.stderr.write("AppDashboardHelper.get_monitoring_url() caught "\
-#        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
-#      return ''
-
-#  def get_application_info(self):
-#    """ Querys the AppController and returns the list of applications running on
-#        this cloud.
-#    
-#    Returns:
-#      A dict where the key is the app name, and the value is
-#      the url of the app (if running) or None (if loading).
-#    """
-#    return self.dstore.get_application_info()
-
-#  def get_database_info(self):
-#    """ Returns the database information of this cloud.
-#
-#    Return:
-#      A dict containing the database information.
-#    """
-#    return self.dstore.get_database_info()
-
-#  def get_service_info(self):
-#    """ Querys the AppController and returns a list of API services running on
-#        this cloud.
-#
-#    Returns:
-#      A dict where the keys are the names of the services, and the values or the
-#      status of that service.
-#    """
-#    try:
-#      return self.dstore.get_apistatus()
-#    except Exception as err:
-#      sys.stderr.write("AppDashboardHelper.get_service_info() caught Exception"\
-#        + str(type(err)) + ":" + str(err) + traceback.format_exc())
-#      return {}
 
   def get_app_port(self, appname): 
     """ Queries the UserAppServer and returns the port that the app is running
