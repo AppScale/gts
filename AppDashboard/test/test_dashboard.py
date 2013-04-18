@@ -220,71 +220,71 @@ class TestAppDashboard(unittest.TestCase):
     from dashboard import IndexPage
     IndexPage(self.request, self.response).get()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
-    assert re.search('<!-- FILE:templates/landing/index.html -->', html)
-    assert re.search('<a href="/users/login">Login to this cloud.</a>', html)
-    assert not re.search('<a href="/authorize">Manage users.</a>', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/landing/index.html -->', html))
+    self.assertTrue(re.search('<a href="/users/login">Login to this cloud.</a>', html))
+    self.assertFalse(re.search('<a href="/authorize">Manage users.</a>', html))
 
   def test_landing_loggedin_notAdmin(self):
     self.set_user('b@a.com')
     from dashboard import IndexPage
     IndexPage(self.request, self.response).get()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
-    assert re.search('<!-- FILE:templates/landing/index.html -->', html)
-    assert re.search('<a href="/users/logout">Logout now.</a>', html)
-    assert not re.search('<a href="/authorize">Manage users.</a>', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/landing/index.html -->', html))
+    self.assertTrue(re.search('<a href="/users/logout">Logout now.</a>', html))
+    self.assertFalse(re.search('<a href="/authorize">Manage users.</a>', html))
 
   def test_landing_loggedin_isAdmin(self):
     self.set_user('a@a.com')
     from dashboard import IndexPage
     IndexPage(self.request, self.response).get()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
-    assert re.search('<!-- FILE:templates/landing/index.html -->', html)
-    assert re.search('<a href="/users/logout">Logout now.</a>', html)
-    assert re.search('<a href="/authorize">Manage users.</a>', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/landing/index.html -->', html))
+    self.assertTrue(re.search('<a href="/users/logout">Logout now.</a>', html))
+    self.assertTrue(re.search('<a href="/authorize">Manage users.</a>', html))
 
   def test_status_notloggedin(self):
     from dashboard import StatusPage
     StatusPage(self.request, self.response).get()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
-    assert re.search('<!-- FILE:templates/status/cloud.html -->', html)
-    assert re.search('<a href="/users/login">Login</a>', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/status/cloud.html -->', html))
+    self.assertTrue(re.search('<a href="/users/login">Login</a>', html))
 
   def test_status_loggedin_notAdmin(self):
     self.set_user('b@a.com')
     from dashboard import StatusPage
     StatusPage(self.request, self.response).get()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
-    assert re.search('<!-- FILE:templates/status/cloud.html -->', html)
-    assert re.search('<a href="/users/logout">Logout</a>', html)
-    assert not re.search('<span>CPU / Memory Usage', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/status/cloud.html -->', html))
+    self.assertTrue(re.search('<a href="/users/logout">Logout</a>', html))
+    self.assertFalse(re.search('<span>CPU / Memory Usage', html))
 
   def test_status_loggedin_isAdmin(self):
     self.set_user('a@a.com')
     from dashboard import StatusPage
     StatusPage(self.request, self.response).get()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
-    assert re.search('<!-- FILE:templates/status/cloud.html -->', html)
-    assert re.search('<a href="/users/logout">Logout</a>', html)
-    assert re.search('<span>CPU / Memory Usage', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/status/cloud.html -->', html))
+    self.assertTrue(re.search('<a href="/users/logout">Logout</a>', html))
+    self.assertTrue(re.search('<span>CPU / Memory Usage', html))
 
   def test_newuser_page(self):
     from dashboard import NewUserPage
     NewUserPage(self.request, self.response).get()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/users/new.html -->', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/users/new.html -->', html))
 
   def test_newuser_bademail(self):
     from dashboard import NewUserPage
@@ -295,9 +295,9 @@ class TestAppDashboard(unittest.TestCase):
     })
     NewUserPage(self.request, self.response).post()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/users/new.html -->', html)
-    assert re.search('Format must be foo@boo.goo.', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/users/new.html -->', html))
+    self.assertTrue(re.search('Format must be foo@boo.goo.', html))
 
   def test_newuser_shortpasswd(self):
     from dashboard import NewUserPage
@@ -308,9 +308,9 @@ class TestAppDashboard(unittest.TestCase):
     })
     NewUserPage(self.request, self.response).post()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/users/new.html -->', html)
-    assert re.search('Password must be at least 6 characters long.', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/users/new.html -->', html))
+    self.assertTrue(re.search('Password must be at least 6 characters long.', html))
 
   def test_newuser_passwdnomatch(self):
     from dashboard import NewUserPage
@@ -321,9 +321,9 @@ class TestAppDashboard(unittest.TestCase):
     })
     NewUserPage(self.request, self.response).post()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/users/new.html -->', html)
-    assert re.search('Passwords do not match.', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/users/new.html -->', html))
+    self.assertTrue(re.search('Passwords do not match.', html))
 
   def test_newuser_success(self):
     from dashboard import NewUserPage
@@ -335,8 +335,8 @@ class TestAppDashboard(unittest.TestCase):
     page = NewUserPage(self.request, self.response)
     page.redirect = self.response.redirect
     page.post()
-    assert AppDashboardHelper.DEV_APPSERVER_LOGIN_COOKIE in self.response.cookies
-    assert self.response.redirect_location == '/'
+    self.assertTrue(AppDashboardHelper.DEV_APPSERVER_LOGIN_COOKIE in self.response.cookies)
+    self.assertEqual(self.response.redirect_location, '/')
 
   def test_loginverify_page(self):
     from dashboard import LoginVerify
@@ -345,9 +345,9 @@ class TestAppDashboard(unittest.TestCase):
     })
     LoginVerify(self.request, self.response).get()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/users/confirm.html -->', html)
-    assert re.search('http://192.168.33.168:8080/', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/users/confirm.html -->', html))
+    self.assertTrue(re.search('http://192.168.33.168:8080/', html))
 
   def test_loginverify_submitcontinue(self):
     from dashboard import LoginVerify
@@ -358,7 +358,7 @@ class TestAppDashboard(unittest.TestCase):
     page = LoginVerify(self.request, self.response)
     page.redirect = self.response.redirect
     page.post()
-    assert self.response.redirect_location == 'http://192.168.33.168:8080/'
+    self.assertEqual(self.response.redirect_location, 'http://192.168.33.168:8080/')
 
   def test_loginverify_submitnocontinue(self):
     from dashboard import LoginVerify
@@ -369,7 +369,7 @@ class TestAppDashboard(unittest.TestCase):
     page = LoginVerify(self.request, self.response)
     page.redirect = self.response.redirect
     page.post()
-    assert self.response.redirect_location == '/'
+    self.assertEqual(self.response.redirect_location, '/')
 
   def test_logout_page(self):
     self.set_user('a@a.com')
@@ -377,8 +377,8 @@ class TestAppDashboard(unittest.TestCase):
     page = LogoutPage(self.request, self.response)
     page.redirect = self.response.redirect
     page.get()
-    assert self.response.redirect_location == '/'
-    assert AppDashboardHelper.DEV_APPSERVER_LOGIN_COOKIE in self.response.deleted_cookies
+    self.assertEqual(self.response.redirect_location, '/')
+    self.assertTrue(AppDashboardHelper.DEV_APPSERVER_LOGIN_COOKIE in self.response.deleted_cookies)
 
   def test_login_page(self):
     from dashboard import LoginPage
@@ -388,9 +388,9 @@ class TestAppDashboard(unittest.TestCase):
     })
     LoginPage(self.request, self.response).get()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/users/login.html -->', html)
-    assert re.search(continue_url, html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/users/login.html -->', html))
+    self.assertTrue(re.search(continue_url, html))
 
   def test_login_success(self):
     from dashboard import LoginPage
@@ -402,8 +402,8 @@ class TestAppDashboard(unittest.TestCase):
     page.redirect = self.response.redirect
     page.post()
     html =  self.response.out.getvalue()
-    assert self.response.redirect_location == '/'
-    assert AppDashboardHelper.DEV_APPSERVER_LOGIN_COOKIE in self.response.cookies
+    self.assertEqual(self.response.redirect_location, '/')
+    self.assertTrue(AppDashboardHelper.DEV_APPSERVER_LOGIN_COOKIE in self.response.cookies)
 
   def test_login_success_redir(self):
     from dashboard import LoginPage
@@ -417,8 +417,8 @@ class TestAppDashboard(unittest.TestCase):
     page.redirect = self.response.redirect
     page.post()
     html =  self.response.out.getvalue()
-    assert re.search('/users/confirm\?continue=',self.response.redirect_location)
-    assert AppDashboardHelper.DEV_APPSERVER_LOGIN_COOKIE in self.response.cookies
+    self.assertTrue(re.search('/users/confirm\?continue=',self.response.redirect_location))
+    self.assertTrue(AppDashboardHelper.DEV_APPSERVER_LOGIN_COOKIE in self.response.cookies)
 
   def test_login_fail(self):
     from dashboard import LoginPage
@@ -430,39 +430,39 @@ class TestAppDashboard(unittest.TestCase):
     page.redirect = self.response.redirect
     page.post()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/users/login.html -->', html)
-    assert re.search('Incorrect username / password combination. Please try again', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/users/login.html -->', html))
+    self.assertTrue(re.search('Incorrect username / password combination. Please try again', html))
 
   def test_authorize_page_notloggedin(self):
     from dashboard import AuthorizePage
     AuthorizePage(self.request, self.response).get()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
-    assert re.search('<!-- FILE:templates/authorize/cloud.html -->', html)
-    assert re.search('Only the cloud administrator can change permissions.', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/authorize/cloud.html -->', html))
+    self.assertTrue(re.search('Only the cloud administrator can change permissions.', html))
 
   def test_authorize_page_loggedin_notadmin(self):
     from dashboard import AuthorizePage
     self.set_user('b@a.com')
     AuthorizePage(self.request, self.response).get()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
-    assert re.search('<!-- FILE:templates/authorize/cloud.html -->', html)
-    assert re.search('Only the cloud administrator can change permissions.', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/authorize/cloud.html -->', html))
+    self.assertTrue(re.search('Only the cloud administrator can change permissions.', html))
 
   def test_authorize_page_loggedin_admin(self):
     from dashboard import AuthorizePage
     self.set_user('a@a.com')
     AuthorizePage(self.request, self.response).get()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
-    assert re.search('<!-- FILE:templates/authorize/cloud.html -->', html)
-    assert re.search('a@a.com-upload_app', html)
-    assert re.search('b@a.com-upload_app', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/authorize/cloud.html -->', html))
+    self.assertTrue(re.search('a@a.com-upload_app', html))
+    self.assertTrue(re.search('b@a.com-upload_app', html))
 
   def test_authorize_submit_notloggedin(self):
     from dashboard import AuthorizePage
@@ -475,10 +475,10 @@ class TestAppDashboard(unittest.TestCase):
     })
     AuthorizePage(self.request, self.response).post()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
-    assert re.search('<!-- FILE:templates/authorize/cloud.html -->', html)
-    assert re.search('Only the cloud administrator can change permissions.', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/authorize/cloud.html -->', html))
+    self.assertTrue(re.search('Only the cloud administrator can change permissions.', html))
 
   def test_authorize_submit_notadmin(self):
     from dashboard import AuthorizePage
@@ -492,10 +492,10 @@ class TestAppDashboard(unittest.TestCase):
     })
     AuthorizePage(self.request, self.response).post()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
-    assert re.search('<!-- FILE:templates/authorize/cloud.html -->', html)
-    assert re.search('Only the cloud administrator can change permissions.', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/authorize/cloud.html -->', html))
+    self.assertTrue(re.search('Only the cloud administrator can change permissions.', html))
 
   def test_authorize_submit_remove(self):
     from dashboard import AuthorizePage
@@ -509,10 +509,10 @@ class TestAppDashboard(unittest.TestCase):
     })
     AuthorizePage(self.request, self.response).post()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
-    assert re.search('<!-- FILE:templates/authorize/cloud.html -->', html)
-    assert re.search('Disabling upload_app for b@a.com', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/authorize/cloud.html -->', html))
+    self.assertTrue(re.search('Disabling upload_app for b@a.com', html))
 
   def test_authorize_submit_add(self):
     from dashboard import AuthorizePage
@@ -527,29 +527,29 @@ class TestAppDashboard(unittest.TestCase):
     })
     AuthorizePage(self.request, self.response).post()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
-    assert re.search('<!-- FILE:templates/authorize/cloud.html -->', html)
-    assert re.search('Enabling upload_app for c@a.com', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/authorize/cloud.html -->', html))
+    self.assertTrue(re.search('Enabling upload_app for c@a.com', html))
 
   def test_upload_page_notloggedin(self):
     from dashboard import AppUploadPage
     AppUploadPage(self.request, self.response).get()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
-    assert re.search('<!-- FILE:templates/apps/new.html -->', html)
-    assert re.search('You do not have permission to upload application.  Please contact your cloud administrator', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/apps/new.html -->', html))
+    self.assertTrue(re.search('You do not have permission to upload application.  Please contact your cloud administrator', html))
 
   def test_upload_page_loggedin(self):
     from dashboard import AppUploadPage
     self.set_user('a@a.com')
     AppUploadPage(self.request, self.response).get()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
-    assert re.search('<!-- FILE:templates/apps/new.html -->', html)
-    assert re.search('<input accept="tar.gz, tgz" id="app_file_data" name="app_file_data" size="30" type="file" />', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/apps/new.html -->', html))
+    self.assertTrue(re.search('<input accept="tar.gz, tgz" id="app_file_data" name="app_file_data" size="30" type="file" />', html))
 
 
   def test_upload_submit_notloggedin(self):
@@ -557,10 +557,10 @@ class TestAppDashboard(unittest.TestCase):
     self.set_fileupload('app_file_data')
     AppUploadPage(self.request, self.response).post()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
-    assert re.search('<!-- FILE:templates/apps/new.html -->', html)
-    assert re.search('You do not have permission to upload application.  Please contact your cloud administrator', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/apps/new.html -->', html))
+    self.assertTrue(re.search('You do not have permission to upload application.  Please contact your cloud administrator', html))
 
   def test_upload_submit_loggedin(self):
     from dashboard import AppUploadPage
@@ -568,41 +568,41 @@ class TestAppDashboard(unittest.TestCase):
     self.set_fileupload('app_file_data')
     AppUploadPage(self.request, self.response).post()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
-    assert re.search('<!-- FILE:templates/apps/new.html -->', html)
-    assert re.search('Application uploaded successfully.  Please wait for the application to start running.', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/apps/new.html -->', html))
+    self.assertTrue(re.search('Application uploaded successfully.  Please wait for the application to start running.', html))
 
   def test_appdelete_page_nologgedin(self):
     from dashboard import AppDeletePage
     AppDeletePage(self.request, self.response).get()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
-    assert re.search('<!-- FILE:templates/apps/delete.html -->', html)
-    assert not re.search('<option ', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/apps/delete.html -->', html))
+    self.assertFalse(re.search('<option ', html))
 
   def test_appdelete_page_loggedin_twoapps(self):
     from dashboard import AppDeletePage
     self.set_user('a@a.com')
     AppDeletePage(self.request, self.response).get()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
-    assert re.search('<!-- FILE:templates/apps/delete.html -->', html)
-    assert re.search('<option value="app1">app1</option>', html)
-    assert re.search('<option value="app2">app2</option>', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/apps/delete.html -->', html))
+    self.assertTrue(re.search('<option value="app1">app1</option>', html))
+    self.assertTrue(re.search('<option value="app2">app2</option>', html))
 
   def test_appdelete_page_loggedin_oneapp(self):
     from dashboard import AppDeletePage
     self.set_user('b@a.com')
     AppDeletePage(self.request, self.response).get()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
-    assert re.search('<!-- FILE:templates/apps/delete.html -->', html)
-    assert not re.search('<option value="app1">app1</option>', html)
-    assert re.search('<option value="app2">app2</option>', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/apps/delete.html -->', html))
+    self.assertFalse(re.search('<option value="app1">app1</option>', html))
+    self.assertTrue(re.search('<option value="app2">app2</option>', html))
 
   def test_appdelete_submit_notloggedin(self):
     from dashboard import AppDeletePage
@@ -611,10 +611,10 @@ class TestAppDashboard(unittest.TestCase):
     })
     AppDeletePage(self.request, self.response).post()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
-    assert re.search('<!-- FILE:templates/apps/delete.html -->', html)
-    assert re.search('You do not have permission to delete the application: app1', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/apps/delete.html -->', html))
+    self.assertTrue(re.search('You do not have permission to delete the application: app1', html))
 
   def test_appdelete_submit_notappadmin(self):
     from dashboard import AppDeletePage
@@ -624,10 +624,10 @@ class TestAppDashboard(unittest.TestCase):
     })
     AppDeletePage(self.request, self.response).post()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
-    assert re.search('<!-- FILE:templates/apps/delete.html -->', html)
-    assert re.search('You do not have permission to delete the application: app1', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/apps/delete.html -->', html))
+    self.assertTrue(re.search('You do not have permission to delete the application: app1', html))
 
   def test_appdelete_submit_success(self):
     from dashboard import AppDeletePage
@@ -637,7 +637,7 @@ class TestAppDashboard(unittest.TestCase):
     })
     AppDeletePage(self.request, self.response).post()
     html =  self.response.out.getvalue()
-    assert re.search('<!-- FILE:templates/layouts/main.html -->', html)
-    assert re.search('<!-- FILE:templates/shared/navigation.html -->', html)
-    assert re.search('<!-- FILE:templates/apps/delete.html -->', html)
-    assert re.search('Application removed successfully. Please wait for your app to shut', html)
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/apps/delete.html -->', html))
+    self.assertTrue(re.search('Application removed successfully. Please wait for your app to shut', html))
