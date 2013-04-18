@@ -179,7 +179,9 @@ class ZKTransaction:
     try:
       self.handle.set(path, str(value))
     except kazoo.exceptions.NoNodeError:
-      self.handle.create(path, str(value), ZOO_ACL_OPEN, makepath=True)
+      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
+        self.DEFAULT_NUM_RETRIES, self.handle.create, path, str(value),
+        ZOO_ACL_OPEN, False, False, True)
     except kazoo.exceptions.ZookeeperError as zoo_exception:
       logging.error("Problem setting path {0} with {1}, exception {2}"\
         .format(path, value, str(zoo_exception)))
@@ -731,8 +733,9 @@ class ZKTransaction:
     blacklist_root = self.get_blacklist_root_path(app_id)
     if not self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
         self.DEFAULT_NUM_RETRIES, self.handle.exists, blacklist_root):
-      self.handle.create(blacklist_root, DEFAULT_VAL, ZOO_ACL_OPEN,
-        ephemeral=False, sequence=False, makepath=True)
+      self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT, self.DEFAULT_NUM_RETRIES,
+        self.handle.create, blacklist_root, DEFAULT_VAL, ZOO_ACL_OPEN,
+        False, False, True)
     try:
       blacklist = self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
         self.DEFAULT_NUM_RETRIES, self.handle.get_children, blacklist_root)
@@ -835,11 +838,13 @@ class ZKTransaction:
         blacklist_root = self.get_blacklist_root_path(app_id)
 
         if not self.handle.exists(blacklist_root):
-          self.handle.create(blacklist_root, DEFAULT_VAL, ZOO_ACL_OPEN,
-            ephemeral=False, sequence=False, makepath=True)
+          self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
+            self.DEFAULT_NUM_RETRIES, self.handle.create, blacklist_root,
+            DEFAULT_VAL, ZOO_ACL_OPEN, False, False, True)
 
-        self.handle.create_async(PATH_SEPARATOR.join([blacklist_root,
-          str(txid)]), now, ZOO_ACL_OPEN)
+        self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
+          self.DEFAULT_NUM_RETRIES, self.handle.create_async,
+          PATH_SEPARATOR.join([blacklist_root, str(txid)]), now, ZOO_ACL_OPEN)
 
         # Copy valid transaction ID for each updated key into valid list.
         for child in self.handle.get_children(txpath):
@@ -851,10 +856,13 @@ class ZKTransaction:
             vtxroot = self.get_valid_transaction_root_path(app_id)
 
             if not self.handle.exists(vtxroot):
-              self.handle.create(vtxroot, DEFAULT_VAL, ZOO_ACL_OPEN,
-                ephemeral=False, sequence=False, makepath=True)
+              self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
+                self.DEFAULT_NUM_RETRIES, self.handle.create, vtxroot,
+                DEFAULT_VAL, ZOO_ACL_OPEN, False, False, True)
             vtxpath = self.get_valid_transaction_path(app_id, key)
-            self.handle.create_async(vtxpath, str(vid), ZOO_ACL_OPEN)
+            self.run_with_timeout(self.DEFAULT_ZK_TIMEOUT,
+              self.DEFAULT_NUM_RETRIES, self.handle.create_async, vtxpath,
+              str(vid), ZOO_ACL_OPEN)
 
       # Release the locks.
       for lock in lock_list:
