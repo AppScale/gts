@@ -424,9 +424,10 @@ class LogServiceHostPage(AppDashboard):
     to a single machine.
     """
     if host == "all":
-      query = RequestLogLine.query()
+      query = RequestLogLine.query(RequestLogLine.service_name == service_name)
     else:
-      query = RequestLogLine.query(RequestLogLine.host == host)
+      query = RequestLogLine.query(RequestLogLine.service_name == service_name,
+        RequestLogLine.host == host)
 
     self.render_page(page='logs', template_file=self.TEMPLATE, values = {
       'service_name' : service_name,
