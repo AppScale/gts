@@ -34,14 +34,14 @@ class TestZookeeperTransaction(unittest.TestCase):
       self.appid).and_return('/rootpath')
     
     # mock out initializing a ZK connection
-    fake_zookeeper = flexmock(name='fake_zoo', create='baz')
+    fake_zookeeper = flexmock(name='fake_zoo')
     fake_zookeeper.should_receive('start')
 
     # mock out zookeeper.create for txn id
     path_to_create = "/rootpath/" + self.appid
     zero_path = path_to_create + "/0"
     nonzero_path = path_to_create + "/1"
-    zk.ZKTransaction.should_receive('run_with_timeout').and_return(zero_path) \
+    fake_zookeeper.should_receive('create').and_return(zero_path) \
       .and_return(nonzero_path)
 
     # mock out deleting the zero id we get the first time around
@@ -63,16 +63,15 @@ class TestZookeeperTransaction(unittest.TestCase):
       self.appid).and_return('/rootpath')
     
     # mock out initializing a ZK connection
-    fake_zookeeper = flexmock(name='fake_zoo', create='baz')
+    fake_zookeeper = flexmock(name='fake_zoo')
     fake_zookeeper.should_receive('start')
+    fake_zookeeper.should_receive('create')
 
     flexmock(kazoo.client)
     kazoo.client.should_receive('KazooClient').and_return(fake_zookeeper)
 
     # mock out zookeeper.create for txn id
     path_to_create = "/rootpath/" + self.appid
-    zk.ZKTransaction.should_receive('run_with_timeout')
-
     transaction = zk.ZKTransaction(host="something", start_gc=False)
     self.assertEquals(None, transaction.create_node('/rootpath/' + self.appid,
       'now'))
@@ -501,30 +500,6 @@ class TestZookeeperTransaction(unittest.TestCase):
     fake_zookeeper.should_receive('delete').and_raise(kazoo.exceptions.NoNodeError)
     self.assertRaises(ZKTransactionException, transaction.release_datastore_groomer_lock)
 
-  def test_run_with_timeout(self):
-    def my_function(arg1, arg2):
-      return True
-    fake_zookeeper = flexmock(name='fake_zoo')
-    fake_zookeeper.should_receive('start')
-    fake_zookeeper.should_receive('delete')
-    fake_zookeeper.should_receive('close')
-
-    flexmock(kazoo.client)
-    kazoo.client.should_receive('KazooClient').and_return(fake_zookeeper)
-
-    transaction = zk.ZKTransaction(host="something", start_gc=False)
-    self.assertRaises(ZKTransactionException, transaction.run_with_timeout,
-      1, 0, my_function, "1", "2")
-    self.assertEquals(True, transaction.run_with_timeout(
-      1, 1, my_function, "1", "2"))
-    def my_exception_function(arg1):
-      raise kazoo.exceptions.ConnectionDropped()
-    self.assertRaises(ZKTransactionException, transaction.run_with_timeout,
-      1, 1, my_exception_function, "1")
-    def my_zk_exception_function(arg1):
-      raise kazoo.exceptions.NoNodeError()
-    self.assertRaises(kazoo.exceptions.NoNodeError, transaction.run_with_timeout,
-      1, 1, my_zk_exception_function, "1")
      
 if __name__ == "__main__":
   unittest.main()    
