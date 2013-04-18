@@ -23,10 +23,18 @@ jinja_environment = jinja2.Environment(
 class AppDashboard(webapp2.RequestHandler):
   """ Class that all pages in the Dashboard must inherit from. """
 
+  # Regular expression to capture the contine url.
+  CONTINUE_URL_REGEX = 'continue=(.*)$'
+
+  # Regular expression for updating user permissions.
+  USER_PERMISSION_REGEX = '^user_permission_'
+
+  # Regular expression for match emails.
+  USER_EMAIL_REGEX = '^\w[^@\s]*@[^@\s]{2,}$'
+
   def __init__(self, request, response):
     """ Constructor """
     self.initialize(request, response)
-    # initialize helper
     self.helper = AppDashboardHelper(self.response)
     self.dstore = AppDashboardData(self.helper)
 
@@ -34,10 +42,10 @@ class AppDashboard(webapp2.RequestHandler):
     """ Renders a template file with all variables loaded.
 
     Args: 
-      template_file: relative path to tempate file.
-      values: dict with key/value pairs used by the template file.
+      template_file: A str with the relative path to tempate file.
+      values: A dict with key/value pairs used by the template file.
     Returns:
-      str with the rendered template.
+      A str with the rendered template.
     """
     template = jinja_environment.get_template(template_file)
     sub_vars = {
@@ -56,16 +64,16 @@ class AppDashboard(webapp2.RequestHandler):
     Returns:
       A str with the navigation bar rendered.
     """
-    return self.render_template(template_file = 'shared/navigation.html')
+    return self.render_template(template_file='shared/navigation.html')
 
-  def render_page(self, page, template_file, values = {} ):
+  def render_page(self, page, template_file, values={} ):
     """ Renders a template with the main layout and nav bar. """
     self.response.headers['Content-Type'] = 'text/html'
     template = jinja_environment.get_template('layouts/main.html')
     self.response.out.write(template.render(
-        page_name = page,
-        page_body = self.render_template(template_file, values),
-        shared_navigation = self.get_shared_navigation()
+        page_name=page,
+        page_body=self.render_template(template_file, values),
+        shared_navigation=self.get_shared_navigation()
         ))
     
 
@@ -80,6 +88,19 @@ class IndexPage(AppDashboard):
       'monitoring_url' : self.dstore.get_monitoring_url(),
     })
 
+
+class StatusRefreshPage(AppDashboard):
+  """ Class to handle request to the /status/refresh page. """
+  def get(self):
+    """ Handler for GET requests. """
+    # Called from taskqueue. Refresh data and display status message.
+    if self.request.get('refresh'):
+      sys.stderr.write("called StatusRefresh")
+      self.dstore.update_all()
+      sys.stderr.write("StatusRefresh() update_all() done")
+      self.dstore.refresh_datastore()
+      sys.stderr.write("StatusRefresh() refresh_datastore() done")
+      self.response.out.write('datastore updated')
 
 class StatusPage(AppDashboard):
   """ Class to handle request to the /status page. """
@@ -127,7 +148,7 @@ class NewUserPage(AppDashboard):
     errors = {}
     error_msgs = {}
     users['email'] = cgi.escape(self.request.get('user_email'))
-    if re.match('^\w[^@\s]*@[^@\s]{2,}$', users['email']):
+    if re.match(self.USER_EMAIL_REGEX, users['email']):
       errors['email'] = False
     else:
       error_msgs['email'] = 'Format must be foo@boo.goo.' 
@@ -173,12 +194,12 @@ class NewUserPage(AppDashboard):
       if self.process_new_user_post(users, errors):
         self.redirect('/', self.response)
         return
-    except Exception as e:
-      sys.stderr.write("NewUserPage.POST() exception: {0}".format(str(e)))
+    except Exception as err:
+      sys.stderr.write("NewUserPage.POST() exception: {0}".format(str(err)))
       err_msgs['email'] = str(e)
       errors['email'] = True
     
-    self.render_page(page = 'users', template_file = self.TEMPLATE, values = {
+    self.render_page(page='users', template_file=self.TEMPLATE, values={
         'display_error_messages': errors,
         'user' : users,
         'error_message_content' : err_msgs,
@@ -186,7 +207,7 @@ class NewUserPage(AppDashboard):
 
   def get(self):
     """ Handler for GET requests. """
-    self.render_page(page = 'users', template_file = self.TEMPLATE, values = {
+    self.render_page(page='users', template_file=self.TEMPLATE, values={
       'display_error_messages' : {},
       'user' : {}
     })
@@ -209,14 +230,13 @@ class LoginVerify(AppDashboard):
   def get(self):
     """ Handler for GET requests. """
     continue_url = urllib.unquote(self.request.get('continue'))
-    url_match = re.search('continue=(.*)$', continue_url)
+    url_match = re.search(self.CONTINUE_URL_REGEX, continue_url)
     if url_match:
       continue_url = url_match.group(1)
 
-    self.render_page(page = 'users', template_file = self.TEMPLATE, values = {
+    self.render_page(page='users', template_file=self.TEMPLATE, values={
       'continue' : continue_url
     })
-   
 
 
 class LogoutPage(AppDashboard):
@@ -235,8 +255,8 @@ class LoginPage(AppDashboard):
 
   def post(self):
     """ Handler for post requests. """
-    if self.helper.login_user( self.request.get('user_email'),
-       self.request.get('user_password') ):
+    if self.helper.login_user(self.request.get('user_email'),
+       self.request.get('user_password')):
     
       if self.request.get('continue') != '':
         self.redirect('/users/confirm?continue={0}'.format(
@@ -245,8 +265,7 @@ class LoginPage(AppDashboard):
       else:
         self.redirect('/', self.response)
     else:
-      self.render_page(page = 'users', template_file = self.TEMPLATE,
-        values = {
+      self.render_page(page='users', template_file=self.TEMPLATE, values={
           'continue' : self.request.get('continue'),
           'user_email' : self.request.get('user_email'),
           'flash_message': 
@@ -255,7 +274,7 @@ class LoginPage(AppDashboard):
 
   def get(self):
     """ Handler for GET requests. """
-    self.render_page(page = 'users', template_file = self.TEMPLATE, values = {
+    self.render_page(page='users', template_file=self.TEMPLATE, values={
       'continue' : self.request.get('continue')
     })
 
@@ -267,13 +286,15 @@ class AuthorizePage(AppDashboard):
 
   def parse_update_user_permissions(self):
     """ Update authorization matrix from form submission.
-    Returns: str with message to be displayed to the user.
+    
+    Returns:
+      A str with message to be displayed to the user.
     """
     perms = self.helper.get_all_permission_items()
     req_keys = self.request.POST.keys()
     response = ''
-    for fldname, email in self.request.POST.iteritems():
-      if re.match('^user_permission_', fldname):
+    for fieldname, email in self.request.POST.iteritems():
+      if re.match(self.USER_PERMISSION_REGEX, fieldname):
         for perm in perms:
           if email + '-' + perm in req_keys and\
             self.request.get('CURRENT-' + email + '-' + perm) == 'False':
@@ -282,7 +303,7 @@ class AuthorizePage(AppDashboard):
             else:
               response += 'Error enabling {0} for {1}. '.format(perm, email)
           elif email+'-'+perm not in req_keys and\
-            self.request.get('CURRENT-'+email+'-'+perm) == 'True':
+            self.request.get('CURRENT-' + email + '-' + perm) == 'True':
             if self.helper.remove_user_permissions(email, perm):
               response += 'Disabling {0} for {1}. '.format(perm, email)
             else:
@@ -330,8 +351,8 @@ class AppUploadPage(AppDashboard):
           self.request.POST.multi['app_file_data'].file
           )
         self.dstore.refresh_datastore()
-      except AppHelperException as e:
-        err_msg = str(e)
+      except AppHelperException as err:
+        err_msg = str(err)
     else:
       err_msg = "You are not authorized to upload apps."
     self.render_page(page='apps', template_file=self.TEMPLATE, values={
@@ -356,23 +377,25 @@ class AppDeletePage(AppDashboard):
       message = self.helper.delete_app(appname)
       self.dstore.refresh_datastore()
     else:
-      message = "You do not have permission to delete the application: "+appname
-    self.render_page(page='apps', template_file=self.TEMPLATE,
-      values = {'flash_message' : message,
-      'apps' : self.dstore.get_application_info(),
+      message = "You do not have permission to delete the application: " + \
+        appname
+    self.render_page(page='apps', template_file=self.TEMPLATE, values={
+      'flash_message' : message,
+      'apps' : self.helper.get_application_info(),
       'app_admin_list' : self.helper.get_user_app_list()
       })
 
   def get(self):
     """ Handler for GET requests. """
-    self.render_page(page='apps', template_file=self.TEMPLATE, values = {
-      'apps' : self.dstore.get_application_info(),
+    self.render_page(page='apps', template_file=self.TEMPLATE, values={
+      'apps' : self.helper.get_application_info(),
       'app_admin_list' : self.helper.get_user_app_list()
     })
 
 
 # Main Dispatcher
 app = webapp2.WSGIApplication([ ('/', IndexPage),
+                                ('/status/refresh', StatusRefreshPage),
                                 ('/status', StatusPage),
                                 ('/users/new', NewUserPage),
                                 ('/users/create', NewUserPage),

@@ -36,6 +36,8 @@ from google.appengine.api import users
 # from the app main.py
 import dashboard
 from app_dashboard_helper import AppDashboardHelper
+#from app_dashboard_data import AppDashboardData
+import app_dashboard_data
 from secret_key import GLOBAL_SECRET_KEY
 
 class TestAppDashboard(unittest.TestCase):
@@ -96,18 +98,31 @@ class TestAppDashboard(unittest.TestCase):
     fake_soap.should_receive('get_all_users').and_return("a@a.com:b@a.com")
     fake_soap.should_receive('set_capabilities').and_return('true')
 
-    #local = flexmock(LocalState)
-    #local.should_receive('encrypt_password').and_return('79951d98d43c1830c5e5e4de58244a621595dfaa')
-
     self.request = self.fakeRequest()
     self.response = self.fakeResponse()
     self.set_user()  
+
+    fake_dstore = flexmock(name='AppDashboardData')
+    flexmock(app_dashboard_data).should_receive('AppDashboardData')\
+      .and_return(fake_dstore)
+    fake_dstore.should_receive('get_monitoring_url')\
+      .and_return('http://1.1.1.1:8050')
+    fake_dstore.should_receive('update_all').and_return()
+    fake_dstore.should_receive('refresh_datastore').and_return()
+    fake_dstore.should_receive('__init__').and_return()
+    #TODO
+    fake_dstore.should_receive('get_status_info').and_return()
+    fake_dstore.should_receive('get_database_info').and_return()
+    fake_dstore.should_receive('get_apistatus').and_return()
+    fake_dstore.should_receive('get_application_info').and_return()
+
+
 
   def set_user(self, email=None):
     self.usrs = flexmock(users)
     if email is not None:
       user_obj = flexmock(name='users')
-      user_obj.should_receive('nickname').and_return(email)
+      user_obj.should_receive('email').and_return(email)
       self.usrs.should_receive('get_current_user').and_return(user_obj)
     else:
       self.usrs.should_receive('get_current_user').and_return(None)

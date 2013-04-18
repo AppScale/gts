@@ -6,6 +6,10 @@ from google.appengine.ext import db
 from app_dashboard_helper import AppDashboardHelper
 from app_dashboard_helper import AppHelperException
 
+from google.appengine.ext.db import Timeout
+from google.appengine.ext.db import TransactionFailedError
+from google.appengine.ext.db import InternalError
+
 
 class DashboardDataRoot(db.Model):
   """ Root entity for datastore. """
@@ -49,6 +53,12 @@ class AppDashboardData:
   # Number of seconds to wait before launching refresh task.
   REFRESH_FREQUENCY = 30
 
+  # Port number of the Monitoring service.
+  MONITOR_PORT = 8050
+
+  # Data refresh URL.
+  DATASTORE_REFRESH_URL = '/status?refresh=1'
+
   def __init__(self, helper = None):
     """ Constructor. 
 
@@ -69,7 +79,7 @@ class AppDashboardData:
     """ Initialze datastore. Run once per appscale deployment. """
     sys.stderr.write('AppDashboardData.initialize_datastore(): taskqueue.add()')
     try:
-      taskqueue.add(url='/status?refresh=1', method='GET')
+      taskqueue.add(url=self.DATASTORE_REFRESH_URL, method='GET')
     except Exception as err:
       sys.stderr.write("AppDashboardData.initialize_datastore() caught "\
         "Exception " + str(type(err)) + ":" + str(err) +\
@@ -79,47 +89,61 @@ class AppDashboardData:
     """ Start a taskqueue process to refresh the data store periodically.  """
 
     def refresh_datastore_tx(key, frequency, root):
-      """ Trasaction function for refresh_datastore().
+      """ Trasaction function for refresh_datastore(). Enqueues a task if the
+          transaction is successful.
       
       Args:
         key: A string with the keyname for this refresh task.
         frequency: An int, the number of seconds between runs of the refresh
                    tasks.
         root: A DashboardDataRoot, the root entity.
-
-      Returns:
-        True if a task should be enqueued, otherwise false.
       """
       tq_refresh = TQrefresh.get_by_key_name(key)
       if not tq_refresh:
         tq_refresh = TQrefresh(key_name=key, parent=root)
-        tq_refresh.last_run = datetime.datetime(1970,1,1)
+        tq_refresh.last_run = datetime.datetime(1970, 1, 1)
 
       time_next = tq_refresh.last_run + datetime.timedelta(0, frequency)
       time_now = datetime.datetime.now()
-      return_val = False
+      run_tq = False
 
       if time_next < time_now:
-        return_val = True
+        run_tq = True
         tq_refresh.last_run = time_now
 
       tq_refresh.put()
-      return return_val
-      
-    run_now = db.run_in_transaction(refresh_datastore_tx,
-      self.ROOT_KEYNAME, refresh_count, self.REFRESH_FREQUENCY, self.root)
-    if run_now:
-      sys.stderr.write('AppDashboardData.refresh_datastore(): taskqueue.add()')
-      try:
-        taskqueue.add(url='/status?refresh=1', method='GET', 
+      if run_tq:
+        sys.stderr.write('AppDashboardData.refresh_datastore(): '\
+          'taskqueue.add()')
+        #taskqueue.add(url=self.DATASTORE_REFRESH_URL, method='GET', 
+        #  countdown=self.REFRESH_FREQUENCY, transactional=True)
+        taskqueue.add(url=self.DATASTORE_REFRESH_URL, method='GET', 
           countdown=self.REFRESH_FREQUENCY)
-      except Exception as err:
-        sys.stderr.write("AppDashboardData.refresh_datastore() caught "\
-          "Exception " + str(type(err)) + ":" + str(err) +\
-          traceback.format_exc())
+      
+    try:
+      #db.run_in_transaction(refresh_datastore_tx,
+      #  self.ROOT_KEYNAME, self.REFRESH_FREQUENCY, self.root)
+      refresh_datastore_tx(self.ROOT_KEYNAME, self.REFRESH_FREQUENCY, self.root)
+    except InternalError as err: 
+      sys.stderr.write("AppDashboardData.refresh_datastore() caught "\
+        "Exception " + str(type(err)) + ":" + str(err) +\
+        traceback.format_exc())
+    except Timeout as err:
+      sys.stderr.write("AppDashboardData.refresh_datastore() caught "\
+        "Exception " + str(type(err)) + ":" + str(err) +\
+        traceback.format_exc())
+    except TransactionFailedError as err:
+      sys.stderr.write("AppDashboardData.refresh_datastore() caught "\
+        "Exception " + str(type(err)) + ":" + str(err) +\
+        traceback.format_exc())
+    except Exception as err:
+      sys.stderr.write("AppDashboardData.refresh_datastore() caught "\
+        "Exception " + str(type(err)) + ":" + str(err) +\
+        traceback.format_exc())
 
   def update_all(self):
     """ Update all stored data. """
+    sys.stderr.write("AppDashboardData.update_all(): refreshing datastore data.")
     self.update_head_node_ip()
     self.update_database_info()
     self.update_apistatus()
@@ -135,11 +159,11 @@ class AppDashboardData:
     try:
       url = self.get_head_node_ip()
       if url:
-        return "http://"+url+":8050"
+        return "http://{0}:{1}".format(url,  self.MONITOR_PORT)
     except Exception as err:
       sys.stderr.write("AppDashboardData.get_monitoring_url() caught "\
         "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
-      return ''
+    return ''
 
   def get_head_node_ip(self):
     """ Return the ip of the head node from the data store. 

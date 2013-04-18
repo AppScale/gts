@@ -8,8 +8,8 @@ rescue Exception
 end
 
 begin
-  require 'load_balancer'
-  LoadBalancer.stop
+  require 'app_dashboard'
+  AppDashboard.stop
 rescue Exception
   puts "Problem with loadbalancer, moving on"
 end
