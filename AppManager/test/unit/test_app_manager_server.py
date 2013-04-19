@@ -287,8 +287,14 @@ class TestAppManager(unittest.TestCase):
   def test_copy_modified_jars_success(self):
     app_name = 'test'
     flexmock(subprocess).should_receive('call').and_return(0)
+    flexmock(subprocess).should_receive('call').and_return(0)
     self.assertEqual(True, app_manager_server.copy_modified_jars(app_name))  
   
+  def test_copy_modified_jars_fail_case_1(self):
+    app_name = 'test'
+    flexmock(subprocess).should_receive('call').and_return(0).and_return(1)
+    self.assertEqual(False, app_manager_server.copy_modified_jars(app_name))
+
   def test_copy_modified_jars_fail_case_2(self):
     app_name = 'test'
     flexmock(subprocess).should_receive('call').and_return(1)
