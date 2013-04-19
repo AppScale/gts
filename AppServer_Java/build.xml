@@ -73,6 +73,11 @@
       <include name="com/google/appengine/api/blobstore/BlobstoreServiceImpl.class" />
       <include name="com/google/appengine/api/xmpp/InboundMessageParser.class" />
     </jar>
+    <unzip src="${gae_dist}/lib/impl/appengine-api.jar" dest="${gae_dist}/lib/impl/tmp"/>
+    <delete dir="${gae_dist}/lib/impl/tmp/javax/mail"/>
+    <delete dir="${gae_dist}/lib/impl/tmp/javax/activation"/>
+    <jar destfile="${gae_dist}/lib/impl/appengine-api.jar" basedir="${gae_dist}/lib/impl/tmp" includes="**/*"/>
+    <delete dir="${gae_dist}/lib/impl/tmp"/>
   </target>
 
   <target name="update-api-jar-user" depends="compile, repack-sdk">
@@ -80,6 +85,11 @@
       <include name="com/google/appengine/api/blobstore/BlobstoreServiceImpl.class" />
       <include name="com/google/appengine/api/xmpp/InboundMessageParser.class" />
     </jar>
+    <unzip src="${gae_dist}/lib/user/appengine-api-1.0-sdk-${gae_version}.jar" dest="${gae_dist}/lib/user/tmp"/>
+    <delete dir="${gae_dist}/lib/user/tmp/javax/mail"/>
+    <delete dir="${gae_dist}/lib/user/tmp/javax/activation"/>
+    <jar destfile="${gae_dist}/lib/user/appengine-api-1.0-sdk-${gae_version}.jar" basedir="${gae_dist}/lib/user/tmp" includes="**/*"/>
+    <delete dir="${gae_dist}/lib/user/tmp"/>
   </target>
 
   <target name="update-api-labs-jar" depends="compile, repack-sdk">
@@ -104,7 +114,7 @@
       <include name="com/google/appengine/api/xmpp/dev/*" />
     </jar>
   </target>
-
+ 
   <target name="update-local-runtime-jar" depends="compile, repack-sdk">
     <jar destfile="${gae_dist}/lib/impl/appengine-local-runtime.jar" basedir="${build}" update="true">
       <include name="com/google/appengine/tools/development/*" />
