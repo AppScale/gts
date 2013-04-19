@@ -112,19 +112,6 @@ class TestAppDashboard(unittest.TestCase):
     self.response = self.fakeResponse()
     self.set_user()  
 
-#    fake_dstore = flexmock(name='AppDashboardData')
-#    flexmock(lib.app_dashboard_data).should_receive('AppDashboardData')\
-#      .and_return(fake_dstore)
-#    fake_dstore.should_receive('get_monitoring_url')\
-#      .and_return('http://1.1.1.1:8050')
-#    fake_dstore.should_receive('update_all').and_return()
-#    fake_dstore.should_receive('refresh_datastore').and_return()
-#    #not done below
-#    fake_dstore.should_receive('get_status_info').and_return()
-#    fake_dstore.should_receive('get_database_info').and_return()
-#    fake_dstore.should_receive('get_apistatus').and_return()
-#    fake_dstore.should_receive('get_application_info').and_return()
-
     fake_dataroot = flexmock(name='DashboardDataRoot')
     fake_root = flexmock(DashboardDataRoot)
     fake_root.new_instances(fake_dataroot)
@@ -193,19 +180,25 @@ class TestAppDashboard(unittest.TestCase):
     fake_db.should_receive('delete').and_return()
     fake_db.should_receive('run_in_transaction').and_return()
 
-    fake_app1 = flexmock(name='APIstatus')
+    fake_app1 = flexmock(name='AppStatus')
     fake_app1.name = 'api1'
     fake_app1.url = 'running'
     fake_app1.should_receive('put').and_return()
-    fake_app2 = flexmock(name='APIstatus')
+    fake_app1.should_receive('delete').and_return()
+    fake_app2 = flexmock(name='AppStatus')
     fake_app2.name = 'api1'
     fake_app2.url = 'running'
     fake_app2.should_receive('put').and_return()
+    fake_app2.should_receive('delete').and_return()
     fake_app_query = flexmock(name='AppStatus_query')
     fake_app_query.should_receive('ancestor').and_return()
-    fake_appstatus = flexmock(AppStatus)
-    fake_appstatus.should_receive('all').and_return(fake_app_query)
     fake_app_query.should_receive('run')\
+      .and_return(fake_app1)\
+      .and_return(fake_app2)
+    fake_appstatus = flexmock(AppStatus)
+    fake_appstatus.new_instances(fake_app1)
+    fake_appstatus.should_receive('all').and_return(fake_app_query)
+    fake_appstatus.should_receive('get_by_key_name')\
       .and_return(fake_app1)\
       .and_return(fake_app2)
 

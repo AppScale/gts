@@ -28,9 +28,7 @@
                       <p>
                         <select id="appname" name="appname">
                         {% for app_name in apps.keys()|sort  %}
-                          {% if is_user_cloud_admin or app_name in app_admin_list %}
                             <option value="{{ app_name }}">{{ app_name }}</option>
-                          {% endif %}
                         {% endfor %}
                         </select>
                       </p>

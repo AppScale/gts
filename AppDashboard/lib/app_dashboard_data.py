@@ -239,6 +239,46 @@ class AppDashboardData:
     for status in status_query.run():
       ret[ status.name ] = status.url
     return ret
+
+  def delete_app_from_datastore(self, app, email=None):
+    """ Remove the app from the datastore and the user's app list.
+
+    Args:
+      app: A string, the name of the app to be deleted.
+      email: A string, the email address of the user's app list to be modified.
+    """
+    def delete_app_from_datastore_tx(app, email):
+      """ Transaction function for delete_app_from_datastore().
+  
+      Args:
+        app: A string, the name of the app to be deleted.
+        email: A string, the email address of the user's app list to be fixed.
+      """
+      app_status = AppStatus.get_by_key_name(app)
+      if app_status:
+        app_status.delete()
+      user_info = UserInfo.get_by_key_name(email)
+      if user_info:
+          app_list = user_info.user_app_list.split(self.APP_DELIMITER)
+          if app in app_list:
+            new_app_list = []
+            for this_app in app_list:
+              if this_app != app:
+                new_app_list.append(this_app)
+            user_info.user_app_list = self.APP_DELIMITER.join(new_app_list)
+            user_info.put()
+
+    if email is None:
+      user = users.get_current_user()
+      if not user:
+        return []
+      email = user.email()
+    try:
+      db.run_in_transaction(delete_app_from_datastore_tx, app, email)
+    except Exception as err:
+      sys.stderr.write("AppDashboardData.delete_app_from_datastore() caught "
+        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
+
  
   def update_application_info(self):
     """ Querys the AppController and stores the list of applications running on

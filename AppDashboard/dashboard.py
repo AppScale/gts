@@ -305,7 +305,7 @@ class AuthorizePage(AppDashboard):
 
   def post(self):
     """ Handler for POST requests. """
-    if self.helper.is_user_cloud_admin():
+    if self.dstore.is_user_cloud_admin():
       self.render_page(page='authorize', template_file=self.TEMPLATE, values={
         'flash_message' : self.parse_update_user_permissions(),
         'user_perm_list' : self.helper.list_all_users_permisions(),
@@ -318,7 +318,7 @@ class AuthorizePage(AppDashboard):
 
   def get(self):
     """ Handler for GET requests. """
-    if self.helper.is_user_cloud_admin():
+    if self.dstore.is_user_cloud_admin():
       self.render_page(page='authorize', template_file=self.TEMPLATE, values={
         'user_perm_list' : self.helper.list_all_users_permisions(),
       })
@@ -338,7 +338,7 @@ class AppUploadPage(AppDashboard):
     """ Handler for POST requests. """
     success_msg = ''
     err_msg = ''
-    if self.helper.i_can_upload():
+    if self.dstore.i_can_upload():
       try: 
         success_msg = self.helper.upload_app(
           self.request.POST.multi['app_file_data'].file
@@ -361,26 +361,43 @@ class AppDeletePage(AppDashboard):
 
   TEMPLATE = 'apps/delete.html'
 
+  def get_app_list(self):
+    """ Return a list of apps the user can admin. 
+
+    Returns:
+      A dict where the keys are the name of the apps, and the values are the url
+      of that app.
+    """
+    if self.dstore.is_user_cloud_admin():
+      return self.dstore.get_application_info()
+    else:
+      ret_list = {}
+      app_list = self.dstore.get_application_info()
+      my_apps = self.dstore.get_user_app_list()
+      for app in app_list.keys():
+        if app in my_apps:
+          ret_list[app] = app_list[app]
+      return ret_list
+
   def post(self):
     """ Handler for POST requests. """
     appname = self.request.POST.get('appname')
-    if self.helper.is_user_cloud_admin() or\
+    if self.dstore.is_user_cloud_admin() or\
        appname in self.dstore.get_user_app_list():
       message = self.helper.delete_app(appname)
+      self.dstore.delete_app_from_datastore(appname)
     else:
       message = "You do not have permission to delete the application: " + \
         appname
     self.render_page(page='apps', template_file=self.TEMPLATE, values={
       'flash_message' : message,
-      'apps' : self.dstore.get_application_info(),
-      'app_admin_list' : self.dstore.get_user_app_list()
+      'apps' : self.get_app_list(),
       })
 
   def get(self):
     """ Handler for GET requests. """
     self.render_page(page='apps', template_file=self.TEMPLATE, values={
-      'apps' : self.dstore.get_application_info(),
-      'app_admin_list' : self.dstore.get_user_app_list()
+      'apps' : self.get_app_list(),
     })
 
 
