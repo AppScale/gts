@@ -566,6 +566,9 @@ class DatastoreDistributed():
                            dbconstants.APP_ID_SCHEMA,
                            cell_values)
     except ZKTransactionException, zk_exception:
+      if not self.zookeeper.notify_failed_transaction(prefix, txnid):
+        logging.error("Unable to invalidate transaction for {0} txnid: {1}"\
+          .format(prefix, txnid))
       if num_retries > 0:
         return self.allocate_ids(prefix, size, max_id=max_id, 
           num_retries=num_retries - 1)
