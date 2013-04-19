@@ -51,7 +51,7 @@ class DatastoreGroomer(threading.Thread):
       ds_path: The connection path to the datastore_server.
     """
     logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
-      '%(lineno)s %(message)s ', level=logging.DEBUG)
+      '%(lineno)s %(message)s ', level=logging.INFO)
     logging.info("Logging started")
 
     threading.Thread.__init__(self)
@@ -59,6 +59,7 @@ class DatastoreGroomer(threading.Thread):
     self.table_name = table_name
     self.datastore_path = ds_path
     self.stats = {}
+    self.num_deletes = 0
 
   def stop(self):
     """ Stops the groomer thread. """
@@ -88,22 +89,69 @@ class DatastoreGroomer(threading.Thread):
     """
     return self.zoo_keeper.get_datastore_groomer_lock()
 
-  def get_entity_batch(self, db_access, last_key=""):
+  def get_entity_batch(self, last_key):
     """ Gets a batch of entites to operate on.
 
     Args:
-      db_access: A DatastoreFactory object.
       last_key: The last key from a previous query.
     Returns:
       A list of entities.
     """ 
-    return db_access.range_query(dbconstants.APP_ENTITY_TABLE, 
+    return self.db_access.range_query(dbconstants.APP_ENTITY_TABLE, 
       dbconstants.APP_ENTITY_SCHEMA, last_key, "", self.BATCH_SIZE,
       start_inclusive=False)
 
   def reset_statistics(self):
     """ Reinitializes statistics. """
     self.stats = {}
+    self.num_deletes = 0
+
+  def hard_delete_row(self, row_key):
+    """ Does a hard delete on a given row key to the entity
+        table.
+   
+    Args:
+      row_key: A str representing the row key to delete.
+    Returns:
+      True on success, False otherwise.
+    """
+    try:
+      self.db_access.batch_delete(dbconstants.APP_ENTITY_TABLE,
+        [row_key])
+    except dbconstants.AppScaleDBConnectionError, db_error:
+      logging.error("Error hard deleting key {0}".format(row_key))
+      return False 
+    except Exception, exception:
+      logging.error("Caught unexcepted exception {0}".format(exception))
+      return False
+ 
+    return True
+
+  @staticmethod
+  def get_root_key_from_entity_key(key):
+    """ Extract the root key from an entity key. We 
+        remove any excess children from a string to get to
+        the root key.
+    
+    Args:
+      entity_key: A string representing a row key.
+    Returns:
+      The root key extracted from the row key.
+    """
+    tokens = key.split('!')
+    return tokens[0] + '!'
+
+  @staticmethod
+  def get_prefix_from_entity_key(entity_key):
+    """ Extracts the prefix from a key to the entity table.
+
+    Args:
+      entity_key: A str representing a row key to the entity table.
+    Returns:
+      A str representing the app prefix (app_id and namespace).
+    """
+    tokens = entity_key.split('/')
+    return tokens[0] + '/' + tokens[1]
 
   def process_tombstone(self, key, entity, version):
     """ Processes any entities which have been soft deleted. 
@@ -113,10 +161,40 @@ class DatastoreGroomer(threading.Thread):
       entity: The entity in string serialized form.
       version: The version of the entity in the datastore.
     Returns:
-      True if a hard delete occurred, false otherwise.
+      True if a hard delete occurred, False otherwise.
     """
-    #TODO implement
-    return False
+    success = False
+    app_prefix = DatastoreGroomer.get_prefix_from_entity_key(key)
+    root_key = DatastoreGroomer.get_root_key_from_entity_key(key)
+    
+    if self.zoo_keeper.is_blacklisted(app_prefix, version):
+      return False
+ 
+    txn_id = self.zoo_keeper.get_transaction_id(app_prefix)
+    try:
+      if self.zoo_keeper.acquire_lock(app_prefix, txn_id, root_key):
+        success = self.hard_delete_row(key)
+      else:
+        success = False
+    except zk.ZKTransactionException, zk_exception:
+      success = False
+    finally:
+      if not success:
+        if not self.zoo_keeper.notify_failed_transaction(app_prefix, txn_id):
+          logging.error("Unable to invalidate txn for {0} with txnid: {1}"\
+            .format(app_prefix, txn_id))
+      try:
+        self.zoo_keeper.release_lock(app_prefix, txn_id)
+      except zk.ZKTransactionException, zk_exception:
+        # There was an exception releasing the lock, but 
+        # the hard delete has already happened.
+        pass
+
+    if success:
+      self.num_deletes += 1
+
+    logging.debug("Deleting tombstone for key {0}: {1}".format(key, success))
+    return success
 
   def initialize_kind(self, app_id, kind):
     """ Puts a kind into the statistics object if 
@@ -191,6 +269,7 @@ class DatastoreGroomer(threading.Thread):
     one_entity = entity[key][dbconstants.APP_ENTITY_SCHEMA[0]]
     version = entity[key][dbconstants.APP_ENTITY_SCHEMA[1]]
 
+    logging.debug("Entity value: {0}".format(entity))
     if one_entity == datastore_server.TOMBSTONE:
       return self.process_tombstone(key, one_entity, version)
        
@@ -310,6 +389,7 @@ class DatastoreGroomer(threading.Thread):
         .format(app_id, self.stats[app_id]))
       logging.info("Global stats for {0} are total size of {1} with " \
         "{2} entities".format(app_id, total_size, total_number))
+      logging.info("Number of hard deletes: {0}".format(self.num_deletes))
       del ds_distributed
 
     return True
@@ -323,11 +403,11 @@ class DatastoreGroomer(threading.Thread):
     last_key = ""
     self.reset_statistics()
 
-    db_access = appscale_datastore_batch.DatastoreFactory.getDatastore(
+    self.db_access = appscale_datastore_batch.DatastoreFactory.getDatastore(
       self.table_name)
 
     while True:
-      entities = self.get_entity_batch(db_access, last_key=last_key)
+      entities = self.get_entity_batch(last_key)
 
       if not entities:
         break
@@ -336,11 +416,10 @@ class DatastoreGroomer(threading.Thread):
         self.process_entity(entity)
 
       last_key = entities[-1].keys()[0]
-  
     if not self.update_statistics():
       logging.error("There was an error updating the statistics")
 
-    del db_access
+    del self.db_access
 
     time_taken = time.time() - start
     logging.info("Groomer stopped (Took {0} seconds)".format(str(time_taken)))
