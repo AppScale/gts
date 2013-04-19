@@ -1,13 +1,12 @@
-import datetime
+# pylint: disable-msg=W0703
+# pylint: disable-msg=E1103
+
 import sys
 import traceback
 from google.appengine.ext import db
+from google.appengine.api import users
 from app_dashboard_helper import AppDashboardHelper
 from app_dashboard_helper import AppHelperException
-
-from google.appengine.ext.db import Timeout
-from google.appengine.ext.db import TransactionFailedError
-from google.appengine.ext.db import InternalError
 
 
 class DashboardDataRoot(db.Model):
@@ -38,6 +37,13 @@ class AppStatus(db.Model):
   url = db.StringProperty()
   last_update = db.DateTimeProperty(auto_now=True)
 
+class UserInfo(db.Model):
+  """ Information about users in AppScale. """
+  email = db.StringProperty()
+  is_user_cloud_admin = db.BooleanProperty()
+  i_can_upload  = db.BooleanProperty()
+  user_app_list = db.StringProperty()
+
 
 class AppDashboardData:
   """ Helper class to interact with the datastore. """
@@ -56,6 +62,9 @@ class AppDashboardData:
 
   # Delimiter for status roles
   STATUS_ROLES_DELIMITER = ','
+
+  # The charcter that seperates apps.
+  APP_DELIMITER = ":"
 
   def __init__(self, helper = None):
     """ Constructor. 
@@ -84,6 +93,7 @@ class AppDashboardData:
     self.update_apistatus()
     self.update_status_info()
     self.update_application_info()
+    self.update_users()
 
   def get_monitoring_url(self):
     """ Returns the url of the monitoring service. 
@@ -258,12 +268,12 @@ class AppDashboardData:
               ret[app] = None
           else:
             ret[app] = None
-          status = AppStatus.get_by_key_name(app)
-          if not status:
-            status =  AppStatus(parent = self.root, key_name = app)
-            status.name = app
-          status.url = ret[app]
-          updated_status.append( status )
+          app_status = AppStatus.get_by_key_name(app)
+          if not app_status:
+            app_status =  AppStatus(parent = self.root, key_name = app)
+            app_status.name = app
+          app_status.url = ret[app]
+          updated_status.append( app_status )
 
         db.run_in_transaction(update_application_info_tx, self.root, \
           updated_status)
@@ -271,3 +281,86 @@ class AppDashboardData:
     except Exception as err:
       sys.stderr.write("AppDashboardData.update_application_info() caught "
         "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
+
+  def update_users(self):
+    """ Query the UserAppServer and update the state of all the users. """
+    try:
+      all_users_list = self.helper.list_all_users()
+      for email in all_users_list:
+        user_info = UserInfo.get_by_key_name(email)
+        if not user_info:
+          user_info = UserInfo(key_name=email)
+          user_info.email = email
+        user_info.is_user_cloud_admin = self.helper.is_user_cloud_admin(
+          user_info.email)
+        user_info.i_can_upload = self.helper.i_can_upload(user_info.email)
+        user_info.user_app_list = self.APP_DELIMITER.join(
+          self.helper.get_user_app_list(user_info.email))
+        user_info.put()
+    except Exception as err:
+      sys.stderr.write("AppDashboardData.update_users() caught "
+        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
+
+  def get_user_app_list(self):
+    """ Get a list of apps that the current logged in user is an 
+        admin of.
+
+    Returns:
+      A list of strs, each is the name of an app. 
+    """
+    user = users.get_current_user()
+    if not user:
+      return []
+    email = user.email()
+    try:
+      user_info = UserInfo.get_by_key_name(email)
+      if not user_info:
+        return []
+      app_list = user_info.user_app_list
+      if len(app_list) == 0:
+        return []
+      return app_list.split(self.APP_DELIMITER)
+    except Exception as err:
+      sys.stderr.write("AppDashboardData.get_user_app_list() caught "
+        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
+      return []
+
+  def is_user_cloud_admin(self):
+    """ Check if the logged in user is a cloud admin.
+
+    Returns:
+      True or False.
+    """
+    user = users.get_current_user()
+    if not user:
+      return False
+    try:
+      user_info = UserInfo.get_by_key_name(user.email())
+      if not user_info:
+        return False
+      return user_info.is_user_cloud_admin
+    except Exception as err:
+      sys.stderr.write("AppDashboardData.is_user_cloud_admin() caught "
+        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
+      return False
+
+  def i_can_upload(self):
+    """ Check if the logged in user can upload apps.
+
+    Args:
+      email: Email address of the user.
+    Returns:
+      True or False.
+    """
+    user = users.get_current_user()
+    if not user:
+      return False
+    try:
+      user_info = UserInfo.get_by_key_name(user.email())
+      if not user_info:
+        return False
+      return user_info.i_can_upload
+    except Exception as err:
+      sys.stderr.write("AppDashboardData.i_can_upload() caught "
+        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
+      return False

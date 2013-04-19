@@ -57,8 +57,8 @@ class AppDashboard(webapp2.RequestHandler):
     sub_vars = {
       'logged_in' : self.helper.is_user_logged_in(),
       'user_email' : self.helper.get_user_email(),
-      'is_user_cloud_admin' : self.helper.is_user_cloud_admin(),
-      'i_can_upload' : self.helper.i_can_upload(),
+      'is_user_cloud_admin' : self.dstore.is_user_cloud_admin(),
+      'i_can_upload' : self.dstore.i_can_upload(),
     }
     for key in values.keys():
       sub_vars[key] = values[key]
@@ -99,6 +99,7 @@ class IndexPage(AppDashboard):
 
 class StatusRefreshPage(AppDashboard):
   """ Class to handle request to the /status/refresh page. """
+
   def get(self):
     """ Handler for GET requests. """
     # Called from taskqueue. Refresh data and display status message.
@@ -364,22 +365,22 @@ class AppDeletePage(AppDashboard):
     """ Handler for POST requests. """
     appname = self.request.POST.get('appname')
     if self.helper.is_user_cloud_admin() or\
-       appname in self.helper.get_user_app_list():
+       appname in self.dstore.get_user_app_list():
       message = self.helper.delete_app(appname)
     else:
       message = "You do not have permission to delete the application: " + \
         appname
     self.render_page(page='apps', template_file=self.TEMPLATE, values={
       'flash_message' : message,
-      'apps' : self.helper.get_application_info(),
-      'app_admin_list' : self.helper.get_user_app_list()
+      'apps' : self.dstore.get_application_info(),
+      'app_admin_list' : self.dstore.get_user_app_list()
       })
 
   def get(self):
     """ Handler for GET requests. """
     self.render_page(page='apps', template_file=self.TEMPLATE, values={
-      'apps' : self.helper.get_application_info(),
-      'app_admin_list' : self.helper.get_user_app_list()
+      'apps' : self.dstore.get_application_info(),
+      'app_admin_list' : self.dstore.get_user_app_list()
     })
 
 

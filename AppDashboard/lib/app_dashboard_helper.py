@@ -1,3 +1,6 @@
+# pylint: disable-msg=W0703
+# pylint: disable-msg=R0201
+
 import datetime
 import hashlib
 import os
@@ -31,7 +34,7 @@ class AppDashboardHelper:
   # Name of the cookie used for login.
   DEV_APPSERVER_LOGIN_COOKIE = 'dev_appserver_login'
 
-  # IP address of the AppController
+  # IP address of the AppController.
   APP_CONTROLLER_IP = '127.0.0.1'
 
   # Port number of the UserAppServer.
@@ -89,7 +92,7 @@ class AppDashboardHelper:
       An AppControllerClient object.
     """
     if self.server is None:
-      self.server = AppControllerClient(self.APP_CONTROLLER_IP,\
+      self.server = AppControllerClient(self.APP_CONTROLLER_IP, \
         GLOBAL_SECRET_KEY)
     return self.server
 
@@ -102,7 +105,7 @@ class AppDashboardHelper:
     if self.uaserver is None:
       acc = self.get_server()
       uas_host = acc.get_uaserver_host(False)
-      self.uaserver = SOAPpy.SOAPProxy('https://%s:%s' % (uas_host,\
+      self.uaserver = SOAPpy.SOAPProxy('https://%s:%s' % (uas_host, \
         self.UA_SERVER_PORT))
     return self.uaserver
 
@@ -165,7 +168,8 @@ class AppDashboardHelper:
         nodes = acc.get_role_info()
       except Exception as err:
         sys.stderr.write("AppDashboardHelper.get_host_with_role() caught "\
-          "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
+          "Exception " + str(type(err)) + ":" + str(err) + \
+          traceback.format_exc())
         return ''
     for node in nodes:
       if role in node['jobs']:
@@ -316,21 +320,25 @@ class AppDashboardHelper:
       return user.email()
     return ''
 
-  def get_user_app_list(self):
-    """ Get a list of apps that the current logged in user is an 
-        admin of.
+  def get_user_app_list(self, email=None):
+    """ Get a list of apps that the user is an admin of.
 
+    Args:
+      email: Email address of the user.
     Returns:
       A list of strs, each is the name of an app. 
     """
-    user = users.get_current_user()
-    if not user:
-      return []
-    user_data = self.query_user_data(user.email())
+    if email is None:
+      user = users.get_current_user()
+      if not user:
+        return []
+      email = user.email()
+    user_data = self.query_user_data(email)
     app_resp = re.search(self.USER_APP_LIST_REGEX, user_data)
     if app_resp:
       apps_list = app_resp.group(1).split(self.APP_DELIMITER)
     return apps_list
+
   def query_user_data(self, email):
     """ Queries the UserAppServer and returns the data on a user.
 
@@ -355,32 +363,40 @@ class AppDashboardHelper:
         "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
       return ''
 
-  def is_user_cloud_admin(self):
+  def is_user_cloud_admin(self, email=None):
     """ Check if the logged in user is a cloud admin.
 
+    Args:
+      email: Email address of the user.
     Returns:
       True or False.
     """
-    user = users.get_current_user()
-    if not user:
-      return False
-    email =  user.email()
+    if email is None:
+      user = users.get_current_user()
+      if not user:
+        return False
+      email =  user.email()
     user_data = self.query_user_data(email)
     if re.search(self.CLOUD_ADMIN_REGEX, user_data):
       return True
     else:
       return False
 
-  def i_can_upload(self):
-    """ Check if the logged in user can upload apps.
+  def i_can_upload(self, email=None):
+    """ Check if the user can upload apps.
 
+    Args:
+      email: Email address of the user.
     Returns:
       True or False.
     """
-    user = users.get_current_user()
-    if user:
-      if 'upload_app' in self.get_user_capabilities(user.email()):
-        return True
+    if email is None:
+      user = users.get_current_user()
+      if not user:
+        return False
+      email = user.email()
+    if 'upload_app' in self.get_user_capabilities(email):
+      return True
     return False
 
   def create_new_user(self, email, password, account_type='xmpp_user'):
@@ -481,7 +497,7 @@ class AppDashboardHelper:
       uaserver = self.get_uaserver()
       uaserver.commit_new_token(token, email, self.TOKEN_EXPIRATION, \
         GLOBAL_SECRET_KEY)
-    except Exception as e:
+    except Exception as err:
       sys.stderr.write("AppDashboardHelper.create_token() caught "\
         "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
 
@@ -517,6 +533,29 @@ class AppDashboardHelper:
     self.set_appserver_cookie(email)
     return True
 
+  def list_all_users(self):
+    """ Queries the UserAppServer and return a list of all users in the system.
+
+    Returns:
+      A list of strings, each string is a user the email of a user.
+    """
+    ret_list = []
+    try:
+      uas = self.get_uaserver()
+      all_users = uas.get_all_users(GLOBAL_SECRET_KEY)
+      all_users_list = all_users.split(self.USER_DELIMITER)
+      my_ip = self.get_head_node_ip()
+      for usr in all_users_list:
+        if re.search('@' + my_ip + '$', usr): # Skip the XMPP user accounts.
+          continue 
+        if re.search(self.ALL_USERS_NON_USER_REGEX, usr): # Skip non users.
+          continue
+        ret_list.append(usr)
+    except Exception as err:
+      sys.stderr.write("AppDashboardHelper.list_all_users() caught "\
+        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
+    return ret_list
+
   def list_all_users_permisions(self):
     """ Queries the UserAppServer and returns a list of all the users and the 
         permission they have in the system.
@@ -526,16 +565,9 @@ class AppDashboardHelper:
     """
     ret_list = []
     try:
-      uas = self.get_uaserver()
-      all_users = uas.get_all_users( GLOBAL_SECRET_KEY )
-      all_users_list = all_users.split(self.USER_DELIMITER)
-      ip = self.get_head_node_ip()
+      all_users_list = self.list_all_users()
       perm_items = self.get_all_permission_items()
       for usr in all_users_list:
-        if re.search('@'+ip+'$', usr): #{ip}\Z/ # skip the XMPP user accounts
-          continue 
-        if re.search(self.ALL_USERS_NON_USER_REGEX, usr): #skip non users
-          continue
         usr_cap = {'email' : usr }
         caps_list = self.get_user_capabilities(usr)
         for perm in perm_items:
@@ -589,6 +621,7 @@ class AppDashboardHelper:
         str(type(err)) + ":" + str(err) + traceback.format_exc())
       return False
     return True
+
 
   def remove_user_permissions(self, email, perm):
     """ Remove a permission from a user.

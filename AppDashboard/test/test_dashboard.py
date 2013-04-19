@@ -32,6 +32,8 @@ import StringIO
 from appcontroller_client import AppControllerClient
 
 from google.appengine.api import users
+from google.appengine.ext import db
+
 
 # from the app main.py
 import dashboard
@@ -124,9 +126,10 @@ class TestAppDashboard(unittest.TestCase):
 #    fake_dstore.should_receive('get_application_info').and_return()
 
     fake_dataroot = flexmock(name='DashboardDataRoot')
-    fake_root = flexmock(DashboardDataRoot).new_instances(fake_dataroot)
+    fake_root = flexmock(DashboardDataRoot)
+    fake_root.new_instances(fake_dataroot)
     fake_root.should_receive('get_by_key_name').and_return(None)\
-      .and_return(rake_dataroot)
+      .and_return(fake_dataroot)
     fake_dataroot.should_receive('put').and_return()
     fake_dataroot.head_node_ip = ''
     fake_dataroot.table = ''
@@ -153,13 +156,58 @@ class TestAppDashboard(unittest.TestCase):
     fake_apistatus = flexmock(APIstatus)
     fake_apistatus.new_instances(fake_api1)
     fake_apistatus.should_receive('all').and_return(fake_query)
-    fake_apistatus.should_receive('get_by_key_name')
+    fake_apistatus.should_receive('get_by_key_name')\
       .and_return(fake_api1)\
       .and_return(fake_api2)\
       .and_return(fake_api3)
 
+    fake_server1 = flexmock(name='ServerStatus')
+    fake_server1.ip = ''
+    fake_server1.cpu = ''
+    fake_server1.memory = ''
+    fake_server1.disk = ''
+    fake_server1.cloud = ''
+    fake_server1.roles = ''
+    fake_server1.should_receive('put').and_return()
+    fake_server2 = flexmock(name='ServerStatus')
+    fake_server2.ip = ''
+    fake_server2.cpu = ''
+    fake_server2.memory = ''
+    fake_server2.disk = ''
+    fake_server2.cloud = ''
+    fake_server2.roles = ''
+    fake_server2.should_receive('put').and_return()
+    fake_server_query = flexmock(name='APIstatus_query')
+    fake_server_query.should_receive('ancestor').and_return()
+    fake_server_query.should_receive('run')\
+      .and_return(fake_server1)\
+      .and_return(fake_server2)
     fake_serverstatus = flexmock(ServerStatus)
+    fake_serverstatus.new_instances(fake_server1)
+    fake_serverstatus.should_receive('all').and_return(fake_server_query)
+    fake_serverstatus.should_receive('get_by_key_name')\
+      .and_return(fake_server1)\
+      .and_return(fake_server2)
+
+    fake_db = flexmock(db)
+    fake_db.should_receive('delete').and_return()
+    fake_db.should_receive('run_in_transaction').and_return()
+
+    fake_app1 = flexmock(name='APIstatus')
+    fake_app1.name = 'api1'
+    fake_app1.url = 'running'
+    fake_app1.should_receive('put').and_return()
+    fake_app2 = flexmock(name='APIstatus')
+    fake_app2.name = 'api1'
+    fake_app2.url = 'running'
+    fake_app2.should_receive('put').and_return()
+    fake_app_query = flexmock(name='AppStatus_query')
+    fake_app_query.should_receive('ancestor').and_return()
     fake_appstatus = flexmock(AppStatus)
+    fake_appstatus.should_receive('all').and_return(fake_app_query)
+    fake_app_query.should_receive('run')\
+      .and_return(fake_app1)\
+      .and_return(fake_app2)
 
 
   def set_user(self, email=None):
