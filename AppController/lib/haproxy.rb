@@ -44,12 +44,11 @@ module HAProxy
   # The first port that haproxy will bind to for App Engine apps.
   START_PORT = 10000
 
+  
   # The default server timeout for the dashboard (apploadbalancer)
   ALB_SERVER_TIMEOUT = 300000
 
-  # Name of the AppScale dashboard app
-  DASHBOARD_APPNAME = "as_alb"
-
+  
   # The location of the script that god uses to see if haproxy is running,
   # restarting it if necessary.
   START_HAPROXY_SCRIPT = File.dirname(__FILE__) + "/../" + \
@@ -120,7 +119,7 @@ module HAProxy
     config << servers.join("\n")
     # If it is the dashboard app, increase the server timeout because uploading apps
     # can take some time 
-    if name == DASHBOARD_APPNAME
+    if name == LoadBalancer.name()
       config << "\n  timeout server #{ALB_SERVER_TIMEOUT}\n"
     end
   
