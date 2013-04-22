@@ -44,7 +44,11 @@ module HAProxy
   # The first port that haproxy will bind to for App Engine apps.
   START_PORT = 10000
 
+  
+  # The default server timeout for the dashboard (apploadbalancer)
+  ALB_SERVER_TIMEOUT = 300000
 
+  
   # The location of the script that god uses to see if haproxy is running,
   # restarting it if necessary.
   START_HAPROXY_SCRIPT = File.dirname(__FILE__) + "/../" + \
@@ -113,7 +117,12 @@ module HAProxy
     config = "# Create a load balancer for the #{name} application \n"
     config << "listen #{name} #{my_private_ip}:#{listen_port} \n"
     config << servers.join("\n")
-
+    # If it is the dashboard app, increase the server timeout because uploading apps
+    # can take some time 
+    if name == LoadBalancer.name()
+      config << "\n  timeout server #{ALB_SERVER_TIMEOUT}\n"
+    end
+  
     config_path = File.join(SITES_ENABLED_PATH, "#{name}.#{CONFIG_EXTENSION}")
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
 
@@ -146,7 +155,6 @@ module HAProxy
     end
 
     conf.close()
-    
     # Reload haproxy since we changed the config, restarting causes connections
     # to be cut which shows users a nginx 404
     HAProxy.reload
@@ -288,7 +296,7 @@ defaults
   timeout connect 60000
 
   # Timeout a request if Mongrel does not accept the data on the connection,
-  # or does not send a response back in 60 seconds
+  # or does not send a response back in 1 minute.
   timeout server 60000
   
   # Enable the statistics page 
