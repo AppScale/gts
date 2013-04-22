@@ -337,10 +337,11 @@ class AppDashboardHelper:
     if not user:
       return []
     user_data = self.query_user_data( user.nickname() )
-    app_resp = re.search("\napplications:(.*)\n", user_data)
+    app_resp = re.search("\napplications:(.+)\n", user_data)
     if app_resp:
-      apps_list = app_resp.group(1).split(":")
-    return apps_list
+      return app_resp.group(1).split(":")
+    else:
+      return []
 
   def query_user_data(self, email):
     """ Querys the UserAppServer and returns the data on a user.

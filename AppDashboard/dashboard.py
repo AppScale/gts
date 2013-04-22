@@ -62,6 +62,7 @@ class AppDashboard(webapp2.RequestHandler):
       'user_email' : self.helper.get_user_email(),
       'is_user_cloud_admin' : self.helper.is_user_cloud_admin(),
       'i_can_upload' : self.helper.i_can_upload(),
+      'apps_user_is_admin_on' : self.helper.get_user_app_list()
     }
     for key in values.keys():
       sub_vars[key] = values[key]
@@ -381,14 +382,24 @@ class LogMainPage(AppDashboard):
 
   def get(self):
     """ Handler for GET requests. """
+    is_cloud_admin = self.helper.is_user_cloud_admin()
+    apps_user_is_admin_on = self.helper.get_user_app_list()
+    if (not is_cloud_admin) and (not apps_user_is_admin_on):
+      self.redirect('/', self.response)
+
     query = ndb.gql('SELECT * FROM LoggedService')
-    services = []
+    all_services = []
     for entity in query:
-      if entity.key.id() not in services:
-        services.append(entity.key.id())
+      if entity.key.id() not in all_services:
+        all_services.append(entity.key.id())
+
+    permitted_services = []
+    for service in all_services:
+      if is_cloud_admin or service in apps_user_is_admin_on:
+        permitted_services.append(service)
 
     self.render_page(page='logs', template_file=self.TEMPLATE, values = {
-      'services' : services
+      'services' : permitted_services
     })
 
 class LogServicePage(AppDashboard):
@@ -398,6 +409,11 @@ class LogServicePage(AppDashboard):
 
   def get(self, service_name):
     """ Displays a list of hosts that have logs for the given service. """
+    is_cloud_admin = self.helper.is_user_cloud_admin()
+    apps_user_is_admin_on = self.helper.get_user_app_list()
+    if (not is_cloud_admin) and (service_name not in apps_user_is_admin_on):
+      self.redirect('/', self.response)
+
     service = LoggedService.get_by_id(service_name)
     if service:
       exists = True
@@ -423,6 +439,11 @@ class LogServiceHostPage(AppDashboard):
     Specifying 'all' as the host indicates that we shouldn't restrict ourselves
     to a single machine.
     """
+    is_cloud_admin = self.helper.is_user_cloud_admin()
+    apps_user_is_admin_on = self.helper.get_user_app_list()
+    if (not is_cloud_admin) and (service_name not in apps_user_is_admin_on):
+      self.redirect('/', self.response)
+
     if host == "all":
       query = RequestLogLine.query(RequestLogLine.service_name == service_name)
     else:

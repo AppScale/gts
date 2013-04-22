@@ -30,11 +30,13 @@
      <h2><a href="/status">View cloud status.</a></h2>
    </li>
 
-   {% if is_user_cloud_admin %} 
+   {% if apps_user_is_admin_on or is_user_cloud_admin %}
    <li>
      <h2><a href="/logs">View logs.</a></h2>
    </li>
+   {% endif %}
 
+   {% if is_user_cloud_admin %}
    <li>
      <h2><a href="{{ monitoring_url }}">Machine Monitoring.</a></h2>
    </li>

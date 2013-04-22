@@ -47,8 +47,10 @@
                 <div align="center" class="mainnav">
                     <ul>
                         <li align="center" class="tab"><a href="/status">Cloud Status</a> </li>
-                            {% if is_user_cloud_admin %}
+                            {% if apps_user_is_admin_on or is_user_cloud_admin %}
                               <li align="center" class="tab"><a href="/logs">View Logs</a></li>
+                            {% endif %}
+                            {% if is_user_cloud_admin %}
                               <li align="center" class="tab"><a href="/authorize">Authorize User</a></li>
                             {% endif %}
                             {% if i_can_upload %}
