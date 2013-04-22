@@ -147,8 +147,9 @@ module HAProxy
 
     conf.close()
     
-    # Restart haproxy since we have changed the config
-    HAProxy.restart
+    # Reload haproxy since we changed the config, restarting causes connections
+    # to be cut which shows users a nginx 404
+    HAProxy.reload
   end
   
   # Generate the server configuration line for the provided inputs
