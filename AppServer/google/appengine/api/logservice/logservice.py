@@ -293,28 +293,17 @@ class LogsBuffer(object):
     if appid in ['apichecker', 'dashboard']:
       return
 
-    #if not self.is_port_open('192.168.10.2', 443):
-    #  return
-    #formatted_logs = [{'timestamp' : log[0] / 1e6, 'level' : log[1], 'message' : log[2]} for log in logs]
-    formatted_logs = []
-    for log in logs:
-      this_log = {
-        'timestamp' : log[0] / 1e6,
-        'level' : log[1],
-        'message' : log[2]
-      }
-
-      if not log[2]:
-        this_log['message'] = 'nothing to see here!'
-      formatted_logs.append(this_log)
+    formatted_logs = [{'timestamp' : log[0] / 1e6, 'level' : log[1],
+      'message' : log[2]} for log in logs]
 
     payload = json.dumps({
       'service_name' : appid,
-      'host' : '192.168.10.2',
+      'host' : os.environ['SERVER_NAME'],
       'logs' : formatted_logs
     })
 
-    conn = httplib.HTTPSConnection('192.168.10.2:443')
+    dashboard_host = os.environ['LOGIN_SERVER']
+    conn = httplib.HTTPSConnection(dashboard_host + ":443")
     headers = {'Content-Type' : 'application/json'}
     conn.request('POST', '/logs/upload', payload, headers)
     response = conn.getresponse()
