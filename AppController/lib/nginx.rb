@@ -611,11 +611,19 @@ CONFIG
 
       client_body_timeout 360;
       proxy_read_timeout 360;
-
-      #Increase file size so larger applications can be uploaded
+CONFIG
+    if name == LoadBalancer.name()
+      config += <<CONFIG
+ 
+      # Increase file size for alb so larger applications can be uploaded
+      client_max_body_size 1G;
+CONFIG
+    else
+      config += <<CONFIG
       client_max_body_size 30M;
-
-
+CONFIG
+    end
+    config += <<CONFIG
       # go to proxy
       if (!-f $request_filename) {
         proxy_pass http://#{name};
