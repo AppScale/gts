@@ -30,6 +30,7 @@ class LoggedService(ndb.Model):
 
 class AppLogLine(ndb.Model):
   message = ndb.TextProperty()
+  level = ndb.IntegerProperty()
   timestamp = ndb.DateTimeProperty()
 
 class RequestLogLine(ndb.Model):
@@ -478,17 +479,20 @@ class LogUploadPage(webapp2.RequestHandler):
         service.hosts.append(host)
         service.put()
 
-    # add in each log line as a LogLine model
+    # add in each log line as an AppLogLine
     for log_line_dict in log_lines:
       the_time = int(log_line_dict['timestamp'])
       reversed_time = (2**34 - the_time) * 1000000
-      log_line = RequestLogLine.get_by_id(id = reversed_time)
+      key_name = service_name + host + str(reversed_time)
+      log_line = RequestLogLine.get_by_id(id = key_name)
       if not log_line:
         log_line = RequestLogLine(id = reversed_time)
         log_line.service_name = service_name
         log_line.host = host
+
       app_log_line = AppLogLine()
       app_log_line.message = log_line_dict['message']
+      app_log_line.level = log_line_dict['level']
       app_log_line.timestamp = datetime.datetime.fromtimestamp(the_time)
       log_line.app_logs.append(app_log_line)
       log_line.put()

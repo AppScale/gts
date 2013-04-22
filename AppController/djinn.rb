@@ -1519,6 +1519,7 @@ class Djinn
     APPS_LOCK.synchronize {
       @@logs_buffer << {
         'timestamp' => time.to_i,
+        'level' => 1,  # DEBUG
         'message' => msg
       }
     }
