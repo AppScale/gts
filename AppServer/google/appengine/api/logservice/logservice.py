@@ -290,7 +290,7 @@ class LogsBuffer(object):
     logs = self.parse_logs()
 
     appid = os.environ['APPLICATION_ID']
-    if appid in ['apichecker', 'dashboard']:
+    if appid in ['apichecker', 'appscaledashboard']:
       return
 
     formatted_logs = [{'timestamp' : log[0] / 1e6, 'level' : log[1],
