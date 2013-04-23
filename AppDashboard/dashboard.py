@@ -63,7 +63,7 @@ class AppDashboard(webapp2.RequestHandler):
   USER_EMAIL_REGEX = '^\w[^@\s]*@[^@\s]{2,}$'
 
   # Number of seconds taskqueue works waits to refresh page.
-  REFRESH_WAITTIME = 30
+  REFRESH_WAIT_TIME = 30
 
   def __init__(self, request, response):
     """ Constructor.
@@ -386,9 +386,7 @@ class AuthorizePage(AppDashboard):
         logging.info("taskqueue.add(url='/status/refresh')")
         taskqueue.add(url='/status/refresh')
       except Exception as err:
-        logging.info("AuthorizePage.post() caught "\
-          "Exception " + str(type(err)) + ":" + str(err) \
-          + traceback.format_exc())
+        logging.exception(err)
       self.render_page(page='authorize', template_file=self.TEMPLATE, values={
         'flash_message' : self.parse_update_user_permissions(),
         'user_perm_list' : self.helper.list_all_users_permissions(),
@@ -419,11 +417,12 @@ class AppUploadPage(AppDashboard):
   TEMPLATE = 'apps/new.html'
 
   def post(self):
-    """ Handler for POST requests. Recieves the app uplaod request, saves the 
-        saves the file in a temporary location and transfers it to the AppScale
-        deployment.  Then it reads the template file and returns the jinja 
-        rendered HTML of the of the app upload page to the requestor with 
-        success or error messages."""
+    """ Handler for POST requests.
+
+    Receives the app upload request, saves the file in a temporary location, and
+    transfers it to the AppScale deployment. Then it reads the template file and
+    returns the jinja rendered HTML of the app upload page to the requestor with
+    success or error messages."""
     success_msg = ''
     err_msg = ''
     if self.dstore.i_can_upload():
@@ -438,12 +437,10 @@ class AppUploadPage(AppDashboard):
           logging.info("taskqueue.add(url='/status/refresh')")
           taskqueue.add(url='/status/refresh')
           logging.info("taskqueue.add(url='/status/refresh', countdown={0})"\
-            .format(self.REFRESH_WAITTIME))
-          taskqueue.add(url='/status/refresh', countdown=self.REFRESH_WAITTIME)
+            .format(self.REFRESH_WAIT_TIME))
+          taskqueue.add(url='/status/refresh', countdown=self.REFRESH_WAIT_TIME)
         except Exception as err:
-          logging.info("AppUploadPage.post() caught "\
-            "Exception " + str(type(err)) + ":" + str(err) \
-            + traceback.format_exc())
+          logging.exception(err)
     else:
       err_msg = "You are not authorized to upload apps."
     self.render_page(page='apps', template_file=self.TEMPLATE, values={
@@ -462,11 +459,11 @@ class AppDeletePage(AppDashboard):
   TEMPLATE = 'apps/delete.html'
 
   def get_app_list(self):
-    """ Return a list of apps the user is an of admin. 
+    """ Returns a list of apps that the currently logged-in user is an admin of.
 
     Returns:
-      A dict where the keys are the name of the apps, and the values are the url
-      of that app.
+      A dict that maps the names of the applications the user is an admin on to
+      the URL that the app is hosted at.
     """
     if self.dstore.is_user_cloud_admin():
       return self.dstore.get_application_info()
@@ -494,12 +491,10 @@ class AppDeletePage(AppDashboard):
         logging.info("taskqueue.add(url='/status/refresh')")
         taskqueue.add(url='/status/refresh')
         logging.info("taskqueue.add(url='/status/refresh', countdown={0})"\
-          .format(self.REFRESH_WAITTIME))
-        taskqueue.add(url='/status/refresh', countdown=self.REFRESH_WAITTIME)
+          .format(self.REFRESH_WAIT_TIME))
+        taskqueue.add(url='/status/refresh', countdown=self.REFRESH_WAIT_TIME)
       except Exception as err:
-        logging.info("AppDeletePage.post() caught "\
-          "Exception " + str(type(err)) + ":" + str(err) \
-          + traceback.format_exc())
+        logging.exception(err)
     else:
       message = "You do not have permission to delete the application: " + \
         appname
@@ -514,6 +509,7 @@ class AppDeletePage(AppDashboard):
     self.render_page(page='apps', template_file=self.TEMPLATE, values={
       'apps' : self.get_app_list(),
     })
+
 
 class LogMainPage(AppDashboard):
   """ Class to handle requests to the /logs page. """
