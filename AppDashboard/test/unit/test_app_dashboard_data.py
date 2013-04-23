@@ -29,9 +29,10 @@ class TestAppDashboardData(unittest.TestCase):
     fake_root.table = 'table'
     fake_root.replication = 'replication'
     fake_root.should_receive('put').and_return()
-    flexmock(app_dashboard_data).should_receive('DashboardDataRoot')\
+
+    flexmock(app_dashboard_data).should_receive('DashboardDataRoot') \
       .and_return(fake_root)
-    flexmock(AppDashboardData).should_receive('get_one')\
+    flexmock(AppDashboardData).should_receive('get_by_id') \
       .with_args(app_dashboard_data.DashboardDataRoot,
         AppDashboardData.ROOT_KEYNAME)\
       .and_return(None)\
@@ -41,25 +42,28 @@ class TestAppDashboardData(unittest.TestCase):
     fake_api1.name = 'api1'
     fake_api1.value = 'running'
     fake_api1.should_receive('put').and_return()
+
     fake_api2 = flexmock(name='APIstatus')
     fake_api2.name = 'api2'
     fake_api2.value = 'failed'
     fake_api2.should_receive('put').and_return()
+
     fake_api3 = flexmock(name='APIstatus')
     fake_api3.name = 'api3'
     fake_api3.value = 'unknown'
     fake_api3.should_receive('put').and_return()
+
     fake_api_q = flexmock()
-    fake_api_q.should_receive('ancestor').and_return()
-    fake_api_q.should_receive('run')\
+    fake_api_q.should_receive('fetch') \
       .and_yield(fake_api1, fake_api2, fake_api3)
-    flexmock(AppDashboardData).should_receive('get_one')\
-      .with_args(app_dashboard_data.APIstatus, re.compile('api'))\
+
+    flexmock(AppDashboardData).should_receive('get_by_id') \
+      .with_args(app_dashboard_data.APIstatus, re.compile('api')) \
       .and_return(fake_api1)\
       .and_return(fake_api3)\
       .and_return(fake_api3)
-    flexmock(AppDashboardData).should_receive('get_all')\
-      .with_args(app_dashboard_data.APIstatus)\
+    flexmock(AppDashboardData).should_receive('get_all') \
+      .with_args(app_dashboard_data.APIstatus) \
       .and_return(fake_api_q)
 
     fake_server1 = flexmock(name='ServerStatus')
@@ -78,19 +82,18 @@ class TestAppDashboardData(unittest.TestCase):
     fake_server2.cloud = 'cloud1'
     fake_server2.roles = 'roles2'
     fake_server2.should_receive('put').and_return()
-    flexmock(app_dashboard_data).should_receive('ServerStatus')\
+    flexmock(app_dashboard_data).should_receive('ServerStatus') \
       .and_return(fake_server1)
     fake_server_q = flexmock()
-    fake_server_q.should_receive('ancestor').and_return()
-    fake_server_q.should_receive('run')\
+    fake_server_q.should_receive('fetch') \
       .and_yield(fake_server1, fake_server2)
-    fake_server_q.should_receive('get')\
+    fake_server_q.should_receive('get') \
       .and_return(fake_server1)\
       .and_return(fake_server2)
     flexmock(AppDashboardData).should_receive('get_all')\
       .with_args(app_dashboard_data.ServerStatus)\
       .and_return(fake_server_q)
-    flexmock(AppDashboardData).should_receive('get_one')\
+    flexmock(AppDashboardData).should_receive('get_by_id')\
       .with_args(app_dashboard_data.ServerStatus, re.compile('\d'))\
       .and_return(fake_server1)\
       .and_return(fake_server2)
@@ -105,21 +108,20 @@ class TestAppDashboardData(unittest.TestCase):
     fake_app2.url = None
     fake_app2.should_receive('put').and_return()
     fake_app2.should_receive('delete').and_return()
-    flexmock(app_dashboard_data).should_receive('AppStatus')\
+    flexmock(app_dashboard_data).should_receive('AppStatus') \
       .and_return(fake_app1)
     fake_app_q = flexmock()
-    fake_app_q.should_receive('ancestor').and_return()
-    fake_app_q.should_receive('run')\
+    fake_app_q.should_receive('fetch')\
       .and_yield(fake_app1, fake_app2)
     flexmock(AppDashboardData).should_receive('get_all')\
       .with_args(app_dashboard_data.AppStatus)\
       .and_return(fake_app_q)
-    flexmock(AppDashboardData).should_receive('get_all')\
-      .with_args(app_dashboard_data.AppStatus, keys_only=True)\
+    flexmock(AppDashboardData).should_receive('get_all') \
+      .with_args(app_dashboard_data.AppStatus, keys_only=True) \
       .and_return(fake_app_q)
-    flexmock(AppDashboardData).should_receive('get_one')\
-      .with_args(app_dashboard_data.AppStatus, re.compile('app'))\
-      .and_return(fake_app1)\
+    flexmock(AppDashboardData).should_receive('get_by_id') \
+      .with_args(app_dashboard_data.AppStatus, re.compile('app')) \
+      .and_return(fake_app1) \
       .and_return(fake_app2)
 
     user_info1 = flexmock(name='UserInfo')
@@ -142,14 +144,13 @@ class TestAppDashboardData(unittest.TestCase):
     user_info3.should_receive('put').and_return()
     flexmock(app_dashboard_data).should_receive('UserInfo')\
       .and_return(user_info1)
-    flexmock(AppDashboardData).should_receive('get_one')\
+    flexmock(AppDashboardData).should_receive('get_by_id')\
       .with_args(app_dashboard_data.UserInfo, re.compile('@a.com'))\
       .and_return(user_info1)\
       .and_return(user_info2)\
       .and_return(user_info3)
 
     flexmock(db).should_receive('delete').and_return()
-    flexmock(db).should_receive('run_in_transaction').and_return()
 
 
   def test_init(self):
@@ -271,10 +272,10 @@ class TestAppDashboardData(unittest.TestCase):
     self.assertEquals(output[1]['ip'], '2.2.2.2')
     
   def test_update_status_info(self):
-    flexmock(AppDashboardData).should_receive('initialize_datastore')\
+    flexmock(AppDashboardData).should_receive('initialize_datastore') \
       .and_return().once()
     fake_get_server = flexmock()
-    fake_get_server.should_receive('get_stats')\
+    fake_get_server.should_receive('get_stats') \
       .and_return([
         {'ip' : '1.1.1.1',
          'cpu' : '50',
@@ -289,7 +290,7 @@ class TestAppDashboardData(unittest.TestCase):
          'cloud' : 'cloud1',
          'roles' : 'roles1'}
       ])
-    flexmock(AppDashboardHelper).should_receive('get_server')\
+    flexmock(AppDashboardHelper).should_receive('get_server') \
       .and_return(fake_get_server).once()
     
     data1 = AppDashboardData()
@@ -341,8 +342,8 @@ class TestAppDashboardData(unittest.TestCase):
     output = data1.delete_app_from_datastore('app2', email='a@a.com')
     app_list = output.user_app_list.split(AppDashboardData.APP_DELIMITER)
     self.assertEquals(output.email, 'a@a.com')
-    self.assertFalse( 'app2' in app_list )
-    self.assertTrue( 'app1' in app_list )
+    self.assertFalse('app2' in app_list )
+    self.assertTrue('app1' in app_list )
 
   def test_update_application_info__noapps(self):
     flexmock(AppDashboardData).should_receive('initialize_datastore')\

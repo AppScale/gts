@@ -3,47 +3,95 @@
 
 import logging
 import sys
-import traceback
-from google.appengine.ext import db
+from google.appengine.ext import ndb
 from google.appengine.api import users
 from app_dashboard_helper import AppDashboardHelper
 from app_dashboard_helper import AppHelperException
 
 
-class DashboardDataRoot(db.Model):
+class DashboardDataRoot(ndb.Model):
   """ Root entity for datastore. """
-  initialized_time = db.DateTimeProperty(auto_now=True)
-  head_node_ip = db.StringProperty()
-  table = db.StringProperty()
-  replication = db.StringProperty()
+  initialized_time = ndb.DateTimeProperty(auto_now=True)
+  head_node_ip = ndb.StringProperty()
+  table = ndb.StringProperty()
+  replication = ndb.StringProperty()
 
-class APIstatus(db.Model):
-  """ Status of each API in AppScale. """
-  name = db.StringProperty()
-  value = db.StringProperty()
-  last_update = db.DateTimeProperty(auto_now=True)
 
-class ServerStatus(db.Model):
-  """ Stats of each server in the AppScale deployment. """
-  ip = db.StringProperty()
-  cpu = db.StringProperty()
-  memory = db.StringProperty()
-  disk = db.StringProperty()
-  cloud = db.StringProperty()
-  roles = db.StringProperty()
+class APIstatus(ndb.Model):
+  """ A Datastore Model that contains information about the current state of an
+  Google App Engine API that AppScale provides support for.
 
-class AppStatus(db.Model):
-  """ Status of each app running in AppScale. """
-  name = db.StringProperty()
-  url = db.StringProperty()
-  last_update = db.DateTimeProperty(auto_now=True)
+  Fields:
+    name: A str that corresponds to the name of the Google App Engine API.
+    value: A str that indicates what the current status of the API is (e.g.,
+      running, failed, unknown).
+    last_update: A timestamp that indicates when this API status was updated
+      last (useful to know in case we haven't checked an API's status in a
+      while).
+  """
+  name = ndb.StringProperty()
+  value = ndb.StringProperty()
+  last_update = ndb.DateTimeProperty(auto_now=True)
 
-class UserInfo(db.Model):
-  """ Information about users in AppScale. """
-  email = db.StringProperty()
-  is_user_cloud_admin = db.BooleanProperty()
-  i_can_upload  = db.BooleanProperty()
-  user_app_list = db.StringProperty()
+
+class ServerStatus(ndb.Model):
+  """ A Datastore Model that contains information about a single virtual machine
+  running in this AppScale deployment.
+
+  Fields:
+    ip: The hostname (IP or FQDN) corresponding to this machine.
+    cpu: The percent of CPU currently in use on this machine.
+    memory: The percent of RAM currently in use on this machine.
+    disk: The percent of hard disk space in use on this machine.
+    cloud: A str indicating which cloud this server runs in. Most deployments
+      run in a single cloud ("cloud1").
+    roles: A comma-separated str that lists all of the services that this
+      machine runs.
+  """
+  ip = ndb.StringProperty()
+  cpu = ndb.StringProperty()
+  memory = ndb.StringProperty()
+  disk = ndb.StringProperty()
+  cloud = ndb.StringProperty()
+  roles = ndb.StringProperty()
+
+
+class AppStatus(ndb.Model):
+  """ A Datastore Model that contains information about where an application
+  hosted in AppScale can be located, to display to users.
+
+  Fields:
+    name: The application ID associated with this Google App Engine app.
+    url: A URL that points to an nginx server, which serves a full proxy to
+      this Google App Engine app.
+    last_update: A timestamp that indicates when this Model was last updated
+    (useful to know if the URL that hosts this app changes in response to
+    failures).
+  """
+  name = ndb.StringProperty()
+  url = ndb.StringProperty()
+  last_update = ndb.DateTimeProperty(auto_now=True)
+
+
+class UserInfo(ndb.Model):
+  """ A Datastore Model that contains information about users who have signed up
+  for accounts in this AppScale deployment.
+
+  Fields:
+    email: A str that contains the e-mail address the user signed up with.
+    is_user_cloud_admin: A bool that indicates if the user is authorized to
+      perform any action on this AppScale cloud (e.g., remove any app, view all
+      logs).
+    i_can_upload: A bool that indicates if the user is authorized to upload
+      Google App Engine applications to this AppScale cloud via the web
+      interface.
+    user_app_list: A list of strs, where each str represents an application ID
+      that the user has administrative rights on.
+  """
+  email = ndb.StringProperty()
+  is_user_cloud_admin = ndb.BooleanProperty()
+  i_can_upload = ndb.BooleanProperty()
+  user_app_list = ndb.StringProperty(repeated=True)
 
 
 class AppDashboardData():
@@ -64,7 +112,7 @@ class AppDashboardData():
   # Delimiter for status roles
   STATUS_ROLES_DELIMITER = ','
 
-  # The charcter that seperates apps.
+  # The charcter that separates apps.
   APP_DELIMITER = ":"
 
   def __init__(self, helper = None):
@@ -77,33 +125,33 @@ class AppDashboardData():
     if self.helper is None:
       self.helper = AppDashboardHelper()
 
-    self.root = self.get_one(DashboardDataRoot, self.ROOT_KEYNAME)
+    self.root = self.get_by_id(DashboardDataRoot, self.ROOT_KEYNAME)
     if not self.root:
-      self.root = DashboardDataRoot(key_name=self.ROOT_KEYNAME)
+      self.root = DashboardDataRoot(id = self.ROOT_KEYNAME)
       self.root.put()
       self.initialize_datastore()
 
-  def get_one(self, obj, key):
+  def get_by_id(self, obj, key):
     """ Get one object from the datastore.
 
     Args:
-      obj: A db.Model class to reterive.
-      key: A string, the key name to reterive.
+      obj: A ndb.Model class to retrieve.
+      key: A string, the key name to retrieve.
     Returns:
       An object of type obj, or None.
     """
-    return obj.get_by_key_name(key)
+    return obj.get_by_id(key)
 
   def get_all(self, obj, keys_only=False):
     """ Get all objects from the datastore.
 
     Args:
-      obj: A db.Model class to reterive.
-      keys_only: A boolean, to reterive only the keys.
+      obj: A ndb.Model class to retrieve.
+      keys_only: A boolean, to retrieve only the keys.
     Returns:
-      A db.Query object.
+      A ndb.Query object.
     """
-    return obj.all(keys_only=keys_only)
+    return obj.query().fetch(keys_only=keys_only)
 
   def initialize_datastore(self):
     """ Initialze datastore. Run once per appscale deployment. """
@@ -129,8 +177,7 @@ class AppDashboardData():
       if url:
         return "http://{0}:{1}".format(url, self.MONITOR_PORT)
     except Exception as err:
-      logging.info("AppDashboardData.get_monitoring_url() caught "\
-        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
+      logging.exception(err)
     return ''
 
   def get_head_node_ip(self):
@@ -147,8 +194,7 @@ class AppDashboardData():
       self.root.head_node_ip = self.helper.get_host_with_role('shadow')
       self.root.put()
     except Exception as err:
-      logging.info("AppDashboardData.update_head_node_ip() caught "\
-        "Exception "+ str(type(err)) + ":" + str(err) + traceback.format_exc())
+      logging.exception(err)
 
 
   def get_apistatus(self):
@@ -158,10 +204,9 @@ class AppDashboardData():
       A dict where the keys are the names of the services, and the values or the
        status of that service.
     """
-    status_query = self.get_all(APIstatus)
-    status_query.ancestor(self.root)
+    statuses = self.get_all(APIstatus)
     ret = {}
-    for status in status_query.run():
+    for status in statuses:
       ret[ status.name ] = status.value
     return ret
 
@@ -171,15 +216,14 @@ class AppDashboardData():
       acc = self.helper.get_server()
       stat_dict = acc.get_api_status()
       for key in stat_dict.keys():
-        store = self.get_one(APIstatus, key)
+        store = self.get_by_id(APIstatus, key)
         if not store:
-          store = APIstatus(parent = self.root, key_name = key)
+          store = APIstatus(id = key)
           store.name = key
         store.value = stat_dict[key]
         store.put()
     except Exception as err:
-      logging.info("AppDashboardData.update_apistatus() caught Exception"\
-        + str(type(err)) + ":" + str(err)+ traceback.format_exc())
+      logging.exception(err)
 
   def get_status_info(self):
     """ Return the status information for all the server in the cluster from
@@ -188,10 +232,9 @@ class AppDashboardData():
     Returns:
       A list of dicts containing the status information on each server.
     """    
-    status_query = self.get_all(ServerStatus)
-    status_query.ancestor(self.root)
+    statuses = self.get_all(ServerStatus)
     ret = []
-    for status in status_query.run():
+    for status in statuses:
       server = {}
       server['ip'] = status.ip
       server['cpu'] = status.cpu
@@ -209,9 +252,9 @@ class AppDashboardData():
       acc = self.helper.get_server()
       nodes = acc.get_stats()
       for node in nodes:
-        status = self.get_one(ServerStatus, node['ip'])
+        status = self.get_by_id(ServerStatus, node['ip'])
         if not status:
-          status = ServerStatus(parent = self.root, key_name = node['ip'])
+          status = ServerStatus(id = node['ip'])
           status.ip = node['ip']
         status.cpu    = str(node['cpu'])
         status.memory = str(node['memory'])
@@ -220,8 +263,7 @@ class AppDashboardData():
         status.roles  = self.STATUS_ROLES_DELIMITER.join(node['roles'])
         status.put()
     except Exception as err:
-      logging.info("AppDashboardData.update_status_info() caught Exception"\
-        + str(type(err)) + ":" + str(err) + traceback.format_exc())
+      logging.exception(err)
 
 
   def get_database_info(self):
@@ -237,7 +279,7 @@ class AppDashboardData():
     return ret
 
   def update_database_info(self):
-    """ Querys the AppController and stores the database information of this
+    """ Queries the AppController and stores the database information of this
         cloud and store in the datastore. """
     try:
       acc = self.helper.get_server()
@@ -246,8 +288,7 @@ class AppDashboardData():
       self.root.replication = db_info['replication']
       self.root.put()
     except Exception as err:
-      logging.info("AppDashboardData.get_database_info() caught "
-        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
+      logging.exception(err)
 
   def get_application_info(self):
     """ Returns the list of applications running on this cloud.
@@ -256,10 +297,9 @@ class AppDashboardData():
       A dict where the key is the app name, and the value is
       the url of the app (if running) or None (if loading).
     """
-    status_query = self.get_all(AppStatus)
-    status_query.ancestor(self.root)
+    statuses = self.get_all(AppStatus)
     ret = {}
-    for status in status_query.run():
+    for status in statuses:
       ret[status.name] = status.url
     return ret
 
@@ -281,34 +321,22 @@ class AppDashboardData():
       'email={1})'.format(app, email))
       
     try:
-      app_status = self.get_one(AppStatus, app)
+      app_status = self.get_by_id(AppStatus, app)
       if app_status:
         app_status.delete()
-      user_info = self.get_one(UserInfo, email)
+      user_info = self.get_by_id(UserInfo, email)
       if user_info:
-          app_list = user_info.user_app_list.split(self.APP_DELIMITER)
-          if app in app_list:
-            app_list.remove(app)
-            user_info.user_app_list = self.APP_DELIMITER.join(app_list)
+          if app in user_info.user_app_list:
+            user_info.user_app_list.remove(app)
             user_info.put()
       return user_info
     except Exception as err:
-      logging.info("AppDashboardData.delete_app_from_datastore() caught "
-        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
+      logging.exception(err)
 
  
   def update_application_info(self):
-    """ Querys the AppController and stores the list of applications running on
-        this cloud.  """
-
-    def update_application_info_tx(root, input_list):
-      """ Transactional function for update_application_info(). """
-      query = self.get_all(AppStatus, keys_only=True)
-      query.ancestor(root)
-      db.delete(query)
-      for status in input_list:
-        status.put()
-        return_list.append(status)
+    """ Queries the AppController and stores the list of applications running on
+        this cloud. """
 
     try:
       updated_status = []
@@ -326,20 +354,21 @@ class AppDashboardData():
               ret[app] = None
           else:
             ret[app] = None
-          app_status = self.get_one(AppStatus, app)
+          app_status = self.get_by_id(AppStatus, app)
           if not app_status:
-            app_status =  AppStatus(parent = self.root, key_name = app)
+            app_status = AppStatus(id = app)
             app_status.name = app
           app_status.url = ret[app]
           updated_status.append( app_status )
 
-        db.run_in_transaction(update_application_info_tx, self.root, \
-          updated_status)
+        statuses = self.get_all(AppStatus, keys_only=True)
+        ndb.delete_multi(statuses)
+        for status in updated_status:
+          status.put()
+          return_list.append(status)
       return ret
-
     except Exception as err:
-      logging.info("AppDashboardData.update_application_info() caught "
-        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
+      logging.exception(err)
 
   def update_users(self):
     """ Query the UserAppServer and update the state of all the users. """
@@ -347,82 +376,83 @@ class AppDashboardData():
     try:
       all_users_list = self.helper.list_all_users()
       for email in all_users_list:
-        user_info = self.get_one(UserInfo, email)
+        user_info = self.get_by_id(UserInfo, email)
         if not user_info:
-          user_info = UserInfo(key_name=email)
+          user_info = UserInfo(id=email)
           user_info.email = email
         user_info.is_user_cloud_admin = self.helper.is_user_cloud_admin(
           user_info.email)
         user_info.i_can_upload = self.helper.i_can_upload(user_info.email)
-        user_info.user_app_list = self.APP_DELIMITER.join(
-          self.helper.get_user_app_list(user_info.email))
+        user_info.user_app_list = self.helper.get_user_app_list(user_info.email)
         user_info.put()
         return_list.append(user_info)
       return return_list
     except Exception as err:
-      logging.info("AppDashboardData.update_users() caught "
-        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
+      logging.exception(err)
 
   def get_user_app_list(self):
-    """ Get a list of apps that the current logged in user is an 
-        admin of.
+    """ Queries the UserAppServer to see which Google App Engine applications
+    the currently logged in user has administrative permissions on.
 
     Returns:
-      A list of strs, each is the name of an app. 
+      A list of strs, where each str corresponds to an appid that this user
+      can administer. Returns an empty list if this user isn't logged in.
     """
     user = users.get_current_user()
     if not user:
       return []
     email = user.email()
     try:
-      user_info = self.get_one(UserInfo, email)
-      if not user_info:
+      user_info = self.get_by_id(UserInfo, email)
+      if user_info:
+        return user_info.user_app_list
+      else:
         return []
-      app_list = user_info.user_app_list
-      if len(app_list) == 0:
-        return []
-      return app_list.split(self.APP_DELIMITER)
     except Exception as err:
-      logging.info("AppDashboardData.get_user_app_list() caught "
-        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
+      logging.exception(err)
       return []
 
   def is_user_cloud_admin(self):
-    """ Check if the logged in user is a cloud admin.
+    """ Queries the UserAppServer to see if the currently logged in user has the
+    authority to administer this AppScale deployment.
 
     Returns:
-      True if the user is a cloud admin, and False otherwise.
+      True if the currently logged in user is a cloud administrator, and False
+      otherwise (or if the user isn't logged in).
     """
     user = users.get_current_user()
     if not user:
       return False
     try:
-      user_info = self.get_one(UserInfo, user.email())
-      if not user_info:
+      user_info = self.get_by_id(UserInfo, user.email())
+      if user_info:
+        return user_info.is_user_cloud_admin
+      else:
         return False
-      return user_info.is_user_cloud_admin
     except Exception as err:
-      logging.info("AppDashboardData.is_user_cloud_admin() caught "
-        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
+      logging.exception(err)
       return False
 
   def i_can_upload(self):
-    """ Check if the logged in user can upload apps.
+    """ Queries the UserAppServer to see if the currently logged in user has the
+    authority to upload Google App Engine applications on this AppScale
+    deployment.
 
     Args:
       email: Email address of the user.
     Returns:
-      True if the user can upload apps, and False otherwise.
+      True if the currently logged in user can upload Google App Engine
+      applications, and False otherwise (or if the user isn't logged in).
     """
     user = users.get_current_user()
     if not user:
       return False
     try:
-      user_info = self.get_one(UserInfo, user.email())
-      if not user_info:
+      user_info = self.get_by_id(UserInfo, user.email())
+      if user_info:
+        return user_info.i_can_upload
+      else:
         return False
-      return user_info.i_can_upload
     except Exception as err:
-      logging.info("AppDashboardData.i_can_upload() caught "
-        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
+      logging.exception(err)
       return False
