@@ -2,7 +2,7 @@ watch('AppController/(.*).rb') { |md|
   system "rake appcontroller:test"
 }
 
-watch('(AppDashboard)/(.*).py') { |md|
+watch('AppDashboard/(.*).py') { |md|
   system "rake appdashboard:test"
 }
 

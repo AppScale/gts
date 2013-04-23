@@ -198,20 +198,20 @@ class AppDashboardData():
 
 
   def get_apistatus(self):
-    """ Reterive the API status from the datastore.
+    """ Retrieve the API status from the datastore.
 
     Returns:
-      A dict where the keys are the names of the services, and the values or the
-       status of that service.
+      A dict where the keys are the names of the services, and the values are
+        the status of that service.
     """
     statuses = self.get_all(APIstatus)
     ret = {}
     for status in statuses:
-      ret[ status.name ] = status.value
+      ret[status.name] = status.value
     return ret
 
   def update_apistatus(self):
-    """ Reterive the API status from the system and store in the datastore. """
+    """ Retrieve the API status from the system and store in the datastore. """
     try:
       acc = self.helper.get_server()
       stat_dict = acc.get_api_status()
@@ -326,9 +326,9 @@ class AppDashboardData():
         app_status.delete()
       user_info = self.get_by_id(UserInfo, email)
       if user_info:
-          if app in user_info.user_app_list:
-            user_info.user_app_list.remove(app)
-            user_info.put()
+        if app in user_info.user_app_list:
+          user_info.user_app_list.remove(app)
+          user_info.put()
       return user_info
     except Exception as err:
       logging.exception(err)
@@ -359,10 +359,11 @@ class AppDashboardData():
             app_status = AppStatus(id = app)
             app_status.name = app
           app_status.url = ret[app]
-          updated_status.append( app_status )
+          updated_status.append(app_status)
 
         statuses = self.get_all(AppStatus, keys_only=True)
         ndb.delete_multi(statuses)
+        return_list = []
         for status in updated_status:
           status.put()
           return_list.append(status)
