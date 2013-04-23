@@ -13,11 +13,6 @@ import urllib
 
 import SOAPpy
 
-if 'TOOLS_PATH' in os.environ:
-  sys.path.append(os.environ['TOOLS_PATH'] + '/lib')
-else:
-  sys.path.append('/usr/local/appscale-tools/lib')
-
 from appcontroller_client import AppControllerClient
 from local_state import LocalState
 

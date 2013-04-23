@@ -4,14 +4,10 @@
 import sys
 import unittest
 
-from functional_test_dashboard import FunctionalTestAppDashboard
 from test_app_dashboard_data import TestAppDashboardData
 
 
-test_cases = [
-  TestAppDashboardData,
-  FunctionalTestAppDashboard,
-  ]
+test_cases = [TestAppDashboardData]
 
 test_case_names = []
 for cls in test_cases:
@@ -20,11 +16,11 @@ for cls in test_cases:
 appscale_test_suite = unittest.TestSuite()
 if len(sys.argv) > 1:
   if sys.argv[1] in test_case_names:
-    print "only running test "+sys.argv[1]
+    print "only running test " + sys.argv[1]
     run_test_cases = [sys.argv[1]]
   else:
-    print "ERROR: unknown test "+sys.argv[1]
-    print "Options are: "+", ".join(test_case_names)
+    print "ERROR: unknown test " + sys.argv[1]
+    print "Options are: " + ", ".join(test_case_names)
     sys.exit(1)
 else:
   run_test_cases = test_case_names

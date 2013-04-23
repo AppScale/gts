@@ -5,7 +5,8 @@ import sys
 import os
 import unittest
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
+sys.path.append(os.path.join(os.path.expanduser("~"), "appscale/AppServer/"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../lib/"))
 from app_dashboard_data import AppDashboardData
 from app_dashboard_helper import AppDashboardHelper
 
