@@ -129,7 +129,13 @@
     </jar>
   </target>
 
-  <target name="update-jars" depends="update-api-jar, update-api-labs-jar, update-api-stubs-jar, update-local-runtime-jar, update-tools-api-jar" />
+  <target name="update-agent-runtime-jar" depends="compile, repack-sdk">
+    <jar destfile="${gae_dist}/lib/impl/agent/appengine-agentruntime.jar" basedir="${build}" update="true">
+      <include name="com/google/appengine/tools/development/agent/runtime/RuntimeHelper*" />
+    </jar>
+  </target>
+
+  <target name="update-jars" depends="update-api-jar, update-api-labs-jar, update-agent-runtime-jar, update-api-stubs-jar, update-local-runtime-jar, update-tools-api-jar" />
 
   <target name="install" depends="update-jars" />
 
