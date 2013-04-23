@@ -3,16 +3,18 @@
 
 import datetime
 import hashlib
+import logging
 import os
 import re
 import sys
 import tempfile
 import traceback
 import urllib
+
 import SOAPpy
 
 if 'TOOLS_PATH' in os.environ:
-  sys.path.append(os.environ['TOOLS_PATH']+'/lib')
+  sys.path.append(os.environ['TOOLS_PATH'] + '/lib')
 else:
   sys.path.append('/usr/local/appscale-tools/lib')
 
@@ -28,7 +30,7 @@ class AppHelperException(Exception):
   """ An exception thrown if the requested helper function failed. """
   pass
 
-class AppDashboardHelper:
+class AppDashboardHelper():
   """ Helper class to get info from AppScale. """
 
   # Name of the cookie used for login.
@@ -46,7 +48,7 @@ class AppDashboardHelper:
   # Regular expression to parse the number of ports.
   NUM_PORT_APP_REGEX = ".*num_ports:(\d+)"
 
-  # The charcter that seperates apps.
+  # The charcter that separates apps.
   APP_DELIMITER = ":"
 
   # The charcter that seperates users.
@@ -67,37 +69,34 @@ class AppDashboardHelper:
   # Regular expression to get the hashed password from the user data.
   USER_DATA_PASSWORD_REGEX = 'password:([0-9a-fA-F]+)'
 
-  # Regular expression to skip 
+  # Regular expression to skip non-users in response from UseAppServer.
   ALL_USERS_NON_USER_REGEX = '^[_]+$'
 
   # Delimiter to seperate user capabilites.
   USER_CAPABILITIES_DELIMITER = ':'
 
-  def __init__(self, response):
-    """ Constructor. 
-
-    Args:
-      response: The webapp2 response object of the parent of ths AppDashboard
-                object.
-    """
-    self.server = None
+  def __init__(self):
+    """ Constructor. """
+    self.appcontroller = None
     self.uaserver = None
-    self.response = response
+    # The cache is a data structure to store data used multiple times in a 
+    # single request.  This avoids multiple SOAP requests for the same data, and
+    # signifiantly increases performance.
     self.cache = {}
 
   def get_server(self):
-    """ Connects to the AppControler and returns the connection handle.
+    """ Connects to the AppController and returns the connection handle.
 
     Returns:
       An AppControllerClient object.
     """
-    if self.server is None:
-      self.server = AppControllerClient(self.APP_CONTROLLER_IP, \
+    if self.appcontroller is None:
+      self.appcontroller = AppControllerClient(self.APP_CONTROLLER_IP, 
         GLOBAL_SECRET_KEY)
-    return self.server
+    return self.appcontroller
 
   def get_uaserver(self):
-    """ Connects to the UserAppServer and returns the connection handle
+    """ Connects to the UserAppServer and returns the connection handle.
 
     Returns:
       A SOAPpy object that is connected to the UserAppServer.
@@ -105,7 +104,7 @@ class AppDashboardHelper:
     if self.uaserver is None:
       acc = self.get_server()
       uas_host = acc.get_uaserver_host(False)
-      self.uaserver = SOAPpy.SOAPProxy('https://%s:%s' % (uas_host, \
+      self.uaserver = SOAPpy.SOAPProxy('https://%s:%s' % (uas_host, 
         self.UA_SERVER_PORT))
     return self.uaserver
 
@@ -130,13 +129,13 @@ class AppDashboardHelper:
       self.cache['user_caps'][email] = caps_list
       return caps_list
     except Exception as err:
-      sys.stderr.write("AppDashboardHelper.get_user_capabilities() caught "\
+      logging.info("AppDashboardHelper.get_user_capabilities() caught "\
         "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
       return []
 
 
   def get_status_info(self):
-    """ Query the AppController and get the status informatoin for all the 
+    """ Query the AppController and get the status information for all the 
         server in the cluster.
 
     Returns:
@@ -147,7 +146,7 @@ class AppDashboardHelper:
       node = acc.get_stats()
       return node
     except Exception as err:
-      sys.stderr.write("AppDashboardHelper.get_status_info() caught "\
+      logging.info("AppDashboardHelper.get_status_info() caught "\
         "Exception " + str(type(err)) + ":" + str(err))
       return []
 
@@ -167,7 +166,7 @@ class AppDashboardHelper:
       try:
         nodes = acc.get_role_info()
       except Exception as err:
-        sys.stderr.write("AppDashboardHelper.get_host_with_role() caught "\
+        logging.info("AppDashboardHelper.get_host_with_role() caught "\
           "Exception " + str(type(err)) + ":" + str(err) + \
           traceback.format_exc())
         return ''
@@ -212,7 +211,7 @@ class AppDashboardHelper:
         port = int(result.group(1))
         return port
     except Exception as err:
-      sys.stderr.write("AppDashboardHelper.get_app_port() caught "\
+      logging.info("AppDashboardHelper.get_app_port() caught "\
         "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
     raise AppHelperException("app has no port")
 
@@ -249,7 +248,7 @@ class AppDashboardHelper:
       return "Application uploaded successfully.  Please wait for the "\
              "application to start running."
     except Exception as err:
-      sys.stderr.write("upload_app() caught Exception " + str(type(err)) + ":"\
+      logging.info("upload_app() caught Exception " + str(type(err)) + ":"\
         + str(err) + traceback.format_exc())
       raise AppHelperException("There was an error uploading your application.")
 
@@ -268,10 +267,10 @@ class AppDashboardHelper:
       acc = self.get_server()
       ret = acc.stop_app(appname)
       if ret != "true":
-        sys.stderr.write("delete_app() AppControler returned: " + ret)
+        logging.info("delete_app() AppControler returned: " + ret)
         return "There was an error attempting to remove the application."
     except Exception as err:
-      sys.stderr.write("delete_app() caught exception: " + str(type(err)) + ":"\
+      logging.info("delete_app() caught exception: " + str(type(err)) + ":"\
               + str(err) + traceback.format_exc())
       return "There was an error attempting to remove the application."
     return "Application removed successfully. Please wait for your app to shut"\
@@ -294,7 +293,7 @@ class AppDashboardHelper:
         if num_ports > 0:
           return True
     except Exception as err:
-      sys.stderr.write("AppDashboardHelper.does_app_exist() caught "\
+      logging.info("AppDashboardHelper.does_app_exist() caught "\
         "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
     return False
 
@@ -313,7 +312,7 @@ class AppDashboardHelper:
     """ Get the logged in user's email.
 
     Returns:
-      A str with the user's email, or '' if not found.
+      A str with the user's email, or '' if the user is not logged in. 
     """
     user = users.get_current_user()
     if user:
@@ -334,10 +333,10 @@ class AppDashboardHelper:
         return []
       email = user.email()
     user_data = self.query_user_data(email)
-    app_resp = re.search(self.USER_APP_LIST_REGEX, user_data)
-    if app_resp:
-      apps_list = app_resp.group(1).split(self.APP_DELIMITER)
-    return apps_list
+    user_data_match = re.search(self.USER_APP_LIST_REGEX, user_data)
+    if user_data_match:
+      return  user_data_match.group(1).split(self.APP_DELIMITER)
+    return []
 
   def query_user_data(self, email):
     """ Queries the UserAppServer and returns the data on a user.
@@ -359,7 +358,7 @@ class AppDashboardHelper:
       self.cache['query_user_data'][email] = user_data
       return user_data
     except Exception as err:
-      sys.stderr.write("AppDashboardHelper.query_user_data() caught "\
+      logging.info("AppDashboardHelper.query_user_data() caught "\
         "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
       return ''
 
@@ -369,7 +368,7 @@ class AppDashboardHelper:
     Args:
       email: Email address of the user.
     Returns:
-      True or False.
+      True if the user is a cloud admin, and False otherwise.
     """
     if email is None:
       user = users.get_current_user()
@@ -388,7 +387,7 @@ class AppDashboardHelper:
     Args:
       email: Email address of the user.
     Returns:
-      True or False.
+      True if the user can upload apps, and False otherwise.
     """
     if email is None:
       user = users.get_current_user()
@@ -399,12 +398,15 @@ class AppDashboardHelper:
       return True
     return False
 
-  def create_new_user(self, email, password, account_type='xmpp_user'):
+  def create_new_user(self, email, password, response, 
+        account_type='xmpp_user'):
     """ Create new user in the system. 
 
     Args:
       email: Email address of the new user.
       password: Password for the new user.
+      response: The webapp2 response object of the parent of ths AppDashboard
+                object.
     Returns:
       True if the user was created.
     Raises:
@@ -432,37 +434,37 @@ class AppDashboardHelper:
         raise AppHelperException(result)
   
       self.create_token(email, email)
-      self.set_appserver_cookie(email)
+      self.set_appserver_cookie(email, response)
     except AppHelperException as err:
       raise AppHelperException(str(err))
     except Exception as err:
-      sys.stderr.write("AppDashboardHelper.create_new_user() caught "\
+      logging.info("AppDashboardHelper.create_new_user() caught "\
         "Exception " + str(type(err)) + ":" + str(err))
       raise AppHelperException(str(err))
     return True
 
-  def remove_appserver_cookie(self):
-    """ Removes the login cookie. """
-    self.response.delete_cookie(self.DEV_APPSERVER_LOGIN_COOKIE)
-
-  def set_appserver_cookie(self, email):
+  def set_appserver_cookie(self, email, response):
     """ Sets the login cookie.
 
     Args:
       email: Email of the user to login.
+      response: The webapp2 response object of the parent of ths AppDashboard
+                object.
     """
     apps = ''
-    user_data =  self.query_user_data(email)
+    user_data = self.query_user_data(email)
     app_re = re.search(self.USER_APP_LIST_REGEX, user_data)
     if app_re:
       apps_list = app_re.group(1).split(self.APP_DELIMITER)
       apps =  ",".join(apps_list)
-    self.response.set_cookie( self.DEV_APPSERVER_LOGIN_COOKIE,
+    response.set_cookie(self.DEV_APPSERVER_LOGIN_COOKIE,
       value=self.get_cookie_value(email, apps),
       expires=datetime.datetime.now() + datetime.timedelta(days=1))
 
   def get_cookie_value(self, email, apps):
-    """ Get the value of the login cookie.
+    """ Generates a hash corresponding to the given user's credentials.
+        It is a hashed string containing the email, nickname, and list 
+        of apps the user is an admin of.
     
     Args:
       email: Email of the user to login.
@@ -480,7 +482,7 @@ class AppDashboardHelper:
     Args:
       email: Email of the user to login.
       nick: Email of the user to login.
-      apps: A str with a comma seperate list of apps the user is an admin of.
+      apps: A str with a comma-seperated list of apps the user is an admin of.
     Returns:
       A str that is the hex hash of the input values.
     """
@@ -495,42 +497,48 @@ class AppDashboardHelper:
     """
     try:
       uaserver = self.get_uaserver()
-      uaserver.commit_new_token(token, email, self.TOKEN_EXPIRATION, \
+      uaserver.commit_new_token(token, email, self.TOKEN_EXPIRATION, 
         GLOBAL_SECRET_KEY)
     except Exception as err:
-      sys.stderr.write("AppDashboardHelper.create_token() caught "\
+      logging.info("AppDashboardHelper.create_token() caught "\
         "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
 
-  def logout_user(self):
-    """ Logout the current user. """
-    user = users.get_current_user()
-    if not user:
-      return True
-    email = user.email()
-    self.create_token('invalid', email)
-    self.remove_appserver_cookie()
+  def logout_user(self, response):
+    """ Remove the user's login cookie and invalidate the login token in
+        the AppScale deployment.  This results in the user being logged out.
 
-  def login_user(self, email, password):
+    Args:
+      response: The webapp2 response object of the parent of ths AppDashboard
+                object.
+    """
+    user = users.get_current_user()
+    if user:
+      self.create_token('invalid', user.email())
+      response.delete_cookie(self.DEV_APPSERVER_LOGIN_COOKIE)
+
+  def login_user(self, email, password, response):
     """ Attempt to login the user.
 
     Args:
       email: Email of the user to login.
       password: Password of the user to login.
+      response: The webapp2 response object of the parent of ths AppDashboard
+                object.
     Return:
-      True or False if the login succeeded.
+      True if the user logged in successfully, and False otherwise.
     """
     user_data =  self.query_user_data(email) 
     server_re = re.search(self.USER_DATA_PASSWORD_REGEX, user_data)
     if not server_re:
-      sys.stderr.write("Failed Login: {0} regex failed".format(email))
+      logging.info("Failed Login: {0} regex failed".format(email))
       return False
     server_pwd = server_re.group(1)
     encrypted_pass = LocalState.encrypt_password(email, password)
     if server_pwd != encrypted_pass:
-      sys.stderr.write("Failed Login: {0} password mismatch".format(email))
+      logging.info("Failed Login: {0} password mismatch".format(email))
       return False
     self.create_token(email, email)
-    self.set_appserver_cookie(email)
+    self.set_appserver_cookie(email, response)
     return True
 
   def list_all_users(self):
@@ -552,13 +560,13 @@ class AppDashboardHelper:
           continue
         ret_list.append(usr)
     except Exception as err:
-      sys.stderr.write("AppDashboardHelper.list_all_users() caught "\
+      logging.info("AppDashboardHelper.list_all_users() caught "\
         "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
     return ret_list
 
-  def list_all_users_permisions(self):
+  def list_all_users_permissions(self):
     """ Queries the UserAppServer and returns a list of all the users and the 
-        permission they have in the system.
+        permissions they have in the system.
 
     Returns:
       A list of dicts with the email and permissions of each user in the system.
@@ -568,7 +576,7 @@ class AppDashboardHelper:
       all_users_list = self.list_all_users()
       perm_items = self.get_all_permission_items()
       for usr in all_users_list:
-        usr_cap = {'email' : usr }
+        usr_cap = {'email' : usr}
         caps_list = self.get_user_capabilities(usr)
         for perm in perm_items:
           if perm in caps_list:
@@ -577,12 +585,13 @@ class AppDashboardHelper:
             usr_cap[perm] = False
         ret_list.append(usr_cap)
     except Exception as err:
-      sys.stderr.write("AppDashboardHelper.list_all_users_permisions() caught "\
+      logging.info("AppDashboardHelper.list_all_users_permissions() caught "\
         "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
     return ret_list
 
   def get_all_permission_items(self):
-    """ Returns a list of all permission items in the system.
+    """ Returns a list of the types of permissions that can be assigned to 
+        users in this system.
    
     Returns:
       A list of strs with the permission items to display. 
@@ -593,7 +602,7 @@ class AppDashboardHelper:
     """ Add a permission to a user.
 
     Args: 
-      email: Email addres of the user.
+      email: Email address of the user.
       perm: Name of the permission to give to the user.
     Returns: True if the permission was given to the user,
       else False.
@@ -607,17 +616,17 @@ class AppDashboardHelper:
       else:
         return True
 
-      ret = uas.set_capabilities(email, \
-        self.USER_CAPABILITIES_DELIMITER.join(new_caps),  GLOBAL_SECRET_KEY)
+      ret = uas.set_capabilities(email, 
+        self.USER_CAPABILITIES_DELIMITER.join(new_caps), GLOBAL_SECRET_KEY)
       if ret == 'true':
         self.cache['user_caps'][email] = new_caps
         return True
       else:
-        sys.stderr.write("ERROR: UserAppServer.set_capabilities returned: " + \
+        logging.info("ERROR: UserAppServer.set_capabilities returned: " + \
           ret)
         return False
     except Exception as err:
-      sys.stderr.write("add_user_permissions() caught Exception: " + \
+      logging.info("add_user_permissions() caught Exception: " + \
         str(type(err)) + ":" + str(err) + traceback.format_exc())
       return False
     return True
@@ -627,32 +636,29 @@ class AppDashboardHelper:
     """ Remove a permission from a user.
 
     Args: 
-      email: Email addres of the user.
+      email: Email address of the user.
       perm: Name of the permission to remove from the user.
     Returns: 
-      True if the permission was remove from the user, else False.
+      True if the permission was removed from the user, else False.
     """
     try:
       caps_list = self.get_user_capabilities(email)
       uas = self.get_uaserver()
-      new_caps = []
       if perm in caps_list:
-        for pitem in caps_list:
-          if pitem != perm:
-            new_caps.append(pitem)
+        caps_list.remove(perm)
       else:
         return True 
 
-      ret = uas.set_capabilities(email, \
-        self.USER_CAPABILITIES_DELIMITER.join(new_caps),  GLOBAL_SECRET_KEY)
+      ret = uas.set_capabilities(email, 
+        self.USER_CAPABILITIES_DELIMITER.join(caps_list), GLOBAL_SECRET_KEY)
       if ret == 'true':
-        self.cache['user_caps'][email] = new_caps
+        self.cache['user_caps'][email] = caps_list
         return True
       else:
-        sys.stderr.write("uas.set_capabilities returned: " + ret)
+        logging.info("uas.set_capabilities returned: " + ret)
         return False
     except Exception as err:
-      sys.stderr.write("remove_user_permissions() caught Exception: " + \
+      logging.info("remove_user_permissions() caught Exception: " + \
         str(type(err)) + ":" + str(err) + traceback.format_exc())
       return False
     return True

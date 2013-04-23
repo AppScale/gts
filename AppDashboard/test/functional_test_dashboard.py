@@ -31,33 +31,44 @@ import StringIO
 
 from appcontroller_client import AppControllerClient
 
-from google.appengine.api import users
 from google.appengine.ext import db
-
+from google.appengine.api import users
+from google.appengine.api import taskqueue
 
 # from the app main.py
 import dashboard
 from app_dashboard_helper import AppDashboardHelper
 from app_dashboard_data import AppDashboardData
 
+import app_dashboard_data
 from app_dashboard_data import DashboardDataRoot
 from app_dashboard_data import APIstatus
 from app_dashboard_data import ServerStatus
 from app_dashboard_data import AppStatus
 
-
-#import lib
-#import lib.app_dashboard_data
 from secret_key import GLOBAL_SECRET_KEY
 
-class TestAppDashboard(unittest.TestCase):
+class FunctionalTestAppDashboard(unittest.TestCase):
 
   def setUp(self):
     acc = flexmock(AppControllerClient)
     acc.should_receive('get_uaserver_host').and_return('public1')
-    acc.should_receive('get_stats').and_return(
-        [{'apps':{ 'app1':True, 'app2':False } }]
-      )
+    acc.should_receive('get_stats').and_return([
+        {'ip' : '1.1.1.1',
+         'cpu' : '50',
+         'memory' : '50',
+         'disk' : '50',
+         'cloud' : 'cloud1',
+         'roles' : 'roles1',
+         'apps':{ 'app1':True, 'app2':False }
+        },
+        {'ip' : '2.2.2.2',
+         'cpu' : '50',
+         'memory' : '50',
+         'disk' : '50',
+         'cloud' : 'cloud1',
+         'roles' : 'roles1'}
+      ])
     acc.should_receive('get_role_info').and_return(
      [{'jobs':['shadow', 'login'], 'public_ip':'1.1.1.1'} ]
      )
@@ -112,95 +123,142 @@ class TestAppDashboard(unittest.TestCase):
     self.response = self.fakeResponse()
     self.set_user()  
 
-    fake_dataroot = flexmock(name='DashboardDataRoot')
-    fake_root = flexmock(DashboardDataRoot)
-    fake_root.new_instances(fake_dataroot)
-    fake_root.should_receive('get_by_key_name').and_return(None)\
-      .and_return(fake_dataroot)
-    fake_dataroot.should_receive('put').and_return()
-    fake_dataroot.head_node_ip = ''
-    fake_dataroot.table = ''
-    fake_dataroot.replication = ''
+    fake_tq = flexmock(taskqueue)
+    fake_tq.should_receive('add').and_return()
 
+    self.setup_fake_db()
+
+
+  def setup_fake_db(self):
+    fake_root = flexmock()
+    fake_root.head_node_ip = '1.1.1.1'
+    fake_root.table = 'table'
+    fake_root.replication = 'replication'
+    fake_root.should_receive('put').and_return()
+    flexmock(app_dashboard_data).should_receive('DashboardDataRoot')\
+      .and_return(fake_root)
+    flexmock(AppDashboardData).should_receive('get_one')\
+      .with_args(app_dashboard_data.DashboardDataRoot,
+        AppDashboardData.ROOT_KEYNAME)\
+      .and_return(None)\
+      .and_return(fake_root)
     fake_api1 = flexmock(name='APIstatus')
     fake_api1.name = 'api1'
     fake_api1.value = 'running'
     fake_api1.should_receive('put').and_return()
     fake_api2 = flexmock(name='APIstatus')
-    fake_api2.name = 'api1'
+    fake_api2.name = 'api2'
     fake_api2.value = 'failed'
-    fake_api1.should_receive('put').and_return()
+    fake_api2.should_receive('put').and_return()
     fake_api3 = flexmock(name='APIstatus')
-    fake_api3.name = 'api1'
+    fake_api3.name = 'api3'
     fake_api3.value = 'unknown'
-    fake_api1.should_receive('put').and_return()
-    fake_query = flexmock(name='APIstatus_query')
-    fake_query.should_receive('ancestor').and_return()
-    fake_query.should_receive('run')\
+    fake_api3.should_receive('put').and_return()
+    fake_api_q = flexmock()
+    fake_api_q.should_receive('ancestor').and_return()
+    fake_api_q.should_receive('run')\
+      .and_yield(fake_api1, fake_api2, fake_api3)
+    flexmock(AppDashboardData).should_receive('get_one')\
+      .with_args(app_dashboard_data.APIstatus, re.compile('api'))\
       .and_return(fake_api1)\
-      .and_return(fake_api2)\
+      .and_return(fake_api3)\
       .and_return(fake_api3)
-    fake_apistatus = flexmock(APIstatus)
-    fake_apistatus.new_instances(fake_api1)
-    fake_apistatus.should_receive('all').and_return(fake_query)
-    fake_apistatus.should_receive('get_by_key_name')\
-      .and_return(fake_api1)\
-      .and_return(fake_api2)\
-      .and_return(fake_api3)
+    flexmock(AppDashboardData).should_receive('get_all')\
+      .with_args(app_dashboard_data.APIstatus)\
+      .and_return(fake_api_q)
 
     fake_server1 = flexmock(name='ServerStatus')
-    fake_server1.ip = ''
-    fake_server1.cpu = ''
-    fake_server1.memory = ''
-    fake_server1.disk = ''
-    fake_server1.cloud = ''
-    fake_server1.roles = ''
+    fake_server1.ip = '1.1.1.1'
+    fake_server1.cpu = '25'
+    fake_server1.memory = '50'
+    fake_server1.disk = '100'
+    fake_server1.cloud = 'cloud1'
+    fake_server1.roles = 'roles2'
     fake_server1.should_receive('put').and_return()
     fake_server2 = flexmock(name='ServerStatus')
-    fake_server2.ip = ''
-    fake_server2.cpu = ''
-    fake_server2.memory = ''
-    fake_server2.disk = ''
-    fake_server2.cloud = ''
-    fake_server2.roles = ''
+    fake_server2.ip = '2.2.2.2'
+    fake_server2.cpu = '75'
+    fake_server2.memory = '55'
+    fake_server2.disk = '100'
+    fake_server2.cloud = 'cloud1'
+    fake_server2.roles = 'roles2'
     fake_server2.should_receive('put').and_return()
-    fake_server_query = flexmock(name='APIstatus_query')
-    fake_server_query.should_receive('ancestor').and_return()
-    fake_server_query.should_receive('run')\
+    flexmock(app_dashboard_data).should_receive('ServerStatus')\
+      .and_return(fake_server1)
+    fake_server_q = flexmock()
+    fake_server_q.should_receive('ancestor').and_return()
+    fake_server_q.should_receive('run')\
+      .and_yield(fake_server1, fake_server2)
+    fake_server_q.should_receive('get')\
       .and_return(fake_server1)\
       .and_return(fake_server2)
-    fake_serverstatus = flexmock(ServerStatus)
-    fake_serverstatus.new_instances(fake_server1)
-    fake_serverstatus.should_receive('all').and_return(fake_server_query)
-    fake_serverstatus.should_receive('get_by_key_name')\
+    flexmock(AppDashboardData).should_receive('get_all')\
+      .with_args(app_dashboard_data.ServerStatus)\
+      .and_return(fake_server_q)
+    flexmock(AppDashboardData).should_receive('get_one')\
+      .with_args(app_dashboard_data.ServerStatus, re.compile('\d'))\
       .and_return(fake_server1)\
       .and_return(fake_server2)
-
-    fake_db = flexmock(db)
-    fake_db.should_receive('delete').and_return()
-    fake_db.should_receive('run_in_transaction').and_return()
 
     fake_app1 = flexmock(name='AppStatus')
-    fake_app1.name = 'api1'
-    fake_app1.url = 'running'
+    fake_app1.name = 'app1'
+    fake_app1.url = 'http://1.1.1.1:8080'
     fake_app1.should_receive('put').and_return()
     fake_app1.should_receive('delete').and_return()
     fake_app2 = flexmock(name='AppStatus')
-    fake_app2.name = 'api1'
-    fake_app2.url = 'running'
+    fake_app2.name = 'app2'
+    fake_app2.url = None
     fake_app2.should_receive('put').and_return()
     fake_app2.should_receive('delete').and_return()
-    fake_app_query = flexmock(name='AppStatus_query')
-    fake_app_query.should_receive('ancestor').and_return()
-    fake_app_query.should_receive('run')\
+    flexmock(app_dashboard_data).should_receive('AppStatus')\
+      .and_return(fake_app1)
+    fake_app_q = flexmock()
+    fake_app_q.should_receive('ancestor').and_return()
+    fake_app_q.should_receive('run')\
+      .and_yield(fake_app1, fake_app2)
+    flexmock(AppDashboardData).should_receive('get_all')\
+      .with_args(app_dashboard_data.AppStatus)\
+      .and_return(fake_app_q)
+    flexmock(AppDashboardData).should_receive('get_all')\
+      .with_args(app_dashboard_data.AppStatus, keys_only=True)\
+      .and_return(fake_app_q)
+    flexmock(AppDashboardData).should_receive('get_one')\
+      .with_args(app_dashboard_data.AppStatus, re.compile('app'))\
       .and_return(fake_app1)\
       .and_return(fake_app2)
-    fake_appstatus = flexmock(AppStatus)
-    fake_appstatus.new_instances(fake_app1)
-    fake_appstatus.should_receive('all').and_return(fake_app_query)
-    fake_appstatus.should_receive('get_by_key_name')\
-      .and_return(fake_app1)\
-      .and_return(fake_app2)
+
+    user_info1 = flexmock(name='UserInfo')
+    user_info1.email = 'a@a.com'
+    user_info1.is_user_cloud_admin = True
+    user_info1.i_can_upload = True
+    user_info1.user_app_list = 'app1:app2'
+    user_info1.should_receive('put').and_return()
+    user_info2 = flexmock(name='UserInfo')
+    user_info2.email = 'b@a.com'
+    user_info2.is_user_cloud_admin = False
+    user_info2.i_can_upload = True
+    user_info2.user_app_list = 'app2'
+    user_info2.should_receive('put').and_return()
+    user_info3 = flexmock(name='UserInfo')
+    user_info3.email = 'c@a.com'
+    user_info3.is_user_cloud_admin = False
+    user_info3.i_can_upload = False
+    user_info3.user_app_list = 'app2'
+    user_info3.should_receive('put').and_return()
+    flexmock(app_dashboard_data).should_receive('UserInfo')\
+      .and_return(user_info1)
+    flexmock(AppDashboardData).should_receive('get_one')\
+      .with_args(app_dashboard_data.UserInfo, re.compile('a@a.com'))\
+      .and_return(user_info1)
+    flexmock(AppDashboardData).should_receive('get_one')\
+      .with_args(app_dashboard_data.UserInfo, re.compile('b@a.com'))\
+      .and_return(user_info2)
+    flexmock(AppDashboardData).should_receive('get_one')\
+      .with_args(app_dashboard_data.UserInfo, re.compile('c@a.com'))\
+      .and_return(user_info3)
+
+    flexmock(db).should_receive('delete').and_return()
+    flexmock(db).should_receive('run_in_transaction').and_return()
 
 
   def set_user(self, email=None):
@@ -288,6 +346,18 @@ class TestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('<!-- FILE:templates/landing/index.html -->', html))
     self.assertTrue(re.search('<a href="/users/logout">Logout now.</a>', html))
     self.assertTrue(re.search('<a href="/authorize">Manage users.</a>', html))
+
+  def test_status_notloggedin_refresh(self):
+    from dashboard import StatusPage
+    self.set_get({
+      'forcerefresh' : '1',
+    })
+    StatusPage(self.request, self.response).get()
+    html =  self.response.out.getvalue()
+    self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
+    self.assertTrue(re.search('<!-- FILE:templates/status/cloud.html -->', html))
+    self.assertTrue(re.search('<a href="/users/login">Login</a>', html))
 
   def test_status_notloggedin(self):
     from dashboard import StatusPage
@@ -655,7 +725,7 @@ class TestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('<!-- FILE:templates/layouts/main.html -->', html))
     self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
     self.assertTrue(re.search('<!-- FILE:templates/apps/delete.html -->', html))
-    self.assertTrue(re.search('You do not have permission to delete the application: app1', html))
+    self.assertTrue(re.search('There are no running applications that you have permission to delete.', html))
 
   def test_appdelete_submit_notappadmin(self):
     from dashboard import AppDeletePage
@@ -682,3 +752,15 @@ class TestAppDashboard(unittest.TestCase):
     self.assertTrue(re.search('<!-- FILE:templates/shared/navigation.html -->', html))
     self.assertTrue(re.search('<!-- FILE:templates/apps/delete.html -->', html))
     self.assertTrue(re.search('Application removed successfully. Please wait for your app to shut', html))
+
+  def test_refresh_data_get(self):
+    from dashboard import StatusRefreshPage
+    StatusRefreshPage(self.request, self.response).get()
+    html =  self.response.out.getvalue()
+    self.assertTrue(re.search('datastore updated', html))
+
+  def test_refresh_data_post(self):
+    from dashboard import StatusRefreshPage
+    StatusRefreshPage(self.request, self.response).post()
+    html =  self.response.out.getvalue()
+    self.assertTrue(re.search('datastore updated', html))

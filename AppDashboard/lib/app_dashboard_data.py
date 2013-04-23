@@ -1,6 +1,7 @@
 # pylint: disable-msg=W0703
 # pylint: disable-msg=E1103
 
+import logging
 import sys
 import traceback
 from google.appengine.ext import db
@@ -45,7 +46,7 @@ class UserInfo(db.Model):
   user_app_list = db.StringProperty()
 
 
-class AppDashboardData:
+class AppDashboardData():
   """ Helper class to interact with the datastore. """
 
   # Keyname for AppDashboard root entity
@@ -74,20 +75,42 @@ class AppDashboardData:
     """
     self.helper = helper
     if self.helper is None:
-      self.helper = AppDashboardHelper(None)
+      self.helper = AppDashboardHelper()
 
-    self.root = DashboardDataRoot.get_by_key_name(self.ROOT_KEYNAME)
+    self.root = self.get_one(DashboardDataRoot, self.ROOT_KEYNAME)
     if not self.root:
       self.root = DashboardDataRoot(key_name=self.ROOT_KEYNAME)
       self.root.put()
       self.initialize_datastore()
+
+  def get_one(self, obj, key):
+    """ Get one object from the datastore.
+
+    Args:
+      obj: A db.Model class to reterive.
+      key: A string, the key name to reterive.
+    Returns:
+      An object of type obj, or None.
+    """
+    return obj.get_by_key_name(key)
+
+  def get_all(self, obj, keys_only=False):
+    """ Get all objects from the datastore.
+
+    Args:
+      obj: A db.Model class to reterive.
+      keys_only: A boolean, to reterive only the keys.
+    Returns:
+      A db.Query object.
+    """
+    return obj.all(keys_only=keys_only)
 
   def initialize_datastore(self):
     """ Initialze datastore. Run once per appscale deployment. """
     self.update_all()
 
   def update_all(self):
-    """ Update all stored data. """
+    """ Update all data stored in the datastore. """
     self.update_head_node_ip()
     self.update_database_info()
     self.update_apistatus()
@@ -104,9 +127,9 @@ class AppDashboardData:
     try:
       url = self.get_head_node_ip()
       if url:
-        return "http://{0}:{1}".format(url,  self.MONITOR_PORT)
+        return "http://{0}:{1}".format(url, self.MONITOR_PORT)
     except Exception as err:
-      sys.stderr.write("AppDashboardData.get_monitoring_url() caught "\
+      logging.info("AppDashboardData.get_monitoring_url() caught "\
         "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
     return ''
 
@@ -124,7 +147,7 @@ class AppDashboardData:
       self.root.head_node_ip = self.helper.get_host_with_role('shadow')
       self.root.put()
     except Exception as err:
-      sys.stderr.write("AppDashboardData.update_head_node_ip() caught "\
+      logging.info("AppDashboardData.update_head_node_ip() caught "\
         "Exception "+ str(type(err)) + ":" + str(err) + traceback.format_exc())
 
 
@@ -135,7 +158,7 @@ class AppDashboardData:
       A dict where the keys are the names of the services, and the values or the
        status of that service.
     """
-    status_query = APIstatus.all()
+    status_query = self.get_all(APIstatus)
     status_query.ancestor(self.root)
     ret = {}
     for status in status_query.run():
@@ -148,15 +171,15 @@ class AppDashboardData:
       acc = self.helper.get_server()
       stat_dict = acc.get_api_status()
       for key in stat_dict.keys():
-        store = APIstatus.get_by_key_name(key)
+        store = self.get_one(APIstatus, key)
         if not store:
           store = APIstatus(parent = self.root, key_name = key)
           store.name = key
         store.value = stat_dict[key]
         store.put()
     except Exception as err:
-      sys.stderr.write("AppDashboardData.update_apistatus() caught Exception"\
-        + str(type(err)) + ":" + str(err )+ traceback.format_exc())
+      logging.info("AppDashboardData.update_apistatus() caught Exception"\
+        + str(type(err)) + ":" + str(err)+ traceback.format_exc())
 
   def get_status_info(self):
     """ Return the status information for all the server in the cluster from
@@ -165,7 +188,7 @@ class AppDashboardData:
     Returns:
       A list of dicts containing the status information on each server.
     """    
-    status_query = ServerStatus().all()
+    status_query = self.get_all(ServerStatus)
     status_query.ancestor(self.root)
     ret = []
     for status in status_query.run():
@@ -186,7 +209,7 @@ class AppDashboardData:
       acc = self.helper.get_server()
       nodes = acc.get_stats()
       for node in nodes:
-        status = ServerStatus.get_by_key_name(node['ip'])
+        status = self.get_one(ServerStatus, node['ip'])
         if not status:
           status = ServerStatus(parent = self.root, key_name = node['ip'])
           status.ip = node['ip']
@@ -197,12 +220,13 @@ class AppDashboardData:
         status.roles  = self.STATUS_ROLES_DELIMITER.join(node['roles'])
         status.put()
     except Exception as err:
-      sys.stderr.write("AppDashboardData.update_status_info() caught Exception"\
+      logging.info("AppDashboardData.update_status_info() caught Exception"\
         + str(type(err)) + ":" + str(err) + traceback.format_exc())
 
 
   def get_database_info(self):
-    """ Returns the database information of this cloud.
+    """ Returns the table and replication information for the database of 
+        this AppScale deployment.
 
     Return:
       A dict containing the database information.
@@ -222,9 +246,8 @@ class AppDashboardData:
       self.root.replication = db_info['replication']
       self.root.put()
     except Exception as err:
-      sys.stderr.write("AppDashboardData.get_database_info() caught "
+      logging.info("AppDashboardData.get_database_info() caught "
         "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
-      return {}
 
   def get_application_info(self):
     """ Returns the list of applications running on this cloud.
@@ -233,11 +256,11 @@ class AppDashboardData:
       A dict where the key is the app name, and the value is
       the url of the app (if running) or None (if loading).
     """
-    status_query = AppStatus().all()
+    status_query = self.get_all(AppStatus)
     status_query.ancestor(self.root)
     ret = {}
     for status in status_query.run():
-      ret[ status.name ] = status.url
+      ret[status.name] = status.url
     return ret
 
   def delete_app_from_datastore(self, app, email=None):
@@ -246,37 +269,31 @@ class AppDashboardData:
     Args:
       app: A string, the name of the app to be deleted.
       email: A string, the email address of the user's app list to be modified.
+    Returns:
+      The UserInfo object for the user with email=email.
     """
-    def delete_app_from_datastore_tx(app, email):
-      """ Transaction function for delete_app_from_datastore().
-  
-      Args:
-        app: A string, the name of the app to be deleted.
-        email: A string, the email address of the user's app list to be fixed.
-      """
-      app_status = AppStatus.get_by_key_name(app)
-      if app_status:
-        app_status.delete()
-      user_info = UserInfo.get_by_key_name(email)
-      if user_info:
-          app_list = user_info.user_app_list.split(self.APP_DELIMITER)
-          if app in app_list:
-            new_app_list = []
-            for this_app in app_list:
-              if this_app != app:
-                new_app_list.append(this_app)
-            user_info.user_app_list = self.APP_DELIMITER.join(new_app_list)
-            user_info.put()
-
     if email is None:
       user = users.get_current_user()
       if not user:
         return []
       email = user.email()
+    logging.info('AppDashboardData.delete_app_from_datastore(app={0}, '\
+      'email={1})'.format(app, email))
+      
     try:
-      db.run_in_transaction(delete_app_from_datastore_tx, app, email)
+      app_status = self.get_one(AppStatus, app)
+      if app_status:
+        app_status.delete()
+      user_info = self.get_one(UserInfo, email)
+      if user_info:
+          app_list = user_info.user_app_list.split(self.APP_DELIMITER)
+          if app in app_list:
+            app_list.remove(app)
+            user_info.user_app_list = self.APP_DELIMITER.join(app_list)
+            user_info.put()
+      return user_info
     except Exception as err:
-      sys.stderr.write("AppDashboardData.delete_app_from_datastore() caught "
+      logging.info("AppDashboardData.delete_app_from_datastore() caught "
         "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
 
  
@@ -286,11 +303,12 @@ class AppDashboardData:
 
     def update_application_info_tx(root, input_list):
       """ Transactional function for update_application_info(). """
-      query = AppStatus.all(keys_only=True)
+      query = self.get_all(AppStatus, keys_only=True)
       query.ancestor(root)
       db.delete(query)
       for status in input_list:
         status.put()
+        return_list.append(status)
 
     try:
       updated_status = []
@@ -308,7 +326,7 @@ class AppDashboardData:
               ret[app] = None
           else:
             ret[app] = None
-          app_status = AppStatus.get_by_key_name(app)
+          app_status = self.get_one(AppStatus, app)
           if not app_status:
             app_status =  AppStatus(parent = self.root, key_name = app)
             app_status.name = app
@@ -317,17 +335,19 @@ class AppDashboardData:
 
         db.run_in_transaction(update_application_info_tx, self.root, \
           updated_status)
+      return ret
 
     except Exception as err:
-      sys.stderr.write("AppDashboardData.update_application_info() caught "
+      logging.info("AppDashboardData.update_application_info() caught "
         "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
 
   def update_users(self):
     """ Query the UserAppServer and update the state of all the users. """
+    return_list = []
     try:
       all_users_list = self.helper.list_all_users()
       for email in all_users_list:
-        user_info = UserInfo.get_by_key_name(email)
+        user_info = self.get_one(UserInfo, email)
         if not user_info:
           user_info = UserInfo(key_name=email)
           user_info.email = email
@@ -337,8 +357,10 @@ class AppDashboardData:
         user_info.user_app_list = self.APP_DELIMITER.join(
           self.helper.get_user_app_list(user_info.email))
         user_info.put()
+        return_list.append(user_info)
+      return return_list
     except Exception as err:
-      sys.stderr.write("AppDashboardData.update_users() caught "
+      logging.info("AppDashboardData.update_users() caught "
         "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
 
   def get_user_app_list(self):
@@ -353,7 +375,7 @@ class AppDashboardData:
       return []
     email = user.email()
     try:
-      user_info = UserInfo.get_by_key_name(email)
+      user_info = self.get_one(UserInfo, email)
       if not user_info:
         return []
       app_list = user_info.user_app_list
@@ -361,7 +383,7 @@ class AppDashboardData:
         return []
       return app_list.split(self.APP_DELIMITER)
     except Exception as err:
-      sys.stderr.write("AppDashboardData.get_user_app_list() caught "
+      logging.info("AppDashboardData.get_user_app_list() caught "
         "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
       return []
 
@@ -369,18 +391,18 @@ class AppDashboardData:
     """ Check if the logged in user is a cloud admin.
 
     Returns:
-      True or False.
+      True if the user is a cloud admin, and False otherwise.
     """
     user = users.get_current_user()
     if not user:
       return False
     try:
-      user_info = UserInfo.get_by_key_name(user.email())
+      user_info = self.get_one(UserInfo, user.email())
       if not user_info:
         return False
       return user_info.is_user_cloud_admin
     except Exception as err:
-      sys.stderr.write("AppDashboardData.is_user_cloud_admin() caught "
+      logging.info("AppDashboardData.is_user_cloud_admin() caught "
         "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
       return False
 
@@ -390,17 +412,17 @@ class AppDashboardData:
     Args:
       email: Email address of the user.
     Returns:
-      True or False.
+      True if the user can upload apps, and False otherwise.
     """
     user = users.get_current_user()
     if not user:
       return False
     try:
-      user_info = UserInfo.get_by_key_name(user.email())
+      user_info = self.get_one(UserInfo, user.email())
       if not user_info:
         return False
       return user_info.i_can_upload
     except Exception as err:
-      sys.stderr.write("AppDashboardData.i_can_upload() caught "
+      logging.info("AppDashboardData.i_can_upload() caught "
         "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
       return False
