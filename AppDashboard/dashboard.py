@@ -19,6 +19,7 @@ except ImportError:
   import simplejson as json
 
 from google.appengine.ext import ndb
+from google.appengine.datastore.datastore_query import Cursor
 
 jinja_environment = jinja2.Environment(
     loader=jinja2.FileSystemLoader(os.path.dirname(__file__) + \
@@ -445,16 +446,28 @@ class LogServiceHostPage(AppDashboard):
     if (not is_cloud_admin) and (service_name not in apps_user_is_admin_on):
       self.redirect('/', self.response)
 
-    if host == "all":
-      query = RequestLogLine.query(RequestLogLine.service_name == service_name)
+    encoded_cursor = self.request.get('next_cursor')
+    if encoded_cursor:
+      start_cursor = Cursor(urlsafe=encoded_cursor)
     else:
-      query = RequestLogLine.query(RequestLogLine.service_name == service_name,
-        RequestLogLine.host == host)
+      start_cursor = None
+
+    if host == "all":
+      query, next_cursor, is_more = RequestLogLine.query(
+        RequestLogLine.service_name == service_name).fetch_page(20, produce_cursors=True,
+        start_cursor=start_cursor)
+    else:
+      query, next_cursor, is_more = RequestLogLine.query(
+        RequestLogLine.service_name == service_name,
+        RequestLogLine.host == host).fetch_page(20, produce_cursors=True,
+        start_cursor=start_cursor)
 
     self.render_page(page='logs', template_file=self.TEMPLATE, values = {
       'service_name' : service_name,
       'host' : host,
-      'query' : query
+      'query' : query,
+      'next_cursor' : next_cursor.urlsafe(),
+      'is_more' : is_more
     })
 
 class LogUploadPage(webapp2.RequestHandler):
