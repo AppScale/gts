@@ -4,11 +4,13 @@
 import sys
 import unittest
 
-from test_dashboard import TestAppDashboard
+from functional_test_dashboard import FunctionalTestAppDashboard
+from test_app_dashboard_data import TestAppDashboardData
 
 
 test_cases = [
-  TestAppDashboard,
+  TestAppDashboardData,
+  FunctionalTestAppDashboard,
   ]
 
 test_case_names = []

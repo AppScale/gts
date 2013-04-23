@@ -8,20 +8,15 @@
 # methods that abstract away its configuration and deployment.
 module AppDashboard
 
-
   SERVER_PORTS = [8000, 8001, 8002]
-
 
   # The port which nginx will use to send requests to haproxy
   PROXY_PORT = 8060
 
-
   # The port which requests to this app will be served from
   LISTEN_PORT = 80
 
-
   LISTEN_SSL_PORT = 443
-
 
   APPSCALE_HOME = ENV['APPSCALE_HOME']
 
@@ -44,7 +39,7 @@ module AppDashboard
     Djinn.log_run("mkdir -p /var/apps/#{APP_NAME}/log")
     Djinn.log_run("touch /var/apps/#{APP_NAME}/log/server.log")
 
-    #pass the secret key to the app
+    # Pass the secret key to the app.
     Djinn.log_run("echo \"GLOBAL_SECRET_KEY = '#{secret}'\" > #{app_location}/lib/secret_key.py")
     Collectd.write_app_config(APP_NAME)
 
@@ -57,7 +52,7 @@ module AppDashboard
         Djinn.log_debug("Failed to start app #{APP_NAME} on #{HelperFunctions.local_ip}:#{port}")
         return false
       else
-        pid_file_name = "#{APPSCALE_HOME}/.appscale/#{APP_NAME}-#{port}.pid"
+        pid_file_name = "/etc/appscale/#{APP_NAME}-#{port}.pid"
         HelperFunctions.write_file(pid_file_name, pid)
       end
     }

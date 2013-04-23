@@ -341,16 +341,11 @@ module HelperFunctions
     meta_dir = "/var/apps/#{app_name}"
     tar_dir = "#{meta_dir}/app/"
     tar_path = "#{tar_dir}#{app_name}.tar.gz"
-    #Kernel.system "rm -rf #{tar_dir}"
 
     self.shell("mkdir -p #{tar_dir}")
     self.shell("mkdir -p #{meta_dir}/log")
     self.shell("cp #{APPSCALE_HOME}/AppDashboard/setup/404.html #{meta_dir}")
     self.shell("touch #{meta_dir}/log/server.log")
-    #tar_file = File.open(tar_path, "w")
-    #decoded_tar = Base64.decode64(encoded_app_tar)
-    #tar_file.write(decoded_tar)
-    #tar_file.close
     self.shell("tar --file #{tar_path} --force-local -C #{tar_dir} -zx") if untar
   end
 

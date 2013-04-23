@@ -365,7 +365,7 @@ installhaproxy()
     # install service script
     mkdir -pv ${DESTDIR}/etc/init.d
     cp -v ${APPSCALE_HOME}/AppDashboard/setup/haproxy-init.sh ${DESTDIR}/etc/init.d/haproxy 
-    chmod -v a+x ${DESTDIR}/etc/init.d/haproxy || exit 1
+    chmod -v a+x ${DESTDIR}/etc/init.d/haproxy 
     mkdir -pv ${DESTDIR}/etc/haproxy
     cp -v ${APPSCALE_HOME}/AppDashboard/setup/haproxy.cfg ${DESTDIR}/etc/haproxy/ 
     mkdir -pv ${DESTDIR}/etc/default

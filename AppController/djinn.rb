@@ -478,6 +478,7 @@ class Djinn
       end
 
       maybe_stop_taskqueue_worker("apichecker")
+      maybe_stop_taskqueue_worker(AppDashboard::APP_NAME)
 
       jobs_to_run = my_node.jobs
       commands = {
@@ -649,11 +650,11 @@ class Djinn
   # Upload a app into the AppScale deployment.
   # 
   # Args:
-  #   tgz_file: A str, with the path to the tar.gz file containing the app.
-  #   email: A str, email address of the app owner
-  #   secret: A Stre, with the shared key for authentication.
+  #   tgz_file: A String, with the path to the tar.gz file containing the app.
+  #   email: A String, email address of the app owner
+  #   secret: A String, with the shared key for authentication.
   # Returns:
-  #   A string containing the response.
+  #   A String containing the response.
   # 
   def upload_tgz_file(tgz_file, email, secret)
     if !valid_secret?(secret)
@@ -663,14 +664,14 @@ class Djinn
     if !tgz_file.match(TAR_GZ_REGEX)
       tgz_file_old = tgz_file
       tgz_file = "#{tgz_file_old}.tar.gz"
-      File.rename(tgz_file_old,tgz_file)
+      File.rename(tgz_file_old, tgz_file)
     end
 
     begin
       keyname = @creds['keyname']
       Timeout.timeout(180) do
         command = "#{APPSCALE_TOOLS_HOME}/bin/appscale-upload-app --file " +
-                  "#{tgz_file} --email #{email} --keyname #{keyname} 2>&1;"
+                  "#{tgz_file} --email #{email} --keyname #{keyname} 2>&1"
         Djinn.log_debug("upload_tgz_file() running command: #{command}")
         output = Djinn.log_run("#{command}")
         output.chomp!
@@ -718,10 +719,8 @@ class Djinn
   #   A JSON string with the database information.
   # 
   def get_database_information(secret)
-    table = @creds["table"]
-    replication = @creds["replication"]
-    keyname = @creds["keyname"]
-    tree = { :table => table, :replication => replication, :keyname => keyname }
+    tree = { :table => @creds["table"], :replication => @creds["replication"],
+      :keyname => @creds["keyname"] }
     return JSON.dump(tree)
   end
 
@@ -1992,7 +1991,7 @@ class Djinn
   end
 
   def update_api_status()
-    HelperFunctions.write_file(HEALTH_FILE, generate_api_status )
+    HelperFunctions.write_file(HEALTH_FILE, generate_api_status)
   end
 
   # Backs up information about what this node is doing (roles, apps it is
@@ -2373,12 +2372,19 @@ class Djinn
       ApiChecker.start(get_login.public_ip, @userappserver_private_ip)
     end
 
-    # New location to start AppDashboard.
+    # Start the AppDashboard.
     if my_node.is_load_balancer?
         Djinn.log_debug("change_job(): start_app_dashboard(" +
           "#{get_login.public_ip}, #{@userappserver_private_ip})")
         start_app_dashboard(get_login.public_ip, @userappserver_private_ip)
     end
+
+    Djinn.log_debug("Starting taskqueue worker for #{AppDashboard::APP_NAME}")
+    maybe_start_taskqueue_worker(AppDashboard::APP_NAME)
+
+    Djinn.log_debug("Starting cron service for #{AppDashboard::APP_NAME}")
+    CronHelper.update_cron(get_login.public_ip, AppDashboard::PROXY_PORT,
+      AppDashboard::APP_LANGUAGE, AppDashboard::APP_NAME)
 
     maybe_start_taskqueue_worker("apichecker")
     
@@ -3091,7 +3097,8 @@ HOSTS
     Ejabberd.stop
   end
 
-  # Start the AppDashboard.
+  # Start the AppDashboard web service which allows users to login,
+  # upload and remove apps, and view the status of the AppScale deployment.
   #
   # Args:
   #  login_ip: A string wth the ip of the login node.
@@ -3135,13 +3142,13 @@ HOSTS
       begin
         Djinn.log_debug("Asking for response from AppDashboard on port #{port}")
         Net::HTTP.get_response("#{my_public}:#{port}", '/')
-        Djinn.log_debug("Got for response from AppDashboard on port #{port}")
+        Djinn.log_debug("Got response from AppDashboard on port #{port}")
       rescue SocketError
       end
     end
   end
 
-  # Stop the AppDashboard
+  # Stop the AppDashboard web service.
   def stop_app_dashboard()
     Djinn.log_debug("Shutting down AppDashboard")
     AppDashboard.stop
