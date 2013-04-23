@@ -288,7 +288,7 @@ def commit_new_user(user, passwd, utype, secret):
   if user.find("@") == -1 or user.find(".") == -1:
     return error
   
-  error = "Error: user already exist"
+  error = "Error: user already exists"
   ret = does_user_exist(user, secret)
   if ret == "true":
     return error

@@ -868,8 +868,8 @@ class ZKTransaction:
         self.handle.delete_async(PATH_SEPARATOR.join([txpath, item]))
         self.handle.delete_async(txpath)
     except kazoo.exceptions.ZookeeperError as zk_exception:
-      logging.error("There was a ZooKeeper exception {0}".format(str( 
-        zk_exception)))
+      logging.error("There was a ZooKeeper exception {0}:\n{1}".format(str( 
+        zk_exception), traceback.format_exc() ))
 
     return True
 

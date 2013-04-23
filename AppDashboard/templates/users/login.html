@@ -1,0 +1,65 @@
+           <!-- FILE:templates/users/login.html -->
+           <div class="container-fluid">
+
+        <div id="header">
+
+            <div class="row-fluid">
+
+                <div class="navbar">
+                    <div class="navbar-inner">
+                      <div class="container">
+                            <a class="brand" href="#">AppScale <span class="slogan">Cloud Administration</span></a>
+                      </div>
+                    </div><!-- /navbar-inner -->
+                  </div><!-- /navbar -->
+                
+
+            </div><!-- End .row-fluid -->
+
+        </div><!-- End #header -->
+
+    </div><!-- End .container-fluid --> 
+
+
+       <div class="container-fluid">
+
+        <div class="loginContainer">
+            <span class="form-horizontal"id="loginForm" >
+                <div class="form-row row-fluid">
+                  <div style="margin-top: 15px;">
+                  {% if flash_message %}
+                  <h3>
+                  <ul id="errorExplanation"><li class="flash error">
+                  {{ flash_message }}
+                  </li></ul>
+                  </h3>
+                  {% endif %}
+                  </div>
+                  <form action="/users/login" method="post">
+                  <div style="margin:0;padding:0;display:inline">
+                  {% if continue %}
+                  <input type="hidden" name="continue" value="{{ continue }}">
+                  {% endif %}
+                  </div>
+                  <p class="form-label span12">
+                    <label for="user_email">Email:</label>
+                    <input id="user_email" name="user_email" size="40" type="text" value="{{ user_email|default }}" />
+                  </p>
+                  <p class="form-label span12">
+                    <label for="user_password">Password:</label>
+                    <input id="user_password" name="user_password" size="40" type="password" />
+                  </p>
+                  <div style="margin: 5px 0 0 9px;" class="pull-left">
+                    <input class="btn btn-primary" name="commit" type="submit" value="Login" />
+                  </div>
+                  </form>
+                  <br />&nbsp;<br /> <div style="margin: 20px 0 6px 9px;">Don't have an account? <a href="/users/new">Create one.</a>
+                  <br /> View the current <a href="/status">Cloud Status.</a>&nbsp;<br /></div>                       
+                </div>
+              </div>
+            </span>
+        </div>
+
+    </div><!-- End .container-fluid -->
+
+  
