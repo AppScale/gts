@@ -124,8 +124,7 @@ class AppDashboardHelper():
       self.cache['user_caps'][email] = caps_list
       return caps_list
     except Exception as err:
-      logging.info("AppDashboardHelper.get_user_capabilities() caught "\
-        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
+      logging.exception(err)
       return []
 
 
@@ -141,8 +140,7 @@ class AppDashboardHelper():
       node = acc.get_stats()
       return node
     except Exception as err:
-      logging.info("AppDashboardHelper.get_status_info() caught "\
-        "Exception " + str(type(err)) + ":" + str(err))
+      logging.exception(err)
       return []
 
   def get_host_with_role(self, role):
@@ -161,9 +159,7 @@ class AppDashboardHelper():
       try:
         nodes = acc.get_role_info()
       except Exception as err:
-        logging.info("AppDashboardHelper.get_host_with_role() caught "\
-          "Exception " + str(type(err)) + ":" + str(err) + \
-          traceback.format_exc())
+        logging.exception(err)
         return ''
     for node in nodes:
       if role in node['jobs']:
@@ -206,8 +202,7 @@ class AppDashboardHelper():
         port = int(result.group(1))
         return port
     except Exception as err:
-      logging.info("AppDashboardHelper.get_app_port() caught "\
-        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
+      logging.exception(err)
     raise AppHelperException("app has no port")
 
   def upload_app(self, upload_file):
@@ -243,8 +238,7 @@ class AppDashboardHelper():
       return "Application uploaded successfully.  Please wait for the "\
              "application to start running."
     except Exception as err:
-      logging.info("upload_app() caught Exception " + str(type(err)) + ":"\
-        + str(err) + traceback.format_exc())
+      logging.exception(err)
       raise AppHelperException("There was an error uploading your application.")
 
   def delete_app(self, appname):
@@ -265,8 +259,7 @@ class AppDashboardHelper():
         logging.info("delete_app() AppControler returned: " + ret)
         return "There was an error attempting to remove the application."
     except Exception as err:
-      logging.info("delete_app() caught exception: " + str(type(err)) + ":"\
-              + str(err) + traceback.format_exc())
+      logging.exception(err)
       return "There was an error attempting to remove the application."
     return "Application removed successfully. Please wait for your app to shut"\
            " down."
@@ -288,8 +281,7 @@ class AppDashboardHelper():
         if num_ports > 0:
           return True
     except Exception as err:
-      logging.info("AppDashboardHelper.does_app_exist() caught "\
-        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
+      logging.exception(err)
     return False
 
   def is_user_logged_in(self):
@@ -353,8 +345,7 @@ class AppDashboardHelper():
       self.cache['query_user_data'][email] = user_data
       return user_data
     except Exception as err:
-      logging.info("AppDashboardHelper.query_user_data() caught "\
-        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
+      logging.exception(err)
       return ''
 
   def is_user_cloud_admin(self, email=None):
@@ -433,8 +424,7 @@ class AppDashboardHelper():
     except AppHelperException as err:
       raise AppHelperException(str(err))
     except Exception as err:
-      logging.info("AppDashboardHelper.create_new_user() caught "\
-        "Exception " + str(type(err)) + ":" + str(err))
+      logging.exception(err)
       raise AppHelperException(str(err))
     return True
 
@@ -495,8 +485,7 @@ class AppDashboardHelper():
       uaserver.commit_new_token(token, email, self.TOKEN_EXPIRATION, 
         GLOBAL_SECRET_KEY)
     except Exception as err:
-      logging.info("AppDashboardHelper.create_token() caught "\
-        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
+      logging.exception(err)
 
   def logout_user(self, response):
     """ Remove the user's login cookie and invalidate the login token in
@@ -555,8 +544,7 @@ class AppDashboardHelper():
           continue
         ret_list.append(usr)
     except Exception as err:
-      logging.info("AppDashboardHelper.list_all_users() caught "\
-        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
+      logging.exception(err)
     return ret_list
 
   def list_all_users_permissions(self):
@@ -580,8 +568,7 @@ class AppDashboardHelper():
             usr_cap[perm] = False
         ret_list.append(usr_cap)
     except Exception as err:
-      logging.info("AppDashboardHelper.list_all_users_permissions() caught "\
-        "Exception " + str(type(err)) + ":" + str(err) + traceback.format_exc())
+      logging.exception(err)
     return ret_list
 
   def get_all_permission_items(self):
@@ -617,12 +604,10 @@ class AppDashboardHelper():
         self.cache['user_caps'][email] = new_caps
         return True
       else:
-        logging.info("ERROR: UserAppServer.set_capabilities returned: " + \
-          ret)
+        logging.info("ERROR: UserAppServer.set_capabilities returned: " + ret)
         return False
     except Exception as err:
-      logging.info("add_user_permissions() caught Exception: " + \
-        str(type(err)) + ":" + str(err) + traceback.format_exc())
+      logging.exception(err)
       return False
     return True
 
@@ -653,8 +638,6 @@ class AppDashboardHelper():
         logging.info("uas.set_capabilities returned: " + ret)
         return False
     except Exception as err:
-      logging.info("remove_user_permissions() caught Exception: " + \
-        str(type(err)) + ":" + str(err) + traceback.format_exc())
+      logging.exception(err)
       return False
     return True
-
