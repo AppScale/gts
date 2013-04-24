@@ -224,7 +224,7 @@ class AppDashboardData():
   def update_apistatus(self):
     """ Retrieve the API status from the system and store in the datastore. """
     try:
-      acc = self.helper.get_server()
+      acc = self.helper.get_appcontroller_client()
       stat_dict = acc.get_api_status()
       for key in stat_dict.keys():
         store = self.get_by_id(ApiStatus, key)
@@ -254,7 +254,7 @@ class AppDashboardData():
     """ Query the AppController and get the status information for all the 
         server in the cluster and store in the datastore. """    
     try:
-      acc = self.helper.get_server()
+      acc = self.helper.get_appcontroller_client()
       nodes = acc.get_stats()
       for node in nodes:
         status = self.get_by_id(ServerStatus, node['ip'])
@@ -285,7 +285,7 @@ class AppDashboardData():
     """ Queries the AppController and stores the database information of this
         cloud and store in the datastore. """
     try:
-      acc = self.helper.get_server()
+      acc = self.helper.get_appcontroller_client()
       db_info = acc.get_database_information()
       self.root.table = db_info['table']
       self.root.replication = db_info['replication']

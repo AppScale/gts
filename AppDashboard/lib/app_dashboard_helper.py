@@ -8,78 +8,106 @@ import os
 import re
 import sys
 import tempfile
-import traceback
 import urllib
+
 
 import SOAPpy
 
+
 from appcontroller_client import AppControllerClient
 from local_state import LocalState
+from secret_key import GLOBAL_SECRET_KEY
 
 
 from google.appengine.api import users
 
-from secret_key import GLOBAL_SECRET_KEY
 
 class AppHelperException(Exception):
   """ An exception thrown if the requested helper function failed. """
   pass
 
+
 class AppDashboardHelper():
   """ Helper class to get info from AppScale. """
+
 
   # Name of the cookie used for login.
   DEV_APPSERVER_LOGIN_COOKIE = 'dev_appserver_login'
 
+
   # IP address of the AppController.
   APP_CONTROLLER_IP = '127.0.0.1'
+
 
   # Port number of the UserAppServer.
   UA_SERVER_PORT = 4343
 
+
   # Regular expression to parse the port from number.
   GET_APP_PORTS_REGEX = ".*\sports: (\d+)[\s|:]"
+
 
   # Regular expression to parse the number of ports.
   NUM_PORT_APP_REGEX = ".*num_ports:(\d+)"
 
+
   # The charcter that separates apps.
   APP_DELIMITER = ":"
+
 
   # The charcter that seperates users.
   USER_DELIMITER = ":"
 
+
   # Regular expression to capture the apps a user is admin of.
   USER_APP_LIST_REGEX = "\napplications:(.+)\n"
+
 
   # Regular expression to determine if a user is an admin.
   CLOUD_ADMIN_REGEX = "is_cloud_admin:true"
 
+
   # Regular expression to get username from full email.
   USERNAME_FROM_EMAIL_REGEX = '\A(.*)@'
+
 
   # Expiration date of the user token.
   TOKEN_EXPIRATION = "20121231120000"
 
+
   # Regular expression to get the hashed password from the user data.
   USER_DATA_PASSWORD_REGEX = 'password:([0-9a-fA-F]+)'
+
 
   # Regular expression to skip non-users in response from UseAppServer.
   ALL_USERS_NON_USER_REGEX = '^[_]+$'
 
+
   # Delimiter to seperate user capabilites.
   USER_CAPABILITIES_DELIMITER = ':'
 
+
   def __init__(self):
-    """ Constructor. """
+    """ Sets up SOAP client fields, to avoid creating a new SOAP connection for
+    every SOAP call.
+
+    Fields:
+      appcontroller: A AppControllerClient, which is a SOAP client connected to
+        the AppController running on this machine, responsible for service
+        deployment and configuration.
+      uaserver: A SOAP client connected to the UserAppServer running in this
+        AppScale deployment, responsible for managing user and application
+        creation.
+    """
     self.appcontroller = None
     self.uaserver = None
     # The cache is a data structure to store data used multiple times in a 
-    # single request.  This avoids multiple SOAP requests for the same data, and
+    # single request. This avoids multiple SOAP requests for the same data, and
     # signifiantly increases performance.
     self.cache = {}
 
-  def get_server(self):
+
+  def get_appcontroller_client(self):
     """ Connects to the AppController and returns the connection handle.
 
     Returns:
@@ -90,6 +118,7 @@ class AppDashboardHelper():
         GLOBAL_SECRET_KEY)
     return self.appcontroller
 
+
   def get_uaserver(self):
     """ Connects to the UserAppServer and returns the connection handle.
 
@@ -97,11 +126,12 @@ class AppDashboardHelper():
       A SOAPpy object that is connected to the UserAppServer.
     """
     if self.uaserver is None:
-      acc = self.get_server()
+      acc = self.get_appcontroller_client()
       uas_host = acc.get_uaserver_host(False)
       self.uaserver = SOAPpy.SOAPProxy('https://%s:%s' % (uas_host, 
         self.UA_SERVER_PORT))
     return self.uaserver
+
 
   def get_user_capabilities(self, email):
     """ Query the AppController and return the capabilites of the user.
@@ -136,12 +166,13 @@ class AppDashboardHelper():
       A list of dicts containing the status information on each server.
     """
     try:
-      acc = self.get_server()
+      acc = self.get_appcontroller_client()
       node = acc.get_stats()
       return node
     except Exception as err:
       logging.exception(err)
       return []
+
 
   def get_host_with_role(self, role):
     """Searches through the local metadata to see which virtual machine runs the
@@ -152,7 +183,7 @@ class AppDashboardHelper():
     Returns:
       A str containing the host that runs the specified service.
     """
-    acc = self.get_server()
+    acc = self.get_appcontroller_client()
     if 'get_role_info' in self.cache:
       node = self.cache['get_role_info']
     else:
@@ -165,6 +196,7 @@ class AppDashboardHelper():
       if role in node['jobs']:
         return node['public_ip']
 
+
   def get_head_node_ip(self):
     """ Return the ip of the head node. 
 
@@ -173,6 +205,7 @@ class AppDashboardHelper():
     """
     return self.get_host_with_role('shadow')
 
+
   def get_login_host(self):
     """ Queries the AppController and returns the ip of the login host. 
 
@@ -180,6 +213,7 @@ class AppDashboardHelper():
       A str containing the host that runs the login service.
     """
     return self.get_host_with_role('login')
+
 
   def get_app_port(self, appname): 
     """ Queries the UserAppServer and returns the port that the app is running
@@ -205,6 +239,7 @@ class AppDashboardHelper():
       logging.exception(err)
     raise AppHelperException("app has no port")
 
+
   def upload_app(self, upload_file):
     """ Uploads an App into AppScale.
 
@@ -224,7 +259,7 @@ class AppDashboardHelper():
       tgz_file.write( upload_file.read() )
       tgz_file.close()
       name = tgz_file.name
-      acc = self.get_server()
+      acc = self.get_appcontroller_client()
       ret = acc.upload_tgz(name, user.email() )
       if ret == "true":
         return "Application uploaded successfully.  Please wait for the "\
@@ -241,6 +276,7 @@ class AppDashboardHelper():
       logging.exception(err)
       raise AppHelperException("There was an error uploading your application.")
 
+
   def delete_app(self, appname):
     """Instructs AppScale to no longer host the named application.
 
@@ -249,11 +285,10 @@ class AppDashboardHelper():
     Returns:
       A str containing a message to be displayed to the user.
     """
-
     try:
       if not self.does_app_exist(appname):
         return "The given application is not currently running."
-      acc = self.get_server()
+      acc = self.get_appcontroller_client()
       ret = acc.stop_app(appname)
       if ret != "true":
         logging.info("delete_app() AppControler returned: " + ret)
@@ -263,6 +298,7 @@ class AppDashboardHelper():
       return "There was an error attempting to remove the application."
     return "Application removed successfully. Please wait for your app to shut"\
            " down."
+
 
   def does_app_exist(self, appname):
     """Queries the UserAppServer to see if the named application exists.
@@ -284,6 +320,7 @@ class AppDashboardHelper():
       logging.exception(err)
     return False
 
+
   def is_user_logged_in(self):
     """ Check if the user is logged in.
 
@@ -293,7 +330,9 @@ class AppDashboardHelper():
     user = users.get_current_user()
     if user:
       return True
-    return False
+    else:
+      return False
+
 
   def get_user_email(self):
     """ Get the logged in user's email.
@@ -305,6 +344,7 @@ class AppDashboardHelper():
     if user:
       return user.email()
     return ''
+
 
   def get_user_app_list(self, email=None):
     """ Get a list of apps that the user is an admin of.
@@ -324,6 +364,7 @@ class AppDashboardHelper():
     if user_data_match:
       return user_data_match.group(1).split(self.APP_DELIMITER)
     return []
+
 
   def query_user_data(self, email):
     """ Queries the UserAppServer and returns the data on a user.
@@ -348,6 +389,7 @@ class AppDashboardHelper():
       logging.exception(err)
       return ''
 
+
   def is_user_cloud_admin(self, email=None):
     """ Check if the logged in user is a cloud admin.
 
@@ -367,6 +409,7 @@ class AppDashboardHelper():
     else:
       return False
 
+
   def i_can_upload(self, email=None):
     """ Check if the user can upload apps.
 
@@ -383,6 +426,7 @@ class AppDashboardHelper():
     if 'upload_app' in self.get_user_capabilities(email):
       return True
     return False
+
 
   def create_new_user(self, email, password, response, 
         account_type='xmpp_user'):
@@ -428,6 +472,7 @@ class AppDashboardHelper():
       raise AppHelperException(str(err))
     return True
 
+
   def set_appserver_cookie(self, email, response):
     """ Sets the login cookie.
 
@@ -446,6 +491,7 @@ class AppDashboardHelper():
       value=self.get_cookie_value(email, apps),
       expires=datetime.datetime.now() + datetime.timedelta(days=1))
 
+
   def get_cookie_value(self, email, apps):
     """ Generates a hash corresponding to the given user's credentials.
         It is a hashed string containing the email, nickname, and list 
@@ -461,6 +507,7 @@ class AppDashboardHelper():
     hsh = self.get_appengine_hash(email, nick, apps)
     return urllib.quote("{0}:{1}:{2}:{3}".format(email, nick, apps, hsh))
 
+
   def get_appengine_hash(self, email, nick, apps):
     """ Encrypt the values and return the hash.
 
@@ -472,6 +519,7 @@ class AppDashboardHelper():
       A str that is the hex hash of the input values.
     """
     return hashlib.sha1(email + nick + apps + GLOBAL_SECRET_KEY).hexdigest()
+
 
   def create_token(self, token, email):
     """ Create a login token and commit it to the UserAppServer.
@@ -487,6 +535,7 @@ class AppDashboardHelper():
     except Exception as err:
       logging.exception(err)
 
+
   def logout_user(self, response):
     """ Remove the user's login cookie and invalidate the login token in
         the AppScale deployment.  This results in the user being logged out.
@@ -499,6 +548,7 @@ class AppDashboardHelper():
     if user:
       self.create_token('invalid', user.email())
       response.delete_cookie(self.DEV_APPSERVER_LOGIN_COOKIE)
+
 
   def login_user(self, email, password, response):
     """ Attempt to login the user.
@@ -525,6 +575,7 @@ class AppDashboardHelper():
     self.set_appserver_cookie(email, response)
     return True
 
+
   def list_all_users(self):
     """ Queries the UserAppServer and return a list of all users in the system.
 
@@ -546,6 +597,7 @@ class AppDashboardHelper():
     except Exception as err:
       logging.exception(err)
     return ret_list
+
 
   def list_all_users_permissions(self):
     """ Queries the UserAppServer and returns a list of all the users and the 
@@ -571,6 +623,7 @@ class AppDashboardHelper():
       logging.exception(err)
     return ret_list
 
+
   def get_all_permission_items(self):
     """ Returns a list of the types of permissions that can be assigned to 
         users in this system.
@@ -579,6 +632,7 @@ class AppDashboardHelper():
       A list of strs with the permission items to display. 
     """
     return ['upload_app']
+
 
   def add_user_permissions(self, email, perm):
     """ Add a permission to a user.

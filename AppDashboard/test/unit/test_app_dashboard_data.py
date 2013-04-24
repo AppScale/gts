@@ -230,15 +230,15 @@ class TestAppDashboardData(unittest.TestCase):
       .and_return().once()
 
     self.setupApiStatusMocks()
-    fake_get_server = flexmock()
-    fake_get_server.should_receive('get_api_status')\
+    fake_get_appcontroller_client = flexmock()
+    fake_get_appcontroller_client.should_receive('get_api_status')\
       .and_return({
         'api1' : 'running',
         'api2' : 'failed',
         'api3' : 'unknown',
       })
-    flexmock(AppDashboardHelper).should_receive('get_server')\
-      .and_return(fake_get_server).once()
+    flexmock(AppDashboardHelper).should_receive('get_appcontroller_client')\
+      .and_return(fake_get_appcontroller_client).once()
     
     data1 = AppDashboardData()
     data1.update_apistatus()
@@ -265,8 +265,8 @@ class TestAppDashboardData(unittest.TestCase):
     flexmock(AppDashboardData).should_receive('update_all') \
       .and_return().once()
     self.setupServerStatusMocks()
-    fake_get_server = flexmock()
-    fake_get_server.should_receive('get_stats') \
+    fake_get_appcontroller_client = flexmock()
+    fake_get_appcontroller_client.should_receive('get_stats') \
       .and_return([
         {'ip' : '1.1.1.1',
          'cpu' : '50',
@@ -281,8 +281,8 @@ class TestAppDashboardData(unittest.TestCase):
          'cloud' : 'cloud1',
          'roles' : 'roles1'}
       ])
-    flexmock(AppDashboardHelper).should_receive('get_server') \
-      .and_return(fake_get_server).once()
+    flexmock(AppDashboardHelper).should_receive('get_appcontroller_client') \
+      .and_return(fake_get_appcontroller_client).once()
     
     data1 = AppDashboardData()
     data1.update_status_info()
@@ -304,14 +304,14 @@ class TestAppDashboardData(unittest.TestCase):
   def test_update_database_info(self):
     flexmock(AppDashboardData).should_receive('update_all')\
       .and_return().once()
-    fake_get_server = flexmock()
-    fake_get_server.should_receive('get_database_information')\
+    fake_get_appcontroller_client = flexmock()
+    fake_get_appcontroller_client.should_receive('get_database_information')\
       .and_return({
         'table' : 'table1',
         'replication' : 'replication1',
       })
-    flexmock(AppDashboardHelper).should_receive('get_server')\
-      .and_return(fake_get_server).once()
+    flexmock(AppDashboardHelper).should_receive('get_appcontroller_client')\
+      .and_return(fake_get_appcontroller_client).once()
     data1 = AppDashboardData()
     data1.update_database_info()
     output = data1.get_database_info()
