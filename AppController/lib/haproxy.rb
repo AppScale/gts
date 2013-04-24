@@ -119,7 +119,7 @@ module HAProxy
     config << servers.join("\n")
     # If it is the dashboard app, increase the server timeout because uploading apps
     # can take some time 
-    if name == LoadBalancer.name()
+    if name == AppDashboard.name()
       config << "\n  timeout server #{ALB_SERVER_TIMEOUT}\n"
     end
   

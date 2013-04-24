@@ -612,7 +612,7 @@ CONFIG
       client_body_timeout 360;
       proxy_read_timeout 360;
 CONFIG
-    if name == LoadBalancer.name()
+    if name == AppDashboard.name()
       config += <<CONFIG
  
       # Increase file size for alb so larger applications can be uploaded
