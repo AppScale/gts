@@ -64,7 +64,7 @@ install: build
 	cp -r AppDB/*.pyc $(APPSCALE)/AppDB
 	cp -r AppDB/hadoop $(APPSCALE)/AppDB
 	cp -r AppDB/zkappscale $(APPSCALE)/AppDB
-	cp -r AppLoadBalancer $(APPSCALE)
+	cp -r AppDashboard $(APPSCALE)
 	cp -r AppMonitoring $(APPSCALE)
 	cp -r AppServer $(APPSCALE)
 	cp -r AppServer_Java $(APPSCALE)

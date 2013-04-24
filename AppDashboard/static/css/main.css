@@ -3142,3 +3142,8 @@ form input.valid {border: 1px solid #9FC569 !important;}
 	margin-right: 50%;
 	margin-left: auto;
 }
+
+#g1, #g2, #g3 {
+        width:230px; height:140px;
+        display: inline-block;
+      }

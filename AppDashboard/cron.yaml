@@ -1,0 +1,4 @@
+cron:
+- description: Datastore periodic update.
+  url: /status/refresh
+  schedule: every 1 minutes
