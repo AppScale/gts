@@ -73,6 +73,11 @@
       <include name="com/google/appengine/api/blobstore/BlobstoreServiceImpl.class" />
       <include name="com/google/appengine/api/xmpp/InboundMessageParser.class" />
     </jar>
+    <unzip src="${gae_dist}/lib/impl/appengine-api.jar" dest="${gae_dist}/lib/impl/tmp"/>
+    <delete dir="${gae_dist}/lib/impl/tmp/javax/mail"/>
+    <delete dir="${gae_dist}/lib/impl/tmp/javax/activation"/>
+    <jar destfile="${gae_dist}/lib/impl/appengine-api.jar" basedir="${gae_dist}/lib/impl/tmp" includes="**/*"/>
+    <delete dir="${gae_dist}/lib/impl/tmp"/>
   </target>
 
   <target name="update-api-jar-user" depends="compile, repack-sdk">
@@ -80,6 +85,11 @@
       <include name="com/google/appengine/api/blobstore/BlobstoreServiceImpl.class" />
       <include name="com/google/appengine/api/xmpp/InboundMessageParser.class" />
     </jar>
+    <unzip src="${gae_dist}/lib/user/appengine-api-1.0-sdk-${gae_version}.jar" dest="${gae_dist}/lib/user/tmp"/>
+    <delete dir="${gae_dist}/lib/user/tmp/javax/mail"/>
+    <delete dir="${gae_dist}/lib/user/tmp/javax/activation"/>
+    <jar destfile="${gae_dist}/lib/user/appengine-api-1.0-sdk-${gae_version}.jar" basedir="${gae_dist}/lib/user/tmp" includes="**/*"/>
+    <delete dir="${gae_dist}/lib/user/tmp"/>
   </target>
 
   <target name="update-api-labs-jar" depends="compile, repack-sdk">
@@ -107,7 +117,7 @@
       <!--include name="META-INF/services/*" /-->
     </jar>
   </target>
-
+ 
   <target name="update-local-runtime-jar" depends="compile, repack-sdk">
     <jar destfile="${gae_dist}/lib/impl/appengine-local-runtime.jar" basedir="${build}" update="true">
       <include name="com/google/appengine/tools/development/*" />
@@ -122,7 +132,13 @@
     </jar>
   </target>
 
-  <target name="update-jars" depends="update-api-jar, update-api-labs-jar, update-api-stubs-jar, update-local-runtime-jar, update-tools-api-jar" />
+  <target name="update-agent-runtime-jar" depends="compile, repack-sdk">
+    <jar destfile="${gae_dist}/lib/impl/agent/appengine-agentruntime.jar" basedir="${build}" update="true">
+      <include name="com/google/appengine/tools/development/agent/runtime/RuntimeHelper*" />
+    </jar>
+  </target>
+
+  <target name="update-jars" depends="update-api-jar, update-api-labs-jar, update-agent-runtime-jar, update-api-stubs-jar, update-local-runtime-jar, update-tools-api-jar" />
 
   <target name="install" depends="update-jars" />
 
