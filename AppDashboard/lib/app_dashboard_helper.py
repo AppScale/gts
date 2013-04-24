@@ -255,22 +255,22 @@ class AppDashboardHelper():
       raise AppHelperException("There was an error uploading your application."\
              "  You must be logged in.")
     try:
-      tgz_file = tempfile.NamedTemporaryFile()
+      tgz_file = tempfile.NamedTemporaryFile(suffix='tar.gz', delete=False)
       tgz_file.write( upload_file.read() )
       tgz_file.close()
       name = tgz_file.name
       acc = self.get_appcontroller_client()
-      ret = acc.upload_tgz(name, user.email() )
+      ret = acc.upload_tgz(name, user.email())
       if ret == "true":
-        return "Application uploaded successfully.  Please wait for the "\
+        return "Application uploaded successfully. Please wait for the "\
                "application to start running."
       else:
         raise AppHelperException(ret)
     except SOAPpy.Types.faultType as err:  #on success Exception is thrown
-      return "Application uploaded successfully.  Please wait for the "\
+      return "Application uploaded successfully. Please wait for the "\
              "application to start running."
     except SOAPpy.Errors.HTTPError as err:  #on success HTTPError is thrown
-      return "Application uploaded successfully.  Please wait for the "\
+      return "Application uploaded successfully. Please wait for the "\
              "application to start running."
     except Exception as err:
       logging.exception(err)

@@ -111,16 +111,20 @@ class AppControllerClient():
     except socket.error as exception:
       signal.alarm(0)  # turn off the alarm before we retry
       if num_retries > 0:
-        sys.stderr.write("Saw exception {0} when communicating with the " \
+        sys.stderr.write("Saw socket exception {0} when communicating with the " \
           "AppController, retrying momentarily.".format(str(exception)))
         time.sleep(1)
         return self.run_with_timeout(timeout_time, default, num_retries - 1,
           function, *args)
       else:
         raise exception
+    except SOAPpy.Errors.HTTPError as err:
+      return "true"
     except Exception as exception:  # Should be ssl.SSLError but the ssl module
                                     # isn't available when running as a GAE App.
       # these are intermittent, so don't decrement our retry count for this
+      sys.stderr.write("Saw unknown exception {0} when communicating with the " \
+        "AppController, retrying momentarily.".format(str(exception)))
       signal.alarm(0)  # turn off the alarm before we retry
       return self.run_with_timeout(timeout_time, default, num_retries, function,
         *args)
