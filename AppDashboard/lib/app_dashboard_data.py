@@ -10,14 +10,25 @@ from app_dashboard_helper import AppHelperException
 
 
 class DashboardDataRoot(ndb.Model):
-  """ Root entity for datastore. """
-  initialized_time = ndb.DateTimeProperty(auto_now=True)
+  """ A Datastore Model that contains information about the AppScale cloud
+  itself, and is shown to users regardless of whether or not they are logged in.
+
+  Fields:
+    head_node_ip: A str that corresponds the hostname (IP or FQDN) of the
+      machine that runs the nginx service, providing a full proxy to Google App
+      Engine apps hosted in this cloud.
+    table: A str containing the name of the database that we are using to
+      implement support for the Datastore API (e.g., hypertable, cassandra).
+    replication: A str containing an integer, that corresponds to the number of
+      replicas present for each piece of data in the underlying datastore.
+      # TODO(cgb): Consider using a ndb.IntegerProperty here.
+  """
   head_node_ip = ndb.StringProperty()
   table = ndb.StringProperty()
   replication = ndb.StringProperty()
 
 
-class APIstatus(ndb.Model):
+class ApiStatus(ndb.Model):
   """ A Datastore Model that contains information about the current state of an
   Google App Engine API that AppScale provides support for.
 
@@ -25,13 +36,9 @@ class APIstatus(ndb.Model):
     name: A str that corresponds to the name of the Google App Engine API.
     value: A str that indicates what the current status of the API is (e.g.,
       running, failed, unknown).
-    last_update: A timestamp that indicates when this API status was updated
-      last (useful to know in case we haven't checked an API's status in a
-      while).
   """
   name = ndb.StringProperty()
   value = ndb.StringProperty()
-  last_update = ndb.DateTimeProperty(auto_now=True)
 
 
 class ServerStatus(ndb.Model):
@@ -45,7 +52,7 @@ class ServerStatus(ndb.Model):
     disk: The percent of hard disk space in use on this machine.
     cloud: A str indicating which cloud this server runs in. Most deployments
       run in a single cloud ("cloud1").
-    roles: A comma-separated str that lists all of the services that this
+    roles: A list of strs, where each str corresponds to a service that this
       machine runs.
   """
   ip = ndb.StringProperty()
@@ -53,7 +60,7 @@ class ServerStatus(ndb.Model):
   memory = ndb.StringProperty()
   disk = ndb.StringProperty()
   cloud = ndb.StringProperty()
-  roles = ndb.StringProperty()
+  roles = ndb.StringProperty(repeated=True)
 
 
 class AppStatus(ndb.Model):
@@ -64,13 +71,9 @@ class AppStatus(ndb.Model):
     name: The application ID associated with this Google App Engine app.
     url: A URL that points to an nginx server, which serves a full proxy to
       this Google App Engine app.
-    last_update: A timestamp that indicates when this Model was last updated
-    (useful to know if the URL that hosts this app changes in response to
-    failures).
   """
   name = ndb.StringProperty()
   url = ndb.StringProperty()
-  last_update = ndb.DateTimeProperty(auto_now=True)
 
 
 class UserInfo(ndb.Model):
@@ -97,25 +100,17 @@ class UserInfo(ndb.Model):
 class AppDashboardData():
   """ Helper class to interact with the datastore. """
 
-  # Keyname for AppDashboard root entity
+
+  # The name of the key that we store globally accessible Dashboard information
+  # in. 
   ROOT_KEYNAME = 'AppDashboard'
 
-  # Number of seconds to wait before launching refresh task.
-  REFRESH_FREQUENCY = 30
 
-  # Port number of the Monitoring service.
+  # The port that the AppMonitoring service runs on, by default.
   MONITOR_PORT = 8050
 
-  # Data refresh URL.
-  DATASTORE_REFRESH_URL = '/status/refresh'
 
-  # Delimiter for status roles
-  STATUS_ROLES_DELIMITER = ','
-
-  # The charcter that separates apps.
-  APP_DELIMITER = ":"
-
-  def __init__(self, helper = None):
+  def __init__(self, helper=None):
     """ Constructor. 
 
     Args:
@@ -129,42 +124,55 @@ class AppDashboardData():
     if not self.root:
       self.root = DashboardDataRoot(id = self.ROOT_KEYNAME)
       self.root.put()
-      self.initialize_datastore()
+      self.update_all()
 
-  def get_by_id(self, obj, key):
-    """ Get one object from the datastore.
+
+  def get_by_id(self, model, key_name):
+    """ Retrieves an object from the datastore, referenced by its keyname.
+
+    ndb does provide a method of the same name that does this, but we ran into
+    issues mocking out both ModelName() and ModelName.get_by_id() in the same
+    unit test, so using this level of indirection lets us mock out both without
+    issues.
 
     Args:
-      obj: A ndb.Model class to retrieve.
-      key: A string, the key name to retrieve.
+      model: The ndb.Model that the requested object belongs to.
+      key_name: A str that corresponds to the the Model's key name.
     Returns:
       An object of type obj, or None.
     """
-    return obj.get_by_id(key)
+    return model.get_by_id(key_name)
+
 
   def get_all(self, obj, keys_only=False):
-    """ Get all objects from the datastore.
+    """ Retrieves all objects from the datastore for a given model, or all of
+    the keys for those objects.
 
     Args:
-      obj: A ndb.Model class to retrieve.
-      keys_only: A boolean, to retrieve only the keys.
+      model: The ndb.Model that the requested object belongs to.
+      keys_only: A bool that indicates that only keys should be returned,
+        instead of the actual objects.
     Returns:
-      A ndb.Query object.
+      A list of keys (if keys_only is True), or a list of objects in the given
+      model (if keys_only is False).
     """
     return obj.query().fetch(keys_only=keys_only)
 
-  def initialize_datastore(self):
-    """ Initialze datastore. Run once per appscale deployment. """
-    self.update_all()
 
   def update_all(self):
-    """ Update all data stored in the datastore. """
+    """ Queries the AppController to learn about the currently running
+    AppScale deployment.
+
+    This method stores all information it learns about this deployment in
+    the Datastore, to speed up future accesses to this data.
+    """
     self.update_head_node_ip()
     self.update_database_info()
     self.update_apistatus()
     self.update_status_info()
     self.update_application_info()
     self.update_users()
+
 
   def get_monitoring_url(self):
     """ Returns the url of the monitoring service. 
@@ -180,6 +188,7 @@ class AppDashboardData():
       logging.exception(err)
     return ''
 
+
   def get_head_node_ip(self):
     """ Return the ip of the head node from the data store. 
 
@@ -187,6 +196,7 @@ class AppDashboardData():
       A str containing the ip of the head node.
     """
     return self.root.head_node_ip
+
 
   def update_head_node_ip(self):
     """ Query the AppController and store the ip of the head node.  """
@@ -204,11 +214,12 @@ class AppDashboardData():
       A dict where the keys are the names of the services, and the values are
         the status of that service.
     """
-    statuses = self.get_all(APIstatus)
+    statuses = self.get_all(ApiStatus)
     ret = {}
     for status in statuses:
       ret[status.name] = status.value
     return ret
+
 
   def update_apistatus(self):
     """ Retrieve the API status from the system and store in the datastore. """
@@ -216,14 +227,15 @@ class AppDashboardData():
       acc = self.helper.get_server()
       stat_dict = acc.get_api_status()
       for key in stat_dict.keys():
-        store = self.get_by_id(APIstatus, key)
+        store = self.get_by_id(ApiStatus, key)
         if not store:
-          store = APIstatus(id = key)
+          store = ApiStatus(id = key)
           store.name = key
         store.value = stat_dict[key]
         store.put()
     except Exception as err:
       logging.exception(err)
+
 
   def get_status_info(self):
     """ Return the status information for all the server in the cluster from
@@ -233,17 +245,10 @@ class AppDashboardData():
       A list of dicts containing the status information on each server.
     """    
     statuses = self.get_all(ServerStatus)
-    ret = []
-    for status in statuses:
-      server = {}
-      server['ip'] = status.ip
-      server['cpu'] = status.cpu
-      server['memory'] = status.memory
-      server['disk'] = status.disk
-      server['cloud'] = status.cloud
-      server['roles'] = status.roles.split(self.STATUS_ROLES_DELIMITER)
-      ret.append(server)
-    return ret
+    return [{'ip' : status.ip, 'cpu' : status.cpu, 'memory' : status.memory,
+      'disk' : status.disk, 'cloud' : status.cloud, 'roles' : status.roles}
+      for status in statuses]
+
 
   def update_status_info(self):
     """ Query the AppController and get the status information for all the 
@@ -256,11 +261,11 @@ class AppDashboardData():
         if not status:
           status = ServerStatus(id = node['ip'])
           status.ip = node['ip']
-        status.cpu    = str(node['cpu'])
+        status.cpu = str(node['cpu'])
         status.memory = str(node['memory'])
-        status.disk   = str(node['disk'])
-        status.cloud  = node['cloud']
-        status.roles  = self.STATUS_ROLES_DELIMITER.join(node['roles'])
+        status.disk = str(node['disk'])
+        status.cloud = node['cloud']
+        status.roles = node['roles']
         status.put()
     except Exception as err:
       logging.exception(err)
@@ -273,10 +278,8 @@ class AppDashboardData():
     Return:
       A dict containing the database information.
     """
-    ret = {}
-    ret['table'] = self.root.table
-    ret['replication'] =  self.root.replication
-    return ret
+    return {'table' : self.root.table, 'replication' : self.root.replication}
+
 
   def update_database_info(self):
     """ Queries the AppController and stores the database information of this
@@ -290,6 +293,7 @@ class AppDashboardData():
     except Exception as err:
       logging.exception(err)
 
+
   def get_application_info(self):
     """ Returns the list of applications running on this cloud.
     
@@ -302,6 +306,7 @@ class AppDashboardData():
     for status in statuses:
       ret[status.name] = status.url
     return ret
+
 
   def delete_app_from_datastore(self, app, email=None):
     """ Remove the app from the datastore and the user's app list.
@@ -371,6 +376,7 @@ class AppDashboardData():
     except Exception as err:
       logging.exception(err)
 
+
   def update_users(self):
     """ Query the UserAppServer and update the state of all the users. """
     return_list = []
@@ -390,6 +396,7 @@ class AppDashboardData():
       return return_list
     except Exception as err:
       logging.exception(err)
+
 
   def get_user_app_list(self):
     """ Queries the UserAppServer to see which Google App Engine applications
@@ -413,6 +420,7 @@ class AppDashboardData():
       logging.exception(err)
       return []
 
+
   def is_user_cloud_admin(self):
     """ Queries the UserAppServer to see if the currently logged in user has the
     authority to administer this AppScale deployment.
@@ -433,6 +441,7 @@ class AppDashboardData():
     except Exception as err:
       logging.exception(err)
       return False
+
 
   def i_can_upload(self):
     """ Queries the UserAppServer to see if the currently logged in user has the

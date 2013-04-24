@@ -11,7 +11,7 @@ from app_dashboard_data import AppDashboardData
 from app_dashboard_helper import AppDashboardHelper
 
 from app_dashboard_data import DashboardDataRoot
-from app_dashboard_data import APIstatus
+from app_dashboard_data import ApiStatus
 from app_dashboard_data import ServerStatus
 from app_dashboard_data import AppStatus
 import app_dashboard_data
@@ -40,7 +40,7 @@ class TestAppDashboardData(unittest.TestCase):
       .and_return(fake_root)
 
 
-  def setupAPIstatusMocks(self):
+  def setupApiStatusMocks(self):
     fake_api1 = flexmock(name='api1', value='running')
     fake_api1.should_receive('put').and_return()
 
@@ -51,12 +51,12 @@ class TestAppDashboardData(unittest.TestCase):
     fake_api3.should_receive('put').and_return()
 
     flexmock(AppDashboardData).should_receive('get_by_id') \
-      .with_args(app_dashboard_data.APIstatus, re.compile('api')) \
+      .with_args(app_dashboard_data.ApiStatus, re.compile('api')) \
       .and_return(fake_api1) \
       .and_return(fake_api2) \
       .and_return(fake_api3)
     flexmock(AppDashboardData).should_receive('get_all') \
-      .with_args(app_dashboard_data.APIstatus) \
+      .with_args(app_dashboard_data.ApiStatus) \
       .and_return([fake_api1, fake_api2, fake_api3])
 
 
@@ -143,37 +143,25 @@ class TestAppDashboardData(unittest.TestCase):
 
 
   def test_init(self):
-    # Call the constructor, should call initialize_datastore().
-    flexmock(AppDashboardData).should_receive('initialize_datastore')\
+    # Call the constructor, should call update_all().
+    flexmock(AppDashboardData).should_receive('update_all')\
       .and_return().once()
     data1 = AppDashboardData()
     self.assertNotEquals(None, data1.root)
     self.assertNotEquals(None, data1.helper)
     
     # Call the constructor a second time, it is already initialized so it 
-    # should not call initialize_datastore().
-    flexmock(AppDashboardData).should_receive('initialize_datastore')\
+    # should not call update_all().
+    flexmock(AppDashboardData).should_receive('update_all')\
       .and_return().never()
     data2 = AppDashboardData(flexmock())
     self.assertNotEquals(None, data2.root)
     self.assertNotEquals(None, data2.helper)
 
 
-  def test_initialize_datastore(self):
-    # call the constructor, should call initialize_datastore()
-    # which calls update_all().
-    flexmock(AppDashboardData).should_call('initialize_datastore')\
-      .and_return().once()
-    flexmock(AppDashboardData).should_receive('update_all')\
-      .and_return().once()
-    data1 = AppDashboardData()
-
-
   def test_update_all(self):
-    # call the constructor, should call initialize_datastore()
-    # which calls update_all(), which calls all the update_ methods
-    flexmock(AppDashboardData).should_call('initialize_datastore')\
-      .and_return().once()
+    # call the constructor, should call update_all()
+    # which calls all the update_ methods
     flexmock(AppDashboardData).should_call('update_all')\
       .and_return().once()
     flexmock(AppDashboardData).should_receive('update_head_node_ip')\
@@ -192,7 +180,7 @@ class TestAppDashboardData(unittest.TestCase):
 
 
   def test_get_monitoring_url(self):
-    flexmock(AppDashboardData).should_receive('initialize_datastore')\
+    flexmock(AppDashboardData).should_receive('update_all')\
       .and_return().once()
     fake_ip  = '1.1.1.1.'
     flexmock(AppDashboardData).should_receive('get_head_node_ip')\
@@ -205,7 +193,7 @@ class TestAppDashboardData(unittest.TestCase):
 
 
   def test_get_head_node_ip(self):
-    flexmock(AppDashboardData).should_receive('initialize_datastore')\
+    flexmock(AppDashboardData).should_receive('update_all')\
       .and_return().once()
     data1 = AppDashboardData()
     fake_ip  = '1.1.1.1.'
@@ -214,7 +202,7 @@ class TestAppDashboardData(unittest.TestCase):
 
 
   def test_update_head_node_ip(self):
-    flexmock(AppDashboardData).should_receive('initialize_datastore')\
+    flexmock(AppDashboardData).should_receive('update_all')\
       .and_return().once()
     fake_ip  = '1.1.1.1.'
     flexmock(AppDashboardHelper).should_receive('get_host_with_role')\
@@ -225,10 +213,10 @@ class TestAppDashboardData(unittest.TestCase):
 
 
   def test_get_apistatus(self):
-    flexmock(AppDashboardData).should_receive('initialize_datastore')\
+    flexmock(AppDashboardData).should_receive('update_all')\
       .and_return().once()
     
-    self.setupAPIstatusMocks()
+    self.setupApiStatusMocks()
     data1 = AppDashboardData()
     output = data1.get_apistatus()
     self.assertEquals(len(output), 3)
@@ -238,10 +226,10 @@ class TestAppDashboardData(unittest.TestCase):
 
 
   def test_update_apistatus(self):
-    flexmock(AppDashboardData).should_receive('initialize_datastore')\
+    flexmock(AppDashboardData).should_receive('update_all')\
       .and_return().once()
 
-    self.setupAPIstatusMocks()
+    self.setupApiStatusMocks()
     fake_get_server = flexmock()
     fake_get_server.should_receive('get_api_status')\
       .and_return({
@@ -262,7 +250,7 @@ class TestAppDashboardData(unittest.TestCase):
 
 
   def test_get_status_info(self):
-    flexmock(AppDashboardData).should_receive('initialize_datastore')\
+    flexmock(AppDashboardData).should_receive('update_all')\
       .and_return().once()
     
     self.setupServerStatusMocks()
@@ -274,7 +262,7 @@ class TestAppDashboardData(unittest.TestCase):
     
 
   def test_update_status_info(self):
-    flexmock(AppDashboardData).should_receive('initialize_datastore') \
+    flexmock(AppDashboardData).should_receive('update_all') \
       .and_return().once()
     self.setupServerStatusMocks()
     fake_get_server = flexmock()
@@ -305,7 +293,7 @@ class TestAppDashboardData(unittest.TestCase):
 
 
   def test_get_database_info(self):
-    flexmock(AppDashboardData).should_receive('initialize_datastore')\
+    flexmock(AppDashboardData).should_receive('update_all')\
       .and_return().once()
     data1 = AppDashboardData()
     output = data1.get_database_info()
@@ -314,7 +302,7 @@ class TestAppDashboardData(unittest.TestCase):
 
 
   def test_update_database_info(self):
-    flexmock(AppDashboardData).should_receive('initialize_datastore')\
+    flexmock(AppDashboardData).should_receive('update_all')\
       .and_return().once()
     fake_get_server = flexmock()
     fake_get_server.should_receive('get_database_information')\
@@ -332,7 +320,7 @@ class TestAppDashboardData(unittest.TestCase):
 
 
   def test_get_application_info(self):
-    flexmock(AppDashboardData).should_receive('initialize_datastore')\
+    flexmock(AppDashboardData).should_receive('update_all')\
       .and_return().once()
     self.setupAppStatusMocks()
     data1 = AppDashboardData()
@@ -342,7 +330,7 @@ class TestAppDashboardData(unittest.TestCase):
     self.assertEquals(output['app2'], None)
     
   def test_delete_app_from_datastore(self):
-    flexmock(AppDashboardData).should_receive('initialize_datastore')\
+    flexmock(AppDashboardData).should_receive('update_all')\
       .and_return().once()
     flexmock(logging).should_receive('info').and_return()
     self.setupUserInfoMocks()
@@ -355,7 +343,7 @@ class TestAppDashboardData(unittest.TestCase):
     self.assertTrue('app1' in app_list )
 
   def test_update_application_info__noapps(self):
-    flexmock(AppDashboardData).should_receive('initialize_datastore')\
+    flexmock(AppDashboardData).should_receive('update_all')\
       .and_return().once()
     flexmock(AppDashboardHelper).should_receive('get_status_info')\
       .and_return([{
@@ -374,7 +362,7 @@ class TestAppDashboardData(unittest.TestCase):
 
 
   def test_update_application_info__2apps(self):
-    flexmock(AppDashboardData).should_receive('initialize_datastore')\
+    flexmock(AppDashboardData).should_receive('update_all')\
       .and_return().once()
     flexmock(AppDashboardHelper).should_receive('get_status_info')\
       .and_return([{
@@ -395,7 +383,7 @@ class TestAppDashboardData(unittest.TestCase):
     
 
   def test_update_users(self):
-    flexmock(AppDashboardData).should_receive('initialize_datastore')\
+    flexmock(AppDashboardData).should_receive('update_all')\
       .and_return().once()
     flexmock(AppDashboardHelper).should_receive('list_all_users')\
       .and_return(['a@a.com', 'b@a.com', 'c@a.com']).once()
@@ -434,7 +422,7 @@ class TestAppDashboardData(unittest.TestCase):
 
 
   def test_get_user_app_list(self):
-    flexmock(AppDashboardData).should_receive('initialize_datastore')\
+    flexmock(AppDashboardData).should_receive('update_all')\
       .and_return().once()
 
     # slip in some fake users
@@ -464,7 +452,7 @@ class TestAppDashboardData(unittest.TestCase):
 
 
   def test_is_user_cloud_admin(self):
-    flexmock(AppDashboardData).should_receive('initialize_datastore') \
+    flexmock(AppDashboardData).should_receive('update_all') \
       .and_return().once()
 
     # slip in some fake users
@@ -489,7 +477,7 @@ class TestAppDashboardData(unittest.TestCase):
 
 
   def test_i_can_upload(self):
-    flexmock(AppDashboardData).should_receive('initialize_datastore') \
+    flexmock(AppDashboardData).should_receive('update_all') \
       .and_return().once()
 
     # slip in some fake users
