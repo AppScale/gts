@@ -972,7 +972,16 @@ class TestDjinn < Test::Unit::TestCase
   end
 
   def test_log_sending
+    # mock out getting our ip address
+    flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
+      and_return("inet addr:1.2.3.4")
+
+    node_info = "1.2.3.3:1.2.3.3:shadow:login:i-000000:cloud1"
+    node = DjinnJobData.new(node_info, "boo")
+
     djinn = Djinn.new()
+    djinn.nodes = [node]
+    djinn.my_index = 0
 
     # test that the buffer is initially empty
     assert_equal([], Djinn.get_logs_buffer())
@@ -984,6 +993,11 @@ class TestDjinn < Test::Unit::TestCase
 
     # and make sure they're in there
     assert_equal(3, Djinn.get_logs_buffer().length)
+
+    # mock out sending the logs
+    flexmock(Net::HTTP).new_instances { |instance|
+      instance.should_receive(:post).with("/logs/upload", String, Hash)
+    }
 
     # flush the buffer
     djinn.flush_log_buffer()
