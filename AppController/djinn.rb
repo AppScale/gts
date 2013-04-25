@@ -2030,7 +2030,7 @@ class Djinn
       'logs' => @@logs_buffer,
     })
 
-    url = URI.parse("https://#{my_node.public_ip}/logs/upload")
+    url = URI.parse("https://#{get_login.public_ip}/logs/upload")
     http = Net::HTTP.new(url.host, url.port)
     http.use_ssl = true
     response = http.post(url.path, encoded_logs, {'Content-Type'=>'application/json'})
