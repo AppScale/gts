@@ -14,6 +14,14 @@ class LogSender():
 
   @classmethod
   def send_logs(cls, base64_logs):
+    """Sends the given logs to the AppDashboard for later viewing.
+
+    Args:
+      base64_logs: A base64-encoded str that contains a JSON-dumped
+        dict, indicating what the log message is, when it occurred, and what
+        it's severity is. It does not need to indicate the public IP address
+        of this machine, as we add that in.
+    """
     incomplete_payload = base64.b64decode(base64_logs)
     log = json.loads(incomplete_payload)
     log['host'] = cls.get_my_public_hostname()
@@ -27,16 +35,41 @@ class LogSender():
 
   @classmethod
   def get_my_public_hostname(cls):
+    """Reads local filesystem state to find out what this machine's public
+    hostname (IP or FQDN) is.
+
+    Returns:
+      A str that indicates what IP or FQDN this machine can be accessed via.
+    """
     return cls.read_file("/etc/appscale/my_public_ip")
 
 
   @classmethod
   def get_login_host(cls):
+    """Reads local filesystem state to find out what machine runs the
+    AppDashboard service, and the hostname that it runs at.
+
+    Returns:
+      A str that indicates what IP or FQDN the machine running the AppDashboard
+        can be accessed via.
+    """
     return cls.read_file("/etc/appscale/login_ip")
 
 
   @classmethod
   def read_file(cls, filename):
+    """A helper function that reads a file on the local filesystem, stripping
+    a trailing newline (if present).
+
+    Removing that newline is useful because when the AppController writes these
+    files, it sometimes places a newline after the IP or FQDN of the machine in
+    question.
+
+    Args:
+      filename: A str indicating which file should be read.
+    Returns:
+      A str containing the contents of the file, without a trailing newline.
+    """
     with open(filename, 'r') as file_handle:
       host = file_handle.read()
       if host[-1] == "\n":
