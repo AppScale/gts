@@ -665,7 +665,7 @@ class LogServiceHostPage(AppDashboard):
       self.redirect('/', self.response)
 
     encoded_cursor = self.request.get('next_cursor')
-    if encoded_cursor:
+    if encoded_cursor and encoded_cursor != "None":
       start_cursor = Cursor(urlsafe=encoded_cursor)
     else:
       start_cursor = None
@@ -680,11 +680,16 @@ class LogServiceHostPage(AppDashboard):
         RequestLogLine.host == host).fetch_page(20, produce_cursors=True,
         start_cursor=start_cursor)
 
+    if next_cursor:
+      cursor_value = next_cursor.urlsafe()
+    else:
+      cursor_value = None
+
     self.render_page(page='logs', template_file=self.TEMPLATE, values = {
       'service_name' : service_name,
       'host' : host,
       'query' : query,
-      'next_cursor' : next_cursor.urlsafe(),
+      'next_cursor' : cursor_value,
       'is_more' : is_more
     })
 
