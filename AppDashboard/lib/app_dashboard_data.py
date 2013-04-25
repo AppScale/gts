@@ -243,10 +243,11 @@ class AppDashboardData():
 
     Returns:
       A list of dicts containing the status information on each server.
-    """    
+    """
     statuses = self.get_all(ServerStatus)
     return [{'ip' : status.ip, 'cpu' : status.cpu, 'memory' : status.memory,
-      'disk' : status.disk, 'cloud' : status.cloud, 'roles' : status.roles}
+      'disk' : status.disk, 'cloud' : status.cloud, 'roles' : status.roles,
+      'key' : status.key.id().translate(None, '.') }
       for status in statuses]
 
 

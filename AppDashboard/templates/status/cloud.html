@@ -140,56 +140,62 @@
                                     <th>CPU Usage</th>
                                     <th>Memory Usage</th>
                                     <th>Hard Disk Usage</th>
-                                    <th>Cloud</th>
                                     <th>Role(s)</th>
                                   </tr>
                                 </thead>
                                 <tbody>
                                 {% for server in server_info %}
+                                    <tr>
+                                      <td style="text-align: center;"><strong>{{server['ip'] }}</strong></td>
+                                      <td align="center">
+                                        <div id="{{ server['key'] }}g1" style="width:200px; height:160px"></div>
+                                      </td>
+                                      <td align="center">
+                                        <div id="{{ server['key'] }}g2" style="width:200px; height:160px"></div>
+                                      </td>
+                                      <td align="center">
+                                        <div id="{{ server['key'] }}g3" style="width:200px; height:160px"></div>
+                                      </td>
+                                      <td style="text-align: center;">
+                                        <strong>{{server['roles']|join(', ') }}</strong>
+                                      </td>
+                                    </tr>
+                                {% endfor %}
                                  <script>
-                                      var g1, g2, g3;
-                                      
-                                      window.onload = function(){
-                                        var g1 = new JustGage({
-                                          id: "g1", 
-                                          value: {{server['cpu'] }}, 
-                                          min: 0,
-                                          max: 100,
-                                          title: "CPU",
-                                          label: "",
-                                          levelColorsGradient: false
+                                   window.onload = function(){
+                                     {% for server in server_info %}
+                                       new JustGage({
+                                         id: "{{ server['key'] }}g1",
+                                         value: {{ server['cpu'] }},
+                                         min: 0,
+                                         max: 100,
+                                         title: "CPU",
+                                         label: "",
+                                         levelColorsGradient: false
+                                       });
+                                        
+                                       new JustGage({
+                                         id: "{{ server['key'] }}g2",
+                                         value: {{ server['memory'] }},
+                                         min: 0,
+                                         max: 100,
+                                         title: "MEM",
+                                         label: "",
+                                         levelColorsGradient: false
                                         });
                                         
-                                        var g2 = new JustGage({
-                                          id: "g2", 
-                                          value: {{server['memory'] }},
-                                          min: 0,
-                                          max: 100,
-                                          title: "MEM",
-                                          label: "",
-                                          levelColorsGradient: false
-                                        });
-                                        
-                                        var g3 = new JustGage({
-                                          id: "g3", 
-                                          value: {{server['disk'] }}, 
+                                        new JustGage({
+                                          id: "{{ server['key'] }}g3",
+                                          value: {{ server['disk'] }},
                                           min: 0,
                                           max: 100,
                                           title: "HD",
                                           label: "",
                                           levelColorsGradient: false
                                         });
-                                      };
-                                    </script>
-                                    <tr>
-                                      <td style="text-align: center;"><strong>{{server['ip'] }}</strong></td>
-                                      <td align="center"><div id="g1"></div></td>
-                                      <td align="center"><div id="g2"></div></td>
-                                      <td align="center"><div id="g3"></div></td>
-                                    <td style="text-align: center;"><strong>{{server['cloud'] }}</strong></td>
-                                     <td style="text-align: center;"><strong>{{server['roles']|join(', ') }}</strong></td>
-                                    </tr>
-                                {% endfor %}
+                                     {% endfor %}
+                                    };
+                                 </script>
                                 </tbody>
                             </table>
                           </div>
