@@ -41,6 +41,10 @@ module HAProxy
   SERVER_OPTIONS = "maxconn 1 check inter 20000 fastinter 1000 fall 1"
 
 
+  # HAProxy Configuration to use for a thread safe gae app.
+  THREADED_SERVER_OPTIONS = "maxconn 7 check inter 20000 fastinter 1000 fall 1"
+  
+
   # The first port that haproxy will bind to for App Engine apps.
   START_PORT = 10000
 
@@ -160,9 +164,14 @@ module HAProxy
     HAProxy.reload
   end
   
-  # Generate the server configuration line for the provided inputs
+  # Generate the server configuration line for the provided inputs. GAE applications
+  # that are thread safe will have a higher connection limit. 
   def self.server_config app_name, index, ip, port
-    "  server #{app_name}-#{index} #{ip}:#{port} #{SERVER_OPTIONS}"
+    if HelperFunctions.get_app_thread_safe(app_name)
+      return "  server #{app_name}-#{index} #{ip}:#{port} #{THREADED_SERVER_OPTIONS}"
+    else
+      return "  server #{app_name}-#{index} #{ip}:#{port} #{SERVER_OPTIONS}"
+    end
   end
 
   def self.write_app_config(app_name, app_number, num_of_servers, ip)
