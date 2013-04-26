@@ -128,7 +128,7 @@ class AppDashboardHelper():
     if self.uaserver is None:
       acc = self.get_appcontroller_client()
       uas_host = acc.get_uaserver_host(False)
-      self.uaserver = SOAPpy.SOAPProxy('https://%s:%s' % (uas_host, 
+      self.uaserver = SOAPpy.SOAPProxy('https://{0}:{1}'.format(uas_host, 
         self.UA_SERVER_PORT))
     return self.uaserver
 
@@ -220,24 +220,25 @@ class AppDashboardHelper():
         on.
     
     Args:
-      appname: 
-        Name of the app being queried.
+      appname: Name of the app being queried.
     Returns:
-      An int: the port number.
+      An int that indicates which port the named app runs on.
     Raises:
-      AppHelperException if the app has no port.
+      AppHelperException: If the named application is not running in this
+        AppScale deployment, or if it is running but does not have a port
+        assigned to it.
     """
     try:
       uas = self.get_uaserver()
-      app_data = uas.get_app_data(appname, GLOBAL_SECRET_KEY )
+      app_data = uas.get_app_data(appname, GLOBAL_SECRET_KEY)
       result = re.search(self.GET_APP_PORTS_REGEX, app_data)
       if result:
         # GET_APP_PORTS_REGEX define a capture group, which we use here.
-        port = int(result.group(1))
-        return port
+        return int(result.group(1))
     except Exception as err:
       logging.exception(err)
-    raise AppHelperException("app has no port")
+      raise AppHelperException("Application {0} does not have a port number " \
+        "that it runs on.".format(appname))
 
 
   def upload_app(self, upload_file):
@@ -291,7 +292,7 @@ class AppDashboardHelper():
       acc = self.get_appcontroller_client()
       ret = acc.stop_app(appname)
       if ret != "true":
-        logging.info("delete_app() AppControler returned: " + ret)
+        logging.info("AppControler returned: {0}".format(ret))
         return "There was an error attempting to remove the application."
     except Exception as err:
       logging.exception(err)
@@ -327,11 +328,7 @@ class AppDashboardHelper():
     Returns:
       True if the user is logged in, else False.
     """
-    user = users.get_current_user()
-    if user:
-      return True
-    else:
-      return False
+    return users.get_current_user() != None
 
 
   def get_user_email(self):
@@ -370,9 +367,9 @@ class AppDashboardHelper():
     """ Queries the UserAppServer and returns the data on a user.
 
     Args:
-      email: Email address of the user being queried.
+      email: A str that contains the e-mail address of the user being queried.
     Returns:
-      A str contain the the user data, or empty string on error.
+      A str containing the user's data, or empty string on error.
     """
     if 'query_user_data' in self.cache:
       if email in self.cache['query_user_data']:
@@ -391,18 +388,21 @@ class AppDashboardHelper():
 
 
   def is_user_cloud_admin(self, email=None):
-    """ Check if the logged in user is a cloud admin.
+    """ Checks if a user is a cloud administrator.
 
     Args:
-      email: Email address of the user.
+      email: A str containing the e-mail address of the user that may be a cloud
+        admin, or None (in which case, we use the e-mail address of the
+        currently logged-in user).
     Returns:
-      True if the user is a cloud admin, and False otherwise.
+      True if the user is a cloud admin, and False otherwise (including the case
+      when no user is logged in).
     """
     if email is None:
       user = users.get_current_user()
       if not user:
         return False
-      email =  user.email()
+      email = user.email()
     user_data = self.query_user_data(email)
     if re.search(self.CLOUD_ADMIN_REGEX, user_data):
       return True
@@ -410,37 +410,39 @@ class AppDashboardHelper():
       return False
 
 
-  def i_can_upload(self, email=None):
-    """ Check if the user can upload apps.
+  def can_upload_apps(self, email=None):
+    """ Checks if the user can upload Google App Engine applications via the
+    AppDashboard.
 
     Args:
-      email: Email address of the user.
+      email: A str containing the e-mail address of the user that may be a cloud
+        admin, or None (in which case, we use the e-mail address of the
+        currently logged-in user).
     Returns:
-      True if the user can upload apps, and False otherwise.
+      True if the user is authorized to upload Google App Engine apps, and False
+      otherwise (including the case when no user is logged in).
     """
     if email is None:
       user = users.get_current_user()
       if not user:
         return False
       email = user.email()
-    if 'upload_app' in self.get_user_capabilities(email):
-      return True
-    return False
+    return 'upload_app' in self.get_user_capabilities(email)
 
 
   def create_new_user(self, email, password, response, 
         account_type='xmpp_user'):
-    """ Create new user in the system. 
+    """ Creates a new user account.
 
     Args:
-      email: Email address of the new user.
-      password: Password for the new user.
-      response: The webapp2 response object of the parent of ths AppDashboard
-                object.
+      email: A str containing the e-mail address of the new user.
+      password: A str containing the cleartext password for the new user.
+      response: A webapp2 response that the new user's logged in cookie
+        should be set in.
     Returns:
-      True if the user was created.
+      True if the user account was successfully created.
     Raises:
-      AppHelperException on error.
+      AppHelperException: If the user account could not be created.
     """
     try:
       uaserver = self.get_uaserver()
@@ -474,19 +476,21 @@ class AppDashboardHelper():
 
 
   def set_appserver_cookie(self, email, response):
-    """ Sets the login cookie.
+    """ Creates a new cookie indicating that this user is logged in and sets it
+    in their session.
 
     Args:
-      email: Email of the user to login.
-      response: The webapp2 response object of the parent of ths AppDashboard
-                object.
+      email: A str containing the e-mail address of the user who we should
+        login as.
+      response: A webapp2 response that the new user's logged in cookie
+        should be set in.
     """
     apps = ''
     user_data = self.query_user_data(email)
     app_re = re.search(self.USER_APP_LIST_REGEX, user_data)
     if app_re:
       apps_list = app_re.group(1).split(self.APP_DELIMITER)
-      apps =  ",".join(apps_list)
+      apps = ",".join(apps_list)
     response.set_cookie(self.DEV_APPSERVER_LOGIN_COOKIE,
       value=self.get_cookie_value(email, apps),
       expires=datetime.datetime.now() + datetime.timedelta(days=1))
@@ -498,8 +502,10 @@ class AppDashboardHelper():
         of apps the user is an admin of.
     
     Args:
-      email: Email of the user to login.
-      apps: List of applications the user is admin of.
+      email: A str containing the e-mail address of the user to generate a
+        cookie value for.
+      apps: A list of strs, where each str is an application id that the user is
+        an administrator of.
     Retuns:
       A str that is the value of the login cookie.
     """
@@ -509,24 +515,32 @@ class AppDashboardHelper():
 
 
   def get_appengine_hash(self, email, nick, apps):
-    """ Encrypt the values and return the hash.
+    """ Generates a hash of the user's credentials with the secret key, used to
+    ensure that the user doesn't forge their cookie (as its value would fail to
+    match this hash).
 
     Args:
-      email: Email of the user to login.
-      nick: Email of the user to login.
-      apps: A str with a comma-seperated list of apps the user is an admin of.
+      email: A str containing the e-mail address of the user to create a hash
+        for.
+      nick: The prefix of the user's e-mail address (everything before the
+        initial '@' character).
+      apps: A str with a comma-separated list of apps that this user is
+        authorized to administer.
     Returns:
-      A str that is the hex hash of the input values.
+      A str that is the SHA1 hash of the input values with the secret key.
     """
-    return hashlib.sha1(email + nick + apps + GLOBAL_SECRET_KEY).hexdigest()
+    return hashlib.sha1("{0}{1}{2}{3}".format(email, nick, apps,
+      GLOBAL_SECRET_KEY)).hexdigest()
 
 
   def create_token(self, token, email):
-    """ Create a login token and commit it to the UserAppServer.
+    """ Create a login token and save it in the UserAppServer.
     
     Args:
-      token: Name of the token to create (usually the email address).
-      email: Email of the user to create the login token for.
+      token: A str containing the name of the token to create (usually the email
+        address).
+      email: A str containing the e-mail address of the user to create the login
+        token for.
     """
     try:
       uaserver = self.get_uaserver()
@@ -538,11 +552,11 @@ class AppDashboardHelper():
 
   def logout_user(self, response):
     """ Remove the user's login cookie and invalidate the login token in
-        the AppScale deployment.  This results in the user being logged out.
+        the AppScale deployment. This results in the user being logged out.
 
     Args:
-      response: The webapp2 response object of the parent of ths AppDashboard
-                object.
+      response: A webapp2 response that the new user's logged in cookie
+        should be erased from.
     """
     user = users.get_current_user()
     if user:
@@ -554,10 +568,10 @@ class AppDashboardHelper():
     """ Attempt to login the user.
 
     Args:
-      email: Email of the user to login.
-      password: Password of the user to login.
-      response: The webapp2 response object of the parent of ths AppDashboard
-                object.
+      email: A str containing the e-mail address of the user to login.
+      password: A str containing the cleartext password of the user to login.
+      response: A webapp2 response that the new user's logged in cookie
+        should be set in.
     Return:
       True if the user logged in successfully, and False otherwise.
     """
@@ -580,7 +594,7 @@ class AppDashboardHelper():
     """ Queries the UserAppServer and return a list of all users in the system.
 
     Returns:
-      A list of strings, each string is a user the email of a user.
+      A list of strings, where each string is a user's e-mail address.
     """
     ret_list = []
     try:
@@ -604,15 +618,16 @@ class AppDashboardHelper():
         permissions they have in the system.
 
     Returns:
-      A list of dicts with the email and permissions of each user in the system.
+      A list of dicts, where each dict contains the e-mail address and
+        authorizations that this user is granted in this AppScale deployment.
     """
     ret_list = []
     try:
       all_users_list = self.list_all_users()
       perm_items = self.get_all_permission_items()
-      for usr in all_users_list:
-        usr_cap = {'email' : usr}
-        caps_list = self.get_user_capabilities(usr)
+      for user in all_users_list:
+        usr_cap = {'email' : user}
+        caps_list = self.get_user_capabilities(user)
         for perm in perm_items:
           if perm in caps_list:
             usr_cap[perm] = True
@@ -638,10 +653,11 @@ class AppDashboardHelper():
     """ Add a permission to a user.
 
     Args: 
-      email: Email address of the user.
-      perm: Name of the permission to give to the user.
-    Returns: True if the permission was given to the user,
-      else False.
+      email: A str containing the e-mail address of the user who we wish to add
+        a permission for.
+      perm: A str containing the name of the permission to give to the user.
+    Returns:
+      True if the permission was given to the user, else False.
     """
     try:
       caps_list = self.get_user_capabilities(email)
@@ -652,13 +668,13 @@ class AppDashboardHelper():
       else:
         return True
 
-      ret = uas.set_capabilities(email, 
+      ret = uas.set_capabilities(email,
         self.USER_CAPABILITIES_DELIMITER.join(new_caps), GLOBAL_SECRET_KEY)
       if ret == 'true':
         self.cache['user_caps'][email] = new_caps
         return True
       else:
-        logging.info("ERROR: UserAppServer.set_capabilities returned: " + ret)
+        logging.error("set_capabilities returned: {0}".format(ret))
         return False
     except Exception as err:
       logging.exception(err)
@@ -670,8 +686,9 @@ class AppDashboardHelper():
     """ Remove a permission from a user.
 
     Args: 
-      email: Email address of the user.
-      perm: Name of the permission to remove from the user.
+      email: A str containing the e-mail address of the user who we wish to
+        remove a permission from.
+      perm: A str containing the name of the permission to remove from the user.
     Returns: 
       True if the permission was removed from the user, else False.
     """
@@ -689,7 +706,7 @@ class AppDashboardHelper():
         self.cache['user_caps'][email] = caps_list
         return True
       else:
-        logging.info("uas.set_capabilities returned: " + ret)
+        logging.error("remove_user_permissions returned: {0}".format(ret))
         return False
     except Exception as err:
       logging.exception(err)

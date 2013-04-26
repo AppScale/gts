@@ -141,7 +141,7 @@ class AppDashboard(webapp2.RequestHandler):
       'logged_in' : self.helper.is_user_logged_in(),
       'user_email' : self.helper.get_user_email(),
       'is_user_cloud_admin' : self.dstore.is_user_cloud_admin(),
-      'i_can_upload' : self.dstore.i_can_upload(),
+      'can_upload_apps' : self.dstore.can_upload_apps(),
       'apps_user_is_admin_on' : self.dstore.get_user_app_list()
     }
     for key in values.keys():
@@ -178,8 +178,7 @@ class IndexPage(AppDashboard):
 
 
   def get(self):
-    """ Handler for GET requests. Reads the template file and returns the
-        jinja rendered HTML of the landing page to the requestor."""
+    """ Handler for GET requests. """
     self.render_page(page='landing', template_file=self.TEMPLATE, values={
       'monitoring_url' : self.dstore.get_monitoring_url(),
     })
@@ -213,11 +212,7 @@ class StatusPage(AppDashboard):
 
 
   def get(self):
-    """ Handler for GET requests. Reads the template file and returns the
-        jinja rendered HTML of the status page to the requestor.  This page has
-        information on the API status, Database status, Name and status of
-        each app, and the status of each server in this AppScale deployment.
-     """
+    """ Handler for GET requests. """ 
     # Called from the web.  Refresh data then display page (may be slow).
     if self.request.get('forcerefresh'):
       self.dstore.update_all()
@@ -247,7 +242,9 @@ class NewUserPage(AppDashboard):
     """ Parse the input from the create user form.
 
     Returns:
-      A dict with specific error messages for each 
+      A dict that maps the form fields on the user creation page to None (if
+        they pass our validation) or a str indicating why they fail our
+        validation.
     """
     users = {}
     error_msgs = {}
@@ -292,10 +289,7 @@ class NewUserPage(AppDashboard):
 
 
   def post(self):
-    """ Handler for POST requests. If the user creation was successful, the 
-        requestor is redirected to the landing page.  If the user creation was
-        unsuccessful, it reads the template file and returns the jinja rendered
-        HTML of the create user page to the requestor with error messages."""
+    """ Handler for POST requests. """
     err_msgs = self.parse_new_user_post()
     try:
       if self.process_new_user_post(err_msgs):
@@ -317,9 +311,7 @@ class NewUserPage(AppDashboard):
 
 
   def get(self):
-    """ Handler for GET requests. Reads the template file and returns the
-        jinja rendered HTML of the create user page to the requestor.  Web users
-        can use this page to create a user in the AppScale deployment."""
+    """ Handler for GET requests. """
     self.render_page(page='users', template_file=self.TEMPLATE, values={
       #'display_error_messages' : {},
       'user' : {},
@@ -335,10 +327,7 @@ class LoginVerify(AppDashboard):
 
 
   def post(self):
-    """ Handler for POST requests. If the user clicks the 'Yes' button, they
-        are redirected to the continue url location.  If they click 'No', they
-        are redirected to the landing page.
-    """
+    """ Handler for POST requests. """
     if self.request.get('continue') != '' and\
        self.request.get('commit') == 'Yes':
       self.redirect(self.request.get('continue').encode('ascii','ignore'), 
@@ -348,9 +337,7 @@ class LoginVerify(AppDashboard):
 
 
   def get(self):
-    """ Handler for GET requests. Reads the template file and returns the
-        jinja rendered HTML of the continue url page to the requestor.
-    """
+    """ Handler for GET requests. """
     continue_url = urllib.unquote(self.request.get('continue'))
     url_match = re.search(self.CONTINUE_URL_REGEX, continue_url)
     if url_match:
@@ -381,14 +368,7 @@ class LoginPage(AppDashboard):
 
 
   def post(self):
-    """ Handler for post requests. If the correct email address and password
-        combination is given, the AppScale login cookie is set and the user is
-        redirected to the landing page, or to the continue url page if the 
-        continue url is given.  If the wrong email address and password
-        combination is given, the it reads the template file and returns the
-        jinja rendered HTML of the login page to the requestor with error 
-        messages.
-    """
+    """ Handler for POST requests. """
     if self.helper.login_user(self.request.get('user_email'),
        self.request.get('user_password'), self.response):
     
@@ -408,9 +388,7 @@ class LoginPage(AppDashboard):
 
 
   def get(self):
-    """ Handler for GET requests. Reads the template file and returns the
-        jinja rendered HTML of the login page to the requestor.
-    """
+    """ Handler for GET requests. """
     self.render_page(page='users', template_file=self.TEMPLATE, values={
       'continue' : self.request.get('continue')
     })
@@ -493,7 +471,7 @@ class AppUploadPage(AppDashboard):
     """ Handler for POST requests. """
     success_msg = ''
     err_msg = ''
-    if self.dstore.i_can_upload():
+    if self.dstore.can_upload_apps():
       try: 
         success_msg = self.helper.upload_app(
           self.request.POST.multi['app_file_data'].file)
@@ -545,27 +523,20 @@ class AppDeletePage(AppDashboard):
 
 
   def post(self):
-    """ Handler for POST requests. Receives the delete app request and instructs
-        the AppScale deployment to stop serving the app.  Then it launches two
-        taskqueue tasks to refresh the datastore and reads the template file and
-        returns the jinja rendered HTML of the app delete page to the requestor.
-     """
+    """ Handler for POST requests. """
     appname = self.request.POST.get('appname')
     if self.dstore.is_user_cloud_admin() or \
        appname in self.dstore.get_user_app_list():
       message = self.helper.delete_app(appname)
       self.dstore.delete_app_from_datastore(appname)
       try:
-        logging.info("taskqueue.add(url='/status/refresh')")
         taskqueue.add(url='/status/refresh')
-        logging.info("taskqueue.add(url='/status/refresh', countdown={0})"\
-          .format(self.REFRESH_WAIT_TIME))
         taskqueue.add(url='/status/refresh', countdown=self.REFRESH_WAIT_TIME)
       except Exception as err:
         logging.exception(err)
     else:
-      message = "You do not have permission to delete the application: " + \
-        appname
+      message = "You do not have permission to delete the application: " \
+        "{0}".format(appname)
     self.render_page(page='apps', template_file=self.TEMPLATE, values={
       'flash_message' : message,
       'apps' : self.get_app_list(),
@@ -573,8 +544,7 @@ class AppDeletePage(AppDashboard):
 
 
   def get(self):
-    """ Handler for GET requests. Reads the template file and returns the
-        jinja rendered HTML of the app delete page to the requestor."""
+    """ Handler for GET requests. """
     self.render_page(page='apps', template_file=self.TEMPLATE, values={
       'apps' : self.get_app_list(),
     })
@@ -646,6 +616,10 @@ class LogServiceHostPage(AppDashboard):
   TEMPLATE = 'logs/viewer.html'
 
 
+  # The number of logs we should present on each page.
+  LOGS_PER_PAGE = 20
+
+
   def get(self, service_name, host):
     """ Displays all logs accumulated for the given service, on the named host.
 
@@ -665,13 +639,13 @@ class LogServiceHostPage(AppDashboard):
 
     if host == "all":
       query, next_cursor, is_more = RequestLogLine.query(
-        RequestLogLine.service_name == service_name).fetch_page(20, produce_cursors=True,
-        start_cursor=start_cursor)
+        RequestLogLine.service_name == service_name).fetch_page(
+        self.LOGS_PER_PAGE, produce_cursors=True, start_cursor=start_cursor)
     else:
       query, next_cursor, is_more = RequestLogLine.query(
         RequestLogLine.service_name == service_name,
-        RequestLogLine.host == host).fetch_page(20, produce_cursors=True,
-        start_cursor=start_cursor)
+        RequestLogLine.host == host).fetch_page(self.LOGS_PER_PAGE,
+        produce_cursors=True, start_cursor=start_cursor)
 
     if next_cursor:
       cursor_value = next_cursor.urlsafe()
@@ -691,6 +665,11 @@ class LogUploadPage(webapp2.RequestHandler):
   """ Class to handle requests to the /logs/upload page. """
 
 
+  def get_inverted_key_for_timestamp(self, service_name, host, timestamp):
+    reversed_time = (2**34 - the_time) * 1000000
+    return service_name + host + str(reversed_time)
+
+
   def post(self):
     """ Saves logs records to the Datastore for later viewing. """
     encoded_data = self.request.body
@@ -699,7 +678,7 @@ class LogUploadPage(webapp2.RequestHandler):
     host = data['host']
     log_lines = data['logs']
 
-    # see if this service has been registered
+    # First, check to see if this service has been registered.
     service = LoggedService.get_by_id(service_name)
     if service is None:
       service = LoggedService(id = service_name)
@@ -710,14 +689,14 @@ class LogUploadPage(webapp2.RequestHandler):
         service.hosts.append(host)
         service.put()
 
-    # add in each log line as an AppLogLine
+    # Next, add in each log line as an AppLogLine
     for log_line_dict in log_lines:
       the_time = int(log_line_dict['timestamp'])
       reversed_time = (2**34 - the_time) * 1000000
       key_name = service_name + host + str(reversed_time)
       log_line = RequestLogLine.get_by_id(id = key_name)
       if not log_line:
-        log_line = RequestLogLine(id = reversed_time)
+        log_line = RequestLogLine(id = key_name)
         log_line.service_name = service_name
         log_line.host = host
 

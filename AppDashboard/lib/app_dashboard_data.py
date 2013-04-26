@@ -50,8 +50,6 @@ class ServerStatus(ndb.Model):
     cpu: The percent of CPU currently in use on this machine.
     memory: The percent of RAM currently in use on this machine.
     disk: The percent of hard disk space in use on this machine.
-    cloud: A str indicating which cloud this server runs in. Most deployments
-      run in a single cloud ("cloud1").
     roles: A list of strs, where each str corresponds to a service that this
       machine runs.
   """
@@ -59,7 +57,6 @@ class ServerStatus(ndb.Model):
   cpu = ndb.StringProperty()
   memory = ndb.StringProperty()
   disk = ndb.StringProperty()
-  cloud = ndb.StringProperty()
   roles = ndb.StringProperty(repeated=True)
 
 
@@ -85,7 +82,7 @@ class UserInfo(ndb.Model):
     is_user_cloud_admin: A bool that indicates if the user is authorized to
       perform any action on this AppScale cloud (e.g., remove any app, view all
       logs).
-    i_can_upload: A bool that indicates if the user is authorized to upload
+    can_upload_apps: A bool that indicates if the user is authorized to upload
       Google App Engine applications to this AppScale cloud via the web
       interface.
     user_app_list: A list of strs, where each str represents an application ID
@@ -93,7 +90,7 @@ class UserInfo(ndb.Model):
   """
   email = ndb.StringProperty()
   is_user_cloud_admin = ndb.BooleanProperty()
-  i_can_upload = ndb.BooleanProperty()
+  can_upload_apps = ndb.BooleanProperty()
   user_app_list = ndb.StringProperty(repeated=True)
 
 
@@ -252,8 +249,9 @@ class AppDashboardData():
 
 
   def update_status_info(self):
-    """ Query the AppController and get the status information for all the 
-        server in the cluster and store in the datastore. """    
+    """ Queries the AppController to get status information for all servers in
+    this deployment, storing it in the Datastore for later viewing.
+    """
     try:
       acc = self.helper.get_appcontroller_client()
       nodes = acc.get_stats()
@@ -265,7 +263,6 @@ class AppDashboardData():
         status.cpu = str(node['cpu'])
         status.memory = str(node['memory'])
         status.disk = str(node['disk'])
-        status.cloud = node['cloud']
         status.roles = node['roles']
         status.put()
     except Exception as err:
@@ -283,8 +280,10 @@ class AppDashboardData():
 
 
   def update_database_info(self):
-    """ Queries the AppController and stores the database information of this
-        cloud and store in the datastore. """
+    """ Queries the AppController for information about what datastore is used
+    to implement support for the Google App Engine Datastore API, placing this
+    info in the Datastore for later viewing.
+    """
     try:
       acc = self.helper.get_appcontroller_client()
       db_info = acc.get_database_information()
@@ -390,7 +389,7 @@ class AppDashboardData():
           user_info.email = email
         user_info.is_user_cloud_admin = self.helper.is_user_cloud_admin(
           user_info.email)
-        user_info.i_can_upload = self.helper.i_can_upload(user_info.email)
+        user_info.can_upload_apps = self.helper.can_upload_apps(user_info.email)
         user_info.user_app_list = self.helper.get_user_app_list(user_info.email)
         user_info.put()
         return_list.append(user_info)
@@ -444,7 +443,7 @@ class AppDashboardData():
       return False
 
 
-  def i_can_upload(self):
+  def can_upload_apps(self):
     """ Queries the UserAppServer to see if the currently logged in user has the
     authority to upload Google App Engine applications on this AppScale
     deployment.
@@ -461,7 +460,7 @@ class AppDashboardData():
     try:
       user_info = self.get_by_id(UserInfo, user.email())
       if user_info:
-        return user_info.i_can_upload
+        return user_info.can_upload_apps
       else:
         return False
     except Exception as err:
