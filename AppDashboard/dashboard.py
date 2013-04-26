@@ -1,5 +1,8 @@
-"""
-AppScale AppDashboard, a Python 2.7 webapp for interacting with AppScale.
+#!/usr/bin/env python
+""" The AppDashboard is a Google App Engine application that implements a web UI
+for interacting with running AppScale deployments. This includes the ability to
+create new users, change their authorizations, and upload/remove Google App
+Engine applications.
 """
 # pylint: disable-msg=F0401
 # pylint: disable-msg=C0103
@@ -235,6 +238,11 @@ class NewUserPage(AppDashboard):
   TEMPLATE = 'users/new.html'
 
 
+  # An int that indicates how many characters passwords must be for new user
+  # accounts.
+  MIN_PASSWORD_LENGTH = 6
+
+
   def parse_new_user_post(self):
     """ Parse the input from the create user form.
 
@@ -250,10 +258,11 @@ class NewUserPage(AppDashboard):
       error_msgs['email'] = 'Format must be foo@boo.goo.' 
 
     users['password'] = cgi.escape(self.request.get('user_password'))
-    if len(users['password']) >= 6:
+    if len(users['password']) >= self.MIN_PASSWORD_LENGTH:
       error_msgs['password'] = None
     else:
-      error_msgs['password'] = 'Password must be at least 6 characters long.'
+      error_msgs['password'] = 'Password must be at least {0} characters ' \
+        'long.'.format(self.MIN_PASSWORD_LENGTH)
 
     users['password_confirmation'] = cgi.escape(
       self.request.get('user_password_confirmation'))
@@ -426,14 +435,15 @@ class AuthorizePage(AppDashboard):
     for fieldname, email in self.request.POST.iteritems():
       if re.match(self.USER_PERMISSION_REGEX, fieldname):
         for perm in perms:
-          if email + '-' + perm in req_keys and \
-            self.request.get('CURRENT-' + email + '-' + perm) == 'False':
+          key = "{0}-{1}".format(email, perm)
+          if key in req_keys and \
+            self.request.get('CURRENT-{0}'.format(key)) == 'False':
             if self.helper.add_user_permissions(email, perm):
               response += 'Enabling {0} for {1}. '.format(perm, email)
             else:
               response += 'Error enabling {0} for {1}. '.format(perm, email)
-          elif email+'-'+perm not in req_keys and \
-            self.request.get('CURRENT-' + email + '-' + perm) == 'True':
+          elif key not in req_keys and \
+            self.request.get('CURRENT-{0}'.format(key)) == 'True':
             if self.helper.remove_user_permissions(email, perm):
               response += 'Disabling {0} for {1}. '.format(perm, email)
             else:
@@ -442,15 +452,9 @@ class AuthorizePage(AppDashboard):
 
 
   def post(self):
-    """ Handler for POST requests. Calls parse_update_user_permissions() to 
-        update the user permissions in the AppScale deployment, and launches a
-        taskqueue task to update the datastore with the new values 
-        asynchronously.  Then reads the template file and returns the jinja 
-        rendered HTML of the authorize page to the requestor with either success
-        or error messages."""
+    """ Handler for POST requests. """
     if self.dstore.is_user_cloud_admin():
       try:
-        logging.info("taskqueue.add(url='/status/refresh')")
         taskqueue.add(url='/status/refresh')
       except Exception as err:
         logging.exception(err)
@@ -466,8 +470,7 @@ class AuthorizePage(AppDashboard):
 
 
   def get(self):
-    """ Handler for GET requests. Reads the template file and returns the
-        jinja rendered HTML of the authorize page to the requestor."""
+    """ Handler for GET requests. """
     if self.dstore.is_user_cloud_admin():
       self.render_page(page='authorize', template_file=self.TEMPLATE, values={
         'user_perm_list' : self.helper.list_all_users_permissions(),
@@ -487,27 +490,18 @@ class AppUploadPage(AppDashboard):
 
 
   def post(self):
-    """ Handler for POST requests.
-
-    Receives the app upload request, saves the file in a temporary location, and
-    transfers it to the AppScale deployment. Then it reads the template file and
-    returns the jinja rendered HTML of the app upload page to the requestor with
-    success or error messages."""
+    """ Handler for POST requests. """
     success_msg = ''
     err_msg = ''
     if self.dstore.i_can_upload():
       try: 
         success_msg = self.helper.upload_app(
-          self.request.POST.multi['app_file_data'].file
-          )
+          self.request.POST.multi['app_file_data'].file)
       except AppHelperException as err:
         err_msg = str(err)
       if success_msg:
         try:
-          logging.info("taskqueue.add(url='/status/refresh')")
           taskqueue.add(url='/status/refresh')
-          logging.info("taskqueue.add(url='/status/refresh', countdown={0})"\
-            .format(self.REFRESH_WAIT_TIME))
           taskqueue.add(url='/status/refresh', countdown=self.REFRESH_WAIT_TIME)
         except Exception as err:
           logging.exception(err)
@@ -520,8 +514,7 @@ class AppUploadPage(AppDashboard):
 
 
   def get(self):
-    """ Handler for GET requests. Reads the template file and returns the jinja 
-        rendered HTML of the of the app upload page to the requestor"""
+    """ Handler for GET requests. """
     self.render_page(page='apps', template_file=self.TEMPLATE)
 
 
