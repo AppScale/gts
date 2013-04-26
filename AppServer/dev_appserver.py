@@ -97,7 +97,7 @@ EXTRA_PATHS = [
   '/usr/share/pyshared',
   '/usr/local/lib/python2.7/site-packages',
   '/usr/local/lib/python2.6/dist-packages/xmpppy-0.5.0rc1-py2.6.egg',
-  '/usr/local/lib/python2.6/dist-packages/lxml-3.1.1-py2.6-linux-x86_64.egg',
+  '/usr/local/lib/python2.6/dist-packages/lxml-3.1.2-py2.6-linux-x86_64.egg',
 ]
 
 API_SERVER_EXTRA_PATHS = [
