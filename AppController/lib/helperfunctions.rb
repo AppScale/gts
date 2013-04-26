@@ -1220,7 +1220,6 @@ module HelperFunctions
   def self.get_app_env_vars(app)
     app_yaml_file = "/var/apps/#{app}/app/app.yaml"
     appengine_web_xml_file = "/var/apps/#{app}/app/war/WEB-INF/appengine-web.xml"
-
     if File.exists?(app_yaml_file)
       tree = YAML.load_file(app_yaml_file)
       return tree['env_variables'] || {}
@@ -1237,6 +1236,46 @@ module HelperFunctions
     else
       raise AppScaleException.new("Couldn't find an app.yaml or " +
         "appengine-web.xml file in the #{app} application.")
+    end
+  end
+
+  # Examines the configuration file for the given Google App Engine application
+  # to see if the app is thread safe.
+  #
+  # Args:
+  # - app: A String that represents the application ID of the app whose config
+  #   file we should read. This arg is expected to have the prefix 'gae_'
+  #   so we know it is a gae app and not an appscale app.
+  # Returns:
+  #   Boolean true if the app is thread safe. Boolean false if it is not.
+  def self.get_app_thread_safe(app)
+    if app.start_with?('gae_') == false
+      return false
+    end
+    app = app.sub(/gae_/, '')    
+    app_yaml_file = "/var/apps/#{app}/app/app.yaml"
+    appengine_web_xml_file = "/var/apps/#{app}/app/war/WEB-INF/appengine-web.xml"
+    if File.exists?(app_yaml_file)
+      tree = YAML.load_file(app_yaml_file)
+      return false
+      #We can use the below line when we support python threading
+      #return tree['threadsafe'] || false
+    elsif File.exists?(appengine_web_xml_file)
+      return_val = "false"
+      xml = HelperFunctions.read_file(appengine_web_xml_file)
+      match_data = xml.scan(/<threadsafe>(.*)<\/threadsafe>/)
+      match_data.each { |key_and_val|
+        if key_and_val.length == 1
+          return_val = key_and_val[0]
+        end
+      }
+      if return_val == "true"
+        return true
+      else
+        return false
+      end
+    else
+      return false
     end
   end
 end

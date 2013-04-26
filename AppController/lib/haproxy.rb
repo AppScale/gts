@@ -41,6 +41,10 @@ module HAProxy
   SERVER_OPTIONS = "maxconn 1 check inter 20000 fastinter 1000 fall 1"
 
 
+  # The Java dev_appserver supports multithreading if <thread-safe> is true
+  THREADED_SERVER_OPTIONS = "maxconn 7 check inter 20000 fastinter 1000 fall 1"
+  
+
   # The first port that haproxy will bind to for App Engine apps.
   START_PORT = 10000
 
@@ -162,7 +166,11 @@ module HAProxy
   
   # Generate the server configuration line for the provided inputs
   def self.server_config app_name, index, ip, port
-    "  server #{app_name}-#{index} #{ip}:#{port} #{SERVER_OPTIONS}"
+    if HelperFunctions.get_app_thread_safe(app_name)
+      "  server #{app_name}-#{index} #{ip}:#{port} #{THREADED_SERVER_OPTIONS}"
+    else
+      "  server #{app_name}-#{index} #{ip}:#{port} #{SERVER_OPTIONS}"
+    end
   end
 
   def self.write_app_config(app_name, app_number, num_of_servers, ip)
