@@ -53,7 +53,7 @@ class LogSender():
       A str that indicates what IP or FQDN the machine running the AppDashboard
         can be accessed via.
     """
-    return cls.read_file("/etc/appscale/login_ip")
+    return cls.read_file("/etc/appscale/login_private_ip")
 
 
   @classmethod

@@ -275,14 +275,23 @@ class LogsBuffer(object):
     """
     self._lock_and_call(self._flush)
 
-  def is_port_open(self, ip, port):
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-      s.connect(ip, int(port))
-      s.shutdown(2)
-      return True
-    except:
-      return False
+  def get_login_ip(self):
+    file_handle = open("/etc/appscale/login_private_ip", 'r')
+    host = file_handle.read()
+    file_handle.close()
+    if host[-1] == "\n":
+      return host[:-1]
+    else:
+      return host
+
+  def get_my_public_ip(self):
+    file_handle = open("/etc/appscale/my_public_ip", 'r')
+    host = file_handle.read()
+    file_handle.close()
+    if host[-1] == "\n":
+      return host[:-1]
+    else:
+      return host
 
   def _flush(self):
     """Internal version of flush() with no locking."""
@@ -298,12 +307,11 @@ class LogsBuffer(object):
 
     payload = json.dumps({
       'service_name' : appid,
-      'host' : os.environ['SERVER_NAME'],
+      'host' : self.get_my_public_ip(),
       'logs' : formatted_logs
     })
 
-    dashboard_host = os.environ['LOGIN_SERVER']
-    conn = httplib.HTTPSConnection(dashboard_host + ":443")
+    conn = httplib.HTTPSConnection(self.get_login_ip() + ":443")
     headers = {'Content-Type' : 'application/json'}
     conn.request('POST', '/logs/upload', payload, headers)
     response = conn.getresponse()
