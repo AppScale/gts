@@ -76,7 +76,7 @@ end
 BAD_SECRET_MSG = "false: bad secret"
 
 # Regular expression to determine if a file is a .tar.gz file.
-TAR_GZ_REGEX = /tar.gz$/
+TAR_GZ_REGEX = /\.tar\.gz$/
 
 # The location on the local file system where we store information about
 # where ZooKeeper clients are located, used to backup and restore 
