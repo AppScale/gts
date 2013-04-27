@@ -688,7 +688,7 @@ class Djinn
         end
       end
     rescue Timeout::Error
-      Djinn.log_debug("upload_tgz_file() got Timeout: #{output}")
+      Djinn.log_debug("Uploading App Engine app timed out: #{output}")
       result = "The request has timed out. Large applications should be " +
         "uploaded via the command line."
     end
@@ -2043,15 +2043,14 @@ class Djinn
         'host' => my_node.public_ip,
         'logs' => @@logs_buffer,
       })
-    }
 
-    url = URI.parse("https://#{get_login.private_ip}/logs/upload")
-    http = Net::HTTP.new(url.host, url.port)
-    http.use_ssl = true
-    response = http.post(url.path, encoded_logs, {'Content-Type'=>'application/json'})
+      url = URI.parse("https://#{get_login.private_ip}/logs/upload")
+      http = Net::HTTP.new(url.host, url.port)
+      http.use_ssl = true
+      response = http.post(url.path, encoded_logs,
+        {'Content-Type'=>'application/json'})
 
-    Djinn.log_debug("Wrote #{@@logs_buffer.length} logs!")
-    APPS_LOCK.synchronize {
+      Djinn.log_debug("Wrote #{@@logs_buffer.length} logs!")
       @@logs_buffer = []
     }
   end
@@ -2389,9 +2388,7 @@ class Djinn
 
     # Start the AppDashboard.
     if my_node.is_load_balancer?
-        Djinn.log_debug("change_job(): start_app_dashboard(" +
-          "#{get_login.public_ip}, #{@userappserver_private_ip})")
-        start_app_dashboard(get_login.public_ip, @userappserver_private_ip)
+      start_app_dashboard(get_login.public_ip, @userappserver_private_ip)
     end
 
     Djinn.log_debug("Starting taskqueue worker for #{AppDashboard::APP_NAME}")
@@ -2412,8 +2409,6 @@ class Djinn
   def start_api_services()
     # ejabberd uses uaserver for authentication
     # so start it after we find out the uaserver's ip
-    Djinn.log_debug("start_api_services()")
-
     threads = []
     if my_node.is_login?
       threads << Thread.new {
