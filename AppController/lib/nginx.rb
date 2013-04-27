@@ -449,7 +449,7 @@ CONFIG
   def self.create_app_load_balancer_config(my_public_ip, my_private_ip, 
     proxy_port)
     self.create_app_config(my_public_ip, my_private_ip, proxy_port, 
-      AppDashboard::LISTEN_PORT, AppDashboard::NAME,
+      AppDashboard::LISTEN_PORT, AppDashboard::NGINX_APP_NAME,
       AppDashboard::PUBLIC_DIRECTORY, AppDashboard::LISTEN_SSL_PORT)
   end
 

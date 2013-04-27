@@ -123,7 +123,7 @@ module HAProxy
     config << servers.join("\n")
     # If it is the dashboard app, increase the server timeout because uploading apps
     # can take some time 
-    if name == AppDashboard::NAME
+    if name == AppDashboard::NGINX_APP_NAME
       config << "\n  timeout server #{ALB_SERVER_TIMEOUT}\n"
     end
   
