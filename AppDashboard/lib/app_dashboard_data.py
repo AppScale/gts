@@ -167,17 +167,19 @@ class AppDashboardData():
     """
     self.update_head_node_ip()
     self.update_database_info()
-    self.update_apistatus()
+    self.update_api_status()
     self.update_status_info()
     self.update_application_info()
     self.update_users()
 
 
   def get_monitoring_url(self):
-    """ Returns the url of the monitoring service. 
+    """ Retrieves the URL where the AppMonitoring web service can be found in
+    this AppScale deployment (typically on the login node).
 
     Returns:
-      A str containing the url of the monitoring service.
+      A str that contains a URL where low-level monitoring information is
+      displayed to users.
     """
     return "http://{0}:{1}".format(self.get_head_node_ip(), self.MONITOR_PORT)
 
@@ -200,7 +202,7 @@ class AppDashboardData():
       logging.exception(err)
 
 
-  def get_apistatus(self):
+  def get_api_status(self):
     """ Retrieve the API status from the datastore.
 
     Returns:
@@ -214,7 +216,7 @@ class AppDashboardData():
     return ret
 
 
-  def update_apistatus(self):
+  def update_api_status(self):
     """ Retrieve the API status from the system and store in the datastore. """
     try:
       acc = self.helper.get_appcontroller_client()

@@ -170,7 +170,7 @@ class TestAppDashboardData(unittest.TestCase):
       .and_return().once()
     flexmock(AppDashboardData).should_receive('update_database_info')\
       .and_return().once()
-    flexmock(AppDashboardData).should_receive('update_apistatus')\
+    flexmock(AppDashboardData).should_receive('update_api_status')\
       .and_return().once()
     flexmock(AppDashboardData).should_receive('update_status_info')\
       .and_return().once()
@@ -214,20 +214,20 @@ class TestAppDashboardData(unittest.TestCase):
     self.assertEquals(data1.root.head_node_ip, fake_ip)
 
 
-  def test_get_apistatus(self):
+  def test_get_api_status(self):
     flexmock(AppDashboardData).should_receive('update_all')\
       .and_return().once()
     
     self.setupApiStatusMocks()
     data1 = AppDashboardData()
-    output = data1.get_apistatus()
+    output = data1.get_api_status()
     self.assertEquals(len(output), 3)
     self.assertEquals(output['api1'], 'running')
     self.assertEquals(output['api2'], 'failed')
     self.assertEquals(output['api3'], 'unknown')
 
 
-  def test_update_apistatus(self):
+  def test_update_api_status(self):
     flexmock(AppDashboardData).should_receive('update_all')\
       .and_return().once()
 
@@ -243,8 +243,8 @@ class TestAppDashboardData(unittest.TestCase):
       .and_return(fake_get_appcontroller_client).once()
     
     data1 = AppDashboardData()
-    data1.update_apistatus()
-    output = data1.get_apistatus()
+    data1.update_api_status()
+    output = data1.get_api_status()
     self.assertEquals(len(output), 3)
     self.assertEquals(output['api1'], 'running')
     self.assertEquals(output['api2'], 'failed')
@@ -342,7 +342,7 @@ class TestAppDashboardData(unittest.TestCase):
     self.assertFalse('app2' in app_list )
     self.assertTrue('app1' in app_list )
 
-  def test_update_application_info__noapps(self):
+  def test_update_application_info_no_apps(self):
     flexmock(AppDashboardData).should_receive('update_all')\
       .and_return().once()
     flexmock(AppDashboardHelper).should_receive('get_status_info')\
@@ -361,7 +361,7 @@ class TestAppDashboardData(unittest.TestCase):
     self.assertEquals(len(output), 0)
 
 
-  def test_update_application_info__2apps(self):
+  def test_update_application_info_two_apps(self):
     flexmock(AppDashboardData).should_receive('update_all')\
       .and_return().once()
     flexmock(AppDashboardHelper).should_receive('get_status_info')\
