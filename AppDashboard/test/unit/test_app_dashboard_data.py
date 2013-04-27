@@ -61,12 +61,14 @@ class TestAppDashboardData(unittest.TestCase):
 
 
   def setupServerStatusMocks(self):
+    fake_key1 = flexmock(name='key1', id=lambda: '1.1.1.1')
     fake_server1 = flexmock(name='ServerStatus', ip='1.1.1.1', cpu='25',
-      memory='50', disk='100', cloud='cloud1', roles='roles2')
+      memory='50', disk='100', roles='roles2', key=fake_key1)
     fake_server1.should_receive('put').and_return()
 
+    fake_key2 = flexmock(name='key1', id=lambda: '2.2.2.2')
     fake_server2 = flexmock(name='ServerStatus', ip='2.2.2.2', cpu='75',
-      memory='55', disk='100', cloud='cloud1', roles='roles2')
+      memory='55', disk='100', roles='roles2', key=fake_key2)
     fake_server2.should_receive('put').and_return()
 
     flexmock(app_dashboard_data).should_receive('ServerStatus') \
@@ -109,16 +111,16 @@ class TestAppDashboardData(unittest.TestCase):
 
   def setupUserInfoMocks(self):
     user_info1 = flexmock(name='UserInfo', email='a@a.com',
-      is_user_cloud_admin=True, i_can_upload=True, user_app_list=['app1',
+      is_user_cloud_admin=True, can_upload_apps=True, user_app_list=['app1',
       'app2'])
     user_info1.should_receive('put').and_return()
 
     user_info2 = flexmock(name='UserInfo', email='b@a.com',
-      is_user_cloud_admin=False, i_can_upload=True, user_app_list=['app2'])
+      is_user_cloud_admin=False, can_upload_apps=True, user_app_list=['app2'])
     user_info2.should_receive('put').and_return()
 
     user_info3 = flexmock(name='UserInfo', email='c@a.com',
-      is_user_cloud_admin=False, i_can_upload=False, user_app_list=['app2'])
+      is_user_cloud_admin=False, can_upload_apps=False, user_app_list=['app2'])
     user_info3.should_receive('put').and_return()
 
     flexmock(app_dashboard_data).should_receive('UserInfo')\
@@ -272,13 +274,11 @@ class TestAppDashboardData(unittest.TestCase):
          'cpu' : '50',
          'memory' : '50',
          'disk' : '50',
-         'cloud' : 'cloud1',
          'roles' : 'roles1'},
         {'ip' : '2.2.2.2',
          'cpu' : '50',
          'memory' : '50',
          'disk' : '50',
-         'cloud' : 'cloud1',
          'roles' : 'roles1'}
       ])
     flexmock(AppDashboardHelper).should_receive('get_appcontroller_client') \
@@ -308,7 +308,7 @@ class TestAppDashboardData(unittest.TestCase):
     fake_get_appcontroller_client.should_receive('get_database_information')\
       .and_return({
         'table' : 'table1',
-        'replication' : 'replication1',
+        'replication' : '20',
       })
     flexmock(AppDashboardHelper).should_receive('get_appcontroller_client')\
       .and_return(fake_get_appcontroller_client).once()
@@ -316,7 +316,7 @@ class TestAppDashboardData(unittest.TestCase):
     data1.update_database_info()
     output = data1.get_database_info()
     self.assertEquals(output['table'], 'table1')
-    self.assertEquals(output['replication'], 'replication1')
+    self.assertEquals(output['replication'], 20)
 
 
   def test_get_application_info(self):
@@ -394,11 +394,11 @@ class TestAppDashboardData(unittest.TestCase):
     flexmock(AppDashboardHelper).should_receive('is_user_cloud_admin')\
       .with_args('c@a.com').and_return(False).once()
 
-    flexmock(AppDashboardHelper).should_receive('i_can_upload')\
+    flexmock(AppDashboardHelper).should_receive('can_upload_apps')\
       .with_args('a@a.com').and_return(True).once()
-    flexmock(AppDashboardHelper).should_receive('i_can_upload')\
+    flexmock(AppDashboardHelper).should_receive('can_upload_apps')\
       .with_args('b@a.com').and_return(True).once()
-    flexmock(AppDashboardHelper).should_receive('i_can_upload')\
+    flexmock(AppDashboardHelper).should_receive('can_upload_apps')\
       .with_args('c@a.com').and_return(False).once()
 
     flexmock(AppDashboardHelper).should_receive('get_user_app_list')\
@@ -416,9 +416,9 @@ class TestAppDashboardData(unittest.TestCase):
     self.assertTrue(output[0].is_user_cloud_admin)
     self.assertFalse(output[1].is_user_cloud_admin)
     self.assertFalse(output[2].is_user_cloud_admin)
-    self.assertTrue(output[0].i_can_upload)
-    self.assertTrue(output[1].i_can_upload)
-    self.assertFalse(output[2].i_can_upload)
+    self.assertTrue(output[0].can_upload_apps)
+    self.assertTrue(output[1].can_upload_apps)
+    self.assertFalse(output[2].can_upload_apps)
 
 
   def test_get_user_app_list(self):
@@ -476,7 +476,7 @@ class TestAppDashboardData(unittest.TestCase):
     self.assertFalse(data1.is_user_cloud_admin())
 
 
-  def test_i_can_upload(self):
+  def test_can_upload_apps(self):
     flexmock(AppDashboardData).should_receive('update_all') \
       .and_return().once()
 
@@ -489,13 +489,13 @@ class TestAppDashboardData(unittest.TestCase):
     data1 = AppDashboardData()
 
     # First call, not logged in.
-    self.assertFalse(data1.i_can_upload())
+    self.assertFalse(data1.can_upload_apps())
 
     # First user: a@a.com, upload=True.
-    self.assertTrue(data1.i_can_upload())
+    self.assertTrue(data1.can_upload_apps())
 
     # Second user: b@a.com, upload=True.
-    self.assertTrue(data1.i_can_upload())
+    self.assertTrue(data1.can_upload_apps())
 
     # Third user: c@a.com, upload=False.
-    self.assertFalse(data1.i_can_upload())
+    self.assertFalse(data1.can_upload_apps())

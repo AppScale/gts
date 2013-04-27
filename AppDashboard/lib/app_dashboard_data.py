@@ -19,13 +19,12 @@ class DashboardDataRoot(ndb.Model):
       Engine apps hosted in this cloud.
     table: A str containing the name of the database that we are using to
       implement support for the Datastore API (e.g., hypertable, cassandra).
-    replication: A str containing an integer, that corresponds to the number of
-      replicas present for each piece of data in the underlying datastore.
-      # TODO(cgb): Consider using a ndb.IntegerProperty here.
+    replication: An int that corresponds to the number of replicas present for
+      each piece of data in the underlying datastore.
   """
   head_node_ip = ndb.StringProperty()
   table = ndb.StringProperty()
-  replication = ndb.StringProperty()
+  replication = ndb.IntegerProperty()
 
 
 class ApiStatus(ndb.Model):
@@ -95,7 +94,9 @@ class UserInfo(ndb.Model):
 
 
 class AppDashboardData():
-  """ Helper class to interact with the datastore. """
+  """ AppDashboardData leverages ndb (which itself utilizes Memcache and the
+  Datastore) to implement a cache in front of SOAP-exposed services provided
+  by the AppController. """
 
 
   # The name of the key that we store globally accessible Dashboard information
@@ -108,15 +109,16 @@ class AppDashboardData():
 
 
   def __init__(self, helper=None):
-    """ Constructor. 
+    """ Creates a new AppDashboard, which will cache SOAP-exposed information
+    provided to us by the AppDashboardHelper.
 
     Args:
-      helper: AppDashboardHelper object.
+      helper: An AppDashboardHelper, which will perform SOAP calls to the
+        AppController whenever the AppDashboardData needs to update its caches.
+        If None is provided here, then the AppDashboardData will create a new
+        AppDashboardHelper to talk to the AppController.
     """
-    self.helper = helper
-    if self.helper is None:
-      self.helper = AppDashboardHelper()
-
+    self.helper = helper or AppDashboardHelper()
     self.root = self.get_by_id(DashboardDataRoot, self.ROOT_KEYNAME)
     if not self.root:
       self.root = DashboardDataRoot(id = self.ROOT_KEYNAME)
@@ -136,7 +138,7 @@ class AppDashboardData():
       model: The ndb.Model that the requested object belongs to.
       key_name: A str that corresponds to the the Model's key name.
     Returns:
-      An object of type obj, or None.
+      The object with the given keyname, or None if that object does not exist.
     """
     return model.get_by_id(key_name)
 
@@ -177,13 +179,7 @@ class AppDashboardData():
     Returns:
       A str containing the url of the monitoring service.
     """
-    try:
-      url = self.get_head_node_ip()
-      if url:
-        return "http://{0}:{1}".format(url, self.MONITOR_PORT)
-    except Exception as err:
-      logging.exception(err)
-    return ''
+    return "http://{0}:{1}".format(self.get_head_node_ip(), self.MONITOR_PORT)
 
 
   def get_head_node_ip(self):
@@ -243,9 +239,8 @@ class AppDashboardData():
     """
     statuses = self.get_all(ServerStatus)
     return [{'ip' : status.ip, 'cpu' : status.cpu, 'memory' : status.memory,
-      'disk' : status.disk, 'cloud' : status.cloud, 'roles' : status.roles,
-      'key' : status.key.id().translate(None, '.') }
-      for status in statuses]
+      'disk' : status.disk, 'roles' : status.roles,
+      'key' : status.key.id().translate(None, '.') } for status in statuses]
 
 
   def update_status_info(self):
@@ -288,7 +283,7 @@ class AppDashboardData():
       acc = self.helper.get_appcontroller_client()
       db_info = acc.get_database_information()
       self.root.table = db_info['table']
-      self.root.replication = db_info['replication']
+      self.root.replication = int(db_info['replication'])
       self.root.put()
     except Exception as err:
       logging.exception(err)
@@ -312,19 +307,19 @@ class AppDashboardData():
     """ Remove the app from the datastore and the user's app list.
 
     Args:
-      app: A string, the name of the app to be deleted.
-      email: A string, the email address of the user's app list to be modified.
+      app: A str that corresponds to the appid of the app to delete.
+      email: A str that indicates the e-mail address of the administrator of
+        this application, or None if the currently logged-in user is the admin.
     Returns:
-      The UserInfo object for the user with email=email.
+      A UserInfo object for the user with the specified e-mail address, or if
+        None was provided, the currently logged in user.
     """
     if email is None:
       user = users.get_current_user()
       if not user:
         return []
       email = user.email()
-    logging.info('AppDashboardData.delete_app_from_datastore(app={0}, '\
-      'email={1})'.format(app, email))
-      
+
     try:
       app_status = self.get_by_id(AppStatus, app)
       if app_status:
