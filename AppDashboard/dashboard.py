@@ -220,7 +220,7 @@ class StatusPage(AppDashboard):
     self.render_page(page='status', template_file=self.TEMPLATE, values={
       'server_info' : self.dstore.get_status_info(),
       'dbinfo' : self.dstore.get_database_info(),
-      'service_info' : self.dstore.get_apistatus(),
+      'service_info' : self.dstore.get_api_status(),
       'apps' : self.dstore.get_application_info(),
       'monitoring_url' : self.dstore.get_monitoring_url(),
     })

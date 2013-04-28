@@ -20,7 +20,7 @@
             <div class="page-header">
                 <h1>Upload an application</h1></div><!--close header-->
                   <div class="well">
-                  {% if i_can_upload %}
+                  {% if can_upload_apps %}
                     <form action="/apps/new" class="edit_app" enctype="multipart/form-data" id="edit_app" method="post">
                       {% if success_message %}
                       <h3>

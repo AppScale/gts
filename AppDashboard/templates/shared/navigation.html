@@ -53,7 +53,7 @@
                             {% if is_user_cloud_admin %}
                               <li align="center" class="tab"><a href="/authorize">Authorize User</a></li>
                             {% endif %}
-                            {% if i_can_upload %}
+                            {% if can_upload_apps %}
                               <li align="center" class="tab"><a href="/apps/new">Upload App</a></li>
                               <li align="center" class="tab"><a href="/apps/delete">Delete App</a></li>
                             {% endif %}

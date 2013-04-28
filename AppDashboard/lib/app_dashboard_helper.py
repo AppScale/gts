@@ -55,7 +55,7 @@ class AppDashboardHelper():
   APP_DELIMITER = ":"
 
 
-  # The charcter that seperates users.
+  # The charcter that separates users.
   USER_DELIMITER = ":"
 
 
@@ -83,7 +83,7 @@ class AppDashboardHelper():
   ALL_USERS_NON_USER_REGEX = '^[_]+$'
 
 
-  # Delimiter to seperate user capabilites.
+  # Delimiter to separate user capabilities.
   USER_CAPABILITIES_DELIMITER = ':'
 
 
@@ -98,20 +98,21 @@ class AppDashboardHelper():
       uaserver: A SOAP client connected to the UserAppServer running in this
         AppScale deployment, responsible for managing user and application
         creation.
+      cache: A dict that will store the results of SOAP calls made to the
+        AppController or UserAppServer, used to avoid making repeated SOAP calls
+        for the same data.
     """
     self.appcontroller = None
     self.uaserver = None
-    # The cache is a data structure to store data used multiple times in a 
-    # single request. This avoids multiple SOAP requests for the same data, and
-    # signifiantly increases performance.
     self.cache = {}
 
 
   def get_appcontroller_client(self):
-    """ Connects to the AppController and returns the connection handle.
+    """ Retrieves our saved AppController connection, creating a new one if none
+    currently exist.
 
     Returns:
-      An AppControllerClient object.
+      An AppControllerClient, representing a connection to the AppController.
     """
     if self.appcontroller is None:
       self.appcontroller = AppControllerClient(self.APP_CONTROLLER_IP, 
@@ -120,26 +121,30 @@ class AppDashboardHelper():
 
 
   def get_uaserver(self):
-    """ Connects to the UserAppServer and returns the connection handle.
+    """ Retrieves our saved UserAppServerconnection, creating a new one if none
+    currently exist.
 
     Returns:
-      A SOAPpy object that is connected to the UserAppServer.
+      An SOAPpy, representing a connection to the UserAppServer.
     """
     if self.uaserver is None:
       acc = self.get_appcontroller_client()
-      uas_host = acc.get_uaserver_host(False)
-      self.uaserver = SOAPpy.SOAPProxy('https://{0}:{1}'.format(uas_host, 
+      uaserver_host = acc.get_uaserver_host(False)
+      self.uaserver = SOAPpy.SOAPProxy('https://{0}:{1}'.format(uaserver_host,
         self.UA_SERVER_PORT))
     return self.uaserver
 
 
   def get_user_capabilities(self, email):
-    """ Query the AppController and return the capabilites of the user.
+    """ Queries the UserAppServer to learn what actions the named user is
+    authorized to perform in this AppScale deployment.
 
     Args:
-      email: A str containing the email of the user being queried.
+      email: A str containing the email of the user whose authorizations we want
+        to retrieve.
     Returns:
-      A list of strs containing the capabilities of the user being queried.
+      A list, where each item is a str corresponding to an action this user is
+      authorized to perform in this AppScale deployment.
     """
     if 'user_caps' in self.cache:
       if email in self.cache['user_caps']:
@@ -148,11 +153,10 @@ class AppDashboardHelper():
       self.cache['user_caps'] = {}
 
     try:
-      uas = self.get_uaserver()
-      caps_list = uas.get_capabilities(email, GLOBAL_SECRET_KEY)\
-        .split(self.USER_CAPABILITIES_DELIMITER)
-      self.cache['user_caps'][email] = caps_list
-      return caps_list
+      capabilities = self.get_uaserver().get_capabilities(email,
+        GLOBAL_SECRET_KEY).split(self.USER_CAPABILITIES_DELIMITER)
+      self.cache['user_caps'][email] = capabilities
+      return capabilities
     except Exception as err:
       logging.exception(err)
       return []
@@ -175,52 +179,66 @@ class AppDashboardHelper():
 
 
   def get_host_with_role(self, role):
-    """Searches through the local metadata to see which virtual machine runs the
-    specified role.
+    """ Queries the AppController to find a host running the named role.
 
     Args:
-      role: A str indicating the role to search for.
+      role: A str indicating the name of the role we wish to find a hoster of.
     Returns:
-      A str containing the host that runs the specified service.
+      A str containing the publicly accessible hostname (IP address or FQDN)
+      of one machine that runs the specified service. Note that if multiple
+      services host the named role, only one is returned, and if information
+      about the named role couldn't be found, the empty string is returned.
     """
     acc = self.get_appcontroller_client()
     if 'get_role_info' in self.cache:
-      node = self.cache['get_role_info']
+      nodes = self.cache['get_role_info']
     else:
       try:
         nodes = acc.get_role_info()
+        self.cache['get_role_info'] = nodes
       except Exception as err:
         logging.exception(err)
         return ''
     for node in nodes:
       if role in node['jobs']:
         return node['public_ip']
+    return ''
 
 
   def get_head_node_ip(self):
-    """ Return the ip of the head node. 
+    """ Queries the AppController to learn which machine runs the shadow
+    service in this AppScale deployment.
 
     Returns:
-      A str containing the ip of the head node.
+      A str containing the hostname (an IP address or FQDN) of the machine
+      running the shadow service.
     """
     return self.get_host_with_role('shadow')
 
 
   def get_login_host(self):
-    """ Queries the AppController and returns the ip of the login host. 
+    """ Queries the AppController to learn which machine runs the login
+    service in this AppScale deployment, which runs nginx as a full proxy to
+    Google App Engine applications.
 
     Returns:
-      A str containing the host that runs the login service.
+      A str containing the hostname (an IP address or FQDN) of the machine
+      running the login service.
     """
     return self.get_host_with_role('login')
 
 
   def get_app_port(self, appname): 
-    """ Queries the UserAppServer and returns the port that the app is running
-        on.
+    """ Queries the UserAppServer to learn which port the named application runs
+    on.
+
+    Note that we don't need to query the UserAppServer to learn which host the
+    application runs on, as it is always full proxied by the machine running the
+    login service.
     
     Args:
-      appname: Name of the app being queried.
+      appname: A str that indicates which application we want to find a hosted
+        port for.
     Returns:
       An int that indicates which port the named app runs on.
     Raises:
@@ -229,12 +247,13 @@ class AppDashboardHelper():
         assigned to it.
     """
     try:
-      uas = self.get_uaserver()
-      app_data = uas.get_app_data(appname, GLOBAL_SECRET_KEY)
+      app_data = self.get_uaserver().get_app_data(appname, GLOBAL_SECRET_KEY)
       result = re.search(self.GET_APP_PORTS_REGEX, app_data)
       if result:
-        # GET_APP_PORTS_REGEX define a capture group, which we use here.
         return int(result.group(1))
+      else:
+        raise AppHelperException("Application {0} does not have a port number" \
+          " that it runs on.".format(appname))
     except Exception as err:
       logging.exception(err)
       raise AppHelperException("Application {0} does not have a port number " \
@@ -242,7 +261,7 @@ class AppDashboardHelper():
 
 
   def upload_app(self, upload_file):
-    """ Uploads an App into AppScale.
+    """ Uploads an Google App Engine application into this AppScale deployment.
 
     Args:
       upload_file: a file object containing the uploaded file data.
@@ -254,10 +273,10 @@ class AppDashboardHelper():
     user = users.get_current_user()
     if not user:
       raise AppHelperException("There was an error uploading your application."\
-             "  You must be logged in.")
+             "  You must be logged in to upload applications.")
     try:
       tgz_file = tempfile.NamedTemporaryFile(suffix='tar.gz', delete=False)
-      tgz_file.write( upload_file.read() )
+      tgz_file.write(upload_file.read())
       tgz_file.close()
       name = tgz_file.name
       acc = self.get_appcontroller_client()
