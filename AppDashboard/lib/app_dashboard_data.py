@@ -203,21 +203,21 @@ class AppDashboardData():
 
 
   def get_api_status(self):
-    """ Retrieve the API status from the datastore.
+    """ Retrieves the current status of Google App Engine APIs in this AppScale
+    deployment from the Datastore.
 
     Returns:
-      A dict where the keys are the names of the services, and the values are
-        the status of that service.
+      A dict, where each key is the name of an API (a str), and each value
+      indicates if the API is running, has failed, or is in an unknown state
+      (also a str).
     """
-    statuses = self.get_all(ApiStatus)
-    ret = {}
-    for status in statuses:
-      ret[status.name] = status.value
-    return ret
+    return dict((api.name, api.value) for api in self.get_all(ApiStatus))
 
 
   def update_api_status(self):
-    """ Retrieve the API status from the system and store in the datastore. """
+    """ Updates the Datastore with the newest information about the health of
+    the Google App Engine APIs available in this AppScale deployment, by
+    contacting the AppController. """
     try:
       acc = self.helper.get_appcontroller_client()
       stat_dict = acc.get_api_status()
@@ -233,16 +233,17 @@ class AppDashboardData():
 
 
   def get_status_info(self):
-    """ Return the status information for all the server in the cluster from
-        the datastore.
+    """ Retrieves the current status of each machine in this AppScale deployment
+    from the Datastore.
 
     Returns:
-      A list of dicts containing the status information on each server.
+      A list of dicts, where each dict contains information about one machine
+        in this AppScale deployment.
     """
-    statuses = self.get_all(ServerStatus)
-    return [{'ip' : status.ip, 'cpu' : status.cpu, 'memory' : status.memory,
-      'disk' : status.disk, 'roles' : status.roles,
-      'key' : status.key.id().translate(None, '.') } for status in statuses]
+    servers = self.get_all(ServerStatus)
+    return [{'ip' : server.ip, 'cpu' : server.cpu, 'memory' : server.memory,
+      'disk' : server.disk, 'roles' : server.roles,
+      'key' : server.key.id().translate(None, '.') } for server in servers]
 
 
   def update_status_info(self):
@@ -267,11 +268,13 @@ class AppDashboardData():
 
 
   def get_database_info(self):
-    """ Returns the table and replication information for the database of 
-        this AppScale deployment.
+    """ Retrieves the name of the database used to implement the Datastore API
+    in this AppScale deployment, as well as the number of replicas stored for
+    each piece of data.
 
-    Return:
-      A dict containing the database information.
+    Returns:
+      A dict containing the name of the database used (a str), as well as the
+      number of replicas for each piece of data (an int).
     """
     return {'table' : self.root.table, 'replication' : self.root.replication}
 
@@ -292,21 +295,21 @@ class AppDashboardData():
 
 
   def get_application_info(self):
-    """ Returns the list of applications running on this cloud.
+    """ Retrieves a list of Google App Engine applications running in this
+      AppScale deployment, along with the URL that users can access them at.
     
     Returns:
-      A dict where the key is the app name, and the value is
-      the url of the app (if running) or None (if loading).
+      A dict, where each key is a str indicating the name of a Google App Engine
+      application, and each value is either a str, indicating the URL where the
+      application is running, or None, if the application has been uploaded but
+      is not yet running (e.g., it is loading).
     """
-    statuses = self.get_all(AppStatus)
-    ret = {}
-    for status in statuses:
-      ret[status.name] = status.url
-    return ret
+    return dict((app.name, app.url) for app in self.get_all(AppStatus))
 
 
   def delete_app_from_datastore(self, app, email=None):
-    """ Remove the app from the datastore and the user's app list.
+    """ Removes information about the named app from the datastore and, if
+      necessary, the list of applications that this user owns.
 
     Args:
       app: A str that corresponds to the appid of the app to delete.
@@ -337,9 +340,17 @@ class AppDashboardData():
 
  
   def update_application_info(self):
-    """ Queries the AppController and stores the list of applications running on
-        this cloud. """
+    """ Queries the AppController for information about which Google App Engine
+    applications are currently running, and if they are done loading, the URL
+    that they can be accessed at, storing this info in the Datastore for later
+    viewing.
 
+    Returns:
+      A dict, where each key is a str indicating the name of a Google App Engine
+      application running in this deployment, and each value is either a str
+      indicating the URL that the app can be found at, or None, if the
+      application is still loading.
+    """
     try:
       updated_status = []
       status = self.helper.get_status_info()
@@ -350,8 +361,8 @@ class AppDashboardData():
             break
           if status[0]['apps'][app]:
             try:
-              ret[app] = "http://" + self.helper.get_login_host() + ":"\
-                  + str(self.helper.get_app_port(app))
+              ret[app] = "http://{0}:{1}".format(self.helper.get_login_host(),
+                self.helper.get_app_port(app))
             except AppHelperException:
               ret[app] = None
           else:
@@ -375,8 +386,16 @@ class AppDashboardData():
 
 
   def update_users(self):
-    """ Query the UserAppServer and update the state of all the users. """
-    return_list = []
+    """ Queries the UserAppServer for information every user account registered
+    in this AppScale deployment, storing this info in the Datastore for later
+    viewing.
+
+    Returns:
+      A list of UserInfo objects, where each UserInfo corresponds to a user
+      account registered in this AppScale deployment. This list will be empty if
+      there was a problem accessing user information from the UserAppServer.
+    """
+    user_list = []
     try:
       all_users_list = self.helper.list_all_users()
       for email in all_users_list:
@@ -389,10 +408,11 @@ class AppDashboardData():
         user_info.can_upload_apps = self.helper.can_upload_apps(user_info.email)
         user_info.user_app_list = self.helper.get_user_app_list(user_info.email)
         user_info.put()
-        return_list.append(user_info)
-      return return_list
+        user_list.append(user_info)
+      return user_list
     except Exception as err:
       logging.exception(err)
+      return []
 
 
   def get_user_app_list(self):
@@ -445,8 +465,6 @@ class AppDashboardData():
     authority to upload Google App Engine applications on this AppScale
     deployment.
 
-    Args:
-      email: Email address of the user.
     Returns:
       True if the currently logged in user can upload Google App Engine
       applications, and False otherwise (or if the user isn't logged in).
