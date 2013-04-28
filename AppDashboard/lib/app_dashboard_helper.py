@@ -170,9 +170,11 @@ class AppDashboardHelper():
       A list of dicts containing the status information on each server.
     """
     try:
-      acc = self.get_appcontroller_client()
-      node = acc.get_stats()
-      return node
+      status_info = self.get_appcontroller_client().get_stats()
+      if status_info == True:
+        return []
+      else:
+        return status_info
     except Exception as err:
       logging.exception(err)
       return []
@@ -286,12 +288,6 @@ class AppDashboardHelper():
                "application to start running."
       else:
         raise AppHelperException(ret)
-    except SOAPpy.Types.faultType as err:  #on success Exception is thrown
-      return "Application uploaded successfully. Please wait for the "\
-             "application to start running."
-    except SOAPpy.Errors.HTTPError as err:  #on success HTTPError is thrown
-      return "Application uploaded successfully. Please wait for the "\
-             "application to start running."
     except Exception as err:
       logging.exception(err)
       raise AppHelperException("There was an error uploading your application.")
