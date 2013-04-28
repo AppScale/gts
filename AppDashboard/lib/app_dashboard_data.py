@@ -185,16 +185,18 @@ class AppDashboardData():
 
 
   def get_head_node_ip(self):
-    """ Return the ip of the head node from the data store. 
+    """ Retrieves the IP address or FQDN where the machine running the
+    shadow service can be found, via the Datastore.
 
     Returns:
-      A str containing the ip of the head node.
+      A str containing the IP address or FQDN of the shadow node.
     """
     return self.root.head_node_ip
 
 
   def update_head_node_ip(self):
-    """ Query the AppController and store the ip of the head node.  """
+    """ Updates the Datastore with the IP address or FQDN where the node running
+    the shadow service can be found. """
     try:
       self.root.head_node_ip = self.helper.get_host_with_role('shadow')
       self.root.put()
