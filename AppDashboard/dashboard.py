@@ -226,6 +226,15 @@ class StatusPage(AppDashboard):
     })
 
 
+class StatusAsJSONPage(webapp2.RequestHandler):
+
+
+  def get(self):
+    """ Retrieves the cached information about machine-level statistics as a
+    JSON-encoded dict. """
+    self.response.out.write(json.dumps(AppDashboardData().get_status_info()))
+
+
 class NewUserPage(AppDashboard):
   """ Class to handle requests to the /users/new and /users/create page. """
 
@@ -550,6 +559,16 @@ class AppDeletePage(AppDashboard):
     })
 
 
+class AppsAsJSONPage(webapp2.RequestHandler):
+
+
+  def get(self):
+    """ Retrieves the cached information about applications running in this
+    AppScale deployment as a JSON-encoded dict. """
+    self.response.out.write(json.dumps(
+      AppDashboardData().get_application_info()))
+
+
 class LogMainPage(AppDashboard):
   """ Class to handle requests to the /logs page. """
 
@@ -712,6 +731,7 @@ class LogUploadPage(webapp2.RequestHandler):
 app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/status/refresh', StatusRefreshPage),
                                 ('/status', StatusPage),
+                                ('/status/json', StatusAsJSONPage),
                                 ('/users/new', NewUserPage),
                                 ('/users/create', NewUserPage),
                                 ('/logout', LogoutPage),
@@ -725,6 +745,7 @@ app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/apps/new', AppUploadPage),
                                 ('/apps/upload', AppUploadPage),
                                 ('/apps/delete', AppDeletePage),
+                                ('/apps/json', AppsAsJSONPage),
                                 ('/logs', LogMainPage),
                                 ('/logs/upload', LogUploadPage),
                                 ('/logs/(.+)/(.+)', LogServiceHostPage),

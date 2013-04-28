@@ -195,6 +195,51 @@
                                         });
                                      {% endfor %}
                                     };
+
+                                   window.setInterval(function() {
+                                     $.ajax({
+                                       url: "/status/json"
+                                     }).done(function(encoded_server_info) {
+                                       server_info = JSON.parse(encoded_server_info);
+
+                                       // update our divs accordingly
+                                       for (var i = 0; i < server_info.length; i++) {
+                                         server = server_info[i];
+                                         $('#' + server['key'] + "g1").empty();
+                                         new JustGage({
+                                           id: server['key'] + "g1",
+                                           value: server['cpu'],
+                                           min: 0,
+                                           max: 100,
+                                           title: "CPU",
+                                           label: "",
+                                           levelColorsGradient: false
+                                         });
+
+                                         $('#' + server['key'] + "g2").empty();
+                                         new JustGage({
+                                           id: server['key'] + "g2",
+                                           value: server['memory'],
+                                           min: 0,
+                                           max: 100,
+                                           title: "MEM",
+                                           label: "",
+                                           levelColorsGradient: false
+                                          });
+
+                                         $('#' + server['key'] + "g3").empty();
+                                          new JustGage({
+                                            id: server['key'] + "g3",
+                                            value: server['disk'],
+                                            min: 0,
+                                            max: 100,
+                                            title: "HD",
+                                            label: "",
+                                            levelColorsGradient: false
+                                          });
+                                       }
+                                     });
+                                   }, 30000);
                                  </script>
                                 </tbody>
                             </table>
