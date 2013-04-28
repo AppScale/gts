@@ -343,7 +343,7 @@ class AppDashboardHelper():
     return ''
 
 
-  def get_user_app_list(self, email=None):
+  def get_owned_apps(self, email=None):
     """ Get a list of apps that the user is an admin of.
 
     Args:

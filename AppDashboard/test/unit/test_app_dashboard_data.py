@@ -111,16 +111,16 @@ class TestAppDashboardData(unittest.TestCase):
 
   def setupUserInfoMocks(self):
     user_info1 = flexmock(name='UserInfo', email='a@a.com',
-      is_user_cloud_admin=True, can_upload_apps=True, user_app_list=['app1',
+      is_user_cloud_admin=True, can_upload_apps=True, owned_apps=['app1',
       'app2'])
     user_info1.should_receive('put').and_return()
 
     user_info2 = flexmock(name='UserInfo', email='b@a.com',
-      is_user_cloud_admin=False, can_upload_apps=True, user_app_list=['app2'])
+      is_user_cloud_admin=False, can_upload_apps=True, owned_apps=['app2'])
     user_info2.should_receive('put').and_return()
 
     user_info3 = flexmock(name='UserInfo', email='c@a.com',
-      is_user_cloud_admin=False, can_upload_apps=False, user_app_list=['app2'])
+      is_user_cloud_admin=False, can_upload_apps=False, owned_apps=['app2'])
     user_info3.should_receive('put').and_return()
 
     flexmock(app_dashboard_data).should_receive('UserInfo')\
@@ -337,7 +337,7 @@ class TestAppDashboardData(unittest.TestCase):
     self.setupAppStatusMocks()
     data1 = AppDashboardData()
     output = data1.delete_app_from_datastore('app2', email='a@a.com')
-    app_list = output.user_app_list
+    app_list = output.owned_apps
     self.assertEquals(output.email, 'a@a.com')
     self.assertFalse('app2' in app_list )
     self.assertTrue('app1' in app_list )
@@ -401,11 +401,11 @@ class TestAppDashboardData(unittest.TestCase):
     flexmock(AppDashboardHelper).should_receive('can_upload_apps')\
       .with_args('c@a.com').and_return(False).once()
 
-    flexmock(AppDashboardHelper).should_receive('get_user_app_list')\
+    flexmock(AppDashboardHelper).should_receive('get_owned_apps')\
       .with_args('a@a.com').and_return(['app1', 'app2']).once()
-    flexmock(AppDashboardHelper).should_receive('get_user_app_list')\
+    flexmock(AppDashboardHelper).should_receive('get_owned_apps')\
       .with_args('b@a.com').and_return(['app2']).once()
-    flexmock(AppDashboardHelper).should_receive('get_user_app_list')\
+    flexmock(AppDashboardHelper).should_receive('get_owned_apps')\
       .with_args('c@a.com').and_return(['app2']).once()
 
     self.setupUserInfoMocks()
@@ -421,7 +421,7 @@ class TestAppDashboardData(unittest.TestCase):
     self.assertFalse(output[2].can_upload_apps)
 
 
-  def test_get_user_app_list(self):
+  def test_get_owned_apps(self):
     flexmock(AppDashboardData).should_receive('update_all')\
       .and_return().once()
 
@@ -434,20 +434,20 @@ class TestAppDashboardData(unittest.TestCase):
     data1 = AppDashboardData()
 
     # First call, not logged in.
-    output = data1.get_user_app_list()
+    output = data1.get_owned_apps()
     self.assertEqual(len(output), 0)
 
     # First user: a@a.com, apps=app1,app2
-    output = data1.get_user_app_list()
+    output = data1.get_owned_apps()
     self.assertTrue('app1' in output)
     self.assertTrue('app2' in output)
 
     # Second user: b@a.com, apps=app2
-    output = data1.get_user_app_list()
+    output = data1.get_owned_apps()
     self.assertTrue('app2' in output)
 
     # Third user: c@a.com, admin=app2.
-    output = data1.get_user_app_list()
+    output = data1.get_owned_apps()
     self.assertTrue('app2' in output)
 
 

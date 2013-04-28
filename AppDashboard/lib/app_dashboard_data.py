@@ -84,13 +84,13 @@ class UserInfo(ndb.Model):
     can_upload_apps: A bool that indicates if the user is authorized to upload
       Google App Engine applications to this AppScale cloud via the web
       interface.
-    user_app_list: A list of strs, where each str represents an application ID
+    owned_apps: A list of strs, where each str represents an application ID
       that the user has administrative rights on.
   """
   email = ndb.StringProperty()
   is_user_cloud_admin = ndb.BooleanProperty()
   can_upload_apps = ndb.BooleanProperty()
-  user_app_list = ndb.StringProperty(repeated=True)
+  owned_apps = ndb.StringProperty(repeated=True)
 
 
 class AppDashboardData():
@@ -331,8 +331,8 @@ class AppDashboardData():
         app_status.delete()
       user_info = self.get_by_id(UserInfo, email)
       if user_info:
-        if app in user_info.user_app_list:
-          user_info.user_app_list.remove(app)
+        if app in user_info.owned_apps:
+          user_info.owned_apps.remove(app)
           user_info.put()
       return user_info
     except Exception as err:
@@ -406,7 +406,7 @@ class AppDashboardData():
         user_info.is_user_cloud_admin = self.helper.is_user_cloud_admin(
           user_info.email)
         user_info.can_upload_apps = self.helper.can_upload_apps(user_info.email)
-        user_info.user_app_list = self.helper.get_user_app_list(user_info.email)
+        user_info.owned_apps = self.helper.get_owned_apps(user_info.email)
         user_info.put()
         user_list.append(user_info)
       return user_list
@@ -415,7 +415,7 @@ class AppDashboardData():
       return []
 
 
-  def get_user_app_list(self):
+  def get_owned_apps(self):
     """ Queries the UserAppServer to see which Google App Engine applications
     the currently logged in user has administrative permissions on.
 
@@ -430,7 +430,7 @@ class AppDashboardData():
     try:
       user_info = self.get_by_id(UserInfo, email)
       if user_info:
-        return user_info.user_app_list
+        return user_info.owned_apps
       else:
         return []
     except Exception as err:

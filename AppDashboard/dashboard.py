@@ -142,7 +142,7 @@ class AppDashboard(webapp2.RequestHandler):
       'user_email' : self.helper.get_user_email(),
       'is_user_cloud_admin' : self.dstore.is_user_cloud_admin(),
       'can_upload_apps' : self.dstore.can_upload_apps(),
-      'apps_user_is_admin_on' : self.dstore.get_user_app_list()
+      'apps_user_is_admin_on' : self.dstore.get_owned_apps()
     }
     for key in values.keys():
       sub_vars[key] = values[key]
@@ -515,7 +515,7 @@ class AppDeletePage(AppDashboard):
     else:
       ret_list = {}
       app_list = self.dstore.get_application_info()
-      my_apps = self.dstore.get_user_app_list()
+      my_apps = self.dstore.get_owned_apps()
       for app in app_list.keys():
         if app in my_apps:
           ret_list[app] = app_list[app]
@@ -526,7 +526,7 @@ class AppDeletePage(AppDashboard):
     """ Handler for POST requests. """
     appname = self.request.POST.get('appname')
     if self.dstore.is_user_cloud_admin() or \
-       appname in self.dstore.get_user_app_list():
+       appname in self.dstore.get_owned_apps():
       message = self.helper.delete_app(appname)
       self.dstore.delete_app_from_datastore(appname)
       try:
@@ -560,7 +560,7 @@ class LogMainPage(AppDashboard):
   def get(self):
     """ Handler for GET requests. """
     is_cloud_admin = self.helper.is_user_cloud_admin()
-    apps_user_is_admin_on = self.helper.get_user_app_list()
+    apps_user_is_admin_on = self.helper.get_owned_apps()
     if (not is_cloud_admin) and (not apps_user_is_admin_on):
       self.redirect('/', self.response)
 
@@ -590,7 +590,7 @@ class LogServicePage(AppDashboard):
   def get(self, service_name):
     """ Displays a list of hosts that have logs for the given service. """
     is_cloud_admin = self.helper.is_user_cloud_admin()
-    apps_user_is_admin_on = self.helper.get_user_app_list()
+    apps_user_is_admin_on = self.helper.get_owned_apps()
     if (not is_cloud_admin) and (service_name not in apps_user_is_admin_on):
       self.redirect('/', self.response)
 
@@ -627,7 +627,7 @@ class LogServiceHostPage(AppDashboard):
     to a single machine.
     """
     is_cloud_admin = self.helper.is_user_cloud_admin()
-    apps_user_is_admin_on = self.helper.get_user_app_list()
+    apps_user_is_admin_on = self.helper.get_owned_apps()
     if (not is_cloud_admin) and (service_name not in apps_user_is_admin_on):
       self.redirect('/', self.response)
 
