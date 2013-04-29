@@ -28,63 +28,88 @@ class AppHelperException(Exception):
 
 
 class AppDashboardHelper():
-  """ Helper class to get info from AppScale. """
+  """ Helper class that interacts with the AppController and UserAppServer on
+  behalf of the AppDashboard.
+
+  Specifically, the AppController has information about each server running in
+  this AppScale deployment (e.g., CPU, memory, disk usage), and the
+  UserAppServer has information about the user accounts registered, their
+  permissions, and any Google App Engine applications that are running.
+  """
 
 
   # Name of the cookie used for login.
   DEV_APPSERVER_LOGIN_COOKIE = 'dev_appserver_login'
 
 
-  # IP address of the AppController.
+  # IP address of the AppController. Since an AppController runs on every node
+  # in AppScale, using the localhost IP is fine.
   APP_CONTROLLER_IP = '127.0.0.1'
 
 
-  # Port number of the UserAppServer.
+  # The port that the UserAppServer runs on, by default.
   UA_SERVER_PORT = 4343
 
 
-  # Regular expression to parse the port from number.
-  GET_APP_PORTS_REGEX = ".*\sports: (\d+)[\s|:]"
-
-
-  # Regular expression to parse the number of ports.
-  NUM_PORT_APP_REGEX = ".*num_ports:(\d+)"
-
-
-  # The charcter that separates apps.
+  # Users have a list of applications that they own stored in their user data.
+  # This character is the delimiter that separates them in their data.
   APP_DELIMITER = ":"
 
 
-  # The charcter that separates users.
+  # When querying the UserAppServer for a list of all the users that are
+  # registered in the system, this character is used to separate them.
   USER_DELIMITER = ":"
 
 
-  # Regular expression to capture the apps a user is admin of.
+  # Users have a list of authorizations (capabilities) that correspond to
+  # actions they are allowed to perform in this AppScale deployment. The
+  # UserAppServer joins that list with this character.
+  USER_CAPABILITIES_DELIMITER = ':'
+
+
+  # A regular expression that can be used to find out what port number a Google
+  # App Engine application is bound to from its application data.
+  GET_APP_PORTS_REGEX = ".*\sports: (\d+)[\s|:]"
+
+
+  # A regular expression that can be used to find out how many servers host a
+  # Google App Engine application in this cloud. Typically this is one (since a
+  # full proxy is used to access apps), but historically, it used to be greater
+  # than one (when the full proxy wasn't used).
+  NUM_PORT_APP_REGEX = ".*num_ports:(\d+)"
+
+
+  # A regular expression that can be used to find out which Google App Engine
+  # applications a user owns, when applied to their user data.
   USER_APP_LIST_REGEX = "\napplications:(.+)\n"
 
 
-  # Regular expression to determine if a user is an admin.
+  # A regular expression that can be used to find out from the user's data in
+  # the UserAppServer if they are a cloud-level administrator in this AppScale
+  # cloud.
   CLOUD_ADMIN_REGEX = "is_cloud_admin:true"
 
 
-  # Regular expression to get username from full email.
+  # A regular expression that can be used to get the user's nickname (everything
+  # preceding the initial '@' symbol) from their e-mail address.
   USERNAME_FROM_EMAIL_REGEX = '\A(.*)@'
 
 
-  # Expiration date of the user token.
-  TOKEN_EXPIRATION = "20121231120000"
-
-
-  # Regular expression to get the hashed password from the user data.
+  # A regular expression that can be used to retrieve the SHA1-hashed password
+  # stored in a user's data with the UserAppServer.
   USER_DATA_PASSWORD_REGEX = 'password:([0-9a-fA-F]+)'
 
 
-  # Regular expression to skip non-users in response from UseAppServer.
+  # A regular expression that can be used to see if the given user is actually
+  # a valid user in our system. This is useful in cases when the UserAppServer
+  # returns error messages instead of user names.
   ALL_USERS_NON_USER_REGEX = '^[_]+$'
 
 
-  # Delimiter to separate user capabilities.
-  USER_CAPABILITIES_DELIMITER = ':'
+  # The date and time that user tokens expire.
+  # TODO(cgb): Since this value corresponds to a date in the past, investigate
+  # whether or not we still need these tokens, and remove them if we don't.
+  TOKEN_EXPIRATION = "20121231120000"
 
 
   def __init__(self):
@@ -480,9 +505,12 @@ class AppDashboardHelper():
       if result != 'true':
         raise AppHelperException(result)
   
+      # TODO(cgb): We may not even be using this token since the switch to
+      # full proxy nginx. Investigate this.
       self.create_token(email, email)
       self.set_appserver_cookie(email, response)
     except AppHelperException as err:
+      logging.exception(err)
       raise AppHelperException(str(err))
     except Exception as err:
       logging.exception(err)
@@ -513,8 +541,11 @@ class AppDashboardHelper():
 
   def get_cookie_value(self, email, apps):
     """ Generates a hash corresponding to the given user's credentials.
-        It is a hashed string containing the email, nickname, and list 
-        of apps the user is an admin of.
+    
+    It is a hashed string containing the email, nickname, and list of apps the
+    user is an admin of. We hash this information with the secret key (not known
+    to the user) to prevent users from tampering with their cookie to alter
+    who they are logged in as or what apps they own.
     
     Args:
       email: A str containing the e-mail address of the user to generate a

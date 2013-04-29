@@ -129,10 +129,8 @@
                                        apps_html = '<h4><span class="icon12 icomoon-icon-cube"></span>Current Applications Deployed:</h4>';
                                        apps_html += '<ul class="unstyled">';
                                        if (jQuery.isEmptyObject(apps)) {
-                                         console.log("is empty");
                                          apps_html += '<li><span class="icon16 icomoon-icon-arrow-right-2"></span>none</li>';
                                        } else {
-                                         console.log("is not empty");
                                          // get a list of sorted keys, so that we can present the app names in sorted order
                                          keys = []
                                          for (var key in apps) {
@@ -143,7 +141,6 @@
                                          for (var index in sorted_keys) {
                                            key = sorted_keys[index];
                                            apps_html += '<li><span class="icon16 icomoon-icon-arrow-right-2"></span>';
-                                           console.log('key is ' + key + ', value is ' + apps[key]);
                                            if (apps[key] == null) {
                                              apps_html += key + ' (loading)';
                                            } else {
@@ -155,7 +152,7 @@
                                        apps_html += '</ul>'
                                        $('#application_info').html(apps_html);
                                      });
-                                   }, 30000);
+                                   }, 10000);
                                  </script>
 
                                 </div>
@@ -283,7 +280,7 @@
                                           });
                                        }
                                      });
-                                   }, 30000);
+                                   }, 10000);
                                  </script>
                                 </tbody>
                             </table>

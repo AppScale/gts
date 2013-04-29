@@ -107,7 +107,7 @@ class AppDashboard(webapp2.RequestHandler):
 
   # The frequency, in seconds, that defines how often Task Queue tasks are fired
   # to update the Dashboard's Datastore cache.
-  REFRESH_WAIT_TIME = 30
+  REFRESH_WAIT_TIME = 10
 
 
   def __init__(self, request, response):
@@ -723,6 +723,7 @@ class LogUploadPage(webapp2.RequestHandler):
       app_log_line.message = log_line_dict['message']
       app_log_line.level = log_line_dict['level']
       app_log_line.timestamp = datetime.datetime.fromtimestamp(the_time)
+      app_log_line.put()
       log_line.app_logs.append(app_log_line)
       log_line.put()
 

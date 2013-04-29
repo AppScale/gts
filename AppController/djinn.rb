@@ -701,7 +701,6 @@ class Djinn
   #   secret: A string with the shared key for authentication.
   # Returns:
   #   A JSON string with the statistics of the nodes.
-  # 
   def get_stats_json(secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
@@ -716,19 +715,25 @@ class Djinn
     return JSON.dump(result)
   end 
 
+
   # Gets the database information of the AppScale deployment.
   # 
   # Args:
   #   secret: A string with the shared key for authentication.
   # Returns:
   #   A JSON string with the database information.
-  # 
   def get_database_information(secret)
     tree = { :table => @creds["table"], :replication => @creds["replication"],
       :keyname => @creds["keyname"] }
     return JSON.dump(tree)
   end
 
+  # Gets the statistics of only this node.
+  # 
+  # Args:
+  #   secret: A string with the shared key for authentication.
+  # Returns:
+  #   A Hash with the statistics of this node.
   def get_stats(secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG

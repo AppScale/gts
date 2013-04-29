@@ -61,7 +61,7 @@
             {% endfor %}
           </table>
           {% if is_more %}
-            <a href="/logs/{{service_name}}/{{host}}">View from Newest</a>
+            <a href="/logs/{{service_name}}/{{host}}">View from Newest</a> |
             <a href="/logs/{{service_name}}/{{host}}?next_cursor={{next_cursor}}">Next 20</a>
           {% endif %}
           </div><!--close span6 -->
