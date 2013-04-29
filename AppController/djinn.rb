@@ -2392,7 +2392,7 @@ class Djinn
     end
 
     # Start the AppDashboard.
-    if my_node.is_load_balancer?
+    if my_node.is_login?
       start_app_dashboard(get_login.public_ip, @userappserver_private_ip)
     end
 
