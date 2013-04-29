@@ -1062,6 +1062,9 @@ class HardenedModulesHook(object):
 
 
       'signal': [
+          'signal',#added by BDrawert on 2013.03.20
+          'alarm',  
+          'SIGALRM',
       ],
 
       'socket': [

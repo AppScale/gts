@@ -142,7 +142,7 @@ class AbstractRpcServer(object):
     self.username = None 
     self.password = None
     
-    #URL of AppServer redirected to by AppLoad Balancer
+    #URL of AppServer redirected to by AppDashboard
     self.appserver_url = None
     #Last AppServer that was authenticated successfully
     self.last_appserver_ip = None
@@ -231,24 +231,24 @@ class AbstractRpcServer(object):
       else:
         raise
 
-  def _GetAppLoadBalancerPublicIP(self):
-    """Returns the AppLoadBalancer's public IP address.
+  def _GetAppDashboardPublicIP(self):
+    """Returns the AppDashboard's public IP address.
 
-    AppScale uses this method to avoid having to run the AppLoadBalancer
+    AppScale uses this method to avoid having to run the AppDashboard
     on every virtual machine in the deployment. We ask for the public IP
     (as opposed to the private IP) because we force the user to redirect
     their web browser to that IP, so it must be accessible from the user's
     computer.
 
     Returns:
-      The IP address where the AppLoadBalancer can be contacted.
+      The IP address where the AppDashboard can be contacted.
     """
     try:
-      file_handle = open("/etc/appscale/apploadbalancer_public_ip")
+      file_handle = open("/etc/appscale/appdashboard_public_ip")
       ip = file_handle.read()
       file_handle.close()
     except IOError:
-      logger.info("Saw an IOError when trying to get the AppLoadBalancer's" + \
+      logger.info("Saw an IOError when trying to get the AppDashboard's" + \
         "public IP, returning localhost instead")
       ip = "localhost"
 
@@ -264,7 +264,7 @@ class AbstractRpcServer(object):
     Raises:
       HTTPError: If there was an error fetching the authentication cookies.
     """
-    continue_location = "http://%s/" % self._GetAppLoadBalancerPublicIP()
+    continue_location = "http://%s/" % self._GetAppDashboardPublicIP()
     args = {"continue": continue_location, "auth": auth_token}
     login_path = os.environ.get("APPCFG_LOGIN_PATH", "/_ah")
     req = self._CreateRequest("%s://%s%s/login?%s" %
@@ -351,12 +351,12 @@ class AbstractRpcServer(object):
     """
     
     loginUrl = self._GetLoadBalancerLoginUrl()
-    curlCommand = "curl -v -k -X GET " + loginUrl + \
-            " 2>&1 | grep \"authenticity_token\|_load-balancer_session\""    
-    _, cmdOutput = self._RunCommand(curlCommand)
+    #curlCommand = "curl -v -k -X GET " + loginUrl + \
+    #        " 2>&1 | grep \"authenticity_token\|_load-balancer_session\""    
+    #_, cmdOutput = self._RunCommand(curlCommand)
 
-    lbaCookie = self._GetLbaSessionCookie(cmdOutput)
-    authToken = self._GetAppScaleAuthToken(cmdOutput)
+    #lbaCookie = self._GetLbaSessionCookie(cmdOutput)
+    #authToken = self._GetAppScaleAuthToken(cmdOutput)
 
     if not self.read_credentials:
       credentials = self.auth_function()
@@ -366,11 +366,11 @@ class AbstractRpcServer(object):
 
     curlCommand = "curl -k "
     curlCommand += "-c %s " % self._GetAppScaleCookiePath()
-    curlCommand += "--data-urlencode authenticity_token=%s " % authToken
-    curlCommand += "--data-urlencode user[email]=%s " % self.username
-    curlCommand += "--data-urlencode user[password]=%s " % self.password
+    #curlCommand += "--data-urlencode authenticity_token=%s " % authToken
+    curlCommand += "--data-urlencode user_email=%s " % self.username
+    curlCommand += "--data-urlencode user_password=%s " % self.password
     curlCommand += "--data-urlencode commit=login "
-    curlCommand += "-b \"%s\" " % lbaCookie
+    #curlCommand += "-b \"%s\" " % lbaCookie
     curlCommand += "-X POST "
     curlCommand += "%s" % self._GetLoadBalancerAuthUrl()
                    

@@ -364,10 +364,10 @@ installhaproxy()
 
     # install service script
     mkdir -pv ${DESTDIR}/etc/init.d
-    cp -v ${APPSCALE_HOME}/AppLoadBalancer/config/haproxy-init.sh ${DESTDIR}/etc/init.d/haproxy
-    chmod -v a+x ${DESTDIR}/etc/init.d/haproxy
+    cp -v ${APPSCALE_HOME}/AppDashboard/setup/haproxy-init.sh ${DESTDIR}/etc/init.d/haproxy 
+    chmod -v a+x ${DESTDIR}/etc/init.d/haproxy 
     mkdir -pv ${DESTDIR}/etc/haproxy
-    cp -v ${APPSCALE_HOME}/AppLoadBalancer/config/haproxy.cfg ${DESTDIR}/etc/haproxy/
+    cp -v ${APPSCALE_HOME}/AppDashboard/setup/haproxy.cfg ${DESTDIR}/etc/haproxy/ 
     mkdir -pv ${DESTDIR}/etc/default
     echo "ENABLED=1" > ${DESTDIR}/etc/default/haproxy
 }
@@ -575,7 +575,7 @@ postinstallnginx()
 {
     cd ${APPSCALE_HOME}
     mkdir -p /usr/local/nginx/sites-enabled/
-    cp -v AppLoadBalancer/config/load-balancer.conf /usr/local/nginx/sites-enabled/
+    cp -v AppDashboard/setup/load-balancer.conf /usr/local/nginx/sites-enabled/
     rm -fv /usr/local/nginx/sites-enabled/default
     chmod +x /root
 }
@@ -820,8 +820,6 @@ installservice()
 {
     # this must be absolete path of runtime
     mkdir -pv ${DESTDIR}/etc/init.d/
-    ln -sfv ${APPSCALE_HOME_RUNTIME}/appscale-loadbalancer.sh ${DESTDIR}/etc/init.d/appscale-loadbalancer
-    chmod -v a+x ${APPSCALE_HOME}/appscale-loadbalancer.sh
     ln -sfv ${APPSCALE_HOME_RUNTIME}/appscale-controller.sh ${DESTDIR}/etc/init.d/appscale-controller
     chmod -v a+x ${APPSCALE_HOME}/appscale-controller.sh
     ln -sfv ${APPSCALE_HOME_RUNTIME}/appscale-monitoring.sh ${DESTDIR}/etc/init.d/appscale-monitoring
@@ -830,8 +828,6 @@ installservice()
 
 postinstallservice()
 {
-# we don't need to start load balancer as daemon
-#    update-rc.d appscale-loadbalancer defaults
 
     # stop unnecessary services
 #    service nginx stop || true

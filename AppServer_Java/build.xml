@@ -110,8 +110,11 @@
       <include name="com/google/appengine/api/datastore/dev/*" />
       <include name="com/google/appengine/api/memcache/dev/*" />
       <include name="com/google/appengine/api/taskqueue/dev/*" />
+      <!--include name="com/google/appengine/api/labs/mapreduce/dev/*" /-->
       <include name="com/google/appengine/api/blobstore/dev/*" />
       <include name="com/google/appengine/api/xmpp/dev/*" />
+      <include name="com/google/appengine/api/log/dev/*" />
+      <!--include name="META-INF/services/*" /-->
     </jar>
   </target>
  
