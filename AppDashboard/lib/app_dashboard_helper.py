@@ -343,7 +343,7 @@ class AppDashboardHelper():
     except Exception as err:
       logging.exception(err)
       return "There was an error attempting to remove the application."
-    return "Application removed successfully. Please wait for your app to " +
+    return "Application removed successfully. Please wait for your app to " + \
       "shut down."
 
 
@@ -614,11 +614,13 @@ class AppDashboardHelper():
 
   def logout_user(self, response):
     """ Remove the user's login cookie and invalidate the login token in
-        the AppScale deployment. This results in the user being logged out.
+      the AppScale deployment. This results in the user being logged out.
+
+      If the user is already logged out, nothing happens.
 
     Args:
-      response: A webapp2 response that the new user's logged in cookie
-        should be erased from.
+      response: A webapp2 response that the user's logged in cookie should be
+        erased from.
     """
     user = users.get_current_user()
     if user:
@@ -627,7 +629,8 @@ class AppDashboardHelper():
 
 
   def login_user(self, email, password, response):
-    """ Attempt to login the user.
+    """ Checks to see if the user has entered in a valid email and password,
+    logging the user in if they have.
 
     Args:
       email: A str containing the e-mail address of the user to login.
@@ -637,10 +640,10 @@ class AppDashboardHelper():
     Return:
       True if the user logged in successfully, and False otherwise.
     """
-    user_data =  self.query_user_data(email) 
+    user_data = self.query_user_data(email)
     server_re = re.search(self.USER_DATA_PASSWORD_REGEX, user_data)
     if not server_re:
-      logging.info("Failed Login: {0} regex failed".format(email))
+      logging.error("Failed Login: {0} regex failed".format(email))
       return False
     server_pwd = server_re.group(1)
     encrypted_pass = LocalState.encrypt_password(email, password)
@@ -677,11 +680,11 @@ class AppDashboardHelper():
 
   def list_all_users_permissions(self):
     """ Queries the UserAppServer and returns a list of all the users and the 
-        permissions they have in the system.
+      permissions they have in the system.
 
     Returns:
       A list of dicts, where each dict contains the e-mail address and
-        authorizations that this user is granted in this AppScale deployment.
+      authorizations that this user is granted in this AppScale deployment.
     """
     ret_list = []
     try:
@@ -702,24 +705,23 @@ class AppDashboardHelper():
 
 
   def get_all_permission_items(self):
-    """ Returns a list of the types of permissions that can be assigned to 
-        users in this system.
+    """ Returns a list of the capabilities that users can be granted.
    
     Returns:
-      A list of strs with the permission items to display. 
+      A list of strs, where each str is the name of a capability.
     """
     return ['upload_app']
 
 
   def add_user_permissions(self, email, perm):
-    """ Add a permission to a user.
+    """ Grants the named capability to the specified user.
 
     Args: 
       email: A str containing the e-mail address of the user who we wish to add
-        a permission for.
-      perm: A str containing the name of the permission to give to the user.
+        a capability for.
+      perm: A str containing the name of the capability to grant to the user.
     Returns:
-      True if the permission was given to the user, else False.
+      True if the permission was given to the user, and False otherwise.
     """
     try:
       caps_list = self.get_user_capabilities(email)
@@ -745,14 +747,14 @@ class AppDashboardHelper():
 
 
   def remove_user_permissions(self, email, perm):
-    """ Remove a permission from a user.
+    """ Revokes a capability from the specified user.
 
-    Args: 
+    Args:
       email: A str containing the e-mail address of the user who we wish to
         remove a permission from.
       perm: A str containing the name of the permission to remove from the user.
     Returns: 
-      True if the permission was removed from the user, else False.
+      True if the permission was removed from the user, and False otherwise.
     """
     try:
       caps_list = self.get_user_capabilities(email)
