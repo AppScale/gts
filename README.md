@@ -37,4 +37,4 @@ IBM Research
 
 National Science Foundation
 
-NIH
+National Institutes of Health
