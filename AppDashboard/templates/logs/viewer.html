@@ -1,0 +1,71 @@
+<!-- FILE:templates/logs/service.html -->
+<!--Body content-->
+<div id="content" class="clearfix">
+    <div class="contentwrapper"><!--Content wrapper-->
+
+        <div class="heading">
+
+            <h3>Log Viewer</h3>                    
+
+            <div class="resBtnSearch">
+                <a href="#"><span class="icon16 icomoon-icon-search-3"></span></a>
+            </div>
+
+        </div><!-- End .heading-->
+
+        <!-- Build page from here: -->
+        <div class="row-fluid">
+          <div class="span3"></div><!--spacing div-->
+          <div class="span6">
+            <div class="page-header">
+              <h1>View {{ service_name }} logs on {{ host }}:</h1>
+            </div><!--close header-->
+          <table class="table table-bordered table-condensed">
+            <tr>
+              <th>Time</th>
+              <th>Log Level</th>
+              <th>Log Message</th>
+            </tr>
+            {% for line in query %}
+              {% for app_log in line.app_logs %}
+              <tr
+              {% if app_log.level == 1 %}
+                class="success"
+              {% elif app_log.level == 2 %}
+                class="info"
+              {% elif app_log.level == 3 %}
+                class="warning"
+              {% else %}
+                class="error"
+              {% endif %}
+              >
+              <td>{{ app_log.timestamp }}</td>
+              <td>
+                {% if app_log.level == 1 %}
+                  DEBUG
+                {% elif app_log.level == 2 %}
+                  INFO
+                {% elif app_log.level == 3 %}
+                  WARN
+                {% elif app_log.level == 4 %}
+                  ERROR
+                {% elif app_log.level == 5 %}
+                  CRITICAL
+                {% else %}
+                  UNKNOWN
+                {% endif %}
+              </td>
+              <td>{{ app_log.message }}</td>
+              </tr>
+              {% endfor %}
+            {% endfor %}
+          </table>
+          {% if is_more %}
+            <a href="/logs/{{service_name}}/{{host}}">View from Newest</a> |
+            <a href="/logs/{{service_name}}/{{host}}?next_cursor={{next_cursor}}">Next 20</a>
+          {% endif %}
+          </div><!--close span6 -->
+        <div class="span3"></div> <!--spacing div-->
+        </div> <!-- end row fluid -->
+    </div> <!-- end content wrapper -->
+</div> <!--end content-->

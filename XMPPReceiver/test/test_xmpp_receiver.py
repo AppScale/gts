@@ -122,7 +122,7 @@ class TestXMPPReceiver(unittest.TestCase):
     fake_event.should_receive('getBody').and_return('doesnt matter')
     fake_event.should_receive('getType').and_return('chat')
 
-    # mock out the curl call to the AppLoadBalancer, and slip in our own
+    # mock out the curl call to the AppDashboard, and slip in our own
     # ip to send the XMPP message to
     fake_curl = flexmock(name='curl_result')
     fake_curl.should_receive('read').and_return('Location: http://public2')

@@ -24,6 +24,7 @@ class TestAPIChecker < Test::Unit::TestCase
     helper_functions = flexmock(HelperFunctions)
     nginx = flexmock(Nginx)
  
+    djinn.should_receive(:log_debug).and_return()
     djinn.should_receive(:log_run).and_return()
     helper_functions.should_receive(:parse_static_data).and_return([])
     helper_functions.should_receive(:setup_app).and_return()
@@ -41,6 +42,8 @@ class TestAPIChecker < Test::Unit::TestCase
 
     assert_equal(false, ApiChecker.start("123.123.123.123", "123.123.123.123"))
   end
+
+
   def test_start_app_success
     flexmock(AppManagerClient).new_instances { |instance|
       instance.should_receive(:start_app).and_return(1)
@@ -52,6 +55,7 @@ class TestAPIChecker < Test::Unit::TestCase
     helper_functions = flexmock(HelperFunctions)
     nginx = flexmock(Nginx)
  
+    djinn.should_receive(:log_debug).and_return()
     djinn.should_receive(:log_run).and_return()
     helper_functions.should_receive(:parse_static_data).and_return([])
     helper_functions.should_receive(:setup_app).and_return()

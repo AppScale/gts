@@ -2,24 +2,28 @@ watch('AppController/(.*).rb') { |md|
   system "rake appcontroller:test"
 }
 
-watch('Neptune/(.*).rb') { |md|
-  system "rake neptunemanager:test"
-}
-
-watch('(lib)/(.*).py') { |md|
-  system "rake lib:test"
-}
-
-watch('(AppManager)/(.*).py') { |md|
-  system "rake appmanager:test"
+watch('AppDashboard/(.*).py') { |md|
+  system "rake appdashboard:test"
 }
 
 watch('(AppDB)/(.*).py') { |md|
   system "rake appdb:test"
 }
 
+watch('(AppManager)/(.*).py') { |md|
+  system "rake appmanager:test"
+}
+
 watch('InfrastructureManager/(.*).py') { |md|
   system "rake infrastructuremanager:test"
+}
+
+watch('(lib)/(.*).py') { |md|
+  system "rake lib:test"
+}
+
+watch('Neptune/(.*).rb') { |md|
+  system "rake neptunemanager:test"
 }
 
 watch('XMPPReceiver/(.*).py') { |md|
