@@ -6,8 +6,8 @@
 # General-purpose Python library imports
 import json
 import re
-import socket
 import signal
+import socket
 import ssl
 import sys
 import time
@@ -51,15 +51,20 @@ class AppControllerClient():
   DEFAULT_NUM_RETRIES = 5
 
 
-  # The default timeout for run_with_timeout.
+  # The number of seconds we should wait when executing SOAP calls with a
+  # timeout.
   DEFAULT_TIMEOUT_TIME = 10
 
 
-  # The timeout to use when uploading a tar.gz file.
+  # The number of seconds we should wait when instructing the AppController to
+  # upload a new Google App Engine application and start it up. Because we wait
+  # for the app to start, this timeout is significantly higher than just copying
+  # over the file.
   UPLOAD_TAR_GZ_TIME = 500
 
 
-  # The number of retries to use when uploading a tar.gz file.
+  # The number of times we should retry uploading a Google App Engine
+  # application via the AppController, if it fails the first time.
   UPLOAD_TAR_GZ_RETRIES = 1
 
 
@@ -230,8 +235,8 @@ class AppControllerClient():
               last_known_state = match.group(1)
               sys.stderr.write(last_known_state)
           else:
-            sys.stderr.write('Waiting for AppScale nodes to complete '
-                             'the initialization process')
+            sys.stderr.write("Waiting for AppScale nodes to complete the " + \
+              "initialization process")
       except AppControllerException as exception:
         raise exception
       except Exception as exception:
@@ -241,62 +246,78 @@ class AppControllerClient():
 
 
   def get_status(self):
-    """Queries the AppController to see what its internal state is.
+    """Queries the AppController to learn information about the machine it runs
+    on.
+
+    This includes information about the CPU, memory, and disk of that machine,
+    as well as what machine that AppController connects to for database access
+    (via the UserAppServer).
 
     Returns:
-      A str that indicates what the AppController reports its status as.
+      A str containing information about the CPU, memory, and disk usage of that
+      machine, as well as where the UserAppServer is located.
     """
     return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "", 
       self.DEFAULT_NUM_RETRIES, self.server.status, self.secret)
 
 
   def get_api_status(self):
-    """Queries the AppController to see what the API status is.
+    """Queries the AppController to see what the status of Google App Engine
+    APIs are in this AppScale deployment, reported to it by the API Checker.
+
+    APIs can be either 'running', 'failed', or 'unknown' (which typically
+    occurs when AppScale is first starting up).
 
     Returns:
-      A dict that indicates what the AppController reports the status is.
+      A dict that maps each API name (a str) to its status (also a str).
     """
-    api_status_jdata = self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "", 
-      self.DEFAULT_NUM_RETRIES, self.server.get_api_status, self.secret)
-    return json.loads(api_status_jdata)
+    return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "",
+      self.DEFAULT_NUM_RETRIES, self.server.get_api_status, self.secret))
 
 
   def get_database_information(self):
-    """Queries the AppController to see what the database info is.
+    """Queries the AppController to see what database is being used to implement
+    support for the Google App Engine Datastore API, and how many replicas are
+    present for each piece of data.
 
     Returns:
-      A dict that indicates what the AppController reports info is.
+      A dict that indicates both the name of the database in use (with the key
+      'table', for historical reasons) and the replication factor (with the
+      key 'replication').
     """
-    db_info_jdata = self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "",
+    return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "",
       self.DEFAULT_NUM_RETRIES, self.server.get_database_information,
-      self.secret)
-    return json.loads(db_info_jdata)
+      self.secret))
 
 
   def upload_tgz(self, tgz_filename, email):
-    """Tells the AppController to load the app found in the tar.gz file.
+    """Tells the AppController to use the AppScale Tools to upload the Google
+    App Engine application at the specified location.
 
     Args:
-      tgz_filename: str full path to the uploaded tar.gz file.
-      email: str email of the app admin.
+      tgz_filename: A str that points to a .tar.gz file on the local filesystem
+        containing the user's Google App Engine application.
+      email: A str containing an e-mail address that should be registered as the
+        administrator of this application.
     Return:
-      A str with the message from the AppController.
+      A str that indicates either that the app was successfully uploaded, or the
+      reason why the application upload failed.
     """
-    msg = self.run_with_timeout(self.UPLOAD_TAR_GZ_TIME, 
-      "Timeout uploading app.", self.UPLOAD_TAR_GZ_RETRIES, 
+    return self.run_with_timeout(self.UPLOAD_TAR_GZ_TIME,
+      "Timeout uploading app.", self.UPLOAD_TAR_GZ_RETRIES,
       self.server.upload_tgz_file, tgz_filename, email, self.secret)
-    return msg
 
 
   def get_stats(self):
-    """Queries the AppController to see what its stats are.
+    """Queries the AppController to get server-level statistics and a list of
+    App Engine apps running in this cloud deployment across all machines.
 
     Returns:
-      A dict that indicates what the AppController reports its stats as.
+      A list of dicts, where each dict contains server-level statistics (e.g.,
+        CPU, memory, disk usage) about one machine.
     """
-    stats_jdata = self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "", 
-      self.DEFAULT_NUM_RETRIES, self.server.get_stats_json, self.secret)
-    return json.loads(stats_jdata)
+    return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "",
+      self.DEFAULT_NUM_RETRIES, self.server.get_stats_json, self.secret))
 
 
   def is_initialized(self):

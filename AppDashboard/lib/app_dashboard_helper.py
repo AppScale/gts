@@ -332,7 +332,7 @@ class AppDashboardHelper():
       acc = self.get_appcontroller_client()
       ret = acc.stop_app(appname)
       if ret != "true":
-        logging.info("AppControler returned: {0}".format(ret))
+        logging.info("AppController returned: {0}".format(ret))
         return "There was an error attempting to remove the application."
     except Exception as err:
       logging.exception(err)
