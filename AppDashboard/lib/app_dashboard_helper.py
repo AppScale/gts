@@ -23,7 +23,8 @@ from google.appengine.api import users
 
 
 class AppHelperException(Exception):
-  """ An exception thrown if the requested helper function failed. """
+  """ A special Exception class that should be thrown if a SOAP call to the
+  AppController or UserAppServer failed, or returned malformed data. """
   pass
 
 
@@ -38,7 +39,9 @@ class AppDashboardHelper():
   """
 
 
-  # Name of the cookie used for login.
+  # A str that indicates the name of the cookie that the AppDashboard reads and
+  # writes a user's information (their e-mail address, nickname, and list of
+  # applications they own) to.
   DEV_APPSERVER_LOGIN_COOKIE = 'dev_appserver_login'
 
 
@@ -146,11 +149,11 @@ class AppDashboardHelper():
 
 
   def get_uaserver(self):
-    """ Retrieves our saved UserAppServerconnection, creating a new one if none
+    """ Retrieves our saved UserAppServer connection, creating a new one if none
     currently exist.
 
     Returns:
-      An SOAPpy, representing a connection to the UserAppServer.
+      An SOAPpy object, representing a connection to the UserAppServer.
     """
     if self.uaserver is None:
       acc = self.get_appcontroller_client()
@@ -188,11 +191,13 @@ class AppDashboardHelper():
 
 
   def get_status_info(self):
-    """ Query the AppController and get the status information for all the 
-        server in the cluster.
+    """ Queries our local AppController to get server-level information about
+    every server running in this AppScale deployment.
 
     Returns:
-      A list of dicts containing the status information on each server.
+      A list of dicts, where each dict contains VM-level info (e.g., CPU,
+      memory, disk usage) about that machine. The empty list is returned if
+      there was a problem retrieving this information.
     """
     try:
       status_info = self.get_appcontroller_client().get_stats()
@@ -291,16 +296,16 @@ class AppDashboardHelper():
     """ Uploads an Google App Engine application into this AppScale deployment.
 
     Args:
-      upload_file: a file object containing the uploaded file data.
+      upload_file: A file object containing the uploaded file's data.
     Returns:
-      A message reporting the success of the upload.
+      A str indicating that the application was uploaded successfully.
     Raises:
-      AppHelperException reporting the failure of the upload.
+      AppHelperException: If the application was not uploaded successfully.
     """
     user = users.get_current_user()
     if not user:
-      raise AppHelperException("There was an error uploading your application."\
-             "  You must be logged in to upload applications.")
+      raise AppHelperException("There was an error uploading your " \
+        "application. You must be logged in to upload applications.")
     try:
       tgz_file = tempfile.NamedTemporaryFile(suffix='tar.gz', delete=False)
       tgz_file.write(upload_file.read())
@@ -309,8 +314,8 @@ class AppDashboardHelper():
       acc = self.get_appcontroller_client()
       ret = acc.upload_tgz(name, user.email())
       if ret == "true":
-        return "Application uploaded successfully. Please wait for the "\
-               "application to start running."
+        return "Application uploaded successfully. Please wait for the " \
+          "application to start running."
       else:
         raise AppHelperException(ret)
     except Exception as err:
@@ -319,12 +324,13 @@ class AppDashboardHelper():
 
 
   def delete_app(self, appname):
-    """Instructs AppScale to no longer host the named application.
+    """ Removes a Google App Engine application from this AppScale deployment.
 
     Args:
-      appname: Name of the app to be removed.
+      appname: A str containing the name of the app to be removed.
     Returns:
-      A str containing a message to be displayed to the user.
+      A str indicating whether or not the application was successfully removed
+        from this AppScale deployment.
     """
     try:
       if not self.does_app_exist(appname):
@@ -332,41 +338,42 @@ class AppDashboardHelper():
       acc = self.get_appcontroller_client()
       ret = acc.stop_app(appname)
       if ret != "true":
-        logging.info("AppController returned: {0}".format(ret))
+        logging.error("AppController returned: {0}".format(ret))
         return "There was an error attempting to remove the application."
     except Exception as err:
       logging.exception(err)
       return "There was an error attempting to remove the application."
-    return "Application removed successfully. Please wait for your app to shut"\
-           " down."
+    return "Application removed successfully. Please wait for your app to " +
+      "shut down."
 
 
   def does_app_exist(self, appname):
-    """Queries the UserAppServer to see if the named application exists.
+    """ Queries the UserAppServer to see if the named application id has been
+    registered.
 
     Args:
-      appname: The name of the app that we should check for existence.
+      appname: A str containing the name of the application we wish to query.
     Returns:
-      True if the app does exist, False otherwise.
+      True if the app id has been registered, and False otherwise.
     """
     try:
-      uas = self.get_uaserver()
-      app_data = uas.get_app_data(appname, GLOBAL_SECRET_KEY)
+      app_data = self.get_uaserver().get_app_data(appname, GLOBAL_SECRET_KEY)
       search_data = re.search(self.GET_APP_PORTS_REGEX, app_data)
       if search_data:
         num_ports = int(search_data.group(1))
-        if num_ports > 0:
-          return True
+        return num_ports > 0
+      else:
+        return False
     except Exception as err:
       logging.exception(err)
-    return False
+      return False
 
 
   def is_user_logged_in(self):
-    """ Check if the user is logged in.
+    """ Checks to see if this user is logged in.
 
     Returns:
-      True if the user is logged in, else False.
+      True if the user is logged in, and False otherwise.
     """
     return users.get_current_user() != None
 
@@ -380,16 +387,22 @@ class AppDashboardHelper():
     user = users.get_current_user()
     if user:
       return user.email()
-    return ''
+    else:
+      return ''
 
 
   def get_owned_apps(self, email=None):
-    """ Get a list of apps that the user is an admin of.
+    """ Queries the UserAppServer to see which application ids the named user
+    is an administrator on.
 
     Args:
-      email: Email address of the user.
+      email: A str indicating the e-mail address of the user whose data we we
+        wish to query. If None is provided instead of a str, then we use the
+        currently logged-in user.
     Returns:
-      A list of strs, each is the name of an app. 
+      A list of strs, where each str represents an appid that this user owns.
+      If no user is logged in, and the caller wants to use the logged-in user's
+      email address, the empty list is returned.
     """
     if email is None:
       user = users.get_current_user()
@@ -404,12 +417,15 @@ class AppDashboardHelper():
 
 
   def query_user_data(self, email):
-    """ Queries the UserAppServer and returns the data on a user.
+    """ Searches through our cache or queries the UserAppServer for the data it
+    stores for the given user.
 
     Args:
-      email: A str that contains the e-mail address of the user being queried.
+      email: A str that contains the e-mail address for the user whose
+        information we want to retrieve.
     Returns:
-      A str containing the user's data, or empty string on error.
+      A str containing the user's data, or the empty string if their data could
+      not be retrieved.
     """
     if 'query_user_data' in self.cache:
       if email in self.cache['query_user_data']:
@@ -418,8 +434,7 @@ class AppDashboardHelper():
       self.cache['query_user_data'] = {}
 
     try:
-      uaserver = self.get_uaserver()
-      user_data =  uaserver.get_user_data(email, GLOBAL_SECRET_KEY)
+      user_data = self.get_uaserver().get_user_data(email, GLOBAL_SECRET_KEY)
       self.cache['query_user_data'][email] = user_data
       return user_data
     except Exception as err:
@@ -470,9 +485,10 @@ class AppDashboardHelper():
     return 'upload_app' in self.get_user_capabilities(email)
 
 
-  def create_new_user(self, email, password, response, 
-        account_type='xmpp_user'):
-    """ Creates a new user account.
+  def create_new_user(self, email, password, response,
+    account_type='xmpp_user'):
+    """ Creates a new user account, by making both a standard login and an
+    XMPP login account.
 
     Args:
       email: A str containing the e-mail address of the new user.
@@ -480,7 +496,7 @@ class AppDashboardHelper():
       response: A webapp2 response that the new user's logged in cookie
         should be set in.
     Returns:
-      True if the user account was successfully created.
+      True, if the user account was successfully created.
     Raises:
       AppHelperException: If the user account could not be created.
     """
@@ -541,12 +557,12 @@ class AppDashboardHelper():
 
   def get_cookie_value(self, email, apps):
     """ Generates a hash corresponding to the given user's credentials.
-    
+
     It is a hashed string containing the email, nickname, and list of apps the
     user is an admin of. We hash this information with the secret key (not known
     to the user) to prevent users from tampering with their cookie to alter
     who they are logged in as or what apps they own.
-    
+
     Args:
       email: A str containing the e-mail address of the user to generate a
         cookie value for.
