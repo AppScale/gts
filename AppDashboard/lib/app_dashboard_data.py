@@ -324,7 +324,7 @@ class AppDashboardData():
     if email is None:
       user = users.get_current_user()
       if not user:
-        return []
+        return None
       email = user.email()
 
     try:
@@ -339,6 +339,7 @@ class AppDashboardData():
       return user_info
     except Exception as err:
       logging.exception(err)
+      return None
 
  
   def update_application_info(self):
@@ -385,6 +386,7 @@ class AppDashboardData():
       return ret
     except Exception as err:
       logging.exception(err)
+      return {}
 
 
   def update_users(self):
