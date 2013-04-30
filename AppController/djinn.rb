@@ -3152,10 +3152,10 @@ HOSTS
 
     AppDashboard::SERVER_PORTS.each do |port|
       Djinn.log_debug("Waiting for AppDashboard to open port #{port}")
-      HelperFunctions.sleep_until_port_is_open(my_public, port)
+      HelperFunctions.sleep_until_port_is_open(my_private, port)
       begin
         Djinn.log_debug("Asking for response from AppDashboard on port #{port}")
-        Net::HTTP.get_response("#{my_public}:#{port}", '/')
+        Net::HTTP.get_response("#{my_private}:#{port}", '/')
         Djinn.log_debug("Got response from AppDashboard on port #{port}")
       rescue SocketError
       end
