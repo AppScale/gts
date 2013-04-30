@@ -91,6 +91,12 @@ class ZKTransactionException(Exception):
   """
   pass
 
+class ZKInternalException(Exception):
+  """ ZKInternalException defines a custom exception class that should be
+  thrown whenever we cannot connect to ZooKeeper for an extended amount of time.
+  """
+  pass
+
 class ZKTransaction:
   """ ZKTransaction provides an interface that can be used to acquire locks
   and other functions needed to perform database-agnostic transactions
@@ -607,6 +613,8 @@ class ZKTransaction:
       True if the transaction is XG, False otherwise.
     Raises:
       ZKTransactionException: on ZooKeeper exceptions.
+      ZKInternalException: If we can't tell if the transaction is a XG
+        transaction or not.
     """
     # TODO(cgb): Make sure that callers handle possible ZKTransactionExceptions.
     try:
@@ -618,7 +626,7 @@ class ZKTransaction:
     except kazoo.exceptions.KazooException as kazoo_exception:
       logging.exception(kazoo_exception)
       self.reestablish_connection()
-      raise ZKTransactionException("Couldn't see if transaction {0} was XG " \
+      raise ZKInternalException("Couldn't see if transaction {0} was XG " \
         "for app {1}".format(tx_id, app_id))
 
   def acquire_lock(self, app_id, txid, entity_key):
@@ -771,12 +779,12 @@ class ZKTransaction:
     Returns:
       True if the transaction is blacklisted, False otherwise.
     Raises:
-      ZKTransactionException: If we couldn't determine if the transaction was
+      ZKInternalException: If we couldn't determine if the transaction was
         blacklisted or not.
     """
     # TODO(cgb): Investigate the performance impacts of not using a blacklist
     # cache.
-    # TODO(cgb): Make sure that callers handle possible ZKTransactionExceptions.
+    # TODO(cgb): Make sure that callers handle possible ZKInternalExceptions.
     blacklist_root = self.get_blacklist_root_path(app_id)
     if not self.run_with_retry(self.handle.exists, blacklist_root):
       self.run_with_retry(self.handle.create, blacklist_root, DEFAULT_VAL,
@@ -790,7 +798,7 @@ class ZKTransaction:
     except kazoo.exceptions.KazooException as kazoo_exception:
       logging.exception(kazoo_exception)
       self.reestablish_connection()
-      raise ZKTransactionException("Couldn't see if appid {0}'s transaction, " \
+      raise ZKInternalException("Couldn't see if appid {0}'s transaction, " \
         "{1}, is blacklisted.".format(app_id, txid))
 
 
@@ -805,7 +813,7 @@ class ZKTransaction:
       A long containing the latest valid transaction id, or zero if there is
       none.
     Raises:
-      ZKTransactionException: If we couldn't get a valid transaction ID.
+      ZKInternalException: If we couldn't get a valid transaction ID.
     """
     # TODO(cgb): Make sure that callers handle possible ZKTransactionExceptions.
     if not self.is_blacklisted(app_id, target_txid):
@@ -820,7 +828,7 @@ class ZKTransaction:
     except kazoo.exceptions.KazooException as kazoo_exception:
       logging.exception(kazoo_exception)
       self.reestablish_connection()
-      raise ZKTransactionException("Couldn't get valid transaction id for " \
+      raise ZKInternalException("Couldn't get valid transaction id for " \
         "app {0}, target txid {1}, entity key {2}".format(app_id, target_txid,
         entity_key))
 
@@ -837,7 +845,8 @@ class ZKTransaction:
     Returns:
       True on success.
     Raises:
-      A ZKTransactionException if the transaction is not valid. 
+      ZKTransactionException: If the transaction is not valid.
+      ZKInternalException: If we were unable to register the key.
     """
     vtxpath = self.get_valid_transaction_path(app_id, entity_key)
 
@@ -861,9 +870,7 @@ class ZKTransaction:
     except kazoo.exceptions.KazooException as kazoo_exception:
       logging.exception(kazoo_exception)
       self.reestablish_connection()
-      # TODO(cgb): Need a different exception class here, to differentiate it
-      # from the case when the transaction is not valid.
-      raise ZKTransactionException("Couldn't register updated key for app " \
+      raise ZKInternalException("Couldn't register updated key for app " \
         "{0}, current txid {1}, target txid {2}, entity_key {3}".format(app_id,
         current_txid, target_txid, entity_key))
 
