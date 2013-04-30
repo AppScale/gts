@@ -372,6 +372,12 @@ class Djinn
   # memory, set different limits per language.
   MAX_MEM_FOR_APPSERVERS = {'python' => 90.00, 'python27' => 90.00, 'java' => 95.00, 'go' => 90.00}
 
+
+  # An Integer that determines how many log messages we should send at a time
+  # to the AppDashboard, for later viewing.
+  LOGS_PER_BATCH = 50
+
+
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
   def initialize()
@@ -2048,7 +2054,7 @@ class Djinn
         encoded_logs = JSON.dump({
           'service_name' => 'appcontroller',
           'host' => my_node.public_ip,
-          'logs' => @@logs_buffer.shift(50),
+          'logs' => @@logs_buffer.shift(LOGS_PER_BATCH),
         })
 
         begin
