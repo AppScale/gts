@@ -32,12 +32,18 @@ programmatically access their request and application logs.
 
 import base64
 import cStringIO
+import httplib
 import os
 import re
 import sys
 import threading
 import time
 import warnings
+
+try:
+  import json
+except ImportError:
+  import simplejson as json
 
 from google.net.proto import ProtocolBuffer
 from google.appengine.api import api_base_pb
@@ -269,10 +275,46 @@ class LogsBuffer(object):
     """
     self._lock_and_call(self._flush)
 
+  def get_login_ip(self):
+    file_handle = open("/etc/appscale/login_private_ip", 'r')
+    host = file_handle.read()
+    file_handle.close()
+    if host[-1] == "\n":
+      return host[:-1]
+    else:
+      return host
+
+  def get_my_public_ip(self):
+    file_handle = open("/etc/appscale/my_public_ip", 'r')
+    host = file_handle.read()
+    file_handle.close()
+    if host[-1] == "\n":
+      return host[:-1]
+    else:
+      return host
+
   def _flush(self):
     """Internal version of flush() with no locking."""
 
     logs = self.parse_logs()
+
+    appid = os.environ['APPLICATION_ID']
+    if appid in ['apichecker', 'appscaledashboard']:
+      return
+
+    formatted_logs = [{'timestamp' : log[0] / 1e6, 'level' : log[1],
+      'message' : log[2]} for log in logs]
+
+    payload = json.dumps({
+      'service_name' : appid,
+      'host' : self.get_my_public_ip(),
+      'logs' : formatted_logs
+    })
+
+    conn = httplib.HTTPSConnection(self.get_login_ip() + ":443")
+    headers = {'Content-Type' : 'application/json'}
+    conn.request('POST', '/logs/upload', payload, headers)
+    response = conn.getresponse()
     self._clear()
 
     # AppScale: This currently causes problems when we try to call API requests

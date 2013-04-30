@@ -1,0 +1,291 @@
+        <!-- FILE:templates/status/cloud.html -->
+        <!--Body content-->
+        <div id="content" class="clearfix">
+            <div class="contentwrapper"><!--Content wrapper-->
+
+                <div class="heading">
+
+                    <h3>AppScale Dashboard</h3>                    
+
+                    <div class="resBtnSearch">
+                        <a href="#"><span class="icon16 icomoon-icon-search-3"></span></a>
+                    </div>
+
+                </div><!-- End .heading-->
+
+                <!-- Build page from here: -->
+                <div class="row-fluid">
+
+
+                </div><!-- End .row-fluid -->
+				<div class="row-fluid">
+				<div class="hero-unit">
+				    <h1 align="center">Welcome to AppScale!</h1>
+				    <p align="center">The Open Source App Engine</p>
+				    <p align="center"><a href="mailto:support@appscale.com" class="btn btn-primary btn-large">Send Feedback</a> &nbsp; <a href="https://github.com/AppScale/appscale/issues" class="btn btn-info btn-large">Submit Issue</a></p>
+            <span align="center" style="width: 50%" >
+            {% if flash_message %}
+                <ul id="noticeExplanation"><li class="flash notice">{{ flash_message }}</li></ul>
+            {% endif %}
+            </span>
+				                            </div>
+				</div><!-- End .row-fluid -->
+
+
+                <div class="row-fluid">
+
+                    <div class="span6">
+
+                        <div class="box chart gradient">
+
+                            <div class="title">
+
+                                <h4>
+                                    <span class="icon16 icomoon-icon-bars"></span>
+                                    <span>AppScale API Status</span>
+                                </h4>
+                                <a href="#" class="minimize">Minimize</a>
+                            </div>
+                                <div class="content noPad">
+                                    <table class="table">
+                                      <thead>
+                                        <tr>
+                                          <th>API Service</th>
+                                          <th>Status</th>
+                                        </tr>
+                                      </thead>
+                                      {% for service in service_info %}
+                                     <!--API Status Hooks -->
+                                      <tbody>
+                                        <tr>
+                                        <td align="center">{{ service }}</td>
+                                        {% if service_info[service] == 'running' %}
+                                          <td align="center"><img src="images/status_running.png"></td>
+                                        {% elif service_info[service] == 'failed' %}
+                                          <td align="center"><img src="images/status_failed.gif"></td>
+                                        {% else %}
+                                          <td align="center"><img src="images/status_unknown.gif"></td>
+                                        {% endif %}
+                                      </tr>
+                                    {% endfor %}
+
+                                      </tbody>
+                                    </table>
+                                </div>
+
+                            </div><!-- End .box -->
+
+                        </div><!-- End .span6 -->
+
+						<div class="span6">
+
+                            <div class="box gradient">
+
+                                <div class="title">
+
+                                    <h4>
+                                        <span class="icon16 icomoon-icon-search-3"></span>
+                                        <span>Database & Application Information</span>
+                                    </h4>
+                                    <a href="#" class="minimize">Minimize</a>
+                                </div>
+                                <div class="content">
+                  <div id="database_info">
+									<h4><span class="icon12 icomoon-icon-database"></span>Current Database:</h4>
+<!-- DB Hook -->                                    
+                                      <ul class="unstyled">
+                                        <li><span class="icon16 icomoon-icon-arrow-right-2"></span>Powered by <strong>{{ dbinfo['table'] }}</strong></li>
+                                        <li><span class="icon16 icomoon-icon-arrow-right-2"></span>Data is replicated <strong>{{ dbinfo['replication'] }}</strong> times</li>
+                                      </ul></div>
+                                    <hr/>
+                                    <div id="application_info">
+                                    <h4><span class="icon12 icomoon-icon-cube"></span>Current Applications Deployed:</h4>
+<!-- App Info Hook -->
+                                    <ul class="unstyled">
+                                      {% if apps|length == 0 %}
+                                        <li><span class="icon16 icomoon-icon-arrow-right-2"></span>none</li>
+                                      {% else %}
+                                        {% for app_name in apps.keys()|sort %}
+                                            <li><span class="icon16 icomoon-icon-arrow-right-2"></span>
+                                              {% if apps[app_name] %}
+                                                <a href="{{ apps[app_name] }}" target="_blank">{{ app_name }}</a>
+                                              {% else %}
+                                                {{ app_name }} (loading)
+                                              {% endif %}
+                                            </li>
+                                        {% endfor %}
+                                      {% endif %}
+                                      </ul></div>
+                                   <script>
+                                   window.setInterval(function() {
+                                     $.ajax({
+                                       url: "/apps/json"
+                                     }).done(function(encoded_app_info) {
+                                       apps = JSON.parse(encoded_app_info);
+
+                                       // update our divs accordingly
+                                       $('#application_info').empty();
+                                       apps_html = '<h4><span class="icon12 icomoon-icon-cube"></span>Current Applications Deployed:</h4>';
+                                       apps_html += '<ul class="unstyled">';
+                                       if (jQuery.isEmptyObject(apps)) {
+                                         apps_html += '<li><span class="icon16 icomoon-icon-arrow-right-2"></span>none</li>';
+                                       } else {
+                                         // get a list of sorted keys, so that we can present the app names in sorted order
+                                         keys = []
+                                         for (var key in apps) {
+                                           keys.push(key)
+                                         }
+                                         sorted_keys = keys.sort();
+
+                                         for (var index in sorted_keys) {
+                                           key = sorted_keys[index];
+                                           apps_html += '<li><span class="icon16 icomoon-icon-arrow-right-2"></span>';
+                                           if (apps[key] == null) {
+                                             apps_html += key + ' (loading)';
+                                           } else {
+                                             apps_html += '<a href="' + apps[key] + '" target="_blank">' + key + '</a>';
+                                           }
+                                           apps_html += '</li>';
+                                         }
+                                       }
+                                       apps_html += '</ul>'
+                                       $('#application_info').html(apps_html);
+                                     });
+                                   }, 10000);
+                                 </script>
+
+                                </div>
+
+                            </div><!-- End .box -->
+             {% if is_user_cloud_admin %}<!--Start Cloud Admin View-->
+                        </div><!-- End .span3 -->
+ <div class="row-fluid">
+
+                        <div class="span12">
+                            <div class="box gradient">
+                              <div class="title">
+                                <h4>
+                                    <span class="icon16 icomoon-icon-screen-2"></span> 
+                                    <span>CPU / Memory Usage &nbsp; &nbsp;  
+                                    <a href="{{monitoring_url}}" class="btn btn-info tipR" title="Current detailed hardware status">Machine Monitoring</a>
+                                    </span>
+                                </h4>
+                                <a href="#" class="minimize">Minimize</a>
+                              </div>
+                              <div class="content noPad">
+                            <table class="responsive table table-bordered">
+                                <thead>
+                                  <tr>
+                                    <th>IP Address</th>
+                                    <th>CPU Usage</th>
+                                    <th>Memory Usage</th>
+                                    <th>Hard Disk Usage</th>
+                                    <th>Role(s)</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                {% for server in server_info %}
+                                    <tr>
+                                      <td style="text-align: center;"><strong>{{server['ip'] }}</strong></td>
+                                      <td align="center">
+                                        <div id="{{ server['key'] }}g1" style="width:200px; height:160px"></div>
+                                      </td>
+                                      <td align="center">
+                                        <div id="{{ server['key'] }}g2" style="width:200px; height:160px"></div>
+                                      </td>
+                                      <td align="center">
+                                        <div id="{{ server['key'] }}g3" style="width:200px; height:160px"></div>
+                                      </td>
+                                      <td style="text-align: center;">
+                                        <strong>{{server['roles']|join(', ') }}</strong>
+                                      </td>
+                                    </tr>
+                                {% endfor %}
+                                 <script>
+                                   window.onload = function(){
+                                     var gauges = {};
+
+                                     {% for server in server_info %}
+                                       gauges["g1{{ server['key'] }}"] = new JustGage({
+                                         id: "{{ server['key'] }}g1",
+                                         value: {{ server['cpu'] }},
+                                         min: 0,
+                                         max: 100,
+                                         title: "CPU",
+                                         label: "",
+                                         levelColorsGradient: false
+                                       });
+                                        
+                                       gauges["g2{{ server['key'] }}"] = new JustGage({
+                                         id: "{{ server['key'] }}g2",
+                                         value: {{ server['memory'] }},
+                                         min: 0,
+                                         max: 100,
+                                         title: "MEM",
+                                         label: "",
+                                         levelColorsGradient: false
+                                        });
+                                        
+                                        gauges ["g3{{ server['key'] }}"] = new JustGage({
+                                          id: "{{ server['key'] }}g3",
+                                          value: {{ server['disk'] }},
+                                          min: 0,
+                                          max: 100,
+                                          title: "HD",
+                                          label: "",
+                                          levelColorsGradient: false
+                                        });
+                                     {% endfor %}
+
+                                   setInterval(function() {
+                                     $.ajax({
+                                       url: "/status/json"
+                                     }).done(function(encoded_server_info) {
+                                       server_info = JSON.parse(encoded_server_info);
+
+                                       // update our divs accordingly
+                                       for (var i = 0; i < server_info.length; i++) {
+                                         server = server_info[i];
+                                         gauges["g1" + server['key']].refresh(server['cpu']);
+                                         gauges["g2" + server['key']].refresh(server['memory']);
+                                         gauges["g3" + server['key']].refresh(server['disk']);
+                                       }
+                                     });
+                                   }, 10000);
+                                  }
+                                 </script>
+                                </tbody>
+                            </table>
+                          </div>
+                          </div>
+                        </div><!-- End .span6 -->
+                        </div><!-- End .row-fluid -->
+                </div><!-- End .row-fluid -->
+                {% endif %} <!-- end of admin only boxes -->
+                
+            </div><!-- End contentwrapper -->
+        </div><!-- End #content -->
+    
+    </div><!-- End #wrapper -->
+    
+    
+    
+    
+    <!-- Le javascript
+    ================================================== -->
+    <!-- Important plugins put in all pages -->
+    <script type="text/javascript" src="js/jquery.1.7.2.min.js"></script>
+    <script type="text/javascript" src="js/bootstrap/bootstrap.js"></script>  
+    <script type="text/javascript" src="js/jquery.cookie.js"></script>
+    <script type="text/javascript" src="js/jquery.mousewheel.js"></script>
+
+    <!-- Misc plugins -->
+    <script type="text/javascript" src="plugins/misc/qtip/jquery.qtip.min.js"></script><!-- Custom tooltip plugin -->
+    <script type="text/javascript" src="plugins/misc/totop/jquery.ui.totop.min.js"></script> <!-- Back to top plugin -->
+
+    <!-- Fix plugins -->
+    <script type="text/javascript" src="plugins/fix/ios-fix/ios-orientationchange-fix.js"></script>
+
+    <!-- Important Place before main.js  -->
+    <script type="text/javascript" src="js/jquery-ui.1.8.2.min.js"></script>
+    <script type="text/javascript" src="plugins/fix/touch-punch/jquery.ui.touch-punch.min.js"></script><!-- Unable touch for JQueryUI -->

@@ -8,7 +8,6 @@ import re
 import signal
 import threading
 import time
-import traceback
 import urllib
 
 import kazoo.client
@@ -850,9 +849,8 @@ class ZKTransaction:
           PATH_SEPARATOR.join([txpath, item]))
         self.run_with_retry(self.handle.delete_async, txpath)
     except kazoo.exceptions.ZookeeperError as zk_exception:
-      logging.error("There was a ZooKeeper exception {0}".format(str( 
-        zk_exception)))
-
+      logging.exception(zk_exception)
+      
     return True
 
   def reestablish_connection(self):
@@ -935,8 +933,7 @@ class ZKTransaction:
           now = str(time.time())
           self.update_node(PATH_SEPARATOR.join([app_path, GC_TIME_PATH]), now)
         except Exception as exception:
-          logging.error("Warning: GC error {0}".format(str(exception)))
-          traceback.print_exc()
+          logging.exception(exception)
           self.run_with_retry(self.handle.delete, gc_path)
       except kazoo.exceptions.NodeExistsError:
         # Failed to obtain the GC lock. Try again later.

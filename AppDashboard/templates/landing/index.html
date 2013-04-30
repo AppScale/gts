@@ -1,0 +1,52 @@
+<!-- FILE:templates/landing/index.html -->
+    <div id="getting-started">
+  
+         <div class="container-fluid">
+
+        <div class="loginContainer">
+        <div style="margin-top: 20px;">   
+        {% if flash_message %}
+        <ul id="noticeExplanation"><li class="flash notice">{{ flash_message }}</li></ul>
+        {% endif %}
+        </div>     
+  <ol style="margin-top: 30px; margin-bottom: 30px;">
+   {% if not logged_in %}
+   <li>
+     <h2><a href="/users/login">Login to this cloud.</a></h2>
+   </li>  
+   {% endif %}
+
+   <li>
+     <h2><a href="/users/new">Create an account.</a></h2>
+   </li>            
+
+   {% if logged_in %}
+   <li>
+     <h2><a href="/users/logout">Logout now.</a></h2>
+   </li>
+   {% endif %}
+
+   <li>
+     <h2><a href="/status">View cloud status.</a></h2>
+   </li>
+
+   {% if apps_user_is_admin_on or is_user_cloud_admin %}
+   <li>
+     <h2><a href="/logs">View logs.</a></h2>
+   </li>
+   {% endif %}
+
+   {% if is_user_cloud_admin %}
+   <li>
+     <h2><a href="{{ monitoring_url }}">Machine Monitoring.</a></h2>
+   </li>
+
+   <li>
+     <h2><a href="/authorize">Manage users.</a></h2>
+   </li>
+   {% endif %}
+
+  </ol>
+</div>
+</div>
+</div>
