@@ -276,7 +276,7 @@ class LogsBuffer(object):
     self._lock_and_call(self._flush)
 
   def get_login_ip(self):
-    file_handle = open("/etc/appscale/login_private_ip", 'r')
+    file_handle = open("/etc/appscale/login_ip", 'r')
     host = file_handle.read()
     file_handle.close()
     if host[-1] == "\n":
