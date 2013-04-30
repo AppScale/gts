@@ -2043,20 +2043,23 @@ class Djinn
   # viewing in a web UI.
   def flush_log_buffer()
     APPS_LOCK.synchronize {
-      encoded_logs = JSON.dump({
-        'service_name' => 'appcontroller',
-        'host' => my_node.public_ip,
-        'logs' => @@logs_buffer,
-      })
+      loop {
+        break if @@logs_buffer.empty?
+        encoded_logs = JSON.dump({
+          'service_name' => 'appcontroller',
+          'host' => my_node.public_ip,
+          'logs' => @@logs_buffer.shift(50),
+        })
 
-      url = URI.parse("https://#{get_login.private_ip}/logs/upload")
-      http = Net::HTTP.new(url.host, url.port)
-      http.use_ssl = true
-      response = http.post(url.path, encoded_logs,
-        {'Content-Type'=>'application/json'})
-
-      Djinn.log_debug("Wrote #{@@logs_buffer.length} logs!")
-      @@logs_buffer = []
+        begin
+          url = URI.parse("https://#{get_login.public_ip}/logs/upload")
+          http = Net::HTTP.new(url.host, url.port)
+          http.use_ssl = true
+          response = http.post(url.path, encoded_logs,
+            {'Content-Type'=>'application/json'})
+        rescue Timeout::Error
+        end
+      }
     }
   end
 
