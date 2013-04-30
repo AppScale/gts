@@ -414,6 +414,10 @@ class ZKTransaction:
         if txn_id == 0:
           logging.warning("Created sequence ID 0 - deleting it.")
           self.run_with_retry(self.handle.delete_async, txn_id_path)
+          txn_id_path = self.run_with_retry(self.handle.create, path, str(value),
+            ZOO_ACL_OPEN, False, True, True)
+          return long(txn_id_path.split(PATH_SEPARATOR)[-1].lstrip(
+            APP_TX_PREFIX))
         else:
           logging.debug("Created sequence ID {0} at path {1}".format(txn_id, 
             txn_id_path))
