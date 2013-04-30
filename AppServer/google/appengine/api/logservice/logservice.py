@@ -86,6 +86,12 @@ _MAJOR_VERSION_ID_PATTERN = r'^(?:(?:(%s):)?)(%s)$' % (SERVER_ID_RE_STRING,
 _MAJOR_VERSION_ID_RE = re.compile(_MAJOR_VERSION_ID_PATTERN)
 
 
+# The file that the AppController writes the login node's public IP address to.
+LOGIN_IP_FILENAME = "/etc/appscale/login_ip"
+
+# The file that the AppController writes this machine's public IP address to.
+MY_PUBLIC_IP_FILENAME = "/etc/appscale/my_public_ip"
+
 class Error(Exception):
   """Base error class for this module."""
 
@@ -276,7 +282,7 @@ class LogsBuffer(object):
     self._lock_and_call(self._flush)
 
   def get_login_ip(self):
-    file_handle = open("/etc/appscale/login_ip", 'r')
+    file_handle = open(LOGIN_IP_FILENAME, 'r')
     host = file_handle.read()
     file_handle.close()
     if host[-1] == "\n":
@@ -285,7 +291,7 @@ class LogsBuffer(object):
       return host
 
   def get_my_public_ip(self):
-    file_handle = open("/etc/appscale/my_public_ip", 'r')
+    file_handle = open(MY_PUBLIC_IP_FILENAME, 'r')
     host = file_handle.read()
     file_handle.close()
     if host[-1] == "\n":
