@@ -15,7 +15,7 @@
 
         <!-- Build page from here: -->
         <div class="row-fluid">
-          <div class="offset1 span9">
+          <div class="offset1 span8">
             <div class="page-header">
               <h1>View {{ service_name }} logs on {{ host }}:</h1>
             </div><!--close header-->
@@ -54,7 +54,7 @@
                   UNKNOWN
                 {% endif %}
               </td>
-              <td>{{ app_log.message }}</td>
+              <td><strong>{{ app_log.message }}</strong></td>
               </tr>
               {% endfor %}
             {% endfor %}
