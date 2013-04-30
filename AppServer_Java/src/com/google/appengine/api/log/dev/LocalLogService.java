@@ -200,7 +200,6 @@ public class LocalLogService extends AbstractLocalRpcService
     Gson gson = new Gson();
     HashMap<String, Object> data = new HashMap<String, Object>();
     data.put("service_name", System.getProperty("APPLICATION_ID"));
-    data.put("host", System.getProperty("SERVER_NAME"));
     data.put("logs", logList);
 
     InputStream inStream = null;

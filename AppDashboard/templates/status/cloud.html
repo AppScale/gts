@@ -90,6 +90,7 @@
                                     <a href="#" class="minimize">Minimize</a>
                                 </div>
                                 <div class="content">
+                  <div id="database_info">
 									<h4><span class="icon12 icomoon-icon-database"></span>Current Database:</h4>
 <!-- DB Hook -->                                    
                                       <ul class="unstyled">
@@ -106,6 +107,7 @@
                                         <li><span class="icon16 icomoon-icon-arrow-right-2"></span>Data is replicated <strong>{{ dbinfo['replication'] }}</strong> time(s).</li>
                                       </ul>
                                     <hr/>
+                                    <div id="application_info">
                                     <h4><span class="icon12 icomoon-icon-cube"></span>Current Applications Deployed:</h4>
 <!-- App Info Hook -->
                                     <ul class="unstyled">
@@ -122,7 +124,46 @@
                                             </li>
                                         {% endfor %}
                                       {% endif %}
-                                      </ul>
+                                      </ul></div>
+                                   <script>
+                                   window.setInterval(function() {
+                                     $.ajax({
+                                       url: "/apps/json"
+                                     }).done(function(encoded_app_info) {
+                                       apps = JSON.parse(encoded_app_info);
+
+                                       // update our divs accordingly
+                                       $('#application_info').empty();
+                                       console.log(apps);
+                                       apps_html = '<h4><span class="icon12 icomoon-icon-cube"></span>Current Applications Deployed:</h4>';
+                                       apps_html += '<ul class="unstyled">';
+                                       if (jQuery.isEmptyObject(apps)) {
+                                         apps_html += '<li><span class="icon16 icomoon-icon-arrow-right-2"></span>none</li>';
+                                       } else {
+                                         // get a list of sorted keys, so that we can present the app names in sorted order
+                                         keys = []
+                                         for (var key in apps) {
+                                           keys.push(key)
+                                         }
+                                         sorted_keys = keys.sort();
+
+                                         for (var index in sorted_keys) {
+                                           key = sorted_keys[index];
+                                           apps_html += '<li><span class="icon16 icomoon-icon-arrow-right-2"></span>';
+                                           if (apps[key] == null) {
+                                             apps_html += key + ' (loading)';
+                                           } else {
+                                             apps_html += '<a href="' + apps[key] + '" target="_blank">' + key + '</a>';
+                                           }
+                                           apps_html += '</li>';
+                                         }
+                                       }
+                                       apps_html += '</ul>'
+                                       $('#application_info').html(apps_html);
+                                     });
+                                   }, 10000);
+                                 </script>
+
                                 </div>
 
                             </div><!-- End .box -->
@@ -204,6 +245,51 @@
                                         });
                                      {% endfor %}
                                     };
+
+                                   window.setInterval(function() {
+                                     $.ajax({
+                                       url: "/status/json"
+                                     }).done(function(encoded_server_info) {
+                                       server_info = JSON.parse(encoded_server_info);
+
+                                       // update our divs accordingly
+                                       for (var i = 0; i < server_info.length; i++) {
+                                         server = server_info[i];
+                                         $('#' + server['key'] + "g1").empty();
+                                         new JustGage({
+                                           id: server['key'] + "g1",
+                                           value: server['cpu'],
+                                           min: 0,
+                                           max: 100,
+                                           title: "CPU",
+                                           label: "",
+                                           levelColorsGradient: false
+                                         });
+
+                                         $('#' + server['key'] + "g2").empty();
+                                         new JustGage({
+                                           id: server['key'] + "g2",
+                                           value: server['memory'],
+                                           min: 0,
+                                           max: 100,
+                                           title: "MEM",
+                                           label: "",
+                                           levelColorsGradient: false
+                                          });
+
+                                         $('#' + server['key'] + "g3").empty();
+                                          new JustGage({
+                                            id: server['key'] + "g3",
+                                            value: server['disk'],
+                                            min: 0,
+                                            max: 100,
+                                            title: "HD",
+                                            label: "",
+                                            levelColorsGradient: false
+                                          });
+                                       }
+                                     });
+                                   }, 10000);
                                  </script>
                                 </tbody>
                             </table>
@@ -220,6 +306,4 @@
         </div><!-- End #content -->
     
     </div><!-- End #wrapper -->
-    
-    
-    
+

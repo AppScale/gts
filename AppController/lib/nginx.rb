@@ -449,8 +449,8 @@ CONFIG
   def self.create_app_load_balancer_config(my_public_ip, my_private_ip, 
     proxy_port)
     self.create_app_config(my_public_ip, my_private_ip, proxy_port, 
-      AppDashboard.listen_port, AppDashboard.name, 
-      AppDashboard.public_directory, AppDashboard.listen_ssl_port)
+      AppDashboard::LISTEN_PORT, AppDashboard::NGINX_APP_NAME,
+      AppDashboard::PUBLIC_DIRECTORY, AppDashboard::LISTEN_SSL_PORT)
   end
 
   # Create the configuration file for the AppMonitoring Rails application
@@ -612,7 +612,7 @@ CONFIG
       client_body_timeout 360;
       proxy_read_timeout 360;
 CONFIG
-    if name == AppDashboard.name()
+    if name == AppDashboard::NGINX_APP_NAME
       config += <<CONFIG
  
       # Increase file size for alb so larger applications can be uploaded

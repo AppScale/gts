@@ -75,8 +75,15 @@ end
 # exposed SOAP method but provide an incorrect secret.
 BAD_SECRET_MSG = "false: bad secret"
 
+
 # Regular expression to determine if a file is a .tar.gz file.
-TAR_GZ_REGEX = /tar.gz$/
+TAR_GZ_REGEX = /\.tar\.gz$/
+
+
+# The maximum number of seconds that we should wait when deploying Google App
+# Engine applications via the AppController.
+APP_UPLOAD_TIMEOUT = 180
+
 
 # The location on the local file system where we store information about
 # where ZooKeeper clients are located, used to backup and restore 
@@ -647,15 +654,15 @@ class Djinn
     return stats_str
   end
 
-  # Upload a app into the AppScale deployment.
+  # Upload a Google App Engine application into this AppScale deployment.
   # 
   # Args:
   #   tgz_file: A String, with the path to the tar.gz file containing the app.
-  #   email: A String, email address of the app owner
-  #   secret: A String, with the shared key for authentication.
+  #   email: A String with the email address of the user that will own this application.
+  #   secret: A String with the shared key for authentication.
   # Returns:
-  #   A String containing the response.
-  # 
+  #   A String that indicates if the application was successfully uploaded, and
+  #   if not, the reason why the upload failed.
   def upload_tgz_file(tgz_file, email, secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
@@ -669,13 +676,10 @@ class Djinn
 
     begin
       keyname = @creds['keyname']
-      Timeout.timeout(180) do
+      Timeout.timeout(APP_UPLOAD_TIMEOUT) do
         command = "#{APPSCALE_TOOLS_HOME}/bin/appscale-upload-app --file " +
-                  "#{tgz_file} --email #{email} --keyname #{keyname} 2>&1"
-        Djinn.log_debug("upload_tgz_file() running command: #{command}")
-        output = Djinn.log_run("#{command}")
-        output.chomp!
-        Djinn.log_debug("upload_tgz_file() output: #{output}")
+          "#{tgz_file} --email #{email} --keyname #{keyname} 2>&1"
+        output = Djinn.log_run("#{command}").chomp
         File.delete(tgz_file)
         if output.include?("uploaded successfully")
           result = "true"
@@ -684,19 +688,19 @@ class Djinn
         end
       end
     rescue Timeout::Error
-      Djinn.log_debug("upload_tgz_file() got Timeout: #{output}")
-      result = "The request has timed out. Large applications should be uploaded using the appscale tools"
+      Djinn.log_debug("Uploading App Engine app timed out: #{output}")
+      result = "The request has timed out. Large applications should be " +
+        "uploaded via the command line."
     end
     return result
   end    
 
-  # Gets the status of all the nodes in the AppScale deployment.
+  # Gets the statistics of all the nodes in the AppScale deployment.
   # 
   # Args:
   #   secret: A string with the shared key for authentication.
   # Returns:
-  #   A JSON string with the status of the nodes.
-  # 
+  #   A JSON string with the statistics of the nodes.
   def get_stats_json(secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
@@ -711,19 +715,25 @@ class Djinn
     return JSON.dump(result)
   end 
 
+
   # Gets the database information of the AppScale deployment.
   # 
   # Args:
   #   secret: A string with the shared key for authentication.
   # Returns:
   #   A JSON string with the database information.
-  # 
   def get_database_information(secret)
     tree = { :table => @creds["table"], :replication => @creds["replication"],
       :keyname => @creds["keyname"] }
     return JSON.dump(tree)
   end
 
+  # Gets the statistics of only this node.
+  # 
+  # Args:
+  #   secret: A string with the shared key for authentication.
+  # Returns:
+  #   A Hash with the statistics of this node.
   def get_stats(secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
@@ -1926,29 +1936,34 @@ class Djinn
   #   secret: A string with the shared key for authentication.
   # Returns:
   #   A JSON string with the status of the APIs.
-  # 
   def get_api_status(secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
     end
-    Djinn.log_debug("get_api_status() got called()\n")
     begin
       return HelperFunctions.read_file(HEALTH_FILE)
     rescue Errno::ENOENT
+      Djinn.log_debug("Couldn't read our API status - generating it now.")
       update_api_status()
       begin
         return HelperFunctions.read_file(HEALTH_FILE)
       rescue Errno::ENOENT
+        Djinn.log_debug("Couldn't generate API status at this time.")
         return ''
       end
     end
   end
 
-  # Request the current API status from the API checker.
-  # 
+  # Contacts the API Checker application to learn which Google App Engine APIs
+  # are running, which have failed, and which are in an unknown state. To
+  # determine if an API is alive, we keep a running tally of its state and see
+  # if it was alive for a majority of the times we checked up on it.
+  # TODO(cgb): Consider only using 'running' if it was alive on every check and
+  # add a 'degraded' state for cases where it was not alive on a check.
+  #
   # Returns:
-  #   A JSON string with the status of the APIs.
-  # 
+  #   A JSON-encoded Hash that maps each API name to its state (e.g., running,
+  #   failed).
   def generate_api_status()
     if my_node.is_appengine?
       apichecker_host = my_node.private_ip
@@ -1990,9 +2005,14 @@ class Djinn
     return json_state
   end
 
+
+  # Writes a file to the local filesystem that indicates if each Google App
+  # Engine API is currently running fine, experiences errors, or is in an
+  # unknown state.
   def update_api_status()
-    HelperFunctions.write_file(HEALTH_FILE, generate_api_status)
+    HelperFunctions.write_file(HEALTH_FILE, generate_api_status())
   end
+
 
   # Backs up information about what this node is doing (roles, apps it is
   # running) to ZooKeeper, for later recovery or updates by other nodes.
@@ -2022,21 +2042,20 @@ class Djinn
   # Sends all of the logs that have been buffered up to the Admin Console for
   # viewing in a web UI.
   def flush_log_buffer()
-    Djinn.log_debug("Flushing logs buffer")
-
-    encoded_logs = JSON.dump({
-      'service_name' => 'appcontroller',
-      'host' => my_node.public_ip,
-      'logs' => @@logs_buffer,
-    })
-
-    url = URI.parse("https://#{get_login.public_ip}/logs/upload")
-    http = Net::HTTP.new(url.host, url.port)
-    http.use_ssl = true
-    response = http.post(url.path, encoded_logs, {'Content-Type'=>'application/json'})
-
-    Djinn.log_debug("Wrote #{@@logs_buffer.length} logs!")
     APPS_LOCK.synchronize {
+      encoded_logs = JSON.dump({
+        'service_name' => 'appcontroller',
+        'host' => my_node.public_ip,
+        'logs' => @@logs_buffer,
+      })
+
+      url = URI.parse("https://#{get_login.private_ip}/logs/upload")
+      http = Net::HTTP.new(url.host, url.port)
+      http.use_ssl = true
+      response = http.post(url.path, encoded_logs,
+        {'Content-Type'=>'application/json'})
+
+      Djinn.log_debug("Wrote #{@@logs_buffer.length} logs!")
       @@logs_buffer = []
     }
   end
@@ -2374,9 +2393,7 @@ class Djinn
 
     # Start the AppDashboard.
     if my_node.is_load_balancer?
-        Djinn.log_debug("change_job(): start_app_dashboard(" +
-          "#{get_login.public_ip}, #{@userappserver_private_ip})")
-        start_app_dashboard(get_login.public_ip, @userappserver_private_ip)
+      start_app_dashboard(get_login.public_ip, @userappserver_private_ip)
     end
 
     Djinn.log_debug("Starting taskqueue worker for #{AppDashboard::APP_NAME}")
@@ -2397,8 +2414,6 @@ class Djinn
   def start_api_services()
     # ejabberd uses uaserver for authentication
     # so start it after we find out the uaserver's ip
-    Djinn.log_debug("start_api_services()")
-
     threads = []
     if my_node.is_login?
       threads << Thread.new {
@@ -2859,6 +2874,9 @@ class Djinn
     login_ip = get_login.public_ip
     HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/login_ip", "#{login_ip}\n")
     
+    login_private_ip = get_login.private_ip
+    HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/login_private_ip", "#{login_private_ip}\n")
+
     masters_file = "#{CONFIG_FILE_LOCATION}/masters"
     HelperFunctions.write_file(masters_file, "#{master_ip}\n")
 
@@ -3110,16 +3128,12 @@ HOSTS
     my_public = my_node.public_ip
     my_private = my_node.private_ip
     HAProxy.create_app_load_balancer_config(my_public, my_private, 
-      AppDashboard.proxy_port)
+      AppDashboard::PROXY_PORT)
     Nginx.create_app_load_balancer_config(my_public, my_private, 
-      AppDashboard.proxy_port)
-    Djinn.log_debug("Calling AppDashboard.start")
+      AppDashboard::PROXY_PORT)
     AppDashboard.start(login_ip, uaserver_ip, my_public, my_private, @@secret)
-    Djinn.log_debug("Starting HAproxy")
     HAProxy.start
-    Djinn.log_debug("Restarting Nginx")
     Nginx.restart
-    Djinn.log_debug("Restarting collectd")
     Collectd.restart
 
     if my_node.is_login?
@@ -3136,7 +3150,7 @@ HOSTS
       Djinn.log_debug("Not starting AppMonitoring on this machine")
     end
 
-    AppDashboard.server_ports.each do |port|
+    AppDashboard::SERVER_PORTS.each do |port|
       Djinn.log_debug("Waiting for AppDashboard to open port #{port}")
       HelperFunctions.sleep_until_port_is_open(my_public, port)
       begin

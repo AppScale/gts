@@ -230,20 +230,20 @@ class FunctionalTestAppDashboard(unittest.TestCase):
     user_info1 = flexmock(name='UserInfo')
     user_info1.email = 'a@a.com'
     user_info1.is_user_cloud_admin = True
-    user_info1.i_can_upload = True
-    user_info1.user_app_list = 'app1:app2'
+    user_info1.can_upload_apps = True
+    user_info1.owned_apps = 'app1:app2'
     user_info1.should_receive('put').and_return()
     user_info2 = flexmock(name='UserInfo')
     user_info2.email = 'b@a.com'
     user_info2.is_user_cloud_admin = False
-    user_info2.i_can_upload = True
-    user_info2.user_app_list = 'app2'
+    user_info2.can_upload_apps = True
+    user_info2.owned_apps = 'app2'
     user_info2.should_receive('put').and_return()
     user_info3 = flexmock(name='UserInfo')
     user_info3.email = 'c@a.com'
     user_info3.is_user_cloud_admin = False
-    user_info3.i_can_upload = False
-    user_info3.user_app_list = 'app2'
+    user_info3.can_upload_apps = False
+    user_info3.owned_apps = 'app2'
     user_info3.should_receive('put').and_return()
     flexmock(app_dashboard_data).should_receive('UserInfo')\
       .and_return(user_info1)

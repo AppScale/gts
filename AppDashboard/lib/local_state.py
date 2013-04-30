@@ -23,4 +23,4 @@ class LocalState():
     Returns:
       The SHA1-encrypted password.
     """
-    return hashlib.sha1(username + password).hexdigest()
+    return hashlib.sha1("{0}{1}".format(username, password)).hexdigest()

@@ -6,8 +6,8 @@
 # General-purpose Python library imports
 import json
 import re
-import socket
 import signal
+import socket
 import ssl
 import sys
 import time
@@ -50,14 +50,22 @@ class AppControllerClient():
   # The number of times we should retry SOAP calls in case of failures.
   DEFAULT_NUM_RETRIES = 5
 
-  # The default timeout for run_with_timeout.
+
+  # The number of seconds we should wait when executing SOAP calls with a
+  # timeout.
   DEFAULT_TIMEOUT_TIME = 10
 
-  # The timeout to use when uploading a tar.gz file.
-  UPLOAD_TARGZ_TIME = 500
 
-  # The number of retries to use when uploading a tar.gz file.
-  UPLOAD_TARGZ_RETRIES = 1
+  # The number of seconds we should wait when instructing the AppController to
+  # upload a new Google App Engine application and start it up. Because we wait
+  # for the app to start, this timeout is significantly higher than just copying
+  # over the file.
+  UPLOAD_TAR_GZ_TIME = 500
+
+
+  # The number of times we should retry uploading a Google App Engine
+  # application via the AppController, if it fails the first time.
+  UPLOAD_TAR_GZ_RETRIES = 1
 
 
   def __init__(self, host, secret):
@@ -69,8 +77,7 @@ class AppControllerClient():
         when talking to remote AppControllers.
     """
     self.host = host
-    self.server = SOAPpy.SOAPProxy('https://%s:%s' % (host,
-      self.PORT))
+    self.server = SOAPpy.SOAPProxy('https://{0}:{1}'.format(host, self.PORT))
     self.secret = secret
 
 
@@ -120,10 +127,13 @@ class AppControllerClient():
         raise exception
     except SOAPpy.Errors.HTTPError as err:
       return "true"
-    except Exception as exception:  # Should be ssl.SSLError but the ssl module
-                                    # isn't available when running as a GAE App.
-      # these are intermittent, so don't decrement our retry count for this
-      sys.stderr.write("Saw unknown exception {0} when communicating with the " \
+    except Exception as exception:
+      # This 'except' should be catching ssl.SSLError, but that error isn't
+      # available when running in the App Engine sandbox.
+      # TODO(cgb): App Engine 1.7.7 adds ssl support, so we should be able to
+      # fix this when we update our SDK to that version.
+      # Don't decrement our retry count for intermittent errors.
+      sys.stderr.write("Saw exception {0} when communicating with the " \
         "AppController, retrying momentarily.".format(str(exception)))
       signal.alarm(0)  # turn off the alarm before we retry
       return self.run_with_timeout(timeout_time, default, num_retries, function,
@@ -155,8 +165,9 @@ class AppControllerClient():
     if app is None:
       app = 'none'
 
-    result = self.run_with_timeout(10, "Error", self.DEFAULT_NUM_RETRIES,
-      self.server.set_parameters, locations, credentials, [app], self.secret)
+    result = self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "Error",
+      self.DEFAULT_NUM_RETRIES, self.server.set_parameters, locations,
+      credentials, [app], self.secret)
     if result.startswith('Error'):
       raise AppControllerException(result)
 
@@ -169,8 +180,8 @@ class AppControllerClient():
       A list of the public IP addresses of each machine in this AppScale
       deployment.
     """
-    all_ips = self.run_with_timeout(10, "", self.DEFAULT_NUM_RETRIES,
-      self.server.get_all_public_ips, self.secret)
+    all_ips = self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "",
+      self.DEFAULT_NUM_RETRIES, self.server.get_all_public_ips, self.secret)
     if all_ips == "":
       return []
     else:
@@ -185,8 +196,8 @@ class AppControllerClient():
       A dict that contains the public IP address, private IP address, and a list
       of the API services that each node runs in this AppScale deployment.
     """
-    role_info = self.run_with_timeout(10, "", self.DEFAULT_NUM_RETRIES,
-      self.server.get_role_info, self.secret)
+    role_info = self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "",
+      self.DEFAULT_NUM_RETRIES, self.server.get_role_info, self.secret)
     if role_info == "":
       return {}
     else:
@@ -224,8 +235,8 @@ class AppControllerClient():
               last_known_state = match.group(1)
               sys.stderr.write(last_known_state)
           else:
-            sys.stderr.write('Waiting for AppScale nodes to complete '
-                             'the initialization process')
+            sys.stderr.write("Waiting for AppScale nodes to complete the " + \
+              "initialization process")
       except AppControllerException as exception:
         raise exception
       except Exception as exception:
@@ -235,58 +246,79 @@ class AppControllerClient():
 
 
   def get_status(self):
-    """Queries the AppController to see what its internal state is.
+    """Queries the AppController to learn information about the machine it runs
+    on.
+
+    This includes information about the CPU, memory, and disk of that machine,
+    as well as what machine that AppController connects to for database access
+    (via the UserAppServer).
 
     Returns:
-      A str that indicates what the AppController reports its status as.
+      A str containing information about the CPU, memory, and disk usage of that
+      machine, as well as where the UserAppServer is located.
     """
     return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "", 
       self.DEFAULT_NUM_RETRIES, self.server.status, self.secret)
 
+
   def get_api_status(self):
-    """Queries the AppController to see what the API status is.
+    """Queries the AppController to see what the status of Google App Engine
+    APIs are in this AppScale deployment, reported to it by the API Checker.
+
+    APIs can be either 'running', 'failed', or 'unknown' (which typically
+    occurs when AppScale is first starting up).
 
     Returns:
-      A dict that indicates what the AppController reports the status is.
+      A dict that maps each API name (a str) to its status (also a str).
     """
-    api_status_jdata = self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "", 
-      self.DEFAULT_NUM_RETRIES, self.server.get_api_status, self.secret)
-    return json.loads(api_status_jdata)
+    return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "",
+      self.DEFAULT_NUM_RETRIES, self.server.get_api_status, self.secret))
+
 
   def get_database_information(self):
-    """Queries the AppController to see what the database info is.
+    """Queries the AppController to see what database is being used to implement
+    support for the Google App Engine Datastore API, and how many replicas are
+    present for each piece of data.
 
     Returns:
-      A dict that indicates what the AppController reports info is.
+      A dict that indicates both the name of the database in use (with the key
+      'table', for historical reasons) and the replication factor (with the
+      key 'replication').
     """
-    db_info_jdata = self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "",
+    return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "",
       self.DEFAULT_NUM_RETRIES, self.server.get_database_information,
-      self.secret)
-    return json.loads(db_info_jdata)
+      self.secret))
+
 
   def upload_tgz(self, tgz_filename, email):
-    """Tells the AppController to load the app found in the tar.gz file
+    """Tells the AppController to use the AppScale Tools to upload the Google
+    App Engine application at the specified location.
 
     Args:
-      tgz_filename: str full path to the uploaded tar.gz file.
-      email: str email of the app admin.
+      tgz_filename: A str that points to a .tar.gz file on the local filesystem
+        containing the user's Google App Engine application.
+      email: A str containing an e-mail address that should be registered as the
+        administrator of this application.
     Return:
-      A str with the message from the AppController.
+      A str that indicates either that the app was successfully uploaded, or the
+      reason why the application upload failed.
     """
-    msg = self.run_with_timeout(self.UPLOAD_TARGZ_TIME, 
-      "Timeout uploading app.", self.UPLOAD_TARGZ_RETRIES, 
+    return self.run_with_timeout(self.UPLOAD_TAR_GZ_TIME,
+      "Timeout uploading app.", self.UPLOAD_TAR_GZ_RETRIES,
       self.server.upload_tgz_file, tgz_filename, email, self.secret)
-    return msg
+
 
   def get_stats(self):
-    """Queries the AppController to see what its stats are.
+    """Queries the AppController to get server-level statistics and a list of
+    App Engine apps running in this cloud deployment across all machines.
 
     Returns:
-      A dict that indicates what the AppController reports its stats as.
+      A list of dicts, where each dict contains server-level statistics (e.g.,
+        CPU, memory, disk usage) about one machine.
     """
-    stats_jdata = self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "", 
-      self.DEFAULT_NUM_RETRIES, self.server.get_stats_json, self.secret)
-    return json.loads(stats_jdata)
+    return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "",
+      self.DEFAULT_NUM_RETRIES, self.server.get_stats_json, self.secret))
+
 
   def is_initialized(self):
     """Queries the AppController to see if it has started up all of the API
@@ -296,8 +328,8 @@ class AppControllerClient():
       A bool that indicates if all API services have finished starting up on
       this machine.
     """
-    return self.run_with_timeout(10, False, self.DEFAULT_NUM_RETRIES,
-      self.server.is_done_initializing, self.secret)
+    return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, False,
+      self.DEFAULT_NUM_RETRIES, self.server.is_done_initializing, self.secret)
 
 
   def start_roles_on_nodes(self, roles_to_nodes):
@@ -309,8 +341,9 @@ class AppControllerClient():
     Returns:
       The result of executing the SOAP call on the remote AppController.
     """
-    return self.run_with_timeout(10, "Error", self.DEFAULT_NUM_RETRIES,
-      self.server.start_roles_on_nodes, roles_to_nodes, self.secret)
+    return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "Error",
+      self.DEFAULT_NUM_RETRIES, self.server.start_roles_on_nodes,
+      roles_to_nodes, self.secret)
 
 
   def stop_app(self, app_id):
@@ -321,8 +354,8 @@ class AppControllerClient():
     Returns:
       The result of telling the AppController to no longer host the app.
     """
-    return self.run_with_timeout(10, "Error", self.DEFAULT_NUM_RETRIES,
-      self.server.stop_app, app_id, self.secret)
+    return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "Error",
+      self.DEFAULT_NUM_RETRIES, self.server.stop_app, app_id, self.secret)
 
 
   def is_app_running(self, app_id):
@@ -334,8 +367,8 @@ class AppControllerClient():
     Returns:
       True if the application is running, False otherwise.
     """
-    return self.run_with_timeout(10, "Error", self.DEFAULT_NUM_RETRIES,
-      self.server.is_app_running, app_id, self.secret)
+    return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "Error",
+      self.DEFAULT_NUM_RETRIES, self.server.is_app_running, app_id, self.secret)
 
 
   def done_uploading(self, app_id, remote_app_location):
@@ -344,11 +377,12 @@ class AppControllerClient():
 
     Args:
       app_id: A str that indicates which application we have copied over.
-      remote_app_location: The location on the remote machine where the App
-        Engine application can be found.
+      remote_app_location: A str that indicates the location on the remote
+        machine where the App Engine application can be found.
     """
-    return self.run_with_timeout(10, "Error", self.DEFAULT_NUM_RETRIES,
-      self.server.done_uploading, app_id, remote_app_location, self.secret)
+    return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "Error",
+      self.DEFAULT_NUM_RETRIES, self.server.done_uploading, app_id,
+      remote_app_location, self.secret)
 
 
   def update(self, apps_to_run):
@@ -359,5 +393,5 @@ class AppControllerClient():
       apps_to_run: A list of apps to start running on nodes running the App
         Engine service.
     """
-    return self.run_with_timeout(10, "Error", self.DEFAULT_NUM_RETRIES,
-      self.server.update, apps_to_run, self.secret)
+    return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "Error",
+      self.DEFAULT_NUM_RETRIES, self.server.update, apps_to_run, self.secret)
