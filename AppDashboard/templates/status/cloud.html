@@ -93,20 +93,29 @@
 									<h4><span class="icon12 icomoon-icon-database"></span>Current Database:</h4>
 <!-- DB Hook -->                                    
                                       <ul class="unstyled">
-                                        <li><span class="icon16 icomoon-icon-arrow-right-2"></span>Powered by <strong>{{ dbinfo['table'] }}</strong></li>
-                                        <li><span class="icon16 icomoon-icon-arrow-right-2"></span>Data is replicated <strong>{{ dbinfo['replication'] }}</strong> times</li>
+                                        <li id="db-img"><span class="icon16 icomoon-icon-arrow-right-2"></span><strong>Powered by
+                                            {% if dbinfo['table'] == 'cassandra' %}
+                                                <img id="Cassandra" src="images/cassandra.jpg"/>
+                                            {% elif dbinfo['table'] == 'hbase' %}
+                                                <img id="Hbase" src="images/habse.png"/>
+                                            {% elif dbinfo['table'] == 'hypertable' %}
+                                                <img src="images/hypertable.jpg" alt="Hypertable">
+                                            {% endif %}
+                                            </strong></li>
+                                          <br />
+                                        <li><span class="icon16 icomoon-icon-arrow-right-2"></span>Data is replicated <strong>{{ dbinfo['replication'] }}</strong> time(s).</li>
                                       </ul>
                                     <hr/>
                                     <h4><span class="icon12 icomoon-icon-cube"></span>Current Applications Deployed:</h4>
 <!-- App Info Hook -->
                                     <ul class="unstyled">
                                       {% if apps|length == 0 %}
-                                        <li><span class="icon16 icomoon-icon-arrow-right-2"></span>none</li>
+                                        <li><span class="icon16 icomoon-icon-arrow-right-2"></span><a class="disabled btn">None Deployed</a></li>
                                       {% else %}
                                         {% for app_name in apps.keys()|sort %}
                                             <li><span class="icon16 icomoon-icon-arrow-right-2"></span>
                                               {% if apps[app_name] %}
-                                                <a href="{{ apps[app_name] }}" target="_blank">{{ app_name }}</a>
+                                                <a class="btn" href="{{ apps[app_name] }}" target="_blank">{{ app_name }}</a>
                                               {% else %}
                                                 {{ app_name }} (loading)
                                               {% endif %}
@@ -214,46 +223,3 @@
     
     
     
-    
-    <!-- Le javascript
-    ================================================== -->
-    <!-- Important plugins put in all pages -->
-    <script type="text/javascript" src="js/jquery.1.7.2.min.js"></script>
-    <script type="text/javascript" src="js/bootstrap/bootstrap.js"></script>  
-    <script type="text/javascript" src="js/jquery.cookie.js"></script>
-    <script type="text/javascript" src="js/jquery.mousewheel.js"></script>
-
-    <!-- Charts plugins -->
-    <script type="text/javascript" src="plugins/charts/flot/jquery.flot.js"></script>
-    <script type="text/javascript" src="plugins/charts/flot/jquery.flot.grow.js"></script>
-    <script type="text/javascript" src="plugins/charts/flot/jquery.flot.pie.js"></script>
-    <script type="text/javascript" src="plugins/charts/flot/jquery.flot.resize.js"></script>
-    <script type="text/javascript" src="plugins/charts/flot/jquery.flot.tooltip_0.4.4.js"></script>
-    <script type="text/javascript" src="plugins/charts/flot/jquery.flot.orderBars.js"></script>
-    <script type="text/javascript" src="plugins/charts/sparkline/jquery.sparkline.min.js"></script><!-- Sparkline plugin -->
-    <script type="text/javascript" src="plugins/charts/knob/jquery.knob.js"></script><!-- Circular sliders and stats -->
-
-    <!-- Misc plugins -->
-    <script type="text/javascript" src="plugins/misc/fullcalendar/fullcalendar.min.js"></script><!-- Calendar plugin -->
-    <script type="text/javascript" src="plugins/misc/qtip/jquery.qtip.min.js"></script><!-- Custom tooltip plugin -->
-    <script type="text/javascript" src="plugins/misc/totop/jquery.ui.totop.min.js"></script> <!-- Back to top plugin -->
-    <!-- Search plugin -->
-    <script type="text/javascript" src="plugins/misc/search/tipuesearch_set.js"></script>
-    <script type="text/javascript" src="plugins/misc/search/tipuesearch_data.js"></script><!-- JSON for searched results -->
-    <script type="text/javascript" src="plugins/misc/search/tipuesearch.js"></script>
-
-    <!-- Form plugins -->
-    <script type="text/javascript" src="plugins/forms/watermark/jquery.watermark.min.js"></script>
-    <script type="text/javascript" src="plugins/forms/uniform/jquery.uniform.min.js"></script>
-    
-    <!-- Fix plugins -->
-    <script type="text/javascript" src="plugins/fix/ios-fix/ios-orientationchange-fix.js"></script>
-
-    <!-- Important Place before main.js  -->
-    <script type="text/javascript" src="js/jquery-ui.1.8.2.min.js"></script>
-    <script type="text/javascript" src="plugins/fix/touch-punch/jquery.ui.touch-punch.min.js"></script><!-- Unable touch for JQueryUI -->
-
-    <!-- Init plugins -->
-    <script type="text/javascript" src="js/main.js"></script><!-- Core js functions -->
-    <script type="text/javascript" src="js/dashboard.js"></script><!-- Init plugins only for page -->
-
