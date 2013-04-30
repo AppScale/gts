@@ -728,6 +728,7 @@ class DatastoreDistributed():
     Raises:
       ZKTransactionException: If we are unable to register a key/entity.
     """
+    print old_entities
     for row_key in old_entities:
       if dbconstants.APP_ENTITY_SCHEMA[1] in old_entities[row_key]:
         prev_version = long(old_entities[row_key]\
@@ -840,31 +841,34 @@ class DatastoreDistributed():
     Raises:
      TypeError: If args are the wrong type.
     """
-    root_keys = []
-    txn_hash = {}
+    # Root key has the key and the prefix as a tuple.
+    key_tuples = []
+    txn_hash = {} 
     if not isinstance(entities, list):
       raise TypeError("Expected a list and got %s" % entities.__class__)
     for ent in entities:
       if isinstance(ent, entity_pb.Reference):
-        root_keys.append(self.get_root_key_from_entity_key(ent))
+        key_tuples.append((self.get_table_prefix(ent), 
+          self.get_root_key_from_entity_key(ent)))
       elif isinstance(ent, entity_pb.EntityProto):
-        root_keys.append(self.get_root_key_from_entity_key(ent.key()))
+        key_tuples.append((self.get_table_prefix(ent.key()), 
+          self.get_root_key_from_entity_key(ent.key())))
       else:
         raise TypeError("Excepted either a reference or an EntityProto, "\
           "got {0}".format(ent.__class__))
 
-    # Remove all duplicate root keys
-    root_keys = list(set(root_keys))
+    # Remove all duplicate (prefix/root keys) tuples.
+    key_tuples = list(set(key_tuples))
     try:
-      for root_key in root_keys: 
+      for key_tuple in key_tuples: 
         txnid = self.setup_transaction(app_id, is_xg=False)
-        txn_hash[root_key] = txnid
-        self.zookeeper.acquire_lock(app_id, txnid, root_key)
+        txn_hash[key_tuple[1]] = txnid
+        self.zookeeper.acquire_lock(key_tuple[0], txnid, key_tuple[1])
     except ZKTransactionException, zkte:
       logging.info("Concurrent transaction exception for app id {0} with " \
         "info {1}".format(app_id, str(zkte)))
-      for root_key in txn_hash:
-        self.zookeeper.notify_failed_transaction(app_id, txn_hash[root_key])
+      for key_tuple in txn_hash:
+        self.zookeeper.notify_failed_transaction(app_id, txn_hash[key_tuple[0]])
       raise zkte
     return txn_hash
       
@@ -901,15 +905,18 @@ class DatastoreDistributed():
     Raises:
       ZKTransactionException: If lock is not obtainable.
     """
-    root_keys = []
+    # Key tuples are the prefix and the 
+    key_tuples = []
     txn_hash = {}
     if not isinstance(entities, list):
       raise TypeError("Expected a list and got %s" % entities.__class__)
     for ent in entities:
       if isinstance(ent, entity_pb.Reference):
-        root_keys.append(self.get_root_key_from_entity_key(ent))
+        key_tuples.append((self.get_table_prefix(ent), 
+          self.get_root_key_from_entity_key(ent)))
       elif isinstance(ent, entity_pb.EntityProto):
-        root_keys.append(self.get_root_key_from_entity_key(ent.key()))
+        key_tuples.append((self.get_table_prefix(ent.key()),
+          self.get_root_key_from_entity_key(ent.key())))
       else:
         raise TypeError("Excepted either a reference or an EntityProto"
            "got {0}".format(ent.__class__))
@@ -923,11 +930,11 @@ class DatastoreDistributed():
     else:
       app_id = entities[0].key().app()
 
-    root_keys = list(set(root_keys))
+    key_tuples = list(set(key_tuples))
     try:
-      for root_key in root_keys:
-        txn_hash[root_key] = txnid
-        self.zookeeper.acquire_lock(app_id, txnid, root_key)
+      for key_tuple in key_tuples:
+        txn_hash[key_tuple[0]] = txnid
+        self.zookeeper.acquire_lock(key_tuple[0], txnid, key_tuple[1])
     except ZKTransactionException, zkte:
       logging.info("Concurrent transaction exception for app id {0} with " \
         "info {1}".format(app_id, str(zkte)))
@@ -1170,10 +1177,11 @@ class DatastoreDistributed():
     keys = get_request.key_list()
     txnid = 0
     if get_request.has_transaction():
+      prefix = self.get_table_prefix(keys[0])
       root_key = self.get_root_key_from_entity_key(keys[0])
       txnid = get_request.transaction().handle()
       try:
-        self.zookeeper.acquire_lock(app_id, txnid, root_key)
+        self.zookeeper.acquire_lock(prefix, txnid, root_key)
       except ZKTransactionException, zkte:
         logging.info("Concurrent transaction exception for app id {0} with " \
           "transaction id {1}, and info {2}".format(app_id, txnid, str(zkte)))
@@ -1371,7 +1379,8 @@ class DatastoreDistributed():
       txn_id = query.transaction().handle()   
       root_key = self.get_root_key_from_entity_key(ancestor)
       try:
-        self.zookeeper.acquire_lock(query.app(), txn_id, root_key)
+        prefix = self.get_table_prefix(query)
+        self.zookeeper.acquire_lock(prefix, txn_id, root_key)
       except ZKTransactionException, zkte:
         logging.info("Concurrent transaction exception for app id {0}, " \
           "transaction id {1}, info {2}".format(query.app(), txn_id, str(zkte)))
@@ -1423,7 +1432,7 @@ class DatastoreDistributed():
       txn_id = query.transaction().handle()   
       root_key = self.get_root_key_from_entity_key(ancestor)
       try:
-        self.zookeeper.acquire_lock(query.app(), txn_id, root_key)
+        self.zookeeper.acquire_lock(prefix, txn_id, root_key)
       except ZKTransactionException, zkte:
         logging.info("Concurrent transaction exception for app id {0}, " \
           "transaction id {1}, info {2}".format(query.app(), txn_id, str(zkte)))
