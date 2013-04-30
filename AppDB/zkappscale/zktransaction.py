@@ -12,9 +12,6 @@ import urllib
 
 import kazoo.client
 import kazoo.exceptions
-import kazoo.protocol
-import kazoo.protocol.states
-import kazoo.retry
 
 class ZKTimeoutException(Exception):
   """ A special Exception class that should be thrown if a function is 
@@ -121,9 +118,9 @@ class ZKTransaction:
 
     # Connection instance variables.
     self.host = host
-    self.run_with_retry = kazoo.retry.KazooRetry(max_tries=self.DEFAULT_NUM_RETRIES)
     self.handle = kazoo.client.KazooClient(hosts=host,
       max_retries=self.DEFAULT_NUM_RETRIES, timeout=self.DEFAULT_ZK_TIMEOUT)
+    self.run_with_retry = self.handle.retry
     self.handle.start()
 
     # for gc
