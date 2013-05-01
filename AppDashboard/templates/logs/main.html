@@ -22,10 +22,10 @@
             </div><!--close header-->
             {% if services %}
               {% for service in services %}
-                <li /><a href="/logs/{{ service }}">{{ service }}</a>
+                <a class="btn btn-large btn-info" href="/logs/{{ service }}">{{ service }}</a>
               {% endfor %}
             {% else %}
-              <p>No logs are available at this time. Please check back later.</p>
+              <p class="well">No logs are available at this time. Please check back later.</p>
             {% endif %}
           </div><!--close span6 -->
         <div class="span3"></div> <!--spacing div-->
