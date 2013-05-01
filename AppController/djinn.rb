@@ -3311,7 +3311,7 @@ HOSTS
     # app, and only start xmpp if it isn't already started
     if my_node.is_shadow?
       CronHelper.update_cron(my_public, nginx_port, app_language, app)
-      start_xmpp_for_app(app, app_language)
+      start_xmpp_for_app(app, nginx_port, app_language)
     end
 
     # We only need a new full proxy config file for new apps, on the machine
@@ -3921,7 +3921,7 @@ HOSTS
     return false 
   end
 
-  def start_xmpp_for_app(app, app_language)
+  def start_xmpp_for_app(app, port, app_language)
     # create xmpp account for the app
     # for app named baz, this translates to baz@login_ip
 
@@ -3934,7 +3934,7 @@ HOSTS
     Djinn.log_debug("Created user [#{xmpp_user}] with password [#{@@secret}] and hashed password [#{xmpp_pass}]")
 
     if Ejabberd.does_app_need_receive?(app, app_language)
-      start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ip} #{@@secret}"
+      start_cmd = "#{PYTHON27} #{APPSCALE_HOME}/XMPPReceiver/xmpp_receiver.py #{app} #{login_ip} #{port} #{@@secret}"
       stop_cmd = "ps ax | grep '#{start_cmd}' | grep -v grep | awk '{print $1}' | xargs -d '\n' kill -9"
       watch_name = "xmpp-#{app}"
       GodInterface.start(watch_name, start_cmd, stop_cmd, 9999)
