@@ -26,6 +26,7 @@ import groomer
 import helper_functions
 
 from zkappscale import zktransaction as zk
+from zkappscale.zktransaction import ZKInternalException
 from zkappscale.zktransaction import ZKTransactionException
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
@@ -739,8 +740,13 @@ class DatastoreDistributed():
         # Guard against re-registering the rollback version if 
         # we're updating the same key repeatedly in a transaction.
         if txn_hash[root_key] != valid_prev_version:
-          self.zookeeper.register_updated_key(app_id, txn_hash[root_key], 
-                                        valid_prev_version, row_key) 
+          try:
+            self.zookeeper.register_updated_key(app_id, txn_hash[root_key], 
+              valid_prev_version, row_key) 
+          except ZKInternalException:
+            raise ZKTransactionException("Unable to register key for " \
+              "old entities {0}, txn_hash {1}, and app id {2}".format(
+              old_entities, txn_hash, app_id))
 
   def dynamic_put(self, app_id, put_request, put_response):
     """ Stores and entity and its indexes in the datastore.
