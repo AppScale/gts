@@ -769,6 +769,12 @@ class ZKTransaction:
 
       # This deletes the transaction root path.
       self.run_with_retry(self.handle.delete_async, txpath)
+    except ZKInternalException as zk_exception:
+      # Although there was a failure doing the async deletes, since we've
+      # already released the locks above, we can safely return True here.
+      logging.exception(kazoo_exception)
+      self.reestablish_connection()
+      return True
     except kazoo.exceptions.KazooException as kazoo_exception:
       # Although there was a failure doing the async deletes, since we've
       # already released the locks above, we can safely return True here.
@@ -960,6 +966,9 @@ class ZKTransaction:
         self.run_with_retry(self.handle.delete_async,
           PATH_SEPARATOR.join([txpath, item]))
         self.run_with_retry(self.handle.delete_async, txpath)
+    except ZKInternalException as zk_exception:
+      logging.exception(zk_exception)
+      return False
     except kazoo.exceptions.ZookeeperError as zk_exception:
       logging.exception(zk_exception)
       return False
