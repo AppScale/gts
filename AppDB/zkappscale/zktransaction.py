@@ -843,7 +843,6 @@ class ZKTransaction:
     Raises:
       ZKInternalException: If we couldn't get a valid transaction ID.
     """
-    # TODO(cgb): Make sure that callers handle possible ZKTransactionExceptions.
     if not self.is_blacklisted(app_id, target_txid):
       return target_txid
     # get the valid id
