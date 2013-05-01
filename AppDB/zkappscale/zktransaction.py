@@ -503,11 +503,10 @@ class ZKTransaction:
     Returns:
       True if the transaction is in progress, and False otherwise.
     Raises:
-      ZKTransactionException: If the transaction is blacklisted or there was an
-        error seeing if the transaction was blacklisted.
+      ZKTransactionException: If the transaction is blacklisted.
+      ZKInternalException: If there was an error seeing if the transaction was
+        blacklisted.
     """
-    # TODO(cgb): Need to give the caller a different exception type if there was
-    # a KazooException
     tx_lock_path = self.get_transaction_lock_list_path(app_id, txid)
     if self.is_blacklisted(app_id, txid):
       raise ZKTransactionException("[is_in_transaction]: Transaction %d timed" \
@@ -522,7 +521,7 @@ class ZKTransaction:
     except kazoo.exceptions.KazooException as kazoo_exception:
       logging.exception(kazoo_exception)
       self.reestablish_connection()
-      raise ZKTransactionException("Couldn't see if we are in transaction {0}" \
+      raise ZKInternalException("Couldn't see if we are in transaction {0}" \
         .format(txid))
 
 
@@ -672,6 +671,12 @@ class ZKTransaction:
           else:
             raise ZKTransactionException("acquire_lock: You can not lock " \
               "different root entity in non-cross-group transaction.")
+    except ZKInternalException as zk_exception:
+      logging.exception(zk_exception)
+      self.reestablish_connection()
+      raise ZKTransactionException("An internal exception prevented us from " \
+        "getting the lock for app id {0}, txid {1}, entity key {2}" \
+        .format(app_id, txid, entity_key))
     except kazoo.exceptions.KazooException as kazoo_exception:
       logging.exception(kazoo_exception)
       self.reestablish_connection()
