@@ -126,7 +126,6 @@
 
                                        // update our divs accordingly
                                        $('#application_info').empty();
-                                       console.log(apps);
                                        apps_html = '<h4><span class="icon12 icomoon-icon-cube"></span>Current Applications Deployed:</h4>';
                                        apps_html += '<ul class="unstyled">';
                                        if (jQuery.isEmptyObject(apps)) {
@@ -205,8 +204,10 @@
                                 {% endfor %}
                                  <script>
                                    window.onload = function(){
+                                     var gauges = {};
+
                                      {% for server in server_info %}
-                                       new JustGage({
+                                       gauges["g1{{ server['key'] }}"] = new JustGage({
                                          id: "{{ server['key'] }}g1",
                                          value: {{ server['cpu'] }},
                                          min: 0,
@@ -216,7 +217,7 @@
                                          levelColorsGradient: false
                                        });
                                         
-                                       new JustGage({
+                                       gauges["g2{{ server['key'] }}"] = new JustGage({
                                          id: "{{ server['key'] }}g2",
                                          value: {{ server['memory'] }},
                                          min: 0,
@@ -226,7 +227,7 @@
                                          levelColorsGradient: false
                                         });
                                         
-                                        new JustGage({
+                                        gauges ["g3{{ server['key'] }}"] = new JustGage({
                                           id: "{{ server['key'] }}g3",
                                           value: {{ server['disk'] }},
                                           min: 0,
@@ -236,9 +237,8 @@
                                           levelColorsGradient: false
                                         });
                                      {% endfor %}
-                                    };
 
-                                   window.setInterval(function() {
+                                   setInterval(function() {
                                      $.ajax({
                                        url: "/status/json"
                                      }).done(function(encoded_server_info) {
@@ -247,41 +247,13 @@
                                        // update our divs accordingly
                                        for (var i = 0; i < server_info.length; i++) {
                                          server = server_info[i];
-                                         $('#' + server['key'] + "g1").empty();
-                                         new JustGage({
-                                           id: server['key'] + "g1",
-                                           value: server['cpu'],
-                                           min: 0,
-                                           max: 100,
-                                           title: "CPU",
-                                           label: "",
-                                           levelColorsGradient: false
-                                         });
-
-                                         $('#' + server['key'] + "g2").empty();
-                                         new JustGage({
-                                           id: server['key'] + "g2",
-                                           value: server['memory'],
-                                           min: 0,
-                                           max: 100,
-                                           title: "MEM",
-                                           label: "",
-                                           levelColorsGradient: false
-                                          });
-
-                                         $('#' + server['key'] + "g3").empty();
-                                          new JustGage({
-                                            id: server['key'] + "g3",
-                                            value: server['disk'],
-                                            min: 0,
-                                            max: 100,
-                                            title: "HD",
-                                            label: "",
-                                            levelColorsGradient: false
-                                          });
+                                         gauges["g1" + server['key']].refresh(server['cpu']);
+                                         gauges["g2" + server['key']].refresh(server['memory']);
+                                         gauges["g3" + server['key']].refresh(server['disk']);
                                        }
                                      });
                                    }, 10000);
+                                  }
                                  </script>
                                 </tbody>
                             </table>
@@ -289,13 +261,10 @@
                           </div>
                         </div><!-- End .span6 -->
                         </div><!-- End .row-fluid -->
-                        						
                 </div><!-- End .row-fluid -->
-                <A HREF="?forcerefresh=1">Refresh all data</A>
                 {% endif %} <!-- end of admin only boxes -->
                 
             </div><!-- End contentwrapper -->
         </div><!-- End #content -->
     
     </div><!-- End #wrapper -->
-
