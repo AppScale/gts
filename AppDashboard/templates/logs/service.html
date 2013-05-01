@@ -23,7 +23,7 @@
             <a class="btn btn-large" style="list-style: none;" href="/logs/{{ service_name }}/all">All machines</a>
             {% if exists %}
               {% for host in hosts %}
-                <a  class="btn btn-large btn-primary" href="/logs/{{ service_name }}/{{ host }}">{{ host }}</a>
+                <a class="btn btn-large btn-primary" href="/logs/{{ service_name }}/{{ host }}">{{ host }}</a>
               {% endfor %}
             {% else %}
               <p>No logs are available at this time. Please check back later.</p>
