@@ -132,7 +132,11 @@ class AppDashboardHelper():
     """
     self.appcontroller = None
     self.uaserver = None
-    self.cache = {}
+    self.cache = {
+      'get_role_info' : [],
+      'query_user_data' : {},
+      'user_caps' : {}
+    }
 
 
   def get_appcontroller_client(self):
@@ -174,11 +178,8 @@ class AppDashboardHelper():
       A list, where each item is a str corresponding to an action this user is
       authorized to perform in this AppScale deployment.
     """
-    if 'user_caps' in self.cache:
-      if email in self.cache['user_caps']:
-        return self.cache['user_caps'][email]
-    else:
-      self.cache['user_caps'] = {}
+    if email in self.cache['user_caps']:
+      return self.cache['user_caps'][email]
 
     try:
       capabilities = self.get_uaserver().get_capabilities(email,
@@ -222,7 +223,7 @@ class AppDashboardHelper():
       about the named role couldn't be found, the empty string is returned.
     """
     acc = self.get_appcontroller_client()
-    if 'get_role_info' in self.cache:
+    if self.cache['get_role_info']:
       nodes = self.cache['get_role_info']
     else:
       try:
@@ -427,11 +428,8 @@ class AppDashboardHelper():
       A str containing the user's data, or the empty string if their data could
       not be retrieved.
     """
-    if 'query_user_data' in self.cache:
-      if email in self.cache['query_user_data']:
-        return self.cache['query_user_data'][email]
-    else:
-      self.cache['query_user_data'] = {}
+    if email in self.cache['query_user_data']:
+      return self.cache['query_user_data'][email]
 
     try:
       user_data = self.get_uaserver().get_user_data(email, GLOBAL_SECRET_KEY)

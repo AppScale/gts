@@ -254,8 +254,6 @@ class AppDashboardData():
     """
     try:
       nodes = self.helper.get_appcontroller_client().get_stats()
-      if nodes == True:
-        return
       for node in nodes:
         status = self.get_by_id(ServerStatus, node['ip'])
         if not status:

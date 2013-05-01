@@ -372,6 +372,12 @@ class Djinn
   # memory, set different limits per language.
   MAX_MEM_FOR_APPSERVERS = {'python' => 90.00, 'python27' => 90.00, 'java' => 95.00, 'go' => 90.00}
 
+
+  # An Integer that determines how many log messages we should send at a time
+  # to the AppDashboard, for later viewing.
+  LOGS_PER_BATCH = 50
+
+
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
   def initialize()
@@ -2043,20 +2049,23 @@ class Djinn
   # viewing in a web UI.
   def flush_log_buffer()
     APPS_LOCK.synchronize {
-      encoded_logs = JSON.dump({
-        'service_name' => 'appcontroller',
-        'host' => my_node.public_ip,
-        'logs' => @@logs_buffer,
-      })
+      loop {
+        break if @@logs_buffer.empty?
+        encoded_logs = JSON.dump({
+          'service_name' => 'appcontroller',
+          'host' => my_node.public_ip,
+          'logs' => @@logs_buffer.shift(LOGS_PER_BATCH),
+        })
 
-      url = URI.parse("https://#{get_login.private_ip}/logs/upload")
-      http = Net::HTTP.new(url.host, url.port)
-      http.use_ssl = true
-      response = http.post(url.path, encoded_logs,
-        {'Content-Type'=>'application/json'})
-
-      Djinn.log_debug("Wrote #{@@logs_buffer.length} logs!")
-      @@logs_buffer = []
+        begin
+          url = URI.parse("https://#{get_login.public_ip}/logs/upload")
+          http = Net::HTTP.new(url.host, url.port)
+          http.use_ssl = true
+          response = http.post(url.path, encoded_logs,
+            {'Content-Type'=>'application/json'})
+        rescue Timeout::Error
+        end
+      }
     }
   end
 
@@ -3152,10 +3161,10 @@ HOSTS
 
     AppDashboard::SERVER_PORTS.each do |port|
       Djinn.log_debug("Waiting for AppDashboard to open port #{port}")
-      HelperFunctions.sleep_until_port_is_open(my_public, port)
+      HelperFunctions.sleep_until_port_is_open(my_private, port)
       begin
         Djinn.log_debug("Asking for response from AppDashboard on port #{port}")
-        Net::HTTP.get_response("#{my_public}:#{port}", '/')
+        Net::HTTP.get_response("#{my_private}:#{port}", '/')
         Djinn.log_debug("Got response from AppDashboard on port #{port}")
       rescue SocketError
       end
