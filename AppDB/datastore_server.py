@@ -892,6 +892,20 @@ class DatastoreDistributed():
       key_id = str(first_ent.id()).zfill(ID_KEY_LENGTH)
     return prefix + self._NAMESPACE_SEPARATOR + \
            first_ent.type() + ":" + key_id + "!"
+
+  def is_instance_wrapper(self, obj, expected_type):
+    """ A wrapper for isinstance for mocking purposes. 
+
+    Return whether an object is an instance of a class or of a subclass thereof.
+    With a type as second argument, return whether that is the object's type.
+
+    Args:
+      obj: The object to check.
+      expected_type: A instance type we are comparing obj's type to.
+    Returns: 
+      True if obj is of type expected_type, False otherwise. 
+    """
+    return isinstance(obj, expected_type) 
  
   def acquire_locks_for_trans(self, entities, txnid):
     """ Acquires locks for entities for one particular entity group. 
@@ -904,32 +918,33 @@ class DatastoreDistributed():
       A hash mapping root keys to transaction IDs.
     Raises:
       ZKTransactionException: If lock is not obtainable.
+      TypeError: If args are of incorrect types.
     """
-    # Key tuples are the prefix and the 
+    # Key tuples are the prefix and the root key for which we're getting locks.
     key_tuples = []
     txn_hash = {}
-    if not isinstance(entities, list):
+    if not self.is_instance_wrapper(entities, list):
       raise TypeError("Expected a list and got %s" % entities.__class__)
     for ent in entities:
-      if isinstance(ent, entity_pb.Reference):
+      if self.is_instance_wrapper(ent, entity_pb.Reference):
         key_tuples.append((self.get_table_prefix(ent), 
           self.get_root_key_from_entity_key(ent)))
-      elif isinstance(ent, entity_pb.EntityProto):
+      elif self.is_instance_wrapper(ent, entity_pb.EntityProto):
         key_tuples.append((self.get_table_prefix(ent.key()),
           self.get_root_key_from_entity_key(ent.key())))
       else:
         raise TypeError("Excepted either a reference or an EntityProto"
            "got {0}".format(ent.__class__))
 
-    # Remove all duplicate root keys
-    if entities is None:
+    if entities == []:
       return {}
 
-    if isinstance(entities[0], entity_pb.Reference):
+    if self.is_instance_wrapper(entities[0], entity_pb.Reference):
       app_id = entities[0].app()
     else:
       app_id = entities[0].key().app()
 
+    # Remove all duplicate root keys.
     key_tuples = list(set(key_tuples))
     try:
       for key_tuple in key_tuples:

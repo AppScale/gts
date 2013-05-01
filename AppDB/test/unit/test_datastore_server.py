@@ -332,26 +332,49 @@ class TestDatastoreServer(unittest.TestCase):
     dd.put_entities("hello", entity_list, {"test/blah/test_kind:bob!":1, "test/blah/test_kind:nancy!":1}) 
 
   def test_acquire_locks_for_trans(self):
-    PREFIX = 'x!'
+    dd = DatastoreDistributed(None, None) 
+    flexmock(dd).should_receive("is_instance_wrapper").and_return(False).once()
+    self.assertRaises(TypeError, dd.acquire_locks_for_trans, [1], 1)
+
+    dd = DatastoreDistributed(None, None) 
+    flexmock(dd).should_receive("is_instance_wrapper").and_return(True) \
+      .and_return(False).and_return(False)
+    self.assertRaises(TypeError, dd.acquire_locks_for_trans, [1], 1)
+
+    dd = DatastoreDistributed(None, None) 
+    flexmock(dd).should_receive("is_instance_wrapper").and_return(True) \
+      .and_return(True)
+
+    dd = DatastoreDistributed(None, None) 
+    flexmock(dd).should_receive("is_instance_wrapper").and_return(True) \
+      .and_return(True).and_return(False)
+    flexmock(dd).should_receive("get_table_prefix").and_return("prefix").never()
+    flexmock(dd).should_receive("get_root_key_from_entity_key").and_return("rootkey").never()
+    self.assertEquals({}, dd.acquire_locks_for_trans([], 1))
+
     zookeeper = flexmock()
-    zookeeper.should_receive("acquire_lock").and_return(True)
-    db_batch = flexmock()
-    db_batch.should_receive("batch_put_entity").and_return(None)
-    db_batch.should_receive("batch_get_entity").and_return({PREFIX:{}})
-    db_batch.should_receive("batch_delete").and_return(None)
-    dd = DatastoreDistributed(db_batch, zookeeper) 
-    entity_proto1 = self.get_new_entity_proto("test", "test_kind", "bob", "prop1name", 
-                                              "prop1val", ns="blah")
-    entity_proto2 = self.get_new_entity_proto("test", "test_kind", "nancy", "prop1name", 
-                                              "prop2val", ns="blah")
-    entity_list = [entity_proto1, entity_proto2]
+    zookeeper.should_receive("acquire_lock").once()
+    dd = DatastoreDistributed(None, zookeeper) 
+    entity = flexmock()
+    entity.should_receive("app").and_return("appid")
+    flexmock(dd).should_receive("is_instance_wrapper").and_return(True) \
+      .and_return(True).and_return(True)
+    flexmock(dd).should_receive("get_table_prefix").and_return("prefix").once()
+    flexmock(dd).should_receive("get_root_key_from_entity_key").and_return("rootkey").once()
+    self.assertEquals({'prefix':1}, dd.acquire_locks_for_trans([entity], 1))
 
-    expected = {
-      'test/blah/test_kind:bob!': 1,
-      'test/blah/test_kind:nancy!': 1
-    }
-    self.assertEquals(expected, dd.acquire_locks_for_trans(entity_list, 1))
-
+    zookeeper = flexmock()
+    zookeeper.should_receive("acquire_lock").once().and_raise(ZKTransactionException)
+    zookeeper.should_receive("notify_failed_transaction").once()
+    dd = DatastoreDistributed(None, zookeeper) 
+    entity = flexmock()
+    entity.should_receive("app").and_return("appid")
+    flexmock(dd).should_receive("is_instance_wrapper").and_return(True) \
+      .and_return(True).and_return(True)
+    flexmock(dd).should_receive("get_table_prefix").and_return("prefix").once()
+    flexmock(dd).should_receive("get_root_key_from_entity_key").and_return("rootkey").once()
+    self.assertRaises(ZKTransactionException, dd.acquire_locks_for_trans, [entity], 1)
+         
   def test_acquire_locks_for_nontrans(self):
     PREFIX = 'x!'
     zookeeper = flexmock()
@@ -560,6 +583,36 @@ class TestDatastoreServer(unittest.TestCase):
     dd.kindless_query(query, filter_info, None)
 
   def test_dynamic_delete(self):
+    del_request = flexmock()
+    del_request.should_receive("key_list")
+    del_request.should_receive("has_transaction").never()
+    del_request.should_receive("transaction").never()
+    dd = DatastoreDistributed(None, None)
+    dd.dynamic_delete("appid", del_request)
+
+    del_request = flexmock()
+    del_request.should_receive("key_list").and_return(['1'])
+    del_request.should_receive("has_transaction").and_return(True).twice()
+    transaction = flexmock()
+    transaction.should_receive("handle").and_return(1)
+    del_request.should_receive("transaction").and_return(transaction).once()
+    dd = DatastoreDistributed(None, None)
+    flexmock(dd).should_receive("acquire_locks_for_trans").and_return({})
+    flexmock(dd).should_receive("release_locks_for_nontrans").never()
+    flexmock(dd).should_receive("delete_entities").once()
+    dd.dynamic_delete("appid", del_request)
+
+    del_request = flexmock()
+    del_request.should_receive("key_list").and_return(['1'])
+    del_request.should_receive("has_transaction").and_return(False).twice()
+    dd = DatastoreDistributed(None, None)
+    flexmock(dd).should_receive("acquire_locks_for_trans").never()
+    flexmock(dd).should_receive("acquire_locks_for_nontrans").once().and_return({})
+    flexmock(dd).should_receive("delete_entities").once()
+    flexmock(dd).should_receive("release_locks_for_nontrans").once()
+    dd.dynamic_delete("appid", del_request)
+
+    """
     entity_proto1 = self.get_new_entity_proto("test", "test_kind", "nancy", "prop1name", 
                                               "prop2val", ns="blah")
     zookeeper = flexmock()
@@ -593,7 +646,7 @@ class TestDatastoreServer(unittest.TestCase):
     del_resp = datastore_pb.DeleteResponse()
     del_req.mutable_transaction().set_handle(1)
     dd.dynamic_delete("test", del_req)
-
+    """
   def test_reverse_path(self):
     zookeeper = flexmock()
     zookeeper.should_receive("get_transaction_id").and_return(1)
