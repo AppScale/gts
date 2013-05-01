@@ -126,10 +126,6 @@ class DatastoreDistributed():
       '%(lineno)s %(message)s ', level=logging.INFO)
     logging.debug("Started logging")
 
-    # Each entry contains a tuple (last_accessed_timestamp, namespace)
-    # The key is the <app_id>/<namespace>
-    self.__namespaces = []
-
     # Each entry contains a tuple (last_accessed_timestamp, index_name)
     # The key is the <app_id>/<namespace>/<kind>/<index>
     self.__indexes = {}
@@ -279,25 +275,6 @@ class DatastoreDistributed():
     """
     return app_id + "/" + name_space + "/" + kind + "/" + index_name
 
-  def configure_namespace(self, prefix, app_id, name_space):
-    """ Stores a key for the given namespace.
-
-    Args:
-      prefix: The namespace prefix to configure.
-      app_id: The app ID.
-      name_space: The per-app namespace name.
-    Returns:
-      True on success.
-    """
-    vals = {}
-    row_key = prefix
-    vals[row_key] = {"namespaces":name_space}
-    self.datastore_batch.batch_put_entity(dbconstants.APP_NAMESPACE_TABLE, 
-                          [row_key], 
-                          dbconstants.APP_NAMESPACE_SCHEMA, 
-                          vals)
-    return True
-
   def get_table_prefix(self, data):
     """ Returns the namespace prefix for a query.
 
@@ -313,10 +290,6 @@ class DatastoreDistributed():
       data = (data.app(), data.name_space())
 
     prefix = ('%s/%s' % data).replace('"', '""')
-
-    if data not in self.__namespaces:
-      self.configure_namespace(prefix, *data)
-      self.__namespaces.append(data)
 
     return prefix
 
@@ -367,7 +340,7 @@ class DatastoreDistributed():
                   str(self.__encode_index_pb(e.key().path()))]
 
         index_key = self.get_index_key_from_params(params)
-        p_vals = [index_key, 
+        p_vals = [index_key,
                   buffer(prefix + '/') + \
                   self.__encode_index_pb(e.key().path())] 
         all_rows.append(p_vals)
@@ -416,7 +389,7 @@ class DatastoreDistributed():
       """
       for prefix, e in entities:
         yield (self.get_entity_key(prefix, e.key().path()),
-               buffer(e.Encode()))
+          buffer(e.Encode()))
 
     def kind_row_generator(entities):
       """ Generates keys for the kind table and a reference key to the entity
@@ -428,7 +401,7 @@ class DatastoreDistributed():
       for prefix, e in entities:
         # yield a tuple of kind key and a reference to entity table
         yield (self.get_kind_key(prefix, e.key().path()),
-               self.get_entity_key(prefix, e.key().path()))
+          self.get_entity_key(prefix, e.key().path()))
 
     logging.debug("Inserting entities {0} in DB with transaction hash {1}"
       .format(str(entities), str(txn_hash)))
@@ -534,11 +507,11 @@ class DatastoreDistributed():
       return int(res[prefix][dbconstants.APP_ID_SCHEMA[0]])
     return self._FIRST_VALID_ALLOCATED_ID
 
-  def allocate_ids(self, prefix, size, max_id=None, num_retries=0):
+  def allocate_ids(self, app_id, size, max_id=None, num_retries=0):
     """ Allocates IDs from either a local cache or the datastore. 
 
     Args:
-      prefix: A table namespace prefix.
+      app_id: A str representing the application identifer.
       size: Number of IDs to allocate.
       max_id: If given increase the next IDs to be greater than this value
       num_retries: The number of retries left to get an ID.
@@ -549,10 +522,10 @@ class DatastoreDistributed():
     """
     if size and max_id:
       raise ValueError("Both size and max cannot be set.")
-    txnid = self.zookeeper.get_transaction_id(prefix)
+    txnid = self.zookeeper.get_transaction_id(app_id)
     try:
-      self.zookeeper.acquire_lock(prefix, txnid, self._ALLOCATE_ROOT_KEY)
-      current_id = self.acquire_next_id_from_db(prefix)
+      self.zookeeper.acquire_lock(app_id, txnid, self._ALLOCATE_ROOT_KEY)
+      current_id = self.acquire_next_id_from_db(app_id)
 
       if size:
         next_id = current_id + size
@@ -560,23 +533,23 @@ class DatastoreDistributed():
       if max_id:
         next_id = max(current_id, max_id + 1)
 
-      cell_values = {prefix: {dbconstants.APP_ID_SCHEMA[0]: str(next_id)}} 
+      cell_values = {app_id: {dbconstants.APP_ID_SCHEMA[0]: str(next_id)}} 
 
       self.datastore_batch.batch_put_entity(dbconstants.APP_ID_TABLE, 
-                           [prefix],  
+                           [app_id],  
                            dbconstants.APP_ID_SCHEMA,
                            cell_values)
     except ZKTransactionException, zk_exception:
-      if not self.zookeeper.notify_failed_transaction(prefix, txnid):
+      if not self.zookeeper.notify_failed_transaction(app_id, txnid):
         logging.error("Unable to invalidate transaction for {0} txnid: {1}"\
-          .format(prefix, txnid))
+          .format(app_id, txnid))
       if num_retries > 0:
-        return self.allocate_ids(prefix, size, max_id=max_id, 
+        return self.allocate_ids(app_id, size, max_id=max_id, 
           num_retries=num_retries - 1)
       else:
         raise zk_exception
     finally:
-      self.zookeeper.release_lock(prefix, txnid)
+      self.zookeeper.release_lock(app_id, txnid)
 
     start = current_id
     end = next_id - 1
@@ -736,7 +709,7 @@ class DatastoreDistributed():
         # Validate and get the correct version for each key
         root_key = self.get_root_key_from_entity_key(row_key)
         valid_prev_version = self.zookeeper.get_valid_transaction_id(
-                                    app_id, prev_version, row_key)
+          app_id, prev_version, row_key)
         # Guard against re-registering the rollback version if 
         # we're updating the same key repeatedly in a transaction.
         if txn_hash[root_key] != valid_prev_version:
@@ -772,8 +745,7 @@ class DatastoreDistributed():
       last_path = entity.key().path().element_list()[-1]
       if last_path.id() == 0 and not last_path.has_name():
         try: 
-          id_, _ = self.allocate_ids(self.get_table_prefix(entity.key()), 1,
-            num_retries=3)
+          id_, _ = self.allocate_ids(app_id, 1, num_retries=3)
         except ZKTransactionException, zk_exception:
           logging.error("Unable to attain a new ID for {0}"\
             .format(str(entity.key())))
@@ -847,7 +819,7 @@ class DatastoreDistributed():
      TypeError: If args are the wrong type.
     """
     root_keys = []
-    txn_hash = {}
+    txn_hash = {} 
     if not isinstance(entities, list):
       raise TypeError("Expected a list and got %s" % entities.__class__)
     for ent in entities:
@@ -859,7 +831,7 @@ class DatastoreDistributed():
         raise TypeError("Excepted either a reference or an EntityProto, "\
           "got {0}".format(ent.__class__))
 
-    # Remove all duplicate root keys
+    # Remove all duplicate root keys.
     root_keys = list(set(root_keys))
     try:
       for root_key in root_keys: 
@@ -869,8 +841,8 @@ class DatastoreDistributed():
     except ZKTransactionException, zkte:
       logging.info("Concurrent transaction exception for app id {0} with " \
         "info {1}".format(app_id, str(zkte)))
-      for root_key in txn_hash:
-        self.zookeeper.notify_failed_transaction(app_id, txn_hash[root_key])
+      for key in txn_hash:
+        self.zookeeper.notify_failed_transaction(app_id, txn_hash[key])
       raise zkte
     return txn_hash
       
@@ -894,6 +866,20 @@ class DatastoreDistributed():
       key_id = str(first_ent.id()).zfill(ID_KEY_LENGTH)
     return prefix + self._NAMESPACE_SEPARATOR + \
            first_ent.type() + ":" + key_id + "!"
+
+  def is_instance_wrapper(self, obj, expected_type):
+    """ A wrapper for isinstance for mocking purposes. 
+
+    Return whether an object is an instance of a class or of a subclass thereof.
+    With a type as second argument, return whether that is the object's type.
+
+    Args:
+      obj: The object to check.
+      expected_type: A instance type we are comparing obj's type to.
+    Returns: 
+      True if obj is of type expected_type, False otherwise. 
+    """
+    return isinstance(obj, expected_type) 
  
   def acquire_locks_for_trans(self, entities, txnid):
     """ Acquires locks for entities for one particular entity group. 
@@ -906,29 +892,31 @@ class DatastoreDistributed():
       A hash mapping root keys to transaction IDs.
     Raises:
       ZKTransactionException: If lock is not obtainable.
+      TypeError: If args are of incorrect types.
     """
+    # Key tuples are the prefix and the root key for which we're getting locks.
     root_keys = []
     txn_hash = {}
-    if not isinstance(entities, list):
+    if not self.is_instance_wrapper(entities, list):
       raise TypeError("Expected a list and got %s" % entities.__class__)
     for ent in entities:
-      if isinstance(ent, entity_pb.Reference):
+      if self.is_instance_wrapper(ent, entity_pb.Reference):
         root_keys.append(self.get_root_key_from_entity_key(ent))
-      elif isinstance(ent, entity_pb.EntityProto):
+      elif self.is_instance_wrapper(ent, entity_pb.EntityProto):
         root_keys.append(self.get_root_key_from_entity_key(ent.key()))
       else:
         raise TypeError("Excepted either a reference or an EntityProto"
            "got {0}".format(ent.__class__))
 
-    # Remove all duplicate root keys
-    if entities is None:
+    if entities == []:
       return {}
 
-    if isinstance(entities[0], entity_pb.Reference):
+    if self.is_instance_wrapper(entities[0], entity_pb.Reference):
       app_id = entities[0].app()
     else:
       app_id = entities[0].key().app()
 
+    # Remove all duplicate root keys.
     root_keys = list(set(root_keys))
     try:
       for root_key in root_keys:
@@ -1011,7 +999,7 @@ class DatastoreDistributed():
       current_version = \
           long(dict_entry[row_key][dbconstants.APP_ENTITY_SCHEMA[1]])
       trans_id = self.zookeeper.get_valid_transaction_id(\
-                             app_id, current_version, row_key)
+        app_id, current_version, row_key)
       if current_ongoing_txn != 0 and \
            current_version == current_ongoing_txn:
         # This value has been updated from within an ongoing transaction and
@@ -1072,7 +1060,7 @@ class DatastoreDistributed():
       current_version = long(db_results[row_key]\
                              [dbconstants.APP_ENTITY_SCHEMA[1]])
       trans_id = self.zookeeper.get_valid_transaction_id(\
-                             app_id, current_version, row_key)
+        app_id, current_version, row_key)
       if current_ongoing_txn != 0 and \
            current_version == current_ongoing_txn:
         # This value has been updated from within an ongoing transaction and
@@ -1176,6 +1164,7 @@ class DatastoreDistributed():
     keys = get_request.key_list()
     txnid = 0
     if get_request.has_transaction():
+      prefix = self.get_table_prefix(keys[0])
       root_key = self.get_root_key_from_entity_key(keys[0])
       txnid = get_request.transaction().handle()
       try:
@@ -1377,6 +1366,7 @@ class DatastoreDistributed():
       txn_id = query.transaction().handle()   
       root_key = self.get_root_key_from_entity_key(ancestor)
       try:
+        prefix = self.get_table_prefix(query)
         self.zookeeper.acquire_lock(query.app(), txn_id, root_key)
       except ZKTransactionException, zkte:
         logging.info("Concurrent transaction exception for app id {0}, " \
@@ -2534,10 +2524,9 @@ class MainHandler(tornado.web.RequestHandler):
     reference = request.model_key()
 
     max_id = request.max()
-    prefix = datastore_access.get_table_prefix(reference) 
     size = request.size()
 
-    start, end = datastore_access.allocate_ids(prefix, size, max_id=max_id)
+    start, end = datastore_access.allocate_ids(app_id, size, max_id=max_id)
     response.set_start(start)
     response.set_end(end)
     return (response.Encode(), 0, "")
