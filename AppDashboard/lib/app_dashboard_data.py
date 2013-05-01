@@ -223,8 +223,6 @@ class AppDashboardData():
     try:
       acc = self.helper.get_appcontroller_client()
       stat_dict = acc.get_api_status()
-      if stat_dict == True:
-        return
       for key in stat_dict.keys():
         store = self.get_by_id(ApiStatus, key)
         if not store:
@@ -256,8 +254,6 @@ class AppDashboardData():
     """
     try:
       nodes = self.helper.get_appcontroller_client().get_stats()
-      if nodes == True:
-        return
       for node in nodes:
         status = self.get_by_id(ServerStatus, node['ip'])
         if not status:
