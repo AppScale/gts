@@ -2324,9 +2324,17 @@ class Djinn
       next unless key.class == String
       newkey = key.gsub(/[^\w\d_@-]/, "") unless key.nil?
       if newkey.include? "_key"
-        newval = val.gsub(/[^\w\d\.\+:\/_-]/, "") unless val.nil?
+        if val.class == String
+          newval = val.gsub(/[^\w\d\.\+:\/_-]/, "")
+        else
+          newval = val
+        end
       else
-        newval = val.gsub(/[^\w\d\.:\/_-]/, "") unless val.nil?
+        if val.class == String
+          newval = val.gsub(/[^\w\d\.:\/_-]/, "") unless val.nil?
+        else
+          newval = val
+        end
       end
       newcreds[newkey] = newval
     }
