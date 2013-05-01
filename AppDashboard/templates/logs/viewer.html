@@ -15,12 +15,11 @@
 
         <!-- Build page from here: -->
         <div class="row-fluid">
-          <div class="span3"></div><!--spacing div-->
-          <div class="span6">
+          <div class="offset1 span8">
             <div class="page-header">
               <h1>View {{ service_name }} logs on {{ host }}:</h1>
             </div><!--close header-->
-          <table class="table table-bordered table-condensed">
+          <table class="table table-bordered">
             <tr>
               <th>Time</th>
               <th>Log Level</th>
@@ -55,14 +54,14 @@
                   UNKNOWN
                 {% endif %}
               </td>
-              <td>{{ app_log.message }}</td>
+              <td><strong>{{ app_log.message }}</strong></td>
               </tr>
               {% endfor %}
             {% endfor %}
           </table>
           {% if is_more %}
-            <a href="/logs/{{service_name}}/{{host}}">View from Newest</a> |
-            <a href="/logs/{{service_name}}/{{host}}?next_cursor={{next_cursor}}">Next 20</a>
+            <a class="btn" href="/logs/{{service_name}}/{{host}}">View Newest</a>
+            <a class="btn btn-success pull-right" href="/logs/{{service_name}}/{{host}}?next_cursor={{next_cursor}}">Next 20</a>
           {% endif %}
           </div><!--close span6 -->
         <div class="span3"></div> <!--spacing div-->
