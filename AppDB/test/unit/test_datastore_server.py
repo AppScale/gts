@@ -108,7 +108,9 @@ class TestDatastoreServer(unittest.TestCase):
     key1 = db.model_to_protobuf(item1)
     key2 = db.model_to_protobuf(item2)
     tuples_list = [("a/b",key1),("a/b",key2)]
-    self.assertEquals(dd.get_index_kv_from_tuple(tuples_list), (['a/b/Item/name/Bob\x00/Item:Bob!', 'a/b/Item:Bob!'], ['a/b/Item/name/Sally\x00/Item:Sally!', 'a/b/Item:Sally!']))
+    self.assertEquals(dd.get_index_kv_from_tuple(
+      tuples_list), (['a/b/Item/name/Bob\x00/Item:Bob!', 'a/b/Item:Bob!'], 
+      ['a/b/Item/name/Sally\x00/Item:Sally!', 'a/b/Item:Sally!']))
 
   def test_delete_index_entries(self):
     db_batch = flexmock()
@@ -203,7 +205,8 @@ class TestDatastoreServer(unittest.TestCase):
     db_batch = flexmock()
     db_batch.should_receive("batch_delete").and_return(None)
     db_batch.should_receive("batch_put_entity").and_return(None)
-    db_batch.should_receive("batch_get_entity").and_return({"key1":{"entity":key1.Encode()},"key2":{"entity":key2.Encode()}})
+    db_batch.should_receive("batch_get_entity").and_return(
+      {"key1":{"entity":key1.Encode()},"key2":{"entity":key2.Encode()}})
     dd = DatastoreDistributed(db_batch, zookeeper)
     dd.put_entities("hello", [key1, key2], {}) 
 
@@ -329,7 +332,8 @@ class TestDatastoreServer(unittest.TestCase):
     dd = DatastoreDistributed(db_batch, zookeeper)
 
     # Make sure it does not throw an exception
-    dd.put_entities("hello", entity_list, {"test/blah/test_kind:bob!":1, "test/blah/test_kind:nancy!":1}) 
+    dd.put_entities("hello", entity_list, {"test/blah/test_kind:bob!":1, 
+      "test/blah/test_kind:nancy!":1}) 
 
   def test_acquire_locks_for_trans(self):
     dd = DatastoreDistributed(None, None) 
@@ -468,7 +472,8 @@ class TestDatastoreServer(unittest.TestCase):
                       dd.get_root_key_from_entity_key("test/blah/test_kind:bob!nancy!"))
     entity_proto1 = self.get_new_entity_proto("test", "test_kind", "nancy", "prop1name", 
                                               "prop2val", ns="blah")
-    self.assertEquals("test/blah/test_kind:nancy!", dd.get_root_key_from_entity_key(entity_proto1.key()))
+    self.assertEquals("test/blah/test_kind:nancy!", 
+      dd.get_root_key_from_entity_key(entity_proto1.key()))
 
   def test_remove_tombstoned_entities(self):
     zookeeper = flexmock()
@@ -612,41 +617,6 @@ class TestDatastoreServer(unittest.TestCase):
     flexmock(dd).should_receive("release_locks_for_nontrans").once()
     dd.dynamic_delete("appid", del_request)
 
-    """
-    entity_proto1 = self.get_new_entity_proto("test", "test_kind", "nancy", "prop1name", 
-                                              "prop2val", ns="blah")
-    zookeeper = flexmock()
-    zookeeper.should_receive("get_transaction_id").and_return(1)
-    zookeeper.should_receive("get_valid_transaction_id").and_return(1)
-    zookeeper.should_receive("register_updated_key").and_return(1)
-    zookeeper.should_receive("acquire_lock").and_return(True)
-    zookeeper.should_receive("release_lock").and_return(True)
-    db_batch = flexmock()
-    db_batch.should_receive("batch_delete").and_return(None)
-    db_batch.should_receive("batch_put_entity").and_return(None)
-    db_batch.should_receive("batch_get_entity").and_return(
-               {"test/blah/test_kind:nancy!": 
-                 {
-                   APP_ENTITY_SCHEMA[0]: entity_proto1.Encode(),
-                   APP_ENTITY_SCHEMA[1]: 1
-                 }
-               })
-
-    dd = DatastoreDistributed(db_batch, zookeeper) 
-
-    entity_key = entity_proto1.key()
-    del_req = datastore_pb.DeleteRequest()
-    key = del_req.add_key() 
-    key.MergeFrom(entity_key)
-    del_resp = datastore_pb.DeleteResponse()
-    
-    dd.dynamic_delete("test", del_req)
-
-    # Now test while in a transaction
-    del_resp = datastore_pb.DeleteResponse()
-    del_req.mutable_transaction().set_handle(1)
-    dd.dynamic_delete("test", del_req)
-    """
   def test_reverse_path(self):
     zookeeper = flexmock()
     zookeeper.should_receive("get_transaction_id").and_return(1)
@@ -662,11 +632,6 @@ class TestDatastoreServer(unittest.TestCase):
     dd = DatastoreDistributed(db_batch, zookeeper) 
     key = "Project:Synapse!Module:Core!"
     self.assertEquals(dd.reverse_path(key), "Module:Core!Project:Synapse!")
-
-
-  def test_xg_transaction(self):
-    pass
-
 
 if __name__ == "__main__":
   unittest.main()    

@@ -728,7 +728,6 @@ class DatastoreDistributed():
     Raises:
       ZKTransactionException: If we are unable to register a key/entity.
     """
-    print old_entities
     for row_key in old_entities:
       if dbconstants.APP_ENTITY_SCHEMA[1] in old_entities[row_key]:
         prev_version = long(old_entities[row_key]\
@@ -841,7 +840,7 @@ class DatastoreDistributed():
     Raises:
      TypeError: If args are the wrong type.
     """
-    # Root key has the key and the prefix as a tuple.
+    # Key tuples are comprised of the table prefix and entity key.
     key_tuples = []
     txn_hash = {} 
     if not isinstance(entities, list):
