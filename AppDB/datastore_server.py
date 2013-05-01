@@ -126,10 +126,6 @@ class DatastoreDistributed():
       '%(lineno)s %(message)s ', level=logging.INFO)
     logging.debug("Started logging")
 
-    # Each entry contains a tuple (last_accessed_timestamp, namespace)
-    # The key is the <app_id>/<namespace>
-    self.__namespaces = []
-
     # Each entry contains a tuple (last_accessed_timestamp, index_name)
     # The key is the <app_id>/<namespace>/<kind>/<index>
     self.__indexes = {}
@@ -279,25 +275,6 @@ class DatastoreDistributed():
     """
     return app_id + "/" + name_space + "/" + kind + "/" + index_name
 
-  def configure_namespace(self, prefix, app_id, name_space):
-    """ Stores a key for the given namespace.
-
-    Args:
-      prefix: The namespace prefix to configure.
-      app_id: The app ID.
-      name_space: The per-app namespace name.
-    Returns:
-      True on success.
-    """
-    vals = {}
-    row_key = prefix
-    vals[row_key] = {"namespaces":name_space}
-    self.datastore_batch.batch_put_entity(dbconstants.APP_NAMESPACE_TABLE, 
-                          [row_key], 
-                          dbconstants.APP_NAMESPACE_SCHEMA, 
-                          vals)
-    return True
-
   def get_table_prefix(self, data):
     """ Returns the namespace prefix for a query.
 
@@ -313,10 +290,6 @@ class DatastoreDistributed():
       data = (data.app(), data.name_space())
 
     prefix = ('%s/%s' % data).replace('"', '""')
-
-    if data not in self.__namespaces:
-      self.configure_namespace(prefix, *data)
-      self.__namespaces.append(data)
 
     return prefix
 
@@ -367,7 +340,7 @@ class DatastoreDistributed():
                   str(self.__encode_index_pb(e.key().path()))]
 
         index_key = self.get_index_key_from_params(params)
-        p_vals = [index_key, 
+        p_vals = [index_key,
                   buffer(prefix + '/') + \
                   self.__encode_index_pb(e.key().path())] 
         all_rows.append(p_vals)
@@ -772,8 +745,7 @@ class DatastoreDistributed():
       last_path = entity.key().path().element_list()[-1]
       if last_path.id() == 0 and not last_path.has_name():
         try: 
-          id_, _ = self.allocate_ids(self.get_table_prefix(entity.key()), 1,
-            num_retries=3)
+          id_, _ = self.allocate_ids(app_id, 1, num_retries=3)
         except ZKTransactionException, zk_exception:
           logging.error("Unable to attain a new ID for {0}"\
             .format(str(entity.key())))
@@ -860,7 +832,7 @@ class DatastoreDistributed():
           "got {0}".format(ent.__class__))
 
     # Remove all duplicate root keys.
-    root_key = list(set(root_keys))
+    root_keys = list(set(root_keys))
     try:
       for root_key in root_keys: 
         txnid = self.setup_transaction(app_id, is_xg=False)
@@ -2552,10 +2524,9 @@ class MainHandler(tornado.web.RequestHandler):
     reference = request.model_key()
 
     max_id = request.max()
-    prefix = datastore_access.get_table_prefix(reference) 
     size = request.size()
 
-    start, end = datastore_access.allocate_ids(prefix, size, max_id=max_id)
+    start, end = datastore_access.allocate_ids(app_id, size, max_id=max_id)
     response.set_start(start)
     response.set_end(end)
     return (response.Encode(), 0, "")
