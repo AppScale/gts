@@ -138,7 +138,7 @@ class AppControllerClient():
           http_error_is_success, function, *args)
       else:
         raise exception
-    except SOAPpy.Errors.HTTPError as err:
+    except SOAPpy.Errors.HTTPError as exception:
       if http_error_is_success:
         return "true"
       else:
