@@ -12,6 +12,15 @@ import sys
 class LogSender():
 
 
+  # The file that the AppController writes the login node's public IP address
+  # to.
+  LOGIN_IP_FILENAME = "/etc/appscale/login_ip"
+
+
+  # The file that the AppController writes this machine's public IP address to.
+  MY_PUBLIC_IP_FILENAME = "/etc/appscale/my_public_ip"
+
+
   @classmethod
   def send_logs(cls, base64_logs):
     """Sends the given logs to the AppDashboard for later viewing.
@@ -41,7 +50,7 @@ class LogSender():
     Returns:
       A str that indicates what IP or FQDN this machine can be accessed via.
     """
-    return cls.read_file("/etc/appscale/my_public_ip")
+    return cls.read_file(cls.MY_PUBLIC_IP_FILENAME)
 
 
   @classmethod
@@ -53,7 +62,7 @@ class LogSender():
       A str that indicates what IP or FQDN the machine running the AppDashboard
         can be accessed via.
     """
-    return cls.read_file("/etc/appscale/login_private_ip")
+    return cls.read_file(cls.LOGIN_IP_FILENAME)
 
 
   @classmethod
