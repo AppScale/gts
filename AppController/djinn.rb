@@ -372,6 +372,26 @@ class Djinn
   # memory, set different limits per language.
   MAX_MEM_FOR_APPSERVERS = {'python' => 90.00, 'python27' => 90.00, 'java' => 95.00, 'go' => 90.00}
 
+
+  # A regular expression that can be used to match any character that is not
+  # acceptable to use in a hostname:port string, used to filter out unacceptable
+  # characters from user input.
+  NOT_FQDN_REGEX = /[^\w\d\.:\/_-]/
+
+
+  # A regular expression that can be used to match any character that is not
+  # acceptable to use in a hostname:port string, while also allowing the +
+  # character to be used. This is used to filter out unacceptable characters
+  # from user input where the plus sign is acceptable.
+  NOT_FQDN_OR_PLUS_REGEX = /[^\w\d\.\+:\/_-]/
+
+
+  # A regular expression that can be used to match any character that is not
+  # acceptable to use in a e-mail address, used to filter out unacceptable
+  # characters from user input.
+  NOT_EMAIL_REGEX = /[^\w\d_@-]/
+
+
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
   def initialize()
@@ -2322,16 +2342,16 @@ class Djinn
       end
 
       next unless key.class == String
-      newkey = key.gsub(/[^\w\d_@-]/, "")
+      newkey = key.gsub(NOT_EMAIL_REGEX, "")
       if newkey.include? "_key"
         if val.class == String
-          newval = val.gsub(/[^\w\d\.\+:\/_-]/, "")
+          newval = val.gsub(NOT_FQDN_OR_PLUS_REGEX, "")
         else
           newval = val
         end
       else
         if val.class == String
-          newval = val.gsub(/[^\w\d\.:\/_-]/, "")
+          newval = val.gsub(NOT_FQDN_REGEX, "")
         else
           newval = val
         end
