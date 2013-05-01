@@ -76,15 +76,6 @@ class TestDatastoreServer(unittest.TestCase):
     dd = DatastoreDistributed(None, None)
     dd.get_index_key("a","b","c","d")  == "a/b/c/d"
 
-  def test_configure_namespace(self):
-    db_batch = flexmock()
-    db_batch.should_receive("batch_put_entity").and_return(None)
-    zookeeper = flexmock()
-    zookeeper.should_receive("acquire_lock").and_return(True)
-    zookeeper.should_receive("release_lock").and_return(True)
-    dd = DatastoreDistributed(db_batch, zookeeper)
-    self.assertEquals(dd.configure_namespace("howdy", "hello", "ns"), True)
-
   def test_get_table_prefix(self):
     db_batch = flexmock()
     db_batch.should_receive("batch_put_entity").and_return(None)
