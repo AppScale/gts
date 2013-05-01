@@ -363,9 +363,8 @@ class TestDatastoreServer(unittest.TestCase):
     entity.should_receive("app").and_return("appid")
     flexmock(dd).should_receive("is_instance_wrapper").and_return(True) \
       .and_return(True).and_return(True)
-    flexmock(dd).should_receive("get_table_prefix").and_return("prefix").once()
     flexmock(dd).should_receive("get_root_key_from_entity_key").and_return("rootkey").once()
-    self.assertEquals({'prefix':1}, dd.acquire_locks_for_trans([entity], 1))
+    self.assertEquals({'rootkey':1}, dd.acquire_locks_for_trans([entity], 1))
 
     zookeeper = flexmock()
     zookeeper.should_receive("acquire_lock").once().and_raise(ZKTransactionException)
@@ -375,7 +374,6 @@ class TestDatastoreServer(unittest.TestCase):
     entity.should_receive("app").and_return("appid")
     flexmock(dd).should_receive("is_instance_wrapper").and_return(True) \
       .and_return(True).and_return(True)
-    flexmock(dd).should_receive("get_table_prefix").and_return("prefix").once()
     flexmock(dd).should_receive("get_root_key_from_entity_key").and_return("rootkey").once()
     self.assertRaises(ZKTransactionException, dd.acquire_locks_for_trans, [entity], 1)
          
