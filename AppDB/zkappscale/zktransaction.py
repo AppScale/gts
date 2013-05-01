@@ -478,9 +478,15 @@ class ZKTransaction:
     logging.debug("Checking transaction for app {0}, transaction id {1}".format(
       app_id, txid))
     txpath = self.get_transaction_path(app_id, txid)
-    if self.is_blacklisted(app_id, txid):
-      raise ZKTransactionException("[check_transaction] Transaction %d timed " \
-        "out." % txid)
+    try:
+      if self.is_blacklisted(app_id, txid):
+        raise ZKTransactionException("Transaction {0} timed out.".format(txid))
+    except ZKInternalException as zk_exception:
+      logging.exception(zk_exception)
+      self.reestablish_connection()
+      raise ZKTransactionException("Couldn't see if transaction {0} is valid" \
+        .format(txid))
+
     try:
       if not self.run_with_retry(self.handle.exists, txpath):
         logging.debug("[check_transaction] {0} does not exist".format(txpath))
@@ -747,11 +753,18 @@ class ZKTransaction:
         self.run_with_retry(self.handle.delete_async, lock_path)
       self.run_with_retry(self.handle.delete, transaction_lock_path)
     except kazoo.exceptions.NoNodeError:
-      if self.is_blacklisted(app_id, txid):
-        raise ZKTransactionException("Unable to release lock {0} for app id {1}"
-          .format(transaction_lock_path, app_id))
-      else:
-        return True
+      try:
+        if self.is_blacklisted(app_id, txid):
+          raise ZKTransactionException("Unable to release lock {0} for app id {1}"
+            .format(transaction_lock_path, app_id))
+        else:
+          return True
+      except ZKInternalException as zk_exception:
+        logging.exception(zk_exception)
+        self.reestablish_connection()
+        raise ZKTransactionException("Internal exception prevented us from " \
+          "releasing lock {0} for app id {1}".format(transaction_lock_path,
+          app_id))
     except kazoo.exceptions.KazooException as kazoo_exception:
       logging.exception(kazoo_exception)
       self.reestablish_connection()
