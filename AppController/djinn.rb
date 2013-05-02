@@ -394,7 +394,7 @@ class Djinn
 
   # An Integer that determines how many log messages we should send at a time
   # to the AppDashboard, for later viewing.
-  LOGS_PER_BATCH = 50
+  LOGS_PER_BATCH = 25
 
 
   # Creates a new Djinn, which holds all the information needed to configure
