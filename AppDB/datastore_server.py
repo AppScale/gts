@@ -117,7 +117,7 @@ class DatastoreDistributed():
        Constructor.
      
      Args:
-       datastore_batch: A reference to the batch datastore interface .
+       datastore_batch: A reference to the batch datastore interface.
        zookeeper: A reference to the zookeeper interface.
     """
     logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
@@ -149,7 +149,7 @@ class DatastoreDistributed():
     
     Args:
         prefix: A str, the app name and namespace string
-                example-- 'guestbook/mynamespace'.
+          example-- 'guestbook/mynamespace'.
         pb: Protocol buffer that we will encode the index name.
     Returns:
         A str, the key for entity table.
@@ -957,7 +957,7 @@ class DatastoreDistributed():
       return self.validated_dict_result(app_id, db_results, 
         current_ongoing_txn=0)
     elif isinstance(db_results, list):
-      return self.validated_list_result(app_id,  db_results, 
+      return self.validated_list_result(app_id, db_results, 
         current_ongoing_txn=0)
     else:
       raise TypeError("db_results should be either a list or dict")
@@ -1842,7 +1842,7 @@ class DatastoreDistributed():
           end_value = value + '/' +  self._TERM_STRING
       else:
         raise NotImplementedError("Unsupported query of operation {0}".format(
-             datastore_pb.Query_Filter.Operator_Name(oper)))
+          datastore_pb.Query_Filter.Operator_Name(oper)))
 
       if not startrow:
         params = [prefix, kind, property_name, start_value]
