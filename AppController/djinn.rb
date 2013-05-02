@@ -3193,7 +3193,7 @@ HOSTS
       HelperFunctions.sleep_until_port_is_open(my_private, port)
       begin
         Djinn.log_debug("Asking for response from AppDashboard on port #{port}")
-        Net::HTTP.get_response("#{my_private}:#{port}", '/')
+        Net::HTTP.get_response("#{my_private}:#{port}", '/status/refresh')
         Djinn.log_debug("Got response from AppDashboard on port #{port}")
       rescue SocketError
       end
