@@ -64,7 +64,7 @@ class TestDatastoreServer(unittest.TestCase):
     dd = DatastoreDistributed(None, None)
     item = Item(key_name="Bob", name="Bob", _app="hello")
     key = db.model_to_protobuf(item)
-    self.assertEquals(dd.get_entity_key("howdy", key.key().path()), "howdy/Item:Bob!")
+    self.assertEquals(str(dd.get_entity_key("howdy", key.key().path())), "howdy/Item:Bob!")
 
   def test_validate_key(self):
     dd = DatastoreDistributed(None, None)
