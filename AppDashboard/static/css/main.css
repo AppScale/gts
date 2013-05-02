@@ -3148,22 +3148,6 @@ form input.valid {border: 1px solid #9FC569 !important;}
         display: inline-block;
       }
 
-.success_log {
-    background-color: #dff0d8;
-}
-
-.info_log {
-    background-color: #d9edf7;
-}
-
-.warning_log {
-    background-color: #fcf8e3;
-}
-
-.error_log {
-    background-color: #f2dede;;
-}
-
 #log_width {
     width:120px;
 }
