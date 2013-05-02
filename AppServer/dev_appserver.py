@@ -100,8 +100,6 @@ EXTRA_PATHS = [
   glob.glob('/usr/local/lib/python2.6/dist-packages/xmpppy-*-py2.6.egg')[0],
   '/usr/lib/pymodules/python2.6/',
   '/usr/share/python-support/python-soappy/SOAPpy',
-  '/usr/local/lib/python2.6/dist-packages/SOAPpy-0.12.5-py2.6.egg',
-  '/root/appscale/AppServer/google/appengine/api/SOAPpy/',
   glob.glob('/usr/local/lib/python2.6/dist-packages/termcolor-*-py2.6.egg')[0],
   glob.glob('/usr/local/lib/python2.6/dist-packages/lxml-*-py2.6-linux-x86_64.egg')[0],
 ]

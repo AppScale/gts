@@ -723,10 +723,8 @@ class LogUploadPage(webapp2.RequestHandler):
       app_log_line.message = log_line_dict['message']
       app_log_line.level = log_line_dict['level']
       app_log_line.timestamp = datetime.datetime.fromtimestamp(the_time)
-      app_log_line.put()
       log_line.app_logs.append(app_log_line)
       log_line.put()
-
 
 # Main Dispatcher
 app = webapp2.WSGIApplication([ ('/', IndexPage),
