@@ -329,7 +329,7 @@ class AppDashboardData():
     try:
       app_status = self.get_by_id(AppStatus, app)
       if app_status:
-        app_status.delete()
+        app_status.key.delete()
       user_info = self.get_by_id(UserInfo, email)
       if user_info:
         if app in user_info.owned_apps:
