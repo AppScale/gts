@@ -14,7 +14,6 @@ import logging
 import md5
 import os
 import sys
-import threading
 
 import tornado.httpserver
 import tornado.ioloop
@@ -97,7 +96,6 @@ class DatastoreDistributed():
   # Maximum amount of filter and orderings allowed within a query
   _MAX_QUERY_COMPONENTS = 63
 
- 
   # For enabling and disabling range inclusivity
   _ENABLE_INCLUSIVITY = True
   _DISABLE_INCLUSIVITY = False
@@ -119,26 +117,17 @@ class DatastoreDistributed():
        Constructor.
      
      Args:
-       datastore_batch: a reference to the batch datastore interface .
-       zookeeper: a reference to the zookeeper interface.
+       datastore_batch: A reference to the batch datastore interface .
+       zookeeper: A reference to the zookeeper interface.
     """
     logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
       '%(lineno)s %(message)s ', level=logging.INFO)
     logging.debug("Started logging")
 
-    # Each entry contains a tuple (last_accessed_timestamp, index_name)
-    # The key is the <app_id>/<namespace>/<kind>/<index>
-    self.__indexes = {}
-
-    #TODO: Use locks for operations that should be atomic, i.e., we are
-    # updating global shared state
-    # lock for namespace and indexes during periodic garbage collection
-    self.__lock = threading.Lock()
-
-    # datastore accessor used by this class to do datastore operations
+    # datastore accessor used by this class to do datastore operations.
     self.datastore_batch = datastore_batch 
 
-    # zookeeper instance for accesing ZK functionality
+    # zookeeper instance for accesing ZK functionality.
     self.zookeeper = zookeeper
 
   @staticmethod
@@ -147,35 +136,35 @@ class DatastoreDistributed():
         particular class of entity.
 
     Args:
-        key_path: the key path of entity
+        key_path: A str, the key path of entity.
     Returns:
-        kind of the entity
+        A str, the kind of the entity.
     """
     if isinstance(key_path, entity_pb.EntityProto):
       key_path = key_path.key()
     return key_path.path().element_list()[-1].type()
 
   def get_entity_key(self, prefix, pb):
-    """ Returns the key for the entity table
+    """ Returns the key for the entity table.
     
     Args:
-        prefix: app name and namespace string
-                example-- 'guestbook/mynamespace'
-        pb: protocol buffer that we will encode the index name
+        prefix: A str, the app name and namespace string
+                example-- 'guestbook/mynamespace'.
+        pb: Protocol buffer that we will encode the index name.
     Returns:
-        Key for entity table
+        A str, the key for entity table.
     """
-    return buffer(prefix + self._NAMESPACE_SEPARATOR) + \
-                  self.__encode_index_pb(pb) 
+    return buffer("{0}{1}{2}".format(prefix, self._NAMESPACE_SEPARATOR,
+      self.__encode_index_pb(pb)))
 
   def get_kind_key(self, prefix, key_path):
-    """ Returns a key for the kind table
+    """ Returns a key for the kind table.
     
     Args:
-        prefix: App name and namespace string
-        key_path: Key path to build row key with
+        prefix: A str, the app name and namespace.
+        key_path: A str, the key path to build row key with.
     Returns:
-        Row key for kind table
+        A str, the row key for kind table.
     """
     path = []
     # reverse of index paths because child kind must come first
@@ -187,7 +176,7 @@ class DatastoreDistributed():
         # make sure ids are ordered lexigraphically by making sure they 
         # are of set size i.e. 2 > 0003 but 0002 < 0003
         key_id = str(e.id()).zfill(ID_KEY_LENGTH)
-      path.append('%s:%s' % (e.type(), key_id))
+      path.append("{0}:{1}".format(e.type(), key_id))
     encoded_path = '!'.join(path)
     encoded_path += '!'
     
@@ -203,14 +192,14 @@ class DatastoreDistributed():
         An encoded protocol buffer.
     """
     def _encode_path(pb):
-      """ Takes a protocol buffer and returns the encoded path """
+      """ Takes a protocol buffer and returns the encoded path. """
       path = []
       for e in pb.element_list():
         if e.has_name():
           key_id = e.name()
         elif e.has_id():
           key_id = str(e.id()).zfill(ID_KEY_LENGTH)
-        path.append('%s:%s' % (e.type(), key_id))
+        path.append("{0}:{1}".format(e.type(), key_id))
       val = '!'.join(path)
       val += '!'
       return val
@@ -259,8 +248,8 @@ class DatastoreDistributed():
     for elem in key.path().element_list():
       if elem.has_id() and elem.has_name():
         raise datastore_errors.BadRequestError(
-            'each key path element should have id or name but not both: %r'
-            % key)
+            'Each key path element should have id or name but not both: {0}' \
+            .format(key))
 
   def get_index_key(self, app_id, name_space, kind, index_name):
     """ Returns key string for storing namespaces.
@@ -273,7 +262,7 @@ class DatastoreDistributed():
     Returns:
       Key string for storing namespaces.
     """
-    return app_id + "/" + name_space + "/" + kind + "/" + index_name
+    return "{0}/{1}/{2}/{3}".format(app_id, name_space, kind, index_name)
 
   def get_table_prefix(self, data):
     """ Returns the namespace prefix for a query.
@@ -289,7 +278,7 @@ class DatastoreDistributed():
     if not isinstance(data, tuple):
       data = (data.app(), data.name_space())
 
-    prefix = ('%s/%s' % data).replace('"', '""')
+    prefix = "{0}/{1}".format(data[0], data[1]).replace('"', '""')
 
     return prefix
 
@@ -500,9 +489,8 @@ class DatastoreDistributed():
     Returns:
       next id available
     """  
-    res  = self.datastore_batch.batch_get_entity(dbconstants.APP_ID_TABLE, 
-                                                 [prefix], 
-                                                 dbconstants.APP_ID_SCHEMA)
+    res = self.datastore_batch.batch_get_entity(dbconstants.APP_ID_TABLE, 
+      [prefix], dbconstants.APP_ID_SCHEMA)
     if dbconstants.APP_ID_SCHEMA[0] in res[prefix]:
       return int(res[prefix][dbconstants.APP_ID_SCHEMA[0]])
     return self._FIRST_VALID_ALLOCATED_ID
@@ -592,7 +580,7 @@ class DatastoreDistributed():
     def kind_row_generator(key_list):
       """ Generates key/values for the kind table. """
       for prefix, k in key_list:
-        # yield a tuple of kind key and a reference to entity table
+        # Yield a tuple of kind key and a reference to entity table.
         yield (self.get_kind_key(prefix, k.path()),
                self.get_entity_key(prefix, k.path()))
  
@@ -611,10 +599,9 @@ class DatastoreDistributed():
       new_row_keys = [str(ii[0]) for ii in group_rows]
       kind_keys += new_row_keys
 
-    # Must fetch the entities to get the keys of indexes before deleting
+    # Must fetch the entities to get the keys of indexes before deleting.
     ret = self.datastore_batch.batch_get_entity(dbconstants.APP_ENTITY_TABLE, 
-                                                row_keys,
-                                                dbconstants.APP_ENTITY_SCHEMA)
+      row_keys, dbconstants.APP_ENTITY_SCHEMA)
 
     self.register_old_entities(ret, txn_hash, app_id)
 
@@ -640,9 +627,9 @@ class DatastoreDistributed():
 
     entities = []
     for row_key in ret:
-      # Entities may not exist if this is the first put
-      if dbconstants.APP_ENTITY_SCHEMA[0] in ret[row_key] and\
-           not ret[row_key][dbconstants.APP_ENTITY_SCHEMA[0]].\
+      # Entities may not exist if this is the first put.
+      if dbconstants.APP_ENTITY_SCHEMA[0] in ret[row_key] and \
+           not ret[row_key][dbconstants.APP_ENTITY_SCHEMA[0]]. \
            startswith(TOMBSTONE):
         ent = entity_pb.EntityProto()
         ent.ParseFromString(ret[row_key][dbconstants.APP_ENTITY_SCHEMA[0]])
@@ -660,7 +647,7 @@ class DatastoreDistributed():
       A string representing a journal key.
     """
     row_key += "/"
-    zero_padded_version = ("0" * (ID_KEY_LENGTH - len(str(version)))) +\
+    zero_padded_version = ("0" * (ID_KEY_LENGTH - len(str(version)))) + \
                            str(version)
     row_key += zero_padded_version
     return row_key
@@ -682,7 +669,7 @@ class DatastoreDistributed():
       journal_key = self.get_journal_key(row_key, txn_hash[root_key])
       journal_keys.append(journal_key)
       column = dbconstants.JOURNAL_SCHEMA[0]
-      value = row_values[row_key]\
+      value = row_values[row_key] \
               [dbconstants.APP_ENTITY_SCHEMA[0]] # encoded entity
       journal_values[journal_key] = {column: value}
 
@@ -704,9 +691,9 @@ class DatastoreDistributed():
     """
     for row_key in old_entities:
       if dbconstants.APP_ENTITY_SCHEMA[1] in old_entities[row_key]:
-        prev_version = long(old_entities[row_key]\
+        prev_version = long(old_entities[row_key] \
             [dbconstants.APP_ENTITY_SCHEMA[1]])
-        # Validate and get the correct version for each key
+        # Validate and get the correct version for each key.
         root_key = self.get_root_key_from_entity_key(row_key)
         valid_prev_version = self.zookeeper.get_valid_transaction_id(
           app_id, prev_version, row_key)
@@ -756,7 +743,7 @@ class DatastoreDistributed():
         group = entity.mutable_entity_group()
         root = entity.key().path().element(0)
         group.add_element().CopyFrom(root)
-    # This has maps transaction IDs to root keys
+    # This hash maps transaction IDs to root keys.
     txn_hash = {}
     try:
       if put_request.has_transaction():
@@ -821,7 +808,7 @@ class DatastoreDistributed():
     root_keys = []
     txn_hash = {} 
     if not isinstance(entities, list):
-      raise TypeError("Expected a list and got %s" % entities.__class__)
+      raise TypeError("Expected a list and got {0}".format(entities.__class__))
     for ent in entities:
       if isinstance(ent, entity_pb.Reference):
         root_keys.append(self.get_root_key_from_entity_key(ent))
@@ -861,11 +848,11 @@ class DatastoreDistributed():
     if first_ent.has_name():
       key_id = first_ent.name()
     elif first_ent.has_id():
-      # make sure ids are ordered lexigraphically by making sure they 
-      # are of set size i.e. 2 > 0003 but 0002 < 0003
+      # Make sure ids are ordered lexigraphically by making sure they 
+      # are of set size i.e. 2 > 0003 but 0002 < 0003.
       key_id = str(first_ent.id()).zfill(ID_KEY_LENGTH)
-    return prefix + self._NAMESPACE_SEPARATOR + \
-           first_ent.type() + ":" + key_id + "!"
+    return "{0}{1}{2}:{3}!".format(prefix, self._NAMESPACE_SEPARATOR, 
+      first_ent.type(), key_id)
 
   def is_instance_wrapper(self, obj, expected_type):
     """ A wrapper for isinstance for mocking purposes. 
@@ -898,7 +885,7 @@ class DatastoreDistributed():
     root_keys = []
     txn_hash = {}
     if not self.is_instance_wrapper(entities, list):
-      raise TypeError("Expected a list and got %s" % entities.__class__)
+      raise TypeError("Expected a list and got {0}".format(entities.__class__))
     for ent in entities:
       if self.is_instance_wrapper(ent, entity_pb.Reference):
         root_keys.append(self.get_root_key_from_entity_key(ent))
@@ -967,19 +954,16 @@ class DatastoreDistributed():
       TypeError: If db_results is not the right type.
     """
     if isinstance(db_results, dict): 
-      return self.validated_dict_result(app_id, 
-                                        db_results, 
-                                        current_ongoing_txn=0)
+      return self.validated_dict_result(app_id, db_results, 
+        current_ongoing_txn=0)
     elif isinstance(db_results, list):
-      return self.validated_list_result(app_id,  
-                                        db_results,
-                                        current_ongoing_txn=0)
+      return self.validated_list_result(app_id,  db_results, 
+        current_ongoing_txn=0)
     else:
       raise TypeError("db_results should be either a list or dict")
 
   def validated_list_result(self, app_id, db_results, current_ongoing_txn=0):
-    """
-        Takes database results from the entity table and returns
+    """ Takes database results from the entity table and returns
         an updated result list (came from a query) if any of the 
         entities were using blacklisted transaction IDs. 
    
@@ -1025,10 +1009,8 @@ class DatastoreDistributed():
       if dbconstants.JOURNAL_SCHEMA[0] in journal_entities[journal_key]:
         db_results[index][row_key] = {
           dbconstants.APP_ENTITY_SCHEMA[0]: 
-                  journal_entities[journal_key]\
-                                  [dbconstants.JOURNAL_SCHEMA[0]], 
-          dbconstants.APP_ENTITY_SCHEMA[1]: 
-                  str(trans_id)
+            journal_entities[journal_key][dbconstants.JOURNAL_SCHEMA[0]], 
+          dbconstants.APP_ENTITY_SCHEMA[1]: str(trans_id)
         }
       else:
         # There was no previous journal because the first put on this 
@@ -1057,9 +1039,9 @@ class DatastoreDistributed():
     for row_key in db_results:
       if dbconstants.APP_ENTITY_SCHEMA[1] not in db_results[row_key]:
         continue
-      current_version = long(db_results[row_key]\
-                             [dbconstants.APP_ENTITY_SCHEMA[1]])
-      trans_id = self.zookeeper.get_valid_transaction_id(\
+      current_version = long(db_results[row_key] \
+        [dbconstants.APP_ENTITY_SCHEMA[1]])
+      trans_id = self.zookeeper.get_valid_transaction_id( \
         app_id, current_version, row_key)
       if current_ongoing_txn != 0 and \
            current_version == current_ongoing_txn:
@@ -1077,9 +1059,7 @@ class DatastoreDistributed():
       return db_results
 
     journal_entities = self.datastore_batch.batch_get_entity(
-                            dbconstants.JOURNAL_TABLE,
-                            journal_keys,
-                            dbconstants.JOURNAL_SCHEMA)
+      dbconstants.JOURNAL_TABLE, journal_keys, dbconstants.JOURNAL_SCHEMA)
     for journal_key in journal_result_map:
       row_key, trans_id = journal_result_map[journal_key]
       if trans_id == 0:
@@ -1088,10 +1068,8 @@ class DatastoreDistributed():
       else:
         db_results[row_key] = {
           dbconstants.APP_ENTITY_SCHEMA[0]: 
-                  journal_entities[journal_key]\
-                                  [dbconstants.JOURNAL_SCHEMA[0]], 
-          dbconstants.APP_ENTITY_SCHEMA[1]: 
-                  str(trans_id)
+            journal_entities[journal_key][dbconstants.JOURNAL_SCHEMA[0]], 
+          dbconstants.APP_ENTITY_SCHEMA[1]: str(trans_id)
         }
     return db_results
 
@@ -1108,8 +1086,8 @@ class DatastoreDistributed():
       for item in result:
         if dbconstants.APP_ENTITY_SCHEMA[0] not in result[item]:
           continue
-        if not result[item][dbconstants.APP_ENTITY_SCHEMA[0]].\
-               startswith(TOMBSTONE):
+        if not result[item][dbconstants.APP_ENTITY_SCHEMA[0]]. \
+          startswith(TOMBSTONE):
           final_result[item] = result[item]
       return final_result
     elif isinstance(result, list):
@@ -1120,7 +1098,7 @@ class DatastoreDistributed():
           continue
         # Skip over any tombstoned items.
         if not item[key][dbconstants.APP_ENTITY_SCHEMA[0]].\
-               startswith(TOMBSTONE):
+          startswith(TOMBSTONE):
           final_result.append(item)
       return final_result
     else: 
@@ -1140,7 +1118,7 @@ class DatastoreDistributed():
       self.validate_app_id(key.app())
       index_key = str(self.__encode_index_pb(key.path()))
       prefix = self.get_table_prefix(key)
-      row_keys.append(prefix + '/' + index_key)
+      row_keys.append("{0}/{1}".format(prefix, index_key))
     result = self.datastore_batch.batch_get_entity(
                        dbconstants.APP_ENTITY_TABLE, 
                        row_keys, 
@@ -1196,14 +1174,12 @@ class DatastoreDistributed():
 
     if delete_request.has_transaction():
       txn_hash = self.acquire_locks_for_trans(keys, 
-                      delete_request.transaction().handle())
+        delete_request.transaction().handle())
     else:
       txn_hash = self.acquire_locks_for_nontrans(app_id, keys) 
 
-    self.delete_entities(app_id,
-                         delete_request.key_list(),
-                         txn_hash,
-                         soft_delete=True)
+    self.delete_entities(app_id, delete_request.key_list(), txn_hash, 
+      soft_delete=True)
     if not delete_request.has_transaction():
       self.release_locks_for_nontrans(app_id, keys, txn_hash)
  
@@ -1262,15 +1238,15 @@ class DatastoreDistributed():
     """
     e = last_result
     if not prop_name and not order:
-      return str(prefix + '/' + str(self.__encode_index_pb(e.key().path())))
+      return "{0}/{1}".format(prefix, 
+        self.__encode_index_pb(e.key().path()))
      
     if e.property_list():
       plist = e.property_list()
     else:   
-      rkey = prefix + '/' + str(self.__encode_index_pb(e.key().path()))
+      rkey = "{0}/{1}".format(prefix, self.__encode_index_pb(e.key().path()))
       ret = self.datastore_batch.batch_get_entity(dbconstants.APP_ENTITY_TABLE, 
-                                             [rkey], 
-                                             dbconstants.APP_ENTITY_SCHEMA)
+        [rkey], dbconstants.APP_ENTITY_SCHEMA)
 
       ret = self.remove_tombstoned_entities(ret)
 
@@ -1283,16 +1259,13 @@ class DatastoreDistributed():
         break
 
     val = str(self.__encode_index_pb(p.value()))
-    # remove first binary char for correct lexigraphical ordering
+    # Remove first binary char for correct lexigraphical ordering.
     val = str(val[1:])
 
     if order == datastore_pb.Query_Order.DESCENDING:
       val = helper_functions.reverse_lex(val)        
-    params = [prefix,
-              self.get_entity_kind(e), 
-              p.name(), 
-              val, 
-              str(self.__encode_index_pb(e.key().path()))]
+    params = [prefix, self.get_entity_kind(e), p.name(), val, 
+      str(self.__encode_index_pb(e.key().path()))]
 
     return self.get_index_key_from_params(params)
 
@@ -1315,9 +1288,7 @@ class DatastoreDistributed():
       rowkeys.append(ent)
   
     result = self.datastore_batch.batch_get_entity(
-                                  dbconstants.APP_ENTITY_TABLE, 
-                                  rowkeys,
-                                  dbconstants.APP_ENTITY_SCHEMA)
+      dbconstants.APP_ENTITY_TABLE, rowkeys, dbconstants.APP_ENTITY_SCHEMA)
     result = self.remove_tombstoned_entities(result)
     entities = []
     keys = result.keys()
@@ -1741,10 +1712,8 @@ class DatastoreDistributed():
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
       cursor = cassandra_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
-      startrow = self.__get_start_key(prefix, 
-                                    property_name,
-                                    direction,
-                                    last_result)
+      startrow = self.__get_start_key(prefix, property_name, direction, 
+        last_result)
     else:
       startrow = None
 
@@ -1872,8 +1841,8 @@ class DatastoreDistributed():
           start_value = None
           end_value = value + '/' +  self._TERM_STRING
       else:
-        raise NotImplementedError("Unsupported query of operation %s" % \
-             datastore_pb.Query_Filter.Operator_Name(oper))
+        raise NotImplementedError("Unsupported query of operation {0}".format(
+             datastore_pb.Query_Filter.Operator_Name(oper)))
 
       if not startrow:
         params = [prefix, kind, property_name, start_value]
@@ -1917,7 +1886,7 @@ class DatastoreDistributed():
 
       if direction == datastore_pb.Query_Order.ASCENDING:
         table_name = dbconstants.ASC_PROPERTY_TABLE
-        # The first operator will always be either > or >=
+        # The first operator will always be either > or >=.
         if startrow:
           start_inclusive = self._DISABLE_INCLUSIVITY
         elif oper1 == datastore_pb.Query_Filter.GREATER_THAN:
@@ -1930,7 +1899,7 @@ class DatastoreDistributed():
         else:
           raise dbconstants.AppScaleMisconfiguredQuery("Bad filter ordering")
 
-        # The second operator will be either < or <=
+        # The second operator will be either < or <=.
         if oper2 == datastore_pb.Query_Filter.LESS_THAN:    
           params = [prefix, kind, property_name, value2 + '/']
           endrow = self.get_index_key_from_params(params)
@@ -2156,9 +2125,9 @@ class DatastoreDistributed():
           if each.name() == ord_prop:
             if ord_dir == datastore_pb.Query_Order.DESCENDING:
               key = str(key+ '/' + helper_functions.reverse_lex(
-                                   str(each.value())))
+                str(each.value())))
             else:
-              key = str(key + '/' + str(each.value()))
+               key = str(key + '/' + str(each.value()))
             break
       # Add a unique identifier at the end because indexes can be the same.
       key = key + str(e)
@@ -2197,8 +2166,8 @@ class DatastoreDistributed():
     if num_components > self._MAX_QUERY_COMPONENTS:
       raise apiproxy_errors.ApplicationError(
           datastore_pb.Error.BAD_REQUEST,
-          ('query is too large. may not have more than %s filters'
-           ' + sort orders ancestor total' % self._MAX_QUERY_COMPONENTS))
+          ('query is too large. may not have more than {0} filters'
+           ' + sort orders ancestor total'.format(self._MAX_QUERY_COMPONENTS)))
 
     app_id = query.app()
     self.validate_app_id(app_id)
@@ -2212,7 +2181,7 @@ class DatastoreDistributed():
         break
 
     # TODO keys only queries. 
-    # They work but pass the entire entity back to the AppServer
+    # They work but pass the entire entity back to the AppServer.
     if query.has_keys_only():
       pass
     return results
@@ -2271,7 +2240,7 @@ class DatastoreDistributed():
       self.zookeeper.notify_failed_transaction(app_id, txn_id)
       return (commitres_pb.Encode(), 
               datastore_pb.Error.PERMISSION_DENIED, 
-              "Unable to commit for this transaction %s" % str(zkte))
+              "Unable to commit for this transaction {0}".format(zkte))
 
   def rollback_transaction(self, app_id, http_request_data):
     """ Handles the rollback phase of a transaction.
@@ -2293,7 +2262,7 @@ class DatastoreDistributed():
         "transaction id {1}, info {2}".format(app_id, txn.handle(), str(zkte)))
       return (api_base_pb.VoidProto().Encode(), 
               datastore_pb.Error.PERMISSION_DENIED, 
-              "Unable to rollback for this transaction: %s" % str(zkte))
+              "Unable to rollback for this transaction: {0}".format(str(zkte)))
 
 class MainHandler(tornado.web.RequestHandler):
   """
@@ -2310,7 +2279,8 @@ class MainHandler(tornado.web.RequestHandler):
     Raises:
       Raises exception.
     """ 
-    raise NotImplementedError("Unknown request of operation %s"%pb_type)
+    raise NotImplementedError("Unknown request of operation {0}" \
+      .format(pb_type))
   
   @tornado.web.asynchronous
   def post(self):
