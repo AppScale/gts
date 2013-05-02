@@ -87,13 +87,17 @@ class TestAppDashboardData(unittest.TestCase):
 
 
   def setupAppStatusMocks(self):
-    fake_app1 = flexmock(name='app1', url='http://1.1.1.1:8080')
-    fake_app1.should_receive('put').and_return()
-    fake_app1.should_receive('delete').and_return()
+    fake_key1 = flexmock(name='key1')
+    fake_key1.should_receive('delete').and_return()
 
-    fake_app2 = flexmock(name='app2', url=None)
+    fake_app1 = flexmock(name='app1', url='http://1.1.1.1:8080', key=fake_key1)
+    fake_app1.should_receive('put').and_return()
+
+    fake_key2 = flexmock(name='key2')
+    fake_key2.should_receive('delete').and_return()
+
+    fake_app2 = flexmock(name='app2', url=None, key=fake_key2)
     fake_app2.should_receive('put').and_return()
-    fake_app2.should_receive('delete').and_return()
 
     flexmock(app_dashboard_data).should_receive('AppStatus') \
       .and_return(fake_app1)
@@ -339,8 +343,8 @@ class TestAppDashboardData(unittest.TestCase):
     output = data1.delete_app_from_datastore('app2', email='a@a.com')
     app_list = output.owned_apps
     self.assertEquals(output.email, 'a@a.com')
-    self.assertFalse('app2' in app_list )
-    self.assertTrue('app1' in app_list )
+    self.assertFalse('app2' in app_list)
+    self.assertTrue('app1' in app_list)
 
   def test_update_application_info_no_apps(self):
     flexmock(AppDashboardData).should_receive('update_all')\
