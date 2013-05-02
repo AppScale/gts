@@ -19,42 +19,42 @@
             <div class="page-header">
               <h1>View {{ service_name }} logs on {{ host }}:</h1>
             </div><!--close header-->
-          <table class="table table-bordered">
+          <table class="table table-striped table-bordered">
             <tr>
-              <th>Time</th>
-              <th>Log Level</th>
-              <th>Log Message</th>
+              <th class="log_title">Time</th>
+              <th class="log_title">Log Level</th>
+              <th class="log_title">Log Message</th>
             </tr>
             {% for line in query %}
               {% for app_log in line.app_logs %}
-              <tr
+              <tr>
+              <td style="width:160px;">{{ app_log.timestamp }}</td>
+              <td id="log_width"
               {% if app_log.level == 1 %}
-                class="success"
+                style="background-color: #dff0d8;"
               {% elif app_log.level == 2 %}
-                class="info"
+                style="background-color: #d9edf7;"
               {% elif app_log.level == 3 %}
-                class="warning"
+                style="background-color: #fcf8e3;"
               {% else %}
-                class="error"
+                style="background-color: #f2dede;"
               {% endif %}
-              >
-              <td>{{ app_log.timestamp }}</td>
-              <td>
+                >
                 {% if app_log.level == 1 %}
-                  DEBUG
+                  DEBUG <span aria-hidden="true" class="icomoon-icon-bug"></span>
                 {% elif app_log.level == 2 %}
-                  INFO
+                  INFO <span aria-hidden="true" class="icomoon-icon-search-3"></span>
                 {% elif app_log.level == 3 %}
-                  WARN
+                  WARN <span aria-hidden="true" class="icomoon-icon-warning"></span>
                 {% elif app_log.level == 4 %}
-                  ERROR
+                  ERROR <span aria-hidden="true" class="icomoon-icon-cancel"></span>
                 {% elif app_log.level == 5 %}
-                  CRITICAL
+                  CRITICAL <span aria-hidden="true" class="icomoon-icon-fire-2"></span>
                 {% else %}
-                  UNKNOWN
+                  UNKNOWN <span aria-hidden="true" class="typ-icon-question"></span>
                 {% endif %}
               </td>
-              <td><strong>{{ app_log.message }}</strong></td>
+              <td style="font-size: 15px;"><strong>{{ app_log.message }}</strong></td>
               </tr>
               {% endfor %}
             {% endfor %}
