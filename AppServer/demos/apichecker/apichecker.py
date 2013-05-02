@@ -80,7 +80,7 @@ class HealthChecker(webapp.RequestHandler):
 
     if capability == "all" or capability == "images":
       try:
-        image = urlfetch.fetch("http://localhost/images/status_running.gif").content
+        image = urlfetch.fetch("http://localhost:8079/images/cloud.png").content
         images.horizontal_flip(image)
         images.vertical_flip(image)
         images.rotate(image, 90)

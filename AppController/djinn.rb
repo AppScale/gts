@@ -2011,7 +2011,7 @@ class Djinn
         retries_left -= 1
         retry
       else
-        Djinn.log_debug("ApiChecker  at #{apichecker_host} appears to be down - will " +
+        Djinn.log_debug("ApiChecker at #{apichecker_host} appears to be down - will " +
           "try again later.")
         return
       end
@@ -2860,15 +2860,15 @@ class Djinn
     ip = dest_node.private_ip
     options = "-e 'ssh -i #{ssh_key}' -arv --filter '- *.pyc'"
 
-    Djinn.log_run("rsync #{options} #{controller}/* root@#{ip}:#{controller}")
-    Djinn.log_run("rsync #{options} #{server}/* root@#{ip}:#{server}")
-    Djinn.log_run("rsync #{options} #{loadbalancer}/* root@#{ip}:#{loadbalancer}")
-    Djinn.log_run("rsync #{options} --exclude='logs/*' --exclude='hadoop-*' --exclude='hbase/hbase-*' --exclude='voldemort/voldemort/*' --exclude='cassandra/cassandra/*' #{appdb}/* root@#{ip}:#{appdb}")
-    Djinn.log_run("rsync #{options} #{neptune}/* root@#{ip}:#{neptune}")
-    Djinn.log_run("rsync #{options} #{loki}/* root@#{ip}:#{loki}")
-    Djinn.log_run("rsync #{options} #{app_manager}/* root@#{ip}:#{app_manager}")
-    Djinn.log_run("rsync #{options} #{iaas_manager}/* root@#{ip}:#{iaas_manager}")
-    Djinn.log_run("rsync #{options} #{xmpp_receiver}/* root@#{ip}:#{xmpp_receiver}")
+    `rsync #{options} #{controller}/* root@#{ip}:#{controller}`
+    `rsync #{options} #{server}/* root@#{ip}:#{server}`
+    `rsync #{options} #{loadbalancer}/* root@#{ip}:#{loadbalancer}`
+    `rsync #{options} --exclude='logs/*' --exclude='hadoop-*' --exclude='hbase/hbase-*' --exclude='voldemort/voldemort/*' --exclude='cassandra/cassandra/*' #{appdb}/* root@#{ip}:#{appdb}`
+    `rsync #{options} #{neptune}/* root@#{ip}:#{neptune}`
+    `rsync #{options} #{loki}/* root@#{ip}:#{loki}`
+    `rsync #{options} #{app_manager}/* root@#{ip}:#{app_manager}`
+    `rsync #{options} #{iaas_manager}/* root@#{ip}:#{iaas_manager}`
+    `rsync #{options} #{xmpp_receiver}/* root@#{ip}:#{xmpp_receiver}`
   end
 
   def setup_config_files()
