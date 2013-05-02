@@ -1064,7 +1064,6 @@ class Djinn
     # use a copy of @apps_to_restart here since we delete from it in
     # setup_appengine_application
     apps = @apps_to_restart
-    Djinn.log_debug("Restarting these apps: [#{apps.join(', ')}]")
     apps.each { |app_name|
       if !my_node.is_login?  # this node has the new app - don't erase it here
         Djinn.log_debug("Removing old version of app #{app_name}")
@@ -1804,7 +1803,6 @@ class Djinn
     
     all_ips = []
     @nodes.each { |node|
-      Djinn.log_debug("Letting #{node.private_ip} through the firewall")
       all_ips << node.private_ip
     }
     all_ips << "\n"
