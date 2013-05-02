@@ -96,6 +96,11 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
 
   This service keeps all data in any external servers running memcached.
   """
+  # The memcached default port.
+  MEMCACHE_PORT = "11211"
+
+  # An AppScale file which has a list of IPs running memcached.
+  APPSCALE_MEMCACHE_FILE = "/etc/appscale/memcache_ips"
 
   def __init__(self, gettime=time.time, service_name='memcache'):
     """Initializer.
@@ -107,11 +112,11 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     super(MemcacheService, self).__init__(service_name)
     self._gettime = gettime
 
-    f = open("/etc/appscale/memcache_ips")
+    f = open(self.APPSCALE_MEMCACHE_FILE, "r")
     all_ips = f.read().split("\n")
     f.close()
 
-    memcaches = [ip + ":11211" for ip in all_ips if ip != '']
+    memcaches = [ip + ":" + self.MEMCACHE_PORT for ip in all_ips if ip != '']
 
     self._memcache = memcache.Client(memcaches, debug=0)
     self._hits = 0
