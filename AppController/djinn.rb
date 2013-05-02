@@ -2084,6 +2084,7 @@ class Djinn
             {'Content-Type'=>'application/json'})
         rescue Timeout::Error
         end
+        Kernel.sleep(5)
       }
     }
   end
@@ -3098,10 +3099,11 @@ HOSTS
     HelperFunctions.run_remote_command(ip, remove_state, ssh_key, NO_OUTPUT)
 
     GodInterface.start_god(ip, ssh_key)
-    Kernel.sleep(1)
+    Kernel.sleep(5)
 
     begin
       GodInterface.start(:controller, start, stop, SERVER_PORT, env, ip, ssh_key)
+      Kernel.sleep(5)
       HelperFunctions.sleep_until_port_is_open(ip, SERVER_PORT, USE_SSL, 60)
     rescue Exception => except
       backtrace = except.backtrace.join("\n")
