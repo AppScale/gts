@@ -1550,6 +1550,7 @@ class Djinn
   # Appends this log message to a buffer, which will be periodically sent to
   # our Admin Console.
   def self.log_to_buffer(time, msg)
+    return if msg.empty?
     APPS_LOCK.synchronize {
       @@logs_buffer << {
         'timestamp' => time.to_i,
