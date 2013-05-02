@@ -394,7 +394,7 @@ class Djinn
 
   # An Integer that determines how many log messages we should send at a time
   # to the AppDashboard, for later viewing.
-  LOGS_PER_BATCH = 50
+  LOGS_PER_BATCH = 25
 
 
   # Creates a new Djinn, which holds all the information needed to configure
@@ -1064,7 +1064,6 @@ class Djinn
     # use a copy of @apps_to_restart here since we delete from it in
     # setup_appengine_application
     apps = @apps_to_restart
-    Djinn.log_debug("Restarting these apps: [#{apps.join(', ')}]")
     apps.each { |app_name|
       if !my_node.is_login?  # this node has the new app - don't erase it here
         Djinn.log_debug("Removing old version of app #{app_name}")
@@ -1550,6 +1549,7 @@ class Djinn
   # Appends this log message to a buffer, which will be periodically sent to
   # our Admin Console.
   def self.log_to_buffer(time, msg)
+    return if msg.empty?
     APPS_LOCK.synchronize {
       @@logs_buffer << {
         'timestamp' => time.to_i,
@@ -1803,7 +1803,6 @@ class Djinn
     
     all_ips = []
     @nodes.each { |node|
-      Djinn.log_debug("Letting #{node.private_ip} through the firewall")
       all_ips << node.private_ip
     }
     all_ips << "\n"
@@ -2011,7 +2010,7 @@ class Djinn
         retries_left -= 1
         retry
       else
-        Djinn.log_debug("ApiChecker  at #{apichecker_host} appears to be down - will " +
+        Djinn.log_debug("ApiChecker at #{apichecker_host} appears to be down - will " +
           "try again later.")
         return
       end
@@ -2859,15 +2858,15 @@ class Djinn
     ip = dest_node.private_ip
     options = "-e 'ssh -i #{ssh_key}' -arv --filter '- *.pyc'"
 
-    Djinn.log_run("rsync #{options} #{controller}/* root@#{ip}:#{controller}")
-    Djinn.log_run("rsync #{options} #{server}/* root@#{ip}:#{server}")
-    Djinn.log_run("rsync #{options} #{loadbalancer}/* root@#{ip}:#{loadbalancer}")
-    Djinn.log_run("rsync #{options} --exclude='logs/*' --exclude='hadoop-*' --exclude='hbase/hbase-*' --exclude='voldemort/voldemort/*' --exclude='cassandra/cassandra/*' #{appdb}/* root@#{ip}:#{appdb}")
-    Djinn.log_run("rsync #{options} #{neptune}/* root@#{ip}:#{neptune}")
-    Djinn.log_run("rsync #{options} #{loki}/* root@#{ip}:#{loki}")
-    Djinn.log_run("rsync #{options} #{app_manager}/* root@#{ip}:#{app_manager}")
-    Djinn.log_run("rsync #{options} #{iaas_manager}/* root@#{ip}:#{iaas_manager}")
-    Djinn.log_run("rsync #{options} #{xmpp_receiver}/* root@#{ip}:#{xmpp_receiver}")
+    `rsync #{options} #{controller}/* root@#{ip}:#{controller}`
+    `rsync #{options} #{server}/* root@#{ip}:#{server}`
+    `rsync #{options} #{loadbalancer}/* root@#{ip}:#{loadbalancer}`
+    `rsync #{options} --exclude='logs/*' --exclude='hadoop-*' --exclude='hbase/hbase-*' --exclude='voldemort/voldemort/*' --exclude='cassandra/cassandra/*' #{appdb}/* root@#{ip}:#{appdb}`
+    `rsync #{options} #{neptune}/* root@#{ip}:#{neptune}`
+    `rsync #{options} #{loki}/* root@#{ip}:#{loki}`
+    `rsync #{options} #{app_manager}/* root@#{ip}:#{app_manager}`
+    `rsync #{options} #{iaas_manager}/* root@#{ip}:#{iaas_manager}`
+    `rsync #{options} #{xmpp_receiver}/* root@#{ip}:#{xmpp_receiver}`
   end
 
   def setup_config_files()
@@ -3191,7 +3190,7 @@ HOSTS
       HelperFunctions.sleep_until_port_is_open(my_private, port)
       begin
         Djinn.log_debug("Asking for response from AppDashboard on port #{port}")
-        Net::HTTP.get_response("#{my_private}:#{port}", '/')
+        Net::HTTP.get_response("#{my_private}:#{port}", '/status/refresh')
         Djinn.log_debug("Got response from AppDashboard on port #{port}")
       rescue SocketError
       end
