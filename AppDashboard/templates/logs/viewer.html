@@ -1,5 +1,7 @@
 <!-- FILE:templates/logs/service.html -->
 <!--Body content-->
+
+
 <div id="content" class="clearfix">
     <div class="contentwrapper"><!--Content wrapper-->
 
@@ -19,7 +21,7 @@
             <div class="page-header">
               <h1>View {{ service_name }} logs on {{ host }}:</h1>
             </div><!--close header-->
-          <table class="table table-striped table-bordered">
+          <table id="log_table" class="table table-striped table-bordered">
             <tr>
               <th class="log_title">Time</th>
               <th class="log_title">Log Level</th>
@@ -59,8 +61,8 @@
               {% endfor %}
             {% endfor %}
           </table>
+              <a class="btn" href="/logs/{{service_name}}/{{host}}">View Newest</a>
           {% if is_more %}
-            <a class="btn" href="/logs/{{service_name}}/{{host}}">View Newest</a>
             <a class="btn btn-success pull-right" href="/logs/{{service_name}}/{{host}}?next_cursor={{next_cursor}}">Next 20</a>
           {% endif %}
           </div><!--close span6 -->
