@@ -22,7 +22,9 @@
             </div><!--close header-->
             {% if services %}
               {% for service in services %}
-                <a class="btn btn-large btn-info" href="/logs/{{ service }}">{{ service }}</a>
+              <ul style="list-style-type: none;">
+                  <li><a class="btn btn-large" href="/logs/{{ service }}">{{ service }}</a></li>
+              </ul>
               {% endfor %}
             {% else %}
               <p class="well">No logs are available at this time. Please check back later.</p>

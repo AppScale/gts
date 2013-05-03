@@ -15,8 +15,7 @@
 
                 <!-- Build page from here: -->
                 <div class="row-fluid">
-                  <div class="span4"></div>
-                  <div class="span4">
+                  <div class="offset2 span5">
 
                             <div class="well boxMargin">
 
@@ -28,14 +27,14 @@
                       <form action="/authorize" method="post"><div style="margin:0;padding:0;display:inline">
                         <table align="center" border="1px">
                           <tr>
-                            <td style="padding: 0 6px 0 6px;" align="center">Username</td>
-                            <td style="padding: 0 6px 0 6px;" align="center">Upload / Remove App</td>
+                            <td class="user_auth" align="center">Username</td>
+                            <td class="user_auth" align="center">Upload / Remove App</td>
                           </tr>
                           {% for user in user_perm_list %}
                             <tr>
-                              <td style="padding: 0 6px 0 6px;" align="center">{{ user.email }}</td>
+                              <td class="user_auth" align="center">{{ user.email }}</td>
                               <input type="hidden" name="user_permission_{{ loop.counter }}" value="{{ user.email }}">
-                              <td style="padding: 0 6px 0 6px;" align="center">
+                              <td class="user_auth">
                               <input type="hidden" name="CURRENT-{{ user.email }}-upload_app"
                                 {% if user.upload_app %}
                                 value="True"
@@ -43,17 +42,19 @@
                                 value="False"
                                 {% endif %}
                               >
+                               <div style="margin-left: 28px;" class="switch" data-on="success" data-off="danger">
                               <input type="checkbox" id="{{ user.email }}-upload_app" name="{{ user.email }}-upload_app"
                                 {% if user.upload_app %}
                                 checked="checked" 
                                 {% endif %}
                                 value="{{ user.email }}-upload_app" />
+                                </div>
                               </td>
                             </tr>
                           {% endfor %}
                         </table>
                         <div align="center" style="margin-top: 15px;">
-                        <input class="btn btn-primary" name="commit" type="submit" value="Update" />
+                        <input class="btn btn-primary" name="commit" type="submit" value="Update Permissions" />
                         </div>
                       </form>
 
