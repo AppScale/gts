@@ -595,7 +595,7 @@ class AppDashboardHelper():
       owned_apps: A list of strs, each the name of an app the user is an admin 
         of.
       request: A webapp2 request that contains the user's login cookie.
-      response: A webapp2 response that the new user's logged in cookie
+      response: A webapp2 response that the new user's login in cookie
         should be set in.
     """
     user = users.get_current_user()
@@ -605,6 +605,9 @@ class AppDashboardHelper():
     cookie_apps = self.get_cookie_app_list(request)
     if set(owned_apps) != set(cookie_apps):
       self.set_appserver_cookie(email, owned_apps, response)
+      return True
+    else:
+      return False
 
   def get_cookie_value(self, email, apps):
     """ Generates a hash corresponding to the given user's credentials.
