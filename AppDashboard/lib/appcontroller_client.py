@@ -48,7 +48,7 @@ class AppControllerClient():
 
 
   # The number of times we should retry SOAP calls in case of failures.
-  DEFAULT_NUM_RETRIES = 5
+  DEFAULT_NUM_RETRIES = 0
 
 
   # The number of seconds we should wait when executing SOAP calls with a
@@ -65,7 +65,7 @@ class AppControllerClient():
 
   # The number of times we should retry uploading a Google App Engine
   # application via the AppController, if it fails the first time.
-  UPLOAD_TAR_GZ_RETRIES = 1
+  UPLOAD_TAR_GZ_RETRIES = 0
 
 
   # A constant that we can pass into run_with_timeout to tell it that receiving
