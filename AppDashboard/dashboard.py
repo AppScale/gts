@@ -136,13 +136,17 @@ class AppDashboard(webapp2.RequestHandler):
     """
     if values is None:
       values = {}
+
+    owned_apps = self.dstore.get_owned_apps()
+    self.helper.update_cookie_app_list(owned_apps, self.request, self.response)
+
     template = jinja_environment.get_template(template_file)
     sub_vars = {
       'logged_in' : self.helper.is_user_logged_in(),
       'user_email' : self.helper.get_user_email(),
       'is_user_cloud_admin' : self.dstore.is_user_cloud_admin(),
       'can_upload_apps' : self.dstore.can_upload_apps(),
-      'apps_user_is_admin_on' : self.dstore.get_owned_apps()
+      'apps_user_is_admin_on' : owned_apps
     }
     for key in values.keys():
       sub_vars[key] = values[key]

@@ -5,9 +5,10 @@ import sys
 import unittest
 
 from test_app_dashboard_data import TestAppDashboardData
+from test_app_dashboard_helper import TestAppDashboardHelper
 
 
-test_cases = [TestAppDashboardData]
+test_cases = [TestAppDashboardData, TestAppDashboardHelper]
 
 test_case_names = []
 for cls in test_cases:
