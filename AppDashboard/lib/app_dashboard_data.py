@@ -355,33 +355,34 @@ class AppDashboardData():
     """
     try:
       updated_status = []
-      status = self.helper.get_status_info()
+      status_on_all_nodes = self.helper.get_status_info()
       ret = {}
-      if len(status) > 0 and 'apps' in status[0]:
-        for app in status[0]['apps'].keys():
-          if app == 'none':
-            break
-          if status[0]['apps'][app]:
-            try:
-              ret[app] = "http://{0}:{1}".format(self.helper.get_login_host(),
-                self.helper.get_app_port(app))
-            except AppHelperException:
+      if status_on_all_nodes:
+        for status in status_on_all_nodes:
+          for app in status['apps'].keys():
+            if app == 'none':
+              break
+            if status['apps'][app]:
+              try:
+                ret[app] = "http://{0}:{1}".format(self.helper.get_login_host(),
+                  self.helper.get_app_port(app))
+              except AppHelperException:
+                ret[app] = None
+            else:
               ret[app] = None
-          else:
-            ret[app] = None
-          app_status = self.get_by_id(AppStatus, app)
-          if not app_status:
-            app_status = AppStatus(id = app)
-            app_status.name = app
-          app_status.url = ret[app]
-          updated_status.append(app_status)
+            app_status = self.get_by_id(AppStatus, app)
+            if not app_status:
+              app_status = AppStatus(id = app)
+              app_status.name = app
+            app_status.url = ret[app]
+            updated_status.append(app_status)
 
-        statuses = self.get_all(AppStatus, keys_only=True)
-        ndb.delete_multi(statuses)
-        return_list = []
-        for status in updated_status:
-          status.put()
-          return_list.append(status)
+          statuses = self.get_all(AppStatus, keys_only=True)
+          ndb.delete_multi(statuses)
+          return_list = []
+          for status in updated_status:
+            status.put()
+            return_list.append(status)
       return ret
     except Exception as err:
       logging.exception(err)
