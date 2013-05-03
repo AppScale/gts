@@ -44,6 +44,16 @@ class AppDashboardHelper():
   # applications they own) to.
   DEV_APPSERVER_LOGIN_COOKIE = 'dev_appserver_login'
 
+  # A str that seperates the four parts of the login cookie.
+  LOGIN_COOKIE_SEPERATOR = ':'
+
+  # A str that sepreate the apps in the app owner list part of the login cookie.
+  LOGIN_COOKIE_APPS_SEPERATOR = ','
+
+  # An int indicating which part (from base zero) the app ower list is in the
+  # login cookie.
+  LOGIN_COOKIE_APPS_PART = 2
+
 
   # IP address of the AppController. Since an AppController runs on every node
   # in AppScale, using the localhost IP is fine.
@@ -532,7 +542,7 @@ class AppDashboardHelper():
     return True
 
   def get_user_app_list(self, email):
-    """ Queries the UserAppServer to reterive a list of apps that the
+    """ Queries the UserAppServer to retrieve a list of apps that the
     user is an admin of.
 
     Args:
@@ -560,7 +570,7 @@ class AppDashboardHelper():
       response: A webapp2 response that the new user's logged in cookie
         should be set in.
     """
-    apps = ",".join(apps_list)
+    apps = self.LOGIN_COOKIE_APPS_SEPERATOR.join(apps_list)
     response.set_cookie(self.DEV_APPSERVER_LOGIN_COOKIE,
       value=self.get_cookie_value(email, apps),
       expires=datetime.datetime.now() + datetime.timedelta(days=1))
@@ -569,24 +579,31 @@ class AppDashboardHelper():
     """ Look at the user's login cookie and return the list of apps that
     they are an owner of.
 
+    The login cookie's value has the form: "email:nick:apps:hash".  The email 
+    is the login email of the user, the nick is the assigned nickname for the
+    user, the apps is a comma seperate list of app that this user is an owner
+    of, and the hash is a security hash of the first three parts and the 
+    secret key of the deployment.
+
     Args:
       request: A webapp2 request that contains the user's login cookie.
     Returns:
       A list of strs, each the name of an app the user is an admin of.
     """
-    if self.DEV_APPSERVER_LOGIN_COOKIE in  request.cookies:
+    if self.DEV_APPSERVER_LOGIN_COOKIE in request.cookies:
       cookie_value = urllib.unquote(
         request.cookies[self.DEV_APPSERVER_LOGIN_COOKIE])
       if cookie_value:
-        cookie_parts = cookie_value.split(':')
-        if len(cookie_parts) > 2:
-          return cookie_parts[2].split(',')
+        cookie_parts = cookie_value.split(self.LOGIN_COOKIE_SEPERATOR)
+        if len(cookie_parts) > self.LOGIN_COOKIE_APPS_PART:
+          return cookie_parts[self.LOGIN_COOKIE_APPS_PART].split(
+            self.LOGIN_COOKIE_APPS_SEPERATOR)
     return []
 
   def update_cookie_app_list(self, owned_apps, request, response):
     """ Update the login cookie with the list of apps the user is an admin of.
  
-    Look at the user's loging cookie and compare the list of apps that they are
+    Look at the user's login cookie and compare the list of apps that they are
     an owner of to the list of apps passed in. The owned_apps parameter is 
     considered authoritative, and will overwrite the cookie values if they
     differ.
@@ -594,9 +611,11 @@ class AppDashboardHelper():
     Args:
       owned_apps: A list of strs, each the name of an app the user is an admin 
         of.
-      request: A webapp2 request that contains the user's login cookie.
-      response: A webapp2 response that the new user's login in cookie
-        should be set in.
+      request: A webapp2 request object that contains the user's login cookie.
+      response: A webapp2 response object this is used to set the user's update
+        login cookie.
+    Returns:
+      True if an updated cookie was set, otherwise False.
     """
     user = users.get_current_user()
     if not user:
@@ -627,7 +646,8 @@ class AppDashboardHelper():
     """
     nick = re.search('^(.*)@', email).group(1)
     hsh = self.get_appengine_hash(email, nick, apps)
-    return urllib.quote("{0}:{1}:{2}:{3}".format(email, nick, apps, hsh))
+    return urllib.quote("{1}{0}{2}{0}{3}{0}{4}".format(
+      self.LOGIN_COOKIE_SEPERATOR, email, nick, apps, hsh))
 
 
   def get_appengine_hash(self, email, nick, apps):
