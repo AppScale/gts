@@ -36,7 +36,6 @@
                                     <span class="icon16 icomoon-icon-bars"></span>
                                     <span>AppScale API Status</span>
                                 </h4>
-                                <a href="#" class="minimize">Minimize</a>
                             </div>
                                 <div class="content noPad">
                                     <table class="table">
@@ -76,7 +75,6 @@
                                         <span class="icon16 icomoon-icon-search-3"></span>
                                         <span>Database & Application Information</span>
                                     </h4>
-                                    <a href="#" class="minimize">Minimize</a>
                                 </div>
                   <div class="content">
                   <div id="database_info">
@@ -166,10 +164,9 @@
                                 <h4>
                                     <span class="icon16 icomoon-icon-screen-2"></span> 
                                     <span>CPU / Memory Usage &nbsp; &nbsp;  
-                                    <a href="{{monitoring_url}}" class="btn btn-info tipR" title="Current detailed hardware status">Machine Monitoring</a>
+                                    <a href="{{monitoring_url}}" class="btn btn-primary tipR" title="Current detailed hardware status">Machine Monitoring</a>
                                     </span>
                                 </h4>
-                                <a href="#" class="minimize">Minimize</a>
                               </div>
                               <div class="content noPad">
                             <table class="responsive table table-bordered">
@@ -187,16 +184,36 @@
                                     <tr>
                                       <td style="text-align: center;"><strong>{{server['ip'] }}</strong></td>
                                       <td align="center">
-                                        <div id="{{ server['key'] }}g1" style="width:200px; height:160px"></div>
+                                        <div id="{{ server['key'] }}g1" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>
                                       </td>
                                       <td align="center">
-                                        <div id="{{ server['key'] }}g2" style="width:200px; height:160px"></div>
+                                        <div id="{{ server['key'] }}g2" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>
                                       </td>
                                       <td align="center">
-                                        <div id="{{ server['key'] }}g3" style="width:200px; height:160px"></div>
+                                        <div id="{{ server['key'] }}g3" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>
                                       </td>
                                       <td style="text-align: center;">
-                                        <strong>{{server['roles']|join(', ') }}</strong>
+                                        <strong>
+                                            {% for role in server['roles'] %}
+                                            {% if role == 'load_balancer' %}
+                                            <span id="load_balancer" data-toggle="tooltip" title="Load Balancer" aria-hidden="true" class="icomoon-icon-expand"></span>
+                                            {% elif role == 'shadow' %}
+                                            <span id="shadow" data-toggle="tooltip" title="Shadow" aria-hidden="true" class="icomoon-icon-shield"></span>
+                                            {% elif role == 'db_master' %}
+                                            <span id="db_master" data-toggle="tooltip" title="Database Master" aria-hidden="true" class="icomoon-icon-database"></span>
+                                            {% elif role == 'zookeeper' %}
+                                            <span id="zookeeper" data-toggle="tooltip" title="Zookeeper" aria-hidden="true" class="icomoon-icon-paw"></span>
+                                            {% elif roles == 'login' %}
+                                            <span id="login_role" data-toggle="tooltip" title="Login" aria-hidden="true" class="icomoon-icon-locked-2"></span>
+                                            {% elif role == 'memcache' %}
+                                            <span id="memcache" data-toggle="tooltip" title="Memcache" aria-hidden="true" class="icomoon-icon-list-view"></span>
+                                            {% elif role == 'taskqueue_master' %}
+                                            <span id="taskqueue_master" data-toggle="tooltip" title="Taskqueue Master" aria-hidden="true" class="brocco-icon-clock"></span>
+                                            {% elif role == 'appengine' %}
+                                            <span id="appengine" data-toggle="tooltip" title="App Engine" aria-hidden="true" class="icomoon-icon-rocket"></span>
+                                            {% endif %}
+                                            {% endfor %}
+                                            </strong>
                                       </td>
                                     </tr>
                                 {% endfor %}

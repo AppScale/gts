@@ -35,6 +35,7 @@
     <link href="/css/supr-theme/jquery.ui.supr.css" rel="stylesheet" type="text/css"/>
     <link href="/css/icons.css" rel="stylesheet" type="text/css" />
 
+
     <!-- Plugins stylesheets -->
     <link href="/plugins/misc/qtip/jquery.qtip.css" rel="stylesheet" type="text/css" />
 
@@ -42,7 +43,7 @@
     <link href="/css/main.css" rel="stylesheet" type="text/css" /> 
 
     <!-- Custom stylesheets ( Put your own changes here ) -->
-    <link href="/css/custom.css" rel="stylesheet" type="text/css" /> 
+    <link href="/css/custom.css" rel="stylesheet" type="text/css" />
     
     <!-- Le HTML5 shim, for IE6-8 support of HTML5 elements -->
     <!--[if lt IE 9]>
@@ -55,7 +56,6 @@
     <link rel="apple-touch-icon-precomposed" sizes="114x114" href="images/apple-touch-icon-114-precomposed.png" />
     <link rel="apple-touch-icon-precomposed" sizes="72x72" href="images/apple-touch-icon-72-precomposed.png" />
     <link rel="apple-touch-icon-precomposed" href="images/apple-touch-icon-57-precomposed.png" />
-
 
     </head>
   <body>
@@ -72,6 +72,8 @@
     <script type="text/javascript" src="/js/bootstrap/bootstrap.js"></script>  
     <script type="text/javascript" src="/js/jquery.cookie.js"></script>
     <script type="text/javascript" src="/js/jquery.mousewheel.js"></script>
+    <script type="text/javascript" src="/js/bootstrapSwitch.js"></script>
+    <script type="text/javascript" src="/js/jquery.FilterTable.js"></script>
 
     <!-- Important Place before main.js  -->
     <script type="text/javascript" src="/js/jquery-ui.1.8.2.min.js"></script>
@@ -86,5 +88,21 @@
     <script type="text/javascript" src="/plugins/misc/totop/jquery.ui.totop.min.js"></script> <!-- Back to top plugin -->
     <!-- Fix plugins -->
     <script type="text/javascript" src="/plugins/fix/ios-fix/ios-orientationchange-fix.js"></script>
+
+     <script>
+	$(document).ready(function() {
+		$('#log_table').filterTable();
+	});
+         $('#load_balancer').tooltip()
+         $('#shadow').tooltip()
+         $('#db_master').tooltip()
+         $('#taskqueue_master').tooltip()
+         $('#appengine').tooltip()
+         $('#login_role').tooltip()
+         $('#zookeeper').tooltip()
+         $('#memcache').tooltip()
+	</script>
+
+
   </body>
 </html> 

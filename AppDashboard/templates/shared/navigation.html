@@ -3,13 +3,13 @@
         <div class="navbar">
             <div class="navbar-inner">
               <div class="container-fluid">
-                <span style="a {color: black;}" class="brand"><a href="/"><img src="/images/appscale-logo.png"/></a></span>
+                <span style="margin:0 0 0 15px;" class="brand"><a href="/"><img src="/images/appscale-logo.png"/></a></span>
                 <div class="nav-no-collapse">
                     <ul style="padding-right: 2.5%;" class="nav pull-right usernav">
                         {% if logged_in %}
-                          <h3>User: {{ user_email }} | <a href="/users/logout">Logout</a></h3><br />
+                          <h3>User: {{ user_email }} | <a style="margin-top: -5px;" class="btn btn-danger btn-small" href="/users/logout">Logout</a></h3><br />
                         {% else %}
-                          <h3><a href="/users/login">Login</a> | <a href="/users/new">Create Account</a></h3>
+                          <h3><a class="btn btn-small btn-success" href="/users/login">Login</a> <a class="btn btn-info btn-small" href="/users/new">Create Account</a></h3>
                         {% endif %}
                     </ul><!--close drop down-->
 
@@ -46,16 +46,16 @@
 
                 <div align="center" class="mainnav">
                     <ul>
-                        <li align="center" class="tab"><a href="/status">Cloud Status</a> </li>
+                        <li align="center" class="tab"><a class="btn btn-info" href="/status">Cloud Status</a> </li>
                             {% if apps_user_is_admin_on or is_user_cloud_admin %}
-                              <li align="center" class="tab"><a href="/logs">View Logs</a></li>
+                              <li align="center" class="tab"><a class="btn btn-info" href="/logs">View Logs</a></li>
                             {% endif %}
                             {% if is_user_cloud_admin %}
-                              <li align="center" class="tab"><a href="/authorize">Authorize User</a></li>
+                              <li align="center" class="tab"><a class="btn btn-info" href="/authorize">Authorize User</a></li>
                             {% endif %}
                             {% if can_upload_apps %}
-                              <li align="center" class="tab"><a href="/apps/new">Upload App</a></li>
-                              <li align="center" class="tab"><a href="/apps/delete">Delete App</a></li>
+                              <li align="center" class="tab"><a class="btn btn-info" href="/apps/new">Upload App</a></li>
+                              <li align="center" class="tab"><a class="btn btn-info" href="/apps/delete">Delete App</a></li>
                             {% endif %}
                     </ul>
                 </div>
