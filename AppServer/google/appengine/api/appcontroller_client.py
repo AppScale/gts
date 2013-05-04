@@ -132,8 +132,7 @@ class AppControllerClient():
       signal.alarm(0)  # turn off the alarm before we retry
       if num_retries > 0:
         sys.stderr.write("Saw socket exception {0} when communicating with the " \
-          "AppController, retrying momentarily.".format(str(exception)))
-        time.sleep(1)
+          "AppController, retrying momentarily. Message is {1}".format(exception, exception.msg))
         return self.run_with_timeout(timeout_time, default, num_retries - 1,
           http_error_is_success, function, *args)
       else:
@@ -142,9 +141,9 @@ class AppControllerClient():
       if http_error_is_success:
         return "true"
       else:
-        sys.stderr.write("Saw HTTPError {0} when communicating with the " \
-          "AppController, retrying momentarily.".format(str(exception)))
         signal.alarm(0)  # turn off the alarm before we retry
+        sys.stderr.write("Saw HTTPError {0} when communicating with the " \
+          "AppController, retrying momentarily. Message is {1}".format(exception, exception.msg))
         return self.run_with_timeout(timeout_time, default, num_retries,
           http_error_is_success, function, *args)
     except Exception as exception:

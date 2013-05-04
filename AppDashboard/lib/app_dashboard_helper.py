@@ -14,7 +14,7 @@ import urllib
 import SOAPpy
 
 
-from appcontroller_client import AppControllerClient
+from google.appengine.api.appcontroller_client import AppControllerClient
 from local_state import LocalState
 from secret_key import GLOBAL_SECRET_KEY
 
