@@ -2858,15 +2858,15 @@ class Djinn
     ip = dest_node.private_ip
     options = "-e 'ssh -i #{ssh_key}' -arv --filter '- *.pyc'"
 
-    `rsync #{options} #{controller}/* root@#{ip}:#{controller}`
-    `rsync #{options} #{server}/* root@#{ip}:#{server}`
-    `rsync #{options} #{loadbalancer}/* root@#{ip}:#{loadbalancer}`
-    `rsync #{options} --exclude='logs/*' --exclude='hadoop-*' --exclude='hbase/hbase-*' --exclude='voldemort/voldemort/*' --exclude='cassandra/cassandra/*' #{appdb}/* root@#{ip}:#{appdb}`
-    `rsync #{options} #{neptune}/* root@#{ip}:#{neptune}`
-    `rsync #{options} #{loki}/* root@#{ip}:#{loki}`
-    `rsync #{options} #{app_manager}/* root@#{ip}:#{app_manager}`
-    `rsync #{options} #{iaas_manager}/* root@#{ip}:#{iaas_manager}`
-    `rsync #{options} #{xmpp_receiver}/* root@#{ip}:#{xmpp_receiver}`
+    HelperFunctions.shell("rsync #{options} #{controller}/* root@#{ip}:#{controller}")
+    HelperFunctions.shell("rsync #{options} #{server}/* root@#{ip}:#{server}")
+    HelperFunctions.shell("rsync #{options} #{loadbalancer}/* root@#{ip}:#{loadbalancer}")
+    HelperFunctions.shell("rsync #{options} --exclude='logs/*' --exclude='hadoop-*' --exclude='hbase/hbase-*' --exclude='voldemort/voldemort/*' --exclude='cassandra/cassandra/*' #{appdb}/* root@#{ip}:#{appdb}")
+    HelperFunctions.shell("rsync #{options} #{neptune}/* root@#{ip}:#{neptune}")
+    HelperFunctions.shell("rsync #{options} #{loki}/* root@#{ip}:#{loki}")
+    HelperFunctions.shell("rsync #{options} #{app_manager}/* root@#{ip}:#{app_manager}")
+    HelperFunctions.shell("rsync #{options} #{iaas_manager}/* root@#{ip}:#{iaas_manager}")
+    HelperFunctions.shell("rsync #{options} #{xmpp_receiver}/* root@#{ip}:#{xmpp_receiver}")
   end
 
   def setup_config_files()
