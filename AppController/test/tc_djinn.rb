@@ -892,8 +892,8 @@ class TestDjinn < Test::Unit::TestCase
       with(/\Assh.* root@1.2.3.5 'ls #{HelperFunctions::APPSCALE_CONFIG_DIR}/).and_return("0\n")
 
     # mock out our attempts to rsync over to the new boxes
-    flexmock(Djinn).should_receive(:log_run).with(/\Arsync.* root@1.2.3.4/).and_return()
-    flexmock(Djinn).should_receive(:log_run).with(/\Arsync.* root@1.2.3.5/).and_return()
+    flexmock(HelperFunctions).should_receive(:shell).with(/\Arsync.* root@1.2.3.4/).and_return()
+    flexmock(HelperFunctions).should_receive(:shell).with(/\Arsync.* root@1.2.3.5/).and_return()
 
     # when the appcontroller asks those boxes where APPSCALE_HOME is,
     # let's assume they say it's in /usr/appscale
