@@ -16,6 +16,11 @@ class TestDjinn < Test::Unit::TestCase
     kernel.should_receive(:sleep).and_return()
     kernel.should_receive(:system).with("").and_return()
 
+    flexmock(Logger).new_instances { |instance|
+      instance.should_receive(:debug).and_return()
+      instance.should_receive(:info).and_return()
+    }
+
     djinn = flexmock(Djinn)
     djinn.should_receive(:log_run).with("").and_return()
 
