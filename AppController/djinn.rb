@@ -1,6 +1,7 @@
 #!/usr/bin/ruby -w
 
 # Imports within Ruby's standard libraries
+require 'logger'
 require 'monitor'
 require 'net/http'
 require 'net/https'
@@ -407,6 +408,9 @@ class Djinn
     # An Array of Hashes, where each Hash contains a log message and the time
     # it was logged.
     @@logs_buffer = []
+
+    @@log = Logger.new(STDOUT)
+    @@log.level = Logger::DEBUG
 
     @nodes = []
     @my_index = nil
@@ -1525,38 +1529,52 @@ class Djinn
   end
 
 
-  # This method is the nexus of all AppController logging - all messages get
-  # sent to stdout immediately (which god will send to 
-  # /var/log/appscale/controller-17443.log for tailing)
-  # Important: Definitely do not log within the following three methods, as
-  # it would cause an infinite loop.
-  def self.log_debug(msg)
-    time = Time.now
-    self.log_to_stdout(time, msg)
-    self.log_to_buffer(time, msg)
+  # This method allows callers to log messages at the DEBUG level.
+  #
+  # Messages are logged both to STDOUT as well as to @@logs_buffer, which is
+  # sent to the AppDashboard for viewing via a web UI.
+  #
+  # Args:
+  #   message: A String containing the message to be logged.
+  def self.log_debug(message)
+    @@log.debug(message)
+    self.log_to_buffer(Logger::DEBUG, message)
   end
 
 
-  # Logs and timestamps the given message to standard out.
-  # TODO(cgb): Examine the performance impact of flushing stdout on every puts,
-  # which we do to ensure that a message can be seen immediately.
-  def self.log_to_stdout(time, msg)
-    Kernel.puts "[#{time}] #{msg}"
-    STDOUT.flush
+  # This method allows callers to log messages at the INFO level.
+  #
+  # Args:
+  #   message: A String containing the message to be logged.
+  def self.log_info(message)
+    @@log.info(message)
+    self.log_to_buffer(Logger::INFO, message)
   end
 
 
   # Appends this log message to a buffer, which will be periodically sent to
-  # our Admin Console.
-  def self.log_to_buffer(time, msg)
-    return if msg.empty?
+  # the AppDashbord.
+  #
+  # Only sends the message if it has content (as some empty messages are the
+  # result of exec'ing commands that produce no output), and if its log level
+  # is at least as great as the log level that we want to capture logs for.
+  #
+  # Args:
+  #   level: An Integer in the set of Logger levels (e.g., Logger::DEBUG,
+  #     Logger::INFO) that indicates the severity of this log message.
+  #   message: A String containing the message to be logged.
+  def self.log_to_buffer(level, message)
+    return if message.empty?
+    return if level < @@log.level
+    time = Time.now
     APPS_LOCK.synchronize {
       @@logs_buffer << {
         'timestamp' => time.to_i,
-        'level' => 1,  # DEBUG
-        'message' => msg
+        'level' => level + 1,  # Python and Java are one higher than Ruby
+        'message' => message
       }
     }
+    return
   end
 
   
