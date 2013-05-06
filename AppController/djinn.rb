@@ -2081,7 +2081,9 @@ class Djinn
           http.use_ssl = true
           response = http.post(url.path, encoded_logs,
             {'Content-Type'=>'application/json'})
-        rescue Timeout::Error
+        rescue Exception
+          # Don't crash the AppController because we weren't able to send over
+          # the logs - just continue on.
         end
       }
     }
