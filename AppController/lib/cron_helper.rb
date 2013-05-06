@@ -36,7 +36,7 @@ module CronHelper
         #  Cron Schedule: #{line}
         #CRON
         #  Djinn.log_debug(cron_info)
-          Djinn.log_debug("Adding cron line: [#{line}]")
+          Djinn.log_info("Adding cron line: [#{line}]")
           add_line_to_crontab(line)
         }
       }
@@ -62,17 +62,17 @@ module CronHelper
         #  Cron Schedule: #{line}
         #CRON
         #  Djinn.log_debug(cron_info)
-          Djinn.log_debug("Adding cron line: [#{line}]")
+          Djinn.log_info("Adding cron line: [#{line}]")
           add_line_to_crontab(line)
         }
       }
     else
-      Djinn.log_debug("ERROR: lang was neither python, go, nor java but was [#{lang}] (cron)")
+      Djinn.log_error("ERROR: lang was neither python, go, nor java but was [#{lang}] (cron)")
     end
   end
 
   def self.clear_crontab
-    `crontab -r`
+    Djinn.log_run("crontab -r")
     #After clearing, make sure we still have our time sync job
     self.add_line_to_crontab(NO_EMAIL_CRON)
     self.add_line_to_crontab(NTP_SYNC_CRON)  
@@ -124,7 +124,7 @@ module CronHelper
     splitted = schedule.split
 
     unless splitted.length == 3 or splitted.length == 5
-      Djinn.log_debug("bad format, length = #{splitted.length}")
+      Djinn.log_error("bad format, length = #{splitted.length}")
       return ""
     end
 
@@ -149,7 +149,7 @@ module CronHelper
     if ord == "every" # simple case
       cron_lines = ["#{min} #{hour} * #{months_of_year} #{days_of_week}"]
     else # complex case, not implemented yet
-      Djinn.log_debug("ERROR: not implemented yet (cron)")
+      Djinn.log_error("ERROR: not implemented yet (cron)")
       return ""
     end
 

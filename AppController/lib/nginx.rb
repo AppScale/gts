@@ -420,7 +420,7 @@ CONFIG
       Nginx.reload
       return true
     else
-      Djinn.log_debug("Unable to load Nginx config for #{app_name}") 
+      Djinn.log_error("Unable to load Nginx config for #{app_name}")
       FileUtils.rm(config_path)
       return false
     end

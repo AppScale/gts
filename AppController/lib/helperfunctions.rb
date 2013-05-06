@@ -1003,7 +1003,7 @@ module HelperFunctions
   #   app_name Name of the application
   # Returns:
   #   A hash containing lists of secure handlers
-  def self.get_secure_handlers app_name
+  def self.get_secure_handlers(app_name)
     Djinn.log_debug("Getting secure handlers for app #{app_name}")
     untar_dir = get_untar_dir(app_name)
 
@@ -1015,7 +1015,7 @@ module HelperFunctions
     begin
       tree = YAML.load_file(File.join(untar_dir,"app.yaml"))
     rescue Errno::ENOENT => e
-      Kernel.puts("Failed to load YAML file to parse static data")
+      Djinn.log_error("Failed to load YAML file to parse static data")
       return secure_handlers
     end
 

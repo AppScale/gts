@@ -127,7 +127,7 @@ BAZ
 
       god_info = "Starting #{watch} on ip #{ip}, port #{ports.join(', ')}" +
         " with start command [#{start_cmd}] and stop command [#{stop_cmd}]"
-      Djinn.log_debug(god_info)   
+      Djinn.log_info(god_info)
 
       self.run_god_command("god start #{watch}", remote_ip, remote_key)
     }
