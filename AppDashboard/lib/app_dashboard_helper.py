@@ -45,6 +45,19 @@ class AppDashboardHelper():
   DEV_APPSERVER_LOGIN_COOKIE = 'dev_appserver_login'
 
 
+  # A str that separates the four fields stored in the login cookie.
+  LOGIN_COOKIE_FIELD_SEPARATOR = ':'
+
+
+  # A str that separates apps in the app owner list field in the login cookie.
+  LOGIN_COOKIE_APPS_SEPARATOR = ','
+
+
+  # An int indicating which position (starting at zero) the app owner list is in
+  # the login cookie.
+  LOGIN_COOKIE_APPS_PART = 2
+
+
   # IP address of the AppController. Since an AppController runs on every node
   # in AppScale, using the localhost IP is fine.
   APP_CONTROLLER_IP = '127.0.0.1'
@@ -522,7 +535,7 @@ class AppDashboardHelper():
       # TODO(cgb): We may not even be using this token since the switch to
       # full proxy nginx. Investigate this.
       self.create_token(email, email)
-      self.set_appserver_cookie(email, response)
+      self.set_appserver_cookie(email, self.get_user_app_list(email), response)
     except AppHelperException as err:
       logging.exception(err)
       raise AppHelperException(str(err))
@@ -531,27 +544,92 @@ class AppDashboardHelper():
       raise AppHelperException(str(err))
     return True
 
+  def get_user_app_list(self, email):
+    """ Queries the UserAppServer to retrieve a list of apps that the
+    user is an admin of.
 
-  def set_appserver_cookie(self, email, response):
+    Args:
+      email: A str containing the e-mail address of the user who we should
+        login as.
+    Returns:
+      A list of strs, each the name of an app the user is an admin of.
+    """
+    user_data = self.query_user_data(email)
+    app_re = re.search(self.USER_APP_LIST_REGEX, user_data)
+    if app_re:
+      apps_list = app_re.group(1).split(self.APP_DELIMITER)
+      return apps_list
+    return []
+
+  def set_appserver_cookie(self, email, apps_list, response):
     """ Creates a new cookie indicating that this user is logged in and sets it
     in their session.
 
     Args:
       email: A str containing the e-mail address of the user who we should
         login as.
+      apps_list: A list of strs, each the name of an app the user is an admin 
+        of.
       response: A webapp2 response that the new user's logged in cookie
         should be set in.
     """
-    apps = ''
-    user_data = self.query_user_data(email)
-    app_re = re.search(self.USER_APP_LIST_REGEX, user_data)
-    if app_re:
-      apps_list = app_re.group(1).split(self.APP_DELIMITER)
-      apps = ",".join(apps_list)
+    apps = self.LOGIN_COOKIE_APPS_SEPARATOR.join(apps_list)
     response.set_cookie(self.DEV_APPSERVER_LOGIN_COOKIE,
       value=self.get_cookie_value(email, apps),
       expires=datetime.datetime.now() + datetime.timedelta(days=1))
 
+  def get_cookie_app_list(self, request):
+    """ Look at the user's login cookie and return the list of apps that
+    they are an owner of.
+
+    The login cookie's value has the form: "email:nick:apps:hash".  The email 
+    is the login email of the user, the nick is the assigned nickname for the
+    user, the apps is a comma seperate list of app that this user is an owner
+    of, and the hash is a security hash of the first three parts and the 
+    secret key of the deployment.
+
+    Args:
+      request: A webapp2 request that contains the user's login cookie.
+    Returns:
+      A list of strs, each the name of an app the user is an admin of.
+    """
+    if self.DEV_APPSERVER_LOGIN_COOKIE in request.cookies:
+      cookie_value = urllib.unquote(
+        request.cookies[self.DEV_APPSERVER_LOGIN_COOKIE])
+      if cookie_value:
+        cookie_parts = cookie_value.split(self.LOGIN_COOKIE_FIELD_SEPARATOR)
+        if len(cookie_parts) > self.LOGIN_COOKIE_APPS_PART:
+          return cookie_parts[self.LOGIN_COOKIE_APPS_PART].split(
+            self.LOGIN_COOKIE_APPS_SEPARATOR)
+    return []
+
+  def update_cookie_app_list(self, owned_apps, request, response):
+    """ Update the login cookie with the list of apps the user is an admin of.
+ 
+    Look at the user's login cookie and compare the list of apps that they are
+    an owner of to the list of apps passed in. The owned_apps parameter is 
+    considered authoritative, and will overwrite the cookie values if they
+    differ.
+
+    Args:
+      owned_apps: A list of strs, each the name of an app the user is an admin 
+        of.
+      request: A webapp2 request object that contains the user's login cookie.
+      response: A webapp2 response object this is used to set the user's update
+        login cookie.
+    Returns:
+      True if an updated cookie was set, otherwise False.
+    """
+    user = users.get_current_user()
+    if not user:
+      return
+    email = user.email()
+    cookie_apps = self.get_cookie_app_list(request)
+    if set(owned_apps) != set(cookie_apps):
+      self.set_appserver_cookie(email, owned_apps, response)
+      return True
+    else:
+      return False
 
   def get_cookie_value(self, email, apps):
     """ Generates a hash corresponding to the given user's credentials.
@@ -571,7 +649,8 @@ class AppDashboardHelper():
     """
     nick = re.search('^(.*)@', email).group(1)
     hsh = self.get_appengine_hash(email, nick, apps)
-    return urllib.quote("{0}:{1}:{2}:{3}".format(email, nick, apps, hsh))
+    return urllib.quote("{1}{0}{2}{0}{3}{0}{4}".format(
+      self.LOGIN_COOKIE_FIELD_SEPARATOR, email, nick, apps, hsh))
 
 
   def get_appengine_hash(self, email, nick, apps):
@@ -649,7 +728,7 @@ class AppDashboardHelper():
       logging.info("Failed Login: {0} password mismatch".format(email))
       return False
     self.create_token(email, email)
-    self.set_appserver_cookie(email, response)
+    self.set_appserver_cookie(email, self.get_user_app_list(email), response)
     return True
 
 
