@@ -1006,7 +1006,7 @@ class ZKTransaction:
     except kazoo.exceptions.KazooException as kazoo_exception:
       logging.exception(kazoo_exception)
 
-    self.handle = kazoo.client.KazooClient(hosts=host,
+    self.handle = kazoo.client.KazooClient(hosts=self.host,
       max_retries=self.DEFAULT_NUM_RETRIES, timeout=self.DEFAULT_ZK_TIMEOUT)
 
     try:
