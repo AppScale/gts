@@ -44,14 +44,17 @@ class AppDashboardHelper():
   # applications they own) to.
   DEV_APPSERVER_LOGIN_COOKIE = 'dev_appserver_login'
 
-  # A str that seperates the four parts of the login cookie.
-  LOGIN_COOKIE_SEPERATOR = ':'
 
-  # A str that sepreate the apps in the app owner list part of the login cookie.
-  LOGIN_COOKIE_APPS_SEPERATOR = ','
+  # A str that separates the four fields stored in the login cookie.
+  LOGIN_COOKIE_FIELD_SEPARATOR = ':'
 
-  # An int indicating which part (from base zero) the app ower list is in the
-  # login cookie.
+
+  # A str that separates apps in the app owner list field in the login cookie.
+  LOGIN_COOKIE_APPS_SEPARATOR = ','
+
+
+  # An int indicating which position (starting at zero) the app owner list is in
+  # the login cookie.
   LOGIN_COOKIE_APPS_PART = 2
 
 
@@ -570,7 +573,7 @@ class AppDashboardHelper():
       response: A webapp2 response that the new user's logged in cookie
         should be set in.
     """
-    apps = self.LOGIN_COOKIE_APPS_SEPERATOR.join(apps_list)
+    apps = self.LOGIN_COOKIE_APPS_SEPARATOR.join(apps_list)
     response.set_cookie(self.DEV_APPSERVER_LOGIN_COOKIE,
       value=self.get_cookie_value(email, apps),
       expires=datetime.datetime.now() + datetime.timedelta(days=1))
@@ -594,10 +597,10 @@ class AppDashboardHelper():
       cookie_value = urllib.unquote(
         request.cookies[self.DEV_APPSERVER_LOGIN_COOKIE])
       if cookie_value:
-        cookie_parts = cookie_value.split(self.LOGIN_COOKIE_SEPERATOR)
+        cookie_parts = cookie_value.split(self.LOGIN_COOKIE_FIELD_SEPARATOR)
         if len(cookie_parts) > self.LOGIN_COOKIE_APPS_PART:
           return cookie_parts[self.LOGIN_COOKIE_APPS_PART].split(
-            self.LOGIN_COOKIE_APPS_SEPERATOR)
+            self.LOGIN_COOKIE_APPS_SEPARATOR)
     return []
 
   def update_cookie_app_list(self, owned_apps, request, response):
@@ -647,7 +650,7 @@ class AppDashboardHelper():
     nick = re.search('^(.*)@', email).group(1)
     hsh = self.get_appengine_hash(email, nick, apps)
     return urllib.quote("{1}{0}{2}{0}{3}{0}{4}".format(
-      self.LOGIN_COOKIE_SEPERATOR, email, nick, apps, hsh))
+      self.LOGIN_COOKIE_FIELD_SEPARATOR, email, nick, apps, hsh))
 
 
   def get_appengine_hash(self, email, nick, apps):
