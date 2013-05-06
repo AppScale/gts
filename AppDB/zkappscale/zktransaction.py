@@ -424,6 +424,7 @@ class ZKTransaction:
           return txn_id
     except kazoo.exceptions.ZookeeperError as zoo_exception:
       logging.exception(zoo_exception)
+      self.reestablish_connection()
     except kazoo.exceptions.KazooException as kazoo_exception:
       logging.exception(kazoo_exception)
       self.reestablish_connection()
@@ -999,6 +1000,7 @@ class ZKTransaction:
 
   def reestablish_connection(self):
     """ Checks the connection and resets it as needed. """
+    logging.info("Re-establishing ZooKeeper connection.")
     try:
       self.handle.stop()
     except kazoo.exceptions.ZookeeperError as close_exception:
