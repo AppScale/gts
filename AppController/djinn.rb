@@ -2380,7 +2380,7 @@ class Djinn
       end
     }
     Djinn.log_fatal("I am lost, could not find my node")
-    #abort
+    abort
   end
 
 

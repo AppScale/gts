@@ -158,11 +158,9 @@ class TestDjinn < Test::Unit::TestCase
 
     udpsocket = flexmock(UDPSocket)
     udpsocket.should_receive(:open).and_return("not any ips above")
-
-    expected_2 = "Error: Couldn't find me in the node map"
-    result_6 = djinn.set_parameters(one_node_info, credentials, app_names,
-      @secret)
-    assert_equal(expected_2, result_6)
+    assert_raises(SystemExit) {
+      djinn.set_parameters(one_node_info, credentials, app_names, @secret)
+    }
   end
 
   def test_set_params_w_good_params
