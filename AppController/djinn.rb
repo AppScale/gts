@@ -1528,7 +1528,8 @@ class Djinn
   end
 
 
-  # This method allows callers to log messages at the DEBUG level.
+  # This method logs a message that is useful to know when debugging AppScale,
+  # but is too extraneous to know when AppScale normally runs.
   #
   # Messages are logged both to STDOUT as well as to @@logs_buffer, which is
   # sent to the AppDashboard for viewing via a web UI.
@@ -1541,13 +1542,47 @@ class Djinn
   end
 
 
-  # This method allows callers to log messages at the INFO level.
+  # This method logs a message that is useful to know when AppScale normally
+  # runs.
   #
   # Args:
   #   message: A String containing the message to be logged.
   def self.log_info(message)
     @@log.info(message)
     self.log_to_buffer(Logger::INFO, message)
+  end
+
+
+  # This method logs a message that is useful to know when the AppController
+  # experiences an unexpected event.
+  #
+  # Args:
+  #   message: A String containing the message to be logged.
+  def self.log_warn(message)
+    @@log.warn(message)
+    self.log_to_buffer(Logger::WARN, message)
+  end
+
+
+  # This method logs a message that corresponds to an erroneous, but
+  # recoverable, event.
+  #
+  # Args:
+  #   message: A String containing the message to be logged.
+  def self.log_error(message)
+    @@log.error(message)
+    self.log_to_buffer(Logger::ERROR, message)
+  end
+
+
+  # This method logs a message that immediately precedes the death of this
+  # AppController.
+  #
+  # Args:
+  #   message: A String containing the message to be logged.
+  def self.log_fatal(message)
+    @@log.fatal(message)
+    self.log_to_buffer(Logger::FATAL, message)
   end
 
 
