@@ -382,7 +382,7 @@ class AppDashboardData():
       all_app_names_were_running = [app.key.id() for app in all_apps]
       all_app_names_are_running = [app for app in app_names_and_urls.keys()]
 
-      # Delete any apps that are no longer running
+      # Delete any apps that are no longer running.
       app_names_to_delete = []
       for app_name in all_app_names_were_running:
         if app_name not in all_app_names_are_running:
@@ -397,7 +397,7 @@ class AppDashboardData():
             apps_to_delete.append(app)
         ndb.delete_multi(apps_to_delete)
 
-      # Add in new apps that are now running
+      # Add in new apps that are now running.
       app_names_to_add = []
       for app_name in all_app_names_are_running:
         if app_name not in all_app_names_were_running:
