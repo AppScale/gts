@@ -89,6 +89,21 @@ module AppDashboard
       end
     }
 
+    begin
+      Djinn.log_info("Priming AppDashboard's cache")
+      start_time = Time.now
+      url = URI.parse("http://#{HelperFunctions.local_ip}:#{SERVER_PORTS[0]}/status/refresh")
+      http = Net::HTTP.new(url.host, url.port)
+      response = http.get(url.path)
+      end_time = Time.now
+      Djinn.log_debug("It took #{end_time - start_time} seconds to prime the AppDashboard's cache")
+    rescue Exception => e
+      # Don't crash the AppController because we weren't able to refresh the
+      # AppDashboard - just continue on.
+      Djinn.log_debug("Couldn't prime the AppDashboard's cache because of " +
+        "a #{e.class} exception.")
+    end
+
     Nginx.reload
     Collectd.restart
     return true
