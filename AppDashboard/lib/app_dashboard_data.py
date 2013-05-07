@@ -353,36 +353,59 @@ class AppDashboardData():
       application is still loading.
     """
     try:
-      updated_status = []
       status_on_all_nodes = self.helper.get_status_info()
-      ret = {}
-      if status_on_all_nodes:
-        for status in status_on_all_nodes:
-          for app in status['apps'].keys():
-            if app == 'none':
-              break
-            if status['apps'][app]:
-              try:
-                ret[app] = "http://{0}:{1}".format(self.helper.get_login_host(),
-                  self.helper.get_app_port(app))
-              except AppHelperException:
-                ret[app] = None
-            else:
-              ret[app] = None
-            app_status = self.get_by_id(AppStatus, app)
-            if not app_status:
-              app_status = AppStatus(id = app)
-              app_status.name = app
-            app_status.url = ret[app]
-            updated_status.append(app_status)
+      app_names_and_urls = {}
 
-          statuses = self.get_all(AppStatus, keys_only=True)
-          ndb.delete_multi(statuses)
-          return_list = []
-          for status in updated_status:
-            status.put()
-            return_list.append(status)
-      return ret
+      if not status_on_all_nodes:
+        return {}
+
+      for status in status_on_all_nodes:
+        for app, done_loading in status['apps'].iteritems():
+          if app == "none":
+            continue
+          if done_loading:
+            try:
+              app_names_and_urls[app] = "http://{0}:{1}".format(
+                self.helper.get_login_host(), self.helper.get_app_port(app))
+            except AppHelperException:
+              app_names_and_urls[app] = None
+          else:
+            app_names_and_urls[app] = None
+
+
+      all_apps = self.get_all(AppStatus)
+      all_app_names_were_running = [app.key.id() for app in all_apps]
+      all_app_names_are_running = [app for app in app_names_and_urls.keys()]
+
+      # Delete any apps that are no longer running
+      app_names_to_delete = []
+      for app_name in all_app_names_were_running:
+        if app_name not in all_app_names_are_running:
+          app_names_to_delete.append(app_name)
+        elif not app_names_and_urls[app_name]:
+          app_names_to_delete.append(app_name)
+
+      if app_names_to_delete:
+        apps_to_delete = []
+        for app in all_apps:
+          if app.name in app_names_to_delete:
+            apps_to_delete.append(app)
+        ndb.delete_multi(apps_to_delete)
+
+      # Add in new apps that are now running
+      app_names_to_add = []
+      for app_name in all_app_names_are_running:
+        if app_name not in all_app_names_were_running:
+          app_names_to_add.append(app_name)
+        elif app_names_and_urls[app_name]:
+          app_names_to_add.append(app_name)
+
+      if app_names_to_add:
+        apps_to_add = [AppStatus(id=app, name=app, url=app_names_and_urls[app])
+          for app in app_names_to_add]
+        ndb.put_multi(apps_to_add)
+
+      return app_names_and_urls
     except Exception as err:
       logging.exception(err)
       return {}

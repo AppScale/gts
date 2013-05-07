@@ -87,13 +87,13 @@ class TestAppDashboardData(unittest.TestCase):
 
 
   def setupAppStatusMocks(self):
-    fake_key1 = flexmock(name='key1')
+    fake_key1 = flexmock(name='key1', id=lambda: 'app1')
     fake_key1.should_receive('delete').and_return()
 
     fake_app1 = flexmock(name='app1', url='http://1.1.1.1:8080', key=fake_key1)
     fake_app1.should_receive('put').and_return()
 
-    fake_key2 = flexmock(name='key2')
+    fake_key2 = flexmock(name='key2', id=lambda: 'app2')
     fake_key2.should_receive('delete').and_return()
 
     fake_app2 = flexmock(name='app2', url=None, key=fake_key2)
