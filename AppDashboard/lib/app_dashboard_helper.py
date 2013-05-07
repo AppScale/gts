@@ -17,6 +17,7 @@ import SOAPpy
 from google.appengine.api.appcontroller_client import AppControllerClient
 from local_state import LocalState
 from secret_key import GLOBAL_SECRET_KEY
+from local_host import MY_PUBLIC_IP
 
 
 from google.appengine.api import users
@@ -56,11 +57,6 @@ class AppDashboardHelper():
   # An int indicating which position (starting at zero) the app owner list is in
   # the login cookie.
   LOGIN_COOKIE_APPS_PART = 2
-
-
-  # IP address of the AppController. Since an AppController runs on every node
-  # in AppScale, using the localhost IP is fine.
-  APP_CONTROLLER_IP = '127.0.0.1'
 
 
   # The port that the UserAppServer runs on, by default.
@@ -160,8 +156,7 @@ class AppDashboardHelper():
       An AppControllerClient, representing a connection to the AppController.
     """
     if self.appcontroller is None:
-      self.appcontroller = AppControllerClient(self.APP_CONTROLLER_IP, 
-        GLOBAL_SECRET_KEY)
+      self.appcontroller = AppControllerClient(MY_PUBLIC_IP, GLOBAL_SECRET_KEY)
     return self.appcontroller
 
 

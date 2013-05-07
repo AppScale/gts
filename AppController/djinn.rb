@@ -2455,7 +2455,7 @@ class Djinn
     maybe_start_taskqueue_worker(AppDashboard::APP_NAME)
 
     Djinn.log_debug("Starting cron service for #{AppDashboard::APP_NAME}")
-    CronHelper.update_cron(get_login.public_ip, AppDashboard::PROXY_PORT,
+    CronHelper.update_cron(get_login.public_ip, AppDashboard::LISTEN_PORT,
       AppDashboard::APP_LANGUAGE, AppDashboard::APP_NAME)
 
     maybe_start_taskqueue_worker("apichecker")
