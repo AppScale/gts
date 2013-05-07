@@ -2099,7 +2099,9 @@ class Djinn
           http.use_ssl = true
           response = http.post(url.path, encoded_logs,
             {'Content-Type'=>'application/json'})
-        rescue Timeout::Error
+        rescue Exception
+          # Don't crash the AppController because we weren't able to send over
+          # the logs - just continue on.
         end
       }
     }
@@ -2453,7 +2455,7 @@ class Djinn
     maybe_start_taskqueue_worker(AppDashboard::APP_NAME)
 
     Djinn.log_debug("Starting cron service for #{AppDashboard::APP_NAME}")
-    CronHelper.update_cron(get_login.public_ip, AppDashboard::PROXY_PORT,
+    CronHelper.update_cron(get_login.public_ip, AppDashboard::LISTEN_PORT,
       AppDashboard::APP_LANGUAGE, AppDashboard::APP_NAME)
 
     maybe_start_taskqueue_worker("apichecker")
@@ -3209,6 +3211,7 @@ HOSTS
       begin
         Djinn.log_debug("Asking for response from AppDashboard on port #{port}")
         Net::HTTP.get_response("#{my_private}:#{port}", '/status/refresh')
+        Net::HTTP.get_response("#{my_public}", '/status')
         Djinn.log_debug("Got response from AppDashboard on port #{port}")
       rescue SocketError
       end
