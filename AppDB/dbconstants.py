@@ -20,8 +20,6 @@ JOURNAL_TABLE = "JOURNAL__"
 
 ASC_PROPERTY_TABLE = "ASC_PROPERTY__"
 DSC_PROPERTY_TABLE = "DSC_PROPERTY__"
-APP_INDEX_TABLE = "APP_INDEXES__"
-APP_NAMESPACE_TABLE = "APP_NAMESPACES__"
 APP_ID_TABLE = "APP_IDS__"
 APP_ENTITY_TABLE = "ENTITIES__"
 APP_KIND_TABLE = "KINDS__"
@@ -29,8 +27,6 @@ JOURNAL_TABLE = "JOURNAL__"
 
 INITIAL_TABLES = [ASC_PROPERTY_TABLE,
                   DSC_PROPERTY_TABLE,
-                  APP_INDEX_TABLE,
-                  APP_NAMESPACE_TABLE,
                   APP_ID_TABLE,
                   APP_ENTITY_TABLE,
                   APP_KIND_TABLE,
@@ -58,10 +54,6 @@ APP_ENTITY_SCHEMA = [
 # Index tables store references are to entity table
 PROPERTY_SCHEMA = [
   "reference" ]
-APP_INDEX_SCHEMA = [
-  "indexes" ]
-APP_NAMESPACE_SCHEMA = [
-  "namespaces" ]
 APP_ID_SCHEMA = [
   "next_id" ]
 APP_KIND_SCHEMA = [
