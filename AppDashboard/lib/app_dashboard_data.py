@@ -378,6 +378,10 @@ class AppDashboardData():
             app_names_and_urls[app] = None
 
 
+      # To make sure that we only update apps that have been recently uploaded
+      # or removed, we grab a list of all the apps that were running before we
+      # asked the AppController and compare it against the list of apps that the
+      # AppController reports are now running.
       all_apps = self.get_all(AppStatus)
       all_app_names_were_running = [app.key.id() for app in all_apps]
       all_app_names_are_running = [app for app in app_names_and_urls.keys()]
