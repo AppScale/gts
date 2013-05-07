@@ -366,7 +366,7 @@ class AppDashboardData():
 
       for status in status_on_all_nodes:
         for app, done_loading in status['apps'].iteritems():
-          if app == NO_APPS_RUNNING:
+          if app == self.NO_APPS_RUNNING:
             continue
           if done_loading:
             try:

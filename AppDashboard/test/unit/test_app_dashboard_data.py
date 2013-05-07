@@ -136,7 +136,8 @@ class TestAppDashboardData(unittest.TestCase):
       .and_return(user_info3)
 
 
-  def setupFakeDeletes(self):
+  def setupFakePutsAndDeletes(self):
+    flexmock(ndb).should_receive('put_multi').and_return()
     flexmock(ndb).should_receive('delete_multi').and_return()
 
 
@@ -304,7 +305,7 @@ class TestAppDashboardData(unittest.TestCase):
     flexmock(AppDashboardHelper).should_receive('get_app_port')\
       .and_return('8080').never()
     self.setupAppStatusMocks()
-    self.setupFakeDeletes()
+    self.setupFakePutsAndDeletes()
 
     data1 = AppDashboardData()
     output = data1.update_application_info()
@@ -321,7 +322,7 @@ class TestAppDashboardData(unittest.TestCase):
     flexmock(AppDashboardHelper).should_receive('get_app_port')\
       .and_return('8080').once()
     self.setupAppStatusMocks()
-    self.setupFakeDeletes()
+    self.setupFakePutsAndDeletes()
 
     data1 = AppDashboardData()
     output = data1.update_application_info()
