@@ -123,7 +123,6 @@ class AppDashboardData():
     if not self.root:
       self.root = DashboardDataRoot(id = self.ROOT_KEYNAME)
       self.root.put()
-      self.update_all()
 
 
   def get_by_id(self, model, key_name):
