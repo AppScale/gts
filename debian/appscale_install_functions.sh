@@ -765,30 +765,6 @@ postinstallprotobuf()
     :;
 }
 
-installmysql()
-{
-    :;
-}
-
-postinstallmysql()
-{
-    # stop previous service
-    service mysql stop || true
-    service mysql-ndb stop || true
-    service mysql-ndb-mgm stop || true
-
-    # uninstall mysql services
-    update-rc.d -f mysql remove || true
-    update-rc.d -f mysql-ndb remove || true
-    update-rc.d -f mysql-ndb-mgm remove || true
-#    mkdir -p /var/lib/mysql-cluster/backup
-    mysqladmin shutdown
-
-    mkdir -p ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}
-    touch ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}/mysql
-}
-
-
 installpig()
 {
     mkdir -pv ${APPSCALE_HOME}/downloads

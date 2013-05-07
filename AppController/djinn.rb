@@ -1499,7 +1499,6 @@ class Djinn
     Djinn.log_run("rm -f ~/.appscale_cookies")
     Djinn.log_run("rm -f #{APPSCALE_HOME}/.appscale/status-*")
     Djinn.log_run("rm -f #{APPSCALE_HOME}/.appscale/database_info")
-    Djinn.log_run("rm -f /tmp/mysql.sock")
 
     Nginx.clear_sites_enabled
     Collectd.clear_sites_enabled
@@ -1661,10 +1660,8 @@ class Djinn
     return slave_ips
   end
 
-  def self.get_nearest_db_ip(is_mysql=false)
+  def self.get_nearest_db_ip()
     db_ips = self.get_db_slave_ips
-    # Unless this is mysql we include the master ip
-    # Update, now mysql also has an API node
     db_ips << self.get_db_master_ip
     db_ips.compact!
     

@@ -491,6 +491,7 @@ class DatastoreDistributed():
     """  
     res = self.datastore_batch.batch_get_entity(dbconstants.APP_ID_TABLE, 
       [prefix], dbconstants.APP_ID_SCHEMA)
+    print "acquire_next_id: " + str(res)
     if dbconstants.APP_ID_SCHEMA[0] in res[prefix]:
       return int(res[prefix][dbconstants.APP_ID_SCHEMA[0]])
     return self._FIRST_VALID_ALLOCATED_ID
@@ -2347,7 +2348,9 @@ class MainHandler(tornado.web.RequestHandler):
       apirequest.clear_request()
     method = apirequest.method()
     http_request_data = apirequest.request()
-
+    print method
+    if app_id not in ["appscaledashboard", "apichecker"]:
+      print http_request_data
     if method == "Put":
       response, errcode, errdetail = self.put_request(app_id, 
                                                  http_request_data)
@@ -2490,6 +2493,7 @@ class MainHandler(tornado.web.RequestHandler):
     """
     global datastore_access
     request = datastore_pb.AllocateIdsRequest(http_request_data)
+    print request
     response = datastore_pb.AllocateIdsResponse()
     reference = request.model_key()
 
