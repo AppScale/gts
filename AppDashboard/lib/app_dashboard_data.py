@@ -108,6 +108,11 @@ class AppDashboardData():
   MONITOR_PORT = 8050
 
 
+  # The sentinel app name that indicates that no apps are running on a given
+  # machine.
+  NO_APPS_RUNNING = "none"
+
+
   def __init__(self, helper=None):
     """ Creates a new AppDashboard, which will cache SOAP-exposed information
     provided to us by the AppDashboardHelper.
@@ -361,7 +366,7 @@ class AppDashboardData():
 
       for status in status_on_all_nodes:
         for app, done_loading in status['apps'].iteritems():
-          if app == "none":
+          if app == NO_APPS_RUNNING:
             continue
           if done_loading:
             try:
