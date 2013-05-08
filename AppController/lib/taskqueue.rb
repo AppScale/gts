@@ -56,7 +56,7 @@ module TaskQueue
   # Starts a service that we refer to as a "taskqueue_master", a RabbitMQ
   # service that other nodes can rely on to be running the taskqueue server.
   def self.start_master()
-    Djinn.log_debug("Starting TaskQueue Master")
+    Djinn.log_info("Starting TaskQueue Master")
     self.write_cookie()
     self.erase_local_files()
     # Because god cannot keep track of RabbitMQ because of it's changing 
@@ -81,7 +81,7 @@ module TaskQueue
   # playing the 'rabbitmq_master' role." We also start taskqueue servers on 
   # all taskqueue nodes.
   def self.start_slave(master_ip)
-    Djinn.log_debug("Starting TaskQueue Slave")
+    Djinn.log_info("Starting TaskQueue Slave")
     self.write_cookie()
     self.erase_local_files()
     
@@ -118,13 +118,13 @@ module TaskQueue
         end
       rescue Timeout::Error
         tries_left -= 1
-        Djinn.log_debug("Waited for RabbitMQ to start, but timed out. " +
+        Djinn.log_warn("Waited for RabbitMQ to start, but timed out. " +
           "Retries left #{tries_left}.")
         self.erase_local_files()
       end
       if tries_left == 0
-        Djinn.log_debug("CRITICAL ERROR: RabbitMQ slave failed to come up") 
-        return
+        Djinn.log_fatal("CRITICAL ERROR: RabbitMQ slave failed to come up")
+        abort
       end
     end
   end
