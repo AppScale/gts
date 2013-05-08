@@ -494,10 +494,9 @@ class AppDashboardData():
         user_info = self.get_by_id(UserInfo, email)
         if not user_info:
           user_info = UserInfo(id = email)
-        user_info.is_user_cloud_admin = self.helper.is_user_cloud_admin(
-          user_info.email)
-        user_info.can_upload_apps = self.helper.can_upload_apps(user_info.email)
-        user_info.owned_apps = self.helper.get_owned_apps(user_info.email)
+        user_info.is_user_cloud_admin = self.helper.is_user_cloud_admin(email)
+        user_info.can_upload_apps = self.helper.can_upload_apps(email)
+        user_info.owned_apps = self.helper.get_owned_apps(email)
         user_info.put()
         user_list.append(user_info)
       return user_list
