@@ -490,15 +490,35 @@ class AppDashboardData():
     user_list = []
     try:
       all_users_list = self.helper.list_all_users()
+      users_to_update = []
       for email in all_users_list:
         user_info = self.get_by_id(UserInfo, email)
-        if not user_info:
+        if user_info:
+          # Only update the model in the Datastore if one of the fields has
+          # changed.
+          is_user_cloud_admin = self.helper.is_user_cloud_admin(email)
+          can_upload_apps = self.helper.can_upload_apps(email)
+          owned_apps = self.helper.get_owned_apps(email)
+
+          if user_info.is_user_cloud_admin != is_user_cloud_admin or \
+            user_info.can_upload_apps != can_upload_apps or \
+            user_info.owned_apps != owned_apps:
+
+            user_info.is_user_cloud_admin = is_user_cloud_admin
+            user_info.can_upload_apps = can_upload_apps
+            user_info.owned_apps = owned_apps
+            users_to_update.append(user_info)
+
+          # Either way, add the user's info to the list of all user's info.
+          user_list.append(user_info)
+        else:
           user_info = UserInfo(id = email)
-        user_info.is_user_cloud_admin = self.helper.is_user_cloud_admin(email)
-        user_info.can_upload_apps = self.helper.can_upload_apps(email)
-        user_info.owned_apps = self.helper.get_owned_apps(email)
-        user_info.put()
-        user_list.append(user_info)
+          user_info.is_user_cloud_admin = self.helper.is_user_cloud_admin(email)
+          user_info.can_upload_apps = self.helper.can_upload_apps(email)
+          user_info.owned_apps = self.helper.get_owned_apps(email)
+          users_to_update.append(user_info)
+          user_list.append(user_info)
+      ndb.put_multi(users_to_update)
       return user_list
     except Exception as err:
       logging.exception(err)
