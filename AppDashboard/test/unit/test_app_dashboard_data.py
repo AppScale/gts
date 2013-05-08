@@ -224,6 +224,7 @@ class TestAppDashboardData(unittest.TestCase):
 
   def test_update_status_info(self):
     self.setupServerStatusMocks()
+    self.setupFakePutsAndDeletes()
     fake_get_appcontroller_client = flexmock()
     fake_get_appcontroller_client.should_receive('get_stats') \
       .and_return([

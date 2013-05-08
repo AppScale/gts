@@ -44,14 +44,13 @@ class ServerStatus(ndb.Model):
   running in this AppScale deployment.
 
   Fields:
-    ip: The hostname (IP or FQDN) corresponding to this machine.
+    id: The hostname (IP or FQDN) corresponding to this machine.
     cpu: The percent of CPU currently in use on this machine.
     memory: The percent of RAM currently in use on this machine.
     disk: The percent of hard disk space in use on this machine.
     roles: A list of strs, where each str corresponds to a service that this
       machine runs.
   """
-  ip = ndb.StringProperty()
   cpu = ndb.StringProperty()
   memory = ndb.StringProperty()
   disk = ndb.StringProperty()
@@ -76,7 +75,7 @@ class UserInfo(ndb.Model):
   for accounts in this AppScale deployment.
 
   Fields:
-    email: A str that contains the e-mail address the user signed up with.
+    id: A str that contains the e-mail address the user signed up with.
     is_user_cloud_admin: A bool that indicates if the user is authorized to
       perform any action on this AppScale cloud (e.g., remove any app, view all
       logs).
@@ -86,7 +85,6 @@ class UserInfo(ndb.Model):
     owned_apps: A list of strs, where each str represents an application ID
       that the user has administrative rights on.
   """
-  email = ndb.StringProperty()
   is_user_cloud_admin = ndb.BooleanProperty()
   can_upload_apps = ndb.BooleanProperty()
   owned_apps = ndb.StringProperty(repeated=True)
@@ -261,8 +259,8 @@ class AppDashboardData():
         in this AppScale deployment.
     """
     servers = self.get_all(ServerStatus)
-    return [{'ip' : server.ip, 'cpu' : server.cpu, 'memory' : server.memory,
-      'disk' : server.disk, 'roles' : server.roles,
+    return [{'ip' : server.key.id(), 'cpu' : server.cpu,
+      'memory' : server.memory, 'disk' : server.disk, 'roles' : server.roles,
       'key' : server.key.id().translate(None, '.') } for server in servers]
 
 
@@ -272,16 +270,29 @@ class AppDashboardData():
     """
     try:
       nodes = self.helper.get_appcontroller_client().get_stats()
+      updated_statuses = []
       for node in nodes:
         status = self.get_by_id(ServerStatus, node['ip'])
-        if not status:
+        if status:
+          # Make sure that at least one field changed before we decide to
+          # update this ServerStatus.
+          if status.cpu != str(node['cpu']) or \
+            status.memory != str(node['memory']) or \
+            status.disk != str(node['disk']) or status.roles != node['roles']:
+
+            status.cpu = str(node['cpu'])
+            status.memory = str(node['memory'])
+            status.disk = str(node['disk'])
+            status.roles = node['roles']
+            updated_statuses.append(status)
+        else:
           status = ServerStatus(id = node['ip'])
-          status.ip = node['ip']
-        status.cpu = str(node['cpu'])
-        status.memory = str(node['memory'])
-        status.disk = str(node['disk'])
-        status.roles = node['roles']
-        status.put()
+          status.cpu = str(node['cpu'])
+          status.memory = str(node['memory'])
+          status.disk = str(node['disk'])
+          status.roles = node['roles']
+          updated_statuses.append(status)
+      ndb.put_multi(updated_statuses)
     except Exception as err:
       logging.exception(err)
 
@@ -424,7 +435,6 @@ class AppDashboardData():
           else:
             app_names_and_urls[app] = None
 
-
       # To make sure that we only update apps that have been recently uploaded
       # or removed, we grab a list of all the apps that were running before we
       # asked the AppController and compare it against the list of apps that the
@@ -483,8 +493,7 @@ class AppDashboardData():
       for email in all_users_list:
         user_info = self.get_by_id(UserInfo, email)
         if not user_info:
-          user_info = UserInfo(id=email)
-          user_info.email = email
+          user_info = UserInfo(id = email)
         user_info.is_user_cloud_admin = self.helper.is_user_cloud_admin(
           user_info.email)
         user_info.can_upload_apps = self.helper.can_upload_apps(user_info.email)
