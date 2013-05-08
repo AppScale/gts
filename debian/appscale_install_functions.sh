@@ -548,6 +548,7 @@ postinstallgems()
 installmonitoring()
 {
     cd ${APPSCALE_HOME}/AppMonitoring
+    mkdir -p /var/lib/collectd/rrd
     RAILS_ENV=production rake gems:build:force
     RAILS_ENV=production rake db:migrate
 }
@@ -782,7 +783,7 @@ postinstallmysql()
     update-rc.d -f mysql-ndb remove || true
     update-rc.d -f mysql-ndb-mgm remove || true
 #    mkdir -p /var/lib/mysql-cluster/backup
-    mysqladmin shutdown
+    mysqladmin shutdown || true
 
     mkdir -p ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}
     touch ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}/mysql
@@ -846,7 +847,7 @@ postinstallservice()
     update-rc.d -f memcached remove || true
     update-rc.d -f collectd remove || true
 
-    ejabberdctl stop
+    ejabberdctl stop || true
     update-rc.d -f ejabberd remove || true
 }
 
@@ -1034,7 +1035,7 @@ installrabbitmq()
 postinstallrabbitmq()
 {
     # After install it starts up, shut it down
-    rabbitmqctl stop
+    rabbitmqctl stop || true
     update-rc.d -f rabbitmq remove || true
     update-rc.d -f rabbitmq-server remove || true
 }
