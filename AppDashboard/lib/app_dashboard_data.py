@@ -32,7 +32,9 @@ class ApiStatus(ndb.Model):
   Google App Engine API that AppScale provides support for.
 
   Fields:
-    id: A str that corresponds to the name of the Google App Engine API.
+    id: A str that corresponds to the name of the Google App Engine API. This
+      field isn't explicitly defined because all ndb.Models have a str id
+      that uniquely identifies them in the Datastore.
     status: A str that indicates what the current status of the API is (e.g.,
       running, failed, unknown).
   """
@@ -44,7 +46,9 @@ class ServerStatus(ndb.Model):
   running in this AppScale deployment.
 
   Fields:
-    id: The hostname (IP or FQDN) corresponding to this machine.
+    id: The hostname (IP or FQDN) corresponding to this machine. This field
+      isn't explicitly defined because all ndb.Models have a str id that
+      uniquely identifies them in the Datastore.
     cpu: The percent of CPU currently in use on this machine.
     memory: The percent of RAM currently in use on this machine.
     disk: The percent of hard disk space in use on this machine.
@@ -75,7 +79,9 @@ class UserInfo(ndb.Model):
   for accounts in this AppScale deployment.
 
   Fields:
-    id: A str that contains the e-mail address the user signed up with.
+    id: A str that contains the e-mail address the user signed up with. This
+      field isn't explicitly defined because all ndb.Models have a str id that
+      uniquely identifies them in the Datastore.
     is_user_cloud_admin: A bool that indicates if the user is authorized to
       perform any action on this AppScale cloud (e.g., remove any app, view all
       logs).
@@ -192,8 +198,8 @@ class AppDashboardData():
 
 
   def update_head_node_ip(self):
-    """ Updates the Datastore with the IP address or FQDN where the node running
-    the shadow service can be found.
+    """ Updates the Datastore with the IP address or FQDN of the node running
+    the shadow service.
 
     This update is only performed if there is no data in the Datastore about the
     current location of the head node, as this is unlikely to dynamically change
