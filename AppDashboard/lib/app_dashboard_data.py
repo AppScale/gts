@@ -194,7 +194,11 @@ class AppDashboardData():
     Returns:
       A str containing the IP address or FQDN of the shadow node.
     """
-    return self.get_by_id(DashboardDataRoot, self.ROOT_KEYNAME).head_node_ip
+    dashboard_root = self.get_by_id(DashboardDataRoot, self.ROOT_KEYNAME)
+    if dashboard_root and dashboard_root.head_node_ip is not None:
+      return dashboard_root.head_node_ip
+    else:
+      return self.update_head_node_ip()
 
 
   def update_head_node_ip(self):
@@ -210,7 +214,7 @@ class AppDashboardData():
       there was an error updating the head node's IP address.
     """
     dashboard_root = self.get_by_id(DashboardDataRoot, self.ROOT_KEYNAME)
-    if dashboard_root and dashboard_root.head_node_ip:
+    if dashboard_root and dashboard_root.head_node_ip is not None:
       return dashboard_root.head_node_ip
 
     try:
