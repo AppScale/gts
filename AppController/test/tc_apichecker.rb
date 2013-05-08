@@ -25,16 +25,22 @@ class TestAPIChecker < Test::Unit::TestCase
     nginx = flexmock(Nginx)
  
     djinn.should_receive(:log_debug).and_return()
+    djinn.should_receive(:log_info).and_return()
+    djinn.should_receive(:log_error).and_return()
     djinn.should_receive(:log_run).and_return()
+
     helper_functions.should_receive(:parse_static_data).and_return([])
     helper_functions.should_receive(:setup_app).and_return()
     helper_functions.should_receive(:read_file).and_return("fake contents")
     helper_functions.should_receive(:write_file).and_return()
     helper_functions.should_receive(:local_ip).and_return('123.123.123.123')
+
     nginx.should_receive(:write_app_config).and_return()
     nginx.should_receive(:reload).and_return()
+
     haproxy.should_receive(:app_list_port).and_return(20000)
     haproxy.should_receive(:write_app_config).and_return()
+
     collectd.should_receive(:write_app_config).and_return()
     collectd.should_receive(:restart).and_return()
     
@@ -56,16 +62,22 @@ class TestAPIChecker < Test::Unit::TestCase
     nginx = flexmock(Nginx)
  
     djinn.should_receive(:log_debug).and_return()
+    djinn.should_receive(:log_info).and_return()
+    djinn.should_receive(:log_error).and_return()
     djinn.should_receive(:log_run).and_return()
+
     helper_functions.should_receive(:parse_static_data).and_return([])
     helper_functions.should_receive(:setup_app).and_return()
     helper_functions.should_receive(:read_file).and_return("fake contents")
     helper_functions.should_receive(:write_file).and_return()
     helper_functions.should_receive(:local_ip).and_return('123.123.123.123')
+
     nginx.should_receive(:write_app_config).and_return()
     nginx.should_receive(:reload).and_return()
+
     haproxy.should_receive(:app_list_port).and_return(20000)
     haproxy.should_receive(:write_app_config).and_return()
+
     collectd.should_receive(:write_app_config).and_return()
     collectd.should_receive(:restart).and_return()
     

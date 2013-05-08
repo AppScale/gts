@@ -63,7 +63,7 @@ def setup_db_config_files(master_ip, slave_ips, creds)
 end
 def start_db_master()
   @state = "Starting up Cassandra on the head node"
-  Djinn.log_debug("Starting up Cassandra as master")
+  Djinn.log_info("Starting up Cassandra as master")
 
   Djinn.log_run("pkill ThriftBroker")
   if DROP_TABLES
@@ -77,7 +77,7 @@ end
 
 def start_db_slave()
   @state = "Waiting for Cassandra to come up"
-  Djinn.log_debug("Starting up Cassandra as slave")
+  Djinn.log_info("Starting up Cassandra as slave")
 
   HelperFunctions.sleep_until_port_is_open(Djinn.get_db_master_ip, 9160)
   sleep(5)
@@ -91,12 +91,12 @@ def start_db_slave()
 end
 
 def stop_db_master
-  Djinn.log_debug("Stopping Cassandra master")
+  Djinn.log_info("Stopping Cassandra master")
   Djinn.log_run("cat /var/appscale/appscale-cassandra.pid | xargs kill -9")
 end
 
 def stop_db_slave
-  Djinn.log_debug("Stopping Cassandra slave")
+  Djinn.log_info("Stopping Cassandra slave")
   if DROP_TABLES
     Djinn.log_run("#{APPSCALE_HOME}/AppDB/cassandra/cassandra/bin/nodetool decommission -h #{HelperFunctions.local_ip} -p 6666")
   end

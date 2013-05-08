@@ -19,6 +19,9 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(Logger).new_instances { |instance|
       instance.should_receive(:debug).and_return()
       instance.should_receive(:info).and_return()
+      instance.should_receive(:warn).and_return()
+      instance.should_receive(:error).and_return()
+      instance.should_receive(:fatal).and_return()
     }
 
     djinn = flexmock(Djinn)
@@ -155,11 +158,9 @@ class TestDjinn < Test::Unit::TestCase
 
     udpsocket = flexmock(UDPSocket)
     udpsocket.should_receive(:open).and_return("not any ips above")
-
-    expected_2 = "Error: Couldn't find me in the node map"
-    result_6 = djinn.set_parameters(one_node_info, credentials, app_names,
-      @secret)
-    assert_equal(expected_2, result_6)
+    assert_raises(SystemExit) {
+      djinn.set_parameters(one_node_info, credentials, app_names, @secret)
+    }
   end
 
   def test_set_params_w_good_params
@@ -992,9 +993,9 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal([], Djinn.get_logs_buffer())
 
     # do a couple log statements to populate the buffer
-    Djinn.log_debug("one")
-    Djinn.log_debug("two")
-    Djinn.log_debug("three")
+    Djinn.log_fatal("one")
+    Djinn.log_fatal("two")
+    Djinn.log_fatal("three")
 
     # and make sure they're in there
     assert_equal(3, Djinn.get_logs_buffer().length)
