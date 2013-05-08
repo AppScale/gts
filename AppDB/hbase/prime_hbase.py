@@ -1,53 +1,50 @@
-import sys, time
+""" Primes the HBase datastore with the required AppScale tables. """
+import sys
 import os 
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(os.path.join(os.path.dirname(__file__)))
 
-import Hbase
-import ttypes
-import string
-from thrift import Thrift
-from thrift.transport import TSocket
-from thrift.transport import TTransport
-from thrift.protocol import TBinaryProtocol
-import py_hbase
+import dbconstants
 import hbase_interface
-from dbconstants import *
+import py_hbase
 
 def create_table(table_name, columns):
-  """ Calls HBase to create a table 
+  """ Calls the HBase interface to create a table.
 
   Args:
-  table_name: Table to create
-  columns: columns for the table
+    table_name: A str, table to create.
+    columns: A list of columns for the table.
   Returns:
-  A list of current tables
+    A list of current tables.
   """
   client = py_hbase.DatastoreProxy()
   return client.create_table(table_name, columns)
 
 def create_app_tables():
-  """ Creates application tables for AppScale
-  """
-  db = hbase_interface.DatastoreProxy()
-  db.create_table(ASC_PROPERTY_TABLE, PROPERTY_SCHEMA)
-  db.create_table(DSC_PROPERTY_TABLE, PROPERTY_SCHEMA)
-  db.create_table(APP_INDEX_TABLE, APP_INDEX_SCHEMA)
-  db.create_table(APP_NAMESPACE_TABLE, APP_NAMESPACE_SCHEMA)
-  db.create_table(APP_ID_TABLE, APP_ID_SCHEMA)
-  db.create_table(APP_ENTITY_TABLE, APP_ENTITY_SCHEMA)
-  db.create_table(APP_KIND_TABLE, APP_KIND_SCHEMA)
-  db.create_table(JOURNAL_TABLE, JOURNAL_SCHEMA)
+  """ Creates application tables for AppScale. """
+  db_store = hbase_interface.DatastoreProxy()
+  db_store.create_table(dbconstants.ASC_PROPERTY_TABLE, 
+    dbconstants.PROPERTY_SCHEMA)
+  db_store.create_table(dbconstants.DSC_PROPERTY_TABLE, 
+    dbconstants.PROPERTY_SCHEMA)
+  db_store.create_table(dbconstants.APP_ID_TABLE, 
+    dbconstants.APP_ID_SCHEMA)
+  db_store.create_table(dbconstants.APP_ENTITY_TABLE, 
+    dbconstants.APP_ENTITY_SCHEMA)
+  db_store.create_table(dbconstants.APP_KIND_TABLE, 
+    dbconstants.APP_KIND_SCHEMA)
+  db_store.create_table(dbconstants.JOURNAL_TABLE, 
+    dbconstants.JOURNAL_SCHEMA)
 
 def prime_hbase():
   """ Creates tables required for AppScale
   """
   print "prime hbase database"
   create_app_tables()
-  create_table(USERS_TABLE, USERS_SCHEMA)
-  result = create_table(APPS_TABLE, APPS_SCHEMA)
-  if (USERS_TABLE in result) and (APPS_TABLE in result):
+  create_table(dbconstants.USERS_TABLE, dbconstants.USERS_SCHEMA)
+  result = create_table(dbconstants.APPS_TABLE, dbconstants.APPS_SCHEMA)
+  if (dbconstants.USERS_TABLE in result) and (dbconstants.APPS_TABLE in result):
     print "CREATE TABLE SUCCESS FOR USER AND APPS:"
     print result
     return 0

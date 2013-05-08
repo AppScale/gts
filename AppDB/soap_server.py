@@ -1,47 +1,80 @@
-# Author: Navraj Chohan
-# 2nd major revision: No longer are tables being cached in memory
-# See LICENSE file
+""" This SOAP server is a data access layer over the datastore. It 
+presents information about applications and users as SOAP callable
+functions.
 
-import sys
-import SOAPpy
-import time
+"""
+#TODO(raj) Rewrite this to use the lastest version of the AppScale 
+# datastore API.
+
 import datetime
+import os
 import re
+import sys
+import time
+
 from dbconstants import *
 import appscale_datastore
+
 from M2Crypto import SSL
+import SOAPpy
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import constants
 
+#TODO(raj): Comment all these constants.
+
 APP_TABLE = APPS_TABLE
+
 USER_TABLE = USERS_TABLE
+
 DEFAULT_USER_LOCATION = ".flatfile_users"
+
 DEFAULT_APP_LOCATION = ".flatfile_apps"
+
 DEFAULT_DATASTORE = "hbase"
+
 DEFAULT_SSL_PORT = 4343
+
 DEFAULT_PORT = 9899
+
 IP_TABLE = "IPS___"
+
 DEFAULT_ENCRYPTION = 1
+
 VALID_DATASTORES = []   
+
 CERT_LOCATION = constants.APPSCALE_HOME + "/.appscale/certs/mycert.pem" 
+
 KEY_LOCATION = constants.APPSCALE_HOME + "/.appscale/certs/mykey.pem" 
+
 SECRET_LOCATION = constants.APPSCALE_HOME + "/.appscale/secret.key"
+
 user_location = DEFAULT_USER_LOCATION
+
 app_location = DEFAULT_APP_LOCATION
+
 datastore_type = DEFAULT_DATASTORE
+
 encryptOn = DEFAULT_ENCRYPTION
+
 bindport = DEFAULT_SSL_PORT
 
 ERROR_CODES = []
+
 super_secret = ""
+
 DEBUG = True
+
 db = []
+
 user_schema = []
+
 app_schema = []
 
 APPNAME_REGEX = r'^[\d\w\.@-]+$'
+
 VALID_USER_TYPES = ["user", "xmpp_user", "app", "channel"]
+
 class Users:
   attributes_ = USERS_SCHEMA
   def __init__(self, email, password, utype):
