@@ -3,11 +3,10 @@ if [ -z "$APPSCALE_HOME_RUNTIME" ]; then
     export APPSCALE_HOME_RUNTIME=`pwd`
 fi
 
-. debian/appscale_install_functions.sh
-
 DESTDIR=$2
 APPSCALE_HOME=${DESTDIR}${APPSCALE_HOME_RUNTIME}
-DIST=`lsb_release -c -s`
+
+. debian/appscale_install_functions.sh
 
 echo "Install AppScale into ${APPSCALE_HOME}"
 echo "APPSCALE_HOME in runtime=${APPSCALE_HOME_RUNTIME}"
