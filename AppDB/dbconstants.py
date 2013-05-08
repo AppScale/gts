@@ -2,12 +2,6 @@
 """
  Datastore Constants
 """
-import os
-import sys 
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
-import constants
-
 SECRET_LOCATION = "/etc/appscale/secret.key"
 
 ERROR_DEFAULT = "DB_ERROR:"
@@ -20,8 +14,6 @@ JOURNAL_TABLE = "JOURNAL__"
 
 ASC_PROPERTY_TABLE = "ASC_PROPERTY__"
 DSC_PROPERTY_TABLE = "DSC_PROPERTY__"
-APP_INDEX_TABLE = "APP_INDEXES__"
-APP_NAMESPACE_TABLE = "APP_NAMESPACES__"
 APP_ID_TABLE = "APP_IDS__"
 APP_ENTITY_TABLE = "ENTITIES__"
 APP_KIND_TABLE = "KINDS__"
@@ -29,8 +21,6 @@ JOURNAL_TABLE = "JOURNAL__"
 
 INITIAL_TABLES = [ASC_PROPERTY_TABLE,
                   DSC_PROPERTY_TABLE,
-                  APP_INDEX_TABLE,
-                  APP_NAMESPACE_TABLE,
                   APP_ID_TABLE,
                   APP_ENTITY_TABLE,
                   APP_KIND_TABLE,
@@ -58,10 +48,6 @@ APP_ENTITY_SCHEMA = [
 # Index tables store references are to entity table
 PROPERTY_SCHEMA = [
   "reference" ]
-APP_INDEX_SCHEMA = [
-  "indexes" ]
-APP_NAMESPACE_SCHEMA = [
-  "namespaces" ]
 APP_ID_SCHEMA = [
   "next_id" ]
 APP_KIND_SCHEMA = [
@@ -104,18 +90,18 @@ APPS_SCHEMA = [
   "classes",
   "indexes" ]
 
-APPENGINE_SCHEMA= ["""
+APPENGINE_SCHEMA = ["""
 CREATE TABLE IF NOT EXISTS Apps (
   app_id VARCHAR(255) NOT NULL PRIMARY KEY,
   indexes VARCHAR(255)
 ) ENGINE=ndbcluster;
-""","""
+""", """
 CREATE TABLE IF NOT EXISTS Namespaces (
   app_id VARCHAR(255) NOT NULL,
   name_space VARCHAR(255) NOT NULL,
   PRIMARY KEY (app_id, name_space)
 ) ENGINE=ndbcluster;
-""","""
+""", """
 CREATE TABLE IF NOT EXISTS IdSeq (
   prefix VARCHAR(255) NOT NULL PRIMARY KEY,
   next_id INT(100) NOT NULL
@@ -129,6 +115,7 @@ class AppScaleDBConnectionError(Exception):
   """ Tossed when there is a bad connection
   """ 
   def __init__(self, value):
+    Exception.__init__(self, value)
     self.value = value
   def __str__(self):
     return repr(self.value)
@@ -137,6 +124,7 @@ class AppScaleMisconfiguredQuery(Exception):
   """ Tossed when a query is misconfigured
   """
   def __init__(self, value):
+    Exception.__init__(self, value)
     self.value = value
   def __str__(self):
     return repr(self.value)
@@ -145,8 +133,8 @@ class AppScaleBadArg(Exception):
   """ Bad Argument given for a function
   """
   def __init__(self, value):
+    Exception.__init__(self, value)
     self.value = value
   def __str__(self):
     return repr(self.value)
 
-  
