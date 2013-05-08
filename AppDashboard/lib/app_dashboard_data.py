@@ -32,12 +32,13 @@ class ApiStatus(ndb.Model):
   Google App Engine API that AppScale provides support for.
 
   Fields:
-    name: A str that corresponds to the name of the Google App Engine API.
-    value: A str that indicates what the current status of the API is (e.g.,
+    id: A str that corresponds to the name of the Google App Engine API. This
+      field isn't explicitly defined because all ndb.Models have a str id
+      that uniquely identifies them in the Datastore.
+    status: A str that indicates what the current status of the API is (e.g.,
       running, failed, unknown).
   """
-  name = ndb.StringProperty()
-  value = ndb.StringProperty()
+  status = ndb.StringProperty()
 
 
 class ServerStatus(ndb.Model):
@@ -45,14 +46,15 @@ class ServerStatus(ndb.Model):
   running in this AppScale deployment.
 
   Fields:
-    ip: The hostname (IP or FQDN) corresponding to this machine.
+    id: The hostname (IP or FQDN) corresponding to this machine. This field
+      isn't explicitly defined because all ndb.Models have a str id that
+      uniquely identifies them in the Datastore.
     cpu: The percent of CPU currently in use on this machine.
     memory: The percent of RAM currently in use on this machine.
     disk: The percent of hard disk space in use on this machine.
     roles: A list of strs, where each str corresponds to a service that this
       machine runs.
   """
-  ip = ndb.StringProperty()
   cpu = ndb.StringProperty()
   memory = ndb.StringProperty()
   disk = ndb.StringProperty()
@@ -77,7 +79,9 @@ class UserInfo(ndb.Model):
   for accounts in this AppScale deployment.
 
   Fields:
-    email: A str that contains the e-mail address the user signed up with.
+    id: A str that contains the e-mail address the user signed up with. This
+      field isn't explicitly defined because all ndb.Models have a str id that
+      uniquely identifies them in the Datastore.
     is_user_cloud_admin: A bool that indicates if the user is authorized to
       perform any action on this AppScale cloud (e.g., remove any app, view all
       logs).
@@ -87,7 +91,6 @@ class UserInfo(ndb.Model):
     owned_apps: A list of strs, where each str represents an application ID
       that the user has administrative rights on.
   """
-  email = ndb.StringProperty()
   is_user_cloud_admin = ndb.BooleanProperty()
   can_upload_apps = ndb.BooleanProperty()
   owned_apps = ndb.StringProperty(repeated=True)
@@ -124,10 +127,6 @@ class AppDashboardData():
         AppDashboardHelper to talk to the AppController.
     """
     self.helper = helper or AppDashboardHelper()
-    self.root = self.get_by_id(DashboardDataRoot, self.ROOT_KEYNAME)
-    if not self.root:
-      self.root = DashboardDataRoot(id = self.ROOT_KEYNAME)
-      self.root.put()
 
 
   def get_by_id(self, model, key_name):
@@ -195,17 +194,33 @@ class AppDashboardData():
     Returns:
       A str containing the IP address or FQDN of the shadow node.
     """
-    return self.root.head_node_ip
+    return self.get_by_id(DashboardDataRoot, self.ROOT_KEYNAME).head_node_ip
 
 
   def update_head_node_ip(self):
-    """ Updates the Datastore with the IP address or FQDN where the node running
-    the shadow service can be found. """
+    """ Updates the Datastore with the IP address or FQDN of the node running
+    the shadow service.
+
+    This update is only performed if there is no data in the Datastore about the
+    current location of the head node, as this is unlikely to dynamically change
+    at this time.
+
+    Returns:
+      A str containing the IP address or FQDN of the shadow node, or None if
+      there was an error updating the head node's IP address.
+    """
+    dashboard_root = self.get_by_id(DashboardDataRoot, self.ROOT_KEYNAME)
+    if dashboard_root and dashboard_root.head_node_ip:
+      return dashboard_root.head_node_ip
+
     try:
-      self.root.head_node_ip = self.helper.get_host_with_role('shadow')
-      self.root.put()
+      dashboard_root = DashboardDataRoot(id = self.ROOT_KEYNAME)
+      dashboard_root.head_node_ip = self.helper.get_host_with_role('shadow')
+      dashboard_root.put()
+      return dashboard_root.head_node_ip
     except Exception as err:
       logging.exception(err)
+      return None
 
 
   def get_api_status(self):
@@ -217,7 +232,7 @@ class AppDashboardData():
       indicates if the API is running, has failed, or is in an unknown state
       (also a str).
     """
-    return dict((api.name, api.value) for api in self.get_all(ApiStatus))
+    return dict((api.key.id(), api.status) for api in self.get_all(ApiStatus))
 
 
   def update_api_status(self):
@@ -226,14 +241,17 @@ class AppDashboardData():
     contacting the AppController. """
     try:
       acc = self.helper.get_appcontroller_client()
-      stat_dict = acc.get_api_status()
-      for key in stat_dict.keys():
-        store = self.get_by_id(ApiStatus, key)
-        if not store:
-          store = ApiStatus(id = key)
-          store.name = key
-        store.value = stat_dict[key]
-        store.put()
+      updated_status = acc.get_api_status()
+      updated_datastore_entries = []
+      for api_name, api_status in updated_status.iteritems():
+        store = self.get_by_id(ApiStatus, api_name)
+        if store and store.status != api_status:
+          store.status = api_status
+          updated_datastore_entries.append(store)
+        else:
+          store = ApiStatus(id = api_name, status = api_status)
+          updated_datastore_entries.append(store)
+      ndb.put_multi(updated_datastore_entries)
     except Exception as err:
       logging.exception(err)
 
@@ -247,8 +265,8 @@ class AppDashboardData():
         in this AppScale deployment.
     """
     servers = self.get_all(ServerStatus)
-    return [{'ip' : server.ip, 'cpu' : server.cpu, 'memory' : server.memory,
-      'disk' : server.disk, 'roles' : server.roles,
+    return [{'ip' : server.key.id(), 'cpu' : server.cpu,
+      'memory' : server.memory, 'disk' : server.disk, 'roles' : server.roles,
       'key' : server.key.id().translate(None, '.') } for server in servers]
 
 
@@ -258,16 +276,29 @@ class AppDashboardData():
     """
     try:
       nodes = self.helper.get_appcontroller_client().get_stats()
+      updated_statuses = []
       for node in nodes:
         status = self.get_by_id(ServerStatus, node['ip'])
-        if not status:
+        if status:
+          # Make sure that at least one field changed before we decide to
+          # update this ServerStatus.
+          if status.cpu != str(node['cpu']) or \
+            status.memory != str(node['memory']) or \
+            status.disk != str(node['disk']) or status.roles != node['roles']:
+
+            status.cpu = str(node['cpu'])
+            status.memory = str(node['memory'])
+            status.disk = str(node['disk'])
+            status.roles = node['roles']
+            updated_statuses.append(status)
+        else:
           status = ServerStatus(id = node['ip'])
-          status.ip = node['ip']
-        status.cpu = str(node['cpu'])
-        status.memory = str(node['memory'])
-        status.disk = str(node['disk'])
-        status.roles = node['roles']
-        status.put()
+          status.cpu = str(node['cpu'])
+          status.memory = str(node['memory'])
+          status.disk = str(node['disk'])
+          status.roles = node['roles']
+          updated_statuses.append(status)
+      ndb.put_multi(updated_statuses)
     except Exception as err:
       logging.exception(err)
 
@@ -281,22 +312,55 @@ class AppDashboardData():
       A dict containing the name of the database used (a str), as well as the
       number of replicas for each piece of data (an int).
     """
-    return {'table' : self.root.table, 'replication' : self.root.replication}
+    dashboard_root = self.get_by_id(DashboardDataRoot, self.ROOT_KEYNAME)
+    if dashboard_root:
+      return {
+        'table' : dashboard_root.table,
+        'replication' : dashboard_root.replication
+      }
+    else:
+      return {
+        'table' : 'unknown',
+        'replication' : 0
+      }
 
 
   def update_database_info(self):
     """ Queries the AppController for information about what datastore is used
     to implement support for the Google App Engine Datastore API, placing this
     info in the Datastore for later viewing.
+
+    This update is only performed if there is no data in the Datastore about the
+    current location of the head node, as this is unlikely to dynamically change
+    at this time.
+
+    Returns:
+      A dict containing the name of the database used (a str), as well as the
+      number of replicas for each piece of data (an int).
     """
+    dashboard_root = self.get_by_id(DashboardDataRoot, self.ROOT_KEYNAME)
+    if dashboard_root and dashboard_root.table and dashboard_root.replication:
+      return {
+        'table' : dashboard_root.table,
+        'replication' : dashboard_root.replication
+      }
+
     try:
       acc = self.helper.get_appcontroller_client()
       db_info = acc.get_database_information()
-      self.root.table = db_info['table']
-      self.root.replication = int(db_info['replication'])
-      self.root.put()
+      dashboard_root = DashboardDataRoot(id = self.ROOT_KEYNAME,
+        table = db_info['table'], replication = int(db_info['replication']))
+      dashboard_root.put()
+      return {
+        'table' : dashboard_root.table,
+        'replication' : dashboard_root.replication
+      }
     except Exception as err:
       logging.exception(err)
+      return {
+        'table' : 'unknown',
+        'replication' : 0
+      }
 
 
   def get_application_info(self):
@@ -377,7 +441,6 @@ class AppDashboardData():
           else:
             app_names_and_urls[app] = None
 
-
       # To make sure that we only update apps that have been recently uploaded
       # or removed, we grab a list of all the apps that were running before we
       # asked the AppController and compare it against the list of apps that the
@@ -433,17 +496,35 @@ class AppDashboardData():
     user_list = []
     try:
       all_users_list = self.helper.list_all_users()
+      users_to_update = []
       for email in all_users_list:
         user_info = self.get_by_id(UserInfo, email)
-        if not user_info:
-          user_info = UserInfo(id=email)
-          user_info.email = email
-        user_info.is_user_cloud_admin = self.helper.is_user_cloud_admin(
-          user_info.email)
-        user_info.can_upload_apps = self.helper.can_upload_apps(user_info.email)
-        user_info.owned_apps = self.helper.get_owned_apps(user_info.email)
-        user_info.put()
-        user_list.append(user_info)
+        if user_info:
+          # Only update the model in the Datastore if one of the fields has
+          # changed.
+          is_user_cloud_admin = self.helper.is_user_cloud_admin(email)
+          can_upload_apps = self.helper.can_upload_apps(email)
+          owned_apps = self.helper.get_owned_apps(email)
+
+          if user_info.is_user_cloud_admin != is_user_cloud_admin or \
+            user_info.can_upload_apps != can_upload_apps or \
+            user_info.owned_apps != owned_apps:
+
+            user_info.is_user_cloud_admin = is_user_cloud_admin
+            user_info.can_upload_apps = can_upload_apps
+            user_info.owned_apps = owned_apps
+            users_to_update.append(user_info)
+
+          # Either way, add the user's info to the list of all user's info.
+          user_list.append(user_info)
+        else:
+          user_info = UserInfo(id = email)
+          user_info.is_user_cloud_admin = self.helper.is_user_cloud_admin(email)
+          user_info.can_upload_apps = self.helper.can_upload_apps(email)
+          user_info.owned_apps = self.helper.get_owned_apps(email)
+          users_to_update.append(user_info)
+          user_list.append(user_info)
+      ndb.put_multi(users_to_update)
       return user_list
     except Exception as err:
       logging.exception(err)
