@@ -424,6 +424,7 @@ class ZKTransaction:
           return txn_id
     except kazoo.exceptions.ZookeeperError as zoo_exception:
       logging.exception(zoo_exception)
+      self.reestablish_connection()
     except kazoo.exceptions.KazooException as kazoo_exception:
       logging.exception(kazoo_exception)
       self.reestablish_connection()
@@ -814,9 +815,15 @@ class ZKTransaction:
     # cache.
     # TODO(cgb): Make sure that callers handle possible ZKInternalExceptions.
     blacklist_root = self.get_blacklist_root_path(app_id)
-    if not self.run_with_retry(self.handle.exists, blacklist_root):
-      self.run_with_retry(self.handle.create, blacklist_root, DEFAULT_VAL,
-        ZOO_ACL_OPEN, False, False, True)
+    try:
+      if not self.run_with_retry(self.handle.exists, blacklist_root):
+        self.run_with_retry(self.handle.create, blacklist_root, DEFAULT_VAL,
+          ZOO_ACL_OPEN, False, False, True)
+    except kazoo.exceptions.KazooException as kazoo_exception:
+      logging.exception(kazoo_exception)
+      self.reestablish_connection()
+      raise ZKInternalException("Couldn't see if appid {0}'s transaction, " \
+        "{1}, is blacklisted.".format(app_id, txid))
 
     try:
       blacklist = self.run_with_retry(self.handle.get_children, blacklist_root)
@@ -993,6 +1000,7 @@ class ZKTransaction:
 
   def reestablish_connection(self):
     """ Checks the connection and resets it as needed. """
+    logging.info("Re-establishing ZooKeeper connection.")
     try:
       self.handle.stop()
     except kazoo.exceptions.ZookeeperError as close_exception:
@@ -1000,7 +1008,7 @@ class ZKTransaction:
     except kazoo.exceptions.KazooException as kazoo_exception:
       logging.exception(kazoo_exception)
 
-    self.handle = kazoo.client.KazooClient(hosts=host,
+    self.handle = kazoo.client.KazooClient(hosts=self.host,
       max_retries=self.DEFAULT_NUM_RETRIES, timeout=self.DEFAULT_ZK_TIMEOUT)
 
     try:

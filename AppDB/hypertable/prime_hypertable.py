@@ -2,36 +2,48 @@
 """ 
   Creates datastore tables required for AppScale.
 """
-import hypertable_interface
 import py_hypertable
-import string
 import sys
 
-from dbconstants import *
+import dbconstants
 
 def create_app_tables():
-  db = py_hypertable.DatastoreProxy()
-  db.create_table(ASC_PROPERTY_TABLE, PROPERTY_SCHEMA)
-  db.create_table(DSC_PROPERTY_TABLE, PROPERTY_SCHEMA)
-  db.create_table(APP_INDEX_TABLE, APP_INDEX_SCHEMA)
-  db.create_table(APP_NAMESPACE_TABLE, APP_NAMESPACE_SCHEMA)
-  db.create_table(APP_ID_TABLE, APP_ID_SCHEMA)
-  db.create_table(APP_ENTITY_TABLE, APP_ENTITY_SCHEMA)
-  db.create_table(APP_KIND_TABLE, APP_KIND_SCHEMA)
-  db.create_table(JOURNAL_TABLE, JOURNAL_SCHEMA)
+  """ Creates required tables for storing application data.
+
+  Tables include entity data, indexes, and transaction journalling. Tables
+  are created by using the AppScale hypertable interface.
+  """
+  datastore = py_hypertable.DatastoreProxy()
+  datastore.create_table(dbconstants.ASC_PROPERTY_TABLE, 
+    dbconstants.PROPERTY_SCHEMA)
+  datastore.create_table(dbconstants.DSC_PROPERTY_TABLE, 
+    dbconstants.PROPERTY_SCHEMA)
+  datastore.create_table(dbconstants.APP_ID_TABLE, 
+    dbconstants.APP_ID_SCHEMA)
+  datastore.create_table(dbconstants.APP_ENTITY_TABLE, 
+    dbconstants.APP_ENTITY_SCHEMA)
+  datastore.create_table(dbconstants.APP_KIND_TABLE, 
+    dbconstants.APP_KIND_SCHEMA)
+  datastore.create_table(dbconstants.JOURNAL_TABLE, dbconstants.JOURNAL_SCHEMA)
 
 def prime_hypertable():
+  """ Primes the hypertable datastore with the tables required by an 
+  AppScale deployment.
+
+  Returns:
+    The int 0 on success, and the int 1 on failure.
+  """
   print "prime hypertable database"
   
   client = py_hypertable.DatastoreProxy()
   print "Creating users table"
-  print client.create_table(USERS_TABLE,USERS_SCHEMA)
+  print client.create_table(dbconstants.USERS_TABLE, dbconstants.USERS_SCHEMA)
   print "Creating apps table"
-  tables = client.create_table(APPS_TABLE,APPS_SCHEMA)
+  tables = client.create_table(dbconstants.APPS_TABLE, dbconstants.APPS_SCHEMA)
 
   create_app_tables() 
 
-  if USERS_TABLE in tables and APPS_TABLE in tables:
+  if dbconstants.USERS_TABLE in tables and dbconstants.APPS_TABLE in tables:
     print "CREATE TABLE SUCCESS FOR USER AND APPS"
     return 0
   else:
