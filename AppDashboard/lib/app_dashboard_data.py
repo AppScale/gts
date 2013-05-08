@@ -32,12 +32,11 @@ class ApiStatus(ndb.Model):
   Google App Engine API that AppScale provides support for.
 
   Fields:
-    name: A str that corresponds to the name of the Google App Engine API.
-    value: A str that indicates what the current status of the API is (e.g.,
+    id: A str that corresponds to the name of the Google App Engine API.
+    status: A str that indicates what the current status of the API is (e.g.,
       running, failed, unknown).
   """
-  name = ndb.StringProperty()
-  value = ndb.StringProperty()
+  status = ndb.StringProperty()
 
 
 class ServerStatus(ndb.Model):
@@ -124,10 +123,6 @@ class AppDashboardData():
         AppDashboardHelper to talk to the AppController.
     """
     self.helper = helper or AppDashboardHelper()
-    self.root = self.get_by_id(DashboardDataRoot, self.ROOT_KEYNAME)
-    if not self.root:
-      self.root = DashboardDataRoot(id = self.ROOT_KEYNAME)
-      self.root.put()
 
 
   def get_by_id(self, model, key_name):
@@ -195,17 +190,33 @@ class AppDashboardData():
     Returns:
       A str containing the IP address or FQDN of the shadow node.
     """
-    return self.root.head_node_ip
+    return self.get_by_id(DashboardDataRoot, self.ROOT_KEYNAME).head_node_ip
 
 
   def update_head_node_ip(self):
     """ Updates the Datastore with the IP address or FQDN where the node running
-    the shadow service can be found. """
+    the shadow service can be found.
+
+    This update is only performed if there is no data in the Datastore about the
+    current location of the head node, as this is unlikely to dynamically change
+    at this time.
+
+    Returns:
+      A str containing the IP address or FQDN of the shadow node, or None if
+      there was an error updating the head node's IP address.
+    """
+    dashboard_root = self.get_by_id(DashboardDataRoot, self.ROOT_KEYNAME)
+    if dashboard_root and dashboard_root.head_node_ip:
+      return dashboard_root.head_node_ip
+
     try:
-      self.root.head_node_ip = self.helper.get_host_with_role('shadow')
-      self.root.put()
+      dashboard_root = DashboardDataRoot(id = self.ROOT_KEYNAME)
+      dashboard_root.head_node_ip = self.helper.get_host_with_role('shadow')
+      dashboard_root.put()
+      return dashboard_root.head_node_ip
     except Exception as err:
       logging.exception(err)
+      return None
 
 
   def get_api_status(self):
@@ -217,7 +228,7 @@ class AppDashboardData():
       indicates if the API is running, has failed, or is in an unknown state
       (also a str).
     """
-    return dict((api.name, api.value) for api in self.get_all(ApiStatus))
+    return dict((api.key.id(), api.status) for api in self.get_all(ApiStatus))
 
 
   def update_api_status(self):
@@ -226,14 +237,17 @@ class AppDashboardData():
     contacting the AppController. """
     try:
       acc = self.helper.get_appcontroller_client()
-      stat_dict = acc.get_api_status()
-      for key in stat_dict.keys():
-        store = self.get_by_id(ApiStatus, key)
-        if not store:
-          store = ApiStatus(id = key)
-          store.name = key
-        store.value = stat_dict[key]
-        store.put()
+      updated_status = acc.get_api_status()
+      updated_datastore_entries = []
+      for api_name, api_status in updated_status.iteritems():
+        store = self.get_by_id(ApiStatus, api_name)
+        if store and store.status != api_status:
+          store.status = api_status
+          updated_datastore_entries.append(store)
+        else:
+          store = ApiStatus(id = api_name, status = api_status)
+          updated_datastore_entries.append(store)
+      ndb.put_multi(updated_datastore_entries)
     except Exception as err:
       logging.exception(err)
 
@@ -281,22 +295,55 @@ class AppDashboardData():
       A dict containing the name of the database used (a str), as well as the
       number of replicas for each piece of data (an int).
     """
-    return {'table' : self.root.table, 'replication' : self.root.replication}
+    dashboard_root = self.get_by_id(DashboardDataRoot, self.ROOT_KEYNAME)
+    if dashboard_root:
+      return {
+        'table' : dashboard_root.table,
+        'replication' : dashboard_root.replication
+      }
+    else:
+      return {
+        'table' : 'unknown',
+        'replication' : 0
+      }
 
 
   def update_database_info(self):
     """ Queries the AppController for information about what datastore is used
     to implement support for the Google App Engine Datastore API, placing this
     info in the Datastore for later viewing.
+
+    This update is only performed if there is no data in the Datastore about the
+    current location of the head node, as this is unlikely to dynamically change
+    at this time.
+
+    Returns:
+      A dict containing the name of the database used (a str), as well as the
+      number of replicas for each piece of data (an int).
     """
+    dashboard_root = self.get_by_id(DashboardDataRoot, self.ROOT_KEYNAME)
+    if dashboard_root and dashboard_root.table and dashboard_root.replication:
+      return {
+        'table' : dashboard_root.table,
+        'replication' : dashboard_root.replication
+      }
+
     try:
       acc = self.helper.get_appcontroller_client()
       db_info = acc.get_database_information()
-      self.root.table = db_info['table']
-      self.root.replication = int(db_info['replication'])
-      self.root.put()
+      dashboard_root = DashboardDataRoot(id = self.ROOT_KEYNAME,
+        table = db_info['table'], replication = int(db_info['replication']))
+      dashboard_root.put()
+      return {
+        'table' : dashboard_root.table,
+        'replication' : dashboard_root.replication
+      }
     except Exception as err:
       logging.exception(err)
+      return {
+        'table' : 'unknown',
+        'replication' : 0
+      }
 
 
   def get_application_info(self):
