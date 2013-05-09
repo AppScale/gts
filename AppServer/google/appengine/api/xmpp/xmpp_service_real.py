@@ -197,12 +197,12 @@ class XmppService(apiproxy_stub.APIProxyStub):
                                  encry_pw.hexdigest(),
                                  "channel", 
                                  self.uasecret)
-    if ret == "Error: user already exist":
+    if ret == "Error: user already exists":
       # We are allowing reuse of ids
       # TODO reset the timestamp of the xmpp user
       pass
     elif ret != "true":
-      self.log("Comming a new channel user error: %s"%ret) 
+      self.log("Committing a new channel user error: %s" % ret) 
       raise apiproxy_errors.ApplicationError(
           channel_service_pb.ChannelServiceError.INTERNAL_ERROR)
     
