@@ -5,7 +5,7 @@
               <div class="container-fluid">
                 <span style="margin:0 0 0 15px;" class="brand"><a href="/"><img src="/images/appscale-logo.png"/></a></span>
                 <div class="nav-no-collapse">
-                    <ul style="padding-right: 2.5%;" class="nav pull-right usernav">
+                    <ul style="padding-right: 2.5%;" class="nav pull-right">
                         {% if logged_in %}
                           <h3>User: {{ user_email }} | <a style="margin-top: -5px;" class="btn btn-danger btn-small" href="/users/logout">Logout</a></h3><br />
                         {% else %}
@@ -51,7 +51,7 @@
                               <li align="center" class="tab"><a class="btn btn-info" href="/logs">View Logs</a></li>
                             {% endif %}
                             {% if is_user_cloud_admin %}
-                              <li align="center" class="tab"><a class="btn btn-info" href="/authorize">Authorize User</a></li>
+                              <li align="center" class="tab"><a class="btn btn-info" href="/authorize">Manage Users</a></li>
                             {% endif %}
                             {% if can_upload_apps %}
                               <li align="center" class="tab"><a class="btn btn-info" href="/apps/new">Upload App</a></li>

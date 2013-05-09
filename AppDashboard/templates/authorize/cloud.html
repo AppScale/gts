@@ -1,31 +1,21 @@
 <!-- FILE:templates/authorize/cloud.html -->
 <!--Body content-->
-        <div id="content" class="clearfix">
-            <div class="contentwrapper"><!--Content wrapper-->
-
-                <div class="heading">
-
-                    <h3>AppScale Dashboard</h3>                    
-
-                    <div class="resBtnSearch">
-                        <a href="#"><span class="icon16 icomoon-icon-search-3"></span></a>
-                    </div>
-
-                </div><!-- End .heading-->
-
+<div id="content" class="clearfix">
+    <div class="contentwrapper"><!--Content wrapper-->
+        <div class="heading">
+             <h3>AppScale Dashboard</h3>
+        </div><!-- End .heading-->
                 <!-- Build page from here: -->
-                <div class="row-fluid">
-                  <div class="offset2 span5">
-
-                            <div class="well boxMargin">
-
-                                <div class="title page-header">
+        <div class="row-fluid">
+            <div class="offset3 span5">
+                <div class="well">
+                    <div class="title page-header">
                       {% if flash_message %}
                         <ul id="noticeExplanation"><li class="flash notice">{{ flash_message }}</li></ul>
                       {% endif %}
                       <h3>Authorization Info:</h3></div>
-                      <form action="/authorize" method="post"><div style="margin:0;padding:0;display:inline">
-                        <table align="center" border="1px">
+                      <form action="/authorize" method="post">
+                        <table align="center" style="border: 1px solid #ddd;" class="table table-striped table-bordered">
                           <tr>
                             <td class="user_auth" align="center">Username</td>
                             <td class="user_auth" align="center">Upload / Remove App</td>
@@ -57,11 +47,8 @@
                         <input class="btn btn-primary" name="commit" type="submit" value="Update Permissions" />
                         </div>
                       </form>
-
-
                 </div><!--close well-->
-                </div><!--close span6 -->
-                <div class="span4"></div> 
-                </div> <!-- end row fluid -->
-            </div> <!-- end content wrapper -->
-        </div> <!--end content-->
+            </div><!--close span6 -->
+        </div> <!-- end row fluid -->
+    </div> <!-- end content wrapper -->
+</div> <!--end content-->
