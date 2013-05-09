@@ -200,6 +200,12 @@ class Djinn
   attr_accessor :api_status
 
 
+  # An Array that lists the CPU, disk, and memory usage of each machine in this
+  # AppScale deployment. Used as a cache so that it does not need to be
+  # generated in response to AppDashboard requests.
+  attr_accessor :all_stats
+
+
   # For Babel jobs via Neptune, we keep a list of queues that may have tasks
   # stored for execution, as well as the parameters needed to execute them
   # (e.g., input location, output location, cloud credentials).
