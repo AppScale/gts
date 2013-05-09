@@ -218,7 +218,8 @@ class AppDashboardData():
       return dashboard_root.head_node_ip
 
     try:
-      dashboard_root = DashboardDataRoot(id = self.ROOT_KEYNAME)
+      if dashboard_root is None:
+        dashboard_root = DashboardDataRoot(id = self.ROOT_KEYNAME)
       dashboard_root.head_node_ip = self.helper.get_host_with_role('shadow')
       dashboard_root.put()
       return dashboard_root.head_node_ip
@@ -317,16 +318,15 @@ class AppDashboardData():
       number of replicas for each piece of data (an int).
     """
     dashboard_root = self.get_by_id(DashboardDataRoot, self.ROOT_KEYNAME)
-    if dashboard_root:
+    if dashboard_root and dashboard_root.table is not None and \
+      dashboard_root.replication is not None:
+
       return {
         'table' : dashboard_root.table,
         'replication' : dashboard_root.replication
       }
     else:
-      return {
-        'table' : 'unknown',
-        'replication' : 0
-      }
+      return self.update_database_info()
 
 
   def update_database_info(self):
@@ -343,17 +343,20 @@ class AppDashboardData():
       number of replicas for each piece of data (an int).
     """
     dashboard_root = self.get_by_id(DashboardDataRoot, self.ROOT_KEYNAME)
-    if dashboard_root and dashboard_root.table and dashboard_root.replication:
+    if dashboard_root and dashboard_root.table is not None and \
+      dashboard_root.replication is not None:
+
       return {
         'table' : dashboard_root.table,
         'replication' : dashboard_root.replication
       }
-
     try:
       acc = self.helper.get_appcontroller_client()
       db_info = acc.get_database_information()
-      dashboard_root = DashboardDataRoot(id = self.ROOT_KEYNAME,
-        table = db_info['table'], replication = int(db_info['replication']))
+      if dashboard_root is None:
+        dashboard_root = DashboardDataRoot(id = self.ROOT_KEYNAME)
+      dashboard_root.table = db_info['table']
+      dashboard_root.replication = int(db_info['replication'])
       dashboard_root.put()
       return {
         'table' : dashboard_root.table,
