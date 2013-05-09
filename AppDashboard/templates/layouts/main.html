@@ -84,20 +84,26 @@
     <!-- Fix plugins -->
     <script type="text/javascript" src="/plugins/fix/ios-fix/ios-orientationchange-fix.js"></script>
 
-     <script>
-	$(document).ready(function() {
-		$('#log_table').filterTable();
-	});
+    <script>
+        $(document).ready(function() {
+            $('#log_table').filterTable();
+        });
+    </script>
+
+    {% if page_name == 'status %}
+    <script type="text/javascript">
          $('#load_balancer').tooltip()
          $('#shadow').tooltip()
          $('#db_master').tooltip()
+         $('#bd_slave').tooltip()
          $('#taskqueue_master').tooltip()
+         $('#taskqueue_slave').tooltip()
          $('#appengine').tooltip()
          $('#login_role').tooltip()
          $('#zookeeper').tooltip()
          $('#memcache').tooltip()
 	</script>
-
+    {% endif %}
 
   </body>
 </html> 
