@@ -484,6 +484,15 @@ class AppUploadPage(AppDashboard):
     """ Handler for POST requests. """
     success_msg = ''
     err_msg = ''
+    if not self.request.POST.multi or \
+      'app_file_data' not in self.request.POST.multi or \
+      not hasattr(self.request.POST.multi, 'file'):
+      self.render_page(page='apps', template_file=self.TEMPLATE, values={
+          'error_message' : 'You must specify a file to upload.',
+          'success_message' : ''
+        })
+      return
+
     if self.dstore.can_upload_apps():
       try: 
         success_msg = self.helper.upload_app(
