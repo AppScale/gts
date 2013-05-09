@@ -44,15 +44,16 @@
                       <p>
                         </label><a class="btn btn-warning" href="#" onclick="showHelp();">Help</a>
                       </p>
-                  <div id="help-text" style="display: none;"><h3>Upload App Help</h3>This form allows you to
-                      upload applications into AppScale. Valid applications must be tarred and gzipped and have a
-                      ".tar.gz" extension. To create this file run <em>"tar -czf app.tar.gz ."</em> in the directory
-                      containing the application's app.yaml file. Applications must be smaller than 1GB in size, for apps
-                      larger please use the AppScale Tools from the commandline. 
+                  <div id="help-text" style="display: none;"><h3>How to Upload Applications</h3>This page allows you to
+                      upload applications to AppScale. Applications must be tarred and gzipped and have a ".tar.gz"
+                      extension. To package your application, run <em>"tar -czf app.tar.gz ."</em> in the directory
+                      containing the application's app.yaml file (for Python or Go) or the WAR directory (for Java).
+                      Applications must be smaller than 1 GB in size. For apps larger than this, please use the
+                      command-line AppScale Tools.
                   </div>
                   </div>
                   {% else %}
-                    <h2> You do not have permission to upload application.  Please contact your cloud administrator.</h2>
+                    <h2>You do not have permission to upload applications. Please contact your cloud administrator.</h2>
                   {% endif %}
               </div><!--close well-->
         </div><!--close span6 -->
@@ -60,7 +61,3 @@
         </div> <!-- end row fluid -->
     </div> <!-- end content wrapper -->
 </div> <!--end content-->
-
-
-
-
