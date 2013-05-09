@@ -200,6 +200,12 @@ class Djinn
   attr_accessor :api_status
 
 
+  # An Array that lists the CPU, disk, and memory usage of each machine in this
+  # AppScale deployment. Used as a cache so that it does not need to be
+  # generated in response to AppDashboard requests.
+  attr_accessor :all_stats
+
+
   # For Babel jobs via Neptune, we keep a list of queues that may have tasks
   # stored for execution, as well as the parameters needed to execute them
   # (e.g., input location, output location, cloud credentials).
@@ -432,6 +438,7 @@ class Djinn
     @neptune_jobs = {}
     @neptune_nodes = []
     @api_status = {}
+    @all_stats = []
     @queues_to_read = []
     @last_updated = 0
     @state_change_lock = Monitor.new()
@@ -735,14 +742,20 @@ class Djinn
       return BAD_SECRET_MSG
     end
 
-    result = []
+    return JSON.dump(@all_stats)
+  end
+
+
+  # Updates our locally cached information about the CPU, memory, and disk
+  # usage of each machine in this AppScale deployment.
+  def update_node_info_cache()
+    @all_stats = []
     @nodes.each { |node|
       ip = node.private_ip
-      acc = AppControllerClient.new(ip, secret)
-      result << acc.get_stats(secret)
+      acc = AppControllerClient.new(ip, @@secret)
+      @all_stats << acc.get_stats(@@secret)
     }
-    return JSON.dump(result)
-  end 
+  end
 
 
   # Gets the database information of the AppScale deployment.
@@ -1048,6 +1061,8 @@ class Djinn
         @nodes.each { |node|
           get_status(node)
         }
+
+        update_node_info_cache()
       end
 
       #ensure_all_roles_are_running
@@ -2487,6 +2502,7 @@ class Djinn
 
     # Start the AppDashboard.
     if my_node.is_login?
+      update_node_info_cache()
       start_app_dashboard(get_login.public_ip, @userappserver_private_ip)
     end
 
