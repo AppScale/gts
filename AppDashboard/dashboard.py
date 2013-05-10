@@ -486,7 +486,7 @@ class AppUploadPage(AppDashboard):
     err_msg = ''
     if not self.request.POST.multi or \
       'app_file_data' not in self.request.POST.multi or \
-      not hasattr(self.request.POST.multi, 'file'):
+      not hasattr(self.request.POST.multi['app_file_data'], 'file'):
       self.render_page(page='apps', template_file=self.TEMPLATE, values={
           'error_message' : 'You must specify a file to upload.',
           'success_message' : ''
