@@ -42,7 +42,7 @@ public final class LocalChannelService extends AbstractLocalRpcService
   private ChannelManager channelManager;
   private LocalURLFetchService fetchService;
   private final String UASECRET_FILE = "/etc/appscale/secret.key";
-  private final String USER_EXISTS = "Error: user already exist";
+  private final String USER_EXISTS = "Error: user already exists";
   private final String COMMIT_USER_SUCCESS = "true";
   private final String SOAP_ERROR = "internal error";
   private final int XMPP_PORT = 5222;
