@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.ConcurrentModificationException;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
@@ -28,7 +29,6 @@ import com.google.appengine.api.users.UserServiceFactory;
 import com.google.appengine.repackaged.com.google.io.protocol.ProtocolMessage;
 import com.google.apphosting.utils.remoteapi.RemoteApiPb.Request;
 import com.google.apphosting.utils.remoteapi.RemoteApiPb.Response;
-
 
 public class HTTPClientDatastoreProxy
 {
@@ -109,6 +109,10 @@ public class HTTPClientDatastoreProxy
         if (remoteResponse.hasApplicationError())
         {
             logger.log(Level.WARNING, "Application error in " + method + " method !" + remoteResponse.getApplicationError().toFlatString());
+           if(remoteResponse.getApplicationError().getCode() == 2)
+           {
+               throw new ConcurrentModificationException(remoteResponse.getApplicationError().toFlatString());
+           }
         }
         if (remoteResponse.hasException())
         {
