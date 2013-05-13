@@ -1,0 +1,47 @@
+<!-- FILE:templates/landing/index.html -->
+    <div id="getting-started">
+  
+         <div class="container-fluid">
+
+        <div class="loginContainer">
+        <div style="margin-top: 20px;">   
+        {% if flash_message %}
+        <ul id="noticeExplanation"><li class="flash notice">{{ flash_message }}</li></ul>
+        {% endif %}
+        </div>     
+  <ul style="margin: 30px 0 30px 30px; list-style: none;">
+   {% if not logged_in %}
+   <li>
+     <h2><a class="btn btn-large btn-info landing" href="/users/login"><i class="icon-white icon-home"></i> Login</a></h2>
+   </li>  
+   {% endif %}
+
+   <li>
+     <h2><a class="btn btn-large btn-info landing" href="/users/new"><i class="icon-white icon-user"></i> Create an Account</a></h2>
+   </li>
+
+   <li>
+     <h2><a class="btn btn-large btn-info landing" href="/status"><i class="icon-white icon-cog"></i> Cloud Status</a></h2>
+   </li>
+
+   {% if apps_user_is_admin_on or is_user_cloud_admin %}
+   <li>
+     <h2><a class="btn btn-large btn-info landing" href="/logs"><i class="icon-white icon-list"></i> View Logs</a></h2>
+   </li>
+   {% endif %}
+
+   {% if is_user_cloud_admin %}
+   <li>
+     <h2><a class="btn btn-large btn-info landing" href="/authorize"><i class="icon-white icon-wrench"></i> Manage Users</a></h2>
+   </li>
+   {% endif %}
+
+       {% if logged_in %}
+   <li>
+     <h2><a class="btn btn-large btn-danger landing" href="/users/logout">Logout</a></h2>
+   </li>
+   {% endif %}
+  </ul>
+</div>
+</div>
+</div>

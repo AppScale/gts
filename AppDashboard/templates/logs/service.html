@@ -1,0 +1,39 @@
+<!-- FILE:templates/logs/service.html -->
+<!--Body content-->
+<div id="content" class="clearfix">
+    <div class="contentwrapper"><!--Content wrapper-->
+
+        <div class="heading">
+
+            <h3>Log Viewer</h3>                    
+
+            <div class="resBtnSearch">
+                <a href="#"><span class="icon16 icomoon-icon-search-3"></span></a>
+            </div>
+
+        </div><!-- End .heading-->
+
+        <!-- Build page from here: -->
+        <div class="row-fluid">
+          <div class="span3"></div><!--spacing div-->
+          <div class="span6">
+            <div class="page-header">
+              <h1>View service logs on a machine:</h1>
+            </div><!--close header-->
+            <ul style="list-style-type: none;;">
+                
+
+            <li><a class="btn btn-large btn-primary" style="list-style: none;" href="/logs/{{ service_name }}/all">All machines</a></li>
+            {% if exists %}
+              {% for host in hosts %}
+            <li><a class="btn btn-large" href="/logs/{{ service_name }}/{{ host }}">{{ host }}</a></li>
+              {% endfor %}
+            {% else %}
+              <p>No logs are available at this time. Please check back later.</p>
+            {% endif %}
+            </ul>
+          </div><!--close span6 -->
+        <div class="span3"></div> <!--spacing div-->
+        </div> <!-- end row fluid -->
+    </div> <!-- end content wrapper -->
+</div> <!--end content-->

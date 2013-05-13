@@ -1,0 +1,56 @@
+<!-- FILE:templates/apps/delete.html -->
+<!--Body content-->
+        <div id="content" class="clearfix">
+            <div class="contentwrapper"><!--Content wrapper-->
+
+                <div class="heading">
+
+                    <h3>AppScale Dashboard</h3>                    
+
+                    <div class="resBtnSearch">
+                        <a href="#"><span class="icon16 icomoon-icon-search-3"></span></a>
+                    </div>
+
+                </div><!-- End .heading-->
+
+                <!-- Build page from here: -->
+                <div class="row-fluid">
+                  <div class="span4"></div>
+                  <div class="span4">
+                    <div class="page-header">
+                    <h1>Delete an application</h1></div><!--close page header-->
+                    <div class="well">
+                  {% if apps|length > 0 %}
+                      {% if flash_message %}
+                      <ul id="noticeExplanation"><li class="flash notice">{{ flash_message }}</li></ul>
+                      {% endif %}
+                       <form action="/apps/delete" method="post"><div style="margin:0;padding:0;display:inline">
+                      <p>
+                        <select id="appname" name="appname">
+                        {% for app_name in apps.keys()|sort  %}
+                            <option value="{{ app_name }}">{{ app_name }}</option>
+                        {% endfor %}
+                        </select>
+                      </p>
+                      <p>
+                        <input class="btn btn-danger" name="commit" onclick="if (!confirm('Are you sure you want to delete this app?')) return false; return true;" type="submit" value="Delete" />
+                      </p>
+                      </form>
+                  {% else %}
+                    <br />
+                    {% if is_user_cloud_admin %}
+                      <h2> There are no applications running.<br />
+                    {% else %}
+                      <h2> There are no running applications that you have permission to delete.<br />
+                    {% endif %}
+                      Want to&nbsp;<a href="/apps/new">upload an app</a>?
+                    </h2>
+                  {% endif %}
+                </div><!--close well-->
+                </div><!--close span6 -->
+                <div class="span4"></div> 
+                </div> <!-- end row fluid -->
+            </div> <!-- end content wrapper -->
+        </div> <!--end content-->
+
+

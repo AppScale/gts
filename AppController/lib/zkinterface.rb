@@ -222,7 +222,7 @@ class ZKInterface
     if info[:rc].zero? 
       return true
     else # we couldn't get the lock for some reason
-      Djinn.log_debug("Couldn't get the AppController lock, saw info " +
+      Djinn.log_warn("Couldn't get the AppController lock, saw info " +
         "#{info.inspect}")
       return false
     end
@@ -262,13 +262,13 @@ class ZKInterface
         if @@client_ip == owner
           got_lock = false
         else 
-          Djinn.log_debug("Tried to get the lock, but it's currently owned " +
+          Djinn.log_warn("Tried to get the lock, but it's currently owned " +
             "by #{owner}. Will try again later.")
           raise Exception
         end
       end
     rescue Exception => e
-      Djinn.log_debug("Saw an exception of class #{e.class}")
+      Djinn.log_warn("Saw an exception of class #{e.class}")
       Kernel.sleep(5)
       retry
     end
@@ -276,7 +276,7 @@ class ZKInterface
     begin
       yield  # invoke the user's block, and catch any uncaught exceptions
     rescue Exception => except
-      Djinn.log_debug("Ran caller's block but saw an Exception of class " +
+      Djinn.log_error("Ran caller's block but saw an Exception of class " +
         "#{except.class}")
       raise except
     ensure
@@ -512,7 +512,7 @@ class ZKInterface
 
   # Adds an entry to ZooKeeper for the given IP, storing information about the
   # Google App engine application it is hosting that can be used to update the
-  # AppLoadBalancer should that node fail.
+  # AppDashboard should that node fail.
   def self.add_app_instance(app_name, ip, port)
     app_instance_file = "#{APPCONTROLLER_NODE_PATH}/#{ip}/#{APP_INSTANCE}"
     if self.exists?(app_instance_file)
@@ -589,13 +589,13 @@ class ZKInterface
       ZookeeperExceptions::ZookeeperException::NotConnected,
       ZookeeperExceptions::ZookeeperException::SessionExpired
 
-      Djinn.log_debug("Lost our ZooKeeper connection - making a new " +
+      Djinn.log_warn("Lost our ZooKeeper connection - making a new " +
         "connection and trying again.")
       self.reinitialize()
       Kernel.sleep(1)
       retry
     rescue Exception => e
-      Djinn.log_debug("Saw a transient ZooKeeper error of class #{e.class}" +
+      Djinn.log_warn("Saw a transient ZooKeeper error of class #{e.class}" +
         " - trying again.")
       Kernel.sleep(1)
       retry
@@ -657,15 +657,15 @@ class ZKInterface
       end
     rescue FailedZooKeeperOperationException => e
       retries_left -= 1
-      Djinn.log_debug("Saw a failure trying to write to ZK, with " +
+      Djinn.log_warn("Saw a failure trying to write to ZK, with " +
         "info [#{e}]")
       if retries_left > 0
-        Djinn.log_debug("Retrying write operation, with #{retries_left}" +
+        Djinn.log_warn("Retrying write operation, with #{retries_left}" +
           " retries left")
         Kernel.sleep(5)
         retry
       else
-        Djinn.log_debug("[ERROR] Failed to write to ZK and no retries " +
+        Djinn.log_error("[ERROR] Failed to write to ZK and no retries " +
           "left. Skipping on this write for now.")
       end
     end
@@ -685,7 +685,7 @@ class ZKInterface
     begin
       self.delete(key)
     rescue FailedZooKeeperOperationException
-      Djinn.log_debug("Failed to delete key #{key} - continuing onward")
+      Djinn.log_error("Failed to delete key #{key} - continuing onward")
     end
   end
 
@@ -695,7 +695,7 @@ class ZKInterface
       @@zk.delete(:path => key)
     }
     if !info[:rc].zero?
-      Djinn.log_debug("Delete failed - #{info.inspect}")
+      Djinn.log_error("Delete failed - #{info.inspect}")
       raise FailedZooKeeperOperationException.new("Failed to delete " +
         " path #{key}, saw info #{info.inspect}")
     end

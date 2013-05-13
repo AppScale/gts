@@ -6,7 +6,7 @@ require 'fileutils'
 
 $:.unshift File.join(File.dirname(__FILE__))
 require 'helperfunctions'
-require 'load_balancer'
+require 'app_dashboard'
 require 'monitoring'
 
 
@@ -41,10 +41,18 @@ module HAProxy
   SERVER_OPTIONS = "maxconn 1 check inter 20000 fastinter 1000 fall 1"
 
 
+  # HAProxy Configuration to use for a thread safe gae app.
+  THREADED_SERVER_OPTIONS = "maxconn 7 check inter 20000 fastinter 1000 fall 1"
+  
+
   # The first port that haproxy will bind to for App Engine apps.
   START_PORT = 10000
 
+  
+  # The default server timeout for the dashboard (apploadbalancer)
+  ALB_SERVER_TIMEOUT = 300000
 
+  
   # The location of the script that god uses to see if haproxy is running,
   # restarting it if necessary.
   START_HAPROXY_SCRIPT = File.dirname(__FILE__) + "/../" + \
@@ -83,11 +91,11 @@ module HAProxy
     START_PORT + app_number
   end
 
-  # Create the configuration file for the AppLoadBalancer Rails application
+  # Create the configuration file for the AppDashboard application
   def self.create_app_load_balancer_config(my_public_ip, my_private_ip, 
     listen_port)
     self.create_app_config(my_public_ip, my_private_ip, listen_port, 
-      LoadBalancer.server_ports, LoadBalancer.name)
+      AppDashboard::SERVER_PORTS, AppDashboard::NGINX_APP_NAME)
   end
 
   # Create the configuration file for the AppMonitoring Rails application
@@ -113,7 +121,12 @@ module HAProxy
     config = "# Create a load balancer for the #{name} application \n"
     config << "listen #{name} #{my_private_ip}:#{listen_port} \n"
     config << servers.join("\n")
-
+    # If it is the dashboard app, increase the server timeout because uploading apps
+    # can take some time 
+    if name == AppDashboard::NGINX_APP_NAME
+      config << "\n  timeout server #{ALB_SERVER_TIMEOUT}\n"
+    end
+  
     config_path = File.join(SITES_ENABLED_PATH, "#{name}.#{CONFIG_EXTENSION}")
     File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
 
@@ -146,14 +159,19 @@ module HAProxy
     end
 
     conf.close()
-    
-    # Restart haproxy since we have changed the config
-    HAProxy.restart
+    # Reload haproxy since we changed the config, restarting causes connections
+    # to be cut which shows users a nginx 404
+    HAProxy.reload
   end
   
-  # Generate the server configuration line for the provided inputs
+  # Generate the server configuration line for the provided inputs. GAE applications
+  # that are thread safe will have a higher connection limit. 
   def self.server_config app_name, index, ip, port
-    "  server #{app_name}-#{index} #{ip}:#{port} #{SERVER_OPTIONS}"
+    if HelperFunctions.get_app_thread_safe(app_name)
+      return "  server #{app_name}-#{index} #{ip}:#{port} #{THREADED_SERVER_OPTIONS}"
+    else
+      return "  server #{app_name}-#{index} #{ip}:#{port} #{SERVER_OPTIONS}"
+    end
   end
 
   def self.write_app_config(app_name, app_number, num_of_servers, ip)
@@ -287,7 +305,7 @@ defaults
   timeout connect 60000
 
   # Timeout a request if Mongrel does not accept the data on the connection,
-  # or does not send a response back in 60 seconds
+  # or does not send a response back in 1 minute.
   timeout server 60000
   
   # Enable the statistics page 

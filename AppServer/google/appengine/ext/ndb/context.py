@@ -25,7 +25,7 @@ __all__ = ['Context', 'ContextOptions', 'TransactionOptions', 'AutoBatcher',
 
 _LOCK_TIME = 32  # Time to lock out memcache.add() after datastore updates.
 _LOCKED = 0  # Special value to store in memcache indicating locked value.
-
+_LOCKED_STR = "0"  # Special value to store in AppScale memcache since it stores strs.
 
 # Constant for read_policy.
 EVENTUAL_CONSISTENCY = datastore_rpc.Configuration.EVENTUAL_CONSISTENCY
@@ -607,7 +607,7 @@ class Context(object):
       mkey = self._memcache_prefix + key.urlsafe()
       mvalue = yield self.memcache_get(mkey, for_cas=use_datastore,
                                        namespace=ns, use_cache=True)
-      if mvalue not in (_LOCKED, None):
+      if mvalue not in (_LOCKED, _LOCKED_STR, None):
         cls = model.Model._kind_map.get(key.kind())
         if cls is None:
           raise TypeError('Cannot find model class for kind %s' % key.kind())
@@ -644,7 +644,7 @@ class Context(object):
       entity = yield self._get_batcher.add(key, options)
 
     if entity is not None:
-      if use_memcache and mvalue != _LOCKED:
+      if use_memcache and mvalue != _LOCKED and mvalue != _LOCKED_STR:
         # Don't serialize the key since it's already the memcache key.
         pbs = entity._to_pb(set_key=False).SerializePartialToString()
         # Don't attempt to write to memcache if too big.  Note that we

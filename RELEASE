@@ -4,7 +4,61 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
-The current release is 1.6.9, released on April 5, 2013.
+The current release is 1.7.0, released on May 13, 2013.
+
+Bugs fixed in this release:
+- System-level logging for admin user
+- Fixed 'none' in database name, replication, and monitoring URL
+- Speed up performance of AppDashboard
+- Implement log levels for the AppController
+- Prime AppDashboard before sending users to it
+- Extend timeout from 30 to 60 minutes for images to boot in Eucalyptus.
+- Add AppStats support for Python 2.7 App Engine apps.
+- Refactor AppController's loging to not have everything at the DEBUG level.
+- Namespacing now handled correctly by the datastore server.
+- Uploading large apps from web UI now succeeds
+- Updating login cookie at AppDashboard when apps are uploaded or deleted.
+- Static secure files no longer lead to redirect loops.
+- Channel API support for Java App Engine apps.
+- Remove runtime checks for invalid Java classes from SDK.
+- Mail API support for Java App Engine apps.
+- AppDashboard now stores API status in Datastore
+- AppController dying no longer kills the AppDashboard
+- Resolved ndb deadlock issues with AppDashboard
+- Fixed Cron API on Eucalyptus
+- Altered build script to fail if any component fails to install
+- Fixed 'appscale down' / terminate-instances when running on an AppScale image
+- Apps can now be updated without first having to remove them
+- Using Kazoo for ZooKeeper interactions, fixing NFS stale file handle errors
+- Added EC2_SECRET_KEY and EC2_ACCESS_KEY args for AppScalefile
+- Removed unused JavaScript files in AppDashboard
+- 'verbose: False' now omits verbose flag in 'appscale up'
+- Bulk loader now generates kind statistics
+- Added bulk loader support for Java App Engine apps
+- Java App Engine apps now support multithreading
+- AppDashboard now uses graphical representations of numeric data
+- Fixed XMPPReceiver, which broke with new AppDashboard implementation
+- Cleaning up soft deleted items periodically
+- ndb no longer sees memcache entries as corrupt
+- Removed update SDK message from Java App Server
+- Fixed bug where XMPP would fail for Java App Engine apps with capital letters in appid
+- appscale.deploy now returns the host and port of the app that was deployed
+- Enable AES support for apps that use pycrypto
+- Properly adding lxml to dev_appserver's import path
+- Removed AppDashboard's font references in CSS to files that don't exist
+- Allow users to upload tar files with the app in a top-level directory
+- When doing an 'appscale clean', we now remove local state in ~/.appscale
+- Fixed starting AppScale on EC2 with a one node deployment, with --ips_layout
+- Using retries when performing Kazoo operations with ZooKeeper
+- appscale-upload-app now uses unique tempdir locations when uploading apps
+- Uploading apps via web UI no longer throws 404s
+- Large apps no longer timeout nginx when uploaded via the AppDashboard
+- Using glob when importing Python libraries in dev_appserver
+- Refreshing application names consistently in AppDashboard
+- Caching AppController status at login node, resolving SOAP timeouts in Dashboard
+- Improved stability for AppDashboard in Euca deployments
+
+AppScale version 1.6.9 was released on April 5, 2013.
 
 Bugs fixed in this release:
 - Cross group (XG) transactions for Python 2.5, Java, and Python 2.7 App Engine apps

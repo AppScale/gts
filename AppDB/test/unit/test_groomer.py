@@ -31,6 +31,8 @@ class FakeQuery():
 class FakeDatastore():
   def __init__(self):
     pass
+  def batch_delete(self, table, row_keys):
+    raise dbconstants.AppScaleDBConnectionError("Bad connection")
 
 class FakeDistributedDB():
   def __init__(self):
@@ -71,6 +73,28 @@ class TestGroomer(unittest.TestCase):
     zookeeper.should_receive("get_datastore_groomer_lock").and_return(True)
     dsg = groomer.DatastoreGroomer(zookeeper, "hypertable", "localhost:8888")
     self.assertEquals(True, dsg.get_groomer_lock())
+
+  def test_hard_delete_row(self):
+    zookeeper = flexmock()
+    dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
+    dsg = flexmock(dsg)
+    dsg.db_access = FakeDatastore()    
+    self.assertEquals(False, dsg.hard_delete_row("some_key"))
+
+  def test_get_root_key_from_entity_key(self):
+    self.assertEquals("hi/bye!", groomer.DatastoreGroomer.\
+      get_root_key_from_entity_key("hi/bye!otherstuff!moar"))
+
+    self.assertEquals("hi/!", groomer.DatastoreGroomer.\
+      get_root_key_from_entity_key("hi/!otherstuff!moar"))
+
+  def test_get_prefix_from_entity(self):
+    self.assertEquals("hi/bye", groomer.DatastoreGroomer.\
+      get_prefix_from_entity_key("hi/bye/some/other/stuff"))
+
+    # Test empty namespace (very common).
+    self.assertEquals("hi/", groomer.DatastoreGroomer.\
+      get_prefix_from_entity_key("hi//some/other/stuff"))
 
   def test_run_groomer(self):
     zookeeper = flexmock()
@@ -119,12 +143,51 @@ class TestGroomer(unittest.TestCase):
     self.assertEquals(dsg.stats, {'app_id': {'kind': {'size': 0, 'number': 0}}}) 
  
   def test_txn_blacklist_cleanup(self):
+    #TODO 
     pass
   
   def test_process_tombstone(self):
-    pass
+    zookeeper = flexmock()
+    zookeeper.should_receive("get_transaction_id").and_return(1)
+    zookeeper.should_receive("acquire_lock").and_return(True)
+    zookeeper.should_receive("release_lock").and_return(True)
+    zookeeper.should_receive("is_blacklisted").and_return(False)
+    zookeeper.should_receive("notify_failed_transaction").and_return(True)
+
+
+    flexmock(FakeDatastore)
+    FakeDatastore.should_receive("batch_delete")
+ 
+    dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
+    dsg = flexmock(dsg)
+    dsg.should_receive("hard_delete_row").and_return(True)
+    flexmock(groomer.DatastoreGroomer).should_receive(
+      "get_root_key_from_entity_key").and_return("key")
+    flexmock(groomer.DatastoreGroomer).should_receive(
+      "get_prefix_from_entity_key").and_return("app/ns")
+    dsg.db_access = FakeDatastore()
+
+    # Successful operation.
+    self.assertEquals(True, dsg.process_tombstone("key", "entity", "1"))
+
+    # Failure on release lock but delete was successful.
+    zookeeper.should_receive("release_lock").and_raise(ZKTransactionException('zk'))
+    self.assertEquals(True, dsg.process_tombstone("key", "entity", "1"))
+
+    # Hard delete failed.
+    dsg.should_receive("hard_delete_row").and_return(False)
+    self.assertEquals(False, dsg.process_tombstone("key", "entity", "1"))
+
+    # Failed to acquire lock.
+    zookeeper.should_receive("acquire_lock").and_return(False)
+    self.assertEquals(False, dsg.process_tombstone("key", "entity", "1"))
+  
+    # Failed to acquire lock with an exception.
+    zookeeper.should_receive("acquire_lock").and_raise(ZKTransactionException('zk'))
+    self.assertEquals(False, dsg.process_tombstone("key", "entity", "1"))
 
   def test_stop(self):
+    #TODO 
     pass
 
   def test_remove_old_statistics(self):

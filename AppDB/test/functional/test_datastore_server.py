@@ -48,9 +48,6 @@ class GetPrefixCase(unittest.TestCase):
     assert self.app_datastore.GetTablePrefix(('hi1','bye1')) == "hi1/bye1"
   def tearDown(self):
     key = self.app_datastore.GetTablePrefix(("hi1", "bye1"))
-    datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(DB)
-    datastore_batch.batch_delete(APP_NAMESPACE_TABLE, [key], column_names=APP_NAMESPACE_SCHEMA)
-    
 
 class ConfigureNamespaceCase(unittest.TestCase):
   def setUp(self):
@@ -58,15 +55,9 @@ class ConfigureNamespaceCase(unittest.TestCase):
     self.app_datastore = datastore_server.DatastoreDistributed(datastore_batch) 
   def runTest(self):
     assert self.app_datastore.GetTablePrefix(("hi","bye")) == "hi/bye"
-    datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(DB)
-    assert datastore_batch.batch_get_entity(APP_NAMESPACE_TABLE, ["hi/bye"],
-                           ['namespaces']) == {'hi/bye':{'namespaces':'bye'}}
+
   def tearDown(self):
     key = self.app_datastore.GetTablePrefix(("hi", "bye"))
-    datastore_batch = appscale_datastore_batch.DatastoreFactory.getDatastore(DB)
-    datastore_batch.batch_delete(APP_NAMESPACE_TABLE, [key], APP_NAMESPACE_SCHEMA)
-    assert datastore_batch.batch_get_entity(APP_NAMESPACE_TABLE, ["hi/bye"],
-                           ['namespaces']) == {'hi/bye':{}}
 
 class InsertEntityCase(unittest.TestCase):
   def setUp(self):

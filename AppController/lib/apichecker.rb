@@ -83,13 +83,14 @@ class ApiChecker
     HAProxy.write_app_config(app, app_number, num_servers, @@private_ip)
     Collectd.write_app_config(app)
 
+    Djinn.log_info("Starting #{app_language} app #{app}")
     [19997, 19998, 19999].each { |port|
       Djinn.log_debug("Starting #{app_language} app #{app} on #{HelperFunctions.local_ip}:#{port}")
       pid = app_manager.start_app(app, port, uaserver_ip, 
                                   SERVER_PORT, app_language, login_ip,
                                   [uaserver_ip], {})
       if pid == -1
-        Djinn.log_debug("Failed to start app #{app} on #{HelperFunctions.local_ip}:#{port}")
+        Djinn.log_error("Failed to start app #{app} on #{HelperFunctions.local_ip}:#{port}")
         return false
       else
         pid_file_name = "#{APPSCALE_HOME}/.appscale/#{app}-#{port}.pid"
@@ -106,11 +107,10 @@ class ApiChecker
   # Stops the API checker app.
   #
   def self.stop
-    app = "apichecker"
-    Djinn.log_debug("Stopping app #{app} on #{HelperFunctions.local_ip}")
+    Djinn.log_info("Stopping apichecker on #{HelperFunctions.local_ip}")
     app_manager = AppManagerClient.new()
-    if app_manager.stop_app(app) 
-      Djinn.log_debug("Failed to start app #{app} on #{HelperFunctions.local_ip}")
+    if app_manager.stop_app("apichecker")
+      Djinn.log_error("Failed to stop apichecker on #{HelperFunctions.local_ip}")
     end
   end
 

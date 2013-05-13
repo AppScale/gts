@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+    <!-- FILE:templates/layouts/main.html --> 
+    <head>
+        <!--
+    ___                _____            __
+   /   |  ____  ____  / ___/_________ _/ /___
+  / /| | / __ \/ __ \ \__ \/ ___/ __ `/ // _ \
+ / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
+/_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/
+      /_/   /_/
+
+-->
+    <meta http-equiv="content-type" content="application/xhtml+xml; charset=UTF-8" />
+    <title>AppScale Cloud Administration</title>
+    <meta name="author" content="AppScale Systems, Inc" />
+    <meta name="description" content="AppScale Private Cloud Monitoring" />
+    <meta name="keywords" content="AppScale, AppScale PaaS, AppScale Systems, Inc" />
+    <meta name="application-name" content="AppScale Cloud Administration" />
+
+    <!-- Mobile Specific Metas -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    {% if page_name == 'apps' %}
+       <script src="/javascripts/upload.js" type="text/javascript"></script>
+    {% endif %}
+    {% if page_name == 'users' %}
+       <script src="/javascripts/form.js" type="text/javascript"></script>
+    {% endif %}
+
+    <!-- Core stylesheets do not remove -->
+    <link href="/css/bootstrap/bootstrap.css" rel="stylesheet" type="text/css" />
+    <link href="/css/bootstrap/bootstrap-responsive.css" rel="stylesheet" type="text/css" />
+    <link href="/css/supr-theme/jquery.ui.supr.css" rel="stylesheet" type="text/css"/>
+    <link href="/css/icons.css" rel="stylesheet" type="text/css" />
+
+
+    <!-- Main stylesheets -->
+    <link href="/css/main.css" rel="stylesheet" type="text/css" /> 
+
+    <!-- Custom stylesheets ( Put your own changes here ) -->
+    <link href="/css/custom.css" rel="stylesheet" type="text/css" />
+    
+    <!-- Le HTML5 shim, for IE6-8 support of HTML5 elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le fav and touch icons -->
+    <link rel="shortcut icon" href="/images/favicon.ico" />
+    <link rel="apple-touch-icon-precomposed" sizes="144x144" href="images/apple-touch-icon-144-precomposed.png" />
+    <link rel="apple-touch-icon-precomposed" sizes="114x114" href="images/apple-touch-icon-114-precomposed.png" />
+    <link rel="apple-touch-icon-precomposed" sizes="72x72" href="images/apple-touch-icon-72-precomposed.png" />
+    <link rel="apple-touch-icon-precomposed" href="images/apple-touch-icon-57-precomposed.png" />
+
+    </head>
+  <body>
+    {% if page_name != 'users' %}
+	  {{ shared_navigation }}
+    {% endif %}
+	{{page_body}}
+
+
+    <!-- Le javascript
+    ================================================== -->
+    <!-- Important plugins put in all pages -->
+    <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+    <script type="text/javascript" src="/js/bootstrap/bootstrap.js"></script>  
+    <script type="text/javascript" src="/js/jquery.cookie.js"></script>
+    <script type="text/javascript" src="/js/jquery.mousewheel.js"></script>
+    <script type="text/javascript" src="/js/bootstrapSwitch.js"></script>
+    <script type="text/javascript" src="/js/jquery.FilterTable.js"></script>
+
+    <!-- Important Place before main.js  -->
+    <script type="text/javascript" src="/js/jquery-ui.1.8.2.min.js"></script>
+    <script type="text/javascript" src="/plugins/fix/touch-punch/jquery.ui.touch-punch.min.js"></script><!-- Unable touch for JQueryUI -->
+
+    <!--Just Gauge-->
+    <script type="text/javascript" src="/js/raphael.2.1.0.min.js"></script>
+    <script type="text/javascript" src="/js/justgage.1.0.1.min.js"></script>
+
+    <!-- Misc plugins -->
+    <!-- Fix plugins -->
+    <script type="text/javascript" src="/plugins/fix/ios-fix/ios-orientationchange-fix.js"></script>
+
+    <script>
+        $(document).ready(function() {
+            $('#log_table').filterTable();
+        });
+    </script>
+
+    {% if page_name == 'status' %}
+    <script type="text/javascript">
+         $('#load_balancer').tooltip()
+         $('#shadow').tooltip()
+         $('#db_master').tooltip()
+         $('#bd_slave').tooltip()
+         $('#taskqueue_master').tooltip()
+         $('#taskqueue_slave').tooltip()
+         $('#appengine').tooltip()
+         $('#login_role').tooltip()
+         $('#zookeeper').tooltip()
+         $('#memcache').tooltip()
+	</script>
+    {% endif %}
+
+  </body>
+</html> 

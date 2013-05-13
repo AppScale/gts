@@ -11,10 +11,15 @@ set -e
 if [ -z "$APPSCALE_HOME_RUNTIME" ]; then
     export APPSCALE_HOME_RUNTIME=/opt/appscale
 fi
+
+if [ -z "$APPSCALE_PACKAGE_MIRROR" ]; then
+    export APPSCALE_PACKAGE_MIRROR=http://s3.amazonaws.com/appscale-build
+fi
+
 #if [ -z "$APPSCALE_HOME" ]; then
  #  export APPSCALE_HOME= /root/appscale/
 #fi 
-export APPSCALE_VERSION=1.6.9
+export APPSCALE_VERSION=1.7.0
 
 increaseconnections()
 {
@@ -61,7 +66,7 @@ setupntpcron()
 installpython27()
 {
     cd /usr/local
-    wget http://s3.amazonaws.com/appscale-build/Python-2.7.3.tgz
+    wget $APPSCALE_PACKAGE_MIRROR/Python-2.7.3.tgz
     tar zxvf Python-2.7.3.tgz
     rm /usr/local/Python-2.7.3.tgz
 }
@@ -70,7 +75,7 @@ installnumpy()
 {
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://s3.amazonaws.com/appscale-build/appscale-numpy-1.7.0.tar.gz
+    wget $APPSCALE_PACKAGE_MIRROR/appscale-numpy-1.7.0.tar.gz
     tar zxvf appscale-numpy-1.7.0.tar.gz
     cd numpy-1.7.0
     /usr/local/Python-2.7.3/python setup.py install
@@ -83,7 +88,7 @@ installmatplotlib()
 {
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://s3.amazonaws.com/appscale-build/matplotlib-1.2.0.tar.gz
+    wget $APPSCALE_PACKAGE_MIRROR/matplotlib-1.2.0.tar.gz
     tar zxvf matplotlib-1.2.0.tar.gz
     cd matplotlib-1.2.0
     /usr/local/Python-2.7.3/python setup.py install
@@ -95,7 +100,7 @@ installPIL()
 {
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://s3.amazonaws.com/appscale-build/Imaging-1.1.7.tar.gz
+    wget $APPSCALE_PACKAGE_MIRROR/Imaging-1.1.7.tar.gz
     tar zxvf Imaging-1.1.7.tar.gz
     cd Imaging-1.1.7
     /usr/local/Python-2.7.3/python setup.py install
@@ -227,7 +232,7 @@ installthrift_fromsource()
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
     # apache 0.2.0
-    wget http://s3.amazonaws.com/appscale-build/thrift-${THRIFT_VER}.tar.gz
+    wget $APPSCALE_PACKAGE_MIRROR/thrift-${THRIFT_VER}.tar.gz
     tar zxfv thrift-${THRIFT_VER}.tar.gz
     rm -v thrift-${THRIFT_VER}.tar.gz
     pushd thrift-${THRIFT_VER}
@@ -295,7 +300,7 @@ installtornado_fromsource()
     cd ${APPSCALE_HOME}/downloads
     rm -rfv tornado
     # download from appscale site
-    wget http://s3.amazonaws.com/appscale-build/tornado-0.2.tar.gz
+    wget $APPSCALE_PACKAGE_MIRROR/tornado-0.2.tar.gz
     tar xvzf tornado-0.2.tar.gz
     pushd tornado-0.2
     python setup.py build
@@ -347,7 +352,7 @@ installhaproxy()
     cd ${APPSCALE_HOME}/downloads
     rm -rfv haproxy*
 # download from appscale site
-    wget http://s3.amazonaws.com/appscale-build/haproxy-${HAPROXY_VER}.tar.gz
+    wget $APPSCALE_PACKAGE_MIRROR/haproxy-${HAPROXY_VER}.tar.gz
     tar zxvf haproxy-${HAPROXY_VER}.tar.gz
     rm -v haproxy-${HAPROXY_VER}.tar.gz
 
@@ -364,10 +369,10 @@ installhaproxy()
 
     # install service script
     mkdir -pv ${DESTDIR}/etc/init.d
-    cp -v ${APPSCALE_HOME}/AppLoadBalancer/config/haproxy-init.sh ${DESTDIR}/etc/init.d/haproxy
-    chmod -v a+x ${DESTDIR}/etc/init.d/haproxy
+    cp -v ${APPSCALE_HOME}/AppDashboard/setup/haproxy-init.sh ${DESTDIR}/etc/init.d/haproxy 
+    chmod -v a+x ${DESTDIR}/etc/init.d/haproxy 
     mkdir -pv ${DESTDIR}/etc/haproxy
-    cp -v ${APPSCALE_HOME}/AppLoadBalancer/config/haproxy.cfg ${DESTDIR}/etc/haproxy/
+    cp -v ${APPSCALE_HOME}/AppDashboard/setup/haproxy.cfg ${DESTDIR}/etc/haproxy/ 
     mkdir -pv ${DESTDIR}/etc/default
     echo "ENABLED=1" > ${DESTDIR}/etc/default/haproxy
 }
@@ -382,7 +387,7 @@ installtmux()
 {
     # First, install tmux (do it from source to get the newest features)
     cd ${APPSCALE_HOME}
-    wget http://s3.amazonaws.com/appscale-build/tmux-1.6.tar.gz
+    wget $APPSCALE_PACKAGE_MIRROR/tmux-1.6.tar.gz
     tar zxvf tmux-1.6.tar.gz
     cd tmux-1.6
     ./configure
@@ -393,7 +398,7 @@ installtmux()
     
     # Finally, grab our tmux config file and put it in the right place
     cd
-    wget http://s3.amazonaws.com/appscale-build/tmux.conf -O .tmux.conf
+    wget $APPSCALE_PACKAGE_MIRROR/tmux.conf -O .tmux.conf
 }
 
 postinstalltmux()
@@ -413,7 +418,7 @@ installhypertable()
     fi
     gem install titleize
     # extract binary files and repackage it when making deb
-    wget http://s3.amazonaws.com/appscale-build/hypertable-${HT_VER}-linux-${ARCH}.deb -O hypertable-${HT_VER}.deb
+    wget $APPSCALE_PACKAGE_MIRROR/hypertable-${HT_VER}-linux-${ARCH}.deb -O hypertable-${HT_VER}.deb
     dpkg-deb --vextract hypertable-${HT_VER}.deb ${DESTDIR}/
     rm hypertable-${HT_VER}.deb
 
@@ -450,7 +455,7 @@ installhypertablemonitoring()
     # For hypertable monitoring
     gem install sinatra rack thin json ${GEMOPT}
     cd ${APPSCALE_HOME}/downloads
-    wget http://s3.amazonaws.com/appscale-build/rrdtool-1.4.4.tar.gz
+    wget $APPSCALE_PACKAGE_MIRROR/rrdtool-1.4.4.tar.gz
     tar zxvf rrdtool-1.4.4.tar.gz
     cd rrdtool-1.4.4/
     ./configure 
@@ -472,7 +477,7 @@ installgems()
 {
     # install gem here
     cd
-    wget http://s3.amazonaws.com/appscale-build/rubygems-1.3.7.tgz
+    wget $APPSCALE_PACKAGE_MIRROR/rubygems-1.3.7.tgz
     tar zxvf rubygems-1.3.7.tgz
     cd rubygems-1.3.7
     ruby setup.rb
@@ -557,11 +562,11 @@ installnginx()
     NGINX_VERSION=1.2.6
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://s3.amazonaws.com/appscale-build/nginx-${NGINX_VERSION}.tar.gz
+    wget $APPSCALE_PACKAGE_MIRROR/nginx-${NGINX_VERSION}.tar.gz
     tar zxvf nginx-${NGINX_VERSION}.tar.gz
     rm -v nginx-${NGINX_VERSION}.tar.gz
     pushd nginx-${NGINX_VERSION}
-    wget http://s3.amazonaws.com/appscale-build/v0.23rc2.tar.gz
+    wget $APPSCALE_PACKAGE_MIRROR/v0.23rc2.tar.gz
     tar zxvf v0.23rc2.tar.gz
     ./configure --add-module=./chunkin-nginx-module-0.23rc2/ --with-http_ssl_module --with-http_gzip_static_module
     make
@@ -575,7 +580,7 @@ postinstallnginx()
 {
     cd ${APPSCALE_HOME}
     mkdir -p /usr/local/nginx/sites-enabled/
-    cp -v AppLoadBalancer/config/load-balancer.conf /usr/local/nginx/sites-enabled/
+    cp -v AppDashboard/setup/load-balancer.conf /usr/local/nginx/sites-enabled/
     rm -fv /usr/local/nginx/sites-enabled/default
     chmod +x /root
 }
@@ -587,7 +592,7 @@ installhadoop()
     mkdir -pv ${APPSCALE_HOME}/AppDB
     cd ${APPSCALE_HOME}/AppDB
     rm -rfv hadoop-${HADOOP_VER}
-    wget http://s3.amazonaws.com/appscale-build/hadoop-${HADOOP_VER}.tar.gz -O hadoop-${HADOOP_VER}.tar.gz
+    wget $APPSCALE_PACKAGE_MIRROR/hadoop-${HADOOP_VER}.tar.gz -O hadoop-${HADOOP_VER}.tar.gz
     tar xvzf hadoop-${HADOOP_VER}.tar.gz
     rm -v hadoop-${HADOOP_VER}.tar.gz
     cd hadoop-${HADOOP_VER}
@@ -644,14 +649,14 @@ installhbase()
     mkdir -pv ${APPSCALE_HOME}/AppDB/hbase
     cd ${APPSCALE_HOME}/AppDB/hbase
     rm -rfv hbase-${HBASE_VER}
-    wget http://s3.amazonaws.com/appscale-build/hbase-${HBASE_VER}-rebuilt.tar.gz -O hbase-${HBASE_VER}.tar.gz
+    wget $APPSCALE_PACKAGE_MIRROR/hbase-${HBASE_VER}-rebuilt.tar.gz -O hbase-${HBASE_VER}.tar.gz
 
     tar zxvf hbase-${HBASE_VER}.tar.gz
     rm -v hbase-${HBASE_VER}.tar.gz
     # Clean out the maven repository
     rm -rfd ~/.m2/
     cd
-    wget http://s3.amazonaws.com/appscale-build/maven_repos.tar.gz
+    wget $APPSCALE_PACKAGE_MIRROR/maven_repos.tar.gz
     tar zxvf maven_repos.tar.gz
     rm -rv maven_repos.tar.gz 
     ######
@@ -671,12 +676,12 @@ installcassandra()
     CASSANDRA_VER=1.0.7
     PYCASSA_VER=1.3.0
     cd /lib 
-    wget http://s3.amazonaws.com/appscale-build/jamm-0.2.2.jar
+    wget $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
     
     mkdir -p ${APPSCALE_HOME}/AppDB/cassandra
     cd ${APPSCALE_HOME}/AppDB/cassandra
     rm -rfv cassandra
-    wget http://s3.amazonaws.com/appscale-build/apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
+    wget $APPSCALE_PACKAGE_MIRROR/apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
     tar xzvf apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
     mv -v apache-cassandra-${CASSANDRA_VER} cassandra
     rm -fv apache-cassandra-${CASSANDRA_VER}-bin.tar.gz
@@ -703,7 +708,7 @@ installcassandra()
 
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://s3.amazonaws.com/appscale-build/pycassa-${PYCASSA_VER}.tar.gz
+    wget $APPSCALE_PACKAGE_MIRROR/pycassa-${PYCASSA_VER}.tar.gz
     tar zxvf pycassa-${PYCASSA_VER}.tar.gz  
     cd pycassa-${PYCASSA_VER}
     python setup.py install
@@ -725,7 +730,7 @@ installprotobuf_fromsource()
     # install protobuf 2.3.0. we need egg version for python.
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://s3.amazonaws.com/appscale-build/protobuf-${PROTOBUF_VER}.tar.gz
+    wget $APPSCALE_PACKAGE_MIRROR/protobuf-${PROTOBUF_VER}.tar.gz
     tar zxvf protobuf-${PROTOBUF_VER}.tar.gz
     rm -v protobuf-${PROTOBUF_VER}.tar.gz
     pushd protobuf-${PROTOBUF_VER}
@@ -800,7 +805,7 @@ installpig()
     /bin/cp -fv ~/appscale/AppDB/hadoop-0.20.2/build/classes/org/apache/hadoop/hdfs/* ${APPSCALE_HOME}/downloads/pig-0.5.0/tmp/org/apache/hadoop/hdfs/
     jar cvf ../pig-0.5.0-core.jar ./*
     rm -rfv ./*
-    wget http://s3.amazonaws.com/appscale-build/pigtutorial.tar.gz
+    wget $APPSCALE_PACKAGE_MIRROR/pigtutorial.tar.gz
     tar zxvf pigtutorial.tar.gz
     DESTFILE=${DESTDIR}/etc/profile.d/pig.sh
     mkdir -pv $(dirname $DESTFILE)
@@ -820,8 +825,6 @@ installservice()
 {
     # this must be absolete path of runtime
     mkdir -pv ${DESTDIR}/etc/init.d/
-    ln -sfv ${APPSCALE_HOME_RUNTIME}/appscale-loadbalancer.sh ${DESTDIR}/etc/init.d/appscale-loadbalancer
-    chmod -v a+x ${APPSCALE_HOME}/appscale-loadbalancer.sh
     ln -sfv ${APPSCALE_HOME_RUNTIME}/appscale-controller.sh ${DESTDIR}/etc/init.d/appscale-controller
     chmod -v a+x ${APPSCALE_HOME}/appscale-controller.sh
     ln -sfv ${APPSCALE_HOME_RUNTIME}/appscale-monitoring.sh ${DESTDIR}/etc/init.d/appscale-monitoring
@@ -830,8 +833,6 @@ installservice()
 
 postinstallservice()
 {
-# we don't need to start load balancer as daemon
-#    update-rc.d appscale-loadbalancer defaults
 
     # stop unnecessary services
 #    service nginx stop || true
@@ -860,7 +861,7 @@ installzookeeper()
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
 
-    wget http://s3.amazonaws.com/appscale-build/zookeeper-${ZK_VER}.tar.gz
+    wget $APPSCALE_PACKAGE_MIRROR/zookeeper-${ZK_VER}.tar.gz
     tar zxvf zookeeper-${ZK_VER}.tar.gz
 
     cd zookeeper-${ZK_VER}
@@ -988,7 +989,7 @@ installsetuptools()
 {
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
-    wget http://s3.amazonaws.com/appscale-build/setuptools-0.6c11.tar.gz
+    wget $APPSCALE_PACKAGE_MIRROR/setuptools-0.6c11.tar.gz
     tar zxvf setuptools-0.6c11.tar.gz
     pushd setuptools-0.6c11
     python setup.py install
@@ -1022,7 +1023,7 @@ installrabbitmq()
    PIKA_VERSION=0.9.9p0
    mkdir -pv ${APPSCALE_HOME}/downloads
    cd ${APPSCALE_HOME}/downloads
-   wget http://s3.amazonaws.com/appscale-build/pika-${PIKA_VERSION}.zip
+   wget $APPSCALE_PACKAGE_MIRROR/pika-${PIKA_VERSION}.zip
    unzip pika-${PIKA_VERSION}.zip
    cd pika-master
    cp -r pika /usr/share/pyshared

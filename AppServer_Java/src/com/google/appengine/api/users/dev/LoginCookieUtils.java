@@ -34,7 +34,7 @@ public final class LoginCookieUtils
 
     /*
      * AppScale -- replaced method body -- should not be called b/c
-     * AppLoadBalancer handles this now, this method is not called
+     * AppDashboard handles this now, this method is not called
      * so adding Exception to catch when it is
      */
     public static Cookie createCookie( String email, boolean isAdmin )
@@ -44,14 +44,14 @@ public final class LoginCookieUtils
         Cookie cookie = new Cookie("dev_appserver_login", email + ":" + isAdmin + ":" + userId);
         cookie.setPath(COOKIE_PATH);
         cookie.setMaxAge(COOKIE_AGE);
-        logger.warning("Creating cookie by original jetty server, should be done by AppLoadBalancer");
+        logger.warning("Creating cookie by original jetty server, should be done by AppDashboard");
         logger.warning("Cookie is: " + cookie.toString());
         return cookie;
     }
 
     /*
      * AppScale -- replaced method body this method should not be called b/c
-     * AppLoadBalancer handles this now Chandra says: but it is called when a
+     * AppDashboard handles this now Chandra says: but it is called when a
      * login route is requested when cookie is null (so throw exception on an
      * attemp to remove a valid cookie) If these are not the semantics we want,
      * then replace this method so that it is correct.
@@ -65,7 +65,7 @@ public final class LoginCookieUtils
             cookie.setPath("/");
             cookie.setMaxAge(0);
             resp.addCookie(cookie);
-            logger.warning("Revoking cookie by original jetty server, should be done by AppLoadBalancer");
+            logger.warning("Revoking cookie by original jetty server, should be done by AppDashboard");
             logger.warning("Cookie is: " + cookie.toString());
         }
         else

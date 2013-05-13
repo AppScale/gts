@@ -54,12 +54,12 @@ class UserAppClient
         end
       end
     rescue OpenSSL::SSL::SSLError
-      Djinn.log_debug("Retrying (SSL) - calling #{callr} on UserAppServer at #{@ip}")
+      Djinn.log_warn("Retrying (SSL) - calling #{callr} on UserAppServer at #{@ip}")
       retry
     rescue Errno::ECONNREFUSED
       if retry_on_except
         sleep(1)
-        Djinn.log_debug("Retrying (ConnRefused) - calling #{callr} on UserAppServer at #{@ip}")
+        Djinn.log_warn("Retrying (ConnRefused) - calling #{callr} on UserAppServer at #{@ip}")
         retry
       else
         abort("We were unable to establish a connection with the UserAppServer at the designated location. Is AppScale currently running?")
@@ -69,8 +69,8 @@ class UserAppClient
         abort
       end
 
-      puts "An exception of type #{except.class} was thrown."
-      Djinn.log_debug("Retrying - calling #{callr} on UserAppServer at #{@ip}")
+      Djinn.log_warn("An exception of type #{except.class} was thrown.")
+      Djinn.log_warn("Retrying - calling #{callr} on UserAppServer at #{@ip}")
       retry if retry_on_except
     end
   end

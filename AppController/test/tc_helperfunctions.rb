@@ -11,6 +11,7 @@ require 'flexmock/test_unit'
 class TestHelperFunctions < Test::Unit::TestCase
 
   def setup
+    @prefixed_appid = "gae_boo"
     @appid = "boo"
     @app_yaml = "/var/apps/boo/app/app.yaml"
     @appengine_web_xml = "/var/apps/boo/app/war/WEB-INF/appengine-web.xml"
@@ -107,4 +108,65 @@ XML
       HelperFunctions.get_app_env_vars(@appid)
     }
   end
+
+  def test_get_app_thread_safe_python_with_threadsafe_true
+    file = flexmock(File)
+    file.should_receive(:exists?).with(@app_yaml).and_return(true)
+    
+    yaml = flexmock(YAML)
+    yaml.should_receive(:load_file).with(@app_yaml).and_return({
+        'threadsafe' => 'true'
+    })
+     
+    assert_equal(false, HelperFunctions.get_app_thread_safe(@prefixed_appid))
+  end
+
+  def test_get_app_thread_safe_python_with_threadsafe_false
+    file = flexmock(File)
+    file.should_receive(:exists?).with(@app_yaml).and_return(true)
+    
+    yaml = flexmock(YAML)
+    yaml.should_receive(:load_file).with(@app_yaml).and_return({
+        'threadsafe' => 'false'
+    })
+     
+    assert_equal(false, HelperFunctions.get_app_thread_safe(@prefixed_appid))
+  end
+
+  def test_get_app_thread_safe_java_with_threadsafe_true
+    file = flexmock(File)
+    file.should_receive(:exists?).with(@app_yaml).and_return(false)
+    file.should_receive(:exists?).with(@appengine_web_xml).and_return(true)
+    xml = <<XML
+    <threadsafe>true</threadsafe>
+XML
+
+    file.should_receive(:open).with(@appengine_web_xml, Proc).and_return(xml)
+    assert_equal(true, HelperFunctions.get_app_thread_safe(@prefixed_appid))
+  end
+
+  def test_get_app_thread_safe_java_with_threadsafe_false
+    file = flexmock(File)
+    file.should_receive(:exists?).with(@app_yaml).and_return(false)
+    file.should_receive(:exists?).with(@appengine_web_xml).and_return(true)
+    xml = <<XML
+    <threadsafe>false</threadsafe>
+XML
+
+    file.should_receive(:open).with(@appengine_web_xml, Proc).and_return(xml)
+    assert_equal(false, HelperFunctions.get_app_thread_safe(@prefixed_appid))
+  end
+
+  def test_get_app_thread_safe_with_non_prefixed_appid
+    file = flexmock(File)
+    assert_equal(false, HelperFunctions.get_app_thread_safe(@appid))
+  end
+
+  def test_get_app_thread_safe_with_no_config_file
+    file = flexmock(File)
+    file.should_receive(:exists?).with(@app_yaml).and_return(false)
+    file.should_receive(:exists?).with(@appengine_web_xml).and_return(false) 
+    assert_equal(false, HelperFunctions.get_app_thread_safe(@prefixed_appid))
+  end
+ 
 end
