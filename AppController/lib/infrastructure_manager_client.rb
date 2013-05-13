@@ -84,9 +84,10 @@ class InfrastructureManagerClient
         yield if block_given?
       }
     rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH => except
-      Djinn.log_debug("Saw an Exception of class #{except.class}")
+      Djinn.log_warn("Saw an Exception of class #{except.class}")
       if refused_count > max
         return false if ok_to_fail
+        Djinn.log_fatal("Connection refused. Is the AppController running?")
         raise AppScaleException.new("Connection was refused. Is the " +
           "AppController running?")
       else
@@ -95,22 +96,24 @@ class InfrastructureManagerClient
         retry
       end
     rescue Timeout::Error
-      Djinn.log_debug("Saw a Timeout Error")
+      Djinn.log_warn("Saw a Timeout Error")
       return false if ok_to_fail
       retry
     rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE, Errno::ECONNRESET => except
-      Djinn.log_debug("Saw an Exception of class #{except.class}")
+      Djinn.log_warn("Saw an Exception of class #{except.class}")
       Kernel.sleep(1)
       retry
     rescue Exception => except
       newline = "\n"
-      Djinn.log_debug("Saw an Exception of class #{except.class}")
-      Djinn.log_debug("#{except.backtrace.join(newline)}")
+      Djinn.log_warn("Saw an Exception of class #{except.class}")
+      Djinn.log_warn("#{except.backtrace.join(newline)}")
 
       if retry_on_except
         Kernel.sleep(1)
         retry
       else
+        Djinn.log_fatal("Couldn't recover from a #{except.class} Exception, " +
+          "with message: #{except}")
         raise AppScaleException.new("[#{callr}] We saw an unexpected error of" +
           " the type #{except.class} with the following message:\n#{except}.")
       end

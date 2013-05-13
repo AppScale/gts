@@ -38,21 +38,25 @@ class XMPPReceiver():
   """
 
 
-  def __init__(self, appid, login_ip, app_password):
+  def __init__(self, appid, login_ip, app_port, app_password):
     """Creates a new XMPPReceiver, which will listen for XMPP messages for
     an App Engine app.
 
     Args:
       appid: A str representing the application ID that this XMPPReceiver
         should poll on behalf of.
-      login_ip: A str representing the IP or FQDN where an AppLoadBalancer
-        runs, so that we can find an App Server to POST messages to.
+      login_ip: A str representing the IP address or FQDN that runs the
+        full proxy nginx service, sitting in front of the app we'll be
+        posting messages to.
+      app_port: A str representing the port that the app we'll be posting
+        messages to is bound to.
       app_password: A str representing the password associated with the
         XMPP user account for the Google App Engine app that the receiver
         will log in on behalf of.
     """
     self.appid = appid
     self.login_ip = login_ip
+    self.app_port = app_port
     self.app_password = app_password
 
     self.my_jid = self.appid + "@" + self.login_ip
@@ -83,12 +87,8 @@ class XMPPReceiver():
     params['body'] = event.getBody()
     encoded_params = urllib.urlencode(params)
 
-    lb_url = "http://{0}/apps/{1}/".format(self.login_ip, self.appid)
-    cmd = "curl -L -i -k -X GET " + lb_url
-    lb_result = os.popen(cmd).read()
-
-    appserver_ip = re.findall('Location: http://(.*)', lb_result)[-1]
-    xmpp_url = "http://{0}/_ah/xmpp/message/chat/".format(appserver_ip)
+    xmpp_url = "http://{0}:{1}/_ah/xmpp/message/chat/".format(self.login_ip,
+      self.app_port)
     urllib.urlopen(xmpp_url, encoded_params)
 
 
@@ -155,5 +155,5 @@ class XMPPReceiver():
 
 
 if __name__ == "__main__":
-  RECEIVER = XMPPReceiver(sys.argv[1], sys.argv[2], sys.argv[3])
+  RECEIVER = XMPPReceiver(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
   RECEIVER.listen_for_messages()

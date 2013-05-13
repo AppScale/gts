@@ -41,7 +41,7 @@ class TaskQueueClient
   #   The result of the remote call.
   def make_call(timeout, retry_on_except, callr)
     result = ""
-    Djinn.log_debug("Calling the TaskQueue Server- #{callr}")
+    Djinn.log_debug("Calling the TaskQueue Server: #{callr}")
     begin
       Timeout::timeout(timeout) do
         begin
@@ -50,20 +50,20 @@ class TaskQueueClient
       end
     rescue Errno::ECONNREFUSED => except
       if retry_on_except
-        Djinn.log_debug("Saw a connection refused when calling #{callr}" +
+        Djinn.log_warn("Saw a connection refused when calling #{callr}" +
           " - trying again momentarily.")
         sleep(1)
         retry
       else
         trace = except.backtrace.join("\n")
-        Djinn.log_debug("We saw an unexpected error of the type #{except.class} with the following message:\n#{except}, with trace: #{trace}")
+        Djinn.log_warn("We saw an unexpected error of the type #{except.class} with the following message:\n#{except}, with trace: #{trace}")
       end 
    rescue Exception => except
       if except.class == Interrupt
         abort
       end
 
-      Djinn.log_debug("An exception of type #{except.class} was thrown: #{except}.")
+      Djinn.log_warn("An exception of type #{except.class} was thrown: #{except}.")
       retry if retry_on_except
     end
   end

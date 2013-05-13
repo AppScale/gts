@@ -132,6 +132,7 @@ import org.apache.http.*;
 public final class LocalDatastoreService extends AbstractLocalRpcService
 {
     private static final Logger                 logger                             = Logger.getLogger(LocalDatastoreService.class.getName());
+    private final String                        APPLICATION_ID_PROPERTY            = "APPLICATION_ID";
     static final int                            DEFAULT_BATCH_SIZE                 = 20;
     static final int                            MAXIMUM_RESULTS_SIZE               = 300;
     public static final String                  PACKAGE                            = "datastore_v3";
@@ -1228,7 +1229,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         }
 
         DatastorePb.AllocateIdsResponse response = new DatastorePb.AllocateIdsResponse();
-        proxy.doPost("appId", "AllocateIds", req, response);
+        proxy.doPost(getAppId(), "AllocateIds", req, response);
         return response;
     }
 
@@ -2349,5 +2350,11 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
                 return LocalCompositeIndexManager.KeyTranslator.createFromPb(entityGroupRef);
             }
         }
+    }
+    
+    private String getAppId()
+    {
+        String appId = System.getProperty(APPLICATION_ID_PROPERTY);
+        return appId;
     }
 }

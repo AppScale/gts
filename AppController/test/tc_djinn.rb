@@ -16,8 +16,15 @@ class TestDjinn < Test::Unit::TestCase
     kernel.should_receive(:sleep).and_return()
     kernel.should_receive(:system).with("").and_return()
 
+    flexmock(Logger).new_instances { |instance|
+      instance.should_receive(:debug).and_return()
+      instance.should_receive(:info).and_return()
+      instance.should_receive(:warn).and_return()
+      instance.should_receive(:error).and_return()
+      instance.should_receive(:fatal).and_return()
+    }
+
     djinn = flexmock(Djinn)
-    djinn.should_receive(:log_debug).and_return()
     djinn.should_receive(:log_run).with("").and_return()
 
     flexmock(HelperFunctions).should_receive(:shell).with("").and_return()
@@ -151,11 +158,9 @@ class TestDjinn < Test::Unit::TestCase
 
     udpsocket = flexmock(UDPSocket)
     udpsocket.should_receive(:open).and_return("not any ips above")
-
-    expected_2 = "Error: Couldn't find me in the node map"
-    result_6 = djinn.set_parameters(one_node_info, credentials, app_names,
-      @secret)
-    assert_equal(expected_2, result_6)
+    assert_raises(SystemExit) {
+      djinn.set_parameters(one_node_info, credentials, app_names, @secret)
+    }
   end
 
   def test_set_params_w_good_params
@@ -893,8 +898,8 @@ class TestDjinn < Test::Unit::TestCase
       with(/\Assh.* root@1.2.3.5 'ls #{HelperFunctions::APPSCALE_CONFIG_DIR}/).and_return("0\n")
 
     # mock out our attempts to rsync over to the new boxes
-    flexmock(Djinn).should_receive(:log_run).with(/\Arsync.* root@1.2.3.4/).and_return()
-    flexmock(Djinn).should_receive(:log_run).with(/\Arsync.* root@1.2.3.5/).and_return()
+    flexmock(HelperFunctions).should_receive(:shell).with(/\Arsync.* root@1.2.3.4/).and_return()
+    flexmock(HelperFunctions).should_receive(:shell).with(/\Arsync.* root@1.2.3.5/).and_return()
 
     # when the appcontroller asks those boxes where APPSCALE_HOME is,
     # let's assume they say it's in /usr/appscale
@@ -972,4 +977,38 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal(true, actual.include?(node2_info))
   end
 
+  def test_log_sending
+    # mock out getting our ip address
+    flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
+      and_return("inet addr:1.2.3.4")
+
+    node_info = "1.2.3.3:1.2.3.3:shadow:login:i-000000:cloud1"
+    node = DjinnJobData.new(node_info, "boo")
+
+    djinn = Djinn.new()
+    djinn.nodes = [node]
+    djinn.my_index = 0
+
+    # test that the buffer is initially empty
+    assert_equal([], Djinn.get_logs_buffer())
+
+    # do a couple log statements to populate the buffer
+    Djinn.log_fatal("one")
+    Djinn.log_fatal("two")
+    Djinn.log_fatal("three")
+
+    # and make sure they're in there
+    assert_equal(3, Djinn.get_logs_buffer().length)
+
+    # mock out sending the logs
+    flexmock(Net::HTTP).new_instances { |instance|
+      instance.should_receive(:post).with("/logs/upload", String, Hash)
+    }
+
+    # flush the buffer
+    djinn.flush_log_buffer()
+
+    # make sure our buffer is empty again
+    assert_equal([], Djinn.get_logs_buffer())
+  end
 end

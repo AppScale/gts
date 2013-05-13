@@ -61,12 +61,12 @@ class AppManagerClient
         end
       end
     rescue OpenSSL::SSL::SSLError
-      Djinn.log_debug("Saw a SSLError when calling #{callr}" +
+      Djinn.log_warn("Saw a SSLError when calling #{callr}" +
         " - trying again momentarily.")
       retry
     rescue Errno::ECONNREFUSED => except
       if retry_on_except
-        Djinn.log_debug("Saw a connection refused when calling #{callr}" +
+        Djinn.log_warn("Saw a connection refused when calling #{callr}" +
           " - trying again momentarily.")
         sleep(1)
         retry
@@ -76,10 +76,11 @@ class AppManagerClient
       end 
    rescue Exception => except
       if except.class == Interrupt
+        Djinn.log_fatal("Saw an Interrupt exception")
         abort
       end
 
-      Djinn.log_debug("An exception of type #{except.class} was thrown: #{except}.")
+      Djinn.log_error("An exception of type #{except.class} was thrown: #{except}.")
       retry if retry_on_except
     end
   end

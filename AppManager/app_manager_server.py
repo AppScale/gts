@@ -430,6 +430,15 @@ def copy_modified_jars(app_name):
                   "to lib directory of " + app_name)
     return False
   
+  cp_result = subprocess.call("cp " + appscale_home + "/AppServer_Java/" +\
+                              "appengine-java-sdk-repacked/lib/impl/" +\
+                              "appscale-*.jar /var/apps/" + app_name + "/" +\
+                              "app/war/WEB-INF/lib/", shell=True)
+
+  if cp_result != 0:
+    logging.error("Failed to copy email jars to lib directory of " + app_name)
+    return False
+
   return True
 
 def create_java_start_cmd(app_name,
@@ -455,6 +464,9 @@ def create_java_start_cmd(app_name,
              "./genKeystore.sh &&",
              "./appengine-java-sdk-repacked/bin/dev_appserver.sh",
              "--port=" + str(port),
+             #this jvm flag allows javax.email to connect to the smtp server
+             "--jvm_flag=-Dsocket.permit_connect=true",
+             "--disable_update_check",
              "--cookie_secret=" + appscale_info.get_secret(),
              "--address=" + appscale_info.get_private_ip(),
              "--datastore_path=" + db_location,

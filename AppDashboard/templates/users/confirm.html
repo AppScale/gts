@@ -1,0 +1,20 @@
+ <!-- FILE:templates/users/confirm.html -->
+<div class="container-fluid">
+    <div class="row-fluid span12">
+    <div id="appConfirm" class="span4 well">
+      <h1>Confirmation</h1>
+    <div>
+       <form action="/users/verify" method="post"><div style="margin:0;padding:0;display:inline">
+       {% if continue %}
+       <input type="hidden" name="continue" value="{{ continue }}">
+       {% endif %}
+       </div>
+        <p>Everything looks good. Continue?</p>
+        <input class="submit btn btn-success" name="commit" type="submit" value="Yes" />  
+        <input class="submit btn btn-danger" name="commit" type="submit" value="No" /> 
+      </form>
+    </div>
+    </div>
+  </div>
+</div>
+

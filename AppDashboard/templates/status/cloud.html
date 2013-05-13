@@ -1,0 +1,288 @@
+        <!-- FILE:templates/status/cloud.html -->
+        <!--Body content-->
+        <div id="content" class="clearfix">
+            <div class="contentwrapper"><!--Content wrapper-->
+                <div class="heading">
+                    <h3>AppScale Dashboard</h3>
+                    <div class="resBtnSearch">
+                        <a href="#"><span class="icon16 icomoon-icon-search-3"></span></a>
+                    </div>
+                </div><!-- End .heading-->
+                <!-- Build page from here: -->
+                <div class="row-fluid">
+                </div><!-- End .row-fluid -->
+				<div class="row-fluid">
+				<div class="hero-unit">
+				    <h1 align="center">Welcome to AppScale!</h1>
+				    <p align="center">The Open Source App Engine</p>
+				    <p align="center"><a href="mailto:support@appscale.com" class="btn btn-primary btn-large">Send Feedback</a> &nbsp; <a href="https://github.com/AppScale/appscale/issues" class="btn btn-info btn-large">Submit Issue</a></p>
+            <span align="center" style="width: 50%" >
+            {% if flash_message %}
+                <ul id="noticeExplanation"><li class="flash notice">{{ flash_message }}</li></ul>
+            {% endif %}
+            </span>
+				</div><!-- End .row-fluid -->
+
+
+                <div class="row-fluid">
+
+                    <div class="span6">
+
+                        <div class="box chart gradient">
+
+                            <div class="title">
+
+                                <h4>
+                                    <span class="icon16 icomoon-icon-bars"></span>
+                                    <span>AppScale API Status</span>
+                                </h4>
+                            </div>
+                                <div class="content noPad">
+                                    <table class="table">
+                                      <thead>
+                                        <tr>
+                                          <th>API Service</th>
+                                          <th>Status</th>
+                                        </tr>
+                                      </thead>
+                                      {% for service in service_info %}
+                                     <!--API Status Hooks -->
+                                      <tbody>
+                                        <tr>
+                                        <td align="center">{{ service }}</td>
+                                        {% if service_info[service] == 'running' %}
+                                          <td align="center"><img src="images/status_running.png"></td>
+                                        {% elif service_info[service] == 'failed' %}
+                                          <td align="center"><img src="images/status_failed.gif"></td>
+                                        {% else %}
+                                          <td align="center"><img src="images/status_unknown.gif"></td>
+                                        {% endif %}
+                                      </tr>
+                                    {% endfor %}
+
+                                      </tbody>
+                                    </table>
+                                </div>
+
+                            </div><!-- End .box -->
+
+                        </div><!-- End .span6 -->
+
+						<div class="span6">
+                            <div class="box gradient">
+                                <div class="title">
+                                    <h4>
+                                        <span class="icon16 icomoon-icon-search-3"></span>
+                                        <span>Database & Application Information</span>
+                                    </h4>
+                                </div>
+                  <div class="content">
+                  <div id="database_info">
+									<h4><span class="icon12 icomoon-icon-database"></span>Current Database:</h4>
+<!-- DB Hook -->                                    
+                                      <ul class="unstyled">
+                                        <li id="db-img"><span class="icon16 icomoon-icon-arrow-right-2"></span><strong>Powered by
+                                            {% if dbinfo['table'] == 'cassandra' %}
+                                                <img id="Cassandra" src="images/cassandra.jpg" alt="Cassandra"/>
+                                            {% elif dbinfo['table'] == 'hbase' %}
+                                                <img id="Hbase" src="images/hbase.png" alt="Hbase"/>
+                                            {% elif dbinfo['table'] == 'hypertable' %}
+                                                <img id="Hypertable" src="images/hypertable.jpg" alt="Hypertable">
+                                            {% endif %}
+                                            </strong></li>
+                                          <br />
+                                        <li><span class="icon16 icomoon-icon-arrow-right-2"></span>Data is replicated <strong>{{ dbinfo['replication'] }}</strong> times.</li>
+                                      </ul>
+                                    <hr/>
+                                    <div id='application_info'>
+                                    <h4><span class="icon12 icomoon-icon-cube"></span>Current Applications Deployed:</h4>
+<!-- App Info Hook -->
+                                    <ul class="unstyled">
+                                      {% if apps|length == 0 %}
+                                        <li><span class="icon16 icomoon-icon-arrow-right-2"></span><a class="disabled btn">None Deployed</a></li>
+                                      {% else %}
+                                        {% for app_name in apps.keys()|sort %}
+                                            <li><span class="icon16 icomoon-icon-arrow-right-2"></span>
+                                              {% if apps[app_name] %}
+                                                <a class="btn" href="{{ apps[app_name] }}" target="_blank">{{ app_name }}</a>
+                                              {% else %}
+                                                <a class="btn disabled">{{ app_name }} (loading)</a>
+                                              {% endif %}
+                                            </li>
+                                        {% endfor %}
+                                      {% endif %}
+                                      </ul></div>
+                                   <script>
+                                   window.setInterval(function() {
+                                     $.ajax({
+                                       url: "/apps/json"
+                                     }).done(function(encoded_app_info) {
+                                       apps = JSON.parse(encoded_app_info);
+
+                                       // update our divs accordingly
+                                       $('#application_info').empty();
+                                       apps_html = '<h4><span class="icon12 icomoon-icon-cube"></span>Current Applications Deployed:</h4>';
+                                       apps_html += '<ul class="unstyled">';
+                                       if (jQuery.isEmptyObject(apps)) {
+                                         apps_html += '<li><span class="icon16 icomoon-icon-arrow-right-2"></span><a class="disabled btn">None Deployed</a></li>';
+                                       } else {
+                                         // get a list of sorted keys, so that we can present the app names in sorted order
+                                         keys = []
+                                         for (var key in apps) {
+                                           keys.push(key)
+                                         }
+                                         sorted_keys = keys.sort();
+
+                                         for (var index in sorted_keys) {
+                                           key = sorted_keys[index];
+                                           apps_html += '<li><span class="icon16 icomoon-icon-arrow-right-2"></span>';
+                                           if (apps[key] == null) {
+                                             apps_html += '<a class="btn disabled">' + key + ' (loading)</a>';
+                                           } else {
+                                             apps_html += '<a class="btn" href="' + apps[key] + '" target="_blank">' + key + '</a>';
+                                           }
+                                           apps_html += '</li>';
+                                         }
+                                       }
+                                       apps_html += '</ul>'
+                                       $('#application_info').html(apps_html);
+                                     });
+                                   }, 10000);
+                                 </script>
+                                </div>
+                              </div>
+
+                            </div><!-- End .box -->
+             {% if is_user_cloud_admin %}<!--Start Cloud Admin View-->
+                        </div><!-- End .span3 -->
+
+
+ <div class="row-fluid">
+                        <div class="span12">
+                            <div class="box gradient">
+                              <div class="title">
+                                <h4>
+                                    <span class="icon16 icomoon-icon-screen-2"></span> 
+                                    <span>Cloud Statistics</span>
+                                </h4>
+                              </div>
+                              <div class="content noPad">
+                            <table class="responsive table table-bordered">
+                                <thead>
+                                  <tr>
+                                    <th>IP Address</th>
+                                    <th>CPU Usage</th>
+                                    <th>Memory Usage</th>
+                                    <th>Hard Disk Usage</th>
+                                    <th>Roles</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                {% for server in server_info %}
+                                    <tr>
+                                      <td style="text-align: center; margin-top: 150px; margin-bottom: auto;">
+                                          <div style="margin-top:70px;"><h3>{{server['ip'] }}</h3></div></td>
+                                      <td align="center">
+                                        <div id="{{ server['key'] }}g1" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>
+                                      </td>
+                                      <td align="center">
+                                        <div id="{{ server['key'] }}g2" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>
+                                      </td>
+                                      <td align="center">
+                                        <div id="{{ server['key'] }}g3" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>
+                                      </td>
+                                      <td style="text-align: center;">
+                                          <div style="margin-top: 60px;">
+                                            {% for role in server['roles'] %}
+                                            {% if role == 'load_balancer' %}
+                                            <span id="load_balancer" data-toggle="tooltip" title="Load Balancer" aria-hidden="true" class="icon-sitemap icon-3x"></span>
+                                            {% elif role == 'shadow' %}
+                                            <span id="shadow" data-toggle="tooltip" title="Shadow" aria-hidden="true" class="icon-bolt icon-3x"></span>
+                                            {% elif role == 'db_master' %}
+                                            <span id="db_master" data-toggle="tooltip" title="Database Master" aria-hidden="true" class="icon-hdd icon-3x"></span>
+                                            {% elif role == 'memcache' %}
+                                            <span id="memcache" data-toggle="tooltip" title="Memcache" aria-hidden="true" class="icon-list icon-3x"></span>
+                                            {% elif role == 'zookeeper' %}
+                                            <span id="zookeeper" data-toggle="tooltip" title="Zookeeper" aria-hidden="true" class="icon-screenshot icon-3x"></span>
+                                            {% elif roles == 'login' %}
+                                            <span id="login_role" data-toggle="tooltip" title="Login" aria-hidden="true" class="icon-locked icon-3x"></span>
+                                            {% elif role == 'appengine' %}
+                                            <span id="appengine" data-toggle="tooltip" title="App Engine" aria-hidden="true" class="icon-cogs icon-3x"></span>
+                                            {% elif role == 'taskqueue_master' %}
+                                            <span id="taskqueue_master" data-toggle="tooltip" title="Taskqueue Master" aria-hidden="true" class="icon-tasks icon-3x"></span>
+                                            {% elif role == 'taskqueue_slave' %}
+                                            <span id="taskqueue_slave" data-toggle="tooltip" title="Taskqueue Slave" aria-hidden="true" class="icon-tasks icon-3x"></span>
+                                            {% elif role == 'db_slave' %}
+                                            <span id="db_slave" data-toggle="tooltip" title="Database Slave" aria-hidden="true" class="icon-hdd icon-3x"></span>
+                                            {% endif %}
+                                            {% endfor %}
+                                          </div>
+                                      </td>
+                                    </tr>
+                                {% endfor %}
+                                 <script>
+                                   window.onload = function(){
+                                     var gauges = {};
+
+                                     {% for server in server_info %}
+                                       gauges["g1{{ server['key'] }}"] = new JustGage({
+                                         id: "{{ server['key'] }}g1",
+                                         value: {{ server['cpu'] }},
+                                         min: 0,
+                                         max: 100,
+                                         title: "CPU",
+                                         label: "",
+                                         levelColorsGradient: false
+                                       });
+                                        
+                                       gauges["g2{{ server['key'] }}"] = new JustGage({
+                                         id: "{{ server['key'] }}g2",
+                                         value: {{ server['memory'] }},
+                                         min: 0,
+                                         max: 100,
+                                         title: "MEM",
+                                         label: "",
+                                         levelColorsGradient: false
+                                        });
+                                        
+                                        gauges ["g3{{ server['key'] }}"] = new JustGage({
+                                          id: "{{ server['key'] }}g3",
+                                          value: {{ server['disk'] }},
+                                          min: 0,
+                                          max: 100,
+                                          title: "HD",
+                                          label: "",
+                                          levelColorsGradient: false
+                                        });
+                                     {% endfor %}
+
+                                   setInterval(function() {
+                                     $.ajax({
+                                       url: "/status/json"
+                                     }).done(function(encoded_server_info) {
+                                       server_info = JSON.parse(encoded_server_info);
+
+                                       // update our divs accordingly
+                                       for (var i = 0; i < server_info.length; i++) {
+                                         server = server_info[i];
+                                         gauges["g1" + server['key']].refresh(server['cpu']);
+                                         gauges["g2" + server['key']].refresh(server['memory']);
+                                         gauges["g3" + server['key']].refresh(server['disk']);
+                                       }
+                                     });
+                                   }, 10000);
+                                  }
+                                 </script>
+                                </tbody>
+                            </table>
+                          </div>
+                          </div>
+                        </div><!-- End .span6 -->
+                        </div><!-- End .row-fluid -->
+                </div><!-- End .row-fluid -->
+                {% endif %} <!-- end of admin only boxes -->
+                
+            </div><!-- End contentwrapper -->
+        </div><!-- End #content -->
+    
+    </div><!-- End #wrapper -->

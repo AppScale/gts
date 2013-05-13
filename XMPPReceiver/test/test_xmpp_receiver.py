@@ -31,6 +31,7 @@ class TestXMPPReceiver(unittest.TestCase):
     # throw up some instance vars that the tests can use
     self.appid = 'bazapp'
     self.login_ip = 'publicip1'
+    self.app_port = 1234
     self.password = 'bazpassword'
     self.jid = self.appid + '@' + self.login_ip
 
@@ -55,7 +56,8 @@ class TestXMPPReceiver(unittest.TestCase):
     xmpp.should_receive('Client').with_args(self.login_ip, debug=[]) \
       .and_return(fake_client)
 
-    receiver = XMPPReceiver(self.appid, self.login_ip, self.password)
+    receiver = XMPPReceiver(self.appid, self.login_ip, self.app_port,
+      self.password)
     self.assertRaises(SystemExit, receiver.listen_for_messages, messages_to_listen_for=1)
 
 
@@ -70,7 +72,8 @@ class TestXMPPReceiver(unittest.TestCase):
     xmpp.should_receive('Client').with_args(self.login_ip, debug=[]) \
       .and_return(fake_client)
 
-    receiver = XMPPReceiver(self.appid, self.login_ip, self.password)
+    receiver = XMPPReceiver(self.appid, self.login_ip, self.app_port,
+      self.password)
     self.assertRaises(SystemExit, receiver.listen_for_messages,
       messages_to_listen_for=1)
 
@@ -103,7 +106,8 @@ class TestXMPPReceiver(unittest.TestCase):
     select.should_receive('select').with_args(['the socket'], [], [], 1) \
       .and_return(message, None, None)
 
-    receiver = XMPPReceiver(self.appid, self.login_ip, self.password)
+    receiver = XMPPReceiver(self.appid, self.login_ip, self.app_port,
+      self.password)
     actual_messages_sent = receiver.listen_for_messages(
       messages_to_listen_for=1)
     self.assertEquals(1, actual_messages_sent)
@@ -122,20 +126,13 @@ class TestXMPPReceiver(unittest.TestCase):
     fake_event.should_receive('getBody').and_return('doesnt matter')
     fake_event.should_receive('getType').and_return('chat')
 
-    # mock out the curl call to the AppLoadBalancer, and slip in our own
-    # ip to send the XMPP message to
-    fake_curl = flexmock(name='curl_result')
-    fake_curl.should_receive('read').and_return('Location: http://public2')
-
-    flexmock(os)
-    os.should_receive('popen').with_args(re.compile('curl')).and_return(fake_curl)
-
-    # and finally mock out the urllib call
+    # and mock out the urllib call
     flexmock(urllib)
     urllib.should_receive('urlopen').with_args(
-      "http://public2/_ah/xmpp/message/chat/", str).and_return()
+      "http://publicip1:1234/_ah/xmpp/message/chat/", str).and_return()
 
-    receiver = XMPPReceiver(self.appid, self.login_ip, self.password)
+    receiver = XMPPReceiver(self.appid, self.login_ip, self.app_port,
+      self.password)
     receiver.xmpp_message(fake_conn, fake_event)
 
 
@@ -163,5 +160,6 @@ class TestXMPPReceiver(unittest.TestCase):
     fake_event.should_receive('getPayload').and_return('doesnt matter')
     fake_event.should_receive('getType').and_return('subscribe')
 
-    receiver = XMPPReceiver(self.appid, self.login_ip, self.password)
+    receiver = XMPPReceiver(self.appid, self.login_ip, self.app_port,
+      self.password)
     receiver.xmpp_presence(fake_conn, fake_event)

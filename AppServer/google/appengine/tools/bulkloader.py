@@ -1354,7 +1354,6 @@ class RequestManager(object):
   def GetSchemaKinds(self):
     """Returns the list of kinds for this app."""
     global_stat = stats.GlobalStat.all().get()
-    logging.error(str(global_stat))
     if not global_stat:
       raise KindStatError()
     timestamp = global_stat.timestamp

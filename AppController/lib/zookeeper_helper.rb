@@ -45,7 +45,7 @@ EOF
 end
 
 def start_zookeeper(initialize = true)
-  Djinn.log_debug("starting ZooKeeper")
+  Djinn.log_info("starting ZooKeeper")
   if initialize
     Djinn.log_debug(`rm -rfv /var/lib/zookeeper`)
     Djinn.log_debug(`rm -rfv /var/appscale/zookeeper`)
@@ -60,11 +60,11 @@ def start_zookeeper(initialize = true)
   env = {'JAVA_HOME' => ENV['JAVA_HOME']}
   GodInterface.start(:zoo_keeper, start_cmd, 
                      stop_cmd, ZOOKEEPER_PORT, env)
-  Djinn.log_debug('Started ZooKeeper')
+  Djinn.log_info('Started ZooKeeper')
 end
 
 def stop_zookeeper
-  Djinn.log_debug("Stopping ZooKeeper")
+  Djinn.log_info("Stopping ZooKeeper")
   GodInterface.stop(:zoo_keeper)  
   # God has problems correctly shutting down processes, 
   # so we double up on stopping ZK here.
