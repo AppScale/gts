@@ -371,13 +371,13 @@ class Djinn
   # CPU limits that determine when to stop adding AppServers on a node. Because
   # AppServers in different languages consume different amounts of CPU, set
   # different limits per language.
-  MAX_CPU_FOR_APPSERVERS = {'python' => 80.00, 'python27' => 90.00, 'java' => 75.00, 'go' => 70.00}
+  MAX_CPU_FOR_APPSERVERS = {'python' => 80.00, 'python27' => 90.00, 'java' => 75.00, 'go' => 70.00, 'php' => 80.00}
 
 
   # Memory limits that determine when to stop adding AppServers on a node. 
   # Because AppServers in different languages consume different amounts of 
   # memory, set different limits per language.
-  MAX_MEM_FOR_APPSERVERS = {'python' => 90.00, 'python27' => 90.00, 'java' => 95.00, 'go' => 90.00}
+  MAX_MEM_FOR_APPSERVERS = {'python' => 90.00, 'python27' => 90.00, 'java' => 95.00, 'go' => 90.00, 'php' => 90.00 }
 
 
   # A regular expression that can be used to match any character that is not

@@ -55,5 +55,8 @@ JAVA = "java"
 # Go programs
 GO = "go"
 
+# PHP programs
+PHP = "php"
+
 # Location where applications are stored
 APPS_PATH = "/var/apps/"

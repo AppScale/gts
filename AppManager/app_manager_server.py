@@ -125,6 +125,20 @@ def start_app(config):
     logging.info(start_cmd)
     stop_cmd = create_python_stop_cmd(config['app_port'], config['language'])
     env_vars.update(create_python_app_env(config['load_balancer_ip'],
+                            config['load_balancer_port'],
+                            config['app_name']))
+  elif config['language'] == constants.PHP:
+    start_cmd = create_php_start_cmd(config['app_name'],
+                            config['load_balancer_ip'],
+                            config['app_port'],
+                            config['load_balancer_ip'],
+                            config['load_balancer_port'],
+                            config['xmpp_ip'],
+                            config['dblocations'],
+                            config['language'])
+    logging.info(start_cmd)
+    stop_cmd = create_php_stop_cmd(config['app_port'], config['language'])
+    env_vars.update(create_python_app_env(config['load_balancer_ip'],
                             config['load_balancer_port'], 
                             config['app_name']))
   elif config['language'] == constants.JAVA:
@@ -371,7 +385,7 @@ def create_python_start_cmd(app_name,
                             db_locations,
                             py_version):
   """ Creates the start command to run the python application server.
-  
+
   Args:
     app_name: The name of the application to run
     login_ip: The public IP
@@ -405,6 +419,54 @@ def create_python_start_cmd(app_name,
                + "/data/app.datastore.history",
          "/var/apps/" + app_name + "/app",
          "-a " + appscale_info.get_private_ip()]
+
+  return ' '.join(cmd)
+
+def create_php_start_cmd(app_name,
+                            login_ip, 
+                            port, 
+                            load_balancer_host,
+                            load_balancer_port,
+                            xmpp_ip,
+                            db_locations,
+                            py_version):
+  """ Creates the start command to run the python application server.
+
+  Args:
+    app_name: The name of the application to run
+    login_ip: The public IP
+    port: The local port the application server will bind to
+    load_balancer_host: The host of the load balancer
+    load_balancer_port: The port of the load balancer
+    xmpp_ip: The IP of the XMPP service
+    py_version: The version of python to use
+  Returns:
+    A string of the start command.
+  """
+  db_location = choose_db_location(db_locations)
+  python = choose_python_executable(py_version)
+  cmd = [python,
+         constants.APPSCALE_HOME + "/AppServerPHP/dev_appserver.py",
+         "--port " + str(port),
+         #"--cookie_secret " + appscale_info.get_secret(),
+         #"--login_server " + login_ip,
+         #"--admin_console_server ''",
+         #"--enable_console",
+         "--skip_sdk_update_check True",
+         #"--nginx_port " + str(load_balancer_port),
+         #"--nginx_host " + str(load_balancer_host),
+         "--require_indexes",
+         "--enable_sendmail",
+         #"--xmpp_path " + xmpp_ip,
+         #"--uaserver_path " + db_location + ":"\
+         #      + str(constants.UA_SERVER_PORT),
+         #"--datastore_path " + db_location + ":"\
+         #      + str(constants.DB_SERVER_PORT),
+         #"--history_path /var/apps/" + app_name\
+         #      + "/data/app.datastore.history",
+         "--host " + appscale_info.get_private_ip(),
+         "--php_executable_path /root/php-5.4.15/installdir/bin/php-cgi",
+         "/var/apps/" + app_name + "/app"]
   
   return ' '.join(cmd)
 
@@ -489,28 +551,50 @@ def choose_python_executable(py_version):
   """
   if py_version in [constants.PYTHON, constants.GO]:
     return "/usr/bin/python2.5"
-  elif py_version == constants.PYTHON27:
+  elif py_version in [constants.PYTHON27, constants.PHP]:
     return "/usr/local/Python-2.7.3/python"
   else:
     raise NotImplementedError("Unknown python version %s" % \
                                py_version)
 
-
 def create_python_stop_cmd(port, py_version):
-  """ This creates the stop command for an application which is 
-  uniquely identified by a port number. Additional portions of the 
+  """ this creates the stop command for an application which is 
+  uniquely identified by a port number. additional portions of the 
   start command are included to prevent the termination of other 
   processes. 
   
-  Args: 
-    port: The port which the application server is running
-    py_version: The python version the app is currently using
-  Returns:
-    A string of the stop command.
+  Args:
+    port: the port which the application server is running
+    py_version: the python version the app is currently using
+  returns:
+    a string of the stop command.
   """
   python = choose_python_executable(py_version)
   cmd = [python, 
          constants.APPSCALE_HOME + "/AppServer/dev_appserver.py",
+         "-p " + str(port),
+         "--cookie_secret " + appscale_info.get_secret()]
+  cmd = ' '.join(cmd)
+
+  stop_cmd = "ps aux | grep '" + cmd +\
+             "' | grep -v grep | awk '{ print $2 }' | xargs -r kill -9"
+  return stop_cmd
+
+def create_php_stop_cmd(port, py_version):
+  """ this creates the stop command for an application which is
+  uniquely identified by a port number. additional portions of the
+  start command are included to prevent the termination of other
+  processes.
+
+  args:
+    port: the port which the application server is running
+    py_version: the python version the app is currently using
+  returns:
+    a string of the stop command.
+  """
+  python = choose_python_executable(py_version)
+  cmd = [python,
+         constants.APPSCALE_HOME + "/AppServerPHP/dev_appserver.py",
          "-p " + str(port),
          "--cookie_secret " + appscale_info.get_secret()]
   cmd = ' '.join(cmd)
