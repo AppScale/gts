@@ -2127,7 +2127,7 @@ class DatastoreDistributed():
               key = str(key+ '/' + helper_functions.reverse_lex(
                 str(each.value())))
             else:
-               key = str(key + '/' + str(each.value()))
+              key = str(key + '/' + str(each.value()))
             break
       # Add a unique identifier at the end because indexes can be the same.
       key = key + str(e)
@@ -2537,7 +2537,14 @@ class MainHandler(tornado.web.RequestHandler):
     global datastore_access
     getreq_pb = datastore_pb.GetRequest(http_request_data)
     getresp_pb = datastore_pb.GetResponse()
-    datastore_access.dynamic_get(app_id, getreq_pb, getresp_pb)
+    try:
+      datastore_access.dynamic_get(app_id, getreq_pb, getresp_pb)
+    except ZKTransactionException, zkte:
+      logging.info("Concurrent transaction exception for app id {0}, " \
+        "info {1}".format(app_id, str(zkte)))
+      return (getresp_pb.Encode(), 
+              datastore_pb.Error.CONCURRENT_TRANSACTION, 
+              "Concurrent transaction exception on put.")
     return (getresp_pb.Encode(), 0, "")
 
   def delete_request(self, app_id, http_request_data):
