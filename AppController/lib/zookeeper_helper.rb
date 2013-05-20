@@ -1,7 +1,13 @@
 require 'djinn'
 require 'godinterface'
 
+
+# The location on the local filesystem where we should store ZooKeeper data.
+DATA_LOCATION = "/opt/appscale/zookeeper"
+
+
 ZOOKEEPER_PORT="2181"
+
 
 def configure_zookeeper(nodes, my_index)
   # TODO: create multi node configuration
@@ -9,7 +15,7 @@ def configure_zookeeper(nodes, my_index)
 tickTime=2000
 initLimit=10
 syncLimit=5
-dataDir=/var/appscale/zookeeper
+dataDir=#{DATA_LOCATION}
 clientPort=2181
 leaderServes=yes
 maxClientsCnxns=0
@@ -48,12 +54,12 @@ def start_zookeeper(initialize = true)
   Djinn.log_info("starting ZooKeeper")
   if initialize
     Djinn.log_debug(`rm -rfv /var/lib/zookeeper`)
-    Djinn.log_debug(`rm -rfv /var/appscale/zookeeper`)
-    Djinn.log_debug(`mkdir -pv /var/appscale/zookeeper`)
-    Djinn.log_debug(`chown -v zookeeper:zookeeper /var/appscale/zookeeper`)
+    Djinn.log_debug(`rm -rfv #{DATA_LOCATION}`)
+    Djinn.log_debug(`mkdir -pv #{DATA_LOCATION}`)
+    Djinn.log_debug(`chown -v zookeeper:zookeeper #{DATA_LOCATION}`)
   end
   # myid is needed for multi node configuration.
-  Djinn.log_debug(`ln -sfv /etc/zookeeper/conf/myid /var/appscale/zookeeper/`)
+  Djinn.log_debug(`ln -sfv /etc/zookeeper/conf/myid #{DATA_LOCATION}`)
 
   start_cmd = "service zookeeper start"
   stop_cmd = "service zookeeper stop"
