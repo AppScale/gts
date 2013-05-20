@@ -69,14 +69,16 @@ class HealthChecker(webapp.RequestHandler):
         entry = StatusText(key_name=key_name)
         entry.content = key_name
         if not entry.put():
-          health['datastore'] = FAILED
-        elif not entry.get():
-          health['datastore'] = FAILED
-        elif not entry.delete():
-          health['datastore'] = FAILED
           logging.error("Datastore was not able to delete key %s" % key_name)
+          health['datastore'] = FAILED
+        elif not StatusText.get_by_key_name(key_name):
+          logging.error("Datastore was not able to get key %s" % key_name)
+          health['datastore'] = FAILED
+        elif entry.delete():
+          logging.error("Datastore was not able to delete key %s" % key_name)
+          health['datastore'] = FAILED
         else: 
-          healt['datastore'] = RUNNING
+          health['datastore'] = RUNNING
       except Exception, e:
         health['datastore'] = FAILED
         logging.error("Datastore FAILED %s" % (str(e)))
