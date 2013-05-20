@@ -1,15 +1,12 @@
 #!/usr/bin/env python
 #
-# Programmer: Chris Bunch, Navraj Chohan
-# Checks different APIs
-# See http://appscale.com for more info
+""" Checks different APIs. See http://appscale.com for more info.
+"""
 
 from __future__ import with_statement
 
-import os
-import re
-import urllib
 import wsgiref.handlers
+import uuid 
 
 from django.utils import simplejson as json
 
@@ -32,18 +29,20 @@ SECRET = "PLACE SECRET HERE"
 RUNNING = 'running'
 FAILED = 'failed'
 
-class Entry(db.Model):
-  content = db.BlobProperty()
-  acl = db.StringProperty(multiline=False)
-
 class StatusText(db.Model):
+  """ This simple entity class is used for testing puts, gets, and 
+  deletes for the database API.
+  """
   content = db.StringProperty(multiline=False)
 
 class Home(webapp.RequestHandler):
+  """ Paths for seeing if the API Checker app is up. """
   def get(self):
+    """ GET request handler which returns text to notify caller it is up. """
     self.response.out.write("baz")
 
   def post(self):
+    """ POST request handler which returns text to notify caller it is up. """
     self.response.out.write("baz")
 
 class HealthChecker(webapp.RequestHandler):
@@ -62,21 +61,27 @@ class HealthChecker(webapp.RequestHandler):
         health['blobstore'] = RUNNING
       except Exception, e:
         health['blobstore'] = FAILED
-        logging.error("Blobstore FAILED %s"%(str(e)))
+        logging.error("Blobstore FAILED %s" % (str(e)))
     if capability == "all" or capability == "datastore":
       try:
-        entry = Entry.get_by_key_name("bazbookey")
         health['datastore'] = RUNNING
-        entry = StatusText(key_name = "bazbookey")
-        entry.content = "bazbooval"
-        if entry.put():
-          health['datastore_write'] = RUNNING
-        else:
-          health['datastore_write'] = FAILED
-          logging.error("Datastore write FAILED no exception given")
+        key_name = str(uuid.uuid4())
+        entry = StatusText(key_name=key_name)
+        entry.content = key_name
+        if not entry.put():
+          logging.error("Datastore was not able to put key %s" % key_name)
+          health['datastore'] = FAILED
+        elif not StatusText.get_by_key_name(key_name):
+          logging.error("Datastore was not able to get key %s" % key_name)
+          health['datastore'] = FAILED
+        elif entry.delete():
+          logging.error("Datastore was not able to delete key %s" % key_name)
+          health['datastore'] = FAILED
+        else: 
+          health['datastore'] = RUNNING
       except Exception, e:
         health['datastore'] = FAILED
-        logging.error("Datastore FAILED %s"%(str(e)))
+        logging.error("Datastore FAILED %s" % (str(e)))
 
     if capability == "all" or capability == "images":
       try:
@@ -88,18 +93,19 @@ class HealthChecker(webapp.RequestHandler):
         health['images'] = RUNNING
       except Exception, e:
         health['images'] = FAILED
-        logging.error("images API FAILED %s"%(str(e)))
+        logging.error("images API FAILED %s" % (str(e)))
 
     if capability == "all" or capability == "memcache":
       try:
-        if memcache.set("boo", "baz", 10):
+        key_name = str(uuid.uuid4())
+        if memcache.set(key_name, key_name, 10):
           health['memcache'] = RUNNING
         else:
           health['memcache'] = FAILED
           logging.error("memcached API FAILED no exception")
       except Exception, e:
         health['memcache'] = FAILED
-        logging.error("memcached API FAILED %s"%(str(e)))
+        logging.error("memcached API FAILED %s" % (str(e)))
 
     if capability == "all" or capability == "taskqueue":
       try:
@@ -107,25 +113,25 @@ class HealthChecker(webapp.RequestHandler):
         health['taskqueue'] = RUNNING
       except Exception, e:
         health['taskqueue'] = FAILED
-        logging.error("taskqueue API FAILED %s"%(str(e)))
+        logging.error("taskqueue API FAILED %s" % (str(e)))
 
     if capability == "all" or capability == "urlfetch":
       try:
-        result = urlfetch.fetch("http://localhost")
+        urlfetch.fetch("http://localhost")
         health['urlfetch'] = RUNNING
       except Exception, e:
         health['urlfetch'] = FAILED
-        logging.error("urlfetch API FAILED %s"%(str(e)))
+        logging.error("urlfetch API FAILED %s" % (str(e)))
 
     if capability == "all" or capability == "users":
       try:
-        user = users.get_current_user()
+        users.get_current_user()
         users.create_login_url("/")
         users.create_logout_url("/")
         health['users'] = RUNNING
       except Exception, e:
         health['users'] = FAILED
-        logging.error("users API FAILED %s"%(str(e)))
+        logging.error("users API FAILED %s" % (str(e)))
 
 
     if capability == "all" or capability == "xmpp":
@@ -134,7 +140,7 @@ class HealthChecker(webapp.RequestHandler):
         health['xmpp'] = RUNNING
       except Exception, e:
         health['xmpp'] = FAILED
-        logging.error("xmpp API FAILED %s"%(str(e)))
+        logging.error("xmpp API FAILED %s" % (str(e)))
 
     self.response.out.write(json.dumps(health))
 
