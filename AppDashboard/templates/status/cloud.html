@@ -206,6 +206,8 @@
                                             {% elif role == 'db_slave' %}
                                                 <img class="node_icons" src="images/icons/datastore_slave.png">
                                             {% endif %}
+                                            {% else %}
+                                                <img class="node_icons" src="images/icons/unknown_role.png">
                                             {% endfor %}
                                           </div>
                                       </td>
