@@ -12,7 +12,7 @@ Google App Engine platforms.
 To find out more visit http://appscale.com
 
 ## Latest Release ##
-The latest stable release is AppScale 1.6.9, released April 5, 2013.
+The latest stable release is AppScale 1.7.0, released May 13, 2013.
 Feature requests and pull requests gladly welcomed.
 
 ## Mailing List ##
@@ -29,6 +29,8 @@ Our goal with AppScale is to provide a open-source cloud platform that anyone
 can use to deploy your Google App Engines to and to perform research on cloud 
 platforms. 
 
+## Screen Shots ##
+![AppScale Dashboard Screenshot](https://s3.amazonaws.com/appscale_CDN/images/dashboard_scrteenshot.jpg)
 
 ## Sponsors ##
 Google

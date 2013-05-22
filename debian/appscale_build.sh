@@ -13,7 +13,7 @@ if [ ! -e VERSION ]; then
     exit 1
 fi
 
-supported_dbs=(hbase hypertable mysql cassandra)
+supported_dbs=(hbase hypertable cassandra)
 if [ $1 ]; then
     found=false
     for i in "${supported_dbs[@]}"
@@ -108,27 +108,11 @@ if [ "${DIST}" = "jaunty" ]; then
     	apt-get install -y libboost1.37-dev
 elif [ "${DIST}" = "lucid" ]; then
     	apt-get install -y libboost1.40-dev
-	mkdir -p /var/run/mysqld /etc/mysql /usr/share/mysql
-	cp debian/debian-start /etc/mysql/
-	chmod 755 /etc/mysql/debian-start
-	cp debian/debian-start.inc.sh /usr/share/mysql/
-	apt-get -y install libmysqlclient16
 elif [ "${DIST}" = "karmic" ]; then
     	apt-get install -y libboost1.40-dev
 fi
 if [ $? -ne 0 ]; then
     echo "Fail to install depending packages for building."
-    exit 1
-fi
-
-# install runtime dependency
-# for mysql
-PACKAGES=`find debian -regex ".*\/control\.mysql+\.${DIST}\$" -exec mawk -f debian/package-list.awk {} +`
-export DEBIAN_FRONTEND=noninteractive
-apt-get -o Dpkg::Options::="--force-overwrite" -y install ${PACKAGES}
-export DEBIAN_FRONTEND=''
-if [ $? -ne 0 ]; then
-    echo "Fail to install depending packages for runtime."
     exit 1
 fi
 

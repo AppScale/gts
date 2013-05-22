@@ -2,17 +2,8 @@
         <!--Body content-->
         <div id="content" class="clearfix">
             <div class="contentwrapper"><!--Content wrapper-->
-                <div class="heading">
-                    <h3>AppScale Dashboard</h3>
-                    <div class="resBtnSearch">
-                        <a href="#"><span class="icon16 icomoon-icon-search-3"></span></a>
-                    </div>
-                </div><!-- End .heading-->
-                <!-- Build page from here: -->
-                <div class="row-fluid">
-                </div><!-- End .row-fluid -->
 				<div class="row-fluid">
-				<div class="hero-unit">
+				<div style="margin-top:30px" class="hero-unit">
 				    <h1 align="center">Welcome to AppScale!</h1>
 				    <p align="center">The Open Source App Engine</p>
 				    <p align="center"><a href="mailto:support@appscale.com" class="btn btn-primary btn-large">Send Feedback</a> &nbsp; <a href="https://github.com/AppScale/appscale/issues" class="btn btn-info btn-large">Submit Issue</a></p>
@@ -91,7 +82,7 @@
                                             {% endif %}
                                             </strong></li>
                                           <br />
-                                        <li><span class="icon16 icomoon-icon-arrow-right-2"></span>Data is replicated <strong>{{ dbinfo['replication'] }}</strong> time(s).</li>
+                                        <li><span class="icon16 icomoon-icon-arrow-right-2"></span>Data is replicated <strong>{{ dbinfo['replication'] }}</strong> times.</li>
                                       </ul>
                                     <hr/>
                                     <div id='application_info'>
@@ -163,9 +154,7 @@
                               <div class="title">
                                 <h4>
                                     <span class="icon16 icomoon-icon-screen-2"></span> 
-                                    <span>CPU / Memory Usage &nbsp; &nbsp;  
-                                    <a href="{{monitoring_url}}" class="btn btn-primary tipR" title="Current detailed hardware status">Machine Monitoring</a>
-                                    </span>
+                                    <span>Cloud Statistics</span>
                                 </h4>
                               </div>
                               <div class="content noPad">
@@ -176,13 +165,14 @@
                                     <th>CPU Usage</th>
                                     <th>Memory Usage</th>
                                     <th>Hard Disk Usage</th>
-                                    <th>Role(s)</th>
+                                    <th>Roles</th>
                                   </tr>
                                 </thead>
                                 <tbody>
                                 {% for server in server_info %}
                                     <tr>
-                                      <td style="text-align: center;"><strong>{{server['ip'] }}</strong></td>
+                                      <td style="text-align: center; margin-top: 150px; margin-bottom: auto;">
+                                          <div style="margin-top:70px;"><h3>{{server['ip'] }}</h3></div></td>
                                       <td align="center">
                                         <div id="{{ server['key'] }}g1" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>
                                       </td>
@@ -193,27 +183,33 @@
                                         <div id="{{ server['key'] }}g3" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>
                                       </td>
                                       <td style="text-align: center;">
-                                        <strong>
+                                          <div style="margin-top: 60px;">
                                             {% for role in server['roles'] %}
                                             {% if role == 'load_balancer' %}
-                                            <span id="load_balancer" data-toggle="tooltip" title="Load Balancer" aria-hidden="true" class="icomoon-icon-expand"></span>
+                                                <img class="node_icons" src="images/icons/load_balancer.png">
                                             {% elif role == 'shadow' %}
-                                            <span id="shadow" data-toggle="tooltip" title="Shadow" aria-hidden="true" class="icomoon-icon-shield"></span>
+                                                <img class="node_icons" src="images/icons/shadow.png">
                                             {% elif role == 'db_master' %}
-                                            <span id="db_master" data-toggle="tooltip" title="Database Master" aria-hidden="true" class="icomoon-icon-database"></span>
-                                            {% elif role == 'zookeeper' %}
-                                            <span id="zookeeper" data-toggle="tooltip" title="Zookeeper" aria-hidden="true" class="icomoon-icon-paw"></span>
-                                            {% elif roles == 'login' %}
-                                            <span id="login_role" data-toggle="tooltip" title="Login" aria-hidden="true" class="icomoon-icon-locked-2"></span>
+                                                <img class="node_icons" src="images/icons/datastore_master.png">
                                             {% elif role == 'memcache' %}
-                                            <span id="memcache" data-toggle="tooltip" title="Memcache" aria-hidden="true" class="icomoon-icon-list-view"></span>
-                                            {% elif role == 'taskqueue_master' %}
-                                            <span id="taskqueue_master" data-toggle="tooltip" title="Taskqueue Master" aria-hidden="true" class="brocco-icon-clock"></span>
+                                                <img class="node_icons" src="images/icons/memcache.png">
+                                            {% elif role == 'zookeeper' %}
+                                                <img class="node_icons" src="images/icons/zookeeper.png">
+                                            {% elif roles == 'login' %}
+                                                <img class="node_icons" src="images/icons/login.png">
                                             {% elif role == 'appengine' %}
-                                            <span id="appengine" data-toggle="tooltip" title="App Engine" aria-hidden="true" class="icomoon-icon-rocket"></span>
+                                                <img class="node_icons" src="images/icons/app_engine.png">
+                                            {% elif role == 'taskqueue_master' %}
+                                                <img class="node_icons" src="images/icons/taskqueue_master.png">
+                                            {% elif role == 'taskqueue_slave' %}
+                                                <img class="node_icons" src="images/icons/taskqueue_slave.png">
+                                            {% elif role == 'db_slave' %}
+                                                <img class="node_icons" src="images/icons/datastore_slave.png">
                                             {% endif %}
+                                            {% else %}
+                                                <img class="node_icons" src="images/icons/unknown_role.png">
                                             {% endfor %}
-                                            </strong>
+                                          </div>
                                       </td>
                                     </tr>
                                 {% endfor %}

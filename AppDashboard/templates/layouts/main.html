@@ -31,13 +31,10 @@
 
     <!-- Core stylesheets do not remove -->
     <link href="/css/bootstrap/bootstrap.css" rel="stylesheet" type="text/css" />
-    <link href="/css/bootstrap/bootstrap-responsive.min.css" rel="stylesheet" type="text/css" />
+    <link href="/css/bootstrap/bootstrap-responsive.css" rel="stylesheet" type="text/css" />
     <link href="/css/supr-theme/jquery.ui.supr.css" rel="stylesheet" type="text/css"/>
     <link href="/css/icons.css" rel="stylesheet" type="text/css" />
 
-
-    <!-- Plugins stylesheets -->
-    <link href="/plugins/misc/qtip/jquery.qtip.css" rel="stylesheet" type="text/css" />
 
     <!-- Main stylesheets -->
     <link href="/css/main.css" rel="stylesheet" type="text/css" /> 
@@ -84,25 +81,29 @@
     <script type="text/javascript" src="/js/justgage.1.0.1.min.js"></script>
 
     <!-- Misc plugins -->
-    <script type="text/javascript" src="/plugins/misc/qtip/jquery.qtip.min.js"></script><!-- Custom tooltip plugin -->
-    <script type="text/javascript" src="/plugins/misc/totop/jquery.ui.totop.min.js"></script> <!-- Back to top plugin -->
     <!-- Fix plugins -->
     <script type="text/javascript" src="/plugins/fix/ios-fix/ios-orientationchange-fix.js"></script>
 
-     <script>
-	$(document).ready(function() {
-		$('#log_table').filterTable();
-	});
+    <script>
+        $(document).ready(function() {
+            $('#log_table').filterTable();
+        });
+    </script>
+
+    {% if page_name == 'status' %}
+    <script type="text/javascript">
          $('#load_balancer').tooltip()
          $('#shadow').tooltip()
          $('#db_master').tooltip()
+         $('#bd_slave').tooltip()
          $('#taskqueue_master').tooltip()
+         $('#taskqueue_slave').tooltip()
          $('#appengine').tooltip()
          $('#login_role').tooltip()
          $('#zookeeper').tooltip()
          $('#memcache').tooltip()
 	</script>
-
+    {% endif %}
 
   </body>
 </html> 

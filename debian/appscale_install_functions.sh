@@ -19,7 +19,7 @@ fi
 #if [ -z "$APPSCALE_HOME" ]; then
  #  export APPSCALE_HOME= /root/appscale/
 #fi 
-export APPSCALE_VERSION=1.6.9
+export APPSCALE_VERSION=1.7.0
 
 increaseconnections()
 {
@@ -765,30 +765,6 @@ postinstallprotobuf()
 {
     :;
 }
-
-installmysql()
-{
-    :;
-}
-
-postinstallmysql()
-{
-    # stop previous service
-    service mysql stop || true
-    service mysql-ndb stop || true
-    service mysql-ndb-mgm stop || true
-
-    # uninstall mysql services
-    update-rc.d -f mysql remove || true
-    update-rc.d -f mysql-ndb remove || true
-    update-rc.d -f mysql-ndb-mgm remove || true
-#    mkdir -p /var/lib/mysql-cluster/backup
-    mysqladmin shutdown || true
-
-    mkdir -p ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}
-    touch ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}/mysql
-}
-
 
 installpig()
 {

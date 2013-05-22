@@ -200,6 +200,12 @@ class Djinn
   attr_accessor :api_status
 
 
+  # An Array that lists the CPU, disk, and memory usage of each machine in this
+  # AppScale deployment. Used as a cache so that it does not need to be
+  # generated in response to AppDashboard requests.
+  attr_accessor :all_stats
+
+
   # For Babel jobs via Neptune, we keep a list of queues that may have tasks
   # stored for execution, as well as the parameters needed to execute them
   # (e.g., input location, output location, cloud credentials).
@@ -432,6 +438,7 @@ class Djinn
     @neptune_jobs = {}
     @neptune_nodes = []
     @api_status = {}
+    @all_stats = []
     @queues_to_read = []
     @last_updated = 0
     @state_change_lock = Monitor.new()
@@ -735,14 +742,20 @@ class Djinn
       return BAD_SECRET_MSG
     end
 
-    result = []
+    return JSON.dump(@all_stats)
+  end
+
+
+  # Updates our locally cached information about the CPU, memory, and disk
+  # usage of each machine in this AppScale deployment.
+  def update_node_info_cache()
+    @all_stats = []
     @nodes.each { |node|
       ip = node.private_ip
-      acc = AppControllerClient.new(ip, secret)
-      result << acc.get_stats(secret)
+      acc = AppControllerClient.new(ip, @@secret)
+      @all_stats << acc.get_stats(@@secret)
     }
-    return JSON.dump(result)
-  end 
+  end
 
 
   # Gets the database information of the AppScale deployment.
@@ -1048,6 +1061,8 @@ class Djinn
         @nodes.each { |node|
           get_status(node)
         }
+
+        update_node_info_cache()
       end
 
       #ensure_all_roles_are_running
@@ -1498,7 +1513,6 @@ class Djinn
     Djinn.log_run("rm -f ~/.appscale_cookies")
     Djinn.log_run("rm -f #{APPSCALE_HOME}/.appscale/status-*")
     Djinn.log_run("rm -f #{APPSCALE_HOME}/.appscale/database_info")
-    Djinn.log_run("rm -f /tmp/mysql.sock")
 
     Nginx.clear_sites_enabled
     Collectd.clear_sites_enabled
@@ -1698,10 +1712,8 @@ class Djinn
     return slave_ips
   end
 
-  def self.get_nearest_db_ip(is_mysql=false)
+  def self.get_nearest_db_ip()
     db_ips = self.get_db_slave_ips
-    # Unless this is mysql we include the master ip
-    # Update, now mysql also has an API node
     db_ips << self.get_db_master_ip
     db_ips.compact!
     
@@ -2487,6 +2499,7 @@ class Djinn
 
     # Start the AppDashboard.
     if my_node.is_login?
+      update_node_info_cache()
       start_app_dashboard(get_login.public_ip, @userappserver_private_ip)
     end
 
@@ -3432,7 +3445,7 @@ HOSTS
 
           pid = app_manager.start_app(app, @appengine_port, 
             get_load_balancer_ip(), @nginx_port, app_language, 
-            xmpp_ip, [Djinn.get_nearest_db_ip(false)],
+            xmpp_ip, [Djinn.get_nearest_db_ip()],
             HelperFunctions.get_app_env_vars(app))
 
           if pid == -1
@@ -3831,7 +3844,7 @@ HOSTS
 
     pid = app_manager.start_app(app, @appengine_port, 
             get_load_balancer_ip(), nginx_port, app_language, 
-            xmpp_ip, [Djinn.get_nearest_db_ip(false)],
+            xmpp_ip, [Djinn.get_nearest_db_ip()],
             HelperFunctions.get_app_env_vars(app))
 
     if pid == -1
