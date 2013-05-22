@@ -29,6 +29,8 @@ Our goal with AppScale is to provide a open-source cloud platform that anyone
 can use to deploy your Google App Engines to and to perform research on cloud 
 platforms. 
 
+## Screen Shots ##
+![AppScale Dashboard Screenshot](https://s3.amazonaws.com/appscale_CDN/images/dashboard_scrteenshot.jpg)
 
 ## Sponsors ##
 Google
