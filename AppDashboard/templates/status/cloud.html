@@ -186,25 +186,25 @@
                                           <div style="margin-top: 50px;">
                                             {% for role in server['roles'] %}
                                             {% if role == 'load_balancer' %}
-                                                <img id="{{ role }}" class="node_icons" src="images/icons/load_balancer.png">
+                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/load_balancer.png">
                                             {% elif role == 'shadow' %}
-                                                <img id="{{ role }}" class="node_icons" src="images/icons/shadow.png">
+                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/shadow.png">
                                             {% elif role == 'db_master' %}
-                                                <img id="{{ role }}" class="node_icons" src="images/icons/datastore_master.png">
+                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/datastore_master.png">
                                             {% elif role == 'memcache' %}
-                                                <img id="{{ role }}" class="node_icons" src="images/icons/memcache.png">
+                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/memcache.png">
                                             {% elif role == 'zookeeper' %}
-                                                <img id="{{ role }}" class="node_icons" src="images/icons/zookeeper.png">
+                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/zookeeper.png">
                                             {% elif role == 'login' %}
-                                                <img id="{{ role }}" class="node_icons" src="images/icons/login.png">
+                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/login.png">
                                             {% elif role == 'appengine' %}
-                                                <img id="{{ role }}" class="node_icons" src="images/icons/app_engine.png">
+                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/app_engine.png">
                                             {% elif role == 'taskqueue_master' %}
-                                                <img id="{{ role }}" class="node_icons" src="images/icons/taskqueue_master.png">
+                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/taskqueue_master.png">
                                             {% elif role == 'taskqueue_slave' %}
-                                                <img id="{{ role }}" class="node_icons" src="images/icons/taskqueue_slave.png">
+                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/taskqueue_slave.png">
                                             {% elif role == 'db_slave' %}
-                                                <img id="{{ role }}" class="node_icons" src="images/icons/datastore_slave.png">
+                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/datastore_slave.png">
                                             {% else %}
                                                 <img id="unknown_role" alt="{{ role }}" data-toggle="tooltip" title="The unknown role has been named: {{ role }}" aria-hidden="true" class="node_icons" src="images/icons/unknown_role.png">
                                             {% endif %}
