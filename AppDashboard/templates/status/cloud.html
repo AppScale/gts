@@ -171,7 +171,7 @@
                                 <tbody>
                                 {% for server in server_info %}
                                     <tr>
-                                      <td style="text-align: center; margin-top: 150px; margin-bottom: auto;">
+                                      <td style="text-align:center;margin-top:150px;margin-bottom:auto;">
                                           <div style="margin-top:70px;"><h3>{{server['ip'] }}</h3></div></td>
                                       <td align="center">
                                         <div id="{{ server['key'] }}g1" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>
@@ -183,31 +183,31 @@
                                         <div id="{{ server['key'] }}g3" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>
                                       </td>
                                       <td style="text-align: center;">
-                                          <div style="margin-top: 60px;">
+                                          <div style="margin-top: 50px;">
                                             {% for role in server['roles'] %}
                                             {% if role == 'load_balancer' %}
-                                                <img class="node_icons" src="images/icons/load_balancer.png">
+                                                <img id="{{ role }}" class="node_icons" src="images/icons/load_balancer.png">
                                             {% elif role == 'shadow' %}
-                                                <img class="node_icons" src="images/icons/shadow.png">
+                                                <img id="{{ role }}" class="node_icons" src="images/icons/shadow.png">
                                             {% elif role == 'db_master' %}
-                                                <img class="node_icons" src="images/icons/datastore_master.png">
+                                                <img id="{{ role }}" class="node_icons" src="images/icons/datastore_master.png">
                                             {% elif role == 'memcache' %}
-                                                <img class="node_icons" src="images/icons/memcache.png">
+                                                <img id="{{ role }}" class="node_icons" src="images/icons/memcache.png">
                                             {% elif role == 'zookeeper' %}
-                                                <img class="node_icons" src="images/icons/zookeeper.png">
-                                            {% elif roles == 'login' %}
-                                                <img class="node_icons" src="images/icons/login.png">
+                                                <img id="{{ role }}" class="node_icons" src="images/icons/zookeeper.png">
+                                            {% elif role == 'login' %}
+                                                <img id="{{ role }}" class="node_icons" src="images/icons/login.png">
                                             {% elif role == 'appengine' %}
-                                                <img class="node_icons" src="images/icons/app_engine.png">
+                                                <img id="{{ role }}" class="node_icons" src="images/icons/app_engine.png">
                                             {% elif role == 'taskqueue_master' %}
-                                                <img class="node_icons" src="images/icons/taskqueue_master.png">
+                                                <img id="{{ role }}" class="node_icons" src="images/icons/taskqueue_master.png">
                                             {% elif role == 'taskqueue_slave' %}
-                                                <img class="node_icons" src="images/icons/taskqueue_slave.png">
+                                                <img id="{{ role }}" class="node_icons" src="images/icons/taskqueue_slave.png">
                                             {% elif role == 'db_slave' %}
-                                                <img class="node_icons" src="images/icons/datastore_slave.png">
-                                            {% endif %}
+                                                <img id="{{ role }}" class="node_icons" src="images/icons/datastore_slave.png">
                                             {% else %}
-                                                <img class="node_icons" src="images/icons/unknown_role.png">
+                                                <img id="unknown_role" alt="{{ role }}" data-toggle="tooltip" title="The unknown role has been named: {{ role }}" aria-hidden="true" class="node_icons" src="images/icons/unknown_role.png">
+                                            {% endif %}
                                             {% endfor %}
                                           </div>
                                       </td>
