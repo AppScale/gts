@@ -2,17 +2,8 @@
         <!--Body content-->
         <div id="content" class="clearfix">
             <div class="contentwrapper"><!--Content wrapper-->
-                <div class="heading">
-                    <h3>AppScale Dashboard</h3>
-                    <div class="resBtnSearch">
-                        <a href="#"><span class="icon16 icomoon-icon-search-3"></span></a>
-                    </div>
-                </div><!-- End .heading-->
-                <!-- Build page from here: -->
-                <div class="row-fluid">
-                </div><!-- End .row-fluid -->
 				<div class="row-fluid">
-				<div class="hero-unit">
+				<div style="margin-top:30px" class="hero-unit">
 				    <h1 align="center">Welcome to AppScale!</h1>
 				    <p align="center">The Open Source App Engine</p>
 				    <p align="center"><a href="mailto:support@appscale.com" class="btn btn-primary btn-large">Send Feedback</a> &nbsp; <a href="https://github.com/AppScale/appscale/issues" class="btn btn-info btn-large">Submit Issue</a></p>
@@ -195,26 +186,28 @@
                                           <div style="margin-top: 60px;">
                                             {% for role in server['roles'] %}
                                             {% if role == 'load_balancer' %}
-                                            <span id="load_balancer" data-toggle="tooltip" title="Load Balancer" aria-hidden="true" class="icon-sitemap icon-3x"></span>
+                                                <img class="node_icons" src="images/icons/load_balancer.png">
                                             {% elif role == 'shadow' %}
-                                            <span id="shadow" data-toggle="tooltip" title="Shadow" aria-hidden="true" class="icon-bolt icon-3x"></span>
+                                                <img class="node_icons" src="images/icons/shadow.png">
                                             {% elif role == 'db_master' %}
-                                            <span id="db_master" data-toggle="tooltip" title="Database Master" aria-hidden="true" class="icon-hdd icon-3x"></span>
+                                                <img class="node_icons" src="images/icons/datastore_master.png">
                                             {% elif role == 'memcache' %}
-                                            <span id="memcache" data-toggle="tooltip" title="Memcache" aria-hidden="true" class="icon-list icon-3x"></span>
+                                                <img class="node_icons" src="images/icons/memcache.png">
                                             {% elif role == 'zookeeper' %}
-                                            <span id="zookeeper" data-toggle="tooltip" title="Zookeeper" aria-hidden="true" class="icon-screenshot icon-3x"></span>
+                                                <img class="node_icons" src="images/icons/zookeeper.png">
                                             {% elif roles == 'login' %}
-                                            <span id="login_role" data-toggle="tooltip" title="Login" aria-hidden="true" class="icon-locked icon-3x"></span>
+                                                <img class="node_icons" src="images/icons/login.png">
                                             {% elif role == 'appengine' %}
-                                            <span id="appengine" data-toggle="tooltip" title="App Engine" aria-hidden="true" class="icon-cogs icon-3x"></span>
+                                                <img class="node_icons" src="images/icons/app_engine.png">
                                             {% elif role == 'taskqueue_master' %}
-                                            <span id="taskqueue_master" data-toggle="tooltip" title="Taskqueue Master" aria-hidden="true" class="icon-tasks icon-3x"></span>
+                                                <img class="node_icons" src="images/icons/taskqueue_master.png">
                                             {% elif role == 'taskqueue_slave' %}
-                                            <span id="taskqueue_slave" data-toggle="tooltip" title="Taskqueue Slave" aria-hidden="true" class="icon-tasks icon-3x"></span>
+                                                <img class="node_icons" src="images/icons/taskqueue_slave.png">
                                             {% elif role == 'db_slave' %}
-                                            <span id="db_slave" data-toggle="tooltip" title="Database Slave" aria-hidden="true" class="icon-hdd icon-3x"></span>
+                                                <img class="node_icons" src="images/icons/datastore_slave.png">
                                             {% endif %}
+                                            {% else %}
+                                                <img class="node_icons" src="images/icons/unknown_role.png">
                                             {% endfor %}
                                           </div>
                                       </td>

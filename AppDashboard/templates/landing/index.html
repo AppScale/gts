@@ -12,27 +12,27 @@
   <ul style="margin: 30px 0 30px 30px; list-style: none;">
    {% if not logged_in %}
    <li>
-     <h2><a class="btn btn-large btn-info landing" href="/users/login"><i class="icon-white icon-home"></i> Login</a></h2>
+     <h2><a class="btn btn-large btn-info landing" href="/users/login"><img src="images/icons/user_login.png"> Login</a></h2>
    </li>  
    {% endif %}
 
    <li>
-     <h2><a class="btn btn-large btn-info landing" href="/users/new"><i class="icon-white icon-user"></i> Create an Account</a></h2>
+     <h2><a class="btn btn-large btn-info landing" href="/users/new"><img src="images/icons/create_user.png"> Create an Account</a></h2>
    </li>
 
    <li>
-     <h2><a class="btn btn-large btn-info landing" href="/status"><i class="icon-white icon-cog"></i> Cloud Status</a></h2>
+     <h2><a class="btn btn-large btn-info landing" href="/status"><img src="images/icons/cloud_status.png"> Cloud Status</a></h2>
    </li>
 
    {% if apps_user_is_admin_on or is_user_cloud_admin %}
    <li>
-     <h2><a class="btn btn-large btn-info landing" href="/logs"><i class="icon-white icon-list"></i> View Logs</a></h2>
+     <h2><a class="btn btn-large btn-info landing" href="/logs"><img src="images/icons/view_logs.png"> View Logs</a></h2>
    </li>
    {% endif %}
 
    {% if is_user_cloud_admin %}
    <li>
-     <h2><a class="btn btn-large btn-info landing" href="/authorize"><i class="icon-white icon-wrench"></i> Manage Users</a></h2>
+     <h2><a class="btn btn-large btn-info landing" href="/authorize"><img src="images/icons/manage_users.png"> Manage Users</a></h2>
    </li>
    {% endif %}
 
