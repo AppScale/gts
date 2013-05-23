@@ -1011,4 +1011,9 @@ class TestDjinn < Test::Unit::TestCase
     # make sure our buffer is empty again
     assert_equal([], Djinn.get_logs_buffer())
   end
+
+  def test_send_request_info_to_dashboard
+    djinn = Djinn.new()
+    djinn.send_request_info_to_dashboard("", 0, 0)
+  end
 end

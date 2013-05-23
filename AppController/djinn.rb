@@ -3688,6 +3688,7 @@ HOSTS
     monitor_cmd = "echo \"show info;show stat\" | " +
       "socat stdio unix-connect:/etc/haproxy/stats | grep #{app_name}"
 
+    req_rate_present = 0
     `#{monitor_cmd}`.each { |line|
       parsed_info = line.split(',')
       if parsed_info.length < REQ_RATE_INDEX  # not a line with request info
@@ -3697,14 +3698,14 @@ HOSTS
       service_name = parsed_info[SERVICE_NAME_INDEX]
       req_in_queue_present = parsed_info[REQ_IN_QUEUE_INDEX]
       req_rate_present = parsed_info[REQ_RATE_INDEX]
-      
+
       if service_name == "FRONTEND"
         autoscale_log.puts("#{service_name} Request Rate #{req_rate_present}")
         req_rate_present = parsed_info[REQ_RATE_INDEX]
         avg_req_rate += req_rate_present.to_i
         @req_rate[app_name][NUM_DATA_POINTS-1] = req_rate_present
       end
-      
+
       if service_name == "BACKEND"
         autoscale_log.puts("#{service_name} Queued Currently " +
           "#{req_in_queue_present}")
@@ -3713,9 +3714,10 @@ HOSTS
         @req_in_queue[app_name][NUM_DATA_POINTS-1] = req_in_queue_present
       end
     }
-      
-    total_req_in_queue = avg_req_in_queue
 
+    send_request_info_to_dashboard(app_name, Time.now.to_i, req_rate_present.to_i)
+
+    total_req_in_queue = avg_req_in_queue
     avg_req_rate /= NUM_DATA_POINTS
     avg_req_in_queue /= NUM_DATA_POINTS
 
@@ -3922,6 +3924,24 @@ HOSTS
     HAProxy.reload
   end 
  
+
+  # Tells the AppDashboard how many requests were served for the named
+  # application at the given time, so that it can display this info to users
+  # graphically.
+  #
+  # Args:
+  #   app_id: A String that indicates which application id we are storing
+  #     request info for.
+  #   timestamp: An Integer that indicates the epoch time when we measured the
+  #     request rate for the given application.
+  #   request_rate: An Integer that indicates how many requests were served for
+  #     the given application.
+  # Returns:
+  #   true if the request info was successfully sent, and false otherwise.
+  def send_request_info_to_dashboard(app_id, timestamp, request_rate)
+
+  end
+
 
   def stop_appengine()
     Djinn.log_info("Shutting down AppEngine")
