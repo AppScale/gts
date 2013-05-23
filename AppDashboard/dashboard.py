@@ -582,6 +582,48 @@ class AppsAsJSONPage(webapp2.RequestHandler):
       AppDashboardData().get_application_info()))
 
 
+class AppConsole(AppDashboard):
+  """ Presents users with an Administrator Console for their Google App Engine
+  application, hosted in AppScale. """
+
+
+  TEMPLATE = 'apps/console.html'
+
+
+  def get(self, app_id):
+    """ Renders the Admin Console for the named application, which currently
+    only tells users how many requests are coming to their application per
+    second.
+
+    Args:
+      app_id: A str that corresponds to the name of the application we should
+        create an Admin Console for.
+    """
+    # Only let the cloud admin and users who own this app see this page.
+    is_cloud_admin = self.helper.is_user_cloud_admin()
+    apps_user_is_admin_on = self.helper.get_owned_apps()
+    if (not is_cloud_admin) and (not apps_user_is_admin_on):
+      self.redirect('/', self.response)
+
+    if app_id not in apps_user_is_admin_on:
+      self.redirect('/', self.response)
+
+    self.render_page(page='console', template_file=self.TEMPLATE, values = {
+      'app_id' : app_id,
+      'requests' : [
+        {'time': 1369321495.0, 'requests': 0},
+        {'time': 1369321415.0, 'requests': 20},
+        {'time': 1369321435.0, 'requests': 40},
+        {'time': 1369321455.0, 'requests': 60},
+        {'time': 1369321475.0, 'requests': 80},
+        {'time': 1369321505.0, 'requests': 10},
+        {'time': 1369321555.0, 'requests': 80},
+        {'time': 1369321595.0, 'requests': 50},
+        {'time': 1369321605.0, 'requests': 30},
+      ]
+    })
+
+
 class LogMainPage(AppDashboard):
   """ Class to handle requests to the /logs page. """
 
@@ -751,13 +793,14 @@ app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/users/login', LoginPage),
                                 ('/users/authenticate', LoginPage),
                                 ('/login', LoginPage),
-                                ('/users/verify',LoginVerify),
-                                ('/users/confirm',LoginVerify),
+                                ('/users/verify', LoginVerify),
+                                ('/users/confirm', LoginVerify),
                                 ('/authorize', AuthorizePage),
                                 ('/apps/new', AppUploadPage),
                                 ('/apps/upload', AppUploadPage),
                                 ('/apps/delete', AppDeletePage),
                                 ('/apps/json', AppsAsJSONPage),
+                                ('/apps/(.+)', AppConsole),
                                 ('/logs', LogMainPage),
                                 ('/logs/upload', LogUploadPage),
                                 ('/logs/(.+)/(.+)', LogServiceHostPage),
