@@ -31,8 +31,6 @@ else:
   _extension_runtime = False
   _ExtendableProtocolMessage = ProtocolBuffer.ProtocolMessage
 
-from google.appengine.base.memcache_sharding_strategy_pb import *
-import google.appengine.base.memcache_sharding_strategy_pb
 class MemcacheServiceError(ProtocolBuffer.ProtocolMessage):
 
 
@@ -40,14 +38,14 @@ class MemcacheServiceError(ProtocolBuffer.ProtocolMessage):
   UNSPECIFIED_ERROR =    1
   NAMESPACE_NOT_SET =    2
   PERMISSION_DENIED =    3
-  INVALID_VALUE =    6
+  NUM_BACKENDS_UNSPECIFIED =    4
 
   _ErrorCode_NAMES = {
     0: "OK",
     1: "UNSPECIFIED_ERROR",
     2: "NAMESPACE_NOT_SET",
     3: "PERMISSION_DENIED",
-    6: "INVALID_VALUE",
+    4: "NUM_BACKENDS_UNSPECIFIED",
   }
 
   def ErrorCode_Name(cls, x): return cls._ErrorCode_NAMES.get(x, "")
@@ -122,15 +120,8 @@ class AppOverride(ProtocolBuffer.ProtocolMessage):
   app_id_ = ""
   has_num_memcacheg_backends_ = 0
   num_memcacheg_backends_ = 0
-  has_ignore_shardlock_ = 0
-  ignore_shardlock_ = 0
-  has_memcache_pool_hint_ = 0
-  memcache_pool_hint_ = ""
-  has_memcache_sharding_strategy_ = 0
-  memcache_sharding_strategy_ = None
 
   def __init__(self, contents=None):
-    self.lazy_init_lock_ = thread.allocate_lock()
     if contents is not None: self.MergeFromString(contents)
 
   def app_id(self): return self.app_id_
@@ -159,59 +150,11 @@ class AppOverride(ProtocolBuffer.ProtocolMessage):
 
   def has_num_memcacheg_backends(self): return self.has_num_memcacheg_backends_
 
-  def ignore_shardlock(self): return self.ignore_shardlock_
-
-  def set_ignore_shardlock(self, x):
-    self.has_ignore_shardlock_ = 1
-    self.ignore_shardlock_ = x
-
-  def clear_ignore_shardlock(self):
-    if self.has_ignore_shardlock_:
-      self.has_ignore_shardlock_ = 0
-      self.ignore_shardlock_ = 0
-
-  def has_ignore_shardlock(self): return self.has_ignore_shardlock_
-
-  def memcache_pool_hint(self): return self.memcache_pool_hint_
-
-  def set_memcache_pool_hint(self, x):
-    self.has_memcache_pool_hint_ = 1
-    self.memcache_pool_hint_ = x
-
-  def clear_memcache_pool_hint(self):
-    if self.has_memcache_pool_hint_:
-      self.has_memcache_pool_hint_ = 0
-      self.memcache_pool_hint_ = ""
-
-  def has_memcache_pool_hint(self): return self.has_memcache_pool_hint_
-
-  def memcache_sharding_strategy(self):
-    if self.memcache_sharding_strategy_ is None:
-      self.lazy_init_lock_.acquire()
-      try:
-        if self.memcache_sharding_strategy_ is None: self.memcache_sharding_strategy_ = Enum()
-      finally:
-        self.lazy_init_lock_.release()
-    return self.memcache_sharding_strategy_
-
-  def mutable_memcache_sharding_strategy(self): self.has_memcache_sharding_strategy_ = 1; return self.memcache_sharding_strategy()
-
-  def clear_memcache_sharding_strategy(self):
-
-    if self.has_memcache_sharding_strategy_:
-      self.has_memcache_sharding_strategy_ = 0;
-      if self.memcache_sharding_strategy_ is not None: self.memcache_sharding_strategy_.Clear()
-
-  def has_memcache_sharding_strategy(self): return self.has_memcache_sharding_strategy_
-
 
   def MergeFrom(self, x):
     assert x is not self
     if (x.has_app_id()): self.set_app_id(x.app_id())
     if (x.has_num_memcacheg_backends()): self.set_num_memcacheg_backends(x.num_memcacheg_backends())
-    if (x.has_ignore_shardlock()): self.set_ignore_shardlock(x.ignore_shardlock())
-    if (x.has_memcache_pool_hint()): self.set_memcache_pool_hint(x.memcache_pool_hint())
-    if (x.has_memcache_sharding_strategy()): self.mutable_memcache_sharding_strategy().MergeFrom(x.memcache_sharding_strategy())
 
   def Equals(self, x):
     if x is self: return 1
@@ -219,12 +162,6 @@ class AppOverride(ProtocolBuffer.ProtocolMessage):
     if self.has_app_id_ and self.app_id_ != x.app_id_: return 0
     if self.has_num_memcacheg_backends_ != x.has_num_memcacheg_backends_: return 0
     if self.has_num_memcacheg_backends_ and self.num_memcacheg_backends_ != x.num_memcacheg_backends_: return 0
-    if self.has_ignore_shardlock_ != x.has_ignore_shardlock_: return 0
-    if self.has_ignore_shardlock_ and self.ignore_shardlock_ != x.ignore_shardlock_: return 0
-    if self.has_memcache_pool_hint_ != x.has_memcache_pool_hint_: return 0
-    if self.has_memcache_pool_hint_ and self.memcache_pool_hint_ != x.memcache_pool_hint_: return 0
-    if self.has_memcache_sharding_strategy_ != x.has_memcache_sharding_strategy_: return 0
-    if self.has_memcache_sharding_strategy_ and self.memcache_sharding_strategy_ != x.memcache_sharding_strategy_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -233,52 +170,37 @@ class AppOverride(ProtocolBuffer.ProtocolMessage):
       initialized = 0
       if debug_strs is not None:
         debug_strs.append('Required field: app_id not set.')
-    if (self.has_memcache_sharding_strategy_ and not self.memcache_sharding_strategy_.IsInitialized(debug_strs)): initialized = 0
+    if (not self.has_num_memcacheg_backends_):
+      initialized = 0
+      if debug_strs is not None:
+        debug_strs.append('Required field: num_memcacheg_backends not set.')
     return initialized
 
   def ByteSize(self):
     n = 0
     n += self.lengthString(len(self.app_id_))
-    if (self.has_num_memcacheg_backends_): n += 1 + self.lengthVarInt64(self.num_memcacheg_backends_)
-    if (self.has_ignore_shardlock_): n += 2
-    if (self.has_memcache_pool_hint_): n += 1 + self.lengthString(len(self.memcache_pool_hint_))
-    if (self.has_memcache_sharding_strategy_): n += 1 + self.lengthString(self.memcache_sharding_strategy_.ByteSize())
-    return n + 1
+    n += self.lengthVarInt64(self.num_memcacheg_backends_)
+    return n + 2
 
   def ByteSizePartial(self):
     n = 0
     if (self.has_app_id_):
       n += 1
       n += self.lengthString(len(self.app_id_))
-    if (self.has_num_memcacheg_backends_): n += 1 + self.lengthVarInt64(self.num_memcacheg_backends_)
-    if (self.has_ignore_shardlock_): n += 2
-    if (self.has_memcache_pool_hint_): n += 1 + self.lengthString(len(self.memcache_pool_hint_))
-    if (self.has_memcache_sharding_strategy_): n += 1 + self.lengthString(self.memcache_sharding_strategy_.ByteSizePartial())
+    if (self.has_num_memcacheg_backends_):
+      n += 1
+      n += self.lengthVarInt64(self.num_memcacheg_backends_)
     return n
 
   def Clear(self):
     self.clear_app_id()
     self.clear_num_memcacheg_backends()
-    self.clear_ignore_shardlock()
-    self.clear_memcache_pool_hint()
-    self.clear_memcache_sharding_strategy()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(10)
     out.putPrefixedString(self.app_id_)
-    if (self.has_num_memcacheg_backends_):
-      out.putVarInt32(16)
-      out.putVarInt32(self.num_memcacheg_backends_)
-    if (self.has_ignore_shardlock_):
-      out.putVarInt32(24)
-      out.putBoolean(self.ignore_shardlock_)
-    if (self.has_memcache_pool_hint_):
-      out.putVarInt32(34)
-      out.putPrefixedString(self.memcache_pool_hint_)
-    if (self.has_memcache_sharding_strategy_):
-      out.putVarInt32(42)
-      out.putVarInt32(self.memcache_sharding_strategy_.ByteSize())
-      self.memcache_sharding_strategy_.OutputUnchecked(out)
+    out.putVarInt32(16)
+    out.putVarInt32(self.num_memcacheg_backends_)
 
   def OutputPartial(self, out):
     if (self.has_app_id_):
@@ -287,16 +209,6 @@ class AppOverride(ProtocolBuffer.ProtocolMessage):
     if (self.has_num_memcacheg_backends_):
       out.putVarInt32(16)
       out.putVarInt32(self.num_memcacheg_backends_)
-    if (self.has_ignore_shardlock_):
-      out.putVarInt32(24)
-      out.putBoolean(self.ignore_shardlock_)
-    if (self.has_memcache_pool_hint_):
-      out.putVarInt32(34)
-      out.putPrefixedString(self.memcache_pool_hint_)
-    if (self.has_memcache_sharding_strategy_):
-      out.putVarInt32(42)
-      out.putVarInt32(self.memcache_sharding_strategy_.ByteSizePartial())
-      self.memcache_sharding_strategy_.OutputPartial(out)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -306,18 +218,6 @@ class AppOverride(ProtocolBuffer.ProtocolMessage):
         continue
       if tt == 16:
         self.set_num_memcacheg_backends(d.getVarInt32())
-        continue
-      if tt == 24:
-        self.set_ignore_shardlock(d.getBoolean())
-        continue
-      if tt == 34:
-        self.set_memcache_pool_hint(d.getPrefixedString())
-        continue
-      if tt == 42:
-        length = d.getVarInt32()
-        tmp = ProtocolBuffer.Decoder(d.buffer(), d.pos(), d.pos() + length)
-        d.skip(length)
-        self.mutable_memcache_sharding_strategy().TryMerge(tmp)
         continue
 
 
@@ -329,12 +229,6 @@ class AppOverride(ProtocolBuffer.ProtocolMessage):
     res=""
     if self.has_app_id_: res+=prefix+("app_id: %s\n" % self.DebugFormatString(self.app_id_))
     if self.has_num_memcacheg_backends_: res+=prefix+("num_memcacheg_backends: %s\n" % self.DebugFormatInt32(self.num_memcacheg_backends_))
-    if self.has_ignore_shardlock_: res+=prefix+("ignore_shardlock: %s\n" % self.DebugFormatBool(self.ignore_shardlock_))
-    if self.has_memcache_pool_hint_: res+=prefix+("memcache_pool_hint: %s\n" % self.DebugFormatString(self.memcache_pool_hint_))
-    if self.has_memcache_sharding_strategy_:
-      res+=prefix+"memcache_sharding_strategy <\n"
-      res+=self.memcache_sharding_strategy_.__str__(prefix + "  ", printElemNumber)
-      res+=prefix+">\n"
     return res
 
 
@@ -343,27 +237,18 @@ class AppOverride(ProtocolBuffer.ProtocolMessage):
 
   kapp_id = 1
   knum_memcacheg_backends = 2
-  kignore_shardlock = 3
-  kmemcache_pool_hint = 4
-  kmemcache_sharding_strategy = 5
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
     1: "app_id",
     2: "num_memcacheg_backends",
-    3: "ignore_shardlock",
-    4: "memcache_pool_hint",
-    5: "memcache_sharding_strategy",
-  }, 5)
+  }, 2)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
     1: ProtocolBuffer.Encoder.STRING,
     2: ProtocolBuffer.Encoder.NUMERIC,
-    3: ProtocolBuffer.Encoder.NUMERIC,
-    4: ProtocolBuffer.Encoder.STRING,
-    5: ProtocolBuffer.Encoder.STRING,
-  }, 5, ProtocolBuffer.Encoder.MAX_TYPE)
+  }, 2, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""

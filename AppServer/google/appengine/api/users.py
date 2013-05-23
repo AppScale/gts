@@ -15,10 +15,6 @@
 # limitations under the License.
 #
 
-
-
-
-
 """Python datastore class User to be used as a datastore data type.
 
 Classes defined here:
@@ -30,20 +26,14 @@ Classes defined here:
   NotAllowedError: UserService exception
 """
 
-
-
-
-
-
-
-
-
-
 import os
+import SOAPpy
+import sys
+import urllib
+
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import user_service_pb
 from google.appengine.runtime import apiproxy_errors
-
 
 class Error(Exception):
   """Base User error type."""
@@ -80,9 +70,6 @@ class User(object):
   """
 
 
-
-
-
   __user_id = None
   __federated_identity = None
   __federated_provider = None
@@ -103,13 +90,6 @@ class User(object):
       UserNotFoundError: Raised if the user is not logged in and both email
           and federated identity are empty.
     """
-
-
-
-
-
-
-
     if _auth_domain is None:
       _auth_domain = os.environ.get('AUTH_DOMAIN')
     assert _auth_domain
@@ -122,16 +102,7 @@ class User(object):
       federated_provider = os.environ.get('FEDERATED_PROVIDER',
                                           federated_provider)
 
-
-
-
-
-    if email is None:
-      email = ''
-
     if not email and not federated_identity and _strict_mode:
-
-
       raise UserNotFoundError
 
     self.__email = email
@@ -139,7 +110,6 @@ class User(object):
     self.__federated_provider = federated_provider
     self.__auth_domain = _auth_domain
     self.__user_id = _user_id or None
-
 
   def nickname(self):
     """Return this user's nickname.
@@ -236,10 +206,7 @@ def create_login_url(dest_url=None, _auth_domain=None,
   """
   req = user_service_pb.CreateLoginURLRequest()
   resp = user_service_pb.CreateLoginURLResponse()
-  if dest_url:
-    req.set_destination_url(dest_url)
-  else:
-    req.set_destination_url('')
+  req.set_destination_url(dest_url)
   if _auth_domain:
     req.set_auth_domain(_auth_domain)
   if federated_identity:
@@ -257,7 +224,6 @@ def create_login_url(dest_url=None, _auth_domain=None,
     else:
       raise e
   return resp.login_url()
-
 
 CreateLoginURL = create_login_url
 
@@ -290,19 +256,20 @@ def create_logout_url(dest_url, _auth_domain=None):
       raise e
   return resp.logout_url()
 
-
 CreateLogoutURL = create_logout_url
 
 
 def get_current_user():
+  """ Gets the current user of the current request.
+  Returns:
+    None if there is no user, and a user object if there is
+  """
   try:
     return User()
   except UserNotFoundError:
     return None
 
-
 GetCurrentUser = get_current_user
-
 
 def is_current_user_admin():
   """Return true if the user making this request is an admin for this
@@ -314,5 +281,63 @@ def is_current_user_admin():
   """
   return (os.environ.get('USER_IS_ADMIN', '0')) == '1'
 
-
 IsCurrentUserAdmin = is_current_user_admin
+
+def is_current_user_capable(api_name):
+  """ Checks to see if the current user is capable to run a certain API 
+  
+  Args:
+    api_name: A string of the API to check for
+  Returns:
+    True if capable, False if not
+  """
+  user = get_current_user()
+  if not user:
+    sys.stderr.write("user is not logged in - cannot use api " + \
+                      api_name + "\n")
+    return False
+
+  email = user.email()
+  return is_user_capable(email, api_name)
+
+def is_user_capable(user, api_name):
+  """ Checks to see if the given user has access to user a particular API.
+  
+  Args:
+    user: The current user email
+    api_name: The API we're checking to see if the user has permission
+  Returns:
+    True is capable, False otherwise
+  """
+
+  user = urllib.unquote(user)
+  sys.stderr.write("checking permissions for user " + \
+                   user + " on api " + api_name + "\n")
+
+  secret_file = open('/etc/appscale/secret.key', 'r')
+  secret = secret_file.read()
+  secret = secret[0:-1]
+  secret_file.close()
+
+  uaserver_file = open('/etc/appscale/hypersoap', 'r')
+  uaserver = uaserver_file.read()
+  uaserver_file.close()
+
+  server = SOAPpy.SOAPProxy("https://" + uaserver + ":4343")
+  capabilities = server.get_capabilities(user, secret)
+
+  # If a non-existent user was specified this will be ['DB_ERROR', 'no user']
+  # instead of a string with their capabilities
+  if not isinstance(capabilities, str):
+    return False
+
+  capabilities = capabilities.split(":")
+
+  sys.stderr.write("user " + user + " has the following capabilities: " + \
+                   str(capabilities) + "\n")
+
+  if api_name in capabilities:
+    return True
+  else:
+    return False
+

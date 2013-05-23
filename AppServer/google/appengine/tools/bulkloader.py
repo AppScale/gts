@@ -1281,7 +1281,9 @@ class RequestManager(object):
     self.secure = secure
     self.authenticated = False
     self.auth_called = False
-    self.parallel_download = True
+    # Disable parallel download for AppScale since we do not have the descending
+    # index for __key__.
+    self.parallel_download = False
     self.email = email
     self.passin = passin
     self.mapper = None

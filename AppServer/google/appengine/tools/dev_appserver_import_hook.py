@@ -1036,6 +1036,9 @@ class HardenedModulesHook(object):
 
 
       'signal': [
+          'signal',#added by BDrawert on 2013.03.20
+          'alarm',
+          'SIGALRM',
       ],
 
       'ssl': [
@@ -1344,6 +1347,10 @@ class HardenedModulesHook(object):
 
       search_path = [None] + sys.path
 
+      search_path += 
+        ['/usr/local/lib/python2.6/dist-packages/lxml-3.1.0-py2.6-linux-x86_64.egg']
+
+
     py27_optional = False
     py27_enabled = False
     topmodule = None
@@ -1403,11 +1410,13 @@ class HardenedModulesHook(object):
 
 
               pkg_pathname = os.path.join(pkg_pathname, '__init__.py')
-            if not FakeFile.IsFileAccessible(
-                pkg_pathname, py27_optional=py27_optional):
-              error_message = 'Access to module file denied: %s' % pathname
-              logging.debug(error_message)
-              raise ImportError(error_message)
+            # AppScale: disables the whitelist and lets you import anything
+            # installed, as long as it's in your path.
+            #if not FakeFile.IsFileAccessible(
+            #    pkg_pathname, py27_optional=py27_optional):
+            #  error_message = 'Access to module file denied: %s' % pathname
+            #  logging.debug(error_message)
+            #  raise ImportError(error_message)
 
           if (file_type not in self._ENABLED_FILE_TYPES and
               submodule not in self._white_list_c_modules):

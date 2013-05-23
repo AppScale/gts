@@ -290,30 +290,8 @@ class RemoteDatastoreStub(RemoteStub):
     assert response.IsInitialized(explanation), explanation
 
   def _Dynamic_RunQuery(self, query, query_result, cursor_id = None):
-    if query.has_transaction():
-      txdata = self.__transactions[query.transaction().handle()]
-      tx_result = remote_api_pb.TransactionQueryResult()
-      super(RemoteDatastoreStub, self).MakeSyncCall(
-          'remote_datastore', 'TransactionQuery', query, tx_result)
-      query_result.CopyFrom(tx_result.result())
-
-
-
-
-      eg_key = tx_result.entity_group_key()
-      encoded_eg_key = eg_key.Encode()
-      eg_hash = None
-      if tx_result.has_entity_group():
-        eg_hash = HashEntity(tx_result.entity_group())
-      old_key, old_hash = txdata.preconditions.get(encoded_eg_key, (None, None))
-      if old_key is None:
-        txdata.preconditions[encoded_eg_key] = (eg_key, eg_hash)
-      elif old_hash != eg_hash:
-        raise apiproxy_errors.ApplicationError(
-            datastore_pb.Error.CONCURRENT_TRANSACTION,
-            'Transaction precondition failed.')
-    else:
-      super(RemoteDatastoreStub, self).MakeSyncCall(
+    # AppScale: Removed previous check because we remotely handle transactions.
+    super(RemoteDatastoreStub, self).MakeSyncCall(
           'datastore_v3', 'RunQuery', query, query_result)
 
     if cursor_id is None:

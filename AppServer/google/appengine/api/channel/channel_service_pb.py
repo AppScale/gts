@@ -122,6 +122,8 @@ class CreateChannelRequest(ProtocolBuffer.ProtocolMessage):
   application_key_ = ""
   has_duration_minutes_ = 0
   duration_minutes_ = 0
+  has_tag_ = 0
+  tag_ = ""
 
   def __init__(self, contents=None):
     if contents is not None: self.MergeFromString(contents)
@@ -152,11 +154,25 @@ class CreateChannelRequest(ProtocolBuffer.ProtocolMessage):
 
   def has_duration_minutes(self): return self.has_duration_minutes_
 
+  def tag(self): return self.tag_
+
+  def set_tag(self, x):
+    self.has_tag_ = 1
+    self.tag_ = x
+
+  def clear_tag(self):
+    if self.has_tag_:
+      self.has_tag_ = 0
+      self.tag_ = ""
+
+  def has_tag(self): return self.has_tag_
+
 
   def MergeFrom(self, x):
     assert x is not self
     if (x.has_application_key()): self.set_application_key(x.application_key())
     if (x.has_duration_minutes()): self.set_duration_minutes(x.duration_minutes())
+    if (x.has_tag()): self.set_tag(x.tag())
 
   def Equals(self, x):
     if x is self: return 1
@@ -164,6 +180,8 @@ class CreateChannelRequest(ProtocolBuffer.ProtocolMessage):
     if self.has_application_key_ and self.application_key_ != x.application_key_: return 0
     if self.has_duration_minutes_ != x.has_duration_minutes_: return 0
     if self.has_duration_minutes_ and self.duration_minutes_ != x.duration_minutes_: return 0
+    if self.has_tag_ != x.has_tag_: return 0
+    if self.has_tag_ and self.tag_ != x.tag_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -178,6 +196,7 @@ class CreateChannelRequest(ProtocolBuffer.ProtocolMessage):
     n = 0
     n += self.lengthString(len(self.application_key_))
     if (self.has_duration_minutes_): n += 1 + self.lengthVarInt64(self.duration_minutes_)
+    if (self.has_tag_): n += 1 + self.lengthString(len(self.tag_))
     return n + 1
 
   def ByteSizePartial(self):
@@ -186,11 +205,13 @@ class CreateChannelRequest(ProtocolBuffer.ProtocolMessage):
       n += 1
       n += self.lengthString(len(self.application_key_))
     if (self.has_duration_minutes_): n += 1 + self.lengthVarInt64(self.duration_minutes_)
+    if (self.has_tag_): n += 1 + self.lengthString(len(self.tag_))
     return n
 
   def Clear(self):
     self.clear_application_key()
     self.clear_duration_minutes()
+    self.clear_tag()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(10)
@@ -198,6 +219,9 @@ class CreateChannelRequest(ProtocolBuffer.ProtocolMessage):
     if (self.has_duration_minutes_):
       out.putVarInt32(16)
       out.putVarInt32(self.duration_minutes_)
+    if (self.has_tag_):
+      out.putVarInt32(26)
+      out.putPrefixedString(self.tag_)
 
   def OutputPartial(self, out):
     if (self.has_application_key_):
@@ -206,6 +230,9 @@ class CreateChannelRequest(ProtocolBuffer.ProtocolMessage):
     if (self.has_duration_minutes_):
       out.putVarInt32(16)
       out.putVarInt32(self.duration_minutes_)
+    if (self.has_tag_):
+      out.putVarInt32(26)
+      out.putPrefixedString(self.tag_)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -215,6 +242,9 @@ class CreateChannelRequest(ProtocolBuffer.ProtocolMessage):
         continue
       if tt == 16:
         self.set_duration_minutes(d.getVarInt32())
+        continue
+      if tt == 26:
+        self.set_tag(d.getPrefixedString())
         continue
 
 
@@ -226,6 +256,7 @@ class CreateChannelRequest(ProtocolBuffer.ProtocolMessage):
     res=""
     if self.has_application_key_: res+=prefix+("application_key: %s\n" % self.DebugFormatString(self.application_key_))
     if self.has_duration_minutes_: res+=prefix+("duration_minutes: %s\n" % self.DebugFormatInt32(self.duration_minutes_))
+    if self.has_tag_: res+=prefix+("tag: %s\n" % self.DebugFormatString(self.tag_))
     return res
 
 
@@ -234,18 +265,21 @@ class CreateChannelRequest(ProtocolBuffer.ProtocolMessage):
 
   kapplication_key = 1
   kduration_minutes = 2
+  ktag = 3
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
     1: "application_key",
     2: "duration_minutes",
-  }, 2)
+    3: "tag",
+  }, 3)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
     1: ProtocolBuffer.Encoder.STRING,
     2: ProtocolBuffer.Encoder.NUMERIC,
-  }, 2, ProtocolBuffer.Encoder.MAX_TYPE)
+    3: ProtocolBuffer.Encoder.STRING,
+  }, 3, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
@@ -385,6 +419,8 @@ class SendMessageRequest(ProtocolBuffer.ProtocolMessage):
   application_key_ = ""
   has_message_ = 0
   message_ = ""
+  has_tag_ = 0
+  tag_ = ""
 
   def __init__(self, contents=None):
     if contents is not None: self.MergeFromString(contents)
@@ -415,11 +451,25 @@ class SendMessageRequest(ProtocolBuffer.ProtocolMessage):
 
   def has_message(self): return self.has_message_
 
+  def tag(self): return self.tag_
+
+  def set_tag(self, x):
+    self.has_tag_ = 1
+    self.tag_ = x
+
+  def clear_tag(self):
+    if self.has_tag_:
+      self.has_tag_ = 0
+      self.tag_ = ""
+
+  def has_tag(self): return self.has_tag_
+
 
   def MergeFrom(self, x):
     assert x is not self
     if (x.has_application_key()): self.set_application_key(x.application_key())
     if (x.has_message()): self.set_message(x.message())
+    if (x.has_tag()): self.set_tag(x.tag())
 
   def Equals(self, x):
     if x is self: return 1
@@ -427,6 +477,8 @@ class SendMessageRequest(ProtocolBuffer.ProtocolMessage):
     if self.has_application_key_ and self.application_key_ != x.application_key_: return 0
     if self.has_message_ != x.has_message_: return 0
     if self.has_message_ and self.message_ != x.message_: return 0
+    if self.has_tag_ != x.has_tag_: return 0
+    if self.has_tag_ and self.tag_ != x.tag_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -445,6 +497,7 @@ class SendMessageRequest(ProtocolBuffer.ProtocolMessage):
     n = 0
     n += self.lengthString(len(self.application_key_))
     n += self.lengthString(len(self.message_))
+    if (self.has_tag_): n += 1 + self.lengthString(len(self.tag_))
     return n + 2
 
   def ByteSizePartial(self):
@@ -455,17 +508,22 @@ class SendMessageRequest(ProtocolBuffer.ProtocolMessage):
     if (self.has_message_):
       n += 1
       n += self.lengthString(len(self.message_))
+    if (self.has_tag_): n += 1 + self.lengthString(len(self.tag_))
     return n
 
   def Clear(self):
     self.clear_application_key()
     self.clear_message()
+    self.clear_tag()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(10)
     out.putPrefixedString(self.application_key_)
     out.putVarInt32(18)
     out.putPrefixedString(self.message_)
+    if (self.has_tag_):
+      out.putVarInt32(26)
+      out.putPrefixedString(self.tag_)
 
   def OutputPartial(self, out):
     if (self.has_application_key_):
@@ -474,6 +532,9 @@ class SendMessageRequest(ProtocolBuffer.ProtocolMessage):
     if (self.has_message_):
       out.putVarInt32(18)
       out.putPrefixedString(self.message_)
+    if (self.has_tag_):
+      out.putVarInt32(26)
+      out.putPrefixedString(self.tag_)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -483,6 +544,9 @@ class SendMessageRequest(ProtocolBuffer.ProtocolMessage):
         continue
       if tt == 18:
         self.set_message(d.getPrefixedString())
+        continue
+      if tt == 26:
+        self.set_tag(d.getPrefixedString())
         continue
 
 
@@ -494,6 +558,7 @@ class SendMessageRequest(ProtocolBuffer.ProtocolMessage):
     res=""
     if self.has_application_key_: res+=prefix+("application_key: %s\n" % self.DebugFormatString(self.application_key_))
     if self.has_message_: res+=prefix+("message: %s\n" % self.DebugFormatString(self.message_))
+    if self.has_tag_: res+=prefix+("tag: %s\n" % self.DebugFormatString(self.tag_))
     return res
 
 
@@ -502,24 +567,29 @@ class SendMessageRequest(ProtocolBuffer.ProtocolMessage):
 
   kapplication_key = 1
   kmessage = 2
+  ktag = 3
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
     1: "application_key",
     2: "message",
-  }, 2)
+    3: "tag",
+  }, 3)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
     1: ProtocolBuffer.Encoder.STRING,
     2: ProtocolBuffer.Encoder.STRING,
-  }, 2, ProtocolBuffer.Encoder.MAX_TYPE)
+    3: ProtocolBuffer.Encoder.STRING,
+  }, 3, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
   _PROTO_DESCRIPTOR_NAME = 'apphosting.SendMessageRequest'
 class ChannelPresenceRequest(ProtocolBuffer.ProtocolMessage):
+  has_tag_ = 0
+  tag_ = ""
 
   def __init__(self, contents=None):
     self.application_key_ = []
@@ -540,16 +610,32 @@ class ChannelPresenceRequest(ProtocolBuffer.ProtocolMessage):
   def clear_application_key(self):
     self.application_key_ = []
 
+  def tag(self): return self.tag_
+
+  def set_tag(self, x):
+    self.has_tag_ = 1
+    self.tag_ = x
+
+  def clear_tag(self):
+    if self.has_tag_:
+      self.has_tag_ = 0
+      self.tag_ = ""
+
+  def has_tag(self): return self.has_tag_
+
 
   def MergeFrom(self, x):
     assert x is not self
     for i in xrange(x.application_key_size()): self.add_application_key(x.application_key(i))
+    if (x.has_tag()): self.set_tag(x.tag())
 
   def Equals(self, x):
     if x is self: return 1
     if len(self.application_key_) != len(x.application_key_): return 0
     for e1, e2 in zip(self.application_key_, x.application_key_):
       if e1 != e2: return 0
+    if self.has_tag_ != x.has_tag_: return 0
+    if self.has_tag_ and self.tag_ != x.tag_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -560,32 +646,44 @@ class ChannelPresenceRequest(ProtocolBuffer.ProtocolMessage):
     n = 0
     n += 1 * len(self.application_key_)
     for i in xrange(len(self.application_key_)): n += self.lengthString(len(self.application_key_[i]))
+    if (self.has_tag_): n += 1 + self.lengthString(len(self.tag_))
     return n
 
   def ByteSizePartial(self):
     n = 0
     n += 1 * len(self.application_key_)
     for i in xrange(len(self.application_key_)): n += self.lengthString(len(self.application_key_[i]))
+    if (self.has_tag_): n += 1 + self.lengthString(len(self.tag_))
     return n
 
   def Clear(self):
     self.clear_application_key()
+    self.clear_tag()
 
   def OutputUnchecked(self, out):
     for i in xrange(len(self.application_key_)):
       out.putVarInt32(10)
       out.putPrefixedString(self.application_key_[i])
+    if (self.has_tag_):
+      out.putVarInt32(18)
+      out.putPrefixedString(self.tag_)
 
   def OutputPartial(self, out):
     for i in xrange(len(self.application_key_)):
       out.putVarInt32(10)
       out.putPrefixedString(self.application_key_[i])
+    if (self.has_tag_):
+      out.putVarInt32(18)
+      out.putPrefixedString(self.tag_)
 
   def TryMerge(self, d):
     while d.avail() > 0:
       tt = d.getVarInt32()
       if tt == 10:
         self.add_application_key(d.getPrefixedString())
+        continue
+      if tt == 18:
+        self.set_tag(d.getPrefixedString())
         continue
 
 
@@ -601,6 +699,7 @@ class ChannelPresenceRequest(ProtocolBuffer.ProtocolMessage):
       if printElemNumber: elm="(%d)" % cnt
       res+=prefix+("application_key%s: %s\n" % (elm, self.DebugFormatString(e)))
       cnt+=1
+    if self.has_tag_: res+=prefix+("tag: %s\n" % self.DebugFormatString(self.tag_))
     return res
 
 
@@ -608,16 +707,19 @@ class ChannelPresenceRequest(ProtocolBuffer.ProtocolMessage):
     return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
 
   kapplication_key = 1
+  ktag = 2
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
     1: "application_key",
-  }, 1)
+    2: "tag",
+  }, 2)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
     1: ProtocolBuffer.Encoder.STRING,
-  }, 1, ProtocolBuffer.Encoder.MAX_TYPE)
+    2: ProtocolBuffer.Encoder.STRING,
+  }, 2, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""

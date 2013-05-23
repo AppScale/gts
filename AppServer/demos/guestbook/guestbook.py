@@ -17,7 +17,6 @@
 import cgi
 import datetime
 import webapp2
-import time
 
 from google.appengine.ext import ndb
 from google.appengine.api import users
@@ -35,6 +34,7 @@ class MainPage(webapp2.RequestHandler):
   def get(self):
     start = time.time()
     self.response.out.write('<html><body>')
+
     greetings = ndb.gql('SELECT * '
                         'FROM Greeting '
                         'WHERE ANCESTOR IS :1 '

@@ -288,13 +288,13 @@ class TaskHandler(webapp.RequestHandler):
 
 
 
-    in_prod = (
-        not self.request.environ.get("SERVER_SOFTWARE").startswith("Devel"))
-    if in_prod and self.request.environ.get("REMOTE_ADDR") != "0.1.0.2":
-      logging.critical('Detected an attempted XSRF attack. This request did '
-                       'not originate from Task Queue.')
-      self.response.set_status(403)
-      return
+    #in_prod = (
+    #    not self.request.environ.get("SERVER_SOFTWARE").startswith("Devel"))
+    #if in_prod and self.request.environ.get("REMOTE_ADDR") != "0.1.0.2":
+    #  logging.critical('Detected an attempted XSRF attack. This request did '
+    #                   'not originate from Task Queue.')
+    #  self.response.set_status(403)
+    #  return
 
 
     headers = ["%s:%s" % (k, v) for k, v in self.request.headers.items()
@@ -322,11 +322,6 @@ application = webapp.WSGIApplication([(".*", TaskHandler)])
 
 
 def main():
-  if os.environ["SERVER_SOFTWARE"].startswith("Devel"):
-    logging.warn("You are using deferred in a deprecated fashion. Please change"
-                 " the request handler path for /_ah/queue/deferred in app.yaml"
-                 " to $PYTHON_LIB/google/appengine/ext/deferred/handler.py to"
-                 " avoid encountering import errors.")
   run_wsgi_app(application)
 
 

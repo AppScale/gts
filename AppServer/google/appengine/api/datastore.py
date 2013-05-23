@@ -593,7 +593,7 @@ def GetAsync(keys, **kwargs):
     if multiple:
       result = entities
     else:
-      if entities[0] is None:
+      if not entities or entities[0] is None:
         raise datastore_errors.EntityNotFoundError()
       result = entities[0]
     if extra_hook:
@@ -748,7 +748,7 @@ class Entity(dict):
     if namespace is None:
       namespace = _namespace
     elif _namespace is not None:
-        raise datastore_errors.BadArgumentError(
+      raise datastore_errors.BadArgumentError(
             "Must not set both _namespace and namespace parameters.")
 
     datastore_types.ValidateString(kind, 'kind',
@@ -2840,7 +2840,7 @@ class Iterator(datastore_query.ResultsIterator):
     result = []
     for r in self:
       if len(result) >= count:
-        break;
+        break
       result.append(r)
     return result
 
