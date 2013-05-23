@@ -3939,7 +3939,24 @@ HOSTS
   # Returns:
   #   true if the request info was successfully sent, and false otherwise.
   def send_request_info_to_dashboard(app_id, timestamp, request_rate)
+    encoded_request_info = JSON.dump({
+      'timestamp' => timestamp,
+      'request_rate' => request_rate
+    })
 
+    begin
+      url = URI.parse("https://#{get_login.public_ip}/apps/#{app_id}")
+      http = Net::HTTP.new(url.host, url.port)
+      http.use_ssl = true
+      response = http.post(url.path, encoded_request_info,
+        {'Content-Type'=>'application/json'})
+      return true
+    rescue Exception
+      # Don't crash the AppController because we weren't able to send over
+      # the request info - just inform the caller that we couldn't send it.
+      Djinn.log_info("Couldn't send request info to #{url}")
+      return false
+    end
   end
 
 
