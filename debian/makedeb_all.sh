@@ -10,7 +10,6 @@ fi
 for comp in\
  core all\
  cassandra hbase hypertable\
- mysql
 
 do
     ./debian/makedeb.sh $comp $RELEASE
