@@ -39,6 +39,7 @@ import datetime
 import itertools
 import logging
 import os
+import random
 import re
 import time
 import urllib
@@ -66,20 +67,25 @@ from google.appengine.ext import webapp
 from google.appengine.ext.datastore_admin import backup_pb2
 from google.appengine.ext.datastore_admin import utils
 from google.appengine.ext.mapreduce import context
+from google.appengine.ext.mapreduce import datastore_range_iterators as db_iters
 from google.appengine.ext.mapreduce import input_readers
 from google.appengine.ext.mapreduce import model
 from google.appengine.ext.mapreduce import operation as op
 from google.appengine.ext.mapreduce import output_writers
+from google.appengine.runtime import apiproxy_errors
 
 
 XSRF_ACTION = 'backup'
-BUCKET_PATTERN = (r'^([a-zA-Z0-9]+(\-[a-zA-Z0-9]+)*)'
-                  r'(\.([a-zA-Z0-9]+(\-[a-zA-Z0-9]+)*))*$')
+BUCKET_PATTERN = (r'^([a-zA-Z0-9]+([\-_]+[a-zA-Z0-9]+)*)'
+                  r'(\.([a-zA-Z0-9]+([\-_]+[a-zA-Z0-9]+)*))*$')
 MAX_BUCKET_LEN = 222
 MIN_BUCKET_LEN = 3
 MAX_BUCKET_SEGMENT_LEN = 63
 NUM_KINDS_DEFERRED_THRESHOLD = 10
 MAX_BLOBS_PER_DELETE = 500
+TEST_WRITE_FILENAME_PREFIX = 'datastore_backup_write_test'
+MAX_KEYS_LIST_SIZE = 100
+MAX_TEST_FILENAME_TRIES = 10
 
 MEANING_TO_PRIMITIVE_TYPE = {
     entity_pb.Property.GD_WHEN: backup_pb2.EntitySchema.DATE_TIME,
@@ -109,8 +115,6 @@ class ConfirmBackupHandler(webapp.RequestHandler):
     Args:
       handler: the webapp.RequestHandler invoking the method
     """
-    namespace = handler.request.get('namespace', None)
-    has_namespace = namespace is not None
     kinds = handler.request.get_all('kind')
     sizes_known, size_total, remainder = utils.ParseKindsAndSizes(kinds)
     notreadonly_warning = capabilities.CapabilitySet(
@@ -124,14 +128,23 @@ class ConfirmBackupHandler(webapp.RequestHandler):
         'size_total': size_total,
         'queues': None,
         'cancel_url': handler.request.get('cancel_url'),
-        'has_namespace': has_namespace,
-        'namespace': namespace,
+        'namespaces': get_namespaces(handler.request.get('namespace', None)),
         'xsrf_token': utils.CreateXsrfToken(XSRF_ACTION),
         'notreadonly_warning': notreadonly_warning,
         'blob_warning': blob_warning,
         'backup_name': 'datastore_backup_%s' % time.strftime('%Y_%m_%d')
     }
     utils.RenderToResponse(handler, 'confirm_backup.html', template_params)
+
+
+def get_namespaces(selected_namespace):
+  namespaces = [('--All--', '*', selected_namespace is None)]
+  for ns in datastore.Query('__namespace__', keys_only=True).Run():
+    ns_name = ns.name() or ''
+    namespaces.append((ns_name or '--Default--',
+                       ns_name,
+                       ns_name == selected_namespace))
+  return namespaces
 
 
 class ConfirmDeleteBackupHandler(webapp.RequestHandler):
@@ -261,13 +274,12 @@ class ConfirmBackupImportHandler(webapp.RequestHandler):
         elif prefix and not prefix.endswith('/'):
           prefix += '/'
         for backup_info_file in list_bucket_files(bucket_name, prefix):
-          if backup_info_file.endswith('.backup_info'):
-            backup_info_file = '/gs/%s/%s' % (bucket_name, backup_info_file)
-
-            if backup_info_specified and backup_info_file == gs_handle:
-              selected_backup_info_file = backup_info_file
-            else:
-              other_backup_info_files.append(backup_info_file)
+          backup_info_path = '/gs/%s/%s' % (bucket_name, backup_info_file)
+          if backup_info_specified and backup_info_path == gs_handle:
+            selected_backup_info_file = backup_info_path
+          elif (backup_info_file.endswith('.backup_info')
+                and backup_info_file.count('.') == 1):
+            other_backup_info_files.append(backup_info_path)
       except Exception, ex:
         error = 'Failed to read bucket: %s' % ex
     template_params = {
@@ -343,7 +355,10 @@ class BaseDoHandler(webapp.RequestHandler):
     raise NotImplementedError
 
   def _GetBasicMapperParams(self):
-    return {'namespace': self.request.get('namespace', None)}
+    namespace = self.request.get('namespace', None)
+    if namespace == '*':
+      namespace = None
+    return {'namespace': namespace}
 
   def post(self):
     """Handler for post requests to datastore_admin/backup.do.
@@ -384,13 +399,14 @@ class BackupValidationException(Exception):
   pass
 
 
-def _perform_backup(kinds,
+def _perform_backup(kinds, selected_namespace,
                     filesystem, gs_bucket_name, backup,
                     queue, mapper_params, max_jobs):
   """Triggers backup mapper jobs.
 
   Args:
     kinds: a sequence of kind names
+    selected_namespace: The selected namespace or None for all
     filesystem: files.BLOBSTORE_FILESYSTEM or files.GS_FILESYSTEM
         or None to default to blobstore
     gs_bucket_name: the GS file system bucket in which to store the backup
@@ -425,9 +441,7 @@ def _perform_backup(kinds,
     bucket_name, path = parse_gs_handle(gs_bucket_name)
     gs_bucket_name = ('%s/%s' % (bucket_name, path)).rstrip('/')
     validate_gs_bucket_name(bucket_name)
-    if not is_accessible_bucket_name(bucket_name):
-      raise BackupValidationException(
-          'Bucket "%s" is not accessible' % bucket_name)
+    verify_bucket_writable(bucket_name)
   elif filesystem == files.BLOBSTORE_FILESYSTEM:
     pass
   else:
@@ -440,6 +454,8 @@ def _perform_backup(kinds,
     backup_info.filesystem = filesystem
     backup_info.name = backup
     backup_info.kinds = kinds
+    if selected_namespace is not None:
+      backup_info.namespaces = [selected_namespace]
     backup_info.put(force_writes=True)
     mapreduce_params = {
         'done_callback_handler': BACKUP_COMPLETE_HANDLER,
@@ -457,19 +473,18 @@ def _perform_backup(kinds,
           mapper_params, mapreduce_params, queue)]
     else:
       retry_options = taskqueue.TaskRetryOptions(task_retry_limit=1)
-      deferred_task = deferred.defer(_run_map_jobs, job_operation.key(),
+      deferred_task = deferred.defer(_run_map_jobs_deferred,
+                                     backup, job_operation.key(),
                                      backup_info.key(), kinds, job_name,
-                                      BACKUP_HANDLER, INPUT_READER,
-                                      OUTPUT_WRITER,
-                                      mapper_params,
-                                      mapreduce_params,
-                                      queue, _queue=queue,
-                                      _url=utils.ConfigDefaults.DEFERRED_PATH,
-                                      _retry_options=retry_options)
+                                     BACKUP_HANDLER, INPUT_READER,
+                                     OUTPUT_WRITER, mapper_params,
+                                     mapreduce_params, queue, _queue=queue,
+                                     _url=utils.ConfigDefaults.DEFERRED_PATH,
+                                     _retry_options=retry_options)
       return [('task', deferred_task.name)]
   except Exception:
     logging.exception('Failed to start a datastore backup job[s] for "%s".',
-                      job_name)
+                      backup)
     if backup_info:
       delete_backup_info(backup_info)
     if job_operation:
@@ -510,8 +525,12 @@ class BackupLinkHandler(webapp.RequestHandler):
         if not utils.IsKindNameVisible(kind):
           self.errorResponse('Invalid kind %s.' % kind)
           return
-      mapper_params = {'namespace': None}
+      namespace = self.request.get('namespace', None)
+      if namespace == '*':
+        namespace = None
+      mapper_params = {'namespace': namespace}
       _perform_backup(kinds,
+                      namespace,
                       self.request.get('filesystem'),
                       self.request.get('gs_bucket_name'),
                       backup_name,
@@ -526,20 +545,10 @@ class BackupLinkHandler(webapp.RequestHandler):
     self.response.set_status(400, message)
 
 
-class DatastoreEntityProtoInputReader(input_readers.DatastoreEntityInputReader):
+class DatastoreEntityProtoInputReader(input_readers.RawDatastoreInputReader):
   """An input reader which yields datastore entity proto for a kind."""
 
-  def _iter_key_range(self, k_range):
-    raw_entity_kind = self._get_raw_entity_kind(self._entity_kind)
-    query = k_range.make_ascending_datastore_query(raw_entity_kind,
-                                                   self._filters)
-    connection = datastore_rpc.Connection()
-    query_options = datastore_query.QueryOptions(batch_size=self._batch_size)
-    for batch in query.GetQuery().run(connection, query_options):
-      for entity_proto in batch.results:
-
-        key = datastore_types.Key._FromPb(entity_proto.key())
-        yield key, entity_proto
+  _KEY_RANGE_ITER_CLS = db_iters.KeyRangeEntityProtoIterator
 
 
 class DoBackupHandler(BaseDoHandler):
@@ -559,6 +568,7 @@ class DoBackupHandler(BaseDoHandler):
         raise BackupValidationException('Backup "%s" already exists.' % backup)
       mapper_params = self._GetBasicMapperParams()
       backup_result = _perform_backup(self.request.get_all('kind'),
+                                      mapper_params.get('namespace'),
                                       self.request.get('filesystem'),
                                       self.request.get('gs_bucket_name'),
                                       backup,
@@ -568,6 +578,25 @@ class DoBackupHandler(BaseDoHandler):
       return backup_result
     except BackupValidationException, e:
       return [('error', e.message)]
+
+
+def _run_map_jobs_deferred(backup_name, job_operation_key, backup_info_key,
+                           kinds, job_name, backup_handler, input_reader,
+                           output_writer, mapper_params, mapreduce_params,
+                           queue):
+  backup_info = BackupInformation.get(backup_info_key)
+  if backup_info:
+    try:
+      _run_map_jobs(job_operation_key, backup_info_key, kinds, job_name,
+                    backup_handler, input_reader, output_writer, mapper_params,
+                    mapreduce_params, queue)
+    except BaseException:
+      logging.exception('Failed to start a datastore backup job[s] for "%s".',
+                        backup_name)
+      delete_backup_info(backup_info)
+  else:
+    logging.info('Missing backup info, can not start backup jobs for "%s"',
+                 backup_name)
 
 
 def _run_map_jobs(job_operation_key, backup_info_key, kinds, job_name,
@@ -737,6 +766,10 @@ class DoBackupRestoreHandler(BaseDoHandler):
     if not backup:
       return [('error', 'Invalid Backup id.')]
 
+    if backup.gs_handle:
+      if not is_readable_gs_handle(backup.gs_handle):
+        return [('error', 'Backup not readable')]
+
     queue = self.request.get('queue')
     job_name = 'datastore_backup_restore_%s' % re.sub(r'[^\w]', '_',
                                                       backup.name)
@@ -843,6 +876,7 @@ class BackupInformation(db.Model):
 
   name = db.StringProperty()
   kinds = db.StringListProperty()
+  namespaces = db.StringListProperty()
   filesystem = db.StringProperty(default=files.BLOBSTORE_FILESYSTEM)
   start_time = db.DateTimeProperty(auto_now_add=True)
   active_jobs = db.StringListProperty()
@@ -1065,6 +1099,8 @@ class BackupInfoWriter(object):
     entity_type_info = EntityTypeInfo(kind=kind)
     for sharded_aggregation in SchemaAggregationResult.load(
         backup_info.key(), kind):
+      if sharded_aggregation.is_partial:
+        kind_info.is_partial = True
       if sharded_aggregation.entity_type_info:
         entity_type_info.merge(sharded_aggregation.entity_type_info)
     entity_type_info.populate_entity_schema(kind_info.entity_schema)
@@ -1340,6 +1376,7 @@ class SchemaAggregationResult(db.Model):
 
   entity_type_info = model.JsonProperty(
       EntityTypeInfo, default=EntityTypeInfo(), indexed=False)
+  is_partial = db.BooleanProperty(default=False)
 
   def merge(self, other):
     """Merge a SchemaAggregationResult or an EntityTypeInfo with this instance.
@@ -1350,6 +1387,8 @@ class SchemaAggregationResult(db.Model):
     Returns:
       True if anything was changed. False otherwise.
     """
+    if self.is_partial:
+      return False
     if isinstance(other, SchemaAggregationResult):
       other = other.entity_type_info
     return self.entity_type_info.merge(other)
@@ -1431,7 +1470,7 @@ class SchemaAggregationPool(object):
     """Save aggregated type information to the datastore if changed."""
     if self.__needs_save:
 
-      def tx():
+      def update_aggregation_tx():
         aggregation = SchemaAggregationResult.load(
             self.__backup_id, self.__kind, self.__shard_id)
         if aggregation:
@@ -1440,7 +1479,21 @@ class SchemaAggregationPool(object):
           self.__aggregation = aggregation
         else:
           self.__aggregation.put(force_writes=True)
-      db.run_in_transaction(tx)
+
+      def mark_aggregation_as_partial_tx():
+        aggregation = SchemaAggregationResult.load(
+            self.__backup_id, self.__kind, self.__shard_id)
+        if aggregation is None:
+          aggregation = SchemaAggregationResult.create(
+              self.__backup_id, self.__kind, self.__shard_id)
+        aggregation.is_partial = True
+        aggregation.put(force_writes=True)
+        self.__aggregation = aggregation
+
+      try:
+        db.run_in_transaction(update_aggregation_tx)
+      except apiproxy_errors.RequestTooLargeError:
+        db.run_in_transaction(mark_aggregation_as_partial_tx)
       self.__needs_save = False
 
 
@@ -1562,6 +1615,60 @@ def is_accessible_bucket_name(bucket_name):
       'Authorization': 'OAuth %s' % auth_token,
       'x-goog-api-version': '2'})
   return result and result.status_code == 200
+
+
+def verify_bucket_writable(bucket_name):
+  """Verify the application can write to the specified bucket.
+
+  Args:
+    bucket_name: The bucket to verify.
+
+  Raises:
+    BackupValidationException: If the bucket is not writable.
+  """
+  path = '/gs/%s' % bucket_name
+  try:
+    file_names = files.gs.listdir(path,
+                                  {'prefix': TEST_WRITE_FILENAME_PREFIX,
+                                   'max_keys': MAX_KEYS_LIST_SIZE})
+  except (files.InvalidParameterError, files.PermissionDeniedError):
+    raise BackupValidationException('Bucket "%s" not accessible' % bucket_name)
+  except files.InvalidFileNameError:
+    raise BackupValidationException('Bucket "%s" does not exist' % bucket_name)
+  file_name = '%s/%s.tmp' % (path, TEST_WRITE_FILENAME_PREFIX)
+  file_name_try = 0
+  while True:
+    if file_name_try >= MAX_TEST_FILENAME_TRIES:
+
+
+      return
+    if file_name not in file_names:
+      break
+    gen = random.randint(0, 9999)
+    file_name = '%s/%s_%s.tmp' % (path, TEST_WRITE_FILENAME_PREFIX, gen)
+    file_name_try += 1
+  try:
+    test_file = files.open(files.gs.create(file_name), 'a', exclusive_lock=True)
+    try:
+      test_file.write('test')
+    finally:
+      test_file.close(finalize=True)
+  except files.PermissionDeniedError:
+    raise BackupValidationException('Bucket "%s" is not writable' % bucket_name)
+  try:
+    files.delete(file_name)
+  except (files.InvalidArgumentError, files.InvalidFileNameError, IOError):
+    logging.warn('Failed to delete test file %s', file_name)
+
+
+def is_readable_gs_handle(gs_handle):
+  """Return True if the application can read the specified gs_handle."""
+  try:
+    with files.open(gs_handle) as bak_file:
+      bak_file.read(1)
+  except files.PermissionDeniedError:
+    return False
+  return True
 
 
 

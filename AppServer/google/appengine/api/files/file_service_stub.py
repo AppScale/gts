@@ -52,7 +52,7 @@ _now_function = datetime.datetime.now
 
 
 def _to_seconds(datetime_obj):
-  return time.mktime(datetime_obj.timetuple())
+  return int(time.mktime(datetime_obj.timetuple()))
 
 
 def _random_string(length):
@@ -125,7 +125,7 @@ class GoogleStorage(object):
 
   @staticmethod
   def get_blob_key(key):
-    """Converts a bigstore key into a base64 encoded blob key/filename."""
+    """Converts a Google Storage key into a base64 encoded blob key/filename."""
     return base64.urlsafe_b64encode(key)
 
   def is_finalized(self, filename):

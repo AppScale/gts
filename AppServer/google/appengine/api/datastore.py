@@ -593,7 +593,7 @@ def GetAsync(keys, **kwargs):
     if multiple:
       result = entities
     else:
-      if not entities or entities[0] is None:
+      if entities[0] is None:
         raise datastore_errors.EntityNotFoundError()
       result = entities[0]
     if extra_hook:
@@ -748,7 +748,7 @@ class Entity(dict):
     if namespace is None:
       namespace = _namespace
     elif _namespace is not None:
-      raise datastore_errors.BadArgumentError(
+        raise datastore_errors.BadArgumentError(
             "Must not set both _namespace and namespace parameters.")
 
     datastore_types.ValidateString(kind, 'kind',
@@ -1257,6 +1257,8 @@ class Query(dict):
   __namespace = None
   __orderings = None
   __ancestor_pb = None
+  __distinct = False
+  __group_by = None
 
   __index_list_source = None
   __cursor_source = None
@@ -1274,7 +1276,7 @@ class Query(dict):
 
   def __init__(self, kind=None, filters={}, _app=None, keys_only=False,
                compile=True, cursor=None, namespace=None, end_cursor=None,
-               projection=None, _namespace=None):
+               projection=None, distinct=None, _namespace=None):
     """Constructor.
 
     Raises BadArgumentError if kind is not a string. Raises BadValueError or
@@ -1286,6 +1288,7 @@ class Query(dict):
       filters: dict, initial set of filters.
       keys_only: boolean, if keys should be returned instead of entities.
       projection: iterable of property names to project.
+      distinct: boolean, if projection should be distinct.
       compile: boolean, if the query should generate cursors.
       cursor: datastore_query.Cursor, the start cursor to use.
       end_cursor: datastore_query.Cursor, the end cursor to use.
@@ -1302,7 +1305,7 @@ class Query(dict):
     if namespace is None:
       namespace = _namespace
     elif _namespace is not None:
-      raise datastore_errors.BadArgumentError(
+        raise datastore_errors.BadArgumentError(
             "Must not set both _namespace and namespace parameters.")
 
     if kind is not None:
@@ -1317,12 +1320,20 @@ class Query(dict):
     self.__app = datastore_types.ResolveAppId(_app)
     self.__namespace = datastore_types.ResolveNamespace(namespace)
 
+
     self.__query_options = datastore_query.QueryOptions(
         keys_only=keys_only,
         produce_cursors=compile,
         start_cursor=cursor,
         end_cursor=end_cursor,
         projection=projection)
+
+    if distinct:
+      if not self.__query_options.projection:
+        raise datastore_errors.BadQueryError(
+            'cannot specify distinct without a projection')
+      self.__distinct = True
+      self.__group_by = self.__query_options.projection
 
   def Order(self, *orderings):
     """Specify how the query results should be sorted.
@@ -1488,7 +1499,8 @@ class Query(dict):
                                  kind=self.__kind,
                                  ancestor=self.__ancestor_pb,
                                  filter_predicate=self.GetFilterPredicate(),
-                                 order=self.GetOrder())
+                                 order=self.GetOrder(),
+                                 group_by=self.__group_by)
 
   def GetOrder(self):
     """Gets a datastore_query.Order for the current instance.
@@ -1538,6 +1550,14 @@ class Query(dict):
           datastore_query.CompositeFilter.AND,
           property_filters)
     return None
+
+  def GetDistinct(self):
+    """Returns True if the current instance is distinct.
+
+    Returns:
+      A boolean indicating if the distinct flag is set.
+    """
+    return self.__distinct
 
   def GetIndexList(self):
     """Get the index list from the last run of this query.
@@ -1597,7 +1617,15 @@ class Query(dict):
     """
 
 
+
     query_options = self.GetQueryOptions().merge(config)
+    if self.__distinct and query_options.projection != self.__group_by:
+
+
+
+
+      raise datastore_errors.BadArgumentError(
+          'cannot override projection when distinct is set')
     return self.GetQuery().run(_GetConnection(), query_options)
 
   def Run(self, **kwargs):
@@ -2812,7 +2840,7 @@ class Iterator(datastore_query.ResultsIterator):
     result = []
     for r in self:
       if len(result) >= count:
-        break
+        break;
       result.append(r)
     return result
 

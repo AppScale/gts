@@ -1,0 +1,234 @@
+========================
+Django's release process
+========================
+
+.. _official-releases:
+
+Official releases
+=================
+
+Since version 1.0, Django's release numbering works as follows:
+
+* Versions are numbered in the form ``A.B`` or ``A.B.C``.
+
+* ``A`` is the *major version* number, which is only incremented for major
+  changes to Django, and these changes are not necessarily
+  backwards-compatible. That is, code you wrote for Django 1.2 may break
+  when we release Django 2.0.
+
+* ``B`` is the *minor version* number, which is incremented for large yet
+  backwards compatible changes.  Code written for Django 1.2 will continue
+  to work under Django 1.3. Exceptions to this rule will be listed in the
+  release notes.
+
+* ``C`` is the *micro version* number, which is incremented for bug and
+  security fixes. A new micro-release will be 100% backwards-compatible with
+  the previous micro-release. The only exception is when a security issue
+  can't be fixed without breaking backwards-compatibility. If this happens,
+  the release notes will provide detailed upgrade instructions.
+
+* In some cases, we'll make alpha, beta, or release candidate releases.
+  These are of the form ``A.B alpha/beta/rc N``, which means the ``Nth``
+  alpha/beta/release candidate of version ``A.B``.
+
+In git, each Django release will have a tag indicating its version
+number, signed with the Django release key. Additionally, each release
+series (X.Y) has its own branch, and bugfix/security releases will be
+issued from those branches.
+
+For more information about how the Django project issues new releases
+for security purposes, please see :doc:`our security policies
+<security>`.
+
+Major releases
+--------------
+
+Major releases (1.0, 2.0, etc.) will happen very infrequently (think "years",
+not "months"), and will probably represent major, sweeping changes to Django.
+
+Minor releases
+--------------
+
+Minor release (1.1, 1.2, etc.) will happen roughly every nine months -- see
+`release process`_, below for details.
+
+.. _internal-release-deprecation-policy:
+
+These releases will contain new features, improvements to existing features, and
+such. A minor release may deprecate certain features from previous releases. If a
+feature in version ``A.B`` is deprecated, it will continue to work in version
+``A.B+1``. In version ``A.B+2``, use of the feature will raise a
+``DeprecationWarning`` but will continue to work. Version ``A.B+3`` will
+remove the feature entirely.
+
+So, for example, if we decided to remove a function that existed in Django 1.0:
+
+* Django 1.1 will contain a backwards-compatible replica of the function
+  which will raise a ``PendingDeprecationWarning``. This warning is silent
+  by default; you need to explicitly turn on display of these warnings.
+
+* Django 1.2 will contain the backwards-compatible replica, but the warning
+  will be promoted to a full-fledged ``DeprecationWarning``. This warning is
+  *loud* by default, and will likely be quite annoying.
+
+* Django 1.3 will remove the feature outright.
+
+Micro releases
+--------------
+
+Micro releases (1.0.1, 1.0.2, 1.1.1, etc.) will be issued at least once half-way
+between minor releases, and probably more often as needed.
+
+These releases will be 100% compatible with the associated minor release, unless
+this is impossible for security reasons. So the answer to "should I upgrade to
+the latest micro release?" will always be "yes."
+
+Each minor release of Django will have a "release maintainer" appointed. This
+person will be responsible for making sure that bug fixes are applied to both
+trunk and the maintained micro-release branch. This person will also work with
+the release manager to decide when to release the micro releases.
+
+.. _backwards-compatibility-policy:
+
+Supported versions
+==================
+
+At any moment in time, Django's developer team will support a set of releases to
+varying levels:
+
+* The current development trunk will get new features and bug fixes
+  requiring major refactoring.
+
+* Patches applied to the trunk will also be applied to the last minor
+  release, to be released as the next micro release, when they fix critical
+  problems:
+
+  * Security issues.
+
+  * Data-loss bugs.
+
+  * Crashing bugs.
+
+  * Major functionality bugs in newly-introduced features.
+
+  The rule of thumb is that fixes will be backported to the last minor
+  release for bugs that would have prevented a release in the first place.
+
+* Security fixes will be applied to the current trunk and the previous two
+  minor releases.
+
+* Documentation fixes generally will be more freely backported to the last
+  release branch, at the discretion of the committer, and they don't need to
+  meet the "critical fixes only" bar. That's because it's highly advantageous
+  to have the docs for the last release be up-to-date and correct, and the
+  downside of backporting (risk of introducing regressions) is much less of a
+  concern.
+
+As a concrete example, consider a moment in time halfway between the release of
+Django 1.3 and 1.4. At this point in time:
+
+* Features will be added to development trunk, to be released as Django 1.4.
+
+* Critical bug fixes will be applied to a ``1.3.X`` branch, and released as
+  1.3.1, 1.3.2, etc.
+
+* Security fixes will be applied to trunk, a ``1.3.X`` branch and a
+  ``1.2.X`` branch. They will trigger the release of ``1.3.1``, ``1.2.1``,
+  etc.
+
+* Documentation fixes will be applied to trunk, and, if easily backported, to
+  the ``1.3.X`` branch.
+
+.. _release-process:
+
+Release process
+===============
+
+Django uses a time-based release schedule, with minor (i.e. 1.1, 1.2, etc.)
+releases every nine months, or more, depending on features.
+
+After each release, and after a suitable cooling-off period of a few weeks, the
+core development team will examine the landscape and announce a timeline for the
+next release. Most releases will be scheduled in the 6-9 month range, but if we
+have bigger features to development we might schedule a longer period to allow
+for more ambitious work.
+
+Release cycle
+-------------
+
+Each release cycle will be split into three periods, each lasting roughly
+one-third of the cycle:
+
+Phase one: feature proposal
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The first phase of the release process will be devoted to figuring out what
+features to include in the next version. This should include a good deal of
+preliminary work on those features -- working code trumps grand design.
+
+At the end of part one, the core developers will propose a feature list for the
+upcoming release. This will be broken into:
+
+* "Must-have": critical features that will delay the release if not finished
+* "Maybe" features: that will be pushed to the next release if not finished
+* "Not going to happen": features explicitly deferred to a later release.
+
+Anything that hasn't got at least some work done by the end of the first third
+isn't eligible for the next release; a design alone isn't sufficient.
+
+Phase two: development
+~~~~~~~~~~~~~~~~~~~~~~
+
+The second third of the release schedule is the "heads-down" working period.
+Using the roadmap produced at the end of phase one, we'll all work very hard to
+get everything on it done.
+
+Longer release schedules will likely spend more than a third of the time in this
+phase.
+
+At the end of phase two, any unfinished "maybe" features will be postponed until
+the next release. Though it shouldn't happen, any "must-have" features will
+extend phase two, and thus postpone the final release.
+
+Phase two will culminate with an alpha release.
+
+Phase three: bugfixes
+~~~~~~~~~~~~~~~~~~~~~
+
+The last third of a release is spent fixing bugs -- no new features will be
+accepted during this time. We'll release a beta release about halfway through,
+and an rc complete with string freeze two weeks before the end of the schedule.
+
+Bug-fix releases
+----------------
+
+After a minor release (e.g. 1.1), the previous release will go into bugfix
+mode.
+
+A branch will be created of the form ``branches/releases/1.0.X`` to track
+bugfixes to the previous release. Critical bugs fixed on trunk must
+*also* be fixed on the bugfix branch; this means that commits need to cleanly
+separate bug fixes from feature additions. The developer who commits a fix to
+trunk will be responsible for also applying the fix to the current bugfix
+branch.  Each bugfix branch will have a maintainer who will work with the
+committers to keep them honest on backporting bug fixes.
+
+How this all fits together
+--------------------------
+
+Let's look at a hypothetical example for how this all first together. Imagine,
+if you will, a point about halfway between 1.1 and 1.2. At this point,
+development will be happening in a bunch of places:
+
+* On trunk, development towards 1.2 proceeds with small additions, bugs
+  fixes, etc. being checked in daily.
+
+* On the branch "branches/releases/1.1.X", fixes for critical bugs found in
+  the 1.1 release are checked in as needed. At some point, this branch will
+  be released as "1.1.1", "1.1.2", etc.
+
+* On the branch "branches/releases/1.0.X", security fixes are made if
+  needed and released as "1.0.2", "1.0.3", etc.
+
+* On feature branches, development of major features is done. These
+  branches will be merged into trunk before the end of phase two.

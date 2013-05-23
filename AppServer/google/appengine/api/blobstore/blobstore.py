@@ -49,6 +49,7 @@ __all__ = ['BLOB_INFO_KIND',
            'BLOB_RANGE_HEADER',
            'MAX_BLOB_FETCH_SIZE',
            'UPLOAD_INFO_CREATION_HEADER',
+           'CLOUD_STORAGE_OBJECT_HEADER',
            'BlobFetchSizeTooLargeError',
            'BlobKey',
            'BlobNotFoundError',
@@ -85,6 +86,7 @@ MAX_BLOB_FETCH_SIZE = (1 << 20) - (1 << 15)
 
 
 UPLOAD_INFO_CREATION_HEADER = 'X-AppEngine-Upload-Creation'
+CLOUD_STORAGE_OBJECT_HEADER = 'X-AppEngine-Cloud-Storage-Object'
 _BASE_CREATION_HEADER_FORMAT = '%Y-%m-%d %H:%M:%S'
 
 class Error(Exception):

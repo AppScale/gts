@@ -1,0 +1,1277 @@
+==================================================
+The Django template language: For template authors
+==================================================
+
+Django's template language is designed to strike a balance between power and
+ease. It's designed to feel comfortable to those used to working with HTML. If
+you have any exposure to other text-based template languages, such as Smarty_
+or CheetahTemplate_, you should feel right at home with Django's templates.
+
+.. _Smarty: http://smarty.php.net/
+.. _CheetahTemplate: http://www.cheetahtemplate.org/
+
+Templates
+=========
+
+A template is simply a text file. It can generate any text-based format (HTML,
+XML, CSV, etc.).
+
+A template contains **variables**, which get replaced with values when the
+template is evaluated, and **tags**, which control the logic of the template.
+
+Below is a minimal template that illustrates a few basics. Each element will be
+explained later in this document.::
+
+    {% extends "base_generic.html" %}
+
+    {% block title %}{{ section.title }}{% endblock %}
+
+    {% block content %}
+    <h1>{{ section.title }}</h1>
+
+    {% for story in story_list %}
+    <h2>
+      <a href="{{ story.get_absolute_url }}">
+        {{ story.headline|upper }}
+      </a>
+    </h2>
+    <p>{{ story.tease|truncatewords:"100" }}</p>
+    {% endfor %}
+    {% endblock %}
+
+.. admonition:: Philosophy
+
+    Why use a text-based template instead of an XML-based one (like Zope's
+    TAL)? We wanted Django's template language to be usable for more than
+    just XML/HTML templates. At World Online, we use it for e-mails,
+    JavaScript and CSV. You can use the template language for any text-based
+    format.
+
+    Oh, and one more thing: Making humans edit XML is sadistic!
+
+Variables
+=========
+
+Variables look like this: ``{{ variable }}``. When the template engine
+encounters a variable, it evaluates that variable and replaces it with the
+result.
+
+Use a dot (``.``) to access attributes of a variable.
+
+.. admonition:: Behind the scenes
+
+    Technically, when the template system encounters a dot, it tries the
+    following lookups, in this order:
+
+        * Dictionary lookup
+        * Attribute lookup
+        * Method call
+        * List-index lookup
+
+In the above example, ``{{ section.title }}`` will be replaced with the
+``title`` attribute of the ``section`` object.
+
+If you use a variable that doesn't exist, the template system will insert
+the value of the ``TEMPLATE_STRING_IF_INVALID`` setting, which is set to ``''``
+(the empty string) by default.
+
+See `Using the built-in reference`_, below, for help on finding what variables
+are available in a given template.
+
+Filters
+=======
+
+You can modify variables for display by using **filters**.
+
+Filters look like this: ``{{ name|lower }}``. This displays the value of the
+``{{ name }}`` variable after being filtered through the ``lower`` filter,
+which converts text to lowercase. Use a pipe (``|``) to apply a filter.
+
+Filters can be "chained." The output of one filter is applied to the next.
+``{{ text|escape|linebreaks }}`` is a common idiom for escaping text contents,
+then converting line breaks to ``<p>`` tags.
+
+Some filters take arguments. A filter argument looks like this:
+``{{ bio|truncatewords:"30" }}``. This will display the first 30 words of the
+``bio`` variable. Filter arguments always are in double quotes.
+
+The `Built-in filter reference`_ below describes all the built-in filters.
+
+Tags
+====
+
+Tags look like this: ``{% tag %}``. Tags are more complex than variables: Some
+create text in the output, some control flow by performing loops or logic, and
+some load external information into the template to be used by later variables.
+
+Some tags require beginning and ending tags (i.e.
+``{% tag %} ... tag contents ... {% endtag %}``). The `Built-in tag reference`_
+below describes all the built-in tags. You can create your own tags, if you
+know how to write Python code.
+
+Comments
+========
+
+To comment-out part of a template, use the comment syntax: ``{# #}``.
+
+For example, this template would render as ``'hello'``::
+
+    {# greeting #}hello
+
+A comment can contain any template code, invalid or not. For example::
+
+    {# {% if foo %}bar{% else %} #}
+
+Template inheritance
+====================
+
+The most powerful -- and thus the most complex -- part of Django's template
+engine is template inheritance. Template inheritance allows you to build a base
+"skeleton" template that contains all the common elements of your site and
+defines **blocks** that child templates can override.
+
+It's easiest to understand template inheritance by starting with an example::
+
+    <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+    <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <link rel="stylesheet" href="style.css" />
+        <title>{% block title %}My amazing site{% endblock %}</title>
+    </head>
+
+    <body>
+        <div id="sidebar">
+            {% block sidebar %}
+            <ul>
+                <li><a href="/">Home</a></li>
+                <li><a href="/blog/">Blog</a></li>
+            </ul>
+            {% endblock %}
+        </div>
+
+        <div id="content">
+            {% block content %}{% endblock %}
+        </div>
+    </body>
+    </html>
+
+This template, which we'll call ``base.html``, defines a simple HTML skeleton
+document that you might use for a simple two-column page. It's the job of
+"child" templates to fill the empty blocks with content.
+
+In this example, the ``{% block %}`` tag defines three blocks that child
+templates can fill in. All the ``block`` tag does is to tell the template
+engine that a child template may override those portions of the template.
+
+A child template might look like this::
+
+    {% extends "base.html" %}
+
+    {% block title %}My amazing blog{% endblock %}
+
+    {% block content %}
+    {% for entry in blog_entries %}
+        <h2>{{ entry.title }}</h2>
+        <p>{{ entry.body }}</p>
+    {% endfor %}
+    {% endblock %}
+
+The ``{% extends %}`` tag is the key here. It tells the template engine that
+this template "extends" another template. When the template system evaluates
+this template, first it locates the parent -- in this case, "base.html".
+
+At that point, the template engine will notice the three ``{% block %}`` tags
+in ``base.html`` and replace those blocks with the contents of the child
+template. Depending on the value of ``blog_entries``, the output might look
+like::
+
+    <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+    <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <link rel="stylesheet" href="style.css" />
+        <title>My amazing blog</title>
+    </head>
+
+    <body>
+        <div id="sidebar">
+            <ul>
+                <li><a href="/">Home</a></li>
+                <li><a href="/blog/">Blog</a></li>
+            </ul>
+        </div>
+
+        <div id="content">
+            <h2>Entry one</h2>
+            <p>This is my first entry.</p>
+
+            <h2>Entry two</h2>
+            <p>This is my second entry.</p>
+        </div>
+    </body>
+    </html>
+
+Note that since the child template didn't define the ``sidebar`` block, the
+value from the parent template is used instead. Content within a ``{% block %}``
+tag in a parent template is always used as a fallback.
+
+You can use as many levels of inheritance as needed. One common way of using
+inheritance is the following three-level approach:
+
+    * Create a ``base.html`` template that holds the main look-and-feel of your
+      site.
+    * Create a ``base_SECTIONNAME.html`` template for each "section" of your
+      site. For example, ``base_news.html``, ``base_sports.html``. These
+      templates all extend ``base.html`` and include section-specific
+      styles/design.
+    * Create individual templates for each type of page, such as a news
+      article or blog entry. These templates extend the appropriate section
+      template.
+
+This approach maximizes code reuse and makes it easy to add items to shared
+content areas, such as section-wide navigation.
+
+Here are some tips for working with inheritance:
+
+    * If you use ``{% extends %}`` in a template, it must be the first template
+      tag in that template. Template inheritance won't work, otherwise.
+
+    * More ``{% block %}`` tags in your base templates are better. Remember,
+      child templates don't have to define all parent blocks, so you can fill
+      in reasonable defaults in a number of blocks, then only define the ones
+      you need later. It's better to have more hooks than fewer hooks.
+
+    * If you find yourself duplicating content in a number of templates, it
+      probably means you should move that content to a ``{% block %}`` in a
+      parent template.
+
+    * If you need to get the content of the block from the parent template,
+      the ``{{ block.super }}`` variable will do the trick. This is useful
+      if you want to add to the contents of a parent block instead of
+      completely overriding it.
+
+    * For extra readability, you can optionally give a *name* to your
+      ``{% endblock %}`` tag. For example::
+
+          {% block content %}
+          ...
+          {% endblock content %}
+
+      In larger templates, this technique helps you see which ``{% block %}``
+      tags are being closed.
+
+Finally, note that you can't define multiple ``{% block %}`` tags with the same
+name in the same template. This limitation exists because a block tag works in
+"both" directions. That is, a block tag doesn't just provide a hole to fill --
+it also defines the content that fills the hole in the *parent*. If there were
+two similarly-named ``{% block %}`` tags in a template, that template's parent
+wouldn't know which one of the blocks' content to use.
+
+Using the built-in reference
+============================
+
+Django's admin interface includes a complete reference of all template tags and
+filters available for a given site. To see it, go to your admin interface and
+click the "Documentation" link in the upper right of the page.
+
+The reference is divided into 4 sections: tags, filters, models, and views.
+
+The **tags** and **filters** sections describe all the built-in tags (in fact,
+the tag and filter references below come directly from those pages) as well as
+any custom tag or filter libraries available.
+
+The **views** page is the most valuable. Each URL in your site has a separate
+entry here, and clicking on a URL will show you:
+
+    * The name of the view function that generates that view.
+    * A short description of what the view does.
+    * The **context**, or a list of variables available in the view's template.
+    * The name of the template or templates that are used for that view.
+
+Each view documentation page also has a bookmarklet that you can use to jump
+from any page to the documentation page for that view.
+
+Because Django-powered sites usually use database objects, the **models**
+section of the documentation page describes each type of object in the system
+along with all the fields available on that object.
+
+Taken together, the documentation pages should tell you every tag, filter,
+variable and object available to you in a given template.
+
+Custom tag and filter libraries
+===============================
+
+Certain applications provide custom tag and filter libraries. To access them in
+a template, use the ``{% load %}`` tag::
+
+    {% load comments %}
+
+    {% comment_form for blogs.entries entry.id with is_public yes %}
+
+In the above, the ``load`` tag loads the ``comments`` tag library, which then
+makes the ``comment_form`` tag available for use. Consult the documentation
+area in your admin to find the list of custom libraries in your installation.
+
+The ``{% load %}`` tag can take multiple library names, separated by spaces.
+Example::
+
+    {% load comments i18n %}
+
+Custom libraries and template inheritance
+-----------------------------------------
+
+When you load a custom tag or filter library, the tags/filters are only made
+available to the current template -- not any parent or child templates along
+the template-inheritance path.
+
+For example, if a template ``foo.html`` has ``{% load comments %}``, a child
+template (e.g., one that has ``{% extends "foo.html" %}``) will *not* have
+access to the comments template tags and filters. The child template is
+responsible for its own ``{% load comments %}``.
+
+This is a feature for the sake of maintainability and sanity.
+
+Built-in tag and filter reference
+=================================
+
+For those without an admin site available, reference for the stock tags and
+filters follows. Because Django is highly customizable, the reference in your
+admin should be considered the final word on what tags and filters are
+available, and what they do.
+
+Built-in tag reference
+----------------------
+
+block
+~~~~~
+
+Define a block that can be overridden by child templates. See
+`Template inheritance`_ for more information.
+
+comment
+~~~~~~~
+
+Ignore everything between ``{% comment %}`` and ``{% endcomment %}``
+
+cycle
+~~~~~
+
+Cycle among the given strings each time this tag is encountered.
+
+Within a loop, cycles among the given strings each time through the loop::
+
+    {% for o in some_list %}
+        <tr class="{% cycle row1,row2 %}">
+            ...
+        </tr>
+    {% endfor %}
+
+Outside of a loop, give the values a unique name the first time you call it,
+then use that name each successive time through::
+
+        <tr class="{% cycle row1,row2,row3 as rowcolors %}">...</tr>
+        <tr class="{% cycle rowcolors %}">...</tr>
+        <tr class="{% cycle rowcolors %}">...</tr>
+
+You can use any number of values, separated by commas. Make sure not to put
+spaces between the values -- only commas.
+
+debug
+~~~~~
+
+Output a whole load of debugging information, including the current context and
+imported modules.
+
+extends
+~~~~~~~
+
+Signal that this template extends a parent template.
+
+This tag can be used in two ways:
+
+   * ``{% extends "base.html" %}`` (with quotes) uses the literal value
+     ``"base.html"`` as the name of the parent template to extend.
+
+   * ``{% extends variable %}`` uses the value of ``variable``. If the variable
+     evaluates to a string, Django will use that string as the name of the
+     parent template. If the variable evaluates to a ``Template`` object,
+     Django will use that object as the parent template.
+
+See `Template inheritance`_ for more information.
+
+filter
+~~~~~~
+
+Filter the contents of the variable through variable filters.
+
+Filters can also be piped through each other, and they can have arguments --
+just like in variable syntax.
+
+Sample usage::
+
+    {% filter escape|lower %}
+        This text will be HTML-escaped, and will appear in all lowercase.
+    {% endfilter %}
+
+firstof
+~~~~~~~
+
+Outputs the first variable passed that is not False.  Outputs nothing if all the
+passed variables are False.
+
+Sample usage::
+
+    {% firstof var1 var2 var3 %}
+
+This is equivalent to::
+
+    {% if var1 %}
+        {{ var1 }}
+    {% else %}{% if var2 %}
+        {{ var2 }}
+    {% else %}{% if var3 %}
+        {{ var3 }}
+    {% endif %}{% endif %}{% endif %}
+
+for
+~~~
+
+Loop over each item in an array.  For example, to display a list of athletes
+given ``athlete_list``::
+
+    <ul>
+    {% for athlete in athlete_list %}
+        <li>{{ athlete.name }}</li>
+    {% endfor %}
+    </ul>
+
+You can also loop over a list in reverse by using ``{% for obj in list reversed %}``.
+
+The for loop sets a number of variables available within the loop:
+
+    ==========================  ================================================
+    Variable                    Description
+    ==========================  ================================================
+    ``forloop.counter``         The current iteration of the loop (1-indexed)
+    ``forloop.counter0``        The current iteration of the loop (0-indexed)
+    ``forloop.revcounter``      The number of iterations from the end of the
+                                loop (1-indexed)
+    ``forloop.revcounter0``     The number of iterations from the end of the
+                                loop (0-indexed)
+    ``forloop.first``           True if this is the first time through the loop
+    ``forloop.last``            True if this is the last time through the loop
+    ``forloop.parentloop``      For nested loops, this is the loop "above" the
+                                current one
+    ==========================  ================================================
+
+if
+~~
+
+The ``{% if %}`` tag evaluates a variable, and if that variable is "true" (i.e.
+exists, is not empty, and is not a false boolean value) the contents of the
+block are output::
+
+    {% if athlete_list %}
+        Number of athletes: {{ athlete_list|length }}
+    {% else %}
+        No athletes.
+    {% endif %}
+
+In the above, if ``athlete_list`` is not empty, the number of athletes will be
+displayed by the ``{{ athlete_list|length }}`` variable.
+
+As you can see, the ``if`` tag can take an optional ``{% else %}`` clause that
+will be displayed if the test fails.
+
+``if`` tags may use ``and``, ``or`` or ``not`` to test a number of variables or
+to negate a given variable::
+
+    {% if athlete_list and coach_list %}
+        Both athletes and coaches are available.
+    {% endif %}
+
+    {% if not athlete_list %}
+        There are no athletes.
+    {% endif %}
+
+    {% if athlete_list or coach_list %}
+        There are some athletes or some coaches.
+    {% endif %}
+
+    {% if not athlete_list or coach_list %}
+        There are no athletes or there are some coaches (OK, so
+        writing English translations of boolean logic sounds
+        stupid; it's not our fault).
+    {% endif %}
+
+    {% if athlete_list and not coach_list %}
+        There are some athletes and absolutely no coaches.
+    {% endif %}
+
+``if`` tags don't allow ``and`` and ``or`` clauses within the same tag, because
+the order of logic would be ambiguous. For example, this is invalid::
+
+    {% if athlete_list and coach_list or cheerleader_list %}
+
+If you need to combine ``and`` and ``or`` to do advanced logic, just use nested
+``if`` tags. For example::
+
+    {% if athlete_list %}
+        {% if coach_list or cheerleader_list %}
+            We have athletes, and either coaches or cheerleaders!
+        {% endif %}
+    {% endif %}
+
+Multiple uses of the same logical operator are fine, as long as you use the
+same operator. For example, this is valid::
+
+    {% if athlete_list or coach_list or parent_list or teacher_list %}
+
+ifchanged
+~~~~~~~~~
+
+Check if a value has changed from the last iteration of a loop.
+
+The 'ifchanged' block tag is used within a loop. It has two possible uses.
+
+1. Checks its own rendered contents against its previous state and only
+   displays the content if it has changed. For example, this displays a list of
+   days, only displaying the month if it changes::
+
+        <h1>Archive for {{ year }}</h1>
+
+        {% for date in days %}
+            {% ifchanged %}<h3>{{ date|date:"F" }}</h3>{% endifchanged %}
+            <a href="{{ date|date:"M/d"|lower }}/">{{ date|date:"j" }}</a>
+        {% endfor %}
+
+2. If given a variable, check whether that variable has changed. For
+   example, the following shows the date every time it changes, but
+   only shows the hour if both the hour and the date has changed::
+
+        {% for date in days %}
+            {% ifchanged date.date %} {{ date.date }} {% endifchanged %}
+            {% ifchanged date.hour date.date %}
+                {{ date.hour }}
+            {% endifchanged %}
+        {% endfor %}
+
+ifequal
+~~~~~~~
+
+Output the contents of the block if the two arguments equal each other.
+
+Example::
+
+    {% ifequal user.id comment.user_id %}
+        ...
+    {% endifequal %}
+
+As in the ``{% if %}`` tag, an ``{% else %}`` clause is optional.
+
+The arguments can be hard-coded strings, so the following is valid::
+
+    {% ifequal user.username "adrian" %}
+        ...
+    {% endifequal %}
+
+It is only possible to compare an argument to template variables or strings.
+You cannot check for equality with Python objects such as ``True`` or
+``False``.  If you need to test if something is true or false, use the ``if``
+tag instead.
+
+ifnotequal
+~~~~~~~~~~
+
+Just like ``ifequal``, except it tests that the two arguments are not equal.
+
+include
+~~~~~~~
+
+Loads a template and renders it with the current context. This is a way of
+"including" other templates within a template.
+
+The template name can either be a variable or a hard-coded (quoted) string,
+in either single or double quotes.
+
+This example includes the contents of the template ``"foo/bar.html"``::
+
+    {% include "foo/bar.html" %}
+
+This example includes the contents of the template whose name is contained in
+the variable ``template_name``::
+
+    {% include template_name %}
+
+An included template is rendered with the context of the template that's
+including it. This example produces the output ``"Hello, John"``:
+
+    * Context: variable ``person`` is set to ``"john"``.
+    * Template::
+
+        {% include "name_snippet.html" %}
+
+    * The ``name_snippet.html`` template::
+
+        Hello, {{ person }}
+
+See also: ``{% ssi %}``.
+
+load
+~~~~
+
+Load a custom template tag set.
+
+See `Custom tag and filter libraries`_ for more information.
+
+now
+~~~
+
+Display the date, formatted according to the given string.
+
+Uses the same format as PHP's ``date()`` function (http://php.net/date)
+with some custom extensions.
+
+Available format strings:
+
+    ================  ========================================  =====================
+    Format character  Description                               Example output
+    ================  ========================================  =====================
+    a                 ``'a.m.'`` or ``'p.m.'`` (Note that       ``'a.m.'``
+                      this is slightly different than PHP's
+                      output, because this includes periods
+                      to match Associated Press style.)
+    A                 ``'AM'`` or ``'PM'``.                     ``'AM'``
+    b                 Month, textual, 3 letters, lowercase.     ``'jan'``
+    B                 Not implemented.
+    d                 Day of the month, 2 digits with           ``'01'`` to ``'31'``
+                      leading zeros.
+    D                 Day of the week, textual, 3 letters.      ``'Fri'``
+    f                 Time, in 12-hour hours and minutes,       ``'1'``, ``'1:30'``
+                      with minutes left off if they're zero.
+                      Proprietary extension.
+    F                 Month, textual, long.                     ``'January'``
+    g                 Hour, 12-hour format without leading      ``'1'`` to ``'12'``
+                      zeros.
+    G                 Hour, 24-hour format without leading      ``'0'`` to ``'23'``
+                      zeros.
+    h                 Hour, 12-hour format.                     ``'01'`` to ``'12'``
+    H                 Hour, 24-hour format.                     ``'00'`` to ``'23'``
+    i                 Minutes.                                  ``'00'`` to ``'59'``
+    I                 Not implemented.
+    j                 Day of the month without leading          ``'1'`` to ``'31'``
+                      zeros.
+    l                 Day of the week, textual, long.           ``'Friday'``
+    L                 Boolean for whether it's a leap year.     ``True`` or ``False``
+    m                 Month, 2 digits with leading zeros.       ``'01'`` to ``'12'``
+    M                 Month, textual, 3 letters.                ``'Jan'``
+    n                 Month without leading zeros.              ``'1'`` to ``'12'``
+    N                 Month abbreviation in Associated Press    ``'Jan.'``, ``'Feb.'``, ``'March'``, ``'May'``
+                      style. Proprietary extension.
+    O                 Difference to Greenwich time in hours.    ``'+0200'``
+    P                 Time, in 12-hour hours, minutes and       ``'1 a.m.'``, ``'1:30 p.m.'``, ``'midnight'``, ``'noon'``, ``'12:30 p.m.'``
+                      'a.m.'/'p.m.', with minutes left off
+                      if they're zero and the special-case
+                      strings 'midnight' and 'noon' if
+                      appropriate. Proprietary extension.
+    r                 RFC 822 formatted date.                   ``'Thu, 21 Dec 2000 16:01:07 +0200'``
+    s                 Seconds, 2 digits with leading zeros.     ``'00'`` to ``'59'``
+    S                 English ordinal suffix for day of the     ``'st'``, ``'nd'``, ``'rd'`` or ``'th'``
+                      month, 2 characters.
+    t                 Number of days in the given month.        ``28`` to ``31``
+    T                 Time zone of this machine.                ``'EST'``, ``'MDT'``
+    U                 Not implemented.
+    w                 Day of the week, digits without           ``'0'`` (Sunday) to ``'6'`` (Saturday)
+                      leading zeros.
+    W                 ISO-8601 week number of year, with        ``1``, ``23``
+                      weeks starting on Monday.
+    y                 Year, 2 digits.                           ``'99'``
+    Y                 Year, 4 digits.                           ``'1999'``
+    z                 Day of the year.                          ``0`` to ``365``
+    Z                 Time zone offset in seconds. The          ``-43200`` to ``43200``
+                      offset for timezones west of UTC is
+                      always negative, and for those east of
+                      UTC is always positive.
+    ================  ========================================  =====================
+
+Example::
+
+    It is {% now "jS F Y H:i" %}
+
+Note that you can backslash-escape a format string if you want to use the
+"raw" value. In this example, "f" is backslash-escaped, because otherwise
+"f" is a format string that displays the time. The "o" doesn't need to be
+escaped, because it's not a format character.::
+
+    It is the {% now "jS o\f F" %}
+
+(Displays "It is the 4th of September" %}
+
+regroup
+~~~~~~~
+
+Regroup a list of alike objects by a common attribute.
+
+This complex tag is best illustrated by use of an example:  say that ``people``
+is a list of ``Person`` objects that have ``first_name``, ``last_name``, and
+``gender`` attributes, and you'd like to display a list that looks like:
+
+    * Male:
+        * George Bush
+        * Bill Clinton
+    * Female:
+        * Margaret Thatcher
+        * Condoleezza Rice
+    * Unknown:
+        * Pat Smith
+
+The following snippet of template code would accomplish this dubious task::
+
+    {% regroup people by gender as grouped %}
+    <ul>
+    {% for group in grouped %}
+        <li>{{ group.grouper }}
+        <ul>
+            {% for item in group.list %}
+            <li>{{ item }}</li>
+            {% endfor %}
+        </ul>
+    {% endfor %}
+    </ul>
+
+As you can see, ``{% regroup %}`` populates a variable with a list of objects
+with ``grouper`` and ``list`` attributes.  ``grouper`` contains the item that
+was grouped by; ``list`` contains the list of objects that share that
+``grouper``.  In this case, ``grouper`` would be ``Male``, ``Female`` and
+``Unknown``, and ``list`` is the list of people with those genders.
+
+Note that ``{% regroup %}`` does not work when the list to be grouped is not
+sorted by the key you are grouping by!  This means that if your list of people
+was not sorted by gender, you'd need to make sure it is sorted before using it,
+i.e.::
+
+    {% regroup people|dictsort:"gender" by gender as grouped %}
+
+spaceless
+~~~~~~~~~
+
+Normalizes whitespace between HTML tags to a single space. This includes tab
+characters and newlines.
+
+Example usage::
+
+    {% spaceless %}
+        <p>
+            <a href="foo/">Foo</a>
+        </p>
+    {% endspaceless %}
+
+This example would return this HTML::
+
+    <p> <a href="foo/">Foo</a> </p>
+
+Only space between *tags* is normalized -- not space between tags and text. In
+this example, the space around ``Hello`` won't be stripped::
+
+    {% spaceless %}
+        <strong>
+            Hello
+        </strong>
+    {% endspaceless %}
+
+ssi
+~~~
+
+Output the contents of a given file into the page.
+
+Like a simple "include" tag, ``{% ssi %}`` includes the contents of another
+file -- which must be specified using an absolute path -- in the current
+page::
+
+    {% ssi /home/html/ljworld.com/includes/right_generic.html %}
+
+If the optional "parsed" parameter is given, the contents of the included
+file are evaluated as template code, within the current context::
+
+    {% ssi /home/html/ljworld.com/includes/right_generic.html parsed %}
+
+Note that if you use ``{% ssi %}``, you'll need to define
+`ALLOWED_INCLUDE_ROOTS`_ in your Django settings, as a security measure.
+
+See also: ``{% include %}``.
+
+.. _ALLOWED_INCLUDE_ROOTS: ../settings/#allowed-include-roots
+
+templatetag
+~~~~~~~~~~~
+
+Output one of the syntax characters used to compose template tags.
+
+Since the template system has no concept of "escaping", to display one of the
+bits used in template tags, you must use the ``{% templatetag %}`` tag.
+
+The argument tells which template bit to output:
+
+    ==================  =======
+    Argument            Outputs
+    ==================  =======
+    ``openblock``       ``{%``
+    ``closeblock``      ``%}``
+    ``openvariable``    ``{{``
+    ``closevariable``   ``}}``
+    ``openbrace``       ``{``
+    ``closebrace``      ``}``
+    ``opencomment``     ``{#``
+    ``closecomment``    ``#}``
+    ==================  =======
+
+url
+~~~
+
+**Note that the syntax for this tag may change in the future, as we make it more robust.**
+
+Returns an absolute URL (i.e., a URL without the domain name) matching a given
+view function and optional parameters. This is a way to output links without
+violating the DRY principle by having to hard-code URLs in your templates::
+
+    {% url path.to.some_view arg1,arg2,name1=value1 %}
+
+The first argument is a path to a view function in the format
+``package.package.module.function``. Additional arguments are optional and
+should be comma-separated values that will be used as positional and keyword
+arguments in the URL. All arguments required by the URLconf should be present.
+
+For example, suppose you have a view, ``app_name.client``, whose URLconf takes
+a client ID. The URLconf line might look like this::
+
+    ('^client/(\d+)/$', 'app_name.client')
+
+If this app's URLconf is included into the project's URLconf under a path
+such as this::
+
+    ('^clients/', include('project_name.app_name.urls'))
+
+...then, in a template, you can create a link to this view like this::
+
+    {% url app_name.client client.id %}
+
+The template tag will output the string ``/clients/client/123/``.
+
+widthratio
+~~~~~~~~~~
+
+For creating bar charts and such, this tag calculates the ratio of a given value
+to a maximum value, and then applies that ratio to a constant.
+
+For example::
+
+    <img src="bar.gif" height="10" width="{% widthratio this_value max_value 100 %}" />
+
+Above, if ``this_value`` is 175 and ``max_value`` is 200, the the image in the
+above example will be 88 pixels wide (because 175/200 = .875; .875 * 100 = 87.5
+which is rounded up to 88).
+
+Built-in filter reference
+-------------------------
+
+add
+~~~
+
+Adds the arg to the value.
+
+addslashes
+~~~~~~~~~~
+
+Adds slashes. Useful for passing strings to JavaScript, for example.
+
+
+capfirst
+~~~~~~~~
+
+Capitalizes the first character of the value.
+
+center
+~~~~~~
+
+Centers the value in a field of a given width.
+
+cut
+~~~
+
+Removes all values of arg from the given string.
+
+date
+~~~~
+
+Formats a date according to the given format (same as the ``now`` tag).
+
+default
+~~~~~~~
+
+If value is unavailable, use given default.
+
+default_if_none
+~~~~~~~~~~~~~~~
+
+If value is ``None``, use given default.
+
+dictsort
+~~~~~~~~
+
+Takes a list of dicts, returns that list sorted by the property given in the
+argument.
+
+dictsortreversed
+~~~~~~~~~~~~~~~~
+
+Takes a list of dicts, returns that list sorted in reverse order by the
+property given in the argument.
+
+divisibleby
+~~~~~~~~~~~
+
+Returns true if the value is divisible by the argument.
+
+escape
+~~~~~~
+
+Escapes a string's HTML. Specifically, it makes these replacements:
+
+    * ``"&"`` to ``"&amp;"``
+    * ``<`` to ``"&lt;"``
+    * ``>`` to ``"&gt;"``
+    * ``'"'`` (double quote) to ``'&quot;'``
+    * ``"'"`` (single quote) to ``'&#39;'``
+
+filesizeformat
+~~~~~~~~~~~~~~
+
+Format the value like a 'human-readable' file size (i.e. ``'13 KB'``,
+``'4.1 MB'``, ``'102 bytes'``, etc).
+
+first
+~~~~~
+
+Returns the first item in a list.
+
+fix_ampersands
+~~~~~~~~~~~~~~
+
+Replaces ampersands with ``&amp;`` entities.
+
+floatformat
+~~~~~~~~~~~
+
+When used without an argument, rounds a floating-point number to one decimal
+place -- but only if there's a decimal part to be displayed. For example:
+
+    * ``36.123`` gets converted to ``36.1``
+    * ``36.15`` gets converted to ``36.2``
+    * ``36`` gets converted to ``36``
+
+If used with a numeric integer argument, ``floatformat`` rounds a number to that 
+many decimal places.  For example:
+
+    * ``36.1234`` with floatformat:3 gets converted to ``36.123``
+    * ``36`` with floatformat:4 gets converted to ``36.0000``
+
+If the argument passed to ``floatformat`` is negative, it will round a number to
+that many decimal places -- but only if there's a decimal part to be displayed.
+For example:
+
+    * ``36.1234`` with floatformat:-3 gets converted to ``36.123``
+    * ``36`` with floatformat:-4 gets converted to ``36``
+
+Using ``floatformat`` with no argument is equivalent to using ``floatformat`` with 
+an argument of ``-1``.
+
+get_digit
+~~~~~~~~~
+
+Given a whole number, returns the requested digit of it, where 1 is the
+right-most digit, 2 is the second-right-most digit, etc. Returns the original
+value for invalid input (if input or argument is not an integer, or if argument
+is less than 1). Otherwise, output is always an integer.
+
+join
+~~~~
+
+Joins a list with a string, like Python's ``str.join(list)``.
+
+length
+~~~~~~
+
+Returns the length of the value. Useful for lists.
+
+length_is
+~~~~~~~~~
+
+Returns a boolean of whether the value's length is the argument.
+
+linebreaks
+~~~~~~~~~~
+
+Converts newlines into ``<p>`` and ``<br />`` tags.
+
+linebreaksbr
+~~~~~~~~~~~~
+
+Converts newlines into ``<br />`` tags.
+
+linenumbers
+~~~~~~~~~~~
+
+Displays text with line numbers.
+
+ljust
+~~~~~
+
+Left-aligns the value in a field of a given width.
+
+**Argument:** field size
+
+lower
+~~~~~
+
+Converts a string into all lowercase.
+
+make_list
+~~~~~~~~~
+
+Returns the value turned into a list. For an integer, it's a list of
+digits. For a string, it's a list of characters.
+
+phone2numeric
+~~~~~~~~~~~~~
+
+Converts a phone number (possibly containing letters) to its numerical
+equivalent. For example, ``'800-COLLECT'`` will be converted to
+``'800-2655328'``.
+
+The input doesn't have to be a valid phone number. This will happily convert
+any string.
+
+pluralize
+~~~~~~~~~
+
+Returns a plural suffix if the value is not 1. By default, this suffix is ``'s'``.
+
+Example::
+
+    You have {{ num_messages }} message{{ num_messages|pluralize }}.
+
+For words that require a suffix other than ``'s'``, you can provide an alternate
+suffix as a parameter to the filter.
+
+Example::
+
+    You have {{ num_walruses }} walrus{{ num_walrus|pluralize:"es" }}.
+
+For words that don't pluralize by simple suffix, you can specify both a
+singular and plural suffix, separated by a comma.
+
+Example::
+
+    You have {{ num_cherries }} cherr{{ num_cherries|pluralize:"y,ies" }}.
+
+pprint
+~~~~~~
+
+A wrapper around pprint.pprint -- for debugging, really.
+
+random
+~~~~~~
+
+Returns a random item from the list.
+
+removetags
+~~~~~~~~~~
+
+Removes a space separated list of [X]HTML tags from the output.
+
+rjust
+~~~~~
+
+Right-aligns the value in a field of a given width.
+
+**Argument:** field size
+
+slice
+~~~~~
+
+Returns a slice of the list.
+
+Uses the same syntax as Python's list slicing. See
+http://diveintopython.org/native_data_types/lists.html#odbchelper.list.slice
+for an introduction.
+
+Example: ``{{ some_list|slice:":2" }}``
+
+slugify
+~~~~~~~
+
+Converts to lowercase, removes non-word characters (alphanumerics and
+underscores) and converts spaces to hyphens. Also strips leading and trailing
+whitespace.
+
+stringformat
+~~~~~~~~~~~~
+
+Formats the variable according to the argument, a string formatting specifier.
+This specifier uses Python string formating syntax, with the exception that
+the leading "%" is dropped.
+
+See http://docs.python.org/lib/typesseq-strings.html for documentation of
+Python string formatting
+
+striptags
+~~~~~~~~~
+
+Strips all [X]HTML tags.
+
+time
+~~~~
+
+Formats a time according to the given format (same as the ``now`` tag).
+
+timesince
+~~~~~~~~~
+
+Formats a date as the time since that date (i.e. "4 days, 6 hours").
+
+Takes an optional argument that is a variable containing the date to use as
+the comparison point (without the argument, the comparison point is *now*).
+For example, if ``blog_date`` is a date instance representing midnight on 1
+June 2006, and ``comment_date`` is a date instance for 08:00 on 1 June 2006,
+then ``{{ comment_date|timesince:blog_date }}`` would return "8 hours".
+
+timeuntil
+~~~~~~~~~
+
+Similar to ``timesince``, except that it measures the time from now until the
+given date or datetime. For example, if today is 1 June 2006 and
+``conference_date`` is a date instance holding 29 June 2006, then
+``{{ conference_date|timeuntil }}`` will return "28 days".
+
+Takes an optional argument that is a variable containing the date to use as
+the comparison point (instead of *now*). If ``from_date`` contains 22 June
+2006, then ``{{ conference_date|timeuntil:from_date }}`` will return "7 days".
+
+title
+~~~~~
+
+Converts a string into titlecase.
+
+truncatewords
+~~~~~~~~~~~~~
+
+Truncates a string after a certain number of words.
+
+**Argument:** Number of words to truncate after
+
+truncatewords_html
+~~~~~~~~~~~~~~~~~~
+
+Similar to ``truncatewords``, except that it is aware of HTML tags. Any tags
+that are opened in the string and not closed before the truncation point, are
+closed immediately after the truncation.
+
+This is less efficient than ``truncatewords``, so should only be used when it
+is being passed HTML text.
+
+unordered_list
+~~~~~~~~~~~~~~
+
+Recursively takes a self-nested list and returns an HTML unordered list --
+WITHOUT opening and closing <ul> tags.
+
+The list is assumed to be in the proper format. For example, if ``var`` contains
+``['States', [['Kansas', [['Lawrence', []], ['Topeka', []]]], ['Illinois', []]]]``,
+then ``{{ var|unordered_list }}`` would return::
+
+    <li>States
+    <ul>
+            <li>Kansas
+            <ul>
+                    <li>Lawrence</li>
+                    <li>Topeka</li>
+            </ul>
+            </li>
+            <li>Illinois</li>
+    </ul>
+    </li>
+
+upper
+~~~~~
+
+Converts a string into all uppercase.
+
+urlencode
+~~~~~~~~~
+
+Escapes a value for use in a URL.
+
+urlize
+~~~~~~
+
+Converts URLs in plain text into clickable links.
+
+urlizetrunc
+~~~~~~~~~~~
+
+Converts URLs into clickable links, truncating URLs to the given character limit.
+
+**Argument:** Length to truncate URLs to
+
+wordcount
+~~~~~~~~~
+
+Returns the number of words.
+
+wordwrap
+~~~~~~~~
+
+Wraps words at specified line length.
+
+**Argument:** number of characters at which to wrap the text
+
+yesno
+~~~~~
+
+Given a string mapping values for true, false and (optionally) None,
+returns one of those strings according to the value:
+
+==========  ======================  ==================================
+Value       Argument                Outputs
+==========  ======================  ==================================
+``True``    ``"yeah,no,maybe"``     ``yeah``
+``False``   ``"yeah,no,maybe"``     ``no``
+``None``    ``"yeah,no,maybe"``     ``maybe``
+``None``    ``"yeah,no"``           ``"no"`` (converts None to False
+                                    if no mapping for None is given)
+==========  ======================  ==================================
+
+Other tags and filter libraries
+===============================
+
+Django comes with a couple of other template-tag libraries that you have to
+enable explicitly in your ``INSTALLED_APPS`` setting and enable in your
+template with the ``{% load %}`` tag.
+
+django.contrib.humanize
+-----------------------
+
+A set of Django template filters useful for adding a "human touch" to data. See
+the `humanize documentation`_.
+
+.. _humanize documentation: ../add_ons/#humanize
+
+django.contrib.markup
+---------------------
+
+A collection of template filters that implement these common markup languages:
+
+    * Textile
+    * Markdown
+    * ReST (ReStructured Text)

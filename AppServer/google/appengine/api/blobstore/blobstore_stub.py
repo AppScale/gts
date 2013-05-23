@@ -15,10 +15,10 @@
 # limitations under the License.
 #
 
-"""
-Modifications for AppScale by Navraj Chohan
 
-Datastore backed Blobstore API stub.
+
+
+"""Datastore backed Blobstore API stub.
 
 Class:
   BlobstoreServiceStub: BlobstoreService stub backed by datastore.
@@ -29,13 +29,21 @@ Class:
 
 
 
+
+
+
+
+import base64
 import os
 import time
+import urlparse
+
 from google.appengine.api import apiproxy_stub
+from google.appengine.api import blobstore
 from google.appengine.api import datastore
 from google.appengine.api import datastore_errors
+from google.appengine.api import datastore_types
 from google.appengine.api import users
-from google.appengine.api import blobstore
 from google.appengine.api.blobstore import blobstore_service_pb
 from google.appengine.runtime import apiproxy_errors
 
@@ -46,7 +54,7 @@ __all__ = ['BlobStorage',
            'CreateUploadSession',
            'Error',
           ]
-BLOB_PORT = "6106"
+
 
 class Error(Exception):
   """Base blobstore error type."""
@@ -57,9 +65,15 @@ class ConfigurationError(Error):
 
 
 _UPLOAD_SESSION_KIND = '__BlobUploadSession__'
-_GS_INFO_KIND = '__Gs_Info__'
+_GS_INFO_KIND = '__GsFileInfo__'
 
-def CreateUploadSession(creation, success_path, user):
+
+def CreateUploadSession(creation,
+                        success_path,
+                        user,
+                        max_bytes_per_blob,
+                        max_bytes_total,
+                        bucket_name=None):
   """Create upload session in datastore.
 
   Creates an upload session and puts it in Datastore to be referenced by
@@ -69,20 +83,24 @@ def CreateUploadSession(creation, success_path, user):
     creation: Creation timestamp.
     success_path: Path in users application to call upon success.
     user: User that initiated this upload, if any.
+    max_bytes_per_blob: Maximum number of bytes for any blob in the upload.
+    max_bytes_total: Maximum aggregate bytes for all blobs in the upload.
+    bucket_name: Name of the Google Storage bucket tio upload the files.
 
   Returns:
     String encoded key of new Datastore entity.
   """
   entity = datastore.Entity(_UPLOAD_SESSION_KIND, namespace='')
-  path = "http://%s:%s%s" % (os.environ["SERVER_NAME"],
-                             os.environ["NGINX_PORT"],
-                             success_path)
-
-  entity.update({'creation': creation,
-                 'success_path': path,
+  entity_dict = {'creation': creation,
+                 'success_path': success_path,
                  'user': user,
-                 'state': 'init'})
+                 'state': 'init',
+                 'max_bytes_per_blob': max_bytes_per_blob,
+                 'max_bytes_total': max_bytes_total}
+  if bucket_name:
+    entity_dict['gs_bucket_name'] = bucket_name
 
+  entity.update(entity_dict)
   datastore.Put(entity)
   return str(entity.key())
 
@@ -149,11 +167,15 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
   info is the string encoded version of the session entity
   """
 
+  _ACCEPTS_REQUEST_ID = True
+  GS_BLOBKEY_PREFIX = 'encoded_gs_file:'
+
   def __init__(self,
                blob_storage,
                time_function=time.time,
                service_name='blobstore',
-               uploader_path='_ah/upload/'):
+               uploader_path='_ah/upload/',
+               request_data=None):
     """Constructor.
 
     Args:
@@ -162,13 +184,15 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
       service_name: Service name expected for all calls.
       uploader_path: Path to upload handler pointed to by URLs generated
         by this service stub.
+      request_data: A apiproxy_stub.RequestData instance used to look up state
+        associated with the request that generated an API call.
     """
-    super(BlobstoreServiceStub, self).__init__(service_name)
+    super(BlobstoreServiceStub, self).__init__(service_name,
+                                               request_data=request_data)
     self.__storage = blob_storage
     self.__time_function = time_function
     self.__next_session_id = 1
     self.__uploader_path = uploader_path
-    self.__block_key_cache = None
 
   @property
   def storage(self):
@@ -196,21 +220,33 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
     except KeyError:
       raise ConfigurationError('%s is not set in environment.' % name)
 
-  def _CreateSession(self, success_path, user):
+  def _CreateSession(self,
+                     success_path,
+                     user,
+                     max_bytes_per_blob=None,
+                     max_bytes_total=None,
+                     bucket_name=None):
     """Create new upload session.
 
     Args:
       success_path: Application path to call upon successful POST.
       user: User that initiated the upload session.
+      max_bytes_per_blob: Maximum number of bytes for any blob in the upload.
+      max_bytes_total: Maximum aggregate bytes for all blobs in the upload.
+      bucket_name: The name of the Cloud Storage bucket where the files will be
+        uploaded.
 
     Returns:
       String encoded key of a new upload session created in the datastore.
     """
     return CreateUploadSession(self.__time_function(),
                                success_path,
-                               user)
+                               user,
+                               max_bytes_per_blob,
+                               max_bytes_total,
+                               bucket_name)
 
-  def _Dynamic_CreateUploadURL(self, request, response):
+  def _Dynamic_CreateUploadURL(self, request, response, request_id):
     """Create upload URL implementation.
 
     Create a new upload session.  The upload session key is encoded in the
@@ -220,16 +256,35 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
     Args:
       request: A fully initialized CreateUploadURLRequest instance.
       response: A CreateUploadURLResponse instance.
+      request_id: A unique string identifying the request associated with the
+          API call.
     """
-    session = self._CreateSession(request.success_path(),
-                                  users.get_current_user())
-    response.set_url('http://%s:%s/%s%s/%s' % (self._GetEnviron('NGINX_HOST'),
-                                            BLOB_PORT,
-                                            self.__uploader_path,
-                                            self.__storage._app_id,
-                                            session))
+    max_bytes_per_blob = None
+    max_bytes_total = None
+    bucket_name = None
 
-  def _Dynamic_DeleteBlob(self, request, response):
+    if request.has_max_upload_size_per_blob_bytes():
+      max_bytes_per_blob = request.max_upload_size_per_blob_bytes()
+
+    if request.has_max_upload_size_bytes():
+      max_bytes_total = request.max_upload_size_bytes()
+
+    if request.has_gs_bucket_name():
+      bucket_name = request.gs_bucket_name()
+
+    session = self._CreateSession(request.success_path(),
+                                  users.get_current_user(),
+                                  max_bytes_per_blob,
+                                  max_bytes_total,
+                                  bucket_name)
+
+    protocol, host, _, _, _, _ = urlparse.urlparse(
+        self.request_data.get_request_url(request_id))
+
+    response.set_url('%s://%s/%s%s' % (protocol, host, self.__uploader_path,
+                                       session))
+
+  def _Dynamic_DeleteBlob(self, request, response, unused_request_id):
     """Delete a blob by its blob-key.
 
     Delete a blob from the blobstore using its blob-key.  Deleting blobs that
@@ -240,9 +295,19 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
       response: Not used but should be a VoidProto.
     """
     for blob_key in request.blob_key_list():
+      if blob_key.startswith(self.GS_BLOBKEY_PREFIX):
+        key = datastore_types.Key.from_path(_GS_INFO_KIND,
+                                            str(blob_key),
+                                            namespace='')
+      else:
+        key = datastore_types.Key.from_path(blobstore.BLOB_INFO_KIND,
+                                            str(blob_key),
+                                            namespace='')
+
+      datastore.Delete(key)
       self.__storage.DeleteBlob(blob_key)
 
-  def _Dynamic_FetchData(self, request, response):
+  def _Dynamic_FetchData(self, request, response, unused_request_id):
     """Fetch a blob fragment from a blob by its blob-key.
 
     Fetches a blob fragment using its blob-key.  Start index is inclusive,
@@ -261,75 +326,99 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
           MAX_BLOB_FRAGMENT_SIZE.
         BLOB_NOT_FOUND: If invalid blob-key is provided or is not found.
     """
+
     start_index = request.start_index()
     if start_index < 0:
       raise apiproxy_errors.ApplicationError(
           blobstore_service_pb.BlobstoreServiceError.DATA_INDEX_OUT_OF_RANGE)
+
 
     end_index = request.end_index()
     if end_index < start_index:
       raise apiproxy_errors.ApplicationError(
           blobstore_service_pb.BlobstoreServiceError.DATA_INDEX_OUT_OF_RANGE)
 
+
     fetch_size = end_index - start_index + 1
     if fetch_size > blobstore.MAX_BLOB_FETCH_SIZE:
       raise apiproxy_errors.ApplicationError(
           blobstore_service_pb.BlobstoreServiceError.BLOB_FETCH_SIZE_TOO_LARGE)
+
+
     blob_key = request.blob_key()
-
-    # Get the block we will start from
-    block_count = int(start_index/blobstore.MAX_BLOB_FETCH_SIZE)
-
-    # Get the block's bytes we'll copy
-    block_modulo = int(start_index % blobstore.MAX_BLOB_FETCH_SIZE)
-
-    # This is the last block we'll look at for this request
-    block_count_end = int(end_index/blobstore.MAX_BLOB_FETCH_SIZE)
-
-    block_key = str(blob_key) + "__" + str(block_count)
-    block_key = datastore.Key.from_path("__BlobChunk__",
-                                        block_key,
-                                        namespace='')
-    if self.__block_key_cache != str(block_key):
-      try:
-        block = datastore.Get(block_key)
-      except datastore_errors.EntityNotFoundError:
-        raise apiproxy_errors.ApplicationError(
-           blobstore_service_pb.BlobstoreServiceError.BLOB_NOT_FOUND)
-
-      self.__block_cache = block["block"]
-      self.__block_key_cache = str(block_key)
-
-    # Matching boundaries, start and end are within one fetch
-    if block_count_end == block_count:
-      # Is there enough data to satisfy fetch_size bytes?
-      if len(self.__block_cache[block_modulo:]) >= fetch_size:
-        data = self.__block_cache[block_modulo:block_modulo + fetch_size]
-        response.set_data(data)
-        return
-      else:
-        # Return whatever is left, not fetch_size amount
-        data = self.__block_cache[block_modulo:]
-        response.set_data(data)
-        return
-    
-    data = self.__block_cache[block_modulo:]
-    data_size = len(data)
-
-    # Must fetch the next block
-    block_key = blob_key + "__" + str(block_count + 1)
-    block_key = datastore.Key.from_path("__BlobChunk__",
-                                        block_key,
-                                        namespace='')
+    blob_info_key = datastore.Key.from_path(blobstore.BLOB_INFO_KIND,
+                                            blob_key,
+                                            namespace='')
     try:
-      block = datastore.Get(block_key)
-    except datastore_errors.EntityNotFoundError:
-      data = self.__block_cache[block_modulo:]
-      response.set_data(data)
-      return
+      datastore.Get(blob_info_key)
+    except datastore_errors.EntityNotFoundError, err:
+      raise apiproxy_errors.ApplicationError(
+          blobstore_service_pb.BlobstoreServiceError.BLOB_NOT_FOUND)
 
-    self.__block_cache = block["block"]
-    self.__block_key_cache = str(block_key)
-    data.append(self.__block_cache[0, fetch_size - data_size])
-    response.set_data(data)
- 
+
+    blob_file = self.__storage.OpenBlob(blob_key)
+    blob_file.seek(start_index)
+    response.set_data(blob_file.read(fetch_size))
+
+  def _Dynamic_DecodeBlobKey(self, request, response, unused_request_id):
+    """Decode a given blob key: data is simply base64-decoded.
+
+    Args:
+      request: A fully-initialized DecodeBlobKeyRequest instance
+      response: A DecodeBlobKeyResponse instance.
+    """
+    for blob_key in request.blob_key_list():
+      response.add_decoded(blob_key.decode('base64'))
+
+  @classmethod
+  def CreateEncodedGoogleStorageKey(cls, filename):
+    """Create an encoded blob key that represents a Google Storage file.
+
+    For now we'll just base64 encode the Google Storage filename, APIs that
+    accept encoded blob keys will need to be able to support Google Storage
+    files or blobstore files based on decoding this key.
+
+    Note this encoding is easily reversible and is not encryption.
+
+    Args:
+      filename: gs filename of form '/gs/bucket/filename'
+
+    Returns:
+      blobkey string of encoded filename.
+    """
+    return cls.GS_BLOBKEY_PREFIX + base64.urlsafe_b64encode(filename)
+
+  def _Dynamic_CreateEncodedGoogleStorageKey(self, request, response,
+                                             unused_request_id):
+    """Create an encoded blob key that represents a Google Storage file.
+
+    For now we'll just base64 encode the Google Storage filename, APIs that
+    accept encoded blob keys will need to be able to support Google Storage
+    files or blobstore files based on decoding this key.
+
+    Args:
+      request: A fully-initialized CreateEncodedGoogleStorageKeyRequest
+        instance.
+      response: A CreateEncodedGoogleStorageKeyResponse instance.
+    """
+    response.set_blob_key(
+        self.CreateEncodedGoogleStorageKey(request.filename()))
+
+  def CreateBlob(self, blob_key, content):
+    """Create new blob and put in storage and Datastore.
+
+    This is useful in testing where you have access to the stub.
+
+    Args:
+      blob_key: String blob-key of new blob.
+      content: Content of new blob as a string.
+
+    Returns:
+      New Datastore entity without blob meta-data fields.
+    """
+    entity = datastore.Entity(blobstore.BLOB_INFO_KIND,
+                              name=blob_key, namespace='')
+    entity['size'] = len(content)
+    datastore.Put(entity)
+    self.storage.CreateBlob(blob_key, content)
+    return entity

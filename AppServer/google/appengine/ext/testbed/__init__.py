@@ -125,7 +125,10 @@ try:
   from google.appengine.api.images import images_stub
 except ImportError:
   images_stub = None
-from google.appengine.api.logservice import logservice_stub
+try:
+  from google.appengine.api.logservice import logservice_stub
+except ImportError:
+  logservice_stub = None
 from google.appengine.api.memcache import memcache_stub
 from google.appengine.api.taskqueue import taskqueue_stub
 from google.appengine.api.xmpp import xmpp_service_stub
@@ -134,6 +137,7 @@ try:
 except ImportError:
   datastore_sqlite_stub = None
 from google.appengine.datastore import datastore_stub_util
+from google.appengine.ext.cloudstorage import stub_dispatcher as gcs_dispatcher
 
 
 DEFAULT_ENVIRONMENT = {
@@ -194,6 +198,10 @@ INIT_STUB_METHOD_NAMES = {
 
 
 SUPPORTED_SERVICES = sorted(INIT_STUB_METHOD_NAMES)
+
+
+AUTO_ID_POLICY_SEQUENTIAL = datastore_stub_util.SEQUENTIAL
+AUTO_ID_POLICY_SCATTERED = datastore_stub_util.SCATTERED
 
 
 class Error(Exception):
@@ -429,7 +437,9 @@ class Testbed(object):
     self._register_stub(CHANNEL_SERVICE_NAME, stub)
 
   def init_datastore_v3_stub(self, enable=True, datastore_file=None,
-                             use_sqlite=False, **stub_kw_args):
+                             use_sqlite=False,
+                             auto_id_policy=AUTO_ID_POLICY_SEQUENTIAL,
+                             **stub_kw_args):
     """Enable the datastore stub.
 
     The 'datastore_file' argument can be the path to an existing
@@ -449,6 +459,8 @@ class Testbed(object):
         service should be disabled.
       datastore_file: Filename of a dev_appserver datastore file.
       use_sqlite: True to use the Sqlite stub, False (default) for file stub.
+      auto_id_policy: How datastore stub assigns auto IDs. Either
+        AUTO_ID_POLICY_SEQUENTIAL or AUTO_ID_POLICY_SCATTERED.
       stub_kw_args: Keyword arguments passed on to the service stub.
     """
     if not enable:
@@ -462,6 +474,7 @@ class Testbed(object):
           os.environ['APPLICATION_ID'],
           datastore_file,
           use_atexit=False,
+          auto_id_policy=auto_id_policy,
           **stub_kw_args)
     else:
       stub_kw_args.setdefault('save_changes', False)
@@ -469,6 +482,7 @@ class Testbed(object):
           os.environ['APPLICATION_ID'],
           datastore_file,
           use_atexit=False,
+          auto_id_policy=auto_id_policy,
           **stub_kw_args)
     self._register_stub(DATASTORE_SERVICE_NAME, stub,
                         self._deactivate_datastore_v3_stub)
@@ -510,22 +524,23 @@ class Testbed(object):
     stub = images_stub.ImagesServiceStub()
     self._register_stub(IMAGES_SERVICE_NAME, stub)
 
-  def init_logservice_stub(self, enable=True, init_datastore_v3=True):
+  def init_logservice_stub(self, enable=True):
     """Enable the log service stub.
 
     Args:
       enable: True, if the fake service should be enabled, False if real
       service should be disabled.
-      init_datastore_v3: True, if the fake service for datastore
-      should be enabled as a depedency, False or None leave the
-      current (or the lack of) datastore service unaltered.
+
+    Raises:
+      StubNotSupportedError: The logservice stub is unvailable.
     """
     if not enable:
       self._disable_stub(LOG_SERVICE_NAME)
       return
-    if init_datastore_v3 and not self.get_stub(DATASTORE_SERVICE_NAME):
-      self.init_datastore_v3_stub()
-    stub = logservice_stub.LogServiceStub(True)
+    if logservice_stub is None:
+      raise StubNotSupportedError(
+          'The logservice stub is not supported in production.')
+    stub = logservice_stub.LogServiceStub()
     self._register_stub(LOG_SERVICE_NAME, stub)
 
   def init_mail_stub(self, enable=True, **stub_kw_args):
@@ -586,7 +601,11 @@ class Testbed(object):
     if not enable:
       self._disable_stub(URLFETCH_SERVICE_NAME)
       return
-    stub = urlfetch_stub.URLFetchServiceStub()
+    urlmatchers_to_fetch_functions = []
+    urlmatchers_to_fetch_functions.extend(
+        gcs_dispatcher.URLMATCHERS_TO_FETCH_FUNCTIONS)
+    stub = urlfetch_stub.URLFetchServiceStub(
+        urlmatchers_to_fetch_functions=urlmatchers_to_fetch_functions)
     self._register_stub(URLFETCH_SERVICE_NAME, stub)
 
   def init_user_stub(self, enable=True, **stub_kw_args):

@@ -34,7 +34,8 @@ import getpass
 def auth_func():
   return (raw_input('Username:'), getpass.getpass('Password:'))
 
-remote_api_stub.ConfigureRemoteApi('my-app', '/remote_api', auth_func)
+remote_api_stub.ConfigureRemoteApi(None, '/_ah/remote_api', auth_func,
+                                   'my-app.appspot.com')
 
 # Now you can access the remote datastore just as if your code was running on
 # App Engine!
@@ -68,20 +69,32 @@ import google
 import os
 import pickle
 import random
-import sha
 import sys
 import thread
 import threading
 import yaml
+import hashlib
 
-from google.appengine.api import datastore
-from google.appengine.api import apiproxy_rpc
-from google.appengine.api import apiproxy_stub_map
-from google.appengine.datastore import datastore_pb
-from google.appengine.ext.remote_api import remote_api_pb
-from google.appengine.ext.remote_api import remote_api_services
-from google.appengine.runtime import apiproxy_errors
+
+if os.environ.get('APPENGINE_RUNTIME') == 'python27':
+  from google.appengine.api import apiproxy_rpc
+  from google.appengine.api import apiproxy_stub_map
+  from google.appengine.datastore import datastore_pb
+  from google.appengine.ext.remote_api import remote_api_pb
+  from google.appengine.ext.remote_api import remote_api_services
+  from google.appengine.runtime import apiproxy_errors
+else:
+  from google.appengine.api import apiproxy_rpc
+  from google.appengine.api import apiproxy_stub_map
+  from google.appengine.datastore import datastore_pb
+  from google.appengine.ext.remote_api import remote_api_pb
+  from google.appengine.ext.remote_api import remote_api_services
+  from google.appengine.runtime import apiproxy_errors
+
 from google.appengine.tools import appengine_rpc
+
+
+_REQUEST_ID_HEADER = 'HTTP_X_APPENGINE_REQUEST_ID'
 
 
 class Error(Exception):
@@ -122,10 +135,15 @@ def GetSourceName():
   return "Google-remote_api-1.0"
 
 
+def HashEntity(entity):
+  """Return a very-likely-unique hash of an entity."""
+  return hashlib.sha1(entity.Encode()).digest()
+
+
 class TransactionData(object):
   """Encapsulates data about an individual transaction."""
 
-  def __init__(self, thread_id):
+  def __init__(self, thread_id, is_xg):
 
 
     self.thread_id = thread_id
@@ -139,12 +157,17 @@ class TransactionData(object):
 
     self.entities = {}
 
+    self.is_xg = is_xg
+
 
 class RemoteStub(object):
   """A stub for calling services on a remote server over HTTP.
 
   You can use this to stub out any service that the remote server supports.
   """
+
+
+  _local = threading.local()
 
   def __init__(self, server, path, _test_stub_map=None):
     """Constructs a new RemoteStub that communicates with the specified server.
@@ -178,17 +201,31 @@ class RemoteStub(object):
     finally:
       self._PostHookHandler(service, call, request, response)
 
+  @classmethod
+  def _GetRequestId(cls):
+    """Returns the id of the request associated with the current thread."""
+    return cls._local.request_id
+
+  @classmethod
+  def _SetRequestId(cls, request_id):
+    """Set the id of the request associated with the current thread."""
+    cls._local.request_id = request_id
+
   def _MakeRealSyncCall(self, service, call, request, response):
     request_pb = remote_api_pb.Request()
     request_pb.set_service_name(service)
     request_pb.set_method(call)
     request_pb.set_request(request.Encode())
+    if hasattr(self._local, 'request_id'):
+
+
+      request_pb.set_request_id(self._local.request_id)
 
     response_pb = remote_api_pb.Response()
     encoded_request = request_pb.Encode()
     encoded_response = self._server.Send(self._path, encoded_request)
     response_pb.ParseFromString(encoded_response)
-    
+
     if response_pb.has_application_error():
       error_pb = response_pb.application_error()
       raise apiproxy_errors.ApplicationError(error_pb.code(),
@@ -253,8 +290,31 @@ class RemoteDatastoreStub(RemoteStub):
     assert response.IsInitialized(explanation), explanation
 
   def _Dynamic_RunQuery(self, query, query_result, cursor_id = None):
-    super(RemoteDatastoreStub, self).MakeSyncCall(
-        'datastore_v3', 'RunQuery', query, query_result)
+    if query.has_transaction():
+      txdata = self.__transactions[query.transaction().handle()]
+      tx_result = remote_api_pb.TransactionQueryResult()
+      super(RemoteDatastoreStub, self).MakeSyncCall(
+          'remote_datastore', 'TransactionQuery', query, tx_result)
+      query_result.CopyFrom(tx_result.result())
+
+
+
+
+      eg_key = tx_result.entity_group_key()
+      encoded_eg_key = eg_key.Encode()
+      eg_hash = None
+      if tx_result.has_entity_group():
+        eg_hash = HashEntity(tx_result.entity_group())
+      old_key, old_hash = txdata.preconditions.get(encoded_eg_key, (None, None))
+      if old_key is None:
+        txdata.preconditions[encoded_eg_key] = (eg_key, eg_hash)
+      elif old_hash != eg_hash:
+        raise apiproxy_errors.ApplicationError(
+            datastore_pb.Error.CONCURRENT_TRANSACTION,
+            'Transaction precondition failed.')
+    else:
+      super(RemoteDatastoreStub, self).MakeSyncCall(
+          'datastore_v3', 'RunQuery', query, query_result)
 
     if cursor_id is None:
       self.__local_cursor_lock.acquire()
@@ -276,6 +336,7 @@ class RemoteDatastoreStub(RemoteStub):
     query_result.mutable_cursor().set_cursor(cursor_id)
 
   def _Dynamic_Next(self, next_request, query_result):
+    assert next_request.offset() == 0
     cursor_id = next_request.cursor().cursor()
     if cursor_id not in self.__queries:
       raise apiproxy_errors.ApplicationError(datastore_pb.Error.BAD_REQUEST,
@@ -293,6 +354,11 @@ class RemoteDatastoreStub(RemoteStub):
         query.clear_count()
 
     self._Dynamic_RunQuery(query, query_result, cursor_id)
+
+
+
+
+    query_result.set_skipped_results(0)
 
   def _Dynamic_Get(self, get_request, get_response):
     txid = None
@@ -325,7 +391,7 @@ class RemoteDatastoreStub(RemoteStub):
       for key, entity in zip(newkeys, entities):
         entity_hash = None
         if entity.has_entity():
-          entity_hash = sha.new(entity.entity().Encode()).digest()
+          entity_hash = HashEntity(entity.entity())
         txdata.preconditions[key.Encode()] = (key, entity_hash)
 
 
@@ -358,26 +424,33 @@ class RemoteDatastoreStub(RemoteStub):
       requires_id = lambda x: x.id() == 0 and not x.has_name()
       new_ents = [e for e in entities
                   if requires_id(e.key().path().element_list()[-1])]
-      id_request = remote_api_pb.PutRequest()
+      id_request = datastore_pb.PutRequest()
+
+      txid = put_request.transaction().handle()
+      txdata = self.__transactions[txid]
+      assert (txdata.thread_id ==
+          thread.get_ident()), "Transactions are single-threaded."
       if new_ents:
         for ent in new_ents:
           e = id_request.add_entity()
           e.mutable_key().CopyFrom(ent.key())
           e.mutable_entity_group()
         id_response = datastore_pb.PutResponse()
+
+
+
+        if txdata.is_xg:
+          rpc_name = 'GetIDsXG'
+        else:
+          rpc_name = 'GetIDs'
         super(RemoteDatastoreStub, self).MakeSyncCall(
-            'remote_datastore', 'GetIDs', id_request, id_response)
+            'remote_datastore', rpc_name, id_request, id_response)
         assert id_request.entity_size() == id_response.key_size()
         for key, ent in zip(id_response.key_list(), new_ents):
           ent.mutable_key().CopyFrom(key)
           ent.mutable_entity_group().add_element().CopyFrom(
               key.path().element(0))
 
-
-      txid = put_request.transaction().handle()
-      txdata = self.__transactions[txid]
-      assert (txdata.thread_id ==
-          thread.get_ident()), "Transactions are single-threaded."
       for entity in entities:
         txdata.entities[entity.key().Encode()] = (entity.key(), entity)
         put_response.add_key().CopyFrom(entity.key())
@@ -401,7 +474,8 @@ class RemoteDatastoreStub(RemoteStub):
     self.__local_tx_lock.acquire()
     try:
       txid = self.__next_local_tx
-      self.__transactions[txid] = TransactionData(thread.get_ident())
+      self.__transactions[txid] = TransactionData(thread.get_ident(),
+                                                  request.allow_multiple_eg())
       self.__next_local_tx += 1
     finally:
       self.__local_tx_lock.release()
@@ -421,6 +495,7 @@ class RemoteDatastoreStub(RemoteStub):
     del self.__transactions[txid]
 
     tx = remote_api_pb.TransactionRequest()
+    tx.set_allow_multiple_eg(txdata.is_xg)
     for key, hash in txdata.preconditions.values():
       precond = tx.add_precondition()
       precond.mutable_key().CopyFrom(key)
@@ -450,7 +525,7 @@ class RemoteDatastoreStub(RemoteStub):
             'Transaction %d not found.' % (txid,))
 
       txdata = self.__transactions[txid]
-      assert (txdata[txid].thread_id ==
+      assert (txdata.thread_id ==
           thread.get_ident()), "Transactions are single-threaded."
       del self.__transactions[txid]
     finally:
@@ -471,6 +546,120 @@ class RemoteDatastoreStub(RemoteStub):
 
 ALL_SERVICES = set(remote_api_services.SERVICE_PB_MAP)
 
+
+def GetRemoteAppIdFromServer(server, path, remote_token=None):
+  """Return the app id from a connection to an existing server.
+
+  Args:
+    server: An appengine_rpc.AbstractRpcServer
+    path: The path to the remote_api handler for your app
+      (for example, '/_ah/remote_api').
+    remote_token: Token to validate that the response was to this request.
+  Returns:
+    App ID as reported by the remote server.
+  Raises:
+    ConfigurationError: The server returned an invalid response.
+  """
+  if not remote_token:
+    random.seed()
+    remote_token = str(random.random())[2:]
+  remote_token = str(remote_token)
+  urlargs = {'rtok': remote_token}
+  response = server.Send(path, payload=None, **urlargs)
+  if not response.startswith('{'):
+    raise ConfigurationError(
+        'Invalid response recieved from server: %s' % response)
+  app_info = yaml.load(response)
+  if not app_info or 'rtok' not in app_info or 'app_id' not in app_info:
+    raise ConfigurationError('Error parsing app_id lookup response')
+  if str(app_info['rtok']) != remote_token:
+    raise ConfigurationError('Token validation failed during app_id lookup. '
+                             '(sent %s, got %s)' % (repr(remote_token),
+                                                    repr(app_info['rtok'])))
+  return app_info['app_id']
+
+
+def ConfigureRemoteApiFromServer(server, path, app_id, services=None,
+                                 default_auth_domain=None,
+                                 use_remote_datastore=True):
+  """Does necessary setup to allow easy remote access to App Engine APIs.
+
+  Args:
+    server: An AbstractRpcServer
+    path: The path to the remote_api handler for your app
+      (for example, '/_ah/remote_api').
+    app_id: The app_id of your app, as declared in app.yaml.
+    services: A list of services to set up stubs for. If specified, only those
+      services are configured; by default all supported services are configured.
+    default_auth_domain: The authentication domain to use by default.
+    use_remote_datastore: Whether to use RemoteDatastoreStub instead of passing
+      through datastore requests. RemoteDatastoreStub batches transactional
+      datastore requests since, in production, datastore requires are scoped to
+      a single request.
+
+  Raises:
+    urllib2.HTTPError: if app_id is not provided and there is an error while
+      retrieving it.
+    ConfigurationError: if there is a error configuring the Remote API.
+  """
+  if services is None:
+    services = set(ALL_SERVICES)
+  else:
+    services = set(services)
+    unsupported = services.difference(ALL_SERVICES)
+    if unsupported:
+      raise ConfigurationError('Unsupported service(s): %s'
+                               % (', '.join(unsupported),))
+
+  os.environ['APPLICATION_ID'] = app_id
+  os.environ.setdefault('AUTH_DOMAIN', default_auth_domain or 'gmail.com')
+  apiproxy_stub_map.apiproxy = apiproxy_stub_map.APIProxyStubMap()
+  if 'datastore_v3' in services and use_remote_datastore:
+    services.remove('datastore_v3')
+    datastore_stub = RemoteDatastoreStub(server, path)
+    apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', datastore_stub)
+  stub = RemoteStub(server, path)
+  for service in services:
+    apiproxy_stub_map.apiproxy.RegisterStub(service, stub)
+
+
+def GetRemoteAppId(servername,
+                   path,
+                   auth_func,
+                   rpc_server_factory=appengine_rpc.HttpRpcServer,
+                   rtok=None,
+                   secure=False,
+                   save_cookies=False):
+  """Get the remote appid as reported at servername/path.
+
+  This will also return an AbstractRpcServer server, which can be used with
+  ConfigureRemoteApiFromServer.
+
+  Args:
+    servername: The hostname your app is deployed on.
+    path: The path to the remote_api handler for your app
+      (for example, '/_ah/remote_api').
+    auth_func: A function that takes no arguments and returns a
+      (username, password) tuple. This will be called if your application
+      requires authentication to access the remote_api handler (it should!)
+      and you do not already have a valid auth cookie.
+      <app_id>.appspot.com.
+    rpc_server_factory: A factory to construct the rpc server for the datastore.
+    rtok: The validation token to sent with app_id lookups. If None, a random
+      token is used.
+    secure: Use SSL when communicating with the server.
+    save_cookies: Forwarded to rpc_server_factory function.
+
+  Returns:
+    (app_id, server): The application ID and an AbstractRpcServer.
+  """
+  server = rpc_server_factory(servername, auth_func, GetUserAgent(),
+                              GetSourceName(), save_cookies=save_cookies,
+                              debug_data=False, secure=secure)
+  app_id = GetRemoteAppIdFromServer(server, path, rtok)
+  return app_id, server
+
+
 def ConfigureRemoteApi(app_id,
                        path,
                        auth_func,
@@ -480,17 +669,23 @@ def ConfigureRemoteApi(app_id,
                        secure=False,
                        services=None,
                        default_auth_domain=None,
-                       save_cookies=False):
+                       save_cookies=False,
+                       use_remote_datastore=True):
   """Does necessary setup to allow easy remote access to App Engine APIs.
 
   Either servername must be provided or app_id must not be None.  If app_id
   is None and a servername is provided, this function will send a request
   to the server to retrieve the app_id.
 
+  Note that if the app_id is specified, the internal appid must be used;
+  this may include a partition and a domain. It is often easier to let
+  remote_api_stub retreive the app_id automatically.
+
+
   Args:
-    app_id: The app_id of your app, as declared in app.yaml.
+    app_id: The app_id of your app, as declared in app.yaml, or None.
     path: The path to the remote_api handler for your app
-      (for example, '/remote_api').
+      (for example, '/_ah/remote_api').
     auth_func: A function that takes no arguments and returns a
       (username, password) tuple. This will be called if your application
       requires authentication to access the remote_api handler (it should!)
@@ -505,6 +700,10 @@ def ConfigureRemoteApi(app_id,
       services are configured; by default all supported services are configured.
     default_auth_domain: The authentication domain to use by default.
     save_cookies: Forwarded to rpc_server_factory function.
+    use_remote_datastore: Whether to use RemoteDatastoreStub instead of passing
+      through datastore requests. RemoteDatastoreStub batches transactional
+      datastore requests since, in production, datastore requires are scoped to
+      a single request.
 
   Returns:
     server, the server created by rpc_server_factory, which may be useful for
@@ -523,48 +722,10 @@ def ConfigureRemoteApi(app_id,
                               GetSourceName(), save_cookies=save_cookies,
                               debug_data=False, secure=secure)
   if not app_id:
-    if not rtok:
-      random.seed()
-      rtok = str(random.random())[2:]
-    urlargs = {'rtok': rtok}
-    response = server.Send(path, payload=None, **urlargs)
-    if not response.startswith('{'):
-      raise ConfigurationError(
-          'Invalid response recieved from server: %s' % response)
-    app_info = yaml.load(response)
-    if not app_info or 'rtok' not in app_info or 'app_id' not in app_info:
-      raise ConfigurationError('Error parsing app_id lookup response')
-    if app_info['rtok'] != rtok:
-      raise ConfigurationError('Token validation failed during app_id lookup. '
-                               '(sent %s, got %s)' % (repr(rtok),
-                                                      repr(app_info['rtok'])))
-    app_id = app_info['app_id']
+    app_id = GetRemoteAppIdFromServer(server, path, rtok)
 
-  if services is not None:
-    services = set(services)
-    unsupported = services.difference(ALL_SERVICES)
-    if unsupported:
-      raise ConfigurationError('Unsupported service(s): %s'
-                               % (', '.join(unsupported),))
-  else:
-    services = set(ALL_SERVICES)
-
-  os.environ['APPLICATION_ID'] = app_id
-  if default_auth_domain:
-
-    os.environ['AUTH_DOMAIN'] = default_auth_domain
-  elif 'AUTH_DOMAIN' not in os.environ:
-
-    os.environ['AUTH_DOMAIN'] = 'gmail.com'
-  apiproxy_stub_map.apiproxy = apiproxy_stub_map.APIProxyStubMap()
-  if 'datastore_v3' in services:
-    services.remove('datastore_v3')
-    datastore_stub = RemoteDatastoreStub(server, path)
-    apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', datastore_stub)
-  stub = RemoteStub(server, path)
-  for service in services:
-    apiproxy_stub_map.apiproxy.RegisterStub(service, stub)
-
+  ConfigureRemoteApiFromServer(server, path, app_id, services,
+                               default_auth_domain, use_remote_datastore)
   return server
 
 

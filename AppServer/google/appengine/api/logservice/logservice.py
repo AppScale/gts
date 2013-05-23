@@ -32,18 +32,12 @@ programmatically access their request and application logs.
 
 import base64
 import cStringIO
-import httplib
 import os
 import re
 import sys
 import threading
 import time
 import warnings
-
-try:
-  import json
-except ImportError:
-  import simplejson as json
 
 from google.net.proto import ProtocolBuffer
 from google.appengine.api import api_base_pb
@@ -85,12 +79,9 @@ _MAJOR_VERSION_ID_PATTERN = r'^(?:(?:(%s):)?)(%s)$' % (SERVER_ID_RE_STRING,
 
 _MAJOR_VERSION_ID_RE = re.compile(_MAJOR_VERSION_ID_PATTERN)
 
+_REQUEST_ID_PATTERN = r'^[\da-fA-F]+$'
+_REQUEST_ID_RE = re.compile(_REQUEST_ID_PATTERN)
 
-# The file that the AppController writes the login node's public IP address to.
-LOGIN_IP_FILENAME = "/etc/appscale/login_ip"
-
-# The file that the AppController writes this machine's public IP address to.
-MY_PUBLIC_IP_FILENAME = "/etc/appscale/my_public_ip"
 
 class Error(Exception):
   """Base error class for this module."""
@@ -281,55 +272,10 @@ class LogsBuffer(object):
     """
     self._lock_and_call(self._flush)
 
-  def get_login_ip(self):
-    file_handle = open(LOGIN_IP_FILENAME, 'r')
-    host = file_handle.read()
-    file_handle.close()
-    if host[-1] == "\n":
-      return host[:-1]
-    else:
-      return host
-
-  def get_my_public_ip(self):
-    file_handle = open(MY_PUBLIC_IP_FILENAME, 'r')
-    host = file_handle.read()
-    file_handle.close()
-    if host[-1] == "\n":
-      return host[:-1]
-    else:
-      return host
-
   def _flush(self):
     """Internal version of flush() with no locking."""
-
     logs = self.parse_logs()
-
-    appid = os.environ['APPLICATION_ID']
-    if appid in ['apichecker', 'appscaledashboard']:
-      return
-
-    formatted_logs = [{'timestamp' : log[0] / 1e6, 'level' : log[1],
-      'message' : log[2]} for log in logs]
-
-    payload = json.dumps({
-      'service_name' : appid,
-      'host' : self.get_my_public_ip(),
-      'logs' : formatted_logs
-    })
-
-    conn = httplib.HTTPSConnection(self.get_login_ip() + ":443")
-    headers = {'Content-Type' : 'application/json'}
-    conn.request('POST', '/logs/upload', payload, headers)
-    response = conn.getresponse()
     self._clear()
-
-    # AppScale: This currently causes problems when we try to call API requests
-    # via new threads, so since we don't have support for the Logs API at the
-    # moment, this return prevents the Exception that would be thrown from
-    # occurring.
-    # TODO(cgb, nlake44): Revisit this problem when we do decide to implement
-    # the Logs API.
-    return
 
     first_iteration = True
     while logs or first_iteration:
@@ -530,8 +476,14 @@ class RequestLog(object):
     return 'RequestLog(\'%s\')' % base64.b64encode(self.__pb.Encode())
 
   def __str__(self):
-    return ('<RequestLog(app_id=%s, version_id=%s, request_id=%s)>' %
-            (self.app_id, self.version_id, base64.b64encode(self.request_id)))
+    if self.server_id == 'default':
+      return ('<RequestLog(app_id=%s, version_id=%s, request_id=%s)>' %
+              (self.app_id, self.version_id, base64.b64encode(self.request_id)))
+    else:
+      return ('<RequestLog(app_id=%s, server_id=%s, version_id=%s, '
+              'request_id=%s)>' %
+              (self.app_id, self.server_id, self.version_id,
+               base64.b64encode(self.request_id)))
 
   @property
   def _pb(self):
@@ -541,6 +493,11 @@ class RequestLog(object):
   def app_id(self):
     """Application id that handled this request, as a string."""
     return self.__pb.app_id()
+
+  @property
+  def server_id(self):
+    """Server id that handled this request, as a string."""
+    return self.__pb.server_id()
 
   @property
   def version_id(self):
@@ -804,6 +761,18 @@ class RequestLog(object):
                       for line in self.__pb.line_list()]
     return self.__lines
 
+  @property
+  def app_engine_release(self):
+    """App Engine Infrastructure release that served this request.
+
+    Returns:
+       A string containing App Engine version that served this request, or None
+       if not available.
+    """
+    if self.__pb.has_app_engine_release():
+      return self.__pb.app_engine_release()
+    return None
+
 
 class AppLog(object):
   """Application log line emitted while processing a request."""
@@ -847,15 +816,16 @@ def fetch(start_time=None,
           minimum_log_level=None,
           include_incomplete=False,
           include_app_logs=False,
+          server_versions=None,
           version_ids=None,
+          request_ids=None,
           **kwargs):
   """Returns an iterator yielding an application's request and application logs.
 
   Logs will be returned by the iterator in reverse chronological order by
   request end time, or by last flush time for requests still in progress (if
-  requested).  The items yielded are
-  google.appengine.api.logservice.log_service_pb.RequestLog protocol buffer
-  objects, the contents of which are accessible via method calls.
+  requested).  The items yielded are RequestLog objects, the contents of which
+  are accessible via method calls.
 
   All parameters are optional.
 
@@ -878,8 +848,21 @@ def fetch(start_time=None,
       not yet finished, as a boolean.  Defaults to False.
     include_app_logs: Whether or not to include application level logs in the
       results, as a boolean.  Defaults to False.
+    server_versions: A list of tuples of the form (server, version), that
+      indicate that the logs for the given server/version combination should be
+      fetched.  Duplicate tuples will be ignored.  This kwarg may not be used
+      in conjunction with the 'version_ids' kwarg.
     version_ids: A list of version ids whose logs should be queried against.
-      Defaults to the application's current version id only.
+      Defaults to the application's current version id only.  This kwarg may not
+      be used in conjunction with the 'server_versions' kwarg.
+    request_ids: If not None, indicates that instead of a time-based scan, logs
+      for the specified requests should be returned.  Malformed request IDs will
+      cause the entire request to be rejected, while any requests that are
+      unknown will be ignored. This option may not be combined with any
+      filtering options such as start_time, end_time, offset, or
+      minimum_log_level.  version_ids is ignored.  IDs that do not correspond to
+      a request log will be ignored.  Logs will be returned in the order
+      requested.
 
   Returns:
     An iterable object containing the logs that the user has queried for.
@@ -930,18 +913,59 @@ def fetch(start_time=None,
     raise InvalidArgumentError('include_app_logs must be a boolean')
   request.set_include_app_logs(include_app_logs)
 
-  if version_ids is None:
+  if version_ids and server_versions:
+    raise InvalidArgumentError('version_ids and server_versions may not be '
+                               'used at the same time.')
+
+  if version_ids is None and server_versions is None:
+
+
     version_id = os.environ['CURRENT_VERSION_ID']
-    version_ids = [version_id.split('.')[0]]
-  else:
+    request.add_server_version().set_version_id(version_id.split('.')[0])
+
+  if server_versions:
+    if not isinstance(server_versions, list):
+      raise InvalidArgumentError('server_versions must be a list')
+
+    req_server_versions = set()
+    for entry in server_versions:
+      if not isinstance(entry, (list, tuple)):
+        raise InvalidArgumentError('server_versions list entries must all be '
+                                   'tuples or lists.')
+      if len(entry) != 2:
+        raise InvalidArgumentError('server_versions list entries must all be '
+                                   'of length 2.')
+      req_server_versions.add((entry[0], entry[1]))
+
+    for server, version in sorted(req_server_versions):
+      req_server_version = request.add_server_version()
+
+
+      if server != 'default':
+        req_server_version.set_server_id(server)
+      req_server_version.set_version_id(version)
+
+  if version_ids:
     if not isinstance(version_ids, list):
       raise InvalidArgumentError('version_ids must be a list')
     for version_id in version_ids:
       if not _MAJOR_VERSION_ID_RE.match(version_id):
         raise InvalidArgumentError(
             'version_ids must only contain valid major version identifiers')
+      request.add_server_version().set_version_id(version_id)
 
-  request.version_id_list()[:] = version_ids
+  if request_ids is not None:
+    if not isinstance(request_ids, list):
+      raise InvalidArgumentError('request_ids must be a list')
+    if not request_ids:
+      raise InvalidArgumentError('request_ids must not be empty')
+    if len(request_ids) != len(set(request_ids)):
+      raise InvalidArgumentError('request_ids must not contain duplicates')
+    for request_id in request_ids:
+      if not _REQUEST_ID_RE.match(request_id):
+        raise InvalidArgumentError(
+            '%s is not a valid request log id' % request_id)
+    request.request_id_list()[:] = request_ids
 
   prototype_request = kwargs.get('prototype_request')
   if prototype_request:

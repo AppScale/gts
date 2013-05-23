@@ -31,8 +31,6 @@ import os
 import pickle
 import random
 import re
-import select
-import socket
 import sys
 import urllib
 
@@ -48,10 +46,7 @@ except ImportError:
 
 
 from google.appengine import dist
-try:
-  from google.appengine import dist27
-except ImportError:
-  dist27 = None
+from google.appengine import dist27 as dist27
 
 from google.appengine.api import appinfo
 
@@ -123,36 +118,6 @@ def FakeRename(src, dst):
 def FakeUTime(path, times):
   """Fake version of os.utime."""
   raise OSError(errno.EPERM, "Operation not permitted", path)
-
-
-def FakeGetHostByAddr(addr):
-  """Fake version of socket.gethostbyaddr."""
-  raise NotImplementedError()
-
-
-def FakeGetProtoByName(protocolname):
-  """Fake version of socket.getprotobyname."""
-  raise NotImplementedError()
-
-
-def FakeGetServByPort(portnumber, protocolname=None):
-  """Fake version of socket.getservbyport."""
-  raise NotImplementedError()
-
-
-def FakeGetNameInfo(sockaddr, flags):
-  """Fake version of socket.getnameinfo."""
-  raise NotImplementedError()
-
-
-def FakeSocketRecvInto(buf, nbytes=0, flags=0):
-  """Fake version of socket.socket.recvinto."""
-  raise NotImplementedError()
-
-
-def FakeSocketRecvFromInto(buffer, nbytes=0, flags=0):
-  """Fake version of socket.socket.recvfrom_into."""
-  raise NotImplementedError()
 
 
 def FakeGetPlatform():
@@ -267,6 +232,9 @@ class FakeFile(file):
   ALLOWED_FILES = set(os.path.normcase(filename)
                       for filename in mimetypes.knownfiles
                       if os.path.isfile(filename))
+
+
+  ALLOWED_FILES_RE = set([re.compile(r'.*/python27.zip$')])
 
 
 
@@ -603,6 +571,11 @@ class FakeFile(file):
     if logical_filename in FakeFile.ALLOWED_FILES:
       return True
 
+    for regex in FakeFile.ALLOWED_FILES_RE:
+      match = regex.match(logical_filename)
+      if match and match.end() == len(logical_filename):
+        return True
+
     if logical_filename in FakeFile.ALLOWED_SITE_PACKAGE_FILES:
       return True
 
@@ -776,6 +749,7 @@ class HardenedModulesHook(object):
       'MD2',
       'MD4',
       'RIPEMD',
+      'RIPEMD160',
       'SHA256',
       'XOR',
 
@@ -1062,131 +1036,6 @@ class HardenedModulesHook(object):
 
 
       'signal': [
-          'signal',#added by BDrawert on 2013.03.20
-          'alarm',  
-          'SIGALRM',
-      ],
-
-      'socket': [
-
-          '_GLOBAL_DEFAULT_TIMEOUT',
-
-
-          'AF_INET',
-
-          'SOCK_STREAM',
-          'SOCK_DGRAM',
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-          'error',
-          'gaierror',
-          'herror',
-          'timeout',
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-          'ssl',
-
-
-
-
-          '_fileobject',
-
-      ],
-
-      'select': [
-
-
-
-
-
       ],
 
       'ssl': [
@@ -1227,21 +1076,6 @@ class HardenedModulesHook(object):
           '__doc__': None,
       },
 
-      'socket': {
-          'ssl': None,
-
-
-
-
-
-
-
-
-
-
-
-      },
-
       'distutils.util': {
           'get_platform': FakeGetPlatform,
       },
@@ -1266,9 +1100,7 @@ class HardenedModulesHook(object):
                imp_module=imp,
                os_module=os,
                dummy_thread_module=dummy_thread,
-               pickle_module=pickle,
-               socket_module=socket,
-               select_module=select):
+               pickle_module=pickle):
     """Initializer.
 
     Args:
@@ -1287,10 +1119,6 @@ class HardenedModulesHook(object):
     self._os = os_module
     self._dummy_thread = dummy_thread_module
     self._pickle = pickle
-    self._socket = socket_module
-
-    self._socket.buffer = buffer
-    self._select = select_module
     self._indent_level = 0
     self._app_code_path = app_code_path
     self._white_list_c_modules = list(self._WHITE_LIST_C_MODULES)
@@ -1308,19 +1136,12 @@ class HardenedModulesHook(object):
         ['getpid', 'getuid', 'sys'])
 
 
-
-
-      self._white_list_partial_modules['socket'] = (
-        list(self._white_list_partial_modules['socket']) +
-        ['getdefaulttimeout', 'setdefaulttimeout'])
-
-
       for k in self._white_list_partial_modules.keys():
         if k.startswith('Crypto'):
           del self._white_list_partial_modules[k]
 
 
-      webob_path = os.path.join(SDK_ROOT, 'lib', 'webob_1_1_1')
+      webob_path = os.path.join(SDK_ROOT, 'lib', 'webob-1.1.1')
       if webob_path not in sys.path:
         sys.path.insert(1, webob_path)
 
@@ -1350,7 +1171,7 @@ class HardenedModulesHook(object):
                 sys.modules.pop('django', None)
             sitedir = os.path.join(SDK_ROOT,
                                    'lib',
-                                   'django_%s' % version.replace('.', '_'))
+                                   'django-%s' % version)
             if os.path.isdir(sitedir):
               logging.debug('Enabling Django version %s at %s',
                             version, sitedir)
@@ -1439,7 +1260,7 @@ class HardenedModulesHook(object):
     if name in sys.builtin_module_names:
       name = 'py_%s' % name
     if self._config and self._config.runtime == 'python27':
-      if dist27 is not None and name in dist27.MODULE_OVERRIDES:
+      if name in dist27.MODULE_OVERRIDES:
         return True
     else:
       if name in dist.__all__:
@@ -1456,7 +1277,7 @@ class HardenedModulesHook(object):
     if self._config and self._config.runtime == 'python27':
 
 
-      if dist27 is not None and name in dist27.__all__:
+      if name in dist27.__all__:
         providing_dist = dist27
     fullname = '%s.%s' % (providing_dist.__name__, name)
     __import__(fullname, {}, {})
@@ -1522,7 +1343,6 @@ class HardenedModulesHook(object):
 
 
       search_path = [None] + sys.path
-    search_path += ['/usr/local/lib/python2.6/dist-packages/lxml-3.1.0-py2.6-linux-x86_64.egg']
 
     py27_optional = False
     py27_enabled = False
@@ -1534,6 +1354,12 @@ class HardenedModulesHook(object):
       if topmodule in self.__PY27_OPTIONAL_ALLOWED_MODULES:
         py27_optional = True
         py27_enabled = topmodule in self._enabled_modules
+
+
+
+      elif topmodule == 'Crypto':
+        py27_optional = True
+        py27_enabled = 'pycrypto' in self._enabled_modules
 
 
 
@@ -1577,13 +1403,11 @@ class HardenedModulesHook(object):
 
 
               pkg_pathname = os.path.join(pkg_pathname, '__init__.py')
-            # AppScale: disables the whitelist and lets you import anything
-            # installed, as long as it's in your path
-            #if not FakeFile.IsFileAccessible(
-            #    pkg_pathname, py27_optional=py27_optional):
-            #  error_message = 'Access to module file denied: %s' % pathname
-            #  logging.debug(error_message)
-            #  raise ImportError(error_message)
+            if not FakeFile.IsFileAccessible(
+                pkg_pathname, py27_optional=py27_optional):
+              error_message = 'Access to module file denied: %s' % pathname
+              logging.debug(error_message)
+              raise ImportError(error_message)
 
           if (file_type not in self._ENABLED_FILE_TYPES and
               submodule not in self._white_list_c_modules):
@@ -1794,10 +1618,6 @@ class HardenedModulesHook(object):
       module.__name__ = 'cPickle'
     elif submodule_fullname == 'os':
       module.__dict__.update(self._os.__dict__)
-    elif submodule_fullname == 'socket':
-      module.__dict__.update(self._socket.__dict__)
-    elif submodule_fullname == 'select':
-      module.__dict__.update(self._select.__dict__)
     elif submodule_fullname == 'ssl':
       pass
     elif self.StubModuleExists(submodule_fullname):

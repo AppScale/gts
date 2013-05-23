@@ -28,9 +28,6 @@
               value="{{backup_name}}">
         </div>
       </div>
-      {% if has_namespace %}
-      <input type="hidden" name="namespace" value="{{namespace|escape}}">
-      {% endif %}
       <input type="hidden" name="xsrf_token" value="{{xsrf_token|escape}}">
 
       {% if notreadonly_warning %}
@@ -51,6 +48,13 @@
       backed up.</p>
       {% endif %}
 
+      <p>Selected namespace:
+        <select name="namespace">
+          {% for namespace in namespaces %}
+            <option value="{{ namespace.1 }}" {% if namespace.2 %}selected="selected"{% endif %}>{{ namespace.0 }}</option>
+          {% endfor %}
+        </select>
+      </p>
       <p>Operation will be performed using the selected queue:
         {% if queues %}
         <select name="queue">
@@ -76,7 +80,8 @@
         <tr style="display:none;" id="gs_bucket_tr">
           <td>
             Google Cloud Storage bucket name
-            (<a href="https://developers.google.com/appengine/docs/adminconsole/datastoreadmin#Backing-up-Data">More info?</a>):
+            (<a target="_blank"
+              href="https://developers.google.com/appengine/docs/adminconsole/datastoreadmin#Backup_And_Restore">More info?</a>):
             <input type="text" id="gs_bucket_name" name="gs_bucket_name" value="" />
           </td>
         </tr>

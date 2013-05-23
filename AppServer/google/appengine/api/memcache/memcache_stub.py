@@ -56,7 +56,7 @@ class CacheEntry(object):
       expiration: Number containing the expiration time or offset in seconds
         for this entry.
       flags: Opaque flags used by the memcache implementation.
-      cas_id: Unique Compare-And-Swap ID.
+      cas_id: Unique Compare-And-Set ID.
       gettime: Used for testing. Function that works like time.time().
     """
     assert isinstance(value, basestring)
@@ -130,8 +130,17 @@ class MemcacheServiceStub(apiproxy_stub.APIProxyStub):
 
     self._the_cache = {}
 
+
+
+
+
+
   def _ResetStats(self):
-    """Resets statistics information."""
+    """Resets statistics information.
+
+    Must be called while the current thread holds self._mutex (with an exception
+    for __init__).
+    """
 
     self._hits = 0
     self._misses = 0
@@ -139,6 +148,7 @@ class MemcacheServiceStub(apiproxy_stub.APIProxyStub):
 
     self._cache_creation_time = self._gettime()
 
+  @apiproxy_stub.Synchronized
   def _GetKey(self, namespace, key):
     """Retrieves a CacheEntry from the cache if it hasn't expired.
 
@@ -164,6 +174,7 @@ class MemcacheServiceStub(apiproxy_stub.APIProxyStub):
     else:
       return entry
 
+  @apiproxy_stub.Synchronized
   def _Dynamic_Get(self, request, response):
     """Implementation of MemcacheService::Get().
 
@@ -187,6 +198,7 @@ class MemcacheServiceStub(apiproxy_stub.APIProxyStub):
       if request.for_cas():
         item.set_cas_id(entry.cas_id)
 
+  @apiproxy_stub.Synchronized
   def _Dynamic_Set(self, request, response):
     """Implementation of MemcacheService::Set().
 
@@ -211,8 +223,7 @@ class MemcacheServiceStub(apiproxy_stub.APIProxyStub):
             or not old_entry.CheckLocked()):
           set_status = MemcacheSetResponse.STORED
 
-      elif (set_policy == MemcacheSetRequest.CAS and item.for_cas() and
-            item.has_cas_id()):
+      elif (set_policy == MemcacheSetRequest.CAS and item.has_cas_id()):
         if old_entry is None or old_entry.CheckLocked():
           set_status = MemcacheSetResponse.NOT_STORED
         elif old_entry.cas_id != item.cas_id():
@@ -232,6 +243,7 @@ class MemcacheServiceStub(apiproxy_stub.APIProxyStub):
 
       response.add_set_status(set_status)
 
+  @apiproxy_stub.Synchronized
   def _Dynamic_Delete(self, request, response):
     """Implementation of MemcacheService::Delete().
 
@@ -255,6 +267,7 @@ class MemcacheServiceStub(apiproxy_stub.APIProxyStub):
 
       response.add_delete_status(delete_status)
 
+  @apiproxy_stub.Synchronized
   def _internal_increment(self, namespace, request):
     """Internal function for incrementing from a MemcacheIncrementRequest.
 
@@ -268,7 +281,7 @@ class MemcacheServiceStub(apiproxy_stub.APIProxyStub):
     """
     key = request.key()
     entry = self._GetKey(namespace, key)
-    if entry is None:
+    if entry is None or entry.CheckLocked():
       if not request.has_initial_value():
         return None
       if namespace not in self._the_cache:
@@ -322,6 +335,7 @@ class MemcacheServiceStub(apiproxy_stub.APIProxyStub):
           memcache_service_pb.MemcacheServiceError.UNSPECIFIED_ERROR)
     response.set_new_value(new_value)
 
+  @apiproxy_stub.Synchronized
   def _Dynamic_BatchIncrement(self, request, response):
     """Implementation of MemcacheService::BatchIncrement().
 
@@ -339,6 +353,7 @@ class MemcacheServiceStub(apiproxy_stub.APIProxyStub):
         item.set_increment_status(MemcacheIncrementResponse.OK)
         item.set_new_value(new_value)
 
+  @apiproxy_stub.Synchronized
   def _Dynamic_FlushAll(self, request, response):
     """Implementation of MemcacheService::FlushAll().
 
@@ -349,6 +364,7 @@ class MemcacheServiceStub(apiproxy_stub.APIProxyStub):
     self._the_cache.clear()
     self._ResetStats()
 
+  @apiproxy_stub.Synchronized
   def _Dynamic_Stats(self, request, response):
     """Implementation of MemcacheService::Stats().
 

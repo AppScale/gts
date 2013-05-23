@@ -45,7 +45,11 @@ from google.appengine.runtime import apiproxy_errors
 
 
 
-MAXIMUM_CLIENT_ID_LENGTH = 64
+
+MAXIMUM_CLIENT_ID_LENGTH = 256
+
+
+MAXIMUM_TOKEN_DURATION_MINUTES = 24 * 60
 
 
 
@@ -63,8 +67,16 @@ class InvalidChannelClientIdError(Error):
   """Error that indicates a bad client id."""
 
 
+class InvalidChannelTokenDurationError(Error):
+  """Error that indicates the requested duration is invalid."""
+
+
 class InvalidMessageError(Error):
   """Error that indicates a message is malformed."""
+
+
+class AppIdAliasRequired(Error):
+  """Error that indicates you must assign an application alias to your app."""
 
 
 def _ToChannelError(error):
@@ -79,9 +91,11 @@ def _ToChannelError(error):
   """
   error_map = {
       channel_service_pb.ChannelServiceError.INVALID_CHANNEL_KEY:
-      InvalidChannelClientIdError,
+        InvalidChannelClientIdError,
       channel_service_pb.ChannelServiceError.BAD_MESSAGE:
-      InvalidMessageError,
+        InvalidMessageError,
+      channel_service_pb.ChannelServiceError.APPID_ALIAS_REQUIRED:
+        AppIdAliasRequired
       }
 
   if error.application_error in error_map:
@@ -92,14 +106,18 @@ def _ToChannelError(error):
 
 def _GetService():
   """Gets the service name to use, based on if we're on the dev server."""
-  if os.environ.get('SERVER_SOFTWARE', '').startswith('Devel'):
+  server_software = os.environ.get('SERVER_SOFTWARE', '')
+  if (server_software.startswith('Devel') or
+      server_software.startswith('test')):
+
+
     return 'channel'
   else:
     return 'xmpp'
 
 
 def _ValidateClientId(client_id):
-  """Valides a client id.
+  """Validates a client id.
 
   Args:
     client_id: The client id provided by the application.
@@ -112,23 +130,29 @@ def _ValidateClientId(client_id):
     InvalidChannelClientIdError: if client id is not an instance of str or
         unicode, or if the (utf-8 encoded) string is longer than 64 characters.
   """
+  if not isinstance(client_id, basestring):
+    raise InvalidChannelClientIdError('"%s" is not a string.' % client_id)
+
   if isinstance(client_id, unicode):
     client_id = client_id.encode('utf-8')
-  elif not isinstance(client_id, str):
-    raise InvalidChannelClientIdError
+
 
   if len(client_id) > MAXIMUM_CLIENT_ID_LENGTH:
-    raise InvalidChannelClientIdError
+    msg = 'Client id length %d is greater than max length %d' % (
+         len(client_id), MAXIMUM_CLIENT_ID_LENGTH)
+    raise InvalidChannelClientIdError(msg)
 
   return client_id
 
 
 
-def create_channel(client_id):
+def create_channel(client_id, duration_minutes=None):
   """Create a channel.
 
   Args:
     client_id: A string to identify this channel on the server side.
+    duration_minutes: An int specifying the number of minutes for which the
+        returned token should be valid.
 
   Returns:
     A token that the client can use to connect to the channel.
@@ -136,16 +160,33 @@ def create_channel(client_id):
   Raises:
     InvalidChannelClientIdError: if clientid is not an instance of str or
         unicode, or if the (utf-8 encoded) string is longer than 64 characters.
+    InvalidChannelTokenDurationError: if duration_minutes is not a number, less
+        than 1, or greater than 1440 (the number of minutes in a day).
     Other errors returned by _ToChannelError
   """
 
 
   client_id = _ValidateClientId(client_id)
 
+  if not duration_minutes is None:
+    if not isinstance(duration_minutes, (int, long)):
+      raise InvalidChannelTokenDurationError(
+         'Argument duration_minutes must be integral')
+    elif duration_minutes < 1:
+      raise InvalidChannelTokenDurationError(
+         'Argument duration_minutes must not be less than 1')
+    elif duration_minutes > MAXIMUM_TOKEN_DURATION_MINUTES:
+      msg = ('Argument duration_minutes must be less than %d'
+             % (MAXIMUM_TOKEN_DURATION_MINUTES + 1))
+      raise InvalidChannelTokenDurationError(msg)
+
+
   request = channel_service_pb.CreateChannelRequest()
   response = channel_service_pb.CreateChannelResponse()
 
   request.set_application_key(client_id)
+  if not duration_minutes is None:
+    request.set_duration_minutes(duration_minutes)
 
   try:
     apiproxy_stub_map.MakeSyncCall(_GetService(),
@@ -178,10 +219,11 @@ def send_message(client_id, message):
   if isinstance(message, unicode):
     message = message.encode('utf-8')
   elif not isinstance(message, str):
-    raise InvalidMessageError
+    raise InvalidMessageError('Message must be a string')
 
   if len(message) > MAXIMUM_MESSAGE_LENGTH:
-    raise InvalidMessageError
+    raise InvalidMessageError(
+        'Message must be no longer than %d chars' % MAXIMUM_MESSAGE_LENGTH)
 
   request = channel_service_pb.SendMessageRequest()
   response = api_base_pb.VoidProto()

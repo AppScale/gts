@@ -28,6 +28,7 @@ capabilities.
 """
 
 import logging
+import operator
 import os
 import urllib
 
@@ -58,6 +59,54 @@ class ServerAlreadyStartedError(Error):
 
 class ServerAlreadyStoppedError(Error):
   """The server is already stopped."""
+
+
+class BackgroundThreadLimitReachedError(Error):
+  """The instance is at its background thread capacity."""
+
+
+
+
+
+
+
+class ResponseTuple(tuple):
+  'ResponseTuple(status, headers, content)'
+
+  __slots__ = ()
+
+  _fields = ('status', 'headers', 'content')
+
+  def __new__(cls, status, headers, content):
+    return tuple.__new__(cls, (status, headers, content))
+
+  @classmethod
+  def _make(cls, iterable, new=tuple.__new__, len=len):
+    result = new(cls, iterable)
+    if len(result) != 3:
+      raise TypeError('Expected 3 arguments, got %d' % len(result))
+    return result
+
+  def __repr__(self):
+    return 'ResponseTuple(status=%r, headers=%r, content=%r)' % self
+
+  def _asdict(self):
+    return dict(zip(self._fields, self))
+
+  __dict__ = property(_asdict)
+
+  def _replace(self, **kwds):
+    result = self._make(map(kwds.pop, ('status', 'headers', 'content'), self))
+    if kwds:
+      raise ValueError('Got unexpected field names: %r' % kwds.keys())
+    return result
+
+  def __getnewargs__(self):
+    return tuple(self)
+
+  status = property(operator.itemgetter(0), doc='Alias for field number 0')
+  headers = property(operator.itemgetter(1), doc='Alias for field number 1')
+  content = property(operator.itemgetter(2), doc='Alias for field number 2')
 
 
 class Dispatcher(object):
@@ -203,8 +252,32 @@ class Dispatcher(object):
     """
     raise NotImplementedError()
 
+  def add_request(self, method, relative_url, headers, body, source_ip,
+                  server_name=None, version=None, instance_id=None):
+    """Process an HTTP request.
+
+    Args:
+      method: A str containing the HTTP method of the request.
+      relative_url: A str containing path and query string of the request.
+      headers: A list of (key, value) tuples where key and value are both str.
+      body: A str containing the request body.
+      source_ip: The source ip address for the request.
+      server_name: An optional str containing the server name to service this
+          request. If unset, the request will be dispatched to the default
+          server.
+      version: An optional str containing the version to service this request.
+          If unset, the request will be dispatched to the default version.
+      instance_id: An optional str containing the instance_id of the instance to
+          service this request. If unset, the request will be dispatched to
+          according to the load-balancing for the server and version.
+
+    Returns:
+      A ResponseTuple containing the response information for the HTTP request.
+    """
+    raise NotImplementedError()
+
   def add_async_request(self, method, relative_url, headers, body, source_ip,
-                        port, server_name=None, version=None, instance_id=None):
+                        server_name=None, version=None, instance_id=None):
     """Dispatch an HTTP request asynchronously.
 
     Args:
@@ -213,7 +286,6 @@ class Dispatcher(object):
       headers: A list of (key, value) tuples where key and value are both str.
       body: A str containing the request body.
       source_ip: The source ip address for the request.
-      port: The port that will receive the request.
       server_name: An optional str containing the server name to service this
           request. If unset, the request will be dispatched to the default
           server.
@@ -225,6 +297,25 @@ class Dispatcher(object):
     """
     raise NotImplementedError()
 
+  def send_background_request(self, server_name, version, instance,
+                              background_request_id):
+    """Dispatch a background thread request.
+
+    Args:
+      server_name: A str containing the server name to service this
+          request.
+      version: A str containing the version to service this request.
+      instance: The instance to service this request.
+      background_request_id: A str containing the unique background thread
+          request identifier.
+
+    Raises:
+      NotSupportedWithAutoScalingError: The provided server/version uses
+          automatic scaling.
+      BackgroundThreadLimitReachedError: The instance is at its background
+          thread capacity.
+    """
+    raise NotImplementedError()
 
 
 
@@ -425,8 +516,34 @@ class _LocalFakeDispatcher(Dispatcher):
     logging.warning('Scheduled events are not supported with '
                     '_LocalFakeDispatcher')
 
+  def add_request(self, method, relative_url, headers, body, source_ip,
+                  server_name=None, version=None, instance_id=None):
+    """Process an HTTP request.
+
+    Args:
+      method: A str containing the HTTP method of the request.
+      relative_url: A str containing path and query string of the request.
+      headers: A list of (key, value) tuples where key and value are both str.
+      body: A str containing the request body.
+      source_ip: The source ip address for the request.
+      server_name: An optional str containing the server name to service this
+          request. If unset, the request will be dispatched to the default
+          server.
+      version: An optional str containing the version to service this request.
+          If unset, the request will be dispatched to the default version.
+      instance_id: An optional str containing the instance_id of the instance to
+          service this request. If unset, the request will be dispatched to
+          according to the load-balancing for the server and version.
+
+    Returns:
+      A ResponseTuple containing the response information for the HTTP request.
+    """
+    logging.warning('Request dispatching is not supported with '
+                    '_LocalFakeDispatcher')
+    return ResponseTuple('501 Not Implemented', [], '')
+
   def add_async_request(self, method, relative_url, headers, body, source_ip,
-                        port, server_name=None, version=None, instance_id=None):
+                        server_name=None, version=None, instance_id=None):
     """Dispatch an HTTP request asynchronously.
 
     Args:
@@ -435,7 +552,6 @@ class _LocalFakeDispatcher(Dispatcher):
       headers: A list of (key, value) tuples where key and value are both str.
       body: A str containing the request body.
       source_ip: The source ip address for the request.
-      port: The port that will receive the request.
       server_name: An optional str containing the server name to service this
           request. If unset, the request will be dispatched to the default
           server.
@@ -447,6 +563,28 @@ class _LocalFakeDispatcher(Dispatcher):
     """
     logging.warning('Request dispatching is not supported with '
                     '_LocalFakeDispatcher')
+
+  def send_background_request(self, server_name, version, instance,
+                              background_request_id):
+    """Dispatch a background thread request.
+
+    Args:
+      server_name: A str containing the server name to service this
+          request.
+      version: A str containing the version to service this request.
+      instance: The instance to service this request.
+      background_request_id: A str containing the unique background thread
+          request identifier.
+
+    Raises:
+      NotSupportedWithAutoScalingError: The provided server/version uses
+          automatic scaling.
+      BackgroundThreadLimitReachedError: The instance is at its background
+          thread capacity.
+    """
+    logging.warning('Request dispatching is not supported with '
+                    '_LocalFakeDispatcher')
+    raise BackgroundThreadLimitReachedError()
 
 _local_dispatcher = _LocalFakeDispatcher()
 
@@ -463,6 +601,10 @@ class RequestInfo(object):
     Returns:
       The URL of the request as a string.
     """
+    raise NotImplementedError()
+
+  def get_request_environ(self, request_id):
+    """Returns a dict containing the WSGI environ for the request."""
     raise NotImplementedError()
 
   def get_server(self, request_id):
@@ -487,14 +629,15 @@ class RequestInfo(object):
     """
     raise NotImplementedError()
 
-  def get_instance_id(self, request_id):
-    """Returns the ID of the instance serving this request.
+  def get_instance(self, request_id):
+    """Returns the instance serving this request.
 
     Args:
       request_id: The string id of the request making the API call.
 
     Returns:
-      A str containing the instance ID.
+      An opaque representation of the instance serving this request. It should
+      only be passed to dispatcher methods expecting an instance.
     """
     raise NotImplementedError()
 
@@ -532,6 +675,10 @@ class _LocalRequestInfo(RequestInfo):
       url += '?' + os.environ['QUERY_STRING']
     return url
 
+  def get_request_environ(self, request_id):
+    """Returns a dict containing the WSGI environ for the request."""
+    return os.environ
+
   def get_server(self, request_id):
     """Returns the name of the server serving this request.
 
@@ -554,16 +701,17 @@ class _LocalRequestInfo(RequestInfo):
     """
     return '1'
 
-  def get_instance_id(self, request_id):
-    """Returns the ID of the instance serving this request.
+  def get_instance(self, request_id):
+    """Returns the instance serving this request.
 
     Args:
       request_id: The string id of the request making the API call.
 
     Returns:
-      A str containing the instance ID.
+      An opaque representation of the instance serving this request. It should
+      only be passed to dispatcher methods expecting an instance.
     """
-    return '0'
+    return object()
 
   def get_dispatcher(self):
     """Returns the Dispatcher.
