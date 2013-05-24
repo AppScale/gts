@@ -955,8 +955,14 @@ class ZKTransaction:
         self.run_with_retry(self.handle.create_async,
           PATH_SEPARATOR.join([blacklist_root, str(txid)]), now, ZOO_ACL_OPEN)
 
+        children = []
+        try:
+          children = self.run_with_retry(self.handle.get_children, txpath)
+        except kazoo.exceptions.NoNodeError:
+          pass
+
         # Copy valid transaction ID for each updated key into valid list.
-        for child in self.run_with_retry(self.handle.get_children, txpath):
+        for child in children:
           if re.match("^" + TX_UPDATEDKEY_PREFIX, child):
             value = self.run_with_retry(self.handle.get,
               PATH_SEPARATOR.join([txpath, child]))[0]
@@ -985,6 +991,7 @@ class ZKTransaction:
         self.run_with_retry(self.handle.delete_async,
           PATH_SEPARATOR.join([txpath, item]))
         self.run_with_retry(self.handle.delete_async, txpath)
+
     except ZKInternalException as zk_exception:
       logging.exception(zk_exception)
       return False
