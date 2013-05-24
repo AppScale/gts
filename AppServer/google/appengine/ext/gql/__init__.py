@@ -36,6 +36,7 @@ data stored.
 
 import calendar
 import datetime
+import itertools
 import logging
 import re
 import time
@@ -102,12 +103,13 @@ class GQL(object):
 
   The syntax for SELECT is fairly straightforward:
 
-  SELECT [* | __key__ ] [FROM <entity>]
+  SELECT [[DISTINCT] <property> [, <property> ...] | * | __key__ ]
+    [FROM <entity>]
     [WHERE <condition> [AND <condition> ...]]
     [ORDER BY <property> [ASC | DESC] [, <property> [ASC | DESC] ...]]
     [LIMIT [<offset>,]<count>]
     [OFFSET <offset>]
-    [HINT (ORDER_FIRST | HINT FILTER_FIRST | HINT ANCESTOR_FIRST)]
+    [HINT (ORDER_FIRST | FILTER_FIRST | ANCESTOR_FIRST)]
     [;]
 
   <condition> := <property> {< | <= | > | >= | = | != | IN} <value>
@@ -208,6 +210,18 @@ class GQL(object):
 
 
 
+
+
+
+  RESERVED_KEYWORDS = (frozenset(('SELECT', 'DISTINCT', 'FROM', 'WHERE', 'IN',
+                                  'ANCESTOR', 'IS', 'AND', 'OR', 'NOT', 'ORDER',
+                                  'BY', 'ASC', 'DESC', 'GROUP', 'LIMIT',
+                                  'OFFSET', 'HINT', 'ORDER_FIRST',
+                                  'FILTER_FIRST', 'ANCESTOR_FIRST')),
+                       frozenset())
+
+
+
   MAX_ALLOWABLE_QUERIES = datastore.MAX_ALLOWABLE_QUERIES
 
 
@@ -219,6 +233,7 @@ class GQL(object):
   _kind = None
   _keys_only = False
   __projection = None
+  __distinct = False
   __has_ancestor = False
   __offset = -1
   __limit = -1
@@ -240,11 +255,6 @@ class GQL(object):
       datastore_errors.BadQueryError: if the query is not parsable.
     """
 
-
-    self.__filters = {}
-
-    self.__orderings = []
-
     self.__app = _app
 
     self.__namespace = namespace
@@ -253,11 +263,39 @@ class GQL(object):
 
 
     self.__symbols = self.TOKENIZE_REGEX.findall(query_string)
-    self.__next_symbol = 0
-    if not self.__Select():
+    initial_error = None
+    for backwards_compatibility_mode in xrange(len(self.RESERVED_KEYWORDS)):
+      self.__InitializeParseState()
+      self.__active_reserved_words = self.__GenerateReservedWords(
+          backwards_compatibility_mode)
+      try:
+        self.__Select()
+      except datastore_errors.BadQueryError, error:
+        logging.log(LOG_LEVEL, initial_error)
+        if not initial_error:
+          initial_error = error
+      else:
+        break
+    else:
+      raise initial_error
 
-      raise datastore_errors.BadQueryError(
-          'Unable to parse query')
+  def __InitializeParseState(self):
+
+    self._kind = None
+    self._keys_only = False
+    self.__projection = None
+    self.__distinct = False
+    self.__has_ancestor = False
+    self.__offset = -1
+    self.__limit = -1
+    self.__hint = ''
+
+
+
+    self.__filters = {}
+
+    self.__orderings = []
+    self.__next_symbol = 0
 
   def Bind(self, args, keyword_args, cursor=None, end_cursor=None):
     """Bind the existing query to the argument list.
@@ -296,16 +334,17 @@ class GQL(object):
                                      _app=self.__app,
                                      keys_only=self._keys_only,
                                      projection=self.__projection,
+                                     distinct=self.__distinct,
                                      namespace=self.__namespace,
                                      cursor=cursor,
                                      end_cursor=end_cursor))
 
     logging.log(LOG_LEVEL,
-                'Binding with %i positional args %s and %i keywords %s'
-                , len(args), args, len(keyword_args), keyword_args)
+                'Binding with %i positional args %s and %i keywords %s',
+                len(args), args, len(keyword_args), keyword_args)
 
-    for ((identifier, condition), value_list) in self.__filters.iteritems():
-      for (operator, params) in value_list:
+    for (identifier, condition), value_list in self.__filters.iteritems():
+      for operator, params in value_list:
         value = self.__Operate(args, keyword_args, used_args, operator, params)
         if not self.__IsMultiQuery(condition):
           for query in queries:
@@ -321,9 +360,7 @@ class GQL(object):
 
 
     if enumerated_queries:
-      logging.log(LOG_LEVEL,
-                  'Multiple Queries Bound: %s',
-                  enumerated_queries)
+      logging.log(LOG_LEVEL, 'Multiple Queries Bound: %s', enumerated_queries)
 
 
 
@@ -365,8 +402,8 @@ class GQL(object):
     enumerated_queries = []
 
 
-    for ((identifier, condition), value_list) in self.__filters.iteritems():
-      for (operator, params) in value_list:
+    for (identifier, condition), value_list in self.__filters.iteritems():
+      for operator, params in value_list:
         value = self.__Operate(args, keyword_args, used_args, operator, params)
         self.__AddMultiQuery(identifier, condition, value, enumerated_queries)
 
@@ -819,6 +856,10 @@ class GQL(object):
     """Returns the tuple of properties in the projection, or None."""
     return self.__projection
 
+  def is_distinct(self):
+    """Returns True if this query is marked as distinct."""
+    return self.__distinct
+
   def kind(self):
     return self._kind
 
@@ -952,6 +993,9 @@ class GQL(object):
       True if parsing completed okay.
     """
     self.__Expect('SELECT')
+    if ('DISTINCT' in self.__active_reserved_words
+        and self.__Accept('DISTINCT')):
+      self.__distinct = True
     if not self.__Accept('*'):
       props = [self.__ExpectIdentifier()]
       while self.__Accept(','):
@@ -1144,7 +1188,11 @@ class GQL(object):
     """
     logging.log(LOG_LEVEL, 'Try Identifier')
     identifier = self.__AcceptRegex(self.__identifier_regex)
-    if not identifier:
+    if identifier:
+      if identifier.upper() in self.__active_reserved_words:
+        self.__next_symbol -= 1
+        self.__Error('Identifier is a reserved keyword')
+    else:
 
 
       identifier = self.__AcceptRegex(self.__quoted_identifier_regex)
@@ -1384,6 +1432,9 @@ class GQL(object):
       else:
         self.__Error('Unknown HINT')
     return self.__AcceptTerminal()
+
+  def __GenerateReservedWords(self, level):
+    return frozenset(itertools.chain(*self.RESERVED_KEYWORDS[level:]))
 
 
 

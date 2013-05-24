@@ -208,7 +208,7 @@ class WsgiRequest(object):
         logging.error('', exc_info=exc_info)
       except runtime.DeadlineExceededError:
 
-        logging.exception('Deadline exception ocurred while logging a '
+        logging.exception('Deadline exception occurred while logging a '
                           'deadline exception.')
 
 

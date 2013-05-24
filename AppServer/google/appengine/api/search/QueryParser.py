@@ -35,63 +35,58 @@ HIDDEN = BaseRecognizer.HIDDEN
 
 
 FUNCTION=7
-LT=19
-EXPONENT=37
-LETTER=42
-OCTAL_ESC=46
+LT=17
+GEO_POINT_FN=29
+FIX=30
+ESC=34
 FUZZY=8
-FLOAT=27
-NAME_START=39
-NOT=34
-AND=32
+OCTAL_ESC=36
+NOT=27
+AND=25
+DISTANCE_FN=28
 EOF=-1
-LPAREN=25
-WORD=15
-HAS=24
-RPAREN=26
-NAME=29
-ESC_SEQ=38
+ESCAPED_CHAR=40
+LPAREN=23
+HAS=22
+RPAREN=24
+QUOTE=33
+CHAR_SEQ=37
+START_CHAR=41
 ARGS=4
-DIGIT=35
-EQ=23
-DOT=36
-NE=22
-GE=20
-T__47=47
-T__48=48
-T__49=49
+DIGIT=38
+EQ=21
+NE=20
+T__43=43
+GE=18
+T__44=44
+T__45=45
 CONJUNCTION=5
-UNICODE_ESC=45
-NAME_MID=40
-NUMBER=12
-HEX_DIGIT=44
-UNDERSCORE=43
-LITERAL=9
-INT=28
-VALUE=16
-TEXT=31
-PHRASE=30
-RESTRICTION=13
+UNICODE_ESC=35
+HEX_DIGIT=42
+LITERAL=10
+VALUE=14
+TEXT=32
+REWRITE=31
+SEQUENCE=13
 DISJUNCTION=6
-WS=17
-NEGATION=10
-NEG=41
-OR=33
-GT=21
-GLOBAL=11
-LE=18
-STRING=14
+WS=15
+NEGATION=11
+OR=26
+GT=19
+GLOBAL=9
+LE=16
+MID_CHAR=39
+STRING=12
 
 
 tokenNames = [
     "<invalid>", "<EOR>", "<DOWN>", "<UP>",
-    "ARGS", "CONJUNCTION", "DISJUNCTION", "FUNCTION", "FUZZY", "LITERAL",
-    "NEGATION", "GLOBAL", "NUMBER", "RESTRICTION", "STRING", "WORD", "VALUE",
-    "WS", "LE", "LT", "GE", "GT", "NE", "EQ", "HAS", "LPAREN", "RPAREN",
-    "FLOAT", "INT", "NAME", "PHRASE", "TEXT", "AND", "OR", "NOT", "DIGIT",
-    "DOT", "EXPONENT", "ESC_SEQ", "NAME_START", "NAME_MID", "NEG", "LETTER",
-    "UNDERSCORE", "HEX_DIGIT", "UNICODE_ESC", "OCTAL_ESC", "'+'", "'~'",
-    "','"
+    "ARGS", "CONJUNCTION", "DISJUNCTION", "FUNCTION", "FUZZY", "GLOBAL",
+    "LITERAL", "NEGATION", "STRING", "SEQUENCE", "VALUE", "WS", "LE", "LT",
+    "GE", "GT", "NE", "EQ", "HAS", "LPAREN", "RPAREN", "AND", "OR", "NOT",
+    "DISTANCE_FN", "GEO_POINT_FN", "FIX", "REWRITE", "TEXT", "QUOTE", "ESC",
+    "UNICODE_ESC", "OCTAL_ESC", "CHAR_SEQ", "DIGIT", "MID_CHAR", "ESCAPED_CHAR",
+    "START_CHAR", "HEX_DIGIT", "'-'", "','", "'\\\\'"
 ]
 
 
@@ -110,26 +105,26 @@ class QueryParser(Parser):
         Parser.__init__(self, input, state)
 
 
-        self.dfa2 = self.DFA2(
-            self, 2,
-            eot = self.DFA2_eot,
-            eof = self.DFA2_eof,
-            min = self.DFA2_min,
-            max = self.DFA2_max,
-            accept = self.DFA2_accept,
-            special = self.DFA2_special,
-            transition = self.DFA2_transition
+        self.dfa3 = self.DFA3(
+            self, 3,
+            eot = self.DFA3_eot,
+            eof = self.DFA3_eof,
+            min = self.DFA3_min,
+            max = self.DFA3_max,
+            accept = self.DFA3_accept,
+            special = self.DFA3_special,
+            transition = self.DFA3_transition
             )
 
-        self.dfa4 = self.DFA4(
-            self, 4,
-            eot = self.DFA4_eot,
-            eof = self.DFA4_eof,
-            min = self.DFA4_min,
-            max = self.DFA4_max,
-            accept = self.DFA4_accept,
-            special = self.DFA4_special,
-            transition = self.DFA4_transition
+        self.dfa5 = self.DFA5(
+            self, 5,
+            eot = self.DFA5_eot,
+            eof = self.DFA5_eof,
+            min = self.DFA5_min,
+            max = self.DFA5_max,
+            accept = self.DFA5_accept,
+            special = self.DFA5_special,
+            transition = self.DFA5_transition
             )
 
         self.dfa6 = self.DFA6(
@@ -141,6 +136,17 @@ class QueryParser(Parser):
             accept = self.DFA6_accept,
             special = self.DFA6_special,
             transition = self.DFA6_transition
+            )
+
+        self.dfa8 = self.DFA8(
+            self, 8,
+            eot = self.DFA8_eot,
+            eof = self.DFA8_eof,
+            min = self.DFA8_min,
+            max = self.DFA8_max,
+            accept = self.DFA8_accept,
+            special = self.DFA8_special,
+            transition = self.DFA8_transition
             )
 
 
@@ -180,29 +186,93 @@ class QueryParser(Parser):
 
         root_0 = None
 
-        EOF2 = None
-        expression1 = None
+        WS1 = None
+        WS3 = None
+        EOF4 = None
+        expression2 = None
 
 
-        EOF2_tree = None
-
+        WS1_tree = None
+        WS3_tree = None
+        EOF4_tree = None
+        stream_WS = RewriteRuleTokenStream(self._adaptor, "token WS")
+        stream_EOF = RewriteRuleTokenStream(self._adaptor, "token EOF")
+        stream_expression = RewriteRuleSubtreeStream(self._adaptor, "rule expression")
         try:
             try:
 
 
                 pass
-                root_0 = self._adaptor.nil()
 
-                self._state.following.append(self.FOLLOW_expression_in_query122)
-                expression1 = self.expression()
+                while True:
+                    alt1 = 2
+                    LA1_0 = self.input.LA(1)
+
+                    if (LA1_0 == WS) :
+                        alt1 = 1
+
+
+                    if alt1 == 1:
+
+                        pass
+                        WS1=self.match(self.input, WS, self.FOLLOW_WS_in_query116)
+                        stream_WS.add(WS1)
+
+
+                    else:
+                        break
+
+
+                self._state.following.append(self.FOLLOW_expression_in_query119)
+                expression2 = self.expression()
 
                 self._state.following.pop()
-                self._adaptor.addChild(root_0, expression1.tree)
-                EOF2=self.match(self.input, EOF, self.FOLLOW_EOF_in_query124)
+                stream_expression.add(expression2.tree)
 
-                EOF2_tree = self._adaptor.createWithPayload(EOF2)
-                self._adaptor.addChild(root_0, EOF2_tree)
+                while True:
+                    alt2 = 2
+                    LA2_0 = self.input.LA(1)
 
+                    if (LA2_0 == WS) :
+                        alt2 = 1
+
+
+                    if alt2 == 1:
+
+                        pass
+                        WS3=self.match(self.input, WS, self.FOLLOW_WS_in_query121)
+                        stream_WS.add(WS3)
+
+
+                    else:
+                        break
+
+
+                EOF4=self.match(self.input, EOF, self.FOLLOW_EOF_in_query124)
+                stream_EOF.add(EOF4)
+
+
+
+
+
+
+
+
+                retval.tree = root_0
+
+                if retval is not None:
+                    stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", retval.tree)
+                else:
+                    stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", None)
+
+
+                root_0 = self._adaptor.nil()
+
+                self._adaptor.addChild(root_0, stream_expression.nextTree())
+
+
+
+                retval.tree = root_0
 
 
 
@@ -243,87 +313,42 @@ class QueryParser(Parser):
 
         root_0 = None
 
-        WS3 = None
-        WS7 = None
-        factor4 = None
+        sequence5 = None
 
-        andOp5 = None
+        andOp6 = None
 
-        factor6 = None
+        sequence7 = None
 
 
-        WS3_tree = None
-        WS7_tree = None
-        stream_WS = RewriteRuleTokenStream(self._adaptor, "token WS")
-        stream_factor = RewriteRuleSubtreeStream(self._adaptor, "rule factor")
+        stream_sequence = RewriteRuleSubtreeStream(self._adaptor, "rule sequence")
         stream_andOp = RewriteRuleSubtreeStream(self._adaptor, "rule andOp")
         try:
             try:
 
 
                 pass
-
-                while True:
-                    alt1 = 2
-                    LA1_0 = self.input.LA(1)
-
-                    if (LA1_0 == WS) :
-                        alt1 = 1
-
-
-                    if alt1 == 1:
-
-                        pass
-                        WS3=self.match(self.input, WS, self.FOLLOW_WS_in_expression142)
-                        stream_WS.add(WS3)
-
-
-                    else:
-                        break
-
-
-                self._state.following.append(self.FOLLOW_factor_in_expression145)
-                factor4 = self.factor()
+                self._state.following.append(self.FOLLOW_sequence_in_expression143)
+                sequence5 = self.sequence()
 
                 self._state.following.pop()
-                stream_factor.add(factor4.tree)
-
-                while True:
-                    alt2 = 2
-                    alt2 = self.dfa2.predict(self.input)
-                    if alt2 == 1:
-
-                        pass
-                        self._state.following.append(self.FOLLOW_andOp_in_expression148)
-                        andOp5 = self.andOp()
-
-                        self._state.following.pop()
-                        stream_andOp.add(andOp5.tree)
-                        self._state.following.append(self.FOLLOW_factor_in_expression150)
-                        factor6 = self.factor()
-
-                        self._state.following.pop()
-                        stream_factor.add(factor6.tree)
-
-
-                    else:
-                        break
-
-
+                stream_sequence.add(sequence5.tree)
 
                 while True:
                     alt3 = 2
-                    LA3_0 = self.input.LA(1)
-
-                    if (LA3_0 == WS) :
-                        alt3 = 1
-
-
+                    alt3 = self.dfa3.predict(self.input)
                     if alt3 == 1:
 
                         pass
-                        WS7=self.match(self.input, WS, self.FOLLOW_WS_in_expression154)
-                        stream_WS.add(WS7)
+                        self._state.following.append(self.FOLLOW_andOp_in_expression146)
+                        andOp6 = self.andOp()
+
+                        self._state.following.pop()
+                        stream_andOp.add(andOp6.tree)
+                        self._state.following.append(self.FOLLOW_sequence_in_expression148)
+                        sequence7 = self.sequence()
+
+                        self._state.following.pop()
+                        stream_sequence.add(sequence7.tree)
 
 
                     else:
@@ -351,6 +376,147 @@ class QueryParser(Parser):
 
                 root_1 = self._adaptor.nil()
                 root_1 = self._adaptor.becomeRoot(self._adaptor.createFromType(CONJUNCTION, "CONJUNCTION"), root_1)
+
+
+                if not (stream_sequence.hasNext()):
+                    raise RewriteEarlyExitException()
+
+                while stream_sequence.hasNext():
+                    self._adaptor.addChild(root_1, stream_sequence.nextTree())
+
+
+                stream_sequence.reset()
+
+                self._adaptor.addChild(root_0, root_1)
+
+
+
+                retval.tree = root_0
+
+
+
+                retval.stop = self.input.LT(-1)
+
+
+                retval.tree = self._adaptor.rulePostProcessing(root_0)
+                self._adaptor.setTokenBoundaries(retval.tree, retval.start, retval.stop)
+
+
+            except RecognitionException, re:
+                self.reportError(re)
+                self.recover(self.input, re)
+                retval.tree = self._adaptor.errorNode(self.input, retval.start, self.input.LT(-1), re)
+        finally:
+
+            pass
+
+        return retval
+
+
+
+    class sequence_return(ParserRuleReturnScope):
+        def __init__(self):
+            ParserRuleReturnScope.__init__(self)
+
+            self.tree = None
+
+
+
+
+
+
+    def sequence(self, ):
+
+        retval = self.sequence_return()
+        retval.start = self.input.LT(1)
+
+        root_0 = None
+
+        WS9 = None
+        factor8 = None
+
+        factor10 = None
+
+
+        WS9_tree = None
+        stream_WS = RewriteRuleTokenStream(self._adaptor, "token WS")
+        stream_factor = RewriteRuleSubtreeStream(self._adaptor, "rule factor")
+        try:
+            try:
+
+
+                pass
+                self._state.following.append(self.FOLLOW_factor_in_sequence174)
+                factor8 = self.factor()
+
+                self._state.following.pop()
+                stream_factor.add(factor8.tree)
+
+                while True:
+                    alt5 = 2
+                    alt5 = self.dfa5.predict(self.input)
+                    if alt5 == 1:
+
+                        pass
+
+                        cnt4 = 0
+                        while True:
+                            alt4 = 2
+                            LA4_0 = self.input.LA(1)
+
+                            if (LA4_0 == WS) :
+                                alt4 = 1
+
+
+                            if alt4 == 1:
+
+                                pass
+                                WS9=self.match(self.input, WS, self.FOLLOW_WS_in_sequence177)
+                                stream_WS.add(WS9)
+
+
+                            else:
+                                if cnt4 >= 1:
+                                    break
+
+                                eee = EarlyExitException(4, self.input)
+                                raise eee
+
+                            cnt4 += 1
+
+
+                        self._state.following.append(self.FOLLOW_factor_in_sequence180)
+                        factor10 = self.factor()
+
+                        self._state.following.pop()
+                        stream_factor.add(factor10.tree)
+
+
+                    else:
+                        break
+
+
+
+
+
+
+
+
+
+
+                retval.tree = root_0
+
+                if retval is not None:
+                    stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", retval.tree)
+                else:
+                    stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", None)
+
+
+                root_0 = self._adaptor.nil()
+
+
+                root_1 = self._adaptor.nil()
+                root_1 = self._adaptor.becomeRoot(self._adaptor.createFromType(SEQUENCE, "SEQUENCE"), root_1)
 
 
                 if not (stream_factor.hasNext()):
@@ -407,11 +573,11 @@ class QueryParser(Parser):
 
         root_0 = None
 
-        term8 = None
+        term11 = None
 
-        orOp9 = None
+        orOp12 = None
 
-        term10 = None
+        term13 = None
 
 
         stream_orOp = RewriteRuleSubtreeStream(self._adaptor, "rule orOp")
@@ -421,28 +587,28 @@ class QueryParser(Parser):
 
 
                 pass
-                self._state.following.append(self.FOLLOW_term_in_factor181)
-                term8 = self.term()
+                self._state.following.append(self.FOLLOW_term_in_factor206)
+                term11 = self.term()
 
                 self._state.following.pop()
-                stream_term.add(term8.tree)
+                stream_term.add(term11.tree)
 
                 while True:
-                    alt4 = 2
-                    alt4 = self.dfa4.predict(self.input)
-                    if alt4 == 1:
+                    alt6 = 2
+                    alt6 = self.dfa6.predict(self.input)
+                    if alt6 == 1:
 
                         pass
-                        self._state.following.append(self.FOLLOW_orOp_in_factor184)
-                        orOp9 = self.orOp()
+                        self._state.following.append(self.FOLLOW_orOp_in_factor209)
+                        orOp12 = self.orOp()
 
                         self._state.following.pop()
-                        stream_orOp.add(orOp9.tree)
-                        self._state.following.append(self.FOLLOW_term_in_factor186)
-                        term10 = self.term()
+                        stream_orOp.add(orOp12.tree)
+                        self._state.following.append(self.FOLLOW_term_in_factor211)
+                        term13 = self.term()
 
                         self._state.following.pop()
-                        stream_term.add(term10.tree)
+                        stream_term.add(term13.tree)
 
 
                     else:
@@ -526,11 +692,11 @@ class QueryParser(Parser):
 
         root_0 = None
 
-        notOp11 = None
+        notOp14 = None
 
-        primitive12 = None
+        primitive15 = None
 
-        primitive13 = None
+        primitive16 = None
 
 
         stream_notOp = RewriteRuleSubtreeStream(self._adaptor, "rule notOp")
@@ -538,31 +704,31 @@ class QueryParser(Parser):
         try:
             try:
 
-                alt5 = 2
-                LA5_0 = self.input.LA(1)
+                alt7 = 2
+                LA7_0 = self.input.LA(1)
 
-                if (LA5_0 == NOT or LA5_0 == NEG) :
-                    alt5 = 1
-                elif (LA5_0 == LPAREN or (FLOAT <= LA5_0 <= TEXT) or (47 <= LA5_0 <= 48)) :
-                    alt5 = 2
+                if (LA7_0 == NOT or LA7_0 == 43) :
+                    alt7 = 1
+                elif (LA7_0 == LPAREN or (DISTANCE_FN <= LA7_0 <= QUOTE)) :
+                    alt7 = 2
                 else:
-                    nvae = NoViableAltException("", 5, 0, self.input)
+                    nvae = NoViableAltException("", 7, 0, self.input)
 
                     raise nvae
 
-                if alt5 == 1:
+                if alt7 == 1:
 
                     pass
-                    self._state.following.append(self.FOLLOW_notOp_in_term215)
-                    notOp11 = self.notOp()
+                    self._state.following.append(self.FOLLOW_notOp_in_term235)
+                    notOp14 = self.notOp()
 
                     self._state.following.pop()
-                    stream_notOp.add(notOp11.tree)
-                    self._state.following.append(self.FOLLOW_primitive_in_term217)
-                    primitive12 = self.primitive()
+                    stream_notOp.add(notOp14.tree)
+                    self._state.following.append(self.FOLLOW_primitive_in_term237)
+                    primitive15 = self.primitive()
 
                     self._state.following.pop()
-                    stream_primitive.add(primitive12.tree)
+                    stream_primitive.add(primitive15.tree)
 
 
 
@@ -594,16 +760,16 @@ class QueryParser(Parser):
                     retval.tree = root_0
 
 
-                elif alt5 == 2:
+                elif alt7 == 2:
 
                     pass
                     root_0 = self._adaptor.nil()
 
-                    self._state.following.append(self.FOLLOW_primitive_in_term231)
-                    primitive13 = self.primitive()
+                    self._state.following.append(self.FOLLOW_primitive_in_term251)
+                    primitive16 = self.primitive()
 
                     self._state.following.pop()
-                    self._adaptor.addChild(root_0, primitive13.tree)
+                    self._adaptor.addChild(root_0, primitive16.tree)
 
 
                 retval.stop = self.input.LT(-1)
@@ -643,37 +809,51 @@ class QueryParser(Parser):
 
         root_0 = None
 
-        restrict14 = None
+        restrict17 = None
 
-        atom15 = None
+        composite18 = None
+
+        item19 = None
 
 
-        stream_atom = RewriteRuleSubtreeStream(self._adaptor, "rule atom")
+        stream_item = RewriteRuleSubtreeStream(self._adaptor, "rule item")
         try:
             try:
 
-                alt6 = 2
-                alt6 = self.dfa6.predict(self.input)
-                if alt6 == 1:
+                alt8 = 3
+                alt8 = self.dfa8.predict(self.input)
+                if alt8 == 1:
 
                     pass
                     root_0 = self._adaptor.nil()
 
-                    self._state.following.append(self.FOLLOW_restrict_in_primitive250)
-                    restrict14 = self.restrict()
+                    self._state.following.append(self.FOLLOW_restrict_in_primitive267)
+                    restrict17 = self.restrict()
 
                     self._state.following.pop()
-                    self._adaptor.addChild(root_0, restrict14.tree)
+                    self._adaptor.addChild(root_0, restrict17.tree)
 
 
-                elif alt6 == 2:
+                elif alt8 == 2:
 
                     pass
-                    self._state.following.append(self.FOLLOW_atom_in_primitive256)
-                    atom15 = self.atom()
+                    root_0 = self._adaptor.nil()
+
+                    self._state.following.append(self.FOLLOW_composite_in_primitive273)
+                    composite18 = self.composite()
 
                     self._state.following.pop()
-                    stream_atom.add(atom15.tree)
+                    self._adaptor.addChild(root_0, composite18.tree)
+
+
+                elif alt8 == 3:
+
+                    pass
+                    self._state.following.append(self.FOLLOW_item_in_primitive279)
+                    item19 = self.item()
+
+                    self._state.following.pop()
+                    stream_item.add(item19.tree)
 
 
 
@@ -694,16 +874,10 @@ class QueryParser(Parser):
 
 
                     root_1 = self._adaptor.nil()
-                    root_1 = self._adaptor.becomeRoot(self._adaptor.createFromType(RESTRICTION, "RESTRICTION"), root_1)
+                    root_1 = self._adaptor.becomeRoot(self._adaptor.createFromType(HAS, "HAS"), root_1)
 
                     self._adaptor.addChild(root_1, self._adaptor.createFromType(GLOBAL, "GLOBAL"))
-
-                    root_2 = self._adaptor.nil()
-                    root_2 = self._adaptor.becomeRoot(self._adaptor.createFromType(EQ, "EQ"), root_2)
-
-                    self._adaptor.addChild(root_2, stream_atom.nextTree())
-
-                    self._adaptor.addChild(root_1, root_2)
+                    self._adaptor.addChild(root_1, stream_item.nextTree())
 
                     self._adaptor.addChild(root_0, root_1)
 
@@ -749,36 +923,36 @@ class QueryParser(Parser):
 
         root_0 = None
 
-        simple16 = None
+        comparable20 = None
 
-        comparator17 = None
+        comparator21 = None
 
-        atom18 = None
+        arg22 = None
 
 
-        stream_atom = RewriteRuleSubtreeStream(self._adaptor, "rule atom")
-        stream_simple = RewriteRuleSubtreeStream(self._adaptor, "rule simple")
+        stream_arg = RewriteRuleSubtreeStream(self._adaptor, "rule arg")
+        stream_comparable = RewriteRuleSubtreeStream(self._adaptor, "rule comparable")
         stream_comparator = RewriteRuleSubtreeStream(self._adaptor, "rule comparator")
         try:
             try:
 
 
                 pass
-                self._state.following.append(self.FOLLOW_simple_in_restrict283)
-                simple16 = self.simple()
+                self._state.following.append(self.FOLLOW_comparable_in_restrict305)
+                comparable20 = self.comparable()
 
                 self._state.following.pop()
-                stream_simple.add(simple16.tree)
-                self._state.following.append(self.FOLLOW_comparator_in_restrict285)
-                comparator17 = self.comparator()
+                stream_comparable.add(comparable20.tree)
+                self._state.following.append(self.FOLLOW_comparator_in_restrict307)
+                comparator21 = self.comparator()
 
                 self._state.following.pop()
-                stream_comparator.add(comparator17.tree)
-                self._state.following.append(self.FOLLOW_atom_in_restrict287)
-                atom18 = self.atom()
+                stream_comparator.add(comparator21.tree)
+                self._state.following.append(self.FOLLOW_arg_in_restrict309)
+                arg22 = self.arg()
 
                 self._state.following.pop()
-                stream_atom.add(atom18.tree)
+                stream_arg.add(arg22.tree)
 
 
 
@@ -799,16 +973,10 @@ class QueryParser(Parser):
 
 
                 root_1 = self._adaptor.nil()
-                root_1 = self._adaptor.becomeRoot(self._adaptor.createFromType(RESTRICTION, "RESTRICTION"), root_1)
+                root_1 = self._adaptor.becomeRoot(stream_comparator.nextNode(), root_1)
 
-                self._adaptor.addChild(root_1, stream_simple.nextTree())
-
-                root_2 = self._adaptor.nil()
-                root_2 = self._adaptor.becomeRoot(stream_comparator.nextNode(), root_2)
-
-                self._adaptor.addChild(root_2, stream_atom.nextTree())
-
-                self._adaptor.addChild(root_1, root_2)
+                self._adaptor.addChild(root_1, stream_comparable.nextTree())
+                self._adaptor.addChild(root_1, stream_arg.nextTree())
 
                 self._adaptor.addChild(root_0, root_1)
 
@@ -856,12 +1024,12 @@ class QueryParser(Parser):
         root_0 = None
 
         x = None
-        WS19 = None
-        WS20 = None
+        WS23 = None
+        WS24 = None
 
         x_tree = None
-        WS19_tree = None
-        WS20_tree = None
+        WS23_tree = None
+        WS24_tree = None
         stream_HAS = RewriteRuleTokenStream(self._adaptor, "token HAS")
         stream_GE = RewriteRuleTokenStream(self._adaptor, "token GE")
         stream_GT = RewriteRuleTokenStream(self._adaptor, "token GT")
@@ -878,98 +1046,6 @@ class QueryParser(Parser):
                 pass
 
                 while True:
-                    alt7 = 2
-                    LA7_0 = self.input.LA(1)
-
-                    if (LA7_0 == WS) :
-                        alt7 = 1
-
-
-                    if alt7 == 1:
-
-                        pass
-                        WS19=self.match(self.input, WS, self.FOLLOW_WS_in_comparator314)
-                        stream_WS.add(WS19)
-
-
-                    else:
-                        break
-
-
-
-                alt8 = 7
-                LA8 = self.input.LA(1)
-                if LA8 == LE:
-                    alt8 = 1
-                elif LA8 == LT:
-                    alt8 = 2
-                elif LA8 == GE:
-                    alt8 = 3
-                elif LA8 == GT:
-                    alt8 = 4
-                elif LA8 == NE:
-                    alt8 = 5
-                elif LA8 == EQ:
-                    alt8 = 6
-                elif LA8 == HAS:
-                    alt8 = 7
-                else:
-                    nvae = NoViableAltException("", 8, 0, self.input)
-
-                    raise nvae
-
-                if alt8 == 1:
-
-                    pass
-                    x=self.match(self.input, LE, self.FOLLOW_LE_in_comparator320)
-                    stream_LE.add(x)
-
-
-                elif alt8 == 2:
-
-                    pass
-                    x=self.match(self.input, LT, self.FOLLOW_LT_in_comparator326)
-                    stream_LT.add(x)
-
-
-                elif alt8 == 3:
-
-                    pass
-                    x=self.match(self.input, GE, self.FOLLOW_GE_in_comparator332)
-                    stream_GE.add(x)
-
-
-                elif alt8 == 4:
-
-                    pass
-                    x=self.match(self.input, GT, self.FOLLOW_GT_in_comparator338)
-                    stream_GT.add(x)
-
-
-                elif alt8 == 5:
-
-                    pass
-                    x=self.match(self.input, NE, self.FOLLOW_NE_in_comparator344)
-                    stream_NE.add(x)
-
-
-                elif alt8 == 6:
-
-                    pass
-                    x=self.match(self.input, EQ, self.FOLLOW_EQ_in_comparator350)
-                    stream_EQ.add(x)
-
-
-                elif alt8 == 7:
-
-                    pass
-                    x=self.match(self.input, HAS, self.FOLLOW_HAS_in_comparator356)
-                    stream_HAS.add(x)
-
-
-
-
-                while True:
                     alt9 = 2
                     LA9_0 = self.input.LA(1)
 
@@ -980,8 +1056,100 @@ class QueryParser(Parser):
                     if alt9 == 1:
 
                         pass
-                        WS20=self.match(self.input, WS, self.FOLLOW_WS_in_comparator359)
-                        stream_WS.add(WS20)
+                        WS23=self.match(self.input, WS, self.FOLLOW_WS_in_comparator333)
+                        stream_WS.add(WS23)
+
+
+                    else:
+                        break
+
+
+
+                alt10 = 7
+                LA10 = self.input.LA(1)
+                if LA10 == LE:
+                    alt10 = 1
+                elif LA10 == LT:
+                    alt10 = 2
+                elif LA10 == GE:
+                    alt10 = 3
+                elif LA10 == GT:
+                    alt10 = 4
+                elif LA10 == NE:
+                    alt10 = 5
+                elif LA10 == EQ:
+                    alt10 = 6
+                elif LA10 == HAS:
+                    alt10 = 7
+                else:
+                    nvae = NoViableAltException("", 10, 0, self.input)
+
+                    raise nvae
+
+                if alt10 == 1:
+
+                    pass
+                    x=self.match(self.input, LE, self.FOLLOW_LE_in_comparator339)
+                    stream_LE.add(x)
+
+
+                elif alt10 == 2:
+
+                    pass
+                    x=self.match(self.input, LT, self.FOLLOW_LT_in_comparator345)
+                    stream_LT.add(x)
+
+
+                elif alt10 == 3:
+
+                    pass
+                    x=self.match(self.input, GE, self.FOLLOW_GE_in_comparator351)
+                    stream_GE.add(x)
+
+
+                elif alt10 == 4:
+
+                    pass
+                    x=self.match(self.input, GT, self.FOLLOW_GT_in_comparator357)
+                    stream_GT.add(x)
+
+
+                elif alt10 == 5:
+
+                    pass
+                    x=self.match(self.input, NE, self.FOLLOW_NE_in_comparator363)
+                    stream_NE.add(x)
+
+
+                elif alt10 == 6:
+
+                    pass
+                    x=self.match(self.input, EQ, self.FOLLOW_EQ_in_comparator369)
+                    stream_EQ.add(x)
+
+
+                elif alt10 == 7:
+
+                    pass
+                    x=self.match(self.input, HAS, self.FOLLOW_HAS_in_comparator375)
+                    stream_HAS.add(x)
+
+
+
+
+                while True:
+                    alt11 = 2
+                    LA11_0 = self.input.LA(1)
+
+                    if (LA11_0 == WS) :
+                        alt11 = 1
+
+
+                    if alt11 == 1:
+
+                        pass
+                        WS24=self.match(self.input, WS, self.FOLLOW_WS_in_comparator378)
+                        stream_WS.add(WS24)
 
 
                     else:
@@ -1034,7 +1202,7 @@ class QueryParser(Parser):
 
 
 
-    class atom_return(ParserRuleReturnScope):
+    class comparable_return(ParserRuleReturnScope):
         def __init__(self):
             ParserRuleReturnScope.__init__(self)
 
@@ -1045,317 +1213,39 @@ class QueryParser(Parser):
 
 
 
-    def atom(self, ):
+    def comparable(self, ):
 
-        retval = self.atom_return()
+        retval = self.comparable_return()
         retval.start = self.input.LT(1)
 
         root_0 = None
 
-        LPAREN22 = None
-        RPAREN24 = None
-        value21 = None
+        item25 = None
 
-        expression23 = None
-
-
-        LPAREN22_tree = None
-        RPAREN24_tree = None
-        stream_RPAREN = RewriteRuleTokenStream(self._adaptor, "token RPAREN")
-        stream_LPAREN = RewriteRuleTokenStream(self._adaptor, "token LPAREN")
-        stream_expression = RewriteRuleSubtreeStream(self._adaptor, "rule expression")
-        try:
-            try:
-
-                alt10 = 2
-                LA10_0 = self.input.LA(1)
-
-                if ((FLOAT <= LA10_0 <= TEXT) or (47 <= LA10_0 <= 48)) :
-                    alt10 = 1
-                elif (LA10_0 == LPAREN) :
-                    alt10 = 2
-                else:
-                    nvae = NoViableAltException("", 10, 0, self.input)
-
-                    raise nvae
-
-                if alt10 == 1:
-
-                    pass
-                    root_0 = self._adaptor.nil()
-
-                    self._state.following.append(self.FOLLOW_value_in_atom378)
-                    value21 = self.value()
-
-                    self._state.following.pop()
-                    self._adaptor.addChild(root_0, value21.tree)
-
-
-                elif alt10 == 2:
-
-                    pass
-                    LPAREN22=self.match(self.input, LPAREN, self.FOLLOW_LPAREN_in_atom384)
-                    stream_LPAREN.add(LPAREN22)
-                    self._state.following.append(self.FOLLOW_expression_in_atom386)
-                    expression23 = self.expression()
-
-                    self._state.following.pop()
-                    stream_expression.add(expression23.tree)
-                    RPAREN24=self.match(self.input, RPAREN, self.FOLLOW_RPAREN_in_atom388)
-                    stream_RPAREN.add(RPAREN24)
-
-
-
-
-
-
-
-
-                    retval.tree = root_0
-
-                    if retval is not None:
-                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", retval.tree)
-                    else:
-                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", None)
-
-
-                    root_0 = self._adaptor.nil()
-
-                    self._adaptor.addChild(root_0, stream_expression.nextTree())
-
-
-
-                    retval.tree = root_0
-
-
-                retval.stop = self.input.LT(-1)
-
-
-                retval.tree = self._adaptor.rulePostProcessing(root_0)
-                self._adaptor.setTokenBoundaries(retval.tree, retval.start, retval.stop)
-
-
-            except RecognitionException, re:
-                self.reportError(re)
-                self.recover(self.input, re)
-                retval.tree = self._adaptor.errorNode(self.input, retval.start, self.input.LT(-1), re)
-        finally:
-
-            pass
-
-        return retval
-
-
-
-    class value_return(ParserRuleReturnScope):
-        def __init__(self):
-            ParserRuleReturnScope.__init__(self)
-
-            self.tree = None
-
-
-
-
-
-
-    def value(self, ):
-
-        retval = self.value_return()
-        retval.start = self.input.LT(1)
-
-        root_0 = None
-
-        text_value25 = None
-
-        numeric_value26 = None
-
-
-        stream_numeric_value = RewriteRuleSubtreeStream(self._adaptor, "rule numeric_value")
-        try:
-            try:
-
-                alt11 = 2
-                LA11_0 = self.input.LA(1)
-
-                if ((NAME <= LA11_0 <= TEXT) or (47 <= LA11_0 <= 48)) :
-                    alt11 = 1
-                elif ((FLOAT <= LA11_0 <= INT)) :
-                    alt11 = 2
-                else:
-                    nvae = NoViableAltException("", 11, 0, self.input)
-
-                    raise nvae
-
-                if alt11 == 1:
-
-                    pass
-                    root_0 = self._adaptor.nil()
-
-                    self._state.following.append(self.FOLLOW_text_value_in_value405)
-                    text_value25 = self.text_value()
-
-                    self._state.following.pop()
-                    self._adaptor.addChild(root_0, text_value25.tree)
-
-
-                elif alt11 == 2:
-
-                    pass
-                    self._state.following.append(self.FOLLOW_numeric_value_in_value411)
-                    numeric_value26 = self.numeric_value()
-
-                    self._state.following.pop()
-                    stream_numeric_value.add(numeric_value26.tree)
-
-
-
-
-
-
-
-
-                    retval.tree = root_0
-
-                    if retval is not None:
-                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", retval.tree)
-                    else:
-                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", None)
-
-
-                    root_0 = self._adaptor.nil()
-
-
-                    root_1 = self._adaptor.nil()
-                    root_1 = self._adaptor.becomeRoot(self._adaptor.createFromType(VALUE, "VALUE"), root_1)
-
-                    self._adaptor.addChild(root_1, self._adaptor.createFromType(NUMBER, "NUMBER"))
-                    self._adaptor.addChild(root_1, stream_numeric_value.nextTree())
-
-                    self._adaptor.addChild(root_0, root_1)
-
-
-
-                    retval.tree = root_0
-
-
-                retval.stop = self.input.LT(-1)
-
-
-                retval.tree = self._adaptor.rulePostProcessing(root_0)
-                self._adaptor.setTokenBoundaries(retval.tree, retval.start, retval.stop)
-
-
-            except RecognitionException, re:
-                self.reportError(re)
-                self.recover(self.input, re)
-                retval.tree = self._adaptor.errorNode(self.input, retval.start, self.input.LT(-1), re)
-        finally:
-
-            pass
-
-        return retval
-
-
-
-    class numeric_value_return(ParserRuleReturnScope):
-        def __init__(self):
-            ParserRuleReturnScope.__init__(self)
-
-            self.tree = None
-
-
-
-
-
-
-    def numeric_value(self, ):
-
-        retval = self.numeric_value_return()
-        retval.start = self.input.LT(1)
-
-        root_0 = None
-
-        set27 = None
-
-        set27_tree = None
-
-        try:
-            try:
-
-
-                pass
-                root_0 = self._adaptor.nil()
-
-                set27 = self.input.LT(1)
-                if (FLOAT <= self.input.LA(1) <= INT):
-                    self.input.consume()
-                    self._adaptor.addChild(root_0, self._adaptor.createWithPayload(set27))
-                    self._state.errorRecovery = False
-
-                else:
-                    mse = MismatchedSetException(None, self.input)
-                    raise mse
-
-
-
-
-
-                retval.stop = self.input.LT(-1)
-
-
-                retval.tree = self._adaptor.rulePostProcessing(root_0)
-                self._adaptor.setTokenBoundaries(retval.tree, retval.start, retval.stop)
-
-
-            except RecognitionException, re:
-                self.reportError(re)
-                self.recover(self.input, re)
-                retval.tree = self._adaptor.errorNode(self.input, retval.start, self.input.LT(-1), re)
-        finally:
-
-            pass
-
-        return retval
-
-
-
-    class text_value_return(ParserRuleReturnScope):
-        def __init__(self):
-            ParserRuleReturnScope.__init__(self)
-
-            self.tree = None
-
-
-
-
-
-
-    def text_value(self, ):
-
-        retval = self.text_value_return()
-        retval.start = self.input.LT(1)
-
-        root_0 = None
-
-        literal_text28 = None
-
-        rewritable_text29 = None
-
-        text30 = None
+        function26 = None
 
 
 
         try:
             try:
 
-                alt12 = 3
-                LA12 = self.input.LA(1)
-                if LA12 == 47:
+                alt12 = 2
+                LA12_0 = self.input.LA(1)
+
+                if ((FIX <= LA12_0 <= QUOTE)) :
                     alt12 = 1
-                elif LA12 == 48:
-                    alt12 = 2
-                elif LA12 == NAME or LA12 == PHRASE or LA12 == TEXT:
-                    alt12 = 3
+                elif ((DISTANCE_FN <= LA12_0 <= GEO_POINT_FN)) :
+                    LA12_2 = self.input.LA(2)
+
+                    if ((WS <= LA12_2 <= HAS)) :
+                        alt12 = 1
+                    elif (LA12_2 == LPAREN) :
+                        alt12 = 2
+                    else:
+                        nvae = NoViableAltException("", 12, 2, self.input)
+
+                        raise nvae
+
                 else:
                     nvae = NoViableAltException("", 12, 0, self.input)
 
@@ -1366,11 +1256,11 @@ class QueryParser(Parser):
                     pass
                     root_0 = self._adaptor.nil()
 
-                    self._state.following.append(self.FOLLOW_literal_text_in_text_value453)
-                    literal_text28 = self.literal_text()
+                    self._state.following.append(self.FOLLOW_item_in_comparable400)
+                    item25 = self.item()
 
                     self._state.following.pop()
-                    self._adaptor.addChild(root_0, literal_text28.tree)
+                    self._adaptor.addChild(root_0, item25.tree)
 
 
                 elif alt12 == 2:
@@ -1378,523 +1268,11 @@ class QueryParser(Parser):
                     pass
                     root_0 = self._adaptor.nil()
 
-                    self._state.following.append(self.FOLLOW_rewritable_text_in_text_value459)
-                    rewritable_text29 = self.rewritable_text()
+                    self._state.following.append(self.FOLLOW_function_in_comparable406)
+                    function26 = self.function()
 
                     self._state.following.pop()
-                    self._adaptor.addChild(root_0, rewritable_text29.tree)
-
-
-                elif alt12 == 3:
-
-                    pass
-                    root_0 = self._adaptor.nil()
-
-                    self._state.following.append(self.FOLLOW_text_in_text_value465)
-                    text30 = self.text()
-
-                    self._state.following.pop()
-                    self._adaptor.addChild(root_0, text30.tree)
-
-
-                retval.stop = self.input.LT(-1)
-
-
-                retval.tree = self._adaptor.rulePostProcessing(root_0)
-                self._adaptor.setTokenBoundaries(retval.tree, retval.start, retval.stop)
-
-
-            except RecognitionException, re:
-                self.reportError(re)
-                self.recover(self.input, re)
-                retval.tree = self._adaptor.errorNode(self.input, retval.start, self.input.LT(-1), re)
-        finally:
-
-            pass
-
-        return retval
-
-
-
-    class literal_text_return(ParserRuleReturnScope):
-        def __init__(self):
-            ParserRuleReturnScope.__init__(self)
-
-            self.tree = None
-
-
-
-
-
-
-    def literal_text(self, ):
-
-        retval = self.literal_text_return()
-        retval.start = self.input.LT(1)
-
-        root_0 = None
-
-        char_literal31 = None
-        text32 = None
-
-
-        char_literal31_tree = None
-        stream_47 = RewriteRuleTokenStream(self._adaptor, "token 47")
-        stream_text = RewriteRuleSubtreeStream(self._adaptor, "rule text")
-        try:
-            try:
-
-
-                pass
-                char_literal31=self.match(self.input, 47, self.FOLLOW_47_in_literal_text478)
-                stream_47.add(char_literal31)
-                self._state.following.append(self.FOLLOW_text_in_literal_text480)
-                text32 = self.text()
-
-                self._state.following.pop()
-                stream_text.add(text32.tree)
-
-
-
-
-
-
-
-
-                retval.tree = root_0
-
-                if retval is not None:
-                    stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", retval.tree)
-                else:
-                    stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", None)
-
-
-                root_0 = self._adaptor.nil()
-
-
-                root_1 = self._adaptor.nil()
-                root_1 = self._adaptor.becomeRoot(self._adaptor.createFromType(LITERAL, "LITERAL"), root_1)
-
-                self._adaptor.addChild(root_1, stream_text.nextTree())
-
-                self._adaptor.addChild(root_0, root_1)
-
-
-
-                retval.tree = root_0
-
-
-
-                retval.stop = self.input.LT(-1)
-
-
-                retval.tree = self._adaptor.rulePostProcessing(root_0)
-                self._adaptor.setTokenBoundaries(retval.tree, retval.start, retval.stop)
-
-
-            except RecognitionException, re:
-                self.reportError(re)
-                self.recover(self.input, re)
-                retval.tree = self._adaptor.errorNode(self.input, retval.start, self.input.LT(-1), re)
-        finally:
-
-            pass
-
-        return retval
-
-
-
-    class rewritable_text_return(ParserRuleReturnScope):
-        def __init__(self):
-            ParserRuleReturnScope.__init__(self)
-
-            self.tree = None
-
-
-
-
-
-
-    def rewritable_text(self, ):
-
-        retval = self.rewritable_text_return()
-        retval.start = self.input.LT(1)
-
-        root_0 = None
-
-        char_literal33 = None
-        text34 = None
-
-
-        char_literal33_tree = None
-        stream_48 = RewriteRuleTokenStream(self._adaptor, "token 48")
-        stream_text = RewriteRuleSubtreeStream(self._adaptor, "rule text")
-        try:
-            try:
-
-
-                pass
-                char_literal33=self.match(self.input, 48, self.FOLLOW_48_in_rewritable_text500)
-                stream_48.add(char_literal33)
-                self._state.following.append(self.FOLLOW_text_in_rewritable_text502)
-                text34 = self.text()
-
-                self._state.following.pop()
-                stream_text.add(text34.tree)
-
-
-
-
-
-
-
-
-                retval.tree = root_0
-
-                if retval is not None:
-                    stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", retval.tree)
-                else:
-                    stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", None)
-
-
-                root_0 = self._adaptor.nil()
-
-
-                root_1 = self._adaptor.nil()
-                root_1 = self._adaptor.becomeRoot(self._adaptor.createFromType(FUZZY, "FUZZY"), root_1)
-
-                self._adaptor.addChild(root_1, stream_text.nextTree())
-
-                self._adaptor.addChild(root_0, root_1)
-
-
-
-                retval.tree = root_0
-
-
-
-                retval.stop = self.input.LT(-1)
-
-
-                retval.tree = self._adaptor.rulePostProcessing(root_0)
-                self._adaptor.setTokenBoundaries(retval.tree, retval.start, retval.stop)
-
-
-            except RecognitionException, re:
-                self.reportError(re)
-                self.recover(self.input, re)
-                retval.tree = self._adaptor.errorNode(self.input, retval.start, self.input.LT(-1), re)
-        finally:
-
-            pass
-
-        return retval
-
-
-
-    class text_return(ParserRuleReturnScope):
-        def __init__(self):
-            ParserRuleReturnScope.__init__(self)
-
-            self.tree = None
-
-
-
-
-
-
-    def text(self, ):
-
-        retval = self.text_return()
-        retval.start = self.input.LT(1)
-
-        root_0 = None
-
-        n = None
-        s = None
-        t = None
-
-        n_tree = None
-        s_tree = None
-        t_tree = None
-        stream_NAME = RewriteRuleTokenStream(self._adaptor, "token NAME")
-        stream_TEXT = RewriteRuleTokenStream(self._adaptor, "token TEXT")
-        stream_PHRASE = RewriteRuleTokenStream(self._adaptor, "token PHRASE")
-
-        try:
-            try:
-
-                alt13 = 3
-                LA13 = self.input.LA(1)
-                if LA13 == NAME:
-                    alt13 = 1
-                elif LA13 == PHRASE:
-                    alt13 = 2
-                elif LA13 == TEXT:
-                    alt13 = 3
-                else:
-                    nvae = NoViableAltException("", 13, 0, self.input)
-
-                    raise nvae
-
-                if alt13 == 1:
-
-                    pass
-                    n=self.match(self.input, NAME, self.FOLLOW_NAME_in_text524)
-                    stream_NAME.add(n)
-
-
-
-
-
-
-
-
-                    retval.tree = root_0
-                    stream_n = RewriteRuleTokenStream(self._adaptor, "token n", n)
-
-                    if retval is not None:
-                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", retval.tree)
-                    else:
-                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", None)
-
-
-                    root_0 = self._adaptor.nil()
-
-
-                    root_1 = self._adaptor.nil()
-                    root_1 = self._adaptor.becomeRoot(self._adaptor.createFromType(VALUE, "VALUE"), root_1)
-
-                    self._adaptor.addChild(root_1, self._adaptor.createFromType(WORD, "WORD"))
-                    self._adaptor.addChild(root_1, stream_n.nextNode())
-
-                    self._adaptor.addChild(root_0, root_1)
-
-
-
-                    retval.tree = root_0
-
-
-                elif alt13 == 2:
-
-                    pass
-                    s=self.match(self.input, PHRASE, self.FOLLOW_PHRASE_in_text543)
-                    stream_PHRASE.add(s)
-
-
-
-
-
-
-
-
-                    retval.tree = root_0
-                    stream_s = RewriteRuleTokenStream(self._adaptor, "token s", s)
-
-                    if retval is not None:
-                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", retval.tree)
-                    else:
-                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", None)
-
-
-                    root_0 = self._adaptor.nil()
-
-
-                    root_1 = self._adaptor.nil()
-                    root_1 = self._adaptor.becomeRoot(self._adaptor.createFromType(VALUE, "VALUE"), root_1)
-
-                    self._adaptor.addChild(root_1, self._adaptor.createFromType(STRING, "STRING"))
-                    self._adaptor.addChild(root_1, stream_s.nextNode())
-
-                    self._adaptor.addChild(root_0, root_1)
-
-
-
-                    retval.tree = root_0
-
-
-                elif alt13 == 3:
-
-                    pass
-                    t=self.match(self.input, TEXT, self.FOLLOW_TEXT_in_text562)
-                    stream_TEXT.add(t)
-
-
-
-
-
-
-
-
-                    retval.tree = root_0
-                    stream_t = RewriteRuleTokenStream(self._adaptor, "token t", t)
-
-                    if retval is not None:
-                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", retval.tree)
-                    else:
-                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", None)
-
-
-                    root_0 = self._adaptor.nil()
-
-
-                    root_1 = self._adaptor.nil()
-                    root_1 = self._adaptor.becomeRoot(self._adaptor.createFromType(VALUE, "VALUE"), root_1)
-
-                    self._adaptor.addChild(root_1, self._adaptor.createFromType(WORD, "WORD"))
-                    self._adaptor.addChild(root_1, stream_t.nextNode())
-
-                    self._adaptor.addChild(root_0, root_1)
-
-
-
-                    retval.tree = root_0
-
-
-                retval.stop = self.input.LT(-1)
-
-
-                retval.tree = self._adaptor.rulePostProcessing(root_0)
-                self._adaptor.setTokenBoundaries(retval.tree, retval.start, retval.stop)
-
-
-            except RecognitionException, re:
-                self.reportError(re)
-                self.recover(self.input, re)
-                retval.tree = self._adaptor.errorNode(self.input, retval.start, self.input.LT(-1), re)
-        finally:
-
-            pass
-
-        return retval
-
-
-
-    class simple_return(ParserRuleReturnScope):
-        def __init__(self):
-            ParserRuleReturnScope.__init__(self)
-
-            self.tree = None
-
-
-
-
-
-
-    def simple(self, ):
-
-        retval = self.simple_return()
-        retval.start = self.input.LT(1)
-
-        root_0 = None
-
-        name35 = None
-
-        function36 = None
-
-
-
-        try:
-            try:
-
-                alt14 = 2
-                LA14_0 = self.input.LA(1)
-
-                if (LA14_0 == NAME) :
-                    LA14_1 = self.input.LA(2)
-
-                    if ((WS <= LA14_1 <= HAS)) :
-                        alt14 = 1
-                    elif (LA14_1 == LPAREN) :
-                        alt14 = 2
-                    else:
-                        nvae = NoViableAltException("", 14, 1, self.input)
-
-                        raise nvae
-
-                else:
-                    nvae = NoViableAltException("", 14, 0, self.input)
-
-                    raise nvae
-
-                if alt14 == 1:
-
-                    pass
-                    root_0 = self._adaptor.nil()
-
-                    self._state.following.append(self.FOLLOW_name_in_simple586)
-                    name35 = self.name()
-
-                    self._state.following.pop()
-                    self._adaptor.addChild(root_0, name35.tree)
-
-
-                elif alt14 == 2:
-
-                    pass
-                    root_0 = self._adaptor.nil()
-
-                    self._state.following.append(self.FOLLOW_function_in_simple592)
-                    function36 = self.function()
-
-                    self._state.following.pop()
-                    self._adaptor.addChild(root_0, function36.tree)
-
-
-                retval.stop = self.input.LT(-1)
-
-
-                retval.tree = self._adaptor.rulePostProcessing(root_0)
-                self._adaptor.setTokenBoundaries(retval.tree, retval.start, retval.stop)
-
-
-            except RecognitionException, re:
-                self.reportError(re)
-                self.recover(self.input, re)
-                retval.tree = self._adaptor.errorNode(self.input, retval.start, self.input.LT(-1), re)
-        finally:
-
-            pass
-
-        return retval
-
-
-
-    class name_return(ParserRuleReturnScope):
-        def __init__(self):
-            ParserRuleReturnScope.__init__(self)
-
-            self.tree = None
-
-
-
-
-
-
-    def name(self, ):
-
-        retval = self.name_return()
-        retval.start = self.input.LT(1)
-
-        root_0 = None
-
-        NAME37 = None
-
-        NAME37_tree = None
-
-        try:
-            try:
-
-
-                pass
-                root_0 = self._adaptor.nil()
-
-                NAME37=self.match(self.input, NAME, self.FOLLOW_NAME_in_name605)
-
-                NAME37_tree = self._adaptor.createWithPayload(NAME37)
-                self._adaptor.addChild(root_0, NAME37_tree)
-
-
+                    self._adaptor.addChild(root_0, function26.tree)
 
 
                 retval.stop = self.input.LT(-1)
@@ -1934,38 +1312,38 @@ class QueryParser(Parser):
 
         root_0 = None
 
-        LPAREN39 = None
-        RPAREN41 = None
-        name38 = None
+        LPAREN28 = None
+        RPAREN30 = None
+        fnname27 = None
 
-        arglist40 = None
+        arglist29 = None
 
 
-        LPAREN39_tree = None
-        RPAREN41_tree = None
+        LPAREN28_tree = None
+        RPAREN30_tree = None
         stream_RPAREN = RewriteRuleTokenStream(self._adaptor, "token RPAREN")
         stream_LPAREN = RewriteRuleTokenStream(self._adaptor, "token LPAREN")
         stream_arglist = RewriteRuleSubtreeStream(self._adaptor, "rule arglist")
-        stream_name = RewriteRuleSubtreeStream(self._adaptor, "rule name")
+        stream_fnname = RewriteRuleSubtreeStream(self._adaptor, "rule fnname")
         try:
             try:
 
 
                 pass
-                self._state.following.append(self.FOLLOW_name_in_function618)
-                name38 = self.name()
+                self._state.following.append(self.FOLLOW_fnname_in_function421)
+                fnname27 = self.fnname()
 
                 self._state.following.pop()
-                stream_name.add(name38.tree)
-                LPAREN39=self.match(self.input, LPAREN, self.FOLLOW_LPAREN_in_function620)
-                stream_LPAREN.add(LPAREN39)
-                self._state.following.append(self.FOLLOW_arglist_in_function622)
-                arglist40 = self.arglist()
+                stream_fnname.add(fnname27.tree)
+                LPAREN28=self.match(self.input, LPAREN, self.FOLLOW_LPAREN_in_function423)
+                stream_LPAREN.add(LPAREN28)
+                self._state.following.append(self.FOLLOW_arglist_in_function425)
+                arglist29 = self.arglist()
 
                 self._state.following.pop()
-                stream_arglist.add(arglist40.tree)
-                RPAREN41=self.match(self.input, RPAREN, self.FOLLOW_RPAREN_in_function624)
-                stream_RPAREN.add(RPAREN41)
+                stream_arglist.add(arglist29.tree)
+                RPAREN30=self.match(self.input, RPAREN, self.FOLLOW_RPAREN_in_function427)
+                stream_RPAREN.add(RPAREN30)
 
 
 
@@ -1988,7 +1366,7 @@ class QueryParser(Parser):
                 root_1 = self._adaptor.nil()
                 root_1 = self._adaptor.becomeRoot(self._adaptor.createFromType(FUNCTION, "FUNCTION"), root_1)
 
-                self._adaptor.addChild(root_1, stream_name.nextTree())
+                self._adaptor.addChild(root_1, stream_fnname.nextTree())
 
                 root_2 = self._adaptor.nil()
                 root_2 = self._adaptor.becomeRoot(self._adaptor.createFromType(ARGS, "ARGS"), root_2)
@@ -2042,61 +1420,60 @@ class QueryParser(Parser):
 
         root_0 = None
 
-        arg42 = None
+        arg31 = None
 
-        sep43 = None
+        sep32 = None
 
-        arg44 = None
+        arg33 = None
 
 
-
+        stream_arg = RewriteRuleSubtreeStream(self._adaptor, "rule arg")
+        stream_sep = RewriteRuleSubtreeStream(self._adaptor, "rule sep")
         try:
             try:
 
-                alt16 = 2
-                LA16_0 = self.input.LA(1)
+                alt14 = 2
+                LA14_0 = self.input.LA(1)
 
-                if (LA16_0 == LPAREN or (FLOAT <= LA16_0 <= TEXT) or (47 <= LA16_0 <= 48)) :
-                    alt16 = 1
-                elif (LA16_0 == RPAREN) :
-                    alt16 = 2
+                if (LA14_0 == LPAREN or (DISTANCE_FN <= LA14_0 <= QUOTE)) :
+                    alt14 = 1
+                elif (LA14_0 == RPAREN) :
+                    alt14 = 2
                 else:
-                    nvae = NoViableAltException("", 16, 0, self.input)
+                    nvae = NoViableAltException("", 14, 0, self.input)
 
                     raise nvae
 
-                if alt16 == 1:
+                if alt14 == 1:
 
                     pass
-                    root_0 = self._adaptor.nil()
-
-                    self._state.following.append(self.FOLLOW_arg_in_arglist651)
-                    arg42 = self.arg()
+                    self._state.following.append(self.FOLLOW_arg_in_arglist456)
+                    arg31 = self.arg()
 
                     self._state.following.pop()
-                    self._adaptor.addChild(root_0, arg42.tree)
+                    stream_arg.add(arg31.tree)
 
                     while True:
-                        alt15 = 2
-                        LA15_0 = self.input.LA(1)
+                        alt13 = 2
+                        LA13_0 = self.input.LA(1)
 
-                        if (LA15_0 == WS or LA15_0 == 49) :
-                            alt15 = 1
+                        if (LA13_0 == WS or LA13_0 == 44) :
+                            alt13 = 1
 
 
-                        if alt15 == 1:
+                        if alt13 == 1:
 
                             pass
-                            self._state.following.append(self.FOLLOW_sep_in_arglist654)
-                            sep43 = self.sep()
+                            self._state.following.append(self.FOLLOW_sep_in_arglist459)
+                            sep32 = self.sep()
 
                             self._state.following.pop()
-                            self._adaptor.addChild(root_0, sep43.tree)
-                            self._state.following.append(self.FOLLOW_arg_in_arglist656)
-                            arg44 = self.arg()
+                            stream_sep.add(sep32.tree)
+                            self._state.following.append(self.FOLLOW_arg_in_arglist461)
+                            arg33 = self.arg()
 
                             self._state.following.pop()
-                            self._adaptor.addChild(root_0, arg44.tree)
+                            stream_arg.add(arg33.tree)
 
 
                         else:
@@ -2105,7 +1482,35 @@ class QueryParser(Parser):
 
 
 
-                elif alt16 == 2:
+
+
+
+
+
+
+                    retval.tree = root_0
+
+                    if retval is not None:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", retval.tree)
+                    else:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", None)
+
+
+                    root_0 = self._adaptor.nil()
+
+
+                    while stream_arg.hasNext():
+                        self._adaptor.addChild(root_0, stream_arg.nextTree())
+
+
+                    stream_arg.reset();
+
+
+
+                    retval.tree = root_0
+
+
+                elif alt14 == 2:
 
                     pass
                     root_0 = self._adaptor.nil()
@@ -2148,59 +1553,74 @@ class QueryParser(Parser):
 
         root_0 = None
 
-        atom45 = None
+        item34 = None
 
-        function46 = None
+        composite35 = None
+
+        function36 = None
 
 
 
         try:
             try:
 
-                alt17 = 2
-                LA17_0 = self.input.LA(1)
+                alt15 = 3
+                LA15 = self.input.LA(1)
+                if LA15 == FIX or LA15 == REWRITE or LA15 == TEXT or LA15 == QUOTE:
+                    alt15 = 1
+                elif LA15 == DISTANCE_FN or LA15 == GEO_POINT_FN:
+                    LA15_2 = self.input.LA(2)
 
-                if (LA17_0 == LPAREN or (FLOAT <= LA17_0 <= INT) or (PHRASE <= LA17_0 <= TEXT) or (47 <= LA17_0 <= 48)) :
-                    alt17 = 1
-                elif (LA17_0 == NAME) :
-                    LA17_2 = self.input.LA(2)
-
-                    if (LA17_2 == WS or LA17_2 == RPAREN or LA17_2 == 49) :
-                        alt17 = 1
-                    elif (LA17_2 == LPAREN) :
-                        alt17 = 2
+                    if (LA15_2 == EOF or LA15_2 == WS or LA15_2 == RPAREN or LA15_2 == 44) :
+                        alt15 = 1
+                    elif (LA15_2 == LPAREN) :
+                        alt15 = 3
                     else:
-                        nvae = NoViableAltException("", 17, 2, self.input)
+                        nvae = NoViableAltException("", 15, 2, self.input)
 
                         raise nvae
 
+                elif LA15 == LPAREN:
+                    alt15 = 2
                 else:
-                    nvae = NoViableAltException("", 17, 0, self.input)
+                    nvae = NoViableAltException("", 15, 0, self.input)
 
                     raise nvae
 
-                if alt17 == 1:
+                if alt15 == 1:
 
                     pass
                     root_0 = self._adaptor.nil()
 
-                    self._state.following.append(self.FOLLOW_atom_in_arg675)
-                    atom45 = self.atom()
+                    self._state.following.append(self.FOLLOW_item_in_arg486)
+                    item34 = self.item()
 
                     self._state.following.pop()
-                    self._adaptor.addChild(root_0, atom45.tree)
+                    self._adaptor.addChild(root_0, item34.tree)
 
 
-                elif alt17 == 2:
+                elif alt15 == 2:
 
                     pass
                     root_0 = self._adaptor.nil()
 
-                    self._state.following.append(self.FOLLOW_function_in_arg681)
-                    function46 = self.function()
+                    self._state.following.append(self.FOLLOW_composite_in_arg492)
+                    composite35 = self.composite()
 
                     self._state.following.pop()
-                    self._adaptor.addChild(root_0, function46.tree)
+                    self._adaptor.addChild(root_0, composite35.tree)
+
+
+                elif alt15 == 3:
+
+                    pass
+                    root_0 = self._adaptor.nil()
+
+                    self._state.following.append(self.FOLLOW_function_in_arg498)
+                    function36 = self.function()
+
+                    self._state.following.pop()
+                    self._adaptor.addChild(root_0, function36.tree)
 
 
                 retval.stop = self.input.LT(-1)
@@ -2240,13 +1660,13 @@ class QueryParser(Parser):
 
         root_0 = None
 
-        WS47 = None
-        AND48 = None
-        WS49 = None
+        WS37 = None
+        AND38 = None
+        WS39 = None
 
-        WS47_tree = None
-        AND48_tree = None
-        WS49_tree = None
+        WS37_tree = None
+        AND38_tree = None
+        WS39_tree = None
 
         try:
             try:
@@ -2256,80 +1676,68 @@ class QueryParser(Parser):
                 root_0 = self._adaptor.nil()
 
 
-                cnt18 = 0
+                cnt16 = 0
                 while True:
-                    alt18 = 2
-                    LA18_0 = self.input.LA(1)
+                    alt16 = 2
+                    LA16_0 = self.input.LA(1)
 
-                    if (LA18_0 == WS) :
-                        alt18 = 1
+                    if (LA16_0 == WS) :
+                        alt16 = 1
 
 
-                    if alt18 == 1:
+                    if alt16 == 1:
 
                         pass
-                        WS47=self.match(self.input, WS, self.FOLLOW_WS_in_andOp694)
+                        WS37=self.match(self.input, WS, self.FOLLOW_WS_in_andOp512)
 
-                        WS47_tree = self._adaptor.createWithPayload(WS47)
-                        self._adaptor.addChild(root_0, WS47_tree)
+                        WS37_tree = self._adaptor.createWithPayload(WS37)
+                        self._adaptor.addChild(root_0, WS37_tree)
 
 
 
                     else:
-                        if cnt18 >= 1:
+                        if cnt16 >= 1:
                             break
 
-                        eee = EarlyExitException(18, self.input)
+                        eee = EarlyExitException(16, self.input)
                         raise eee
 
-                    cnt18 += 1
+                    cnt16 += 1
+
+
+                AND38=self.match(self.input, AND, self.FOLLOW_AND_in_andOp515)
+
+                AND38_tree = self._adaptor.createWithPayload(AND38)
+                self._adaptor.addChild(root_0, AND38_tree)
+
+
+                cnt17 = 0
+                while True:
+                    alt17 = 2
+                    LA17_0 = self.input.LA(1)
+
+                    if (LA17_0 == WS) :
+                        alt17 = 1
+
+
+                    if alt17 == 1:
+
+                        pass
+                        WS39=self.match(self.input, WS, self.FOLLOW_WS_in_andOp517)
+
+                        WS39_tree = self._adaptor.createWithPayload(WS39)
+                        self._adaptor.addChild(root_0, WS39_tree)
 
 
 
-                alt20 = 2
-                LA20_0 = self.input.LA(1)
+                    else:
+                        if cnt17 >= 1:
+                            break
 
-                if (LA20_0 == AND) :
-                    alt20 = 1
-                if alt20 == 1:
+                        eee = EarlyExitException(17, self.input)
+                        raise eee
 
-                    pass
-                    AND48=self.match(self.input, AND, self.FOLLOW_AND_in_andOp698)
-
-                    AND48_tree = self._adaptor.createWithPayload(AND48)
-                    self._adaptor.addChild(root_0, AND48_tree)
-
-
-                    cnt19 = 0
-                    while True:
-                        alt19 = 2
-                        LA19_0 = self.input.LA(1)
-
-                        if (LA19_0 == WS) :
-                            alt19 = 1
-
-
-                        if alt19 == 1:
-
-                            pass
-                            WS49=self.match(self.input, WS, self.FOLLOW_WS_in_andOp700)
-
-                            WS49_tree = self._adaptor.createWithPayload(WS49)
-                            self._adaptor.addChild(root_0, WS49_tree)
-
-
-
-                        else:
-                            if cnt19 >= 1:
-                                break
-
-                            eee = EarlyExitException(19, self.input)
-                            raise eee
-
-                        cnt19 += 1
-
-
-
+                    cnt17 += 1
 
 
 
@@ -2372,13 +1780,13 @@ class QueryParser(Parser):
 
         root_0 = None
 
-        WS50 = None
-        OR51 = None
-        WS52 = None
+        WS40 = None
+        OR41 = None
+        WS42 = None
 
-        WS50_tree = None
-        OR51_tree = None
-        WS52_tree = None
+        WS40_tree = None
+        OR41_tree = None
+        WS42_tree = None
 
         try:
             try:
@@ -2388,68 +1796,68 @@ class QueryParser(Parser):
                 root_0 = self._adaptor.nil()
 
 
-                cnt21 = 0
+                cnt18 = 0
                 while True:
-                    alt21 = 2
-                    LA21_0 = self.input.LA(1)
+                    alt18 = 2
+                    LA18_0 = self.input.LA(1)
 
-                    if (LA21_0 == WS) :
-                        alt21 = 1
+                    if (LA18_0 == WS) :
+                        alt18 = 1
 
 
-                    if alt21 == 1:
+                    if alt18 == 1:
 
                         pass
-                        WS50=self.match(self.input, WS, self.FOLLOW_WS_in_orOp716)
+                        WS40=self.match(self.input, WS, self.FOLLOW_WS_in_orOp532)
 
-                        WS50_tree = self._adaptor.createWithPayload(WS50)
-                        self._adaptor.addChild(root_0, WS50_tree)
+                        WS40_tree = self._adaptor.createWithPayload(WS40)
+                        self._adaptor.addChild(root_0, WS40_tree)
 
 
 
                     else:
-                        if cnt21 >= 1:
+                        if cnt18 >= 1:
                             break
 
-                        eee = EarlyExitException(21, self.input)
+                        eee = EarlyExitException(18, self.input)
                         raise eee
 
-                    cnt21 += 1
+                    cnt18 += 1
 
 
-                OR51=self.match(self.input, OR, self.FOLLOW_OR_in_orOp719)
+                OR41=self.match(self.input, OR, self.FOLLOW_OR_in_orOp535)
 
-                OR51_tree = self._adaptor.createWithPayload(OR51)
-                self._adaptor.addChild(root_0, OR51_tree)
+                OR41_tree = self._adaptor.createWithPayload(OR41)
+                self._adaptor.addChild(root_0, OR41_tree)
 
 
-                cnt22 = 0
+                cnt19 = 0
                 while True:
-                    alt22 = 2
-                    LA22_0 = self.input.LA(1)
+                    alt19 = 2
+                    LA19_0 = self.input.LA(1)
 
-                    if (LA22_0 == WS) :
-                        alt22 = 1
+                    if (LA19_0 == WS) :
+                        alt19 = 1
 
 
-                    if alt22 == 1:
+                    if alt19 == 1:
 
                         pass
-                        WS52=self.match(self.input, WS, self.FOLLOW_WS_in_orOp721)
+                        WS42=self.match(self.input, WS, self.FOLLOW_WS_in_orOp537)
 
-                        WS52_tree = self._adaptor.createWithPayload(WS52)
-                        self._adaptor.addChild(root_0, WS52_tree)
+                        WS42_tree = self._adaptor.createWithPayload(WS42)
+                        self._adaptor.addChild(root_0, WS42_tree)
 
 
 
                     else:
-                        if cnt22 >= 1:
+                        if cnt19 >= 1:
                             break
 
-                        eee = EarlyExitException(22, self.input)
+                        eee = EarlyExitException(19, self.input)
                         raise eee
 
-                    cnt22 += 1
+                    cnt19 += 1
 
 
 
@@ -2492,79 +1900,79 @@ class QueryParser(Parser):
 
         root_0 = None
 
-        char_literal53 = None
-        NOT54 = None
-        WS55 = None
+        char_literal43 = None
+        NOT44 = None
+        WS45 = None
 
-        char_literal53_tree = None
-        NOT54_tree = None
-        WS55_tree = None
+        char_literal43_tree = None
+        NOT44_tree = None
+        WS45_tree = None
 
         try:
             try:
 
-                alt24 = 2
-                LA24_0 = self.input.LA(1)
+                alt21 = 2
+                LA21_0 = self.input.LA(1)
 
-                if (LA24_0 == NEG) :
-                    alt24 = 1
-                elif (LA24_0 == NOT) :
-                    alt24 = 2
+                if (LA21_0 == 43) :
+                    alt21 = 1
+                elif (LA21_0 == NOT) :
+                    alt21 = 2
                 else:
-                    nvae = NoViableAltException("", 24, 0, self.input)
+                    nvae = NoViableAltException("", 21, 0, self.input)
 
                     raise nvae
 
-                if alt24 == 1:
+                if alt21 == 1:
 
                     pass
                     root_0 = self._adaptor.nil()
 
-                    char_literal53=self.match(self.input, NEG, self.FOLLOW_NEG_in_notOp735)
+                    char_literal43=self.match(self.input, 43, self.FOLLOW_43_in_notOp552)
 
-                    char_literal53_tree = self._adaptor.createWithPayload(char_literal53)
-                    self._adaptor.addChild(root_0, char_literal53_tree)
+                    char_literal43_tree = self._adaptor.createWithPayload(char_literal43)
+                    self._adaptor.addChild(root_0, char_literal43_tree)
 
 
 
-                elif alt24 == 2:
+                elif alt21 == 2:
 
                     pass
                     root_0 = self._adaptor.nil()
 
-                    NOT54=self.match(self.input, NOT, self.FOLLOW_NOT_in_notOp741)
+                    NOT44=self.match(self.input, NOT, self.FOLLOW_NOT_in_notOp558)
 
-                    NOT54_tree = self._adaptor.createWithPayload(NOT54)
-                    self._adaptor.addChild(root_0, NOT54_tree)
+                    NOT44_tree = self._adaptor.createWithPayload(NOT44)
+                    self._adaptor.addChild(root_0, NOT44_tree)
 
 
-                    cnt23 = 0
+                    cnt20 = 0
                     while True:
-                        alt23 = 2
-                        LA23_0 = self.input.LA(1)
+                        alt20 = 2
+                        LA20_0 = self.input.LA(1)
 
-                        if (LA23_0 == WS) :
-                            alt23 = 1
+                        if (LA20_0 == WS) :
+                            alt20 = 1
 
 
-                        if alt23 == 1:
+                        if alt20 == 1:
 
                             pass
-                            WS55=self.match(self.input, WS, self.FOLLOW_WS_in_notOp743)
+                            WS45=self.match(self.input, WS, self.FOLLOW_WS_in_notOp560)
 
-                            WS55_tree = self._adaptor.createWithPayload(WS55)
-                            self._adaptor.addChild(root_0, WS55_tree)
+                            WS45_tree = self._adaptor.createWithPayload(WS45)
+                            self._adaptor.addChild(root_0, WS45_tree)
 
 
 
                         else:
-                            if cnt23 >= 1:
+                            if cnt20 >= 1:
                                 break
 
-                            eee = EarlyExitException(23, self.input)
+                            eee = EarlyExitException(20, self.input)
                             raise eee
 
-                        cnt23 += 1
+                        cnt20 += 1
 
 
 
@@ -2606,13 +2014,13 @@ class QueryParser(Parser):
 
         root_0 = None
 
-        WS56 = None
-        char_literal57 = None
-        WS58 = None
+        WS46 = None
+        char_literal47 = None
+        WS48 = None
 
-        WS56_tree = None
-        char_literal57_tree = None
-        WS58_tree = None
+        WS46_tree = None
+        char_literal47_tree = None
+        WS48_tree = None
 
         try:
             try:
@@ -2623,20 +2031,20 @@ class QueryParser(Parser):
 
 
                 while True:
-                    alt25 = 2
-                    LA25_0 = self.input.LA(1)
+                    alt22 = 2
+                    LA22_0 = self.input.LA(1)
 
-                    if (LA25_0 == WS) :
-                        alt25 = 1
+                    if (LA22_0 == WS) :
+                        alt22 = 1
 
 
-                    if alt25 == 1:
+                    if alt22 == 1:
 
                         pass
-                        WS56=self.match(self.input, WS, self.FOLLOW_WS_in_sep757)
+                        WS46=self.match(self.input, WS, self.FOLLOW_WS_in_sep575)
 
-                        WS56_tree = self._adaptor.createWithPayload(WS56)
-                        self._adaptor.addChild(root_0, WS56_tree)
+                        WS46_tree = self._adaptor.createWithPayload(WS46)
+                        self._adaptor.addChild(root_0, WS46_tree)
 
 
 
@@ -2644,27 +2052,27 @@ class QueryParser(Parser):
                         break
 
 
-                char_literal57=self.match(self.input, 49, self.FOLLOW_49_in_sep760)
+                char_literal47=self.match(self.input, 44, self.FOLLOW_44_in_sep578)
 
-                char_literal57_tree = self._adaptor.createWithPayload(char_literal57)
-                self._adaptor.addChild(root_0, char_literal57_tree)
+                char_literal47_tree = self._adaptor.createWithPayload(char_literal47)
+                self._adaptor.addChild(root_0, char_literal47_tree)
 
 
                 while True:
-                    alt26 = 2
-                    LA26_0 = self.input.LA(1)
+                    alt23 = 2
+                    LA23_0 = self.input.LA(1)
 
-                    if (LA26_0 == WS) :
-                        alt26 = 1
+                    if (LA23_0 == WS) :
+                        alt23 = 1
 
 
-                    if alt26 == 1:
+                    if alt23 == 1:
 
                         pass
-                        WS58=self.match(self.input, WS, self.FOLLOW_WS_in_sep762)
+                        WS48=self.match(self.input, WS, self.FOLLOW_WS_in_sep580)
 
-                        WS58_tree = self._adaptor.createWithPayload(WS58)
-                        self._adaptor.addChild(root_0, WS58_tree)
+                        WS48_tree = self._adaptor.createWithPayload(WS48)
+                        self._adaptor.addChild(root_0, WS48_tree)
 
 
 
@@ -2694,117 +2102,786 @@ class QueryParser(Parser):
 
 
 
+    class fnname_return(ParserRuleReturnScope):
+        def __init__(self):
+            ParserRuleReturnScope.__init__(self)
+
+            self.tree = None
 
 
 
 
 
 
-    DFA2_eot = DFA.unpack(
+    def fnname(self, ):
+
+        retval = self.fnname_return()
+        retval.start = self.input.LT(1)
+
+        root_0 = None
+
+        set49 = None
+
+        set49_tree = None
+
+        try:
+            try:
+
+
+                pass
+                root_0 = self._adaptor.nil()
+
+                set49 = self.input.LT(1)
+                if (DISTANCE_FN <= self.input.LA(1) <= GEO_POINT_FN):
+                    self.input.consume()
+                    self._adaptor.addChild(root_0, self._adaptor.createWithPayload(set49))
+                    self._state.errorRecovery = False
+
+                else:
+                    mse = MismatchedSetException(None, self.input)
+                    raise mse
+
+
+
+
+
+                retval.stop = self.input.LT(-1)
+
+
+                retval.tree = self._adaptor.rulePostProcessing(root_0)
+                self._adaptor.setTokenBoundaries(retval.tree, retval.start, retval.stop)
+
+
+            except RecognitionException, re:
+                self.reportError(re)
+                self.recover(self.input, re)
+                retval.tree = self._adaptor.errorNode(self.input, retval.start, self.input.LT(-1), re)
+        finally:
+
+            pass
+
+        return retval
+
+
+
+    class composite_return(ParserRuleReturnScope):
+        def __init__(self):
+            ParserRuleReturnScope.__init__(self)
+
+            self.tree = None
+
+
+
+
+
+
+    def composite(self, ):
+
+        retval = self.composite_return()
+        retval.start = self.input.LT(1)
+
+        root_0 = None
+
+        LPAREN50 = None
+        WS51 = None
+        WS53 = None
+        RPAREN54 = None
+        expression52 = None
+
+
+        LPAREN50_tree = None
+        WS51_tree = None
+        WS53_tree = None
+        RPAREN54_tree = None
+        stream_RPAREN = RewriteRuleTokenStream(self._adaptor, "token RPAREN")
+        stream_WS = RewriteRuleTokenStream(self._adaptor, "token WS")
+        stream_LPAREN = RewriteRuleTokenStream(self._adaptor, "token LPAREN")
+        stream_expression = RewriteRuleSubtreeStream(self._adaptor, "rule expression")
+        try:
+            try:
+
+
+                pass
+                LPAREN50=self.match(self.input, LPAREN, self.FOLLOW_LPAREN_in_composite616)
+                stream_LPAREN.add(LPAREN50)
+
+                while True:
+                    alt24 = 2
+                    LA24_0 = self.input.LA(1)
+
+                    if (LA24_0 == WS) :
+                        alt24 = 1
+
+
+                    if alt24 == 1:
+
+                        pass
+                        WS51=self.match(self.input, WS, self.FOLLOW_WS_in_composite618)
+                        stream_WS.add(WS51)
+
+
+                    else:
+                        break
+
+
+                self._state.following.append(self.FOLLOW_expression_in_composite621)
+                expression52 = self.expression()
+
+                self._state.following.pop()
+                stream_expression.add(expression52.tree)
+
+                while True:
+                    alt25 = 2
+                    LA25_0 = self.input.LA(1)
+
+                    if (LA25_0 == WS) :
+                        alt25 = 1
+
+
+                    if alt25 == 1:
+
+                        pass
+                        WS53=self.match(self.input, WS, self.FOLLOW_WS_in_composite623)
+                        stream_WS.add(WS53)
+
+
+                    else:
+                        break
+
+
+                RPAREN54=self.match(self.input, RPAREN, self.FOLLOW_RPAREN_in_composite626)
+                stream_RPAREN.add(RPAREN54)
+
+
+
+
+
+
+
+
+                retval.tree = root_0
+
+                if retval is not None:
+                    stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", retval.tree)
+                else:
+                    stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", None)
+
+
+                root_0 = self._adaptor.nil()
+
+                self._adaptor.addChild(root_0, stream_expression.nextTree())
+
+
+
+                retval.tree = root_0
+
+
+
+                retval.stop = self.input.LT(-1)
+
+
+                retval.tree = self._adaptor.rulePostProcessing(root_0)
+                self._adaptor.setTokenBoundaries(retval.tree, retval.start, retval.stop)
+
+
+            except RecognitionException, re:
+                self.reportError(re)
+                self.recover(self.input, re)
+                retval.tree = self._adaptor.errorNode(self.input, retval.start, self.input.LT(-1), re)
+        finally:
+
+            pass
+
+        return retval
+
+
+
+    class item_return(ParserRuleReturnScope):
+        def __init__(self):
+            ParserRuleReturnScope.__init__(self)
+
+            self.tree = None
+
+
+
+
+
+
+    def item(self, ):
+
+        retval = self.item_return()
+        retval.start = self.input.LT(1)
+
+        root_0 = None
+
+        FIX55 = None
+        REWRITE57 = None
+        value56 = None
+
+        value58 = None
+
+        value59 = None
+
+
+        FIX55_tree = None
+        REWRITE57_tree = None
+        stream_FIX = RewriteRuleTokenStream(self._adaptor, "token FIX")
+        stream_REWRITE = RewriteRuleTokenStream(self._adaptor, "token REWRITE")
+        stream_value = RewriteRuleSubtreeStream(self._adaptor, "rule value")
+        try:
+            try:
+
+                alt26 = 3
+                LA26 = self.input.LA(1)
+                if LA26 == FIX:
+                    alt26 = 1
+                elif LA26 == REWRITE:
+                    alt26 = 2
+                elif LA26 == DISTANCE_FN or LA26 == GEO_POINT_FN or LA26 == TEXT or LA26 == QUOTE:
+                    alt26 = 3
+                else:
+                    nvae = NoViableAltException("", 26, 0, self.input)
+
+                    raise nvae
+
+                if alt26 == 1:
+
+                    pass
+                    FIX55=self.match(self.input, FIX, self.FOLLOW_FIX_in_item646)
+                    stream_FIX.add(FIX55)
+                    self._state.following.append(self.FOLLOW_value_in_item648)
+                    value56 = self.value()
+
+                    self._state.following.pop()
+                    stream_value.add(value56.tree)
+
+
+
+
+
+
+
+
+                    retval.tree = root_0
+
+                    if retval is not None:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", retval.tree)
+                    else:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", None)
+
+
+                    root_0 = self._adaptor.nil()
+
+
+                    root_1 = self._adaptor.nil()
+                    root_1 = self._adaptor.becomeRoot(self._adaptor.createFromType(LITERAL, "LITERAL"), root_1)
+
+                    self._adaptor.addChild(root_1, stream_value.nextTree())
+
+                    self._adaptor.addChild(root_0, root_1)
+
+
+
+                    retval.tree = root_0
+
+
+                elif alt26 == 2:
+
+                    pass
+                    REWRITE57=self.match(self.input, REWRITE, self.FOLLOW_REWRITE_in_item662)
+                    stream_REWRITE.add(REWRITE57)
+                    self._state.following.append(self.FOLLOW_value_in_item664)
+                    value58 = self.value()
+
+                    self._state.following.pop()
+                    stream_value.add(value58.tree)
+
+
+
+
+
+
+
+
+                    retval.tree = root_0
+
+                    if retval is not None:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", retval.tree)
+                    else:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", None)
+
+
+                    root_0 = self._adaptor.nil()
+
+
+                    root_1 = self._adaptor.nil()
+                    root_1 = self._adaptor.becomeRoot(self._adaptor.createFromType(FUZZY, "FUZZY"), root_1)
+
+                    self._adaptor.addChild(root_1, stream_value.nextTree())
+
+                    self._adaptor.addChild(root_0, root_1)
+
+
+
+                    retval.tree = root_0
+
+
+                elif alt26 == 3:
+
+                    pass
+                    self._state.following.append(self.FOLLOW_value_in_item678)
+                    value59 = self.value()
+
+                    self._state.following.pop()
+                    stream_value.add(value59.tree)
+
+
+
+
+
+
+
+
+                    retval.tree = root_0
+
+                    if retval is not None:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", retval.tree)
+                    else:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", None)
+
+
+                    root_0 = self._adaptor.nil()
+
+                    self._adaptor.addChild(root_0, stream_value.nextTree())
+
+
+
+                    retval.tree = root_0
+
+
+                retval.stop = self.input.LT(-1)
+
+
+                retval.tree = self._adaptor.rulePostProcessing(root_0)
+                self._adaptor.setTokenBoundaries(retval.tree, retval.start, retval.stop)
+
+
+            except RecognitionException, re:
+                self.reportError(re)
+                self.recover(self.input, re)
+                retval.tree = self._adaptor.errorNode(self.input, retval.start, self.input.LT(-1), re)
+        finally:
+
+            pass
+
+        return retval
+
+
+
+    class value_return(ParserRuleReturnScope):
+        def __init__(self):
+            ParserRuleReturnScope.__init__(self)
+
+            self.tree = None
+
+
+
+
+
+
+    def value(self, ):
+
+        retval = self.value_return()
+        retval.start = self.input.LT(1)
+
+        root_0 = None
+
+        text60 = None
+
+        phrase61 = None
+
+
+        stream_text = RewriteRuleSubtreeStream(self._adaptor, "rule text")
+        stream_phrase = RewriteRuleSubtreeStream(self._adaptor, "rule phrase")
+        try:
+            try:
+
+                alt27 = 2
+                LA27_0 = self.input.LA(1)
+
+                if ((DISTANCE_FN <= LA27_0 <= GEO_POINT_FN) or LA27_0 == TEXT) :
+                    alt27 = 1
+                elif (LA27_0 == QUOTE) :
+                    alt27 = 2
+                else:
+                    nvae = NoViableAltException("", 27, 0, self.input)
+
+                    raise nvae
+
+                if alt27 == 1:
+
+                    pass
+                    self._state.following.append(self.FOLLOW_text_in_value696)
+                    text60 = self.text()
+
+                    self._state.following.pop()
+                    stream_text.add(text60.tree)
+
+
+
+
+
+
+
+
+                    retval.tree = root_0
+
+                    if retval is not None:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", retval.tree)
+                    else:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", None)
+
+
+                    root_0 = self._adaptor.nil()
+
+
+                    root_1 = self._adaptor.nil()
+                    root_1 = self._adaptor.becomeRoot(self._adaptor.createFromType(VALUE, "VALUE"), root_1)
+
+                    self._adaptor.addChild(root_1, self._adaptor.createFromType(TEXT, "TEXT"))
+                    self._adaptor.addChild(root_1, stream_text.nextTree())
+
+                    self._adaptor.addChild(root_0, root_1)
+
+
+
+                    retval.tree = root_0
+
+
+                elif alt27 == 2:
+
+                    pass
+                    self._state.following.append(self.FOLLOW_phrase_in_value712)
+                    phrase61 = self.phrase()
+
+                    self._state.following.pop()
+                    stream_phrase.add(phrase61.tree)
+
+
+
+
+
+
+
+
+                    retval.tree = root_0
+
+                    if retval is not None:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", retval.tree)
+                    else:
+                        stream_retval = RewriteRuleSubtreeStream(self._adaptor, "token retval", None)
+
+
+                    root_0 = self._adaptor.nil()
+
+
+                    root_1 = self._adaptor.nil()
+                    root_1 = self._adaptor.becomeRoot(self._adaptor.createFromType(VALUE, "VALUE"), root_1)
+
+                    self._adaptor.addChild(root_1, self._adaptor.createFromType(STRING, "STRING"))
+                    self._adaptor.addChild(root_1, stream_phrase.nextTree())
+
+                    self._adaptor.addChild(root_0, root_1)
+
+
+
+                    retval.tree = root_0
+
+
+                retval.stop = self.input.LT(-1)
+
+
+                retval.tree = self._adaptor.rulePostProcessing(root_0)
+                self._adaptor.setTokenBoundaries(retval.tree, retval.start, retval.stop)
+
+
+            except RecognitionException, re:
+                self.reportError(re)
+                self.recover(self.input, re)
+                retval.tree = self._adaptor.errorNode(self.input, retval.start, self.input.LT(-1), re)
+        finally:
+
+            pass
+
+        return retval
+
+
+
+    class text_return(ParserRuleReturnScope):
+        def __init__(self):
+            ParserRuleReturnScope.__init__(self)
+
+            self.tree = None
+
+
+
+
+
+
+    def text(self, ):
+
+        retval = self.text_return()
+        retval.start = self.input.LT(1)
+
+        root_0 = None
+
+        set62 = None
+
+        set62_tree = None
+
+        try:
+            try:
+
+
+                pass
+                root_0 = self._adaptor.nil()
+
+                set62 = self.input.LT(1)
+                if (DISTANCE_FN <= self.input.LA(1) <= GEO_POINT_FN) or self.input.LA(1) == TEXT:
+                    self.input.consume()
+                    self._adaptor.addChild(root_0, self._adaptor.createWithPayload(set62))
+                    self._state.errorRecovery = False
+
+                else:
+                    mse = MismatchedSetException(None, self.input)
+                    raise mse
+
+
+
+
+
+                retval.stop = self.input.LT(-1)
+
+
+                retval.tree = self._adaptor.rulePostProcessing(root_0)
+                self._adaptor.setTokenBoundaries(retval.tree, retval.start, retval.stop)
+
+
+            except RecognitionException, re:
+                self.reportError(re)
+                self.recover(self.input, re)
+                retval.tree = self._adaptor.errorNode(self.input, retval.start, self.input.LT(-1), re)
+        finally:
+
+            pass
+
+        return retval
+
+
+
+    class phrase_return(ParserRuleReturnScope):
+        def __init__(self):
+            ParserRuleReturnScope.__init__(self)
+
+            self.tree = None
+
+
+
+
+
+
+    def phrase(self, ):
+
+        retval = self.phrase_return()
+        retval.start = self.input.LT(1)
+
+        root_0 = None
+
+        QUOTE63 = None
+        set64 = None
+        QUOTE65 = None
+
+        QUOTE63_tree = None
+        set64_tree = None
+        QUOTE65_tree = None
+
+        try:
+            try:
+
+
+                pass
+                root_0 = self._adaptor.nil()
+
+                QUOTE63=self.match(self.input, QUOTE, self.FOLLOW_QUOTE_in_phrase762)
+
+                QUOTE63_tree = self._adaptor.createWithPayload(QUOTE63)
+                self._adaptor.addChild(root_0, QUOTE63_tree)
+
+
+                while True:
+                    alt28 = 2
+                    LA28_0 = self.input.LA(1)
+
+                    if ((ARGS <= LA28_0 <= TEXT) or (ESC <= LA28_0 <= 44)) :
+                        alt28 = 1
+
+
+                    if alt28 == 1:
+
+                        pass
+                        set64 = self.input.LT(1)
+                        if (ARGS <= self.input.LA(1) <= TEXT) or (ESC <= self.input.LA(1) <= 44):
+                            self.input.consume()
+                            self._adaptor.addChild(root_0, self._adaptor.createWithPayload(set64))
+                            self._state.errorRecovery = False
+
+                        else:
+                            mse = MismatchedSetException(None, self.input)
+                            raise mse
+
+
+
+
+                    else:
+                        break
+
+
+                QUOTE65=self.match(self.input, QUOTE, self.FOLLOW_QUOTE_in_phrase780)
+
+                QUOTE65_tree = self._adaptor.createWithPayload(QUOTE65)
+                self._adaptor.addChild(root_0, QUOTE65_tree)
+
+
+
+
+                retval.stop = self.input.LT(-1)
+
+
+                retval.tree = self._adaptor.rulePostProcessing(root_0)
+                self._adaptor.setTokenBoundaries(retval.tree, retval.start, retval.stop)
+
+
+            except RecognitionException, re:
+                self.reportError(re)
+                self.recover(self.input, re)
+                retval.tree = self._adaptor.errorNode(self.input, retval.start, self.input.LT(-1), re)
+        finally:
+
+            pass
+
+        return retval
+
+
+
+
+
+
+
+
+
+    DFA3_eot = DFA.unpack(
         u"\4\uffff"
         )
 
-    DFA2_eof = DFA.unpack(
+    DFA3_eof = DFA.unpack(
         u"\2\2\2\uffff"
         )
 
-    DFA2_min = DFA.unpack(
-        u"\2\21\2\uffff"
+    DFA3_min = DFA.unpack(
+        u"\2\17\2\uffff"
         )
 
-    DFA2_max = DFA.unpack(
-        u"\1\32\1\60\2\uffff"
+    DFA3_max = DFA.unpack(
+        u"\1\30\1\31\2\uffff"
         )
 
-    DFA2_accept = DFA.unpack(
+    DFA3_accept = DFA.unpack(
         u"\2\uffff\1\2\1\1"
         )
 
-    DFA2_special = DFA.unpack(
+    DFA3_special = DFA.unpack(
         u"\4\uffff"
         )
 
 
-    DFA2_transition = [
+    DFA3_transition = [
         DFA.unpack(u"\1\1\10\uffff\1\2"),
-        DFA.unpack(u"\1\1\7\uffff\1\3\1\2\6\3\1\uffff\1\3\6\uffff\1\3\5"
-        u"\uffff\2\3"),
+        DFA.unpack(u"\1\1\10\uffff\1\2\1\3"),
         DFA.unpack(u""),
         DFA.unpack(u"")
     ]
 
 
 
-    DFA2 = DFA
+    DFA3 = DFA
 
 
-    DFA4_eot = DFA.unpack(
+    DFA5_eot = DFA.unpack(
         u"\4\uffff"
         )
 
-    DFA4_eof = DFA.unpack(
+    DFA5_eof = DFA.unpack(
         u"\2\2\2\uffff"
         )
 
-    DFA4_min = DFA.unpack(
-        u"\2\21\2\uffff"
+    DFA5_min = DFA.unpack(
+        u"\2\17\2\uffff"
         )
 
-    DFA4_max = DFA.unpack(
-        u"\1\32\1\60\2\uffff"
+    DFA5_max = DFA.unpack(
+        u"\1\30\1\53\2\uffff"
         )
 
-    DFA4_accept = DFA.unpack(
+    DFA5_accept = DFA.unpack(
         u"\2\uffff\1\2\1\1"
         )
 
-    DFA4_special = DFA.unpack(
+    DFA5_special = DFA.unpack(
         u"\4\uffff"
         )
 
 
-    DFA4_transition = [
+    DFA5_transition = [
         DFA.unpack(u"\1\1\10\uffff\1\2"),
-        DFA.unpack(u"\1\1\7\uffff\10\2\1\3\1\2\6\uffff\1\2\5\uffff\2\2"),
+        DFA.unpack(u"\1\1\7\uffff\1\3\2\2\1\uffff\7\3\11\uffff\1\3"),
         DFA.unpack(u""),
         DFA.unpack(u"")
     ]
 
 
 
-    DFA4 = DFA
+    DFA5 = DFA
 
 
     DFA6_eot = DFA.unpack(
-        u"\5\uffff"
+        u"\4\uffff"
         )
 
     DFA6_eof = DFA.unpack(
-        u"\1\uffff\1\2\1\uffff\1\2\1\uffff"
+        u"\2\2\2\uffff"
         )
 
     DFA6_min = DFA.unpack(
-        u"\1\31\1\21\1\uffff\1\21\1\uffff"
+        u"\2\17\2\uffff"
         )
 
     DFA6_max = DFA.unpack(
-        u"\1\60\1\32\1\uffff\1\60\1\uffff"
+        u"\1\30\1\53\2\uffff"
         )
 
     DFA6_accept = DFA.unpack(
-        u"\2\uffff\1\2\1\uffff\1\1"
+        u"\2\uffff\1\2\1\1"
         )
 
     DFA6_special = DFA.unpack(
-        u"\5\uffff"
+        u"\4\uffff"
         )
 
 
     DFA6_transition = [
-        DFA.unpack(u"\1\2\1\uffff\2\2\1\1\2\2\17\uffff\2\2"),
-        DFA.unpack(u"\1\3\10\4\1\2"),
+        DFA.unpack(u"\1\1\10\uffff\1\2"),
+        DFA.unpack(u"\1\1\7\uffff\3\2\1\3\7\2\11\uffff\1\2"),
         DFA.unpack(u""),
-        DFA.unpack(u"\1\3\7\4\12\2\6\uffff\1\2\5\uffff\2\2"),
         DFA.unpack(u"")
     ]
 
@@ -2813,74 +2890,134 @@ class QueryParser(Parser):
     DFA6 = DFA
 
 
-    FOLLOW_expression_in_query122 = frozenset([])
+    DFA8_eot = DFA.unpack(
+        u"\24\uffff"
+        )
+
+    DFA8_eof = DFA.unpack(
+        u"\3\uffff\1\14\1\uffff\1\14\1\uffff\1\14\1\uffff\1\14\1\uffff\1"
+        u"\14\3\uffff\1\14\1\uffff\1\14\1\uffff\1\14"
+        )
+
+    DFA8_min = DFA.unpack(
+        u"\1\27\2\34\1\17\1\4\1\17\1\uffff\1\17\1\4\1\17\1\4\1\17\2\uffff"
+        u"\1\4\1\17\1\4\1\17\1\4\1\17"
+        )
+
+    DFA8_max = DFA.unpack(
+        u"\3\41\1\30\1\54\1\30\1\uffff\1\30\1\54\1\30\1\54\1\53\2\uffff\1"
+        u"\54\1\30\1\54\1\30\1\54\1\30"
+        )
+
+    DFA8_accept = DFA.unpack(
+        u"\6\uffff\1\2\5\uffff\1\3\1\1\6\uffff"
+        )
+
+    DFA8_special = DFA.unpack(
+        u"\24\uffff"
+        )
+
+
+    DFA8_transition = [
+        DFA.unpack(u"\1\6\4\uffff\2\3\1\1\1\2\1\5\1\4"),
+        DFA.unpack(u"\2\7\2\uffff\1\7\1\10"),
+        DFA.unpack(u"\2\11\2\uffff\1\11\1\12"),
+        DFA.unpack(u"\1\13\10\15\1\14"),
+        DFA.unpack(u"\35\16\1\17\13\16"),
+        DFA.unpack(u"\1\13\7\15\1\uffff\1\14"),
+        DFA.unpack(u""),
+        DFA.unpack(u"\1\13\7\15\1\uffff\1\14"),
+        DFA.unpack(u"\35\20\1\21\13\20"),
+        DFA.unpack(u"\1\13\7\15\1\uffff\1\14"),
+        DFA.unpack(u"\35\22\1\23\13\22"),
+        DFA.unpack(u"\1\13\7\15\13\14\11\uffff\1\14"),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u"\35\16\1\17\13\16"),
+        DFA.unpack(u"\1\13\7\15\1\uffff\1\14"),
+        DFA.unpack(u"\35\20\1\21\13\20"),
+        DFA.unpack(u"\1\13\7\15\1\uffff\1\14"),
+        DFA.unpack(u"\35\22\1\23\13\22"),
+        DFA.unpack(u"\1\13\7\15\1\uffff\1\14")
+    ]
+
+
+
+    DFA8 = DFA
+
+
+    FOLLOW_WS_in_query116 = frozenset([15, 23, 27, 28, 29, 30, 31, 32, 33, 43])
+    FOLLOW_expression_in_query119 = frozenset([15])
+    FOLLOW_WS_in_query121 = frozenset([15])
     FOLLOW_EOF_in_query124 = frozenset([1])
-    FOLLOW_WS_in_expression142 = frozenset([17, 25, 27, 28, 29, 30, 31, 34, 41, 47, 48])
-    FOLLOW_factor_in_expression145 = frozenset([1, 17])
-    FOLLOW_andOp_in_expression148 = frozenset([25, 27, 28, 29, 30, 31, 34, 41, 47, 48])
-    FOLLOW_factor_in_expression150 = frozenset([1, 17])
-    FOLLOW_WS_in_expression154 = frozenset([1, 17])
-    FOLLOW_term_in_factor181 = frozenset([1, 17])
-    FOLLOW_orOp_in_factor184 = frozenset([25, 27, 28, 29, 30, 31, 34, 41, 47, 48])
-    FOLLOW_term_in_factor186 = frozenset([1, 17])
-    FOLLOW_notOp_in_term215 = frozenset([25, 27, 28, 29, 30, 31, 34, 41, 47, 48])
-    FOLLOW_primitive_in_term217 = frozenset([1])
-    FOLLOW_primitive_in_term231 = frozenset([1])
-    FOLLOW_restrict_in_primitive250 = frozenset([1])
-    FOLLOW_atom_in_primitive256 = frozenset([1])
-    FOLLOW_simple_in_restrict283 = frozenset([17, 18, 19, 20, 21, 22, 23, 24])
-    FOLLOW_comparator_in_restrict285 = frozenset([25, 27, 28, 29, 30, 31, 34, 41, 47, 48])
-    FOLLOW_atom_in_restrict287 = frozenset([1])
-    FOLLOW_WS_in_comparator314 = frozenset([17, 18, 19, 20, 21, 22, 23, 24])
-    FOLLOW_LE_in_comparator320 = frozenset([1, 17])
-    FOLLOW_LT_in_comparator326 = frozenset([1, 17])
-    FOLLOW_GE_in_comparator332 = frozenset([1, 17])
-    FOLLOW_GT_in_comparator338 = frozenset([1, 17])
-    FOLLOW_NE_in_comparator344 = frozenset([1, 17])
-    FOLLOW_EQ_in_comparator350 = frozenset([1, 17])
-    FOLLOW_HAS_in_comparator356 = frozenset([1, 17])
-    FOLLOW_WS_in_comparator359 = frozenset([1, 17])
-    FOLLOW_value_in_atom378 = frozenset([1])
-    FOLLOW_LPAREN_in_atom384 = frozenset([17, 25, 27, 28, 29, 30, 31, 34, 41, 47, 48])
-    FOLLOW_expression_in_atom386 = frozenset([26])
-    FOLLOW_RPAREN_in_atom388 = frozenset([1])
-    FOLLOW_text_value_in_value405 = frozenset([1])
-    FOLLOW_numeric_value_in_value411 = frozenset([1])
-    FOLLOW_set_in_numeric_value0 = frozenset([1])
-    FOLLOW_literal_text_in_text_value453 = frozenset([1])
-    FOLLOW_rewritable_text_in_text_value459 = frozenset([1])
-    FOLLOW_text_in_text_value465 = frozenset([1])
-    FOLLOW_47_in_literal_text478 = frozenset([29, 30, 31, 47, 48])
-    FOLLOW_text_in_literal_text480 = frozenset([1])
-    FOLLOW_48_in_rewritable_text500 = frozenset([29, 30, 31, 47, 48])
-    FOLLOW_text_in_rewritable_text502 = frozenset([1])
-    FOLLOW_NAME_in_text524 = frozenset([1])
-    FOLLOW_PHRASE_in_text543 = frozenset([1])
-    FOLLOW_TEXT_in_text562 = frozenset([1])
-    FOLLOW_name_in_simple586 = frozenset([1])
-    FOLLOW_function_in_simple592 = frozenset([1])
-    FOLLOW_NAME_in_name605 = frozenset([1])
-    FOLLOW_name_in_function618 = frozenset([25])
-    FOLLOW_LPAREN_in_function620 = frozenset([25, 26, 27, 28, 29, 30, 31, 34, 41, 47, 48])
-    FOLLOW_arglist_in_function622 = frozenset([26])
-    FOLLOW_RPAREN_in_function624 = frozenset([1])
-    FOLLOW_arg_in_arglist651 = frozenset([1, 17, 49])
-    FOLLOW_sep_in_arglist654 = frozenset([25, 27, 28, 29, 30, 31, 34, 41, 47, 48])
-    FOLLOW_arg_in_arglist656 = frozenset([1, 17, 49])
-    FOLLOW_atom_in_arg675 = frozenset([1])
-    FOLLOW_function_in_arg681 = frozenset([1])
-    FOLLOW_WS_in_andOp694 = frozenset([1, 17, 32])
-    FOLLOW_AND_in_andOp698 = frozenset([17])
-    FOLLOW_WS_in_andOp700 = frozenset([1, 17])
-    FOLLOW_WS_in_orOp716 = frozenset([17, 33])
-    FOLLOW_OR_in_orOp719 = frozenset([17])
-    FOLLOW_WS_in_orOp721 = frozenset([1, 17])
-    FOLLOW_NEG_in_notOp735 = frozenset([1])
-    FOLLOW_NOT_in_notOp741 = frozenset([17])
-    FOLLOW_WS_in_notOp743 = frozenset([1, 17])
-    FOLLOW_WS_in_sep757 = frozenset([17, 49])
-    FOLLOW_49_in_sep760 = frozenset([1, 17])
-    FOLLOW_WS_in_sep762 = frozenset([1, 17])
+    FOLLOW_sequence_in_expression143 = frozenset([1, 15])
+    FOLLOW_andOp_in_expression146 = frozenset([23, 27, 28, 29, 30, 31, 32, 33, 43])
+    FOLLOW_sequence_in_expression148 = frozenset([1, 15])
+    FOLLOW_factor_in_sequence174 = frozenset([1, 15])
+    FOLLOW_WS_in_sequence177 = frozenset([15, 23, 27, 28, 29, 30, 31, 32, 33, 43])
+    FOLLOW_factor_in_sequence180 = frozenset([1, 15])
+    FOLLOW_term_in_factor206 = frozenset([1, 15])
+    FOLLOW_orOp_in_factor209 = frozenset([23, 27, 28, 29, 30, 31, 32, 33, 43])
+    FOLLOW_term_in_factor211 = frozenset([1, 15])
+    FOLLOW_notOp_in_term235 = frozenset([23, 27, 28, 29, 30, 31, 32, 33, 43])
+    FOLLOW_primitive_in_term237 = frozenset([1])
+    FOLLOW_primitive_in_term251 = frozenset([1])
+    FOLLOW_restrict_in_primitive267 = frozenset([1])
+    FOLLOW_composite_in_primitive273 = frozenset([1])
+    FOLLOW_item_in_primitive279 = frozenset([1])
+    FOLLOW_comparable_in_restrict305 = frozenset([15, 16, 17, 18, 19, 20, 21, 22])
+    FOLLOW_comparator_in_restrict307 = frozenset([23, 28, 29, 30, 31, 32, 33])
+    FOLLOW_arg_in_restrict309 = frozenset([1])
+    FOLLOW_WS_in_comparator333 = frozenset([15, 16, 17, 18, 19, 20, 21, 22])
+    FOLLOW_LE_in_comparator339 = frozenset([1, 15])
+    FOLLOW_LT_in_comparator345 = frozenset([1, 15])
+    FOLLOW_GE_in_comparator351 = frozenset([1, 15])
+    FOLLOW_GT_in_comparator357 = frozenset([1, 15])
+    FOLLOW_NE_in_comparator363 = frozenset([1, 15])
+    FOLLOW_EQ_in_comparator369 = frozenset([1, 15])
+    FOLLOW_HAS_in_comparator375 = frozenset([1, 15])
+    FOLLOW_WS_in_comparator378 = frozenset([1, 15])
+    FOLLOW_item_in_comparable400 = frozenset([1])
+    FOLLOW_function_in_comparable406 = frozenset([1])
+    FOLLOW_fnname_in_function421 = frozenset([23])
+    FOLLOW_LPAREN_in_function423 = frozenset([23, 24, 28, 29, 30, 31, 32, 33])
+    FOLLOW_arglist_in_function425 = frozenset([24])
+    FOLLOW_RPAREN_in_function427 = frozenset([1])
+    FOLLOW_arg_in_arglist456 = frozenset([1, 15, 44])
+    FOLLOW_sep_in_arglist459 = frozenset([23, 28, 29, 30, 31, 32, 33])
+    FOLLOW_arg_in_arglist461 = frozenset([1, 15, 44])
+    FOLLOW_item_in_arg486 = frozenset([1])
+    FOLLOW_composite_in_arg492 = frozenset([1])
+    FOLLOW_function_in_arg498 = frozenset([1])
+    FOLLOW_WS_in_andOp512 = frozenset([15, 25])
+    FOLLOW_AND_in_andOp515 = frozenset([15])
+    FOLLOW_WS_in_andOp517 = frozenset([1, 15])
+    FOLLOW_WS_in_orOp532 = frozenset([15, 26])
+    FOLLOW_OR_in_orOp535 = frozenset([15])
+    FOLLOW_WS_in_orOp537 = frozenset([1, 15])
+    FOLLOW_43_in_notOp552 = frozenset([1])
+    FOLLOW_NOT_in_notOp558 = frozenset([15])
+    FOLLOW_WS_in_notOp560 = frozenset([1, 15])
+    FOLLOW_WS_in_sep575 = frozenset([15, 44])
+    FOLLOW_44_in_sep578 = frozenset([1, 15])
+    FOLLOW_WS_in_sep580 = frozenset([1, 15])
+    FOLLOW_set_in_fnname0 = frozenset([1])
+    FOLLOW_LPAREN_in_composite616 = frozenset([15, 23, 27, 28, 29, 30, 31, 32, 33, 43])
+    FOLLOW_WS_in_composite618 = frozenset([15, 23, 27, 28, 29, 30, 31, 32, 33, 43])
+    FOLLOW_expression_in_composite621 = frozenset([15, 24])
+    FOLLOW_WS_in_composite623 = frozenset([15, 24])
+    FOLLOW_RPAREN_in_composite626 = frozenset([1])
+    FOLLOW_FIX_in_item646 = frozenset([28, 29, 30, 31, 32, 33])
+    FOLLOW_value_in_item648 = frozenset([1])
+    FOLLOW_REWRITE_in_item662 = frozenset([28, 29, 30, 31, 32, 33])
+    FOLLOW_value_in_item664 = frozenset([1])
+    FOLLOW_value_in_item678 = frozenset([1])
+    FOLLOW_text_in_value696 = frozenset([1])
+    FOLLOW_phrase_in_value712 = frozenset([1])
+    FOLLOW_set_in_text0 = frozenset([1])
+    FOLLOW_QUOTE_in_phrase762 = frozenset([4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44])
+    FOLLOW_set_in_phrase764 = frozenset([4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44])
+    FOLLOW_QUOTE_in_phrase780 = frozenset([1])
 
 
 

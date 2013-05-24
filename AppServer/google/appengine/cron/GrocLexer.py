@@ -38,7 +38,7 @@ MARCH=30
 EOF=-1
 MONTH=27
 FRIDAY=24
-UNKNOWN_TOKEN=44
+UNKNOWN_TOKEN=45
 TIME=5
 SYNCHRONIZED=9
 QUARTER=40
@@ -54,11 +54,12 @@ FEBRUARY=29
 MONDAY=20
 SUNDAY=26
 JUNE=33
+TWO_DIGIT_HOUR_TIME=43
 OF=4
 JANUARY=28
 MINUTES=18
 FIFTH=15
-WS=43
+WS=44
 THURSDAY=23
 DECEMBER=39
 AUGUST=35
@@ -107,58 +108,60 @@ class GrocLexer(Lexer):
 
             pass
 
-            alt1 = 4
+
+            pass
+            self.mDIGIT()
+            self.match(58)
+            self.matchRange(48, 53)
+            self.mDIGIT()
+
+
+
+
+
+
+            self._state.type = _type
+            self._state.channel = _channel
+
+        finally:
+
+            pass
+
+
+
+
+
+
+    def mTWO_DIGIT_HOUR_TIME(self, ):
+
+        try:
+            _type = TWO_DIGIT_HOUR_TIME
+            _channel = DEFAULT_CHANNEL
+
+
+
+            pass
+
+
+            pass
+
+            alt1 = 3
             LA1 = self.input.LA(1)
             if LA1 == 48:
-                LA1_1 = self.input.LA(2)
-
-                if (LA1_1 == 58) :
-                    alt1 = 1
-                elif ((48 <= LA1_1 <= 57)) :
-                    alt1 = 2
-                else:
-                    nvae = NoViableAltException("", 1, 1, self.input)
-
-                    raise nvae
-
-            elif LA1 == 49:
-                LA1_2 = self.input.LA(2)
-
-                if (LA1_2 == 58) :
-                    alt1 = 1
-                elif ((48 <= LA1_2 <= 57)) :
-                    alt1 = 3
-                else:
-                    nvae = NoViableAltException("", 1, 2, self.input)
-
-                    raise nvae
-
-            elif LA1 == 50:
-                LA1_3 = self.input.LA(2)
-
-                if ((48 <= LA1_3 <= 51)) :
-                    alt1 = 4
-                elif (LA1_3 == 58) :
-                    alt1 = 1
-                else:
-                    nvae = NoViableAltException("", 1, 3, self.input)
-
-                    raise nvae
-
-            elif LA1 == 51 or LA1 == 52 or LA1 == 53 or LA1 == 54 or LA1 == 55 or LA1 == 56 or LA1 == 57:
                 alt1 = 1
+            elif LA1 == 49:
+                alt1 = 2
+            elif LA1 == 50:
+                alt1 = 3
             else:
+                if self._state.backtracking > 0:
+                    raise BacktrackingFailed
+
                 nvae = NoViableAltException("", 1, 0, self.input)
 
                 raise nvae
 
             if alt1 == 1:
-
-                pass
-                self.mDIGIT()
-
-
-            elif alt1 == 2:
 
                 pass
 
@@ -171,7 +174,7 @@ class GrocLexer(Lexer):
 
 
 
-            elif alt1 == 3:
+            elif alt1 == 2:
 
                 pass
 
@@ -184,7 +187,7 @@ class GrocLexer(Lexer):
 
 
 
-            elif alt1 == 4:
+            elif alt1 == 3:
 
                 pass
 
@@ -204,6 +207,12 @@ class GrocLexer(Lexer):
             pass
             self.matchRange(48, 53)
             self.mDIGIT()
+
+
+
+            if self._state.backtracking == 0:
+                _type = TIME;
+
 
 
 
@@ -265,6 +274,9 @@ class GrocLexer(Lexer):
             elif (LA2_0 == 102) :
                 alt2 = 2
             else:
+                if self._state.backtracking > 0:
+                    raise BacktrackingFailed
+
                 nvae = NoViableAltException("", 2, 0, self.input)
 
                 raise nvae
@@ -315,6 +327,9 @@ class GrocLexer(Lexer):
             elif (LA3_0 == 115) :
                 alt3 = 2
             else:
+                if self._state.backtracking > 0:
+                    raise BacktrackingFailed
+
                 nvae = NoViableAltException("", 3, 0, self.input)
 
                 raise nvae
@@ -365,6 +380,9 @@ class GrocLexer(Lexer):
             elif (LA4_0 == 116) :
                 alt4 = 2
             else:
+                if self._state.backtracking > 0:
+                    raise BacktrackingFailed
+
                 nvae = NoViableAltException("", 4, 0, self.input)
 
                 raise nvae
@@ -480,11 +498,17 @@ class GrocLexer(Lexer):
                 elif (LA5_1 == 105) :
                     alt5 = 2
                 else:
+                    if self._state.backtracking > 0:
+                        raise BacktrackingFailed
+
                     nvae = NoViableAltException("", 5, 1, self.input)
 
                     raise nvae
 
             else:
+                if self._state.backtracking > 0:
+                    raise BacktrackingFailed
+
                 nvae = NoViableAltException("", 5, 0, self.input)
 
                 raise nvae
@@ -496,8 +520,8 @@ class GrocLexer(Lexer):
 
                 pass
                 self.match("fourth")
-
-                _type = FOURTH;
+                if self._state.backtracking == 0:
+                    _type = FOURTH;
 
 
 
@@ -511,8 +535,8 @@ class GrocLexer(Lexer):
 
                 pass
                 self.match("fifth")
-
-                _type = FIFTH;
+                if self._state.backtracking == 0:
+                    _type = FIFTH;
 
 
 
@@ -1420,21 +1444,33 @@ class GrocLexer(Lexer):
                         elif (LA24_3 == 117) :
                             alt24 = 2
                         else:
+                            if self._state.backtracking > 0:
+                                raise BacktrackingFailed
+
                             nvae = NoViableAltException("", 24, 3, self.input)
 
                             raise nvae
 
                     else:
+                        if self._state.backtracking > 0:
+                            raise BacktrackingFailed
+
                         nvae = NoViableAltException("", 24, 2, self.input)
 
                         raise nvae
 
                 else:
+                    if self._state.backtracking > 0:
+                        raise BacktrackingFailed
+
                     nvae = NoViableAltException("", 24, 1, self.input)
 
                     raise nvae
 
             else:
+                if self._state.backtracking > 0:
+                    raise BacktrackingFailed
+
                 nvae = NoViableAltException("", 24, 0, self.input)
 
                 raise nvae
@@ -1603,12 +1639,15 @@ class GrocLexer(Lexer):
             if (9 <= self.input.LA(1) <= 10) or self.input.LA(1) == 13 or self.input.LA(1) == 32:
                 self.input.consume()
             else:
+                if self._state.backtracking > 0:
+                    raise BacktrackingFailed
+
                 mse = MismatchedSetException(None, self.input)
                 self.recover(mse)
                 raise mse
 
-
-            _channel=HIDDEN;
+            if self._state.backtracking == 0:
+                _channel=HIDDEN;
 
 
 
@@ -1663,7 +1702,10 @@ class GrocLexer(Lexer):
             _channel = DEFAULT_CHANNEL
 
 
-            alt25 = 2
+
+            pass
+
+            alt25 = 4
             LA25_0 = self.input.LA(1)
 
             if ((48 <= LA25_0 <= 57)) :
@@ -1673,15 +1715,31 @@ class GrocLexer(Lexer):
                     LA25_2 = self.input.LA(3)
 
                     if ((48 <= LA25_2 <= 57)) :
-                        alt25 = 2
+                        LA25_4 = self.input.LA(4)
+
+                        if ((48 <= LA25_4 <= 57)) :
+                            LA25_6 = self.input.LA(5)
+
+                            if ((48 <= LA25_6 <= 57)) and (self.synpred1_Groc()):
+                                alt25 = 1
+                            else:
+                                alt25 = 2
+                        else:
+                            alt25 = 3
                     else:
-                        alt25 = 1
+                        alt25 = 4
                 else:
+                    if self._state.backtracking > 0:
+                        raise BacktrackingFailed
+
                     nvae = NoViableAltException("", 25, 1, self.input)
 
                     raise nvae
 
             else:
+                if self._state.backtracking > 0:
+                    raise BacktrackingFailed
+
                 nvae = NoViableAltException("", 25, 0, self.input)
 
                 raise nvae
@@ -1692,6 +1750,9 @@ class GrocLexer(Lexer):
 
 
                 pass
+                self.mDIGIT()
+                self.mDIGIT()
+                self.mDIGIT()
                 self.mDIGIT()
                 self.mDIGIT()
 
@@ -1708,6 +1769,38 @@ class GrocLexer(Lexer):
                 self.mDIGIT()
                 self.mDIGIT()
                 self.mDIGIT()
+                self.mDIGIT()
+
+
+
+
+
+            elif alt25 == 3:
+
+                pass
+
+
+                pass
+                self.mDIGIT()
+                self.mDIGIT()
+                self.mDIGIT()
+
+
+
+
+
+            elif alt25 == 4:
+
+                pass
+
+
+                pass
+                self.mDIGIT()
+                self.mDIGIT()
+
+
+
+
 
 
 
@@ -1757,7 +1850,7 @@ class GrocLexer(Lexer):
 
     def mTokens(self):
 
-        alt26 = 41
+        alt26 = 42
         alt26 = self.dfa26.predict(self.input)
         if alt26 == 1:
 
@@ -1768,238 +1861,244 @@ class GrocLexer(Lexer):
         elif alt26 == 2:
 
             pass
-            self.mSYNCHRONIZED()
+            self.mTWO_DIGIT_HOUR_TIME()
 
 
         elif alt26 == 3:
 
             pass
-            self.mFIRST()
+            self.mSYNCHRONIZED()
 
 
         elif alt26 == 4:
 
             pass
-            self.mSECOND()
+            self.mFIRST()
 
 
         elif alt26 == 5:
 
             pass
-            self.mTHIRD()
+            self.mSECOND()
 
 
         elif alt26 == 6:
 
             pass
-            self.mFOURTH()
+            self.mTHIRD()
 
 
         elif alt26 == 7:
 
             pass
-            self.mFIFTH()
+            self.mFOURTH()
 
 
         elif alt26 == 8:
 
             pass
-            self.mFOURTH_OR_FIFTH()
+            self.mFIFTH()
 
 
         elif alt26 == 9:
 
             pass
-            self.mDAY()
+            self.mFOURTH_OR_FIFTH()
 
 
         elif alt26 == 10:
 
             pass
-            self.mMONDAY()
+            self.mDAY()
 
 
         elif alt26 == 11:
 
             pass
-            self.mTUESDAY()
+            self.mMONDAY()
 
 
         elif alt26 == 12:
 
             pass
-            self.mWEDNESDAY()
+            self.mTUESDAY()
 
 
         elif alt26 == 13:
 
             pass
-            self.mTHURSDAY()
+            self.mWEDNESDAY()
 
 
         elif alt26 == 14:
 
             pass
-            self.mFRIDAY()
+            self.mTHURSDAY()
 
 
         elif alt26 == 15:
 
             pass
-            self.mSATURDAY()
+            self.mFRIDAY()
 
 
         elif alt26 == 16:
 
             pass
-            self.mSUNDAY()
+            self.mSATURDAY()
 
 
         elif alt26 == 17:
 
             pass
-            self.mJANUARY()
+            self.mSUNDAY()
 
 
         elif alt26 == 18:
 
             pass
-            self.mFEBRUARY()
+            self.mJANUARY()
 
 
         elif alt26 == 19:
 
             pass
-            self.mMARCH()
+            self.mFEBRUARY()
 
 
         elif alt26 == 20:
 
             pass
-            self.mAPRIL()
+            self.mMARCH()
 
 
         elif alt26 == 21:
 
             pass
-            self.mMAY()
+            self.mAPRIL()
 
 
         elif alt26 == 22:
 
             pass
-            self.mJUNE()
+            self.mMAY()
 
 
         elif alt26 == 23:
 
             pass
-            self.mJULY()
+            self.mJUNE()
 
 
         elif alt26 == 24:
 
             pass
-            self.mAUGUST()
+            self.mJULY()
 
 
         elif alt26 == 25:
 
             pass
-            self.mSEPTEMBER()
+            self.mAUGUST()
 
 
         elif alt26 == 26:
 
             pass
-            self.mOCTOBER()
+            self.mSEPTEMBER()
 
 
         elif alt26 == 27:
 
             pass
-            self.mNOVEMBER()
+            self.mOCTOBER()
 
 
         elif alt26 == 28:
 
             pass
-            self.mDECEMBER()
+            self.mNOVEMBER()
 
 
         elif alt26 == 29:
 
             pass
-            self.mMONTH()
+            self.mDECEMBER()
 
 
         elif alt26 == 30:
 
             pass
-            self.mQUARTER()
+            self.mMONTH()
 
 
         elif alt26 == 31:
 
             pass
-            self.mEVERY()
+            self.mQUARTER()
 
 
         elif alt26 == 32:
 
             pass
-            self.mHOURS()
+            self.mEVERY()
 
 
         elif alt26 == 33:
 
             pass
-            self.mMINUTES()
+            self.mHOURS()
 
 
         elif alt26 == 34:
 
             pass
-            self.mCOMMA()
+            self.mMINUTES()
 
 
         elif alt26 == 35:
 
             pass
-            self.mOF()
+            self.mCOMMA()
 
 
         elif alt26 == 36:
 
             pass
-            self.mFROM()
+            self.mOF()
 
 
         elif alt26 == 37:
 
             pass
-            self.mTO()
+            self.mFROM()
 
 
         elif alt26 == 38:
 
             pass
-            self.mWS()
+            self.mTO()
 
 
         elif alt26 == 39:
 
             pass
-            self.mDIGIT()
+            self.mWS()
 
 
         elif alt26 == 40:
 
             pass
-            self.mDIGITS()
+            self.mDIGIT()
 
 
         elif alt26 == 41:
+
+            pass
+            self.mDIGITS()
+
+
+        elif alt26 == 42:
 
             pass
             self.mUNKNOWN_TOKEN()
@@ -2010,42 +2109,100 @@ class GrocLexer(Lexer):
 
 
 
+    def synpred1_Groc_fragment(self, ):
+
+
+        pass
+        self.mDIGIT()
+        self.mDIGIT()
+        self.mDIGIT()
+        self.mDIGIT()
+        self.mDIGIT()
+
+
+
+
+
+
+
+    def synpred2_Groc_fragment(self, ):
+
+
+        pass
+        self.mDIGIT()
+        self.mDIGIT()
+        self.mDIGIT()
+        self.mDIGIT()
+
+
+
+
+
+
+    def synpred2_Groc(self):
+        self._state.backtracking += 1
+        start = self.input.mark()
+        try:
+            self.synpred2_Groc_fragment()
+        except BacktrackingFailed:
+            success = False
+        else:
+            success = True
+        self.input.rewind(start)
+        self._state.backtracking -= 1
+        return success
+
+    def synpred1_Groc(self):
+        self._state.backtracking += 1
+        start = self.input.mark()
+        try:
+            self.synpred1_Groc_fragment()
+        except BacktrackingFailed:
+            success = False
+        else:
+            success = True
+        self.input.rewind(start)
+        self._state.backtracking -= 1
+        return success
+
+
+
 
 
     DFA26_eot = DFA.unpack(
-        u"\1\uffff\4\30\2\27\1\30\1\27\2\30\12\27\5\uffff\1\37\1\uffff\2"
-        u"\37\46\uffff\1\112\6\uffff"
+        u"\1\uffff\4\30\2\27\1\30\1\27\2\30\12\27\4\uffff\1\37\2\uffff\2"
+        u"\37\47\uffff\1\113\6\uffff"
         )
 
     DFA26_eof = DFA.unpack(
-        u"\113\uffff"
+        u"\114\uffff"
         )
 
     DFA26_min = DFA.unpack(
         u"\1\0\4\60\1\141\1\145\1\60\1\150\2\60\2\141\1\145\1\141\1\160\1"
-        u"\143\1\157\1\165\1\166\1\157\5\uffff\1\72\1\uffff\2\72\4\uffff"
+        u"\143\1\157\1\165\1\166\1\157\4\uffff\1\72\2\uffff\2\72\4\uffff"
         u"\1\143\2\uffff\1\146\1\uffff\1\151\2\uffff\1\151\5\uffff\1\156"
-        u"\1\162\3\uffff\1\154\16\uffff\1\164\6\uffff"
+        u"\1\162\3\uffff\1\154\17\uffff\1\164\6\uffff"
         )
 
     DFA26_max = DFA.unpack(
         u"\1\uffff\1\72\1\163\1\156\1\162\1\171\1\162\1\164\1\165\1\164\1"
-        u"\72\1\145\1\157\1\145\2\165\1\146\1\157\1\165\1\166\1\157\5\uffff"
-        u"\1\72\1\uffff\2\72\4\uffff\1\160\2\uffff\1\162\1\uffff\1\157\2"
-        u"\uffff\1\165\5\uffff\1\156\1\171\3\uffff\1\156\16\uffff\1\164\6"
+        u"\72\1\145\1\157\1\145\2\165\1\146\1\157\1\165\1\166\1\157\4\uffff"
+        u"\1\72\2\uffff\2\72\4\uffff\1\160\2\uffff\1\162\1\uffff\1\157\2"
+        u"\uffff\1\165\5\uffff\1\156\1\171\3\uffff\1\156\17\uffff\1\164\6"
         u"\uffff"
         )
 
     DFA26_accept = DFA.unpack(
-        u"\25\uffff\1\42\1\46\1\51\1\47\1\1\1\uffff\1\3\2\uffff\1\4\1\50"
-        u"\1\5\1\2\1\uffff\1\17\1\20\1\uffff\1\10\1\uffff\1\22\1\6\1\uffff"
-        u"\1\13\1\45\1\7\1\11\1\34\2\uffff\1\41\1\14\1\21\1\uffff\1\24\1"
-        u"\30\1\32\1\43\1\33\1\36\1\37\1\40\1\42\1\46\1\31\1\16\1\44\1\15"
-        u"\1\uffff\1\23\1\25\1\26\1\27\1\35\1\12"
+        u"\25\uffff\1\43\1\47\1\52\1\50\1\uffff\1\1\1\4\2\uffff\1\5\1\51"
+        u"\1\6\1\3\1\uffff\1\20\1\21\1\uffff\1\11\1\uffff\1\23\1\7\1\uffff"
+        u"\1\14\1\46\1\10\1\12\1\35\2\uffff\1\42\1\15\1\22\1\uffff\1\25\1"
+        u"\31\1\33\1\44\1\34\1\37\1\40\1\41\1\43\1\47\1\2\1\32\1\17\1\45"
+        u"\1\16\1\uffff\1\24\1\26\1\27\1\30\1\36\1\13"
         )
 
     DFA26_special = DFA.unpack(
-        u"\1\0\112\uffff"
+        u"\1\0\113\uffff"
         )
 
 
@@ -2054,16 +2211,16 @@ class GrocLexer(Lexer):
         u"\1\2\1\3\1\4\1\7\1\11\4\12\47\27\1\17\2\27\1\13\1\23\1\6\1\27\1"
         u"\24\1\27\1\16\2\27\1\14\1\21\1\20\1\27\1\22\1\27\1\5\1\10\2\27"
         u"\1\15\uff88\27"),
-        DFA.unpack(u"\12\32\1\31"),
-        DFA.unpack(u"\12\34\1\31\70\uffff\1\33"),
-        DFA.unpack(u"\4\35\6\37\1\31\63\uffff\1\36"),
-        DFA.unpack(u"\12\37\1\31\67\uffff\1\40"),
+        DFA.unpack(u"\12\31\1\32"),
+        DFA.unpack(u"\12\34\1\32\70\uffff\1\33"),
+        DFA.unpack(u"\4\35\6\37\1\32\63\uffff\1\36"),
+        DFA.unpack(u"\12\37\1\32\67\uffff\1\40"),
         DFA.unpack(u"\1\43\3\uffff\1\42\17\uffff\1\44\3\uffff\1\41"),
         DFA.unpack(u"\1\50\3\uffff\1\45\5\uffff\1\46\2\uffff\1\47"),
-        DFA.unpack(u"\12\37\1\31\71\uffff\1\51"),
+        DFA.unpack(u"\12\37\1\32\71\uffff\1\51"),
         DFA.unpack(u"\1\52\6\uffff\1\54\5\uffff\1\53"),
-        DFA.unpack(u"\12\37\1\31\71\uffff\1\55"),
-        DFA.unpack(u"\12\37\1\31"),
+        DFA.unpack(u"\12\37\1\32\71\uffff\1\55"),
+        DFA.unpack(u"\12\37\1\32"),
         DFA.unpack(u"\1\56\3\uffff\1\57"),
         DFA.unpack(u"\1\61\7\uffff\1\62\5\uffff\1\60"),
         DFA.unpack(u"\1\63"),
@@ -2078,38 +2235,35 @@ class GrocLexer(Lexer):
         DFA.unpack(u""),
         DFA.unpack(u""),
         DFA.unpack(u""),
-        DFA.unpack(u""),
-        DFA.unpack(u"\1\31"),
-        DFA.unpack(u""),
-        DFA.unpack(u"\1\31"),
-        DFA.unpack(u"\1\31"),
+        DFA.unpack(u"\1\100"),
         DFA.unpack(u""),
         DFA.unpack(u""),
+        DFA.unpack(u"\1\100"),
+        DFA.unpack(u"\1\100"),
         DFA.unpack(u""),
         DFA.unpack(u""),
-        DFA.unpack(u"\1\36\14\uffff\1\100"),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u"\1\36\14\uffff\1\101"),
         DFA.unpack(u""),
         DFA.unpack(u""),
         DFA.unpack(u"\1\46\13\uffff\1\33"),
         DFA.unpack(u""),
-        DFA.unpack(u"\1\101\5\uffff\1\102"),
+        DFA.unpack(u"\1\102\5\uffff\1\103"),
         DFA.unpack(u""),
         DFA.unpack(u""),
-        DFA.unpack(u"\1\40\13\uffff\1\103"),
-        DFA.unpack(u""),
-        DFA.unpack(u""),
-        DFA.unpack(u""),
-        DFA.unpack(u""),
-        DFA.unpack(u""),
-        DFA.unpack(u"\1\104"),
-        DFA.unpack(u"\1\105\6\uffff\1\106"),
+        DFA.unpack(u"\1\40\13\uffff\1\104"),
         DFA.unpack(u""),
         DFA.unpack(u""),
         DFA.unpack(u""),
-        DFA.unpack(u"\1\110\1\uffff\1\107"),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u"\1\105"),
+        DFA.unpack(u"\1\106\6\uffff\1\107"),
         DFA.unpack(u""),
         DFA.unpack(u""),
         DFA.unpack(u""),
+        DFA.unpack(u"\1\111\1\uffff\1\110"),
         DFA.unpack(u""),
         DFA.unpack(u""),
         DFA.unpack(u""),
@@ -2121,7 +2275,11 @@ class GrocLexer(Lexer):
         DFA.unpack(u""),
         DFA.unpack(u""),
         DFA.unpack(u""),
-        DFA.unpack(u"\1\111"),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u"\1\112"),
         DFA.unpack(u""),
         DFA.unpack(u""),
         DFA.unpack(u""),
@@ -2219,6 +2377,8 @@ class GrocLexer(Lexer):
                 if s >= 0:
                     return s
 
+            if self._state.backtracking >0:
+                raise BacktrackingFailed
             nvae = NoViableAltException(self_.getDescription(), 26, _s, input)
             self_.error(nvae)
             raise nvae

@@ -286,6 +286,12 @@ class ProspectiveSearchStub(apiproxy_stub.APIProxyStub):
     self._Debug('_FindMatches: result: %s' % match, 0)
     return match
 
+  def ExtractGlobalEq(self, node):
+    if node.getType() == QueryParser.EQ and len(node.children) >= 2:
+      if node.children[0].getType() == QueryParser.GLOBAL:
+        return node.children[1]
+    return node
+
   def _WalkQueryTree(self, query_node, doc, query_field=None, level=0):
     """Recursive match of doc from query tree at the given node."""
     query_type = query_node.getType()
@@ -296,13 +302,15 @@ class ProspectiveSearchStub(apiproxy_stub.APIProxyStub):
 
     if query_type is QueryParser.CONJUNCTION:
       for child in query_node.children:
-        if not self._WalkQueryTree(child, doc, query_field, level=level + 1):
+        if not self._WalkQueryTree(
+            self.ExtractGlobalEq(child), doc, query_field, level=level + 1):
           return False
       return True
 
     elif query_type is QueryParser.DISJUNCTION:
       for child in query_node.children:
-        if self._WalkQueryTree(child, doc, query_field, level=level + 1):
+        if self._WalkQueryTree(
+            self.ExtractGlobalEq(child), doc, query_field, level=level + 1):
           return True
 
     if query_type is QueryParser.NEGATION:
@@ -310,25 +318,22 @@ class ProspectiveSearchStub(apiproxy_stub.APIProxyStub):
                    % (query_type, query_node.children[0])),
                   level)
       child = query_node.children[0]
-      return not self._WalkQueryTree(child, doc, query_field, level=level + 1)
+      return not self._WalkQueryTree(
+          self.ExtractGlobalEq(child), doc, query_field, level=level + 1)
 
-    elif query_type is QueryParser.RESTRICTION:
-      query_field = query_node.children[0].getText()
-      if query_field not in doc:
-        self._Debug(('No such field so no match: field: %r' % query_field),
-                    level)
-        return False
+    elif query_type is QueryParser.HAS:
+      if query_node.children[0].getType() is not QueryParser.GLOBAL:
+        query_field = query_node.children[0].getText()
+        if query_field not in doc:
+          self._Debug(('No such field so no match: field: %r' % query_field),
+                      level)
+          return False
       return self._WalkQueryTree(query_node.children[1], doc, query_field,
                                  level=level + 1)
 
-
-    elif query_type is QueryParser.HAS:
-      return self._WalkQueryTree(query_node.children[0], doc, query_field,
-                                 level=level + 1)
-
-    elif (query_type is QueryParser.PHRASE or
-          query_type is QueryParser.TEXT or
-          query_type is QueryParser.NAME):
+    elif query_type is QueryParser.VALUE or query_type is QueryParser.TEXT:
+      if query_parser.IsPhrase(query_node):
+        query_text = query_parser.GetQueryNodeTextUnicode(query_node)
       if query_field is not None:
         return self._MatchField(doc, query_field, query_text, level=level)
 
@@ -336,13 +341,14 @@ class ProspectiveSearchStub(apiproxy_stub.APIProxyStub):
         if self._MatchField(doc, field_name, query_text, level=level):
           return True
 
-    elif (query_type is QueryParser.EQ or
-          query_type is QueryParser.GT or
-          query_type is QueryParser.LT or
-          query_type is QueryParser.GE or
-          query_type is QueryParser.LE):
-      query_text = query_node.children[0].getText()
+    elif query_type in query_parser.COMPARISON_TYPES:
+      query_field = query_node.children[0].getText()
+      query_text = query_node.children[1].getText()
       if query_field is not None:
+        if query_field not in doc:
+          self._Debug(('No such field so no match: field: %r' % query_field),
+                      level)
+          return False
         return self._MatchField(doc, query_field, query_text, query_type,
                                 level=level)
       for field_name in doc:
@@ -413,35 +419,28 @@ class ProspectiveSearchStub(apiproxy_stub.APIProxyStub):
   def _Simplify(self, parser_return):
     """Simplifies the output of the parser."""
     if parser_return.tree:
-      return self._SimplifyNode(parser_return.tree)
+      return self._SimplifyNode(query_parser.SimplifyNode(parser_return.tree))
     return parser_return
 
   def _SimplifyNode(self, node):
     """Simplifies the node removing singleton conjunctions and others."""
     if not node.getType():
       return self._SimplifyNode(node.children[0])
-    elif (node.getType() is QueryParser.CONJUNCTION
-          and node.getChildCount() is 1):
-      return self._SimplifyNode(node.children[0])
-    elif (node.getType() is QueryParser.DISJUNCTION
-          and node.getChildCount() is 1):
-      return self._SimplifyNode(node.children[0])
-    elif (node.getType() is QueryParser.RESTRICTION
+    elif (node.getType() in query_parser.COMPARISON_TYPES
           and node.getChildCount() is 2
           and node.children[0].getType() is QueryParser.GLOBAL):
       return self._SimplifyNode(node.children[1])
+    elif node.getType() is QueryParser.SEQUENCE:
+      return self._SimplifyNode(query_parser.SequenceToConjunction(node))
     elif (node.getType() is QueryParser.VALUE
           and node.getChildCount() is 2 and
-          (node.children[0].getType() is QueryParser.WORD or
+          (node.children[0].getType() is QueryParser.TEXT or
            node.children[0].getType() is QueryParser.STRING or
            node.children[0].getType() is QueryParser.NUMBER)):
       return self._SimplifyNode(node.children[1])
     elif (node.getType() is QueryParser.EQ and
           (node.children[0].getType() is QueryParser.CONJUNCTION
            or node.children[0].getType() is QueryParser.DISJUNCTION)):
-      return self._SimplifyNode(node.children[0])
-    elif (node.getType() is QueryParser.HAS
-          and node.getChildCount() is 1):
       return self._SimplifyNode(node.children[0])
     for i, child in enumerate(node.children):
       node.setChild(i, self._SimplifyNode(child))

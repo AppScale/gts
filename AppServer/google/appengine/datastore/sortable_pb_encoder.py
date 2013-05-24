@@ -21,13 +21,13 @@
 
 """An Encoder class for Protocol Buffers that preserves sorting characteristics.
 
-This is used by datastore_sqlite_stub in order to index entities in a fashion
-that preserves the datastore's sorting semantics. Broadly, there are four
+This is used by datastore_sqlite_stub and datastore_types to match the ordering
+semantics of the production datastore. Broadly, there are four
 changes from regular PB encoding:
 
  - Strings are escaped and null terminated instead of length-prefixed. The
-   escaping replaces \0 with \1\1 and \1 with \1\2, thus preserving the ordering
-   of the original string.
+   escaping replaces \x00 with \x01\x01 and \x01 with \x01\x02, thus preserving
+   the ordering of the original string.
  - Variable length integers are encoded using a variable length encoding that
    preserves order. The first byte stores the absolute value if it's between
    -119 to 119, otherwise it stores the number of bytes that follow.
@@ -155,10 +155,15 @@ class Encoder(ProtocolBuffer.Encoder):
       raise ProtocolBuffer.ProtocolBufferEncodeError, 'uint64 too big'
     self._PutVarInt(value)
 
+  def _isFloatNegative(self, value, encoded):
+    if value == 0:
+      return encoded[0] == 128
+    return value < 0
+
   def putFloat(self, value):
     encoded = array.array('B')
     encoded.fromstring(struct.pack('>f', value))
-    if value < 0:
+    if self._isFloatNegative(value, encoded):
 
 
       encoded[0] ^= 0xFF
@@ -173,7 +178,7 @@ class Encoder(ProtocolBuffer.Encoder):
   def putDouble(self, value):
     encoded = array.array('B')
     encoded.fromstring(struct.pack('>d', value))
-    if value < 0:
+    if self._isFloatNegative(value, encoded):
 
 
       encoded[0] ^= 0xFF
@@ -192,7 +197,8 @@ class Encoder(ProtocolBuffer.Encoder):
   def putPrefixedString(self, value):
 
 
-    self.buf.fromstring(value.replace('\1', '\1\2').replace('\0', '\1\1') + '\0')
+    self.buf.fromstring(
+        value.replace('\x01', '\x01\x02').replace('\x00', '\x01\x01') + '\x00')
 
 
 class Decoder(ProtocolBuffer.Decoder):
@@ -249,7 +255,7 @@ class Decoder(ProtocolBuffer.Decoder):
       bytes = b - _POS_OFFSET
 
     ret = 0
-    for i in range(bytes):
+    for _ in range(bytes):
       b = self.get8()
       if negative:
         b = _MAX_UNSIGNED_BYTE - b
@@ -305,4 +311,4 @@ class Decoder(ProtocolBuffer.Decoder):
 
     data = array.array('B', self.buf[self.idx:end_idx]).tostring()
     self.idx = end_idx + 1
-    return data.replace('\1\1', '\0').replace('\1\2', '\1')
+    return data.replace('\x01\x01', '\x00').replace('\x01\x02', '\x01')

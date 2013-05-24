@@ -139,6 +139,20 @@ def get_oauth_consumer_key():
   return resp.oauth_consumer_key()
 
 
+def get_client_id(_scope):
+  """Returns the value of OAuth2 Client ID from an OAuth2 request.
+
+  Returns:
+    string: The value of Client ID
+
+  Raises:
+    OAuthRequestError: The request was not a valid OAuth2 request.
+    OAuthServiceFailureError: An unknow error occurred
+  """
+  _maybe_call_get_oauth_user(_scope)
+  return _get_client_id_from_environ()
+
+
 def _maybe_call_get_oauth_user(_scope=None):
   """Makes an GetOAuthUser RPC and stores the results in os.environ.
 
@@ -158,6 +172,7 @@ def _maybe_call_get_oauth_user(_scope=None):
       os.environ['OAUTH_EMAIL'] = resp.email()
       os.environ['OAUTH_AUTH_DOMAIN'] = resp.auth_domain()
       os.environ['OAUTH_USER_ID'] = resp.user_id()
+      os.environ['OAUTH_CLIENT_ID'] = resp.client_id()
       if resp.is_admin():
         os.environ['OAUTH_IS_ADMIN'] = '1'
       else:
@@ -211,3 +226,15 @@ def _get_user_from_environ():
   return users.User(email=os.environ['OAUTH_EMAIL'],
                     _auth_domain=os.environ['OAUTH_AUTH_DOMAIN'],
                     _user_id=os.environ['OAUTH_USER_ID'])
+
+
+def _get_client_id_from_environ():
+  """Returns Client ID based on values stored in os.environ.
+
+  This method requires that 'OAUTH_CLIENT_ID' has already been set.
+
+  Returns:
+    string: the value of Client ID.
+  """
+  assert 'OAUTH_CLIENT_ID' in os.environ
+  return os.environ['OAUTH_CLIENT_ID']

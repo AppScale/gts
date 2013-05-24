@@ -15,7 +15,12 @@
 # limitations under the License.
 #
 
+
+
+
+
 """Trivial implementation of the UserService."""
+
 
 import os
 import urllib
@@ -39,6 +44,7 @@ _OAUTH_CONSUMER_KEY = 'example.com'
 _OAUTH_EMAIL = 'example@example.com'
 _OAUTH_USER_ID = '0'
 _OAUTH_AUTH_DOMAIN = _DEFAULT_AUTH_DOMAIN
+_OAUTH_CLIENT_ID = '123456789.apps.googleusercontent.com'
 
 
 class UserServiceStub(apiproxy_stub.APIProxyStub):
@@ -84,7 +90,8 @@ class UserServiceStub(apiproxy_stub.APIProxyStub):
                    domain=_OAUTH_AUTH_DOMAIN,
                    user_id=_OAUTH_USER_ID,
                    is_admin=False,
-                   scopes=None):
+                   scopes=None,
+                   client_id=_OAUTH_CLIENT_ID):
     """Set test OAuth user.
 
     Determines what user is returned by requests to GetOAuthUser.
@@ -96,12 +103,14 @@ class UserServiceStub(apiproxy_stub.APIProxyStub):
       user_id: User ID of oauth user.
       is_admin:  Whether the user is an admin.
       scopes: List of scopes that user is authenticated against.
+      client_id: Client ID of the OAuth2 request
     """
     self.__email = email
     self.__domain = domain
     self.__user_id = user_id
     self.__is_admin = is_admin
     self.__scopes = scopes
+    self._client_id = client_id
 
   def _Dynamic_CreateLoginURL(self, request, response, request_id):
     """Trivial implementation of UserService.CreateLoginURL().
@@ -153,6 +162,7 @@ class UserServiceStub(apiproxy_stub.APIProxyStub):
       response.set_user_id(self.__user_id)
       response.set_auth_domain(self.__domain)
       response.set_is_admin(self.__is_admin)
+      response.set_client_id(self._client_id)
 
   def _Dynamic_CheckOAuthSignature(self, unused_request, response, request_id):
     """Trivial implementation of UserService.CheckOAuthSignature().
@@ -176,8 +186,7 @@ class UserServiceStub(apiproxy_stub.APIProxyStub):
     Returns:
       string
     """
-    (protocol, host, path, parameters, query, fragment) = \
-               urlparse.urlparse(continue_url)
+    (protocol, host, path, parameters, query, fragment) = urlparse.urlparse(continue_url)
 
     if host and protocol:
       return continue_url

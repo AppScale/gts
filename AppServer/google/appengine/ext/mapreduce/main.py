@@ -41,18 +41,20 @@ This module should be specified as a handler for mapreduce URLs in app.yaml:
 """
 
 
-import wsgiref.handlers
 
 import google
-from google.appengine.ext import webapp
-from google.appengine.ext.mapreduce import handlers
-from google.appengine.ext.mapreduce import status
-from google.appengine.ext.webapp import util
+
 
 try:
   from appengine_pipeline.src import pipeline
 except ImportError:
   pipeline = None
+
+
+from google.appengine.ext import webapp
+from google.appengine.ext.mapreduce import handlers
+from google.appengine.ext.mapreduce import status
+from google.appengine.ext.webapp import util
 
 
 STATIC_RE = r".*/([^/]*\.(?:css|js)|status|detail)$"

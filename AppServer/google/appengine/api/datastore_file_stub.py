@@ -67,6 +67,11 @@ from google.appengine.datastore import entity_pb
 datastore_pb.Query.__hash__ = lambda self: hash(self.Encode())
 
 
+def _FinalElement(key):
+  """Return final element of a key's path."""
+  return key.path().element_list()[-1]
+
+
 class _StoredEntity(object):
   """Simple wrapper around an entity stored by the stub.
 
@@ -222,7 +227,7 @@ class PropertyPseudoKind(object):
 
       def InQuery(property_e):
         return property_range.Contains(
-            (kind, property_e.key().path().element_list()[-1].name()))
+            (kind, _FinalElement(property_e.key()).name()))
       properties += filter(InQuery, kind_properties)
 
     return (properties, [], [])
@@ -298,7 +303,8 @@ class DatastoreFileStub(datastore_stub_util.BaseDatastore,
                consistency_policy=None,
                save_changes=True,
                root_path=None,
-               use_atexit=True):
+               use_atexit=True,
+               auto_id_policy=datastore_stub_util.SEQUENTIAL):
     """Constructor.
 
     Initializes and loads the datastore from the backing files, if they exist.
@@ -320,6 +326,7 @@ class DatastoreFileStub(datastore_stub_util.BaseDatastore,
         datastore_file when entities are changed.
       root_path: string, the root path of the app.
       use_atexit: bool, indicates if the stub should save itself atexit.
+      auto_id_policy: enum, datastore_stub_util.SEQUENTIAL or .SCATTERED
     """
 
 
@@ -345,14 +352,16 @@ class DatastoreFileStub(datastore_stub_util.BaseDatastore,
 
     self.__schema_cache = {}
 
-    self.__next_id = 1L
+    self.__id_counters = {datastore_stub_util.SEQUENTIAL: 1L,
+                          datastore_stub_util.SCATTERED: 1L
+                         }
     self.__id_lock = threading.Lock()
 
     self.__file_lock = threading.Lock()
 
     datastore_stub_util.BaseDatastore.__init__(
         self, require_indexes, consistency_policy,
-        use_atexit and self.__IsSaveable())
+        use_atexit and self.__IsSaveable(), auto_id_policy)
     apiproxy_stub.APIProxyStub.__init__(self, service_name)
     datastore_stub_util.DatastoreStub.__init__(self, weakref.proxy(self),
                                                app_id, trusted, root_path)
@@ -402,7 +411,7 @@ class DatastoreFileStub(datastore_stub_util.BaseDatastore,
       Tuple (by_kind key, by_entity_group key, entity key)
     """
     app_ns = datastore_types.EncodeAppIdNamespace(key.app(), key.name_space())
-    kind = key.path().element_list()[-1].type()
+    kind = _FinalElement(key).type()
     entity_group = datastore_stub_util._GetEntityGroup(key)
     eg_k = datastore_types.ReferenceToKeyValue(entity_group)
     k = datastore_types.ReferenceToKeyValue(key)
@@ -416,7 +425,7 @@ class DatastoreFileStub(datastore_stub_util.BaseDatastore,
 
     Args:
       entity: The entity_pb.EntityProto to store.
-      insert: If we should check for existance.
+      insert: If we should check for existence.
     """
     app_kind, eg_k, k = self._GetEntityLocation(entity.key())
 
@@ -451,7 +460,8 @@ class DatastoreFileStub(datastore_stub_util.BaseDatastore,
     key as an entity already in the datastore, the entity from the file
     overwrites the entity in the datastore.
 
-    Also sets __next_id to one greater than the highest id allocated so far.
+    Also sets each ID counter to one greater than the highest ID allocated so
+    far in that counter's ID space.
     """
     if self.__datastore_file and self.__datastore_file != '/dev/null':
       for encoded_entity in self.__ReadPickled(self.__datastore_file):
@@ -475,9 +485,9 @@ class DatastoreFileStub(datastore_stub_util.BaseDatastore,
 
         self._StoreEntity(entity)
 
-        last_path = entity.key().path().element_list()[-1]
-        if last_path.has_id() and last_path.id() >= self.__next_id:
-          self.__next_id = last_path.id() + 1
+        last_path = _FinalElement(entity.key())
+        if last_path.id():
+          self._SetMaxId(last_path.id())
 
   def Write(self):
     """Writes out the datastore and history files.
@@ -670,22 +680,60 @@ class DatastoreFileStub(datastore_stub_util.BaseDatastore,
     return datastore_stub_util._ExecuteQuery(results, query,
                                              filters, orders, index_list)
 
+  def _SetIdCounter(self, id_space, value):
+    """Set the ID counter for id_space to value."""
+    self.__id_counters[id_space] = value
+
+  def _IdCounter(self, id_space):
+    """Return current value of ID counter for id_space."""
+    return self.__id_counters[id_space]
+
+  def _SetMaxId(self, max_id):
+    """Infer ID space and advance corresponding counter."""
+    count, id_space = datastore_stub_util.IdToCounter(max_id)
+    if count >= self._IdCounter(id_space):
+      self._SetIdCounter(id_space, count + 1)
+
   def _AllocateIds(self, reference, size=1, max_id=None):
     datastore_stub_util.Check(not (size and max_id),
                               'Both size and max cannot be set.')
 
     self.__id_lock.acquire()
     try:
-      start = self.__next_id
+      id_space = datastore_stub_util.SEQUENTIAL
+      start = self._IdCounter(id_space)
       if size:
         datastore_stub_util.Check(size > 0, 'Size must be greater than 0.')
-        self.__next_id += size
+        self._SetIdCounter(id_space, start + size)
       elif max_id:
         datastore_stub_util.Check(max_id >=0,
                                   'Max must be greater than or equal to 0.')
-        self.__next_id = max(self.__next_id, max_id + 1)
-      end = self.__next_id - 1
+        self._SetIdCounter(id_space, max(start, max_id + 1))
+      end = self._IdCounter(id_space) - 1
     finally:
       self.__id_lock.release()
 
     return (start, end)
+
+  def _AllocateScatteredIds(self, keys):
+    self.__id_lock.acquire()
+    full_keys = []
+    try:
+      for key in keys:
+        last_element = _FinalElement(key)
+        datastore_stub_util.Check(not last_element.has_name(),
+                                  'Cannot allocate named key.')
+
+        if last_element.id():
+          self._SetMaxId(last_element.id())
+
+        else:
+          id_space = datastore_stub_util.SCATTERED
+          count = self._IdCounter(id_space)
+          last_element.set_id(datastore_stub_util.ToScatteredId(count))
+          self._SetIdCounter(id_space, count + 1)
+        full_keys.append(key)
+    finally:
+      self.__id_lock.release()
+
+    return full_keys
