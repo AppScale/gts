@@ -1,7 +1,0 @@
-[mysqld]
-ndbcluster
-set-variable=max_connections=1000
-ndb-connectstring=128.111.55.211
-[MYSQL_CLUSTER]
-ndb-connectstring=128.111.55.211
-
