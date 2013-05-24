@@ -61,6 +61,19 @@ class ServerStatus(ndb.Model):
   roles = ndb.StringProperty(repeated=True)
 
 
+class RequestInfo(ndb.Model):
+  timestamp = ndb.DateTimeProperty()
+  num_of_requests = ndb.FloatProperty()
+
+
+class AppInfo(ndb.Model):
+  """
+    request_info: One or more RequestInfos that contain information about how
+      many requests this application has served within a certain timespan.
+  """
+  request_info = ndb.StructuredProperty(RequestInfo, repeated=True)
+
+
 class AppStatus(ndb.Model):
   """ A Datastore Model that contains information about where an application
   hosted in AppScale can be located, to display to users.

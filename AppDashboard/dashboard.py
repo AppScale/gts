@@ -35,6 +35,8 @@ sys.path.append(os.path.dirname(__file__) + '/lib')
 from app_dashboard_helper import AppDashboardHelper
 from app_dashboard_helper import AppHelperException
 from app_dashboard_data import AppDashboardData
+from app_dashboard_data import AppInfo
+from app_dashboard_data import RequestInfo
 
 
 jinja_environment = jinja2.Environment(
@@ -608,20 +610,29 @@ class AppConsole(AppDashboard):
     if app_id not in apps_user_is_admin_on:
       self.redirect('/', self.response)
 
+    app_info = AppInfo.get_by_id(app_id)
+
     self.render_page(page='console', template_file=self.TEMPLATE, values = {
       'app_id' : app_id,
-      'requests' : [
-        {'time': 1369321495.0, 'requests': 0},
-        {'time': 1369321415.0, 'requests': 20},
-        {'time': 1369321435.0, 'requests': 40},
-        {'time': 1369321455.0, 'requests': 60},
-        {'time': 1369321475.0, 'requests': 80},
-        {'time': 1369321505.0, 'requests': 10},
-        {'time': 1369321555.0, 'requests': 80},
-        {'time': 1369321595.0, 'requests': 50},
-        {'time': 1369321605.0, 'requests': 30},
-      ]
+      'requests' : app_info.request_info
     })
+
+
+  def post(self, app_id):
+    """ """
+    encoded_data = self.request.body
+    data = json.loads(encoded_data)
+
+    app_info = AppInfo.get_by_id(app_id)
+    if not app_info:
+      app_info = AppInfo(id = app_id, request_info = [])
+
+    request_info = RequestInfo(
+      timestamp = datetime.datetime.fromtimestamp(data['timestamp']),
+      num_of_requests = data['request_rate'])
+    logging.info("saving a log for app {0}, timestamp {1}, num requests {2}".format(app_id, data['timestamp'], data['request_rate']))
+    app_info.request_info.append(request_info)
+    app_info.put()
 
 
 class LogMainPage(AppDashboard):
