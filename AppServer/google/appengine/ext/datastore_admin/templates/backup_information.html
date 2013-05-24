@@ -10,6 +10,9 @@
       </thead>
       <tbody>
         <tr><td><b>Kinds:</b></td><td>{{ backup.kinds|join:', '}}</td></tr>
+        {% if backup.namespaces %}
+        <tr><td><b>Selected namespace:</b></td><td>{% if backup.namespaces.0 %}{{ backup.namespaces|first }}{% else %}--Default--{% endif %}</td></tr>
+        {% endif %}
         <tr><td><b>Target:</b></td><td>{% if backup.filesystem == 'gs'%}Google Cloud Strorage{% else %}{{backup.filesystem}}{% endif %}</td></tr>
         <tr><td><b>Started:</b></td><td>{{backup.start_time}}</td></tr>
         {% if backup.complete_time %}

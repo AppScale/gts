@@ -12,7 +12,6 @@ __all__ = [
 
 MODULE_OVERRIDES = __all__ + [
   # These are used in the Py27 runtime but must be imported from dist.
-  'ftplib',
   'select',
   'subprocess',
   'tempfile',

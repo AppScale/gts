@@ -1,5 +1,3 @@
-#!/usr/bin/python2.4
-#
 # Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007 Python Software
 # Foundation; All Rights Reserved
 
@@ -14,13 +12,12 @@ __author__ = "{frew,nick.johnson}@google.com (Fred Wulff and Nick Johnson)"
 import base64
 import httplib
 import logging
-import re
 import socket
-import urllib2
-
+from urllib import splitpasswd
 from urllib import splittype
 from urllib import splituser
-from urllib import splitpasswd
+import urllib2
+
 
 class InvalidCertificateException(httplib.HTTPException):
   """Raised when a certificate is provided with an invalid hostname."""
@@ -31,6 +28,7 @@ class InvalidCertificateException(httplib.HTTPException):
     Args:
       host: The hostname the connection was made to.
       cert: The SSL certificate (as a dictionary) the host returned.
+      reason: user readable error reason.
     """
     httplib.HTTPException.__init__(self)
     self.host = host
@@ -38,9 +36,9 @@ class InvalidCertificateException(httplib.HTTPException):
     self.reason = reason
 
   def __str__(self):
-    return ('Host %s returned an invalid certificate (%s): %s\n'
-            'To learn more, see '
-            'http://code.google.com/appengine/kb/general.html#rpcssl' %
+    return ("Host %s returned an invalid certificate (%s): %s\n"
+            "To learn more, see "
+            "http://code.google.com/appengine/kb/general.html#rpcssl" %
             (self.host, self.reason, self.cert))
 
 
@@ -105,12 +103,13 @@ def create_fancy_connection(tunnel_host=None, key_file=None,
 
       response = self.response_class(self.sock, strict=self.strict,
                                      method=self._method)
+      # pylint: disable=protected-access
       (_, code, message) = response._read_status()
 
       if code != 200:
         self.close()
-        raise socket.error, "Tunnel connection failed: %d %s" % (
-            code, message.strip())
+        raise socket.error("Tunnel connection failed: %d %s" %
+                           (code, message.strip()))
 
       while True:
         line = response.fp.readline()
@@ -125,15 +124,15 @@ def create_fancy_connection(tunnel_host=None, key_file=None,
       Returns:
         list: A list of valid host globs.
       """
-      if 'subjectAltName' in cert:
-        return [x[1] for x in cert['subjectAltName'] if x[0].lower() == 'dns']
+      if "subjectAltName" in cert:
+        return [x[1] for x in cert["subjectAltName"] if x[0].lower() == "dns"]
       else:
         # Return a list of commonName fields
-        return [x[0][1] for x in cert['subject']
-                if x[0][0].lower() == 'commonname']
+        return [x[0][1] for x in cert["subject"]
+                if x[0][0].lower() == "commonname"]
 
     def _validate_certificate_hostname(self, cert, hostname):
-      """Validates that a given hostname is valid for an SSL certificate.
+      """Perform RFC2818/6125 validation against a cert and hostname.
 
       Args:
         cert: A dictionary representing an SSL certificate.
@@ -143,13 +142,18 @@ def create_fancy_connection(tunnel_host=None, key_file=None,
       """
       hosts = self._get_valid_hosts_for_cert(cert)
       for host in hosts:
-        # Convert the glob-style hostname expression (eg, '*.google.com') into a
-        # valid regular expression.
-        host_re = host.replace('.', '\.').replace('*', '[^.]*')
-        if re.search('^%s$' % (host_re,), hostname, re.I):
+        # Wildcards are only valid when the * exists at the end of the last
+        # (left-most) label, and there are at least 3 labels in the expression.
+        if ("*." in host and host.count("*") == 1 and
+            host.count(".") > 1 and "." in hostname):
+          left_expected, right_expected = host.split("*.")
+          left_hostname, right_hostname = hostname.split(".", 1)
+          if (left_hostname.startswith(left_expected) and
+              right_expected == right_hostname):
+            return True
+        elif host == hostname:
           return True
       return False
-
 
     def connect(self):
       # TODO(frew): When we drop support for <2.6 (in the far distant future),
@@ -173,10 +177,10 @@ def create_fancy_connection(tunnel_host=None, key_file=None,
 
         if self.cert_reqs & ssl.CERT_REQUIRED:
           cert = self.sock.getpeercert()
-          hostname = self.host.split(':', 0)[0]
+          hostname = self.host.split(":", 0)[0]
           if not self._validate_certificate_hostname(cert, hostname):
             raise InvalidCertificateException(hostname, cert,
-                                              'hostname mismatch')
+                                              "hostname mismatch")
       else:
         ssl_socket = socket.ssl(self.sock,
                                 keyfile=self.key_file,
@@ -375,7 +379,7 @@ class FancyHTTPSHandler(urllib2.HTTPSHandler):
             url_error.reason.args[0] == 1):
           # Display the reason to the user. Need to use args for python2.5
           # compat.
-          raise InvalidCertificateException(req.host, '',
+          raise InvalidCertificateException(req.host, "",
                                             url_error.reason.args[1])
       except ImportError:
         pass

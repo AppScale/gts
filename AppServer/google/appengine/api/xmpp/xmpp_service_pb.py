@@ -283,6 +283,8 @@ class PresenceResponse(ProtocolBuffer.ProtocolMessage):
   is_available_ = 0
   has_presence_ = 0
   presence_ = 0
+  has_valid_ = 0
+  valid_ = 0
 
   def __init__(self, contents=None):
     if contents is not None: self.MergeFromString(contents)
@@ -313,11 +315,25 @@ class PresenceResponse(ProtocolBuffer.ProtocolMessage):
 
   def has_presence(self): return self.has_presence_
 
+  def valid(self): return self.valid_
+
+  def set_valid(self, x):
+    self.has_valid_ = 1
+    self.valid_ = x
+
+  def clear_valid(self):
+    if self.has_valid_:
+      self.has_valid_ = 0
+      self.valid_ = 0
+
+  def has_valid(self): return self.has_valid_
+
 
   def MergeFrom(self, x):
     assert x is not self
     if (x.has_is_available()): self.set_is_available(x.is_available())
     if (x.has_presence()): self.set_presence(x.presence())
+    if (x.has_valid()): self.set_valid(x.valid())
 
   def Equals(self, x):
     if x is self: return 1
@@ -325,6 +341,8 @@ class PresenceResponse(ProtocolBuffer.ProtocolMessage):
     if self.has_is_available_ and self.is_available_ != x.is_available_: return 0
     if self.has_presence_ != x.has_presence_: return 0
     if self.has_presence_ and self.presence_ != x.presence_: return 0
+    if self.has_valid_ != x.has_valid_: return 0
+    if self.has_valid_ and self.valid_ != x.valid_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -338,6 +356,7 @@ class PresenceResponse(ProtocolBuffer.ProtocolMessage):
   def ByteSize(self):
     n = 0
     if (self.has_presence_): n += 1 + self.lengthVarInt64(self.presence_)
+    if (self.has_valid_): n += 2
     return n + 2
 
   def ByteSizePartial(self):
@@ -345,11 +364,13 @@ class PresenceResponse(ProtocolBuffer.ProtocolMessage):
     if (self.has_is_available_):
       n += 2
     if (self.has_presence_): n += 1 + self.lengthVarInt64(self.presence_)
+    if (self.has_valid_): n += 2
     return n
 
   def Clear(self):
     self.clear_is_available()
     self.clear_presence()
+    self.clear_valid()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(8)
@@ -357,6 +378,9 @@ class PresenceResponse(ProtocolBuffer.ProtocolMessage):
     if (self.has_presence_):
       out.putVarInt32(16)
       out.putVarInt32(self.presence_)
+    if (self.has_valid_):
+      out.putVarInt32(24)
+      out.putBoolean(self.valid_)
 
   def OutputPartial(self, out):
     if (self.has_is_available_):
@@ -365,6 +389,9 @@ class PresenceResponse(ProtocolBuffer.ProtocolMessage):
     if (self.has_presence_):
       out.putVarInt32(16)
       out.putVarInt32(self.presence_)
+    if (self.has_valid_):
+      out.putVarInt32(24)
+      out.putBoolean(self.valid_)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -374,6 +401,9 @@ class PresenceResponse(ProtocolBuffer.ProtocolMessage):
         continue
       if tt == 16:
         self.set_presence(d.getVarInt32())
+        continue
+      if tt == 24:
+        self.set_valid(d.getBoolean())
         continue
 
 
@@ -385,6 +415,7 @@ class PresenceResponse(ProtocolBuffer.ProtocolMessage):
     res=""
     if self.has_is_available_: res+=prefix+("is_available: %s\n" % self.DebugFormatBool(self.is_available_))
     if self.has_presence_: res+=prefix+("presence: %s\n" % self.DebugFormatInt32(self.presence_))
+    if self.has_valid_: res+=prefix+("valid: %s\n" % self.DebugFormatBool(self.valid_))
     return res
 
 
@@ -393,23 +424,278 @@ class PresenceResponse(ProtocolBuffer.ProtocolMessage):
 
   kis_available = 1
   kpresence = 2
+  kvalid = 3
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
     1: "is_available",
     2: "presence",
-  }, 2)
+    3: "valid",
+  }, 3)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
     1: ProtocolBuffer.Encoder.NUMERIC,
     2: ProtocolBuffer.Encoder.NUMERIC,
-  }, 2, ProtocolBuffer.Encoder.MAX_TYPE)
+    3: ProtocolBuffer.Encoder.NUMERIC,
+  }, 3, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
   _STYLE_CONTENT_TYPE = """"""
   _PROTO_DESCRIPTOR_NAME = 'apphosting.PresenceResponse'
+class BulkPresenceRequest(ProtocolBuffer.ProtocolMessage):
+  has_from_jid_ = 0
+  from_jid_ = ""
+
+  def __init__(self, contents=None):
+    self.jid_ = []
+    if contents is not None: self.MergeFromString(contents)
+
+  def jid_size(self): return len(self.jid_)
+  def jid_list(self): return self.jid_
+
+  def jid(self, i):
+    return self.jid_[i]
+
+  def set_jid(self, i, x):
+    self.jid_[i] = x
+
+  def add_jid(self, x):
+    self.jid_.append(x)
+
+  def clear_jid(self):
+    self.jid_ = []
+
+  def from_jid(self): return self.from_jid_
+
+  def set_from_jid(self, x):
+    self.has_from_jid_ = 1
+    self.from_jid_ = x
+
+  def clear_from_jid(self):
+    if self.has_from_jid_:
+      self.has_from_jid_ = 0
+      self.from_jid_ = ""
+
+  def has_from_jid(self): return self.has_from_jid_
+
+
+  def MergeFrom(self, x):
+    assert x is not self
+    for i in xrange(x.jid_size()): self.add_jid(x.jid(i))
+    if (x.has_from_jid()): self.set_from_jid(x.from_jid())
+
+  def Equals(self, x):
+    if x is self: return 1
+    if len(self.jid_) != len(x.jid_): return 0
+    for e1, e2 in zip(self.jid_, x.jid_):
+      if e1 != e2: return 0
+    if self.has_from_jid_ != x.has_from_jid_: return 0
+    if self.has_from_jid_ and self.from_jid_ != x.from_jid_: return 0
+    return 1
+
+  def IsInitialized(self, debug_strs=None):
+    initialized = 1
+    return initialized
+
+  def ByteSize(self):
+    n = 0
+    n += 1 * len(self.jid_)
+    for i in xrange(len(self.jid_)): n += self.lengthString(len(self.jid_[i]))
+    if (self.has_from_jid_): n += 1 + self.lengthString(len(self.from_jid_))
+    return n
+
+  def ByteSizePartial(self):
+    n = 0
+    n += 1 * len(self.jid_)
+    for i in xrange(len(self.jid_)): n += self.lengthString(len(self.jid_[i]))
+    if (self.has_from_jid_): n += 1 + self.lengthString(len(self.from_jid_))
+    return n
+
+  def Clear(self):
+    self.clear_jid()
+    self.clear_from_jid()
+
+  def OutputUnchecked(self, out):
+    for i in xrange(len(self.jid_)):
+      out.putVarInt32(10)
+      out.putPrefixedString(self.jid_[i])
+    if (self.has_from_jid_):
+      out.putVarInt32(18)
+      out.putPrefixedString(self.from_jid_)
+
+  def OutputPartial(self, out):
+    for i in xrange(len(self.jid_)):
+      out.putVarInt32(10)
+      out.putPrefixedString(self.jid_[i])
+    if (self.has_from_jid_):
+      out.putVarInt32(18)
+      out.putPrefixedString(self.from_jid_)
+
+  def TryMerge(self, d):
+    while d.avail() > 0:
+      tt = d.getVarInt32()
+      if tt == 10:
+        self.add_jid(d.getPrefixedString())
+        continue
+      if tt == 18:
+        self.set_from_jid(d.getPrefixedString())
+        continue
+
+
+      if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
+      d.skipData(tt)
+
+
+  def __str__(self, prefix="", printElemNumber=0):
+    res=""
+    cnt=0
+    for e in self.jid_:
+      elm=""
+      if printElemNumber: elm="(%d)" % cnt
+      res+=prefix+("jid%s: %s\n" % (elm, self.DebugFormatString(e)))
+      cnt+=1
+    if self.has_from_jid_: res+=prefix+("from_jid: %s\n" % self.DebugFormatString(self.from_jid_))
+    return res
+
+
+  def _BuildTagLookupTable(sparse, maxtag, default=None):
+    return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
+
+  kjid = 1
+  kfrom_jid = 2
+
+  _TEXT = _BuildTagLookupTable({
+    0: "ErrorCode",
+    1: "jid",
+    2: "from_jid",
+  }, 2)
+
+  _TYPES = _BuildTagLookupTable({
+    0: ProtocolBuffer.Encoder.NUMERIC,
+    1: ProtocolBuffer.Encoder.STRING,
+    2: ProtocolBuffer.Encoder.STRING,
+  }, 2, ProtocolBuffer.Encoder.MAX_TYPE)
+
+
+  _STYLE = """"""
+  _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.BulkPresenceRequest'
+class BulkPresenceResponse(ProtocolBuffer.ProtocolMessage):
+
+  def __init__(self, contents=None):
+    self.presence_response_ = []
+    if contents is not None: self.MergeFromString(contents)
+
+  def presence_response_size(self): return len(self.presence_response_)
+  def presence_response_list(self): return self.presence_response_
+
+  def presence_response(self, i):
+    return self.presence_response_[i]
+
+  def mutable_presence_response(self, i):
+    return self.presence_response_[i]
+
+  def add_presence_response(self):
+    x = PresenceResponse()
+    self.presence_response_.append(x)
+    return x
+
+  def clear_presence_response(self):
+    self.presence_response_ = []
+
+  def MergeFrom(self, x):
+    assert x is not self
+    for i in xrange(x.presence_response_size()): self.add_presence_response().CopyFrom(x.presence_response(i))
+
+  def Equals(self, x):
+    if x is self: return 1
+    if len(self.presence_response_) != len(x.presence_response_): return 0
+    for e1, e2 in zip(self.presence_response_, x.presence_response_):
+      if e1 != e2: return 0
+    return 1
+
+  def IsInitialized(self, debug_strs=None):
+    initialized = 1
+    for p in self.presence_response_:
+      if not p.IsInitialized(debug_strs): initialized=0
+    return initialized
+
+  def ByteSize(self):
+    n = 0
+    n += 1 * len(self.presence_response_)
+    for i in xrange(len(self.presence_response_)): n += self.lengthString(self.presence_response_[i].ByteSize())
+    return n
+
+  def ByteSizePartial(self):
+    n = 0
+    n += 1 * len(self.presence_response_)
+    for i in xrange(len(self.presence_response_)): n += self.lengthString(self.presence_response_[i].ByteSizePartial())
+    return n
+
+  def Clear(self):
+    self.clear_presence_response()
+
+  def OutputUnchecked(self, out):
+    for i in xrange(len(self.presence_response_)):
+      out.putVarInt32(10)
+      out.putVarInt32(self.presence_response_[i].ByteSize())
+      self.presence_response_[i].OutputUnchecked(out)
+
+  def OutputPartial(self, out):
+    for i in xrange(len(self.presence_response_)):
+      out.putVarInt32(10)
+      out.putVarInt32(self.presence_response_[i].ByteSizePartial())
+      self.presence_response_[i].OutputPartial(out)
+
+  def TryMerge(self, d):
+    while d.avail() > 0:
+      tt = d.getVarInt32()
+      if tt == 10:
+        length = d.getVarInt32()
+        tmp = ProtocolBuffer.Decoder(d.buffer(), d.pos(), d.pos() + length)
+        d.skip(length)
+        self.add_presence_response().TryMerge(tmp)
+        continue
+
+
+      if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
+      d.skipData(tt)
+
+
+  def __str__(self, prefix="", printElemNumber=0):
+    res=""
+    cnt=0
+    for e in self.presence_response_:
+      elm=""
+      if printElemNumber: elm="(%d)" % cnt
+      res+=prefix+("presence_response%s <\n" % elm)
+      res+=e.__str__(prefix + "  ", printElemNumber)
+      res+=prefix+">\n"
+      cnt+=1
+    return res
+
+
+  def _BuildTagLookupTable(sparse, maxtag, default=None):
+    return tuple([sparse.get(i, default) for i in xrange(0, 1+maxtag)])
+
+  kpresence_response = 1
+
+  _TEXT = _BuildTagLookupTable({
+    0: "ErrorCode",
+    1: "presence_response",
+  }, 1)
+
+  _TYPES = _BuildTagLookupTable({
+    0: ProtocolBuffer.Encoder.NUMERIC,
+    1: ProtocolBuffer.Encoder.STRING,
+  }, 1, ProtocolBuffer.Encoder.MAX_TYPE)
+
+
+  _STYLE = """"""
+  _STYLE_CONTENT_TYPE = """"""
+  _PROTO_DESCRIPTOR_NAME = 'apphosting.BulkPresenceResponse'
 class XmppMessageRequest(ProtocolBuffer.ProtocolMessage):
   has_body_ = 0
   body_ = ""
@@ -1277,4 +1563,4 @@ class XmppInviteResponse(ProtocolBuffer.ProtocolMessage):
 if _extension_runtime:
   pass
 
-__all__ = ['XmppServiceError','PresenceRequest','PresenceResponse','XmppMessageRequest','XmppMessageResponse','XmppSendPresenceRequest','XmppSendPresenceResponse','XmppInviteRequest','XmppInviteResponse']
+__all__ = ['XmppServiceError','PresenceRequest','PresenceResponse','BulkPresenceRequest','BulkPresenceResponse','XmppMessageRequest','XmppMessageResponse','XmppSendPresenceRequest','XmppSendPresenceResponse','XmppInviteRequest','XmppInviteResponse']

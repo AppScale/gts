@@ -103,18 +103,18 @@ from google.appengine.api import yaml_errors
 from google.appengine.api.app_identity import app_identity_stub
 
 from google.appengine.api.capabilities import capability_stub
-from google.appengine.api.conversion import conversion_stub
 from google.appengine.api.channel import channel_service_stub
 from google.appengine.api.files import file_service_stub
 from google.appengine.api.logservice import logservice
 from google.appengine.api.logservice import logservice_stub
 from google.appengine.api.search import simple_search_stub
 from google.appengine.api.prospective_search import prospective_search_stub
+from google.appengine.api.remote_socket import _remote_socket_stub
 from google.appengine.api import rdbms_mysqldb
 
 from google.appengine.api.system import system_stub
 from google.appengine.datastore import datastore_stub_util
-
+from google.appengine.ext.cloudstorage import stub_dispatcher as gcs_dispatcher
 from google.appengine import dist
 
 # Modified for AppScale
@@ -868,12 +868,8 @@ def SetupEnvironment(cgi_path,
       auth_domain = parts[1]
     env['AUTH_DOMAIN'] = auth_domain
 
-  global _request_id
-  global _request_time
-  _request_time = time.time()
   env['REQUEST_LOG_ID'] = _GenerateRequestLogId()
   env['REQUEST_ID_HASH'] = _generate_request_id_hash()
-  _request_id += 1
 
 
   for key in headers:
@@ -1013,6 +1009,7 @@ SHARED_MODULE_PREFIXES = set([
     'wsgiref',
 
     'MySQLdb',
+    'decimal',
 ])
 
 NOT_SHARED_MODULE_PREFIXES = set([
@@ -1670,8 +1667,7 @@ def ExecuteCGI(config,
 
     logservice._global_buffer = logservice.LogsBuffer()
 
-    app_log_handler = app_logging.AppLogsHandler(
-        logservice.logs_buffer().stream())
+    app_log_handler = app_logging.AppLogsHandler()
     logging.getLogger().addHandler(app_log_handler)
 
     os.environ.clear()
@@ -1747,7 +1743,6 @@ def ExecuteCGI(config,
     sys.stdout = old_stdout
 
 
-    logservice_stub._flush_logs_buffer()
     sys.stderr = old_stderr
     logging.getLogger().removeHandler(app_log_handler)
 
@@ -2710,7 +2705,6 @@ def CreateRequestHandler(root_path,
                          login_url,
                          static_caching=True,
                          default_partition=None,
-                         persist_logs=False,
                          interactive_console=True,
                          secret_hash='xxx'):
   """Creates a new BaseHTTPRequestHandler sub-class.
@@ -2727,7 +2721,6 @@ def CreateRequestHandler(root_path,
     login_url: Relative URL which should be used for handling user logins.
     static_caching: True if browser caching of static files should be allowed.
     default_partition: Default partition to use in the application id.
-    persist_logs: If true, log records should be durably persisted.
     interactive_console: Whether to add the interactive console.
 
   Returns:
@@ -2775,7 +2768,7 @@ def CreateRequestHandler(root_path,
     application configuration file in the directory specified by the root_path
     argument is invalid.
     """
-    server_version = 'AppScaleServer/1.6'
+    server_version = 'AppScaleServer/1.8'
 
 
 
@@ -2795,7 +2788,7 @@ def CreateRequestHandler(root_path,
         args: Positional arguments passed to the superclass constructor.
         kwargs: Keyword arguments passed to the superclass constructor.
       """
-      self._log_record_writer = logservice_stub.RequestLogWriter(persist_logs)
+      self._log_record_writer = logservice_stub.RequestLogWriter()
       BaseHTTPServer.BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
     def version_string(self):
@@ -2989,6 +2982,11 @@ def CreateRequestHandler(root_path,
 
 
 
+        global _request_time
+        global _request_id
+        _request_time = time.time()
+        _request_id += 1
+
         request_id_hash = _generate_request_id_hash()
         env_dict['REQUEST_ID_HASH'] = request_id_hash
         os.environ['REQUEST_ID_HASH'] = request_id_hash
@@ -3093,7 +3091,7 @@ def CreateRequestHandler(root_path,
           if e.errno not in [errno.EPIPE, os_compat.WSAECONNABORTED]:
             raise e
         except socket.error, e:
-          logging.error("Socket exception: %s"%str(e))
+          logging.error("Socket exception: %s" % str(e))
           self.server.stop_serving_forever()
 
     def log_error(self, format, *args):
@@ -3102,7 +3100,13 @@ def CreateRequestHandler(root_path,
 
     def log_message(self, format, *args):
       """Redirect log messages through the logging module."""
-      logging.info(format, *args)
+
+
+      if hasattr(self, 'path'):
+        logging.debug(format, *args)
+      else:
+        logging.info(format, *args)
+
 
     def log_request(self, code='-', size='-'):
       """Indicate that this request has completed."""
@@ -3111,6 +3115,9 @@ def CreateRequestHandler(root_path,
         code = 0
       if size == '-':
         size = 0
+
+      logservice.logs_buffer().flush()
+
       self._log_record_writer.write(self.command, self.path, code, size,
                                     self.request_version)
 
@@ -3469,8 +3476,6 @@ def SetupStubs(app_id, **config):
       they are enqueued.
     task_retry_seconds: How long to wait after an auto-running task before it
       is tried again.
-    persist_logs: True if request and application logs should be persisted for
-      later access.
     trusted: True if this app can access data belonging to other apps.  This
       behavior is different from the real app server and should be left False
       except for advanced uses of dev_appserver.
@@ -3507,7 +3512,7 @@ def SetupStubs(app_id, **config):
   remove = config.get('remove', os.remove)
   disable_task_running = config.get('disable_task_running', False)
   task_retry_seconds = config.get('task_retry_seconds', 30)
-  persist_logs = config.get('persist_logs', False)
+  logs_path = config.get('logs_path', ':memory:')
   trusted = config.get('trusted', False)
   clear_search_index = config.get('clear_search_indexes', False)
   search_index_path = config.get('search_indexes_path', None)
@@ -3559,10 +3564,6 @@ def SetupStubs(app_id, **config):
   apiproxy_stub_map.apiproxy.RegisterStub(
       'capability_service',
       capability_stub.CapabilityServiceStub())
-
-  apiproxy_stub_map.apiproxy.RegisterStub(
-      'conversion',
-      conversion_stub.ConversionServiceStub())
 
   datastore = datastore_distributed.DatastoreDistributed(
         app_id, datastore_path, require_indexes=require_indexes,
@@ -3629,6 +3630,10 @@ def SetupStubs(app_id, **config):
           apiproxy_stub_map.apiproxy.GetStub('taskqueue')))
 
   apiproxy_stub_map.apiproxy.RegisterStub(
+      'remote_socket',
+      _remote_socket_stub.RemoteSocketServiceStub())
+
+  apiproxy_stub_map.apiproxy.RegisterStub(
       'search',
       simple_search_stub.SearchServiceStub(index_file=search_index_path))
 
@@ -3667,7 +3672,7 @@ def SetupStubs(app_id, **config):
 
   apiproxy_stub_map.apiproxy.RegisterStub(
       'logservice',
-      logservice_stub.LogServiceStub(persist_logs))
+      logservice_stub.LogServiceStub(True))
 
   system_service_stub = system_stub.SystemServiceStub()
   apiproxy_stub_map.apiproxy.RegisterStub('system', system_service_stub)
@@ -3675,6 +3680,8 @@ def SetupStubs(app_id, **config):
 
 def TearDownStubs():
   """Clean up any stubs that need cleanup."""
+  # AppScale
+  # We removed SDK cleanup.
   pass
 
 def CreateImplicitMatcher(
@@ -3868,7 +3875,6 @@ def CreateServer(root_path,
                  python_path_list=sys.path,
                  sdk_dir=SDK_ROOT,
                  default_partition=None,
-                 persist_logs=False,
                  frontend_port=None,
                  interactive_console=True,
                  secret_hash="xxx"):
@@ -3891,7 +3897,6 @@ def CreateServer(root_path,
     python_path_list: Used for dependency injection.
     sdk_dir: Directory where the SDK is stored.
     default_partition: Default partition to use for the appid.
-    persist_logs: If true, log records should be durably persisted.
     frontend_port: A frontend port (so backends can return an address for a
       frontend). If None, port will be used.
     interactive_console: Whether to add the interactive console.
@@ -3914,7 +3919,6 @@ def CreateServer(root_path,
                                        login_url,
                                        static_caching,
                                        default_partition,
-                                       persist_logs,
                                        interactive_console,
                                        secret_hash=secret_hash)
 

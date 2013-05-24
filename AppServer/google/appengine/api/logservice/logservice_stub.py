@@ -332,6 +332,54 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
     super(LogServiceStub, self).__init__('logservice')
     self.persist = persist
     self.status = None
+  
+  def start_request(self, request_id, user_request_id, ip, app_id, version_id,
+                    nickname, user_agent, host, method, resource, http_version,
+                    start_time=None):
+    """Starts logging for a request.
+
+    Each start_request call must be followed by a corresponding end_request call
+    to cleanup resources allocated in start_request.
+
+    Args:
+      request_id: A unique string identifying the request associated with the
+        API call.
+      user_request_id: A user-visible unique string for retrieving the request
+        log at a later time.
+      ip: The user's IP address.
+      app_id: A string representing the application ID that this request
+        corresponds to.
+      version_id: A string representing the version ID that this request
+        corresponds to.
+      nickname: A string representing the user that has made this request (that
+        is, the user's nickname, e.g., 'foobar' for a user logged in as
+        'foobar@gmail.com').
+      user_agent: A string representing the agent used to make this request.
+      host: A string representing the host that received this request.
+      method: A string containing the HTTP method of this request.
+      resource: A string containing the path and query string of this request.
+      http_version: A string containing the HTTP version of this request.
+      start_time: An int containing the start time in micro-seconds. If unset,
+        the current time is used.
+    """
+    # AppScale
+    # To make API compliant.
+    pass 
+
+  def end_request(self, request_id, status, response_size, end_time=None):
+    """Ends logging for a request.
+
+    Args:
+      request_id: A unique string identifying the request associated with the
+        API call.
+      status: An int containing the HTTP status code for this request.
+      response_size: An int containing the content length of the response.
+      end_time: An int containing the end time in micro-seconds. If unset, the
+        current time is used.
+    """
+    # AppScale
+    # To make it API compliant.
+    pass
 
   def _Dynamic_Flush(self, request, unused_response):
     """Writes application-level log messages for a request to the Datastore."""

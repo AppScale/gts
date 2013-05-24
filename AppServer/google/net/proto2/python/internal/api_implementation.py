@@ -26,10 +26,26 @@ API is used.
 
 import os
 
+try:
+
+  from google.net.proto2.python.internal import _api_implementation
+
+
+  _api_version = _api_implementation.api_version
+except ImportError:
+  _api_version = 0
+
+_default_implementation_type = (
+    'python' if _api_version == 0 else 'cpp')
+_default_version_str = (
+    '1' if _api_version <= 1 else '2')
+
+
+
 
 
 _implementation_type = os.getenv('PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION',
-                                 'python')
+                                 _default_implementation_type)
 
 
 if _implementation_type != 'python':
@@ -48,9 +64,10 @@ if _implementation_type != 'python':
 
 
 
+
 _implementation_version_str = os.getenv(
     'PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION_VERSION',
-    '1')
+    _default_version_str)
 
 
 if _implementation_version_str not in ('1', '2'):
@@ -61,7 +78,6 @@ if _implementation_version_str not in ('1', '2'):
 
 
 _implementation_version = int(_implementation_version_str)
-
 
 
 

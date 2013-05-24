@@ -38,7 +38,6 @@
       entities?
       </div>
     </div>
-
     <form action="{{base_path}}/{{form_target}}" method="post">
       {% for kind in kind_list %}
       <input type="hidden" name="kind" value="{{kind}}">
@@ -46,6 +45,17 @@
       <input type="hidden" name="namespace" value="{{namespace}}">
       <input type="hidden" name="app_id" value="{{app_id}}">
       <input type="hidden" name="xsrf_token" value="{{xsrf_token}}">
+      <p>Operation will be performed using the selected queue:
+        {% if queues %}
+          <select name="queue">
+            {% for queue in queues %}
+              <option value="{{ queue }}">{{ queue }}</option>
+            {% endfor %}
+          </select>
+        {% else %}
+          <input type="text" name="queue" value="default"/>
+        {% endif %}
+      </p>
       <table style="padding-top: 1em;"><tr>
         <td style="padding-right: 0.5em;">
           <input class="goog-button" type="submit" name="delete"

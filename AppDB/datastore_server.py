@@ -35,7 +35,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.api import api_base_pb
 from google.appengine.api import datastore_errors
 
-from google.appengine.datastore import cassandra_stub_util
+from google.appengine.datastore import appscale_stub_util
 from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import datastore_index
 from google.appengine.datastore import entity_pb
@@ -1421,7 +1421,7 @@ class DatastoreDistributed():
         endrow = prefix + '/' + __key__ 
 
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
-      cursor = cassandra_stub_util.ListCursor(query)
+      cursor = appscale_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
       startrow = self.__get_start_key(prefix, None, None, last_result)
       start_inclusive = self._DISABLE_INCLUSIVITY
@@ -1547,7 +1547,7 @@ class DatastoreDistributed():
       prop_name = None
     
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
-      cursor = cassandra_stub_util.ListCursor(query)
+      cursor = appscale_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
       startrow = self.__get_start_key(prefix, prop_name, order, last_result)
       start_inclusive = self._DISABLE_INCLUSIVITY
@@ -1650,7 +1650,7 @@ class DatastoreDistributed():
       return None
     
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
-      cursor = cassandra_stub_util.ListCursor(query)
+      cursor = appscale_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
       prefix = self.get_table_prefix(query)
       startrow = self.get_kind_key(prefix, last_result.key().path())
@@ -1710,7 +1710,7 @@ class DatastoreDistributed():
     limit = query.limit() or self._MAXIMUM_RESULTS
 
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
-      cursor = cassandra_stub_util.ListCursor(query)
+      cursor = appscale_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
       startrow = self.__get_start_key(prefix, property_name, direction, 
         last_result)
@@ -2015,7 +2015,7 @@ class DatastoreDistributed():
     prefix = self.get_table_prefix(query)
 
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
-      cursor = cassandra_stub_util.ListCursor(query)
+      cursor = appscale_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
       startrow = self.__get_start_key(prefix, 
                                     property_name,
@@ -2204,7 +2204,7 @@ class DatastoreDistributed():
       for index, ii in enumerate(result):
         result[index] = entity_pb.EntityProto(ii) 
 
-    cur = cassandra_stub_util.QueryCursor(query, result)
+    cur = appscale_stub_util.QueryCursor(query, result)
     cur.PopulateQueryResult(count, query.offset(), query_result) 
 
   def setup_transaction(self, app_id, is_xg):

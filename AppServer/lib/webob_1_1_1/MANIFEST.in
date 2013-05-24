@@ -1,4 +1,0 @@
-recursive-include tests *
-recursive-include docs *
-prune *.pyc
-prune *.pyo

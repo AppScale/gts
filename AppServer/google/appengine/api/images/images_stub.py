@@ -43,7 +43,13 @@ try:
   from PIL import Image
 except ImportError:
   import _imaging
-  import Image
+  # Try importing the 'Image' module directly. If that fails, try
+  # importing it from the 'PIL' package (this is necessary to also
+  # cover "pillow" package installations).
+  try:
+    import Image
+  except ImportError:
+    from PIL import Image
 
 from google.appengine.api import apiproxy_stub
 from google.appengine.api import apiproxy_stub_map
@@ -52,6 +58,7 @@ from google.appengine.api import datastore
 from google.appengine.api import datastore_errors
 from google.appengine.api import datastore_types
 from google.appengine.api import images
+from google.appengine.api.images import images_blob_stub
 from google.appengine.api.images import images_service_pb
 from google.appengine.runtime import apiproxy_errors
 
@@ -61,8 +68,7 @@ from google.appengine.runtime import apiproxy_errors
 
 GS_INFO_KIND = "__GsFileInfo__"
 
-
-BLOB_SERVING_URL_KIND = "__BlobServingUrl__"
+BLOB_SERVING_URL_KIND = images_blob_stub.BLOB_SERVING_URL_KIND
 
 MAX_REQUEST_SIZE = 32 << 20
 
@@ -144,7 +150,7 @@ class ImagesServiceStub(apiproxy_stub.APIProxyStub):
     """
     super(ImagesServiceStub, self).__init__(service_name,
                                             max_request_size=MAX_REQUEST_SIZE)
-    self._host_prefix = host_prefix
+    self._blob_stub = images_blob_stub.ImagesBlobStub(host_prefix)
     Image.init()
 
   def _Dynamic_Composite(self, request, response):
@@ -283,35 +289,10 @@ class ImagesServiceStub(apiproxy_stub.APIProxyStub):
     response.set_source_metadata(source_metadata)
 
   def _Dynamic_GetUrlBase(self, request, response):
-    """Trivial implementation of ImagesService::GetUrlBase.
-
-    Args:
-      request: ImagesGetUrlBaseRequest, contains a blobkey to an image
-      response: ImagesGetUrlBaseResponse, contains a url to serve the image
-    """
-    if request.create_secure_url():
-      logging.info("Secure URLs will not be created using the development "
-                   "application server.")
-
-    entity_info = datastore.Entity(BLOB_SERVING_URL_KIND,
-                                   name=request.blob_key(),
-                                   namespace="")
-    entity_info["blob_key"] = request.blob_key()
-    datastore.Put(entity_info)
-
-    response.set_url("%s/_ah/img/%s" % (self._host_prefix, request.blob_key()))
+    self._blob_stub.GetUrlBase(request, response)
 
   def _Dynamic_DeleteUrlBase(self, request, response):
-    """Trivial implementation of ImagesService::DeleteUrlBase.
-
-    Args:
-      request: ImagesDeleteUrlBaseRequest, contains a blobkey to an image.
-      response: ImagesDeleteUrlBaseResonse - currently unused.
-    """
-    key = datastore.Key.from_path(BLOB_SERVING_URL_KIND,
-                                  request.blob_key(),
-                                  namespace="")
-    datastore.Delete(key)
+    self._blob_stub.DeleteUrlBase(request, response)
 
   def _EncodeImage(self, image, output_encoding, substitution_rgb=None):
     """Encode the given image and return it in string form.
@@ -415,6 +396,7 @@ class ImagesServiceStub(apiproxy_stub.APIProxyStub):
 
   def _OpenBlob(self, blob_key):
     """Create an Image from the blob data read from blob_key."""
+
     storage_key = None
 
     try:
@@ -643,10 +625,10 @@ class ImagesServiceStub(apiproxy_stub.APIProxyStub):
 
     width, height = image.size
 
-    box = (int(transform.crop_left_x() * width),
-           int(transform.crop_top_y() * height),
-           int(transform.crop_right_x() * width),
-           int(transform.crop_bottom_y() * height))
+    box = (int(round(left_x * width)),
+           int(round(top_y * height)),
+           int(round(right_x * width)),
+           int(round(bottom_y * height)))
 
     return image.crop(box)
 

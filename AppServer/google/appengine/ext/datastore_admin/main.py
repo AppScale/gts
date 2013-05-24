@@ -127,10 +127,13 @@ def _KindsListToTuple(kinds_list):
 def _PresentatableKindStats(kind_ent):
   """Generate dict of presentable values for template."""
   count = kind_ent.count
+  entity_bytes = kind_ent.entity_bytes
   total_bytes = kind_ent.bytes
-  average_bytes = total_bytes / count
+  average_bytes = entity_bytes / count
   return {'kind_name': kind_ent.kind_name,
           'count': utils.FormatThousands(kind_ent.count),
+          'entity_bytes_str': utils.GetPrettyBytes(entity_bytes),
+          'entity_bytes': entity_bytes,
           'total_bytes_str': utils.GetPrettyBytes(total_bytes),
           'total_bytes': total_bytes,
           'average_bytes_str': utils.GetPrettyBytes(average_bytes),

@@ -1,0 +1,227 @@
+==========================================
+How to use Django with Apache and mod_wsgi
+==========================================
+
+Deploying Django with Apache_ and `mod_wsgi`_ is a tried and tested way to get
+Django into production.
+
+.. _Apache: http://httpd.apache.org/
+.. _mod_wsgi: http://code.google.com/p/modwsgi/
+
+mod_wsgi is an Apache module which can host any Python WSGI_ application,
+including Django. Django will work with any version of Apache which supports
+mod_wsgi.
+
+.. _WSGI: http://www.wsgi.org
+
+The `official mod_wsgi documentation`_ is fantastic; it's your source for all
+the details about how to use mod_wsgi. You'll probably want to start with the
+`installation and configuration documentation`_.
+
+.. _official mod_wsgi documentation: http://www.modwsgi.org/
+.. _installation and configuration documentation: http://www.modwsgi.org/wiki/InstallationInstructions
+
+Basic configuration
+===================
+
+Once you've got mod_wsgi installed and activated, edit your Apache server's
+``httpd.conf`` file and add
+
+.. code-block:: apache
+
+    WSGIScriptAlias / /path/to/mysite.com/mysite/wsgi.py
+    WSGIPythonPath /path/to/mysite.com
+
+    <Directory /path/to/mysite.com/mysite>
+    <Files wsgi.py>
+    Order deny,allow
+    Allow from all
+    </Files>
+    </Directory>
+
+The first bit in the ``WSGIScriptAlias`` line is the base URL path you want to
+serve your application at (``/`` indicates the root url), and the second is the
+location of a "WSGI file" -- see below -- on your system, usually inside of
+your project package (``mysite`` in this example). This tells Apache to serve
+any request below the given URL using the WSGI application defined in that
+file.
+
+The ``WSGIPythonPath`` line ensures that your project package is available for
+import on the Python path; in other words, that ``import mysite`` works.
+
+The ``<Directory>`` piece just ensures that Apache can access your
+:file:`wsgi.py` file.
+
+Next we'll need to ensure this :file:`wsgi.py` with a WSGI application object
+exists. As of Django version 1.4, :djadmin:`startproject` will have created one
+for you; otherwise, you'll need to create it. See the :doc:`WSGI overview
+documentation</howto/deployment/wsgi/index>` for the default contents you
+should put in this file, and what else you can add to it.
+
+.. warning::
+
+   If multiple Django sites are run in a single mod_wsgi process, all of them
+   will use the settings of whichever one happens to run first. This can be
+   solved with a minor edit to ``wsgi.py`` (see comment in the file for
+   details), or by :ref:`using mod_wsgi daemon mode<daemon-mode>` and ensuring
+   that each site runs in its own daemon process.
+
+
+Using a virtualenv
+==================
+
+If you install your project's Python dependencies inside a `virtualenv`_,
+you'll need to add the path to this virtualenv's ``site-packages`` directory to
+your Python path as well. To do this, add an additional path to your
+`WSGIPythonPath` directive, with multiple paths separated by a colon::
+
+    WSGIPythonPath /path/to/mysite.com:/path/to/your/venv/lib/python2.X/site-packages
+
+Make sure you give the correct path to your virtualenv, and replace
+``python2.X`` with the correct Python version (e.g. ``python2.7``).
+
+.. _virtualenv: http://www.virtualenv.org
+
+.. _daemon-mode:
+
+Using mod_wsgi daemon mode
+==========================
+
+"Daemon mode" is the recommended mode for running mod_wsgi (on non-Windows
+platforms). To create the required daemon process group and delegate the
+Django instance to run in it, you will need to add appropriate
+``WSGIDaemonProcess`` and ``WSGIProcessGroup`` directives. A further change
+required to the above configuration if you use daemon mode is that you can't
+use ``WSGIPythonPath``; instead you should use the ``python-path`` option to
+``WSGIDaemonProcess``, for example::
+
+    WSGIDaemonProcess example.com python-path=/path/to/mysite.com:/path/to/venv/lib/python2.7/site-packages
+    WSGIProcessGroup example.com
+
+See the official mod_wsgi documentation for `details on setting up daemon
+mode`_.
+
+.. _details on setting up daemon mode: http://code.google.com/p/modwsgi/wiki/QuickConfigurationGuide#Delegation_To_Daemon_Process
+
+.. _serving-files:
+
+Serving files
+=============
+
+Django doesn't serve files itself; it leaves that job to whichever Web
+server you choose.
+
+We recommend using a separate Web server -- i.e., one that's not also running
+Django -- for serving media. Here are some good choices:
+
+* lighttpd_
+* Nginx_
+* TUX_
+* A stripped-down version of Apache_
+* Cherokee_
+
+If, however, you have no option but to serve media files on the same Apache
+``VirtualHost`` as Django, you can set up Apache to serve some URLs as
+static media, and others using the mod_wsgi interface to Django.
+
+This example sets up Django at the site root, but explicitly serves
+``robots.txt``, ``favicon.ico``, any CSS file, and anything in the
+``/static/`` and ``/media/`` URL space as a static file. All other URLs
+will be served using mod_wsgi::
+
+    Alias /robots.txt /path/to/mysite.com/static/robots.txt
+    Alias /favicon.ico /path/to/mysite.com/static/favicon.ico
+
+    AliasMatch ^/([^/]*\.css) /path/to/mysite.com/static/styles/$1
+
+    Alias /media/ /path/to/mysite.com/media/
+    Alias /static/ /path/to/mysite.com/static/
+
+    <Directory /path/to/mysite.com/static>
+    Order deny,allow
+    Allow from all
+    </Directory>
+
+    <Directory /path/to/mysite.com/media>
+    Order deny,allow
+    Allow from all
+    </Directory>
+
+    WSGIScriptAlias / /path/to/mysite.com/mysite/wsgi.py
+
+    <Directory /path/to/mysite.com/mysite>
+    <Files wsgi.py>
+    Order allow,deny
+    Allow from all
+    </Files>
+    </Directory>
+
+.. _lighttpd: http://www.lighttpd.net/
+.. _Nginx: http://wiki.nginx.org/Main
+.. _TUX: http://en.wikipedia.org/wiki/TUX_web_server
+.. _Apache: http://httpd.apache.org/
+.. _Cherokee: http://www.cherokee-project.com/
+
+.. More details on configuring a mod_wsgi site to serve static files can be found
+.. in the mod_wsgi documentation on `hosting static files`_.
+
+.. _hosting static files: http://code.google.com/p/modwsgi/wiki/ConfigurationGuidelines#Hosting_Of_Static_Files
+
+.. _serving-the-admin-files:
+
+Serving the admin files
+=======================
+
+Note that the Django development server automatically serves the static files
+of the admin app (and any other installed apps), but this is not the case when
+you use any other server arrangement. You're responsible for setting up Apache,
+or whichever media server you're using, to serve the admin files.
+
+The admin files live in (:file:`django/contrib/admin/static/admin`) of the
+Django distribution.
+
+We **strongly** recommend using :mod:`django.contrib.staticfiles` to handle the
+admin files (along with a Web server as outlined in the previous section; this
+means using the :djadmin:`collectstatic` management command to collect the
+static files in :setting:`STATIC_ROOT`, and then configuring your Web server to
+serve :setting:`STATIC_ROOT` at :setting:`STATIC_URL`), but here are three
+other approaches:
+
+1. Create a symbolic link to the admin static files from within your
+   document root (this may require ``+FollowSymLinks`` in your Apache
+   configuration).
+
+2. Use an ``Alias`` directive, as demonstrated above, to alias the appropriate
+   URL (probably :setting:`STATIC_URL` + `admin/`) to the actual location of
+   the admin files.
+
+3. Copy the admin static files so that they live within your Apache
+   document root.
+
+Authenticating against Django's user database from Apache
+=========================================================
+
+Django provides a handler to allow Apache to authenticate users directly
+against Django's authentication backends. See the :doc:`mod_wsgi authentication
+documentation </howto/deployment/wsgi/apache-auth>`.
+
+If you get a UnicodeEncodeError
+===============================
+
+If you're taking advantage of the internationalization features of Django (see
+:doc:`/topics/i18n/index`) and you intend to allow users to upload files, you must
+ensure that the environment used to start Apache is configured to accept
+non-ASCII file names. If your environment is not correctly configured, you
+will trigger ``UnicodeEncodeError`` exceptions when calling functions like
+``os.path()`` on filenames that contain non-ASCII characters.
+
+To avoid these problems, the environment used to start Apache should contain
+settings analogous to the following::
+
+    export LANG='en_US.UTF-8'
+    export LC_ALL='en_US.UTF-8'
+
+Consult the documentation for your operating system for the appropriate syntax
+and location to put these configuration items; ``/etc/apache2/envvars`` is a
+common location on Unix platforms. Once you have added these statements
+to your environment, restart Apache.

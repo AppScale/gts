@@ -31,7 +31,7 @@ a service must be like the following class:
     def __init__(self):
       ...
 
-    # Each remote method must use the 'remote' decorator, passing the request
+    # Each remote method must use the 'method' decorator, passing the request
     # and response message types.  The remote method itself must take a single
     # parameter which is an instance of RequestMessage and return an instance
     # of ResponseMessage.
@@ -39,7 +39,7 @@ a service must be like the following class:
     def remote_method(self, request):
       # Return an instance of ResponseMessage.
 
-    # A service object may optionally implement a 'initialize_request_state'
+    # A service object may optionally implement an 'initialize_request_state'
     # method that takes as a parameter a single instance of a RequestState.  If
     # a service does not implement this method it will not receive the request
     # state.
@@ -58,26 +58,26 @@ RPC protocols and checking messages for correctness, it does attach information
 to methods that responsible classes can examine and ensure the correctness
 of the RPC.
 
-When the remote decorator is used on a method, the wrapper method will have a
+When the method decorator is used on a method, the wrapper method will have a
 'remote' property associated with it.  The 'remote' property contains the
 request_type and response_type expected by the methods implementation.
 
-On its own, the remote decorator does not provide any support for subclassing
+On its own, the method decorator does not provide any support for subclassing
 remote methods.  In order to extend a service, one would need to redecorate
 the sub-classes methods.  For example:
 
   class MyService(Service):
 
     @method(DoSomethingRequest, DoSomethingResponse)
-    def do_something(self, request):
-      ... implement do-something ...
+    def do_stuff(self, request):
+      ... implement do_stuff ...
 
-  class MyBetterService(Service):
+  class MyBetterService(MyService):
 
     @method(DoSomethingRequest, DoSomethingResponse)
-    def do_something(self, request):
-      response = super(MyService, self).do_something.remote.method(request)
-      ... do something with response ...
+    def do_stuff(self, request):
+      response = super(MyBetterService, self).do_stuff.remote.method(request)
+      ... do stuff with response ...
       return response
 
 A Service subclass also has a Stub class that can be used with a transport for
@@ -106,7 +106,6 @@ from __future__ import with_statement
 __author__ = 'rafek@google.com (Rafe Kaplan)'
 
 import logging
-import os
 import sys
 import threading
 from wsgiref import headers as wsgi_headers
@@ -115,7 +114,6 @@ from . import message_types
 from . import messages
 from . import protobuf
 from . import protojson
-from . import descriptor
 from . import util
 
 
@@ -125,7 +123,6 @@ __all__ = [
     'NetworkError',
     'RequestError',
     'RpcError',
-    'ServerError',
     'ServerError',
     'ServiceConfigurationError',
     'ServiceDefinitionError',
@@ -491,7 +488,7 @@ class StubBase(object):
     request = NewContactRequest()
     request.name = 'Bob Somebody'
     request.phone = '+1 415 555 1234'
-    
+
     response = account_service_stub.new_contact(request)
 
   The second way is to pass in keyword parameters that correspond with the root
@@ -519,7 +516,7 @@ class StubBase(object):
 
 class _ServiceClass(type):
   """Meta-class for service class."""
-   
+
   def __new_async_method(cls, remote):
     """Create asynchronous method for Async handler.
 
@@ -692,7 +689,7 @@ class _ServiceClass(type):
       stub_attributes = {'Service': cls,
                          '__init__': __init__}
       stub_attributes.update(cls.__create_sync_methods(async_methods))
-     
+
       cls.Stub = type('Stub', (StubBase, cls), stub_attributes)
 
   @staticmethod
@@ -782,7 +779,7 @@ class HttpRequestState(RequestState):
   """
 
   @util.positional(1)
-  def __init__(self, 
+  def __init__(self,
                http_method=None,
                service_path=None,
                headers=None,
@@ -802,7 +799,7 @@ class HttpRequestState(RequestState):
 
     self.__http_method = http_method
     self.__service_path = service_path
-    
+
     # Initialize headers.
     if isinstance(headers, dict):
       header_list = []
@@ -904,6 +901,7 @@ class Service(object):
       Factory function that will create a new instance and forward args and
       keywords to the constructor.
     """
+
     def service_factory():
       return cls(*args, **kwargs)
 
@@ -975,7 +973,6 @@ class Service(object):
       cls.__definition_package = util.get_package_for_module(cls.__module__)
 
     return cls.__definition_package
-
 
   @property
   def request_state(self):
@@ -1097,7 +1094,7 @@ class ProtocolConfig(object):
 
   @property
   def content_types(self):
-    return self.__content_types      
+    return self.__content_types
 
   def encode_message(self, message):
     """Encode message.
@@ -1242,7 +1239,7 @@ class Protocols(object):
       protocols: A Protocols instance.
 
     Raises:
-      TypeError if protocols is not an instance of Protocols.
+      TypeError: If protocols is not an instance of Protocols.
     """
     if not isinstance(protocols, Protocols):
       raise TypeError(

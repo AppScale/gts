@@ -150,6 +150,7 @@ class HTTPConnection:
       'HEAD': urlfetch.HEAD,
       'PUT': urlfetch.PUT,
       'DELETE': urlfetch.DELETE,
+      'PATCH': urlfetch.PATCH,
     }
 
     self.host = host

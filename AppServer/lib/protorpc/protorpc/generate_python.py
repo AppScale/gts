@@ -21,11 +21,16 @@ __author__ = 'rafek@google.com (Rafe Kaplan)'
 
 from . import descriptor
 from . import generate
+from . import message_types
 from . import messages
 from . import util
 
 
 __all__ = ['format_python_file']
+
+_MESSAGE_FIELD_MAP = {
+    message_types.DateTimeMessage.definition_name(): message_types.DateTimeField,
+}
 
 
 def _write_enums(enum_descriptors, out):
@@ -61,11 +66,18 @@ def _write_fields(field_descriptors, out):
   """
   out << ''
   for field in field_descriptors or []:
-    field_type = messages.Field.lookup_field_type_by_variant(field.variant)
     type_format = ''
     label_format = ''
 
-    if issubclass(field_type, (messages.EnumField, messages.MessageField)):
+    message_field = _MESSAGE_FIELD_MAP.get(field.type_name)
+    if message_field:
+      module = 'message_types'
+      field_type = message_field
+    else:
+      module = 'messages'
+      field_type = messages.Field.lookup_field_type_by_variant(field.variant)
+
+    if field_type in (messages.EnumField, messages.MessageField):
       type_format = '\'%s\', ' % field.type_name
 
     if field.label == descriptor.FieldDescriptor.Label.REQUIRED:
@@ -96,13 +108,14 @@ def _write_fields(field_descriptors, out):
     else:
       default_format = ''
 
-    out << '%s = messages.%s(%s%s%s%s%s)' % (field.name,
-                                             field_type.__name__,
-                                             type_format,
-                                             field.number,
-                                             label_format,
-                                             variant_format,
-                                             default_format)
+    out << '%s = %s.%s(%s%s%s%s%s)' % (field.name,
+                                       module,
+                                       field_type.__name__,
+                                       type_format,
+                                       field.number,
+                                       label_format,
+                                       variant_format,
+                                       default_format)
 
 
 def _write_messages(message_descriptors, out):
@@ -192,6 +205,7 @@ def format_python_file(file_descriptor, output, indent_space=2):
   """
   out = generate.IndentWriter(output, indent_space=indent_space)
 
+  out << 'from protorpc import message_types'
   out << 'from protorpc import messages'
   if file_descriptor.service_types:
     out << 'from protorpc import remote'

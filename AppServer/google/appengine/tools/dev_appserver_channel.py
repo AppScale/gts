@@ -15,6 +15,9 @@
 # limitations under the License.
 #
 
+
+
+
 """Channel support classes.
 
 Classes:
@@ -24,9 +27,16 @@ Classes:
     the client to retrieve messages for a given channel.
 """
 
-import urlparse
-import os
+
+
 import cgi
+import os
+import urlparse
+
+
+
+CHANNEL_POLL_PATTERN = '/_ah/channel/dev(?:/.*)?'
+
 
 CHANNEL_JSAPI_PATTERN = '/_ah/channel/jsapi'
 
@@ -43,6 +53,8 @@ def CreateChannelDispatcher(channel_service_stub):
     New dispatcher capable of handling client polls for channel messages.
   """
 
+
+
   from google.appengine.tools import dev_appserver
 
   class ChannelDispatcher(dev_appserver.URLDispatcher):
@@ -57,6 +69,7 @@ def CreateChannelDispatcher(channel_service_stub):
       """
       self._channel_service_stub = channel_service_stub
 
+
     def Dispatch(self,
                  request,
                  outfile,
@@ -64,7 +77,10 @@ def CreateChannelDispatcher(channel_service_stub):
       """Handle post dispatch.
 
       This dispatcher handles requests under the /_ah/channel/ path. Currently
-      it handles 
+      it handles 3 sub-paths:
+        connect: place-holder for parity with the java dev channel.
+        poll:    return pending messages for the channel identified by the
+                 channel parameter.
         jsapi:   return the javascript library to retrieve messages for the
                  channel.
 
@@ -75,9 +91,6 @@ def CreateChannelDispatcher(channel_service_stub):
           Defaults to None.
       """
 
-      outfile.write('Content-Type: text/javascript\n\n')
-      outfile.write('Status: 200\n\n')
-
       (unused_scheme, unused_netloc,
        path, query,
        unused_fragment) = urlparse.urlsplit(request.relative_url)
@@ -86,7 +99,34 @@ def CreateChannelDispatcher(channel_service_stub):
       page = path.rsplit('/', 1)[-1]
 
       if page == 'jsapi':
-        path = os.path.join(os.path.dirname(__file__), 
-                            'appscale-channel-js-min.js')
+        path = os.path.join(os.path.dirname(__file__), 'dev-channel-js.js')
+        outfile.write('Status: 200\r\n')
+        outfile.write('Content-type: text/javascript\r\n\r\n')
         outfile.write(open(path).read())
+      elif page == 'dev':
+        token = param_dict['channel'][0]
+        (syntax_valid, time_valid) = (
+            self._channel_service_stub.check_token_validity(token))
+        if not (syntax_valid and time_valid):
+
+
+          if not syntax_valid:
+            token_error = 'Invalid+token.'
+          else:
+            token_error = 'Token+timed+out.'
+          outfile.write('Status: 401 %s\r\n\r\n' % token_error)
+          return
+
+        outfile.write('Status: 200\r\n')
+        outfile.write('\r\n')
+        command = param_dict['command'][0]
+
+        if command == 'connect':
+          self._channel_service_stub.connect_channel(token)
+          outfile.write('1')
+        elif command == 'poll':
+          self._channel_service_stub.connect_channel(token)
+          if self._channel_service_stub.has_channel_messages(token):
+            outfile.write(self._channel_service_stub.pop_first_message(token))
+
   return ChannelDispatcher(channel_service_stub)

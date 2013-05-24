@@ -256,6 +256,7 @@ class URLFetchRequest(ProtocolBuffer.ProtocolMessage):
   HEAD         =    3
   PUT          =    4
   DELETE       =    5
+  PATCH        =    6
 
   _RequestMethod_NAMES = {
     1: "GET",
@@ -263,6 +264,7 @@ class URLFetchRequest(ProtocolBuffer.ProtocolMessage):
     3: "HEAD",
     4: "PUT",
     5: "DELETE",
+    6: "PATCH",
   }
 
   def RequestMethod_Name(cls, x): return cls._RequestMethod_NAMES.get(x, "")

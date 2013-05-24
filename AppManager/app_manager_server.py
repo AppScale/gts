@@ -386,7 +386,7 @@ def create_python_start_cmd(app_name,
   db_location = choose_db_location(db_locations)
   python = choose_python_executable(py_version)
   cmd = [python,
-         constants.APPSCALE_HOME + "/AppServer/dev_appserver.py",
+         constants.APPSCALE_HOME + "/AppServer/old_dev_appserver.py",
          "-p " + str(port),
          "--cookie_secret " + appscale_info.get_secret(),
          "--login_server " + login_ip,
@@ -510,7 +510,7 @@ def create_python_stop_cmd(port, py_version):
   """
   python = choose_python_executable(py_version)
   cmd = [python, 
-         constants.APPSCALE_HOME + "/AppServer/dev_appserver.py",
+         constants.APPSCALE_HOME + "/AppServer/old_dev_appserver.py",
          "-p " + str(port),
          "--cookie_secret " + appscale_info.get_secret()]
   cmd = ' '.join(cmd)
