@@ -215,7 +215,7 @@ class UploadCGIHandler(object):
         derived from original post data.
       boundary: Boundary to use for resulting form.  Used only in tests so
         that the boundary is always consistent.
-i     max_bytes_per_blob: The maximum size in bytes that any single blob
+      max_bytes_per_blob: The maximum size in bytes that any single blob
         in the form is allowed to be.
       max_bytes_total: The maximum size in bytes that the total of all blobs
         in the form is allowed to be.
