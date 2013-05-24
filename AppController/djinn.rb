@@ -229,6 +229,19 @@ class Djinn
   attr_accessor :state_change_lock
 
 
+  # A Hash that maps the names of Google App Engine apps running in this AppScale
+  # deployment to the total number of requests that haproxy has processed.
+  attr_accessor :total_req_rate
+
+
+  # A Hash that maps the names of Google App Engine apps running in this AppScale
+  # deployment to the last time we sampled the total number of requests that
+  # haproxy has processed. When combined with total_req_rate, we can infer the
+  # average number of requests per second that come in for each App Engine
+  # application.
+  attr_accessor :last_sampling_time
+
+
   # The port that the AppController runs on by default
   SERVER_PORT = 17443
 
