@@ -347,16 +347,8 @@ class MapreduceDoneHandler(webapp.RequestHandler):
       mapreduce_state = model.MapreduceState.get_by_job_id(mapreduce_id)
       mapreduce_params = mapreduce_state.mapreduce_spec.params
 
-      keys = []
-      job_success = True
-      shard_states = model.ShardState.find_by_mapreduce_state(mapreduce_state)
-      for shard_state in shard_states:
-        keys.append(shard_state.key())
-        if not shard_state.result_status == 'success':
-          job_success = False
-
       db_config = _CreateDatastoreConfig()
-      if job_success:
+      if mapreduce_state.result_status == model.MapreduceState.RESULT_SUCCESS:
         operation_key = mapreduce_params.get(
             DatastoreAdminOperation.PARAM_DATASTORE_ADMIN_OPERATION)
         if operation_key is None:
@@ -386,6 +378,12 @@ class MapreduceDoneHandler(webapp.RequestHandler):
                               mapreduce_params['done_callback_handler'])
           db.run_in_transaction(tx)
         if config.CLEANUP_MAPREDUCE_STATE:
+          keys = []
+          shard_states = model.ShardState.find_by_mapreduce_state(
+              mapreduce_state)
+          for shard_state in shard_states:
+            keys.append(shard_state.key())
+
 
           keys.append(mapreduce_state.key())
           keys.append(model.MapreduceControl.get_key_by_job_id(mapreduce_id))
@@ -417,6 +415,7 @@ class DatastoreAdminOperation(db.Model):
   completed_jobs = db.IntegerProperty(default=0)
   last_updated = db.DateTimeProperty(default=DEFAULT_LAST_UPDATED_VALUE,
                                      auto_now=True)
+  status_info = db.StringProperty(default='', indexed=False)
 
   @classmethod
   def kind(cls):
@@ -524,7 +523,8 @@ def RunMapForKinds(operation_key,
                    writer_spec,
                    mapper_params,
                    mapreduce_params=None,
-                   queue_name=None):
+                   queue_name=None,
+                   max_shard_count=None):
   """Run mapper job for all entities in specified kinds.
 
   Args:
@@ -538,6 +538,7 @@ def RunMapForKinds(operation_key,
     mapper_params: custom parameters to pass to mapper.
     mapreduce_params: dictionary parameters relevant to the whole job.
     queue_name: the name of the queue that will be used by the M/R.
+    max_shard_count: maximum value for shards count.
 
   Returns:
     Ids of all started mapper jobs as list of strings.
@@ -547,34 +548,41 @@ def RunMapForKinds(operation_key,
     for kind in kinds:
       mapper_params['entity_kind'] = kind
       job_name = job_name_template % {'kind': kind, 'namespace':
-                                      mapper_params.get('namespaces', '')}
-      shard_count = GetShardCount(kind)
+                                      mapper_params.get('namespace', '')}
+      shard_count = GetShardCount(kind, max_shard_count)
       jobs.append(StartMap(operation_key, job_name, handler_spec, reader_spec,
                            writer_spec, mapper_params, mapreduce_params,
                            queue_name=queue_name, shard_count=shard_count))
     return jobs
 
-  except BaseException:
+  except BaseException, ex:
     AbortAdminOperation(operation_key,
-                        _status=DatastoreAdminOperation.STATUS_FAILED)
+                        _status=DatastoreAdminOperation.STATUS_FAILED,
+                        _status_info='%s: %s' % (ex.__class__.__name__, ex))
     raise
 
 
-def GetShardCount(kind):
+def GetShardCount(kind, max_shard_count=None):
   stat = stats.KindStat.all().filter('kind_name =', kind).get()
   if stat:
 
-    return min(max(MAPREDUCE_MIN_SHARDS, stat.bytes // (32 * 1024 * 1024)),
-               MAPREDUCE_MAX_SHARDS)
+    shard_count = min(max(MAPREDUCE_MIN_SHARDS,
+                          stat.bytes // (32 * 1024 * 1024)),
+                      MAPREDUCE_MAX_SHARDS)
+    if max_shard_count and max_shard_count < shard_count:
+      shard_count = max_shard_count
+    return shard_count
 
   return MAPREDUCE_DEFAULT_SHARDS
 
 
 def AbortAdminOperation(operation_key,
-                        _status=DatastoreAdminOperation.STATUS_ABORTED):
+                        _status=DatastoreAdminOperation.STATUS_ABORTED,
+                        _status_info=''):
   """Aborts active jobs."""
   operation = DatastoreAdminOperation.get(operation_key)
   operation.status = _status
+  operation.status_info = _status_info
   operation.put(config=_CreateDatastoreConfig())
   for job in operation.active_job_ids:
     logging.info('Aborting Job %s', job)

@@ -29,17 +29,24 @@ configured for an application. Supports loading the records from backend.yaml.
 
 
 
+import os
 import yaml
 from yaml import representer
 
-from google.appengine.api import validation
-from google.appengine.api import yaml_builder
-from google.appengine.api import yaml_listener
-from google.appengine.api import yaml_object
+if os.environ.get('APPENGINE_RUNTIME') == 'python27':
+  from google.appengine.api import validation
+  from google.appengine.api import yaml_builder
+  from google.appengine.api import yaml_listener
+  from google.appengine.api import yaml_object
+else:
+  from google.appengine.api import validation
+  from google.appengine.api import yaml_builder
+  from google.appengine.api import yaml_listener
+  from google.appengine.api import yaml_object
 
 NAME_REGEX = r'(?!-)[a-z\d\-]{1,100}'
 FILE_REGEX = r'(?!\^).*(?!\$).{1,256}'
-CLASS_REGEX =  r'^[bB](1|2|4|8)$'
+CLASS_REGEX = r'^[bB](1|2|4|8|4_1G)$'
 OPTIONS_REGEX = r'^[a-z, ]*$'
 STATE_REGEX = r'^(START|STOP|DISABLED)$'
 
@@ -223,6 +230,9 @@ def LoadBackendInfo(backend_info, open_fn=None):
     raise BadConfig("Only one 'backends' clause is allowed.")
 
   info = backend_info[0]
+  if not info.backends:
+    return BackendInfoExternal(backends=[])
+
   for backend in info.backends:
     backend.Init()
   return info

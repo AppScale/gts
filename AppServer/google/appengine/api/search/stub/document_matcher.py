@@ -26,6 +26,8 @@ matching.
 
 
 
+import logging
+
 from google.appengine.datastore import document_pb
 
 from google.appengine._internal.antlr3 import tree
@@ -101,8 +103,10 @@ class DocumentMatcher(object):
   def _MatchTextField(self, field, match, document):
     """Check if a textual field matches a query tree node."""
 
-    if (match.getType() in (QueryParser.TEXT, QueryParser.NAME) or
-        match.getType() in search_util.NUMBER_QUERY_TYPES):
+    if match.getType() == QueryParser.VALUE:
+      if query_parser.IsPhrase(match):
+        return self._MatchPhrase(field, match, document)
+
 
       if field.value().type() == document_pb.FieldValue.ATOM:
         return (field.value().string_value() ==
@@ -130,41 +134,43 @@ class DocumentMatcher(object):
               field.name(), token_text)]
       return document.id() in matching_docids
 
-    if match.getType() is QueryParser.PHRASE:
-      return self._MatchPhrase(field, match, document)
+    def ExtractGlobalEq(node):
+      if node.getType() == QueryParser.EQ and len(node.children) >= 2:
+        if node.children[0].getType() == QueryParser.GLOBAL:
+          return node.children[1]
+      return node
 
-    if match.getType() is QueryParser.CONJUNCTION:
-      return all(self._MatchTextField(field, child, document)
+    if match.getType() == QueryParser.CONJUNCTION:
+      return all(self._MatchTextField(field, ExtractGlobalEq(child), document)
                  for child in match.children)
 
-    if match.getType() is QueryParser.DISJUNCTION:
-      return any(self._MatchTextField(field, child, document)
+    if match.getType() == QueryParser.DISJUNCTION:
+      return any(self._MatchTextField(field, ExtractGlobalEq(child), document)
                  for child in match.children)
 
-    if match.getType() is QueryParser.NEGATION:
-      return not self._MatchTextField(field, match.children[0], document)
+    if match.getType() == QueryParser.NEGATION:
+      return not self._MatchTextField(
+          field, ExtractGlobalEq(match.children[0]), document)
 
 
     return False
 
-  def _MatchDateField(self, field, match, document):
+  def _MatchDateField(self, field, match, operator, document):
     """Check if a date field matches a query tree node."""
 
 
     return self._MatchComparableField(
-        field, match, search_util.DeserializeDate,
-        search_util.TEXT_QUERY_TYPES, document)
+        field, match, search_util.DeserializeDate, operator, document)
 
 
-  def _MatchNumericField(self, field, match, document):
+
+  def _MatchNumericField(self, field, match, operator, document):
     """Check if a numeric field matches a query tree node."""
-    return self._MatchComparableField(
-        field, match, float, search_util.NUMBER_QUERY_TYPES, document)
+    return self._MatchComparableField(field, match, float, operator, document)
 
 
   def _MatchComparableField(
-      self, field, match, cast_to_type, query_node_types,
-      document):
+      self, field, match, cast_to_type, op, document):
     """A generic method to test matching for comparable types.
 
     Comparable types are defined to be anything that supports <, >, <=, >=, ==
@@ -174,7 +180,7 @@ class DocumentMatcher(object):
       field: The document_pb.Field to test
       match: The query node to match against
       cast_to_type: The type to cast the node string values to
-      query_node_types: The query node types that would be valid matches
+      op: The query node type representing the type of comparison to perform
       document: The document that the field is in
 
     Returns:
@@ -187,94 +193,103 @@ class DocumentMatcher(object):
 
     field_val = cast_to_type(field.value().string_value())
 
-    op = QueryParser.EQ
-
-    if match.getType() in query_node_types:
+    if match.getType() == QueryParser.VALUE:
       try:
         match_val = cast_to_type(query_parser.GetQueryNodeText(match))
-      except ValueError:
-        return False
-    elif match.children:
-      op = match.getType()
-      try:
-        match_val = cast_to_type(
-            query_parser.GetQueryNodeText(match.children[0]))
       except ValueError:
         return False
     else:
       return False
 
-    if op is QueryParser.EQ:
+    if op == QueryParser.EQ:
       return field_val == match_val
-    if op is QueryParser.NE:
+    if op == QueryParser.NE:
       return field_val != match_val
-    if op is QueryParser.GT:
+    if op == QueryParser.GT:
       return field_val > match_val
-    if op is QueryParser.GE:
+    if op == QueryParser.GE:
       return field_val >= match_val
-    if op is QueryParser.LT:
+    if op == QueryParser.LT:
       return field_val < match_val
-    if op is QueryParser.LE:
+    if op == QueryParser.LE:
       return field_val <= match_val
     raise search_util.UnsupportedOnDevError(
         'Operator %s not supported for numerical fields on development server.'
         % match.getText())
 
-  def _MatchField(self, field, match, document):
+  def _MatchField(self, field, match, operator, document):
     """Check if a field matches a query tree.
 
     Args:
       field_query_node: Either a string containing the name of a field, a query
       node whose text is the name of the field, or a document_pb.Field.
       match: A query node to match the field with.
+      operator: The a query node type corresponding to the type of match to
+        perform (eg QueryParser.EQ, QueryParser.GT, etc).
       document: The document to match.
     """
 
     if isinstance(field, (basestring, tree.CommonTree)):
       if isinstance(field, tree.CommonTree):
-        field = field.getText()
+        field = query_parser.GetQueryNodeText(field)
       fields = search_util.GetAllFieldInDocument(document, field)
-      return any(self._MatchField(f, match, document) for f in fields)
+      return any(self._MatchField(f, match, operator, document) for f in fields)
 
     if field.value().type() in search_util.TEXT_DOCUMENT_FIELD_TYPES:
+      if operator != QueryParser.EQ:
+        return False
       return self._MatchTextField(field, match, document)
 
     if field.value().type() in search_util.NUMBER_DOCUMENT_FIELD_TYPES:
-      return self._MatchNumericField(field, match, document)
+      return self._MatchNumericField(field, match, operator, document)
 
     if field.value().type() == document_pb.FieldValue.DATE:
-      return self._MatchDateField(field, match, document)
+      return self._MatchDateField(field, match, operator, document)
 
+    type_name = document_pb.FieldValue.ContentType_Name(
+        field.value().type()).lower()
     raise search_util.UnsupportedOnDevError(
-        'Matching to field type of field "%s" (type=%d) is unsupported on '
-        'dev server' % (field.name(), field.value().type()))
+        'Matching fields of type %s is unsupported on dev server (searched for '
+        'field %s)' % (type_name, field.name()))
 
   def _MatchGlobal(self, match, document):
     for field in document.field_list():
-      if self._MatchField(field.name(), match, document):
-        return True
+      try:
+        if self._MatchField(field.name(), match, QueryParser.EQ, document):
+          return True
+      except search_util.UnsupportedOnDevError:
+
+
+
+        pass
     return False
 
   def _CheckMatch(self, node, document):
     """Check if a document matches a query tree."""
 
-    if node.getType() is QueryParser.CONJUNCTION:
+    if node.getType() == QueryParser.CONJUNCTION:
       return all(self._CheckMatch(child, document) for child in node.children)
 
-    if node.getType() is QueryParser.DISJUNCTION:
+    if node.getType() == QueryParser.DISJUNCTION:
       return any(self._CheckMatch(child, document) for child in node.children)
 
-    if node.getType() is QueryParser.NEGATION:
+    if node.getType() == QueryParser.NEGATION:
       return not self._CheckMatch(node.children[0], document)
 
-    if node.getType() is QueryParser.RESTRICTION:
+    if node.getType() in query_parser.COMPARISON_TYPES:
       field, match = node.children
-      return self._MatchField(field, match, document)
+      if field.getType() == QueryParser.GLOBAL:
+        return self._MatchGlobal(match, document)
+      return self._MatchField(field, match, node.getType(), document)
 
-    return self._MatchGlobal(node, document)
+    return False
 
   def Matches(self, document):
-    return self._CheckMatch(self._query, document)
+    try:
+      return self._CheckMatch(self._query, document)
+    except search_util.UnsupportedOnDevError, e:
+      logging.warning(str(e))
+      return False
 
   def FilterDocuments(self, documents):
     return (doc for doc in documents if self.Matches(doc))

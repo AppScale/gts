@@ -331,10 +331,86 @@ def _DoubleDecoder():
   return _SimpleDecoder(wire_format.WIRETYPE_FIXED64, InnerDecode)
 
 
+def EnumDecoder(field_number, is_repeated, is_packed, key, new_default):
+  enum_type = key.enum_type
+  if is_packed:
+    local_DecodeVarint = _DecodeVarint
+    def DecodePackedField(buffer, pos, end, message, field_dict):
+      value = field_dict.get(key)
+      if value is None:
+        value = field_dict.setdefault(key, new_default(message))
+      (endpoint, pos) = local_DecodeVarint(buffer, pos)
+      endpoint += pos
+      if endpoint > end:
+        raise _DecodeError('Truncated message.')
+      while pos < endpoint:
+        value_start_pos = pos
+        (element, pos) = _DecodeSignedVarint32(buffer, pos)
+        if element in enum_type.values_by_number:
+          value.append(element)
+        else:
+          if not message._unknown_fields:
+            message._unknown_fields = []
+          tag_bytes = encoder.TagBytes(field_number,
+                                       wire_format.WIRETYPE_VARINT)
+          message._unknown_fields.append(
+              (tag_bytes, buffer[value_start_pos:pos]))
+      if pos > endpoint:
+        if element in enum_type.values_by_number:
+          del value[-1]
+        else:
+          del message._unknown_fields[-1]
+        raise _DecodeError('Packed element was truncated.')
+      return pos
+    return DecodePackedField
+  elif is_repeated:
+    tag_bytes = encoder.TagBytes(field_number, wire_format.WIRETYPE_VARINT)
+    tag_len = len(tag_bytes)
+    def DecodeRepeatedField(buffer, pos, end, message, field_dict):
+      value = field_dict.get(key)
+      if value is None:
+        value = field_dict.setdefault(key, new_default(message))
+      while 1:
+        (element, new_pos) = _DecodeSignedVarint32(buffer, pos)
+        if element in enum_type.values_by_number:
+          value.append(element)
+        else:
+          if not message._unknown_fields:
+            message._unknown_fields = []
+          message._unknown_fields.append(
+              (tag_bytes, buffer[pos:new_pos]))
+
+
+        pos = new_pos + tag_len
+        if buffer[new_pos:pos] != tag_bytes or new_pos >= end:
+
+          if new_pos > end:
+            raise _DecodeError('Truncated message.')
+          return new_pos
+    return DecodeRepeatedField
+  else:
+    def DecodeField(buffer, pos, end, message, field_dict):
+      value_start_pos = pos
+      (enum_value, pos) = _DecodeSignedVarint32(buffer, pos)
+      if pos > end:
+        raise _DecodeError('Truncated message.')
+      if enum_value in enum_type.values_by_number:
+        field_dict[key] = enum_value
+      else:
+        if not message._unknown_fields:
+          message._unknown_fields = []
+        tag_bytes = encoder.TagBytes(field_number,
+                                     wire_format.WIRETYPE_VARINT)
+        message._unknown_fields.append(
+          (tag_bytes, buffer[value_start_pos:pos]))
+      return pos
+    return DecodeField
 
 
 
-Int32Decoder = EnumDecoder = _SimpleDecoder(
+
+
+Int32Decoder = _SimpleDecoder(
     wire_format.WIRETYPE_VARINT, _DecodeSignedVarint32)
 
 Int64Decoder = _SimpleDecoder(
@@ -369,6 +445,14 @@ def StringDecoder(field_number, is_repeated, is_packed, key, new_default):
   local_DecodeVarint = _DecodeVarint
   local_unicode = unicode
 
+  def _ConvertToUnicode(byte_str):
+    try:
+      return local_unicode(byte_str, 'utf-8')
+    except UnicodeDecodeError, e:
+
+      e.reason = '%s in field: %s' % (e, key.full_name)
+      raise
+
   assert not is_packed
   if is_repeated:
     tag_bytes = encoder.TagBytes(field_number,
@@ -383,7 +467,7 @@ def StringDecoder(field_number, is_repeated, is_packed, key, new_default):
         new_pos = pos + size
         if new_pos > end:
           raise _DecodeError('Truncated string.')
-        value.append(local_unicode(buffer[pos:new_pos], 'utf-8'))
+        value.append(_ConvertToUnicode(buffer[pos:new_pos]))
 
         pos = new_pos + tag_len
         if buffer[new_pos:pos] != tag_bytes or new_pos == end:
@@ -396,7 +480,7 @@ def StringDecoder(field_number, is_repeated, is_packed, key, new_default):
       new_pos = pos + size
       if new_pos > end:
         raise _DecodeError('Truncated string.')
-      field_dict[key] = local_unicode(buffer[pos:new_pos], 'utf-8')
+      field_dict[key] = _ConvertToUnicode(buffer[pos:new_pos])
       return new_pos
     return DecodeField
 

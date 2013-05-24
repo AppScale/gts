@@ -20,10 +20,13 @@
 
 """Handler library for inbound Mail API.
 
-Contains handlers to help with receiving mail.
+Contains handlers to help with receiving mail and mail bounces.
 
   InboundMailHandler: Has helper method for easily setting up
     email recievers.
+  BounceNotificationHandler: Has helper method for easily setting
+    up bounce notification receiver. Will parse HTTP request to
+    extract bounce notification.
 """
 
 
@@ -39,6 +42,7 @@ from google.appengine.ext import webapp
 
 
 MAIL_HANDLER_URL_PATTERN = '/_ah/mail/.+'
+BOUNCE_NOTIFICATION_HANDLER_URL_PATH = '/_ah/bounce'
 
 
 class InboundMailHandler(webapp.RequestHandler):
@@ -83,3 +87,99 @@ class InboundMailHandler(webapp.RequestHandler):
       Mapping from email URL to inbound mail handler class.
     """
     return MAIL_HANDLER_URL_PATTERN, cls
+
+
+class InvalidBounceNotificationError(Exception):
+  """Error that indicates invalid data for a bounce notification handler."""
+
+
+class BounceNotificationHandler(webapp.RequestHandler):
+  """Base class for bounce notification handlers.
+
+  Example:
+
+    # Sub-class overrides receive method.
+    class BounceLogger(BounceNotificationHandler):
+
+      def receive(self, bounce_notification):
+        logging.info('Received bounce from ' %
+            bounce_notification.notification_from)
+
+
+    # Map bounce handler to application
+    application = webapp.WSGIApplication([
+        BounceLogger.mapping(),
+    ])
+  """
+
+  def post(self):
+    """Transforms POST body to bounce request."""
+    self.receive(BounceNotification(self.request.POST))
+
+  def receive(self, bounce_notification):
+    pass
+
+  @classmethod
+  def mapping(cls):
+    """Convenience method to map handler class to application.
+
+    Returns:
+      Mapping from bounce URL to bounce notification handler class.
+    """
+    return BOUNCE_NOTIFICATION_HANDLER_URL_PATH, cls
+
+
+class BounceNotification(object):
+  """Encapsulates a bounce notification received by the application."""
+
+  def __init__(self, post_vars):
+    """Constructs a new BounceNotification from an HTTP request.
+
+    Properties:
+      original: a dict describing the message that caused the bounce.
+      notification: a dict describing the bounce itself.
+      original_raw_message: the raw message that caused the bounce.
+
+    The 'original' and 'notification' dicts contain the following keys:
+      to, from, subject, text
+
+    Args:
+      post_vars: a dict-like object containing bounce information.
+          This is typically the self.request.POST variable of a RequestHandler
+          object. The following keys are expected in the dict:
+            original-from
+            original-to
+            original-subject
+            original-text
+            notification-from
+            notification-to
+            notification-subject
+            notification-text
+            raw-message
+
+    Raises:
+      InvalidBounceNotification if any of the expected fields are missing.
+    """
+    try:
+      self.__original = {}
+      self.__notification = {}
+      for field in ['to', 'from', 'subject', 'text']:
+        self.__original[field] = post_vars['original-' + field]
+        self.__notification[field] = post_vars['notification-' + field]
+
+      self.__original_raw_message = mail.InboundEmailMessage(
+          post_vars['raw-message'])
+    except KeyError, e:
+      raise InvalidBounceNotificationError(e[0])
+
+  @property
+  def original(self):
+    return self.__original
+
+  @property
+  def notification(self):
+    return self.__notification
+
+  @property
+  def original_raw_message(self):
+    return self.__original_raw_message

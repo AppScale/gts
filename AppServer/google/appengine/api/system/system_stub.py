@@ -25,8 +25,14 @@
 
 
 
+
+import random
+
 from google.appengine.api import apiproxy_stub
+from google.appengine.api import request_info
 from google.appengine.api.system import system_service_pb
+from google.appengine.runtime import apiproxy_errors
+
 
 class SystemServiceStub(apiproxy_stub.APIProxyStub):
   """Python stub for System service.
@@ -36,14 +42,18 @@ class SystemServiceStub(apiproxy_stub.APIProxyStub):
   It also provides a place for the dev_appserver to record backend info.
   """
 
-  def __init__(self, default_cpu=None, default_memory=None):
+  _ACCEPTS_REQUEST_ID = True
+
+  def __init__(self, default_cpu=None, default_memory=None, request_data=None):
     """Constructor.
 
     Args:
       default_cpu: SystemStat; if set, value will be used for GetSystemStats.
       default_memory: SystemStat; if set, value will be used for GetSystemStats.
+      request_data: A request_info.RequestInfo instance used to look up state
+          associated with the request that generated an API call.
     """
-    super(SystemServiceStub, self).__init__('system')
+    super(SystemServiceStub, self).__init__('system', request_data=request_data)
     self.default_cpu = default_cpu
     self.default_memory = default_memory
 
@@ -53,8 +63,8 @@ class SystemServiceStub(apiproxy_stub.APIProxyStub):
 
     self._backend_info = None
 
-
-  def _Dynamic_GetSystemStats(self, unused_request, response):
+  def _Dynamic_GetSystemStats(self, unused_request, response,
+                              unused_request_id):
     """Mock version of System stats always returns fixed values."""
 
     cpu = response.mutable_cpu()
@@ -68,11 +78,22 @@ class SystemServiceStub(apiproxy_stub.APIProxyStub):
     self.num_calls["GetSystemStats"] = (
         self.num_calls.get("GetSystemStats", 0) + 1)
 
-  def _Dynamic_StartBackgroundRequest(self, unused_request, unused_response):
-    """Not implemented."""
-    self.num_calls["StartBackgroundRequest"] = (
-        self.num_calls.get("StartBackgroundRequest", 0)  + 1)
-    raise NotImplementedError
+  def _Dynamic_StartBackgroundRequest(self, unused_request, response,
+                                      request_id):
+    background_request_id = '%x' % random.randrange(1 << 64)
+    try:
+      self.request_data.get_dispatcher().send_background_request(
+          self.request_data.get_server(request_id),
+          self.request_data.get_version(request_id),
+          self.request_data.get_instance(request_id),
+          background_request_id)
+    except request_info.NotSupportedWithAutoScalingError:
+      raise apiproxy_errors.ApplicationError(
+          system_service_pb.SystemServiceError.BACKEND_REQUIRED)
+    except request_info.BackgroundThreadLimitReachedError:
+      raise apiproxy_errors.ApplicationError(
+          system_service_pb.SystemServiceError.LIMIT_REACHED)
+    response.set_request_id(background_request_id)
 
   def set_backend_info(self, backend_info):
     """Set backend info. Typically a list of BackendEntry objects."""

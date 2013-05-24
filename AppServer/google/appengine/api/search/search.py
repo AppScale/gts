@@ -48,14 +48,13 @@ from google.appengine.runtime import apiproxy_errors
 
 
 __all__ = [
-    'AddError',
-    'AddResult',
     'AtomField',
     'Cursor',
     'DateField',
     'DeleteError',
     'DeleteResult',
     'Document',
+    'DOCUMENT_ID_FIELD_NAME',
     'Error',
     'ExpressionError',
     'Field',
@@ -68,11 +67,9 @@ __all__ = [
     'Index',
     'InternalError',
     'InvalidRequest',
-    'ListIndexesResponse',
-    'ListResponse',
+    'LANGUAGE_FIELD_NAME',
     'MatchScorer',
     'MAXIMUM_DOCUMENT_ID_LENGTH',
-    'MAXIMUM_DOCUMENTS_PER_ADD_REQUEST',
     'MAXIMUM_DOCUMENTS_PER_PUT_REQUEST',
     'MAXIMUM_DOCUMENTS_RETURNED_PER_SEARCH',
     'MAXIMUM_EXPRESSION_LENGTH',
@@ -83,8 +80,6 @@ __all__ = [
     'MAXIMUM_GET_INDEXES_OFFSET',
     'MAXIMUM_INDEX_NAME_LENGTH',
     'MAXIMUM_INDEXES_RETURNED_PER_GET_REQUEST',
-    'MAXIMUM_INDEXES_RETURNED_PER_LIST_REQUEST',
-    'MAXIMUM_LIST_INDEXES_OFFSET',
     'MAXIMUM_NUMBER_FOUND_ACCURACY',
     'MAXIMUM_QUERY_LENGTH',
     'MAXIMUM_SEARCH_OFFSET',
@@ -100,16 +95,16 @@ __all__ = [
     'Query',
     'QueryError',
     'QueryOptions',
-    'RemoveError',
-    'RemoveResult',
+    'RANK_FIELD_NAME',
     'RescoringMatchScorer',
+    'SCORE_FIELD_NAME',
     'ScoredDocument',
     'SearchResults',
     'SortExpression',
     'SortOptions',
     'TextField',
+    'TIMESTAMP_FIELD_NAME',
     'TransientError',
-    'list_indexes',
     ]
 
 MAXIMUM_INDEX_NAME_LENGTH = 100
@@ -118,8 +113,6 @@ MAXIMUM_FIELD_ATOM_LENGTH = 500
 MAXIMUM_FIELD_NAME_LENGTH = 500
 MAXIMUM_DOCUMENT_ID_LENGTH = 500
 MAXIMUM_DOCUMENTS_PER_PUT_REQUEST = 200
-
-MAXIMUM_DOCUMENTS_PER_ADD_REQUEST = 200
 MAXIMUM_EXPRESSION_LENGTH = 5000
 MAXIMUM_QUERY_LENGTH = 2000
 MAXIMUM_DOCUMENTS_RETURNED_PER_SEARCH = 1000
@@ -129,13 +122,26 @@ MAXIMUM_SORTED_DOCUMENTS = 10000
 MAXIMUM_NUMBER_FOUND_ACCURACY = 10000
 MAXIMUM_FIELDS_RETURNED_PER_SEARCH = 100
 MAXIMUM_INDEXES_RETURNED_PER_GET_REQUEST = 1000
-
-MAXIMUM_INDEXES_RETURNED_PER_LIST_REQUEST = 1000
 MAXIMUM_GET_INDEXES_OFFSET = 1000
 
-MAXIMUM_LIST_INDEXES_OFFSET = 1000
 
-_LANGUAGE_LENGTH = 2
+DOCUMENT_ID_FIELD_NAME = '_doc_id'
+
+LANGUAGE_FIELD_NAME = '_lang'
+
+RANK_FIELD_NAME = '_rank'
+
+SCORE_FIELD_NAME = '_score'
+
+
+
+TIMESTAMP_FIELD_NAME = '_timestamp'
+
+
+
+
+_LANGUAGE_RE = re.compile('^(.{2}|.{2}_.{2})$')
+
 _MAXIMUM_STRING_LENGTH = 500
 _MAXIMUM_CURSOR_LENGTH = 10000
 
@@ -259,56 +265,12 @@ _ERROR_OPERATION_CODE_MAP = {
     }
 
 
-class AddResult(OperationResult):
-  """Deprecated. The result of indexing a single object."""
-
-  def __init__(self, code, message=None, id=None):
-    warnings.warn('AddResult is deprecated; use PutResult instead',
-                  DeprecationWarning, stacklevel=2)
-    super(AddResult, self).__init__(code, message, id)
-
-
 class PutResult(OperationResult):
   """The result of indexing a single object."""
 
 
-class RemoveResult(OperationResult):
-  """Deprecated. The result of deleting a single document."""
-
-  def __init__(self, code, message=None, id=None):
-    warnings.warn('RemoveResult is deprecated; use RemoveResult instead',
-                  DeprecationWarning, stacklevel=2)
-    super(RemoveResult, self).__init__(code, message, id)
-
-
 class DeleteResult(OperationResult):
   """The result of deleting a single document."""
-
-
-class AddError(Error):
-  """Indicates some error occurred indexing one of the objects requested.
-
-  Deprecated.
-  """
-
-  def __init__(self, message, results):
-    """Initializer.
-
-    Args:
-      message: A message detailing the cause of the failure to index some
-        document.
-      results: A list of AddResult corresponding to the list of objects
-        requested to be indexed.
-    """
-    warnings.warn('AddError is deprecated; use PutError instead',
-                  DeprecationWarning, stacklevel=2)
-    super(AddError, self).__init__(message)
-    self._results = results
-
-  @property
-  def results(self):
-    """Returns AddResult list corresponding to objects indexed."""
-    return self._results
 
 
 class PutError(Error):
@@ -329,29 +291,6 @@ class PutError(Error):
   @property
   def results(self):
     """Returns PutResult list corresponding to objects indexed."""
-    return self._results
-
-
-class RemoveError(Error):
-  """Deprecated.Indicates some error occured deleting some object requested."""
-
-  def __init__(self, message, results):
-    """Initializer.
-
-    Args:
-      message: A message detailing the cause of the failure to remove some
-        document.
-      results: A list of RemoveResult corresponding to the list of Ids of
-        objects requested to be removed.
-    """
-    warnings.warn('RemoveError is deprecated; use DeleteError instead',
-                  DeprecationWarning, stacklevel=2)
-    super(RemoveError, self).__init__(message)
-    self._results = results
-
-  @property
-  def results(self):
-    """Returns RemoveResult list corresponding to Documents removed."""
     return self._results
 
 
@@ -649,15 +588,15 @@ def _CheckDate(date):
 
 
 def _CheckLanguage(language):
-  """Checks language is None or a string of _LANGUAGE_LENGTH."""
+  """Checks language is None or a string that matches _LANGUAGE_RE."""
   if language is None:
     return None
   if not isinstance(language, basestring):
     raise TypeError('language must be a basestring, got %s' %
                     language.__class__.__name__)
-  if len(language) != _LANGUAGE_LENGTH:
-    raise ValueError('language should have a length of %d, got %s'
-                     % (_LANGUAGE_LENGTH, len(language)))
+  if not re.match(_LANGUAGE_RE, language):
+    raise ValueError('invalid language %s. Languages should be two letters.'
+                     % language)
   return language
 
 
@@ -672,7 +611,7 @@ def _CheckDocument(document):
 
   Raises:
     ValueError if the document is invalid in a way that would trigger an
-    AddError from the server.
+    PutError from the server.
   """
   no_repeat_names = set()
   for field in document.fields:
@@ -696,51 +635,11 @@ def _Repr(class_instance, ordered_dictionary):
        if value is not None and value != []]))
 
 
-def _ListIndexesResponsePbToListIndexesResponse(response):
-  """Returns a ListIndexesResponse constructed from list_indexes response pb."""
-  return ListIndexesResponse(
-      indexes=[_NewIndexFromPb(index)
-               for index in response.index_metadata_list()])
-
-
 def _ListIndexesResponsePbToGetResponse(response):
-  """Returns a GetResponse constructed from list_indexes response pb."""
+  """Returns a GetResponse constructed from get_indexes response pb."""
   return GetResponse(
       results=[_NewIndexFromPb(index)
                for index in response.index_metadata_list()])
-
-
-def list_indexes(namespace='', offset=None, limit=20,
-                 start_index_name=None, include_start_index=True,
-                 index_name_prefix=None, fetch_schema=False, **kwargs):
-  """Returns a list of available indexes.
-
-  Args:
-    namespace: The namespace of indexes to be returned. If not set
-      then the current namespace is used.
-    offset: The offset of the first returned index.
-    limit: The number of indexes to return.
-    start_index_name: The name of the first index to be returned.
-    include_start_index: Whether or not to return the start index.
-    index_name_prefix: The prefix used to select returned indexes.
-    fetch_schema: Whether to retrieve Schema for each Index or not.
-
-  Returns:
-    The ListIndexesResponse containing a list of available indexes.
-
-  Raises:
-    InternalError: If the request fails on internal servers.
-    TypeError: If an invalid argument is passed.
-  """
-  warnings.warn('list_indexes is deprecated; use get_indexes instead',
-                DeprecationWarning, stacklevel=2)
-  response = _GetIndexes(
-      namespace=namespace, offset=offset, limit=limit,
-      start_index_name=start_index_name,
-      include_start_index=include_start_index,
-      index_name_prefix=index_name_prefix,
-      fetch_schema=fetch_schema, **kwargs)
-  return _ListIndexesResponsePbToListIndexesResponse(response)
 
 
 def get_indexes(namespace='', offset=None, limit=20,
@@ -1236,8 +1135,7 @@ class Document(object):
   """
   _FIRST_JAN_2011 = datetime.datetime(2011, 1, 1)
 
-  def __init__(self, doc_id=None, fields=None, language='en', order_id=None,
-               rank=None):
+  def __init__(self, doc_id=None, fields=None, language='en', rank=None):
     """Initializer.
 
     Args:
@@ -1247,7 +1145,6 @@ class Document(object):
       fields: An iterable of Field instances representing the content of the
         document.
       language: The code of the language used in the field values.
-      order_id: Same as rank, deprecated.
       rank: The rank of this document used to specify the order in which
         documents are returned by search. Rank must be a non-negative integer.
         If not specified, the number of seconds since 1st Jan 2011 is used.
@@ -1270,15 +1167,7 @@ class Document(object):
     self._field_map = None
 
     doc_rank = None
-    if not order_id is None:
-
-      warnings.warn('order_id is deprecated; use rank instead',
-                    DeprecationWarning, stacklevel=2)
-      doc_rank = order_id
     if not rank is None:
-      if not doc_rank is None:
-        warnings.warn('Both order_id and rank are set; use just rank',
-                      DeprecationWarning, stacklevel=2)
       doc_rank = rank
     if doc_rank is None:
       doc_rank = self._GetDefaultRank()
@@ -1300,13 +1189,6 @@ class Document(object):
   def language(self):
     """Returns the code of the language the document fields are written in."""
     return self._language
-
-  @property
-  def order_id(self):
-    """Returns the id used to return documents in a defined order."""
-    warnings.warn('order_id is deprecated; use rank instead',
-                  DeprecationWarning, stacklevel=2)
-    return self._rank
 
   @property
   def rank(self):
@@ -1758,7 +1640,7 @@ class SortExpression(object):
 class ScoredDocument(Document):
   """Represents a scored document returned from a search."""
 
-  def __init__(self, doc_id=None, fields=None, language='en', order_id=None,
+  def __init__(self, doc_id=None, fields=None, language='en',
                sort_scores=None, expressions=None, cursor=None, rank=None):
     """Initializer.
 
@@ -1769,17 +1651,16 @@ class ScoredDocument(Document):
       fields: An iterable of Field instances representing the content of the
         document.
       language: The code of the language used in the field values.
-      order_id: Same as rank, deprecated.
-      rank: The rank of this document. A rank must be a non-negative integer
-        less than sys.maxint. If not specified, the number of seconds since
-        1st Jan 2011 is used. Documents are returned in descending order of
-        their rank.
       sort_scores: The list of scores assigned during sort evaluation. Each
         sort dimension is included. Positive scores are used for ascending
         sorts; negative scores for descending.
       expressions: The list of computed fields which are the result of
         expressions requested.
       cursor: A cursor associated with the document.
+      rank: The rank of this document. A rank must be a non-negative integer
+        less than sys.maxint. If not specified, the number of seconds since
+        1st Jan 2011 is used. Documents are returned in descending order of
+        their rank.
 
     Raises:
       TypeError: If any of the parameters have invalid types, or an unknown
@@ -1787,8 +1668,7 @@ class ScoredDocument(Document):
       ValueError: If any of the parameters have invalid values.
     """
     super(ScoredDocument, self).__init__(doc_id=doc_id, fields=fields,
-                                         language=language, order_id=order_id,
-                                         rank=rank)
+                                         language=language, rank=rank)
     self._sort_scores = self._CheckSortScores(_GetList(sort_scores))
     self._expressions = _GetList(expressions)
     if cursor is not None and not isinstance(cursor, Cursor):
@@ -1919,57 +1799,6 @@ class SearchResults(object):
                         ('cursor', self.cursor)])
 
 
-class ListResponse(object):
-  """Represents the result of executing a list request on an index.
-
-  For example, the following code shows how a response could be used
-  to determine which documents were successfully removed or not.
-
-  response = index.list_documents()
-  for document in response:
-    print "document ", document
-  """
-
-  def __init__(self, results=None):
-    """Initializer.
-
-    Args:
-      results: The results returned from an index ordered by Id.
-
-    Raises:
-      TypeError: If any of the parameters have an invalid type, or an unknown
-        attribute is passed.
-      ValueError: If any of the parameters have an invalid value.
-    """
-    self._results = _GetList(results)
-
-  def __iter__(self):
-    for result in self.results:
-      yield result
-
-  @property
-  def documents(self):
-    """Returns a list of documents ordered by Id from the index.
-
-    Deprecated. Use ListResponse.results.
-
-    Returns:
-      the list of documents
-    """
-    warnings.warn('documents is deprecated. '
-                  'Use ListResponse.results instead',
-                  DeprecationWarning, stacklevel=2)
-    return self._results
-
-  @property
-  def results(self):
-    """Returns a list of results ordered by Id from the index."""
-    return self._results
-
-  def __repr__(self):
-    return _Repr(self, [('results', self.results)])
-
-
 class GetResponse(object):
   """Represents the result of executing a get request.
 
@@ -2005,43 +1834,6 @@ class GetResponse(object):
 
   def __repr__(self):
     return _Repr(self, [('results', self.results)])
-
-
-class ListIndexesResponse(object):
-  """Represents the result of executing a list indexes request.
-
-  For example, the following code shows how the response can be
-  used to get available Indexes.
-
-  for index in search.list_indexes(fetch_schema=True):
-    print "index ", index.name
-    print index.schema
-  """
-
-  def __init__(self, indexes=None):
-    """Initializer.
-
-    Args:
-      indexes: A list of available Indexes.
-
-    Raises:
-      TypeError: If any of the parameters have an invalid type, or an unknown
-        attribute is passed.
-      ValueError: If any of the parameters have an invalid value.
-    """
-    self._indexes = _GetList(indexes)
-
-  def __iter__(self):
-    for index in self.indexes:
-      yield index
-
-  @property
-  def indexes(self):
-    """Returns a list of available Indexes."""
-    return self._indexes
-
-  def __repr__(self):
-    return _Repr(self, [('indexes', self.indexes)])
 
 
 class Cursor(object):
@@ -2524,11 +2316,6 @@ class Index(object):
   changes to any document stored in an index are applied in the correct order.
   """
 
-  GLOBALLY_CONSISTENT, PER_DOCUMENT_CONSISTENT = ('GLOBALLY_CONSISTENT',
-                                                  'PER_DOCUMENT_CONSISTENT')
-
-  _CONSISTENCY_MODES = [GLOBALLY_CONSISTENT, PER_DOCUMENT_CONSISTENT]
-
 
 
   RESPONSE_CURSOR, RESULT_CURSOR = ('RESPONSE_CURSOR', 'RESULT_CURSOR')
@@ -2539,8 +2326,7 @@ class Index(object):
 
   _SOURCES = frozenset([SEARCH, DATASTORE, CLOUD_STORAGE])
 
-  def __init__(self, name, namespace=None,
-               consistency=None, source=SEARCH):
+  def __init__(self, name, namespace=None, source=SEARCH):
     """Initializer.
 
     Args:
@@ -2548,10 +2334,7 @@ class Index(object):
         ASCII string not starting with '!'. Whitespace characters are excluded.
       namespace: The namespace of the index name. If not set, then the current
         namespace is used.
-      consistency: Deprecated. The consistency mode of the index,
-        either GLOBALLY_CONSISTENT or PER_DOCUMENT_CONSISTENT.
-        GLOBALLY_CONSISTENT mode will no longer be supported.
-      source: This feature is only available to Trusted Testers. The source of
+      source: Deprecated as of 1.7.6. The source of
         the index:
           SEARCH - The Index was created by adding documents throught this
             search API.
@@ -2561,10 +2344,12 @@ class Index(object):
             objects into a Cloud Storage bucket.
     Raises:
       TypeError: If an unknown attribute is passed.
-      ValueError: If an unknown consistency mode, or invalid namespace is given.
+      ValueError: If invalid namespace is given.
     """
     if source not in self._SOURCES:
       raise ValueError('source must be one of %s' % self._SOURCES)
+    if source is not self.SEARCH:
+      warnings.warn('source is deprecated.', DeprecationWarning, stacklevel=2)
     self._source = source
     self._name = _CheckIndexName(_ConvertToUnicode(name))
     self._namespace = _ConvertToUnicode(namespace)
@@ -2573,24 +2358,13 @@ class Index(object):
     if self._namespace is None:
       self._namespace = u''
     namespace_manager.validate_namespace(self._namespace, exception=ValueError)
-    if consistency is not None:
-      warnings.warn(
-          'consistency is deprecated. '
-          'GLOBALLY_CONSISTENT is no longer supported.',
-          DeprecationWarning, stacklevel=2)
-    else:
-      consistency = self.PER_DOCUMENT_CONSISTENT
-    self._consistency = consistency
-    if self._consistency not in self._CONSISTENCY_MODES:
-      raise ValueError('consistency must be one of %s' %
-                       self._CONSISTENCY_MODES)
     self._schema = None
 
   @property
   def schema(self):
     """Returns the schema mapping field names to list of types supported.
 
-    Only valid for Indexes returned by search.list_indexes method."""
+    Only valid for Indexes returned by search.get_indexes method."""
     return self._schema
 
   @property
@@ -2604,17 +2378,11 @@ class Index(object):
     return self._namespace
 
   @property
-  def consistency(self):
-    """Returns the consistency mode of the index."""
-    warnings.warn(
-        'consistency is deprecated. '
-        'GLOBALLY_CONSISTENT is no longer supported.',
-        DeprecationWarning, stacklevel=2)
-    return self._consistency
-
-  @property
   def source(self):
-    """Returns the source of the index."""
+    """Returns the source of the index.
+
+    Deprecated: from 1.7.6, source is no longer available."""
+    warnings.warn('source is deprecated.', DeprecationWarning, stacklevel=2)
     return self._source
 
   def __eq__(self, other):
@@ -2625,21 +2393,13 @@ class Index(object):
     return not self.__eq__(other)
 
   def __hash__(self):
-    return hash((self._name, self._consistency, self._namespace))
+    return hash((self._name, self._namespace))
 
   def __repr__(self):
-    return _Repr(self, [('name', self.name), ('namespace', self.namespace),
-                        ('source', self.source),
-                        ('consistency', self.consistency),
-                        ('schema', self.schema)])
 
-  def _NewAddResultFromPb(self, status_pb, doc_id):
-    """Constructs AddResult from RequestStatus pb and doc_id."""
-    message = None
-    if status_pb.has_error_detail():
-      message = _DecodeUTF8(status_pb.error_detail())
-    code = _ERROR_OPERATION_CODE_MAP[status_pb.code()]
-    return AddResult(code=code, message=message, id=_DecodeUTF8(doc_id))
+    return _Repr(self, [('name', self.name), ('namespace', self.namespace),
+                        ('source', self._source),
+                        ('schema', self.schema)])
 
   def _NewPutResultFromPb(self, status_pb, doc_id):
     """Constructs PutResult from RequestStatus pb and doc_id."""
@@ -2649,81 +2409,10 @@ class Index(object):
     code = _ERROR_OPERATION_CODE_MAP[status_pb.code()]
     return PutResult(code=code, message=message, id=_DecodeUTF8(doc_id))
 
-  def _NewAddResultList(self, response):
-    return [self._NewAddResultFromPb(status, doc_id)
-            for status, doc_id in zip(response.status_list(),
-                                      response.doc_id_list())]
-
   def _NewPutResultList(self, response):
     return [self._NewPutResultFromPb(status, doc_id)
             for status, doc_id in zip(response.status_list(),
                                       response.doc_id_list())]
-
-  def add(self, documents):
-    """Deprecated. Index the collection of documents.
-
-    If any of the documents are already in the index, then reindex them with
-    their corresponding fresh document. If any of the documents fail to be
-    indexed, then none of the documents will be indexed.
-
-    Args:
-      documents: A Document or iterable of Documents to index.
-
-    Returns:
-      A list of AddResult, one per Document requested to be indexed.
-
-    Raises:
-      AddError: If one or more documents failed to index or
-        number indexed did not match requested.
-      TypeError: If an unknown attribute is passed.
-      ValueError: If documents is not a Document or iterable of Document
-        or number of the documents is larger than
-        MAXIMUM_DOCUMENTS_PER_ADD_REQUEST.
-    """
-    warnings.warn('add is deprecated. Use put instead',
-                  DeprecationWarning, stacklevel=2)
-
-
-    if isinstance(documents, basestring):
-      raise TypeError('documents must be a Document or sequence of '
-                      'Documents, got %s' % documents.__class__.__name__)
-    try:
-      docs = list(iter(documents))
-    except TypeError:
-      docs = [documents]
-
-    if not docs:
-      return []
-
-    if len(docs) > MAXIMUM_DOCUMENTS_PER_ADD_REQUEST:
-      raise ValueError('too many documents to index')
-
-    request = search_service_pb.IndexDocumentRequest()
-    response = search_service_pb.IndexDocumentResponse()
-
-    params = request.mutable_params()
-    _CopyMetadataToProtocolBuffer(self, params.mutable_index_spec())
-    for document in docs:
-      doc_pb = params.add_document()
-      _CopyDocumentToProtocolBuffer(document, doc_pb)
-
-    try:
-      apiproxy_stub_map.MakeSyncCall('search', 'IndexDocument', request,
-                                     response)
-    except apiproxy_errors.ApplicationError, e:
-      raise _ToSearchError(e)
-
-    results = self._NewAddResultList(response)
-
-    if response.status_size() != len(docs):
-      raise AddError('did not index requested number of documents', results)
-
-    for status in response.status_list():
-      if status.code() != search_service_pb.SearchServiceError.OK:
-        raise AddError(
-            _ConcatenateErrorMessages(
-                'one or more add document operations failed', status), results)
-    return results
 
   def put(self, documents):
     """Index the collection of documents.
@@ -2766,7 +2455,20 @@ class Index(object):
 
     params = request.mutable_params()
     _CopyMetadataToProtocolBuffer(self, params.mutable_index_spec())
+
+    seen_docs = {}
     for document in docs:
+      doc_id = document.doc_id
+      if doc_id:
+        if doc_id in seen_docs:
+          if document != seen_docs[doc_id]:
+            raise ValueError(
+                'Different documents with the same ID found in the '
+                'same call to Index.put()')
+
+
+          continue
+        seen_docs[doc_id] = document
       doc_pb = params.add_document()
       _CopyDocumentToProtocolBuffer(document, doc_pb)
 
@@ -2778,7 +2480,7 @@ class Index(object):
 
     results = self._NewPutResultList(response)
 
-    if response.status_size() != len(docs):
+    if response.status_size() != len(params.document_list()):
       raise PutError('did not index requested number of documents', results)
 
     for status in response.status_list():
@@ -2787,15 +2489,6 @@ class Index(object):
             _ConcatenateErrorMessages(
                 'one or more put document operations failed', status), results)
     return results
-
-  def _NewRemoveResultFromPb(self, status_pb, doc_id):
-    """Constructs RemoveResult from RequestStatus pb and doc_id."""
-    message = None
-    if status_pb.has_error_detail():
-      message = _DecodeUTF8(status_pb.error_detail())
-    code = _ERROR_OPERATION_CODE_MAP[status_pb.code()]
-
-    return RemoveResult(code=code, message=message, id=doc_id)
 
   def _NewDeleteResultFromPb(self, status_pb, doc_id):
     """Constructs DeleteResult from RequestStatus pb and doc_id."""
@@ -2806,68 +2499,9 @@ class Index(object):
 
     return DeleteResult(code=code, message=message, id=doc_id)
 
-  def _NewRemoveResultList(self, document_ids, response):
-    return [self._NewRemoveResultFromPb(status, doc_id)
-            for status, doc_id in zip(response.status_list(), document_ids)]
-
   def _NewDeleteResultList(self, document_ids, response):
     return [self._NewDeleteResultFromPb(status, doc_id)
             for status, doc_id in zip(response.status_list(), document_ids)]
-
-  def remove(self, document_ids):
-    """Delete the documents with the corresponding document ids from the index.
-
-    If no document exists for the identifier in the list, then that document
-    identifier is ignored. If any document remove fails, then no documents
-    will be removed.
-
-    Args:
-      document_ids: A single identifier or list of identifiers of documents
-        to remove.
-
-    Raises:
-      RemoveError: If one or more documents failed to remove or
-        number removed did not match requested.
-      ValueError: If document_ids is not a string or iterable of valid document
-        identifiers or number of document ids is larger than
-        MAXIMUM_DOCUMENTS_PER_ADD_REQUEST.
-    """
-    warnings.warn('remove is deprecated. Use delete instead',
-                  DeprecationWarning, stacklevel=2)
-    doc_ids = _ConvertToList(document_ids)
-
-    if not doc_ids:
-      return
-
-    if len(doc_ids) > MAXIMUM_DOCUMENTS_PER_ADD_REQUEST:
-      raise ValueError('too many documents to remove')
-
-    request = search_service_pb.DeleteDocumentRequest()
-    response = search_service_pb.DeleteDocumentResponse()
-    params = request.mutable_params()
-    _CopyMetadataToProtocolBuffer(self, params.mutable_index_spec())
-    for document_id in doc_ids:
-      _CheckDocumentId(document_id)
-      params.add_doc_id(document_id)
-
-    try:
-      apiproxy_stub_map.MakeSyncCall('search', 'DeleteDocument', request,
-                                     response)
-    except apiproxy_errors.ApplicationError, e:
-      raise _ToSearchError(e)
-
-    results = self._NewRemoveResultList(doc_ids, response)
-
-    if response.status_size() != len(doc_ids):
-      raise RemoveError(
-          'did not remove requested number of documents', results)
-
-    for status in response.status_list():
-      if status.code() != search_service_pb.SearchServiceError.OK:
-        raise RemoveError(
-            _ConcatenateErrorMessages(
-                'one or more remove document operations failed', status),
-            results)
 
   def delete(self, document_ids):
     """Delete the documents with the corresponding document ids from the index.
@@ -2885,7 +2519,7 @@ class Index(object):
         number removed did not match requested.
       ValueError: If document_ids is not a string or iterable of valid document
         identifiers or number of document ids is larger than
-        MAXIMUM_DOCUMENTS_PER_ADD_REQUEST.
+        MAXIMUM_DOCUMENTS_PER_PUT_REQUEST.
     """
     doc_ids = _ConvertToList(document_ids)
 
@@ -2921,6 +2555,44 @@ class Index(object):
             _ConcatenateErrorMessages(
                 'one or more delete document operations failed', status),
             results)
+
+  def delete_schema(self):
+    """Deprecated in 1.7.4. Delete the schema from the index.
+
+    We are deprecating this method and replacing with more general schema
+    and index managment.
+
+    A possible use may be remove typed fields which are no longer used. After
+    you delete the schema, you need to index one or more documents to rebuild
+    the schema. Until you re-index some documents, searches may fail, especially
+    searches using field restricts.
+
+    Raises:
+      DeleteError: If the schema failed to be deleted.
+    """
+    warnings.warn('delete_schema is deprecated in 1.7.4.',
+                  DeprecationWarning, stacklevel=2)
+    request = search_service_pb.DeleteSchemaRequest()
+    response = search_service_pb.DeleteSchemaResponse()
+    params = request.mutable_params()
+    _CopyMetadataToProtocolBuffer(self, params.add_index_spec())
+
+    try:
+      apiproxy_stub_map.MakeSyncCall('search', 'DeleteSchema', request,
+                                     response)
+    except apiproxy_errors.ApplicationError, e:
+      raise _ToSearchError(e)
+
+    results = self._NewDeleteResultList([self.name], response)
+
+    if response.status_size() != 1:
+      raise DeleteError('did not delete exactly one schema', results)
+
+    status = response.status_list()[0]
+    if status.code() != search_service_pb.SearchServiceError.OK:
+      raise DeleteError(
+          _ConcatenateErrorMessages('delete schema operation failed', status),
+          results)
 
   def _NewScoredDocumentFromPb(self, doc_pb, sort_scores, expressions, cursor):
     """Constructs a Document from a document_pb.Document protocol buffer."""
@@ -3062,14 +2734,6 @@ class Index(object):
       cursor = query.options.cursor
     return self._NewSearchResults(response, cursor)
 
-  def _NewListResponse(self, response):
-    """Returns a ListResponse from the list_documents response pb."""
-    documents = []
-    for doc_proto in response.document_list():
-      documents.append(_NewDocumentFromPb(doc_proto))
-
-    return ListResponse(results=documents)
-
   def _NewGetResponse(self, response):
     """Returns a GetResponse from the list_documents response pb."""
     documents = []
@@ -3077,35 +2741,6 @@ class Index(object):
       documents.append(_NewDocumentFromPb(doc_proto))
 
     return GetResponse(results=documents)
-
-  def list_documents(self, start_doc_id=None, include_start_doc=True,
-                     limit=100, ids_only=False, **kwargs):
-    """List documents in the index, in doc_id order.
-
-    Deprecated. Use get_range instead.
-
-    Args:
-      start_doc_id: String containing the document Id from which to list
-        documents from. By default, starts at the first document Id.
-      include_start_doc: If true, include the document with the Id specified by
-        the start_doc_id parameter.
-      limit: The maximum number of documents to return.
-      ids_only: If true, the documents returned only contain their keys.
-
-    Returns:
-      A ListResponse containing a list of Documents, ordered by Id.
-
-    Raises:
-      Error: Some subclass of Error is raised if an error occurred processing
-        the request.
-      TypeError: An unknown attribute is passed in.
-    """
-    warnings.warn('list_documents is deprecated. Use get_range instead',
-                  DeprecationWarning, stacklevel=2)
-    response = self._GetResponse(
-        start_id=start_doc_id, include_start_object=include_start_doc,
-        limit=limit, ids_only=ids_only, **kwargs)
-    return self._NewListResponse(response)
 
   def _GetResponse(self, start_id=None, include_start_object=True,
                    limit=100, ids_only=False, **kwargs):
@@ -3173,23 +2808,11 @@ _CURSOR_TYPE_PB_MAP = {
 
 
 
-
-_CONSISTENCY_MODES_TO_PB_MAP = {
-    Index.GLOBALLY_CONSISTENT: search_service_pb.IndexSpec.GLOBAL,
-    Index.PER_DOCUMENT_CONSISTENT: search_service_pb.IndexSpec.PER_DOCUMENT}
-
-
-
 _SOURCES_TO_PB_MAP = {
     Index.SEARCH: search_service_pb.IndexSpec.SEARCH,
     Index.DATASTORE: search_service_pb.IndexSpec.DATASTORE,
     Index.CLOUD_STORAGE: search_service_pb.IndexSpec.CLOUD_STORAGE}
 
-
-
-_CONSISTENCY_PB_TO_MODES_MAP = {
-    search_service_pb.IndexSpec.GLOBAL: Index.GLOBALLY_CONSISTENT,
-    search_service_pb.IndexSpec.PER_DOCUMENT: Index.PER_DOCUMENT_CONSISTENT}
 
 
 _SOURCE_PB_TO_SOURCES_MAP = {
@@ -3202,9 +2825,10 @@ def _CopyMetadataToProtocolBuffer(index, spec_pb):
   """Copies Index specification to a search_service_pb.IndexSpec."""
   spec_pb.set_name(index.name.encode('utf-8'))
   spec_pb.set_namespace(index.namespace.encode('utf-8'))
-  spec_pb.set_consistency(_CONSISTENCY_MODES_TO_PB_MAP.get(index.consistency))
-  if index.source != Index.SEARCH:
-    spec_pb.set_source(_SOURCES_TO_PB_MAP.get(index.source))
+
+
+  if index._source != Index.SEARCH:
+    spec_pb.set_source(_SOURCES_TO_PB_MAP.get(index._source))
 
 
 _FIELD_TYPE_MAP = {
@@ -3233,16 +2857,14 @@ def _NewSchemaFromPb(field_type_pb_list):
 
 def _NewIndexFromIndexSpecPb(index_spec_pb):
   """Creates an Index from a search_service_pb.IndexSpec."""
-  consistency = _CONSISTENCY_PB_TO_MODES_MAP.get(index_spec_pb.consistency())
   source = _SOURCE_PB_TO_SOURCES_MAP.get(index_spec_pb.source())
   index = None
   if index_spec_pb.has_namespace():
     index = Index(name=index_spec_pb.name(),
                   namespace=index_spec_pb.namespace(),
-                  consistency=consistency, source=source)
-  else:
-    index = Index(name=index_spec_pb.name(), consistency=consistency,
                   source=source)
+  else:
+    index = Index(name=index_spec_pb.name(), source=source)
   return index
 
 
@@ -3252,4 +2874,3 @@ def _NewIndexFromPb(index_metadata_pb):
   if index_metadata_pb.field_list():
     index._schema = _NewSchemaFromPb(index_metadata_pb.field_list())
   return index
-

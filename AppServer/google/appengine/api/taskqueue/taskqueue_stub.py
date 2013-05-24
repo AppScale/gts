@@ -46,11 +46,9 @@ import base64
 import bisect
 import calendar
 import datetime
-import httplib
 import logging
 import os
 import random
-import socket
 import string
 import threading
 import time
@@ -62,6 +60,7 @@ from google.appengine.api import api_base_pb
 from google.appengine.api import apiproxy_stub
 from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import queueinfo
+from google.appengine.api import request_info
 from google.appengine.api.taskqueue import taskqueue
 from google.appengine.runtime import apiproxy_errors
 
@@ -1485,6 +1484,16 @@ class _Queue(object):
     self.task_name_archive.add(name)
 
   @_WithLock
+  def RunTaskNow(self, task):
+    """Change the eta of a task to now.
+
+    Args:
+      task: The TaskQueueQueryTasksResponse_Task run now. This must be
+          stored in this queue (otherwise an AssertionError is raised).
+    """
+    self._PostponeTaskNoAcquireLock(task, 0, increase_retries=False)
+
+  @_WithLock
   def PostponeTask(self, task, new_eta_usec):
     """Postpone the task to a future time and increment the retry count.
 
@@ -1799,14 +1808,17 @@ class _TaskExecutor(object):
   httplib library to send it to the http server.
   """
 
-  def __init__(self, default_host):
+  def __init__(self, default_host, request_data):
     """Constructor.
 
     Args:
       default_host: a string to use as the host/port to connect to if the host
           header is not specified in the task.
+      request_data: A request_info.RequestInfo instance used to look up state
+          associated with the request that generated an API call.
     """
     self._default_host = default_host
+    self._request_data = request_data
 
   def _HeadersFromTask(self, task, queue):
     """Constructs the http headers for the given task.
@@ -1861,43 +1873,25 @@ class _TaskExecutor(object):
     Returns:
       Http Response code from the task's execution, 0 if an exception occurred.
     """
+    method = task.RequestMethod_Name(task.method())
+    header_dict, headers = self._HeadersFromTask(task, queue)
+    connection_host, = header_dict.get('host', [self._default_host])
+    if connection_host is None:
+      logging.error('Could not determine where to send the task "%s" '
+                    '(Url: "%s") in queue "%s". Treating as an error.',
+                    task.task_name(), task.url(), queue.queue_name)
+      return False
+    else:
+      header_dict['Host'] = connection_host
+    dispatcher = self._request_data.get_dispatcher()
     try:
-      method = task.RequestMethod_Name(task.method())
-      header_dict, headers = self._HeadersFromTask(task, queue)
-
-
-
-
-      connection_host, = header_dict.get('host', [self._default_host])
-      if connection_host is None:
-        logging.error('Could not determine where to send the task "%s" '
-                      '(Url: "%s") in queue "%s". Treating as an error.',
-                      task.task_name(), task.url(), queue.queue_name)
-        return False
-      connection = httplib.HTTPConnection(connection_host)
-
-
-      connection.putrequest(
-          method, task.url(),
-          skip_host='host' in header_dict,
-          skip_accept_encoding='accept-encoding' in header_dict)
-
-      for header_key, header_value in headers:
-        connection.putheader(header_key, header_value)
-      connection.endheaders()
-      if task.has_body():
-        connection.send(task.body())
-
-      response = connection.getresponse()
-      response.read()
-      response.close()
-
-      return response.status
-    except (httplib.HTTPException, socket.error):
-      logging.exception('An error occured while sending the task "%s" '
-                        '(Url: "%s") in queue "%s". Treating as a task error.',
-                        task.task_name(), task.url(), queue.queue_name)
+      response = dispatcher.add_request(method, task.url(), headers,
+                                        task.body() if task.has_body() else '',
+                                        '0.1.0.2')
+    except request_info.ServerDoesNotExistError:
+      logging.exception('Failed to dispatch task')
       return 0
+    return int(response.status.split(' ', 1)[0])
 
 
 class _BackgroundTaskScheduler(object):
@@ -1964,6 +1958,11 @@ class _BackgroundTaskScheduler(object):
       response_code = self.task_executor.ExecuteTask(task, queue)
       if response_code:
         task.mutable_runlog().set_response_code(response_code)
+      else:
+        logging.error(
+            'An error occured while sending the task "%s" '
+            '(Url: "%s") in queue "%s". Treating as a task error.',
+            task.task_name(), task.url(), queue.queue_name)
 
 
 
@@ -2030,7 +2029,8 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
                task_retry_seconds=30,
                _all_queues_valid=False,
                default_http_server=None,
-               _testing_validate_state=False):
+               _testing_validate_state=False,
+               request_data=None):
     """Constructor.
 
     Args:
@@ -2046,9 +2046,12 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
           thus and all of its _Queues) validate their state after each
           operation? This should only be used during testing of the
           taskqueue_stub.
+      request_data: A request_info.RequestInfo instance used to look up state
+          associated with the request that generated an API call.
     """
     super(TaskQueueServiceStub, self).__init__(
-        service_name, max_request_size=MAX_REQUEST_SIZE)
+        service_name, max_request_size=MAX_REQUEST_SIZE,
+        request_data=request_data)
 
 
     self._queues = {}
@@ -2073,7 +2076,8 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
     self._started = False
 
     self._task_scheduler = _BackgroundTaskScheduler(
-        self._queues[None], _TaskExecutor(default_http_server),
+        self._queues[None], _TaskExecutor(default_http_server,
+                                          self.request_data),
         retry_seconds=task_retry_seconds)
     self._yaml_last_modified = None
 
@@ -2355,8 +2359,8 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
   def _Dynamic_ForceRun(self, request, response):
     """Local force run implementation of TaskQueueService.ForceRun.
 
-    Forces running of a task in a queue. This is a no-op here.
-    This will fail randomly for testing.
+    Forces running of a task in a queue. This will fail randomly for testing if
+    the app id is non-empty.
 
     Must adhere to the '_Dynamic_' naming convention for stubbing to work.
     See taskqueue_service.proto for a full description of the RPC.
@@ -2365,18 +2369,31 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
       request: A taskqueue_service_pb.TaskQueueForceRunRequest.
       response: A taskqueue_service_pb.TaskQueueForceRunResponse.
     """
-    if _GetAppId(request) is None:
-      raise apiproxy_errors.ApplicationError(
-          taskqueue_service_pb.TaskQueueServiceError.PERMISSION_DENIED)
+    if _GetAppId(request) is not None:
 
-
-    if random.random() <= 0.05:
-      response.set_result(
-          taskqueue_service_pb.TaskQueueServiceError.TRANSIENT_ERROR)
-    elif random.random() <= 0.052:
-      response.set_result(
-          taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR)
+      if random.random() <= 0.05:
+        response.set_result(
+            taskqueue_service_pb.TaskQueueServiceError.TRANSIENT_ERROR)
+      elif random.random() <= 0.052:
+        response.set_result(
+            taskqueue_service_pb.TaskQueueServiceError.INTERNAL_ERROR)
+      else:
+        response.set_result(
+            taskqueue_service_pb.TaskQueueServiceError.OK)
     else:
+      group = self._GetGroup(None)
+      if not group.HasQueue(request.queue_name()):
+        response.set_result(
+            taskqueue_service_pb.TaskQueueServiceError.UNKNOWN_QUEUE)
+        return
+      queue = group.GetQueue(request.queue_name())
+      task = queue.Lookup(1, name=request.task_name())
+      if not task:
+        response.set_result(
+            taskqueue_service_pb.TaskQueueServiceError.UNKNOWN_TASK)
+        return
+      queue.RunTaskNow(task[0])
+      self._UpdateNextEventTime(0)
       response.set_result(
           taskqueue_service_pb.TaskQueueServiceError.OK)
 
@@ -2542,11 +2559,15 @@ class TaskQueueServiceStub(apiproxy_stub.APIProxyStub):
 
       payload = base64.b64decode(task['body'])
 
+      headers = dict(task['headers'])
+      headers['Content-Length'] = str(len(payload))
+
+
       eta = datetime.datetime.strptime(task['eta'], '%Y/%m/%d %H:%M:%S')
       eta = eta.replace(tzinfo=taskqueue._UTC)
 
       task_object = taskqueue.Task(name=task['name'], method=task['method'],
-                                   url=task['url'], headers=task['headers'],
+                                   url=task['url'], headers=headers,
                                    payload=payload, eta=eta)
       tasks.append(task_object)
     return tasks

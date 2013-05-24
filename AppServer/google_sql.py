@@ -56,8 +56,9 @@ def get_dir_path(sibling):
   Raises:
     ValueError: If no proper path could be determined.
   """
-  dir_paths = [os.path.abspath(os.path.dirname(os.path.realpath(__file__))),
-               os.path.abspath(os.path.dirname(__file__))]
+  py_file = __file__.replace('.pyc', '.py')
+  dir_paths = [os.path.abspath(os.path.dirname(os.path.realpath(py_file))),
+               os.path.abspath(os.path.dirname(py_file))]
   for dir_path in dir_paths:
     sibling_path = os.path.join(dir_path, sibling)
     if os.path.exists(sibling_path):
@@ -81,18 +82,17 @@ GOOGLE_SQL_DIR = os.path.join(
 EXTRA_PATHS = [
   DIR_PATH,
   os.path.join(DIR_PATH, 'lib', 'antlr3'),
-  os.path.join(DIR_PATH, 'lib', 'django_0_96'),
+  os.path.join(DIR_PATH, 'lib', 'django-0.96'),
   os.path.join(DIR_PATH, 'lib', 'fancy_urllib'),
   os.path.join(DIR_PATH, 'lib', 'ipaddr'),
-  os.path.join(DIR_PATH, 'lib', 'jinja2'),
+  os.path.join(DIR_PATH, 'lib', 'jinja2-2.6'),
   os.path.join(DIR_PATH, 'lib', 'protorpc'),
   os.path.join(DIR_PATH, 'lib', 'PyAMF'),
   os.path.join(DIR_PATH, 'lib', 'markupsafe'),
   os.path.join(DIR_PATH, 'lib', 'webob_0_9'),
-  os.path.join(DIR_PATH, 'lib', 'webapp2'),
+  os.path.join(DIR_PATH, 'lib', 'webapp2-2.5.2'),
   os.path.join(DIR_PATH, 'lib', 'yaml', 'lib'),
   os.path.join(DIR_PATH, 'lib', 'simplejson'),
-  os.path.join(DIR_PATH, 'lib', 'google.appengine._internal.graphy'),
 ]
 
 API_SERVER_EXTRA_PATHS = [
@@ -123,7 +123,7 @@ GOOGLE_SQL_EXTRA_PATH_SCRIPTS = 'google_sql'
 
 
 SCRIPT_EXCEPTIONS = {
-  "dev_appserver.py" : "dev_appserver_main.py"
+  "old_dev_appserver.py" : "dev_appserver_main.py"
 }
 
 SCRIPT_DIR_EXCEPTIONS = {

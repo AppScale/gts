@@ -898,8 +898,20 @@ class Order(_PropertyComponent):
   always used.
   """
 
-  def reversed(self):
+  @datastore_rpc._positional(1)
+  def reversed(self, group_by=None):
     """Constructs an order representing the reverse of the current order.
+
+    This function takes into account the effects of orders on properties not in
+    the group_by clause of a query. For example, consider:
+      SELECT A, First(B) ... GROUP BY A ORDER BY A, B
+    Changing the order of B would effect which value is listed in the 'First(B)'
+    column which would actually change the results instead of just reversing
+    them.
+
+    Args:
+      group_by: If specified, only orders on properties in group_by will be
+        reversed.
 
     Returns:
       A new order representing the reverse direction.
@@ -985,6 +997,8 @@ class Order(_PropertyComponent):
     if result:
       return result
 
+    if not lhs.has_key() and not rhs.has_key():
+      return 0
 
 
 
@@ -1064,7 +1078,11 @@ class PropertyOrder(Order):
     name = repr(name).encode('utf-8')[1:-1]
     return '%s(<%s>%s)' % (self.__class__.__name__, name, extra)
 
-  def reversed(self):
+  @datastore_rpc._positional(1)
+  def reversed(self, group_by=None):
+    if group_by and self.__order.property() not in group_by:
+      return self
+
     if self.__order.direction() == self.ASCENDING:
       return PropertyOrder(self.__order.property().decode('utf-8'),
                            self.DESCENDING)
@@ -1089,6 +1107,9 @@ class PropertyOrder(Order):
   def _cmp(self, lhs_value_map, rhs_value_map):
     lhs_values = lhs_value_map[self.__order.property()]
     rhs_values = rhs_value_map[self.__order.property()]
+
+    if not lhs_values and not rhs_values:
+      return 0
 
     if not lhs_values:
       raise datastore_errors.BadArgumentError(
@@ -1158,8 +1179,10 @@ class CompositeOrder(Order):
   def __repr__(self):
     return '%s(%r)' % (self.__class__.__name__, list(self.orders))
 
-  def reversed(self):
-    return CompositeOrder([order.reversed() for order in self._orders])
+  @datastore_rpc._positional(1)
+  def reversed(self, group_by=None):
+    return CompositeOrder([order.reversed(group_by=group_by)
+                           for order in self._orders])
 
   def _get_prop_names(self):
     names = set()
@@ -1265,6 +1288,11 @@ class FetchOptions(datastore_rpc.Configuration):
 class QueryOptions(FetchOptions):
   """An immutable class that contains all options for running a query.
 
+  This class contains options that control execution process (deadline,
+  batch_size, read_policy, etc) and what part of the query results are returned
+  (keys_only, projection, offset, limit, etc) Options that control the contents
+  of the query results are specified on the datastore_query.Query directly.
+
   This class reserves the right to define configuration options of any name
   except those that start with 'user_'. External subclasses should only define
   function or variables with names that start with in 'user_'.
@@ -1323,14 +1351,14 @@ class QueryOptions(FetchOptions):
       value = tuple(value)
     elif not isinstance(value, tuple):
       raise datastore_errors.BadArgumentError(
-          'properties argument should be a list or tuple (%r)' % (value,))
+          'projection argument should be a list or tuple (%r)' % (value,))
     if not value:
       raise datastore_errors.BadArgumentError(
-          'properties argument cannot be empty')
+          'projection argument cannot be empty')
     for prop in value:
       if not isinstance(prop, basestring):
         raise datastore_errors.BadArgumentError(
-            'properties argument should contain only strings (%r)' % (prop,))
+            'projection argument should contain only strings (%r)' % (prop,))
 
     return value
 
@@ -1741,13 +1769,13 @@ class Query(_BaseQuery):
   """An immutable class that represents a query signature.
 
   A query signature consists of a source of entities (specified as app,
-  namespace and optionally kind and ancestor) as well as a FilterPredicate
-  and a desired ordering.
+  namespace and optionally kind and ancestor) as well as a FilterPredicate,
+  grouping and a desired ordering.
   """
 
   @datastore_rpc._positional(1)
   def __init__(self, app=None, namespace=None, kind=None, ancestor=None,
-               filter_predicate=None, order=None):
+               filter_predicate=None, group_by=None, order=None):
     """Constructor.
 
     Args:
@@ -1758,17 +1786,21 @@ class Query(_BaseQuery):
       ancestor: Optional ancestor to query, an entity_pb.Reference.
       filter_predicate: Optional FilterPredicate by which to restrict the query.
       order: Optional Order in which to return results.
+      group_by: Optional list of properties to group the results by.
 
     Raises:
       datastore_errors.BadArgumentError if any argument is invalid.
     """
+    super(Query, self).__init__()
+
+
     if filter_predicate is not None and not isinstance(filter_predicate,
                                                        FilterPredicate):
       raise datastore_errors.BadArgumentError(
           'filter_predicate should be datastore_query.FilterPredicate (%r)' %
           (ancestor,))
 
-    super(Query, self).__init__()
+
     if isinstance(order, CompositeOrder):
       if order.size() == 0:
         order = None
@@ -1778,10 +1810,26 @@ class Query(_BaseQuery):
       raise datastore_errors.BadArgumentError(
           'order should be Order (%r)' % (order,))
 
+
+    if group_by is not None:
+      if isinstance(group_by, list):
+        group_by = tuple(group_by)
+      elif not isinstance(group_by, tuple):
+        raise datastore_errors.BadArgumentError(
+            'group_by argument should be a list or tuple (%r)' % (group_by,))
+      if not group_by:
+        raise datastore_errors.BadArgumentError(
+            'group_by argument cannot be empty')
+      for prop in group_by:
+        if not isinstance(prop, basestring):
+          raise datastore_errors.BadArgumentError(
+              'group_by argument should contain only strings (%r)' % (prop,))
+
     self._key_filter = _QueryKeyFilter(app=app, namespace=namespace, kind=kind,
                                        ancestor=ancestor)
     self._order = order
     self._filter_predicate = filter_predicate
+    self._group_by = group_by
 
   @property
   def app(self):
@@ -1807,6 +1855,10 @@ class Query(_BaseQuery):
   def order(self):
     return self._order
 
+  @property
+  def group_by(self):
+    return self._group_by
+
   def __repr__(self):
     args = []
     args.append('app=%r' % self.app)
@@ -1826,6 +1878,9 @@ class Query(_BaseQuery):
     order = self.order
     if order is not None:
       args.append('order=%r' % order)
+    group_by = self.group_by
+    if group_by is not None:
+      args.append('group_by=%r' % (group_by,))
     return '%s(%s)' % (self.__class__.__name__, ', '.join(args))
 
   def run_async(self, conn, query_options=None):
@@ -1848,6 +1903,9 @@ class Query(_BaseQuery):
 
   @classmethod
   def _from_pb(cls, query_pb):
+    kind = query_pb.has_kind() and query_pb.kind().decode('utf-8') or None
+    ancestor = query_pb.has_ancestor() and query_pb.ancestor() or None
+
     filter_predicate = None
     if query_pb.filter_size() > 0:
       filter_predicate = CompositeFilter(
@@ -1860,14 +1918,18 @@ class Query(_BaseQuery):
       order = CompositeOrder([PropertyOrder._from_pb(order_pb)
                               for order_pb in query_pb.order_list()])
 
-    ancestor = query_pb.has_ancestor() and query_pb.ancestor() or None
-    kind = query_pb.has_kind() and query_pb.kind().decode('utf-8') or None
+    group_by = None
+    if query_pb.group_by_property_name_size() > 0:
+      group_by = tuple(name.decode('utf-8')
+                       for name in query_pb.group_by_property_name_list())
+
     return Query(app=query_pb.app().decode('utf-8'),
                  namespace=query_pb.name_space().decode('utf-8'),
                  kind=kind,
                  ancestor=ancestor,
                  filter_predicate=filter_predicate,
-                 order=order)
+                 order=order,
+                 group_by=group_by)
 
   def _to_pb(self, conn, query_options):
     """Returns the internal only pb representation."""
@@ -1884,12 +1946,26 @@ class Query(_BaseQuery):
         pb.add_order().CopyFrom(order)
 
 
+    if self._group_by:
+      pb.group_by_property_name_list().extend(self._group_by)
+
+
     if QueryOptions.keys_only(query_options, conn.config):
       pb.set_keys_only(True)
 
     projection = QueryOptions.projection(query_options, conn.config)
     if projection:
+      if self._group_by:
+        extra = set(projection) - set(self._group_by)
+        if extra:
+          raise datastore_errors.BadQueryError(
+              'projections includes properties not in the group_by argument: %s'
+              % extra)
       pb.property_name_list().extend(projection)
+    elif self._group_by:
+      raise datastore_errors.BadQueryError(
+          'cannot specify group_by without a projection')
+
 
     if QueryOptions.produce_cursors(query_options, conn.config):
       pb.set_compile(True)

@@ -39,6 +39,8 @@ __all__ = ['BackendDeadlineExceeded',
            'BlobSizeTooLarge',
            'InternalError',
            'InvalidScope',
+           'NotAllowed',
+           'OperationNotImplemented',
            'Error',
            'create_rpc',
            'make_sign_blob_call',
@@ -87,6 +89,14 @@ class InvalidScope(Error):
   """Invalid scope."""
 
 
+class NotAllowed(Error):
+  """The operation is not allowed."""
+
+
+class OperationNotImplemented(Error):
+  """The operation is not implemented for the service account."""
+
+
 def _to_app_identity_error(error):
   """Translate an application error to an external Error, if possible.
 
@@ -107,6 +117,10 @@ def _to_app_identity_error(error):
       InternalError,
       app_identity_service_pb.AppIdentityServiceError.UNKNOWN_SCOPE:
       InvalidScope,
+      app_identity_service_pb.AppIdentityServiceError.NOT_ALLOWED:
+      NotAllowed,
+      app_identity_service_pb.AppIdentityServiceError.NOT_IMPLEMENTED:
+      OperationNotImplemented,
       }
   if error.application_error in error_map:
     return error_map[error.application_error](error.error_detail)
