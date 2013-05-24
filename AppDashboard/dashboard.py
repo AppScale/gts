@@ -233,6 +233,8 @@ class StatusPage(AppDashboard):
 
 
 class StatusAsJSONPage(webapp2.RequestHandler):
+  """ A class that exposes the same information as StatusPage, but via JSON
+  instead of raw HTML. """
 
 
   def get(self):
@@ -575,6 +577,8 @@ class AppDeletePage(AppDashboard):
 
 
 class AppsAsJSONPage(webapp2.RequestHandler):
+  """ A class that exposes application-level info used on the Cloud Status page,
+  but via JSON instead of raw HTML. """
 
 
   def get(self):
@@ -619,7 +623,13 @@ class AppConsole(AppDashboard):
 
 
   def post(self, app_id):
-    """ """
+    """ Saves profiling information about a Google App Engine application to the
+    Datastore, for viewing by the GET method.
+
+    Args:
+      app_id: A str that uniquely identifies the Google App Engine application
+        we are storing data for.
+    """
     encoded_data = self.request.body
     data = json.loads(encoded_data)
 
@@ -630,7 +640,6 @@ class AppConsole(AppDashboard):
     request_info = RequestInfo(
       timestamp = datetime.datetime.fromtimestamp(data['timestamp']),
       num_of_requests = data['request_rate'])
-    logging.info("saving a log for app {0}, timestamp {1}, num requests {2}".format(app_id, data['timestamp'], data['request_rate']))
     app_info.request_info.append(request_info)
     app_info.put()
 
@@ -748,11 +757,6 @@ class LogServiceHostPage(AppDashboard):
 
 class LogUploadPage(webapp2.RequestHandler):
   """ Class to handle requests to the /logs/upload page. """
-
-
-  def get_inverted_key_for_timestamp(self, service_name, host, timestamp):
-    reversed_time = (2**34 - the_time) * 1000000
-    return service_name + host + str(reversed_time)
 
 
   def post(self):

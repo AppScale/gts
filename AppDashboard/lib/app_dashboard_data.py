@@ -62,12 +62,37 @@ class ServerStatus(ndb.Model):
 
 
 class RequestInfo(ndb.Model):
+  """ A Datastore Model that stores a single measurement of the average number
+  of requests per second that reach a Google App Engine application.
+
+  We intentionally leave out the appid field here, and recommend that callers
+  use AppInfo to store one or more RequestInfo measurements for a particular
+  appid.
+
+  Fields:
+    timestamp: The date and time when the AppController took the measurement
+      of how many requests access haproxy for an App Engine app.
+    num_of_requests: The average number of requests per second that reached
+      haproxy for a Google App Engine application.
+  """
   timestamp = ndb.DateTimeProperty()
   num_of_requests = ndb.FloatProperty()
 
 
 class AppInfo(ndb.Model):
-  """
+  """ A Datastore Model that contains statistics about a Google App Engine
+  application running in AppScale.
+
+  This model is intentionally separated from AppStatus, for two reasons. First,
+  the Cloud Status page queries AppStatus objects, and it doesn't need the
+  fields in this object. Ideally we would use projection queries to solve this
+  problem, but AppScale (as of version 1.8.0) doesn't support them, so we should
+  revisit this once we do have that support. Second, update_application_info
+  has a bug where it creates new AppStatus objects for the same appid, causing
+  it to erase fields here that we do need.
+
+  Fields:
+    key: The application ID that uniquely identifies this Google App Engine app.
     request_info: One or more RequestInfos that contain information about how
       many requests this application has served within a certain timespan.
   """
