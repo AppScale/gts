@@ -615,10 +615,17 @@ class AppConsole(AppDashboard):
       self.redirect('/', self.response)
 
     app_info = AppInfo.get_by_id(app_id)
+    request_info = []
+    if app_info and app_info.request_info:
+      for request in app_info.request_info:
+        request_info.append({
+          'timestamp' : int(request.timestamp.strftime('%s')),
+          'num_of_requests' : request.num_of_requests
+        })
 
     self.render_page(page='console', template_file=self.TEMPLATE, values = {
       'app_id' : app_id,
-      'requests' : app_info.request_info
+      'requests' : request_info
     })
 
 

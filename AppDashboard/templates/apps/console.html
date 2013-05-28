@@ -2,33 +2,32 @@
 <!--Body content-->
 <div id="content" class="clearfix">
     <div class="contentwrapper"><!--Content wrapper-->
-
-        <div class="heading">
-
-            <h3>AppScale Dashboard</h3>                    
-
-            <div class="resBtnSearch">
-                <a href="#"><span class="icon16 icomoon-icon-search-3"></span></a>
-            </div>
-
-        </div><!-- End .heading-->
-
         <!-- Build page from here: -->
         <div class="row-fluid">
-          <div class="span3"></div><!--spacing div-->
-          <div class="span6">
+          <div class="span12">
             <div class="page-header">
-                <h1>Admin Console for {{ app_id }}</h1>
+                <h1>Requests-Per-Second for {{ app_id }}</h1>
             </div><!--close header-->
-                  <div class="well">
-                  <p>
-                  {% for entry in requests %}
-                    <li />At time {{ entry.timestamp }}, there were {{ entry.num_of_requests }} requests.
-                  {% endfor %}
-                  </p>
-                  </div><!--close well-->
+              <div class="row-fluid">
+                <div class="offset1 span8">
+                  <div class="flot-container">
+			            <div id="app-flot" class="flot-placeholder"></div>
+		          </div>
+                  </div>
+              </div>
         </div><!--close span6 -->
-        <div class="span3"></div> <!--spacing div-->
         </div> <!-- end row fluid -->
     </div> <!-- end content wrapper -->
 </div> <!--end content-->
+<!-- Plots the requests per second of a given app -->
+<script type="text/javascript">
+        var data = [
+            [{% for entry in requests %}[{{ entry['timestamp'] *1000 }}, {{ entry['num_of_requests'] }}], {% endfor %}]
+        ];
+
+    $(document).ready(function () {
+        $.plot($("#app-flot"), data, { xaxis: { mode: "time", timezone: "browser", timeformat: "%m/%d %H:%M:%S"} })
+    });
+
+</script>
+
