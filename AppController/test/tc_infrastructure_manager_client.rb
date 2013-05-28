@@ -29,9 +29,9 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'credentials' => {
           'EC2_ACCESS_KEY' => 'booaccess',
           'EC2_SECRET_KEY' => 'boosecret',
-          'EC2_URL' => 'booec2url',
-          'project' => nil
+          'EC2_URL' => 'booec2url'
         },
+        'project' => nil,
         'group' => 'boogroup',
         'image_id' => 'booid',
         'infrastructure' => 'booinfrastructure',
@@ -103,9 +103,9 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'credentials' => {
           'EC2_ACCESS_KEY' => 'booaccess',
           'EC2_SECRET_KEY' => 'boosecret',
-          'EC2_URL' => 'booec2url',
-          'project' => nil
+          'EC2_URL' => 'booec2url'
         },
+        'project' => nil,
         'group' => 'boogroup',
         'image_id' => 'booid',
         'infrastructure' => 'booinfrastructure',
@@ -180,9 +180,9 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'credentials' => {
           'EC2_ACCESS_KEY' => nil,
           'EC2_SECRET_KEY' => nil,
-          'EC2_URL' => nil,
-          'project' => '123456789'
+          'EC2_URL' => nil
         },
+        'project' => '123456789',
         'group' => 'boogroup',
         'image_id' => 'booid',
         'infrastructure' => 'booinfrastructure',

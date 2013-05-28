@@ -158,13 +158,11 @@ class InfrastructureManagerClient
       # EC2 / Eucalyptus-specific credentials
       'EC2_ACCESS_KEY' => creds['ec2_access_key'],
       'EC2_SECRET_KEY' => creds['ec2_secret_key'],
-      'EC2_URL' => creds['ec2_url'],
-
-      # Google Compute Engine-specific credentials
-      'project' => creds['project']
+      'EC2_URL' => creds['ec2_url']
     }
 
     run_result = run_instances("credentials" => credentials,
+      'project' => creds['project'],  # GCE-specific
       "group" => creds['group'], 
       "image_id" => creds['machine'],
       "infrastructure" => creds['infrastructure'],
