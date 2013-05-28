@@ -27,7 +27,7 @@ import com.google.appengine.tools.development.LocalServiceContext;
 import com.google.appengine.tools.development.ServiceProvider;
 import com.google.apphosting.api.ApiBasePb;
 import com.google.apphosting.api.ApiProxy;
-
+import com.google.appengine.repackaged.com.google.common.io.BaseEncoding;
 
 @ServiceProvider(LocalRpcService.class)
 public final class LocalBlobstoreService extends AbstractLocalRpcService
@@ -125,7 +125,7 @@ public final class LocalBlobstoreService extends AbstractLocalRpcService
                         catch (IOException ex)
                         {
                             LocalBlobstoreService.logger.log(Level.WARNING, "Could not delete blob: " + blobKey, ex);
-                            throw new ApiProxy.ApplicationException(BlobstoreServicePb.BlobstoreServiceError.ErrorCode.INTERNAL_ERROR.ordinal(), ex.toString());
+                            throw new ApiProxy.ApplicationException(BlobstoreServicePb.BlobstoreServiceError.ErrorCode.INTERNAL_ERROR.getValue(), ex.toString());
                         }
                     }
                 }
@@ -143,24 +143,24 @@ public final class LocalBlobstoreService extends AbstractLocalRpcService
         logger.finer("fetchData called");
         if (request.getStartIndex() < 0L)
         {
-            throw new ApiProxy.ApplicationException(BlobstoreServicePb.BlobstoreServiceError.ErrorCode.DATA_INDEX_OUT_OF_RANGE.ordinal(), "Start index must be >= 0.");
+            throw new ApiProxy.ApplicationException(BlobstoreServicePb.BlobstoreServiceError.ErrorCode.DATA_INDEX_OUT_OF_RANGE.getValue(), "Start index must be >= 0.");
         }
 
         if (request.getEndIndex() < request.getStartIndex())
         {
-            throw new ApiProxy.ApplicationException(BlobstoreServicePb.BlobstoreServiceError.ErrorCode.DATA_INDEX_OUT_OF_RANGE.ordinal(), "End index must be >= startIndex.");
+            throw new ApiProxy.ApplicationException(BlobstoreServicePb.BlobstoreServiceError.ErrorCode.DATA_INDEX_OUT_OF_RANGE.getValue(), "End index must be >= startIndex.");
         }
 
         long fetchSize = request.getEndIndex() - request.getStartIndex() + 1L;
         if (fetchSize > MAX_BLOB_FETCH_SIZE)
         {
-            throw new ApiProxy.ApplicationException(BlobstoreServicePb.BlobstoreServiceError.ErrorCode.BLOB_FETCH_SIZE_TOO_LARGE.ordinal(), "Blob fetch size too large.");
+            throw new ApiProxy.ApplicationException(BlobstoreServicePb.BlobstoreServiceError.ErrorCode.BLOB_FETCH_SIZE_TOO_LARGE.getValue(), "Blob fetch size too large.");
         }
 
         BlobstoreServicePb.FetchDataResponse response = new BlobstoreServicePb.FetchDataResponse();
         BlobKey blobKey = new BlobKey(request.getBlobKey());
         BlobInfo blobInfo = new BlobInfoFactory().loadBlobInfo(blobKey);
-        if (blobInfo == null) throw new ApiProxy.ApplicationException(BlobstoreServicePb.BlobstoreServiceError.ErrorCode.BLOB_NOT_FOUND.ordinal(), "Blob not found.");
+        if (blobInfo == null) throw new ApiProxy.ApplicationException(BlobstoreServicePb.BlobstoreServiceError.ErrorCode.BLOB_NOT_FOUND.getValue(), "Blob not found.");
         long endIndex;
         if (request.getEndIndex() > blobInfo.getSize() - 1L)
             endIndex = blobInfo.getSize() - 1L;
@@ -245,8 +245,7 @@ public final class LocalBlobstoreService extends AbstractLocalRpcService
 
     public BlobstoreServicePb.CreateEncodedGoogleStorageKeyResponse createEncodedGoogleStorageKey( LocalRpcService.Status status, BlobstoreServicePb.CreateEncodedGoogleStorageKeyRequest request )
     {
-        String encoded = Base64.encodeWebSafe(request.getFilename().getBytes(), true);
-
+        String encoded = BaseEncoding.base64Url().omitPadding().encode(request.getFilename().getBytes());
         BlobstoreServicePb.CreateEncodedGoogleStorageKeyResponse response = new BlobstoreServicePb.CreateEncodedGoogleStorageKeyResponse();
         response.setBlobKey(GOOGLE_STORAGE_KEY_PREFIX + encoded);
         return response;
