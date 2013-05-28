@@ -90,7 +90,7 @@ class GCEAgent(BaseAgent):
 
 
   # The URL endpoint that receives Google Compute Engine API requests.
-  GCE_URL = 'https://www.googleapis.com/compute/%s/projects/'.format(API_VERSION)
+  GCE_URL = 'https://www.googleapis.com/compute/{0}/projects/'.format(API_VERSION)
 
 
   # The zone that instances should be created in and removed from.
