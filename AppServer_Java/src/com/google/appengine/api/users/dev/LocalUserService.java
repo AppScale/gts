@@ -36,7 +36,6 @@ public final class LocalUserService extends AbstractLocalRpcService
     public UserServicePb.CreateLoginURLResponse createLoginURL( LocalRpcService.Status status, UserServicePb.CreateLoginURLRequest request )
     {
         UserServicePb.CreateLoginURLResponse response = new UserServicePb.CreateLoginURLResponse();
-        System.out.println("DESTINATION URL: " + request.getDestinationUrl());
         response.setLoginUrl(LOGIN_URL + "?continue=" + encode(request.getDestinationUrl()));
 
         return response;

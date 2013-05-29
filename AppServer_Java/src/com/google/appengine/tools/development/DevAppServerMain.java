@@ -59,7 +59,6 @@ public class DevAppServerMain
         {
             public void apply()
             {
-                System.out.println("HELP ARG WAS GIVEN");
                 DevAppServerMain.printHelp(System.err);
                 System.exit(0);
             }
@@ -240,7 +239,6 @@ public class DevAppServerMain
 
     public static void printHelp( PrintStream out )
     {
-        System.out.println("Printing help lines");
         out.println("Usage: <dev-appserver> [options] <app directory>");
         out.println("");
         out.println("Options:");
@@ -327,7 +325,6 @@ public class DevAppServerMain
                 File externalResourceDir = getExternalResourceDir();
                 if (args.size() != 1)
                 {
-		    System.out.println("ARGS SIZE WASNT 1");
                     DevAppServerMain.printHelp(System.err);
                     System.exit(1);
                 }

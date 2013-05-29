@@ -151,14 +151,6 @@ class BlobstoreServiceImpl implements BlobstoreService {
     }
 
     public Map<String, List<BlobKey>> getUploads(HttpServletRequest request) {
-//        Map attributes = (Map) request
-//                .getAttribute("com.google.appengine.api.blobstore.upload.blobkeys");
-
-     //   if (attributes == null) {
-     //       throw new IllegalStateException(
-     //               "Must be called from a blob upload callback request.");
-     //   }
-        System.out.println("AAA");
         Map<String, List<BlobKey>> blobKeys = new HashMap<String, List<BlobKey>>();
         MimeMultipart parts;
         try {
