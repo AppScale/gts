@@ -16,20 +16,20 @@ import logging
 import os
 import re
 import sys
+import time
 import urllib
 import webapp2
-
 
 try:
   import json
 except ImportError:
   import simplejson as json
 
-
 from google.appengine.api import taskqueue
+from google.appengine.ext import db
 from google.appengine.ext import ndb
+from google.appengine.ext.db.stats import KindStat
 from google.appengine.datastore.datastore_query import Cursor
-
 
 sys.path.append(os.path.dirname(__file__) + '/lib')
 from app_dashboard_helper import AppDashboardHelper
@@ -739,6 +739,71 @@ class LogUploadPage(webapp2.RequestHandler):
       log_line.app_logs.append(app_log_line)
       log_line.put()
 
+class AppsConsole(AppDashboard):
+  """ Class that renders the application console which shows application 
+  statistics.
+  """
+  def get(self):
+    """ Handler for GET request for the application console. """
+    pass
+
+class DatastoreStats(AppDashboard):
+  """ Class that returns datastore statistics in JSON such as the number of 
+  a certain entity kind and the amount of total bytes.
+  """
+  # The most number of data points we pass back to render in the dashboard.
+  MAX_KIND_STATS = 1000
+
+  # The most number of days we look back to get Kind stats.
+  MAX_DAYS_BACK = 30
+
+  def get(self):
+    """ Handler for GET request for the datastore statistics. 
+
+    Returns:
+      The JSON output for testing.
+    """
+    is_cloud_admin = self.helper.is_user_cloud_admin()
+    apps_user_is_admin_on = self.helper.get_owned_apps()
+    app_name = self.request.get("appid")
+    if (not is_cloud_admin) and (app_name not in apps_user_is_admin_on):
+      response = json.dumps({"error": True, "message": "Not authorized"})
+      self.response.out.write(response)
+      return response
+
+    query = KindStat.all(_app=app_name)
+    time_stamp = datetime.datetime.now() - datetime.timedelta(
+      days=self.MAX_DAYS_BACK)
+    query.filter("timestamp >", time_stamp)
+    items = query.fetch(self.MAX_KIND_STATS)
+
+    response = self.convert_to_json(items)
+    self.response.out.write(response)
+    return response
+
+  def convert_to_json(self, kind_entities):
+    """ Converts KindStat entities to a json string.
+  
+    Args:
+      kind_entities: A list of stats.KindStat.
+    Returns:
+      A JSON string containing kind statistic information.
+    """
+    items = []
+    for ent in kind_entities:
+      items.append({time.mktime(ent.timestamp.timetuple()):
+        {ent.kind_name:{'bytes':ent.bytes, "count":ent.count}}})
+    return json.dumps(items)
+
+class RequestsStats(AppDashboard):
+  """ Class that returns request statistics in JSON relating to the number 
+  of requests an application gets per second.
+  """
+  def get(self):
+    """ Handler for GET request for the requests statistics. """
+    pass
+
+
 # Main Dispatcher
 app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/status/refresh', StatusRefreshPage),
@@ -758,6 +823,11 @@ app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/apps/upload', AppUploadPage),
                                 ('/apps/delete', AppDeletePage),
                                 ('/apps/json', AppsAsJSONPage),
+                                # These paths relate to application statistics.
+                                ('/apps/console', AppsConsole),
+                                ('/apps/stats/datastore', DatastoreStats),
+                                ('/apps/stats/requests', RequestsStats),
+                                # These paths all relate to the log viewer.
                                 ('/logs', LogMainPage),
                                 ('/logs/upload', LogUploadPage),
                                 ('/logs/(.+)/(.+)', LogServiceHostPage),

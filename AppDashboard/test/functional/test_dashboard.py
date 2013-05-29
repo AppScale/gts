@@ -1,12 +1,12 @@
 import sys
 import os
-cwd = os.path.dirname(__file__) + '/../'
+cwd = os.path.dirname(__file__) + '/../../'
 sys.path.append(cwd)
 sys.path.append(cwd + 'lib')
 sys.path.append(cwd + '../AppServer/')
-sys.path.append(cwd + '../AppServer/lib/webapp2')
-sys.path.append(cwd + '../AppServer/lib/webob_1_1_1')
-sys.path.append(cwd + '../AppServer/lib/jinja2/')
+sys.path.append(cwd + '../AppServer/lib/webapp2-2.3')
+sys.path.append(cwd + '../AppServer/lib/webob-1.2.3')
+sys.path.append(cwd + '../AppServer/lib/jinja2-2.6/')
 sys.path.append('/usr/local/appscale-tools/lib')
 sys.path.append('/usr/local/lib/python2.6/dist-packages/flexmock-0.9.7-py2.6.egg/')
 #from /root/appscale/AppServer/dev_appserver.py
