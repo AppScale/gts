@@ -155,12 +155,14 @@ class InfrastructureManagerClient
   
   def spawn_vms(num_vms, creds, job, cloud)
     credentials = {
+      # EC2 / Eucalyptus-specific credentials
       'EC2_ACCESS_KEY' => creds['ec2_access_key'],
       'EC2_SECRET_KEY' => creds['ec2_secret_key'],
       'EC2_URL' => creds['ec2_url']
     }
 
     run_result = run_instances("credentials" => credentials,
+      'project' => creds['project'],  # GCE-specific
       "group" => creds['group'], 
       "image_id" => creds['machine'],
       "infrastructure" => creds['infrastructure'],
