@@ -179,28 +179,28 @@ class BlobstoreServiceImpl implements BlobstoreService {
     }
 
     public Map<String, List<BlobInfo>> getBlobInfos(HttpServletRequest request)
-  {
-    Map attributes = (Map)request.getAttribute("com.google.appengine.api.blobstore.upload.blobinfos");
+    {
+      Map attributes = (Map)request.getAttribute("com.google.appengine.api.blobstore.upload.blobinfos");
 
-    if (attributes == null) {
-      throw new IllegalStateException("Must be called from a blob upload callback request.");
-    }
-    Map blobInfos = new HashMap(attributes.size());
-    for (Map.Entry attr : (Set<Map.Entry>)attributes.entrySet()) {
-      List blobs = new ArrayList(((List)attr.getValue()).size());
-      for (Map info : (List<Map>)attr.getValue()) {
-        BlobKey key = new BlobKey((String)info.get("key"));
-        String contentType = (String)info.get("content-type");
-        Date creationDate = parseCreationDate((String)info.get("creation-date"));
-        String filename = (String)info.get("filename");
-        int size = Integer.parseInt((String)info.get("size"));
-        String md5Hash = (String)info.get("md5-hash");
-        blobs.add(new BlobInfo(key, contentType, creationDate, filename, size, md5Hash));
+      if (attributes == null) {
+        throw new IllegalStateException("Must be called from a blob upload callback request.");
       }
-      blobInfos.put(attr.getKey(), blobs);
+      Map blobInfos = new HashMap(attributes.size());
+      for (Map.Entry attr : (Set<Map.Entry>)attributes.entrySet()) {
+        List blobs = new ArrayList(((List)attr.getValue()).size());
+        for (Map info : (List<Map>)attr.getValue()) {
+          BlobKey key = new BlobKey((String)info.get("key"));
+          String contentType = (String)info.get("content-type");
+          Date creationDate = parseCreationDate((String)info.get("creation-date"));
+          String filename = (String)info.get("filename");
+          int size = Integer.parseInt((String)info.get("size"));
+          String md5Hash = (String)info.get("md5-hash");
+          blobs.add(new BlobInfo(key, contentType, creationDate, filename, size, md5Hash));
+        }
+        blobInfos.put(attr.getKey(), blobs);
+      }
+      return blobInfos;
     }
-    return blobInfos;
-  }
 
   public Map<String, List<FileInfo>> getFileInfos(HttpServletRequest request)
   {
