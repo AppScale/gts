@@ -16,6 +16,7 @@ import logging
 import os
 import re
 import sys
+import time
 import urllib
 import webapp2
 
@@ -27,6 +28,7 @@ except ImportError:
 
 
 from google.appengine.api import taskqueue
+from google.appengine.ext.db.stats import KindStat
 from google.appengine.ext import ndb
 from google.appengine.datastore.datastore_query import Cursor
 
@@ -35,13 +37,16 @@ sys.path.append(os.path.dirname(__file__) + '/lib')
 from app_dashboard_helper import AppDashboardHelper
 from app_dashboard_helper import AppHelperException
 from app_dashboard_data import AppDashboardData
-from app_dashboard_data import AppInfo
 from app_dashboard_data import RequestInfo
 
 
 jinja_environment = jinja2.Environment(
     loader=jinja2.FileSystemLoader(os.path.dirname(__file__) + \
       os.sep + 'templates'))
+
+# The maximum number of datapoints we send to be rendered in a graph 
+# charting requests per second.
+MAX_REQUESTS_DATA_POINTS = 100
 
 
 class LoggedService(ndb.Model):
@@ -542,9 +547,9 @@ class AppDeletePage(AppDashboard):
       ret_list = {}
       app_list = self.dstore.get_application_info()
       my_apps = self.dstore.get_owned_apps()
-      for app in app_list.keys():
-        if app in my_apps:
-          ret_list[app] = app_list[app]
+      for application in app_list.keys():
+        if application in my_apps:
+          ret_list[application] = app_list[application]
       return ret_list
 
 
@@ -614,15 +619,7 @@ class AppConsole(AppDashboard):
     if app_id not in apps_user_is_admin_on:
       self.redirect('/', self.response)
 
-    app_info = AppInfo.get_by_id(app_id)
-    request_info = []
-    if app_info and app_info.request_info:
-      for request in app_info.request_info:
-        request_info.append({
-          'timestamp' : int(request.timestamp.strftime('%s')),
-          'num_of_requests' : request.num_of_requests
-        })
-
+    request_info = RequestsStats.fetch_request_info(app_id)
     self.render_page(page='console', template_file=self.TEMPLATE, values = {
       'app_id' : app_id,
       'requests' : request_info
@@ -640,15 +637,14 @@ class AppConsole(AppDashboard):
     encoded_data = self.request.body
     data = json.loads(encoded_data)
 
-    app_info = AppInfo.get_by_id(app_id)
-    if not app_info:
-      app_info = AppInfo(id = app_id, request_info = [])
-
+    the_time = int(data['timestamp'])
+    reversed_time = (2**34 - the_time) * 1000000
     request_info = RequestInfo(
+      id = app_id + str(reversed_time), # puts entities time descending.
+      app_id = app_id,
       timestamp = datetime.datetime.fromtimestamp(data['timestamp']),
       num_of_requests = data['request_rate'])
-    app_info.request_info.append(request_info)
-    app_info.put()
+    request_info.put()
 
 
 class LogMainPage(AppDashboard):
@@ -803,6 +799,94 @@ class LogUploadPage(webapp2.RequestHandler):
       log_line.app_logs.append(app_log_line)
       log_line.put()
 
+class DatastoreStats(AppDashboard):
+  """ Class that returns datastore statistics in JSON such as the number of 
+  a certain entity kind and the amount of total bytes.
+  """
+  # The most number of data points we pass back to render in the dashboard.
+  MAX_KIND_STATS = 1000
+
+  # The most number of days we look back to get kind statistics.
+  MAX_DAYS_BACK = 30
+
+  def get(self):
+    """ Handler for GET request for the datastore statistics. 
+
+    Returns:
+      The JSON output for testing.
+    """
+    is_cloud_admin = self.helper.is_user_cloud_admin()
+    apps_user_is_admin_on = self.helper.get_owned_apps()
+    app_name = self.request.get("appid")
+    if (not is_cloud_admin) and (app_name not in apps_user_is_admin_on):
+      response = json.dumps({"error": True, "message": "Not authorized"})
+      self.response.out.write(response)
+      return
+
+    query = KindStat.all(_app=app_name)
+    time_stamp = datetime.datetime.now() - datetime.timedelta(
+      days=self.MAX_DAYS_BACK)
+    query.filter("timestamp >", time_stamp)
+    items = query.fetch(self.MAX_KIND_STATS)
+
+    response = self.convert_to_json(items)
+    self.response.out.write(response)
+    return
+
+  def convert_to_json(self, kind_entities):
+    """ Converts KindStat entities to a json string.
+  
+    Args:
+      kind_entities: A list of stats.KindStat.
+    Returns:
+      A JSON string containing kind statistic information.
+    """
+    items = []
+    for ent in kind_entities:
+      items.append({time.mktime(ent.timestamp.timetuple()):
+        {ent.kind_name:{'bytes':ent.bytes, "count":ent.count}}})
+    return json.dumps(items)
+
+class RequestsStats(AppDashboard):
+  """ Class that returns request statistics in JSON relating to the number 
+  of requests an application gets per second.
+  """
+
+  def get(self):
+    """ Handler for GET request for the requests statistics. """
+    is_cloud_admin = self.helper.is_user_cloud_admin()
+    apps_user_is_admin_on = self.helper.get_owned_apps()
+    app_name = self.request.get("appid")
+    if (not is_cloud_admin) and (app_name not in apps_user_is_admin_on):
+      response = json.dumps({"error": True, "message": "Not authorized"})
+      self.response.out.write(response)
+      return
+
+    app_id = self.request.get("appid")
+    self.response.out.write(json.dumps(RequestsStats.fetch_request_info(app_id)))
+
+  @staticmethod
+  def fetch_request_info(app_id):
+    """ Fetches request per second information from the datastore for 
+    a given application.
+  
+    Args:
+      app_id: A str, the application identifier.
+    Returns:
+      A list of dictionaries filled with timestamps and number of 
+      requests per second.
+    """   
+    query = RequestInfo.query()
+    query.filter(RequestInfo.app_id == app_id)
+    requests = query.fetch(MAX_REQUESTS_DATA_POINTS)
+    request_info = []
+    for request in requests:
+      request_info.append({
+        'timestamp' : int(request.timestamp.strftime('%s')),
+        'num_of_requests' : request.num_of_requests
+      })
+    return request_info
+
 # Main Dispatcher
 app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/status/refresh', StatusRefreshPage),
@@ -818,6 +902,8 @@ app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/users/verify', LoginVerify),
                                 ('/users/confirm', LoginVerify),
                                 ('/authorize', AuthorizePage),
+                                ('/apps/stats/datastore', DatastoreStats),
+                                ('/apps/stats/requests', RequestsStats), 
                                 ('/apps/new', AppUploadPage),
                                 ('/apps/upload', AppUploadPage),
                                 ('/apps/delete', AppDeletePage),
