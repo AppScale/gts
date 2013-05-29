@@ -117,15 +117,15 @@ class ProtocolMessage:
         conn = httplib.HTTPSConnection(server)
     else:
       conn = httplib.HTTPConnection(server)
-    conn.putrequest("POST", "/")
-    # AppScale
+    conn.putrequest("POST", '/')
+    conn.putheader("Content-Length", "%d" %len(data))
+    # AppScale:
     # We add additional headers for the datastore server to reason 
-    # about what request it is getting
+    # about what request it is getting.
     pb_type = str(self.__class__).split('.')[-1]
     conn.putheader("ProtocolBufferType" , pb_type)
     conn.putheader("AppData", url) # app id, user email, nick name, auth domain
 
-    conn.putheader("Content-Length", "%d" %len(data))
     conn.endheaders()
     conn.send(data)
     resp = conn.getresponse()

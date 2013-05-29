@@ -1,3 +1,0 @@
-queue:
-- name: neptune
-  mode: pull

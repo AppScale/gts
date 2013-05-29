@@ -43,11 +43,11 @@ from google.appengine.api import logservice
 
 NEWLINE_REPLACEMENT = "\0"
 
-class AppLogsHandler(logging.StreamHandler):
+class AppLogsHandler(logging.Handler):
   """Logging handler that will direct output to a persistent store of
   application logs.
 
-  This handler will output log statements to stderr. This handler is
+  This handler will output log statements to logservice.write(). This handler is
   automatically initialized and attached to the Python common logging library.
   """
 
@@ -64,24 +64,6 @@ class AppLogsHandler(logging.StreamHandler):
 
 
 
-  def __init__(self, stream=None):
-    """Constructor.
-
-    Args:
-      # stream is optional. it defaults to sys.stderr.
-      stream: destination for output
-    """
-
-
-    logging.StreamHandler.__init__(self, stream)
-
-  def close(self):
-    """Closes the stream.
-
-    This implementation based on the implementation of FileHandler.close()."""
-    self.stream.close()
-    logging.StreamHandler.close(self)
-
   def emit(self, record):
     """Emit a record.
 
@@ -91,8 +73,6 @@ class AppLogsHandler(logging.StreamHandler):
       message = self._AppLogsMessage(record)
       if isinstance(message, unicode):
         message = message.encode("UTF-8")
-
-
 
 
       logservice.write(message)

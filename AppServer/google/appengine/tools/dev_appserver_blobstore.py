@@ -347,6 +347,7 @@ def CreateUploadDispatcher(get_blob_storage=GetBlobStorage):
         success_path = upload_session['success_path']
         max_bytes_per_blob = upload_session['max_bytes_per_blob']
         max_bytes_total = upload_session['max_bytes_total']
+        bucket_name = upload_session.get('gs_bucket_name', None)
 
         upload_form = cgi.FieldStorage(fp=request.infile,
                                        headers=request.headers,
@@ -358,7 +359,8 @@ def CreateUploadDispatcher(get_blob_storage=GetBlobStorage):
           mime_message_string = self.__cgi_handler.GenerateMIMEMessageString(
               upload_form,
               max_bytes_per_blob=max_bytes_per_blob,
-              max_bytes_total=max_bytes_total)
+              max_bytes_total=max_bytes_total,
+              bucket_name=bucket_name)
 
           datastore.Delete(upload_session)
           self.current_session = upload_session

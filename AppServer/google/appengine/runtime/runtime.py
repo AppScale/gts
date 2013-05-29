@@ -41,11 +41,6 @@ from google.appengine.runtime import request_environment
 from google.appengine.runtime import wsgi
 
 
-
-
-
-
-
 def _MakeStartNewThread(base_start_new_thread):
   """Returns a replacement for start_new_thread that inherits environment.
 
@@ -86,8 +81,12 @@ def _MakeStartNewThread(base_start_new_thread):
     return base_start_new_thread(Run, ())
   return StartNewThread
 
-thread.start_new_thread = _MakeStartNewThread(thread.start_new_thread)
-reload(threading)
+
+def PatchStartNewThread(thread_module=thread, threading_module=threading):
+  """Installs a start_new_thread replacement created by _MakeStartNewThread."""
+  thread_module.start_new_thread = _MakeStartNewThread(
+      thread_module.start_new_thread)
+  reload(threading_module)
 
 
 def HandleRequest(environ, handler_name, url, post_data, application_root,

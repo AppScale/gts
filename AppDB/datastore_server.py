@@ -35,7 +35,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.api import api_base_pb
 from google.appengine.api import datastore_errors
 
-from google.appengine.datastore import cassandra_stub_util
+from google.appengine.datastore import appscale_stub_util
 from google.appengine.datastore import datastore_pb
 from google.appengine.datastore import datastore_index
 from google.appengine.datastore import entity_pb
@@ -1421,7 +1421,7 @@ class DatastoreDistributed():
         endrow = prefix + '/' + __key__ 
 
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
-      cursor = cassandra_stub_util.ListCursor(query)
+      cursor = appscale_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
       startrow = self.__get_start_key(prefix, None, None, last_result)
       start_inclusive = self._DISABLE_INCLUSIVITY
@@ -1547,7 +1547,7 @@ class DatastoreDistributed():
       prop_name = None
     
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
-      cursor = cassandra_stub_util.ListCursor(query)
+      cursor = appscale_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
       startrow = self.__get_start_key(prefix, prop_name, order, last_result)
       start_inclusive = self._DISABLE_INCLUSIVITY
@@ -1650,7 +1650,7 @@ class DatastoreDistributed():
       return None
     
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
-      cursor = cassandra_stub_util.ListCursor(query)
+      cursor = appscale_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
       prefix = self.get_table_prefix(query)
       startrow = self.get_kind_key(prefix, last_result.key().path())
@@ -1710,7 +1710,7 @@ class DatastoreDistributed():
     limit = query.limit() or self._MAXIMUM_RESULTS
 
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
-      cursor = cassandra_stub_util.ListCursor(query)
+      cursor = appscale_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
       startrow = self.__get_start_key(prefix, property_name, direction, 
         last_result)
@@ -2015,7 +2015,7 @@ class DatastoreDistributed():
     prefix = self.get_table_prefix(query)
 
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
-      cursor = cassandra_stub_util.ListCursor(query)
+      cursor = appscale_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
       startrow = self.__get_start_key(prefix, 
                                     property_name,
@@ -2204,7 +2204,7 @@ class DatastoreDistributed():
       for index, ii in enumerate(result):
         result[index] = entity_pb.EntityProto(ii) 
 
-    cur = cassandra_stub_util.QueryCursor(query, result)
+    cur = appscale_stub_util.QueryCursor(query, result)
     cur.PopulateQueryResult(count, query.offset(), query_result) 
 
   def setup_transaction(self, app_id, is_xg):
@@ -2234,6 +2234,12 @@ class DatastoreDistributed():
     try:
       self.zookeeper.release_lock(app_id, txn_id)
       return (commitres_pb.Encode(), 0, "")
+    except ZKInternalException, zkie:
+      logging.info("ZK internal exception for app id {0}, " \
+        "info {1}".format(app_id, str(zkie)))
+      return (commitres_pb.Encode(), 
+              datastore_pb.Error.INTERNAL_ERROR, 
+              "Internal error with ZooKeeper connection.")
     except ZKTransactionException, zkte:
       logging.info("Concurrent transaction exception for app id {0}, " \
         "transaction id {1}, info {2}".format(app_id, txn_id, str(zkte)))
@@ -2347,7 +2353,6 @@ class MainHandler(tornado.web.RequestHandler):
       apirequest.clear_request()
     method = apirequest.method()
     http_request_data = apirequest.request()
-
     if method == "Put":
       response, errcode, errdetail = self.put_request(app_id, 
                                                  http_request_data)
@@ -2425,8 +2430,17 @@ class MainHandler(tornado.web.RequestHandler):
     if begin_transaction_req_pb.has_allow_multiple_eg():
       multiple_eg = begin_transaction_req_pb.allow_multiple_eg()
 
+    handle = None
     transaction_pb = datastore_pb.Transaction()
-    handle = datastore_access.setup_transaction(app_id, multiple_eg)
+    try:
+      handle = datastore_access.setup_transaction(app_id, multiple_eg)
+    except ZKInternalException, zkie:
+      logging.info("ZK internal exception for app id {0}, " \
+        "info {1}".format(app_id, str(zkie)))
+      return (transaction_pb.Encode(), 
+              datastore_pb.Error.INTERNAL_ERROR, 
+              "Internal error with ZooKeeper connection.")
+
     transaction_pb.set_app(app_id)
     transaction_pb.set_handle(handle)
     return (transaction_pb.Encode(), 0, "")
@@ -2455,6 +2469,12 @@ class MainHandler(tornado.web.RequestHandler):
     global datastore_access
     try:
       return datastore_access.rollback_transaction(app_id, http_request_data)
+    except ZKInternalException, zkie:
+      logging.info("ZK internal exception for app id {0}, " \
+        "info {1}".format(app_id, str(zkie)))
+      return (api_base_pb.VoidProto().Encode(), 
+              datastore_pb.Error.INTERNAL_ERROR, 
+              "Internal error with ZooKeeper connection.")
     except Exception, exception:
       logging.info("Error trying to rollback with exception {0}".format(
         str(exception)))
@@ -2473,7 +2493,21 @@ class MainHandler(tornado.web.RequestHandler):
     global datastore_access
     query = datastore_pb.Query(http_request_data)
     clone_qr_pb = datastore_pb.QueryResult()
-    datastore_access._dynamic_run_query(query, clone_qr_pb)
+    try:
+      datastore_access._dynamic_run_query(query, clone_qr_pb)
+    except ZKInternalException, zkie:
+      logging.info("ZK internal exception for app id {0}, " \
+        "info {1}".format(query.app(), str(zkie)))
+      return (clone_qr_pb.Encode(), 
+              datastore_pb.Error.INTERNAL_ERROR, 
+              "Internal error with ZooKeeper connection.")
+    except ZKTransactionException, zkte:
+      logging.info("Concurrent transaction exception for app id {0}, " \
+        "info {1}".format(query.app(), str(zkte)))
+      return (clone_qr_pb.Encode(), 
+              datastore_pb.Error.CONCURRENT_TRANSACTION, 
+              "Concurrent transaction exception on put.")
+ 
     return (clone_qr_pb.Encode(), 0, "")
 
   def allocate_ids_request(self, app_id, http_request_data):
@@ -2495,8 +2529,22 @@ class MainHandler(tornado.web.RequestHandler):
 
     max_id = request.max()
     size = request.size()
-
-    start, end = datastore_access.allocate_ids(app_id, size, max_id=max_id)
+    start = end = 0
+    try:
+      start, end = datastore_access.allocate_ids(app_id, size, max_id=max_id)
+    except ZKInternalException, zkie:
+      logging.info("ZK internal exception for app id {0}, " \
+        "info {1}".format(app_id, str(zkie)))
+      return (response.Encode(), 
+              datastore_pb.Error.INTERNAL_ERROR, 
+              "Internal error with ZooKeeper connection.")
+    except ZKTransactionException, zkte:
+      logging.info("Concurrent transaction exception for app id {0}, " \
+        "info {1}".format(app_id, str(zkte)))
+      return (response.Encode(), 
+              datastore_pb.Error.CONCURRENT_TRANSACTION, 
+              "Concurrent transaction exception on put.")
+ 
     response.set_start(start)
     response.set_end(end)
     return (response.Encode(), 0, "")
@@ -2516,6 +2564,12 @@ class MainHandler(tornado.web.RequestHandler):
  
     try:
       datastore_access.dynamic_put(app_id, putreq_pb, putresp_pb)
+    except ZKInternalException, zkie:
+      logging.info("ZK internal exception for app id {0}, " \
+        "info {1}".format(app_id, str(zkie)))
+      return (putresp_pb.Encode(), 
+              datastore_pb.Error.INTERNAL_ERROR, 
+              "Internal error with ZooKeeper connection.")
     except ZKTransactionException, zkte:
       logging.info("Concurrent transaction exception for app id {0}, " \
         "info {1}".format(app_id, str(zkte)))
@@ -2539,6 +2593,12 @@ class MainHandler(tornado.web.RequestHandler):
     getresp_pb = datastore_pb.GetResponse()
     try:
       datastore_access.dynamic_get(app_id, getreq_pb, getresp_pb)
+    except ZKInternalException, zkie:
+      logging.info("ZK internal exception for app id {0}, " \
+        "info {1}".format(app_id, str(zkie)))
+      return (getresp_pb.Encode(), 
+              datastore_pb.Error.INTERNAL_ERROR, 
+              "Internal error with ZooKeeper connection.")
     except ZKTransactionException, zkte:
       logging.info("Concurrent transaction exception for app id {0}, " \
         "info {1}".format(app_id, str(zkte)))
@@ -2561,6 +2621,12 @@ class MainHandler(tornado.web.RequestHandler):
     delresp_pb = api_base_pb.VoidProto() 
     try:
       datastore_access.dynamic_delete(app_id, delreq_pb)
+    except ZKInternalException, zkie:
+      logging.info("ZK internal exception for app id {0}, " \
+        "info {1}".format(app_id, str(zkie)))
+      return (delresp_pb.Encode(), 
+              datastore_pb.Error.INTERNAL_ERROR, 
+              "Internal error with ZooKeeper connection.")
     except ZKTransactionException, zkte:
       logging.info("Concurrent transaction exception for app id {0}, " \
         "info {1}".format(app_id, str(zkte)))

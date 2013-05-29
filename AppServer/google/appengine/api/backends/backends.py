@@ -34,6 +34,7 @@ import os
 import re
 
 from google.appengine.api import app_identity
+from google.appengine.api import servers
 
 class Error(Exception):
   """Base class for exceptions in this module."""
@@ -97,7 +98,9 @@ def get_url(backend=None, instance=None, protocol='http'):
     backend = get_backend()
 
 
-  if _is_dev_environment():
+  if _is_dev2_environment():
+    return _get_dev2_url(backend, instance)
+  elif _is_dev_environment():
     return _get_dev_url(backend, instance)
 
 
@@ -140,7 +143,9 @@ def get_hostname(backend=None, instance=None):
       raise InvalidInstanceError('instance must be an integer.')
 
 
-  if _is_dev_environment():
+  if _is_dev2_environment():
+    return _get_dev2_hostname(backend, instance)
+  elif _is_dev_environment():
     return _get_dev_hostname(backend, instance)
 
   hostname = app_identity.get_default_version_hostname()
@@ -151,6 +156,42 @@ def get_hostname(backend=None, instance=None):
   if instance is not None:
     hostname = '%d.%s' % (instance, hostname)
   return hostname
+
+
+def _is_dev2_environment():
+  """Indicates whether this code is being run in devappserver2."""
+  return os.environ.get('SERVER_SOFTWARE', '') == 'Development/2.0'
+
+
+def _get_dev2_url(backend, instance=None):
+  """Returns the url of a backend [instance] in devappserver2.
+
+  Args:
+    backend: The name of the backend.
+    instance: The backend instance number, in [0, instances-1].
+
+  Returns:
+    The url of the backend.
+  """
+  return 'http://%s' % _get_dev2_hostname(backend, instance)
+
+
+def _get_dev2_hostname(backend, instance=None):
+  """Returns the hostname of a backend [instance] in devappserver2.
+
+  Args:
+    backend: The name of the backend.
+    instance: The backend instance number, in [0, instances-1].
+
+  Returns:
+    The hostname of the backend.
+  """
+  try:
+    return servers.get_hostname(server=backend, instance=instance)
+  except servers.InvalidServerError:
+    raise InvalidBackendError()
+  except servers.InvalidInstancesError:
+    raise InvalidInstanceError()
 
 
 def _is_dev_environment():

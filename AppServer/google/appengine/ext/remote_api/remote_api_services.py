@@ -33,12 +33,14 @@ from google.appengine.api.app_identity import app_identity_service_pb
 from google.appengine.api.blobstore import blobstore_service_pb
 from google.appengine.api.capabilities import capability_service_pb
 from google.appengine.api.channel import channel_service_pb
-from google.appengine.api.conversion import conversion_service_pb
 from google.appengine.api.files import file_service_pb
 from google.appengine.api.images import images_service_pb
 from google.appengine.api.logservice import log_service_pb
 from google.appengine.api.memcache import memcache_service_pb
+from google.appengine.api.prospective_search import prospective_search_pb
+from google.appengine.api.remote_socket import remote_socket_service_pb
 from google.appengine.api.search import search_service_pb
+from google.appengine.api.servers import servers_service_pb
 from google.appengine.api.system import system_service_pb
 from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.api.xmpp import xmpp_service_pb
@@ -68,6 +70,9 @@ SERVICE_PB_MAP = {
                             blobstore_service_pb.FetchDataResponse),
         'DecodeBlobKey':   (blobstore_service_pb.DecodeBlobKeyRequest,
                             blobstore_service_pb.DecodeBlobKeyResponse),
+        'CreateEncodedGoogleStorageKey':
+        (blobstore_service_pb.CreateEncodedGoogleStorageKeyRequest,
+         blobstore_service_pb.CreateEncodedGoogleStorageKeyResponse),
     },
     'capability_service': {
         'IsEnabled': (capability_service_pb.IsEnabledRequest,
@@ -78,10 +83,6 @@ SERVICE_PB_MAP = {
                           channel_service_pb.CreateChannelResponse),
         'SendChannelMessage': (channel_service_pb.SendMessageRequest,
                                api_base_pb.VoidProto),
-    },
-    'conversion': {
-        'Convert': (conversion_service_pb.ConversionRequest,
-                    conversion_service_pb.ConversionResponse),
     },
     'datastore_v3': {
         'Get':        (datastore_pb.GetRequest, datastore_pb.GetResponse),
@@ -128,6 +129,8 @@ SERVICE_PB_MAP = {
         'GetDefaultGsBucketName':
             (file_service_pb.GetDefaultGsBucketNameRequest,
              file_service_pb.GetDefaultGsBucketNameResponse),
+        'ListDir': (file_service_pb.ListDirRequest,
+                    file_service_pb.ListDirResponse),
     },
     'images': {
         'Transform': (images_service_pb.ImagesTransformRequest,
@@ -149,6 +152,18 @@ SERVICE_PB_MAP = {
     'mail': {
         'Send':         (mail_service_pb.MailMessage, api_base_pb.VoidProto),
         'SendToAdmins': (mail_service_pb.MailMessage, api_base_pb.VoidProto),
+    },
+    'matcher': {
+        'Subscribe': (prospective_search_pb.SubscribeRequest,
+                      prospective_search_pb.SubscribeResponse),
+        'Unsubscribe': (prospective_search_pb.UnsubscribeRequest,
+                        prospective_search_pb.UnsubscribeResponse),
+        'ListSubscriptions': (prospective_search_pb.ListSubscriptionsRequest,
+                              prospective_search_pb.ListSubscriptionsResponse),
+        'ListTopics': (prospective_search_pb.ListTopicsRequest,
+                       prospective_search_pb.ListTopicsResponse),
+        'Match': (prospective_search_pb.MatchRequest,
+                  prospective_search_pb.MatchResponse),
     },
     'memcache': {
         'Get':       (memcache_service_pb.MemcacheGetRequest,
@@ -175,6 +190,38 @@ SERVICE_PB_MAP = {
         'GetIDs':      (datastore_pb.PutRequest, datastore_pb.PutResponse),
         'GetIDsXG':    (datastore_pb.PutRequest, datastore_pb.PutResponse),
     },
+    'remote_socket': {
+        'CreateSocket': (remote_socket_service_pb.CreateSocketRequest,
+                  remote_socket_service_pb.CreateSocketReply),
+        'Bind': (remote_socket_service_pb.BindRequest,
+                  remote_socket_service_pb.BindReply),
+        'GetSocketName': (remote_socket_service_pb.GetSocketNameRequest,
+                  remote_socket_service_pb.GetSocketNameReply),
+        'GetPeerName': (remote_socket_service_pb.GetPeerNameRequest,
+                  remote_socket_service_pb.GetPeerNameReply),
+        'SetSocketOptions': (remote_socket_service_pb.SetSocketOptionsRequest,
+                  remote_socket_service_pb.SetSocketOptionsReply),
+        'GetSocketOptions': (remote_socket_service_pb.GetSocketOptionsRequest,
+                  remote_socket_service_pb.GetSocketOptionsReply),
+        'Connect': (remote_socket_service_pb.ConnectRequest,
+                  remote_socket_service_pb.ConnectReply),
+        'Listen': (remote_socket_service_pb.ListenRequest,
+                  remote_socket_service_pb.ListenReply),
+        'Accept': (remote_socket_service_pb.AcceptRequest,
+                  remote_socket_service_pb.AcceptReply),
+        'ShutDown': (remote_socket_service_pb.ShutDownRequest,
+                  remote_socket_service_pb.ShutDownReply),
+        'Close': (remote_socket_service_pb.CloseRequest,
+                  remote_socket_service_pb.CloseReply),
+        'Send': (remote_socket_service_pb.SendRequest,
+                  remote_socket_service_pb.SendReply),
+        'Receive': (remote_socket_service_pb.ReceiveRequest,
+                  remote_socket_service_pb.ReceiveReply),
+        'Poll': (remote_socket_service_pb.PollRequest,
+                  remote_socket_service_pb.PollReply),
+        'Resolve': (remote_socket_service_pb.ResolveRequest,
+                  remote_socket_service_pb.ResolveReply),
+    },
     'search': {
         'IndexDocument': (search_service_pb.IndexDocumentRequest,
                           search_service_pb.IndexDocumentResponse),
@@ -186,6 +233,24 @@ SERVICE_PB_MAP = {
                         search_service_pb.ListIndexesResponse),
         'Search': (search_service_pb.SearchRequest,
                    search_service_pb.SearchResponse),
+    },
+    'servers': {
+        'GetServers': (servers_service_pb.GetServersRequest,
+                       servers_service_pb.GetServersResponse),
+        'GetVersions': (servers_service_pb.GetVersionsRequest,
+                        servers_service_pb.GetVersionsResponse),
+        'GetDefaultVersion': (servers_service_pb.GetDefaultVersionRequest,
+                              servers_service_pb.GetDefaultVersionResponse),
+        'GetNumInstances': (servers_service_pb.GetNumInstancesRequest,
+                            servers_service_pb.GetNumInstancesResponse),
+        'SetNumInstances': (servers_service_pb.SetNumInstancesRequest,
+                            servers_service_pb.SetNumInstancesResponse),
+        'StartServer': (servers_service_pb.StartServerRequest,
+                        servers_service_pb.StartServerResponse),
+        'StopServer': (servers_service_pb.StopServerRequest,
+                       servers_service_pb.StopServerResponse),
+        'GetHostname': (servers_service_pb.GetHostnameRequest,
+                        servers_service_pb.GetHostnameResponse),
     },
     'system': {
         'GetSystemStats': (system_service_pb.GetSystemStatsRequest,
@@ -249,6 +314,8 @@ SERVICE_PB_MAP = {
     'xmpp': {
         'GetPresence': (xmpp_service_pb.PresenceRequest,
                         xmpp_service_pb.PresenceResponse),
+        'BulkGetPresence': (xmpp_service_pb.BulkPresenceRequest,
+                            xmpp_service_pb.BulkPresenceResponse),
         'SendMessage': (xmpp_service_pb.XmppMessageRequest,
                         xmpp_service_pb.XmppMessageResponse),
         'SendInvite':  (xmpp_service_pb.XmppInviteRequest,

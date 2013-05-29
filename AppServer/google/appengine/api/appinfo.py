@@ -32,18 +32,28 @@ configuration files.
 
 
 
+import os
 import logging
 import re
 import string
 import wsgiref.util
 
+if os.environ.get('APPENGINE_RUNTIME') == 'python27':
+  from google.appengine.api import pagespeedinfo
+  from google.appengine.api import validation
+  from google.appengine.api import yaml_builder
+  from google.appengine.api import yaml_listener
+  from google.appengine.api import yaml_object
+else:
+
+  from google.appengine.api import pagespeedinfo
+  from google.appengine.api import validation
+  from google.appengine.api import yaml_builder
+  from google.appengine.api import yaml_listener
+  from google.appengine.api import yaml_object
+
 from google.appengine.api import appinfo_errors
 from google.appengine.api import backendinfo
-from google.appengine.api import pagespeedinfo
-from google.appengine.api import validation
-from google.appengine.api import yaml_builder
-from google.appengine.api import yaml_listener
-from google.appengine.api import yaml_object
 
 
 
@@ -123,8 +133,9 @@ SERVER_ID_RE_STRING = r'^(?!-)[a-z\d\-]{0,%d}[a-z\d]$' % (SERVER_ID_MAX_LEN - 1)
 SERVER_VERSION_ID_RE_STRING = (r'^(?!-)[a-z\d\-]{0,%d}[a-z\d]$' %
                                (SERVER_VERSION_ID_MAX_LEN - 1))
 
-_INSTANCES_REGEX = r'^([\d]+|automatic)$'
-_INSTANCE_CLASS_REGEX = r'^([fF](1|2|4)|[bB](1|2|4|8))$'
+_IDLE_INSTANCES_REGEX = r'^([\d]+|automatic)$'
+_INSTANCES_REGEX = r'^[\d]+$'
+_INSTANCE_CLASS_REGEX = r'^([sS](1|2|4|8|4_1G))$'
 
 
 
@@ -190,11 +201,15 @@ SCRIPT = 'script'
 EXPIRATION = 'expiration'
 API_ENDPOINT = 'api_endpoint'
 HTTP_HEADERS = 'http_headers'
+APPLICATION_READABLE = 'application_readable'
 
 
 APPLICATION = 'application'
 SERVER = 'server'
-SERVER_SETTINGS = 'server_settings'
+AUTOMATIC_SCALING = 'automatic_scaling'
+MANUAL_SCALING = 'manual_scaling'
+BASIC_SCALING = 'basic_scaling'
+VM = 'vm'
 VM_SETTINGS = 'vm_settings'
 VERSION = 'version'
 MAJOR_VERSION = 'major_version'
@@ -222,15 +237,19 @@ CODE_LOCK = 'code_lock'
 ENV_VARIABLES = 'env_variables'
 PAGESPEED = 'pagespeed'
 
+INSTANCE_CLASS = 'instance_class'
 
-INSTANCES = 'instances'
-CLASS = 'class'
 MINIMUM_PENDING_LATENCY = 'min_pending_latency'
 MAXIMUM_PENDING_LATENCY = 'max_pending_latency'
 MINIMUM_IDLE_INSTANCES = 'min_idle_instances'
 MAXIMUM_IDLE_INSTANCES = 'max_idle_instances'
+
+
+INSTANCES = 'instances'
+
+
+MAX_INSTANCES = 'max_instances'
 IDLE_TIMEOUT = 'idle_timeout'
-FAILFAST = 'failfast'
 
 
 PAGES = 'pages'
@@ -295,8 +314,8 @@ _SUPPORTED_LIBRARIES = [
         'django',
         'http://www.djangoproject.com/',
         'A full-featured web application framework for Python.',
-        ['1.2', '1.3', '1.4'],
-        experimental_versions=['1.4']
+        ['1.2', '1.3', '1.4', '1.5'],
+        experimental_versions=['1.5'],
         ),
     _VersionedLibrary(
         'jinja2',
@@ -315,10 +334,18 @@ _SUPPORTED_LIBRARIES = [
         ['0.15']),
     _VersionedLibrary(
         'matplotlib',
-        'http://matplotlib.sourceforge.net/',
+        'http://matplotlib.org/',
         'A 2D plotting library which produces publication-quality figures.',
-        ['1.1.1'],
-        experimental_versions=['1.1.1']),
+        ['1.2.0'],
+        experimental_versions=['1.2.0'],
+        ),
+    _VersionedLibrary(
+        'MySQLdb',
+        'http://mysql-python.sourceforge.net/',
+        'A Python DB API v2.0 compatible interface to MySQL.',
+        ['1.2.4b4'],
+        experimental_versions=['1.2.4b4']
+        ),
     _VersionedLibrary(
         'numpy',
         'http://numpy.scipy.org/',
@@ -339,7 +366,6 @@ _SUPPORTED_LIBRARIES = [
         'https://www.dlitz.net/software/pycrypto/',
         'A library of cryptogoogle.appengine._internal.graphy functions such as random number generation.',
         ['2.3', '2.6'],
-        experimental_versions=['2.6']
         ),
     _VersionedLibrary(
         'setuptools',
@@ -347,10 +373,16 @@ _SUPPORTED_LIBRARIES = [
         'A library that provides package and module discovery capabilities.',
         ['0.6c11']),
     _VersionedLibrary(
+        'ssl',
+        'http://docs.python.org/dev/library/ssl.html',
+        'The SSL socket wrapper built-in module.',
+        ['2.7'],
+        experimental_versions=['2.7']),
+    _VersionedLibrary(
         'webapp2',
         'http://webapp-improved.appspot.com/',
         'A lightweight Python web framework.',
-        ['2.3', '2.5.1'],
+        ['2.3', '2.5.1', '2.5.2'],
         default_version='2.3',
         deprecated_versions=['2.3']
         ),
@@ -358,7 +390,7 @@ _SUPPORTED_LIBRARIES = [
         'webob',
         'http://www.webob.org/',
         'A library that provides wrappers around the WSGI request environment.',
-        ['1.1.1'],
+        ['1.1.1', '1.2.3'],
         default_version='1.1.1',
         ),
     _VersionedLibrary(
@@ -378,6 +410,9 @@ _NAME_TO_SUPPORTED_LIBRARY = dict((library.name, library)
 REQUIRED_LIBRARIES = {
     ('jinja2', '2.6'): [('markupsafe', '0.15'), ('setuptools', '0.6c11')],
     ('jinja2', 'latest'): [('markupsafe', 'latest'), ('setuptools', 'latest')],
+    ('matplotlib', '1.1.1'): [('numpy', '1.6.1')],
+    ('matplotlib', '1.2.0'): [('numpy', '1.6.1')],
+    ('matplotlib', 'latest'): [('numpy', 'latest')],
 }
 
 _USE_VERSION_FORMAT = ('use one of: "%s" or "latest" '
@@ -725,6 +760,7 @@ class URLMap(HandlerBase):
 
       HANDLER_STATIC_FILES: validation.Optional(_FILES_REGEX),
       UPLOAD: validation.Optional(_FILES_REGEX),
+      APPLICATION_READABLE: validation.Optional(bool),
 
 
       HANDLER_STATIC_DIR: validation.Optional(_FILES_REGEX),
@@ -753,9 +789,10 @@ class URLMap(HandlerBase):
 
   ALLOWED_FIELDS = {
       HANDLER_STATIC_FILES: (MIME_TYPE, UPLOAD, EXPIRATION,
-                             REQUIRE_MATCHING_FILE, HTTP_HEADERS),
+                             REQUIRE_MATCHING_FILE, HTTP_HEADERS,
+                             APPLICATION_READABLE),
       HANDLER_STATIC_DIR: (MIME_TYPE, EXPIRATION, REQUIRE_MATCHING_FILE,
-                           HTTP_HEADERS),
+                           HTTP_HEADERS, APPLICATION_READABLE),
       HANDLER_SCRIPT: (POSITION),
       HANDLER_API_ENDPOINT: (POSITION, SCRIPT),
   }
@@ -783,16 +820,22 @@ class URLMap(HandlerBase):
       HandlerTypeMissingAttribute: when the handler is missing a
         required attribute for its handler type.
     """
-    for id_field in URLMap.ALLOWED_FIELDS.iterkeys():
 
-      if getattr(self, id_field) is not None:
 
-        mapping_type = id_field
-        break
+    if getattr(self, HANDLER_API_ENDPOINT) is not None:
+
+      mapping_type = HANDLER_API_ENDPOINT
     else:
+      for id_field in URLMap.ALLOWED_FIELDS.iterkeys():
 
-      raise appinfo_errors.UnknownHandlerType(
-          'Unknown url handler type.\n%s' % str(self))
+        if getattr(self, id_field) is not None:
+
+          mapping_type = id_field
+          break
+      else:
+
+        raise appinfo_errors.UnknownHandlerType(
+            'Unknown url handler type.\n%s' % str(self))
 
     allowed_fields = URLMap.ALLOWED_FIELDS[mapping_type]
 
@@ -993,16 +1036,6 @@ class BuiltinHandler(validation.Validated):
 
 
 
-
-
-
-
-
-
-
-
-
-
   class DynamicAttributes(dict):
     """Provide a dictionary object that will always claim to have a key.
 
@@ -1028,7 +1061,6 @@ class BuiltinHandler(validation.Validated):
   def __init__(self, **attributes):
     """Ensure that all BuiltinHandler objects at least have attribute 'default'.
     """
-    self.ATTRIBUTES.clear()
     self.builtin_name = ''
     super(BuiltinHandler, self).__init__(**attributes)
 
@@ -1053,6 +1085,13 @@ class BuiltinHandler(validation.Validated):
       raise appinfo_errors.MultipleBuiltinsSpecified(
           'More than one builtin defined in list element.  Each new builtin '
           'should be prefixed by "-".')
+
+  def __getattr__(self, key):
+    if key.startswith('_'):
+
+
+      raise AttributeError
+    return None
 
   def ToDict(self):
     """Convert BuiltinHander object to a dictionary.
@@ -1171,18 +1210,28 @@ class Library(validation.Validated):
                 '", "'.join(supported_library.non_deprecated_versions)))
 
 
-class ServerSettings(validation.Validated):
-  """Class representing server settings in the AppInfoExternal.
-  """
+class AutomaticScaling(validation.Validated):
+  """Class representing automatic scaling settings in the AppInfoExternal."""
   ATTRIBUTES = {
-      INSTANCES: validation.Optional(_INSTANCES_REGEX),
-      CLASS: validation.Optional(_INSTANCE_CLASS_REGEX),
-      MINIMUM_IDLE_INSTANCES: validation.Optional(_INSTANCES_REGEX),
-      MAXIMUM_IDLE_INSTANCES: validation.Optional(_INSTANCES_REGEX),
+      MINIMUM_IDLE_INSTANCES: validation.Optional(_IDLE_INSTANCES_REGEX),
+      MAXIMUM_IDLE_INSTANCES: validation.Optional(_IDLE_INSTANCES_REGEX),
       MINIMUM_PENDING_LATENCY: validation.Optional(_PENDING_LATENCY_REGEX),
       MAXIMUM_PENDING_LATENCY: validation.Optional(_PENDING_LATENCY_REGEX),
+  }
+
+
+class ManualScaling(validation.Validated):
+  """Class representing manual scaling settings in the AppInfoExternal."""
+  ATTRIBUTES = {
+      INSTANCES: validation.Regex(_INSTANCES_REGEX),
+  }
+
+
+class BasicScaling(validation.Validated):
+  """Class representing basic scaling settings in the AppInfoExternal."""
+  ATTRIBUTES = {
+      MAX_INSTANCES: validation.Regex(_INSTANCES_REGEX),
       IDLE_TIMEOUT: validation.Optional(_IDLE_TIMEOUT_REGEX),
-      FAILFAST: validation.Optional(validation.TYPE_BOOL),
   }
 
 
@@ -1194,6 +1243,16 @@ class VmSettings(validation.ValidatedDict):
 
   KEY_VALIDATOR = validation.Regex('[a-zA-Z_][a-zA-Z0-9_]*')
   VALUE_VALIDATOR = str
+
+  @classmethod
+  def Merge(cls, vm_settings_one, vm_settings_two):
+
+    result_vm_settings = (vm_settings_two or {}).copy()
+
+
+
+    result_vm_settings.update(vm_settings_one or {})
+    return VmSettings(**result_vm_settings) if result_vm_settings else None
 
 
 class EnvironmentVariables(validation.ValidatedDict):
@@ -1209,16 +1268,56 @@ class AppInclude(validation.Validated):
   Used for both builtins and includes directives.
   """
 
+
+
+
   ATTRIBUTES = {
       BUILTINS: validation.Optional(validation.Repeated(BuiltinHandler)),
       INCLUDES: validation.Optional(validation.Type(list)),
       HANDLERS: validation.Optional(validation.Repeated(URLMap)),
       ADMIN_CONSOLE: validation.Optional(AdminConsole),
+      MANUAL_SCALING: validation.Optional(ManualScaling),
+      VM_SETTINGS: validation.Optional(VmSettings),
 
 
 
 
   }
+
+  @classmethod
+  def MergeManualScaling(cls, appinclude_one, appinclude_two):
+    """Takes the greater of <manual_scaling.instances> from the args.
+
+    Note that appinclude_one is mutated to be the merged result in this process.
+
+    Also, this function needs to be updated if ManualScaling gets additional
+    fields.
+
+    Args:
+      appinclude_one: object one to merge. Must have a "manual_scaling" field
+        which contains a ManualScaling().
+      appinclude_two: object two to merge. Must have a "manual_scaling" field
+        which contains a ManualScaling().
+
+    Returns:
+      Object that is the result of merging
+      appinclude_one.manual_scaling.instances and
+      appinclude_two.manual_scaling.instances. I.e., <appinclude_one>
+      after the mutations are complete.
+    """
+
+    def _Instances(appinclude):
+      if appinclude.manual_scaling:
+        if appinclude.manual_scaling.instances:
+          return int(appinclude.manual_scaling.instances)
+      return None
+
+
+
+    instances = max(_Instances(appinclude_one), _Instances(appinclude_two))
+    if instances is not None:
+      appinclude_one.manual_scaling = ManualScaling(instances=str(instances))
+    return appinclude_one
 
   @classmethod
   def MergeAppYamlAppInclude(cls, appyaml, appinclude):
@@ -1249,8 +1348,15 @@ class AppInclude(validation.Validated):
       appyaml.handlers.extend(tail)
 
 
+    AppInclude.MergeManualScaling(appyaml, appinclude)
+
+
     appyaml.admin_console = AdminConsole.Merge(appyaml.admin_console,
                                                appinclude.admin_console)
+
+
+    appyaml.vm_settings = VmSettings.Merge(appyaml.vm_settings,
+                                           appinclude.vm_settings)
 
     return appyaml
 
@@ -1261,19 +1367,23 @@ class AppInclude(validation.Validated):
     any static objects are copied into an aggregate AppInclude object that
     preserves the directives of both provided AppInclude objects.
 
+    Note that appinclude_one is mutated to be the merged result in this process.
+
     Args:
       appinclude_one: object one to merge
       appinclude_two: object two to merge
 
     Returns:
       AppInclude object that is the result of merging the static directives of
-      appinclude_one and appinclude_two.
+      appinclude_one and appinclude_two. I.e., <appinclude_one> after the
+      mutations are complete.
     """
 
 
 
     if not appinclude_one or not appinclude_two:
       return appinclude_one or appinclude_two
+
 
 
     if appinclude_one.handlers:
@@ -1283,9 +1393,19 @@ class AppInclude(validation.Validated):
       appinclude_one.handlers = appinclude_two.handlers
 
 
+    appinclude_one = AppInclude.MergeManualScaling(
+        appinclude_one,
+        appinclude_two)
+
+
     appinclude_one.admin_console = (
         AdminConsole.Merge(appinclude_one.admin_console,
                            appinclude_two.admin_console))
+
+
+    appinclude_one.vm_settings = VmSettings.Merge(
+        appinclude_one.vm_settings,
+        appinclude_two.vm_settings)
 
     return appinclude_one
 
@@ -1328,9 +1448,13 @@ class AppInfoExternal(validation.Validated):
 
 
       API_VERSION: API_VERSION_RE_STRING,
+      INSTANCE_CLASS: validation.Optional(_INSTANCE_CLASS_REGEX),
       SOURCE_LANGUAGE: validation.Optional(
           validation.Regex(SOURCE_LANGUAGE_RE_STRING)),
-      SERVER_SETTINGS: validation.Optional(ServerSettings),
+      AUTOMATIC_SCALING: validation.Optional(AutomaticScaling),
+      MANUAL_SCALING: validation.Optional(ManualScaling),
+      BASIC_SCALING: validation.Optional(BasicScaling),
+      VM: validation.Optional(bool),
       VM_SETTINGS: validation.Optional(VmSettings),
       BUILTINS: validation.Optional(validation.Repeated(BuiltinHandler)),
       INCLUDES: validation.Optional(validation.Type(list)),
@@ -1355,6 +1479,12 @@ class AppInfoExternal(validation.Validated):
       PAGESPEED: validation.Optional(pagespeedinfo.PagespeedEntry),
   }
 
+
+
+
+
+  _skip_runtime_checks = False
+
   def CheckInitialized(self):
     """Performs non-regex-based validation.
 
@@ -1375,6 +1505,8 @@ class AppInfoExternal(validation.Validated):
       MissingThreadsafe: if threadsafe is not set but the runtime requires it.
       ThreadsafeWithCgiHandler: if the runtime is python27, threadsafe is set
           and CGI handlers are specified.
+      TooManyScalingSettingsError: if more than one scaling settings block is
+          present.
     """
     super(AppInfoExternal, self).CheckInitialized()
     if not self.handlers and not self.builtins and not self.includes:
@@ -1385,12 +1517,14 @@ class AppInfoExternal(validation.Validated):
           'Found more than %d URLMap entries in application configuration' %
           MAX_URL_MAPS)
 
-    if self.threadsafe is None and self.runtime == 'python27':
+    if (self.threadsafe is None and
+        self.runtime == 'python27' and
+        not self._skip_runtime_checks):
       raise appinfo_errors.MissingThreadsafe(
           'threadsafe must be present and set to either "yes" or "no"')
 
     if self.libraries:
-      if self.runtime != 'python27':
+      if self.runtime != 'python27' and not self._skip_runtime_checks:
         raise appinfo_errors.RuntimeDoesNotSupportLibraries(
             'libraries entries are only supported by the "python27" runtime')
 
@@ -1416,13 +1550,22 @@ class AppInfoExternal(validation.Validated):
         raise appinfo_errors.MissingApiConfig(
             'An api_endpoint handler was specified, but the required '
             'api_config stanza was not configured.')
-      if self.threadsafe and self.runtime == 'python27':
+      if (self.threadsafe and
+          self.runtime == 'python27' and
+          not self._skip_runtime_checks):
         for handler in self.handlers:
           if (handler.script and (handler.script.endswith('.py') or
                                   '/' in handler.script)):
             raise appinfo_errors.ThreadsafeWithCgiHandler(
                 'threadsafe cannot be enabled with CGI handler: %s' %
                 handler.script)
+    if sum([bool(self.automatic_scaling),
+            bool(self.manual_scaling),
+            bool(self.basic_scaling)]) > 1:
+      raise appinfo_errors.TooManyScalingSettingsError(
+          "There may be only one of 'automatic_scaling', 'manual_scaling', "
+          "or 'basic_scaling'.")
+
 
   def GetAllLibraries(self):
     """Returns a list of all Library instances active for this configuration.
@@ -1444,7 +1587,8 @@ class AppInfoExternal(validation.Validated):
           required_libraries.append(Library(name=required_name,
                                             version=required_version))
 
-    return self.libraries + required_libraries
+    return [Library(**library.ToDict())
+            for library in self.libraries + required_libraries]
 
   def GetNormalizedLibraries(self):
     """Returns a list of normalized Library instances for this configuration.
@@ -1557,6 +1701,21 @@ def LoadSingleAppInfo(app_info):
   ValidateHandlers(appyaml.handlers)
   if appyaml.builtins:
     BuiltinHandler.Validate(appyaml.builtins, appyaml.runtime)
+
+
+
+
+
+
+
+  if appyaml.vm:
+    if not appyaml.vm_settings:
+      appyaml.vm_settings = VmSettings()
+    if not 'vm_runtime' in appyaml.vm_settings:
+
+
+      appyaml.vm_settings['vm_runtime'] = appyaml.runtime
+      appyaml.runtime = 'vm'
 
   return appyaml
 

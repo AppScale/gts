@@ -57,6 +57,7 @@ DATABASES = {
 import logging
 import os
 import sys
+import time
 
 from django.core import exceptions
 from django.db import backends
@@ -67,7 +68,9 @@ from google.appengine.api import apiproxy_stub_map
 from google.storage.speckle.python.api import rdbms
 from google.storage.speckle.python.django.backend import client
 
+DEV_SERVER_SOFTWARE = 'Development'
 PROD_SERVER_SOFTWARE = 'Google App Engine'
+PING_INTERVAL_SECS = 60
 
 
 
@@ -161,9 +164,10 @@ def Connect(driver_name=None, oauth2_refresh_token=None, **kwargs):
       found in storage and no oauth2_refresh_token was given.
   """
   driver = _GetDriver(driver_name)
-  if (os.getenv('APPENGINE_RUNTIME') and
+  server_software = os.getenv('SERVER_SOFTWARE', '').split('/')[0]
+  if (server_software in (DEV_SERVER_SOFTWARE, PROD_SERVER_SOFTWARE) and
       driver.__name__.endswith('rdbms_googleapi')):
-    if os.getenv('SERVER_SOFTWARE', '').startswith(PROD_SERVER_SOFTWARE):
+    if server_software == PROD_SERVER_SOFTWARE:
       logging.warning(
           'Using the Google API driver is not recommended when running on '
           'production App Engine.  You should instead use the GAE API Proxy '
@@ -232,12 +236,28 @@ class DatabaseWrapper(base.DatabaseWrapper):
 
   def __init__(self, *args, **kwargs):
     super(DatabaseWrapper, self).__init__(*args, **kwargs)
+    self._last_ping_time = 0
     self.client = client.DatabaseClient(self)
     try:
       self.ops = DatabaseOperations()
     except TypeError:
 
       self.ops = DatabaseOperations(self)
+
+  def _valid_connection(self):
+    """Disable ping on every operation."""
+    if self.connection is not None:
+      if time.time() - self._last_ping_time < PING_INTERVAL_SECS:
+
+
+
+        return True
+      else:
+        self._last_ping_time = time.time()
+
+        return super(DatabaseWrapper, self)._valid_connection()
+    else:
+      return False
 
   def _cursor(self):
     if not self._valid_connection():

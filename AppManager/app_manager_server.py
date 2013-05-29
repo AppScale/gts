@@ -50,6 +50,13 @@ REQUIRED_CONFIG_FIELDS = ['app_name',
 # The web path to fetch to see if the application is up
 FETCH_PATH = '/_ah/health_check'
 
+# Apps which can access any application's data.
+TRUSTED_APPS = ["appscaledashboard"]
+
+# The flag to tell the application server that this application can access
+# all application data.
+TRUSTED_FLAG = "--trusted"
+
 def convert_config_from_json(config):
   """ Takes the configuration in JSON format and converts it to a dictionary.
       Validates the dictionary configuration before returning.
@@ -386,7 +393,7 @@ def create_python_start_cmd(app_name,
   db_location = choose_db_location(db_locations)
   python = choose_python_executable(py_version)
   cmd = [python,
-         constants.APPSCALE_HOME + "/AppServer/dev_appserver.py",
+         constants.APPSCALE_HOME + "/AppServer/old_dev_appserver.py",
          "-p " + str(port),
          "--cookie_secret " + appscale_info.get_secret(),
          "--login_server " + login_ip,
@@ -405,7 +412,10 @@ def create_python_start_cmd(app_name,
                + "/data/app.datastore.history",
          "/var/apps/" + app_name + "/app",
          "-a " + appscale_info.get_private_ip()]
-  
+ 
+  if app_name in TRUSTED_APPS:
+    cmd.extend([TRUSTED_FLAG])
+ 
   return ' '.join(cmd)
 
 def copy_modified_jars(app_name):
@@ -510,7 +520,7 @@ def create_python_stop_cmd(port, py_version):
   """
   python = choose_python_executable(py_version)
   cmd = [python, 
-         constants.APPSCALE_HOME + "/AppServer/dev_appserver.py",
+         constants.APPSCALE_HOME + "/AppServer/old_dev_appserver.py",
          "-p " + str(port),
          "--cookie_secret " + appscale_info.get_secret()]
   cmd = ' '.join(cmd)

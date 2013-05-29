@@ -31,10 +31,11 @@ class representing a blob-key.
 
 
 
+
+
+
 import base64
-import cgi
 import email
-import os
 
 from google.appengine.api import datastore
 from google.appengine.api import datastore_errors
@@ -50,15 +51,19 @@ __all__ = ['BLOB_INFO_KIND',
            'BlobInfo',
            'BlobInfoParseError',
            'BlobKey',
+           'BlobMigrationRecord',
            'BlobNotFoundError',
            'BlobReferenceProperty',
            'BlobReader',
+           'FileInfo',
+           'FileInfoParseError',
            'DataIndexOutOfRangeError',
            'PermissionDeniedError',
            'Error',
            'InternalError',
            'MAX_BLOB_FETCH_SIZE',
            'UPLOAD_INFO_CREATION_HEADER',
+           'CLOUD_STORAGE_OBJECT_HEADER',
            'create_rpc',
            'create_upload_url',
            'create_upload_url_async',
@@ -66,8 +71,11 @@ __all__ = ['BLOB_INFO_KIND',
            'delete_async',
            'fetch_data',
            'fetch_data_async',
+           'create_gs_key',
+           'create_gs_key_async',
            'get',
-           'parse_blob_info']
+           'parse_blob_info',
+           'parse_file_info']
 
 Error = blobstore.Error
 InternalError = blobstore.InternalError
@@ -83,10 +91,8 @@ create_upload_url = blobstore.create_upload_url
 create_upload_url_async = blobstore.create_upload_url_async
 delete = blobstore.delete
 delete_async = blobstore.delete_async
-
-
-class BlobInfoParseError(Error):
-  """CGI parameter does not contain valid BlobInfo record."""
+create_gs_key = blobstore.create_gs_key
+create_gs_key_async = blobstore.create_gs_key_async
 
 
 BLOB_INFO_KIND = blobstore.BLOB_INFO_KIND
@@ -95,6 +101,16 @@ BLOB_KEY_HEADER = blobstore.BLOB_KEY_HEADER
 BLOB_RANGE_HEADER = blobstore.BLOB_RANGE_HEADER
 MAX_BLOB_FETCH_SIZE = blobstore.MAX_BLOB_FETCH_SIZE
 UPLOAD_INFO_CREATION_HEADER = blobstore.UPLOAD_INFO_CREATION_HEADER
+CLOUD_STORAGE_OBJECT_HEADER = blobstore.CLOUD_STORAGE_OBJECT_HEADER
+
+
+class BlobInfoParseError(Error):
+  """CGI parameter does not contain valid BlobInfo record."""
+
+
+class FileInfoParseError(Error):
+  """CGI parameter does not contain valid FileInfo record."""
+
 
 
 
@@ -125,7 +141,7 @@ class _GqlQuery(db.GqlQuery):
     app = kwds.pop('_app', None)
     self._proto_query = gql.GQL(query_string, _app=app, namespace='')
 
-    super(db.GqlQuery, self).__init__(model_class, namespace='')
+    super(db.GqlQuery, self).__init__(model_class)
     self.bind(*args, **kwds)
 
 
@@ -156,7 +172,7 @@ class BlobInfo(object):
   will raise NotImplementedError.
   """
 
-  _unindexed_properties = frozenset()
+  _unindexed_properties = frozenset([])
 
 
   _all_properties = frozenset(['content_type', 'creation', 'filename',
@@ -384,6 +400,68 @@ def get(blob_key):
   return BlobInfo.get(blob_key)
 
 
+def _parse_upload_info(field_storage, error_class):
+  """Parse the upload info from file upload field_storage.
+
+  Args:
+    field_storage: cgi.FieldStorage that represents uploaded blob.
+    error_class: error to raise.
+
+  Returns:
+    A dictionary containing the parsed values. None if there was no
+    field_storage.
+
+  Raises:
+    error_class when provided a field_storage that does not contain enough
+    information.
+  """
+  if field_storage is None:
+    return None
+
+  field_name = field_storage.name
+
+  def get_value(dict, name):
+    value = dict.get(name, None)
+    if value is None:
+      raise error_class(
+          'Field %s has no %s.' % (field_name, name))
+    return value
+
+  filename = get_value(field_storage.disposition_options, 'filename')
+  blob_key = field_storage.type_options.get('blob-key', None)
+
+  upload_content = email.message_from_file(field_storage.file)
+
+
+  field_storage.file.seek(0)
+  content_type = get_value(upload_content, 'content-type')
+  size = get_value(upload_content, 'content-length')
+  creation_string = get_value(upload_content, UPLOAD_INFO_CREATION_HEADER)
+  #md5_hash_encoded = get_value(upload_content, 'content-md5')
+  #md5_hash = base64.urlsafe_b64decode(md5_hash_encoded)
+  gs_object_name = upload_content.get(CLOUD_STORAGE_OBJECT_HEADER, None)
+
+  try:
+    size = int(size)
+  except (TypeError, ValueError):
+    raise error_class(
+        '%s is not a valid value for %s size.' % (size, field_name))
+
+  try:
+    creation = blobstore._parse_creation(creation_string, field_name)
+  except blobstore._CreationFormatError, err:
+    raise error_class(str(err))
+
+  return {'blob_key': blob_key,
+          'content_type': content_type,
+          'creation': creation,
+          'filename': filename,
+          'size': size,
+          #'md5_hash': md5_hash,
+          'gs_object_name': gs_object_name,
+         }
+
+
 def parse_blob_info(field_storage):
   """Parse a BlobInfo record from file upload field_storage.
 
@@ -398,48 +476,99 @@ def parse_blob_info(field_storage):
     BlobInfoParseError when provided field_storage does not contain enough
     information to construct a BlobInfo object.
   """
-  if field_storage is None:
+  info = _parse_upload_info(field_storage, BlobInfoParseError)
+
+  if info is None:
     return None
 
-  field_name = field_storage.name
+  key = info.pop('blob_key', None)
+  if not key:
+    raise BlobInfoParseError('Field %s has no %s.' % (field_storage.name,
+                                                      'blob_key'))
 
-  def get_value(diction, name):
-    """ Gets the value from a dictionary given a name and raises an exception
-        if it does not exist. """
-    value = diction.get(name, None)
-    if value is None:
-      raise BlobInfoParseError(
-          'Field %s has no %s.' % (field_name, name))
-    return value
+  info.pop('gs_object_name', None)
 
-  filename = get_value(field_storage.disposition_options, 'filename')
-  blob_key = BlobKey(get_value(field_storage.type_options, 'blob-key'))
+  return BlobInfo(BlobKey(key), info)
 
-  upload_content = email.message_from_file(field_storage.file)
-  content_type = get_value(upload_content, 'content-type')
-  size = get_value(upload_content, 'content-length')
-  creation_string = get_value(upload_content, UPLOAD_INFO_CREATION_HEADER)
-  #md5_hash_encoded = '0' # get_value(upload_content, 'content-md5')
-  #md5_hash = base64.urlsafe_b64decode(md5_hash_encoded)
 
-  try:
-    size = int(size)
-  except (TypeError, ValueError):
-    raise BlobInfoParseError(
-        '%s is not a valid value for %s size.' % (size, field_name))
+class FileInfo(object):
+  """Information about uploaded files.
 
-  try:
-    creation = blobstore._parse_creation(creation_string, field_name)
-  except blobstore._CreationFormatError, err:
-    raise BlobInfoParseError(str(err))
+  This is a class that contains information about blobs stored by an
+  application.
 
-  return BlobInfo(blob_key,
-                  {'content_type': content_type,
-                   'creation': creation,
-                   'filename': filename,
-                   'size': size,
-                   #'md5_hash': md5_hash,
-                   })
+  This class is similar to BlobInfo, however this has no key and it is not
+  persisted in the datastore.
+
+  Properties:
+    content_type: Content type of uploaded file.
+    creation: Creation date of uploaded file, when it was uploaded.
+    filename: Filename user selected from their machine.
+    size: Size of uncompressed file.
+    md5_hash: The md5 hash value of the uploaded file.
+    gs_object_name: Name of the file written to Google Cloud Storage or None if
+      the file was not uploaded to Google Cloud Storage.
+
+  All properties are read-only.  Attempting to assign a value to a property
+  will raise AttributeError.
+  """
+
+  def __init__(self, filename=None, content_type=None, creation=None,
+               size=None, md5_hash=None, gs_object_name=None):
+    self.__filename = filename
+    self.__content_type = content_type
+    self.__creation = creation
+    self.__size = size
+    self.__md5_hash = md5_hash
+    self.__gs_object_name = gs_object_name
+
+  @property
+  def filename(self):
+    return self.__filename
+
+  @property
+  def content_type(self):
+    return self.__content_type
+
+  @property
+  def creation(self):
+    return self.__creation
+
+  @property
+  def size(self):
+    return self.__size
+
+  @property
+  def md5_hash(self):
+    return self.__md5_hash
+
+  @property
+  def gs_object_name(self):
+    return self.__gs_object_name
+
+
+def parse_file_info(field_storage):
+  """Parse an FileInfo record from file upload field_storage.
+
+  Args:
+    field_storage: cgi.FieldStorage that represents uploaded file.
+
+  Returns:
+    FileInfo record as parsed from the field-storage instance.
+    None if there was no field_storage.
+
+  Raises:
+    FileInfoParseError when provided a field_storage that does not contain
+    enough information to construct a FileInfo object.
+  """
+  info = _parse_upload_info(field_storage, FileInfoParseError)
+
+  if info is None:
+    return None
+
+  info.pop('blob_key', None)
+
+  return FileInfo(**info)
 
 
 class BlobReferenceProperty(db.Property):
@@ -470,7 +599,8 @@ class BlobReferenceProperty(db.Property):
 
   def get_value_for_datastore(self, model_instance):
     """Translate model property to datastore value."""
-    blob_info = getattr(model_instance, self.name)
+    blob_info = super(BlobReferenceProperty,
+                      self).get_value_for_datastore(model_instance)
     if blob_info is None:
       return None
     return blob_info.key()
@@ -577,7 +707,12 @@ class BlobReader(object):
       blob: The blob key, blob info, or string blob key to read from.
       buffer_size: The minimum size to fetch chunks of data from blobstore.
       position: The initial position in the file.
+
+    Raises:
+      ValueError if a blob key, blob info or string blob key is not supplied.
     """
+    if not blob:
+      raise ValueError('A BlobKey, BlobInfo or string is required.')
     if hasattr(blob, 'key'):
       self.__blob_key = blob.key()
       self.__blob_info = blob
@@ -634,7 +769,9 @@ class BlobReader(object):
     Returns:
       Tuple (data, size):
         data: The bytes read from the buffer.
-        size: The remaining unread byte count.
+        size: The remaining unread byte count. Negative when size
+          is negative. Thus when remaining size != 0, the calling method
+          may choose to fill the buffer again and keep reading.
     """
 
     if not self.__blob_key:
@@ -805,3 +942,45 @@ class BlobReader(object):
   def closed(self):
     """Returns True if this file is closed, False otherwise."""
     return self.__blob_key is None
+
+  def __enter__(self):
+    return self
+
+  def __exit__(self, exc_type, exc_value, traceback):
+    self.close()
+
+
+class BlobMigrationRecord(db.Model):
+  """A model that records the result of a blob migration."""
+
+  new_blob_ref = BlobReferenceProperty(indexed=False, name='new_blob_key')
+
+  @classmethod
+  def kind(cls):
+    return blobstore.BLOB_MIGRATION_KIND
+
+  @classmethod
+  def get_by_blob_key(cls, old_blob_key):
+    """Fetches the BlobMigrationRecord for the given blob key.
+
+    Args:
+      old_blob_key: The blob key used in the previous app.
+
+    Returns:
+      A instance of blobstore.BlobMigrationRecord or None
+    """
+    return cls.get_by_key_name(str(old_blob_key))
+
+  @classmethod
+  def get_new_blob_key(cls, old_blob_key):
+    """Looks up the new key for a blob.
+
+    Args:
+      old_blob_key: The original blob key.
+
+    Returns:
+      The blobstore.BlobKey of the migrated blob.
+    """
+    record = cls.get_by_blob_key(old_blob_key)
+    if record:
+      return record.new_blob_ref.key()

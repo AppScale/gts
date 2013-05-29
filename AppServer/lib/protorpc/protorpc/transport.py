@@ -281,19 +281,20 @@ class HttpTransport(Transport):
       connection: HTTPConnection that is making request.
       rpc: Rpc instance.
     """
-    response = connection.getresponse()
+    try:
+      response = connection.getresponse()
 
-    content = response.read()
+      content = response.read()
 
-    if response.status == httplib.OK:
-      response = self.protocol.decode_message(remote_info.response_type,
-                                              content)
-      rpc.set_response(response)
-    else:
-      status = self.__get_rpc_status(response, content)
-      rpc.set_status(status)
-
-    connection.close()
+      if response.status == httplib.OK:
+        response = self.protocol.decode_message(remote_info.response_type,
+                                                content)
+        rpc.set_response(response)
+      else:
+        status = self.__get_rpc_status(response, content)
+        rpc.set_status(status)
+    finally:
+      connection.close()
 
   def _start_rpc(self, remote_info, request):
     """Start a remote procedure call.
@@ -323,11 +324,6 @@ class HttpTransport(Transport):
                  'Content-length': len(encoded_request)})
 
       rpc = Rpc(request)
-
-      wait_impl = lambda: self.__set_response(remote_info, connection, rpc)
-      rpc._wait_impl = wait_impl
-
-      return rpc
     except remote.RpcError:
       # Pass through all ProtoRPC errors
       connection.close()
@@ -341,6 +337,11 @@ class HttpTransport(Transport):
       connection.close()
       raise remote.NetworkError('Error communicating with HTTP server',
                                 err)
+    else:
+      wait_impl = lambda: self.__set_response(remote_info, connection, rpc)
+      rpc._wait_impl = wait_impl
+
+      return rpc
 
 
 class LocalTransport(Transport):

@@ -165,3 +165,7 @@ class TooManyHttpHeaders(Error):
 
   The message should indicate the maximum number of headers allowed.
   """
+
+
+class TooManyScalingSettingsError(Error):
+  """Raised when more than one scaling settings section is present."""

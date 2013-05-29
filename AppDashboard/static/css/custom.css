@@ -1832,6 +1832,7 @@ footer {
   margin-left: 20px; }
 
 
+<<<<<<< HEAD
 #appscale_logo {
     position: absolute;
     float: left;
@@ -1867,4 +1868,16 @@ footer {
 
 .legend table {
 	border-spacing: 5px;
+=======
+
+#appscale_logo {
+    position: absolute;
+    float: left;
+    top: 3px;
+    margin-left: 15px;
+}
+
+.node_icons {
+    margin: auto 5px;
+>>>>>>> 8a6cc84c27864d1db5e10c36183573e462bef0c0
 }

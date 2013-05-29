@@ -27,6 +27,16 @@ from google.appengine.api.search import QueryLexer
 from google.appengine.api.search import QueryParser
 
 
+COMPARISON_TYPES = [
+    QueryParser.EQ,
+    QueryParser.NE,
+    QueryParser.GT,
+    QueryParser.GE,
+    QueryParser.LT,
+    QueryParser.LE,
+    ]
+
+
 class QueryException(Exception):
   """An error occurred while parsing the query input string."""
 
@@ -74,6 +84,15 @@ def CreateParser(query):
   return parser
 
 
+def ParseAndSimplify(query):
+  """Parses a query and performs all necessary transformations on the tree."""
+  node = Parse(query).tree
+  node = _ColonToEquals(node)
+  node = SequenceToConjunction(node)
+  node = SimplifyNode(node)
+  return node
+
+
 def Parse(query):
   """Parses a query and returns an ANTLR tree."""
   parser = CreateParser(query)
@@ -83,34 +102,68 @@ def Parse(query):
     raise QueryException(e.message)
 
 
+def ConvertNodes(node, from_type, to_type, to_text):
+  """Converts nodes of type from_type to nodes of type to_type."""
+  if node.getType() == from_type:
+    new_node = CreateQueryNode(to_text, to_type)
+  else:
+    new_node = node
+  convert_children = lambda c: ConvertNodes(c, from_type, to_type, to_text)
+  new_node.children = map(convert_children, node.children)
+  return new_node
+
+
+def _ColonToEquals(node):
+  """Transform all HAS nodes into EQ nodes.
+
+  Equals and colon have the same semantic meaning in the query language, so to
+  simplify matching code we translate all HAS nodes into EQ nodes.
+
+  Arguments:
+    node: Root of the tree to transform.
+
+  Returns:
+    A tree with all HAS nodes replaced with EQ nodes.
+  """
+  return ConvertNodes(node, QueryParser.HAS, QueryParser.EQ, '=')
+
+
+def SequenceToConjunction(node):
+  """Transform all SEQUENCE nodes into CONJUNCTION nodes.
+
+  Sequences have the same semantic meaning as conjunctions, so we transform them
+  to conjunctions to make query matching code simpler.
+
+  Arguments:
+    node: Root of the tree to transform.
+
+  Returns:
+    A tree with all SEQUENCE nodes replaced with CONJUNCTION nodes.
+  """
+  return ConvertNodes(
+      node, QueryParser.SEQUENCE, QueryParser.CONJUNCTION, 'CONJUNCTION')
+
+
 def Simplify(parser_return):
   """Simplifies the output of the parser."""
   if parser_return.tree:
-    return _SimplifyNode(parser_return.tree)
+    return SimplifyNode(parser_return.tree)
   return parser_return
 
 
-def _SimplifyNode(node):
+def SimplifyNode(node):
   """Simplifies the node removing singleton conjunctions and others."""
   if not node.getType():
-    return _SimplifyNode(node.children[0])
-  elif node.getType() is QueryParser.CONJUNCTION and node.getChildCount() is 1:
-    return _SimplifyNode(node.children[0])
-  elif node.getType() is QueryParser.DISJUNCTION and node.getChildCount() is 1:
-    return _SimplifyNode(node.children[0])
-  elif (node.getType() is QueryParser.RESTRICTION and node.getChildCount() is 2
-        and node.children[0].getType() is QueryParser.GLOBAL):
-    return _SimplifyNode(node.children[1])
-  elif (node.getType() is QueryParser.VALUE and node.getChildCount() is 2 and
-        (node.children[0].getType() is QueryParser.WORD or
-         node.children[0].getType() is QueryParser.STRING or
-         node.children[0].getType() is QueryParser.NUMBER)):
-    return _SimplifyNode(node.children[1])
-  elif ((node.getType() is QueryParser.EQ or node.getType() is QueryParser.HAS)
-        and node.getChildCount() is 1):
-    return _SimplifyNode(node.children[0])
+    return SimplifyNode(node.children[0])
+  elif node.getType() == QueryParser.CONJUNCTION and node.getChildCount() == 1:
+    return SimplifyNode(node.children[0])
+  elif node.getType() == QueryParser.DISJUNCTION and node.getChildCount() == 1:
+    return SimplifyNode(node.children[0])
+  elif ((node.getType() == QueryParser.EQ or node.getType() == QueryParser.HAS)
+        and node.getChildCount() == 1):
+    return SimplifyNode(node.children[0])
   for i, child in enumerate(node.children):
-    node.setChild(i, _SimplifyNode(child))
+    node.setChild(i, SimplifyNode(child))
   return node
 
 
@@ -121,7 +174,16 @@ def CreateQueryNode(text, type):
 
 def GetQueryNodeText(node):
   """Returns the text from the node, handling that it could be unicode."""
-  return node.getText().encode('utf-8')
+  return GetQueryNodeTextUnicode(node).encode('utf-8')
+
+
+def GetQueryNodeTextUnicode(node):
+  """Returns the unicode text from node."""
+  if node.getType() == QueryParser.VALUE and len(node.children) >= 2:
+    return u''.join(c.getText() for c in node.children[1:])
+  elif node.getType() == QueryParser.VALUE:
+    return None
+  return node.getText()
 
 
 def GetPhraseQueryNodeText(node):
@@ -134,3 +196,10 @@ def GetPhraseQueryNodeText(node):
     if text[0] == '"' and text[-1] == '"':
       text = text[1:-1]
   return text
+
+
+def IsPhrase(node):
+  """Return true if node is the root of a text phrase."""
+  text = GetQueryNodeText(node)
+  return (node.getType() == QueryParser.VALUE and
+          text.startswith('"') and text.endswith('"'))
