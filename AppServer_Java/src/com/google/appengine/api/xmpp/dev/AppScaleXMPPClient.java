@@ -27,6 +27,14 @@ public class AppScaleXMPPClient implements MessageListener
     private String url;
     private int port;
 
+    public AppScaleXMPPClient(String _userName, String _password, String _url, int _port)
+    {
+        userName = _userName;
+        password = _password;
+        url = _url;
+        port = _port;
+    }
+
     /*
      * AppScale - This method logs in and creates a connection to the AppScale ejabberd server. 
      */

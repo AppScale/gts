@@ -25,8 +25,9 @@ public class LocalHttpRequestEnvironment extends LocalEnvironment
     private final LoginCookieUtils.AppScaleCookieData loginCookieData;
     private static final String                       COOKIE_NAME              = "dev_appserver_login";
 
-    public LocalHttpRequestEnvironment( String appId, String majorVersionId, HttpServletRequest request, Long deadlineMillis )
-    {
+     public LocalHttpRequestEnvironment(String appId, String serverName, String majorVersionId, int instance, HttpServletRequest request, Long deadlineMillis, ServersFilterHelper serversFilterHelper)
+     {
+
         super(appId, majorVersionId, deadlineMillis);
         this.loginCookieData = LoginCookieUtils.getCookieData(request);
         String requestNamespace = request.getHeader("X-AppEngine-Default-Namespace");
@@ -44,7 +45,12 @@ public class LocalHttpRequestEnvironment extends LocalEnvironment
             this.attributes.put("com.google.appengine.api.users.UserService.user_id_key", this.loginCookieData.getUserId());
             this.attributes.put("com.google.appengine.api.users.UserService.user_organization", "");
         }
-        if (request.getHeader("X-AppEngine-QueueName") != null) this.attributes.put("com.google.appengine.request.offline", Boolean.TRUE);
+        if (request.getHeader("X-AppEngine-QueueName") != null)
+        {
+            this.attributes.put("com.google.appengine.request.offline", Boolean.TRUE);
+        }
+        this.attributes.put("com.google.appengine.http_servlet_request", request);
+        this.attributes.put("com.google.appengine.tools.development.servers_filter_helper", serversFilterHelper);
     }
 
     public boolean isLoggedIn()

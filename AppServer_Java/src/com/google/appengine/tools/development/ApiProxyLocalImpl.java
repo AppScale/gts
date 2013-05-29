@@ -6,9 +6,9 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.ServiceLoader;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -76,7 +76,7 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
     }
 
     public byte[] makeSyncCall(Environment environment, String packageName, String methodName, byte[] requestBytes) {
-        Future<byte[]> future = doAsyncCall(environment, packageName, methodName, requestBytes);
+        Future<byte[]> future = makeAsyncCall(environment, packageName, methodName, requestBytes, null);
         try {
             return future.get();
         } catch (InterruptedException ex) {
@@ -95,15 +95,6 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
 
     public Future<byte[]> makeAsyncCall(Environment environment, String packageName, String methodName,
             byte[] requestBytes, ApiConfig apiConfig) {
-        return doAsyncCall(environment, packageName, methodName, requestBytes);
-    }
-
-    public List<Thread> getRequestThreads(Environment environment) {
-        return Arrays.asList(new Thread[] { Thread.currentThread() });
-    }
-
-    private Future<byte[]> doAsyncCall(ApiProxy.Environment environment, String packageName, String methodName,
-            byte[] requestBytes) {
         Semaphore semaphore = (Semaphore) environment.getAttributes().get(LocalEnvironment.API_CALL_SEMAPHORE);
 
         if (semaphore != null) {
@@ -129,6 +120,10 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
             }
         }
     }
+
+    public List<Thread> getRequestThreads(Environment environment) {
+         return Arrays.asList(new Thread[] { Thread.currentThread() });
+     }
 
     /**
      * Convert the specified byte array to a protocol buffer representation of
@@ -244,11 +239,8 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
     @SuppressWarnings( { "restriction", "unchecked" })
     private LocalRpcService startServices(String pkg) {
         // @SuppressWarnings( { "unchecked", "sunapi" })
-        Iterator<LocalRpcService> services = sun.misc.Service.providers(LocalRpcService.class, ApiProxyLocalImpl.class
-                .getClassLoader());
-
-        while (services.hasNext()) {
-            LocalRpcService service = services.next();
+        for (LocalRpcService service : ServiceLoader.load(LocalRpcService.class, ApiProxyLocalImpl.class.getClassLoader()))
+        {
             if (service.getPackage().equals(pkg)) {
                 service.init(context, properties);
                 service.start();

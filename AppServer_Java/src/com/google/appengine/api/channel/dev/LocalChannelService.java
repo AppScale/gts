@@ -141,11 +141,7 @@ public final class LocalChannelService extends AbstractLocalRpcService
     String applicationKey = request.getApplicationKey();
     String from = appId + "@" + domain;
     
-    AppScaleXMPPClient xmppClient = new AppScaleXMPPClient();
-    xmppClient.setUserName(appId);
-    xmppClient.setPassword(secret);
-    xmppClient.setUrl(domain);
-    xmppClient.setPort(XMPP_PORT);
+    AppScaleXMPPClient xmppClient = new AppScaleXMPPClient(appId, secret, domain, XMPP_PORT);
     
     String uniqueAppId = getSha1AsString(appId + applicationKey);
     String toJid = "channel~" + uniqueAppId + "~" + applicationKey + "@"  + domain;
