@@ -73,12 +73,10 @@ installpython27()
 
 installphp()
 {
-    wget --trust-server-names http://us2.php.net/get/php-5.4.15.tar.bz2/from/us1.php.net/mirror
-    bunzip2 php-5.4.15.tar.bz2
-    tar -xf php-5.4.15.tar
-    cd php-5.4.15
-    ./configure --prefix=$PWD/installdir --enable-bcmath --with-mysql
-    make install
+    cd /usr/local
+    wget $APPSCALE_PACKAGE_MIRROR/php-5.4.15-prebuilt.tar.gz
+    tar zxvf php-5.4.15-prebuilt.tar.gz
+    rm /usr/local/php-5.4.15-prebuilt.tar.gz
 }
 
 installnumpy()

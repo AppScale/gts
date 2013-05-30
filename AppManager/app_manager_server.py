@@ -57,6 +57,9 @@ TRUSTED_APPS = ["appscaledashboard"]
 # all application data.
 TRUSTED_FLAG = "--trusted"
 
+# The location on the filesystem where the PHP executable is installed.
+PHP_CGI_LOCATION = "/usr/local/php-5.4.15/installdir/bin/php-cgi"
+
 def convert_config_from_json(config):
   """ Takes the configuration in JSON format and converts it to a dictionary.
       Validates the dictionary configuration before returning.
@@ -405,6 +408,7 @@ def create_python_start_cmd(app_name,
          "--require_indexes",
          "--enable_sendmail",
          "--xmpp_path " + xmpp_ip,
+         "--php_executable_path=" + str(PHP_CGI_LOCATION),
          "--uaserver_path " + db_location + ":"\
                + str(constants.UA_SERVER_PORT),
          "--datastore_path " + db_location + ":"\
@@ -487,7 +491,7 @@ def create_java_start_cmd(app_name,
              "--NGINX_PORT=" + str(load_balancer_port),
              "/var/apps/" + app_name +"/app/war/",
              ]
- 
+
   return ' '.join(cmd)
 
 def choose_python_executable(py_version):
