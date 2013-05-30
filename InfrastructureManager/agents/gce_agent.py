@@ -59,6 +59,9 @@ class GCEAgent(BaseAgent):
   PARAM_INSTANCE_IDS = 'instance_ids'
 
 
+  PARAM_INSTANCE_TYPE = 'instance_type'
+
+
   PARAM_KEYNAME = 'keyname'
 
 
@@ -95,12 +98,6 @@ class GCEAgent(BaseAgent):
 
   # The zone that instances should be created in and removed from.
   DEFAULT_ZONE = 'us-central1-a'
-
-
-  # The instance type that we should run AppScale on in Google Compute Engine.
-  # TODO(cgb): Make this a parameter that the user can specify, and validate it
-  # in ParseArgs.
-  DEFAULT_MACHINE_TYPE = 'n1-standard-1'
 
 
   # The person to contact if there is a problem with the instance. We set this
@@ -170,6 +167,7 @@ class GCEAgent(BaseAgent):
     params = {
       self.PARAM_GROUP : args['group'],
       self.PARAM_IMAGE_ID : args['machine'],
+      self.PARAM_INSTANCE_TYPE : args['instance_type'],
       self.PARAM_KEYNAME : args['keyname'],
       self.PARAM_PROJECT : args['project'],
       self.PARAM_SECRETS : self.CLIENT_SECRETS_LOCATION
@@ -261,7 +259,7 @@ class GCEAgent(BaseAgent):
     """
     project_id = parameters[self.PARAM_PROJECT]
     image_id = parameters[self.PARAM_IMAGE_ID]
-    instance_type = self.DEFAULT_MACHINE_TYPE  #parameters[self.PARAM_INSTANCE_TYPE]
+    instance_type = parameters[self.PARAM_INSTANCE_TYPE]
     keyname = parameters[self.PARAM_KEYNAME]
     group = parameters[self.PARAM_GROUP]
 
