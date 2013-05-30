@@ -78,11 +78,14 @@ class DatabaseConfig(object):
   Attributes:
     instance: The Google SQL instance ID.
     name: The database name to use.
+    oauth_credentials_path: A location to use for oauth credentials storage
+      instead of the default
   """
 
-  def __init__(self, instance, name=None):
+  def __init__(self, instance, name=None, oauth_credentials_path=None):
     self.instance = instance
     self.name = name
+    self.oauth_credentials_path = oauth_credentials_path
 
   def __str__(self):
     result = self.instance
@@ -122,7 +125,8 @@ class GoogleSqlDriver(mysql.MySQLDriver):
     dbi = self.get_import()
     return dbi.connect(
         host, database.instance, database=database.name, user=user,
-        password=password)
+        password=password,
+        oauth_credentials_path=database.oauth_credentials_path)
 
 
 class GoogleSqlCmd(sqlcmd.SQLCmd):
@@ -205,6 +209,8 @@ def main(argv):
   parser.add_option('-e', '--output_encoding', dest='output_encoding',
                     default=DEFAULT_ENCODING,
                     help='Output encoding. Defaults to %s.' % DEFAULT_ENCODING)
+  parser.add_option('--oauth_credentials_path', dest='oauth_credentials_path',
+                    default=None, help=optparse.SUPPRESS_HELP)
 
   (options, args) = parser.parse_args(argv[1:])
 
@@ -213,6 +219,9 @@ def main(argv):
     sys.exit(1)
 
   instance = args[0]
+
+
+  instance_alias = instance.replace(':', '#')
   database = None
   if len(args) == 2:
     database = args[1]
@@ -223,14 +232,14 @@ def main(argv):
 
 
 
-  database = DatabaseConfig(instance, database)
+  database = DatabaseConfig(instance, database, options.oauth_credentials_path)
   db.add_driver(GoogleSqlDriver.NAME, GoogleSqlDriver)
   sql_cmd_config = config.SQLCmdConfig(None)
-  sql_cmd_config.add('__googlesql__', instance, None, None, database,
+  sql_cmd_config.add('__googlesql__', instance_alias, None, None, database,
                      GoogleSqlDriver.NAME, None, None)
   sql_cmd = GoogleSqlCmd(sql_cmd_config)
   sql_cmd.set_output_encoding(options.output_encoding)
-  sql_cmd.set_database(instance)
+  sql_cmd.set_database(instance_alias)
   sql_cmd.cmdloop()
 
 

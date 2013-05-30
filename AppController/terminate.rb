@@ -131,8 +131,6 @@ end
  # Hypertable
  "Hyperspace", "Hypertable.Master", "Hypertable.RangeServer", "ThriftBroker",
  "DfsBroker",
- # MySQL
- "ndb_mgmd", "ndbd", "mysqld",
  "rabbitmq",
  "thin", "god", "djinn", "xmpp_receiver", 
  "InfrastructureManager", "Neptune",

@@ -45,6 +45,12 @@ class IncludeFileNotFound(Exception):
 
 def Parse(appinfo_file, open_fn=open):
   """Parse an AppYaml file and merge referenced includes and builtins."""
+  appyaml, _ = ParseAndReturnIncludePaths(appinfo_file, open_fn)
+  return appyaml
+
+
+def ParseAndReturnIncludePaths(appinfo_file, open_fn=open):
+  """Parse an AppYaml file and merge referenced includes and builtins."""
   try:
     appinfo_path = appinfo_file.name
     if not os.path.isfile(appinfo_path):
@@ -55,7 +61,8 @@ def Parse(appinfo_file, open_fn=open):
                     'attribute "name" as as full file path.')
 
   appyaml = appinfo.LoadSingleAppInfo(appinfo_file)
-  appyaml = _MergeBuiltinsIncludes(appinfo_path, appyaml, open_fn)
+  appyaml, include_paths = _MergeBuiltinsIncludes(appinfo_path, appyaml,
+                                                  open_fn)
 
 
   if not appyaml.handlers:
@@ -73,7 +80,7 @@ def Parse(appinfo_file, open_fn=open):
             'Threadsafe cannot be enabled with CGI handler: %s' %
             handler.script)
 
-  return appyaml
+  return appyaml, include_paths
 
 
 def _MergeBuiltinsIncludes(appinfo_path, appyaml, open_fn=open):
@@ -99,7 +106,7 @@ def _MergeBuiltinsIncludes(appinfo_path, appyaml, open_fn=open):
       appyaml.builtins.append(appinfo.BuiltinHandler(default='on'))
 
 
-  aggregate_appinclude = (
+  aggregate_appinclude, include_paths = (
       _ResolveIncludes(appinfo_path,
                        appinfo.AppInclude(builtins=appyaml.builtins,
                                           includes=appyaml.includes),
@@ -107,8 +114,10 @@ def _MergeBuiltinsIncludes(appinfo_path, appyaml, open_fn=open):
                        appyaml.runtime,
                        open_fn=open_fn))
 
-  return appinfo.AppInclude.MergeAppYamlAppInclude(appyaml,
-                                                   aggregate_appinclude)
+  return (
+      appinfo.AppInclude.MergeAppYamlAppInclude(appyaml,
+                                                aggregate_appinclude),
+      include_paths)
 
 
 def _ResolveIncludes(included_from, app_include, basepath, runtime, state=None,
@@ -187,7 +196,7 @@ def _ResolveIncludes(included_from, app_include, basepath, runtime, state=None,
           logging.warning('Nothing to include in %s', inc_path)
 
 
-  return state.aggregate_appinclude
+  return state.aggregate_appinclude, state.includes.keys()
 
 
 def _ConvertBuiltinsToIncludes(included_from, app_include, state, runtime):

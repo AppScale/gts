@@ -261,7 +261,7 @@ def _DefaultValueConstructorForField(field):
             message._listener_for_children, field.message_type)
       return MakeRepeatedMessageDefault
     else:
-      type_checker = type_checkers.GetTypeChecker(field.cpp_type, field.type)
+      type_checker = type_checkers.GetTypeChecker(field)
       def MakeRepeatedScalarDefault(message):
         return containers.RepeatedScalarFieldContainer(
             message._listener_for_children, type_checker)
@@ -429,7 +429,7 @@ def _AddPropertiesForNonRepeatedScalarField(field, cls):
   """
   proto_field_name = field.name
   property_name = _PropertyName(proto_field_name)
-  type_checker = type_checkers.GetTypeChecker(field.cpp_type, field.type)
+  type_checker = type_checkers.GetTypeChecker(field)
   default_value = field.default_value
   valid_values = set()
 
@@ -440,8 +440,8 @@ def _AddPropertiesForNonRepeatedScalarField(field, cls):
   getter.__module__ = None
   getter.__doc__ = 'Getter for %s.' % proto_field_name
   def setter(self, new_value):
-    type_checker.CheckValue(new_value)
-    self._fields[field] = new_value
+
+    self._fields[field] = type_checker.CheckValue(new_value)
 
 
     if not self._cached_byte_size_dirty:
@@ -1122,9 +1122,10 @@ class _ExtensionDict(object):
 
 
     type_checker = type_checkers.GetTypeChecker(
-        extension_handle.cpp_type, extension_handle.type)
-    type_checker.CheckValue(value)
-    self._extended_message._fields[extension_handle] = value
+        extension_handle)
+
+    self._extended_message._fields[extension_handle] = (
+      type_checker.CheckValue(value))
     self._extended_message._Modified()
 
   def _FindExtensionByName(self, name):

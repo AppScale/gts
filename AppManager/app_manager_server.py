@@ -50,6 +50,13 @@ REQUIRED_CONFIG_FIELDS = ['app_name',
 # The web path to fetch to see if the application is up
 FETCH_PATH = '/_ah/health_check'
 
+# Apps which can access any application's data.
+TRUSTED_APPS = ["appscaledashboard"]
+
+# The flag to tell the application server that this application can access
+# all application data.
+TRUSTED_FLAG = "--trusted"
+
 def convert_config_from_json(config):
   """ Takes the configuration in JSON format and converts it to a dictionary.
       Validates the dictionary configuration before returning.
@@ -113,7 +120,8 @@ def start_app(config):
  
   if config['language'] == constants.PYTHON or \
         config['language'] == constants.PYTHON27 or \
-        config['language'] == constants.GO:
+        config['language'] == constants.GO or \
+        config['language'] == constants.PHP:
     start_cmd = create_python_start_cmd(config['app_name'],
                             config['load_balancer_ip'],
                             config['app_port'],
@@ -126,20 +134,6 @@ def start_app(config):
     stop_cmd = create_python_stop_cmd(config['app_port'], config['language'])
     env_vars.update(create_python_app_env(config['load_balancer_ip'],
                             config['load_balancer_port'],
-                            config['app_name']))
-  elif config['language'] == constants.PHP:
-    start_cmd = create_php_start_cmd(config['app_name'],
-                            config['load_balancer_ip'],
-                            config['app_port'],
-                            config['load_balancer_ip'],
-                            config['load_balancer_port'],
-                            config['xmpp_ip'],
-                            config['dblocations'],
-                            config['language'])
-    logging.info(start_cmd)
-    stop_cmd = create_php_stop_cmd(config['app_port'], config['language'])
-    env_vars.update(create_python_app_env(config['load_balancer_ip'],
-                            config['load_balancer_port'], 
                             config['app_name']))
   elif config['language'] == constants.JAVA:
     copy_successful = copy_modified_jars(config['app_name'])
@@ -400,7 +394,7 @@ def create_python_start_cmd(app_name,
   db_location = choose_db_location(db_locations)
   python = choose_python_executable(py_version)
   cmd = [python,
-         constants.APPSCALE_HOME + "/AppServer/dev_appserver.py",
+         constants.APPSCALE_HOME + "/AppServer/old_dev_appserver.py",
          "-p " + str(port),
          "--cookie_secret " + appscale_info.get_secret(),
          "--login_server " + login_ip,
@@ -419,55 +413,10 @@ def create_python_start_cmd(app_name,
                + "/data/app.datastore.history",
          "/var/apps/" + app_name + "/app",
          "-a " + appscale_info.get_private_ip()]
-
-  return ' '.join(cmd)
-
-def create_php_start_cmd(app_name,
-                            login_ip, 
-                            port, 
-                            load_balancer_host,
-                            load_balancer_port,
-                            xmpp_ip,
-                            db_locations,
-                            py_version):
-  """ Creates the start command to run the python application server.
-
-  Args:
-    app_name: The name of the application to run
-    login_ip: The public IP
-    port: The local port the application server will bind to
-    load_balancer_host: The host of the load balancer
-    load_balancer_port: The port of the load balancer
-    xmpp_ip: The IP of the XMPP service
-    py_version: The version of python to use
-  Returns:
-    A string of the start command.
-  """
-  db_location = choose_db_location(db_locations)
-  python = choose_python_executable(py_version)
-  cmd = [python,
-         constants.APPSCALE_HOME + "/AppServerPHP/dev_appserver.py",
-         "--port " + str(port),
-         #"--cookie_secret " + appscale_info.get_secret(),
-         #"--login_server " + login_ip,
-         #"--admin_console_server ''",
-         #"--enable_console",
-         "--skip_sdk_update_check True",
-         #"--nginx_port " + str(load_balancer_port),
-         #"--nginx_host " + str(load_balancer_host),
-         "--require_indexes",
-         "--enable_sendmail",
-         #"--xmpp_path " + xmpp_ip,
-         #"--uaserver_path " + db_location + ":"\
-         #      + str(constants.UA_SERVER_PORT),
-         #"--datastore_path " + db_location + ":"\
-         #      + str(constants.DB_SERVER_PORT),
-         #"--history_path /var/apps/" + app_name\
-         #      + "/data/app.datastore.history",
-         "--host " + appscale_info.get_private_ip(),
-         "--php_executable_path /root/php-5.4.15/installdir/bin/php-cgi",
-         "/var/apps/" + app_name + "/app"]
-  
+ 
+  if app_name in TRUSTED_APPS:
+    cmd.extend([TRUSTED_FLAG])
+ 
   return ' '.join(cmd)
 
 def copy_modified_jars(app_name):
@@ -571,30 +520,7 @@ def create_python_stop_cmd(port, py_version):
   """
   python = choose_python_executable(py_version)
   cmd = [python, 
-         constants.APPSCALE_HOME + "/AppServer/dev_appserver.py",
-         "-p " + str(port),
-         "--cookie_secret " + appscale_info.get_secret()]
-  cmd = ' '.join(cmd)
-
-  stop_cmd = "ps aux | grep '" + cmd +\
-             "' | grep -v grep | awk '{ print $2 }' | xargs -r kill -9"
-  return stop_cmd
-
-def create_php_stop_cmd(port, py_version):
-  """ this creates the stop command for an application which is
-  uniquely identified by a port number. additional portions of the
-  start command are included to prevent the termination of other
-  processes.
-
-  args:
-    port: the port which the application server is running
-    py_version: the python version the app is currently using
-  returns:
-    a string of the stop command.
-  """
-  python = choose_python_executable(py_version)
-  cmd = [python,
-         constants.APPSCALE_HOME + "/AppServerPHP/dev_appserver.py",
+         constants.APPSCALE_HOME + "/AppServer/old_dev_appserver.py",
          "-p " + str(port),
          "--cookie_secret " + appscale_info.get_secret()]
   cmd = ' '.join(cmd)
@@ -669,4 +595,3 @@ if __name__ == "__main__":
       server.serve_forever()
     except SSL.SSLError: 
       pass
- 

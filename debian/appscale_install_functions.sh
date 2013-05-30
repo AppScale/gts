@@ -558,6 +558,7 @@ postinstallgems()
 installmonitoring()
 {
     cd ${APPSCALE_HOME}/AppMonitoring
+    mkdir -p /var/lib/collectd/rrd
     RAILS_ENV=production rake gems:build:force
     RAILS_ENV=production rake db:migrate
 }
@@ -775,30 +776,6 @@ postinstallprotobuf()
     :;
 }
 
-installmysql()
-{
-    :;
-}
-
-postinstallmysql()
-{
-    # stop previous service
-    service mysql stop || true
-    service mysql-ndb stop || true
-    service mysql-ndb-mgm stop || true
-
-    # uninstall mysql services
-    update-rc.d -f mysql remove || true
-    update-rc.d -f mysql-ndb remove || true
-    update-rc.d -f mysql-ndb-mgm remove || true
-#    mkdir -p /var/lib/mysql-cluster/backup
-    mysqladmin shutdown
-
-    mkdir -p ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}
-    touch ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}/mysql
-}
-
-
 installpig()
 {
     mkdir -pv ${APPSCALE_HOME}/downloads
@@ -856,7 +833,7 @@ postinstallservice()
     update-rc.d -f memcached remove || true
     update-rc.d -f collectd remove || true
 
-    ejabberdctl stop
+    ejabberdctl stop || true
     update-rc.d -f ejabberd remove || true
 }
 
@@ -1033,6 +1010,7 @@ installrabbitmq()
    PIKA_VERSION=0.9.9p0
    mkdir -pv ${APPSCALE_HOME}/downloads
    cd ${APPSCALE_HOME}/downloads
+   rm -fr pika-master
    wget $APPSCALE_PACKAGE_MIRROR/pika-${PIKA_VERSION}.zip
    unzip pika-${PIKA_VERSION}.zip
    cd pika-master
@@ -1044,7 +1022,7 @@ installrabbitmq()
 postinstallrabbitmq()
 {
     # After install it starts up, shut it down
-    rabbitmqctl stop
+    rabbitmqctl stop || true
     update-rc.d -f rabbitmq remove || true
     update-rc.d -f rabbitmq-server remove || true
 }

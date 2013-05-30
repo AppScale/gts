@@ -61,6 +61,10 @@ class InvalidMIMETypeFormatError(Error):
   """MIME type was formatted incorrectly."""
 
 
+class InvalidMetadataError(Error):
+  """The filename or content type of the entity was not a valid UTF-8 string."""
+
+
 def GenerateBlobKey(time_func=time.time, random_func=random.random):
   """Generate a unique BlobKey.
 
@@ -179,10 +183,16 @@ class UploadCGIHandler(object):
     blob_entity = datastore.Entity('__BlobInfo__',
                                    name=str(blob_key),
                                    namespace='')
-    blob_entity['content_type'] = (
-        content_type_formatter['content-type'].decode('utf-8'))
-    blob_entity['creation'] = creation
-    blob_entity['filename'] = form_item["filename"] #.decode('utf-8')
+    try:
+      blob_entity['content_type'] = (
+          content_type_formatter['content-type'].decode('utf-8'))
+      blob_entity['creation'] = creation
+      blob_entity['filename'] = form_item["filename"] #.decode('utf-8')
+    except UnicodeDecodeError:
+      raise InvalidMetadataError(
+        'The uploaded entity contained invalid UTF-8 metadata. This may be '
+        'because the page containing the upload form was served with a '
+        'charset other than "utf-8".')
     #form_item.file.seek(0, 2)
     #size = form_item.file.tell()
     #form_item.file.seek(0)
@@ -190,7 +200,12 @@ class UploadCGIHandler(object):
     datastore.Put(blob_entity)
     return blob_entity
 
-  def _GenerateMIMEMessage(self, form, boundary=None):
+  def _GenerateMIMEMessage(self, 
+                           form, 
+                           boundary=None,
+                           max_bytes_per_blob=None,
+                           max_bytes_total=None,
+                           bucket_name=None):
     """Generate a new post from original form.
 
     Also responsible for storing blobs in the datastore.
@@ -200,12 +215,24 @@ class UploadCGIHandler(object):
         derived from original post data.
       boundary: Boundary to use for resulting form.  Used only in tests so
         that the boundary is always consistent.
+      max_bytes_per_blob: The maximum size in bytes that any single blob
+        in the form is allowed to be.
+      max_bytes_total: The maximum size in bytes that the total of all blobs
+        in the form is allowed to be.
+      bucket_name: The name of the Google Storage bucket to uplad the file.
 
     Returns:
       A MIMEMultipart instance representing the new HTTP post which should be
       forwarded to the developers actual CGI handler. DO NOT use the return
       value of this method to generate a string unless you know what you're
       doing and properly handle folding whitespace (from rfc822) properly.
+
+     Raises:
+       UploadEntityTooLargeError: The upload exceeds either the
+         max_bytes_per_blob or max_bytes_total limits.
+       FilenameOrContentTypeTooLargeError: The filename or the content_type of
+         the upload is larger than the allowed size for a string type in the
+         datastore.
     """
     message = multipart.MIMEMultipart('form-data', boundary)
     for name, value in form.headers.items():
@@ -287,7 +314,12 @@ class UploadCGIHandler(object):
 
     return message
 
-  def GenerateMIMEMessageString(self, form, boundary=None):
+  def GenerateMIMEMessageString(self, 
+                                form,
+                                boundary=None,
+                                max_bytes_per_blob=None,
+                                max_bytes_total=None,
+                                bucket_name=None):
     """Generate a new post string from original form.
 
     Args:
@@ -295,6 +327,11 @@ class UploadCGIHandler(object):
         derived from original post data.
       boundary: Boundary to use for resulting form.  Used only in tests so
         that the boundary is always consistent.
+      max_bytes_per_blob: The maximum size in bytes that any single blob
+        in the form is allowed to be.
+      max_bytes_total: The maximum size in bytes that the total of all blobs
+        in the form is allowed to be.
+      bucket_name: The name of the Google Storage bucket to uplad the file.
 
     Returns:
       A string rendering of a MIMEMultipart instance.

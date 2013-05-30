@@ -1513,7 +1513,6 @@ class Djinn
     Djinn.log_run("rm -f ~/.appscale_cookies")
     Djinn.log_run("rm -f #{APPSCALE_HOME}/.appscale/status-*")
     Djinn.log_run("rm -f #{APPSCALE_HOME}/.appscale/database_info")
-    Djinn.log_run("rm -f /tmp/mysql.sock")
 
     Nginx.clear_sites_enabled
     Collectd.clear_sites_enabled
@@ -1713,10 +1712,8 @@ class Djinn
     return slave_ips
   end
 
-  def self.get_nearest_db_ip(is_mysql=false)
+  def self.get_nearest_db_ip()
     db_ips = self.get_db_slave_ips
-    # Unless this is mysql we include the master ip
-    # Update, now mysql also has an API node
     db_ips << self.get_db_master_ip
     db_ips.compact!
     
@@ -2852,6 +2849,10 @@ class Djinn
       options = "-o StrictHostkeyChecking=no -o NumberOfPasswordPrompts=0"
       enable_root_login = "sudo cp /home/ubuntu/.ssh/authorized_keys /root/.ssh/"
       Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 ubuntu@#{ip} '#{enable_root_login}'")
+    elsif @creds["infrastructure"] == "gce"
+      options = "-o StrictHostkeyChecking=no -o NumberOfPasswordPrompts=0"
+      enable_root_login = "sudo cp /home/#{@creds['gce_user']}/.ssh/authorized_keys /root/.ssh/"
+      Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{@creds['gce_user']}@#{ip} '#{enable_root_login}'")
     end
 
     secret_key_loc = "#{CONFIG_FILE_LOCATION}/secret.key"
@@ -3448,7 +3449,7 @@ HOSTS
 
           pid = app_manager.start_app(app, @appengine_port, 
             get_load_balancer_ip(), @nginx_port, app_language, 
-            xmpp_ip, [Djinn.get_nearest_db_ip(false)],
+            xmpp_ip, [Djinn.get_nearest_db_ip()],
             HelperFunctions.get_app_env_vars(app))
 
           if pid == -1
@@ -3847,7 +3848,7 @@ HOSTS
 
     pid = app_manager.start_app(app, @appengine_port, 
             get_load_balancer_ip(), nginx_port, app_language, 
-            xmpp_ip, [Djinn.get_nearest_db_ip(false)],
+            xmpp_ip, [Djinn.get_nearest_db_ip()],
             HelperFunctions.get_app_env_vars(app))
 
     if pid == -1

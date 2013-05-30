@@ -32,7 +32,6 @@ These syntaxes result a False value being assigned for the argument:
 --boolean_flag=false  # "false" is not case sensitive.
 """
 
-import google
 import argparse
 
 
