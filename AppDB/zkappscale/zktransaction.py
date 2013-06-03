@@ -140,6 +140,7 @@ class ZKTransaction:
     if start_gc:
       self.start_gc()
 
+    self.gcthread = None
 
   def start_gc(self):
     """ Starts a new thread that cleans up failed transactions.
@@ -211,7 +212,8 @@ class ZKTransaction:
     except kazoo.exceptions.KazooException as kazoo_exception:
       logging.exception(kazoo_exception)
       clear_counter_from_cache()
-      raise ZKTransactionException("Couldn't increment path {0} with value {1}" \
+      raise ZKTransactionException(
+        "Couldn't increment path {0} with value {1}" \
         .format(path, value))
 
   def update_node(self, path, value):
@@ -455,8 +457,8 @@ class ZKTransaction:
         if txn_id == 0:
           logging.warning("Created sequence ID 0 - deleting it.")
           self.run_with_retry(self.handle.delete_async, txn_id_path)
-          txn_id_path = self.run_with_retry(self.handle.create, path, str(value),
-            ZOO_ACL_OPEN, False, True, True)
+          txn_id_path = self.run_with_retry(self.handle.create, path, 
+            str(value), ZOO_ACL_OPEN, False, True, True)
           return long(txn_id_path.split(PATH_SEPARATOR)[-1].lstrip(
             APP_TX_PREFIX))
         else:
@@ -564,7 +566,8 @@ class ZKTransaction:
         logging.debug("[is_in_transaction] {0} does not exist".format(
           tx_lock_path))
         return False
-      logging.debug("{0} does exist and is not blacklisted".format(tx_lock_path))
+      logging.debug("{0} does exist and is not blacklisted".format(
+        tx_lock_path))
       return True
     except kazoo.exceptions.KazooException as kazoo_exception:
       logging.exception(kazoo_exception)
@@ -704,7 +707,8 @@ class ZKTransaction:
 
     try:
       if self.is_in_transaction(app_id, txid):  # use current lock
-        transaction_lock_path = self.get_transaction_lock_list_path(app_id, txid)
+        transaction_lock_path = self.get_transaction_lock_list_path(
+          app_id, txid)
         prelockpath = self.run_with_retry(self.handle.get,
           transaction_lock_path)[0]
         lock_list = prelockpath.split(LOCK_LIST_SEPARATOR)
@@ -797,7 +801,8 @@ class ZKTransaction:
     except kazoo.exceptions.NoNodeError:
       try:
         if self.is_blacklisted(app_id, txid):
-          raise ZKTransactionException("Unable to release lock {0} for app id {1}"
+          raise ZKTransactionException(
+            "Unable to release lock {0} for app id {1}" \
             .format(transaction_lock_path, app_id))
         else:
           return True
@@ -819,8 +824,8 @@ class ZKTransaction:
         self.run_with_retry(self.handle.delete_async, xg_path)
 
       for child in self.run_with_retry(self.handle.get_children, txpath):
-        self.run_with_retry(self.handle.delete_async, PATH_SEPARATOR.join([txpath,
-          child]))
+        self.run_with_retry(self.handle.delete_async, PATH_SEPARATOR.join(
+          [txpath, child]))
 
       # This deletes the transaction root path.
       self.run_with_retry(self.handle.delete_async, txpath)
