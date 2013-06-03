@@ -6,36 +6,16 @@
         <div class="row-fluid">
           <div class="span12">
             <div class="page-header">
-                <h1>Requests-Per-Second for {{ app_id }}</h1>
+                <h1>App Console</h1>
             </div><!--close header-->
               <div class="row-fluid">
                 <div class="offset1 span8">
-                  <div class="flot-container">
-			            <div id="app-flot" class="flot-placeholder"></div>
-		          </div>
-                  </div>
+                  {% for appid in all_apps_this_user_owns %}
+                    <li><a class="btn btn-large" href="/apps/stats/appid={{ appid }}">{{ appid }}</a></li>
+                  {% endfor %}
+                </div>
               </div>
         </div><!--close span6 -->
         </div> <!-- end row fluid -->
     </div> <!-- end content wrapper -->
 </div> <!--end content-->
-<!-- Plots the requests per second of a given app -->
-<script>
-window.onload = function() {setInterval(function() {
-    $.ajax({
-        url: "/apps/stats/requests?appid=guestbook",
-    }).done(function(json_data) {
-        console.log(json_data);
-        var req_info = JSON.parse(json_data);
-        var thetuples = [];
-        for (var index = 0; index < req_info.length; index++) {
-          var x = req_info[index]['timestamp'] * 1000;
-          var y = req_info[index]['num_of_requests'];
-          thetuples.push([x, y]);
-        }
-        $.plot($("#app-flot"), [thetuples], { xaxis: { mode: "time", timezone: "browser", timeformat: "%m/%d %H:%M:%S"} });
-    });
-}, 20000);
-    }
-</script>
-
