@@ -481,68 +481,45 @@ class DatastoreDistributed():
                           dbconstants.PROPERTY_SCHEMA,
                           rev_row_values)
 
-  def acquire_next_id_from_db(self, prefix):
-    """ Gets the next available ID for key assignment.
-
-    Args: 
-      prefix: A table namespace prefix
-    Returns:
-      next id available
-    """  
-    res = self.datastore_batch.batch_get_entity(dbconstants.APP_ID_TABLE, 
-      [prefix], dbconstants.APP_ID_SCHEMA)
-    if dbconstants.APP_ID_SCHEMA[0] in res[prefix]:
-      return int(res[prefix][dbconstants.APP_ID_SCHEMA[0]])
-    return self._FIRST_VALID_ALLOCATED_ID
-
   def allocate_ids(self, app_id, size, max_id=None, num_retries=0):
     """ Allocates IDs from either a local cache or the datastore. 
 
     Args:
       app_id: A str representing the application identifer.
       size: Number of IDs to allocate.
-      max_id: If given increase the next IDs to be greater than this value
+      max_id: If given increase the next IDs to be greater than this value.
       num_retries: The number of retries left to get an ID.
     Returns:
-      tuple of start and end ids
+      Tuple of start and end ids.
     Raises: 
-      ValueError: if size is less than or equal to 0
+      ValueError: If size is less than or equal to 0.
+      ZKTransactionException: If we are unable to increment the ID counter.
     """
     if size and max_id:
       raise ValueError("Both size and max cannot be set.")
-    txnid = self.zookeeper.get_transaction_id(app_id)
     try:
-      self.zookeeper.acquire_lock(app_id, txnid, self._ALLOCATE_ROOT_KEY)
-      current_id = self.acquire_next_id_from_db(app_id)
-
+      prev = 0
+      current = 0
       if size:
-        next_id = current_id + size
-
-      if max_id:
-        next_id = max(current_id, max_id + 1)
-
-      cell_values = {app_id: {dbconstants.APP_ID_SCHEMA[0]: str(next_id)}} 
-
-      self.datastore_batch.batch_put_entity(dbconstants.APP_ID_TABLE, 
-                           [app_id],  
-                           dbconstants.APP_ID_SCHEMA,
-                           cell_values)
+        prev, current = self.zookeeper.increment_and_get_counter(
+          "/{0}/counter".format(app_id), size)
+      elif max_id: 
+        prev, current = self.zookeeper.increment_and_get_counter(
+          "/{0}/counter".format(app_id), 0)
+        if current < max_id:
+          prev, current = self.zookeeper.increment_and_get_counter(
+            "/{0}/counter".format(app_id), max_id - current + 1)
+          
     except ZKTransactionException, zk_exception:
-      if not self.zookeeper.notify_failed_transaction(app_id, txnid):
-        logging.error("Unable to invalidate transaction for {0} txnid: {1}"\
-          .format(app_id, txnid))
       if num_retries > 0:
+        logging.warning("Having to retry on allocate ids for {0}" \
+          .format(app_id))
         return self.allocate_ids(app_id, size, max_id=max_id, 
           num_retries=num_retries - 1)
       else:
         raise zk_exception
-    finally:
-      self.zookeeper.release_lock(app_id, txnid)
 
-    start = current_id
-    end = next_id - 1
-
-    return start, end
+    return prev + 1, current
 
   def put_entities(self, app_id, entities, txn_hash):
     """ Updates indexes of existing entities, inserts new entities and 
