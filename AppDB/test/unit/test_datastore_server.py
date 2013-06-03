@@ -37,6 +37,7 @@ class TestDatastoreServer(unittest.TestCase):
     zookeeper.should_receive("acquire_lock").and_return(True)
     zookeeper.should_receive("release_lock").and_return(True)
     zookeeper.should_receive("get_transaction_id").and_return(1)
+    zookeeper.should_receive("increment_and_get_counter").and_return(0,1000)
     return zookeeper
 
   def test_get_entity_kind(self):
@@ -134,41 +135,16 @@ class TestDatastoreServer(unittest.TestCase):
     key2 = db.model_to_protobuf(item2)
     dd.insert_index_entries([key1,key2])
 
-  def test_acquire_next_id_from_db(self):
-    PREFIX = "x"
-    db_batch = flexmock()
-    db_batch.should_receive("batch_get_entity").and_return({PREFIX:{APP_ID_SCHEMA[0]:"1"}})
-    dd = DatastoreDistributed(db_batch, self.get_zookeeper())
-    self.assertEquals(dd.acquire_next_id_from_db(PREFIX), 1)
-
-    PREFIX = "x"
-    db_batch = flexmock()
-    db_batch.should_receive("batch_get_entity").and_return({PREFIX:{}})
-    dd = DatastoreDistributed(db_batch, self.get_zookeeper())
-    self.assertEquals(dd.acquire_next_id_from_db(PREFIX), 1)
-
-    PREFIX = "x"
-    db_batch = flexmock()
-    db_batch.should_receive("batch_get_entity").and_return({PREFIX:{APP_ID_SCHEMA[0]:"2"}})
-    dd = DatastoreDistributed(db_batch, self.get_zookeeper())
-    self.assertEquals(dd.acquire_next_id_from_db(PREFIX), 2)
-
   def test_allocate_ids(self):
     PREFIX = "x"
     BATCH_SIZE = 1000
     db_batch = flexmock()
-    db_batch.should_receive("batch_get_entity").and_return({PREFIX:{APP_ID_SCHEMA[0]:"1"}})
-    db_batch.should_receive("batch_put_entity").and_return(None)
     dd = DatastoreDistributed(db_batch, self.get_zookeeper())
     self.assertEquals(dd.allocate_ids(PREFIX, BATCH_SIZE), (1, 1000))
 
-    db_batch.should_receive("batch_get_entity").and_return({PREFIX:{APP_ID_SCHEMA[0]:"1"}})
-    db_batch.should_receive("batch_put_entity").and_return(None)
     dd = DatastoreDistributed(db_batch, self.get_zookeeper())
-    self.assertEquals(dd.allocate_ids(PREFIX, None, max_id=10), (1, 10))
+    self.assertEquals(dd.allocate_ids(PREFIX, None, max_id=1000), (1, 1000))
 
-    db_batch.should_receive("batch_get_entity").and_return({PREFIX:{APP_ID_SCHEMA[0]:"1"}})
-    db_batch.should_receive("batch_put_entity").and_return(None)
     try:
       # Unable to use self.assertRaises because of the optional argrument max_id
       ed = DatastoreDistributed(db_batch, self.get_zookeeper())
