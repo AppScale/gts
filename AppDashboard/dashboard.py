@@ -767,6 +767,25 @@ class LogUploadPage(webapp2.RequestHandler):
       log_line.app_logs.append(app_log_line)
       log_line.put()
 
+
+class AppConsolePage(AppDashboard):
+
+
+  TEMPLATE = "apps/console.html"
+
+
+  def get(self):
+    is_cloud_admin = self.helper.is_user_cloud_admin()
+    apps_user_is_admin_on = self.helper.get_owned_apps()
+    if (not is_cloud_admin) and (not apps_user_is_admin_on):
+      self.redirect("/")
+
+    self.render_page(page='console', template_file=self.TEMPLATE, values = {
+      'all_apps_this_user_owns' : apps_user_is_admin_on
+    })
+
+
+
 class DatastoreStats(AppDashboard):
   """ Class that returns datastore statistics in JSON such as the number of 
   a certain entity kind and the amount of total bytes.
@@ -895,6 +914,7 @@ app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/users/verify', LoginVerify),
                                 ('/users/confirm', LoginVerify),
                                 ('/authorize', AuthorizePage),
+                                ('/apps/?', AppConsolePage),
                                 ('/apps/stats/datastore', DatastoreStats),
                                 ('/apps/stats/requests', RequestsStats), 
                                 ('/apps/new', AppUploadPage),

@@ -6,16 +6,10 @@
         <div class="row-fluid">
           <div class="span12">
             <div class="page-header">
-                <h1>Requests-Per-Second for {{ app_id }}</h1>
+                <h1>App Console for {{ app_id }}</h1>
             </div><!--close header-->
               <div class="row-fluid">
                 <div class="offset1 span8">
-                    <select name="stats_choice" ONCHANGE="location = this.options[this.selectedIndex].value;">
-                        <option>-- Select an App --</option>
-                        {% for app_name in all_apps_this_user_owns %}
-                        <option value="/apps/stats?appid={{ app_name }}">{{ app_name }}</option>
-                        {% endfor %}
-                    </select>
                   <div class="flot-container">
 			            <div id="rps_plot" class="flot-placeholder"></div>
 		          </div>
