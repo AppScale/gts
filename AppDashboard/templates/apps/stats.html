@@ -1,4 +1,4 @@
-<!-- FILE:templates/apps/new.html -->
+<!-- FILE:templates/apps/stats.html -->
 <!--Body content-->
 <div id="content" class="clearfix">
     <div class="contentwrapper"><!--Content wrapper-->
@@ -10,22 +10,31 @@
             </div><!--close header-->
               <div class="row-fluid">
                 <div class="offset1 span8">
+                    <select name="stats_choice" ONCHANGE="location = this.options[this.selectedIndex].value;">
+                        <option>-- Select an App --</option>
+                        {% for app_name in all_apps_this_user_owns %}
+                        <option value="/apps/stats?appid={{ app_name }}">{{ app_name }}</option>
+                        {% endfor %}
+                    </select>
                   <div class="flot-container">
 			            <div id="app-flot" class="flot-placeholder"></div>
 		          </div>
+                    <div style="margin-right:auto; margin-left:auto;" id="countdown">
+                    <p>Please wait <span id="timer"></span> seconds for data to populate.</p>
+                    </div>
                   </div>
               </div>
         </div><!--close span6 -->
         </div> <!-- end row fluid -->
     </div> <!-- end content wrapper -->
 </div> <!--end content-->
-<!-- Plots the requests per second of a given app -->
+
 <script>
+//Plots JSON data on a line graph
 window.onload = function() {setInterval(function() {
     $.ajax({
-        url: "/apps/stats/requests?appid=guestbook",
+        url: "/apps/stats/requests?appid={{ appid }}",
     }).done(function(json_data) {
-        console.log(json_data);
         var req_info = JSON.parse(json_data);
         var thetuples = [];
         for (var index = 0; index < req_info.length; index++) {
@@ -37,5 +46,20 @@ window.onload = function() {setInterval(function() {
     });
 }, 20000);
     }
-</script>
 
+//Sets countdown timer for data population
+var time = 21;
+window.setInterval(timer, 1000);
+
+function timer()
+{
+             time -=1;
+    $('#timer').html(time);
+
+if(time == 0)
+{
+    $('#countdown').remove();
+}
+}
+
+</script>
