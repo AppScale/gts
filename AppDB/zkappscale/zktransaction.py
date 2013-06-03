@@ -5,7 +5,6 @@ Rewritten by Navraj Chohan and Chris Bunch (raj, chris@appscale.com)
 """
 import logging
 import re
-import signal
 import threading
 import time
 import urllib
@@ -133,6 +132,8 @@ class ZKTransaction:
       logging.exception(kazoo_exception)
       self.reestablish_connection()
 
+    self.__counter_cache = {}
+
     # for gc
     self.gc_running = False
     self.gc_cv = threading.Condition()
@@ -164,6 +165,7 @@ class ZKTransaction:
         self.gc_running = False
         self.gc_cv.notifyAll()
       self.gcthread.join()
+      logging.info("GC is done")
 
   def close(self):
     """ Stops the thread that cleans up failed transactions and closes its
@@ -172,6 +174,45 @@ class ZKTransaction:
     logging.info("Closing ZK connection")
     self.stop_gc()
     self.handle.stop()
+
+  def increment_and_get_counter(self, path, value):
+    """ Increment a counter atomically.
+
+    Args:
+      path: A str of unique path to the counter.
+      value: An int of how much to increment the counter by.
+    Returns:
+      A tuple (int, int) of the previous value and the new value.
+    Raise:
+      ZKTransactionException: If it could not increment the counter.
+    """
+    def clear_counter_from_cache():
+      """ Deletes a counter from the cache due to an exception being raised.
+      """
+      if path in self.__counter_cache:
+        del self.__counter_cache[path]
+
+    try: 
+      counter = None
+      if path in self.__counter_cache:
+        counter = self.__counter_cache[path]
+      else:
+        counter = self.handle.Counter(path)
+        self.__counter_cache[path] = counter
+
+      counter.__add__(value) 
+      new_value = counter.value
+      return new_value - value, new_value
+    except kazoo.exceptions.ZookeeperError as zoo_exception:
+      logging.exception(kazoo_exception)
+      clear_counter_from_cache()
+      raise ZKTransactionException("Couldn't increment path {0} by value {1}" \
+        .format(path, value))
+    except kazoo.exceptions.KazooException as kazoo_exception:
+      logging.exception(kazoo_exception)
+      clear_counter_from_cache()
+      raise ZKTransactionException("Couldn't increment path {0} with value {1}" \
+        .format(path, value))
 
   def update_node(self, path, value):
     """ Sets the ZooKeeper node at path to value, creating the node if it
@@ -1058,6 +1099,7 @@ class ZKTransaction:
 
       with self.gc_cv:
         self.gc_cv.wait(GC_INTERVAL)
+
     logging.info("Stopping GC thread.")
 
   def try_garbage_collection(self, app_id, app_path):
