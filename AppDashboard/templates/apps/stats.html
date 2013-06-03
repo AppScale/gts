@@ -17,7 +17,10 @@
                         {% endfor %}
                     </select>
                   <div class="flot-container">
-			            <div id="app-flot" class="flot-placeholder"></div>
+			            <div id="rps_plot" class="flot-placeholder"></div>
+		          </div>
+                  <div class="flot-container">
+			            <div id="datastore_plot" class="flot-placeholder"></div>
 		          </div>
                     <div style="margin-right:auto; margin-left:auto;" id="countdown">
                     <p>Please wait <span id="timer"></span> seconds for data to populate.</p>
@@ -30,7 +33,7 @@
 </div> <!--end content-->
 
 <script>
-//Plots JSON data on a line graph
+//Plots requests-per-second JSON data on a line graph
 window.onload = function() {setInterval(function() {
     $.ajax({
         url: "/apps/stats/requests?appid={{ appid }}",
@@ -42,7 +45,33 @@ window.onload = function() {setInterval(function() {
           var y = req_info[index]['num_of_requests'];
           thetuples.push([x, y]);
         }
-        $.plot($("#app-flot"), [thetuples], { xaxis: { mode: "time", timezone: "browser", timeformat: "%m/%d %H:%M:%S"} });
+        $.plot($("#rps_plot"), [thetuples], { xaxis: { mode: "time", timezone: "browser", timeformat: "%m/%d %H:%M:%S"} });
+    });
+}, 20000);
+    }
+
+//Plots datastore kinds JSON data on a line graph
+window.onload = function() {setInterval(function() {
+    $.ajax({
+        url: "/apps/stats/datastore?appid={{ appid }}",
+    }).done(function(json_data) {
+        var req_info = JSON.parse(json_data);
+        var thetuples = [];
+        for (var index = 0; index < req_info.length; index++) {
+          var x = req_info[index]['timestamp'] * 1000;
+          var y = req_info[index]['num_of_requests'];
+          thetuples.push([x, y]);
+        }
+        $.plot($("#datastore_plot"), [thetuples], {
+        series: {
+            pie: {
+                show: true
+            }
+        },
+        legend: {
+            show: false
+        }
+});
     });
 }, 20000);
     }
