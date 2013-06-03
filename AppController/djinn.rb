@@ -2869,6 +2869,10 @@ class Djinn
       options = "-o StrictHostkeyChecking=no -o NumberOfPasswordPrompts=0"
       enable_root_login = "sudo cp /home/ubuntu/.ssh/authorized_keys /root/.ssh/"
       Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 ubuntu@#{ip} '#{enable_root_login}'")
+    elsif @creds["infrastructure"] == "gce"
+      options = "-o StrictHostkeyChecking=no -o NumberOfPasswordPrompts=0"
+      enable_root_login = "sudo cp /home/#{@creds['gce_user']}/.ssh/authorized_keys /root/.ssh/"
+      Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 #{@creds['gce_user']}@#{ip} '#{enable_root_login}'")
     end
 
     secret_key_loc = "#{CONFIG_FILE_LOCATION}/secret.key"

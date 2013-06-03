@@ -6,11 +6,14 @@ import com.google.appengine.tools.development.LocalRpcService;
 import com.google.appengine.tools.development.LocalRpcService.Status;
 import com.google.appengine.tools.development.ServiceProvider;
 import com.google.apphosting.api.logservice.LogServicePb;
+import com.google.apphosting.api.logservice.LogServicePb.LogServerVersion;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.logging.Handler;
 
@@ -30,6 +33,7 @@ import javax.xml.bind.DatatypeConverter;
 public class LocalLogService extends AbstractLocalRpcService
 {
   public static final String PACKAGE = "logservice";
+  private static final String DEFAULT_SERVER = "default";  
   private static final ThreadLocal<Long> threadLocalRsponseSize = new ThreadLocal();
 
   private final LinkedList<LogServicePb.RequestLog> logs = new LinkedList();
@@ -44,6 +48,11 @@ public class LocalLogService extends AbstractLocalRpcService
   {
     LogServicePb.LogReadResponse response = new LogServicePb.LogReadResponse();
     Integer index = Integer.valueOf(0);
+
+    Set requestedIds = null;
+    if (!request.requestIds().isEmpty()) {
+      requestedIds = new HashSet(request.requestIds());
+    }
 
     if (request.hasOffset()) {
       index = null;
@@ -74,51 +83,67 @@ public class LocalLogService extends AbstractLocalRpcService
         j++;
       }
 
-      if ((!request.hasStartTime()) || 
-        (request.getStartTime() <= thisLog.getEndTime()))
+      if ((requestedIds == null) || (requestedIds.contains(thisLog.getRequestId())))
       {
-        if ((!request.hasEndTime()) || 
-          (request.getEndTime() > thisLog.getEndTime()))
+        if ((!request.hasStartTime()) || 
+          (request.getStartTime() <= thisLog.getEndTime()))
         {
-          if ((request.isIncludeIncomplete()) || (thisLog.isFinished()))
+          if ((!request.hasEndTime()) || 
+            (request.getEndTime() > thisLog.getEndTime()))
           {
-            if ((!thisLog.hasVersionId()) || (request.versionIds().contains(thisLog.getVersionId())))
+            if ((request.isIncludeIncomplete()) || (thisLog.isFinished()))
             {
-              if (request.hasMinimumLogLevel())
+              if ((request.versionIds().size() <= 0) || (request.versionIds().contains(thisLog.getVersionId())) || (!thisLog.hasVersionId()))
               {
-                boolean logLevelMatched = false;
+                if ((request.serverVersions().size() > 0) && ((thisLog.hasServerId()) || (thisLog.hasVersionId())))
+                {
+                  boolean serverVersionMatch = false;
+                  for (LogServicePb.LogServerVersion serverVersion : request.serverVersions()) {
+                    if ((thisLog.getServerId().equals(serverVersion.getServerId())) && (thisLog.getVersionId().equals(serverVersion.getVersionId())))
+                    {
+                      serverVersionMatch = true;
+                    }
 
-                for (LogServicePb.LogLine line : thisLog.lines()) {
-                  if (line.getLevel() >= request.getMinimumLogLevel()) {
-                    logLevelMatched = true;
-                    break;
                   }
 
+                  if (!serverVersionMatch);
                 }
+                else if (request.hasMinimumLogLevel())
+                {
+                  boolean logLevelMatched = false;
 
-                if (!logLevelMatched);
-              }
-              else
-              {
-                if (request.isIncludeAppLogs()) {
-                  response.addLog(thisLog);
+                  for (LogServicePb.LogLine line : thisLog.lines()) {
+                    if (line.getLevel() >= request.getMinimumLogLevel()) {
+                      logLevelMatched = true;
+                      break;
+                    }
+
+                  }
+
+                  if (!logLevelMatched);
                 }
                 else
                 {
-                  LogServicePb.RequestLog logCopy = (LogServicePb.RequestLog)thisLog.clone();
-                  logCopy.clearLine();
-                  response.addLog(logCopy);
-                }
+                  if (request.isIncludeAppLogs()) {
+                    response.addLog(thisLog);
+                  }
+                  else
+                  {
+                    LogServicePb.RequestLog logCopy = (LogServicePb.RequestLog)thisLog.clone();
+                    logCopy.clearLine();
+                    response.addLog(logCopy);
+                  }
 
-                numResultsFetched++;
-                if (numResultsFetched >= request.getCount())
-                {
-                  if (i + 1 >= this.logs.size()) break;
-                  String nextOffset = ((LogServicePb.RequestLog)this.logs.get(i)).getRequestId();
-                  LogServicePb.LogOffset offset = new LogServicePb.LogOffset();
-                  offset.setRequestId(nextOffset);
-                  response.setOffset(offset);
-                  break;
+                  numResultsFetched++;
+                  if (numResultsFetched >= request.getCount())
+                  {
+                    if (i + 1 >= this.logs.size()) break;
+                    String nextOffset = ((LogServicePb.RequestLog)this.logs.get(i)).getRequestId();
+                    LogServicePb.LogOffset offset = new LogServicePb.LogOffset();
+                    offset.setRequestId(nextOffset);
+                    response.setOffset(offset);
+                    break;
+                  }
                 }
               }
             }
@@ -144,12 +169,20 @@ public class LocalLogService extends AbstractLocalRpcService
     threadLocalRsponseSize.remove();
   }
 
-  public synchronized void addRequestInfo(String appId, String versionId, String requestId, String ip, String nickname, long startTimeUsec, long endTimeUsec, String method, String resource, String httpVersion, String userAgent, boolean complete, Integer status, String referrer)
+  public void addRequestInfo(String appId, String versionId, String requestId, String ip, String nickname, long startTimeUsec, long endTimeUsec, String method, String resource, String httpVersion, String userAgent, boolean complete, Integer status, String referrer)
+  {
+    addRequestInfo(appId, "default", versionId, requestId, ip, nickname, startTimeUsec, endTimeUsec, method, resource, httpVersion, userAgent, complete, status, referrer);
+  }
+
+  public synchronized void addRequestInfo(String appId, String serverId, String versionId, String requestId, String ip, String nickname, long startTimeUsec, long endTimeUsec, String method, String resource, String httpVersion, String userAgent, boolean complete, Integer status, String referrer)
   {
     LogServicePb.RequestLog log = findLogInLogMapOrAddNewLog(requestId);
     log.setAppId(appId);
 
     String majorVersionId = versionId.split("\\.")[0];
+    if (serverId.equals("default")) {
+      log.setServerId(serverId);
+    }
     log.setVersionId(majorVersionId);
     log.setStartTime(startTimeUsec);
     log.setEndTime(endTimeUsec);
