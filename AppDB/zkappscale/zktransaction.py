@@ -205,7 +205,7 @@ class ZKTransaction:
       new_value = counter.value
       return new_value - value, new_value
     except kazoo.exceptions.ZookeeperError as zoo_exception:
-      logging.exception(kazoo_exception)
+      logging.exception(zoo_exception)
       clear_counter_from_cache()
       raise ZKTransactionException("Couldn't increment path {0} by value {1}" \
         .format(path, value))
