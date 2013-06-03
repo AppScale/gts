@@ -490,7 +490,7 @@ class DatastoreDistributed():
       max_id: If given increase the next IDs to be greater than this value.
       num_retries: The number of retries left to get an ID.
     Returns:
-      Tuple of start and end ids
+      Tuple of start and end ids.
     Raises: 
       ValueError: If size is less than or equal to 0.
       ZKTransactionException: If we are unable to increment the ID counter.

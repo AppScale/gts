@@ -183,7 +183,7 @@ class ZKTransaction:
       value: An int of how much to increment the counter by.
     Returns:
       A tuple (int, int) of the previous value and the new value.
-    Raise:
+    Raises:
       ZKTransactionException: If it could not increment the counter.
     """
     def clear_counter_from_cache():
