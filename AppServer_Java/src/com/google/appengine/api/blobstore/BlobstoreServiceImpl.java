@@ -1,16 +1,22 @@
 package com.google.appengine.api.blobstore;
 
+import com.google.appengine.repackaged.com.google.common.annotations.VisibleForTesting;
+
 import com.google.apphosting.api.ApiProxy;
 import com.google.apphosting.api.ApiProxy.ApplicationException;
 import com.google.apphosting.utils.servlet.MultipartMimeUtils;
 
 import java.io.IOException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import javax.mail.BodyPart;
 import javax.mail.MessagingException;
@@ -24,6 +30,8 @@ class BlobstoreServiceImpl implements BlobstoreService {
     static final String SERVE_HEADER = "X-AppEngine-BlobKey";
     static final String UPLOADED_BLOBKEY_ATTR = "com.google.appengine.api.blobstore.upload.blobkeys";
     static final String BLOB_RANGE_HEADER = "X-AppEngine-BlobRange";
+    static final String UPLOADED_BLOBINFO_ATTR = "com.google.appengine.api.blobstore.upload.blobinfos";
+    static final String CREATION_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss.SSS";
 
     public String createUploadUrl(String successPath) {
         return createUploadUrl(successPath,
@@ -143,13 +151,6 @@ class BlobstoreServiceImpl implements BlobstoreService {
     }
 
     public Map<String, List<BlobKey>> getUploads(HttpServletRequest request) {
-//        Map attributes = (Map) request
-//                .getAttribute("com.google.appengine.api.blobstore.upload.blobkeys");
-
-     //   if (attributes == null) {
-     //       throw new IllegalStateException(
-     //               "Must be called from a blob upload callback request.");
-     //   }
         Map<String, List<BlobKey>> blobKeys = new HashMap<String, List<BlobKey>>();
         MimeMultipart parts;
         try {
@@ -177,6 +178,72 @@ class BlobstoreServiceImpl implements BlobstoreService {
         return blobKeys;
     }
 
+    public Map<String, List<BlobInfo>> getBlobInfos(HttpServletRequest request)
+    {
+      Map attributes = (Map)request.getAttribute("com.google.appengine.api.blobstore.upload.blobinfos");
+
+      if (attributes == null) {
+        throw new IllegalStateException("Must be called from a blob upload callback request.");
+      }
+      Map blobInfos = new HashMap(attributes.size());
+      for (Map.Entry attr : (Set<Map.Entry>)attributes.entrySet()) {
+        List blobs = new ArrayList(((List)attr.getValue()).size());
+        for (Map info : (List<Map>)attr.getValue()) {
+          BlobKey key = new BlobKey((String)info.get("key"));
+          String contentType = (String)info.get("content-type");
+          Date creationDate = parseCreationDate((String)info.get("creation-date"));
+          String filename = (String)info.get("filename");
+          int size = Integer.parseInt((String)info.get("size"));
+          String md5Hash = (String)info.get("md5-hash");
+          blobs.add(new BlobInfo(key, contentType, creationDate, filename, size, md5Hash));
+        }
+        blobInfos.put(attr.getKey(), blobs);
+      }
+      return blobInfos;
+    }
+
+  public Map<String, List<FileInfo>> getFileInfos(HttpServletRequest request)
+  {
+    Map attributes = (Map)request.getAttribute("com.google.appengine.api.blobstore.upload.blobinfos");
+
+    if (attributes == null) {
+      throw new IllegalStateException("Must be called from a blob upload callback request.");
+    }
+    Map fileInfos = new HashMap(attributes.size());
+    for (Map.Entry attr : (Set<Map.Entry>)attributes.entrySet()) {
+      List files = new ArrayList(((List)attr.getValue()).size());
+      for (Map info : (List<Map>)attr.getValue()) {
+        String contentType = (String)info.get("content-type");
+        Date creationDate = parseCreationDate((String)info.get("creation-date"));
+        String filename = (String)info.get("filename");
+        int size = Integer.parseInt((String)info.get("size"));
+        String md5Hash = (String)info.get("md5-hash");
+        String gsObjectName = null;
+        if (info.containsKey("gs-name")) {
+          gsObjectName = (String)info.get("gs-name");
+        }
+        files.add(new FileInfo(contentType, creationDate, filename, size, md5Hash, gsObjectName));
+      }
+
+      fileInfos.put(attr.getKey(), files);
+    }
+    return fileInfos;
+  }
+
+  @VisibleForTesting
+  protected static Date parseCreationDate(String date) {
+    Date creationDate = null;
+    try {
+      date = date.trim().substring(0, "yyyy-MM-dd HH:mm:ss.SSS".length());
+      SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+      dateFormat.setLenient(false);
+      creationDate = dateFormat.parse(date);
+    } catch (IndexOutOfBoundsException e) {
+    } catch (ParseException e) {
+    }
+    return creationDate;
+  }
+
     public byte[] fetchData(BlobKey blobKey, long startIndex, long endIndex) {
         if (startIndex < 0L) {
             throw new IllegalArgumentException("Start index must be >= 0.");
@@ -190,7 +257,7 @@ class BlobstoreServiceImpl implements BlobstoreService {
         long fetchSize = endIndex - startIndex + 1L;
         if (fetchSize > 1015808L) {
             throw new IllegalArgumentException("Blob fetch size " + fetchSize
-                    + " it larger " + "than maximum size " + 1015808
+                    + " is larger " + "than maximum size " + 1015808
                     + " bytes.");
         }
         BlobstoreServicePb.FetchDataRequest request = new BlobstoreServicePb.FetchDataRequest();

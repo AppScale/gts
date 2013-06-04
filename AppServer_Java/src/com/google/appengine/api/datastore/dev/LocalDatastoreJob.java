@@ -2,8 +2,8 @@ package com.google.appengine.api.datastore.dev;
 
 
 import com.google.appengine.api.datastore.Key;
-import com.google.apphosting.api.DatastorePb;
-
+import com.google.apphosting.datastore.DatastoreV3Pb;
+import com.google.apphosting.datastore.DatastoreV3Pb.Cost;
 
 abstract class LocalDatastoreJob
 {
@@ -54,7 +54,7 @@ abstract class LocalDatastoreJob
         }
     }
 
-    final DatastorePb.Cost apply()
+    final DatastoreV3Pb.Cost apply()
     {
         if (this.applied)
         {
@@ -65,16 +65,16 @@ abstract class LocalDatastoreJob
         return applyInternal();
     }
 
-    abstract DatastorePb.Cost applyInternal();
+    abstract DatastoreV3Pb.Cost applyInternal();
 
-    abstract DatastorePb.Cost calculateJobCost();
+    abstract DatastoreV3Pb.Cost calculateJobCost();
 
     static class TryApplyResult
     {
         final boolean          applied;
-        final DatastorePb.Cost cost;
+        final DatastoreV3Pb.Cost cost;
 
-        TryApplyResult( boolean applied, DatastorePb.Cost cost )
+        TryApplyResult( boolean applied, DatastoreV3Pb.Cost cost )
         {
             this.applied = applied;
             this.cost = cost;
