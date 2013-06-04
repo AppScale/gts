@@ -46,6 +46,11 @@ window.onload = function() {
     }, 20000);
 }
 
+/**
+ * Updates the graph that tells users how many requests per second reach their
+ * application. If no data is available, then we display a message to the user
+ * instead.
+ */
 function update_request_info() {
   $.ajax({
     url: "/apps/stats/requests?appid={{ appid }}",
@@ -59,16 +64,28 @@ function update_request_info() {
       thetuples.push([x, y]);
     }
 
-    $.plot($("#requests-per-second-flot"), [thetuples], {
-      xaxis: {
-        mode: "time",
-        timezone: "browser",
-        timeformat: "%m/%d %H:%M:%S"
-      }
-    });
+    if (thetuples.length == 0) {
+      $('#requests-per-second-flot').text('No request data is currently ' +
+        'available. This data is generated once every 20 seconds, so ' +
+        'please wait and it should be updated shortly.');
+    } else {
+      $.plot($("#requests-per-second-flot"), [thetuples], {
+        xaxis: {
+          mode: "time",
+          timezone: "browser",
+          timeformat: "%m/%d %H:%M:%S"
+        }
+      });
+    }
   });
 }
 
+
+/**
+ * Updates the pie chart that tells users what Kinds their application has
+ * stored in the Datastore, as well as the percentage that each Kind is storing
+ * compared to the other Kinds.
+ */
 function update_stats_info() {
   $.ajax({
     url: "/apps/stats/datastore?appid={{ appid }}",
@@ -85,16 +102,23 @@ function update_stats_info() {
         }
       }
 
-      $.plot('#kind-flot', all_stats, {
-        series: {
-          pie: {
-            show: true
+      if (all_stats.length == 0) {
+        $('kind-flot').text('No Kind data is currently available. This data ' +
+          'is generated daily, so please check back tomorrow or manually ' +
+          'generate this information by running "cd /root/appscale/AppDB ' +
+          '&& python groomer.py" within an AppScale virtual machine.');
+      } else {
+        $.plot('#kind-flot', all_stats, {
+          series: {
+            pie: {
+              show: true
+            }
+          },
+          legend: {
+            show: false
           }
-        },
-        legend: {
-          show: false
-        }
-      });
+        });
+      }
     });
 }
 
