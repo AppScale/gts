@@ -1,0 +1,25 @@
+<!-- FILE:templates/apps/new.html -->
+<!--Body content-->
+<div id="content" class="clearfix">
+    <div class="contentwrapper"><!--Content wrapper-->
+        <!-- Build page from here: -->
+        <div class="row-fluid">
+          <div class="span12">
+            <div class="page-header">
+                <h1>App Console</h1>
+            </div><!--close header-->
+              <div class="row-fluid">
+                <div class="offset1 span8">
+                  {% if all_apps_this_user_owns %}
+                    {% for appid in all_apps_this_user_owns %}
+                      <li><a class="btn btn-large" href="/apps/stats?appid={{ appid }}">{{ appid }}</a></li>
+                    {% endfor %}
+                  {% else %}
+                      <li>No apps are currently uploaded that you are an administrator on.</li>
+                  {% endif %}
+                </div>
+              </div>
+        </div><!--close span6 -->
+        </div> <!-- end row fluid -->
+    </div> <!-- end content wrapper -->
+</div> <!--end content-->

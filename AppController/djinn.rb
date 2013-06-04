@@ -229,6 +229,19 @@ class Djinn
   attr_accessor :state_change_lock
 
 
+  # A Hash that maps the names of Google App Engine apps running in this AppScale
+  # deployment to the total number of requests that haproxy has processed.
+  attr_accessor :total_req_rate
+
+
+  # A Hash that maps the names of Google App Engine apps running in this AppScale
+  # deployment to the last time we sampled the total number of requests that
+  # haproxy has processed. When combined with total_req_rate, we can infer the
+  # average number of requests per second that come in for each App Engine
+  # application.
+  attr_accessor :last_sampling_time
+
+
   # The port that the AppController runs on by default
   SERVER_PORT = 17443
 
@@ -346,7 +359,12 @@ class Djinn
   # is specified.
   REQ_RATE_INDEX = 46
 
-  
+
+  # The position in the haproxy profiling information where the total number of
+  # requests seen for a given app is specified.
+  TOTAL_REQUEST_RATE_INDEX = 48
+
+
   # Scales up the number of AppServers used to host an application if the
   # request rate rises above this value.
   SCALEUP_REQUEST_RATE_THRESHOLD = 5
@@ -449,6 +467,8 @@ class Djinn
     @initialized_apps = {}
     @req_rate = {}
     @req_in_queue = {}
+    @total_req_rate = {}
+    @last_sampling_time = {}
   end
 
 
@@ -3591,11 +3611,14 @@ HOSTS
         next if app_name == "none"  
         initialize_scaling_info_for_app(app_name)
 
+        # Always get scaling info, as that will send this info to the
+        # AppDashboard for users to view.
+        scaling_decision = get_scaling_info_for_app(app_name)
         if is_cpu_or_mem_maxed_out?(@app_info_map[app_name]['language'])
           return
         end
 
-        case get_scaling_info_for_app(app_name)
+        case scaling_decision
         when :scale_up
           try_to_scale_up(app_name)
         when :scale_down
@@ -3617,6 +3640,8 @@ HOSTS
 
     @req_rate[app_name] = []
     @req_in_queue[app_name] = []
+    @total_req_rate[app_name] = 0
+    @last_sampling_time[app_name] = Time.now.to_i
 
     # Fill in req_rate and req_in_queue with dummy info for now
     NUM_DATA_POINTS.times { |i|
@@ -3689,6 +3714,8 @@ HOSTS
     monitor_cmd = "echo \"show info;show stat\" | " +
       "socat stdio unix-connect:/etc/haproxy/stats | grep #{app_name}"
 
+    total_requests_seen = 0
+    time_requests_were_seen = 0
     `#{monitor_cmd}`.each { |line|
       parsed_info = line.split(',')
       if parsed_info.length < REQ_RATE_INDEX  # not a line with request info
@@ -3698,14 +3725,17 @@ HOSTS
       service_name = parsed_info[SERVICE_NAME_INDEX]
       req_in_queue_present = parsed_info[REQ_IN_QUEUE_INDEX]
       req_rate_present = parsed_info[REQ_RATE_INDEX]
-      
+
       if service_name == "FRONTEND"
         autoscale_log.puts("#{service_name} Request Rate #{req_rate_present}")
         req_rate_present = parsed_info[REQ_RATE_INDEX]
         avg_req_rate += req_rate_present.to_i
         @req_rate[app_name][NUM_DATA_POINTS-1] = req_rate_present
+
+        total_requests_seen = parsed_info[TOTAL_REQUEST_RATE_INDEX].to_i
+        time_requests_were_seen = Time.now.to_i
       end
-      
+
       if service_name == "BACKEND"
         autoscale_log.puts("#{service_name} Queued Currently " +
           "#{req_in_queue_present}")
@@ -3714,9 +3744,24 @@ HOSTS
         @req_in_queue[app_name][NUM_DATA_POINTS-1] = req_in_queue_present
       end
     }
-      
-    total_req_in_queue = avg_req_in_queue
 
+    if time_requests_were_seen.zero?
+      Djinn.log_debug("Didn't see any request data")
+    else
+      Djinn.log_debug("Did see request data!")
+      requests_since_last_sampling = total_requests_seen - @total_req_rate[app_name]
+      time_since_last_sampling = time_requests_were_seen - @last_sampling_time[app_name]
+      if time_since_last_sampling.zero?
+        time_since_last_sampling = 1
+      end
+      average_request_rate = Float(requests_since_last_sampling) / Float(time_since_last_sampling)
+      send_request_info_to_dashboard(app_name, time_requests_were_seen,
+        average_request_rate)
+      @total_req_rate[app_name] = total_requests_seen
+      @last_sampling_time[app_name] = time_requests_were_seen
+    end
+
+    total_req_in_queue = avg_req_in_queue
     avg_req_rate /= NUM_DATA_POINTS
     avg_req_in_queue /= NUM_DATA_POINTS
 
@@ -3923,6 +3968,43 @@ HOSTS
     HAProxy.reload
   end 
  
+
+  # Tells the AppDashboard how many requests were served for the named
+  # application at the given time, so that it can display this info to users
+  # graphically.
+  #
+  # Args:
+  #   app_id: A String that indicates which application id we are storing
+  #     request info for.
+  #   timestamp: An Integer that indicates the epoch time when we measured the
+  #     request rate for the given application.
+  #   request_rate: An Integer that indicates how many requests were served for
+  #     the given application in the last second since we queried it.
+  # Returns:
+  #   true if the request info was successfully sent, and false otherwise.
+  def send_request_info_to_dashboard(app_id, timestamp, request_rate)
+    Djinn.log_debug("Sending a log with request rate #{app_id}, timestamp " +
+      "#{timestamp}, request rate #{request_rate}")
+    encoded_request_info = JSON.dump({
+      'timestamp' => timestamp,
+      'request_rate' => request_rate
+    })
+
+    begin
+      url = URI.parse("https://#{get_login.public_ip}/apps/json/#{app_id}")
+      http = Net::HTTP.new(url.host, url.port)
+      http.use_ssl = true
+      response = http.post(url.path, encoded_request_info,
+        {'Content-Type'=>'application/json'})
+      return true
+    rescue Exception
+      # Don't crash the AppController because we weren't able to send over
+      # the request info - just inform the caller that we couldn't send it.
+      Djinn.log_info("Couldn't send request info for app #{app_id} to #{url}")
+      return false
+    end
+  end
+
 
   def stop_appengine()
     Djinn.log_info("Shutting down AppEngine")
