@@ -39,10 +39,11 @@ public final class LocalUserService extends AbstractLocalRpcService
     {
         UserServicePb.CreateLoginURLResponse response = new UserServicePb.CreateLoginURLResponse();
         String destinationUrl = request.getDestinationUrl();
-        if(destinationUrl != null && destinationUrl.startsWith("/"));
+        if(destinationUrl != null && destinationUrl.startsWith("/"))
         {
             destinationUrl = "http://" + System.getProperty(NGINX_ADDR) + ":" + System.getProperty(NGINX_PORT) + destinationUrl;
         }
+         
         response.setLoginUrl(LOGIN_URL + "?continue=" + encode(destinationUrl));
         return response;
     }
