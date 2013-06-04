@@ -49,29 +49,9 @@ public final class LoginCookieUtils
         return cookie;
     }
 
-    /*
-     * AppScale -- replaced method body this method should not be called b/c
-     * AppDashboard handles this now Chandra says: but it is called when a
-     * login route is requested when cookie is null (so throw exception on an
-     * attemp to remove a valid cookie) If these are not the semantics we want,
-     * then replace this method so that it is correct.
-     */
     public static void removeCookie( HttpServletRequest req, HttpServletResponse resp )
     {
-        Cookie cookie = findCookie(req);
-        if (cookie != null)
-        {
-            if (true) throw new UnsupportedOperationException("Unexpected code path: removeCookie(String,boolean) in LoginCookieUtils.");
-            cookie.setPath("/");
-            cookie.setMaxAge(0);
-            resp.addCookie(cookie);
-            logger.warning("Revoking cookie by original jetty server, should be done by AppDashboard");
-            logger.warning("Cookie is: " + cookie.toString());
-        }
-        else
-        {
-            logger.info("DevAppServer/jetty server LoginCookieUtils removeCookie on null cookie (as expected)");
-        }
+               
     }
 
     public static AppScaleCookieData getCookieData( HttpServletRequest req )
@@ -81,7 +61,15 @@ public final class LoginCookieUtils
         {
             return null;
         }
-        return parseCookie(cookie);
+        AppScaleCookieData cookieData = parseCookie(cookie);
+        if(cookieData.isValid() == false || cookieData.getUserId() == null || cookieData.getEmail() == null || cookieData.getUserId().equals("") || cookieData.getEmail().equals(""))
+        {
+            return null;
+        }
+        else
+        {
+            return cookieData;
+        }
     }
 
     public static String encodeEmailAsUserId( String email )
