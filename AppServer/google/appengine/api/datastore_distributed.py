@@ -350,7 +350,9 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     datastore_stub_util.FillUsersInQuery(filters)
 
     query_response = datastore_pb.QueryResult()
-    query.set_app(self.__app_id)
+    if not query.has_app():
+      query.set_app(self.__app_id)
+    self.__ValidateAppId(query.app())
     self._RemoteSend(query, query_response, "RunQuery")
 
     skipped_results = 0

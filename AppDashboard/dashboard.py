@@ -905,7 +905,7 @@ class StatsPage(AppDashboard):
 
     request_info = RequestsStats.fetch_request_info(app_id)
     self.render_page(page='stats', template_file=self.TEMPLATE, values = {
-      'app_id' : app_id,
+      'appid' : app_id,
       'all_apps_this_user_owns' : apps_user_is_admin_on
     })
 
@@ -931,7 +931,7 @@ app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/apps/new', AppUploadPage),
                                 ('/apps/upload', AppUploadPage),
                                 ('/apps/delete', AppDeletePage),
-                                ('/apps/json', AppsAsJSONPage),
+                                ('/apps/json/(.+)', AppsAsJSONPage),
                                 ('/apps/stats', StatsPage),
                                 ('/logs', LogMainPage),
                                 ('/logs/upload', LogUploadPage),

@@ -11,7 +11,7 @@
               <div class="row-fluid">
                 <div class="offset1 span8">
                   {% for appid in all_apps_this_user_owns %}
-                    <li><a class="btn btn-large" href="/apps/stats/appid={{ appid }}">{{ appid }}</a></li>
+                    <li><a class="btn btn-large" href="/apps/stats?appid={{ appid }}">{{ appid }}</a></li>
                   {% endfor %}
                 </div>
               </div>
