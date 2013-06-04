@@ -16,9 +16,6 @@
                   <div class="flot-container">
                     <div id="requests-per-second-flot" class="flot-placeholder"></div>
 		  </div><!-- close request per sec container -->
-                  <div style="margin-right:auto; margin-left:auto;" id="countdown">
-                    <p>Please wait <span id="timer"></span> seconds for data to populate.</p>
-                  </div><!-- close marginright -->
                 </div><!-- close offset -->
               </div><!-- close row fluid-->
               <div class="row-fluid">
@@ -38,10 +35,19 @@
 
 <script>
 //Plots JSON data on a line graph
-window.onload = function() { setInterval(
-function() {
+window.onload = function() {
+  update_request_info();
+  update_stats_info();
+
+  setInterval(
+    function() {
+      update_request_info();
+      update_stats_info();
+    }, 20000);
+}
+
+function update_request_info() {
   $.ajax({
-    //url: "/apps/stats/requests?appid=guestbook",
     url: "/apps/stats/requests?appid={{ appid }}",
   }).done(
   function(json_data) {
@@ -50,32 +56,35 @@ function() {
     for (var index = 0; index < req_info.length; index++) {
       var x = req_info[index]['timestamp'] * 1000;
       var y = req_info[index]['num_of_requests'];
-      //console.log("added x,y: " + x + "," + y);
       thetuples.push([x, y]);
     }
-    $.plot($("#requests-per-second-flot"), [thetuples], { xaxis: { mode: "time", timezone: "browser", timeformat: "%m/%d %H:%M:%S"} });
-  });
 
+    $.plot($("#requests-per-second-flot"), [thetuples], {
+      xaxis: {
+        mode: "time",
+        timezone: "browser",
+        timeformat: "%m/%d %H:%M:%S"
+      }
+    });
+  });
+}
+
+function update_stats_info() {
   $.ajax({
-    //url: "/apps/stats/datastore?appid=guestbook",
     url: "/apps/stats/datastore?appid={{ appid }}",
   }).done(
     function(json_data) {
       var stats_info = JSON.parse(json_data);
-      //console.log("stats info is " + stats_info.toString());
       var most_recent_info = stats_info[stats_info.length-1];
       var all_stats = [];
       for (var entity_timestamp in most_recent_info) {
         var entity_stats = most_recent_info[entity_timestamp];
         for (var entity_name in entity_stats) {
-          //console.log(entity_name + " -> " + entity_stats[entity_name]);
           var entity_size = entity_stats[entity_name]["bytes"];
           all_stats.push({ label: entity_name, data: [[1, entity_size]] });
-          //console.log("added label, data:" + entity_name + "," + entity_size);
         }
       }
 
-      //console.log(all_stats);
       $.plot('#kind-flot', all_stats, {
         series: {
           pie: {
@@ -87,23 +96,6 @@ function() {
         }
       });
     });
-
-}, 2000);
-    }
-
-//Sets countdown timer for data population
-var time = 1;
-window.setInterval(timer, 1000);
-
-function timer()
-{
-             time -=1;
-    $('#timer').html(time);
-
-if(time == 0)
-{
-    $('#countdown').remove();
-}
 }
 
 </script>
