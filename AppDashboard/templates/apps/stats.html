@@ -69,6 +69,7 @@ function update_request_info() {
         'available. This data is generated once every 20 seconds, so ' +
         'please wait and it should be updated shortly.');
     } else {
+      $('#requests-per-second-flot').text('');
       $.plot($("#requests-per-second-flot"), [thetuples], {
         xaxis: {
           mode: "time",
@@ -103,11 +104,12 @@ function update_stats_info() {
       }
 
       if (all_stats.length == 0) {
-        $('kind-flot').text('No Kind data is currently available. This data ' +
+        $('#kind-flot').text('No Kind data is currently available. This data ' +
           'is generated daily, so please check back tomorrow or manually ' +
           'generate this information by running "cd /root/appscale/AppDB ' +
           '&& python groomer.py" within an AppScale virtual machine.');
       } else {
+        $('#kind-flot').text('');
         $.plot('#kind-flot', all_stats, {
           series: {
             pie: {
