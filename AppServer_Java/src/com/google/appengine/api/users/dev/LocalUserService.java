@@ -32,12 +32,18 @@ public final class LocalUserService extends AbstractLocalRpcService
     private String oauthUserId = "0";
     private String oauthAuthDomain = "gmail.com";
     private boolean oauthIsAdmin = false;
+    private final String NGINX_ADDR = "NGINX_ADDR";
+    private final String NGINX_PORT = "NGINX_PORT";
 
     public UserServicePb.CreateLoginURLResponse createLoginURL( LocalRpcService.Status status, UserServicePb.CreateLoginURLRequest request )
     {
         UserServicePb.CreateLoginURLResponse response = new UserServicePb.CreateLoginURLResponse();
-        response.setLoginUrl(LOGIN_URL + "?continue=" + encode(request.getDestinationUrl()));
-
+        String destinationUrl = request.getDestinationUrl();
+        if(destinationUrl != null && destinationUrl.startsWith("/"));
+        {
+            destinationUrl = "http://" + System.getProperty(NGINX_ADDR) + ":" + System.getProperty(NGINX_PORT) + destinationUrl;
+        }
+        response.setLoginUrl(LOGIN_URL + "?continue=" + encode(destinationUrl));
         return response;
     }
 
