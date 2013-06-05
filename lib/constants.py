@@ -58,7 +58,7 @@ GO = "go"
 APPS_PATH = "/var/apps/"
 
 # Locations of ZooKeeper in json format.
-ZK_LOCATIONS_JSON_FILE = "etc/appscale/zookeeper_locations.json"
+ZK_LOCATIONS_JSON_FILE = "/etc/appscale/zookeeper_locations.json"
 
 # Default location for connecting to ZooKeeper.
 ZK_DEFAULT_CONNECTION_STR = "localhost:2181"
