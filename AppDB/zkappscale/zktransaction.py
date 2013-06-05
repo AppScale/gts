@@ -140,8 +140,6 @@ class ZKTransaction:
     if start_gc:
       self.start_gc()
 
-    self.gcthread = None
-
   def start_gc(self):
     """ Starts a new thread that cleans up failed transactions.
 
