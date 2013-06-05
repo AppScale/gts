@@ -95,7 +95,7 @@ loop {
 
 # Before we try to bind, make sure that another AppController hasn't already
 # started another AppController here, and if so, kill it.
-`ps ax | grep djinn.rb | grep ruby | grep -v #{Process.pid} | awk '{print $1}' | xargs kill -9`
+`ps ax | grep djinnServer.rb | grep ruby | grep -v #{Process.pid} | awk '{print $1}' | xargs kill -9`
 
 server = DjinnServer.new(
   :BindAddress => "0.0.0.0",
