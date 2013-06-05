@@ -99,7 +99,7 @@ def CreateChannelDispatcher(channel_service_stub):
       page = path.rsplit('/', 1)[-1]
 
       if page == 'jsapi':
-        path = os.path.join(os.path.dirname(__file__), 'dev-channel-js.js')
+        path = os.path.join(os.path.dirname(__file__), 'appscale-channel-js-min.js')
         outfile.write('Status: 200\r\n')
         outfile.write('Content-type: text/javascript\r\n\r\n')
         outfile.write(open(path).read())
