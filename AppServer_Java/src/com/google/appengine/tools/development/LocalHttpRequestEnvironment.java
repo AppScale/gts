@@ -27,7 +27,6 @@ public class LocalHttpRequestEnvironment extends LocalEnvironment
 
      public LocalHttpRequestEnvironment(String appId, String serverName, String majorVersionId, int instance, HttpServletRequest request, Long deadlineMillis, ServersFilterHelper serversFilterHelper)
      {
-
         super(appId, majorVersionId, deadlineMillis);
         this.loginCookieData = LoginCookieUtils.getCookieData(request);
         String requestNamespace = request.getHeader("X-AppEngine-Default-Namespace");
@@ -55,7 +54,11 @@ public class LocalHttpRequestEnvironment extends LocalEnvironment
 
     public boolean isLoggedIn()
     {
-        return this.loginCookieData != null;
+        if(this.loginCookieData == null)
+        {   
+            return false;
+        }
+        return this.loginCookieData.isValid();
     }
 
     public String getEmail()
