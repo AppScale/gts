@@ -7,15 +7,12 @@ import os
 APPSCALE_VERSION = "1.7.0"
 
 # AppScale home directory.
-APPSCALE_HOME = os.environ.get("APPSCALE_HOME")
-
-# For unit testing.
-if not APPSCALE_HOME: APPSCALE_HOME = '/root/appscale'
+APPSCALE_HOME = os.environ.get("APPSCALE_HOME", "/root/appscale")
 
 # Location of PID files for processes and applications.
 APP_PID_DIR = '/etc/appscale/'
 
-# Location of Java Server.
+# Location of Java AppServer.
 JAVA_APPSERVER = APPSCALE_HOME + '/AppServer_Java'
 
 # The location of the file which specifies the current private IP.

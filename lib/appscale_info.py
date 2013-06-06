@@ -79,8 +79,8 @@ def get_zk_locations_string():
   """ Returns the ZooKeeper connection host string. 
 
   Returns:
-    A string of one or more host:port listing separated by commas
-    and returns None if there was an error with the file or JSON. 
+    A string containing one or more host:port listings, separated by commas. 
+    None is returned if there was a problem getting the location string.
   """
   try:
     info = file_io.read(constants.ZK_LOCATIONS_JSON_FILE) 
