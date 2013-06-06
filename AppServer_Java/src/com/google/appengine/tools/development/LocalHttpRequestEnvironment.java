@@ -1,6 +1,5 @@
 package com.google.appengine.tools.development;
 
-import java.util.*;
 import com.google.appengine.api.NamespaceManager;
 import com.google.appengine.api.users.dev.LoginCookieUtils;
 import java.util.concurrent.ConcurrentMap;
