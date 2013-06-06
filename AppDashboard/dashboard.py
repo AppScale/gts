@@ -236,17 +236,6 @@ class StatusPage(AppDashboard):
       'monitoring_url' : self.dstore.get_monitoring_url(),
     })
 
-    is_cloud_admin = self.helper.is_user_cloud_admin()
-    apps_user_is_admin_on = self.helper.get_owned_apps()
-    app_name = self.request.get("appid")
-    if (not is_cloud_admin) and (app_name not in apps_user_is_admin_on):
-      response = json.dumps({"error": True, "message": "Not authorized"})
-      self.response.out.write(response)
-      return
-
-    app_id = self.request.get("appid")
-    self.response.out.write(json.dumps(RequestsStats.fetch_request_info(app_id)))
-
 
 class StatusAsJSONPage(webapp2.RequestHandler):
   """ A class that exposes the same information as StatusPage, but via JSON
@@ -931,6 +920,7 @@ app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/apps/new', AppUploadPage),
                                 ('/apps/upload', AppUploadPage),
                                 ('/apps/delete', AppDeletePage),
+                                ('/apps/json/?', AppsAsJSONPage),
                                 ('/apps/json/(.+)', AppsAsJSONPage),
                                 ('/apps/stats', StatsPage),
                                 ('/logs', LogMainPage),
