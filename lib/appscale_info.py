@@ -3,6 +3,7 @@
 This file contains functions for getting and setting information related 
 to AppScale and the current node/machine.
 """
+import json
 import logging
 import multiprocessing
 import yaml
@@ -73,3 +74,27 @@ def get_app_path(app_id):
     A string of the full path of where the application is.
   """
   return constants.APPS_PATH + app_id + '/app/'
+
+def get_zk_locations_string():
+  """ Returns the ZooKeeper connection host string. 
+
+  Returns:
+    A string containing one or more host:port listings, separated by commas. 
+    None is returned if there was a problem getting the location string.
+  """
+  try:
+    info = file_io.read(constants.ZK_LOCATIONS_JSON_FILE) 
+    zk_json = json.loads(info) 
+    return ":2181".join(zk_json['locations']) + ":2181"
+  except IOError, io_error:
+    logging.exception(io_error)
+    return constants.ZK_DEFAULT_CONNECTION_STR
+  except ValueError, value_error:
+    logging.exception(value_error)
+    return constants.ZK_DEFAULT_CONNECTION_STR
+  except TypeError, type_error:
+    logging.exception(type_error)
+    return constants.ZK_DEFAULT_CONNECTION_STR
+  except KeyError, key_error:
+    logging.exception(key_error)
+    return constants.ZK_DEFAULT_CONNECTION_STR

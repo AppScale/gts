@@ -426,7 +426,8 @@ class DatastoreGroomer(threading.Thread):
 
 def main():
   """ This main function allows you to run the groomer manually. """
-  zookeeper = zk.ZKTransaction(host="localhost:2181")
+  zk_connection_locations = appscale_info.get_zk_locations_string()
+  zookeeper = zk.ZKTransaction(host=zk_connection_locations)
   datastore_path = "localhost:8888"
   db_info = appscale_info.get_db_info()
   table = db_info[':table']
