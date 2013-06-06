@@ -40,7 +40,8 @@ queue:
 """
  
   # The default rate for a queue if not specified in the queue.yaml. 
-  DEFAULT_RATE = "5/s"
+  # In Google App Engine it is unlimited so we use a high rate here.
+  DEFAULT_RATE = "10000/s"
   
   # The application id used for storing queue info.
   APPSCALE_QUEUES = "__appscale_queues__"
