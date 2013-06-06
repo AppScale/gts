@@ -38,6 +38,9 @@ queue:
 - name: default
   rate: 5/s
 """
+ 
+  # The default rate for a queue if not specified in the queue.yaml. 
+  DEFAULT_RATE = "5/s"
   
   # The application id used for storing queue info.
   APPSCALE_QUEUES = "__appscale_queues__"
@@ -386,7 +389,10 @@ queue:
          "', Exchange('" + self._app_id + \
          "'), routing_key='" + celery_queue_name  + "'),")
 
-      rate_limit = queue['rate']
+      rate_limit = self.DEFAULT_RATE
+      if 'rate' in queue:
+        rate_limit = queue['rate']
+
       annotation_name = \
         TaskQueueConfig.get_celery_annotation_name(self._app_id,
                                                    queue['name'])
