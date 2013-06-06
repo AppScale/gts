@@ -2034,7 +2034,7 @@ class Djinn
 
     @nodes.each { |node|
       if node.is_zookeeper?
-        zookeeper_data['locations'] << node.public_ip
+        zookeeper_data['locations'] << node.private_ip
       end
     }
 
@@ -3991,7 +3991,7 @@ HOSTS
     })
 
     begin
-      url = URI.parse("https://#{get_login.public_ip}/apps/#{app_id}")
+      url = URI.parse("https://#{get_login.public_ip}/apps/json/#{app_id}")
       http = Net::HTTP.new(url.host, url.port)
       http.use_ssl = true
       response = http.post(url.path, encoded_request_info,

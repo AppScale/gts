@@ -304,6 +304,8 @@ queue:
     Returns:
       The string representing the function name.
     """
+    # Remove '-' because that character is not valid for a function name.
+    queue_name = queue_name.replace('-', '_')
     return "queue___%s" % queue_name 
 
   @staticmethod
