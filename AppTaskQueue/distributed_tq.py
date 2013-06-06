@@ -432,7 +432,7 @@ class DistributedTaskQueue():
       task_func = getattr(task_module, 
         TaskQueueConfig.get_queue_function_name(request.queue_name()))
       return task_func
-    except AttributeError, attribute_errr:
+    except AttributeError, attribute_error:
       logging.exception(attribute_error)
       raise apiproxy_errors.ApplicationError(
               taskqueue_service_pb.TaskQueueServiceError.UNKNOWN_QUEUE)
