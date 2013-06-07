@@ -2481,6 +2481,7 @@ class MainHandler(tornado.web.RequestHandler):
     except ZKTransactionException, zkte:
       logging.info("Concurrent transaction exception for app id {0}, " \
         "info {1}".format(query.app(), str(zkte)))
+      clone_qr_pb.set_more_results(False)
       return (clone_qr_pb.Encode(), 
               datastore_pb.Error.CONCURRENT_TRANSACTION, 
               "Concurrent transaction exception on put.")
