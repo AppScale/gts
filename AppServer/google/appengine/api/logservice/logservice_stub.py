@@ -303,9 +303,12 @@ class RequestLogWriter(object):
   def write(self, method, resource, status, size, http_version):
     """Writes all request-level information to the Datastore."""
     return
-    if self.persist:
-      _run_in_namespace(self._write, method, resource, status, size,
-                        http_version)
+    # AppScale
+    # Do not persist logs for the time being until we fully implement the logs
+    # API.
+    #if self.persist:
+    #  _run_in_namespace(self._write, method, resource, status, size,
+    #                    http_version)
 
   def _write(self, method, resource, status, size, http_version):
     """Implements write if called by _run_in_namespace."""
