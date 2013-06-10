@@ -79,7 +79,11 @@ class AppLogsHandler(logging.Handler):
     except (KeyboardInterrupt, SystemExit, runtime.DeadlineExceededError):
       raise
     except:
-      self.handleError(record)
+      # AppScale
+      # We currently do not call on the base handler because it leads to 
+      # a recursive call. Instead we are just raising the exception.
+      raise Exception(str(record))
+      #self.handleError(record)
 
   def _AppLogsMessage(self, record):
     """Converts the log record into a log line."""
