@@ -299,7 +299,7 @@ class TaskHandler(webapp.RequestHandler):
 
     headers = ["%s:%s" % (k, v) for k, v in self.request.headers.items()
                if k.lower().startswith("x-appengine-")]
-    logging.log(_DEFAULT_LOG_LEVEL, ", ".join(headers))
+    #logging.log(_DEFAULT_LOG_LEVEL, ", ".join(headers))
 
     run(self.request.body)
 

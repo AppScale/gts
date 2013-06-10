@@ -292,7 +292,9 @@ class RequestLogWriter(object):
       log.finished = False
 
     log.app_logs = []
-    log.put()
+    # AppScale
+    # TODO: We need to implement the logs API.
+    #log.put()
 
   def get_time_now(self):
     """Get the current time in microseconds since epoch."""
@@ -300,6 +302,7 @@ class RequestLogWriter(object):
 
   def write(self, method, resource, status, size, http_version):
     """Writes all request-level information to the Datastore."""
+    return
     if self.persist:
       _run_in_namespace(self._write, method, resource, status, size,
                         http_version)
@@ -318,7 +321,9 @@ class RequestLogWriter(object):
       log.latency = log.end_time - (log.start_time or 0)
       log.finished = True
 
-    log.put()
+    # AppScale
+    # TODO: We need to implement the logs API.
+    #log.put()
 
 
 class LogServiceStub(apiproxy_stub.APIProxyStub):
@@ -420,7 +425,9 @@ class LogServiceStub(apiproxy_stub.APIProxyStub):
     log = _LogRecord.get_or_create()
     for app_log in new_app_logs:
       log.app_logs.append(app_log)
-    log.put()
+    # AppScale
+    # TODO: We need to implement the logs API.
+    #log.put()
 
   def _Dynamic_SetStatus(self, request, unused_response):
     """Record the recently seen status."""
