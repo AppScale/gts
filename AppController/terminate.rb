@@ -98,10 +98,9 @@ end
 `rm -rf /tmp/*started`
 `rm -rf #{APPSCALE_HOME}/appscale/`
 
-`rm -rf /var/appscale/cassandra/commitlog/*`
-`rm -rf /var/appscale/cassandra/data/system/*`
+`rm -rf /opt/appscale/cassandra/*`
 
-`rm -rf /var/appscale/zookeeper/*`
+`rm -rf /opt/appscale/zookeeper/*`
 # TODO(cgb): Use the constant in djinn.rb (ZK_LOCATIONS_FILE)
 `rm -rf /etc/appscale/zookeeper_locations.json`
 
