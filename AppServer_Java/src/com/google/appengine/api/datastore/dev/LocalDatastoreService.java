@@ -483,10 +483,8 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
     public DatastoreV3Pb.GetResponse get( LocalRpcService.Status status, DatastoreV3Pb.GetRequest request )
     {
         DatastoreV3Pb.GetResponse response = new DatastoreV3Pb.GetResponse();
-        logger.log(Level.INFO, "Get Request: " + request.toFlatString());
         proxy.doPost(request.getKey(0).getApp(), "Get", request, response);
         if (response.entitySize() == 0) response.addEntity(new GetResponse.Entity());
-        logger.log(Level.INFO, "Get Response: " + response.toFlatString());
 
         return response;
     }
