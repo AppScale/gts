@@ -96,9 +96,6 @@ class XmppService(apiproxy_stub.APIProxyStub):
       request: An XmppMessageRequest.
       response: An XmppMessageResponse .
     """
-    for jid in request.jid_list():
-      self.log('       ' + jid)
-
     appname = os.environ['APPNAME']
 
     xmpp_username = appname + "@" + self.xmpp_domain

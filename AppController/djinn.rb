@@ -2034,7 +2034,7 @@ class Djinn
 
     @nodes.each { |node|
       if node.is_zookeeper?
-        zookeeper_data['locations'] << node.public_ip
+        zookeeper_data['locations'] << node.private_ip
       end
     }
 

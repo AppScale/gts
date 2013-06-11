@@ -38,6 +38,10 @@ queue:
 - name: default
   rate: 5/s
 """
+ 
+  # The default rate for a queue if not specified in the queue.yaml. 
+  # In Google App Engine it is unlimited so we use a high rate here.
+  DEFAULT_RATE = "10000/s"
   
   # The application id used for storing queue info.
   APPSCALE_QUEUES = "__appscale_queues__"
@@ -304,6 +308,8 @@ queue:
     Returns:
       The string representing the function name.
     """
+    # Remove '-' because that character is not valid for a function name.
+    queue_name = queue_name.replace('-', '_')
     return "queue___%s" % queue_name 
 
   @staticmethod
@@ -384,7 +390,10 @@ queue:
          "', Exchange('" + self._app_id + \
          "'), routing_key='" + celery_queue_name  + "'),")
 
-      rate_limit = queue['rate']
+      rate_limit = self.DEFAULT_RATE
+      if 'rate' in queue:
+        rate_limit = queue['rate']
+
       annotation_name = \
         TaskQueueConfig.get_celery_annotation_name(self._app_id,
                                                    queue['name'])
