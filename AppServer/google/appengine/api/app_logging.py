@@ -81,8 +81,8 @@ class AppLogsHandler(logging.Handler):
     except:
       # AppScale
       # We currently do not call on the base handler because it leads to 
-      # a recursive call. Instead we are just raising the exception.
-      raise Exception(str(record))
+      # a recursive call. Currently passing.
+      pass
       #self.handleError(record)
 
   def _AppLogsMessage(self, record):
