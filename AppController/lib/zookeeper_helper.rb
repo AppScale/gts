@@ -19,6 +19,8 @@ dataDir=#{DATA_LOCATION}
 clientPort=2181
 leaderServes=yes
 maxClientsCnxns=0
+forceSync=no
+skipACL=yes
 EOF
   myid = ""
 
