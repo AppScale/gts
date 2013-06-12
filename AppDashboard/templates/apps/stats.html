@@ -53,7 +53,7 @@ window.onload = function() {
  */
 function update_request_info() {
   $.ajax({
-    url: "/apps/stats/requests?appid={{ appid }}",
+    url: "/apps/stats/requests?appid={{ appid }}"
   }).done(
   function(json_data) {
     var req_info = JSON.parse(json_data);
@@ -89,20 +89,33 @@ function update_request_info() {
  */
 function update_stats_info() {
   $.ajax({
-    url: "/apps/stats/datastore?appid={{ appid }}",
+    url: "/apps/stats/datastore?appid={{ appid }}"
   }).done(
     function(json_data) {
       var stats_info = JSON.parse(json_data);
-      var most_recent_info = stats_info[stats_info.length-1];
-      var all_stats = [];
-      for (var entity_timestamp in most_recent_info) {
-        var entity_stats = most_recent_info[entity_timestamp];
-        for (var entity_name in entity_stats) {
-          var entity_size = entity_stats[entity_name]["bytes"];
-          all_stats.push({ label: entity_name, data: [[1, entity_size]] });
-        }
+      var newest_info = stats_info[stats_info.length-1];
+      var newest_timestamp = null;
+      for (var timestamp in newest_info) {
+        newest_timestamp = timestamp;
       }
 
+      var all_stats = [];
+      for (var index=0; index < stats_info.length; index++) {
+        entity_info = stats_info[index];
+        var this_timestamp = null;
+        for (var timestamp in entity_info) {
+          this_timestamp = timestamp;
+        }
+        if (this_timestamp == newest_timestamp) {
+          var entity_stats = entity_info[this_timestamp];
+          for (var entity_name in entity_stats) {
+          var entity_size = entity_stats[entity_name]["bytes"];
+            all_stats.push({ label: entity_name + " (" + entity_size + " bytes)", data: [[1, entity_size]] });
+
+          }
+        }
+      }
+        
       if (all_stats.length == 0) {
         $('#kind-flot').text('No Kind data is currently available. This data ' +
           'is generated daily, so please check back tomorrow or manually ' +
@@ -128,7 +141,7 @@ function update_stats_info() {
             }
           },
           legend: {
-            show: false
+            show: true
           }
         });
       }
