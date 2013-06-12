@@ -863,8 +863,7 @@ class RequestsStats(AppDashboard):
       A list of dictionaries filled with timestamps and number of 
       requests per second.
     """
-    query = RequestInfo.query()
-    query.filter(RequestInfo.app_id == app_id)
+    query = RequestInfo.query(RequestInfo.app_id == app_id)
     requests = query.fetch(MAX_REQUESTS_DATA_POINTS)
     request_info = []
     for request in requests:
