@@ -3745,7 +3745,7 @@ HOSTS
       end
     }
 
-    if time_requests_were_seen.zero?
+    if time_requests_were_seen.zero? or total_requests_seen.zero?
       Djinn.log_debug("Didn't see any request data")
     else
       Djinn.log_debug("Did see request data!")
