@@ -1054,7 +1054,7 @@ class ZKTransaction:
       logging.exception(close_exception)
     except kazoo.exceptions.KazooException as kazoo_exception:
       logging.exception(kazoo_exception)
-    except Exception, exception:
+    except Exception as exception:
       logging.exception(exception)
 
     self.handle = kazoo.client.KazooClient(hosts=self.host,
