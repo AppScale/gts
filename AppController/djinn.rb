@@ -3751,6 +3751,10 @@ HOSTS
       Djinn.log_debug("Did see request data!")
       requests_since_last_sampling = total_requests_seen - @total_req_rate[app_name]
       time_since_last_sampling = time_requests_were_seen - @last_sampling_time[app_name]
+      if requests_since_last_sampling < 0
+        Djinn.log_warn("Saw a negative requests for app_id #{app_name}: #{requests_since_last_sampling}")
+        return :no_change 
+      end 
       if time_since_last_sampling.zero?
         time_since_last_sampling = 1
       end
