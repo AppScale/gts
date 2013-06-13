@@ -236,7 +236,7 @@ class ZKTransaction:
         logging.exception(kazoo_exception)
         self.reestablish_connection()
     except kazoo.exceptions.ZookeeperError as zoo_exception:
-      logging.exception(kazoo_exception)
+      logging.exception(zoo_exception)
     except kazoo.exceptions.KazooException as kazoo_exception:
       logging.exception(kazoo_exception)
       self.reestablish_connection()
@@ -668,7 +668,6 @@ class ZKTransaction:
       ZKInternalException: If we can't tell if the transaction is a XG
         transaction or not.
     """
-    # TODO(cgb): Make sure that callers handle possible ZKTransactionExceptions.
     try:
       return self.run_with_retry(self.handle.exists, self.get_xg_path(app_id,
 	      tx_id))
@@ -855,9 +854,6 @@ class ZKTransaction:
       ZKInternalException: If we couldn't determine if the transaction was
         blacklisted or not.
     """
-    # TODO(cgb): Investigate the performance impacts of not using a blacklist
-    # cache.
-    # TODO(cgb): Make sure that callers handle possible ZKInternalExceptions.
     blacklist_root = self.get_blacklist_root_path(app_id)
     try:
       if not self.run_with_retry(self.handle.exists, blacklist_root):
@@ -1058,6 +1054,8 @@ class ZKTransaction:
       logging.exception(close_exception)
     except kazoo.exceptions.KazooException as kazoo_exception:
       logging.exception(kazoo_exception)
+    except Exception as exception:
+      logging.exception(exception)
 
     self.handle = kazoo.client.KazooClient(hosts=self.host,
       max_retries=self.DEFAULT_NUM_RETRIES, timeout=self.DEFAULT_ZK_TIMEOUT)
@@ -1175,12 +1173,12 @@ class ZKTransaction:
       return False
     except kazoo.exceptions.NodeExistsError:
       return False
-    except kazoo.exceptions.ZookeeperError as zk_exception:
-      logging.exception(zk_exception)
-      self.reestablish_connection()
-      return False
     except kazoo.exceptions.SystemZookeeperError as sys_exception:
       logging.exception(sys_exception)
+      self.reestablish_connection()
+      return False
+    except kazoo.exceptions.ZookeeperError as zk_exception:
+      logging.exception(zk_exception)
       self.reestablish_connection()
       return False
     except kazoo.exceptions.KazooException as kazoo_exception:
