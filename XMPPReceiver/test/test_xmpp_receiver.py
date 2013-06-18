@@ -127,9 +127,12 @@ class TestXMPPReceiver(unittest.TestCase):
     fake_event.should_receive('getType').and_return('chat')
 
     # and mock out the urllib call
+    fake_url = flexmock(name='fake_url')
+    fake_url.should_receive('close').and_return()
+
     flexmock(urllib)
     urllib.should_receive('urlopen').with_args(
-      "http://publicip1:1234/_ah/xmpp/message/chat/", str).and_return()
+      "http://publicip1:1234/_ah/xmpp/message/chat/", str).and_return(fake_url)
 
     receiver = XMPPReceiver(self.appid, self.login_ip, self.app_port,
       self.password)
