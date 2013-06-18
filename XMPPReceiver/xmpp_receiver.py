@@ -89,7 +89,8 @@ class XMPPReceiver():
 
     xmpp_url = "http://{0}:{1}/_ah/xmpp/message/chat/".format(self.login_ip,
       self.app_port)
-    urllib.urlopen(xmpp_url, encoded_params)
+    post_result = urllib.urlopen(xmpp_url, encoded_params)
+    post_result.close()
 
 
   def xmpp_presence(self, conn, event):
