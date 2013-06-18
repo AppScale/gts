@@ -120,7 +120,7 @@ class DatastoreProxy(AppDBInterface):
       for cname in column_names:
         cols[cname] = cell_values[key][cname]
       multi_map[key] = cols
-    cf.batch_insert(multi_map)
+    cf.batch_insert(multi_map, write_consistency_level=CONSISTENCY_QUORUM)
       
   def batch_delete(self, table_name, row_keys, column_names=[]):
     """
