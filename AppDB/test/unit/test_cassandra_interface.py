@@ -32,7 +32,7 @@ class FakeColumnFamily():
   """ Fake column family class for mocking """
   def __init__(self):
     return
-  def batch_insert(self, multi_map, write_consistency_level="pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM"):
+  def batch_insert(self, multi_map, write_consistency_level=cassandra_interface.CONSISTENCY_QUORUM):
     return
   def get_range(self, start='', finish='', columns='', row_count='', 
                 read_consistency_level=''):
