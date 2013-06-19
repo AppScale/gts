@@ -3,6 +3,7 @@
 
 
 # General-purpose Python library imports
+import httplib
 import logging
 import os
 import re
@@ -10,7 +11,6 @@ import select
 import sys
 import types
 import unittest
-import urllib
 
 
 # Third party libraries
@@ -126,13 +126,16 @@ class TestXMPPReceiver(unittest.TestCase):
     fake_event.should_receive('getBody').and_return('doesnt matter')
     fake_event.should_receive('getType').and_return('chat')
 
-    # and mock out the urllib call
-    fake_url = flexmock(name='fake_url')
-    fake_url.should_receive('close').and_return()
+    # and mock out the httplib call
+    fake_http_connection = flexmock(name='fake_http_connection')
+    fake_http_connection.should_receive('request').with_args('POST',
+      '/_ah/xmpp/message/chat/', str)
+    fake_http_connection.should_receive('getresponse').and_return()
+    fake_http_connection.should_receive('close').and_return()
 
-    flexmock(urllib)
-    urllib.should_receive('urlopen').with_args(
-      "http://publicip1:1234/_ah/xmpp/message/chat/", str).and_return(fake_url)
+    flexmock(httplib)
+    httplib.should_receive('HTTPConnection').with_args('publicip1', 1234) \
+      .and_return(fake_http_connection)
 
     receiver = XMPPReceiver(self.appid, self.login_ip, self.app_port,
       self.password)
