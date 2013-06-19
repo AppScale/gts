@@ -10,6 +10,7 @@
 
 
 # General-purpose Python libraries
+import httplib
 import logging
 import os
 import re
@@ -56,7 +57,7 @@ class XMPPReceiver():
     """
     self.appid = appid
     self.login_ip = login_ip
-    self.app_port = app_port
+    self.app_port = int(app_port)
     self.app_password = app_password
 
     self.my_jid = self.appid + "@" + self.login_ip
@@ -87,10 +88,10 @@ class XMPPReceiver():
     params['body'] = event.getBody()
     encoded_params = urllib.urlencode(params)
 
-    xmpp_url = "http://{0}:{1}/_ah/xmpp/message/chat/".format(self.login_ip,
-      self.app_port)
-    post_result = urllib.urlopen(xmpp_url, encoded_params)
-    post_result.close()
+    connection = httplib.HTTPConnection(self.login_ip, self.app_port)
+    connection.request('POST', '/_ah/xmpp/message/chat/', encoded_params)
+    response = connection.getresponse()
+    connection.close()
 
 
   def xmpp_presence(self, conn, event):
