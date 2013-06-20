@@ -13,16 +13,10 @@
             {% endif %}
             </span>
 				</div><!-- End .row-fluid -->
-
-
                 <div class="row-fluid">
-
                     <div class="span6">
-
                         <div class="box chart gradient">
-
                             <div class="title">
-
                                 <h4>
                                     <span class="icon16 icomoon-icon-bars"></span>
                                     <span>AppScale API Status</span>
@@ -158,7 +152,7 @@
                                 </h4>
                               </div>
                               <div class="content noPad">
-                            <table class="responsive table table-bordered">
+                            <table class="table table-bordered">
                                 <thead>
                                   <tr>
                                     <th>IP Address</th>
@@ -171,8 +165,8 @@
                                 <tbody>
                                 {% for server in server_info %}
                                     <tr>
-                                      <td style="text-align:center;margin-top:150px;margin-bottom:auto;">
-                                          <div style="margin-top:70px;"><h3>{{server['ip'] }}</h3></div></td>
+                                      <td id="status_table">
+                                          <div id="ip_td"><h3>{{server['ip'] }}</h3></div></td>
                                       <td align="center">
                                         <div id="{{ server['key'] }}g1" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>
                                       </td>
