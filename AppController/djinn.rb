@@ -3401,6 +3401,7 @@ HOSTS
     # dummy app letting the user know there was a problem.
     if !copy_app_to_local(app)
       place_error_app(app, "ERROR: Failed to copy app: #{app}")
+      app_language = "python"
     end
 
     # Next, make sure their app has an app.yaml or appengine-web.xml in it,
@@ -3410,6 +3411,7 @@ HOSTS
     if !HelperFunctions.app_has_config_file?(app_path)
       place_error_app(app, "ERROR: No app.yaml or appengine-web.xml for app " +
         app)
+      app_language = "python"
     end
 
     HelperFunctions.setup_app(app)
