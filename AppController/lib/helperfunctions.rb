@@ -341,6 +341,26 @@ module HelperFunctions
     return self.read_file(File.expand_path(filename), chomp=true)
   end
   
+  # Examines the given tar.gz file to see if it has an App Engine configuration
+  # file in it.
+  #
+  # Args:
+  #   tar_gz_location: The location on the local filesystem where the App Engine
+  #     application to examine is located.
+  # Returns:
+  #   true if there is an app.yaml or appengine-web.xml file in the given tar.gz
+  #     file, and false otherwise.
+  def self.app_has_config_file?(tar_gz_location)
+    file_listing = HelperFunctions.shell("tar -ztf #{tar_gz_location}")
+    app_yaml_regex = /app\.yaml/
+    appengine_web_xml_regex = /(war|web)\/WEB-INF\/appengine-web\.xml/
+    if file_listing =~ app_yaml_regex or file_listing =~ appengine_web_xml_regex
+      return true
+    else
+      return false
+    end
+  end
+
   def self.setup_app(app_name, untar=true)
     meta_dir = "/var/apps/#{app_name}"
     tar_dir = "#{meta_dir}/app/"
