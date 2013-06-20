@@ -62,6 +62,9 @@ Options:
                              skipped_files (default False)
   --auth_domain              Authorization domain that this app runs in.
                              (Default gmail.com)
+  --auto_id_policy=POLICY    Dictate how automatic IDs are assigned by the
+                             datastore stub, "sequential" or "scattered".
+                             (Default sequential)
   --backends                 Run the dev_appserver with backends support
                              (multiprocess mode).
   --blobstore_path=DIR       Path to directory to use for storing Blobstore
@@ -88,6 +91,12 @@ Options:
                              model. (Default false).
   --history_path=PATH        Path to use for storing Datastore history.
                              (Default /tmp/dev_appserver.datastore.history)
+  --persist_logs             Enables storage of all request and application
+                             logs to enable later access. (Default false).
+  --logs_path=LOGS_FILE      Path to use for storing request logs. If this is
+                             set, logs will be persisted to the given path. If
+                             this is not set and --persist_logs is true, logs
+                             are stored in /tmp/dev_appserver.logs.
   --multiprocess_min_port    When running in multiprocess mode, specifies the
                              lowest port value to use when choosing ports. If
                              set to 0, select random ports.

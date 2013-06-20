@@ -342,8 +342,11 @@ def describe_field(field_definition):
   field_descriptor.number = field_definition.number
   field_descriptor.variant = field_definition.variant
 
-  if isinstance(field_definition, (messages.EnumField, messages.MessageField)):
+  if isinstance(field_definition, messages.EnumField):
     field_descriptor.type_name = field_definition.type.definition_name()
+
+  if isinstance(field_definition, messages.MessageField):
+    field_descriptor.type_name = field_definition.message_type.definition_name()
 
   if field_definition.default is not None:
     field_descriptor.default_value = _DEFAULT_TO_STRING_MAP[

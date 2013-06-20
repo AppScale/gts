@@ -1,0 +1,242 @@
+==========
+Middleware
+==========
+
+Middleware is a framework of hooks into Django's request/response processing.
+It's a light, low-level "plugin" system for globally altering Django's input
+and/or output.
+
+Each middleware component is responsible for doing some specific function. For
+example, Django includes a middleware component, ``XViewMiddleware``, that adds
+an ``"X-View"`` HTTP header to every response to a ``HEAD`` request.
+
+This document explains how middleware works, how you activate middleware, and
+how to write your own middleware. Django ships with some built-in middleware
+you can use right out of the box; they're documented in the :doc:`built-in
+middleware reference </ref/middleware>`.
+
+Activating middleware
+=====================
+
+To activate a middleware component, add it to the :setting:`MIDDLEWARE_CLASSES`
+list in your Django settings. In :setting:`MIDDLEWARE_CLASSES`, each middleware
+component is represented by a string: the full Python path to the middleware's
+class name. For example, here's the default :setting:`MIDDLEWARE_CLASSES`
+created by :djadmin:`django-admin.py startproject <startproject>`::
+
+    MIDDLEWARE_CLASSES = (
+        'django.middleware.common.CommonMiddleware',
+        'django.contrib.sessions.middleware.SessionMiddleware',
+        'django.middleware.csrf.CsrfViewMiddleware',
+        'django.contrib.auth.middleware.AuthenticationMiddleware',
+        'django.contrib.messages.middleware.MessageMiddleware',
+    )
+
+During the request phases (:meth:`process_request` and :meth:`process_view`
+middleware), Django applies middleware in the order it's defined in
+:setting:`MIDDLEWARE_CLASSES`, top-down. During the response phases
+(:meth:`process_response` and :meth:`process_exception` middleware), the
+classes are applied in reverse order, from the bottom up. You can think of it
+like an onion: each middleware class is a "layer" that wraps the view:
+
+.. image:: _images/middleware.png
+   :width: 502
+   :height: 417
+   :alt: Middleware application order.
+
+A Django installation doesn't require any middleware -- e.g.,
+:setting:`MIDDLEWARE_CLASSES` can be empty, if you'd like -- but it's strongly
+suggested that you at least use
+:class:`~django.middleware.common.CommonMiddleware`.
+
+Writing your own middleware
+===========================
+
+Writing your own middleware is easy. Each middleware component is a single
+Python class that defines one or more of the following methods:
+
+.. _request-middleware:
+
+``process_request``
+-------------------
+
+.. method:: process_request(self, request)
+
+``request`` is an :class:`~django.http.HttpRequest` object. This method is
+called on each request, before Django decides which view to execute.
+
+``process_request()`` should return either ``None`` or an
+:class:`~django.http.HttpResponse` object. If it returns ``None``, Django will
+continue processing this request, executing any other middleware and, then, the
+appropriate view. If it returns an :class:`~django.http.HttpResponse` object,
+Django won't bother calling ANY other request, view or exception middleware, or
+the appropriate view; it'll return that :class:`~django.http.HttpResponse`.
+Response middleware is always called on every response.
+
+.. _view-middleware:
+
+``process_view``
+----------------
+
+.. method:: process_view(self, request, view_func, view_args, view_kwargs)
+
+``request`` is an :class:`~django.http.HttpRequest` object. ``view_func`` is
+the Python function that Django is about to use. (It's the actual function
+object, not the name of the function as a string.) ``view_args`` is a list of
+positional arguments that will be passed to the view, and ``view_kwargs`` is a
+dictionary of keyword arguments that will be passed to the view. Neither
+``view_args`` nor ``view_kwargs`` include the first view argument
+(``request``).
+
+``process_view()`` is called just before Django calls the view. It should
+return either ``None`` or an :class:`~django.http.HttpResponse` object. If it
+returns ``None``, Django will continue processing this request, executing any
+other ``process_view()`` middleware and, then, the appropriate view. If it
+returns an :class:`~django.http.HttpResponse` object, Django won't bother
+calling ANY other request, view or exception middleware, or the appropriate
+view; it'll return that :class:`~django.http.HttpResponse`. Response
+middleware is always called on every response.
+
+.. note::
+
+    Accessing :attr:`request.POST <django.http.HttpRequest.POST>` or
+    :attr:`request.REQUEST <django.http.HttpRequest.REQUEST>` inside middleware
+    from ``process_request`` or ``process_view`` will prevent any view running
+    after the middleware from being able to :ref:`modify the upload handlers
+    for the request <modifying_upload_handlers_on_the_fly>`, and should
+    normally be avoided.
+
+    The :class:`~django.middleware.csrf.CsrfViewMiddleware` class can be
+    considered an exception, as it provides the
+    :func:`~django.views.decorators.csrf.csrf_exempt` and
+    :func:`~django.views.decorators.csrf.csrf_protect` decorators which allow
+    views to explicitly control at what point the CSRF validation should occur.
+
+.. _template-response-middleware:
+
+``process_template_response``
+-----------------------------
+
+.. method:: process_template_response(self, request, response)
+
+``request`` is an :class:`~django.http.HttpRequest` object. ``response`` is a
+subclass of :class:`~django.template.response.SimpleTemplateResponse` (e.g.
+:class:`~django.template.response.TemplateResponse`) or any response object
+that implements a ``render`` method.
+
+``process_template_response()`` must return a response object that implements a
+``render`` method. It could alter the given ``response`` by changing
+``response.template_name`` and ``response.context_data``, or it could create
+and return a brand-new
+:class:`~django.template.response.SimpleTemplateResponse` or equivalent.
+
+``process_template_response()`` will only be called if the response
+instance has a ``render()`` method, indicating that it is a
+:class:`~django.template.response.TemplateResponse` or equivalent.
+
+You don't need to explicitly render responses -- responses will be
+automatically rendered once all template response middleware has been
+called.
+
+Middleware are run in reverse order during the response phase, which
+includes process_template_response.
+
+.. _response-middleware:
+
+``process_response``
+--------------------
+
+.. method:: process_response(self, request, response)
+
+``request`` is an :class:`~django.http.HttpRequest` object. ``response`` is the
+:class:`~django.http.HttpResponse` object returned by a Django view.
+
+``process_response()`` must return an :class:`~django.http.HttpResponse`
+object. It could alter the given ``response``, or it could create and return a
+brand-new :class:`~django.http.HttpResponse`.
+
+Unlike the ``process_request()`` and ``process_view()`` methods, the
+``process_response()`` method is always called, even if the ``process_request()``
+and ``process_view()`` methods of the same middleware class were skipped because
+an earlier middleware method returned an :class:`~django.http.HttpResponse`
+(this means that your ``process_response()`` method cannot rely on setup done in
+``process_request()``, for example). In addition, during the response phase the
+classes are applied in reverse order, from the bottom up. This means classes
+defined at the end of :setting:`MIDDLEWARE_CLASSES` will be run first.
+
+.. versionchanged:: 1.5
+    ``response`` may also be an :class:`~django.http.StreamingHttpResponse`
+    object.
+
+Unlike :class:`~django.http.HttpResponse`,
+:class:`~django.http.StreamingHttpResponse` does not have a ``content``
+attribute. As a result, middleware can no longer assume that all responses
+will have a ``content`` attribute. If they need access to the content, they
+must test for streaming responses and adjust their behavior accordingly::
+
+    if response.streaming:
+        response.streaming_content = wrap_streaming_content(response.streaming_content)
+    else:
+        response.content = wrap_content(response.content)
+
+``streaming_content`` should be assumed to be too large to hold in memory.
+Middleware may wrap it in a new generator, but must not consume it.
+
+.. _exception-middleware:
+
+``process_exception``
+---------------------
+
+.. method:: process_exception(self, request, exception)
+
+``request`` is an :class:`~django.http.HttpRequest` object. ``exception`` is an
+``Exception`` object raised by the view function.
+
+Django calls ``process_exception()`` when a view raises an exception.
+``process_exception()`` should return either ``None`` or an
+:class:`~django.http.HttpResponse` object. If it returns an
+:class:`~django.http.HttpResponse` object, the response will be returned to
+the browser. Otherwise, default exception handling kicks in.
+
+Again, middleware are run in reverse order during the response phase, which
+includes ``process_exception``. If an exception middleware returns a response,
+the middleware classes above that middleware will not be called at all.
+
+``__init__``
+------------
+
+Most middleware classes won't need an initializer since middleware classes are
+essentially placeholders for the ``process_*`` methods. If you do need some
+global state you may use ``__init__`` to set up. However, keep in mind a couple
+of caveats:
+
+* Django initializes your middleware without any arguments, so you can't
+  define ``__init__`` as requiring any arguments.
+
+* Unlike the ``process_*`` methods which get called once per request,
+  ``__init__`` gets called only *once*, when the Web server responds to the
+  first request.
+
+Marking middleware as unused
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+It's sometimes useful to determine at run-time whether a piece of middleware
+should be used. In these cases, your middleware's ``__init__`` method may raise
+``django.core.exceptions.MiddlewareNotUsed``. Django will then remove that
+piece of middleware from the middleware process.
+
+Guidelines
+----------
+
+* Middleware classes don't have to subclass anything.
+
+* The middleware class can live anywhere on your Python path. All Django
+  cares about is that the :setting:`MIDDLEWARE_CLASSES` setting includes
+  the path to it.
+
+* Feel free to look at :doc:`Django's available middleware
+  </ref/middleware>` for examples.
+
+* If you write a middleware component that you think would be useful to
+  other people, contribute to the community! :doc:`Let us know
+  </internals/contributing/index>`, and we'll consider adding it to Django.

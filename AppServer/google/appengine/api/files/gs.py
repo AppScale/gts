@@ -182,7 +182,8 @@ def listdir(path, kwargs=None):
     kwargs.pop('max_keys')
 
 
-  if not os.environ.get('DATACENTER'):
+  if ('SERVER_SOFTWARE' not in os.environ or
+      os.environ['SERVER_SOFTWARE'].startswith('Development')):
     return _listdir_local(path, kwargs)
 
   bucketname = path[len(_GS_PREFIX):]

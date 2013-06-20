@@ -24,6 +24,7 @@ __author__ = ['rafek@google.com (Rafe Kaplan)',
 ]
 
 import cgi
+import datetime
 import inspect
 import os
 import re
@@ -33,11 +34,13 @@ __all__ = ['AcceptItem',
            'AcceptError',
            'Error',
            'choose_content_type',
+           'decode_datetime',
            'get_package_for_module',
            'pad_string',
            'parse_accept_header',
            'positional',
            'PROTORPC_PROJECT_URL',
+           'TimeZoneOffset',
 ]
 
 
@@ -50,6 +53,17 @@ class AcceptError(Error):
 
 
 PROTORPC_PROJECT_URL = 'http://code.google.com/p/google-protorpc'
+
+_TIME_ZONE_RE_STRING = r"""
+  # Examples:
+  #   +01:00
+  #   -05:30
+  #   Z12:00
+  ((?P<z>Z) | (?P<sign>[-+])
+   (?P<hours>\d\d) :
+   (?P<minutes>\d\d))$
+"""
+_TIME_ZONE_RE = re.compile(_TIME_ZONE_RE_STRING, re.IGNORECASE | re.VERBOSE)
 
 
 def pad_string(string):
@@ -68,10 +82,10 @@ def pad_string(string):
 
 
 def positional(max_positional_args):
-  """A decorator to declare that only the first N arguments my be positional.
+  """A decorator to declare that only the first N arguments may be positional.
 
-  This decorator makes it easy to support Python 3 style key-word only
-  parameters.  For example, in Python 3 it is possible to write:
+  This decorator makes it easy to support Python 3 style keyword-only
+  parameters. For example, in Python 3 it is possible to write:
 
     def fn(pos1, *, kwonly1=None, kwonly1=None):
       ...
@@ -115,6 +129,21 @@ def positional(max_positional_args):
         def my_method(cls, pos1, kwonly1=None):
           ...
 
+    One can omit the argument to 'positional' altogether, and then no
+    arguments with default values may be passed positionally. This
+    would be equivalent to placing a '*' before the first argument
+    with a default value in Python 3. If there are no arguments with
+    default values, and no argument is given to 'positional', an error
+    is raised.
+
+      @positional
+      def fn(arg1, arg2, required_kw1=None, required_kw2=0):
+        ...
+
+      fn(1, 3, 5)  # Raises exception.
+      fn(1, 3)  # Ok.
+      fn(1, 3, required_kw1=5)  # Ok.
+
   Args:
     max_positional_arguments: Maximum number of positional arguments.  All
       parameters after the this index must be keyword only.
@@ -124,7 +153,9 @@ def positional(max_positional_args):
     being used as positional parameters.
 
   Raises:
-    TypeError if a key-word only argument is provided as a positional parameter.
+    TypeError if a keyword-only argument is provided as a positional parameter.
+    ValueError if no maximum number of arguments is provided and the function
+      has no arguments with default values.
   """
   def positional_decorator(wrapped):
     def positional_wrapper(*args, **kwargs):
@@ -143,6 +174,10 @@ def positional(max_positional_args):
     return positional_decorator
   else:
     args, _, _, defaults = inspect.getargspec(max_positional_args)
+    if defaults is None:
+      raise ValueError(
+          'Functions with no keyword arguments must specify '
+          'max_positional_args')
     return positional(len(args) - len(defaults))(max_positional_args)
 
 
@@ -260,7 +295,7 @@ class AcceptItem(object):
 
     return ((self.__main_type is None or self.__main_type == main_type) and
             (self.__sub_type is None or self.__sub_type == sub_type))
-    
+
 
   def __cmp__(self, other):
     """Comparison operator based on sort keys."""
@@ -316,7 +351,7 @@ def choose_content_type(accept_header, supported_types):
       if accept_item.match(supported_type):
         return supported_type
   return None
-  
+
 
 @positional(1)
 def get_package_for_module(module):
@@ -356,4 +391,93 @@ def get_package_for_module(module):
           return u'.'.join(split_name[:-1])
 
     return unicode(module.__name__)
-      
+
+
+class TimeZoneOffset(datetime.tzinfo):
+  """Time zone information as encoded/decoded for DateTimeFields."""
+
+  def __init__(self, offset):
+    """Initialize a time zone offset.
+
+    Args:
+      offset: Integer or timedelta time zone offset, in minutes from UTC.  This
+        can be negative.
+    """
+    super(TimeZoneOffset, self).__init__()
+    if isinstance(offset, datetime.timedelta):
+      offset = offset.total_seconds()
+    self.__offset = offset
+
+  def utcoffset(self, dt):
+    """Get the a timedelta with the time zone's offset from UTC.
+
+    Returns:
+      The time zone offset from UTC, as a timedelta.
+    """
+    return datetime.timedelta(minutes=self.__offset)
+
+  def dst(self, dt):
+    """Get the daylight savings time offset.
+
+    The formats that ProtoRPC uses to encode/decode time zone information don't
+    contain any information about daylight savings time.  So this always
+    returns a timedelta of 0.
+
+    Returns:
+      A timedelta of 0.
+    """
+    return datetime.timedelta(0)
+
+
+def decode_datetime(encoded_datetime):
+  """Decode a DateTimeField parameter from a string to a python datetime.
+
+  Args:
+    encoded_datetime: A string in RFC 3339 format.
+
+  Returns:
+    A datetime object with the date and time specified in encoded_datetime.
+
+  Raises:
+    ValueError: If the string is not in a recognized format.
+  """
+  # Check if the string includes a time zone offset.  Break out the
+  # part that doesn't include time zone info.  Convert to uppercase
+  # because all our comparisons should be case-insensitive.
+  time_zone_match = _TIME_ZONE_RE.search(encoded_datetime)
+  if time_zone_match:
+    time_string = encoded_datetime[:time_zone_match.start(1)].upper()
+  else:
+    time_string = encoded_datetime.upper()
+
+  if '.' in time_string:
+    format_string = '%Y-%m-%dT%H:%M:%S.%f'
+  else:
+    format_string = '%Y-%m-%dT%H:%M:%S'
+
+  decoded_datetime = datetime.datetime.strptime(time_string, format_string)
+
+  if not time_zone_match:
+    return decoded_datetime
+
+  # Time zone info was included in the parameter.  Add a tzinfo
+  # object to the datetime.  Datetimes can't be changed after they're
+  # created, so we'll need to create a new one.
+  if time_zone_match.group('z'):
+    offset_minutes = 0
+  else:
+    sign = time_zone_match.group('sign')
+    hours, minutes = [int(value) for value in
+                      time_zone_match.group('hours', 'minutes')]
+    offset_minutes = hours * 60 + minutes
+    if sign == '-':
+      offset_minutes *= -1
+
+  return datetime.datetime(decoded_datetime.year,
+                           decoded_datetime.month,
+                           decoded_datetime.day,
+                           decoded_datetime.hour,
+                           decoded_datetime.minute,
+                           decoded_datetime.second,
+                           decoded_datetime.microsecond,
+                           TimeZoneOffset(offset_minutes))

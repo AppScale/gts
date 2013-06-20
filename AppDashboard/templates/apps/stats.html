@@ -1,0 +1,151 @@
+<!-- FILE:templates/apps/stats.html -->
+<!--Body content-->
+<div id="content" class="clearfix">
+    <div class="contentwrapper"><!--Content wrapper-->
+        <!-- Build page from here: -->
+        <div class="row-fluid">
+          <div class="span12">
+            <div class="page-header">
+                <h1>App Console for {{ appid }}</h1>
+            </div><!--close header-->
+              <div class="row-fluid">
+                <div style="margin-right:auto; margin-left:auto;">
+                  <p>Requests per second:</p>
+                </div><!-- close marginright -->
+                <div class="offset1 span8">
+                  <div class="flot-container">
+                    <div id="requests-per-second-flot" class="flot-placeholder"></div>
+		  </div><!-- close request per sec container -->
+                </div><!-- close offset -->
+              </div><!-- close row fluid-->
+              <div class="row-fluid">
+                <div style="margin-right:auto; margin-left:auto;">
+                  <p>Kind statistics:</p>
+                </div><!-- close marginright -->
+                <div class="offset1 span8">
+                  <div class="flot-container">
+                    <div id="kind-flot" class="flot-placeholder"></div>
+		  </div><!-- close kind container-->
+                </div><!-- close offset -->
+              </div><!-- close row fluid-->
+        </div><!--close span6 -->
+        </div> <!-- end row fluid -->
+    </div> <!-- end content wrapper -->
+</div> <!--end content-->
+
+<script>
+//Plots JSON data on a line graph
+window.onload = function() {
+  update_request_info();
+  update_stats_info();
+
+  setInterval(
+    function() {
+      update_request_info();
+      update_stats_info();
+    }, 20000);
+}
+
+/**
+ * Updates the graph that tells users how many requests per second reach their
+ * application. If no data is available, then we display a message to the user
+ * instead.
+ */
+function update_request_info() {
+  $.ajax({
+    url: "/apps/stats/requests?appid={{ appid }}"
+  }).done(
+  function(json_data) {
+    var req_info = JSON.parse(json_data);
+    var thetuples = [];
+    for (var index = 0; index < req_info.length; index++) {
+      var x = req_info[index]['timestamp'] * 1000;
+      var y = req_info[index]['num_of_requests'];
+      thetuples.push([x, y]);
+    }
+
+    if (thetuples.length == 0) {
+      $('#requests-per-second-flot').text('No request data is currently ' +
+        'available. This data is generated once every 20 seconds, so ' +
+        'please wait and it should be updated shortly.');
+    } else {
+      $('#requests-per-second-flot').text('');
+      $.plot($("#requests-per-second-flot"), [thetuples], {
+        xaxis: {
+          mode: "time",
+          timezone: "browser",
+          timeformat: "%m/%d %H:%M"
+        }
+      });
+    }
+  });
+}
+
+
+/**
+ * Updates the pie chart that tells users what Kinds their application has
+ * stored in the Datastore, as well as the percentage that each Kind is storing
+ * compared to the other Kinds.
+ */
+function update_stats_info() {
+  $.ajax({
+    url: "/apps/stats/datastore?appid={{ appid }}"
+  }).done(
+    function(json_data) {
+      var stats_info = JSON.parse(json_data);
+      var newest_info = stats_info[stats_info.length-1];
+      var newest_timestamp = null;
+      for (var timestamp in newest_info) {
+        newest_timestamp = timestamp;
+      }
+
+      var all_stats = [];
+      for (var index=0; index < stats_info.length; index++) {
+        entity_info = stats_info[index];
+        var this_timestamp = null;
+        for (var timestamp in entity_info) {
+          this_timestamp = timestamp;
+        }
+        if (this_timestamp == newest_timestamp) {
+          var entity_stats = entity_info[this_timestamp];
+          for (var entity_name in entity_stats) {
+          var entity_size = entity_stats[entity_name]["bytes"];
+            all_stats.push({ label: entity_name + " (" + entity_size + " bytes)", data: [[1, entity_size]] });
+
+          }
+        }
+      }
+
+      if (all_stats.length == 0) {
+        $('#kind-flot').text('No Kind data is currently available. This data ' +
+          'is generated daily, so please check back tomorrow or manually ' +
+          'generate this information by running "cd /root/appscale/AppDB ' +
+          '&& python groomer.py" within an AppScale virtual machine.');
+      } else {
+        $('#kind-flot').text('');
+        $.plot('#kind-flot', all_stats, {
+          series: {
+            pie: {
+              show: true,
+              label: {
+                    show: true,
+                    radius: 3/4,
+                    formatter: function(label, series){
+                        return '<div style="font-size:8pt;text-align:center;padding:2px;color:white;">'+label+'<br/>'+Math.round(series.percent)+'%</div>';
+                    },
+                    background: {
+                        opacity: 0.5,
+                        color: '#000'
+                    }
+                }
+            }
+          },
+          legend: {
+            show: true
+          }
+        });
+      }
+    });
+}
+
+</script>

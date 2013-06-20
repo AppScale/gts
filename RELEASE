@@ -4,7 +4,41 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
-The current release is 1.7.0, released on May 13, 2013.
+The current release is 1.8.0, released on June 17, 2013.
+
+Bugs fixed in this release:
+- Google Compute Engine support
+- Upgrade Python App Server to support 1.8.0 APIs
+- Upgrade Java App Server to 1.8.0
+- Improved performance of ZooKeeper within AppScale
+- Displaying Kind stats for each app in Dashboard
+- Displaying requests per second for each app in Dashboard
+- Remove MySQL from AppScale images
+- AppScale Tools now writes an informative crash log if an uncaught exception is thrown
+- Fixed Channel API on 1.8.0 Python App Server
+- Apps should be able to specify queues without a rate specified.
+- Use private IPs when storing ZooKeeper locations
+- Fix install script so that 2nd install attempt will pass
+- Pushing tasks to queues that don't exist no longer kill the Task Queue Server
+- Enabling users to specify queue names with dashes in them
+- Java App Server properly checks if user cookies are valid before telling user they are / are not logged in
+- Task queue tasks can be run as admin in Java App Server
+- Fixed regression where app list refresh was broken, and JSON was being printed to status page
+- Added clarification on how to use force flag in AppScalefile
+- Fixed broken continue URLs in Java App Server
+- Better exception handling for ZooKeeper client in AppDB
+- Moved ZooKeeper data to /opt/appscale/zookeeper
+- Moved Cassandra data to /opt/appscale/cassandra
+- Fixed regression where groomer was broken
+- Left aligning logs in Dashboard
+- Properly rendering Dashboard icons
+- AppController now starts successfully even if other failed AppController processes are present
+- Dashboard now handles compressed file uploads with single directory better
+- Removed datastore_writes from API Checker and Dashboard
+- Updated cloud AppScalefile template to tell users how to use it with GCE
+- Printing crash log info more intelligently
+
+AppScale version 1.7.0 was released on May 13, 2013.
 
 Bugs fixed in this release:
 - System-level logging for admin user

@@ -84,6 +84,11 @@ class XmppService(apiproxy_stub.APIProxyStub):
       pass
     response.set_is_available(user_is_online)
 
+  def _Dynamic_BulkGetPresence(self, request, response):
+    # TODO Implement this and update the __init__.py file to use it as 
+    # the newer SDK does.
+    pass
+
   def _Dynamic_SendMessage(self, request, response):
     """Implementation of XmppService::SendMessage.
 
@@ -91,9 +96,6 @@ class XmppService(apiproxy_stub.APIProxyStub):
       request: An XmppMessageRequest.
       response: An XmppMessageResponse .
     """
-    for jid in request.jid_list():
-      self.log('       ' + jid)
-
     appname = os.environ['APPNAME']
 
     xmpp_username = appname + "@" + self.xmpp_domain

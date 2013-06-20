@@ -37,13 +37,7 @@ import codecs
 import logging
 import re
 
-
-
-try:
-  from xml.etree import ElementTree
-except ImportError:
-  import google
-  import cElementTree as ElementTree
+from xml.etree import cElementTree as ElementTree
 from xml.sax import saxutils
 
 from google.appengine.ext.bulkload import bulkloader_errors
@@ -225,4 +219,3 @@ class SimpleXmlConnector(connector_interface.ConnectorInterface):
       self.output_stream.write('%s</%s>\n' % (' ' * self.depth, node))
     self.output_stream.close()
     self.output_stream = None
-

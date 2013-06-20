@@ -61,6 +61,22 @@ class ServerStatus(ndb.Model):
   roles = ndb.StringProperty(repeated=True)
 
 
+class RequestInfo(ndb.Model):
+  """ A Datastore Model that stores a single measurement of the average number
+  of requests per second that reach a Google App Engine application.
+
+  Fields:
+    app_id: A string, the application identifier.
+    timestamp: The date and time when the AppController took the measurement
+      of how many requests access haproxy for an App Engine app.
+    num_of_requests: The average number of requests per second that reached
+      haproxy for a Google App Engine application.
+  """
+  app_id = ndb.StringProperty(required=True)
+  timestamp = ndb.DateTimeProperty()
+  num_of_requests = ndb.FloatProperty()
+
+
 class AppStatus(ndb.Model):
   """ A Datastore Model that contains information about where an application
   hosted in AppScale can be located, to display to users.

@@ -10,6 +10,7 @@
 
 
 # General-purpose Python libraries
+import httplib
 import logging
 import os
 import re
@@ -38,6 +39,12 @@ class XMPPReceiver():
   """
 
 
+  # The headers necessary for posting XMPP messages to App Engine apps.
+  HEADERS = {
+    'Content-Type' : 'application/x-www-form-urlencoded'
+  }
+
+
   def __init__(self, appid, login_ip, app_port, app_password):
     """Creates a new XMPPReceiver, which will listen for XMPP messages for
     an App Engine app.
@@ -56,7 +63,7 @@ class XMPPReceiver():
     """
     self.appid = appid
     self.login_ip = login_ip
-    self.app_port = app_port
+    self.app_port = int(app_port)
     self.app_password = app_password
 
     self.my_jid = self.appid + "@" + self.login_ip
@@ -87,9 +94,16 @@ class XMPPReceiver():
     params['body'] = event.getBody()
     encoded_params = urllib.urlencode(params)
 
-    xmpp_url = "http://{0}:{1}/_ah/xmpp/message/chat/".format(self.login_ip,
-      self.app_port)
-    urllib.urlopen(xmpp_url, encoded_params)
+    try:
+      connection = httplib.HTTPConnection(self.login_ip, self.app_port)
+      connection.request('POST', '/_ah/xmpp/message/chat/', encoded_params,
+        self.HEADERS)
+      response = connection.getresponse()
+      logging.info("POST XMPP message returned status of {0}".format(
+        response.status))
+      connection.close()
+    except Exception as e:
+      logging.exception(e)
 
 
   def xmpp_presence(self, conn, event):
@@ -148,12 +162,18 @@ class XMPPReceiver():
     while messages_processed != messages_to_listen_for:
       (input_data, _, __) = select.select(socketlist.keys(), [], [], 1)
       for _ in input_data:
-        client.Process(1)
-        messages_processed += 1
+        try:
+          client.Process(1)
+          messages_processed += 1
+        except xmpp.protocol.Conflict:
+          logging.info("Lost connection after processing {0} messages" \
+            .format(messages_processed))
+          return messages_processed
 
     return messages_processed
 
 
 if __name__ == "__main__":
   RECEIVER = XMPPReceiver(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
-  RECEIVER.listen_for_messages()
+  while True:
+    RECEIVER.listen_for_messages()

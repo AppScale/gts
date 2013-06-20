@@ -641,11 +641,7 @@ class Property(object):
         raise BadValueError('Property %s is required' % self.name)
     else:
       if self.choices:
-        match = False
-        for choice in self.choices:
-          if choice == value:
-            match = True
-        if not match:
+        if value not in self.choices:
           raise BadValueError('Property %s is %r; must be one of %r' %
                               (self.name, value, self.choices))
     if self.validator is not None:
@@ -2039,6 +2035,22 @@ class _BaseQuery(object):
     """
     raise NotImplementedError
 
+  def is_distinct(self):
+    """Returns true if the projection query should be distinct.
+
+    This is equivalent to the SQL syntax: SELECT DISTINCT. It is only available
+    for projection queries, it is not valid to specify distinct without also
+    specifying projection properties.
+
+    Distinct projection queries on entities with multi-valued properties will
+    return the same entity multiple times, once for each unique combination of
+    properties included in the projection.
+
+    Returns:
+      True if this projection query is distinct.
+    """
+    raise NotImplementedError
+
   def _get_query(self):
     """Subclass must override (and not call their super method).
 
@@ -2393,13 +2405,14 @@ class Query(_BaseQuery):
 
 
   _keys_only = False
+  _distinct = False
   _projection = None
   _namespace = None
   _app = None
   __ancestor = None
 
   def __init__(self, model_class=None, keys_only=False, cursor=None,
-               namespace=None, _app=None, projection=None):
+               namespace=None, _app=None, distinct=False, projection=None):
     """Constructs a query over instances of the given Model.
 
     Args:
@@ -2409,6 +2422,8 @@ class Query(_BaseQuery):
         in the projection this query should produce or None. Setting a
         projection is similar to specifying 'SELECT prop1, prop2, ...' in SQL.
         See _BaseQuery.projection for details on projection queries.
+      distinct: A boolean, true if the projection should be distinct.
+        See _BaseQuery.is_distinct for details on distinct queries.
       cursor: A compiled query from which to resume.
       namespace: The namespace to use for this query.
     """
@@ -2422,6 +2437,8 @@ class Query(_BaseQuery):
       self._namespace = namespace
     if _app is not None:
       self._app = _app
+    if distinct:
+      self._distinct = True
 
     self.__query_sets = [{}]
     self.__orderings = []
@@ -2432,6 +2449,9 @@ class Query(_BaseQuery):
 
   def projection(self):
     return self._projection
+
+  def is_distinct(self):
+    return self._distinct
 
   def _get_query(self,
                  _query_class=datastore.Query,
@@ -2452,6 +2472,7 @@ class Query(_BaseQuery):
                            query_set,
                            keys_only=self._keys_only,
                            projection=self._projection,
+                           distinct=self._distinct,
                            compile=True,
                            cursor=self._cursor,
                            end_cursor=self._end_cursor,
@@ -2697,6 +2718,9 @@ class GqlQuery(_BaseQuery):
 
   def projection(self):
     return self._proto_query.projection()
+
+  def is_distinct(self):
+    return self._proto_query.is_distinct()
 
   def bind(self, *args, **kwds):
     """Bind arguments (positional or keyword) to the query.
@@ -2986,8 +3010,8 @@ class DateTimeProperty(Property):
     """
     value = super(DateTimeProperty, self).validate(value)
     if value and not isinstance(value, self.data_type):
-      raise BadValueError('Property %s must be a %s' %
-                          (self.name, self.data_type.__name__))
+      raise BadValueError('Property %s must be a %s, but was %r' %
+                          (self.name, self.data_type.__name__, value))
     return value
 
   def default_value(self):
