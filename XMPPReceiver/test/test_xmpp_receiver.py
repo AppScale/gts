@@ -127,10 +127,12 @@ class TestXMPPReceiver(unittest.TestCase):
     fake_event.should_receive('getType').and_return('chat')
 
     # and mock out the httplib call
+    fake_response = flexmock(name='fake_response', status=200)
+
     fake_http_connection = flexmock(name='fake_http_connection')
     fake_http_connection.should_receive('request').with_args('POST',
-      '/_ah/xmpp/message/chat/', str)
-    fake_http_connection.should_receive('getresponse').and_return()
+      '/_ah/xmpp/message/chat/', str, XMPPReceiver.HEADERS)
+    fake_http_connection.should_receive('getresponse').and_return(fake_response)
     fake_http_connection.should_receive('close').and_return()
 
     flexmock(httplib)

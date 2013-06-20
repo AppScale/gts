@@ -39,6 +39,12 @@ class XMPPReceiver():
   """
 
 
+  # The headers necessary for posting XMPP messages to App Engine apps.
+  HEADERS = {
+    'Content-Type' : 'application/x-www-form-urlencoded'
+  }
+
+
   def __init__(self, appid, login_ip, app_port, app_password):
     """Creates a new XMPPReceiver, which will listen for XMPP messages for
     an App Engine app.
@@ -88,10 +94,16 @@ class XMPPReceiver():
     params['body'] = event.getBody()
     encoded_params = urllib.urlencode(params)
 
-    connection = httplib.HTTPConnection(self.login_ip, self.app_port)
-    connection.request('POST', '/_ah/xmpp/message/chat/', encoded_params)
-    response = connection.getresponse()
-    connection.close()
+    try:
+      connection = httplib.HTTPConnection(self.login_ip, self.app_port)
+      connection.request('POST', '/_ah/xmpp/message/chat/', encoded_params,
+        self.HEADERS)
+      response = connection.getresponse()
+      logging.info("POST XMPP message returned status of {0}".format(
+        response.status))
+      connection.close()
+    except Exception as e:
+      logging.exception(e)
 
 
   def xmpp_presence(self, conn, event):
