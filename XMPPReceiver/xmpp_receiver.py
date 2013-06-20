@@ -162,12 +162,18 @@ class XMPPReceiver():
     while messages_processed != messages_to_listen_for:
       (input_data, _, __) = select.select(socketlist.keys(), [], [], 1)
       for _ in input_data:
-        client.Process(1)
-        messages_processed += 1
+        try:
+          client.Process(1)
+          messages_processed += 1
+        except xmpp.protocol.Conflict:
+          logging.info("Lost connection after processing {0} messages" \
+            .format(messages_processed))
+          return messages_processed
 
     return messages_processed
 
 
 if __name__ == "__main__":
   RECEIVER = XMPPReceiver(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
-  RECEIVER.listen_for_messages()
+  while True:
+    RECEIVER.listen_for_messages()
