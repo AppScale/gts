@@ -115,7 +115,7 @@ queue:
       an empty string if it could not be found.
     """
     queue_yaml = appscale_info.get_app_path(app_id) + 'queue.yaml'
-    queue_xml = appscale_info.get_app_path(app_id) + '/war/queue.xml' 
+    queue_xml = appscale_info.get_app_path(app_id) + '/war/WEB-INF/queue.xml'
     if file_io.exists(queue_yaml):
       return queue_yaml
     elif file_io.exists(queue_xml):
