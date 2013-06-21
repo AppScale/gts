@@ -5,6 +5,7 @@
 """
 
 import json
+import logging
 import os
 import re
 import sys 
@@ -97,6 +98,7 @@ queue:
       broker: The broker to use.
       app_id: Application id.
     """
+    file_io.set_logging_format()
     self._broker = broker
     self._broker_location = self.__broker_location(broker)
     self._app_id = app_id
@@ -135,11 +137,15 @@ queue:
       ValueError: If queue_file is unable to get loaded.
     """
     queue_file = self.get_queue_file_location(app_id)
+    logging.info("Looking for a queue file at {0}".format(queue_file))
     info = ""
     using_default = False
     try:
       info = file_io.read(queue_file)
+      logging.info("Found queue file for app {0}".format(app_id))
     except IOError:
+      logging.info("No queue file found for app {0}, using default queue" \
+        .format(app_id))
       info = self.DEFAULT_QUEUE_YAML
       using_default = True
     queue_info = ""
@@ -197,6 +203,8 @@ queue:
           single_queue[str(tag)] = str(value).strip('\n ')
 
       converted['queue'].append(single_queue)
+
+    logging.debug("XML queue info is {0}".format(converted))
     return converted
 
   def get_file_queue_info(self):
