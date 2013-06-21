@@ -51,8 +51,7 @@ class DatastoreProxy(AppDBInterface):
     Constructor.
     """
 
-    self.host = file_io.read(constants.APPSCALE_HOME + \
-                '/.appscale/my_private_ip')
+    self.host = file_io.read('/etc/appscale/my_private_ip')
     self.port = CASS_DEFAULT_PORT
     self.pool = pycassa.ConnectionPool(keyspace=KEYSPACE,
                           server_list=[self.host+":"+str(self.port)], 
@@ -60,7 +59,7 @@ class DatastoreProxy(AppDBInterface):
 
   def batch_get_entity(self, table_name, row_keys, column_names):
     """
-    Takes in batches of keys and retrieves their cooresponding rows.
+    Takes in batches of keys and retrieves their corresponding rows.
     
     Args:
       table_name: The table to access
@@ -70,10 +69,10 @@ class DatastoreProxy(AppDBInterface):
       A dictionary of rows and columns/values of those rows. The format 
       looks like such: {key:{column_name:value,...}}
     Raises:
+      TypeError: If an argument passed in was not of the expected type.
       AppScaleDBConnectionError: If the batch_get could not be performed due to
         an error with Cassandra.
     """
-
     if not isinstance(table_name, str): raise TypeError("Expected a str")
     if not isinstance(column_names, list): raise TypeError("Expected a list")
     if not isinstance(row_keys, list): raise TypeError("Expected a list")
@@ -113,11 +112,10 @@ class DatastoreProxy(AppDBInterface):
       column_names: A list of columns to mutate
       cell_values: A dict of key/value pairs
     Raises:
+      TypeError: If an argument passed in was not of the expected type.
       AppScaleDBConnectionError: If the batch_put could not be performed due to
         an error with Cassandra.
-      TypeError: when bad arguments are given
     """
-
     if not isinstance(table_name, str): raise TypeError("Expected a str")
     if not isinstance(column_names, list): raise TypeError("Expected a list")
     if not isinstance(row_keys, list): raise TypeError("Expected a list")
@@ -145,11 +143,10 @@ class DatastoreProxy(AppDBInterface):
       row_keys: A list of keys to remove
       column_names: Not used
     Raises:
+      TypeError: If an argument passed in was not of the expected type.
       AppScaleDBConnectionError: If the batch_delete could not be performed due
         to an error with Cassandra.
-      TypeError: when given bad argument types 
     """ 
-
     if not isinstance(table_name, str): raise TypeError("Expected a str")
     if not isinstance(row_keys, list): raise TypeError("Expected a list")
 
@@ -171,11 +168,10 @@ class DatastoreProxy(AppDBInterface):
     Args:
       table_name: A string name of the table to drop
     Raises:
-      TypeError: when given bad argument types 
+      TypeError: If an argument passed in was not of the expected type.
       AppScaleDBConnectionError: If the delete_table could not be performed due
         to an error with Cassandra.
     """
-
     if not isinstance(table_name, str): raise TypeError("Expected a str")
 
     try:
@@ -194,11 +190,10 @@ class DatastoreProxy(AppDBInterface):
       table_name: The column family name
       column_names: Not used but here to match the interface
     Raises:
-      TypeError: when given bad argument types 
+      TypeError: If an argument passed in was not of the expected type.
       AppScaleDBConnectionError: If the create_table could not be performed due
         to an error with Cassandra.
     """
-
     if not isinstance(table_name, str): raise TypeError("Expected a str")
     if not isinstance(column_names, list): raise TypeError("Expected a list")
 
@@ -240,7 +235,7 @@ class DatastoreProxy(AppDBInterface):
       end_inclusive: Boolean if results should include the end_key
       keys_only: Boolean if to only keys and not values
     Raises:
-      TypeError: when bad arguments are given
+      TypeError: If an argument passed in was not of the expected type.
       AppScaleDBConnectionError: If the range_query could not be performed due
         to an error with Cassandra.
     Returns:
