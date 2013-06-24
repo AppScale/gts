@@ -674,8 +674,8 @@ postinstallhbase()
 
 installcassandra()
 {
-    CASSANDRA_VER=1.0.7
-    PYCASSA_VER=1.3.0
+    CASSANDRA_VER=1.2.5
+    PYCASSA_VER=1.9.0
     cd /lib 
     wget $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
     
