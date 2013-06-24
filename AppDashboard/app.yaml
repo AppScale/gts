@@ -32,6 +32,10 @@ handlers:
   upload: img/favicon.ico
   mime_type: image/x-icon
 
+- url: /download-logs
+  static_dir: static/download-logs
+  login: admin
+
 - url: /.*
   script: dashboard.app
 

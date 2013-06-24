@@ -848,3 +848,23 @@ class AppDashboardHelper():
       logging.exception(err)
       return False
     return True
+
+
+  def gather_logs(self):
+    """ Tells the AppController on this node to collect all log files we've
+    accumulated so far in this AppScale deployment.
+
+    Returns:
+      A tuple containing two items. The first item is a bool that indicates if
+        we were able to tell the AppController to gather the logs successfully,
+        and the second item is a str that refers to the unique id that the logs'
+        status can be queried at via REST, and can be used to construct a URL to
+        download the logs once they are ready to download.
+    """
+    try:
+      acc = self.get_appcontroller_client()
+      uuid = acc.gather_logs()
+      return True, uuid
+    except Exception as err:
+      logging.exception(err)
+      return False, ""
