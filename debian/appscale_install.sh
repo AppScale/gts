@@ -30,9 +30,6 @@ case "$1" in
         installpycrypto
         installlxml
         installxmpppy
-        installjavajdk
-	installappserverjava
-	postinstallappserverjava
 	installmonitoring
 	postinstallmonitoring
 	installthrift_fromsource
@@ -56,6 +53,9 @@ case "$1" in
         updatealternatives
 	sethosts
         setulimits
+        installjavajdk
+        installappserverjava
+        postinstallappserverjava
 	;;
     cassandra)
 	installcassandra
@@ -107,9 +107,6 @@ case "$1" in
         installpycrypto
         installlxml
         installxmpppy
-	installjavajdk
-        installappserverjava
-	postinstallappserverjava
 	installmonitoring
 	postinstallmonitoring
 	installthrift_fromsource
@@ -139,5 +136,8 @@ case "$1" in
 	setupntpcron
         sethosts
         setulimits
+        installjavajdk
+        installappserverjava
+        postinstallappserverjava
 	;;
 esac
