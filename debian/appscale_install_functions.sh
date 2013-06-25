@@ -278,6 +278,7 @@ postinstallthrift()
 
 installjavajdk()
 {
+    # Since Oracle requires you to accept terms and conditions, have to pull from webupd8team
     sudo echo oracle-java7-installer shared/accepted-oracle-license-v1-1 select true | sudo /usr/bin/debconf-set-selections
     sudo add-apt-repository ppa:webupd8team/java
     sudo apt-get update
@@ -851,7 +852,7 @@ installzookeeper()
     tar zxvf zookeeper-${ZK_VER}.tar.gz
 
     cd zookeeper-${ZK_VER}
-    # build java library
+    # build java library, replace the compiliability to 1.7 since Java7 cannot compile to 1.5
     sed -i 's/1.5/1.7/g' build.xml
     ant
     ant compile_jute
