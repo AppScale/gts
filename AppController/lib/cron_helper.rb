@@ -8,9 +8,13 @@ include REXML
 # standard cron jobs.
 module CronHelper
 
+
   NTP_SYNC_CRON = "*/5 * * * * /root/appscale/ntp.sh"
+
+
   NO_EMAIL_CRON = 'MAILTO=\"\"'
-  
+
+
   def self.update_cron(ip, port, lang, app)
     Djinn.log_debug("saw a cron request with args [#{ip}][#{lang}][#{app}]") 
 
@@ -71,6 +75,7 @@ CRON
     end
   end
 
+
   def self.clear_crontab
     Djinn.log_run("crontab -r")
     #After clearing, make sure we still have our time sync job
@@ -78,7 +83,9 @@ CRON
     self.add_line_to_crontab(NTP_SYNC_CRON)  
   end
 
+
   private
+
 
   def self.add_line_to_crontab(line)
     `rm crontab.tmp`
@@ -88,10 +95,12 @@ CRON
     `rm crontab.tmp`
   end
 
+
   def self.fix_ords(ords)
-    # implement this
+    # TODO(cgb): implement this
     return ords
   end
+
 
   def self.fix_days(days)
     table = { "sunday" => "sun", "monday" => "mon", "tuesday" => "tue",
@@ -104,6 +113,7 @@ CRON
     }
     return result.join(',')
   end
+
 
   def self.fix_months(months)
     table = { "january" => "jan", "february" => "feb", "march" => "mar",
@@ -118,6 +128,7 @@ CRON
     }
     return result.join(',')
   end
+
 
   def self.convert_messy_format(schedule)
     cron = ""
@@ -156,6 +167,7 @@ CRON
     return cron_lines
   end
 
+
   def self.convert_schedule_to_cron(schedule, url, ip, port, app)
     cron_lines = []
     simple_format = schedule.scan(/\Aevery (\d+) (hours|mins|minutes)\Z/)
@@ -178,6 +190,7 @@ CRON
       cron << " curl -H \"X-Appengine-Cron:true\" -H \"X-AppEngine-Fake-Is-Admin:#{secret_hash}\" -k -L http://#{ip}:#{port}#{url} 2>&1 >> /var/apps/#{app}/log/cron.log"
     }
   end
+
 
   def self.get_from_xml(xml, tag)
     begin
