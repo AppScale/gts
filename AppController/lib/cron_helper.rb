@@ -60,7 +60,7 @@ module CronHelper
 CRON
           Djinn.log_debug(cron_info)
           Djinn.log_info("Adding cron line: [#{line}]")
-          add_line_to_crontab(line) if !is_line_in_crontab(line)
+          add_line_to_crontab(line) if !is_line_in_crontab?(line)
         }
       }
     elsif lang == "java"
@@ -129,11 +129,7 @@ CRON
   #   true if the String is a line in this crontab, and false otherwise.
   def self.is_line_in_crontab?(line)
     crontab = Djinn.log_run("crontab -l")
-    if crontab =~ /#{line}/
-      return true
-    else
-      return false
-    end
+    return crontab.include?(line)
   end
 
 
