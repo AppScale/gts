@@ -434,7 +434,7 @@ class Djinn
     @@logs_buffer = []
 
     @@log = Logger.new(STDOUT)
-    @@log.level = Logger::DEBUG
+    @@log.level = Logger::INFO
 
     @nodes = []
     @my_index = nil
