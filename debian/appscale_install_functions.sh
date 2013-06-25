@@ -853,6 +853,7 @@ installzookeeper()
 
     cd zookeeper-${ZK_VER}
     # build java library
+    sed -i 's/1.5/1.7/g' build.xml
     ant
     ant compile_jute
     #if [ ! -e build/zookeeper-${ZK_VER}.jar ]; then
