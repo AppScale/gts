@@ -1,33 +1,38 @@
-<!-- FILE:templates/logs/service.html -->
-<!--Body content-->
-
-
 <div id="content" class="clearfix">
     <div class="contentwrapper"><!--Content wrapper-->
-
-        <div class="heading">
-
-            <h3>Log Viewer</h3>                    
-
-            <div class="resBtnSearch">
-                <a href="#"><span class="icon16 icomoon-icon-search-3"></span></a>
-            </div>
-
-        </div><!-- End .heading-->
-
-        <!-- Build page from here: -->
+        <div class="heading"></div><!-- End .heading-->
         <div class="row-fluid">
           <div class="offset1 span8">
             <div class="page-header">
-              <h1>blah blah blah</h1>
+              <h1>Log Downloader </h1>
             </div><!--close header-->
-              success = {{ success }}
-              <br />
-              uuid = {{ uuid }}
-              <br />
-              logs will be at <a href='/download-logs/{{ uuid }}.tar.gz'>here</a>
-          </div><!--close span6 -->
-        <div class="span3"></div> <!--spacing div-->
+            <div class="row">
+                <div class="offset2 span8">
+                    <div class="well">
+                        <p align="center">AppScale is in the process of gathering your deployment logs. Depending on the number of
+                            nodes you are deployed upon this operation may take up to one minute.</p>
+                        <br />
+                        <div id="btn-msg" align="center"><small>A button will appear once the logs have been gathered.</small></div>
+                        <div id="log-download-btn" align="center" style="display:none;"><a class="btn btn-primary btn-large" href='/download-logs/{{ uuid }}.tar.gz'>Click to Download</a></div>
+                    </div>
+                </div>
+            </div>
+          </div>
         </div> <!-- end row fluid -->
     </div> <!-- end content wrapper -->
 </div> <!--end content-->
+
+<script>
+  setInterval(function() {
+    $.ajax({
+      type: "GET",
+      url: "/download-logs/{{ uuid }}.tar.gz",
+      statusCode: {
+        200: function() {
+          $('#btn-msg').hide();
+          $('#log-download-btn').show();
+        }
+      }
+    })
+  }, 5000);
+</script>
