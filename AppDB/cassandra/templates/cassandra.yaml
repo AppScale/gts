@@ -26,8 +26,8 @@ hinted_handoff_enabled: true
 # this defines the maximum amount of time a dead host will have hints
 # generated.  After it has been dead this long, hints will be dropped.
 max_hint_window_in_ms: 3600000 # one hour
-# Sleep this long after delivering each hint
-hinted_handoff_throttle_delay_in_ms: 1
+# throttle in KBs per second, per delivery thread
+hinted_handoff_throttle_in_kb: 1024
 
 # authentication backend, implementing IAuthenticator; used to identify users
 authenticator: org.apache.cassandra.auth.AllowAllAuthenticator
@@ -156,10 +156,6 @@ concurrent_writes: 32
 # waiting for a writer thread.  At a minimum, this should be set to
 # the maximum number of secondary indexes created on a single CF.
 memtable_flush_queue_size: 4
-
-# Buffer size to use when performing contiguous column slices. 
-# Increase this to the size of the column slices you typically perform
-sliced_buffer_size_in_kb: 64
 
 # TCP port, for commands and data
 storage_port: 7000
@@ -311,9 +307,6 @@ compaction_preheat_key_cache: true
 # can lead to saturating the network connection and degrading rpc performance.
 # When unset, the default is 400 Mbps or 50 MB/s.
 # stream_throughput_outbound_megabits_per_sec: 400
-
-# Time to wait for a reply from other nodes before failing the command 
-rpc_timeout_in_ms: 10000
 
 # phi value that must be reached for a host to be marked down.
 # most users should never need to adjust this.
