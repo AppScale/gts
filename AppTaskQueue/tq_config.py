@@ -184,10 +184,14 @@ queue:
     xml_dict = xmltodict.parse(xml_string)
     # Now we convert it to look the same as the yaml dictionary
     converted = {'queue':[]}
-    for queue in xml_dict['queue-entries']['queue']:
+    if isinstance(xml_dict['queue-entries']['queue'], list):
+      all_queues = xml_dict['queue-entries']['queue']
+    else:
+      all_queues = [xml_dict['queue-entries']['queue']]
+
+    for queue in all_queues:
       single_queue = {}
-      for tag in queue:
-        value = queue[tag]
+      for tag, value in queue.iteritems():
         if tag in self.YAML_TO_XML_TAGS_TO_CONVERT:
           tag = tag.replace('-','_')
         if tag == "retry_parameters":
