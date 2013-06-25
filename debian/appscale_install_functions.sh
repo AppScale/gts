@@ -155,7 +155,7 @@ installappscaleprofile()
     cat <<EOF | tee $DESTFILE
 export APPSCALE_HOME=${APPSCALE_HOME_RUNTIME}
 for jpath in\
- /usr/lib/jvm/java-6-openjdk\
+ /usr/lib/jvm/java-7-oracle\
  /usr/lib/jvm/default-java
 do
   if [ -e \$jpath ]; then
@@ -219,7 +219,7 @@ EOF
     cat <<EOF | tee $DESTFILE
 APPSCALE_HOME: ${APPSCALE_HOME_RUNTIME}
 EC2_HOME: /usr/local/ec2-api-tools
-JAVA_HOME: /usr/lib/jvm/java-6-openjdk
+JAVA_HOME: /usr/lib/jvm/java-7-oracle
 EOF
     mkdir -pv /var/log/appscale
     mkdir -pv /var/appscale/
@@ -283,7 +283,6 @@ installjavajdk()
     sudo add-apt-repository ppa:webupd8team/java
     sudo apt-get update
     sudo apt-get install -y oracle-java7-installer
-    export JAVA_HOME=/usr/lib/jvm/java-7-oracle
     echo BBB
 }
 
