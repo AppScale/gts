@@ -60,7 +60,7 @@ module CronHelper
 CRON
           Djinn.log_debug(cron_info)
           Djinn.log_info("Adding cron line: [#{line}]")
-          add_line_to_crontab(line)
+          add_line_to_crontab(line) if !is_line_in_crontab(line)
         }
       }
     elsif lang == "java"
@@ -86,7 +86,7 @@ CRON
 CRON
           Djinn.log_debug(cron_info)
           Djinn.log_info("Adding cron line: [#{line}]")
-          add_line_to_crontab(line)
+          add_line_to_crontab(line) if !is_line_in_crontab?(line)
         }
       }
     else
@@ -118,6 +118,22 @@ CRON
     `echo "#{line}" >> crontab.tmp`
     `crontab crontab.tmp`
     `rm crontab.tmp`
+  end
+
+
+  # Reads the crontab for this user to see if the given string is in it.
+  #
+  # Args:
+  #   line: The String that we should search for in our crontab.
+  # Returns:
+  #   true if the String is a line in this crontab, and false otherwise.
+  def self.is_line_in_crontab?(line)
+    crontab = Djinn.log_run("crontab -l")
+    if crontab =~ /#{line}/
+      return true
+    else
+      return false
+    end
   end
 
 
