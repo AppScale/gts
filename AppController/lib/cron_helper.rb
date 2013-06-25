@@ -28,14 +28,14 @@ module CronHelper
         timezone = item["timezone"] # will add support later for this
         cron_scheds = convert_schedule_to_cron(schedule, url, ip, port, app)
         cron_scheds.each { |line|
-        #  cron_info = <<CRON
-        #  Description: #{description}
-        #  URL: #{url}
-        #  Schedule: #{schedule}
-        #  TimeZone: #{timezone}
-        #  Cron Schedule: #{line}
-        #CRON
-        #  Djinn.log_debug(cron_info)
+          cron_info = <<CRON
+          Description: #{description}
+          URL: #{url}
+          Schedule: #{schedule}
+          Timezone: #{timezone}
+          Cron Schedule: #{line}
+CRON
+          Djinn.log_debug(cron_info)
           Djinn.log_info("Adding cron line: [#{line}]")
           add_line_to_crontab(line)
         }
@@ -54,14 +54,14 @@ module CronHelper
         timezone = get_from_xml(item, "timezone") # will add support later for this
         cron_scheds = convert_schedule_to_cron(schedule, url, ip, port, app)
         cron_scheds.each { |line|
-        #  cron_info = <<CRON
-        #  Description: #{description}
-        #  URL: #{url}
-        #  Schedule: #{schedule}
-        #  TimeZone: #{timezone}
-        #  Cron Schedule: #{line}
-        #CRON
-        #  Djinn.log_debug(cron_info)
+          cron_info = <<CRON
+          Description: #{description}
+          URL: #{url}
+          Schedule: #{schedule}
+          Timezone: #{timezone}
+          Cron Schedule: #{line}
+CRON
+          Djinn.log_debug(cron_info)
           Djinn.log_info("Adding cron line: [#{line}]")
           add_line_to_crontab(line)
         }
