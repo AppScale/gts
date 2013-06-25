@@ -129,7 +129,7 @@ CRON
   #   true if the String is a line in this crontab, and false otherwise.
   def self.is_line_in_crontab?(line)
     crontab = Djinn.log_run("crontab -l")
-    return crontab.include?(line)
+    return crontab.include?(line.gsub(/"/, ""))
   end
 
 
