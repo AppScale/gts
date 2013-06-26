@@ -155,7 +155,7 @@ installappscaleprofile()
     cat <<EOF | tee $DESTFILE
 export APPSCALE_HOME=${APPSCALE_HOME_RUNTIME}
 for jpath in\
- /usr/lib/jvm/java-6-openjdk\
+ /usr/lib/jvm/java-7-oracle\
  /usr/lib/jvm/default-java
 do
   if [ -e \$jpath ]; then
@@ -219,7 +219,7 @@ EOF
     cat <<EOF | tee $DESTFILE
 APPSCALE_HOME: ${APPSCALE_HOME_RUNTIME}
 EC2_HOME: /usr/local/ec2-api-tools
-JAVA_HOME: /usr/lib/jvm/java-6-openjdk
+JAVA_HOME: /usr/lib/jvm/java-7-oracle
 EOF
     mkdir -pv /var/log/appscale
     mkdir -pv /var/appscale/
@@ -274,6 +274,16 @@ postinstallthrift()
 {
     # just enable thrift library.
     easy_install thrift
+}
+
+installjavajdk()
+{
+    # Since Oracle requires you to accept terms and conditions, have to pull from webupd8team
+    sudo echo oracle-java7-installer shared/accepted-oracle-license-v1-1 select true | sudo /usr/bin/debconf-set-selections
+    sudo add-apt-repository ppa:webupd8team/java
+    sudo apt-get update
+    sudo apt-get install -y oracle-java7-installer
+    export JAVA_HOME=/usr/lib/jvm/java-7-oracle
 }
 
 installappserverjava()
@@ -674,7 +684,7 @@ postinstallhbase()
 
 installcassandra()
 {
-    CASSANDRA_VER=1.0.7
+    CASSANDRA_VER=1.2.5
     PYCASSA_VER=1.3.0
     cd /lib 
     wget $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
@@ -842,7 +852,8 @@ installzookeeper()
     tar zxvf zookeeper-${ZK_VER}.tar.gz
 
     cd zookeeper-${ZK_VER}
-    # build java library
+    # build java library, replace the compiliability to 1.7 since Java7 cannot compile to 1.5
+    sed -i 's/1.5/1.7/g' build.xml
     ant
     ant compile_jute
     #if [ ! -e build/zookeeper-${ZK_VER}.jar ]; then
