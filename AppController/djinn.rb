@@ -1858,13 +1858,43 @@ class Djinn
       login_ip = get_login.private_ip
       HelperFunctions.scp_file(status_file, status_file, login_ip, ssh_key)
     end
+  end
 
-    # copy remote log over - handy for debugging
-    local_log = "#{CONFIG_FILE_LOCATION}/logs/#{ip}.log"
-    remote_log = "/tmp/*.log"
+  # Collects all AppScale-generated logs from all machines, and places them in
+  # a tarball in the AppDashboard running on this machine. This enables users
+  # to download it for debugging purposes.
+  #
+  # Args:
+  #   secret: A String password that is used to authenticate SOAP callers.
+  def gather_logs(secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
 
-    FileUtils.mkdir_p("#{CONFIG_FILE_LOCATION}/logs/")
-    HelperFunctions.shell("scp -o StrictHostkeyChecking=no -i #{ssh_key} #{ip}:#{remote_log} #{local_log}")
+    uuid = HelperFunctions.get_random_alphanumeric()
+    Djinn.log_info("Generated uuid #{uuid} for request to gather logs.")
+
+    Thread.new {
+      # Begin by copying logs on all machines to this machine.
+      local_log_dir = "/tmp/#{uuid}"
+      remote_log_dir = "/var/log/appscale"
+      FileUtils.mkdir_p(local_log_dir)
+      @nodes.each { |node|
+        this_nodes_logs = "#{local_log_dir}/#{node.private_ip}"
+        FileUtils.mkdir_p(this_nodes_logs)
+        Djinn.log_run("scp -r -i #{node.ssh_key} -o StrictHostkeyChecking=no " +
+          "2>&1 root@#{node.private_ip}:#{remote_log_dir} #{this_nodes_logs}")
+      }
+
+      # Next, tar.gz it up in the dashboard app so that users can download it.
+      dashboard_log_location = "/var/apps/appscaledashboard/app/static/download-logs/#{uuid}.tar.gz"
+      Djinn.log_info("Done gathering logs - placing logs at " +
+        dashboard_log_location)
+      Djinn.log_run("tar -czf #{dashboard_log_location} #{local_log_dir}")
+      FileUtils.rm_rf(local_log_dir)
+    }
+
+    return uuid
   end
 
   # TODO: add neptune file, which will have this function

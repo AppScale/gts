@@ -424,3 +424,13 @@ class AppControllerClient():
     return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "Error",
       self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR, self.server.update,
       apps_to_run, self.secret)
+
+
+  def gather_logs(self):
+    """ Tells the AppController to copy logs from all machines to a tar.gz file
+    stored in the AppDashboard's static file directory, so that users can
+    download it.
+    """
+    return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, (False, ""),
+      self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR, self.server.gather_logs,
+      self.secret)
