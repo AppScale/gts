@@ -3664,9 +3664,13 @@ HOSTS
 
         case scaling_decision
         when :scale_up
+          Djinn.log_info("Considering scaling up app #{app_name}.")
           try_to_scale_up(app_name)
         when :scale_down
+          Djinn.log_info("Considering scaling down app #{app_name}.")
           try_to_scale_down(app_name)
+        else
+          Djinn.log_info("Not scaling app #{app_name} up or down right now.")
         end
       }
     }
@@ -3678,9 +3682,10 @@ HOSTS
   #
   # Args:
   #   app_name: The name of the application to set up scaling info
-  #
-  def initialize_scaling_info_for_app(app_name)
-    return if @initialized_apps[app_name]
+  #   force: A boolean value that indicates if we should reset the scaling
+  #     info even in the presence of existing scaling info.
+  def initialize_scaling_info_for_app(app_name, force=false)
+    return if @initialized_apps[app_name] and !force
 
     @req_rate[app_name] = []
     @req_in_queue[app_name] = []
@@ -3727,8 +3732,11 @@ HOSTS
         "#{language} AppServer (#{current_mem} memory used > #{max_mem} " +
         "maximum)")
       return true
+    else
+      Djinn.log_info("Enough CPU and memory are free to spawn up a new " +
+        "#{language} AppServer.")
+      return false
     end
-    return false
   end
 
 
@@ -3792,20 +3800,18 @@ HOSTS
     if time_requests_were_seen.zero? or total_requests_seen.zero?
       Djinn.log_debug("Didn't see any request data")
     else
-      Djinn.log_debug("Did see request data!")
+      Djinn.log_debug("Did see request data. Total requests seen now is " +
+        "#{total_requests_seen}, last time was #{@total_req_rate[app_name]}")
       requests_since_last_sampling = total_requests_seen - @total_req_rate[app_name]
       time_since_last_sampling = time_requests_were_seen - @last_sampling_time[app_name]
-      if requests_since_last_sampling < 0
-        Djinn.log_warn("Saw a negative request rate for app_id #{app_name}: "\
-          "#{requests_since_last_sampling}")
-        return :no_change 
-      end 
       if time_since_last_sampling.zero?
         time_since_last_sampling = 1
       end
       average_request_rate = Float(requests_since_last_sampling) / Float(time_since_last_sampling)
       send_request_info_to_dashboard(app_name, time_requests_were_seen,
         average_request_rate)
+      Djinn.log_debug("Total requests will be set to #{total_requests_seen} " +
+        "for app #{app_name}")
       @total_req_rate[app_name] = total_requests_seen
       @last_sampling_time[app_name] = time_requests_were_seen
     end
@@ -3835,7 +3841,7 @@ HOSTS
   def try_to_scale_up(app_name)
     time_since_last_decision = Time.now.to_i - @last_decision[app_name]
     if @app_info_map[app_name].nil?
-      Djinn.log_debug("Not scaling up app #{app_name}, since we aren't " +
+      Djinn.log_info("Not scaling up app #{app_name}, since we aren't " +
         "hosting it anymore.")
       return
     end
@@ -3848,9 +3854,10 @@ HOSTS
 
       Djinn.log_info("Adding a new AppServer on this node for #{app_name}")
       add_appserver_process(app_name)
+      initialize_scaling_info_for_app(app_name, force=true)
       @last_decision[app_name] = Time.now.to_i
     elsif time_since_last_decision <= SCALEUP_TIME_THRESHOLD
-      return 
+      Djinn.log_info("Recently scaled up, so not scaling up again.")
     elsif !@app_info_map[app_name]['appengine'].nil? and
       appservers_running > MAX_APPSERVERS_ON_THIS_NODE
 
@@ -3876,11 +3883,15 @@ HOSTS
 
       Djinn.log_info("Removing an AppServer on this node for #{app_name}")
       remove_appserver_process(app_name)
+      initialize_scaling_info_for_app(app_name, force=true)
       @last_decision[app_name] = Time.now.to_i
     elsif !@app_info_map[app_name]['appengine'].nil? and
       appservers_running <= MIN_APPSERVERS_ON_THIS_NODE
+
+      Djinn.log_info("The minimum number of AppServers for this app " +
+        "are already running, so don't remove any more.")
     elsif time_since_last_decision <= SCALEDOWN_TIME_THRESHOLD 
-      return
+      Djinn.log_info("Recently scaled down, so not scaling down again.")
     end
   end
 
