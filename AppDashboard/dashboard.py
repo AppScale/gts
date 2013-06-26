@@ -768,6 +768,33 @@ class LogUploadPage(webapp2.RequestHandler):
       log_line.put()
 
 
+class LogDownloader(AppDashboard):
+  """ Exposes a single GET route that cloud administrators can access to
+  download AppScale-generated logs.
+  """
+
+
+  # The location where the template file can be found that waits for logs
+  # to become available before redirecting to it.
+  TEMPLATE = "logs/download.html"
+
+
+  def get(self):
+    """ Instructs the AppController to collect logs across all machines, place
+    it in this app's static file directory, and renders a page that will wait
+    for the logs to become available before downloading it.
+    """
+    is_cloud_admin = self.helper.is_user_cloud_admin()
+    if not is_cloud_admin:
+      self.redirect("/")
+
+    success, uuid = self.helper.gather_logs()
+    self.render_page(page='logs', template_file=self.TEMPLATE, values = {
+      'success' : success,
+      'uuid' : uuid
+    })
+
+
 class AppConsolePage(AppDashboard):
 
 
@@ -926,6 +953,7 @@ app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/logs/upload', LogUploadPage),
                                 ('/logs/(.+)/(.+)', LogServiceHostPage),
                                 ('/logs/(.+)', LogServicePage),
+                                ('/gather-logs', LogDownloader),
                               ], debug=True)
 
 
