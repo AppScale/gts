@@ -198,7 +198,7 @@ def stop_app_instance(app_name, port):
 
   # hack: God fails to shutdown processes so we do it via a system command
   # TODO: fix it or find an alternative to god
-  pid_file = constants.APP_PID_DIR + app_name + '-' + port
+  pid_file = constants.APP_PID_DIR + app_name + '-' + str(port)
   pid = file_io.read(pid_file)
 
   if str(port).isdigit(): 
