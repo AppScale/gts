@@ -141,7 +141,7 @@ class AppManagerClient
   def stop_app_instance(app_name, port)
     result = ""
     make_call(MAX_TIME_OUT, false, "stop_app_instance") {
-      result = @conn.stop_app(app_name, port)
+      result = @conn.stop_app_instance(app_name, port)
     }
     return result
   end
