@@ -27,11 +27,11 @@ except ImportError:
   import simplejson as json
 
 
+from google.appengine.api import memcache
 from google.appengine.api import taskqueue
 from google.appengine.ext.db.stats import KindStat
 from google.appengine.ext import ndb
 from google.appengine.datastore.datastore_query import Cursor
-
 
 sys.path.append(os.path.dirname(__file__) + '/lib')
 from app_dashboard_helper import AppDashboardHelper
@@ -900,12 +900,26 @@ class RequestsStats(AppDashboard):
       })
     return request_info
 
+class MemcacheStats(AppDashboard):
+  """ Class that returns global memcache statistics. """
+
+
+  def get(self):
+    """ Handler for GET request for the memcache statistics. """
+    if not self.helper.is_user_cloud_admin():
+      response = json.dumps({"error": True, "message": "Not authorized"})
+      self.response.out.write(response)
+      return
+
+    mem_stats = memcache.get_stats()
+    self.response.out.write(json.dumps(mem_stats))
+
+
+
 class StatsPage(AppDashboard):
   """ Class to handle requests to the /logs page. """
 
-
   TEMPLATE = 'apps/stats.html'
-
 
   def get(self):
     # Only let the cloud admin and users who own this app see this page.
@@ -942,7 +956,8 @@ app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/authorize', AuthorizePage),
                                 ('/apps/?', AppConsolePage),
                                 ('/apps/stats/datastore', DatastoreStats),
-                                ('/apps/stats/requests', RequestsStats), 
+                                ('/apps/stats/requests', RequestsStats),
+                                ('/apps/stats/memcache', MemcacheStats),
                                 ('/apps/new', AppUploadPage),
                                 ('/apps/upload', AppUploadPage),
                                 ('/apps/delete', AppDeletePage),
