@@ -154,10 +154,21 @@ class TestZKInterface < Test::Unit::TestCase
     # mocks for zookeeper
     zk = flexmock("zookeeper")
 
-    # presume that this node hasn't asked for more AppServers yet
+    # presume that initially, there are no scaling requests, then after we add
+    # one below, it is present
+    zk.should_receive(:get_children).with(:path =>
+      "#{ZKInterface::SCALING_DECISION_PATH}/bazapp").and_return({
+      :children => nil}, {:children => ["public_ip"]})
+
+    # presume that this node hasn't asked for more AppServers yet, so there's no
+    # data the first time around. After the first time, we'll add an entry in, so
+    # there should be one there on subsequent attempts.
     path = "#{ZKInterface::SCALING_DECISION_PATH}/bazapp/public_ip"
     file_does_not_exist = {:rc => 0, :stat => flexmock(:exists => false)}
-    zk.should_receive(:get).with(:path => path).and_return(file_does_not_exist)
+    file_contents = {:rc => 0, :stat => flexmock(:exists => true),
+      :data => "scale_up"}
+    zk.should_receive(:get).with(:path => path).and_return(file_does_not_exist,
+      file_contents)
 
     all_ok = {:rc => 0}
     zk.should_receive(:create).with(:path => path,
@@ -175,13 +186,13 @@ class TestZKInterface < Test::Unit::TestCase
 
     # make sure the shadow gets back no information if nobody has requested
     # scaling yet
-    # TODO(cgb): Implement this.
+    assert_equal([], ZKInterface.get_scaling_requests_for_app("bazapp"))
 
     # next, make sure that appservers can request that we scale up
-    ZKInterface.request_scale_up_for_app("bazapp", "public_ip")
+    assert_equal(true, ZKInterface.request_scale_up_for_app("bazapp", "public_ip"))
 
     # make sure that the shadow can see these requests
-    # TODO(cgb): Implement this.
+    assert_equal(["scale_up"], ZKInterface.get_scaling_requests_for_app("bazapp"))
   end
 
 

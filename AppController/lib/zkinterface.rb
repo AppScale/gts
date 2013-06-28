@@ -585,6 +585,27 @@ class ZKInterface
   end
 
 
+  # Asks ZooKeeper for all of the scaling requests (e.g., scale up or scale
+  # down) for the given application.
+  #
+  # Args:
+  #   appid: A String that names the application whose scaling requests we
+  #     wish to query.
+  # Returns:
+  #   An Array of Strings, where each String is a request to either add or
+  #   remove AppServers for this application. If no requests have been made
+  #   for this application, an empty Array is returned.
+  def self.get_scaling_requests_for_app(appid)
+    path = "#{SCALING_DECISION_PATH}/#{appid}"
+    requestors = self.get_children(path)
+    scaling_requests = []
+    requestors.each { |ip|
+      scaling_requests << self.get("#{path}/#{ip}")
+    }
+    return scaling_requests
+  end
+
+
   # Writes a node in ZooKeeper indicating that the named application needs
   # additional AppServers running to serve the amount of traffic currently
   # accessing the caller's machine.
@@ -593,6 +614,8 @@ class ZKInterface
   #   appid: A String that names the application that should be scaled up.
   #   ip: A String that names the IP address of the machine that is requesting
   #     more AppServers for this application.
+  # Returns:
+  #   true if the request was successfully made, and false otherwise.
   def self.request_scale_up_for_app(appid, ip)
     begin
       path = "#{SCALING_DECISION_PATH}/#{appid}/#{ip}"
