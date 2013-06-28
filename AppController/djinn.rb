@@ -3659,6 +3659,9 @@ HOSTS
         # AppDashboard for users to view.
         scaling_decision = get_scaling_info_for_app(app_name)
         if is_cpu_or_mem_maxed_out?(@app_info_map[app_name]['language'])
+          if scaling_decision == :scale_up
+            ZKInterface.request_scale_up_for_app(app_name, my_node.private_ip)
+          end
           return
         end
 

@@ -150,4 +150,39 @@ class TestZKInterface < Test::Unit::TestCase
   end
 
 
+  def test_add_and_query_scale_up_requests
+    # mocks for zookeeper
+    zk = flexmock("zookeeper")
+
+    # presume that this node hasn't asked for more AppServers yet
+    path = "#{ZKInterface::SCALING_DECISION_PATH}/bazapp/public_ip"
+    file_does_not_exist = {:rc => 0, :stat => flexmock(:exists => false)}
+    zk.should_receive(:get).with(:path => path).and_return(file_does_not_exist)
+
+    all_ok = {:rc => 0}
+    zk.should_receive(:create).with(:path => path,
+      :ephemeral => ZKInterface::NOT_EPHEMERAL, :data => "scale_up").
+      and_return(all_ok)
+
+    # mocks for zookeeper initialization
+    flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
+      and_return()
+    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181", ZKInterface::TIMEOUT).
+      and_return(zk)
+
+    # first, make a connection to zookeeper
+    ZKInterface.init_to_ip("public_ip", "public_ip")
+
+    # make sure the shadow gets back no information if nobody has requested
+    # scaling yet
+    # TODO(cgb): Implement this.
+
+    # next, make sure that appservers can request that we scale up
+    ZKInterface.request_scale_up_for_app("bazapp", "public_ip")
+
+    # make sure that the shadow can see these requests
+    # TODO(cgb): Implement this.
+  end
+
+
 end

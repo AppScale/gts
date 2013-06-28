@@ -64,6 +64,12 @@ class ZKInterface
   APPCONTROLLER_LOCK_PATH = "#{APPCONTROLLER_PATH}/lock"
 
 
+  # The location in ZooKeeper that AppControllers write information about
+  # which Google App Engine apps require additional (or fewer) AppServers to
+  # handle the amount of traffic they are receiving.
+  SCALING_DECISION_PATH = "#{APPCONTROLLER_PATH}/scale"
+
+
   # The location in ZooKeeper that the Babel Master and Slaves will read and
   # write data to that should be globally accessible or fault-tolerant.
   BABEL_PATH = "/babel"
@@ -576,6 +582,25 @@ class ZKInterface
     self.set_job_data_for_ip(node.public_ip, new_job_data)
     self.set_done_loading(node.public_ip, false)
     self.update_ips_timestamp()
+  end
+
+
+  # Writes a node in ZooKeeper indicating that the named application needs
+  # additional AppServers running to serve the amount of traffic currently
+  # accessing the caller's machine.
+  #
+  # Args:
+  #   appid: A String that names the application that should be scaled up.
+  #   ip: A String that names the IP address of the machine that is requesting
+  #     more AppServers for this application.
+  def self.request_scale_up_for_app(appid, ip)
+    begin
+      path = "#{SCALING_DECISION_PATH}/#{appid}/#{ip}"
+      self.set(path, "scale_up", NOT_EPHEMERAL)
+      return true
+    rescue FailedZooKeeperOperationException
+      return false
+    end
   end
 
 
