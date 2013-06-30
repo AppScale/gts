@@ -619,6 +619,8 @@ class ZKInterface
   def self.request_scale_up_for_app(appid, ip)
     begin
       path = "#{SCALING_DECISION_PATH}/#{appid}/#{ip}"
+      self.set(SCALING_DECISION_PATH, DUMMY_DATA, NOT_EPHEMERAL)
+      self.set("#{SCALING_DECISION_PATH}/#{appid}", DUMMY_DATA, NOT_EPHEMERAL)
       self.set(path, "scale_up", NOT_EPHEMERAL)
       return true
     rescue FailedZooKeeperOperationException
