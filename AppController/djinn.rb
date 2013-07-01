@@ -3857,12 +3857,12 @@ HOSTS
     autoscale_log.puts("[#{app_name}] Average Queued requests: " +
       "#{avg_req_in_queue}")
 
-    if avg_req_rate <= SCALEDOWN_REQUEST_RATE_THRESHOLD and 
+    if average_request_rate <= SCALEDOWN_REQUEST_RATE_THRESHOLD and
       total_req_in_queue.zero?
       return :scale_down
     end
 
-    if avg_req_rate > SCALEUP_REQUEST_RATE_THRESHOLD and 
+    if average_request_rate > SCALEUP_REQUEST_RATE_THRESHOLD and
       avg_req_in_queue > SCALEUP_QUEUE_SIZE_THRESHOLD
       return :scale_up
     end
