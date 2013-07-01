@@ -815,6 +815,12 @@ class TestDjinn < Test::Unit::TestCase
 
     nginx_conf = "/usr/local/nginx/conf/sites-enabled/booapp.conf"
     flexmock(File).should_receive(:open).with(nginx_conf, "w+", Proc).and_return()
+
+    # mock out updating the firewall config
+    ip_list = "#{Djinn::CONFIG_FILE_LOCATION}/all_ips"
+    flexmock(File).should_receive(:open).with(ip_list, "w+", Proc).and_return()
+    flexmock(Djinn).should_receive(:log_run).with(/bash .*firewall.conf/)
+
     flexmock(HelperFunctions).should_receive(:shell).and_return()
     djinn = Djinn.new()
     djinn.nodes = [original_node]
@@ -967,6 +973,11 @@ class TestDjinn < Test::Unit::TestCase
       and_return()
     flexmock(Djinn).should_receive(:log_run).with("/bin/hostname appscale-image0").
       and_return()
+
+    # mock out updating the firewall config
+    ip_list = "#{Djinn::CONFIG_FILE_LOCATION}/all_ips"
+    flexmock(File).should_receive(:open).with(ip_list, "w+", Proc).and_return()
+    flexmock(Djinn).should_receive(:log_run).with(/bash .*firewall.conf/)
 
     djinn = Djinn.new()
     djinn.nodes = [original_node]
