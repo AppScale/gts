@@ -433,6 +433,7 @@ class Djinn
     # it was logged.
     @@logs_buffer = []
 
+    STDOUT.sync = true
     @@log = Logger.new(STDOUT)
     @@log.level = Logger::INFO
 
