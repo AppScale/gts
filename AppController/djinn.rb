@@ -1061,6 +1061,7 @@ class Djinn
     while !@kill_sig_received do
       @state = "Done starting up AppScale, now in heartbeat mode"
       write_database_info
+      update_firewall
       write_zookeeper_locations
       write_neptune_info 
       update_api_status
@@ -1472,6 +1473,20 @@ class Djinn
 
       if vms_to_spawn > 0
         Djinn.log_info("Need to spawn up #{vms_to_spawn} VMs")
+        # Make sure the user has said it is ok to add more VMs before doing so.
+        allowed_vms = Integer(@creds['max_images']) - @nodes.length
+        if allowed_vms < vms_to_spawn
+          Djinn.log_info("Can't spawn up #{vms_to_spawn} VMs, because that " +
+            "would put us over the user-specified limit of #{@creds['max']} " +
+            "VMs. Instead, spawning up #{allowed_vms}.")
+          vms_to_spawn = allowed_vms
+          if vms_to_spawn.zero?
+            Djinn.log_error("Reached the maximum number of VMs that we " + 
+              "can use in this cloud deployment, so not spawning more nodes.")
+            return "Reached maximum number of VMs we can use."
+          end
+        end
+
         # start up vms_to_spawn vms as open
         imc = InfrastructureManagerClient.new(@@secret)
         new_nodes_info = imc.spawn_vms(vms_to_spawn, @creds, "open", "cloud1")
@@ -1479,7 +1494,7 @@ class Djinn
         # initialize them and wait for them to start up
         Djinn.log_debug("info about new nodes is " +
           "[#{new_nodes_info.join(', ')}]")
-        add_nodes(new_nodes_info) 
+        add_nodes(new_nodes_info)
 
         # add information about the VMs we spawned to our list, which may
         # already have info about the open nodes we want to use
@@ -1524,6 +1539,7 @@ class Djinn
       Djinn.log_debug("Changed nodes to #{@nodes}")
     }
 
+    update_firewall
     initialize_nodes_in_parallel(new_nodes)
   end
 
@@ -1919,13 +1935,18 @@ class Djinn
     
     num_of_nodes = @nodes.length
     HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/num_of_nodes", "#{num_of_nodes}\n")
-    
+  end
+
+
+  def update_firewall
     all_ips = []
     @nodes.each { |node|
       all_ips << node.private_ip
     }
     all_ips << "\n"
     HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/all_ips", all_ips.join("\n"))
+    Djinn.log_debug("Letting the following IPs through the firewall: " +
+      all_ips.join(', '))
 
     # Re-run the filewall script here since we just wrote the all_ips file
     if FIREWALL_IS_ON
@@ -2383,6 +2404,7 @@ class Djinn
     end
 
     write_database_info
+    update_firewall
     load_neptune_info
     write_neptune_info
   end
@@ -2815,6 +2837,7 @@ class Djinn
     @nodes.concat(appengine_info)
     find_me_in_locations
     write_database_info
+    update_firewall
     
     creds = @creds.to_a.flatten
     initialize_nodes_in_parallel(appengine_info)
