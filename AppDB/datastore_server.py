@@ -1634,7 +1634,6 @@ class DatastoreDistributed():
       start_inclusive = self._DISABLE_INCLUSIVITY
 
     limit = query.limit() or self._MAXIMUM_RESULTS
-    logging.info("limit: " + str(limit))
     result = self.datastore_batch.range_query(dbconstants.APP_KIND_TABLE, 
                                               dbconstants.APP_KIND_SCHEMA, 
                                               startrow, 
@@ -1643,7 +1642,6 @@ class DatastoreDistributed():
                                               offset=0, 
                                               start_inclusive=start_inclusive, 
                                               end_inclusive=end_inclusive)
-    logging.info("Results from kind query: " + str(result))
     return self.__fetch_entities(result)
 
   def __single_property_query(self, query, filter_info, order_info):
