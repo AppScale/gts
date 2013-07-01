@@ -2562,6 +2562,7 @@ class Djinn
 
     maybe_start_taskqueue_worker("apichecker")
     Djinn.log_run("nohup flower &")
+
     # appengine is started elsewhere
   end
 
