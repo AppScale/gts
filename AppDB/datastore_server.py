@@ -167,9 +167,8 @@ class DatastoreDistributed():
         A str, the row key for kind table.
     """
     path = []
-    # reverse of index paths because child kind must come first
-    all_reversed = key_path.element_list()[::-1]
-    for e in all_reversed:
+    path.append(key_path.element_list()[-1].type())
+    for e in key_path.element_list():
       if e.has_name():
         key_id = e.name()
       elif e.has_id():
@@ -1564,34 +1563,36 @@ class DatastoreDistributed():
     Returns:
       A tuple of the start row, end row, if its start inclusive,
       and if its end inclusive
-    """       
+    """
+    ancestor_filter = ""
+    if query.has_ancestor():
+      ancestor = query.ancestor()
+      ancestor_filter = self.__encode_index_pb(ancestor.path())      
     end_inclusive = self._ENABLE_INCLUSIVITY
     start_inclusive = self._ENABLE_INCLUSIVITY
     prefix = self.get_table_prefix(query)
-    startrow = prefix + '/' + query.kind() + ':'     
-    endrow = prefix + '/' + query.kind() + ':' + self._TERM_STRING
+    startrow = prefix + '/' + query.kind() + '!' + str(ancestor_filter)
+    endrow = prefix + '/' + query.kind() + '!' + str(ancestor_filter) + \
+      self._TERM_STRING
     if '__key__' not in filter_info:
       return startrow, endrow, start_inclusive, end_inclusive
 
     for key_filter in filter_info['__key__']:
       op = key_filter[0]
       __key__ = str(key_filter[1])
-      # The key is built to index the Entity table rather than the 
-      # kind table. We reverse the ordering of the ancestry
-      __key__ = self.reverse_path(__key__)
       if op and op == datastore_pb.Query_Filter.EQUAL:
-        startrow = prefix + '/' + __key__
-        endrow = prefix + '/' + __key__
+        startrow = prefix + '/' + query.kind() + "!" + __key__
+        endrow = prefix + '/' + query.kind() + "!" + __key__
       elif op and op == datastore_pb.Query_Filter.GREATER_THAN:
         start_inclusive = self._DISABLE_INCLUSIVITY
-        startrow = prefix + '/' + __key__ 
+        startrow = prefix + '/' + query.kind() + "!" + __key__ 
       elif op and op == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
-        startrow = prefix + '/' + __key__
+        startrow = prefix + '/' + query.kind() + "!" + __key__
       elif op and op == datastore_pb.Query_Filter.LESS_THAN:
-        endrow = prefix + '/'  + __key__
+        endrow = prefix + '/' + query.kind() + "!" + __key__
         end_inclusive = self._DISABLE_INCLUSIVITY
       elif op and op == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
-        endrow = prefix + '/' + __key__ 
+        endrow = prefix + '/' + query.kind() + "!" + __key__ 
     return startrow, endrow, start_inclusive, end_inclusive
    
   def __kind_query(self, query, filter_info, order_info):
@@ -1612,10 +1613,9 @@ class DatastoreDistributed():
     
     order = None
     prop_name = None
-
     if query.has_ancestor() and len(order_info) > 0:
       return self.ordered_ancestor_query(query, filter_info, order_info)
-    if query.has_ancestor():
+    if query.has_ancestor() and not query.has_kind():
       return self.ancestor_query(query, filter_info, order_info)
     elif not query.has_kind():
       return self.kindless_query(query, filter_info, order_info)
@@ -1634,6 +1634,7 @@ class DatastoreDistributed():
       start_inclusive = self._DISABLE_INCLUSIVITY
 
     limit = query.limit() or self._MAXIMUM_RESULTS
+    logging.info("limit: " + str(limit))
     result = self.datastore_batch.range_query(dbconstants.APP_KIND_TABLE, 
                                               dbconstants.APP_KIND_SCHEMA, 
                                               startrow, 
@@ -1642,6 +1643,7 @@ class DatastoreDistributed():
                                               offset=0, 
                                               start_inclusive=start_inclusive, 
                                               end_inclusive=end_inclusive)
+    logging.info("Results from kind query: " + str(result))
     return self.__fetch_entities(result)
 
   def __single_property_query(self, query, filter_info, order_info):
