@@ -127,6 +127,10 @@ class AppDashboardData():
   MONITOR_PORT = 8050
 
 
+  # The port that the Celery Flower service runs on, by default.
+  FLOWER_PORT = 5555
+
+
   # The sentinel app name that indicates that no apps are running on a given
   # machine.
   NO_APPS_RUNNING = "none"
@@ -201,6 +205,17 @@ class AppDashboardData():
       displayed to users.
     """
     return "http://{0}:{1}".format(self.get_head_node_ip(), self.MONITOR_PORT)
+
+
+  def get_flower_url(self):
+    """ Retrieves the URL where the Celery Flower web service can be found in
+    this AppScale deployment (typically on the login node).
+
+    Returns:
+      A str that contains a URL where low-level monitoring information is
+      displayed to users.
+    """
+    return "http://{0}:{1}".format(self.get_head_node_ip(), self.FLOWER_PORT)
 
 
   def get_head_node_ip(self):
