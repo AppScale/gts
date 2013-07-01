@@ -174,7 +174,7 @@
                                 {% for server in server_info %}
                                     <tr>
                                       <td id="status_table">
-                                          <div id="ip_td"><h3>{{server['ip'] }}</h3></div></td>
+                                          <div align="center"><h3>{{server['ip']}}</h3></div></td>
                                       <td align="center">
                                         <div id="{{ server['key'] }}g1" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>
                                       </td>
@@ -284,8 +284,9 @@
                                 <h4><span class="icon16 icomoon-icon-bars"></span><span>Global Memcache Statistics</span></h4>
                             </div><!-- end title -->
                             <div class="content">
-                                <div style="width: 650px;height: 400px;" class="flot-container">
-                    <div id="mem-flot" class="flot-placeholder"></div>
+                                <div style="width: 650px;height: 400px;">
+                                      class="flot-container">-->
+                                    <div id="mem-flot" class="flot-placeholder"></div>
 		                        </div><!-- end memcache flot graph container-->
                             </div><!-- end content -->
                          </div><!-- end box -->
