@@ -167,10 +167,22 @@ class TestZKInterface < Test::Unit::TestCase
     file_does_not_exist = {:rc => 0, :stat => flexmock(:exists => false)}
     file_contents = {:rc => 0, :stat => flexmock(:exists => true),
       :data => "scale_up"}
+    zk.should_receive(:get).with(:path => ZKInterface::SCALING_DECISION_PATH).
+      and_return(file_does_not_exist, file_contents)
+    zk.should_receive(:get).with(:path =>
+      "#{ZKInterface::SCALING_DECISION_PATH}/bazapp").and_return(
+      file_does_not_exist, file_contents)
     zk.should_receive(:get).with(:path => path).and_return(file_does_not_exist,
       file_contents)
 
     all_ok = {:rc => 0}
+    zk.should_receive(:create).with(:path => ZKInterface::SCALING_DECISION_PATH,
+      :ephemeral => ZKInterface::NOT_EPHEMERAL, :data => "").
+      and_return(all_ok)
+    zk.should_receive(:create).with(:path =>
+      "#{ZKInterface::SCALING_DECISION_PATH}/bazapp",
+      :ephemeral => ZKInterface::NOT_EPHEMERAL, :data => "").
+      and_return(all_ok)
     zk.should_receive(:create).with(:path => path,
       :ephemeral => ZKInterface::NOT_EPHEMERAL, :data => "scale_up").
       and_return(all_ok)

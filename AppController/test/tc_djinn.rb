@@ -1109,7 +1109,7 @@ class TestDjinn < Test::Unit::TestCase
 
     # mock out adding the appengine role to the open node
     flexmock(ZKInterface).should_receive(:add_roles_to_node).
-      with(["taskqueue_slave", "appengine"], open_node)
+      with(["memcache", "taskqueue_slave", "appengine"], open_node)
 
     # mock out writing updated nginx config files
     flexmock(Nginx).should_receive(:write_fullproxy_app_config)

@@ -1451,8 +1451,8 @@ class Djinn
       @nodes.each_with_index { |node, index|
         if node.is_open?
           Djinn.log_info("Will use node #{node} to run new roles")
+          node.jobs = nodes_needed[vms_to_use.length]
           vms_to_use << node
-          node.jobs = nodes_needed[index]
 
           if vms_to_use.length == nodes_needed.length
             Djinn.log_info("Only using open nodes to run new roles")
@@ -4097,7 +4097,7 @@ HOSTS
         num_of_appservers == 1)
         Djinn.log_info("Nodes at #{scale_up_requests.join(' and ')} have " + 
           "requested more AppServers for app #{appid}, so adding a node.")
-        nodes_needed << ["taskqueue_slave", "appengine"]
+        nodes_needed << ["memcache", "taskqueue_slave", "appengine"]
       end
     }
 
