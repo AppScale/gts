@@ -72,6 +72,9 @@ module TaskQueue
 
     start_taskqueue_server()
     HelperFunctions.sleep_until_port_is_open("localhost", TASKQUEUE_SERVER_PORT)
+
+    # Next, start up flower, which gives us a nice web UI to celery
+    Djinn.log_run("celery flower &")
   end
 
 
