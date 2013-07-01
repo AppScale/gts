@@ -815,6 +815,12 @@ class TestDjinn < Test::Unit::TestCase
 
     nginx_conf = "/usr/local/nginx/conf/sites-enabled/booapp.conf"
     flexmock(File).should_receive(:open).with(nginx_conf, "w+", Proc).and_return()
+
+    # mock out updating the firewall config
+    ip_list = "#{Djinn::CONFIG_FILE_LOCATION}/all_ips"
+    flexmock(File).should_receive(:open).with(ip_list, "w+", Proc).and_return()
+    flexmock(Djinn).should_receive(:log_run).with(/bash .*firewall.conf/)
+
     flexmock(HelperFunctions).should_receive(:shell).and_return()
     djinn = Djinn.new()
     djinn.nodes = [original_node]
@@ -968,6 +974,11 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(Djinn).should_receive(:log_run).with("/bin/hostname appscale-image0").
       and_return()
 
+    # mock out updating the firewall config
+    ip_list = "#{Djinn::CONFIG_FILE_LOCATION}/all_ips"
+    flexmock(File).should_receive(:open).with(ip_list, "w+", Proc).and_return()
+    flexmock(Djinn).should_receive(:log_run).with(/bash .*firewall.conf/)
+
     djinn = Djinn.new()
     djinn.nodes = [original_node]
     djinn.my_index = 0
@@ -1051,4 +1062,72 @@ class TestDjinn < Test::Unit::TestCase
 
     assert_equal(false, djinn.send_request_info_to_dashboard("bazapp", 0, 0))
   end
+
+  def test_scale_appservers_across_nodes_with_no_action_taken
+    # mock out getting our ip address
+    flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
+      and_return("inet addr:1.2.3.4")
+
+    node_info = "1.2.3.3:1.2.3.3:shadow:login:i-000000:cloud1"
+    node = DjinnJobData.new(node_info, "boo")
+
+    djinn = Djinn.new()
+    djinn.nodes = [node]
+    djinn.my_index = 0
+    
+    # let's say there's one app running
+    djinn.apps_loaded = ['bazapp']
+
+    # and that it has not requested scaling
+    flexmock(ZKInterface).should_receive(:get_scaling_requests_for_app).
+      with('bazapp').and_return([])
+
+    # Finally, make sure that we didn't add any nodes
+    assert_equal(0, djinn.scale_appservers_across_nodes())
+  end
+
+  def test_scale_appservers_across_nodes_and_scale_up_one_app
+    # mock out getting our ip address
+    flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
+      and_return("inet addr:1.2.3.4")
+
+
+    # Let's say that we've got two nodes - one is open so we can scale onto it.
+    node_info = "1.2.3.3:1.2.3.3:shadow:login:i-000000:cloud1"
+    open_node_info = "1.2.3.4:1.2.3.4:open:i-000000:cloud1"
+    node = DjinnJobData.new(node_info, "boo")
+    open_node = DjinnJobData.new(open_node_info, "boo")
+
+    djinn = Djinn.new()
+    djinn.nodes = [node, open_node]
+    djinn.my_index = 0
+    
+    # let's say there's one app running
+    djinn.apps_loaded = ['bazapp']
+    djinn.app_info_map = {
+      'bazapp' => {
+        'nginx' => 123
+      }
+    }
+
+    # and that two nodes have requested scaling
+    flexmock(ZKInterface).should_receive(:get_scaling_requests_for_app).
+      with('bazapp').and_return(['scale_up', 'scale_up'])
+
+    # assume the open node is done starting up
+    flexmock(ZKInterface).should_receive(:is_node_done_loading?).
+      with('1.2.3.4').and_return(true)
+
+    # mock out adding the appengine role to the open node
+    flexmock(ZKInterface).should_receive(:add_roles_to_node).
+      with(["memcache", "taskqueue_slave", "appengine"], open_node)
+
+    # mock out writing updated nginx config files
+    flexmock(Nginx).should_receive(:write_fullproxy_app_config)
+    flexmock(Nginx).should_receive(:reload)
+
+    # Finally, make sure that we added a node
+    assert_equal(1, djinn.scale_appservers_across_nodes())
+  end
+
 end

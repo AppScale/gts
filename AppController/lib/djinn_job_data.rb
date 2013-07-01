@@ -119,7 +119,6 @@ class DjinnJobData
       jobs = @jobs.join(', ')
     end
 
-    
     status = "Node in cloud #{@cloud} with instance id #{@instance_id}" +
       " responds to ssh key #{@ssh_key}, has pub IP #{@public_ip}," +
       " priv IP #{@private_ip}, and is currently #{@jobs.join(', ')}." +

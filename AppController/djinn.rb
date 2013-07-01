@@ -433,6 +433,7 @@ class Djinn
     # it was logged.
     @@logs_buffer = []
 
+    STDOUT.sync = true
     @@log = Logger.new(STDOUT)
     @@log.level = Logger::INFO
 
@@ -1061,6 +1062,7 @@ class Djinn
     while !@kill_sig_received do
       @state = "Done starting up AppScale, now in heartbeat mode"
       write_database_info
+      update_firewall
       write_zookeeper_locations
       write_neptune_info 
       update_api_status
@@ -1090,7 +1092,8 @@ class Djinn
       # TODO: consider only calling this if new apps are found
       start_appengine
       restart_appengine_apps
-      scale_appservers
+      scale_appservers_on_this_node
+      scale_appservers_across_nodes
       Kernel.sleep(20)
     end
   end
@@ -1447,9 +1450,10 @@ class Djinn
     ZKInterface.lock_and_run {
       num_of_vms_needed = nodes_needed.length
 
-      @nodes.each { |node|
+      @nodes.each_with_index { |node, index|
         if node.is_open?
           Djinn.log_info("Will use node #{node} to run new roles")
+          node.jobs = nodes_needed[vms_to_use.length]
           vms_to_use << node
 
           if vms_to_use.length == nodes_needed.length
@@ -1470,6 +1474,20 @@ class Djinn
 
       if vms_to_spawn > 0
         Djinn.log_info("Need to spawn up #{vms_to_spawn} VMs")
+        # Make sure the user has said it is ok to add more VMs before doing so.
+        allowed_vms = Integer(@creds['max_images']) - @nodes.length
+        if allowed_vms < vms_to_spawn
+          Djinn.log_info("Can't spawn up #{vms_to_spawn} VMs, because that " +
+            "would put us over the user-specified limit of #{@creds['max']} " +
+            "VMs. Instead, spawning up #{allowed_vms}.")
+          vms_to_spawn = allowed_vms
+          if vms_to_spawn.zero?
+            Djinn.log_error("Reached the maximum number of VMs that we " +
+              "can use in this cloud deployment, so not spawning more nodes.")
+            return "Reached maximum number of VMs we can use."
+          end
+        end
+
         # start up vms_to_spawn vms as open
         imc = InfrastructureManagerClient.new(@@secret)
         new_nodes_info = imc.spawn_vms(vms_to_spawn, @creds, "open", "cloud1")
@@ -1477,7 +1495,7 @@ class Djinn
         # initialize them and wait for them to start up
         Djinn.log_debug("info about new nodes is " +
           "[#{new_nodes_info.join(', ')}]")
-        add_nodes(new_nodes_info) 
+        add_nodes(new_nodes_info)
 
         # add information about the VMs we spawned to our list, which may
         # already have info about the open nodes we want to use
@@ -1522,6 +1540,7 @@ class Djinn
       Djinn.log_debug("Changed nodes to #{@nodes}")
     }
 
+    update_firewall
     initialize_nodes_in_parallel(new_nodes)
   end
 
@@ -1917,13 +1936,18 @@ class Djinn
     
     num_of_nodes = @nodes.length
     HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/num_of_nodes", "#{num_of_nodes}\n")
-    
+  end
+
+
+  def update_firewall
     all_ips = []
     @nodes.each { |node|
       all_ips << node.private_ip
     }
     all_ips << "\n"
     HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/all_ips", all_ips.join("\n"))
+    Djinn.log_debug("Letting the following IPs through the firewall: " +
+      all_ips.join(', '))
 
     # Re-run the filewall script here since we just wrote the all_ips file
     if FIREWALL_IS_ON
@@ -2381,6 +2405,7 @@ class Djinn
     end
 
     write_database_info
+    update_firewall
     load_neptune_info
     write_neptune_info
   end
@@ -2813,6 +2838,7 @@ class Djinn
     @nodes.concat(appengine_info)
     find_me_in_locations
     write_database_info
+    update_firewall
     
     creds = @creds.to_a.flatten
     initialize_nodes_in_parallel(appengine_info)
@@ -3628,8 +3654,7 @@ HOSTS
   # This method guards access to perform_scaling_for_appservers so that only 
   # one thread call it at a time. We also only perform scaling if the user 
   # wants us to, and simply return otherwise.
-  #
-  def scale_appservers
+  def scale_appservers_on_this_node
     if !my_node.is_appengine?
       return
     end
@@ -3659,6 +3684,14 @@ HOSTS
         # AppDashboard for users to view.
         scaling_decision = get_scaling_info_for_app(app_name)
         if is_cpu_or_mem_maxed_out?(@app_info_map[app_name]['language'])
+          if scaling_decision == :scale_up
+            Djinn.log_info("Requesting that additional AppServers be added " +
+              "to service #{app_name}")
+            ZKInterface.request_scale_up_for_app(app_name, my_node.private_ip)
+          else
+            Djinn.log_info("Not requesting that additional AppServers be " +
+              "added to service #{app_name}")
+          end
           return
         end
 
@@ -3799,6 +3832,7 @@ HOSTS
 
     if time_requests_were_seen.zero? or total_requests_seen.zero?
       Djinn.log_debug("Didn't see any request data")
+      return :no_change
     else
       Djinn.log_debug("Did see request data. Total requests seen now is " +
         "#{total_requests_seen}, last time was #{@total_req_rate[app_name]}")
@@ -3824,12 +3858,12 @@ HOSTS
     autoscale_log.puts("[#{app_name}] Average Queued requests: " +
       "#{avg_req_in_queue}")
 
-    if avg_req_rate <= SCALEDOWN_REQUEST_RATE_THRESHOLD and 
+    if average_request_rate <= SCALEDOWN_REQUEST_RATE_THRESHOLD and
       total_req_in_queue.zero?
       return :scale_down
     end
 
-    if avg_req_rate > SCALEUP_REQUEST_RATE_THRESHOLD and 
+    if average_request_rate > SCALEUP_REQUEST_RATE_THRESHOLD and
       avg_req_in_queue > SCALEUP_QUEUE_SIZE_THRESHOLD
       return :scale_up
     end
@@ -4063,6 +4097,51 @@ HOSTS
       Djinn.log_info("Couldn't send request info for app #{app_id} to #{url}")
       return false
     end
+  end
+
+
+  def scale_appservers_across_nodes()
+    return if !my_node.is_login?
+    # TODO(cgb): Do we need to get the apps lock here?
+    Djinn.log_debug("Seeing if we need to spawn new AppServer nodes")
+
+    appservers = @nodes.select { |node| node.is_appengine? }
+    num_of_appservers = appservers.length
+
+    nodes_needed = []
+    @apps_loaded.each { |appid|
+      scaling_requests = ZKInterface.get_scaling_requests_for_app(appid)
+      scale_up_requests = scaling_requests.select { |item| item == "scale_up" }
+      num_of_scale_up_requests = scale_up_requests.length
+
+      # Spawn an additional node if (1) more than one node is receiving too much
+      # web traffic, or (2) there's only one node, and it's receiving too much
+      # web traffic.
+      if num_of_scale_up_requests > 1 or (num_of_scale_up_requests > 0 and 
+        num_of_appservers == 1)
+        Djinn.log_info("Nodes at #{scale_up_requests.join(' and ')} have " + 
+          "requested more AppServers for app #{appid}, so adding a node.")
+        nodes_needed << ["memcache", "taskqueue_slave", "appengine"]
+      end
+    }
+
+    if nodes_needed.empty?
+      Djinn.log_debug("Not adding any new AppServers at this time.")
+      return nodes_needed.length
+    end
+
+    Djinn.log_info("Need to spawn #{nodes_needed.length} new AppServers.")
+    added_nodes = start_new_roles_on_nodes(nodes_needed,
+      @creds['instance_type'], @@secret)
+
+    if added_nodes != "OK"
+      Djinn.log_error("Was not able to add #{nodes_needed.length} new nodes" +
+        " because: #{added_nodes}")
+      return 0
+    end
+
+    regenerate_nginx_config_files()
+    return nodes_needed.length
   end
 
 

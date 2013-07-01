@@ -64,6 +64,12 @@ class ZKInterface
   APPCONTROLLER_LOCK_PATH = "#{APPCONTROLLER_PATH}/lock"
 
 
+  # The location in ZooKeeper that AppControllers write information about
+  # which Google App Engine apps require additional (or fewer) AppServers to
+  # handle the amount of traffic they are receiving.
+  SCALING_DECISION_PATH = "#{APPCONTROLLER_PATH}/scale"
+
+
   # The location in ZooKeeper that the Babel Master and Slaves will read and
   # write data to that should be globally accessible or fault-tolerant.
   BABEL_PATH = "/babel"
@@ -576,6 +582,50 @@ class ZKInterface
     self.set_job_data_for_ip(node.public_ip, new_job_data)
     self.set_done_loading(node.public_ip, false)
     self.update_ips_timestamp()
+  end
+
+
+  # Asks ZooKeeper for all of the scaling requests (e.g., scale up or scale
+  # down) for the given application.
+  #
+  # Args:
+  #   appid: A String that names the application whose scaling requests we
+  #     wish to query.
+  # Returns:
+  #   An Array of Strings, where each String is a request to either add or
+  #   remove AppServers for this application. If no requests have been made
+  #   for this application, an empty Array is returned.
+  def self.get_scaling_requests_for_app(appid)
+    path = "#{SCALING_DECISION_PATH}/#{appid}"
+    requestors = self.get_children(path)
+    scaling_requests = []
+    requestors.each { |ip|
+      scaling_requests << self.get("#{path}/#{ip}")
+    }
+    return scaling_requests
+  end
+
+
+  # Writes a node in ZooKeeper indicating that the named application needs
+  # additional AppServers running to serve the amount of traffic currently
+  # accessing the caller's machine.
+  #
+  # Args:
+  #   appid: A String that names the application that should be scaled up.
+  #   ip: A String that names the IP address of the machine that is requesting
+  #     more AppServers for this application.
+  # Returns:
+  #   true if the request was successfully made, and false otherwise.
+  def self.request_scale_up_for_app(appid, ip)
+    begin
+      path = "#{SCALING_DECISION_PATH}/#{appid}/#{ip}"
+      self.set(SCALING_DECISION_PATH, DUMMY_DATA, NOT_EPHEMERAL)
+      self.set("#{SCALING_DECISION_PATH}/#{appid}", DUMMY_DATA, NOT_EPHEMERAL)
+      self.set(path, "scale_up", NOT_EPHEMERAL)
+      return true
+    rescue FailedZooKeeperOperationException
+      return false
+    end
   end
 
 
