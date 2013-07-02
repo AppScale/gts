@@ -109,7 +109,7 @@ class AppControllerClient
     rescue Timeout::Error
       return false if ok_to_fail
       retry
-    rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE, Errno::ECONNRESET
+    rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE, Errno::ECONNRESET, SOAP::EmptyResponseError
       retry
     rescue Exception => except
       if retry_on_except
