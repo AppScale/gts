@@ -183,8 +183,8 @@ class InfrastructureManagerClient
       if describe_result["state"] == "running"
         vm_info = describe_result["vm_info"]
         break
-      elsif describe_result["failed"] == "failed"
-	raise AppScaleException.new(describe_result["reason"]) 
+      elsif describe_result["state"] == "failed"
+        raise AppScaleException.new(describe_result["reason"])
       end
       Kernel.sleep(10)
     }
