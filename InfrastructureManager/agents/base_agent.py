@@ -36,22 +36,6 @@ class BaseAgent:
     """
     raise NotImplementedError
 
-  def describe_instances(self, parameters):
-    """
-    Query the underlying cloud platform regarding VMs that are already
-    up and running.
-
-    Args:
-      parameters  A dictionary containing the parameters required by the
-                  infrastructure agent.
-
-    Returns:
-      A tuple of the form (public, private, id) where public is a list
-      of private IP addresses, private is a list of private IP addresses
-      and id is a list of platform specific VM identifiers.
-    """
-    raise NotImplementedError
-
   def run_instances(self, count, parameters, security_configured):
     """
     Start a set of virtual machines using the parameters provided.
