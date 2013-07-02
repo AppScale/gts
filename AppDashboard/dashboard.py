@@ -153,7 +153,8 @@ class AppDashboard(webapp2.RequestHandler):
       'user_email' : self.helper.get_user_email(),
       'is_user_cloud_admin' : self.dstore.is_user_cloud_admin(),
       'can_upload_apps' : self.dstore.can_upload_apps(),
-      'apps_user_is_admin_on' : owned_apps
+      'apps_user_is_admin_on' : owned_apps,
+      'flower_url' : self.dstore.get_flower_url(),
     }
     for key in values.keys():
       sub_vars[key] = values[key]
@@ -899,6 +900,8 @@ class RequestsStats(AppDashboard):
         'num_of_requests' : request.num_of_requests
       })
     return request_info
+
+
 
 class MemcacheStats(AppDashboard):
   """ Class that returns global memcache statistics. """

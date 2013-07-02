@@ -304,24 +304,6 @@ postinstallappserverjava()
     :;
 }
 
-installtornado_fromsource()
-{
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    rm -rfv tornado
-    # download from appscale site
-    wget $APPSCALE_PACKAGE_MIRROR/tornado-0.2.tar.gz
-    tar xvzf tornado-0.2.tar.gz
-    pushd tornado-0.2
-    python setup.py build
-    python setup.py install --prefix=${DESTDIR}/usr
-    popd
-    rm -rfv tornado-0.2
-    rm -rfv tornado-0.2.tar.gz
-}
-
-# using egg
-
 installtornado()
 {
     easy_install -U tornado
@@ -1002,6 +984,7 @@ keygen()
 installcelery()
 {
   easy_install -U Celery
+  easy_install -U Flower
 }
 
 installrabbitmq()

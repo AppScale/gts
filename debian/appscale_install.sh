@@ -37,7 +37,7 @@ case "$1" in
 	postinstallmonitoring
 	installthrift_fromsource
 	postinstallthrift_fromsource
-        installtornado_fromsource
+        installtornado
         postinstalltornado
 	installprotobuf
 	postinstallprotobuf
@@ -114,7 +114,7 @@ case "$1" in
 	postinstallmonitoring
 	installthrift_fromsource
 	postinstallthrift_fromsource
-        installtornado_fromsource
+        installtornado
         installflexmock
         installnose
         postinstalltornado
