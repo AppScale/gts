@@ -213,11 +213,23 @@ class InfrastructureManager:
     self.reservations.put(reservation_id, status_info)
     utils.log('Generated reservation id {0} for this request.'.format(
       reservation_id))
-    if self.blocking:
-      self.__spawn_vms(agent, num_vms, parameters, reservation_id)
-    else:
-      thread.start_new_thread(self.__spawn_vms,
-        (agent, num_vms, parameters, reservation_id))
+    try:
+      if self.blocking:
+        self.__spawn_vms(agent, num_vms, parameters, reservation_id)
+      else:
+        thread.start_new_thread(self.__spawn_vms,
+          (agent, num_vms, parameters, reservation_id))
+    except AgentConfigurationException as exception:
+      status_info = {
+        'success' : False,
+        'reason' : str(exception),
+        'state' : self.STATE_FAILED,
+        'vm_info' : None
+      }
+      self.reservations.put(reservation_id, status_info)
+      utils.log('Updated reservation id {0} with failed status because: {1}' \
+        .format(reservation_id, str(exception)))
+
     utils.log('Successfully started request {0}.'.format(reservation_id))
     return self.__generate_response(True,
       self.REASON_NONE, {'reservation_id': reservation_id})
