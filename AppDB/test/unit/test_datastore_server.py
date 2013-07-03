@@ -50,16 +50,16 @@ class TestDatastoreServer(unittest.TestCase):
     dd = DatastoreDistributed(None, None)
     item = Item(name="Dyan", _app="hello")
     key = db.model_to_protobuf(item)
-    self.assertEquals(dd.get_kind_key("howdy", key.key().path()), "howdy/Item:0000000000!")
+    self.assertEquals(dd.get_kind_key("howdy", key.key().path()), "howdy/Item!Item:0000000000!")
 
     item1 = Item(key_name="Bob", name="Bob", _app="hello")
     key = db.model_to_protobuf(item1)
-    self.assertEquals(dd.get_kind_key("howdy", key.key().path()), "howdy/Item:Bob!")
+    self.assertEquals(dd.get_kind_key("howdy", key.key().path()), "howdy/Item!Item:Bob!")
    
     item2 = Item(key_name="Frank", name="Frank", _app="hello", parent = item1)
     key = db.model_to_protobuf(item2)
     self.assertEquals(dd.get_kind_key("howdy", key.key().path()),
-           "howdy/Item:Frank!Item:Bob!")
+           "howdy/Item!Item:Bob!Item:Frank!")
 
   def test_get_entity_key(self):
     dd = DatastoreDistributed(None, None)
