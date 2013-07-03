@@ -774,7 +774,13 @@ class Djinn
     @nodes.each { |node|
       ip = node.private_ip
       acc = AppControllerClient.new(ip, @@secret)
-      @all_stats << acc.get_stats(@@secret)
+
+      begin
+        @all_stats << acc.get_stats(@@secret)
+      rescue FailedNodeException
+        Djinn.log_warn("Failed to get status update from node at #{ip}, so " +
+          "not adding it to our cached info.")
+      end
     }
   end
 
@@ -839,7 +845,7 @@ class Djinn
     end
 
     app_name.gsub!(/[^\w\d\-]/, "")
-    Djinn.log_info("(stop_app): Shutting down app named [#{app_name}]")
+    Djinn.log_info("Shutting down app named [#{app_name}]")
     result = ""
     Djinn.log_run("rm -rf /var/apps/#{app_name}")
    
@@ -854,8 +860,15 @@ class Djinn
           if node.is_appengine? or node.is_login?
             ip = node.private_ip
             acc = AppControllerClient.new(ip, @@secret)
-            result = acc.stop_app(app_name)
-            Djinn.log_debug("(stop_app): Removing application #{app_name} --- #{ip} returned #{result} (#{result.class})")
+
+            begin
+              result = acc.stop_app(app_name)
+              Djinn.log_debug("Removing application #{app_name} from #{ip} " +
+                "returned #{result}")
+            rescue FailedNodeException
+              Djinn.log_warn("Could not remove application #{app_name} from " +
+                "#{ip} - moving on to other nodes.")
+            end
           end
         }
       end
@@ -969,9 +982,13 @@ class Djinn
     @nodes.each_index { |index|
       ip = @nodes[index].private_ip
       acc = AppControllerClient.new(ip, @@secret)
-      result = acc.set_apps(apps)
-      Djinn.log_debug("Set apps at #{ip} returned #{result} as class #{result.class}")
-      @everyone_else_is_done = false if !result
+      begin
+        result = acc.set_apps(apps)
+        Djinn.log_debug("Set apps at #{ip} returned #{result}.")
+      rescue FailedNodeException
+        Djinn.log_warn("Couldn't tell #{ip} to run new Google App Engine apps" +
+          " - skipping for now.")
+      end
     }
 
     # Next, restart any apps that have new code uploaded.
@@ -987,9 +1004,13 @@ class Djinn
       @nodes.each_index { |index|
         ip = @nodes[index].private_ip
         acc = AppControllerClient.new(ip, @@secret)
-        result = acc.set_apps_to_restart(apps_to_restart)
-        Djinn.log_debug("Set apps to restart at #{ip} returned #{result} as class #{result.class}")
-        @everyone_else_is_done = false if !result
+        begin
+          result = acc.set_apps_to_restart(apps_to_restart)
+          Djinn.log_debug("Set apps to restart at #{ip} returned #{result} as class #{result.class}")
+        rescue FailedNodeException
+          Djinn.log_warn("Couldn't tell #{ip} to restart Google App Engine " +
+            "apps - skipping for now.")
+        end
       }
     end
 
@@ -1855,27 +1876,31 @@ class Djinn
     ssh_key = node.ssh_key
     acc = AppControllerClient.new(ip, @@secret)
 
-    if !acc.is_done_loading?()
-      Djinn.log_info("Node at #{ip} is not done loading yet - will try " +
-        "again later.")
-      return
+    begin
+      if !acc.is_done_loading?
+        Djinn.log_info("Node at #{ip} is not done loading yet - will try " +
+          "again later.")
+        return
+      end
+    rescue FailedNodeException
+      Djinn.log_warn("Node at #{ip} is not responding to loading requests " +
+        "- will try again later.")
     end
 
-    result = acc.get_status(ok_to_fail=true)
+    begin
+      status_file = "#{CONFIG_FILE_LOCATION}/status-#{ip}.json"
+      stats = acc.get_stats()
+      json_state = JSON.dump(stats)
+      HelperFunctions.write_file(status_file, json_state)
 
-    if !result
-      Djinn.log_warn("#{ip} returned false - is it not running?")
+      if !my_node.is_login?
+        login_ip = get_login.private_ip
+        HelperFunctions.scp_file(status_file, status_file, login_ip, ssh_key)
+      end
+    rescue FailedNodeException
+      Djinn.log_warn("Node at #{ip} is not responding to status requests " +
+        "- will try again later.")
       return
-    end
-
-    status_file = "#{CONFIG_FILE_LOCATION}/status-#{ip}.json"
-    stats = acc.get_stats()
-    json_state = JSON.dump(stats) 
-    HelperFunctions.write_file(status_file, json_state)
-
-    if !my_node.is_login?
-      login_ip = get_login.private_ip
-      HelperFunctions.scp_file(status_file, status_file, login_ip, ssh_key)
     end
   end
 
@@ -2529,8 +2554,17 @@ class Djinn
           unless index == @my_index
             ip = @nodes[index].private_ip
             acc = AppControllerClient.new(ip, @@secret)
-            result = acc.is_done_initializing?()
-            @everyone_else_is_done = false unless result
+            begin
+              if !acc.is_done_initializing?
+                Djinn.log_info("Node at #{ip} is not done initializing yet - " +
+                  "will check back later.")
+                @everyone_else_is_done = false
+              end
+            rescue FailedNodeException
+              Djinn.log_warn("Node at #{ip} is not responding to initializing" +
+                " queries - will check back later.")
+              @everyone_else_is_done = false
+            end
           end
         }
         break if @everyone_else_is_done
@@ -2587,9 +2621,9 @@ class Djinn
 
     maybe_start_taskqueue_worker("apichecker")
 
-    if my_node.is_login?
-      Djinn.log_run("nohup flower --address=#{my_node.private_ip} &")
-    end
+    #if my_node.is_login?
+    #  Djinn.log_run("nohup flower --address=#{my_node.private_ip} &")
+    #end
 
     # appengine is started elsewhere
   end
@@ -3271,8 +3305,13 @@ HOSTS
     loc_array = Djinn.convert_location_class_to_array(@nodes)
     credentials = @creds.to_a.flatten
 
-    result = acc.set_parameters(loc_array, credentials, @app_names)
-    Djinn.log_debug("#{ip} responded with #{result}")
+    begin
+      result = acc.set_parameters(loc_array, credentials, @app_names)
+      Djinn.log_info("Setting parameters on node at #{ip} returned #{result}")
+    rescue FailedNodeException
+      Djinn.log_error("Couldn't set parameters on node at #{ip}.")
+      raise AppScaleException.new("Couldn't set parameters on node at #{ip}")
+    end
   end
 
   def is_running?(name)
