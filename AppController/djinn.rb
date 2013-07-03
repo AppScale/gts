@@ -2621,9 +2621,9 @@ class Djinn
 
     maybe_start_taskqueue_worker("apichecker")
 
-    if my_node.is_login?
-      Djinn.log_run("nohup flower --address=#{my_node.private_ip} &")
-    end
+    #if my_node.is_login?
+    #  Djinn.log_run("nohup flower --address=#{my_node.private_ip} &")
+    #end
 
     # appengine is started elsewhere
   end
