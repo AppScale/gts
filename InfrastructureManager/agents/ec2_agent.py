@@ -53,6 +53,11 @@ class EC2Agent(BaseAgent):
 
   DESCRIBE_INSTANCES_RETRY_COUNT = 3
 
+  # When acquiring machines via Eucalyptus, we sometimes get a transient
+  # 'Message has expired' exception. This retry indicates how many times
+  # we should try to run instances via EC2 or Eucalyptus before giving up.
+  RUN_INSTANCES_RETRY_COUNT = 3
+
   def configure_instance_security(self, parameters):
     """
     Setup EC2 security keys and groups. Required input values are read from
@@ -193,8 +198,21 @@ class EC2Agent(BaseAgent):
         conn.request_spot_instances(str(price), image_id, key_name=keyname,
           security_groups=[group], instance_type=instance_type, count=count)
       else:
-        conn.run_instances(image_id, count, count, key_name=keyname,
-          security_groups=[group], instance_type=instance_type)
+        retries_left = self.RUN_INSTANCES_RETRY_COUNT
+        while True:
+          try:
+            conn.run_instances(image_id, count, count, key_name=keyname,
+              security_groups=[group], instance_type=instance_type)
+            break
+          except EC2ResponseError as exception:
+            utils.log("Couldn't start {0} instances because of error: {1}. " \
+              "{2} retries left.".format(count, exception.error_message,
+              retries_left))
+            retries_left =- 1
+            if retries_left <= 0:
+              self.handle_failure(exception.error_message)
+            utils.sleep(10)
+
 
       instance_ids = []
       public_ips = []
