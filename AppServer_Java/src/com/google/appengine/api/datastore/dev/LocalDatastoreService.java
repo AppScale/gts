@@ -905,7 +905,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
                     count = 20;
                 }
             }
-
             DatastoreV3Pb.QueryResult result = liveQuery.nextResult(query.hasOffset() ? Integer.valueOf(query.getOffset()) : null, count, query.isCompile());
             if (query.isCompile())
             {
@@ -1849,7 +1848,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
 
     public DatastoreV3Pb.QueryResult nextResult(Integer offset, Integer count, boolean compile) {
       DatastoreV3Pb.QueryResult result = new DatastoreV3Pb.QueryResult();
-
       if (count == null) {
         if (this.query.hasCount())
           count = Integer.valueOf(this.query.getCount());
@@ -1857,7 +1855,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
           count = Integer.valueOf(20);
         }
       }
-
       if (this.query.isPersistOffset()) {
         if ((offset != null) && (offset.intValue() != this.remainingOffset)) {
           throw Utils.newError(DatastoreV3Pb.Error.ErrorCode.BAD_REQUEST, "offset mismatch");
@@ -1866,11 +1863,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
       } else if (offset == null) {
         offset = Integer.valueOf(0);
       }
-
-      if (offset.intValue() > 0) {
-        result.setSkippedResults(offsetResults(offset.intValue()));
-      }
-
       if (offset.intValue() == result.getSkippedResults())
       {
         result.mutableResults().addAll(removeEntities(Math.min(300, count.intValue())));
