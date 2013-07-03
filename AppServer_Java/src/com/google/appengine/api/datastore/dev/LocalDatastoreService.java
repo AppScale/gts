@@ -1863,10 +1863,6 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
       } else if (offset == null) {
         offset = Integer.valueOf(0);
       }
-      /* AppScale - removing this if block because it causes incorrect results */
-      //if (offset.intValue() > 0) {
-      //  result.setSkippedResults(offsetResults(offset.intValue()));
-      //}
       if (offset.intValue() == result.getSkippedResults())
       {
         result.mutableResults().addAll(removeEntities(Math.min(300, count.intValue())));

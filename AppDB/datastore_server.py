@@ -2051,6 +2051,17 @@ class DatastoreDistributed():
     return result 
 
   def __filter_kinds_and_ancestors(self, query, e, ent, filtered_entities):
+    """ Takes in the original query and query results and filters out
+        results that dont have the correct kind or ancestor.
+        
+        Args:
+          query: Original query from the app.
+          e: The EntityProto we are comparing.
+          ent: The entity in the results list.
+          filtered_entities: The list of filtered entities. 
+        Returns:
+          A boolean of whether the specific entity was filtered or not. 
+    """
     # Filter out kind if it does not match.
     if query.has_kind() and query.kind() != e.key().path().element_list()[-1].type():
       filtered_entities.remove(ent)
