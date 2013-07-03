@@ -1942,12 +1942,6 @@ class DatastoreDistributed():
     if order_info and order_info[0][0] == '__key__':
       return None
 
-    if query.has_ancestor():
-      return None
-
-    if not query.has_kind():
-      return None
-
     def set_prop_names(filt_info):
       """ Sets the property names. """
       pnames = set(filt_info.keys())
@@ -1959,20 +1953,19 @@ class DatastoreDistributed():
       for p in filt_info.keys():
         f = filt_info[p]
         if f[0][0] != datastore_pb.Query_Filter.EQUAL: 
-          pname = p     
+          pname = p
       return pname, pnames 
-
     property_name, property_names = set_prop_names(filter_info)
-
+   
     if len(property_names) <= 1:
-      return None
+      if not (len(property_names) == 1 and (query.has_ancestor() or query.has_kind())):
+        return None
 
     if not property_name:
       property_name = property_names.pop()
 
     filter_ops = filter_info.get(property_name, [])
     order_ops = []
-    
     for i in order_info:
       if i[0] == property_name:
         order_ops = [i]
@@ -1982,15 +1975,12 @@ class DatastoreDistributed():
         direction = order_ops[0][1]
     else:
       direction = datastore_pb.Query_Order.ASCENDING
-    
     count = self._MAX_COMPOSITE_WINDOW
     kind = query.kind()
-
     limit = query.limit() or self._MAXIMUM_RESULTS
 
     offset = query.offset()
     prefix = self.get_table_prefix(query)
-
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
       cursor = appscale_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
@@ -2000,7 +1990,7 @@ class DatastoreDistributed():
                                     last_result)
     else:
       startrow = None
-    result = []     
+    result = []
     # We loop and collect enough to fill the limit or until there are 
     # no more matching entities. The first filter is what we apply 
     # direct to the datastore, followed by in memory filters
@@ -2020,13 +2010,16 @@ class DatastoreDistributed():
         break
 
       ent_res = self.__fetch_entities(temp_res)
-
       # Create a copy from which we filter out
       filtered_entities = ent_res[:]
 
       # Apply in-memory filters for each property
       for ent in ent_res:
         e = entity_pb.EntityProto(ent)
+
+        filtered = self.__filter_kinds_and_ancestors(query, e, ent, filtered_entities)
+        if filtered:
+          continue
         prop_list = e.property_list()
         for prop in property_names:
           temp_filt = filter_info.get(prop, [])
@@ -2056,6 +2049,54 @@ class DatastoreDistributed():
       result = self.__multiorder_results(result, order_info, None) 
 
     return result 
+
+  def __filter_kinds_and_ancestors(self, query, e, ent, filtered_entities):
+    """ Takes in the original query and query results and filters out
+        results that dont have the correct kind or ancestor.
+        
+        Args:
+          query: Original query from the app.
+          e: The EntityProto we are comparing.
+          ent: The entity in the results list.
+          filtered_entities: The list of filtered entities. 
+        Returns:
+          A boolean of whether the specific entity was filtered or not. 
+    """
+    # Filter out kind if it does not match.
+    if query.has_kind() and query.kind() != e.key().path().element_list()[-1].type():
+      filtered_entities.remove(ent)
+      return True
+
+    # Make sure the ancestor matches each entity.
+    if query.has_ancestor():
+      current_index = 0
+      for element in query.ancestor().path().element_list():
+        current_kind = element.type()
+        if e.key().path().element_size < current_index + 1:
+          filtered_entities.remove(ent)
+          return True
+        if e.key().path().element(current_index).type() != \
+          current_kind:
+          filtered_entities.remove(ent)
+          return True
+        if element.has_name():
+          if not e.key().path().element(current_index).has_name():
+            filtered_entities.remove(ent)
+            return True
+          if e.key().path().element(current_index).name() != \
+            element.name():
+            filtered_entities.remove(ent)
+            return True
+        else:
+          if not e.key().path().element(current_index).id() != 0:
+            filtered_entities.remove(ent)
+            return True
+          if e.key().path().element(current_index).id() != \
+            element.id():
+            filtered_entities.remove(ent)
+            return True
+        current_index += 1  
+    return False
 
   def __multiorder_results(self, result, order_info, kind):
     """ Takes results and applies ordering based on properties and 
