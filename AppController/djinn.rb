@@ -569,6 +569,7 @@ class Djinn
 
       TaskQueue.stop if my_node.is_taskqueue_master?
       TaskQueue.stop if my_node.is_taskqueue_slave?
+      TaskQueue.stop_flower if my_node.is_login?
 
       stop_app_manager_server
       stop_neptune_manager
@@ -2621,9 +2622,9 @@ class Djinn
 
     maybe_start_taskqueue_worker("apichecker")
 
-    #if my_node.is_login?
-    #  Djinn.log_run("nohup flower --address=#{my_node.private_ip} &")
-    #end
+    if my_node.is_login?
+      TaskQueue.start_flower()
+    end
 
     # appengine is started elsewhere
   end
