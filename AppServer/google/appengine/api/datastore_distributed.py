@@ -437,8 +437,6 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
         return cmp(x_type, y_type)
 
     results = query_response.result_list()
-    results = [datastore.Entity._FromPb(r) for r in results]
-    results = [r._ToPb() for r in results]
     for result in results:
       datastore_stub_util.PrepareSpecialPropertiesForLoad(result)
 
