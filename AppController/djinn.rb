@@ -2345,16 +2345,7 @@ class Djinn
           failed_node = DjinnJobData.deserialize(failed_job_data)
           roles_to_add << failed_node.jobs
 
-          instances_to_delete = ZKInterface.get_app_instances_for_ip(ip)
-          uac = UserAppClient.new(@userappserver_private_ip, @@secret)
-          instances_to_delete.each { |instance|
-            Djinn.log_info("Deleting app instance for app " +
-              "#{instance['app_name']} located at #{instance['ip']}:" +
-              "#{instance['port']}")
-            uac.delete_instance(instance['app_name'], instance['ip'], 
-              instance['port'])
-          }
-
+          remove_app_hosting_data_for_node(ip)
           remove_node_from_local_and_zookeeper(ip)
           Djinn.log_info("Will recover [#{failed_node.jobs.join(', ')}] " +
             " roles that were being run by the failed node at #{ip}")
@@ -2368,6 +2359,18 @@ class Djinn
     }
 
     return roles_to_add
+  end
+
+
+  def remove_app_hosting_data_for_node(ip)
+    instances_to_delete = ZKInterface.get_app_instances_for_ip(ip)
+    uac = UserAppClient.new(@userappserver_private_ip, @@secret)
+    instances_to_delete.each { |instance|
+      Djinn.log_info("Deleting app instance for app #{instance['app_name']}" +
+        " located at #{instance['ip']}:#{instance['port']}")
+      uac.delete_instance(instance['app_name'], instance['ip'],
+        instance['port'])
+    }
   end
 
 
@@ -4240,7 +4243,26 @@ HOSTS
       return 0
     end
 
-    return 0
+    # Finally, find a node to remove and remove it.
+    node_to_remove = nil
+    @nodes.each { |node|
+      if node.jobs == ["memcache", "taskqueue_slave", "appengine"]
+        Djinn.log_info("Removing node #{node}")
+        node_to_remove = node
+        break
+      end
+    }
+
+    if node_to_remove.nil?
+      Djinn.log_warn("Tried to scale down but couldn't find a node to remove.")
+      return 0
+    end
+
+    remove_app_hosting_data_for_node(node.public_ip)
+    remove_node_from_local_and_zookeeper(node.public_ip)
+    imc = InfrastructureManagerClient.new(@@secret)
+    imc.terminate_instances(@creds, node.instance_id)
+    return -1
   end
 
 
