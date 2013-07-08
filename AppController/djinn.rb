@@ -4243,6 +4243,12 @@ HOSTS
       return 0
     end
 
+    if @nodes.length <= @creds['min_images']
+      Djinn.log_info("Not scaling down right now, as we are at the " +
+        "minimum number of nodes the user wants to use.")
+      return 0
+    end
+
     # Finally, find a node to remove and remove it.
     node_to_remove = nil
     @nodes.each { |node|
