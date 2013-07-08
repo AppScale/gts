@@ -1081,6 +1081,8 @@ class TestDjinn < Test::Unit::TestCase
     # and that it has not requested scaling
     flexmock(ZKInterface).should_receive(:get_scaling_requests_for_app).
       with('bazapp').and_return([])
+    flexmock(ZKInterface).should_receive(:clear_scaling_requests_for_app).
+      with('bazapp')
 
     # Finally, make sure that we didn't add any nodes
     assert_equal(0, djinn.scale_appservers_across_nodes())
@@ -1113,6 +1115,8 @@ class TestDjinn < Test::Unit::TestCase
     # and that two nodes have requested scaling
     flexmock(ZKInterface).should_receive(:get_scaling_requests_for_app).
       with('bazapp').and_return(['scale_up', 'scale_up'])
+    flexmock(ZKInterface).should_receive(:clear_scaling_requests_for_app).
+      with('bazapp')
 
     # assume the open node is done starting up
     flexmock(ZKInterface).should_receive(:is_node_done_loading?).
