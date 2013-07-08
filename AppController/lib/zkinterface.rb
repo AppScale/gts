@@ -606,6 +606,17 @@ class ZKInterface
   end
 
 
+  # Erases all requests to scale AppServers up or down for the named
+  # application.
+  #
+  # Args:
+  #   appid: A String that names the application whose scaling requests we
+  #     wish to erase.
+  def self.clear_scaling_requests_for_app(appid)
+    self.recursive_delete("#{SCALING_DECISION_PATH}/#{appid}")
+  end
+
+
   # Writes a node in ZooKeeper indicating that the named application needs
   # additional AppServers running to serve the amount of traffic currently
   # accessing the caller's machine.

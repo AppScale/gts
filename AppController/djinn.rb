@@ -4155,6 +4155,7 @@ HOSTS
     nodes_needed = []
     @apps_loaded.each { |appid|
       scaling_requests = ZKInterface.get_scaling_requests_for_app(appid)
+      ZKInterface.clear_scaling_requests_for_app(appid)
       scale_up_requests = scaling_requests.select { |item| item == "scale_up" }
       num_of_scale_up_requests = scale_up_requests.length
 
