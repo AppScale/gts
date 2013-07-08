@@ -4243,7 +4243,7 @@ HOSTS
       return 0
     end
 
-    if @nodes.length <= @creds['min_images']
+    if @nodes.length <= Integer(@creds['min_images'])
       Djinn.log_info("Not scaling down right now, as we are at the " +
         "minimum number of nodes the user wants to use.")
       return 0
@@ -4268,6 +4268,7 @@ HOSTS
     remove_node_from_local_and_zookeeper(node.public_ip)
     imc = InfrastructureManagerClient.new(@@secret)
     imc.terminate_instances(@creds, node.instance_id)
+    regenerate_nginx_config_files()
     return -1
   end
 

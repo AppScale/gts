@@ -613,7 +613,11 @@ class ZKInterface
   #   appid: A String that names the application whose scaling requests we
   #     wish to erase.
   def self.clear_scaling_requests_for_app(appid)
-    self.recursive_delete("#{SCALING_DECISION_PATH}/#{appid}")
+    path = "#{SCALING_DECISION_PATH}/#{appid}"
+    requests = self.get_children(path)
+    requests.each { |request|
+      self.delete("#{path}/#{request}")
+    }
   end
 
 
