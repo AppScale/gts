@@ -160,7 +160,7 @@
                                 </h4>
                               </div>
                               <div class="content noPad">
-                            <table class="table table-bordered">
+                            <table class="table table-bordered" id="nodesTable">
                                 <thead>
                                   <tr>
                                     <th>IP Address</th>
@@ -241,7 +241,7 @@
                                          levelColorsGradient: false
                                         });
 
-                                        gauges ["g3{{ server['key'] }}"] = new JustGage({
+                                        gauges["g3{{ server['key'] }}"] = new JustGage({
                                           id: "{{ server['key'] }}g3",
                                           value: {{ server['disk'] }},
                                           min: 0,
@@ -263,9 +263,84 @@
                                        // update our divs accordingly
                                        for (var i = 0; i < server_info.length; i++) {
                                          server = server_info[i];
-                                         gauges["g1" + server['key']].refresh(server['cpu']);
-                                         gauges["g2" + server['key']].refresh(server['memory']);
-                                         gauges["g3" + server['key']].refresh(server['disk']);
+                                         if ("g1" + server['key'] in gauges) {
+                                           // We're updating existing info.
+                                           gauges["g1" + server['key']].refresh(server['cpu']);
+                                           gauges["g2" + server['key']].refresh(server['memory']);
+                                           gauges["g3" + server['key']].refresh(server['disk']);
+                                         } else {
+                                           // This is a new node that just came online.
+                                           new_row = '<td id="status_table"><div align="center"><h3>';
+                                           new_row += server['ip'] + '</h3></div></td>';
+                                           new_row += '<td align="center">';
+                                           new_row += '<div id="' + server['key'] + 'g1" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>';
+                                           new_row += '</td>';
+                                           new_row += '<td align="center">';
+                                           new_row += '<div id="' + server['key'] + 'g2" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>';
+                                           new_row += '</td>';
+                                           new_row += '<td align="center">';
+                                           new_row += '<div id="' + server['key'] + 'g3" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>';
+                                           new_row += '</td>';
+                                           new_row += '<td style="text-align: center;">';
+                                           new_row += '<div style="margin-top: 50px;">';
+                                           for (var index = 0; index < server['roles'].length; index++) {
+                                             role = server['roles'][index];
+                                             if (role == 'load_balancer') {
+                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role +'" src="images/icons/load_balancer.png">';
+                                             } else if (role == 'shadow') {
+                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/shadow.png">';
+                                             } else if (role == 'db_master') {
+                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/datastore_master.png">';
+                                             } else if (role == 'memcache') {
+                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/memcache.png">';
+                                             } else if (role == 'zookeeper') {
+                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/zookeeper.png">';
+                                             } else if (role == 'login') {
+                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/login.png">';
+                                             } else if (role == 'appengine') {
+                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/app_engine.png">';
+                                             } else if (role == 'taskqueue_master') {
+                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/taskqueue_master.png">';
+                                             } else if (role == 'taskqueue_slave') {
+                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/taskqueue_slave.png">';
+                                             } else if (role == 'db_slave') {
+                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/datastore_slave.png">';
+                                             } else {
+                                               new_row += '<img id="unknown_role" alt="' + role + '" data-toggle="tooltip" title="The unknown role has been named: ' + role + '" aria-hidden="true" class="node_icons" src="images/icons/unknown_role.png">';
+                                             }
+                                           }
+                                         new_row += '</div></td>';
+                                         $('#nodesTable').append(new_row);
+                                         gauges["g1" + server['key']] = new JustGage({
+                                           id: server['key'] + "g1",
+                                           value: server['cpu'],
+                                           min: 0,
+                                           max: 100,
+                                           title: "CPU",
+                                           label: "",
+                                           levelColorsGradient: false
+                                         });
+
+                                         gauges["g2" + server['key']] = new JustGage({
+                                           id: server['key'] + "g2",
+                                           value: server['memory'],
+                                           min: 0,
+                                           max: 100,
+                                           title: "MEM",
+                                           label: "",
+                                           levelColorsGradient: false
+                                          });
+
+                                          gauges["g3" + server['key']] = new JustGage({
+                                            id: server['key'] + "g3",
+                                            value: server['disk'],
+                                            min: 0,
+                                            max: 100,
+                                            title: "HD",
+                                            label: "",
+                                            levelColorsGradient: false
+                                          });
+                                         }
                                        }
                                      });
                                    }, 10000);
