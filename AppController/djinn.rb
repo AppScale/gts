@@ -3968,6 +3968,7 @@ HOSTS
 
       Djinn.log_info("The minimum number of AppServers for this app " +
         "are already running, so don't remove any more.")
+      ZKInterface.request_scale_down_for_app(app_name, my_node.private_ip)
     elsif time_since_last_decision <= SCALEDOWN_TIME_THRESHOLD 
       Djinn.log_info("Recently scaled down, so not scaling down again.")
     end

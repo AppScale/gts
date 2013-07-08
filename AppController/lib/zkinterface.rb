@@ -628,11 +628,31 @@ class ZKInterface
   # Returns:
   #   true if the request was successfully made, and false otherwise.
   def self.request_scale_up_for_app(appid, ip)
+    return self.request_scaling_for_app(appid, ip, :scale_up)
+  end
+
+
+  # Writes a node in ZooKeeper indicating that the named application needs
+  # less AppServers running to serve the amount of traffic currently
+  # accessing the caller's machine.
+  #
+  # Args:
+  #   appid: A String that names the application that should be scaled down.
+  #   ip: A String that names the IP address of the machine that is requesting
+  #     less AppServers for this application.
+  # Returns:
+  #   true if the request was successfully made, and false otherwise.
+  def self.request_scale_down_for_app(appid, ip)
+    return self.request_scaling_for_app(appid, ip, :scale_down)
+  end
+
+
+  def self.request_scaling_for_app(appid, ip, decision)
     begin
       path = "#{SCALING_DECISION_PATH}/#{appid}/#{ip}"
       self.set(SCALING_DECISION_PATH, DUMMY_DATA, NOT_EPHEMERAL)
       self.set("#{SCALING_DECISION_PATH}/#{appid}", DUMMY_DATA, NOT_EPHEMERAL)
-      self.set(path, "scale_up", NOT_EPHEMERAL)
+      self.set(path, decision.to_s, NOT_EPHEMERAL)
       return true
     rescue FailedZooKeeperOperationException
       return false
