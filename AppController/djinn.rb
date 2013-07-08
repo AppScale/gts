@@ -4154,8 +4154,10 @@ HOSTS
     num_of_appservers = appservers.length
 
     nodes_needed = []
+    all_scaling_requests = {}
     @apps_loaded.each { |appid|
       scaling_requests = ZKInterface.get_scaling_requests_for_app(appid)
+      all_scaling_requests[appid] = scaling_requests
       ZKInterface.clear_scaling_requests_for_app(appid)
       scale_up_requests = scaling_requests.select { |item| item == "scale_up" }
       num_of_scale_up_requests = scale_up_requests.length
@@ -4172,8 +4174,9 @@ HOSTS
     }
 
     if nodes_needed.empty?
-      Djinn.log_debug("Not adding any new AppServers at this time.")
-      return nodes_needed.length
+      Djinn.log_debug("Not adding any new AppServers at this time. Checking " +
+        "to see if we need to scale down.")
+      return examine_scale_down_requests(all_scaling_requests)
     end
 
     Djinn.log_info("Need to spawn #{nodes_needed.length} new AppServers.")
@@ -4188,6 +4191,56 @@ HOSTS
 
     regenerate_nginx_config_files()
     return nodes_needed.length
+  end
+
+
+  # Searches through the requests to scale up and down each application in this
+  # AppScale deployment, and determines if machines need to be terminated due
+  # to excess capacity.
+  #
+  # Args:
+  #   all_scaling_votes: A Hash that maps each appid (a String) to the votes
+  #     received to scale the app up or down (an Array of Strings).
+  # Returns:
+  #   An Integer that indicates how many nodes were added to this AppScale
+  #   deployment. A negative number indicates that that many nodes were
+  #   removed from this AppScale deployment.
+  def examine_scale_down_requests(all_scaling_votes)
+    # First, only scale down in cloud environments.
+    if !is_cloud?
+      Djinn.log_info("Not scaling down, because we aren't in a cloud.")
+      return 0
+    end
+
+    # Second, only consider scaling down if nobody wants to scale up.
+    @apps_loaded.each { |appid|
+      scale_ups = all_scaling_votes[appid].select { |vote| vote == "scale_up" }
+      if scale_ups.length > 0
+        Djinn.log_info("Not scaling down, because app #{appid} wants to scale" +
+          " up.")
+        return 0
+      end
+    }
+
+    # Third, only consider scaling down if we get two votes to scale down on
+    # the same app, just like we do for scaling up.
+    scale_down_threshold_reached = false
+    @apps_loaded.each { |appid|
+      scale_downs = all_scaling_votes[appid].select { |vote| vote == "scale_down" }
+      if scale_downs.length > 1
+        Djinn.log_info("Got #{scale_downs.length} votes to scale down app " +
+          "#{appid}, so considering removing nodes.")
+        scale_down_threshold_reached = true
+      end
+    }
+
+    if !scale_down_threshold_reached
+      Djinn.log_info("Not scaling down right now, as not enough nodes have " +
+        "requested it.")
+      return 0
+    end
+
+    return 0
   end
 
 
