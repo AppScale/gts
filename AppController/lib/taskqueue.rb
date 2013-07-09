@@ -189,7 +189,6 @@ module TaskQueue
     start_cmd = "flower"
     stop_cmd = "ps ax | grep flower | grep -v grep | awk '{print $1}' | xargs kill -9"
     GodInterface.start(:flower, start_cmd, stop_cmd, FLOWER_SERVER_PORT)
-    HelperFunctions.sleep_until_port_is_open("localhost", FLOWER_SERVER_PORT)
   end
 
 

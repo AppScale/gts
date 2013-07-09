@@ -242,6 +242,12 @@ class Djinn
   attr_accessor :last_sampling_time
 
 
+  # A Time that corresponds to the last time this machine added or removed nodes
+  # in this AppScale deployment. Adding or removing nodes can happen in response
+  # to autoscaling requests, or (eventually) to recover from faults.
+  attr_accessor :last_scaling_time
+
+
   # The port that the AppController runs on by default
   SERVER_PORT = 17443
 
@@ -470,6 +476,7 @@ class Djinn
     @req_in_queue = {}
     @total_req_rate = {}
     @last_sampling_time = {}
+    @last_scaling_time = Time.now
   end
 
 
@@ -2345,16 +2352,7 @@ class Djinn
           failed_node = DjinnJobData.deserialize(failed_job_data)
           roles_to_add << failed_node.jobs
 
-          instances_to_delete = ZKInterface.get_app_instances_for_ip(ip)
-          uac = UserAppClient.new(@userappserver_private_ip, @@secret)
-          instances_to_delete.each { |instance|
-            Djinn.log_info("Deleting app instance for app " +
-              "#{instance['app_name']} located at #{instance['ip']}:" +
-              "#{instance['port']}")
-            uac.delete_instance(instance['app_name'], instance['ip'], 
-              instance['port'])
-          }
-
+          remove_app_hosting_data_for_node(ip)
           remove_node_from_local_and_zookeeper(ip)
           Djinn.log_info("Will recover [#{failed_node.jobs.join(', ')}] " +
             " roles that were being run by the failed node at #{ip}")
@@ -2368,6 +2366,18 @@ class Djinn
     }
 
     return roles_to_add
+  end
+
+
+  def remove_app_hosting_data_for_node(ip)
+    instances_to_delete = ZKInterface.get_app_instances_for_ip(ip)
+    uac = UserAppClient.new(@userappserver_private_ip, @@secret)
+    instances_to_delete.each { |instance|
+      Djinn.log_info("Deleting app instance for app #{instance['app_name']}" +
+        " located at #{instance['ip']}:#{instance['port']}")
+      uac.delete_instance(instance['app_name'], instance['ip'],
+        instance['port'])
+    }
   end
 
 
@@ -3968,6 +3978,7 @@ HOSTS
 
       Djinn.log_info("The minimum number of AppServers for this app " +
         "are already running, so don't remove any more.")
+      ZKInterface.request_scale_down_for_app(app_name, my_node.private_ip)
     elsif time_since_last_decision <= SCALEDOWN_TIME_THRESHOLD 
       Djinn.log_info("Recently scaled down, so not scaling down again.")
     end
@@ -4153,8 +4164,10 @@ HOSTS
     num_of_appservers = appservers.length
 
     nodes_needed = []
+    all_scaling_requests = {}
     @apps_loaded.each { |appid|
       scaling_requests = ZKInterface.get_scaling_requests_for_app(appid)
+      all_scaling_requests[appid] = scaling_requests
       ZKInterface.clear_scaling_requests_for_app(appid)
       scale_up_requests = scaling_requests.select { |item| item == "scale_up" }
       num_of_scale_up_requests = scale_up_requests.length
@@ -4171,8 +4184,15 @@ HOSTS
     }
 
     if nodes_needed.empty?
-      Djinn.log_debug("Not adding any new AppServers at this time.")
-      return nodes_needed.length
+      Djinn.log_debug("Not adding any new AppServers at this time. Checking " +
+        "to see if we need to scale down.")
+      return examine_scale_down_requests(all_scaling_requests)
+    end
+
+    if Time.now - @last_scaling_time < SCALEUP_TIME_THRESHOLD
+      Djinn.log_info("Not scaling up right now, as we recently scaled " +
+        "up or down.")
+      return 0
     end
 
     Djinn.log_info("Need to spawn #{nodes_needed.length} new AppServers.")
@@ -4186,7 +4206,92 @@ HOSTS
     end
 
     regenerate_nginx_config_files()
+    @last_scaling_time = Time.now
     return nodes_needed.length
+  end
+
+
+  # Searches through the requests to scale up and down each application in this
+  # AppScale deployment, and determines if machines need to be terminated due
+  # to excess capacity.
+  #
+  # Args:
+  #   all_scaling_votes: A Hash that maps each appid (a String) to the votes
+  #     received to scale the app up or down (an Array of Strings).
+  # Returns:
+  #   An Integer that indicates how many nodes were added to this AppScale
+  #   deployment. A negative number indicates that that many nodes were
+  #   removed from this AppScale deployment.
+  def examine_scale_down_requests(all_scaling_votes)
+    # First, only scale down in cloud environments.
+    if !is_cloud?
+      Djinn.log_info("Not scaling down, because we aren't in a cloud.")
+      return 0
+    end
+
+    if @nodes.length <= Integer(@creds['min_images'])
+      Djinn.log_info("Not scaling down right now, as we are at the " +
+        "minimum number of nodes the user wants to use.")
+      return 0
+    end
+
+    # Second, only consider scaling down if nobody wants to scale up.
+    @apps_loaded.each { |appid|
+      scale_ups = all_scaling_votes[appid].select { |vote| vote == "scale_up" }
+      if scale_ups.length > 0
+        Djinn.log_info("Not scaling down, because app #{appid} wants to scale" +
+          " up.")
+        return 0
+      end
+    }
+
+    # Third, only consider scaling down if we get two votes to scale down on
+    # the same app, just like we do for scaling up.
+    scale_down_threshold_reached = false
+    @apps_loaded.each { |appid|
+      scale_downs = all_scaling_votes[appid].select { |vote| vote == "scale_down" }
+      if scale_downs.length > 1
+        Djinn.log_info("Got #{scale_downs.length} votes to scale down app " +
+          "#{appid}, so considering removing nodes.")
+        scale_down_threshold_reached = true
+      end
+    }
+
+    if !scale_down_threshold_reached
+      Djinn.log_info("Not scaling down right now, as not enough nodes have " +
+        "requested it.")
+      return 0
+    end
+
+    # Also, don't scale down if we just scaled up or down.
+    if Time.now - @last_scaling_time > SCALEDOWN_TIME_THRESHOLD
+      Djinn.log_info("Not scaling down right now, as we recently scaled " +
+        "up or down.")
+      return 0
+    end
+
+    # Finally, find a node to remove and remove it.
+    node_to_remove = nil
+    @nodes.each { |node|
+      if node.jobs == ["memcache", "taskqueue_slave", "appengine"]
+        Djinn.log_info("Removing node #{node}")
+        node_to_remove = node
+        break
+      end
+    }
+
+    if node_to_remove.nil?
+      Djinn.log_warn("Tried to scale down but couldn't find a node to remove.")
+      return 0
+    end
+
+    remove_app_hosting_data_for_node(node_to_remove.public_ip)
+    remove_node_from_local_and_zookeeper(node_to_remove.public_ip)
+    imc = InfrastructureManagerClient.new(@@secret)
+    imc.terminate_instances(@creds, node_to_remove.instance_id)
+    regenerate_nginx_config_files()
+    @last_scaling_time = Time.now
+    return -1
   end
 
 

@@ -375,6 +375,31 @@ class GCEAgent(BaseAgent):
     return apiclient.discovery.build('compute', self.API_VERSION), credentials
 
 
+  def terminate_instances(self, parameters):
+    """ Deletes the instances specified in 'parameters' running in Google
+    Compute Engine.
+
+    Args:
+      parameters: A dict with keys for each parameter needed to connect to
+        Google Compute Engine, and an additional key mapping to a list of
+        instance names that should be deleted.
+    """
+    instance_ids = parameters[self.PARAM_INSTANCE_IDS]
+    for instance_id in instance_ids:
+      gce_service, credentials = self.open_connection(parameters)
+      http = httplib2.Http()
+      auth_http = credentials.authorize(http)
+      request = gce_service.instances().delete(
+        project=parameters[self.PARAM_PROJECT],
+        zone=self.DEFAULT_ZONE,
+        instance=instance_id
+      )
+      response = request.execute(auth_http)
+      AppScaleLogger.verbose(str(response), parameters[self.PARAM_VERBOSE])
+      self.ensure_operation_succeeds(gce_service, auth_http, response,
+        parameters[self.PARAM_PROJECT])
+
+
   def ensure_operation_succeeds(self, gce_service, auth_http, response, project_id):
     """ Waits for the given GCE operation to finish successfully.
 
