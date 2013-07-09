@@ -143,13 +143,32 @@ class InfrastructureManagerClient
   end
 
 
-  def terminate_instances(parameters)
-    Djinn.log_debug("Calling terminate_instances with parameters " +
-      "#{parameters.inspect}")
+  def terminate_instances(creds, instance_ids)
+    credentials = {
+      # EC2 / Eucalyptus-specific credentials
+      'EC2_ACCESS_KEY' => creds['ec2_access_key'],
+      'EC2_SECRET_KEY' => creds['ec2_secret_key'],
+      'EC2_URL' => creds['ec2_url'],
+    }
 
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "terminate_instances") { 
+    if instance_ids.class != Array
+      instance_ids = [instance_ids]
+    end
+
+    parameters = {
+      "credentials" => credentials,
+      "instance_ids" => instance_ids,
+      "project" => creds['project'],  # GCE-specific
+      "group" => creds['group'],
+      "infrastructure" => creds['infrastructure'],
+      "keyname" => creds['keyname'],
+    }
+
+    terminate_result = make_call(NO_TIMEOUT, RETRY_ON_FAIL,
+      "terminate_instances") {
       @conn.terminate_instances(parameters.to_json, @secret)
     }
+    Djinn.log_debug("Terminate instances says [#{terminate_result}]")
   end
  
   
