@@ -242,6 +242,12 @@ class Djinn
   attr_accessor :last_sampling_time
 
 
+  # A Time that corresponds to the last time this machine added or removed nodes
+  # in this AppScale deployment. Adding or removing nodes can happen in response
+  # to autoscaling requests, or (eventually) to recover from faults.
+  attr_accessor :last_scaling_time
+
+
   # The port that the AppController runs on by default
   SERVER_PORT = 17443
 

@@ -1112,6 +1112,9 @@ class TestDjinn < Test::Unit::TestCase
       }
     }
 
+    # and that we haven't scaled up in a long time
+    djinn.last_scaling_time = Time.utc(2000, "jan", 1, 20, 15, 1)
+
     # and that two nodes have requested scaling
     flexmock(ZKInterface).should_receive(:get_scaling_requests_for_app).
       with('bazapp').and_return(['scale_up', 'scale_up'])
