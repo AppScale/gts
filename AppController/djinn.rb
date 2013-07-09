@@ -470,6 +470,7 @@ class Djinn
     @req_in_queue = {}
     @total_req_rate = {}
     @last_sampling_time = {}
+    @last_scaling_time = Time.now
   end
 
 
@@ -4182,6 +4183,12 @@ HOSTS
       return examine_scale_down_requests(all_scaling_requests)
     end
 
+    if Time.now - @last_scaling_time < SCALEUP_TIME_THRESHOLD
+      Djinn.log_info("Not scaling up right now, as we recently scaled " +
+        "up or down.")
+      return 0
+    end
+
     Djinn.log_info("Need to spawn #{nodes_needed.length} new AppServers.")
     added_nodes = start_new_roles_on_nodes(nodes_needed,
       @creds['instance_type'], @@secret)
@@ -4193,6 +4200,7 @@ HOSTS
     end
 
     regenerate_nginx_config_files()
+    @last_scaling_time = Time.now
     return nodes_needed.length
   end
 
@@ -4212,6 +4220,12 @@ HOSTS
     # First, only scale down in cloud environments.
     if !is_cloud?
       Djinn.log_info("Not scaling down, because we aren't in a cloud.")
+      return 0
+    end
+
+    if @nodes.length <= Integer(@creds['min_images'])
+      Djinn.log_info("Not scaling down right now, as we are at the " +
+        "minimum number of nodes the user wants to use.")
       return 0
     end
 
@@ -4243,9 +4257,10 @@ HOSTS
       return 0
     end
 
-    if @nodes.length <= Integer(@creds['min_images'])
-      Djinn.log_info("Not scaling down right now, as we are at the " +
-        "minimum number of nodes the user wants to use.")
+    # Also, don't scale down if we just scaled up or down.
+    if Time.now - @last_scaling_time > SCALEDOWN_TIME_THRESHOLD
+      Djinn.log_info("Not scaling down right now, as we recently scaled " +
+        "up or down.")
       return 0
     end
 
@@ -4264,11 +4279,12 @@ HOSTS
       return 0
     end
 
-    remove_app_hosting_data_for_node(node.public_ip)
-    remove_node_from_local_and_zookeeper(node.public_ip)
+    remove_app_hosting_data_for_node(node_to_remove.public_ip)
+    remove_node_from_local_and_zookeeper(node_to_remove.public_ip)
     imc = InfrastructureManagerClient.new(@@secret)
-    imc.terminate_instances(@creds, node.instance_id)
+    imc.terminate_instances(@creds, node_to_remove.instance_id)
     regenerate_nginx_config_files()
+    @last_scaling_time = Time.now
     return -1
   end
 
