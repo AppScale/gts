@@ -43,6 +43,7 @@ module CronHelper
       cron_yaml = YAML.load_file(cron_file)["cron"]
       return if cron_yaml.nil?
       cron_yaml.each { |item|
+        next if item['url'].nil?
         description = item["description"]
         # since url gets put at end of curl, need to ensure it
         # is of the form /baz to prevent malicious urls
