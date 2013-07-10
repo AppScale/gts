@@ -1123,6 +1123,7 @@ class Djinn
       restart_appengine_apps
       scale_appservers_on_this_node
       scale_appservers_across_nodes
+      send_instance_info_to_dashboard
       Kernel.sleep(20)
     end
   end
@@ -2260,6 +2261,40 @@ class Djinn
           # the logs - just continue on.
         end
       }
+    }
+  end
+
+
+  # Sends information about the AppServer processes hosting App Engine apps on
+  # this machine to the AppDashboard, for later viewing.
+  def send_instance_info_to_dashboard
+    APPS_LOCK.synchronize {
+      instance_info = []
+      @app_info_map.each_pair { |appid, app_info|
+        app_info['appengine'].each { |port|
+          instance_info << {
+            'appid' => appid,
+            'host' => my_node.public_ip,
+            'port' => port,
+            'language' => app_info['language']
+          }
+        }
+      }
+
+      begin
+        url = URI.parse("https://#{get_login.public_ip}/apps/stats/instances")
+        http = Net::HTTP.new(url.host, url.port)
+        http.use_ssl = true
+        response = http.post(url.path, JSON.dump(instance_info),
+          {'Content-Type'=>'application/json'})
+        Djinn.log_debug("Done sending instance info to AppDashboard!")
+        Djinn.log_debug("Instance info is: [#{instance_info}]")
+        Djinn.log_debug("Response is #{response.body}")
+      rescue Exception
+        # Don't crash the AppController because we weren't able to send over
+        # the instance info - just continue on.
+        Djinn.log_warn("Couldn't send instance info to AppDashboard.")
+      end
     }
   end
 
