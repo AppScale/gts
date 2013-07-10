@@ -286,7 +286,7 @@ def get_pid_from_port(port):
   """ 
   if not str(port).isdigit(): return BAD_PID
 
-  s = os.popen("lsof -i:" + str(port) + " | grep -v COMMAND | awk {'print $2'}")
+  s = os.popen("lsof -i:" + str(port) + " | grep -v COMMAND | awk {'print $2'} | head -1")
   pid = s.read().rstrip()
   if pid:
     return int(pid)

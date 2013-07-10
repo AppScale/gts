@@ -28,6 +28,31 @@
 		  </div><!-- close kind container-->
                 </div><!-- close offset -->
               </div><!-- close row fluid-->
+              <div class="row-fluid">
+                <div style="margin-right:auto; margin-left:auto;">
+                  <p>{{ instance_info|length }} instances are hosting this app:</p>
+                </div><!-- close marginright -->
+                <div class="offset1 span8">
+                  <table class="table">
+                    <thead>
+                      <tr>
+                        <td>Host</td>
+                        <td>Port</td>
+                        <td>Language</td>
+                      </tr>
+                    </thead>
+                    <tbody>
+                    {% for instance in instance_info %}
+                      <tr>
+                        <td>{{ instance.host }}</td>
+                        <td>{{ instance.port }}</td>
+                        <td>{{ instance.language }}</td>
+                      </tr>
+                    {% endfor %}
+                    </tbody>
+                  </table>
+                </div><!-- close offset -->
+              </div><!-- close row fluid-->
         </div><!--close span6 -->
         </div> <!-- end row fluid -->
     </div> <!-- end content wrapper -->
