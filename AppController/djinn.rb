@@ -2271,6 +2271,7 @@ class Djinn
     APPS_LOCK.synchronize {
       instance_info = []
       @app_info_map.each_pair { |appid, app_info|
+        next if app_info['appengine'].nil?
         app_info['appengine'].each { |port|
           instance_info << {
             'appid' => appid,
@@ -2290,10 +2291,11 @@ class Djinn
         Djinn.log_debug("Done sending instance info to AppDashboard!")
         Djinn.log_debug("Instance info is: [#{instance_info}]")
         Djinn.log_debug("Response is #{response.body}")
-      rescue Exception
+      rescue Exception => exception
         # Don't crash the AppController because we weren't able to send over
         # the instance info - just continue on.
-        Djinn.log_warn("Couldn't send instance info to AppDashboard.")
+        Djinn.log_warn("Couldn't send instance info to AppDashboard because" +
+          " of a #{exception.class} exception.")
       end
     }
   end
@@ -2319,15 +2321,17 @@ class Djinn
         url = URI.parse("https://#{get_login.public_ip}/apps/stats/instances")
         http = Net::HTTP.new(url.host, url.port)
         http.use_ssl = true
-        response = http.delete(url.path, JSON.dump(instance_info),
-          {'Content-Type'=>'application/json'})
+        request = Net::HTTP::Delete.new(url.path)
+        request.body = JSON.dump(instance_info)
+        response = http.request(request)
         Djinn.log_debug("Done sending instance info to AppDashboard!")
         Djinn.log_debug("Instance info is: [#{instance_info}]")
         Djinn.log_debug("Response is #{response.body}")
-      rescue Exception
+      rescue Exception => exception
         # Don't crash the AppController because we weren't able to send over
         # the instance info - just continue on.
-        Djinn.log_warn("Couldn't send instance info to AppDashboard.")
+        Djinn.log_warn("Couldn't delete instance info to AppDashboard because" +
+          " of a #{exception.class} exception.")
       end
     }
   end
