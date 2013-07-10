@@ -942,6 +942,18 @@ class StatsPage(AppDashboard):
     })
 
 
+class RunGroomer(AppDashboard):
+  """ Class that dynamically updates Kind statistics in the Datastore. """
+
+
+  def get(self):
+    """ Calls the groomer and tells it that Kind statistics need to be
+    updated. """
+    self.response.out.write(json.dumps({
+      'result' : self.helper.run_groomer()
+    }))
+
+
 # Main Dispatcher
 app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/status/refresh', StatusRefreshPage),
@@ -972,6 +984,7 @@ app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/logs/(.+)/(.+)', LogServiceHostPage),
                                 ('/logs/(.+)', LogServicePage),
                                 ('/gather-logs', LogDownloader),
+                                ('/groomer', RunGroomer)
                               ], debug=True)
 
 

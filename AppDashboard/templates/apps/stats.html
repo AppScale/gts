@@ -20,7 +20,7 @@
               </div><!-- close row fluid-->
               <div class="row-fluid">
                 <div style="margin-right:auto; margin-left:auto;">
-                  <p>Kind statistics:</p>
+                  <p>Kind statistics: <a id='groomer' href="#" class="btn btn-primary btn-large">Update</a></p>
                 </div><!-- close marginright -->
                 <div class="offset1 span8">
                   <div class="flot-container">
@@ -117,10 +117,9 @@ function update_stats_info() {
       }
 
       if (all_stats.length == 0) {
-        $('#kind-flot').text('No Kind data is currently available. This data ' +
-          'is generated daily, so please check back tomorrow or manually ' +
-          'generate this information by running "cd /root/appscale/AppDB ' +
-          '&& python groomer.py" within an AppScale virtual machine.');
+        $('#kind-flot').text("No Kind data is currently available. " +
+          "This data updates every day by default, or you can click " +
+          "the 'Update' button above to manually generate this data.");
       } else {
         $('#kind-flot').text('');
         $.plot('#kind-flot', all_stats, {
