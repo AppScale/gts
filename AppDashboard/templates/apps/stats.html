@@ -34,6 +34,17 @@
 </div> <!--end content-->
 
 <script>
+// Calls the Groomer if the user clicks on the 'Update' button.
+$('#groomer').click(function() {
+  $.ajax({
+    url: "/groomer"
+  }).done(
+  function(response) {
+    console.log(response);
+    update_stats_info();
+  })
+});
+
 //Plots JSON data on a line graph
 window.onload = function() {
   update_request_info();
