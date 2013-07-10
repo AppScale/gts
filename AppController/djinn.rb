@@ -841,6 +841,36 @@ class Djinn
     return stats
   end
 
+
+  # Runs the Groomer service that the Datastore provides, which cleans up
+  # deleted entries and generates statistics about the entities stored for each
+  # application.
+  #
+  # Args:
+  #   secret: A String with the shared key for authentication.
+  # Returns:
+  #   'OK' if the groomer was invoked, and BAD_SECRET_MSG if the user failed to
+  #   authenticate correctly.
+  def run_groomer(secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    Thread.new {
+      run_groomer_command = "cd /root/appscale/AppDB && python groomer.py"
+      if my_node.is_db_master?
+        Djinn.log_run(run_groomer_command)
+      else
+        db_master = get_db_master
+        HelperFunctions.run_remote_command(db_master.private_ip,
+          run_groomer_command, db_master.ssh_key, NO_OUTPUT)
+      end
+    }
+
+    return 'OK'
+  end
+
+
   # Removes an application and stops all AppServers hosting this application.
   #
   # Args:

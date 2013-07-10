@@ -868,3 +868,20 @@ class AppDashboardHelper():
     except Exception as err:
       logging.exception(err)
       return False, ""
+
+
+  def run_groomer(self):
+    """ Tells the AppController on this node to contact the machine running the
+    Datastore on it, and instruct it to generate Kind statistics, for later
+    viewing in the AppDashboard.
+
+    Returns:
+      'OK' if the request was successful, and in case of failures, the reason
+      why the failure occurred.
+    """
+    try:
+      acc = self.get_appcontroller_client()
+      return acc.run_groomer()
+    except Exception as err:
+      logging.exception(err)
+      return str(err)

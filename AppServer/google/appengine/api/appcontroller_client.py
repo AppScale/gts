@@ -434,3 +434,13 @@ class AppControllerClient():
     return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, (False, ""),
       self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR, self.server.gather_logs,
       self.secret)
+
+
+  def run_groomer(self):
+    """ Tells the AppController to clean up entities in the Datastore that have
+    been soft deleted, and to generate statistics about the entities still in
+    the Datastore (which can be viewed in the AppDashboard).
+    """
+    return self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "Error",
+      self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR, self.server.run_groomer,
+      self.secret)
