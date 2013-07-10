@@ -2195,7 +2195,12 @@ class Djinn
     data.each { |k, v|
       @api_status[k] = [] if @api_status[k].nil?
       @api_status[k] << v
-      @api_status[k] = HelperFunctions.shorten_to_n_items(10, @api_status[k])
+
+      # If not enough API statuses are known yet, pad it with 'running' to avoid
+      # accidentally claiming that an API has failed without sufficient evidence
+      # of its failure.
+      @api_status[k] = HelperFunctions.shorten_to_n_items(10, @api_status[k],
+        "running")
       majorities[k] = HelperFunctions.find_majority_item(@api_status[k])
     }
 

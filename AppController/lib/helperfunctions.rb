@@ -1196,10 +1196,24 @@ module HelperFunctions
     return Integer(`cat /proc/cpuinfo | grep 'processor' | wc -l`.chomp)
   end
 
-  def self.shorten_to_n_items(n, array)
+
+  # Takes the given array and eliminates all but the last n items in it.
+  # If the array has less than n items in it, we add on the given item
+  # to pad it back to n items.
+  #
+  # Args:
+  #   n: An Integer that indicates how many items should be in the returned
+  #     Array.
+  #   array: An Array of objects that we want to shorten to n items.
+  #   padding: The object that multiple copies of will be added to array if
+  #     array is less than n items long.
+  #
+  # Returns:
+  #   An Array containing the last n items of array.
+  def self.shorten_to_n_items(n, array, padding)
     len = array.length
     if len < n
-      array
+      array + [padding] * (n - len)
     else
       array[len-n..len-1]
     end
@@ -1221,6 +1235,7 @@ module HelperFunctions
       end
     }
 
+    Djinn.log_debug("In [#{array.join(', ')}], the majority item is #{max_k}")
     return max_k
   end
 
