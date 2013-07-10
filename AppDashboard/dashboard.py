@@ -37,6 +37,7 @@ sys.path.append(os.path.dirname(__file__) + '/lib')
 from app_dashboard_helper import AppDashboardHelper
 from app_dashboard_helper import AppHelperException
 from app_dashboard_data import AppDashboardData
+from app_dashboard_data import InstanceInfo
 from app_dashboard_data import RequestInfo
 
 
@@ -862,10 +863,12 @@ class DatastoreStats(AppDashboard):
         {ent.kind_name:{'bytes':ent.bytes, "count":ent.count}}})
     return json.dumps(items)
 
+
 class RequestsStats(AppDashboard):
   """ Class that returns request statistics in JSON relating to the number 
   of requests an application gets per second.
   """
+
 
   def get(self):
     """ Handler for GET request for the requests statistics. """
@@ -877,8 +880,9 @@ class RequestsStats(AppDashboard):
       self.response.out.write(response)
       return
 
-    app_id = self.request.get("appid")
-    self.response.out.write(json.dumps(RequestsStats.fetch_request_info(app_id)))
+    appid = self.request.get("appid")
+    self.response.out.write(json.dumps(RequestsStats.fetch_request_info(appid)))
+
 
   @staticmethod
   def fetch_request_info(app_id):
@@ -901,6 +905,76 @@ class RequestsStats(AppDashboard):
       })
     return request_info
 
+
+class InstanceStats(AppDashboard):
+  """ Class that returns instance statistics in JSON relating to the number
+  of AppServer processes running for a particular App Engine application.
+  """
+
+  def get(self):
+    """ Makes sure the user is allowed to see instance data for the named
+    application, and if so, retrieves it for them. """
+    is_cloud_admin = self.helper.is_user_cloud_admin()
+    apps_user_is_admin_on = self.helper.get_owned_apps()
+    app_name = self.request.get("appid")
+    if (not is_cloud_admin) and (app_name not in apps_user_is_admin_on):
+      response = json.dumps({"error": True, "message": "Not authorized"})
+      self.response.out.write(response)
+      return
+
+    appid = self.request.get("appid")
+    self.response.out.write(json.dumps(InstanceStats.fetch_request_info(appid)))
+
+
+  def post(self):
+    """ Adds information about one or more instances to the Datastore, for
+    later viewing.
+    """
+    encoded_data = self.request.body
+    data = json.loads(encoded_data)
+
+    for instance in data:
+      # TODO(cgb): Consider only doing a put if it doesn't exist
+      instance = InstanceInfo(id = instance['appid'] + instance['host'] + str(instance['port']),
+        appid = instance['appid'],
+        host = instance['host'],
+        port = instance['port'],
+        language = instance['language'])
+      instance.put()
+
+    self.response.out.write('put completed successfully!')
+
+
+  def delete(self):
+    """ Removes information about one or more instances from the Datastore. """
+    encoded_data = self.request.body
+    data = json.loads(encoded_data)
+
+    for instance in data:
+      instance = InstanceInfo.get_by_id(instance['appid'] + instance['host'] + str(instance['port']))
+      instance.key.delete()
+
+    self.response.out.write('delete completed successfully!')
+
+
+  @staticmethod
+  def fetch_request_info(appid):
+    """ Retrieves information about the AppServer processes running the
+    application associated with the named application.
+
+    Args:
+      appid: A str, the application identifier.
+    Returns:
+      A list of dicts, where each dict has information about a single AppServer
+      process running the named application.
+    """
+    query = InstanceInfo.query(InstanceInfo.appid == appid)
+    instances = query.fetch()
+    return [{
+      'host' : instance.host,
+      'port' : instance.port,
+      'language' : instance.language
+    } for instance in instances]
 
 
 class MemcacheStats(AppDashboard):
@@ -935,10 +1009,11 @@ class StatsPage(AppDashboard):
     if app_id not in apps_user_is_admin_on:
       self.redirect('/', self.response)
 
-    request_info = RequestsStats.fetch_request_info(app_id)
+    instance_info = InstanceStats.fetch_request_info(app_id)
     self.render_page(page='stats', template_file=self.TEMPLATE, values = {
       'appid' : app_id,
-      'all_apps_this_user_owns' : apps_user_is_admin_on
+      'all_apps_this_user_owns' : apps_user_is_admin_on,
+      'instance_info' : instance_info
     })
 
 
@@ -960,6 +1035,7 @@ app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/apps/?', AppConsolePage),
                                 ('/apps/stats/datastore', DatastoreStats),
                                 ('/apps/stats/requests', RequestsStats),
+                                ('/apps/stats/instances', InstanceStats),
                                 ('/apps/stats/memcache', MemcacheStats),
                                 ('/apps/new', AppUploadPage),
                                 ('/apps/upload', AppUploadPage),

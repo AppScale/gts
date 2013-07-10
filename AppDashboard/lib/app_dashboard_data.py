@@ -112,6 +112,29 @@ class UserInfo(ndb.Model):
   owned_apps = ndb.StringProperty(repeated=True)
 
 
+class InstanceInfo(ndb.Model):
+  """ A Datastore Model that contains information about AppServer processes that
+  are running Google App Engine applications in this AppScale deployment.
+
+  Fields:
+    appid: A str that names that application ID this instance is running an app
+      for. We avoid setting the appid as the Model's id here because multiple
+      AppServers can run for the same appid.
+    host: A str that names the IP address or FQDN of the machine that runs this
+      instance.
+    port: An int that indicates what port this AppServer process is bound to
+      on the given hostname. Note that this port is firewalled off to outside
+      traffic, so users cannot access the AppServer by visiting host:port in a
+      browser.
+    language: A str that indicates if this instance is running a Python, Java,
+      Go, or PHP App Engine application.
+  """
+  appid = ndb.StringProperty()
+  host = ndb.StringProperty()
+  port = ndb.IntegerProperty()
+  language = ndb.StringProperty()
+
+
 class AppDashboardData():
   """ AppDashboardData leverages ndb (which itself utilizes Memcache and the
   Datastore) to implement a cache in front of SOAP-exposed services provided

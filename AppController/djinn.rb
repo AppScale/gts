@@ -1123,6 +1123,7 @@ class Djinn
       restart_appengine_apps
       scale_appservers_on_this_node
       scale_appservers_across_nodes
+      send_instance_info_to_dashboard
       Kernel.sleep(20)
     end
   end
@@ -2265,6 +2266,78 @@ class Djinn
           # the logs - just continue on.
         end
       }
+    }
+  end
+
+
+  # Sends information about the AppServer processes hosting App Engine apps on
+  # this machine to the AppDashboard, for later viewing.
+  def send_instance_info_to_dashboard
+    APPS_LOCK.synchronize {
+      instance_info = []
+      @app_info_map.each_pair { |appid, app_info|
+        next if app_info['appengine'].nil?
+        app_info['appengine'].each { |port|
+          instance_info << {
+            'appid' => appid,
+            'host' => my_node.public_ip,
+            'port' => port,
+            'language' => app_info['language']
+          }
+        }
+      }
+
+      begin
+        url = URI.parse("https://#{get_login.public_ip}/apps/stats/instances")
+        http = Net::HTTP.new(url.host, url.port)
+        http.use_ssl = true
+        response = http.post(url.path, JSON.dump(instance_info),
+          {'Content-Type'=>'application/json'})
+        Djinn.log_debug("Done sending instance info to AppDashboard!")
+        Djinn.log_debug("Instance info is: [#{instance_info}]")
+        Djinn.log_debug("Response is #{response.body}")
+      rescue Exception => exception
+        # Don't crash the AppController because we weren't able to send over
+        # the instance info - just continue on.
+        Djinn.log_warn("Couldn't send instance info to AppDashboard because" +
+          " of a #{exception.class} exception.")
+      end
+    }
+  end
+
+
+  # Informs the AppDashboard that the named AppServer is no longer running, so
+  # that it no longer displays that AppServer in its instance information.
+  #
+  # Args:
+  #   appid: A String that names the application whose AppServer was removed.
+  #   port: An Integer that identifies the port that the AppServer was removed
+  #     off of. We don't pass in the corresponding IP address or FQDN because we
+  #     assume it was on this machine.
+  def delete_instance_from_dashboard(appid, port)
+    APPS_LOCK.synchronize {
+      begin
+        instance_info = [{
+          'appid' => appid,
+          'host' => my_node.public_ip,
+          'port' => port
+        }]
+
+        url = URI.parse("https://#{get_login.public_ip}/apps/stats/instances")
+        http = Net::HTTP.new(url.host, url.port)
+        http.use_ssl = true
+        request = Net::HTTP::Delete.new(url.path)
+        request.body = JSON.dump(instance_info)
+        response = http.request(request)
+        Djinn.log_debug("Done sending instance info to AppDashboard!")
+        Djinn.log_debug("Instance info is: [#{instance_info}]")
+        Djinn.log_debug("Response is #{response.body}")
+      rescue Exception => exception
+        # Don't crash the AppController because we weren't able to send over
+        # the instance info - just continue on.
+        Djinn.log_warn("Couldn't delete instance info to AppDashboard because" +
+          " of a #{exception.class} exception.")
+      end
     }
   end
 
@@ -4120,6 +4193,9 @@ HOSTS
     HAProxy.update_app_config(app, app_number, @app_info_map[app]['appengine'],
       my_private)
     HAProxy.reload
+
+    # And tell the AppDashboard that the AppServer has been killed.
+    delete_instance_from_dashboard(app, port)
   end 
  
 
