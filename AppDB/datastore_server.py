@@ -14,7 +14,7 @@ import logging
 import md5
 import os
 import sys
-import time
+
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
