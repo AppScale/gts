@@ -212,7 +212,6 @@ class DatastoreDistributed():
     if isinstance(pb, entity_pb.PropertyValue) and pb.has_uservalue():
       userval = entity_pb.PropertyValue()
       userval.mutable_uservalue().set_email(pb.uservalue().email())
-      #userval.set_stringvalue(pb.uservalue().email())
       userval.mutable_uservalue().set_auth_domain("")
       userval.mutable_uservalue().set_gaiaid(0)
       pb = userval
