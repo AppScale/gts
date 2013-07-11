@@ -267,7 +267,7 @@ class DatastoreDistributed():
     Returns:
       Key string for storing namespaces.
     """
-    return "{0}{4}{1}{5}{2}{5}{3}".format(app_id, name_space, kind, index_name, self._NAMESPACE_SEPARTOR, self._SEPARATOR)
+    return "{0}{4}{1}{5}{2}{5}{3}".format(app_id, name_space, kind, index_name, self._NAMESPACE_SEPARATOR, self._SEPARATOR)
 
   def get_table_prefix(self, data):
     """ Returns the namespace prefix for a query.
