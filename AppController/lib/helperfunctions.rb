@@ -192,7 +192,7 @@ module HelperFunctions
         raise Exception.new("Waited too long for #{ip}#{port} to open!")
       end
 
-      Kernel.puts("Waiting on #{ip}:#{port} to be open (currently closed).")
+      Djinn.log_debug("Waiting on #{ip}:#{port} to be open (currently closed).")
     }
   end
 
@@ -208,7 +208,7 @@ module HelperFunctions
         sleep_time *= 2
       end
 
-      Kernel.puts("Waiting on #{ip}:#{port} to be closed (currently open).")
+      Djinn.log_debug("Waiting on #{ip}:#{port} to be closed (currently open).")
     }
   end
 
@@ -241,7 +241,7 @@ module HelperFunctions
 
 
   def self.run_remote_command(ip, command, public_key_loc, want_output)
-    Kernel.puts("ip is [#{ip}], command is [#{command}], public key is [#{public_key_loc}], want output? [#{want_output}]")
+    Djinn.log_debug("ip is [#{ip}], command is [#{command}], public key is [#{public_key_loc}], want output? [#{want_output}]")
     public_key_loc = File.expand_path(public_key_loc)
     
     remote_cmd = "ssh -i #{public_key_loc} -o StrictHostkeyChecking=no root@#{ip} '#{command} "
@@ -253,7 +253,7 @@ module HelperFunctions
       remote_cmd << "> /dev/null &' &"
     end
 
-    Kernel.puts("Running [#{remote_cmd}]")
+    Djinn.log_debug("Running [#{remote_cmd}]")
 
     if want_output
       return self.shell("#{remote_cmd}")
@@ -289,7 +289,7 @@ module HelperFunctions
     fails = 0
     loop {
       break if retval == "0"
-      Kernel.puts("\n\n[#{cmd}] returned #{retval} instead of 0 as expected. Will try to copy again momentarily...")
+      Djinn.log_debug("\n\n[#{cmd}] returned #{retval} instead of 0 as expected. Will try to copy again momentarily...")
       fails += 1
       if fails >= 5:
         raise AppScaleSCPException.new("Failed to copy over #{local_file_loc} to #{remote_file_loc} to #{target_ip} with private key #{private_key_loc}")
@@ -386,10 +386,10 @@ module HelperFunctions
   #     this virtual machine.
   def self.get_all_local_ips(remove_lo=true)
     ifconfig = HelperFunctions.shell("ifconfig")
-    Kernel.puts("ifconfig returned the following: [#{ifconfig}]")
+    Djinn.log_debug("ifconfig returned the following: [#{ifconfig}]")
     bound_addrs = ifconfig.scan(/inet addr:(\d+.\d+.\d+.\d+)/).flatten
 
-    Kernel.puts("ifconfig reports bound IP addresses as " +
+    Djinn.log_debug("ifconfig reports bound IP addresses as " +
       "[#{bound_addrs.join(', ')}]")
     if remove_lo
       bound_addrs.delete(LOCALHOST_IP)
@@ -420,7 +420,7 @@ module HelperFunctions
   # the first time around - should we sleep and retry in that case?
   def self.local_ip()
     if !@@my_local_ip.nil?
-      Kernel.puts("Returning cached ip #{@@my_local_ip}")
+      Djinn.log_debug("Returning cached ip #{@@my_local_ip}")
       return @@my_local_ip
     end
 
@@ -430,7 +430,7 @@ module HelperFunctions
     end
 
     addr = bound_addrs[0]
-    Kernel.puts("Returning #{addr} as our local IP address")
+    Djinn.log_debug("Returning #{addr} as our local IP address")
     @@my_local_ip = addr
     return addr
   end
@@ -444,7 +444,7 @@ module HelperFunctions
   
     ip = `dig #{host} +short`.chomp
     if ip.empty?
-      Kernel.puts("couldn't use dig to resolve [#{host}]")
+      Djinn.log_debug("couldn't use dig to resolve [#{host}]")
       abort("Couldn't convert #{host} to an IP address. Result of dig was \n#{ip}")
     end
 
@@ -463,8 +463,8 @@ module HelperFunctions
       end
     }
     
-    Kernel.puts("Reported Public IPs: [#{reported_public.join(', ')}]")
-    Kernel.puts("Reported Private IPs: [#{reported_private.join(', ')}]")
+    Djinn.log_debug("Reported Public IPs: [#{reported_public.join(', ')}]")
+    Djinn.log_debug("Reported Private IPs: [#{reported_private.join(', ')}]")
 
     actual_public = []
     actual_private = []
@@ -489,7 +489,7 @@ module HelperFunctions
         # this can happen if the private ip doesn't resolve
         # which can happen in hybrid environments: euca boxes wont be 
         # able to resolve ec2 private ips, and vice-versa in euca-managed-mode
-        Kernel.puts("rescued! failed to convert #{actual_private[index]} to public")
+        Djinn.log_debug("rescued! failed to convert #{actual_private[index]} to public")
         actual_private[index] = actual_public[index]
       end
     }
@@ -509,8 +509,8 @@ module HelperFunctions
       end
     }
     
-    Kernel.puts("Reported Public IPs: [#{reported_public.join(', ')}]")
-    Kernel.puts("Reported Private IPs: [#{reported_private.join(', ')}]")
+    Djinn.log_debug("Reported Public IPs: [#{reported_public.join(', ')}]")
+    Djinn.log_debug("Reported Private IPs: [#{reported_private.join(', ')}]")
     
     public_ips = []
     reported_public.each_index { |index|
@@ -543,7 +543,7 @@ module HelperFunctions
     average /= prices.length
     plus_twenty = average * 1.20
     
-    Kernel.puts("The average spot instance price for a #{instance_type} " +
+    Djinn.log_debug("The average spot instance price for a #{instance_type} " +
       "machine is $#{average}, and 20% more is $#{plus_twenty}")
     return plus_twenty
   end
@@ -566,12 +566,12 @@ module HelperFunctions
     ENV['EC2_PRIVATE_KEY'] = "#{cloud_keys_dir}/mykey.pem"
     ENV['EC2_CERT'] = "#{cloud_keys_dir}/mycert.pem"
 
-    Kernel.puts("Setting private key to #{cloud_keys_dir}/mykey.pem, cert to #{cloud_keys_dir}/mycert.pem")
+    Djinn.log_debug("Setting private key to #{cloud_keys_dir}/mykey.pem, cert to #{cloud_keys_dir}/mycert.pem")
   end
 
   def self.spawn_hybrid_vms(creds, nodes)
     info = "Spawning hybrid vms with creds #{self.obscure_creds(creds).inspect} and nodes #{nodes.inspect}"
-    Kernel.puts(info)
+    Djinn.log_debug(info)
 
     cloud_info = []
 
@@ -607,13 +607,13 @@ module HelperFunctions
       this_cloud_info = self.spawn_vms(num_of_vms, jobs_needed, machine, 
         instance_type, keyname, cloud_type, cloud, group)
 
-      Kernel.puts("Cloud#{cloud_num} reports the following info: #{this_cloud_info.join(', ')}")
+      Djinn.log_debug("Cloud#{cloud_num} reports the following info: #{this_cloud_info.join(', ')}")
 
       cloud_info += this_cloud_info
       cloud_num += 1
     }
 
-    Kernel.puts("Hybrid cloud spawning reports the following info: #{cloud_info.join(', ')}")
+    Djinn.log_debug("Hybrid cloud spawning reports the following info: #{cloud_info.join(', ')}")
 
     return cloud_info
   end
@@ -626,27 +626,27 @@ module HelperFunctions
     return [] if num_of_vms_to_spawn < 1
 
     ssh_key = File.expand_path("#{APPSCALE_HOME}/.appscale/keys/#{cloud}/#{keyname}.key")
-    Kernel.puts("About to spawn VMs, expecting to find a key at #{ssh_key}")
+    Djinn.log_debug("About to spawn VMs, expecting to find a key at #{ssh_key}")
 
     self.log_obscured_env
 
     new_cloud = !File.exists?(ssh_key)
     if new_cloud # need to create security group and key
-      Kernel.puts("Creating keys/security group for #{cloud}")
+      Djinn.log_debug("Creating keys/security group for #{cloud}")
       self.generate_ssh_key(ssh_key, keyname, infrastructure)
       self.create_appscale_security_group(infrastructure, group)
     else
-      Kernel.puts("Not creating keys/security group for #{cloud}")
+      Djinn.log_debug("Not creating keys/security group for #{cloud}")
     end
 
     instance_ids_up = []
     public_up_already = []
     private_up_already = []
-    Kernel.puts("[#{num_of_vms_to_spawn}] [#{job}] [#{image_id}]  [#{instance_type}] [#{keyname}] [#{infrastructure}] [#{cloud}] [#{group}] [#{spot}]")
-    Kernel.puts("EC2_URL = [#{ENV['EC2_URL']}]")
+    Djinn.log_debug("[#{num_of_vms_to_spawn}] [#{job}] [#{image_id}]  [#{instance_type}] [#{keyname}] [#{infrastructure}] [#{cloud}] [#{group}] [#{spot}]")
+    Djinn.log_debug("EC2_URL = [#{ENV['EC2_URL']}]")
     loop { # need to make sure ec2 doesn't return an error message here
       describe_instances = `#{infrastructure}-describe-instances 2>&1`
-      Kernel.puts("describe-instances says [#{describe_instances}]")
+      Djinn.log_debug("describe-instances says [#{describe_instances}]")
       all_ip_addrs = describe_instances.scan(/\s+(#{IP_OR_FQDN})\s+(#{IP_OR_FQDN})\s+running\s+#{keyname}\s/).flatten
       instance_ids_up = describe_instances.scan(/INSTANCE\s+(i-\w+)/).flatten
       public_up_already, private_up_already = HelperFunctions.get_ips(all_ip_addrs)
@@ -663,22 +663,22 @@ module HelperFunctions
     end
 
     loop {
-      Kernel.puts(command_to_run)
+      Djinn.log_debug(command_to_run)
       run_instances = `#{command_to_run} 2>&1`
-      Kernel.puts("run_instances says [#{run_instances}]")
+      Djinn.log_debug("run_instances says [#{run_instances}]")
       if run_instances =~ /Please try again later./
-        Kernel.puts("Error with run_instances: #{run_instances}. Will try again in a moment.")
+        Djinn.log_debug("Error with run_instances: #{run_instances}. Will try again in a moment.")
       elsif run_instances =~ /try --addressing private/
-        Kernel.puts("Need to retry with addressing private. Will try again in a moment.")
+        Djinn.log_debug("Need to retry with addressing private. Will try again in a moment.")
         command_to_run << " --addressing private"
       elsif run_instances =~ /PROBLEM/
-        Kernel.puts("Error: #{run_instances}")
+        Djinn.log_debug("Error: #{run_instances}")
         abort("Saw the following error message from EC2 tools. Please resolve the issue and try again:\n#{run_instances}")
       else
-        Kernel.puts("Run instances message sent successfully. Waiting for the image to start up.")
+        Djinn.log_debug("Run instances message sent successfully. Waiting for the image to start up.")
         break
       end
-      Kernel.puts("sleepy time")
+      Djinn.log_debug("sleepy time")
       sleep(5)
     }
     
@@ -692,15 +692,15 @@ module HelperFunctions
     end_time = Time.now + MAX_VM_CREATION_TIME
     while (now = Time.now) < end_time
       describe_instances = `#{infrastructure}-describe-instances`
-      Kernel.puts("[#{Time.now}] #{end_time - now} seconds left...")
-      Kernel.puts(describe_instances)
+      Djinn.log_debug("[#{Time.now}] #{end_time - now} seconds left...")
+      Djinn.log_debug(describe_instances)
  
       # TODO: match on instance id
       #if describe_instances =~ /terminated\s+#{keyname}\s+/
       #  terminated_message = "An instance was unexpectedly terminated. " +
       #    "Please contact your cloud administrator to determine why " +
       #    "and try again. \n#{describe_instances}"
-      #  Kernel.puts(terminated_message)
+      #  Djinn.log_debug(terminated_message)
       #  abort(terminated_message)
       #end
       
@@ -723,7 +723,7 @@ module HelperFunctions
       potential_dead_ips.each_index { |index|
         if potential_dead_ips[index] == "0.0.0.0"
           instance_to_term = instance_ids[index]
-          Kernel.puts("Instance #{instance_to_term} failed to get a public IP address and is being terminated.")
+          Djinn.log_debug("Instance #{instance_to_term} failed to get a public IP address and is being terminated.")
           self.shell("#{infrastructure}-terminate-instances #{instance_to_term}")
         end
       }
@@ -747,10 +747,10 @@ module HelperFunctions
     total_time = end_time - start_time
 
     if spot
-      Kernel.puts("TIMING: It took #{total_time} seconds to spawn " +
+      Djinn.log_debug("TIMING: It took #{total_time} seconds to spawn " +
         "#{num_of_vms_to_spawn} spot instances")
     else
-      Kernel.puts("TIMING: It took #{total_time} seconds to spawn " +
+      Djinn.log_debug("TIMING: It took #{total_time} seconds to spawn " +
         "#{num_of_vms_to_spawn} regular instances")
     end
 
@@ -762,7 +762,7 @@ module HelperFunctions
     loop {
       ec2_output = `#{infrastructure}-add-keypair #{name} 2>&1`
       break if ec2_output.include?("BEGIN RSA PRIVATE KEY")
-      Kernel.puts("Trying again. Saw this from #{infrastructure}-add-keypair: #{ec2_output}")
+      Djinn.log_debug("Trying again. Saw this from #{infrastructure}-add-keypair: #{ec2_output}")
       self.shell("#{infrastructure}-delete-keypair #{name} 2>&1")
     }
 
@@ -817,7 +817,7 @@ module HelperFunctions
       self.set_creds_in_env(creds, cloud_num)
 
       keyname = creds["keyname"]
-      Kernel.puts("Killing Cloud#{cloud_num}'s machines, of type #{cloud_type} and with keyname #{keyname}")
+      Djinn.log_debug("Killing Cloud#{cloud_num}'s machines, of type #{cloud_type} and with keyname #{keyname}")
       self.terminate_all_vms(cloud_type, keyname)
 
       cloud_num += 1
@@ -928,7 +928,7 @@ module HelperFunctions
     begin
       tree = YAML.load_file(File.join(untar_dir,"app.yaml"))
     rescue Errno::ENOENT => e
-      Kernel.puts("Failed to load YAML file to parse static data")
+      Djinn.log_debug("Failed to load YAML file to parse static data")
       return []
     end
 
@@ -964,7 +964,7 @@ module HelperFunctions
         # This is for bug https://bugs.launchpad.net/appscale/+bug/800539
         # this is a temp fix
         if handler["url"] == "/"
-          Kernel.puts("Remapped path from / to temp_fix for application #{app_name}")
+          Djinn.log_debug("Remapped path from / to temp_fix for application #{app_name}")
           handler["url"] = "/temp_fix"
         end
         cache_static_dir_path = File.join(cache_path,handler["static_dir"])
@@ -982,7 +982,7 @@ module HelperFunctions
         # This is for bug https://bugs.launchpad.net/appscale/+bug/800539
         # this is a temp fix
         if handler["url"] == "/"
-          Kernel.puts("Remapped path from / to temp_fix for application #{app_name}")
+          Djinn.log_debug("Remapped path from / to temp_fix for application #{app_name}")
           handler["url"] = "/temp_fix"
         end
         # Need to convert all \1 into $1 so that nginx understands it
@@ -1141,11 +1141,11 @@ module HelperFunctions
 
   def self.ensure_image_is_appscale(ip, key)
     if self.does_image_have_location?(ip, "/etc/appscale", key)
-      Kernel.puts("Image at #{ip} is an AppScale image.")
+      Djinn.log_debug("Image at #{ip} is an AppScale image.")
     else
       fail_msg = "The image at #{ip} is not an AppScale image." +
       " Please install AppScale on it and try again."
-      Kernel.puts(fail_msg)
+      Djinn.log_debug(fail_msg)
       abort(fail_msg)
     end
   end
@@ -1171,11 +1171,11 @@ module HelperFunctions
 
   def self.ensure_db_is_supported(ip, db, key)
     if self.does_image_have_location?(ip, "/etc/appscale/#{VER_NUM}/#{db}", key)
-      Kernel.puts("Image at #{ip} supports #{db}.")
+      Djinn.log_debug("Image at #{ip} supports #{db}.")
     else 
       fail_msg = "The image at #{ip} does not have support for #{db}." +
         " Please install support for this database and try again."
-      Kernel.puts(fail_msg)
+      Djinn.log_debug(fail_msg)
       abort(fail_msg)
     end
   end
@@ -1189,7 +1189,7 @@ module HelperFunctions
       end
     }
 
-    Kernel.puts(env)
+    Djinn.log_debug(env)
   end
 
   def self.get_num_cpus()
