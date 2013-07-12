@@ -81,10 +81,6 @@ TOMBSTONE = "APPSCALE_SOFT_DELETE"
 # Local datastore location through nginx.
 LOCAL_DATASTORE = "localhost:8888"
 
-# Number of times to retry acquiring a lock for non transactions. 
-NON_TRANS_LOCK_RETRY_COUNT = 5
-
-
 class DatastoreDistributed():
   """ AppScale persistent layer for the datastore API. It is the 
       replacement for the AppServers to persist their data into 
@@ -121,6 +117,12 @@ class DatastoreDistributed():
 
   # The key we use to lock for allocating new IDs
   _ALLOCATE_ROOT_KEY = "__allocate__"
+
+  # Number of times to retry acquiring a lock for non transactions.
+  NON_TRANS_LOCK_RETRY_COUNT = 5
+
+  # How long to wait before retrying to grab a lock
+  LOCK_RETRY_TIME = .5
 
   def __init__(self, datastore_batch, zookeeper=None):
     """
@@ -742,7 +744,7 @@ class DatastoreDistributed():
                         put_request.transaction().handle())
       else:
         txn_hash = self.acquire_locks_for_nontrans(app_id, entities, 
-          retries=NON_TRANS_LOCK_RETRY_COUNT) 
+          retries=self.NON_TRANS_LOCK_RETRY_COUNT) 
       self.put_entities(app_id, entities, txn_hash)
       if not put_request.has_transaction():
         self.release_locks_for_nontrans(app_id, entities, txn_hash)
@@ -821,7 +823,7 @@ class DatastoreDistributed():
       for key in txn_hash:
         self.zookeeper.notify_failed_transaction(app_id, txn_hash[key])
       if retries > 0:
-        time.sleep(.50)
+        time.sleep(self.LOCK_RETRY_TIME)
         return self.acquire_locks_for_nontrans(app_id, entities, retries-1)
       raise zkte
     return txn_hash
@@ -977,6 +979,11 @@ class DatastoreDistributed():
           long(dict_entry[row_key][dbconstants.APP_ENTITY_SCHEMA[1]])
       trans_id = self.zookeeper.get_valid_transaction_id(\
         app_id, current_version, row_key)
+      if current_ongoing_txn != 0 and \
+           current_version == current_ongoing_txn:
+        # This value has been updated from within an ongoing transaction and
+        # hence can be seen from within this scope for serializability.
+        continue
       if current_version != trans_id:
         journal_key = self.get_journal_key(row_key, trans_id)
         journal_keys.append(journal_key)
@@ -1031,7 +1038,12 @@ class DatastoreDistributed():
         [dbconstants.APP_ENTITY_SCHEMA[1]])
       trans_id = self.zookeeper.get_valid_transaction_id( \
         app_id, current_version, row_key)
-      if current_version != trans_id:
+      if current_ongoing_txn != 0 and \
+           current_version == current_ongoing_txn:
+        # This value has been updated from within an ongoing transaction and
+        # hence can be seen from within this scope for serializability.
+        continue
+      elif current_version != trans_id:
         journal_key = self.get_journal_key(row_key, trans_id)
         journal_keys.append(journal_key)
         journal_result_map[journal_key] = (row_key, trans_id)
@@ -1160,7 +1172,7 @@ class DatastoreDistributed():
         delete_request.transaction().handle())
     else:
       txn_hash = self.acquire_locks_for_nontrans(app_id, keys, 
-        retries=NON_TRANS_LOCK_RETRY_COUNT) 
+        retries=self.NON_TRANS_LOCK_RETRY_COUNT) 
 
     self.delete_entities(app_id, delete_request.key_list(), txn_hash, 
       soft_delete=True)
@@ -2200,9 +2212,6 @@ class DatastoreDistributed():
     if query.has_keys_only():
       pass
     
-    # Distinct queries.
-    if query.has_distinct() and query.distinct():
-      entities_to_delete = []
     return results
   
   def _dynamic_run_query(self, query, query_result):
