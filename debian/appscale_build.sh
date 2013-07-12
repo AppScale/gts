@@ -1,5 +1,6 @@
 #!/bin/bash
 
+set -e
 export DIST=`lsb_release -c -s`
 
 cd `dirname $0`/..
