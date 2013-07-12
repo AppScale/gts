@@ -530,56 +530,7 @@ public final class LocalDatastoreService extends AbstractLocalRpcService
         {
             return response;
         }
-        DatastoreV3Pb.Cost totalCost = response.getMutableCost();
-        String app = ((OnestoreEntity.EntityProto)request.entitys().get(0)).getKey().getApp();
-        List clones = new ArrayList();
-        for (OnestoreEntity.EntityProto entity : request.entitys())
-        {
-            validateAndProcessEntityProto(entity);
-            OnestoreEntity.EntityProto clone = (OnestoreEntity.EntityProto)entity.clone();
-            clones.add(clone);
-            Preconditions.checkArgument(clone.hasKey());
-            OnestoreEntity.Reference key = clone.getKey();
-            Preconditions.checkArgument(key.getPath().elementSize() > 0);
-
-            clone.getMutableKey().setApp(app);
-
-            OnestoreEntity.Path.Element lastPath = Utils.getLastElement(key);
-
-            
-            
-            if ((lastPath.getId() == 0L) && (!lastPath.hasName())) {
-                if (this.autoIdAllocationPolicy == AutoIdAllocationPolicy.SEQUENTIAL)
-                    lastPath.setId(this.entityIdSequential.getAndIncrement());
-                else       
-                {
-                    lastPath.setId(toScatteredId(this.entityIdScattered.getAndIncrement()));
-                }
-            }
-            
-
-            processEntityForSpecialProperties(clone, true);
-
-            if (clone.getEntityGroup().elementSize() == 0)
-            {
-                OnestoreEntity.Path group = clone.getMutableEntityGroup();
-                OnestoreEntity.Path.Element root = (OnestoreEntity.Path.Element)key.getPath().elements().get(0);
-                OnestoreEntity.Path.Element pathElement = group.addElement();
-                pathElement.setType(root.getType());
-                if (root.hasName())
-                    pathElement.setName(root.getName());
-                else
-                    pathElement.setId(root.getId());
-            }
-            else
-            {
-                Preconditions.checkState((clone.hasEntityGroup()) && (clone.getEntityGroup().elementSize() > 0));
-            }
-        }
-
-        /*
-         * AppScale - remainder of body replaced
-         */
+        String app = ((OnestoreEntity.EntityProto)request.entitys().get(0)).getKey().getApp(); 
         proxy.doPost(app, "Put", request, response);
         if (!request.hasTransaction())
         {

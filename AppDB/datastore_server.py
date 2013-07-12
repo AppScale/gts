@@ -14,6 +14,7 @@ import logging
 import md5
 import os
 import sys
+import time
 
 import tornado.httpserver
 import tornado.ioloop
@@ -80,7 +81,10 @@ TOMBSTONE = "APPSCALE_SOFT_DELETE"
 # Local datastore location through nginx.
 LOCAL_DATASTORE = "localhost:8888"
 
- 
+# Number of times to retry acquiring a lock for non transactions. 
+NON_TRANS_LOCK_RETRY_COUNT = 5
+
+
 class DatastoreDistributed():
   """ AppScale persistent layer for the datastore API. It is the 
       replacement for the AppServers to persist their data into 
@@ -699,6 +703,19 @@ class DatastoreDistributed():
       ZKTransactionException: If we are unable to acquire/release ZooKeeper locks.
     """
     entities = put_request.entity_list()
+
+    num_of_required_ids = 0
+    for entity in entities:
+      last_path = entity.key().path().element_list()[-1]
+      if last_path.id() == 0 and not last_path.has_name():
+        num_of_required_ids += 1
+
+    start_id = None
+    if num_of_required_ids > 0:
+       start_id, _ = self.allocate_ids(app_id, num_of_required_ids, 
+         num_retries=3)
+
+    id_counter = 0
     for entity in entities:
       self.validate_key(entity.key())
 
@@ -711,18 +728,12 @@ class DatastoreDistributed():
 
       last_path = entity.key().path().element_list()[-1]
       if last_path.id() == 0 and not last_path.has_name():
-        try: 
-          id_, _ = self.allocate_ids(app_id, 1, num_retries=3)
-        except ZKTransactionException, zk_exception:
-          logging.error("Unable to attain a new ID for {0}"\
-            .format(str(entity.key())))
-          raise zk_exception
-
-        last_path.set_id(id_)
-
+        last_path.set_id(start_id + id_counter)
+        id_counter += 1
         group = entity.mutable_entity_group()
         root = entity.key().path().element(0)
         group.add_element().CopyFrom(root)
+
     # This hash maps transaction IDs to root keys.
     txn_hash = {}
     try:
@@ -730,10 +741,9 @@ class DatastoreDistributed():
         txn_hash = self.acquire_locks_for_trans(entities, 
                         put_request.transaction().handle())
       else:
-        txn_hash = self.acquire_locks_for_nontrans(app_id, entities) 
-
+        txn_hash = self.acquire_locks_for_nontrans(app_id, entities, 
+          retries=NON_TRANS_LOCK_RETRY_COUNT) 
       self.put_entities(app_id, entities, txn_hash)
-
       if not put_request.has_transaction():
         self.release_locks_for_nontrans(app_id, entities, txn_hash)
       put_response.key_list().extend([e.key() for e in entities])
@@ -768,7 +778,7 @@ class DatastoreDistributed():
       raise TypeError("Unable to get root key from given type of %s" % \
                       entity_key.__class__)  
 
-  def acquire_locks_for_nontrans(self, app_id, entities):
+  def acquire_locks_for_nontrans(self, app_id, entities, retries=0):
     """ Acquires locks for non-transaction operations. 
 
     Acquires locks and transaction handlers for each entity group in the set of 
@@ -801,7 +811,7 @@ class DatastoreDistributed():
     # Remove all duplicate root keys.
     root_keys = list(set(root_keys))
     try:
-      for root_key in root_keys: 
+      for root_key in root_keys:
         txnid = self.setup_transaction(app_id, is_xg=False)
         txn_hash[root_key] = txnid
         self.zookeeper.acquire_lock(app_id, txnid, root_key)
@@ -810,6 +820,9 @@ class DatastoreDistributed():
         "info {1}".format(app_id, str(zkte)))
       for key in txn_hash:
         self.zookeeper.notify_failed_transaction(app_id, txn_hash[key])
+      if retries > 0:
+        time.sleep(.50)
+        return self.acquire_locks_for_nontrans(app_id, entities, retries-1)
       raise zkte
     return txn_hash
       
@@ -1146,7 +1159,8 @@ class DatastoreDistributed():
       txn_hash = self.acquire_locks_for_trans(keys, 
         delete_request.transaction().handle())
     else:
-      txn_hash = self.acquire_locks_for_nontrans(app_id, keys) 
+      txn_hash = self.acquire_locks_for_nontrans(app_id, keys, 
+        retries=NON_TRANS_LOCK_RETRY_COUNT) 
 
     self.delete_entities(app_id, delete_request.key_list(), txn_hash, 
       soft_delete=True)
@@ -2534,8 +2548,8 @@ class MainHandler(tornado.web.RequestHandler):
     response = datastore_pb.AllocateIdsResponse()
     reference = request.model_key()
 
-    max_id = request.max()
-    size = request.size()
+    max_id = int(request.max())
+    size = int(request.size())
     start = end = 0
     try:
       start, end = datastore_access.allocate_ids(app_id, size, max_id=max_id)
