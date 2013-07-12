@@ -150,8 +150,8 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       A str representing the app prefix (app_id and namespace).
     """
-    tokens = entity_key.split('/')
-    return tokens[0] + '/' + tokens[1]
+    tokens = entity_key.split(dbconstants.KEY_DELIMITER)
+    return tokens[0] + dbconstants.KEY_DELIMITER + tokens[1]
 
   def process_tombstone(self, key, entity, version):
     """ Processes any entities which have been soft deleted. 
