@@ -101,10 +101,10 @@ class DatastoreDistributed():
   _DISABLE_INCLUSIVITY = False
 
   # Delimiter between app names and namespace and the rest of an entity key
-  _NAMESPACE_SEPARATOR = '\x00'
+  _NAMESPACE_SEPARATOR = dbconstants.KEY_DELIMITER
 
   # Delimiter between parameters in index keys.
-  _SEPARATOR = '\x00'
+  _SEPARATOR = dbconstants.KEY_DELIMITER
 
   # Null character as String used to replace empty strings for filter values.
   _NULL_CHAR_STRING = '\x00'
