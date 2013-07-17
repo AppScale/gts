@@ -163,6 +163,9 @@ queue:
 
     # We add in the default queue if its not already in there.
     has_default = False
+    if 'queue' not in queue_info or len(queue_info['queue']) == 0:
+      queue_info = {'queue' : [{'rate':'5/s', 'name': 'default'}]}
+
     for queue in queue_info['queue']:
       if queue['name'] == 'default':
         has_default = True
