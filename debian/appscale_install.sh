@@ -56,6 +56,7 @@ case "$1" in
         updatealternatives
 	sethosts
         setulimits
+        increaseconnections
 	;;
     cassandra)
 	installcassandra
@@ -139,5 +140,6 @@ case "$1" in
 	setupntpcron
         sethosts
         setulimits
+        increaseconnections
 	;;
 esac
