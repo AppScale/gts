@@ -3850,11 +3850,8 @@ HOSTS
             Djinn.log_info("Requesting that additional AppServers be added " +
               "to service #{app_name}")
             ZKInterface.request_scale_up_for_app(app_name, my_node.private_ip)
-          else
-            Djinn.log_info("Not requesting that additional AppServers be " +
-              "added to service #{app_name}")
+            return
           end
-          return
         end
 
         case scaling_decision
