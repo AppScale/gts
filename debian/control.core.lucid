@@ -33,7 +33,6 @@ Depends: appscale-tools,
 # haproxy
  libpcre3,
 # Monitoring
- collectd, rrdtool,
  sqlite3,
 # Thrift
  libevent-1.4-2,

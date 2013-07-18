@@ -69,6 +69,7 @@ locale-gen en_US.UTF-8
 dpkg-reconfigure locales
 
 # fix /etc/hosts file for collectd installation
+# TODO: We removed collectd. Do we still need this?
 HOSTNAME=`hostname`
 if [ `grep "$HOSTNAME" /etc/hosts | wc -l` -eq 0 ]; then
     echo "127.0.1.1 ${HOSTNAME} ${HOSTNAME}.localdomain" >> /etc/hosts
