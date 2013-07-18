@@ -73,7 +73,6 @@ module AppDashboard
     # AppController) to the app.
     Djinn.log_run("echo \"GLOBAL_SECRET_KEY = '#{secret}'\" > #{app_location}/lib/secret_key.py")
     Djinn.log_run("echo \"MY_PUBLIC_IP = '#{public_ip}'\" > #{app_location}/lib/local_host.py")
-    Collectd.write_app_config(APP_NAME)
 
     Djinn.log_info("Starting #{APP_LANGUAGE} app #{APP_NAME}")
     SERVER_PORTS.each { |port|
@@ -106,7 +105,6 @@ module AppDashboard
     end
 
     Nginx.reload
-    Collectd.restart
     return true
   end
 

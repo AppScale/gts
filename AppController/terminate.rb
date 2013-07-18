@@ -30,15 +30,6 @@ rescue Exception
 end
 
 begin
-  require 'collectd'
-  Collectd.clear_sites_enabled
-  Collectd.clear_monitoring_data
-  Collectd.stop
-rescue Exception
-  puts "Problem with collectd, moving on"
-end
-
-begin
   require 'nginx'
   Nginx.clear_sites_enabled
   Nginx.stop
@@ -113,7 +104,7 @@ end
 # force kill processes
 
 ["memcached",
- "nginx", "haproxy", "collectd", "collectdmon",
+ "nginx", "haproxy",
  "soap_server", "appscale_server", "app_manager_server", "datastore_server",
  "taskqueue_server", "AppDashboard", "AppMonitoring",
  # AppServer

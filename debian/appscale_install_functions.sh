@@ -536,7 +536,6 @@ postinstallgems()
 installmonitoring()
 {
     cd ${APPSCALE_HOME}/AppMonitoring
-    mkdir -p /var/lib/collectd/rrd
     RAILS_ENV=production rake gems:build:force
     RAILS_ENV=production rake db:migrate
 }
@@ -803,13 +802,11 @@ postinstallservice()
 #    service nginx stop || true
 #    service haproxy stop || true
     service memcached stop || true
-    service collectd stop || true
 
     # remove unnecessary service
 #    update-rc.d -f nginx remove || true
 #    update-rc.d -f haproxy remove || true
     update-rc.d -f memcached remove || true
-    update-rc.d -f collectd remove || true
 
     ejabberdctl stop || true
     update-rc.d -f ejabberd remove || true
