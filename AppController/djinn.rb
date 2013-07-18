@@ -30,7 +30,6 @@ require 'blobstore'
 require 'custom_exceptions'
 require 'ejabberd'
 require 'error_app'
-require 'collectd'
 require 'cron_helper'
 require 'godinterface'
 require 'haproxy'
@@ -948,10 +947,8 @@ class Djinn
           end
 
           Nginx.remove_app(app_name)
-          Collectd.remove_app(app_name)
           HAProxy.remove_app(app_name)
           Nginx.reload
-          Collectd.restart
           ZKInterface.remove_app_entry(app_name, my_node.serialize)
 
           # If this node has any information about AppServers for this app,
@@ -1614,7 +1611,6 @@ class Djinn
     Djinn.log_run("rm -f #{APPSCALE_HOME}/.appscale/database_info")
 
     Nginx.clear_sites_enabled
-    Collectd.clear_sites_enabled
     HAProxy.clear_sites_enabled
     Djinn.log_run("echo '' > /root/.ssh/known_hosts") # empty it out but leave the file there
     CronHelper.clear_crontab
@@ -3382,7 +3378,6 @@ HOSTS
 
     HAProxy.initialize_config
     Nginx.initialize_config
-    Collectd.initialize_config(my_public_ip, head_node_ip)
     Monitoring.reset
   end
 
@@ -3482,7 +3477,6 @@ HOSTS
     AppDashboard.start(login_ip, uaserver_ip, my_public, my_private, @@secret)
     HAProxy.start
     Nginx.restart
-    Collectd.restart
 
     if my_node.is_login?
       Djinn.log_info("Starting AppMonitoring on this machine")
@@ -3493,7 +3487,6 @@ HOSTS
       Monitoring.start
       HAProxy.reload
       Nginx.restart
-      Collectd.restart
     else
       Djinn.log_info("Not starting AppMonitoring on this machine")
     end
@@ -3679,7 +3672,6 @@ HOSTS
                     "for application #{app}."
         place_error_app(app, error_msg)
       end
-      Collectd.write_app_config(app)
 
       # send a warmup request to the app to get it loaded - can shave a
       # number of seconds off the initial request if it's java or go
@@ -3723,7 +3715,6 @@ HOSTS
         @app_info_map[app]['appengine'], my_private)
       Nginx.reload
       HAProxy.reload
-      Collectd.restart
 
       if is_new_app
         loop {
@@ -4164,7 +4155,6 @@ HOSTS
 
     # Nginx.reload 
     HAProxy.reload
-    Collectd.restart
 
     # add_instance_info = uac.add_instance(app, my_public, @nginx_port)
    

@@ -81,7 +81,6 @@ class ApiChecker
     proxy_port = HAProxy.app_listen_port(app_number)
     Nginx.write_app_config(app, app_number, @@ip, @@private_ip, proxy_port, static_handlers, login_ip)
     HAProxy.write_app_config(app, app_number, num_servers, @@private_ip)
-    Collectd.write_app_config(app)
 
     Djinn.log_info("Starting #{app_language} app #{app}")
     [19997, 19998, 19999].each { |port|
@@ -99,7 +98,6 @@ class ApiChecker
     }
 
     Nginx.reload
-    Collectd.restart
     return true
   end
 
