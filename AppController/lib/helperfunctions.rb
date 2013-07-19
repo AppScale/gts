@@ -1016,6 +1016,22 @@ module HelperFunctions
   end
 
 
+  # Sets up static files in nginx for this Java App Engine app, by following
+  # the default static file rules. Specifically, it states that any file in
+  # the app that doesn't end in .jsp that isn't in the WEB-INF directory should
+  # be added as a static file.
+  #
+  # TODO(cgb): Check the appengine-web.xml file given to us by the app and see
+  # if it specifies any files to include or exclude as static files, instead of
+  # assuming they want to use the default scheme mentioned above.
+  #
+  # Args:
+  #   app_name: A String containing the name of the application whose static
+  #     file info needs to be generated.
+  # Returns:
+  #   An Array of Hashes, where each hash names the URL that a static file will
+  #   be accessed at, and the location in the static file directory where the
+  #   file can be found.
   def self.parse_java_static_data(app_name)
     untar_dir = self.get_untar_dir(app_name)
 
