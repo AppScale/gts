@@ -2326,6 +2326,8 @@ class Djinn
         Djinn.log_debug("Done sending instance info to AppDashboard!")
         Djinn.log_debug("Instance info is: [#{instance_info}]")
         Djinn.log_debug("Response is #{response.body}")
+      rescue OpenSSL::SSL::Error, NotImplementedError, Errno::EPIPE, Errno::ECONNRESET
+        retry
       rescue Exception => exception
         # Don't crash the AppController because we weren't able to send over
         # the instance info - just continue on.
@@ -4257,6 +4259,8 @@ HOSTS
       response = http.post(url.path, encoded_request_info,
         {'Content-Type'=>'application/json'})
       return true
+    rescue OpenSSL::SSL::Error, NotImplementedError, Errno::EPIPE, Errno::ECONNRESET
+      retry
     rescue Exception
       # Don't crash the AppController because we weren't able to send over
       # the request info - just inform the caller that we couldn't send it.
