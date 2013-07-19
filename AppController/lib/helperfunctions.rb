@@ -1040,9 +1040,6 @@ module HelperFunctions
       return []
     end
 
-    # TODO(cgb): Check the appengine-web.xml file given to us by the app and see
-    # if it specifies any files to include or exclude as static files.
-
     # Walk through all files in the war directory, and add them if (1) they
     # don't end in .jsp and (2) it isn't the WEB-INF directory.
     cache_path = self.get_cache_path(app_name)
