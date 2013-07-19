@@ -3992,8 +3992,8 @@ HOSTS
       end
     }
 
-    if time_requests_were_seen.zero? or total_requests_seen.zero?
-      Djinn.log_debug("Didn't see any request data")
+    if time_requests_were_seen.zero?
+      Djinn.log_warn("Didn't see any request data - not sure whether to scale up or down.")
       return :no_change
     else
       Djinn.log_debug("Did see request data. Total requests seen now is " +
