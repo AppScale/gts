@@ -4,7 +4,39 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
-The current release is 1.8.0, released on June 17, 2013.
+The current release is 1.9.0, released on July 22, 2013.
+
+Bugs fixed in this release:
+- Autoscaling within machines for Python and Java App Engine apps
+- Autoscaling to new machines for Python and Java App Engine apps
+- Downscaling for Python and Java App Engine apps
+- Updated Cassandra to 1.2.5
+- Java App Engine fixes to improve API fidelity with App Engine
+- AppController shouldn't crash if cron.yaml specifies no jobs
+- AppController logs shouldn't print 'warning: peer certificate' messages
+- Re-uploading same application shouldn't result in duplicate cron jobs
+- Blobstore should parse string entities correctly
+- AppController shouldn't crash if no queues are specified in queue.yaml
+- InfrastructureManager should report when requests fail
+- Add memcache stats to AppDashboard
+- Add flower link on AppDashboard
+- TaskQueue should not report status as failed when it is working fine
+- AppDashboard should show new nodes on status page when upscaling occurs
+- Increased number of concurrent requests to VMs
+- Handling SSH keys more intelligently in GCE
+- Handle Unavailable exceptions better with pycassa
+- Installing wget before it is used in build script
+- AppController shouldn't crash if other AppControllers are down
+- AppDashboard should list instance information for AppServers
+- XMPP receiver should reconnect to ejabberd if it loses its connection
+- Ensure all AppController logging goes to AppDashboard
+- Parsing queue.xml file for Java App Engine apps
+- Added ability to generate kind statistics on demand in AppDashboard
+- IP addresses no longer disappear when window resize occurs in AppDashboard
+- AppController shouldn't crash if it can't find app.yaml or appengine-web.xml
+- Added Java 7 into AppScale image
+
+AppScale version 1.8.0 was released on June 17, 2013.
 
 Bugs fixed in this release:
 - Google Compute Engine support
