@@ -928,8 +928,8 @@ module HelperFunctions
     begin
       tree = YAML.load_file(File.join(untar_dir,"app.yaml"))
     rescue Errno::ENOENT => e
-      Djinn.log_debug("Failed to load YAML file to parse static data")
-      return []
+      Djinn.log_info("Failed to load YAML file to parse static data")
+      return self.parse_java_static_data(app_name)
     end
 
     default_expiration = expires_duration(tree["default_expiration"])
@@ -1014,6 +1014,45 @@ module HelperFunctions
 
     handlers.compact
   end
+
+
+  def self.parse_java_static_data(app_name)
+    untar_dir = self.get_untar_dir(app_name)
+
+    if !File.exists?("#{untar_dir}/war/WEB-INF/appengine-web.xml")
+      Djinn.log_warn("#{app_name} does not appear to be a Java app")
+      return []
+    end
+
+    # TODO(cgb): Check the appengine-web.xml file given to us by the app and see
+    # if it specifies any files to include or exclude as static files.
+
+    # Walk through all files in the war directory, and add them if (1) they
+    # don't end in .jsp and (2) it isn't the WEB-INF directory.
+    cache_path = self.get_cache_path(app_name)
+    FileUtils.mkdir_p(cache_path)
+    Djinn.log_debug("Made static file dir for app #{app_name} at #{cache_path}")
+
+    handlers = []
+    all_files = Dir.glob("#{untar_dir}/war/**/*")
+    all_files.each { |filename|
+      next if filename.end_with?(".jsp")
+      next if filename.include?("WEB-INF")
+      next if File.directory?(filename)
+      relative_path = filename.scan(/#{app_name}\/app\/war\/(.*)/).flatten.to_s
+      Djinn.log_debug("Copying static file #{filename} to cache location #{File.join(cache_path, relative_path)}")
+      cache_file_location = File.join(cache_path, relative_path)
+      FileUtils.mkdir_p(File.dirname(cache_file_location))
+      FileUtils.cp_r(filename, cache_file_location)
+      handlers << {
+        'url' => "/#{relative_path}",
+        'static_files' => "/#{relative_path}"
+      }
+    }
+
+    handlers.compact
+  end
+
 
   # Parses the app.yaml file for the specified application and returns
   # any URL handlers with a secure tag. The returns secure tags are
