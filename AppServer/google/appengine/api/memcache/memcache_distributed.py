@@ -102,6 +102,11 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
   # An AppScale file which has a list of IPs running memcached.
   APPSCALE_MEMCACHE_FILE = "/etc/appscale/memcache_ips"
 
+  # The minimum frequency by which memcache clients will update their list of
+  # clients that they connect to (which can change if AppScale scales up or
+  # down).
+  UPDATE_WINDOW = 60  # seconds
+
   def __init__(self, gettime=time.time, service_name='memcache'):
     """Initializer.
 
@@ -111,7 +116,9 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     """
     super(MemcacheService, self).__init__(service_name)
     self._gettime = gettime
+    self.setupMemcacheClient()
 
+  def setupMemcacheClient(self):
     f = open(self.APPSCALE_MEMCACHE_FILE, "r")
     all_ips = f.read().split("\n")
     f.close()
@@ -124,6 +131,12 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     self._byte_hits = 0
     self._cache_creation_time = self._gettime()
     self._the_cache = {}
+
+  def possiblyUpdateClientList(self):
+    """Updates our memcache client, if UPDATE_WINDOW seconds have elapsed since
+    the time the client was instantiated."""
+    if time.time() - self._cache_creation_time > self.UPDATE_WINDOW:
+      self.setupMemcacheClient()
 
   def _ResetStats(self):
     """Resets statistics information."""
@@ -145,6 +158,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       The corresponding CacheEntry instance, or None if it was not found or
       has already expired.
     """
+    self.possiblyUpdateClientList()
     internal_key = self._Get_Internal_Key(namespace, key)
 
     entry = self._memcache.get(internal_key)
@@ -177,6 +191,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       request: A MemcacheSetRequest.
       response: A MemcacheSetResponse.
     """
+    self.possiblyUpdateClientList()
     namespace = request.name_space()
     for item in request.item_list():
       key = item.key()
@@ -204,6 +219,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       request: A MemcacheDeleteRequest.
       response: A MemcacheDeleteResponse.
     """
+    self.possiblyUpdateClientList()
     namespace = request.name_space()
     for item in request.item_list():
       key = item.key()
@@ -225,6 +241,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       request: A MemcacheIncrementRequest.
       response: A MemcacheIncrementResponse.
     """
+    self.possiblyUpdateClientList()
     namespace = request.name_space()
     key = request.key()
     delta = request.delta()
@@ -250,6 +267,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       request: A MemcacheFlushRequest.
       response: A MemcacheFlushResponse.
     """
+    self.possiblyUpdateClientList()
     self._memcache.flush_all()
 
   def _Dynamic_Stats(self, request, response):
@@ -269,6 +287,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       request: A MemcacheStatsRequest.
       response: A MemcacheStatsResponse.
     """
+    self.possiblyUpdateClientList()
     mc_stats = self._memcache.get_stats()
     hits = 0
     misses = 0
