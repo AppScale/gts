@@ -1122,6 +1122,7 @@ class Djinn
       @state = "Done starting up AppScale, now in heartbeat mode"
       write_database_info
       update_firewall
+      write_memcache_locations
       write_zookeeper_locations
       write_neptune_info 
       update_api_status
@@ -2694,15 +2695,7 @@ class Djinn
 
     initialize_server
 
-    memcache_ips = []
-    @nodes.each { |node|
-      memcache_ips << node.private_ip if node.is_memcache?
-    }
-    Djinn.log_debug("Memcache servers will be at #{memcache_ips.join(', ')}")
-    memcache_file = "#{CONFIG_FILE_LOCATION}/memcache_ips"
-    memcache_contents = memcache_ips.join("\n")
-    HelperFunctions.write_file(memcache_file, memcache_contents)
-
+    write_memcache_locations
     write_apploadbalancer_location
     find_nearest_taskqueue
     write_taskqueue_nodes_file
@@ -3246,6 +3239,23 @@ class Djinn
       Djinn.log_run("bash #{APPSCALE_HOME}/firewall.conf")
     end
   end
+
+
+  # Writes a file to the local filesystem that contains the IP addresses of
+  # all machines running memcached. AppServers read this file periodically to
+  # get an up-to-date list of the nodes running the memcache service, which can
+  # change if AppScale scales up or down.
+  def write_memcache_locations()
+    memcache_ips = []
+    @nodes.each { |node|
+      memcache_ips << node.private_ip if node.is_memcache?
+    }
+    Djinn.log_debug("Memcache servers are at #{memcache_ips.join(', ')}")
+    memcache_file = "#{CONFIG_FILE_LOCATION}/memcache_ips"
+    memcache_contents = memcache_ips.join("\n")
+    HelperFunctions.write_file(memcache_file, memcache_contents)
+  end
+
 
   # Writes a file to the local filesystem that contains the IP address
   # of a machine that runs the AppDashboard. AppServers use this file
