@@ -27,6 +27,7 @@ import re
 
 import google
 
+from protorpc import message_types
 from protorpc import messages
 
 __all__ = ['MessageTypeToJsonSchema']
@@ -40,17 +41,32 @@ class MessageTypeToJsonSchema(object):
   all the types of fields that can appear in a message.
   """
 
+
+
+
+
+
+
   __FIELD_TO_SCHEMA_TYPE_MAP = {
-      messages.IntegerField: 'integer',
-      messages.FloatField: 'number',
-      messages.BooleanField: 'boolean',
-      messages.BytesField: 'string',
-      messages.StringField: 'string',
-      messages.MessageField: 'object',
-      messages.EnumField: 'string',
+      messages.IntegerField: {messages.Variant.INT32: ('integer', 'int32'),
+                              messages.Variant.INT64: ('string', 'int64'),
+                              messages.Variant.UINT32: ('integer', 'uint32'),
+                              messages.Variant.UINT64: ('string', 'uint64'),
+                              messages.Variant.SINT32: ('integer', 'int32'),
+                              messages.Variant.SINT64: ('string', 'int64'),
+                              None: ('integer', 'int32')},
+      messages.FloatField: {messages.Variant.FLOAT: ('number', 'float'),
+                            messages.Variant.DOUBLE: ('number', 'double'),
+                            None: ('number', 'float')},
+      messages.BooleanField: ('boolean', None),
+      messages.BytesField: ('string', None),
+      message_types.DateTimeField: ('string', 'date-time'),
+      messages.StringField: ('string', None),
+      messages.MessageField: ('object', None),
+      messages.EnumField: ('string', None),
   }
 
-  __DEFAULT_SCHEMA_TYPE = 'string'
+  __DEFAULT_SCHEMA_TYPE = ('string', None)
 
   def __init__(self):
 
@@ -166,8 +182,21 @@ class MessageTypeToJsonSchema(object):
         if field_type.__doc__:
           descriptor['description'] = field_type.__doc__
       else:
-        descriptor['type'] = self.__FIELD_TO_SCHEMA_TYPE_MAP.get(
+        schema_type = self.__FIELD_TO_SCHEMA_TYPE_MAP.get(
             type(field), self.__DEFAULT_SCHEMA_TYPE)
+
+
+        if isinstance(schema_type, dict):
+          variant_map = schema_type
+          variant = getattr(field, 'variant', None)
+          if variant in variant_map:
+            schema_type = variant_map[variant]
+          else:
+
+            schema_type = variant_map[None]
+        descriptor['type'] = schema_type[0]
+        if schema_type[1]:
+          descriptor['format'] = schema_type[1]
       if field.required:
         descriptor['required'] = True
 

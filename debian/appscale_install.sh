@@ -3,11 +3,10 @@ if [ -z "$APPSCALE_HOME_RUNTIME" ]; then
     export APPSCALE_HOME_RUNTIME=`pwd`
 fi
 
-. debian/appscale_install_functions.sh
-
 DESTDIR=$2
 APPSCALE_HOME=${DESTDIR}${APPSCALE_HOME_RUNTIME}
-DIST=`lsb_release -c -s`
+
+. debian/appscale_install_functions.sh
 
 echo "Install AppScale into ${APPSCALE_HOME}"
 echo "APPSCALE_HOME in runtime=${APPSCALE_HOME_RUNTIME}"
@@ -31,13 +30,14 @@ case "$1" in
         installpycrypto
         installlxml
         installxmpppy
-	installappserverjava
-	postinstallappserverjava
-	installmonitoring
+	installjavajdk
+        installappserverjava
+        postinstallappserverjava
+        installmonitoring
 	postinstallmonitoring
 	installthrift_fromsource
 	postinstallthrift_fromsource
-        installtornado_fromsource
+        installtornado
         postinstalltornado
 	installprotobuf
 	postinstallprotobuf
@@ -56,6 +56,7 @@ case "$1" in
         updatealternatives
 	sethosts
         setulimits
+        increaseconnections
 	;;
     cassandra)
 	installcassandra
@@ -68,10 +69,6 @@ case "$1" in
     hypertable)
 	installhypertable
 	postinstallhypertable
-	;;
-    mysql)
-	installmysql
-	postinstallmysql
 	;;
     # for test only. this should be included in core and all.
     zookeeper)
@@ -111,13 +108,14 @@ case "$1" in
         installpycrypto
         installlxml
         installxmpppy
-	installappserverjava
-	postinstallappserverjava
-	installmonitoring
+	installjavajdk
+        installappserverjava
+        postinstallappserverjava
+        installmonitoring
 	postinstallmonitoring
 	installthrift_fromsource
 	postinstallthrift_fromsource
-        installtornado_fromsource
+        installtornado
         installflexmock
         installnose
         postinstalltornado
@@ -133,8 +131,6 @@ case "$1" in
 	postinstallhbase
 	installhypertable
 	postinstallhypertable
-	installmysql
-	postinstallmysql
         installrabbitmq
         postinstallrabbitmq
         installcelery
@@ -144,5 +140,6 @@ case "$1" in
 	setupntpcron
         sethosts
         setulimits
+        increaseconnections
 	;;
 esac

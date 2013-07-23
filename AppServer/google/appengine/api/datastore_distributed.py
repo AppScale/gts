@@ -52,6 +52,9 @@ KEY_LOCATION = "/etc/appscale/certs/mykey.pem"
 # The default SSL port to connect to
 SSL_DEFAULT_PORT = 8443
 
+# The amount of time before we consider a query cursor to be no longer valid.
+CURSOR_TIMEOUT = 120
+
 try:
   __import__('google.appengine.api.taskqueue.taskqueue_service_pb')
   taskqueue_service_pb = sys.modules.get(
@@ -163,31 +166,14 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
     self.__queries = {}
 
-    self.__transactions = set()
-
-    self.__indexes = {}
     self.__require_indexes = require_indexes
 
-    self.__query_history = {}
-
-    self.__next_id = 1
-    self.__next_tx_handle = 1
-    self.__next_index_id = 1
-    self.__id_lock = threading.Lock()
-    self.__tx_handle_lock = threading.Lock()
-    self.__index_id_lock = threading.Lock()
-    self.__tx_lock = threading.Lock()
-    self.__entities_lock = threading.Lock()
-    self.__file_lock = threading.Lock()
-    self.__indexes_lock = threading.Lock()
 
   def Clear(self):
     """ Clears the datastore by deleting all currently stored entities and
     queries. """
     self.__entities = {}
     self.__queries = {}
-    self.__transactions = set()
-    self.__query_history = {}
     self.__schema_cache = {}
 
   def SetTrusted(self, trusted):
@@ -341,6 +327,16 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     self._RemoteSend(delete_request, delete_response, "Delete")
     return delete_response
 
+  def __cleanup_old_cursors(self):
+    """ Remove any cursors which are no longer being used. """
+    for key in self.__queries.keys():
+      _, time_stamp = self.__queries[key]
+      # This calculates the time in the future when this cursor is no longer 
+      # valid.
+      timeout_time = time_stamp + datetime.timedelta(seconds=CURSOR_TIMEOUT)
+      if datetime.datetime.now() > timeout_time:
+        del self.__queries[key]
+
   def _Dynamic_RunQuery(self, query, query_result):
     """Send a query request to the datastore server. """
     if query.has_transaction():
@@ -353,17 +349,16 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     
     datastore_stub_util.FillUsersInQuery(filters)
 
-
     query_response = datastore_pb.QueryResult()
-    query.set_app(self.__app_id)
+    if not query.has_app():
+      query.set_app(self.__app_id)
+    self.__ValidateAppId(query.app())
     self._RemoteSend(query, query_response, "RunQuery")
 
     skipped_results = 0
     if query_response.has_skipped_results():
       skipped_results = query_response.skipped_results()
 
-    results = query_response.result_list()
-    results = [datastore.Entity._FromPb(r) for r in results]
 
     def has_prop_indexed(entity, prop):
       """Returns True if prop is in the entity and is indexed."""
@@ -441,11 +436,8 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       else:
         return cmp(x_type, y_type)
 
-    clone = datastore_pb.Query()
-    clone.CopyFrom(query)
-    clone.clear_hint()
-    clone.clear_limit()
-    clone.clear_offset()
+    results = query_response.result_list()
+    results = [datastore.Entity._FromPb(r) for r in results]
     results = [r._ToPb() for r in results]
     for result in results:
       datastore_stub_util.PrepareSpecialPropertiesForLoad(result)
@@ -455,7 +447,8 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
     cursor = datastore_stub_util.ListCursor(query, results,
                                             order_compare_entities_pb)
-    self.__queries = cursor
+    self.__cleanup_old_cursors() 
+    self.__queries[cursor.cursor] = cursor, datetime.datetime.now()
 
     if query.has_count():
       count = query.count()
@@ -466,7 +459,6 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
     cursor.PopulateQueryResult(query_result, count,
                                query.offset(), compile=query.compile())
-  
     query_result.set_skipped_results(skipped_results)
     if query.compile():
       compiled_query = query_result.mutable_compiled_query()
@@ -478,8 +470,12 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     self.__ValidateAppId(next_request.cursor().app())
 
     cursor_handle = next_request.cursor().cursor()
-   
-    cursor = self.__queries
+    if cursor_handle not in self.__queries:
+      raise apiproxy_errors.ApplicationError(
+            datastore_pb.Error.BAD_REQUEST, 
+            'Cursor %d not found' % cursor_handle)
+ 
+    cursor, _ = self.__queries[cursor_handle]
     if cursor.cursor != cursor_handle:
       raise apiproxy_errors.ApplicationError(
             datastore_pb.Error.BAD_REQUEST, 

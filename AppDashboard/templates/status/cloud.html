@@ -2,36 +2,29 @@
         <!--Body content-->
         <div id="content" class="clearfix">
             <div class="contentwrapper"><!--Content wrapper-->
-                <div class="heading">
-                    <h3>AppScale Dashboard</h3>
-                    <div class="resBtnSearch">
-                        <a href="#"><span class="icon16 icomoon-icon-search-3"></span></a>
-                    </div>
-                </div><!-- End .heading-->
-                <!-- Build page from here: -->
-                <div class="row-fluid">
-                </div><!-- End .row-fluid -->
 				<div class="row-fluid">
-				<div class="hero-unit">
+				<div style="margin-top:30px" class="hero-unit">
 				    <h1 align="center">Welcome to AppScale!</h1>
 				    <p align="center">The Open Source App Engine</p>
-				    <p align="center"><a href="mailto:support@appscale.com" class="btn btn-primary btn-large">Send Feedback</a> &nbsp; <a href="https://github.com/AppScale/appscale/issues" class="btn btn-info btn-large">Submit Issue</a></p>
+				    <p align="center">
+              <a href="mailto:support@appscale.com" class="btn btn-primary btn-large">Send Feedback</a>
+              &nbsp;
+              <a href="https://github.com/AppScale/appscale/issues" class="btn btn-info btn-large">Submit Issue</a>
+              {% if is_user_cloud_admin %}
+                &nbsp;
+                <a href="/gather-logs" class="btn btn-success btn-large">Download Logs</a>
+              {% endif %}
+            </p>
             <span align="center" style="width: 50%" >
             {% if flash_message %}
                 <ul id="noticeExplanation"><li class="flash notice">{{ flash_message }}</li></ul>
             {% endif %}
             </span>
 				</div><!-- End .row-fluid -->
-
-
                 <div class="row-fluid">
-
                     <div class="span6">
-
                         <div class="box chart gradient">
-
                             <div class="title">
-
                                 <h4>
                                     <span class="icon16 icomoon-icon-bars"></span>
                                     <span>AppScale API Status</span>
@@ -167,7 +160,7 @@
                                 </h4>
                               </div>
                               <div class="content noPad">
-                            <table class="responsive table table-bordered">
+                            <table class="table table-bordered" id="nodesTable">
                                 <thead>
                                   <tr>
                                     <th>IP Address</th>
@@ -180,8 +173,8 @@
                                 <tbody>
                                 {% for server in server_info %}
                                     <tr>
-                                      <td style="text-align: center; margin-top: 150px; margin-bottom: auto;">
-                                          <div style="margin-top:70px;"><h3>{{server['ip'] }}</h3></div></td>
+                                      <td id="status_table">
+                                          <div align="center"><h3>{{server['ip']}}</h3></div></td>
                                       <td align="center">
                                         <div id="{{ server['key'] }}g1" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>
                                       </td>
@@ -192,28 +185,30 @@
                                         <div id="{{ server['key'] }}g3" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>
                                       </td>
                                       <td style="text-align: center;">
-                                          <div style="margin-top: 60px;">
+                                          <div style="margin-top: 50px;">
                                             {% for role in server['roles'] %}
                                             {% if role == 'load_balancer' %}
-                                            <span id="load_balancer" data-toggle="tooltip" title="Load Balancer" aria-hidden="true" class="icon-sitemap icon-3x"></span>
+                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/load_balancer.png">
                                             {% elif role == 'shadow' %}
-                                            <span id="shadow" data-toggle="tooltip" title="Shadow" aria-hidden="true" class="icon-bolt icon-3x"></span>
+                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/shadow.png">
                                             {% elif role == 'db_master' %}
-                                            <span id="db_master" data-toggle="tooltip" title="Database Master" aria-hidden="true" class="icon-hdd icon-3x"></span>
+                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/datastore_master.png">
                                             {% elif role == 'memcache' %}
-                                            <span id="memcache" data-toggle="tooltip" title="Memcache" aria-hidden="true" class="icon-list icon-3x"></span>
+                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/memcache.png">
                                             {% elif role == 'zookeeper' %}
-                                            <span id="zookeeper" data-toggle="tooltip" title="Zookeeper" aria-hidden="true" class="icon-screenshot icon-3x"></span>
-                                            {% elif roles == 'login' %}
-                                            <span id="login_role" data-toggle="tooltip" title="Login" aria-hidden="true" class="icon-locked icon-3x"></span>
+                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/zookeeper.png">
+                                            {% elif role == 'login' %}
+                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/login.png">
                                             {% elif role == 'appengine' %}
-                                            <span id="appengine" data-toggle="tooltip" title="App Engine" aria-hidden="true" class="icon-cogs icon-3x"></span>
+                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/app_engine.png">
                                             {% elif role == 'taskqueue_master' %}
-                                            <span id="taskqueue_master" data-toggle="tooltip" title="Taskqueue Master" aria-hidden="true" class="icon-tasks icon-3x"></span>
+                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/taskqueue_master.png">
                                             {% elif role == 'taskqueue_slave' %}
-                                            <span id="taskqueue_slave" data-toggle="tooltip" title="Taskqueue Slave" aria-hidden="true" class="icon-tasks icon-3x"></span>
+                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/taskqueue_slave.png">
                                             {% elif role == 'db_slave' %}
-                                            <span id="db_slave" data-toggle="tooltip" title="Database Slave" aria-hidden="true" class="icon-hdd icon-3x"></span>
+                                                <img id="{{ role }}" class="node_icons" title="{{ role }}" src="images/icons/datastore_slave.png">
+                                            {% else %}
+                                                <img id="unknown_role" alt="{{ role }}" data-toggle="tooltip" title="The unknown role has been named: {{ role }}" aria-hidden="true" class="node_icons" src="images/icons/unknown_role.png">
                                             {% endif %}
                                             {% endfor %}
                                           </div>
@@ -222,6 +217,7 @@
                                 {% endfor %}
                                  <script>
                                    window.onload = function(){
+                                     update_mem_stats();
                                      var gauges = {};
 
                                      {% for server in server_info %}
@@ -234,7 +230,7 @@
                                          label: "",
                                          levelColorsGradient: false
                                        });
-                                        
+
                                        gauges["g2{{ server['key'] }}"] = new JustGage({
                                          id: "{{ server['key'] }}g2",
                                          value: {{ server['memory'] }},
@@ -244,8 +240,8 @@
                                          label: "",
                                          levelColorsGradient: false
                                         });
-                                        
-                                        gauges ["g3{{ server['key'] }}"] = new JustGage({
+
+                                        gauges["g3{{ server['key'] }}"] = new JustGage({
                                           id: "{{ server['key'] }}g3",
                                           value: {{ server['disk'] }},
                                           min: 0,
@@ -257,6 +253,8 @@
                                      {% endfor %}
 
                                    setInterval(function() {
+                                     update_mem_stats();
+
                                      $.ajax({
                                        url: "/status/json"
                                      }).done(function(encoded_server_info) {
@@ -265,9 +263,84 @@
                                        // update our divs accordingly
                                        for (var i = 0; i < server_info.length; i++) {
                                          server = server_info[i];
-                                         gauges["g1" + server['key']].refresh(server['cpu']);
-                                         gauges["g2" + server['key']].refresh(server['memory']);
-                                         gauges["g3" + server['key']].refresh(server['disk']);
+                                         if ("g1" + server['key'] in gauges) {
+                                           // We're updating existing info.
+                                           gauges["g1" + server['key']].refresh(server['cpu']);
+                                           gauges["g2" + server['key']].refresh(server['memory']);
+                                           gauges["g3" + server['key']].refresh(server['disk']);
+                                         } else {
+                                           // This is a new node that just came online.
+                                           new_row = '<td id="status_table"><div align="center"><h3>';
+                                           new_row += server['ip'] + '</h3></div></td>';
+                                           new_row += '<td align="center">';
+                                           new_row += '<div id="' + server['key'] + 'g1" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>';
+                                           new_row += '</td>';
+                                           new_row += '<td align="center">';
+                                           new_row += '<div id="' + server['key'] + 'g2" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>';
+                                           new_row += '</td>';
+                                           new_row += '<td align="center">';
+                                           new_row += '<div id="' + server['key'] + 'g3" style="width:200px; height:160px; margin-left: auto; margin-right: auto;"></div>';
+                                           new_row += '</td>';
+                                           new_row += '<td style="text-align: center;">';
+                                           new_row += '<div style="margin-top: 50px;">';
+                                           for (var index = 0; index < server['roles'].length; index++) {
+                                             role = server['roles'][index];
+                                             if (role == 'load_balancer') {
+                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role +'" src="images/icons/load_balancer.png">';
+                                             } else if (role == 'shadow') {
+                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/shadow.png">';
+                                             } else if (role == 'db_master') {
+                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/datastore_master.png">';
+                                             } else if (role == 'memcache') {
+                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/memcache.png">';
+                                             } else if (role == 'zookeeper') {
+                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/zookeeper.png">';
+                                             } else if (role == 'login') {
+                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/login.png">';
+                                             } else if (role == 'appengine') {
+                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/app_engine.png">';
+                                             } else if (role == 'taskqueue_master') {
+                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/taskqueue_master.png">';
+                                             } else if (role == 'taskqueue_slave') {
+                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/taskqueue_slave.png">';
+                                             } else if (role == 'db_slave') {
+                                               new_row += '<img id="' + role + '" class="node_icons" title="' + role + '" src="images/icons/datastore_slave.png">';
+                                             } else {
+                                               new_row += '<img id="unknown_role" alt="' + role + '" data-toggle="tooltip" title="The unknown role has been named: ' + role + '" aria-hidden="true" class="node_icons" src="images/icons/unknown_role.png">';
+                                             }
+                                           }
+                                         new_row += '</div></td>';
+                                         $('#nodesTable').append(new_row);
+                                         gauges["g1" + server['key']] = new JustGage({
+                                           id: server['key'] + "g1",
+                                           value: server['cpu'],
+                                           min: 0,
+                                           max: 100,
+                                           title: "CPU",
+                                           label: "",
+                                           levelColorsGradient: false
+                                         });
+
+                                         gauges["g2" + server['key']] = new JustGage({
+                                           id: server['key'] + "g2",
+                                           value: server['memory'],
+                                           min: 0,
+                                           max: 100,
+                                           title: "MEM",
+                                           label: "",
+                                           levelColorsGradient: false
+                                          });
+
+                                          gauges["g3" + server['key']] = new JustGage({
+                                            id: server['key'] + "g3",
+                                            value: server['disk'],
+                                            min: 0,
+                                            max: 100,
+                                            title: "HD",
+                                            label: "",
+                                            levelColorsGradient: false
+                                          });
+                                         }
                                        }
                                      });
                                    }, 10000);
@@ -279,10 +352,64 @@
                           </div>
                         </div><!-- End .span6 -->
                         </div><!-- End .row-fluid -->
+                <div class="row-fluid">
+                    <div class="span6">
+                         <div class="box chart gradient">
+                            <div class="title">
+                                <h4><span class="icon16 icomoon-icon-bars"></span><span>Global Memcache Statistics</span></h4>
+                            </div><!-- end title -->
+                            <div class="content">
+                                    <div style="height: 400px;" id="mem-flot"></div>
+                            </div><!-- end content -->
+                         </div><!-- end box -->
+                    </div><!-- end span6 -->
+                </div><!-- end .row -->
+
                 </div><!-- End .row-fluid -->
                 {% endif %} <!-- end of admin only boxes -->
-                
             </div><!-- End contentwrapper -->
         </div><!-- End #content -->
-    
     </div><!-- End #wrapper -->
+
+{% if is_user_cloud_admin %}
+<script>
+/**
+ * Updates the pie chart that tells users the status of their
+ * memcache usage.
+ */
+function update_mem_stats() {
+  $.ajax({
+    url: "/apps/stats/memcache"
+  }).done(
+    function(json_data) {
+      var stats_info = JSON.parse(json_data);
+      var all_stats = [
+        { label: "Hits: " + stats_info['hits'], data: [[1, stats_info['hits']]]},
+        { label: "Misses: " + stats_info['misses'], data: [[1, stats_info['misses']]]},
+      ];
+      $('#mem-flot').text('');
+      $.plot('#mem-flot', all_stats, {
+        series: {
+          pie: {
+            show: true,
+            label: {
+              show: true,
+              radius: 3/4,
+              formatter: function(label, series){
+                return '<div style="font-size:8pt;text-align:center;padding:2px;color:white;">'+label+'<br/>'+Math.round(series.percent)+'%</div>';
+              },
+              background: {
+                opacity: 0.5,
+                color: '#000'
+              }
+            }
+          }
+        },
+        legend: {
+          show: true
+        }
+      });
+    });
+}
+</script>
+{% endif %}

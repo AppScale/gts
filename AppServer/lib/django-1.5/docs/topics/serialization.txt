@@ -1,0 +1,402 @@
+==========================
+Serializing Django objects
+==========================
+
+Django's serialization framework provides a mechanism for "translating" Django
+models into other formats. Usually these other formats will be text-based and
+used for sending Django data over a wire, but it's possible for a
+serializer to handle any format (text-based or not).
+
+.. seealso::
+
+    If you just want to get some data from your tables into a serialized
+    form, you could use the :djadmin:`dumpdata` management command.
+
+Serializing data
+----------------
+
+At the highest level, serializing data is a very simple operation::
+
+    from django.core import serializers
+    data = serializers.serialize("xml", SomeModel.objects.all())
+
+The arguments to the ``serialize`` function are the format to serialize the data
+to (see `Serialization formats`_) and a
+:class:`~django.db.models.query.QuerySet` to serialize. (Actually, the second
+argument can be any iterator that yields Django model instances, but it'll
+almost always be a QuerySet).
+
+.. function:: django.core.serializers.get_serializer(format)
+
+You can also use a serializer object directly::
+
+    XMLSerializer = serializers.get_serializer("xml")
+    xml_serializer = XMLSerializer()
+    xml_serializer.serialize(queryset)
+    data = xml_serializer.getvalue()
+
+This is useful if you want to serialize data directly to a file-like object
+(which includes an :class:`~django.http.HttpResponse`)::
+
+    with open("file.xml", "w") as out:
+        xml_serializer.serialize(SomeModel.objects.all(), stream=out)
+
+.. note::
+
+    Calling :func:`~django.core.serializers.get_serializer` with an unknown
+    :ref:`format <serialization-formats>` will raise a
+    ``django.core.serializers.SerializerDoesNotExist`` exception.
+
+Subset of fields
+~~~~~~~~~~~~~~~~
+
+If you only want a subset of fields to be serialized, you can
+specify a ``fields`` argument to the serializer::
+
+    from django.core import serializers
+    data = serializers.serialize('xml', SomeModel.objects.all(), fields=('name','size'))
+
+In this example, only the ``name`` and ``size`` attributes of each model will
+be serialized.
+
+.. note::
+
+    Depending on your model, you may find that it is not possible to
+    deserialize a model that only serializes a subset of its fields. If a
+    serialized object doesn't specify all the fields that are required by a
+    model, the deserializer will not be able to save deserialized instances.
+
+Inherited Models
+~~~~~~~~~~~~~~~~
+
+If you have a model that is defined using an :ref:`abstract base class
+<abstract-base-classes>`, you don't have to do anything special to serialize
+that model. Just call the serializer on the object (or objects) that you want to
+serialize, and the output will be a complete representation of the serialized
+object.
+
+However, if you have a model that uses :ref:`multi-table inheritance
+<multi-table-inheritance>`, you also need to serialize all of the base classes
+for the model. This is because only the fields that are locally defined on the
+model will be serialized. For example, consider the following models::
+
+    class Place(models.Model):
+        name = models.CharField(max_length=50)
+
+    class Restaurant(Place):
+        serves_hot_dogs = models.BooleanField()
+
+If you only serialize the Restaurant model::
+
+    data = serializers.serialize('xml', Restaurant.objects.all())
+
+the fields on the serialized output will only contain the `serves_hot_dogs`
+attribute. The `name` attribute of the base class will be ignored.
+
+In order to fully serialize your Restaurant instances, you will need to
+serialize the Place models as well::
+
+    all_objects = list(Restaurant.objects.all()) + list(Place.objects.all())
+    data = serializers.serialize('xml', all_objects)
+
+Deserializing data
+------------------
+
+Deserializing data is also a fairly simple operation::
+
+    for obj in serializers.deserialize("xml", data):
+        do_something_with(obj)
+
+As you can see, the ``deserialize`` function takes the same format argument as
+``serialize``, a string or stream of data, and returns an iterator.
+
+However, here it gets slightly complicated. The objects returned by the
+``deserialize`` iterator *aren't* simple Django objects. Instead, they are
+special ``DeserializedObject`` instances that wrap a created -- but unsaved --
+object and any associated relationship data.
+
+Calling ``DeserializedObject.save()`` saves the object to the database.
+
+This ensures that deserializing is a non-destructive operation even if the
+data in your serialized representation doesn't match what's currently in the
+database. Usually, working with these ``DeserializedObject`` instances looks
+something like::
+
+    for deserialized_object in serializers.deserialize("xml", data):
+        if object_should_be_saved(deserialized_object):
+            deserialized_object.save()
+
+In other words, the usual use is to examine the deserialized objects to make
+sure that they are "appropriate" for saving before doing so.  Of course, if you
+trust your data source you could just save the object and move on.
+
+The Django object itself can be inspected as ``deserialized_object.object``.
+
+.. versionadded:: 1.5
+
+If fields in the serialized data do not exist on a model,
+a ``DeserializationError`` will be raised unless the ``ignorenonexistent``
+argument is passed in as True::
+
+    serializers.deserialize("xml", data, ignorenonexistent=True)
+
+.. _serialization-formats:
+
+Serialization formats
+---------------------
+
+Django supports a number of serialization formats, some of which require you
+to install third-party Python modules:
+
+==========  ==============================================================
+Identifier  Information
+==========  ==============================================================
+``xml``     Serializes to and from a simple XML dialect.
+
+``json``    Serializes to and from JSON_.
+
+``yaml``    Serializes to YAML (YAML Ain't a Markup Language). This
+            serializer is only available if PyYAML_ is installed.
+==========  ==============================================================
+
+.. _json: http://json.org/
+.. _PyYAML: http://www.pyyaml.org/
+
+Notes for specific serialization formats
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+json
+^^^^
+
+Be aware that not all Django output can be passed unmodified to :mod:`json`.
+In particular, :ref:`lazy translation objects <lazy-translations>` need a
+`special encoder`_ written for them. Something like this will work::
+
+    import json
+    from django.utils.functional import Promise
+    from django.utils.encoding import force_text
+
+    class LazyEncoder(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, Promise):
+                return force_text(obj)
+            return super(LazyEncoder, self).default(obj)
+
+.. _special encoder: http://docs.python.org/library/json.html#encoders-and-decoders
+
+.. _topics-serialization-natural-keys:
+
+Natural keys
+------------
+
+The default serialization strategy for foreign keys and many-to-many relations
+is to serialize the value of the primary key(s) of the objects in the relation.
+This strategy works well for most objects, but it can cause difficulty in some
+circumstances.
+
+Consider the case of a list of objects that have a foreign key referencing
+:class:`~django.contrib.contenttypes.models.ContentType`. If you're going to
+serialize an object that refers to a content type, then you need to have a way
+to refer to that content type to begin with. Since ``ContentType`` objects are
+automatically created by Django during the database synchronization process,
+the primary key of a given content type isn't easy to predict; it will
+depend on how and when :djadmin:`syncdb` was executed. This is true for all
+models which automatically generate objects, notably including
+:class:`~django.contrib.auth.models.Permission`,
+:class:`~django.contrib.auth.models.Group`, and
+:class:`~django.contrib.auth.models.User`.
+
+.. warning::
+
+    You should never include automatically generated objects in a fixture or
+    other serialized data. By chance, the primary keys in the fixture
+    may match those in the database and loading the fixture will
+    have no effect. In the more likely case that they don't match, the fixture
+    loading will fail with an :class:`~django.db.IntegrityError`.
+
+There is also the matter of convenience. An integer id isn't always
+the most convenient way to refer to an object; sometimes, a
+more natural reference would be helpful.
+
+It is for these reasons that Django provides *natural keys*. A natural
+key is a tuple of values that can be used to uniquely identify an
+object instance without using the primary key value.
+
+Deserialization of natural keys
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Consider the following two models::
+
+    from django.db import models
+
+    class Person(models.Model):
+        first_name = models.CharField(max_length=100)
+        last_name = models.CharField(max_length=100)
+
+        birthdate = models.DateField()
+
+        class Meta:
+            unique_together = (('first_name', 'last_name'),)
+
+    class Book(models.Model):
+        name = models.CharField(max_length=100)
+        author = models.ForeignKey(Person)
+
+Ordinarily, serialized data for ``Book`` would use an integer to refer to
+the author. For example, in JSON, a Book might be serialized as::
+
+    ...
+    {
+        "pk": 1,
+        "model": "store.book",
+        "fields": {
+            "name": "Mostly Harmless",
+            "author": 42
+        }
+    }
+    ...
+
+This isn't a particularly natural way to refer to an author. It
+requires that you know the primary key value for the author; it also
+requires that this primary key value is stable and predictable.
+
+However, if we add natural key handling to Person, the fixture becomes
+much more humane. To add natural key handling, you define a default
+Manager for Person with a ``get_by_natural_key()`` method. In the case
+of a Person, a good natural key might be the pair of first and last
+name::
+
+    from django.db import models
+
+    class PersonManager(models.Manager):
+        def get_by_natural_key(self, first_name, last_name):
+            return self.get(first_name=first_name, last_name=last_name)
+
+    class Person(models.Model):
+        objects = PersonManager()
+
+        first_name = models.CharField(max_length=100)
+        last_name = models.CharField(max_length=100)
+
+        birthdate = models.DateField()
+
+        class Meta:
+            unique_together = (('first_name', 'last_name'),)
+
+Now books can use that natural key to refer to ``Person`` objects::
+
+    ...
+    {
+        "pk": 1,
+        "model": "store.book",
+        "fields": {
+            "name": "Mostly Harmless",
+            "author": ["Douglas", "Adams"]
+        }
+    }
+    ...
+
+When you try to load this serialized data, Django will use the
+``get_by_natural_key()`` method to resolve ``["Douglas", "Adams"]``
+into the primary key of an actual ``Person`` object.
+
+.. note::
+
+    Whatever fields you use for a natural key must be able to uniquely
+    identify an object. This will usually mean that your model will
+    have a uniqueness clause (either unique=True on a single field, or
+    ``unique_together`` over multiple fields) for the field or fields
+    in your natural key. However, uniqueness doesn't need to be
+    enforced at the database level. If you are certain that a set of
+    fields will be effectively unique, you can still use those fields
+    as a natural key.
+
+Serialization of natural keys
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+So how do you get Django to emit a natural key when serializing an object?
+Firstly, you need to add another method -- this time to the model itself::
+
+    class Person(models.Model):
+        objects = PersonManager()
+
+        first_name = models.CharField(max_length=100)
+        last_name = models.CharField(max_length=100)
+
+        birthdate = models.DateField()
+
+        def natural_key(self):
+            return (self.first_name, self.last_name)
+
+        class Meta:
+            unique_together = (('first_name', 'last_name'),)
+
+That method should always return a natural key tuple -- in this
+example, ``(first name, last name)``. Then, when you call
+``serializers.serialize()``, you provide a ``use_natural_keys=True``
+argument::
+
+    >>> serializers.serialize('json', [book1, book2], indent=2, use_natural_keys=True)
+
+When ``use_natural_keys=True`` is specified, Django will use the
+``natural_key()`` method to serialize any reference to objects of the
+type that defines the method.
+
+If you are using :djadmin:`dumpdata` to generate serialized data, you
+use the `--natural` command line flag to generate natural keys.
+
+.. note::
+
+    You don't need to define both ``natural_key()`` and
+    ``get_by_natural_key()``. If you don't want Django to output
+    natural keys during serialization, but you want to retain the
+    ability to load natural keys, then you can opt to not implement
+    the ``natural_key()`` method.
+
+    Conversely, if (for some strange reason) you want Django to output
+    natural keys during serialization, but *not* be able to load those
+    key values, just don't define the ``get_by_natural_key()`` method.
+
+Dependencies during serialization
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Since natural keys rely on database lookups to resolve references, it
+is important that the data exists before it is referenced. You can't make
+a `forward reference` with natural keys -- the data you're referencing
+must exist before you include a natural key reference to that data.
+
+To accommodate this limitation, calls to :djadmin:`dumpdata` that use
+the :djadminopt:`--natural` option will serialize any model with a
+``natural_key()`` method before serializing standard primary key objects.
+
+However, this may not always be enough. If your natural key refers to
+another object (by using a foreign key or natural key to another object
+as part of a natural key), then you need to be able to ensure that
+the objects on which a natural key depends occur in the serialized data
+before the natural key requires them.
+
+To control this ordering, you can define dependencies on your
+``natural_key()`` methods. You do this by setting a ``dependencies``
+attribute on the ``natural_key()`` method itself.
+
+For example, let's add a natural key to the ``Book`` model from the
+example above::
+
+    class Book(models.Model):
+        name = models.CharField(max_length=100)
+        author = models.ForeignKey(Person)
+
+        def natural_key(self):
+            return (self.name,) + self.author.natural_key()
+
+The natural key for a ``Book`` is a combination of its name and its
+author. This means that ``Person`` must be serialized before ``Book``.
+To define this dependency, we add one extra line::
+
+        def natural_key(self):
+            return (self.name,) + self.author.natural_key()
+        natural_key.dependencies = ['example_app.person']
+
+This definition ensures that all ``Person`` objects are serialized before
+any ``Book`` objects. In turn, any object referencing ``Book`` will be
+serialized after both ``Person`` and ``Book`` have been serialized.

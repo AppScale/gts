@@ -150,8 +150,8 @@ class DatastoreGroomer(threading.Thread):
     Returns:
       A str representing the app prefix (app_id and namespace).
     """
-    tokens = entity_key.split('/')
-    return tokens[0] + '/' + tokens[1]
+    tokens = entity_key.split(dbconstants.KEY_DELIMITER)
+    return tokens[0] + dbconstants.KEY_DELIMITER + tokens[1]
 
   def process_tombstone(self, key, entity, version):
     """ Processes any entities which have been soft deleted. 
@@ -426,7 +426,8 @@ class DatastoreGroomer(threading.Thread):
 
 def main():
   """ This main function allows you to run the groomer manually. """
-  zookeeper = zk.ZKTransaction(host="localhost:2181")
+  zk_connection_locations = appscale_info.get_zk_locations_string()
+  zookeeper = zk.ZKTransaction(host=zk_connection_locations)
   datastore_path = "localhost:8888"
   db_info = appscale_info.get_db_info()
   table = db_info[':table']

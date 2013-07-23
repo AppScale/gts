@@ -414,6 +414,12 @@ class FieldDescriptor(DescriptorBase):
   LABEL_REPEATED      = 3
   MAX_LABEL           = 3
 
+
+
+  MAX_FIELD_NUMBER = (1 << 29) - 1
+  FIRST_RESERVED_FIELD_NUMBER = 19000
+  LAST_RESERVED_FIELD_NUMBER = 19999
+
   def __init__(self, name, full_name, index, number, type, cpp_type, label,
                default_value, message_type, enum_type, containing_type,
                is_extension, extension_scope, options=None,
@@ -634,13 +640,22 @@ class MethodDescriptor(DescriptorBase):
 class FileDescriptor(DescriptorBase):
   """Descriptor for a file. Mimics the descriptor_pb2.FileDescriptorProto.
 
+  Note that enum_types_by_name, extensions_by_name, and dependencies
+  fields are only set by the message_factory module, and not by the
+  generated proto code.
+
   name: name of file, relative to root of source tree.
   package: name of the package
   serialized_pb: (str) Byte string of serialized
     descriptor_pb2.FileDescriptorProto.
+  dependencies: List of other files this file depends on.
+  messages: List of Descriptors for messages in this file.
+  enum_types_by_name: Dict of enum names and their descriptors.
+  extensions_by_name: Dict of extension names and their descriptors.
   """
 
-  def __init__(self, name, package, options=None, serialized_pb=None):
+  def __init__(self, name, package, options=None, serialized_pb=None,
+               dependencies=None):
     """Constructor."""
     super(FileDescriptor, self).__init__(options, 'FileOptions')
 
@@ -648,6 +663,11 @@ class FileDescriptor(DescriptorBase):
     self.name = name
     self.package = package
     self.serialized_pb = serialized_pb
+
+    self.enum_types_by_name = {}
+    self.extensions_by_name = {}
+    self.dependencies = (dependencies or [])
+
     if (api_implementation.Type() == 'cpp' and
         self.serialized_pb is not None):
       if api_implementation.Version() == 2:

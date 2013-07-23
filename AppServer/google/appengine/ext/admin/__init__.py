@@ -71,9 +71,9 @@ from google.appengine.api import taskqueue
 from google.appengine.api import users
 from google.appengine.api.taskqueue import taskqueue_service_pb
 from google.appengine.api.taskqueue import taskqueue_stub
+from google.appengine.datastore import datastore_stats_generator
 from google.appengine.ext import db
 from google.appengine.ext import webapp
-from google.appengine.ext.admin import datastore_stats_generator
 from google.appengine.ext.db import metadata
 from google.appengine.ext.webapp import _template
 from google.appengine.ext.webapp import util
@@ -96,7 +96,7 @@ _DATASTORE_CACHING_WARNING = (
 
 
 
-MAX_PROPERTY_COLUMNS = 25
+DEFAULT_MAX_DATASTORE_VIEWER_COLUMNS = 100
 
 
 
@@ -360,7 +360,13 @@ class InteractiveExecuteHandler(BaseRequestHandler):
 
       results = results_io.getvalue()
     else:
-      results = 'Interactive console disabled for security.'
+      results = """The interactive console has been disabled for security
+because the dev_appserver is listening on a non-default address.
+If you would like to re-enable the console, invoke dev_appserver
+with the --enable_console argument.
+
+See https://developers.google.com/appengine/docs/python/tools/devserver#The_Interactive_Console
+for more information."""
     self.generate('interactive-output.html', {'output': results})
 
 
@@ -670,12 +676,13 @@ class TasksPageHandler(BaseRequestHandler):
 
   def _generate_page_params(self, page_dict):
     """Generate the params for a page link."""
-    params = {
-        'queue': self.queue_name,
-        'start_eta': page_dict['start_eta'],
-        'start_name': page_dict['start_name'],
-        'per_page': self.per_page,
-        'page_no': page_dict['number']}
+    params = [
+        ('queue', self.queue_name),
+        ('start_eta', page_dict['start_eta']),
+        ('start_name', page_dict['start_name']),
+        ('per_page', self.per_page),
+        ('page_no', page_dict['number']),
+        ]
     return urllib.urlencode(params)
 
   def generate_page_dicts(self, start_tasks, end_tasks):
@@ -711,7 +718,7 @@ class TasksPageHandler(BaseRequestHandler):
 
     page_map[1] = {'start_name': '', 'start_eta': 0, 'number': 1}
 
-    pages = sorted(page_map.values(), key=lambda page: page['number'])
+    pages = sorted(sorted(page_map.values()), key=lambda page: page['number'])
 
     for page in pages:
       page['url'] = self._generate_page_params(page)
@@ -1313,7 +1320,7 @@ class DatastoreQueryHandler(DatastoreRequestHandler):
 
 
     headers = []
-    for key in keys[:MAX_PROPERTY_COLUMNS]:
+    for key in keys[:DEFAULT_MAX_DATASTORE_VIEWER_COLUMNS]:
       sample_value = key_values[key][0]
       headers.append({
         'name': ustr(key),
@@ -1327,7 +1334,7 @@ class DatastoreQueryHandler(DatastoreRequestHandler):
     for entity in result_set:
       write_ops = self._get_write_ops(entity)
       attributes = []
-      for key in keys[:MAX_PROPERTY_COLUMNS]:
+      for key in keys[:DEFAULT_MAX_DATASTORE_VIEWER_COLUMNS]:
         if entity.has_key(key):
           raw_value = entity[key]
           data_type = DataType.get(raw_value)
@@ -1400,7 +1407,7 @@ class DatastoreQueryHandler(DatastoreRequestHandler):
         'start_base_url': self.filter_url(['kind', 'order', 'order_type',
                                            'namespace', 'num']),
         'order_base_url': self.filter_url(['kind', 'namespace', 'num']),
-        'property_overflow': len(keys) > MAX_PROPERTY_COLUMNS,
+        'property_overflow': len(keys) > DEFAULT_MAX_DATASTORE_VIEWER_COLUMNS,
     }
     if current_page > 1:
       values['prev_start'] = int((current_page - 2) * num)
@@ -1527,7 +1534,7 @@ class DatastoreEditHandler(DatastoreRequestHandler):
 
     fields = []
     key_values = self.get_key_values(sample_entities)
-    for key, sample_values in key_values.iteritems():
+    for key, sample_values in sorted(key_values.iteritems()):
       if entity and entity.has_key(key):
         data_type = DataType.get(entity[key])
       else:
@@ -1636,7 +1643,8 @@ class DatastoreStatsHandler(BaseRequestHandler):
       msg = 'No processing requested'
 
     uri = self.request.path_url
-    self.redirect('%s?%s' % (uri, urllib.urlencode(dict(msg=msg, status=status))))
+    self.redirect('%s?%s' % (uri, urllib.urlencode(
+        [('msg', msg), ('status', status)])))
 
   def generate_stats(self, _app=None):
     """Generate datastore stats."""
@@ -1655,10 +1663,10 @@ class SearchIndexesListHandler(BaseRequestHandler):
     limit = self.request.get_range('num', min_value=1, max_value=100,
                                    default=10)
     namespace = self.request.get('namespace', default_value=None)
-    resp = search.list_indexes(offset=start, limit=limit+1,
-                               namespace=namespace or '')
-    has_more = len(resp.indexes) > limit
-    indexes = resp.indexes[:limit]
+    resp = search.get_indexes(offset=start, limit=limit+1,
+                              namespace=namespace or '')
+    has_more = len(resp.results) > limit
+    indexes = resp.results[:limit]
 
     current_page = start / limit + 1
     values = {
@@ -1776,7 +1784,7 @@ class SearchDocumentHandler(BaseRequestHandler):
     namespace = self.request.get('namespace')
     doc = None
     index = search.Index(name=index_name, namespace=namespace)
-    resp = index.list_documents(start_doc_id=doc_id, limit=1)
+    resp = index.get_range(start_id=doc_id, limit=1)
     if resp.results and resp.results[0].doc_id == doc_id:
       doc = resp.results[0]
 
@@ -1812,7 +1820,7 @@ class SearchBatchDeleteHandler(BaseRequestHandler):
         docs.append(key)
 
     index = search.Index(name=index_name, namespace=namespace)
-    index.remove(docs)
+    index.delete(docs)
     self.redirect(self.request.get('next'))
 
 

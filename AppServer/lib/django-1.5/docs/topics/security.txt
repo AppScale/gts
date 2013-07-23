@@ -1,0 +1,230 @@
+==================
+Security in Django
+==================
+
+This document is an overview of Django's security features. It includes advice
+on securing a Django-powered site.
+
+.. _cross-site-scripting:
+
+Cross site scripting (XSS) protection
+=====================================
+
+.. highlightlang:: html+django
+
+XSS attacks allow a user to inject client side scripts into the browsers of
+other users. This is usually achieved by storing the malicious scripts in the
+database where it will be retrieved and displayed to other users, or by getting
+users to click a link which will cause the attacker's JavaScript to be executed
+by the user's browser. However, XSS attacks can originate from any untrusted
+source of data, such as cookies or Web services, whenever the data is not
+sufficiently sanitized before including in a page.
+
+Using Django templates protects you against the majority of XSS attacks.
+However, it is important to understand what protections it provides
+and its limitations.
+
+Django templates :ref:`escape specific characters <automatic-html-escaping>`
+which are particularly dangerous to HTML. While this protects users from most
+malicious input, it is not entirely foolproof. For example, it will not
+protect the following:
+
+.. code-block:: html+django
+
+    <style class={{ var }}>...</style>
+
+If ``var`` is set to ``'class1 onmouseover=javascript:func()'``, this can result
+in unauthorized JavaScript execution, depending on how the browser renders
+imperfect HTML.
+
+It is also important to be particularly careful when using ``is_safe`` with
+custom template tags, the :tfilter:`safe` template tag, :mod:`mark_safe
+<django.utils.safestring>`, and when autoescape is turned off.
+
+In addition, if you are using the template system to output something other
+than HTML, there may be entirely separate characters and words which require
+escaping.
+
+You should also be very careful when storing HTML in the database, especially
+when that HTML is retrieved and displayed.
+
+Markup library
+--------------
+
+If you use :mod:`django.contrib.markup`, you need to ensure that the filters are
+only used on trusted input, or that you have correctly configured them to ensure
+they do not allow raw HTML output. See the documentation of that module for more
+information.
+
+Cross site request forgery (CSRF) protection
+============================================
+
+CSRF attacks allow a malicious user to execute actions using the credentials
+of another user without that user's knowledge or consent.
+
+Django has built-in protection against most types of CSRF attacks, providing you
+have :ref:`enabled and used it <using-csrf>` where appropriate. However, as with
+any mitigation technique, there are limitations. For example, it is possible to
+disable the CSRF module globally or for particular views. You should only do
+this if you know what you are doing. There are other :ref:`limitations
+<csrf-limitations>` if your site has subdomains that are outside of your
+control.
+
+:ref:`CSRF protection works <how-csrf-works>` by checking for a nonce in each
+POST request. This ensures that a malicious user cannot simply "replay" a form
+POST to your Web site and have another logged in user unwittingly submit that
+form. The malicious user would have to know the nonce, which is user specific
+(using a cookie).
+
+When deployed with :ref:`HTTPS <security-recommendation-ssl>`,
+``CsrfViewMiddleware`` will check that the HTTP referer header is set to a
+URL on the same origin (including subdomain and port). Because HTTPS
+provides additional security, it is imperative to ensure connections use HTTPS
+where it is available by forwarding insecure connection requests and using
+HSTS for supported browsers.
+
+Be very careful with marking views with the ``csrf_exempt`` decorator unless
+it is absolutely necessary.
+
+
+SQL injection protection
+========================
+
+SQL injection is a type of attack where a malicious user is able to execute
+arbitrary SQL code on a database. This can result in records
+being deleted or data leakage.
+
+By using Django's querysets, the resulting SQL will be properly escaped by
+the underlying database driver. However, Django also gives developers power to
+write :ref:`raw queries <executing-raw-queries>` or execute
+:ref:`custom sql <executing-custom-sql>`. These capabilities should be used
+sparingly and you should always be careful to properly escape any parameters
+that the user can control. In addition, you should exercise caution when using
+:meth:`extra() <django.db.models.query.QuerySet.extra>`.
+
+Clickjacking protection
+=======================
+
+Clickjacking is a type of attack where a malicious site wraps another site
+in a frame. This attack can result in an unsuspecting user being tricked
+into performing unintended actions on the target site.
+
+Django contains :ref:`clickjacking protection <clickjacking-prevention>` in
+the form of the
+:mod:`X-Frame-Options middleware <django.middleware.clickjacking.XFrameOptionsMiddleware>`
+which in a supporting browser can prevent a site from being rendered inside
+a frame. It is possible to disable the protection on a per view basis
+or to configure the exact header value sent.
+
+The middleware is strongly recommended for any site that does not need to have
+its pages wrapped in a frame by third party sites, or only needs to allow that
+for a small section of the site.
+
+.. _security-recommendation-ssl:
+
+SSL/HTTPS
+=========
+
+It is always better for security, though not always practical in all cases, to
+deploy your site behind HTTPS. Without this, it is possible for malicious
+network users to sniff authentication credentials or any other information
+transferred between client and server, and in some cases -- **active** network
+attackers -- to alter data that is sent in either direction.
+
+If you want the protection that HTTPS provides, and have enabled it on your
+server, there are some additional steps you may need:
+
+* If necessary, set :setting:`SECURE_PROXY_SSL_HEADER`, ensuring that you have
+  understood the warnings there thoroughly. Failure to do this can result
+  in CSRF vulnerabilities, and failure to do it correctly can also be
+  dangerous!
+
+* Set up redirection so that requests over HTTP are redirected to HTTPS.
+
+  This could be done using a custom middleware. Please note the caveats under
+  :setting:`SECURE_PROXY_SSL_HEADER`. For the case of a reverse proxy, it may be
+  easier or more secure to configure the main Web server to do the redirect to
+  HTTPS.
+
+* Use 'secure' cookies.
+
+  If a browser connects initially via HTTP, which is the default for most
+  browsers, it is possible for existing cookies to be leaked. For this reason,
+  you should set your :setting:`SESSION_COOKIE_SECURE` and
+  :setting:`CSRF_COOKIE_SECURE` settings to ``True``. This instructs the browser
+  to only send these cookies over HTTPS connections. Note that this will mean
+  that sessions will not work over HTTP, and the CSRF protection will prevent
+  any POST data being accepted over HTTP (which will be fine if you are
+  redirecting all HTTP traffic to HTTPS).
+
+* Use HTTP Strict Transport Security (HSTS)
+
+  HSTS is an HTTP header that informs a browser that all future connections
+  to a particular site should always use HTTPS. Combined with redirecting
+  requests over HTTP to HTTPS, this will ensure that connections always enjoy
+  the added security of SSL provided one successful connection has occurred.
+  HSTS is usually configured on the web server.
+
+.. _host-headers-virtual-hosting:
+
+Host header validation
+======================
+
+Django uses the ``Host`` header provided by the client to construct URLs in
+certain cases. While these values are sanitized to prevent Cross Site Scripting
+attacks, a fake ``Host`` value can be used for Cross-Site Request Forgery,
+cache poisoning attacks, and poisoning links in emails.
+
+Because even seemingly-secure webserver configurations are susceptible to fake
+``Host`` headers, Django validates ``Host`` headers against the
+:setting:`ALLOWED_HOSTS` setting in the
+:meth:`django.http.HttpRequest.get_host()` method.
+
+This validation only applies via :meth:`~django.http.HttpRequest.get_host()`;
+if your code accesses the ``Host`` header directly from ``request.META`` you
+are bypassing this security protection.
+
+For more details see the full :setting:`ALLOWED_HOSTS` documentation.
+
+.. warning::
+
+   Previous versions of this document recommended configuring your webserver to
+   ensure it validates incoming HTTP ``Host`` headers. While this is still
+   recommended, in many common webservers a configuration that seems to
+   validate the ``Host`` header may not in fact do so. For instance, even if
+   Apache is configured such that your Django site is served from a non-default
+   virtual host with the ``ServerName`` set, it is still possible for an HTTP
+   request to match this virtual host and supply a fake ``Host`` header. Thus,
+   Django now requires that you set :setting:`ALLOWED_HOSTS` explicitly rather
+   than relying on webserver configuration.
+
+Additionally, as of 1.3.1, Django requires you to explicitly enable support for
+the ``X-Forwarded-Host`` header (via the :setting:`USE_X_FORWARDED_HOST`
+setting) if your configuration requires it.
+
+
+.. _additional-security-topics:
+
+Additional security topics
+==========================
+
+While Django provides good security protection out of the box, it is still
+important to properly deploy your application and take advantage of the
+security protection of the Web server, operating system and other components.
+
+* Make sure that your Python code is outside of the Web server's root. This
+  will ensure that your Python code is not accidentally served as plain text
+  (or accidentally executed).
+* Take care with any :ref:`user uploaded files <file-upload-security>`.
+* Django does not throttle requests to authenticate users. To protect against
+  brute-force attacks against the authentication system, you may consider
+  deploying a Django plugin or Web server module to throttle these requests.
+* If your site accepts file uploads, it is strongly advised that you limit
+  these uploads in your Web server configuration to a reasonable
+  size in order to prevent denial of service (DOS) attacks. In Apache, this
+  can be easily set using the LimitRequestBody_ directive.
+* Keep your :setting:`SECRET_KEY` a secret.
+* It is a good idea to limit the accessibility of your caching system and
+  database using a firewall.
+
+.. _LimitRequestBody: http://httpd.apache.org/docs/2.2/mod/core.html#limitrequestbody

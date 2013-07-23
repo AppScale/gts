@@ -74,6 +74,7 @@ __all__ = ['MAX_ENUM_VALUE',
 
            'Error',
            'DecodeError',
+           'EncodeError',
            'EnumDefinitionError',
            'FieldDefinitionError',
            'InvalidVariantError',
@@ -125,6 +126,10 @@ class DefinitionNotFoundError(Error):
 
 class DecodeError(Error):
   """Error found decoding message from encoded form."""
+
+
+class EncodeError(Error):
+  """Error found when encoding message."""
 
 
 class ValidationError(Error):
@@ -517,20 +522,19 @@ class Variant(Enum):
     SINT32: 32-bit signed integer.  Uses "zig-zag" encoding.
     SINT64: 64-bit signed integer.  Uses "zig-zag" encoding.
   """
-
-  DOUBLE  = 1
-  FLOAT   = 2
-  INT64   = 3
-  UINT64  = 4
-  INT32   = 5
-  BOOL    = 8
-  STRING  = 9
-  MESSAGE = 11
-  BYTES   = 12
-  UINT32  = 13
-  ENUM    = 14
-  SINT32  = 17
-  SINT64  = 18
+  DOUBLE   = 1
+  FLOAT    = 2
+  INT64    = 3
+  UINT64   = 4
+  INT32    = 5
+  BOOL     = 8
+  STRING   = 9
+  MESSAGE  = 11
+  BYTES    = 12
+  UINT32   = 13
+  ENUM     = 14
+  SINT32   = 17
+  SINT64   = 18
 
 
 class _MessageClass(_DefinitionClass):
@@ -727,6 +731,7 @@ class Message(object):
     """
     # Tag being an essential implementation detail must be private.
     self.__tags = {}
+    self.__unrecognized_fields = {}
 
     assigned = set()
     for name, value in kwargs.iteritems():
@@ -737,7 +742,7 @@ class Message(object):
     for field in self.all_fields():
       if field.repeated and field.name not in assigned:
         setattr(self, field.name, [])
-      
+
 
   def check_initialized(self):
     """Check class for initialization status.
@@ -755,7 +760,8 @@ class Message(object):
                                 (type(self).__name__, name))
       else:
         try:
-          if isinstance(field, MessageField):
+          if (isinstance(field, MessageField) and
+              issubclass(field.type, MessageField)):
             if field.repeated:
               for item in value:
                 item.check_initialized()
@@ -851,6 +857,43 @@ class Message(object):
             message_type.__name__, name))
     self.__tags.pop(field.number, None)
 
+  def all_unrecognized_fields(self):
+    """Get the names of all unrecognized fields in this message."""
+    return self.__unrecognized_fields.keys()
+
+  def get_unrecognized_field_info(self, key, value_default=None,
+                                  variant_default=None):
+    """Get the value and variant of an unknown field in this message.
+
+    Args:
+      key: The name or number of the field to retrieve.
+      value_default: Value to be returned if the key isn't found.
+      variant_default: Value to be returned as variant if the key isn't
+        found.
+
+    Returns:
+      (value, variant), where value and variant are whatever was passed
+      to set_unrecognized_field.
+    """
+    value, variant = self.__unrecognized_fields.get(key, (value_default,
+                                                          variant_default))
+    return value, variant
+
+  def set_unrecognized_field(self, key, value, variant):
+    """Set an unrecognized field, used when decoding a message.
+
+    Args:
+      key: The name or number used to refer to this unknown value.
+      value: The value of the field.
+      variant: Type information needed to interpret the value or re-encode it.
+
+    Raises:
+      TypeError: If the variant is not an instance of messages.Variant.
+    """
+    if not isinstance(variant, Variant):
+      raise TypeError('Variant type %s is not valid.' % variant)
+    self.__unrecognized_fields[key] = value, variant
+
   def __setattr__(self, name, value):
     """Change set behavior for messages.
 
@@ -924,6 +967,8 @@ class Message(object):
       message2.attr1 = 'default value'
 
       message1 != message2
+
+    Does not compare unknown values.
 
     Args:
       other: Other message to compare with.
@@ -1014,7 +1059,7 @@ class Field(object):
 
     def __init__(cls, name, bases, dct):
       getattr(cls, '_Field__variant_to_type').update(
-        (variant, cls) for variant in getattr(cls, 'VARIANTS', []))
+        (variant, cls) for variant in dct.get('VARIANTS', []))
       type.__init__(cls, name, bases, dct)
 
   __initialized = False
@@ -1088,7 +1133,7 @@ class Field(object):
       except ValidationError, err:
         try:
           name = self.name
-        except AttributeError:         
+        except AttributeError:
           # For when raising error before name initialization.
           raise InvalidDefaultError('Invalid default value for %s: %s: %s' %
                                     (self.__class__.__name__, default, err))
@@ -1459,6 +1504,54 @@ class MessageField(Field):
         raise FieldDefinitionError('Invalid message class: %s' % message_type)
       self.__type = message_type
     return self.__type
+
+  @property
+  def message_type(self):
+    """Underlying message type used for serialization.
+
+    Will always be a sub-class of Message.  This is different from type
+    which represents the python value that message_type is mapped to for
+    use by the user.
+    """
+    return self.type
+
+  def value_from_message(self, message):
+    """Convert a message to a value instance.
+
+    Used by deserializers to convert from underlying messages to
+    value of expected user type.
+
+    Args:
+      message: A message instance of type self.message_type.
+
+    Returns:
+      Value of self.type.
+    """
+    if not isinstance(message, self.message_type):
+      raise DecodeError('Expected type %s, got %s: %r' %
+                        (self.message_type.__name__,
+                         type(message).__name__,
+                         message))
+    return message
+
+  def value_to_message(self, value):
+    """Convert a value instance to a message.
+
+    Used by serializers to convert Python user types to underlying
+    messages for transmission.
+
+    Args:
+      value: A value of type self.type.
+
+    Returns:
+      An instance of type self.message_type.
+    """
+    if not isinstance(value, self.type):
+      raise EncodeError('Expected type %s, got %s: %r' %
+                        (self.type.__name__,
+                         type(value).__name__,
+                         value))
+    return value
 
 
 class EnumField(Field):

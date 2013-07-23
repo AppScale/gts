@@ -51,13 +51,15 @@ from google.appengine.api import memcache
 from google.appengine.api import urlfetch
 from google.appengine.api import users
 from google.appengine.ext import db
+from google.appengine.ext import ndb
 
 
 HISTORY_PATH = os.path.expanduser('~/.remote_api_shell_history')
 DEFAULT_PATH = '/_ah/remote_api'
 BANNER = """App Engine remote_api shell
 Python %s
-The db, users, urlfetch, and memcache modules are imported.""" % sys.version
+The db, ndb, users, urlfetch, and memcache modules are imported.\
+""" % sys.version
 
 
 def auth_func():
@@ -97,6 +99,7 @@ def remote_api_shell(servername, appid, path, secure, rpc_server_factory):
       'urlfetch': urlfetch,
       'users': users,
       'db': db,
+      'ndb': ndb,
       }
 
 

@@ -33,6 +33,7 @@ __all__ = [
     'neo_cgi',
     'py_imp',
     'select',
+    'py_select',
     'socket',
     'subprocess',
     'tempfile',

@@ -1763,7 +1763,7 @@ def get_serving_url(blob_key,
 
   "http://lh3.ggpht.com/SomeCharactersGoesHere=s32-c"
 
-  Available sizes are any interger in the range [0, 1600] and is available as
+  Available sizes are any integer in the range [0, 1600] and is available as
   IMG_SERVING_SIZES_LIMIT.
 
   Args:
@@ -1818,7 +1818,7 @@ def get_serving_url_async(blob_key,
 
   "http://lh3.ggpht.com/SomeCharactersGoesHere=s32-c"
 
-  Available sizes are any interger in the range [0, 1600] and is available as
+  Available sizes are any integer in the range [0, 1600] and is available as
   IMG_SERVING_SIZES_LIMIT.
 
   Args:

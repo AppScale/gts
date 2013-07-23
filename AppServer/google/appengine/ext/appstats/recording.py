@@ -815,7 +815,7 @@ class Recorder(object):
       An integer expressing megacycles.
     """
     warnings.warn('get_total_api_mcycles does not return a meaningful value',
-                  DeprecationWarning,
+                  UserWarning,
                   stacklevel=2)
     return 0
 
@@ -1076,20 +1076,20 @@ class StatsProto(object):
       An integer expressing milliseconds.
     """
     warnings.warn('api_milliseconds does not return a meaningful value',
-                  DeprecationWarning,
+                  UserWarning,
                   stacklevel=2)
     return 0
 
   def processor_mcycles(self):
     warnings.warn('processor_mcycles does not return correct values',
-                  DeprecationWarning,
+                  UserWarning,
                   stacklevel=2)
     return self._proto.processor_mcycles()
 
   def processor_milliseconds(self):
     """Return an int giving .processor_mcycles() converted to milliseconds."""
     warnings.warn('processor_milliseconds does not return correct values',
-                  DeprecationWarning,
+                  UserWarning,
                   stacklevel=2)
     return mcycles_to_msecs(self._proto.processor_mcycles())
 

@@ -41,14 +41,23 @@ serialized to/from json and passed around with other means.
 
 
 
-__all__ = ["JsonMixin", "JsonProperty", "MapreduceState", "MapperSpec",
-           "MapreduceControl", "MapreduceSpec", "ShardState", "CountersMap",
-           "TransientShardState"]
+__all__ = ["JsonEncoder",
+           "JsonDecoder",
+           "JSON_DEFAULTS",
+           "JsonMixin",
+           "JsonProperty",
+           "MapreduceState",
+           "MapperSpec",
+           "MapreduceControl",
+           "MapreduceSpec",
+           "ShardState",
+           "CountersMap",
+           "TransientShardState",
+           "QuerySpec"]
 
 import copy
 import datetime
 import logging
-import math
 import os
 import random
 import simplejson
@@ -71,6 +80,73 @@ _DEFAULT_PROCESSING_RATE_PER_SEC = 1000000
 _DEFAULT_SHARD_COUNT = 8
 
 
+class JsonEncoder(simplejson.JSONEncoder):
+  """MR customized json encoder."""
+
+  TYPE_ID = "__mr_json_type"
+
+  def default(self, o):
+    """Inherit docs."""
+    if type(o) in JSON_DEFAULTS:
+      encoder = JSON_DEFAULTS[type(o)][0]
+      json_struct = encoder(o)
+      json_struct[self.TYPE_ID] = type(o).__name__
+      return json_struct
+    return super(JsonEncoder, self).default(o)
+
+
+class JsonDecoder(simplejson.JSONDecoder):
+  """MR customized json decoder."""
+
+  def __init__(self, **kwargs):
+    if "object_hook" not in kwargs:
+      kwargs["object_hook"] = self._dict_to_obj
+    super(JsonDecoder, self).__init__(**kwargs)
+
+  def _dict_to_obj(self, d):
+    """Converts a dictionary of json object to a Python object."""
+    if JsonEncoder.TYPE_ID not in d:
+      return d
+
+    obj_type = d.pop(JsonEncoder.TYPE_ID)
+    if obj_type in _TYPE_IDS:
+      decoder = JSON_DEFAULTS[_TYPE_IDS[obj_type]][1]
+      return decoder(d)
+    else:
+      raise TypeError("Invalid type %s.", obj_type)
+
+
+_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
+
+
+def _json_encode_datetime(o):
+  """Json encode a datetime object.
+
+  Args:
+    o: a datetime object.
+
+  Returns:
+    A dict of json primitives.
+  """
+  return {"isostr": o.strftime(_DATETIME_FORMAT)}
+
+
+def _json_decode_datetime(d):
+  """Converts a dict of json primitives to a datetime object."""
+  return datetime.datetime.strptime(d["isostr"], _DATETIME_FORMAT)
+
+
+
+
+JSON_DEFAULTS = {
+    datetime.datetime: (_json_encode_datetime, _json_decode_datetime),
+}
+
+
+_TYPE_IDS = dict(zip([_cls.__name__ for _cls in JSON_DEFAULTS],
+                     JSON_DEFAULTS.keys()))
+
+
 class JsonMixin(object):
   """Simple, stateless json utilities mixin.
 
@@ -88,7 +164,7 @@ class JsonMixin(object):
     """
     json = self.to_json()
     try:
-      return simplejson.dumps(json, sort_keys=True)
+      return simplejson.dumps(json, sort_keys=True, cls=JsonEncoder)
     except:
       logging.exception("Could not serialize JSON: %r", json)
       raise
@@ -103,7 +179,7 @@ class JsonMixin(object):
     Returns:
       New instance of the class with data loaded from json string.
     """
-    return cls.from_json(simplejson.loads(json_str))
+    return cls.from_json(simplejson.loads(json_str, cls=JsonDecoder))
 
 
 class JsonProperty(db.UnindexedProperty):
@@ -146,7 +222,7 @@ class JsonProperty(db.UnindexedProperty):
     if not json_value:
       return None
     return datastore_types.Text(simplejson.dumps(
-        json_value, sort_keys=True))
+        json_value, sort_keys=True, cls=JsonEncoder))
 
   def make_value_from_datastore(self, value):
     """Convert value from datastore representation.
@@ -160,7 +236,7 @@ class JsonProperty(db.UnindexedProperty):
 
     if value is None:
       return None
-    json = simplejson.loads(value)
+    json = simplejson.loads(value, cls=JsonDecoder)
     if self.data_type == dict:
       return json
     return self.data_type.from_json(json)
@@ -207,7 +283,6 @@ class JsonProperty(db.UnindexedProperty):
       return copy.deepcopy(self.default)
     else:
       return None
-
 
 
 
@@ -375,14 +450,12 @@ class MapperSpec(JsonMixin):
 
     Properties:
       handler_spec: name of handler class/function to use.
-      shard_count: number of shards to process in parallel.
-      handler: cached instance of mapper handler as callable.
       input_reader_spec: The class name of the input reader to use.
-      output_writer_spec: The class name of the output writer to use.
       params: Dictionary of additional parameters for the mapper.
+      shard_count: number of shards to process in parallel.
+      output_writer_spec: The class name of the output writer to use.
     """
     self.handler_spec = handler_spec
-    self.__handler = None
     self.input_reader_spec = input_reader_spec
     self.output_writer_spec = output_writer_spec
     self.shard_count = shard_count
@@ -392,11 +465,9 @@ class MapperSpec(JsonMixin):
     """Get mapper handler instance.
 
     Returns:
-      cached handler instance as callable.
+      handler instance as callable.
     """
-    if self.__handler is None:
-      self.__handler = util.handler_for_name(self.handler_spec)
-    return self.__handler
+    return util.handler_for_name(self.handler_spec)
 
   handler = property(get_handler)
 
@@ -422,7 +493,7 @@ class MapperSpec(JsonMixin):
         "mapper_handler_spec": self.handler_spec,
         "mapper_input_reader": self.input_reader_spec,
         "mapper_params": self.params,
-        "mapper_shard_count": self.shard_count,
+        "mapper_shard_count": self.shard_count
     }
     if self.output_writer_spec:
       result["mapper_output_writer"] = self.output_writer_spec
@@ -441,7 +512,7 @@ class MapperSpec(JsonMixin):
                json["mapper_params"],
                json["mapper_shard_count"],
                json.get("mapper_output_writer")
-               )
+              )
 
 
 class MapreduceSpec(JsonMixin):
@@ -553,6 +624,7 @@ class MapreduceState(db.Model):
     active_shards: How many shards are still processing.
     start_time: When the job started.
     writer_state: Json property to be used by writer to store its state.
+      This is filled when single output per job. Will be dprecated.
   """
 
   RESULT_SUCCESS = "success"
@@ -679,22 +751,66 @@ class TransientShardState(object):
                shard_id,
                slice_id,
                input_reader,
-               output_writer=None):
+               initial_input_reader,
+               output_writer=None,
+               retries=0,
+               handler=None):
+    """Init.
+
+    Args:
+      base_path: base path of this mapreduce job.
+      mapreduce_spec: an instance of MapReduceSpec.
+      shard_id: shard id.
+      slice_id: slice id. When enqueuing task for the next slice, this number
+        is incremented by 1.
+      input_reader: input reader instance for this shard.
+      initial_input_reader: the input reader instance before any iteration.
+        Used by shard retry.
+      output_writer: output writer instance for this shard, if exists.
+      retries: the number of retries of the current shard. Used to drop
+        tasks from old retries.
+      handler: map/reduce handler.
+    """
     self.base_path = base_path
     self.mapreduce_spec = mapreduce_spec
     self.shard_id = shard_id
     self.slice_id = slice_id
     self.input_reader = input_reader
+    self.initial_input_reader = initial_input_reader
     self.output_writer = output_writer
+    self.retries = retries
+    self.handler = handler
+
+  def reset_for_retry(self, output_writer):
+    """Reset self for shard retry.
+
+    Args:
+      output_writer: new output writer that contains new output files.
+    """
+    self.input_reader = self.initial_input_reader
+    self.slice_id = 0
+    self.retries += 1
+    self.output_writer = output_writer
+    self.handler = None
+
+  def advance_for_next_slice(self):
+    """Advance relavent states for next slice."""
+    self.slice_id += 1
 
   def to_dict(self):
     """Convert state to dictionary to save in task payload."""
     result = {"mapreduce_spec": self.mapreduce_spec.to_json_str(),
               "shard_id": self.shard_id,
               "slice_id": str(self.slice_id),
-              "input_reader_state": self.input_reader.to_json_str()}
+              "input_reader_state": self.input_reader.to_json_str(),
+              "initial_input_reader_state":
+              self.initial_input_reader.to_json_str(),
+              "retries": str(self.retries)}
     if self.output_writer:
       result["output_writer_state"] = self.output_writer.to_json_str()
+    serialized_handler = util.try_serialize_handler(self.handler)
+    if serialized_handler:
+      result["serialized_handler"] = serialized_handler
     return result
 
   @classmethod
@@ -702,14 +818,20 @@ class TransientShardState(object):
     """Create new TransientShardState from webapp request."""
     mapreduce_spec = MapreduceSpec.from_json_str(request.get("mapreduce_spec"))
     mapper_spec = mapreduce_spec.mapper
-    input_reader_spec_dict = simplejson.loads(request.get("input_reader_state"))
+    input_reader_spec_dict = simplejson.loads(request.get("input_reader_state"),
+                                              cls=JsonDecoder)
     input_reader = mapper_spec.input_reader_class().from_json(
         input_reader_spec_dict)
+    initial_input_reader_spec_dict = simplejson.loads(
+        request.get("initial_input_reader_state"), cls=JsonDecoder)
+    initial_input_reader = mapper_spec.input_reader_class().from_json(
+        initial_input_reader_spec_dict)
 
     output_writer = None
     if mapper_spec.output_writer_class():
       output_writer = mapper_spec.output_writer_class().from_json(
-          simplejson.loads(request.get("output_writer_state", "{}")))
+          simplejson.loads(request.get("output_writer_state", "{}"),
+                           cls=JsonDecoder))
       assert isinstance(output_writer, mapper_spec.output_writer_class()), (
           "%s.from_json returned an instance of wrong class: %s" % (
               mapper_spec.output_writer_class(),
@@ -718,12 +840,19 @@ class TransientShardState(object):
     request_path = request.path
     base_path = request_path[:request_path.rfind("/")]
 
+    handler = util.try_deserialize_handler(request.get("serialized_handler"))
+    if not handler:
+      handler = mapreduce_spec.mapper.handler
+
     return cls(base_path,
                mapreduce_spec,
                str(request.get("shard_id")),
                int(request.get("slice_id")),
                input_reader,
-               output_writer=output_writer)
+               initial_input_reader,
+               output_writer=output_writer,
+               retries=int(request.get("retries")),
+               handler=handler)
 
 
 class ShardState(db.Model):
@@ -743,10 +872,33 @@ class ShardState(db.Model):
     update_time: The last time this shard state was updated.
     shard_description: A string description of the work this shard will do.
     last_work_item: A string description of the last work item processed.
+    writer_state: writer state for this shard. This is filled when a job
+      has one output per shard by OutputWriter's create method.
+    slice_id: slice id of current executing slice. A task
+      will not run unless its slice_id matches this. Initial
+      value is 0. By the end of slice execution, this number is
+      incremented by 1.
+    slice_start_time: a slice updates this to now at the beginning of
+      execution transactionally. If transaction succeeds, the current task holds
+      a lease of slice duration + some grace period. During this time, no
+      other task with the same slice_id will execute. Upon slice failure,
+      the task should try to unset this value to allow retries to carry on
+      ASAP. slice_start_time is only meaningful when slice_id is the same.
+    slice_request_id: the request id that holds/held the lease. When lease has
+      expired, new request needs to verify that said request has indeed
+      ended according to logs API. Do this only when lease has expired
+      because logs API is expensive. This field should always be set/unset
+      with slice_start_time.
+    slice_retries: the number of times a slice has been retried due to
+      data processing error (non taskqueue/datastore). This count is
+      only a lower bound and is used to determined when to fail a slice
+      completely.
   """
 
   RESULT_SUCCESS = "success"
   RESULT_FAILED = "failed"
+
+
   RESULT_ABORTED = "aborted"
 
   _RESULTS = frozenset([RESULT_SUCCESS, RESULT_FAILED, RESULT_ABORTED])
@@ -755,12 +907,61 @@ class ShardState(db.Model):
   active = db.BooleanProperty(default=True, indexed=False)
   counters_map = JsonProperty(CountersMap, default=CountersMap(), indexed=False)
   result_status = db.StringProperty(choices=_RESULTS, indexed=False)
+  retries = db.IntegerProperty(default=0, indexed=False)
+  writer_state = JsonProperty(dict, indexed=False)
+  slice_id = db.IntegerProperty(default=0, indexed=False)
+  slice_start_time = db.DateTimeProperty(indexed=False)
+  slice_request_id = db.ByteStringProperty(indexed=False)
+  slice_retries = db.IntegerProperty(default=0, indexed=False)
 
 
   mapreduce_id = db.StringProperty(required=True)
   update_time = db.DateTimeProperty(auto_now=True, indexed=False)
   shard_description = db.TextProperty(default="")
   last_work_item = db.TextProperty(default="")
+
+  def __str__(self):
+    kv = {"active": self.active,
+          "slice_id": self.slice_id,
+          "last_work_item": self.last_work_item,
+          "update_time": self.update_time}
+    if self.result_status:
+      kv["result_status"] = self.result_status
+    if self.retries:
+      kv["retries"] = self.retries
+    if self.slice_start_time:
+      kv["slice_start_time"] = self.slice_start_time
+    if self.slice_retries:
+      kv["slice_retries"] = self.slice_retries
+    if self.slice_request_id:
+      kv["slice_request_id"] = self.slice_request_id
+    keys = kv.keys()
+    keys.sort()
+
+    result = "ShardState is {"
+    for k in keys:
+      result += k + ":" + str(kv[k]) + ","
+    result += "}"
+    return result
+
+  def reset_for_retry(self):
+    """Reset self for shard retry."""
+    self.retries += 1
+    self.last_work_item = ""
+    self.active = True
+    self.result_status = None
+    self.counters_map = CountersMap()
+    self.slice_id = 0
+    self.slice_start_time = None
+    self.slice_request_id = None
+    self.slice_retries = 0
+
+  def advance_for_next_slice(self):
+    """Advance self for next slice."""
+    self.slice_id += 1
+    self.slice_start_time = None
+    self.slice_request_id = None
+    self.slice_retries = 0
 
   def copy_from(self, other_state):
     """Copy data from another shard state entity to self."""
@@ -831,11 +1032,25 @@ class ShardState(db.Model):
     Returns:
       iterable of all ShardState for given mapreduce.
     """
+    keys = cls.calculate_keys_by_mapreduce_state(mapreduce_state)
+    return [state for state in db.get(keys) if state]
+
+  @classmethod
+  def calculate_keys_by_mapreduce_state(cls, mapreduce_state):
+    """Calculate all shard states keys for given mapreduce.
+
+    Args:
+      mapreduce_state: MapreduceState instance
+
+    Returns:
+      A list of keys for shard states. The corresponding shard states
+      may not exist.
+    """
     keys = []
     for i in range(mapreduce_state.mapreduce_spec.mapper.shard_count):
       shard_id = cls.shard_id_from_number(mapreduce_state.key().name(), i)
       keys.append(cls.get_key_by_shard_id(shard_id))
-    return [state for state in db.get(keys) if state]
+    return keys
 
   @classmethod
   def find_by_mapreduce_id(cls, mapreduce_id):
@@ -904,3 +1119,44 @@ class MapreduceControl(db.Model):
     """
     cls(key_name="%s:%s" % (mapreduce_id, cls._KEY_NAME),
         command=cls.ABORT).put(**kwargs)
+
+
+class QuerySpec(object):
+  """Encapsulates everything about a query needed by DatastoreInputReader."""
+
+  DEFAULT_BATCH_SIZE = 50
+
+  def __init__(self,
+               entity_kind,
+               keys_only=None,
+               filters=None,
+               batch_size=None,
+               model_class_path=None,
+               app=None,
+               ns=None):
+    self.entity_kind = entity_kind
+    self.keys_only = keys_only or False
+    self.filters = filters or None
+    self.batch_size = batch_size or self.DEFAULT_BATCH_SIZE
+    self.model_class_path = model_class_path
+    self.app = app
+    self.ns = ns
+
+  def to_json(self):
+    return {"entity_kind": self.entity_kind,
+            "keys_only": self.keys_only,
+            "filters": self.filters,
+            "batch_size": self.batch_size,
+            "model_class_path": self.model_class_path,
+            "app": self.app,
+            "ns": self.ns}
+
+  @classmethod
+  def from_json(cls, json):
+    return cls(json["entity_kind"],
+               json["keys_only"],
+               json["filters"],
+               json["batch_size"],
+               json["model_class_path"],
+               json["app"],
+               json["ns"])

@@ -143,24 +143,45 @@ class InfrastructureManagerClient
   end
 
 
-  def terminate_instances(parameters)
-    Djinn.log_debug("Calling terminate_instances with parameters " +
-      "#{parameters.inspect}")
+  def terminate_instances(creds, instance_ids)
+    credentials = {
+      # EC2 / Eucalyptus-specific credentials
+      'EC2_ACCESS_KEY' => creds['ec2_access_key'],
+      'EC2_SECRET_KEY' => creds['ec2_secret_key'],
+      'EC2_URL' => creds['ec2_url'],
+    }
 
-    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "terminate_instances") { 
+    if instance_ids.class != Array
+      instance_ids = [instance_ids]
+    end
+
+    parameters = {
+      "credentials" => credentials,
+      "instance_ids" => instance_ids,
+      "project" => creds['project'],  # GCE-specific
+      "group" => creds['group'],
+      "infrastructure" => creds['infrastructure'],
+      "keyname" => creds['keyname'],
+    }
+
+    terminate_result = make_call(NO_TIMEOUT, RETRY_ON_FAIL,
+      "terminate_instances") {
       @conn.terminate_instances(parameters.to_json, @secret)
     }
+    Djinn.log_debug("Terminate instances says [#{terminate_result}]")
   end
  
   
   def spawn_vms(num_vms, creds, job, cloud)
     credentials = {
+      # EC2 / Eucalyptus-specific credentials
       'EC2_ACCESS_KEY' => creds['ec2_access_key'],
       'EC2_SECRET_KEY' => creds['ec2_secret_key'],
       'EC2_URL' => creds['ec2_url']
     }
 
     run_result = run_instances("credentials" => credentials,
+      'project' => creds['project'],  # GCE-specific
       "group" => creds['group'], 
       "image_id" => creds['machine'],
       "infrastructure" => creds['infrastructure'],
@@ -181,8 +202,8 @@ class InfrastructureManagerClient
       if describe_result["state"] == "running"
         vm_info = describe_result["vm_info"]
         break
-      elsif describe_result["failed"] == "failed"
-	raise AppScaleException.new(describe_result["reason"]) 
+      elsif describe_result["state"] == "failed"
+        raise AppScaleException.new(describe_result["reason"])
       end
       Kernel.sleep(10)
     }

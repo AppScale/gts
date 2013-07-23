@@ -37,7 +37,7 @@
   #code, #output {
     font-family: monospace;
     font-size: 10pt;
-    height: 25em;
+    height: 100%;
     width: 100%;
     padding: 0;
     margin: 0;
@@ -51,6 +51,7 @@
 {% endblock %}
 
 {% block body %}
+{% if interactive_console %}
 <h3>Interactive Console</h3>
 <form action="{{ interactive_execute_path }}" target="output" method="post">
   <input type="hidden" name="xsrf_token" value="{{ xsrf_token }}"/>
@@ -80,9 +81,21 @@ print "Hello, " + nickname
     </tr>
   </table>
 </form>
+{% else %}
+
+<p>The interactive console has been disabled for security
+because the dev_appserver is listening on a non-default address.
+If you would like to re-enable the console, invoke dev_appserver
+with the --enable_console argument.
+
+<p>See the <a href=https://developers.google.com/appengine/docs/python/tools/devserver#The_Interactive_Console>
+online documentation</a> for more information.
+
+{% endif %}
 {% endblock %}
 
 {% block final %}
+{% if interactive_console %}
 <script type="text/javascript">
 //<![CDATA[
 var iframe = document.getElementById('output');
@@ -102,4 +115,6 @@ if (idoc) {
 document.getElementById('code').focus();
 //]]>
 </script>
+{% endif %}
 {% endblock %}
+

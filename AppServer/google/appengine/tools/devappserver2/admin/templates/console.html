@@ -1,0 +1,40 @@
+{% extends "skeleton.html" %}
+{% block page_title %}Interactive Console{% endblock %}
+
+{% block page_head %}
+  <script>{% include "console.js" %}</script>
+  <style type="text/css">{% include "console.css" %}</style>
+{% endblock %}
+
+{% block body %}
+<div id="console">
+  <h3>Interactive Console</h3>
+  {% if servers %}
+  <form id="console-form" action="{{ request.uri }}" method="post">
+    <div>
+      {% if servers|length > 1 %}
+        <select id="server_name" class="ae-button" name="server_name">
+          {% for server in servers|sort(attribute='name') %}
+          <option value="{{ server.name }}">{{ server.name }}</option>
+          {% endfor %}
+        </select>
+      {% else %}
+        <input  name="server_name" type="hidden" value="{{ servers[0].name }}" id="server_name">
+      {% endif %}
+      <input id="restart_button" type="button" class="ae-button" value="Restart Instance">
+    </div>
+    <div>
+      <textarea id="code_text" name="code" rows="20" cols="80"></textarea>
+    </div>
+    <input id="execute_button" type="submit" class="ae-button ae-button-submit" value="Execute">
+  </form>
+  <hr>
+  <pre id="output">Click Execute!</pre>
+  <hr>
+  {% else %}
+    <p>
+    None of the running servers support an interactive console.
+    </p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -7,6 +7,9 @@ require 'soap/rpc/driver'
 require 'timeout'
 
 
+require 'custom_exceptions'
+
+
 IP_REGEX = /\d+\.\d+\.\d+\.\d+/
 
 
@@ -100,16 +103,17 @@ class AppControllerClient
     rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH
       if refused_count > max
         return false if ok_to_fail
-        abort("Connection was refused. Is the AppController running?")
+        raise FailedNodeException.new("Connection was refused. Is the " +
+          "AppController running?")
       else
         refused_count += 1
-        sleep(1)
+        Kernel.sleep(1)
         retry
       end
     rescue Timeout::Error
       return false if ok_to_fail
       retry
-    rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE, Errno::ECONNRESET
+    rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE, Errno::ECONNRESET, SOAP::EmptyResponseError
       retry
     rescue Exception => except
       if retry_on_except
@@ -202,11 +206,11 @@ class AppControllerClient
   end
 
   def is_done_initializing?()
-    make_call(30, RETRY_ON_FAIL, "is_done_initializing", ok_to_fail=true) { @conn.is_done_initializing(@secret) }
+    make_call(30, RETRY_ON_FAIL, "is_done_initializing") { @conn.is_done_initializing(@secret) }
   end
 
   def is_done_loading?()
-    make_call(30, RETRY_ON_FAIL, "is_done_loading", ok_to_fail=true) { @conn.is_done_loading(@secret) }
+    make_call(30, RETRY_ON_FAIL, "is_done_loading") { @conn.is_done_loading(@secret) }
   end
  
   def get_all_public_ips()

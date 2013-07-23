@@ -3,11 +3,228 @@ All rights reserved.
 
 App Engine Python SDK - Release Notes
 
+Version 1.8.0
+===============================
+- The Mail API now allows attachments with .zip and .gzip extensions as long as
+  the archives do not contain entries with blacklisted extensions.
+  http://code.google.com/p/googleappengine/issues/detail?id=5933
+- New Billing Enabled apps will no longer default to an email quota of 20,000
+  per day. Instead, apps will need to file a request through the admin console
+  to get email quotas increased.
+- Admin console dashboard charts and reports for all users have been fully
+  migrated to the new, more reliable backend announced in 1.7.6.
+- The maximum size of POST requests made through URLfetch has been increased
+  from 5MB to 10MB.
+- Fixed an issue with the Mail API to prevent sending mail from a Google Apps
+  mail account that has been suspended.
+    https://code.google.com/p/googleappengine/issues/detail?id=6181
+- Fixed an issue with the admin handler of the new dev_appserver failing to
+  import appengine_config automatically.
+
+Version 1.7.7
+===============================
+- The Sockets API, which allows applications to make outgoing TCP connections
+  and send/receive UDP packets to the Internet using both IPv4 and IPv6, is now
+  available as an experimental feature for billed apps.
+- The ftplib module is now restored.  It depends on the experimental Sockets
+  API.
+- Billing enabled apps will no longer be subject to a $2.10 minimum weekly
+  spend.  Instead, apps will only be charged for their actual usage.
+- Matplotlib 1.1.1, an experimental feature, is being deprecated and will be
+  removed in 1.7.8. Please switch to matplotlib 1.2.0.
+- Fixed an issue where the dev_appserver Datastore auto ids assigned by the
+  scattered id policy were too large to be represented as floating point
+  numbers.
+- Fixed an issue where the dev_appserver threw an exception on any Search API
+  call that used an index that was originally created as GLOBALLY consistent.
+- Fixed an issue with NDB not serializing projection entities correctly.
+    https://code.google.com/p/appengine-ndb-experiment/issues/detail?id=215
+- Fixed an issue with NDB not projecting structured properties correctly.
+    https://code.google.com/p/appengine-ndb-experiment/issues/detail?id=227
+- Fixed an issue with task queues failing to resolve backend addresses in
+  the new dev_appserver.
+    https://code.google.com/p/googleappengine/issues/detail?id=5105
+- Fixed an issue with the Search API allowing multiple documents with no IDs
+  to be in one put request.
+    https://code.google.com/p/googleappengine/issues/detail?id=8553
+- Fixed an issue with sort by doc_id not translating correctly causing
+  InvalidRequest errors on the Search API.
+    https://code.google.com/p/googleappengine/issues/detail?id=8958
+- Fixed an issue with the Search admin UI where an Internal Server Error
+  was served.
+    https://code.google.com/p/googleappengine/issues/detail?id=9005
+- Fixed an issue with Prospective Search failing in the new dev_appserver.
+    https://code.google.com/p/googleappengine/issues/detail?id=9003
+- Fixed an issue with the new dev_appserver failing with ImportError.
+    https://code.google.com/p/googleappengine/issues/detail?id=9008
+- Fixed an issue with Sqlite3 being unable to open a database file in the new
+  dev_appserver.
+    https://code.google.com/p/googleappengine/issues/detail?id=9031
+- Fixed an issue with serving urls that contain unicode characters in the new
+  dev_appserver.
+    https://code.google.com/p/googleappengine/issues/detail?id=9040
+
+Version 1.7.6
+===============================
+- The new and improved development appserver, which was previewed last release,
+  now becomes the default. The old development appserver has been renamed to
+  old_appserver.py and will remain available until the first release after
+  1 July 2013 when it will be removed from the SDK. For more information, please
+  visit
+  http://developers.google.com/appengine/docs/python/tools/devserver
+- A Go runtime has been added to the new and improved development appserver.
+- The Debug log level for the runtime has been enabled.
+- Improvements to the App Engine billing system will be rolled out gradually to
+  all apps. Fore more information, please visit
+  http://developers.google.com/appengine/docs/billing
+- The application summary no longer displays the default version of a running
+  application, instead it lists the application as 'RUNNING'. In an upcoming
+  release applications will have multiple logical sub components, each of which
+  will have a default version. This UI update is meant to align with this
+  functionality.
+- Projection queries are now a fully supported GA feature.
+- The XMPP API now has multi-JID get_presence. This provides the ability to get
+  the availability of multiple users.
+- Django 1.4 and Webob 1.2.3 are now promoted to GA.
+- Apps now have the ability to fopen() files that are declared as static files
+  in app.yaml using the application_readable flag.
+- The dev_appserver now allocates automatic ids using the 'scattered' id
+  allocation policy by default. For more information, please see "Specifying the
+  Automatic ID Allocation Policy":
+  https://developers.google.com/appengine/docs/python/tools/devserver#Using_the_
+  Datastore
+- Admin console dashboard charts and current load/errors reports will be moving
+  to a new, more reliable backend. The change will be gradually rolling to users
+  of admin console over the next few weeks.
+- New Search API quotas are now displayed in the Admin Console. These quotas are
+  not currently enforced, but will be part of the pricing model for the Search
+  API in a future release.
+- The experimental Search API's ability to explicitly sort search results by
+  SortExpression.RANK_FIELD_NAME (i.e. _order_id) field in ascending order has
+  been removed.
+- Globally consistent indexes in the experimental Search API are now deprecated
+  and will be removed in the next release.
+- Task Queue tasks may now be added and deleted asynchronously. This allows
+  applications to perform common task queue operations without blocking. This is
+  an experimental feature.
+- In the experimental MapReduce framework, shards that encounter Files API
+  errors will retry three times before the entire job fails.
+- Google Protocol RPC now supports deserializing and reserializing of unexpected
+  fields.
+- A new Google Protocol RPC field type for supporting datetime values has been
+  added. For more information, please visit
+  https://developers.google.com/appengine/docs/python/tools/protorpc
+- Fixed an issue which caused an incorrect server error message when setting the
+  default version on the admin console, though the version was set correctly.
+- Fixed an issue where get_indexes() didn't correctly populate the namespace
+  when run from the new dev_appserver.
+- Fixed an issue with the new dev_appserver failing on invalid login cookies. It
+  now uses type="email" for email in the login form.
+    https://code.google.com/p/appengine-devappserver2-experiment/issues/detail?
+    id=36
+- Fixed an issue with the new dev_appserver to have fix_sys_path add the
+  necessary libraries to sys.path making it now compatible with the testbed.
+    https://code.google.com/p/appengine-devappserver2-experiment/issues/detail?
+    id=45
+
+Version 1.7.5
+===============================
+- New instance classes F4_1G and B4_1G are now available.  These instances have
+  compute capacity equal to F4/B4 but with a maximum of 1G RAM instead
+  of 512MB.
+- The Logs API stub now uses sqlite in the dev_appserver.  Please note that the
+  --persist_logs flag is still needed in order for logs to be saved.
+- The deprecated classes and functions AddError, AddResult,
+  ListIndexesResponse, ListResponse, RemoveError, RemoveResult, and
+  list_indexes were removed from the Search API in the SDK.  If your app
+  references any of these classes or functions, you must deploy a new version
+  without these references before the next release of App Engine. If you do not
+  do this, your app may stop working in production.
+- The Conversion API, which was decommissioned last release, has been removed
+  from the SDK.  In a future release, the API will be removed from the runtime
+  and any attempt to import the library will raise an exception. Applications
+  in production that import the library should be fixed as soon as possible.
+- Matplotlib v1.2.0 is now available as an experimental feature.
+- Django 1.4 has been upgraded to 1.4.3. This is an experimental feature.
+- We are including a preview of a new and improved version of our development
+  server.  The new version is faster, provides more faithful support for
+  complex multi-threaded applications, has better support for Datastore and
+  supports more libraries.  Try dev_appserver2.py in the SDK. This is an
+  experimental feature. For more information, please visit
+  http://code.google.com/p/appengine-devappserver2-experiment/
+- The Channel API now has the ability to send channel messages from any app
+  version or backend regardless of where the channel was created.
+    http://code.google.com/p/googleappengine/issues/detail?id=5123
+- The URL Fetch service now supports PATCH method requests.
+    http://code.google.com/p/googleappengine/issues/detail?id=6316
+- The Mail API can now send mail bounce notifications to the app.  The
+  notification will be delivered to /_ah/bounce if mail_bounce inbound
+  services are enabled.
+    http://code.google.com/p/googleappengine/issues/detail?id=7451
+- The Blobstore service now returns the created filename instead of the blobKey
+  when using Cloud Storage
+    http://code.google.com/p/googleappengine/issues/detail?id=8337
+- Fixed an issue with os.urandom throwing an exception in dev_appserver2 when
+  using OS X.
+    http://code.google.com/p/appengine-devappserver2-experiment/issues/
+    detail?id=23
+- Fixed an issue with time.tzset not existing in dev_appserver2 for Windows.
+    https://code.google.com/p/appengine-devappserver2-experiment/issues/
+    detail?id=26
+
+Version 1.7.4
+===============================
+- Background threads is now a GA feature.
+- Traffic Splitting is now a GA feature.
+- Task Queue Statistics is now a GA feature.
+- Logs API now has the ability to fetch requests based on a list of
+  request_ids. Currently, this only works in production and is not supported
+  in dev_appserver.
+- Python Interpreter has been upgraded to 2.7.3.
+- WebOb 1.2.3 is now available for Python 2.7. Users using the undocumented
+  1.2.2 should update their app, since that version will be removed in the
+  next release.
+- DISTINCT for Datastore queries is now available as an experimental feature.
+- Matplotlib v1.1.1 is now available as an experimental feature.
+- The decommissioned Conversion API has been removed.
+- Added a warning that the interactive console will be disabled if a user runs
+  dev_appserver with the --address flag.
+- JSON properties are now restrictable to list or dictionaries in NDB.
+    http://code.google.com/p/appengine-ndb-experiment/issues/detail?id=223
+- Users can now set how many columns can be viewed in the Datastore Viewer via
+  a drop-down menu which customizes the number of columns displayed.
+    http://code.google.com/p/googleappengine/issues/detail?id=8158
+- Fixed an issue with expandos throwing an error when containing nested
+  expandos in NDB.
+    http://code.google.com/p/appengine-ndb-experiment/issues/detail?id=216
+- Fixed an issue with properties not being added to structured properties in
+  NDB.
+    http://code.google.com/p/appengine-ndb-experiment/issues/detail?id=220
+- Fixed an issue with PyCrypto raising an ImportError when installing
+  globally into site-packages.
+    http://code.google.com/p/googleappengine/issues/detail?id=1627
+- Fixed an issue with PyCrypto not working with OSX 10.8 or Ubuntu Precise.
+    http://code.google.com/p/googleappengine/issues/detail?id=7925
+- Fixed an issue with backends.get_instance returning thread ID instead of
+  integer instance ID in production.
+    http://code.google.com/p/googleappengine/issues/detail?id=8338
+- Fixed an issue with Datastore Backup failing when a schema has a very large
+  number of properties.
+    http://code.google.com/p/googleappengine/issues/detail?id=8363
+- Fixed an issue with dev_appserver not reloading changed code.
+    http://code.google.com/p/googleappengine/issues/detail?id=8383
+- Fixed an issue with custom ordered queries not working using sqlite on the
+  dev_appserver.
+    http://code.google.com/p/googleappengine/issues/detail?id=8390
+- Fixed an issue with users being unable to change Authentication Type after
+  app creation in the Admin Console.
+    http://code.google.com/p/googleappengine/issues/detail?id=8394
+
 Version 1.7.3
 ===============================
 - Django 1.4 is now supported in Python 2.7
 - The file-based implementation of the Datastore stub will be deprecated soon.
-  A warning message informing users that SQLLite stub will be the default
+- A warning message informing users that SQLLite stub will be the default
   stub soon is now displayed.
 - Datastore Index stats now report type instead of representation-type.
 - Rich sort expressions beyond single field names are now supported in the

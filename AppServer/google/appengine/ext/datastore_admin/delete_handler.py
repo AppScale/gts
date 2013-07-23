@@ -24,6 +24,7 @@
 
 
 
+import os
 import re
 import urllib
 
@@ -148,6 +149,11 @@ class DoDeleteHandler(webapp.RequestHandler):
         op = utils.StartOperation(
             'Deleting %s%s' % (kinds_str, namespace_str))
         name_template = 'Delete all %(kind)s objects%(namespace)s'
+        queue = self.request.get('queue')
+        queue = queue or os.environ.get('HTTP_X_APPENGINE_QUEUENAME', 'default')
+        if queue[0] == '_':
+
+          queue = 'default'
         jobs = utils.RunMapForKinds(
             op.key(),
             kinds,
@@ -155,7 +161,9 @@ class DoDeleteHandler(webapp.RequestHandler):
             self.DELETE_HANDLER,
             self.INPUT_READER,
             None,
-            {})
+            {},
+            queue_name=queue,
+            max_shard_count=utils.MAPREDUCE_DEFAULT_SHARDS)
         error = ''
 
 

@@ -6,7 +6,6 @@ DESTDIR=
 case "$1" in
     configure)
 
-	postinstallmysql
 	;;
     abort-upgrade|abort-remove|abort-deconfigure)
 	;;

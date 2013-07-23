@@ -22,9 +22,18 @@ Contains the implementation for BackendService as defined in api_backend.py.
 """
 
 
-import json
+
+try:
+  import json
+except ImportError:
+  import simplejson as json
+import logging
+
+from protorpc import message_types
 
 from google.appengine.ext.endpoints import api_backend
+from google.appengine.ext.endpoints import api_config
+from google.appengine.ext.endpoints import api_exceptions
 
 
 __all__ = [
@@ -38,31 +47,68 @@ class ApiConfigRegistry(object):
 
   def __init__(self):
 
-    self.__api_roots = set()
+    self.__registered_classes = set()
 
-    self.__api_configs = []
+    self.__api_configs = set()
 
-    self.__api_methods = {
-
-        'BackendService.getApiConfigs': 'BackendService.getApiConfigs'
-    }
+    self.__api_methods = {}
 
 
-
-  def register_api(self, api_root_url, config_contents):
-    """Register a single API given its config contents.
+  def register_spi(self, config_contents):
+    """Register a single SPI and its config contents.
 
     Args:
-      api_root_url: URL that uniquely identifies this APIs root.
       config_contents: String containing API configuration.
     """
-    if api_root_url in self.__api_roots:
+    if config_contents is None:
       return
-    self.__api_roots.add(api_root_url)
-    self.__api_configs.append(config_contents)
-    self.__register_methods(config_contents)
+    parsed_config = json.loads(config_contents)
+    if not self.__register_class(parsed_config):
+      return
 
-  def __register_methods(self, config_file):
+    self.__api_configs.add(config_contents)
+    self.__register_methods(parsed_config)
+
+  def __register_class(self, parsed_config):
+    """Register the class implementing this config, so we only add it once.
+
+    Args:
+      parsed_config: The JSON object with the API configuration being added.
+
+    Returns:
+      True if the class has been registered and it's fine to add this
+      configuration.  False if this configuration shouldn't be added.
+    """
+    methods = parsed_config.get('methods')
+    if not methods:
+      return True
+
+
+
+
+    service_class = None
+    for method in methods.itervalues():
+      rosy_method = method.get('rosyMethod')
+      if rosy_method and '.' in rosy_method:
+        method_class = rosy_method.split('.', 1)[0]
+        if service_class is None:
+          service_class = method_class
+        elif service_class != method_class:
+          raise api_config.ApiConfigurationError(
+              'SPI registered with multiple classes within one '
+              'configuration (%s and %s).  Each call to register_spi should '
+              'only contain the methods from a single class.  Call '
+              'repeatedly for multiple classes.' % (service_class,
+                                                    method_class))
+
+    if service_class is not None:
+      if service_class in self.__registered_classes:
+
+        return False
+      self.__registered_classes.add(service_class)
+    return True
+
+  def __register_methods(self, parsed_config):
     """Register all methods from the given api config file.
 
     Methods are stored in a map from method_name to rosyMethod,
@@ -70,15 +116,12 @@ class ApiConfigRegistry(object):
     If no rosyMethod was specified the value will be None.
 
     Args:
-      config_file: json string containing api config.
+      parsed_config: The JSON object with the API configuration being added.
     """
-    try:
-      parsed_config = json.loads(config_file)
-    except (TypeError, ValueError):
-      return None
     methods = parsed_config.get('methods')
     if not methods:
-      return None
+      return
+
     for method_name, method in methods.iteritems():
       self.__api_methods[method_name] = method.get('rosyMethod')
 
@@ -95,19 +138,21 @@ class ApiConfigRegistry(object):
 
   def all_api_configs(self):
     """Return a list of all API configration specs as registered above."""
-    return self.__api_configs
+    return list(self.__api_configs)
 
 
 class BackendServiceImpl(api_backend.BackendService):
   """Implementation of BackendService."""
 
-  def __init__(self, api_config_registry):
+  def __init__(self, api_config_registry, app_revision):
     """Create a new BackendService implementation.
 
     Args:
       api_config_registry: ApiConfigRegistry to register and look up configs.
+      app_revision: string containing the current app revision.
     """
     self.__api_config_registry = api_config_registry
+    self.__app_revision = app_revision
 
 
 
@@ -117,14 +162,42 @@ class BackendServiceImpl(api_backend.BackendService):
     """Override definition_name so that it is not BackendServiceImpl."""
     return api_backend.BackendService.definition_name()
 
-  def getApiConfigs(self, unused_request):
+  def getApiConfigs(self, request):
     """Return a list of active APIs and their configuration files.
 
     Args:
-      unused_request: Empty request message, unused
+      request: A request which may contain an app revision
 
     Returns:
-      List of ApiConfigMessages
+      ApiConfigList: A list of API config strings
     """
+    if request.appRevision and request.appRevision != self.__app_revision:
+      raise api_exceptions.BadRequestException(
+          message='API backend app revision %s not the same as expected %s' % (
+              self.__app_revision, request.appRevision))
+
     configs = self.__api_config_registry.all_api_configs()
     return api_backend.ApiConfigList(items=configs)
+
+  def logMessages(self, request):
+    """Write a log message from the Swarm FE to the log.
+
+    Args:
+      request: A log message request.
+
+    Returns:
+      Void message.
+    """
+    Level = api_backend.LogMessagesRequest.LogMessage.Level
+    log = logging.getLogger(__name__)
+    for message in request.messages:
+      level = message.level if message.level is not None else Level.info
+
+
+
+      record = logging.LogRecord(name=__name__, level=level.number, pathname='',
+                                 lineno='', msg=message.message, args=None,
+                                 exc_info=None)
+      log.handle(record)
+
+    return message_types.VoidMessage()

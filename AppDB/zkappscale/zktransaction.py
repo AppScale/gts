@@ -5,7 +5,6 @@ Rewritten by Navraj Chohan and Chris Bunch (raj, chris@appscale.com)
 """
 import logging
 import re
-import signal
 import threading
 import time
 import urllib
@@ -133,12 +132,13 @@ class ZKTransaction:
       logging.exception(kazoo_exception)
       self.reestablish_connection()
 
+    self.__counter_cache = {}
+
     # for gc
     self.gc_running = False
     self.gc_cv = threading.Condition()
     if start_gc:
       self.start_gc()
-
 
   def start_gc(self):
     """ Starts a new thread that cleans up failed transactions.
@@ -164,6 +164,7 @@ class ZKTransaction:
         self.gc_running = False
         self.gc_cv.notifyAll()
       self.gcthread.join()
+      logging.info("GC is done")
 
   def close(self):
     """ Stops the thread that cleans up failed transactions and closes its
@@ -172,6 +173,46 @@ class ZKTransaction:
     logging.info("Closing ZK connection")
     self.stop_gc()
     self.handle.stop()
+
+  def increment_and_get_counter(self, path, value):
+    """ Increment a counter atomically.
+
+    Args:
+      path: A str of unique path to the counter.
+      value: An int of how much to increment the counter by.
+    Returns:
+      A tuple (int, int) of the previous value and the new value.
+    Raises:
+      ZKTransactionException: If it could not increment the counter.
+    """
+    def clear_counter_from_cache():
+      """ Deletes a counter from the cache due to an exception being raised.
+      """
+      if path in self.__counter_cache:
+        del self.__counter_cache[path]
+
+    try: 
+      counter = None
+      if path in self.__counter_cache:
+        counter = self.__counter_cache[path]
+      else:
+        counter = self.handle.Counter(path)
+        self.__counter_cache[path] = counter
+
+      counter.__add__(value) 
+      new_value = counter.value
+      return new_value - value, new_value
+    except kazoo.exceptions.ZookeeperError as zoo_exception:
+      logging.exception(zoo_exception)
+      clear_counter_from_cache()
+      raise ZKTransactionException("Couldn't increment path {0} by value {1}" \
+        .format(path, value))
+    except kazoo.exceptions.KazooException as kazoo_exception:
+      logging.exception(kazoo_exception)
+      clear_counter_from_cache()
+      raise ZKTransactionException(
+        "Couldn't increment path {0} with value {1}" \
+        .format(path, value))
 
   def update_node(self, path, value):
     """ Sets the ZooKeeper node at path to value, creating the node if it
@@ -195,7 +236,7 @@ class ZKTransaction:
         logging.exception(kazoo_exception)
         self.reestablish_connection()
     except kazoo.exceptions.ZookeeperError as zoo_exception:
-      logging.exception(kazoo_exception)
+      logging.exception(zoo_exception)
     except kazoo.exceptions.KazooException as kazoo_exception:
       logging.exception(kazoo_exception)
       self.reestablish_connection()
@@ -414,8 +455,8 @@ class ZKTransaction:
         if txn_id == 0:
           logging.warning("Created sequence ID 0 - deleting it.")
           self.run_with_retry(self.handle.delete_async, txn_id_path)
-          txn_id_path = self.run_with_retry(self.handle.create, path, str(value),
-            ZOO_ACL_OPEN, False, True, True)
+          txn_id_path = self.run_with_retry(self.handle.create, path, 
+            str(value), ZOO_ACL_OPEN, False, True, True)
           return long(txn_id_path.split(PATH_SEPARATOR)[-1].lstrip(
             APP_TX_PREFIX))
         else:
@@ -523,7 +564,8 @@ class ZKTransaction:
         logging.debug("[is_in_transaction] {0} does not exist".format(
           tx_lock_path))
         return False
-      logging.debug("{0} does exist and is not blacklisted".format(tx_lock_path))
+      logging.debug("{0} does exist and is not blacklisted".format(
+        tx_lock_path))
       return True
     except kazoo.exceptions.KazooException as kazoo_exception:
       logging.exception(kazoo_exception)
@@ -626,7 +668,6 @@ class ZKTransaction:
       ZKInternalException: If we can't tell if the transaction is a XG
         transaction or not.
     """
-    # TODO(cgb): Make sure that callers handle possible ZKTransactionExceptions.
     try:
       return self.run_with_retry(self.handle.exists, self.get_xg_path(app_id,
 	      tx_id))
@@ -663,7 +704,8 @@ class ZKTransaction:
 
     try:
       if self.is_in_transaction(app_id, txid):  # use current lock
-        transaction_lock_path = self.get_transaction_lock_list_path(app_id, txid)
+        transaction_lock_path = self.get_transaction_lock_list_path(
+          app_id, txid)
         prelockpath = self.run_with_retry(self.handle.get,
           transaction_lock_path)[0]
         lock_list = prelockpath.split(LOCK_LIST_SEPARATOR)
@@ -756,7 +798,8 @@ class ZKTransaction:
     except kazoo.exceptions.NoNodeError:
       try:
         if self.is_blacklisted(app_id, txid):
-          raise ZKTransactionException("Unable to release lock {0} for app id {1}"
+          raise ZKTransactionException(
+            "Unable to release lock {0} for app id {1}" \
             .format(transaction_lock_path, app_id))
         else:
           return True
@@ -778,8 +821,8 @@ class ZKTransaction:
         self.run_with_retry(self.handle.delete_async, xg_path)
 
       for child in self.run_with_retry(self.handle.get_children, txpath):
-        self.run_with_retry(self.handle.delete_async, PATH_SEPARATOR.join([txpath,
-          child]))
+        self.run_with_retry(self.handle.delete_async, PATH_SEPARATOR.join(
+          [txpath, child]))
 
       # This deletes the transaction root path.
       self.run_with_retry(self.handle.delete_async, txpath)
@@ -811,9 +854,6 @@ class ZKTransaction:
       ZKInternalException: If we couldn't determine if the transaction was
         blacklisted or not.
     """
-    # TODO(cgb): Investigate the performance impacts of not using a blacklist
-    # cache.
-    # TODO(cgb): Make sure that callers handle possible ZKInternalExceptions.
     blacklist_root = self.get_blacklist_root_path(app_id)
     try:
       if not self.run_with_retry(self.handle.exists, blacklist_root):
@@ -955,8 +995,14 @@ class ZKTransaction:
         self.run_with_retry(self.handle.create_async,
           PATH_SEPARATOR.join([blacklist_root, str(txid)]), now, ZOO_ACL_OPEN)
 
+        children = []
+        try:
+          children = self.run_with_retry(self.handle.get_children, txpath)
+        except kazoo.exceptions.NoNodeError:
+          pass
+
         # Copy valid transaction ID for each updated key into valid list.
-        for child in self.run_with_retry(self.handle.get_children, txpath):
+        for child in children:
           if re.match("^" + TX_UPDATEDKEY_PREFIX, child):
             value = self.run_with_retry(self.handle.get,
               PATH_SEPARATOR.join([txpath, child]))[0]
@@ -985,6 +1031,7 @@ class ZKTransaction:
         self.run_with_retry(self.handle.delete_async,
           PATH_SEPARATOR.join([txpath, item]))
         self.run_with_retry(self.handle.delete_async, txpath)
+
     except ZKInternalException as zk_exception:
       logging.exception(zk_exception)
       return False
@@ -1007,6 +1054,8 @@ class ZKTransaction:
       logging.exception(close_exception)
     except kazoo.exceptions.KazooException as kazoo_exception:
       logging.exception(kazoo_exception)
+    except Exception as exception:
+      logging.exception(exception)
 
     self.handle = kazoo.client.KazooClient(hosts=self.host,
       max_retries=self.DEFAULT_NUM_RETRIES, timeout=self.DEFAULT_ZK_TIMEOUT)
@@ -1051,6 +1100,7 @@ class ZKTransaction:
 
       with self.gc_cv:
         self.gc_cv.wait(GC_INTERVAL)
+
     logging.info("Stopping GC thread.")
 
   def try_garbage_collection(self, app_id, app_path):
@@ -1123,12 +1173,12 @@ class ZKTransaction:
       return False
     except kazoo.exceptions.NodeExistsError:
       return False
-    except kazoo.exceptions.ZookeeperError as zk_exception:
-      logging.exception(zk_exception)
-      self.reestablish_connection()
-      return False
     except kazoo.exceptions.SystemZookeeperError as sys_exception:
       logging.exception(sys_exception)
+      self.reestablish_connection()
+      return False
+    except kazoo.exceptions.ZookeeperError as zk_exception:
+      logging.exception(zk_exception)
       self.reestablish_connection()
       return False
     except kazoo.exceptions.KazooException as kazoo_exception:

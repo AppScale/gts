@@ -1,0 +1,16 @@
+Handling HTTP requests
+======================
+
+Information on handling HTTP requests in Django:
+
+.. toctree::
+   :maxdepth: 1
+   
+   urls
+   views
+   decorators
+   file-uploads
+   shortcuts
+   generic-views
+   middleware
+   sessions

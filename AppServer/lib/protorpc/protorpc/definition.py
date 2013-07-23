@@ -24,6 +24,7 @@ import sys
 import urllib2
 
 from . import descriptor
+from . import message_types
 from . import messages
 from . import protobuf
 from . import remote
@@ -56,6 +57,10 @@ def _build_variant_map():
   return result
 
 _VARIANT_MAP = _build_variant_map()
+
+_MESSAGE_TYPE_MAP = {
+  message_types.DateTimeMessage.definition_name(): message_types.DateTimeField,
+}
 
 
 def _get_or_define_module(full_name, modules):
@@ -119,7 +124,10 @@ def define_field(field_descriptor):
   elif field_descriptor.label == descriptor.FieldDescriptor.Label.REPEATED:
     params['repeated'] = True
 
-  if field_class in (messages.EnumField, messages.MessageField):
+  message_type_field = _MESSAGE_TYPE_MAP.get(field_descriptor.type_name)
+  if message_type_field:
+    return message_type_field(**params)
+  elif field_class in (messages.EnumField, messages.MessageField):
     return field_class(field_descriptor.type_name, **params)
   else:
     return field_class(**params)

@@ -283,6 +283,7 @@ __author__ = 'guido@google.com (Guido van Rossum)'
 import copy
 import cPickle as pickle
 import datetime
+import logging
 import zlib
 
 from .google_imports import datastore_errors
@@ -339,7 +340,7 @@ class ReadonlyPropertyError(datastore_errors.Error):
 
 
 class ComputedPropertyError(ReadonlyPropertyError):
-  """Raised when attempting to set a value to a computed property."""
+  """Raised when attempting to set a value to or delete a computed property."""
 
 
 # Various imported limits.
@@ -1260,7 +1261,8 @@ class Property(ModelAttribute):
     """Descriptor protocol: delete the value from the entity."""
     self._delete_value(entity)
 
-  def _serialize(self, entity, pb, prefix='', parent_repeated=False):
+  def _serialize(self, entity, pb, prefix='', parent_repeated=False,
+                 projection=None):
     """Internal helper to serialize this property to a protocol buffer.
 
     Subclasses may override this method.
@@ -1272,18 +1274,32 @@ class Property(ModelAttribute):
         (if present, must end in '.').
       parent_repeated: True if the parent (or an earlier ancestor)
         is a repeated Property.
+      projection: A list or tuple of strings representing the projection for
+        the model instance, or None if the instance is not a projection.
     """
     values = self._get_base_value_unwrapped_as_list(entity)
     for val in values:
+      name = prefix + self._name
+      if projection and name not in projection:
+        continue
       if self._indexed:
         p = pb.add_property()
       else:
         p = pb.add_raw_property()
-      p.set_name(prefix + self._name)
+      p.set_name(name)
       p.set_multiple(self._repeated or parent_repeated)
       v = p.mutable_value()
       if val is not None:
         self._db_set_value(v, p, val)
+        if projection:
+          # Projected properties have the INDEX_VALUE meaning and only contain
+          # the original property's name and value.
+          new_p = entity_pb.Property()
+          new_p.set_name(p.name())
+          new_p.set_meaning(entity_pb.Property.INDEX_VALUE)
+          new_p.set_multiple(False)
+          new_p.mutable_value().CopyFrom(v)
+          p.CopyFrom(new_p)
 
   def _deserialize(self, entity, p, unused_depth=1):
     """Internal helper to deserialize this property from a protocol buffer.
@@ -1631,10 +1647,11 @@ class GeoPtProperty(Property):
       raise datastore_errors.BadValueError('Expected GeoPt, got %r' %
                                            (value,))
 
-  def _db_set_value(self, v, unused_p, value):
+  def _db_set_value(self, v, p, value):
     if not isinstance(value, GeoPt):
       raise TypeError('GeoPtProperty %s can only be set to GeoPt values; '
                       'received %r' % (self._name, value))
+    p.set_meaning(entity_pb.Property.GEORSS_POINT)
     pv = v.mutable_pointvalue()
     pv.set_x(value.lat)
     pv.set_y(value.lon)
@@ -1678,6 +1695,17 @@ class PickleProperty(BlobProperty):
 
 class JsonProperty(BlobProperty):
   """A property whose value is any Json-encodable Python object."""
+
+  _json_type = None
+
+  @utils.positional(1 + BlobProperty._positional)
+  def __init__(self, name=None, compressed=False, json_type=None, **kwds):
+    super(JsonProperty, self).__init__(name=name, compressed=compressed, **kwds)
+    self._json_type = json_type
+
+  def _validate(self, value):
+    if self._json_type is not None and not isinstance(value, self._json_type):
+      raise TypeError('JSON property must be a %s' % self._json_type)
 
   # Use late import so the dependency is optional.
 
@@ -2183,7 +2211,8 @@ class StructuredProperty(_StructuredGetForDictMixin):
         ok = subprop._has_value(subent, rest[1:])
     return ok
 
-  def _serialize(self, entity, pb, prefix='', parent_repeated=False):
+  def _serialize(self, entity, pb, prefix='', parent_repeated=False,
+                 projection=None):
     # entity -> pb; pb is an EntityProto message
     values = self._get_base_value_unwrapped_as_list(entity)
     for value in values:
@@ -2191,11 +2220,13 @@ class StructuredProperty(_StructuredGetForDictMixin):
         # TODO: Avoid re-sorting for repeated values.
         for unused_name, prop in sorted(value._properties.iteritems()):
           prop._serialize(value, pb, prefix + self._name + '.',
-                          self._repeated or parent_repeated)
+                          self._repeated or parent_repeated,
+                          projection=projection)
       else:
         # Serialize a single None
         super(StructuredProperty, self)._serialize(
-          entity, pb, prefix=prefix, parent_repeated=parent_repeated)
+          entity, pb, prefix=prefix, parent_repeated=parent_repeated,
+          projection=projection)
 
   def _deserialize(self, entity, p, depth=1):
     if not self._repeated:
@@ -2231,9 +2262,24 @@ class StructuredProperty(_StructuredGetForDictMixin):
     next = parts[depth]
     rest = parts[depth + 1:]
     prop = self._modelclass._properties.get(next)
+    prop_is_fake = False
     if prop is None:
-      raise RuntimeError('Unable to find property %s of StructuredProperty %s.'
-                         % (next, self._name))
+      # Synthesize a fake property.  (We can't use Model._fake_property()
+      # because we need the property before we can determine the subentity.)
+      if rest:
+        # TODO: Handle this case, too.
+        logging.warn('Skipping unknown structured subproperty (%s) '
+                     'in repeated structured property (%s of %s)',
+                     name, self._name, entity.__class__.__name__)
+        return
+      # TODO: Figure out the value for indexed.  Unfortunately we'd
+      # need this passed in from _from_pb(), which would mean a
+      # signature change for _deserialize(), which might break valid
+      # end-user code that overrides it.
+      compressed = p.meaning_uri() == _MEANING_URI_COMPRESSED
+      prop = GenericProperty(next, compressed=compressed)
+      prop._code_name = next
+      prop_is_fake = True
 
     values = self._get_base_value_unwrapped_as_list(entity)
     # Find the first subentity that doesn't have a value for this
@@ -2252,6 +2298,12 @@ class StructuredProperty(_StructuredGetForDictMixin):
       subentity = self._modelclass()
       values = self._retrieve_value(entity)
       values.append(_BaseValue(subentity))
+    if prop_is_fake:
+      # Add the synthetic property to the subentity's _properties
+      # dict, so that it will be correctly deserialized.
+      # (See Model._fake_property() for comparison.)
+      subentity._clone_properties()
+      subentity._properties[prop._name] = prop
     prop._deserialize(subentity, p, depth + 1)
 
   def _prepare_for_put(self, entity):
@@ -2483,6 +2535,7 @@ class GenericProperty(Property):
       v.set_int64value(ival)
       p.set_meaning(entity_pb.Property.GD_WHEN)
     elif isinstance(value, GeoPt):
+      p.set_meaning(entity_pb.Property.GEORSS_POINT)
       pv = v.mutable_pointvalue()
       pv.set_x(value.lat)
       pv.set_y(value.lon)
@@ -2550,6 +2603,9 @@ class ComputedProperty(GenericProperty):
 
   def _set_value(self, entity, value):
     raise ComputedPropertyError("Cannot assign to a ComputedProperty")
+
+  def _delete_value(self, entity):
+    raise ComputedPropertyError("Cannot delete a ComputedProperty")
 
   def _get_value(self, entity):
     # About projections and computed properties: if the computed
@@ -2680,7 +2736,7 @@ class Model(_NotEqualMixin):
     self._set_attributes(kwds)
     # Set the projection last, otherwise it will prevent _set_attributes().
     if projection:
-      self._projection = tuple(projection)
+      self._set_projection(projection)
 
   @classmethod
   def __get_arg(cls, kwds, kwd):
@@ -2817,6 +2873,7 @@ class Model(_NotEqualMixin):
   def _has_complete_key(self):
     """Return whether this entity has a complete key."""
     return self._key is not None and self._key.id() is not None
+  has_complete_key = _has_complete_key
 
   def __hash__(self):
     """Dummy hash function.
@@ -2844,7 +2901,7 @@ class Model(_NotEqualMixin):
       raise NotImplementedError('Cannot compare different model classes. '
                                 '%s is not %s' % (self.__class__.__name__,
                                                   other.__class_.__name__))
-    if self._projection != other._projection:
+    if set(self._projection) != set(other._projection):
       return False
     # It's all about determining inequality early.
     if len(self._properties) != len(other._properties):
@@ -2876,7 +2933,7 @@ class Model(_NotEqualMixin):
       self._key_to_pb(pb)
 
     for unused_name, prop in sorted(self._properties.iteritems()):
-      prop._serialize(self, pb)
+      prop._serialize(self, pb, projection=self._projection)
 
     return pb
 
@@ -2926,7 +2983,6 @@ class Model(_NotEqualMixin):
     return ent
 
   def _set_projection(self, projection):
-    self._projection = tuple(projection)
     by_prefix = {}
     for propname in projection:
       if '.' in propname:
@@ -2935,10 +2991,12 @@ class Model(_NotEqualMixin):
           by_prefix[head].append(tail)
         else:
           by_prefix[head] = [tail]
+    self._projection = tuple(projection)
     for propname, proj in by_prefix.iteritems():
       prop = self._properties.get(propname)
       subval = prop._get_base_value_unwrapped_as_list(self)
       for item in subval:
+        assert item is not None
         item._set_projection(proj)
 
   def _get_property_for(self, p, indexed=True, depth=0):
@@ -3419,6 +3477,8 @@ class Expando(Model):
     self._clone_properties()
     if isinstance(value, Model):
       prop = StructuredProperty(Model, name)
+    elif isinstance(value, dict):
+      prop = StructuredProperty(Expando, name)
     else:
       repeated = isinstance(value, list)
       indexed = self._default_indexed

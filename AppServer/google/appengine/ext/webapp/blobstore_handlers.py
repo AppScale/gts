@@ -42,10 +42,14 @@ Public Exceptions (indentation indications class hierarchy):
 
 
 import cgi
+import collections
 import re
 
 from google.appengine.ext import blobstore
 from google.appengine.ext import webapp
+
+
+
 
 
 __all__ = [
@@ -354,6 +358,7 @@ class BlobstoreUploadHandler(webapp.RequestHandler):
   def __init__(self, *args, **kwargs):
     super(BlobstoreUploadHandler, self).__init__(*args, **kwargs)
     self.__uploads = None
+    self.__file_infos = None
 
   def get_uploads(self, field_name=None):
     """Get uploads sent to this handler.
@@ -366,20 +371,42 @@ class BlobstoreUploadHandler(webapp.RequestHandler):
       Empty list if there are no blob-info records for field_name.
     """
     if self.__uploads is None:
-      self.__uploads = {}
+      self.__uploads = collections.defaultdict(list)
       for key, value in self.request.params.items():
         if isinstance(value, cgi.FieldStorage):
           if 'blob-key' in value.type_options:
-            self.__uploads.setdefault(key, []).append(
-                blobstore.parse_blob_info(value))
+            self.__uploads[key].append(blobstore.parse_blob_info(value))
 
     if field_name:
-      try:
-        return list(self.__uploads[field_name])
-      except KeyError:
-        return []
+      return list(self.__uploads.get(field_name, []))
     else:
       results = []
       for uploads in self.__uploads.itervalues():
-        results += uploads
+        results.extend(uploads)
+      return results
+
+  def get_file_infos(self, field_name=None):
+    """Get the file infos associated to the uploads sent to this handler.
+
+    Args:
+      field_name: Only select uploads that were sent as a specific field.
+        Specify None to select all the uploads.
+
+    Returns:
+      A list of FileInfo records corresponding to each upload.
+      Empty list if there are no FileInfo records for field_name.
+    """
+    if self.__file_infos is None:
+      self.__file_infos = collections.defaultdict(list)
+      for key, value in self.request.params.items():
+        if isinstance(value, cgi.FieldStorage):
+          if 'blob-key' in value.type_options:
+            self.__file_infos[key].append(blobstore.parse_file_info(value))
+
+    if field_name:
+      return list(self.__file_infos.get(field_name, []))
+    else:
+      results = []
+      for uploads in self.__file_infos.itervalues():
+        results.extend(uploads)
       return results

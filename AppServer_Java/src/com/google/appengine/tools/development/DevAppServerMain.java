@@ -38,7 +38,7 @@ public class DevAppServerMain
     private String              address                               = "127.0.0.1";
     private int                 port                                  = 8080;
     private boolean             disableUpdateCheck;
-    private boolean             disableRestrictedCheck                = false;
+    private boolean             disableRestrictedCheck                = true;
     private String              externalResourceDir                   = null;
     private List<String>        propertyOptions                       = null;
     private String              generatedDirectory                    = null;

@@ -26,7 +26,10 @@ module TaskQueue
  
   # The port where the TaskQueue server runs on, by default. 
   TASKQUEUE_SERVER_PORT = 64839
-  
+
+  # The port where the Flower server runs on, by default.
+  FLOWER_SERVER_PORT = 5555
+
   # The python executable path.
   PYTHON_EXEC = "/usr/bin/python2.6"
 
@@ -177,6 +180,22 @@ module TaskQueue
     Djinn.log_run("rm -rf /var/lib/rabbitmq/mnesia/*")
     Djinn.log_run("rm -rf /etc/appscale/celery/")
   end
-    
+
+
+  # Starts the Flower Server on this machine, which provides a web UI to celery
+  # and RabbitMQ. A link to Flower is given in the AppDashboard, for users to
+  # monitor their Task Queue tasks.
+  def self.start_flower()
+    start_cmd = "flower"
+    stop_cmd = "ps ax | grep flower | grep -v grep | awk '{print $1}' | xargs kill -9"
+    GodInterface.start(:flower, start_cmd, stop_cmd, FLOWER_SERVER_PORT)
+  end
+
+
+  # Stops the Flower Server on this machine.
+  def self.stop_flower()
+    GodInterface.stop(:flower)
+  end
+
 
 end

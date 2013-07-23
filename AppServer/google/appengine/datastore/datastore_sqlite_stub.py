@@ -104,6 +104,10 @@ CREATE TABLE IF NOT EXISTS Namespaces (
 CREATE TABLE IF NOT EXISTS IdSeq (
   prefix TEXT NOT NULL PRIMARY KEY,
   next_id INT NOT NULL);
+
+CREATE TABLE IF NOT EXISTS ScatteredIdCounters (
+  prefix TEXT NOT NULL PRIMARY KEY,
+  next_id INT NOT NULL);
 """
 
 _NAMESPACE_SCHEMA = """
@@ -135,6 +139,7 @@ INSERT OR IGNORE INTO Apps (app_id) VALUES ('%(app_id)s');
 INSERT INTO Namespaces (app_id, name_space)
   VALUES ('%(app_id)s', '%(name_space)s');
 INSERT OR IGNORE INTO IdSeq VALUES ('%(prefix)s', 1);
+INSERT OR IGNORE INTO ScatteredIdCounters VALUES ('%(prefix)s', 1);
 """
 
 
@@ -542,7 +547,8 @@ class DatastoreSqliteStub(datastore_stub_util.BaseDatastore,
                trusted=False,
                consistency_policy=None,
                root_path=None,
-               use_atexit=True):
+               use_atexit=True,
+               auto_id_policy=datastore_stub_util.SEQUENTIAL):
     """Constructor.
 
     Initializes the SQLite database if necessary.
@@ -562,10 +568,12 @@ class DatastoreSqliteStub(datastore_stub_util.BaseDatastore,
         datastore_stub_util.*ConsistencyPolicy
       root_path: string, the root path of the app.
       use_atexit: bool, indicates if the stub should save itself atexit.
+      auto_id_policy: enum, datastore_stub_util.SEQUENTIAL or .SCATTERED
     """
     datastore_stub_util.BaseDatastore.__init__(self, require_indexes,
                                                consistency_policy,
-                                               use_atexit and datastore_file)
+                                               use_atexit and datastore_file,
+                                               auto_id_policy)
     apiproxy_stub.APIProxyStub.__init__(self, service_name)
     datastore_stub_util.DatastoreStub.__init__(self, weakref.proxy(self),
                                                app_id, trusted, root_path)
@@ -575,7 +583,13 @@ class DatastoreSqliteStub(datastore_stub_util.BaseDatastore,
     self.__verbose = verbose
 
 
-    self.__id_map = {}
+    self.__id_map_sequential = {}
+    self.__id_map_scattered = {}
+    self.__id_counter_tables = {
+        datastore_stub_util.SEQUENTIAL: ('IdSeq', self.__id_map_sequential),
+        datastore_stub_util.SCATTERED: ('ScatteredIdCounters',
+                                         self.__id_map_scattered),
+        }
     self.__id_lock = threading.Lock()
 
     if self.__verbose:
@@ -616,12 +630,25 @@ class DatastoreSqliteStub(datastore_stub_util.BaseDatastore,
 
   def __Init(self):
 
+
+
+    self.__connection.execute('PRAGMA synchronous = OFF')
+
+
     self.__connection.executescript(_CORE_SCHEMA)
     self.__connection.commit()
 
 
     c = self.__connection.execute('SELECT app_id, name_space FROM Namespaces')
     self.__namespaces = set(c.fetchall())
+
+
+    for app_ns in self.__namespaces:
+      prefix = ('%s!%s' % app_ns).replace('"', '""')
+      self.__connection.execute(
+          'INSERT OR IGNORE INTO ScatteredIdCounters VALUES (?, ?)',
+          (prefix, 1))
+    self.__connection.commit()
 
 
 
@@ -647,7 +674,8 @@ class DatastoreSqliteStub(datastore_stub_util.BaseDatastore,
       self._ReleaseConnection(conn)
 
     self.__namespaces = set()
-    self.__id_map = {}
+    self.__id_map_sequential = {}
+    self.__id_map_scattered = {}
     self.__Init()
 
   def Read(self):
@@ -1313,11 +1341,55 @@ class DatastoreSqliteStub(datastore_stub_util.BaseDatastore,
         self._ReleaseConnection(conn)
     return cursor
 
+  def __AllocateIdsFromBlock(self, conn, prefix, size, id_map, table):
+    datastore_stub_util.Check(size > 0, 'Size must be greater than 0.')
+    next_id, block_size = id_map.get(prefix, (0, 0))
+    if not block_size:
+
+
+      block_size = (size / 1000 + 1) * 1000
+      c = conn.execute('SELECT next_id FROM %s WHERE prefix = ? LIMIT 1'
+                       % table, (prefix,))
+      next_id = c.fetchone()[0]
+      c = conn.execute('UPDATE %s SET next_id = next_id + ? WHERE prefix = ?'
+                       % table, (block_size, prefix))
+      assert c.rowcount == 1
+
+    if size > block_size:
+
+      c = conn.execute('SELECT next_id FROM %s WHERE prefix = ? LIMIT 1'
+                       % table, (prefix,))
+      start = c.fetchone()[0]
+      c = conn.execute('UPDATE %s SET next_id = next_id + ? WHERE prefix = ?'
+                       % table, (size, prefix))
+      assert c.rowcount == 1
+    else:
+
+      start = next_id;
+      next_id += size
+      block_size -= size
+      id_map[prefix] = (next_id, block_size)
+    end = start + size - 1
+    return start, end
+
+  def __AdvanceIdCounter(self, conn, prefix, max_id, table):
+    datastore_stub_util.Check(max_id >=0,
+                              'Max must be greater than or equal to 0.')
+    c = conn.execute('SELECT next_id FROM %s WHERE prefix = ? LIMIT 1'
+                     % table, (prefix,))
+    start = c.fetchone()[0]
+    if max_id >= start:
+      c = conn.execute('UPDATE %s SET next_id = ? WHERE prefix = ?' % table,
+                       (max_id + 1, prefix))
+      assert c.rowcount == 1
+    end = max(max_id, start - 1)
+    return start, end
+
   def _AllocateIds(self, reference, size=1, max_id=None):
     conn = self._GetConnection()
     try:
-      datastore_stub_util.CheckAppId(reference.app(),
-                                     self._trusted, self._app_id)
+      datastore_stub_util.CheckAppId(self._trusted, self._app_id,
+                                     reference.app())
       datastore_stub_util.Check(not (size and max_id),
                                 'Both size and max cannot be set.')
 
@@ -1326,49 +1398,38 @@ class DatastoreSqliteStub(datastore_stub_util.BaseDatastore,
 
 
       if size:
-        datastore_stub_util.Check(size > 0, 'Size must be greater than 0.')
-        next_id, block_size = self.__id_map.get(prefix, (0, 0))
-        if not block_size:
-
-
-          block_size = (size / 1000 + 1) * 1000
-          c = conn.execute('SELECT next_id FROM IdSeq WHERE prefix = ? LIMIT 1',
-                           (prefix,))
-          next_id = c.fetchone()[0]
-          c = conn.execute(
-              'UPDATE IdSeq SET next_id = next_id + ? WHERE prefix = ?',
-              (block_size, prefix))
-          assert c.rowcount == 1
-
-        if size > block_size:
-
-          c = conn.execute('SELECT next_id FROM IdSeq WHERE prefix = ? LIMIT 1',
-                           (prefix,))
-          start = c.fetchone()[0]
-          c = conn.execute(
-              'UPDATE IdSeq SET next_id = next_id + ? WHERE prefix = ?',
-              (size, prefix))
-          assert c.rowcount == 1
-        else:
-
-          start = next_id;
-          next_id += size
-          block_size -= size
-          self.__id_map[prefix] = (next_id, block_size)
-        end = start + size - 1
+        start, end = self.__AllocateIdsFromBlock(conn, prefix, size,
+                                                 self.__id_map_sequential,
+                                                 'IdSeq')
       else:
-        datastore_stub_util.Check(max_id >=0,
-                                  'Max must be greater than or equal to 0.')
-        c = conn.execute('SELECT next_id FROM IdSeq WHERE prefix = ? LIMIT 1',
-                         (prefix,))
-        start = c.fetchone()[0]
-        if max_id and max_id >= start:
-          c = conn.execute(
-              'UPDATE IdSeq SET next_id = ? WHERE prefix = ?',
-              (max_id + 1, prefix))
-          assert c.rowcount == 1
-        end = max(max_id, start - 1)
-      return (long(start), long(end))
+        start, end = self.__AdvanceIdCounter(conn, prefix, max_id, 'IdSeq')
+      return long(start), long(end)
+    finally:
+      self._ReleaseConnection(conn)
+
+  def _AllocateScatteredIds(self, keys):
+    conn = self._GetConnection()
+    try:
+      full_keys = []
+      for key in keys:
+        datastore_stub_util.CheckAppId(self._trusted, self._app_id, key.app())
+        prefix = self._GetTablePrefix(key)
+        last_element = key.path().element_list()[-1]
+        datastore_stub_util.Check(not last_element.has_name(),
+                                  'Cannot allocate named key.')
+
+        if last_element.id():
+          count, id_space = datastore_stub_util.IdToCounter(last_element.id())
+          table, _ = self.__id_counter_tables[id_space]
+          self.__AdvanceIdCounter(conn, prefix, count, table)
+
+        else:
+          count, _ = self.__AllocateIdsFromBlock(conn, prefix, 1,
+                                                 self.__id_map_scattered,
+                                                 'ScatteredIdCounters')
+          last_element.set_id(datastore_stub_util.ToScatteredId(count))
+        full_keys.append(key)
+      return full_keys
     finally:
       self._ReleaseConnection(conn)
 

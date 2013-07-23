@@ -557,6 +557,20 @@ def GetRecommendedIndexProperties(properties):
 def _MatchPostfix(postfix_props, index_props):
   """Matches a postfix constraint with an existing index.
 
+  postfix_props constraints are specified through a list of:
+  - sets of string: any order any direction;
+  - list of tuples(string, direction): the given order, and, if specified, the
+  given direction.
+
+  For example:
+    [set('A', 'B'), [('C', None), ('D', ASC)]]
+  matches:
+    [('F', ASC), ('B', ASC), ('A', DESC), ('C', DESC), ('D', ASC)]
+  with a return value of [('F', ASC)], but does not match:
+    [('F', ASC), ('A', DESC), ('C', DESC), ('D', ASC)]
+    [('B', ASC), ('F', ASC), ('A', DESC), ('C', DESC), ('D', ASC)]
+    [('F', ASC), ('B', ASC), ('A', DESC), ('C', DESC), ('D', DESC)]
+
   Args:
     postfix_props: A tuple of sets and lists, as output by
         CompositeIndexForQuery. They should define the requirements for the
@@ -570,24 +584,24 @@ def _MatchPostfix(postfix_props, index_props):
   """
 
 
-  index_props = reversed(index_props)
+  index_props_rev = reversed(index_props)
   for property_group in reversed(postfix_props):
-    index_group = itertools.islice(index_props, len(property_group))
+    index_group_iter = itertools.islice(index_props_rev, len(property_group))
     if isinstance(property_group, (frozenset, set)):
 
-      curr_set = set(property_group)
-      for index_prop, _ in index_group:
-        if index_prop not in curr_set:
-          return None
-        curr_set.remove(index_prop)
+      index_group = set(prop for prop, _ in index_group_iter)
+      if index_group != property_group:
+        return None
     else:
 
-      for (index_prop, index_dir), (prop, direction) in itertools.izip_longest(
-          index_group, reversed(property_group), fillvalue=(None, None)):
-        if prop is None or index_prop != prop or (direction and
-                                                  index_dir != direction):
+      index_group = list(index_group_iter)
+      if len(index_group) != len(property_group):
+        return None
+      for (index_prop, index_dir), (prop, direction) in itertools.izip(
+          index_group, reversed(property_group)):
+        if index_prop != prop or (direction and index_dir != direction):
           return None
-  remaining = list(index_props)
+  remaining = list(index_props_rev)
   remaining.reverse()
   return remaining
 

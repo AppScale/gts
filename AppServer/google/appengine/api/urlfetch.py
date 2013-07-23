@@ -21,7 +21,8 @@
 """URL downloading API.
 
 Methods defined in this module:
-   Fetch(): fetchs a given URL using an HTTP GET or POST
+   Fetch(): fetchs a given URL using an HTTP request using on of the methods
+            GET, POST, HEAD, PUT, DELETE or PATCH request
 """
 
 
@@ -55,6 +56,7 @@ POST = 2
 HEAD = 3
 PUT = 4
 DELETE = 5
+PATCH = 6
 
 _URL_STRING_MAP = {
     'GET': GET,
@@ -62,6 +64,7 @@ _URL_STRING_MAP = {
     'HEAD': HEAD,
     'PUT': PUT,
     'DELETE': DELETE,
+    'PATCH': PATCH,
 }
 
 _VALID_METHODS = frozenset(_URL_STRING_MAP.values())
@@ -226,9 +229,10 @@ def fetch(url, payload=None, method=GET, headers={},
   """Fetches the given HTTP URL, blocking until the result is returned.
 
   Other optional parameters are:
-     method: GET, POST, HEAD, PUT, or DELETE
-     payload: POST or PUT payload (implies method is not GET, HEAD, or DELETE).
-       this is ignored if the method is not POST or PUT.
+     method: The constants GET, POST, HEAD, PUT, DELETE, or PATCH or the
+       same HTTP methods as strings.
+     payload: POST, PUT, or PATCH payload (implies method is not GET, HEAD,
+       or DELETE). this is ignored if the method is not POST, PUT, or PATCH.
      headers: dictionary of HTTP headers to send with the request
      allow_truncated: if true, truncate large responses and return them without
        error. Otherwise, ResponseTooLargeError is raised when a response is
@@ -306,9 +310,11 @@ def make_fetch_call(rpc, url, payload=None, method=GET, headers={},
     request.set_method(urlfetch_service_pb.URLFetchRequest.PUT)
   elif method == DELETE:
     request.set_method(urlfetch_service_pb.URLFetchRequest.DELETE)
+  elif method == PATCH:
+    request.set_method(urlfetch_service_pb.URLFetchRequest.PATCH)
 
 
-  if payload and (method == POST or method == PUT):
+  if payload and method in (POST, PUT, PATCH):
     request.set_payload(payload)
 
 
@@ -390,7 +396,7 @@ def _get_fetch_result(rpc):
       raise DNSLookupFailedError('DNS lookup failed for URL: ' + url)
     if (err.application_error ==
         urlfetch_service_pb.URLFetchServiceError.UNSPECIFIED_ERROR):
-      raise DownloadError("Unspecified error in fetching URL: "
+      raise DownloadError('Unspecified error in fetching URL: '
                           + url + error_detail)
     if (err.application_error ==
         urlfetch_service_pb.URLFetchServiceError.FETCH_ERROR):

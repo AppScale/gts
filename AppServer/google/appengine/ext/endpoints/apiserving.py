@@ -65,14 +65,16 @@ import cgi
 import cStringIO
 import httplib
 import logging
+import os
 
 from protorpc import messages
 from protorpc import protojson
 from protorpc import remote
-from protorpc.wsgi import service
+from protorpc.wsgi import service as wsgi_service
 
 from google.appengine.ext.endpoints import api_backend_service
 from google.appengine.ext.endpoints import api_config
+from google.appengine.ext.endpoints import api_exceptions
 
 package = 'google.appengine.endpoints'
 
@@ -80,55 +82,16 @@ package = 'google.appengine.endpoints'
 __all__ = [
     'api_server',
     'EndpointsErrorMessage',
-    'BadRequestException',
-    'ForbiddenException',
-    'InternalServerErrorException',
-    'NotFoundException',
     'package',
-    'ServiceException',
-    'UnauthorizedException',
 ]
 
 
-class ServiceException(remote.ApplicationError):
-  """Base class for exceptions in endpoints."""
-
-  def __init__(self, message=None):
-    super(ServiceException, self).__init__(message,
-                                           httplib.responses[self.http_status])
-
-
-class BadRequestException(ServiceException):
-  """Bad request exception that is mapped to a 400 response."""
-  http_status = httplib.BAD_REQUEST
-
-
-class ForbiddenException(ServiceException):
-  """Forbidden exception that is mapped to a 403 response."""
-  http_status = httplib.FORBIDDEN
-
-
-class InternalServerErrorException(ServiceException):
-  """Internal server exception that is mapped to a 500 response."""
-  http_status = httplib.INTERNAL_SERVER_ERROR
-
-
-class NotFoundException(ServiceException):
-  """Not found exception that is mapped to a 404 response."""
-  http_status = httplib.NOT_FOUND
-
-
-class UnauthorizedException(ServiceException):
-  """Unauthorized exception that is mapped to a 401 response."""
-  http_status = httplib.UNAUTHORIZED
-
-
 _ERROR_NAME_MAP = dict((httplib.responses[c.http_status], c) for c in [
-    BadRequestException,
-    ForbiddenException,
-    InternalServerErrorException,
-    NotFoundException,
-    UnauthorizedException,
+    api_exceptions.BadRequestException,
+    api_exceptions.ForbiddenException,
+    api_exceptions.InternalServerErrorException,
+    api_exceptions.NotFoundException,
+    api_exceptions.UnauthorizedException,
     ])
 
 _ALL_JSON_CONTENT_TYPES = frozenset([protojson.CONTENT_TYPE] +
@@ -169,6 +132,24 @@ class EndpointsErrorMessage(messages.Message):
 
   state = messages.EnumField(State, 1, required=True)
   error_message = messages.StringField(2)
+
+
+
+def _get_app_revision(environ=None):
+  """Gets the app revision (minor app version) of the current app.
+
+  Args:
+    environ: A dictionary with a key CURRENT_VERSION_ID that maps to a version
+      string of the format <major>.<minor>.
+
+  Returns:
+    The app revision (minor version) of the current app, or None if one couldn't
+    be found.
+  """
+  if environ is None:
+    environ = os.environ
+  if 'CURRENT_VERSION_ID' in environ:
+    return environ['CURRENT_VERSION_ID'].split('.')[1]
 
 
 class _ApiServer(object):
@@ -225,32 +206,44 @@ class _ApiServer(object):
 
     Raises:
       TypeError: if protocols are configured (this feature is not supported).
+      ApiConfigurationError: if there's a problem with the API config.
     """
     protorpc_services = []
     generator = api_config.ApiConfigGenerator()
     self.api_config_registry = api_backend_service.ApiConfigRegistry()
-    for api_service in api_services:
-      config_file = generator.pretty_print_config_to_json(api_service)
+    api_name_version_map = {}
+    for service in api_services:
+      key = (service.api_info.name, service.api_info.version)
+      services = api_name_version_map.setdefault(key, [])
+      if service in services:
+        raise api_config.ApiConfigurationError(
+            'Can\'t add the same class to an API twice: %s' % service.__name__)
+      services.append(service)
+
+    for services in api_name_version_map.values():
+      config_file = generator.pretty_print_config_to_json(services)
 
 
 
-      protorpc_class_name = api_service.__name__
-      root = self.__SPI_PREFIX + protorpc_class_name
-      if not any(service[0] == root or service[1] == api_service
-                 for service in protorpc_services):
-        self.api_config_registry.register_api(root, config_file)
-        protorpc_services.append((root, api_service))
+      self.api_config_registry.register_spi(config_file)
+      for api_service in services:
+        protorpc_class_name = api_service.__name__
+        root = self.__SPI_PREFIX + protorpc_class_name
+        if not any(service[0] == root or service[1] == api_service
+                   for service in protorpc_services):
+          protorpc_services.append((root, api_service))
 
 
     backend_service = api_backend_service.BackendServiceImpl.new_factory(
-        self.api_config_registry)
+        self.api_config_registry, _get_app_revision())
     protorpc_services.insert(0, (self.__BACKEND_SERVICE_ROOT, backend_service))
 
     if 'protocols' in kwargs:
       raise TypeError('__init__() got an unexpected keyword argument '
                       "'protocols'")
     self.restricted = kwargs.pop('restricted', True)
-    self.service_app = service.service_mappings(protorpc_services, **kwargs)
+    self.service_app = wsgi_service.service_mappings(protorpc_services,
+                                                     **kwargs)
 
   def __is_request_restricted(self, environ):
     """Determine if access to SPI should be denied.
@@ -382,17 +375,6 @@ class _ApiServer(object):
 
       call_context = {}
       body_buffer = cStringIO.StringIO()
-      api_path = environ.get('PATH_INFO')
-
-
-      if api_path.startswith(self.__SPI_PREFIX):
-        protorpc_method_name = self.api_config_registry.lookup_api_method(
-            api_path[len(self.__SPI_PREFIX):])
-        if protorpc_method_name is None:
-          logging.warning('API method not found for: %s',
-                          api_path[len(self.__SPI_PREFIX):])
-        else:
-          environ['PATH_INFO'] = self.__SPI_PREFIX + protorpc_method_name
       body_iter = self.service_app(environ, StartResponse)
       status = call_context['status']
       headers = call_context['headers']

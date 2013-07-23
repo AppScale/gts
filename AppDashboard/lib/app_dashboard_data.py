@@ -61,6 +61,22 @@ class ServerStatus(ndb.Model):
   roles = ndb.StringProperty(repeated=True)
 
 
+class RequestInfo(ndb.Model):
+  """ A Datastore Model that stores a single measurement of the average number
+  of requests per second that reach a Google App Engine application.
+
+  Fields:
+    app_id: A string, the application identifier.
+    timestamp: The date and time when the AppController took the measurement
+      of how many requests access haproxy for an App Engine app.
+    num_of_requests: The average number of requests per second that reached
+      haproxy for a Google App Engine application.
+  """
+  app_id = ndb.StringProperty(required=True)
+  timestamp = ndb.DateTimeProperty()
+  num_of_requests = ndb.FloatProperty()
+
+
 class AppStatus(ndb.Model):
   """ A Datastore Model that contains information about where an application
   hosted in AppScale can be located, to display to users.
@@ -96,6 +112,29 @@ class UserInfo(ndb.Model):
   owned_apps = ndb.StringProperty(repeated=True)
 
 
+class InstanceInfo(ndb.Model):
+  """ A Datastore Model that contains information about AppServer processes that
+  are running Google App Engine applications in this AppScale deployment.
+
+  Fields:
+    appid: A str that names that application ID this instance is running an app
+      for. We avoid setting the appid as the Model's id here because multiple
+      AppServers can run for the same appid.
+    host: A str that names the IP address or FQDN of the machine that runs this
+      instance.
+    port: An int that indicates what port this AppServer process is bound to
+      on the given hostname. Note that this port is firewalled off to outside
+      traffic, so users cannot access the AppServer by visiting host:port in a
+      browser.
+    language: A str that indicates if this instance is running a Python, Java,
+      Go, or PHP App Engine application.
+  """
+  appid = ndb.StringProperty()
+  host = ndb.StringProperty()
+  port = ndb.IntegerProperty()
+  language = ndb.StringProperty()
+
+
 class AppDashboardData():
   """ AppDashboardData leverages ndb (which itself utilizes Memcache and the
   Datastore) to implement a cache in front of SOAP-exposed services provided
@@ -109,6 +148,10 @@ class AppDashboardData():
 
   # The port that the AppMonitoring service runs on, by default.
   MONITOR_PORT = 8050
+
+
+  # The port that the Celery Flower service runs on, by default.
+  FLOWER_PORT = 5555
 
 
   # The sentinel app name that indicates that no apps are running on a given
@@ -185,6 +228,17 @@ class AppDashboardData():
       displayed to users.
     """
     return "http://{0}:{1}".format(self.get_head_node_ip(), self.MONITOR_PORT)
+
+
+  def get_flower_url(self):
+    """ Retrieves the URL where the Celery Flower web service can be found in
+    this AppScale deployment (typically on the login node).
+
+    Returns:
+      A str that contains a URL where low-level monitoring information is
+      displayed to users.
+    """
+    return "http://{0}:{1}".format(self.get_head_node_ip(), self.FLOWER_PORT)
 
 
   def get_head_node_ip(self):

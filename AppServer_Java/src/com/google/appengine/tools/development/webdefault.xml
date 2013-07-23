@@ -45,9 +45,9 @@
   </context-param>
 
   <filter>
-    <filter-name>_ah_BackendServersFilter</filter-name>
+    <filter-name>_ah_DevAppServerServersFilter</filter-name>
     <filter-class>
-      com.google.appengine.tools.development.BackendServersFilter
+      com.google.appengine.tools.development.DevAppServerServersFilter
     </filter-class>
   </filter>
   
@@ -91,7 +91,7 @@
   </filter>
 
   <filter-mapping>
-    <filter-name>_ah_BackendServersFilter</filter-name>
+    <filter-name>_ah_DevAppServerServersFilter</filter-name>
     <url-pattern>/*</url-pattern>
     <!-- match both real and forwarded requests -->
     <dispatcher>FORWARD</dispatcher>

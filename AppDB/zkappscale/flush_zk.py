@@ -14,4 +14,6 @@ def delete_recursive(handle, path):
     pass
 
 handle = kazoo.client.KazooClient(hosts="localhost:2181")
+handle.start()
 delete_recursive(handle, TOP_LEVEL)
+handle.stop()

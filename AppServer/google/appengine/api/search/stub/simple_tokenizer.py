@@ -73,7 +73,7 @@ class SimpleTokenizer(object):
 
   def TokenizeValue(self, field_value, token_position=0):
     """Tokenizes a document_pb.FieldValue into a sequence of Tokens."""
-    if field_value.type() is document_pb.FieldValue.GEO:
+    if field_value.type() == document_pb.FieldValue.GEO:
       return self._TokenizeForType(field_type=field_value.type(),
                                    value=field_value.geo(),
                                    token_position=token_position)
@@ -83,8 +83,8 @@ class SimpleTokenizer(object):
 
   def _TokenizeString(self, value, field_type):
     value = self.SetCase(value)
-    if field_type is not document_pb.FieldValue.ATOM:
-      if field_type is document_pb.FieldValue.HTML:
+    if field_type != document_pb.FieldValue.ATOM:
+      if field_type == document_pb.FieldValue.HTML:
         value = self._StripHtmlTags(value)
       value = _StripSeparators(value)
       return value.split()
@@ -97,10 +97,10 @@ class SimpleTokenizer(object):
 
   def _TokenizeForType(self, field_type, value, token_position=0):
     """Tokenizes value into a sequence of Tokens."""
-    if field_type is document_pb.FieldValue.NUMBER:
+    if field_type == document_pb.FieldValue.NUMBER:
       return [tokens.Token(chars=value, position=token_position)]
 
-    if field_type is document_pb.FieldValue.GEO:
+    if field_type == document_pb.FieldValue.GEO:
       return [tokens.GeoPoint(latitude=value.lat(), longitude=value.lng(),
                               position=token_position)]
 

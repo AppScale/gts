@@ -54,6 +54,7 @@ __all__ = [
     'InvalidLeaseTimeError', 'InvalidMaxTasksError', 'InvalidDeadlineError',
     'InvalidQueueModeError', 'TransactionalRequestTooLargeError',
     'TaskLeaseExpiredError', 'QueuePausedError', 'InvalidEtaError',
+    'InvalidTagError',
 
     'MAX_QUEUE_NAME_LENGTH', 'MAX_TASK_NAME_LENGTH', 'MAX_TASK_SIZE_BYTES',
     'MAX_PULL_TASK_SIZE_BYTES', 'MAX_PUSH_TASK_SIZE_BYTES',
@@ -63,7 +64,7 @@ __all__ = [
 
     'DEFAULT_APP_VERSION',
 
-    'Queue', 'QueueStatistics', 'Task', 'TaskRetryOptions', 'add']
+    'Queue', 'QueueStatistics', 'Task', 'TaskRetryOptions', 'add', 'create_rpc']
 
 
 import calendar
@@ -416,6 +417,29 @@ def _flatten_params(params):
   return param_list
 
 
+def _MakeAsyncCall(method, request, response, get_result_hook=None, rpc=None):
+  """Internal helper to schedule an asynchronous RPC.
+
+  Args:
+    method: The name of the taskqueue_service method that should be called,
+      e.g. 'BulkAdd'.
+    request: The protocol buffer containing the request argument.
+    response: The protocol buffer to be populated with the response.
+    get_result_hook: An optional hook function used to process results
+      (See UserRPC.make_call() for more info).
+    rpc: An optional UserRPC object that will be used to make the call.
+
+  Returns:
+    A UserRPC object; either the one passed in as the rpc argument,
+    or a new one if no rpc was passed in.
+  """
+  if rpc is None:
+    rpc = create_rpc()
+  assert rpc.service == 'taskqueue', repr(rpc.service)
+  rpc.make_call(method, request, response, get_result_hook, None)
+  return rpc
+
+
 def _TranslateError(error, detail=''):
   """Translates a TaskQueueServiceError into an exception.
 
@@ -448,6 +472,32 @@ def _TranslateError(error, detail=''):
       return exception_class(detail)
     else:
       return Error('Application error %s: %s' % (error, detail))
+
+
+def _ValidateDeadline(deadline):
+  if not isinstance(deadline, (int, long, float)):
+    raise TypeError(
+        'deadline must be numeric')
+
+  if deadline <= 0:
+    raise InvalidDeadlineError(
+        'Negative or zero deadline requested')
+
+
+def create_rpc(deadline=None, callback=None):
+  """Creates an RPC object for use with the Task Queue API.
+
+  Args:
+    deadline: Optional deadline in seconds for the operation; the default
+      is a system-specific deadline (typically 5 seconds).
+    callback: Optional callable to invoke on completion.
+
+  Returns:
+    An apiproxy_stub_map.UserRPC object specialized for this service.
+  """
+  if deadline is not None:
+    _ValidateDeadline(deadline)
+  return apiproxy_stub_map.UserRPC('taskqueue', deadline, callback)
 
 
 class TaskRetryOptions(object):
@@ -1073,9 +1123,13 @@ class Task(object):
     """Returns True if this Task has been successfully deleted."""
     return self.__deleted
 
+  def add_async(self, queue_name=_DEFAULT_QUEUE, transactional=False, rpc=None):
+    """Asynchronously adds this Task to a queue. See Queue.add_async."""
+    return Queue(queue_name).add_async(self, transactional, rpc)
+
   def add(self, queue_name=_DEFAULT_QUEUE, transactional=False):
     """Adds this Task to a queue. See Queue.add."""
-    return Queue(queue_name).add(self, transactional=transactional)
+    return self.add_async(queue_name, transactional).get_result()
 
   def extract_params(self):
     """Returns the parameters for this task.
@@ -1209,21 +1263,25 @@ class QueueStatistics(object):
     return cls(**args)
 
   @classmethod
-  def fetch(cls, queue_or_queues):
-    """Get the queue details for multiple queues.
+  def fetch_async(cls, queue_or_queues, rpc=None):
+    """Asynchronously get the queue details for multiple queues.
 
     Args:
-      queue_or_queues: An iterable of either Queue instances, or an iterator of
+      queue_or_queues: An iterable of Queue instances, or an iterable of
           strings corresponding to queue names, or a Queue instance or a string
           corresponding to a queue name.
+      rpc: An optional UserRPC object.
 
     Returns:
-      If an iterable (other than string) is provided as input, a list of of
-      QueueStatistics objects will be returned, one for each queue in the order
+      A UserRPC object, call get_result to complete the RPC and obtain the
+      result.
+
+      If an iterable (other than string) is provided as input, the result will
+      be a list of of QueueStatistics objects, one for each queue in the order
       requested.
 
-      Otherwise, if a single item was provided as input, then a single
-      QueueStatistics object will be returned.
+      Otherwise, if a single item was provided as input, then the result will be
+      a single QueueStatistics object.
 
     Raises:
       TypeError: If queue_or_queues is not one of: Queue instance, string, an
@@ -1253,20 +1311,68 @@ class QueueStatistics(object):
     if contains_strs:
       queues_list = [Queue(queue_name) for queue_name in queues_list]
 
-    queue_stats = cls._FetchMultipleQueues(queues_list)
-    if wants_list:
-      return queue_stats
-    else:
-      return queue_stats[0]
+    return cls._FetchMultipleQueues(queues_list, wants_list, rpc)
 
   @classmethod
-  def _FetchMultipleQueues(cls, queues):
-    request = taskqueue_service_pb.TaskQueueFetchQueueStatsRequest()
-    response = taskqueue_service_pb.TaskQueueFetchQueueStatsResponse()
+  def fetch(cls, queue_or_queues, deadline=10):
+    """Get the queue details for multiple queues.
 
-    if not queues:
+    Args:
+      queue_or_queues: An iterable of Queue instances, or an iterable of
+          strings corresponding to queue names, or a Queue instance or a string
+          corresponding to a queue name.
+      deadline: The maximum number of seconds to wait before aborting the
+          method call.
+
+    Returns:
+      If an iterable (other than string) is provided as input, a list of of
+      QueueStatistics objects will be returned, one for each queue in the order
+      requested.
+
+      Otherwise, if a single item was provided as input, then a single
+      QueueStatistics object will be returned.
+
+    Raises:
+      TypeError: If queue_or_queues is not one of: Queue instance, string, an
+          iterable containing only Queue instances or an iterable containing
+          only strings.
+      Error-subclass on application errors.
+    """
+    _ValidateDeadline(deadline)
+
+    if not queue_or_queues:
 
       return []
+
+    rpc = create_rpc(deadline)
+    cls.fetch_async(queue_or_queues, rpc)
+    return rpc.get_result()
+
+  @classmethod
+  def _FetchMultipleQueues(cls, queues, multiple, rpc=None):
+    """Internal implementation of fetch stats where queues must be a list."""
+
+    def ResultHook(rpc):
+      """Process the TaskQueueFetchQueueStatsResponse."""
+      try:
+        rpc.check_success()
+      except apiproxy_errors.ApplicationError, e:
+        raise _TranslateError(e.application_error, e.error_detail)
+
+      assert len(queues) == rpc.response.queuestats_size(), (
+          'Expected %d results, got %d' % (
+              len(queues), rpc.response.queuestats_size()))
+      queue_stats = [cls._ConstructFromFetchQueueStatsResponse(queue, response)
+                     for queue, response in zip(queues,
+                                                rpc.response.queuestats_list())]
+      if multiple:
+        return queue_stats
+      else:
+        assert len(queue_stats) == 1
+        return queue_stats[0]
+
+    request = taskqueue_service_pb.TaskQueueFetchQueueStatsRequest()
+    response = taskqueue_service_pb.TaskQueueFetchQueueStatsResponse()
 
     requested_app_id = queues[0]._app
 
@@ -1277,17 +1383,11 @@ class QueueStatistics(object):
     if requested_app_id:
       request.set_app_id(requested_app_id)
 
-    try:
-      apiproxy_stub_map.MakeSyncCall(
-          'taskqueue', 'FetchQueueStats', request, response)
-    except apiproxy_errors.ApplicationError, e:
-      raise _TranslateError(e.application_error, e.error_detail)
-
-    assert len(queues) == response.queuestats_size(), (
-        'Expected %d results, got %d' % (
-            len(queues), response.queuestats_size()))
-    return [cls._ConstructFromFetchQueueStatsResponse(queue, response)
-            for queue, response in zip(queues, response.queuestats_list())]
+    return _MakeAsyncCall('FetchQueueStats',
+                          request,
+                          response,
+                          ResultHook,
+                          rpc)
 
 
 class Queue(object):
@@ -1341,6 +1441,94 @@ class Queue(object):
     except apiproxy_errors.ApplicationError, e:
       raise _TranslateError(e.application_error, e.error_detail)
 
+  def delete_tasks_by_name_async(self, task_name, rpc=None):
+    """Asynchronously deletes a Task or list of Tasks in this Queue, by name.
+
+    This function is identical to delete_tasks_by_name() except that it returns
+    an asynchronous object. You can call get_result() on the return value to
+    block on the call.
+
+    Args:
+      task_name: A string corresponding to a task name, or an iterable of
+      strings corresponding to task names.
+      rpc: An optional UserRPC object.
+
+    Returns:
+      A UserRPC object, call get_result to complete the RPC and obtain the
+      result.
+
+      If an iterable (other than string) is provided as input, the result will
+      be a list of of Task objects, one for each task name in the order
+      requested. The Task.was_deleted property will be True for each task
+      deleted by this call, and will be False for unknown and tombstoned tasks.
+
+      Otherwise, if a single string was provided as input, then the result will
+      be a single Task object.
+
+    Raises:
+      DuplicateTaskNameError: if a Task name is repeated in the request.
+    """
+    if isinstance(task_name, str):
+      return self.delete_tasks_async(Task(name=task_name), rpc)
+    else:
+      tasks = [Task(name=name) for name in task_name]
+      return self.delete_tasks_async(tasks, rpc)
+
+  def delete_tasks_by_name(self, task_name):
+    """Deletes a Task or list of Tasks in this Queue, by name.
+
+    When multiple tasks are specified, an exception will be raised if any
+    individual task fails to be deleted.
+
+    Args:
+      task_name: A string corresponding to a task name, or an iterable of
+      strings corresponding to task names.
+
+    Returns:
+      If an iterable (other than string) is provided as input,  a list of of
+      Task objects, one for each task name in the order requested. The
+      Task.was_deleted property will be True for each task deleted by this call,
+      and will be False for unknown and tombstoned tasks.
+
+      Otherwise, if a single string was provided as input, a single Task object.
+
+    Raises:
+      DuplicateTaskNameError: if a Task name is repeated in the request.
+      Error-subclass on application errors.
+    """
+    return self.delete_tasks_by_name_async(task_name).get_result()
+
+  def delete_tasks_async(self, task, rpc=None):
+    """Asynchronously deletes a Task or list of Tasks in this Queue.
+
+    This function is identical to delete_tasks() except that it returns an
+    asynchronous object. You can call get_result() on the return value to block
+    on the call.
+
+    Args:
+      task: A Task instance or a list of Task instances that will be deleted
+        from the Queue.
+      rpc: An optional UserRPC object.
+
+    Returns:
+      A UserRPC object, call get_result to complete the RPC and obtain the Task
+        or list of tasks passed into this call.
+
+    Raises:
+      BadTaskStateError: if the Task(s) to be deleted do not have task names or
+        have already been deleted.
+      DuplicateTaskNameError: if a Task is repeated in the request.
+    """
+    try:
+      tasks = list(iter(task))
+    except TypeError:
+      tasks = [task]
+      multiple = False
+    else:
+      multiple = True
+
+    return self.__DeleteTasks(tasks, multiple, rpc)
+
   def delete_tasks(self, task):
     """Deletes a Task or list of Tasks in this Queue.
 
@@ -1361,26 +1549,48 @@ class Queue(object):
     Raises:
       BadTaskStateError: if the Task(s) to be deleted do not have task names or
         have already been deleted.
+      DuplicateTaskNameError: if a Task is repeated in the request.
       Error-subclass on application errors.
     """
-    try:
-      tasks = list(iter(task))
-    except TypeError:
-      tasks = [task]
-      multiple = False
-    else:
-      multiple = True
+    return self.delete_tasks_async(task).get_result()
 
-    self.__DeleteTasks(tasks)
+  def __DeleteTasks(self, tasks, multiple, rpc=None):
+    """Internal implementation of delete_tasks_async(), tasks must be a list."""
 
-    if multiple:
-      return tasks
-    else:
-      assert len(tasks) == 1
-      return tasks[0]
+    def ResultHook(rpc):
+      """Process the TaskQueueDeleteResponse."""
+      try:
+        rpc.check_success()
+      except apiproxy_errors.ApplicationError, e:
+        raise _TranslateError(e.application_error, e.error_detail)
 
-  def __DeleteTasks(self, tasks):
-    """Internal implementation of .delete() where tasks must be a list."""
+      assert rpc.response.result_size() == len(tasks), (
+          'expected %d results from delete(), got %d' % (
+              len(tasks), rpc.response.result_size()))
+
+      IGNORED_STATES = [
+          taskqueue_service_pb.TaskQueueServiceError.UNKNOWN_TASK,
+          taskqueue_service_pb.TaskQueueServiceError.TOMBSTONED_TASK]
+
+      exception = None
+      for task, result in zip(tasks, rpc.response.result_list()):
+        if result == taskqueue_service_pb.TaskQueueServiceError.OK:
+
+          task._Task__deleted = True
+        elif result in IGNORED_STATES:
+
+          task._Task__deleted = False
+        elif exception is None:
+          exception = _TranslateError(result)
+
+      if exception is not None:
+        raise exception
+
+      if multiple:
+        return tasks
+      else:
+        assert len(tasks) == 1
+        return tasks[0]
 
     request = taskqueue_service_pb.TaskQueueDeleteRequest()
     response = taskqueue_service_pb.TaskQueueDeleteResponse()
@@ -1399,30 +1609,11 @@ class Queue(object):
       task_names.add(task.name)
       request.add_task_name(task.name)
 
-    try:
-      apiproxy_stub_map.MakeSyncCall('taskqueue', 'Delete', request, response)
-    except apiproxy_errors.ApplicationError, e:
-      raise _TranslateError(e.application_error, e.error_detail)
-
-    assert response.result_size() == len(tasks), (
-        'expected %d results from delete(), got %d' % (
-            len(tasks), response.result_size()))
-
-    exception = None
-    for task, result in zip(tasks, response.result_list()):
-      if result == taskqueue_service_pb.TaskQueueServiceError.OK:
-        task._Task__deleted = True
-      elif (
-          result == taskqueue_service_pb.TaskQueueServiceError.UNKNOWN_TASK or
-          result == taskqueue_service_pb.TaskQueueServiceError.TOMBSTONED_TASK):
-        task._Task__deleted = False
-      elif exception is None:
-        exception = _TranslateError(result)
-
-    if exception is not None:
-      raise exception
-
-    return tasks
+    return _MakeAsyncCall('Delete',
+                          request,
+                          response,
+                          ResultHook,
+                          rpc)
 
   @staticmethod
   def _ValidateLeaseSeconds(lease_seconds):
@@ -1455,21 +1646,60 @@ class Queue(object):
           'Only %d tasks can be leased at once' %
           MAX_TASKS_PER_LEASE)
 
-  @staticmethod
-  def _ValidateDeadline(deadline):
-    if not isinstance(deadline, (int, long, float)):
-      raise TypeError(
-          'deadline must be numeric')
+  def _QueryAndOwnTasks(self, request, response, queue_name, rpc=None):
 
-    if deadline <= 0:
-      raise InvalidDeadlineError(
-          'Negative or zero deadline requested')
+    def ResultHook(rpc):
+      """Process the TaskQueueQueryAndOwnTasksResponse."""
+      try:
+        rpc.check_success()
+      except apiproxy_errors.ApplicationError, e:
+        raise _TranslateError(e.application_error, e.error_detail)
 
-  @staticmethod
-  def _QueryAndOwnTasks(request, response, deadline):
-    rpc = apiproxy_stub_map.UserRPC('taskqueue', deadline)
-    rpc.make_call('QueryAndOwnTasks', request, response)
-    rpc.check_success()
+      tasks = []
+      for response_task in rpc.response.task_list():
+        tasks.append(
+            Task._FromQueryAndOwnResponseTask(queue_name, response_task))
+      return tasks
+
+    return _MakeAsyncCall('QueryAndOwnTasks',
+                          request,
+                          response,
+                          ResultHook,
+                          rpc)
+
+  def lease_tasks_async(self, lease_seconds, max_tasks, rpc=None):
+    """Asynchronously leases a number of tasks from the Queue.
+
+    This function is identical to lease_tasks() except that it returns an
+    asynchronous object. You can call get_result() on the return value to block
+    on the call.
+
+    Args:
+      lease_seconds: Number of seconds to lease the tasks.
+      max_tasks: Max number of tasks to lease from the pull Queue.
+      rpc: An optional UserRPC object.
+
+    Returns:
+      A UserRPC object, call get_result to complete the RPC and obtain the list
+        of tasks leased from the Queue.
+
+    Raises:
+      InvalidLeaseTimeError: if lease_seconds is not a valid float or integer
+        number or is outside the valid range.
+      InvalidMaxTasksError: if max_tasks is not a valid integer or is outside
+        the valid range.
+    """
+    lease_seconds = self._ValidateLeaseSeconds(lease_seconds)
+    self._ValidateMaxTasks(max_tasks)
+
+    request = taskqueue_service_pb.TaskQueueQueryAndOwnTasksRequest()
+    response = taskqueue_service_pb.TaskQueueQueryAndOwnTasksResponse()
+
+    request.set_queue_name(self.__name)
+    request.set_lease_seconds(lease_seconds)
+    request.set_max_tasks(max_tasks)
+
+    return self._QueryAndOwnTasks(request, response, self.__name, rpc)
 
   def lease_tasks(self, lease_seconds, max_tasks, deadline=10):
     """Leases a number of tasks from the Queue for a period of time.
@@ -1497,9 +1727,40 @@ class Queue(object):
       InvalidQueueModeError: if invoked on a queue that is not in pull mode.
       Error-subclass on application errors.
     """
+    _ValidateDeadline(deadline)
+    rpc = create_rpc(deadline)
+    self.lease_tasks_async(lease_seconds, max_tasks, rpc)
+    return rpc.get_result()
+
+  def lease_tasks_by_tag_async(self,
+                               lease_seconds,
+                               max_tasks,
+                               tag=None,
+                               rpc=None):
+    """Asynchronously leases a number of tasks from the Queue.
+
+    This function is identical to lease_tasks_by_tag() except that it returns an
+    asynchronous object. You can call get_result() on the return value to block
+    on the call.
+
+    Args:
+      lease_seconds: Number of seconds to lease the tasks.
+      max_tasks: Max number of tasks to lease from the pull Queue.
+      tag: The to query for, or None to group by the first available tag.
+      rpc: An optional UserRPC object.
+
+    Returns:
+      A UserRPC object, call get_result to complete the RPC and obtain the list
+        of tasks leased from the Queue.
+
+    Raises:
+      InvalidLeaseTimeError: if lease_seconds is not a valid float or integer
+        number or is outside the valid range.
+      InvalidMaxTasksError: if max_tasks is not a valid integer or is outside
+        the valid range.
+    """
     lease_seconds = self._ValidateLeaseSeconds(lease_seconds)
     self._ValidateMaxTasks(max_tasks)
-    self._ValidateDeadline(deadline)
 
     request = taskqueue_service_pb.TaskQueueQueryAndOwnTasksRequest()
     response = taskqueue_service_pb.TaskQueueQueryAndOwnTasksResponse()
@@ -1507,18 +1768,11 @@ class Queue(object):
     request.set_queue_name(self.__name)
     request.set_lease_seconds(lease_seconds)
     request.set_max_tasks(max_tasks)
+    request.set_group_by_tag(True)
+    if tag is not None:
+      request.set_tag(tag)
 
-    try:
-      self._QueryAndOwnTasks(request, response, deadline)
-    except apiproxy_errors.ApplicationError, e:
-      raise _TranslateError(e.application_error, e.error_detail)
-
-    tasks = []
-    for response_task in response.task_list():
-      tasks.append(
-          Task._FromQueryAndOwnResponseTask(self.__name, response_task))
-
-    return tasks
+    return self._QueryAndOwnTasks(request, response, self.__name, rpc)
 
   def lease_tasks_by_tag(self, lease_seconds, max_tasks, tag=None, deadline=10):
     """Leases a number of tasks from the Queue for a period of time.
@@ -1547,31 +1801,75 @@ class Queue(object):
       InvalidQueueModeError: if invoked on a queue that is not in pull mode.
       Error-subclass on application errors.
     """
-    lease_seconds = self._ValidateLeaseSeconds(lease_seconds)
-    self._ValidateMaxTasks(max_tasks)
-    self._ValidateDeadline(deadline)
+    _ValidateDeadline(deadline)
+    rpc = create_rpc(deadline)
+    self.lease_tasks_by_tag_async(lease_seconds, max_tasks, tag, rpc)
+    return rpc.get_result()
 
-    request = taskqueue_service_pb.TaskQueueQueryAndOwnTasksRequest()
-    response = taskqueue_service_pb.TaskQueueQueryAndOwnTasksResponse()
+  def add_async(self, task, transactional=False, rpc=None):
+    """Asynchronously adds a Task or list of Tasks into this Queue.
 
-    request.set_queue_name(self.__name)
-    request.set_lease_seconds(lease_seconds)
-    request.set_max_tasks(max_tasks)
-    request.set_group_by_tag(True)
-    if tag is not None:
-      request.set_tag(tag)
+    This function is identical to add() except that it returns an asynchronous
+    object. You can call get_result() on the return value to block on the call.
 
+    Args:
+      task: A Task instance or a list of Task instances that will be added to
+        the queue.
+      transactional: If True, adds the task(s) if and only if the enclosing
+        transaction is successfully committed. It is an error for transactional
+        to be True in the absence of an enclosing transaction. If False, adds
+        the task(s) immediately, ignoring any enclosing transaction's success or
+        failure.
+      rpc: An optional UserRPC object.
+
+    Returns:
+      A UserRPC object, call get_result to complete the RPC and obtain the Task
+        or list of tasks that was supplied to this method.
+
+    Raises:
+      BadTaskStateError: if the Task(s) has already been added to a queue.
+      BadTransactionStateError: if the transactional argument is true but this
+        call is being made outside of the context of a transaction.
+      DuplicateTaskNameError: if a Task name is repeated in the request.
+      InvalidTaskError: if both push and pull tasks exist in the task list.
+      InvalidTaskNameError: if a Task name is provided but is not legal.
+      TooManyTasksError: if task contains more than MAX_TASKS_PER_ADD tasks.
+      TransactionalRequestTooLargeError: if transactional is True and the total
+        size of the tasks and supporting request data exceeds
+        MAX_TRANSACTIONAL_REQUEST_SIZE_BYTES.
+    """
     try:
-      self._QueryAndOwnTasks(request, response, deadline)
-    except apiproxy_errors.ApplicationError, e:
-      raise _TranslateError(e.application_error, e.error_detail)
+      tasks = list(iter(task))
+    except TypeError:
+      tasks = [task]
+      multiple = False
+    else:
+      multiple = True
 
-    tasks = []
-    for response_task in response.task_list():
-      tasks.append(
-          Task._FromQueryAndOwnResponseTask(self.__name, response_task))
 
-    return tasks
+
+
+    has_push_task = False
+    has_pull_task = False
+    for task in tasks:
+      if task.method == 'PULL':
+        has_pull_task = True
+      else:
+        has_push_task = True
+
+    if has_push_task and has_pull_task:
+      raise InvalidTaskError(
+          'Can not add both push and pull tasks in a single call.')
+
+    if has_push_task:
+      fill_function = self.__FillAddPushTasksRequest
+    else:
+      fill_function = self.__FillAddPullTasksRequest
+    return self.__AddTasks(tasks,
+                           transactional,
+                           fill_function,
+                           multiple,
+                           rpc)
 
   def add(self, task, transactional=False):
     """Adds a Task or list of Tasks into this Queue.
@@ -1601,51 +1899,59 @@ class Queue(object):
       BadTaskStateError: if the Task(s) has already been added to a queue.
       BadTransactionStateError: if the transactional argument is true but this
         call is being made outside of the context of a transaction.
+      DuplicateTaskNameError: if a Task name is repeated in the request.
+      InvalidTaskNameError: if a Task name is provided but is not legal.
       InvalidTaskError: if both push and pull tasks exist in the task list.
       InvalidQueueModeError: if a task with method PULL is added to a queue in
         push mode, or a task with method not equal to PULL is added to a queue
         in pull mode.
+      TooManyTasksError: if task contains more than MAX_TASKS_PER_ADD tasks.
       TransactionalRequestTooLargeError: if transactional is True and the total
         size of the tasks and supporting request data exceeds
         MAX_TRANSACTIONAL_REQUEST_SIZE_BYTES.
       Error-subclass on application errors.
     """
-    try:
-      tasks = list(iter(task))
-    except TypeError:
-      tasks = [task]
-      multiple = False
+    if task:
+      return self.add_async(task, transactional).get_result()
     else:
-      multiple = True
+      return []
 
-
-
-
-    has_push_task = False
-    has_pull_task = False
-    for task in tasks:
-      if task.method == 'PULL':
-        has_pull_task = True
-      else:
-        has_push_task = True
-
-    if has_push_task and has_pull_task:
-      raise InvalidTaskError(
-          'Can not add both push and pull tasks in a single call.')
-
-    if has_push_task:
-      self.__AddTasks(tasks, transactional, self.__FillAddPushTasksRequest)
-    else:
-      self.__AddTasks(tasks, transactional, self.__FillAddPullTasksRequest)
-
-    if multiple:
-      return tasks
-    else:
-      assert len(tasks) == 1
-      return tasks[0]
-
-  def __AddTasks(self, tasks, transactional, fill_request):
+  def __AddTasks(self, tasks, transactional, fill_request, multiple, rpc=None):
     """Internal implementation of adding tasks where tasks must be a list."""
+
+    def ResultHook(rpc):
+      """Process the TaskQueueBulkAddResponse."""
+      try:
+        rpc.check_success()
+      except apiproxy_errors.ApplicationError, e:
+        raise _TranslateError(e.application_error, e.error_detail)
+
+      assert rpc.response.taskresult_size() == len(tasks), (
+          'expected %d results from BulkAdd(), got %d' % (
+              len(tasks), rpc.response.taskresult_size()))
+
+      exception = None
+      for task, task_result in zip(tasks, rpc.response.taskresult_list()):
+        if (task_result.result() ==
+            taskqueue_service_pb.TaskQueueServiceError.OK):
+          if task_result.has_chosen_task_name():
+            task._Task__name = task_result.chosen_task_name()
+          task._Task__queue_name = self.__name
+          task._Task__enqueued = True
+        elif (task_result.result() ==
+              taskqueue_service_pb.TaskQueueServiceError.SKIPPED):
+          pass
+        elif exception is None:
+          exception = _TranslateError(task_result.result())
+
+      if exception is not None:
+        raise exception
+
+      if multiple:
+        return tasks
+      else:
+        assert len(tasks) == 1
+        return tasks[0]
 
     if len(tasks) > MAX_TASKS_PER_ADD:
       raise TooManyTasksError(
@@ -1674,32 +1980,11 @@ class Queue(object):
           'Transactional request size must be less than %d; found %d' %
           (MAX_TRANSACTIONAL_REQUEST_SIZE_BYTES, request.ByteSize()))
 
-    try:
-      apiproxy_stub_map.MakeSyncCall('taskqueue', 'BulkAdd', request, response)
-    except apiproxy_errors.ApplicationError, e:
-      raise _TranslateError(e.application_error, e.error_detail)
-
-    assert response.taskresult_size() == len(tasks), (
-        'expected %d results from BulkAdd(), got %d' % (
-        len(tasks), response.taskresult_size()))
-
-    exception = None
-    for task, task_result in zip(tasks, response.taskresult_list()):
-      if task_result.result() == taskqueue_service_pb.TaskQueueServiceError.OK:
-        if task_result.has_chosen_task_name():
-          task._Task__name = task_result.chosen_task_name()
-        task._Task__queue_name = self.__name
-        task._Task__enqueued = True
-      elif (task_result.result() ==
-            taskqueue_service_pb.TaskQueueServiceError.SKIPPED):
-        pass
-      elif exception is None:
-        exception = _TranslateError(task_result.result())
-
-    if exception is not None:
-      raise exception
-
-    return tasks
+    return _MakeAsyncCall('BulkAdd',
+                          request,
+                          response,
+                          ResultHook,
+                          rpc)
 
   def __FillTaskQueueRetryParameters(self,
                                      retry_options,
@@ -1865,13 +2150,33 @@ class Queue(object):
     task._Task__eta_posix = response.updated_eta_usec() * 1e-6
     task._Task__eta = None
 
-  def fetch_statistics(self):
+  def fetch_statistics_async(self, rpc=None):
+    """Asynchronously get the current details about this queue.
+
+    Args:
+      rpc: An optional UserRPC object.
+
+    Returns:
+      A UserRPC object, call get_result to complete the RPC and obtain a
+          QueueStatistics instance containing information about this queue.
+    """
+    return QueueStatistics.fetch_async(self, rpc)
+
+  def fetch_statistics(self, deadline=10):
     """Get the current details about this queue.
+
+    Args:
+      deadline: The maximum number of seconds to wait before aborting the
+          method call.
 
     Returns:
       A QueueStatistics instance containing information about this queue.
+      Error-subclass on application errors.
     """
-    return QueueStatistics.fetch(self)
+    _ValidateDeadline(deadline)
+    rpc = create_rpc(deadline)
+    self.fetch_statistics_async(rpc)
+    return rpc.get_result()
 
   def __repr__(self):
     ATTRS = ['name']
@@ -1967,4 +2272,3 @@ def add(*args, **kwargs):
   queue_name = kwargs.pop('queue_name', _DEFAULT_QUEUE)
   return Task(*args, **kwargs).add(
       queue_name=queue_name, transactional=transactional)
-
