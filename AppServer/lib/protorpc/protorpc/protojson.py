@@ -31,11 +31,14 @@ import cStringIO
 import base64
 import logging
 
+from . import message_types
 from . import messages
+from . import util
 
 __all__ = [
     'ALTERNATIVE_CONTENT_TYPES',
     'CONTENT_TYPE',
+    'MessageJSONEncoder',
     'encode_message',
     'decode_message',
 ]
@@ -60,7 +63,7 @@ def _load_json_module():
   It does a basic check to guess if a loaded version of json is compatible.
 
   Returns:
-    Comptable json module.
+    Compatible json module.
 
   Raises:
     ImportError if there are no json modules or the loaded json module is
@@ -87,7 +90,7 @@ def _load_json_module():
 json = _load_json_module()
 
 
-class _MessageJSONEncoder(json.JSONEncoder):
+class MessageJSONEncoder(json.JSONEncoder):
   """Message JSON encoder class.
 
   Extension of JSONEncoder that can build JSON from a message object.
@@ -113,10 +116,31 @@ class _MessageJSONEncoder(json.JSONEncoder):
               item = [base64.b64encode(i) for i in item]
             else:
               item = base64.b64encode(item)
+          elif isinstance(field, message_types.DateTimeField):
+            # DateTimeField stores its data as a RFC 3339 compliant string.
+            if field.repeated:
+              item = [i.isoformat() for i in item]
+            else:
+              item = item.isoformat()
           result[field.name] = item
+      # Handle unrecognized fields, so they're included when a message is
+      # decoded then encoded.
+      for unknown_key in value.all_unrecognized_fields():
+        unrecognized_field, _ = value.get_unrecognized_field_info(unknown_key)
+        result[unknown_key] = unrecognized_field
       return result
     else:
-      return super(_MessageJSONEncoder, self).default(value)
+      return super(MessageJSONEncoder, self).default(value)
+
+
+class _MessageJSONEncoder(MessageJSONEncoder):
+
+  def __init__(self, *args, **kwds):
+    """DEPRECATED: please use MessageJSONEncoder instead."""
+    logging.warning(
+        '_MessageJSONEncoder has been renamed to MessageJSONEncoder, '
+        'please update any references')
+    super(_MessageJSONEncoder, self).__init__(*args, **kwds)
 
 
 def encode_message(message):
@@ -133,7 +157,7 @@ def encode_message(message):
   """
   message.check_initialized()
 
-  return json.dumps(message, cls=_MessageJSONEncoder)
+  return json.dumps(message, cls=MessageJSONEncoder)
 
 
 def decode_message(message_type, encoded_message):
@@ -155,6 +179,39 @@ def decode_message(message_type, encoded_message):
 
   dictionary = json.loads(encoded_message)
 
+  def find_variant(value):
+    """Find the messages.Variant type that describes this value.
+
+    Args:
+      value: The value whose variant type is being determined.
+
+    Returns:
+      The messages.Variant value that best describes value's type, or None if
+      it's a type we don't know how to handle.
+    """
+    if isinstance(value, (int, long)):
+      return messages.Variant.INT64
+    elif isinstance(value, float):
+      return messages.Variant.DOUBLE
+    elif isinstance(value, basestring):
+      return messages.Variant.STRING
+    elif isinstance(value, (list, tuple)):
+      # Find the most specific variant that covers all elements.
+      variant_priority = [None, messages.Variant.INT64, messages.Variant.DOUBLE,
+                          messages.Variant.STRING]
+      chosen_priority = 0
+      for v in value:
+        variant = find_variant(v)
+        try:
+          priority = variant_priority.index(variant)
+        except IndexError:
+          priority = -1
+        if priority > chosen_priority:
+          chosen_priority = priority
+      return variant_priority[chosen_priority]
+    # Unrecognized type.
+    return None
+
   def decode_dictionary(message_type, dictionary):
     """Merge dictionary in to message.
 
@@ -172,7 +229,12 @@ def decode_message(message_type, encoded_message):
       try:
         field = message.field_by_name(key)
       except KeyError:
-        # TODO(rafek): Support saving unknown values.
+        # Save unknown values.
+        variant = find_variant(value)
+        if variant:
+          message.set_unrecognized_field(key, value, variant)
+        else:
+          logging.warning('No variant found for unrecognized field: %s', key)
         continue
 
       # Normalize values in to a list.
@@ -185,9 +247,20 @@ def decode_message(message_type, encoded_message):
       valid_value = []
       for item in value:
         if isinstance(field, messages.EnumField):
-          item = field.type(item)
+          try:
+            item = field.type(item)
+          except TypeError:
+            raise messages.DecodeError('Invalid enum value "%s"' % value[0])
         elif isinstance(field, messages.BytesField):
-          item = base64.b64decode(item)
+          try:
+            item = base64.b64decode(item)
+          except TypeError, err:
+            raise messages.DecodeError('Base64 decoding error: %s' % err)
+        elif isinstance(field, message_types.DateTimeField):
+          try:
+            item = util.decode_datetime(item)
+          except ValueError, err:
+            raise messages.DecodeError(err)
         elif isinstance(field, messages.MessageField):
           item = decode_dictionary(field.type, item)
         elif (isinstance(field, messages.FloatField) and

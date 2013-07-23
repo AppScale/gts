@@ -40,6 +40,7 @@ _BLOBSTORE_DIRECTORY = '/' + _BLOBSTORE_FILESYSTEM + '/'
 _BLOBSTORE_NEW_FILE_NAME = 'new'
 _MIME_TYPE_PARAMETER = 'content_type'
 _BLOBINFO_UPLOADED_FILENAME_PARAMETER = 'file_name'
+_DATASTORE_MAX_PROPERTY_SIZE = 500
 
 
 def create(mime_type='application/octet-stream',
@@ -80,9 +81,10 @@ _BLOB_KEY_PROPERTY_NAME = 'blob_key'
 def _get_blob_file_index_key_name(creation_handle):
   """Get key name for a __BlobFileIndex__ entity.
 
-  Returns creation_handle if it is < 500 symbols and its sha512 otherwise.
+  Returns creation_handle if it is < _DATASTORE_MAX_PROPERTY_SIZE
+  symbols and its sha512 otherwise.
   """
-  if len(creation_handle) < 500:
+  if len(creation_handle) < _DATASTORE_MAX_PROPERTY_SIZE:
     return creation_handle
   return hashlib.sha512(creation_handle).hexdigest()
 
@@ -135,6 +137,8 @@ def get_blob_key(create_file_name):
         blobstore.BLOB_INFO_KIND, blob_key_str, namespace='')])
     if results[0] is None:
       return None
+  elif len(ticket) >= _DATASTORE_MAX_PROPERTY_SIZE:
+    return None
   else:
 
 

@@ -99,7 +99,7 @@ def _GetService():
 
 
 def _ValidateClientId(client_id):
-  """Valides a client id.
+  """Validates a client id.
 
   Args:
     client_id: The client id provided by the application.
@@ -178,10 +178,11 @@ def send_message(client_id, message):
   if isinstance(message, unicode):
     message = message.encode('utf-8')
   elif not isinstance(message, str):
-    raise InvalidMessageError
+    raise InvalidMessageError('Message must be a string')
 
   if len(message) > MAXIMUM_MESSAGE_LENGTH:
-    raise InvalidMessageError
+    raise InvalidMessageError(
+      'Message must be no longer than %d chars' % MAXIMUM_MESSAGE_LENGTH)
 
   request = channel_service_pb.SendMessageRequest()
   response = api_base_pb.VoidProto()

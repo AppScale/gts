@@ -19,21 +19,17 @@ fi
 #if [ -z "$APPSCALE_HOME" ]; then
  #  export APPSCALE_HOME= /root/appscale/
 #fi 
-export APPSCALE_VERSION=1.7.0
+export APPSCALE_VERSION=1.9.0
 
 increaseconnections()
 {
     echo "net.core.somaxconn = 20240" >> /etc/sysctl.conf
-    echo "net.ipv4.netfilter.ip_conntrack_max = 196608" >> /etc/sysctl.conf
-    echo "net.core.somaxconn = 20240" >> /etc/sysctl.conf
-    echo "net.ipv4.netfilter.ip_conntrack_max = 196608" >> /etc/sysctl.conf
     echo "net.ipv4.tcp_tw_recycle = 0" >> /etc/sysctl.conf
     echo "net.ipv4.tcp_tw_reuse = 0" >> /etc/sysctl.conf
     echo "net.ipv4.tcp_orphan_retries = 1" >> /etc/sysctl.conf
     echo "net.ipv4.tcp_fin_timeout = 25" >> /etc/sysctl.conf
     echo "net.ipv4.tcp_max_orphans = 8192" >> /etc/sysctl.conf
     echo "net.ipv4.ip_local_port_range = 32768    61000" >> /etc/sysctl.conf
-    echo "net.netfilter.nf_conntrack_max = 262144" >> /etc/sysctl.conf
 
     /sbin/sysctl -p /etc/sysctl.conf 
 }
@@ -155,7 +151,7 @@ installappscaleprofile()
     cat <<EOF | tee $DESTFILE
 export APPSCALE_HOME=${APPSCALE_HOME_RUNTIME}
 for jpath in\
- /usr/lib/jvm/java-6-openjdk\
+ /usr/lib/jvm/java-7-oracle\
  /usr/lib/jvm/default-java
 do
   if [ -e \$jpath ]; then
@@ -219,7 +215,7 @@ EOF
     cat <<EOF | tee $DESTFILE
 APPSCALE_HOME: ${APPSCALE_HOME_RUNTIME}
 EC2_HOME: /usr/local/ec2-api-tools
-JAVA_HOME: /usr/lib/jvm/java-6-openjdk
+JAVA_HOME: /usr/lib/jvm/java-7-oracle
 EOF
     mkdir -pv /var/log/appscale
     mkdir -pv /var/appscale/
@@ -276,6 +272,16 @@ postinstallthrift()
     easy_install thrift
 }
 
+installjavajdk()
+{
+    # Since Oracle requires you to accept terms and conditions, have to pull from webupd8team
+    sudo echo oracle-java7-installer shared/accepted-oracle-license-v1-1 select true | sudo /usr/bin/debconf-set-selections
+    sudo add-apt-repository ppa:webupd8team/java
+    sudo apt-get update
+    sudo apt-get install -y oracle-java7-installer
+    export JAVA_HOME=/usr/lib/jvm/java-7-oracle
+}
+
 installappserverjava()
 {
     # compile source file.
@@ -293,24 +299,6 @@ postinstallappserverjava()
 {
     :;
 }
-
-installtornado_fromsource()
-{
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    rm -rfv tornado
-    # download from appscale site
-    wget $APPSCALE_PACKAGE_MIRROR/tornado-0.2.tar.gz
-    tar xvzf tornado-0.2.tar.gz
-    pushd tornado-0.2
-    python setup.py build
-    python setup.py install --prefix=${DESTDIR}/usr
-    popd
-    rm -rfv tornado-0.2
-    rm -rfv tornado-0.2.tar.gz
-}
-
-# using egg
 
 installtornado()
 {
@@ -548,6 +536,7 @@ postinstallgems()
 installmonitoring()
 {
     cd ${APPSCALE_HOME}/AppMonitoring
+    mkdir -p /var/lib/collectd/rrd
     RAILS_ENV=production rake gems:build:force
     RAILS_ENV=production rake db:migrate
 }
@@ -673,7 +662,7 @@ postinstallhbase()
 
 installcassandra()
 {
-    CASSANDRA_VER=1.0.7
+    CASSANDRA_VER=1.2.5
     PYCASSA_VER=1.3.0
     cd /lib 
     wget $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
@@ -765,30 +754,6 @@ postinstallprotobuf()
     :;
 }
 
-installmysql()
-{
-    :;
-}
-
-postinstallmysql()
-{
-    # stop previous service
-    service mysql stop || true
-    service mysql-ndb stop || true
-    service mysql-ndb-mgm stop || true
-
-    # uninstall mysql services
-    update-rc.d -f mysql remove || true
-    update-rc.d -f mysql-ndb remove || true
-    update-rc.d -f mysql-ndb-mgm remove || true
-#    mkdir -p /var/lib/mysql-cluster/backup
-    mysqladmin shutdown
-
-    mkdir -p ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}
-    touch ${APPSCALE_HOME}/.appscale/${APPSCALE_VERSION}/mysql
-}
-
-
 installpig()
 {
     mkdir -pv ${APPSCALE_HOME}/downloads
@@ -846,7 +811,7 @@ postinstallservice()
     update-rc.d -f memcached remove || true
     update-rc.d -f collectd remove || true
 
-    ejabberdctl stop
+    ejabberdctl stop || true
     update-rc.d -f ejabberd remove || true
 }
 
@@ -865,7 +830,8 @@ installzookeeper()
     tar zxvf zookeeper-${ZK_VER}.tar.gz
 
     cd zookeeper-${ZK_VER}
-    # build java library
+    # build java library, replace the compiliability to 1.7 since Java7 cannot compile to 1.5
+    sed -i 's/1.5/1.7/g' build.xml
     ant
     ant compile_jute
     #if [ ! -e build/zookeeper-${ZK_VER}.jar ]; then
@@ -1014,6 +980,7 @@ keygen()
 installcelery()
 {
   easy_install -U Celery
+  easy_install -U Flower
 }
 
 installrabbitmq()
@@ -1023,6 +990,7 @@ installrabbitmq()
    PIKA_VERSION=0.9.9p0
    mkdir -pv ${APPSCALE_HOME}/downloads
    cd ${APPSCALE_HOME}/downloads
+   rm -fr pika-master
    wget $APPSCALE_PACKAGE_MIRROR/pika-${PIKA_VERSION}.zip
    unzip pika-${PIKA_VERSION}.zip
    cd pika-master
@@ -1034,7 +1002,7 @@ installrabbitmq()
 postinstallrabbitmq()
 {
     # After install it starts up, shut it down
-    rabbitmqctl stop
+    rabbitmqctl stop || true
     update-rc.d -f rabbitmq remove || true
     update-rc.d -f rabbitmq-server remove || true
 }

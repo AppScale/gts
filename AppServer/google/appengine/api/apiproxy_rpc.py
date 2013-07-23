@@ -15,11 +15,21 @@
 # limitations under the License.
 #
 
+
+
+
 """Base class for implementing RPC of API proxy stubs."""
 
-import sys
-import threading 
 
+
+
+
+
+
+
+
+import sys
+import threading
 
 class RPC(object):
   """Base class for implementing RPC of API proxy stubs.
@@ -164,7 +174,7 @@ class RealRPC(RPC):
   """ Overrides the RPC class to implement real asynchronous RPC calls using 
       Threads.
   """
-   
+
   def _MakeCallImpl(self):
     """ Starts the thread which calls upon the service RPC."""
     self._thread = threading.Thread(target=self.stub.MakeSyncCall,

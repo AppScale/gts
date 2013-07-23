@@ -920,7 +920,6 @@ def usage():
   print "      --users or -u for the user location"
   print "      --type or -t for type of datastore"
   print "        type available: hypertable"
-  print "                      mysql"
   print "                      hbase"
   print "                      cassandra"
   print "      --port or -p for server port"

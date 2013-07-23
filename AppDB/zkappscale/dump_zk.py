@@ -15,4 +15,6 @@ def print_recursive(handle, path):
     pass
 
 handle = kazoo.client.KazooClient(hosts="localhost:2181")
+handle.start()
 print_recursive(handle, TOP_LEVEL)
+handle.stop()

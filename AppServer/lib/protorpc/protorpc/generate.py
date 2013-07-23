@@ -93,8 +93,9 @@ class IndentWriter(object):
     Args:
       line: Line to write to wrapped file-like object.
     """
-    self.__output.write(self.__indentation * self.__indent_space)
-    self.__output.write(line)
+    if line != '':
+      self.__output.write(self.__indentation * self.__indent_space)
+      self.__output.write(line)
     self.__output.write('\n')
 
   def begin_indent(self):
@@ -122,6 +123,6 @@ class IndentWriter(object):
     """Syntactic sugar for write_line method.
 
     Args:
-      line: Line to write to wrapped file=like object.
+      line: Line to write to wrapped file-like object.
     """
     self.write_line(line)

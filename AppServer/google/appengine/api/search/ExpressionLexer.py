@@ -27,53 +27,57 @@ from google.appengine._internal.antlr3.compat import set, frozenset
 HIDDEN = BaseRecognizer.HIDDEN
 
 
-DOLLAR=33
-LT=7
-EXPONENT=28
-LSQUARE=19
-ASCII_LETTER=31
-OCTAL_ESC=36
-FLOAT=23
-NAME_START=29
+DOLLAR=49
+EXPONENT=44
+LT=11
+LSQUARE=23
+ASCII_LETTER=47
+LOG=35
+SNIPPET=39
+OCTAL_ESC=52
+MAX=36
+COUNT=31
+FLOAT=27
+NAME_START=45
+NOT=10
+AND=7
 EOF=-1
-LPAREN=17
+LPAREN=21
 INDEX=5
-QUOTE=26
-RPAREN=18
-NAME=22
-ESC_SEQ=27
-PLUS=13
-DIGIT=25
-EQ=11
-NE=12
-T__42=42
-T__43=43
-T__40=40
-GE=10
-T__41=41
-T__46=46
-T__47=47
-T__44=44
-T__45=45
-T__48=48
-T__49=49
-UNICODE_ESC=35
-HEX_DIGIT=34
-UNDERSCORE=32
-INT=20
-FN=6
-MINUS=14
-RSQUARE=21
-PHRASE=24
-WS=30
-T__37=37
-T__38=38
-T__39=39
+RPAREN=22
+DISTANCE=32
+QUOTE=42
+NAME=26
+ESC_SEQ=43
+POW=38
+T__53=53
+COMMA=29
+PLUS=17
+DIGIT=41
+EQ=15
+NE=16
+GE=14
+XOR=9
+SWITCH=40
+UNICODE_ESC=51
+HEX_DIGIT=50
+UNDERSCORE=48
+INT=24
+MIN=37
+MINUS=18
+RSQUARE=25
+GEOPOINT=33
+PHRASE=28
+ABS=30
+WS=46
 NEG=4
-GT=9
-DIV=16
-TIMES=15
-LE=8
+OR=8
+LEN=34
+GT=13
+DIV=20
+TIMES=19
+COND=6
+LE=12
 
 
 class ExpressionLexer(Lexer):
@@ -115,10 +119,10 @@ class ExpressionLexer(Lexer):
 
 
 
-    def mT__37(self, ):
+    def mT__53(self, ):
 
         try:
-            _type = T__37
+            _type = T__53
             _channel = DEFAULT_CHANNEL
 
 
@@ -140,35 +144,10 @@ class ExpressionLexer(Lexer):
 
 
 
-    def mT__38(self, ):
+    def mABS(self, ):
 
         try:
-            _type = T__38
-            _channel = DEFAULT_CHANNEL
-
-
-
-            pass
-            self.match(44)
-
-
-
-            self._state.type = _type
-            self._state.channel = _channel
-
-        finally:
-
-            pass
-
-
-
-
-
-
-    def mT__39(self, ):
-
-        try:
-            _type = T__39
+            _type = ABS
             _channel = DEFAULT_CHANNEL
 
 
@@ -190,10 +169,10 @@ class ExpressionLexer(Lexer):
 
 
 
-    def mT__40(self, ):
+    def mCOUNT(self, ):
 
         try:
-            _type = T__40
+            _type = COUNT
             _channel = DEFAULT_CHANNEL
 
 
@@ -215,10 +194,10 @@ class ExpressionLexer(Lexer):
 
 
 
-    def mT__41(self, ):
+    def mDISTANCE(self, ):
 
         try:
-            _type = T__41
+            _type = DISTANCE
             _channel = DEFAULT_CHANNEL
 
 
@@ -240,10 +219,10 @@ class ExpressionLexer(Lexer):
 
 
 
-    def mT__42(self, ):
+    def mGEOPOINT(self, ):
 
         try:
-            _type = T__42
+            _type = GEOPOINT
             _channel = DEFAULT_CHANNEL
 
 
@@ -265,35 +244,10 @@ class ExpressionLexer(Lexer):
 
 
 
-    def mT__43(self, ):
+    def mLEN(self, ):
 
         try:
-            _type = T__43
-            _channel = DEFAULT_CHANNEL
-
-
-
-            pass
-            self.match("if")
-
-
-
-            self._state.type = _type
-            self._state.channel = _channel
-
-        finally:
-
-            pass
-
-
-
-
-
-
-    def mT__44(self, ):
-
-        try:
-            _type = T__44
+            _type = LEN
             _channel = DEFAULT_CHANNEL
 
 
@@ -315,10 +269,10 @@ class ExpressionLexer(Lexer):
 
 
 
-    def mT__45(self, ):
+    def mLOG(self, ):
 
         try:
-            _type = T__45
+            _type = LOG
             _channel = DEFAULT_CHANNEL
 
 
@@ -340,10 +294,10 @@ class ExpressionLexer(Lexer):
 
 
 
-    def mT__46(self, ):
+    def mMAX(self, ):
 
         try:
-            _type = T__46
+            _type = MAX
             _channel = DEFAULT_CHANNEL
 
 
@@ -365,10 +319,10 @@ class ExpressionLexer(Lexer):
 
 
 
-    def mT__47(self, ):
+    def mMIN(self, ):
 
         try:
-            _type = T__47
+            _type = MIN
             _channel = DEFAULT_CHANNEL
 
 
@@ -390,10 +344,10 @@ class ExpressionLexer(Lexer):
 
 
 
-    def mT__48(self, ):
+    def mPOW(self, ):
 
         try:
-            _type = T__48
+            _type = POW
             _channel = DEFAULT_CHANNEL
 
 
@@ -415,16 +369,141 @@ class ExpressionLexer(Lexer):
 
 
 
-    def mT__49(self, ):
+    def mAND(self, ):
 
         try:
-            _type = T__49
+            _type = AND
+            _channel = DEFAULT_CHANNEL
+
+
+
+            pass
+            self.match("AND")
+
+
+
+            self._state.type = _type
+            self._state.channel = _channel
+
+        finally:
+
+            pass
+
+
+
+
+
+
+    def mOR(self, ):
+
+        try:
+            _type = OR
+            _channel = DEFAULT_CHANNEL
+
+
+
+            pass
+            self.match("OR")
+
+
+
+            self._state.type = _type
+            self._state.channel = _channel
+
+        finally:
+
+            pass
+
+
+
+
+
+
+    def mXOR(self, ):
+
+        try:
+            _type = XOR
+            _channel = DEFAULT_CHANNEL
+
+
+
+            pass
+            self.match("XOR")
+
+
+
+            self._state.type = _type
+            self._state.channel = _channel
+
+        finally:
+
+            pass
+
+
+
+
+
+
+    def mNOT(self, ):
+
+        try:
+            _type = NOT
+            _channel = DEFAULT_CHANNEL
+
+
+
+            pass
+            self.match("NOT")
+
+
+
+            self._state.type = _type
+            self._state.channel = _channel
+
+        finally:
+
+            pass
+
+
+
+
+
+
+    def mSNIPPET(self, ):
+
+        try:
+            _type = SNIPPET
             _channel = DEFAULT_CHANNEL
 
 
 
             pass
             self.match("snippet")
+
+
+
+            self._state.type = _type
+            self._state.channel = _channel
+
+        finally:
+
+            pass
+
+
+
+
+
+
+    def mSWITCH(self, ):
+
+        try:
+            _type = SWITCH
+            _channel = DEFAULT_CHANNEL
+
+
+
+            pass
+            self.match("switch")
 
 
 
@@ -1163,6 +1242,31 @@ class ExpressionLexer(Lexer):
 
 
 
+    def mCOND(self, ):
+
+        try:
+            _type = COND
+            _channel = DEFAULT_CHANNEL
+
+
+
+            pass
+            self.match(63)
+
+
+
+            self._state.type = _type
+            self._state.channel = _channel
+
+        finally:
+
+            pass
+
+
+
+
+
+
     def mQUOTE(self, ):
 
         try:
@@ -1173,6 +1277,31 @@ class ExpressionLexer(Lexer):
 
             pass
             self.match(34)
+
+
+
+            self._state.type = _type
+            self._state.channel = _channel
+
+        finally:
+
+            pass
+
+
+
+
+
+
+    def mCOMMA(self, ):
+
+        try:
+            _type = COMMA
+            _channel = DEFAULT_CHANNEL
+
+
+
+            pass
+            self.match(44)
 
 
 
@@ -1651,201 +1780,231 @@ class ExpressionLexer(Lexer):
 
     def mTokens(self):
 
-        alt20 = 33
+        alt20 = 38
         alt20 = self.dfa20.predict(self.input)
         if alt20 == 1:
 
             pass
-            self.mT__37()
+            self.mT__53()
 
 
         elif alt20 == 2:
 
             pass
-            self.mT__38()
+            self.mABS()
 
 
         elif alt20 == 3:
 
             pass
-            self.mT__39()
+            self.mCOUNT()
 
 
         elif alt20 == 4:
 
             pass
-            self.mT__40()
+            self.mDISTANCE()
 
 
         elif alt20 == 5:
 
             pass
-            self.mT__41()
+            self.mGEOPOINT()
 
 
         elif alt20 == 6:
 
             pass
-            self.mT__42()
+            self.mLEN()
 
 
         elif alt20 == 7:
 
             pass
-            self.mT__43()
+            self.mLOG()
 
 
         elif alt20 == 8:
 
             pass
-            self.mT__44()
+            self.mMAX()
 
 
         elif alt20 == 9:
 
             pass
-            self.mT__45()
+            self.mMIN()
 
 
         elif alt20 == 10:
 
             pass
-            self.mT__46()
+            self.mPOW()
 
 
         elif alt20 == 11:
 
             pass
-            self.mT__47()
+            self.mAND()
 
 
         elif alt20 == 12:
 
             pass
-            self.mT__48()
+            self.mOR()
 
 
         elif alt20 == 13:
 
             pass
-            self.mT__49()
+            self.mXOR()
 
 
         elif alt20 == 14:
 
             pass
-            self.mINT()
+            self.mNOT()
 
 
         elif alt20 == 15:
 
             pass
-            self.mPHRASE()
+            self.mSNIPPET()
 
 
         elif alt20 == 16:
 
             pass
-            self.mFLOAT()
+            self.mSWITCH()
 
 
         elif alt20 == 17:
 
             pass
-            self.mNAME()
+            self.mINT()
 
 
         elif alt20 == 18:
 
             pass
-            self.mLPAREN()
+            self.mPHRASE()
 
 
         elif alt20 == 19:
 
             pass
-            self.mRPAREN()
+            self.mFLOAT()
 
 
         elif alt20 == 20:
 
             pass
-            self.mLSQUARE()
+            self.mNAME()
 
 
         elif alt20 == 21:
 
             pass
-            self.mRSQUARE()
+            self.mLPAREN()
 
 
         elif alt20 == 22:
 
             pass
-            self.mPLUS()
+            self.mRPAREN()
 
 
         elif alt20 == 23:
 
             pass
-            self.mMINUS()
+            self.mLSQUARE()
 
 
         elif alt20 == 24:
 
             pass
-            self.mTIMES()
+            self.mRSQUARE()
 
 
         elif alt20 == 25:
 
             pass
-            self.mDIV()
+            self.mPLUS()
 
 
         elif alt20 == 26:
 
             pass
-            self.mLT()
+            self.mMINUS()
 
 
         elif alt20 == 27:
 
             pass
-            self.mLE()
+            self.mTIMES()
 
 
         elif alt20 == 28:
 
             pass
-            self.mGT()
+            self.mDIV()
 
 
         elif alt20 == 29:
 
             pass
-            self.mGE()
+            self.mLT()
 
 
         elif alt20 == 30:
 
             pass
-            self.mEQ()
+            self.mLE()
 
 
         elif alt20 == 31:
 
             pass
-            self.mNE()
+            self.mGT()
 
 
         elif alt20 == 32:
 
             pass
-            self.mQUOTE()
+            self.mGE()
 
 
         elif alt20 == 33:
+
+            pass
+            self.mEQ()
+
+
+        elif alt20 == 34:
+
+            pass
+            self.mNE()
+
+
+        elif alt20 == 35:
+
+            pass
+            self.mCOND()
+
+
+        elif alt20 == 36:
+
+            pass
+            self.mQUOTE()
+
+
+        elif alt20 == 37:
+
+            pass
+            self.mCOMMA()
+
+
+        elif alt20 == 38:
 
             pass
             self.mWS()
@@ -1875,7 +2034,7 @@ class ExpressionLexer(Lexer):
         )
 
     DFA13_accept = DFA.unpack(
-        u"\3\uffff\1\2\1\3\1\1"
+        u"\3\uffff\1\2\1\1\1\3"
         )
 
     DFA13_special = DFA.unpack(
@@ -1886,7 +2045,7 @@ class ExpressionLexer(Lexer):
     DFA13_transition = [
         DFA.unpack(u"\1\1\1\3\1\uffff\12\2"),
         DFA.unpack(u"\1\3\1\uffff\12\2"),
-        DFA.unpack(u"\1\5\1\uffff\12\2\13\uffff\1\4\37\uffff\1\4"),
+        DFA.unpack(u"\1\4\1\uffff\12\2\13\uffff\1\5\37\uffff\1\5"),
         DFA.unpack(u""),
         DFA.unpack(u""),
         DFA.unpack(u"")
@@ -1898,145 +2057,171 @@ class ExpressionLexer(Lexer):
 
 
     DFA20_eot = DFA.unpack(
-        u"\1\uffff\1\35\1\uffff\11\17\1\51\1\52\1\53\10\uffff\1\56\1\60\5"
-        u"\uffff\4\17\1\65\6\17\10\uffff\1\74\3\17\1\uffff\1\100\1\101\1"
-        u"\102\1\103\1\104\1\17\1\uffff\3\17\5\uffff\1\17\1\112\3\17\1\uffff"
-        u"\5\17\1\123\1\124\1\125\3\uffff"
+        u"\1\uffff\1\41\14\21\1\61\1\62\1\63\10\uffff\1\66\1\70\7\uffff\12"
+        u"\21\1\103\4\21\10\uffff\1\110\3\21\1\114\1\115\1\116\1\117\1\120"
+        u"\1\121\1\uffff\1\122\1\123\2\21\1\uffff\3\21\10\uffff\2\21\1\133"
+        u"\4\21\1\uffff\3\21\1\143\2\21\1\146\1\uffff\1\147\1\150\3\uffff"
         )
 
     DFA20_eof = DFA.unpack(
-        u"\126\uffff"
+        u"\151\uffff"
         )
 
     DFA20_min = DFA.unpack(
-        u"\1\11\1\60\1\uffff\1\142\1\157\1\151\1\145\1\146\1\145\1\141\1"
-        u"\157\1\156\2\56\1\0\10\uffff\2\75\5\uffff\1\163\1\165\1\163\1\157"
-        u"\1\44\1\156\1\147\1\170\1\156\1\167\1\151\10\uffff\1\44\1\156\1"
-        u"\164\1\160\1\uffff\5\44\1\160\1\uffff\1\164\1\141\1\157\5\uffff"
-        u"\1\160\1\44\1\156\1\151\1\145\1\uffff\1\143\1\156\1\164\1\145\1"
-        u"\164\3\44\3\uffff"
+        u"\1\11\1\60\1\142\1\157\1\151\2\145\1\141\1\157\1\116\1\122\2\117"
+        u"\1\156\2\56\1\0\10\uffff\2\75\7\uffff\1\163\1\165\1\163\1\157\1"
+        u"\156\1\147\1\170\1\156\1\167\1\104\1\44\1\122\1\124\2\151\10\uffff"
+        u"\1\44\1\156\1\164\1\160\6\44\1\uffff\2\44\1\160\1\164\1\uffff\1"
+        u"\164\1\141\1\157\10\uffff\1\160\1\143\1\44\1\156\1\151\1\145\1"
+        u"\150\1\uffff\1\143\1\156\1\164\1\44\1\145\1\164\1\44\1\uffff\2"
+        u"\44\3\uffff"
         )
 
     DFA20_max = DFA.unpack(
-        u"\1\172\1\71\1\uffff\1\142\1\157\1\151\1\145\1\146\1\157\1\151\1"
-        u"\157\1\156\1\71\1\145\1\uffff\10\uffff\2\75\5\uffff\1\163\1\165"
-        u"\1\163\1\157\1\172\1\156\1\147\1\170\1\156\1\167\1\151\10\uffff"
-        u"\1\172\1\156\1\164\1\160\1\uffff\5\172\1\160\1\uffff\1\164\1\141"
-        u"\1\157\5\uffff\1\160\1\172\1\156\1\151\1\145\1\uffff\1\143\1\156"
-        u"\1\164\1\145\1\164\3\172\3\uffff"
+        u"\1\172\1\71\1\142\1\157\1\151\1\145\1\157\1\151\1\157\1\116\1\122"
+        u"\2\117\1\167\1\71\1\145\1\uffff\10\uffff\2\75\7\uffff\1\163\1\165"
+        u"\1\163\1\157\1\156\1\147\1\170\1\156\1\167\1\104\1\172\1\122\1"
+        u"\124\2\151\10\uffff\1\172\1\156\1\164\1\160\6\172\1\uffff\2\172"
+        u"\1\160\1\164\1\uffff\1\164\1\141\1\157\10\uffff\1\160\1\143\1\172"
+        u"\1\156\1\151\1\145\1\150\1\uffff\1\143\1\156\1\164\1\172\1\145"
+        u"\1\164\1\172\1\uffff\2\172\3\uffff"
         )
 
     DFA20_accept = DFA.unpack(
-        u"\2\uffff\1\2\14\uffff\1\21\1\22\1\23\1\24\1\25\1\26\1\30\1\31\2"
-        u"\uffff\1\36\1\37\1\41\1\20\1\1\13\uffff\1\27\1\16\1\40\1\17\1\33"
-        u"\1\32\1\35\1\34\4\uffff\1\7\6\uffff\1\3\3\uffff\1\10\1\11\1\12"
-        u"\1\13\1\14\5\uffff\1\4\10\uffff\1\15\1\5\1\6"
+        u"\21\uffff\1\24\1\25\1\26\1\27\1\30\1\31\1\33\1\34\2\uffff\1\41"
+        u"\1\42\1\43\1\45\1\46\1\23\1\1\17\uffff\1\32\1\21\1\44\1\22\1\36"
+        u"\1\35\1\40\1\37\12\uffff\1\14\4\uffff\1\2\3\uffff\1\6\1\7\1\10"
+        u"\1\11\1\12\1\13\1\15\1\16\7\uffff\1\3\7\uffff\1\20\2\uffff\1\17"
+        u"\1\4\1\5"
         )
 
     DFA20_special = DFA.unpack(
-        u"\16\uffff\1\0\107\uffff"
+        u"\20\uffff\1\0\130\uffff"
         )
 
 
     DFA20_transition = [
-        DFA.unpack(u"\2\33\2\uffff\1\33\22\uffff\1\33\1\32\1\16\1\uffff\1"
-        u"\17\3\uffff\1\20\1\21\1\25\1\24\1\2\1\14\1\1\1\26\12\15\2\uffff"
-        u"\1\27\1\31\1\30\2\uffff\32\17\1\22\1\uffff\1\23\1\uffff\1\17\1"
-        u"\uffff\1\3\1\17\1\4\1\5\2\17\1\6\1\17\1\7\2\17\1\10\1\11\2\17\1"
-        u"\12\2\17\1\13\7\17"),
-        DFA.unpack(u"\12\34"),
-        DFA.unpack(u""),
-        DFA.unpack(u"\1\36"),
-        DFA.unpack(u"\1\37"),
-        DFA.unpack(u"\1\40"),
-        DFA.unpack(u"\1\41"),
+        DFA.unpack(u"\2\37\2\uffff\1\37\22\uffff\1\37\1\34\1\20\1\uffff\1"
+        u"\21\3\uffff\1\22\1\23\1\27\1\26\1\36\1\16\1\1\1\30\12\17\2\uffff"
+        u"\1\31\1\33\1\32\1\35\1\uffff\1\11\14\21\1\14\1\12\10\21\1\13\2"
+        u"\21\1\24\1\uffff\1\25\1\uffff\1\21\1\uffff\1\2\1\21\1\3\1\4\2\21"
+        u"\1\5\4\21\1\6\1\7\2\21\1\10\2\21\1\15\7\21"),
+        DFA.unpack(u"\12\40"),
         DFA.unpack(u"\1\42"),
-        DFA.unpack(u"\1\43\11\uffff\1\44"),
-        DFA.unpack(u"\1\45\7\uffff\1\46"),
-        DFA.unpack(u"\1\47"),
-        DFA.unpack(u"\1\50"),
-        DFA.unpack(u"\1\34\1\uffff\12\15"),
-        DFA.unpack(u"\1\34\1\uffff\12\15\13\uffff\1\34\37\uffff\1\34"),
-        DFA.unpack(u"\0\54"),
-        DFA.unpack(u""),
-        DFA.unpack(u""),
-        DFA.unpack(u""),
-        DFA.unpack(u""),
-        DFA.unpack(u""),
-        DFA.unpack(u""),
-        DFA.unpack(u""),
-        DFA.unpack(u""),
+        DFA.unpack(u"\1\43"),
+        DFA.unpack(u"\1\44"),
+        DFA.unpack(u"\1\45"),
+        DFA.unpack(u"\1\46\11\uffff\1\47"),
+        DFA.unpack(u"\1\50\7\uffff\1\51"),
+        DFA.unpack(u"\1\52"),
+        DFA.unpack(u"\1\53"),
+        DFA.unpack(u"\1\54"),
         DFA.unpack(u"\1\55"),
-        DFA.unpack(u"\1\57"),
+        DFA.unpack(u"\1\56"),
+        DFA.unpack(u"\1\57\10\uffff\1\60"),
+        DFA.unpack(u"\1\40\1\uffff\12\17"),
+        DFA.unpack(u"\1\40\1\uffff\12\17\13\uffff\1\40\37\uffff\1\40"),
+        DFA.unpack(u"\0\64"),
         DFA.unpack(u""),
         DFA.unpack(u""),
         DFA.unpack(u""),
         DFA.unpack(u""),
         DFA.unpack(u""),
-        DFA.unpack(u"\1\61"),
-        DFA.unpack(u"\1\62"),
-        DFA.unpack(u"\1\63"),
-        DFA.unpack(u"\1\64"),
-        DFA.unpack(u"\1\17\13\uffff\12\17\7\uffff\32\17\4\uffff\1\17\1\uffff"
-        u"\32\17"),
-        DFA.unpack(u"\1\66"),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u"\1\65"),
         DFA.unpack(u"\1\67"),
-        DFA.unpack(u"\1\70"),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
         DFA.unpack(u"\1\71"),
         DFA.unpack(u"\1\72"),
         DFA.unpack(u"\1\73"),
-        DFA.unpack(u""),
-        DFA.unpack(u""),
-        DFA.unpack(u""),
-        DFA.unpack(u""),
-        DFA.unpack(u""),
-        DFA.unpack(u""),
-        DFA.unpack(u""),
-        DFA.unpack(u""),
-        DFA.unpack(u"\1\17\13\uffff\12\17\7\uffff\32\17\4\uffff\1\17\1\uffff"
-        u"\32\17"),
+        DFA.unpack(u"\1\74"),
         DFA.unpack(u"\1\75"),
         DFA.unpack(u"\1\76"),
         DFA.unpack(u"\1\77"),
-        DFA.unpack(u""),
-        DFA.unpack(u"\1\17\13\uffff\12\17\7\uffff\32\17\4\uffff\1\17\1\uffff"
-        u"\32\17"),
-        DFA.unpack(u"\1\17\13\uffff\12\17\7\uffff\32\17\4\uffff\1\17\1\uffff"
-        u"\32\17"),
-        DFA.unpack(u"\1\17\13\uffff\12\17\7\uffff\32\17\4\uffff\1\17\1\uffff"
-        u"\32\17"),
-        DFA.unpack(u"\1\17\13\uffff\12\17\7\uffff\32\17\4\uffff\1\17\1\uffff"
-        u"\32\17"),
-        DFA.unpack(u"\1\17\13\uffff\12\17\7\uffff\32\17\4\uffff\1\17\1\uffff"
-        u"\32\17"),
+        DFA.unpack(u"\1\100"),
+        DFA.unpack(u"\1\101"),
+        DFA.unpack(u"\1\102"),
+        DFA.unpack(u"\1\21\13\uffff\12\21\7\uffff\32\21\4\uffff\1\21\1\uffff"
+        u"\32\21"),
+        DFA.unpack(u"\1\104"),
         DFA.unpack(u"\1\105"),
-        DFA.unpack(u""),
         DFA.unpack(u"\1\106"),
         DFA.unpack(u"\1\107"),
-        DFA.unpack(u"\1\110"),
         DFA.unpack(u""),
         DFA.unpack(u""),
         DFA.unpack(u""),
         DFA.unpack(u""),
         DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u"\1\21\13\uffff\12\21\7\uffff\32\21\4\uffff\1\21\1\uffff"
+        u"\32\21"),
         DFA.unpack(u"\1\111"),
-        DFA.unpack(u"\1\17\13\uffff\12\17\7\uffff\32\17\4\uffff\1\17\1\uffff"
-        u"\32\17"),
+        DFA.unpack(u"\1\112"),
         DFA.unpack(u"\1\113"),
-        DFA.unpack(u"\1\114"),
-        DFA.unpack(u"\1\115"),
+        DFA.unpack(u"\1\21\13\uffff\12\21\7\uffff\32\21\4\uffff\1\21\1\uffff"
+        u"\32\21"),
+        DFA.unpack(u"\1\21\13\uffff\12\21\7\uffff\32\21\4\uffff\1\21\1\uffff"
+        u"\32\21"),
+        DFA.unpack(u"\1\21\13\uffff\12\21\7\uffff\32\21\4\uffff\1\21\1\uffff"
+        u"\32\21"),
+        DFA.unpack(u"\1\21\13\uffff\12\21\7\uffff\32\21\4\uffff\1\21\1\uffff"
+        u"\32\21"),
+        DFA.unpack(u"\1\21\13\uffff\12\21\7\uffff\32\21\4\uffff\1\21\1\uffff"
+        u"\32\21"),
+        DFA.unpack(u"\1\21\13\uffff\12\21\7\uffff\32\21\4\uffff\1\21\1\uffff"
+        u"\32\21"),
         DFA.unpack(u""),
-        DFA.unpack(u"\1\116"),
-        DFA.unpack(u"\1\117"),
-        DFA.unpack(u"\1\120"),
-        DFA.unpack(u"\1\121"),
-        DFA.unpack(u"\1\122"),
-        DFA.unpack(u"\1\17\13\uffff\12\17\7\uffff\32\17\4\uffff\1\17\1\uffff"
-        u"\32\17"),
-        DFA.unpack(u"\1\17\13\uffff\12\17\7\uffff\32\17\4\uffff\1\17\1\uffff"
-        u"\32\17"),
-        DFA.unpack(u"\1\17\13\uffff\12\17\7\uffff\32\17\4\uffff\1\17\1\uffff"
-        u"\32\17"),
+        DFA.unpack(u"\1\21\13\uffff\12\21\7\uffff\32\21\4\uffff\1\21\1\uffff"
+        u"\32\21"),
+        DFA.unpack(u"\1\21\13\uffff\12\21\7\uffff\32\21\4\uffff\1\21\1\uffff"
+        u"\32\21"),
+        DFA.unpack(u"\1\124"),
+        DFA.unpack(u"\1\125"),
+        DFA.unpack(u""),
+        DFA.unpack(u"\1\126"),
+        DFA.unpack(u"\1\127"),
+        DFA.unpack(u"\1\130"),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u""),
+        DFA.unpack(u"\1\131"),
+        DFA.unpack(u"\1\132"),
+        DFA.unpack(u"\1\21\13\uffff\12\21\7\uffff\32\21\4\uffff\1\21\1\uffff"
+        u"\32\21"),
+        DFA.unpack(u"\1\134"),
+        DFA.unpack(u"\1\135"),
+        DFA.unpack(u"\1\136"),
+        DFA.unpack(u"\1\137"),
+        DFA.unpack(u""),
+        DFA.unpack(u"\1\140"),
+        DFA.unpack(u"\1\141"),
+        DFA.unpack(u"\1\142"),
+        DFA.unpack(u"\1\21\13\uffff\12\21\7\uffff\32\21\4\uffff\1\21\1\uffff"
+        u"\32\21"),
+        DFA.unpack(u"\1\144"),
+        DFA.unpack(u"\1\145"),
+        DFA.unpack(u"\1\21\13\uffff\12\21\7\uffff\32\21\4\uffff\1\21\1\uffff"
+        u"\32\21"),
+        DFA.unpack(u""),
+        DFA.unpack(u"\1\21\13\uffff\12\21\7\uffff\32\21\4\uffff\1\21\1\uffff"
+        u"\32\21"),
+        DFA.unpack(u"\1\21\13\uffff\12\21\7\uffff\32\21\4\uffff\1\21\1\uffff"
+        u"\32\21"),
         DFA.unpack(u""),
         DFA.unpack(u""),
         DFA.unpack(u"")
@@ -2056,14 +2241,14 @@ class ExpressionLexer(Lexer):
             _s = s
 
             if s == 0:
-                LA20_14 = input.LA(1)
+                LA20_16 = input.LA(1)
 
                 s = -1
-                if ((0 <= LA20_14 <= 65535)):
-                    s = 44
+                if ((0 <= LA20_16 <= 65535)):
+                    s = 52
 
                 else:
-                    s = 43
+                    s = 51
 
                 if s >= 0:
                     return s

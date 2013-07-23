@@ -87,11 +87,17 @@ class ExpressionEvaluator(object):
     self._case_preserving_tokenizer = simple_tokenizer.SimpleTokenizer(
         preserve_case=True)
     self._function_table = {
-        'max': self._Max,
-        'min': self._Min,
-        'count': self._Count,
-        'snippet': self._Snippet,
-        'distance': self._Unsupported('distance'),
+        ExpressionParser.ABS: self._Unsupported('abs'),
+        ExpressionParser.COUNT: self._Count,
+        ExpressionParser.DISTANCE: self._Unsupported('distance'),
+        ExpressionParser.GEOPOINT: self._Unsupported('geopoint'),
+        ExpressionParser.LEN: self._Unsupported('len'),
+        ExpressionParser.LOG: self._Unsupported('log'),
+        ExpressionParser.MAX: self._Max,
+        ExpressionParser.MIN: self._Min,
+        ExpressionParser.POW: self._Unsupported('pow'),
+        ExpressionParser.SNIPPET: self._Snippet,
+        ExpressionParser.SWITCH: self._Unsupported('switch'),
         }
 
   def _Min(self, *nodes):
@@ -268,8 +274,8 @@ class ExpressionEvaluator(object):
       and are used to indicate that this expression should not be set on this
       document.
     """
-    if node.getType() == ExpressionParser.FN:
-      func = self._function_table[query_parser.GetQueryNodeText(node)]
+    if node.getType() in self._function_table:
+      func = self._function_table[node.getType()]
 
 
       return func(*node.children)

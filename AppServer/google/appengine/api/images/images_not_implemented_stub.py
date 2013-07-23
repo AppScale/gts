@@ -21,9 +21,14 @@
 """A NotImplemented Images API stub for when the PIL library is not found."""
 
 
+from google.appengine.api.images import images_blob_stub
+
 
 class ImagesNotImplementedServiceStub(object):
   """Stub version of images API which raises a NotImplementedError."""
+
+  def __init__(self, host_prefix=""):
+    self._blob_stub = images_blob_stub.ImagesBlobStub(host_prefix)
 
   def MakeSyncCall(self, service, call, request, response, request_id=None):
     """Main entry point.
@@ -36,6 +41,13 @@ class ImagesNotImplementedServiceStub(object):
       request_id: A unique string identifying the request associated with the
           API call.
     """
+    if service == "images":
+      if call == "GetUrlBase":
+        self._blob_stub.GetUrlBase(request, response)
+        return
+      elif call == "DeleteUrlBase":
+        self._blob_stub.DeleteUrlBase(request, response)
+        return
     raise NotImplementedError("Unable to find the Python PIL library.  Please "
                               "view the SDK documentation for details about "
                               "installing PIL on your system.")

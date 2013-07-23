@@ -725,6 +725,8 @@ class GetOAuthUserResponse(ProtocolBuffer.ProtocolMessage):
   user_organization_ = ""
   has_is_admin_ = 0
   is_admin_ = 0
+  has_client_id_ = 0
+  client_id_ = ""
 
   def __init__(self, contents=None):
     if contents is not None: self.MergeFromString(contents)
@@ -794,6 +796,19 @@ class GetOAuthUserResponse(ProtocolBuffer.ProtocolMessage):
 
   def has_is_admin(self): return self.has_is_admin_
 
+  def client_id(self): return self.client_id_
+
+  def set_client_id(self, x):
+    self.has_client_id_ = 1
+    self.client_id_ = x
+
+  def clear_client_id(self):
+    if self.has_client_id_:
+      self.has_client_id_ = 0
+      self.client_id_ = ""
+
+  def has_client_id(self): return self.has_client_id_
+
 
   def MergeFrom(self, x):
     assert x is not self
@@ -802,6 +817,7 @@ class GetOAuthUserResponse(ProtocolBuffer.ProtocolMessage):
     if (x.has_auth_domain()): self.set_auth_domain(x.auth_domain())
     if (x.has_user_organization()): self.set_user_organization(x.user_organization())
     if (x.has_is_admin()): self.set_is_admin(x.is_admin())
+    if (x.has_client_id()): self.set_client_id(x.client_id())
 
   def Equals(self, x):
     if x is self: return 1
@@ -815,6 +831,8 @@ class GetOAuthUserResponse(ProtocolBuffer.ProtocolMessage):
     if self.has_user_organization_ and self.user_organization_ != x.user_organization_: return 0
     if self.has_is_admin_ != x.has_is_admin_: return 0
     if self.has_is_admin_ and self.is_admin_ != x.is_admin_: return 0
+    if self.has_client_id_ != x.has_client_id_: return 0
+    if self.has_client_id_ and self.client_id_ != x.client_id_: return 0
     return 1
 
   def IsInitialized(self, debug_strs=None):
@@ -840,6 +858,7 @@ class GetOAuthUserResponse(ProtocolBuffer.ProtocolMessage):
     n += self.lengthString(len(self.auth_domain_))
     if (self.has_user_organization_): n += 1 + self.lengthString(len(self.user_organization_))
     if (self.has_is_admin_): n += 2
+    if (self.has_client_id_): n += 1 + self.lengthString(len(self.client_id_))
     return n + 3
 
   def ByteSizePartial(self):
@@ -855,6 +874,7 @@ class GetOAuthUserResponse(ProtocolBuffer.ProtocolMessage):
       n += self.lengthString(len(self.auth_domain_))
     if (self.has_user_organization_): n += 1 + self.lengthString(len(self.user_organization_))
     if (self.has_is_admin_): n += 2
+    if (self.has_client_id_): n += 1 + self.lengthString(len(self.client_id_))
     return n
 
   def Clear(self):
@@ -863,6 +883,7 @@ class GetOAuthUserResponse(ProtocolBuffer.ProtocolMessage):
     self.clear_auth_domain()
     self.clear_user_organization()
     self.clear_is_admin()
+    self.clear_client_id()
 
   def OutputUnchecked(self, out):
     out.putVarInt32(10)
@@ -877,6 +898,9 @@ class GetOAuthUserResponse(ProtocolBuffer.ProtocolMessage):
     if (self.has_is_admin_):
       out.putVarInt32(40)
       out.putBoolean(self.is_admin_)
+    if (self.has_client_id_):
+      out.putVarInt32(50)
+      out.putPrefixedString(self.client_id_)
 
   def OutputPartial(self, out):
     if (self.has_email_):
@@ -894,6 +918,9 @@ class GetOAuthUserResponse(ProtocolBuffer.ProtocolMessage):
     if (self.has_is_admin_):
       out.putVarInt32(40)
       out.putBoolean(self.is_admin_)
+    if (self.has_client_id_):
+      out.putVarInt32(50)
+      out.putPrefixedString(self.client_id_)
 
   def TryMerge(self, d):
     while d.avail() > 0:
@@ -913,6 +940,9 @@ class GetOAuthUserResponse(ProtocolBuffer.ProtocolMessage):
       if tt == 40:
         self.set_is_admin(d.getBoolean())
         continue
+      if tt == 50:
+        self.set_client_id(d.getPrefixedString())
+        continue
 
 
       if (tt == 0): raise ProtocolBuffer.ProtocolBufferDecodeError
@@ -926,6 +956,7 @@ class GetOAuthUserResponse(ProtocolBuffer.ProtocolMessage):
     if self.has_auth_domain_: res+=prefix+("auth_domain: %s\n" % self.DebugFormatString(self.auth_domain_))
     if self.has_user_organization_: res+=prefix+("user_organization: %s\n" % self.DebugFormatString(self.user_organization_))
     if self.has_is_admin_: res+=prefix+("is_admin: %s\n" % self.DebugFormatBool(self.is_admin_))
+    if self.has_client_id_: res+=prefix+("client_id: %s\n" % self.DebugFormatString(self.client_id_))
     return res
 
 
@@ -937,6 +968,7 @@ class GetOAuthUserResponse(ProtocolBuffer.ProtocolMessage):
   kauth_domain = 3
   kuser_organization = 4
   kis_admin = 5
+  kclient_id = 6
 
   _TEXT = _BuildTagLookupTable({
     0: "ErrorCode",
@@ -945,7 +977,8 @@ class GetOAuthUserResponse(ProtocolBuffer.ProtocolMessage):
     3: "auth_domain",
     4: "user_organization",
     5: "is_admin",
-  }, 5)
+    6: "client_id",
+  }, 6)
 
   _TYPES = _BuildTagLookupTable({
     0: ProtocolBuffer.Encoder.NUMERIC,
@@ -954,7 +987,8 @@ class GetOAuthUserResponse(ProtocolBuffer.ProtocolMessage):
     3: ProtocolBuffer.Encoder.STRING,
     4: ProtocolBuffer.Encoder.STRING,
     5: ProtocolBuffer.Encoder.NUMERIC,
-  }, 5, ProtocolBuffer.Encoder.MAX_TYPE)
+    6: ProtocolBuffer.Encoder.STRING,
+  }, 6, ProtocolBuffer.Encoder.MAX_TYPE)
 
 
   _STYLE = """"""
