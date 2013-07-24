@@ -41,7 +41,7 @@ from google.appengine.runtime import apiproxy_errors
 from google.net.proto import ProtocolBuffer
 from google.appengine.datastore import entity_pb
 from google.appengine.ext.remote_api import remote_api_pb
-from google.appengine.datastore import datastore_stub_util
+from google.appengine.datastore import old_datastore_stub_util
 
 # Where the SSL certificate is placed for encrypted communication
 CERT_LOCATION = "/etc/appscale/certs/mycert.pem"
@@ -347,7 +347,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     (filters, orders) = datastore_index.Normalize(query.filter_list(),
                                                   query.order_list(), [])
     
-    datastore_stub_util.FillUsersInQuery(filters)
+    old_datastore_stub_util.FillUsersInQuery(filters)
 
     query_response = datastore_pb.QueryResult()
     if not query.has_app():
@@ -440,12 +440,12 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     results = [datastore.Entity._FromPb(r) for r in results]
     results = [r._ToPb() for r in results]
     for result in results:
-      datastore_stub_util.PrepareSpecialPropertiesForLoad(result)
+      old_datastore_stub_util.PrepareSpecialPropertiesForLoad(result)
 
-    datastore_stub_util.ValidateQuery(query, filters, orders,
+    old_datastore_stub_util.ValidateQuery(query, filters, orders,
           _MAX_QUERY_COMPONENTS)
 
-    cursor = datastore_stub_util.ListCursor(query, results,
+    cursor = old_datastore_stub_util.ListCursor(query, results,
                                             order_compare_entities_pb)
     self.__cleanup_old_cursors() 
     self.__queries[cursor.cursor] = cursor, datetime.datetime.now()
