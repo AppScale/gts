@@ -146,12 +146,12 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       has already expired.
     """
     internal_key = self._Get_Internal_Key(namespace, key)
-
     entry = self._memcache.get(internal_key)
-    if entry is None:
-      return None
-    else:
+
+    if entry:
       return entry
+    else:
+      return None, None
 
   def _Dynamic_Get(self, request, response):
     """Implementation of MemcacheService::Get().
@@ -163,12 +163,13 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     namespace = request.name_space()
     keys = set(request.key_list())
     for key in keys:
-      value = self._GetKey(namespace, key)
+      value, flags = self._GetKey(namespace, key)
       if value is None: 
         continue
       item = response.add_item()
       item.set_key(key)
       item.set_value(value)
+      item.set_flags(flags)
 
   def _Dynamic_Set(self, request, response):
     """Implementation of MemcacheService::Set().
@@ -192,8 +193,9 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
             set_policy == MemcacheSetRequest.SET
             or not old_entry.CheckLocked()):
           internal_key = self._Get_Internal_Key(namespace, key)
-          if self._memcache.set(internal_key, item.value(), item.expiration_time()):
+          if self._memcache.set(internal_key, (item.value(), item.flags()), item.expiration_time()):
             set_status = MemcacheSetResponse.STORED
+          else:
 
       response.add_set_status(set_status)
 
@@ -233,9 +235,13 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     try:
       internal_key = self._Get_Internal_Key(namespace, key)
       if request.direction() == MemcacheIncrementRequest.INCREMENT:
-        new_value = self._memcache.incr(internal_key, delta)
+        old_value, flags = self._memcache.get(internal_key)
+        new_value = old_value + delta
+        self._memcache.set(internal_key, (new_value, flags))
       elif request.direction() == MemcacheIncrementRequest.DECREMENT:
-        new_value = self._memcache.decr(internal_key, delta)
+        old_value, flags = self._memcache.get(internal_key)
+        new_value = old_value - delta
+        self._memcache.set(internal_key, (new_value, flags))
       else:
         raise ValueError
     except ValueError:
