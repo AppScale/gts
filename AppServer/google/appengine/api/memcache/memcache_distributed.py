@@ -145,13 +145,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       The corresponding CacheEntry instance, or None if it was not found or
       has already expired.
     """
-    internal_key = self._Get_Internal_Key(namespace, key, flags)
-    entry = self._memcache.get(internal_key)
-
-    if entry:
-      return entry
-    else:
-      return None
+    return self._memcache.get(self._Get_Internal_Key(namespace, key, flags))
 
   def _Dynamic_Get(self, request, response):
     """Implementation of MemcacheService::Get().
