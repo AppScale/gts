@@ -39,6 +39,7 @@ from app_dashboard_helper import AppHelperException
 from app_dashboard_data import AppDashboardData
 from app_dashboard_data import InstanceInfo
 from app_dashboard_data import RequestInfo
+from app_dashboard_data import AppStatus
 
 
 jinja_environment = jinja2.Environment(
@@ -1010,10 +1011,12 @@ class StatsPage(AppDashboard):
       self.redirect('/', self.response)
 
     instance_info = InstanceStats.fetch_request_info(app_id)
+    app_status = AppStatus.get_by_id(app_id)
     self.render_page(page='stats', template_file=self.TEMPLATE, values = {
       'appid' : app_id,
       'all_apps_this_user_owns' : apps_user_is_admin_on,
-      'instance_info' : instance_info
+      'instance_info' : instance_info,
+      'app_url' : app_status.url
     })
 
 
