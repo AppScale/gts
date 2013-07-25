@@ -1773,7 +1773,9 @@ class Djinn
       return node if node.is_login?
     }
 
-    abort("No login nodes found.")
+    Djinn.log_fatal("Couldn't find a login node in the following nodes: " +
+      "#{@nodes.join(', ')}")
+    HelperFunctions.log_and_crash("No login nodes found.")
   end
 
   def get_shadow
@@ -1783,8 +1785,7 @@ class Djinn
 
     Djinn.log_fatal("Couldn't find a shadow node in the following nodes: " +
       "#{@nodes.join(', ')}")
-
-    abort("No shadow nodes found.")
+    HelperFunctions.log_and_crash("No shadow nodes found.")
   end
 
   def get_db_master
@@ -1794,8 +1795,7 @@ class Djinn
 
     Djinn.log_fatal("Couldn't find a db master node in the following nodes: " +
       "#{@nodes.join(', ')}")
-
-    abort("No db master nodes found.")
+    HelperFunctions.log_and_crash("No db master nodes found.")
   end
 
   def self.get_db_master_ip
@@ -1880,9 +1880,8 @@ class Djinn
       end
     }
 
-    unable_to_convert_msg = "[get uaserver ip] Couldn't find a UAServer."
-    Djinn.log_fatal(unable_to_convert_msg)
-    abort(unable_to_convert_msg)
+    Djinn.log_fatal("[get uaserver ip] Couldn't find a UAServer.")
+    HelperFunctions.log_and_crash("[get uaserver ip] Couldn't find a UAServer.")
   end
   
   def get_public_ip(private_ip)
@@ -1903,11 +1902,10 @@ class Djinn
       end
     }
 
-    unable_to_convert_msg = "[get public ip] Couldn't convert private IP " +
-      "#{private_ip} to a public address."
-
-    Djinn.log_fatal(unable_to_convert_msg)
-    abort(unable_to_convert_msg)  
+    Djinn.log_fatal("get public ip] Couldn't convert private " +
+      "IP #{private_ip} to a public address.")
+    HelperFunctions.log_and_crash("[get public ip] Couldn't convert private " +
+      "IP #{private_ip} to a public address.")
   end
 
   def get_status(node)
@@ -2512,9 +2510,8 @@ class Djinn
     loop {
       break if got_all_data
       if @kill_sig_received
-        msg = "Received kill signal, aborting startup"
-        Djinn.log_fatal(msg)
-        abort(msg)
+        Djinn.log_fatal("Received kill signal, aborting startup")
+        HelperFunctions.log_and_crash("Received kill signal, aborting startup")
       else
         Djinn.log_info("Waiting for data from the load balancer or cmdline tools")
         Kernel.sleep(5)
@@ -2580,7 +2577,7 @@ class Djinn
         @creds["hostname"] = HelperFunctions.convert_fqdn_to_ip(@creds["hostname"])
       rescue Exception => e
         Djinn.log_fatal("Failed to convert main hostname #{@creds['hostname']}")
-        abort
+        HelperFunctions.log_and_crash("Failed to convert main hostname #{@creds['hostname']}")
       end
     end
     
@@ -2612,8 +2609,10 @@ class Djinn
         return
       end
     }
-    Djinn.log_fatal("I am lost, could not find my node")
-    abort
+    Djinn.log_fatal("Can't find my node in @nodes: #{@nodes}. " +
+      "My local IPs are: #{all_local_ips.join(', ')}")
+    HelperFunctions.log_and_crash("Can't find my node in @nodes: #{@nodes}. " +
+      "My local IPs are: #{all_local_ips.join(', ')}")
   end
 
 
@@ -2798,8 +2797,10 @@ class Djinn
             retries -= 1
           end
           if retval != 0
-            Djinn.log_fatal("Fail to create initial table. Could not startup AppScale.")
-            abort
+            Djinn.log_fatal("Fail to create initial table." +
+              " Could not startup AppScale.")
+            HelperFunctions.log_and_crash("Fail to create initial table." +
+              " Could not startup AppScale.")
           end
         end
 
@@ -2901,7 +2902,7 @@ class Djinn
     @nodes.each { |node|
       db_master_ip = node.private_ip if node.is_db_master?
     }
-    abort("db master ip was nil") if db_master_ip.nil?
+    HelperFunctions.log_and_crash("db master ip was nil") if db_master_ip.nil?
 
     db_local_ip = @userappserver_private_ip
             
@@ -2932,7 +2933,7 @@ class Djinn
     @nodes.each { |node|
       db_master_ip = node.private_ip if node.is_db_master?
     }
-    abort("db master ip was nil") if db_master_ip.nil?
+    HelperFunctions.log_and_crash("db master ip was nil") if db_master_ip.nil?
 
     table = @creds['table']
     zoo_connection = get_zk_connection_string(@nodes)
@@ -3192,10 +3193,10 @@ class Djinn
       require "#{APPSCALE_HOME}/AppDB/#{table}/#{table}_helper"
     rescue Exception => e
       backtrace = e.backtrace.join("\n")
-      bad_datastore_msg = "Unable to find #{table} helper." + \
-        " Please verify datastore type: #{e}\n#{backtrace}"
-      Djinn.log_fatal(bad_datastore_msg)
-      abort(bad_datastore_msg)
+      Djinn.log_fatal("Unable to find #{table} helper." +
+        " Please verify datastore type: #{e}\n#{backtrace}")
+      HelperFunctions.log_and_crash("Unable to find #{table} helper." +
+        " Please verify datastore type: #{e}\n#{backtrace}")
     end
     FileUtils.mkdir_p("#{APPSCALE_HOME}/AppDB/logs")
 
@@ -3368,7 +3369,7 @@ HOSTS
         Djinn.log_debug("My nodes is nil also, timing error? race condition?")
       else
         Djinn.log_fatal("Couldn't find our position in #{@nodes}")
-        abort
+        HelperFunctions.log_and_crash("Couldn't find our position in #{@nodes}")
       end
     end
 
