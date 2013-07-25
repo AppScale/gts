@@ -88,7 +88,6 @@ class DjinnServer < SOAP::RPC::HTTPServer
   end
 end
 
-HelperFunctions.backup_etc_resolv()
 appscale_dir = "/etc/appscale/"
 
 secret = nil

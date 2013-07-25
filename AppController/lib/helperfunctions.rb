@@ -117,6 +117,8 @@ module HelperFunctions
   GAE_PREFIX = "gae_"
 
 
+  # The location on the filesystem where the resolv.conf file can be found,
+  # that we may alter if the user requests.
   RESOLV_CONF = "/etc/resolv.conf"
 
 
@@ -1317,7 +1319,7 @@ module HelperFunctions
   # nameserver lookups from the current resolv.conf. We do this to avoid
   # having to hop out to the nameserver to resolve each node's public and
   # private IP address (which can be slow in Eucalyptus under heavy load).
-  def self.backup_etc_resolv()
+  def self.alter_etc_resolv()
     self.shell("cp #{RESOLV_CONF} #{RESOLV_CONF}.bk")
 
     contents = self.read_file(RESOLV_CONF, chomp=false)

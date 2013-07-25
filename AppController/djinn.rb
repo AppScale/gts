@@ -585,6 +585,11 @@ class Djinn
 
     GodInterface.shutdown
     FileUtils.rm_rf(STATE_FILE)
+
+    if @creds['alter_etc_resolv'].downcase == "true"
+      HelperFunctions.restore_etc_resolv()
+    end
+
     return "OK"  
   end
  
@@ -654,6 +659,10 @@ class Djinn
       @creds['ec2_access_key'] = @creds['EC2_ACCESS_KEY']
       @creds['ec2_secret_key'] = @creds['EC2_SECRET_KEY']
       @creds['ec2_url'] = @creds['EC2_URL']
+    end
+
+    if @creds['alter_etc_resolv'].downcase == "true"
+      HelperFunctions.alter_etc_resolv()
     end
     
     return "OK"

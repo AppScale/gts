@@ -1,6 +1,4 @@
 $:.unshift File.join(File.dirname(__FILE__), "lib")
-require 'helperfunctions'
-HelperFunctions.restore_etc_resolv()
 
 begin
   require 'cron_helper'
