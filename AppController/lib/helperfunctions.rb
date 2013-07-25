@@ -18,7 +18,6 @@ require 'json'
 # Imports for AppController libraries
 $:.unshift File.join(File.dirname(__FILE__))
 require 'custom_exceptions'
-require 'user_app_client'
 
 
 # BadConfigurationExceptions represent an exception that can be thrown by the

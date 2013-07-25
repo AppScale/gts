@@ -1434,7 +1434,13 @@ class Djinn
     roles = ips_to_roles.values
     Djinn.log_info("Need to spawn up #{num_of_vms} VMs")
     imc = InfrastructureManagerClient.new(@@secret)
-    new_nodes_info = imc.spawn_vms(num_of_vms, @creds, roles, "cloud1")
+
+    begin
+      new_nodes_info = imc.spawn_vms(num_of_vms, @creds, roles, "cloud1")
+    rescue AppScaleException => exception
+      HelperFunctions.log_and_crash("Couldn't spawn #{num_of_vms} VMs with " +
+        "roles #{roles} because: #{exception.message}")
+    end
 
     # initialize them and wait for them to start up
     Djinn.log_debug("info about new nodes is " +
@@ -1550,7 +1556,13 @@ class Djinn
 
         # start up vms_to_spawn vms as open
         imc = InfrastructureManagerClient.new(@@secret)
-        new_nodes_info = imc.spawn_vms(vms_to_spawn, @creds, "open", "cloud1")
+        begin
+          new_nodes_info = imc.spawn_vms(vms_to_spawn, @creds, "open", "cloud1")
+        rescue AppScaleException => exception
+          HelperFunctions.log_and_crash("Couldn't spawn #{vms_to_spawn} VMs " +
+            "with roles open because: #{exception.message}")
+        end
+
 
         # initialize them and wait for them to start up
         Djinn.log_debug("info about new nodes is " +
@@ -3016,7 +3028,13 @@ class Djinn
         # since there's only one cloud, call it cloud1 to tell us
         # to use the first ssh key (the only key)
         imc = InfrastructureManagerClient.new(@@secret)
-        appengine_info = imc.spawn_vms(nodes.length, @creds, roles, "cloud1")
+        begin
+          appengine_info = imc.spawn_vms(nodes.length, @creds, roles, "cloud1")
+        rescue AppScaleException => exception
+          HelperFunctions.log_and_crash("Couldn't spawn #{nodes.length} VMs with " +
+            "roles #{roles} because: #{exception.message}")
+        end
+
         Djinn.log_debug("Received appengine info: #{appengine_info}")
       else
         nodes.each_pair do |ip,roles|
@@ -3430,7 +3448,7 @@ HOSTS
       Djinn.log_info("Setting parameters on node at #{ip} returned #{result}")
     rescue FailedNodeException
       Djinn.log_error("Couldn't set parameters on node at #{ip}.")
-      raise AppScaleException.new("Couldn't set parameters on node at #{ip}")
+      HelperFunctions.log_and_crash("Couldn't set parameters on node at #{ip}")
     end
   end
 
