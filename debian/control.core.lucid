@@ -28,6 +28,7 @@ Depends: appscale-tools,
  curl, lsof, tcpdump,
  memcached, python-memcache,
  socat,
+ dnsutils,
 # nginx 
  libpcre++-dev
 # haproxy
