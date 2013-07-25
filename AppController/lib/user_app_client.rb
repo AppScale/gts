@@ -8,6 +8,8 @@ require 'openssl'
 require 'soap/rpc/driver'
 require 'timeout'
 
+require 'helperfunctions'
+
 
 # AppControllers and other services need to read or write data relating to users
 # and applications hosted in AppScale. Since it has to be done in a
@@ -62,11 +64,14 @@ class UserAppClient
         Djinn.log_warn("Retrying (ConnRefused) - calling #{callr} on UserAppServer at #{@ip}")
         retry
       else
-        abort("We were unable to establish a connection with the UserAppServer at the designated location. Is AppScale currently running?")
+        HelperFunctions.log_and_crash("We were unable to establish a " +
+          "connection with the UserAppServer at the designated location. Is " +
+          "AppScale currently running?")
       end 
    rescue Exception => except
       if except.class == Interrupt
-        abort
+        HelperFunctions.log_and_crash("Saw an Interrupt when talking to the " +
+          "UserAppServer")
       end
 
       Djinn.log_warn("An exception of type #{except.class} was thrown.")
@@ -84,7 +89,8 @@ class UserAppClient
     if result == "true"
       puts "\nYour user account has been created successfully."
     elsif result == "false"
-      abort("\nWe were unable to create your user account. Please contact your cloud administrator for further details.")
+      HelperFunctions.log_and_crash("\nWe were unable to create your user " +
+        "account. Please contact your cloud administrator for further details.")
     else
       puts "\n[unexpected] Commit new user returned: [#{result}]"
     end
@@ -106,7 +112,9 @@ class UserAppClient
     elsif result == "Error: appname already exist"
       puts "We are uploading a new version of the application #{app_name}."
     elsif result == "Error: User not found"
-      abort("We were unable to reserve the name of your application. Please contact your cloud administrator for more information.")
+      HelperFunctions.log_and_crash("We were unable to reserve the name of " +
+        "your application. Please contact your cloud administrator for more " +
+        "information.")
     else
       puts "[unexpected] Commit new app says: [#{result}]"
     end
@@ -124,7 +132,9 @@ class UserAppClient
     if result == "true"
       puts "#{app_name} was uploaded successfully."
     elsif result == "Error: app does not exist"
-      abort("We were unable to upload your application. Please contact your cloud administrator for more information.")
+      HelperFunctions.log_and_crash("We were unable to upload your " +
+        "application. Please contact your cloud administrator for more " +
+        "information.")
     else
       puts "[unexpected] Commit new tar says: [#{result}]"
     end
