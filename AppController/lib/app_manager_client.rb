@@ -72,12 +72,14 @@ class AppManagerClient
         retry
       else
         trace = except.backtrace.join("\n")
-        abort("We saw an unexpected error of the type #{except.class} with the following message:\n#{except}, with trace: #{trace}")
+        HelperFunctions.log_and_crash("We saw an unexpected error of the " +
+          "type #{except.class} with the following message:\n#{except}, with" +
+          " trace: #{trace}")
       end 
    rescue Exception => except
       if except.class == Interrupt
         Djinn.log_fatal("Saw an Interrupt exception")
-        abort
+        HelperFunctions.log_and_crash("Saw an Interrupt Exception")
       end
 
       Djinn.log_error("An exception of type #{except.class} was thrown: #{except}.")

@@ -60,7 +60,8 @@ class TaskQueueClient
       end 
    rescue Exception => except
       if except.class == Interrupt
-        abort
+        HelperFunctions.log_and_crash("Saw an Interrupt when talking to the" +
+          " TaskQueue server.")
       end
 
       Djinn.log_warn("An exception of type #{except.class} was thrown: #{except}.")

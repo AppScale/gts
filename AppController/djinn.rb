@@ -1444,7 +1444,13 @@ class Djinn
     roles = ips_to_roles.values
     Djinn.log_info("Need to spawn up #{num_of_vms} VMs")
     imc = InfrastructureManagerClient.new(@@secret)
-    new_nodes_info = imc.spawn_vms(num_of_vms, @creds, roles, "cloud1")
+
+    begin
+      new_nodes_info = imc.spawn_vms(num_of_vms, @creds, roles, "cloud1")
+    rescue AppScaleException => exception
+      HelperFunctions.log_and_crash("Couldn't spawn #{num_of_vms} VMs with " +
+        "roles #{roles} because: #{exception.message}")
+    end
 
     # initialize them and wait for them to start up
     Djinn.log_debug("info about new nodes is " +
@@ -1560,7 +1566,13 @@ class Djinn
 
         # start up vms_to_spawn vms as open
         imc = InfrastructureManagerClient.new(@@secret)
-        new_nodes_info = imc.spawn_vms(vms_to_spawn, @creds, "open", "cloud1")
+        begin
+          new_nodes_info = imc.spawn_vms(vms_to_spawn, @creds, "open", "cloud1")
+        rescue AppScaleException => exception
+          HelperFunctions.log_and_crash("Couldn't spawn #{vms_to_spawn} VMs " +
+            "with roles open because: #{exception.message}")
+        end
+
 
         # initialize them and wait for them to start up
         Djinn.log_debug("info about new nodes is " +
@@ -1767,7 +1779,8 @@ class Djinn
   # SOAP (as SOAP accepts Arrays and Strings but not DjinnJobData objects).
   def self.convert_location_class_to_array(djinn_locations)
     if djinn_locations.class != Array
-      raise Exception, "Locations should be an array"
+      HelperFunctions.log_and_crash("Locations should be an Array, not a " +
+        "#{djinn_locations.class}")
     end
     
     djinn_loc_array = []
@@ -1783,7 +1796,9 @@ class Djinn
       return node if node.is_login?
     }
 
-    abort("No login nodes found.")
+    Djinn.log_fatal("Couldn't find a login node in the following nodes: " +
+      "#{@nodes.join(', ')}")
+    HelperFunctions.log_and_crash("No login nodes found.")
   end
 
   def get_shadow
@@ -1793,8 +1808,7 @@ class Djinn
 
     Djinn.log_fatal("Couldn't find a shadow node in the following nodes: " +
       "#{@nodes.join(', ')}")
-
-    abort("No shadow nodes found.")
+    HelperFunctions.log_and_crash("No shadow nodes found.")
   end
 
   def get_db_master
@@ -1804,8 +1818,7 @@ class Djinn
 
     Djinn.log_fatal("Couldn't find a db master node in the following nodes: " +
       "#{@nodes.join(', ')}")
-
-    abort("No db master nodes found.")
+    HelperFunctions.log_and_crash("No db master nodes found.")
   end
 
   def self.get_db_master_ip
@@ -1890,9 +1903,8 @@ class Djinn
       end
     }
 
-    unable_to_convert_msg = "[get uaserver ip] Couldn't find a UAServer."
-    Djinn.log_fatal(unable_to_convert_msg)
-    abort(unable_to_convert_msg)
+    Djinn.log_fatal("[get uaserver ip] Couldn't find a UAServer.")
+    HelperFunctions.log_and_crash("[get uaserver ip] Couldn't find a UAServer.")
   end
   
   def get_public_ip(private_ip)
@@ -1913,11 +1925,10 @@ class Djinn
       end
     }
 
-    unable_to_convert_msg = "[get public ip] Couldn't convert private IP " +
-      "#{private_ip} to a public address."
-
-    Djinn.log_fatal(unable_to_convert_msg)
-    abort(unable_to_convert_msg)  
+    Djinn.log_fatal("get public ip] Couldn't convert private " +
+      "IP #{private_ip} to a public address.")
+    HelperFunctions.log_and_crash("[get public ip] Couldn't convert private " +
+      "IP #{private_ip} to a public address.")
   end
 
   def get_status(node)
@@ -2336,6 +2347,8 @@ class Djinn
         Djinn.log_debug("Done sending instance info to AppDashboard!")
         Djinn.log_debug("Instance info is: [#{instance_info}]")
         Djinn.log_debug("Response is #{response.body}")
+      rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE, Errno::ECONNRESET
+        retry
       rescue Exception => exception
         # Don't crash the AppController because we weren't able to send over
         # the instance info - just continue on.
@@ -2522,9 +2535,8 @@ class Djinn
     loop {
       break if got_all_data
       if @kill_sig_received
-        msg = "Received kill signal, aborting startup"
-        Djinn.log_fatal(msg)
-        abort(msg)
+        Djinn.log_fatal("Received kill signal, aborting startup")
+        HelperFunctions.log_and_crash("Received kill signal, aborting startup")
       else
         Djinn.log_info("Waiting for data from the load balancer or cmdline tools")
         Kernel.sleep(5)
@@ -2590,7 +2602,7 @@ class Djinn
         @creds["hostname"] = HelperFunctions.convert_fqdn_to_ip(@creds["hostname"])
       rescue Exception => e
         Djinn.log_fatal("Failed to convert main hostname #{@creds['hostname']}")
-        abort
+        HelperFunctions.log_and_crash("Failed to convert main hostname #{@creds['hostname']}")
       end
     end
     
@@ -2622,8 +2634,10 @@ class Djinn
         return
       end
     }
-    Djinn.log_fatal("I am lost, could not find my node")
-    abort
+    Djinn.log_fatal("Can't find my node in @nodes: #{@nodes}. " +
+      "My local IPs are: #{all_local_ips.join(', ')}")
+    HelperFunctions.log_and_crash("Can't find my node in @nodes: #{@nodes}. " +
+      "My local IPs are: #{all_local_ips.join(', ')}")
   end
 
 
@@ -2800,8 +2814,10 @@ class Djinn
             retries -= 1
           end
           if retval != 0
-            Djinn.log_fatal("Fail to create initial table. Could not startup AppScale.")
-            abort
+            Djinn.log_fatal("Fail to create initial table." +
+              " Could not startup AppScale.")
+            HelperFunctions.log_and_crash("Fail to create initial table." +
+              " Could not startup AppScale.")
           end
         end
 
@@ -2903,7 +2919,7 @@ class Djinn
     @nodes.each { |node|
       db_master_ip = node.private_ip if node.is_db_master?
     }
-    abort("db master ip was nil") if db_master_ip.nil?
+    HelperFunctions.log_and_crash("db master ip was nil") if db_master_ip.nil?
 
     db_local_ip = @userappserver_private_ip
             
@@ -2934,7 +2950,7 @@ class Djinn
     @nodes.each { |node|
       db_master_ip = node.private_ip if node.is_db_master?
     }
-    abort("db master ip was nil") if db_master_ip.nil?
+    HelperFunctions.log_and_crash("db master ip was nil") if db_master_ip.nil?
 
     table = @creds['table']
     zoo_connection = get_zk_connection_string(@nodes)
@@ -3017,7 +3033,13 @@ class Djinn
         # since there's only one cloud, call it cloud1 to tell us
         # to use the first ssh key (the only key)
         imc = InfrastructureManagerClient.new(@@secret)
-        appengine_info = imc.spawn_vms(nodes.length, @creds, roles, "cloud1")
+        begin
+          appengine_info = imc.spawn_vms(nodes.length, @creds, roles, "cloud1")
+        rescue AppScaleException => exception
+          HelperFunctions.log_and_crash("Couldn't spawn #{nodes.length} VMs with " +
+            "roles #{roles} because: #{exception.message}")
+        end
+
         Djinn.log_debug("Received appengine info: #{appengine_info}")
       else
         nodes.each_pair do |ip,roles|
@@ -3194,10 +3216,10 @@ class Djinn
       require "#{APPSCALE_HOME}/AppDB/#{table}/#{table}_helper"
     rescue Exception => e
       backtrace = e.backtrace.join("\n")
-      bad_datastore_msg = "Unable to find #{table} helper." + \
-        " Please verify datastore type: #{e}\n#{backtrace}"
-      Djinn.log_fatal(bad_datastore_msg)
-      abort(bad_datastore_msg)
+      Djinn.log_fatal("Unable to find #{table} helper." +
+        " Please verify datastore type: #{e}\n#{backtrace}")
+      HelperFunctions.log_and_crash("Unable to find #{table} helper." +
+        " Please verify datastore type: #{e}\n#{backtrace}")
     end
     FileUtils.mkdir_p("#{APPSCALE_HOME}/AppDB/logs")
 
@@ -3387,7 +3409,7 @@ HOSTS
         Djinn.log_debug("My nodes is nil also, timing error? race condition?")
       else
         Djinn.log_fatal("Couldn't find our position in #{@nodes}")
-        abort
+        HelperFunctions.log_and_crash("Couldn't find our position in #{@nodes}")
       end
     end
 
@@ -3448,7 +3470,7 @@ HOSTS
       Djinn.log_info("Setting parameters on node at #{ip} returned #{result}")
     rescue FailedNodeException
       Djinn.log_error("Couldn't set parameters on node at #{ip}.")
-      raise AppScaleException.new("Couldn't set parameters on node at #{ip}")
+      HelperFunctions.log_and_crash("Couldn't set parameters on node at #{ip}")
     end
   end
 
@@ -4271,6 +4293,8 @@ HOSTS
       response = http.post(url.path, encoded_request_info,
         {'Content-Type'=>'application/json'})
       return true
+    rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE, Errno::ECONNRESET
+      retry
     rescue Exception
       # Don't crash the AppController because we weren't able to send over
       # the request info - just inform the caller that we couldn't send it.
