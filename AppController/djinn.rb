@@ -1769,7 +1769,8 @@ class Djinn
   # SOAP (as SOAP accepts Arrays and Strings but not DjinnJobData objects).
   def self.convert_location_class_to_array(djinn_locations)
     if djinn_locations.class != Array
-      raise Exception, "Locations should be an array"
+      HelperFunctions.log_and_crash("Locations should be an Array, not a " +
+        "#{djinn_locations.class}")
     end
     
     djinn_loc_array = []
