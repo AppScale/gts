@@ -5,6 +5,7 @@
 
 # General-purpose Python library imports
 import json
+import logging
 import re
 import signal
 import socket
@@ -143,20 +144,17 @@ class AppControllerClient():
       else:
         signal.alarm(0)  # turn off the alarm before we retry
         sys.stderr.write("Saw HTTPError {0} when communicating with the " \
-          "AppController, retrying momentarily. Message is {1}".format(exception, exception.msg))
-        return self.run_with_timeout(timeout_time, default, num_retries,
-          http_error_is_success, function, *args)
+          "AppController. Message is {1}".format(exception, exception.msg))
+        return default
     except Exception as exception:
       # This 'except' should be catching ssl.SSLError, but that error isn't
       # available when running in the App Engine sandbox.
       # TODO(cgb): App Engine 1.7.7 adds ssl support, so we should be able to
       # fix this when we update our SDK to that version.
-      # Don't decrement our retry count for intermittent errors.
       sys.stderr.write("Saw exception {0} when communicating with the " \
-        "AppController, retrying momentarily.".format(str(exception)))
+        "AppController.".format(str(exception)))
       signal.alarm(0)  # turn off the alarm before we retry
-      return self.run_with_timeout(timeout_time, default, num_retries,
-        http_error_is_success, function, *args)
+      return default
     finally:
       signal.alarm(0)  # turn off the alarm
 
@@ -199,13 +197,9 @@ class AppControllerClient():
       A list of the public IP addresses of each machine in this AppScale
       deployment.
     """
-    all_ips = self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "",
+    return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "[]",
       self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR,
-      self.server.get_all_public_ips, self.secret)
-    if all_ips == "":
-      return []
-    else:
-      return json.loads(all_ips)
+      self.server.get_all_public_ips, self.secret))
 
 
   def get_role_info(self):
@@ -216,13 +210,9 @@ class AppControllerClient():
       A dict that contains the public IP address, private IP address, and a list
       of the API services that each node runs in this AppScale deployment.
     """
-    role_info = self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "",
+    return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "{}",
       self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR, self.server.get_role_info,
-      self.secret)
-    if role_info == "":
-      return {}
-    else:
-      return json.loads(role_info)
+      self.secret))
 
 
   def get_uaserver_host(self, is_verbose):
@@ -240,7 +230,7 @@ class AppControllerClient():
     while True:
       try:
         status = self.get_status()
-        sys.stderr.write('Received status from head node: ' + status)
+        logging.debug('Received status from head node: ' + status)
 
         if status == self.BAD_SECRET_MESSAGE:
           raise AppControllerException("Could not authenticate successfully" + \
@@ -293,7 +283,7 @@ class AppControllerClient():
     Returns:
       A dict that maps each API name (a str) to its status (also a str).
     """
-    return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "",
+    return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "{}",
       self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR, self.server.get_api_status,
       self.secret))
 
@@ -308,7 +298,7 @@ class AppControllerClient():
       'table', for historical reasons) and the replication factor (with the
       key 'replication').
     """
-    return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "",
+    return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "{}",
       self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR,
       self.server.get_database_information, self.secret))
 
@@ -340,7 +330,7 @@ class AppControllerClient():
       A list of dicts, where each dict contains server-level statistics (e.g.,
         CPU, memory, disk usage) about one machine.
     """
-    return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "",
+    return json.loads(self.run_with_timeout(self.DEFAULT_TIMEOUT_TIME, "[]",
       self.DEFAULT_NUM_RETRIES, self.NO_HTTP_ERROR, self.server.get_stats_json,
       self.secret))
 
