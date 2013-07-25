@@ -18,7 +18,6 @@ require 'json'
 # Imports for AppController libraries
 $:.unshift File.join(File.dirname(__FILE__))
 require 'custom_exceptions'
-require 'user_app_client'
 
 
 # BadConfigurationExceptions represent an exception that can be thrown by the
@@ -115,6 +114,9 @@ module HelperFunctions
 
   # A prefix used to distinguish gae apps from appscale apps
   GAE_PREFIX = "gae_"
+
+
+  APPCONTROLLER_CRASHLOG_LOCATION = "/etc/appscale/appcontroller_crashlog.txt"
 
 
   def self.shell(cmd)
@@ -317,7 +319,7 @@ module HelperFunctions
     # This needs to be ec2 or euca 2ools.
     image_info = `ec2-describe-images`
     
-    abort("ec2 tools can't find appscale image") unless image_info.include?("appscale")
+    self.log_and_crash("ec2 tools can't find appscale image") unless image_info.include?("appscale")
     image_id = image_info.scan(/([a|e]mi-[0-9a-zA-Z]+)\sappscale/).flatten.to_s
     
     return image_id
@@ -445,14 +447,14 @@ module HelperFunctions
     ip = `dig #{host} +short`.chomp
     if ip.empty?
       Djinn.log_debug("couldn't use dig to resolve [#{host}]")
-      abort("Couldn't convert #{host} to an IP address. Result of dig was \n#{ip}")
+      self.log_and_crash("Couldn't convert #{host} to an IP address. Result of dig was \n#{ip}")
     end
 
     return ip
   end
 
   def self.get_ips(ips)
-    abort("ips not even length array") if ips.length % 2 != 0
+    self.log_and_crash("ips not even length array") if ips.length % 2 != 0
     reported_public = []
     reported_private = []
     ips.each_index { |index|
@@ -498,7 +500,7 @@ module HelperFunctions
   end
 
   def self.get_public_ips(ips)
-    abort("ips not even length array") if ips.length % 2 != 0
+    self.log_and_crash("ips not even length array") if ips.length % 2 != 0
     reported_public = []
     reported_private = []
     ips.each_index { |index|
@@ -587,7 +589,7 @@ module HelperFunctions
       elsif cloud_type == "ec2"
         machine = creds["CLOUD#{cloud_num}_AMI"]
       else
-        abort("Cloud type was #{cloud_type}, which is not a supported value.")
+        self.log_and_crash("Cloud type was #{cloud_type}, which is not a supported value.")
       end
 
       num_of_vms = 0
@@ -673,7 +675,7 @@ module HelperFunctions
         command_to_run << " --addressing private"
       elsif run_instances =~ /PROBLEM/
         Djinn.log_debug("Error: #{run_instances}")
-        abort("Saw the following error message from EC2 tools. Please resolve the issue and try again:\n#{run_instances}")
+        self.log_and_crash("Saw the following error message from EC2 tools. Please resolve the issue and try again:\n#{run_instances}")
       else
         Djinn.log_debug("Run instances message sent successfully. Waiting for the image to start up.")
         break
@@ -701,7 +703,7 @@ module HelperFunctions
       #    "Please contact your cloud administrator to determine why " +
       #    "and try again. \n#{describe_instances}"
       #  Djinn.log_debug(terminated_message)
-      #  abort(terminated_message)
+      #  self.log_and_crash(terminated_message)
       #end
       
       # changed regexes so ensure we are only checking for instances created
@@ -716,7 +718,7 @@ module HelperFunctions
       sleep(SLEEP_TIME)
     end
     
-    abort("No public IPs were able to be procured within the time limit.") if public_ips.length == 0
+    self.log_and_crash("No public IPs were able to be procured within the time limit.") if public_ips.length == 0
     
     if public_ips.length != num_of_vms_to_spawn
       potential_dead_ips = HelperFunctions.get_ips(all_ip_addrs) - public_up_already
@@ -1198,7 +1200,7 @@ module HelperFunctions
       fail_msg = "The image at #{ip} is not an AppScale image." +
       " Please install AppScale on it and try again."
       Djinn.log_debug(fail_msg)
-      abort(fail_msg)
+      self.log_and_crash(fail_msg)
     end
   end
 
@@ -1228,7 +1230,7 @@ module HelperFunctions
       fail_msg = "The image at #{ip} does not have support for #{db}." +
         " Please install support for this database and try again."
       Djinn.log_debug(fail_msg)
-      abort(fail_msg)
+      self.log_and_crash(fail_msg)
     end
   end
 
@@ -1360,4 +1362,21 @@ module HelperFunctions
       return false
     end
   end
+
+
+  # Logs the given message on the filesystem, where the AppScale Tools can
+  # report it to the user. This method then crashes the caller, so that the
+  # AppScale Tools knows that a fatal error has occurred and that it needs to be
+  # reported.
+  #
+  # Args:
+  #   message: A String that indicates why the AppController is crashing.
+  # Raises:
+  #   SystemExit: Always occurs, since this method crashes the AppController.
+  def self.log_and_crash(message)
+    self.write_file(APPCONTROLLER_CRASHLOG_LOCATION, message)
+    abort(message)
+  end
+
+
 end

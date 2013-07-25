@@ -28,6 +28,7 @@ class TestDjinn < Test::Unit::TestCase
     djinn.should_receive(:log_run).with("").and_return()
 
     flexmock(HelperFunctions).should_receive(:shell).with("").and_return()
+    flexmock(HelperFunctions).should_receive(:log_and_crash).and_raise(SystemExit)
 
     @secret = "baz"
     flexmock(HelperFunctions).should_receive(:read_file).
