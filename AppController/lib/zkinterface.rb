@@ -801,9 +801,8 @@ class ZKInterface
     }
 
     if zk_node.nil?
-      no_zks = "No ZooKeeper nodes were found. All nodes are #{nodes}," +
-        " while my node is #{my_node}."
-      abort(no_zks)
+      HelperFunctions.log_and_crash("No ZooKeeper nodes were found. All " +
+        "nodes are #{nodes}, while my node is #{my_node}.")
     end
 
     return zk_node.private_ip
