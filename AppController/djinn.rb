@@ -472,8 +472,6 @@ class Djinn
     @scaling_in_progress = false
     @last_decision = {}
     @initialized_apps = {}
-    @req_rate = {}
-    @req_in_queue = {}
     @total_req_rate = {}
     @last_sampling_time = {}
     @last_scaling_time = Time.now
@@ -3901,16 +3899,8 @@ HOSTS
   def initialize_scaling_info_for_app(app_name, force=false)
     return if @initialized_apps[app_name] and !force
 
-    @req_rate[app_name] = []
-    @req_in_queue[app_name] = []
     @total_req_rate[app_name] = 0
     @last_sampling_time[app_name] = Time.now.to_i
-
-    # Fill in req_rate and req_in_queue with dummy info for now
-    NUM_DATA_POINTS.times { |i|
-      @req_rate[app_name][i] = 0
-      @req_in_queue[app_name][i] = 0
-    }
 
     if !@last_decision.has_key?(app_name)
       @last_decision[app_name] = 0
@@ -3959,97 +3949,98 @@ HOSTS
   # this method reports whether or not AppServers should be added, removed, or
   # if no changes are needed.
   def get_scaling_info_for_app(app_name)
-    autoscale_log = File.open(AUTOSCALE_LOG_FILE, "a+")
-    autoscale_log.puts("Getting scaling info for application #{app_name}")
+    Djinn.log_debug("Getting scaling info for application #{app_name}")
   
-    # Average Request rates and queued requests set to 0
-    avg_req_rate = 0
-    avg_req_in_queue = 0
-  
-    # Move all the old data over one spot in our arrays (basically making
-    # these rotating buffers) and see the average number of requests received
-    # and enqueued from the old data
-    (NUM_DATA_POINTS-1).times { |i|
-      @req_rate[app_name][i] = @req_rate[app_name][i+1]
-      @req_in_queue[app_name][i] = @req_in_queue[app_name][i+1]
-      avg_req_rate += @req_rate[app_name][i+1].to_i
-      avg_req_in_queue += @req_in_queue[app_name][i+1].to_i
-    }
-
     # Now see how many requests came in for our app and how many are enqueued
     monitor_cmd = "echo \"show info;show stat\" | " +
       "socat stdio unix-connect:/etc/haproxy/stats | grep #{app_name}"
 
     total_requests_seen = 0
+    total_req_in_queue = 0
     time_requests_were_seen = 0
-    `#{monitor_cmd}`.each { |line|
+
+    Djinn.log_run(monitor_cmd).each { |line|
       parsed_info = line.split(',')
       if parsed_info.length < REQ_RATE_INDEX  # not a line with request info
         next
       end
 
       service_name = parsed_info[SERVICE_NAME_INDEX]
-      req_in_queue_present = parsed_info[REQ_IN_QUEUE_INDEX]
-      req_rate_present = parsed_info[REQ_RATE_INDEX]
 
       if service_name == "FRONTEND"
-        autoscale_log.puts("#{service_name} Request Rate #{req_rate_present}")
-        req_rate_present = parsed_info[REQ_RATE_INDEX]
-        avg_req_rate += req_rate_present.to_i
-        @req_rate[app_name][NUM_DATA_POINTS-1] = req_rate_present
-
         total_requests_seen = parsed_info[TOTAL_REQUEST_RATE_INDEX].to_i
         time_requests_were_seen = Time.now.to_i
+        Djinn.log_debug("#{app_name} #{service_name} Requests Seen #{total_requests_seen}")
       end
 
       if service_name == "BACKEND"
-        autoscale_log.puts("#{service_name} Queued Currently " +
-          "#{req_in_queue_present}")
-        req_in_queue_present = parsed_info[REQ_IN_QUEUE_INDEX]
-        avg_req_in_queue += req_in_queue_present.to_i
-        @req_in_queue[app_name][NUM_DATA_POINTS-1] = req_in_queue_present
+        total_req_in_queue = parsed_info[REQ_IN_QUEUE_INDEX].to_i
+        Djinn.log_debug("#{app_name} #{service_name} Queued Currently " +
+          "#{total_req_in_queue}")
       end
     }
 
     if time_requests_were_seen.zero?
       Djinn.log_warn("Didn't see any request data - not sure whether to scale up or down.")
       return :no_change
-    else
-      Djinn.log_debug("Did see request data. Total requests seen now is " +
-        "#{total_requests_seen}, last time was #{@total_req_rate[app_name]}")
-      requests_since_last_sampling = total_requests_seen - @total_req_rate[app_name]
-      time_since_last_sampling = time_requests_were_seen - @last_sampling_time[app_name]
-      if time_since_last_sampling.zero?
-        time_since_last_sampling = 1
-      end
-      average_request_rate = Float(requests_since_last_sampling) / Float(time_since_last_sampling)
-      send_request_info_to_dashboard(app_name, time_requests_were_seen,
-        average_request_rate)
-      Djinn.log_debug("Total requests will be set to #{total_requests_seen} " +
-        "for app #{app_name}")
-      @total_req_rate[app_name] = total_requests_seen
-      @last_sampling_time[app_name] = time_requests_were_seen
     end
 
-    total_req_in_queue = avg_req_in_queue
-    avg_req_rate /= NUM_DATA_POINTS
-    avg_req_in_queue /= NUM_DATA_POINTS
+    update_request_info(app_name, total_requests_seen, time_requests_were_seen)
 
-    autoscale_log.puts("[#{app_name}] Average Request rate: #{avg_req_rate}")
-    autoscale_log.puts("[#{app_name}] Average Queued requests: " +
-      "#{avg_req_in_queue}")
-
-    if average_request_rate <= SCALEDOWN_REQUEST_RATE_THRESHOLD and
-      total_req_in_queue.zero?
+    if total_req_in_queue.zero?
+      Djinn.log_debug("No requests are enqueued for app #{app_name} - " +
+        "advising that we scale down within this machine.")
       return :scale_down
     end
 
-    if average_request_rate > SCALEUP_REQUEST_RATE_THRESHOLD and
-      avg_req_in_queue > SCALEUP_QUEUE_SIZE_THRESHOLD
+    if total_req_in_queue > SCALEUP_QUEUE_SIZE_THRESHOLD
+      Djinn.log_debug("#{total_req_in_queue} requests are enqueued for app " +
+        "#{app_name} - advising that we scale up within this machine.")
       return :scale_up
     end
 
+    Djinn.log_debug("#{total_req_in_queue} requests are enqueued for app " +
+      "#{app_name} - advising that don't scale either way on this machine.")
     return :no_change
+  end
+
+
+  # Updates internal state about the number of requests seen for the given App
+  # Engine app, as well as how many requests are currently enqueued for it.
+  # Some of this information is also sent to the AppDashboard for viewing by
+  # users.
+  #
+  # Args:
+  #   app_name: A String that indicates the name this Google App Engine
+  #     application is registered as.
+  #   total_requests_seen: An Integer that indicates how many requests haproxy
+  #     has received for the given application since we reloaded it (which
+  #     occurs when we start the app or add/remove AppServers).
+  #   time_requests_were_seen: An Integer that represents the epoch time when we
+  #     got request info from haproxy.
+  def update_request_info(app_name, total_requests_seen, time_requests_were_seen)
+    Djinn.log_debug("Total requests seen now is #{total_requests_seen}, last " +
+      "time was #{@total_req_rate[app_name]}")
+    requests_since_last_sampling = total_requests_seen - @total_req_rate[app_name]
+    time_since_last_sampling = time_requests_were_seen - @last_sampling_time[app_name]
+    if time_since_last_sampling.zero?
+      time_since_last_sampling = 1
+    end
+
+    average_request_rate = Float(requests_since_last_sampling) / Float(time_since_last_sampling)
+    if average_request_rate < 0
+      Djinn.log_info("Saw negative request rate for app #{app_name}, so " +
+        "resetting our haproxy stats for this app.")
+      initialize_scaling_info_for_app(app_name, force=true)
+      return
+    end
+
+    send_request_info_to_dashboard(app_name, time_requests_were_seen,
+      average_request_rate)
+    Djinn.log_debug("Total requests will be set to #{total_requests_seen} " +
+      "for app #{app_name}, with last sampling time #{time_requests_were_seen}")
+    @total_req_rate[app_name] = total_requests_seen
+    @last_sampling_time[app_name] = time_requests_were_seen
   end
 
 
