@@ -1908,3 +1908,18 @@ footer {
 	height: 100%;
 	font-size: 14px;
 	line-height: 1.2em;
+}
+
+#flotTip {
+    padding: 3px 5px;
+    background-color: #000;
+    z-index: 100;
+    color: #fff;
+    box-shadow: 0 0 10px #555;
+    opacity: .7;
+    filter: alpha(opacity=70);
+    border: 2px solid #fff;
+    -webkit-border-radius: 4px;
+    -moz-border-radius: 4px;
+    border-radius: 4px;
+}
