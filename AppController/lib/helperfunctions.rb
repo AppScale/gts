@@ -116,7 +116,15 @@ module HelperFunctions
   GAE_PREFIX = "gae_"
 
 
+  # The location on the filesystem where the AppController writes information
+  # about the exception that killed it, for the tools to retrieve and pass
+  # along to the user.
   APPCONTROLLER_CRASHLOG_LOCATION = "/etc/appscale/appcontroller_crashlog.txt"
+
+
+  # The location on the filesystem where the resolv.conf file can be found,
+  # that we may alter if the user requests.
+  RESOLV_CONF = "/etc/resolv.conf"
 
 
   def self.shell(cmd)
@@ -1376,6 +1384,28 @@ module HelperFunctions
   def self.log_and_crash(message)
     self.write_file(APPCONTROLLER_CRASHLOG_LOCATION, message)
     abort(message)
+  end
+
+
+  # Copies the /etc/resolv.conf file to a backup file, and then removes all
+  # nameserver lookups from the current resolv.conf. We do this to avoid
+  # having to hop out to the nameserver to resolve each node's public and
+  # private IP address (which can be slow in Eucalyptus under heavy load).
+  def self.alter_etc_resolv()
+    self.shell("cp #{RESOLV_CONF} #{RESOLV_CONF}.bk")
+
+    contents = self.read_file(RESOLV_CONF, chomp=false)
+    new_contents = ""
+    contents.split("\n").each { |line|
+      new_contents << line if !contents.include?("nameserver")
+    }
+    self.write_file(RESOLV_CONF, new_contents)
+  end
+
+
+  # Copies the backed-up resolv.conf file back to its original location.
+  def self.restore_etc_resolv()
+    self.shell("cp #{RESOLV_CONF}.bk #{RESOLV_CONF}")
   end
 
 
