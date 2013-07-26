@@ -3,6 +3,7 @@
 
 $:.unshift File.join(File.dirname(__FILE__), "..")
 require 'djinn'
+require 'helperfunctions'
 
 
 ONE_HOUR = 3600 # seconds
@@ -23,7 +24,8 @@ class DjinnJobData
     # format: "publicIP:privateIP:load_balancer:appengine:table-master:table-slave:instance_id:cloud"
 
     if roles.class != String
-      abort("Roles must be a string, not a #{roles.class} containing #{roles}")
+      HelperFunctions.log_and_crash("Roles must be a string, not a " +
+        "#{roles.class} containing #{roles}")
     end
 
     split_roles = roles.split(":")

@@ -62,7 +62,8 @@ module Ejabberd
         return false
       end
     else
-      abort("xmpp: runtime was neither python, python27, go, java but was [#{runtime}]")
+      HelperFunctions.log_and_crash("xmpp: runtime was not python, " +
+        "python27, go, java but was [#{runtime}]")
     end
   end
 

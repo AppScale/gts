@@ -28,6 +28,7 @@ class TestDjinn < Test::Unit::TestCase
     djinn.should_receive(:log_run).with("").and_return()
 
     flexmock(HelperFunctions).should_receive(:shell).with("").and_return()
+    flexmock(HelperFunctions).should_receive(:log_and_crash).and_raise(SystemExit)
 
     @secret = "baz"
     flexmock(HelperFunctions).should_receive(:read_file).
@@ -170,7 +171,7 @@ class TestDjinn < Test::Unit::TestCase
     djinn = Djinn.new
 
     credentials = ['table', 'cassandra', 'hostname', 'public_ip', 'ips', '', 
-      'keyname', 'appscale']
+      'keyname', 'appscale', 'alter_etc_resolv', 'False']
     one_node_info = ['public_ip:1.2.3.4:some_role:instance_id:cloud1']
     app_names = []
 
