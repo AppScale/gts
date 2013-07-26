@@ -361,11 +361,6 @@ class Djinn
   REQ_IN_QUEUE_INDEX = 2
 
 
-  # The position in the haproxy profiling information where the request rate
-  # is specified.
-  REQ_RATE_INDEX = 46
-
-
   # The position in the haproxy profiling information where the total number of
   # requests seen for a given app is specified.
   TOTAL_REQUEST_RATE_INDEX = 48
@@ -3864,17 +3859,7 @@ HOSTS
 
         # Always get scaling info, as that will send this info to the
         # AppDashboard for users to view.
-        scaling_decision = get_scaling_info_for_app(app_name)
-        if is_cpu_or_mem_maxed_out?(@app_info_map[app_name]['language'])
-          if scaling_decision == :scale_up
-            Djinn.log_info("Requesting that additional AppServers be added " +
-              "to service #{app_name}")
-            ZKInterface.request_scale_up_for_app(app_name, my_node.private_ip)
-            next
-          end
-        end
-
-        case scaling_decision
+        case get_scaling_info_for_app(app_name)
         when :scale_up
           Djinn.log_info("Considering scaling up app #{app_name}.")
           try_to_scale_up(app_name)
@@ -3910,40 +3895,6 @@ HOSTS
   end
   
 
-  # Looks at how much CPU and memory is being used system-wide, to determine
-  # if a new AppServer should be added. As AppServers in different languages
-  # consume different amounts of CPU and memory, we consult the global
-  # variables that indicate what the maximum CPU and memory limits are for
-  # a new AppServer in the given language.
-  def is_cpu_or_mem_maxed_out?(language)
-    stats = get_stats(@@secret)
-    Djinn.log_debug("CPU used: #{stats['cpu']}, mem used: #{stats['memory']}")
-
-    current_cpu = stats['cpu']
-    max_cpu = MAX_CPU_FOR_APPSERVERS[language]
-
-    if current_cpu > max_cpu
-      Djinn.log_info("Not enough CPU is free to spawn up a new #{language} " +
-        "AppServer (#{current_cpu} CPU used > #{max_cpu} maximum)")
-      return true
-    end
-
-    current_mem = Float(stats['memory'])
-    max_mem = MAX_MEM_FOR_APPSERVERS[language]
-
-    if current_mem > max_mem
-      Djinn.log_info("Not enough memory is free to spawn up a new " +
-        "#{language} AppServer (#{current_mem} memory used > #{max_mem} " +
-        "maximum)")
-      return true
-    else
-      Djinn.log_info("Enough CPU and memory are free to spawn up a new " +
-        "#{language} AppServer.")
-      return false
-    end
-  end
-
-
   # Queries haproxy to see how many requests are queued for a given application
   # and how many requests are served at a given time. Based on this information,
   # this method reports whether or not AppServers should be added, removed, or
@@ -3961,7 +3912,7 @@ HOSTS
 
     Djinn.log_run(monitor_cmd).each { |line|
       parsed_info = line.split(',')
-      if parsed_info.length < REQ_RATE_INDEX  # not a line with request info
+      if parsed_info.length < TOTAL_REQUEST_RATE_INDEX  # no request info here
         next
       end
 
@@ -4053,22 +4004,23 @@ HOSTS
     end
 
     appservers_running = @app_info_map[app_name]['appengine'].length
-          
-    if time_since_last_decision > SCALEUP_TIME_THRESHOLD and 
-      appservers_running < MAX_APPSERVERS_ON_THIS_NODE
 
-      Djinn.log_info("Adding a new AppServer on this node for #{app_name}")
-      add_appserver_process(app_name)
-      initialize_scaling_info_for_app(app_name, force=true)
-      @last_decision[app_name] = Time.now.to_i
-    elsif time_since_last_decision <= SCALEUP_TIME_THRESHOLD
-      Djinn.log_info("Recently scaled up, so not scaling up again.")
-    elsif !@app_info_map[app_name]['appengine'].nil? and
-      appservers_running > MAX_APPSERVERS_ON_THIS_NODE
-
+    if appservers_running > MAX_APPSERVERS_ON_THIS_NODE
       Djinn.log_info("The maximum number of AppServers for this app " +
-        "are already running, so don't add any more")
+        "are already running, so don't add any more on this machine.")
+      ZKInterface.request_scale_up_for_app(app_name, my_node.private_ip)
+      return
     end
+
+    if time_since_last_decision <= SCALEUP_TIME_THRESHOLD
+      Djinn.log_info("Recently scaled up, so not scaling up again.")
+      return
+    end
+
+    Djinn.log_info("Adding a new AppServer on this node for #{app_name}")
+    add_appserver_process(app_name)
+    initialize_scaling_info_for_app(app_name, force=true)
+    @last_decision[app_name] = Time.now.to_i
   end
 
 
@@ -4082,22 +4034,22 @@ HOSTS
 
     appservers_running = @app_info_map[app_name]['appengine'].length
 
-    if time_since_last_decision > SCALEDOWN_TIME_THRESHOLD and
-      appservers_running > MIN_APPSERVERS_ON_THIS_NODE
-
-      Djinn.log_info("Removing an AppServer on this node for #{app_name}")
-      remove_appserver_process(app_name)
-      initialize_scaling_info_for_app(app_name, force=true)
-      @last_decision[app_name] = Time.now.to_i
-    elsif !@app_info_map[app_name]['appengine'].nil? and
-      appservers_running <= MIN_APPSERVERS_ON_THIS_NODE
-
+    if appservers_running <= MIN_APPSERVERS_ON_THIS_NODE
       Djinn.log_info("The minimum number of AppServers for this app " +
-        "are already running, so don't remove any more.")
+        "are already running, so don't remove any more off this machine.")
       ZKInterface.request_scale_down_for_app(app_name, my_node.private_ip)
-    elsif time_since_last_decision <= SCALEDOWN_TIME_THRESHOLD 
-      Djinn.log_info("Recently scaled down, so not scaling down again.")
+      return
     end
+
+    if time_since_last_decision <= SCALEDOWN_TIME_THRESHOLD
+      Djinn.log_info("Recently scaled down, so not scaling down again.")
+      return
+    end
+
+    Djinn.log_info("Removing an AppServer on this node for #{app_name}")
+    remove_appserver_process(app_name)
+    initialize_scaling_info_for_app(app_name, force=true)
+    @last_decision[app_name] = Time.now.to_i
   end
 
 
