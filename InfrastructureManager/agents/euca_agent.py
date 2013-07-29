@@ -46,3 +46,25 @@ class EucalyptusAgent(EC2Agent):
       path=result.path,
       is_secure=(result.scheme == 'https'),
       api_version=self.EUCA_API_VERSION, debug=2)
+
+  def __get_instance_info(self, instances, status, keyname):
+    """
+    Filter out a list of instances by instance status and keyname.
+
+    Args:
+      instances: A list of instances as returned by __describe_instances.
+      status: Status of the VMs (e.g., running, terminated).
+      keyname: Keyname used to spawn instances.
+
+    Returns:
+      A tuple of the form (public ips, private ips, instance ids).
+    """
+    instance_ids = []
+    public_ips = []
+    private_ips = []
+    for i in instances:
+      if i.state == status and i.key_name == keyname:
+        instance_ids.append(i.id)
+        public_ips.append(i.ip_address)
+        private_ips.append(i.private_ip_address)
+    return public_ips, private_ips, instance_ids
