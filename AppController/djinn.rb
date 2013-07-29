@@ -2328,7 +2328,7 @@ class Djinn
         response = http.post(url.path, JSON.dump(instance_info),
           {'Content-Type'=>'application/json'})
         Djinn.log_debug("Done sending instance info to AppDashboard!")
-        Djinn.log_debug("Instance info is: [#{instance_info.inspect}]")
+        Djinn.log_debug("Instance info is: #{instance_info.inspect}")
         Djinn.log_debug("Response is #{response.body}")
       rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE, Errno::ECONNRESET
         retry
@@ -2366,7 +2366,7 @@ class Djinn
         request.body = JSON.dump(instance_info)
         response = http.request(request)
         Djinn.log_debug("Done sending instance info to AppDashboard!")
-        Djinn.log_debug("Instance info is: [#{instance_info.inspect}]")
+        Djinn.log_debug("Instance info is: #{instance_info.inspect}")
         Djinn.log_debug("Response is #{response.body}")
       rescue Exception => exception
         # Don't crash the AppController because we weren't able to send over
@@ -4012,11 +4012,6 @@ HOSTS
       return
     end
 
-    if time_since_last_decision <= SCALEUP_TIME_THRESHOLD
-      Djinn.log_info("Recently scaled up, so not scaling up again.")
-      return
-    end
-
     Djinn.log_info("Adding a new AppServer on this node for #{app_name}")
     add_appserver_process(app_name)
     initialize_scaling_info_for_app(app_name, force=true)
@@ -4038,11 +4033,6 @@ HOSTS
       Djinn.log_info("The minimum number of AppServers for this app " +
         "are already running, so don't remove any more off this machine.")
       ZKInterface.request_scale_down_for_app(app_name, my_node.private_ip)
-      return
-    end
-
-    if time_since_last_decision <= SCALEDOWN_TIME_THRESHOLD
-      Djinn.log_info("Recently scaled down, so not scaling down again.")
       return
     end
 
@@ -4337,7 +4327,7 @@ HOSTS
     end
 
     # Also, don't scale down if we just scaled up or down.
-    if Time.now - @last_scaling_time > SCALEDOWN_TIME_THRESHOLD
+    if Time.now - @last_scaling_time < SCALEDOWN_TIME_THRESHOLD
       Djinn.log_info("Not scaling down VMs right now, as we recently scaled " +
         "up or down.")
       return 0

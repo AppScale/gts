@@ -1289,7 +1289,6 @@ module HelperFunctions
       end
     }
 
-    Djinn.log_debug("In [#{array.join(', ')}], the majority item is #{max_k}")
     return max_k
   end
 
