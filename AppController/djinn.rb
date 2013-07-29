@@ -4005,7 +4005,7 @@ HOSTS
 
     appservers_running = @app_info_map[app_name]['appengine'].length
 
-    if appservers_running > MAX_APPSERVERS_ON_THIS_NODE
+    if appservers_running >= MAX_APPSERVERS_ON_THIS_NODE
       Djinn.log_info("The maximum number of AppServers for this app " +
         "are already running, so don't add any more on this machine.")
       ZKInterface.request_scale_up_for_app(app_name, my_node.private_ip)
