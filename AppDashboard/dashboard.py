@@ -394,8 +394,9 @@ class LoginPage(AppDashboard):
 
   def post(self):
     """ Handler for POST requests. """
-    if self.helper.login_user(self.request.get('user_email'),
-       self.request.get('user_password'), self.response):
+    user_email = self.request.get('user_email').lstrip().rstrip()
+    if self.helper.login_user(user_email, self.request.get('user_password'),
+      self.response):
     
       if self.request.get('continue') != '':
         self.redirect('/users/confirm?continue={0}'.format(
@@ -406,7 +407,7 @@ class LoginPage(AppDashboard):
     else:
       self.render_page(page='users', template_file=self.TEMPLATE, values={
           'continue' : self.request.get('continue'),
-          'user_email' : self.request.get('user_email'),
+          'user_email' : user_email,
           'flash_message': 
           "Incorrect username / password combination. Please try again."
         })
