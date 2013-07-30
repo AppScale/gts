@@ -2782,8 +2782,7 @@ class Djinn
     threads << Thread.new {
       if my_node.is_zookeeper?
         configure_zookeeper(@nodes, @my_index)
-        init = !(@creds.include?("keep_zookeeper_data"))
-        start_zookeeper(init)
+        start_zookeeper
       end
 
       ZKInterface.init(my_node, @nodes)
@@ -2799,7 +2798,7 @@ class Djinn
       threads << Thread.new {
         start_db_master()
         # create initial tables
-        if (my_node.is_db_master? || (defined?(is_priming_needed?) && is_priming_needed?(my_node))) && !restore_from_db?
+        if my_node.is_db_master? and @creds['clear_datastore']
           table = @creds['table']
           prime_script = "#{APPSCALE_HOME}/AppDB/#{table}/prime_#{table}.py"
           retries = 10
@@ -2809,14 +2808,14 @@ class Djinn
             Djinn.log_run("APPSCALE_HOME='#{APPSCALE_HOME}' MASTER_IP='localhost' LOCAL_DB_IP='localhost' python2.6 #{prime_script} #{replication}; echo $? > /tmp/retval")
             retval = `cat /tmp/retval`.to_i
             break if retval == 0
-            Djinn.log_warn("Fail to create initial table. Retry #{retries} times.")
+            Djinn.log_warn("Fail to create initial table. #{retries} retries left.")
             Kernel.sleep(5)
             retries -= 1
           end
           if retval != 0
-            Djinn.log_fatal("Fail to create initial table." +
+            Djinn.log_fatal("Failed to create initial tables." +
               " Could not startup AppScale.")
-            HelperFunctions.log_and_crash("Fail to create initial table." +
+            HelperFunctions.log_and_crash("Failed to create initial tables." +
               " Could not startup AppScale.")
           end
         end
