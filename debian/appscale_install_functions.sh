@@ -111,7 +111,14 @@ installpycrypto()
 
 installlxml()
 {
-    easy_install lxml
+    mkdir -pv ${APPSCALE_HOME}/downloads
+    cd ${APPSCALE_HOME}/downloads
+    git clone git://github.com/lxml/lxml.git lxml
+    cd lxml
+    /usr/local/Python-2.7.3/python ez_setup.py lxml
+    cd ..
+    rm -fdr lxml
+    rm -fdr /usr/local/lib/python2.7/site-packages/lxml-*-py2.7-linux-x86_64.egg/EGG-INFO/
 }
 
 installxmpppy()
