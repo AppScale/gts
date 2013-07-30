@@ -874,14 +874,18 @@ module HelperFunctions
   def self.generate_location_config handler
     return "" if !handler.key?("static_dir") && !handler.key?("static_files")
 
-    result = "\n    location #{handler['url']} {"
-    result << "\n\t" << "root $cache_dir;"
-    result << "\n\t" << "expires #{handler['expiration']};" if handler['expiration']
-
     # TODO: return a 404 page if rewritten path doesn't exist
     if handler.key?("static_dir")
+      result = "\n    location #{handler['url']}/ {"
+      result << "\n\t" << "root $cache_dir;"
+      result << "\n\t" << "expires #{handler['expiration']};" if handler['expiration']
+
       result << "\n\t" << "rewrite #{handler['url']}(.*) /#{handler['static_dir']}/$1 break;"
     elsif handler.key?("static_files")
+      result = "\n    location #{handler['url']} {"
+      result << "\n\t" << "root $cache_dir;"
+      result << "\n\t" << "expires #{handler['expiration']};" if handler['expiration']
+
       result << "\n\t" << "rewrite #{handler['url']} /#{handler['static_files']} break;"
     end
     
