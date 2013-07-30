@@ -107,7 +107,6 @@ EXTRA_PATHS = _STUB_DEPENDENCIES + [
     glob.glob('/usr/local/lib/python2.6/dist-packages/xmpppy-*-py2.6.egg')[0],
     '/usr/lib/pymodules/python2.6/',
     glob.glob('/usr/local/lib/python2.6/dist-packages/termcolor-*-py2.6.egg')[0],
-    glob.glob('/usr/local/lib/python2.6/dist-packages/lxml-*-py2.6-linux-x86_64.egg')[0],
     ]
 
 _DEVAPPSERVER2_PATHS = _STUB_DEPENDENCIES + [
