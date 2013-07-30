@@ -33,12 +33,13 @@ class DjinnJobData
     @public_ip = split_roles[0]
     @private_ip = split_roles[1]
     @jobs = []
-    @instance_id = split_roles[-2]
 
     # TODO: this is a bit hackey - would like to fix this someday
     if split_roles[-1].include?(".key")
+      @instance_id = split_roles[-3]
       @cloud = split_roles[-2]
     else
+      @instance_id = split_roles[-2]
       @cloud = split_roles[-1]
     end
 
