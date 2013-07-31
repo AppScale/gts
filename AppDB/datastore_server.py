@@ -463,6 +463,7 @@ class DatastoreDistributed():
     """
 
     entities = sorted((self.get_table_prefix(x), x) for x in entities)
+    
     row_keys = []
     rev_row_keys = []
     row_values = {}
@@ -480,6 +481,7 @@ class DatastoreDistributed():
       for ii in rev_group_rows:
         rev_row_values[str(ii[0])] = {'reference': str(ii[1])}
     # TODO  these in parallel
+    
     self.datastore_batch.batch_put_entity(dbconstants.ASC_PROPERTY_TABLE, 
                           row_keys, 
                           dbconstants.PROPERTY_SCHEMA, 
