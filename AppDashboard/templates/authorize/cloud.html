@@ -55,8 +55,60 @@
                         <input class="btn btn-primary" name="commit" type="submit" value="Update Permissions" />
                         </div>
                       </form>
+                    <br />
+                        {% if is_user_cloud_admin %}
+                        <div>
+                            <h3 class="pull-left">Change User Password</h3><br />
+                            <hr />
+                        </div>
+                        <div>
+                            <form class="form-inline" action='/change-password' method='post' data-validate="parsley">
+                                <div class="form-inline control-group">
+                                    <label for="email">Email Address:</label>
+                                        <div class="form-inline">
+                                            <div class="controls">
+                                                <input name="email" type="text" class="parsley-validated required" data-error-message="You must enter a valid user email address." data-trigger="change" data-required="true" data-type="email" placeholder="Email Address">
+                                            </div>
+                                        </div>
+                                </div>
+                                <div class="form-inline control-group">
+                                    <label for="password">Password:</label>
+                                        <div class="form-inline">
+                                            <div class="controls">
+                                            <input name="password" type="text" id="user_password" class="parsley-validated required" data-minlength="6"  placeholder="Password" />
+                                            </div>
+                                        </div>
+                                </div>
+                                <div class="form-inline control-group">
+                                    <label for="password_confirm">Confirm Password:</label>
+                                        <div class="form-inline">
+                                            <div class="controls">
+                                            <input type="text" id="change_pass" data-equalto="#user_password" name="change_pass" class="parsley-validated required" data-minlength="6" placeholder="Confirm Password"/>
+                                            </div>
+                                        </div>
+                                </div>
+                                <input class="btn btn-primary" name="submit-passwd-change" type="submit" value="Change Password">
+                            </form>
+                        </div>
+                        {% endif %}
                 </div><!--close well-->
             </div><!--close span6 -->
         </div> <!-- end row fluid -->
     </div> <!-- end content wrapper -->
 </div> <!--end content-->
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        $('#new_user').parsley({
+            successClass: 'success',
+            errorClass: 'error',
+            errors: {
+                classHandler: function(el) {
+                    return $(el).closest('.control-group');
+                },
+                errorsWrapper: '<span class=\"help-inline\"></span>',
+                errorElem: '<span></span>'
+            }
+        });
+    });
+</script>
