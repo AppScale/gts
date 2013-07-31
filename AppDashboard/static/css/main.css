@@ -1364,6 +1364,7 @@ select {width: 150px;}
 	float: left;
 	z-index: 1;
 	position: relative;
+    margin-top: 25px;
 }
 #sidebar.fixed {
 	position: fixed;
