@@ -485,6 +485,28 @@ class AuthorizePage(AppDashboard):
         })
 
 
+class ChangePasswordPage(AppDashboard):
+  """Class to handle user password changes."""
+
+  TEMPLATE = 'authorize/cloud.html'
+
+  def post(self):
+
+    email = self.request.get("email")
+    password = self.request.get("password")
+    if self.dstore.is_user_cloud_admin():
+      try:
+        taskqueue.add(url='/status/refresh')
+      except Exception as err:
+        logging.exception(err)
+    response = self.helper.change_password(cgi.escape(email), cgi.escape(password))
+    self.render_page(page='authorize', template_file=self.TEMPLATE, values={
+      'flash_message':response,
+      'user_perm_list':{},
+      })
+
+
+
 class AppUploadPage(AppDashboard):
   """ Class to handle requests to the /apps/new page. """
 
@@ -1063,7 +1085,8 @@ app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/logs/(.+)/(.+)', LogServiceHostPage),
                                 ('/logs/(.+)', LogServicePage),
                                 ('/gather-logs', LogDownloader),
-                                ('/groomer', RunGroomer)
+                                ('/groomer', RunGroomer),
+                                ('/change-password', ChangePasswordPage)
                               ], debug=True)
 
 
