@@ -3,8 +3,18 @@ require 'djinn'
 require 'djinn_job_data'
 require 'helperfunctions'
 
-# Whether to remove old data from a previous start
-DROP_TABLES = true
+
+# The path on the local filesystem where the Cassandra executable can be found.
+CASSANDRA_BIN = "#{APPSCALE_HOME}/AppDB/cassandra/cassandra/bin/cassandra"
+
+
+# The path on the local filesystem where the nodetool executable can be found.
+NODETOOL_BIN = "#{APPSCALE_HOME}/AppDB/cassandra/cassandra/bin/nodetool"
+
+
+# The file that we should write the process id running Cassandra to.
+CASSANDRA_PID_FILE = "/var/appscale/appscale-cassandra.pid"
+
 
 def get_uaserver_ip()
   Djinn.get_nearest_db_ip
@@ -25,15 +35,15 @@ def get_local_token(master_ip, slave_ips)
     return 0
   end
     
-  for ii in 0..slave_ips.length
+  slave_ips.each_with_index { |ip, index|
     # Based on local ip return the correct token
     # This token generation was taken from:
     # http://www.datastax.com/docs/0.8/install/cluster_init#cluster-init
-    if slave_ips[ii] == HelperFunctions.local_ip
+    if ip == HelperFunctions.local_ip
       # Add one to offset the master
-      return (ii + 1)*(2**127)/(1 + slave_ips.length)
+      return (index + 1) * (2**127)/(1 + slave_ips.length)
     end
-  end
+  }
 end
 
 def setup_db_config_files(master_ip, slave_ips, creds)
@@ -44,7 +54,7 @@ def setup_db_config_files(master_ip, slave_ips, creds)
   local_token = get_local_token(master_ip, slave_ips)
 
   files_to_config = `ls #{source_dir}`.split
-  files_to_config.each{ |filename|
+  files_to_config.each { |filename|
     full_path_to_read = File.join(source_dir, filename)
     full_path_to_write = File.join(dest_dir, filename)
     File.open(full_path_to_read) { |source_file|
@@ -66,12 +76,13 @@ def start_db_master()
   Djinn.log_info("Starting up Cassandra as master")
 
   Djinn.log_run("pkill ThriftBroker")
-  if DROP_TABLES
+  if @creds["clear_datastore"]
     Djinn.log_run("rm -rf /var/appscale/cassandra*")
-    Djinn.log_run("rm /var/log/appscale/cassandra/system.log")
+    Djinn.log_run("rm -rf /opt/appscale/cassandra*")
   end
   
-  Djinn.log_run("#{APPSCALE_HOME}/AppDB/cassandra/cassandra/bin/cassandra start -p /var/appscale/appscale-cassandra.pid")
+  Djinn.log_run("rm /var/log/appscale/cassandra/system.log")
+  Djinn.log_run("#{CASSANDRA_BIN} start -p #{CASSANDRA_PID_FILE}")
   HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip, 9160)
 end
 
@@ -81,25 +92,21 @@ def start_db_slave()
 
   HelperFunctions.sleep_until_port_is_open(Djinn.get_db_master_ip, 9160)
   sleep(5)
-  if DROP_TABLES
+  if @creds["clear_datastore"]
     Djinn.log_run("rm -rf /var/appscale/cassandra*")
     Djinn.log_run("rm /var/log/appscale/cassandra/system.log")
   end
-  Djinn.log_run("#{APPSCALE_HOME}/AppDB/cassandra/cassandra/bin/cassandra start -p /var/appscale/appscale-cassandra.pid")
-  Djinn.log_run("#{APPSCALE_HOME}/AppDB/cassandra/cassandra/bin/cassandra start -p /var/appscale/appscale-cassandra.pid")
+  Djinn.log_run("#{CASSANDRA_BIN} start -p #{CASSANDRA_PID_FILE}")
+  Djinn.log_run("#{CASSANDRA_BIN} start -p #{CASSANDRA_PID_FILE}")
   HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip, 9160)
 end
 
 def stop_db_master
   Djinn.log_info("Stopping Cassandra master")
-  Djinn.log_run("cat /var/appscale/appscale-cassandra.pid | xargs kill -9")
+  Djinn.log_run("cat #{CASSANDRA_PID_FILE} | xargs kill -9")
 end
 
 def stop_db_slave
   Djinn.log_info("Stopping Cassandra slave")
-  if DROP_TABLES
-    Djinn.log_run("#{APPSCALE_HOME}/AppDB/cassandra/cassandra/bin/nodetool decommission -h #{HelperFunctions.local_ip} -p 6666")
-  end
-  Djinn.log_run("cat /var/appscale/appscale-cassandra.pid | xargs kill -9")
+  Djinn.log_run("cat #{CASSANDRA_PID_FILE} | xargs kill -9")
 end
-
