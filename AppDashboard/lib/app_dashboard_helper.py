@@ -903,8 +903,11 @@ class AppDashboardHelper():
 
     try:
       user_app_server = self.get_uaserver()
-      user_app_server.change_password(email, hashed_password, GLOBAL_SECRET_KEY)
-      return True
+      ret = user_app_server.change_password(email, hashed_password, GLOBAL_SECRET_KEY)
+      if ret == "true":
+        return "The user password was successfully changed "
+      else:
+        return AppHelperException(ret)
     except Exception as err:
       logging.exception(err)
-      return False
+      raise AppHelperException("There was an error changing the user password.")
