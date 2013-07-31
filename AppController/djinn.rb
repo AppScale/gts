@@ -4518,11 +4518,18 @@ HOSTS
     end
 
     nodes_with_app = []
+    retries_left = 10
     loop {
       nodes_with_app = ZKInterface.get_app_hosters(appname)
       break if !nodes_with_app.empty?
-      Djinn.log_info("Waiting for a node to have a copy of app #{appname}")
+      Djinn.log_info("[#{retries_left} retries left] Waiting for a node to " +
+        "have a copy of app #{appname}")
       Kernel.sleep(5)
+      retries_left -=1
+      if retries_left.zero?
+        Djinn.log_warn("Nobody appears to be hosting app #{appname}")
+        return false
+      end
     }
 
     # Try 3 times on each node known to have this application
