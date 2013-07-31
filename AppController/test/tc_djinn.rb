@@ -171,8 +171,7 @@ class TestDjinn < Test::Unit::TestCase
     djinn = Djinn.new
 
     credentials = ['table', 'cassandra', 'hostname', 'public_ip', 'ips', '', 
-      'keyname', 'appscale', 'alter_etc_resolv', 'False', 'clear_datastore',
-      'True']
+      'keyname', 'appscale', 'alter_etc_resolv', 'False']
     one_node_info = ['public_ip:1.2.3.4:some_role:instance_id:cloud1']
     app_names = []
 
