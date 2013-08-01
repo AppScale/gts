@@ -37,8 +37,9 @@ module TerminateHelper
 
   # Erases all data stored in the Datastore (Cassandra + ZooKeeper).
   def self.erase_database_state
-    `rm -rf /opt/appscale/cassandra/*`
-    `rm -rf /opt/appscale/zookeeper/*`
+    `rm -rf /var/appscale/cassandra*`
+    `rm -rf /opt/appscale/cassandra*`
+    `rm -rf /opt/appscale/zookeeper*`
   end
 
 
