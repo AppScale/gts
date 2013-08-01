@@ -436,7 +436,7 @@ class Djinn
 
     STDOUT.sync = true
     @@log = Logger.new(STDOUT)
-    @@log.level = Logger::INFO
+    @@log.level = Logger::DEBUG
 
     @nodes = []
     @my_index = nil
@@ -657,7 +657,11 @@ class Djinn
     if @creds['alter_etc_resolv'].downcase == "true"
       HelperFunctions.alter_etc_resolv()
     end
-    
+
+    if @creds['clear_datastore'].class == String
+      @creds['clear_datastore'] = @creds['clear_datastore'].downcase == "true"
+    end
+
     return "OK"
   end
 
@@ -2775,8 +2779,7 @@ class Djinn
     threads << Thread.new {
       if my_node.is_zookeeper?
         configure_zookeeper(@nodes, @my_index)
-        init = !(@creds.include?("keep_zookeeper_data"))
-        start_zookeeper(init)
+        start_zookeeper
       end
 
       ZKInterface.init(my_node, @nodes)
@@ -2792,35 +2795,23 @@ class Djinn
       threads << Thread.new {
         start_db_master()
         # create initial tables
-        if (my_node.is_db_master? || (defined?(is_priming_needed?) && is_priming_needed?(my_node))) && !restore_from_db?
-          table = @creds['table']
-          prime_script = "#{APPSCALE_HOME}/AppDB/#{table}/prime_#{table}.py"
-          retries = 10
-          retval = 0
-          while retries > 0
-            replication = @creds["replication"]
-            Djinn.log_run("APPSCALE_HOME='#{APPSCALE_HOME}' MASTER_IP='localhost' LOCAL_DB_IP='localhost' python2.6 #{prime_script} #{replication}; echo $? > /tmp/retval")
-            retval = `cat /tmp/retval`.to_i
-            break if retval == 0
-            Djinn.log_warn("Fail to create initial table. Retry #{retries} times.")
-            Kernel.sleep(5)
-            retries -= 1
-          end
-          if retval != 0
-            Djinn.log_fatal("Fail to create initial table." +
-              " Could not startup AppScale.")
-            HelperFunctions.log_and_crash("Fail to create initial table." +
-              " Could not startup AppScale.")
-          end
+        if my_node.is_db_master?
+          prime_database
         end
 
-        # Currently we always run the Datastore Server (DatastoreServer) and SOAP
-        # server on the same nodes.
+        # Always colocate the Datastore Server and UserAppServer (soap_server).
         if has_soap_server?(my_node)
           @state = "Starting up SOAP Server and Datastore Server"
           start_datastore_server()
           start_soap_server()
           HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip, UserAppClient::SERVER_PORT)
+        end
+
+        # If we're starting AppScale with data from a previous deployment, we
+        # may have to clear out all the registered app instances from the
+        # UserAppServer (since nobody is currently hosting any apps).
+        if not @creds['clear_datastore']
+          erase_app_instance_info
         end
       }
     end
@@ -2835,7 +2826,8 @@ class Djinn
           @state = "Starting up SOAP Server and Datastore Server"
           start_datastore_server()
           start_soap_server()
-          HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip, UserAppClient::SERVER_PORT)
+          HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip,
+            UserAppClient::SERVER_PORT)
         end
       }
     end
@@ -2867,6 +2859,63 @@ class Djinn
     threads.each { |t| t.join() }
     Djinn.log_info("API services have started on this node")
 
+  end
+
+
+  # Creates database tables in the underlying datastore to hold information
+  # about the users that interact with AppScale clouds, and about the
+  # applications that AppScale hosts (including data that the apps themselves
+  # read and write).
+  #
+  # Raises:
+  #   SystemExit: If the database could not be primed for use with AppScale,
+  #     after ten retries.
+  def prime_database
+    table = @creds['table']
+    prime_script = "#{APPSCALE_HOME}/AppDB/#{table}/prime_#{table}.py"
+    retries = 10
+    loop {
+      Djinn.log_run("APPSCALE_HOME='#{APPSCALE_HOME}' MASTER_IP='localhost' " +
+        "LOCAL_DB_IP='localhost' python2.6 #{prime_script} " +
+        "#{@creds['replication']}; echo $? > /tmp/retval")
+      retval = `cat /tmp/retval`.to_i
+      return if retval.zero?
+      Djinn.log_warn("Failed to prime database. #{retries} retries left.")
+      Kernel.sleep(5)
+      retries -= 1
+      break if retries.zero?
+    }
+
+    Djinn.log_fatal("Failed to prime #{table}. Cannot continue.")
+    HelperFunctions.log_and_crash("Failed to prime #{table}.")
+  end
+
+
+  # Contacts the UserAppServer to get a list of apps that it believes are
+  # running in this AppScale cloud, and instructs it to delete each entry
+  # present.
+  def erase_app_instance_info
+    uac = UserAppClient.new(@userappserver_private_ip, @@secret)
+    app_list = uac.get_all_apps()
+    my_public = my_node.public_ip
+
+    Djinn.log_info("All apps are [#{app_list.join(', ')}]")
+    app_list.each { |app|
+      if uac.does_app_exist?(app)
+        Djinn.log_debug("App #{app} is enabled, so stopping it.")
+        hosts = uac.get_hosts_for_app(app)
+        Djinn.log_debug("[Stop appengine] hosts for #{app} is [#{hosts.join(', ')}]")
+        hosts.each { |host|
+          Djinn.log_debug("[Stop appengine] deleting instance for app #{app} at #{host}")
+          ip, port = host.split(":")
+          uac.delete_instance(app, ip, port)
+        }
+
+        Djinn.log_info("Finished deleting instances for app #{app}")
+      else
+        Djinn.log_debug("App #{app} wasnt enabled, skipping it")
+      end
+    }
   end
 
 
@@ -3928,7 +3977,6 @@ HOSTS
     total_requests_seen = 0
     total_req_in_queue = 0
     time_requests_were_seen = 0
-
     Djinn.log_run(monitor_cmd).each { |line|
       parsed_info = line.split(',')
       if parsed_info.length < TOTAL_REQUEST_RATE_INDEX  # no request info here
@@ -3940,7 +3988,8 @@ HOSTS
       if service_name == "FRONTEND"
         total_requests_seen = parsed_info[TOTAL_REQUEST_RATE_INDEX].to_i
         time_requests_were_seen = Time.now.to_i
-        Djinn.log_debug("#{app_name} #{service_name} Requests Seen #{total_requests_seen}")
+        Djinn.log_debug("#{app_name} #{service_name} Requests Seen " +
+          "#{total_requests_seen}")
       end
 
       if service_name == "BACKEND"
@@ -4135,8 +4184,6 @@ HOSTS
     HAProxy.reload
     Collectd.restart
 
-    # add_instance_info = uac.add_instance(app, my_public, @nginx_port)
-   
     Thread.new {
       haproxy_location = "http://#{my_private}:#{haproxy_port}#{warmup_url}"
       nginx_location = "http://#{my_public}:#{nginx_port}#{warmup_url}"
@@ -4380,28 +4427,8 @@ HOSTS
   def stop_appengine()
     Djinn.log_info("Shutting down AppEngine")
 
-    uac = UserAppClient.new(@userappserver_private_ip, @@secret)
-    app_list = uac.get_all_apps()
-    my_public = my_node.public_ip
-
-    Djinn.log_info("All apps are [#{app_list.join(', ')}]")
-    app_list.each { |app|
-      if uac.does_app_exist?(app)
-        Djinn.log_debug("App #{app} is enabled, so stopping it.")
-        hosts = uac.get_hosts_for_app(app)
-        Djinn.log_debug("[Stop appengine] hosts for #{app} is [#{hosts.join(', ')}]")
-        hosts.each { |host|
-          Djinn.log_debug("[Stop appengine] deleting instance for app #{app} at #{host}")
-          ip, port = host.split(":")
-          uac.delete_instance(app, ip, port)
-        }
-
-        Djinn.log_info("Finished deleting instances for app #{app}")
-        Nginx.reload
-      else
-        Djinn.log_debug("App #{app} wasnt enabled, skipping it")
-      end
-    }
+    erase_app_instance_info
+    Nginx.reload
 
     APPS_LOCK.synchronize { 
       @app_names = []
@@ -4426,11 +4453,18 @@ HOSTS
     end
 
     nodes_with_app = []
+    retries_left = 10
     loop {
       nodes_with_app = ZKInterface.get_app_hosters(appname)
       break if !nodes_with_app.empty?
-      Djinn.log_info("Waiting for a node to have a copy of app #{appname}")
+      Djinn.log_info("[#{retries_left} retries left] Waiting for a node to " +
+        "have a copy of app #{appname}")
       Kernel.sleep(5)
+      retries_left -=1
+      if retries_left.zero?
+        Djinn.log_warn("Nobody appears to be hosting app #{appname}")
+        return false
+      end
     }
 
     # Try 3 times on each node known to have this application

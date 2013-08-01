@@ -32,7 +32,7 @@ def create_keyspaces(replication):
 
   # Set this to False to keep data from a previous deployment. Setting it
   # it to True will remove previous tables.
-  _DROP_TABLES = True
+  _DROP_TABLES = False
 
   # TODO use shared library to get constants
   host = file_io.read('/etc/appscale/my_private_ip')
