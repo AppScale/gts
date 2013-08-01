@@ -2800,7 +2800,7 @@ class Djinn
       threads << Thread.new {
         start_db_master()
         # create initial tables
-        if my_node.is_db_master? and @creds['clear_datastore']
+        if my_node.is_db_master?
           prime_database
         end
 
