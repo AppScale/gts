@@ -1041,7 +1041,7 @@ class Djinn
     if !apps_to_restart.empty?
       apps_to_restart.each { |appid|
         ZKInterface.clear_app_hosters(appid)
-        location = "/var/apps/#{appid}/app/#{appid}.tar.gz"
+        location = "/opt/appscale/apps/#{appid}.tar.gz"
         ZKInterface.add_app_entry(appid, my_node.serialize, location)
       }
 
@@ -1175,7 +1175,7 @@ class Djinn
     apps.each { |app_name|
       if !my_node.is_login?  # this node has the new app - don't erase it here
         Djinn.log_info("Removing old version of app #{app_name}")
-        Djinn.log_run("rm -fv /var/apps/#{app_name}/app/#{app_name}.tar.gz")
+        Djinn.log_run("rm -fv /opt/appscale/apps/#{app_name}.tar.gz")
       end
       Djinn.log_info("About to restart app #{app_name}")
       APPS_LOCK.synchronize {
@@ -3695,7 +3695,7 @@ HOSTS
     shadow_ip = shadow.private_ip
     ssh_key = shadow.ssh_key
     app_dir = "/var/apps/#{app}/app"
-    app_path = "#{app_dir}/#{app}.tar.gz"
+    app_path = "/opt/appscale/apps/#{app}.tar.gz"
     FileUtils.mkdir_p(app_dir)
      
     # First, make sure we can download the app, and if we can't, throw up a
@@ -4443,7 +4443,7 @@ HOSTS
   # Returns true on success, false otherwise
   def copy_app_to_local(appname)
     app_dir = "/var/apps/#{appname}/app"
-    app_path = "#{app_dir}/#{appname}.tar.gz"
+    app_path = "/opt/appscale/apps/#{appname}.tar.gz"
 
     if File.exists?(app_path)
       Djinn.log_debug("I already have a copy of app #{appname} - won't grab it remotely")
