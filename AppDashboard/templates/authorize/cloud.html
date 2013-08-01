@@ -20,6 +20,11 @@
                       {% if flash_message %}
                         <ul id="noticeExplanation"><li class="flash notice">{{ flash_message }}</li></ul>
                       {% endif %}
+
+                      {% if error_flash_message %}
+                        <ul id="errorExplanation"><li class="">{{ error_flash_message }}</li></ul>
+                      {% endif %}
+
                       <h3>Authorization Info:</h3>
                     </div>
                       <form action="/authorize" method="post">
