@@ -897,7 +897,8 @@ class AppDashboardHelper():
       password: A str containing the cleartext password that should be set for
         the given user.
     Returns:
-      True if the password was changed successfully, and False otherwise.
+      True: If the password was changed successfully.
+      False: If the password was unsuccessfully changed.
     """
     hashed_password = hashlib.sha1(email + password).hexdigest()
 
@@ -905,9 +906,9 @@ class AppDashboardHelper():
       user_app_server = self.get_uaserver()
       ret = user_app_server.change_password(email, hashed_password, GLOBAL_SECRET_KEY)
       if ret == "true":
-        return "The user password was successfully changed "
+        return (True, "The user password was successfully changed ")
       else:
-        return AppHelperException(ret)
+        return (False, ret)
     except Exception as err:
       logging.exception(err)
-      raise AppHelperException("There was an error changing the user password.")
+      raise (False, "There was an error changing the user password.")
