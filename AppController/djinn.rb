@@ -4009,11 +4009,13 @@ HOSTS
     if total_req_in_queue.zero?
       Djinn.log_debug("No requests are enqueued for app #{app_name} - " +
         "advising that we scale down within this machine.")
+      return :scale_down
     end
 
     if total_req_in_queue > SCALEUP_QUEUE_SIZE_THRESHOLD
       Djinn.log_debug("#{total_req_in_queue} requests are enqueued for app " +
         "#{app_name} - advising that we scale up within this machine.")
+      return :scale_up
     end
 
     Djinn.log_debug("#{total_req_in_queue} requests are enqueued for app " +
