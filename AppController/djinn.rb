@@ -662,6 +662,8 @@ class Djinn
       @creds['clear_datastore'] = @creds['clear_datastore'].downcase == "true"
     end
 
+    Djinn.log_run("mkdir -p /opt/appscale/apps")
+
     return "OK"
   end
 
