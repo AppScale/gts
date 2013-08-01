@@ -441,7 +441,7 @@ class Djinn
 
     STDOUT.sync = true
     @@log = Logger.new(STDOUT)
-    @@log.level = Logger::INFO
+    @@log.level = Logger::DEBUG
 
     @nodes = []
     @my_index = nil
@@ -588,6 +588,7 @@ class Djinn
 
     if @creds['alter_etc_resolv'].downcase == "true"
       HelperFunctions.restore_etc_resolv()
+    if @creds['verbose'].downcase == "true"
     end
 
     return "OK"  
