@@ -361,11 +361,6 @@ class Djinn
   REQ_IN_QUEUE_INDEX = 2
 
 
-  # The position in the haproxy profiling information where the request rate
-  # is specified.
-  REQ_RATE_INDEX = 46
-
-
   # The position in the haproxy profiling information where the total number of
   # requests seen for a given app is specified.
   TOTAL_REQUEST_RATE_INDEX = 48
@@ -472,8 +467,6 @@ class Djinn
     @scaling_in_progress = false
     @last_decision = {}
     @initialized_apps = {}
-    @req_rate = {}
-    @req_in_queue = {}
     @total_req_rate = {}
     @last_sampling_time = {}
     @last_scaling_time = Time.now
@@ -2349,7 +2342,7 @@ class Djinn
         response = http.post(url.path, JSON.dump(instance_info),
           {'Content-Type'=>'application/json'})
         Djinn.log_debug("Done sending instance info to AppDashboard!")
-        Djinn.log_debug("Instance info is: [#{instance_info}]")
+        Djinn.log_debug("Instance info is: #{instance_info.inspect}")
         Djinn.log_debug("Response is #{response.body}")
       rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE, Errno::ECONNRESET
         retry
@@ -2387,7 +2380,7 @@ class Djinn
         request.body = JSON.dump(instance_info)
         response = http.request(request)
         Djinn.log_debug("Done sending instance info to AppDashboard!")
-        Djinn.log_debug("Instance info is: [#{instance_info}]")
+        Djinn.log_debug("Instance info is: #{instance_info.inspect}")
         Djinn.log_debug("Response is #{response.body}")
       rescue Exception => exception
         # Don't crash the AppController because we weren't able to send over
@@ -3934,17 +3927,7 @@ HOSTS
 
         # Always get scaling info, as that will send this info to the
         # AppDashboard for users to view.
-        scaling_decision = get_scaling_info_for_app(app_name)
-        if is_cpu_or_mem_maxed_out?(@app_info_map[app_name]['language'])
-          if scaling_decision == :scale_up
-            Djinn.log_info("Requesting that additional AppServers be added " +
-              "to service #{app_name}")
-            ZKInterface.request_scale_up_for_app(app_name, my_node.private_ip)
-            return
-          end
-        end
-
-        case scaling_decision
+        case get_scaling_info_for_app(app_name)
         when :scale_up
           Djinn.log_info("Considering scaling up app #{app_name}.")
           try_to_scale_up(app_name)
@@ -3969,16 +3952,8 @@ HOSTS
   def initialize_scaling_info_for_app(app_name, force=false)
     return if @initialized_apps[app_name] and !force
 
-    @req_rate[app_name] = []
-    @req_in_queue[app_name] = []
     @total_req_rate[app_name] = 0
     @last_sampling_time[app_name] = Time.now.to_i
-
-    # Fill in req_rate and req_in_queue with dummy info for now
-    NUM_DATA_POINTS.times { |i|
-      @req_rate[app_name][i] = 0
-      @req_in_queue[app_name][i] = 0
-    }
 
     if !@last_decision.has_key?(app_name)
       @last_decision[app_name] = 0
@@ -3988,136 +3963,101 @@ HOSTS
   end
   
 
-  # Looks at how much CPU and memory is being used system-wide, to determine
-  # if a new AppServer should be added. As AppServers in different languages
-  # consume different amounts of CPU and memory, we consult the global
-  # variables that indicate what the maximum CPU and memory limits are for
-  # a new AppServer in the given language.
-  def is_cpu_or_mem_maxed_out?(language)
-    stats = get_stats(@@secret)
-    Djinn.log_debug("CPU used: #{stats['cpu']}, mem used: #{stats['memory']}")
-
-    current_cpu = stats['cpu']
-    max_cpu = MAX_CPU_FOR_APPSERVERS[language]
-
-    if current_cpu > max_cpu
-      Djinn.log_info("Not enough CPU is free to spawn up a new #{language} " +
-        "AppServer (#{current_cpu} CPU used > #{max_cpu} maximum)")
-      return true
-    end
-
-    current_mem = Float(stats['memory'])
-    max_mem = MAX_MEM_FOR_APPSERVERS[language]
-
-    if current_mem > max_mem
-      Djinn.log_info("Not enough memory is free to spawn up a new " +
-        "#{language} AppServer (#{current_mem} memory used > #{max_mem} " +
-        "maximum)")
-      return true
-    else
-      Djinn.log_info("Enough CPU and memory are free to spawn up a new " +
-        "#{language} AppServer.")
-      return false
-    end
-  end
-
-
   # Queries haproxy to see how many requests are queued for a given application
   # and how many requests are served at a given time. Based on this information,
   # this method reports whether or not AppServers should be added, removed, or
   # if no changes are needed.
   def get_scaling_info_for_app(app_name)
-    autoscale_log = File.open(AUTOSCALE_LOG_FILE, "a+")
-    autoscale_log.puts("Getting scaling info for application #{app_name}")
+    Djinn.log_debug("Getting scaling info for application #{app_name}")
   
-    # Average Request rates and queued requests set to 0
-    avg_req_rate = 0
-    avg_req_in_queue = 0
-  
-    # Move all the old data over one spot in our arrays (basically making
-    # these rotating buffers) and see the average number of requests received
-    # and enqueued from the old data
-    (NUM_DATA_POINTS-1).times { |i|
-      @req_rate[app_name][i] = @req_rate[app_name][i+1]
-      @req_in_queue[app_name][i] = @req_in_queue[app_name][i+1]
-      avg_req_rate += @req_rate[app_name][i+1].to_i
-      avg_req_in_queue += @req_in_queue[app_name][i+1].to_i
-    }
-
     # Now see how many requests came in for our app and how many are enqueued
     monitor_cmd = "echo \"show info;show stat\" | " +
       "socat stdio unix-connect:/etc/haproxy/stats | grep #{app_name}"
 
     total_requests_seen = 0
+    total_req_in_queue = 0
     time_requests_were_seen = 0
-    `#{monitor_cmd}`.each { |line|
+    Djinn.log_run(monitor_cmd).each { |line|
       parsed_info = line.split(',')
-      if parsed_info.length < REQ_RATE_INDEX  # not a line with request info
+      if parsed_info.length < TOTAL_REQUEST_RATE_INDEX  # no request info here
         next
       end
 
       service_name = parsed_info[SERVICE_NAME_INDEX]
-      req_in_queue_present = parsed_info[REQ_IN_QUEUE_INDEX]
-      req_rate_present = parsed_info[REQ_RATE_INDEX]
 
       if service_name == "FRONTEND"
-        autoscale_log.puts("#{service_name} Request Rate #{req_rate_present}")
-        req_rate_present = parsed_info[REQ_RATE_INDEX]
-        avg_req_rate += req_rate_present.to_i
-        @req_rate[app_name][NUM_DATA_POINTS-1] = req_rate_present
-
         total_requests_seen = parsed_info[TOTAL_REQUEST_RATE_INDEX].to_i
         time_requests_were_seen = Time.now.to_i
+        Djinn.log_debug("#{app_name} #{service_name} Requests Seen " +
+          "#{total_requests_seen}")
       end
 
       if service_name == "BACKEND"
-        autoscale_log.puts("#{service_name} Queued Currently " +
-          "#{req_in_queue_present}")
-        req_in_queue_present = parsed_info[REQ_IN_QUEUE_INDEX]
-        avg_req_in_queue += req_in_queue_present.to_i
-        @req_in_queue[app_name][NUM_DATA_POINTS-1] = req_in_queue_present
+        total_req_in_queue = parsed_info[REQ_IN_QUEUE_INDEX].to_i
+        Djinn.log_debug("#{app_name} #{service_name} Queued Currently " +
+          "#{total_req_in_queue}")
       end
     }
 
     if time_requests_were_seen.zero?
       Djinn.log_warn("Didn't see any request data - not sure whether to scale up or down.")
       return :no_change
-    else
-      Djinn.log_debug("Did see request data. Total requests seen now is " +
-        "#{total_requests_seen}, last time was #{@total_req_rate[app_name]}")
-      requests_since_last_sampling = total_requests_seen - @total_req_rate[app_name]
-      time_since_last_sampling = time_requests_were_seen - @last_sampling_time[app_name]
-      if time_since_last_sampling.zero?
-        time_since_last_sampling = 1
-      end
-      average_request_rate = Float(requests_since_last_sampling) / Float(time_since_last_sampling)
-      send_request_info_to_dashboard(app_name, time_requests_were_seen,
-        average_request_rate)
-      Djinn.log_debug("Total requests will be set to #{total_requests_seen} " +
-        "for app #{app_name}")
-      @total_req_rate[app_name] = total_requests_seen
-      @last_sampling_time[app_name] = time_requests_were_seen
     end
 
-    total_req_in_queue = avg_req_in_queue
-    avg_req_rate /= NUM_DATA_POINTS
-    avg_req_in_queue /= NUM_DATA_POINTS
+    update_request_info(app_name, total_requests_seen, time_requests_were_seen)
 
-    autoscale_log.puts("[#{app_name}] Average Request rate: #{avg_req_rate}")
-    autoscale_log.puts("[#{app_name}] Average Queued requests: " +
-      "#{avg_req_in_queue}")
-
-    if average_request_rate <= SCALEDOWN_REQUEST_RATE_THRESHOLD and
-      total_req_in_queue.zero?
-      return :scale_down
+    if total_req_in_queue.zero?
+      Djinn.log_debug("No requests are enqueued for app #{app_name} - " +
+        "advising that we scale down within this machine.")
     end
 
-    if average_request_rate > SCALEUP_REQUEST_RATE_THRESHOLD and
-      avg_req_in_queue > SCALEUP_QUEUE_SIZE_THRESHOLD
-      return :scale_up
+    if total_req_in_queue > SCALEUP_QUEUE_SIZE_THRESHOLD
+      Djinn.log_debug("#{total_req_in_queue} requests are enqueued for app " +
+        "#{app_name} - advising that we scale up within this machine.")
     end
 
+    Djinn.log_debug("#{total_req_in_queue} requests are enqueued for app " +
+      "#{app_name} - advising that don't scale either way on this machine.")
     return :no_change
+  end
+
+
+  # Updates internal state about the number of requests seen for the given App
+  # Engine app, as well as how many requests are currently enqueued for it.
+  # Some of this information is also sent to the AppDashboard for viewing by
+  # users.
+  #
+  # Args:
+  #   app_name: A String that indicates the name this Google App Engine
+  #     application is registered as.
+  #   total_requests_seen: An Integer that indicates how many requests haproxy
+  #     has received for the given application since we reloaded it (which
+  #     occurs when we start the app or add/remove AppServers).
+  #   time_requests_were_seen: An Integer that represents the epoch time when we
+  #     got request info from haproxy.
+  def update_request_info(app_name, total_requests_seen, time_requests_were_seen)
+    Djinn.log_debug("Total requests seen now is #{total_requests_seen}, last " +
+      "time was #{@total_req_rate[app_name]}")
+    requests_since_last_sampling = total_requests_seen - @total_req_rate[app_name]
+    time_since_last_sampling = time_requests_were_seen - @last_sampling_time[app_name]
+    if time_since_last_sampling.zero?
+      time_since_last_sampling = 1
+    end
+
+    average_request_rate = Float(requests_since_last_sampling) / Float(time_since_last_sampling)
+    if average_request_rate < 0
+      Djinn.log_info("Saw negative request rate for app #{app_name}, so " +
+        "resetting our haproxy stats for this app.")
+      initialize_scaling_info_for_app(app_name, force=true)
+      return
+    end
+
+    send_request_info_to_dashboard(app_name, time_requests_were_seen,
+      average_request_rate)
+    Djinn.log_debug("Total requests will be set to #{total_requests_seen} " +
+      "for app #{app_name}, with last sampling time #{time_requests_were_seen}")
+    @total_req_rate[app_name] = total_requests_seen
+    @last_sampling_time[app_name] = time_requests_were_seen
   end
 
 
@@ -4130,22 +4070,18 @@ HOSTS
     end
 
     appservers_running = @app_info_map[app_name]['appengine'].length
-          
-    if time_since_last_decision > SCALEUP_TIME_THRESHOLD and 
-      appservers_running < MAX_APPSERVERS_ON_THIS_NODE
 
-      Djinn.log_info("Adding a new AppServer on this node for #{app_name}")
-      add_appserver_process(app_name)
-      initialize_scaling_info_for_app(app_name, force=true)
-      @last_decision[app_name] = Time.now.to_i
-    elsif time_since_last_decision <= SCALEUP_TIME_THRESHOLD
-      Djinn.log_info("Recently scaled up, so not scaling up again.")
-    elsif !@app_info_map[app_name]['appengine'].nil? and
-      appservers_running > MAX_APPSERVERS_ON_THIS_NODE
-
+    if appservers_running >= MAX_APPSERVERS_ON_THIS_NODE
       Djinn.log_info("The maximum number of AppServers for this app " +
-        "are already running, so don't add any more")
+        "are already running, so don't add any more on this machine.")
+      ZKInterface.request_scale_up_for_app(app_name, my_node.private_ip)
+      return
     end
+
+    Djinn.log_info("Adding a new AppServer on this node for #{app_name}")
+    add_appserver_process(app_name)
+    initialize_scaling_info_for_app(app_name, force=true)
+    @last_decision[app_name] = Time.now.to_i
   end
 
 
@@ -4159,22 +4095,17 @@ HOSTS
 
     appservers_running = @app_info_map[app_name]['appengine'].length
 
-    if time_since_last_decision > SCALEDOWN_TIME_THRESHOLD and
-      appservers_running > MIN_APPSERVERS_ON_THIS_NODE
-
-      Djinn.log_info("Removing an AppServer on this node for #{app_name}")
-      remove_appserver_process(app_name)
-      initialize_scaling_info_for_app(app_name, force=true)
-      @last_decision[app_name] = Time.now.to_i
-    elsif !@app_info_map[app_name]['appengine'].nil? and
-      appservers_running <= MIN_APPSERVERS_ON_THIS_NODE
-
+    if appservers_running <= MIN_APPSERVERS_ON_THIS_NODE
       Djinn.log_info("The minimum number of AppServers for this app " +
-        "are already running, so don't remove any more.")
+        "are already running, so don't remove any more off this machine.")
       ZKInterface.request_scale_down_for_app(app_name, my_node.private_ip)
-    elsif time_since_last_decision <= SCALEDOWN_TIME_THRESHOLD 
-      Djinn.log_info("Recently scaled down, so not scaling down again.")
+      return
     end
+
+    Djinn.log_info("Removing an AppServer on this node for #{app_name}")
+    remove_appserver_process(app_name)
+    initialize_scaling_info_for_app(app_name, force=true)
+    @last_decision[app_name] = Time.now.to_i
   end
 
 
@@ -4199,14 +4130,14 @@ HOSTS
     Djinn.log_debug("Get app data for #{app} said [#{app_data}]")
 
     loop {
-        Djinn.log_info("Waiting for app data to have instance info for app named #{app}: #{app_data}")
+      Djinn.log_info("Waiting for app data to have instance info for app named #{app}: #{app_data}")
 
-        app_data = uac.get_app_data(app)
-        if app_data[0..4] != "Error"
-          break
-        end
-        Kernel.sleep(5)
-     }
+      app_data = uac.get_app_data(app)
+      if app_data[0..4] != "Error"
+        break
+      end
+      Kernel.sleep(5)
+    }
     
     app_language = app_data.scan(/language:(\w+)/).flatten.to_s
     my_public = my_node.public_ip
@@ -4460,7 +4391,7 @@ HOSTS
     end
 
     # Also, don't scale down if we just scaled up or down.
-    if Time.now - @last_scaling_time > SCALEDOWN_TIME_THRESHOLD
+    if Time.now - @last_scaling_time < SCALEDOWN_TIME_THRESHOLD
       Djinn.log_info("Not scaling down VMs right now, as we recently scaled " +
         "up or down.")
       return 0
