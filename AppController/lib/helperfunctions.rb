@@ -374,13 +374,16 @@ module HelperFunctions
   def self.setup_app(app_name, untar=true)
     meta_dir = "/var/apps/#{app_name}"
     tar_dir = "#{meta_dir}/app/"
-    tar_path = "#{tar_dir}#{app_name}.tar.gz"
+    tar_path = "/opt/appscale/apps/#{app_name}.tar.gz"
 
     self.shell("mkdir -p #{tar_dir}")
     self.shell("mkdir -p #{meta_dir}/log")
     self.shell("cp #{APPSCALE_HOME}/AppDashboard/setup/404.html #{meta_dir}")
     self.shell("touch #{meta_dir}/log/server.log")
-    self.shell("tar --file #{tar_path} --force-local -C #{tar_dir} -zx") if untar
+
+    if untar
+      self.shell("tar --file #{tar_path} --force-local -C #{tar_dir} -zx")
+    end
   end
 
 
