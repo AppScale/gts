@@ -665,7 +665,9 @@ class Djinn
       HelperFunctions.alter_etc_resolv()
     end
 
-    @creds['clear_datastore'] = @creds['clear_datastore'].downcase == "true"
+    if @creds['clear_datastore'].class == String
+      @creds['clear_datastore'] = @creds['clear_datastore'].downcase == "true"
+    end
 
     return "OK"
   end
