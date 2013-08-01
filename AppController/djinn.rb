@@ -581,6 +581,7 @@ class Djinn
 
     if @creds['alter_etc_resolv'].downcase == "true"
       HelperFunctions.restore_etc_resolv()
+    if @creds['verbose'].downcase == "true"
     end
 
     return "OK"  
