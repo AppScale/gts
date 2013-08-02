@@ -165,6 +165,9 @@ class TestDjinn < Test::Unit::TestCase
   end
 
   def test_set_params_w_good_params
+    flexmock(Djinn).should_receive(:log_run).with(
+      "mkdir -p /opt/appscale/apps")
+
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
     }
