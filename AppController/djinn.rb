@@ -436,7 +436,7 @@ class Djinn
 
     STDOUT.sync = true
     @@log = Logger.new(STDOUT)
-    @@log.level = Logger::INFO
+    @@log.level = Logger::DEBUG
 
     @nodes = []
     @my_index = nil
@@ -584,6 +584,7 @@ class Djinn
     end
 
     if @creds['verbose'].downcase == "false"
+      @@log.level = Logger::INFO
     end
 
     return "OK"  
