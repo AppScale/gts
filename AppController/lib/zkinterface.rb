@@ -418,7 +418,7 @@ class ZKInterface
 
     # Finally, dump the data from this node to ZK, so that other nodes can
     # reconstruct it as needed.
-    self.set_job_data_for_ip(node.public_ip, node.serialize())
+    self.set_job_data_for_ip(node.public_ip, JSON.dump(node.to_hash()))
 
     return
   end
