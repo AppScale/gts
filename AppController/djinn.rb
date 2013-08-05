@@ -3476,9 +3476,7 @@ HOSTS
     if @creds['disks']
       imc = InfrastructureManagerClient.new(@@secret)
 
-      # TODO(cgb): Verify that this works in a multinode deployment.
-      device_name = imc.attach_disk(@creds, @creds['disks'].values[@my_index],
-        my_node.instance_id)
+      device_name = imc.attach_disk(@creds, my_node.disk, my_node.instance_id)
       Djinn.log_run("rm -rf /opt/appscale")
       Djinn.log_run("mkdir /opt/appscale")
       mount_output = Djinn.log_run("mount -t ext4 #{device_name} /opt/appscale 2>&1")
