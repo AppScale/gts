@@ -595,12 +595,13 @@ class Djinn
       return BAD_SECRET_MSG
     end
 
-    if djinn_locations.class != Array
-      msg = "Error: djinn_locations wasn't an Array, but was a " +
+    if djinn_locations.class != String
+      msg = "Error: djinn_locations wasn't a String, but was a " +
         djinn_locations.class.to_s
       Djinn.log_error(msg)
       return msg
     end
+    locations = JSON.load(djinn_locations)
 
     if database_credentials.class != Array
       msg = "Error: database_credentials wasn't an Array, but was a " +
@@ -634,7 +635,7 @@ class Djinn
     end
 
     keyname = possible_credentials["keyname"]
-    @nodes = Djinn.convert_location_array_to_class(djinn_locations, keyname)
+    @nodes = Djinn.convert_location_array_to_class(locations, keyname)
     @creds = possible_credentials
     @app_names = app_names
     
@@ -1786,10 +1787,10 @@ class Djinn
     
     djinn_loc_array = []
     djinn_locations.each { |location|
-      djinn_loc_array << location.serialize
+      djinn_loc_array << location.to_hash
     }
     
-    return djinn_loc_array
+    return JSON.dump(djinn_loc_array)
   end
     
   def get_login
@@ -2415,8 +2416,7 @@ class Djinn
       all_ips = zk_ips_info["ips"]
       new_nodes = []
       all_ips.each { |ip|
-        new_nodes << DjinnJobData.deserialize(
-          ZKInterface.get_job_data_for_ip(ip))
+        new_nodes << DjinnJobData.new(ZKInterface.get_job_data_for_ip(ip))
       }
 
       old_roles = my_node.jobs
@@ -2481,7 +2481,7 @@ class Djinn
           next
         else
           failed_job_data = ZKInterface.get_job_data_for_ip(ip)
-          failed_node = DjinnJobData.deserialize(failed_job_data)
+          failed_node = DjinnJobData.new(failed_job_data)
           roles_to_add << failed_node.jobs
 
           remove_app_hosting_data_for_node(ip)

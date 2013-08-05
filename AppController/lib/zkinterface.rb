@@ -173,7 +173,7 @@ class ZKInterface
     app_hosters = self.get_children(appname_path)
     converted = []
     app_hosters.each { |serialized|
-      converted << DjinnJobData.deserialize(serialized)
+      converted << DjinnJobData.new(JSON.load(serialized))
     }
     return converted
   end
@@ -533,17 +533,14 @@ class ZKInterface
   end
 
 
-  # Returns a serialized DjinnJobData string that we store in ZooKeeper for the
-  # given IP address, which callers can deserialize to get a DjinnJobData
-  # object.
   def self.get_job_data_for_ip(ip)
-    return self.get("#{APPCONTROLLER_NODE_PATH}/#{ip}/job_data")
+    return JSON.load(self.get("#{APPCONTROLLER_NODE_PATH}/#{ip}/job_data"))
   end
 
 
   def self.set_job_data_for_ip(ip, job_data)
     return self.set("#{APPCONTROLLER_NODE_PATH}/#{ip}/job_data", 
-      job_data, NOT_EPHEMERAL)
+      JSON.dump(job_data), NOT_EPHEMERAL)
   end
 
 
@@ -557,9 +554,9 @@ class ZKInterface
   # the roles to
   def self.add_roles_to_node(roles, node)
     old_job_data = self.get_job_data_for_ip(node.public_ip)
-    new_node = DjinnJobData.deserialize(old_job_data)
+    new_node = DjinnJobData.new(JSON.load(old_job_data))
     new_node.add_roles(roles.join(":"))
-    new_job_data = new_node.serialize()
+    new_job_data = JSON.dump(new_node.to_hash())
     self.set_job_data_for_ip(node.public_ip, new_job_data)
     self.set_done_loading(node.public_ip, false)
     self.update_ips_timestamp()
@@ -576,9 +573,9 @@ class ZKInterface
   # the roles from
   def self.remove_roles_from_node(roles, node)
     old_job_data = self.get_job_data_for_ip(node.public_ip)
-    new_node = DjinnJobData.deserialize(old_job_data)
+    new_node = DjinnJobData.new(JSON.load(old_job_data))
     new_node.remove_roles(roles.join(":"))
-    new_job_data = new_node.serialize()
+    new_job_data = JSON.dump(new_node.to_hash())
     self.set_job_data_for_ip(node.public_ip, new_job_data)
     self.set_done_loading(node.public_ip, false)
     self.update_ips_timestamp()
