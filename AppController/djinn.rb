@@ -662,6 +662,8 @@ class Djinn
       @creds['clear_datastore'] = @creds['clear_datastore'].downcase == "true"
     end
 
+    @creds['disks'] = JSON.load(@creds['disks']) if @creds['disks']
+
     Djinn.log_run("mkdir -p /opt/appscale/apps")
 
     return "OK"
@@ -3460,7 +3462,8 @@ HOSTS
     @nodes[@my_index]
   end
   
-  # Perform any necessary initialization steps before we begin starting up services
+  # Perform any necessary initialization steps before we begin starting up
+  # services
   def initialize_server
     my_public_ip = my_node.public_ip
     head_node_ip = get_public_ip(@creds['hostname'])
@@ -3469,6 +3472,27 @@ HOSTS
     Nginx.initialize_config
     Collectd.initialize_config(my_public_ip, head_node_ip)
     Monitoring.reset
+
+    if @creds['disks']
+      imc = InfrastructureManagerClient.new(@@secret)
+
+      # TODO(cgb): Verify that this works in a multinode deployment.
+      device_name = imc.attach_disk(@creds['disks'].values[@my_index])
+      Djinn.log_run("rm -rf /opt/appscale")
+      Djinn.log_run("mkdir /opt/appscale")
+      mount_output = Djinn.log_run("mount -t ext4 #{device_name} /opt/appscale 2>&1")
+      if mount_output.empty?
+        Djinn.log_info("Mounted persistent disk #{device_name}, without " +
+          "needing to format it.")
+        return
+      end
+
+      Djinn.log_info("Formatting persistent disk #{device_name}")
+      Djinn.log_run("mkfs.ext4 -F #{device_name}")
+
+      Djinn.log_info("Mounting persistent disk #{device_name}")
+      Djinn.log_run("mount -t ext4 #{device_name} /opt/appscale 2>&1")
+    end
   end
 
   def start_appcontroller(node)
