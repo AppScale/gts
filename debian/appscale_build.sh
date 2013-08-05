@@ -36,12 +36,11 @@ fi
 
 echo "Installing Ubuntu ${DIST} building environment."
 
+apt-get update
 apt-get -y install curl wget
 curl -d "key=appscale" http://heart-beat.appspot.com/sign
 
 export APPSCALE_HOME_RUNTIME=`pwd`
-
-apt-get update
 
 if [ "$DIST" = "lucid" ]; then
     echo "Running lucid specific commands"
