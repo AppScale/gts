@@ -123,6 +123,15 @@ class InfrastructureManagerClient
   end
 
 
+  # Parses the credentials that AppControllers store and constructs a
+  # Hash containing infrastructure-specific parameters.
+  #
+  # Args:
+  #   creds: A Hash that contains all of the credentials passed between
+  #     AppControllers.
+  # Returns:
+  #   A Hash that contains only the parameters needed to interact with AWS,
+  #   Eucalyptus, or GCE.
   def get_parameters_from_credentials(creds)
     return {
       "credentials" => {
