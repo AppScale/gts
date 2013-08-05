@@ -78,15 +78,10 @@ def prime_cassandra(replication):
   if int(replication) <= 0: 
     raise AppScaleBadArg("Replication must be greater than zero")
 
-  db = py_cassandra.DatastoreProxy()
-  if len(db.get_schema(dbconstants.USERS_TABLE)) > 1 and \
-     len(db.get_schema(dbconstants.APPS_TABLE)) > 1:
-    print "TABLES FOR USER AND APPS ALREADY EXIST"
-    return 0
-
   create_keyspaces(int(replication))
   print "Prime Cassandra database"
   try:
+    db = py_cassandra.DatastoreProxy()
     db.create_table(dbconstants.USERS_TABLE, dbconstants.USERS_SCHEMA)
     db.create_table(dbconstants.APPS_TABLE, dbconstants.APPS_SCHEMA)
   # TODO: Figure out the exact exceptions we're trying to catch in the 
