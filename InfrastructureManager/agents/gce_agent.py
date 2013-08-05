@@ -395,9 +395,46 @@ class GCEAgent(BaseAgent):
         instance=instance_id
       )
       response = request.execute(auth_http)
-      AppScaleLogger.verbose(str(response), parameters[self.PARAM_VERBOSE])
+      utils.log(str(response))
       self.ensure_operation_succeeds(gce_service, auth_http, response,
         parameters[self.PARAM_PROJECT])
+
+
+  def attach_disk(self, parameters, disk_name, instance_id):
+    """ Attaches the persistent disk specified in 'disk_name' to this virtual
+    machine.
+
+    Args:
+      parameters: A dict with keys for each parameter needed to connect to
+        Google Compute Engine.
+      disk_name: A str naming the persistent disk to attach to this machine.
+      instance_id: A str naming the id of the instance that the disk should be
+        attached to. In practice, callers add disks to their own instance.
+    Returns:
+      A str indicating where the persistent disk has been attached to.
+    """
+    gce_service, credentials = self.open_connection(parameters)
+    http = httplib2.Http()
+    auth_http = credentials.authorize(http)
+    project_id = parameters[self.PARAM_PROJECT]
+    request = gce_service.instances().attachDisk(
+      project=project_id,
+      zone=self.DEFAULT_ZONE,
+      instance=instance_id,
+      body={
+        'kind' : 'compute#attachedDisk',
+        'type' : 'PERSISTENT',
+        'mode' : 'READ_WRITE',
+        'source' : "https://www.googleapis.com/compute/v1beta15/projects/{0}" \
+          "/zone/{1}/disks/{2}".format(project_id, self.DEFAULT_ZONE, disk_name)
+      }
+    )
+    response = request.execute(auth_http)
+    utils.log(str(response))
+    self.ensure_operation_succeeds(gce_service, auth_http, response,
+      parameters[self.PARAM_PROJECT])
+
+    return '/dev/disk/by-id/google-{0}'.format(disk_name)
 
 
   def ensure_operation_succeeds(self, gce_service, auth_http, response, project_id):

@@ -288,6 +288,37 @@ class InfrastructureManager:
       thread.start_new_thread(self.__kill_vms, (agent, parameters))
     return self.__generate_response(True, self.REASON_NONE)
 
+  def attach_disk(self, parameters, disk_name, instance_id, secret):
+    """ Contacts the infrastructure named in 'parameters' and tells it to
+    attach a persistent disk to this machine.
+
+    Args:
+      parameters: A dict containing the credentials necessary to send requests
+        to the underlying cloud infrastructure.
+      disk_name: A str corresponding to the name of the persistent disk that
+        should be attached to this machine.
+      instance_id: A str naming the instance id that the disk should be attached
+        to (typically this machine).
+      secret: A str that authenticates the caller.
+    """
+    parameters, secret = self.__validate_args(parameters, secret)
+
+    if self.secret != secret:
+      return self.__generate_response(False, self.REASON_BAD_SECRET)
+
+    infrastructure = parameters[self.PARAM_INFRASTRUCTURE]
+    agent = self.agent_factory.create_agent(infrastructure)
+    try:
+      agent.assert_required_parameters(parameters,
+        BaseAgent.OPERATION_TERMINATE)
+    except AgentConfigurationException as exception:
+      return self.__generate_response(False, exception.message)
+
+    disk_location = agent.attach_disk(parameters, disk_name, instance_id)
+    return self.__generate_response(True, self.REASON_NONE,
+      {'location' : disk_location})
+
+
   def __spawn_vms(self, agent, num_vms, parameters, reservation_id):
     """
     Private method for starting a set of VMs

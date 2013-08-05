@@ -47,6 +47,22 @@ class TestGCEAgent(TestCase):
     flexmock(utils).should_receive('get_random_alphanumeric').and_return(
       self.reservation_id)
 
+    self.params = {
+      'credentials' : {
+        'EC2_URL': None,
+        'EC2_ACCESS_KEY': None,
+        'EC2_SECRET_KEY': None,
+      },
+      'project': self.project,
+      'group': 'boogroup',
+      'image_id': 'booid',
+      'infrastructure': 'gce',
+      'instance_type': 'booinstance_type',
+      'keyname': 'bookeyname',
+      'num_vms': '1',
+      'use_spot_instances': False,
+    }
+
 
   def test_gce_run_instances(self):
     # mock out interactions with GCE
@@ -186,28 +202,12 @@ class TestGCEAgent(TestCase):
 
     # first, validate that the run_instances call goes through successfully
     # and gives the user a reservation id
-    full_params = {
-      'credentials' : {
-        'EC2_URL': None,
-        'EC2_ACCESS_KEY': None,
-        'EC2_SECRET_KEY': None,
-      },
-      'project': self.project,
-      'group': 'boogroup',
-      'image_id': 'booid',
-      'infrastructure': 'gce',
-      'instance_type': 'booinstance_type',
-      'keyname': 'bookeyname',
-      'num_vms': '1',
-      'use_spot_instances': False,
-    }
-
     full_result = {
       'success': True,
       'reservation_id': self.reservation_id,
       'reason': 'none'
     }
-    self.assertEquals(full_result, i.run_instances(full_params, 'secret'))
+    self.assertEquals(full_result, i.run_instances(self.params, 'secret'))
 
     # next, look at run_instances internally to make sure it actually is
     # updating its reservation info
@@ -217,3 +217,63 @@ class TestGCEAgent(TestCase):
     self.assertEquals(['public-ip'], vm_info['public_ips'])
     self.assertEquals(['private-ip'], vm_info['private_ips'])
     self.assertEquals([instance_id], vm_info['instance_ids'])
+
+
+  def test_attach_persistent_disk(self):
+    # mock out interactions with GCE
+    # first, mock out the oauth library calls
+    fake_flow = flexmock(name='fake_flow')
+    flexmock(oauth2client.client)
+    oauth2client.client.should_receive('flow_from_clientsecrets').with_args(
+      GCEAgent.CLIENT_SECRETS_LOCATION, scope=GCEAgent.GCE_SCOPE).and_return(
+      fake_flow)
+
+    fake_storage = flexmock(name='fake_storage')
+    fake_storage.should_receive('get').and_return(None)
+
+    flexmock(oauth2client.file)
+    oauth2client.file.should_receive('Storage').with_args(
+      GCEAgent.OAUTH2_STORAGE_LOCATION).and_return(fake_storage)
+
+    fake_credentials = flexmock(name='fake_credentials')
+    flexmock(oauth2client.tools)
+    oauth2client.tools.should_receive('run').with_args(fake_flow,
+      fake_storage).and_return(fake_credentials)
+
+    # next, mock out http calls to GCE
+    fake_http = flexmock(name='fake_http')
+    fake_authorized_http = flexmock(name='fake_authorized_http')
+
+    flexmock(httplib2)
+    httplib2.should_receive('Http').and_return(fake_http)
+    fake_credentials.should_receive('authorize').with_args(fake_http) \
+      .and_return(fake_authorized_http)
+
+    fake_instances = flexmock(name='fake_instances')
+    fake_gce = flexmock(name='fake_gce')
+    fake_gce.should_receive('instances').and_return(fake_instances)
+
+    attach_disk_info = {
+      'status' : 'DONE'
+    }
+
+    fake_attach_disk_request = flexmock(name='fake_attach_disk_request')
+    fake_attach_disk_request.should_receive('execute').with_args(
+      fake_authorized_http).and_return(attach_disk_info)
+
+    fake_instances.should_receive('attachDisk').with_args(project=self.project,
+      body=dict, instance='my-instance', zone=str).and_return(
+      fake_attach_disk_request)
+
+    # finally, inject our fake GCE connection
+    flexmock(apiclient.discovery)
+    apiclient.discovery.should_receive('build').with_args('compute',
+      GCEAgent.API_VERSION).and_return(fake_gce)
+
+    iaas = InfrastructureManager(blocking=True)
+    disk_name = 'my-disk-name'
+    instance_id = 'my-instance'
+    expected = '/dev/disk/by-id/google-{0}'.format(disk_name)
+    actual = iaas.attach_disk(self.params, disk_name, instance_id, 'secret')
+    self.assertTrue(actual['success'])
+    self.assertEquals(expected, actual['location'])
