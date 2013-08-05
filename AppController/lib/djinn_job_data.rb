@@ -60,7 +60,8 @@ class DjinnJobData
       'jobs' => @jobs,
       'instance_id' => @instance_id,
       'cloud' => @cloud,
-      'ssh_key' => @ssh_key
+      'ssh_key' => @ssh_key,
+      'disk' => @disk
     }
   end
 
@@ -74,7 +75,15 @@ class DjinnJobData
 
     status = "Node in cloud #{@cloud} with instance id #{@instance_id}" +
       " responds to ssh key #{@ssh_key}, has pub IP #{@public_ip}," +
-      " priv IP #{@private_ip}, and is currently #{@jobs.join(', ')}."
+      " priv IP #{@private_ip}, and is currently #{@jobs.join(', ')}. " +
+
+
+    if @disk.nil?
+      status += "It does not back up its data to a persistent disk."
+    else
+      status += "It backs up data to a persistent disk with name #{@disk}."
+    end
+
     return status  
   end
 

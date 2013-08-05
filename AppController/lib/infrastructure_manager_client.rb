@@ -248,7 +248,8 @@ class InfrastructureManagerClient
   def attach_disk(credentials, disk_name, instance_id)
     parameters = get_parameters_from_credentials(credentials)
     Djinn.log_debug("Calling attach_disk with parameters " +
-      "#{parameters.inspect}")
+      "#{parameters.inspect}, with disk name #{disk_name} and instance id " +
+      "#{instance_id}")
 
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, "attach_disk") {
       return @conn.attach_disk(parameters.to_json, disk_name, instance_id,
