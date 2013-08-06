@@ -906,9 +906,9 @@ class AppDashboardHelper():
       user_app_server = self.get_uaserver()
       ret = user_app_server.change_password(email, hashed_password, GLOBAL_SECRET_KEY)
       if ret == "true":
-        return (True, "The user password was successfully changed ")
+        return True, "The user password was successfully changed."
       else:
         return (False, ret)
     except Exception as err:
       logging.exception(err)
-      raise (False, "There was an error changing the user password.")
+      raise False, "There was an error changing the user password."
