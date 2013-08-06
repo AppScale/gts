@@ -963,7 +963,7 @@ class Djinn
           HAProxy.remove_app(app_name)
           Nginx.reload
           Collectd.restart
-          ZKInterface.remove_app_entry(app_name, my_node.serialize)
+          ZKInterface.remove_app_entry(app_name, my_node.public_ip)
 
           # If this node has any information about AppServers for this app,
           # clear that information out.
@@ -1047,7 +1047,7 @@ class Djinn
       apps_to_restart.each { |appid|
         ZKInterface.clear_app_hosters(appid)
         location = "/opt/appscale/apps/#{appid}.tar.gz"
-        ZKInterface.add_app_entry(appid, my_node.serialize, location)
+        ZKInterface.add_app_entry(appid, my_node.public_ip, location)
       }
 
       @nodes.each_index { |index|
@@ -1289,7 +1289,7 @@ class Djinn
     end
 
     if File.exists?(location)
-      ZKInterface.add_app_entry(appname, my_node.serialize, location)
+      ZKInterface.add_app_entry(appname, my_node.public_ip, location)
       result = "success"
     else
       result = "The #{appname} app was not found at #{location}."
@@ -3049,7 +3049,7 @@ class Djinn
 
     table = @creds['table']
 
-    nodes = HelperFunctions.deserialize_info_from_tools(@creds["ips"])
+    nodes = JSON.load(@creds["ips"])
     appengine_info = spawn_appengine(nodes)
 
     @state = "Copying over needed files and starting the AppController on the other VMs"
