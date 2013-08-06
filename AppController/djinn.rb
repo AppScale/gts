@@ -662,6 +662,8 @@ class Djinn
     if @creds['clear_datastore'].class == String
       @creds['clear_datastore'] = @creds['clear_datastore'].downcase == "true"
     end
+    Djinn.log_debug("clear_datastore is set to #{@creds['clear_datastore']}, " +
+      "of class #{@creds['clear_datastore'].class.name}")
 
     @creds['disks'] = JSON.load(@creds['disks']) if @creds['disks']
 
@@ -3305,7 +3307,7 @@ class Djinn
     HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/slaves", "#{slave_ips_newlined}\n")
 
     # Invoke datastore helper function
-    setup_db_config_files(master_ip, slave_ips, @creds)
+    setup_db_config_files(master_ip, slave_ips)
 
     update_hosts_info()
 
