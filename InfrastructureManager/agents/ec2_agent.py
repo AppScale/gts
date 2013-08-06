@@ -290,6 +290,21 @@ class EC2Agent(BaseAgent):
       utils.log('Instance {0} was terminated'.format(instance.id))
 
 
+  def attach_disk(self, parameters, disk_name, instance_id):
+    """ Attaches the Elastic Block Store mount specified in 'disk_name' to this
+    virtual machine.
+
+    Args:
+      parameters: A dict with keys for each parameter needed to connect to AWS.
+      disk_name: A str naming the EBS mount to attach to this machine.
+      instance_id: A str naming the id of the instance that the disk should be
+        attached to. In practice, callers add disks to their own instances.
+    """
+    conn = self.open_connection(parameters)
+    conn.attach_volume(disk_name, instance_id, '/dev/sdb')
+    return '/dev/sdb'
+
+
   def open_connection(self, parameters):
     """
     Initialize a connection to the back-end EC2 APIs.
