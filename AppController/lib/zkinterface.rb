@@ -418,7 +418,7 @@ class ZKInterface
 
     # Finally, dump the data from this node to ZK, so that other nodes can
     # reconstruct it as needed.
-    self.set_job_data_for_ip(node.public_ip, JSON.dump(node.to_hash()))
+    self.set_job_data_for_ip(node.public_ip, node.to_hash())
 
     return
   end
@@ -554,10 +554,9 @@ class ZKInterface
   # the roles to
   def self.add_roles_to_node(roles, node)
     old_job_data = self.get_job_data_for_ip(node.public_ip)
-    new_node = DjinnJobData.new(JSON.load(old_job_data))
+    new_node = DjinnJobData.new(old_job_data)
     new_node.add_roles(roles.join(":"))
-    new_job_data = JSON.dump(new_node.to_hash())
-    self.set_job_data_for_ip(node.public_ip, new_job_data)
+    self.set_job_data_for_ip(node.public_ip, new_node.to_hash())
     self.set_done_loading(node.public_ip, false)
     self.update_ips_timestamp()
   end
@@ -573,10 +572,9 @@ class ZKInterface
   # the roles from
   def self.remove_roles_from_node(roles, node)
     old_job_data = self.get_job_data_for_ip(node.public_ip)
-    new_node = DjinnJobData.new(JSON.load(old_job_data))
+    new_node = DjinnJobData.new(old_job_data)
     new_node.remove_roles(roles.join(":"))
-    new_job_data = JSON.dump(new_node.to_hash())
-    self.set_job_data_for_ip(node.public_ip, new_job_data)
+    self.set_job_data_for_ip(node.public_ip, new_node.to_hash())
     self.set_done_loading(node.public_ip, false)
     self.update_ips_timestamp()
   end

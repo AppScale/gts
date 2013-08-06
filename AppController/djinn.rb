@@ -2416,7 +2416,8 @@ class Djinn
       all_ips = zk_ips_info["ips"]
       new_nodes = []
       all_ips.each { |ip|
-        new_nodes << DjinnJobData.new(ZKInterface.get_job_data_for_ip(ip))
+        new_nodes << DjinnJobData.new(ZKInterface.get_job_data_for_ip(ip),
+          @creds['keyname'])
       }
 
       old_roles = my_node.jobs
@@ -2481,7 +2482,7 @@ class Djinn
           next
         else
           failed_job_data = ZKInterface.get_job_data_for_ip(ip)
-          failed_node = DjinnJobData.new(failed_job_data)
+          failed_node = DjinnJobData.new(failed_job_data, @creds['keyname'])
           roles_to_add << failed_node.jobs
 
           remove_app_hosting_data_for_node(ip)
