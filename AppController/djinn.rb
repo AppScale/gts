@@ -3473,7 +3473,7 @@ HOSTS
     Collectd.initialize_config(my_public_ip, head_node_ip)
     Monitoring.reset
 
-    if @creds['disks']
+    if my_node.disk
       imc = InfrastructureManagerClient.new(@@secret)
 
       device_name = imc.attach_disk(@creds, my_node.disk, my_node.instance_id)
