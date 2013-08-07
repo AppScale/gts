@@ -217,7 +217,7 @@ class InfrastructureManagerClient
     jobs = []
     if job.is_a?(String)
       # We only got one job, so just repeat it for each one of the nodes
-      jobs = Array.new(size=vm_info['public_ips'], obj=job)
+      jobs = Array.new(size=vm_info['public_ips'].length, obj=job)
     else
       jobs = job
     end
@@ -229,7 +229,7 @@ class InfrastructureManagerClient
         'public_ip' => vm_info['public_ips'][index],
         'private_ip' => vm_info['private_ips'][index],
         'jobs' => jobs[index],
-        'instance_id' => vm_info['instance_ids'],
+        'instance_id' => vm_info['instance_ids'][index],
         'disk' => disks[index]
       }
     }

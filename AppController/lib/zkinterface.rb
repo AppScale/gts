@@ -164,16 +164,12 @@ class ZKInterface
   end
 
 
-  def self.get_app_hosters(appname)
-    if !defined?(@@zk)
-      return []
-    end
-
+  def self.get_app_hosters(appname, keyname)
     appname_path = ROOT_APP_PATH + "/#{appname}"
     app_hosters = self.get_children(appname_path)
     converted = []
-    app_hosters.each { |serialized|
-      converted << DjinnJobData.new(JSON.load(serialized))
+    app_hosters.each { |host|
+      converted << DjinnJobData.new(self.get_job_data_for_ip(host), keyname)
     }
     return converted
   end

@@ -665,8 +665,6 @@ class Djinn
     Djinn.log_debug("clear_datastore is set to #{@creds['clear_datastore']}, " +
       "of class #{@creds['clear_datastore'].class.name}")
 
-    @creds['disks'] = JSON.load(@creds['disks']) if @creds['disks']
-
     Djinn.log_run("mkdir -p /opt/appscale/apps")
 
     return "OK"
@@ -1306,7 +1304,7 @@ class Djinn
       return BAD_SECRET_MSG
     end
 
-    hosters = ZKInterface.get_app_hosters(appname)
+    hosters = ZKInterface.get_app_hosters(appname, @creds['keyname'])
     hosters_w_appengine = []
     hosters.each { |node|
       hosters_w_appengine << node if node.is_appengine?
@@ -3120,7 +3118,6 @@ class Djinn
   def initialize_node(node)
     copy_encryption_keys(node)
     validate_image(node)
-    restore_db_state_if_needed(node)
     rsync_files(node)
     start_appcontroller(node)
   end
@@ -3133,17 +3130,6 @@ class Djinn
     HelperFunctions.ensure_db_is_supported(ip, @creds["table"], key)
   end
 
-  def restore_db_state_if_needed(dest_node)
-    return unless dest_node.is_db_master?
-    return unless @creds["restore_from_tar"]
-
-    ip = dest_node.private_ip
-    ssh_key = dest_node.ssh_key
-    Djinn.log_debug("Restoring DB, copying data to DB master at #{ip}")
-    db_tar_loc = @creds["restore_from_tar"]
-    HelperFunctions.scp_file(db_tar_loc, db_tar_loc, ip, ssh_key)
-  end
-
   def copy_encryption_keys(dest_node)
     ip = dest_node.private_ip
     Djinn.log_info("Copying SSH keys to node at IP address #{ip}")
@@ -3152,7 +3138,7 @@ class Djinn
     HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
     Kernel.sleep(3)
 
-    if @creds["infrastructure"] == "ec2" or @creds["infrastructure"] == "hybrid" or @creds["infrastructure"] == "euca"
+    if ["ec2", "euca"].include?(@creds["infrastructure"])
       options = "-o StrictHostkeyChecking=no -o NumberOfPasswordPrompts=0"
       enable_root_login = "sudo cp /home/ubuntu/.ssh/authorized_keys /root/.ssh/"
       Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 ubuntu@#{ip} '#{enable_root_login}'")
@@ -3172,38 +3158,25 @@ class Djinn
     HelperFunctions.scp_file(key_loc, key_loc, ip, ssh_key)
     scp_ssh_key_to_ip(ip, ssh_key, pub_key)
 
-    # TODO: should be able to merge these together
-    if is_hybrid_cloud?
-      cloud_num = 1
-      loop {
-        cloud_type = @creds["CLOUD_TYPE"]
-        break if cloud_type.nil? or cloud_type == ""
-        cloud_keys_dir = File.expand_path("#{CONFIG_FILE_LOCATION}/keys/cloud#{cloud_num}")
-        make_dir = "mkdir -p #{cloud_keys_dir}"
+    cloud_keys_dir = File.expand_path("#{CONFIG_FILE_LOCATION}/keys/cloud1")
+    make_dir = "mkdir -p #{cloud_keys_dir}"
 
-        keyname = @creds["keyname"]
-        cloud_ssh_key = "#{cloud_keys_dir}/#{keyname}.key"
-        cloud_private_key = "#{cloud_keys_dir}/mykey.pem"
-        cloud_cert = "#{cloud_keys_dir}/mycert.pem"
+    cloud_private_key = "#{cloud_keys_dir}/mykey.pem"
+    cloud_cert = "#{cloud_keys_dir}/mycert.pem"
 
-        HelperFunctions.run_remote_command(ip, make_dir, ssh_key, NO_OUTPUT)
-        HelperFunctions.scp_file(cloud_ssh_key, cloud_ssh_key, ip, ssh_key)
-        HelperFunctions.scp_file(cloud_private_key, cloud_private_key, ip, ssh_key)
-        HelperFunctions.scp_file(cloud_cert, cloud_cert, ip, ssh_key)
-        cloud_num += 1
-      }
-    else
-      cloud_keys_dir = File.expand_path("#{CONFIG_FILE_LOCATION}/keys/cloud1")
-      make_dir = "mkdir -p #{cloud_keys_dir}"
+    HelperFunctions.run_remote_command(ip, make_dir, ssh_key, NO_OUTPUT)
+    HelperFunctions.scp_file(ssh_key, ssh_key, ip, ssh_key)
+    HelperFunctions.scp_file(cloud_private_key, cloud_private_key, ip, ssh_key)
+    HelperFunctions.scp_file(cloud_cert, cloud_cert, ip, ssh_key)
 
-      cloud_private_key = "#{cloud_keys_dir}/mykey.pem"
-      cloud_cert = "#{cloud_keys_dir}/mycert.pem"
+    # Finally, on GCE, we need to copy over the user's credentials, in case
+    # nodes need to attach persistent disks.
+    return if @creds["infrastructure"] != "gce"
+    client_secrets = '/etc/appscale/client_secrets.json'
+    gce_oauth = '/etc/appscale/oauth2.dat'
 
-      HelperFunctions.run_remote_command(ip, make_dir, ssh_key, NO_OUTPUT)
-      HelperFunctions.scp_file(ssh_key, ssh_key, ip, ssh_key)
-      HelperFunctions.scp_file(cloud_private_key, cloud_private_key, ip, ssh_key)
-      HelperFunctions.scp_file(cloud_cert, cloud_cert, ip, ssh_key)
-    end
+    HelperFunctions.scp_file(client_secrets, client_secrets, ip, ssh_key)
+    HelperFunctions.scp_file(gce_oauth, gce_oauth, ip, ssh_key)
   end
 
  
@@ -3487,6 +3460,7 @@ HOSTS
       if mount_output.empty?
         Djinn.log_info("Mounted persistent disk #{device_name}, without " +
           "needing to format it.")
+        Djinn.log_run("mkdir -p /opt/appscale/apps")
         return
       end
 
@@ -3495,6 +3469,7 @@ HOSTS
 
       Djinn.log_info("Mounting persistent disk #{device_name}")
       Djinn.log_run("mount -t ext4 #{device_name} /opt/appscale 2>&1")
+      Djinn.log_run("mkdir -p /opt/appscale/apps")
     end
   end
 
@@ -4484,7 +4459,7 @@ HOSTS
     nodes_with_app = []
     retries_left = 10
     loop {
-      nodes_with_app = ZKInterface.get_app_hosters(appname)
+      nodes_with_app = ZKInterface.get_app_hosters(appname, @creds['keyname'])
       break if !nodes_with_app.empty?
       Djinn.log_info("[#{retries_left} retries left] Waiting for a node to " +
         "have a copy of app #{appname}")
