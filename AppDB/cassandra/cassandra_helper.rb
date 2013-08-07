@@ -3,8 +3,6 @@ require 'djinn'
 require 'djinn_job_data'
 require 'helperfunctions'
 
-# Whether to remove old data from a previous start
-DROP_TABLES = true
 
 def get_uaserver_ip()
   Djinn.get_nearest_db_ip
@@ -66,8 +64,9 @@ def start_db_master()
   Djinn.log_info("Starting up Cassandra as master")
 
   Djinn.log_run("pkill ThriftBroker")
-  if DROP_TABLES
+  if @creds['clear_datastore']
     Djinn.log_run("rm -rf /var/appscale/cassandra*")
+    Djinn.log_run("rm -rf /opt/appscale/cassandra*")
     Djinn.log_run("rm /var/log/appscale/cassandra/system.log")
   end
   
@@ -81,11 +80,10 @@ def start_db_slave()
 
   HelperFunctions.sleep_until_port_is_open(Djinn.get_db_master_ip, 9160)
   sleep(5)
-  if DROP_TABLES
+  if @creds['clear_datastore']
     Djinn.log_run("rm -rf /var/appscale/cassandra*")
     Djinn.log_run("rm /var/log/appscale/cassandra/system.log")
   end
-  Djinn.log_run("#{APPSCALE_HOME}/AppDB/cassandra/cassandra/bin/cassandra start -p /var/appscale/appscale-cassandra.pid")
   Djinn.log_run("#{APPSCALE_HOME}/AppDB/cassandra/cassandra/bin/cassandra start -p /var/appscale/appscale-cassandra.pid")
   HelperFunctions.sleep_until_port_is_open(HelperFunctions.local_ip, 9160)
 end
@@ -97,9 +95,6 @@ end
 
 def stop_db_slave
   Djinn.log_info("Stopping Cassandra slave")
-  if DROP_TABLES
-    Djinn.log_run("#{APPSCALE_HOME}/AppDB/cassandra/cassandra/bin/nodetool decommission -h #{HelperFunctions.local_ip} -p 6666")
-  end
   Djinn.log_run("cat /var/appscale/appscale-cassandra.pid | xargs kill -9")
 end
 

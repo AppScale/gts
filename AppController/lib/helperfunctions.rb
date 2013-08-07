@@ -374,13 +374,16 @@ module HelperFunctions
   def self.setup_app(app_name, untar=true)
     meta_dir = "/var/apps/#{app_name}"
     tar_dir = "#{meta_dir}/app/"
-    tar_path = "#{tar_dir}#{app_name}.tar.gz"
+    tar_path = "/opt/appscale/apps/#{app_name}.tar.gz"
 
     self.shell("mkdir -p #{tar_dir}")
     self.shell("mkdir -p #{meta_dir}/log")
     self.shell("cp #{APPSCALE_HOME}/AppDashboard/setup/404.html #{meta_dir}")
     self.shell("touch #{meta_dir}/log/server.log")
-    self.shell("tar --file #{tar_path} --force-local -C #{tar_dir} -zx") if untar
+
+    if untar
+      self.shell("tar --file #{tar_path} --force-local -C #{tar_dir} -zx")
+    end
   end
 
 
@@ -874,14 +877,18 @@ module HelperFunctions
   def self.generate_location_config handler
     return "" if !handler.key?("static_dir") && !handler.key?("static_files")
 
-    result = "\n    location #{handler['url']} {"
-    result << "\n\t" << "root $cache_dir;"
-    result << "\n\t" << "expires #{handler['expiration']};" if handler['expiration']
-
     # TODO: return a 404 page if rewritten path doesn't exist
     if handler.key?("static_dir")
+      result = "\n    location #{handler['url']}/ {"
+      result << "\n\t" << "root $cache_dir;"
+      result << "\n\t" << "expires #{handler['expiration']};" if handler['expiration']
+
       result << "\n\t" << "rewrite #{handler['url']}(.*) /#{handler['static_dir']}/$1 break;"
     elsif handler.key?("static_files")
+      result = "\n    location #{handler['url']} {"
+      result << "\n\t" << "root $cache_dir;"
+      result << "\n\t" << "expires #{handler['expiration']};" if handler['expiration']
+
       result << "\n\t" << "rewrite #{handler['url']} /#{handler['static_files']} break;"
     end
     
@@ -1297,7 +1304,6 @@ module HelperFunctions
       end
     }
 
-    Djinn.log_debug("In [#{array.join(', ')}], the majority item is #{max_k}")
     return max_k
   end
 

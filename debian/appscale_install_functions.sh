@@ -687,20 +687,6 @@ installcassandra()
     mkdir -p /var/lib/cassandra
     # TODO only grant the cassandra user access
     chmod 777 /var/lib/cassandra
-   # directories where Cassandra should libstore data on disk.
-    #data_file_directories:
-    mkdir -p /var/appscale/cassandra/data
-    chmod 777 /var/appscale/cassandra/data
-
-    # commit log
-    #commitlog_directory: 
-    mkdir -p /var/appscale/cassandra/commitlog
-    chmod 777 /var/appscale/cassandra/commitlog
-
-    # saved caches
-    #saved_caches_directory: 
-    mkdir -p /var/appscale/cassandra/saved_caches
-    chmod 777 /var/appscale/cassandra/saved_caches
 
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads

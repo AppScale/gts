@@ -463,7 +463,7 @@ class DatastoreDistributed():
     """
 
     entities = sorted((self.get_table_prefix(x), x) for x in entities)
- 
+
     row_keys = []
     rev_row_keys = []
     row_values = {}
@@ -471,16 +471,16 @@ class DatastoreDistributed():
 
     for prefix, group in itertools.groupby(entities, lambda x: x[0]):
       group_rows = self.get_index_kv_from_tuple(group, False)
-      row_keys = [str(ii[0]) for ii in group_rows]
+      row_keys += [str(ii[0]) for ii in group_rows]
       for ii in group_rows:
         row_values[str(ii[0])] = {'reference': str(ii[1])}
  
     for prefix, group in itertools.groupby(entities, lambda x: x[0]):
       rev_group_rows = self.get_index_kv_from_tuple(group, True)
-      rev_row_keys = [str(ii[0]) for ii in rev_group_rows]
+      rev_row_keys += [str(ii[0]) for ii in rev_group_rows]
       for ii in rev_group_rows:
         rev_row_values[str(ii[0])] = {'reference': str(ii[1])}
-
+    
     # TODO  these in parallel
     self.datastore_batch.batch_put_entity(dbconstants.ASC_PROPERTY_TABLE, 
                           row_keys, 
