@@ -1446,11 +1446,12 @@ class Djinn
     keyname = @creds['keyname']
     num_of_vms = ips_to_roles.keys.length
     roles = ips_to_roles.values
+    disks = Array.new(size=num_of_vms, obj=nil)  # no persistent disks
     Djinn.log_info("Need to spawn up #{num_of_vms} VMs")
     imc = InfrastructureManagerClient.new(@@secret)
 
     begin
-      new_nodes_info = imc.spawn_vms(num_of_vms, @creds, roles, "cloud1")
+      new_nodes_info = imc.spawn_vms(num_of_vms, @creds, roles, disks)
     rescue AppScaleException => exception
       HelperFunctions.log_and_crash("Couldn't spawn #{num_of_vms} VMs with " +
         "roles #{roles} because: #{exception.message}")
@@ -1568,10 +1569,12 @@ class Djinn
           end
         end
 
+        disks = Array.new(size=vms_to_spawn, obj=nil)  # no persistent disks
+
         # start up vms_to_spawn vms as open
         imc = InfrastructureManagerClient.new(@@secret)
         begin
-          new_nodes_info = imc.spawn_vms(vms_to_spawn, @creds, "open", "cloud1")
+          new_nodes_info = imc.spawn_vms(vms_to_spawn, @creds, "open", disks)
         rescue AppScaleException => exception
           HelperFunctions.log_and_crash("Couldn't spawn #{vms_to_spawn} VMs " +
             "with roles open because: #{exception.message}")
@@ -3069,39 +3072,37 @@ class Djinn
   end
 
   def spawn_appengine(nodes)
+    Djinn.log_debug("nodes is #{nodes.join(', ')}")
+    return [] if nodes.length.zero?
+
     appengine_info = []
-    if nodes.length > 0
-      if is_hybrid_cloud?
-        num_of_vms_needed = nodes.length
-        @state = "Spawning up hybrid virtual machines"
-        appengine_info = HelperFunctions.spawn_hybrid_vms(@creds, nodes)
-      elsif is_cloud?
-        @state = "Spawning up #{nodes.length} virtual machines"
-        roles = nodes.values
+    if is_cloud?
+      @state = "Spawning up #{nodes.length} virtual machines"
+      roles = nodes.map { |node| node['jobs'] }
+      disks = nodes.map { |node| node['disk'] }
 
-        # since there's only one cloud, call it cloud1 to tell us
-        # to use the first ssh key (the only key)
-        imc = InfrastructureManagerClient.new(@@secret)
-        begin
-          appengine_info = imc.spawn_vms(nodes.length, @creds, roles, "cloud1")
-        rescue AppScaleException => exception
-          HelperFunctions.log_and_crash("Couldn't spawn #{nodes.length} VMs with " +
-            "roles #{roles} because: #{exception.message}")
-        end
-
-        Djinn.log_debug("Received appengine info: #{appengine_info}")
-      else
-        nodes.each_pair do |ip,roles|
-          # for xen the public and private ips are the same
-          # and we call it cloud1 since the first key (only key)
-          # is the key to use
-
-          info = "#{ip}:#{ip}:#{roles}:i-SGOOBARZ:cloud1"
-          appengine_info << info
-        end
+      # since there's only one cloud, call it cloud1 to tell us
+      # to use the first ssh key (the only key)
+      imc = InfrastructureManagerClient.new(@@secret)
+      begin
+        appengine_info = imc.spawn_vms(nodes.length, @creds, roles, disks)
+      rescue AppScaleException => exception
+        HelperFunctions.log_and_crash("Couldn't spawn #{nodes.length} VMs " +
+          "with roles #{roles} because: #{exception.message}")
       end
+    else
+      nodes.each { |node|
+        appengine_info << {
+          'public_ip' => node['ip'],
+          'private_ip' => node['ip'],
+          'jobs' => node['jobs'],
+          'instance_id' => 'i-SGOOBARZ',
+          'disk' => nil
+        }
+      }
     end
 
+    Djinn.log_debug("Received appengine info: #{appengine_info.join(', ')}")
     return appengine_info
   end
 
