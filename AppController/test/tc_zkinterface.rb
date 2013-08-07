@@ -139,14 +139,14 @@ class TestZKInterface < Test::Unit::TestCase
     ZKInterface.add_app_entry("app", "ip2", "/boo/baz2")
 
     # make sure they show up when we do a 'get'
-    assert_equal(["ip1", "ip2"], ZKInterface.get_app_hosters("app"))
+    assert_equal(["ip1", "ip2"], ZKInterface.get_app_hosters("app", "key"))
 
     # then remove the entries
     ZKInterface.remove_app_entry("app", "ip1")
     ZKInterface.remove_app_entry("app", "ip2")
 
     # make sure they no longer show up when we do a 'get'
-    assert_equal([], ZKInterface.get_app_hosters("app"))
+    assert_equal([], ZKInterface.get_app_hosters("app", "key"))
   end
 
 

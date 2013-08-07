@@ -207,7 +207,13 @@ class TestDjinn < Test::Unit::TestCase
 
     # Set up some dummy data that points to our master role as the
     # taskqueue_master
-    master_role = "public_ip:private_ip:taskqueue_master:instance_id:cloud1"
+    master_role = {
+      "public_ip" => "public_ip",
+      "private_ip" => "private_ip",
+      "jobs" => "taskqueue_master",
+      "instance_id" => "instance_id"
+    }
+
     djinn = Djinn.new
     djinn.my_index = 0
     djinn.nodes = [DjinnJobData.new(master_role, "appscale")]
@@ -232,8 +238,20 @@ class TestDjinn < Test::Unit::TestCase
   def test_taskqueue_slave
     # Taskqueue slave nodes should wait for RabbitMQ/celery to come up on the master
     # node, and then start RabbitMQ on their own node
-    master_role = "public_ip1:private_ip1:taskqueue_master:instance_id:cloud1"
-    slave_role = "public_ip2:private_ip2:taskqueue_slave:instance_id:cloud1"
+    master_role = {
+      "public_ip" => "public_ip1",
+      "private_ip" => "private_ip1",
+      "jobs" => "taskqueue_master",
+      "instance_id" => "instance_id1"
+    }
+
+    slave_role = {
+      "public_ip" => "public_ip2",
+      "private_ip" => "private_ip2",
+      "jobs" => "taskqueue_slave",
+      "instance_id" => "instance_id2"
+    }
+
     djinn = Djinn.new
     djinn.my_index = 1
     djinn.nodes = [DjinnJobData.new(master_role, "appscale"), DjinnJobData.new(slave_role, "appscale")]
@@ -264,7 +282,13 @@ class TestDjinn < Test::Unit::TestCase
 
 
   def test_write_our_node_info
-    role = "public_ip:private_ip:shadow:instance_id:cloud1"
+    role = {
+      "public_ip" => "public_ip",
+      "private_ip" => "private_ip",
+      "jobs" => "shadow",
+      "instance_id" => "instance_id"
+    }
+
     djinn = Djinn.new
     djinn.my_index = 0
     djinn.done_loading = true
@@ -334,7 +358,7 @@ class TestDjinn < Test::Unit::TestCase
 
     baz.should_receive(:set).with(
       :path => node_path + "/job_data",
-      :data => my_node.serialize).and_return(all_ok)
+      :data => JSON.dump(my_node.to_hash())).and_return(all_ok)
 
     baz.should_receive(:get).with(
       :path => node_path + "/done_loading").and_return({
@@ -353,7 +377,13 @@ class TestDjinn < Test::Unit::TestCase
   end
 
   def test_update_local_nodes
-    role = "public_ip:private_ip:shadow:instance_id:cloud1"
+    role = {
+      "public_ip" => "public_ip",
+      "private_ip" => "private_ip",
+      "jobs" => "shadow",
+      "instance_id" => "instance_id"
+    }
+
     djinn = Djinn.new
     djinn.my_index = 0
     djinn.nodes = [DjinnJobData.new(role, "appscale")]
