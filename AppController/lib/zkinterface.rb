@@ -164,16 +164,12 @@ class ZKInterface
   end
 
 
-  def self.get_app_hosters(appname)
-    if !defined?(@@zk)
-      return []
-    end
-
+  def self.get_app_hosters(appname, keyname)
     appname_path = ROOT_APP_PATH + "/#{appname}"
     app_hosters = self.get_children(appname_path)
     converted = []
-    app_hosters.each { |serialized|
-      converted << DjinnJobData.new(JSON.load(serialized))
+    app_hosters.each { |host|
+      converted << DjinnJobData.new(self.get_job_data_for_ip(host), keyname)
     }
     return converted
   end
@@ -418,7 +414,7 @@ class ZKInterface
 
     # Finally, dump the data from this node to ZK, so that other nodes can
     # reconstruct it as needed.
-    self.set_job_data_for_ip(node.public_ip, JSON.dump(node.to_hash()))
+    self.set_job_data_for_ip(node.public_ip, node.to_hash())
 
     return
   end
@@ -552,12 +548,11 @@ class ZKInterface
   # roles should be an Array of Strings, where each String is a role to add
   # node should be a DjinnJobData representing the node that we want to add
   # the roles to
-  def self.add_roles_to_node(roles, node)
+  def self.add_roles_to_node(roles, node, keyname)
     old_job_data = self.get_job_data_for_ip(node.public_ip)
-    new_node = DjinnJobData.new(JSON.load(old_job_data))
+    new_node = DjinnJobData.new(old_job_data, keyname)
     new_node.add_roles(roles.join(":"))
-    new_job_data = JSON.dump(new_node.to_hash())
-    self.set_job_data_for_ip(node.public_ip, new_job_data)
+    self.set_job_data_for_ip(node.public_ip, new_node.to_hash())
     self.set_done_loading(node.public_ip, false)
     self.update_ips_timestamp()
   end
@@ -571,12 +566,11 @@ class ZKInterface
   # roles should be an Array of Strings, where each String is a role to remove
   # node should be a DjinnJobData representing the node that we want to remove
   # the roles from
-  def self.remove_roles_from_node(roles, node)
+  def self.remove_roles_from_node(roles, node, keyname)
     old_job_data = self.get_job_data_for_ip(node.public_ip)
-    new_node = DjinnJobData.new(JSON.load(old_job_data))
+    new_node = DjinnJobData.new(old_job_data, keyname)
     new_node.remove_roles(roles.join(":"))
-    new_job_data = JSON.dump(new_node.to_hash())
-    self.set_job_data_for_ip(node.public_ip, new_job_data)
+    self.set_job_data_for_ip(node.public_ip, new_node.to_hash())
     self.set_done_loading(node.public_ip, false)
     self.update_ips_timestamp()
   end

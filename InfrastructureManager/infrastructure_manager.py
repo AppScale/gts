@@ -201,7 +201,7 @@ class InfrastructureManager:
     try:
       agent.assert_required_parameters(parameters, BaseAgent.OPERATION_RUN)
     except AgentConfigurationException as exception:
-      return self.__generate_response(False, exception.message)
+      return self.__generate_response(False, str(exception))
 
     reservation_id = utils.get_random_alphanumeric()
     status_info = {
@@ -280,7 +280,7 @@ class InfrastructureManager:
       agent.assert_required_parameters(parameters,
         BaseAgent.OPERATION_TERMINATE)
     except AgentConfigurationException as exception:
-      return self.__generate_response(False, exception.message)
+      return self.__generate_response(False, str(exception))
 
     if self.blocking:
       self.__kill_vms(agent, parameters)
@@ -312,7 +312,7 @@ class InfrastructureManager:
       agent.assert_required_parameters(parameters,
         BaseAgent.OPERATION_TERMINATE)
     except AgentConfigurationException as exception:
-      return self.__generate_response(False, exception.message)
+      return self.__generate_response(False, str(exception))
 
     disk_location = agent.attach_disk(parameters, disk_name, instance_id)
     return self.__generate_response(True, self.REASON_NONE,
@@ -346,7 +346,7 @@ class InfrastructureManager:
       utils.log('Successfully finished request {0}.'.format(reservation_id))
     except AgentRuntimeException as exception:
       status_info['state'] = self.STATE_FAILED
-      status_info['reason'] = exception.message
+      status_info['reason'] = str(exception)
     self.reservations.put(reservation_id, status_info)
 
 

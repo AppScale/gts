@@ -190,10 +190,10 @@ class InfrastructureManagerClient
   end
  
   
-  def spawn_vms(num_vms, creds, job, cloud)
+  def spawn_vms(num_vms, creds, job, disks)
     parameters = get_parameters_from_credentials(creds)
     parameters['num_vms'] = num_vms.to_s
-    parameters['cloud'] = cloud
+    parameters['cloud'] = 'cloud1'
 
     run_result = run_instances(parameters)
     Djinn.log_debug("[IM] Run instances info says [#{run_result}]")
@@ -217,7 +217,7 @@ class InfrastructureManagerClient
     jobs = []
     if job.is_a?(String)
       # We only got one job, so just repeat it for each one of the nodes
-      vm_info['public_ips'].length.times { |i| jobs << job }
+      jobs = Array.new(size=vm_info['public_ips'].length, obj=job)
     else
       jobs = job
     end
@@ -225,7 +225,13 @@ class InfrastructureManagerClient
     # ip:job:instance-id
     instances_created = []
     vm_info['public_ips'].each_index { |index|
-      instances_created << "#{vm_info['public_ips'][index]}:#{vm_info['private_ips'][index]}:#{jobs[index]}:#{vm_info['instance_ids'][index]}:#{cloud}"
+      instances_created << {
+        'public_ip' => vm_info['public_ips'][index],
+        'private_ip' => vm_info['private_ips'][index],
+        'jobs' => jobs[index],
+        'instance_id' => vm_info['instance_ids'][index],
+        'disk' => disks[index]
+      }
     }
 
     return instances_created

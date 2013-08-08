@@ -1,6 +1,10 @@
 #!/usr/bin/ruby
 
 
+require 'rubygems'
+require 'json'
+
+
 $:.unshift File.join(File.dirname(__FILE__), "..")
 require 'djinn'
 require 'helperfunctions'
@@ -17,6 +21,10 @@ class DjinnJobData
  
 
   def initialize(json_data, keyname)
+    if json_data.class == String
+      json_data = JSON.load(json_data)
+    end
+
     if json_data.class != Hash
       HelperFunctions.log_and_crash("Roles must be a Hash, not a " +
         "#{json_data.class} containing #{json_data}")
@@ -34,7 +42,7 @@ class DjinnJobData
 
   def add_roles(roles)
     new_jobs = roles.split(":")
-    @jobs = (@jobs + new_jobs).uniq
+    @jobs = ([@jobs] + new_jobs).flatten.uniq
     @jobs.delete("open")
   end
 
@@ -75,7 +83,7 @@ class DjinnJobData
 
     status = "Node in cloud #{@cloud} with instance id #{@instance_id}" +
       " responds to ssh key #{@ssh_key}, has pub IP #{@public_ip}," +
-      " priv IP #{@private_ip}, and is currently #{@jobs.join(', ')}. "
+      " priv IP #{@private_ip}, and is currently #{jobs}. "
 
     if @disk.nil?
       status += "It does not back up its data to a persistent disk."
