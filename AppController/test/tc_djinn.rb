@@ -129,36 +129,34 @@ class TestDjinn < Test::Unit::TestCase
     }
     djinn = Djinn.new
 
-    # Try passing in params that aren't Arrays, the required type
+    # Try passing in params that aren't the required type
     bad_param = ""
-    result_1 = djinn.set_parameters(bad_param, [], [], @secret)
+    result_1 = djinn.set_parameters([], [], [], @secret)
     assert_equal(true, result_1.include?("Error: djinn_locations"))
 
-    result_2 = djinn.set_parameters([], bad_param, [], @secret)
+    result_2 = djinn.set_parameters("", bad_param, [], @secret)
     assert_equal(true, result_2.include?("Error: database_credentials"))
 
-    result_3 = djinn.set_parameters([], [], bad_param, @secret)
+    result_3 = djinn.set_parameters("", [], bad_param, @secret)
     assert_equal(true, result_3.include?("Error: app_names"))
 
     # Since DB credentials will be turned from an Array to a Hash,
     # it should have an even number of items in it
     bad_credentials = ['a']
-    result_4 = djinn.set_parameters(bad_credentials, bad_credentials, 
-      bad_credentials, @secret)
+    result_4 = djinn.set_parameters("", bad_credentials, [], @secret)
     expected_1 = "Error: DB Credentials wasn't of even length"
     assert_equal(true, result_4.include?(expected_1))
 
     # Now try credentials with an even number of items, but not all the
     # required parameters
     better_credentials = ['a', 'b']
-    result_5 = djinn.set_parameters(better_credentials, better_credentials,
-      better_credentials, @secret)
+    result_5 = djinn.set_parameters("", better_credentials, [], @secret)
     assert_equal("Error: Credential format wrong", result_5)
 
     # Now try good credentials, but with bad node info
     credentials = ['table', 'cassandra', 'hostname', '127.0.0.1', 'ips', '', 
       'keyname', 'appscale']
-    bad_node_info = [1]
+    bad_node_info = "[1]"
     assert_raises(SystemExit) {
       djinn.set_parameters(bad_node_info, credentials, better_credentials,
         @secret)
@@ -166,7 +164,12 @@ class TestDjinn < Test::Unit::TestCase
 
     # Finally, try credentials with info in the right format, but where it
     # refers to nodes that aren't in our deployment
-    one_node_info = ['public_ip:private_ip:some_role:instance_id:cloud1']
+    one_node_info = JSON.dump({
+      'public_ip' => 'public_ip',
+      'private_ip' => 'private_ip',
+      'jobs' => ['some_role'],
+      'instance_id' => 'instance_id'
+    })
     app_names = []
 
     udpsocket = flexmock(UDPSocket)
@@ -856,28 +859,35 @@ class TestDjinn < Test::Unit::TestCase
       "public_ip" => "1.2.3.3",
       "private_ip" => "1.2.3.3",
       "jobs" => ["shadow", "login"],
-      "instance_id" => "id1"
+      "instance_id" => "id1",
+      "cloud" => "cloud1",
+      "ssh_key" => "/etc/appscale/keys/cloud1/boo.key",
+      "disk" => nil
     }
 
     node1_info = {
       "public_ip" => "1.2.3.4",
       "private_ip" => "1.2.3.4",
       "jobs" => ["appengine"],
-      "instance_id" => "id2"
+      "cloud" => "cloud1",
+      "ssh_key" => "/etc/appscale/keys/cloud1/boo.key",
+      "disk" => nil
     }
 
     node2_info = {
       "public_ip" => "1.2.3.5",
       "private_ip" => "1.2.3.5",
       "jobs" => ["appengine"],
-      "instance_id" => "id3"
+      "cloud" => "cloud1",
+      "ssh_key" => "/etc/appscale/keys/cloud1/boo.key",
+      "disk" => nil
     }
 
     original_node = DjinnJobData.new(original_node_info, "boo")
     new_node1 = DjinnJobData.new(node1_info, "boo")
     new_node2 = DjinnJobData.new(node2_info, "boo")
-    all_nodes_serialized = [JSON.dump(original_node.to_hash()),
-      JSON.dump(new_node2.to_hash()), JSON.dump(new_node1.to_hash())]
+    all_nodes_serialized = JSON.dump([original_node.to_hash(),
+      new_node2.to_hash(), new_node1.to_hash()])
 
     creds = {'keyname' => 'boo'}
     creds_as_array = creds.to_a.flatten

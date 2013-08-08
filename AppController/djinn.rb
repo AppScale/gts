@@ -1493,7 +1493,12 @@ class Djinn
     ips_to_roles.each { |ip, roles|
       Djinn.log_info("Will add roles #{roles.join(', ')} to new " +
         "node at IP address #{ip}")
-      nodes_info << "#{ip}:#{ip}:#{roles.join(':')}:#{keyname}:cloud1"
+      nodes_info << {
+        "public_ip" => ip,
+        "private_ip" => ip,
+        "jobs" => roles,
+        "disk" => nil
+      }
     }
 
     add_nodes(nodes_info)
