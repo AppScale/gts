@@ -297,6 +297,12 @@ class Djinn
   APPSCALE_HOME = ENV['APPSCALE_HOME']
 
 
+  # The location on the local filesystem where we save data that should be
+  # persisted across AppScale deployments. Currently this is Cassandra data,
+  # ZooKeeper data, and Google App Engine apps that users upload.
+  PERSISTENT_MOUNT_POINT = "/opt/appscale"
+
+
   # The location where we can find the Python 2.7 executable, included because
   # it is not the default version of Python installed on AppScale VMs.
   PYTHON27 = "/usr/local/Python-2.7.3/python"
@@ -3446,7 +3452,7 @@ HOSTS
   end
   
   # Perform any necessary initialization steps before we begin starting up
-  # services
+  # services.
   def initialize_server
     my_public_ip = my_node.public_ip
     head_node_ip = get_public_ip(@creds['hostname'])
@@ -3460,13 +3466,14 @@ HOSTS
       imc = InfrastructureManagerClient.new(@@secret)
 
       device_name = imc.attach_disk(@creds, my_node.disk, my_node.instance_id)
-      Djinn.log_run("rm -rf /opt/appscale")
-      Djinn.log_run("mkdir /opt/appscale")
-      mount_output = Djinn.log_run("mount -t ext4 #{device_name} /opt/appscale 2>&1")
+      Djinn.log_run("rm -rf #{PERSISTENT_MOUNT_POINT}")
+      Djinn.log_run("mkdir #{PERSISTENT_MOUNT_POINT}")
+      mount_output = Djinn.log_run("mount -t ext4 #{device_name} " +
+        "#{PERSISTENT_MOUNT_POINT} 2>&1")
       if mount_output.empty?
         Djinn.log_info("Mounted persistent disk #{device_name}, without " +
           "needing to format it.")
-        Djinn.log_run("mkdir -p /opt/appscale/apps")
+        Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
         return
       end
 
@@ -3474,8 +3481,9 @@ HOSTS
       Djinn.log_run("mkfs.ext4 -F #{device_name}")
 
       Djinn.log_info("Mounting persistent disk #{device_name}")
-      Djinn.log_run("mount -t ext4 #{device_name} /opt/appscale 2>&1")
-      Djinn.log_run("mkdir -p /opt/appscale/apps")
+      Djinn.log_run("mount -t ext4 #{device_name} #{PERSISTENT_MOUNT_POINT} " +
+        "2>&1")
+      Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
     end
   end
 
