@@ -109,15 +109,32 @@ class TestZKInterface < Test::Unit::TestCase
 
     # getting a list of the IPs hosting the app should return both
     # IPs the first time around, and no IPs the second time around
-    # also, mock out DjinnJobData because we aren't passing those
-    # objects around as the keynames
     zk.should_receive(:get_children).with(:path => app_path).
       and_return({:children => ["ip1", "ip2"]}, {:children => []})
 
-    flexmock(DjinnJobData).should_receive(:deserialize).with("ip1").
-      and_return("ip1")
-    flexmock(DjinnJobData).should_receive(:deserialize).with("ip2").
-      and_return("ip2")
+    ip1_data = {
+      'public_ip' => 'ip1',
+      'private_ip' => 'ip1',
+      'jobs' => 'appengine',
+      'instance_id' => 'i-id1',
+      'disk' => nil
+    }
+
+    job_data1_path = "#{ZKInterface::APPCONTROLLER_NODE_PATH}/ip1/job_data"
+    zk.should_receive(:get).with(:path => job_data1_path).
+      and_return({:rc => 0, :data => JSON.dump(ip1_data)})
+
+    ip2_data = {
+      'public_ip' => 'ip2',
+      'private_ip' => 'ip2',
+      'jobs' => 'appengine',
+      'instance_id' => 'i-id2',
+      'disk' => nil
+    }
+
+    job_data2_path = "#{ZKInterface::APPCONTROLLER_NODE_PATH}/ip2/job_data"
+    zk.should_receive(:get).with(:path => job_data2_path).
+      and_return({:rc => 0, :data => JSON.dump(ip2_data)})
 
     # next, mock out when we try to delete app info
     zk.should_receive(:delete).with(:path => ip1_path).
@@ -128,8 +145,8 @@ class TestZKInterface < Test::Unit::TestCase
     # mocks for zookeeper initialization
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return() 
-    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181", ZKInterface::TIMEOUT).
-      and_return(zk)
+    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181",
+      ZKInterface::TIMEOUT).and_return(zk)
 
     # first, make a connection to zookeeper 
     ZKInterface.init_to_ip("public_ip", "public_ip")
@@ -139,7 +156,9 @@ class TestZKInterface < Test::Unit::TestCase
     ZKInterface.add_app_entry("app", "ip2", "/boo/baz2")
 
     # make sure they show up when we do a 'get'
-    assert_equal(["ip1", "ip2"], ZKInterface.get_app_hosters("app", "key"))
+    actual = ZKInterface.get_app_hosters("app", "key")
+    assert_equal('ip1', actual[0].public_ip)
+    assert_equal('ip2', actual[1].public_ip)
 
     # then remove the entries
     ZKInterface.remove_app_entry("app", "ip1")

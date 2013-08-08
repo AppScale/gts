@@ -210,7 +210,7 @@ class TestDjinn < Test::Unit::TestCase
     master_role = {
       "public_ip" => "public_ip",
       "private_ip" => "private_ip",
-      "jobs" => "taskqueue_master",
+      "jobs" => ["taskqueue_master"],
       "instance_id" => "instance_id"
     }
 
@@ -241,14 +241,14 @@ class TestDjinn < Test::Unit::TestCase
     master_role = {
       "public_ip" => "public_ip1",
       "private_ip" => "private_ip1",
-      "jobs" => "taskqueue_master",
+      "jobs" => ["taskqueue_master"],
       "instance_id" => "instance_id1"
     }
 
     slave_role = {
       "public_ip" => "public_ip2",
       "private_ip" => "private_ip2",
-      "jobs" => "taskqueue_slave",
+      "jobs" => ["taskqueue_slave"],
       "instance_id" => "instance_id2"
     }
 
@@ -285,7 +285,7 @@ class TestDjinn < Test::Unit::TestCase
     role = {
       "public_ip" => "public_ip",
       "private_ip" => "private_ip",
-      "jobs" => "shadow",
+      "jobs" => ["shadow"],
       "instance_id" => "instance_id"
     }
 
@@ -356,6 +356,8 @@ class TestDjinn < Test::Unit::TestCase
       :path => node_path + "/job_data").and_return({
         :rc => 0, :stat => flexmock(:exists => false)})
 
+    flexmock(JSON).should_receive(:dump).with(Hash).
+      and_return('"{\"disk\":null,\"public_ip\":\"public_ip\",\"private_ip\":\"private_ip\",\"cloud\":\"cloud1\",\"instance_id\":\"instance_id\",\"ssh_key\":\"/etc/appscale/keys/cloud1/appscale.key\",\"jobs\":\"shadow\"}"')
     baz.should_receive(:set).with(
       :path => node_path + "/job_data",
       :data => JSON.dump(my_node.to_hash())).and_return(all_ok)
@@ -380,7 +382,7 @@ class TestDjinn < Test::Unit::TestCase
     role = {
       "public_ip" => "public_ip",
       "private_ip" => "private_ip",
-      "jobs" => "shadow",
+      "jobs" => ["shadow"],
       "instance_id" => "instance_id"
     }
 
@@ -423,10 +425,16 @@ class TestDjinn < Test::Unit::TestCase
     # Mocks for ip file - we have a new role here, so we're expecting
     # this method to stop the shadow role (set above), and start
     # memcache, as set below.
-    job_data = "public_ip:private_ip:memcache:instance_id:cloud1"
+    new_data = {
+      "public_ip" => "public_ip",
+      "private_ip" => "private_ip",
+      "jobs" => ["memcache"],
+      "instance_id" => "instance_id"
+    }
+
     path = "#{ZKInterface::APPCONTROLLER_NODE_PATH}/public_ip/job_data"
     baz.should_receive(:get).with(
-      :path => path).and_return({:rc => 0, :data => job_data})
+      :path => path).and_return({:rc => 0, :data => JSON.dump(new_data)})
 
     # Mocks for done_loading file, which we will initially set to false,
     # load the new roles, then set to true
@@ -609,12 +617,12 @@ class TestDjinn < Test::Unit::TestCase
     # on the fallen Shadow role
     baz.should_receive(:get).with(
       :path => "#{ZKInterface::APPCONTROLLER_NODE_PATH}/public_ip/job_data").
-      and_return({:rc => 0, :data => my_node.serialize(),
+      and_return({:rc => 0, :data => JSON.dump(my_node.to_hash()),
         :stat => flexmock(:exists => true)})
 
     baz.should_receive(:set).with(
       :path => "#{ZKInterface::APPCONTROLLER_NODE_PATH}/public_ip/job_data",
-      :data => new_node.serialize()).and_return({:rc => 0})
+      :data => JSON.dump(new_node.to_hash())).and_return({:rc => 0})
 
     flexmock(JSON).should_receive(:dump).
       with(false).and_return('false')
@@ -808,16 +816,32 @@ class TestDjinn < Test::Unit::TestCase
 
     # add the login role here to force our node to regenerate its
     # nginx config files
-    original_node_info = "1.2.3.3:1.2.3.3:shadow:login:boo:cloud1"
-    node1_info = "1.2.3.4:1.2.3.4:appengine:boo:cloud1"
-    node2_info = "1.2.3.5:1.2.3.5:appengine:boo:cloud1"
+    original_node_info = {
+      "public_ip" => "1.2.3.3",
+      "private_ip" => "1.2.3.3",
+      "jobs" => ["shadow", "login"],
+      "instance_id" => "id1"
+    }
+
+    node1_info = {
+      "public_ip" => "1.2.3.4",
+      "private_ip" => "1.2.3.4",
+      "jobs" => ["appengine"],
+      "instance_id" => "id2"
+    }
+
+    node2_info = {
+      "public_ip" => "1.2.3.5",
+      "private_ip" => "1.2.3.5",
+      "jobs" => ["appengine"],
+      "instance_id" => "id3"
+    }
 
     original_node = DjinnJobData.new(original_node_info, "boo")
     new_node1 = DjinnJobData.new(node1_info, "boo")
     new_node2 = DjinnJobData.new(node2_info, "boo")
-    all_nodes_serialized = [original_node.serialize, new_node2.serialize,
-      new_node1.serialize]
-    puts "#{all_nodes_serialized.join(', ')}"
+    all_nodes_serialized = [JSON.dump(original_node.to_hash()),
+      JSON.dump(new_node2.to_hash()), JSON.dump(new_node1.to_hash())]
 
     creds = {'keyname' => 'boo'}
     creds_as_array = creds.to_a.flatten
@@ -976,16 +1000,32 @@ class TestDjinn < Test::Unit::TestCase
       with('1.2.3.5', Djinn::SERVER_PORT, HelperFunctions::USE_SSL).
       and_return(true)
 
-    original_node_info = "1.2.3.3:1.2.3.3:shadow:i-000000:cloud1"
-    node1_info = "1.2.3.4:1.2.3.4:appengine:i-ABCDEFG:cloud1"
-    node2_info = "1.2.3.5:1.2.3.5:appengine:i-HIJKLMN:cloud1"
+    original_node_info = {
+      "public_ip" => "1.2.3.3",
+      "private_ip" => "1.2.3.3",
+      "jobs" => ["shadow"],
+      "instance_id" => "i-000000"
+    }
+
+    node1_info = {
+      "public_ip" => "1.2.3.4",
+      "private_ip" => "1.2.3.4",
+      "jobs" => ["appengine"],
+      "instance_id" => "i-ABCDEFG"
+    }
+
+    node2_info = {
+      "public_ip" => "1.2.3.5",
+      "private_ip" => "1.2.3.5",
+      "jobs" => ["appengine"],
+      "instance_id" => "i-HIJKLMN"
+    }
 
     original_node = DjinnJobData.new(original_node_info, "boo")
     new_node1 = DjinnJobData.new(node1_info, "boo")
     new_node2 = DjinnJobData.new(node2_info, "boo")
-    all_nodes_serialized = [original_node.serialize, new_node1.serialize,
-      new_node2.serialize]
-    puts "#{all_nodes_serialized.join(', ')}"
+    all_nodes_serialized = [JSON.dump(original_node.to_hash()),
+      JSON.dump(new_node2.to_hash()), JSON.dump(new_node1.to_hash())]
 
     creds = {'keyname' => 'boo'}
     creds_as_array = creds.to_a.flatten
@@ -1129,8 +1169,20 @@ class TestDjinn < Test::Unit::TestCase
 
 
     # Let's say that we've got two nodes - one is open so we can scale onto it.
-    node_info = "1.2.3.3:1.2.3.3:shadow:login:i-000000:cloud1"
-    open_node_info = "1.2.3.4:1.2.3.4:open:i-000000:cloud1"
+    node_info = {
+      "public_ip" => "1.2.3.3",
+      "private_ip" => "1.2.3.3",
+      "jobs" => ["shadow", "login"],
+      "instance_id" => "i-000000"
+    }
+
+    open_node_info = {
+      "public_ip" => "1.2.3.4",
+      "private_ip" => "1.2.3.4",
+      "jobs" => ["open"],
+      "instance_id" => "i-000000"
+    }
+
     node = DjinnJobData.new(node_info, "boo")
     open_node = DjinnJobData.new(open_node_info, "boo")
 
@@ -1170,5 +1222,6 @@ class TestDjinn < Test::Unit::TestCase
     # Finally, make sure that we added a node
     assert_equal(1, djinn.scale_appservers_across_nodes())
   end
+
 
 end
