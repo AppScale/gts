@@ -2,11 +2,13 @@
 # Programmer: Navraj Chohan <nlake44@gmail.com>
 
 require 'base64'
-require 'json'
 require 'openssl'
 require 'soap/rpc/driver'
 require 'timeout'
 require 'helperfunctions'
+
+require 'rubygems'
+require 'json'
 
 # Number of seconds to wait before timing out when doing a SOAP call.
 # This number should be higher than the maximum time required for remote calls

@@ -89,8 +89,14 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'max_spot_price' => 1.23
     }
   
-    expected = ["public-ip:private-ip:open:i-id:cloud1"]
-    actual = imc.spawn_vms(1, creds, "open", "cloud1")
+    expected = [{
+      "public_ip" => "public-ip",
+      "private_ip" => "private-ip",
+      "jobs" => "open",
+      "instance_id" => "i-id",
+      "disk" => nil
+    }]
+    actual = imc.spawn_vms(1, creds, "open", [nil])
     assert_equal(expected, actual)
   end
 
@@ -162,12 +168,27 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'use_spot_instances' => false
     }
   
-    expected = [
-      "public-ip1:private-ip1:a:i-id1:cloud1",
-      "public-ip2:private-ip2:b:i-id2:cloud1",
-      "public-ip3:private-ip3:c:i-id3:cloud1",
-    ]
-    actual = imc.spawn_vms(3, creds, ["a", "b", "c"], "cloud1")
+    expected = [{
+      'public_ip' => 'public-ip1',
+      'private_ip' => 'private-ip1',
+      'jobs' => 'a',
+      'instance_id' => 'i-id1',
+      'disk' => nil
+    }, {
+      'public_ip' => 'public-ip2',
+      'private_ip' => 'private-ip2',
+      'jobs' => 'b',
+      'instance_id' => 'i-id2',
+      'disk' => nil
+
+    }, {
+      'public_ip' => 'public-ip3',
+      'private_ip' => 'private-ip3',
+      'jobs' => 'c',
+      'instance_id' => 'i-id3',
+      'disk' => nil
+    }]
+    actual = imc.spawn_vms(3, creds, ["a", "b", "c"], [nil, nil, nil])
     assert_equal(expected, actual)
   end
 
@@ -240,12 +261,27 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'project' => '123456789'
     }
 
-    expected = [
-      "public-ip1:private-ip1:a:i-id1:cloud1",
-      "public-ip2:private-ip2:b:i-id2:cloud1",
-      "public-ip3:private-ip3:c:i-id3:cloud1",
-    ]
-    actual = imc.spawn_vms(3, creds, ["a", "b", "c"], "cloud1")
+    expected = [{
+      'public_ip' => 'public-ip1',
+      'private_ip' => 'private-ip1',
+      'jobs' => 'a',
+      'instance_id' => 'i-id1',
+      'disk' => nil
+    }, {
+      'public_ip' => 'public-ip2',
+      'private_ip' => 'private-ip2',
+      'jobs' => 'b',
+      'instance_id' => 'i-id2',
+      'disk' => nil
+
+    }, {
+      'public_ip' => 'public-ip3',
+      'private_ip' => 'private-ip3',
+      'jobs' => 'c',
+      'instance_id' => 'i-id3',
+      'disk' => nil
+    }]
+    actual = imc.spawn_vms(3, creds, ["a", "b", "c"], [nil, nil, nil])
     assert_equal(expected, actual)
   end
 

@@ -64,10 +64,10 @@ data_file_directories:
     - /opt/appscale/cassandra/
 
 # commit log
-commitlog_directory: /var/appscale/cassandra/commitlog
+commitlog_directory: /opt/appscale/cassandra/commitlog
 
 # saved caches
-saved_caches_directory: /var/appscale/cassandra/saved_caches
+saved_caches_directory: /opt/appscale/cassandra/saved_caches
 
 # commitlog_sync may be either "periodic" or "batch." 
 # When in batch mode, Cassandra won't ack writes until the commit log

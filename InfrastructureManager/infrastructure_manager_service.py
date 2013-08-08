@@ -89,6 +89,7 @@ class InfrastructureManagerService:
     self.server.registerFunction(i.describe_instances)
     self.server.registerFunction(i.run_instances)
     self.server.registerFunction(i.terminate_instances)
+    self.server.registerFunction(i.attach_disk)
     self.started = False
 
   def start(self):
