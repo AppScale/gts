@@ -258,8 +258,10 @@ class InfrastructureManagerClient
       "#{instance_id}")
 
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, "attach_disk") {
-      return @conn.attach_disk(parameters.to_json, disk_name, instance_id,
-        @secret)['location']
+      disk_info = @conn.attach_disk(parameters.to_json, disk_name, instance_id,
+        @secret)
+      Djinn.log_debug("Attach disk returned #{disk_info.inspect}")
+      return disk_info['location']
     }
   end
 
