@@ -628,7 +628,7 @@ class Djinn
       Djinn.log_error(error_msg)
       return error_msg
     end
-  
+
     possible_credentials = Hash[*database_credentials]
     if !valid_format_for_credentials(possible_credentials)
       return "Error: Credential format wrong"
@@ -1603,7 +1603,8 @@ class Djinn
     nodes_needed.each_index { |i|
       Djinn.log_info("Adding roles #{nodes_needed[i].join(', ')} " +
         "to virtual machine #{vms_to_use[i]}")
-      ZKInterface.add_roles_to_node(nodes_needed[i], vms_to_use[i])
+      ZKInterface.add_roles_to_node(nodes_needed[i], vms_to_use[i],
+        @creds['keyname'])
     }
 
     wait_for_nodes_to_finish_loading(vms_to_use)

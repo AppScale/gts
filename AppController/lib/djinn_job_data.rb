@@ -42,7 +42,7 @@ class DjinnJobData
 
   def add_roles(roles)
     new_jobs = roles.split(":")
-    @jobs = (@jobs + new_jobs).uniq
+    @jobs = ([@jobs] + new_jobs).flatten.uniq
     @jobs.delete("open")
   end
 

@@ -548,9 +548,9 @@ class ZKInterface
   # roles should be an Array of Strings, where each String is a role to add
   # node should be a DjinnJobData representing the node that we want to add
   # the roles to
-  def self.add_roles_to_node(roles, node)
+  def self.add_roles_to_node(roles, node, keyname)
     old_job_data = self.get_job_data_for_ip(node.public_ip)
-    new_node = DjinnJobData.new(old_job_data)
+    new_node = DjinnJobData.new(old_job_data, keyname)
     new_node.add_roles(roles.join(":"))
     self.set_job_data_for_ip(node.public_ip, new_node.to_hash())
     self.set_done_loading(node.public_ip, false)
@@ -566,9 +566,9 @@ class ZKInterface
   # roles should be an Array of Strings, where each String is a role to remove
   # node should be a DjinnJobData representing the node that we want to remove
   # the roles from
-  def self.remove_roles_from_node(roles, node)
+  def self.remove_roles_from_node(roles, node, keyname)
     old_job_data = self.get_job_data_for_ip(node.public_ip)
-    new_node = DjinnJobData.new(old_job_data)
+    new_node = DjinnJobData.new(old_job_data, keyname)
     new_node.remove_roles(roles.join(":"))
     self.set_job_data_for_ip(node.public_ip, new_node.to_hash())
     self.set_done_loading(node.public_ip, false)
