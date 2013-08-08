@@ -427,7 +427,7 @@ class GCEAgent(BaseAgent):
         'mode' : 'READ_WRITE',
         'source' : "https://www.googleapis.com/compute/v1beta15/projects/{0}" \
           "/zones/{1}/disks/{2}".format(project_id, self.DEFAULT_ZONE, disk_name),
-        'deviceName' : 'sdb'
+        'deviceName' : 'sdc'
       }
     )
     response = request.execute(auth_http)
@@ -435,7 +435,7 @@ class GCEAgent(BaseAgent):
     self.ensure_operation_succeeds(gce_service, auth_http, response,
       parameters[self.PARAM_PROJECT])
 
-    return '/dev/sdb'
+    return '/dev/sdc'
 
 
   def ensure_operation_succeeds(self, gce_service, auth_http, response, project_id):

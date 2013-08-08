@@ -308,12 +308,6 @@ class InfrastructureManager:
 
     infrastructure = parameters[self.PARAM_INFRASTRUCTURE]
     agent = self.agent_factory.create_agent(infrastructure)
-    try:
-      agent.assert_required_parameters(parameters,
-        BaseAgent.OPERATION_TERMINATE)
-    except AgentConfigurationException as exception:
-      return self.__generate_response(False, str(exception))
-
     disk_location = agent.attach_disk(parameters, disk_name, instance_id)
     return self.__generate_response(True, self.REASON_NONE,
       {'location' : disk_location})
@@ -372,6 +366,7 @@ class InfrastructureManager:
     Returns:
       A dictionary containing the operation response
     """
+    utils.log("Sending success = {0}, reason = {1}".format(status, msg))
     response = {'success': status, 'reason': msg}
     if extra is not None:
       for key, value in extra.items():
