@@ -73,8 +73,20 @@ class TestDjinn < Test::Unit::TestCase
 
 
   def test_get_role_info
-    role1 = "public_ip:private_ip:shadow:instance_id:cloud1"
-    role2 = "public_ip2:private_ip2:appengine:instance_id2:cloud2"
+    role1 = {
+      "public_ip" => "public_ip",
+      "private_ip" => "private_ip",
+      "jobs" => ["shadow"],
+      "instance_id" => "instance_id"
+    }
+
+    role2 = {
+      "public_ip" => "public_ip2",
+      "private_ip" => "private_ip2",
+      "jobs" => ["appengine"],
+      "instance_id" => "instance_id2"
+    }
+
     keyname = "appscale"
 
     node1 = DjinnJobData.new(role1, keyname)
@@ -104,7 +116,7 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal("private_ip2", role2_to_hash['private_ip'])
     assert_equal(["appengine"], role2_to_hash['jobs'])
     assert_equal("instance_id2", role2_to_hash['instance_id'])
-    assert_equal("cloud2", role2_to_hash['cloud'])
+    assert_equal("cloud1", role2_to_hash['cloud'])
   end
 
 
@@ -474,10 +486,34 @@ class TestDjinn < Test::Unit::TestCase
   end
 
   def test_ensure_all_roles_are_running
-    my_role = "public_ip:private_ip:open:instance_id:cloud1"
-    new_role = "public_ip:private_ip:shadow:instance_id:cloud1"
-    other_role = "public_ip2:private_ip2:shadow:instance_id:cloud1"
-    not_done_loading_role = "public_ip3:private_ip3:appengine:instance_id:cloud1"
+    my_role = {
+      "public_ip" => "public_ip",
+      "private_ip" => "private_ip",
+      "jobs" => ["open"],
+      "instance_id" => "instance_id"
+    }
+
+    new_role = {
+      "public_ip" => "public_ip",
+      "private_ip" => "private_ip",
+      "jobs" => ["shadow"],
+      "instance_id" => "instance_id"
+    }
+
+    other_role = {
+      "public_ip" => "public_ip2",
+      "private_ip" => "private_ip2",
+      "jobs" => ["shadow"],
+      "instance_id" => "instance_id"
+    }
+
+    not_done_loading_role = {
+      "public_ip" => "public_ip3",
+      "private_ip" => "private_ip3",
+      "jobs" => ["appengine"],
+      "instance_id" => "instance_id"
+    }
+
     my_node = DjinnJobData.new(my_role, "appscale")
     nodes = [my_node, DjinnJobData.new(other_role, "appscale"), 
       DjinnJobData.new(not_done_loading_role, "appscale")]
@@ -896,6 +932,10 @@ class TestDjinn < Test::Unit::TestCase
   end
 
   def test_start_new_roles_on_nodes_in_cloud
+    # mock out getting our ip address
+    flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
+      and_return("inet addr:1.2.3.4")
+
     # try adding two new nodes to an appscale deployment, assuming that
     # the machines are already running and have appscale installed
     ips_to_roles = {'node-1' => ['appengine'], 'node-2' => ['appengine']}
@@ -1011,21 +1051,23 @@ class TestDjinn < Test::Unit::TestCase
       "public_ip" => "1.2.3.4",
       "private_ip" => "1.2.3.4",
       "jobs" => ["appengine"],
-      "instance_id" => "i-ABCDEFG"
+      "instance_id" => "i-ABCDEFG",
+      "disk" => nil
     }
 
     node2_info = {
       "public_ip" => "1.2.3.5",
       "private_ip" => "1.2.3.5",
       "jobs" => ["appengine"],
-      "instance_id" => "i-HIJKLMN"
+      "instance_id" => "i-HIJKLMN",
+      "disk" => nil
     }
 
     original_node = DjinnJobData.new(original_node_info, "boo")
     new_node1 = DjinnJobData.new(node1_info, "boo")
     new_node2 = DjinnJobData.new(node2_info, "boo")
-    all_nodes_serialized = [JSON.dump(original_node.to_hash()),
-      JSON.dump(new_node2.to_hash()), JSON.dump(new_node1.to_hash())]
+    all_nodes_serialized = JSON.dump([original_node.to_hash(),
+      new_node1.to_hash(), new_node2.to_hash()])
 
     creds = {'keyname' => 'boo'}
     creds_as_array = creds.to_a.flatten
@@ -1067,7 +1109,12 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
       and_return("inet addr:1.2.3.4")
 
-    node_info = "1.2.3.3:1.2.3.3:shadow:login:i-000000:cloud1"
+    node_info = {
+      "public_ip" => "1.2.3.3",
+      "private_ip" => "1.2.3.3",
+      "jobs" => ["shadow", "login"],
+      "instance_id" => "i-000000"
+    }
     node = DjinnJobData.new(node_info, "boo")
 
     djinn = Djinn.new()
@@ -1122,7 +1169,12 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
       and_return("inet addr:1.2.3.4")
 
-    node_info = "1.2.3.3:1.2.3.3:shadow:login:i-000000:cloud1"
+    node_info = {
+      "public_ip" => "1.2.3.3",
+      "private_ip" => "1.2.3.3",
+      "jobs" => ["shadow", "login"],
+      "instance_id" => "i-000000"
+    }
     node = DjinnJobData.new(node_info, "boo")
 
     djinn = Djinn.new()
@@ -1142,7 +1194,12 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
       and_return("inet addr:1.2.3.4")
 
-    node_info = "1.2.3.3:1.2.3.3:shadow:login:i-000000:cloud1"
+    node_info = {
+      "public_ip" => "1.2.3.3",
+      "private_ip" => "1.2.3.3",
+      "jobs" => ["shadow", "login"],
+      "instance_id" => "i-000000"
+    }
     node = DjinnJobData.new(node_info, "boo")
 
     djinn = Djinn.new()
