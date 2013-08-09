@@ -194,6 +194,7 @@ class InfrastructureManagerClient
     parameters = get_parameters_from_credentials(creds)
     parameters['num_vms'] = num_vms.to_s
     parameters['cloud'] = 'cloud1'
+    parameters['zone'] = creds['zone']
 
     run_result = run_instances(parameters)
     Djinn.log_debug("[IM] Run instances info says [#{run_result}]")
