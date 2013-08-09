@@ -435,19 +435,18 @@ class DistributedTaskQueue():
       A apiproxy_errors.ApplicationError of TASK_ALREADY_EXISTS. 
     """
     task_name = request.task_name()
-    datastore_key = datastore.Key.from_path(self.TASK_NAME_KIND,
-                                            task_name,
-                                            namespace='') 
-    item = None
-    try:
-      item = datastore.Get(datastore_key)
-    except datastore_errors.EntityNotFoundError:
-      new_name = TaskName(name=task_name)
-      logging.debug("Creating entity {0}".format(str(new_name)))
-      #try:
-      new_name.put()
-      #except #TODO
-    if item:
+    item = TaskName.get_by_key_name(task_name)
+    logging.info("Task name {0}".format(task_name))
+    if not item:
+      new_name = TaskName(key_name=task_name)
+      logging.info("Creating entity {0}".format(str(new_name)))
+      try:
+        db.put(new_name)
+      except datastore_errors.InternalError, internal_error:
+        raise apiproxy_errors.ApplicationError(
+          taskqueue_service_pb.TaskQueueServiceError.DATABASE_ERROR)
+    else:
+      logging.info("Task already exists")
       raise apiproxy_errors.ApplicationError(
         taskqueue_service_pb.TaskQueueServiceError.TASK_ALREADY_EXISTS)
 
