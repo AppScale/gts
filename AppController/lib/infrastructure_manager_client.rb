@@ -59,6 +59,8 @@ class InfrastructureManagerClient
     @conn.add_method("run_instances", "parameters", "secret")
     @conn.add_method("describe_instances", "parameters", "secret")
     @conn.add_method("terminate_instances", "parameters", "secret")
+    @conn.add_method("attach_disk", "parameters", "disk_name", "instance_id",
+      "secret")
   end
   
 
@@ -121,6 +123,35 @@ class InfrastructureManagerClient
   end
 
 
+  # Parses the credentials that AppControllers store and constructs a
+  # Hash containing infrastructure-specific parameters.
+  #
+  # Args:
+  #   creds: A Hash that contains all of the credentials passed between
+  #     AppControllers.
+  # Returns:
+  #   A Hash that contains only the parameters needed to interact with AWS,
+  #   Eucalyptus, or GCE.
+  def get_parameters_from_credentials(creds)
+    return {
+      "credentials" => {
+        # EC2 / Eucalyptus-specific credentials
+        'EC2_ACCESS_KEY' => creds['ec2_access_key'],
+        'EC2_SECRET_KEY' => creds['ec2_secret_key'],
+        'EC2_URL' => creds['ec2_url']
+      },
+      'project' => creds['project'],  # GCE-specific
+      "group" => creds['group'],
+      "image_id" => creds['machine'],
+      "infrastructure" => creds['infrastructure'],
+      "instance_type" => creds['instance_type'],
+      "keyname" => creds['keyname'],
+      "use_spot_instances" => creds['use_spot_instances'],
+      "max_spot_price" => creds['max_spot_price']
+    }
+  end
+
+
   def run_instances(parameters)
     obscured = parameters.dup
     obscured['credentials'] = HelperFunctions.obscure_creds(obscured['credentials'])
@@ -144,25 +175,12 @@ class InfrastructureManagerClient
 
 
   def terminate_instances(creds, instance_ids)
-    credentials = {
-      # EC2 / Eucalyptus-specific credentials
-      'EC2_ACCESS_KEY' => creds['ec2_access_key'],
-      'EC2_SECRET_KEY' => creds['ec2_secret_key'],
-      'EC2_URL' => creds['ec2_url'],
-    }
+    parameters = get_parameters_from_credentials(creds)
 
     if instance_ids.class != Array
       instance_ids = [instance_ids]
     end
-
-    parameters = {
-      "credentials" => credentials,
-      "instance_ids" => instance_ids,
-      "project" => creds['project'],  # GCE-specific
-      "group" => creds['group'],
-      "infrastructure" => creds['infrastructure'],
-      "keyname" => creds['keyname'],
-    }
+    parameters['instance_ids'] = instance_ids
 
     terminate_result = make_call(NO_TIMEOUT, RETRY_ON_FAIL,
       "terminate_instances") {
@@ -172,25 +190,12 @@ class InfrastructureManagerClient
   end
  
   
-  def spawn_vms(num_vms, creds, job, cloud)
-    credentials = {
-      # EC2 / Eucalyptus-specific credentials
-      'EC2_ACCESS_KEY' => creds['ec2_access_key'],
-      'EC2_SECRET_KEY' => creds['ec2_secret_key'],
-      'EC2_URL' => creds['ec2_url']
-    }
+  def spawn_vms(num_vms, creds, job, disks)
+    parameters = get_parameters_from_credentials(creds)
+    parameters['num_vms'] = num_vms.to_s
+    parameters['cloud'] = 'cloud1'
 
-    run_result = run_instances("credentials" => credentials,
-      'project' => creds['project'],  # GCE-specific
-      "group" => creds['group'], 
-      "image_id" => creds['machine'],
-      "infrastructure" => creds['infrastructure'],
-      "instance_type" => creds['instance_type'],
-      "keyname" => creds['keyname'],
-      "num_vms" => "#{num_vms}",
-      "cloud" => cloud,
-      "use_spot_instances" => creds['use_spot_instances'],
-      "max_spot_price" => creds['max_spot_price'])
+    run_result = run_instances(parameters)
     Djinn.log_debug("[IM] Run instances info says [#{run_result}]")
     reservation_id = run_result['reservation_id']
 
@@ -212,7 +217,7 @@ class InfrastructureManagerClient
     jobs = []
     if job.is_a?(String)
       # We only got one job, so just repeat it for each one of the nodes
-      vm_info['public_ips'].length.times { |i| jobs << job }
+      jobs = Array.new(size=vm_info['public_ips'].length, obj=job)
     else
       jobs = job
     end
@@ -220,12 +225,43 @@ class InfrastructureManagerClient
     # ip:job:instance-id
     instances_created = []
     vm_info['public_ips'].each_index { |index|
-      instances_created << "#{vm_info['public_ips'][index]}:#{vm_info['private_ips'][index]}:#{jobs[index]}:#{vm_info['instance_ids'][index]}:#{cloud}"
+      instances_created << {
+        'public_ip' => vm_info['public_ips'][index],
+        'private_ip' => vm_info['private_ips'][index],
+        'jobs' => jobs[index],
+        'instance_id' => vm_info['instance_ids'][index],
+        'disk' => disks[index]
+      }
     }
 
     return instances_created
   end
 
 
-end
+  # Asks the InfrastructureManager to attach a persistent disk to this machine.
+  #
+  # Args:
+  #   parameters: A Hash that contains the credentials necessary to interact
+  #     with the underlying cloud infrastructure.
+  #   disk_name: A String that names the persistent disk to attach to this
+  #     machine.
+  #   instance_id: A String that names this machine's instance id, needed to
+  #     tell the InfrastructureManager which machine to attach the persistent
+  #     disk to.
+  # Returns:
+  #   The location on the local filesystem where the persistent disk was
+  #   attached to.
+  def attach_disk(credentials, disk_name, instance_id)
+    parameters = get_parameters_from_credentials(credentials)
+    Djinn.log_debug("Calling attach_disk with parameters " +
+      "#{parameters.inspect}, with disk name #{disk_name} and instance id " +
+      "#{instance_id}")
 
+    make_call(NO_TIMEOUT, RETRY_ON_FAIL, "attach_disk") {
+      return @conn.attach_disk(parameters.to_json, disk_name, instance_id,
+        @secret)['location']
+    }
+  end
+
+
+end

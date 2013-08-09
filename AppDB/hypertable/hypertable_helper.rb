@@ -18,8 +18,8 @@ def has_soap_server?(job)
   return false
 end
 
-def setup_db_config_files(master_ip, slave_ips, creds)
-  setup_hadoop_config(master_ip, creds["replication"])
+def setup_db_config_files(master_ip, slave_ips)
+  setup_hadoop_config(master_ip, @creds["replication"])
 
   source_dir = "#{APPSCALE_HOME}/AppDB/hypertable/templates"
   dest_dir = "/opt/hypertable/#{HT_VERSION}/conf"
@@ -31,7 +31,7 @@ def setup_db_config_files(master_ip, slave_ips, creds)
     File.open(full_path_to_read) do |source_file|
       contents = source_file.read
       contents.gsub!(/APPSCALE-MASTER/, master_ip)
-      contents.gsub!(/REPLICATION/, creds["replication"])
+      contents.gsub!(/REPLICATION/, @creds["replication"])
 
       if full_path_to_read.include?("Capfile")
         contents.gsub!(/APPSCALE-SLAVES/, (slave_ips + [master_ip]).join("\", \""))
