@@ -305,8 +305,17 @@ class EC2Agent(BaseAgent):
       utils.log('Attaching volume {0} to instance {1}, at /dev/sdc'.format(
         disk_name, instance_id))
       conn.attach_volume(disk_name, instance_id, '/dev/sdc')
-      utils.log('Successfully attached volume {0} to instance {1} at ' \
-        '/dev/sdc'.format(disk_name, instance_id))
+
+      while True:
+        utils.log('Waiting for disk to finish attaching.')
+        status = conn.get_all_volumes(disk_name)[0].status
+        utils.log('Volume {0} reports its status as {1}'.format(disk_name,
+          status))
+        if status == 'in-use':
+          break
+        utils.sleep(1)
+
+      utils.log('Volume {0} is attached and ready for use.')
       return '/dev/sdc'
     except EC2ResponseError as exception:
       utils.log('An error occurred when trying to attach volume {0} to ' \
