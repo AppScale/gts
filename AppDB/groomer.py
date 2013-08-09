@@ -26,6 +26,10 @@ from google.appengine.api import datastore_errors
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
+import constants
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../AppTaskQueue/"))
+from distributed_tq import TaskName
 
 class DatastoreGroomer(threading.Thread):
   """ Scans the entire database for each application. """
@@ -41,6 +45,9 @@ class DatastoreGroomer(threading.Thread):
 
   # Any kind that is of _*_ is protected and should not have stats.
   PROTECTED_KINDS = '_(.*)_'
+  
+  # The amount of time in seconds before we want to clean up task name holders.
+  TASK_NAME_TIMEOUT = 86400
 
   def __init__(self, zoo_keeper, table_name, ds_path):
     """ Constructor. 
@@ -321,6 +328,27 @@ class DatastoreGroomer(threading.Thread):
     logging.debug("Done creating global stat") 
     return True
 
+  def remove_old_tasks_entities(self):
+    """ Queries for old tasks and removes the entity which tells 
+    use whether a named task was enqueued.
+    Returns:
+      True on success, False otherwise.
+    """
+    self.register_db_accessor(constants.DASHBOARD_APP_ID)
+    timeout = datetime.datetime.now() - datetime.timedelta(seconds=self.TASK_NAME_TIMEOUT)
+    query = TaskName.all()
+    query.filter("timestamp <", timeout)
+    entities = query.run()
+    counter = 0
+    logging.info("The current time is {0}".format(datetime.datetime.now()))
+    logging.info("The timeout time is {0}".format(timeout))
+    for entity in entities:
+      logging.debug("Removing task name {0}".format(entity.timestamp))
+      entity.delete()
+      counter += 1
+    logging.info("Removed %d task name entities" % counter)
+    return True    
+
   def register_db_accessor(self, app_id):
     """ Gets a distributed datastore object to interact with
         the datastore for a certain application.
@@ -418,6 +446,8 @@ class DatastoreGroomer(threading.Thread):
       last_key = entities[-1].keys()[0]
     if not self.update_statistics():
       logging.error("There was an error updating the statistics")
+
+    self.remove_old_tasks_entities()
 
     del self.db_access
 

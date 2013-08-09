@@ -32,10 +32,33 @@ from google.appengine.api import apiproxy_stub_map
 from google.appengine.api import datastore_errors
 from google.appengine.api import datastore_distributed
 from google.appengine.api import datastore
+from google.appengine.ext import db
 
 from google.appengine.api.taskqueue import taskqueue_service_pb
 
 sys.path.append(TaskQueueConfig.CELERY_WORKER_DIR)
+
+class TaskName(db.Model):
+  """ A datastore model for tracking task names in order to prevent
+  tasks with the same name from being enqueued repeatedly.
+  
+  Attributes:
+    timestamp: The time the task was enqueued.
+  """
+  STORED_KIND_NAME = "__task_name__"
+  timestamp = db.DateTimeProperty(auto_now_add=True)
+
+  @classmethod
+  def kind(cls):
+    """ Kind name override. """
+    return cls.STORED_KIND_NAME
+
+def setup_env():
+  """ Sets required environment variables for GAE datastore library """
+  os.environ['AUTH_DOMAIN'] = "appscale.com"
+  os.environ['USER_EMAIL'] = ""
+  os.environ['USER_NICKNAME'] = ""
+  os.environ['APPLICATION_ID'] = ""
 
 class DistributedTaskQueue():
   """ AppScale taskqueue layer for the TaskQueue API. """
@@ -90,6 +113,8 @@ class DistributedTaskQueue():
     file_io.mkdir(self.LOG_DIR)
     file_io.mkdir(TaskQueueConfig.CELERY_WORKER_DIR)
     file_io.mkdir(TaskQueueConfig.CELERY_CONFIG_DIR)
+
+    setup_env()
 
     master_db_ip = appscale_info.get_db_master_ip()
     connection_str = master_db_ip + ":" + str(constants.DB_SERVER_PORT)
@@ -417,9 +442,11 @@ class DistributedTaskQueue():
     try:
       item = datastore.Get(datastore_key)
     except datastore_errors.EntityNotFoundError:
-      entity = datastore.Entity(self.TASK_NAME_KIND, name=task_name, namespace='')
-      entity.update({'time': str(time.time())})
-      datastore.Put(entity)
+      new_name = TaskName(name=task_name)
+      logging.debug("Creating entity {0}".format(str(new_name)))
+      #try:
+      new_name.put()
+      #except #TODO
     if item:
       raise apiproxy_errors.ApplicationError(
         taskqueue_service_pb.TaskQueueServiceError.TASK_ALREADY_EXISTS)
