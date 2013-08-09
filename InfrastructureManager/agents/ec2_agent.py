@@ -163,8 +163,9 @@ class EC2Agent(BaseAgent):
     spot = parameters[self.PARAM_SPOT]
     zone = parameters[self.PARAM_ZONE]
 
-    utils.log('[{0}] [{1}] [{2}] [{3}] [ec2] [{4}] [{5}] [{6}]'.format(count,
-      image_id, instance_type, keyname, group, spot, zone))
+    utils.log("Starting {0} machines with machine id {1}, with " \
+      "instance type {2}, keyname {3}, in security group {4}, in zone {5}" \
+      .format(count, image_id, instance_type, keyname, group, zone))
 
     start_time = datetime.datetime.now()
     active_public_ips = []
