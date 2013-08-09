@@ -35,7 +35,7 @@ class DatastoreGroomer(threading.Thread):
   """ Scans the entire database for each application. """
  
   # The amount of seconds between polling to get the groomer lock.
-  LOCK_POLL_PERIOD = 86400
+  LOCK_POLL_PERIOD = 24 * 60 * 60
 
   # The number of entities retrieved in a datastore request.
   BATCH_SIZE = 100 
@@ -47,7 +47,7 @@ class DatastoreGroomer(threading.Thread):
   PROTECTED_KINDS = '_(.*)_'
   
   # The amount of time in seconds before we want to clean up task name holders.
-  TASK_NAME_TIMEOUT = 86400
+  TASK_NAME_TIMEOUT = 24 * 60 * 60
 
   def __init__(self, zoo_keeper, table_name, ds_path):
     """ Constructor. 
@@ -163,6 +163,7 @@ class DatastoreGroomer(threading.Thread):
   def process_tombstone(self, key, entity, version):
     """ Processes any entities which have been soft deleted. 
         Does an actual delete to reclaim disk space.
+
     Args: 
       key: The key to the entity table.
       entity: The entity in string serialized form.
@@ -218,6 +219,7 @@ class DatastoreGroomer(threading.Thread):
 
   def process_statistics(self, key, entity, version):
     """ Processes an entity and adds to the global statistics.
+
     Args: 
       key: The key to the entity table.
       entity: The entity in string serialized form.
@@ -331,8 +333,9 @@ class DatastoreGroomer(threading.Thread):
   def remove_old_tasks_entities(self):
     """ Queries for old tasks and removes the entity which tells 
     use whether a named task was enqueued.
+
     Returns:
-      True on success, False otherwise.
+      True on success.
     """
     self.register_db_accessor(constants.DASHBOARD_APP_ID)
     timeout = datetime.datetime.now() - datetime.timedelta(seconds=self.TASK_NAME_TIMEOUT)
@@ -346,7 +349,7 @@ class DatastoreGroomer(threading.Thread):
       logging.debug("Removing task name {0}".format(entity.timestamp))
       entity.delete()
       counter += 1
-    logging.info("Removed %d task name entities" % counter)
+    logging.info("Removed {0} task name entities".format(counter))
     return True    
 
   def register_db_accessor(self, app_id):

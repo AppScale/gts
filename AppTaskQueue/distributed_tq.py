@@ -427,28 +427,34 @@ class DistributedTaskQueue():
 
   def __check_and_store_task_names(self, request):
     """ Tries to fetch the taskqueue name, if it exists it will raise an 
-    exception.
+    exception. 
+
+    We store a receipt of each enqueued task in the datastore. If we find that
+    task in the datastore, we will raise an exception. If the task is not
+    in the datastore, then it is assumed this is the first time seeing the
+    tasks and we create a receipt of the task in the datastore to prevent
+    a duplicate task from being enqueued.
     
     Args:
       request: A taskqueue_service_pb.TaskQueueAddRequest.
-    Raise:
-      A apiproxy_errors.ApplicationError of TASK_ALREADY_EXISTS. 
+    Raises:
+      A apiproxy_errors.ApplicationError of TASK_ALREADY_EXISTS.
     """
     task_name = request.task_name()
     item = TaskName.get_by_key_name(task_name)
     logging.info("Task name {0}".format(task_name))
-    if not item:
+    if item:
+      logging.warning("Task already exists")
+      raise apiproxy_errors.ApplicationError(
+        taskqueue_service_pb.TaskQueueServiceError.TASK_ALREADY_EXISTS)
+    else:
       new_name = TaskName(key_name=task_name)
-      logging.info("Creating entity {0}".format(str(new_name)))
+      logging.debug("Creating entity {0}".format(str(new_name)))
       try:
         db.put(new_name)
       except datastore_errors.InternalError, internal_error:
         raise apiproxy_errors.ApplicationError(
           taskqueue_service_pb.TaskQueueServiceError.DATABASE_ERROR)
-    else:
-      logging.info("Task already exists")
-      raise apiproxy_errors.ApplicationError(
-        taskqueue_service_pb.TaskQueueServiceError.TASK_ALREADY_EXISTS)
 
   def __enqueue_push_task(self, request):
     """ Enqueues a batch of push tasks.
