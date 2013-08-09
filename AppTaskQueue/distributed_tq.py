@@ -13,7 +13,6 @@ import os
 import socket
 import sys
 import time
-import urllib2
  
 import taskqueue_server
 import tq_lib
@@ -22,14 +21,17 @@ from tq_config import TaskQueueConfig
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
 import appscale_info
+import constants
 import file_io
 import god_app_configuration
 import god_interface
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.runtime import apiproxy_errors
-#from google.appengine.api import datastore_distributed
-#from google.appengine.api import datastore
+from google.appengine.api import apiproxy_stub_map
+from google.appengine.api import datastore_errors
+from google.appengine.api import datastore_distributed
+from google.appengine.api import datastore
 
 from google.appengine.api.taskqueue import taskqueue_service_pb
 
@@ -79,12 +81,22 @@ class DistributedTaskQueue():
   # Default number of times we double the backoff value.
   DEFAULT_MAX_DOUBLINGS = 1000
 
+  # Kind used for storing task names.
+  TASK_NAME_KIND = "__task_name__"
+
   def __init__(self):
     """ DistributedTaskQueue Constructor. """
     file_io.set_logging_format()
     file_io.mkdir(self.LOG_DIR)
     file_io.mkdir(TaskQueueConfig.CELERY_WORKER_DIR)
     file_io.mkdir(TaskQueueConfig.CELERY_CONFIG_DIR)
+
+    master_db_ip = appscale_info.get_db_master_ip()
+    connection_str = master_db_ip + ":" + str(constants.DB_SERVER_PORT)
+    ds_distrib = datastore_distributed.DatastoreDistributed(
+    constants.DASHBOARD_APP_ID, connection_str, False, False)
+    apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', ds_distrib)
+    os.environ['APPLICATION_ID'] = constants.DASHBOARD_APP_ID
 
   def __parse_json_and_validate_tags(self, json_request, tags):
     """ Parses JSON and validates that it contains the 
@@ -348,6 +360,7 @@ class DistributedTaskQueue():
         task_name = None       
         if add_request.has_task_name():
           task_name = add_request.task_name()
+           
         namespaced_name = tq_lib.choose_task_name(add_request.app_id(),
                                               add_request.queue_name(),
                                               user_chosen=task_name)
@@ -361,10 +374,6 @@ class DistributedTaskQueue():
 
     for add_request, task_result in zip(request.add_request_list(),
                                         response.taskresult_list()):
-      # TODO make sure transactional tasks are handled first at the AppServer
-      # level, and not at the taskqueue server level
-      # if add_request.has_transaction() is true.
-      
       try:  
         self.__enqueue_push_task(add_request)
       except apiproxy_errors.ApplicationError, e:
@@ -391,6 +400,30 @@ class DistributedTaskQueue():
     elif method == taskqueue_service_pb.TaskQueueQueryTasksResponse_Task.DELETE:
       return 'DELETE'
 
+  def __check_and_store_task_names(self, request):
+    """ Tries to fetch the taskqueue name, if it exists it will raise an 
+    exception.
+    
+    Args:
+      request: A taskqueue_service_pb.TaskQueueAddRequest.
+    Raise:
+      A apiproxy_errors.ApplicationError of TASK_ALREADY_EXISTS. 
+    """
+    task_name = request.task_name()
+    datastore_key = datastore.Key.from_path(self.TASK_NAME_KIND,
+                                            task_name,
+                                            namespace='') 
+    item = None
+    try:
+      item = datastore.Get(datastore_key)
+    except datastore_errors.EntityNotFoundError:
+      entity = datastore.Entity(self.TASK_NAME_KIND, name=task_name, namespace='')
+      entity.update({'time': str(time.time())})
+      datastore.Put(entity)
+    if item:
+      raise apiproxy_errors.ApplicationError(
+        taskqueue_service_pb.TaskQueueServiceError.TASK_ALREADY_EXISTS)
+
   def __enqueue_push_task(self, request):
     """ Enqueues a batch of push tasks.
   
@@ -398,7 +431,7 @@ class DistributedTaskQueue():
       request: A taskqueue_service_pb.TaskQueueAddRequest.
     """
     self.__validate_push_task(request)
-
+    self.__check_and_store_task_names(request)
     args = self.get_task_args(request)
 
     headers = self.get_task_headers(request)

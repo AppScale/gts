@@ -98,3 +98,12 @@ def get_zk_locations_string():
   except KeyError, key_error:
     logging.exception(key_error)
     return constants.ZK_DEFAULT_CONNECTION_STR
+
+def get_db_master_ip():
+  """ Returns the master datastore IP.
+
+  Returns:
+    A str, the IP of the datastore master.
+  """
+  master = file_io.read(constants.MASTERS_FILE_LOC) 
+  return master 
