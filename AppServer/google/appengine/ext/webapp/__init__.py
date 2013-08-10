@@ -158,8 +158,11 @@ def _django_setup():
   import django.conf
   try:
 
-
-    getattr(django.conf.settings, 'FAKE_ATTR', None)
+    raise ImportError
+    # TODO(cgb): Right now the below line raises a
+    # django.core.exceptions.ImproperlyConfigured exception. Need to investigate
+    # why and address accordingly.
+    #getattr(django.conf.settings, 'FAKE_ATTR', None)
   except (ImportError, EnvironmentError), e:
 
 
