@@ -274,7 +274,7 @@ class TestGCEAgent(TestCase):
     iaas = InfrastructureManager(blocking=True)
     disk_name = 'my-disk-name'
     instance_id = 'my-instance'
-    expected = '/dev/sdb'
+    expected = '/dev/sdc'
     actual = iaas.attach_disk(self.params, disk_name, instance_id, 'secret')
     self.assertTrue(actual['success'])
     self.assertEquals(expected, actual['location'])

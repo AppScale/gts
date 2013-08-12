@@ -3466,6 +3466,17 @@ HOSTS
       imc = InfrastructureManagerClient.new(@@secret)
 
       device_name = imc.attach_disk(@creds, my_node.disk, my_node.instance_id)
+      loop {
+        if File.exists?(device_name)
+          Djinn.log_info("Device #{device_name} exists - mounting it.")
+          break
+        else
+          Djinn.log_info("Device #{device_name} does not exist - waiting for " +
+            "it to exist.")
+          Kernel.sleep(1)
+        end
+      }
+
       Djinn.log_run("rm -rf #{PERSISTENT_MOUNT_POINT}")
       Djinn.log_run("mkdir #{PERSISTENT_MOUNT_POINT}")
       mount_output = Djinn.log_run("mount -t ext4 #{device_name} " +
