@@ -117,6 +117,27 @@ def ClearUserInfoCookie(cookie_name=COOKIE_NAME):
   set_cookie[cookie_name]['max-age'] = '0'
   return '%s\r\n' % set_cookie
 
+def CreateCookieData(email, admin):
+  """ Creates cookie payload data.
+
+  Args:
+    email, admin: Parameters to incorporate into the cookie.
+
+  Returns:
+    String containing the cookie payload.
+  """
+  nickname = email.split("@")[0]
+
+  if admin:
+    app_list = os.environ['APPLICATION_ID']
+  else:
+    app_list = ''
+
+  secret = os.environ['COOKIE_SECRET']
+
+  hashed = sha.new(email+nickname+app_list+secret).hexdigest()
+  return urllib.quote_plus("{0}:{1}:{2}:{3}".format(email, nickname, app_list, hashed))
+
 def LoginRedirect(login_url,
                   hostname,
                   port,
