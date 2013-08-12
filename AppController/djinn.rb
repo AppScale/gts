@@ -671,6 +671,10 @@ class Djinn
     Djinn.log_debug("clear_datastore is set to #{@creds['clear_datastore']}, " +
       "of class #{@creds['clear_datastore'].class.name}")
 
+    if @creds['verbose'].downcase == "false"
+      @@log.level = Logger::INFO
+    end
+
     Djinn.log_run("mkdir -p /opt/appscale/apps")
 
     return "OK"
