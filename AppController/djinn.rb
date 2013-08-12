@@ -672,10 +672,7 @@ class Djinn
       "of class #{@creds['clear_datastore'].class.name}")
 
     if @creds['verbose'].downcase == "false"
-      Djinn.log_info("Setting log level to INFO")
       @@log.level = Logger::INFO
-    else
-      Djinn.log_info("Leaving log level at DEBUG")
     end
 
     Djinn.log_run("mkdir -p /opt/appscale/apps")
