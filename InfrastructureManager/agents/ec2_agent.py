@@ -36,6 +36,7 @@ class EC2Agent(BaseAgent):
   PARAM_INSTANCE_IDS = 'instance_ids'
   PARAM_SPOT = 'use_spot_instances'
   PARAM_SPOT_PRICE = 'max_spot_price'
+  PARAM_ZONE = 'zone'
 
   REQUIRED_EC2_RUN_INSTANCES_PARAMS = (
     PARAM_CREDENTIALS,
@@ -43,7 +44,8 @@ class EC2Agent(BaseAgent):
     PARAM_IMAGE_ID,
     PARAM_INSTANCE_TYPE,
     PARAM_KEYNAME,
-    PARAM_SPOT
+    PARAM_SPOT,
+    PARAM_ZONE
   )
 
   REQUIRED_EC2_TERMINATE_INSTANCES_PARAMS = (
@@ -159,9 +161,11 @@ class EC2Agent(BaseAgent):
     keyname = parameters[self.PARAM_KEYNAME]
     group = parameters[self.PARAM_GROUP]
     spot = parameters[self.PARAM_SPOT]
+    zone = parameters[self.PARAM_ZONE]
 
-    utils.log('[{0}] [{1}] [{2}] [{3}] [ec2] [{4}] [{5}]'.format(count,
-      image_id, instance_type, keyname, group, spot))
+    utils.log("Starting {0} machines with machine id {1}, with " \
+      "instance type {2}, keyname {3}, in security group {4}, in zone {5}" \
+      .format(count, image_id, instance_type, keyname, group, zone))
 
     start_time = datetime.datetime.now()
     active_public_ips = []
@@ -196,13 +200,15 @@ class EC2Agent(BaseAgent):
       if spot == 'True':
         price = parameters[self.PARAM_SPOT_PRICE]
         conn.request_spot_instances(str(price), image_id, key_name=keyname,
-          security_groups=[group], instance_type=instance_type, count=count)
+          security_groups=[group], instance_type=instance_type, count=count,
+          placement=zone)
       else:
         retries_left = self.RUN_INSTANCES_RETRY_COUNT
         while True:
           try:
             conn.run_instances(image_id, count, count, key_name=keyname,
-              security_groups=[group], instance_type=instance_type)
+              security_groups=[group], instance_type=instance_type,
+              placement=zone)
             break
           except EC2ResponseError as exception:
             utils.log("Couldn't start {0} instances because of error: {1}. " \

@@ -61,6 +61,7 @@ class TestGCEAgent(TestCase):
       'keyname': 'bookeyname',
       'num_vms': '1',
       'use_spot_instances': False,
+      'zone' : 'my-zone-1b'
     }
 
 
@@ -106,7 +107,7 @@ class TestGCEAgent(TestCase):
         u'kind': u'compute#instance',
         u'machineType': u'https://www.googleapis.com/compute/v1beta14/projects/appscale.com:appscale/global/machineTypes/n1-standard-1',
         u'name': instance_id,
-        u'zone': u'https://www.googleapis.com/compute/v1beta14/projects/appscale.com:appscale/zones/us-central1-a',
+        u'zone': u'https://www.googleapis.com/compute/v1beta14/projects/appscale.com:appscale/zones/my-zone-1b',
         u'tags': {u'fingerprint': u'42WmSpB8rSM='},
         u'image': u'https://www.googleapis.com/compute/v1beta14/projects/appscale.com:appscale/global/images/lucid64',
         u'disks': [{
@@ -126,7 +127,7 @@ class TestGCEAgent(TestCase):
         },
         u'creationTimestamp': u'2013-05-22T11:52:33.254-07:00',
         u'id': u'8684033495853907982',
-        u'selfLink': u'https://www.googleapis.com/compute/v1beta14/projects/appscale.com:appscale/zones/us-central1-a/instances/appscale-bazgroup-feb10b11-62bc-4536-ac25-9734f2267d6d',
+        u'selfLink': u'https://www.googleapis.com/compute/v1beta14/projects/appscale.com:appscale/zones/my-zone-1b/instances/appscale-bazgroup-feb10b11-62bc-4536-ac25-9734f2267d6d',
         u'networkInterfaces': [{
           u'accessConfigs': [{
             u'kind': u'compute#accessConfig',
@@ -140,8 +141,8 @@ class TestGCEAgent(TestCase):
         }]
       }],
       u'kind': u'compute#instanceList',
-      u'id': u'projects/appscale.com:appscale/zones/us-central1-a/instances',
-      u'selfLink': u'https://www.googleapis.com/compute/v1beta14/projects/961228229472/zones/us-central1-a/instances'
+      u'id': u'projects/appscale.com:appscale/zones/my-zone-1b/instances',
+      u'selfLink': u'https://www.googleapis.com/compute/v1beta14/projects/961228229472/zones/my-zone-1b/instances'
     }
 
     fake_list_instance_request = flexmock(name='fake_list_instance_request')
@@ -153,7 +154,7 @@ class TestGCEAgent(TestCase):
     fake_gce = flexmock(name='fake_gce')
     fake_gce.should_receive('instances').and_return(fake_instances)
     fake_instances.should_receive('list').with_args(project=self.project,
-      filter="name eq appscale-boogroup-.*", zone=GCEAgent.DEFAULT_ZONE) \
+      filter="name eq appscale-boogroup-.*", zone='my-zone-1b') \
       .and_return(fake_list_instance_request)
 
     # we only need to create one node, so set up mocks for that
@@ -162,14 +163,14 @@ class TestGCEAgent(TestCase):
       u'status': u'PENDING',
       u'kind': u'compute#operation',
       u'name': add_instance,
-      u'azone': unicode(GCEAgent.GCE_URL) + u'appscale.com:appscale/zones/us-central1-a',
+      u'azone': unicode(GCEAgent.GCE_URL) + u'appscale.com:appscale/zones/my-zone-1b',
       u'startTime': u'2013-05-22T11:52:32.939-07:00',
       u'insertTime': u'2013-05-22T11:52:32.891-07:00',
-      u'targetLink': unicode(GCEAgent.GCE_URL) + u'appscale.com:appscale/zones/us-central1-a/instances/appscale-bazgroup-feb10b11-62bc-4536-ac25-9734f2267d6d',
+      u'targetLink': unicode(GCEAgent.GCE_URL) + u'appscale.com:appscale/zones/my-zone-1b/instances/appscale-bazgroup-feb10b11-62bc-4536-ac25-9734f2267d6d',
       u'operationType': u'insert',
       u'progress': 0,
       u'id': u'6663616273628949255',
-      u'selfLink': unicode(GCEAgent.GCE_URL) + u'appscale.com:appscale/zones/us-central1-a/operations/operation-1369248752891-4dd5311848461-afc55a20',
+      u'selfLink': unicode(GCEAgent.GCE_URL) + u'appscale.com:appscale/zones/my-zone-1b/operations/operation-1369248752891-4dd5311848461-afc55a20',
       u'user': u'Chris@appscale.com'
     }
 

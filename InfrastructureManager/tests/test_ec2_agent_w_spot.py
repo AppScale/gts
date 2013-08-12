@@ -34,7 +34,8 @@ class TestEC2Agent(TestCase):
       'keyname': 'bookeyname',
       'num_vms': '1',
       'use_spot_instances': 'True',
-      'max_spot_price' : '1.23'
+      'max_spot_price' : '1.23',
+      'zone' : 'my-zone-1b'
     }
 
     id = '0000000000'  # no longer randomly generated
@@ -113,4 +114,3 @@ class TestEC2Agent(TestCase):
     (flexmock(utils)
      .should_receive('get_random_alphanumeric')
      .reset())
-
