@@ -297,6 +297,12 @@ class Djinn
   APPSCALE_HOME = ENV['APPSCALE_HOME']
 
 
+  # The location on the local filesystem where we save data that should be
+  # persisted across AppScale deployments. Currently this is Cassandra data,
+  # ZooKeeper data, and Google App Engine apps that users upload.
+  PERSISTENT_MOUNT_POINT = "/opt/appscale"
+
+
   # The location where we can find the Python 2.7 executable, included because
   # it is not the default version of Python installed on AppScale VMs.
   PYTHON27 = "/usr/local/Python-2.7.3/python"
@@ -599,12 +605,13 @@ class Djinn
       return BAD_SECRET_MSG
     end
 
-    if djinn_locations.class != Array
-      msg = "Error: djinn_locations wasn't an Array, but was a " +
+    if djinn_locations.class != String
+      msg = "Error: djinn_locations wasn't a String, but was a " +
         djinn_locations.class.to_s
       Djinn.log_error(msg)
       return msg
     end
+    locations = JSON.load(djinn_locations)
 
     if database_credentials.class != Array
       msg = "Error: database_credentials wasn't an Array, but was a " +
@@ -631,14 +638,14 @@ class Djinn
       Djinn.log_error(error_msg)
       return error_msg
     end
-  
+
     possible_credentials = Hash[*database_credentials]
     if !valid_format_for_credentials(possible_credentials)
       return "Error: Credential format wrong"
     end
 
     keyname = possible_credentials["keyname"]
-    @nodes = Djinn.convert_location_array_to_class(djinn_locations, keyname)
+    @nodes = Djinn.convert_location_array_to_class(locations, keyname)
     @creds = possible_credentials
     @app_names = app_names
     
@@ -665,6 +672,10 @@ class Djinn
     if @creds['clear_datastore'].class == String
       @creds['clear_datastore'] = @creds['clear_datastore'].downcase == "true"
     end
+    Djinn.log_debug("clear_datastore is set to #{@creds['clear_datastore']}, " +
+      "of class #{@creds['clear_datastore'].class.name}")
+
+    Djinn.log_run("mkdir -p /opt/appscale/apps")
 
     return "OK"
   end
@@ -962,7 +973,7 @@ class Djinn
           HAProxy.remove_app(app_name)
           Nginx.reload
           Collectd.restart
-          ZKInterface.remove_app_entry(app_name, my_node.serialize)
+          ZKInterface.remove_app_entry(app_name, my_node.public_ip)
 
           # If this node has any information about AppServers for this app,
           # clear that information out.
@@ -1045,8 +1056,8 @@ class Djinn
     if !apps_to_restart.empty?
       apps_to_restart.each { |appid|
         ZKInterface.clear_app_hosters(appid)
-        location = "/var/apps/#{appid}/app/#{appid}.tar.gz"
-        ZKInterface.add_app_entry(appid, my_node.serialize, location)
+        location = "/opt/appscale/apps/#{appid}.tar.gz"
+        ZKInterface.add_app_entry(appid, my_node.public_ip, location)
       }
 
       @nodes.each_index { |index|
@@ -1179,7 +1190,7 @@ class Djinn
     apps.each { |app_name|
       if !my_node.is_login?  # this node has the new app - don't erase it here
         Djinn.log_info("Removing old version of app #{app_name}")
-        Djinn.log_run("rm -fv /var/apps/#{app_name}/app/#{app_name}.tar.gz")
+        Djinn.log_run("rm -fv /opt/appscale/apps/#{app_name}.tar.gz")
       end
       Djinn.log_info("About to restart app #{app_name}")
       APPS_LOCK.synchronize {
@@ -1288,7 +1299,7 @@ class Djinn
     end
 
     if File.exists?(location)
-      ZKInterface.add_app_entry(appname, my_node.serialize, location)
+      ZKInterface.add_app_entry(appname, my_node.public_ip, location)
       result = "success"
     else
       result = "The #{appname} app was not found at #{location}."
@@ -1303,7 +1314,7 @@ class Djinn
       return BAD_SECRET_MSG
     end
 
-    hosters = ZKInterface.get_app_hosters(appname)
+    hosters = ZKInterface.get_app_hosters(appname, @creds['keyname'])
     hosters_w_appengine = []
     hosters.each { |node|
       hosters_w_appengine << node if node.is_appengine?
@@ -1443,11 +1454,12 @@ class Djinn
     keyname = @creds['keyname']
     num_of_vms = ips_to_roles.keys.length
     roles = ips_to_roles.values
+    disks = Array.new(size=num_of_vms, obj=nil)  # no persistent disks
     Djinn.log_info("Need to spawn up #{num_of_vms} VMs")
     imc = InfrastructureManagerClient.new(@@secret)
 
     begin
-      new_nodes_info = imc.spawn_vms(num_of_vms, @creds, roles, "cloud1")
+      new_nodes_info = imc.spawn_vms(num_of_vms, @creds, roles, disks)
     rescue AppScaleException => exception
       HelperFunctions.log_and_crash("Couldn't spawn #{num_of_vms} VMs with " +
         "roles #{roles} because: #{exception.message}")
@@ -1491,7 +1503,12 @@ class Djinn
     ips_to_roles.each { |ip, roles|
       Djinn.log_info("Will add roles #{roles.join(', ')} to new " +
         "node at IP address #{ip}")
-      nodes_info << "#{ip}:#{ip}:#{roles.join(':')}:#{keyname}:cloud1"
+      nodes_info << {
+        "public_ip" => ip,
+        "private_ip" => ip,
+        "jobs" => roles,
+        "disk" => nil
+      }
     }
 
     add_nodes(nodes_info)
@@ -1565,10 +1582,12 @@ class Djinn
           end
         end
 
+        disks = Array.new(size=vms_to_spawn, obj=nil)  # no persistent disks
+
         # start up vms_to_spawn vms as open
         imc = InfrastructureManagerClient.new(@@secret)
         begin
-          new_nodes_info = imc.spawn_vms(vms_to_spawn, @creds, "open", "cloud1")
+          new_nodes_info = imc.spawn_vms(vms_to_spawn, @creds, "open", disks)
         rescue AppScaleException => exception
           HelperFunctions.log_and_crash("Couldn't spawn #{vms_to_spawn} VMs " +
             "with roles open because: #{exception.message}")
@@ -1594,7 +1613,8 @@ class Djinn
     nodes_needed.each_index { |i|
       Djinn.log_info("Adding roles #{nodes_needed[i].join(', ')} " +
         "to virtual machine #{vms_to_use[i]}")
-      ZKInterface.add_roles_to_node(nodes_needed[i], vms_to_use[i])
+      ZKInterface.add_roles_to_node(nodes_needed[i], vms_to_use[i],
+        @creds['keyname'])
     }
 
     wait_for_nodes_to_finish_loading(vms_to_use)
@@ -1786,10 +1806,10 @@ class Djinn
     
     djinn_loc_array = []
     djinn_locations.each { |location|
-      djinn_loc_array << location.serialize
+      djinn_loc_array << location.to_hash
     }
     
-    return djinn_loc_array
+    return JSON.dump(djinn_loc_array)
   end
     
   def get_login
@@ -2415,8 +2435,8 @@ class Djinn
       all_ips = zk_ips_info["ips"]
       new_nodes = []
       all_ips.each { |ip|
-        new_nodes << DjinnJobData.deserialize(
-          ZKInterface.get_job_data_for_ip(ip))
+        new_nodes << DjinnJobData.new(ZKInterface.get_job_data_for_ip(ip),
+          @creds['keyname'])
       }
 
       old_roles = my_node.jobs
@@ -2481,7 +2501,7 @@ class Djinn
           next
         else
           failed_job_data = ZKInterface.get_job_data_for_ip(ip)
-          failed_node = DjinnJobData.deserialize(failed_job_data)
+          failed_node = DjinnJobData.new(failed_job_data, @creds['keyname'])
           roles_to_add << failed_node.jobs
 
           remove_app_hosting_data_for_node(ip)
@@ -3049,7 +3069,7 @@ class Djinn
 
     table = @creds['table']
 
-    nodes = HelperFunctions.deserialize_info_from_tools(@creds["ips"])
+    nodes = JSON.load(@creds["ips"])
     appengine_info = spawn_appengine(nodes)
 
     @state = "Copying over needed files and starting the AppController on the other VMs"
@@ -3066,39 +3086,37 @@ class Djinn
   end
 
   def spawn_appengine(nodes)
+    Djinn.log_debug("nodes is #{nodes.join(', ')}")
+    return [] if nodes.length.zero?
+
     appengine_info = []
-    if nodes.length > 0
-      if is_hybrid_cloud?
-        num_of_vms_needed = nodes.length
-        @state = "Spawning up hybrid virtual machines"
-        appengine_info = HelperFunctions.spawn_hybrid_vms(@creds, nodes)
-      elsif is_cloud?
-        @state = "Spawning up #{nodes.length} virtual machines"
-        roles = nodes.values
+    if is_cloud?
+      @state = "Spawning up #{nodes.length} virtual machines"
+      roles = nodes.map { |node| node['jobs'] }
+      disks = nodes.map { |node| node['disk'] }
 
-        # since there's only one cloud, call it cloud1 to tell us
-        # to use the first ssh key (the only key)
-        imc = InfrastructureManagerClient.new(@@secret)
-        begin
-          appengine_info = imc.spawn_vms(nodes.length, @creds, roles, "cloud1")
-        rescue AppScaleException => exception
-          HelperFunctions.log_and_crash("Couldn't spawn #{nodes.length} VMs with " +
-            "roles #{roles} because: #{exception.message}")
-        end
-
-        Djinn.log_debug("Received appengine info: #{appengine_info}")
-      else
-        nodes.each_pair do |ip,roles|
-          # for xen the public and private ips are the same
-          # and we call it cloud1 since the first key (only key)
-          # is the key to use
-
-          info = "#{ip}:#{ip}:#{roles}:i-SGOOBARZ:cloud1"
-          appengine_info << info
-        end
+      # since there's only one cloud, call it cloud1 to tell us
+      # to use the first ssh key (the only key)
+      imc = InfrastructureManagerClient.new(@@secret)
+      begin
+        appengine_info = imc.spawn_vms(nodes.length, @creds, roles, disks)
+      rescue AppScaleException => exception
+        HelperFunctions.log_and_crash("Couldn't spawn #{nodes.length} VMs " +
+          "with roles #{roles} because: #{exception.message}")
       end
+    else
+      nodes.each { |node|
+        appengine_info << {
+          'public_ip' => node['ip'],
+          'private_ip' => node['ip'],
+          'jobs' => node['jobs'],
+          'instance_id' => 'i-SGOOBARZ',
+          'disk' => nil
+        }
+      }
     end
 
+    Djinn.log_debug("Received appengine info: #{appengine_info.join(', ')}")
     return appengine_info
   end
 
@@ -3116,7 +3134,6 @@ class Djinn
   def initialize_node(node)
     copy_encryption_keys(node)
     validate_image(node)
-    restore_db_state_if_needed(node)
     rsync_files(node)
     start_appcontroller(node)
   end
@@ -3129,17 +3146,6 @@ class Djinn
     HelperFunctions.ensure_db_is_supported(ip, @creds["table"], key)
   end
 
-  def restore_db_state_if_needed(dest_node)
-    return unless dest_node.is_db_master?
-    return unless @creds["restore_from_tar"]
-
-    ip = dest_node.private_ip
-    ssh_key = dest_node.ssh_key
-    Djinn.log_debug("Restoring DB, copying data to DB master at #{ip}")
-    db_tar_loc = @creds["restore_from_tar"]
-    HelperFunctions.scp_file(db_tar_loc, db_tar_loc, ip, ssh_key)
-  end
-
   def copy_encryption_keys(dest_node)
     ip = dest_node.private_ip
     Djinn.log_info("Copying SSH keys to node at IP address #{ip}")
@@ -3148,7 +3154,7 @@ class Djinn
     HelperFunctions.sleep_until_port_is_open(ip, SSH_PORT)
     Kernel.sleep(3)
 
-    if @creds["infrastructure"] == "ec2" or @creds["infrastructure"] == "hybrid" or @creds["infrastructure"] == "euca"
+    if ["ec2", "euca"].include?(@creds["infrastructure"])
       options = "-o StrictHostkeyChecking=no -o NumberOfPasswordPrompts=0"
       enable_root_login = "sudo cp /home/ubuntu/.ssh/authorized_keys /root/.ssh/"
       Djinn.log_run("ssh -i #{ssh_key} #{options} 2>&1 ubuntu@#{ip} '#{enable_root_login}'")
@@ -3168,38 +3174,25 @@ class Djinn
     HelperFunctions.scp_file(key_loc, key_loc, ip, ssh_key)
     scp_ssh_key_to_ip(ip, ssh_key, pub_key)
 
-    # TODO: should be able to merge these together
-    if is_hybrid_cloud?
-      cloud_num = 1
-      loop {
-        cloud_type = @creds["CLOUD_TYPE"]
-        break if cloud_type.nil? or cloud_type == ""
-        cloud_keys_dir = File.expand_path("#{CONFIG_FILE_LOCATION}/keys/cloud#{cloud_num}")
-        make_dir = "mkdir -p #{cloud_keys_dir}"
+    cloud_keys_dir = File.expand_path("#{CONFIG_FILE_LOCATION}/keys/cloud1")
+    make_dir = "mkdir -p #{cloud_keys_dir}"
 
-        keyname = @creds["keyname"]
-        cloud_ssh_key = "#{cloud_keys_dir}/#{keyname}.key"
-        cloud_private_key = "#{cloud_keys_dir}/mykey.pem"
-        cloud_cert = "#{cloud_keys_dir}/mycert.pem"
+    cloud_private_key = "#{cloud_keys_dir}/mykey.pem"
+    cloud_cert = "#{cloud_keys_dir}/mycert.pem"
 
-        HelperFunctions.run_remote_command(ip, make_dir, ssh_key, NO_OUTPUT)
-        HelperFunctions.scp_file(cloud_ssh_key, cloud_ssh_key, ip, ssh_key)
-        HelperFunctions.scp_file(cloud_private_key, cloud_private_key, ip, ssh_key)
-        HelperFunctions.scp_file(cloud_cert, cloud_cert, ip, ssh_key)
-        cloud_num += 1
-      }
-    else
-      cloud_keys_dir = File.expand_path("#{CONFIG_FILE_LOCATION}/keys/cloud1")
-      make_dir = "mkdir -p #{cloud_keys_dir}"
+    HelperFunctions.run_remote_command(ip, make_dir, ssh_key, NO_OUTPUT)
+    HelperFunctions.scp_file(ssh_key, ssh_key, ip, ssh_key)
+    HelperFunctions.scp_file(cloud_private_key, cloud_private_key, ip, ssh_key)
+    HelperFunctions.scp_file(cloud_cert, cloud_cert, ip, ssh_key)
 
-      cloud_private_key = "#{cloud_keys_dir}/mykey.pem"
-      cloud_cert = "#{cloud_keys_dir}/mycert.pem"
+    # Finally, on GCE, we need to copy over the user's credentials, in case
+    # nodes need to attach persistent disks.
+    return if @creds["infrastructure"] != "gce"
+    client_secrets = '/etc/appscale/client_secrets.json'
+    gce_oauth = '/etc/appscale/oauth2.dat'
 
-      HelperFunctions.run_remote_command(ip, make_dir, ssh_key, NO_OUTPUT)
-      HelperFunctions.scp_file(ssh_key, ssh_key, ip, ssh_key)
-      HelperFunctions.scp_file(cloud_private_key, cloud_private_key, ip, ssh_key)
-      HelperFunctions.scp_file(cloud_cert, cloud_cert, ip, ssh_key)
-    end
+    HelperFunctions.scp_file(client_secrets, client_secrets, ip, ssh_key)
+    HelperFunctions.scp_file(gce_oauth, gce_oauth, ip, ssh_key)
   end
 
  
@@ -3304,7 +3297,7 @@ class Djinn
     HelperFunctions.write_file("#{CONFIG_FILE_LOCATION}/slaves", "#{slave_ips_newlined}\n")
 
     # Invoke datastore helper function
-    setup_db_config_files(master_ip, slave_ips, @creds)
+    setup_db_config_files(master_ip, slave_ips)
 
     update_hosts_info()
 
@@ -3462,7 +3455,8 @@ HOSTS
     @nodes[@my_index]
   end
   
-  # Perform any necessary initialization steps before we begin starting up services
+  # Perform any necessary initialization steps before we begin starting up
+  # services.
   def initialize_server
     my_public_ip = my_node.public_ip
     head_node_ip = get_public_ip(@creds['hostname'])
@@ -3471,6 +3465,41 @@ HOSTS
     Nginx.initialize_config
     Collectd.initialize_config(my_public_ip, head_node_ip)
     Monitoring.reset
+
+    if my_node.disk
+      imc = InfrastructureManagerClient.new(@@secret)
+
+      device_name = imc.attach_disk(@creds, my_node.disk, my_node.instance_id)
+      loop {
+        if File.exists?(device_name)
+          Djinn.log_info("Device #{device_name} exists - mounting it.")
+          break
+        else
+          Djinn.log_info("Device #{device_name} does not exist - waiting for " +
+            "it to exist.")
+          Kernel.sleep(1)
+        end
+      }
+
+      Djinn.log_run("rm -rf #{PERSISTENT_MOUNT_POINT}")
+      Djinn.log_run("mkdir #{PERSISTENT_MOUNT_POINT}")
+      mount_output = Djinn.log_run("mount -t ext4 #{device_name} " +
+        "#{PERSISTENT_MOUNT_POINT} 2>&1")
+      if mount_output.empty?
+        Djinn.log_info("Mounted persistent disk #{device_name}, without " +
+          "needing to format it.")
+        Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
+        return
+      end
+
+      Djinn.log_info("Formatting persistent disk #{device_name}")
+      Djinn.log_run("mkfs.ext4 -F #{device_name}")
+
+      Djinn.log_info("Mounting persistent disk #{device_name}")
+      Djinn.log_run("mount -t ext4 #{device_name} #{PERSISTENT_MOUNT_POINT} " +
+        "2>&1")
+      Djinn.log_run("mkdir -p #{PERSISTENT_MOUNT_POINT}/apps")
+    end
   end
 
   def start_appcontroller(node)
@@ -3699,7 +3728,7 @@ HOSTS
     shadow_ip = shadow.private_ip
     ssh_key = shadow.ssh_key
     app_dir = "/var/apps/#{app}/app"
-    app_path = "#{app_dir}/#{app}.tar.gz"
+    app_path = "/opt/appscale/apps/#{app}.tar.gz"
     FileUtils.mkdir_p(app_dir)
      
     # First, make sure we can download the app, and if we can't, throw up a
@@ -4447,7 +4476,7 @@ HOSTS
   # Returns true on success, false otherwise
   def copy_app_to_local(appname)
     app_dir = "/var/apps/#{appname}/app"
-    app_path = "#{app_dir}/#{appname}.tar.gz"
+    app_path = "/opt/appscale/apps/#{appname}.tar.gz"
 
     if File.exists?(app_path)
       Djinn.log_debug("I already have a copy of app #{appname} - won't grab it remotely")
@@ -4459,7 +4488,7 @@ HOSTS
     nodes_with_app = []
     retries_left = 10
     loop {
-      nodes_with_app = ZKInterface.get_app_hosters(appname)
+      nodes_with_app = ZKInterface.get_app_hosters(appname, @creds['keyname'])
       break if !nodes_with_app.empty?
       Djinn.log_info("[#{retries_left} retries left] Waiting for a node to " +
         "have a copy of app #{appname}")

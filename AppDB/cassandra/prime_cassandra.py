@@ -30,21 +30,11 @@ def create_keyspaces(replication):
 
   print "Creating Cassandra Key Spaces" 
 
-  # Set this to False to keep data from a previous deployment. Setting it
-  # it to True will remove previous tables.
-  _DROP_TABLES = False
-
   # TODO use shared library to get constants
   host = file_io.read('/etc/appscale/my_private_ip')
 
   sysman = system_manager.SystemManager(host + ":" +\
               str(cassandra_interface.CASS_DEFAULT_PORT))
-
-  if _DROP_TABLES:
-    try:
-      sysman.drop_keyspace(cassandra_interface.KEYSPACE)
-    except pycassa.cassandra.ttypes.InvalidRequestException, e:
-      pass
 
   try:
     sysman.create_keyspace(cassandra_interface.KEYSPACE, 
@@ -69,8 +59,6 @@ def create_keyspaces(replication):
     # TODO: Figure out the exact exceptions we're trying to catch in the 
     print "Received an exception of type " + str(e.__class__) +\
           " with message: " + str(e)
-    if _DROP_TABLES:
-      raise e
 
   print "CASSANDRA SETUP SUCCESSFUL"
   return True
@@ -101,8 +89,6 @@ def prime_cassandra(replication):
   except Exception, e:
     print "Received an exception of type " + str(e.__class__) +\
           " with message: " + str(e)
-    if _DROP_TABLES:
-      raise e
 
   if len(db.get_schema(dbconstants.USERS_TABLE)) > 1 and \
      len(db.get_schema(dbconstants.APPS_TABLE)) > 1:
@@ -111,6 +97,8 @@ def prime_cassandra(replication):
     print "APPS:",db.get_schema(dbconstants.APPS_TABLE)
     return 0
   else: 
+    print str(db.get_schema(dbconstants.USERS_TABLE))
+    print str(db.get_schema(dbconstants.APPS_TABLE))
     print "FAILED TO CREATE TABLE FOR USER AND APPS"
     return 1
 
