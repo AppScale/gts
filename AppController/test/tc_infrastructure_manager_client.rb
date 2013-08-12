@@ -40,7 +40,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'num_vms' => '1',
         'cloud' => 'cloud1',
         'use_spot_instances' => true,
-        'max_spot_price' => 1.23
+        'max_spot_price' => 1.23,
+        'zone' => 'my-zone-1b'
       }).and_return({
         'success' => true,
         'reservation_id' => "0000000000",
@@ -86,7 +87,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'ec2_secret_key' => 'boosecret',
       'ec2_url' => 'booec2url',
       'use_spot_instances' => true,
-      'max_spot_price' => 1.23
+      'max_spot_price' => 1.23,
+      'zone' => 'my-zone-1b'
     }
   
     expected = [{
@@ -120,7 +122,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'num_vms' => '3',
         'cloud' => 'cloud1',
         'use_spot_instances' => false,
-        'max_spot_price' => nil
+        'max_spot_price' => nil,
+        'zone' => 'my-zone-1b'
       }).and_return({
         'success' => true,
         'reservation_id' => "0000000000",
@@ -165,7 +168,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'ec2_access_key' => 'booaccess',
       'ec2_secret_key' => 'boosecret',
       'ec2_url' => 'booec2url',
-      'use_spot_instances' => false
+      'use_spot_instances' => false,
+      'zone' => 'my-zone-1b'
     }
   
     expected = [{
@@ -212,7 +216,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'num_vms' => '3',
         'cloud' => 'cloud1',
         'use_spot_instances' => nil,
-        'max_spot_price' => nil
+        'max_spot_price' => nil,
+        'zone' => 'my-zone-1b'
       }).and_return({
         'success' => true,
         'reservation_id' => "0000000000",
@@ -258,7 +263,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'ec2_secret_key' => nil,
       'ec2_url' => nil,
       'use_spot_instances' => nil,
-      'project' => '123456789'
+      'project' => '123456789',
+      'zone' => 'my-zone-1b'
     }
 
     expected = [{

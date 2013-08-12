@@ -36,6 +36,7 @@ class EC2Agent(BaseAgent):
   PARAM_INSTANCE_IDS = 'instance_ids'
   PARAM_SPOT = 'use_spot_instances'
   PARAM_SPOT_PRICE = 'max_spot_price'
+  PARAM_ZONE = 'zone'
 
   REQUIRED_EC2_RUN_INSTANCES_PARAMS = (
     PARAM_CREDENTIALS,
@@ -43,7 +44,8 @@ class EC2Agent(BaseAgent):
     PARAM_IMAGE_ID,
     PARAM_INSTANCE_TYPE,
     PARAM_KEYNAME,
-    PARAM_SPOT
+    PARAM_SPOT,
+    PARAM_ZONE
   )
 
   REQUIRED_EC2_TERMINATE_INSTANCES_PARAMS = (
@@ -159,9 +161,11 @@ class EC2Agent(BaseAgent):
     keyname = parameters[self.PARAM_KEYNAME]
     group = parameters[self.PARAM_GROUP]
     spot = parameters[self.PARAM_SPOT]
+    zone = parameters[self.PARAM_ZONE]
 
-    utils.log('[{0}] [{1}] [{2}] [{3}] [ec2] [{4}] [{5}]'.format(count,
-      image_id, instance_type, keyname, group, spot))
+    utils.log("Starting {0} machines with machine id {1}, with " \
+      "instance type {2}, keyname {3}, in security group {4}, in zone {5}" \
+      .format(count, image_id, instance_type, keyname, group, zone))
 
     start_time = datetime.datetime.now()
     active_public_ips = []
@@ -196,13 +200,15 @@ class EC2Agent(BaseAgent):
       if spot == 'True':
         price = parameters[self.PARAM_SPOT_PRICE]
         conn.request_spot_instances(str(price), image_id, key_name=keyname,
-          security_groups=[group], instance_type=instance_type, count=count)
+          security_groups=[group], instance_type=instance_type, count=count,
+          placement=zone)
       else:
         retries_left = self.RUN_INSTANCES_RETRY_COUNT
         while True:
           try:
             conn.run_instances(image_id, count, count, key_name=keyname,
-              security_groups=[group], instance_type=instance_type)
+              security_groups=[group], instance_type=instance_type,
+              placement=zone)
             break
           except EC2ResponseError as exception:
             utils.log("Couldn't start {0} instances because of error: {1}. " \
@@ -288,6 +294,40 @@ class EC2Agent(BaseAgent):
     terminated_instances = conn.terminate_instances(instance_ids)
     for instance in terminated_instances:
       utils.log('Instance {0} was terminated'.format(instance.id))
+
+
+  def attach_disk(self, parameters, disk_name, instance_id):
+    """ Attaches the Elastic Block Store volume specified in 'disk_name' to this
+    virtual machine.
+
+    Args:
+      parameters: A dict with keys for each parameter needed to connect to AWS.
+      disk_name: A str naming the EBS mount to attach to this machine.
+      instance_id: A str naming the id of the instance that the disk should be
+        attached to. In practice, callers add disks to their own instances.
+    """
+    try:
+      conn = self.open_connection(parameters)
+      utils.log('Attaching volume {0} to instance {1}, at /dev/sdc'.format(
+        disk_name, instance_id))
+      conn.attach_volume(disk_name, instance_id, '/dev/sdc')
+
+      while True:
+        utils.log('Waiting for disk to finish attaching.')
+        status = conn.get_all_volumes(disk_name)[0].status
+        utils.log('Volume {0} reports its status as {1}'.format(disk_name,
+          status))
+        if status == 'in-use':
+          break
+        utils.sleep(1)
+
+      utils.log('Volume {0} is attached and ready for use.')
+      return '/dev/sdc'
+    except EC2ResponseError as exception:
+      utils.log('An error occurred when trying to attach volume {0} to ' \
+        'instance {1} at /dev/sdc'.format(disk_name, instance_id))
+      self.handle_failure('EC2 response error while attaching volume:' +
+        exception.error_message)
 
 
   def open_connection(self, parameters):

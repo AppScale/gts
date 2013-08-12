@@ -105,5 +105,4 @@ def get_db_master_ip():
   Returns:
     A str, the IP of the datastore master.
   """
-  master = file_io.read(constants.MASTERS_FILE_LOC) 
-  return master 
+  return file_io.read(constants.MASTERS_FILE_LOC) 

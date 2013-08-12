@@ -194,6 +194,7 @@ class InfrastructureManagerClient
     parameters = get_parameters_from_credentials(creds)
     parameters['num_vms'] = num_vms.to_s
     parameters['cloud'] = 'cloud1'
+    parameters['zone'] = creds['zone']
 
     run_result = run_instances(parameters)
     Djinn.log_debug("[IM] Run instances info says [#{run_result}]")
@@ -258,8 +259,10 @@ class InfrastructureManagerClient
       "#{instance_id}")
 
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, "attach_disk") {
-      return @conn.attach_disk(parameters.to_json, disk_name, instance_id,
-        @secret)['location']
+      disk_info = @conn.attach_disk(parameters.to_json, disk_name, instance_id,
+        @secret)
+      Djinn.log_debug("Attach disk returned #{disk_info.inspect}")
+      return disk_info['location']
     }
   end
 
