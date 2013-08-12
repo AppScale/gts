@@ -26,12 +26,16 @@ from google.appengine.api import datastore_errors
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib/"))
 import appscale_info
+import constants
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../AppTaskQueue/"))
+from distributed_tq import TaskName
 
 class DatastoreGroomer(threading.Thread):
   """ Scans the entire database for each application. """
  
   # The amount of seconds between polling to get the groomer lock.
-  LOCK_POLL_PERIOD = 86400
+  LOCK_POLL_PERIOD = 24 * 60 * 60
 
   # The number of entities retrieved in a datastore request.
   BATCH_SIZE = 100 
@@ -41,6 +45,9 @@ class DatastoreGroomer(threading.Thread):
 
   # Any kind that is of _*_ is protected and should not have stats.
   PROTECTED_KINDS = '_(.*)_'
+  
+  # The amount of time in seconds before we want to clean up task name holders.
+  TASK_NAME_TIMEOUT = 24 * 60 * 60
 
   def __init__(self, zoo_keeper, table_name, ds_path):
     """ Constructor. 
@@ -156,6 +163,7 @@ class DatastoreGroomer(threading.Thread):
   def process_tombstone(self, key, entity, version):
     """ Processes any entities which have been soft deleted. 
         Does an actual delete to reclaim disk space.
+
     Args: 
       key: The key to the entity table.
       entity: The entity in string serialized form.
@@ -211,6 +219,7 @@ class DatastoreGroomer(threading.Thread):
 
   def process_statistics(self, key, entity, version):
     """ Processes an entity and adds to the global statistics.
+
     Args: 
       key: The key to the entity table.
       entity: The entity in string serialized form.
@@ -321,6 +330,28 @@ class DatastoreGroomer(threading.Thread):
     logging.debug("Done creating global stat") 
     return True
 
+  def remove_old_tasks_entities(self):
+    """ Queries for old tasks and removes the entity which tells 
+    use whether a named task was enqueued.
+
+    Returns:
+      True on success.
+    """
+    self.register_db_accessor(constants.DASHBOARD_APP_ID)
+    timeout = datetime.datetime.now() - datetime.timedelta(seconds=self.TASK_NAME_TIMEOUT)
+    query = TaskName.all()
+    query.filter("timestamp <", timeout)
+    entities = query.run()
+    counter = 0
+    logging.info("The current time is {0}".format(datetime.datetime.now()))
+    logging.info("The timeout time is {0}".format(timeout))
+    for entity in entities:
+      logging.debug("Removing task name {0}".format(entity.timestamp))
+      entity.delete()
+      counter += 1
+    logging.info("Removed {0} task name entities".format(counter))
+    return True    
+
   def register_db_accessor(self, app_id):
     """ Gets a distributed datastore object to interact with
         the datastore for a certain application.
@@ -418,6 +449,8 @@ class DatastoreGroomer(threading.Thread):
       last_key = entities[-1].keys()[0]
     if not self.update_statistics():
       logging.error("There was an error updating the statistics")
+
+    self.remove_old_tasks_entities()
 
     del self.db_access
 
