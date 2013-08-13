@@ -37,11 +37,11 @@ class TestGCEAgent(TestCase):
     # Mock out reading the secret file
     flexmock(utils).should_receive('get_secret').and_return('secret')
 
-    # Assume that our client_secrets.json file exists
+    # Assume that our oauth2 file exists
     flexmock(os.path)
     os.path.should_call('exists')
     os.path.should_receive('exists').with_args(
-      GCEAgent.CLIENT_SECRETS_LOCATION).and_return(True)
+      GCEAgent.OAUTH2_STORAGE_LOCATION).and_return(True)
 
     self.reservation_id = '00000000'
     flexmock(utils).should_receive('get_random_alphanumeric').and_return(
@@ -68,23 +68,13 @@ class TestGCEAgent(TestCase):
   def test_gce_run_instances(self):
     # mock out interactions with GCE
     # first, mock out the oauth library calls
-    fake_flow = flexmock(name='fake_flow')
-    flexmock(oauth2client.client)
-    oauth2client.client.should_receive('flow_from_clientsecrets').with_args(
-      GCEAgent.CLIENT_SECRETS_LOCATION, scope=GCEAgent.GCE_SCOPE).and_return(
-      fake_flow)
-
+    fake_credentials = flexmock(name='fake_credentials')
     fake_storage = flexmock(name='fake_storage')
-    fake_storage.should_receive('get').and_return(None)
+    fake_storage.should_receive('get').and_return(fake_credentials)
 
     flexmock(oauth2client.file)
     oauth2client.file.should_receive('Storage').with_args(
       GCEAgent.OAUTH2_STORAGE_LOCATION).and_return(fake_storage)
-
-    fake_credentials = flexmock(name='fake_credentials')
-    flexmock(oauth2client.tools)
-    oauth2client.tools.should_receive('run').with_args(fake_flow,
-      fake_storage).and_return(fake_credentials)
 
     # next, mock out http calls to GCE
     fake_http = flexmock(name='fake_http')
@@ -223,23 +213,13 @@ class TestGCEAgent(TestCase):
   def test_attach_persistent_disk(self):
     # mock out interactions with GCE
     # first, mock out the oauth library calls
-    fake_flow = flexmock(name='fake_flow')
-    flexmock(oauth2client.client)
-    oauth2client.client.should_receive('flow_from_clientsecrets').with_args(
-      GCEAgent.CLIENT_SECRETS_LOCATION, scope=GCEAgent.GCE_SCOPE).and_return(
-      fake_flow)
-
+    fake_credentials = flexmock(name='fake_credentials')
     fake_storage = flexmock(name='fake_storage')
-    fake_storage.should_receive('get').and_return(None)
+    fake_storage.should_receive('get').and_return(fake_credentials)
 
     flexmock(oauth2client.file)
     oauth2client.file.should_receive('Storage').with_args(
       GCEAgent.OAUTH2_STORAGE_LOCATION).and_return(fake_storage)
-
-    fake_credentials = flexmock(name='fake_credentials')
-    flexmock(oauth2client.tools)
-    oauth2client.tools.should_receive('run').with_args(fake_flow,
-      fake_storage).and_return(fake_credentials)
 
     # next, mock out http calls to GCE
     fake_http = flexmock(name='fake_http')
