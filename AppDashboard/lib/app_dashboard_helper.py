@@ -885,3 +885,31 @@ class AppDashboardHelper():
     except Exception as err:
       logging.exception(err)
       return str(err)
+
+
+  def change_password(self, email, password):
+    """ Instructs the UserAppServer to set the given user's password to the
+    given value.
+
+    Args:
+      email: A string indicating the email address of the user whose password
+        should be reset.
+      password: A string containing the cleartext password that should be set for
+        the given user.
+    Returns:
+      A tuple containing a boolean and string. The boolean indicates whether the
+      password reset was successful and the string indicates the reason why in
+      the case of failure.
+    """
+    hashed_password = hashlib.sha1(email + password).hexdigest()
+
+    try:
+      user_app_server = self.get_uaserver()
+      ret = user_app_server.change_password(email, hashed_password, GLOBAL_SECRET_KEY)
+      if ret == "true":
+        return True, "The user password was successfully changed."
+      else:
+        return False, ret
+    except Exception as err:
+      logging.exception(err)
+      raise False, "There was an error changing the user password."
