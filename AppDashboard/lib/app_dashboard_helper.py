@@ -892,13 +892,14 @@ class AppDashboardHelper():
     given value.
 
     Args:
-      email: A str indicating the email address of the user whose password
+      email: A string indicating the email address of the user whose password
         should be reset.
-      password: A str containing the cleartext password that should be set for
+      password: A string containing the cleartext password that should be set for
         the given user.
     Returns:
-      True: If the password was changed successfully.
-      False: If the password was unsuccessfully changed.
+      A tuple containing a boolean and string. The boolean indicates whether the
+      password reset was successful and the string indicates the reason why in
+      the case of failure.
     """
     hashed_password = hashlib.sha1(email + password).hexdigest()
 
@@ -908,7 +909,7 @@ class AppDashboardHelper():
       if ret == "true":
         return True, "The user password was successfully changed."
       else:
-        return (False, ret)
+        return False, ret
     except Exception as err:
       logging.exception(err)
       raise False, "There was an error changing the user password."

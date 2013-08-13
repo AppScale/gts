@@ -496,10 +496,6 @@ class ChangePasswordPage(AppDashboard):
     email = self.request.get("email")
     password = self.request.get("password")
     if self.dstore.is_user_cloud_admin():
-      try:
-        taskqueue.add(url='/status/refresh')
-      except Exception as err:
-        logging.exception(err)
     success, message = self.helper.change_password(cgi.escape(email), cgi.escape(password))
     flash_message = None
     error_flash_message = None
