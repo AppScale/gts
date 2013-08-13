@@ -486,6 +486,48 @@ class AuthorizePage(AppDashboard):
         })
 
 
+class ChangePasswordPage(AppDashboard):
+  """Class to handle user password changes."""
+
+  TEMPLATE = 'authorize/cloud.html'
+
+  def post(self):
+    """ Handler for POST requests. """
+    email = self.request.get("email")
+    password = self.request.get("password")
+    if self.dstore.is_user_cloud_admin():
+      success, message = self.helper.change_password(cgi.escape(email),
+        cgi.escape(password))
+    else:
+      success = False
+      message = "Only the cloud administrator can change passwords."
+
+    flash_message = None
+    error_flash_message = None
+    if success:
+      flash_message = message
+    else:
+      error_flash_message = message
+
+    self.render_page(page='authorize', template_file=self.TEMPLATE, values={
+      'flash_message':flash_message,
+      'error_flash_message':error_flash_message,
+      'user_perm_list' : self.helper.list_all_users_permissions(),
+      })
+
+  def get(self):
+    """ Handler for GET requests. """
+    if self.dstore.is_user_cloud_admin():
+      self.render_page(page='authorize', template_file=self.TEMPLATE, values={
+        'user_perm_list' : self.helper.list_all_users_permissions(),
+      })
+    else:
+      self.render_page(page='authorize', template_file=self.TEMPLATE, values={
+        'flash_message':"Only the cloud administrator can change permissions.",
+        'user_perm_list':{},
+        })
+
+
 class AppUploadPage(AppDashboard):
   """ Class to handle requests to the /apps/new page. """
 
@@ -1070,7 +1112,8 @@ app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/logs/(.+)/(.+)', LogServiceHostPage),
                                 ('/logs/(.+)', LogServicePage),
                                 ('/gather-logs', LogDownloader),
-                                ('/groomer', RunGroomer)
+                                ('/groomer', RunGroomer),
+                                ('/change-password', ChangePasswordPage)
                               ], debug=True)
 
 
