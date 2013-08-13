@@ -496,7 +496,12 @@ class ChangePasswordPage(AppDashboard):
     email = self.request.get("email")
     password = self.request.get("password")
     if self.dstore.is_user_cloud_admin():
-    success, message = self.helper.change_password(cgi.escape(email), cgi.escape(password))
+      success, message = self.helper.change_password(cgi.escape(email),
+        cgi.escape(password))
+    else:
+      success = False
+      message = "Only the cloud administrator can change passwords."
+
     flash_message = None
     error_flash_message = None
     if success:
