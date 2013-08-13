@@ -53,7 +53,7 @@ def create_config_file(watch, start_cmd, stop_cmd, ports, env_vars={}):
                              stop_cmd, 
                              ', '.join(ports),
                              env,
-                             "{WATCH}",
+                             "{watch_name}",
                              "{port}")
 
   temp_file_name = "/tmp/god-" + watch + '-' + \
