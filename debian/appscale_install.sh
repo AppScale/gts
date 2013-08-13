@@ -25,6 +25,7 @@ case "$1" in
 	postinstallnginx
         installpython27
         installnumpy
+        installpythonmemcache
         installmatplotlib
         installPIL
         installpycrypto
@@ -103,6 +104,7 @@ case "$1" in
 	postinstallnginx
         installpython27
         installnumpy
+        installpythonmemcache
         installmatplotlib
         installPIL
         installpycrypto
