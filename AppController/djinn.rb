@@ -671,6 +671,10 @@ class Djinn
     Djinn.log_debug("clear_datastore is set to #{@creds['clear_datastore']}, " +
       "of class #{@creds['clear_datastore'].class.name}")
 
+    if @creds['verbose'].downcase == "false"
+      @@log.level = Logger::INFO
+    end
+
     Djinn.log_run("mkdir -p /opt/appscale/apps")
 
     return "OK"
@@ -3184,10 +3188,14 @@ class Djinn
     # Finally, on GCE, we need to copy over the user's credentials, in case
     # nodes need to attach persistent disks.
     return if @creds["infrastructure"] != "gce"
+
     client_secrets = '/etc/appscale/client_secrets.json'
     gce_oauth = '/etc/appscale/oauth2.dat'
 
-    HelperFunctions.scp_file(client_secrets, client_secrets, ip, ssh_key)
+    if File.exists?(client_secrets)
+      HelperFunctions.scp_file(client_secrets, client_secrets, ip, ssh_key)
+    end
+
     HelperFunctions.scp_file(gce_oauth, gce_oauth, ip, ssh_key)
   end
 
