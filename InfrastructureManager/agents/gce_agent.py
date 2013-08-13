@@ -197,10 +197,10 @@ class GCEAgent(BaseAgent):
         raise AgentConfigurationException('The required parameter, {0}, was' \
           ' not specified.'.format(param))
 
-    # Next, make sure that the client_secrets file exists
-    if not os.path.exists(self.CLIENT_SECRETS_LOCATION):
-      raise AgentConfigurationException('Could not find your client_secrets ' \
-        'file at {0}'.format(self.CLIENT_SECRETS_LOCATION))
+    # Next, make sure that the oauth2 file exists
+    if not os.path.exists(self.OAUTH2_STORAGE_LOCATION):
+      raise AgentConfigurationException('Could not find your signed OAuth2' \
+        'file at {0}'.format(self.OAUTH2_STORAGE_LOCATION))
 
 
   def describe_instances(self, parameters):
@@ -364,13 +364,8 @@ class GCEAgent(BaseAgent):
       can be used to sign requests performed with that connection.
     """
     # Perform OAuth 2.0 authorization.
-    flow = oauth2client.client.flow_from_clientsecrets(
-      self.CLIENT_SECRETS_LOCATION, scope=self.GCE_SCOPE)
     storage = oauth2client.file.Storage(self.OAUTH2_STORAGE_LOCATION)
     credentials = storage.get()
-
-    if credentials is None or credentials.invalid:
-      credentials = oauth2client.tools.run(flow, storage)
 
     # Build the service
     return apiclient.discovery.build('compute', self.API_VERSION), credentials
