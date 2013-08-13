@@ -60,3 +60,15 @@ ZK_LOCATIONS_JSON_FILE = "/etc/appscale/zookeeper_locations.json"
 # Default location for connecting to ZooKeeper.
 ZK_DEFAULT_CONNECTION_STR = "localhost:2181"
 
+# Default location for the datastore master.
+MASTERS_FILE_LOC = "/etc/appscale/masters"
+
+# Application ID for AppScale Dashboard.
+DASHBOARD_APP_ID = "appscaledashboard"
+
+# Application ID for AppScale API Checker.
+API_CHECKER_ID = "apichecker"
+
+# Reserved application identifiers which are only internal for AppScale.
+RESERVED_APP_IDS = [DASHBOARD_APP_ID, API_CHECKER_ID]
+

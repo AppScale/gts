@@ -25,10 +25,9 @@ Also, join us on #appscale on freenode if you have questions, suggestions,
 comments, or just want to say hi!
 http://webchat.freenode.net/?channels=appscale&uio=d4
 
-## Why Develop AppScale? ##
-Our goal with AppScale is to provide a open-source cloud platform that anyone 
-can use to deploy your Google App Engines to and to perform research on cloud 
-platforms. 
+## Why Use AppScale? ##
+Our goal with AppScale is to provide an open-source cloud platform that you 
+can use to deploy your Google App Engine applications on clusters and clouds of your choice.    
 
 ## Screen Shots ##
 ![AppScale Dashboard Screenshot](https://s3.amazonaws.com/appscale_CDN/images/dashboard_scrteenshot.jpg)
