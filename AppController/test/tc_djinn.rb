@@ -190,7 +190,7 @@ class TestDjinn < Test::Unit::TestCase
     djinn = Djinn.new
 
     credentials = ['table', 'cassandra', 'hostname', 'public_ip', 'ips', '', 
-      'keyname', 'appscale', 'alter_etc_resolv', 'False']
+      'keyname', 'appscale', 'alter_etc_resolv', 'False', 'verbose', 'False']
     one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
       'private_ip' => '1.2.3.4',
