@@ -84,10 +84,9 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       response: A MemcacheGetResponse protocol buffer.
     """
     for key in set(request.key_list()):
-      logging.info("app key %s" % key)
       internal_key = self._GetKey(request.name_space(), key)
       value = self._memcache.get(internal_key)
-      logging.info("GET: Key: %s value: %s" % (internal_key, value))
+      logging.debug("GET: Key: %s value: %s" % (internal_key, value))
       if value is None:
         continue
       flags = 0
@@ -108,7 +107,6 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       response: A MemcacheSetResponse.
     """
     for item in request.item_list():
-      logging.info("app key %s" % item.key())
       key = self._GetKey(request.name_space(), item.key())
       set_policy = item.set_policy()
       old_entry = self._memcache.get(key)
@@ -116,7 +114,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       if old_entry:
         _, cas_id, _ = cPickle.loads(old_entry)
       set_status = MemcacheSetResponse.NOT_STORED
-      logging.info("SET: Key: %s value: %s" % (key, item.value()))
+      logging.debug("Key: %s value: %s" % (key, item.value()))
 
       if ((set_policy == MemcacheSetRequest.SET) or
         (set_policy == MemcacheSetRequest.ADD and old_entry is None) or
@@ -156,7 +154,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     """
     for item in request.item_list():
       key = self._GetKey(request.name_space(), item.key())
-      logging.info("DELETE: Key: %s" % key)
+      logging.debug("Memcache delete: Key: %s" % key)
       entry = self._memcache.get(key)
       delete_status = MemcacheDeleteResponse.DELETED
 
@@ -185,7 +183,6 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
 
     key = self._GetKey(namespace, request.key())
     value = self._memcache.get(key)
-    logging.info("Key %s value %s delete %s" % ( str(key), str(value), str(request.delta)))
     if value is None:
       if not request.has_initial_value():
         return None
@@ -207,7 +204,8 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     new_stored_value = cPickle.dumps([flags, cas_id + 1, str(new_value)])
     try:
       self._memcache.cas(key, new_stored_value)
-    except:
+    except Exception, e:
+      logging.error(str(e))
       return None
 
     return new_value
@@ -303,7 +301,5 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
       A base64 string __{appname}__{namespace}__{key}
     """
     appname = os.environ['APPNAME']
-    logging.debug("appname: %s, namespace: %s, key: %s" % 
-      (appname, namespace, str(key)))
     internal_key = appname + "__" + namespace + "__" + key
     return base64.b64encode(internal_key) 
