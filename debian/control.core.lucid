@@ -26,7 +26,7 @@ Depends: appscale-tools,
  libopenssl-ruby, libopenssl-ruby1.8, libruby1.8,
  iptables, cron,
  curl, lsof, tcpdump,
- memcached, python-memcache,
+ memcached,
  socat,
  dnsutils,
 # nginx 

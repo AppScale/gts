@@ -801,6 +801,21 @@ postinstallservice()
     update-rc.d -f ejabberd remove || true
 }
 
+installpythonmemcache()
+{
+  VERSION=1.53
+
+  mkdir -pv ${APPSCALE_HOME}/downloads
+  cd ${APPSCALE_HOME}/downloads
+  wget $APPSCALE_PACKAGE_MIRROR/python-memcached-${VERSION}.tar.gz
+  tar zxvf python-memcached-${VERSION}.tar.gz
+  cd python-memcached-${VERSION}
+  python setup.py install
+  cd ..
+  rm -fdr python-memcached-${VERSION}.tar.gz
+  rm -fdr python-memcached-${VERSION}
+}
+
 installzookeeper()
 {
     # 3.3.0 or less has known problem, so we must use 3.3.1 or more.

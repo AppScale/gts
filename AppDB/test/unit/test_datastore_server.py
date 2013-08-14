@@ -519,6 +519,44 @@ class TestDatastoreServer(unittest.TestCase):
     transaction.set_handle(2)
     dd.ancestor_query(query, filter_info, None)
 
+  def test_ordered_ancestor_query(self):
+    query = datastore_pb.Query()
+    ancestor = query.mutable_ancestor()
+    entity_proto1 = self.get_new_entity_proto("test", "test_kind", "nancy", "prop1name",
+                                              "prop1val", ns="blah")
+    entity_key = entity_proto1.key()
+    get_req = datastore_pb.GetRequest()
+    key = get_req.add_key()
+    key.MergeFrom(entity_key)
+    ancestor.MergeFrom(entity_key)
+
+    filter_info = []
+    tombstone1 = {'key': {APP_ENTITY_SCHEMA[0]:TOMBSTONE, APP_ENTITY_SCHEMA[1]: 1}}
+    db_batch = flexmock()
+    db_batch.should_receive("batch_get_entity").and_return(
+               {"test\x00blah\x00test_kind:nancy!":
+                 {
+                   APP_ENTITY_SCHEMA[0]: entity_proto1.Encode(),
+                   APP_ENTITY_SCHEMA[1]: 1
+                 }
+               })
+
+    db_batch.should_receive("batch_put_entity").and_return(None)
+    entity_proto1 = {'test\x00blah\x00test_kind:nancy!':{APP_ENTITY_SCHEMA[0]:entity_proto1.Encode(),
+                      APP_ENTITY_SCHEMA[1]: 1}}
+    db_batch.should_receive("range_query").and_return([entity_proto1, tombstone1]).and_return([])
+    zookeeper = flexmock()
+    zookeeper.should_receive("get_valid_transaction_id").and_return(1)
+    zookeeper.should_receive("acquire_lock").and_return(True)
+    dd = DatastoreDistributed(db_batch, zookeeper)
+    dd.ordered_ancestor_query(query, filter_info, None)
+
+    # Now with a transaction
+    transaction = query.mutable_transaction()
+    transaction.set_handle(2)
+    dd.ordered_ancestor_query(query, filter_info, None) 
+
+  
   def test_kindless_query(self):
     query = datastore_pb.Query()
     ancestor = query.mutable_ancestor()
