@@ -133,7 +133,7 @@ class DatastoreDistributed():
        zookeeper: A reference to the zookeeper interface.
     """
     logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \
-      '%(lineno)s %(message)s ', level=logging.INFO)
+      '%(lineno)s %(message)s ', level=logging.ERROR)
     logging.debug("Started logging")
 
     # datastore accessor used by this class to do datastore operations.
@@ -1344,9 +1344,14 @@ class DatastoreDistributed():
 
     startrow = path
     endrow = path + self._TERM_STRING
-
     end_inclusive = self._ENABLE_INCLUSIVITY
     start_inclusive = self._ENABLE_INCLUSIVITY
+
+    if query.has_compiled_cursor() and query.compiled_cursor().position_size():
+      cursor = appscale_stub_util.ListCursor(query)
+      last_result = cursor._GetLastResult()
+      startrow = self.__get_start_key(prefix, None, None, last_result)
+      start_inclusive = self._DISABLE_INCLUSIVITY
 
     limit = self._MAXIMUM_RESULTS
     unordered = self.fetch_from_entity_table(startrow,

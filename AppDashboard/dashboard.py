@@ -382,7 +382,11 @@ class LogoutPage(AppDashboard):
         redirects the user to the landing page.
     """
     self.helper.logout_user(self.response)
-    self.redirect('/', self.response)
+    continue_url = self.request.get("continue")
+    if continue_url:
+      self.redirect(str(continue_url), self.response)
+    else:
+      self.redirect('/', self.response)
 
 
 class LoginPage(AppDashboard):
