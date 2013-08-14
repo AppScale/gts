@@ -35,6 +35,16 @@ module TerminateHelper
   end
 
 
+  def self.disable_cassandra_writes()
+    ifconfig = `ifconfig`
+    bound_addrs = ifconfig.scan(/inet addr:(\d+.\d+.\d+.\d+)/).flatten
+    bound_addrs.delete("127.0.0.1")
+    ip = bound_addrs[0]
+
+    `/root/appscale/AppDB/cassandra/cassandra/bin/nodetool -h #{ip} -p 7070 drain`
+  end
+
+
   # Erases all data stored in the Datastore (Cassandra + ZooKeeper).
   def self.erase_database_state
     `rm -rf /var/appscale/cassandra`
@@ -102,6 +112,7 @@ end
 if __FILE__ == $0
   TerminateHelper.erase_appscale_state
 
+  TerminateHelper.disable_cassandra_writes
   if ARGV.length == 1 and ARGV[0] == "clean"
     TerminateHelper.erase_database_state
   end
