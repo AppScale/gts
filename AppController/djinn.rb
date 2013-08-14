@@ -675,6 +675,8 @@ class Djinn
       @@log.level = Logger::INFO
     end
 
+    @creds['zone'] = JSON.load(@creds['zone'])
+
     Djinn.log_run("mkdir -p /opt/appscale/apps")
 
     return "OK"
