@@ -305,6 +305,8 @@ class EC2Agent(BaseAgent):
       disk_name: A str naming the EBS mount to attach to this machine.
       instance_id: A str naming the id of the instance that the disk should be
         attached to. In practice, callers add disks to their own instances.
+    Returns:
+      The location on the local filesystem where the disk has been attached.
     """
     try:
       conn = self.open_connection(parameters)
