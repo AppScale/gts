@@ -1330,7 +1330,7 @@ class DatastoreDistributed():
     path = buffer(prefix + self._SEPARATOR) + \
       self.__encode_index_pb(ancestor.path())
     txn_id = 0
-    if query.has_transaction(): 
+    if query.has_transaction():
       txn_id = query.transaction().handle()   
       root_key = self.get_root_key_from_entity_key(ancestor)
       try:
@@ -1346,7 +1346,6 @@ class DatastoreDistributed():
     endrow = path + self._TERM_STRING
     end_inclusive = self._ENABLE_INCLUSIVITY
     start_inclusive = self._ENABLE_INCLUSIVITY
-
     if query.has_compiled_cursor() and query.compiled_cursor().position_size():
       cursor = appscale_stub_util.ListCursor(query)
       last_result = cursor._GetLastResult()
@@ -1441,7 +1440,6 @@ class DatastoreDistributed():
     kind = None
     if query.kind():
       kind = query.kind()
-
     return self.__multiorder_results(results, order_info, kind)
 
   def fetch_from_entity_table(self, 
@@ -1871,6 +1869,52 @@ class DatastoreDistributed():
     # Here we have two filters and so we set the start and end key to 
     # get the given value within those ranges. 
     if len(filter_ops) > 1:
+      if filter_ops[0][0] == datastore_pb.Query_Filter.EQUAL or filter_ops[1][0] == datastore_pb.Query_Filter.EQUAL:
+         # If one of the filters is EQUAL, set start and end key
+         # to the same value.
+         if filter_ops[0][0] == datastore_pb.Query_Filter.EQUAL:
+           value1 = filter_ops[0][1]
+           value2 = filter_ops[1][1]
+           oper1 = filter_ops[0][0]
+           oper2 = filter_ops[1][0]
+         else:
+           value1 = filter_ops[1][1]
+           value2 = filter_ops[0][1]
+           oper1 = filter_ops[1][0]
+           oper2 = filter_ops[0][0]
+         # Checking to see if filters/values are correct bounds.
+         # value1 and oper1 are the EQUALS filter values.
+         if oper2 == datastore_pb.Query_Filter.LESS_THAN:
+           if value2 > value1 == False:
+             return []
+         elif oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
+           if value2 >= value1 == False:
+             return []
+         elif oper2 == datastore_pb.Query_Filter.GREATER_THAN:
+           if value2 < value1 == False:
+             return []
+         elif oper2 == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
+           if value2 <= value1 == False:
+             return []
+         start_inclusive = self._ENABLE_INCLUSIVITY
+         end_inclusive = self._DISABLE_INCLUSIVITY
+         params = [prefix, kind, property_name, value1 + self._SEPARATOR]
+         if not startrow:
+           startrow = self.get_index_key_from_params(params)
+         else:
+           start_inclusive = self._DISABLE_INCLUSIVITY
+         params = [prefix, kind, property_name, value1 + self._SEPARATOR + self._TERM_STRING]
+         endrow = self.get_index_key_from_params(params)
+	 
+         ret = self.datastore_batch.range_query(table_name,
+                                          column_names,
+                                          startrow,
+                                          endrow,
+                                          limit,
+                                          offset=0,
+                                          start_inclusive=start_inclusive,
+                                          end_inclusive=end_inclusive) 
+         return ret 
       if filter_ops[0][0] == datastore_pb.Query_Filter.GREATER_THAN or \
          filter_ops[0][0] == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
         oper1 = filter_ops[0][0]
@@ -2019,7 +2063,7 @@ class DatastoreDistributed():
     # no more matching entities. The first filter is what we apply 
     # direct to the datastore, followed by in memory filters
     # Research is required on figuring out what is the 
-    # best filter to apply via range queries. 
+    # best filter to apply via range queries.
     while len(result) < (limit + offset):
       temp_res = self.__apply_filters(filter_ops, 
                                    order_ops, 
@@ -2066,11 +2110,10 @@ class DatastoreDistributed():
                 if ent in filtered_entities: 
                   filtered_entities.remove(ent)   
      
-      result += filtered_entities  
+      result += filtered_entities 
       startrow = temp_res[-1].keys()[0]
-
     if len(order_info) > 1:
-      result = self.__multiorder_results(result, order_info, None) 
+      result = self.__multiorder_results(result, order_info, None)
     return result 
 
   def __filter_kinds_and_ancestors(self, query, e, ent, filtered_entities):
