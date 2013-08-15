@@ -3596,19 +3596,6 @@ HOSTS
     AppDashboard.start(login_ip, uaserver_ip, my_public, my_private, @@secret)
     HAProxy.start
     Nginx.restart
-
-    if my_node.is_login?
-      Djinn.log_info("Starting AppMonitoring on this machine")
-      HAProxy.create_app_monitoring_config(my_public, my_private, 
-        Monitoring.proxy_port)
-      Nginx.create_app_monitoring_config(my_public, my_private, 
-        Monitoring.proxy_port)
-      Monitoring.start
-      HAProxy.reload
-      Nginx.restart
-    else
-      Djinn.log_info("Not starting AppMonitoring on this machine")
-    end
   end
 
   # Stop the AppDashboard web service.
