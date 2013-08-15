@@ -2123,6 +2123,7 @@ class Djinn
       state[k] = v
     }
 
+    HelperFunctions.write_local_appcontroller_state(state)
     ZKInterface.write_appcontroller_state(state)
   end
 
@@ -2144,8 +2145,10 @@ class Djinn
     zookeeper_data['locations'].each { |ip|
       begin
         Djinn.log_info("Restoring AppController state from ZK at #{ip}")
-        ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip)
-        json_state = ZKInterface.get_appcontroller_state()
+        Timeout.timeout(10) do
+          ZKInterface.init_to_ip(HelperFunctions.local_ip(), ip)
+          json_state = ZKInterface.get_appcontroller_state()
+        end
       rescue Exception => e
         Djinn.log_warn("Saw exception of class #{e.class} from #{ip}, " +
           "trying next ZooKeeper node")
@@ -2155,6 +2158,14 @@ class Djinn
       Djinn.log_info("Got data #{json_state.inspect} successfully from #{ip}")
       break
     }
+
+    if json_state.empty?
+      Djinn.log_warn("Couldn't get data from any ZooKeeper node - instead " +
+        "restoring from local data.")
+      json_state = HelperFunctions.get_local_appcontroller_state()
+      Djinn.log_info("Got data #{json_state} successfully from local" +
+        " backup")
+    end
 
     @@secret = json_state['@@secret']
     keyname = json_state['@creds']['keyname']

@@ -25,6 +25,10 @@ class DjinnJobData
       json_data = JSON.load(json_data)
     end
 
+    if json_data.class == Array and json_data.length == 1
+      json_data = json_data[0]
+    end
+
     if json_data.class != Hash
       HelperFunctions.log_and_crash("Roles must be a Hash, not a " +
         "#{json_data.class} containing #{json_data}")
