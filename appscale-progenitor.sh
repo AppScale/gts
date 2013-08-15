@@ -25,7 +25,11 @@ case "$1" in
     if [ $LIVE_APPCONTROLLERS -eq 0 ];
     then
       log_begin_msg "AppController not running - starting it now."
-       ${RUBY} ${APPSCALE_HOME}/AppController/djinnServer.rb &
+      god --log /var/log/appscale/god.log -D &
+      sleep 5
+      god load /root/appscale/AppController/appcontroller.god
+      sleep 5
+      god start controller
     else
       log_begin_msg "AppController already running - not starting it again."
     fi
