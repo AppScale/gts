@@ -78,22 +78,18 @@ apt-get install -y cmake
 
 # install package for build
 apt-get install -y autoconf automake libtool gcc g++ pkg-config ant maven2\
- doxygen graphviz rsync ntp\
- xterm screen build-essential bison flex byacc unzip bzip2\
+ rsync ntp\
+ build-essential bison flex byacc unzip bzip2\
  libc6-dev subversion\
  erlang\
  dpkg-dev dh-make debhelper fakeroot\
  python-dev libssl-dev\
  libevent-dev\
  ruby1.8-dev\
- unixodbc-dev\
  zlib1g-dev\
- liblog4cpp5-dev libexpat1-dev\
- libncurses5-dev\
- libbz2-dev libreadline-dev libgdbm-dev swig screen\
- libsqlite3-dev\
- libcppunit-dev\
- libcairo2-dev libpango1.0-dev libxml2-dev libart-2.0-2
+ libexpat1-dev\
+ libbz2-dev libreadline-dev\
+ libxml2-dev
 
 if [ $? -ne 0 ]; then
     echo "Fail to install depending packages for building."
