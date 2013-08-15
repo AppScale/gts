@@ -305,23 +305,14 @@ class EC2Agent(BaseAgent):
       disk_name: A str naming the EBS mount to attach to this machine.
       instance_id: A str naming the id of the instance that the disk should be
         attached to. In practice, callers add disks to their own instances.
+    Returns:
+      The location on the local filesystem where the disk has been attached.
     """
     try:
       conn = self.open_connection(parameters)
       utils.log('Attaching volume {0} to instance {1}, at /dev/sdc'.format(
         disk_name, instance_id))
       conn.attach_volume(disk_name, instance_id, '/dev/sdc')
-
-      while True:
-        utils.log('Waiting for disk to finish attaching.')
-        status = conn.get_all_volumes(disk_name)[0].status
-        utils.log('Volume {0} reports its status as {1}'.format(disk_name,
-          status))
-        if status == 'in-use':
-          break
-        utils.sleep(1)
-
-      utils.log('Volume {0} is attached and ready for use.')
       return '/dev/sdc'
     except EC2ResponseError as exception:
       utils.log('An error occurred when trying to attach volume {0} to ' \
