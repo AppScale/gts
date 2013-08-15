@@ -38,8 +38,7 @@ module TerminateHelper
   # Tells any services that persist data across AppScale runs to stop writing
   # new data to the filesystem, since killing them is imminent.
   #
-  # For right now, this is just Cassandra and ZooKeeper. Currently, we don't do
-  # this correctly for Hypertable.
+  # For right now, this is just Cassandra and ZooKeeper.
   def self.disable_database_writes
     # First, tell Cassandra that no more writes should be accepted on this node.
     ifconfig = `ifconfig`
@@ -55,9 +54,6 @@ module TerminateHelper
 
 
   # Erases all data stored in the Datastore (Cassandra + ZooKeeper).
-  #
-  # TODO(cgb): This should also delete Hypertable data, in case that was the DB
-  # that the user is running.
   def self.erase_database_state
     `rm -rf /var/appscale/cassandra`
     `rm -rf /opt/appscale/cassandra`
