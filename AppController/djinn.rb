@@ -2186,6 +2186,9 @@ class Djinn
 
       # Similarly, if the machine was halted, then no App Engine apps are
       # running, so we need to start them all back up again.
+      json_state['@nginx_port'] = Nginx::START_PORT
+      json_state['@haproxy_port'] = HAProxy::START_PORT
+      json_state['@appengine_port'] = 20000
       json_state['@apps_loaded'] = []
   end
 
