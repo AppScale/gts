@@ -13,7 +13,6 @@ import os
 import socket
 import sys
 import time
-import urllib2
  
 import taskqueue_server
 import tq_lib
@@ -22,18 +21,44 @@ from tq_config import TaskQueueConfig
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../lib"))
 import appscale_info
+import constants
 import file_io
 import god_app_configuration
 import god_interface
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../AppServer"))
 from google.appengine.runtime import apiproxy_errors
-#from google.appengine.api import datastore_distributed
-#from google.appengine.api import datastore
+from google.appengine.api import apiproxy_stub_map
+from google.appengine.api import datastore_errors
+from google.appengine.api import datastore_distributed
+from google.appengine.api import datastore
+from google.appengine.ext import db
 
 from google.appengine.api.taskqueue import taskqueue_service_pb
 
 sys.path.append(TaskQueueConfig.CELERY_WORKER_DIR)
+
+class TaskName(db.Model):
+  """ A datastore model for tracking task names in order to prevent
+  tasks with the same name from being enqueued repeatedly.
+  
+  Attributes:
+    timestamp: The time the task was enqueued.
+  """
+  STORED_KIND_NAME = "__task_name__"
+  timestamp = db.DateTimeProperty(auto_now_add=True)
+
+  @classmethod
+  def kind(cls):
+    """ Kind name override. """
+    return cls.STORED_KIND_NAME
+
+def setup_env():
+  """ Sets required environment variables for GAE datastore library """
+  os.environ['AUTH_DOMAIN'] = "appscale.com"
+  os.environ['USER_EMAIL'] = ""
+  os.environ['USER_NICKNAME'] = ""
+  os.environ['APPLICATION_ID'] = ""
 
 class DistributedTaskQueue():
   """ AppScale taskqueue layer for the TaskQueue API. """
@@ -79,12 +104,24 @@ class DistributedTaskQueue():
   # Default number of times we double the backoff value.
   DEFAULT_MAX_DOUBLINGS = 1000
 
+  # Kind used for storing task names.
+  TASK_NAME_KIND = "__task_name__"
+
   def __init__(self):
     """ DistributedTaskQueue Constructor. """
     file_io.set_logging_format()
     file_io.mkdir(self.LOG_DIR)
     file_io.mkdir(TaskQueueConfig.CELERY_WORKER_DIR)
     file_io.mkdir(TaskQueueConfig.CELERY_CONFIG_DIR)
+
+    setup_env()
+
+    master_db_ip = appscale_info.get_db_master_ip()
+    connection_str = master_db_ip + ":" + str(constants.DB_SERVER_PORT)
+    ds_distrib = datastore_distributed.DatastoreDistributed(
+    constants.DASHBOARD_APP_ID, connection_str, False, False)
+    apiproxy_stub_map.apiproxy.RegisterStub('datastore_v3', ds_distrib)
+    os.environ['APPLICATION_ID'] = constants.DASHBOARD_APP_ID
 
   def __parse_json_and_validate_tags(self, json_request, tags):
     """ Parses JSON and validates that it contains the 
@@ -348,6 +385,7 @@ class DistributedTaskQueue():
         task_name = None       
         if add_request.has_task_name():
           task_name = add_request.task_name()
+           
         namespaced_name = tq_lib.choose_task_name(add_request.app_id(),
                                               add_request.queue_name(),
                                               user_chosen=task_name)
@@ -361,10 +399,6 @@ class DistributedTaskQueue():
 
     for add_request, task_result in zip(request.add_request_list(),
                                         response.taskresult_list()):
-      # TODO make sure transactional tasks are handled first at the AppServer
-      # level, and not at the taskqueue server level
-      # if add_request.has_transaction() is true.
-      
       try:  
         self.__enqueue_push_task(add_request)
       except apiproxy_errors.ApplicationError, e:
@@ -391,6 +425,37 @@ class DistributedTaskQueue():
     elif method == taskqueue_service_pb.TaskQueueQueryTasksResponse_Task.DELETE:
       return 'DELETE'
 
+  def __check_and_store_task_names(self, request):
+    """ Tries to fetch the taskqueue name, if it exists it will raise an 
+    exception. 
+
+    We store a receipt of each enqueued task in the datastore. If we find that
+    task in the datastore, we will raise an exception. If the task is not
+    in the datastore, then it is assumed this is the first time seeing the
+    tasks and we create a receipt of the task in the datastore to prevent
+    a duplicate task from being enqueued.
+    
+    Args:
+      request: A taskqueue_service_pb.TaskQueueAddRequest.
+    Raises:
+      A apiproxy_errors.ApplicationError of TASK_ALREADY_EXISTS.
+    """
+    task_name = request.task_name()
+    item = TaskName.get_by_key_name(task_name)
+    logging.info("Task name {0}".format(task_name))
+    if item:
+      logging.warning("Task already exists")
+      raise apiproxy_errors.ApplicationError(
+        taskqueue_service_pb.TaskQueueServiceError.TASK_ALREADY_EXISTS)
+    else:
+      new_name = TaskName(key_name=task_name)
+      logging.debug("Creating entity {0}".format(str(new_name)))
+      try:
+        db.put(new_name)
+      except datastore_errors.InternalError, internal_error:
+        raise apiproxy_errors.ApplicationError(
+          taskqueue_service_pb.TaskQueueServiceError.DATABASE_ERROR)
+
   def __enqueue_push_task(self, request):
     """ Enqueues a batch of push tasks.
   
@@ -398,7 +463,7 @@ class DistributedTaskQueue():
       request: A taskqueue_service_pb.TaskQueueAddRequest.
     """
     self.__validate_push_task(request)
-
+    self.__check_and_store_task_names(request)
     args = self.get_task_args(request)
 
     headers = self.get_task_headers(request)
@@ -432,7 +497,12 @@ class DistributedTaskQueue():
       task_func = getattr(task_module, 
         TaskQueueConfig.get_queue_function_name(request.queue_name()))
       return task_func
+    except AttributeError, attribute_error:
+      logging.exception(attribute_error)
+      raise apiproxy_errors.ApplicationError(
+              taskqueue_service_pb.TaskQueueServiceError.UNKNOWN_QUEUE)
     except ImportError, import_error:
+      logging.exception(import_error)
       raise apiproxy_errors.ApplicationError(
               taskqueue_service_pb.TaskQueueServiceError.UNKNOWN_QUEUE)
      

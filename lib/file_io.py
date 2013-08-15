@@ -65,5 +65,6 @@ def mkdir(dir_path):
 def set_logging_format():
   """ Sets the logging format to have a unified format.
   """
-  logging.basicConfig(format=('%(asctime)s %(levelname)s %(filename)s:'\
-                              '%(lineno)s %(message)s '))
+  logging.basicConfig(level=logging.INFO,
+    format=('%(asctime)s %(levelname)s %(filename)s:'\
+      '%(lineno)s %(message)s '))

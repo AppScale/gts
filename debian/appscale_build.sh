@@ -1,5 +1,6 @@
 #!/bin/bash
 
+set -e
 export DIST=`lsb_release -c -s`
 
 cd `dirname $0`/..
@@ -35,12 +36,11 @@ fi
 
 echo "Installing Ubuntu ${DIST} building environment."
 
-apt-get -y install curl
+apt-get update
+apt-get -y install curl wget
 curl -d "key=appscale" http://heart-beat.appspot.com/sign
 
 export APPSCALE_HOME_RUNTIME=`pwd`
-
-apt-get update
 
 if [ "$DIST" = "lucid" ]; then
     echo "Running lucid specific commands"
@@ -79,7 +79,7 @@ apt-get install -y cmake
 
 # install package for build
 apt-get install -y autoconf automake libtool gcc g++ pkg-config ant maven2\
- doxygen graphviz rsync tcl-dev python-tk tk8.4-dev ntp cvs wget\
+ doxygen graphviz rsync tcl-dev python-tk tk8.4-dev ntp cvs\
  bzr xterm screen build-essential bison flex byacc unzip bzip2\
  libc6-dev subversion\
  erlang\

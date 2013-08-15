@@ -18,7 +18,6 @@ require 'json'
 # Imports for AppController libraries
 $:.unshift File.join(File.dirname(__FILE__))
 require 'custom_exceptions'
-require 'user_app_client'
 
 
 # BadConfigurationExceptions represent an exception that can be thrown by the
@@ -35,7 +34,7 @@ end
 module HelperFunctions
 
 
-  VER_NUM = "1.7.0"
+  VER_NUM = "1.9.0"
 
   
   APPSCALE_HOME = ENV['APPSCALE_HOME']
@@ -117,6 +116,22 @@ module HelperFunctions
   GAE_PREFIX = "gae_"
 
 
+  # The location on the filesystem where the AppController writes information
+  # about the exception that killed it, for the tools to retrieve and pass
+  # along to the user.
+  APPCONTROLLER_CRASHLOG_LOCATION = "/etc/appscale/appcontroller_crashlog.txt"
+
+
+  # The location on the filesystem where the AppController backs up its
+  # internal state, in case it isn't able to contact ZooKeeper to retrieve it.
+  APPCONTROLLER_STATE_LOCATION = "/etc/appscale/appcontroller_state.json"
+
+
+  # The location on the filesystem where the resolv.conf file can be found,
+  # that we may alter if the user requests.
+  RESOLV_CONF = "/etc/resolv.conf"
+
+
   def self.shell(cmd)
     return `#{cmd}`
   end
@@ -192,7 +207,7 @@ module HelperFunctions
         raise Exception.new("Waited too long for #{ip}#{port} to open!")
       end
 
-      Kernel.puts("Waiting on #{ip}:#{port} to be open (currently closed).")
+      Djinn.log_debug("Waiting on #{ip}:#{port} to be open (currently closed).")
     }
   end
 
@@ -208,7 +223,7 @@ module HelperFunctions
         sleep_time *= 2
       end
 
-      Kernel.puts("Waiting on #{ip}:#{port} to be closed (currently open).")
+      Djinn.log_debug("Waiting on #{ip}:#{port} to be closed (currently open).")
     }
   end
 
@@ -241,7 +256,7 @@ module HelperFunctions
 
 
   def self.run_remote_command(ip, command, public_key_loc, want_output)
-    Kernel.puts("ip is [#{ip}], command is [#{command}], public key is [#{public_key_loc}], want output? [#{want_output}]")
+    Djinn.log_debug("ip is [#{ip}], command is [#{command}], public key is [#{public_key_loc}], want output? [#{want_output}]")
     public_key_loc = File.expand_path(public_key_loc)
     
     remote_cmd = "ssh -i #{public_key_loc} -o StrictHostkeyChecking=no root@#{ip} '#{command} "
@@ -253,7 +268,7 @@ module HelperFunctions
       remote_cmd << "> /dev/null &' &"
     end
 
-    Kernel.puts("Running [#{remote_cmd}]")
+    Djinn.log_debug("Running [#{remote_cmd}]")
 
     if want_output
       return self.shell("#{remote_cmd}")
@@ -289,7 +304,7 @@ module HelperFunctions
     fails = 0
     loop {
       break if retval == "0"
-      Kernel.puts("\n\n[#{cmd}] returned #{retval} instead of 0 as expected. Will try to copy again momentarily...")
+      Djinn.log_debug("\n\n[#{cmd}] returned #{retval} instead of 0 as expected. Will try to copy again momentarily...")
       fails += 1
       if fails >= 5:
         raise AppScaleSCPException.new("Failed to copy over #{local_file_loc} to #{remote_file_loc} to #{target_ip} with private key #{private_key_loc}")
@@ -317,7 +332,7 @@ module HelperFunctions
     # This needs to be ec2 or euca 2ools.
     image_info = `ec2-describe-images`
     
-    abort("ec2 tools can't find appscale image") unless image_info.include?("appscale")
+    self.log_and_crash("ec2 tools can't find appscale image") unless image_info.include?("appscale")
     image_id = image_info.scan(/([a|e]mi-[0-9a-zA-Z]+)\sappscale/).flatten.to_s
     
     return image_id
@@ -341,16 +356,39 @@ module HelperFunctions
     return self.read_file(File.expand_path(filename), chomp=true)
   end
   
+  # Examines the given tar.gz file to see if it has an App Engine configuration
+  # file in it.
+  #
+  # Args:
+  #   tar_gz_location: The location on the local filesystem where the App Engine
+  #     application to examine is located.
+  # Returns:
+  #   true if there is an app.yaml or appengine-web.xml file in the given tar.gz
+  #     file, and false otherwise.
+  def self.app_has_config_file?(tar_gz_location)
+    file_listing = HelperFunctions.shell("tar -ztf #{tar_gz_location}")
+    app_yaml_regex = /app\.yaml/
+    appengine_web_xml_regex = /(war|web)\/WEB-INF\/appengine-web\.xml/
+    if file_listing =~ app_yaml_regex or file_listing =~ appengine_web_xml_regex
+      return true
+    else
+      return false
+    end
+  end
+
   def self.setup_app(app_name, untar=true)
     meta_dir = "/var/apps/#{app_name}"
     tar_dir = "#{meta_dir}/app/"
-    tar_path = "#{tar_dir}#{app_name}.tar.gz"
+    tar_path = "/opt/appscale/apps/#{app_name}.tar.gz"
 
     self.shell("mkdir -p #{tar_dir}")
     self.shell("mkdir -p #{meta_dir}/log")
     self.shell("cp #{APPSCALE_HOME}/AppDashboard/setup/404.html #{meta_dir}")
     self.shell("touch #{meta_dir}/log/server.log")
-    self.shell("tar --file #{tar_path} --force-local -C #{tar_dir} -zx") if untar
+
+    if untar
+      self.shell("tar --file #{tar_path} --force-local -C #{tar_dir} -zx")
+    end
   end
 
 
@@ -366,10 +404,10 @@ module HelperFunctions
   #     this virtual machine.
   def self.get_all_local_ips(remove_lo=true)
     ifconfig = HelperFunctions.shell("ifconfig")
-    Kernel.puts("ifconfig returned the following: [#{ifconfig}]")
+    Djinn.log_debug("ifconfig returned the following: [#{ifconfig}]")
     bound_addrs = ifconfig.scan(/inet addr:(\d+.\d+.\d+.\d+)/).flatten
 
-    Kernel.puts("ifconfig reports bound IP addresses as " +
+    Djinn.log_debug("ifconfig reports bound IP addresses as " +
       "[#{bound_addrs.join(', ')}]")
     if remove_lo
       bound_addrs.delete(LOCALHOST_IP)
@@ -400,7 +438,7 @@ module HelperFunctions
   # the first time around - should we sleep and retry in that case?
   def self.local_ip()
     if !@@my_local_ip.nil?
-      Kernel.puts("Returning cached ip #{@@my_local_ip}")
+      Djinn.log_debug("Returning cached ip #{@@my_local_ip}")
       return @@my_local_ip
     end
 
@@ -410,7 +448,7 @@ module HelperFunctions
     end
 
     addr = bound_addrs[0]
-    Kernel.puts("Returning #{addr} as our local IP address")
+    Djinn.log_debug("Returning #{addr} as our local IP address")
     @@my_local_ip = addr
     return addr
   end
@@ -424,15 +462,15 @@ module HelperFunctions
   
     ip = `dig #{host} +short`.chomp
     if ip.empty?
-      Kernel.puts("couldn't use dig to resolve [#{host}]")
-      abort("Couldn't convert #{host} to an IP address. Result of dig was \n#{ip}")
+      Djinn.log_debug("couldn't use dig to resolve [#{host}]")
+      self.log_and_crash("Couldn't convert #{host} to an IP address. Result of dig was \n#{ip}")
     end
 
     return ip
   end
 
   def self.get_ips(ips)
-    abort("ips not even length array") if ips.length % 2 != 0
+    self.log_and_crash("ips not even length array") if ips.length % 2 != 0
     reported_public = []
     reported_private = []
     ips.each_index { |index|
@@ -443,8 +481,8 @@ module HelperFunctions
       end
     }
     
-    Kernel.puts("Reported Public IPs: [#{reported_public.join(', ')}]")
-    Kernel.puts("Reported Private IPs: [#{reported_private.join(', ')}]")
+    Djinn.log_debug("Reported Public IPs: [#{reported_public.join(', ')}]")
+    Djinn.log_debug("Reported Private IPs: [#{reported_private.join(', ')}]")
 
     actual_public = []
     actual_private = []
@@ -469,7 +507,7 @@ module HelperFunctions
         # this can happen if the private ip doesn't resolve
         # which can happen in hybrid environments: euca boxes wont be 
         # able to resolve ec2 private ips, and vice-versa in euca-managed-mode
-        Kernel.puts("rescued! failed to convert #{actual_private[index]} to public")
+        Djinn.log_debug("rescued! failed to convert #{actual_private[index]} to public")
         actual_private[index] = actual_public[index]
       end
     }
@@ -478,7 +516,7 @@ module HelperFunctions
   end
 
   def self.get_public_ips(ips)
-    abort("ips not even length array") if ips.length % 2 != 0
+    self.log_and_crash("ips not even length array") if ips.length % 2 != 0
     reported_public = []
     reported_private = []
     ips.each_index { |index|
@@ -489,8 +527,8 @@ module HelperFunctions
       end
     }
     
-    Kernel.puts("Reported Public IPs: [#{reported_public.join(', ')}]")
-    Kernel.puts("Reported Private IPs: [#{reported_private.join(', ')}]")
+    Djinn.log_debug("Reported Public IPs: [#{reported_public.join(', ')}]")
+    Djinn.log_debug("Reported Private IPs: [#{reported_private.join(', ')}]")
     
     public_ips = []
     reported_public.each_index { |index|
@@ -523,7 +561,7 @@ module HelperFunctions
     average /= prices.length
     plus_twenty = average * 1.20
     
-    Kernel.puts("The average spot instance price for a #{instance_type} " +
+    Djinn.log_debug("The average spot instance price for a #{instance_type} " +
       "machine is $#{average}, and 20% more is $#{plus_twenty}")
     return plus_twenty
   end
@@ -546,12 +584,12 @@ module HelperFunctions
     ENV['EC2_PRIVATE_KEY'] = "#{cloud_keys_dir}/mykey.pem"
     ENV['EC2_CERT'] = "#{cloud_keys_dir}/mycert.pem"
 
-    Kernel.puts("Setting private key to #{cloud_keys_dir}/mykey.pem, cert to #{cloud_keys_dir}/mycert.pem")
+    Djinn.log_debug("Setting private key to #{cloud_keys_dir}/mykey.pem, cert to #{cloud_keys_dir}/mycert.pem")
   end
 
   def self.spawn_hybrid_vms(creds, nodes)
     info = "Spawning hybrid vms with creds #{self.obscure_creds(creds).inspect} and nodes #{nodes.inspect}"
-    Kernel.puts(info)
+    Djinn.log_debug(info)
 
     cloud_info = []
 
@@ -567,7 +605,7 @@ module HelperFunctions
       elsif cloud_type == "ec2"
         machine = creds["CLOUD#{cloud_num}_AMI"]
       else
-        abort("Cloud type was #{cloud_type}, which is not a supported value.")
+        self.log_and_crash("Cloud type was #{cloud_type}, which is not a supported value.")
       end
 
       num_of_vms = 0
@@ -587,13 +625,13 @@ module HelperFunctions
       this_cloud_info = self.spawn_vms(num_of_vms, jobs_needed, machine, 
         instance_type, keyname, cloud_type, cloud, group)
 
-      Kernel.puts("Cloud#{cloud_num} reports the following info: #{this_cloud_info.join(', ')}")
+      Djinn.log_debug("Cloud#{cloud_num} reports the following info: #{this_cloud_info.join(', ')}")
 
       cloud_info += this_cloud_info
       cloud_num += 1
     }
 
-    Kernel.puts("Hybrid cloud spawning reports the following info: #{cloud_info.join(', ')}")
+    Djinn.log_debug("Hybrid cloud spawning reports the following info: #{cloud_info.join(', ')}")
 
     return cloud_info
   end
@@ -606,27 +644,27 @@ module HelperFunctions
     return [] if num_of_vms_to_spawn < 1
 
     ssh_key = File.expand_path("#{APPSCALE_HOME}/.appscale/keys/#{cloud}/#{keyname}.key")
-    Kernel.puts("About to spawn VMs, expecting to find a key at #{ssh_key}")
+    Djinn.log_debug("About to spawn VMs, expecting to find a key at #{ssh_key}")
 
     self.log_obscured_env
 
     new_cloud = !File.exists?(ssh_key)
     if new_cloud # need to create security group and key
-      Kernel.puts("Creating keys/security group for #{cloud}")
+      Djinn.log_debug("Creating keys/security group for #{cloud}")
       self.generate_ssh_key(ssh_key, keyname, infrastructure)
       self.create_appscale_security_group(infrastructure, group)
     else
-      Kernel.puts("Not creating keys/security group for #{cloud}")
+      Djinn.log_debug("Not creating keys/security group for #{cloud}")
     end
 
     instance_ids_up = []
     public_up_already = []
     private_up_already = []
-    Kernel.puts("[#{num_of_vms_to_spawn}] [#{job}] [#{image_id}]  [#{instance_type}] [#{keyname}] [#{infrastructure}] [#{cloud}] [#{group}] [#{spot}]")
-    Kernel.puts("EC2_URL = [#{ENV['EC2_URL']}]")
+    Djinn.log_debug("[#{num_of_vms_to_spawn}] [#{job}] [#{image_id}]  [#{instance_type}] [#{keyname}] [#{infrastructure}] [#{cloud}] [#{group}] [#{spot}]")
+    Djinn.log_debug("EC2_URL = [#{ENV['EC2_URL']}]")
     loop { # need to make sure ec2 doesn't return an error message here
       describe_instances = `#{infrastructure}-describe-instances 2>&1`
-      Kernel.puts("describe-instances says [#{describe_instances}]")
+      Djinn.log_debug("describe-instances says [#{describe_instances}]")
       all_ip_addrs = describe_instances.scan(/\s+(#{IP_OR_FQDN})\s+(#{IP_OR_FQDN})\s+running\s+#{keyname}\s/).flatten
       instance_ids_up = describe_instances.scan(/INSTANCE\s+(i-\w+)/).flatten
       public_up_already, private_up_already = HelperFunctions.get_ips(all_ip_addrs)
@@ -643,22 +681,22 @@ module HelperFunctions
     end
 
     loop {
-      Kernel.puts(command_to_run)
+      Djinn.log_debug(command_to_run)
       run_instances = `#{command_to_run} 2>&1`
-      Kernel.puts("run_instances says [#{run_instances}]")
+      Djinn.log_debug("run_instances says [#{run_instances}]")
       if run_instances =~ /Please try again later./
-        Kernel.puts("Error with run_instances: #{run_instances}. Will try again in a moment.")
+        Djinn.log_debug("Error with run_instances: #{run_instances}. Will try again in a moment.")
       elsif run_instances =~ /try --addressing private/
-        Kernel.puts("Need to retry with addressing private. Will try again in a moment.")
+        Djinn.log_debug("Need to retry with addressing private. Will try again in a moment.")
         command_to_run << " --addressing private"
       elsif run_instances =~ /PROBLEM/
-        Kernel.puts("Error: #{run_instances}")
-        abort("Saw the following error message from EC2 tools. Please resolve the issue and try again:\n#{run_instances}")
+        Djinn.log_debug("Error: #{run_instances}")
+        self.log_and_crash("Saw the following error message from EC2 tools. Please resolve the issue and try again:\n#{run_instances}")
       else
-        Kernel.puts("Run instances message sent successfully. Waiting for the image to start up.")
+        Djinn.log_debug("Run instances message sent successfully. Waiting for the image to start up.")
         break
       end
-      Kernel.puts("sleepy time")
+      Djinn.log_debug("sleepy time")
       sleep(5)
     }
     
@@ -672,16 +710,16 @@ module HelperFunctions
     end_time = Time.now + MAX_VM_CREATION_TIME
     while (now = Time.now) < end_time
       describe_instances = `#{infrastructure}-describe-instances`
-      Kernel.puts("[#{Time.now}] #{end_time - now} seconds left...")
-      Kernel.puts(describe_instances)
+      Djinn.log_debug("[#{Time.now}] #{end_time - now} seconds left...")
+      Djinn.log_debug(describe_instances)
  
       # TODO: match on instance id
       #if describe_instances =~ /terminated\s+#{keyname}\s+/
       #  terminated_message = "An instance was unexpectedly terminated. " +
       #    "Please contact your cloud administrator to determine why " +
       #    "and try again. \n#{describe_instances}"
-      #  Kernel.puts(terminated_message)
-      #  abort(terminated_message)
+      #  Djinn.log_debug(terminated_message)
+      #  self.log_and_crash(terminated_message)
       #end
       
       # changed regexes so ensure we are only checking for instances created
@@ -696,14 +734,14 @@ module HelperFunctions
       sleep(SLEEP_TIME)
     end
     
-    abort("No public IPs were able to be procured within the time limit.") if public_ips.length == 0
+    self.log_and_crash("No public IPs were able to be procured within the time limit.") if public_ips.length == 0
     
     if public_ips.length != num_of_vms_to_spawn
       potential_dead_ips = HelperFunctions.get_ips(all_ip_addrs) - public_up_already
       potential_dead_ips.each_index { |index|
         if potential_dead_ips[index] == "0.0.0.0"
           instance_to_term = instance_ids[index]
-          Kernel.puts("Instance #{instance_to_term} failed to get a public IP address and is being terminated.")
+          Djinn.log_debug("Instance #{instance_to_term} failed to get a public IP address and is being terminated.")
           self.shell("#{infrastructure}-terminate-instances #{instance_to_term}")
         end
       }
@@ -727,10 +765,10 @@ module HelperFunctions
     total_time = end_time - start_time
 
     if spot
-      Kernel.puts("TIMING: It took #{total_time} seconds to spawn " +
+      Djinn.log_debug("TIMING: It took #{total_time} seconds to spawn " +
         "#{num_of_vms_to_spawn} spot instances")
     else
-      Kernel.puts("TIMING: It took #{total_time} seconds to spawn " +
+      Djinn.log_debug("TIMING: It took #{total_time} seconds to spawn " +
         "#{num_of_vms_to_spawn} regular instances")
     end
 
@@ -742,7 +780,7 @@ module HelperFunctions
     loop {
       ec2_output = `#{infrastructure}-add-keypair #{name} 2>&1`
       break if ec2_output.include?("BEGIN RSA PRIVATE KEY")
-      Kernel.puts("Trying again. Saw this from #{infrastructure}-add-keypair: #{ec2_output}")
+      Djinn.log_debug("Trying again. Saw this from #{infrastructure}-add-keypair: #{ec2_output}")
       self.shell("#{infrastructure}-delete-keypair #{name} 2>&1")
     }
 
@@ -797,7 +835,7 @@ module HelperFunctions
       self.set_creds_in_env(creds, cloud_num)
 
       keyname = creds["keyname"]
-      Kernel.puts("Killing Cloud#{cloud_num}'s machines, of type #{cloud_type} and with keyname #{keyname}")
+      Djinn.log_debug("Killing Cloud#{cloud_num}'s machines, of type #{cloud_type} and with keyname #{keyname}")
       self.terminate_all_vms(cloud_type, keyname)
 
       cloud_num += 1
@@ -844,14 +882,18 @@ module HelperFunctions
   def self.generate_location_config handler
     return "" if !handler.key?("static_dir") && !handler.key?("static_files")
 
-    result = "\n    location #{handler['url']} {"
-    result << "\n\t" << "root $cache_dir;"
-    result << "\n\t" << "expires #{handler['expiration']};" if handler['expiration']
-
     # TODO: return a 404 page if rewritten path doesn't exist
     if handler.key?("static_dir")
+      result = "\n    location #{handler['url']}/ {"
+      result << "\n\t" << "root $cache_dir;"
+      result << "\n\t" << "expires #{handler['expiration']};" if handler['expiration']
+
       result << "\n\t" << "rewrite #{handler['url']}(.*) /#{handler['static_dir']}/$1 break;"
     elsif handler.key?("static_files")
+      result = "\n    location #{handler['url']} {"
+      result << "\n\t" << "root $cache_dir;"
+      result << "\n\t" << "expires #{handler['expiration']};" if handler['expiration']
+
       result << "\n\t" << "rewrite #{handler['url']} /#{handler['static_files']} break;"
     end
     
@@ -908,8 +950,8 @@ module HelperFunctions
     begin
       tree = YAML.load_file(File.join(untar_dir,"app.yaml"))
     rescue Errno::ENOENT => e
-      Kernel.puts("Failed to load YAML file to parse static data")
-      return []
+      Djinn.log_info("Failed to load YAML file to parse static data")
+      return self.parse_java_static_data(app_name)
     end
 
     default_expiration = expires_duration(tree["default_expiration"])
@@ -944,7 +986,7 @@ module HelperFunctions
         # This is for bug https://bugs.launchpad.net/appscale/+bug/800539
         # this is a temp fix
         if handler["url"] == "/"
-          Kernel.puts("Remapped path from / to temp_fix for application #{app_name}")
+          Djinn.log_debug("Remapped path from / to temp_fix for application #{app_name}")
           handler["url"] = "/temp_fix"
         end
         cache_static_dir_path = File.join(cache_path,handler["static_dir"])
@@ -962,7 +1004,7 @@ module HelperFunctions
         # This is for bug https://bugs.launchpad.net/appscale/+bug/800539
         # this is a temp fix
         if handler["url"] == "/"
-          Kernel.puts("Remapped path from / to temp_fix for application #{app_name}")
+          Djinn.log_debug("Remapped path from / to temp_fix for application #{app_name}")
           handler["url"] = "/temp_fix"
         end
         # Need to convert all \1 into $1 so that nginx understands it
@@ -994,6 +1036,58 @@ module HelperFunctions
 
     handlers.compact
   end
+
+
+  # Sets up static files in nginx for this Java App Engine app, by following
+  # the default static file rules. Specifically, it states that any file in
+  # the app that doesn't end in .jsp that isn't in the WEB-INF directory should
+  # be added as a static file.
+  #
+  # TODO(cgb): Check the appengine-web.xml file given to us by the app and see
+  # if it specifies any files to include or exclude as static files, instead of
+  # assuming they want to use the default scheme mentioned above.
+  #
+  # Args:
+  #   app_name: A String containing the name of the application whose static
+  #     file info needs to be generated.
+  # Returns:
+  #   An Array of Hashes, where each hash names the URL that a static file will
+  #   be accessed at, and the location in the static file directory where the
+  #   file can be found.
+  def self.parse_java_static_data(app_name)
+    untar_dir = self.get_untar_dir(app_name)
+
+    if !File.exists?("#{untar_dir}/war/WEB-INF/appengine-web.xml")
+      Djinn.log_warn("#{app_name} does not appear to be a Java app")
+      return []
+    end
+
+    # Walk through all files in the war directory, and add them if (1) they
+    # don't end in .jsp and (2) it isn't the WEB-INF directory.
+    cache_path = self.get_cache_path(app_name)
+    FileUtils.mkdir_p(cache_path)
+    Djinn.log_debug("Made static file dir for app #{app_name} at #{cache_path}")
+
+    handlers = []
+    all_files = Dir.glob("#{untar_dir}/war/**/*")
+    all_files.each { |filename|
+      next if filename.end_with?(".jsp")
+      next if filename.include?("WEB-INF")
+      next if File.directory?(filename)
+      relative_path = filename.scan(/#{app_name}\/app\/war\/(.*)/).flatten.to_s
+      Djinn.log_debug("Copying static file #{filename} to cache location #{File.join(cache_path, relative_path)}")
+      cache_file_location = File.join(cache_path, relative_path)
+      FileUtils.mkdir_p(File.dirname(cache_file_location))
+      FileUtils.cp_r(filename, cache_file_location)
+      handlers << {
+        'url' => "/#{relative_path}",
+        'static_files' => "/#{relative_path}"
+      }
+    }
+
+    handlers.compact
+  end
+
 
   # Parses the app.yaml file for the specified application and returns
   # any URL handlers with a secure tag. The returns secure tags are
@@ -1121,12 +1215,12 @@ module HelperFunctions
 
   def self.ensure_image_is_appscale(ip, key)
     if self.does_image_have_location?(ip, "/etc/appscale", key)
-      Kernel.puts("Image at #{ip} is an AppScale image.")
+      Djinn.log_debug("Image at #{ip} is an AppScale image.")
     else
       fail_msg = "The image at #{ip} is not an AppScale image." +
       " Please install AppScale on it and try again."
-      Kernel.puts(fail_msg)
-      abort(fail_msg)
+      Djinn.log_debug(fail_msg)
+      self.log_and_crash(fail_msg)
     end
   end
 
@@ -1151,12 +1245,12 @@ module HelperFunctions
 
   def self.ensure_db_is_supported(ip, db, key)
     if self.does_image_have_location?(ip, "/etc/appscale/#{VER_NUM}/#{db}", key)
-      Kernel.puts("Image at #{ip} supports #{db}.")
+      Djinn.log_debug("Image at #{ip} supports #{db}.")
     else 
       fail_msg = "The image at #{ip} does not have support for #{db}." +
         " Please install support for this database and try again."
-      Kernel.puts(fail_msg)
-      abort(fail_msg)
+      Djinn.log_debug(fail_msg)
+      self.log_and_crash(fail_msg)
     end
   end
 
@@ -1169,17 +1263,31 @@ module HelperFunctions
       end
     }
 
-    Kernel.puts(env)
+    Djinn.log_debug(env)
   end
 
   def self.get_num_cpus()
     return Integer(`cat /proc/cpuinfo | grep 'processor' | wc -l`.chomp)
   end
 
-  def self.shorten_to_n_items(n, array)
+
+  # Takes the given array and eliminates all but the last n items in it.
+  # If the array has less than n items in it, we add on the given item
+  # to pad it back to n items.
+  #
+  # Args:
+  #   n: An Integer that indicates how many items should be in the returned
+  #     Array.
+  #   array: An Array of objects that we want to shorten to n items.
+  #   padding: The object that multiple copies of will be added to array if
+  #     array is less than n items long.
+  #
+  # Returns:
+  #   An Array containing the last n items of array.
+  def self.shorten_to_n_items(n, array, padding)
     len = array.length
     if len < n
-      array
+      array + [padding] * (n - len)
     else
       array[len-n..len-1]
     end
@@ -1273,4 +1381,53 @@ module HelperFunctions
       return false
     end
   end
+
+
+  # Logs the given message on the filesystem, where the AppScale Tools can
+  # report it to the user. This method then crashes the caller, so that the
+  # AppScale Tools knows that a fatal error has occurred and that it needs to be
+  # reported.
+  #
+  # Args:
+  #   message: A String that indicates why the AppController is crashing.
+  # Raises:
+  #   SystemExit: Always occurs, since this method crashes the AppController.
+  def self.log_and_crash(message)
+    self.write_file(APPCONTROLLER_CRASHLOG_LOCATION, message)
+    abort(message)
+  end
+
+
+  # Copies the /etc/resolv.conf file to a backup file, and then removes all
+  # nameserver lookups from the current resolv.conf. We do this to avoid
+  # having to hop out to the nameserver to resolve each node's public and
+  # private IP address (which can be slow in Eucalyptus under heavy load).
+  def self.alter_etc_resolv()
+    self.shell("cp #{RESOLV_CONF} #{RESOLV_CONF}.bk")
+
+    contents = self.read_file(RESOLV_CONF, chomp=false)
+    new_contents = ""
+    contents.split("\n").each { |line|
+      new_contents << line if !contents.include?("nameserver")
+    }
+    self.write_file(RESOLV_CONF, new_contents)
+  end
+
+
+  # Copies the backed-up resolv.conf file back to its original location.
+  def self.restore_etc_resolv()
+    self.shell("cp #{RESOLV_CONF}.bk #{RESOLV_CONF}")
+  end
+
+
+  def self.write_local_appcontroller_state(state)
+    self.write_json_file(APPCONTROLLER_STATE_LOCATION, state)
+  end
+
+
+  def self.get_local_appcontroller_state()
+    return self.read_json_file(APPCONTROLLER_STATE_LOCATION)
+  end
+
+
 end

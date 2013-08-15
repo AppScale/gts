@@ -330,6 +330,6 @@ class BlobstoreServiceStub(apiproxy_stub.APIProxyStub):
 
     self.__block_cache = block["block"]
     self.__block_key_cache = str(block_key)
-    data.append(self.__block_cache[0, fetch_size - data_size])
+    data += self.__block_cache[0: fetch_size - data_size]
     response.set_data(data)
  

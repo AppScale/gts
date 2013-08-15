@@ -113,10 +113,10 @@ body.errorPage, body.loginPage {
 }*/
 
 /*Colors*/
-.green {color: #9FC569;}
-.red {color: #ED7A53;}
-.gray {color: #a2aaac;}
-.orange {color: #FF8A00;}
+.green {color: #34803b;}
+.red {color: #ff0000;}
+.gray {color: #797979;}
+.orange {color: #ff8a00;}
 .dark {color: #1F3140;}
 .blue {color: #3399cc;}
 .white {color: #ffffff;}
@@ -1364,6 +1364,7 @@ select {width: 150px;}
 	float: left;
 	z-index: 1;
 	position: relative;
+    margin-top: 25px;
 }
 #sidebar.fixed {
 	position: fixed;

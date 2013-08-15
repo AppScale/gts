@@ -109,15 +109,32 @@ class TestZKInterface < Test::Unit::TestCase
 
     # getting a list of the IPs hosting the app should return both
     # IPs the first time around, and no IPs the second time around
-    # also, mock out DjinnJobData because we aren't passing those
-    # objects around as the keynames
     zk.should_receive(:get_children).with(:path => app_path).
       and_return({:children => ["ip1", "ip2"]}, {:children => []})
 
-    flexmock(DjinnJobData).should_receive(:deserialize).with("ip1").
-      and_return("ip1")
-    flexmock(DjinnJobData).should_receive(:deserialize).with("ip2").
-      and_return("ip2")
+    ip1_data = {
+      'public_ip' => 'ip1',
+      'private_ip' => 'ip1',
+      'jobs' => 'appengine',
+      'instance_id' => 'i-id1',
+      'disk' => nil
+    }
+
+    job_data1_path = "#{ZKInterface::APPCONTROLLER_NODE_PATH}/ip1/job_data"
+    zk.should_receive(:get).with(:path => job_data1_path).
+      and_return({:rc => 0, :data => JSON.dump(ip1_data)})
+
+    ip2_data = {
+      'public_ip' => 'ip2',
+      'private_ip' => 'ip2',
+      'jobs' => 'appengine',
+      'instance_id' => 'i-id2',
+      'disk' => nil
+    }
+
+    job_data2_path = "#{ZKInterface::APPCONTROLLER_NODE_PATH}/ip2/job_data"
+    zk.should_receive(:get).with(:path => job_data2_path).
+      and_return({:rc => 0, :data => JSON.dump(ip2_data)})
 
     # next, mock out when we try to delete app info
     zk.should_receive(:delete).with(:path => ip1_path).
@@ -128,8 +145,8 @@ class TestZKInterface < Test::Unit::TestCase
     # mocks for zookeeper initialization
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return() 
-    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181", ZKInterface::TIMEOUT).
-      and_return(zk)
+    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181",
+      ZKInterface::TIMEOUT).and_return(zk)
 
     # first, make a connection to zookeeper 
     ZKInterface.init_to_ip("public_ip", "public_ip")
@@ -139,14 +156,74 @@ class TestZKInterface < Test::Unit::TestCase
     ZKInterface.add_app_entry("app", "ip2", "/boo/baz2")
 
     # make sure they show up when we do a 'get'
-    assert_equal(["ip1", "ip2"], ZKInterface.get_app_hosters("app"))
+    actual = ZKInterface.get_app_hosters("app", "key")
+    assert_equal('ip1', actual[0].public_ip)
+    assert_equal('ip2', actual[1].public_ip)
 
     # then remove the entries
     ZKInterface.remove_app_entry("app", "ip1")
     ZKInterface.remove_app_entry("app", "ip2")
 
     # make sure they no longer show up when we do a 'get'
-    assert_equal([], ZKInterface.get_app_hosters("app"))
+    assert_equal([], ZKInterface.get_app_hosters("app", "key"))
+  end
+
+
+  def test_add_and_query_scale_up_requests
+    # mocks for zookeeper
+    zk = flexmock("zookeeper")
+
+    # presume that initially, there are no scaling requests, then after we add
+    # one below, it is present
+    zk.should_receive(:get_children).with(:path =>
+      "#{ZKInterface::SCALING_DECISION_PATH}/bazapp").and_return({
+      :children => nil}, {:children => ["public_ip"]})
+
+    # presume that this node hasn't asked for more AppServers yet, so there's no
+    # data the first time around. After the first time, we'll add an entry in, so
+    # there should be one there on subsequent attempts.
+    path = "#{ZKInterface::SCALING_DECISION_PATH}/bazapp/public_ip"
+    file_does_not_exist = {:rc => 0, :stat => flexmock(:exists => false)}
+    file_contents = {:rc => 0, :stat => flexmock(:exists => true),
+      :data => "scale_up"}
+    zk.should_receive(:get).with(:path => ZKInterface::SCALING_DECISION_PATH).
+      and_return(file_does_not_exist, file_contents)
+    zk.should_receive(:get).with(:path =>
+      "#{ZKInterface::SCALING_DECISION_PATH}/bazapp").and_return(
+      file_does_not_exist, file_contents)
+    zk.should_receive(:get).with(:path => path).and_return(file_does_not_exist,
+      file_contents)
+
+    all_ok = {:rc => 0}
+    zk.should_receive(:create).with(:path => ZKInterface::SCALING_DECISION_PATH,
+      :ephemeral => ZKInterface::NOT_EPHEMERAL, :data => "").
+      and_return(all_ok)
+    zk.should_receive(:create).with(:path =>
+      "#{ZKInterface::SCALING_DECISION_PATH}/bazapp",
+      :ephemeral => ZKInterface::NOT_EPHEMERAL, :data => "").
+      and_return(all_ok)
+    zk.should_receive(:create).with(:path => path,
+      :ephemeral => ZKInterface::NOT_EPHEMERAL, :data => "scale_up").
+      and_return(all_ok)
+
+    # mocks for zookeeper initialization
+    flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
+      and_return()
+    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181", ZKInterface::TIMEOUT).
+      and_return(zk)
+
+    # first, make a connection to zookeeper
+    ZKInterface.init_to_ip("public_ip", "public_ip")
+
+    # make sure the shadow gets back no information if nobody has requested
+    # scaling yet
+    assert_equal([], ZKInterface.get_scaling_requests_for_app("bazapp"))
+
+    # next, make sure that appservers can request that we scale up
+    assert_equal(true, ZKInterface.request_scale_up_for_app("bazapp", "public_ip"))
+
+    # make sure that the shadow can see these requests
+    assert_equal(["scale_up"], ZKInterface.get_scaling_requests_for_app("bazapp"))
   end
 
 

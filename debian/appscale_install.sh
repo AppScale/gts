@@ -25,18 +25,20 @@ case "$1" in
 	postinstallnginx
         installpython27
         installnumpy
+        installpythonmemcache
         installmatplotlib
         installPIL
         installpycrypto
         installlxml
         installxmpppy
-	installappserverjava
-	postinstallappserverjava
-	installmonitoring
+	installjavajdk
+        installappserverjava
+        postinstallappserverjava
+        installmonitoring
 	postinstallmonitoring
 	installthrift_fromsource
 	postinstallthrift_fromsource
-        installtornado_fromsource
+        installtornado
         postinstalltornado
 	installprotobuf
 	postinstallprotobuf
@@ -55,6 +57,7 @@ case "$1" in
         updatealternatives
 	sethosts
         setulimits
+        increaseconnections
 	;;
     cassandra)
 	installcassandra
@@ -101,18 +104,20 @@ case "$1" in
 	postinstallnginx
         installpython27
         installnumpy
+        installpythonmemcache
         installmatplotlib
         installPIL
         installpycrypto
         installlxml
         installxmpppy
-	installappserverjava
-	postinstallappserverjava
-	installmonitoring
+	installjavajdk
+        installappserverjava
+        postinstallappserverjava
+        installmonitoring
 	postinstallmonitoring
 	installthrift_fromsource
 	postinstallthrift_fromsource
-        installtornado_fromsource
+        installtornado
         installflexmock
         installnose
         postinstalltornado
@@ -137,5 +142,6 @@ case "$1" in
 	setupntpcron
         sethosts
         setulimits
+        increaseconnections
 	;;
 esac

@@ -36,6 +36,7 @@ class EC2Agent(BaseAgent):
   PARAM_INSTANCE_IDS = 'instance_ids'
   PARAM_SPOT = 'use_spot_instances'
   PARAM_SPOT_PRICE = 'max_spot_price'
+  PARAM_ZONE = 'zone'
 
   REQUIRED_EC2_RUN_INSTANCES_PARAMS = (
     PARAM_CREDENTIALS,
@@ -43,7 +44,8 @@ class EC2Agent(BaseAgent):
     PARAM_IMAGE_ID,
     PARAM_INSTANCE_TYPE,
     PARAM_KEYNAME,
-    PARAM_SPOT
+    PARAM_SPOT,
+    PARAM_ZONE
   )
 
   REQUIRED_EC2_TERMINATE_INSTANCES_PARAMS = (
@@ -52,6 +54,11 @@ class EC2Agent(BaseAgent):
   )
 
   DESCRIBE_INSTANCES_RETRY_COUNT = 3
+
+  # When acquiring machines via Eucalyptus, we sometimes get a transient
+  # 'Message has expired' exception. This retry indicates how many times
+  # we should try to run instances via EC2 or Eucalyptus before giving up.
+  RUN_INSTANCES_RETRY_COUNT = 3
 
   def configure_instance_security(self, parameters):
     """
@@ -130,33 +137,6 @@ class EC2Agent(BaseAgent):
       if not utils.has_parameter(param, parameters):
         raise AgentConfigurationException('no ' + param)
 
-  def describe_instances(self, parameters):
-    """
-    Retrieves the list of running instances that have been instantiated using a
-    particular EC2 keyname. The target keyname is read from the input parameter
-    map. (Also see documentation for the BaseAgent class)
-
-    Args:
-      parameters  A dictionary containing the 'keyname' parameter
-
-    Returns:
-      A tuple of the form (public_ips, private_ips, instances) where each
-      member is a list.
-    """
-    instance_ids = []
-    public_ips = []
-    private_ips = []
-
-    conn = self.open_connection(parameters)
-    reservations = conn.get_all_instances()
-    instances = [i for r in reservations for i in r.instances]
-    for i in instances:
-      if i.state == 'running' and i.key_name == parameters[self.PARAM_KEYNAME]:
-        instance_ids.append(i.id)
-        public_ips.append(i.public_dns_name)
-        private_ips.append(i.private_dns_name)
-    return public_ips, private_ips, instance_ids
-
   def run_instances(self, count, parameters, security_configured):
     """
     Spawns the specified number of EC2 instances using the parameters
@@ -181,9 +161,11 @@ class EC2Agent(BaseAgent):
     keyname = parameters[self.PARAM_KEYNAME]
     group = parameters[self.PARAM_GROUP]
     spot = parameters[self.PARAM_SPOT]
+    zone = parameters[self.PARAM_ZONE]
 
-    utils.log('[{0}] [{1}] [{2}] [{3}] [ec2] [{4}] [{5}]'.format(count,
-      image_id, instance_type, keyname, group, spot))
+    utils.log("Starting {0} machines with machine id {1}, with " \
+      "instance type {2}, keyname {3}, in security group {4}, in zone {5}" \
+      .format(count, image_id, instance_type, keyname, group, zone))
 
     start_time = datetime.datetime.now()
     active_public_ips = []
@@ -193,7 +175,14 @@ class EC2Agent(BaseAgent):
     try:
       attempts = 1
       while True:
-        instance_info = self.describe_instances(parameters)
+        instances = self.__describe_instances(parameters)
+        term_instance_info = self.__get_instance_info(instances,
+          'terminated', keyname)
+        if len(term_instance_info[2]):
+          self.handle_failure('One or more nodes started with key {0} have '\
+                              'been terminated'.format(keyname))
+        instance_info = self.__get_instance_info(instances,
+          'running', keyname)
         active_public_ips = instance_info[0]
         active_private_ips = instance_info[1]
         active_instances = instance_info[2]
@@ -211,10 +200,25 @@ class EC2Agent(BaseAgent):
       if spot == 'True':
         price = parameters[self.PARAM_SPOT_PRICE]
         conn.request_spot_instances(str(price), image_id, key_name=keyname,
-          security_groups=[group], instance_type=instance_type, count=count)
+          security_groups=[group], instance_type=instance_type, count=count,
+          placement=zone)
       else:
-        conn.run_instances(image_id, count, count, key_name=keyname,
-          security_groups=[group], instance_type=instance_type)
+        retries_left = self.RUN_INSTANCES_RETRY_COUNT
+        while True:
+          try:
+            conn.run_instances(image_id, count, count, key_name=keyname,
+              security_groups=[group], instance_type=instance_type,
+              placement=zone)
+            break
+          except EC2ResponseError as exception:
+            utils.log("Couldn't start {0} instances because of error: {1}. " \
+              "{2} retries left.".format(count, exception.error_message,
+              retries_left))
+            retries_left =- 1
+            if retries_left <= 0:
+              self.handle_failure(exception.error_message)
+            utils.sleep(10)
+
 
       instance_ids = []
       public_ips = []
@@ -227,7 +231,14 @@ class EC2Agent(BaseAgent):
       while now < end_time:
         time_left = (end_time - now).seconds
         utils.log('[{0}] {1} seconds left...'.format(now, time_left))
-        instance_info = self.describe_instances(parameters)
+        instances = self.__describe_instances(parameters)
+        term_instance_info = self.__get_instance_info(instances,
+          'terminated', keyname)
+        if len(term_instance_info[2]):
+          self.handle_failure('One or more nodes started with key {0} have '\
+                              'been terminated'.format(keyname))
+        instance_info = self.__get_instance_info(instances,
+          'running', keyname)
         public_ips = instance_info[0]
         private_ips = instance_info[1]
         instance_ids = instance_info[2]
@@ -285,6 +296,31 @@ class EC2Agent(BaseAgent):
       utils.log('Instance {0} was terminated'.format(instance.id))
 
 
+  def attach_disk(self, parameters, disk_name, instance_id):
+    """ Attaches the Elastic Block Store volume specified in 'disk_name' to this
+    virtual machine.
+
+    Args:
+      parameters: A dict with keys for each parameter needed to connect to AWS.
+      disk_name: A str naming the EBS mount to attach to this machine.
+      instance_id: A str naming the id of the instance that the disk should be
+        attached to. In practice, callers add disks to their own instances.
+    Returns:
+      The location on the local filesystem where the disk has been attached.
+    """
+    try:
+      conn = self.open_connection(parameters)
+      utils.log('Attaching volume {0} to instance {1}, at /dev/sdc'.format(
+        disk_name, instance_id))
+      conn.attach_volume(disk_name, instance_id, '/dev/sdc')
+      return '/dev/sdc'
+    except EC2ResponseError as exception:
+      utils.log('An error occurred when trying to attach volume {0} to ' \
+        'instance {1} at /dev/sdc'.format(disk_name, instance_id))
+      self.handle_failure('EC2 response error while attaching volume:' +
+        exception.error_message)
+
+
   def open_connection(self, parameters):
     """
     Initialize a connection to the back-end EC2 APIs.
@@ -312,3 +348,43 @@ class EC2Agent(BaseAgent):
     utils.log(msg)
     raise AgentRuntimeException(msg)
 
+  def __describe_instances(self, parameters):
+    """
+    Query the back-end EC2 services for instance details and return
+    a list of instances. This is equivalent to running the standard
+    ec2-describe-instances command. The returned list of instances
+    will contain all the running and pending instances and it might
+    also contain some recently terminated instances.
+
+    Args:
+      parameters  A dictionary of parameters
+
+    Returns:
+      A list of instances (element type definition in boto.ec2 package)
+    """
+    conn = self.open_connection(parameters)
+    reservations = conn.get_all_instances()
+    instances = [i for r in reservations for i in r.instances]
+    return instances
+
+  def __get_instance_info(self, instances, status, keyname):
+    """
+    Filter out a list of instances by instance status and keyname.
+
+    Args:
+      instances A list of instances as returned by __describe_instances
+      status  Status of the VMs (eg: running, terminated)
+      keyname Keyname used to spawn instances
+
+     Returns:
+      A tuple of the form (public ips, private ips, instance ids)
+    """
+    instance_ids = []
+    public_ips = []
+    private_ips = []
+    for i in instances:
+      if i.state == status and i.key_name == keyname:
+        instance_ids.append(i.id)
+        public_ips.append(i.public_dns_name)
+        private_ips.append(i.private_dns_name)
+    return public_ips, private_ips, instance_ids

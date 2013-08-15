@@ -50,6 +50,13 @@ REQUIRED_CONFIG_FIELDS = ['app_name',
 # The web path to fetch to see if the application is up
 FETCH_PATH = '/_ah/health_check'
 
+# Apps which can access any application's data.
+TRUSTED_APPS = ["appscaledashboard"]
+
+# The flag to tell the application server that this application can access
+# all application data.
+TRUSTED_FLAG = "--trusted"
+
 def convert_config_from_json(config):
   """ Takes the configuration in JSON format and converts it to a dictionary.
       Validates the dictionary configuration before returning.
@@ -191,7 +198,7 @@ def stop_app_instance(app_name, port):
 
   # hack: God fails to shutdown processes so we do it via a system command
   # TODO: fix it or find an alternative to god
-  pid_file = constants.APP_PID_DIR + app_name + '-' + port
+  pid_file = constants.APP_PID_DIR + app_name + '-' + str(port)
   pid = file_io.read(pid_file)
 
   if str(port).isdigit(): 
@@ -279,7 +286,7 @@ def get_pid_from_port(port):
   """ 
   if not str(port).isdigit(): return BAD_PID
 
-  s = os.popen("lsof -i:" + str(port) + " | grep -v COMMAND | awk {'print $2'}")
+  s = os.popen("lsof -i:" + str(port) + " | grep -v COMMAND | awk {'print $2'} | head -1")
   pid = s.read().rstrip()
   if pid:
     return int(pid)
@@ -405,7 +412,10 @@ def create_python_start_cmd(app_name,
                + "/data/app.datastore.history",
          "/var/apps/" + app_name + "/app",
          "-a " + appscale_info.get_private_ip()]
-  
+ 
+  if app_name in TRUSTED_APPS:
+    cmd.extend([TRUSTED_FLAG])
+ 
   return ' '.join(cmd)
 
 def copy_modified_jars(app_name):

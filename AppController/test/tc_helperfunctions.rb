@@ -169,4 +169,60 @@ XML
     assert_equal(false, HelperFunctions.get_app_thread_safe(@prefixed_appid))
   end
  
+  def test_app_has_config_file_with_no_config_file
+    location = "/boo/baz.tar.gz"
+    tar_output = <<BAZ
+web/WEB-INF/classes/com/appscale/hawkeye/blobstore/BlobQueryHandlerServlet.class
+web/WEB-INF/classes/com/appscale/hawkeye/blobstore/DownloadHandlerServlet.class
+web/WEB-INF/classes/com/appscale/hawkeye/blobstore/MainHandlerServlet.class
+web/WEB-INF/classes/com/appscale/hawkeye/blobstore/UploadHandlerServlet.class
+web/WEB-INF/appengine-generated/datastore-indexes-auto.xml
+web/WEB-INF/appengine-generated/local_db.bin
+BAZ
+
+    helperfunctions = flexmock(HelperFunctions)
+    helperfunctions.should_receive(:shell).with("tar -ztf #{location}") \
+      .and_return(tar_output)
+
+    assert_equal(false, HelperFunctions.app_has_config_file?(location))
+  end
+
+  def test_app_has_config_file_with_app_yaml
+    location = "/boo/baz.tar.gz"
+    tar_output = <<BAZ
+app.yaml
+async_datastore.py
+backends.yaml
+blobstore.py
+BAZ
+
+    helperfunctions = flexmock(HelperFunctions)
+    helperfunctions.should_receive(:shell).with("tar -ztf #{location}") \
+      .and_return(tar_output)
+
+    assert_equal(true, HelperFunctions.app_has_config_file?(location))
+  end
+
+  def test_app_has_config_file_with_appengine_web_xml
+    location = "/boo/baz.tar.gz"
+    tar_output = <<BAZ
+war
+web/
+web/index.jsp
+web/WEB-INF/
+web/WEB-INF/appengine-generated/
+web/WEB-INF/appengine-web.xml
+web/WEB-INF/classes/
+web/WEB-INF/cron.xml
+web/WEB-INF/lib/
+web/WEB-INF/queue.xml
+web/WEB-INF/web.xml
+BAZ
+
+    helperfunctions = flexmock(HelperFunctions)
+    helperfunctions.should_receive(:shell).with("tar -ztf #{location}") \
+      .and_return(tar_output)
+
+    assert_equal(true, HelperFunctions.app_has_config_file?(location))
+  end
 end

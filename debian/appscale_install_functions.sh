@@ -16,24 +16,17 @@ if [ -z "$APPSCALE_PACKAGE_MIRROR" ]; then
     export APPSCALE_PACKAGE_MIRROR=http://s3.amazonaws.com/appscale-build
 fi
 
-#if [ -z "$APPSCALE_HOME" ]; then
- #  export APPSCALE_HOME= /root/appscale/
-#fi 
-export APPSCALE_VERSION=1.7.0
+export APPSCALE_VERSION=1.9.0
 
 increaseconnections()
 {
     echo "net.core.somaxconn = 20240" >> /etc/sysctl.conf
-    echo "net.ipv4.netfilter.ip_conntrack_max = 196608" >> /etc/sysctl.conf
-    echo "net.core.somaxconn = 20240" >> /etc/sysctl.conf
-    echo "net.ipv4.netfilter.ip_conntrack_max = 196608" >> /etc/sysctl.conf
     echo "net.ipv4.tcp_tw_recycle = 0" >> /etc/sysctl.conf
     echo "net.ipv4.tcp_tw_reuse = 0" >> /etc/sysctl.conf
     echo "net.ipv4.tcp_orphan_retries = 1" >> /etc/sysctl.conf
     echo "net.ipv4.tcp_fin_timeout = 25" >> /etc/sysctl.conf
     echo "net.ipv4.tcp_max_orphans = 8192" >> /etc/sysctl.conf
     echo "net.ipv4.ip_local_port_range = 32768    61000" >> /etc/sysctl.conf
-    echo "net.netfilter.nf_conntrack_max = 262144" >> /etc/sysctl.conf
 
     /sbin/sysctl -p /etc/sysctl.conf 
 }
@@ -144,18 +137,13 @@ updatealternatives()
 
 installappscaleprofile()
 {
-#    mkdir -p ${APPSCALE_HOME}
-#    cat > ${APPSCALE_HOME}/appscale.env <<EOF
-#export APPSCALE_HOME=${APPSCALE_HOME_RUNTIME}
-#export HOME=\$APPSCALE_HOME
-#EOF
     DESTFILE=${DESTDIR}/etc/profile.d/appscale.sh
     mkdir -pv $(dirname $DESTFILE)
     echo "Generating $DESTFILE"
     cat <<EOF | tee $DESTFILE
 export APPSCALE_HOME=${APPSCALE_HOME_RUNTIME}
 for jpath in\
- /usr/lib/jvm/java-6-openjdk\
+ /usr/lib/jvm/java-7-oracle\
  /usr/lib/jvm/default-java
 do
   if [ -e \$jpath ]; then
@@ -219,7 +207,7 @@ EOF
     cat <<EOF | tee $DESTFILE
 APPSCALE_HOME: ${APPSCALE_HOME_RUNTIME}
 EC2_HOME: /usr/local/ec2-api-tools
-JAVA_HOME: /usr/lib/jvm/java-6-openjdk
+JAVA_HOME: /usr/lib/jvm/java-7-oracle
 EOF
     mkdir -pv /var/log/appscale
     mkdir -pv /var/appscale/
@@ -276,6 +264,16 @@ postinstallthrift()
     easy_install thrift
 }
 
+installjavajdk()
+{
+    # Since Oracle requires you to accept terms and conditions, have to pull from webupd8team
+    sudo echo oracle-java7-installer shared/accepted-oracle-license-v1-1 select true | sudo /usr/bin/debconf-set-selections
+    sudo add-apt-repository ppa:webupd8team/java
+    sudo apt-get update
+    sudo apt-get install -y oracle-java7-installer
+    export JAVA_HOME=/usr/lib/jvm/java-7-oracle
+}
+
 installappserverjava()
 {
     # compile source file.
@@ -293,24 +291,6 @@ postinstallappserverjava()
 {
     :;
 }
-
-installtornado_fromsource()
-{
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    rm -rfv tornado
-    # download from appscale site
-    wget $APPSCALE_PACKAGE_MIRROR/tornado-0.2.tar.gz
-    tar xvzf tornado-0.2.tar.gz
-    pushd tornado-0.2
-    python setup.py build
-    python setup.py install --prefix=${DESTDIR}/usr
-    popd
-    rm -rfv tornado-0.2
-    rm -rfv tornado-0.2.tar.gz
-}
-
-# using egg
 
 installtornado()
 {
@@ -498,29 +478,16 @@ installgems()
     sleep 1
     gem install god redgreen Ruby-MemCache ${GEMOPT}
     sleep 1
-    #if [ ! -e ${DESTDIR}/usr/bin/god ]; then
-    #	echo "Fail to install god. Please Retry."
-    #	exit 1
-    #fi
     gem install -v=2.3.4 rails ${GEMOPT}
     sleep 1
     gem install gem_plugin mongrel ${GEMOPT}
     sleep 1
     gem install mongrel_cluster ${GEMOPT}
-    #sleep 1
-    #if [ ! -e ${DESTDIR}/usr/bin/mongrel_rails ]; then
-    #	echo "Fail to install mongrel rails. Please Retry."
-    #	exit 1
-    #fi
-    # This is for the Hypertable.
+    # This is for Hypertable.
     gem install capistrano ${GEMOPT}
     sleep 1
     gem install json ${GEMOPT}
     sleep 1
-    #if [ ! -e ${DESTDIR}/usr/bin/cap ]; then
-    #	echo "Fail to install capistrano. Please Retry."
-    #	exit 1
-    #fi
 
     # This is for Neptune's Babel App Engine pull queue interface
     # which is just REST, but httparty does such a nice job compared
@@ -536,13 +503,6 @@ installgems()
 postinstallgems()
 {
     ln -sf /var/lib/gems/1.8/bin/neptune /usr/bin/neptune
-#gem update
-#gem install god redgreen
-#gem install -v=2.3.4 rails
-#gem install mongrel mongrel_cluster
-#gem install -y capistrano
-# create symbolic link
-#test -e /usr/bin/mongrel_rails || ln -s /var/lib/gems/1.8/bin/mongrel_rails /usr/bin/
 }
 
 installmonitoring()
@@ -674,7 +634,7 @@ postinstallhbase()
 
 installcassandra()
 {
-    CASSANDRA_VER=1.0.7
+    CASSANDRA_VER=1.2.5
     PYCASSA_VER=1.3.0
     cd /lib 
     wget $APPSCALE_PACKAGE_MIRROR/jamm-0.2.2.jar
@@ -692,20 +652,6 @@ installcassandra()
     mkdir -p /var/lib/cassandra
     # TODO only grant the cassandra user access
     chmod 777 /var/lib/cassandra
-   # directories where Cassandra should libstore data on disk.
-    #data_file_directories:
-    mkdir -p /var/appscale/cassandra/data
-    chmod 777 /var/appscale/cassandra/data
-
-    # commit log
-    #commitlog_directory: 
-    mkdir -p /var/appscale/cassandra/commitlog
-    chmod 777 /var/appscale/cassandra/commitlog
-
-    # saved caches
-    #saved_caches_directory: 
-    mkdir -p /var/appscale/cassandra/saved_caches
-    chmod 777 /var/appscale/cassandra/saved_caches
 
     mkdir -pv ${APPSCALE_HOME}/downloads
     cd ${APPSCALE_HOME}/downloads
@@ -741,7 +687,6 @@ installprotobuf_fromsource()
     make install
     pushd python
 # protobuf could not be installed in the different root
-#    python setup.py install --prefix=${DESTDIR}/usr
     python setup.py bdist_egg
 # copy the egg file
     DISTP=${DESTDIR}/usr/local/lib/python2.6/dist-packages
@@ -804,27 +749,45 @@ installservice()
     mkdir -pv ${DESTDIR}/etc/init.d/
     ln -sfv ${APPSCALE_HOME_RUNTIME}/appscale-controller.sh ${DESTDIR}/etc/init.d/appscale-controller
     chmod -v a+x ${APPSCALE_HOME}/appscale-controller.sh
+
     ln -sfv ${APPSCALE_HOME_RUNTIME}/appscale-monitoring.sh ${DESTDIR}/etc/init.d/appscale-monitoring
     chmod -v a+x ${APPSCALE_HOME}/appscale-monitoring.sh
+
+    ln -sfv ${APPSCALE_HOME_RUNTIME}/appscale-progenitor.sh ${DESTDIR}/etc/init.d/appscale-progenitor
+    chmod -v a+x ${APPSCALE_HOME}/appscale-progenitor.sh
+
+    # Make the progenitor start up when AppScale starts, so that it can start
+    # the AppController on system reboots.
+    update-rc.d -f appscale-progenitor defaults
 }
 
 postinstallservice()
 {
-
     # stop unnecessary services
-#    service nginx stop || true
-#    service haproxy stop || true
     service memcached stop || true
     service collectd stop || true
 
     # remove unnecessary service
-#    update-rc.d -f nginx remove || true
-#    update-rc.d -f haproxy remove || true
     update-rc.d -f memcached remove || true
     update-rc.d -f collectd remove || true
 
     ejabberdctl stop || true
     update-rc.d -f ejabberd remove || true
+}
+
+installpythonmemcache()
+{
+  VERSION=1.53
+
+  mkdir -pv ${APPSCALE_HOME}/downloads
+  cd ${APPSCALE_HOME}/downloads
+  wget $APPSCALE_PACKAGE_MIRROR/python-memcached-${VERSION}.tar.gz
+  tar zxvf python-memcached-${VERSION}.tar.gz
+  cd python-memcached-${VERSION}
+  python setup.py install
+  cd ..
+  rm -fdr python-memcached-${VERSION}.tar.gz
+  rm -fdr python-memcached-${VERSION}
 }
 
 installzookeeper()
@@ -842,18 +805,13 @@ installzookeeper()
     tar zxvf zookeeper-${ZK_VER}.tar.gz
 
     cd zookeeper-${ZK_VER}
-    # build java library
+    # build java library, replace the compiliability to 1.7 since Java7 cannot compile to 1.5
+    sed -i 's/1.5/1.7/g' build.xml
     ant
     ant compile_jute
-    #if [ ! -e build/zookeeper-${ZK_VER}.jar ]; then
-    #   echo "Fail to make zookeeper java jar. Please retry."
-    #   exit 1
-    #fi
 
     # build c library
-    #pushd src/c
     cd src/c
-#    sed -i 's/AM_PATH_CPPUNIT/:;#AM_PATH_CPPUNIT/g' configure.ac
     autoreconf -if
     ./configure --prefix=/usr
     make
@@ -863,9 +821,6 @@ installzookeeper()
         exit 1
     fi
     cd ../..
-
-    # apply memory leak patch of zkpython TODO check if 3.3.4-cdh3u3 needs it
-    #patch -p0 -i ${APPSCALE_HOME}/AppDB/zkappscale/patch/zkpython-memory.patch
 
     # python library
     easy_install kazoo
@@ -985,12 +940,12 @@ keygen()
     touch /root/.ssh/authorized_keys
     cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys
     chmod -v go-r /root/.ssh/authorized_keys
-#    ssh-copy-id -i /root/.ssh/id_rsa.pub root@localhost
 }
 
 installcelery()
 {
   easy_install -U Celery
+  easy_install -U Flower
 }
 
 installrabbitmq()

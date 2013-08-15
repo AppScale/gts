@@ -40,7 +40,9 @@
                     <ul>
                         <li align="center" class="tab"><a class="btn btn-info" href="/status">Cloud Status</a> </li>
                             {% if apps_user_is_admin_on or is_user_cloud_admin %}
+                              <li align="center" class="tab"><a class="btn btn-info" href="/apps">App Console</a></li>
                               <li align="center" class="tab"><a class="btn btn-info" href="/logs">View Logs</a></li>
+                              <li align="center" class="tab"><a class="btn btn-info" href="{{ flower_url }}">TaskQueue Monitor</a></li>
                             {% endif %}
                             {% if is_user_cloud_admin %}
                               <li align="center" class="tab"><a class="btn btn-info" href="/authorize">Manage Users</a></li>

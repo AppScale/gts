@@ -16,6 +16,7 @@ import logging
 import os
 import re
 import sys
+import time
 import urllib
 import webapp2
 
@@ -26,20 +27,28 @@ except ImportError:
   import simplejson as json
 
 
+from google.appengine.api import memcache
 from google.appengine.api import taskqueue
+from google.appengine.ext.db.stats import KindStat
 from google.appengine.ext import ndb
 from google.appengine.datastore.datastore_query import Cursor
-
 
 sys.path.append(os.path.dirname(__file__) + '/lib')
 from app_dashboard_helper import AppDashboardHelper
 from app_dashboard_helper import AppHelperException
 from app_dashboard_data import AppDashboardData
+from app_dashboard_data import InstanceInfo
+from app_dashboard_data import RequestInfo
+from app_dashboard_data import AppStatus
 
 
 jinja_environment = jinja2.Environment(
     loader=jinja2.FileSystemLoader(os.path.dirname(__file__) + \
       os.sep + 'templates'))
+
+# The maximum number of datapoints we send to be rendered in a graph 
+# charting requests per second.
+MAX_REQUESTS_DATA_POINTS = 100
 
 
 class LoggedService(ndb.Model):
@@ -146,7 +155,8 @@ class AppDashboard(webapp2.RequestHandler):
       'user_email' : self.helper.get_user_email(),
       'is_user_cloud_admin' : self.dstore.is_user_cloud_admin(),
       'can_upload_apps' : self.dstore.can_upload_apps(),
-      'apps_user_is_admin_on' : owned_apps
+      'apps_user_is_admin_on' : owned_apps,
+      'flower_url' : self.dstore.get_flower_url(),
     }
     for key in values.keys():
       sub_vars[key] = values[key]
@@ -231,6 +241,8 @@ class StatusPage(AppDashboard):
 
 
 class StatusAsJSONPage(webapp2.RequestHandler):
+  """ A class that exposes the same information as StatusPage, but via JSON
+  instead of raw HTML. """
 
 
   def get(self):
@@ -370,7 +382,11 @@ class LogoutPage(AppDashboard):
         redirects the user to the landing page.
     """
     self.helper.logout_user(self.response)
-    self.redirect('/', self.response)
+    continue_url = self.request.get("continue")
+    if continue_url:
+      self.redirect(str(continue_url), self.response)
+    else:
+      self.redirect('/', self.response)
 
 
 class LoginPage(AppDashboard):
@@ -382,8 +398,9 @@ class LoginPage(AppDashboard):
 
   def post(self):
     """ Handler for POST requests. """
-    if self.helper.login_user(self.request.get('user_email'),
-       self.request.get('user_password'), self.response):
+    user_email = self.request.get('user_email').lstrip().rstrip()
+    if self.helper.login_user(user_email, self.request.get('user_password'),
+      self.response):
     
       if self.request.get('continue') != '':
         self.redirect('/users/confirm?continue={0}'.format(
@@ -394,7 +411,7 @@ class LoginPage(AppDashboard):
     else:
       self.render_page(page='users', template_file=self.TEMPLATE, values={
           'continue' : self.request.get('continue'),
-          'user_email' : self.request.get('user_email'),
+          'user_email' : user_email,
           'flash_message': 
           "Incorrect username / password combination. Please try again."
         })
@@ -459,6 +476,48 @@ class AuthorizePage(AppDashboard):
         'user_perm_list':{},
         })
 
+
+  def get(self):
+    """ Handler for GET requests. """
+    if self.dstore.is_user_cloud_admin():
+      self.render_page(page='authorize', template_file=self.TEMPLATE, values={
+        'user_perm_list' : self.helper.list_all_users_permissions(),
+      })
+    else:
+      self.render_page(page='authorize', template_file=self.TEMPLATE, values={
+        'flash_message':"Only the cloud administrator can change permissions.",
+        'user_perm_list':{},
+        })
+
+
+class ChangePasswordPage(AppDashboard):
+  """Class to handle user password changes."""
+
+  TEMPLATE = 'authorize/cloud.html'
+
+  def post(self):
+    """ Handler for POST requests. """
+    email = self.request.get("email")
+    password = self.request.get("password")
+    if self.dstore.is_user_cloud_admin():
+      success, message = self.helper.change_password(cgi.escape(email),
+        cgi.escape(password))
+    else:
+      success = False
+      message = "Only the cloud administrator can change passwords."
+
+    flash_message = None
+    error_flash_message = None
+    if success:
+      flash_message = message
+    else:
+      error_flash_message = message
+
+    self.render_page(page='authorize', template_file=self.TEMPLATE, values={
+      'flash_message':flash_message,
+      'error_flash_message':error_flash_message,
+      'user_perm_list' : self.helper.list_all_users_permissions(),
+      })
 
   def get(self):
     """ Handler for GET requests. """
@@ -538,9 +597,9 @@ class AppDeletePage(AppDashboard):
       ret_list = {}
       app_list = self.dstore.get_application_info()
       my_apps = self.dstore.get_owned_apps()
-      for app in app_list.keys():
-        if app in my_apps:
-          ret_list[app] = app_list[app]
+      for application in app_list.keys():
+        if application in my_apps:
+          ret_list[application] = app_list[application]
       return ret_list
 
 
@@ -573,6 +632,8 @@ class AppDeletePage(AppDashboard):
 
 
 class AppsAsJSONPage(webapp2.RequestHandler):
+  """ A class that exposes application-level info used on the Cloud Status page,
+  but via JSON instead of raw HTML. """
 
 
   def get(self):
@@ -580,6 +641,28 @@ class AppsAsJSONPage(webapp2.RequestHandler):
     AppScale deployment as a JSON-encoded dict. """
     self.response.out.write(json.dumps(
       AppDashboardData().get_application_info()))
+
+
+
+  def post(self, app_id):
+    """ Saves profiling information about a Google App Engine application to the
+    Datastore, for viewing by the GET method.
+
+    Args:
+      app_id: A str that uniquely identifies the Google App Engine application
+        we are storing data for.
+    """
+    encoded_data = self.request.body
+    data = json.loads(encoded_data)
+
+    the_time = int(data['timestamp'])
+    reversed_time = (2**34 - the_time) * 1000000
+    request_info = RequestInfo(
+      id = app_id + str(reversed_time), # puts entities time descending.
+      app_id = app_id,
+      timestamp = datetime.datetime.fromtimestamp(data['timestamp']),
+      num_of_requests = data['request_rate'])
+    request_info.put()
 
 
 class LogMainPage(AppDashboard):
@@ -697,11 +780,6 @@ class LogUploadPage(webapp2.RequestHandler):
   """ Class to handle requests to the /logs/upload page. """
 
 
-  def get_inverted_key_for_timestamp(self, service_name, host, timestamp):
-    reversed_time = (2**34 - the_time) * 1000000
-    return service_name + host + str(reversed_time)
-
-
   def post(self):
     """ Saves logs records to the Datastore for later viewing. """
     encoded_data = self.request.body
@@ -739,6 +817,274 @@ class LogUploadPage(webapp2.RequestHandler):
       log_line.app_logs.append(app_log_line)
       log_line.put()
 
+
+class LogDownloader(AppDashboard):
+  """ Exposes a single GET route that cloud administrators can access to
+  download AppScale-generated logs.
+  """
+
+
+  # The location where the template file can be found that waits for logs
+  # to become available before redirecting to it.
+  TEMPLATE = "logs/download.html"
+
+
+  def get(self):
+    """ Instructs the AppController to collect logs across all machines, place
+    it in this app's static file directory, and renders a page that will wait
+    for the logs to become available before downloading it.
+    """
+    is_cloud_admin = self.helper.is_user_cloud_admin()
+    if not is_cloud_admin:
+      self.redirect("/")
+
+    success, uuid = self.helper.gather_logs()
+    self.render_page(page='logs', template_file=self.TEMPLATE, values = {
+      'success' : success,
+      'uuid' : uuid
+    })
+
+
+class AppConsolePage(AppDashboard):
+
+
+  TEMPLATE = "apps/console.html"
+
+
+  def get(self):
+    is_cloud_admin = self.helper.is_user_cloud_admin()
+    apps_user_is_admin_on = self.helper.get_owned_apps()
+    if (not is_cloud_admin) and (not apps_user_is_admin_on):
+      self.redirect("/")
+
+    self.render_page(page='console', template_file=self.TEMPLATE, values = {
+      'all_apps_this_user_owns' : apps_user_is_admin_on
+    })
+
+
+
+class DatastoreStats(AppDashboard):
+  """ Class that returns datastore statistics in JSON such as the number of 
+  a certain entity kind and the amount of total bytes.
+  """
+  # The most number of data points we pass back to render in the dashboard.
+  MAX_KIND_STATS = 1000
+
+  # The most number of days we look back to get kind statistics.
+  MAX_DAYS_BACK = 30
+
+  def get(self):
+    """ Handler for GET request for the datastore statistics. 
+
+    Returns:
+      The JSON output for testing.
+    """
+    is_cloud_admin = self.helper.is_user_cloud_admin()
+    apps_user_is_admin_on = self.helper.get_owned_apps()
+    app_name = self.request.get("appid")
+    if (not is_cloud_admin) and (app_name not in apps_user_is_admin_on):
+      response = json.dumps({"error": True, "message": "Not authorized"})
+      self.response.out.write(response)
+      return
+
+    query = KindStat.all(_app=app_name)
+    time_stamp = datetime.datetime.now() - datetime.timedelta(
+      days=self.MAX_DAYS_BACK)
+    query.filter("timestamp >", time_stamp)
+    items = query.fetch(self.MAX_KIND_STATS)
+
+    response = self.convert_to_json(items)
+    self.response.out.write(response)
+    return
+
+  def convert_to_json(self, kind_entities):
+    """ Converts KindStat entities to a json string.
+  
+    Args:
+      kind_entities: A list of stats.KindStat.
+    Returns:
+      A JSON string containing kind statistic information.
+    """
+    items = []
+    for ent in kind_entities:
+      items.append({time.mktime(ent.timestamp.timetuple()):
+        {ent.kind_name:{'bytes':ent.bytes, "count":ent.count}}})
+    return json.dumps(items)
+
+
+class RequestsStats(AppDashboard):
+  """ Class that returns request statistics in JSON relating to the number 
+  of requests an application gets per second.
+  """
+
+
+  def get(self):
+    """ Handler for GET request for the requests statistics. """
+    is_cloud_admin = self.helper.is_user_cloud_admin()
+    apps_user_is_admin_on = self.helper.get_owned_apps()
+    app_name = self.request.get("appid")
+    if (not is_cloud_admin) and (app_name not in apps_user_is_admin_on):
+      response = json.dumps({"error": True, "message": "Not authorized"})
+      self.response.out.write(response)
+      return
+
+    appid = self.request.get("appid")
+    self.response.out.write(json.dumps(RequestsStats.fetch_request_info(appid)))
+
+
+  @staticmethod
+  def fetch_request_info(app_id):
+    """ Fetches request per second information from the datastore for 
+    a given application.
+  
+    Args:
+      app_id: A str, the application identifier.
+    Returns:
+      A list of dictionaries filled with timestamps and number of 
+      requests per second.
+    """
+    query = RequestInfo.query(RequestInfo.app_id == app_id)
+    requests = query.fetch(MAX_REQUESTS_DATA_POINTS)
+    request_info = []
+    for request in requests:
+      request_info.append({
+        'timestamp' : int(request.timestamp.strftime('%s')),
+        'num_of_requests' : request.num_of_requests
+      })
+    return request_info
+
+
+class InstanceStats(AppDashboard):
+  """ Class that returns instance statistics in JSON relating to the number
+  of AppServer processes running for a particular App Engine application.
+  """
+
+  def get(self):
+    """ Makes sure the user is allowed to see instance data for the named
+    application, and if so, retrieves it for them. """
+    is_cloud_admin = self.helper.is_user_cloud_admin()
+    apps_user_is_admin_on = self.helper.get_owned_apps()
+    app_name = self.request.get("appid")
+    if (not is_cloud_admin) and (app_name not in apps_user_is_admin_on):
+      response = json.dumps({"error": True, "message": "Not authorized"})
+      self.response.out.write(response)
+      return
+
+    appid = self.request.get("appid")
+    self.response.out.write(json.dumps(InstanceStats.fetch_request_info(appid)))
+
+
+  def post(self):
+    """ Adds information about one or more instances to the Datastore, for
+    later viewing.
+    """
+    encoded_data = self.request.body
+    data = json.loads(encoded_data)
+
+    for instance in data:
+      # TODO(cgb): Consider only doing a put if it doesn't exist
+      instance = InstanceInfo(id = instance['appid'] + instance['host'] + str(instance['port']),
+        appid = instance['appid'],
+        host = instance['host'],
+        port = instance['port'],
+        language = instance['language'])
+      instance.put()
+
+    self.response.out.write('put completed successfully!')
+
+
+  def delete(self):
+    """ Removes information about one or more instances from the Datastore. """
+    encoded_data = self.request.body
+    data = json.loads(encoded_data)
+
+    for instance in data:
+      instance = InstanceInfo.get_by_id(instance['appid'] + instance['host'] + str(instance['port']))
+      instance.key.delete()
+
+    self.response.out.write('delete completed successfully!')
+
+
+  @staticmethod
+  def fetch_request_info(appid):
+    """ Retrieves information about the AppServer processes running the
+    application associated with the named application.
+
+    Args:
+      appid: A str, the application identifier.
+    Returns:
+      A list of dicts, where each dict has information about a single AppServer
+      process running the named application.
+    """
+    query = InstanceInfo.query(InstanceInfo.appid == appid)
+    instances = query.fetch()
+    return [{
+      'host' : instance.host,
+      'port' : instance.port,
+      'language' : instance.language
+    } for instance in instances]
+
+
+class MemcacheStats(AppDashboard):
+  """ Class that returns global memcache statistics. """
+
+
+  def get(self):
+    """ Handler for GET request for the memcache statistics. """
+    if not self.helper.is_user_cloud_admin():
+      response = json.dumps({"error": True, "message": "Not authorized"})
+      self.response.out.write(response)
+      return
+
+    mem_stats = memcache.get_stats()
+    self.response.out.write(json.dumps(mem_stats))
+
+
+
+class StatsPage(AppDashboard):
+  """ Class to handle requests to the /logs page. """
+
+  TEMPLATE = 'apps/stats.html'
+
+  def get(self):
+    # Only let the cloud admin and users who own this app see this page.
+    app_id = self.request.get('appid')
+    is_cloud_admin = self.helper.is_user_cloud_admin()
+    apps_user_is_admin_on = self.helper.get_owned_apps()
+    if (not is_cloud_admin) and (not apps_user_is_admin_on):
+      self.redirect('/', self.response)
+
+    if app_id not in apps_user_is_admin_on:
+      self.redirect('/', self.response)
+
+    instance_info = InstanceStats.fetch_request_info(app_id)
+
+    app_status = AppStatus.get_by_id(app_id)
+    if app_status and app_status.url:
+      url = app_status.url
+    else:
+      url = None
+
+    self.render_page(page='stats', template_file=self.TEMPLATE, values = {
+      'appid' : app_id,
+      'all_apps_this_user_owns' : apps_user_is_admin_on,
+      'instance_info' : instance_info,
+      'app_url' : url
+    })
+
+
+class RunGroomer(AppDashboard):
+  """ Class that dynamically updates Kind statistics in the Datastore. """
+
+
+  def get(self):
+    """ Calls the groomer and tells it that Kind statistics need to be
+    updated. """
+    self.response.out.write(json.dumps({
+      'result' : self.helper.run_groomer()
+    }))
+
+
 # Main Dispatcher
 app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/status/refresh', StatusRefreshPage),
@@ -751,17 +1097,27 @@ app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/users/login', LoginPage),
                                 ('/users/authenticate', LoginPage),
                                 ('/login', LoginPage),
-                                ('/users/verify',LoginVerify),
-                                ('/users/confirm',LoginVerify),
+                                ('/users/verify', LoginVerify),
+                                ('/users/confirm', LoginVerify),
                                 ('/authorize', AuthorizePage),
+                                ('/apps/?', AppConsolePage),
+                                ('/apps/stats/datastore', DatastoreStats),
+                                ('/apps/stats/requests', RequestsStats),
+                                ('/apps/stats/instances', InstanceStats),
+                                ('/apps/stats/memcache', MemcacheStats),
                                 ('/apps/new', AppUploadPage),
                                 ('/apps/upload', AppUploadPage),
                                 ('/apps/delete', AppDeletePage),
-                                ('/apps/json', AppsAsJSONPage),
+                                ('/apps/json/?', AppsAsJSONPage),
+                                ('/apps/json/(.+)', AppsAsJSONPage),
+                                ('/apps/stats', StatsPage),
                                 ('/logs', LogMainPage),
                                 ('/logs/upload', LogUploadPage),
                                 ('/logs/(.+)/(.+)', LogServiceHostPage),
-                                ('/logs/(.+)', LogServicePage)
+                                ('/logs/(.+)', LogServicePage),
+                                ('/gather-logs', LogDownloader),
+                                ('/groomer', RunGroomer),
+                                ('/change-password', ChangePasswordPage)
                               ], debug=True)
 
 

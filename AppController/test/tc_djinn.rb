@@ -28,6 +28,8 @@ class TestDjinn < Test::Unit::TestCase
     djinn.should_receive(:log_run).with("").and_return()
 
     flexmock(HelperFunctions).should_receive(:shell).with("").and_return()
+    flexmock(HelperFunctions).should_receive(:log_and_crash).and_raise(
+      SystemExit)
 
     @secret = "baz"
     flexmock(HelperFunctions).should_receive(:read_file).
@@ -72,8 +74,20 @@ class TestDjinn < Test::Unit::TestCase
 
 
   def test_get_role_info
-    role1 = "public_ip:private_ip:shadow:instance_id:cloud1"
-    role2 = "public_ip2:private_ip2:appengine:instance_id2:cloud2"
+    role1 = {
+      "public_ip" => "public_ip",
+      "private_ip" => "private_ip",
+      "jobs" => ["shadow"],
+      "instance_id" => "instance_id"
+    }
+
+    role2 = {
+      "public_ip" => "public_ip2",
+      "private_ip" => "private_ip2",
+      "jobs" => ["appengine"],
+      "instance_id" => "instance_id2"
+    }
+
     keyname = "appscale"
 
     node1 = DjinnJobData.new(role1, keyname)
@@ -103,7 +117,7 @@ class TestDjinn < Test::Unit::TestCase
     assert_equal("private_ip2", role2_to_hash['private_ip'])
     assert_equal(["appengine"], role2_to_hash['jobs'])
     assert_equal("instance_id2", role2_to_hash['instance_id'])
-    assert_equal("cloud2", role2_to_hash['cloud'])
+    assert_equal("cloud1", role2_to_hash['cloud'])
   end
 
 
@@ -116,36 +130,34 @@ class TestDjinn < Test::Unit::TestCase
     }
     djinn = Djinn.new
 
-    # Try passing in params that aren't Arrays, the required type
+    # Try passing in params that aren't the required type
     bad_param = ""
-    result_1 = djinn.set_parameters(bad_param, [], [], @secret)
+    result_1 = djinn.set_parameters([], [], [], @secret)
     assert_equal(true, result_1.include?("Error: djinn_locations"))
 
-    result_2 = djinn.set_parameters([], bad_param, [], @secret)
+    result_2 = djinn.set_parameters("", bad_param, [], @secret)
     assert_equal(true, result_2.include?("Error: database_credentials"))
 
-    result_3 = djinn.set_parameters([], [], bad_param, @secret)
+    result_3 = djinn.set_parameters("", [], bad_param, @secret)
     assert_equal(true, result_3.include?("Error: app_names"))
 
     # Since DB credentials will be turned from an Array to a Hash,
     # it should have an even number of items in it
     bad_credentials = ['a']
-    result_4 = djinn.set_parameters(bad_credentials, bad_credentials, 
-      bad_credentials, @secret)
+    result_4 = djinn.set_parameters("", bad_credentials, [], @secret)
     expected_1 = "Error: DB Credentials wasn't of even length"
     assert_equal(true, result_4.include?(expected_1))
 
     # Now try credentials with an even number of items, but not all the
     # required parameters
     better_credentials = ['a', 'b']
-    result_5 = djinn.set_parameters(better_credentials, better_credentials,
-      better_credentials, @secret)
+    result_5 = djinn.set_parameters("", better_credentials, [], @secret)
     assert_equal("Error: Credential format wrong", result_5)
 
     # Now try good credentials, but with bad node info
     credentials = ['table', 'cassandra', 'hostname', '127.0.0.1', 'ips', '', 
       'keyname', 'appscale']
-    bad_node_info = [1]
+    bad_node_info = "[1]"
     assert_raises(SystemExit) {
       djinn.set_parameters(bad_node_info, credentials, better_credentials,
         @secret)
@@ -153,7 +165,12 @@ class TestDjinn < Test::Unit::TestCase
 
     # Finally, try credentials with info in the right format, but where it
     # refers to nodes that aren't in our deployment
-    one_node_info = ['public_ip:private_ip:some_role:instance_id:cloud1']
+    one_node_info = JSON.dump({
+      'public_ip' => 'public_ip',
+      'private_ip' => 'private_ip',
+      'jobs' => ['some_role'],
+      'instance_id' => 'instance_id'
+    })
     app_names = []
 
     udpsocket = flexmock(UDPSocket)
@@ -164,14 +181,22 @@ class TestDjinn < Test::Unit::TestCase
   end
 
   def test_set_params_w_good_params
+    flexmock(Djinn).should_receive(:log_run).with(
+      "mkdir -p /opt/appscale/apps")
+
     flexmock(Djinn).new_instances { |instance|
       instance.should_receive(:valid_secret?).and_return(true)
     }
     djinn = Djinn.new
 
     credentials = ['table', 'cassandra', 'hostname', 'public_ip', 'ips', '', 
-      'keyname', 'appscale']
-    one_node_info = ['public_ip:1.2.3.4:some_role:instance_id:cloud1']
+      'keyname', 'appscale', 'alter_etc_resolv', 'False', 'verbose', 'False']
+    one_node_info = JSON.dump([{
+      'public_ip' => 'public_ip',
+      'private_ip' => '1.2.3.4',
+      'jobs' => ['some_role'],
+      'instance_id' => 'instance_id'
+    }])
     app_names = []
 
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
@@ -203,7 +228,13 @@ class TestDjinn < Test::Unit::TestCase
 
     # Set up some dummy data that points to our master role as the
     # taskqueue_master
-    master_role = "public_ip:private_ip:taskqueue_master:instance_id:cloud1"
+    master_role = {
+      "public_ip" => "public_ip",
+      "private_ip" => "private_ip",
+      "jobs" => ["taskqueue_master"],
+      "instance_id" => "instance_id"
+    }
+
     djinn = Djinn.new
     djinn.my_index = 0
     djinn.nodes = [DjinnJobData.new(master_role, "appscale")]
@@ -228,8 +259,20 @@ class TestDjinn < Test::Unit::TestCase
   def test_taskqueue_slave
     # Taskqueue slave nodes should wait for RabbitMQ/celery to come up on the master
     # node, and then start RabbitMQ on their own node
-    master_role = "public_ip1:private_ip1:taskqueue_master:instance_id:cloud1"
-    slave_role = "public_ip2:private_ip2:taskqueue_slave:instance_id:cloud1"
+    master_role = {
+      "public_ip" => "public_ip1",
+      "private_ip" => "private_ip1",
+      "jobs" => ["taskqueue_master"],
+      "instance_id" => "instance_id1"
+    }
+
+    slave_role = {
+      "public_ip" => "public_ip2",
+      "private_ip" => "private_ip2",
+      "jobs" => ["taskqueue_slave"],
+      "instance_id" => "instance_id2"
+    }
+
     djinn = Djinn.new
     djinn.my_index = 1
     djinn.nodes = [DjinnJobData.new(master_role, "appscale"), DjinnJobData.new(slave_role, "appscale")]
@@ -260,7 +303,13 @@ class TestDjinn < Test::Unit::TestCase
 
 
   def test_write_our_node_info
-    role = "public_ip:private_ip:shadow:instance_id:cloud1"
+    role = {
+      "public_ip" => "public_ip",
+      "private_ip" => "private_ip",
+      "jobs" => ["shadow"],
+      "instance_id" => "instance_id"
+    }
+
     djinn = Djinn.new
     djinn.my_index = 0
     djinn.done_loading = true
@@ -328,9 +377,11 @@ class TestDjinn < Test::Unit::TestCase
       :path => node_path + "/job_data").and_return({
         :rc => 0, :stat => flexmock(:exists => false)})
 
+    flexmock(JSON).should_receive(:dump).with(Hash).
+      and_return('"{\"disk\":null,\"public_ip\":\"public_ip\",\"private_ip\":\"private_ip\",\"cloud\":\"cloud1\",\"instance_id\":\"instance_id\",\"ssh_key\":\"/etc/appscale/keys/cloud1/appscale.key\",\"jobs\":\"shadow\"}"')
     baz.should_receive(:set).with(
       :path => node_path + "/job_data",
-      :data => my_node.serialize).and_return(all_ok)
+      :data => JSON.dump(my_node.to_hash())).and_return(all_ok)
 
     baz.should_receive(:get).with(
       :path => node_path + "/done_loading").and_return({
@@ -342,14 +393,20 @@ class TestDjinn < Test::Unit::TestCase
 
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
-    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181", ZKInterface::TIMEOUT).
-      and_return(baz)
+    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181",
+      ZKInterface::TIMEOUT).and_return(baz)
     ZKInterface.init_to_ip("public_ip", "public_ip")
     assert_equal(nil, djinn.write_our_node_info)
   end
 
   def test_update_local_nodes
-    role = "public_ip:private_ip:shadow:instance_id:cloud1"
+    role = {
+      "public_ip" => "public_ip",
+      "private_ip" => "private_ip",
+      "jobs" => ["shadow"],
+      "instance_id" => "instance_id"
+    }
+
     djinn = Djinn.new
     djinn.my_index = 0
     djinn.nodes = [DjinnJobData.new(role, "appscale")]
@@ -389,10 +446,16 @@ class TestDjinn < Test::Unit::TestCase
     # Mocks for ip file - we have a new role here, so we're expecting
     # this method to stop the shadow role (set above), and start
     # memcache, as set below.
-    job_data = "public_ip:private_ip:memcache:instance_id:cloud1"
+    new_data = {
+      "public_ip" => "public_ip",
+      "private_ip" => "private_ip",
+      "jobs" => ["memcache"],
+      "instance_id" => "instance_id"
+    }
+
     path = "#{ZKInterface::APPCONTROLLER_NODE_PATH}/public_ip/job_data"
     baz.should_receive(:get).with(
-      :path => path).and_return({:rc => 0, :data => job_data})
+      :path => path).and_return({:rc => 0, :data => JSON.dump(new_data)})
 
     # Mocks for done_loading file, which we will initially set to false,
     # load the new roles, then set to true
@@ -411,8 +474,8 @@ class TestDjinn < Test::Unit::TestCase
 
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return()
-    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181", ZKInterface::TIMEOUT).
-      and_return(baz)
+    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181",
+      ZKInterface::TIMEOUT).and_return(baz)
     ZKInterface.init_to_ip("public_ip", "public_ip")
 
     # make sure the appcontroller does an update
@@ -432,10 +495,34 @@ class TestDjinn < Test::Unit::TestCase
   end
 
   def test_ensure_all_roles_are_running
-    my_role = "public_ip:private_ip:open:instance_id:cloud1"
-    new_role = "public_ip:private_ip:shadow:instance_id:cloud1"
-    other_role = "public_ip2:private_ip2:shadow:instance_id:cloud1"
-    not_done_loading_role = "public_ip3:private_ip3:appengine:instance_id:cloud1"
+    my_role = {
+      "public_ip" => "public_ip",
+      "private_ip" => "private_ip",
+      "jobs" => ["open"],
+      "instance_id" => "instance_id"
+    }
+
+    new_role = {
+      "public_ip" => "public_ip",
+      "private_ip" => "private_ip",
+      "jobs" => ["shadow"],
+      "instance_id" => "instance_id"
+    }
+
+    other_role = {
+      "public_ip" => "public_ip2",
+      "private_ip" => "private_ip2",
+      "jobs" => ["shadow"],
+      "instance_id" => "instance_id"
+    }
+
+    not_done_loading_role = {
+      "public_ip" => "public_ip3",
+      "private_ip" => "private_ip3",
+      "jobs" => ["appengine"],
+      "instance_id" => "instance_id"
+    }
+
     my_node = DjinnJobData.new(my_role, "appscale")
     nodes = [my_node, DjinnJobData.new(other_role, "appscale"), 
       DjinnJobData.new(not_done_loading_role, "appscale")]
@@ -521,7 +608,7 @@ class TestDjinn < Test::Unit::TestCase
     job_data_file = "#{ip2_path}/job_data"
     baz.should_receive(:get).with(:path => job_data_file).
       and_return({:stat => flexmock(:exists => true), :rc => 0,
-        :data => JSON.dump("#{other_role}:appscale")})
+        :data => JSON.dump(other_role)})
 
     # the appcontroller then should find out what apps AC2 is running,
     # and then delete them from the UserAppServer
@@ -573,14 +660,16 @@ class TestDjinn < Test::Unit::TestCase
 
     # Finally, we should be telling the first open node (our node) to take
     # on the fallen Shadow role
+    flexmock(JSON).should_receive(:dump).with(Hash).
+      and_return('"{\"disk\":null,\"public_ip\":\"public_ip\",\"private_ip\":\"private_ip\",\"cloud\":\"cloud1\",\"instance_id\":\"instance_id\",\"ssh_key\":\"/etc/appscale/keys/cloud1/appscale.key\",\"jobs\":\"shadow\"}"')
     baz.should_receive(:get).with(
       :path => "#{ZKInterface::APPCONTROLLER_NODE_PATH}/public_ip/job_data").
-      and_return({:rc => 0, :data => my_node.serialize(),
+      and_return({:rc => 0, :data => JSON.dump(my_node.to_hash()),
         :stat => flexmock(:exists => true)})
 
     baz.should_receive(:set).with(
       :path => "#{ZKInterface::APPCONTROLLER_NODE_PATH}/public_ip/job_data",
-      :data => new_node.serialize()).and_return({:rc => 0})
+      :data => JSON.dump(new_node.to_hash())).and_return({:rc => 0})
 
     flexmock(JSON).should_receive(:dump).
       with(false).and_return('false')
@@ -597,8 +686,8 @@ class TestDjinn < Test::Unit::TestCase
     # mocks for zookeeper initialization
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return() 
-    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181", ZKInterface::TIMEOUT).
-      and_return(baz)
+    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181",
+      ZKInterface::TIMEOUT).and_return(baz)
 
     djinn = Djinn.new
     djinn.my_index = 0
@@ -649,8 +738,8 @@ class TestDjinn < Test::Unit::TestCase
     # mock out ZooKeeper's init stuff
     flexmock(HelperFunctions).should_receive(:sleep_until_port_is_open).
       and_return() 
-    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181", ZKInterface::TIMEOUT).
-      and_return(mocked_zk)
+    flexmock(Zookeeper).should_receive(:new).with("public_ip:2181",
+      ZKInterface::TIMEOUT).and_return(mocked_zk)
 
     ZKInterface.init_to_ip("public_ip", "public_ip")
     ZKInterface.lock_and_run {
@@ -755,10 +844,7 @@ class TestDjinn < Test::Unit::TestCase
     # remote appcontrollers on the other boxes
     flexmock(File).should_receive(:open).with(/\A\/tmp\/god/, "w+", Proc).
       and_return()
-    flexmock(HelperFunctions).should_receive(:shell).with(/\Assh.* root@1.2.3.4 'god/).
-      and_return('')
-    flexmock(HelperFunctions).should_receive(:shell).with(/\Assh.* root@1.2.3.5 'god/).
-      and_return('')
+    flexmock(HelperFunctions).should_receive(:shell).with(/god/)
     flexmock(Kernel).should_receive(:system).
       with(/\Assh.* root@1.2.3.4 'rm -rf \/tmp\/god/).and_return('')
     flexmock(Kernel).should_receive(:system).
@@ -774,16 +860,39 @@ class TestDjinn < Test::Unit::TestCase
 
     # add the login role here to force our node to regenerate its
     # nginx config files
-    original_node_info = "1.2.3.3:1.2.3.3:shadow:login:boo:cloud1"
-    node1_info = "1.2.3.4:1.2.3.4:appengine:boo:cloud1"
-    node2_info = "1.2.3.5:1.2.3.5:appengine:boo:cloud1"
+    original_node_info = {
+      "public_ip" => "1.2.3.3",
+      "private_ip" => "1.2.3.3",
+      "jobs" => ["shadow", "login"],
+      "instance_id" => "id1",
+      "cloud" => "cloud1",
+      "ssh_key" => "/etc/appscale/keys/cloud1/boo.key",
+      "disk" => nil
+    }
+
+    node1_info = {
+      "public_ip" => "1.2.3.4",
+      "private_ip" => "1.2.3.4",
+      "jobs" => ["appengine"],
+      "cloud" => "cloud1",
+      "ssh_key" => "/etc/appscale/keys/cloud1/boo.key",
+      "disk" => nil
+    }
+
+    node2_info = {
+      "public_ip" => "1.2.3.5",
+      "private_ip" => "1.2.3.5",
+      "jobs" => ["appengine"],
+      "cloud" => "cloud1",
+      "ssh_key" => "/etc/appscale/keys/cloud1/boo.key",
+      "disk" => nil
+    }
 
     original_node = DjinnJobData.new(original_node_info, "boo")
     new_node1 = DjinnJobData.new(node1_info, "boo")
     new_node2 = DjinnJobData.new(node2_info, "boo")
-    all_nodes_serialized = [original_node.serialize, new_node2.serialize,
-      new_node1.serialize]
-    puts "#{all_nodes_serialized.join(', ')}"
+    all_nodes_serialized = JSON.dump([original_node.to_hash(),
+      new_node2.to_hash(), new_node1.to_hash()])
 
     creds = {'keyname' => 'boo'}
     creds_as_array = creds.to_a.flatten
@@ -815,6 +924,12 @@ class TestDjinn < Test::Unit::TestCase
 
     nginx_conf = "/usr/local/nginx/conf/sites-enabled/booapp.conf"
     flexmock(File).should_receive(:open).with(nginx_conf, "w+", Proc).and_return()
+
+    # mock out updating the firewall config
+    ip_list = "#{Djinn::CONFIG_FILE_LOCATION}/all_ips"
+    flexmock(File).should_receive(:open).with(ip_list, "w+", Proc).and_return()
+    flexmock(Djinn).should_receive(:log_run).with(/bash .*firewall.conf/)
+
     flexmock(HelperFunctions).should_receive(:shell).and_return()
     djinn = Djinn.new()
     djinn.nodes = [original_node]
@@ -827,11 +942,15 @@ class TestDjinn < Test::Unit::TestCase
       }
     }
     actual = djinn.start_new_roles_on_nodes_in_xen(ips_to_roles)
-    assert_equal(true, actual.include?(node1_info))
-    assert_equal(true, actual.include?(node2_info))
+    assert_equal(node2_info['public_ip'], actual[0]['public_ip'])
+    assert_equal(node1_info['public_ip'], actual[1]['public_ip'])
   end
 
   def test_start_new_roles_on_nodes_in_cloud
+    # mock out getting our ip address
+    flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
+      and_return("inet addr:1.2.3.4")
+
     # try adding two new nodes to an appscale deployment, assuming that
     # the machines are already running and have appscale installed
     ips_to_roles = {'node-1' => ['appengine'], 'node-2' => ['appengine']}
@@ -919,10 +1038,7 @@ class TestDjinn < Test::Unit::TestCase
     # remote appcontrollers on the other boxes
     flexmock(File).should_receive(:open).with(/\A\/tmp\/god/, "w+", Proc).
       and_return()
-    flexmock(HelperFunctions).should_receive(:shell).with(/\Assh.* root@1.2.3.4 'god/).
-      and_return('')
-    flexmock(HelperFunctions).should_receive(:shell).with(/\Assh.* root@1.2.3.5 'god/).
-      and_return('')
+    flexmock(HelperFunctions).should_receive(:shell).with(/god/)
     flexmock(Kernel).should_receive(:system).
       with(/\Assh.* root@1.2.3.4 'rm -rf \/tmp\/god/).and_return('')
     flexmock(Kernel).should_receive(:system).
@@ -936,16 +1052,34 @@ class TestDjinn < Test::Unit::TestCase
       with('1.2.3.5', Djinn::SERVER_PORT, HelperFunctions::USE_SSL).
       and_return(true)
 
-    original_node_info = "1.2.3.3:1.2.3.3:shadow:i-000000:cloud1"
-    node1_info = "1.2.3.4:1.2.3.4:appengine:i-ABCDEFG:cloud1"
-    node2_info = "1.2.3.5:1.2.3.5:appengine:i-HIJKLMN:cloud1"
+    original_node_info = {
+      "public_ip" => "1.2.3.3",
+      "private_ip" => "1.2.3.3",
+      "jobs" => ["shadow"],
+      "instance_id" => "i-000000"
+    }
+
+    node1_info = {
+      "public_ip" => "1.2.3.4",
+      "private_ip" => "1.2.3.4",
+      "jobs" => ["appengine"],
+      "instance_id" => "i-ABCDEFG",
+      "disk" => nil
+    }
+
+    node2_info = {
+      "public_ip" => "1.2.3.5",
+      "private_ip" => "1.2.3.5",
+      "jobs" => ["appengine"],
+      "instance_id" => "i-HIJKLMN",
+      "disk" => nil
+    }
 
     original_node = DjinnJobData.new(original_node_info, "boo")
     new_node1 = DjinnJobData.new(node1_info, "boo")
     new_node2 = DjinnJobData.new(node2_info, "boo")
-    all_nodes_serialized = [original_node.serialize, new_node1.serialize,
-      new_node2.serialize]
-    puts "#{all_nodes_serialized.join(', ')}"
+    all_nodes_serialized = JSON.dump([original_node.to_hash(),
+      new_node1.to_hash(), new_node2.to_hash()])
 
     creds = {'keyname' => 'boo'}
     creds_as_array = creds.to_a.flatten
@@ -968,6 +1102,11 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(Djinn).should_receive(:log_run).with("/bin/hostname appscale-image0").
       and_return()
 
+    # mock out updating the firewall config
+    ip_list = "#{Djinn::CONFIG_FILE_LOCATION}/all_ips"
+    flexmock(File).should_receive(:open).with(ip_list, "w+", Proc).and_return()
+    flexmock(Djinn).should_receive(:log_run).with(/bash .*firewall.conf/)
+
     djinn = Djinn.new()
     djinn.nodes = [original_node]
     djinn.my_index = 0
@@ -982,7 +1121,12 @@ class TestDjinn < Test::Unit::TestCase
     flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
       and_return("inet addr:1.2.3.4")
 
-    node_info = "1.2.3.3:1.2.3.3:shadow:login:i-000000:cloud1"
+    node_info = {
+      "public_ip" => "1.2.3.3",
+      "private_ip" => "1.2.3.3",
+      "jobs" => ["shadow", "login"],
+      "instance_id" => "i-000000"
+    }
     node = DjinnJobData.new(node_info, "boo")
 
     djinn = Djinn.new()
@@ -1011,4 +1155,143 @@ class TestDjinn < Test::Unit::TestCase
     # make sure our buffer is empty again
     assert_equal([], Djinn.get_logs_buffer())
   end
+
+  def test_send_request_info_to_dashboard_when_dash_is_up
+    # mock out getting our ip address
+    flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
+      and_return("inet addr:1.2.3.4")
+
+    node_info = "1.2.3.3:1.2.3.3:shadow:login:i-000000:cloud1"
+    node = DjinnJobData.new(node_info, "boo")
+
+    djinn = Djinn.new()
+    djinn.nodes = [node]
+    djinn.my_index = 0
+
+    # mock out sending the request info
+    flexmock(Net::HTTP).new_instances { |instance|
+      instance.should_receive(:post).with("/apps/bazapp", String, Hash)
+    }
+
+    assert_equal(true, djinn.send_request_info_to_dashboard("bazapp", 0, 0))
+  end
+
+  def test_send_request_info_to_dashboard_when_dash_is_up
+    # mock out getting our ip address
+    flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
+      and_return("inet addr:1.2.3.4")
+
+    node_info = {
+      "public_ip" => "1.2.3.3",
+      "private_ip" => "1.2.3.3",
+      "jobs" => ["shadow", "login"],
+      "instance_id" => "i-000000"
+    }
+    node = DjinnJobData.new(node_info, "boo")
+
+    djinn = Djinn.new()
+    djinn.nodes = [node]
+    djinn.my_index = 0
+
+    # mock out sending the request info
+    flexmock(Net::HTTP).new_instances { |instance|
+      instance.should_receive(:post).with("/apps/bazapp", String, Hash).and_raise(Exception)
+    }
+
+    assert_equal(false, djinn.send_request_info_to_dashboard("bazapp", 0, 0))
+  end
+
+  def test_scale_appservers_across_nodes_with_no_action_taken
+    # mock out getting our ip address
+    flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
+      and_return("inet addr:1.2.3.4")
+
+    node_info = {
+      "public_ip" => "1.2.3.3",
+      "private_ip" => "1.2.3.3",
+      "jobs" => ["shadow", "login"],
+      "instance_id" => "i-000000"
+    }
+    node = DjinnJobData.new(node_info, "boo")
+
+    djinn = Djinn.new()
+    djinn.nodes = [node]
+    djinn.my_index = 0
+    
+    # let's say there's one app running
+    djinn.apps_loaded = ['bazapp']
+
+    # and that it has not requested scaling
+    flexmock(ZKInterface).should_receive(:get_scaling_requests_for_app).
+      with('bazapp').and_return([])
+    flexmock(ZKInterface).should_receive(:clear_scaling_requests_for_app).
+      with('bazapp')
+
+    # Finally, make sure that we didn't add any nodes
+    assert_equal(0, djinn.scale_appservers_across_nodes())
+  end
+
+  def test_scale_appservers_across_nodes_and_scale_up_one_app
+    # mock out getting our ip address
+    flexmock(HelperFunctions).should_receive(:shell).with("ifconfig").
+      and_return("inet addr:1.2.3.4")
+
+
+    # Let's say that we've got two nodes - one is open so we can scale onto it.
+    node_info = {
+      "public_ip" => "1.2.3.3",
+      "private_ip" => "1.2.3.3",
+      "jobs" => ["shadow", "login"],
+      "instance_id" => "i-000000"
+    }
+
+    open_node_info = {
+      "public_ip" => "1.2.3.4",
+      "private_ip" => "1.2.3.4",
+      "jobs" => ["open"],
+      "instance_id" => "i-000000"
+    }
+
+    node = DjinnJobData.new(node_info, "boo")
+    open_node = DjinnJobData.new(open_node_info, "boo")
+
+    djinn = Djinn.new()
+    djinn.nodes = [node, open_node]
+    djinn.my_index = 0
+    djinn.creds = { 'keyname' => 'boo' }
+    
+    # let's say there's one app running
+    djinn.apps_loaded = ['bazapp']
+    djinn.app_info_map = {
+      'bazapp' => {
+        'nginx' => 123
+      }
+    }
+
+    # and that we haven't scaled up in a long time
+    djinn.last_scaling_time = Time.utc(2000, "jan", 1, 20, 15, 1)
+
+    # and that two nodes have requested scaling
+    flexmock(ZKInterface).should_receive(:get_scaling_requests_for_app).
+      with('bazapp').and_return(['scale_up', 'scale_up'])
+    flexmock(ZKInterface).should_receive(:clear_scaling_requests_for_app).
+      with('bazapp')
+
+    # assume the open node is done starting up
+    flexmock(ZKInterface).should_receive(:is_node_done_loading?).
+      with('1.2.3.4').and_return(true)
+
+    # mock out adding the appengine role to the open node
+    flexmock(ZKInterface).should_receive(:add_roles_to_node).
+      with(["memcache", "taskqueue_slave", "appengine"], open_node, "boo")
+
+    # mock out writing updated nginx config files
+    flexmock(Nginx).should_receive(:write_fullproxy_app_config)
+    flexmock(Nginx).should_receive(:reload)
+
+    # Finally, make sure that we added a node
+    assert_equal(1, djinn.scale_appservers_across_nodes())
+  end
+
+
 end

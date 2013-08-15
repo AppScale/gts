@@ -19,6 +19,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 from zkappscale import zktransaction as zk
 from zkappscale.zktransaction import ZKTransactionException
 
+
 class TestZookeeperTransaction(unittest.TestCase):
   """
   """
@@ -26,6 +27,33 @@ class TestZookeeperTransaction(unittest.TestCase):
   def setUp(self):
     self.appid = 'appid'
     self.handle = None
+
+  def test_increment_and_get_counter(self):
+    # mock out getTransactionRootPath
+    flexmock(zk.ZKTransaction)
+    zk.ZKTransaction.should_receive('get_transaction_prefix_path').with_args(
+      self.appid).and_return('/rootpath')
+    
+    # mock out initializing a ZK connection
+    fake_zookeeper = flexmock(name='fake_zoo', create='create',
+      delete_async='delete_async')
+    fake_zookeeper.should_receive('start')
+    fake_zookeeper.should_receive('retry').and_return(None)
+
+    fake_counter = flexmock(name='fake_counter', value='value')
+    fake_counter.value = 1
+    fake_counter.should_receive('__add__').and_return(2)
+    fake_zookeeper.should_receive("Counter").and_return(fake_counter)
+    # mock out deleting the zero id we get the first time around
+
+    flexmock(kazoo.client)
+    kazoo.client.should_receive('KazooClient').and_return(fake_zookeeper)
+
+    # assert, make sure we got back our id
+    transaction = zk.ZKTransaction(host="something", start_gc=False)
+    self.assertEquals((0, 1), transaction.increment_and_get_counter(
+      self.appid, 1))
+
 
   def test_create_sequence_node(self):
     # mock out getTransactionRootPath
