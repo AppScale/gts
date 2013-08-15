@@ -122,6 +122,11 @@ module HelperFunctions
   APPCONTROLLER_CRASHLOG_LOCATION = "/etc/appscale/appcontroller_crashlog.txt"
 
 
+  # The location on the filesystem where the AppController backs up its
+  # internal state, in case it isn't able to contact ZooKeeper to retrieve it.
+  APPCONTROLLER_STATE_LOCATION = "/etc/appscale/appcontroller_state.json"
+
+
   # The location on the filesystem where the resolv.conf file can be found,
   # that we may alter if the user requests.
   RESOLV_CONF = "/etc/resolv.conf"
@@ -1412,6 +1417,16 @@ module HelperFunctions
   # Copies the backed-up resolv.conf file back to its original location.
   def self.restore_etc_resolv()
     self.shell("cp #{RESOLV_CONF}.bk #{RESOLV_CONF}")
+  end
+
+
+  def self.write_local_appcontroller_state(state)
+    self.write_json_file(APPCONTROLLER_STATE_LOCATION, state)
+  end
+
+
+  def self.get_local_appcontroller_state()
+    return self.read_json_file(APPCONTROLLER_STATE_LOCATION)
   end
 
 

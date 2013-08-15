@@ -16,9 +16,6 @@ if [ -z "$APPSCALE_PACKAGE_MIRROR" ]; then
     export APPSCALE_PACKAGE_MIRROR=http://s3.amazonaws.com/appscale-build
 fi
 
-#if [ -z "$APPSCALE_HOME" ]; then
- #  export APPSCALE_HOME= /root/appscale/
-#fi 
 export APPSCALE_VERSION=1.9.0
 
 increaseconnections()
@@ -140,11 +137,6 @@ updatealternatives()
 
 installappscaleprofile()
 {
-#    mkdir -p ${APPSCALE_HOME}
-#    cat > ${APPSCALE_HOME}/appscale.env <<EOF
-#export APPSCALE_HOME=${APPSCALE_HOME_RUNTIME}
-#export HOME=\$APPSCALE_HOME
-#EOF
     DESTFILE=${DESTDIR}/etc/profile.d/appscale.sh
     mkdir -pv $(dirname $DESTFILE)
     echo "Generating $DESTFILE"
@@ -486,29 +478,16 @@ installgems()
     sleep 1
     gem install god redgreen Ruby-MemCache ${GEMOPT}
     sleep 1
-    #if [ ! -e ${DESTDIR}/usr/bin/god ]; then
-    #	echo "Fail to install god. Please Retry."
-    #	exit 1
-    #fi
     gem install -v=2.3.4 rails ${GEMOPT}
     sleep 1
     gem install gem_plugin mongrel ${GEMOPT}
     sleep 1
     gem install mongrel_cluster ${GEMOPT}
-    #sleep 1
-    #if [ ! -e ${DESTDIR}/usr/bin/mongrel_rails ]; then
-    #	echo "Fail to install mongrel rails. Please Retry."
-    #	exit 1
-    #fi
-    # This is for the Hypertable.
+    # This is for Hypertable.
     gem install capistrano ${GEMOPT}
     sleep 1
     gem install json ${GEMOPT}
     sleep 1
-    #if [ ! -e ${DESTDIR}/usr/bin/cap ]; then
-    #	echo "Fail to install capistrano. Please Retry."
-    #	exit 1
-    #fi
 
     # This is for Neptune's Babel App Engine pull queue interface
     # which is just REST, but httparty does such a nice job compared
@@ -524,13 +503,6 @@ installgems()
 postinstallgems()
 {
     ln -sf /var/lib/gems/1.8/bin/neptune /usr/bin/neptune
-#gem update
-#gem install god redgreen
-#gem install -v=2.3.4 rails
-#gem install mongrel mongrel_cluster
-#gem install -y capistrano
-# create symbolic link
-#test -e /usr/bin/mongrel_rails || ln -s /var/lib/gems/1.8/bin/mongrel_rails /usr/bin/
 }
 
 installmonitoring()
@@ -715,7 +687,6 @@ installprotobuf_fromsource()
     make install
     pushd python
 # protobuf could not be installed in the different root
-#    python setup.py install --prefix=${DESTDIR}/usr
     python setup.py bdist_egg
 # copy the egg file
     DISTP=${DESTDIR}/usr/local/lib/python2.6/dist-packages
@@ -778,22 +749,25 @@ installservice()
     mkdir -pv ${DESTDIR}/etc/init.d/
     ln -sfv ${APPSCALE_HOME_RUNTIME}/appscale-controller.sh ${DESTDIR}/etc/init.d/appscale-controller
     chmod -v a+x ${APPSCALE_HOME}/appscale-controller.sh
+
     ln -sfv ${APPSCALE_HOME_RUNTIME}/appscale-monitoring.sh ${DESTDIR}/etc/init.d/appscale-monitoring
     chmod -v a+x ${APPSCALE_HOME}/appscale-monitoring.sh
+
+    ln -sfv ${APPSCALE_HOME_RUNTIME}/appscale-progenitor.sh ${DESTDIR}/etc/init.d/appscale-progenitor
+    chmod -v a+x ${APPSCALE_HOME}/appscale-progenitor.sh
+
+    # Make the progenitor start up when AppScale starts, so that it can start
+    # the AppController on system reboots.
+    update-rc.d -f appscale-progenitor defaults
 }
 
 postinstallservice()
 {
-
     # stop unnecessary services
-#    service nginx stop || true
-#    service haproxy stop || true
     service memcached stop || true
     service collectd stop || true
 
     # remove unnecessary service
-#    update-rc.d -f nginx remove || true
-#    update-rc.d -f haproxy remove || true
     update-rc.d -f memcached remove || true
     update-rc.d -f collectd remove || true
 
@@ -835,15 +809,9 @@ installzookeeper()
     sed -i 's/1.5/1.7/g' build.xml
     ant
     ant compile_jute
-    #if [ ! -e build/zookeeper-${ZK_VER}.jar ]; then
-    #   echo "Fail to make zookeeper java jar. Please retry."
-    #   exit 1
-    #fi
 
     # build c library
-    #pushd src/c
     cd src/c
-#    sed -i 's/AM_PATH_CPPUNIT/:;#AM_PATH_CPPUNIT/g' configure.ac
     autoreconf -if
     ./configure --prefix=/usr
     make
@@ -853,9 +821,6 @@ installzookeeper()
         exit 1
     fi
     cd ../..
-
-    # apply memory leak patch of zkpython TODO check if 3.3.4-cdh3u3 needs it
-    #patch -p0 -i ${APPSCALE_HOME}/AppDB/zkappscale/patch/zkpython-memory.patch
 
     # python library
     easy_install kazoo
@@ -975,7 +940,6 @@ keygen()
     touch /root/.ssh/authorized_keys
     cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys
     chmod -v go-r /root/.ssh/authorized_keys
-#    ssh-copy-id -i /root/.ssh/id_rsa.pub root@localhost
 }
 
 installcelery()
