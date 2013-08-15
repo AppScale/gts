@@ -173,6 +173,7 @@ queue:
       queue_info['queue'].append({'rate':'5/s', 'name': 'default'})
 
     self._queue_info_file = queue_info
+    logging.info("AppID {0} -- Loaded queue {1}".format(app_id, queue_info))
     return queue_info 
 
   def parse_queue_xml(self, xml_string):

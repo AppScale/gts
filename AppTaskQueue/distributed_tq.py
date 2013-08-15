@@ -442,7 +442,7 @@ class DistributedTaskQueue():
     """
     task_name = request.task_name()
     item = TaskName.get_by_key_name(task_name)
-    logging.info("Task name {0}".format(task_name))
+    logging.debug("Task name {0}".format(task_name))
     if item:
       logging.warning("Task already exists")
       raise apiproxy_errors.ApplicationError(
@@ -465,7 +465,8 @@ class DistributedTaskQueue():
     self.__validate_push_task(request)
     self.__check_and_store_task_names(request)
     args = self.get_task_args(request)
-
+    logging.info("Request: {0}".format(str(request)))
+    logging.info("Task args: {0}".format(args))
     headers = self.get_task_headers(request)
     countdown = int(headers['X-AppEngine-TaskETA']) - \
           int(datetime.datetime.now().strftime("%s"))
