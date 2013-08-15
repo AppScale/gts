@@ -492,8 +492,6 @@ installservice()
     mkdir -pv ${DESTDIR}/etc/init.d/
     ln -sfv ${APPSCALE_HOME_RUNTIME}/appscale-controller.sh ${DESTDIR}/etc/init.d/appscale-controller
     chmod -v a+x ${APPSCALE_HOME}/appscale-controller.sh
-    ln -sfv ${APPSCALE_HOME_RUNTIME}/appscale-monitoring.sh ${DESTDIR}/etc/init.d/appscale-monitoring
-    chmod -v a+x ${APPSCALE_HOME}/appscale-monitoring.sh
 }
 
 postinstallservice()
@@ -501,11 +499,9 @@ postinstallservice()
 
     # First, stop all services that don't need to be running at boot.
     service memcached stop || true
-    service collectd stop || true
 
     # Next, remove them from the boot list.
     update-rc.d -f memcached remove || true
-    update-rc.d -f collectd remove || true
 
     ejabberdctl stop || true
     update-rc.d -f ejabberd remove || true

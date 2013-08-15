@@ -3335,7 +3335,6 @@ HOSTS
 
     HAProxy.initialize_config
     Nginx.initialize_config
-    Monitoring.reset
 
     if my_node.disk
       imc = InfrastructureManagerClient.new(@@secret)
@@ -3738,7 +3737,6 @@ HOSTS
       end
     end
 
-    Monitoring.restart if my_node.is_shadow?
     APPS_LOCK.synchronize {
       if @app_names.include?("none")
         @apps_loaded = @apps_loaded - ["none"]

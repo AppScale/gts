@@ -14,7 +14,6 @@ module TerminateHelper
     `rm -f #{APPSCALE_HOME}/.appscale/secret.key`
     `rm -f #{APPSCALE_HOME}/.appscale/status-*`
     `rm -f #{APPSCALE_HOME}/.appscale/database_info`
-    `rm -f #{APPSCALE_HOME}/.appscale/neptune_info.txt`
     `rm -f /tmp/uploaded-apps`
     `rm -f ~/.appscale_cookies`
     `rm -f /var/log/appscale/*.log`
@@ -31,7 +30,6 @@ module TerminateHelper
 
     # TODO(cgb): Use the constant in djinn.rb (ZK_LOCATIONS_FILE)
     `rm -rf /etc/appscale/zookeeper_locations.json`
-    `rm -rf /var/cache/neptune/*`
   end
 
 
@@ -50,9 +48,9 @@ module TerminateHelper
     `iptables -F`  # turn off the firewall
 
     ["memcached",
-     "nginx", "haproxy", "collectdmon",
+     "nginx", "haproxy",
      "soap_server", "appscale_server", "app_manager_server", "datastore_server",
-     "taskqueue_server", "AppDashboard", "AppMonitoring",
+     "taskqueue_server", "AppDashboard",
 
      # AppServer
      "dev_appserver", "DevAppServerMain",
