@@ -18,12 +18,14 @@ NO_OUTPUT = false
 module GodInterface
 
   def self.start_god(remote_ip, remote_key)
-    self.run_god_command("god", remote_ip, remote_key)
+    self.run_god_command("nohup god --log /var/log/appscale/god.log -D &",
+      remote_ip, remote_key)
   end
   
-  # Lock prevents a race condition where services do not get started correctly if done 
-  # concurently. 
-  def self.start(watch, start_cmd, stop_cmd, ports, env_vars=nil, remote_ip=nil, remote_key=nil)
+  # Lock prevents a race condition where services do not get started correctly
+  # if done concurrently.
+  def self.start(watch, start_cmd, stop_cmd, ports, env_vars=nil, remote_ip=nil,
+    remote_key=nil)
     if !defined?(@@lock)
       @@lock = Monitor.new
     end
@@ -32,78 +34,41 @@ module GodInterface
       ports = [ports] unless ports.class == Array
 
       prologue = <<BOO
-      WATCH = "#{watch}"
-      START_CMD = "#{start_cmd}"
-      STOP_CMD = "#{stop_cmd}"
-      PORTS = [#{ports.join(', ')}]
+watch_name = "#{watch}"
+start_command = "#{start_cmd}"
+stop_command = "#{stop_cmd}"
+ports = [#{ports.join(', ')}]
 
 BOO
 
     body = <<'BAZ'
-    PORTS.each do |port|
-      God.watch do |w|
-        w.name = "#{WATCH}-#{port}"
-        w.group = WATCH
-        w.interval = 30.seconds # default      
-        w.start = START_CMD
-        w.stop = STOP_CMD
-        w.start_grace = 20.seconds
-        w.restart_grace = 20.seconds
-        w.log = "/var/log/appscale/#{WATCH}-#{port}.log"
-        w.pid_file = "/var/appscale/#{WATCH}-#{port}.pid"
-    
-        w.behavior(:clean_pid_file)
-
-        w.start_if do |start|
-          start.condition(:process_running) do |c|
-            c.running = false
-          end
-        end
-    
-        w.restart_if do |restart|
-          restart.condition(:memory_usage) do |c|
-            c.above = 150.megabytes
-            c.times = [3, 5] # 3 out of 5 intervals
-          end
-    
-          restart.condition(:cpu_usage) do |c|
-            c.above = 50.percent
-            c.times = 5
-          end
-        end
-    
-        # lifecycle
-        w.lifecycle do |on|
-          on.condition(:flapping) do |c|
-            c.to_state = [:start, :restart]
-            c.times = 5
-            c.within = 5.minute
-            c.transition = :unmonitored
-            c.retry_in = 10.minutes
-            c.retry_times = 5
-            c.retry_within = 2.hours
-          end
-        end
+ports.each do |port|
+  God.watch do |w|
+    w.name = "#{watch_name}-#{port}"
+    w.group = watch_name
+    w.start = start_command
+    w.log = "/var/log/appscale/#{watch_name}-#{port}.log"
+    w.keepalive(:memory_max => 150.megabytes)
 BAZ
 
       if !env_vars.nil? and !env_vars.empty?
         env_vars_str = ""
 
         env_vars.each { |k, v|
-          env_vars_str += "          \"#{k}\" => \"#{v}\",\n"
+          env_vars_str += "     \"#{k}\" => \"#{v}\",\n"
         }
 
         body += <<BOO
 
-        w.env = {
-          #{env_vars_str}
-        }
+    w.env = {
+      #{env_vars_str}
+    }
 BOO
       end
 
       epilogue = <<BAZ
-      end
-    end
+  end
+end
 BAZ
 
       config_file = prologue + body + epilogue
@@ -164,4 +129,3 @@ BAZ
     end
   end
 end
-
