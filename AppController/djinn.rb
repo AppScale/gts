@@ -179,18 +179,6 @@ class Djinn
   attr_accessor :restored
 
 
-  # A Hash that maps information about each successfully completed Neptune
-  # job to information about the job, that will one day be used to provide
-  # hints to future jobs about how to schedule them optimally.
-  attr_accessor :neptune_jobs
-  
-  
-  # An Array of DjinnJobData objects that correspond to nodes used for
-  # Neptune computation. Nodes are reclaimed every hour if they are not in
-  # use (to avoid being charged for them for another hour).
-  attr_accessor :neptune_nodes
-  
-  
   # A Hash that lists the status of each Google App Engine API made available
   # within AppScale. Keys are the names of the APIs (e.g., memcache), and
   # values are the statuses of those APIs (e.g., running).
@@ -202,11 +190,6 @@ class Djinn
   # generated in response to AppDashboard requests.
   attr_accessor :all_stats
 
-
-  # For Babel jobs via Neptune, we keep a list of queues that may have tasks
-  # stored for execution, as well as the parameters needed to execute them
-  # (e.g., input location, output location, cloud credentials).
-  attr_accessor :queues_to_read
 
   # An integer timestamp that corresponds to the last time this AppController
   # has updated @nodes, which we use to compare with a similar timestamp in
@@ -267,12 +250,6 @@ class Djinn
   # The location on the local filesystem where AppScale-related configuration
   # files are written to.
   CONFIG_FILE_LOCATION = "/etc/appscale"
-
-
-  # The location on the local filesystem where the AppController writes
-  # information about Neptune jobs that have finished. One day this information
-  # may be used to more intelligently schedule jobs on the fly.
-  NEPTUNE_INFO = "#{CONFIG_FILE_LOCATION}/neptune_info.txt"
 
 
   # The location on the local filesystem where the AppController writes
@@ -458,11 +435,8 @@ class Djinn
     @state = "AppController just started"
     @num_appengines = 1
     @restored = false
-    @neptune_jobs = {}
-    @neptune_nodes = []
     @api_status = {}
     @all_stats = []
-    @queues_to_read = []
     @last_updated = 0
     @state_change_lock = Monitor.new()
     @app_info_map = {}
@@ -575,7 +549,6 @@ class Djinn
       TaskQueue.stop_flower if my_node.is_login?
 
       stop_app_manager_server
-      stop_neptune_manager
       stop_infrastructure_manager
     end
 
@@ -1128,8 +1101,6 @@ class Djinn
       change_job
     end
 
-    start_neptune_manager
-    
     @done_loading = true
     write_our_node_info
     wait_for_nodes_to_finish_loading(@nodes)
@@ -1140,7 +1111,6 @@ class Djinn
       update_firewall
       write_memcache_locations
       write_zookeeper_locations
-      write_neptune_info 
       update_api_status
       flush_log_buffer
 
@@ -1227,33 +1197,6 @@ class Djinn
   end
 
 
-  # Starts the NeptuneManager service on this machine, which exposes
-  # a SOAP interface by which we can run programs in arbitrary languages 
-  # in this AppScale deployment.
-  def start_neptune_manager
-    write_cloud_info()
-
-    if HelperFunctions.is_port_open?("localhost", 
-      NeptuneManagerClient::SERVER_PORT, HelperFunctions::USE_SSL)
-
-      Djinn.log_debug("NeptuneManager is already running locally - " +
-        "don't start it again.")
-      return
-    end
-
-    start_cmd = "ruby #{APPSCALE_HOME}/Neptune/neptune_manager_server.rb"
-    stop_cmd = "pkill -9 neptune_manager_server"
-    port = [NeptuneManagerClient::SERVER_PORT]
-    env_vars = {
-      'APPSCALE_HOME' => APPSCALE_HOME,
-      'DATABASE_USED' => @creds['table']
-    }
-
-    GodInterface.start(:neptune_manager, start_cmd, stop_cmd, port, env_vars)
-    Djinn.log_info("Started NeptuneManager successfully!")
-  end
-
-
   def write_cloud_info()
     cloud_info = {
       'is_cloud?' => is_cloud?(), 
@@ -1261,12 +1204,6 @@ class Djinn
     }
 
     HelperFunctions.write_json_file("#{CONFIG_FILE_LOCATION}/cloud_info.json", cloud_info)
-  end
-
-
-  def stop_neptune_manager
-    Djinn.log_info("Stopping NeptuneManager")
-    GodInterface.stop(:neptune_manager)
   end
 
 
@@ -2016,14 +1953,6 @@ class Djinn
     return uuid
   end
 
-  # TODO: add neptune file, which will have this function
-  def run_neptune_in_cloud?(neptune_info)
-    Djinn.log_debug("Activecloud_info = #{neptune_info}")
-    return true if is_cloud? && !neptune_info["nodes"].nil?
-    return true if !is_cloud? && !neptune_info["nodes"].nil? && !neptune_info["machine"].nil?
-    return false
-  end
-
 
   def write_database_info()
     table = @creds["table"]
@@ -2055,48 +1984,6 @@ class Djinn
     end
   end
 
-  # Dumps all the info about Neptune jobs that have executed into a file,
-  # that can be recovered later via load_neptune_info.
-  def write_neptune_info(file_to_write=NEPTUNE_INFO)
-    info = { "num_jobs" => @neptune_jobs.length }
-    @neptune_jobs.each_with_index { |job, index|
-      info["job_#{index}"] = job.to_hash
-    }
-
-    json_info = JSON.dump(info)
-    HelperFunctions.write_file(file_to_write, json_info)
-    return json_info
-  end
-
-  # Loads Neptune data (stored in JSON format) into the instance variable
-  # @neptune_info. Used to restore Neptune job data from a previously
-  # running AppScale instance.
-  def load_neptune_info(file_to_load=NEPTUNE_INFO)
-    if !File.exists?(file_to_load)
-      Djinn.log_info("No neptune data found - no need to restore")
-      return
-    end
-
-    Djinn.log_info("Restoring neptune data!")
-    jobs_info = (File.open(file_to_load) { |f| f.read }).chomp
-    jobs = []
-
-    json_data = JSON.load(jobs_info)
-    return if json_data.nil?
-    num_jobs = json_data["num_jobs"]
-
-    num_jobs.times { |i|
-      info = json_data["job_#{i}"]
-      this_job = NeptuneJobData.from_hash(info)
-      job_name = this_job.name
-
-      if @neptune_jobs[job_name].nil?
-        @neptune_jobs[job_name] = [this_job]
-      else
-        @neptune_jobs[job_name] = [this_job]
-      end
-    }
-  end
 
   def backup_appcontroller_state()
     state = {'@@secret' => @@secret }
@@ -2157,14 +2044,6 @@ class Djinn
       next if k == "@@secret"
       if k == "@nodes"
         v = Djinn.convert_location_array_to_class(v, keyname)
-      elsif k == "@neptune_nodes"
-        new_v = []
-
-        v.each { |data|
-          new_v << NeptuneJobData.from_hash(data)
-        }        
-
-        v = new_v
       end
 
       instance_variable_set(k, v)
@@ -2587,8 +2466,6 @@ class Djinn
 
     write_database_info
     update_firewall
-    load_neptune_info
-    write_neptune_info
   end
 
   def got_all_data()
@@ -2742,9 +2619,8 @@ class Djinn
     write_hypersoap
     start_api_services()
 
-    # for neptune jobs, start a place where they can save output to
-    # also, since apichecker does health checks on the app engine apis, 
-    # start it up there too.
+    # since apichecker does health checks on the app engine apis, 
+    # start it up there.
 
     apichecker_ip = get_shadow.public_ip
     apichecker_private_ip = get_shadow.private_ip
@@ -3218,7 +3094,6 @@ class Djinn
     server = "#{APPSCALE_HOME}/AppServer"
     loadbalancer = "#{APPSCALE_HOME}/AppDashboard"
     appdb = "#{APPSCALE_HOME}/AppDB"
-    neptune = "#{APPSCALE_HOME}/Neptune"
     loki = "#{APPSCALE_HOME}/Loki"
     app_manager = "#{APPSCALE_HOME}/AppManager"
     iaas_manager = "#{APPSCALE_HOME}/InfrastructureManager"
@@ -3232,7 +3107,6 @@ class Djinn
     HelperFunctions.shell("rsync #{options} #{server}/* root@#{ip}:#{server}")
     HelperFunctions.shell("rsync #{options} #{loadbalancer}/* root@#{ip}:#{loadbalancer}")
     HelperFunctions.shell("rsync #{options} --exclude='logs/*' --exclude='cassandra/cassandra/*' #{appdb}/* root@#{ip}:#{appdb}")
-    HelperFunctions.shell("rsync #{options} #{neptune}/* root@#{ip}:#{neptune}")
     HelperFunctions.shell("rsync #{options} #{loki}/* root@#{ip}:#{loki}")
     HelperFunctions.shell("rsync #{options} #{app_manager}/* root@#{ip}:#{app_manager}")
     HelperFunctions.shell("rsync #{options} #{iaas_manager}/* root@#{ip}:#{iaas_manager}")
@@ -4540,18 +4414,6 @@ HOSTS
     stop_cmd = "ps ax | grep 'xmpp_receiver.py #{app}' | grep -v grep | awk '{print $1}' | xargs -d '\n' kill -9"
     Djinn.log_run(stop_cmd)
     Djinn.log_info("Done shutting down xmpp receiver for app: #{app}")
-  end
-
-  def self.neptune_parse_creds(storage, job_data)
-    creds = {}
-
-    if storage == "s3"
-      ['EC2_ACCESS_KEY', 'EC2_SECRET_KEY', 'S3_URL'].each { |item|
-        creds[item] = job_data["@#{item}"]
-      }
-    end
-
-    return creds
   end
 
   def start_open
