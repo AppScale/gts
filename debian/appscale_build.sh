@@ -88,6 +88,7 @@ apt-get install -y autoconf automake libtool gcc g++ pkg-config ant maven2\
  ruby1.8-dev\
  zlib1g-dev\
  libexpat1-dev\
+ libcppunit-dev\
  libbz2-dev libreadline-dev\
  libxml2-dev
 
