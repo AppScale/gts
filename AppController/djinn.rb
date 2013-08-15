@@ -1157,6 +1157,13 @@ class Djinn
         backup_appcontroller_state
       end
 
+      # The Shadow doesn't have information about how many AppServers run
+      # on each node, what apps they're hosting, and so on. Therefore,
+      # have AppServer nodes back up info themselves.
+      if my_node.is_appengine?
+        backup_appserver_state
+      end
+
       # Login nodes host the AppDashboard app, which has links to each
       # of the apps running in AppScale. Update the files it reads to
       # reflect the most up-to-date info.
@@ -2104,6 +2111,7 @@ class Djinn
     }
   end
 
+
   def backup_appcontroller_state()
     state = {'@@secret' => @@secret }
 
@@ -2127,7 +2135,6 @@ class Djinn
   end
 
 
- 
   # Restores the state of each of the instance variables that the AppController
   # holds by pulling it from ZooKeeper (previously populated by the Shadow
   # node, who always has the most up-to-date version of this data).
@@ -2181,6 +2188,21 @@ class Djinn
     find_me_in_locations
 
     return true
+  end
+
+
+  # Saves a copy of the Hash that indicates where each App Engine app is
+  # running on this machine to ZooKeeper, in case this AppController crashes.
+  def backup_appserver_state()
+    ZKInterface.write_appserver_state(my_node.public_ip, @app_info_map)
+  end
+
+
+  # Contacts ZooKeeper to acquire information about the AppServers running on
+  # this machine, including what nginx, haproxy, and dev_appservers are running
+  # and bound to ports on this node.
+  def restore_appserver_state()
+    @app_info_map = ZKInterface.get_appserver_state(my_node.public_ip)
   end
 
 
