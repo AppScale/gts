@@ -17,12 +17,13 @@
 RUBY=/usr/bin/ruby
 PNAME=Progenitor
 PID=/tmp/progenitor.pid
+SECRET_FILE=/etc/appscale/secret.key
 
 case "$1" in
   start)
     log_begin_msg "Starting AppScale Progenitor.."
     LIVE_APPCONTROLLERS=$(ps -ef | grep "djinnServer" | grep -v "grep" | wc -l)
-    if [ $LIVE_APPCONTROLLERS -eq 0 ];
+    if [ $LIVE_APPCONTROLLERS -eq 0 -a -e $SECRET_FILE ];
     then
       log_begin_msg "AppController not running - starting it now."
       god --log /var/log/appscale/god.log -D &
