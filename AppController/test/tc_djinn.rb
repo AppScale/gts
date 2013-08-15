@@ -190,7 +190,7 @@ class TestDjinn < Test::Unit::TestCase
     djinn = Djinn.new
 
     credentials = ['table', 'cassandra', 'hostname', 'public_ip', 'ips', '', 
-      'keyname', 'appscale', 'alter_etc_resolv', 'False']
+      'keyname', 'appscale', 'alter_etc_resolv', 'False', 'verbose', 'False']
     one_node_info = JSON.dump([{
       'public_ip' => 'public_ip',
       'private_ip' => '1.2.3.4',
@@ -844,10 +844,7 @@ class TestDjinn < Test::Unit::TestCase
     # remote appcontrollers on the other boxes
     flexmock(File).should_receive(:open).with(/\A\/tmp\/god/, "w+", Proc).
       and_return()
-    flexmock(HelperFunctions).should_receive(:shell).with(/\Assh.* root@1.2.3.4 'god/).
-      and_return('')
-    flexmock(HelperFunctions).should_receive(:shell).with(/\Assh.* root@1.2.3.5 'god/).
-      and_return('')
+    flexmock(HelperFunctions).should_receive(:shell).with(/god/)
     flexmock(Kernel).should_receive(:system).
       with(/\Assh.* root@1.2.3.4 'rm -rf \/tmp\/god/).and_return('')
     flexmock(Kernel).should_receive(:system).
@@ -1041,10 +1038,7 @@ class TestDjinn < Test::Unit::TestCase
     # remote appcontrollers on the other boxes
     flexmock(File).should_receive(:open).with(/\A\/tmp\/god/, "w+", Proc).
       and_return()
-    flexmock(HelperFunctions).should_receive(:shell).with(/\Assh.* root@1.2.3.4 'god/).
-      and_return('')
-    flexmock(HelperFunctions).should_receive(:shell).with(/\Assh.* root@1.2.3.5 'god/).
-      and_return('')
+    flexmock(HelperFunctions).should_receive(:shell).with(/god/)
     flexmock(Kernel).should_receive(:system).
       with(/\Assh.* root@1.2.3.4 'rm -rf \/tmp\/god/).and_return('')
     flexmock(Kernel).should_receive(:system).
