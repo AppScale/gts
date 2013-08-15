@@ -21,12 +21,12 @@ module Collectd
   MAIN_CONFIG_FILE = File.join(COLLECTD_PATH, "collectd.#{CONFIG_EXTENSION}")
 
   def self.stop
-    `/etc/init.d/collectd stop`
+    #`/etc/init.d/collectd stop`
   end
 
   def self.restart
-    `/etc/init.d/collectd stop`
-    `/etc/init.d/collectd start`
+    #`/etc/init.d/collectd stop`
+    #`/etc/init.d/collectd start`
   end
 
   # Creates a config file for the provided app name
@@ -140,10 +140,10 @@ module Collectd
 </Plugin>
 CONFIG
 
-    config_path = File.join(SITES_ENABLED_PATH, "#{app_name}.#{CONFIG_EXTENSION}")
-    File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
+    #config_path = File.join(SITES_ENABLED_PATH, "#{app_name}.#{CONFIG_EXTENSION}")
+    #File.open(config_path, "w+") { |dest_file| dest_file.write(config) }
 
-    Collectd.restart
+    #Collectd.restart
   end
 
   def self.remove_app(app_name)
@@ -237,11 +237,11 @@ Include "/etc/collectd/thresholds.conf"
 CONFIG
 
     # Create the sites enabled folder
-    unless File.exists? SITES_ENABLED_PATH
-      FileUtils.mkdir_p SITES_ENABLED_PATH
-    end
+    #unless File.exists? SITES_ENABLED_PATH
+    #  FileUtils.mkdir_p SITES_ENABLED_PATH
+    #end
 
     # Write the base configuration file which sets default configuration parameters
-    File.open(MAIN_CONFIG_FILE, "w+") { |dest_file| dest_file.write(config) }
+    #File.open(MAIN_CONFIG_FILE, "w+") { |dest_file| dest_file.write(config) }
   end
 end

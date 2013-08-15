@@ -14,7 +14,7 @@ if [ ! -e VERSION ]; then
     exit 1
 fi
 
-supported_dbs=(hbase hypertable cassandra)
+supported_dbs=(cassandra)
 if [ $1 ]; then
     found=false
     for i in "${supported_dbs[@]}"
@@ -103,14 +103,6 @@ if [ $? -ne 0 ]; then
 fi
 
 
-# distro specific build environment
-if [ "${DIST}" = "jaunty" ]; then
-    	apt-get install -y libboost1.37-dev
-elif [ "${DIST}" = "lucid" ]; then
-    	apt-get install -y libboost1.40-dev
-elif [ "${DIST}" = "karmic" ]; then
-    	apt-get install -y libboost1.40-dev
-fi
 if [ $? -ne 0 ]; then
     echo "Fail to install depending packages for building."
     exit 1

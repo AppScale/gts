@@ -33,25 +33,25 @@ module Monitoring
       start_cmd = "/usr/bin/mongrel_rails start -c #{RAILS_ROOT} -e production -p #{port} " +
         "-P #{RAILS_ROOT}/log/mongrel.#{port}.pid"
       stop_cmd = "/usr/bin/mongrel_rails stop -P #{RAILS_ROOT}/log/mongrel.#{port}.pid"
-
-      GodInterface.start(:monitr, start_cmd, stop_cmd, port, env_vars)
+      
+      #GodInterface.start(:monitr, start_cmd, stop_cmd, port, env_vars)
     }
   end
 
   def self.stop
-    GodInterface.stop(:monitr)
+    #GodInterface.stop(:monitr)
     #`service appscale-monitoring stop`
   end
 
   def self.restart
-    self.stop
-    self.start
+    #self.stop
+    #self.start
   end
 
   # Clear out the entire database so no old meta-data is left over
   def self.reset
-    `cd #{APPSCALE_HOME}/AppMonitoring; #{ENVIRONMENT} rake db:drop;`
-    `cd #{APPSCALE_HOME}/AppMonitoring; #{ENVIRONMENT} rake db:migrate;`
+    #`cd #{APPSCALE_HOME}/AppMonitoring; #{ENVIRONMENT} rake db:drop;`
+    #`cd #{APPSCALE_HOME}/AppMonitoring; #{ENVIRONMENT} rake db:migrate;`
   end
 
   def self.name

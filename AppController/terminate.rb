@@ -50,7 +50,7 @@ module TerminateHelper
     `iptables -F`  # turn off the firewall
 
     ["memcached",
-     "nginx", "haproxy", "collectd", "collectdmon",
+     "nginx", "haproxy", "collectdmon",
      "soap_server", "appscale_server", "app_manager_server", "datastore_server",
      "taskqueue_server", "AppDashboard", "AppMonitoring",
 
@@ -63,18 +63,11 @@ module TerminateHelper
      # Cassandra
      "CassandraDaemon",
 
-     # Hadoop
-     "NameNode", "DataNode", "JobTracker", "TaskTracker",
-
-     # HBase, ZooKeeper
-     "HMaster", "HRegionServer", "HQuorumPeer", "QuorumPeerMain",
+     # ZooKeeper
      "ThriftServer",
 
-     # Hypertable
-     "Hyperspace", "Hypertable.Master", "Hypertable.RangeServer", "ThriftBroker",
-     "DfsBroker",
      "rabbitmq",
-     "thin", "god", "djinn", "xmpp_receiver",
+     "god", "djinn", "xmpp_receiver",
      "InfrastructureManager", "Neptune",
 
      # RabbitMQ, ejabberd
