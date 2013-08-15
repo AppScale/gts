@@ -26,7 +26,6 @@ case "$1" in
         installpython27
         installnumpy
         installpythonmemcache
-        installmatplotlib
         installPIL
         installpycrypto
         installlxml
@@ -88,7 +87,6 @@ case "$1" in
         installpython27
         installnumpy
         installpythonmemcache
-        installmatplotlib
         installPIL
         installpycrypto
         installlxml

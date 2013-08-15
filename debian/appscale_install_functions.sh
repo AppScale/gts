@@ -77,18 +77,6 @@ installnumpy()
     rm -fdr numpy-1.7.0
 }
 
-installmatplotlib()
-{
-    mkdir -pv ${APPSCALE_HOME}/downloads
-    cd ${APPSCALE_HOME}/downloads
-    wget $APPSCALE_PACKAGE_MIRROR/matplotlib-1.2.0.tar.gz
-    tar zxvf matplotlib-1.2.0.tar.gz
-    cd matplotlib-1.2.0
-    /usr/local/Python-2.7.3/python setup.py install
-    cd ..
-    rm -fdr matplotlib-1.2.0*
-}
-
 installPIL()
 {
     mkdir -pv ${APPSCALE_HOME}/downloads
