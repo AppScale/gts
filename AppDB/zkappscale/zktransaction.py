@@ -1047,14 +1047,18 @@ class ZKTransaction:
 
   def reestablish_connection(self):
     """ Checks the connection and resets it as needed. """
-    logging.info("Re-establishing ZooKeeper connection.")
+    logging.warning("Re-establishing ZooKeeper connection.")
+    reconnect_error = False
     try:
       self.handle.stop()
     except kazoo.exceptions.ZookeeperError as close_exception:
+      reconnect_error = True
       logging.exception(close_exception)
     except kazoo.exceptions.KazooException as kazoo_exception:
+      reconnect_error = True
       logging.exception(kazoo_exception)
     except Exception as exception:
+      reconnect_error = True
       logging.exception(exception)
 
     self.handle = kazoo.client.KazooClient(hosts=self.host,
@@ -1063,7 +1067,14 @@ class ZKTransaction:
     try:
       self.handle.start()
     except kazoo.exceptions.KazooException as kazoo_exception:
+      reconnect_error = True
       logging.exception(kazoo_exception)
+    except Exception as exception:
+      reconnect_error = True
+      logging.exception(exception)
+
+    if reconnect_error:
+      logging.error("Error re-establishing ZooKeeper connection!")
 
   def gc_runner(self):
     """ Transaction ID garbage collection (GC) runner.
