@@ -115,6 +115,9 @@ class DistributedTaskQueue():
     file_io.mkdir(TaskQueueConfig.CELERY_CONFIG_DIR)
 
     setup_env()
+  
+    # Cache all queue information in memory.
+    self.__queue_info_cache = {}
 
     master_db_ip = appscale_info.get_db_master_ip()
     connection_str = master_db_ip + ":" + str(constants.DB_SERVER_PORT)
@@ -214,7 +217,7 @@ class DistributedTaskQueue():
 
     # Load the queue info
     try:
-      config.load_queues_from_file(app_id)
+      self.__queue_info_cache[app_id] = config.load_queues_from_file(app_id)
       config.create_celery_file(TaskQueueConfig.QUEUE_INFO_FILE) 
       config.create_celery_worker_scripts(TaskQueueConfig.QUEUE_INFO_FILE)
     except ValueError, value_error:
@@ -453,8 +456,9 @@ class DistributedTaskQueue():
       try:
         db.put(new_name)
       except datastore_errors.InternalError, internal_error:
+        logging.error(str(internal_error))
         raise apiproxy_errors.ApplicationError(
-          taskqueue_service_pb.TaskQueueServiceError.DATABASE_ERROR)
+          taskqueue_service_pb.TaskQueueServiceError.DATASTORE_ERROR)
 
   def __enqueue_push_task(self, request):
     """ Enqueues a batch of push tasks.
@@ -465,8 +469,6 @@ class DistributedTaskQueue():
     self.__validate_push_task(request)
     self.__check_and_store_task_names(request)
     args = self.get_task_args(request)
-    logging.info("Request: {0}".format(str(request)))
-    logging.info("Task args: {0}".format(args))
     headers = self.get_task_headers(request)
     countdown = int(headers['X-AppEngine-TaskETA']) - \
           int(datetime.datetime.now().strftime("%s"))
@@ -533,6 +535,36 @@ class DistributedTaskQueue():
     args['max_backoff_sec'] = self.DEFAULT_MAX_BACKOFF 
     args['min_backoff_sec'] = self.DEFAULT_MIN_BACKOFF 
     args['max_doublings'] = self.DEFAULT_MAX_DOUBLINGS
+
+    # Load queue info into cache.
+    if request.app_id() not in self.__queue_info_cache:
+      try:
+        config = TaskQueueConfig(TaskQueueConfig.RABBITMQ, request.app_id())
+        self.__queue_info_cache[request.app_id()] = config.load_queues_from_file(
+          request.app_id())
+      except ValueError, value_error:
+        logging.error("Unable to load queues for app id {0} using defaults."\
+          .format(request.app_id()))
+      except NameError, name_error:
+        logging.error("Unable to load queues for app id {0} using defaults."\
+          .format(request.app_id()))
+  
+    # Use queue defaults.
+    if request.app_id() in self.__queue_info_cache:
+      queue_list = self.__queue_info_cache[request.app_id()]['queue']
+      for queue in queue_list:
+        if 'name' in queue and queue['name'] == request.queue_name():
+          if 'retry_parameters' in queue:
+            retry_params = queue['retry_parameters']
+            if 'task_retry_limit' in retry_params:
+              args['max_retries'] = retry_params['task_retry_limit']
+            if 'min_backoff_seconds' in retry_params:
+              args['min_backoff_sec'] = retry_params['min_backoff_seconds']
+            if 'max_backoff_seconds' in retry_params: 
+              args['max_backoff_sec'] = retry_params['max_backoff_seconds']
+            if 'max_doublings' in retry_params:
+              args['max_doublings'] = retry_params['max_doublings']
+          break
 
     # Override defaults.
     if request.has_retry_parameters():

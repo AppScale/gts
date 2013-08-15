@@ -137,7 +137,6 @@ queue:
       ValueError: If queue_file is unable to get loaded.
     """
     queue_file = self.get_queue_file_location(app_id)
-    logging.info("Looking for a queue file at {0}".format(queue_file))
     info = ""
     using_default = False
     try:
