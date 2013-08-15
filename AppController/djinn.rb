@@ -17,7 +17,6 @@ require 'yaml'
 require 'rubygems'
 require 'httparty'
 require 'json'
-require 'right_aws'
 require 'zookeeper'
 
 

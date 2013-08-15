@@ -309,7 +309,6 @@ installflexmock()
 
 postinstalltornado()
 {
-    # just enable tornado
     easy_install tornado
 }
 
@@ -354,29 +353,6 @@ postinstallhaproxy()
     update-rc.d -f haproxy remove || true
 }
 
-installtmux()
-{
-    # First, install tmux (do it from source to get the newest features)
-    cd ${APPSCALE_HOME}
-    wget $APPSCALE_PACKAGE_MIRROR/tmux-1.6.tar.gz
-    tar zxvf tmux-1.6.tar.gz
-    cd tmux-1.6
-    ./configure
-    make
-    make install
-    cd ${APPSCALE_HOME}
-    rm -rf tmux-1.6 tmux-1.6.tar.gz
-    
-    # Finally, grab our tmux config file and put it in the right place
-    cd
-    wget $APPSCALE_PACKAGE_MIRROR/tmux.conf -O .tmux.conf
-}
-
-postinstalltmux()
-{
-    :;
-}
-
 installgems()
 {
     # install gem here
@@ -398,33 +374,11 @@ installgems()
     # ZK 1.0 breaks our existing code - upgrade later
     gem install -v=0.9.3 zookeeper
     sleep 1
-    gem install neptune right_aws ${GEMOPT}
-    sleep 1
-    gem install god redgreen Ruby-MemCache ${GEMOPT}
-    sleep 1
-    #if [ ! -e ${DESTDIR}/usr/bin/god ]; then
-    #	echo "Fail to install god. Please Retry."
-    #	exit 1
-    #fi
-    gem install -v=2.3.4 rails ${GEMOPT}
-    sleep 1
-    gem install gem_plugin mongrel ${GEMOPT}
-    sleep 1
-    gem install mongrel_cluster ${GEMOPT}
-    #sleep 1
-    #if [ ! -e ${DESTDIR}/usr/bin/mongrel_rails ]; then
-    #	echo "Fail to install mongrel rails. Please Retry."
-    #	exit 1
-    #fi
+    gem install god ${GEMOPT}
     sleep 1
     gem install json ${GEMOPT}
     sleep 1
-
-    # This is for Neptune's Babel App Engine pull queue interface
-    # which is just REST, but httparty does such a nice job compared
-    # to previously used things
     gem install -v=0.8.3 httparty ${GEMOPT}
-
     # This is for the unit testing framework
     gem install -v=1.0.4 flexmock ${GEMOPT}
     gem install -v=1.0.0 rcov ${GEMOPT}
@@ -433,7 +387,7 @@ installgems()
 
 postinstallgems()
 {
-    ln -sf /var/lib/gems/1.8/bin/neptune /usr/bin/neptune
+    :;
 }
 
 installnginx()
@@ -557,15 +511,11 @@ installservice()
 postinstallservice()
 {
 
-    # stop unnecessary services
-#    service nginx stop || true
-#    service haproxy stop || true
+    # First, stop all services that don't need to be running at boot.
     service memcached stop || true
     service collectd stop || true
 
-    # remove unnecessary service
-#    update-rc.d -f nginx remove || true
-#    update-rc.d -f haproxy remove || true
+    # Next, remove them from the boot list.
     update-rc.d -f memcached remove || true
     update-rc.d -f collectd remove || true
 
@@ -607,15 +557,9 @@ installzookeeper()
     sed -i 's/1.5/1.7/g' build.xml
     ant
     ant compile_jute
-    #if [ ! -e build/zookeeper-${ZK_VER}.jar ]; then
-    #   echo "Fail to make zookeeper java jar. Please retry."
-    #   exit 1
-    #fi
 
     # build c library
-    #pushd src/c
     cd src/c
-#    sed -i 's/AM_PATH_CPPUNIT/:;#AM_PATH_CPPUNIT/g' configure.ac
     autoreconf -if
     ./configure --prefix=/usr
     make
@@ -625,9 +569,6 @@ installzookeeper()
         exit 1
     fi
     cd ../..
-
-    # apply memory leak patch of zkpython TODO check if 3.3.4-cdh3u3 needs it
-    #patch -p0 -i ${APPSCALE_HOME}/AppDB/zkappscale/patch/zkpython-memory.patch
 
     # python library
     easy_install kazoo
@@ -695,7 +636,6 @@ keygen()
     touch /root/.ssh/authorized_keys
     cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys
     chmod -v go-r /root/.ssh/authorized_keys
-#    ssh-copy-id -i /root/.ssh/id_rsa.pub root@localhost
 }
 
 installcelery()
