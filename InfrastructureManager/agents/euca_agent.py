@@ -51,8 +51,8 @@ class EucalyptusAgent(EC2Agent):
 
 
   def attach_disk(self, parameters, disk_name, instance_id):
-    """ Attaches the Elastic Block Store volume specified in 'disk_name' to this
-    virtual machine.
+    """ Attaches the Elastic Block Store (EBS) volume specified in 'disk_name'
+    to this virtual machine.
 
     This method differs from its EC2 counterpart because in EC2, we can ask the
     cloud to attach the disk to a certain location. In Euca, it determines where
@@ -61,7 +61,7 @@ class EucalyptusAgent(EC2Agent):
 
     Args:
       parameters: A dict with keys for each parameter needed to connect to AWS.
-      disk_name: A str naming the EBS mount to attach to this machine.
+      disk_name: A str naming the EBS volume to attach to this machine.
       instance_id: A str naming the id of the instance that the disk should be
         attached to. In practice, callers add disks to their own instances.
     Returns:
