@@ -33,6 +33,24 @@ module TerminateHelper
   end
 
 
+  # Tells any services that persist data across AppScale runs to stop writing
+  # new data to the filesystem, since killing them is imminent.
+  #
+  # For right now, this is just Cassandra and ZooKeeper.
+  def self.disable_database_writes
+    # First, tell Cassandra that no more writes should be accepted on this node.
+    ifconfig = `ifconfig`
+    bound_addrs = ifconfig.scan(/inet addr:(\d+.\d+.\d+.\d+)/).flatten
+    bound_addrs.delete("127.0.0.1")
+    ip = bound_addrs[0]
+
+    `/root/appscale/AppDB/cassandra/cassandra/bin/nodetool -h #{ip} -p 7070 drain`
+
+    # Next, stop ZooKeeper politely.
+    `service zookeeper stop`
+  end
+
+
   # Erases all data stored in the Datastore (Cassandra + ZooKeeper).
   def self.erase_database_state
     `rm -rf /var/appscale/cassandra`
@@ -90,9 +108,11 @@ module TerminateHelper
 
 end
 
+
 if __FILE__ == $0
   TerminateHelper.erase_appscale_state
 
+  TerminateHelper.disable_database_writes
   if ARGV.length == 1 and ARGV[0] == "clean"
     TerminateHelper.erase_database_state
   end

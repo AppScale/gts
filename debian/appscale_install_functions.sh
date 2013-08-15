@@ -461,7 +461,6 @@ installprotobuf_fromsource()
     make install
     pushd python
 # protobuf could not be installed in the different root
-#    python setup.py install --prefix=${DESTDIR}/usr
     python setup.py bdist_egg
 # copy the egg file
     DISTP=${DESTDIR}/usr/local/lib/python2.6/dist-packages
@@ -492,11 +491,16 @@ installservice()
     mkdir -pv ${DESTDIR}/etc/init.d/
     ln -sfv ${APPSCALE_HOME_RUNTIME}/appscale-controller.sh ${DESTDIR}/etc/init.d/appscale-controller
     chmod -v a+x ${APPSCALE_HOME}/appscale-controller.sh
+    ln -sfv ${APPSCALE_HOME_RUNTIME}/appscale-progenitor.sh ${DESTDIR}/etc/init.d/appscale-progenitor
+    chmod -v a+x ${APPSCALE_HOME}/appscale-progenitor.sh
+
+    # Make the progenitor start up when AppScale starts, so that it can start
+    # the AppController on system reboots.
+    update-rc.d -f appscale-progenitor defaults
 }
 
 postinstallservice()
 {
-
     # First, stop all services that don't need to be running at boot.
     service memcached stop || true
 
