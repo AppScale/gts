@@ -1123,13 +1123,17 @@ class Djinn
     end
 
     start_infrastructure_manager
+    data_restored, need_to_start_jobs = restore_appcontroller_state
 
-    if restore_appcontroller_state 
+    if data_restored
       parse_creds
     else
       erase_old_data
       wait_for_data
       parse_creds
+    end
+
+    if need_to_start_jobs
       change_job
     end
 
@@ -2132,12 +2136,18 @@ class Djinn
   # Restores the state of each of the instance variables that the AppController
   # holds by pulling it from ZooKeeper (previously populated by the Shadow
   # node, who always has the most up-to-date version of this data).
+  #
+  # Returns:
+  #   Two booleans, that indicate if (1) data was restored to this AppController
+  #   from either ZooKeeper or locally, and (2) if we need to start the roles
+  #   on this machine or not.
   def restore_appcontroller_state()
     Djinn.log_info("Restoring AppController state from local file")
 
+    restoring_from_local = true
     if !File.exists?(ZK_LOCATIONS_FILE)
       Djinn.log_info("No recovery data found - skipping recovery process")
-      return false
+      return false, restoring_from_local
     end
 
     zookeeper_data = HelperFunctions.read_json_file(ZK_LOCATIONS_FILE)
@@ -2156,6 +2166,7 @@ class Djinn
       end
 
       Djinn.log_info("Got data #{json_state.inspect} successfully from #{ip}")
+      restoring_from_local = false
       break
     }
 
@@ -2165,7 +2176,8 @@ class Djinn
       json_state = HelperFunctions.get_local_appcontroller_state()
       Djinn.log_info("Got data #{json_state} successfully from local" +
         " backup")
-    end
+      restoring_from_local = true
+  end
 
     @@secret = json_state['@@secret']
     keyname = json_state['@creds']['keyname']
@@ -2191,7 +2203,7 @@ class Djinn
     # which node in @nodes is ours
     find_me_in_locations
 
-    return true
+    return true, restoring_from_local
   end
 
 
