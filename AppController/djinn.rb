@@ -2177,6 +2177,16 @@ class Djinn
       Djinn.log_info("Got data #{json_state} successfully from local" +
         " backup")
       restoring_from_local = true
+
+      # Because we're restoring from our local state, that means we need to
+      # start up Cassandra and ZooKeeper. The user may have told us to erase
+      # all data on initial startup, but we don't want to erase any data we've
+      # accumulated in the meanwhile.
+      json_state['@creds']['clear_datastore'] = false
+
+      # Similarly, if the machine was halted, then no App Engine apps are
+      # running, so we need to start them all back up again.
+      json_state['@apps_loaded'] = []
   end
 
     @@secret = json_state['@@secret']
