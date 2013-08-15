@@ -89,7 +89,7 @@ apt-get install -y autoconf automake libtool gcc g++ pkg-config ant maven2\
  zlib1g-dev\
  libexpat1-dev\
  libbz2-dev libreadline-dev\
- libxml2-dev
+ libxml2-dev libfreetype6-dev
 
 if [ $? -ne 0 ]; then
     echo "Fail to install depending packages for building."
