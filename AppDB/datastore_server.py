@@ -61,7 +61,7 @@ entity_pb.Reference.__hash__ = lambda self: hash(self.Encode())
 datastore_pb.Query.__hash__ = lambda self: hash(self.Encode())
 
 # The datastores supported for this version of the AppScale datastore
-VALID_DATASTORES = ['cassandra', 'hbase', 'hypertable']
+VALID_DATASTORES = ['cassandra']
 
 # Port this service binds to if using SSL
 DEFAULT_SSL_PORT = 8443

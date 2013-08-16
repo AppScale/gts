@@ -1,6 +1,0 @@
----
-adapter: hypertable
-hostname: http://hornets.cs.ucsb.edu:8080
-database: appscale
-username: root
-password: fakepwd

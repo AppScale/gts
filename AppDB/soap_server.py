@@ -31,7 +31,7 @@ DEFAULT_USER_LOCATION = ".flatfile_users"
 
 DEFAULT_APP_LOCATION = ".flatfile_apps"
 
-DEFAULT_DATASTORE = "hbase"
+DEFAULT_DATASTORE = "cassandra"
 
 DEFAULT_SSL_PORT = 4343
 
@@ -919,9 +919,7 @@ def usage():
   print "args: --apps or -a for the application location"
   print "      --users or -u for the user location"
   print "      --type or -t for type of datastore"
-  print "        type available: hypertable"
-  print "                      hbase"
-  print "                      cassandra"
+  print "        type available: cassandra"
   print "      --port or -p for server port"
   print "      --http for http rather than ssl"
 

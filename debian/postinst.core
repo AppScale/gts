@@ -15,7 +15,6 @@ case "$1" in
 	postinstallmonitoring
 	postinstallservice
 	postinstallthrift_fromsource
-	postinstallhadoop
 	postinstallzookeeper
 	postinstallchimera
         postinstalltornado

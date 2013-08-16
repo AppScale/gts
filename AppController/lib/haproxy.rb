@@ -7,7 +7,6 @@ require 'fileutils'
 $:.unshift File.join(File.dirname(__FILE__))
 require 'helperfunctions'
 require 'app_dashboard'
-require 'monitoring'
 
 
 # As AppServers within AppScale are usually single-threaded, we run multiple
@@ -96,12 +95,6 @@ module HAProxy
     listen_port)
     self.create_app_config(my_public_ip, my_private_ip, listen_port, 
       AppDashboard::SERVER_PORTS, AppDashboard::NGINX_APP_NAME)
-  end
-
-  # Create the configuration file for the AppMonitoring Rails application
-  def self.create_app_monitoring_config(my_public_ip, my_private_ip, listen_port)
-    self.create_app_config(my_public_ip, my_private_ip, listen_port, 
-      Monitoring.server_ports, Monitoring.name)
   end
 
   # Create the config file for Datastore Server applications

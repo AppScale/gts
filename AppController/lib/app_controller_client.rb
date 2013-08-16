@@ -235,25 +235,6 @@ class AppControllerClient
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, "remove_role") { @conn.remove_role(role, @secret) }
   end
 
-  def run_neptune_job(nodes, job_data)
-    type = ""
-    if job_data.class == Array
-      type = job_data[0]["@type"]
-    else
-      type = job_data["@type"]
-    end
-    Djinn.log_debug("neptune job type is #{type}")
-
-    if NEPTUNE_JOBS.include?(type)
-      method_to_call = "neptune_#{type}_run_job"
-      @conn.add_method(method_to_call, "nodes", "jobs", "secret")
-      make_call(30, RETRY_ON_FAIL, "run_neptune_job") { @conn.send(method_to_call.to_sym, nodes, job_data, @secret) }
-    else
-      HelperFunctions.log_and_crash("The job type you specified, '#{type}'," +
-       "is not supported. Supported jobs are #{NEPTUNE_JOBS.join(', ')}.")
-    end
-  end
-
   def wait_for_node_to_be(new_roles)
     roles = new_roles.split(":")
 
