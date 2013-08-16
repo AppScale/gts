@@ -18,7 +18,7 @@ from google.appengine.datastore import datastore_query
 NAMESPACE_SEP = '/'
 
 # Default DB to use
-DB = "hbase"
+DB = "cassandra"
 
 class ValidateIDCase(unittest.TestCase):
   def setUp(self):

@@ -9,7 +9,7 @@ Homepage: http://community.appscale.com/
 Package: appscale-all
 Architecture: any
 # we must write appscale dependencies in this single line.
-Depends: appscale-cassandra, appscale-hbase, appscale-hypertable
+Depends: appscale-cassandra
 Description: An open-source framework for execution of GAE applications
  An open-source research framework for execution of
  Google AppEngine applications and investigation of
