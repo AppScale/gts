@@ -645,7 +645,10 @@ class Djinn
       @@log.level = Logger::INFO
     end
 
-    @creds['zone'] = JSON.load(@creds['zone'])
+    begin
+      @creds['zone'] = JSON.load(@creds['zone'])
+    rescue JSON::ParserError
+    end
 
     Djinn.log_run("mkdir -p /opt/appscale/apps")
 
