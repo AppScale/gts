@@ -127,10 +127,10 @@ def has_parameter(param, params):
     params  A dictionary of parameters
 
   Returns:
-    True if params contains param and the value of param is not None.
+    True if params contains param.
     Returns False otherwise.
   """
-  return params.has_key(param) and params[param] is not None
+  return params.has_key(param)
 
 
 def diff(list1, list2):
