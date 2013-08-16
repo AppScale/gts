@@ -54,7 +54,7 @@ class DatastoreGroomer(threading.Thread):
 
     Args:
       zk: ZooKeeper client.
-      table_name: The database used (cassandra, hypertable, etc).
+      table_name: The database used (ie, cassandra)
       ds_path: The connection path to the datastore_server.
     """
     logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:' \

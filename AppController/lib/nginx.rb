@@ -7,7 +7,6 @@ require 'fileutils'
 $:.unshift File.join(File.dirname(__FILE__))
 require 'helperfunctions'
 require 'app_dashboard'
-require 'monitoring'
 require 'datastore_server'
 
 
@@ -451,12 +450,6 @@ CONFIG
     self.create_app_config(my_public_ip, my_private_ip, proxy_port, 
       AppDashboard::LISTEN_PORT, AppDashboard::NGINX_APP_NAME,
       AppDashboard::PUBLIC_DIRECTORY, AppDashboard::LISTEN_SSL_PORT)
-  end
-
-  # Create the configuration file for the AppMonitoring Rails application
-  def self.create_app_monitoring_config(my_public_ip, my_private_ip, proxy_port)
-    self.create_app_config(my_public_ip, my_private_ip, proxy_port, 
-      Monitoring.listen_port, Monitoring.name, Monitoring.public_directory)
   end
 
   # Create the configuration file for the datastore_server
