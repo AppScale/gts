@@ -553,7 +553,7 @@ class DistributedTaskQueue():
     if request.app_id() in self.__queue_info_cache:
       queue_list = self.__queue_info_cache[request.app_id()]['queue']
       for queue in queue_list:
-        if 'name' in queue and queue['name'] == request.queue_name():
+        if queue.get('name') == request.queue_name():
           if 'retry_parameters' in queue:
             retry_params = queue['retry_parameters']
             if 'task_retry_limit' in retry_params:
