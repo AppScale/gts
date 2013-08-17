@@ -215,47 +215,6 @@ class AppControllerClient():
       self.secret))
 
 
-  def get_uaserver_host(self, is_verbose):
-    """Queries the AppController to see which machine is hosting the
-    UserAppServer, and at what IP it can be reached.
-
-    Args:
-      is_verbose: A bool that indicates if we should print out the first
-        AppController's status when we query it.
-    Returns:
-      The IP address where a UserAppServer can be located (although it is not
-      guaranteed to be running).
-    """
-    last_known_state = None
-    while True:
-      try:
-        status = self.get_status()
-        logging.debug('Received status from head node: ' + status)
-
-        if status == self.BAD_SECRET_MESSAGE:
-          raise AppControllerException("Could not authenticate successfully" + \
-            " to the AppController. You may need to change the keyname in use.")
-
-        match = re.search(r'Database is at (.*)', status)
-        if match and match.group(1) != 'not-up-yet':
-          return match.group(1)
-        else:
-          match = re.search(r'Current State: (.*)', status)
-          if match:
-            if last_known_state != match.group(1):
-              last_known_state = match.group(1)
-              sys.stderr.write(last_known_state)
-          else:
-            sys.stderr.write("Waiting for AppScale nodes to complete the " + \
-              "initialization process")
-      except AppControllerException as exception:
-        raise exception
-      except Exception as exception:
-        sys.stderr.write('Saw {0}, waiting a few moments to try again' \
-          .format(str(exception)))
-      time.sleep(self.WAIT_TIME)
-
-
   def get_status(self):
     """Queries the AppController to learn information about the machine it runs
     on.

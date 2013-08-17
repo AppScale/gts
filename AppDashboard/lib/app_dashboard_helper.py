@@ -18,6 +18,7 @@ from google.appengine.api.appcontroller_client import AppControllerClient
 from local_state import LocalState
 from secret_key import GLOBAL_SECRET_KEY
 from local_host import MY_PUBLIC_IP
+from uaserver_host import UA_SERVER_IP
 
 
 from google.appengine.api import users
@@ -168,9 +169,7 @@ class AppDashboardHelper():
       An SOAPpy object, representing a connection to the UserAppServer.
     """
     if self.uaserver is None:
-      acc = self.get_appcontroller_client()
-      uaserver_host = acc.get_uaserver_host(False)
-      self.uaserver = SOAPpy.SOAPProxy('https://{0}:{1}'.format(uaserver_host,
+      self.uaserver = SOAPpy.SOAPProxy('https://{0}:{1}'.format(UA_SERVER_IP,
         self.UA_SERVER_PORT))
     return self.uaserver
 
