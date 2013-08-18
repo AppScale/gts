@@ -22,6 +22,7 @@ All calls are made to a datastore server for queries, gets, puts, and deletes,
 index functions, transaction functions.
 """
 
+import collections
 import datetime
 import logging
 import sys
@@ -80,6 +81,104 @@ _MAX_ACTIONS_PER_TXN = 5
 
 
 
+class BaseIndexManager(object):
+  """An index manager that stores all meta-data in memory."""
+
+  WRITE_ONLY = entity_pb.CompositeIndex.WRITE_ONLY
+  READ_WRITE = entity_pb.CompositeIndex.READ_WRITE
+  DELETED = entity_pb.CompositeIndex.DELETED
+  ERROR = entity_pb.CompositeIndex.ERROR
+
+  _INDEX_STATE_TRANSITIONS = {
+    WRITE_ONLY: frozenset((READ_WRITE, DELETED, ERROR)),
+    READ_WRITE: frozenset((DELETED,)),
+    ERROR: frozenset((DELETED,)),
+    DELETED: frozenset((ERROR,)),
+  }
+
+
+  def __init__(self):
+    """ Constructor. """
+    self.__indexes = collections.defaultdict(list)
+    self.__indexes_lock = threading.Lock()
+    self.__next_index_id = 1
+    self.__index_id_lock = threading.Lock()
+
+  def __FindIndex(self, index):
+    """Finds an existing index by definition.
+
+    Args:
+      index: entity_pb.CompositeIndex
+    Returns:
+      entity_pb.CompositeIndex, if it exists; otherwise None
+    """
+    app = index.app_id()
+    if app in self.__indexes:
+      for stored_index in self.__indexes[app]:
+        if index.definition() == stored_index.definition():
+          return stored_index
+
+    return None
+
+  def CreateIndex(self, index, trusted=False, calling_app=None):
+    """ Creates a new index. 
+
+    Args:
+      index:
+      trusted: A boolean, if this app has access to all other app's data.
+      calling_app: A str, the application ID of the caller.
+    """
+    calling_app = datastore_types.ResolveAppId(calling_app)
+    assert index.id() == 0, 'New index id must be 0.'
+    assert not self.__FindIndex(index), 'Index already exists.'
+
+    self.__index_id_lock.acquire()
+    index.set_id(self.__next_index_id)
+    self.__next_index_id += 1
+    self.__index_id_lock.release()
+
+    clone = entity_pb.CompositeIndex()
+    clone.CopyFrom(index)
+    app = index.app_id()
+    clone.set_app_id(app)
+
+    self.__indexes_lock.acquire()
+    try:
+      self.__indexes[app].append(clone)
+    finally:
+      self.__indexes_lock.release()
+
+    return index.id()
+
+  def GetIndexes(self, app, trusted=False, calling_app=None):
+    """Get the CompositeIndex objects for the given app."""
+    calling_app = datastore_types.ResolveAppId(calling_app)
+
+    return self.__indexes[app]
+
+  def UpdateIndex(self, index, trusted=False, calling_app=None):
+    """ Updates a composite index. """
+    stored_index = self.__FindIndex(index)
+    assert stored_index, 'Index does not exist.'
+    assert index.state() == stored_index.state() or index.state() in self._INDEX_STATE_TRANSITIONS[stored_index.state()], 'cannot move index state from %s to %s' % (entity_pb.CompositeIndex.State_Name(stored_index.state()), (entity_pb.CompositeIndex.State_Name(index.state())))
+
+    self.__indexes_lock.acquire()
+    try:
+      stored_index.set_state(index.state())
+    finally:
+      self.__indexes_lock.release()
+
+  def DeleteIndex(self, index, trusted=False, calling_app=None):
+    """ Deletes a composite index. """
+    stored_index = self.__FindIndex(index)
+    assert stored_index, 'Index does not exist.'
+
+    app = index.app_id()
+    self.__indexes_lock.acquire()
+    try:
+      self.__indexes[app].remove(stored_index)
+    finally:
+      self.__indexes_lock.release()
 
 
 class DatastoreDistributed(apiproxy_stub.APIProxyStub):
@@ -111,25 +210,14 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     users.User: entity_pb.PropertyValue.kUserValueGroup,
     }
 
-  WRITE_ONLY = entity_pb.CompositeIndex.WRITE_ONLY
-  READ_WRITE = entity_pb.CompositeIndex.READ_WRITE
-  DELETED = entity_pb.CompositeIndex.DELETED
-  ERROR = entity_pb.CompositeIndex.ERROR
-
-  _INDEX_STATE_TRANSITIONS = {
-    WRITE_ONLY: frozenset((READ_WRITE, DELETED, ERROR)),
-    READ_WRITE: frozenset((DELETED,)),
-    ERROR: frozenset((DELETED,)),
-    DELETED: frozenset((ERROR,)),
-  }
-
   def __init__(self,
                app_id,
                datastore_location,
                history_file=None,
                require_indexes=False,
                service_name='datastore_v3',
-               trusted=False):
+               trusted=False,
+               root_path='/var/apps/'):
     """Constructor.
 
     Args:
@@ -141,6 +229,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
       service_name: Service name expected for all calls.
       trusted: bool, default False.  If True, this stub allows an app to
         access the data of another app.
+      root_path: A str, the path where index.yaml can be found.
     """
     super(DatastoreDistributed, self).__init__(service_name)
 
@@ -167,7 +256,10 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     self.__queries = {}
 
     self.__require_indexes = require_indexes
-
+    self.__index_manager = BaseIndexManager()
+    self.__root_path = root_path
+    self.__cached_yaml = (None, None, None)
+    self._SetupIndexes()
 
   def Clear(self):
     """ Clears the datastore by deleting all currently stored entities and
@@ -638,6 +730,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
   def _Dynamic_CreateIndex(self, index, id_response):
     """ Create a new index. Currently stubbed out."""
+    logging.info("Create index: %s" % str(index))
     self.__ValidateAppId(index.app_id())
     if index.id() != 0:
       raise apiproxy_errors.ApplicationError(datastore_pb.Error.BAD_REQUEST,
@@ -647,12 +740,83 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
   def _Dynamic_GetIndices(self, app_str, composite_indices):
     """ Gets the indices of the current app. Currently stubbed out. """
+    logging.info("Get indices: %s" % str(app_str))
     return 
 
   def _Dynamic_UpdateIndex(self, index, void):
     """ Updates the indices of the current app. Currently stubbed out. """
+    logging.info("Update index: %s" % str(index))
     return 
     
   def _Dynamic_DeleteIndex(self, index, void):
     """ Deletes an index of the current app. Currently stubbed out. """
+    logging.info("Delete index: %s" % str(index))
     return void
+
+  def _SetupIndexes(self, _open=open):
+    """Ensure that the set of existing composite indexes matches index.yaml.
+    
+    Create any new indexes, and delete indexes which are no longer required.
+
+    Note: this is similar to the algorithm used by the admin console for
+    the same purpose.
+    """
+    if not self.__root_path:
+      logging.warning("No index.yaml was loaded.")
+      return
+
+    index_yaml_file = os.path.join(self.__root_path, 'index.yaml')
+    if (self.__cached_yaml[0] == index_yaml_file and
+        os.path.exists(index_yaml_file) and
+        os.path.getmtime(index_yaml_file) == self.__cached_yaml[1]):
+      requested_indexes = self.__cached_yaml[2]
+    else:
+      try:
+        index_yaml_mtime = os.path.getmtime(index_yaml_file)
+        fh = _open(index_yaml_file, 'r')
+      except (OSError, IOError):
+        index_yaml_data = None
+      else:
+        try:
+          index_yaml_data = fh.read()
+        finally:
+          fh.close()
+
+      requested_indexes = []
+      if index_yaml_data is not None:
+        index_defs = datastore_index.ParseIndexDefinitions(index_yaml_data)
+        if index_defs is not None and index_defs.indexes is not None:
+          requested_indexes = datastore_index.IndexDefinitionsToProtos(
+              self.__app_id,
+              index_defs.indexes)
+          self.__cached_yaml = (index_yaml_file, index_yaml_mtime,
+                               requested_indexes)
+    existing_indexes = self._datastore.GetIndexes(
+        self._app_id, self._trusted, self._app_id)
+
+    requested = dict((x.definition().Encode(), x) for x in requested_indexes)
+    existing = dict((x.definition().Encode(), x) for x in existing_indexes)
+
+    # Compared the existing indexes to the requested ones and create any
+    # new indexes requested.
+    created = 0
+    for key, index in requested.iteritems():
+      if key not in existing:
+        new_index = entity_pb.CompositeIndex()
+        new_index.CopyFrom(index)
+        new_index.set_id(datastore_admin.CreateIndex(new_index))
+        new_index.set_state(entity_pb.CompositeIndex.READ_WRITE)
+        datastore_admin.UpdateIndex(new_index)
+        created += 1
+
+    # Delete any indexes that are no longer requested.
+    deleted = 0
+    for key, index in existing.iteritems():
+      if key not in requested:
+        datastore_admin.DeleteIndex(index)
+        deleted += 1
+
+    if created or deleted:
+      logging.info('Created %d and deleted %d index(es); total %d',
+                    created, deleted, len(requested))
+
