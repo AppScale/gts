@@ -741,6 +741,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
   def _Dynamic_GetIndices(self, app_str, composite_indices):
     """ Gets the indices of the current app. Currently stubbed out. """
     logging.info("Get indices: %s" % str(app_str))
+   # TODO send these remotely
     return 
 
   def _Dynamic_UpdateIndex(self, index, void):
@@ -757,9 +758,9 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     """Ensure that the set of existing composite indexes matches index.yaml.
     
     Create any new indexes, and delete indexes which are no longer required.
-
-    Note: this is similar to the algorithm used by the admin console for
-    the same purpose.
+   
+    Args:
+      _open: Function used to open a file.
     """
     if not self.__root_path:
       logging.warning("No index.yaml was loaded.")
