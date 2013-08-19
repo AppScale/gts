@@ -39,9 +39,14 @@ module CronHelper
 
     if lang == "python" or lang == "python27" or lang == "go"
       cron_file = "/var/apps/#{app}/app/cron.yaml"
-      return unless File.exists?(cron_file)
-      yaml_file = YAML.load_file(cron_file)
-      return if not yaml_file
+
+      begin
+        yaml_file = YAML.load_file(cron_file)
+        return if not yaml_file
+      rescue ArgumentError, Errno::ENOENT
+        Djinn.log_error("Was not able to update cron for app #{app}")
+        return
+      end
 
       cron_routes = yaml_file["cron"]
       return if cron_routes.nil?
