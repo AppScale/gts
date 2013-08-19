@@ -14,7 +14,6 @@ module TerminateHelper
     `rm -f #{APPSCALE_HOME}/.appscale/secret.key`
     `rm -f #{APPSCALE_HOME}/.appscale/status-*`
     `rm -f #{APPSCALE_HOME}/.appscale/database_info`
-    `rm -f #{APPSCALE_HOME}/.appscale/neptune_info.txt`
     `rm -f /tmp/uploaded-apps`
     `rm -f ~/.appscale_cookies`
     `rm -f /var/log/appscale/*.log`
@@ -31,7 +30,24 @@ module TerminateHelper
 
     # TODO(cgb): Use the constant in djinn.rb (ZK_LOCATIONS_FILE)
     `rm -rf /etc/appscale/zookeeper_locations.json`
-    `rm -rf /var/cache/neptune/*`
+  end
+
+
+  # Tells any services that persist data across AppScale runs to stop writing
+  # new data to the filesystem, since killing them is imminent.
+  #
+  # For right now, this is just Cassandra and ZooKeeper.
+  def self.disable_database_writes
+    # First, tell Cassandra that no more writes should be accepted on this node.
+    ifconfig = `ifconfig`
+    bound_addrs = ifconfig.scan(/inet addr:(\d+.\d+.\d+.\d+)/).flatten
+    bound_addrs.delete("127.0.0.1")
+    ip = bound_addrs[0]
+
+    `/root/appscale/AppDB/cassandra/cassandra/bin/nodetool -h #{ip} -p 7070 drain`
+
+    # Next, stop ZooKeeper politely.
+    `service zookeeper stop`
   end
 
 
@@ -50,9 +66,9 @@ module TerminateHelper
     `iptables -F`  # turn off the firewall
 
     ["memcached",
-     "nginx", "haproxy", "collectd", "collectdmon",
+     "nginx", "haproxy",
      "soap_server", "appscale_server", "app_manager_server", "datastore_server",
-     "taskqueue_server", "AppDashboard", "AppMonitoring",
+     "taskqueue_server", "AppDashboard",
 
      # AppServer
      "dev_appserver", "DevAppServerMain",
@@ -63,18 +79,11 @@ module TerminateHelper
      # Cassandra
      "CassandraDaemon",
 
-     # Hadoop
-     "NameNode", "DataNode", "JobTracker", "TaskTracker",
-
-     # HBase, ZooKeeper
-     "HMaster", "HRegionServer", "HQuorumPeer", "QuorumPeerMain",
+     # ZooKeeper
      "ThriftServer",
 
-     # Hypertable
-     "Hyperspace", "Hypertable.Master", "Hypertable.RangeServer", "ThriftBroker",
-     "DfsBroker",
      "rabbitmq",
-     "thin", "god", "djinn", "xmpp_receiver",
+     "god", "djinn", "xmpp_receiver",
      "InfrastructureManager", "Neptune",
 
      # RabbitMQ, ejabberd
@@ -99,9 +108,11 @@ module TerminateHelper
 
 end
 
+
 if __FILE__ == $0
   TerminateHelper.erase_appscale_state
 
+  TerminateHelper.disable_database_writes
   if ARGV.length == 1 and ARGV[0] == "clean"
     TerminateHelper.erase_database_state
   end
