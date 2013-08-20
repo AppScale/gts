@@ -47,6 +47,8 @@ ports.each do |port|
     w.name = "#{watch_name}-#{port}"
     w.group = watch_name
     w.start = start_command
+    w.interval = 10.seconds
+    w.pid_file = "/var/appscale/#{5}-#{6}.pid"
     w.log = "/var/log/appscale/#{watch_name}-#{port}.log"
     w.keepalive(:memory_max => 150.megabytes)
 BAZ
