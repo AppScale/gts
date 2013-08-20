@@ -46,11 +46,26 @@ ports.each do |port|
   God.watch do |w|
     w.name = "#{watch_name}-#{port}"
     w.group = watch_name
-    w.start = start_command
     w.interval = 10.seconds
-    w.pid_file = "/var/appscale/#{5}-#{6}.pid"
+    w.start = start_command
+    w.stop = stop_command
     w.log = "/var/log/appscale/#{watch_name}-#{port}.log"
-    w.keepalive(:memory_max => 150.megabytes)
+    w.pid_file = "/var/appscale/#{watch_name}-#{port}.pid"
+
+    w.behavior(:clean_pid_file)
+
+    w.start_if do |start|
+      start.condition(:process_running) do |c|
+        c.running = false
+      end
+    end
+
+    w.restart_if do |restart|
+      restart.condition(:memory_usage) do |c|
+        c.above = 150.megabytes
+        c.times = [3, 5] # 3 out of 5 intervals
+      end
+    end
 BAZ
 
       if !env_vars.nil? and !env_vars.empty?
