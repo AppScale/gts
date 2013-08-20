@@ -264,9 +264,16 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
     """Returns a dict that maps Query PBs to times they've been run."""
     return []
 
+  def _maybeSetDefaultAuthDomain(self):
+    """ Sets default auth domain if not set. """
+    auth_domain = os.environ.get("AUTH_DOMAIN")
+    if not auth_domain:
+      os.environ['AUTH_DOMAIN'] = "appscale.com" 
+
   def _RemoteSend(self, request, response, method):
     """Sends a request remotely to the datstore server. """
     tag = self.__app_id
+    self._maybeSetDefaultAuthDomain() 
     user = users.GetCurrentUser()
     if user != None:
       tag += ":" + user.email()
@@ -304,6 +311,7 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
   def _Dynamic_Put(self, put_request, put_response):
     """Send a put request to the datastore server. """
     put_request.set_trusted(self.__trusted)
+    #TODO Add in all the indexes which should be built.
     self._RemoteSend(put_request, put_response, "Put")
     return put_response 
 
@@ -630,32 +638,35 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
 
   def _Dynamic_CreateIndex(self, index, id_response):
     """ Create a new index. Currently stubbed out."""
-    logging.info("Create index: %s" % str(index))
-    self.__ValidateAppId(index.app_id())
     if index.id() != 0:
       raise apiproxy_errors.ApplicationError(datastore_pb.Error.BAD_REQUEST,
                                              'New index id must be 0.')
-    index_value = random.randint(1, 99999999)
-    id_response.set_value(index_value)
+    logging.info("Create index: %s" % str(index))
+    self._RemoteSend(index, id_response, "CreateIndex")
+    logging.info("Response: %s" % id_response.value())
     return id_response
 
   def _Dynamic_GetIndices(self, app_str, composite_indices):
     """ Gets the indices of the current app. Currently stubbed out. 
 
     Args:
-      app_str: A str, the application identifier.
+      app_str: A api_base_pb.StringProto, the application identifier.
       composite_indices: datastore_pb.CompositeIndices protocol buffer."""
     logging.info("Get indices: %s" % str(app_str))
+    self._RemoteSend(app_str, composite_indices, "GetIndices")
+    logging.info("Response: %s" % str(composite_indices))
     return composite_indices
 
   def _Dynamic_UpdateIndex(self, index, void):
     """ Updates the indices of the current app. Currently stubbed out. """
     logging.info("Update index: %s" % str(index))
+    self._RemoteSend(index, void, "UpdateIndex")
     return 
     
   def _Dynamic_DeleteIndex(self, index, void):
     """ Deletes an index of the current app. Currently stubbed out. """
     logging.info("Delete index: %s" % str(index))
+    self._RemoteSend(index, void, "DeleteIndex")
     return void
 
   def _SetupIndexes(self, _open=open):
@@ -699,7 +710,9 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
      
     logging.info("Requested indexes: %s" % str(requested_indexes))
     existing_indexes = datastore_pb.CompositeIndices()
-    self._Dynamic_GetIndices(self.__app_id, existing_indexes)
+    app_str = api_base_pb.StringProto()
+    app_str.set_value(self.__app_id)
+    self._Dynamic_GetIndices(app_str, existing_indexes)
 
     requested = dict((x.definition().Encode(), x) for x in requested_indexes)
     existing = dict((x.definition().Encode(), x) for x in 

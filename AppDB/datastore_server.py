@@ -13,6 +13,7 @@ import itertools
 import logging
 import md5
 import os
+import random
 import sys
 import time
 
@@ -2469,7 +2470,8 @@ class MainHandler(tornado.web.RequestHandler):
       errcode = 0
       errdetail = ""
       response = api_base_pb.Integer64Proto()
-      response.set_value(0)
+      rand = random.randint(1, 9999999)
+      response.set_value(rand)
       response = response.Encode()
 
     elif method == "GetIndices":
