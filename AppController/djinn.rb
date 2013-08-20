@@ -3855,13 +3855,13 @@ HOSTS
         # AppDashboard for users to view.
         case get_scaling_info_for_app(app_name)
         when :scale_up
-          Djinn.log_info("Considering scaling up app #{app_name}.")
+          Djinn.log_debug("Considering scaling up app #{app_name}.")
           try_to_scale_up(app_name)
         when :scale_down
-          Djinn.log_info("Considering scaling down app #{app_name}.")
+          Djinn.log_debug("Considering scaling down app #{app_name}.")
           try_to_scale_down(app_name)
         else
-          Djinn.log_info("Not scaling app #{app_name} up or down right now.")
+          Djinn.log_debug("Not scaling app #{app_name} up or down right now.")
         end
       }
     }
@@ -4024,7 +4024,7 @@ HOSTS
     appservers_running = @app_info_map[app_name]['appengine'].length
 
     if appservers_running <= MIN_APPSERVERS_ON_THIS_NODE
-      Djinn.log_info("The minimum number of AppServers for this app " +
+      Djinn.log_debug("The minimum number of AppServers for this app " +
         "are already running, so don't remove any more off this machine.")
       ZKInterface.request_scale_down_for_app(app_name, my_node.private_ip)
       return
