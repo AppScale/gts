@@ -52,28 +52,20 @@ module HAProxy
   ALB_SERVER_TIMEOUT = 300000
 
   
-  # The location of the script that god uses to see if haproxy is running,
-  # restarting it if necessary.
-  START_HAPROXY_SCRIPT = File.dirname(__FILE__) + "/../" + \
-                          "/scripts/start_haproxy.sh"
-
   def self.start
-    start_cmd = "bash #{START_HAPROXY_SCRIPT}"
-    stop_cmd = "service haproxy stop"
-    port = 9999
-    GodInterface.start(:haproxy, start_cmd, stop_cmd, port)
+    Djinn.log_run("service haproxy start")
   end
 
   def self.stop
-    GodInterface.stop(:haproxy)
+    Djinn.log_run("service haproxy stop")
   end
 
   def self.restart
-    `service haproxy restart`
+    Djinn.log_run("service haproxy restart")
   end
 
   def self.reload
-    `service haproxy reload`
+    Djinn.log_run("service haproxy reload")
   end
 
   def self.is_running?

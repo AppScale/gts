@@ -219,7 +219,7 @@ def kill_app_instances_for_app(app_name):
   Returns:
     A list of the process IDs whose instances were terminated.
   """
-  pid_files = glob.glob(constants.APP_PID_DIR + app_name + '-*')
+  pid_files = glob.glob(constants.APP_PID_DIR + app_name + '-*.pid')
   pids_killed = []
   for pid_file in pid_files:
     pid = file_io.read(pid_file)

@@ -62,16 +62,7 @@ module TaskQueue
     Djinn.log_info("Starting TaskQueue Master")
     self.write_cookie()
     self.erase_local_files()
-    # Because god cannot keep track of RabbitMQ because of it's changing 
-    # PIDs, we put in a guard on the start command to not start it if 
-    # its already running.
-    start_cmd = "bash #{RABBITMQ_START_SCRIPT} " +\
-                "#{HelperFunctions.get_secret()}"
-    stop_cmd = "rabbitmqctl stop"
-    env_vars = {}
-    GodInterface.start(:rabbitmq, start_cmd, stop_cmd, SERVER_PORT, env_vars)
-    # TODO: Investigate why do we run this twice? Once with god and once here.
-    Djinn.log_run("#{start_cmd}")
+    Djinn.log_run("bash #{RABBITMQ_START_SCRIPT} #{HelperFunctions.get_secret()}")
 
     start_taskqueue_server()
     HelperFunctions.sleep_until_port_is_open("localhost", TASKQUEUE_SERVER_PORT)
@@ -149,15 +140,14 @@ module TaskQueue
     stop_cmd = "python -c \"import celery; celery = celery.Celery(); celery.control.broadcast('shutdown')\""
     Djinn.log_run(stop_cmd)
     Djinn.log_debug("Shutting down RabbitMQ")
-    GodInterface.stop(:rabbitmq)
+    Djinn.log_run("rabbitmqctl stop")
     self.stop_taskqueue_server()
   end
 
   # Stops the AppScale TaskQueue server.
   def self.stop_taskqueue_server()
     Djinn.log_debug("Stopping taskqueue_server on this node")
-    stop_cmd = TASKQUEUE_STOP_CMD
-    Djinn.log_run(stop_cmd)
+    Djinn.log_run(TASKQUEUE_STOP_CMD)
     GodInterface.stop(:taskqueue)
     Djinn.log_debug("Done stopping taskqueue_server on this node")
   end
