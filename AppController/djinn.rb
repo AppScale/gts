@@ -3463,7 +3463,7 @@ HOSTS
   def start_memcache()
     @state = "Starting up memcache"
     Djinn.log_info("Starting up memcache")
-    start_cmd = "/usr/bin/memcached -d -m 32 -p 11211 -u root"
+    start_cmd = "/usr/bin/memcached -m 32 -p 11211 -u root"
     stop_cmd = "pkill memcached"
     GodInterface.start(:memcached, start_cmd, stop_cmd, [11211])
   end
