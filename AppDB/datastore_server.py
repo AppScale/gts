@@ -1920,16 +1920,12 @@ class DatastoreDistributed():
         oper1 = filter_ops[0][0]
         oper2 = filter_ops[1][0]
         value1 = str(filter_ops[0][1])
-        value1 = str(value1[1:])
         value2 = str(filter_ops[1][1])
-        value2 = str(value2[1:])
       else:
         oper1 = filter_ops[1][0]
         oper2 = filter_ops[0][0]
         value1 = str(filter_ops[1][1])
-        value1 = str(value1[1:])
         value2 = str(filter_ops[0][1])
-        value2 = str(value2[1:])
 
       if direction == datastore_pb.Query_Order.ASCENDING:
         table_name = dbconstants.ASC_PROPERTY_TABLE
