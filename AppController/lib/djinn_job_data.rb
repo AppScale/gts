@@ -83,6 +83,8 @@ class DjinnJobData
       jobs = "not doing anything"
     elsif @jobs.class == Array
       jobs = @jobs.join(', ')
+    else
+      jobs = @jobs
     end
 
     status = "Node in cloud #{@cloud} with instance id #{@instance_id}" +
