@@ -4276,12 +4276,12 @@ HOSTS
   def examine_scale_down_requests(all_scaling_votes)
     # First, only scale down in cloud environments.
     if !is_cloud?
-      Djinn.log_info("Not scaling down VMs, because we aren't in a cloud.")
+      Djinn.log_debug("Not scaling down VMs, because we aren't in a cloud.")
       return 0
     end
 
     if @nodes.length <= Integer(@creds['min_images'])
-      Djinn.log_info("Not scaling down VMs right now, as we are at the " +
+      Djinn.log_debug("Not scaling down VMs right now, as we are at the " +
         "minimum number of nodes the user wants to use.")
       return 0
     end
