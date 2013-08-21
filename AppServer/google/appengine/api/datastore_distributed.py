@@ -311,7 +311,21 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
   def _Dynamic_Put(self, put_request, put_response):
     """Send a put request to the datastore server. """
     put_request.set_trusted(self.__trusted)
-    #TODO Add in all the indexes which should be built.
+    
+    ent_kinds = []
+    for ent in put_request.entity_list():
+      last_path = ent.key().path().element_list()[-1]
+      if last_path.type() not in ent_kinds:
+        ent_kinds.append(last_path.type())
+
+    for kind in ent_kinds:
+      indexes = self.__index_cache.get(kind)
+      if indexes:
+        for index in indexes:
+          new_composite = put_request.add_composite_index()
+          new_composite.CopyFrom(index)
+
+    logging.info("Sening indxes %s" % str(put_request))
     self._RemoteSend(put_request, put_response, "Put")
     return put_response 
 
@@ -739,8 +753,14 @@ class DatastoreDistributed(apiproxy_stub.APIProxyStub):
         created += 1
   
         ent_kind = new_index.definition().entity_type()
+        logging.info("Index cache %s" % str(self.__index_cache))
         if ent_kind in self.__index_cache:
-          self.__index_cache[ent_kind].extend(new_index)
+          new_indexes = self.__index_cache[ent_kind]
+          logging.info("new_indexes: %s" % str(new_indexes))
+          logging.info("new_index:  %s" % str(new_index))
+     
+          new_indexes.append(new_index)
+          self.__index_cache[ent_kind] = new_indexes
         else:
           self.__index_cache[ent_kind] = [new_index]
 
