@@ -829,10 +829,8 @@ class Djinn
     }
 
     stats['apps'] = {}
-    APPS_LOCK.synchronize {
-      @app_names.each { |name|
-        stats['apps'][name] = @apps_loaded.include?(name)
-      }
+    @app_names.each { |name|
+      stats['apps'][name] = @apps_loaded.include?(name)
     }
     return stats
   end
@@ -1697,12 +1695,10 @@ class Djinn
     return if message.empty?
     return if level < @@log.level
     time = Time.now
-    APPS_LOCK.synchronize {
-      @@logs_buffer << {
-        'timestamp' => time.to_i,
-        'level' => level + 1,  # Python and Java are one higher than Ruby
-        'message' => message
-      }
+    @@logs_buffer << {
+      'timestamp' => time.to_i,
+      'level' => level + 1,  # Python and Java are one higher than Ruby
+      'message' => message
     }
     return
   end
@@ -3467,7 +3463,7 @@ HOSTS
   def start_memcache()
     @state = "Starting up memcache"
     Djinn.log_info("Starting up memcache")
-    start_cmd = "/usr/bin/memcached -d -m 32 -p 11211 -u root"
+    start_cmd = "/usr/bin/memcached -m 32 -p 11211 -u root"
     stop_cmd = "pkill memcached"
     GodInterface.start(:memcached, start_cmd, stop_cmd, [11211])
   end
@@ -3855,13 +3851,13 @@ HOSTS
         # AppDashboard for users to view.
         case get_scaling_info_for_app(app_name)
         when :scale_up
-          Djinn.log_info("Considering scaling up app #{app_name}.")
+          Djinn.log_debug("Considering scaling up app #{app_name}.")
           try_to_scale_up(app_name)
         when :scale_down
-          Djinn.log_info("Considering scaling down app #{app_name}.")
+          Djinn.log_debug("Considering scaling down app #{app_name}.")
           try_to_scale_down(app_name)
         else
-          Djinn.log_info("Not scaling app #{app_name} up or down right now.")
+          Djinn.log_debug("Not scaling app #{app_name} up or down right now.")
         end
       }
     }
@@ -4024,7 +4020,7 @@ HOSTS
     appservers_running = @app_info_map[app_name]['appengine'].length
 
     if appservers_running <= MIN_APPSERVERS_ON_THIS_NODE
-      Djinn.log_info("The minimum number of AppServers for this app " +
+      Djinn.log_debug("The minimum number of AppServers for this app " +
         "are already running, so don't remove any more off this machine.")
       ZKInterface.request_scale_down_for_app(app_name, my_node.private_ip)
       return
