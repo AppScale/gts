@@ -81,7 +81,7 @@ class DjinnJobData
   def to_s
     if @jobs.empty?
       jobs = "not doing anything"
-    else
+    elsif jobs.class == Array
       jobs = @jobs.join(', ')
     end
 
