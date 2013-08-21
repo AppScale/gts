@@ -3670,6 +3670,7 @@ HOSTS
     if my_node.is_appengine?
       begin
         static_handlers = HelperFunctions.parse_static_data(app)
+        Djinn.log_run("chmod -R +r #{HelperFunctions.get_cache_path(app)}")
       rescue Exception => e
         # This specific exception may be a json parse error
         error_msg = "ERROR: Unable to parse app.yaml file for #{app}." + \
