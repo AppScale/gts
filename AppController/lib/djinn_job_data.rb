@@ -28,7 +28,17 @@ class DjinnJobData
 
     @public_ip = json_data['public_ip']
     @private_ip = json_data['private_ip']
-    @jobs = json_data['jobs']
+
+    jobs = json_data['jobs']
+    if jobs.class == Array
+      @jobs = jobs
+    elsif jobs.class == String
+      @jobs = [jobs]
+    else
+      HelperFunctions.log_and_crash("Jobs must be an Array or String, not " +
+        "a #{jobs.class} containing #{jobs}")
+    end
+
     @cloud = "cloud1"
     @instance_id = json_data['instance_id']
     @disk = json_data['disk']
@@ -38,7 +48,7 @@ class DjinnJobData
 
   def add_roles(roles)
     new_jobs = roles.split(":")
-    @jobs = ([@jobs] + new_jobs).flatten.uniq
+    @jobs = (@jobs + new_jobs).uniq
     @jobs.delete("open")
   end
 
@@ -73,10 +83,8 @@ class DjinnJobData
   def to_s
     if @jobs.empty?
       jobs = "not doing anything"
-    elsif @jobs.class == Array
-      jobs = @jobs.join(', ')
     else
-      jobs = @jobs
+      jobs = @jobs.join(', ')
     end
 
     status = "Node in cloud #{@cloud} with instance id #{@instance_id}" +

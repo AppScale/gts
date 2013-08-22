@@ -2370,6 +2370,12 @@ class Djinn
           "roles on this node")
         roles_to_start.each { |role|
           Djinn.log_info("Starting role #{role}")
+
+          # When starting the App Engine role, we need to make sure that we load
+          # all the App Engine apps on this machine.
+          if role == "appengine"
+            @apps_loaded = []
+          end
           send("start_#{role}".to_sym)
         }
       end
@@ -2389,6 +2395,12 @@ class Djinn
       @done_loading = true
 
       @last_updated = zk_ips_info['last_updated']
+
+      # Finally, since the node layout changed, there may be a change in the
+      # list of AppServers, so update nginx / haproxy accordingly.
+      if my_node.is_login?
+        regenerate_nginx_config_files()
+      end
     }
 
     return "UPDATED"
