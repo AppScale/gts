@@ -16,6 +16,7 @@ def QUEUE_NAME(headers, args):
       (str(headers), str(args), args['task_name']))
   url = urlparse(args['url'])
 
+  redirects_left = 5
   while True:
     urlpath = url.path
     if url.query:
@@ -88,6 +89,9 @@ def QUEUE_NAME(headers, args):
       redirect_url = response.getheader('Location')
       logger.info("Task %s asked us to redirect to %s, so retrying there." % (args['task_name'], redirect_url))
       url = urlparse(redirect_url)
+      redirects_left -= 1
+      if redirects_left == 0:
+        raise QUEUE_NAME.retry(countdown=wait_time)
     else:
       # Fail
       # TODO: Update the database with the failed status
