@@ -2080,7 +2080,7 @@ class Djinn
     json_state.each { |k, v|
       next if k == "@@secret"
       if k == "@nodes"
-        v = Djinn.convert_location_array_to_class(v, keyname)
+        v = Djinn.convert_location_array_to_class(JSON.load(v), keyname)
       end
 
       instance_variable_set(k, v)
