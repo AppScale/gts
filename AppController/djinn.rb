@@ -446,7 +446,7 @@ class Djinn
     @initialized_apps = {}
     @total_req_rate = {}
     @last_sampling_time = {}
-    @last_scaling_time = Time.now
+    @last_scaling_time = Time.now.to_i
   end
 
 
@@ -4240,7 +4240,7 @@ HOSTS
       return examine_scale_down_requests(all_scaling_requests)
     end
 
-    if Time.now - @last_scaling_time < SCALEUP_TIME_THRESHOLD
+    if Time.now.to_i - @last_scaling_time < SCALEUP_TIME_THRESHOLD
       Djinn.log_info("Not scaling up right now, as we recently scaled " +
         "up or down.")
       return 0
@@ -4257,7 +4257,7 @@ HOSTS
     end
 
     regenerate_nginx_config_files()
-    @last_scaling_time = Time.now
+    @last_scaling_time = Time.now.to_i
     return nodes_needed.length
   end
 
@@ -4315,7 +4315,7 @@ HOSTS
     end
 
     # Also, don't scale down if we just scaled up or down.
-    if Time.now - @last_scaling_time < SCALEDOWN_TIME_THRESHOLD
+    if Time.now.to_i - @last_scaling_time < SCALEDOWN_TIME_THRESHOLD
       Djinn.log_info("Not scaling down VMs right now, as we recently scaled " +
         "up or down.")
       return 0
@@ -4341,7 +4341,7 @@ HOSTS
     imc = InfrastructureManagerClient.new(@@secret)
     imc.terminate_instances(@creds, node_to_remove.instance_id)
     regenerate_nginx_config_files()
-    @last_scaling_time = Time.now
+    @last_scaling_time = Time.now.to_i
     return -1
   end
 
