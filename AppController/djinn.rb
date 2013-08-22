@@ -3670,6 +3670,7 @@ HOSTS
     if my_node.is_appengine?
       begin
         static_handlers = HelperFunctions.parse_static_data(app)
+        Djinn.log_run("chmod -R +r #{HelperFunctions.get_cache_path(app)}")
       rescue Exception => e
         # This specific exception may be a json parse error
         error_msg = "ERROR: Unable to parse app.yaml file for #{app}." + \
@@ -4275,12 +4276,12 @@ HOSTS
   def examine_scale_down_requests(all_scaling_votes)
     # First, only scale down in cloud environments.
     if !is_cloud?
-      Djinn.log_info("Not scaling down VMs, because we aren't in a cloud.")
+      Djinn.log_debug("Not scaling down VMs, because we aren't in a cloud.")
       return 0
     end
 
     if @nodes.length <= Integer(@creds['min_images'])
-      Djinn.log_info("Not scaling down VMs right now, as we are at the " +
+      Djinn.log_debug("Not scaling down VMs right now, as we are at the " +
         "minimum number of nodes the user wants to use.")
       return 0
     end

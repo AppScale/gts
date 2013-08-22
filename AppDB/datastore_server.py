@@ -454,15 +454,24 @@ class DatastoreDistributed():
                                           dbconstants.APP_KIND_SCHEMA, 
                                           kind_row_values) 
 
+  def create_composite_indexes(self, entities, composite_indexes):
+    """ Creates composite indexes for a set of entities.
 
-  def insert_index_entries(self, entities):
+    Args:
+      entities: A list of tuples of prefix and entities 
+                to create index entries for.
+      composite_indexes: A list of datastore_pb.CompositeIndex.
+    """
+    pass
+
+  def insert_index_entries(self, entities, composite_indexes=None):
     """ Inserts index entries for the supplied entities.
 
     Args:
       entities: A list of tuples of prefix and entities 
                 to create index entries for.
+      composite_indexes: A list of datastore_pb.CompositeIndex.
     """
-
     entities = sorted((self.get_table_prefix(x), x) for x in entities)
 
     row_keys = []
@@ -482,7 +491,7 @@ class DatastoreDistributed():
       for ii in rev_group_rows:
         rev_row_values[str(ii[0])] = {'reference': str(ii[1])}
     
-    # TODO  these in parallel
+    # TODO update all indexes in parallel
     self.datastore_batch.batch_put_entity(dbconstants.ASC_PROPERTY_TABLE, 
                           row_keys, 
                           dbconstants.PROPERTY_SCHEMA, 
@@ -492,6 +501,9 @@ class DatastoreDistributed():
                           rev_row_keys,  
                           dbconstants.PROPERTY_SCHEMA,
                           rev_row_values)
+
+    if composite_indexes:
+      self.create_composite_indexes(entities, composite_indexes)
 
   def allocate_ids(self, app_id, size, max_id=None, num_retries=0):
     """ Allocates IDs from either a local cache or the datastore. 
@@ -533,21 +545,22 @@ class DatastoreDistributed():
 
     return prev + 1, current
 
-  def put_entities(self, app_id, entities, txn_hash):
+  def put_entities(self, app_id, entities, txn_hash, composite_indexes=None):
     """ Updates indexes of existing entities, inserts new entities and 
         indexes for them.
 
     Args:
-       app_id: The application ID.
-       entities: List of entities.
-       txn_hash: A mapping of root keys to transaction IDs.
+      app_id: The application ID.
+      entities: List of entities.
+      txn_hash: A mapping of root keys to transaction IDs.
+      composite_indexes: A list of datastore_pb.CompositeIndex.
     """
     sorted_entities = sorted((self.get_table_prefix(x), x) for x in entities)
     for prefix, group in itertools.groupby(sorted_entities, lambda x: x[0]):
       keys = [e.key() for e in entities]
       self.delete_entities(app_id, keys, txn_hash, soft_delete=False)
       self.insert_entities(entities, txn_hash)
-      self.insert_index_entries(entities)
+      self.insert_index_entries(entities, composite_indexes=composite_indexes)
 
   def delete_entities(self, app_id, keys, txn_hash, soft_delete=False):
     """ Deletes the entities and the indexes associated with them.
@@ -748,7 +761,8 @@ class DatastoreDistributed():
       else:
         txn_hash = self.acquire_locks_for_nontrans(app_id, entities, 
           retries=self.NON_TRANS_LOCK_RETRY_COUNT) 
-      self.put_entities(app_id, entities, txn_hash)
+      self.put_entities(app_id, entities, txn_hash, 
+        composite_indexes=put_request.composite_index_list())
       if not put_request.has_transaction():
         self.release_locks_for_nontrans(app_id, entities, txn_hash)
       put_response.key_list().extend([e.key() for e in entities])
@@ -1870,52 +1884,54 @@ class DatastoreDistributed():
     # Here we have two filters and so we set the start and end key to 
     # get the given value within those ranges. 
     if len(filter_ops) > 1:
-      if filter_ops[0][0] == datastore_pb.Query_Filter.EQUAL or filter_ops[1][0] == datastore_pb.Query_Filter.EQUAL:
-         # If one of the filters is EQUAL, set start and end key
-         # to the same value.
-         if filter_ops[0][0] == datastore_pb.Query_Filter.EQUAL:
-           value1 = filter_ops[0][1]
-           value2 = filter_ops[1][1]
-           oper1 = filter_ops[0][0]
-           oper2 = filter_ops[1][0]
-         else:
-           value1 = filter_ops[1][1]
-           value2 = filter_ops[0][1]
-           oper1 = filter_ops[1][0]
-           oper2 = filter_ops[0][0]
-         # Checking to see if filters/values are correct bounds.
-         # value1 and oper1 are the EQUALS filter values.
-         if oper2 == datastore_pb.Query_Filter.LESS_THAN:
-           if value2 > value1 == False:
-             return []
-         elif oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
-           if value2 >= value1 == False:
-             return []
-         elif oper2 == datastore_pb.Query_Filter.GREATER_THAN:
-           if value2 < value1 == False:
-             return []
-         elif oper2 == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
-           if value2 <= value1 == False:
-             return []
-         start_inclusive = self._ENABLE_INCLUSIVITY
-         end_inclusive = self._DISABLE_INCLUSIVITY
-         params = [prefix, kind, property_name, value1 + self._SEPARATOR]
-         if not startrow:
-           startrow = self.get_index_key_from_params(params)
-         else:
-           start_inclusive = self._DISABLE_INCLUSIVITY
-         params = [prefix, kind, property_name, value1 + self._SEPARATOR + self._TERM_STRING]
-         endrow = self.get_index_key_from_params(params)
-	 
-         ret = self.datastore_batch.range_query(table_name,
-                                          column_names,
-                                          startrow,
-                                          endrow,
-                                          limit,
-                                          offset=0,
-                                          start_inclusive=start_inclusive,
-                                          end_inclusive=end_inclusive) 
-         return ret 
+      if filter_ops[0][0] == datastore_pb.Query_Filter.EQUAL or \
+        filter_ops[1][0] == datastore_pb.Query_Filter.EQUAL:
+        # If one of the filters is EQUAL, set start and end key
+        # to the same value.
+        if filter_ops[0][0] == datastore_pb.Query_Filter.EQUAL:
+          value1 = filter_ops[0][1]
+          value2 = filter_ops[1][1]
+          oper1 = filter_ops[0][0]
+          oper2 = filter_ops[1][0]
+        else:
+          value1 = filter_ops[1][1]
+          value2 = filter_ops[0][1]
+          oper1 = filter_ops[1][0]
+          oper2 = filter_ops[0][0]
+        # Checking to see if filters/values are correct bounds.
+        # value1 and oper1 are the EQUALS filter values.
+        if oper2 == datastore_pb.Query_Filter.LESS_THAN:
+          if value2 > value1 == False:
+            return []
+        elif oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
+          if value2 >= value1 == False:
+            return []
+        elif oper2 == datastore_pb.Query_Filter.GREATER_THAN:
+          if value2 < value1 == False:
+            return []
+        elif oper2 == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
+          if value2 <= value1 == False:
+            return []
+        start_inclusive = self._ENABLE_INCLUSIVITY
+        end_inclusive = self._DISABLE_INCLUSIVITY
+        params = [prefix, kind, property_name, value1 + self._SEPARATOR]
+        if not startrow:
+          startrow = self.get_index_key_from_params(params)
+        else:
+          start_inclusive = self._DISABLE_INCLUSIVITY
+        params = [prefix, kind, property_name, value1 + self._SEPARATOR + \
+          self._TERM_STRING]
+        endrow = self.get_index_key_from_params(params)
+	
+        ret = self.datastore_batch.range_query(table_name,
+                                         column_names,
+                                         startrow,
+                                         endrow,
+                                         limit,
+                                         offset=0,
+                                         start_inclusive=start_inclusive,
+                                         end_inclusive=end_inclusive) 
+        return ret 
       if filter_ops[0][0] == datastore_pb.Query_Filter.GREATER_THAN or \
          filter_ops[0][0] == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
         oper1 = filter_ops[0][0]
@@ -2027,10 +2043,11 @@ class DatastoreDistributed():
           pname = p
       return pname, pnames 
     property_name, property_names = set_prop_names(filter_info)
-    if len(property_names) <= 1:
-      if not (len(property_names) == 1 and (query.has_ancestor() \
-        or query.has_kind())):
-        return None
+
+    if len(property_names) <= 1 and not \
+      (len(property_names) == 1 and (query.has_ancestor() \
+      or query.has_kind())):
+      return None
 
     if not property_name:
       property_name = property_names.pop()
