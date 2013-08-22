@@ -91,7 +91,13 @@ installPIL()
 
 installpycrypto()
 {
-    easy_install pycrypto
+    cd ${APPSCALE_HOME}/downloads
+    wget $APPSCALE_PACKAGE_MIRROR/pycrypto-2.6.tar.gz
+    tar zxvf pycrypto-2.6.tar.gz
+    cd pycrypto-2.6
+    /usr/local/Python-2.7.3/python setup.py install
+    cd ..
+    rm -fdr pycrypto-2.6*
 }
 
 installlxml()
