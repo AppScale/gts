@@ -1515,29 +1515,34 @@ class DatastoreDistributed():
     """       
     prefix = self.get_table_prefix(query)
 
-    __key__ = str(filter_info['__key__'][0][1])
-    op = filter_info['__key__'][0][0]
+    if '__key__' in filter_info:
+      __key__ = str(filter_info['__key__'][0][1])
+      op = filter_info['__key__'][0][0]
+    else:
+      __key__ = ''
+      op = None
 
     end_inclusive = self._ENABLE_INCLUSIVITY
     start_inclusive = self._ENABLE_INCLUSIVITY
 
-    startrow = prefix + self._SEPARATOR + __key__ + self._TERM_STRING
-    endrow = prefix + self._SEPARATOR  + self._TERM_STRING
+    startrow = prefix + self._SEPARATOR + __key__
+    endrow = prefix + self._SEPARATOR + self._TERM_STRING
+
     if op and op == datastore_pb.Query_Filter.EQUAL:
       startrow = prefix + self._SEPARATOR + __key__
       endrow = prefix + self._SEPARATOR + __key__
     elif op and op == datastore_pb.Query_Filter.GREATER_THAN:
       start_inclusive = self._DISABLE_INCLUSIVITY
       startrow = prefix + self._SEPARATOR + __key__ 
-      endrow = prefix + self._SEPARATOR  + self._TERM_STRING
+      endrow = prefix + self._SEPARATOR + self._TERM_STRING
       end_inclusive = self._DISABLE_INCLUSIVITY
     elif op and op == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
       startrow = prefix + self._SEPARATOR + __key__
-      endrow = prefix + self._SEPARATOR  + self._TERM_STRING
+      endrow = prefix + self._SEPARATOR + self._TERM_STRING
       end_inclusive = self._DISABLE_INCLUSIVITY
     elif op and op == datastore_pb.Query_Filter.LESS_THAN:
       startrow = prefix + self._SEPARATOR  
-      endrow = prefix + self._SEPARATOR  + __key__
+      endrow = prefix + self._SEPARATOR + __key__
       end_inclusive = self._DISABLE_INCLUSIVITY
     elif op and op == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
       startrow = prefix + self._SEPARATOR 
