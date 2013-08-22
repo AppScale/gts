@@ -1207,8 +1207,10 @@ class DatastoreDistributed():
       if prop.name() == '__key__':
         value = reference_property_to_reference(value.referencevalue())
         value = value.path()
-      filter_info.setdefault(prop.name(), []).append((filt.op(), 
-                                   self.__encode_index_pb(value)))
+      # Do not include exist filters to get projection queries.
+      if filt.op() != datastore_pb.Query_Filter.EXISTS:
+        filter_info.setdefault(prop.name(), []).append((filt.op(), 
+          self.__encode_index_pb(value)))
     return filter_info
   
   def generate_order_info(self, orders):
