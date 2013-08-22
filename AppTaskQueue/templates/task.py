@@ -106,6 +106,6 @@ def QUEUE_NAME(headers, args):
       max_doublings = min(max_doublings, retries)
       wait_time = 2**(max_doublings - 1) * min_backoff_seconds
       wait_time = min(wait_time, max_backoff_seconds)
-      logger.warning("Task %s will retry in %d seconds. Got response of %d when going to %s" % \
-                      (args['task_name'], wait_time, response.status, args['url']))
+      logger.warning("Task %s will retry in %d seconds. Got response of %d when doing a %s on %s" % \
+                      (args['task_name'], wait_time, response.status, method, args['url']))
       raise QUEUE_NAME.retry(countdown=wait_time)
