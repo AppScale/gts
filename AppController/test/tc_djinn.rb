@@ -29,7 +29,7 @@ class TestDjinn < Test::Unit::TestCase
 
     flexmock(HelperFunctions).should_receive(:shell).with("").and_return()
     flexmock(HelperFunctions).should_receive(:log_and_crash).and_raise(
-      SystemExit)
+      Exception)
 
     @secret = "baz"
     flexmock(HelperFunctions).should_receive(:read_file).
@@ -38,7 +38,6 @@ class TestDjinn < Test::Unit::TestCase
       with("").and_return()
     @app = "app"
   end
-
 
   # Every function that is accessible via SOAP should check for the secret
   # and return a certain message if a bad secret is given.
@@ -158,7 +157,7 @@ class TestDjinn < Test::Unit::TestCase
     credentials = ['table', 'cassandra', 'hostname', '127.0.0.1', 'ips', '', 
       'keyname', 'appscale']
     bad_node_info = "[1]"
-    assert_raises(SystemExit) {
+    assert_raises(Exception) {
       djinn.set_parameters(bad_node_info, credentials, better_credentials,
         @secret)
     }
@@ -175,7 +174,7 @@ class TestDjinn < Test::Unit::TestCase
 
     udpsocket = flexmock(UDPSocket)
     udpsocket.should_receive(:open).and_return("not any ips above")
-    assert_raises(SystemExit) {
+    assert_raises(Exception) {
       djinn.set_parameters(one_node_info, credentials, app_names, @secret)
     }
   end
@@ -661,7 +660,7 @@ class TestDjinn < Test::Unit::TestCase
     # Finally, we should be telling the first open node (our node) to take
     # on the fallen Shadow role
     flexmock(JSON).should_receive(:dump).with(Hash).
-      and_return('"{\"disk\":null,\"public_ip\":\"public_ip\",\"private_ip\":\"private_ip\",\"cloud\":\"cloud1\",\"instance_id\":\"instance_id\",\"ssh_key\":\"/etc/appscale/keys/cloud1/appscale.key\",\"jobs\":\"shadow\"}"')
+      and_return("{\"instance_id\":\"instance_id\",\"private_ip\":\"private_ip\",\"jobs\":[\"shadow\"],\"ssh_key\":\"/etc/appscale/keys/cloud1/appscale.key\",\"cloud\":\"cloud1\",\"public_ip\":\"public_ip\",\"disk\":null}")
     baz.should_receive(:get).with(
       :path => "#{ZKInterface::APPCONTROLLER_NODE_PATH}/public_ip/job_data").
       and_return({:rc => 0, :data => JSON.dump(my_node.to_hash()),
@@ -1269,7 +1268,7 @@ class TestDjinn < Test::Unit::TestCase
     }
 
     # and that we haven't scaled up in a long time
-    djinn.last_scaling_time = Time.utc(2000, "jan", 1, 20, 15, 1)
+    djinn.last_scaling_time = Time.utc(2000, "jan", 1, 20, 15, 1).to_i
 
     # and that two nodes have requested scaling
     flexmock(ZKInterface).should_receive(:get_scaling_requests_for_app).
@@ -1292,6 +1291,5 @@ class TestDjinn < Test::Unit::TestCase
     # Finally, make sure that we added a node
     assert_equal(1, djinn.scale_appservers_across_nodes())
   end
-
 
 end

@@ -446,7 +446,7 @@ class Djinn
     @initialized_apps = {}
     @total_req_rate = {}
     @last_sampling_time = {}
-    @last_scaling_time = Time.now
+    @last_scaling_time = Time.now.to_i
   end
 
 
@@ -2080,7 +2080,7 @@ class Djinn
     json_state.each { |k, v|
       next if k == "@@secret"
       if k == "@nodes"
-        v = Djinn.convert_location_array_to_class(v, keyname)
+        v = Djinn.convert_location_array_to_class(JSON.load(v), keyname)
       end
 
       instance_variable_set(k, v)
@@ -2370,6 +2370,12 @@ class Djinn
           "roles on this node")
         roles_to_start.each { |role|
           Djinn.log_info("Starting role #{role}")
+
+          # When starting the App Engine role, we need to make sure that we load
+          # all the App Engine apps on this machine.
+          if role == "appengine"
+            @apps_loaded = []
+          end
           send("start_#{role}".to_sym)
         }
       end
@@ -2389,6 +2395,12 @@ class Djinn
       @done_loading = true
 
       @last_updated = zk_ips_info['last_updated']
+
+      # Finally, since the node layout changed, there may be a change in the
+      # list of AppServers, so update nginx / haproxy accordingly.
+      if my_node.is_login?
+        regenerate_nginx_config_files()
+      end
     }
 
     return "UPDATED"
@@ -4240,7 +4252,7 @@ HOSTS
       return examine_scale_down_requests(all_scaling_requests)
     end
 
-    if Time.now - @last_scaling_time < SCALEUP_TIME_THRESHOLD
+    if Time.now.to_i - @last_scaling_time < SCALEUP_TIME_THRESHOLD
       Djinn.log_info("Not scaling up right now, as we recently scaled " +
         "up or down.")
       return 0
@@ -4257,7 +4269,7 @@ HOSTS
     end
 
     regenerate_nginx_config_files()
-    @last_scaling_time = Time.now
+    @last_scaling_time = Time.now.to_i
     return nodes_needed.length
   end
 
@@ -4315,7 +4327,7 @@ HOSTS
     end
 
     # Also, don't scale down if we just scaled up or down.
-    if Time.now - @last_scaling_time < SCALEDOWN_TIME_THRESHOLD
+    if Time.now.to_i - @last_scaling_time < SCALEDOWN_TIME_THRESHOLD
       Djinn.log_info("Not scaling down VMs right now, as we recently scaled " +
         "up or down.")
       return 0
@@ -4341,7 +4353,7 @@ HOSTS
     imc = InfrastructureManagerClient.new(@@secret)
     imc.terminate_instances(@creds, node_to_remove.instance_id)
     regenerate_nginx_config_files()
-    @last_scaling_time = Time.now
+    @last_scaling_time = Time.now.to_i
     return -1
   end
 

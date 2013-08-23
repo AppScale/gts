@@ -5,8 +5,6 @@ God.watch do |w|
   w.interval = 30.seconds # default
   w.start = "ruby /root/appscale/AppController/djinnServer.rb"
   w.stop = "ruby /root/appscale/AppController/terminate.rb"
-  w.start_grace = 20.seconds
-  w.restart_grace = 20.seconds
   w.log = "/var/log/appscale/controller-17443.log"
   w.pid_file = "/var/appscale/controller-17443.pid"
 
