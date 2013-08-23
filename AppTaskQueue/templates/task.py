@@ -16,7 +16,27 @@ def QUEUE_NAME(headers, args):
       (str(headers), str(args), args['task_name']))
   url = urlparse(args['url'])
 
-  redirects_left = 5
+  def get_wait_time(retries, args):
+    """ Calculates how long we should wait to execute a failed task, based on
+    how many times it's failed in the past.
+
+    Args:
+      retries: An int that indicates how many times this task has failed.
+      args: A dict that contains information about when the user wants to retry
+        the failed task.
+    Returns:
+      The amount of time, in seconds, that we should wait before executing this
+      task again.
+    """
+    min_backoff_seconds = int(args['min_backoff_sec'])
+    max_doublings = int(args['max_doublings'])
+    max_backoff_seconds = int(args['max_backoff_sec'])
+    max_doublings = min(max_doublings, retries)
+    wait_time = 2**(max_doublings - 1) * min_backoff_seconds
+    wait_time = min(wait_time, max_backoff_seconds)
+    return wait_time
+
+  redirects_left = 1
   while True:
     urlpath = url.path
     if url.query:
@@ -81,6 +101,7 @@ def QUEUE_NAME(headers, args):
     response = connection.getresponse()
     payload = response.read()
     response.close()
+    retries = int(QUEUE_NAME.request.retries) + 1
     if 200 <= response.status < 300:
       return response.status
       # Success
@@ -89,23 +110,13 @@ def QUEUE_NAME(headers, args):
       redirect_url = response.getheader('Location')
       logger.info("Task %s asked us to redirect to %s, so retrying there." % (args['task_name'], redirect_url))
       url = urlparse(redirect_url)
-      redirects_left -= 1
       if redirects_left == 0:
-        raise QUEUE_NAME.retry(countdown=wait_time)
+        raise QUEUE_NAME.retry(countdown=get_wait_time(retries, args))
+      redirects_left -= 1
     else:
       # Fail
       # TODO: Update the database with the failed status
-      # Retry logic
-      # Calculate the countdown to run again.
-      # http://goo.gl/aWDGi
-
-      retries = int(QUEUE_NAME.request.retries) + 1
-      min_backoff_seconds = int(args['min_backoff_sec'])
-      max_doublings = int(args['max_doublings'])
-      max_backoff_seconds = int(args['max_backoff_sec'])
-      max_doublings = min(max_doublings, retries)
-      wait_time = 2**(max_doublings - 1) * min_backoff_seconds
-      wait_time = min(wait_time, max_backoff_seconds)
+      wait_time = get_wait_time(retries, args)
       logger.warning("Task %s will retry in %d seconds. Got response of %d when doing a %s on %s" % \
                       (args['task_name'], wait_time, response.status, method, args['url']))
       raise QUEUE_NAME.retry(countdown=wait_time)
