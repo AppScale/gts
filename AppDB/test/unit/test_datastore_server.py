@@ -636,5 +636,30 @@ class TestDatastoreServer(unittest.TestCase):
     key = "Project:Synapse!Module:Core!"
     self.assertEquals(dd.reverse_path(key), "Module:Core!Project:Synapse!")
 
+  def test_is_zigzag_merge_join(self):
+    zookeeper = flexmock()
+    zookeeper.should_receive("get_transaction_id").and_return(1)
+    zookeeper.should_receive("get_valid_transaction_id").and_return(1)
+    zookeeper.should_receive("register_updated_key").and_return(1)
+    zookeeper.should_receive("acquire_lock").and_return(True)
+    zookeeper.should_receive("release_lock").and_return(True)
+    db_batch = flexmock()
+    db_batch.should_receive("batch_delete").and_return(None)
+    db_batch.should_receive("batch_put_entity").and_return(None)
+    db_batch.should_receive("batch_get_entity").and_return(None)
+
+    query = datastore_pb.Query()
+    dd = DatastoreDistributed(db_batch, zookeeper) 
+    self.assertEquals(dd.is_zigzag_merge_join(query, [], []), False)
+    filter_info = [("prop1", datastore_pb.Query_Filter.EQUAL),
+      ("prop2", datastore_pb.Query_Filter.EQUAL)]
+         
+    self.assertEquals(dd.is_zigzag_merge_join(query, filter_info, []), True)
+
+    filter_info = [("prop1", datastore_pb.Query_Filter.EQUAL),
+      ("prop1", datastore_pb.Query_Filter.EQUAL)]
+    self.assertEquals(dd.is_zigzag_merge_join(query, filter_info, []), False)
+
+
 if __name__ == "__main__":
   unittest.main()    

@@ -317,6 +317,18 @@ class DatastoreDistributed():
       key = self._SEPARATOR.join(params)
     return key
 
+  def get_composite_index_kv_from_tuple(self, tuple_list, reverse=False):
+    """ Returns key/value for composite indexes for a set of entities.
+
+    Args: 
+       tuple_list: A list of tuples of prefix and pb entities
+       reverse: if these keys are for the descending table
+    Returns:
+       A list of keys and values of indexes
+    """
+    # TODO if needed
+    return
+          
   def get_index_kv_from_tuple(self, tuple_list, reverse=False):
     """ Returns keys/value of indexes for a set of entities.
  
@@ -462,8 +474,19 @@ class DatastoreDistributed():
                 to create index entries for.
       composite_indexes: A list of datastore_pb.CompositeIndex.
     """
-    pass
-
+    row_keys = []
+    row_values = {}
+    # Create default composite index for all entities. Here we take each
+    # of the properties in one 
+    for ent in entities:
+      for index_def in composite_indexes:
+        logging.error("Index to create: {0}".format(index_def))
+        # have to handle ancestor or none
+        # multiple properties and 
+        # must deal with all combinations of indexes. 
+        # See exploding indexes: 
+        # https://developers.google.com/appengine/docs/python/datastore/indexes
+       
   def insert_index_entries(self, entities, composite_indexes=None):
     """ Inserts index entries for the supplied entities.
 
@@ -2015,6 +2038,76 @@ class DatastoreDistributed():
          
     return []
 
+  def does_composite_index_exist(self, query):
+    """ Checks to see if the query has a composite index that can implement
+    the give query. If it does, then we do not use zigzag merge join for 
+    the queries implementation because using a composite index is faster.
+
+    Args:
+      query: A datastore_pb.Query.
+    Returns:
+      0 if an index does not exist, and the index number if it does.
+    """
+    # TODO implement when we create composite indexes.
+    return 0
+
+  def is_zigzag_merge_join(self, query, filter_info, order_info):
+    """ Checks to see if the current query can be executed as a zigzag
+    merge join.
+
+    Args:
+      query: A datastore_pb.Query.
+      filter_info: tuple with filter operators and values:
+      order_info: tuple with property name and the sort order.
+    Returns:
+      True if it qualifies as a zigzag merge join, and false otherwise.
+    """
+    if order_info:
+      return None
+
+    if query.has_ancestor():
+      return False
+
+    property_names = []
+    for filt in filter_info:
+      property_names.append(filt[0])
+      if filt[1] != datastore_pb.Query_Filter.EQUAL: 
+        return False
+
+    if len(filter_info) < 2:
+      return False
+  
+    # Check to make sure no property names show up twice.
+    # Casting a copy of the list to a set will remove duplicates, 
+    # and then we check to make sure # it is still consistent with the 
+    # previous list.
+    if list(set(property_names[:])) != property_names:
+      return False
+
+    logging.info("This is a zigzag merge join query.")
+    return True
+
+  def zigzag_merge_join(self, query, filter_info, order_info):
+    """ Performs a composite query for queries which have multiple 
+    equality filters. Uses a varient of the zigzag join merge algorithm.
+
+    This method is used if there are only equality filters present. 
+    If there are inequality filters, orders or ancestors, this method does 
+    not apply.  Existing single property indexes are used and it does not 
+    require the user to establish composite indexes ahead of time.
+    See http://www.youtube.com/watch?v=AgaL6NGpkB8 for Google's 
+    implementation.
+
+    Args:
+      query: A datastore_pb.Query.
+      filter_info: tuple with filter operators and values:
+      order_info: tuple with property name and the sort order.
+    Returns:
+      List of entities retrieved from the given query.
+    """ 
+    if not self.is_zigzag_merge_join(query, filter_info, order_info):
+      return None
+ 
   def __composite_query(self, query, filter_info, order_info):  
     """Performs Composite queries which is a combination of 
        multiple properties to query on.
@@ -2098,7 +2191,9 @@ class DatastoreDistributed():
       ent_res = self.__fetch_entities(temp_res)
       # Create a copy from which we filter out
       filtered_entities = ent_res[:]
-      # Apply in-memory filters for each property
+      # Apply in-memory filters for each property. We loop through each entity
+      # and filter out entities which do not match the given kind, ancestor,
+      # or equality filter for given properties.
       for ent in ent_res:
         e = entity_pb.EntityProto(ent)
 
@@ -2246,6 +2341,7 @@ class DatastoreDistributed():
   _QUERY_STRATEGIES = [
       __single_property_query,   
       __kind_query,
+      zigzag_merge_join,
       __composite_query,
   ]
 
