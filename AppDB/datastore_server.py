@@ -1245,8 +1245,10 @@ class DatastoreDistributed():
       if prop.name() == '__key__':
         value = reference_property_to_reference(value.referencevalue())
         value = value.path()
-      filter_info.setdefault(prop.name(), []).append((filt.op(), 
-                                   self.__encode_index_pb(value)))
+      # Do not include exist filters to get projection queries.
+      if filt.op() != datastore_pb.Query_Filter.EXISTS:
+        filter_info.setdefault(prop.name(), []).append((filt.op(), 
+          self.__encode_index_pb(value)))
     return filter_info
   
   def generate_order_info(self, orders):
@@ -1553,29 +1555,34 @@ class DatastoreDistributed():
     """       
     prefix = self.get_table_prefix(query)
 
-    __key__ = str(filter_info['__key__'][0][1])
-    op = filter_info['__key__'][0][0]
+    if '__key__' in filter_info:
+      __key__ = str(filter_info['__key__'][0][1])
+      op = filter_info['__key__'][0][0]
+    else:
+      __key__ = ''
+      op = None
 
     end_inclusive = self._ENABLE_INCLUSIVITY
     start_inclusive = self._ENABLE_INCLUSIVITY
 
-    startrow = prefix + self._SEPARATOR + __key__ + self._TERM_STRING
-    endrow = prefix + self._SEPARATOR  + self._TERM_STRING
+    startrow = prefix + self._SEPARATOR + __key__
+    endrow = prefix + self._SEPARATOR + self._TERM_STRING
+
     if op and op == datastore_pb.Query_Filter.EQUAL:
       startrow = prefix + self._SEPARATOR + __key__
       endrow = prefix + self._SEPARATOR + __key__
     elif op and op == datastore_pb.Query_Filter.GREATER_THAN:
       start_inclusive = self._DISABLE_INCLUSIVITY
       startrow = prefix + self._SEPARATOR + __key__ 
-      endrow = prefix + self._SEPARATOR  + self._TERM_STRING
+      endrow = prefix + self._SEPARATOR + self._TERM_STRING
       end_inclusive = self._DISABLE_INCLUSIVITY
     elif op and op == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
       startrow = prefix + self._SEPARATOR + __key__
-      endrow = prefix + self._SEPARATOR  + self._TERM_STRING
+      endrow = prefix + self._SEPARATOR + self._TERM_STRING
       end_inclusive = self._DISABLE_INCLUSIVITY
     elif op and op == datastore_pb.Query_Filter.LESS_THAN:
       startrow = prefix + self._SEPARATOR  
-      endrow = prefix + self._SEPARATOR  + __key__
+      endrow = prefix + self._SEPARATOR + __key__
       end_inclusive = self._DISABLE_INCLUSIVITY
     elif op and op == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
       startrow = prefix + self._SEPARATOR 
@@ -1960,16 +1967,12 @@ class DatastoreDistributed():
         oper1 = filter_ops[0][0]
         oper2 = filter_ops[1][0]
         value1 = str(filter_ops[0][1])
-        value1 = str(value1[1:])
         value2 = str(filter_ops[1][1])
-        value2 = str(value2[1:])
       else:
         oper1 = filter_ops[1][0]
         oper2 = filter_ops[0][0]
         value1 = str(filter_ops[1][1])
-        value1 = str(value1[1:])
         value2 = str(filter_ops[0][1])
-        value2 = str(value2[1:])
 
       if direction == datastore_pb.Query_Order.ASCENDING:
         table_name = dbconstants.ASC_PROPERTY_TABLE
