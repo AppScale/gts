@@ -2057,21 +2057,28 @@ class DatastoreDistributed():
 
     Args:
       query: A datastore_pb.Query.
-      filter_info: tuple with filter operators and values:
+      filter_info: dict of property names mapping to tuples of filter 
+        operators and values.
       order_info: tuple with property name and the sort order.
     Returns:
       True if it qualifies as a zigzag merge join, and false otherwise.
     """
-    if order_info:
-      return None
-
     if query.has_ancestor():
       return False
 
+    order_properties = []
+    for order in order_info:
+      order_properties.append(order[0])
+
     property_names = []
-    for filt in filter_info:
-      property_names.append(filt[0])
-      if filt[1] != datastore_pb.Query_Filter.EQUAL: 
+    for property_name in filter_info:
+      filt = filter_info[property_name]
+      # There should only be one filter property for a given property.
+      if len(filt) > 1:
+        return False
+      property_names.append(property_name)
+      # We only handle equality filters for zigzag merge join queries.
+      if filt[0][0] != datastore_pb.Query_Filter.EQUAL: 
         return False
 
     if len(filter_info) < 2:
@@ -2079,10 +2086,14 @@ class DatastoreDistributed():
   
     # Check to make sure no property names show up twice.
     # Casting a copy of the list to a set will remove duplicates, 
-    # and then we check to make sure # it is still consistent with the 
+    # and then we check to make sure it is still consistent with the 
     # previous list.
     if list(set(property_names[:])) != property_names:
       return False
+
+    for order_property_name in order_properties:
+      if order_property_name not in property_names:
+        return False
 
     logging.info("This is a zigzag merge join query.")
     return True
@@ -2092,7 +2103,8 @@ class DatastoreDistributed():
     equality filters. Uses a varient of the zigzag join merge algorithm.
 
     This method is used if there are only equality filters present. 
-    If there are inequality filters, orders or ancestors, this method does 
+    If there are inequality filters, orders on properties which are not also 
+    apart of a filter, or ancestors, this method does 
     not apply.  Existing single property indexes are used and it does not 
     require the user to establish composite indexes ahead of time.
     See http://www.youtube.com/watch?v=AgaL6NGpkB8 for Google's 
@@ -2100,25 +2112,105 @@ class DatastoreDistributed():
 
     Args:
       query: A datastore_pb.Query.
-      filter_info: tuple with filter operators and values:
+      filter_info: dict of property names mapping to tuples of filter 
+        operators and values.
       order_info: tuple with property name and the sort order.
     Returns:
       List of entities retrieved from the given query.
     """ 
     if not self.is_zigzag_merge_join(query, filter_info, order_info):
       return None
+
+
+    logging.error("Doing a zigzag merge join")
+    # TODO cursors.
+    # TODO results greater than one.
+
+    # Get the filter ops and order ops for each property name. 
+    # Retrieve one entity from each and set the key to the path which 
+    # is lexigraphically the furthest.
+    kind = query.kind()  
+    prefix = self.get_table_prefix(query)
+    #TODO is it inefficient to just get one entity at a time. Grab batches 
+    # and update the algorithm.
+    count = 1
+    entities_to_fetch = []
+    # We keep track of start rows for each property name and move it 
+    # forward as we zig and zag.
+    startrow = {}
+    for prop_name in filter_info.keys():
+      startrow[prop_name] = ""
+
+    while True:
+      temp_res = {} 
+      for prop_name in filter_info.keys():
+        filter_ops = filter_info.get(prop_name, [])
+        order_ops = []
+        for i in order_info:
+          if i[0] == prop_name:
+            order_ops = [i]
+            break
+      
+        temp_res[prop_name] = self.__apply_filters(filter_ops, 
+                                     order_ops, 
+                                     prop_name, 
+                                     kind, 
+                                     prefix, 
+                                     count, 
+                                     0, 
+                                     startrow[prop_name],
+                                     force_start_key_exclusive=False)
+      logging.error("Temp res: {0}".format(temp_res)) 
+      # See if all keys are the same, if so then this key is a result
+      is_match = True
+      furthest_entity_key = ""
+      for prop_name in temp_res:
+        if len(temp_res[prop_name]) != 1:
+          logging.error("No results") 
+          return []
+        if not furthest_entity_key:
+          #TODO strip away the entity path
+          furthest_entity_key = temp_res[prop_name] 
+        else:
+          # get the entity path and compare it to what we already have
+          logging.error("Futher entity key: {0}".format(furthest_entity_key))
+          prev_key = furthest_entity_key[0].keys()[0]
+          new_key = temp_res[prop_name][0].keys()[0]
+          # Grab the reference key which is after the last delimiter. 
+          prev_reference_key = prev_key.split(self._SEPARATOR)[-1]
+          new_reference_key = new_key.split(self._SEPARATOR)[-1]
+          if prev_reference_key != new_reference_key:
+            is_match = False
+            logging.error("There was no match")
+          if new_reference_key > prev_reference_key:
+            furthest_entity_key = temp_res[prop_name]
+            logging.error("There was a match")
+      
+      if is_match:
+        entities_to_fetch = furthest_entity_key
+        logging.error("Will fetch key {0}".format(furthest_entity_key))
  
+      #TODO remove this break and update the start keys for each prop.
+      break
+    result_set = self.__fetch_entities(entities_to_fetch)
+    logging.error("Result set {0}".format(result_set))
+    return result_set
+
   def __composite_query(self, query, filter_info, order_info):  
     """Performs Composite queries which is a combination of 
        multiple properties to query on.
 
     Args:
       query: The query to run.
-      filter_info: tuple with filter operators and values.
+      filter_info: dictionary mapping property names to tuples of 
+        filter operators and values.
       order_info: tuple with property name and the sort order.
     Returns:
       List of entities retrieved from the given query.
     """
+    if self.is_zigzag_merge_join(query, filter_info, order_info):
+      return None
+
     if order_info and order_info[0][0] == '__key__':
       return None
 
