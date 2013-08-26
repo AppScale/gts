@@ -4,7 +4,7 @@
  / ___ |/ /_/ / /_/ /___/ / /__/ /_/ / //  __/
 /_/  |_/ .___/ .___//____/\___/\__,_/_/ \___/ 
       /_/   /_/                               
-The current release is 1.10.0, released on August 27, 2013.
+The current release is 1.10.0, released on August 28, 2013.
 
 Bugs fixed in this release:
 - Automatically persisting data across AppScale runs in EC2/Eucalyptus if EBS volumes are provided
