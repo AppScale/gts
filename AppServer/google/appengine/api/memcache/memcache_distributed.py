@@ -73,7 +73,7 @@ class MemcacheService(apiproxy_stub.APIProxyStub):
     memcache_file.close()
 
     memcaches = [ip + ":" + self.MEMCACHE_PORT for ip in all_ips if ip != '']
-
+    memcaches.sort()    
     self._memcache = memcache.Client(memcaches, debug=0)
 
   def _Dynamic_Get(self, request, response):
