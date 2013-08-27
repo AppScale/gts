@@ -38,7 +38,7 @@ echo "Installing Ubuntu ${DIST} building environment."
 
 apt-get update
 apt-get -y install curl wget
-curl -d "key=appscale" http://heart-beat.appspot.com/sign
+curl -d "key=appscale" http://heart-beat.appspot.com/sign || true
 
 export APPSCALE_HOME_RUNTIME=`pwd`
 
