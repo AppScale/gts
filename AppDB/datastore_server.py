@@ -13,6 +13,7 @@ import itertools
 import logging
 import md5
 import os
+import random
 import sys
 import time
 
@@ -316,6 +317,18 @@ class DatastoreDistributed():
       key = self._SEPARATOR.join(params)
     return key
 
+  def get_composite_index_kv_from_tuple(self, tuple_list, reverse=False):
+    """ Returns key/value for composite indexes for a set of entities.
+
+    Args: 
+       tuple_list: A list of tuples of prefix and pb entities
+       reverse: if these keys are for the descending table
+    Returns:
+       A list of keys and values of indexes
+    """
+    # TODO if needed
+    return
+          
   def get_index_kv_from_tuple(self, tuple_list, reverse=False):
     """ Returns keys/value of indexes for a set of entities.
  
@@ -453,15 +466,35 @@ class DatastoreDistributed():
                                           dbconstants.APP_KIND_SCHEMA, 
                                           kind_row_values) 
 
+  def create_composite_indexes(self, entities, composite_indexes):
+    """ Creates composite indexes for a set of entities.
 
-  def insert_index_entries(self, entities):
+    Args:
+      entities: A list of tuples of prefix and entities 
+                to create index entries for.
+      composite_indexes: A list of datastore_pb.CompositeIndex.
+    """
+    row_keys = []
+    row_values = {}
+    # Create default composite index for all entities. Here we take each
+    # of the properties in one 
+    for ent in entities:
+      for index_def in composite_indexes:
+        logging.error("Index to create: {0}".format(index_def))
+        # have to handle ancestor or none
+        # multiple properties and 
+        # must deal with all combinations of indexes. 
+        # See exploding indexes: 
+        # https://developers.google.com/appengine/docs/python/datastore/indexes
+       
+  def insert_index_entries(self, entities, composite_indexes=None):
     """ Inserts index entries for the supplied entities.
 
     Args:
       entities: A list of tuples of prefix and entities 
                 to create index entries for.
+      composite_indexes: A list of datastore_pb.CompositeIndex.
     """
-
     entities = sorted((self.get_table_prefix(x), x) for x in entities)
 
     row_keys = []
@@ -481,7 +514,7 @@ class DatastoreDistributed():
       for ii in rev_group_rows:
         rev_row_values[str(ii[0])] = {'reference': str(ii[1])}
     
-    # TODO  these in parallel
+    # TODO update all indexes in parallel
     self.datastore_batch.batch_put_entity(dbconstants.ASC_PROPERTY_TABLE, 
                           row_keys, 
                           dbconstants.PROPERTY_SCHEMA, 
@@ -491,6 +524,9 @@ class DatastoreDistributed():
                           rev_row_keys,  
                           dbconstants.PROPERTY_SCHEMA,
                           rev_row_values)
+
+    if composite_indexes:
+      self.create_composite_indexes(entities, composite_indexes)
 
   def allocate_ids(self, app_id, size, max_id=None, num_retries=0):
     """ Allocates IDs from either a local cache or the datastore. 
@@ -532,21 +568,22 @@ class DatastoreDistributed():
 
     return prev + 1, current
 
-  def put_entities(self, app_id, entities, txn_hash):
+  def put_entities(self, app_id, entities, txn_hash, composite_indexes=None):
     """ Updates indexes of existing entities, inserts new entities and 
         indexes for them.
 
     Args:
-       app_id: The application ID.
-       entities: List of entities.
-       txn_hash: A mapping of root keys to transaction IDs.
+      app_id: The application ID.
+      entities: List of entities.
+      txn_hash: A mapping of root keys to transaction IDs.
+      composite_indexes: A list of datastore_pb.CompositeIndex.
     """
     sorted_entities = sorted((self.get_table_prefix(x), x) for x in entities)
     for prefix, group in itertools.groupby(sorted_entities, lambda x: x[0]):
       keys = [e.key() for e in entities]
       self.delete_entities(app_id, keys, txn_hash, soft_delete=False)
       self.insert_entities(entities, txn_hash)
-      self.insert_index_entries(entities)
+      self.insert_index_entries(entities, composite_indexes=composite_indexes)
 
   def delete_entities(self, app_id, keys, txn_hash, soft_delete=False):
     """ Deletes the entities and the indexes associated with them.
@@ -747,7 +784,8 @@ class DatastoreDistributed():
       else:
         txn_hash = self.acquire_locks_for_nontrans(app_id, entities, 
           retries=self.NON_TRANS_LOCK_RETRY_COUNT) 
-      self.put_entities(app_id, entities, txn_hash)
+      self.put_entities(app_id, entities, txn_hash, 
+        composite_indexes=put_request.composite_index_list())
       if not put_request.has_transaction():
         self.release_locks_for_nontrans(app_id, entities, txn_hash)
       put_response.key_list().extend([e.key() for e in entities])
@@ -1267,6 +1305,27 @@ class DatastoreDistributed():
       str(self.__encode_index_pb(e.key().path()))]
     return self.get_index_key_from_params(params)
 
+
+  def __fetch_entities_from_row_list(self, rowkeys):
+    """ Given a list of keys fetch the entities from the entity table.
+    
+    Args:
+      rowkeys: A list of strings which are keys to the entitiy table.
+    Returns:
+      A list of entities.
+    """
+    logging.debug("Fetching rowkeys {0}".format(rowkeys))
+    result = self.datastore_batch.batch_get_entity(
+      dbconstants.APP_ENTITY_TABLE, rowkeys, dbconstants.APP_ENTITY_SCHEMA)
+    result = self.remove_tombstoned_entities(result)
+    entities = []
+    keys = result.keys()
+    for key in rowkeys:
+      if key in result and dbconstants.APP_ENTITY_SCHEMA[0] in result[key]:
+        entities.append(result[key][dbconstants.APP_ENTITY_SCHEMA[0]])
+    return entities 
+
+
   def __fetch_entities(self, refs):
     """ Given the results from a table scan, get the references.
     
@@ -1284,18 +1343,8 @@ class DatastoreDistributed():
       key = keys[index]
       ent = ent[key]['reference']
       rowkeys.append(ent)
+    return self.__fetch_entities_from_row_list(rowkeys)
   
-    result = self.datastore_batch.batch_get_entity(
-      dbconstants.APP_ENTITY_TABLE, rowkeys, dbconstants.APP_ENTITY_SCHEMA)
-    result = self.remove_tombstoned_entities(result)
-    entities = []
-    keys = result.keys()
-    for key in rowkeys:
-      if key in result and dbconstants.APP_ENTITY_SCHEMA[0] in result[key]:
-        entities.append(result[key][dbconstants.APP_ENTITY_SCHEMA[0]])
-
-    return entities 
-
   def __extract_entities(self, kv):
     """ Given a result from a range query on the Entity table return a 
         list of encoded entities.
@@ -1876,52 +1925,54 @@ class DatastoreDistributed():
     # Here we have two filters and so we set the start and end key to 
     # get the given value within those ranges. 
     if len(filter_ops) > 1:
-      if filter_ops[0][0] == datastore_pb.Query_Filter.EQUAL or filter_ops[1][0] == datastore_pb.Query_Filter.EQUAL:
-         # If one of the filters is EQUAL, set start and end key
-         # to the same value.
-         if filter_ops[0][0] == datastore_pb.Query_Filter.EQUAL:
-           value1 = filter_ops[0][1]
-           value2 = filter_ops[1][1]
-           oper1 = filter_ops[0][0]
-           oper2 = filter_ops[1][0]
-         else:
-           value1 = filter_ops[1][1]
-           value2 = filter_ops[0][1]
-           oper1 = filter_ops[1][0]
-           oper2 = filter_ops[0][0]
-         # Checking to see if filters/values are correct bounds.
-         # value1 and oper1 are the EQUALS filter values.
-         if oper2 == datastore_pb.Query_Filter.LESS_THAN:
-           if value2 > value1 == False:
-             return []
-         elif oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
-           if value2 >= value1 == False:
-             return []
-         elif oper2 == datastore_pb.Query_Filter.GREATER_THAN:
-           if value2 < value1 == False:
-             return []
-         elif oper2 == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
-           if value2 <= value1 == False:
-             return []
-         start_inclusive = self._ENABLE_INCLUSIVITY
-         end_inclusive = self._DISABLE_INCLUSIVITY
-         params = [prefix, kind, property_name, value1 + self._SEPARATOR]
-         if not startrow:
-           startrow = self.get_index_key_from_params(params)
-         else:
-           start_inclusive = self._DISABLE_INCLUSIVITY
-         params = [prefix, kind, property_name, value1 + self._SEPARATOR + self._TERM_STRING]
-         endrow = self.get_index_key_from_params(params)
-	 
-         ret = self.datastore_batch.range_query(table_name,
-                                          column_names,
-                                          startrow,
-                                          endrow,
-                                          limit,
-                                          offset=0,
-                                          start_inclusive=start_inclusive,
-                                          end_inclusive=end_inclusive) 
-         return ret 
+      if filter_ops[0][0] == datastore_pb.Query_Filter.EQUAL or \
+        filter_ops[1][0] == datastore_pb.Query_Filter.EQUAL:
+        # If one of the filters is EQUAL, set start and end key
+        # to the same value.
+        if filter_ops[0][0] == datastore_pb.Query_Filter.EQUAL:
+          value1 = filter_ops[0][1]
+          value2 = filter_ops[1][1]
+          oper1 = filter_ops[0][0]
+          oper2 = filter_ops[1][0]
+        else:
+          value1 = filter_ops[1][1]
+          value2 = filter_ops[0][1]
+          oper1 = filter_ops[1][0]
+          oper2 = filter_ops[0][0]
+        # Checking to see if filters/values are correct bounds.
+        # value1 and oper1 are the EQUALS filter values.
+        if oper2 == datastore_pb.Query_Filter.LESS_THAN:
+          if value2 > value1 == False:
+            return []
+        elif oper2 == datastore_pb.Query_Filter.LESS_THAN_OR_EQUAL:
+          if value2 >= value1 == False:
+            return []
+        elif oper2 == datastore_pb.Query_Filter.GREATER_THAN:
+          if value2 < value1 == False:
+            return []
+        elif oper2 == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
+          if value2 <= value1 == False:
+            return []
+        start_inclusive = self._ENABLE_INCLUSIVITY
+        end_inclusive = self._DISABLE_INCLUSIVITY
+        params = [prefix, kind, property_name, value1 + self._SEPARATOR]
+        if not startrow:
+          startrow = self.get_index_key_from_params(params)
+        else:
+          start_inclusive = self._DISABLE_INCLUSIVITY
+        params = [prefix, kind, property_name, value1 + self._SEPARATOR + \
+          self._TERM_STRING]
+        endrow = self.get_index_key_from_params(params)
+	
+        ret = self.datastore_batch.range_query(table_name,
+                                         column_names,
+                                         startrow,
+                                         endrow,
+                                         limit,
+                                         offset=0,
+                                         start_inclusive=start_inclusive,
+                                         end_inclusive=end_inclusive) 
+        return ret 
       if filter_ops[0][0] == datastore_pb.Query_Filter.GREATER_THAN or \
          filter_ops[0][0] == datastore_pb.Query_Filter.GREATER_THAN_OR_EQUAL:
         oper1 = filter_ops[0][0]
@@ -2001,17 +2052,209 @@ class DatastoreDistributed():
          
     return []
 
+  def does_composite_index_exist(self, query):
+    """ Checks to see if the query has a composite index that can implement
+    the give query. If it does, then we do not use zigzag merge join for 
+    the queries implementation because using a composite index is faster.
+
+    Args:
+      query: A datastore_pb.Query.
+    Returns:
+      0 if an index does not exist, and the index number if it does.
+    """
+    # TODO implement when we create composite indexes.
+    return 0
+
+  def is_zigzag_merge_join(self, query, filter_info, order_info):
+    """ Checks to see if the current query can be executed as a zigzag
+    merge join.
+
+    Args:
+      query: A datastore_pb.Query.
+      filter_info: dict of property names mapping to tuples of filter 
+        operators and values.
+      order_info: tuple with property name and the sort order.
+    Returns:
+      True if it qualifies as a zigzag merge join, and false otherwise.
+    """
+    if query.has_ancestor():
+      return False
+
+    order_properties = []
+    for order in order_info:
+      order_properties.append(order[0])
+
+    property_names = []
+    for property_name in filter_info:
+      filt = filter_info[property_name]
+      # There should only be one filter property for a given property.
+      if len(filt) > 1:
+        return False
+      property_names.append(property_name)
+      # We only handle equality filters for zigzag merge join queries.
+      if filt[0][0] != datastore_pb.Query_Filter.EQUAL: 
+        return False
+
+    if len(filter_info) < 2:
+      return False
+  
+    # Check to make sure no property names show up twice.
+    # Casting a copy of the list to a set will remove duplicates, 
+    # and then we check to make sure it is still consistent with the 
+    # previous list.
+    if list(set(property_names[:])) != property_names:
+      return False
+
+    for order_property_name in order_properties:
+      if order_property_name not in property_names:
+        return False
+
+    return True
+
+  def zigzag_merge_join(self, query, filter_info, order_info):
+    """ Performs a composite query for queries which have multiple 
+    equality filters. Uses a varient of the zigzag join merge algorithm.
+
+    This method is used if there are only equality filters present. 
+    If there are inequality filters, orders on properties which are not also 
+    apart of a filter, or ancestors, this method does 
+    not apply.  Existing single property indexes are used and it does not 
+    require the user to establish composite indexes ahead of time.
+    See http://www.youtube.com/watch?v=AgaL6NGpkB8 for Google's 
+    implementation.
+
+    Args:
+      query: A datastore_pb.Query.
+      filter_info: dict of property names mapping to tuples of filter 
+        operators and values.
+      order_info: tuple with property name and the sort order.
+    Returns:
+      List of entities retrieved from the given query.
+    """ 
+    if not self.is_zigzag_merge_join(query, filter_info, order_info):
+      return None
+
+    kind = query.kind()  
+    prefix = self.get_table_prefix(query)
+    limit = query.limit() or self._MAXIMUM_RESULTS
+    count = self._MAX_COMPOSITE_WINDOW
+    start_key = ""
+    result_list = []
+    force_exclusive = False
+    more_results = True
+    while more_results:
+      reference_counter_hash = {}
+      temp_res = {}
+      # We use what we learned from the previous scans to skip over any keys 
+      # that we know will not be a match.
+      startrow = "" 
+      # TODO Do these in parallel and measure speedup.
+      # I've tried a thread wrapper before but due to the function having
+      # self attributes it's nontrivial.
+      for prop_name in filter_info.keys():
+        filter_ops = filter_info.get(prop_name, [])
+        if start_key:
+          # Grab the reference key which is after the last delimiter. 
+          value = str(filter_ops[0][1])
+          reference_key = start_key.split(self._SEPARATOR)[-1]
+          params = [prefix, kind, prop_name, value, reference_key]
+          startrow = self.get_index_key_from_params(params)
+
+        if not startrow and query.has_compiled_cursor() and \
+          query.compiled_cursor().position_size():
+          cursor = appscale_stub_util.ListCursor(query)
+          last_result = cursor._GetLastResult()
+          startrow = self.__get_start_key(prefix, 
+                                    prop_name,
+                                    datastore_pb.Query_Order.ASCENDING,
+                                    last_result)
+
+  
+        # We use equality filters only so order ops should always be ASC. 
+        order_ops = []
+        for i in order_info:
+          if i[0] == prop_name:
+            order_ops = [i]
+            break
+   
+        temp_res[prop_name] = self.__apply_filters(filter_ops, 
+                                     order_ops, 
+                                     prop_name, 
+                                     kind, 
+                                     prefix, 
+                                     count, 
+                                     0, 
+                                     startrow,
+                                     force_start_key_exclusive=force_exclusive)
+      # We do reference counting and consider any reference which matches the 
+      # number of properties to be a match. Any others are discarded but it 
+      # possible they show up on subsequent scans. 
+      last_keys_of_scans = {}
+      for prop_name in temp_res:
+        for indexes in temp_res[prop_name]:
+          for reference in indexes: 
+            reference_key = indexes[reference]['reference']
+            if reference_key in reference_counter_hash:
+              reference_counter_hash[reference_key] += 1
+            else:
+              reference_counter_hash[reference_key] = 1
+          # Of the set of entity scans we use the earliest of the set as the
+          # starting point of scans to follow. This makes sure we do not miss 
+          # overlapping results because different properties had different 
+          # distributions of keys. The index value gives us the key to 
+          # the entity table (what the index points to).
+          index_key = indexes.keys()[0]
+          index_value = indexes[index_key]['reference']
+          last_keys_of_scans[prop_name] = index_value
+      
+      # Purge keys which did not intersect from all equality filters:
+      for key in reference_counter_hash:
+        if reference_counter_hash[key] != len(filter_info.keys()):
+          del reference_counter_hash[key]
+
+      # We are looking for the earliest (alphabetically) of the keys.
+      start_key = ""
+      for last_key in last_keys_of_scans:
+        if not start_key: 
+          start_key = last_key
+        elif start_key > last_key:
+          last_key = start_key
+
+      result_list.extend(reference_counter_hash.keys())
+
+      # If any of the properties ran out of entities, then we are done.
+      for prop_name in temp_res:
+        if len(temp_res) < count:
+          more_results = False
+
+      # If we reached our limit of result entities, then we are done.
+      if len(result_list) >= limit:
+        more_results = False
+
+      # Do not include the first key in subsequent scans because we have 
+      # alreadt accounted for the given entity.
+      if start_key in result_list:
+        force_exclusive = True
+
+    result_list.sort()
+    result_set = self.__fetch_entities_from_row_list(result_list)
+    return result_set
+
   def __composite_query(self, query, filter_info, order_info):  
     """Performs Composite queries which is a combination of 
        multiple properties to query on.
 
     Args:
       query: The query to run.
-      filter_info: tuple with filter operators and values.
+      filter_info: dictionary mapping property names to tuples of 
+        filter operators and values.
       order_info: tuple with property name and the sort order.
     Returns:
       List of entities retrieved from the given query.
     """
+    if self.is_zigzag_merge_join(query, filter_info, order_info):
+      return None
+
     if order_info and order_info[0][0] == '__key__':
       return None
 
@@ -2029,10 +2272,11 @@ class DatastoreDistributed():
           pname = p
       return pname, pnames 
     property_name, property_names = set_prop_names(filter_info)
-    if len(property_names) <= 1:
-      if not (len(property_names) == 1 and (query.has_ancestor() \
-        or query.has_kind())):
-        return None
+
+    if len(property_names) <= 1 and not \
+      (len(property_names) == 1 and (query.has_ancestor() \
+      or query.has_kind())):
+      return None
 
     if not property_name:
       property_name = property_names.pop()
@@ -2083,7 +2327,9 @@ class DatastoreDistributed():
       ent_res = self.__fetch_entities(temp_res)
       # Create a copy from which we filter out
       filtered_entities = ent_res[:]
-      # Apply in-memory filters for each property
+      # Apply in-memory filters for each property. We loop through each entity
+      # and filter out entities which do not match the given kind, ancestor,
+      # or equality filter for given properties.
       for ent in ent_res:
         e = entity_pb.EntityProto(ent)
 
@@ -2231,6 +2477,7 @@ class DatastoreDistributed():
   _QUERY_STRATEGIES = [
       __single_property_query,   
       __kind_query,
+      zigzag_merge_join,
       __composite_query,
   ]
 
@@ -2472,7 +2719,8 @@ class MainHandler(tornado.web.RequestHandler):
       errcode = 0
       errdetail = ""
       response = api_base_pb.Integer64Proto()
-      response.set_value(0)
+      rand = random.randint(1, 9999999)
+      response.set_value(rand)
       response = response.Encode()
 
     elif method == "GetIndices":
