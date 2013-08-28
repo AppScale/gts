@@ -23,7 +23,7 @@ super_secret = ""
 db = []
 DEFAULT_PORT = 11226
 bindport = DEFAULT_PORT
-datastore_type = "hbase"
+datastore_type = "cassandra"
 zoo_keeper = ""
 try:
   FILE = open(SECRET_LOCATION, 'r')

@@ -62,6 +62,7 @@ class TestEC2Agent(TestCase):
       'keyname': 'bookeyname',
       'num_vms': '1',
       'use_spot_instances': False,
+      'zone' : 'my-zone-1b'
     }
 
     id = '0000000000'  # no longer randomly generated

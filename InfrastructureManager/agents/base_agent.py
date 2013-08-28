@@ -85,6 +85,22 @@ class BaseAgent:
     raise NotImplementedError
 
 
+  def attach_disk(self, parameters, disk_name):
+    """ Acquires a previously created persistent disk and attaches it to this
+    machine.
+
+    The disk is not guaranteed to be formatted, nor is it mounted.
+
+    Args:
+      parameters: A dict containing the parameters necessary to communicate
+        with the underlying cloud infrastructure.
+      disk_name: A str naming the persistent disk to attach to this machine.
+    Returns:
+      The location on the local filesystem where the disk was attached to.
+    """
+    raise NotImplementedError
+
+
 class AgentConfigurationException(Exception):
   """
   An agent implementation may throw this exception when it detects that a

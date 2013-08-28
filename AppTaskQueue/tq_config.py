@@ -137,7 +137,6 @@ queue:
       ValueError: If queue_file is unable to get loaded.
     """
     queue_file = self.get_queue_file_location(app_id)
-    logging.info("Looking for a queue file at {0}".format(queue_file))
     info = ""
     using_default = False
     try:
@@ -173,6 +172,7 @@ queue:
       queue_info['queue'].append({'rate':'5/s', 'name': 'default'})
 
     self._queue_info_file = queue_info
+    logging.info("AppID {0} -- Loaded queue {1}".format(app_id, queue_info))
     return queue_info 
 
   def parse_queue_xml(self, xml_string):

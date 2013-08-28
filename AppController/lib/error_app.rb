@@ -71,12 +71,13 @@ if __name__ == '__main__':
 
 SCRIPT
 
-    HelperFunctions.write_file(@dir_path + 'app.yaml', app_yaml)
-    HelperFunctions.write_file(@dir_path + "#{@app_name}.py", script) 
-     
-    Djinn.log_run("rm #{@dir_path}/#{@app_name}.tar.gz")
+    HelperFunctions.write_file("#{@dir_path}app.yaml", app_yaml)
+    HelperFunctions.write_file("#{@dir_path}#{@app_name}.py", script)
+
+    app_tar = "/opt/appscale/apps/#{@app_name}.tar.gz"
+    Djinn.log_run("rm #{app_tar}")
     Dir.chdir(@dir_path) do
-      Djinn.log_run("tar zcvf #{@app_name}.tar.gz app.yaml #{@app_name}.py")
+      Djinn.log_run("tar zcvf #{app_tar} app.yaml #{@app_name}.py")
     end
 
     return true

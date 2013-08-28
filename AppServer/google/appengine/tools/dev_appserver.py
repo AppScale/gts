@@ -222,16 +222,6 @@ DEVEL_PAYLOAD_RAW_HEADER = 'X-AppEngine-Development-Payload'
 DEVEL_FAKE_IS_ADMIN_HEADER = 'HTTP_X_APPENGINE_FAKE_IS_ADMIN'
 DEVEL_FAKE_IS_ADMIN_RAW_HEADER = 'X-AppEngine-Fake-Is-Admin'
 
-# AppScale
-# Soft cap on memory. If over dev_appserver will stop serving traffic and 
-# shut down. It will randomly choose to exit based on MAX_RANDOM_TARGET,
-# hence the reason it is soft and not hard . Units are in KBs.
-SOFT_CAP_MEM = 150000
-
-# Max number for randomly killing the dev_appserver when over the soft 
-# memory cap.
-MAX_RANDOM_TARGET = 25
-
 FILE_STUB_DEPRECATION_MESSAGE = (
 """The datastore file stub is deprecated, and
 will stop being the default in a future release.
@@ -4008,18 +3998,6 @@ class HTTPServerWithScheduler(BaseHTTPServer.HTTPServer):
     """Handle one request at a time until told to stop."""
     while not self._stopped:
       self.handle_request()
-      # AppScale 
-      # If this process is using too much memory kill it randomly
-      if resource.getrusage(resource.RUSAGE_SELF).ru_maxrss > SOFT_CAP_MEM:
-        # Stagger the killing so all processes do not go down at the same 
-        # time. The lower the MAX_RANDOM_TARGET the higher probability it 
-        # will shut down when over the soft memory cap.
-        rand = random.randint(0, MAX_RANDOM_TARGET)
-        if rand == 0:
-          logging.error("Usage of memory exceeded soft cap of " + \
-                        str(SOFT_CAP_MEM) + ". Exiting.")
-          break
-
     self.server_close()
 
   def stop_serving_forever(self):

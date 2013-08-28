@@ -40,7 +40,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'num_vms' => '1',
         'cloud' => 'cloud1',
         'use_spot_instances' => true,
-        'max_spot_price' => 1.23
+        'max_spot_price' => 1.23,
+        'zone' => 'my-zone-1b'
       }).and_return({
         'success' => true,
         'reservation_id' => "0000000000",
@@ -86,11 +87,18 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'ec2_secret_key' => 'boosecret',
       'ec2_url' => 'booec2url',
       'use_spot_instances' => true,
-      'max_spot_price' => 1.23
+      'max_spot_price' => 1.23,
+      'zone' => 'my-zone-1b'
     }
   
-    expected = ["public-ip:private-ip:open:i-id:cloud1"]
-    actual = imc.spawn_vms(1, creds, "open", "cloud1")
+    expected = [{
+      "public_ip" => "public-ip",
+      "private_ip" => "private-ip",
+      "jobs" => "open",
+      "instance_id" => "i-id",
+      "disk" => nil
+    }]
+    actual = imc.spawn_vms(1, creds, "open", [nil])
     assert_equal(expected, actual)
   end
 
@@ -114,7 +122,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'num_vms' => '3',
         'cloud' => 'cloud1',
         'use_spot_instances' => false,
-        'max_spot_price' => nil
+        'max_spot_price' => nil,
+        'zone' => 'my-zone-1b'
       }).and_return({
         'success' => true,
         'reservation_id' => "0000000000",
@@ -159,15 +168,31 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'ec2_access_key' => 'booaccess',
       'ec2_secret_key' => 'boosecret',
       'ec2_url' => 'booec2url',
-      'use_spot_instances' => false
+      'use_spot_instances' => false,
+      'zone' => 'my-zone-1b'
     }
   
-    expected = [
-      "public-ip1:private-ip1:a:i-id1:cloud1",
-      "public-ip2:private-ip2:b:i-id2:cloud1",
-      "public-ip3:private-ip3:c:i-id3:cloud1",
-    ]
-    actual = imc.spawn_vms(3, creds, ["a", "b", "c"], "cloud1")
+    expected = [{
+      'public_ip' => 'public-ip1',
+      'private_ip' => 'private-ip1',
+      'jobs' => 'a',
+      'instance_id' => 'i-id1',
+      'disk' => nil
+    }, {
+      'public_ip' => 'public-ip2',
+      'private_ip' => 'private-ip2',
+      'jobs' => 'b',
+      'instance_id' => 'i-id2',
+      'disk' => nil
+
+    }, {
+      'public_ip' => 'public-ip3',
+      'private_ip' => 'private-ip3',
+      'jobs' => 'c',
+      'instance_id' => 'i-id3',
+      'disk' => nil
+    }]
+    actual = imc.spawn_vms(3, creds, ["a", "b", "c"], [nil, nil, nil])
     assert_equal(expected, actual)
   end
 
@@ -191,7 +216,8 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
         'num_vms' => '3',
         'cloud' => 'cloud1',
         'use_spot_instances' => nil,
-        'max_spot_price' => nil
+        'max_spot_price' => nil,
+        'zone' => 'my-zone-1b'
       }).and_return({
         'success' => true,
         'reservation_id' => "0000000000",
@@ -237,15 +263,31 @@ class TestInfrastructureManagerClient < Test::Unit::TestCase
       'ec2_secret_key' => nil,
       'ec2_url' => nil,
       'use_spot_instances' => nil,
-      'project' => '123456789'
+      'project' => '123456789',
+      'zone' => 'my-zone-1b'
     }
 
-    expected = [
-      "public-ip1:private-ip1:a:i-id1:cloud1",
-      "public-ip2:private-ip2:b:i-id2:cloud1",
-      "public-ip3:private-ip3:c:i-id3:cloud1",
-    ]
-    actual = imc.spawn_vms(3, creds, ["a", "b", "c"], "cloud1")
+    expected = [{
+      'public_ip' => 'public-ip1',
+      'private_ip' => 'private-ip1',
+      'jobs' => 'a',
+      'instance_id' => 'i-id1',
+      'disk' => nil
+    }, {
+      'public_ip' => 'public-ip2',
+      'private_ip' => 'private-ip2',
+      'jobs' => 'b',
+      'instance_id' => 'i-id2',
+      'disk' => nil
+
+    }, {
+      'public_ip' => 'public-ip3',
+      'private_ip' => 'private-ip3',
+      'jobs' => 'c',
+      'instance_id' => 'i-id3',
+      'disk' => nil
+    }]
+    actual = imc.spawn_vms(3, creds, ["a", "b", "c"], [nil, nil, nil])
     assert_equal(expected, actual)
   end
 

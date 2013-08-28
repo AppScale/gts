@@ -22,10 +22,6 @@ watch('(lib)/(.*).py') { |md|
   system "rake lib:test"
 }
 
-watch('Neptune/(.*).rb') { |md|
-  system "rake neptunemanager:test"
-}
-
 watch('XMPPReceiver/(.*).py') { |md|
   system "rake xmppreceiver:test"
 }

@@ -32,6 +32,7 @@ class TestEucaAgent(TestCase):
       'keyname': 'bookeyname',
       'num_vms': '2',
       'use_spot_instances': False,
+      'zone' : 'my-zone-1b'
     }
 
     id = '0000000000'  # no longer randomly generated

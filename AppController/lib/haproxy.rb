@@ -7,7 +7,6 @@ require 'fileutils'
 $:.unshift File.join(File.dirname(__FILE__))
 require 'helperfunctions'
 require 'app_dashboard'
-require 'monitoring'
 
 
 # As AppServers within AppScale are usually single-threaded, we run multiple
@@ -53,28 +52,20 @@ module HAProxy
   ALB_SERVER_TIMEOUT = 300000
 
   
-  # The location of the script that god uses to see if haproxy is running,
-  # restarting it if necessary.
-  START_HAPROXY_SCRIPT = File.dirname(__FILE__) + "/../" + \
-                          "/scripts/start_haproxy.sh"
-
   def self.start
-    start_cmd = "bash #{START_HAPROXY_SCRIPT}"
-    stop_cmd = "service haproxy stop"
-    port = 9999
-    GodInterface.start(:haproxy, start_cmd, stop_cmd, port)
+    Djinn.log_run("service haproxy start")
   end
 
   def self.stop
-    GodInterface.stop(:haproxy)
+    Djinn.log_run("service haproxy stop")
   end
 
   def self.restart
-    `service haproxy restart`
+    Djinn.log_run("service haproxy restart")
   end
 
   def self.reload
-    `service haproxy reload`
+    Djinn.log_run("service haproxy reload")
   end
 
   def self.is_running?
@@ -96,12 +87,6 @@ module HAProxy
     listen_port)
     self.create_app_config(my_public_ip, my_private_ip, listen_port, 
       AppDashboard::SERVER_PORTS, AppDashboard::NGINX_APP_NAME)
-  end
-
-  # Create the configuration file for the AppMonitoring Rails application
-  def self.create_app_monitoring_config(my_public_ip, my_private_ip, listen_port)
-    self.create_app_config(my_public_ip, my_private_ip, listen_port, 
-      Monitoring.server_ports, Monitoring.name)
   end
 
   # Create the config file for Datastore Server applications

@@ -39,6 +39,7 @@ from app_dashboard_helper import AppHelperException
 from app_dashboard_data import AppDashboardData
 from app_dashboard_data import InstanceInfo
 from app_dashboard_data import RequestInfo
+from app_dashboard_data import AppStatus
 
 
 jinja_environment = jinja2.Environment(
@@ -381,7 +382,11 @@ class LogoutPage(AppDashboard):
         redirects the user to the landing page.
     """
     self.helper.logout_user(self.response)
-    self.redirect('/', self.response)
+    continue_url = self.request.get("continue")
+    if continue_url:
+      self.redirect(str(continue_url), self.response)
+    else:
+      self.redirect('/', self.response)
 
 
 class LoginPage(AppDashboard):
@@ -393,8 +398,9 @@ class LoginPage(AppDashboard):
 
   def post(self):
     """ Handler for POST requests. """
-    if self.helper.login_user(self.request.get('user_email'),
-       self.request.get('user_password'), self.response):
+    user_email = self.request.get('user_email').lstrip().rstrip()
+    if self.helper.login_user(user_email, self.request.get('user_password'),
+      self.response):
     
       if self.request.get('continue') != '':
         self.redirect('/users/confirm?continue={0}'.format(
@@ -405,7 +411,7 @@ class LoginPage(AppDashboard):
     else:
       self.render_page(page='users', template_file=self.TEMPLATE, values={
           'continue' : self.request.get('continue'),
-          'user_email' : self.request.get('user_email'),
+          'user_email' : user_email,
           'flash_message': 
           "Incorrect username / password combination. Please try again."
         })
@@ -470,6 +476,48 @@ class AuthorizePage(AppDashboard):
         'user_perm_list':{},
         })
 
+
+  def get(self):
+    """ Handler for GET requests. """
+    if self.dstore.is_user_cloud_admin():
+      self.render_page(page='authorize', template_file=self.TEMPLATE, values={
+        'user_perm_list' : self.helper.list_all_users_permissions(),
+      })
+    else:
+      self.render_page(page='authorize', template_file=self.TEMPLATE, values={
+        'flash_message':"Only the cloud administrator can change permissions.",
+        'user_perm_list':{},
+        })
+
+
+class ChangePasswordPage(AppDashboard):
+  """Class to handle user password changes."""
+
+  TEMPLATE = 'authorize/cloud.html'
+
+  def post(self):
+    """ Handler for POST requests. """
+    email = self.request.get("email")
+    password = self.request.get("password")
+    if self.dstore.is_user_cloud_admin():
+      success, message = self.helper.change_password(cgi.escape(email),
+        cgi.escape(password))
+    else:
+      success = False
+      message = "Only the cloud administrator can change passwords."
+
+    flash_message = None
+    error_flash_message = None
+    if success:
+      flash_message = message
+    else:
+      error_flash_message = message
+
+    self.render_page(page='authorize', template_file=self.TEMPLATE, values={
+      'flash_message':flash_message,
+      'error_flash_message':error_flash_message,
+      'user_perm_list' : self.helper.list_all_users_permissions(),
+      })
 
   def get(self):
     """ Handler for GET requests. """
@@ -1010,10 +1058,18 @@ class StatsPage(AppDashboard):
       self.redirect('/', self.response)
 
     instance_info = InstanceStats.fetch_request_info(app_id)
+
+    app_status = AppStatus.get_by_id(app_id)
+    if app_status and app_status.url:
+      url = app_status.url
+    else:
+      url = None
+
     self.render_page(page='stats', template_file=self.TEMPLATE, values = {
       'appid' : app_id,
       'all_apps_this_user_owns' : apps_user_is_admin_on,
-      'instance_info' : instance_info
+      'instance_info' : instance_info,
+      'app_url' : url
     })
 
 
@@ -1060,7 +1116,8 @@ app = webapp2.WSGIApplication([ ('/', IndexPage),
                                 ('/logs/(.+)/(.+)', LogServiceHostPage),
                                 ('/logs/(.+)', LogServicePage),
                                 ('/gather-logs', LogDownloader),
-                                ('/groomer', RunGroomer)
+                                ('/groomer', RunGroomer),
+                                ('/change-password', ChangePasswordPage)
                               ], debug=True)
 
 

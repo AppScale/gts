@@ -164,16 +164,12 @@ class ZKInterface
   end
 
 
-  def self.get_app_hosters(appname)
-    if !defined?(@@zk)
-      return []
-    end
-
+  def self.get_app_hosters(appname, keyname)
     appname_path = ROOT_APP_PATH + "/#{appname}"
     app_hosters = self.get_children(appname_path)
     converted = []
-    app_hosters.each { |serialized|
-      converted << DjinnJobData.deserialize(serialized)
+    app_hosters.each { |host|
+      converted << DjinnJobData.new(self.get_job_data_for_ip(host), keyname)
     }
     return converted
   end
@@ -418,7 +414,7 @@ class ZKInterface
 
     # Finally, dump the data from this node to ZK, so that other nodes can
     # reconstruct it as needed.
-    self.set_job_data_for_ip(node.public_ip, node.serialize())
+    self.set_job_data_for_ip(node.public_ip, node.to_hash())
 
     return
   end
@@ -533,17 +529,14 @@ class ZKInterface
   end
 
 
-  # Returns a serialized DjinnJobData string that we store in ZooKeeper for the
-  # given IP address, which callers can deserialize to get a DjinnJobData
-  # object.
   def self.get_job_data_for_ip(ip)
-    return self.get("#{APPCONTROLLER_NODE_PATH}/#{ip}/job_data")
+    return JSON.load(self.get("#{APPCONTROLLER_NODE_PATH}/#{ip}/job_data"))
   end
 
 
   def self.set_job_data_for_ip(ip, job_data)
     return self.set("#{APPCONTROLLER_NODE_PATH}/#{ip}/job_data", 
-      job_data, NOT_EPHEMERAL)
+      JSON.dump(job_data), NOT_EPHEMERAL)
   end
 
 
@@ -555,12 +548,11 @@ class ZKInterface
   # roles should be an Array of Strings, where each String is a role to add
   # node should be a DjinnJobData representing the node that we want to add
   # the roles to
-  def self.add_roles_to_node(roles, node)
+  def self.add_roles_to_node(roles, node, keyname)
     old_job_data = self.get_job_data_for_ip(node.public_ip)
-    new_node = DjinnJobData.deserialize(old_job_data)
+    new_node = DjinnJobData.new(old_job_data, keyname)
     new_node.add_roles(roles.join(":"))
-    new_job_data = new_node.serialize()
-    self.set_job_data_for_ip(node.public_ip, new_job_data)
+    self.set_job_data_for_ip(node.public_ip, new_node.to_hash())
     self.set_done_loading(node.public_ip, false)
     self.update_ips_timestamp()
   end
@@ -574,12 +566,11 @@ class ZKInterface
   # roles should be an Array of Strings, where each String is a role to remove
   # node should be a DjinnJobData representing the node that we want to remove
   # the roles from
-  def self.remove_roles_from_node(roles, node)
+  def self.remove_roles_from_node(roles, node, keyname)
     old_job_data = self.get_job_data_for_ip(node.public_ip)
-    new_node = DjinnJobData.deserialize(old_job_data)
+    new_node = DjinnJobData.new(old_job_data, keyname)
     new_node.remove_roles(roles.join(":"))
-    new_job_data = new_node.serialize()
-    self.set_job_data_for_ip(node.public_ip, new_job_data)
+    self.set_job_data_for_ip(node.public_ip, new_node.to_hash())
     self.set_done_loading(node.public_ip, false)
     self.update_ips_timestamp()
   end
@@ -801,9 +792,8 @@ class ZKInterface
     }
 
     if zk_node.nil?
-      no_zks = "No ZooKeeper nodes were found. All nodes are #{nodes}," +
-        " while my node is #{my_node}."
-      abort(no_zks)
+      HelperFunctions.log_and_crash("No ZooKeeper nodes were found. All " +
+        "nodes are #{nodes}, while my node is #{my_node}.")
     end
 
     return zk_node.private_ip

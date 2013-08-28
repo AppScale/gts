@@ -30,14 +30,11 @@ module Ejabberd
                           "/scripts/start_ejabberd.sh"
 
   def self.start
-    start_cmd = "bash #{START_EJABBERD_SCRIPT}"
-    stop_cmd = "/etc/init.d/ejabberd stop"
-    port = 4369
-    GodInterface.start(:ejabberd, start_cmd, stop_cmd, port)
+    Djinn.log_run("bash #{START_EJABBERD_SCRIPT}")
   end
 
   def self.stop
-    GodInterface.stop(:ejabberd)
+    Djinn.log_run("/etc/init.d/ejabberd stop")
   end
 
   def self.clear_online_users
@@ -62,7 +59,8 @@ module Ejabberd
         return false
       end
     else
-      abort("xmpp: runtime was neither python, python27, go, java but was [#{runtime}]")
+      HelperFunctions.log_and_crash("xmpp: runtime was not python, " +
+        "python27, go, java but was [#{runtime}]")
     end
   end
 

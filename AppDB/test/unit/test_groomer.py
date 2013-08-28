@@ -66,12 +66,12 @@ class TestGroomer(unittest.TestCase):
   """
   def test_init(self):
     zookeeper = flexmock()
-    dsg = groomer.DatastoreGroomer(zookeeper, "hypertable", "localhost:8888") 
+    dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888") 
 
   def test_get_groomer_lock(self):
     zookeeper = flexmock()
     zookeeper.should_receive("get_datastore_groomer_lock").and_return(True)
-    dsg = groomer.DatastoreGroomer(zookeeper, "hypertable", "localhost:8888")
+    dsg = groomer.DatastoreGroomer(zookeeper, "cassandra", "localhost:8888")
     self.assertEquals(True, dsg.get_groomer_lock())
 
   def test_hard_delete_row(self):

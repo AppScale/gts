@@ -10,6 +10,14 @@
             </div><!--close header-->
               <div class="row-fluid">
                 <div style="margin-right:auto; margin-left:auto;">
+                  {% if app_url %}
+                    <p>View more detailed information about your app at the <a href='{{ app_url }}/_ah/admin' target="_blank">GAE Admin Console</a>.</p>
+                  {% else %}
+                    <p>Your app is still loading. Check back here momentarily for a link to your app's Admin Console.</p>
+                  {% endif %}
+                </div><!-- close marginright -->
+              <div class="row-fluid">
+                <div style="margin-right:auto; margin-left:auto;">
                   <p>Requests per second:</p>
                 </div><!-- close marginright -->
                 <div class="offset1 span8">
@@ -135,7 +143,7 @@ function update_stats_info() {
         newest_timestamp = timestamp;
       }
 
-      var all_stats = [];
+      var data = [];
       for (var index=0; index < stats_info.length; index++) {
         entity_info = stats_info[index];
         var this_timestamp = null;
@@ -145,36 +153,38 @@ function update_stats_info() {
         if (this_timestamp == newest_timestamp) {
           var entity_stats = entity_info[this_timestamp];
           for (var entity_name in entity_stats) {
-          var entity_size = entity_stats[entity_name]["bytes"];
-            all_stats.push({ label: entity_name + " (" + entity_size + " bytes)", data: [[1, entity_size]] });
-
+            var entity_count = entity_stats[entity_name]["count"];
+            var entity_size = entity_stats[entity_name]["bytes"];
+            data.push({ label: entity_name + " (" + entity_count + " items, " +
+              entity_size + " bytes)", data: [[1, entity_size]] });
           }
         }
       }
 
-      if (all_stats.length == 0) {
+      if (data.length == 0) {
         $('#kind-flot').text("No Kind data is currently available. " +
           "This data updates every day by default, or you can click " +
           "the 'Update' button above to manually generate this data.");
       } else {
         $('#kind-flot').text('');
-        $.plot('#kind-flot', all_stats, {
+        $.plot('#kind-flot', data, {
           series: {
             pie: {
-              show: true,
-              label: {
-                    show: true,
-                    radius: 3/4,
-                    formatter: function(label, series){
-                        return '<div style="font-size:8pt;text-align:center;padding:2px;color:white;">'+label+'<br/>'+Math.round(series.percent)+'%</div>';
-                    },
-                    background: {
-                        opacity: 0.5,
-                        color: '#000'
-                    }
-                }
+              show: true
             }
           },
+          grid: {
+		    hoverable: true
+			},
+	      tooltip: true,
+          tooltipOpts: {
+				content: "%s",
+				shifts: {
+					x: 20,
+					y: 0
+				},
+		  defaultTheme: true
+			},
           legend: {
             show: true
           }
