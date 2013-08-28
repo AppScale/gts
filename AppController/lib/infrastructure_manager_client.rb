@@ -254,6 +254,7 @@ class InfrastructureManagerClient
   #   attached to.
   def attach_disk(credentials, disk_name, instance_id)
     parameters = get_parameters_from_credentials(credentials)
+    parameters['zone'] = credentials['zone'] if credentials['zone']
     Djinn.log_debug("Calling attach_disk with parameters " +
       "#{parameters.inspect}, with disk name #{disk_name} and instance id " +
       "#{instance_id}")
