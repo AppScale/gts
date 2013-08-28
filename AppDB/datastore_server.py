@@ -1305,6 +1305,27 @@ class DatastoreDistributed():
       str(self.__encode_index_pb(e.key().path()))]
     return self.get_index_key_from_params(params)
 
+
+  def __fetch_entities_from_row_list(self, rowkeys):
+    """ Given a list of keys fetch the entities from the entity table.
+    
+    Args:
+      rowkeys: A list of strings which are keys to the entitiy table.
+    Returns:
+      A list of entities.
+    """
+    logging.debug("Fetching rowkeys {0}".format(rowkeys))
+    result = self.datastore_batch.batch_get_entity(
+      dbconstants.APP_ENTITY_TABLE, rowkeys, dbconstants.APP_ENTITY_SCHEMA)
+    result = self.remove_tombstoned_entities(result)
+    entities = []
+    keys = result.keys()
+    for key in rowkeys:
+      if key in result and dbconstants.APP_ENTITY_SCHEMA[0] in result[key]:
+        entities.append(result[key][dbconstants.APP_ENTITY_SCHEMA[0]])
+    return entities 
+
+
   def __fetch_entities(self, refs):
     """ Given the results from a table scan, get the references.
     
@@ -1322,18 +1343,8 @@ class DatastoreDistributed():
       key = keys[index]
       ent = ent[key]['reference']
       rowkeys.append(ent)
+    return self.__fetch_entities_from_row_list(rowkeys)
   
-    result = self.datastore_batch.batch_get_entity(
-      dbconstants.APP_ENTITY_TABLE, rowkeys, dbconstants.APP_ENTITY_SCHEMA)
-    result = self.remove_tombstoned_entities(result)
-    entities = []
-    keys = result.keys()
-    for key in rowkeys:
-      if key in result and dbconstants.APP_ENTITY_SCHEMA[0] in result[key]:
-        entities.append(result[key][dbconstants.APP_ENTITY_SCHEMA[0]])
-
-    return entities 
-
   def __extract_entities(self, kv):
     """ Given a result from a range query on the Entity table return a 
         list of encoded entities.
@@ -2098,7 +2109,6 @@ class DatastoreDistributed():
       if order_property_name not in property_names:
         return False
 
-    logging.info("This is a zigzag merge join query.")
     return True
 
   def zigzag_merge_join(self, query, filter_info, order_info):
@@ -2124,36 +2134,39 @@ class DatastoreDistributed():
     if not self.is_zigzag_merge_join(query, filter_info, order_info):
       return None
 
-
-    logging.error("Doing a zigzag merge join")
     # TODO cursors.
-    # TODO results greater than one.
 
-    # Get the filter ops and order ops for each property name. 
-    # Retrieve one entity from each and set the key to the path which 
-    # is lexigraphically the furthest.
     kind = query.kind()  
     prefix = self.get_table_prefix(query)
-    #TODO is it inefficient to just get one entity at a time. Grab batches 
-    # and update the algorithm.
-    count = 1
-    entities_to_fetch = []
-    # We keep track of start rows for each property name and move it 
-    # forward as we zig and zag.
-    startrow = {}
-    for prop_name in filter_info.keys():
-      startrow[prop_name] = ""
-
-    while True:
-      temp_res = {} 
+    limit = query.limit() or self._MAXIMUM_RESULTS
+    count = self._MAX_COMPOSITE_WINDOW
+    start_key = ""
+    result_list = []
+    force_exclusive = False
+    more_results = True
+    while more_results:
+      reference_counter_hash = {}
+      temp_res = {}
+      # We use what we learned from the previous scans to skip over any keys 
+      # that we know will not be a match.
+      startrow = "" 
+      # TODO Do these in parallel and measure speedup.
       for prop_name in filter_info.keys():
         filter_ops = filter_info.get(prop_name, [])
+        if start_key:
+          # Grab the reference key which is after the last delimiter. 
+          value = str(filter_ops[0][1])
+          reference_key = start_key.split(self._SEPARATOR)[-1]
+          params = [prefix, kind, prop_name, value, reference_key]
+          startrow = self.get_index_key_from_params(params)
+  
+        # We use equality filters only so order ops should always be ASC. 
         order_ops = []
         for i in order_info:
           if i[0] == prop_name:
             order_ops = [i]
             break
-      
+   
         temp_res[prop_name] = self.__apply_filters(filter_ops, 
                                      order_ops, 
                                      prop_name, 
@@ -2161,42 +2174,60 @@ class DatastoreDistributed():
                                      prefix, 
                                      count, 
                                      0, 
-                                     startrow[prop_name],
-                                     force_start_key_exclusive=False)
-      logging.error("Temp res: {0}".format(temp_res)) 
-      # See if all keys are the same, if so then this key is a result
-      is_match = True
-      furthest_entity_key = ""
+                                     startrow,
+                                     force_start_key_exclusive=force_exclusive)
+      # We do reference counting and consider any reference which matches the 
+      # number of properties to be a match. Any others are discarded but it 
+      # possible they show up on subsequent scans. 
+      last_keys_of_scans = {}
       for prop_name in temp_res:
-        if len(temp_res[prop_name]) != 1:
-          logging.error("No results") 
-          return []
-        if not furthest_entity_key:
-          #TODO strip away the entity path
-          furthest_entity_key = temp_res[prop_name] 
-        else:
-          # get the entity path and compare it to what we already have
-          logging.error("Futher entity key: {0}".format(furthest_entity_key))
-          prev_key = furthest_entity_key[0].keys()[0]
-          new_key = temp_res[prop_name][0].keys()[0]
-          # Grab the reference key which is after the last delimiter. 
-          prev_reference_key = prev_key.split(self._SEPARATOR)[-1]
-          new_reference_key = new_key.split(self._SEPARATOR)[-1]
-          if prev_reference_key != new_reference_key:
-            is_match = False
-            logging.error("There was no match")
-          if new_reference_key > prev_reference_key:
-            furthest_entity_key = temp_res[prop_name]
-            logging.error("There was a match")
+        for indexes in temp_res[prop_name]:
+          for reference in indexes: 
+            reference_key = indexes[reference]['reference']
+            if reference_key in reference_counter_hash:
+              reference_counter_hash[reference_key] += 1
+            else:
+              reference_counter_hash[reference_key] = 1
+          # Of the set of entity scans we use the earliest of the set as the
+          # starting point of scans to follow. This makes sure we do not miss 
+          # overlapping results because different properties had different 
+          # distributions of keys. The index value gives us the key to 
+          # the entity table (what the index points to).
+          index_key = indexes.keys()[0]
+          index_value = indexes[index_key]['reference']
+          last_keys_of_scans[prop_name] = index_value
       
-      if is_match:
-        entities_to_fetch = furthest_entity_key
-        logging.error("Will fetch key {0}".format(furthest_entity_key))
- 
-      #TODO remove this break and update the start keys for each prop.
-      break
-    result_set = self.__fetch_entities(entities_to_fetch)
-    logging.error("Result set {0}".format(result_set))
+      # Purge keys which did not intersect from all equality filters:
+      for key in reference_counter_hash:
+        if reference_counter_hash[key] != len(filter_info.keys()):
+          del reference_counter_hash[key]
+
+      # We are looking for the earliest (alphabetically) of the keys.
+      start_key = ""
+      for last_key in last_keys_of_scans:
+        if not start_key: 
+          start_key = last_key
+        elif start_key > last_key:
+          last_key = start_key
+
+      result_list.extend(reference_counter_hash.keys())
+
+      # If any of the properties ran out of entities, then we are done.
+      for prop_name in temp_res:
+        if len(temp_res) < count:
+          more_results = False
+
+      # If we reached our limit of result entities, then we are done.
+      if len(result_list) >= limit:
+        more_results = False
+
+      # Do not include the first key in subsequent scans because we have 
+      # alreadt accounted for the given entity.
+      if start_key in result_list:
+        force_exclusive = True
+
+    result_list.sort()
+    result_set = self.__fetch_entities_from_row_list(result_list)
     return result_set
 
   def __composite_query(self, query, filter_info, order_info):  
