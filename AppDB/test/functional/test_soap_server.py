@@ -107,14 +107,10 @@ for ii in range(1,len(sys.argv)):
   else:
     pass
 
-if super_secret == "":
-  try: 
-    FILE = open('/etc/appscale/secret.key', 'r')
-    super_secret = FILE.read()
-    super_secret = super_secret[0:-1]
-    FILE.close() 
-  except Exception, e:
-    print "Error:",str(e)
+if not super_secret:
+  with open(SECRET_LOCATION, 'r') as file_handle:
+    super_secret = file_handle.read()
+
 print "address for server",app_location
 print "binding port:",bindport
 print "secret:",super_secret
