@@ -51,7 +51,7 @@ public final class LocalUserService extends AbstractLocalRpcService
     public UserServicePb.CreateLogoutURLResponse createLogoutURL( LocalRpcService.Status status, UserServicePb.CreateLogoutURLRequest request )
     {
         UserServicePb.CreateLogoutURLResponse response = new UserServicePb.CreateLogoutURLResponse();
-        String redirect_url = "http://" + LOGIN_SERVER + "/logout";
+        String redirect_url = "http://" + LOGIN_SERVER + "/logout?continue=http://" + LOGIN_SERVER + ":" + getAppPort();
         response.setLogoutUrl(redirect_url);
 
         return response;
@@ -119,5 +119,10 @@ public final class LocalUserService extends AbstractLocalRpcService
         {
             throw new RuntimeException("Could not find UTF-8 encoding", ex);
         }
+    }
+
+    private String getAppPort()
+    {
+        return System.getProperty(NGINX_PORT);
     }
 }

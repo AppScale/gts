@@ -8,6 +8,7 @@ require 'timeout'
 
 
 require 'custom_exceptions'
+require 'helperfunctions'
 
 
 IP_REGEX = /\d+\.\d+\.\d+\.\d+/
@@ -120,7 +121,9 @@ class AppControllerClient
         retry
       else
         trace = except.backtrace.join("\n")
-        abort("[#{callr}] We saw an unexpected error of the type #{except.class} with the following message:\n#{except}, with trace: #{trace}")
+        HelperFunctions.log_and_crash("[#{callr}] We saw an unexpected error" +
+          " of the type #{except.class} with the following message:\n" +
+          "#{except}, with trace: #{trace}")
       end
     end
   end
@@ -138,7 +141,11 @@ class AppControllerClient
       end
     
       if status == "false: bad secret"
-        abort("\nWe were unable to verify your secret key with the head node specified in your locations file. Are you sure you have the correct secret key and locations file?\n\nSecret provided: [#{@secret}]\nHead node IP address: [#{@ip}]\n")
+        HelperFunctions.log_and_crash("\nWe were unable to verify your " +
+          "secret key with the head node specified in your locations " +
+          "file. Are you sure you have the correct secret key and locations " +
+          "file?\n\nSecret provided: [#{@secret}]\nHead node IP address: " +
+          "[#{@ip}]\n")
       end
         
       if status =~ /Database is at (#{IP_OR_FQDN})/ and $1 != "not-up-yet"
@@ -157,7 +164,7 @@ class AppControllerClient
     make_call(10, ABORT_ON_FAIL, "set_parameters") { 
       result = conn.set_parameters(locations, creds, apps_to_start, @secret)
     }  
-    abort(result) if result =~ /Error:/
+    HelperFunctions.log_and_crash(result) if result =~ /Error:/
   end
 
   def set_apps(app_names)
@@ -165,7 +172,7 @@ class AppControllerClient
     make_call(10, ABORT_ON_FAIL, "set_apps") { 
       result = conn.set_apps(app_names, @secret)
     }  
-    abort(result) if result =~ /Error:/
+    HelperFunctions.log_and_crash(result) if result =~ /Error:/
   end
 
   def status(print_output=true)
@@ -184,7 +191,7 @@ class AppControllerClient
       if ok_to_fail
         return false
       else
-        abort("AppController to contact is not running")
+        HelperFunctions.log_and_crash("AppController at #{@ip} is not running")
       end
     end
 
@@ -226,26 +233,6 @@ class AppControllerClient
   # case
   def remove_role(role)
     make_call(NO_TIMEOUT, RETRY_ON_FAIL, "remove_role") { @conn.remove_role(role, @secret) }
-  end
-
-  def run_neptune_job(nodes, job_data)
-    type = ""
-    if job_data.class == Array
-      type = job_data[0]["@type"]
-    else
-      type = job_data["@type"]
-    end
-    Djinn.log_debug("neptune job type is #{type}")
-
-    if NEPTUNE_JOBS.include?(type)
-      method_to_call = "neptune_#{type}_run_job"
-      @conn.add_method(method_to_call, "nodes", "jobs", "secret")
-      make_call(30, RETRY_ON_FAIL, "run_neptune_job") { @conn.send(method_to_call.to_sym, nodes, job_data, @secret) }
-    else
-      not_supported_message = "The job type you specified, '#{type}', is " +
-       "not supported. Supported jobs are #{NEPTUNE_JOBS.join(', ')}."
-      abort(not_supported_message)
-    end
   end
 
   def wait_for_node_to_be(new_roles)

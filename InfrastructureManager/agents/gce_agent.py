@@ -74,13 +74,17 @@ class GCEAgent(BaseAgent):
   PARAM_VERBOSE = 'is_verbose'
 
 
+  PARAM_ZONE = 'zone'
+
+
   # A set that contains all of the items necessary to run AppScale in Google
   # Compute Engine.
   REQUIRED_CREDENTIALS = (
     PARAM_GROUP,
     PARAM_IMAGE_ID,
     PARAM_KEYNAME,
-    PARAM_PROJECT
+    PARAM_PROJECT,
+    PARAM_ZONE
   )
 
 
@@ -89,15 +93,11 @@ class GCEAgent(BaseAgent):
 
 
   # The version of the Google Compute Engine API that we support.
-  API_VERSION = 'v1beta14'
+  API_VERSION = 'v1beta15'
 
 
   # The URL endpoint that receives Google Compute Engine API requests.
   GCE_URL = 'https://www.googleapis.com/compute/{0}/projects/'.format(API_VERSION)
-
-
-  # The zone that instances should be created in and removed from.
-  DEFAULT_ZONE = 'us-central1-a'
 
 
   # The person to contact if there is a problem with the instance. We set this
@@ -197,10 +197,10 @@ class GCEAgent(BaseAgent):
         raise AgentConfigurationException('The required parameter, {0}, was' \
           ' not specified.'.format(param))
 
-    # Next, make sure that the client_secrets file exists
-    if not os.path.exists(self.CLIENT_SECRETS_LOCATION):
-      raise AgentConfigurationException('Could not find your client_secrets ' \
-        'file at {0}'.format(self.CLIENT_SECRETS_LOCATION))
+    # Next, make sure that the oauth2 file exists
+    if not os.path.exists(self.OAUTH2_STORAGE_LOCATION):
+      raise AgentConfigurationException('Could not find your signed OAuth2' \
+        'file at {0}'.format(self.OAUTH2_STORAGE_LOCATION))
 
 
   def describe_instances(self, parameters):
@@ -222,7 +222,7 @@ class GCEAgent(BaseAgent):
     request = gce_service.instances().list(
       project=parameters[self.PARAM_PROJECT],
       filter="name eq appscale-{0}-.*".format(parameters[self.PARAM_GROUP]),
-      zone=self.DEFAULT_ZONE
+      zone=parameters[self.PARAM_ZONE]
     )
     response = request.execute(auth_http)
     utils.log(str(response))
@@ -262,10 +262,11 @@ class GCEAgent(BaseAgent):
     instance_type = parameters[self.PARAM_INSTANCE_TYPE]
     keyname = parameters[self.PARAM_KEYNAME]
     group = parameters[self.PARAM_GROUP]
+    zone = parameters[self.PARAM_ZONE]
 
     utils.log("Starting {0} machines with machine id {1}, with " \
-      "instance type {2}, keyname {3}, in security group {4}".format(count,
-      image_id, instance_type, keyname, group))
+      "instance type {2}, keyname {3}, in security group {4}, in zone {5}" \
+      .format(count, image_id, instance_type, keyname, group, zone))
 
     # First, see how many instances are running and what their info is.
     start_time = datetime.datetime.now()
@@ -275,9 +276,9 @@ class GCEAgent(BaseAgent):
     # Construct URLs
     image_url = '{0}{1}/global/images/{2}'.format(self.GCE_URL, project_id, image_id)
     project_url = '{0}{1}'.format(self.GCE_URL, project_id)
-    machine_type_url = '{0}/global/machineTypes/{1}'.format(project_url,
-      instance_type)
-    zone_url = '{0}/zones/{1}'.format(project_url, self.DEFAULT_ZONE)
+    machine_type_url = '{0}/zones/{1}/machineTypes/{2}'.format(project_url,
+      zone, instance_type)
+    zone_url = '{0}/zones/{1}'.format(project_url, zone)
     network_url = '{0}/global/networks/{1}'.format(project_url, group)
 
     # Construct the request body
@@ -304,7 +305,7 @@ class GCEAgent(BaseAgent):
       http = httplib2.Http()
       auth_http = credentials.authorize(http)
       request = gce_service.instances().insert(
-           project=project_id, body=instances, zone=self.DEFAULT_ZONE)
+           project=project_id, body=instances, zone=zone)
       response = request.execute(auth_http)
       utils.log(str(response))
       self.ensure_operation_succeeds(gce_service, auth_http, response, parameters[self.PARAM_PROJECT])
@@ -363,13 +364,8 @@ class GCEAgent(BaseAgent):
       can be used to sign requests performed with that connection.
     """
     # Perform OAuth 2.0 authorization.
-    flow = oauth2client.client.flow_from_clientsecrets(
-      self.CLIENT_SECRETS_LOCATION, scope=self.GCE_SCOPE)
     storage = oauth2client.file.Storage(self.OAUTH2_STORAGE_LOCATION)
     credentials = storage.get()
-
-    if credentials is None or credentials.invalid:
-      credentials = oauth2client.tools.run(flow, storage)
 
     # Build the service
     return apiclient.discovery.build('compute', self.API_VERSION), credentials
@@ -391,13 +387,52 @@ class GCEAgent(BaseAgent):
       auth_http = credentials.authorize(http)
       request = gce_service.instances().delete(
         project=parameters[self.PARAM_PROJECT],
-        zone=self.DEFAULT_ZONE,
+        zone=parameters[self.PARAM_ZONE],
         instance=instance_id
       )
       response = request.execute(auth_http)
-      AppScaleLogger.verbose(str(response), parameters[self.PARAM_VERBOSE])
+      utils.log(str(response))
       self.ensure_operation_succeeds(gce_service, auth_http, response,
         parameters[self.PARAM_PROJECT])
+
+
+  def attach_disk(self, parameters, disk_name, instance_id):
+    """ Attaches the persistent disk specified in 'disk_name' to this virtual
+    machine.
+
+    Args:
+      parameters: A dict with keys for each parameter needed to connect to
+        Google Compute Engine.
+      disk_name: A str naming the persistent disk to attach to this machine.
+      instance_id: A str naming the id of the instance that the disk should be
+        attached to. In practice, callers add disks to their own instance.
+    Returns:
+      A str indicating where the persistent disk has been attached to.
+    """
+    gce_service, credentials = self.open_connection(parameters)
+    http = httplib2.Http()
+    auth_http = credentials.authorize(http)
+    project_id = parameters[self.PARAM_PROJECT]
+    zone = parameters[self.PARAM_ZONE]
+    request = gce_service.instances().attachDisk(
+      project=project_id,
+      zone=zone,
+      instance=instance_id,
+      body={
+        'kind' : 'compute#attachedDisk',
+        'type' : 'PERSISTENT',
+        'mode' : 'READ_WRITE',
+        'source' : "https://www.googleapis.com/compute/v1beta15/projects/{0}" \
+          "/zones/{1}/disks/{2}".format(project_id, zone, disk_name),
+        'deviceName' : 'sdb'
+      }
+    )
+    response = request.execute(auth_http)
+    utils.log(str(response))
+    self.ensure_operation_succeeds(gce_service, auth_http, response,
+      parameters[self.PARAM_PROJECT])
+
+    return '/dev/sdb'
 
 
   def ensure_operation_succeeds(self, gce_service, auth_http, response, project_id):

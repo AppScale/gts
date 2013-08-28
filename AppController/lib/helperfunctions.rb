@@ -18,7 +18,6 @@ require 'json'
 # Imports for AppController libraries
 $:.unshift File.join(File.dirname(__FILE__))
 require 'custom_exceptions'
-require 'user_app_client'
 
 
 # BadConfigurationExceptions represent an exception that can be thrown by the
@@ -35,7 +34,7 @@ end
 module HelperFunctions
 
 
-  VER_NUM = "1.9.0"
+  VER_NUM = "1.10.0"
 
   
   APPSCALE_HOME = ENV['APPSCALE_HOME']
@@ -115,6 +114,22 @@ module HelperFunctions
 
   # A prefix used to distinguish gae apps from appscale apps
   GAE_PREFIX = "gae_"
+
+
+  # The location on the filesystem where the AppController writes information
+  # about the exception that killed it, for the tools to retrieve and pass
+  # along to the user.
+  APPCONTROLLER_CRASHLOG_LOCATION = "/etc/appscale/appcontroller_crashlog.txt"
+
+
+  # The location on the filesystem where the AppController backs up its
+  # internal state, in case it isn't able to contact ZooKeeper to retrieve it.
+  APPCONTROLLER_STATE_LOCATION = "/etc/appscale/appcontroller_state.json"
+
+
+  # The location on the filesystem where the resolv.conf file can be found,
+  # that we may alter if the user requests.
+  RESOLV_CONF = "/etc/resolv.conf"
 
 
   def self.shell(cmd)
@@ -317,7 +332,7 @@ module HelperFunctions
     # This needs to be ec2 or euca 2ools.
     image_info = `ec2-describe-images`
     
-    abort("ec2 tools can't find appscale image") unless image_info.include?("appscale")
+    self.log_and_crash("ec2 tools can't find appscale image") unless image_info.include?("appscale")
     image_id = image_info.scan(/([a|e]mi-[0-9a-zA-Z]+)\sappscale/).flatten.to_s
     
     return image_id
@@ -364,13 +379,16 @@ module HelperFunctions
   def self.setup_app(app_name, untar=true)
     meta_dir = "/var/apps/#{app_name}"
     tar_dir = "#{meta_dir}/app/"
-    tar_path = "#{tar_dir}#{app_name}.tar.gz"
+    tar_path = "/opt/appscale/apps/#{app_name}.tar.gz"
 
     self.shell("mkdir -p #{tar_dir}")
     self.shell("mkdir -p #{meta_dir}/log")
     self.shell("cp #{APPSCALE_HOME}/AppDashboard/setup/404.html #{meta_dir}")
     self.shell("touch #{meta_dir}/log/server.log")
-    self.shell("tar --file #{tar_path} --force-local -C #{tar_dir} -zx") if untar
+
+    if untar
+      self.shell("tar --file #{tar_path} --force-local -C #{tar_dir} -zx")
+    end
   end
 
 
@@ -445,14 +463,14 @@ module HelperFunctions
     ip = `dig #{host} +short`.chomp
     if ip.empty?
       Djinn.log_debug("couldn't use dig to resolve [#{host}]")
-      abort("Couldn't convert #{host} to an IP address. Result of dig was \n#{ip}")
+      self.log_and_crash("Couldn't convert #{host} to an IP address. Result of dig was \n#{ip}")
     end
 
     return ip
   end
 
   def self.get_ips(ips)
-    abort("ips not even length array") if ips.length % 2 != 0
+    self.log_and_crash("ips not even length array") if ips.length % 2 != 0
     reported_public = []
     reported_private = []
     ips.each_index { |index|
@@ -498,7 +516,7 @@ module HelperFunctions
   end
 
   def self.get_public_ips(ips)
-    abort("ips not even length array") if ips.length % 2 != 0
+    self.log_and_crash("ips not even length array") if ips.length % 2 != 0
     reported_public = []
     reported_private = []
     ips.each_index { |index|
@@ -587,7 +605,7 @@ module HelperFunctions
       elsif cloud_type == "ec2"
         machine = creds["CLOUD#{cloud_num}_AMI"]
       else
-        abort("Cloud type was #{cloud_type}, which is not a supported value.")
+        self.log_and_crash("Cloud type was #{cloud_type}, which is not a supported value.")
       end
 
       num_of_vms = 0
@@ -673,7 +691,7 @@ module HelperFunctions
         command_to_run << " --addressing private"
       elsif run_instances =~ /PROBLEM/
         Djinn.log_debug("Error: #{run_instances}")
-        abort("Saw the following error message from EC2 tools. Please resolve the issue and try again:\n#{run_instances}")
+        self.log_and_crash("Saw the following error message from EC2 tools. Please resolve the issue and try again:\n#{run_instances}")
       else
         Djinn.log_debug("Run instances message sent successfully. Waiting for the image to start up.")
         break
@@ -701,7 +719,7 @@ module HelperFunctions
       #    "Please contact your cloud administrator to determine why " +
       #    "and try again. \n#{describe_instances}"
       #  Djinn.log_debug(terminated_message)
-      #  abort(terminated_message)
+      #  self.log_and_crash(terminated_message)
       #end
       
       # changed regexes so ensure we are only checking for instances created
@@ -716,7 +734,7 @@ module HelperFunctions
       sleep(SLEEP_TIME)
     end
     
-    abort("No public IPs were able to be procured within the time limit.") if public_ips.length == 0
+    self.log_and_crash("No public IPs were able to be procured within the time limit.") if public_ips.length == 0
     
     if public_ips.length != num_of_vms_to_spawn
       potential_dead_ips = HelperFunctions.get_ips(all_ip_addrs) - public_up_already
@@ -864,14 +882,18 @@ module HelperFunctions
   def self.generate_location_config handler
     return "" if !handler.key?("static_dir") && !handler.key?("static_files")
 
-    result = "\n    location #{handler['url']} {"
-    result << "\n\t" << "root $cache_dir;"
-    result << "\n\t" << "expires #{handler['expiration']};" if handler['expiration']
-
     # TODO: return a 404 page if rewritten path doesn't exist
     if handler.key?("static_dir")
+      result = "\n    location #{handler['url']}/ {"
+      result << "\n\t" << "root $cache_dir;"
+      result << "\n\t" << "expires #{handler['expiration']};" if handler['expiration']
+
       result << "\n\t" << "rewrite #{handler['url']}(.*) /#{handler['static_dir']}/$1 break;"
     elsif handler.key?("static_files")
+      result = "\n    location #{handler['url']} {"
+      result << "\n\t" << "root $cache_dir;"
+      result << "\n\t" << "expires #{handler['expiration']};" if handler['expiration']
+
       result << "\n\t" << "rewrite #{handler['url']} /#{handler['static_files']} break;"
     end
     
@@ -928,8 +950,8 @@ module HelperFunctions
     begin
       tree = YAML.load_file(File.join(untar_dir,"app.yaml"))
     rescue Errno::ENOENT => e
-      Djinn.log_debug("Failed to load YAML file to parse static data")
-      return []
+      Djinn.log_info("Failed to load YAML file to parse static data")
+      return self.parse_java_static_data(app_name)
     end
 
     default_expiration = expires_duration(tree["default_expiration"])
@@ -1014,6 +1036,58 @@ module HelperFunctions
 
     handlers.compact
   end
+
+
+  # Sets up static files in nginx for this Java App Engine app, by following
+  # the default static file rules. Specifically, it states that any file in
+  # the app that doesn't end in .jsp that isn't in the WEB-INF directory should
+  # be added as a static file.
+  #
+  # TODO(cgb): Check the appengine-web.xml file given to us by the app and see
+  # if it specifies any files to include or exclude as static files, instead of
+  # assuming they want to use the default scheme mentioned above.
+  #
+  # Args:
+  #   app_name: A String containing the name of the application whose static
+  #     file info needs to be generated.
+  # Returns:
+  #   An Array of Hashes, where each hash names the URL that a static file will
+  #   be accessed at, and the location in the static file directory where the
+  #   file can be found.
+  def self.parse_java_static_data(app_name)
+    untar_dir = self.get_untar_dir(app_name)
+
+    if !File.exists?("#{untar_dir}/war/WEB-INF/appengine-web.xml")
+      Djinn.log_warn("#{app_name} does not appear to be a Java app")
+      return []
+    end
+
+    # Walk through all files in the war directory, and add them if (1) they
+    # don't end in .jsp and (2) it isn't the WEB-INF directory.
+    cache_path = self.get_cache_path(app_name)
+    FileUtils.mkdir_p(cache_path)
+    Djinn.log_debug("Made static file dir for app #{app_name} at #{cache_path}")
+
+    handlers = []
+    all_files = Dir.glob("#{untar_dir}/war/**/*")
+    all_files.each { |filename|
+      next if filename.end_with?(".jsp")
+      next if filename.include?("WEB-INF")
+      next if File.directory?(filename)
+      relative_path = filename.scan(/#{app_name}\/app\/war\/(.*)/).flatten.to_s
+      Djinn.log_debug("Copying static file #{filename} to cache location #{File.join(cache_path, relative_path)}")
+      cache_file_location = File.join(cache_path, relative_path)
+      FileUtils.mkdir_p(File.dirname(cache_file_location))
+      FileUtils.cp_r(filename, cache_file_location)
+      handlers << {
+        'url' => "/#{relative_path}",
+        'static_files' => "/#{relative_path}"
+      }
+    }
+
+    handlers.compact
+  end
+
 
   # Parses the app.yaml file for the specified application and returns
   # any URL handlers with a secure tag. The returns secure tags are
@@ -1146,7 +1220,7 @@ module HelperFunctions
       fail_msg = "The image at #{ip} is not an AppScale image." +
       " Please install AppScale on it and try again."
       Djinn.log_debug(fail_msg)
-      abort(fail_msg)
+      self.log_and_crash(fail_msg)
     end
   end
 
@@ -1176,7 +1250,7 @@ module HelperFunctions
       fail_msg = "The image at #{ip} does not have support for #{db}." +
         " Please install support for this database and try again."
       Djinn.log_debug(fail_msg)
-      abort(fail_msg)
+      self.log_and_crash(fail_msg)
     end
   end
 
@@ -1235,7 +1309,6 @@ module HelperFunctions
       end
     }
 
-    Djinn.log_debug("In [#{array.join(', ')}], the majority item is #{max_k}")
     return max_k
   end
 
@@ -1308,4 +1381,53 @@ module HelperFunctions
       return false
     end
   end
+
+
+  # Logs the given message on the filesystem, where the AppScale Tools can
+  # report it to the user. This method then crashes the caller, so that the
+  # AppScale Tools knows that a fatal error has occurred and that it needs to be
+  # reported.
+  #
+  # Args:
+  #   message: A String that indicates why the AppController is crashing.
+  # Raises:
+  #   SystemExit: Always occurs, since this method crashes the AppController.
+  def self.log_and_crash(message)
+    self.write_file(APPCONTROLLER_CRASHLOG_LOCATION, message)
+    abort(message)
+  end
+
+
+  # Copies the /etc/resolv.conf file to a backup file, and then removes all
+  # nameserver lookups from the current resolv.conf. We do this to avoid
+  # having to hop out to the nameserver to resolve each node's public and
+  # private IP address (which can be slow in Eucalyptus under heavy load).
+  def self.alter_etc_resolv()
+    self.shell("cp #{RESOLV_CONF} #{RESOLV_CONF}.bk")
+
+    contents = self.read_file(RESOLV_CONF, chomp=false)
+    new_contents = ""
+    contents.split("\n").each { |line|
+      new_contents << line if !contents.include?("nameserver")
+    }
+    self.write_file(RESOLV_CONF, new_contents)
+  end
+
+
+  # Copies the backed-up resolv.conf file back to its original location.
+  def self.restore_etc_resolv()
+    self.shell("cp #{RESOLV_CONF}.bk #{RESOLV_CONF}")
+  end
+
+
+  def self.write_local_appcontroller_state(state)
+    self.write_json_file(APPCONTROLLER_STATE_LOCATION, state)
+  end
+
+
+  def self.get_local_appcontroller_state()
+    return self.read_json_file(APPCONTROLLER_STATE_LOCATION)
+  end
+
+
 end

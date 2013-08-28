@@ -3,7 +3,6 @@
 $:.unshift File.join(File.dirname(__FILE__), "..", "lib")
 require 'apichecker'
 require 'app_manager_client'
-require 'collectd'
 require 'haproxy'
 require 'helperfunctions'
 require 'nginx'
@@ -18,7 +17,6 @@ class TestAPIChecker < Test::Unit::TestCase
       instance.should_receive(:start_app).and_return(-1)
     }
 
-    collectd = flexmock(Collectd)
     djinn = flexmock(Djinn)
     haproxy = flexmock(HAProxy)
     helper_functions = flexmock(HelperFunctions)
@@ -41,9 +39,6 @@ class TestAPIChecker < Test::Unit::TestCase
     haproxy.should_receive(:app_list_port).and_return(20000)
     haproxy.should_receive(:write_app_config).and_return()
 
-    collectd.should_receive(:write_app_config).and_return()
-    collectd.should_receive(:restart).and_return()
-    
     apichecker = ApiChecker.init('123.123.123.123', '123.123.123.123', 'secret')
 
     assert_equal(false, ApiChecker.start("123.123.123.123", "123.123.123.123"))
@@ -55,7 +50,6 @@ class TestAPIChecker < Test::Unit::TestCase
       instance.should_receive(:start_app).and_return(1)
     }
 
-    collectd = flexmock(Collectd)
     djinn = flexmock(Djinn)
     haproxy = flexmock(HAProxy)
     helper_functions = flexmock(HelperFunctions)
@@ -78,9 +72,6 @@ class TestAPIChecker < Test::Unit::TestCase
     haproxy.should_receive(:app_list_port).and_return(20000)
     haproxy.should_receive(:write_app_config).and_return()
 
-    collectd.should_receive(:write_app_config).and_return()
-    collectd.should_receive(:restart).and_return()
-    
     apichecker = ApiChecker.init('123.123.123.123', '123.123.123.123', 'secret')
 
     assert_equal(true, ApiChecker.start("123.123.123.123", "123.123.123.123"))
