@@ -660,6 +660,31 @@ class TestDatastoreServer(unittest.TestCase):
       "prop1": [(datastore_pb.Query_Filter.EQUAL, "2")]}
     self.assertEquals(dd.is_zigzag_merge_join(query, filter_info, []), False)
 
+  def test_zigzag_merge_join(self):
+    zookeeper = flexmock()
+    zookeeper.should_receive("get_transaction_id").and_return(1)
+    zookeeper.should_receive("get_valid_transaction_id").and_return(1)
+    zookeeper.should_receive("register_updated_key").and_return(1)
+    zookeeper.should_receive("acquire_lock").and_return(True)
+    zookeeper.should_receive("release_lock").and_return(True)
+    db_batch = flexmock()
+    db_batch.should_receive("batch_delete").and_return(None)
+    db_batch.should_receive("batch_put_entity").and_return(None)
+    db_batch.should_receive("batch_get_entity").and_return(None)
+
+    query = datastore_pb.Query()
+    dd = DatastoreDistributed(db_batch, zookeeper) 
+    flexmock(dd).should_receive("is_zigzag_merge_join").and_return(False)
+    self.assertEquals(dd.zigzag_merge_join(None, None, None), None)
+
+    filter_info = {"prop1":[(datastore_pb.Query_Filter.EQUAL, "1")],
+      "prop2": [(datastore_pb.Query_Filter.EQUAL, "2")]}
+    flexmock(query).should_receive("kind").and_return("kind")
+    flexmock(dd).should_receive("get_table_prefix").and_return("prefix")
+    flexmock(dd).should_receive("__apply_filters").and_return([])
+    flexmock(query).should_receive("limit").and_return(1)
+    self.assertEquals(dd.zigzag_merge_join(query, filter_info, []), None)
+       
 
 if __name__ == "__main__":
   unittest.main()    

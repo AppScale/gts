@@ -2134,8 +2134,6 @@ class DatastoreDistributed():
     if not self.is_zigzag_merge_join(query, filter_info, order_info):
       return None
 
-    # TODO cursors.
-
     kind = query.kind()  
     prefix = self.get_table_prefix(query)
     limit = query.limit() or self._MAXIMUM_RESULTS
@@ -2151,6 +2149,8 @@ class DatastoreDistributed():
       # that we know will not be a match.
       startrow = "" 
       # TODO Do these in parallel and measure speedup.
+      # I've tried a thread wrapper before but due to the function having
+      # self attributes it's nontrivial.
       for prop_name in filter_info.keys():
         filter_ops = filter_info.get(prop_name, [])
         if start_key:
@@ -2159,6 +2159,16 @@ class DatastoreDistributed():
           reference_key = start_key.split(self._SEPARATOR)[-1]
           params = [prefix, kind, prop_name, value, reference_key]
           startrow = self.get_index_key_from_params(params)
+
+        if not startrow and query.has_compiled_cursor() and \
+          query.compiled_cursor().position_size():
+          cursor = appscale_stub_util.ListCursor(query)
+          last_result = cursor._GetLastResult()
+          startrow = self.__get_start_key(prefix, 
+                                    prop_name,
+                                    datastore_pb.Query_Order.ASCENDING,
+                                    last_result)
+
   
         # We use equality filters only so order ops should always be ASC. 
         order_ops = []
