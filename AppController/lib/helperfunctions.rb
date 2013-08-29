@@ -890,11 +890,11 @@ module HelperFunctions
 
       result << "\n\t" << "rewrite #{handler['url']}(.*) /#{handler['static_dir']}/$1 break;"
     elsif handler.key?("static_files")
-      result = "\n    location #{handler['url']} {"
+      result = "\n    location \"#{handler['url']}\" {"
       result << "\n\t" << "root $cache_dir;"
       result << "\n\t" << "expires #{handler['expiration']};" if handler['expiration']
 
-      result << "\n\t" << "rewrite #{handler['url']} /#{handler['static_files']} break;"
+      result << "\n\t" << "rewrite \"#{handler['url']}\" \"/#{handler['static_files']}\" break;"
     end
     
     result << "\n" << "    }" << "\n"
