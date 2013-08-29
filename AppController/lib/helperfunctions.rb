@@ -124,7 +124,7 @@ module HelperFunctions
 
   # The location on the filesystem where the AppController backs up its
   # internal state, in case it isn't able to contact ZooKeeper to retrieve it.
-  APPCONTROLLER_STATE_LOCATION = "/etc/appscale/appcontroller_state.json"
+  APPCONTROLLER_STATE_LOCATION = "/etc/appscale/appcontroller-state.json"
 
 
   # The location on the filesystem where the resolv.conf file can be found,
