@@ -234,7 +234,8 @@ CONFIG
 
   # Creates a Nginx config file for the provided app name on the load balancer
   def self.write_fullproxy_app_config(app_name, http_port, https_port,
-    my_public_ip, my_private_ip, proxy_port, login_ip, appengine_server_ips)
+    http_outbound_port, https_outbound_port, my_public_ip, my_private_ip,
+    proxy_port, login_ip, appengine_server_ips)
     Djinn.log_debug("Writing full proxy app config for app #{app_name}")
 
     secure_handlers = HelperFunctions.get_secure_handlers(app_name)
@@ -250,10 +251,10 @@ CONFIG
     servers = []
     ssl_servers = []
     appengine_server_ips.each do |ip|
-      servers << "    server #{ip}:#{http_port};\n"
+      servers << "    server #{ip}:#{http_outbound_port};\n"
     end
     appengine_server_ips.each do |ip|
-      ssl_servers << "    server #{ip}:#{https_port};\n"
+      ssl_servers << "    server #{ip}:#{https_outbound_port};\n"
     end
     appengine_server_ips.each do |ip|
       blob_servers << "    server #{ip}:#{BLOBSERVER_PORT};\n"

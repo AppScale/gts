@@ -541,32 +541,36 @@ class Djinn
         return "Error: Port in use by haproxy for app #{app}"
       end
 
-      info['appengine'].each { |appserver_port|
-        if [http_port, https_port].include?(appserver_port)
-          return "Error: Port in use by AppServer for app #{app}"
-        end
-      }
+      # On multinode deployments, the login node doesn't serve App Engine apps,
+      # so this may be nil.
+      if info['appengine']
+        info['appengine'].each { |appserver_port|
+          if [http_port, https_port].include?(appserver_port)
+            return "Error: Port in use by AppServer for app #{app}"
+          end
+        }
+      end
     }
 
     # next, rewrite the nginx config file with the new ports
     Djinn.log_debug("Regenerating nginx config for app #{appid}")
     @app_info_map[appid]['nginx'] = http_port
+    @app_info_map[appid]['nginx_https'] = https_port
     proxy_port = @app_info_map[appid]['haproxy']
     my_public = my_node.public_ip
     my_private = my_node.private_ip
     login_ip = get_login.private_ip
 
     if appid == "appscaledashboard"
-      Nginx.create_app_config(my_public, my_private, proxy_port, http_port,
-        AppDashboard::APP_NAME, AppDashboard::PUBLIC_DIRECTORY, https_port)
-      Djinn.log_debug("Done writing new nginx config files!")
-      Nginx.reload()
-      return "OK"
+      return "Error: Can't relocate the appscaledashboard app."
     end
 
     if my_node.is_login? and !my_node.is_appengine?
-      Nginx.write_fullproxy_app_config(appid, http_port, https_port, my_public,
-        my_private, proxy_port, login_ip, get_all_appengine_nodes())
+      http_outbound_port = @app_info_map[appid]['nginx_outbound']
+      https_outbound_port = @app_info_map[appid]['nginx_https_outbound']
+      Nginx.write_fullproxy_app_config(appid, http_port, https_port,
+        http_outbound_port, https_outbound_port, my_public, my_private,
+        proxy_port, login_ip, get_all_appengine_nodes())
     else
       static_handlers = HelperFunctions.parse_static_data(appid)
       Nginx.write_app_config(appid, http_port, https_port, my_public,
@@ -3449,11 +3453,15 @@ HOSTS
       http_port = @app_info_map[app]['nginx']
       https_port = @app_info_map[app]['nginx_https']
       proxy_port = @app_info_map[app]['haproxy']
+      http_outbound_port = @app_info_map[app]['nginx_outbound']
+      https_outbound_port = @app_info_map[app]['nginx_https_outbound']
       Djinn.log_debug("Regenerating nginx config for app #{app}, on http " +
         "port #{http_port}, https port #{https_port}, and haproxy port " +
-        "#{proxy_port}")
-      Nginx.write_fullproxy_app_config(app, http_port, https_port, my_public,
-        my_private, proxy_port, login_ip, get_all_appengine_nodes())
+        "#{proxy_port}. Sending traffic to outbound ports " +
+        "#{http_outbound_port} and #{https_outbound_port}.")
+      Nginx.write_fullproxy_app_config(app, http_port, https_port,
+        http_outbound_port, https_outbound_port, my_public, my_private,
+        proxy_port, login_ip, get_all_appengine_nodes())
     }
     Djinn.log_debug("Done writing new nginx config files!")
     Nginx.reload()
@@ -3795,7 +3803,7 @@ HOSTS
     # that runs the login service (but not in a one node deploy, where we don't
     # do a full proxy config).
     if is_new_app and my_node.is_login? and !my_node.is_appengine?
-      write_full_proxy_nginx_file(app)
+      write_full_proxy_nginx_file(app, nginx_port, proxy_port)
     end
 
     if my_node.is_appengine?
@@ -3914,8 +3922,7 @@ HOSTS
   # Args:
   #   app: A String representing the appid of the app to write an nginx config
   #     file for.
-  def write_full_proxy_nginx_file(app)
-    http_port, proxy_port = get_nginx_and_haproxy_ports()
+  def write_full_proxy_nginx_file(app, http_port, proxy_port)
     https_port = Nginx.get_ssl_port_for_app(http_port)
     login_ip = get_login.private_ip
 
@@ -3923,8 +3930,8 @@ HOSTS
       "port #{http_port}, https port #{https_port}, and haproxy port " +
       "#{proxy_port}")
     success = Nginx.write_fullproxy_app_config(app, http_port, https_port,
-      my_node.public_ip, my_node.private_ip, proxy_port, login_ip,
-      get_all_appengine_nodes())
+      http_port, https_port, my_node.public_ip, my_node.private_ip, proxy_port,
+      login_ip, get_all_appengine_nodes())
     if success
       Nginx.reload
     else
@@ -3935,6 +3942,8 @@ HOSTS
 
     @app_info_map[app]['nginx'] = http_port
     @app_info_map[app]['nginx_https'] = https_port
+    @app_info_map[app]['nginx_outbound'] = http_port
+    @app_info_map[app]['nginx_https_outbound'] = https_port
     @app_info_map[app]['haproxy'] = proxy_port
   end
 
