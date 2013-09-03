@@ -2320,7 +2320,8 @@ class Djinn
         })
 
         begin
-          url = URI.parse("https://#{get_login.public_ip}/logs/upload")
+          url = URI.parse("https://#{get_login.public_ip}:" +
+            "#{AppDashboard::LISTEN_SSL_PORT}/logs/upload")
           http = Net::HTTP.new(url.host, url.port)
           http.use_ssl = true
           response = http.post(url.path, encoded_logs,
@@ -2352,7 +2353,8 @@ class Djinn
       }
 
       begin
-        url = URI.parse("https://#{get_login.public_ip}/apps/stats/instances")
+        url = URI.parse("https://#{get_login.public_ip}:" +
+          "#{AppDashboard::LISTEN_SSL_PORT}/apps/stats/instances")
         http = Net::HTTP.new(url.host, url.port)
         http.use_ssl = true
         response = http.post(url.path, JSON.dump(instance_info),
@@ -2360,13 +2362,14 @@ class Djinn
         Djinn.log_debug("Done sending instance info to AppDashboard!")
         Djinn.log_debug("Instance info is: #{instance_info.inspect}")
         Djinn.log_debug("Response is #{response.body}")
-      rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE, Errno::ECONNRESET
+      rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
+        Errno::ECONNRESET
         retry
       rescue Exception => exception
         # Don't crash the AppController because we weren't able to send over
         # the instance info - just continue on.
-        Djinn.log_warn("Couldn't send instance info to AppDashboard because" +
-          " of a #{exception.class} exception.")
+        Djinn.log_warn("Couldn't send instance info to the AppDashboard " +
+          "because of a #{exception.class} exception.")
       end
     }
   end
@@ -2389,7 +2392,8 @@ class Djinn
           'port' => port
         }]
 
-        url = URI.parse("https://#{get_login.public_ip}/apps/stats/instances")
+        url = URI.parse("https://#{get_login.public_ip}:" +
+          "#{AppDashboard::LISTEN_SSL_PORT}/apps/stats/instances")
         http = Net::HTTP.new(url.host, url.port)
         http.use_ssl = true
         request = Net::HTTP::Delete.new(url.path)
@@ -3610,8 +3614,8 @@ HOSTS
     HAProxy.start
     Nginx.restart
     @app_info_map[AppDashboard::APP_NAME] = {
-      'nginx' => 80,
-      'nginx_https' => 443,
+      'nginx' => 1080,
+      'nginx_https' => 1443,
       'haproxy' => AppDashboard::PROXY_PORT,
       'appengine' => [8000, 8001, 8002],
       'language' => 'python27'
@@ -4319,13 +4323,15 @@ HOSTS
     })
 
     begin
-      url = URI.parse("https://#{get_login.public_ip}/apps/json/#{app_id}")
+      url = URI.parse("https://#{get_login.public_ip}:" +
+        "#{AppDashboard::LISTEN_SSL_PORT}/apps/json/#{app_id}")
       http = Net::HTTP.new(url.host, url.port)
       http.use_ssl = true
       response = http.post(url.path, encoded_request_info,
         {'Content-Type'=>'application/json'})
       return true
-    rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE, Errno::ECONNRESET
+    rescue OpenSSL::SSL::SSLError, NotImplementedError, Errno::EPIPE,
+      Errno::ECONNRESET
       retry
     rescue Exception
       # Don't crash the AppController because we weren't able to send over
