@@ -524,6 +524,14 @@ class Djinn
     my_private = my_node.private_ip
     login_ip = get_login.private_ip
 
+    if appid == "appscaledashboard"
+      Nginx.create_app_config(my_public, my_private, proxy_port, http_port,
+        AppDashboard::APP_NAME, AppDashboard::PUBLIC_DIRECTORY, https_port)
+      Djinn.log_debug("Done writing new nginx config files!")
+      Nginx.reload()
+      return "OK"
+    end
+
     if my_node.is_login? and !my_node.is_appengine?
       Nginx.write_fullproxy_app_config(appid, http_port, https_port, my_public,
         my_private, proxy_port, login_ip, get_all_appengine_nodes())
@@ -3820,6 +3828,7 @@ HOSTS
         # Update our local information so that we know later what ports
         # we're using to host this app on for nginx and haproxy
         @app_info_map[app]['nginx'] = @nginx_port
+        @app_info_map[app]['nginx_https'] = Nginx.get_ssl_port_for_app(@nginx_port)
         @app_info_map[app]['haproxy'] = @haproxy_port
 
         login_ip = get_login.public_ip

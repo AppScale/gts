@@ -449,7 +449,7 @@ CONFIG
   def self.create_app_load_balancer_config(my_public_ip, my_private_ip, 
     proxy_port)
     self.create_app_config(my_public_ip, my_private_ip, proxy_port, 
-      AppDashboard::LISTEN_PORT, AppDashboard::NGINX_APP_NAME,
+      AppDashboard::LISTEN_PORT, AppDashboard::APP_NAME,
       AppDashboard::PUBLIC_DIRECTORY, AppDashboard::LISTEN_SSL_PORT)
   end
 
@@ -606,7 +606,7 @@ CONFIG
       client_body_timeout 360;
       proxy_read_timeout 360;
 CONFIG
-    if name == AppDashboard::NGINX_APP_NAME
+    if name == AppDashboard::APP_NAME
       config += <<CONFIG
  
       # Increase file size for alb so larger applications can be uploaded

@@ -86,7 +86,7 @@ module HAProxy
   def self.create_app_load_balancer_config(my_public_ip, my_private_ip, 
     listen_port)
     self.create_app_config(my_public_ip, my_private_ip, listen_port, 
-      AppDashboard::SERVER_PORTS, AppDashboard::NGINX_APP_NAME)
+      AppDashboard::SERVER_PORTS, AppDashboard::APP_NAME)
   end
 
   # Create the config file for Datastore Server applications
@@ -108,7 +108,7 @@ module HAProxy
     config << servers.join("\n")
     # If it is the dashboard app, increase the server timeout because uploading apps
     # can take some time 
-    if name == AppDashboard::NGINX_APP_NAME
+    if name == AppDashboard::APP_NAME
       config << "\n  timeout server #{ALB_SERVER_TIMEOUT}\n"
     end
   

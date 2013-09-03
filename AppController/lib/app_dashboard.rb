@@ -26,11 +26,6 @@ module AppDashboard
   APPSCALE_HOME = ENV['APPSCALE_HOME']
 
 
-  # The name that nginx uses when writing configuration files for the Dashboard.
-  # TODO(cgb): Consolidate this with APP_NAME.
-  NGINX_APP_NAME = "as_adb"
-
-
   # The Google App Engine appid for the Dashboard app.
   APP_NAME = "appscaledashboard"
 
