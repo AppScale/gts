@@ -512,8 +512,8 @@ class Djinn
       return BAD_SECRET_MSG
     end
 
-    # make sure that http_port/s port are not in nginx,
-    # haproxy, or dev_appserver
+    # TODO(cgb): make sure that http_port/s port are not in nginx,
+    # nginx_https, haproxy, or dev_appserver
 
     # next, rewrite the nginx config file with the new ports
     Djinn.log_debug("@app_info_map is #{@app_info_map.inspect}")
