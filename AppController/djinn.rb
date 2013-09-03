@@ -507,6 +507,39 @@ class Djinn
   end
 
 
+  def relocate_app(appid, http_port, https_port, secret)
+    if !valid_secret?(secret)
+      return BAD_SECRET_MSG
+    end
+
+    # make sure that http_port/s port are not in nginx,
+    # haproxy, or dev_appserver
+
+    # next, rewrite the nginx config file with the new ports
+    Djinn.log_debug("@app_info_map is #{@app_info_map.inspect}")
+    Djinn.log_debug("Regenerating nginx config for app #{appid}")
+    @app_info_map[appid]['nginx'] = http_port
+    proxy_port = @app_info_map[appid]['haproxy']
+    my_public = my_node.public_ip
+    my_private = my_node.private_ip
+    login_ip = get_login.private_ip
+
+    if my_node.is_login? and !my_node.is_appengine?
+      Nginx.write_fullproxy_app_config(appid, http_port, https_port, my_public,
+        my_private, proxy_port, login_ip, get_all_appengine_nodes())
+    else
+      static_handlers = HelperFunctions.parse_static_data(appid)
+      Nginx.write_app_config(appid, http_port, https_port, my_public,
+        my_private, proxy_port, static_handlers, login_ip)
+    end
+
+    Djinn.log_debug("Done writing new nginx config files!")
+    Nginx.reload()
+
+    return "OK"
+  end
+
+
   def kill(secret)
     if !valid_secret?(secret)
       return BAD_SECRET_MSG
@@ -3362,10 +3395,13 @@ HOSTS
 
     Djinn.log_debug("@app_info_map is #{@app_info_map.inspect}")
     @apps_loaded.each { |app|  
-      Djinn.log_debug("Regenerating nginx config for app #{app}")
-      app_number = @app_info_map[app]['nginx'] - Nginx::START_PORT
-      proxy_port = HAProxy.app_listen_port(app_number)
-      Nginx.write_fullproxy_app_config(app, app_number, my_public,
+      http_port = @app_info_map[app]['nginx']
+      https_port = @app_info_map[app]['nginx_https']
+      proxy_port = @app_info_map[app]['haproxy']
+      Djinn.log_debug("Regenerating nginx config for app #{app}, on http " +
+        "port #{http_port}, https port #{https_port}, and haproxy port " +
+        "#{proxy_port}")
+      Nginx.write_fullproxy_app_config(app, http_port, https_port, my_public,
         my_private, proxy_port, login_ip, get_all_appengine_nodes())
     }
     Djinn.log_debug("Done writing new nginx config files!")
@@ -3712,8 +3748,10 @@ HOSTS
 
       proxy_port = HAProxy.app_listen_port(app_number)
       login_ip = get_login.private_ip
-      success = Nginx.write_app_config(app, app_number, my_public, my_private,
-        proxy_port, static_handlers, login_ip)
+      http_port = @nginx_port
+      https_port = Nginx.get_ssl_port_for_app(http_port)
+      success = Nginx.write_app_config(app, http_port, https_port, my_public,
+        my_private, proxy_port, static_handlers, login_ip)
       if !success
         error_msg = "ERROR: Failure to create valid nginx config file " + \
                     "for application #{app}."
@@ -3828,12 +3866,17 @@ HOSTS
   #   app: A String representing the appid of the app to write an nginx config
   #     file for.
   def write_full_proxy_nginx_file(app)
-    app_number = @nginx_port - Nginx::START_PORT
-    proxy_port = HAProxy.app_listen_port(app_number)
+    http_port = @nginx_port
+    https_port = Nginx.get_ssl_port_for_app(http_port)
+    proxy_port = @haproxy_port
     login_ip = get_login.private_ip
 
-    success = Nginx.write_fullproxy_app_config(app, app_number, my_node.public_ip,
-      my_node.private_ip, proxy_port, login_ip, get_all_appengine_nodes())
+    Djinn.log_debug("Writing full proxy nginx file for app #{app} on http " +
+      "port #{http_port}, https port #{https_port}, and haproxy port " +
+      "#{proxy_port}")
+    success = Nginx.write_fullproxy_app_config(app, http_port, https_port,
+      my_node.public_ip, my_node.private_ip, proxy_port, login_ip,
+      get_all_appengine_nodes())
     if success
       Nginx.reload
     else
@@ -3843,6 +3886,7 @@ HOSTS
     end
 
     @app_info_map[app]['nginx'] = @nginx_port
+    @app_info_map[app]['nginx_https'] = https_port
     @app_info_map[app]['haproxy'] = @haproxy_port
 
     @nginx_port += 1

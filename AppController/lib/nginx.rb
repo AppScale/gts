@@ -76,6 +76,10 @@ module Nginx
     START_PORT + app_number
   end
 
+  def self.get_ssl_port_for_app(http_port)
+    http_port - SSL_PORT_OFFSET
+  end
+
   # Return true if the configuration is good, false o.w.
   def self.check_config
     HelperFunctions.shell("/usr/local/nginx/sbin/nginx -t -c #{MAIN_CONFIG_FILE}")
@@ -83,16 +87,15 @@ module Nginx
   end
 
   # Creates a Nginx config file for the provided app name
-  def self.write_app_config(app_name, app_number, my_public_ip, my_private_ip, proxy_port, static_handlers, login_ip)
-    listen_port = Nginx.app_listen_port(app_number)
-    ssl_listen_port = listen_port - SSL_PORT_OFFSET
+  def self.write_app_config(app_name, http_port, https_port, my_public_ip,
+    my_private_ip, proxy_port, static_handlers, login_ip)
     secure_handlers = HelperFunctions.get_secure_handlers(app_name)
     Djinn.log_debug("Secure handlers: " + secure_handlers.inspect.to_s)
     always_secure_locations = secure_handlers[:always].map { |handler|
-      HelperFunctions.generate_secure_location_config(handler, ssl_listen_port)
+      HelperFunctions.generate_secure_location_config(handler, https_port)
     }.join
     never_secure_locations = secure_handlers[:never].map { |handler|
-      HelperFunctions.generate_secure_location_config(handler, listen_port)
+      HelperFunctions.generate_secure_location_config(handler, http_port)
     }.join
 
     secure_static_handlers = []
@@ -150,7 +153,7 @@ server {
     location @my_411_error {
       chunkin_resume;
     }
-    listen #{listen_port};
+    listen #{http_port};
     server_name #{my_public_ip};
     root /var/apps/#{app_name}/app;
     # Uncomment these lines to enable logging, and comment out the following two
@@ -187,7 +190,7 @@ server {
     location @my_411_error {
         chunkin_resume;
     }
-    listen #{ssl_listen_port};
+    listen #{https_port};
     server_name #{my_public_ip}-#{app_name}-ssl;
     ssl on;
     ssl_certificate /usr/local/nginx/conf/mycert.pem;
@@ -230,29 +233,27 @@ CONFIG
   end
 
   # Creates a Nginx config file for the provided app name on the load balancer
-  def self.write_fullproxy_app_config(app_name, app_number, my_public_ip, 
-    my_private_ip, proxy_port, login_ip, appengine_server_ips)
+  def self.write_fullproxy_app_config(app_name, http_port, https_port,
+    my_public_ip, my_private_ip, proxy_port, login_ip, appengine_server_ips)
     Djinn.log_debug("Writing full proxy app config for app #{app_name}")
-    listen_port = Nginx.app_listen_port(app_number)
-    ssl_listen_port = listen_port - SSL_PORT_OFFSET
 
     secure_handlers = HelperFunctions.get_secure_handlers(app_name)
     Djinn.log_debug("Secure handlers: " + secure_handlers.inspect.to_s)
     always_secure_locations = secure_handlers[:always].map { |handler|
-      HelperFunctions.generate_secure_location_config(handler, ssl_listen_port)
+      HelperFunctions.generate_secure_location_config(handler, https_port)
     }.join
     never_secure_locations = secure_handlers[:never].map { |handler|
-      HelperFunctions.generate_secure_location_config(handler, listen_port)
+      HelperFunctions.generate_secure_location_config(handler, http_port)
     }.join
 
     blob_servers = []
     servers = []
     ssl_servers = []
     appengine_server_ips.each do |ip|
-      servers << "    server #{ip}:#{listen_port};\n"
+      servers << "    server #{ip}:#{http_port};\n"
     end
     appengine_server_ips.each do |ip|
-      ssl_servers << "    server #{ip}:#{ssl_listen_port};\n"
+      ssl_servers << "    server #{ip}:#{https_port};\n"
     end
     appengine_server_ips.each do |ip|
       blob_servers << "    server #{ip}:#{BLOBSERVER_PORT};\n"
@@ -312,7 +313,7 @@ server {
     location @my_411_error {
       chunkin_resume;
     }
-    listen #{listen_port};
+    listen #{http_port};
     server_name #{my_public_ip}-#{app_name};
     #root /var/apps/#{app_name}/app;
     # Uncomment these lines to enable logging, and comment out the following two
@@ -376,7 +377,7 @@ server {
     location @my_411_error {
       chunkin_resume;
     }
-    listen #{ssl_listen_port};
+    listen #{https_port};
     server_name #{my_public_ip}-#{app_name}-ssl;
     ssl on;
     ssl_certificate #{NGINX_PATH}/mycert.pem;

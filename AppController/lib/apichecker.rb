@@ -79,7 +79,10 @@ class ApiChecker
 
     static_handlers = HelperFunctions.parse_static_data(app)
     proxy_port = HAProxy.app_listen_port(app_number)
-    Nginx.write_app_config(app, app_number, @@ip, @@private_ip, proxy_port, static_handlers, login_ip)
+    http_port = 8079
+    https_port = Nginx.get_ssl_port_for_app(http_port)
+    Nginx.write_app_config(app, http_port, https_port, @@ip, @@private_ip,
+      proxy_port, static_handlers, login_ip)
     HAProxy.write_app_config(app, app_number, num_servers, @@private_ip)
 
     Djinn.log_info("Starting #{app_language} app #{app}")
