@@ -2739,6 +2739,13 @@ class Djinn
 
     if my_node.is_shadow? or my_node.is_appengine?
       ApiChecker.start(get_login.public_ip, @userappserver_private_ip)
+      @app_info_map['apichecker'] = {
+        'nginx' => ApiChecker::SERVER_PORT,
+        'nginx_https' => Nginx.get_ssl_port_for_app(ApiChecker::SERVER_PORT),
+        'haproxy' => HAProxy.app_listen_port(-1),
+        'appengine' => [19997, 19998, 19999],
+        'language' => 'python27'
+      }
     end
 
     # Start the AppDashboard.
@@ -3580,6 +3587,13 @@ HOSTS
     AppDashboard.start(login_ip, uaserver_ip, my_public, my_private, @@secret)
     HAProxy.start
     Nginx.restart
+    @app_info_map[AppDashboard::APP_NAME] = {
+      'nginx' => 80,
+      'nginx_https' => 443,
+      'haproxy' => AppDashboard::PROXY_PORT,
+      'appengine' => [8000, 8001, 8002],
+      'language' => 'python27'
+    }
   end
 
   # Stop the AppDashboard web service.
