@@ -512,6 +512,9 @@ class Djinn
       return BAD_SECRET_MSG
     end
 
+    http_port = Integer(http_port)
+    https_port = Integer(https_port)
+
     # TODO(cgb): make sure that http_port/s port are not in nginx,
     # nginx_https, haproxy, or dev_appserver
 
