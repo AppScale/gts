@@ -403,6 +403,16 @@ class Djinn
   LOGS_PER_BATCH = 25
 
 
+  # An Integer that indicates what the lowest port number is that should be
+  # used for nginx or haproxy.
+  MIN_PORT = 8080
+
+
+  # An Integer that indicates what the highest port number is that should be
+  # used for nginx or haproxy.
+  MAX_PORT = 65535
+
+
   # Creates a new Djinn, which holds all the information needed to configure
   # and deploy all the services on this node.
   def initialize()
@@ -3945,7 +3955,14 @@ HOSTS
       }
 
       if nginx_port_in_use
-        @nginx_port += 1
+        if @nginx_port == MAX_PORT
+          Djinn.log_warn("Nginx port allocation reached maximum port " +
+            "number #{MAX_PORT}. Resetting back to #{MIN_PORT} in case " +
+            "other ports have freed up.")
+          @nginx_port = MIN_PORT
+        else
+          @nginx_port += 1
+        end
         Djinn.log_debug("Will consider port #{@nginx_port} for nginx instead.")
       else
         break
@@ -3967,7 +3984,14 @@ HOSTS
       }
 
       if haproxy_port_in_use
-        @haproxy_port += 1
+        if @haproxy_port == MAX_PORT
+          Djinn.log_warn("Haproxy port allocation reached maximum port " +
+            "number #{MAX_PORT}. Resetting back to #{MIN_PORT} in case " +
+            "other ports have freed up.")
+          @haproxy_port = MIN_PORT + 1
+        else
+          @haproxy_port += 1
+        end
         Djinn.log_debug("Will consider port #{@haproxy_port} for " +
           "haproxy instead.")
       else
