@@ -3762,10 +3762,16 @@ HOSTS
     end
 
     if is_new_app
-      nginx_port = @nginx_port
-    else
-      nginx_port = @app_info_map[app]['nginx']
+      @app_info_map[app]['nginx'], @app_info_map[app]['haproxy'] = get_nginx_and_haproxy_ports()
     end
+
+    # Only take a new port for this application if there's no data about
+    # this app. Use the existing port if there is info about it.
+    nginx_port = @app_info_map[app]['nginx']
+    proxy_port = @app_info_map[app]['haproxy']
+    Djinn.log_debug("App #{app} will be using nginx port #{nginx_port} and " +
+      "haproxy port #{proxy_port}")
+
     app_number = nginx_port - Nginx::START_PORT
 
     # TODO(cgb): Make sure we don't add the same cron lines in twice for the same
@@ -3794,9 +3800,8 @@ HOSTS
         static_handlers = []
       end
 
-      proxy_port = HAProxy.app_listen_port(app_number)
       login_ip = get_login.private_ip
-      http_port = @nginx_port
+      http_port = nginx_port
       https_port = Nginx.get_ssl_port_for_app(http_port)
       success = Nginx.write_app_config(app, http_port, https_port, my_public,
         my_private, proxy_port, static_handlers, login_ip)
@@ -3824,10 +3829,9 @@ HOSTS
 
           xmpp_ip = get_login.public_ip
 
-          pid = app_manager.start_app(app, @appengine_port, 
-            get_load_balancer_ip(), @nginx_port, app_language, 
-            xmpp_ip, [Djinn.get_nearest_db_ip()],
-            HelperFunctions.get_app_env_vars(app))
+          pid = app_manager.start_app(app, @appengine_port,
+            get_load_balancer_ip(), nginx_port, app_language, xmpp_ip,
+            [Djinn.get_nearest_db_ip()], HelperFunctions.get_app_env_vars(app))
 
           if pid == -1
             place_error_app(app, "ERROR: Unable to start application " + \
@@ -3852,43 +3856,19 @@ HOSTS
       if is_new_app
         loop {
           Kernel.sleep(5)
-          success = uac.add_instance(app, my_public, @nginx_port)
+          success = uac.add_instance(app, my_public, nginx_port)
           Djinn.log_debug("Add instance returned #{success}")
           if success
             # tell ZK that we are hosting the app in case we die, so that
             # other nodes can update the UserAppServer on its behalf
-            ZKInterface.add_app_instance(app, my_public, @nginx_port)
+            ZKInterface.add_app_instance(app, my_public, nginx_port)
             break
           end
         }
 
-        # Only take a new port for this application if there's no data about
-        # this app. Use the existing port if there is info about it.
-        if @app_info_map[app]['nginx'].nil?
-          nginx = @nginx_port
-          haproxy = @haproxy_port
-
-          # Update our local information so that we know later what ports
-          # we're using to host this app on for nginx and haproxy
-          @app_info_map[app]['nginx'] = @nginx_port
-          @app_info_map[app]['nginx_https'] = Nginx.get_ssl_port_for_app(
-            @nginx_port)
-          @app_info_map[app]['haproxy'] = @haproxy_port
-
-          @nginx_port += 1
-          @haproxy_port += 1
-        else
-          nginx = @app_info_map[app]['nginx']
-          haproxy = @app_info_map[app]['haproxy']
-        end
-
-        Djinn.log_debug("App #{app} will be using nginx port #{nginx} and " +
-          "haproxy port #{haproxy}")
-        login_ip = get_login.public_ip
-
         Thread.new {
-          haproxy_location = "http://#{my_private}:#{haproxy}#{warmup_url}"
-          nginx_location = "http://#{my_public}:#{nginx}#{warmup_url}"
+          haproxy_location = "http://#{my_private}:#{proxy_port}#{warmup_url}"
+          nginx_location = "http://#{my_public}:#{nginx_port}#{warmup_url}"
 
           wget_haproxy = "wget #{WGET_OPTIONS} #{haproxy_location}"
           wget_nginx = "wget #{WGET_OPTIONS} #{nginx_location}"
@@ -3925,9 +3905,8 @@ HOSTS
   #   app: A String representing the appid of the app to write an nginx config
   #     file for.
   def write_full_proxy_nginx_file(app)
-    http_port = @nginx_port
+    http_port, proxy_port = get_nginx_and_haproxy_ports()
     https_port = Nginx.get_ssl_port_for_app(http_port)
-    proxy_port = @haproxy_port
     login_ip = get_login.private_ip
 
     Djinn.log_debug("Writing full proxy nginx file for app #{app} on http " +
@@ -3944,12 +3923,59 @@ HOSTS
       place_error_app(app, err_msg)
     end
 
-    @app_info_map[app]['nginx'] = @nginx_port
+    @app_info_map[app]['nginx'] = http_port
     @app_info_map[app]['nginx_https'] = https_port
-    @app_info_map[app]['haproxy'] = @haproxy_port
+    @app_info_map[app]['haproxy'] = proxy_port
+  end
 
-    @nginx_port += 1
-    @haproxy_port += 1
+
+  def get_nginx_and_haproxy_ports()
+    loop {
+      nginx_port_in_use = false
+      @app_info_map.each { |app, info|
+        all_ports_for_app = [info['nginx'], info['nginx_https'],
+          info['haproxy'], info['appengine']].flatten
+
+        if all_ports_for_app.include?(@nginx_port)
+          Djinn.log_debug("Couldn't use port #{@nginx_port} for a new " +
+            "app because it was in the list #{info.inspect}")
+          nginx_port_in_use = true
+          break
+        end
+      }
+
+      if nginx_port_in_use
+        @nginx_port += 1
+        Djinn.log_debug("Will consider port #{@nginx_port} for nginx instead.")
+      else
+        break
+      end
+    }
+
+    loop {
+      haproxy_port_in_use = false
+      @app_info_map.each { |app, info|
+        all_ports_for_app = [info['nginx'], info['nginx_https'],
+          info['haproxy'], info['appengine']].flatten
+
+        if all_ports_for_app.include?(@haproxy_port)
+          Djinn.log_debug("Couldn't use port #{@haproxy_port} for a new " +
+            "app because it was in the list #{info.inspect}")
+          haproxy_port_in_use = true
+          break
+        end
+      }
+
+      if haproxy_port_in_use
+        @haproxy_port += 1
+        Djinn.log_debug("Will consider port #{@haproxy_port} for " +
+          "haproxy instead.")
+      else
+        break
+      end
+    }
+
+    return @nginx_port, @haproxy_port
   end
 
 
