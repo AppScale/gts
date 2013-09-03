@@ -512,6 +512,7 @@ class Djinn
       return BAD_SECRET_MSG
     end
 
+    Djinn.log_debug("@app_info_map is #{@app_info_map.inspect}")
     http_port = Integer(http_port)
     https_port = Integer(https_port)
 
@@ -538,7 +539,6 @@ class Djinn
     }
 
     # next, rewrite the nginx config file with the new ports
-    Djinn.log_debug("@app_info_map is #{@app_info_map.inspect}")
     Djinn.log_debug("Regenerating nginx config for app #{appid}")
     @app_info_map[appid]['nginx'] = http_port
     proxy_port = @app_info_map[appid]['haproxy']
@@ -3858,15 +3858,28 @@ HOSTS
           end
         }
 
-        nginx = @nginx_port
-        haproxy = @haproxy_port
+        # Only take a new port for this application if there's no data about
+        # this app. Use the existing port if there is info about it.
+        if @app_info_map[app]['nginx'].nil?
+          nginx = @nginx_port
+          haproxy = @haproxy_port
 
-        # Update our local information so that we know later what ports
-        # we're using to host this app on for nginx and haproxy
-        @app_info_map[app]['nginx'] = @nginx_port
-        @app_info_map[app]['nginx_https'] = Nginx.get_ssl_port_for_app(@nginx_port)
-        @app_info_map[app]['haproxy'] = @haproxy_port
+          # Update our local information so that we know later what ports
+          # we're using to host this app on for nginx and haproxy
+          @app_info_map[app]['nginx'] = @nginx_port
+          @app_info_map[app]['nginx_https'] = Nginx.get_ssl_port_for_app(
+            @nginx_port)
+          @app_info_map[app]['haproxy'] = @haproxy_port
 
+          @nginx_port += 1
+          @haproxy_port += 1
+        else
+          nginx = @app_info_map[app]['nginx']
+          haproxy = @app_info_map[app]['haproxy']
+        end
+
+        Djinn.log_debug("App #{app} will be using nginx port #{nginx} and " +
+          "haproxy port #{haproxy}")
         login_ip = get_login.public_ip
 
         Thread.new {
@@ -3879,9 +3892,6 @@ HOSTS
           Djinn.log_run(wget_haproxy)
           Djinn.log_run(wget_nginx)
         }
-
-        @nginx_port += 1
-        @haproxy_port += 1
 
         # now doing this at the real end so that the tools will
         # wait for the app to actually be running before returning
