@@ -529,6 +529,10 @@ class Djinn
     # First, make sure that no other app is using either of these ports for
     # nginx, haproxy, or the AppServer itself.
     @app_info_map.each { |app, info|
+      # Of course, it's fine if it's our app on a given port, since we're
+      # relocating that app.
+      next if app == appid
+
       if [http_port, https_port].include?(info['nginx'])
         return "Error: Port in use by nginx for app #{app}"
       end
