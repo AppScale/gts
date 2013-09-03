@@ -515,8 +515,27 @@ class Djinn
     http_port = Integer(http_port)
     https_port = Integer(https_port)
 
-    # TODO(cgb): make sure that http_port/s port are not in nginx,
-    # nginx_https, haproxy, or dev_appserver
+    # First, make sure that no other app is using either of these ports for
+    # nginx, haproxy, or the AppServer itself.
+    @app_info_map.each { |app, info|
+      if [http_port, https_port].include?(info['nginx'])
+        return "Error: Port in use by nginx for app #{app}"
+      end
+
+      if [http_port, https_port].include?(info['nginx_https'])
+        return "Error: Port in use by nginx for app #{app}"
+      end
+
+      if [http_port, https_port].include?(info['haproxy'])
+        return "Error: Port in use by haproxy for app #{app}"
+      end
+
+      info['appengine'].each { |appserver_port|
+        if [http_port, https_port].include?(appserver_port)
+          return "Error: Port in use by AppServer for app #{app}"
+        end
+      }
+    }
 
     # next, rewrite the nginx config file with the new ports
     Djinn.log_debug("@app_info_map is #{@app_info_map.inspect}")

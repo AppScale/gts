@@ -1294,4 +1294,80 @@ class TestDjinn < Test::Unit::TestCase
   end
 
 
+  def test_relocate_app_but_port_in_use_by_nginx
+    flexmock(Djinn).new_instances { |instance|
+      instance.should_receive(:valid_secret?).and_return(true)
+    }
+    djinn = Djinn.new()
+    djinn.app_info_map = {
+      'another-app' => {
+        'nginx' => 80,
+        'nginx_https' => 443,
+        'haproxy' => 10000,
+        'appengine' => [20000]
+      }
+    }
+
+    expected = "Error: Port in use by nginx for app another-app"
+    assert_equal(expected, djinn.relocate_app('myapp', 80, 444, @secret))
+  end
+
+
+  def test_relocate_app_but_port_in_use_by_nginx_https
+    flexmock(Djinn).new_instances { |instance|
+      instance.should_receive(:valid_secret?).and_return(true)
+    }
+    djinn = Djinn.new()
+    djinn.app_info_map = {
+      'another-app' => {
+        'nginx' => 80,
+        'nginx_https' => 443,
+        'haproxy' => 10000,
+        'appengine' => [20000]
+      }
+    }
+
+    expected = "Error: Port in use by nginx for app another-app"
+    assert_equal(expected, djinn.relocate_app('myapp', 81, 443, @secret))
+  end
+
+
+  def test_relocate_app_but_port_in_use_by_haproxy
+    flexmock(Djinn).new_instances { |instance|
+      instance.should_receive(:valid_secret?).and_return(true)
+    }
+    djinn = Djinn.new()
+    djinn.app_info_map = {
+      'another-app' => {
+        'nginx' => 80,
+        'nginx_https' => 443,
+        'haproxy' => 10000,
+        'appengine' => [20000]
+      }
+    }
+
+    expected = "Error: Port in use by haproxy for app another-app"
+    assert_equal(expected, djinn.relocate_app('myapp', 81, 10000, @secret))
+  end
+
+
+  def test_relocate_app_but_port_in_use_by_appserver
+    flexmock(Djinn).new_instances { |instance|
+      instance.should_receive(:valid_secret?).and_return(true)
+    }
+    djinn = Djinn.new()
+    djinn.app_info_map = {
+      'another-app' => {
+        'nginx' => 80,
+        'nginx_https' => 443,
+        'haproxy' => 10000,
+        'appengine' => [20000]
+      }
+    }
+
+    expected = "Error: Port in use by AppServer for app another-app"
+    assert_equal(expected, djinn.relocate_app('myapp', 20000, 444, @secret))
+  end
+
+
 end
