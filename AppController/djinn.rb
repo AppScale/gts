@@ -556,12 +556,17 @@ class Djinn
       end
     }
 
-    # next, rewrite the nginx config file with the new ports
+    # Next, remove the old port from the UAServer and add the new one.
+    my_public = my_node.public_ip
+    uac = UserAppClient.new(@userappserver_private_ip, @@secret)
+    uac.delete_instance(appid, my_public, @app_info_map[appid]['nginx'])
+    uac.add_instance(appid, my_public, http_port)
+
+    # Next, rewrite the nginx config file with the new ports
     Djinn.log_info("Regenerating nginx config for relocated app #{appid}")
     @app_info_map[appid]['nginx'] = http_port
     @app_info_map[appid]['nginx_https'] = https_port
     proxy_port = @app_info_map[appid]['haproxy']
-    my_public = my_node.public_ip
     my_private = my_node.private_ip
     login_ip = get_login.private_ip
 
